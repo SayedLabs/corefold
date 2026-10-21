@@ -9,7 +9,8 @@ import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from .converters import ALL_EXT, Options
+from .core import ALL_EXT, ARCHIVE_EXT, Options
+from .sounds import DONE_SOUNDS, OLD_NAMES
 
 APP_NAME = "Satsuma"
 CONFIG_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / APP_NAME
@@ -25,10 +26,18 @@ ACCENTS = {  # key: (name, color)
     "grape": ("Grape", "#8b5cf6"),
     "graphite": ("Graphite", "#71717a"),
 }
-WHEEL_SIZES = {"small": 135, "medium": 168, "large": 205}  # outer radius in px
+WHEEL_SIZES = {"small": 135, "medium": 168, "large": 205, "huge": 245}  # outer radius in px
 WHEEL_STYLES = {"ring": "Classic", "petals": "Petals", "slim": "Slim ring"}
+LABEL_STYLES = {"both": "Icon + text", "text": "Text only", "icon": "Icons only"}
+HOVER_STYLES = {"fill": "Fill", "outline": "Outline", "grow": "Grow only"}
+SLICE_COLORS = {"plain": "One colour", "group": "By kind of action"}
+TEXT_SIZES = {"small": 0.88, "normal": 1.0, "large": 1.15}
+WHEEL_POSITIONS = {"cursor": "Under the cursor", "center": "Middle of the screen"}
 APPEARANCES = ("system", "dark", "light")
-SOUNDS = {"off": "No sound", "pop": "Pop", "chime": "Chime", "bubble": "Bubble"}
+SOUNDS = DONE_SOUNDS
+CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_style": HOVER_STYLES,
+           "slice_colors": SLICE_COLORS, "text_size": TEXT_SIZES, "wheel_position": WHEEL_POSITIONS,
+           "wheel_size": WHEEL_SIZES, "sound": SOUNDS}
 
 
 @dataclass
@@ -46,7 +55,15 @@ class Settings:
     auto_update: bool = False
     last_version: str = ""
     ask_names: bool = False        # ask for a new name when converting several files
-    sound: str = "pop"
+    sound: str = "satsuma"
+    volume: int = 45
+    sound_problems: bool = True    # a soft low sound when something fails
+    sound_tick: bool = False       # a tiny tick when the wheel opens
+    watch_downloads: bool = True   # offer "Convert to JPG?" for HEIC/WebP/AVIF downloads
+    pack_on_every_wheel: bool = True
+    fit_mb: float = 10.0
+    watermark: dict = field(default_factory=lambda: {"text": "", "logo": "", "position": "br", "size": "medium",
+                                                      "opacity": 60})
     context_menu: bool = True      # "Convert with Satsuma" in the right-click menu
     show_unavailable: bool = True  # dim slices that can't be used (False = hide them)
     # look
@@ -56,9 +73,16 @@ class Settings:
     wheel_size: str = "medium"
     wheel_style: str = "ring"
     wheel_opacity: int = 94
+    label_style: str = "both"
+    hover_style: str = "fill"
+    slice_colors: str = "plain"
+    text_size: str = "normal"
+    wheel_position: str = "cursor"
+    per_page: int = 10             # slices per page; the rest go on "More" pages
     animations: bool = True
     hidden_tools: list = field(default_factory=list)
     favorites: list = field(default_factory=list)
+    tool_order: dict = field(default_factory=dict)  # kind -> [tool keys] in the user's order
 
     @classmethod
     def load(cls) -> "Settings":
@@ -78,11 +102,19 @@ class Settings:
             s.accent = "tangerine"
         if not (len(s.custom_color) == 7 and s.custom_color.startswith("#")):
             s.custom_color = "#ff8c1a"
-        if s.wheel_style not in WHEEL_STYLES:
-            s.wheel_style = "ring"
-        if s.sound not in SOUNDS:
-            s.sound = "pop"
+        s.sound = OLD_NAMES.get(s.sound, s.sound)
+        defaults = cls()
+        for key, options in CHOICES.items():
+            if getattr(s, key) not in options:
+                setattr(s, key, getattr(defaults, key))
         s.wheel_opacity = min(100, max(60, s.wheel_opacity))
+        s.volume = min(100, max(0, s.volume))
+        s.per_page = min(16, max(6, s.per_page))
+        wm = dict(defaults.watermark)
+        wm.update({k: v for k, v in s.watermark.items() if k in wm and type(v) is type(wm[k])})
+        s.watermark = wm
+        s.tool_order = {k: [t for t in v if isinstance(t, str)] for k, v in s.tool_order.items()
+                        if isinstance(k, str) and isinstance(v, list)}
         if s.wheel_size not in WHEEL_SIZES:
             s.wheel_size = "medium"
         if s.appearance not in APPEARANCES:
@@ -164,30 +196,38 @@ def _icon_path() -> str:
     return sys.executable if getattr(sys, "frozen", False) else ""
 
 
-def set_context_menu(on: bool):
-    """Adds or removes "Convert with Satsuma" for every file type Satsuma knows (current user only).
-    On Windows 11 it appears under "Show more options"."""
+def _set_verb(root: str, verb: str, title: str, command: str, on: bool):
     import winreg
-    command = app_command("--convert", '"%1"')
+    key = rf"{root}\shell\{verb}"
+    try:
+        if on:
+            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, key) as k:
+                winreg.SetValueEx(k, "MUIVerb", 0, winreg.REG_SZ, title)
+                if _icon_path():
+                    winreg.SetValueEx(k, "Icon", 0, winreg.REG_SZ, _icon_path())
+                winreg.SetValueEx(k, "MultiSelectModel", 0, winreg.REG_SZ, "Player")
+            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, key + r"\command") as k:
+                winreg.SetValueEx(k, "", 0, winreg.REG_SZ, command)
+        else:
+            for sub in (key + r"\command", key):
+                try:
+                    winreg.DeleteKey(winreg.HKEY_CURRENT_USER, sub)
+                except FileNotFoundError:
+                    pass
+    except OSError:
+        log.exception("could not update right-click menu for %s", root)
+
+
+def set_context_menu(on: bool):
+    """Adds or removes the right-click entries (current user only; Windows 11: "Show more options"):
+    "Convert with Satsuma" for every file type and folder, "Open in Satsuma" for archives."""
+    convert = app_command("--convert", '"%1"')
+    browse = app_command("--browse", '"%1"')
     for ext in sorted(ALL_EXT):
-        key = rf"{SHELL_ROOT}\{ext}\shell\{VERB}"
-        try:
-            if on:
-                with winreg.CreateKey(winreg.HKEY_CURRENT_USER, key) as k:
-                    winreg.SetValueEx(k, "MUIVerb", 0, winreg.REG_SZ, "Convert with Satsuma")
-                    if _icon_path():
-                        winreg.SetValueEx(k, "Icon", 0, winreg.REG_SZ, _icon_path())
-                    winreg.SetValueEx(k, "MultiSelectModel", 0, winreg.REG_SZ, "Player")
-                with winreg.CreateKey(winreg.HKEY_CURRENT_USER, key + r"\command") as k:
-                    winreg.SetValueEx(k, "", 0, winreg.REG_SZ, command)
-            else:
-                for sub in (key + r"\command", key):
-                    try:
-                        winreg.DeleteKey(winreg.HKEY_CURRENT_USER, sub)
-                    except FileNotFoundError:
-                        pass
-        except OSError:
-            log.exception("could not update right-click menu for %s", ext)
+        _set_verb(rf"{SHELL_ROOT}\{ext}", VERB, "Convert with Satsuma", convert, on)
+    for ext in sorted(ARCHIVE_EXT):
+        _set_verb(rf"{SHELL_ROOT}\{ext}", VERB + "Open", "Open in Satsuma", browse, on)
+    _set_verb(r"Software\Classes\Directory", VERB, "Compress with Satsuma", convert, on)
 
 
 # ----------------------------------------------------------------------------- uninstall

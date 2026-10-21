@@ -3,7 +3,11 @@
 Two ways to use it:
 - drag mode: hold Shift while dragging a file; drop it on a slice.
 - click mode: right-click a file → "Convert with Satsuma"; the wheel appears and you click a slice.
-Slices that can't be used for the file are drawn dimmed; hovering one shows why.
+
+Slices that can't be used for the file are drawn dimmed; pointing at one shows why. When there
+are more options than fit, the last slice is "More": click it, or hold the file over it for a
+moment while dragging, to see the next page. The middle always says how many options there are,
+which page you're on, and how many are dimmed or hidden in Settings.
 """
 from __future__ import annotations
 
@@ -16,13 +20,39 @@ from PySide6.QtGui import QColor, QCursor, QFont, QFontMetrics, QGuiApplication,
 from PySide6.QtWidgets import QWidget
 
 from . import winutil
-from .converters import Slot, tools_for
-from .settings import WHEEL_SIZES, Settings
+from .converters import Pick, Slot, pick
+from .settings import TEXT_SIZES, WHEEL_SIZES, Settings
 from .theme import Theme
 
 CENTER = -2  # hover value for the cancel area in the middle
 POP = 7      # how far the hovered slice grows
 INNER = {"ring": 0.36, "petals": 0.34, "slim": 0.5}
+MORE_DWELL_MS = 650  # how long to hold a dragged file over "More" to turn the page
+DWELL_STEP_MS = 30
+
+ICONS = {
+    "resize": "📐", "rotate": "🔃", "fit": "🎯", "cutout": "🪄", "ocr": "🔤", "small": "🪶", "watermark": "💧",
+    "scan": "🧾", "video": "🎞️", "qr": "🔳", "clean": "🧹", "trim": "✂️", "frames": "🖼️", "mp3": "🎵",
+    "merge": "🧩", "compress": "🗜️", "split": "📑", "png": "🖼️", "text": "📝", "extract": "📤", "folder": "📂",
+    "browse": "🔍", "test": "🩺", "zip": "📦", "7z": "📦", "options": "🔐", "pdf": "📄", "more": "➕",
+}
+FORMAT_ACTIONS = {"png", "jpg", "webp", "ico", "bmp", "mp3", "m4a", "wav", "flac", "ogg", "opus", "aiff", "mp4",
+                  "mov", "webm", "mkv", "gif", "pdf", "text"}
+GROUPS = {  # action -> group, for "colour by kind of action"
+    **{a: "convert" for a in FORMAT_ACTIONS},
+    **{a: "edit" for a in ("resize", "rotate", "trim", "watermark", "cutout", "clean", "frames", "video", "scan")},
+    **{a: "shrink" for a in ("fit", "small", "compress")},
+    **{a: "archive" for a in ("zip", "7z", "options", "extract", "folder", "browse", "test", "merge", "split")},
+    **{a: "read" for a in ("ocr", "qr")},
+}
+GROUP_COLORS = {"convert": "#3b82f6", "edit": "#a855f7", "shrink": "#22c55e", "archive": "#f59e0b",
+                "read": "#ec4899", "more": "#94a3b8"}
+GROUP_NAMES = {"convert": "Convert", "edit": "Edit", "shrink": "Make smaller", "archive": "Archive",
+               "read": "Read"}
+
+
+def action_of(key: str) -> str:
+    return key.split(":", 1)[-1]
 
 
 @dataclass
@@ -30,6 +60,12 @@ class Item:
     label: str
     ok: bool = True
     favorite: bool = False
+    action: str = ""       # "resize", "jpg", ... (decides the icon and group colour)
+    more: bool = False     # the "More" slice
+
+
+def item_for(slot: Slot, favorite: bool) -> Item:
+    return Item(slot.tool.label, slot.ok, favorite, action_of(slot.tool.key))
 
 
 def inner_radius(R: float, style: str) -> float:
@@ -49,8 +85,24 @@ def slice_path(c: QPointF, r_in: float, r_out: float, start: float, span: float)
     return path
 
 
+@dataclass
+class Look:
+    style: str = "ring"
+    labels: str = "both"      # both, text, icon
+    hover: str = "fill"       # fill, outline, grow
+    colors: str = "plain"     # plain, group
+    text_scale: float = 1.0
+
+    @classmethod
+    def of(cls, s: Settings) -> "Look":
+        return cls(s.wheel_style, s.label_style, s.hover_style, s.slice_colors, TEXT_SIZES.get(s.text_size, 1.0))
+
+
 def paint_wheel(p: QPainter, c: QPointF, R: float, items: list[Item], hover: int,
-                line1: str, line2: str, t: Theme, style: str = "ring"):
+                line1: str, line2: str, t: Theme, look: Look | None = None, line3: str = "",
+                more_progress: float = 0.0, page: tuple[int, int] = (0, 1)):
+    look = look or Look()
+    style = look.style
     r = inner_radius(R, style)
     p.setRenderHint(QPainter.Antialiasing)
     p.setRenderHint(QPainter.TextAntialiasing)
@@ -62,25 +114,32 @@ def paint_wheel(p: QPainter, c: QPointF, R: float, items: list[Item], hover: int
         base.setAlpha(3)
     p.setPen(Qt.NoPen)
     p.setBrush(base)
-    p.drawEllipse(c, R + POP, R + POP) if petals else p.drawEllipse(c, R, R)
+    if petals:
+        p.drawEllipse(c, R + POP, R + POP)
+    else:
+        p.drawEllipse(c, R, R)
 
     n = len(items)
-    size = max(8, round(R / 17))
+    size = max(8, round(R / 17 * look.text_scale))
     if n > 9:
         size = max(7, round(size * 9 / n + 1))
     label_font = QFont("Segoe UI", size)
+    icon_font = QFont("Segoe UI Emoji", max(9, round(size * (1.55 if look.labels == "icon" else 1.15))))
     if n:
         seg = 360 / n
         # petals: a gap of ~9 px at the inner edge, widening outwards
         gap = math.degrees(9 / max(r + 3, 1)) if petals and n > 1 else 0
         for i, item in enumerate(items):
             hovered = i == hover
-            usable_hover = hovered and item.ok
-            rr = R + (POP if usable_hover else 0)
+            active = hovered and item.ok
+            grow = active or (hovered and item.more)
+            rr = R + (POP if grow else 0)
             mid = i * seg
-            path = slice_path(c, r + (3 if petals else 0), rr - (2 if petals else 0),
-                              mid - seg / 2 + gap / 2, seg - gap)
-            if usable_hover:
+            path = slice_path(c, r + (3 if petals else 0), rr - (2 if petals else 0), mid - seg / 2 + gap / 2, seg - gap)
+
+            group = "more" if item.more else GROUPS.get(item.action, "")
+            tint = QColor(GROUP_COLORS[group]) if look.colors == "group" and group else None
+            if active and look.hover == "fill":
                 fill = QColor(t.accent)
             elif petals:
                 fill = QColor(t.wheel_bg)
@@ -92,28 +151,38 @@ def paint_wheel(p: QPainter, c: QPointF, R: float, items: list[Item], hover: int
                     fill.setAlpha(fill.alpha() // 2)
                 if hovered:
                     fill.setAlpha(fill.alpha() + 18)
+            if tint and not (active and look.hover == "fill"):
+                tint.setAlpha(70 if hovered else 42)
+                fill = tint if not petals else _over(fill, tint)
             p.setBrush(fill)
             if petals:
                 p.setPen(QPen(fill, 3, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
             else:
                 p.setPen(QPen(t.wheel_line, 1))
             p.drawPath(path)
+            if active and look.hover == "outline":
+                p.setBrush(Qt.NoBrush)
+                p.setPen(QPen(t.accent, 3, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+                p.drawPath(slice_path(c, r + 2, rr - 2, mid - seg / 2 + gap / 2 + 0.8, seg - gap - 1.6))
+            if item.more and more_progress > 0:  # dwell timer while dragging over "More"
+                p.setBrush(Qt.NoBrush)
+                p.setPen(QPen(t.accent, 4, Qt.SolidLine, Qt.RoundCap))
+                arc_r = rr - 5
+                p.drawArc(QRectF(c.x() - arc_r, c.y() - arc_r, 2 * arc_r, 2 * arc_r),
+                          int((90 - (mid - seg / 2 + 2)) * 16), int(-(seg - 4) * more_progress * 16))
 
             m, a = (rr + r) / 2 + (2 if style == "slim" else 3), math.radians(mid)
             pos = QPointF(c.x() + m * math.sin(a), c.y() - m * math.cos(a))
-            label_font.setWeight(QFont.Weight.Bold if usable_hover else QFont.Weight.DemiBold)
-            label_font.setStrikeOut(False)
-            p.setFont(label_font)
-            if usable_hover:
+            if active and look.hover == "fill":
                 color = QColor(t.on_accent)
-            elif item.ok:
+            elif active:
+                color = QColor(t.accent)
+            elif item.ok or item.more:
                 color = QColor(t.text)
             else:
                 color = QColor(t.muted)
                 color.setAlpha(150 if hovered else 95)
-            p.setPen(color)
-            text = ("★ " if item.favorite and item.ok else "") + item.label
-            p.drawText(QRectF(pos.x() - 52, pos.y() - 13, 104, 26), Qt.AlignCenter, text)
+            _draw_label(p, pos, item, look, label_font, icon_font, color, active)
 
     if not petals:
         rim = QColor(t.accent)
@@ -122,7 +191,7 @@ def paint_wheel(p: QPainter, c: QPointF, R: float, items: list[Item], hover: int
         p.setPen(QPen(rim, 2))
         p.drawEllipse(c, R - 1, R - 1)
 
-    # middle: what's being dropped + what will happen
+    # middle: what's being dropped, what will happen, and how many options there are
     p.setPen(QPen(t.wheel_line, 1))
     center_bg = QColor(t.wheel_center)
     if hover == CENTER and n:
@@ -130,18 +199,69 @@ def paint_wheel(p: QPainter, c: QPointF, R: float, items: list[Item], hover: int
     p.setBrush(center_bg)
     p.drawEllipse(c, r - 4, r - 4)
     width = int(2 * r - 18)
-    f1 = QFont("Segoe UI", max(7, round(R / 21)))
+    f1 = QFont("Segoe UI", max(7, round(R / 21 * look.text_scale)))
     f1.setWeight(QFont.Weight.DemiBold)
-    f2 = QFont("Segoe UI", max(7, round(R / 22)))
+    f2 = QFont("Segoe UI", max(7, round(R / 22 * look.text_scale)))
+    f3 = QFont("Segoe UI", max(6, round(R / 26)))
     p.setFont(f1)
     p.setPen(t.text)
-    p.drawText(QRectF(c.x() - r, c.y() - 19, 2 * r, 17), Qt.AlignCenter,
+    p.drawText(QRectF(c.x() - r, c.y() - 21, 2 * r, 17), Qt.AlignCenter,
                QFontMetrics(f1).elidedText(line1, Qt.ElideMiddle, width))
     p.setFont(f2)
-    unusable = 0 <= hover < n and not items[hover].ok
+    unusable = 0 <= hover < n and not items[hover].ok and not items[hover].more
     p.setPen(t.accent if hover >= 0 and not unusable else t.muted)
-    p.drawText(QRectF(c.x() - r + 7, c.y(), 2 * r - 14, r - 4),
+    p.drawText(QRectF(c.x() - r + 8, c.y() - 3, 2 * r - 16, r * 0.5),
                Qt.AlignHCenter | Qt.AlignTop | Qt.TextWordWrap, line2)
+    current, total = page
+    if total > 1:  # page dots: ● ○ ○
+        dot, gap_px = max(2.0, r / 22), max(7.0, r / 7)
+        x0 = c.x() - gap_px * (total - 1) / 2
+        p.setPen(Qt.NoPen)
+        for i in range(total):
+            col = QColor(t.accent) if i == current else QColor(t.muted)
+            if i != current:
+                col.setAlpha(120)
+            p.setBrush(col)
+            p.drawEllipse(QPointF(x0 + i * gap_px, c.y() + r * 0.5), dot, dot)
+    if line3:
+        p.setFont(f3)
+        p.setPen(t.muted)
+        chord = 2 * math.sqrt(max(1.0, (r - 4) ** 2 - (r * 0.7) ** 2))
+        p.drawText(QRectF(c.x() - r, c.y() + r * 0.7 - 7, 2 * r, 14), Qt.AlignCenter,
+                   QFontMetrics(f3).elidedText(line3, Qt.ElideRight, int(chord)))
+
+
+def _over(a: QColor, b: QColor) -> QColor:
+    """b drawn over a."""
+    k = b.alpha() / 255
+    return QColor(round(a.red() + (b.red() - a.red()) * k), round(a.green() + (b.green() - a.green()) * k),
+                  round(a.blue() + (b.blue() - a.blue()) * k), max(a.alpha(), b.alpha()))
+
+
+def _draw_label(p: QPainter, pos: QPointF, item: Item, look: Look, font: QFont, icon_font: QFont,
+                color: QColor, active: bool):
+    icon = ICONS.get("more" if item.more else item.action, "")
+    is_format = item.action in FORMAT_ACTIONS and not item.more
+    text = ("★ " if item.favorite and item.ok else "") + item.label
+    mode = look.labels
+    if is_format and mode == "icon":
+        mode = "text"  # format names are clearer than any icon
+    if is_format and mode == "both":
+        mode = "text"
+    font.setWeight(QFont.Weight.Bold if active else QFont.Weight.DemiBold)
+    p.setPen(color)
+    if mode == "icon" and icon:
+        p.setFont(icon_font)
+        p.drawText(QRectF(pos.x() - 30, pos.y() - 16, 60, 32), Qt.AlignCenter, icon)
+        return
+    if mode == "both" and icon:
+        p.setFont(icon_font)
+        p.drawText(QRectF(pos.x() - 30, pos.y() - 24, 60, 24), Qt.AlignCenter, icon)
+        p.setFont(font)
+        p.drawText(QRectF(pos.x() - 52, pos.y() - 1, 104, 22), Qt.AlignCenter, text)
+        return
+    p.setFont(font)
+    p.drawText(QRectF(pos.x() - 52, pos.y() - 13, 104, 26), Qt.AlignCenter, text)
 
 
 def ease_out_back(x: float) -> float:
@@ -149,8 +269,33 @@ def ease_out_back(x: float) -> float:
     return 1 + (c1 + 1) * (x - 1) ** 3 + c1 * (x - 1) ** 2
 
 
+def paginate(slots: list, per_page: int) -> list[list]:
+    """Splits the slices into pages; every page but a single one keeps its last spot for "More"."""
+    per_page = max(3, per_page)
+    if len(slots) <= per_page:
+        return [list(slots)]
+    size = per_page - 1
+    return [slots[i:i + size] for i in range(0, len(slots), size)]
+
+
+def counts_line(pk: Pick) -> str:
+    usable = sum(1 for s in pk.slots if s.ok)
+    return f"{usable} option{'s' if usable != 1 else ''}"
+
+
+def hint_text(pk: Pick, click_mode: bool, pages: int) -> str:
+    """What the middle says while you're not pointing at anything."""
+    text = "Click an option" if click_mode else "Drop on an option"
+    if pages > 1:
+        text = f"{text} · {pages} pages"
+    if pk.hidden:
+        text += f" ({pk.hidden} hidden in Settings)"
+    return text
+
+
 class Wheel(QWidget):
     chosen = Signal(object, list)  # Tool, files
+    opened = Signal()
 
     def __init__(self, settings: Settings, theme: Theme):
         super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool
@@ -163,6 +308,7 @@ class Wheel(QWidget):
         self.R = WHEEL_SIZES["medium"]
         self.scale = 1.0
         self.click_mode = False
+        self._down_at_open = False
         self.anim = QVariantAnimation(self)
         self.anim.setDuration(170)
         self.anim.setStartValue(0.0)
@@ -170,14 +316,48 @@ class Wheel(QWidget):
         self.anim.valueChanged.connect(self._animate)
         self.watch = QTimer(self)  # click mode: close on Esc or a click outside
         self.watch.timeout.connect(self._watch)
+        self.dwell = QTimer(self)  # drag mode: hold over "More" to turn the page
+        self.dwell.setInterval(DWELL_STEP_MS)
+        self.dwell.timeout.connect(self._dwell_tick)
+        self.dwell_ms = 0
         self.reset()
 
     def reset(self):
         self.files: list[Path] = []
-        self.slots: list[Slot] = []
+        self.pick = Pick([], [])
+        self.pages: list[list[Slot]] = [[]]
+        self.page = 0
         self.hover = CENTER
         self.title = ""
         self.empty_reason = ""
+        self.dwell_ms = 0
+        self.dwell.stop()
+
+    # ---- what's on the wheel
+
+    @property
+    def slots(self) -> list[Slot]:
+        return self.pages[self.page] if self.pages else []
+
+    @property
+    def has_more(self) -> bool:
+        return len(self.pages) > 1
+
+    def count(self) -> int:
+        return len(self.slots) + (1 if self.has_more else 0)
+
+    def is_more(self, idx: int) -> bool:
+        return self.has_more and idx == len(self.slots)
+
+    def slot_at(self, idx: int) -> Slot | None:
+        return self.slots[idx] if 0 <= idx < len(self.slots) else None
+
+    def next_page(self):
+        if self.has_more:
+            self.page = (self.page + 1) % len(self.pages)
+            self.hover = -1
+            self.dwell_ms = 0
+            self.update()
 
     def _animate(self, v):
         v = float(v)
@@ -187,19 +367,21 @@ class Wheel(QWidget):
 
     def _load(self, paths: list[Path]):
         s = self.settings
-        self.files, self.slots = tools_for(paths, set(s.hidden_tools), s.favorites, s.show_unavailable)
-        if not self.slots:
-            self.title = paths[0].name
+        self.pick = pick(paths, set(s.hidden_tools), s.favorites, s.show_unavailable, s.tool_order,
+                         s.pack_on_every_wheel)
+        self.files = self.pick.files
+        self.pages = paginate(self.pick.slots, s.per_page)
+        self.page = 0
+        if not self.pick.slots:
+            self.title = paths[0].name if paths else ""
             if self.files:
                 self.empty_reason = "Nothing available. Check Formats in Settings"
-            elif paths[0].is_dir():
-                self.empty_reason = "Folders can't be converted"
             else:
-                self.empty_reason = f"Can't convert {paths[0].suffix.lower() or 'this file'}"
+                self.empty_reason = "This file can't be found"
         elif len(self.files) == 1:
             self.title = self.files[0].name
         else:
-            self.title = f"{len(self.files)} files"
+            self.title = f"{len(self.files)} items"
 
     def popup_at_cursor(self, paths: list[Path] | None = None):
         """Drag mode when paths is None (files arrive with the drag); click mode otherwise."""
@@ -216,8 +398,12 @@ class Wheel(QWidget):
         pos = QCursor.pos()
         screen = QGuiApplication.screenAt(pos) or QGuiApplication.primaryScreen()
         g = screen.availableGeometry()
-        x = min(max(pos.x() - side // 2, g.left()), g.right() - side)
-        y = min(max(pos.y() - side // 2, g.top()), g.bottom() - side)
+        if self.settings.wheel_position == "center":
+            cx, cy = g.left() + g.width() // 2, g.top() + g.height() // 2
+        else:
+            cx, cy = pos.x(), pos.y()
+        x = min(max(cx - side // 2, g.left()), g.right() - side)
+        y = min(max(cy - side // 2, g.top()), g.bottom() - side)
         self.move(x, y)
         if self.settings.animations:
             self.scale = 0.82
@@ -230,12 +416,14 @@ class Wheel(QWidget):
             self.setWindowOpacity(1.0)
             self.show()
         self.raise_()
+        self.opened.emit()
         if self.click_mode:
             self._down_at_open = winutil.any_button_down()
             self.watch.start(30)
 
     def hideEvent(self, e):
         self.watch.stop()
+        self.dwell.stop()
         self.click_mode = False
         super().hideEvent(e)
 
@@ -252,19 +440,42 @@ class Wheel(QWidget):
 
     def hit(self, pos: QPointF) -> int:
         dx, dy = pos.x() - self.width() / 2, pos.y() - self.height() / 2
-        dist = math.hypot(dx, dy)
+        dist = math.hypot(dx, dy) / max(self.scale, 0.01)
         if dist < inner_radius(self.R, self.settings.wheel_style):
             return CENTER
-        if dist > self.R + POP or not self.slots:
+        n = self.count()
+        if dist > self.R + POP or not n:
             return -1
-        seg = 360 / len(self.slots)
+        seg = 360 / n
         angle = math.degrees(math.atan2(dx, -dy)) % 360  # 0 = top, clockwise
-        return int(((angle + seg / 2) % 360) // seg) % len(self.slots)
+        return int(((angle + seg / 2) % 360) // seg) % n
 
     def _usable(self, idx: int) -> bool:
-        return 0 <= idx < len(self.slots) and self.slots[idx].ok
+        slot = self.slot_at(idx)
+        return bool(slot and slot.ok)
 
-    # drag & drop
+    def _set_hover(self, idx: int):
+        if idx != self.hover:
+            self.hover = idx
+            self.dwell_ms = 0
+            if self.is_more(idx) and not self.click_mode:
+                self.dwell.start()
+            else:
+                self.dwell.stop()
+            self.update()
+
+    def _dwell_tick(self):
+        if not self.is_more(self.hover):
+            self.dwell.stop()
+            return
+        self.dwell_ms += DWELL_STEP_MS
+        if self.dwell_ms >= MORE_DWELL_MS:
+            self.dwell.stop()
+            self.next_page()
+            self.hover = len(self.slots) if self.has_more else -1  # still over "More"
+        self.update()
+
+    # ---- drag & drop
     def dragEnterEvent(self, e):
         paths = [Path(u.toLocalFile()) for u in e.mimeData().urls() if u.isLocalFile()]
         if not paths:
@@ -276,47 +487,56 @@ class Wheel(QWidget):
         self.update()
 
     def dragMoveEvent(self, e):
-        self.hover = self.hit(e.position())
+        self._set_hover(self.hit(e.position()))
         if self._usable(self.hover):
             e.setDropAction(Qt.CopyAction)
             e.accept()
         else:
-            e.ignore()  # middle, outside or a dimmed slice = no drop
-        self.update()
+            e.ignore()  # middle, outside, "More" or a dimmed slice = no drop
 
     def dragLeaveEvent(self, e):
-        self.hover = -1
-        self.update()
+        self._set_hover(-1)
 
     def dropEvent(self, e):
         idx = self.hit(e.position())
-        if self._usable(idx):
+        slot = self.slot_at(idx)
+        if slot and slot.ok:
             e.setDropAction(Qt.CopyAction)
             e.accept()
-            self.chosen.emit(self.slots[idx].tool, list(self.files))
+            self.chosen.emit(slot.tool, list(self.files))
         else:
             e.ignore()
         self.hide()
 
-    # click mode
+    # ---- click mode
     def mouseMoveEvent(self, e):
         if self.click_mode:
-            idx = self.hit(e.position())
-            if idx != self.hover:
-                self.hover = idx
-                self.update()
+            self._set_hover(self.hit(e.position()))
 
     def mouseReleaseEvent(self, e):
         if not self.click_mode:
             return
         idx = self.hit(e.position())
-        if self._usable(idx):
-            tool, files = self.slots[idx].tool, list(self.files)
+        if self.is_more(idx):
+            self.next_page()
+            self._set_hover(idx if self.has_more else -1)
+            return
+        slot = self.slot_at(idx)
+        if slot and slot.ok:
+            files = list(self.files)
             self.hide()
-            self.chosen.emit(tool, files)
+            self.chosen.emit(slot.tool, files)
         elif idx in (CENTER, -1):
             self.hide()
         # clicking a dimmed slice keeps the wheel open; its reason is already shown
+
+    def wheelEvent(self, e):
+        if self.click_mode and self.has_more and e.angleDelta().y():
+            if e.angleDelta().y() < 0:
+                self.next_page()
+            else:
+                self.page = (self.page - 1) % len(self.pages)
+                self.update()
 
     def paintEvent(self, _):
         p = QPainter(self)
@@ -325,36 +545,49 @@ class Wheel(QWidget):
             p.translate(c)
             p.scale(self.scale, self.scale)
             p.translate(-c)
-        hint = "Click a format" if self.click_mode else "Drop on a format"
+        hint = hint_text(self.pick, self.click_mode, len(self.pages))
+        line3 = ""
         if not self.title:
             line1, line2 = "Satsuma", hint
-        elif not self.slots:
+        elif not self.pick.slots:
             line1, line2 = self.title, self.empty_reason
-        elif 0 <= self.hover < len(self.slots):
-            slot = self.slots[self.hover]
+        elif self.is_more(self.hover):
+            nxt = (self.page + 1) % len(self.pages) + 1
+            line1 = self.title
+            line2 = f"Click for page {nxt}" if self.click_mode else f"Hold for page {nxt}"
+        elif self.slot_at(self.hover):
+            slot = self.slot_at(self.hover)
             line1, line2 = self.title, slot.reason or slot.tool.description
         elif self.hover == CENTER:
             line1, line2 = self.title, "Click here to cancel" if self.click_mode else "Let go here to cancel"
         else:
             line1, line2 = self.title, hint
+        if self.pick.slots:
+            line3 = counts_line(self.pick)
         favs = set(self.settings.favorites)
-        items = [Item(s.tool.label, s.ok, s.tool.key in favs) for s in self.slots]
-        paint_wheel(p, c, self.R, items, self.hover, line1, line2, self.theme, self.settings.wheel_style)
+        items = [item_for(s, s.tool.key in favs) for s in self.slots]
+        if self.has_more:
+            items.append(Item("More", ok=False, more=True))
+        progress = self.dwell_ms / MORE_DWELL_MS if self.is_more(self.hover) and not self.click_mode else 0.0
+        paint_wheel(p, c, self.R, items, self.hover, line1, line2, self.theme, Look.of(self.settings), line3,
+                    progress, (self.page, len(self.pages)))
         p.end()
 
 
 class WheelPreview(QWidget):
     """A live, non-interactive wheel for the Look settings page."""
-    DEMO = [Item("PNG"), Item("JPG", ok=False), Item("WEBP"), Item("PDF"), Item("Resize", favorite=True),
-            Item("Cut out"), Item("Small")]
-    TEXT = ["Convert to PNG", "Already JPG", "Convert to WebP", "Convert to PDF", "Make it bigger or smaller",
-            "Remove the background", "Shrink for sharing"]
+    DEMO = [Item("PNG", action="png"), Item("JPG", ok=False, action="jpg"), Item("WEBP", action="webp"),
+            Item("Resize", favorite=True, action="resize"), Item("Cut out", action="cutout"),
+            Item("Fit size", action="fit"), Item("Copy text", action="ocr"), Item("ZIP", action="zip"),
+            Item("More", ok=False, more=True)]
+    TEXT = ["Convert to PNG", "Already JPG", "Convert to WebP", "Make it bigger or smaller", "Remove the background",
+            "Make it fit a size limit", "Copy the text in the picture", "Put in a ZIP file", "Hold for page 2"]
 
     def __init__(self, settings: Settings, theme: Theme):
         super().__init__()
         self.settings, self.theme = settings, theme
         self.hover = 0
-        side = int(2 * (WHEEL_SIZES["large"] + POP) * 0.62) + 16
+        side = int(2 * (WHEEL_SIZES["huge"] + POP) * 0.58) + 16
         self.setFixedSize(side, side)
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._step)
@@ -367,8 +600,8 @@ class WheelPreview(QWidget):
 
     def paintEvent(self, _):
         p = QPainter(self)
-        R = WHEEL_SIZES.get(self.settings.wheel_size, WHEEL_SIZES["medium"]) * 0.62
+        R = WHEEL_SIZES.get(self.settings.wheel_size, WHEEL_SIZES["medium"]) * 0.58
         c = QPointF(self.width() / 2, self.height() / 2)
         paint_wheel(p, c, R, self.DEMO, self.hover, "photo.jpg", self.TEXT[self.hover], self.theme,
-                    self.settings.wheel_style)
+                    Look.of(self.settings), "16 options", page=(0, 2))
         p.end()

@@ -13,192 +13,19 @@ import logging
 import os
 import shutil
 import subprocess
-import sys
 import tempfile
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 from typing import Callable
 
+from .core import (ALIASES, ALL_EXT, ARCHIVE_EXT, AUDIO_EXT, DOCUMENT_EXT, EXCEL_EXT, IMAGE_EXT,  # noqa: F401
+                   NO_WINDOW, SLIDES_EXT, TAR_SUFFIXES, VIDEO_EXT, WORD_EXT, Cancelled, Ctx, Options, Result,
+                   Tool, _cached, app_dir, bundled, category, fallback_folder, human_size, norm, os_open,
+                   safe_name, unique_path, writable)
+
 log = logging.getLogger("satsuma")
-
-NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-
-
-class Cancelled(Exception):
-    pass
-
-
-@dataclass
-class Options:
-    output_folder: Path | None = None  # None = save next to the original
-    jpg_quality: int = 90
-    rename_base: str = ""              # "" = keep original names
-    rename_start: int = 1
-
-
-@dataclass
-class Result:
-    outputs: list[Path] = field(default_factory=list)
-    clipboard: str | None = None
-    note: str = ""
-
-
-@dataclass
-class Tool:
-    key: str          # stable id used by settings, e.g. "image:jpg"
-    label: str        # short text on the wheel
-    description: str  # shown in the middle of the wheel and in the progress popup
-    run: Callable     # run(item, ctx) -> Result
-    batch: bool = False                          # gets all files at once instead of one at a time
-    check: Callable[[list[Path]], str | None] | None = None  # reason it can't be used, or None
-    ask: str | None = None                       # name of a dialog to show first ("resize", "trim", ...)
-    renames: bool = True                         # honours "ask for new names"
-
-
-def fallback_folder() -> Path:
-    return Path.home() / "Downloads" / "Satsuma"
-
-
-def writable(folder: Path) -> bool:
-    try:
-        folder.mkdir(parents=True, exist_ok=True)
-        with tempfile.TemporaryFile(dir=folder):
-            pass
-        return True
-    except OSError:
-        return False
-
-
-def unique_path(p: Path) -> Path:
-    if not p.exists():
-        return p
-    n = 2
-    while True:
-        cand = p.with_name(f"{p.stem} ({n}){p.suffix}")
-        if not cand.exists():
-            return cand
-        n += 1
-
-
-def safe_name(text: str) -> str:
-    bad = '<>:"/\\|?*'
-    out = "".join("_" if c in bad or ord(c) < 32 else c for c in text).strip(" .")
-    return out[:120]
-
-
-class Ctx:
-    def __init__(self, options: Options, progress: Callable[[float], None] | None = None,
-                 cancel: threading.Event | None = None, params: dict | None = None,
-                 index: int | None = None, total: int = 1):
-        self.options = options
-        self.params = params or {}
-        self.index, self.total = index, total
-        self._progress = progress or (lambda f: None)
-        self.cancel_event = cancel or threading.Event()
-
-    def progress(self, frac: float):
-        self._progress(max(0.0, min(1.0, frac)))
-
-    @property
-    def cancelled(self) -> bool:
-        return self.cancel_event.is_set()
-
-    def check(self):
-        if self.cancelled:
-            raise Cancelled()
-
-    def stem(self, src: Path) -> str:
-        """Base name for a new file: the original name, or the user's new name (+ number)."""
-        base = safe_name(self.options.rename_base)
-        if not base:
-            return src.stem
-        if self.index is None or self.total <= 1:
-            return base
-        return f"{base}-{self.options.rename_start + self.index}"
-
-    def folder_for(self, src: Path) -> Path:
-        folder = self.options.output_folder or src.parent
-        return folder if writable(folder) else fallback_folder()
-
-    def out_path(self, src: Path, name: str) -> Path:
-        folder = self.folder_for(src)
-        folder.mkdir(parents=True, exist_ok=True)
-        return unique_path(folder / name)
-
-    def out_dir(self, src: Path, name: str) -> Path:
-        p = self.out_path(src, name)
-        p.mkdir()
-        return p
-
-
-# ----------------------------------------------------------------------------- file types
-
-ALIASES = {".jpeg": ".jpg", ".jfif": ".jpg", ".tif": ".tiff", ".aif": ".aiff", ".heif": ".heic"}
-IMAGE_EXT = {".png", ".jpg", ".webp", ".bmp", ".gif", ".tiff", ".heic", ".avif", ".ico"}
-AUDIO_EXT = {".mp3", ".m4a", ".wav", ".flac", ".ogg", ".opus", ".aiff", ".wma", ".aac"}
-VIDEO_EXT = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".wmv", ".m4v", ".flv", ".mpg", ".mpeg", ".3gp", ".ts"}
-WORD_EXT = {".doc", ".docx", ".rtf", ".odt"}
-EXCEL_EXT = {".xls", ".xlsx", ".ods"}
-SLIDES_EXT = {".ppt", ".pptx", ".odp"}
-DOCUMENT_EXT = WORD_EXT | EXCEL_EXT | SLIDES_EXT
-ALL_EXT = IMAGE_EXT | AUDIO_EXT | VIDEO_EXT | DOCUMENT_EXT | {".pdf"} | set(ALIASES)
-
-
-def norm(ext: str) -> str:
-    ext = ext.lower()
-    return ALIASES.get(ext, ext)
-
-
-def category(p: Path) -> str:
-    e = norm(p.suffix)
-    if e in IMAGE_EXT:
-        return "image"
-    if e in AUDIO_EXT:
-        return "audio"
-    if e in VIDEO_EXT:
-        return "video"
-    if e == ".pdf":
-        return "pdf"
-    if e in DOCUMENT_EXT:
-        return "document"
-    return "other"
-
-
-# ----------------------------------------------------------------------------- helpers
-
-def app_dir() -> Path:
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).resolve().parent
-    return Path(__file__).resolve().parent.parent
-
-
-def bundled(*parts: str) -> Path | None:
-    """A file shipped with the app (or in vendor/ when running from source)."""
-    roots = [Path(getattr(sys, "_MEIPASS", app_dir())), app_dir(), app_dir() / "vendor"]
-    for root in roots:
-        p = root.joinpath(*parts)
-        if p.exists():
-            return p
-    return None
-
-
-_cache: dict = {}
-
-
-def _cached(kind: str, path: Path, fn):
-    """Remember slow facts about a file (duration, has audio, ...) until it changes."""
-    try:
-        st = path.stat()
-        key = (kind, str(path), st.st_mtime_ns, st.st_size)
-    except OSError:
-        return fn()
-    if key not in _cache:
-        if len(_cache) > 500:
-            _cache.clear()
-        _cache[key] = fn()
-    return _cache[key]
 
 
 # ----------------------------------------------------------------------------- images
@@ -455,17 +282,27 @@ def find_tool(name: str) -> str:
 def probe(src: Path) -> dict:
     """Duration and which kinds of streams a media file has (cached)."""
     def work():
-        info = {"duration": 0.0, "audio": False, "video": False}
+        info = {"duration": 0.0, "audio": False, "video": False, "width": 0, "height": 0}
         try:
             out = subprocess.run(
-                [find_tool("ffprobe"), "-v", "error", "-show_entries", "format=duration:stream=codec_type",
+                [find_tool("ffprobe"), "-v", "error", "-show_entries",
+                 "format=duration:stream=codec_type,width,height:stream_side_data=rotation",
                  "-of", "json", str(src)],
                 capture_output=True, text=True, timeout=20, creationflags=NO_WINDOW,
             ).stdout
             data = json.loads(out or "{}")
             info["duration"] = float(data.get("format", {}).get("duration") or 0)
-            kinds = {s.get("codec_type") for s in data.get("streams", [])}
+            streams = data.get("streams", [])
+            kinds = {s.get("codec_type") for s in streams}
             info["audio"], info["video"] = "audio" in kinds, "video" in kinds
+            for s in streams:
+                if s.get("codec_type") == "video" and s.get("width"):
+                    w, h = int(s["width"]), int(s.get("height") or 0)
+                    rot = 0
+                    for sd in s.get("side_data_list", []) or []:
+                        rot = int(sd.get("rotation") or 0) or rot
+                    info["width"], info["height"] = (h, w) if abs(rot) in (90, 270) else (w, h)
+                    break
         except (ValueError, OSError, subprocess.SubprocessError, RuntimeError):
             info["audio"] = info["video"] = True  # unknown: don't block anything
         return info
@@ -497,11 +334,14 @@ def run_ffmpeg(src: Path, out: Path, args: list[str], ctx: Ctx, pre: list[str] |
             if proc.poll() is None:
                 proc.kill()
                 proc.wait()
+        real_file = str(out) != os.devnull
         if ctx.cancelled:
-            out.unlink(missing_ok=True)
+            if real_file:
+                out.unlink(missing_ok=True)
             raise Cancelled()
         if proc.returncode:
-            out.unlink(missing_ok=True)
+            if real_file:
+                out.unlink(missing_ok=True)
             err.seek(0)
             lines = [ln for ln in err.read().strip().splitlines() if ln.strip()]
             log.error("ffmpeg failed for %s: %s", src, "\n".join(lines[-10:]))
@@ -694,13 +534,15 @@ def pdf_merge(files: list[Path], ctx: Ctx) -> Result:
     return Result([out])
 
 
-def pdf_compress(src: Path, ctx: Ctx) -> Result:
+def write_compressed_pdf(src: Path, out: Path, ctx: Ctx, quality: int = 65, max_dim: int = 1800,
+                         progress_span: tuple[float, float] = (0.0, 0.9)):
     """Shrinks big pictures inside the PDF and squeezes the rest. Text stays sharp."""
     from PIL import Image
     from pypdf import PdfWriter
     reader = _open_reader(src)
     writer = PdfWriter(clone_from=reader)
     n = max(1, len(writer.pages))
+    a, b = progress_span
     for i, page in enumerate(writer.pages):
         ctx.check()
         try:
@@ -709,35 +551,31 @@ def pdf_compress(src: Path, ctx: Ctx) -> Result:
                     pil = img.image
                     if pil.width * pil.height < 160_000:  # leave small images (logos, icons) alone
                         continue
-                    if max(pil.size) > 1800:
-                        pil.thumbnail((1800, 1800), Image.LANCZOS)
+                    if max(pil.size) > max_dim:
+                        pil.thumbnail((max_dim, max_dim), Image.LANCZOS)
                     if pil.mode not in ("RGB", "L"):
                         pil = flatten(pil)
-                    img.replace(pil, quality=65)
+                    img.replace(pil, quality=quality)
                 except Exception:  # unusual image types: keep as they are
                     log.debug("kept one image in %s", src, exc_info=True)
         except Exception:
             log.debug("page %s images skipped", i, exc_info=True)
         page.compress_content_streams()
-        ctx.progress(0.9 * (i + 1) / n)
+        ctx.progress(a + (b - a) * (i + 1) / n)
     writer.compress_identical_objects(remove_identicals=True, remove_orphans=True)
-    out = ctx.out_path(src, f"{ctx.stem(src)} (compressed).pdf")
     with open(out, "wb") as fh:
         writer.write(fh)
+
+
+def pdf_compress(src: Path, ctx: Ctx) -> Result:
+    out = ctx.out_path(src, f"{ctx.stem(src)} (compressed).pdf")
+    write_compressed_pdf(src, out, ctx)
     before, after = src.stat().st_size, out.stat().st_size
     if after >= before * 0.97:
         out.unlink(missing_ok=True)
         return Result(note=f"{src.name} is already as small as it gets")
     return Result([out], note=f"{human_size(before)} → {human_size(after)} "
                               f"({100 - round(after * 100 / before)}% smaller)")
-
-
-def human_size(n: float) -> str:
-    for unit in ("bytes", "KB", "MB", "GB"):
-        if n < 1024 or unit == "GB":
-            return f"{n:.0f} {unit}" if unit == "bytes" else f"{n:.1f} {unit}"
-        n /= 1024
-    return f"{n:.1f} GB"
 
 
 # ----------------------------------------------------------------------------- Word / Excel / PowerPoint
@@ -822,7 +660,10 @@ def check_office(files: list[Path]) -> str | None:
 # ----------------------------------------------------------------------------- what goes on the wheel
 
 CATEGORY_NAMES = {"image": "Images", "audio": "Audio", "video": "Video", "pdf": "PDFs",
-                  "document": "Word, Excel & PowerPoint"}
+                  "document": "Word, Excel & PowerPoint", "archive": "Archives (ZIP, RAR, 7z…)",
+                  "files": "Make archives (any files and folders)"}
+CATEGORY_ICONS = {"image": "🖼️", "audio": "🎵", "video": "🎬", "pdf": "📄", "document": "📝", "archive": "🗜️",
+                  "files": "📦"}
 
 
 def already(ext: str) -> Callable[[list[Path]], str | None]:
@@ -842,7 +683,7 @@ def needs_several(what: str) -> Callable[[list[Path]], str | None]:
 def both(*checks):
     def check(files):
         for c in checks:
-            reason = c(files)
+            reason = c(files) if c else None
             if reason:
                 return reason
         return None
@@ -850,44 +691,81 @@ def both(*checks):
 
 
 def catalog(multi: bool = False) -> dict[str, list[Tool]]:
-    """Every tool Satsuma has, per file type, in wheel order."""
+    """Every tool Satsuma has, per kind of file, in default wheel order."""
+    from . import archives as ar, extras as ex
+
     def fmt(kind, ext, fn, check=None, **kw):
         return Tool(f"{kind}:{ext[1:]}", ext[1:].upper(),
                     f"Convert to {FORMAT_NAMES.get(ext, ext[1:].upper())}",
-                    partial(fn, ext=ext, **kw), check=both(already(ext), check) if check else already(ext))
+                    partial(fn, ext=ext, **kw), check=both(already(ext), check))
+
+    pack = [Tool("pack:zip", "ZIP", "Put in a ZIP file", partial(ar.pack, fmt="zip"), batch=True),
+            Tool("pack:7z", "7z", "Put in a 7z file (smaller than ZIP)", partial(ar.pack, fmt="7z"), batch=True,
+                 check=ar.check_needs_7z),
+            Tool("pack:options", "Archive…", "Archive with a password, split or max compression", ar.pack,
+                 batch=True, ask="pack")]
 
     image = [fmt("image", e, convert_image) for e in (".png", ".jpg", ".webp")]
-    image.append(Tool("image:pdf", "PDF", "Combine into one PDF" if multi else "Convert to PDF",
-                      images_to_pdf, batch=True))
-    image += [Tool("image:resize", "Resize", "Make it bigger or smaller", resize_image, ask="resize"),
+    image += [Tool("image:pdf", "PDF", "Combine into one PDF" if multi else "Convert to PDF", images_to_pdf, batch=True),
+              Tool("image:resize", "Resize", "Make it bigger or smaller", resize_image, ask="resize"),
               Tool("image:rotate", "Rotate", "Rotate or flip", rotate_image, ask="rotate"),
+              Tool("image:fit", "Fit size", "Make it fit a size limit (Discord, email…)", ex.fit, ask="fit"),
               Tool("image:cutout", "Cut out", "Remove the background", remove_background, check=check_bg_model),
-              Tool("image:small", "Small", "Shrink for sharing", image_small)]
+              Tool("image:ocr", "Copy text", "Copy the text in the picture", ex.read_text, check=ex.check_ocr,
+                   renames=False),
+              Tool("image:small", "Small", "Shrink for sharing", image_small),
+              Tool("image:watermark", "Watermark", "Add your name or logo", ex.watermark_image, ask="watermark"),
+              Tool("image:scan", "Scan", "Clean up photos of paper into a PDF", ex.scan_to_pdf, batch=True),
+              Tool("image:video", "Video", "Turn the pictures into a video slideshow", ex.images_to_video, batch=True,
+                   ask="slideshow", check=ex.check_several_images)]
     image += [fmt("image", e, convert_image) for e in (".ico", ".bmp")]
     image += [Tool("image:qr", "QR", "Read QR code", read_qr, renames=False),
               Tool("image:clean", "Clean", "Remove location & camera info", strip_metadata)]
 
     audio = [fmt("audio", e, ffmpeg_convert, args=a) for e, a in AUDIO_ARGS.items()]
-    audio.append(Tool("audio:trim", "Trim", "Cut the start or end", trim_media, ask="trim"))
+    audio += [Tool("audio:trim", "Trim", "Cut the start or end", trim_media, ask="trim"),
+              Tool("audio:fit", "Fit size", "Make it fit a size limit", ex.fit, ask="fit")]
 
     video = [fmt("video", e, ffmpeg_convert, check=check_gif_length if e == ".gif" else None, args=a)
              for e, a in VIDEO_ARGS.items()]
     video += [Tool("video:trim", "Trim", "Cut the start or end", trim_media, ask="trim"),
+              Tool("video:fit", "Fit size", "Make it fit a size limit (Discord, email…)", ex.fit, ask="fit"),
               Tool("video:rotate", "Rotate", "Rotate or flip", rotate_video, ask="rotate"),
               Tool("video:small", "Small", "Shrink for sharing",
                    partial(ffmpeg_convert, ext=".mp4", args=VIDEO_SMALL_ARGS, suffix=" (small)")),
+              Tool("video:watermark", "Watermark", "Add your name or logo", ex.watermark_video, ask="watermark"),
+              Tool("video:frames", "Frames", "Save pictures from the video", ex.video_frames, ask="frames"),
               Tool("video:mp3", "MP3", "Save the sound as MP3",
                    partial(ffmpeg_convert, ext=".mp3", args=AUDIO_ARGS[".mp3"]), check=check_has_audio)]
 
-    pdf = [Tool("pdf:merge", "Merge", "Combine into one PDF", pdf_merge, batch=True,
-                check=needs_several("PDFs")),
+    pdf = [Tool("pdf:merge", "Merge", "Combine into one PDF", pdf_merge, batch=True, check=needs_several("PDFs")),
            Tool("pdf:compress", "Compress", "Make the file smaller", pdf_compress, check=check_pdf_locked),
+           Tool("pdf:fit", "Fit size", "Make it fit a size limit (email…)", ex.fit, ask="fit", check=check_pdf_locked),
            Tool("pdf:split", "Split", "One PDF per page", pdf_split, check=check_pdf_locked),
            Tool("pdf:png", "PNG", "Pages to images", pdf_to_png, check=check_pdf_locked),
            Tool("pdf:text", "Text", "Pull out the text", pdf_to_text, check=check_pdf_locked)]
 
     document = [Tool("document:pdf", "PDF", "Convert to PDF", document_to_pdf, check=check_office)]
-    return {"image": image, "audio": audio, "video": video, "pdf": pdf, "document": document}
+
+    def is_ext(*exts):
+        def check(files):
+            return f"Already {exts[0][1:].upper()}" if all(f.suffix.lower() in exts for f in files) else None
+        return check
+
+    archive = [Tool("archive:extract", "Extract", "Extract here", partial(ar.extract, mode="smart"),
+                    check=ar.check_readable, password=True, renames=False),
+               Tool("archive:folder", "To folder", "Extract into its own folder", partial(ar.extract, mode="folder"),
+                    check=ar.check_readable, password=True),
+               Tool("archive:browse", "Browse", "See what's inside", None, opens="browse", check=ar.check_readable,
+                    password=True),
+               Tool("archive:test", "Test", "Check it isn't damaged", ar.test_archive, check=ar.check_readable,
+                    password=True, renames=False),
+               Tool("archive:zip", "ZIP", "Turn into a ZIP", partial(ar.convert_archive, fmt="zip"),
+                    check=both(ar.check_readable, is_ext(".zip")), password=True),
+               Tool("archive:7z", "7z", "Turn into a 7z (smaller)", partial(ar.convert_archive, fmt="7z"),
+                    check=both(ar.check_needs_7z, is_ext(".7z")), password=True)]
+    return {"image": image, "audio": audio, "video": video, "pdf": pdf, "document": document,
+            "archive": archive, "files": pack}
 
 
 @dataclass
@@ -900,34 +778,71 @@ class Slot:
         return self.reason is None
 
 
-def tools_for(paths: list[Path], hidden=frozenset(), favorites=(), show_unavailable: bool = True
-              ) -> tuple[list[Path], list[Slot]]:
-    """The files that match the first one's type, and the wheel's slices for them."""
+@dataclass
+class Pick:
+    files: list[Path]
+    slots: list[Slot]
+    kind: str = ""          # "image", "video", ... or "files" for mixed files / folders
+    hidden: int = 0         # tools the user turned off in Settings
+    dimmed: int = 0         # tools that don't fit these files
+
+
+def pick(paths: list[Path], hidden=frozenset(), favorites=(), show_unavailable: bool = True,
+         order: dict | None = None, pack_everywhere: bool = True) -> Pick:
+    """The files dropped and the wheel's slices for them."""
+    from .archives import is_extra_part
+    unique: dict[str, Path] = {}
+    for p in paths:
+        if p.exists():
+            unique.setdefault(os.path.normcase(str(p.resolve())), p)
+    paths = list(unique.values())
     if not paths:
-        return [], []
-    kind = category(paths[0])
-    files = [p for p in paths if category(p) == kind and p.is_file()]
-    if not files or kind == "other":
-        return files, []
-    slots = []
-    for t in catalog(len(files) > 1)[kind]:
+        return Pick([], [])
+    kinds = {category(p) for p in paths}
+    kind = kinds.pop() if len(kinds) == 1 else "files"
+    if kind in ("folder", "other"):
+        kind = "files"
+    files = [p for p in paths if not (kind == "archive" and is_extra_part(p))] or paths
+    cat = catalog(len(files) > 1)
+    tools = list(cat[kind])
+    if pack_everywhere and kind not in ("files", "archive"):
+        tools += cat["files"]
+    result = Pick(files, [], kind)
+    for t in tools:
         if t.key in hidden:
+            result.hidden += 1
             continue
         try:
             reason = t.check(files) if t.check else None
         except Exception:
             log.debug("check failed for %s", t.key, exc_info=True)
             reason = None
-        if reason and not show_unavailable:
-            continue
-        slots.append(Slot(t, reason))
+        if reason:
+            result.dimmed += 1
+            if not show_unavailable:
+                continue
+        result.slots.append(Slot(t, reason))
     fav = {k: i for i, k in enumerate(favorites)}
-    slots.sort(key=lambda s: fav.get(s.tool.key, len(fav)))  # stable: favorites first, rest keep order
-    return files, slots
+    custom = {k: i for i, k in enumerate((order or {}).get(kind, []))}
+    default = {s.tool.key: i for i, s in enumerate(result.slots)}
+    result.slots.sort(key=lambda s: (fav.get(s.tool.key, len(fav)),
+                                     custom.get(s.tool.key, len(custom) + default[s.tool.key])))
+    return result
+
+
+def tools_for(paths: list[Path], hidden=frozenset(), favorites=(), show_unavailable: bool = True,
+              order: dict | None = None, pack_everywhere: bool = True) -> tuple[list[Path], list[Slot]]:
+    p = pick(paths, hidden, favorites, show_unavailable, order, pack_everywhere)
+    return p.files, p.slots
+
+
+PASSWORD_ERROR = "wrong or missing password"
 
 
 def friendly_error(e: Exception) -> str:
     name = type(e).__name__
+    if name == "NeedPassword":
+        return PASSWORD_ERROR
     if name == "UnidentifiedImageError":
         return "not a readable image"
     if isinstance(e, PermissionError):
