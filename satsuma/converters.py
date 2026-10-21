@@ -1,11 +1,14 @@
 """
 Satsuma's conversion tools. No GUI code here, so this module can be tested on its own.
 
-Every tool takes (item, ctx): item is a Path (or a list of Paths for batch tools),
-ctx gives the output location, progress reporting and cancellation.
+Every tool runs as run(item, ctx): item is a Path (or a list of Paths for batch tools),
+ctx gives the output location, the user's choices (ctx.params), progress and cancellation.
+Each tool can also say *why* it can't be used for some files (Tool.check); the wheel then
+shows that slice dimmed with the reason, or hides it.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import shutil
@@ -31,6 +34,8 @@ class Cancelled(Exception):
 class Options:
     output_folder: Path | None = None  # None = save next to the original
     jpg_quality: int = 90
+    rename_base: str = ""              # "" = keep original names
+    rename_start: int = 1
 
 
 @dataclass
@@ -46,9 +51,10 @@ class Tool:
     label: str        # short text on the wheel
     description: str  # shown in the middle of the wheel and in the progress popup
     run: Callable     # run(item, ctx) -> Result
-    batch: bool = False          # gets all files at once instead of one at a time
-    target_ext: str | None = None  # hidden when the file is already this format
-    multi_only: bool = False     # only offered when several files are dropped
+    batch: bool = False                          # gets all files at once instead of one at a time
+    check: Callable[[list[Path]], str | None] | None = None  # reason it can't be used, or None
+    ask: str | None = None                       # name of a dialog to show first ("resize", "trim", ...)
+    renames: bool = True                         # honours "ask for new names"
 
 
 def fallback_folder() -> Path:
@@ -76,10 +82,19 @@ def unique_path(p: Path) -> Path:
         n += 1
 
 
+def safe_name(text: str) -> str:
+    bad = '<>:"/\\|?*'
+    out = "".join("_" if c in bad or ord(c) < 32 else c for c in text).strip(" .")
+    return out[:120]
+
+
 class Ctx:
     def __init__(self, options: Options, progress: Callable[[float], None] | None = None,
-                 cancel: threading.Event | None = None):
+                 cancel: threading.Event | None = None, params: dict | None = None,
+                 index: int | None = None, total: int = 1):
         self.options = options
+        self.params = params or {}
+        self.index, self.total = index, total
         self._progress = progress or (lambda f: None)
         self.cancel_event = cancel or threading.Event()
 
@@ -93,6 +108,15 @@ class Ctx:
     def check(self):
         if self.cancelled:
             raise Cancelled()
+
+    def stem(self, src: Path) -> str:
+        """Base name for a new file: the original name, or the user's new name (+ number)."""
+        base = safe_name(self.options.rename_base)
+        if not base:
+            return src.stem
+        if self.index is None or self.total <= 1:
+            return base
+        return f"{base}-{self.options.rename_start + self.index}"
 
     def folder_for(self, src: Path) -> Path:
         folder = self.options.output_folder or src.parent
@@ -115,6 +139,11 @@ ALIASES = {".jpeg": ".jpg", ".jfif": ".jpg", ".tif": ".tiff", ".aif": ".aiff", "
 IMAGE_EXT = {".png", ".jpg", ".webp", ".bmp", ".gif", ".tiff", ".heic", ".avif", ".ico"}
 AUDIO_EXT = {".mp3", ".m4a", ".wav", ".flac", ".ogg", ".opus", ".aiff", ".wma", ".aac"}
 VIDEO_EXT = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".wmv", ".m4v", ".flv", ".mpg", ".mpeg", ".3gp", ".ts"}
+WORD_EXT = {".doc", ".docx", ".rtf", ".odt"}
+EXCEL_EXT = {".xls", ".xlsx", ".ods"}
+SLIDES_EXT = {".ppt", ".pptx", ".odp"}
+DOCUMENT_EXT = WORD_EXT | EXCEL_EXT | SLIDES_EXT
+ALL_EXT = IMAGE_EXT | AUDIO_EXT | VIDEO_EXT | DOCUMENT_EXT | {".pdf"} | set(ALIASES)
 
 
 def norm(ext: str) -> str:
@@ -132,7 +161,44 @@ def category(p: Path) -> str:
         return "video"
     if e == ".pdf":
         return "pdf"
+    if e in DOCUMENT_EXT:
+        return "document"
     return "other"
+
+
+# ----------------------------------------------------------------------------- helpers
+
+def app_dir() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent.parent
+
+
+def bundled(*parts: str) -> Path | None:
+    """A file shipped with the app (or in vendor/ when running from source)."""
+    roots = [Path(getattr(sys, "_MEIPASS", app_dir())), app_dir(), app_dir() / "vendor"]
+    for root in roots:
+        p = root.joinpath(*parts)
+        if p.exists():
+            return p
+    return None
+
+
+_cache: dict = {}
+
+
+def _cached(kind: str, path: Path, fn):
+    """Remember slow facts about a file (duration, has audio, ...) until it changes."""
+    try:
+        st = path.stat()
+        key = (kind, str(path), st.st_mtime_ns, st.st_size)
+    except OSError:
+        return fn()
+    if key not in _cache:
+        if len(_cache) > 500:
+            _cache.clear()
+        _cache[key] = fn()
+    return _cache[key]
 
 
 # ----------------------------------------------------------------------------- images
@@ -177,10 +243,8 @@ def rgb_or_rgba(im):
     return im.convert("RGBA" if has_alpha(im) else "RGB")
 
 
-def convert_image(src: Path, ctx: Ctx, ext: str) -> Result:
+def save_image(im, out: Path, ext: str, ctx: Ctx):
     from PIL import Image
-    im = load_image(src)
-    out = ctx.out_path(src, src.stem + ext)
     if ext in (".jpg", ".bmp"):
         im = flatten(im)
     else:
@@ -197,6 +261,18 @@ def convert_image(src: Path, ctx: Ctx, ext: str) -> Result:
         square.save(out, sizes=[(s, s) for s in (16, 24, 32, 48, 64, 128, 256)])
     else:
         im.save(out)
+
+
+def keep_format(src: Path) -> str:
+    """Format to save an edited image in: the same as the original when Pillow can write it."""
+    ext = norm(src.suffix)
+    return ext if ext in (".png", ".jpg", ".webp", ".bmp", ".tiff", ".gif") else ".png"
+
+
+def convert_image(src: Path, ctx: Ctx, ext: str) -> Result:
+    im = load_image(src)
+    out = ctx.out_path(src, ctx.stem(src) + ext)
+    save_image(im, out, ext, ctx)
     return Result([out])
 
 
@@ -206,7 +282,10 @@ def images_to_pdf(files: list[Path], ctx: Ctx) -> Result:
         ctx.check()
         pages.append(flatten(load_image(f)))
         ctx.progress((i + 1) / (len(files) + 1))
-    name = files[0].stem if len(files) == 1 else f"{files[0].stem} +{len(files) - 1}"
+    if ctx.options.rename_base:
+        name = safe_name(ctx.options.rename_base)
+    else:
+        name = files[0].stem if len(files) == 1 else f"{files[0].stem} +{len(files) - 1}"
     out = ctx.out_path(files[0], name + ".pdf")
     pages[0].save(out, save_all=True, append_images=pages[1:], resolution=150)
     return Result([out])
@@ -217,8 +296,72 @@ def image_small(src: Path, ctx: Ctx) -> Result:
     from PIL import Image
     im = flatten(load_image(src))
     im.thumbnail((1920, 1920), Image.LANCZOS)
-    out = ctx.out_path(src, f"{src.stem} (small).jpg")
+    out = ctx.out_path(src, f"{ctx.stem(src)} (small).jpg")
     im.save(out, quality=80, optimize=True, progressive=True)
+    return Result([out])
+
+
+RESIZE_PRESETS = {  # key: (label, kind, value)
+    "75": ("75% size", "scale", 0.75),
+    "50": ("Half size (50%)", "scale", 0.5),
+    "25": ("Quarter size (25%)", "scale", 0.25),
+    "fhd": ("Full HD (1920 px wide or tall)", "fit", 1920),
+    "hd": ("HD (1280 px)", "fit", 1280),
+    "web": ("Web (800 px)", "fit", 800),
+    "square": ("Square 1080 × 1080 (profile picture)", "square", 1080),
+}
+
+
+def resize_image(src: Path, ctx: Ctx) -> Result:
+    from PIL import Image, ImageOps
+    p = ctx.params
+    preset = p.get("preset", "50")
+    im = load_image(src)
+    w, h = im.size
+    if preset == "custom":
+        new_w = max(1, int(p.get("width", 1000)))
+        size = (new_w, max(1, round(h * new_w / w)))
+        tag = f"{size[0]}x{size[1]}"
+        im = im.resize(size, Image.LANCZOS)
+    else:
+        _, kind, value = RESIZE_PRESETS[preset]
+        if kind == "scale":
+            size = (max(1, round(w * value)), max(1, round(h * value)))
+            im = im.resize(size, Image.LANCZOS)
+            tag = f"{int(value * 100)}%"
+        elif kind == "fit":
+            scale = min(1.0, value / max(w, h))  # never blow small images up
+            size = (max(1, round(w * scale)), max(1, round(h * scale)))
+            im = im.resize(size, Image.LANCZOS)
+            tag = f"{size[0]}x{size[1]}"
+        else:
+            im = ImageOps.fit(rgb_or_rgba(im), (value, value), Image.LANCZOS)
+            tag = "square"
+    ext = keep_format(src)
+    out = ctx.out_path(src, f"{ctx.stem(src)} ({tag}){ext}")
+    save_image(im, out, ext, ctx)
+    return Result([out])
+
+
+ROTATIONS = {  # key: (button text, file name tag)
+    "right": ("Rotate right 90°", "rotated"),
+    "left": ("Rotate left 90°", "rotated"),
+    "180": ("Turn upside down (180°)", "rotated"),
+    "hflip": ("Flip left ↔ right (mirror)", "flipped"),
+    "vflip": ("Flip top ↕ bottom", "flipped"),
+}
+
+
+def rotate_image(src: Path, ctx: Ctx) -> Result:
+    from PIL import Image
+    how = ctx.params.get("how", "right")
+    ops = {"right": Image.Transpose.ROTATE_270, "left": Image.Transpose.ROTATE_90,
+           "180": Image.Transpose.ROTATE_180, "hflip": Image.Transpose.FLIP_LEFT_RIGHT,
+           "vflip": Image.Transpose.FLIP_TOP_BOTTOM}
+    im = load_image(src).transpose(ops[how])
+    ext = keep_format(src)
+    out = ctx.out_path(src, f"{ctx.stem(src)} ({ROTATIONS[how][1]}){ext}")
+    save_image(im, out, ext, ctx)
     return Result([out])
 
 
@@ -228,12 +371,10 @@ def strip_metadata(src: Path, ctx: Ctx) -> Result:
     if im.mode == "P":
         im = im.convert("RGBA" if has_alpha(im) else "RGB")
     clean = Image.frombytes(im.mode, im.size, im.tobytes())  # pixels only: no EXIF, GPS, camera info
-    ext = norm(src.suffix)
-    if ext not in (".png", ".jpg", ".webp", ".bmp", ".tiff", ".gif"):
-        ext = ".jpg"
+    ext = keep_format(src)
     if ext in (".jpg", ".bmp"):
         clean = flatten(clean)
-    out = ctx.out_path(src, f"{src.stem} (clean){ext}")
+    out = ctx.out_path(src, f"{ctx.stem(src)} (clean){ext}")
     clean.save(out, **({"quality": 95} if ext == ".jpg" else {}))
     return Result([out])
 
@@ -248,13 +389,57 @@ def read_qr(src: Path, ctx: Ctx) -> Result:
     return Result(clipboard=text, note=f"Copied to clipboard: {preview}")
 
 
+# --- background removal (U²-Net "silueta" model, runs on the PC) ---
+
+_bg_session = None
+_bg_lock = threading.Lock()
+
+
+def bg_model() -> Path | None:
+    return bundled("models", "silueta.onnx")
+
+
+def remove_background(src: Path, ctx: Ctx) -> Result:
+    global _bg_session
+    import numpy as np
+    from PIL import Image
+    model = bg_model()
+    if not model:
+        raise RuntimeError("the background remover isn't installed in this copy")
+    with _bg_lock:
+        if _bg_session is None:
+            import onnxruntime as ort
+            opts = ort.SessionOptions()
+            opts.log_severity_level = 3
+            _bg_session = ort.InferenceSession(str(model), opts, providers=["CPUExecutionProvider"])
+        sess = _bg_session
+    ctx.progress(0.1)
+    im = load_image(src)
+    rgb = im.convert("RGB")
+    x = np.asarray(rgb.resize((320, 320), Image.LANCZOS), dtype=np.float32)
+    x = x / max(float(x.max()), 1e-6)
+    x = (x - np.array([0.485, 0.456, 0.406], dtype=np.float32)) / np.array([0.229, 0.224, 0.225], dtype=np.float32)
+    x = x.transpose(2, 0, 1)[None].astype(np.float32)
+    ctx.check()
+    pred = sess.run(None, {sess.get_inputs()[0].name: x})[0][0, 0]
+    pred = (pred - pred.min()) / max(float(pred.max() - pred.min()), 1e-6)
+    ctx.progress(0.8)
+    mask = Image.fromarray((pred * 255).astype(np.uint8)).resize(rgb.size, Image.LANCZOS)
+    if has_alpha(im):  # keep parts that were already transparent
+        from PIL import ImageChops
+        mask = ImageChops.multiply(mask, im.convert("RGBA").getchannel("A"))
+    cut = rgb.copy()
+    cut.putalpha(mask)
+    out = ctx.out_path(src, f"{ctx.stem(src)} (no background).png")
+    cut.save(out)
+    return Result([out])
+
+
+def check_bg_model(files: list[Path]) -> str | None:
+    return None if bg_model() else "Not included in this copy"
+
+
 # ----------------------------------------------------------------------------- audio / video (FFmpeg)
-
-def app_dir() -> Path:
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).resolve().parent
-    return Path(__file__).resolve().parent.parent
-
 
 def find_tool(name: str) -> str:
     exe = name + (".exe" if os.name == "nt" else "")
@@ -267,22 +452,35 @@ def find_tool(name: str) -> str:
     raise RuntimeError("FFmpeg is missing. Reinstall Satsuma to fix audio and video conversion.")
 
 
+def probe(src: Path) -> dict:
+    """Duration and which kinds of streams a media file has (cached)."""
+    def work():
+        info = {"duration": 0.0, "audio": False, "video": False}
+        try:
+            out = subprocess.run(
+                [find_tool("ffprobe"), "-v", "error", "-show_entries", "format=duration:stream=codec_type",
+                 "-of", "json", str(src)],
+                capture_output=True, text=True, timeout=20, creationflags=NO_WINDOW,
+            ).stdout
+            data = json.loads(out or "{}")
+            info["duration"] = float(data.get("format", {}).get("duration") or 0)
+            kinds = {s.get("codec_type") for s in data.get("streams", [])}
+            info["audio"], info["video"] = "audio" in kinds, "video" in kinds
+        except (ValueError, OSError, subprocess.SubprocessError, RuntimeError):
+            info["audio"] = info["video"] = True  # unknown: don't block anything
+        return info
+    return _cached("probe", src, work)
+
+
 def media_duration(src: Path) -> float:
-    try:
-        out = subprocess.run(
-            [find_tool("ffprobe"), "-v", "error", "-show_entries", "format=duration",
-             "-of", "default=nw=1:nk=1", str(src)],
-            capture_output=True, text=True, timeout=30, creationflags=NO_WINDOW,
-        ).stdout.strip()
-        return float(out)
-    except (ValueError, OSError, subprocess.SubprocessError, RuntimeError):
-        return 0.0
+    return probe(src)["duration"]
 
 
-def run_ffmpeg(src: Path, out: Path, args: list[str], ctx: Ctx):
-    duration = media_duration(src)
+def run_ffmpeg(src: Path, out: Path, args: list[str], ctx: Ctx, pre: list[str] | None = None,
+               duration: float | None = None):
+    duration = media_duration(src) if duration is None else duration
     cmd = [find_tool("ffmpeg"), "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
-           "-i", str(src), *args, "-progress", "pipe:1", "-nostats", str(out)]
+           *(pre or []), "-i", str(src), *args, "-progress", "pipe:1", "-nostats", str(out)]
     with tempfile.TemporaryFile(mode="w+", encoding="utf-8", errors="replace") as err:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=err, text=True, encoding="utf-8",
                                 errors="replace", creationflags=NO_WINDOW)
@@ -314,7 +512,7 @@ def run_ffmpeg(src: Path, out: Path, args: list[str], ctx: Ctx):
 
 
 def ffmpeg_convert(src: Path, ctx: Ctx, ext: str, args: list[str], suffix: str = "") -> Result:
-    out = ctx.out_path(src, f"{src.stem}{suffix}{ext}")
+    out = ctx.out_path(src, f"{ctx.stem(src)}{suffix}{ext}")
     run_ffmpeg(src, out, args, ctx)
     return Result([out])
 
@@ -330,9 +528,10 @@ AUDIO_ARGS = {
 }
 _EVEN = ["-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2"]  # H.264 needs even width/height
 _H264 = ["-c:v", "libx264", "-preset", "medium", "-pix_fmt", "yuv420p"]
+_AAC = ["-c:a", "aac", "-b:a", "160k"]
 VIDEO_ARGS = {
-    ".mp4": _EVEN + _H264 + ["-crf", "20", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart"],
-    ".mov": _EVEN + _H264 + ["-crf", "20", "-c:a", "aac", "-b:a", "160k"],
+    ".mp4": _EVEN + _H264 + ["-crf", "20"] + _AAC + ["-movflags", "+faststart"],
+    ".mov": _EVEN + _H264 + ["-crf", "20"] + _AAC,
     ".webm": ["-c:v", "libvpx-vp9", "-crf", "32", "-b:v", "0", "-row-mt", "1", "-c:a", "libopus"],
     ".mkv": ["-map", "0", "-c", "copy"],
     ".gif": ["-an", "-vf", "fps=12,scale='min(640,iw)':-1:flags=lanczos,"
@@ -348,6 +547,57 @@ FORMAT_NAMES = {".jpg": "JPG", ".png": "PNG", ".webp": "WebP", ".ico": "icon (IC
                 ".opus": "Opus", ".aiff": "AIFF", ".mp4": "MP4", ".mov": "MOV", ".webm": "WebM",
                 ".mkv": "MKV", ".gif": "GIF"}
 
+VIDEO_ROTATE_FILTERS = {"right": "transpose=1", "left": "transpose=2", "180": "transpose=1,transpose=1",
+                        "hflip": "hflip", "vflip": "vflip"}
+
+
+def rotate_video(src: Path, ctx: Ctx) -> Result:
+    how = ctx.params.get("how", "right")
+    vf = VIDEO_ROTATE_FILTERS[how] + ",pad=ceil(iw/2)*2:ceil(ih/2)*2"
+    args = ["-vf", vf, "-metadata:s:v", "rotate=0"] + _H264 + ["-crf", "20"] + _AAC + ["-movflags", "+faststart"]
+    out = ctx.out_path(src, f"{ctx.stem(src)} ({ROTATIONS[how][1]}).mp4")
+    run_ffmpeg(src, out, args, ctx)
+    return Result([out])
+
+
+def trim_media(src: Path, ctx: Ctx) -> Result:
+    start = max(0.0, float(ctx.params.get("start", 0)))
+    end = float(ctx.params.get("end", 0)) or media_duration(src)
+    if end <= start:
+        raise RuntimeError("the end must be after the start")
+    pre = ["-ss", f"{start:.3f}", "-to", f"{end:.3f}"]
+    if category(src) == "audio":
+        ext = norm(src.suffix)
+        if ext not in AUDIO_ARGS:
+            ext = ".mp3"
+        args = AUDIO_ARGS[ext]
+    else:
+        ext = ".mp4"
+        args = _EVEN + _H264 + ["-crf", "20"] + _AAC + ["-movflags", "+faststart"]
+    out = ctx.out_path(src, f"{ctx.stem(src)} (trimmed){ext}")
+    run_ffmpeg(src, out, args, ctx, pre=pre, duration=end - start)
+    return Result([out])
+
+
+def video_frame(src: Path, seconds: float, width: int = 240) -> bytes | None:
+    """A small PNG of one video frame, for the trim window."""
+    try:
+        proc = subprocess.run(
+            [find_tool("ffmpeg"), "-v", "error", "-ss", f"{max(0.0, seconds):.2f}", "-i", str(src),
+             "-frames:v", "1", "-vf", f"scale={width}:-2", "-f", "image2pipe", "-c:v", "png", "pipe:1"],
+            capture_output=True, timeout=15, creationflags=NO_WINDOW)
+        return proc.stdout or None
+    except (OSError, subprocess.SubprocessError, RuntimeError):
+        return None
+
+
+def check_has_audio(files: list[Path]) -> str | None:
+    return None if probe(files[0])["audio"] else "This video has no sound"
+
+
+def check_gif_length(files: list[Path]) -> str | None:
+    return "Too long for a GIF (over 2 minutes)" if media_duration(files[0]) > 120 else None
+
 
 # ----------------------------------------------------------------------------- PDF (pypdf + pdfium)
 
@@ -359,17 +609,29 @@ def _open_reader(src: Path):
     return reader
 
 
+def check_pdf_locked(files: list[Path]) -> str | None:
+    def work():
+        try:
+            from pypdf import PdfReader
+            r = PdfReader(str(files[0]))
+            return "This PDF is password-protected" if r.is_encrypted and not r.decrypt("") else None
+        except Exception:
+            return None
+    return _cached("pdflock", files[0], work)
+
+
 def pdf_split(src: Path, ctx: Ctx) -> Result:
     from pypdf import PdfWriter
     reader = _open_reader(src)
     n = len(reader.pages)
-    outdir = ctx.out_dir(src, f"{src.stem} pages")
+    stem = ctx.stem(src)
+    outdir = ctx.out_dir(src, f"{stem} pages")
     width = len(str(n))
     for i, page in enumerate(reader.pages):
         ctx.check()
         w = PdfWriter()
         w.add_page(page)
-        with open(outdir / f"{src.stem} p{i + 1:0{width}}.pdf", "wb") as fh:
+        with open(outdir / f"{stem} p{i + 1:0{width}}.pdf", "wb") as fh:
             w.write(fh)
         ctx.progress((i + 1) / n)
     return Result([outdir])
@@ -378,15 +640,16 @@ def pdf_split(src: Path, ctx: Ctx) -> Result:
 def pdf_to_png(src: Path, ctx: Ctx) -> Result:
     import pypdfium2 as pdfium
     pdf = pdfium.PdfDocument(str(src))
+    stem = ctx.stem(src)
     try:
         n = len(pdf)
         if n == 1:
-            out = ctx.out_path(src, src.stem + ".png")
+            out = ctx.out_path(src, stem + ".png")
             targets = [out]
         else:
-            out = ctx.out_dir(src, f"{src.stem} images")
+            out = ctx.out_dir(src, f"{stem} images")
             width = len(str(n))
-            targets = [out / f"{src.stem} p{i + 1:0{width}}.png" for i in range(n)]
+            targets = [out / f"{stem} p{i + 1:0{width}}.png" for i in range(n)]
         for i, target in enumerate(targets):
             ctx.check()
             page = pdf[i]
@@ -412,7 +675,7 @@ def pdf_to_text(src: Path, ctx: Ctx) -> Result:
             page.close()
     finally:
         pdf.close()
-    out = ctx.out_path(src, src.stem + ".txt")
+    out = ctx.out_path(src, ctx.stem(src) + ".txt")
     out.write_text("\n\n".join(parts), encoding="utf-8")
     return Result([out])
 
@@ -424,63 +687,243 @@ def pdf_merge(files: list[Path], ctx: Ctx) -> Result:
         ctx.check()
         w.append(_open_reader(f))
         ctx.progress((i + 1) / (len(files) + 1))
-    out = ctx.out_path(files[0], f"{files[0].stem} merged.pdf")
+    name = safe_name(ctx.options.rename_base) or f"{files[0].stem} merged"
+    out = ctx.out_path(files[0], f"{name}.pdf")
     with open(out, "wb") as fh:
         w.write(fh)
     return Result([out])
 
 
+def pdf_compress(src: Path, ctx: Ctx) -> Result:
+    """Shrinks big pictures inside the PDF and squeezes the rest. Text stays sharp."""
+    from PIL import Image
+    from pypdf import PdfWriter
+    reader = _open_reader(src)
+    writer = PdfWriter(clone_from=reader)
+    n = max(1, len(writer.pages))
+    for i, page in enumerate(writer.pages):
+        ctx.check()
+        try:
+            for img in page.images:
+                try:
+                    pil = img.image
+                    if pil.width * pil.height < 160_000:  # leave small images (logos, icons) alone
+                        continue
+                    if max(pil.size) > 1800:
+                        pil.thumbnail((1800, 1800), Image.LANCZOS)
+                    if pil.mode not in ("RGB", "L"):
+                        pil = flatten(pil)
+                    img.replace(pil, quality=65)
+                except Exception:  # unusual image types: keep as they are
+                    log.debug("kept one image in %s", src, exc_info=True)
+        except Exception:
+            log.debug("page %s images skipped", i, exc_info=True)
+        page.compress_content_streams()
+        ctx.progress(0.9 * (i + 1) / n)
+    writer.compress_identical_objects(remove_identicals=True, remove_orphans=True)
+    out = ctx.out_path(src, f"{ctx.stem(src)} (compressed).pdf")
+    with open(out, "wb") as fh:
+        writer.write(fh)
+    before, after = src.stat().st_size, out.stat().st_size
+    if after >= before * 0.97:
+        out.unlink(missing_ok=True)
+        return Result(note=f"{src.name} is already as small as it gets")
+    return Result([out], note=f"{human_size(before)} → {human_size(after)} "
+                              f"({100 - round(after * 100 / before)}% smaller)")
+
+
+def human_size(n: float) -> str:
+    for unit in ("bytes", "KB", "MB", "GB"):
+        if n < 1024 or unit == "GB":
+            return f"{n:.0f} {unit}" if unit == "bytes" else f"{n:.1f} {unit}"
+        n /= 1024
+    return f"{n:.1f} GB"
+
+
+# ----------------------------------------------------------------------------- Word / Excel / PowerPoint
+
+def _office_installed(prog_id: str) -> bool:
+    if os.name != "nt":
+        return False
+    import winreg
+    try:
+        with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, prog_id + r"\CLSID"):
+            return True
+    except OSError:
+        return False
+
+
+def find_libreoffice() -> str | None:
+    for base in (os.environ.get("ProgramFiles", r"C:\Program Files"),
+                 os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")):
+        p = Path(base) / "LibreOffice" / "program" / "soffice.exe"
+        if p.exists():
+            return str(p)
+    return shutil.which("soffice")
+
+
+def office_app_for(src: Path) -> str | None:
+    ext = norm(src.suffix)
+    prog = "Word.Application" if ext in WORD_EXT else "Excel.Application" if ext in EXCEL_EXT \
+        else "PowerPoint.Application"
+    if ext not in (".odt", ".ods", ".odp") and _cached("office", Path(prog), lambda: _office_installed(prog)):
+        return prog
+    return None
+
+
+OFFICE_SCRIPTS = {
+    "Word.Application": """
+$app = New-Object -ComObject Word.Application; $app.Visible = $false; $app.DisplayAlerts = 0
+try { $d = $app.Documents.Open($env:SAT_IN, $false, $true); $d.ExportAsFixedFormat($env:SAT_OUT, 17); $d.Close(0) }
+finally { $app.Quit() }""",
+    "Excel.Application": """
+$app = New-Object -ComObject Excel.Application; $app.Visible = $false; $app.DisplayAlerts = $false
+try { $b = $app.Workbooks.Open($env:SAT_IN, 0, $true); $b.ExportAsFixedFormat(0, $env:SAT_OUT); $b.Close($false) }
+finally { $app.Quit() }""",
+    "PowerPoint.Application": """
+$app = New-Object -ComObject PowerPoint.Application
+try { $p = $app.Presentations.Open($env:SAT_IN, -1, 0, 0); $p.SaveAs($env:SAT_OUT, 32); $p.Close() }
+finally { $app.Quit() }""",
+}
+
+
+def document_to_pdf(src: Path, ctx: Ctx) -> Result:
+    out = ctx.out_path(src, ctx.stem(src) + ".pdf")
+    prog = office_app_for(src)
+    if prog:
+        env = dict(os.environ, SAT_IN=str(src.resolve()), SAT_OUT=str(out.resolve()))
+        ps = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+        proc = subprocess.run([str(ps), "-NoProfile", "-NonInteractive", "-Command", OFFICE_SCRIPTS[prog]],
+                              capture_output=True, text=True, env=env, timeout=600, creationflags=NO_WINDOW)
+        if proc.returncode or not out.exists():
+            log.error("office export failed: %s", proc.stderr[-2000:])
+            raise RuntimeError("Office couldn't turn this file into a PDF")
+        return Result([out])
+    soffice = find_libreoffice()
+    if not soffice:
+        raise RuntimeError("needs Microsoft Office or LibreOffice")
+    with tempfile.TemporaryDirectory() as tmp:
+        proc = subprocess.run([soffice, "--headless", "--norestore", "--convert-to", "pdf", "--outdir", tmp,
+                               str(src)], capture_output=True, text=True, timeout=600, creationflags=NO_WINDOW)
+        made = Path(tmp) / (src.stem + ".pdf")
+        if proc.returncode or not made.exists():
+            log.error("libreoffice export failed: %s", proc.stderr[-2000:])
+            raise RuntimeError("LibreOffice couldn't turn this file into a PDF")
+        shutil.move(str(made), out)
+    return Result([out])
+
+
+def check_office(files: list[Path]) -> str | None:
+    if office_app_for(files[0]) or _cached("lo", Path("soffice"), find_libreoffice):
+        return None
+    return "Needs Microsoft Office or LibreOffice"
+
+
 # ----------------------------------------------------------------------------- what goes on the wheel
 
-CATEGORY_NAMES = {"image": "Images", "audio": "Audio", "video": "Video", "pdf": "PDFs"}
+CATEGORY_NAMES = {"image": "Images", "audio": "Audio", "video": "Video", "pdf": "PDFs",
+                  "document": "Word, Excel & PowerPoint"}
+
+
+def already(ext: str) -> Callable[[list[Path]], str | None]:
+    name = FORMAT_NAMES.get(ext, ext[1:].upper())
+
+    def check(files: list[Path]) -> str | None:
+        return f"Already {name}" if all(norm(f.suffix) == ext for f in files) else None
+    return check
+
+
+def needs_several(what: str) -> Callable[[list[Path]], str | None]:
+    def check(files: list[Path]) -> str | None:
+        return None if len(files) > 1 else f"Drop 2 or more {what} to combine them"
+    return check
+
+
+def both(*checks):
+    def check(files):
+        for c in checks:
+            reason = c(files)
+            if reason:
+                return reason
+        return None
+    return check
 
 
 def catalog(multi: bool = False) -> dict[str, list[Tool]]:
     """Every tool Satsuma has, per file type, in wheel order."""
-    def fmt(kind, ext, fn, **kw):
+    def fmt(kind, ext, fn, check=None, **kw):
         return Tool(f"{kind}:{ext[1:]}", ext[1:].upper(),
                     f"Convert to {FORMAT_NAMES.get(ext, ext[1:].upper())}",
-                    partial(fn, ext=ext, **kw), target_ext=ext)
+                    partial(fn, ext=ext, **kw), check=both(already(ext), check) if check else already(ext))
 
     image = [fmt("image", e, convert_image) for e in (".png", ".jpg", ".webp")]
     image.append(Tool("image:pdf", "PDF", "Combine into one PDF" if multi else "Convert to PDF",
                       images_to_pdf, batch=True))
+    image += [Tool("image:resize", "Resize", "Make it bigger or smaller", resize_image, ask="resize"),
+              Tool("image:rotate", "Rotate", "Rotate or flip", rotate_image, ask="rotate"),
+              Tool("image:cutout", "Cut out", "Remove the background", remove_background, check=check_bg_model),
+              Tool("image:small", "Small", "Shrink for sharing", image_small)]
     image += [fmt("image", e, convert_image) for e in (".ico", ".bmp")]
-    image += [Tool("image:small", "Small", "Shrink for sharing", image_small),
-              Tool("image:qr", "QR", "Read QR code", read_qr),
+    image += [Tool("image:qr", "QR", "Read QR code", read_qr, renames=False),
               Tool("image:clean", "Clean", "Remove location & camera info", strip_metadata)]
 
     audio = [fmt("audio", e, ffmpeg_convert, args=a) for e, a in AUDIO_ARGS.items()]
+    audio.append(Tool("audio:trim", "Trim", "Cut the start or end", trim_media, ask="trim"))
 
-    video = [fmt("video", e, ffmpeg_convert, args=a) for e, a in VIDEO_ARGS.items()]
-    video += [Tool("video:small", "Small", "Shrink for sharing",
+    video = [fmt("video", e, ffmpeg_convert, check=check_gif_length if e == ".gif" else None, args=a)
+             for e, a in VIDEO_ARGS.items()]
+    video += [Tool("video:trim", "Trim", "Cut the start or end", trim_media, ask="trim"),
+              Tool("video:rotate", "Rotate", "Rotate or flip", rotate_video, ask="rotate"),
+              Tool("video:small", "Small", "Shrink for sharing",
                    partial(ffmpeg_convert, ext=".mp4", args=VIDEO_SMALL_ARGS, suffix=" (small)")),
-              Tool("video:mp3", "MP3", "Save the audio as MP3",
-                   partial(ffmpeg_convert, ext=".mp3", args=AUDIO_ARGS[".mp3"]))]
+              Tool("video:mp3", "MP3", "Save the sound as MP3",
+                   partial(ffmpeg_convert, ext=".mp3", args=AUDIO_ARGS[".mp3"]), check=check_has_audio)]
 
-    pdf = [Tool("pdf:merge", "Merge", "Combine into one PDF", pdf_merge, batch=True, multi_only=True),
-           Tool("pdf:split", "Split", "One PDF per page", pdf_split),
-           Tool("pdf:png", "PNG", "Pages to images", pdf_to_png),
-           Tool("pdf:text", "Text", "Pull out the text", pdf_to_text)]
-    return {"image": image, "audio": audio, "video": video, "pdf": pdf}
+    pdf = [Tool("pdf:merge", "Merge", "Combine into one PDF", pdf_merge, batch=True,
+                check=needs_several("PDFs")),
+           Tool("pdf:compress", "Compress", "Make the file smaller", pdf_compress, check=check_pdf_locked),
+           Tool("pdf:split", "Split", "One PDF per page", pdf_split, check=check_pdf_locked),
+           Tool("pdf:png", "PNG", "Pages to images", pdf_to_png, check=check_pdf_locked),
+           Tool("pdf:text", "Text", "Pull out the text", pdf_to_text, check=check_pdf_locked)]
+
+    document = [Tool("document:pdf", "PDF", "Convert to PDF", document_to_pdf, check=check_office)]
+    return {"image": image, "audio": audio, "video": video, "pdf": pdf, "document": document}
 
 
-def tools_for(paths: list[Path], hidden: set[str] | frozenset = frozenset()) -> tuple[list[Path], list[Tool]]:
-    """Pick the files that match the first one's type and the tools that apply to them."""
+@dataclass
+class Slot:
+    tool: Tool
+    reason: str | None = None  # why it can't be used right now (shown dimmed), or None
+
+    @property
+    def ok(self) -> bool:
+        return self.reason is None
+
+
+def tools_for(paths: list[Path], hidden=frozenset(), favorites=(), show_unavailable: bool = True
+              ) -> tuple[list[Path], list[Slot]]:
+    """The files that match the first one's type, and the wheel's slices for them."""
     if not paths:
         return [], []
     kind = category(paths[0])
     files = [p for p in paths if category(p) == kind and p.is_file()]
     if not files or kind == "other":
         return files, []
-    exts = {norm(f.suffix) for f in files}
-    src_ext = exts.pop() if len(exts) == 1 else None
-    multi = len(files) > 1
-    tools = [t for t in catalog(multi)[kind]
-             if t.key not in hidden
-             and not (t.target_ext and t.target_ext == src_ext)
-             and not (t.multi_only and not multi)]
-    return files, tools
+    slots = []
+    for t in catalog(len(files) > 1)[kind]:
+        if t.key in hidden:
+            continue
+        try:
+            reason = t.check(files) if t.check else None
+        except Exception:
+            log.debug("check failed for %s", t.key, exc_info=True)
+            reason = None
+        if reason and not show_unavailable:
+            continue
+        slots.append(Slot(t, reason))
+    fav = {k: i for i, k in enumerate(favorites)}
+    slots.sort(key=lambda s: fav.get(s.tool.key, len(fav)))  # stable: favorites first, rest keep order
+    return files, slots
 
 
 def friendly_error(e: Exception) -> str:
@@ -491,12 +934,15 @@ def friendly_error(e: Exception) -> str:
         return "permission denied (is the file open in another app?)"
     if isinstance(e, FileNotFoundError):
         return "file not found"
+    if isinstance(e, subprocess.TimeoutExpired):
+        return "took too long and was stopped"
     return str(e) or name
 
 
 def run_job(tool: Tool, files: list[Path], options: Options,
             progress: Callable[[float], None] | None = None,
-            cancel: threading.Event | None = None) -> tuple[Result, list[str]]:
+            cancel: threading.Event | None = None,
+            params: dict | None = None) -> tuple[Result, list[str]]:
     """Run a tool over the files. Returns the combined result and a list of per-file errors."""
     progress = progress or (lambda f: None)
     cancel = cancel or threading.Event()
@@ -506,7 +952,8 @@ def run_job(tool: Tool, files: list[Path], options: Options,
     for i, item in enumerate(items):
         if cancel.is_set():
             break
-        ctx = Ctx(options, lambda f, i=i: progress((i + f) / n), cancel)
+        ctx = Ctx(options, lambda f, i=i: progress((i + f) / n), cancel, params,
+                  index=None if tool.batch else i, total=n)
         try:
             r = tool.run(item, ctx)
             total.outputs += r.outputs

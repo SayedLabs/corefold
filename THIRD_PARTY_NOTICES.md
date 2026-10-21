@@ -11,6 +11,9 @@ Satsuma's own code is MIT-licensed (see LICENSE). It ships with these components
 | pypdf | BSD-3 | https://github.com/py-pdf/pypdf |
 | pypdfium2 / PDFium | Apache 2.0 / BSD-3 | https://github.com/pypdfium2-team/pypdfium2 |
 | zxing-cpp | Apache 2.0 | https://github.com/zxing-cpp/zxing-cpp |
+| ONNX Runtime | MIT | https://github.com/microsoft/onnxruntime |
+| NumPy | BSD-3 | https://numpy.org |
+| "silueta" background-removal model (U²-Net) | Apache 2.0 (U²-Net) · distributed by rembg (MIT) | https://github.com/xuebinqin/U-2-Net · https://github.com/danielgatis/rembg |
 | Python | PSF License | https://www.python.org |
 
 The Qt and libheif libraries are included as separate DLL files in the `_internal`

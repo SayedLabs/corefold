@@ -6,13 +6,21 @@ converted. Everything happens on your PC; nothing is uploaded.
 
 | Drop a… | You can make |
 |---|---|
-| Image (PNG, JPG, WebP, HEIC, AVIF, GIF, BMP, TIFF, ICO) | PNG, JPG, WebP, PDF, ICO, BMP, a smaller copy for sharing, read a QR code, remove location & camera info |
-| Audio (MP3, M4A, WAV, FLAC, OGG, Opus, AIFF, WMA, AAC) | MP3, M4A, WAV, FLAC, OGG, Opus, AIFF |
-| Video (MP4, MOV, MKV, WebM, AVI, WMV…) | MP4, MOV, WebM, MKV, GIF, a smaller copy, MP3 audio |
-| PDF | Split into pages, pages to images, extract text, merge several PDFs |
+| Image (PNG, JPG, WebP, HEIC, AVIF, GIF, BMP, TIFF, ICO) | PNG, JPG, WebP, PDF, ICO, BMP, **resize**, **rotate / flip**, **cut out (remove the background)**, a smaller copy for sharing, read a QR code, remove location & camera info |
+| Audio (MP3, M4A, WAV, FLAC, OGG, Opus, AIFF, WMA, AAC) | MP3, M4A, WAV, FLAC, OGG, Opus, AIFF, **trim** |
+| Video (MP4, MOV, MKV, WebM, AVI, WMV…) | MP4, MOV, WebM, MKV, GIF, **trim**, **rotate / flip**, a smaller copy, MP3 sound |
+| PDF | **Compress**, split into pages, pages to images, extract text, merge several PDFs |
+| Word, Excel, PowerPoint (DOCX, XLSX, PPTX, ODT…) | PDF (uses Microsoft Office or LibreOffice if installed) |
+
+Formats that don't work for a file (for example *MP3* on a video without sound) show up **dimmed**,
+and pointing at one tells you why. Prefer a tidier wheel? Choose **Hide them** in Settings.
+
+Other ways to use it: **right-click** a file → *Convert with Satsuma* (Windows 11: *Show more options*),
+or drag a file onto the box on Satsuma's Home page.
 
 Drop several files at once to convert them all (several images on **PDF** makes one combined PDF).
-The original file is never moved or changed.
+Turn on *ask for a new name* to get `vacation-1.jpg`, `vacation-2.jpg`… The original file is never
+moved or changed.
 
 ## Installing
 Run **Satsuma-Setup.exe**, keep the two boxes ticked, click **Install**. That's it: a desktop
@@ -22,10 +30,13 @@ Installing a newer version on top upgrades it and keeps your settings.
 ## Customizing
 Open Satsuma from the desktop icon (or click the orange tray icon):
 - **General:** which key to hold (Shift, Ctrl + Shift or Alt), where new files go, image quality,
+  a sound when done, dim or hide formats that don't fit, new names for batches, right-click menu,
   progress popups, start with Windows.
-- **Look:** match Windows / dark / light, six accent colours, small / medium / large wheel,
-  animations on or off, with a live preview.
-- **Formats:** untick anything you don't use so the wheel only shows what you want.
+- **Look:** match Windows / dark / light, six accent colours or your own, wheel shape (classic,
+  petals, slim), size and see-through, animations on or off, with a live preview.
+- **Formats:** untick anything you don't use, and ★ your favourites to pin them to the top.
+- **History:** recent conversions (open them or show them in their folder) and your stats:
+  files converted and space saved.
 
 ## Updates
 Satsuma updates itself, so nobody has to download it again. It checks your GitHub releases page
@@ -104,9 +115,11 @@ satsuma/wheel.py            the format wheel and its preview
 satsuma/theme.py            light/dark themes and accent colours
 satsuma/toast.py            progress / result popup
 satsuma/settings.py         saved settings, start with Windows, uninstall helpers
-satsuma/converters.py       all the conversions (Pillow, FFmpeg, pypdf, PDFium, zxing)
+satsuma/converters.py       all the conversions (Pillow, FFmpeg, pypdf, PDFium, zxing, ONNX Runtime)
+satsuma/dialogs.py          resize / rotate / trim / rename windows
+satsuma/history.py          recent conversions and stats
 satsuma/updater.py          self-updates from GitHub Releases (checksum-verified)
-assets/                     icon and installer pictures (redraw with scripts/make_icon.py)
+assets/                     icon, installer pictures and sounds (scripts/make_icon.py, make_sounds.py)
 scripts/build.ps1           builds the app, installer and zip
 installer/satsuma.iss       Inno Setup installer script
 .github/workflows/          automatic builds on GitHub

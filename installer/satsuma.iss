@@ -44,7 +44,7 @@ CloseApplications=no
 
 [Messages]
 SelectTasksLabel2=Choose your options, then click Install.
-FinishedLabel=Satsuma is installed. Hold Shift and drag any file in File Explorer to convert it.
+FinishedLabel=Satsuma is installed. Hold Shift and drag any file in File Explorer, or right-click a file and choose Convert with Satsuma.
 
 [Tasks]
 Name: "desktopicon"; Description: "Put a Satsuma icon on my desktop"
@@ -107,8 +107,12 @@ begin
 end;
 
 function InitializeUninstall(): Boolean;
+var
+  ResultCode: Integer;
 begin
   CloseRunningSatsuma();
+  { remove "Convert with Satsuma" from the right-click menu }
+  Exec(ExpandConstant('{app}\{#AppExe}'), '--remove-shell-menu', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Result := True;
 end;
 
