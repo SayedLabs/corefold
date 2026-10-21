@@ -47,7 +47,29 @@ def load_image(src: Path):
     with Image.open(src) as im:
         out = ImageOps.exif_transpose(im)  # applies phone-camera rotation; returns a copy (first frame)
         out.load()
-        return out
+    if out.mode in ("I;16", "I;16B", "I;16L", "I;16N", "I", "F"):
+        # 16-bit and 32-bit pictures (scanners, cameras, medical): scale down to normal 8-bit greys.
+        # Without this they come out almost completely white.
+        info = dict(out.info)
+        wide = out.convert("F")
+        hi = wide.getextrema()[1] or 1
+        top = 255 if hi <= 255 else 65535 if hi <= 65535 else hi
+        out = wide.point(lambda v: v * (255 / top)).convert("L")
+        out.info.update(info)
+    return out
+
+
+def _metadata(im, ext: str) -> dict:
+    """Colour profile and photo details (date taken, camera) to keep in the new file. Without the
+    colour profile, iPhone photos (Display P3) look dull after converting."""
+    keep = {}
+    icc = im.info.get("icc_profile")
+    if icc and ext in (".jpg", ".png", ".webp", ".tiff"):
+        keep["icc_profile"] = icc
+    exif = im.info.get("exif")
+    if isinstance(exif, (bytes, bytearray)) and exif and len(exif) < 60_000 and ext in (".jpg", ".png", ".webp"):
+        keep["exif"] = bytes(exif)
+    return keep
 
 
 def has_alpha(im) -> bool:
@@ -71,16 +93,19 @@ def rgb_or_rgba(im):
     return im.convert("RGBA" if has_alpha(im) else "RGB")
 
 
-def save_image(im, out: Path, ext: str, ctx: Ctx):
+def save_image(im, out: Path, ext: str, ctx: Ctx, keep_metadata: bool = True):
     from PIL import Image
+    meta = _metadata(im, ext) if keep_metadata else {}
     if ext in (".jpg", ".bmp"):
         im = flatten(im)
     else:
         im = rgb_or_rgba(im)
     if ext == ".jpg":
-        im.save(out, quality=ctx.options.jpg_quality, optimize=True, progressive=True)
+        im.save(out, quality=ctx.options.jpg_quality, optimize=True, progressive=True, **meta)
     elif ext == ".webp":
-        im.save(out, quality=ctx.options.jpg_quality, method=5)
+        im.save(out, quality=ctx.options.jpg_quality, method=5, **meta)
+    elif ext in (".png", ".tiff"):
+        im.save(out, **meta)
     elif ext == ".ico":
         im = im.convert("RGBA")
         side = max(im.size)
@@ -104,18 +129,41 @@ def convert_image(src: Path, ctx: Ctx, ext: str) -> Result:
     return Result([out])
 
 
+def write_pages_pdf(pages, out: Path, resolution: int):
+    """Writes pictures as PDF pages one at a time, so 200 photos don't need 200 photos' worth of
+    memory at once (each page is compressed before the next one is loaded)."""
+    import io
+    from pypdf import PdfReader, PdfWriter
+    writer = PdfWriter()
+    for im in pages:
+        buf = io.BytesIO()
+        im.save(buf, "PDF", resolution=resolution)
+        im.close()
+        buf.seek(0)
+        writer.append(PdfReader(buf))
+    tmp = out.with_name(out.name + ".part")
+    try:
+        with open(tmp, "wb") as fh:
+            writer.write(fh)
+        os.replace(tmp, out)
+    finally:
+        if tmp.exists():
+            tmp.unlink(missing_ok=True)
+
+
 def images_to_pdf(files: list[Path], ctx: Ctx) -> Result:
-    pages = []
-    for i, f in enumerate(files):
-        ctx.check()
-        pages.append(flatten(load_image(f)))
-        ctx.progress((i + 1) / (len(files) + 1))
     if ctx.options.rename_base:
         name = safe_name(ctx.options.rename_base)
     else:
         name = files[0].stem if len(files) == 1 else f"{files[0].stem} +{len(files) - 1}"
     out = ctx.out_path(files[0], name + ".pdf")
-    pages[0].save(out, save_all=True, append_images=pages[1:], resolution=150)
+
+    def pages():
+        for i, f in enumerate(files):
+            ctx.check()
+            yield flatten(load_image(f))
+            ctx.progress((i + 1) / (len(files) + 1))
+    write_pages_pdf(pages(), out, 150)
     return Result([out])
 
 
@@ -294,13 +342,14 @@ def find_tool(name: str) -> str:
 def probe(src: Path) -> dict:
     """Duration and which kinds of streams a media file has (cached)."""
     def work():
-        info = {"duration": 0.0, "audio": False, "video": False, "width": 0, "height": 0}
+        info = {"duration": 0.0, "audio": False, "video": False, "width": 0, "height": 0, "rotation": 0}
         try:
             out = subprocess.run(
                 [find_tool("ffprobe"), "-v", "error", "-show_entries",
                  "format=duration:stream=codec_type,width,height:stream_side_data=rotation",
                  "-of", "json", str(src)],
-                capture_output=True, text=True, timeout=20, creationflags=NO_WINDOW,
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=20,
+                stdin=subprocess.DEVNULL, creationflags=NO_WINDOW,
             ).stdout
             data = json.loads(out or "{}")
             info["duration"] = float(data.get("format", {}).get("duration") or 0)
@@ -314,6 +363,7 @@ def probe(src: Path) -> dict:
                     for sd in s.get("side_data_list", []) or []:
                         rot = int(sd.get("rotation") or 0) or rot
                     info["width"], info["height"] = (h, w) if abs(rot) in (90, 270) else (w, h)
+                    info["rotation"] = rot
                     break
         except (ValueError, OSError, subprocess.SubprocessError, RuntimeError):
             info["audio"] = info["video"] = True  # unknown: don't block anything
@@ -331,8 +381,8 @@ def run_ffmpeg(src: Path, out: Path, args: list[str], ctx: Ctx, pre: list[str] |
     cmd = [find_tool("ffmpeg"), "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
            *(pre or []), "-i", str(src), *args, "-progress", "pipe:1", "-nostats", str(out)]
     with tempfile.TemporaryFile(mode="w+", encoding="utf-8", errors="replace") as err:
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=err, text=True, encoding="utf-8",
-                                errors="replace", creationflags=job_flags())
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=err, stdin=subprocess.DEVNULL, text=True,
+                                encoding="utf-8", errors="replace", creationflags=job_flags())
         try:
             for line in proc.stdout:
                 if ctx.cancelled:
@@ -366,6 +416,10 @@ def run_ffmpeg(src: Path, out: Path, args: list[str], ctx: Ctx, pre: list[str] |
 
 def ffmpeg_convert(src: Path, ctx: Ctx, ext: str, args: list[str], suffix: str = "") -> Result:
     out = ctx.out_path(src, f"{ctx.stem(src)}{suffix}{ext}")
+    if ext == ".mkv" and probe(src).get("rotation"):
+        # MKV can't store "this video is turned": a phone video filmed upright would play sideways
+        # if just copied, so it's re-encoded the right way up instead.
+        args = _EVEN + _H264 + ["-crf", "20"] + _AAC
     run_ffmpeg(src, out, args, ctx)
     return Result([out])
 
@@ -385,8 +439,12 @@ _AAC = ["-c:a", "aac", "-b:a", "160k"]
 VIDEO_ARGS = {
     ".mp4": _EVEN + _H264 + ["-crf", "20"] + _AAC + ["-movflags", "+faststart"],
     ".mov": _EVEN + _H264 + ["-crf", "20"] + _AAC,
-    ".webm": ["-c:v", "libvpx-vp9", "-crf", "32", "-b:v", "0", "-row-mt", "1", "-c:a", "libopus"],
-    ".mkv": ["-map", "0", "-c", "copy"],
+    # "-deadline good -cpu-used 4": several times faster than VP9's default, which can take ages
+    ".webm": ["-c:v", "libvpx-vp9", "-crf", "32", "-b:v", "0", "-row-mt", "1", "-deadline", "good",
+              "-cpu-used", "4", "-pix_fmt", "yuv420p", "-c:a", "libopus"],
+    # copy the picture and sound as they are (fast, no quality loss). Phone videos carry extra
+    # data tracks that MKV can't hold, so only video and audio are taken.
+    ".mkv": ["-map", "0:v", "-map", "0:a?", "-c", "copy", "-sn", "-dn"],
     ".gif": ["-an", "-vf", "fps=12,scale='min(640,iw)':-1:flags=lanczos,"
                            "split[a][b];[a]palettegen[p];[b][p]paletteuse", "-loop", "0"],
 }
@@ -438,7 +496,7 @@ def video_frame(src: Path, seconds: float, width: int = 240) -> bytes | None:
         proc = subprocess.run(
             [find_tool("ffmpeg"), "-v", "error", "-ss", f"{max(0.0, seconds):.2f}", "-i", str(src),
              "-frames:v", "1", "-vf", f"scale={width}:-2", "-f", "image2pipe", "-c:v", "png", "pipe:1"],
-            capture_output=True, timeout=15, creationflags=NO_WINDOW)
+            capture_output=True, timeout=15, stdin=subprocess.DEVNULL, creationflags=NO_WINDOW)
         return proc.stdout or None
     except (OSError, subprocess.SubprocessError, RuntimeError):
         return None
@@ -564,6 +622,8 @@ def write_compressed_pdf(src: Path, out: Path, ctx: Ctx, quality: int = 65, max_
                     pil = img.image
                     if pil.width * pil.height < 160_000:  # leave small images (logos, icons) alone
                         continue
+                    if pil.mode in ("RGBA", "LA", "PA", "P") or "transparency" in pil.info:
+                        continue  # see-through pictures would get a white box around them
                     if max(pil.size) > max_dim:
                         pil.thumbnail((max_dim, max_dim), Image.LANCZOS)
                     if pil.mode not in ("RGB", "L"):
@@ -624,19 +684,21 @@ def office_app_for(src: Path) -> str | None:
     return None
 
 
+# Office is only closed afterwards if nothing else is open in it: PowerPoint (and sometimes Word
+# and Excel) share one copy with whatever the person is working on.
 OFFICE_SCRIPTS = {
     "Word.Application": """
-$app = New-Object -ComObject Word.Application; $app.Visible = $false; $app.DisplayAlerts = 0
-try { $d = $app.Documents.Open($env:SAT_IN, $false, $true); $d.ExportAsFixedFormat($env:SAT_OUT, 17); $d.Close(0) }
-finally { $app.Quit() }""",
+$app = New-Object -ComObject Word.Application; $app.DisplayAlerts = 0
+try { $d = $app.Documents.Open($env:SAT_IN, $false, $true, $false); $d.ExportAsFixedFormat($env:SAT_OUT, 17); $d.Close(0) }
+finally { if ($app.Documents.Count -eq 0) { $app.Quit() } }""",
     "Excel.Application": """
-$app = New-Object -ComObject Excel.Application; $app.Visible = $false; $app.DisplayAlerts = $false
+$app = New-Object -ComObject Excel.Application; $app.DisplayAlerts = $false
 try { $b = $app.Workbooks.Open($env:SAT_IN, 0, $true); $b.ExportAsFixedFormat(0, $env:SAT_OUT); $b.Close($false) }
-finally { $app.Quit() }""",
+finally { if ($app.Workbooks.Count -eq 0) { $app.Quit() } }""",
     "PowerPoint.Application": """
 $app = New-Object -ComObject PowerPoint.Application
 try { $p = $app.Presentations.Open($env:SAT_IN, -1, 0, 0); $p.SaveAs($env:SAT_OUT, 32); $p.Close() }
-finally { $app.Quit() }""",
+finally { if ($app.Presentations.Count -eq 0) { $app.Quit() } }""",
 }
 
 
@@ -647,7 +709,8 @@ def document_to_pdf(src: Path, ctx: Ctx) -> Result:
         env = dict(os.environ, SAT_IN=str(src.resolve()), SAT_OUT=str(out.resolve()))
         ps = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
         proc = subprocess.run([str(ps), "-NoProfile", "-NonInteractive", "-Command", OFFICE_SCRIPTS[prog]],
-                              capture_output=True, text=True, env=env, timeout=600, creationflags=job_flags())
+                              capture_output=True, text=True, env=env, timeout=600, stdin=subprocess.DEVNULL,
+                              creationflags=job_flags())
         if proc.returncode or not out.exists():
             log.error("office export failed: %s", proc.stderr[-2000:])
             raise RuntimeError(tr("Office couldn't turn this file into a PDF"))
@@ -656,8 +719,11 @@ def document_to_pdf(src: Path, ctx: Ctx) -> Result:
     if not soffice:
         raise RuntimeError(tr("needs Microsoft Office or LibreOffice"))
     with tempfile.TemporaryDirectory() as tmp:
-        proc = subprocess.run([soffice, "--headless", "--norestore", "--convert-to", "pdf", "--outdir", tmp,
-                               str(src)], capture_output=True, text=True, timeout=600, creationflags=job_flags())
+        # its own profile: otherwise LibreOffice quietly does nothing while it's open on the PC
+        profile = (Path(tmp) / "profile").as_uri()
+        proc = subprocess.run([soffice, f"-env:UserInstallation={profile}", "--headless", "--norestore",
+                               "--convert-to", "pdf", "--outdir", tmp, str(src)], capture_output=True, text=True,
+                              timeout=600, stdin=subprocess.DEVNULL, creationflags=job_flags())
         made = Path(tmp) / (src.stem + ".pdf")
         if proc.returncode or not made.exists():
             log.error("libreoffice export failed: %s", proc.stderr[-2000:])
@@ -935,7 +1001,11 @@ def run_job(tool: Tool, files: list[Path], options: Options,
             break
         except Exception as e:  # keep going with the remaining files
             name = item.name if isinstance(item, Path) else tr("{count} files", count=len(item))
-            log.exception("%s failed on %s", tool.label, name)
+            if type(e).__name__ == "NeedPassword":
+                total.locked.append(item)  # the app asks for the password and tries just these again
+                log.info("%s needs a password: %s", tool.label, name)
+            else:
+                log.exception("%s failed on %s", tool.label, name)
             errors.append(f"{name}: {friendly_error(e)}")
         progress((i + 1) / n)
     return total, errors

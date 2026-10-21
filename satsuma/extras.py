@@ -17,7 +17,7 @@ from pathlib import Path
 
 from .converters import (AUDIO_ARGS, Ctx, Result, category, flatten, has_alpha, keep_format,
                          load_image, media_duration, probe, rgb_or_rgba, run_ffmpeg, save_image,
-                         write_compressed_pdf)
+                         write_compressed_pdf, write_pages_pdf)
 from .core import human_size, safe_name
 from .i18n import tr
 
@@ -136,11 +136,14 @@ def _fit_image(src: Path, ctx: Ctx, mb: float, target: int) -> Result:
 def _fit_pdf(src: Path, ctx: Ctx, mb: float, target: int) -> Result:
     out = ctx.out_path(src, f"{ctx.stem(src)} ({size_tag(mb)}).pdf")
     levels = [(65, 1800), (50, 1500), (38, 1200), (28, 950), (20, 750), (14, 600)]
+    last = None
     for i, (q, dim) in enumerate(levels):
         span = (i / len(levels), (i + 1) / len(levels))
         write_compressed_pdf(src, out, ctx, q, dim, span)
-        if out.stat().st_size <= target:
-            break
+        size = out.stat().st_size
+        if size <= target or (last is not None and size >= last * 0.98):
+            break  # small enough, or squeezing harder doesn't help (a PDF with little or no pictures)
+        last = size
     return _fit_result(src, out, mb, target)
 
 
@@ -420,7 +423,7 @@ def images_to_video(files: list[Path], ctx: Ctx) -> Result:
     secs = max(0.04, float(ctx.params.get("seconds", 2)))
     first = load_image(files[0])
     scale = min(1.0, 1920 / max(first.size))
-    w, h = int(first.width * scale) // 2 * 2, int(first.height * scale) // 2 * 2
+    w, h = max(2, int(first.width * scale) // 2 * 2), max(2, int(first.height * scale) // 2 * 2)
     name = safe_name(ctx.options.rename_base) or f"{files[0].stem} slideshow"
     out = ctx.out_path(files[0], f"{name}.mp4")
     with tempfile.TemporaryDirectory(prefix="satsuma-") as tmp:
@@ -448,26 +451,30 @@ def check_several_images(files: list[Path]) -> str | None:
 
 def scan_to_pdf(files: list[Path], ctx: Ctx) -> Result:
     """Makes photos of paper look like scans (clean white page, dark text) and puts them in one PDF."""
-    from PIL import Image, ImageFilter, ImageOps
-    pages = []
-    for i, f in enumerate(sorted(files, key=natural_key)):
-        ctx.check()
-        g = ImageOps.grayscale(flatten(load_image(f)))
-        if max(g.size) > 2600:
-            g.thumbnail((2600, 2600), Image.LANCZOS)
-        # even out shadows: divide by a blurred copy of the page (its "lighting")
-        import numpy as np
-        light = g.filter(ImageFilter.GaussianBlur(max(8, max(g.size) // 40)))
-        arr = np.asarray(g, dtype=np.float32) / np.maximum(np.asarray(light, dtype=np.float32), 1.0) * 255 * 0.95
-        flat = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
-        flat = ImageOps.autocontrast(flat, cutoff=(2, 1))
-        flat = flat.filter(ImageFilter.UnsharpMask(radius=1.5, percent=80, threshold=2))
-        pages.append(flat.convert("RGB"))
-        ctx.progress(0.9 * (i + 1) / len(files))
     name = safe_name(ctx.options.rename_base) or f"{files[0].stem} scan"
     out = ctx.out_path(files[0], f"{name}.pdf")
-    pages[0].save(out, save_all=True, append_images=pages[1:], resolution=200)
+
+    def pages():
+        for i, f in enumerate(sorted(files, key=natural_key)):
+            ctx.check()
+            yield _scan_page(f)
+            ctx.progress(0.9 * (i + 1) / len(files))
+    write_pages_pdf(pages(), out, 200)
     return Result([out])
+
+
+def _scan_page(f: Path):
+    import numpy as np
+    from PIL import Image, ImageFilter, ImageOps
+    g = ImageOps.grayscale(flatten(load_image(f)))
+    if max(g.size) > 2600:
+        g.thumbnail((2600, 2600), Image.LANCZOS)
+    # even out shadows: divide by a blurred copy of the page (its "lighting")
+    light = g.filter(ImageFilter.GaussianBlur(max(8, max(g.size) // 40)))
+    arr = np.asarray(g, dtype=np.float32) / np.maximum(np.asarray(light, dtype=np.float32), 1.0) * 255 * 0.95
+    flat = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+    flat = ImageOps.autocontrast(flat, cutoff=(2, 1))
+    return flat.filter(ImageFilter.UnsharpMask(radius=1.5, percent=80, threshold=2))  # grey: smaller PDF
 
 
 def audio_args(ext: str) -> list[str]:

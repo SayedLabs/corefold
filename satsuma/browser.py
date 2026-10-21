@@ -173,11 +173,12 @@ class ArchiveBrowser(QWidget):
     def _filter(self, text: str):
         text = text.strip().lower()
 
-        def visit(item: QTreeWidgetItem) -> bool:
-            match = not text or text in item.text(0).lower()
+        def visit(item: QTreeWidgetItem, inside_match: bool = False) -> bool:
+            # a folder that matches shows everything in it
+            match = not text or inside_match or text in item.text(0).lower()
             child_match = False
             for i in range(item.childCount()):
-                child_match = visit(item.child(i)) or child_match
+                child_match = visit(item.child(i), match and bool(text)) or child_match
             show = match or child_match
             item.setHidden(not show)
             if text and child_match:
@@ -209,7 +210,7 @@ class ArchiveBrowser(QWidget):
     # ---- actions (run in the background with the usual progress popup)
 
     def _run(self, key: str, desc: str, fn, items=None, after=None):
-        tool = Tool(key, desc, desc, fn, batch=True, renames=False)
+        tool = Tool(key, desc, desc, fn, batch=True, renames=False, password=True)
         self.c.start_job(tool, items or [self.src], {"password": self.password}, after=after)
 
     def _pick_folder(self) -> str:

@@ -44,7 +44,7 @@ CloseApplications=no
 
 [Messages]
 SelectTasksLabel2=Choose your options, then click Install.
-FinishedLabel=Satsuma is installed. Hold Shift and drag any file in File Explorer, or right-click a file and choose Convert with Satsuma.
+FinishedLabel=Satsuma is installed. Hold Shift and drag any file in File Explorer, or right-click a file and choose Satsuma.
 
 [Tasks]
 Name: "desktopicon"; Description: "Put a Satsuma icon on my desktop"

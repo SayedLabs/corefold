@@ -504,7 +504,8 @@ class Wheel(QWidget):
         if not paths:
             e.ignore()
             return
-        self._load(paths)
+        if paths != self.paths:  # dragging out and back in keeps the page you were on
+            self._load(paths)
         e.setDropAction(Qt.CopyAction)  # Shift normally means "move"; Satsuma always copies
         e.accept()
         self.update()
