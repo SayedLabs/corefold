@@ -1,4 +1,4 @@
-"""Small popup in the bottom-right corner showing progress and results."""
+"""Small popup in the bottom corner showing progress and results."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -7,6 +7,7 @@ from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QGuiApplication, QIcon
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QProgressBar, QPushButton, QVBoxLayout, QWidget
 
+from .i18n import tr
 from .winutil import reveal_in_explorer
 
 
@@ -74,7 +75,9 @@ class Toast(QWidget):
     def _place(self):
         self.adjustSize()
         g = QGuiApplication.primaryScreen().availableGeometry()
-        self.move(g.right() - self.width() - 16, g.bottom() - self.height() - 16)
+        rtl = QGuiApplication.layoutDirection() == Qt.RightToLeft
+        x = g.left() + 16 if rtl else g.right() - self.width() - 16  # bottom-left in Arabic
+        self.move(x, g.bottom() - self.height() - 16)
 
     def start(self, job_id: int, title: str, detail: str):
         self.job_id, self.running, self.reveal_path, self.custom_action = job_id, True, None, None
@@ -82,12 +85,16 @@ class Toast(QWidget):
         self.detail.setText(detail)
         self.bar.setValue(0)
         self.bar.show()
-        self.action.setText("Cancel")
+        self.action.setText(tr("Cancel"))
         self.action.setEnabled(True)
         self.action.show()
         self.hide_timer.stop()
         self._place()
         self.show()
+
+    def set_detail(self, job_id: int, text: str):
+        if job_id == self.job_id and self.running:
+            self.detail.setText(text)
 
     def set_progress(self, job_id: int, frac: float):
         if job_id == self.job_id and self.running:
@@ -101,7 +108,7 @@ class Toast(QWidget):
         self.title.setText(title)
         self.detail.setText(detail)
         self.bar.hide()
-        self.action.setText("Show in folder")
+        self.action.setText(tr("Show in folder"))
         self.action.setEnabled(True)
         self.action.setVisible(reveal is not None)
         self._place()

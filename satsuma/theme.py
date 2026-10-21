@@ -90,7 +90,7 @@ def _check_image(color: QColor) -> str:
 QSS = Template("""
 * { font-family: "Segoe UI"; font-size: 10pt; color: $text; }
 QWidget#window { background: $bg; }
-QWidget#sidebar { background: $panel; border-right: 1px solid $border; }
+QWidget#sidebar { background: $panel; border-$inner_side: 1px solid $border; }
 QLabel#brand { font-size: 13pt; font-weight: 700; }
 QListWidget#nav { background: transparent; border: none; outline: none; }
 QListWidget#nav::item { padding: 9px 12px; border-radius: 8px; margin: 1px 0; color: $muted; }
@@ -175,4 +175,6 @@ def stylesheet(t: Theme) -> str:
         border=t.border.name(), muted=t.muted.name(), accent=t.accent.name(),
         on_accent=t.on_accent.name(), accent_hover=t.accent.lighter(112).name(),
         accent_soft=mix(t.panel, t.accent, 0.22).name(), check=_check_image(t.on_accent),
+        # the sidebar's edge faces the pages: on the right in English, on the left in Arabic
+        inner_side="left" if QGuiApplication.layoutDirection() == Qt.RightToLeft else "right",
     )

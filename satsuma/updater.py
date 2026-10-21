@@ -21,12 +21,17 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
+from .i18n import tr
+
 INSTALLER_RE = re.compile(r"^Satsuma-Setup-[0-9A-Za-z.\-+]+\.exe$")
 SUMS_NAME = "SHA256SUMS.txt"
 
 
 class UpdateError(Exception):
     pass
+
+
+CANCELLED = "cancelled"  # not shown to people; the app checks for it
 
 
 @dataclass
@@ -69,7 +74,7 @@ def _trusted(url: str | None, repo: str) -> bool:
 def parse_release(data: dict, repo: str) -> UpdateInfo:
     tag = str(data.get("tag_name") or "")
     if not tag:
-        raise UpdateError("release has no version tag")
+        raise UpdateError(tr("release has no version tag"))
     installer = sums = None
     for asset in data.get("assets") or []:
         name = str(asset.get("name") or "")
@@ -94,7 +99,7 @@ def parse_release(data: dict, repo: str) -> UpdateInfo:
 def check(repo: str, current: str, timeout: float = 15) -> UpdateInfo | None:
     """Returns info about a newer release, or None if this copy is up to date."""
     if not re.fullmatch(r"[\w.-]+/[\w.-]+", repo or ""):
-        raise UpdateError("updates aren't set up for this copy")
+        raise UpdateError(tr("updates aren't set up for this copy"))
     try:
         with _request(f"https://api.github.com/repos/{repo}/releases/latest", f"Satsuma/{current}",
                       timeout) as resp:
@@ -102,11 +107,11 @@ def check(repo: str, current: str, timeout: float = 15) -> UpdateInfo | None:
     except urllib.error.HTTPError as e:
         if e.code == 404:
             return None  # no releases published yet
-        raise UpdateError(f"GitHub answered {e.code}") from e
+        raise UpdateError(tr("GitHub answered {code}", code=e.code)) from e
     except (urllib.error.URLError, TimeoutError, OSError) as e:
-        raise UpdateError("couldn't reach GitHub (are you online?)") from e
+        raise UpdateError(tr("couldn't reach GitHub (are you online?)")) from e
     except ValueError as e:
-        raise UpdateError("unexpected answer from GitHub") from e
+        raise UpdateError(tr("unexpected answer from GitHub")) from e
     info = parse_release(data, repo)
     return info if is_newer(info.version, current) else None
 
@@ -123,9 +128,9 @@ def download(info: UpdateInfo, current: str, progress: Callable[[float], None] |
              cancel: threading.Event | None = None, timeout: float = 30) -> Path:
     """Downloads and verifies the installer. Returns its path in the temp folder."""
     if not info.installer_url or not info.installer_name:
-        raise UpdateError("this release has no installer")
+        raise UpdateError(tr("this release has no installer"))
     if not info.sums_url:
-        raise UpdateError("this release has no checksum file, so it can't be verified")
+        raise UpdateError(tr("this release has no checksum file, so it can't be verified"))
     progress = progress or (lambda f: None)
     cancel = cancel or threading.Event()
     ua = f"Satsuma/{current}"
@@ -133,7 +138,7 @@ def download(info: UpdateInfo, current: str, progress: Callable[[float], None] |
     with _request(info.sums_url, ua, timeout) as resp:
         want = expected_hash(resp.read(1_000_000).decode("utf-8", "replace"), info.installer_name)
     if not want:
-        raise UpdateError("the installer isn't listed in the checksum file")
+        raise UpdateError(tr("the installer isn't listed in the checksum file"))
 
     dest = Path(tempfile.gettempdir()) / info.installer_name
     part = dest.with_suffix(".part")
@@ -144,7 +149,7 @@ def download(info: UpdateInfo, current: str, progress: Callable[[float], None] |
             total = int(resp.headers.get("Content-Length") or info.installer_size or 0)
             while True:
                 if cancel.is_set():
-                    raise UpdateError("cancelled")
+                    raise UpdateError(CANCELLED)
                 chunk = resp.read(256 * 1024)
                 if not chunk:
                     break
@@ -154,12 +159,12 @@ def download(info: UpdateInfo, current: str, progress: Callable[[float], None] |
                 if total:
                     progress(done / total)
         if digest.hexdigest() != want:
-            raise UpdateError("the download was damaged (checksum mismatch). Try again later")
+            raise UpdateError(tr("the download was damaged (checksum mismatch). Try again later"))
         dest.unlink(missing_ok=True)
         part.rename(dest)
         return dest
     except (urllib.error.URLError, TimeoutError, OSError) as e:
-        raise UpdateError("the download failed. Check your internet connection") from e
+        raise UpdateError(tr("the download failed. Check your internet connection")) from e
     finally:
         part.unlink(missing_ok=True)
 

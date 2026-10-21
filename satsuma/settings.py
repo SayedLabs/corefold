@@ -1,4 +1,7 @@
-"""User settings (saved as JSON), start-with-Windows, and uninstall helpers."""
+"""User settings (saved as JSON), start-with-Windows, and uninstall helpers.
+
+Nothing here imports Qt, so the tiny helper process started by the right-click menu stays light.
+"""
 from __future__ import annotations
 
 import json
@@ -9,14 +12,15 @@ import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from .core import ALL_EXT, ARCHIVE_EXT, Options
+from .core import APP_NAME, Options
+from .i18n import LANGUAGES
 from .sounds import DONE_SOUNDS, OLD_NAMES
 
-APP_NAME = "Satsuma"
 CONFIG_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / APP_NAME
 LOG_DIR = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / APP_NAME
 log = logging.getLogger("satsuma")
 
+# key: English label (shown through tr())
 SHORTCUT_LABELS = {"shift": "Shift", "ctrl+shift": "Ctrl + Shift", "alt": "Alt"}
 ACCENTS = {  # key: (name, color)
     "tangerine": ("Tangerine", "#ff8c1a"),
@@ -27,24 +31,29 @@ ACCENTS = {  # key: (name, color)
     "graphite": ("Graphite", "#71717a"),
 }
 WHEEL_SIZES = {"small": 135, "medium": 168, "large": 205, "huge": 245}  # outer radius in px
+WHEEL_SIZE_NAMES = {"small": "Small", "medium": "Medium", "large": "Large", "huge": "Huge"}
 WHEEL_STYLES = {"ring": "Classic", "petals": "Petals", "slim": "Slim ring"}
 LABEL_STYLES = {"both": "Icon + text", "text": "Text only", "icon": "Icons only"}
 HOVER_STYLES = {"fill": "Fill", "outline": "Outline", "grow": "Grow only"}
 SLICE_COLORS = {"plain": "One colour", "group": "By kind of action"}
 TEXT_SIZES = {"small": 0.88, "normal": 1.0, "large": 1.15}
+TEXT_SIZE_NAMES = {"small": "Small", "normal": "Normal", "large": "Large"}
 WHEEL_POSITIONS = {"cursor": "Under the cursor", "center": "Middle of the screen"}
-APPEARANCES = ("system", "dark", "light")
+APPEARANCES = {"system": "Match Windows", "dark": "Dark", "light": "Light"}
+MENU_STYLES = {"windows": "Windows menu", "wheel": "Satsuma wheel"}
 SOUNDS = DONE_SOUNDS
 CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_style": HOVER_STYLES,
            "slice_colors": SLICE_COLORS, "text_size": TEXT_SIZES, "wheel_position": WHEEL_POSITIONS,
-           "wheel_size": WHEEL_SIZES, "sound": SOUNDS}
+           "wheel_size": WHEEL_SIZES, "sound": SOUNDS, "language": LANGUAGES, "menu_style": MENU_STYLES,
+           "appearance": APPEARANCES, "shortcut": SHORTCUT_LABELS}
 
 
 @dataclass
 class Settings:
     # behaviour
+    language: str = "system"       # "system", "en" or "ar"
     shortcut: str = "shift"
-    save_mode: str = "beside"  # "beside" or "folder"
+    save_mode: str = "beside"      # "beside" or "folder"
     output_folder: str = str(Path.home() / "Downloads" / "Satsuma")
     jpg_quality: int = 90
     reveal_after: bool = False
@@ -64,8 +73,13 @@ class Settings:
     fit_mb: float = 10.0
     watermark: dict = field(default_factory=lambda: {"text": "", "logo": "", "position": "br", "size": "medium",
                                                       "opacity": 60})
-    context_menu: bool = True      # "Convert with Satsuma" in the right-click menu
+    context_menu: bool = True      # Satsuma in the right-click menu
+    menu_style: str = "windows"    # "windows" (a normal submenu) or "wheel"
+    menu_signature: str = ""       # what was last written to the right-click menu
     show_unavailable: bool = True  # dim slices that can't be used (False = hide them)
+    # keeping the PC fast
+    low_priority: bool = True      # conversions run "in the background" (below normal priority)
+    one_at_a_time: bool = True     # queue conversions instead of running several at once
     # look
     appearance: str = "system"
     accent: str = "tangerine"
@@ -93,33 +107,33 @@ class Settings:
             return s
         if not isinstance(data, dict):
             return s
-        for key, default in asdict(s).items():
-            if key in data and type(data[key]) is type(default):
-                setattr(s, key, data[key])
-        if s.shortcut not in SHORTCUT_LABELS:
-            s.shortcut = "shift"
+        defaults = cls()
+        for key, default in asdict(defaults).items():
+            if key not in data:
+                continue
+            value = data[key]
+            if isinstance(default, float) and type(value) is int:
+                value = float(value)
+            if type(value) is type(default):
+                setattr(s, key, value)
         if s.accent not in ACCENTS and s.accent != "custom":
             s.accent = "tangerine"
         if not (len(s.custom_color) == 7 and s.custom_color.startswith("#")):
             s.custom_color = "#ff8c1a"
         s.sound = OLD_NAMES.get(s.sound, s.sound)
-        defaults = cls()
         for key, options in CHOICES.items():
             if getattr(s, key) not in options:
                 setattr(s, key, getattr(defaults, key))
         s.wheel_opacity = min(100, max(60, s.wheel_opacity))
         s.volume = min(100, max(0, s.volume))
         s.per_page = min(16, max(6, s.per_page))
+        s.jpg_quality = min(100, max(50, s.jpg_quality))
+        s.fit_mb = min(4000.0, max(0.1, s.fit_mb))
         wm = dict(defaults.watermark)
         wm.update({k: v for k, v in s.watermark.items() if k in wm and type(v) is type(wm[k])})
         s.watermark = wm
         s.tool_order = {k: [t for t in v if isinstance(t, str)] for k, v in s.tool_order.items()
                         if isinstance(k, str) and isinstance(v, list)}
-        if s.wheel_size not in WHEEL_SIZES:
-            s.wheel_size = "medium"
-        if s.appearance not in APPEARANCES:
-            s.appearance = "system"
-        s.jpg_quality = min(100, max(50, s.jpg_quality))
         s.hidden_tools = [t for t in s.hidden_tools if isinstance(t, str)]
         s.favorites = [t for t in s.favorites if isinstance(t, str)]
         return s
@@ -127,7 +141,10 @@ class Settings:
     def save(self):
         try:
             CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-            (CONFIG_DIR / "settings.json").write_text(json.dumps(asdict(self), indent=2), "utf-8")
+            target = CONFIG_DIR / "settings.json"
+            tmp = target.with_suffix(".tmp")
+            tmp.write_text(json.dumps(asdict(self), indent=2, ensure_ascii=False), "utf-8")
+            os.replace(tmp, target)  # never leaves a half-written settings file
         except OSError:
             log.exception("could not save settings")
 
@@ -138,7 +155,8 @@ class Settings:
 
     @property
     def shortcut_label(self) -> str:
-        return SHORTCUT_LABELS.get(self.shortcut, "Shift")
+        from .i18n import tr
+        return tr(SHORTCUT_LABELS.get(self.shortcut, "Shift"))
 
 
 # ----------------------------------------------------------------------------- start with Windows
@@ -155,6 +173,10 @@ def app_command(*args: str) -> str:
         main_py = Path(__file__).resolve().parent.parent / "main.py"
         base = f'"{pyw if pyw.exists() else sys.executable}" "{main_py}"'
     return " ".join([base, *args])
+
+
+def app_icon() -> str:
+    return sys.executable if getattr(sys, "frozen", False) else ""
 
 
 def launch_command() -> str:
@@ -186,50 +208,6 @@ def set_startup(on: bool):
         log.exception("could not change startup setting")
 
 
-# ----------------------------------------------------------------------------- right-click menu
-
-SHELL_ROOT = r"Software\Classes\SystemFileAssociations"
-VERB = "Satsuma"
-
-
-def _icon_path() -> str:
-    return sys.executable if getattr(sys, "frozen", False) else ""
-
-
-def _set_verb(root: str, verb: str, title: str, command: str, on: bool):
-    import winreg
-    key = rf"{root}\shell\{verb}"
-    try:
-        if on:
-            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, key) as k:
-                winreg.SetValueEx(k, "MUIVerb", 0, winreg.REG_SZ, title)
-                if _icon_path():
-                    winreg.SetValueEx(k, "Icon", 0, winreg.REG_SZ, _icon_path())
-                winreg.SetValueEx(k, "MultiSelectModel", 0, winreg.REG_SZ, "Player")
-            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, key + r"\command") as k:
-                winreg.SetValueEx(k, "", 0, winreg.REG_SZ, command)
-        else:
-            for sub in (key + r"\command", key):
-                try:
-                    winreg.DeleteKey(winreg.HKEY_CURRENT_USER, sub)
-                except FileNotFoundError:
-                    pass
-    except OSError:
-        log.exception("could not update right-click menu for %s", root)
-
-
-def set_context_menu(on: bool):
-    """Adds or removes the right-click entries (current user only; Windows 11: "Show more options"):
-    "Convert with Satsuma" for every file type and folder, "Open in Satsuma" for archives."""
-    convert = app_command("--convert", '"%1"')
-    browse = app_command("--browse", '"%1"')
-    for ext in sorted(ALL_EXT):
-        _set_verb(rf"{SHELL_ROOT}\{ext}", VERB, "Convert with Satsuma", convert, on)
-    for ext in sorted(ARCHIVE_EXT):
-        _set_verb(rf"{SHELL_ROOT}\{ext}", VERB + "Open", "Open in Satsuma", browse, on)
-    _set_verb(r"Software\Classes\Directory", VERB, "Compress with Satsuma", convert, on)
-
-
 # ----------------------------------------------------------------------------- uninstall
 
 def installed_uninstaller() -> Path | None:
@@ -242,8 +220,12 @@ def installed_uninstaller() -> Path | None:
 
 def remove_user_data():
     """Portable version clean-up: settings, logs, the startup entry and the right-click menu."""
+    from . import shellmenu
     set_startup(False)
-    set_context_menu(False)
+    try:
+        shellmenu.remove()
+    except Exception:
+        log.exception("could not remove the right-click menu")
     logging.shutdown()
     for folder in (CONFIG_DIR, LOG_DIR):
         shutil.rmtree(folder, ignore_errors=True)

@@ -12,6 +12,7 @@ which page you're on, and how many are dimmed or hidden in Settings.
 from __future__ import annotations
 
 import math
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -20,7 +21,9 @@ from PySide6.QtGui import QColor, QCursor, QFont, QFontMetrics, QGuiApplication,
 from PySide6.QtWidgets import QWidget
 
 from . import winutil
-from .converters import Pick, Slot, pick
+from .converters import Pick, Slot, pick, warm_up
+from .core import APP_NAME
+from .i18n import tr
 from .settings import TEXT_SIZES, WHEEL_SIZES, Settings
 from .theme import Theme
 
@@ -279,23 +282,21 @@ def paginate(slots: list, per_page: int) -> list[list]:
 
 
 def counts_line(pk: Pick) -> str:
-    usable = sum(1 for s in pk.slots if s.ok)
-    return f"{usable} option{'s' if usable != 1 else ''}"
+    return tr("{count} options", count=sum(1 for s in pk.slots if s.ok))
 
 
 def hint_text(pk: Pick, click_mode: bool, pages: int) -> str:
-    """What the middle says while you're not pointing at anything."""
-    text = "Click an option" if click_mode else "Drop on an option"
-    if pages > 1:
-        text = f"{text} · {pages} pages"
+    """What the middle says while you're not pointing at anything (the dots show the pages)."""
+    text = tr("Click an option") if click_mode else tr("Drop on an option")
     if pk.hidden:
-        text += f" ({pk.hidden} hidden in Settings)"
+        text += "\n" + tr("{count} hidden", count=pk.hidden)
     return text
 
 
 class Wheel(QWidget):
     chosen = Signal(object, list)  # Tool, files
     opened = Signal()
+    refined = Signal(int)          # background checks finished for this load (its number)
 
     def __init__(self, settings: Settings, theme: Theme):
         super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool
@@ -320,9 +321,14 @@ class Wheel(QWidget):
         self.dwell.setInterval(DWELL_STEP_MS)
         self.dwell.timeout.connect(self._dwell_tick)
         self.dwell_ms = 0
+        self.load_id = 0
+        self.paths: list[Path] = []
+        self.refined.connect(self._refine)
         self.reset()
 
     def reset(self):
+        self.load_id += 1  # any background check still running is for an old file
+        self.paths = []
         self.files: list[Path] = []
         self.pick = Pick([], [])
         self.pages: list[list[Slot]] = [[]]
@@ -365,23 +371,40 @@ class Wheel(QWidget):
         self.setWindowOpacity(min(1.0, v * 1.8))
         self.update()
 
-    def _load(self, paths: list[Path]):
+    def _load(self, paths: list[Path], quick: bool = True):
+        """Works out the slices. With quick=True, checks that have to read the file (like "does this
+        video have sound?") run in the background, so the wheel appears at once."""
         s = self.settings
+        self.paths = list(paths)
         self.pick = pick(paths, set(s.hidden_tools), s.favorites, s.show_unavailable, s.tool_order,
-                         s.pack_on_every_wheel)
+                         s.pack_on_every_wheel, quick=quick)
         self.files = self.pick.files
+        page = self.page if not quick else 0
         self.pages = paginate(self.pick.slots, s.per_page)
-        self.page = 0
+        self.page = min(page, len(self.pages) - 1)
         if not self.pick.slots:
             self.title = paths[0].name if paths else ""
             if self.files:
-                self.empty_reason = "Nothing available. Check Formats in Settings"
+                self.empty_reason = tr("Nothing available. Check Formats in Settings")
             else:
-                self.empty_reason = "This file can't be found"
+                self.empty_reason = tr("This file can't be found")
         elif len(self.files) == 1:
             self.title = self.files[0].name
         else:
-            self.title = f"{len(self.files)} items"
+            self.title = tr("{count} items", count=len(self.files))
+        if quick and self.pick.pending:
+            self.load_id += 1
+            load_id, files = self.load_id, list(self.files)
+
+            def work():
+                warm_up(files)
+                self.refined.emit(load_id)
+            threading.Thread(target=work, daemon=True).start()
+
+    def _refine(self, load_id: int):
+        if load_id == self.load_id and self.isVisible() and self.paths:
+            self._load(self.paths, quick=False)
+            self.update()
 
     def popup_at_cursor(self, paths: list[Path] | None = None):
         """Drag mode when paths is None (files arrive with the drag); click mode otherwise."""
@@ -548,18 +571,18 @@ class Wheel(QWidget):
         hint = hint_text(self.pick, self.click_mode, len(self.pages))
         line3 = ""
         if not self.title:
-            line1, line2 = "Satsuma", hint
+            line1, line2 = APP_NAME, hint
         elif not self.pick.slots:
             line1, line2 = self.title, self.empty_reason
         elif self.is_more(self.hover):
             nxt = (self.page + 1) % len(self.pages) + 1
             line1 = self.title
-            line2 = f"Click for page {nxt}" if self.click_mode else f"Hold for page {nxt}"
+            line2 = tr("Click for page {page}", page=nxt) if self.click_mode else tr("Hold for page {page}", page=nxt)
         elif self.slot_at(self.hover):
             slot = self.slot_at(self.hover)
             line1, line2 = self.title, slot.reason or slot.tool.description
         elif self.hover == CENTER:
-            line1, line2 = self.title, "Click here to cancel" if self.click_mode else "Let go here to cancel"
+            line1, line2 = self.title, tr("Click here to cancel") if self.click_mode else tr("Let go here to cancel")
         else:
             line1, line2 = self.title, hint
         if self.pick.slots:
@@ -567,7 +590,7 @@ class Wheel(QWidget):
         favs = set(self.settings.favorites)
         items = [item_for(s, s.tool.key in favs) for s in self.slots]
         if self.has_more:
-            items.append(Item("More", ok=False, more=True))
+            items.append(Item(tr("More"), ok=False, more=True))
         progress = self.dwell_ms / MORE_DWELL_MS if self.is_more(self.hover) and not self.click_mode else 0.0
         paint_wheel(p, c, self.R, items, self.hover, line1, line2, self.theme, Look.of(self.settings), line3,
                     progress, (self.page, len(self.pages)))
@@ -576,32 +599,41 @@ class Wheel(QWidget):
 
 class WheelPreview(QWidget):
     """A live, non-interactive wheel for the Look settings page."""
-    DEMO = [Item("PNG", action="png"), Item("JPG", ok=False, action="jpg"), Item("WEBP", action="webp"),
-            Item("Resize", favorite=True, action="resize"), Item("Cut out", action="cutout"),
-            Item("Fit size", action="fit"), Item("Copy text", action="ocr"), Item("ZIP", action="zip"),
-            Item("More", ok=False, more=True)]
-    TEXT = ["Convert to PNG", "Already JPG", "Convert to WebP", "Make it bigger or smaller", "Remove the background",
-            "Make it fit a size limit", "Copy the text in the picture", "Put in a ZIP file", "Hold for page 2"]
-
     def __init__(self, settings: Settings, theme: Theme):
         super().__init__()
         self.settings, self.theme = settings, theme
         self.hover = 0
+        self.demo = [Item("PNG", action="png"), Item("JPG", ok=False, action="jpg"), Item("WEBP", action="webp"),
+                     Item(tr("Resize"), favorite=True, action="resize"), Item(tr("Cut out"), action="cutout"),
+                     Item(tr("Fit size"), action="fit"), Item(tr("Copy text"), action="ocr"),
+                     Item("ZIP", action="zip"), Item(tr("More"), ok=False, more=True)]
+        self.text = [tr("Convert to {format}", format="PNG"), tr("Already {format}", format="JPG"),
+                     tr("Convert to {format}", format="WebP"), tr("Make it bigger or smaller"),
+                     tr("Remove the background"), tr("Make it fit a size limit"), tr("Copy the text in the picture"),
+                     tr("Put in a ZIP file"), tr("Hold for page {page}", page=2)]
         side = int(2 * (WHEEL_SIZES["huge"] + POP) * 0.58) + 16
         self.setFixedSize(side, side)
-        self.timer = QTimer(self)
+        self.timer = QTimer(self)  # only runs while the preview can be seen
+        self.timer.setInterval(1100)
         self.timer.timeout.connect(self._step)
-        self.timer.start(1100)
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        self.timer.start()
+
+    def hideEvent(self, e):
+        self.timer.stop()
+        super().hideEvent(e)
 
     def _step(self):
         if self.settings.animations:
-            self.hover = (self.hover + 1) % len(self.DEMO)
+            self.hover = (self.hover + 1) % len(self.demo)
             self.update()
 
     def paintEvent(self, _):
         p = QPainter(self)
         R = WHEEL_SIZES.get(self.settings.wheel_size, WHEEL_SIZES["medium"]) * 0.58
         c = QPointF(self.width() / 2, self.height() / 2)
-        paint_wheel(p, c, R, self.DEMO, self.hover, "photo.jpg", self.TEXT[self.hover], self.theme,
-                    Look.of(self.settings), "16 options", page=(0, 2))
+        paint_wheel(p, c, R, self.demo, self.hover, "photo.jpg", self.text[self.hover], self.theme,
+                    Look.of(self.settings), tr("{count} options", count=16), page=(0, 2))
         p.end()

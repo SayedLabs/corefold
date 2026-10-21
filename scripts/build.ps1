@@ -9,7 +9,7 @@ param(
     # GitHub repository ("owner/name") the app checks for updates. Filled in automatically on
     # GitHub; for local builds put it in update-repo.txt next to build.bat.
     [string]$UpdateRepo = "",
-    [string]$FfmpegUrl = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip",
+    [string]$FfmpegUrl = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl-shared.zip",
     # Background remover model (U2-Net "silueta", ~44 MB) from the rembg project
     [string]$ModelUrl = "https://github.com/danielgatis/rembg/releases/download/v0.0.0/silueta.onnx"
 )
@@ -93,8 +93,11 @@ VSVersionInfo(
 
 # ---- FFmpeg (bundled so users don't install anything)
 $FfDir = "vendor\ffmpeg"
-if (-not (Test-Path "$FfDir\ffmpeg.exe")) {
+# The "shared" build: ffmpeg.exe and ffprobe.exe use the same DLLs instead of each carrying a full
+# copy, which makes Satsuma about 150 MB smaller on disk.
+if (-not (Test-Path "$FfDir\ffmpeg.exe") -or -not (Get-ChildItem $FfDir -Filter "avcodec*.dll" -ErrorAction SilentlyContinue)) {
     Write-Host "== Downloading FFmpeg"
+    if (Test-Path $FfDir) { Remove-Item $FfDir -Recurse -Force }
     $zip = Join-Path $env:TEMP "satsuma-ffmpeg.zip"
     $tmp = Join-Path $env:TEMP "satsuma-ffmpeg"
     Invoke-WebRequest $FfmpegUrl -OutFile $zip
@@ -104,6 +107,7 @@ if (-not (Test-Path "$FfDir\ffmpeg.exe")) {
     if (-not $bin) { throw "ffmpeg.exe not found in download" }
     New-Item -ItemType Directory -Force $FfDir | Out-Null
     Copy-Item $bin.FullName, (Join-Path $bin.DirectoryName "ffprobe.exe") $FfDir
+    Copy-Item (Join-Path $bin.DirectoryName "*.dll") $FfDir
     $lic = Get-ChildItem $tmp -Recurse -Filter "LICENSE*" | Select-Object -First 1
     if ($lic) { Copy-Item $lic.FullName "$FfDir\FFMPEG-LICENSE.txt" }
     Remove-Item $zip, $tmp -Recurse -Force
@@ -150,7 +154,7 @@ if (Test-Path $ModelFile) { $ModelArgs = @("--add-data", "$ModelFile;models") }
 
 # ---- app icon and sounds
 if (-not (Test-Path "assets\icon.ico")) { & $VPy scripts\make_icon.py }
-if (-not (Test-Path "assets\sounds\pop.wav")) { & $VPy scripts\make_sounds.py }
+if (-not (Test-Path "assets\sounds\satsuma.wav")) { & $VPy scripts\make_sounds.py }
 
 # ---- PyInstaller (one folder: starts fast, fewer antivirus false alarms than --onefile)
 Write-Host "== Packaging app"
@@ -159,8 +163,11 @@ if (Test-Path "dist\Satsuma") { Remove-Item "dist\Satsuma" -Recurse -Force }
     --icon assets\icon.ico --version-file version_info.txt `
     --add-data "assets\icon.png;assets" --add-data "assets\sounds;assets\sounds" @ModelArgs `
     --collect-all pi_heif --collect-all zxingcpp --collect-all pypdfium2 --collect-binaries onnxruntime --collect-all winrt `
+    --exclude-module tkinter --exclude-module PySide6.QtQml --exclude-module PySide6.QtQuick `
     main.py
 if ($LASTEXITCODE) { throw "PyInstaller failed" }
+# Not needed by Satsuma (software OpenGL fallback, ~20 MB)
+Get-ChildItem "dist\Satsuma" -Recurse -Filter "opengl32sw.dll" | Remove-Item -Force
 Copy-Item $FfDir "dist\Satsuma\ffmpeg" -Recurse
 if (Test-Path "$SzDir\7z.exe") { Copy-Item $SzDir "dist\Satsuma\7zip" -Recurse }
 Copy-Item LICENSE, THIRD_PARTY_NOTICES.md "dist\Satsuma\"

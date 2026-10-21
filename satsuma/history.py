@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -31,10 +32,9 @@ class Stats:
 
 
 def size_of(p: Path) -> int:
+    """Size of a file (folders count as 0 here, so stats never walk a huge folder)."""
     try:
-        if p.is_dir():
-            return sum(f.stat().st_size for f in p.rglob("*") if f.is_file())
-        return p.stat().st_size
+        return 0 if p.is_dir() else p.stat().st_size
     except OSError:
         return 0
 
@@ -58,7 +58,9 @@ class History:
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             data = {"items": [asdict(e) for e in self.items], "stats": asdict(self.stats)}
-            self.path.write_text(json.dumps(data, indent=1), "utf-8")
+            tmp = self.path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(data, indent=1), "utf-8")
+            os.replace(tmp, self.path)  # never leaves a half-written file
         except OSError:
             log.exception("could not save history")
 

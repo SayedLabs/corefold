@@ -20,9 +20,19 @@ the dragged file over it for a moment. Options that don't fit the file are **dim
 to see why), and the middle tells you if you hid any in Settings. For the full list with nothing
 hidden, drop the file on Satsuma's **Home** page.
 
-Other ways to use it: **right-click** a file → *Convert with Satsuma* (Windows 11: *Show more options*),
-archives also get *Open in Satsuma*, and folders *Compress with Satsuma*. Or press **Ctrl + V** in
-Satsuma (or *Convert what's copied* in the tray menu) to convert a copied picture or copied files.
+Other ways to use it: **right-click** a file → **Satsuma** → *Convert to PNG*, *Resize…*, *Extract here*…
+(a normal Windows submenu, like 7-Zip's; on Windows 11 it's under *Show more options*, or Shift +
+right-click). *All options…* at the bottom opens Satsuma with the file. Prefer the wheel? Pick
+**Satsuma wheel** under *General → Right-click menu*. Or press **Ctrl + V** in Satsuma (or *Convert
+what's copied* in the tray menu) to convert a copied picture or copied files.
+
+**English and العربية.** Satsuma follows the language of Windows; change it under *General → Language*.
+In Arabic the whole app is right-to-left.
+
+**Light on your PC.** Satsuma waits in the tray using almost no memory or power. Conversions run at
+low priority and one at a time (both can be changed under *General → Keep my PC fast*), memory it
+doesn't need is handed back to Windows when it's idle, the window is freed a little while after you
+close it, and right-clicking many files at once doesn't start many copies of the app.
 
 Drop several files at once to convert them all. The original file is never moved or changed.
 
@@ -33,9 +43,10 @@ Installing a newer version on top upgrades it and keeps your settings.
 
 ## Customizing
 Open Satsuma from the desktop icon (or click the orange tray icon):
-- **General:** which key to hold (Shift, Ctrl + Shift or Alt), where new files go, image quality,
-  a sound when done, dim or hide formats that don't fit, new names for batches, right-click menu,
-  progress popups, start with Windows.
+- **General:** language, which key to hold (Shift, Ctrl + Shift or Alt), where new files go, image
+  quality, a sound when done, dim or hide formats that don't fit, new names for batches, the
+  right-click menu (Windows menu or the wheel), progress popups, start with Windows, and
+  *Keep my PC fast* (background priority, one conversion at a time).
 - **Look:** match Windows / dark / light, six accent colours or your own, wheel shape (classic,
   petals, slim), size (up to huge), icons and/or text on slices, text size, how a slice lights
   up, colour slices by kind of action, options per page, open under the cursor or in the middle,
@@ -138,6 +149,10 @@ satsuma/panel.py            the Home page drop area with every option as buttons
 satsuma/sounds.py           sounds at the chosen volume
 satsuma/dialogs.py          resize / rotate / trim / fit / watermark / archive / password windows
 satsuma/history.py          recent conversions and stats
+satsuma/shellmenu.py        the right-click menu in File Explorer
+satsuma/ipc.py              hands right-click requests to the running app without loading it again
+satsuma/i18n.py             languages; satsuma/lang_ar.py has the Arabic text
+scripts/check_translations.py  checks that every text has an Arabic version
 satsuma/updater.py          self-updates from GitHub Releases (checksum-verified)
 assets/                     icon, installer pictures and sounds (scripts/make_icon.py, make_sounds.py)
 scripts/build.ps1           builds the app, installer and zip

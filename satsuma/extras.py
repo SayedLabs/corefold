@@ -12,12 +12,14 @@ import os
 import re
 import shutil
 import tempfile
+from functools import lru_cache
 from pathlib import Path
 
-from .converters import (AUDIO_ARGS, Ctx, Result, _cached, category, flatten, has_alpha, keep_format,
+from .converters import (AUDIO_ARGS, Ctx, Result, category, flatten, has_alpha, keep_format,
                          load_image, media_duration, probe, rgb_or_rgba, run_ffmpeg, save_image,
                          write_compressed_pdf)
 from .core import human_size, safe_name
+from .i18n import tr
 
 log = logging.getLogger("satsuma")
 MB = 1024 * 1024
@@ -30,21 +32,22 @@ def sub_ctx(ctx: Ctx, start: float, end: float) -> Ctx:
 
 
 def size_tag(mb: float) -> str:
-    return f"{mb:g} MB"
+    return tr("{size} MB", size=f"{mb:g}")
 
 
 # ----------------------------------------------------------------------------- make it fit
 
-FIT_PRESETS = [(8, "8 MB"), (10, "10 MB · Discord"), (25, "25 MB · Email"), (50, "50 MB"), (100, "100 MB")]
+FIT_PRESETS = [(8, ""), (10, "Discord"), (25, "Email"), (50, ""), (100, "")]  # size in MB, what it's for
 
 
 def fit(src: Path, ctx: Ctx) -> Result:
     mb = float(ctx.params.get("mb", 10))
     if mb <= 0:
-        raise RuntimeError("pick a size bigger than 0")
+        raise RuntimeError(tr("pick a size bigger than 0"))
     target = int(mb * MB)
     if src.stat().st_size <= target:
-        return Result(note=f"{src.name} is already under {size_tag(mb)} ({human_size(src.stat().st_size)})")
+        return Result(note=tr("{name} is already under {limit} ({size})", name=src.name, limit=size_tag(mb),
+                              size=human_size(src.stat().st_size)))
     kind = category(src)
     if kind == "video":
         return _fit_video(src, ctx, mb, target)
@@ -54,14 +57,14 @@ def fit(src: Path, ctx: Ctx) -> Result:
         return _fit_pdf(src, ctx, mb, target)
     if kind == "audio":
         return _fit_audio(src, ctx, mb, target)
-    raise RuntimeError("this kind of file can't be shrunk")
+    raise RuntimeError(tr("this kind of file can't be shrunk"))
 
 
 def _fit_video(src: Path, ctx: Ctx, mb: float, target: int) -> Result:
     info = probe(src)
     dur = info["duration"]
     if dur <= 0:
-        raise RuntimeError("couldn't read the length of this video")
+        raise RuntimeError(tr("couldn't read the length of this video"))
     total_bps = target * 8 * 0.95 / dur
     if not info["audio"]:
         abr = 0
@@ -74,7 +77,8 @@ def _fit_video(src: Path, ctx: Ctx, mb: float, target: int) -> Result:
     vbr = total_bps - abr
     if vbr < 90_000:
         need = math.ceil(dur * 150_000 / 8 / MB)
-        raise RuntimeError(f"too long to fit in {size_tag(mb)}. Try {need} MB or more, or trim it first")
+        raise RuntimeError(tr("too long to fit in {limit}. Try {need} MB or more, or trim it first",
+                              limit=size_tag(mb), need=need))
     height = 1080 if vbr >= 2_000_000 else 720 if vbr >= 1_000_000 else 480 if vbr >= 450_000 else 360
     vf = f"scale=-2:'min(ih,{height})',pad=ceil(iw/2)*2:ceil(ih/2)*2"
     if vbr < 600_000:
@@ -123,7 +127,7 @@ def _fit_image(src: Path, ctx: Ctx, mb: float, target: int) -> Result:
         im = im.resize((max(1, int(im.width * 0.8)), max(1, int(im.height * 0.8))), Image.LANCZOS)
         ctx.progress(min(0.9, (step + 1) / 10))
     if best is None:
-        raise RuntimeError(f"couldn't get this image under {size_tag(mb)}")
+        raise RuntimeError(tr("couldn't get this image under {limit}", limit=size_tag(mb)))
     out = ctx.out_path(src, f"{ctx.stem(src)} ({size_tag(mb)}){ext}")
     out.write_bytes(best)
     return _fit_result(src, out, mb, target)
@@ -143,10 +147,11 @@ def _fit_pdf(src: Path, ctx: Ctx, mb: float, target: int) -> Result:
 def _fit_audio(src: Path, ctx: Ctx, mb: float, target: int) -> Result:
     dur = media_duration(src)
     if dur <= 0:
-        raise RuntimeError("couldn't read the length of this file")
+        raise RuntimeError(tr("couldn't read the length of this file"))
     kbps = int(target * 8 * 0.97 / dur / 1000)
     if kbps < 32:
-        raise RuntimeError(f"too long to fit in {size_tag(mb)}. Try {math.ceil(dur * 32_000 / 8 / MB * 1.05)} MB or more")
+        raise RuntimeError(tr("too long to fit in {limit}. Try {need} MB or more", limit=size_tag(mb),
+                              need=math.ceil(dur * 32_000 / 8 / MB * 1.05)))
     kbps = min(320, kbps)
     out = ctx.out_path(src, f"{ctx.stem(src)} ({size_tag(mb)}).mp3")
     run_ffmpeg(src, out, ["-vn", "-c:a", "libmp3lame", "-b:a", f"{kbps}k"], ctx)
@@ -156,8 +161,10 @@ def _fit_audio(src: Path, ctx: Ctx, mb: float, target: int) -> Result:
 def _fit_result(src: Path, out: Path, mb: float, target: int) -> Result:
     size = out.stat().st_size
     if size > target:
-        return Result([out], note=f"Got it down to {human_size(size)}, a little over {size_tag(mb)}")
-    return Result([out], note=f"{human_size(src.stat().st_size)} → {human_size(size)}, fits in {size_tag(mb)}")
+        return Result([out], note=tr("Got it down to {size}, a little over {limit}", size=human_size(size),
+                                     limit=size_tag(mb)))
+    return Result([out], note=tr("{before} → {after}, fits in {limit}", before=human_size(src.stat().st_size),
+                                 after=human_size(size), limit=size_tag(mb)))
 
 
 def check_fit(files: list[Path]) -> str | None:
@@ -166,6 +173,7 @@ def check_fit(files: list[Path]) -> str | None:
 
 # ----------------------------------------------------------------------------- copy text (Windows OCR)
 
+@lru_cache(maxsize=1)
 def ocr_available() -> bool:
     """Checks the OCR package is there WITHOUT importing it: importing WinRT on the window's thread
     could change how that thread talks to Windows and break drag and drop."""
@@ -185,11 +193,11 @@ def ocr_available() -> bool:
         if not spec or not spec.submodule_search_locations:
             return False
         return any((Path(loc) / "windows" / "media" / "ocr").exists() for loc in spec.submodule_search_locations)
-    return _cached("ocr", Path("ocr-check"), work)
+    return work()
 
 
 def check_ocr(files: list[Path]) -> str | None:
-    return None if ocr_available() else "Reading text needs Windows 10 or 11"
+    return None if ocr_available() else tr("Reading text needs Windows 10 or 11")
 
 
 async def _windows_ocr(path: str) -> str:
@@ -198,7 +206,7 @@ async def _windows_ocr(path: str) -> str:
     from winrt.windows.storage import FileAccessMode, StorageFile
     engine = OcrEngine.try_create_from_user_profile_languages()
     if engine is None:
-        raise RuntimeError("Windows has no text-reading language installed (Settings → Time & language)")
+        raise RuntimeError(tr("Windows has no text-reading language installed (Settings → Time & language)"))
     file = await StorageFile.get_file_from_path_async(path)
     stream = await file.open_async(FileAccessMode.READ)
     decoder = await BitmapDecoder.create_async(stream)
@@ -228,11 +236,11 @@ def read_text(src: Path, ctx: Ctx) -> Result:
         text = asyncio.run(_windows_ocr(str(png.resolve())))
     text = text.strip()
     if not text:
-        return Result(note=f"No text found in {src.name}")
+        return Result(note=tr("No text found in {name}", name=src.name))
     lines = text.count("\n") + 1
     preview = re.sub(r"\s+", " ", text)
     preview = preview if len(preview) <= 70 else preview[:67] + "..."
-    return Result(clipboard=text, note=f"Copied {lines} line{'s' if lines != 1 else ''} of text: {preview}")
+    return Result(clipboard=text, note=tr("Copied the text ({lines} lines): {text}", lines=lines, text=preview))
 
 
 # ----------------------------------------------------------------------------- watermark
@@ -250,6 +258,47 @@ def _font(size: int):
         if Path(f).exists():
             return ImageFont.truetype(f, size)
     return ImageFont.load_default(size=size)
+
+
+def needs_shaping(text: str) -> bool:
+    """Arabic, Hebrew and Indian scripts need their letters joined/reordered, which Pillow can't do
+    on Windows; Qt can."""
+    import unicodedata
+    return any(unicodedata.bidirectional(c) in ("R", "AL") or 0x0900 <= ord(c) < 0x1000 for c in text)
+
+
+def _text_image_qt(text: str, px: int):
+    """The watermark text drawn by Qt (correct Arabic joining and right-to-left order), or None."""
+    try:
+        from PIL import Image
+        from PySide6.QtCore import QRect, Qt
+        from PySide6.QtGui import QColor, QFont, QFontMetrics, QGuiApplication, QImage, QPainter
+        if QGuiApplication.instance() is None:
+            return None
+        font = QFont("Segoe UI")
+        font.setPixelSize(px)
+        font.setBold(True)
+        fm = QFontMetrics(font)
+        pad = max(2, int(px * 0.12))
+        shadow = max(1, pad // 2)
+        w = fm.horizontalAdvance(text) + 2 * pad + shadow
+        h = fm.height() + 2 * pad + shadow
+        img = QImage(w, h, QImage.Format.Format_RGBA8888)
+        img.fill(Qt.GlobalColor.transparent)
+        p = QPainter(img)
+        p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
+        p.setFont(font)
+        p.setPen(QColor(0, 0, 0, 120))
+        p.drawText(QRect(pad + shadow, pad + shadow, w, h), int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop),
+                   text)
+        p.setPen(QColor(255, 255, 255, 255))
+        p.drawText(QRect(pad, pad, w, h), int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop), text)
+        p.end()
+        data = bytes(img.constBits())[: img.bytesPerLine() * h]
+        return Image.frombuffer("RGBA", (w, h), data, "raw", "RGBA", img.bytesPerLine(), 1).copy()
+    except Exception:
+        log.debug("Qt text drawing failed", exc_info=True)
+        return None
 
 
 def make_overlay(w: int, h: int, params: dict):
@@ -271,18 +320,22 @@ def make_overlay(w: int, h: int, params: dict):
         logo = logo.resize((lw, max(1, int(logo.height * lw / logo.width))), Image.LANCZOS)
         parts.append(logo)
     if text:
-        font = _font(max(10, int(short * rel)))
-        probe_img = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
-        l, t, r, b = probe_img.textbbox((0, 0), text, font=font)
-        pad = max(2, int(font.size * 0.12))
-        tw, th = r - l + 2 * pad, b - t + 2 * pad
-        txt = Image.new("RGBA", (tw, th), (0, 0, 0, 0))
-        d = ImageDraw.Draw(txt)
-        d.text((pad - l + max(1, pad // 2), pad - t + max(1, pad // 2)), text, font=font, fill=(0, 0, 0, 120))  # shadow
-        d.text((pad - l, pad - t), text, font=font, fill=(255, 255, 255, 255))
+        px = max(10, int(short * rel))
+        txt = _text_image_qt(text, px) if needs_shaping(text) else None
+        if txt is None:
+            font = _font(px)
+            probe_img = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+            l, t, r, b = probe_img.textbbox((0, 0), text, font=font)
+            pad = max(2, int(font.size * 0.12))
+            tw, th = r - l + 2 * pad, b - t + 2 * pad
+            txt = Image.new("RGBA", (tw, th), (0, 0, 0, 0))
+            d = ImageDraw.Draw(txt)
+            shadow = max(1, pad // 2)
+            d.text((pad - l + shadow, pad - t + shadow), text, font=font, fill=(0, 0, 0, 120))
+            d.text((pad - l, pad - t), text, font=font, fill=(255, 255, 255, 255))
         parts.append(txt)
     if not parts:
-        raise RuntimeError("type some text or pick a logo for the watermark")
+        raise RuntimeError(tr("type some text or pick a logo for the watermark"))
     mw = max(p.width for p in parts)
     mh = sum(p.height for p in parts) + (len(parts) - 1) * margin // 2
     mark = Image.new("RGBA", (mw, mh), (0, 0, 0, 0))
@@ -321,7 +374,7 @@ def watermark_video(src: Path, ctx: Ctx) -> Result:
     info = probe(src)
     w, h = info["width"], info["height"]
     if not (w and h):
-        raise RuntimeError("couldn't read the size of this video")
+        raise RuntimeError(tr("couldn't read the size of this video"))
     out = ctx.out_path(src, f"{ctx.stem(src)} (watermarked).mp4")
     with tempfile.TemporaryDirectory(prefix="satsuma-") as tmp:
         png = Path(tmp) / "mark.png"
@@ -354,7 +407,7 @@ def video_frames(src: Path, ctx: Ctx) -> Result:
         shutil.rmtree(outdir, ignore_errors=True)
         raise
     n = len(list(outdir.glob("*.png")))
-    return Result([outdir], note=f"Saved {n} picture{'s' if n != 1 else ''}")
+    return Result([outdir], note=tr("Saved {count} pictures", count=n))
 
 
 def natural_key(p: Path):
@@ -388,7 +441,7 @@ def images_to_video(files: list[Path], ctx: Ctx) -> Result:
 
 
 def check_several_images(files: list[Path]) -> str | None:
-    return None if len(files) > 1 else "Drop 2 or more images to make a video"
+    return None if len(files) > 1 else tr("Drop 2 or more images to make a video")
 
 
 # ----------------------------------------------------------------------------- scan to PDF

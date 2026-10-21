@@ -18,6 +18,7 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from .i18n import tr
 from .core import NO_WINDOW, TAR_SUFFIXES, Ctx, Result, _cached, app_dir, bundled, run_with_progress, safe_name, \
     unique_path
 
@@ -95,18 +96,18 @@ def _7z_error(output: str) -> Exception:
     if "wrong password" in low or "can not open encrypted archive" in low or "cannot open encrypted" in low:
         return NeedPassword()
     if "can not open the file as archive" in low or "cannot open the file as archive" in low:
-        return RuntimeError("not an archive Satsuma can open")
+        return RuntimeError(tr("not an archive Satsuma can open"))
     if "crc failed" in low or "data error" in low or "unexpected end of archive" in low:
-        return RuntimeError("the archive is damaged or incomplete")
+        return RuntimeError(tr("the archive is damaged or incomplete"))
     if "missing volume" in low:
-        return RuntimeError("a part of this split archive is missing")
+        return RuntimeError(tr("a part of this split archive is missing"))
     if "there is not enough space" in low or "disk full" in low:
-        return RuntimeError("the disk is full")
+        return RuntimeError(tr("the disk is full"))
     lines = [ln.strip() for ln in output.splitlines() if ln.strip() and not PROGRESS_RE.fullmatch(ln.strip())]
     for ln in reversed(lines):
         if ln.lower().startswith("error") or "error:" in ln.lower():
-            return RuntimeError(ln.split(":", 1)[-1].strip() or "7-Zip reported an error")
-    return RuntimeError(lines[-1] if lines else "7-Zip reported an error")
+            return RuntimeError(ln.split(":", 1)[-1].strip() or tr("7-Zip reported an error"))
+    return RuntimeError(lines[-1] if lines else tr("7-Zip reported an error"))
 
 
 def _progress(buf: str) -> float | None:
@@ -117,7 +118,7 @@ def _progress(buf: str) -> float | None:
 def _run7z(args: list[str], ctx: Ctx | None = None, cwd: Path | None = None) -> tuple[int, str]:
     exe = find_7z()
     if not exe:
-        raise RuntimeError("7-Zip is missing. Reinstall Satsuma to fix archives")
+        raise RuntimeError(tr("7-Zip is missing. Reinstall Satsuma to fix archives"))
     cmd = [exe, *args]
     if ctx is None:
         proc = subprocess.run(cmd, capture_output=True, stdin=subprocess.DEVNULL, cwd=str(cwd) if cwd else None,
@@ -157,7 +158,7 @@ def list_entries(src: Path, password: str = "") -> list[Entry]:
                 return [Entry(_tar_name(m.name), m.size, 0, _tar_time(m.mtime), m.isdir())
                         for m in tf.getmembers() if _tar_name(m.name)]
         except (tarfile.TarError, OSError, EOFError) as e:
-            raise RuntimeError("the archive is damaged or isn't a TAR file") from e
+            raise RuntimeError(tr("the archive is damaged or isn't a TAR file")) from e
     if find_7z():
         code, out = _run7z(["l", "-slt", "-sccUTF-8", _pw(password), str(src)])
         if code not in (0, 1):
@@ -172,8 +173,8 @@ def list_entries(src: Path, password: str = "") -> list[Entry]:
                               "%04d-%02d-%02d %02d:%02d" % i.date_time[:5], i.is_dir(), bool(i.flag_bits & 1))
                         for i in zf.infolist()]
         except zipfile.BadZipFile as e:
-            raise RuntimeError("the ZIP file is damaged") from e
-    raise RuntimeError("7-Zip is missing. Reinstall Satsuma to fix archives")
+            raise RuntimeError(tr("the ZIP file is damaged")) from e
+    raise RuntimeError(tr("7-Zip is missing. Reinstall Satsuma to fix archives"))
 
 
 def _tar_time(ts: float) -> str:
@@ -205,7 +206,7 @@ def check_readable(files: list[Path]) -> str | None:
     if is_tar(files[0]):
         return None
     if not find_7z() and files[0].suffix.lower() != ".zip":
-        return "Needs 7-Zip (reinstall Satsuma)"
+        return tr("Needs 7-Zip (reinstall Satsuma)")
     return None
 
 
@@ -224,8 +225,7 @@ def _extract_into(src: Path, target: Path, ctx: Ctx, password: str, members: lis
                 ctx.progress((i + 1) / max(1, len(items)))
         return
     if find_7z():
-        # -aou: if a file with the same name is already there, keep both (the new one gets renamed)
-        args = ["x", str(src), f"-o{target}", "-aou", "-y", "-bsp1", "-bse1", "-bb0", "-sccUTF-8", _pw(password)]
+        args = ["x", str(src), f"-o{target}", "-y", "-bsp1", "-bse1", "-bb0", "-sccUTF-8", _pw(password)]
         listfile = None
         if members:
             listfile = Path(tempfile.mkstemp(suffix=".txt")[1])
@@ -256,37 +256,51 @@ def _extract_into(src: Path, target: Path, ctx: Ctx, password: str, members: lis
 def extract(src: Path, ctx: Ctx, mode: str = "smart") -> Result:
     """mode "smart": straight into the folder if the archive holds a single item, otherwise into a
     new folder named after it. mode "folder": always into a new folder. ctx.params may hold
-    "password", "dest" (a folder to extract into) and "members" (only these paths)."""
+    "password", "dest" (a folder to extract into) and "members" (only these paths).
+
+    Everything is first unpacked into a hidden folder next to the destination and only moved into
+    place when it worked, so a wrong password or a damaged archive never leaves half files behind,
+    and nothing that's already there gets overwritten."""
     password = ctx.params.get("password", "")
     members = ctx.params.get("members")
     base = Path(ctx.params["dest"]) if ctx.params.get("dest") else ctx.folder_for(src)
     base.mkdir(parents=True, exist_ok=True)
     name = safe_name(ctx.options.rename_base) or archive_stem(src) or "Extracted"
 
-    made_folder = None
-    result_path: Path
-    if mode == "smart" and not members:
-        tops = top_level(list_entries(src, password))
-        if len(tops) == 1 and not (base / next(iter(tops))).exists():
-            target = base
-            result_path = base / next(iter(tops))
-        else:
-            target = made_folder = unique_path(base / name)
-            target.mkdir()
-            result_path = target
-    elif members:
-        target = result_path = base
-    else:
-        target = made_folder = unique_path(base / name)
-        target.mkdir()
-        result_path = target
+    staging = Path(tempfile.mkdtemp(prefix=".satsuma-unpacking-", dir=base))
     try:
-        _extract_into(src, target, ctx, password, members)
-    except BaseException:
-        if made_folder and made_folder.exists():
-            shutil.rmtree(made_folder, ignore_errors=True)
-        raise
-    return Result([result_path])
+        _hide(staging)
+        _extract_into(src, staging, ctx, password, members)
+        items = sorted(staging.iterdir())
+        if not items:
+            raise RuntimeError(tr("the archive is empty"))
+        if members or (mode == "smart" and len(items) == 1):
+            moved = [_move_unique(item, base) for item in items]
+            result = moved[0] if len(moved) == 1 else base
+        else:
+            result = unique_path(base / name)
+            staging.rename(result)
+            staging = None
+            _hide(result, False)
+        return Result([result])
+    finally:
+        if staging is not None and staging.exists():
+            shutil.rmtree(staging, ignore_errors=True)
+
+
+def _move_unique(item: Path, folder: Path) -> Path:
+    target = unique_path(folder / item.name)
+    shutil.move(str(item), str(target))
+    return target
+
+
+def _hide(path: Path, hidden: bool = True):
+    if os.name == "nt":
+        try:
+            import ctypes
+            ctypes.windll.kernel32.SetFileAttributesW(str(path), 0x02 if hidden else 0x10)  # HIDDEN / DIRECTORY
+        except Exception:
+            pass
 
 
 def test_archive(src: Path, ctx: Ctx) -> Result:
@@ -301,12 +315,12 @@ def test_archive(src: Path, ctx: Ctx) -> Result:
                     while f and f.read(1 << 20):
                         pass
                 ctx.progress((i + 1) / max(1, len(members)))
-        return Result(note=f"No problems found in {src.name}")
+        return Result(note=tr("No problems found in {name}", name=src.name))
     if find_7z():
         code, out = _run7z(["t", str(src), "-bsp1", "-bse1", "-sccUTF-8", _pw(password)], ctx)
         if code not in (0, 1):
             raise _7z_error(out)
-        return Result(note=f"No problems found in {src.name}")
+        return Result(note=tr("No problems found in {name}", name=src.name))
     with zipfile.ZipFile(src) as zf:
         if password:
             zf.setpassword(password.encode())
@@ -315,8 +329,8 @@ def test_archive(src: Path, ctx: Ctx) -> Result:
         except RuntimeError as e:
             raise NeedPassword() from e
     if bad:
-        raise RuntimeError(f"damaged file inside: {bad}")
-    return Result(note=f"No problems found in {src.name}")
+        raise RuntimeError(tr("damaged file inside: {name}", name=bad))
+    return Result(note=tr("No problems found in {name}", name=src.name))
 
 
 # ----------------------------------------------------------------------------- creating
@@ -340,7 +354,7 @@ def pack_into(items: list[Path], out: Path, ctx: Ctx, fmt: str = "zip", level: s
     try:
         parent = Path(os.path.commonpath([str(p.parent.resolve()) for p in items]))
     except ValueError as e:  # different drives
-        raise RuntimeError("pick files that are on the same drive") from e
+        raise RuntimeError(tr("pick files that are on the same drive")) from e
     rel = [os.path.relpath(p.resolve(), parent) for p in items]
     if find_7z():
         args = ["a", f"-t{fmt}", f"-mx={LEVELS.get(level, 5)}", "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-ssw", "-y"]
@@ -364,7 +378,7 @@ def pack_into(items: list[Path], out: Path, ctx: Ctx, fmt: str = "zip", level: s
         return [out]
     # no 7-Zip: plain ZIP through Python
     if fmt != "zip" or password or split_mb:
-        raise RuntimeError("needs 7-Zip (reinstall Satsuma)")
+        raise RuntimeError(tr("needs 7-Zip (reinstall Satsuma)"))
     files: list[tuple[Path, str]] = []
     for p, r in zip(items, rel):
         if p.is_dir():
@@ -396,9 +410,9 @@ def pack(items: list[Path], ctx: Ctx, fmt: str | None = None) -> Result:
                      float(p.get("split_mb") or 0))
     note = ""
     if len(outs) > 1:
-        note = f"Saved in {len(outs)} parts ({outs[0].name} …)"
+        note = tr("Saved in {count} parts ({name} …)", count=len(outs), name=outs[0].name)
     if p.get("password"):
-        note = (note + " · " if note else "") + "Protected with your password"
+        note = (note + " · " if note else "") + tr("Protected with your password")
     return Result(outs, note=note)
 
 
@@ -409,7 +423,7 @@ def convert_archive(src: Path, ctx: Ctx, fmt: str) -> Result:
         _extract_into(src, Path(tmp), inner, ctx.params.get("password", ""))
         items = sorted(Path(tmp).iterdir())
         if not items:
-            raise RuntimeError("the archive is empty")
+            raise RuntimeError(tr("the archive is empty"))
         out = ctx.out_path(src, f"{safe_name(ctx.options.rename_base) or archive_stem(src)}.{fmt}")
         packer = Ctx(ctx.options, lambda f: ctx.progress(0.5 + 0.5 * f), ctx.cancel_event)
         outs = pack_into(items, out, packer, fmt, "normal")
@@ -417,7 +431,7 @@ def convert_archive(src: Path, ctx: Ctx, fmt: str) -> Result:
 
 
 def check_needs_7z(files: list[Path]) -> str | None:
-    return None if find_7z() else "Needs 7-Zip (reinstall Satsuma)"
+    return None if find_7z() else tr("Needs 7-Zip (reinstall Satsuma)")
 
 
 # ----------------------------------------------------------------------------- editing (ZIP / 7z)
@@ -429,7 +443,7 @@ def can_edit(src: Path) -> bool:
 def add_files(src: Path, items: list[Path], ctx: Ctx) -> Result:
     """Adds files/folders to an existing ZIP or 7z archive (at its top level)."""
     if not can_edit(src):
-        raise RuntimeError("only ZIP and 7z archives can be changed")
+        raise RuntimeError(tr("only ZIP and 7z archives can be changed"))
     password = ctx.params.get("password", "")
     for parent in {p.parent.resolve() for p in items}:
         group = [p for p in items if p.parent.resolve() == parent]
@@ -444,12 +458,12 @@ def add_files(src: Path, items: list[Path], ctx: Ctx) -> Result:
             listfile.unlink(missing_ok=True)
         if code not in (0, 1):
             raise _7z_error(out)
-    return Result([src], note=f"Added {len(items)} item{'s' if len(items) != 1 else ''} to {src.name}")
+    return Result([src], note=tr("Added {count} items to {name}", count=len(items), name=src.name))
 
 
 def delete_entries(src: Path, members: list[str], ctx: Ctx) -> Result:
     if not can_edit(src):
-        raise RuntimeError("only ZIP and 7z archives can be changed")
+        raise RuntimeError(tr("only ZIP and 7z archives can be changed"))
     listfile = Path(tempfile.mkstemp(suffix=".txt")[1])
     listfile.write_text("\n".join(m.replace("/", os.sep) for m in members), encoding="utf-8")
     try:
@@ -459,7 +473,7 @@ def delete_entries(src: Path, members: list[str], ctx: Ctx) -> Result:
         listfile.unlink(missing_ok=True)
     if code not in (0, 1):
         raise _7z_error(out)
-    return Result([src], note=f"Removed {len(members)} item{'s' if len(members) != 1 else ''} from {src.name}")
+    return Result([src], note=tr("Removed {count} items from {name}", count=len(members), name=src.name))
 
 
 def extract_for_opening(src: Path, member: str, ctx: Ctx) -> Result:
@@ -469,5 +483,5 @@ def extract_for_opening(src: Path, member: str, ctx: Ctx) -> Result:
     extract(src, inner)
     out = target / member.replace("/", os.sep)
     if not out.exists():
-        raise RuntimeError("couldn't take that file out of the archive")
+        raise RuntimeError(tr("couldn't take that file out of the archive"))
     return Result([out])

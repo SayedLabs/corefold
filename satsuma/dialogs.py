@@ -2,18 +2,19 @@
 watermark, frames, slideshow, archive options, passwords and new names."""
 from __future__ import annotations
 
+import io
+import threading
 from pathlib import Path
 
-import io
-
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QObject, Qt, QTimer, Signal
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QDialog, QDoubleSpinBox, QFileDialog,
                                QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QRadioButton, QSlider,
                                QSpinBox, QVBoxLayout)
 
 from .converters import RESIZE_PRESETS, ROTATIONS, category, load_image, media_duration, norm, video_frame
-from .core import human_size
+from .core import human_size, quick_size
+from .i18n import tr
 from .winutil import set_title_bar_dark
 
 
@@ -35,10 +36,11 @@ class Base(QDialog):
             s.setWordWrap(True)
             self.lay.addWidget(s)
 
-    def buttons(self, ok_text: str = "Convert"):
+    def buttons(self, ok_text: str = ""):
+        ok_text = ok_text or tr("Convert")
         row = QHBoxLayout()
         row.addStretch()
-        cancel = QPushButton("Cancel")
+        cancel = QPushButton(tr("Cancel"))
         cancel.clicked.connect(self.reject)
         self.ok = QPushButton(ok_text)
         self.ok.setObjectName("primary")
@@ -61,37 +63,37 @@ class Base(QDialog):
 
 
 def describe(files: list[Path]) -> str:
-    return files[0].name if len(files) == 1 else f"{len(files)} files"
+    return files[0].name if len(files) == 1 else tr("{count} files", count=len(files))
 
 
 class ResizeDialog(Base):
     def __init__(self, files, icon, dark):
-        super().__init__("Resize", describe(files), icon, dark)
+        super().__init__(tr("Resize"), describe(files), icon, dark)
         self.group = QButtonGroup(self)
         for key, (text, _, _) in RESIZE_PRESETS.items():
-            rb = QRadioButton(text)
+            rb = QRadioButton(tr(text))
             rb.setProperty("key", key)
             rb.setChecked(key == "50")
             self.group.addButton(rb)
             self.lay.addWidget(rb)
         custom = QHBoxLayout()
-        self.custom = QRadioButton("Custom width:")
+        self.custom = QRadioButton(tr("Custom width:"))
         self.custom.setProperty("key", "custom")
         self.group.addButton(self.custom)
         self.width = QSpinBox()
         self.width.setRange(16, 20000)
         self.width.setValue(1200)
-        self.width.setSuffix(" px")
+        self.width.setSuffix(tr(" px"))
         self.width.valueChanged.connect(lambda _: self.custom.setChecked(True))
         custom.addWidget(self.custom)
         custom.addWidget(self.width)
         custom.addStretch()
         self.lay.addLayout(custom)
-        note = QLabel("The height changes to match, so nothing gets stretched. Your original stays as it is.")
+        note = QLabel(tr("The height changes to match, so nothing gets stretched. Your original stays as it is."))
         note.setObjectName("muted")
         note.setWordWrap(True)
         self.lay.addWidget(note)
-        self.buttons("Resize")
+        self.buttons(tr("Resize"))
 
     def params(self):
         key = self.group.checkedButton().property("key")
@@ -100,12 +102,12 @@ class ResizeDialog(Base):
 
 class RotateDialog(Base):
     def __init__(self, files, icon, dark):
-        super().__init__("Rotate or flip", describe(files), icon, dark)
+        super().__init__(tr("Rotate or flip"), describe(files), icon, dark)
         self.choice = None
         grid = QGridLayout()
         grid.setSpacing(8)
         for i, (key, (text, _)) in enumerate(ROTATIONS.items()):
-            b = QPushButton(text)
+            b = QPushButton(tr(text))
             b.setCursor(Qt.PointingHandCursor)
             b.setMinimumHeight(40)
             b.clicked.connect(lambda _=False, k=key: self._pick(k))
@@ -113,7 +115,7 @@ class RotateDialog(Base):
         self.lay.addLayout(grid)
         row = QHBoxLayout()
         row.addStretch()
-        cancel = QPushButton("Cancel")
+        cancel = QPushButton(tr("Cancel"))
         cancel.clicked.connect(self.reject)
         row.addWidget(cancel)
         self.lay.addLayout(row)
@@ -132,12 +134,16 @@ def fmt_time(t: float) -> str:
     return f"{h}:{m:02d}:{s:04.1f}" if h else f"{m}:{s:04.1f}"
 
 
+class _Frames(QObject):
+    ready = Signal(int, int, object)  # which end, request number, PNG bytes
+
+
 class TrimDialog(Base):
     STEPS = 1000
 
     def __init__(self, files, icon, dark):
         src = files[0]
-        super().__init__("Trim", src.name, icon, dark)
+        super().__init__(tr("Trim"), src.name, icon, dark)
         self.src = src
         self.video = category(src) == "video"
         self.duration = max(0.1, media_duration(src))
@@ -154,15 +160,15 @@ class TrimDialog(Base):
             n.setRange(0, self.duration)
             n.setDecimals(1)
             n.setSingleStep(0.5)
-            n.setSuffix(" s")
+            n.setSuffix(tr(" s"))
         self.end_n.setValue(self.duration)
 
         self.thumbs = [QLabel(), QLabel()]
         grid = QGridLayout()
         grid.setHorizontalSpacing(12)
         grid.setVerticalSpacing(6)
-        for col, (title, slider, num) in enumerate((("Start", self.start_s, self.start_n),
-                                                    ("End", self.end_s, self.end_n))):
+        for col, (title, slider, num) in enumerate(((tr("Start"), self.start_s, self.start_n),
+                                                    (tr("End"), self.end_s, self.end_n))):
             t = QLabel(title)
             t.setObjectName("h2")
             grid.addWidget(t, 0, col)
@@ -177,16 +183,20 @@ class TrimDialog(Base):
         self.length = QLabel()
         self.length.setObjectName("muted")
         self.lay.addWidget(self.length)
-        note = QLabel("Saved as a new file" + (" (MP4)." if self.video else ".") + " Your original stays as it is.")
+        note = QLabel(tr("Saved as a new MP4 file. Your original stays as it is.") if self.video
+                      else tr("Saved as a new file. Your original stays as it is."))
         note.setObjectName("muted")
         self.lay.addWidget(note)
-        self.buttons("Trim")
+        self.buttons(tr("Trim"))
 
         self._syncing = False
         self.start_s.valueChanged.connect(lambda v: self._from_slider(0, v))
         self.end_s.valueChanged.connect(lambda v: self._from_slider(1, v))
         self.start_n.valueChanged.connect(lambda v: self._from_number(0, v))
         self.end_n.valueChanged.connect(lambda v: self._from_number(1, v))
+        self.wanted = [0, 0]
+        self.frames = _Frames(self)
+        self.frames.ready.connect(self._show_thumb)
         self.thumb_timer = [QTimer(self), QTimer(self)]
         for i, tm in enumerate(self.thumb_timer):
             tm.setSingleShot(True)
@@ -232,19 +242,34 @@ class TrimDialog(Base):
 
     def _update(self):
         start, end = self._values()
-        self.length.setText(f"Keeps {fmt_time(start)} → {fmt_time(end)}  ·  {fmt_time(end - start)} long "
-                            f"(was {fmt_time(self.duration)})")
+        self.length.setText(tr("Keeps {start} → {end}  ·  {length} long (was {was})", start=fmt_time(start),
+                               end=fmt_time(end), length=fmt_time(end - start), was=fmt_time(self.duration)))
 
     def _thumb(self, which):
+        """Reads the frame in the background, so dragging the sliders stays smooth."""
         t = self._values()[which]
         if which == 1:
             t = max(0.0, t - 0.05)
-        data = video_frame(self.src, t)
+        self.wanted[which] += 1
+        ticket, src, frames = self.wanted[which], self.src, self.frames
+
+        def work():
+            data = video_frame(src, t)
+            try:
+                frames.ready.emit(which, ticket, data)
+            except RuntimeError:
+                pass  # the window was closed meanwhile
+        threading.Thread(target=work, daemon=True).start()
+
+    def _show_thumb(self, which, ticket, data):
+        if ticket != self.wanted[which]:
+            return  # an older frame; a newer one is on its way
         pm = QPixmap()
         if data and pm.loadFromData(data):
             self.thumbs[which].setPixmap(pm.scaled(240, 135, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         else:
-            self.thumbs[which].setText("No preview")
+            self.thumbs[which].setPixmap(QPixmap())
+            self.thumbs[which].setText(tr("No preview"))
 
     def params(self):
         start, end = self._values()
@@ -253,18 +278,18 @@ class TrimDialog(Base):
 
 class RenameDialog(Base):
     def __init__(self, files, icon, dark):
-        super().__init__("Name the new files", f"{len(files)} files", icon, dark)
+        super().__init__(tr("Name the new files"), tr("{count} files", count=len(files)), icon, dark)
         self.files = files
         self.base = QLineEdit()
-        self.base.setPlaceholderText("e.g. vacation")
+        self.base.setPlaceholderText(tr("e.g. vacation"))
         self.start = QSpinBox()
         self.start.setRange(0, 99999)
         self.start.setValue(1)
         row = QHBoxLayout()
-        row.addWidget(QLabel("Name"))
+        row.addWidget(QLabel(tr("Name")))
         row.addWidget(self.base, 1)
         row.addSpacing(10)
-        row.addWidget(QLabel("Start at"))
+        row.addWidget(QLabel(tr("Start at")))
         row.addWidget(self.start)
         self.lay.addLayout(row)
         self.preview = QLabel()
@@ -273,8 +298,8 @@ class RenameDialog(Base):
         self.lay.addWidget(self.preview)
         self.base.textChanged.connect(self._update)
         self.start.valueChanged.connect(self._update)
-        self.buttons("Convert")
-        self.keep = QPushButton("Keep original names")
+        self.buttons(tr("Convert"))
+        self.keep = QPushButton(tr("Keep original names"))
         self.keep.setCursor(Qt.PointingHandCursor)
         self.keep.clicked.connect(self._keep)
         self.lay.itemAt(self.lay.count() - 1).layout().insertWidget(0, self.keep)
@@ -288,7 +313,7 @@ class RenameDialog(Base):
     def _update(self):
         base = self.base.text().strip()
         if not base:
-            self.preview.setText("Type a name, or keep the original names.")
+            self.preview.setText(tr("Type a name, or keep the original names."))
             self.ok.setEnabled(False)
             return
         self.ok.setEnabled(True)
@@ -296,7 +321,7 @@ class RenameDialog(Base):
         ext = norm(self.files[0].suffix)
         names = [f"{base}-{n + i}{ext}" for i in range(min(3, len(self.files)))]
         more = "…" if len(self.files) > 3 else ""
-        self.preview.setText("New files: " + ", ".join(names) + more)
+        self.preview.setText(tr("New files: {names}", names=", ".join(names) + more))
 
     def params(self):
         if self.keep_names:
@@ -307,23 +332,25 @@ class RenameDialog(Base):
 class FitDialog(Base):
     def __init__(self, files, icon, dark, last_mb: float = 10):
         from .extras import FIT_PRESETS
-        size = sum(f.stat().st_size for f in files if f.exists())
-        super().__init__("Make it fit", f"{describe(files)} · {human_size(size)} now", icon, dark)
+        size = sum(quick_size(f, 0.1)[0] for f in files)
+        super().__init__(tr("Make it fit"), tr("{what} · {size} now", what=describe(files), size=human_size(size)),
+                         icon, dark)
         self.group = QButtonGroup(self)
         for mb, text in FIT_PRESETS:
-            rb = QRadioButton(f"Under {text}")
+            rb = QRadioButton(tr("Under {size} MB ({use})", size=f"{mb:g}", use=tr(text)) if text
+                              else tr("Under {size} MB", size=f"{mb:g}"))
             rb.setProperty("mb", float(mb))
             rb.setChecked(abs(mb - last_mb) < 1e-6)
             self.group.addButton(rb)
             self.lay.addWidget(rb)
         row = QHBoxLayout()
-        self.custom = QRadioButton("Under")
+        self.custom = QRadioButton(tr("Under"))
         self.custom.setProperty("mb", -1.0)
         self.group.addButton(self.custom)
         self.mb = QDoubleSpinBox()
         self.mb.setRange(0.1, 4000)
         self.mb.setDecimals(1)
-        self.mb.setSuffix(" MB")
+        self.mb.setSuffix(tr(" MB"))
         self.mb.setValue(last_mb if last_mb not in [m for m, _ in FIT_PRESETS] else 15)
         self.mb.valueChanged.connect(lambda _: self.custom.setChecked(True))
         row.addWidget(self.custom)
@@ -332,12 +359,12 @@ class FitDialog(Base):
         self.lay.addLayout(row)
         if not self.group.checkedButton():
             self.custom.setChecked(True)
-        note = QLabel("Satsuma picks the best quality that still fits. Videos keep their sound; very long videos "
-                      "may need a bigger size.")
+        note = QLabel(tr("Satsuma picks the best quality that still fits. Videos keep their sound; very long "
+                         "videos may need a bigger size."))
         note.setObjectName("muted")
         note.setWordWrap(True)
         self.lay.addWidget(note)
-        self.buttons("Make it fit")
+        self.buttons(tr("Make it fit"))
 
     def params(self):
         b = self.group.checkedButton()
@@ -348,25 +375,25 @@ class FitDialog(Base):
 class WatermarkDialog(Base):
     def __init__(self, files, icon, dark, last: dict | None = None):
         from .extras import POSITIONS, WM_SIZES
-        super().__init__("Watermark", describe(files), icon, dark)
+        super().__init__(tr("Watermark"), describe(files), icon, dark)
         last = last or {}
         self.files = files
         self.text = QLineEdit(last.get("text", ""))
-        self.text.setPlaceholderText("e.g. © Your Name")
+        self.text.setPlaceholderText(tr("e.g. © Your Name"))
         self.logo = last.get("logo", "") if Path(last.get("logo", "") or "-").exists() else ""
         self.logo_label = QLabel()
         self.logo_label.setObjectName("muted")
-        pick_logo = QPushButton("Choose logo…")
+        pick_logo = QPushButton(tr("Choose logo…"))
         pick_logo.clicked.connect(self._pick_logo)
-        clear_logo = QPushButton("No logo")
+        clear_logo = QPushButton(tr("No logo"))
         clear_logo.clicked.connect(self._clear_logo)
         self.position = QComboBox()
         for k, v in POSITIONS.items():
-            self.position.addItem(v, k)
+            self.position.addItem(tr(v), k)
         self.position.setCurrentIndex(max(0, self.position.findData(last.get("position", "br"))))
         self.size = QComboBox()
         for k in WM_SIZES:
-            self.size.addItem(k.capitalize(), k)
+            self.size.addItem(tr(k.capitalize()), k)
         self.size.setCurrentIndex(max(0, self.size.findData(last.get("size", "medium"))))
         self.opacity = QSlider(Qt.Horizontal)
         self.opacity.setRange(10, 100)
@@ -378,8 +405,9 @@ class WatermarkDialog(Base):
         logo_row.addWidget(self.logo_label, 1)
         logo_row.addWidget(pick_logo)
         logo_row.addWidget(clear_logo)
-        for r, (label, w) in enumerate((("Text", self.text), ("Logo", logo_row), ("Where", self.position),
-                                        ("Size", self.size), ("See-through", self.opacity))):
+        for r, (label, w) in enumerate(((tr("Text"), self.text), (tr("Logo"), logo_row),
+                                        (tr("Where"), self.position), (tr("Size"), self.size),
+                                        (tr("See-through"), self.opacity))):
             grid.addWidget(QLabel(label), r, 0)
             (grid.addLayout if isinstance(w, QHBoxLayout) else grid.addWidget)(w, r, 1)
         self.lay.addLayout(grid)
@@ -387,7 +415,7 @@ class WatermarkDialog(Base):
         self.preview.setAlignment(Qt.AlignCenter)
         self.preview.setMinimumSize(320, 180)
         self.lay.addWidget(self.preview)
-        self.buttons("Add watermark")
+        self.buttons(tr("Add watermark"))
         self._base = None
         self.timer = QTimer(self)
         self.timer.setSingleShot(True)
@@ -399,7 +427,8 @@ class WatermarkDialog(Base):
         QTimer.singleShot(30, self._render)
 
     def _pick_logo(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Choose a logo", "", "Images (*.png *.jpg *.jpeg *.webp *.bmp)")
+        path, _ = QFileDialog.getOpenFileName(self, tr("Choose a logo"), "",
+                                              tr("Images") + " (*.png *.jpg *.jpeg *.webp *.bmp)")
         if path:
             self.logo = path
             self._update_logo_label()
@@ -411,7 +440,7 @@ class WatermarkDialog(Base):
         self._render()
 
     def _update_logo_label(self):
-        self.logo_label.setText(Path(self.logo).name if self.logo else "None")
+        self.logo_label.setText(Path(self.logo).name if self.logo else tr("None"))
         has_any = bool(self.text.text().strip() or self.logo)
         if hasattr(self, "ok"):
             self.ok.setEnabled(has_any)
@@ -447,7 +476,7 @@ class WatermarkDialog(Base):
             pm.loadFromData(buf.getvalue())
             self.preview.setPixmap(pm.scaled(420, 240, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         except Exception:
-            self.preview.setText("No preview")
+            self.preview.setText(tr("No preview"))
 
     def params(self):
         return {"text": self.text.text().strip(), "logo": self.logo, "position": self.position.currentData(),
@@ -457,19 +486,20 @@ class WatermarkDialog(Base):
 class FramesDialog(Base):
     def __init__(self, files, icon, dark):
         dur = media_duration(files[0])
-        super().__init__("Save pictures from the video", f"{files[0].name} · {fmt_time(dur)} long", icon, dark)
+        super().__init__(tr("Save pictures from the video"),
+                         tr("{name} · {length} long", name=files[0].name, length=fmt_time(dur)), icon, dark)
         self.group = QButtonGroup(self)
-        self.every = QRadioButton("One picture every")
+        self.every = QRadioButton(tr("One picture every"))
         self.every.setChecked(True)
         self.secs = QDoubleSpinBox()
         self.secs.setRange(0.1, 3600)
         self.secs.setValue(1)
-        self.secs.setSuffix(" seconds")
-        self.count_rb = QRadioButton("This many pictures, spread out:")
+        self.secs.setSuffix(tr(" seconds"))
+        self.count_rb = QRadioButton(tr("This many pictures, spread out:"))
         self.count = QSpinBox()
         self.count.setRange(1, 1000)
         self.count.setValue(10)
-        self.all = QRadioButton("Every single frame (makes a lot of files)")
+        self.all = QRadioButton(tr("Every single frame (makes a lot of files)"))
         for rb in (self.every, self.count_rb, self.all):
             self.group.addButton(rb)
         for rb, w in ((self.every, self.secs), (self.count_rb, self.count)):
@@ -481,10 +511,10 @@ class FramesDialog(Base):
         self.secs.valueChanged.connect(lambda _: self.every.setChecked(True))
         self.count.valueChanged.connect(lambda _: self.count_rb.setChecked(True))
         self.lay.addWidget(self.all)
-        note = QLabel("Saved as PNG pictures in a new folder.")
+        note = QLabel(tr("Saved as PNG pictures in a new folder."))
         note.setObjectName("muted")
         self.lay.addWidget(note)
-        self.buttons("Save pictures")
+        self.buttons(tr("Save pictures"))
 
     def params(self):
         if self.all.isChecked():
@@ -496,22 +526,23 @@ class FramesDialog(Base):
 
 class SlideshowDialog(Base):
     def __init__(self, files, icon, dark):
-        super().__init__("Make a video", f"{len(files)} pictures, in name order", icon, dark)
+        super().__init__(tr("Make a video"), tr("{count} pictures, in name order", count=len(files)), icon, dark)
         row = QHBoxLayout()
-        row.addWidget(QLabel("Show each picture for"))
+        row.addWidget(QLabel(tr("Show each picture for")))
         self.secs = QDoubleSpinBox()
         self.secs.setRange(0.1, 60)
         self.secs.setValue(2)
-        self.secs.setSuffix(" seconds")
+        self.secs.setSuffix(tr(" seconds"))
         row.addWidget(self.secs)
         row.addStretch()
         self.lay.addLayout(row)
         self.total = QLabel()
         self.total.setObjectName("muted")
         self.lay.addWidget(self.total)
-        self.secs.valueChanged.connect(lambda v: self.total.setText(f"The video will be {fmt_time(v * len(files))} long."))
-        self.total.setText(f"The video will be {fmt_time(2 * len(files))} long.")
-        self.buttons("Make video")
+        self.secs.valueChanged.connect(
+            lambda v: self.total.setText(tr("The video will be {length} long.", length=fmt_time(v * len(files)))))
+        self.total.setText(tr("The video will be {length} long.", length=fmt_time(2 * len(files))))
+        self.buttons(tr("Make video"))
 
     def params(self):
         return {"seconds": self.secs.value()}
@@ -523,45 +554,41 @@ SPLITS = [(0, "Don't split"), (25, "25 MB (email)"), (100, "100 MB"), (700, "700
 
 class PackDialog(Base):
     def __init__(self, files, icon, dark):
-        size = 0
-        for f in files:
-            try:
-                size += sum(x.stat().st_size for x in f.rglob("*") if x.is_file()) if f.is_dir() else f.stat().st_size
-            except OSError:
-                pass
-        super().__init__("Make an archive", f"{describe(files)} · {human_size(size)}", icon, dark)
+        sizes = [quick_size(f, 0.3 / max(1, len(files))) for f in files]
+        size = human_size(sum(b for b, _ in sizes)) + ("+" if not all(done for _, done in sizes) else "")
+        super().__init__(tr("Make an archive"), f"{describe(files)} · {size}", icon, dark)
         from .archives import find_7z
         has7z = bool(find_7z())
         self.name = QLineEdit()
-        self.name.setPlaceholderText("Name (optional)")
+        self.name.setPlaceholderText(tr("Name (optional)"))
         self.format = QComboBox()
-        self.format.addItem("ZIP (opens everywhere)", "zip")
+        self.format.addItem(tr("ZIP (opens everywhere)"), "zip")
         if has7z:
-            self.format.addItem("7z (smaller files)", "7z")
+            self.format.addItem(tr("7z (smaller files)"), "7z")
         self.level = QComboBox()
         for k, v in (("fast", "Fast"), ("normal", "Normal"), ("max", "Smallest file (slower)")):
-            self.level.addItem(v, k)
+            self.level.addItem(tr(v), k)
         self.level.setCurrentIndex(1)
         self.password = QLineEdit()
         self.password.setEchoMode(QLineEdit.Password)
-        self.password.setPlaceholderText("No password")
+        self.password.setPlaceholderText(tr("No password"))
         self.password2 = QLineEdit()
         self.password2.setEchoMode(QLineEdit.Password)
-        self.password2.setPlaceholderText("Type it again")
-        show = QCheckBox("Show")
+        self.password2.setPlaceholderText(tr("Type it again"))
+        show = QCheckBox(tr("Show"))
         show.toggled.connect(lambda on: [w.setEchoMode(QLineEdit.Normal if on else QLineEdit.Password)
                                          for w in (self.password, self.password2)])
         self.split = QComboBox()
         for mb, text in SPLITS:
-            self.split.addItem(text, mb)
+            self.split.addItem(tr(text), mb)
         grid = QGridLayout()
         grid.setHorizontalSpacing(12)
         grid.setVerticalSpacing(10)
         pw_row = QHBoxLayout()
         pw_row.addWidget(self.password, 1)
         pw_row.addWidget(show)
-        rows = [("Name", self.name), ("Type", self.format), ("Compression", self.level), ("Password", pw_row),
-                ("", self.password2), ("Split into parts", self.split)]
+        rows = [(tr("Name"), self.name), (tr("Type"), self.format), (tr("Compression"), self.level),
+                (tr("Password"), pw_row), ("", self.password2), (tr("Split into parts"), self.split)]
         for r, (label, w) in enumerate(rows):
             if label:
                 grid.addWidget(QLabel(label), r, 0)
@@ -575,7 +602,7 @@ class PackDialog(Base):
             self.password.setEnabled(False)
             self.password2.setEnabled(False)
             self.split.setEnabled(False)
-        self.buttons("Make archive")
+        self.buttons(tr("Make archive"))
         for sig in (self.password.textChanged, self.password2.textChanged, self.format.currentIndexChanged):
             sig.connect(lambda *_: self._check())
         self._check()
@@ -583,14 +610,14 @@ class PackDialog(Base):
     def _check(self):
         p1, p2 = self.password.text(), self.password2.text()
         if p1 and p1 != p2:
-            self.warn.setText("The two passwords don't match yet.")
+            self.warn.setText(tr("The two passwords don't match yet."))
             self.ok.setEnabled(False)
             return
         self.ok.setEnabled(True)
         if p1:
-            what = "The file names and contents are hidden" if self.format.currentData() == "7z" else \
-                "The contents are protected (AES-256)"
-            self.warn.setText(f"{what}. Don't forget the password: nobody can open the archive without it.")
+            what = tr("The file names and contents are hidden.") if self.format.currentData() == "7z" else \
+                tr("The contents are protected (AES-256).")
+            self.warn.setText(what + " " + tr("Don't forget the password: nobody can open the archive without it."))
         else:
             self.warn.setText("")
 
@@ -602,19 +629,20 @@ class PackDialog(Base):
 
 class PasswordDialog(Base):
     def __init__(self, files, icon, dark, wrong: bool = False):
-        super().__init__("Password needed", f"{files[0].name} is protected with a password.", icon, dark)
+        super().__init__(tr("Password needed"), tr("{name} is protected with a password.", name=files[0].name),
+                         icon, dark)
         if wrong:
-            w = QLabel("That password didn't work. Try again.")
+            w = QLabel(tr("That password didn't work. Try again."))
             w.setStyleSheet("color: #e5484d;")
             self.lay.addWidget(w)
         self.password = QLineEdit()
         self.password.setEchoMode(QLineEdit.Password)
-        self.password.setPlaceholderText("Password")
-        show = QCheckBox("Show password")
+        self.password.setPlaceholderText(tr("Password"))
+        show = QCheckBox(tr("Show password"))
         show.toggled.connect(lambda on: self.password.setEchoMode(QLineEdit.Normal if on else QLineEdit.Password))
         self.lay.addWidget(self.password)
         self.lay.addWidget(show)
-        self.buttons("Open")
+        self.buttons(tr("Open"))
         self.password.setFocus()
 
     def params(self):
@@ -629,4 +657,7 @@ DIALOGS = {"resize": ResizeDialog, "rotate": RotateDialog, "trim": TrimDialog, "
 def ask(kind: str, files: list[Path], icon: QIcon, dark: bool, **extra) -> dict | None:
     """Shows a dialog; returns the user's choices, or None if they cancelled."""
     dlg = DIALOGS[kind](files, icon, dark, **extra)
-    return dlg.params() if dlg.exec() else None  # 1 = accepted, 0 = cancelled
+    try:
+        return dlg.params() if dlg.exec() else None  # 1 = accepted, 0 = cancelled
+    finally:
+        dlg.deleteLater()  # free the window (and any preview pictures) straight away
