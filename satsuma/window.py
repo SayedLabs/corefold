@@ -6,27 +6,28 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, QUrl, Signal
+from PySide6.QtCore import QDateTime, QLocale, Qt, QUrl, Signal
 from PySide6.QtGui import QColor, QDesktopServices, QIcon
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QColorDialog, QComboBox, QFileDialog, QFrame,
-                               QGridLayout, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QPushButton,
+                               QGridLayout, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QMessageBox, QPushButton,
                                QScrollArea, QSlider, QSpinBox, QStackedWidget, QSystemTrayIcon, QVBoxLayout,
                                QWidget)
 
-from . import UPDATE_REPO, __version__
+from . import UPDATE_REPO, __version__, i18n
 from .converters import CATEGORY_NAMES, catalog, human_size
+from .i18n import LANGUAGES, tr
 from .panel import DropZone, FilePanel, choose_files
-from .settings import (ACCENTS, APP_NAME, HOVER_STYLES, LABEL_STYLES, LOG_DIR, SHORTCUT_LABELS, SLICE_COLORS,
-                       SOUNDS, TEXT_SIZES, WHEEL_POSITIONS, WHEEL_STYLES, installed_uninstaller, set_startup,
-                       startup_enabled)
+from .settings import (ACCENTS, APP_NAME, APPEARANCES, HOVER_STYLES, LABEL_STYLES, LOG_DIR, MENU_STYLES,
+                       SHORTCUT_LABELS, SLICE_COLORS, SOUNDS, TEXT_SIZE_NAMES, WHEEL_POSITIONS, WHEEL_SIZE_NAMES,
+                       WHEEL_STYLES, installed_uninstaller, set_startup, startup_enabled)
 from .theme import Theme
 from .wheel import WheelPreview
-from .winutil import reveal_in_explorer, set_title_bar_dark
+from .winutil import memory_use, reveal_in_explorer, set_title_bar_dark
 
 if TYPE_CHECKING:
     from .app import Controller
 
-PAGES = ["Home", "General", "Look", "Formats", "History", "Updates", "About"]
+PAGES = ["Home", "General", "Look", "Formats", "History", "Updates", "About"]  # tr() when shown
 
 
 # ----------------------------------------------------------------------------- small building blocks
@@ -85,17 +86,29 @@ def page(title: str, subtitle: str = "") -> tuple[QWidget, QVBoxLayout]:
     return scroll, lay
 
 
+def locale() -> QLocale:
+    """Dates and numbers in the app's language (not always Windows' language)."""
+    return QLocale(QLocale.Language.Arabic if i18n.language() == "ar" else QLocale.Language.English)
+
+
+def date_text(ts: float, long: bool = False) -> str:
+    when = QDateTime.fromSecsSinceEpoch(int(ts)).date()
+    return locale().toString(when, "d MMMM yyyy" if long else "d MMM")
+
+
 def time_ago(ts: float) -> str:
     d = time.time() - ts
     if d < 60:
-        return "just now"
+        return tr("just now")
     if d < 3600:
-        return f"{int(d // 60)} min ago"
+        return tr("{count} min ago", count=int(d // 60))
     if d < 86400:
-        return f"{int(d // 3600)} h ago"
+        return tr("{count} h ago", count=int(d // 3600))
+    if d < 2 * 86400:
+        return tr("yesterday")
     if d < 7 * 86400:
-        return f"{int(d // 86400)} days ago" if d >= 2 * 86400 else "yesterday"
-    return time.strftime("%b %d", time.localtime(ts))
+        return tr("{count} days ago", count=int(d // 86400))
+    return date_text(ts)
 
 
 class Segmented(QWidget):
@@ -140,7 +153,7 @@ class Swatches(QWidget):
             b.setCheckable(True)
             b.setChecked(key == value)
             b.setFixedSize(32, 32)
-            b.setToolTip(ACCENTS[key][0] if key in ACCENTS else "Pick your own colour")
+            b.setToolTip(tr(ACCENTS[key][0]) if key in ACCENTS else tr("Pick your own colour"))
             self.group.addButton(b, i)
             self.buttons[key] = b
             lay.addWidget(b)
@@ -150,7 +163,7 @@ class Swatches(QWidget):
 
     def _clicked(self, key):
         if key == "custom":
-            c = QColorDialog.getColor(QColor(self.custom), self.window(), "Pick a colour")
+            c = QColorDialog.getColor(QColor(self.custom), self.window(), tr("Pick a colour"))
             if not c.isValid():  # cancelled: go back to the colour that was selected
                 self.buttons.get(self.value, self.buttons["tangerine"]).setChecked(True)
                 return
@@ -181,7 +194,7 @@ class MainWindow(QWidget):
         super().__init__()
         self.c = controller
         self.icon = icon
-        self.told_about_tray = False
+        self._batch = False
         self.setObjectName("window")
         self.setAttribute(Qt.WA_StyledBackground)
         self.setWindowTitle(APP_NAME)
@@ -201,14 +214,14 @@ class MainWindow(QWidget):
         brand.addStretch()
         self.nav = QListWidget()
         self.nav.setObjectName("nav")
-        self.nav.addItems(PAGES)
+        self.nav.addItems([tr(p) for p in PAGES])
         self.nav.setCursor(Qt.PointingHandCursor)
         side = QVBoxLayout(sidebar)
         side.setContentsMargins(14, 18, 14, 14)
         side.setSpacing(14)
         side.addLayout(brand)
         side.addWidget(self.nav, 1)
-        side.addWidget(label(f"Version {__version__}", "version"))
+        side.addWidget(label(tr("Version {version}", version=__version__), "version"))
 
         self.stack = QStackedWidget()
         for build in (self._home, self._general, self._look, self._formats, self._history, self._updates,
@@ -218,9 +231,9 @@ class MainWindow(QWidget):
         self.nav.setCurrentRow(0)
 
         footer = QHBoxLayout()
-        footer.addWidget(label("Changes are saved automatically.", "muted"))
+        footer.addWidget(label(tr("Changes are saved automatically."), "muted"))
         footer.addStretch()
-        footer.addWidget(button("Done", "primary", self.close))
+        footer.addWidget(button(tr("Done"), "primary", self.close))
         content = QVBoxLayout()
         content.setContentsMargins(30, 24, 20, 18)
         content.setSpacing(12)
@@ -241,11 +254,13 @@ class MainWindow(QWidget):
         self.stack.setCurrentIndex(i)
         if PAGES[i] == "History":
             self.refresh_history()
+        elif PAGES[i] == "About":
+            self.refresh_memory()
 
     # ---- pages
 
     def _home(self) -> QWidget:
-        w, lay = page("Convert files with one drag")
+        w, lay = page(tr("Convert files with one drag"))
         steps, sl = card()
         grid = QGridLayout()
         grid.setHorizontalSpacing(14)
@@ -279,30 +294,36 @@ class MainWindow(QWidget):
         row = QHBoxLayout()
         row.addWidget(self.power)
         row.addSpacing(10)
-        row.addWidget(label("Satsuma keeps running in the system tray (bottom-right, by the clock) "
-                            "after you close this window.", "muted", wrap=True), 1)
+        row.addWidget(label(tr("Satsuma keeps running in the system tray (by the clock) after you close this "
+                               "window. It uses almost no memory or power while it waits."), "muted", wrap=True), 1)
         lay.addLayout(row)
         lay.addStretch()
         return w
 
     def _general(self) -> QWidget:
         s = self.c.settings
-        w, lay = page("General")
+        w, lay = page(tr("General"))
 
         box, bl = card()
         grid = QGridLayout()
         grid.setHorizontalSpacing(16)
         grid.setVerticalSpacing(12)
 
+        self.language = QComboBox()
+        for key, text in LANGUAGES.items():
+            self.language.addItem(tr(text) if key == "system" else text, key)
+        self.language.setCurrentIndex(max(0, self.language.findData(s.language)))
+        self.language.currentIndexChanged.connect(self._language_changed)
+
         self.shortcut = QComboBox()
         for key, text in SHORTCUT_LABELS.items():
-            self.shortcut.addItem(text, key)
+            self.shortcut.addItem(tr(text), key)
         self.shortcut.setCurrentIndex(max(0, self.shortcut.findData(s.shortcut)))
         self.shortcut.currentIndexChanged.connect(self._general_changed)
 
         self.save_mode = QComboBox()
-        self.save_mode.addItem("Next to the original file", "beside")
-        self.save_mode.addItem("Always in one folder", "folder")
+        self.save_mode.addItem(tr("Next to the original file"), "beside")
+        self.save_mode.addItem(tr("Always in one folder"), "folder")
         self.save_mode.setCurrentIndex(max(0, self.save_mode.findData(s.save_mode)))
         self.save_mode.currentIndexChanged.connect(self._general_changed)
 
@@ -312,7 +333,7 @@ class MainWindow(QWidget):
         self.folder_label = label("", "muted")
         self.folder_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         fr.addWidget(self.folder_label, 1)
-        fr.addWidget(button("Change…", on_click=self._pick_folder))
+        fr.addWidget(button(tr("Change…"), on_click=self._pick_folder))
 
         self.quality = QSpinBox()
         self.quality.setRange(50, 100)
@@ -321,16 +342,16 @@ class MainWindow(QWidget):
         self.quality.valueChanged.connect(self._general_changed)
         q_row = QHBoxLayout()
         q_row.addWidget(self.quality)
-        q_row.addWidget(label("for JPG and WebP. Higher = better quality, bigger file.", "muted"), 1)
+        q_row.addWidget(label(tr("for JPG and WebP. Higher = better quality, bigger file."), "muted"), 1)
 
         self.sound = QComboBox()
         for key, text in SOUNDS.items():
-            self.sound.addItem(text, key)
+            self.sound.addItem(tr(text), key)
         self.sound.setCurrentIndex(max(0, self.sound.findData(s.sound)))
         self.sound.currentIndexChanged.connect(self._sound_changed)
         snd_row = QHBoxLayout()
         snd_row.addWidget(self.sound)
-        snd_row.addWidget(button("▶ Play", on_click=self.c.play_done_sound))
+        snd_row.addWidget(button(tr("▶ Play"), on_click=self.c.play_done_sound))
         snd_row.addStretch()
         self.volume = QSlider(Qt.Horizontal)
         self.volume.setRange(0, 100)
@@ -347,14 +368,15 @@ class MainWindow(QWidget):
         vol_row.addWidget(self.volume_label)
 
         self.unavailable = QComboBox()
-        self.unavailable.addItem("Show them dimmed (with the reason)", True)
-        self.unavailable.addItem("Hide them", False)
+        self.unavailable.addItem(tr("Show them dimmed (with the reason)"), True)
+        self.unavailable.addItem(tr("Hide them"), False)
         self.unavailable.setCurrentIndex(0 if s.show_unavailable else 1)
         self.unavailable.currentIndexChanged.connect(self._general_changed)
 
-        rows = (("Key to hold while dragging", self.shortcut), ("Save new files", self.save_mode),
-                ("", self.folder_row), ("Image quality", q_row), ("Sound when done", snd_row),
-                ("Volume", vol_row), ("Formats that don't fit a file", self.unavailable))
+        rows = ((tr("Language"), self.language), (tr("Key to hold while dragging"), self.shortcut),
+                (tr("Save new files"), self.save_mode), ("", self.folder_row), (tr("Image quality"), q_row),
+                (tr("Sound when done"), snd_row), (tr("Volume"), vol_row),
+                (tr("Formats that don't fit a file"), self.unavailable))
         for r, (text, widget) in enumerate(rows):
             if text:
                 grid.addWidget(label(text), r, 0)
@@ -363,65 +385,89 @@ class MainWindow(QWidget):
         bl.addLayout(grid)
         lay.addWidget(box)
 
-        checks, cl = card()
-        self.ask_names = checkbox("When converting several files, ask for a new name (like vacation-1, vacation-2…)",
-                                  s.ask_names, self._general_changed)
-        self.show_progress = checkbox("Show a popup while converting and when it's done", s.show_progress,
-                                      self._general_changed)
-        self.reveal = checkbox("Open the folder with the new file after converting", s.reveal_after,
-                               self._general_changed)
-        self.context = checkbox("Add \"Convert with Satsuma\" to the right-click menu", s.context_menu,
+        # right-click menu
+        menu, ml = card()
+        ml.addWidget(label(tr("Right-click menu"), "h2"))
+        self.context = checkbox(tr("Show Satsuma when I right-click a file or folder"), s.context_menu,
                                 self.c.set_context_menu)
-        self.startup = checkbox("Start Satsuma when Windows starts", startup_enabled(), set_startup)
-        self.problem_sound = checkbox("Play a soft sound when something goes wrong", s.sound_problems,
+        ml.addWidget(self.context)
+        self.menu_style = Segmented([(k, tr(v)) for k, v in MENU_STYLES.items()], s.menu_style)
+        self.menu_style.changed.connect(self.c.set_menu_style)
+        ml.addWidget(self.menu_style)
+        self.menu_hint = label("", "muted", wrap=True)
+        ml.addWidget(self.menu_hint)
+        ml.addWidget(label(tr("On Windows 11, it's under \"Show more options\" (or Shift + right-click)."), "muted",
+                           wrap=True))
+        lay.addWidget(menu)
+
+        checks, cl = card()
+        self.ask_names = checkbox(tr("When converting several files, ask for a new name (like vacation-1, "
+                                     "vacation-2…)"), s.ask_names, self._general_changed)
+        self.show_progress = checkbox(tr("Show a popup while converting and when it's done"), s.show_progress,
                                       self._general_changed)
-        self.tick = checkbox("Play a tiny tick when the wheel opens", s.sound_tick, self._general_changed)
-        self.downloads = checkbox("When an iPhone photo (HEIC) or WebP picture lands in Downloads, offer a JPG copy",
-                                  s.watch_downloads, self.c.watch_downloads)
-        self.pack_everywhere = checkbox("Show ZIP / 7z options on every wheel", s.pack_on_every_wheel,
+        self.reveal = checkbox(tr("Open the folder with the new file after converting"), s.reveal_after,
+                               self._general_changed)
+        self.startup = checkbox(tr("Start Satsuma when Windows starts"), startup_enabled(), set_startup)
+        self.problem_sound = checkbox(tr("Play a soft sound when something goes wrong"), s.sound_problems,
+                                      self._general_changed)
+        self.tick = checkbox(tr("Play a tiny tick when the wheel opens"), s.sound_tick, self._general_changed)
+        self.downloads = checkbox(tr("When an iPhone photo (HEIC) or WebP picture lands in Downloads, offer a "
+                                     "JPG copy"), s.watch_downloads, self.c.set_watch_downloads)
+        self.pack_everywhere = checkbox(tr("Show ZIP / 7z options on every wheel"), s.pack_on_every_wheel,
                                         self._general_changed)
         for cb in (self.ask_names, self.show_progress, self.reveal, self.problem_sound, self.tick, self.downloads,
-                   self.pack_everywhere, self.context, self.startup):
+                   self.pack_everywhere, self.startup):
             cl.addWidget(cb)
-        cl.addWidget(label("On Windows 11, the right-click entry is under \"Show more options\".", "muted"))
         lay.addWidget(checks)
+
+        # keeping the PC fast
+        perf, pl = card()
+        pl.addWidget(label(tr("Keep my PC fast"), "h2"))
+        self.low_priority = checkbox(tr("Convert in the background, so games and other apps always come first"),
+                                     s.low_priority, self._performance_changed)
+        self.one_at_a_time = checkbox(tr("Convert one thing at a time (the rest wait in line)"), s.one_at_a_time,
+                                      self._performance_changed)
+        pl.addWidget(self.low_priority)
+        pl.addWidget(self.one_at_a_time)
+        pl.addWidget(label(tr("Satsuma also lets go of memory it doesn't need when it's idle, and closes this window "
+                              "completely a little while after you close it."), "muted", wrap=True))
+        lay.addWidget(perf)
         lay.addStretch()
         return w
 
     def _look(self) -> QWidget:
         s = self.c.settings
-        w, lay = page("Look", "Make Satsuma yours. The preview updates as you change things.")
+        w, lay = page(tr("Look"), tr("Make Satsuma yours. The preview updates as you change things."))
 
         controls, cl = card(8)
-        appearance = Segmented([("system", "Match Windows"), ("dark", "Dark"), ("light", "Light")], s.appearance)
+        appearance = Segmented([(k, tr(v)) for k, v in APPEARANCES.items()], s.appearance)
         appearance.changed.connect(lambda v: self._look_changed("appearance", v))
         self.swatches = Swatches(s.accent, s.custom_color)
         self.swatches.changed.connect(lambda v: self._look_changed("accent", v))
         self.swatches.custom_picked.connect(lambda v: setattr(self.c.settings, "custom_color", v))
         self.accent_name = label("", "muted")
-        style = Segmented(list(WHEEL_STYLES.items()), s.wheel_style)
+        style = Segmented([(k, tr(v)) for k, v in WHEEL_STYLES.items()], s.wheel_style)
         style.changed.connect(lambda v: self._look_changed("wheel_style", v))
-        size = Segmented([("small", "Small"), ("medium", "Medium"), ("large", "Large"), ("huge", "Huge")],
-                         s.wheel_size)
+        size = Segmented([(k, tr(v)) for k, v in WHEEL_SIZE_NAMES.items()], s.wheel_size)
         size.changed.connect(lambda v: self._look_changed("wheel_size", v))
-        labels = Segmented(list(LABEL_STYLES.items()), s.label_style)
+        labels = Segmented([(k, tr(v)) for k, v in LABEL_STYLES.items()], s.label_style)
         labels.changed.connect(lambda v: self._look_changed("label_style", v))
-        hover = Segmented(list(HOVER_STYLES.items()), s.hover_style)
+        hover = Segmented([(k, tr(v)) for k, v in HOVER_STYLES.items()], s.hover_style)
         hover.changed.connect(lambda v: self._look_changed("hover_style", v))
-        colors = Segmented(list(SLICE_COLORS.items()), s.slice_colors)
+        colors = Segmented([(k, tr(v)) for k, v in SLICE_COLORS.items()], s.slice_colors)
         colors.changed.connect(lambda v: self._look_changed("slice_colors", v))
-        text_size = Segmented([(k, k.capitalize()) for k in TEXT_SIZES], s.text_size)
+        text_size = Segmented([(k, tr(v)) for k, v in TEXT_SIZE_NAMES.items()], s.text_size)
         text_size.changed.connect(lambda v: self._look_changed("text_size", v))
-        position = Segmented(list(WHEEL_POSITIONS.items()), s.wheel_position)
+        position = Segmented([(k, tr(v)) for k, v in WHEEL_POSITIONS.items()], s.wheel_position)
         position.changed.connect(lambda v: self._look_changed("wheel_position", v))
         self.per_page = QSpinBox()
         self.per_page.setRange(6, 16)
         self.per_page.setValue(s.per_page)
-        self.per_page.setSuffix(" slices")
+        self.per_page.setSuffix(tr(" slices"))
         self.per_page.valueChanged.connect(lambda v: self._look_changed("per_page", v))
         per_row = QHBoxLayout()
         per_row.addWidget(self.per_page)
-        per_row.addWidget(label("then a \"More\" slice shows the rest", "muted"), 1)
+        per_row.addWidget(label(tr("then a \"More\" slice shows the rest"), "muted"), 1)
         per_holder = QWidget()
         per_holder.setLayout(per_row)
         per_row.setContentsMargins(0, 0, 0, 0)
@@ -430,13 +476,14 @@ class MainWindow(QWidget):
         self.opacity.setValue(s.wheel_opacity)
         self.opacity.setCursor(Qt.PointingHandCursor)
         self.opacity.valueChanged.connect(lambda v: self._look_changed("wheel_opacity", v))
-        self.animations = checkbox("Animations", s.animations, lambda v: self._look_changed("animations", v))
+        self.animations = checkbox(tr("Animations"), s.animations, lambda v: self._look_changed("animations", v))
 
-        for title, widget in (("Appearance", appearance), ("Accent colour", self.swatches),
-                              (None, self.accent_name), ("Wheel shape", style), ("Wheel size", size),
-                              ("Slice labels", labels), ("Text size", text_size), ("Pointing at a slice", hover),
-                              ("Slice colours", colors), ("Options per page", per_holder),
-                              ("Where the wheel opens", position), ("Wheel see-through", self.opacity)):
+        for title, widget in ((tr("Appearance"), appearance), (tr("Accent colour"), self.swatches),
+                              (None, self.accent_name), (tr("Wheel shape"), style), (tr("Wheel size"), size),
+                              (tr("Slice labels"), labels), (tr("Text size"), text_size),
+                              (tr("Pointing at a slice"), hover), (tr("Slice colours"), colors),
+                              (tr("Options per page"), per_holder), (tr("Where the wheel opens"), position),
+                              (tr("Wheel see-through"), self.opacity)):
             if title:
                 cl.addSpacing(6)
                 cl.addWidget(label(title, "h2"))
@@ -447,11 +494,11 @@ class MainWindow(QWidget):
 
         preview_box, pl = card()
         pl.setContentsMargins(12, 12, 12, 12)
-        pl.addWidget(label("Preview", "muted"), 0, Qt.AlignHCenter)
+        pl.addWidget(label(tr("Preview"), "muted"), 0, Qt.AlignHCenter)
         self.preview = WheelPreview(self.c.settings, self.c.theme)
         pl.addWidget(self.preview, 0, Qt.AlignCenter)
-        pl.addWidget(label("Dimmed = can't be used for that file\nDots = pages (\"More\" shows the next one)", "muted"),
-                     0, Qt.AlignHCenter)
+        pl.addWidget(label(tr("Dimmed = can't be used for that file") + "\n"
+                           + tr("Dots = pages (\"More\" shows the next one)"), "muted"), 0, Qt.AlignHCenter)
         self.legend = label("", "muted")
         self.legend.setWordWrap(True)
         pl.addWidget(self.legend)
@@ -466,13 +513,13 @@ class MainWindow(QWidget):
         return w
 
     def _formats(self) -> QWidget:
-        w, lay = page("Formats", "Untick anything you don't use. ☆ pins an option to the top of its wheel, "
-                                 "and ▲ ▼ change the order.")
+        w, lay = page(tr("Formats"), tr("Untick anything you don't use. ☆ pins an option to the top of its wheel, "
+                                        "and ▲ ▼ change the order. The right-click menu follows these choices too."))
         self.tool_checks: dict[str, QCheckBox] = {}
         self.tool_stars: dict[str, QPushButton] = {}
         self.format_grids: dict[str, QGridLayout] = {}
         for kind in catalog():
-            lay.addWidget(label(CATEGORY_NAMES[kind], "h2"))
+            lay.addWidget(label(tr(CATEGORY_NAMES[kind]), "h2"))
             box, _ = card()
             grid = QGridLayout()
             grid.setHorizontalSpacing(10)
@@ -482,22 +529,22 @@ class MainWindow(QWidget):
             self._fill_format_grid(kind)
             lay.addWidget(box)
         row = QHBoxLayout()
-        row.addWidget(button("Show everything again", on_click=self._show_all_tools))
-        row.addWidget(button("Reset the order", on_click=self._reset_order))
+        row.addWidget(button(tr("Show everything again"), on_click=self._show_all_tools))
+        row.addWidget(button(tr("Reset the order"), on_click=self._reset_order))
         row.addStretch()
         lay.addLayout(row)
         lay.addStretch()
         return w
 
     def _history(self) -> QWidget:
-        w, lay = page("History")
+        w, lay = page(tr("History"))
         stats, sl = card()
         row = QHBoxLayout()
         self.stat_files = label("0", "stat")
         self.stat_saved = label("0", "stat")
         self.stat_jobs = label("0", "stat")
-        for value, text in ((self.stat_files, "files converted"), (self.stat_saved, "space saved"),
-                            (self.stat_jobs, "conversions")):
+        for value, text in ((self.stat_files, tr("files converted")), (self.stat_saved, tr("space saved")),
+                            (self.stat_jobs, tr("conversions"))):
             col = QVBoxLayout()
             col.setSpacing(0)
             col.addWidget(value)
@@ -510,34 +557,34 @@ class MainWindow(QWidget):
         sl.addWidget(self.stat_since)
         lay.addWidget(stats)
 
-        lay.addWidget(label("Recent conversions", "h2"))
+        lay.addWidget(label(tr("Recent conversions"), "h2"))
         self.history_list = QListWidget()
         self.history_list.setObjectName("history")
         self.history_list.setMinimumHeight(220)
         self.history_list.itemDoubleClicked.connect(lambda _: self._history_open())
         self.history_list.currentRowChanged.connect(lambda _: self._history_buttons())
         lay.addWidget(self.history_list, 1)
-        self.history_empty = label("Nothing yet. Converted files will show up here.", "muted")
+        self.history_empty = label(tr("Nothing yet. Converted files will show up here."), "muted")
         lay.addWidget(self.history_empty)
         btns = QHBoxLayout()
-        self.h_open = button("Open", on_click=self._history_open)
-        self.h_show = button("Show in folder", on_click=self._history_show)
+        self.h_open = button(tr("Open"), on_click=self._history_open)
+        self.h_show = button(tr("Show in folder"), on_click=self._history_show)
         btns.addWidget(self.h_open)
         btns.addWidget(self.h_show)
         btns.addStretch()
-        btns.addWidget(button("Clear history", on_click=self._history_clear))
-        btns.addWidget(button("Reset stats", on_click=self._stats_reset))
+        btns.addWidget(button(tr("Clear history"), on_click=self._history_clear))
+        btns.addWidget(button(tr("Reset stats"), on_click=self._stats_reset))
         lay.addLayout(btns)
         return w
 
     def _updates(self) -> QWidget:
         s = self.c.settings
-        w, lay = page("Updates", "Satsuma can update itself, so you never have to download it again.")
+        w, lay = page(tr("Updates"), tr("Satsuma can update itself, so you never have to download it again."))
         box, bl = card()
         self.update_status = label("", "h2", wrap=True)
         self.update_detail = label("", "muted", wrap=True)
-        self.update_now = button("Update now", "primary", self.c.start_update)
-        self.check_now = button("Check now", on_click=lambda: self.c.check_updates(manual=True))
+        self.update_now = button(tr("Update now"), "primary", self.c.start_update)
+        self.check_now = button(tr("Check now"), on_click=lambda: self.c.check_updates(manual=True))
         row = QHBoxLayout()
         row.addWidget(self.update_now)
         row.addWidget(self.check_now)
@@ -548,70 +595,74 @@ class MainWindow(QWidget):
         lay.addWidget(box)
 
         opts, ol = card()
-        self.auto_check = checkbox("Check for updates automatically", s.check_updates, self._update_options_changed)
-        self.auto_install = checkbox("Install updates by themselves (Satsuma restarts for a moment)",
+        self.auto_check = checkbox(tr("Check for updates automatically"), s.check_updates,
+                                   self._update_options_changed)
+        self.auto_install = checkbox(tr("Install updates by themselves (Satsuma restarts for a moment)"),
                                      s.auto_update, self._update_options_changed)
         ol.addWidget(self.auto_check)
         ol.addWidget(self.auto_install)
-        ol.addWidget(label("Updates come from the official Satsuma release page, are checked for damage "
-                           "before installing, and keep all your settings.", "muted", wrap=True))
+        ol.addWidget(label(tr("Updates come from the official Satsuma release page, are checked for damage "
+                              "before installing, and keep all your settings."), "muted", wrap=True))
         lay.addWidget(opts)
         lay.addStretch()
         return w
 
     def _about(self) -> QWidget:
-        w, lay = page("About")
+        w, lay = page(tr("About"))
         top = QHBoxLayout()
         logo = QLabel()
         logo.setPixmap(self.icon.pixmap(72, 72))
         text = QVBoxLayout()
         text.addWidget(label(APP_NAME, "h2"))
-        text.addWidget(label(f"Version {__version__}", "muted"))
-        text.addWidget(label("Shift-drag file converter for Windows. Everything happens on your PC; "
-                             "nothing is uploaded.", "muted", wrap=True))
+        text.addWidget(label(tr("Version {version}", version=__version__), "muted"))
+        text.addWidget(label(tr("Shift-drag file converter for Windows. Everything happens on your PC; "
+                                "nothing is uploaded."), "muted", wrap=True))
+        self.memory = label("", "muted")
+        text.addWidget(self.memory)
         top.addWidget(logo, 0, Qt.AlignTop)
         top.addSpacing(10)
         top.addLayout(text, 1)
         lay.addLayout(top)
 
         row = QHBoxLayout()
-        row.addWidget(button("Open log folder", on_click=lambda: QDesktopServices.openUrl(
+        row.addWidget(button(tr("Open log folder"), on_click=lambda: QDesktopServices.openUrl(
             QUrl.fromLocalFile(str(LOG_DIR)))))
-        row.addWidget(button("Quit Satsuma", on_click=self.c.quit))
+        row.addWidget(button(tr("Quit Satsuma"), on_click=self.c.quit))
         row.addStretch()
         lay.addLayout(row)
 
         if UPDATE_REPO:
             owner, _, name = UPDATE_REPO.partition("/")
             links, ll = card()
-            ll.addWidget(label("Help make Satsuma better", "h2"))
-            ll.addWidget(label("Found a bug or have an idea? Tell us. It takes a minute and every message is read.",
-                               "muted", wrap=True))
+            ll.addWidget(label(tr("Help make Satsuma better"), "h2"))
+            ll.addWidget(label(tr("Found a bug or have an idea? Tell us. It takes a minute and every message is "
+                                  "read."), "muted", wrap=True))
             lrow = QHBoxLayout()
-            lrow.addWidget(button("💬 Send feedback", "primary", lambda: QDesktopServices.openUrl(
+            lrow.addWidget(button(tr("💬 Send feedback"), "primary", lambda: QDesktopServices.openUrl(
                 QUrl(f"https://github.com/{UPDATE_REPO}/issues/new"))))
-            lrow.addWidget(button("🌐 Website", on_click=lambda: QDesktopServices.openUrl(
+            lrow.addWidget(button(tr("🌐 Website"), on_click=lambda: QDesktopServices.openUrl(
                 QUrl(f"https://{owner}.github.io/{name}/"))))
-            lrow.addWidget(button("All releases", on_click=lambda: QDesktopServices.openUrl(
+            lrow.addWidget(button(tr("All releases"), on_click=lambda: QDesktopServices.openUrl(
                 QUrl(f"https://github.com/{UPDATE_REPO}/releases"))))
             lrow.addStretch()
             ll.addLayout(lrow)
             lay.addWidget(links)
 
         remove, rl = card()
-        rl.addWidget(label("Remove Satsuma", "h2"))
+        rl.addWidget(label(tr("Remove Satsuma"), "h2"))
         if installed_uninstaller():
-            rl.addWidget(label("Removes the app, its desktop icon, Start menu entry and right-click menu. You'll be "
-                               "asked whether to delete your settings too. Files you converted are kept.",
+            rl.addWidget(label(tr("Removes the app, its desktop icon, Start menu entry and right-click menu. You'll "
+                                  "be asked whether to delete your settings too. Files you converted are kept."),
                                "muted", wrap=True))
-            rl.addWidget(button("Uninstall Satsuma…", "danger", self.c.uninstall), 0, Qt.AlignLeft)
-            rl.addWidget(label("You can also uninstall it from Windows Settings → Apps → Installed apps.",
+            rl.addWidget(button(tr("Uninstall Satsuma…"), "danger", self.c.uninstall), 0, Qt.AlignLeading)
+            rl.addWidget(label(tr("You can also uninstall it from Windows Settings → Apps → Installed apps."),
                                "muted", wrap=True))
         else:
-            rl.addWidget(label("This copy wasn't set up with the installer. The button below deletes "
-                               "Satsuma's settings, removes its right-click menu, stops it starting with Windows, "
-                               "and closes it. Then delete the Satsuma folder to finish.", "muted", wrap=True))
-            rl.addWidget(button("Remove settings and quit", "danger", self.c.remove_portable), 0, Qt.AlignLeft)
+            rl.addWidget(label(tr("This copy wasn't set up with the installer. The button below deletes "
+                                  "Satsuma's settings, removes its right-click menu, stops it starting with Windows, "
+                                  "and closes it. Then delete the Satsuma folder to finish."), "muted", wrap=True))
+            rl.addWidget(button(tr("Remove settings and quit"), "danger", self.c.remove_portable), 0,
+                         Qt.AlignLeading)
         lay.addWidget(remove)
         lay.addStretch()
         return w
@@ -621,40 +672,55 @@ class MainWindow(QWidget):
     def refresh(self):
         s = self.c.settings
         key = s.shortcut_label
-        self.step_labels[0].setText(f"Hold <b>{key}</b> and start dragging a file in File Explorer "
-                                    f"or on your desktop, or right-click it and choose <b>Convert with Satsuma</b>.")
-        self.step_labels[1].setText("A wheel of options pops up. Dimmed ones don't work for that file (point at one "
-                                    "to see why). The dots in the middle show how many pages there are: hold the "
-                                    "file over \"More\" to see the next one.")
-        self.step_labels[2].setText("Drop the file on a format (or click it). The new file appears "
-                                    + ("next to the original." if s.save_mode == "beside"
-                                       else "in your Satsuma folder.")
-                                    + " Let go in the middle to cancel.")
-        self.power.setText("Satsuma is on" if s.enabled else "Paused. Click to turn on")
+        self.step_labels[0].setText(tr("Hold <b>{key}</b> and start dragging a file in File Explorer or on your "
+                                       "desktop, or right-click it and choose <b>Satsuma</b>.", key=key))
+        self.step_labels[1].setText(tr("A wheel of options pops up. Dimmed ones don't work for that file (point at "
+                                       "one to see why). The dots in the middle show how many pages there are: hold "
+                                       "the file over \"More\" to see the next one."))
+        where = tr("The new file appears next to the original.") if s.save_mode == "beside" else \
+            tr("The new file appears in your Satsuma folder.")
+        self.step_labels[2].setText(tr("Drop the file on a format (or click it).") + " " + where + " "
+                                    + tr("Let go in the middle to cancel."))
+        self.power.setText(tr("Satsuma is on") if s.enabled else tr("Paused. Click to turn on"))
         self.folder_label.setText(s.output_folder)
         self.folder_row.setVisible(s.save_mode == "folder")
-        self.accent_name.setText("Your colour" if s.accent == "custom" else ACCENTS[s.accent][0])
-        self.legend.setText("Colours: blue = convert · purple = edit · green = make smaller · pink = read · "
-                            "amber = archive" if s.slice_colors == "group" else "")
+        self.accent_name.setText(tr("Your colour") if s.accent == "custom" else tr(ACCENTS[s.accent][0]))
+        self.legend.setText(tr("Colours: blue = convert · purple = edit · green = make smaller · pink = read · "
+                               "amber = archive") if s.slice_colors == "group" else "")
         self.legend.setVisible(s.slice_colors == "group")
+        self.menu_style.setEnabled(s.context_menu)
+        self.menu_hint.setText(tr("Right-click a photo → Satsuma → Convert to PNG, Resize…, Remove the background… "
+                                  "(like 7-Zip's menu).") if s.menu_style == "windows" else
+                               tr("Right-click → Convert with Satsuma opens the wheel of options."))
         st = self.c.history.stats
-        self.home_stats.setText(f"So far: {st.files} files converted · {human_size(st.bytes_saved)} saved"
-                                if st.files else "")
+        self.home_stats.setText(tr("So far: {count} files converted · {size} saved", count=locale().toString(st.files),
+                                   size=human_size(st.bytes_saved)) if st.files else "")
         self.home_stats.setVisible(bool(st.files))
+
+    def refresh_memory(self):
+        used = memory_use()
+        self.memory.setText(tr("Memory in use right now: {size}", size=human_size(used)) if used else "")
+        self.memory.setVisible(bool(used))
 
     def refresh_history(self):
         st = self.c.history.stats
-        self.stat_files.setText(f"{st.files:,}")
+        loc = locale()
+        self.stat_files.setText(loc.toString(st.files))
         self.stat_saved.setText(human_size(st.bytes_saved))
-        self.stat_jobs.setText(f"{st.jobs:,}")
-        self.stat_since.setText("Since " + time.strftime("%B %d, %Y", time.localtime(st.since)))
+        self.stat_jobs.setText(loc.toString(st.jobs))
+        self.stat_since.setText(tr("Since {date}", date=date_text(st.since, long=True)))
         self.history_list.clear()
         for e in self.c.history.items:
-            what = e.inputs[0] if len(e.inputs) == 1 else f"{len(e.inputs)} files"
-            result = Path(e.outputs[0]).name if len(e.outputs) == 1 else f"{len(e.outputs)} new files" \
-                if e.outputs else "no new file"
-            warn = f"  ·  {e.errors} failed" if e.errors else ""
-            item = QListWidgetItem(f"{e.tool}:  {what}  →  {result}{warn}      {time_ago(e.when)}")
+            what = e.inputs[0] if len(e.inputs) == 1 else tr("{count} files", count=len(e.inputs))
+            if len(e.outputs) == 1:
+                result = Path(e.outputs[0]).name
+            elif e.outputs:
+                result = tr("{count} new files", count=len(e.outputs))
+            else:
+                result = tr("no new file")
+            warn = "  ·  " + tr("{count} failed", count=e.errors) if e.errors else ""
+            arrow = "←" if i18n.is_rtl() else "→"
+            item = QListWidgetItem(f"{e.tool}:  {what}  {arrow}  {result}{warn}      {time_ago(e.when)}")
             item.setData(Qt.UserRole, e.outputs)
             self.history_list.addItem(item)
         empty = not self.c.history.items
@@ -690,6 +756,31 @@ class MainWindow(QWidget):
         self.c.history.reset_stats()
         self.refresh_history()
 
+    def _language_changed(self, *_):
+        choice = self.language.currentData()
+        if choice == self.c.settings.language:
+            return
+        self.c.settings.language = choice
+        self.c.settings_changed()  # the right-click menu changes language when Satsuma restarts
+        if i18n.resolve(choice) == i18n.language():
+            return  # e.g. "Match Windows" while Windows is in the language already in use
+        new = i18n.resolve(choice)
+        # ask in the new language, since that's the one the person picked
+        old = i18n.language()
+        i18n.set_language(new)
+        title, text = tr("Restart Satsuma?"), tr("Satsuma needs to restart to change the language. It only takes "
+                                                  "a moment.")
+        now_text, later_text = tr("Restart now"), tr("Later")
+        i18n.set_language(old)
+        box = QMessageBox(QMessageBox.Question, title, text, parent=self)
+        now = box.addButton(now_text, QMessageBox.AcceptRole)
+        box.addButton(later_text, QMessageBox.RejectRole)
+        box.exec()
+        chosen = box.clickedButton() is now
+        box.deleteLater()
+        if chosen:
+            self.c.restart("General")
+
     def _general_changed(self, *_):
         s = self.c.settings
         s.shortcut = self.shortcut.currentData()
@@ -703,9 +794,16 @@ class MainWindow(QWidget):
         s.sound_tick = self.tick.isChecked()
         changed = s.pack_on_every_wheel != self.pack_everywhere.isChecked()
         s.pack_on_every_wheel = self.pack_everywhere.isChecked()
-        self.c.settings_changed()
+        self.c.settings_changed(menu=changed)
         if changed:
             self.panel.refresh()
+
+    def _performance_changed(self, *_):
+        s = self.c.settings
+        s.low_priority = self.low_priority.isChecked()
+        s.one_at_a_time = self.one_at_a_time.isChecked()
+        self.c.apply_performance()
+        self.c.settings_changed()
 
     def _sound_changed(self, *_):
         self.c.settings.sound = self.sound.currentData()
@@ -718,7 +816,7 @@ class MainWindow(QWidget):
         self.c.settings_changed()
 
     def _pick_folder(self):
-        d = QFileDialog.getExistingDirectory(self, "Save converted files in", self.c.settings.output_folder)
+        d = QFileDialog.getExistingDirectory(self, tr("Save converted files in"), self.c.settings.output_folder)
         if d:
             self.c.settings.output_folder = d
             self.c.settings_changed()
@@ -733,8 +831,12 @@ class MainWindow(QWidget):
     def _tool_toggled(self, key: str, on: bool):
         hidden = set(self.c.settings.hidden_tools)
         hidden.discard(key) if on else hidden.add(key)
+        if sorted(hidden) == self.c.settings.hidden_tools:
+            return
         self.c.settings.hidden_tools = sorted(hidden)
-        self.c.settings_changed()
+        if self._batch:
+            return
+        self.c.settings_changed(menu=True)
         self.panel.refresh()
 
     def _star_toggled(self, key: str, on: bool, star: QPushButton):
@@ -743,12 +845,19 @@ class MainWindow(QWidget):
             favs.append(key)
         self.c.settings.favorites = favs
         star.setText("★" if on else "☆")
-        self.c.settings_changed()
+        self.c.settings_changed(menu=True)
         self.panel.refresh()
 
     def _show_all_tools(self):
-        for cb in self.tool_checks.values():
-            cb.setChecked(True)
+        self._batch = True  # one save and one refresh, not one per tick box
+        try:
+            for cb in self.tool_checks.values():
+                cb.setChecked(True)
+        finally:
+            self._batch = False
+        self.c.settings.hidden_tools = []
+        self.c.settings_changed(menu=True)
+        self.panel.refresh()
 
     def ordered_tools(self, kind: str):
         tools = catalog(multi=True)[kind]
@@ -767,7 +876,7 @@ class MainWindow(QWidget):
             star = button("★" if t.key in favs else "☆", "star")
             star.setCheckable(True)
             star.setChecked(t.key in favs)
-            star.setToolTip("Pin to the top of the wheel")
+            star.setToolTip(tr("Pin to the top of the wheel"))
             star.toggled.connect(lambda on, key=t.key, b=star: self._star_toggled(key, on, b))
             cb = checkbox(f"{t.label}  ·  {t.description}", t.key not in hidden,
                           lambda on, key=t.key: self._tool_toggled(key, on))
@@ -775,8 +884,8 @@ class MainWindow(QWidget):
             down = button("▼", "small", lambda _=False, k=kind, key=t.key: self._move_tool(k, key, 1))
             up.setEnabled(i > 0)
             down.setEnabled(i < len(tools) - 1)
-            up.setToolTip("Move earlier on the wheel")
-            down.setToolTip("Move later on the wheel")
+            up.setToolTip(tr("Move earlier on the wheel"))
+            down.setToolTip(tr("Move later on the wheel"))
             self.tool_checks[t.key] = cb
             self.tool_stars[t.key] = star
             grid.addWidget(star, i, 0)
@@ -792,15 +901,16 @@ class MainWindow(QWidget):
         if 0 <= j < len(keys):
             keys[i], keys[j] = keys[j], keys[i]
             self.c.settings.tool_order[kind] = keys
-            self.c.settings_changed()
+            self.c.settings_changed(menu=True)
             self._fill_format_grid(kind)
             self.panel.refresh()
 
     def _reset_order(self):
         self.c.settings.tool_order = {}
-        self.c.settings_changed()
+        self.c.settings_changed(menu=True)
         for kind in self.format_grids:
             self._fill_format_grid(kind)
+        self.panel.refresh()
 
     # ---- home page
 
@@ -832,28 +942,32 @@ class MainWindow(QWidget):
         info = c.update_info
         state = c.update_state
         if not c.updates_supported():
-            status = f"You have version {current}"
-            detail = ("Automatic updates aren't set up for this copy. Copies built by GitHub "
-                      "(see the README) update themselves.")
+            status = tr("You have version {version}", version=current)
+            detail = tr("Automatic updates aren't set up for this copy. Copies built by GitHub (see the README) "
+                        "update themselves.")
         elif state == "checking":
-            status, detail = "Checking for updates…", ""
+            status, detail = tr("Checking for updates…"), ""
         elif state == "downloading" and info:
-            status, detail = f"Downloading Satsuma {info.version}…", "Satsuma restarts by itself when it's done."
+            status = tr("Downloading Satsuma {version}…", version=info.version)
+            detail = tr("Satsuma restarts by itself when it's done.")
         elif state == "available" and info:
-            status = f"Satsuma {info.version} is available"
-            detail = f"You have {current}." + ("" if c.can_self_install() else
-                                               " This copy isn't installed, so the button opens the download page.")
+            status = tr("Satsuma {version} is available", version=info.version)
+            detail = tr("You have {version}.", version=current)
+            if not c.can_self_install():
+                detail += " " + tr("This copy isn't installed, so the button opens the download page.")
         elif state == "uptodate":
-            status, detail = "You're up to date", f"Satsuma {current} is the newest version."
+            status = tr("You're up to date")
+            detail = tr("Satsuma {version} is the newest version.", version=current)
         elif state == "error":
-            status, detail = "Couldn't check for updates", c.update_error.capitalize()
+            status, detail = tr("Couldn't check for updates"), c.update_error[:1].upper() + c.update_error[1:]
         else:
-            status, detail = f"You have version {current}", "Satsuma checks for updates shortly after it starts."
+            status = tr("You have version {version}", version=current)
+            detail = tr("Satsuma checks for updates shortly after it starts.")
         self.update_status.setText(status)
         self.update_detail.setText(detail)
         self.update_detail.setVisible(bool(detail))
         self.update_now.setVisible(state == "available" and info is not None)
-        self.update_now.setText("Update now" if c.can_self_install() else "Open download page")
+        self.update_now.setText(tr("Update now") if c.can_self_install() else tr("Open download page"))
         self.check_now.setEnabled(c.updates_supported() and state not in ("checking", "downloading"))
         self.auto_check.setEnabled(c.updates_supported())
         self.auto_install.setEnabled(c.updates_supported() and c.can_self_install())
@@ -876,7 +990,8 @@ class MainWindow(QWidget):
         self.refresh()
 
     def open_page(self, name: str):
-        self.nav.setCurrentRow(PAGES.index(name))
+        if name in PAGES:
+            self.nav.setCurrentRow(PAGES.index(name))
 
     def showEvent(self, e):
         super().showEvent(e)
@@ -885,8 +1000,9 @@ class MainWindow(QWidget):
     def closeEvent(self, e):
         e.ignore()
         self.hide()
-        if not self.told_about_tray:
-            self.told_about_tray = True
-            self.c.tray.showMessage(APP_NAME, "Still running in the system tray. "
-                                              f"Hold {self.c.settings.shortcut_label} and drag a file any time.",
+        self.c.window_closed()
+        if not self.c.told_about_tray:
+            self.c.told_about_tray = True
+            self.c.tray.showMessage(APP_NAME, tr("Still running in the system tray. Hold {key} and drag a file any "
+                                                 "time.", key=self.c.settings.shortcut_label),
                                     QSystemTrayIcon.Information, 3500)

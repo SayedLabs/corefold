@@ -14,7 +14,32 @@ from typing import Callable
 
 log = logging.getLogger("satsuma")
 
+APP_NAME = "Satsuma"
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+BELOW_NORMAL = getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0)
+_background = True  # run long jobs at "below normal" priority so the PC stays quick
+
+
+def set_background_priority(on: bool):
+    global _background
+    _background = on
+
+
+def job_flags() -> int:
+    """Process flags for programs Satsuma runs to do a job (FFmpeg, 7-Zip, LibreOffice)."""
+    return NO_WINDOW | (BELOW_NORMAL if _background else 0)
+
+
+def lower_this_thread():
+    """Called at the start of each job, so conversions never make the PC feel slow.
+    (Pool threads are reused, so the priority is set every time, both ways.)"""
+    if os.name == "nt":
+        try:
+            import ctypes
+            k32 = ctypes.windll.kernel32
+            k32.SetThreadPriority(k32.GetCurrentThread(), -1 if _background else 0)  # BELOW_NORMAL / NORMAL
+        except Exception:
+            pass
 
 
 class Cancelled(Exception):
@@ -48,6 +73,9 @@ class Tool:
     renames: bool = True                         # honours "ask for new names"
     opens: str | None = None                     # opens a window instead of running ("browse")
     password: bool = False                       # asks for the password if the archive has one
+    target: str | None = None                    # the format it makes (".jpg"); left out of that format's menu
+    slow_check: bool = False                     # check needs to read the file (done in the background)
+    static_check: bool = False                   # check doesn't depend on the files (e.g. "needs Office")
 
 
 def fallback_folder() -> Path:
@@ -79,6 +107,27 @@ def safe_name(text: str) -> str:
     bad = '<>:"/\\|?*'
     out = "".join("_" if c in bad or ord(c) < 32 else c for c in text).strip(" .")
     return out[:120]
+
+
+def quick_size(path: Path, budget_s: float = 0.25) -> tuple[int, bool]:
+    """Size of a file or folder, giving up after a moment so huge folders never freeze the window.
+    Returns (bytes, complete)."""
+    import time
+    try:
+        if not path.is_dir():
+            return path.stat().st_size, True
+    except OSError:
+        return 0, True
+    total, deadline = 0, time.monotonic() + budget_s
+    for root, _dirs, files in os.walk(path):
+        for f in files:
+            try:
+                total += os.stat(os.path.join(root, f)).st_size
+            except OSError:
+                pass
+        if time.monotonic() > deadline:
+            return total, False
+    return total, True
 
 
 def human_size(n: float) -> str:
@@ -195,6 +244,21 @@ def bundled(*parts: str) -> Path | None:
 _cache: dict = {}
 
 
+_MISSING = object()
+
+
+def is_cached(kind: str, path: Path) -> bool:
+    try:
+        st = path.stat()
+    except OSError:
+        return True  # nothing to read anyway
+    return (kind, str(path), st.st_mtime_ns, st.st_size) in _cache
+
+
+def clear_cache():
+    _cache.clear()
+
+
 def _cached(kind: str, path: Path, fn):
     """Remember slow facts about a file (duration, has audio, ...) until it changes."""
     try:
@@ -215,7 +279,7 @@ def run_with_progress(cmd: list[str], ctx: Ctx, parse: Callable[[str], float | N
     Returns (exit code, all output)."""
     out_chunks: list[str] = []
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-                            cwd=str(cwd) if cwd else None, env=env, creationflags=NO_WINDOW)
+                            cwd=str(cwd) if cwd else None, env=env, creationflags=job_flags())
     buf = ""
     try:
         while True:

@@ -1,18 +1,23 @@
 """The Home page's drop area: drop (or choose, or paste) files and see every option as buttons,
-grouped by what they do. Options that don't fit the files are greyed out with the reason."""
+grouped by what they do. Options that don't fit the files are greyed out with the reason.
+
+Anything slow (thumbnails, reading a video to see if it has sound) happens in the background,
+so dropping a big file never makes the window freeze."""
 from __future__ import annotations
 
+import io
+import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QPoint, QRect, QSize, Qt, Signal
-from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import (QFileDialog, QFileIconProvider, QFrame, QHBoxLayout, QLabel, QLayout, QPushButton,
-                               QSizePolicy, QVBoxLayout, QWidget)
+from PySide6.QtGui import QGuiApplication, QPixmap
+from PySide6.QtWidgets import (QFileDialog, QFrame, QHBoxLayout, QLabel, QLayout, QPushButton, QSizePolicy,
+                               QVBoxLayout, QWidget)
 
-from .converters import CATEGORY_ICONS, CATEGORY_NAMES, pick
-from .core import human_size
-from .history import size_of
+from .converters import CATEGORY_ICONS, CATEGORY_NAMES, pick, warm_up
+from .core import human_size, quick_size
+from .i18n import tr
 from .wheel import FORMAT_ACTIONS, GROUP_NAMES, GROUPS, ICONS, action_of
 
 if TYPE_CHECKING:
@@ -22,7 +27,8 @@ GROUP_ORDER = ["convert", "edit", "shrink", "read", "archive"]
 
 
 class FlowLayout(QLayout):
-    """Puts widgets in rows and wraps to the next row when there's no more room."""
+    """Puts widgets in rows and wraps to the next row when there's no more room
+    (right to left in Arabic)."""
 
     def __init__(self, parent=None, spacing: int = 8):
         super().__init__(parent)
@@ -62,13 +68,15 @@ class FlowLayout(QLayout):
         return size
 
     def _layout(self, rect, dry):
+        rtl = QGuiApplication.layoutDirection() == Qt.RightToLeft
         x, y, line = rect.x(), rect.y(), 0
         for item in self.items:
             hint = item.sizeHint()
             if x + hint.width() > rect.right() + 1 and line > 0:
                 x, y, line = rect.x(), y + line + self.space, 0
             if not dry:
-                item.setGeometry(QRect(QPoint(x, y), hint))
+                left = rect.right() + 1 - (x - rect.x()) - hint.width() if rtl else x
+                item.setGeometry(QRect(QPoint(left, y), hint))
             x += hint.width() + self.space
             line = max(line, hint.height())
         return y + line - rect.y()
@@ -96,17 +104,17 @@ class DropZone(QFrame):
         self.setMinimumHeight(118)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(16, 14, 16, 14)
-        self.title = QLabel("Drop files or folders here")
+        self.title = QLabel(tr("Drop files or folders here"))
         self.title.setObjectName("h2")
-        self.sub = QLabel("Images, video, audio, PDFs, Office files, ZIP / RAR / 7z… You'll see everything "
-                          "Satsuma can do with them.")
+        self.sub = QLabel(tr("Images, video, audio, PDFs, Office files, ZIP / RAR / 7z… You'll see everything "
+                             "Satsuma can do with them."))
         self.sub.setObjectName("muted")
         self.sub.setWordWrap(True)
         for w in (self.title, self.sub):
             w.setAlignment(Qt.AlignCenter)
         row = QHBoxLayout()
         row.addStretch()
-        for text, fn in (("Choose files…", on_choose), ("Paste (Ctrl + V)", on_paste)):
+        for text, fn in ((tr("Choose files…"), on_choose), (tr("Paste (Ctrl + V)"), on_paste)):
             b = QPushButton(text)
             b.setCursor(Qt.PointingHandCursor)
             b.clicked.connect(fn)
@@ -120,7 +128,7 @@ class DropZone(QFrame):
         self.setProperty("hot", "true" if on else "false")
         self.style().unpolish(self)
         self.style().polish(self)
-        self.title.setText("Let go to see the options" if on else "Drop files or folders here")
+        self.title.setText(tr("Let go to see the options") if on else tr("Drop files or folders here"))
 
     def dragEnterEvent(self, e):
         if any(u.isLocalFile() for u in e.mimeData().urls()):
@@ -145,15 +153,36 @@ class DropZone(QFrame):
             self.dropped.emit(paths)
 
 
+def make_thumbnail(path: Path, kind: str) -> bytes | None:
+    """A small PNG preview of a picture or video (runs in a background thread)."""
+    try:
+        if kind == "image" and path.is_file():
+            from .converters import load_image
+            im = load_image(path)
+            im.thumbnail((144, 144))
+            buf = io.BytesIO()
+            im.convert("RGBA").save(buf, "PNG")
+            return buf.getvalue()
+        if kind == "video" and path.is_file():
+            from .converters import media_duration, video_frame
+            return video_frame(path, min(1.0, media_duration(path) / 3), 144)
+    except Exception:
+        return None
+    return None
+
+
 class FilePanel(QFrame):
     """Shows the dropped files and every option for them."""
+    _ready = Signal(int, object)   # load number, thumbnail bytes (or None)
 
     def __init__(self, controller: "Controller"):
         super().__init__()
         self.c = controller
         self.files: list[Path] = []
+        self.paths: list[Path] = []
+        self.load_id = 0
+        self.thumb_for: tuple | None = None
         self.setObjectName("card")
-        self.icons = QFileIconProvider()
         lay = QVBoxLayout(self)
         lay.setContentsMargins(18, 16, 18, 16)
         lay.setSpacing(12)
@@ -176,7 +205,7 @@ class FilePanel(QFrame):
         info.addWidget(self.name)
         info.addWidget(self.details)
         info.addWidget(self.summary)
-        clear = QPushButton("✕ Clear")
+        clear = QPushButton(tr("✕ Clear"))
         clear.setObjectName("flat")
         clear.setCursor(Qt.PointingHandCursor)
         clear.clicked.connect(self.clear)
@@ -189,49 +218,60 @@ class FilePanel(QFrame):
         self.groups = QVBoxLayout()
         self.groups.setSpacing(10)
         lay.addLayout(self.groups)
+        self._ready.connect(self._background_done)
         self.setVisible(False)
 
     def clear(self):
+        self.load_id += 1
         self.files = []
+        self.paths = []
+        self.thumb_for = None
         clear_layout(self.groups)
         self.setVisible(False)
 
     def refresh(self):
-        if self.files:
-            self.set_files(self.files)
+        if self.paths:
+            self.set_files(self.paths, quick=False)
 
-    def set_files(self, paths: list[Path]):
+    def set_files(self, paths: list[Path], quick: bool = True):
         s = self.c.settings
         paths = [p for p in paths if p.exists()]
         if not paths:
             self.clear()
             return
-        pk = pick(paths, set(s.hidden_tools), s.favorites, True, s.tool_order, s.pack_on_every_wheel)
+        self.paths = paths
+        pk = pick(paths, set(s.hidden_tools), s.favorites, True, s.tool_order, s.pack_on_every_wheel, quick=quick)
         self.files = pk.files
         clear_layout(self.groups)
 
         # header
         first = pk.files[0]
-        total = sum(size_of(p) for p in pk.files)
-        kind_name = CATEGORY_NAMES.get(pk.kind, "Files").split(" (")[0]
+        sizes = [quick_size(p, 0.25 / max(1, len(pk.files))) for p in pk.files]
+        total = sum(b for b, _ in sizes)
+        size_text = human_size(total) + ("+" if not all(done for _, done in sizes) else "")
         if len(pk.files) == 1:
             self.name.setText(first.name)
-            what = "Folder" if first.is_dir() else (first.suffix[1:].upper() + " file" if first.suffix else "File")
-            self.details.setText(f"{what} · {human_size(total)} · in {first.parent}")
+            if first.is_dir():
+                what = tr("Folder")
+            elif first.suffix:
+                what = tr("{format} file", format=first.suffix[1:].upper())
+            else:
+                what = tr("File")
+            self.details.setText(tr("{what} · {size} · in {folder}", what=what, size=size_text,
+                                    folder=str(first.parent)))
         else:
-            self.name.setText(f"{len(pk.files)} items")
-            self.details.setText(f"{kind_name} · {human_size(total)} in total")
-        dropped_others = len(paths) - len(pk.files)
-        usable = sum(1 for sl in pk.slots if sl.ok)
-        bits = [f"{usable} thing{'s' if usable != 1 else ''} you can do"]
+            kind_name = tr("Files and folders") if pk.kind == "files" else \
+                tr(CATEGORY_NAMES.get(pk.kind, "Images")).split(" (")[0]
+            self.name.setText(tr("{count} items", count=len(pk.files)))
+            self.details.setText(tr("{kind} · {size} in total", kind=kind_name, size=size_text))
+        bits = [tr("Things you can do: {count}", count=sum(1 for sl in pk.slots if sl.ok))]
         if pk.dimmed:
-            bits.append(f"{pk.dimmed} don't fit (greyed out, point at one to see why)")
+            bits.append(tr("{count} don't fit (greyed out, point at one to see why)", count=pk.dimmed))
         if pk.hidden:
-            bits.append(f"{pk.hidden} hidden in Settings → Formats")
-        if dropped_others:
-            bits.append(f"{dropped_others} split-archive part{'s' if dropped_others != 1 else ''} opened with the first one")
+            bits.append(tr("{count} hidden in Settings → Formats", count=pk.hidden))
+        if len(paths) > len(pk.files):
+            bits.append(tr("Other parts of a split archive open with the first part"))
         self.summary.setText(" · ".join(bits))
-        self._thumbnail(first, pk.kind)
 
         # buttons, grouped
         favs = set(s.favorites)
@@ -242,7 +282,7 @@ class FilePanel(QFrame):
             slots = by_group.get(group)
             if not slots:
                 continue
-            title = QLabel(GROUP_NAMES[group].upper())
+            title = QLabel(tr(GROUP_NAMES[group]).upper())
             title.setObjectName("section")
             self.groups.addWidget(title)
             holder = QWidget()
@@ -251,11 +291,49 @@ class FilePanel(QFrame):
                 flow.addWidget(self._button(slot, slot.tool.key in favs))
             self.groups.addWidget(holder)
         if not pk.slots:
-            msg = QLabel("Nothing to do with these files. Check Settings → Formats if you hid some options.")
+            msg = QLabel(tr("Nothing to do with these files. Check Settings → Formats if you hid some options."))
             msg.setObjectName("muted")
             msg.setWordWrap(True)
             self.groups.addWidget(msg)
         self.setVisible(True)
+
+        # thumbnail + slow checks in the background
+        key = (str(first), pk.kind)
+        need_thumb = key != self.thumb_for
+        if need_thumb:
+            self._placeholder(first, pk.kind)
+        if need_thumb or pk.pending:
+            self.load_id += 1
+            load_id, files, kind, pending = self.load_id, list(pk.files), pk.kind, pk.pending
+            self.thumb_for = key
+
+            def work():
+                if pending:
+                    warm_up(files)
+                data = make_thumbnail(files[0], kind) if need_thumb else b""
+                try:
+                    self._ready.emit(load_id, (data, pending))
+                except RuntimeError:
+                    pass  # the window was closed and freed meanwhile
+            threading.Thread(target=work, daemon=True).start()
+
+    def _background_done(self, load_id: int, payload):
+        if load_id != self.load_id:
+            return  # something else was dropped meanwhile
+        data, pending = payload
+        if data:
+            pm = QPixmap()
+            if pm.loadFromData(data):
+                self.thumb.setStyleSheet("")
+                self.thumb.setPixmap(pm.scaled(72, 72, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        if pending and self.paths:
+            self.set_files(self.paths, quick=False)
+
+    def _placeholder(self, path: Path, kind: str):
+        emoji = "📁" if path.is_dir() else CATEGORY_ICONS.get(kind, "📦")
+        self.thumb.setPixmap(QPixmap())
+        self.thumb.setText(emoji)
+        self.thumb.setStyleSheet("font-size: 34pt;")
 
     def _button(self, slot, favorite: bool) -> QPushButton:
         action = action_of(slot.tool.key)
@@ -272,38 +350,7 @@ class FilePanel(QFrame):
         b.setMinimumWidth(92)
         return b
 
-    def _thumbnail(self, path: Path, kind: str):
-        pm = QPixmap()
-        if kind == "image" and path.is_file():
-            try:
-                import io
-
-                from .converters import load_image
-                im = load_image(path)
-                im.thumbnail((144, 144))
-                buf = io.BytesIO()
-                im.convert("RGBA").save(buf, "PNG")
-                pm.loadFromData(buf.getvalue())
-            except Exception:
-                pm = QPixmap()
-        elif kind == "video" and path.is_file():
-            from .converters import media_duration, video_frame
-            data = video_frame(path, min(1.0, media_duration(path) / 3), 144)
-            if data:
-                pm.loadFromData(data)
-        if not pm.isNull():
-            self.thumb.setPixmap(pm.scaled(72, 72, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-            self.thumb.setText("")
-            return
-        emoji = CATEGORY_ICONS.get(kind if kind != "files" else ("folder" if path.is_dir() else "files"), "📦")
-        if path.is_dir():
-            emoji = "📁"
-        self.thumb.setPixmap(QPixmap())
-        self.thumb.setText(emoji)
-        self.thumb.setStyleSheet("font-size: 34pt;")
-
 
 def choose_files(parent) -> list[Path]:
-    paths, _ = QFileDialog.getOpenFileNames(parent, "Choose files for Satsuma", str(Path.home()))
+    paths, _ = QFileDialog.getOpenFileNames(parent, tr("Choose files for Satsuma"), str(Path.home()))
     return [Path(p) for p in paths]
-

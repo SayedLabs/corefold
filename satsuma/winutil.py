@@ -100,8 +100,14 @@ def create_mutex() -> bool:
     k32 = ctypes.WinDLL("kernel32", use_last_error=True)
     k32.CreateMutexW.restype = wt.HANDLE
     k32.CreateMutexW.argtypes = [ctypes.c_void_p, wt.BOOL, wt.LPCWSTR]
-    _mutex = k32.CreateMutexW(None, False, MUTEX_NAME)
-    return ctypes.get_last_error() != 183  # ERROR_ALREADY_EXISTS
+    handle = k32.CreateMutexW(None, False, MUTEX_NAME)
+    if ctypes.get_last_error() == 183:  # ERROR_ALREADY_EXISTS
+        # Let go of our handle, or the mutex would live on after the other copy quits.
+        if handle:
+            kernel32.CloseHandle(handle)
+        return False
+    _mutex = handle
+    return True
 
 
 def release_mutex():
@@ -109,3 +115,34 @@ def release_mutex():
     if _mutex:
         kernel32.CloseHandle(_mutex)
         _mutex = None
+
+
+def memory_use() -> int:
+    """How much memory Satsuma is using right now (the number Task Manager shows), in bytes."""
+    class Counters(ctypes.Structure):
+        _fields_ = [("cb", wt.DWORD), ("PageFaultCount", wt.DWORD), ("PeakWorkingSetSize", ctypes.c_size_t),
+                    ("WorkingSetSize", ctypes.c_size_t), ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPagedPoolUsage", ctypes.c_size_t), ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaNonPagedPoolUsage", ctypes.c_size_t), ("PagefileUsage", ctypes.c_size_t),
+                    ("PeakPagefileUsage", ctypes.c_size_t), ("PrivateUsage", ctypes.c_size_t)]
+    try:
+        c = Counters()
+        c.cb = ctypes.sizeof(c)
+        get = ctypes.windll.psapi.GetProcessMemoryInfo
+        get.argtypes = [wt.HANDLE, ctypes.c_void_p, wt.DWORD]
+        if get(kernel32.GetCurrentProcess(), ctypes.byref(c), c.cb):
+            return int(c.WorkingSetSize)
+    except Exception:
+        pass
+    return 0
+
+
+def trim_memory():
+    """Gives memory Satsuma isn't using back to Windows (it comes back by itself when needed)."""
+    try:
+        k32 = ctypes.windll.kernel32
+        k32.GetCurrentProcess.restype = wt.HANDLE
+        k32.SetProcessWorkingSetSize.argtypes = [wt.HANDLE, ctypes.c_size_t, ctypes.c_size_t]
+        k32.SetProcessWorkingSetSize(k32.GetCurrentProcess(), ctypes.c_size_t(-1), ctypes.c_size_t(-1))
+    except Exception:
+        pass

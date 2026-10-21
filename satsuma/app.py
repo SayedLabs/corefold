@@ -2,15 +2,19 @@
 Satsuma - Shift-drag file converter for Windows.
 
 Runs in the system tray. Hold Shift while dragging a file in File Explorer or on the
-desktop (or right-click it → Convert with Satsuma) and a wheel of formats appears at the
-cursor; pick one to convert.
+desktop (or right-click it → Satsuma) and a wheel of formats appears at the cursor;
+pick one to convert.
+
+Kept light on purpose: the main window is only built when it's opened and is freed again a
+while after it's closed, conversions run at low priority one at a time, and memory that isn't
+needed any more is handed back to Windows when Satsuma is idle.
 """
 from __future__ import annotations
 
+import copy
 import itertools
 import logging
 import logging.handlers
-import os
 import subprocess
 import sys
 import tempfile
@@ -18,20 +22,21 @@ import threading
 import time
 from pathlib import Path
 
-from PySide6.QtCore import QFileSystemWatcher, QObject, QRunnable, QThreadPool, QTimer, QUrl, Signal
+from PySide6.QtCore import QFileSystemWatcher, QObject, QRunnable, Qt, QThreadPool, QTimer, QUrl, Signal
 from PySide6.QtGui import QCursor, QDesktopServices, QGuiApplication, QIcon, QPixmap
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon
 
-from . import UPDATE_REPO, __version__, archives, dialogs, sounds, updater, winutil
-from .converters import PASSWORD_ERROR, Options, Result, Tool, run_job
-from .core import os_open
+from . import UPDATE_REPO, __version__, archives, dialogs, i18n, ipc, shellmenu, sounds, updater, winutil
+from .converters import PASSWORD_ERROR, Options, Result, Tool, pick, release_memory, run_job, warm_up
+from .core import category, lower_this_thread, norm, os_open, set_background_priority
 from .history import History, size_of
-from .settings import APP_NAME, LOG_DIR, Settings, installed_uninstaller, remove_user_data, set_context_menu
+from .i18n import tr
+from .settings import (APP_NAME, LOG_DIR, Settings, app_command, app_icon, installed_uninstaller,
+                       remove_user_data)
 from .theme import build_theme, stylesheet
 from .toast import Toast
 from .wheel import Wheel
-from .window import MainWindow
 
 APP_ID = "Satsuma.FileConverter"
 # A key-drag only opens the wheel if it starts in one of these windows:
@@ -40,6 +45,10 @@ SOURCE_WINDOW_CLASSES = {"CabinetWClass", "ExploreWClass", "Progman", "WorkerW"}
 DRAG_THRESHOLD_PX = 14
 UPDATE_JOB_ID = -1  # the update download shows in the same popup as conversions
 UPDATE_CHECK_EVERY_MS = 6 * 3600 * 1000
+IDLE_TIDY_MS = 45_000          # hand memory back to Windows this long after the last job
+FREE_WINDOW_AFTER_MS = 90_000  # free the main window this long after it's closed
+MENU_WRITE_DELAY_MS = 1500     # wait for more changes before rewriting the right-click menu
+MENU_BATCH_MS = 450            # right-clicked files arrive one process at a time; collect them
 log = logging.getLogger("satsuma")
 
 
@@ -51,6 +60,7 @@ def resource(*parts: str) -> Path:
 # ----------------------------------------------------------------------------- background jobs
 
 class JobSignals(QObject):
+    started = Signal(int)
     progress = Signal(int, float)
     finished = Signal(int, object, list, bool)  # job id, Result, errors, cancelled
 
@@ -69,6 +79,11 @@ class Job(QRunnable):
             self.signals.progress.emit(self.job_id, frac)
 
     def run(self):
+        lower_this_thread()
+        self.signals.started.emit(self.job_id)
+        if self.cancel.is_set():  # cancelled while waiting in line
+            self.signals.finished.emit(self.job_id, Result(), [], True)
+            return
         try:
             result, errors = run_job(self.tool, self.files, self.options, self._progress, self.cancel,
                                      self.params)
@@ -85,12 +100,21 @@ class UpdateSignals(QObject):
     failed = Signal(str)
 
 
+class BackgroundSignals(QObject):
+    menu_written = Signal(str)         # signature of what's now in the right-click menu
+    menu_files_ready = Signal(object)  # [(tool key, files)] read and ready to run
+
+
 # ----------------------------------------------------------------------------- key-drag detector
 
 class DragWatcher(QObject):
-    """Notices a Shift-drag (or the chosen key) that starts in File Explorer or on the desktop."""
+    """Notices a Shift-drag (or the chosen key) that starts in File Explorer or on the desktop.
+
+    Checks the mouse often only while a button is held; otherwise it looks rarely, so Satsuma
+    uses next to no CPU while it waits in the tray."""
     started = Signal()
     released = Signal()
+    FAST_MS, IDLE_MS, PAUSED_MS = 15, 45, 400
 
     def __init__(self, settings: Settings):
         super().__init__()
@@ -99,23 +123,71 @@ class DragWatcher(QObject):
         self.press_pos = None
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.poll)
-        self.timer.start(20)
+        self.timer.start(self.IDLE_MS)
+
+    def _interval(self, ms: int):
+        if self.timer.interval() != ms:
+            self.timer.setInterval(ms)
 
     def poll(self):
+        if not self.settings.enabled and not self.pressed:
+            self._interval(self.PAUSED_MS)
+            return
         down = winutil.key_down(winutil.primary_button())
         if down and not self.pressed:
             self.pressed = True
             self.press_pos = QCursor.pos()
             self.armed = self.settings.enabled and \
                 winutil.window_class_under_cursor() in SOURCE_WINDOW_CLASSES
+            self._interval(self.FAST_MS if self.armed else self.IDLE_MS)
         elif not down and self.pressed:
+            was_active = self.active
             self.pressed = self.armed = self.active = False
-            self.released.emit()
+            self._interval(self.IDLE_MS)
+            if was_active:
+                self.released.emit()
             return
         if self.pressed and self.armed and not self.active and winutil.shortcut_held(self.settings.shortcut):
             if (QCursor.pos() - self.press_pos).manhattanLength() > DRAG_THRESHOLD_PX:
                 self.active = True
                 self.started.emit()
+
+
+# ----------------------------------------------------------------------------- talking to helpers
+
+class Inbox(QObject):
+    """Reads one message from a helper process (see ipc.py), however fast it hangs up."""
+    message = Signal(str)
+
+    def __init__(self, conn: QLocalSocket):
+        super().__init__(conn)
+        self.conn = conn
+        self.buf = bytearray()
+        self.done = False
+        conn.readyRead.connect(self._read)
+        conn.disconnected.connect(self._finish)
+        QTimer.singleShot(3000, self._finish)  # never wait forever on a stuck helper
+        # The helper may have written and left already, before the signals above were connected.
+        QTimer.singleShot(0, self._check)
+
+    def _read(self):
+        if not self.done:
+            self.buf.extend(bytes(self.conn.readAll()))
+
+    def _check(self):
+        if self.done:
+            return
+        self._read()
+        if self.conn.state() == QLocalSocket.LocalSocketState.UnconnectedState:
+            self._finish()
+
+    def _finish(self):
+        if self.done:
+            return
+        self._read()
+        self.done = True
+        self.message.emit(self.buf.decode("utf-8", "replace"))
+        self.conn.deleteLater()
 
 
 # ----------------------------------------------------------------------------- controller
@@ -127,17 +199,24 @@ class Controller(QObject):
         self.server: QLocalServer | None = None
         self.icon = icon
         self.settings = Settings.load()
+        set_background_priority(self.settings.low_priority)
         self.history = History()
         self.theme = self._make_theme()
         app.setStyleSheet(stylesheet(self.theme))
+        self._window = None
+        self.told_about_tray = False
 
         self.pool = QThreadPool(self)
-        self.pool.setMaxThreadCount(2)
+        self.quick_pool = QThreadPool(self)  # opening one file from an archive never waits in line
+        self.quick_pool.setMaxThreadCount(2)
+        self.apply_performance()
         self.ids = itertools.count(1)
         self.cancels: dict[int, threading.Event] = {}
         self.jobs: dict[int, dict] = {}  # id -> tool, files, bytes_in, params, rename, after
         self.browsers: list = []         # open archive windows
-        self.pending: list[Path] = []  # files arriving from the right-click menu
+        self.pending: list[Path] = []    # files arriving from the right-click menu for the wheel
+        self.pending_open: list[Path] = []  # ... for the window ("All options…")
+        self.pending_runs: dict[str, list[Path]] = {}  # tool key -> files ("Convert to PNG" in the menu)
         self.pending_timer = QTimer(self)
         self.pending_timer.setSingleShot(True)
         self.pending_timer.timeout.connect(self._open_pending)
@@ -151,23 +230,29 @@ class Controller(QObject):
 
         self.signals = JobSignals()
         self.toast = Toast(icon)
+        self.signals.started.connect(self._job_started)
         self.signals.progress.connect(self.toast.set_progress)
         self.signals.finished.connect(self.job_done)
         self.toast.cancel_requested.connect(self.cancel_job)
+        self.bg = BackgroundSignals()
+        self.bg.menu_written.connect(self._menu_written)
+        self.bg.menu_files_ready.connect(self._run_menu_files)
 
         self.tray = QSystemTrayIcon(icon)
         self.tray.activated.connect(self._tray_clicked)
         menu = QMenu()
-        menu.addAction("Open Satsuma", self.show_window)
-        menu.addAction("Settings", lambda: self.show_window("General"))
-        menu.addAction("Convert what's copied", self.paste)
-        self.act_pause = menu.addAction("Pause")
+        menu.addAction(tr("Open Satsuma"), self.show_window)
+        menu.addAction(tr("Settings"), lambda: self.show_window("General"))
+        menu.addAction(tr("Convert what's copied"), self.paste)
+        self.act_pause = menu.addAction(tr("Pause"))
         self.act_pause.setCheckable(True)
         self.act_pause.setChecked(not self.settings.enabled)
         self.act_pause.toggled.connect(lambda paused: self.set_enabled(not paused))
-        menu.addAction("Check for updates", lambda: self.check_updates(manual=True))
+        self.act_cancel = menu.addAction(tr("Stop all conversions"), self.cancel_all)
+        self.act_cancel.setVisible(False)
+        menu.addAction(tr("Check for updates"), lambda: self.check_updates(manual=True))
         menu.addSeparator()
-        menu.addAction("Quit", self.quit)
+        menu.addAction(tr("Quit"), self.quit)
         self.menu = menu
         self.tray.setContextMenu(menu)
 
@@ -187,13 +272,25 @@ class Controller(QObject):
         self.update_timer.start(UPDATE_CHECK_EVERY_MS)
         QTimer.singleShot(10_000, self.check_updates)
 
-        self.window = MainWindow(self, icon)
-        self.window.apply_theme(self.theme)
+        # the right-click menu is rewritten only when what it shows has changed
+        self.menu_timer = QTimer(self)
+        self.menu_timer.setSingleShot(True)
+        self.menu_timer.timeout.connect(self._write_menu)
+        self.menu_busy = False
+
+        # keeping memory low while idle
+        self.tidy_timer = QTimer(self)
+        self.tidy_timer.setSingleShot(True)
+        self.tidy_timer.timeout.connect(self.tidy_up)
+        self.free_window_timer = QTimer(self)
+        self.free_window_timer.setSingleShot(True)
+        self.free_window_timer.timeout.connect(self._free_window)
+
         self._update_tooltip()
         self.tray.show()
 
         # "Convert to JPG?" for photos that land in Downloads
-        self.downloads = Path.home() / "Downloads"
+        self.downloads = downloads_folder()
         self.seen_downloads: set[str] = set()
         self.dl_watcher = QFileSystemWatcher(self)
         self.dl_watcher.directoryChanged.connect(lambda _: self.dl_timer.start(1500))
@@ -207,16 +304,42 @@ class Controller(QObject):
         except AttributeError:
             pass
 
-    # ---- ui
+    # ---- the main window is built when needed and freed when it's been closed a while
+
+    @property
+    def window(self):
+        if self._window is None:
+            from .window import MainWindow
+            self._window = MainWindow(self, self.icon)
+            self._window.apply_theme(self.theme)
+        return self._window
+
+    def window_if_open(self):
+        """The window if it exists (and nothing is built just to update it)."""
+        return self._window
+
+    def window_closed(self):
+        self.free_window_timer.start(FREE_WINDOW_AFTER_MS)
+
+    def _free_window(self):
+        w = self._window
+        if w is None or w.isVisible():
+            return
+        self._window = None
+        w.deleteLater()
+        self.tidy_timer.start(2000)
 
     def show_window(self, page_name: str | None = None):
-        self.window.sync()
+        self.free_window_timer.stop()
+        w = self.window
+        w.sync()
+        w.refresh_history()  # conversions may have finished while the window was hidden
         if page_name:
-            self.window.open_page(page_name)
-        self.window.show()
-        self.window.showNormal()
-        self.window.raise_()
-        self.window.activateWindow()
+            w.open_page(page_name)
+        w.show()
+        w.showNormal()
+        w.raise_()
+        w.activateWindow()
 
     def _tray_clicked(self, reason):
         if reason in (QSystemTrayIcon.Trigger, QSystemTrayIcon.DoubleClick):
@@ -224,12 +347,14 @@ class Controller(QObject):
 
     def _update_tooltip(self):
         busy = len(self.cancels)
+        self.act_cancel.setVisible(busy > 0)
         if busy:
-            self.tray.setToolTip(f"{APP_NAME}: converting ({busy})")
+            self.tray.setToolTip(tr("{app}: converting ({count})", app=APP_NAME, count=busy))
         elif not self.settings.enabled:
-            self.tray.setToolTip(f"{APP_NAME}: paused")
+            self.tray.setToolTip(tr("{app}: paused", app=APP_NAME))
         else:
-            self.tray.setToolTip(f"{APP_NAME}: hold {self.settings.shortcut_label} while dragging a file")
+            self.tray.setToolTip(tr("{app}: hold {key} while dragging a file", app=APP_NAME,
+                                    key=self.settings.shortcut_label))
 
     def _make_theme(self):
         s = self.settings
@@ -238,11 +363,6 @@ class Controller(QObject):
     def _hide_drag_wheel(self):
         if not self.wheel.click_mode:
             self.wheel.hide()
-
-    def set_context_menu(self, on: bool):
-        self.settings.context_menu = on
-        set_context_menu(on)
-        self.settings_changed()
 
     def play_sound(self, name: str):
         if name and name != "off":
@@ -256,8 +376,26 @@ class Controller(QObject):
             self.play_sound("problem")
 
     def _wheel_opened(self):
+        self.tidy_timer.stop()
         if self.settings.sound_tick:
             self.play_sound("tick")
+
+    # ---- keeping Satsuma light
+
+    def apply_performance(self):
+        s = self.settings
+        set_background_priority(s.low_priority)
+        self.pool.setMaxThreadCount(1 if s.one_at_a_time else 2)
+
+    def tidy_up(self):
+        """Lets go of memory that's only needed while converting (the background remover alone
+        is about 200 MB), then hands unused memory back to Windows."""
+        if self.cancels or self.wheel.isVisible():
+            self.tidy_timer.start(IDLE_TIDY_MS)
+            return
+        release_memory()  # also forgets cached file facts and collects garbage
+        winutil.trim_memory()
+        log.info("tidied up memory")
 
     # ---- paste: convert what's on the clipboard
 
@@ -279,7 +417,7 @@ class Controller(QObject):
                     folder.mkdir(parents=True, exist_ok=True)
                 except OSError:
                     folder = Path(tempfile.gettempdir())
-                out = folder / time.strftime("Pasted picture %Y-%m-%d %H.%M.%S.png")
+                out = folder / (tr("Pasted picture") + time.strftime(" %Y-%m-%d %H.%M.%S.png"))
                 if image.save(str(out), "PNG"):
                     return [out]
         return []
@@ -290,16 +428,23 @@ class Controller(QObject):
             self.show_window("Home")
             self.window.show_files(files)
         else:
-            self.toast.notify("Nothing to convert", "Copy a picture or some files first (Ctrl + C), then try again.",
-                              linger_ms=4500)
+            self.toast.notify(tr("Nothing to convert"),
+                              tr("Copy a picture or some files first (Ctrl + C), then try again."), linger_ms=4500)
 
     # ---- downloads helper
+
+    def set_watch_downloads(self, on: bool):
+        self.watch_downloads(on)
+        self.settings_changed()
 
     def watch_downloads(self, on: bool):
         self.settings.watch_downloads = on
         folder = str(self.downloads)
         if on and self.downloads.is_dir():
-            self.seen_downloads = {p.name for p in self.downloads.iterdir()} if self.downloads.exists() else set()
+            try:
+                self.seen_downloads = {p.name for p in self.downloads.iterdir()}
+            except OSError:
+                self.seen_downloads = set()
             if folder not in self.dl_watcher.directories():
                 self.dl_watcher.addPath(folder)
         elif folder in self.dl_watcher.directories():
@@ -323,16 +468,17 @@ class Controller(QObject):
     def _offer_jpg(self, path: Path, tries: int = 0):
         # wait until the browser has finished writing the file
         try:
-            size = path.stat().st_size
+            st = path.stat()
         except OSError:
             return
-        if tries < 10 and (size == 0 or time.time() - path.stat().st_mtime < 1.5):
+        if tries < 10 and (st.st_size == 0 or time.time() - st.st_mtime < 1.5):
             QTimer.singleShot(1000, lambda: self._offer_jpg(path, tries + 1))
             return
         from .converters import catalog
         tool = next(t for t in catalog()["image"] if t.key == "image:jpg")
-        self.toast.notify(f"{path.name} downloaded", "Many apps can't open this kind of picture. Make a JPG copy?",
-                          "Convert to JPG", lambda: self.start_job(tool, [path]), 12000)
+        self.toast.notify(tr("{name} downloaded", name=path.name),
+                          tr("Many apps can't open this kind of picture. Make a JPG copy?"),
+                          tr("Convert to JPG"), lambda: self.start_job(tool, [path]), 12000)
 
     # ---- archives
 
@@ -354,7 +500,7 @@ class Controller(QObject):
                 self.open_browser(src, new)
             return
         except Exception as e:
-            self.toast.notify("Couldn't open the archive", f"{src.name}: {e}")
+            self.toast.notify(tr("Couldn't open the archive"), f"{src.name}: {e}")
             self.play_problem_sound()
             return
         win = ArchiveBrowser(self, src, password, entries, self.icon)
@@ -363,48 +509,198 @@ class Controller(QObject):
         win.raise_()
         win.activateWindow()
 
-    # ---- right-click menu: files arrive one process at a time, so collect them briefly
+    # ---- right-click menu
 
-    def files_from_menu(self, paths: list[str]):
+    def set_context_menu(self, on: bool):
+        self.settings.context_menu = on
+        self.settings_changed()
+        self.update_shell_menu()
+
+    def set_menu_style(self, style: str):
+        self.settings.menu_style = style
+        self.settings_changed()
+        self.update_shell_menu()
+
+    def update_shell_menu(self, delay_ms: int = MENU_WRITE_DELAY_MS):
+        """Rewrites the right-click menu soon (after more changes have had a chance to arrive)."""
+        self.menu_timer.start(delay_ms)
+
+    def _write_menu(self):
+        """Works out the menu and writes it if it changed, all in the background (it's a few
+        thousand registry entries the first time, and nothing at all when nothing changed)."""
+        if self.menu_busy:
+            self.menu_timer.start(MENU_WRITE_DELAY_MS)
+            return
+        s = copy.deepcopy(self.settings)  # a snapshot: the settings may change while this runs
+        if not s.context_menu and s.menu_signature == "off":
+            return
+        self.menu_busy = True
+
+        def work():
+            signature = ""
+            try:
+                if not s.context_menu:
+                    shellmenu.remove()
+                    signature = "off"
+                else:
+                    command, icon = app_command, app_icon()
+                    verbs = shellmenu.plan(s, command)
+                    signature = shellmenu.signature(verbs, command, icon)
+                    if signature != s.menu_signature:
+                        shellmenu.write(verbs, command, icon)
+                        log.info("right-click menu updated")
+            except Exception:
+                log.exception("could not update the right-click menu")
+                signature = ""
+            try:
+                self.bg.menu_written.emit(signature)
+            except RuntimeError:
+                pass  # quitting
+        threading.Thread(target=work, daemon=True).start()
+
+    def _menu_written(self, signature: str):
+        self.menu_busy = False
+        if signature and signature != self.settings.menu_signature:
+            self.settings.menu_signature = signature
+            self.settings.save()
+
+    # ---- requests from the right-click menu (each file arrives from its own helper process)
+
+    def handle_message(self, text: str):
+        word, _, rest = text.partition("\n")
+        lines = [line.strip() for line in rest.split("\n") if line.strip()]
+        if word == "show":
+            self.show_window(lines[0] if lines and lines[0] in PAGE_NAMES else None)
+        elif word == "convert":
+            self.files_from_menu(lines)
+        elif word == "open":
+            self.files_from_menu(lines, into="window")
+        elif word == "browse" and lines:
+            self.browse_from_menu(lines[0])
+        elif word == "run" and len(lines) >= 2:
+            self.run_from_menu(lines[0], lines[1:])
+
+    def files_from_menu(self, paths: list[str], into: str = "wheel"):
+        target = self.pending if into == "wheel" else self.pending_open
         for p in paths:
             path = Path(p)
-            if path.exists() and path not in self.pending:
-                self.pending.append(path)
-        if self.pending:
-            self.pending_timer.start(350)
+            if path.exists() and path not in target:
+                target.append(path)
+        self.pending_timer.start(MENU_BATCH_MS)
+
+    def run_from_menu(self, key: str, paths: list[str]):
+        files = self.pending_runs.setdefault(key, [])
+        for p in paths:
+            path = Path(p)
+            if path.exists() and path not in files:
+                files.append(path)
+        self.pending_timer.start(MENU_BATCH_MS)
 
     def _open_pending(self):
         files, self.pending = self.pending, []
         if files:
             self.wheel.popup_at_cursor(files)
+        files, self.pending_open = self.pending_open, []
+        if files:
+            self.show_window("Home")
+            self.window.show_files(files)
+        runs, self.pending_runs = self.pending_runs, {}
+        runs = [(k, v) for k, v in runs.items() if v]
+        if runs:
+            def work():  # reading videos and PDFs can take a moment: not on the window's thread
+                for _key, files in runs:
+                    try:
+                        warm_up(files)
+                    except Exception:
+                        log.debug("warm-up failed", exc_info=True)
+                self.bg.menu_files_ready.emit(runs)
+            threading.Thread(target=work, daemon=True).start()
+
+    def _run_menu_files(self, runs):
+        for key, files in runs:
+            self._run_menu_tool(key, files)
+
+    def _run_menu_tool(self, key: str, files: list[Path]):
+        kind = key.split(":", 1)[0]
+        if kind != "pack":  # "Convert to PNG" picked with videos selected too: only the pictures
+            files = [f for f in files if category(f) == kind] or files
+        tool_now = None
+        for t in _all_tools(len(files) > 1):
+            if t.key == key:
+                tool_now = t
+                break
+        if tool_now and tool_now.target:  # skip files that are already in that format
+            files = [f for f in files if norm(f.suffix) != tool_now.target] or files
+        pk = pick(files, frozenset(), (), True, None, True)
+        slot = next((sl for sl in pk.slots if sl.tool.key == key), None)
+        if slot is None:
+            self.tell(tr("Can't do that here"), tr("This option doesn't work for these files."))
+            return
+        if not slot.ok:
+            self.tell(slot.tool.description, slot.reason or "")
+            return
+        self.tool_chosen(slot.tool, pk.files)
+
+    def tell(self, title: str, detail: str):
+        """A short problem message: in the popup, or from the tray icon if a conversion is showing there."""
+        if not self.toast.notify(title, detail, linger_ms=6000):
+            self.tray.showMessage(title, detail, QSystemTrayIcon.Warning, 6000)
+        self.play_problem_sound()
 
     def browse_from_menu(self, path: str):
         p = Path(path)
         if p.exists():
             self.open_browser(p)
 
+    # ---- settings
+
     def apply_theme(self):
         self.theme = self._make_theme()
         self.app.setStyleSheet(stylesheet(self.theme))
         self.wheel.theme = self.theme
-        self.window.apply_theme(self.theme)
+        if self._window is not None:
+            self._window.apply_theme(self.theme)
 
     def _system_theme_changed(self, *_):
         if self.settings.appearance == "system":
             self.apply_theme()
 
-    def settings_changed(self):
+    def settings_changed(self, menu: bool = False):
+        """Saves the settings. menu=True when the change also shows in the right-click menu."""
         self.settings.save()
-        self.window.refresh()
+        if self._window is not None:
+            self._window.refresh()
         self._update_tooltip()
+        if menu:
+            self.update_shell_menu()
 
     def set_enabled(self, on: bool):
         self.settings.enabled = on
         self.act_pause.blockSignals(True)
         self.act_pause.setChecked(not on)
         self.act_pause.blockSignals(False)
-        self.window.sync()
+        if self._window is not None:
+            self._window.sync()
         self.settings_changed()
+
+    def restart(self, page: str = "General"):
+        """Starts a fresh copy of Satsuma (used after changing the language)."""
+        if self.cancels:
+            self.toast.notify(tr("Restart later"), tr("Satsuma restarts when the conversion is done."),
+                              linger_ms=4000)
+            QTimer.singleShot(2000, lambda: self.restart(page))
+            return
+        self.settings.save()
+        if self.server:
+            self.server.close()
+        winutil.release_mutex()
+        try:
+            subprocess.Popen(app_command("--restarted", "--page", page))
+        except OSError:
+            log.exception("could not restart")
+            winutil.create_mutex()
+            return
+        self.quit()
 
     # ---- jobs
 
@@ -441,8 +737,9 @@ class Controller(QObject):
                 self.settings.watermark = dict(answer)
                 self.settings.save()
         rename: dict = {}
-        if params.get("rename_base"):  # the archive window has its own name box
-            rename = {"rename_base": params.pop("rename_base")}
+        archive_name = params.pop("rename_base", "")  # the "Make an archive" window has its own name box
+        if archive_name:
+            rename = {"rename_base": archive_name}
         elif self.settings.ask_names and tool.renames and len(files) > 1:
             answer = dialogs.ask("rename", files, self.icon, dark)
             if answer is None:
@@ -452,20 +749,31 @@ class Controller(QObject):
 
     def start_job(self, tool: Tool, files: list[Path], params: dict | None = None, rename: dict | None = None,
                   after: str | None = None):
+        self.tidy_timer.stop()
         job_id = next(self.ids)
         cancel = threading.Event()
+        quick = tool.key.startswith("archive:open")
+        waiting = not quick and any(not j["quick"] for j in self.jobs.values()) and self.settings.one_at_a_time
         self.cancels[job_id] = cancel
         params = params or {}
+        what = files[0].name if len(files) == 1 else tr("{count} items", count=len(files))
         self.jobs[job_id] = {"tool": tool, "files": files, "bytes_in": sum(size_of(f) for f in files),
-                             "params": params, "rename": rename or {}, "after": after}
+                             "params": params, "rename": rename or {}, "after": after, "quick": quick,
+                             "what": what}
         if self.settings.show_progress:
-            what = files[0].name if len(files) == 1 else f"{len(files)} items"
-            self.toast.start(job_id, tool.description, what)
+            self.toast.start(job_id, tool.description,
+                             tr("{what} · waiting for the one before it", what=what) if waiting else what)
         options = self.settings.options(rename.get("rename_base", "") if rename else "",
                                         rename.get("rename_start", 1) if rename else 1)
-        self.pool.start(Job(job_id, tool, files, options, self.signals, cancel, params))
+        (self.quick_pool if quick else self.pool).start(Job(job_id, tool, files, options, self.signals, cancel,
+                                                            params))
         self._update_tooltip()
         log.info("job %s: %s on %d item(s)", job_id, tool.key, len(files))
+
+    def _job_started(self, job_id: int):
+        job = self.jobs.get(job_id)
+        if job:
+            self.toast.set_detail(job_id, job["what"])
 
     def cancel_job(self, job_id: int):
         if job_id == UPDATE_JOB_ID:
@@ -476,16 +784,23 @@ class Controller(QObject):
         if ev:
             ev.set()
 
+    def cancel_all(self):
+        for ev in self.cancels.values():
+            ev.set()
+
     def job_done(self, job_id: int, result: Result, errors: list[str], cancelled: bool):
         self.cancels.pop(job_id, None)
         job = self.jobs.pop(job_id, None) or {"tool": None, "files": [], "bytes_in": 0, "params": {}, "rename": {},
                                                "after": None}
         tool, files = job["tool"], job["files"]
         self._update_tooltip()
+        if not self.cancels:
+            self.tidy_timer.start(IDLE_TIDY_MS)
 
         # wrong password: ask again and retry the same job
+        password_error = tr(PASSWORD_ERROR)
         if tool and tool.password and errors and not result.outputs and not cancelled \
-                and all(PASSWORD_ERROR in e for e in errors):
+                and all(password_error in e for e in errors):
             self.toast.hide()
             password = self.ask_password(files, wrong=bool(job["params"].get("password")))
             if password is not None:
@@ -498,7 +813,7 @@ class Controller(QObject):
             try:
                 os_open(result.outputs[0])
             except OSError as e:
-                self.toast.notify("Couldn't open the file", str(e))
+                self.toast.notify(tr("Couldn't open the file"), str(e))
             return
         if after == "reload":
             for b in self.browsers:
@@ -507,26 +822,27 @@ class Controller(QObject):
         record = tool and not cancelled and not tool.key.startswith(("archive:open", "archive:test"))
         if record:
             self.history.record(tool.description, files, result.outputs, len(errors), job["bytes_in"])
-            if self.window.isVisible():
-                self.window.refresh_history()
+            if self._window is not None and self._window.isVisible():
+                self._window.refresh_history()
         if result.clipboard:
             QGuiApplication.clipboard().setText(result.clipboard)
         first = result.outputs[0] if result.outputs else None
 
         if cancelled:
-            title, detail, linger = "Cancelled", "Nothing was saved for the unfinished file.", 3000
+            title, detail, linger = tr("Cancelled"), tr("Nothing was saved for the unfinished file."), 3000
         elif errors:
-            title = "Couldn't convert" if not result.outputs else "Some files couldn't be converted"
-            more = f"\n…and {len(errors) - 3} more" if len(errors) > 3 else ""
+            title = tr("Couldn't convert") if not result.outputs else tr("Some files couldn't be converted")
+            more = "\n" + tr("…and {count} more", count=len(errors) - 3) if len(errors) > 3 else ""
             detail, linger = "\n".join(errors[:3]) + more, 9000
         elif result.note:
-            title, detail, linger = "Done", result.note, 5000
+            title, detail, linger = tr("Done"), result.note, 5000
         elif result.outputs:
-            title = "Done"
-            detail = f"Saved {first.name}" if len(result.outputs) == 1 else f"Saved {len(result.outputs)} items"
+            title = tr("Done")
+            detail = tr("Saved {name}", name=first.name) if len(result.outputs) == 1 else \
+                tr("Saved {count} items", count=len(result.outputs))
             linger = 4500
         else:
-            title, detail, linger = "Nothing to do", "", 3000
+            title, detail, linger = tr("Nothing to do"), "", 3000
 
         important = bool(errors or result.note)
         if self.settings.show_progress or important:
@@ -549,16 +865,20 @@ class Controller(QObject):
     def can_self_install(self) -> bool:
         return installed_uninstaller() is not None
 
+    def _refresh_updates_page(self):
+        if self._window is not None:
+            self._window.refresh_updates()
+
     def check_updates(self, manual: bool = False):
         manual = manual is True  # timer/menu signals may pass other values
         if not self.updates_supported():
             if manual:
-                self.toast.notify("Updates aren't set up", "This copy wasn't built with an update source.")
+                self.toast.notify(tr("Updates aren't set up"), tr("This copy wasn't built with an update source."))
             return
         if (not manual and not self.settings.check_updates) or self.update_state in ("checking", "downloading"):
             return
         self.update_state = "checking"
-        self.window.refresh_updates()
+        self._refresh_updates_page()
 
         def work():
             info, err = None, ""
@@ -568,7 +888,7 @@ class Controller(QObject):
                 err = str(e)
             except Exception:
                 log.exception("update check failed")
-                err = "something went wrong"
+                err = tr("something went wrong")
             self.usignals.checked.emit(info, err, manual)
         threading.Thread(target=work, daemon=True).start()
 
@@ -577,25 +897,27 @@ class Controller(QObject):
             self.update_state, self.update_error = "error", err
             log.info("update check: %s", err)
             if manual:
-                self.toast.notify("Couldn't check for updates", err)
+                self.toast.notify(tr("Couldn't check for updates"), err)
         elif info:
             self.update_state, self.update_info = "available", info
             log.info("update available: %s", info.version)
             if self.settings.auto_update and self.can_self_install():
-                self.window.refresh_updates()
+                self._refresh_updates_page()
                 self.start_update()
                 return
             if manual or self.notified_version != info.version:
                 self.notified_version = info.version
-                self.toast.notify(f"Satsuma {info.version} is available",
-                                  "One click to update. Your settings are kept.",
-                                  "Update now" if self.can_self_install() else "Get it", self.start_update, 15000)
+                self.toast.notify(tr("Satsuma {version} is available", version=info.version),
+                                  tr("One click to update. Your settings are kept."),
+                                  tr("Update now") if self.can_self_install() else tr("Get it"), self.start_update,
+                                  15000)
         else:
             self.update_state = "uptodate"
             if manual:
-                self.toast.notify("You're up to date", f"Satsuma {__version__} is the newest version.",
+                self.toast.notify(tr("You're up to date"),
+                                  tr("Satsuma {version} is the newest version.", version=__version__),
                                   linger_ms=4000)
-        self.window.refresh_updates()
+        self._refresh_updates_page()
 
     def start_update(self):
         info = self.update_info
@@ -606,9 +928,9 @@ class Controller(QObject):
             return
         self.update_state = "downloading"
         self.update_cancel = threading.Event()
-        self.toast.start(UPDATE_JOB_ID, f"Downloading Satsuma {info.version}",
-                         "Satsuma restarts by itself when it's done.")
-        self.window.refresh_updates()
+        self.toast.start(UPDATE_JOB_ID, tr("Downloading Satsuma {version}", version=info.version),
+                         tr("Satsuma restarts by itself when it's done."))
+        self._refresh_updates_page()
         cancel = self.update_cancel
 
         def work():
@@ -620,33 +942,34 @@ class Controller(QObject):
                 self.usignals.failed.emit(str(e))
             except Exception:
                 log.exception("update download failed")
-                self.usignals.failed.emit("something went wrong")
+                self.usignals.failed.emit(tr("something went wrong"))
         threading.Thread(target=work, daemon=True).start()
 
     def _update_downloaded(self, path: str):
         if self.cancels:  # let running conversions finish first
             QTimer.singleShot(2000, lambda: self._update_downloaded(path))
             return
-        self.toast.finish(UPDATE_JOB_ID, "Installing the update…", "Satsuma will be back in a moment.", None, 5000)
+        self.toast.finish(UPDATE_JOB_ID, tr("Installing the update…"), tr("Satsuma will be back in a moment."),
+                          None, 5000)
         winutil.release_mutex()
         try:
             updater.run_installer(Path(path))
         except OSError:
             log.exception("could not start installer")
             winutil.create_mutex()
-            self._update_failed("couldn't start the installer")
+            self._update_failed(tr("couldn't start the installer"))
             return
         QTimer.singleShot(600, self.quit)
 
     def _update_failed(self, msg: str):
         self.update_state = "available" if self.update_info else "error"
-        if msg == "cancelled":
-            self.toast.finish(UPDATE_JOB_ID, "Update cancelled", "You can update later from the Updates page.",
+        if msg == updater.CANCELLED:
+            self.toast.finish(UPDATE_JOB_ID, tr("Update cancelled"), tr("You can update later from the Updates page."),
                               None, 4000)
         else:
             self.update_error = msg
-            self.toast.finish(UPDATE_JOB_ID, "Update failed", msg, None, 9000)
-        self.window.refresh_updates()
+            self.toast.finish(UPDATE_JOB_ID, tr("Update failed"), msg, None, 9000)
+        self._refresh_updates_page()
 
     # ---- quitting / removing
 
@@ -654,11 +977,13 @@ class Controller(QObject):
         for ev in self.cancels.values():
             ev.set()
         self.pool.waitForDone(3000)
+        self.quick_pool.waitForDone(1000)
         self.tray.hide()
         if self.server:
             self.server.close()
         if cleanup:
             remove_user_data()
+        winutil.release_mutex()
         self.app.quit()
 
     def uninstall(self):
@@ -670,19 +995,59 @@ class Controller(QObject):
             subprocess.Popen([str(unins)])
         except OSError:
             log.exception("could not start uninstaller")
-            QMessageBox.warning(self.window, APP_NAME, "Couldn't start the uninstaller. You can uninstall "
-                                "Satsuma from Windows Settings → Apps → Installed apps.")
+            winutil.create_mutex()
+            QMessageBox.warning(self.window_if_open(), APP_NAME,
+                                tr("Couldn't start the uninstaller. You can uninstall Satsuma from Windows "
+                                   "Settings → Apps → Installed apps."))
             return
         self.quit()
 
     def remove_portable(self):
-        answer = QMessageBox.question(
-            self.window, "Remove Satsuma",
-            "This deletes Satsuma's settings, removes it from the right-click menu, stops it starting "
-            "with Windows, and closes it.\n\n"
-            "After that, delete the Satsuma folder to finish removing it.")
-        if answer == QMessageBox.StandardButton.Yes:
+        box = QMessageBox(QMessageBox.Question, tr("Remove Satsuma"),
+                          tr("This deletes Satsuma's settings, removes it from the right-click menu, stops it "
+                             "starting with Windows, and closes it.") + "\n\n"
+                          + tr("After that, delete the Satsuma folder to finish removing it."),
+                          parent=self.window_if_open())
+        yes = box.addButton(tr("Remove"), QMessageBox.DestructiveRole)
+        box.addButton(tr("Cancel"), QMessageBox.RejectRole)
+        box.exec()
+        chosen = box.clickedButton() is yes
+        box.deleteLater()
+        if chosen:
             self.quit(cleanup=True)
+
+
+PAGE_NAMES = ("Home", "General", "Look", "Formats", "History", "Updates", "About")
+
+
+def _all_tools(multi: bool):
+    from .converters import catalog
+    for tools in catalog(multi).values():
+        yield from tools
+
+
+def downloads_folder() -> Path:
+    """The real Downloads folder (it may have been moved, e.g. into OneDrive)."""
+    from PySide6.QtCore import QStandardPaths
+    try:
+        loc = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DownloadLocation)
+        if loc and Path(loc).is_dir():
+            return Path(loc)
+    except Exception:
+        pass
+    return Path.home() / "Downloads"
+
+
+def clean_old_temp_files():
+    """Removes leftovers from opening files inside archives (older than a day)."""
+    import shutil
+    cutoff = time.time() - 86400
+    for p in Path(tempfile.gettempdir()).glob("satsuma-open-*"):
+        try:
+            if p.is_dir() and p.stat().st_mtime < cutoff:
+                shutil.rmtree(p, ignore_errors=True)
+        except OSError:
+            pass
 
 
 def _alive(widget) -> bool:
@@ -694,9 +1059,6 @@ def _alive(widget) -> bool:
 
 
 # ----------------------------------------------------------------------------- startup
-
-SERVER_NAME = f"Satsuma-{os.environ.get('USERNAME', 'user')}"
-
 
 def setup_logging():
     try:
@@ -713,63 +1075,34 @@ def setup_logging():
                                                   exc_info=(a.exc_type, a.exc_value, a.exc_traceback))
 
 
-def tell_running_copy(message: bytes) -> bool:
-    """If Satsuma is already running, send it a message ("show", "convert\n<paths>") and return True."""
-    sock = QLocalSocket()
-    sock.connectToServer(SERVER_NAME)
-    if not sock.waitForConnected(400):
-        return False
-    if message:
-        sock.write(message)
-        sock.flush()
-        sock.waitForBytesWritten(1000)
-    sock.disconnectFromServer()
-    if sock.state() != QLocalSocket.LocalSocketState.UnconnectedState:
-        sock.waitForDisconnected(1000)
-    return True
-
-
-def parse_args(argv: list[str]) -> tuple[bool, list[str], str]:
-    background = "--background" in argv
-    convert: list[str] = []
-    browse = ""
-    if "--convert" in argv:
-        convert = [a for a in argv[argv.index("--convert") + 1:] if not a.startswith("--")]
-    if "--browse" in argv:
-        rest = [a for a in argv[argv.index("--browse") + 1:] if not a.startswith("--")]
-        browse = rest[0] if rest else ""
-    return background, convert, browse
+def load_qt_translations(app: QApplication, lang: str):
+    """Qt's own words (in standard buttons and menus) in the chosen language."""
+    if lang == "en":
+        return
+    try:
+        from PySide6.QtCore import QLibraryInfo, QTranslator
+        translator = QTranslator(app)
+        if translator.load(f"qtbase_{lang}", QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)):
+            app.installTranslator(translator)
+    except Exception:
+        log.debug("no Qt translations", exc_info=True)
 
 
 def main() -> int:
-    if "--remove-shell-menu" in sys.argv:  # used by the uninstaller
-        set_context_menu(False)
-        return 0
+    """Starts Satsuma. main.py has already made sure no other copy is running."""
     setup_logging()
     log.info("starting %s %s", APP_NAME, __version__)
     winutil.set_app_id(APP_ID)
+    argv = sys.argv[1:]
 
+    settings_lang = Settings.load().language
+    lang = i18n.set_language(settings_lang)
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setQuitOnLastWindowClosed(False)
-    background, convert, browse = parse_args(sys.argv[1:])
-
-    if convert:
-        message = ("convert\n" + "\n".join(convert)).encode("utf-8")
-    elif browse:
-        message = ("browse\n" + browse).encode("utf-8")
-    else:
-        message = b"" if background else b"show"
-    if tell_running_copy(message):
-        return 0  # the copy that's already running takes it from here
-    if not winutil.create_mutex():
-        # Another copy is just starting (e.g. several files right-clicked at once): wait for it.
-        for _ in range(40):
-            time.sleep(0.2)
-            if tell_running_copy(message):
-                return 0
-        log.warning("another copy holds the mutex but isn't answering")
-        return 0
+    if i18n.is_rtl():
+        app.setLayoutDirection(Qt.RightToLeft)
+    load_qt_translations(app, lang)
 
     icon_path = resource("assets", "icon.png")
     if icon_path.exists():
@@ -781,50 +1114,56 @@ def main() -> int:
     app.setWindowIcon(icon)
 
     controller = Controller(app, icon)
+    QTimer.singleShot(20_000, clean_old_temp_files)
 
     server = QLocalServer()
-    QLocalServer.removeServer(SERVER_NAME)
-    server.listen(SERVER_NAME)
+    QLocalServer.removeServer(ipc.SERVER_NAME)
+    if not server.listen(ipc.SERVER_NAME):
+        log.warning("could not listen for other copies: %s", server.errorString())
     controller.server = server
+    inboxes: set = set()
 
     def on_connection():
-        conn = server.nextPendingConnection()
-        if conn is None:
-            return
+        while server.hasPendingConnections():
+            conn = server.nextPendingConnection()
+            if conn is None:
+                return
+            box = Inbox(conn)
+            inboxes.add(box)
 
-        buf = bytearray()
-
-        def read():
-            buf.extend(bytes(conn.readAll()))
-
-        def done():
-            read()
-            text = buf.decode("utf-8", "replace")
-            if text.startswith("show"):
-                controller.show_window()
-            elif text.startswith("convert\n"):
-                controller.files_from_menu([line for line in text.split("\n")[1:] if line.strip()])
-            elif text.startswith("browse\n"):
-                controller.browse_from_menu(text.split("\n", 1)[1].strip())
-            conn.deleteLater()
-        conn.readyRead.connect(read)
-        conn.disconnected.connect(done)
+            def got(text, box=box):
+                inboxes.discard(box)
+                if text:
+                    controller.handle_message(text)
+            box.message.connect(got)
     server.newConnection.connect(on_connection)
 
-    if controller.settings.context_menu:  # keeps the menu pointing at this copy of Satsuma
-        QTimer.singleShot(2500, lambda: set_context_menu(True))
+    # keeps the right-click menu up to date and pointing at this copy (only rewritten if needed)
+    controller.update_shell_menu(3000)
 
     s = controller.settings
     if s.last_version and s.last_version != __version__ and __version__ != "dev":
         QTimer.singleShot(1500, lambda: controller.toast.notify(
-            "Satsuma was updated", f"You're now on version {__version__}. Your settings were kept.", linger_ms=6000))
+            tr("Satsuma was updated"),
+            tr("You're now on version {version}. Your settings were kept.", version=__version__), linger_ms=6000))
     s.last_version = __version__
-    if s.first_run or not (background or convert or browse):
-        s.first_run = False
+
+    # what this start was asked to do (the same messages a helper process would send)
+    message = ipc.message_for(argv)
+    page = ""
+    if "--page" in argv:
+        rest = argv[argv.index("--page") + 1:]
+        page = rest[0] if rest and rest[0] in PAGE_NAMES else ""
+    if page:
+        controller.show_window(page)
+    elif message:
+        QTimer.singleShot(200, lambda: controller.handle_message(message.decode("utf-8")))
+    elif message is None and "--background" not in argv:
         controller.show_window("Home")
+    if s.first_run:
+        s.first_run = False
+        if not message or not message.startswith(b"show"):
+            controller.show_window("Home")
     s.save()
-    if convert:
-        QTimer.singleShot(200, lambda: controller.files_from_menu(convert))
-    if browse:
-        QTimer.singleShot(200, lambda: controller.browse_from_menu(browse))
+    QTimer.singleShot(IDLE_TIDY_MS, controller.tidy_up)
     return app.exec()
