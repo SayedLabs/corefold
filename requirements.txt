@@ -4,3 +4,5 @@ pi-heif>=0.20
 pypdf>=5.0
 pypdfium2>=4.30
 zxing-cpp>=2.2
+numpy>=1.26
+onnxruntime>=1.18

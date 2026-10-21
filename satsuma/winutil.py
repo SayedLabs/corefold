@@ -9,7 +9,7 @@ from pathlib import Path
 user32 = ctypes.windll.user32
 kernel32 = ctypes.windll.kernel32
 
-VK_LBUTTON, VK_RBUTTON, VK_SHIFT, VK_CONTROL, VK_MENU = 0x01, 0x02, 0x10, 0x11, 0x12
+VK_LBUTTON, VK_RBUTTON, VK_SHIFT, VK_CONTROL, VK_MENU, VK_ESCAPE = 0x01, 0x02, 0x10, 0x11, 0x12, 0x1B
 SM_SWAPBUTTON, GA_ROOT = 23, 2
 SHORTCUT_KEYS = {"shift": (VK_SHIFT,), "ctrl+shift": (VK_CONTROL, VK_SHIFT), "alt": (VK_MENU,)}
 
@@ -73,6 +73,20 @@ def reveal_in_explorer(path: Path):
         subprocess.Popen(f'explorer /select,"{path}"')
 
 
+def play_sound(path: Path | None):
+    if not path:
+        return
+    try:
+        import winsound
+        winsound.PlaySound(str(path), winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
+    except Exception:
+        pass
+
+
+def any_button_down() -> bool:
+    return key_down(VK_LBUTTON) or key_down(VK_RBUTTON)
+
+
 def set_app_id(app_id: str):
     try:
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
@@ -80,10 +94,14 @@ def set_app_id(app_id: str):
         pass
 
 
-def create_mutex():
-    """Lets the installer know Satsuma is running."""
+def create_mutex() -> bool:
+    """Lets the installer know Satsuma is running. Returns False if another copy already holds it."""
     global _mutex
-    _mutex = kernel32.CreateMutexW(None, False, MUTEX_NAME)
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateMutexW.restype = wt.HANDLE
+    k32.CreateMutexW.argtypes = [ctypes.c_void_p, wt.BOOL, wt.LPCWSTR]
+    _mutex = k32.CreateMutexW(None, False, MUTEX_NAME)
+    return ctypes.get_last_error() != 183  # ERROR_ALREADY_EXISTS
 
 
 def release_mutex():

@@ -9,7 +9,9 @@ param(
     # GitHub repository ("owner/name") the app checks for updates. Filled in automatically on
     # GitHub; for local builds put it in update-repo.txt next to build.bat.
     [string]$UpdateRepo = "",
-    [string]$FfmpegUrl = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
+    [string]$FfmpegUrl = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip",
+    # Background remover model (U2-Net "silueta", ~44 MB) from the rembg project
+    [string]$ModelUrl = "https://github.com/danielgatis/rembg/releases/download/v0.0.0/silueta.onnx"
 )
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"   # makes downloads much faster
@@ -107,16 +109,28 @@ if (-not (Test-Path "$FfDir\ffmpeg.exe")) {
     Remove-Item $zip, $tmp -Recurse -Force
 }
 
-# ---- app icon
+# ---- background remover model
+$ModelFile = "vendor\models\silueta.onnx"
+if (-not (Test-Path $ModelFile)) {
+    Write-Host "== Downloading background remover model"
+    New-Item -ItemType Directory -Force "vendor\models" | Out-Null
+    try { Invoke-WebRequest $ModelUrl -OutFile $ModelFile }
+    catch { Remove-Item $ModelFile -ErrorAction SilentlyContinue; Write-Warning "Couldn't download the model; 'Cut out' will show as unavailable." }
+}
+$ModelArgs = @()
+if (Test-Path $ModelFile) { $ModelArgs = @("--add-data", "$ModelFile;models") }
+
+# ---- app icon and sounds
 if (-not (Test-Path "assets\icon.ico")) { & $VPy scripts\make_icon.py }
+if (-not (Test-Path "assets\sounds\pop.wav")) { & $VPy scripts\make_sounds.py }
 
 # ---- PyInstaller (one folder: starts fast, fewer antivirus false alarms than --onefile)
 Write-Host "== Packaging app"
 if (Test-Path "dist\Satsuma") { Remove-Item "dist\Satsuma" -Recurse -Force }
 & $VPy -m PyInstaller --noconfirm --clean --windowed --name Satsuma `
     --icon assets\icon.ico --version-file version_info.txt `
-    --add-data "assets\icon.png;assets" `
-    --collect-all pi_heif --collect-all zxingcpp --collect-all pypdfium2 `
+    --add-data "assets\icon.png;assets" --add-data "assets\sounds;assets\sounds" @ModelArgs `
+    --collect-all pi_heif --collect-all zxingcpp --collect-all pypdfium2 --collect-binaries onnxruntime `
     main.py
 if ($LASTEXITCODE) { throw "PyInstaller failed" }
 Copy-Item $FfDir "dist\Satsuma\ffmpeg" -Recurse

@@ -48,21 +48,24 @@ def mix(a: QColor, b: QColor, t: float) -> QColor:
                   round(a.blue() + (b.blue() - a.blue()) * t))
 
 
-def build_theme(appearance: str, accent_key: str) -> Theme:
+def build_theme(appearance: str, accent_key: str, custom_color: str = "#ff8c1a", opacity: int = 94) -> Theme:
     dark = appearance == "dark" or (appearance == "system" and system_is_dark())
-    accent = QColor(ACCENTS.get(accent_key, ACCENTS["tangerine"])[1])
+    if accent_key == "custom" and QColor(custom_color).isValid():
+        accent = QColor(custom_color)
+    else:
+        accent = QColor(ACCENTS.get(accent_key, ACCENTS["tangerine"])[1])
     lum = 0.2126 * accent.red() + 0.7152 * accent.green() + 0.0722 * accent.blue()
     on_accent = QColor("#141417") if lum > 150 else QColor("#ffffff")
     if dark:
         return Theme(True, accent, on_accent,
                      bg=QColor("#151517"), panel=QColor("#1d1d21"), field=QColor("#26262b"),
                      border=QColor("#34343b"), text=QColor("#ececf0"), muted=QColor("#9a9aa6"),
-                     wheel_bg=QColor(22, 22, 25, 240), wheel_stripe=QColor(255, 255, 255, 14),
+                     wheel_bg=QColor(22, 22, 25, round(255 * opacity / 100)), wheel_stripe=QColor(255, 255, 255, 14),
                      wheel_center=QColor(12, 12, 14, 250), wheel_line=QColor(255, 255, 255, 28))
     return Theme(False, accent, on_accent,
                  bg=QColor("#f4f4f7"), panel=QColor("#ffffff"), field=QColor("#ffffff"),
                  border=QColor("#dcdce3"), text=QColor("#1b1b20"), muted=QColor("#6b6b78"),
-                 wheel_bg=QColor(252, 252, 253, 245), wheel_stripe=QColor(0, 0, 0, 12),
+                 wheel_bg=QColor(252, 252, 253, round(255 * opacity / 100)), wheel_stripe=QColor(0, 0, 0, 12),
                  wheel_center=QColor(255, 255, 255, 252), wheel_line=QColor(0, 0, 0, 30))
 
 
@@ -102,9 +105,22 @@ QFrame#card { background: $panel; border: 1px solid $border; border-radius: 12px
 QFrame#dropzone { border: 2px dashed $border; border-radius: 14px; background: $panel; }
 QFrame#dropzone:hover { border-color: $accent; }
 QFrame#line { background: $border; max-height: 1px; border: none; }
-QComboBox, QSpinBox { background: $field; border: 1px solid $border; border-radius: 7px;
+QComboBox, QSpinBox, QDoubleSpinBox, QLineEdit { background: $field; border: 1px solid $border; border-radius: 7px;
                       padding: 5px 9px; min-height: 20px; }
-QComboBox:hover, QSpinBox:hover { border-color: $accent; }
+QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover, QLineEdit:hover, QLineEdit:focus { border-color: $accent; }
+QDialog { background: $bg; }
+QRadioButton { spacing: 10px; padding: 3px 0; }
+QRadioButton::indicator { width: 16px; height: 16px; border-radius: 9px; border: 1px solid $border; background: $field; }
+QRadioButton::indicator:checked { border: 5px solid $accent; background: $on_accent; }
+QSlider::groove:horizontal { height: 6px; background: $field; border: 1px solid $border; border-radius: 3px; }
+QSlider::sub-page:horizontal { background: $accent; border-radius: 3px; }
+QSlider::handle:horizontal { background: $accent; width: 16px; height: 16px; margin: -6px 0; border-radius: 8px; }
+QListWidget#history { background: $panel; border: 1px solid $border; border-radius: 12px; outline: none; padding: 4px; }
+QListWidget#history::item { padding: 8px 10px; border-radius: 7px; }
+QListWidget#history::item:selected { background: $accent_soft; color: $text; }
+QPushButton#star { background: transparent; border: none; font-size: 13pt; padding: 0 4px; color: $muted; }
+QPushButton#star:checked { color: $accent; background: transparent; }
+QLabel#stat { font-size: 20pt; font-weight: 700; color: $accent; }
 QComboBox::drop-down { border: none; width: 22px; }
 QComboBox QAbstractItemView { background: $panel; border: 1px solid $border; outline: none;
                               selection-background-color: $accent; selection-color: $on_accent; }
