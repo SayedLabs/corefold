@@ -68,7 +68,8 @@ def _request(url: str, user_agent: str, timeout: float):
 
 
 def _trusted(url: str | None, repo: str) -> bool:
-    return bool(url) and url.startswith(f"https://github.com/{repo}/releases/download/")
+    # GitHub names ignore upper/lower case ("SayedLabs" and "sayedlabs" are the same account)
+    return bool(url) and url.lower().startswith(f"https://github.com/{repo}/releases/download/".lower())
 
 
 def current_repo(data: dict, repo: str) -> str:
