@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Satsuma – convert any file with one drag</title>
+<meta name="description" content="Free Windows app: hold Shift, drag a file, pick a format. Converts images, video, audio, PDFs and archives on your PC. Nothing is uploaded.">
+<link rel="icon" href="icon.png">
+<style>
+  :root {
+    --bg: #fbf7f2; --panel: #ffffff; --text: #1d1a17; --muted: #6d655d; --line: #ece3d8;
+    --accent: #ff8c1a; --accent-dark: #e06f00; --soft: #fff1e2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151311; --panel: #1e1b18; --text: #f3ede6; --muted: #a8a097; --line: #2f2a25;
+            --accent: #ff9a33; --accent-dark: #ff8c1a; --soft: #2b2016; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 17px/1.6 "Segoe UI", system-ui, -apple-system, sans-serif; }
+  a { color: var(--accent-dark); }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 0 20px; }
+  header { display: flex; align-items: center; gap: 10px; padding: 18px 0; }
+  header img { width: 34px; height: 34px; }
+  header b { font-size: 20px; }
+  header nav { margin-left: auto; display: flex; gap: 18px; font-size: 15px; }
+  header nav a { color: var(--muted); text-decoration: none; }
+  .hero { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 40px; align-items: center; padding: 40px 0 56px; }
+  h1 { font-size: clamp(36px, 6vw, 58px); line-height: 1.05; margin: 0 0 18px; letter-spacing: -0.02em; }
+  h1 span { color: var(--accent); }
+  .lead { font-size: 20px; color: var(--muted); margin: 0 0 28px; max-width: 34em; }
+  .cta { display: inline-flex; align-items: center; gap: 10px; background: var(--accent); color: #1d1a17;
+         font-weight: 700; padding: 15px 26px; border-radius: 14px; text-decoration: none; font-size: 18px;
+         box-shadow: 0 8px 24px rgba(255, 140, 26, .3); }
+  .cta:hover { filter: brightness(1.05); }
+  .small { font-size: 14px; color: var(--muted); margin-top: 12px; }
+  .wheel { aspect-ratio: 1; max-width: 400px; margin: 0 auto; width: 100%; }
+  section { padding: 44px 0; border-top: 1px solid var(--line); }
+  h2 { font-size: 30px; margin: 0 0 22px; letter-spacing: -0.01em; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
+  .card h3 { margin: 0 0 6px; font-size: 18px; }
+  .card p { margin: 0; color: var(--muted); font-size: 15px; }
+  .emoji { font-size: 28px; display: block; margin-bottom: 8px; }
+  .steps { counter-reset: s; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+  .steps .card::before { counter-increment: s; content: counter(s); display: inline-grid; place-items: center;
+       width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: #1d1a17; font-weight: 700;
+       margin-bottom: 10px; }
+  .safe { background: var(--soft); border-radius: 20px; padding: 28px; border: 1px solid var(--line); }
+  .safe ul { margin: 0; padding-left: 20px; }
+  .safe li { margin: 6px 0; }
+  .shot { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px;
+          font-family: "Segoe UI", sans-serif; max-width: 460px; }
+  .shot .title { font-weight: 700; color: #fff; background: #0067b8; margin: -14px -16px 12px; padding: 12px 16px;
+                 border-radius: 12px 12px 0 0; }
+  .shot u { color: #0067b8; }
+  details { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; margin: 10px 0; }
+  summary { cursor: pointer; font-weight: 600; }
+  footer { padding: 36px 0 50px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); }
+  @media (max-width: 760px) { .hero { grid-template-columns: 1fr; padding-top: 16px; } header nav { display: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="icon.png" alt="">
+    <b>Satsuma</b>
+    <nav><a href="#features">Features</a><a href="#safe">Is it safe?</a><a href="#faq">Questions</a><a class="repo" href="https://github.com/driftglyph-dev/satsuma">GitHub</a></nav>
+  </header>
+
+  <div class="hero">
+    <div>
+      <h1>Convert any file with <span>one drag.</span></h1>
+      <p class="lead">Hold <b>Shift</b>, drag a file, and drop it on what you want. Pictures, videos, music, PDFs,
+        ZIP and RAR files. Free, works offline, and your files never leave your PC.</p>
+      <a class="cta download" href="https://github.com/driftglyph-dev/satsuma/releases/latest">⬇ Download for Windows</a>
+      <p class="small">Free · Windows 10 and 11 · No sign-up · Updates itself</p>
+    </div>
+    <svg class="wheel" viewBox="0 0 400 400" role="img" aria-label="The Satsuma wheel">
+      <defs><radialGradient id="g" cx="40%" cy="35%"><stop offset="0" stop-color="#ffc45c"/><stop offset=".6" stop-color="#ff8c1a"/><stop offset="1" stop-color="#e25400"/></radialGradient></defs>
+      <circle cx="200" cy="200" r="190" fill="#1d1b19"/>
+      <g fill="none" stroke="#2c2926" stroke-width="2">
+        <circle cx="200" cy="200" r="70"/>
+      </g>
+      <g font-family="Segoe UI, sans-serif" font-weight="600" font-size="17" fill="#ece6df" text-anchor="middle">
+        <text x="200" y="64">PNG</text><text x="300" y="104">JPG</text><text x="338" y="206">PDF</text>
+        <text x="110" y="310">Fit size</text><text x="62" y="206">ZIP</text><text x="200" y="352">Trim</text>
+        <text x="100" y="104">Cut out</text>
+      </g>
+      <path d="M374.3 270.4 A188 188 0 0 1 251.8 380.7 L219.8 269.2 A72 72 0 0 0 266.8 227.0 Z" fill="#ff8c1a"/>
+      <text x="290" y="302" font-family="Segoe UI, sans-serif" font-weight="700" font-size="17" fill="#1d1a17" text-anchor="middle">Resize</text>
+      <circle cx="200" cy="200" r="66" fill="#121110"/>
+      <circle cx="200" cy="188" r="22" fill="url(#g)"/>
+      <text x="200" y="232" font-family="Segoe UI, sans-serif" font-size="11" fill="#ff9a33" text-anchor="middle">Make it bigger or smaller</text>
+    </svg>
+  </div>
+
+  <section>
+    <h2>How it works</h2>
+    <div class="steps">
+      <div class="card"><h3>Hold Shift and drag</h3><p>Start dragging any file in File Explorer or on your desktop, or right-click it and pick <b>Convert with Satsuma</b>.</p></div>
+      <div class="card"><h3>Pick from the wheel</h3><p>A wheel of options appears. Options that don't fit your file are greyed out and tell you why.</p></div>
+      <div class="card"><h3>Done</h3><p>The new file appears next to the original. The original is never changed.</p></div>
+    </div>
+  </section>
+
+  <section id="features">
+    <h2>Everything in one place</h2>
+    <div class="grid">
+      <div class="card"><span class="emoji">🖼️</span><h3>Pictures</h3><p>iPhone HEIC to JPG, WebP to PNG, resize, rotate, remove the background, watermark, read QR codes.</p></div>
+      <div class="card"><span class="emoji">🎬</span><h3>Video</h3><p>MP4, MOV, WebM, GIF. Trim, rotate, save the sound as MP3, or pictures from the video.</p></div>
+      <div class="card"><span class="emoji">🎯</span><h3>Make it fit</h3><p>Too big for Discord or email? Pick a size like 10 MB and Satsuma makes it fit.</p></div>
+      <div class="card"><span class="emoji">📄</span><h3>PDFs</h3><p>Merge, split, compress, turn pages into pictures, and turn photos of paper into clean scans.</p></div>
+      <div class="card"><span class="emoji">🗜️</span><h3>ZIP, RAR, 7z</h3><p>Extract, look inside, test, make archives with passwords, split big ones into parts.</p></div>
+      <div class="card"><span class="emoji">🔤</span><h3>Copy text</h3><p>Copy the text out of a screenshot or a photo of a page, straight to your clipboard.</p></div>
+      <div class="card"><span class="emoji">🎵</span><h3>Music</h3><p>MP3, M4A, WAV, FLAC, OGG, Opus. Trim the start or end.</p></div>
+      <div class="card"><span class="emoji">🎨</span><h3>Make it yours</h3><p>Dark or light, your colours, wheel shapes and sizes, sounds, favourites at the top.</p></div>
+    </div>
+  </section>
+
+  <section id="safe">
+    <div class="safe">
+      <h2>Is it safe?</h2>
+      <ul>
+        <li><b>Your files stay on your PC.</b> Satsuma doesn't upload anything. It only goes online to check for its own updates.</li>
+        <li><b>The code is public.</b> Anyone can read every line on <a class="repo" href="https://github.com/driftglyph-dev/satsuma">GitHub</a>, and every download is built there automatically from that code.</li>
+        <li><b>Originals are never changed.</b> Satsuma always makes a new file.</li>
+        <li><b>Easy to remove.</b> Uninstall it like any app, from Windows Settings or from inside Satsuma.</li>
+      </ul>
+      <h3 style="margin-top:22px">"Windows protected your PC"?</h3>
+      <p>Windows shows this for new apps from small makers that haven't bought a code-signing certificate yet. It isn't a virus warning.
+        Click <b>More info</b>, then <b>Run anyway</b>.</p>
+      <div class="shot"><div class="title">Windows protected your PC</div>
+        Microsoft Defender SmartScreen prevented an unrecognised app from starting.<br><u>More info</u> → <b>Run anyway</b></div>
+      <p class="small">Want to double-check? Upload the installer to <a href="https://www.virustotal.com" rel="noopener">VirusTotal</a>, which scans it with about 70 antivirus programs.</p>
+    </div>
+  </section>
+
+  <section id="faq">
+    <h2>Questions</h2>
+    <details><summary>Is it really free?</summary><p>Yes. No ads, no account, no trial.</p></details>
+    <details><summary>Does it work without internet?</summary><p>Yes, everything happens on your PC, even removing backgrounds.</p></details>
+    <details><summary>How do I update it?</summary><p>You don't have to. Satsuma checks for new versions and updates itself in one click, keeping your settings.</p></details>
+    <details><summary>Can it make RAR files?</summary><p>It opens and extracts RAR files. Making new RAR files isn't possible for free apps (the format belongs to WinRAR), so Satsuma makes ZIP and 7z files, which open everywhere.</p></details>
+    <details><summary>How do I uninstall it?</summary><p>Windows Settings → Apps → Installed apps → Satsuma → Uninstall. Or in Satsuma: About → Uninstall.</p></details>
+  </section>
+
+  <footer>
+    Satsuma is free and open source. Found a bug or have an idea? <a class="issues" href="https://github.com/driftglyph-dev/satsuma/issues/new">Tell us</a>.
+  </footer>
+</div>
+<script>
+  // Works for any GitHub Pages address like https://name.github.io/repo/
+  (function () {
+    var owner = location.hostname.split(".")[0], repo = location.pathname.split("/").filter(Boolean)[0] || "satsuma";
+    if (!/github\.io$/.test(location.hostname)) return;
+    var base = "https://github.com/" + owner + "/" + repo;
+    document.querySelectorAll("a.download").forEach(function (a) { a.href = base + "/releases/latest"; });
+    document.querySelectorAll("a.repo").forEach(function (a) { a.href = base; });
+    document.querySelectorAll("a.issues").forEach(function (a) { a.href = base + "/issues/new"; });
+  })();
+</script>
+</body>
+</html>

@@ -13,17 +13,19 @@ import logging.handlers
 import os
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, QUrl, Signal
+from PySide6.QtCore import QFileSystemWatcher, QObject, QRunnable, QThreadPool, QTimer, QUrl, Signal
 from PySide6.QtGui import QCursor, QDesktopServices, QGuiApplication, QIcon, QPixmap
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon
 
-from . import UPDATE_REPO, __version__, dialogs, updater, winutil
-from .converters import Options, Result, Tool, bundled, run_job
+from . import UPDATE_REPO, __version__, archives, dialogs, sounds, updater, winutil
+from .converters import PASSWORD_ERROR, Options, Result, Tool, run_job
+from .core import os_open
 from .history import History, size_of
 from .settings import APP_NAME, LOG_DIR, Settings, installed_uninstaller, remove_user_data, set_context_menu
 from .theme import build_theme, stylesheet
@@ -133,7 +135,8 @@ class Controller(QObject):
         self.pool.setMaxThreadCount(2)
         self.ids = itertools.count(1)
         self.cancels: dict[int, threading.Event] = {}
-        self.jobs: dict[int, tuple[Tool, list[Path], int]] = {}  # id -> tool, files, input bytes
+        self.jobs: dict[int, dict] = {}  # id -> tool, files, bytes_in, params, rename, after
+        self.browsers: list = []         # open archive windows
         self.pending: list[Path] = []  # files arriving from the right-click menu
         self.pending_timer = QTimer(self)
         self.pending_timer.setSingleShot(True)
@@ -141,6 +144,7 @@ class Controller(QObject):
 
         self.wheel = Wheel(self.settings, self.theme)
         self.wheel.chosen.connect(self.tool_chosen)
+        self.wheel.opened.connect(self._wheel_opened)
         self.watcher = DragWatcher(self.settings)
         self.watcher.started.connect(lambda: self.wheel.popup_at_cursor())
         self.watcher.released.connect(lambda: QTimer.singleShot(150, self._hide_drag_wheel))
@@ -156,6 +160,7 @@ class Controller(QObject):
         menu = QMenu()
         menu.addAction("Open Satsuma", self.show_window)
         menu.addAction("Settings", lambda: self.show_window("General"))
+        menu.addAction("Convert what's copied", self.paste)
         self.act_pause = menu.addAction("Pause")
         self.act_pause.setCheckable(True)
         self.act_pause.setChecked(not self.settings.enabled)
@@ -186,6 +191,16 @@ class Controller(QObject):
         self.window.apply_theme(self.theme)
         self._update_tooltip()
         self.tray.show()
+
+        # "Convert to JPG?" for photos that land in Downloads
+        self.downloads = Path.home() / "Downloads"
+        self.seen_downloads: set[str] = set()
+        self.dl_watcher = QFileSystemWatcher(self)
+        self.dl_watcher.directoryChanged.connect(lambda _: self.dl_timer.start(1500))
+        self.dl_timer = QTimer(self)
+        self.dl_timer.setSingleShot(True)
+        self.dl_timer.timeout.connect(self._check_downloads)
+        self.watch_downloads(self.settings.watch_downloads)
 
         try:  # follow Windows light/dark changes while running
             QGuiApplication.styleHints().colorSchemeChanged.connect(self._system_theme_changed)
@@ -229,9 +244,124 @@ class Controller(QObject):
         set_context_menu(on)
         self.settings_changed()
 
+    def play_sound(self, name: str):
+        if name and name != "off":
+            winutil.play_sound(sounds.prepared(name, self.settings.volume))
+
     def play_done_sound(self):
-        if self.settings.sound != "off":
-            winutil.play_sound(bundled("assets", "sounds", f"{self.settings.sound}.wav"))
+        self.play_sound(self.settings.sound)
+
+    def play_problem_sound(self):
+        if self.settings.sound_problems and self.settings.sound != "off":
+            self.play_sound("problem")
+
+    def _wheel_opened(self):
+        if self.settings.sound_tick:
+            self.play_sound("tick")
+
+    # ---- paste: convert what's on the clipboard
+
+    def clipboard_files(self) -> list[Path]:
+        """Files copied in Explorer, or a copied picture saved as a PNG."""
+        data = QGuiApplication.clipboard().mimeData()
+        if data is None:
+            return []
+        if data.hasUrls():
+            paths = [Path(u.toLocalFile()) for u in data.urls() if u.isLocalFile()]
+            paths = [p for p in paths if p.exists()]
+            if paths:
+                return paths
+        if data.hasImage():
+            image = QGuiApplication.clipboard().image()
+            if not image.isNull():
+                folder = Path(self.settings.output_folder)
+                try:
+                    folder.mkdir(parents=True, exist_ok=True)
+                except OSError:
+                    folder = Path(tempfile.gettempdir())
+                out = folder / time.strftime("Pasted picture %Y-%m-%d %H.%M.%S.png")
+                if image.save(str(out), "PNG"):
+                    return [out]
+        return []
+
+    def paste(self):
+        files = self.clipboard_files()
+        if files:
+            self.show_window("Home")
+            self.window.show_files(files)
+        else:
+            self.toast.notify("Nothing to convert", "Copy a picture or some files first (Ctrl + C), then try again.",
+                              linger_ms=4500)
+
+    # ---- downloads helper
+
+    def watch_downloads(self, on: bool):
+        self.settings.watch_downloads = on
+        folder = str(self.downloads)
+        if on and self.downloads.is_dir():
+            self.seen_downloads = {p.name for p in self.downloads.iterdir()} if self.downloads.exists() else set()
+            if folder not in self.dl_watcher.directories():
+                self.dl_watcher.addPath(folder)
+        elif folder in self.dl_watcher.directories():
+            self.dl_watcher.removePath(folder)
+
+    def _check_downloads(self):
+        if not self.settings.watch_downloads or not self.downloads.is_dir():
+            return
+        try:
+            names = {p.name for p in self.downloads.iterdir()}
+        except OSError:
+            return
+        new = names - self.seen_downloads
+        self.seen_downloads = names
+        for name in sorted(new):
+            path = self.downloads / name
+            if path.suffix.lower() in (".heic", ".heif", ".webp", ".avif") and path.is_file():
+                self._offer_jpg(path)
+                break
+
+    def _offer_jpg(self, path: Path, tries: int = 0):
+        # wait until the browser has finished writing the file
+        try:
+            size = path.stat().st_size
+        except OSError:
+            return
+        if tries < 10 and (size == 0 or time.time() - path.stat().st_mtime < 1.5):
+            QTimer.singleShot(1000, lambda: self._offer_jpg(path, tries + 1))
+            return
+        from .converters import catalog
+        tool = next(t for t in catalog()["image"] if t.key == "image:jpg")
+        self.toast.notify(f"{path.name} downloaded", "Many apps can't open this kind of picture. Make a JPG copy?",
+                          "Convert to JPG", lambda: self.start_job(tool, [path]), 12000)
+
+    # ---- archives
+
+    def ask_password(self, files: list[Path], wrong: bool = False) -> str | None:
+        answer = dialogs.ask("password", files, self.icon, self.theme.dark, wrong=wrong)
+        return None if answer is None else answer["password"]
+
+    def open_browser(self, src: Path, password: str = ""):
+        from .browser import ArchiveBrowser
+        if not password and archives.is_encrypted(src):
+            password = self.ask_password([src])
+            if password is None:
+                return
+        try:
+            entries = archives.list_entries(src, password)
+        except archives.NeedPassword:  # names are hidden too (7z with a password)
+            new = self.ask_password([src], wrong=bool(password))
+            if new:
+                self.open_browser(src, new)
+            return
+        except Exception as e:
+            self.toast.notify("Couldn't open the archive", f"{src.name}: {e}")
+            self.play_problem_sound()
+            return
+        win = ArchiveBrowser(self, src, password, entries, self.icon)
+        self.browsers = [b for b in self.browsers if _alive(b)] + [win]
+        win.show()
+        win.raise_()
+        win.activateWindow()
 
     # ---- right-click menu: files arrive one process at a time, so collect them briefly
 
@@ -247,6 +377,11 @@ class Controller(QObject):
         files, self.pending = self.pending, []
         if files:
             self.wheel.popup_at_cursor(files)
+
+    def browse_from_menu(self, path: str):
+        p = Path(path)
+        if p.exists():
+            self.open_browser(p)
 
     def apply_theme(self):
         self.theme = self._make_theme()
@@ -280,33 +415,57 @@ class Controller(QObject):
 
     def _ask_and_start(self, tool: Tool, files: list[Path]):
         dark = self.theme.dark
+        if tool.opens == "browse":
+            self.open_browser(files[0])
+            return
         params: dict = {}
+        if tool.password and any(archives.is_encrypted(f) for f in files):
+            password = self.ask_password(files)
+            if password is None:
+                return
+            params["password"] = password
         if tool.ask:
-            answer = dialogs.ask(tool.ask, files, self.icon, dark)
+            extra = {}
+            if tool.ask == "fit":
+                extra["last_mb"] = self.settings.fit_mb
+            elif tool.ask == "watermark":
+                extra["last"] = self.settings.watermark
+            answer = dialogs.ask(tool.ask, files, self.icon, dark, **extra)
             if answer is None:
                 return
             params.update(answer)
+            if tool.ask == "fit":
+                self.settings.fit_mb = float(answer.get("mb", 10))
+                self.settings.save()
+            elif tool.ask == "watermark":
+                self.settings.watermark = dict(answer)
+                self.settings.save()
         rename: dict = {}
-        if self.settings.ask_names and tool.renames and len(files) > 1:
+        if params.get("rename_base"):  # the archive window has its own name box
+            rename = {"rename_base": params.pop("rename_base")}
+        elif self.settings.ask_names and tool.renames and len(files) > 1:
             answer = dialogs.ask("rename", files, self.icon, dark)
             if answer is None:
                 return
             rename = answer
         self.start_job(tool, files, params, rename)
 
-    def start_job(self, tool: Tool, files: list[Path], params: dict | None = None, rename: dict | None = None):
+    def start_job(self, tool: Tool, files: list[Path], params: dict | None = None, rename: dict | None = None,
+                  after: str | None = None):
         job_id = next(self.ids)
         cancel = threading.Event()
         self.cancels[job_id] = cancel
-        self.jobs[job_id] = (tool, files, sum(size_of(f) for f in files))
+        params = params or {}
+        self.jobs[job_id] = {"tool": tool, "files": files, "bytes_in": sum(size_of(f) for f in files),
+                             "params": params, "rename": rename or {}, "after": after}
         if self.settings.show_progress:
-            what = files[0].name if len(files) == 1 else f"{len(files)} files"
+            what = files[0].name if len(files) == 1 else f"{len(files)} items"
             self.toast.start(job_id, tool.description, what)
         options = self.settings.options(rename.get("rename_base", "") if rename else "",
                                         rename.get("rename_start", 1) if rename else 1)
-        self.pool.start(Job(job_id, tool, files, options, self.signals, cancel, params or {}))
+        self.pool.start(Job(job_id, tool, files, options, self.signals, cancel, params))
         self._update_tooltip()
-        log.info("job %s: %s on %d file(s)", job_id, tool.key, len(files))
+        log.info("job %s: %s on %d item(s)", job_id, tool.key, len(files))
 
     def cancel_job(self, job_id: int):
         if job_id == UPDATE_JOB_ID:
@@ -319,10 +478,35 @@ class Controller(QObject):
 
     def job_done(self, job_id: int, result: Result, errors: list[str], cancelled: bool):
         self.cancels.pop(job_id, None)
-        tool, files, bytes_in = self.jobs.pop(job_id, (None, [], 0))
+        job = self.jobs.pop(job_id, None) or {"tool": None, "files": [], "bytes_in": 0, "params": {}, "rename": {},
+                                               "after": None}
+        tool, files = job["tool"], job["files"]
         self._update_tooltip()
-        if tool and not cancelled:
-            self.history.record(tool.description, files, result.outputs, len(errors), bytes_in)
+
+        # wrong password: ask again and retry the same job
+        if tool and tool.password and errors and not result.outputs and not cancelled \
+                and all(PASSWORD_ERROR in e for e in errors):
+            self.toast.hide()
+            password = self.ask_password(files, wrong=bool(job["params"].get("password")))
+            if password is not None:
+                self.start_job(tool, files, dict(job["params"], password=password), job["rename"], job["after"])
+            return
+
+        after = job["after"]
+        if after == "open" and result.outputs and not errors:
+            self.toast.hide()
+            try:
+                os_open(result.outputs[0])
+            except OSError as e:
+                self.toast.notify("Couldn't open the file", str(e))
+            return
+        if after == "reload":
+            for b in self.browsers:
+                if _alive(b) and files and b.src == files[0]:
+                    b.reload()
+        record = tool and not cancelled and not tool.key.startswith(("archive:open", "archive:test"))
+        if record:
+            self.history.record(tool.description, files, result.outputs, len(errors), job["bytes_in"])
             if self.window.isVisible():
                 self.window.refresh_history()
         if result.clipboard:
@@ -352,6 +536,8 @@ class Controller(QObject):
                 self.tray.showMessage(title, detail, icon)
         if not cancelled and (result.outputs or result.note) and not (errors and not result.outputs):
             self.play_done_sound()
+        elif errors and not cancelled:
+            self.play_problem_sound()
         if first and self.settings.reveal_after and not errors and not cancelled:
             winutil.reveal_in_explorer(first)
 
@@ -499,6 +685,14 @@ class Controller(QObject):
             self.quit(cleanup=True)
 
 
+def _alive(widget) -> bool:
+    try:
+        widget.objectName()
+        return True
+    except RuntimeError:  # the window was closed and deleted
+        return False
+
+
 # ----------------------------------------------------------------------------- startup
 
 SERVER_NAME = f"Satsuma-{os.environ.get('USERNAME', 'user')}"
@@ -535,12 +729,16 @@ def tell_running_copy(message: bytes) -> bool:
     return True
 
 
-def parse_args(argv: list[str]) -> tuple[bool, list[str]]:
+def parse_args(argv: list[str]) -> tuple[bool, list[str], str]:
     background = "--background" in argv
     convert: list[str] = []
+    browse = ""
     if "--convert" in argv:
         convert = [a for a in argv[argv.index("--convert") + 1:] if not a.startswith("--")]
-    return background, convert
+    if "--browse" in argv:
+        rest = [a for a in argv[argv.index("--browse") + 1:] if not a.startswith("--")]
+        browse = rest[0] if rest else ""
+    return background, convert, browse
 
 
 def main() -> int:
@@ -554,10 +752,12 @@ def main() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setQuitOnLastWindowClosed(False)
-    background, convert = parse_args(sys.argv[1:])
+    background, convert, browse = parse_args(sys.argv[1:])
 
     if convert:
         message = ("convert\n" + "\n".join(convert)).encode("utf-8")
+    elif browse:
+        message = ("browse\n" + browse).encode("utf-8")
     else:
         message = b"" if background else b"show"
     if tell_running_copy(message):
@@ -604,6 +804,8 @@ def main() -> int:
                 controller.show_window()
             elif text.startswith("convert\n"):
                 controller.files_from_menu([line for line in text.split("\n")[1:] if line.strip()])
+            elif text.startswith("browse\n"):
+                controller.browse_from_menu(text.split("\n", 1)[1].strip())
             conn.deleteLater()
         conn.readyRead.connect(read)
         conn.disconnected.connect(done)
@@ -617,10 +819,12 @@ def main() -> int:
         QTimer.singleShot(1500, lambda: controller.toast.notify(
             "Satsuma was updated", f"You're now on version {__version__}. Your settings were kept.", linger_ms=6000))
     s.last_version = __version__
-    if s.first_run or not (background or convert):
+    if s.first_run or not (background or convert or browse):
         s.first_run = False
         controller.show_window("Home")
     s.save()
     if convert:
         QTimer.singleShot(200, lambda: controller.files_from_menu(convert))
+    if browse:
+        QTimer.singleShot(200, lambda: controller.browse_from_menu(browse))
     return app.exec()

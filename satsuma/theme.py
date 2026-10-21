@@ -104,6 +104,16 @@ QLabel#version { color: $muted; font-size: 9pt; }
 QFrame#card { background: $panel; border: 1px solid $border; border-radius: 12px; }
 QFrame#dropzone { border: 2px dashed $border; border-radius: 14px; background: $panel; }
 QFrame#dropzone:hover { border-color: $accent; }
+QFrame#dropzone[hot="true"] { border-color: $accent; background: $accent_soft; }
+QLabel#section { color: $accent; font-weight: 700; font-size: 8pt; }
+QPushButton#action { padding: 8px 14px; border-radius: 9px; }
+QPushButton#action:hover { background: $accent_soft; border-color: $accent; }
+QPushButton#action:disabled { color: $muted; background: transparent; border: 1px dashed $border; }
+QPushButton#small { padding: 2px 8px; min-width: 0; }
+QTreeWidget#history { background: $panel; border: 1px solid $border; border-radius: 12px; outline: none; padding: 4px; }
+QTreeWidget#history::item { padding: 4px 2px; }
+QTreeWidget#history::item:selected { background: $accent_soft; color: $text; }
+QHeaderView::section { background: $panel; color: $muted; border: none; border-bottom: 1px solid $border; padding: 6px; }
 QFrame#line { background: $border; max-height: 1px; border: none; }
 QComboBox, QSpinBox, QDoubleSpinBox, QLineEdit { background: $field; border: 1px solid $border; border-radius: 7px;
                       padding: 5px 9px; min-height: 20px; }

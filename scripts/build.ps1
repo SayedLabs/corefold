@@ -109,6 +109,34 @@ if (-not (Test-Path "$FfDir\ffmpeg.exe")) {
     Remove-Item $zip, $tmp -Recurse -Force
 }
 
+# ---- 7-Zip (archives: ZIP, RAR, 7z, ISO ...). Uses an installed 7-Zip, or installs one.
+$SzDir = "vendor\7zip"
+function Find-7Zip {
+    foreach ($d in @("$env:ProgramFiles\7-Zip", "${env:ProgramFiles(x86)}\7-Zip", "$env:LOCALAPPDATA\Programs\7-Zip")) {
+        if ((Test-Path "$d\7z.exe") -and (Test-Path "$d\7z.dll")) { return $d }
+    }
+    return $null
+}
+if (-not (Test-Path "$SzDir\7z.exe")) {
+    $found = Find-7Zip
+    if (-not $found) {
+        Write-Host "== Installing 7-Zip (needed to build only)"
+        if (Get-Command winget -ErrorAction SilentlyContinue) {
+            winget install --id 7zip.7zip -e --silent --accept-package-agreements --accept-source-agreements | Out-Host
+        } elseif (Get-Command choco -ErrorAction SilentlyContinue) {
+            choco install 7zip -y --no-progress | Out-Null
+        }
+        $found = Find-7Zip
+    }
+    if ($found) {
+        New-Item -ItemType Directory -Force $SzDir | Out-Null
+        Copy-Item "$found\7z.exe", "$found\7z.dll" $SzDir
+        foreach ($f in @("License.txt", "readme.txt")) { if (Test-Path "$found\$f") { Copy-Item "$found\$f" "$SzDir\7-ZIP-$f" } }
+    } else {
+        Write-Warning "Couldn't find or install 7-Zip; only ZIP and TAR archives will work in this build."
+    }
+}
+
 # ---- background remover model
 $ModelFile = "vendor\models\silueta.onnx"
 if (-not (Test-Path $ModelFile)) {
@@ -130,10 +158,11 @@ if (Test-Path "dist\Satsuma") { Remove-Item "dist\Satsuma" -Recurse -Force }
 & $VPy -m PyInstaller --noconfirm --clean --windowed --name Satsuma `
     --icon assets\icon.ico --version-file version_info.txt `
     --add-data "assets\icon.png;assets" --add-data "assets\sounds;assets\sounds" @ModelArgs `
-    --collect-all pi_heif --collect-all zxingcpp --collect-all pypdfium2 --collect-binaries onnxruntime `
+    --collect-all pi_heif --collect-all zxingcpp --collect-all pypdfium2 --collect-binaries onnxruntime --collect-all winrt `
     main.py
 if ($LASTEXITCODE) { throw "PyInstaller failed" }
 Copy-Item $FfDir "dist\Satsuma\ffmpeg" -Recurse
+if (Test-Path "$SzDir\7z.exe") { Copy-Item $SzDir "dist\Satsuma\7zip" -Recurse }
 Copy-Item LICENSE, THIRD_PARTY_NOTICES.md "dist\Satsuma\"
 
 # ---- portable zip

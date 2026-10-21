@@ -13,10 +13,12 @@ from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QColorDialog, QComboBox,
                                QScrollArea, QSlider, QSpinBox, QStackedWidget, QSystemTrayIcon, QVBoxLayout,
                                QWidget)
 
-from . import __version__
+from . import UPDATE_REPO, __version__
 from .converters import CATEGORY_NAMES, catalog, human_size
-from .settings import (ACCENTS, APP_NAME, LOG_DIR, SHORTCUT_LABELS, SOUNDS, WHEEL_STYLES, installed_uninstaller,
-                       set_startup, startup_enabled)
+from .panel import DropZone, FilePanel, choose_files
+from .settings import (ACCENTS, APP_NAME, HOVER_STYLES, LABEL_STYLES, LOG_DIR, SHORTCUT_LABELS, SLICE_COLORS,
+                       SOUNDS, TEXT_SIZES, WHEEL_POSITIONS, WHEEL_STYLES, installed_uninstaller, set_startup,
+                       startup_enabled)
 from .theme import Theme
 from .wheel import WheelPreview
 from .winutil import reveal_in_explorer, set_title_bar_dark
@@ -172,31 +174,6 @@ class Swatches(QWidget):
                 f"QPushButton:checked {{ background: {color}; border: 3px solid {t.text.name()}; }}")
 
 
-class DropZone(QFrame):
-    """Drag any file over this box to open the wheel, no key needed."""
-    entered = Signal()
-
-    def __init__(self):
-        super().__init__()
-        self.setObjectName("dropzone")
-        self.setAcceptDrops(True)
-        self.setMinimumHeight(104)
-        lay = QVBoxLayout(self)
-        a = label("Try it here: drag any file onto this box", "h2")
-        b = label("Images, audio, video, PDFs and Office files. Your original file is never changed.", "muted")
-        for w in (a, b):
-            w.setAlignment(Qt.AlignCenter)
-        lay.addStretch()
-        lay.addWidget(a)
-        lay.addWidget(b)
-        lay.addStretch()
-
-    def dragEnterEvent(self, e):
-        if any(u.isLocalFile() for u in e.mimeData().urls()):
-            self.entered.emit()  # the wheel pops up under the cursor and takes over the drag
-        e.ignore()
-
-
 # ----------------------------------------------------------------------------- the window
 
 class MainWindow(QWidget):
@@ -286,9 +263,11 @@ class MainWindow(QWidget):
         sl.addLayout(grid)
         lay.addWidget(steps)
 
-        drop = DropZone()
-        drop.entered.connect(lambda: self.c.wheel.popup_at_cursor())
-        lay.addWidget(drop)
+        self.drop = DropZone(self._choose_files, self.c.paste)
+        self.drop.dropped.connect(self.show_files)
+        lay.addWidget(self.drop)
+        self.panel = FilePanel(self.c)
+        lay.addWidget(self.panel)
 
         self.home_stats = label("", "muted")
         lay.addWidget(self.home_stats)
@@ -353,6 +332,19 @@ class MainWindow(QWidget):
         snd_row.addWidget(self.sound)
         snd_row.addWidget(button("▶ Play", on_click=self.c.play_done_sound))
         snd_row.addStretch()
+        self.volume = QSlider(Qt.Horizontal)
+        self.volume.setRange(0, 100)
+        self.volume.setValue(s.volume)
+        self.volume.setCursor(Qt.PointingHandCursor)
+        self.volume_label = label(f"{s.volume}%", "muted")
+        self.volume_label.setFixedWidth(40)
+        self.volume.valueChanged.connect(self._volume_changed)
+        self.volume.sliderReleased.connect(self.c.play_done_sound)
+        vol_row = QHBoxLayout()
+        vol_row.addWidget(label("🔈"))
+        vol_row.addWidget(self.volume, 1)
+        vol_row.addWidget(label("🔊"))
+        vol_row.addWidget(self.volume_label)
 
         self.unavailable = QComboBox()
         self.unavailable.addItem("Show them dimmed (with the reason)", True)
@@ -362,7 +354,7 @@ class MainWindow(QWidget):
 
         rows = (("Key to hold while dragging", self.shortcut), ("Save new files", self.save_mode),
                 ("", self.folder_row), ("Image quality", q_row), ("Sound when done", snd_row),
-                ("Formats that don't fit a file", self.unavailable))
+                ("Volume", vol_row), ("Formats that don't fit a file", self.unavailable))
         for r, (text, widget) in enumerate(rows):
             if text:
                 grid.addWidget(label(text), r, 0)
@@ -381,7 +373,15 @@ class MainWindow(QWidget):
         self.context = checkbox("Add \"Convert with Satsuma\" to the right-click menu", s.context_menu,
                                 self.c.set_context_menu)
         self.startup = checkbox("Start Satsuma when Windows starts", startup_enabled(), set_startup)
-        for cb in (self.ask_names, self.show_progress, self.reveal, self.context, self.startup):
+        self.problem_sound = checkbox("Play a soft sound when something goes wrong", s.sound_problems,
+                                      self._general_changed)
+        self.tick = checkbox("Play a tiny tick when the wheel opens", s.sound_tick, self._general_changed)
+        self.downloads = checkbox("When an iPhone photo (HEIC) or WebP picture lands in Downloads, offer a JPG copy",
+                                  s.watch_downloads, self.c.watch_downloads)
+        self.pack_everywhere = checkbox("Show ZIP / 7z options on every wheel", s.pack_on_every_wheel,
+                                        self._general_changed)
+        for cb in (self.ask_names, self.show_progress, self.reveal, self.problem_sound, self.tick, self.downloads,
+                   self.pack_everywhere, self.context, self.startup):
             cl.addWidget(cb)
         cl.addWidget(label("On Windows 11, the right-click entry is under \"Show more options\".", "muted"))
         lay.addWidget(checks)
@@ -401,8 +401,30 @@ class MainWindow(QWidget):
         self.accent_name = label("", "muted")
         style = Segmented(list(WHEEL_STYLES.items()), s.wheel_style)
         style.changed.connect(lambda v: self._look_changed("wheel_style", v))
-        size = Segmented([("small", "Small"), ("medium", "Medium"), ("large", "Large")], s.wheel_size)
+        size = Segmented([("small", "Small"), ("medium", "Medium"), ("large", "Large"), ("huge", "Huge")],
+                         s.wheel_size)
         size.changed.connect(lambda v: self._look_changed("wheel_size", v))
+        labels = Segmented(list(LABEL_STYLES.items()), s.label_style)
+        labels.changed.connect(lambda v: self._look_changed("label_style", v))
+        hover = Segmented(list(HOVER_STYLES.items()), s.hover_style)
+        hover.changed.connect(lambda v: self._look_changed("hover_style", v))
+        colors = Segmented(list(SLICE_COLORS.items()), s.slice_colors)
+        colors.changed.connect(lambda v: self._look_changed("slice_colors", v))
+        text_size = Segmented([(k, k.capitalize()) for k in TEXT_SIZES], s.text_size)
+        text_size.changed.connect(lambda v: self._look_changed("text_size", v))
+        position = Segmented(list(WHEEL_POSITIONS.items()), s.wheel_position)
+        position.changed.connect(lambda v: self._look_changed("wheel_position", v))
+        self.per_page = QSpinBox()
+        self.per_page.setRange(6, 16)
+        self.per_page.setValue(s.per_page)
+        self.per_page.setSuffix(" slices")
+        self.per_page.valueChanged.connect(lambda v: self._look_changed("per_page", v))
+        per_row = QHBoxLayout()
+        per_row.addWidget(self.per_page)
+        per_row.addWidget(label("then a \"More\" slice shows the rest", "muted"), 1)
+        per_holder = QWidget()
+        per_holder.setLayout(per_row)
+        per_row.setContentsMargins(0, 0, 0, 0)
         self.opacity = QSlider(Qt.Horizontal)
         self.opacity.setRange(60, 100)
         self.opacity.setValue(s.wheel_opacity)
@@ -412,7 +434,9 @@ class MainWindow(QWidget):
 
         for title, widget in (("Appearance", appearance), ("Accent colour", self.swatches),
                               (None, self.accent_name), ("Wheel shape", style), ("Wheel size", size),
-                              ("Wheel see-through", self.opacity)):
+                              ("Slice labels", labels), ("Text size", text_size), ("Pointing at a slice", hover),
+                              ("Slice colours", colors), ("Options per page", per_holder),
+                              ("Where the wheel opens", position), ("Wheel see-through", self.opacity)):
             if title:
                 cl.addSpacing(6)
                 cl.addWidget(label(title, "h2"))
@@ -426,7 +450,11 @@ class MainWindow(QWidget):
         pl.addWidget(label("Preview", "muted"), 0, Qt.AlignHCenter)
         self.preview = WheelPreview(self.c.settings, self.c.theme)
         pl.addWidget(self.preview, 0, Qt.AlignCenter)
-        pl.addWidget(label("Dimmed = can't be used for that file", "muted"), 0, Qt.AlignHCenter)
+        pl.addWidget(label("Dimmed = can't be used for that file\nDots = pages (\"More\" shows the next one)", "muted"),
+                     0, Qt.AlignHCenter)
+        self.legend = label("", "muted")
+        self.legend.setWordWrap(True)
+        pl.addWidget(self.legend)
         pl.addStretch()
 
         row = QHBoxLayout()
@@ -438,36 +466,26 @@ class MainWindow(QWidget):
         return w
 
     def _formats(self) -> QWidget:
-        w, lay = page("Formats", "Untick anything you don't use. Click ☆ to pin a format to the top of the wheel.")
-        hidden = set(self.c.settings.hidden_tools)
-        favs = set(self.c.settings.favorites)
-        tools = catalog(multi=False)
+        w, lay = page("Formats", "Untick anything you don't use. ☆ pins an option to the top of its wheel, "
+                                 "and ▲ ▼ change the order.")
         self.tool_checks: dict[str, QCheckBox] = {}
         self.tool_stars: dict[str, QPushButton] = {}
-        for kind, items in tools.items():
+        self.format_grids: dict[str, QGridLayout] = {}
+        for kind in catalog():
             lay.addWidget(label(CATEGORY_NAMES[kind], "h2"))
             box, _ = card()
             grid = QGridLayout()
             grid.setHorizontalSpacing(10)
             grid.setVerticalSpacing(6)
             box.layout().addLayout(grid)
-            for i, t in enumerate(items):
-                star = button("★" if t.key in favs else "☆", "star")
-                star.setCheckable(True)
-                star.setChecked(t.key in favs)
-                star.setToolTip("Pin to the top of the wheel")
-                star.toggled.connect(lambda on, key=t.key, b=star: self._star_toggled(key, on, b))
-                cb = checkbox(f"{t.label}  ·  {t.description}", t.key not in hidden,
-                              lambda on, key=t.key: self._tool_toggled(key, on))
-                self.tool_checks[t.key] = cb
-                self.tool_stars[t.key] = star
-                row, col = i // 2, (i % 2) * 2
-                grid.addWidget(star, row, col)
-                grid.addWidget(cb, row, col + 1)
-            grid.setColumnStretch(1, 1)
-            grid.setColumnStretch(3, 1)
+            self.format_grids[kind] = grid
+            self._fill_format_grid(kind)
             lay.addWidget(box)
-        lay.addWidget(button("Show everything again", on_click=self._show_all_tools), 0, Qt.AlignLeft)
+        row = QHBoxLayout()
+        row.addWidget(button("Show everything again", on_click=self._show_all_tools))
+        row.addWidget(button("Reset the order", on_click=self._reset_order))
+        row.addStretch()
+        lay.addLayout(row)
         lay.addStretch()
         return w
 
@@ -563,6 +581,23 @@ class MainWindow(QWidget):
         row.addStretch()
         lay.addLayout(row)
 
+        if UPDATE_REPO:
+            owner, _, name = UPDATE_REPO.partition("/")
+            links, ll = card()
+            ll.addWidget(label("Help make Satsuma better", "h2"))
+            ll.addWidget(label("Found a bug or have an idea? Tell us. It takes a minute and every message is read.",
+                               "muted", wrap=True))
+            lrow = QHBoxLayout()
+            lrow.addWidget(button("💬 Send feedback", "primary", lambda: QDesktopServices.openUrl(
+                QUrl(f"https://github.com/{UPDATE_REPO}/issues/new"))))
+            lrow.addWidget(button("🌐 Website", on_click=lambda: QDesktopServices.openUrl(
+                QUrl(f"https://{owner}.github.io/{name}/"))))
+            lrow.addWidget(button("All releases", on_click=lambda: QDesktopServices.openUrl(
+                QUrl(f"https://github.com/{UPDATE_REPO}/releases"))))
+            lrow.addStretch()
+            ll.addLayout(lrow)
+            lay.addWidget(links)
+
         remove, rl = card()
         rl.addWidget(label("Remove Satsuma", "h2"))
         if installed_uninstaller():
@@ -588,8 +623,9 @@ class MainWindow(QWidget):
         key = s.shortcut_label
         self.step_labels[0].setText(f"Hold <b>{key}</b> and start dragging a file in File Explorer "
                                     f"or on your desktop, or right-click it and choose <b>Convert with Satsuma</b>.")
-        self.step_labels[1].setText("A wheel of formats pops up. Dimmed ones don't work for that file; "
-                                    "point at one to see why.")
+        self.step_labels[1].setText("A wheel of options pops up. Dimmed ones don't work for that file (point at one "
+                                    "to see why). The dots in the middle show how many pages there are: hold the "
+                                    "file over \"More\" to see the next one.")
         self.step_labels[2].setText("Drop the file on a format (or click it). The new file appears "
                                     + ("next to the original." if s.save_mode == "beside"
                                        else "in your Satsuma folder.")
@@ -598,6 +634,9 @@ class MainWindow(QWidget):
         self.folder_label.setText(s.output_folder)
         self.folder_row.setVisible(s.save_mode == "folder")
         self.accent_name.setText("Your colour" if s.accent == "custom" else ACCENTS[s.accent][0])
+        self.legend.setText("Colours: blue = convert · purple = edit · green = make smaller · pink = read · "
+                            "amber = archive" if s.slice_colors == "group" else "")
+        self.legend.setVisible(s.slice_colors == "group")
         st = self.c.history.stats
         self.home_stats.setText(f"So far: {st.files} files converted · {human_size(st.bytes_saved)} saved"
                                 if st.files else "")
@@ -660,12 +699,23 @@ class MainWindow(QWidget):
         s.ask_names = self.ask_names.isChecked()
         s.show_progress = self.show_progress.isChecked()
         s.reveal_after = self.reveal.isChecked()
+        s.sound_problems = self.problem_sound.isChecked()
+        s.sound_tick = self.tick.isChecked()
+        changed = s.pack_on_every_wheel != self.pack_everywhere.isChecked()
+        s.pack_on_every_wheel = self.pack_everywhere.isChecked()
         self.c.settings_changed()
+        if changed:
+            self.panel.refresh()
 
     def _sound_changed(self, *_):
         self.c.settings.sound = self.sound.currentData()
         self.c.settings_changed()
         self.c.play_done_sound()
+
+    def _volume_changed(self, v: int):
+        self.c.settings.volume = v
+        self.volume_label.setText(f"{v}%")
+        self.c.settings_changed()
 
     def _pick_folder(self):
         d = QFileDialog.getExistingDirectory(self, "Save converted files in", self.c.settings.output_folder)
@@ -685,6 +735,7 @@ class MainWindow(QWidget):
         hidden.discard(key) if on else hidden.add(key)
         self.c.settings.hidden_tools = sorted(hidden)
         self.c.settings_changed()
+        self.panel.refresh()
 
     def _star_toggled(self, key: str, on: bool, star: QPushButton):
         favs = [k for k in self.c.settings.favorites if k != key]
@@ -693,10 +744,81 @@ class MainWindow(QWidget):
         self.c.settings.favorites = favs
         star.setText("★" if on else "☆")
         self.c.settings_changed()
+        self.panel.refresh()
 
     def _show_all_tools(self):
         for cb in self.tool_checks.values():
             cb.setChecked(True)
+
+    def ordered_tools(self, kind: str):
+        tools = catalog(multi=True)[kind]
+        order = {k: i for i, k in enumerate(self.c.settings.tool_order.get(kind, []))}
+        default = {t.key: i for i, t in enumerate(tools)}
+        return sorted(tools, key=lambda t: order.get(t.key, len(order) + default[t.key]))
+
+    def _fill_format_grid(self, kind: str):
+        from .panel import clear_layout
+        grid = self.format_grids[kind]
+        clear_layout(grid)
+        hidden = set(self.c.settings.hidden_tools)
+        favs = set(self.c.settings.favorites)
+        tools = self.ordered_tools(kind)
+        for i, t in enumerate(tools):
+            star = button("★" if t.key in favs else "☆", "star")
+            star.setCheckable(True)
+            star.setChecked(t.key in favs)
+            star.setToolTip("Pin to the top of the wheel")
+            star.toggled.connect(lambda on, key=t.key, b=star: self._star_toggled(key, on, b))
+            cb = checkbox(f"{t.label}  ·  {t.description}", t.key not in hidden,
+                          lambda on, key=t.key: self._tool_toggled(key, on))
+            up = button("▲", "small", lambda _=False, k=kind, key=t.key: self._move_tool(k, key, -1))
+            down = button("▼", "small", lambda _=False, k=kind, key=t.key: self._move_tool(k, key, 1))
+            up.setEnabled(i > 0)
+            down.setEnabled(i < len(tools) - 1)
+            up.setToolTip("Move earlier on the wheel")
+            down.setToolTip("Move later on the wheel")
+            self.tool_checks[t.key] = cb
+            self.tool_stars[t.key] = star
+            grid.addWidget(star, i, 0)
+            grid.addWidget(cb, i, 1)
+            grid.addWidget(up, i, 2)
+            grid.addWidget(down, i, 3)
+        grid.setColumnStretch(1, 1)
+
+    def _move_tool(self, kind: str, key: str, step: int):
+        keys = [t.key for t in self.ordered_tools(kind)]
+        i = keys.index(key)
+        j = i + step
+        if 0 <= j < len(keys):
+            keys[i], keys[j] = keys[j], keys[i]
+            self.c.settings.tool_order[kind] = keys
+            self.c.settings_changed()
+            self._fill_format_grid(kind)
+            self.panel.refresh()
+
+    def _reset_order(self):
+        self.c.settings.tool_order = {}
+        self.c.settings_changed()
+        for kind in self.format_grids:
+            self._fill_format_grid(kind)
+
+    # ---- home page
+
+    def _choose_files(self):
+        files = choose_files(self)
+        if files:
+            self.show_files(files)
+
+    def show_files(self, files):
+        self.open_page("Home")
+        self.panel.set_files(files)
+
+    def keyPressEvent(self, e):
+        from PySide6.QtGui import QKeySequence
+        if e.matches(QKeySequence.StandardKey.Paste):
+            self.c.paste()
+            return
+        super().keyPressEvent(e)
 
     def _update_options_changed(self, *_):
         self.c.settings.check_updates = self.auto_check.isChecked()
@@ -746,7 +868,8 @@ class MainWindow(QWidget):
     def sync(self):
         """Pick up changes made from the tray menu or outside the app."""
         for widget, value in ((self.power, self.c.settings.enabled), (self.startup, startup_enabled()),
-                              (self.context, self.c.settings.context_menu)):
+                              (self.context, self.c.settings.context_menu),
+                              (self.downloads, self.c.settings.watch_downloads)):
             widget.blockSignals(True)
             widget.setChecked(value)
             widget.blockSignals(False)

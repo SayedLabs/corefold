@@ -4,23 +4,27 @@
 the desktop, and a wheel of formats appears at your cursor. Drop the file on a format and it's
 converted. Everything happens on your PC; nothing is uploaded.
 
-| Drop a… | You can make |
+| Drop a… | You can |
 |---|---|
-| Image (PNG, JPG, WebP, HEIC, AVIF, GIF, BMP, TIFF, ICO) | PNG, JPG, WebP, PDF, ICO, BMP, **resize**, **rotate / flip**, **cut out (remove the background)**, a smaller copy for sharing, read a QR code, remove location & camera info |
-| Audio (MP3, M4A, WAV, FLAC, OGG, Opus, AIFF, WMA, AAC) | MP3, M4A, WAV, FLAC, OGG, Opus, AIFF, **trim** |
-| Video (MP4, MOV, MKV, WebM, AVI, WMV…) | MP4, MOV, WebM, MKV, GIF, **trim**, **rotate / flip**, a smaller copy, MP3 sound |
-| PDF | **Compress**, split into pages, pages to images, extract text, merge several PDFs |
-| Word, Excel, PowerPoint (DOCX, XLSX, PPTX, ODT…) | PDF (uses Microsoft Office or LibreOffice if installed) |
+| Image (PNG, JPG, WebP, HEIC, AVIF, GIF, BMP, TIFF, ICO) | convert to PNG, JPG, WebP, PDF, ICO, BMP · **resize** · **rotate / flip** · **make it fit** a size (Discord, email) · **cut out** the background · **copy the text** in it · **watermark** · **scan** photos of paper into a PDF · turn pictures into a **video** · read QR codes · remove location & camera info |
+| Video (MP4, MOV, MKV, WebM, AVI, WMV…) | MP4, MOV, WebM, MKV, GIF · **trim** · **make it fit** · rotate · watermark · save **frames** · smaller copy · MP3 sound |
+| Audio (MP3, M4A, WAV, FLAC, OGG, Opus, AIFF, WMA, AAC) | MP3, M4A, WAV, FLAC, OGG, Opus, AIFF · trim · make it fit |
+| PDF | compress · make it fit · split · pages to images · extract text · merge several |
+| Word, Excel, PowerPoint | PDF (uses Microsoft Office or LibreOffice if installed) |
+| Archive (ZIP, RAR, 7z, ISO, TAR, GZ, CAB…) | **extract** (smart: no folder-in-a-folder) · extract to a folder · **browse** inside, open or take out single files · **test** · turn into ZIP or 7z · add / remove files (ZIP, 7z) |
+| Any files or folders | make a **ZIP** or **7z**, with a password, max compression, or split into parts |
 
-Formats that don't work for a file (for example *MP3* on a video without sound) show up **dimmed**,
-and pointing at one tells you why. Prefer a tidier wheel? Choose **Hide them** in Settings.
+**How do I know I'm seeing every option?** The middle of the wheel says how many options there are,
+and dots show the pages. When there are more than fit, the last slice is **More**: click it, or hold
+the dragged file over it for a moment. Options that don't fit the file are **dimmed** (point at one
+to see why), and the middle tells you if you hid any in Settings. For the full list with nothing
+hidden, drop the file on Satsuma's **Home** page.
 
 Other ways to use it: **right-click** a file → *Convert with Satsuma* (Windows 11: *Show more options*),
-or drag a file onto the box on Satsuma's Home page.
+archives also get *Open in Satsuma*, and folders *Compress with Satsuma*. Or press **Ctrl + V** in
+Satsuma (or *Convert what's copied* in the tray menu) to convert a copied picture or copied files.
 
-Drop several files at once to convert them all (several images on **PDF** makes one combined PDF).
-Turn on *ask for a new name* to get `vacation-1.jpg`, `vacation-2.jpg`… The original file is never
-moved or changed.
+Drop several files at once to convert them all. The original file is never moved or changed.
 
 ## Installing
 Run **Satsuma-Setup.exe**, keep the two boxes ticked, click **Install**. That's it: a desktop
@@ -33,10 +37,20 @@ Open Satsuma from the desktop icon (or click the orange tray icon):
   a sound when done, dim or hide formats that don't fit, new names for batches, right-click menu,
   progress popups, start with Windows.
 - **Look:** match Windows / dark / light, six accent colours or your own, wheel shape (classic,
-  petals, slim), size and see-through, animations on or off, with a live preview.
-- **Formats:** untick anything you don't use, and ★ your favourites to pin them to the top.
+  petals, slim), size (up to huge), icons and/or text on slices, text size, how a slice lights
+  up, colour slices by kind of action, options per page, open under the cursor or in the middle,
+  see-through, animations — all with a live preview.
+- **Sounds:** four soft "done" sounds made for Satsuma (Satsuma, Peel, Droplet, Glass) or none, a
+  volume slider, a gentle sound when something fails, and an optional tick when the wheel opens.
+- **Formats:** untick anything you don't use, ★ favourites to pin them to the top, ▲ ▼ to reorder.
 - **History:** recent conversions (open them or show them in their folder) and your stats:
   files converted and space saved.
+
+## Website
+The `docs` folder is a ready-made download page. To put it online for free: on GitHub open
+**Settings → Pages**, under *Branch* choose **main** and **/docs**, click **Save**. A minute later it's
+at `https://<your-name>.github.io/satsuma/` with a big download button that always points at your
+newest release, plus an "Is it safe?" section that explains the Windows warning.
 
 ## Updates
 Satsuma updates itself, so nobody has to download it again. It checks your GitHub releases page
@@ -116,13 +130,20 @@ satsuma/theme.py            light/dark themes and accent colours
 satsuma/toast.py            progress / result popup
 satsuma/settings.py         saved settings, start with Windows, uninstall helpers
 satsuma/converters.py       all the conversions (Pillow, FFmpeg, pypdf, PDFium, zxing, ONNX Runtime)
-satsuma/dialogs.py          resize / rotate / trim / rename windows
+satsuma/core.py             shared building blocks (file types, jobs, output names)
+satsuma/archives.py         ZIP / RAR / 7z: extract, browse, test, create (7-Zip + Python fallback)
+satsuma/extras.py           make it fit, copy text (OCR), watermark, frames, slideshow, scan
+satsuma/browser.py          the archive window
+satsuma/panel.py            the Home page drop area with every option as buttons
+satsuma/sounds.py           sounds at the chosen volume
+satsuma/dialogs.py          resize / rotate / trim / fit / watermark / archive / password windows
 satsuma/history.py          recent conversions and stats
 satsuma/updater.py          self-updates from GitHub Releases (checksum-verified)
 assets/                     icon, installer pictures and sounds (scripts/make_icon.py, make_sounds.py)
 scripts/build.ps1           builds the app, installer and zip
 installer/satsuma.iss       Inno Setup installer script
 .github/workflows/          automatic builds on GitHub
+docs/                       the download website (GitHub Pages)
 run-from-source.bat         run your changes without building (needs Python)
 remove-old-versions.bat     one-time clean-up of older copies
 ```
