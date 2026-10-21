@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QDialog, QDou
                                QSpinBox, QVBoxLayout)
 
 from .converters import RESIZE_PRESETS, ROTATIONS, category, load_image, media_duration, norm, video_frame
-from .core import human_size, quick_size, short_name
+from .core import human_size, quick_size, safe_name, short_name
 from .i18n import tr
 from .winutil import set_title_bar_dark
 
@@ -129,7 +129,7 @@ class RotateDialog(Base):
 
 
 def fmt_time(t: float) -> str:
-    m, s = divmod(max(0.0, t), 60)
+    m, s = divmod(round(max(0.0, t), 1), 60)  # rounded first, so 1:59.97 shows as 2:00.0, not 1:60.0
     h, m = divmod(int(m), 60)
     return f"{h}:{m:02d}:{s:04.1f}" if h else f"{m}:{s:04.1f}"
 
@@ -277,10 +277,12 @@ class TrimDialog(Base):
 
 
 class RenameDialog(Base):
-    def __init__(self, files, icon, dark, ext: str = ""):
-        super().__init__(tr("Name the new files"), tr("{count} files", count=len(files)), icon, dark)
+    def __init__(self, files, icon, dark, ext: str = "", single: bool = False):
+        super().__init__(tr("Name the new file") if single else tr("Name the new files"),
+                         tr("{count} files", count=len(files)), icon, dark)
         self.files = files
         self.ext = ext  # the format being made (".png"), or "" to keep each file's own
+        self.single = single  # all the files go into one new file (a PDF, a ZIP…): no numbers
         self.base = QLineEdit()
         self.base.setPlaceholderText(tr("e.g. vacation"))
         self.start = QSpinBox()
@@ -290,8 +292,11 @@ class RenameDialog(Base):
         row.addWidget(QLabel(tr("Name")))
         row.addWidget(self.base, 1)
         row.addSpacing(10)
-        row.addWidget(QLabel(tr("Start at")))
+        start_label = QLabel(tr("Start at"))
+        row.addWidget(start_label)
         row.addWidget(self.start)
+        start_label.setVisible(not single)
+        self.start.setVisible(not single)
         self.lay.addLayout(row)
         self.preview = QLabel()
         self.preview.setObjectName("muted")
@@ -312,7 +317,7 @@ class RenameDialog(Base):
         self.accept()
 
     def _update(self):
-        base = self.base.text().strip()
+        base = safe_name(self.base.text())  # what the file will really be called (no \ / : * ? " < > |)
         if not base:
             self.preview.setText(tr("Type a name, or keep the original names."))
             self.ok.setEnabled(False)
@@ -320,6 +325,9 @@ class RenameDialog(Base):
         self.ok.setEnabled(True)
         n = self.start.value()
         ext = self.ext or norm(self.files[0].suffix)
+        if self.single:
+            self.preview.setText(tr("New file: {name}", name=base + ext))
+            return
         names = [f"{base}-{n + i}{ext}" for i in range(min(3, len(self.files)))]
         more = "…" if len(self.files) > 3 else ""
         self.preview.setText(tr("New files: {names}", names=", ".join(names) + more))
@@ -674,6 +682,9 @@ DIALOGS = {"resize": ResizeDialog, "rotate": RotateDialog, "trim": TrimDialog, "
 
 def ask(kind: str, files: list[Path], icon: QIcon, dark: bool, **extra) -> dict | None:
     """Shows a dialog; returns the user's choices, or None if they cancelled."""
+    if kind not in DIALOGS:
+        from .dialogs2 import register
+        register(DIALOGS)
     dlg = DIALOGS[kind](files, icon, dark, **extra)
     try:
         return dlg.params() if dlg.exec() else None  # 1 = accepted, 0 = cancelled

@@ -15,6 +15,7 @@ import copy
 import itertools
 import logging
 import logging.handlers
+import os
 import subprocess
 import sys
 import tempfile
@@ -29,11 +30,12 @@ from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon
 
 from . import UPDATE_REPO, __version__, archives, dialogs, i18n, ipc, shellmenu, sounds, updater, winutil
 from .converters import PASSWORD_ERROR, Options, Result, Tool, pick, release_memory, run_job, warm_up
-from .core import category, human_size, lower_this_thread, norm, os_open, set_background_priority, short_name
+from .core import (category, human_size, lower_this_thread, norm, os_open, set_background_priority,
+                   set_downloads_folder, short_name, unique_path)
 from .history import History, size_of
 from .i18n import tr
-from .settings import (APP_NAME, LOG_DIR, Settings, app_command, app_icon, installed_uninstaller,
-                       remove_user_data)
+from .settings import (APP_NAME, LOG_DIR, TOAST_TIME_SCALE, WINDOW_TEXT_PT, Settings, app_command, app_icon,
+                       installed_uninstaller, remove_user_data)
 from .theme import build_theme, stylesheet
 from .toast import Toast
 from .wheel import Wheel
@@ -204,7 +206,7 @@ class Controller(QObject):
         set_background_priority(self.settings.low_priority)
         self.history = History()
         self.theme = self._make_theme()
-        app.setStyleSheet(stylesheet(self.theme))
+        app.setStyleSheet(self._css())
         self._window = None
         self.told_about_tray = False
         self.session_ending = False
@@ -238,6 +240,8 @@ class Controller(QObject):
         self.signals.progress.connect(self.toast.set_progress)
         self.signals.finished.connect(self.job_done)
         self.toast.cancel_requested.connect(self.cancel_job)
+        self._apply_toast_settings()
+        self.compares: list = []  # open before/after windows
         self.bg = BackgroundSignals()
         self.bg.menu_written.connect(self._menu_written)
         self.bg.menu_files_ready.connect(self._run_menu_files)
@@ -251,6 +255,8 @@ class Controller(QObject):
         menu.addAction(tr("Open Satsuma"), self.show_window)
         menu.addAction(tr("Settings"), lambda: self.show_window("General"))
         menu.addAction(tr("Convert what's copied"), self.paste)
+        self.act_again = menu.addAction(tr("Do it again…"), self.do_again)
+        menu.aboutToShow.connect(self._update_again_action)
         self.recent_menu = menu.addMenu(tr("Recent files"))
         self.recent_menu.aboutToShow.connect(self._fill_recent)
         self.act_pause = menu.addAction(tr("Pause"))
@@ -261,7 +267,7 @@ class Controller(QObject):
         self.act_cancel.setVisible(False)
         menu.addAction(tr("Check for updates"), lambda: self.check_updates(manual=True))
         menu.addSeparator()
-        menu.addAction(tr("Quit"), self.quit)
+        menu.addAction(tr("Quit"), self.ask_quit)
         self.menu = menu
         self.tray.setContextMenu(menu)
 
@@ -304,6 +310,10 @@ class Controller(QObject):
 
         # "Convert to JPG?" for photos that land in Downloads
         self.downloads = downloads_folder()
+        set_downloads_folder(self.downloads)
+        default_out = str(Path.home() / "Downloads" / "Satsuma")
+        if self.settings.output_folder == default_out and self.downloads != Path.home() / "Downloads":
+            self.settings.output_folder = str(self.downloads / "Satsuma")  # Downloads was moved: follow it
         self.seen_downloads: set[str] = set()
         self.dl_watcher = QFileSystemWatcher(self)
         self.dl_watcher.directoryChanged.connect(lambda _: self.dl_timer.start(1500))
@@ -347,6 +357,8 @@ class Controller(QObject):
         w = self.window
         w.sync()
         w.refresh_history()  # conversions may have finished while the window was hidden
+        if w.panel.paths and not w.isVisible():
+            w.panel.refresh()  # files on the Home page may have been moved or deleted meanwhile
         if page_name:
             w.open_page(page_name)
         w.show()
@@ -384,6 +396,9 @@ class Controller(QObject):
         else:
             self.tray.setToolTip(tr("{app}: hold {key} while dragging a file", app=APP_NAME,
                                     key=self.settings.shortcut_label))
+
+    def _css(self) -> str:
+        return stylesheet(self.theme, WINDOW_TEXT_PT.get(self.settings.window_text, 10) / 10)
 
     def _make_theme(self):
         s = self.settings
@@ -446,7 +461,7 @@ class Controller(QObject):
                     folder.mkdir(parents=True, exist_ok=True)
                 except OSError:
                     folder = Path(tempfile.gettempdir())
-                out = folder / (tr("Pasted picture") + time.strftime(" %Y-%m-%d %H.%M.%S.png"))
+                out = unique_path(folder / (tr("Pasted picture") + time.strftime(" %Y-%m-%d %H.%M.%S.png")))
                 if image.save(str(out), "PNG"):
                     return [out]
         return []
@@ -490,7 +505,7 @@ class Controller(QObject):
         self.seen_downloads = names
         for name in sorted(new):
             path = self.downloads / name
-            if str(path) in self.recent_outputs:
+            if os.path.normcase(str(path)) in {os.path.normcase(p) for p in self.recent_outputs}:
                 continue  # made by Satsuma itself
             if path.suffix.lower() in (".heic", ".heif", ".webp", ".avif") and path.is_file():
                 self._offer_jpg(path)
@@ -504,6 +519,10 @@ class Controller(QObject):
             return
         if tries < 10 and (st.st_size == 0 or time.time() - st.st_mtime < 1.5):
             QTimer.singleShot(1000, lambda: self._offer_jpg(path, tries + 1))
+            return
+        if winutil.user_busy():  # a game or presentation is full screen: ask later (for up to 10 minutes)
+            if tries < 30:
+                QTimer.singleShot(20_000, lambda: self._offer_jpg(path, max(tries, 10) + 1))
             return
         from .converters import catalog
         tool = next(t for t in catalog()["image"] if t.key == "image:jpg")
@@ -678,7 +697,7 @@ class Controller(QObject):
 
     def _run_menu_tool(self, key: str, files: list[Path]):
         kind = key.split(":", 1)[0]
-        if kind != "pack":  # "Convert to PNG" picked with videos selected too: only the pictures
+        if kind not in ("pack", "files"):  # "Convert to PNG" picked with videos selected too: only the pictures
             files = [f for f in files if category(f) == kind] or files
         tool_now = None
         for t in _all_tools(len(files) > 1):
@@ -710,9 +729,10 @@ class Controller(QObject):
 
     # ---- settings
 
-    def apply_theme(self):
+    def apply_theme(self, wheel_only: bool = False):
         self.theme = self._make_theme()
-        self.app.setStyleSheet(stylesheet(self.theme))
+        if not wheel_only:
+            self.app.setStyleSheet(self._css())  # restyles every window: only when it changes
         self.wheel.theme = self.theme
         if self._window is not None:
             self._window.apply_theme(self.theme)
@@ -721,10 +741,15 @@ class Controller(QObject):
         if self.settings.appearance == "system":
             self.apply_theme()
 
+    def _apply_toast_settings(self):
+        self.toast.corner = self.settings.toast_corner
+        self.toast.time_scale = TOAST_TIME_SCALE.get(self.settings.toast_time, 1.0)
+
     def settings_changed(self, menu: bool = False):
         """Saves the settings (a moment later, so dragging a slider doesn't write the file 50 times).
         menu=True when the change also shows in the right-click menu."""
         self.save_timer.start(400)
+        self._apply_toast_settings()
         if self._window is not None:
             self._window.refresh()
         self._update_tooltip()
@@ -799,7 +824,9 @@ class Controller(QObject):
         if archive_name:
             rename = {"rename_base": archive_name}
         elif self.settings.ask_names and tool.renames and len(files) > 1:
-            answer = dialogs.ask("rename", files, self.icon, dark, ext=tool.target or "")
+            # tools that put all the files into one new file get one name, without numbers
+            answer = dialogs.ask("rename", files, self.icon, dark, ext=OUTPUT_EXT.get(tool.key, tool.target or ""),
+                                 single=tool.batch)
             if answer is None:
                 return
             rename = answer
@@ -872,13 +899,17 @@ class Controller(QObject):
                     if _alive(b) and retry and b.src == retry[0]:
                         b.password = password
                 keep = {"outputs": carry["outputs"] + result.outputs,
-                        "errors": carry["errors"] + [e for e in errors if password_error not in e]}
+                        "errors": carry["errors"] + [e for e in errors if password_error not in e],
+                        "files": carry.get("files") or files, "bytes_in": carry.get("bytes_in") or job["bytes_in"]}
                 self.start_job(tool, retry or files, dict(job["params"], password=password), job["rename"],
                                job["after"], carry=keep)
                 return
         if carry["outputs"] or carry["errors"]:  # put together with the tries before this one
             result.outputs = carry["outputs"] + result.outputs
             errors = carry["errors"] + errors
+        if carry.get("files"):  # the history counts every file of the job, not just the retried ones
+            files = carry["files"]
+            job["bytes_in"] = carry.get("bytes_in", job["bytes_in"])
         self.recent_outputs = (self.recent_outputs + [str(p) for p in result.outputs])[-200:]
 
         after = job["after"]
@@ -896,6 +927,8 @@ class Controller(QObject):
         record = tool and not cancelled and not tool.key.startswith(("archive:open", "archive:test"))
         if record:
             self.history.record(tool.description, files, result.outputs, len(errors), job["bytes_in"])
+            if result.outputs or (result.note and not errors):
+                self.remember_action(tool, job["params"], job["rename"])
             if self._window is not None and self._window.isVisible():
                 self._window.refresh_history()
         if result.clipboard:
@@ -924,9 +957,17 @@ class Controller(QObject):
         else:
             title, detail, linger = tr("Nothing to do"), "", 3000
 
-        important = bool(errors or result.note)
+        extra_text, extra = "", None
+        if result.undo and not cancelled:
+            done = list(result.undo)
+            extra_text, extra = tr("Undo"), lambda: self.undo(done)
+        elif self._can_compare(files, result.outputs, errors, cancelled):
+            before, after_file = files[0], result.outputs[0]
+            extra_text, extra = tr("Compare"), lambda: self.compare(before, after_file)
+        important = bool(errors or result.note or result.undo)
         if self.settings.show_progress or important:
-            shown = self.toast.finish(job_id, title, detail, first, linger, single=len(result.outputs) == 1)
+            shown = self.toast.finish(job_id, title, detail, first, linger, single=len(result.outputs) == 1,
+                                      extra_text=extra_text, extra=extra)
             if not shown and important:
                 icon = QSystemTrayIcon.Warning if errors else QSystemTrayIcon.Information
                 self.tray.showMessage(title, detail, icon)
@@ -936,6 +977,111 @@ class Controller(QObject):
             self.play_problem_sound()
         if first and self.settings.reveal_after and not errors and not cancelled:
             winutil.reveal_in_explorer(first)
+
+    def show_tour(self):
+        from .tour import Tour
+        dlg = Tour(self.icon, self.settings.shortcut_label)
+        dlg.exec()
+        dlg.deleteLater()
+        if not self.settings.tour_done:
+            self.settings.tour_done = True
+            self.settings_changed()
+
+    # ---- after a job: undo, compare, do it again
+
+    def undo(self, done: list):
+        from .moretools import undo_rename
+        back = undo_rename(done)
+        if back:
+            self.toast.notify(tr("Undone"), tr("{count} files have their old names back", count=back),
+                              linger_ms=3500)
+        else:
+            self.tell(tr("Couldn't undo"), tr("The files were moved or renamed again since."))
+
+    @staticmethod
+    def _can_compare(files: list[Path], outputs: list[Path], errors: list, cancelled: bool) -> bool:
+        if cancelled or errors or len(files) != 1 or len(outputs) != 1:
+            return False
+        a, b = files[0], outputs[0]
+        try:
+            return a.is_file() and b.is_file() and category(a) == "image" and category(b) == "image"
+        except OSError:
+            return False
+
+    def compare(self, before: Path, after: Path):
+        from .compare import CompareWindow
+        if not (before.exists() and after.exists()):
+            self.tell(tr("Can't compare"), tr("One of the files isn't there any more."))
+            return
+        win = CompareWindow(before, after, self.icon)
+        self.compares = [w for w in self.compares if _alive(w)] + [win]
+        win.show()
+        win.raise_()
+        win.activateWindow()
+
+    # params that only make sense for the files they were chosen for (or are secret) aren't kept
+    NOT_REPEATED = {"password", "new_password", "pages"}
+
+    def remember_action(self, tool: Tool, params: dict, rename: dict):
+        kept = {k: v for k, v in params.items() if k not in self.NOT_REPEATED}
+        try:
+            import json
+            json.dumps(kept)
+        except (TypeError, ValueError):
+            kept = {}
+        self.settings.last_action = {"key": tool.key, "params": kept,
+                                     "rename": {k: v for k, v in (rename or {}).items()
+                                                if isinstance(v, (str, int))}}
+        self.save_timer.start(400)
+        if self._window is not None:
+            self._window.refresh_again()
+
+    def again_text(self) -> str:
+        """ "Do it again: Convert to PNG…", or "" when there's nothing to repeat yet."""
+        key = self.settings.last_action.get("key")
+        if not key:
+            return ""
+        for multi in (False, True):
+            for t in _all_tools(multi):
+                if t.key == key:
+                    return tr("Do it again: {what}…", what=t.description)
+        return ""
+
+    def _update_again_action(self):
+        text = self.again_text()
+        self.act_again.setVisible(bool(text))
+        if text:
+            self.act_again.setText(text)
+
+    def do_again(self, files: list[Path] | None = None):
+        """Runs the last action again, with the same choices, on other files."""
+        la = self.settings.last_action
+        if not la.get("key"):
+            return
+        if not files:
+            from PySide6.QtWidgets import QFileDialog
+            title = self.again_text()
+            if la["key"].startswith("folder:"):
+                folder = QFileDialog.getExistingDirectory(None, title)
+                files = [Path(folder)] if folder else []
+            else:
+                names, _ = QFileDialog.getOpenFileNames(None, title)
+                files = [Path(n) for n in names]
+            if not files:
+                return
+        pk = pick(files, frozenset(), (), True, None, True)
+        slot = next((sl for sl in pk.slots if sl.tool.key == la["key"]), None)
+        if slot is None:
+            self.tell(tr("Can't do that here"), tr("This option doesn't work for these files."))
+            return
+        if not slot.ok:
+            self.tell(slot.tool.description, slot.reason or "")
+            return
+        tool, params = slot.tool, dict(la.get("params") or {})
+        if tool.ask and (tool.ask in ("lock", "pages") or not params):
+            self.tool_chosen(tool, pk.files)  # these need fresh answers
+            return
+        self.start_job(tool, pk.files, params, dict(la.get("rename") or {}))
 
     # ---- updates
 
@@ -982,15 +1128,20 @@ class Controller(QObject):
             self.update_state, self.update_info = "available", info
             log.info("update available: %s", info.version)
             if self.settings.auto_update and self.can_self_install():
+                if not manual and winutil.user_busy():  # a game or presentation is full screen: install a bit later
+                    QTimer.singleShot(15 * 60_000, self.check_updates)
+                    self._refresh_updates_page()
+                    return
                 self._refresh_updates_page()
                 self.start_update()
                 return
-            if manual or self.notified_version != info.version:
-                self.notified_version = info.version
-                self.toast.notify(tr("Satsuma {version} is available", version=info.version),
-                                  tr("One click to update. Your settings are kept."),
-                                  tr("Update now") if self.can_self_install() else tr("Get it"), self.start_update,
-                                  15000)
+            if manual or (self.notified_version != info.version and not winutil.user_busy()):
+                shown = self.toast.notify(tr("Satsuma {version} is available", version=info.version),
+                                          tr("One click to update. Your settings are kept."),
+                                          tr("Update now") if self.can_self_install() else tr("Get it"),
+                                          self.start_update, 15000)
+                if shown:  # if a conversion was on screen, say it at the next check instead
+                    self.notified_version = info.version
         else:
             self.update_state = "uptodate"
             if manual:
@@ -1053,6 +1204,21 @@ class Controller(QObject):
 
     # ---- quitting / removing
 
+    def ask_quit(self):
+        """Quit, but check first if a conversion would be stopped half-way."""
+        if self.cancels:
+            box = QMessageBox(QMessageBox.Question, tr("Quit Satsuma?"),
+                              tr("A conversion is still running. Quitting stops it, and the unfinished file isn't "
+                                 "saved."), parent=self.window_if_open())
+            yes = box.addButton(tr("Quit"), QMessageBox.DestructiveRole)
+            box.addButton(tr("Keep converting"), QMessageBox.RejectRole)
+            box.exec()
+            chosen = box.clickedButton() is yes
+            box.deleteLater()
+            if not chosen:
+                return
+        self.quit()
+
     def end_session(self, *_):
         """Windows is signing out or shutting down: save, and let every window close."""
         self.session_ending = True
@@ -1110,6 +1276,17 @@ class Controller(QObject):
 
 
 PAGE_NAMES = ("Home", "General", "Look", "Formats", "History", "Updates", "About")
+OUTPUT_EXT = {"image:pdf": ".pdf", "image:scan": ".pdf", "pdf:merge": ".pdf", "image:video": ".mp4",
+              "pack:zip": ".zip", "pack:7z": ".7z"}  # what a tool makes, when it isn't Tool.target
+
+
+def _prune_backups():
+    """Uninstall backups older than 30 days are removed (quietly, in the background)."""
+    try:
+        from . import uninstall
+        uninstall.prune_backups()
+    except Exception:
+        log.debug("couldn't prune uninstall backups", exc_info=True)
 
 
 def _all_tools(multi: bool):
@@ -1279,6 +1456,9 @@ def main() -> int:
         s.first_run = False
         if not message or not message.startswith(b"show"):
             controller.show_window("Home")
+    if not s.tour_done and not message and "--background" not in argv:
+        QTimer.singleShot(700, controller.show_tour)
     s.save()
+    threading.Thread(target=_prune_backups, daemon=True).start()
     QTimer.singleShot(IDLE_TIDY_MS, controller.tidy_up)
     return app.exec()

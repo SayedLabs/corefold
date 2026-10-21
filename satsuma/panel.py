@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (QFileDialog, QFrame, QHBoxLayout, QLabel, QLayout
                                QVBoxLayout, QWidget)
 
 from .converters import CATEGORY_ICONS, CATEGORY_NAMES, pick, warm_up
-from .core import human_size, quick_size, short_name
+from .core import human_size, is_cloud_only, quick_size, short_name
 from .i18n import tr
 from .wheel import FORMAT_ACTIONS, GROUP_NAMES, GROUPS, ICONS, action_of
 
@@ -155,10 +155,22 @@ class DropZone(QFrame):
 
 def make_thumbnail(path: Path, kind: str) -> bytes | None:
     """A small PNG preview of a picture or video (runs in a background thread)."""
+    if is_cloud_only(path):
+        return None  # only in OneDrive: a preview would download the whole file
     try:
         if kind == "image" and path.is_file():
+            from PIL import Image, ImageOps
+            from .converters import setup_pillow
+            setup_pillow()
             from .converters import load_image
-            im = load_image(path)
+            if path.suffix.lower() in (".jpg", ".jpeg", ".jfif"):
+                # JPEG can be decoded at a fraction of its size: a 50-megapixel photo loads in a blink
+                with Image.open(path) as raw:
+                    raw.draft("RGB", (288, 288))
+                    im = ImageOps.exif_transpose(raw)
+                    im.load()
+            else:
+                im = load_image(path)
             im.thumbnail((144, 144))
             buf = io.BytesIO()
             im.convert("RGBA").save(buf, "PNG")
@@ -231,7 +243,7 @@ class FilePanel(QFrame):
 
     def refresh(self):
         if self.paths:
-            self.set_files(self.paths, quick=False)
+            self.set_files(self.paths)  # slow checks again in the background, never on the window
 
     def set_files(self, paths: list[Path], quick: bool = True):
         s = self.c.settings

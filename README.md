@@ -6,13 +6,14 @@ converted. Everything happens on your PC; nothing is uploaded.
 
 | Drop a… | You can |
 |---|---|
-| Image (PNG, JPG, WebP, HEIC, AVIF, GIF, BMP, TIFF, ICO) | convert to PNG, JPG, WebP, PDF, ICO, BMP · **resize** · **rotate / flip** · **make it fit** a size (Discord, email) · **cut out** the background · **copy the text** in it · **watermark** · **scan** photos of paper into a PDF · turn pictures into a **video** · read QR codes · remove location & camera info |
-| Video (MP4, MOV, MKV, WebM, AVI, WMV…) | MP4, MOV, WebM, MKV, GIF · **trim** · **make it fit** · rotate · watermark · save **frames** · smaller copy · MP3 sound |
-| Audio (MP3, M4A, WAV, FLAC, OGG, Opus, AIFF, WMA, AAC) | MP3, M4A, WAV, FLAC, OGG, Opus, AIFF · trim · make it fit |
-| PDF | compress · make it fit · split · pages to images · extract text · merge several |
+| Image (PNG, JPG, WebP, HEIC, AVIF, GIF, BMP, TIFF, ICO) | convert to PNG, JPG, WebP, PDF, ICO, BMP · **resize** · **rotate / flip** · **crop** (free or square, 4:3, 16:9…) · **make it fit** a size (Discord, email) · **cut out** the background · **copy the text** in it · **watermark** · **stickers** for WhatsApp and Telegram · **scan** photos of paper into a PDF · turn pictures into a **video** · read QR codes · remove location & camera info |
+| Video (MP4, MOV, MKV, WebM, AVI, WMV…) | MP4, MOV, WebM, MKV, GIF · **trim** · **make it fit** · rotate · **speed up / slow down** · **mute** · **fix the volume** · animated **stickers** and chat GIFs (WhatsApp, Telegram, Discord) · watermark · save **frames** · smaller copy · MP3 sound |
+| Audio (MP3, M4A, WAV, FLAC, OGG, Opus, AIFF, WMA, AAC) | MP3, M4A, WAV, FLAC, OGG, Opus, AIFF · trim · make it fit · speed up / slow down · fix the volume |
+| PDF | compress · make it fit · split · pages to images · extract text · merge several · **turn, delete or reorder pages** · save the **pictures** inside · **lock / unlock** with a password |
 | Word, Excel, PowerPoint | PDF (uses Microsoft Office or LibreOffice if installed) |
 | Archive (ZIP, RAR, 7z, ISO, TAR, GZ, CAB…) | **extract** (smart: no folder-in-a-folder) · extract to a folder · **browse** inside, open or take out single files · **test** · turn into ZIP or 7z · add / remove files (ZIP, 7z) |
-| Any files or folders | make a **ZIP** or **7z**, with a password, max compression, or split into parts |
+| Any files or folders | make a **ZIP** or **7z**, with a password, max compression, or split into parts · **rename** many at once (numbers, replace text, add text — with undo) |
+| Folder | convert every picture inside to JPG, PNG or WebP, or shrink them all for sharing |
 
 **How do I know I'm seeing every option?** The middle of the wheel says how many options there are,
 and dots show the pages. When there are more than fit, the last slice is **More**: click it, or hold
@@ -20,14 +21,28 @@ the dragged file over it for a moment. Options that don't fit the file are **dim
 to see why), and the middle tells you if you hid any in Settings. For the full list with nothing
 hidden, drop the file on Satsuma's **Home** page.
 
+After a conversion the popup can **Compare** the new picture with the original (drag across it to see
+the difference) or **Undo** a rename. **Do it again** (on the Home page and in the tray menu) repeats
+your last action, with the same choices, on other files. When the wheel is opened from the
+right-click menu, press **1–9** to pick a slice (0 = More).
+
 Other ways to use it: **right-click** a file → **Satsuma** → *Convert to PNG*, *Resize…*, *Extract here*…
 (a normal Windows submenu, like 7-Zip's; on Windows 11 it's under *Show more options*, or Shift +
 right-click). *All options…* at the bottom opens Satsuma with the file. Prefer the wheel? Pick
 **Satsuma wheel** under *General → Right-click menu*. Or press **Ctrl + V** in Satsuma (or *Convert
 what's copied* in the tray menu) to convert a copied picture or copied files.
 
-**English and العربية.** Satsuma follows the language of Windows; change it under *General → Language*.
-In Arabic the whole app is right-to-left.
+**English, العربية, Français, Español and Türkçe.** Satsuma follows the language of Windows; change it
+under *General → Language*. In Arabic the whole app is right-to-left.
+
+**Uninstall apps, without the leftovers.** The **Apps** page lists every installed program (and Store
+app) with its size and install date. **Uninstall** runs the app's own uninstaller, then looks for what
+it left behind: its folders in Program Files, AppData and ProgramData, shortcuts, startup entries and
+registry keys. Things that clearly belong to the app are ticked; things that only might are shown
+unticked, and shared places (Windows, Microsoft, Common Files…) are never touched. Nothing is deleted
+outright: files are moved into a backup and registry keys are exported first, so **Backups…** can put
+everything back for 30 days. Also: quiet uninstall for several apps at once, an optional System
+Restore point first, and *Remove leftovers only* for apps whose uninstaller is missing.
 
 **Light on your PC.** Satsuma waits in the tray using almost no memory or power. Conversions run at
 low priority and one at a time (both can be changed under *General → Keep my PC fast*), memory it
@@ -48,9 +63,10 @@ Open Satsuma from the desktop icon (or click the orange tray icon):
   right-click menu (Windows menu or the wheel), progress popups, start with Windows, and
   *Keep my PC fast* (background priority, one conversion at a time).
 - **Look:** match Windows / dark / light, six accent colours or your own, wheel shape (classic,
-  petals, slim), size (up to huge), icons and/or text on slices, text size, how a slice lights
-  up, colour slices by kind of action, options per page, open under the cursor or in the middle,
-  see-through, animations — all with a live preview.
+  petals, slim, bubbles, neon, glass), size (up to huge), icons and/or text on slices, text size, how a
+  slice lights up, colour slices by kind of action or in a rainbow, options per page, open under the cursor or in the middle,
+  see-through, animations, number keys — all with a live preview. Also the text size in Satsuma's
+  windows, which corner popups appear in and how long they stay, and icons in the sidebar.
 - **Sounds:** four soft "done" sounds made for Satsuma (Satsuma, Peel, Droplet, Glass) or none, a
   volume slider, a gentle sound when something fails, and an optional tick when the wheel opens.
 - **Formats:** untick anything you don't use, ★ favourites to pin them to the top, ▲ ▼ to reorder.

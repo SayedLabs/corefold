@@ -60,6 +60,7 @@ class Result:
     clipboard: str | None = None
     note: str = ""
     locked: list = field(default_factory=list)  # items that need a (different) password
+    undo: list = field(default_factory=list)    # (new, old) names, for "Undo" after renaming
 
 
 @dataclass
@@ -79,8 +80,18 @@ class Tool:
     static_check: bool = False                   # check doesn't depend on the files (e.g. "needs Office")
 
 
+_downloads = Path.home() / "Downloads"
+
+
+def set_downloads_folder(folder: Path):
+    """The app tells us where Downloads really is (it may have been moved to another drive or OneDrive)."""
+    global _downloads
+    _downloads = folder
+
+
 def fallback_folder() -> Path:
-    return Path.home() / "Downloads" / "Satsuma"
+    """Where new files go when the original's folder can't be written to (a CD, a protected folder)."""
+    return _downloads / "Satsuma"
 
 
 _writable_cache: dict[str, tuple[float, bool]] = {}
@@ -144,11 +155,14 @@ def quick_size(path: Path, budget_s: float = 0.25) -> tuple[int, bool]:
         return 0, True
     total, deadline = 0, time.monotonic() + budget_s
     for root, _dirs, files in os.walk(path):
-        for f in files:
+        for i, f in enumerate(files):
             try:
                 total += os.stat(os.path.join(root, f)).st_size
             except OSError:
                 pass
+            # also checked inside a folder: one huge folder on a slow network drive could freeze it
+            if i % 200 == 199 and time.monotonic() > deadline:
+                return total, False
         if time.monotonic() > deadline:
             return total, False
     return total, True
@@ -161,6 +175,16 @@ def short_name(name: str, limit: int = 46) -> str:
         return name
     keep = limit - 1
     return name[: keep - keep // 3] + "…" + name[-(keep // 3):]
+
+
+def is_cloud_only(path: Path) -> bool:
+    """A OneDrive (or other cloud) file that isn't downloaded to this PC yet. Opening it would
+    download all of it, so previews and quick checks leave it alone."""
+    try:
+        attrs = getattr(os.stat(path), "st_file_attributes", 0)
+    except OSError:
+        return False
+    return bool(attrs & (0x400000 | 0x40000))  # RECALL_ON_DATA_ACCESS / RECALL_ON_OPEN
 
 
 def human_size(n: float) -> str:
@@ -180,6 +204,7 @@ class Ctx:
         self.index, self.total = index, total
         self._progress = progress or (lambda f: None)
         self.cancel_event = cancel or threading.Event()
+        self.made: list[Path] = []  # new files/folders handed out (removed again if the job fails)
 
     def progress(self, frac: float):
         self._progress(max(0.0, min(1.0, frac)))
@@ -208,12 +233,28 @@ class Ctx:
     def out_path(self, src: Path, name: str) -> Path:
         folder = self.folder_for(src)
         folder.mkdir(parents=True, exist_ok=True)
-        return unique_path(folder / name)
+        p = unique_path(folder / name)
+        self.made.append(p)
+        return p
 
     def out_dir(self, src: Path, name: str) -> Path:
         p = self.out_path(src, name)
         p.mkdir()
         return p
+
+    def discard(self):
+        """Removes what this job started writing: a failed or cancelled conversion must never
+        leave a broken, half-written file behind. (Names are always new, so nothing else is touched.)"""
+        import shutil
+        for p in self.made:
+            try:
+                if p.is_dir():
+                    shutil.rmtree(p, ignore_errors=True)
+                elif p.exists():
+                    p.unlink()
+            except OSError:
+                pass
+        self.made.clear()
 
 
 # ----------------------------------------------------------------------------- file types

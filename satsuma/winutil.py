@@ -146,3 +146,16 @@ def trim_memory():
         k32.SetProcessWorkingSetSize(k32.GetCurrentProcess(), ctypes.c_size_t(-1), ctypes.c_size_t(-1))
     except Exception:
         pass
+
+
+def user_busy() -> bool:
+    """True while a full-screen game, video or presentation is on screen. Popups nobody asked for
+    (like "a new version is available") wait until then, so they never pull anyone out of a game."""
+    try:
+        state = ctypes.c_int(0)
+        if ctypes.windll.shell32.SHQueryUserNotificationState(ctypes.byref(state)) != 0:
+            return False
+        # 2 = busy (full screen), 3 = full-screen Direct3D game, 4 = presentation mode
+        return state.value in (2, 3, 4)
+    except Exception:
+        return False

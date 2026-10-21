@@ -5,6 +5,11 @@ import time
 if sys.platform != "win32":
     sys.exit("Satsuma only runs on Windows.")
 
+# The elevated helper used by the Apps page (removing leftovers in Program Files, restore points).
+if any(a in ("--cleanup", "--restore", "--restore-point") for a in sys.argv[1:]):
+    from satsuma.uninstall import helper_main  # noqa: E402
+    sys.exit(helper_main(sys.argv[1:]))
+
 # Fast path first: if Satsuma is already running, hand it this request and quit before loading
 # the heavy parts (Qt). This keeps right-clicking many files quick and light.
 from satsuma import ipc  # noqa: E402

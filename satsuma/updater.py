@@ -123,6 +123,10 @@ def check(repo: str, current: str, timeout: float = 15) -> UpdateInfo | None:
     except ValueError as e:
         raise UpdateError(tr("unexpected answer from GitHub")) from e
     info = parse_release(data, repo)
+    if not info.installer_url or not info.sums_url:
+        # Just published: GitHub is still building the installer (about 10 minutes). Saying
+        # "update available" now would only end in "this release has no installer".
+        return None
     return info if is_newer(info.version, current) else None
 
 

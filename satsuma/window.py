@@ -1,4 +1,4 @@
-"""The Satsuma window: Home, General, Look, Formats, History, Updates and About pages."""
+"""The Satsuma window: Home, Apps, General, Look, Formats, History, Updates and About pages."""
 from __future__ import annotations
 
 import os
@@ -16,11 +16,13 @@ from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QColorDialog, QComboBox,
 
 from . import UPDATE_REPO, __version__, i18n
 from .converters import CATEGORY_NAMES, catalog, human_size
+from .core import short_name
 from .i18n import LANGUAGES, tr
 from .panel import DropZone, FilePanel, choose_files
 from .settings import (ACCENTS, APP_NAME, APPEARANCES, HOVER_STYLES, LABEL_STYLES, LOG_DIR, MENU_STYLES,
-                       SHORTCUT_LABELS, SLICE_COLORS, SOUNDS, TEXT_SIZE_NAMES, WHEEL_POSITIONS, WHEEL_SIZE_NAMES,
-                       WHEEL_STYLES, installed_uninstaller, set_startup, startup_enabled)
+                       SHORTCUT_LABELS, SLICE_COLORS, SOUNDS, TEXT_SIZE_NAMES, TOAST_CORNERS, TOAST_TIMES,
+                       WHEEL_POSITIONS, WHEEL_SIZE_NAMES, WHEEL_STYLES, WINDOW_TEXT, installed_uninstaller,
+                       set_startup, startup_enabled)
 from .theme import Theme
 from .wheel import WheelPreview
 from .winutil import memory_use, reveal_in_explorer, set_title_bar_dark
@@ -28,7 +30,9 @@ from .winutil import memory_use, reveal_in_explorer, set_title_bar_dark
 if TYPE_CHECKING:
     from .app import Controller
 
-PAGES = ["Home", "General", "Look", "Formats", "History", "Updates", "About"]  # tr() when shown
+PAGES = ["Home", "Apps", "General", "Look", "Formats", "History", "Updates", "About"]  # tr() when shown
+PAGE_ICONS = {"Home": "🏠", "Apps": "🧹", "General": "⚙️", "Look": "🎨", "Formats": "🧩", "History": "🕘",
+              "Updates": "⬇️", "About": "ℹ️"}
 
 
 # ----------------------------------------------------------------------------- small building blocks
@@ -89,7 +93,8 @@ def page(title: str, subtitle: str = "") -> tuple[QWidget, QVBoxLayout]:
 
 def locale() -> QLocale:
     """Dates and numbers in the app's language (not always Windows' language)."""
-    return QLocale(QLocale.Language.Arabic if i18n.language() == "ar" else QLocale.Language.English)
+    return QLocale({"ar": QLocale.Language.Arabic, "fr": QLocale.Language.French, "es": QLocale.Language.Spanish,
+                    "tr": QLocale.Language.Turkish}.get(i18n.language(), QLocale.Language.English))
 
 
 def date_text(ts: float, long: bool = False) -> str:
@@ -115,21 +120,24 @@ def time_ago(ts: float) -> str:
 class Segmented(QWidget):
     changed = Signal(str)
 
-    def __init__(self, options: list[tuple[str, str]], value: str):
+    def __init__(self, options: list[tuple[str, str]], value: str, per_row: int = 4):
         super().__init__()
-        lay = QHBoxLayout(self)
+        # up to per_row buttons on a line; more go on the next line, so long lists (and long
+        # translations) never make the window wider than the screen
+        lay = QGridLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(6)
         self.keys = [k for k, _ in options]
         self.group = QButtonGroup(self)
         self.group.setExclusive(True)
+        cols = min(per_row, len(options)) or 1
         for i, (key, text) in enumerate(options):
             b = button(text)
             b.setCheckable(True)
             b.setChecked(key == value)
             self.group.addButton(b, i)
-            lay.addWidget(b)
-        lay.addStretch()
+            lay.addWidget(b, i // cols, i % cols)
+        lay.setColumnStretch(cols, 1)
         self.group.idClicked.connect(lambda i: self.changed.emit(self.keys[i]))
 
 
@@ -217,7 +225,7 @@ class MainWindow(QWidget):
         brand.addStretch()
         self.nav = QListWidget()
         self.nav.setObjectName("nav")
-        self.nav.addItems([tr(p) for p in PAGES])
+        self.nav.addItems(self._nav_texts())
         self.nav.setCursor(Qt.PointingHandCursor)
         side = QVBoxLayout(sidebar)
         side.setContentsMargins(14, 18, 14, 14)
@@ -227,8 +235,8 @@ class MainWindow(QWidget):
         side.addWidget(label(tr("Version {version}", version=__version__), "version"))
 
         self.stack = QStackedWidget()
-        for build in (self._home, self._general, self._look, self._formats, self._history, self._updates,
-                      self._about):
+        for build in (self._home, self._apps, self._general, self._look, self._formats, self._history,
+                      self._updates, self._about):
             self.stack.addWidget(build())
         self.nav.currentRowChanged.connect(self._page_changed)
         last = self.c.settings.last_page
@@ -254,9 +262,24 @@ class MainWindow(QWidget):
         self.refresh_updates()
         self.refresh_history()
 
+    def _nav_texts(self) -> list[str]:
+        icons = self.c.settings.sidebar_icons
+        return [f"{PAGE_ICONS[p]}  {tr(p)}" if icons else tr(p) for p in PAGES]
+
+    def refresh_nav(self):
+        for i, text in enumerate(self._nav_texts()):
+            self.nav.item(i).setText(text)
+
+    def _apps(self) -> QWidget:
+        from .appspage import AppsPage
+        self.apps_page = AppsPage(self.c)
+        return self.apps_page
+
     def _page_changed(self, i: int):
         self.stack.setCurrentIndex(i)
-        if PAGES[i] == "History":
+        if PAGES[i] == "Apps":
+            self.apps_page.ensure_loaded()
+        elif PAGES[i] == "History":
             self.refresh_history()
         elif PAGES[i] == "About":
             self.refresh_memory()
@@ -288,6 +311,12 @@ class MainWindow(QWidget):
         self.panel = FilePanel(self.c)
         lay.addWidget(self.panel)
 
+        again = QHBoxLayout()
+        self.again_btn = button("", None, lambda: self.c.do_again())
+        self.again_btn.setToolTip(tr("Pick other files and do the same thing to them, with the same choices."))
+        again.addWidget(self.again_btn)
+        again.addStretch()
+        lay.addLayout(again)
         self.home_stats = label("", "muted")
         lay.addWidget(self.home_stats)
 
@@ -451,7 +480,7 @@ class MainWindow(QWidget):
         self.swatches.changed.connect(lambda v: self._look_changed("accent", v))
         self.swatches.custom_picked.connect(lambda v: setattr(self.c.settings, "custom_color", v))
         self.accent_name = label("", "muted")
-        style = Segmented([(k, tr(v)) for k, v in WHEEL_STYLES.items()], s.wheel_style)
+        style = Segmented([(k, tr(v)) for k, v in WHEEL_STYLES.items()], s.wheel_style, per_row=3)
         style.changed.connect(lambda v: self._look_changed("wheel_style", v))
         size = Segmented([(k, tr(v)) for k, v in WHEEL_SIZE_NAMES.items()], s.wheel_size)
         size.changed.connect(lambda v: self._look_changed("wheel_size", v))
@@ -495,7 +524,40 @@ class MainWindow(QWidget):
             cl.addWidget(widget)
         cl.addSpacing(10)
         cl.addWidget(self.animations)
+        self.numbers = checkbox(tr("Show numbers on the slices when the wheel is opened from the right-click menu "
+                                   "(press 1–9 to pick, 0 for More)"), s.wheel_numbers,
+                                lambda v: self._look_changed("wheel_numbers", v))
+        cl.addWidget(self.numbers)
         cl.addStretch()
+
+        # the window and the popups
+        more, ml = card(8)
+        win_text = Segmented([(k, tr(v)) for k, v in WINDOW_TEXT.items()], s.window_text)
+        win_text.changed.connect(lambda v: self._look_changed("window_text", v))
+        corner = QComboBox()
+        for key, text in TOAST_CORNERS.items():
+            corner.addItem(tr(text), key)
+        corner.setCurrentIndex(max(0, corner.findData(s.toast_corner)))
+        corner.currentIndexChanged.connect(lambda _: self._look_changed("toast_corner", corner.currentData()))
+        corner.setMaximumWidth(320)
+        toast_time = Segmented([(k, tr(v)) for k, v in TOAST_TIMES.items()], s.toast_time)
+        toast_time.changed.connect(lambda v: self._look_changed("toast_time", v))
+        ml.addWidget(label(tr("Text size in Satsuma's windows"), "h2"))
+        ml.addWidget(win_text)
+        ml.addSpacing(6)
+        ml.addWidget(label(tr("Where popups appear"), "h2"))
+        prow = QHBoxLayout()
+        prow.addWidget(corner)
+        prow.addWidget(button(tr("Show an example"), on_click=lambda: self.c.toast.notify(
+            tr("Done"), tr("This is where popups will appear."), linger_ms=3000)))
+        prow.addStretch()
+        ml.addLayout(prow)
+        ml.addSpacing(6)
+        ml.addWidget(label(tr("How long popups stay"), "h2"))
+        ml.addWidget(toast_time)
+        ml.addSpacing(6)
+        ml.addWidget(checkbox(tr("Icons in the sidebar"), s.sidebar_icons,
+                              lambda v: self._look_changed("sidebar_icons", v)))
 
         preview_box, pl = card()
         pl.setContentsMargins(12, 12, 12, 12)
@@ -514,6 +576,7 @@ class MainWindow(QWidget):
         row.addWidget(controls, 1)
         row.addWidget(preview_box)
         lay.addLayout(row)
+        lay.addWidget(more)
         lay.addStretch()
         return w
 
@@ -645,9 +708,9 @@ class MainWindow(QWidget):
         lay.addLayout(top)
 
         row = QHBoxLayout()
-        row.addWidget(button(tr("Open log folder"), on_click=lambda: QDesktopServices.openUrl(
-            QUrl.fromLocalFile(str(LOG_DIR)))))
-        row.addWidget(button(tr("Quit Satsuma"), on_click=self.c.quit))
+        row.addWidget(button(tr("Show the tour"), on_click=self.c.show_tour))
+        row.addWidget(button(tr("Open log folder"), on_click=self._open_logs))
+        row.addWidget(button(tr("Quit Satsuma"), on_click=self.c.ask_quit))
         row.addStretch()
         lay.addLayout(row)
 
@@ -702,7 +765,8 @@ class MainWindow(QWidget):
         self.step_labels[2].setText(tr("Drop the file on a format (or click it).") + " " + where + " "
                                     + tr("Let go in the middle to cancel."))
         self.power.setText(tr("Satsuma is on") if s.enabled else tr("Paused. Click to turn on"))
-        self.folder_label.setText(s.output_folder)
+        self.folder_label.setText(short_name(s.output_folder, 60))
+        self.folder_label.setToolTip(s.output_folder)
         self.folder_row.setVisible(s.save_mode == "folder")
         self.accent_name.setText(tr("Your colour") if s.accent == "custom" else tr(ACCENTS[s.accent][0]))
         self.legend.setText(tr("Colours: blue = convert · purple = edit · green = make smaller · pink = read · "
@@ -716,6 +780,12 @@ class MainWindow(QWidget):
         self.home_stats.setText(tr("So far: {count} files converted · {size} saved", count=locale().toString(st.files),
                                    size=human_size(st.bytes_saved)) if st.files else "")
         self.home_stats.setVisible(bool(st.files))
+        self.refresh_again()
+
+    def refresh_again(self):
+        text = self.c.again_text()
+        self.again_btn.setText("↻  " + text if text else "")
+        self.again_btn.setVisible(bool(text))
 
     def refresh_memory(self):
         used = memory_use()
@@ -857,6 +927,13 @@ class MainWindow(QWidget):
         self.volume_label.setText(f"{v}%")
         self.c.settings_changed()
 
+    def _open_logs(self):
+        try:
+            LOG_DIR.mkdir(parents=True, exist_ok=True)  # opening a folder that isn't there shows a Windows error
+        except OSError:
+            return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(LOG_DIR)))
+
     def _open_output_folder(self):
         folder = Path(self.c.settings.output_folder)
         try:
@@ -874,8 +951,12 @@ class MainWindow(QWidget):
     def _look_changed(self, key: str, value):
         setattr(self.c.settings, key, value)
         self.c.settings_changed()
-        if key in ("appearance", "accent", "wheel_opacity"):
+        if key in ("appearance", "accent", "window_text"):
             self.c.apply_theme()
+        elif key == "sidebar_icons":
+            self.refresh_nav()
+        elif key == "wheel_opacity":
+            self.c.apply_theme(wheel_only=True)  # dragging the slider stays smooth: the window's look doesn't change
         self.preview.update()
 
     def _tool_toggled(self, key: str, on: bool):
@@ -990,6 +1071,9 @@ class MainWindow(QWidget):
         from PySide6.QtGui import QKeySequence
         if e.matches(QKeySequence.StandardKey.Paste):
             self.c.paste()
+            return
+        if e.key() == Qt.Key.Key_Escape:  # Esc closes the window, like most settings windows
+            self.close()
             return
         super().keyPressEvent(e)
 

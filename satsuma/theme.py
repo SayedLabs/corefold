@@ -1,6 +1,7 @@
 """Colours and the app-wide stylesheet. Light/dark follows Windows unless the user picks one."""
 from __future__ import annotations
 
+import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -113,6 +114,10 @@ QPushButton#small { padding: 2px 8px; min-width: 0; }
 QTreeWidget#history { background: $panel; border: 1px solid $border; border-radius: 12px; outline: none; padding: 4px; }
 QTreeWidget#history::item { padding: 4px 2px; }
 QTreeWidget#history::item:selected { background: $accent_soft; color: $text; }
+QTreeWidget#apps { background: $panel; border: 1px solid $border; border-radius: 12px; outline: none; padding: 4px; }
+QTreeWidget#apps::item { padding: 5px 2px; }
+QTreeWidget#apps::item:selected { background: $accent_soft; color: $text; }
+QLabel#badge { background: $accent_soft; border-radius: 8px; padding: 2px 8px; font-size: 8pt; }
 QHeaderView::section { background: $panel; color: $muted; border: none; border-bottom: 1px solid $border; padding: 6px; }
 QFrame#line { background: $border; max-height: 1px; border: none; }
 QComboBox, QSpinBox, QDoubleSpinBox, QLineEdit { background: $field; border: 1px solid $border; border-radius: 7px;
@@ -169,8 +174,8 @@ QMessageBox { background: $bg; }
 """)
 
 
-def stylesheet(t: Theme) -> str:
-    return QSS.substitute(
+def stylesheet(t: Theme, scale: float = 1.0) -> str:
+    css = QSS.substitute(
         text=t.text.name(), bg=t.bg.name(), panel=t.panel.name(), field=t.field.name(),
         border=t.border.name(), muted=t.muted.name(), accent=t.accent.name(),
         on_accent=t.on_accent.name(), accent_hover=t.accent.lighter(112).name(),
@@ -178,3 +183,6 @@ def stylesheet(t: Theme) -> str:
         # the sidebar's edge faces the pages: on the right in English, on the left in Arabic
         inner_side="left" if QGuiApplication.layoutDirection() == Qt.RightToLeft else "right",
     )
+    if scale != 1.0:  # bigger or smaller text everywhere ("Text size in this window")
+        css = re.sub(r"(\d+(?:\.\d+)?)pt", lambda m: f"{float(m.group(1)) * scale:.1f}pt", css)
+    return css

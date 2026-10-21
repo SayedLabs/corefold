@@ -24,7 +24,8 @@ from typing import Callable
 from .i18n import tr
 from .core import (ALIASES, ALL_EXT, ARCHIVE_EXT, AUDIO_EXT, DOCUMENT_EXT, EXCEL_EXT, IMAGE_EXT,  # noqa: F401
                    NO_WINDOW, SLIDES_EXT, job_flags, TAR_SUFFIXES, VIDEO_EXT, WORD_EXT, Cancelled, Ctx, Options, Result,
-                   Tool, _cached, app_dir, bundled, is_cached, category, fallback_folder, human_size, norm, os_open,
+                   Tool, _cached, app_dir, bundled, is_cached, is_cloud_only, category, fallback_folder, human_size,
+                   norm, os_open,
                    safe_name, short_name, unique_path, writable)
 
 log = logging.getLogger("satsuma")
@@ -35,18 +36,34 @@ log = logging.getLogger("satsuma")
 _heif_registered = False
 
 
-def load_image(src: Path):
+def setup_pillow():
+    """Pillow settings for a desktop app (done once, the first time a picture is opened)."""
     global _heif_registered
+    if _heif_registered:
+        return
+    from PIL import Image, ImageFile
+    # Big panoramas and scans are fine on a desktop PC (Pillow's default refuses anything over
+    # about 180 megapixels as a safety measure for web servers).
+    Image.MAX_IMAGE_PIXELS = 1_000_000_000
+    # A photo that was only partly downloaded still opens (the missing part is grey), like in any
+    # picture viewer, instead of failing.
+    ImageFile.LOAD_TRUNCATED_IMAGES = True
+    try:
+        from pi_heif import register_heif_opener  # decode-only HEIC support
+        register_heif_opener()
+    except ImportError:
+        pass
+    _heif_registered = True
+
+
+def load_image(src: Path):
     from PIL import Image, ImageOps
-    if not _heif_registered:
-        try:
-            from pi_heif import register_heif_opener  # decode-only HEIC support
-            register_heif_opener()
-        except ImportError:
-            pass
-        _heif_registered = True
+    setup_pillow()
     with Image.open(src) as im:
-        out = ImageOps.exif_transpose(im)  # applies phone-camera rotation; returns a copy (first frame)
+        try:
+            out = ImageOps.exif_transpose(im)  # applies phone-camera rotation; returns a copy (first frame)
+        except Exception:  # broken photo details (EXIF) must not stop the picture itself from opening
+            out = im.copy()
         out.load()
     if out.mode in ("I;16", "I;16B", "I;16L", "I;16N", "I", "F"):
         # 16-bit and 32-bit pictures (scanners, cameras, medical): scale down to normal 8-bit greys.
@@ -113,6 +130,8 @@ def save_image(im, out: Path, ext: str, ctx: Ctx, keep_metadata: bool = True):
     if ext == ".jpg":
         im.save(out, quality=ctx.options.jpg_quality, optimize=True, progressive=True, **meta)
     elif ext == ".webp":
+        if max(im.size) > WEBP_MAX:
+            raise RuntimeError(tr("too big for WebP (it can't be wider or taller than 16,383 pixels)"))
         im.save(out, quality=ctx.options.jpg_quality, method=5, **meta)
     elif ext in (".png", ".tiff"):
         im.save(out, **meta)
@@ -124,6 +143,9 @@ def save_image(im, out: Path, ext: str, ctx: Ctx, keep_metadata: bool = True):
         square.save(out, sizes=[(s, s) for s in (16, 24, 32, 48, 64, 128, 256)])
     else:
         im.save(out)
+
+
+WEBP_MAX = 16383  # the largest width or height a WebP picture can have
 
 
 def keep_format(src: Path) -> str:
@@ -163,6 +185,7 @@ def write_pages_pdf(pages, out: Path, resolution: int):
 
 def _all_pages(f: Path):
     from PIL import Image, ImageSequence
+    setup_pillow()
     if norm(f.suffix) == ".tiff":
         try:
             with Image.open(f) as im:
@@ -220,6 +243,7 @@ def is_animated(src: Path) -> bool:
     def work():
         try:
             from PIL import Image
+            setup_pillow()
             with Image.open(src) as im:
                 return bool(getattr(im, "is_animated", False))
         except Exception:
@@ -231,6 +255,7 @@ def save_animated(src: Path, out: Path, change):
     """Applies change(frame) to every frame of an animated GIF/WebP and saves it still animated
     (before, resizing or rotating one turned it into a still picture)."""
     from PIL import Image, ImageSequence
+    setup_pillow()
     frames, durations = [], []
     with Image.open(src) as im:
         loop = im.info.get("loop", 0)
@@ -413,11 +438,13 @@ def find_tool(name: str) -> str:
 def probe(src: Path) -> dict:
     """Duration and which kinds of streams a media file has (cached)."""
     def work():
-        info = {"duration": 0.0, "audio": False, "video": False, "width": 0, "height": 0, "rotation": 0}
+        info = {"duration": 0.0, "audio": False, "video": False, "width": 0, "height": 0, "rotation": 0,
+                "hdr": False}
         try:
             out = subprocess.run(
                 [find_tool("ffprobe"), "-v", "error", "-show_entries",
-                 "format=duration:stream=codec_type,width,height:stream_side_data=rotation",
+                 "format=duration:stream=codec_type,width,height,color_transfer:stream_disposition=attached_pic"
+                 ":stream_side_data=rotation",
                  "-of", "json", str(src)],
                 capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=20,
                 stdin=subprocess.DEVNULL, creationflags=NO_WINDOW,
@@ -428,6 +455,8 @@ def probe(src: Path) -> dict:
             kinds = {s.get("codec_type") for s in streams}
             info["audio"], info["video"] = "audio" in kinds, "video" in kinds
             for s in streams:
+                if (s.get("disposition") or {}).get("attached_pic"):
+                    continue  # an album cover inside the file, not the video itself
                 if s.get("codec_type") == "video" and s.get("width"):
                     w, h = int(s["width"]), int(s.get("height") or 0)
                     rot = 0
@@ -435,11 +464,41 @@ def probe(src: Path) -> dict:
                         rot = int(sd.get("rotation") or 0) or rot
                     info["width"], info["height"] = (h, w) if abs(rot) in (90, 270) else (w, h)
                     info["rotation"] = rot
+                    info["hdr"] = s.get("color_transfer") in HDR_TRANSFERS
                     break
         except (ValueError, OSError, subprocess.SubprocessError, RuntimeError):
             info["audio"] = info["video"] = True  # unknown: don't block anything
         return info
     return _cached("probe", src, work)
+
+
+HDR_TRANSFERS = ("smpte2084", "arib-std-b67")  # HDR10 / Dolby Vision, and HLG (iPhones film in HLG)
+# Turns HDR video into normal (SDR) colours. Without it, HDR phone videos come out grey and washed out.
+TONEMAP = ("zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=hable:desat=0,"
+           "zscale=t=bt709:m=bt709:r=tv,format=yuv420p")
+
+
+def with_tonemap(src: Path, args: list[str]) -> list[str]:
+    """The same FFmpeg arguments, with HDR → normal colours added when the video is HDR and the
+    picture is being re-encoded (not for sound only, and not when the video is just copied)."""
+    if not src.exists() or "-vn" in args or ("-c" in args and "copy" in args) or "-c:v" in args and \
+            args[args.index("-c:v") + 1] == "copy":
+        return args
+    try:
+        if not probe(src).get("hdr"):
+            return args
+    except Exception:
+        return args
+    args = list(args)
+    if "-filter_complex" in args:
+        i = args.index("-filter_complex") + 1
+        args[i] = args[i].replace("[0:V:0]", f"[0:V:0]{TONEMAP}[sdr0];[sdr0]", 1)
+    elif "-vf" in args:
+        i = args.index("-vf") + 1
+        args[i] = TONEMAP + "," + args[i]
+    else:
+        args += ["-vf", TONEMAP]
+    return args
 
 
 def media_duration(src: Path) -> float:
@@ -449,6 +508,7 @@ def media_duration(src: Path) -> float:
 def run_ffmpeg(src: Path, out: Path, args: list[str], ctx: Ctx, pre: list[str] | None = None,
                duration: float | None = None):
     duration = media_duration(src) if duration is None else duration
+    args = with_tonemap(src, args)
     cmd = [find_tool("ffmpeg"), "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
            *(pre or []), "-i", str(src), *args, "-progress", "pipe:1", "-nostats", str(out)]
     with tempfile.TemporaryFile(mode="w+", encoding="utf-8", errors="replace") as err:
@@ -515,23 +575,27 @@ AUDIO_ARGS = {
     ".opus": ["-vn", "-c:a", "libopus", "-b:a", "128k"],
     ".aiff": ["-vn", "-c:a", "pcm_s16be"],
 }
-_EVEN = ["-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2"]  # H.264 needs even width/height
+# Which parts of the file to use: the main picture and the first sound track. Without this, FFmpeg
+# can pick an album-cover picture inside the file as "the video" (the result is a still image),
+# and films with picture subtitles fail to convert to MP4.
+_PICK = ["-map", "0:V:0", "-map", "0:a:0?", "-sn", "-dn"]
+_EVEN = _PICK + ["-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2"]  # H.264 needs even width/height
 _H264 = ["-c:v", "libx264", "-preset", "medium", "-pix_fmt", "yuv420p"]
 _AAC = ["-c:a", "aac", "-b:a", "160k"]
 VIDEO_ARGS = {
     ".mp4": _EVEN + _H264 + ["-crf", "20"] + _AAC + ["-movflags", "+faststart"],
     ".mov": _EVEN + _H264 + ["-crf", "20"] + _AAC,
     # "-deadline good -cpu-used 4": several times faster than VP9's default, which can take ages
-    ".webm": ["-c:v", "libvpx-vp9", "-crf", "32", "-b:v", "0", "-row-mt", "1", "-deadline", "good",
+    ".webm": _PICK + ["-c:v", "libvpx-vp9", "-crf", "32", "-b:v", "0", "-row-mt", "1", "-deadline", "good",
               "-cpu-used", "4", "-pix_fmt", "yuv420p", "-c:a", "libopus"],
     # copy the picture and sound as they are (fast, no quality loss). Phone videos carry extra
     # data tracks that MKV can't hold, so only video and audio are taken.
     ".mkv": ["-map", "0:v", "-map", "0:a?", "-c", "copy", "-sn", "-dn"],
-    ".gif": ["-an", "-vf", "fps=12,scale='min(640,iw)':-1:flags=lanczos,"
+    ".gif": ["-map", "0:V:0", "-an", "-sn", "-dn", "-vf", "fps=12,scale='min(640,iw)':-1:flags=lanczos,"
                            "split[a][b];[a]palettegen[p];[b][p]paletteuse", "-loop", "0"],
 }
 # Fits inside 1280x1280 (works for portrait and landscape), smaller file for sharing.
-VIDEO_SMALL_ARGS = ["-vf", "scale=w='min(1280,iw)':h='min(1280,ih)':force_original_aspect_ratio=decrease:"
+VIDEO_SMALL_ARGS = _PICK + ["-vf", "scale=w='min(1280,iw)':h='min(1280,ih)':force_original_aspect_ratio=decrease:"
                            "force_divisible_by=2"] + _H264 + ["-crf", "28", "-c:a", "aac", "-b:a", "96k",
                                                               "-movflags", "+faststart"]
 
@@ -547,7 +611,7 @@ VIDEO_ROTATE_FILTERS = {"right": "transpose=1", "left": "transpose=2", "180": "t
 def rotate_video(src: Path, ctx: Ctx) -> Result:
     how = ctx.params.get("how", "right")
     vf = VIDEO_ROTATE_FILTERS[how] + ",pad=ceil(iw/2)*2:ceil(ih/2)*2"
-    args = ["-vf", vf, "-metadata:s:v", "rotate=0"] + _H264 + ["-crf", "20"] + _AAC + ["-movflags", "+faststart"]
+    args = _PICK + ["-vf", vf, "-metadata:s:v", "rotate=0"] + _H264 + ["-crf", "20"] + _AAC + ["-movflags", "+faststart"]
     out = ctx.out_path(src, f"{ctx.stem(src)} ({ROTATIONS[how][1]}).mp4")
     run_ffmpeg(src, out, args, ctx)
     return Result([out])
@@ -575,9 +639,10 @@ def trim_media(src: Path, ctx: Ctx) -> Result:
 def video_frame(src: Path, seconds: float, width: int = 240) -> bytes | None:
     """A small PNG of one video frame, for the trim window."""
     try:
+        args = with_tonemap(src, ["-map", "0:V:0?", "-frames:v", "1", "-vf", f"scale={width}:-2", "-f", "image2pipe",
+                                  "-c:v", "png"])
         proc = subprocess.run(
-            [find_tool("ffmpeg"), "-v", "error", "-ss", f"{max(0.0, seconds):.2f}", "-i", str(src),
-             "-frames:v", "1", "-vf", f"scale={width}:-2", "-f", "image2pipe", "-c:v", "png", "pipe:1"],
+            [find_tool("ffmpeg"), "-v", "error", "-ss", f"{max(0.0, seconds):.2f}", "-i", str(src), *args, "pipe:1"],
             capture_output=True, timeout=15, stdin=subprocess.DEVNULL, creationflags=NO_WINDOW)
         return proc.stdout or None
     except (OSError, subprocess.SubprocessError, RuntimeError):
@@ -602,15 +667,22 @@ def _open_reader(src: Path):
     return reader
 
 
-def check_pdf_locked(files: list[Path]) -> str | None:
+def pdf_lock_state(src: Path) -> str:
+    """"open" (no password), "restricted" (opens, but has an owner password) or "locked"."""
     def work():
         try:
             from pypdf import PdfReader
-            r = PdfReader(str(files[0]))
-            return tr("This PDF is password-protected") if r.is_encrypted and not r.decrypt("") else None
+            r = PdfReader(str(src))
+            if not r.is_encrypted:
+                return "open"
+            return "restricted" if r.decrypt("") else "locked"
         except Exception:
-            return None
-    return _cached("pdflock", files[0], work)
+            return "open"
+    return _cached("pdfstate", src, work)
+
+
+def check_pdf_locked(files: list[Path]) -> str | None:
+    return tr("This PDF is password-protected") if pdf_lock_state(files[0]) == "locked" else None
 
 
 def pdf_split(src: Path, ctx: Ctx) -> Result:
@@ -858,9 +930,9 @@ def check_office(files: list[Path]) -> str | None:
 
 CATEGORY_NAMES = {"image": "Images", "audio": "Audio", "video": "Video", "pdf": "PDFs",
                   "document": "Word, Excel & PowerPoint", "archive": "Archives (ZIP, RAR, 7z…)",
-                  "files": "Make archives (any files and folders)"}
+                  "folder": "Folders", "files": "Any files and folders (archive, rename)"}
 CATEGORY_ICONS = {"image": "🖼️", "audio": "🎵", "video": "🎬", "pdf": "📄", "document": "📝", "archive": "🗜️",
-                  "files": "📦"}
+                  "folder": "📁", "files": "📦"}
 
 
 def already(ext: str) -> Callable[[list[Path]], str | None]:
@@ -889,7 +961,7 @@ def both(*checks):
 
 def catalog(multi: bool = False) -> dict[str, list[Tool]]:
     """Every tool Satsuma has, per kind of file, in default wheel order."""
-    from . import archives as ar, extras as ex
+    from . import archives as ar, extras as ex, moretools as mt
 
     def fmt(kind, ext, fn, check=None, **kw):
         return Tool(f"{kind}:{ext[1:]}", ext[1:].upper(),
@@ -901,13 +973,23 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
             Tool("pack:7z", "7z", tr("Put in a 7z file (smaller than ZIP)"), partial(ar.pack, fmt="7z"), batch=True,
                  check=ar.check_needs_7z, static_check=True),
             Tool("pack:options", tr("Archive…"), tr("Archive with a password, split or max compression"), ar.pack,
-                 batch=True, ask="pack")]
+                 batch=True, ask="pack"),
+            Tool("files:rename", tr("Rename"), tr("Rename the files (numbers, replace text…)"), mt.rename_files,
+                 batch=True, ask="rename_files", renames=False)]
+
+    folder = [Tool(f"folder:{k}", label, desc, partial(mt.convert_folder, fmt=k), check=mt.check_pictures_folder,
+                   renames=False)
+              for k, label, desc in (("jpg", "JPG", tr("Convert the pictures inside to JPG")),
+                                     ("png", "PNG", tr("Convert the pictures inside to PNG")),
+                                     ("webp", "WebP", tr("Convert the pictures inside to WebP")),
+                                     ("small", tr("Small"), tr("Shrink the pictures inside for sharing")))]
 
     image = [fmt("image", e, convert_image) for e in (".png", ".jpg", ".webp")]
     image += [Tool("image:pdf", "PDF", tr("Combine into one PDF") if multi else tr("Convert to PDF"), images_to_pdf,
                    batch=True),
               Tool("image:resize", tr("Resize"), tr("Make it bigger or smaller"), resize_image, ask="resize"),
               Tool("image:rotate", tr("Rotate"), tr("Rotate or flip"), rotate_image, ask="rotate"),
+              Tool("image:crop", tr("Crop"), tr("Cut the edges off"), mt.crop_image, ask="crop"),
               Tool("image:fit", tr("Fit size"), tr("Make it fit a size limit (Discord, email…)"), ex.fit, ask="fit",
                    check=check_still),
               Tool("image:cutout", tr("Cut out"), tr("Remove the background"), remove_background,
@@ -922,11 +1004,15 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
                    batch=True, ask="slideshow", check=ex.check_several_images)]
     image += [fmt("image", e, convert_image) for e in (".ico", ".bmp")]
     image += [Tool("image:qr", "QR", tr("Read QR code"), read_qr, renames=False),
-              Tool("image:clean", tr("Clean"), tr("Remove location & camera info"), strip_metadata)]
+              Tool("image:clean", tr("Clean"), tr("Remove location & camera info"), strip_metadata),
+              Tool("image:sticker", tr("Sticker"), tr("Make a sticker (WhatsApp, Telegram)"), mt.image_sticker,
+                   ask="sticker")]
 
     audio = [fmt("audio", e, ffmpeg_convert, args=a) for e, a in AUDIO_ARGS.items()]
     audio += [Tool("audio:trim", tr("Trim"), tr("Cut the start or end"), trim_media, ask="trim"),
-              Tool("audio:fit", tr("Fit size"), tr("Make it fit a size limit"), ex.fit, ask="fit")]
+              Tool("audio:fit", tr("Fit size"), tr("Make it fit a size limit"), ex.fit, ask="fit"),
+              Tool("audio:volume", tr("Volume"), tr("Fix the volume (too quiet or too loud)"), mt.fix_volume),
+              Tool("audio:speed", tr("Speed"), tr("Speed up or slow down"), mt.change_speed, ask="speed")]
 
     video = [fmt("video", e, ffmpeg_convert, check=check_gif_length if e == ".gif" else None, args=a)
              for e, a in VIDEO_ARGS.items()]
@@ -940,7 +1026,14 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
               Tool("video:frames", tr("Frames"), tr("Save pictures from the video"), ex.video_frames, ask="frames"),
               Tool("video:mp3", "MP3", tr("Save the sound as MP3"),
                    partial(ffmpeg_convert, ext=".mp3", args=AUDIO_ARGS[".mp3"]), check=check_has_audio,
-                   slow_check=True)]
+                   slow_check=True),
+              Tool("video:mute", tr("Mute"), tr("Remove the sound"), mt.mute_video, check=check_has_audio,
+                   slow_check=True),
+              Tool("video:volume", tr("Volume"), tr("Fix the volume (too quiet or too loud)"), mt.fix_volume,
+                   check=check_has_audio, slow_check=True),
+              Tool("video:speed", tr("Speed"), tr("Speed up or slow down"), mt.change_speed, ask="speed"),
+              Tool("video:sticker", tr("Sticker"), tr("Make a sticker or chat GIF (WhatsApp, Telegram, Discord)"),
+                   mt.video_sticker, ask="sticker")]
 
     pdf = [Tool("pdf:merge", tr("Merge"), tr("Combine into one PDF"), pdf_merge, batch=True,
                 check=needs_several(tr("Drop 2 or more PDFs to combine them"))),
@@ -950,7 +1043,15 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
                 check=check_pdf_locked, slow_check=True),
            Tool("pdf:split", tr("Split"), tr("One PDF per page"), pdf_split, check=check_pdf_locked, slow_check=True),
            Tool("pdf:png", "PNG", tr("Pages to images"), pdf_to_png, check=check_pdf_locked, slow_check=True),
-           Tool("pdf:text", tr("Text"), tr("Pull out the text"), pdf_to_text, check=check_pdf_locked, slow_check=True)]
+           Tool("pdf:text", tr("Text"), tr("Pull out the text"), pdf_to_text, check=check_pdf_locked, slow_check=True),
+           Tool("pdf:pages", tr("Pages"), tr("Turn, delete or reorder pages"), mt.pdf_pages, ask="pages",
+                check=check_pdf_locked, slow_check=True),
+           Tool("pdf:images", tr("Pictures"), tr("Save the pictures inside"), mt.pdf_images, check=check_pdf_locked,
+                slow_check=True),
+           Tool("pdf:lock", tr("Lock"), tr("Protect with a password"), mt.pdf_lock, ask="lock",
+                check=mt.check_can_lock, slow_check=True),
+           Tool("pdf:unlock", tr("Unlock"), tr("Remove the password"), mt.pdf_unlock, password=True,
+                check=mt.check_can_unlock, slow_check=True)]
 
     document = [Tool("document:pdf", "PDF", tr("Convert to PDF"), document_to_pdf, check=check_office,
                      static_check=True)]
@@ -976,8 +1077,9 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
                     check=both(ar.check_readable, is_ext(".zip")), password=True, target=".zip"),
                Tool("archive:7z", "7z", tr("Turn into a 7z (smaller)"), partial(ar.convert_archive, fmt="7z"),
                     check=both(ar.check_needs_7z, is_ext(".7z")), password=True, target=".7z")]
+    archive += [t for t in pack if t.key == "files:rename"]  # archives can be renamed too
     return {"image": image, "audio": audio, "video": video, "pdf": pdf, "document": document,
-            "archive": archive, "files": pack}
+            "archive": archive, "folder": folder, "files": pack}
 
 
 @dataclass
@@ -1001,12 +1103,14 @@ class Pick:
 
 
 def _slow_kind(f: Path) -> str:
-    return "pdflock" if category(f) == "pdf" else "probe"
+    return "pdfstate" if category(f) == "pdf" else "probe"
 
 
 def warm_up(files: list[Path]):
     """Reads what the slow checks need (in a background thread), so the next pick() is instant."""
     for f in files[:1]:
+        if is_cloud_only(f):
+            continue  # don't download a whole video from OneDrive just to look at it
         try:
             if category(f) in ("video", "audio"):
                 probe(f)
@@ -1029,17 +1133,20 @@ def pick(paths: list[Path], hidden=frozenset(), favorites=(), show_unavailable: 
         return Pick([], [])
     kinds = {category(p) for p in paths}
     kind = kinds.pop() if len(kinds) == 1 else "files"
-    if kind in ("folder", "other"):
+    if kind == "other":
         kind = "files"
     files = [p for p in paths if not (kind == "archive" and is_extra_part(p))] or paths
     cat = catalog(len(files) > 1)
     tools = list(cat[kind])
-    if pack_everywhere and kind not in ("files", "archive"):
-        tools += cat["files"]
+    if kind == "folder" or (pack_everywhere and kind not in ("files", "archive")):
+        tools += cat["files"]  # folders always get "ZIP" and "Rename" too
     result = Pick(files, [], kind)
     for t in tools:
         if t.key in hidden:
             result.hidden += 1
+            continue
+        if t.slow_check and is_cloud_only(files[0]):
+            result.slots.append(Slot(t, None))  # not on this PC yet: assume it works rather than download it
             continue
         if quick and t.slow_check and not is_cached(_slow_kind(files[0]), files[0]):
             result.pending = True  # assume it works for now; warm_up() + a second pick() will tell
@@ -1085,8 +1192,12 @@ def friendly_error(e: Exception) -> str:
         return tr("the archive is damaged or isn't a real archive")
     if name == "UnidentifiedImageError":
         return tr("not a readable image")
+    if name == "DecompressionBombError" or isinstance(e, MemoryError):
+        return tr("this picture is too big to open")
     if name in ("PdfReadError", "PdfStreamError", "EmptyFileError", "PdfiumError", "FileTruncatedError"):
         return tr("the PDF is damaged or isn't a real PDF")
+    if isinstance(e, OSError) and (e.errno == 28 or getattr(e, "winerror", None) in (39, 112)):
+        return tr("the disk is full")
     if isinstance(e, PermissionError):
         return tr("permission denied (is the file open in another app?)")
     if isinstance(e, FileNotFoundError):
@@ -1120,9 +1231,12 @@ def run_job(tool: Tool, files: list[Path], options: Options,
             total.outputs += r.outputs
             total.clipboard = r.clipboard or total.clipboard
             total.note = r.note or total.note
+            total.undo += r.undo
         except Cancelled:
+            ctx.discard()
             break
         except Exception as e:  # keep going with the remaining files
+            ctx.discard()
             if isinstance(item, Path):
                 name = short_name(item.name)
             else:

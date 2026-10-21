@@ -32,26 +32,34 @@ ACCENTS = {  # key: (name, color)
 }
 WHEEL_SIZES = {"small": 135, "medium": 168, "large": 205, "huge": 245}  # outer radius in px
 WHEEL_SIZE_NAMES = {"small": "Small", "medium": "Medium", "large": "Large", "huge": "Huge"}
-WHEEL_STYLES = {"ring": "Classic", "petals": "Petals", "slim": "Slim ring"}
+WHEEL_STYLES = {"ring": "Classic", "petals": "Petals", "slim": "Slim ring", "bubbles": "Bubbles", "neon": "Neon",
+                "glass": "Glass"}
 LABEL_STYLES = {"both": "Icon + text", "text": "Text only", "icon": "Icons only"}
 HOVER_STYLES = {"fill": "Fill", "outline": "Outline", "grow": "Grow only"}
-SLICE_COLORS = {"plain": "One colour", "group": "By kind of action"}
+SLICE_COLORS = {"plain": "One colour", "group": "By kind of action", "rainbow": "Rainbow"}
 TEXT_SIZES = {"small": 0.88, "normal": 1.0, "large": 1.15}
 TEXT_SIZE_NAMES = {"small": "Small", "normal": "Normal", "large": "Large"}
 WHEEL_POSITIONS = {"cursor": "Under the cursor", "center": "Middle of the screen"}
 APPEARANCES = {"system": "Match Windows", "dark": "Dark", "light": "Light"}
 MENU_STYLES = {"windows": "Windows menu", "wheel": "Satsuma wheel"}
+TOAST_CORNERS = {"auto": "Bottom corner (automatic)", "bottom-right": "Bottom right", "bottom-left": "Bottom left",
+                 "top-right": "Top right", "top-left": "Top left"}
+TOAST_TIMES = {"short": "Short", "normal": "Normal", "long": "Long"}
+TOAST_TIME_SCALE = {"short": 0.6, "normal": 1.0, "long": 2.0}
+WINDOW_TEXT = {"small": "Small", "normal": "Normal", "large": "Large", "huge": "Extra large"}
+WINDOW_TEXT_PT = {"small": 9, "normal": 10, "large": 11.5, "huge": 13}
 SOUNDS = DONE_SOUNDS
 CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_style": HOVER_STYLES,
            "slice_colors": SLICE_COLORS, "text_size": TEXT_SIZES, "wheel_position": WHEEL_POSITIONS,
            "wheel_size": WHEEL_SIZES, "sound": SOUNDS, "language": LANGUAGES, "menu_style": MENU_STYLES,
-           "appearance": APPEARANCES, "shortcut": SHORTCUT_LABELS}
+           "appearance": APPEARANCES, "shortcut": SHORTCUT_LABELS, "toast_corner": TOAST_CORNERS,
+           "toast_time": TOAST_TIMES, "window_text": WINDOW_TEXT}
 
 
 @dataclass
 class Settings:
     # behaviour
-    language: str = "system"       # "system", "en" or "ar"
+    language: str = "system"       # "system", "en", "ar", "fr", "es" or "tr"
     shortcut: str = "shift"
     save_mode: str = "beside"      # "beside" or "folder"
     output_folder: str = str(Path.home() / "Downloads" / "Satsuma")
@@ -97,9 +105,18 @@ class Settings:
     hidden_tools: list = field(default_factory=list)
     favorites: list = field(default_factory=list)
     tool_order: dict = field(default_factory=dict)  # kind -> [tool keys] in the user's order
+    wheel_numbers: bool = True     # click mode: press 1–9 to pick a slice
+    # popups
+    toast_corner: str = "auto"
+    toast_time: str = "normal"
     # the window
     window_geometry: str = ""      # where it was and how big (Qt's saveGeometry, base64)
     last_page: str = "Home"
+    window_text: str = "normal"
+    sidebar_icons: bool = True
+    # "Do it again": the last thing you did (tool key, its choices; never a password)
+    last_action: dict = field(default_factory=dict)
+    tour_done: bool = False
 
     @classmethod
     def load(cls) -> "Settings":
@@ -139,6 +156,8 @@ class Settings:
                         if isinstance(k, str) and isinstance(v, list)}
         s.hidden_tools = [t for t in s.hidden_tools if isinstance(t, str)]
         s.favorites = [t for t in s.favorites if isinstance(t, str)]
+        if not isinstance(s.last_action.get("key"), str) or not isinstance(s.last_action.get("params", {}), dict):
+            s.last_action = {}
         return s
 
     def save(self):
