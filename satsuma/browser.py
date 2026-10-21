@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QFileDialog, QFileIconProvider
                                QLineEdit, QMessageBox, QPushButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from . import archives as ar
-from .core import APP_NAME, Tool, human_size
+from .core import APP_NAME, Tool, human_size, short_name
 from .i18n import tr
 from .winutil import set_title_bar_dark
 
@@ -49,7 +49,8 @@ class ArchiveBrowser(QWidget):
         self.resize(820, 560)
         self.icons = QFileIconProvider()
 
-        title = QLabel(src.name)
+        title = QLabel(short_name(src.name, 70))
+        title.setToolTip(src.name)
         title.setObjectName("h2")
         self.info = QLabel()
         self.info.setObjectName("muted")
@@ -242,7 +243,7 @@ class ArchiveBrowser(QWidget):
     def _add(self):
         paths, _ = QFileDialog.getOpenFileNames(self, tr("Add to {name}", name=self.src.name), str(self.src.parent))
         if paths:
-            self._run("archive:add", tr("Add to {name}", name=self.src.name),
+            self._run("archive:add", tr("Add to {name}", name=short_name(self.src.name, 30)),
                       lambda items, ctx: ar.add_files(self.src, [Path(p) for p in paths], ctx), after="reload")
 
     def _delete(self):
@@ -258,7 +259,7 @@ class ArchiveBrowser(QWidget):
         chosen = box.clickedButton() is remove
         box.deleteLater()
         if chosen:
-            self._run("archive:delete", tr("Remove from {name}", name=self.src.name),
+            self._run("archive:delete", tr("Remove from {name}", name=short_name(self.src.name, 30)),
                       lambda items, ctx: ar.delete_entries(self.src, members, ctx), after="reload")
 
     # ---- drag files in to add them
@@ -271,7 +272,7 @@ class ArchiveBrowser(QWidget):
         paths = [Path(u.toLocalFile()) for u in e.mimeData().urls() if u.isLocalFile()]
         paths = [p for p in paths if p.exists() and p.resolve() != self.src.resolve()]
         if paths:
-            self._run("archive:add", tr("Add to {name}", name=self.src.name),
+            self._run("archive:add", tr("Add to {name}", name=short_name(self.src.name, 30)),
                       lambda items, ctx: ar.add_files(self.src, paths, ctx),
                       after="reload")
 

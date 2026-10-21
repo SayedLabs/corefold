@@ -252,6 +252,8 @@ def _draw_label(p: QPainter, pos: QPointF, item: Item, look: Look, font: QFont, 
     if is_format and mode == "both":
         mode = "text"
     font.setWeight(QFont.Weight.Bold if active else QFont.Weight.DemiBold)
+    # long names (they're often longer in Arabic) end in "…" instead of being cut off mid-letter
+    text = QFontMetrics(font).elidedText(text, Qt.ElideRight, 102)
     p.setPen(color)
     if mode == "icon" and icon:
         p.setFont(icon_font)
@@ -384,7 +386,9 @@ class Wheel(QWidget):
         self.page = min(page, len(self.pages) - 1)
         if not self.pick.slots:
             self.title = paths[0].name if paths else ""
-            if self.files:
+            if self.files and self.pick.dimmed and not self.pick.hidden:
+                self.empty_reason = tr("Nothing here works for this file")  # all greyed out and then hidden
+            elif self.files:
                 self.empty_reason = tr("Nothing available. Check Formats in Settings")
             else:
                 self.empty_reason = tr("This file can't be found")

@@ -12,15 +12,18 @@ from .settings import CONFIG_DIR
 
 log = logging.getLogger("satsuma")
 MAX_ITEMS = 200
+KEEP = 20  # names remembered per entry
 
 
 @dataclass
 class Entry:
     when: float
     tool: str            # description, e.g. "Convert to JPG"
-    inputs: list[str]    # file names
-    outputs: list[str]   # full paths
+    inputs: list[str]    # file names (the first few)
+    outputs: list[str]   # full paths (the first few)
     errors: int = 0
+    input_count: int = 0   # how many there were in total
+    output_count: int = 0
 
 
 @dataclass
@@ -49,7 +52,9 @@ class History:
     def load(self):
         try:
             data = json.loads(self.path.read_text("utf-8"))
-            self.items = [Entry(**e) for e in data.get("items", [])][:MAX_ITEMS]
+            fields = set(Entry.__dataclass_fields__)
+            self.items = [Entry(**{k: v for k, v in e.items() if k in fields}) for e in data.get("items", [])
+                          if isinstance(e, dict)][:MAX_ITEMS]
             self.stats = Stats(**data.get("stats", {}))
         except (OSError, ValueError, TypeError):
             pass
@@ -68,12 +73,15 @@ class History:
         if not outputs and not errors:
             return
         done = max(0, len(inputs) - errors)
-        self.items.insert(0, Entry(time.time(), tool, [p.name for p in inputs], [str(p) for p in outputs], errors))
+        # only the first few names are kept: a job with 2,000 photos would make the file huge
+        self.items.insert(0, Entry(time.time(), tool, [p.name for p in inputs[:KEEP]], [str(p) for p in outputs[:KEEP]],
+                                   errors, len(inputs), len(outputs)))
         del self.items[MAX_ITEMS:]
         self.stats.files += done
         self.stats.jobs += 1
         bytes_out = sum(size_of(p) for p in outputs)
-        if outputs and bytes_out < bytes_in:
+        # only files count: extracting an archive makes a folder, which isn't "space saved"
+        if outputs and all(p.is_file() for p in outputs) and bytes_out < bytes_in:
             self.stats.bytes_saved += bytes_in - bytes_out
         self.save()
 

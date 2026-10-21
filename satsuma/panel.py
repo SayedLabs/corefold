@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (QFileDialog, QFrame, QHBoxLayout, QLabel, QLayout
                                QVBoxLayout, QWidget)
 
 from .converters import CATEGORY_ICONS, CATEGORY_NAMES, pick, warm_up
-from .core import human_size, quick_size
+from .core import human_size, quick_size, short_name
 from .i18n import tr
 from .wheel import FORMAT_ACTIONS, GROUP_NAMES, GROUPS, ICONS, action_of
 
@@ -249,8 +249,9 @@ class FilePanel(QFrame):
         sizes = [quick_size(p, 0.25 / max(1, len(pk.files))) for p in pk.files]
         total = sum(b for b, _ in sizes)
         size_text = human_size(total) + ("+" if not all(done for _, done in sizes) else "")
+        self.name.setToolTip(first.name if len(pk.files) == 1 else "")
         if len(pk.files) == 1:
-            self.name.setText(first.name)
+            self.name.setText(short_name(first.name))
             if first.is_dir():
                 what = tr("Folder")
             elif first.suffix:
@@ -258,7 +259,7 @@ class FilePanel(QFrame):
             else:
                 what = tr("File")
             self.details.setText(tr("{what} · {size} · in {folder}", what=what, size=size_text,
-                                    folder=str(first.parent)))
+                                    folder=short_name(str(first.parent), 70)))
         else:
             kind_name = tr("Files and folders") if pk.kind == "files" else \
                 tr(CATEGORY_NAMES.get(pk.kind, "Images")).split(" (")[0]

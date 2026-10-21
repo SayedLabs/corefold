@@ -424,7 +424,7 @@ def pack(items: list[Path], ctx: Ctx, fmt: str | None = None) -> Result:
 
 def convert_archive(src: Path, ctx: Ctx, fmt: str) -> Result:
     """Re-packs an archive as ZIP or 7z (e.g. RAR → ZIP)."""
-    with tempfile.TemporaryDirectory(prefix="satsuma-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="satsuma-", ignore_cleanup_errors=True) as tmp:
         inner = Ctx(ctx.options, lambda f: ctx.progress(0.5 * f), ctx.cancel_event, {"password": ctx.params.get("password", "")})
         _extract_into(src, Path(tmp), inner, ctx.params.get("password", ""))
         items = sorted(Path(tmp).iterdir())

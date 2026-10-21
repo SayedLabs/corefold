@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QDialog, QDou
                                QSpinBox, QVBoxLayout)
 
 from .converters import RESIZE_PRESETS, ROTATIONS, category, load_image, media_duration, norm, video_frame
-from .core import human_size, quick_size
+from .core import human_size, quick_size, short_name
 from .i18n import tr
 from .winutil import set_title_bar_dark
 
@@ -63,7 +63,7 @@ class Base(QDialog):
 
 
 def describe(files: list[Path]) -> str:
-    return files[0].name if len(files) == 1 else tr("{count} files", count=len(files))
+    return short_name(files[0].name) if len(files) == 1 else tr("{count} files", count=len(files))
 
 
 class ResizeDialog(Base):
@@ -143,7 +143,7 @@ class TrimDialog(Base):
 
     def __init__(self, files, icon, dark):
         src = files[0]
-        super().__init__(tr("Trim"), src.name, icon, dark)
+        super().__init__(tr("Trim"), short_name(src.name), icon, dark)
         self.src = src
         self.video = category(src) == "video"
         self.duration = max(0.1, media_duration(src))
@@ -501,7 +501,8 @@ class FramesDialog(Base):
     def __init__(self, files, icon, dark):
         dur = media_duration(files[0])
         super().__init__(tr("Save pictures from the video"),
-                         tr("{name} · {length} long", name=files[0].name, length=fmt_time(dur)), icon, dark)
+                         tr("{name} · {length} long", name=short_name(files[0].name), length=fmt_time(dur)), icon,
+                         dark)
         self.group = QButtonGroup(self)
         self.every = QRadioButton(tr("One picture every"))
         self.every.setChecked(True)
@@ -643,7 +644,8 @@ class PackDialog(Base):
 
 class PasswordDialog(Base):
     def __init__(self, files, icon, dark, wrong: bool = False):
-        super().__init__(tr("Password needed"), tr("{name} is protected with a password.", name=files[0].name),
+        super().__init__(tr("Password needed"), tr("{name} is protected with a password.",
+                                                   name=short_name(files[0].name)),
                          icon, dark)
         if wrong:
             w = QLabel(tr("That password didn't work. Try again."))

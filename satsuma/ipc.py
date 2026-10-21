@@ -70,6 +70,13 @@ def send(message: bytes, wait_s: float = 4.0) -> bool:
         else:
             time.sleep(0.05)
     try:
+        # This helper was started by a click in Explorer, so Windows lets it bring windows to the
+        # front. Pass that on: otherwise Satsuma's window (e.g. "Resize…") could open behind
+        # Explorer, only blinking in the taskbar.
+        try:
+            ctypes.windll.user32.AllowSetForegroundWindow(-1)  # ASFW_ANY
+        except Exception:
+            pass
         written = wt.DWORD(0)
         view = 0
         while view < len(message):

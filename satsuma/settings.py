@@ -97,6 +97,9 @@ class Settings:
     hidden_tools: list = field(default_factory=list)
     favorites: list = field(default_factory=list)
     tool_order: dict = field(default_factory=dict)  # kind -> [tool keys] in the user's order
+    # the window
+    window_geometry: str = ""      # where it was and how big (Qt's saveGeometry, base64)
+    last_page: str = "Home"
 
     @classmethod
     def load(cls) -> "Settings":
