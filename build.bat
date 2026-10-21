@@ -9,7 +9,7 @@ echo.
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\build.ps1" -Version %VER%
 if errorlevel 1 (
   echo.
-  echo The build stopped because of an error. Take a screenshot of this window and send it to Claude.
+  echo The build stopped because of an error. Take a screenshot of this window and ask for help.
   pause
   exit /b 1
 )
