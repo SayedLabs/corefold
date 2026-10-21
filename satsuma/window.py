@@ -7,9 +7,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QDateTime, QLocale, Qt, QUrl, Signal
-from PySide6.QtGui import QColor, QDesktopServices, QIcon
+from PySide6.QtGui import QColor, QDesktopServices, QGuiApplication, QIcon
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QColorDialog, QComboBox, QFileDialog, QFrame,
-                               QGridLayout, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QMessageBox, QPushButton,
+                               QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox,
+                               QPushButton,
                                QScrollArea, QSlider, QSpinBox, QStackedWidget, QSystemTrayIcon, QVBoxLayout,
                                QWidget)
 
@@ -200,7 +201,9 @@ class MainWindow(QWidget):
         self.setWindowTitle(APP_NAME)
         self.setWindowIcon(icon)
         self.resize(960, 660)
-        self.setMinimumSize(860, 560)
+        self.setMinimumSize(720, 460)  # fits small laptop screens with big text (150%)
+        self.setAcceptDrops(True)      # files can be dropped anywhere on the window
+        self._placed = False
 
         sidebar = QWidget()
         sidebar.setObjectName("sidebar")
@@ -228,7 +231,8 @@ class MainWindow(QWidget):
                       self._about):
             self.stack.addWidget(build())
         self.nav.currentRowChanged.connect(self._page_changed)
-        self.nav.setCurrentRow(0)
+        last = self.c.settings.last_page
+        self.nav.setCurrentRow(PAGES.index(last) if last in PAGES else 0)
 
         footer = QHBoxLayout()
         footer.addWidget(label(tr("Changes are saved automatically."), "muted"))
@@ -333,6 +337,7 @@ class MainWindow(QWidget):
         self.folder_label = label("", "muted")
         self.folder_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         fr.addWidget(self.folder_label, 1)
+        fr.addWidget(button(tr("Open"), on_click=self._open_output_folder))
         fr.addWidget(button(tr("Change…"), on_click=self._pick_folder))
 
         self.quality = QSpinBox()
@@ -517,7 +522,13 @@ class MainWindow(QWidget):
                                         "and ▲ ▼ change the order. The right-click menu follows these choices too."))
         self.tool_checks: dict[str, QCheckBox] = {}
         self.tool_stars: dict[str, QPushButton] = {}
+        self.tool_rows: dict[str, list] = {}
         self.format_grids: dict[str, QGridLayout] = {}
+        self.format_search = QLineEdit()
+        self.format_search.setPlaceholderText(tr("Search options (e.g. PNG, resize, ZIP)"))
+        self.format_search.setClearButtonEnabled(True)
+        self.format_search.textChanged.connect(self._filter_formats)
+        lay.addWidget(self.format_search)
         for kind in catalog():
             lay.addWidget(label(tr(CATEGORY_NAMES[kind]), "h2"))
             box, _ = card()
@@ -557,7 +568,16 @@ class MainWindow(QWidget):
         sl.addWidget(self.stat_since)
         lay.addWidget(stats)
 
-        lay.addWidget(label(tr("Recent conversions"), "h2"))
+        head = QHBoxLayout()
+        head.addWidget(label(tr("Recent conversions"), "h2"))
+        head.addStretch()
+        self.history_search = QLineEdit()
+        self.history_search.setPlaceholderText(tr("Search"))
+        self.history_search.setClearButtonEnabled(True)
+        self.history_search.setMaximumWidth(240)
+        self.history_search.textChanged.connect(self._filter_history)
+        head.addWidget(self.history_search)
+        lay.addLayout(head)
         self.history_list = QListWidget()
         self.history_list.setObjectName("history")
         self.history_list.setMinimumHeight(220)
@@ -711,11 +731,13 @@ class MainWindow(QWidget):
         self.stat_since.setText(tr("Since {date}", date=date_text(st.since, long=True)))
         self.history_list.clear()
         for e in self.c.history.items:
-            what = e.inputs[0] if len(e.inputs) == 1 else tr("{count} files", count=len(e.inputs))
-            if len(e.outputs) == 1:
+            n_in = max(e.input_count, len(e.inputs))
+            n_out = max(e.output_count, len(e.outputs))
+            what = e.inputs[0] if n_in == 1 and e.inputs else tr("{count} files", count=n_in)
+            if n_out == 1 and e.outputs:
                 result = Path(e.outputs[0]).name
-            elif e.outputs:
-                result = tr("{count} new files", count=len(e.outputs))
+            elif n_out:
+                result = tr("{count} new files", count=n_out)
             else:
                 result = tr("no new file")
             warn = "  ·  " + tr("{count} failed", count=e.errors) if e.errors else ""
@@ -726,6 +748,7 @@ class MainWindow(QWidget):
         empty = not self.c.history.items
         self.history_list.setVisible(not empty)
         self.history_empty.setVisible(empty)
+        self._filter_history()
         self._history_buttons()
         self.refresh()
 
@@ -748,13 +771,32 @@ class MainWindow(QWidget):
         if files:
             reveal_in_explorer(files[0])
 
+    def _filter_history(self, *_):
+        text = self.history_search.text().strip().lower()
+        for i in range(self.history_list.count()):
+            item = self.history_list.item(i)
+            item.setHidden(bool(text) and text not in item.text().lower())
+
+    def _confirm(self, title: str, text: str, yes: str) -> bool:
+        box = QMessageBox(QMessageBox.Question, title, text, parent=self)
+        ok = box.addButton(yes, QMessageBox.DestructiveRole)
+        box.addButton(tr("Cancel"), QMessageBox.RejectRole)
+        box.exec()
+        chosen = box.clickedButton() is ok
+        box.deleteLater()
+        return chosen
+
     def _history_clear(self):
-        self.c.history.clear()
-        self.refresh_history()
+        if self._confirm(tr("Clear history"), tr("Remove the list of recent conversions? Your files aren't touched."),
+                         tr("Clear history")):
+            self.c.history.clear()
+            self.refresh_history()
 
     def _stats_reset(self):
-        self.c.history.reset_stats()
-        self.refresh_history()
+        if self._confirm(tr("Reset stats"), tr("Start counting files converted and space saved from zero?"),
+                         tr("Reset stats")):
+            self.c.history.reset_stats()
+            self.refresh_history()
 
     def _language_changed(self, *_):
         choice = self.language.currentData()
@@ -814,6 +856,14 @@ class MainWindow(QWidget):
         self.c.settings.volume = v
         self.volume_label.setText(f"{v}%")
         self.c.settings_changed()
+
+    def _open_output_folder(self):
+        folder = Path(self.c.settings.output_folder)
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder)))
 
     def _pick_folder(self):
         d = QFileDialog.getExistingDirectory(self, tr("Save converted files in"), self.c.settings.output_folder)
@@ -888,11 +938,24 @@ class MainWindow(QWidget):
             down.setToolTip(tr("Move later on the wheel"))
             self.tool_checks[t.key] = cb
             self.tool_stars[t.key] = star
+            self.tool_rows[t.key] = [star, cb, up, down]
             grid.addWidget(star, i, 0)
             grid.addWidget(cb, i, 1)
             grid.addWidget(up, i, 2)
             grid.addWidget(down, i, 3)
         grid.setColumnStretch(1, 1)
+        if self.format_search.text():
+            self._filter_formats(self.format_search.text())
+
+    def _filter_formats(self, text: str):
+        text = text.strip().lower()
+        for key, widgets in self.tool_rows.items():
+            try:
+                show = not text or text in widgets[1].text().lower() or text in key.lower()
+                for w in widgets:
+                    w.setVisible(show)
+            except RuntimeError:
+                pass  # a row that was just rebuilt
 
     def _move_tool(self, kind: str, key: str, step: int):
         keys = [t.key for t in self.ordered_tools(kind)]
@@ -994,10 +1057,56 @@ class MainWindow(QWidget):
             self.nav.setCurrentRow(PAGES.index(name))
 
     def showEvent(self, e):
+        if not self._placed:
+            self._placed = True
+            self._restore_place()
         super().showEvent(e)
         set_title_bar_dark(self, self.c.theme.dark)
 
+    def _restore_place(self):
+        """Opens where it was last time (moved back onto the screen if that screen is gone), or
+        at a size that fits the screen."""
+        from PySide6.QtCore import QByteArray
+        saved = self.c.settings.window_geometry
+        if saved:
+            try:
+                if self.restoreGeometry(QByteArray.fromBase64(saved.encode("ascii"))):
+                    return
+            except Exception:
+                pass
+        screen = QGuiApplication.primaryScreen()
+        if screen is not None:
+            g = screen.availableGeometry()
+            w, h = min(960, g.width() - 40), min(660, g.height() - 40)
+            self.resize(max(w, self.minimumWidth()), max(h, self.minimumHeight()))
+            self.move(g.left() + (g.width() - self.width()) // 2, g.top() + (g.height() - self.height()) // 2)
+
+    def _remember_place(self):
+        try:
+            self.c.settings.window_geometry = bytes(self.saveGeometry().toBase64()).decode("ascii")
+            self.c.settings.last_page = PAGES[self.nav.currentRow()] if self.nav.currentRow() >= 0 else "Home"
+            self.c.settings_changed()
+        except Exception:
+            pass
+
+    # ---- drop files anywhere on the window
+
+    def dragEnterEvent(self, e):
+        if any(u.isLocalFile() for u in e.mimeData().urls()):
+            e.acceptProposedAction()
+
+    def dropEvent(self, e):
+        paths = [Path(u.toLocalFile()) for u in e.mimeData().urls() if u.isLocalFile()]
+        paths = [p for p in paths if p.exists()]
+        if paths:
+            e.acceptProposedAction()
+            self.show_files(paths)
+
     def closeEvent(self, e):
+        if self.c.session_ending:  # Windows is shutting down: never hold it up
+            e.accept()
+            return
+        self._remember_place()
         e.ignore()
         self.hide()
         self.c.window_closed()

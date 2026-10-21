@@ -154,6 +154,15 @@ def quick_size(path: Path, budget_s: float = 0.25) -> tuple[int, bool]:
     return total, True
 
 
+def short_name(name: str, limit: int = 46) -> str:
+    """A very long file name shortened in the middle ("my holiday vide…final.mp4"), so it can't
+    stretch a window or popup off the screen."""
+    if len(name) <= limit:
+        return name
+    keep = limit - 1
+    return name[: keep - keep // 3] + "…" + name[-(keep // 3):]
+
+
 def human_size(n: float) -> str:
     for unit in ("bytes", "KB", "MB", "GB"):
         if n < 1024 or unit == "GB":
@@ -187,7 +196,7 @@ class Ctx:
         """Base name for a new file: the original name, or the user's new name (+ number)."""
         base = safe_name(self.options.rename_base)
         if not base:
-            return src.stem if src.is_file() or src.suffix else src.name
+            return src.name if src.is_dir() else src.stem  # a folder called "v1.2" keeps its whole name
         if self.index is None or self.total <= 1:
             return base
         return f"{base}-{self.options.rename_start + self.index}"

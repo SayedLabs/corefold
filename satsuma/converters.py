@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -24,7 +25,7 @@ from .i18n import tr
 from .core import (ALIASES, ALL_EXT, ARCHIVE_EXT, AUDIO_EXT, DOCUMENT_EXT, EXCEL_EXT, IMAGE_EXT,  # noqa: F401
                    NO_WINDOW, SLIDES_EXT, job_flags, TAR_SUFFIXES, VIDEO_EXT, WORD_EXT, Cancelled, Ctx, Options, Result,
                    Tool, _cached, app_dir, bundled, is_cached, category, fallback_folder, human_size, norm, os_open,
-                   safe_name, unique_path, writable)
+                   safe_name, short_name, unique_path, writable)
 
 log = logging.getLogger("satsuma")
 
@@ -59,13 +60,19 @@ def load_image(src: Path):
     return out
 
 
-def _metadata(im, ext: str) -> dict:
+def _metadata(im, ext: str, final_mode: str) -> dict:
     """Colour profile and photo details (date taken, camera) to keep in the new file. Without the
-    colour profile, iPhone photos (Display P3) look dull after converting."""
+    colour profile, iPhone photos (Display P3) look dull after converting.
+    The profile is only kept when it still matches the picture: a print (CMYK) or greyscale
+    profile on a colour picture would make the colours come out wrong."""
     keep = {}
     icc = im.info.get("icc_profile")
-    if icc and ext in (".jpg", ".png", ".webp", ".tiff"):
-        keep["icc_profile"] = icc
+    if icc and ext in (".jpg", ".png", ".webp", ".tiff") and len(icc) > 20:
+        space = bytes(icc[16:20])
+        fits = (space == b"RGB " and final_mode in ("RGB", "RGBA", "P")) or \
+            (space == b"GRAY" and final_mode in ("L", "LA"))
+        if fits:
+            keep["icc_profile"] = icc
     exif = im.info.get("exif")
     if isinstance(exif, (bytes, bytearray)) and exif and len(exif) < 60_000 and ext in (".jpg", ".png", ".webp"):
         keep["exif"] = bytes(exif)
@@ -95,11 +102,14 @@ def rgb_or_rgba(im):
 
 def save_image(im, out: Path, ext: str, ctx: Ctx, keep_metadata: bool = True):
     from PIL import Image
-    meta = _metadata(im, ext) if keep_metadata else {}
+    original = im
     if ext in (".jpg", ".bmp"):
         im = flatten(im)
     else:
         im = rgb_or_rgba(im)
+    meta = _metadata(original, ext, im.mode) if keep_metadata else {}
+    if "icc_profile" in im.info and "icc_profile" not in meta:
+        im.info = {k: v for k, v in im.info.items() if k != "icc_profile"}  # Pillow would copy it anyway
     if ext == ".jpg":
         im.save(out, quality=ctx.options.jpg_quality, optimize=True, progressive=True, **meta)
     elif ext == ".webp":
@@ -151,6 +161,20 @@ def write_pages_pdf(pages, out: Path, resolution: int):
             tmp.unlink(missing_ok=True)
 
 
+def _all_pages(f: Path):
+    from PIL import Image, ImageSequence
+    if norm(f.suffix) == ".tiff":
+        try:
+            with Image.open(f) as im:
+                if getattr(im, "n_frames", 1) > 1:
+                    for page in ImageSequence.Iterator(im):
+                        yield flatten(page.copy())
+                    return
+        except OSError:
+            pass
+    yield flatten(load_image(f))
+
+
 def images_to_pdf(files: list[Path], ctx: Ctx) -> Result:
     if ctx.options.rename_base:
         name = safe_name(ctx.options.rename_base)
@@ -161,7 +185,7 @@ def images_to_pdf(files: list[Path], ctx: Ctx) -> Result:
     def pages():
         for i, f in enumerate(files):
             ctx.check()
-            yield flatten(load_image(f))
+            yield from _all_pages(f)  # a multi-page TIFF (scans, faxes) gives all its pages
             ctx.progress((i + 1) / (len(files) + 1))
     write_pages_pdf(pages(), out, 150)
     return Result([out])
@@ -188,34 +212,74 @@ RESIZE_PRESETS = {  # key: (label, kind, value)
 }
 
 
+def is_animated(src: Path) -> bool:
+    """An animated GIF or WebP (more than one frame)."""
+    if norm(src.suffix) not in (".gif", ".webp"):
+        return False
+
+    def work():
+        try:
+            from PIL import Image
+            with Image.open(src) as im:
+                return bool(getattr(im, "is_animated", False))
+        except Exception:
+            return False
+    return _cached("animated", src, work)
+
+
+def save_animated(src: Path, out: Path, change):
+    """Applies change(frame) to every frame of an animated GIF/WebP and saves it still animated
+    (before, resizing or rotating one turned it into a still picture)."""
+    from PIL import Image, ImageSequence
+    frames, durations = [], []
+    with Image.open(src) as im:
+        loop = im.info.get("loop", 0)
+        for frame in ImageSequence.Iterator(im):
+            durations.append(frame.info.get("duration") or im.info.get("duration") or 100)
+            frames.append(change(frame.convert("RGBA")))
+    if out.suffix.lower() == ".gif":
+        frames[0].save(out, "GIF", save_all=True, append_images=frames[1:], duration=durations, loop=loop,
+                       disposal=2, optimize=False)
+    else:
+        frames[0].save(out, "WEBP", save_all=True, append_images=frames[1:], duration=durations, loop=loop,
+                       quality=90)
+    for f in frames:
+        f.close()
+
+
 def resize_image(src: Path, ctx: Ctx) -> Result:
     from PIL import Image, ImageOps
     p = ctx.params
     preset = p.get("preset", "50")
     im = load_image(src)
     w, h = im.size
+    square = 0
     if preset == "custom":
         new_w = max(1, int(p.get("width", 1000)))
         size = (new_w, max(1, round(h * new_w / w)))
         tag = f"{size[0]}x{size[1]}"
-        im = im.resize(size, Image.LANCZOS)
     else:
         _, kind, value = RESIZE_PRESETS[preset]
         if kind == "scale":
             size = (max(1, round(w * value)), max(1, round(h * value)))
-            im = im.resize(size, Image.LANCZOS)
             tag = f"{int(value * 100)}%"
         elif kind == "fit":
             scale = min(1.0, value / max(w, h))  # never blow small images up
             size = (max(1, round(w * scale)), max(1, round(h * scale)))
-            im = im.resize(size, Image.LANCZOS)
             tag = f"{size[0]}x{size[1]}"
         else:
-            im = ImageOps.fit(rgb_or_rgba(im), (value, value), Image.LANCZOS)
-            tag = "square"
+            square, size, tag = value, (value, value), "square"
+
+    def change(frame):
+        if square:
+            return ImageOps.fit(rgb_or_rgba(frame), (square, square), Image.LANCZOS)
+        return frame.resize(size, Image.LANCZOS)
     ext = keep_format(src)
     out = ctx.out_path(src, f"{ctx.stem(src)} ({tag}){ext}")
-    save_image(im, out, ext, ctx)
+    if is_animated(src):
+        save_animated(src, out, change)
+    else:
+        save_image(change(im), out, ext, ctx)
     return Result([out])
 
 
@@ -234,10 +298,12 @@ def rotate_image(src: Path, ctx: Ctx) -> Result:
     ops = {"right": Image.Transpose.ROTATE_270, "left": Image.Transpose.ROTATE_90,
            "180": Image.Transpose.ROTATE_180, "hflip": Image.Transpose.FLIP_LEFT_RIGHT,
            "vflip": Image.Transpose.FLIP_TOP_BOTTOM}
-    im = load_image(src).transpose(ops[how])
     ext = keep_format(src)
     out = ctx.out_path(src, f"{ctx.stem(src)} ({ROTATIONS[how][1]}){ext}")
-    save_image(im, out, ext, ctx)
+    if is_animated(src):
+        save_animated(src, out, lambda frame: frame.transpose(ops[how]))
+    else:
+        save_image(load_image(src).transpose(ops[how]), out, ext, ctx)
     return Result([out])
 
 
@@ -320,6 +386,11 @@ def release_memory():
     clear_cache()
     import gc
     gc.collect()
+
+
+def check_still(files: list[Path]) -> str | None:
+    """Fit size makes still pictures; it would quietly drop the animation of a GIF."""
+    return tr("Animated pictures can't be made smaller yet") if any(is_animated(f) for f in files[:50]) else None
 
 
 def check_bg_model(files: list[Path]) -> str | None:
@@ -408,10 +479,21 @@ def run_ffmpeg(src: Path, out: Path, args: list[str], ctx: Ctx, pre: list[str] |
             lines = [ln for ln in err.read().strip().splitlines() if ln.strip()]
             log.error("ffmpeg failed for %s: %s", src, "\n".join(lines[-10:]))
             text = "\n".join(lines)
+            damaged = tr("the file is damaged or isn't really an audio or video file")
+            if src.exists() and media_duration(src) <= 0:
+                raise RuntimeError(damaged)
             if "does not contain any stream" in text or "matches no streams" in text:
                 raise RuntimeError(tr("this file has no audio track") if "-vn" in args
                                    else tr("nothing to convert in this file"))
-            raise RuntimeError(lines[-1] if lines else tr("FFmpeg could not convert this file"))
+            if any(s in text for s in DAMAGED_MEDIA):
+                raise RuntimeError(damaged)
+            # FFmpeg's own wording, without its technical "[mp4 @ 0x1234]" prefix
+            last = re.sub(r"^(\[[^\]]*\]\s*)+", "", lines[-1]).strip() if lines else ""
+            raise RuntimeError(last or tr("FFmpeg could not convert this file"))
+
+
+DAMAGED_MEDIA = ("Invalid data found when processing input", "Error opening input", "End of file",
+                 "moov atom not found", "Nothing was written into output file", "could not find codec parameters")
 
 
 def ffmpeg_convert(src: Path, ctx: Ctx, ext: str, args: list[str], suffix: str = "") -> Result:
@@ -718,18 +800,52 @@ def document_to_pdf(src: Path, ctx: Ctx) -> Result:
     soffice = find_libreoffice()
     if not soffice:
         raise RuntimeError(tr("needs Microsoft Office or LibreOffice"))
-    with tempfile.TemporaryDirectory() as tmp:
+    with tempfile.TemporaryDirectory(prefix="satsuma-", ignore_cleanup_errors=True) as tmp:
         # its own profile: otherwise LibreOffice quietly does nothing while it's open on the PC
         profile = (Path(tmp) / "profile").as_uri()
-        proc = subprocess.run([soffice, f"-env:UserInstallation={profile}", "--headless", "--norestore",
-                               "--convert-to", "pdf", "--outdir", tmp, str(src)], capture_output=True, text=True,
-                              timeout=600, stdin=subprocess.DEVNULL, creationflags=job_flags())
+        code, err = _run_stoppable([soffice, f"-env:UserInstallation={profile}", "--headless", "--norestore",
+                                    "--convert-to", "pdf", "--outdir", tmp, str(src)], ctx, timeout=600)
         made = Path(tmp) / (src.stem + ".pdf")
-        if proc.returncode or not made.exists():
-            log.error("libreoffice export failed: %s", proc.stderr[-2000:])
+        if code or not made.exists():
+            log.error("libreoffice export failed: %s", err[-2000:])
             raise RuntimeError(tr("LibreOffice couldn't turn this file into a PDF"))
         shutil.move(str(made), out)
     return Result([out])
+
+
+def _run_stoppable(cmd: list[str], ctx: Ctx, timeout: float) -> tuple[int, str]:
+    """Runs a program that gives no progress, but can still be stopped with Cancel (the whole
+    process tree, since LibreOffice starts a second program)."""
+    import time
+    with tempfile.TemporaryFile() as err:
+        proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=err, stdin=subprocess.DEVNULL,
+                                creationflags=job_flags())
+        deadline = time.monotonic() + timeout
+        try:
+            while proc.poll() is None:
+                if ctx.cancelled or time.monotonic() > deadline:
+                    _kill_tree(proc)
+                    if ctx.cancelled:
+                        raise Cancelled()
+                    raise RuntimeError(tr("took too long and was stopped"))
+                time.sleep(0.2)
+        finally:
+            if proc.poll() is None:
+                _kill_tree(proc)
+        err.seek(0)
+        return proc.returncode, err.read().decode("utf-8", "replace")
+
+
+def _kill_tree(proc):
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], capture_output=True,
+                       stdin=subprocess.DEVNULL, creationflags=NO_WINDOW)
+    else:
+        proc.kill()
+    try:
+        proc.wait(5)
+    except subprocess.TimeoutExpired:
+        pass
 
 
 def check_office(files: list[Path]) -> str | None:
@@ -792,7 +908,8 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
                    batch=True),
               Tool("image:resize", tr("Resize"), tr("Make it bigger or smaller"), resize_image, ask="resize"),
               Tool("image:rotate", tr("Rotate"), tr("Rotate or flip"), rotate_image, ask="rotate"),
-              Tool("image:fit", tr("Fit size"), tr("Make it fit a size limit (Discord, email…)"), ex.fit, ask="fit"),
+              Tool("image:fit", tr("Fit size"), tr("Make it fit a size limit (Discord, email…)"), ex.fit, ask="fit",
+                   check=check_still),
               Tool("image:cutout", tr("Cut out"), tr("Remove the background"), remove_background,
                    check=check_bg_model, static_check=True),
               Tool("image:ocr", tr("Copy text"), tr("Copy the text in the picture"), ex.read_text, check=ex.check_ocr,
@@ -968,6 +1085,8 @@ def friendly_error(e: Exception) -> str:
         return tr("the archive is damaged or isn't a real archive")
     if name == "UnidentifiedImageError":
         return tr("not a readable image")
+    if name in ("PdfReadError", "PdfStreamError", "EmptyFileError", "PdfiumError", "FileTruncatedError"):
+        return tr("the PDF is damaged or isn't a real PDF")
     if isinstance(e, PermissionError):
         return tr("permission denied (is the file open in another app?)")
     if isinstance(e, FileNotFoundError):
@@ -980,8 +1099,10 @@ def friendly_error(e: Exception) -> str:
 def run_job(tool: Tool, files: list[Path], options: Options,
             progress: Callable[[float], None] | None = None,
             cancel: threading.Event | None = None,
-            params: dict | None = None) -> tuple[Result, list[str]]:
-    """Run a tool over the files. Returns the combined result and a list of per-file errors."""
+            params: dict | None = None,
+            on_item: Callable[[int, int, str], None] | None = None) -> tuple[Result, list[str]]:
+    """Run a tool over the files. Returns the combined result and a list of per-file errors.
+    on_item(number, total, name) is told which file is being worked on (for "3 of 12")."""
     progress = progress or (lambda f: None)
     cancel = cancel or threading.Event()
     total, errors = Result(), []
@@ -992,6 +1113,8 @@ def run_job(tool: Tool, files: list[Path], options: Options,
             break
         ctx = Ctx(options, lambda f, i=i: progress((i + f) / n), cancel, params,
                   index=None if tool.batch else i, total=n)
+        if on_item and n > 1:
+            on_item(i + 1, n, item.name)
         try:
             r = tool.run(item, ctx)
             total.outputs += r.outputs
@@ -1000,7 +1123,10 @@ def run_job(tool: Tool, files: list[Path], options: Options,
         except Cancelled:
             break
         except Exception as e:  # keep going with the remaining files
-            name = item.name if isinstance(item, Path) else tr("{count} files", count=len(item))
+            if isinstance(item, Path):
+                name = short_name(item.name)
+            else:
+                name = short_name(item[0].name) if len(item) == 1 else tr("{count} files", count=len(item))
             if type(e).__name__ == "NeedPassword":
                 total.locked.append(item)  # the app asks for the password and tries just these again
                 log.info("%s needs a password: %s", tool.label, name)

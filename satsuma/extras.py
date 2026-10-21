@@ -15,9 +15,9 @@ import tempfile
 from functools import lru_cache
 from pathlib import Path
 
-from .converters import (AUDIO_ARGS, Ctx, Result, category, flatten, has_alpha, keep_format,
+from .converters import (AUDIO_ARGS, Ctx, Result, category, flatten, has_alpha, is_animated, keep_format,
                          load_image, media_duration, probe, rgb_or_rgba, run_ffmpeg, save_image,
-                         write_compressed_pdf, write_pages_pdf)
+                         save_animated, write_compressed_pdf, write_pages_pdf)
 from .core import human_size, safe_name
 from .i18n import tr
 
@@ -84,7 +84,7 @@ def _fit_video(src: Path, ctx: Ctx, mb: float, target: int) -> Result:
     if vbr < 600_000:
         vf += ",fps=24"
     out = ctx.out_path(src, f"{ctx.stem(src)} ({size_tag(mb)}).mp4")
-    with tempfile.TemporaryDirectory(prefix="satsuma-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="satsuma-", ignore_cleanup_errors=True) as tmp:
         log_base = str(Path(tmp) / "pass")
         common = ["-vf", vf, "-c:v", "libx264", "-preset", "medium", "-pix_fmt", "yuv420p"]
         run_ffmpeg(src, Path(os.devnull), common + ["-b:v", str(int(vbr)), "-pass", "1", "-passlogfile", log_base,
@@ -233,7 +233,7 @@ def read_text(src: Path, ctx: Ctx) -> Result:
     if max(im.size) > limit:
         im.thumbnail((limit, limit), Image.LANCZOS)
     ctx.progress(0.2)
-    with tempfile.TemporaryDirectory(prefix="satsuma-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="satsuma-", ignore_cleanup_errors=True) as tmp:
         png = Path(tmp) / "page.png"
         im.save(png)
         text = asyncio.run(_windows_ocr(str(png.resolve())))
@@ -365,10 +365,15 @@ def make_overlay(w: int, h: int, params: dict):
 
 
 def watermark_image(src: Path, ctx: Ctx) -> Result:
+    from PIL import Image
     im = rgb_or_rgba(load_image(src)).convert("RGBA")
-    im.alpha_composite(make_overlay(im.width, im.height, ctx.params))
+    overlay = make_overlay(im.width, im.height, ctx.params)
     ext = keep_format(src)
     out = ctx.out_path(src, f"{ctx.stem(src)} (watermarked){ext}")
+    if is_animated(src):
+        save_animated(src, out, lambda frame: Image.alpha_composite(frame, overlay))
+        return Result([out])
+    im.alpha_composite(overlay)
     save_image(im if ext in (".png", ".webp", ".tiff", ".gif") else im.convert("RGB"), out, ext, ctx)
     return Result([out])
 
@@ -379,7 +384,7 @@ def watermark_video(src: Path, ctx: Ctx) -> Result:
     if not (w and h):
         raise RuntimeError(tr("couldn't read the size of this video"))
     out = ctx.out_path(src, f"{ctx.stem(src)} (watermarked).mp4")
-    with tempfile.TemporaryDirectory(prefix="satsuma-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="satsuma-", ignore_cleanup_errors=True) as tmp:
         png = Path(tmp) / "mark.png"
         make_overlay(w, h, ctx.params).save(png)
         args = ["-i", str(png), "-filter_complex",
@@ -426,7 +431,7 @@ def images_to_video(files: list[Path], ctx: Ctx) -> Result:
     w, h = max(2, int(first.width * scale) // 2 * 2), max(2, int(first.height * scale) // 2 * 2)
     name = safe_name(ctx.options.rename_base) or f"{files[0].stem} slideshow"
     out = ctx.out_path(files[0], f"{name}.mp4")
-    with tempfile.TemporaryDirectory(prefix="satsuma-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="satsuma-", ignore_cleanup_errors=True) as tmp:
         for i, f in enumerate(files):
             ctx.check()
             im = flatten(load_image(f))

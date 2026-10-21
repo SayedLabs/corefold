@@ -29,7 +29,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon
 
 from . import UPDATE_REPO, __version__, archives, dialogs, i18n, ipc, shellmenu, sounds, updater, winutil
 from .converters import PASSWORD_ERROR, Options, Result, Tool, pick, release_memory, run_job, warm_up
-from .core import category, lower_this_thread, norm, os_open, set_background_priority
+from .core import category, human_size, lower_this_thread, norm, os_open, set_background_priority, short_name
 from .history import History, size_of
 from .i18n import tr
 from .settings import (APP_NAME, LOG_DIR, Settings, app_command, app_icon, installed_uninstaller,
@@ -61,6 +61,7 @@ def resource(*parts: str) -> Path:
 
 class JobSignals(QObject):
     started = Signal(int)
+    item = Signal(int, int, int, str)  # job id, file number, how many, name
     progress = Signal(int, float)
     finished = Signal(int, object, list, bool)  # job id, Result, errors, cancelled
 
@@ -86,7 +87,7 @@ class Job(QRunnable):
             return
         try:
             result, errors = run_job(self.tool, self.files, self.options, self._progress, self.cancel,
-                                     self.params)
+                                     self.params, lambda i, n, name: self.signals.item.emit(self.job_id, i, n, name))
         except Exception as e:
             log.exception("job crashed")
             result, errors = Result(), [str(e)]
@@ -206,6 +207,7 @@ class Controller(QObject):
         app.setStyleSheet(stylesheet(self.theme))
         self._window = None
         self.told_about_tray = False
+        self.session_ending = False
 
         self.pool = QThreadPool(self)
         self.quick_pool = QThreadPool(self)  # opening one file from an archive never waits in line
@@ -232,6 +234,7 @@ class Controller(QObject):
         self.signals = JobSignals()
         self.toast = Toast(icon)
         self.signals.started.connect(self._job_started)
+        self.signals.item.connect(self._job_item)
         self.signals.progress.connect(self.toast.set_progress)
         self.signals.finished.connect(self.job_done)
         self.toast.cancel_requested.connect(self.cancel_job)
@@ -248,6 +251,8 @@ class Controller(QObject):
         menu.addAction(tr("Open Satsuma"), self.show_window)
         menu.addAction(tr("Settings"), lambda: self.show_window("General"))
         menu.addAction(tr("Convert what's copied"), self.paste)
+        self.recent_menu = menu.addMenu(tr("Recent files"))
+        self.recent_menu.aboutToShow.connect(self._fill_recent)
         self.act_pause = menu.addAction(tr("Pause"))
         self.act_pause.setCheckable(True)
         self.act_pause.setChecked(not self.settings.enabled)
@@ -352,6 +357,22 @@ class Controller(QObject):
     def _tray_clicked(self, reason):
         if reason in (QSystemTrayIcon.Trigger, QSystemTrayIcon.DoubleClick):
             self.show_window()
+
+    def _fill_recent(self):
+        """The tray's "Recent files": the last few files Satsuma made; click one to see it."""
+        self.recent_menu.clear()
+        shown = 0
+        for entry in self.history.items:
+            for out in entry.outputs[:3]:
+                p = Path(out)
+                if shown >= 8:
+                    break
+                if p.exists():
+                    self.recent_menu.addAction(short_name(p.name, 40), lambda p=p: winutil.reveal_in_explorer(p))
+                    shown += 1
+        if not shown:
+            act = self.recent_menu.addAction(tr("Nothing yet"))
+            act.setEnabled(False)
 
     def _update_tooltip(self):
         busy = len(self.cancels)
@@ -486,7 +507,7 @@ class Controller(QObject):
             return
         from .converters import catalog
         tool = next(t for t in catalog()["image"] if t.key == "image:jpg")
-        self.toast.notify(tr("{name} downloaded", name=path.name),
+        self.toast.notify(tr("{name} downloaded", name=short_name(path.name, 34)),
                           tr("Many apps can't open this kind of picture. Make a JPG copy?"),
                           tr("Convert to JPG"), lambda: self.start_job(tool, [path]), 12000)
 
@@ -532,7 +553,7 @@ class Controller(QObject):
                 self.open_browser(src, new)
             return
         if error is not None:
-            self.tell(tr("Couldn't open the archive"), f"{src.name}: {error}")
+            self.tell(tr("Couldn't open the archive"), f"{short_name(src.name)}: {error}")
             return
         if not password and any(e.encrypted for e in entries):
             password = self.ask_password([src])
@@ -793,7 +814,7 @@ class Controller(QObject):
         waiting = not quick and any(not j["quick"] for j in self.jobs.values()) and self.settings.one_at_a_time
         self.cancels[job_id] = cancel
         params = params or {}
-        what = files[0].name if len(files) == 1 else tr("{count} items", count=len(files))
+        what = short_name(files[0].name) if len(files) == 1 else tr("{count} items", count=len(files))
         self.jobs[job_id] = {"tool": tool, "files": files, "bytes_in": sum(size_of(f) for f in files),
                              "params": params, "rename": rename or {}, "after": after, "quick": quick,
                              "what": what, "carry": carry or {"outputs": [], "errors": []}}
@@ -811,6 +832,10 @@ class Controller(QObject):
         job = self.jobs.get(job_id)
         if job:
             self.toast.set_detail(job_id, job["what"])
+
+    def _job_item(self, job_id: int, number: int, total: int, name: str):
+        self.toast.set_detail(job_id, tr("{number} of {total} · {name}", number=number, total=total,
+                                         name=short_name(name)))
 
     def cancel_job(self, job_id: int):
         if job_id == UPDATE_JOB_ID:
@@ -887,15 +912,21 @@ class Controller(QObject):
             title, detail, linger = tr("Done"), result.note, 5000
         elif result.outputs:
             title = tr("Done")
-            detail = tr("Saved {name}", name=first.name) if len(result.outputs) == 1 else \
-                tr("Saved {count} items", count=len(result.outputs))
+            if len(result.outputs) == 1:
+                detail = tr("Saved {name}", name=short_name(first.name))
+                after_size = size_of(first)
+                if len(files) == 1 and after_size and job["bytes_in"] and first.is_file():
+                    detail += "\n" + tr("{before} → {after}", before=human_size(job["bytes_in"]),
+                                         after=human_size(after_size))
+            else:
+                detail = tr("Saved {count} items", count=len(result.outputs))
             linger = 4500
         else:
             title, detail, linger = tr("Nothing to do"), "", 3000
 
         important = bool(errors or result.note)
         if self.settings.show_progress or important:
-            shown = self.toast.finish(job_id, title, detail, first, linger)
+            shown = self.toast.finish(job_id, title, detail, first, linger, single=len(result.outputs) == 1)
             if not shown and important:
                 icon = QSystemTrayIcon.Warning if errors else QSystemTrayIcon.Information
                 self.tray.showMessage(title, detail, icon)
@@ -1022,7 +1053,16 @@ class Controller(QObject):
 
     # ---- quitting / removing
 
+    def end_session(self, *_):
+        """Windows is signing out or shutting down: save, and let every window close."""
+        self.session_ending = True
+        self.save_timer.stop()
+        self.settings.save()
+        self.cancel_all()
+
     def quit(self, cleanup: bool = False):
+        if self._window is not None and self._window.isVisible():
+            self._window._remember_place()
         if self.save_timer.isActive():
             self.save_timer.stop()
             self.settings.save()
@@ -1091,12 +1131,14 @@ def downloads_folder() -> Path:
 
 
 def clean_old_temp_files():
-    """Removes leftovers from opening files inside archives (older than a day)."""
+    """Removes Satsuma's leftovers in the temp folder older than a day: files opened from inside
+    archives, and working folders left behind if the PC was switched off in the middle of a job."""
     import shutil
     cutoff = time.time() - 86400
-    for p in Path(tempfile.gettempdir()).glob("satsuma-open-*"):
+    keep = {"satsuma-sounds", "satsuma-update"}
+    for p in Path(tempfile.gettempdir()).glob("satsuma-*"):
         try:
-            if p.is_dir() and p.stat().st_mtime < cutoff:
+            if p.is_dir() and p.name not in keep and p.stat().st_mtime < cutoff:
                 shutil.rmtree(p, ignore_errors=True)
         except OSError:
             pass
@@ -1169,6 +1211,7 @@ def main() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setQuitOnLastWindowClosed(False)
+    app.setApplicationVersion(__version__)
     if i18n.is_rtl():
         app.setLayoutDirection(Qt.RightToLeft)
     load_qt_translations(app, lang)
@@ -1183,6 +1226,7 @@ def main() -> int:
     app.setWindowIcon(icon)
 
     controller = Controller(app, icon)
+    app.commitDataRequest.connect(controller.end_session)
     QTimer.singleShot(20_000, clean_old_temp_files)
 
     server = QLocalServer()

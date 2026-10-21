@@ -4,9 +4,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QGuiApplication, QIcon
+from PySide6.QtGui import QCursor, QGuiApplication, QIcon
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QProgressBar, QPushButton, QVBoxLayout, QWidget
 
+from .core import os_open
 from .i18n import tr
 from .winutil import reveal_in_explorer
 
@@ -23,6 +24,7 @@ class Toast(QWidget):
         self.job_id: int | None = None
         self.running = False
         self.reveal_path: Path | None = None
+        self.open_path: Path | None = None
         self.custom_action = None  # callback for notify() buttons
 
         panel = QFrame()
@@ -42,6 +44,11 @@ class Toast(QWidget):
         self.bar = QProgressBar()
         self.bar.setTextVisible(False)
         self.bar.setRange(0, 1000)
+        self.percent = QLabel()
+        self.percent.setObjectName("muted")
+        self.open_btn = QPushButton(tr("Open"))
+        self.open_btn.setCursor(Qt.PointingHandCursor)
+        self.open_btn.clicked.connect(self._open)
         self.action = QPushButton()
         self.action.setObjectName("primary")
         self.action.setCursor(Qt.PointingHandCursor)
@@ -61,6 +68,9 @@ class Toast(QWidget):
         top.addWidget(close, 0, Qt.AlignTop)
         row = QHBoxLayout()
         row.addWidget(self.bar, 1)
+        row.addWidget(self.percent)
+        row.addStretch(0)
+        row.addWidget(self.open_btn)
         row.addWidget(self.action)
         lay = QVBoxLayout(panel)
         lay.setContentsMargins(14, 12, 12, 12)
@@ -73,11 +83,20 @@ class Toast(QWidget):
         self.hide_timer.timeout.connect(self.hide)
 
     def _place(self):
+        """Bottom corner of the screen you're working on (bottom-left in Arabic)."""
         self.adjustSize()
-        g = QGuiApplication.primaryScreen().availableGeometry()
+        screen = QGuiApplication.screenAt(QCursor.pos()) or QGuiApplication.primaryScreen()
+        g = screen.availableGeometry()
         rtl = QGuiApplication.layoutDirection() == Qt.RightToLeft
-        x = g.left() + 16 if rtl else g.right() - self.width() - 16  # bottom-left in Arabic
+        x = g.left() + 16 if rtl else g.right() - self.width() - 16
         self.move(x, g.bottom() - self.height() - 16)
+
+    def _show_buttons(self, action_text: str = "", open_path: Path | None = None):
+        self.open_path = open_path
+        self.open_btn.setVisible(open_path is not None)
+        self.action.setText(action_text)
+        self.action.setEnabled(True)
+        self.action.setVisible(bool(action_text))
 
     def start(self, job_id: int, title: str, detail: str):
         self.job_id, self.running, self.reveal_path, self.custom_action = job_id, True, None, None
@@ -85,9 +104,9 @@ class Toast(QWidget):
         self.detail.setText(detail)
         self.bar.setValue(0)
         self.bar.show()
-        self.action.setText(tr("Cancel"))
-        self.action.setEnabled(True)
-        self.action.show()
+        self.percent.setText("")
+        self.percent.show()
+        self._show_buttons(tr("Cancel"))
         self.hide_timer.stop()
         self._place()
         self.show()
@@ -99,8 +118,10 @@ class Toast(QWidget):
     def set_progress(self, job_id: int, frac: float):
         if job_id == self.job_id and self.running:
             self.bar.setValue(int(frac * 1000))
+            self.percent.setText(f"{int(frac * 100)}%")
 
-    def finish(self, job_id: int, title: str, detail: str, reveal: Path | None, linger_ms: int) -> bool:
+    def finish(self, job_id: int, title: str, detail: str, reveal: Path | None, linger_ms: int,
+               single: bool = True) -> bool:
         """Show a result, unless a newer job is still running on screen. Returns True if shown."""
         if job_id != self.job_id and self.running:
             return False
@@ -108,9 +129,10 @@ class Toast(QWidget):
         self.title.setText(title)
         self.detail.setText(detail)
         self.bar.hide()
-        self.action.setText(tr("Show in folder"))
-        self.action.setEnabled(True)
-        self.action.setVisible(reveal is not None)
+        self.percent.hide()
+        # "Open" for a single new file (not for folders: "Show in folder" does that)
+        can_open = single and reveal is not None and reveal.is_file()
+        self._show_buttons(tr("Show in folder") if reveal is not None else "", reveal if can_open else None)
         self._place()
         self.show()
         self.hide_timer.start(linger_ms)
@@ -125,13 +147,20 @@ class Toast(QWidget):
         self.title.setText(title)
         self.detail.setText(detail)
         self.bar.hide()
-        self.action.setText(action_text or "")
-        self.action.setEnabled(True)
-        self.action.setVisible(bool(action_text and action))
+        self.percent.hide()
+        self._show_buttons(action_text if (action_text and action) else "")
         self._place()
         self.show()
         self.hide_timer.start(linger_ms)
         return True
+
+    def _open(self):
+        if self.open_path is not None and self.open_path.exists():
+            try:
+                os_open(self.open_path)
+            except OSError:
+                pass
+        self.hide()
 
     def _on_action(self):
         if self.custom_action and not self.running:
@@ -151,3 +180,4 @@ class Toast(QWidget):
     def leaveEvent(self, e):
         if not self.running and self.isVisible():
             self.hide_timer.start(2500)
+

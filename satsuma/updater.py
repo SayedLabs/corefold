@@ -71,10 +71,19 @@ def _trusted(url: str | None, repo: str) -> bool:
     return bool(url) and url.startswith(f"https://github.com/{repo}/releases/download/")
 
 
+def current_repo(data: dict, repo: str) -> str:
+    """Where the repository lives now. If the GitHub account or repository was renamed, GitHub
+    sends copies that still ask for the old name to the new one; the downloads are then under the
+    new name, which this reads from GitHub's own answer (so renaming never breaks updates)."""
+    m = re.match(r"https://github\.com/([\w.-]+/[\w.-]+)/releases/", str(data.get("html_url") or ""))
+    return m.group(1) if m else repo
+
+
 def parse_release(data: dict, repo: str) -> UpdateInfo:
     tag = str(data.get("tag_name") or "")
     if not tag:
         raise UpdateError(tr("release has no version tag"))
+    repo = current_repo(data, repo)
     installer = sums = None
     for asset in data.get("assets") or []:
         name = str(asset.get("name") or "")
