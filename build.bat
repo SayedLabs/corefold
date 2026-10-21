@@ -2,7 +2,7 @@
 title Building Satsuma
 cd /d "%~dp0"
 set VER=%~1
-if "%VER%"=="" set VER=1.5.4
+if "%VER%"=="" set VER=1.6.0
 
 echo Building Satsuma %VER%. The first time takes a few minutes...
 echo.

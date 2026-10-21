@@ -265,7 +265,8 @@ def extract(src: Path, ctx: Ctx, mode: str = "smart") -> Result:
     members = ctx.params.get("members")
     base = Path(ctx.params["dest"]) if ctx.params.get("dest") else ctx.folder_for(src)
     base.mkdir(parents=True, exist_ok=True)
-    name = safe_name(ctx.options.rename_base) or archive_stem(src) or "Extracted"
+    # safe_name: a name like "photos." would lose its dot on Windows and the new folder couldn't be found
+    name = safe_name(ctx.options.rename_base) or safe_name(archive_stem(src)) or "Extracted"
 
     staging = Path(tempfile.mkdtemp(prefix=".satsuma-unpacking-", dir=base))
     try:
@@ -346,9 +347,10 @@ def _pack_name(items: list[Path], ctx: Ctx) -> str:
         return safe_name(ctx.options.rename_base)
     if len(items) == 1:
         p = items[0]
-        return p.name if p.is_dir() else p.stem
-    parent = items[0].parent.name
-    return parent or "Archive"
+        name = p.name if p.is_dir() else p.stem
+    else:
+        name = items[0].parent.name
+    return safe_name(name) or "Archive"  # a whole drive (D:\) has no name
 
 
 def pack_into(items: list[Path], out: Path, ctx: Ctx, fmt: str = "zip", level: str = "normal",
@@ -430,10 +432,12 @@ def convert_archive(src: Path, ctx: Ctx, fmt: str) -> Result:
         items = sorted(Path(tmp).iterdir())
         if not items:
             raise RuntimeError(tr("the archive is empty"))
-        out = ctx.out_path(src, f"{safe_name(ctx.options.rename_base) or archive_stem(src)}.{fmt}")
+        out = ctx.out_path(src, f"{safe_name(ctx.options.rename_base) or safe_name(archive_stem(src)) or 'Archive'}.{fmt}")
         packer = Ctx(ctx.options, lambda f: ctx.progress(0.5 + 0.5 * f), ctx.cancel_event)
-        outs = pack_into(items, out, packer, fmt, "normal")
-    return Result(outs)
+        # a password-protected archive stays protected, with the same password, in its new format
+        password = ctx.params.get("password", "")
+        outs = pack_into(items, out, packer, fmt, "normal", password=password)
+    return Result(outs, note=tr("Protected with your password") if password else "")
 
 
 def check_needs_7z(files: list[Path]) -> str | None:

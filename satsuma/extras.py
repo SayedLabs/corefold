@@ -86,11 +86,12 @@ def _fit_video(src: Path, ctx: Ctx, mb: float, target: int) -> Result:
     out = ctx.out_path(src, f"{ctx.stem(src)} ({size_tag(mb)}).mp4")
     with tempfile.TemporaryDirectory(prefix="satsuma-", ignore_cleanup_errors=True) as tmp:
         log_base = str(Path(tmp) / "pass")
-        common = ["-vf", vf, "-c:v", "libx264", "-preset", "medium", "-pix_fmt", "yuv420p"]
+        common = ["-map", "0:V:0", "-sn", "-dn", "-vf", vf, "-c:v", "libx264", "-preset", "medium",
+                  "-pix_fmt", "yuv420p"]
         run_ffmpeg(src, Path(os.devnull), common + ["-b:v", str(int(vbr)), "-pass", "1", "-passlogfile", log_base,
                                                     "-an", "-f", "null"], sub_ctx(ctx, 0, 0.45), duration=dur)
         for attempt, factor in enumerate((1.0, 0.85, 0.7)):
-            audio = ["-c:a", "aac", "-b:a", str(abr)] if abr else ["-an"]
+            audio = ["-map", "0:a:0?", "-c:a", "aac", "-b:a", str(abr)] if abr else ["-an"]
             run_ffmpeg(src, out, common + ["-b:v", str(int(vbr * factor)), "-pass", "2", "-passlogfile", log_base]
                        + audio + ["-movflags", "+faststart"], sub_ctx(ctx, 0.45 + 0.18 * attempt, 1.0), duration=dur)
             if out.stat().st_size <= target:
@@ -104,6 +105,8 @@ def _fit_image(src: Path, ctx: Ctx, mb: float, target: int) -> Result:
     alpha = has_alpha(im)
     ext, fmt = (".webp", "WEBP") if alpha else (".jpg", "JPEG")
     im = rgb_or_rgba(im) if alpha else flatten(im)
+    if alpha and max(im.size) > 16383:  # WebP's size limit; shrinking is the point here anyway
+        im.thumbnail((16383, 16383))
 
     def encode(img, q) -> bytes:
         buf = io.BytesIO()
@@ -388,7 +391,7 @@ def watermark_video(src: Path, ctx: Ctx) -> Result:
         png = Path(tmp) / "mark.png"
         make_overlay(w, h, ctx.params).save(png)
         args = ["-i", str(png), "-filter_complex",
-                "[0:v][1:v]overlay=0:0:format=auto,pad=ceil(iw/2)*2:ceil(ih/2)*2[v]", "-map", "[v]", "-map", "0:a?",
+                "[0:V:0][1:v]overlay=0:0:format=auto,pad=ceil(iw/2)*2:ceil(ih/2)*2[v]", "-map", "[v]", "-map", "0:a:0?",
                 "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p",
                 "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart"]
         run_ffmpeg(src, out, args, ctx)
@@ -401,13 +404,13 @@ def video_frames(src: Path, ctx: Ctx) -> Result:
     mode = ctx.params.get("mode", "every")
     dur = media_duration(src)
     if mode == "all":
-        vf = []
+        vf = ["-map", "0:V:0"]
     elif mode == "count":
         n = max(1, int(ctx.params.get("count", 10)))
-        vf = ["-vf", f"fps={n / max(dur, 0.1):.6f}"]
+        vf = ["-map", "0:V:0", "-vf", f"fps={n / max(dur, 0.1):.6f}"]
     else:
         secs = max(0.05, float(ctx.params.get("seconds", 1)))
-        vf = ["-vf", f"fps=1/{secs:g}"]
+        vf = ["-map", "0:V:0", "-vf", f"fps=1/{secs:g}"]
     outdir = ctx.out_dir(src, f"{ctx.stem(src)} frames")
     try:
         run_ffmpeg(src, outdir / "frame %05d.png", vf, ctx)

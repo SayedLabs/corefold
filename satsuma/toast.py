@@ -26,6 +26,9 @@ class Toast(QWidget):
         self.reveal_path: Path | None = None
         self.open_path: Path | None = None
         self.custom_action = None  # callback for notify() buttons
+        self.extra_action = None   # callback for the second button ("Undo", "Compare")
+        self.corner = "auto"       # where it shows up (see settings.TOAST_CORNERS)
+        self.time_scale = 1.0      # how long it stays (short, normal, long)
 
         panel = QFrame()
         panel.setObjectName("toast")
@@ -49,6 +52,10 @@ class Toast(QWidget):
         self.open_btn = QPushButton(tr("Open"))
         self.open_btn.setCursor(Qt.PointingHandCursor)
         self.open_btn.clicked.connect(self._open)
+        self.extra_btn = QPushButton()
+        self.extra_btn.setCursor(Qt.PointingHandCursor)
+        self.extra_btn.clicked.connect(self._on_extra)
+        self.extra_btn.hide()
         self.action = QPushButton()
         self.action.setObjectName("primary")
         self.action.setCursor(Qt.PointingHandCursor)
@@ -70,6 +77,7 @@ class Toast(QWidget):
         row.addWidget(self.bar, 1)
         row.addWidget(self.percent)
         row.addStretch(0)
+        row.addWidget(self.extra_btn)
         row.addWidget(self.open_btn)
         row.addWidget(self.action)
         lay = QVBoxLayout(panel)
@@ -83,13 +91,31 @@ class Toast(QWidget):
         self.hide_timer.timeout.connect(self.hide)
 
     def _place(self):
-        """Bottom corner of the screen you're working on (bottom-left in Arabic)."""
+        """A corner of the screen you're working on (by default bottom right, bottom left in Arabic)."""
         self.adjustSize()
         screen = QGuiApplication.screenAt(QCursor.pos()) or QGuiApplication.primaryScreen()
         g = screen.availableGeometry()
-        rtl = QGuiApplication.layoutDirection() == Qt.RightToLeft
-        x = g.left() + 16 if rtl else g.right() - self.width() - 16
-        self.move(x, g.bottom() - self.height() - 16)
+        corner = self.corner
+        if corner not in ("bottom-right", "bottom-left", "top-right", "top-left"):
+            rtl = QGuiApplication.layoutDirection() == Qt.RightToLeft
+            corner = "bottom-left" if rtl else "bottom-right"
+        x = g.left() + 16 if corner.endswith("left") else g.right() - self.width() - 16
+        y = g.top() + 16 if corner.startswith("top") else g.bottom() - self.height() - 16
+        self.move(x, y)
+
+    def _linger(self, ms: int):
+        self.hide_timer.start(max(1500, int(ms * self.time_scale)))
+
+    def _set_extra(self, text: str = "", action=None):
+        self.extra_action = action if text else None
+        self.extra_btn.setText(text)
+        self.extra_btn.setVisible(bool(text and action))
+
+    def _on_extra(self):
+        action, self.extra_action = self.extra_action, None
+        self.hide()
+        if action:
+            action()
 
     def _show_buttons(self, action_text: str = "", open_path: Path | None = None):
         self.open_path = open_path
@@ -106,6 +132,7 @@ class Toast(QWidget):
         self.bar.show()
         self.percent.setText("")
         self.percent.show()
+        self._set_extra()
         self._show_buttons(tr("Cancel"))
         self.hide_timer.stop()
         self._place()
@@ -121,7 +148,7 @@ class Toast(QWidget):
             self.percent.setText(f"{int(frac * 100)}%")
 
     def finish(self, job_id: int, title: str, detail: str, reveal: Path | None, linger_ms: int,
-               single: bool = True) -> bool:
+               single: bool = True, extra_text: str = "", extra=None) -> bool:
         """Show a result, unless a newer job is still running on screen. Returns True if shown."""
         if job_id != self.job_id and self.running:
             return False
@@ -133,9 +160,10 @@ class Toast(QWidget):
         # "Open" for a single new file (not for folders: "Show in folder" does that)
         can_open = single and reveal is not None and reveal.is_file()
         self._show_buttons(tr("Show in folder") if reveal is not None else "", reveal if can_open else None)
+        self._set_extra(extra_text, extra)
         self._place()
         self.show()
-        self.hide_timer.start(linger_ms)
+        self._linger(linger_ms + (3000 if extra else 0))
         return True
 
     def notify(self, title: str, detail: str, action_text: str | None = None, action=None,
@@ -149,9 +177,10 @@ class Toast(QWidget):
         self.bar.hide()
         self.percent.hide()
         self._show_buttons(action_text if (action_text and action) else "")
+        self._set_extra()
         self._place()
         self.show()
-        self.hide_timer.start(linger_ms)
+        self._linger(linger_ms)
         return True
 
     def _open(self):

@@ -27,6 +27,7 @@ log = logging.getLogger("satsuma")
 CLASSES = r"Software\Classes"
 FILE_ROOT = CLASSES + r"\SystemFileAssociations"
 FOLDER_ROOT = CLASSES + r"\Directory"
+ANY_ROOT = CLASSES + r"\*"   # every file; limited to the kinds Satsuma has no own menu for (see any_file_filter)
 VERBS = ("Satsuma", "SatsumaOpen")
 MENU_STYLES = {"windows": "Windows menu", "wheel": "Satsuma wheel"}
 OPEN_KEY = "satsuma:open"     # "All options…": opens Satsuma's window with the files
@@ -48,6 +49,7 @@ class Verb:
     title: str
     command: str = ""   # set for a single entry
     items: list | None = None  # set for a submenu
+    applies_to: str = ""       # only show for files matching this (Windows search syntax)
 
 
 # ----------------------------------------------------------------------------- what the menu shows
@@ -77,12 +79,21 @@ def _text(tool) -> str:
 
 
 def items_for(ext: str, settings) -> list[Item]:
-    """The submenu for one file extension (".jpg"), or for folders when ext is ""."""
+    """The submenu for one file extension (".jpg"), for folders when ext is "", and for every other
+    kind of file when ext is "*"."""
     from .converters import catalog
     cat = catalog(multi=False)
     hidden = set(settings.hidden_tools)
     items: list[Item] = []
-    if ext:
+    if ext == "*":
+        add_pack = True
+        ext = ".zip"  # only used for "is it usable" checks
+    elif not ext:
+        for t in _ordered(cat["folder"], "folder", settings):
+            if t.key not in hidden:
+                items.append(Item(t.key, _text(t)))
+        add_pack = True
+    elif ext:
         kind = category(Path("x" + ext))
         target = norm(ext)
         for t in _ordered(cat[kind], kind, settings):
@@ -90,8 +101,6 @@ def items_for(ext: str, settings) -> list[Item]:
                 continue
             items.append(Item(t.key, _text(t)))
         add_pack = kind != "archive" and settings.pack_on_every_wheel
-    else:
-        add_pack = True
     if add_pack:
         first = True
         for t in _ordered(cat["files"], "files", settings):
@@ -122,9 +131,18 @@ def plan(settings, command) -> list[Verb]:
                 verbs.append(Verb(root, "SatsumaOpen", tr("Open in Satsuma"), command=command("--browse", '"%1"')))
     if style == "windows":
         verbs.append(Verb(FOLDER_ROOT, "Satsuma", APP_NAME, items=items_for("", settings)))
+        verbs.append(Verb(ANY_ROOT, "Satsuma", APP_NAME, items=items_for("*", settings), applies_to=any_file_filter()))
     else:
         verbs.append(Verb(FOLDER_ROOT, "Satsuma", tr("Compress with Satsuma"), command=command("--convert", '"%1"')))
+        verbs.append(Verb(ANY_ROOT, "Satsuma", tr("Compress with Satsuma"), command=command("--convert", '"%1"'),
+                          applies_to=any_file_filter()))
     return verbs
+
+
+def any_file_filter() -> str:
+    """Windows search syntax for "any file except the kinds that already have their own Satsuma
+    menu", so a photo doesn't get the Satsuma entry twice."""
+    return "NOT (" + " OR ".join(f"System.FileExtension:={e}" for e in sorted(ALL_EXT)) + ")"
 
 
 def signature(verbs: list[Verb], command, icon: str) -> str:
@@ -154,7 +172,7 @@ def _delete_tree(winreg, path: str):
 
 
 def _all_roots() -> list[str]:
-    return [rf"{FILE_ROOT}\{ext}" for ext in sorted(ALL_EXT)] + [FOLDER_ROOT]
+    return [rf"{FILE_ROOT}\{ext}" for ext in sorted(ALL_EXT)] + [FOLDER_ROOT, ANY_ROOT]
 
 
 def remove():
@@ -179,6 +197,8 @@ def write(verbs: list[Verb], command, icon: str):
             try:
                 with winreg.CreateKey(winreg.HKEY_CURRENT_USER, base) as k:
                     winreg.SetValueEx(k, "MUIVerb", 0, SZ, v.title)
+                    if v.applies_to:
+                        winreg.SetValueEx(k, "AppliesTo", 0, SZ, v.applies_to)
                     if icon:
                         winreg.SetValueEx(k, "Icon", 0, SZ, icon)
                     # "Player" keeps the entry when many files are selected (Windows hides it past 15)

@@ -2,14 +2,18 @@
 Translations. Every piece of text people see goes through tr("English text", name=value).
 
 The language is picked once when Satsuma starts (changing it in Settings restarts the app), so
-tr() is just a dictionary lookup. English is the source; satsuma/lang_ar.py holds Arabic.
+tr() is just a dictionary lookup. English is the source; satsuma/lang_<code>.py hold the others
+(Arabic, French, Spanish, Turkish).
 scripts/check_translations.py makes sure nothing is left untranslated.
 """
 from __future__ import annotations
 
 import os
 
-LANGUAGES = {"system": "Match Windows", "en": "English", "ar": "العربية"}
+LANGUAGES = {"system": "Match Windows", "en": "English", "ar": "العربية", "fr": "Français", "es": "Español",
+             "tr": "Türkçe"}
+# Windows' primary language IDs -> ours
+WINDOWS_LANGUAGES = {0x01: "ar", 0x0C: "fr", 0x0A: "es", 0x1F: "tr"}
 RTL_LANGUAGES = {"ar"}
 
 _lang = "en"
@@ -17,13 +21,13 @@ _table: dict[str, str] = {}
 
 
 def windows_language() -> str:
-    """'ar' if Windows itself is in Arabic, otherwise 'en'."""
+    """The language Windows itself is in, if Satsuma has it; otherwise 'en'."""
     if os.name != "nt":
         return "en"
     try:
         import ctypes
         langid = ctypes.windll.kernel32.GetUserDefaultUILanguage()
-        return "ar" if (langid & 0x3FF) == 0x01 else "en"  # LANG_ARABIC
+        return WINDOWS_LANGUAGES.get(langid & 0x3FF, "en")
     except Exception:
         return "en"
 
@@ -31,19 +35,29 @@ def windows_language() -> str:
 def resolve(choice: str) -> str:
     if choice == "system":
         return windows_language()
-    return choice if choice in ("en", "ar") else "en"
+    return choice if choice in LANGUAGES else "en"
 
 
 def set_language(choice: str) -> str:
     """Switches the language for this run of the app. Returns the language actually used."""
     global _lang, _table
     _lang = resolve(choice)
-    if _lang == "ar":
-        from .lang_ar import STRINGS
-        _table = STRINGS
-    else:
-        _table = {}
+    _table = table_for(_lang)
     return _lang
+
+
+def table_for(lang: str) -> dict[str, str]:
+    if lang == "ar":
+        from .lang_ar import STRINGS
+    elif lang == "fr":
+        from .lang_fr import STRINGS
+    elif lang == "es":
+        from .lang_es import STRINGS
+    elif lang == "tr":
+        from .lang_tr import STRINGS
+    else:
+        return {}
+    return STRINGS
 
 
 def language() -> str:

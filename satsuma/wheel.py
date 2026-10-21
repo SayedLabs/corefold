@@ -17,7 +17,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, QVariantAnimation, Signal
-from PySide6.QtGui import QColor, QCursor, QFont, QFontMetrics, QGuiApplication, QPainter, QPainterPath, QPen
+from PySide6.QtGui import (QColor, QCursor, QFont, QFontMetrics, QGuiApplication, QLinearGradient, QPainter,
+                           QPainterPath, QPen, QRadialGradient)
 from PySide6.QtWidgets import QWidget
 
 from . import winutil
@@ -29,7 +30,8 @@ from .theme import Theme
 
 CENTER = -2  # hover value for the cancel area in the middle
 POP = 7      # how far the hovered slice grows
-INNER = {"ring": 0.36, "petals": 0.34, "slim": 0.5}
+INNER = {"ring": 0.36, "petals": 0.34, "slim": 0.5, "bubbles": 0.37, "neon": 0.36, "glass": 0.36}
+OPEN_STYLES = {"petals", "bubbles"}  # styles with gaps between the options (see the base disc in paint_wheel)
 MORE_DWELL_MS = 650  # how long to hold a dragged file over "More" to turn the page
 DWELL_STEP_MS = 30
 
@@ -38,15 +40,19 @@ ICONS = {
     "scan": "🧾", "video": "🎞️", "qr": "🔳", "clean": "🧹", "trim": "✂️", "frames": "🖼️", "mp3": "🎵",
     "merge": "🧩", "compress": "🗜️", "split": "📑", "png": "🖼️", "text": "📝", "extract": "📤", "folder": "📂",
     "browse": "🔍", "test": "🩺", "zip": "📦", "7z": "📦", "options": "🔐", "pdf": "📄", "more": "➕",
+    "crop": "🔲", "sticker": "😀", "mute": "🔇", "volume": "🔊", "speed": "⏩", "pages": "📃", "images": "🖼️",
+    "lock": "🔒", "unlock": "🔓", "rename": "✏️",
 }
 FORMAT_ACTIONS = {"png", "jpg", "webp", "ico", "bmp", "mp3", "m4a", "wav", "flac", "ogg", "opus", "aiff", "mp4",
                   "mov", "webm", "mkv", "gif", "pdf", "text"}
 GROUPS = {  # action -> group, for "colour by kind of action"
     **{a: "convert" for a in FORMAT_ACTIONS},
-    **{a: "edit" for a in ("resize", "rotate", "trim", "watermark", "cutout", "clean", "frames", "video", "scan")},
+    **{a: "edit" for a in ("resize", "rotate", "trim", "watermark", "cutout", "clean", "frames", "video", "scan",
+                           "crop", "sticker", "mute", "volume", "speed", "pages", "rename")},
     **{a: "shrink" for a in ("fit", "small", "compress")},
     **{a: "archive" for a in ("zip", "7z", "options", "extract", "folder", "browse", "test", "merge", "split")},
-    **{a: "read" for a in ("ocr", "qr")},
+    **{a: "read" for a in ("ocr", "qr", "images")},
+    **{a: "archive" for a in ("lock", "unlock")},
 }
 GROUP_COLORS = {"convert": "#3b82f6", "edit": "#a855f7", "shrink": "#22c55e", "archive": "#f59e0b",
                 "read": "#ec4899", "more": "#94a3b8"}
@@ -65,6 +71,7 @@ class Item:
     favorite: bool = False
     action: str = ""       # "resize", "jpg", ... (decides the icon and group colour)
     more: bool = False     # the "More" slice
+    number: str = ""       # the key that picks it in click mode ("1"…"9", "0" for More)
 
 
 def item_for(slot: Slot, favorite: bool) -> Item:
@@ -101,6 +108,18 @@ class Look:
         return cls(s.wheel_style, s.label_style, s.hover_style, s.slice_colors, TEXT_SIZES.get(s.text_size, 1.0))
 
 
+def slice_tint(look: Look, item: Item, i: int, n: int) -> QColor | None:
+    """The colour a slice is tinted with ("by kind of action" or "rainbow"), or None."""
+    if look.colors == "group":
+        group = "more" if item.more else GROUPS.get(item.action, "")
+        return QColor(GROUP_COLORS[group]) if group else None
+    if look.colors == "rainbow":
+        if item.more:
+            return QColor(GROUP_COLORS["more"])
+        return QColor.fromHsv(round(i * 360 / max(n, 1)) % 360, 150, 235)
+    return None
+
+
 def paint_wheel(p: QPainter, c: QPointF, R: float, items: list[Item], hover: int,
                 line1: str, line2: str, t: Theme, look: Look | None = None, line3: str = "",
                 more_progress: float = 0.0, page: tuple[int, int] = (0, 1)):
@@ -110,14 +129,21 @@ def paint_wheel(p: QPainter, c: QPointF, R: float, items: list[Item], hover: int
     p.setRenderHint(QPainter.Antialiasing)
     p.setRenderHint(QPainter.TextAntialiasing)
     petals = style == "petals"
+    bubbles = style == "bubbles"
+    neon = style == "neon"
+    glass = style == "glass"
+    open_style = style in OPEN_STYLES
 
-    # Base disc. Never fully transparent, so Windows sends drops to it (even in the petal gaps).
+    # Base disc. Never fully transparent, so Windows sends drops to it (even in the gaps).
     base = QColor(t.wheel_bg)
-    if petals:
+    if open_style:
         base.setAlpha(3)
+    elif neon:  # deeper, so the glowing lines stand out
+        base = _over(base, QColor(0, 0, 0, 90 if t.dark else 30))
+        base.setAlpha(max(base.alpha(), 200))
     p.setPen(Qt.NoPen)
     p.setBrush(base)
-    if petals:
+    if open_style:
         p.drawEllipse(c, R + POP, R + POP)
     else:
         p.drawEllipse(c, R, R)
@@ -128,74 +154,169 @@ def paint_wheel(p: QPainter, c: QPointF, R: float, items: list[Item], hover: int
         size = max(7, round(size * 9 / n + 1))
     label_font = QFont("Segoe UI", size)
     icon_font = QFont("Segoe UI Emoji", max(9, round(size * (1.55 if look.labels == "icon" else 1.15))))
+    label_width = max(70, round(R * 0.61))
     if n:
         seg = 360 / n
-        # petals: a gap of ~9 px at the inner edge, widening outwards
-        gap = math.degrees(9 / max(r + 3, 1)) if petals and n > 1 else 0
+        # petals and neon: a gap at the inner edge, widening outwards
+        gap_px = 9 if petals else 6 if neon else 0
+        gap = math.degrees(gap_px / max(r + 3, 1)) if gap_px and n > 1 else 0
         for i, item in enumerate(items):
             hovered = i == hover
             active = hovered and item.ok
             grow = active or (hovered and item.more)
             rr = R + (POP if grow else 0)
             mid = i * seg
-            path = slice_path(c, r + (3 if petals else 0), rr - (2 if petals else 0), mid - seg / 2 + gap / 2, seg - gap)
-
-            group = "more" if item.more else GROUPS.get(item.action, "")
-            tint = QColor(GROUP_COLORS[group]) if look.colors == "group" and group else None
-            if active and look.hover == "fill":
-                fill = QColor(t.accent)
-            elif petals:
-                fill = QColor(t.wheel_bg)
-                if hovered:
-                    fill = fill.lighter(115) if t.dark else fill.darker(106)
-            else:
-                fill = QColor(t.wheel_stripe)
-                if i % 2 == 0:
-                    fill.setAlpha(fill.alpha() // 2)
-                if hovered:
-                    fill.setAlpha(fill.alpha() + 18)
-            if tint and not (active and look.hover == "fill"):
-                tint.setAlpha(70 if hovered else 42)
-                fill = tint if not petals else _over(fill, tint)
-            p.setBrush(fill)
-            if petals:
-                p.setPen(QPen(fill, 3, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
-            else:
-                p.setPen(QPen(t.wheel_line, 1))
-            p.drawPath(path)
-            if active and look.hover == "outline":
-                p.setBrush(Qt.NoBrush)
-                p.setPen(QPen(t.accent, 3, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
-                p.drawPath(slice_path(c, r + 2, rr - 2, mid - seg / 2 + gap / 2 + 0.8, seg - gap - 1.6))
-            if item.more and more_progress > 0:  # dwell timer while dragging over "More"
-                p.setBrush(Qt.NoBrush)
-                p.setPen(QPen(t.accent, 4, Qt.SolidLine, Qt.RoundCap))
-                arc_r = rr - 5
-                p.drawArc(QRectF(c.x() - arc_r, c.y() - arc_r, 2 * arc_r, 2 * arc_r),
-                          int((90 - (mid - seg / 2 + 2)) * 16), int(-(seg - 4) * more_progress * 16))
-
-            m, a = (rr + r) / 2 + (2 if style == "slim" else 3), math.radians(mid)
+            a = math.radians(mid)
+            tint = slice_tint(look, item, i, n)
+            filled = active and look.hover == "fill"
+            m = (rr + r) / 2 + (2 if style == "slim" else 3)
             pos = QPointF(c.x() + m * math.sin(a), c.y() - m * math.cos(a))
-            if active and look.hover == "fill":
+            badge = None  # where the key number goes
+
+            if bubbles:
+                ring_w = (R - r) / 2 - 3
+                chord = (R + r) / 2 * math.sin(math.radians(min(seg, 180) / 2)) - 4 if n > 1 else ring_w
+                b = max(12.0, min(ring_w, chord)) + (POP / 2 if grow else 0)
+                bc = QPointF(c.x() + (R + r) / 2 * math.sin(a), c.y() - (R + r) / 2 * math.cos(a))
+                pos = bc
+                if filled:
+                    fill = QColor(t.accent)
+                else:
+                    fill = QColor(t.wheel_bg)
+                    fill.setAlpha(max(fill.alpha(), 235))
+                    if hovered:
+                        fill = fill.lighter(118) if t.dark else fill.darker(107)
+                    if tint is not None:
+                        tint.setAlpha(80 if hovered else 50)
+                        fill = _over(fill, tint)
+                p.setBrush(fill)
+                p.setPen(QPen(t.accent if active and look.hover == "outline" else t.wheel_line,
+                              3 if active and look.hover == "outline" else 1))
+                p.drawEllipse(bc, b, b)
+                if item.more and more_progress > 0:
+                    p.setBrush(Qt.NoBrush)
+                    p.setPen(QPen(t.accent, 4, Qt.SolidLine, Qt.RoundCap))
+                    p.drawArc(QRectF(bc.x() - b + 3, bc.y() - b + 3, 2 * b - 6, 2 * b - 6), 90 * 16,
+                              int(-360 * more_progress * 16))
+                badge = QPointF(bc.x() + b * 0.56, bc.y() - b * 0.56)  # top-right of the bubble, clear of the text
+            else:
+                inset_in = 3 if (petals or neon) else 0
+                inset_out = 2 if (petals or neon) else 0
+                path = slice_path(c, r + inset_in, rr - inset_out, mid - seg / 2 + gap / 2, seg - gap)
+                line = QColor(tint) if tint is not None else QColor(t.accent)
+                if neon:
+                    if not (item.ok or item.more):
+                        line = QColor(t.muted)
+                    fill = QColor(line)
+                    fill.setAlpha(150 if filled else 70 if hovered else 16)
+                    p.setBrush(fill)
+                    p.setPen(Qt.NoPen)
+                    p.drawPath(path)
+                    p.setBrush(Qt.NoBrush)
+                    for width, alpha in ((9, 28), (5, 60), (2, 230 if hovered else 170)):  # the glow
+                        g = QColor(line)
+                        g.setAlpha(alpha if (item.ok or item.more) else alpha // 3)
+                        p.setPen(QPen(g, width, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+                        p.drawPath(path)
+                elif glass:
+                    if filled:
+                        top, bottom = QColor(t.accent).lighter(130), QColor(t.accent)
+                    elif tint is not None:  # coloured glass: the tint, clearer near the middle
+                        top, bottom = QColor(tint), QColor(tint)
+                        top.setAlpha(45 if t.dark else 40)
+                        bottom.setAlpha((120 if t.dark else 110) + (40 if hovered else 0))
+                    else:
+                        shade = QColor(255, 255, 255) if t.dark else QColor(40, 60, 90)
+                        top, bottom = QColor(shade), QColor(shade)
+                        top.setAlpha(12 if t.dark else 8)
+                        bottom.setAlpha((46 if t.dark else 34) + (24 if hovered else 0))
+                    grad = QRadialGradient(c, rr)
+                    grad.setColorAt(max(0.0, min(1.0, r / rr)), top)
+                    grad.setColorAt(1.0, bottom)
+                    p.setBrush(grad)
+                    p.setPen(QPen(QColor(255, 255, 255, 70) if t.dark else QColor(40, 60, 90, 45), 1))
+                    p.drawPath(path)
+                else:
+                    if filled:
+                        fill = QColor(t.accent)
+                    elif petals:
+                        fill = QColor(t.wheel_bg)
+                        if hovered:
+                            fill = fill.lighter(115) if t.dark else fill.darker(106)
+                    else:
+                        fill = QColor(t.wheel_stripe)
+                        if i % 2 == 0:
+                            fill.setAlpha(fill.alpha() // 2)
+                        if hovered:
+                            fill.setAlpha(fill.alpha() + 18)
+                    if tint is not None and not filled:
+                        tint.setAlpha(70 if hovered else 42)
+                        fill = tint if not petals else _over(fill, tint)
+                    p.setBrush(fill)
+                    if petals:
+                        p.setPen(QPen(fill, 3, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+                    else:
+                        p.setPen(QPen(t.wheel_line, 1))
+                    p.drawPath(path)
+                if active and look.hover == "outline" and not neon:
+                    p.setBrush(Qt.NoBrush)
+                    p.setPen(QPen(t.accent, 3, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+                    p.drawPath(slice_path(c, r + 2, rr - 2, mid - seg / 2 + gap / 2 + 0.8, seg - gap - 1.6))
+                if item.more and more_progress > 0:  # dwell timer while dragging over "More"
+                    p.setBrush(Qt.NoBrush)
+                    p.setPen(QPen(t.accent, 4, Qt.SolidLine, Qt.RoundCap))
+                    arc_r = rr - 5
+                    p.drawArc(QRectF(c.x() - arc_r, c.y() - arc_r, 2 * arc_r, 2 * arc_r),
+                              int((90 - (mid - seg / 2 + 2)) * 16), int(-(seg - 4) * more_progress * 16))
+                nr = rr - max(9.0, R / 14)
+                badge = QPointF(c.x() + nr * math.sin(a), c.y() - nr * math.cos(a))
+
+            if filled:
                 color = QColor(t.on_accent)
             elif active:
-                color = QColor(t.accent)
+                color = QColor(t.accent) if not neon else QColor(t.text)
             elif item.ok or item.more:
                 color = QColor(t.text)
             else:
                 color = QColor(t.muted)
                 color.setAlpha(150 if hovered else 95)
-            _draw_label(p, pos, item, look, label_font, icon_font, color, active)
+            _draw_label(p, pos, item, look, label_font, icon_font, color, active, label_width)
+            if item.number and badge is not None:  # small key number near the outer edge
+                nf = QFont("Segoe UI", max(6, round(size * 0.75)))
+                nf.setWeight(QFont.Weight.Bold)
+                p.setFont(nf)
+                ncol = QColor(color)
+                ncol.setAlpha(min(ncol.alpha(), 150))
+                p.setPen(ncol)
+                p.drawText(QRectF(badge.x() - 10, badge.y() - 8, 20, 16), Qt.AlignCenter, item.number)
 
-    if not petals:
-        rim = QColor(t.accent)
-        rim.setAlpha(150)
+    if glass:  # a soft shine across the top half
+        ring = QPainterPath()
+        ring.addEllipse(c, R, R)
+        hole = QPainterPath()
+        hole.addEllipse(c, r, r)
+        shine = QLinearGradient(QPointF(c.x(), c.y() - R), QPointF(c.x(), c.y()))
+        shine.setColorAt(0.0, QColor(255, 255, 255, 70 if t.dark else 150))
+        shine.setColorAt(1.0, QColor(255, 255, 255, 0))
+        p.setPen(Qt.NoPen)
+        p.setBrush(shine)
+        p.drawPath(ring.subtracted(hole))
+    if neon:
+        for width, alpha in ((8, 30), (2, 200)):
+            g = QColor(t.accent)
+            g.setAlpha(alpha)
+            p.setBrush(Qt.NoBrush)
+            p.setPen(QPen(g, width))
+            p.drawEllipse(c, R - 1, R - 1)
+    elif not open_style:
+        rim = QColor(t.accent) if not glass else QColor(255, 255, 255) if t.dark else QColor(40, 60, 90)
+        rim.setAlpha(150 if not glass else (90 if t.dark else 60))
         p.setBrush(Qt.NoBrush)
         p.setPen(QPen(rim, 2))
         p.drawEllipse(c, R - 1, R - 1)
 
     # middle: what's being dropped, what will happen, and how many options there are
-    p.setPen(QPen(t.wheel_line, 1))
+    p.setPen(QPen(t.accent if neon else t.wheel_line, 1.5 if neon else 1))
     center_bg = QColor(t.wheel_center)
     if hover == CENTER and n:
         center_bg = center_bg.lighter(125) if t.dark else center_bg.darker(104)
@@ -242,7 +363,7 @@ def _over(a: QColor, b: QColor) -> QColor:
 
 
 def _draw_label(p: QPainter, pos: QPointF, item: Item, look: Look, font: QFont, icon_font: QFont,
-                color: QColor, active: bool):
+                color: QColor, active: bool, max_width: int = 102):
     icon = ICONS.get("more" if item.more else item.action, "")
     is_format = item.action in FORMAT_ACTIONS and not item.more
     text = ("★ " if item.favorite and item.ok else "") + item.label
@@ -253,7 +374,8 @@ def _draw_label(p: QPainter, pos: QPointF, item: Item, look: Look, font: QFont, 
         mode = "text"
     font.setWeight(QFont.Weight.Bold if active else QFont.Weight.DemiBold)
     # long names (they're often longer in Arabic) end in "…" instead of being cut off mid-letter
-    text = QFontMetrics(font).elidedText(text, Qt.ElideRight, 102)
+    text = QFontMetrics(font).elidedText(text, Qt.ElideRight, max_width)
+    half = max_width // 2 + 1
     p.setPen(color)
     if mode == "icon" and icon:
         p.setFont(icon_font)
@@ -263,10 +385,10 @@ def _draw_label(p: QPainter, pos: QPointF, item: Item, look: Look, font: QFont, 
         p.setFont(icon_font)
         p.drawText(QRectF(pos.x() - 30, pos.y() - 24, 60, 24), Qt.AlignCenter, icon)
         p.setFont(font)
-        p.drawText(QRectF(pos.x() - 52, pos.y() - 1, 104, 22), Qt.AlignCenter, text)
+        p.drawText(QRectF(pos.x() - half, pos.y() - 1, 2 * half, 22), Qt.AlignCenter, text)
         return
     p.setFont(font)
-    p.drawText(QRectF(pos.x() - 52, pos.y() - 13, 104, 26), Qt.AlignCenter, text)
+    p.drawText(QRectF(pos.x() - half, pos.y() - 13, 2 * half, 26), Qt.AlignCenter, text)
 
 
 def ease_out_back(x: float) -> float:
@@ -287,9 +409,11 @@ def counts_line(pk: Pick) -> str:
     return tr("{count} options", count=sum(1 for s in pk.slots if s.ok))
 
 
-def hint_text(pk: Pick, click_mode: bool, pages: int) -> str:
+def hint_text(pk: Pick, click_mode: bool, pages: int, numbers: bool = False) -> str:
     """What the middle says while you're not pointing at anything (the dots show the pages)."""
     text = tr("Click an option") if click_mode else tr("Drop on an option")
+    if click_mode and numbers and pk.slots:
+        text = tr("Click an option or press its number")
     if pk.hidden:
         text += "\n" + tr("{count} hidden", count=pk.hidden)
     return text
@@ -312,6 +436,7 @@ class Wheel(QWidget):
         self.scale = 1.0
         self.click_mode = False
         self._down_at_open = False
+        self._keys_down: set[str] = set()
         self.anim = QVariantAnimation(self)
         self.anim.setDuration(170)
         self.anim.setStartValue(0.0)
@@ -446,6 +571,8 @@ class Wheel(QWidget):
         self.opened.emit()
         if self.click_mode:
             self._down_at_open = winutil.any_button_down()
+            self._keys_down = set()
+            self._key_pressed()  # keys already held when the wheel opened don't count
             self.watch.start(30)
 
     def hideEvent(self, e):
@@ -454,10 +581,46 @@ class Wheel(QWidget):
         self.click_mode = False
         super().hideEvent(e)
 
+    def _numbers_on(self) -> bool:
+        return self.click_mode and getattr(self.settings, "wheel_numbers", True)
+
+    def _key_pressed(self) -> str:
+        """A number key that has just gone down ("" if none). Top row and number pad both work."""
+        now = set()
+        for d in range(10):
+            if winutil.key_down(0x30 + d) or winutil.key_down(0x60 + d):
+                now.add(str(d))
+        new = now - self._keys_down
+        self._keys_down = now
+        return min(new) if new else ""
+
+    def press_number(self, key: str) -> bool:
+        """Picks the slice with this number (0 = More). Returns True if something happened."""
+        if key == "0":
+            if self.has_more:
+                self.next_page()
+                return True
+            return False
+        idx = int(key) - 1
+        if idx >= len(self.slots):
+            return False
+        slot = self.slots[idx]
+        if not slot.ok:
+            self._set_hover(idx)  # shows why it can't be used
+            return False
+        files = list(self.files)
+        self.hide()
+        self.chosen.emit(slot.tool, files)
+        return True
+
     def _watch(self):
         if winutil.key_down(winutil.VK_ESCAPE):
             self.hide()
             return
+        if self._numbers_on():
+            key = self._key_pressed()
+            if key and self.press_number(key):
+                return
         down = winutil.any_button_down()
         if self._down_at_open:  # wait for the click that opened the menu to finish
             self._down_at_open = down
@@ -573,7 +736,7 @@ class Wheel(QWidget):
             p.translate(c)
             p.scale(self.scale, self.scale)
             p.translate(-c)
-        hint = hint_text(self.pick, self.click_mode, len(self.pages))
+        hint = hint_text(self.pick, self.click_mode, len(self.pages), self._numbers_on())
         line3 = ""
         if not self.title:
             line1, line2 = APP_NAME, hint
@@ -596,6 +759,9 @@ class Wheel(QWidget):
         items = [item_for(s, s.tool.key in favs) for s in self.slots]
         if self.has_more:
             items.append(Item(tr("More"), ok=False, more=True))
+        if self._numbers_on():
+            for i, item in enumerate(items):
+                item.number = "0" if item.more else (str(i + 1) if i < 9 else "")
         progress = self.dwell_ms / MORE_DWELL_MS if self.is_more(self.hover) and not self.click_mode else 0.0
         paint_wheel(p, c, self.R, items, self.hover, line1, line2, self.theme, Look.of(self.settings), line3,
                     progress, (self.page, len(self.pages)))

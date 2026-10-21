@@ -162,7 +162,7 @@ if (Test-Path "dist\Satsuma") { Remove-Item "dist\Satsuma" -Recurse -Force }
 & $VPy -m PyInstaller --noconfirm --clean --windowed --name Satsuma `
     --icon assets\icon.ico --version-file version_info.txt `
     --add-data "assets\icon.png;assets" --add-data "assets\sounds;assets\sounds" @ModelArgs `
-    --collect-all pi_heif --collect-all zxingcpp --collect-all pypdfium2 --collect-binaries onnxruntime --collect-all winrt `
+    --collect-submodules satsuma --collect-all pi_heif --collect-all zxingcpp --collect-all pypdfium2 --collect-binaries onnxruntime --collect-all winrt `
     --exclude-module tkinter --exclude-module PySide6.QtQml --exclude-module PySide6.QtQuick `
     main.py
 if ($LASTEXITCODE) { throw "PyInstaller failed" }

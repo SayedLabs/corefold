@@ -2,6 +2,8 @@ PySide6-Essentials>=6.7,<7
 Pillow>=11.2
 pi-heif>=0.20
 pypdf>=5.0
+# locking and unlocking PDFs with a password (AES-256)
+cryptography>=42
 pypdfium2>=4.30
 zxing-cpp>=2.2
 numpy>=1.26
