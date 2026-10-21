@@ -59,6 +59,7 @@ class Result:
     outputs: list[Path] = field(default_factory=list)
     clipboard: str | None = None
     note: str = ""
+    locked: list = field(default_factory=list)  # items that need a (different) password
 
 
 @dataclass
@@ -82,31 +83,54 @@ def fallback_folder() -> Path:
     return Path.home() / "Downloads" / "Satsuma"
 
 
+_writable_cache: dict[str, tuple[float, bool]] = {}
+
+
 def writable(folder: Path) -> bool:
+    """Can Satsuma save in this folder? (Remembered for a minute, so converting 500 files doesn't
+    create and delete 500 test files in the folder.)"""
+    import time
+    key = str(folder)
+    hit = _writable_cache.get(key)
+    if hit and time.monotonic() - hit[0] < 60:
+        return hit[1]
     try:
         folder.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryFile(dir=folder):
             pass
-        return True
+        ok = True
     except OSError:
-        return False
+        ok = False
+    _writable_cache[key] = (time.monotonic(), ok)
+    return ok
+
+
+_reserved: set[str] = set()   # names handed out but maybe not written yet (two jobs at once)
+_reserve_lock = threading.Lock()
 
 
 def unique_path(p: Path) -> Path:
-    if not p.exists():
-        return p
-    n = 2
-    while True:
-        cand = p.with_name(f"{p.stem} ({n}){p.suffix}")
-        if not cand.exists():
-            return cand
-        n += 1
+    with _reserve_lock:
+        cand, n = p, 2
+        while cand.exists() or os.path.normcase(str(cand)) in _reserved:
+            cand = p.with_name(f"{p.stem} ({n}){p.suffix}")
+            n += 1
+        if len(_reserved) > 5000:
+            _reserved.clear()
+        _reserved.add(os.path.normcase(str(cand)))
+        return cand
+
+
+WINDOWS_RESERVED = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
 
 
 def safe_name(text: str) -> str:
     bad = '<>:"/\\|?*'
     out = "".join("_" if c in bad or ord(c) < 32 else c for c in text).strip(" .")
-    return out[:120]
+    out = out[:120].rstrip(" .")
+    if out.split(".")[0].upper() in WINDOWS_RESERVED:  # Windows can't make a file called "CON" or "NUL"
+        out = "_" + out
+    return out
 
 
 def quick_size(path: Path, budget_s: float = 0.25) -> tuple[int, bool]:

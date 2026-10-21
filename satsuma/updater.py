@@ -135,13 +135,18 @@ def download(info: UpdateInfo, current: str, progress: Callable[[float], None] |
     cancel = cancel or threading.Event()
     ua = f"Satsuma/{current}"
 
-    with _request(info.sums_url, ua, timeout) as resp:
-        want = expected_hash(resp.read(1_000_000).decode("utf-8", "replace"), info.installer_name)
+    try:
+        with _request(info.sums_url, ua, timeout) as resp:
+            want = expected_hash(resp.read(1_000_000).decode("utf-8", "replace"), info.installer_name)
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        raise UpdateError(tr("the download failed. Check your internet connection")) from e
     if not want:
         raise UpdateError(tr("the installer isn't listed in the checksum file"))
 
-    dest = Path(tempfile.gettempdir()) / info.installer_name
-    part = dest.with_suffix(".part")
+    folder = Path(tempfile.gettempdir()) / "satsuma-update"
+    folder.mkdir(exist_ok=True)
+    dest = folder / info.installer_name
+    part = folder / (info.installer_name + ".part")
     digest = hashlib.sha256()
     done = 0
     try:
@@ -167,6 +172,19 @@ def download(info: UpdateInfo, current: str, progress: Callable[[float], None] |
         raise UpdateError(tr("the download failed. Check your internet connection")) from e
     finally:
         part.unlink(missing_ok=True)
+
+
+def clean_old_installers(keep_days: float = 1.0):
+    """Deletes installers left from earlier updates (about 100 MB each)."""
+    import time
+    folder = Path(tempfile.gettempdir()) / "satsuma-update"
+    cutoff = time.time() - keep_days * 86400
+    for p in list(folder.glob("Satsuma-Setup-*")) if folder.is_dir() else []:
+        try:
+            if p.stat().st_mtime < cutoff:
+                p.unlink()
+        except OSError:
+            pass
 
 
 def run_installer(path: Path):

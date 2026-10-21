@@ -277,9 +277,10 @@ class TrimDialog(Base):
 
 
 class RenameDialog(Base):
-    def __init__(self, files, icon, dark):
+    def __init__(self, files, icon, dark, ext: str = ""):
         super().__init__(tr("Name the new files"), tr("{count} files", count=len(files)), icon, dark)
         self.files = files
+        self.ext = ext  # the format being made (".png"), or "" to keep each file's own
         self.base = QLineEdit()
         self.base.setPlaceholderText(tr("e.g. vacation"))
         self.start = QSpinBox()
@@ -318,7 +319,7 @@ class RenameDialog(Base):
             return
         self.ok.setEnabled(True)
         n = self.start.value()
-        ext = norm(self.files[0].suffix)
+        ext = self.ext or norm(self.files[0].suffix)
         names = [f"{base}-{n + i}{ext}" for i in range(min(3, len(self.files)))]
         more = "…" if len(self.files) > 3 else ""
         self.preview.setText(tr("New files: {names}", names=", ".join(names) + more))
@@ -370,6 +371,22 @@ class FitDialog(Base):
         b = self.group.checkedButton()
         mb = b.property("mb") if b else -1.0
         return {"mb": self.mb.value() if mb is None or mb < 0 else float(mb)}
+
+
+def _preview_base(src: Path):
+    """A small copy of the picture (or a frame of the video) to show the watermark on."""
+    from PIL import Image
+    base = None
+    try:
+        if category(src) == "video":
+            data = video_frame(src, min(1.0, media_duration(src) / 2), 640)
+            base = Image.open(io.BytesIO(data)).convert("RGBA") if data else None
+        else:
+            base = load_image(src).convert("RGBA")
+            base.thumbnail((640, 640))
+    except Exception:
+        base = None
+    return base or Image.new("RGBA", (640, 360), (120, 120, 130, 255))
 
 
 class WatermarkDialog(Base):
@@ -424,7 +441,20 @@ class WatermarkDialog(Base):
                     self.opacity.valueChanged):
             sig.connect(lambda *_: self.timer.start(120))
         self._update_logo_label()
-        QTimer.singleShot(30, self._render)
+        # the picture behind the preview is read in the background (a video frame can take a moment)
+        self.loaded = _Frames(self)
+        self.loaded.ready.connect(lambda *_: self._render())
+        self.preview.setText("…")
+        files, loaded = self.files, self.loaded
+
+        def work():
+            base = _preview_base(files[0])
+            self._base = base
+            try:
+                loaded.ready.emit(0, 0, None)
+            except RuntimeError:
+                pass  # the window was closed meanwhile
+        threading.Thread(target=work, daemon=True).start()
 
     def _pick_logo(self):
         path, _ = QFileDialog.getOpenFileName(self, tr("Choose a logo"), "",
@@ -445,29 +475,13 @@ class WatermarkDialog(Base):
         if hasattr(self, "ok"):
             self.ok.setEnabled(has_any)
 
-    def _base_image(self):
-        if self._base is None:
-            from PIL import Image
-            src = self.files[0]
-            try:
-                if category(src) == "video":
-                    data = video_frame(src, min(1.0, media_duration(src) / 2), 640)
-                    self._base = Image.open(io.BytesIO(data)).convert("RGBA") if data else None
-                else:
-                    im = load_image(src).convert("RGBA")
-                    im.thumbnail((640, 640))
-                    self._base = im
-            except Exception:
-                self._base = None
-            if self._base is None:
-                self._base = Image.new("RGBA", (640, 360), (120, 120, 130, 255))
-        return self._base
-
     def _render(self):
         from .extras import make_overlay
         self._update_logo_label()
+        if self._base is None:
+            return  # still reading the picture; it renders when it's ready
         try:
-            base = self._base_image().copy()
+            base = self._base.copy()
             if self.text.text().strip() or self.logo:
                 base.alpha_composite(make_overlay(base.width, base.height, self.params()))
             buf = io.BytesIO()
@@ -643,6 +657,8 @@ class PasswordDialog(Base):
         self.lay.addWidget(self.password)
         self.lay.addWidget(show)
         self.buttons(tr("Open"))
+        self.ok.setEnabled(False)
+        self.password.textChanged.connect(lambda t: self.ok.setEnabled(bool(t)))
         self.password.setFocus()
 
     def params(self):

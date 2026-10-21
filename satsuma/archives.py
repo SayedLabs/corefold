@@ -295,10 +295,13 @@ def _move_unique(item: Path, folder: Path) -> Path:
 
 
 def _hide(path: Path, hidden: bool = True):
+    """Hides the unpacking folder while it fills up, and shows it again when it's done.
+    (FILE_ATTRIBUTE_NORMAL clears "hidden"; the "directory" flag can't be set this way, so using it
+    could leave the finished folder invisible.)"""
     if os.name == "nt":
         try:
             import ctypes
-            ctypes.windll.kernel32.SetFileAttributesW(str(path), 0x02 if hidden else 0x10)  # HIDDEN / DIRECTORY
+            ctypes.windll.kernel32.SetFileAttributesW(str(path), 0x02 if hidden else 0x80)  # HIDDEN / NORMAL
         except Exception:
             pass
 
@@ -370,7 +373,10 @@ def pack_into(items: list[Path], out: Path, ctx: Ctx, fmt: str = "zip", level: s
         finally:
             listfile.unlink(missing_ok=True)
         if code not in (0, 1):
-            for part in out.parent.glob(out.name + "*"):
+            # remove only what this run made: the archive and its numbered parts (.001, .002 …),
+            # never other files that just start with the same name
+            out.unlink(missing_ok=True)
+            for part in out.parent.glob(glob_escape(out.name) + ".[0-9][0-9][0-9]"):
                 part.unlink(missing_ok=True)
             raise _7z_error(output)
         if split_mb:

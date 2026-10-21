@@ -48,7 +48,7 @@ UPDATE_CHECK_EVERY_MS = 6 * 3600 * 1000
 IDLE_TIDY_MS = 45_000          # hand memory back to Windows this long after the last job
 FREE_WINDOW_AFTER_MS = 90_000  # free the main window this long after it's closed
 MENU_WRITE_DELAY_MS = 1500     # wait for more changes before rewriting the right-click menu
-MENU_BATCH_MS = 450            # right-clicked files arrive one process at a time; collect them
+MENU_BATCH_MS = 700            # right-clicked files arrive one process at a time; collect them
 log = logging.getLogger("satsuma")
 
 
@@ -103,6 +103,7 @@ class UpdateSignals(QObject):
 class BackgroundSignals(QObject):
     menu_written = Signal(str)         # signature of what's now in the right-click menu
     menu_files_ready = Signal(object)  # [(tool key, files)] read and ready to run
+    archive_listed = Signal(object)    # (archive, password, entries or None, error or None)
 
 
 # ----------------------------------------------------------------------------- key-drag detector
@@ -237,6 +238,9 @@ class Controller(QObject):
         self.bg = BackgroundSignals()
         self.bg.menu_written.connect(self._menu_written)
         self.bg.menu_files_ready.connect(self._run_menu_files)
+        self.bg.archive_listed.connect(self._archive_listed)
+        self.listing: set[str] = set()       # archives being read for the archive window
+        self.recent_outputs: list[str] = []  # files Satsuma just made (not offered as "downloads")
 
         self.tray = QSystemTrayIcon(icon)
         self.tray.activated.connect(self._tray_clicked)
@@ -271,6 +275,10 @@ class Controller(QObject):
         self.update_timer.timeout.connect(self.check_updates)
         self.update_timer.start(UPDATE_CHECK_EVERY_MS)
         QTimer.singleShot(10_000, self.check_updates)
+
+        self.save_timer = QTimer(self)
+        self.save_timer.setSingleShot(True)
+        self.save_timer.timeout.connect(self.settings.save)
 
         # the right-click menu is rewritten only when what it shows has changed
         self.menu_timer = QTimer(self)
@@ -461,6 +469,8 @@ class Controller(QObject):
         self.seen_downloads = names
         for name in sorted(new):
             path = self.downloads / name
+            if str(path) in self.recent_outputs:
+                continue  # made by Satsuma itself
             if path.suffix.lower() in (".heic", ".heif", ".webp", ".avif") and path.is_file():
                 self._offer_jpg(path)
                 break
@@ -487,22 +497,47 @@ class Controller(QObject):
         return None if answer is None else answer["password"]
 
     def open_browser(self, src: Path, password: str = ""):
-        from .browser import ArchiveBrowser
-        if not password and archives.is_encrypted(src):
-            password = self.ask_password([src])
-            if password is None:
+        """Reads what's in the archive in the background (big archives take a moment), then opens
+        the archive window."""
+        for b in self.browsers:  # already open: bring it to the front
+            if _alive(b) and b.src == src and not password:
+                b.showNormal()
+                b.raise_()
+                b.activateWindow()
                 return
-        try:
-            entries = archives.list_entries(src, password)
-        except archives.NeedPassword:  # names are hidden too (7z with a password)
+        key = str(src).lower()
+        if key in self.listing:
+            return
+        self.listing.add(key)
+
+        def work():
+            entries, error = None, None
+            try:
+                entries = archives.list_entries(src, password)
+            except Exception as e:
+                error = e
+            try:
+                self.bg.archive_listed.emit((src, password, entries, error))
+            except RuntimeError:
+                pass
+        threading.Thread(target=work, daemon=True).start()
+
+    def _archive_listed(self, payload):
+        from .browser import ArchiveBrowser
+        src, password, entries, error = payload
+        self.listing.discard(str(src).lower())
+        if isinstance(error, archives.NeedPassword):  # names are hidden too (7z with a password)
             new = self.ask_password([src], wrong=bool(password))
             if new:
                 self.open_browser(src, new)
             return
-        except Exception as e:
-            self.toast.notify(tr("Couldn't open the archive"), f"{src.name}: {e}")
-            self.play_problem_sound()
+        if error is not None:
+            self.tell(tr("Couldn't open the archive"), f"{src.name}: {error}")
             return
+        if not password and any(e.encrypted for e in entries):
+            password = self.ask_password([src])
+            if password is None:
+                return
         win = ArchiveBrowser(self, src, password, entries, self.icon)
         self.browsers = [b for b in self.browsers if _alive(b)] + [win]
         win.show()
@@ -666,8 +701,9 @@ class Controller(QObject):
             self.apply_theme()
 
     def settings_changed(self, menu: bool = False):
-        """Saves the settings. menu=True when the change also shows in the right-click menu."""
-        self.settings.save()
+        """Saves the settings (a moment later, so dragging a slider doesn't write the file 50 times).
+        menu=True when the change also shows in the right-click menu."""
+        self.save_timer.start(400)
         if self._window is not None:
             self._window.refresh()
         self._update_tooltip()
@@ -714,12 +750,13 @@ class Controller(QObject):
         if tool.opens == "browse":
             self.open_browser(files[0])
             return
+        if tool.target and len(files) > 1:
+            # "Convert to PNG" with some PNGs among the files: leave those alone instead of copying them
+            others = [f for f in files if norm(f.suffix) != tool.target]
+            files = others or files
         params: dict = {}
-        if tool.password and any(archives.is_encrypted(f) for f in files):
-            password = self.ask_password(files)
-            if password is None:
-                return
-            params["password"] = password
+        # No password question up front (that meant reading every archive first, which froze the
+        # window on big ones): if one is needed, the job says so and job_done() asks.
         if tool.ask:
             extra = {}
             if tool.ask == "fit":
@@ -741,14 +778,14 @@ class Controller(QObject):
         if archive_name:
             rename = {"rename_base": archive_name}
         elif self.settings.ask_names and tool.renames and len(files) > 1:
-            answer = dialogs.ask("rename", files, self.icon, dark)
+            answer = dialogs.ask("rename", files, self.icon, dark, ext=tool.target or "")
             if answer is None:
                 return
             rename = answer
         self.start_job(tool, files, params, rename)
 
     def start_job(self, tool: Tool, files: list[Path], params: dict | None = None, rename: dict | None = None,
-                  after: str | None = None):
+                  after: str | None = None, carry: dict | None = None):
         self.tidy_timer.stop()
         job_id = next(self.ids)
         cancel = threading.Event()
@@ -759,7 +796,7 @@ class Controller(QObject):
         what = files[0].name if len(files) == 1 else tr("{count} items", count=len(files))
         self.jobs[job_id] = {"tool": tool, "files": files, "bytes_in": sum(size_of(f) for f in files),
                              "params": params, "rename": rename or {}, "after": after, "quick": quick,
-                             "what": what}
+                             "what": what, "carry": carry or {"outputs": [], "errors": []}}
         if self.settings.show_progress:
             self.toast.start(job_id, tool.description,
                              tr("{what} · waiting for the one before it", what=what) if waiting else what)
@@ -797,15 +834,27 @@ class Controller(QObject):
         if not self.cancels:
             self.tidy_timer.start(IDLE_TIDY_MS)
 
-        # wrong password: ask again and retry the same job
+        # a password is needed (or was wrong): ask, then try again with only the files that need it,
+        # so files that already worked aren't done twice
         password_error = tr(PASSWORD_ERROR)
-        if tool and tool.password and errors and not result.outputs and not cancelled \
-                and all(password_error in e for e in errors):
+        carry = job.get("carry") or {"outputs": [], "errors": []}
+        if tool and tool.password and result.locked and not cancelled:
+            retry = list(files) if tool.batch else [f for f in result.locked if isinstance(f, Path)]
             self.toast.hide()
-            password = self.ask_password(files, wrong=bool(job["params"].get("password")))
+            password = self.ask_password(retry or files, wrong=bool(job["params"].get("password")))
             if password is not None:
-                self.start_job(tool, files, dict(job["params"], password=password), job["rename"], job["after"])
-            return
+                for b in self.browsers:
+                    if _alive(b) and retry and b.src == retry[0]:
+                        b.password = password
+                keep = {"outputs": carry["outputs"] + result.outputs,
+                        "errors": carry["errors"] + [e for e in errors if password_error not in e]}
+                self.start_job(tool, retry or files, dict(job["params"], password=password), job["rename"],
+                               job["after"], carry=keep)
+                return
+        if carry["outputs"] or carry["errors"]:  # put together with the tries before this one
+            result.outputs = carry["outputs"] + result.outputs
+            errors = carry["errors"] + errors
+        self.recent_outputs = (self.recent_outputs + [str(p) for p in result.outputs])[-200:]
 
         after = job["after"]
         if after == "open" and result.outputs and not errors:
@@ -974,6 +1023,9 @@ class Controller(QObject):
     # ---- quitting / removing
 
     def quit(self, cleanup: bool = False):
+        if self.save_timer.isActive():
+            self.save_timer.stop()
+            self.settings.save()
         for ev in self.cancels.values():
             ev.set()
         self.pool.waitForDone(3000)
@@ -1048,6 +1100,7 @@ def clean_old_temp_files():
                 shutil.rmtree(p, ignore_errors=True)
         except OSError:
             pass
+    updater.clean_old_installers()
 
 
 def _alive(widget) -> bool:
@@ -1059,6 +1112,22 @@ def _alive(widget) -> bool:
 
 
 # ----------------------------------------------------------------------------- startup
+
+def refresh_startup_entry():
+    """If Satsuma starts with Windows, make sure that entry points at this copy (the portable
+    folder may have been moved, or an old copy may have been replaced)."""
+    try:
+        import winreg
+        from .settings import RUN_KEY, launch_command, set_startup, startup_enabled
+        if not startup_enabled():
+            return
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as k:
+            current = winreg.QueryValueEx(k, APP_NAME)[0]
+        if current != launch_command():
+            set_startup(True)
+    except Exception:
+        log.debug("could not check the startup entry", exc_info=True)
+
 
 def setup_logging():
     try:
@@ -1117,6 +1186,7 @@ def main() -> int:
     QTimer.singleShot(20_000, clean_old_temp_files)
 
     server = QLocalServer()
+    server.setMaxPendingConnections(512)  # hundreds of files right-clicked at once
     QLocalServer.removeServer(ipc.SERVER_NAME)
     if not server.listen(ipc.SERVER_NAME):
         log.warning("could not listen for other copies: %s", server.errorString())
@@ -1140,6 +1210,7 @@ def main() -> int:
 
     # keeps the right-click menu up to date and pointing at this copy (only rewritten if needed)
     controller.update_shell_menu(3000)
+    QTimer.singleShot(4000, refresh_startup_entry)
 
     s = controller.settings
     if s.last_version and s.last_version != __version__ and __version__ != "dev":
