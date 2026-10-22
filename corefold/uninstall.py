@@ -849,9 +849,32 @@ def _path_ok(path: str, kind: str) -> bool:
         return False
     if any(norm(part) in ("windowsapps", "system32", "syswow64", "winsxs") for part in Path(p).parts):
         return False
+    if _profile_place(p):
+        return False
     if kind == "folder":
         return _safe_folder(path)
     return p not in _protected_paths() and len(Path(p).parts) >= 3
+
+
+_PROFILE_FOLDERS = {"documents", "desktop", "downloads", "pictures", "music", "videos", "appdata", "onedrive",
+                    "favorites", "contacts", "links", "savedgames", "searches", "3dobjects"}
+_APPDATA_FOLDERS = {"roaming", "local", "locallow"}
+
+
+def _profile_place(p: str) -> bool:
+    """Any account's profile folder or one of its standard folders (whoever's environment this is):
+    "C:\\Users\\Sam", "...\\Sam\\Documents", "...\\AppData\\Roaming", "...\\Local\\Programs"."""
+    parts = [norm(x) for x in Path(p).parts[1:]]
+    if not parts or parts[0] != "users":
+        return False
+    rest = parts[2:]  # after "Users\\<name>"
+    if len(parts) == 2 or not rest:
+        return True
+    if len(rest) == 1:
+        return rest[0] in _PROFILE_FOLDERS
+    if rest[0] == "appdata" and len(rest) == 2:
+        return rest[1] in _APPDATA_FOLDERS
+    return rest[:3] == ["appdata", "local", "programs"] and len(rest) == 3
 
 
 def _registry_ok(path: str, kind: str) -> bool:
@@ -1147,10 +1170,14 @@ def helper_main(argv: list[str]) -> int:
         payload = json.loads(plan.read_text("utf-8"))
     except (IndexError, ValueError, OSError):
         return 2
-    # only plans Corefold wrote, about its own backup folders
+    # only plans Corefold wrote (in its "helper" folder), about its own backup folders. The plan's
+    # own place is used, not this account's: when someone signs in with another (administrator)
+    # account at the admin prompt, this copy runs as that account, with other folders.
     folder = str(payload.get("folder", "")) if isinstance(payload, dict) else ""
-    if not _inside(str(plan.resolve()), str((BACKUP_DIR.parent / "helper").resolve())) or \
-            (kind != "restore-point" and not (folder and _inside(str(Path(folder).resolve()), str(BACKUP_DIR.resolve())))):
+    home = plan.resolve().parent.parent  # ...\Corefold
+    if plan.resolve().parent.name.lower() != "helper" or home.name.lower() not in ("corefold", LEGACY_NAME.lower()) or \
+            (kind != "restore-point" and not (folder and _inside(str(Path(folder).resolve()),
+                                                                  str(home / BACKUP_DIR.name)))):
         return 2
     try:
         if kind == "cleanup":
