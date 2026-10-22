@@ -135,6 +135,52 @@ def video():
         check(True, "a playlist pretending to be a video isn't followed")
 
 
+def right_click_menu():
+    """Both right-click menu styles are written to this user's registry the way Explorer reads them,
+    every entry starts Corefold with the right request, and removing the menu leaves nothing."""
+    import shlex
+    import winreg
+    from corefold import ipc
+    from corefold import settings as st
+    from corefold import shellmenu as sm
+    s = st.Settings()
+    cmd = lambda *a: '"C:\\Program Files\\Corefold\\Corefold.exe" ' + " ".join(a)  # noqa: E731
+    hkcu = winreg.HKEY_CURRENT_USER
+
+    def value(path, name=""):
+        with winreg.OpenKey(hkcu, path) as k:
+            return winreg.QueryValueEx(k, name)[0]
+
+    for style in ("windows", "wheel"):
+        s.menu_style = style
+        sm.write(sm.plan(s, cmd), cmd, "")
+        base = sm.FILE_ROOT + r"\.jpg\shell\Corefold"
+        if style == "windows":
+            entries, i = [], 1
+            while True:
+                try:
+                    entries.append((value(rf"{base}\shell\{i:02d}", "MUIVerb"), value(rf"{base}\shell\{i:02d}\command")))
+                except OSError:
+                    break
+                i += 1
+            check(len(entries) > 5, f"Windows menu for photos has {len(entries)} entries")
+            png = next((c for t, c in entries if "image:png" in c), "")
+            argv = shlex.split(png.replace('"%1"', '"C:\\Photos\\a b.jpg"'), posix=False)[1:]
+            argv = [a.strip('"') for a in argv]
+            check(ipc.message_for(argv) == b"run\nimage:png\nC:\\Photos\\a b.jpg", f"Convert to PNG starts the right job {argv}")
+            check(any("--open" in c for _, c in entries), "\"All options…\" opens the window")
+        else:
+            c = value(base + r"\command")
+            check("--convert" in c and '"%1"' in c, "the wheel entry opens the wheel")
+        check(value(sm.FOLDER_ROOT + r"\shell\Corefold", "MUIVerb") != "", f"folders have an entry ({style})")
+    sm.remove()
+    try:
+        value(sm.FILE_ROOT + r"\.jpg\shell\Corefold", "MUIVerb")
+        check(False, "removing the menu leaves nothing")
+    except OSError:
+        check(True, "removing the menu leaves nothing")
+
+
 def uninstaller():
     """A pretend app in this user's part of the registry: its leftovers are found and removed, and
     nothing else is touched (not even through a junction), then everything is put back."""
@@ -164,6 +210,8 @@ def uninstaller():
     with winreg.CreateKey(winreg.HKEY_CURRENT_USER, un.RUN_KEYS[0]) as k:
         winreg.SetValueEx(k, name, 0, winreg.REG_SZ, f'"{inst / "app.exe"}" --tray')
     apps = un.list_apps(include_store=False)
+    used = un.usage()
+    check(isinstance(used, dict), f"when apps were last used can be read ({len(used)} entries)")
     app = next((a for a in apps if a.name == name), None)
     check(app is not None and app.broken, "the pretend app is listed (its uninstaller is missing)")
     left = un.find_leftovers(app, [a for a in apps if a is not app], forced=True)
@@ -294,7 +342,7 @@ if __name__ == "__main__" and len(sys.argv) > 1:  # run just some: python script
     print(f"selftest: {len(problems)} problem(s)")
     sys.exit(1 if problems else 0)
 
-for name, fn in (("every tool", every_tool), ("uninstaller", uninstaller), ("list", listing), ("extract", extract_all), ("extract one", extract_some), ("open", open_one),
+for name, fn in (("right-click menu", right_click_menu), ("every tool", every_tool), ("uninstaller", uninstaller), ("list", listing), ("extract", extract_all), ("extract one", extract_some), ("open", open_one),
                  ("test", test_it), ("pack", pack_and_edit), ("video", video)):
     step(name, fn)
 print(f"selftest: {len(problems)} problem(s)")

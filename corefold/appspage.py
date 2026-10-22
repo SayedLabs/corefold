@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QFileInfo, QObject, Qt, QTimer, Signal
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QDialog, QFileIconProvider, QHBoxLayout, QHeaderView,
+from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDialog, QFileIconProvider, QHBoxLayout, QHeaderView,
                                QLabel, QLineEdit, QMessageBox, QProgressBar, QPushButton, QStackedWidget,
                                QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
@@ -62,6 +62,50 @@ class _Signals(QObject):
     state = Signal(str, object)     # what the uninstall dialog is doing
 
 
+# what the "Show" list can narrow the apps down to (English, shown through tr())
+SHOW = {"all": "All apps", "unused": "Not used for 3 months", "big": "Big (1 GB or more)",
+        "new": "Installed in the last 30 days", "startup": "Start with Windows"}
+UNUSED_DAYS = 90
+
+
+def _add_usage(apps: list[un.App]):
+    """When each app was last used, and whether it starts with Windows (quick: a few registry reads)."""
+    try:
+        used = un.usage()
+    except Exception:
+        log.debug("couldn't read when apps were used", exc_info=True)
+        used = {}
+    for app in apps:
+        try:
+            app.last_used = un.last_used(app, used)
+            app.startup = un.starts_with_windows(app)
+        except Exception:
+            log.debug("usage of %s", app.name, exc_info=True)
+
+
+def _shown(app: un.App, show: str) -> bool:
+    now = time.time()
+    if show == "unused":  # only when Windows knows: an app with no date may still be in use
+        return bool(app.last_used) and now - app.last_used > UNUSED_DAYS * 86400
+    if show == "big":
+        return app.size >= 1024 ** 3
+    if show == "new":
+        try:
+            return now - time.mktime(time.strptime(app.date, "%Y-%m-%d")) < 30 * 86400
+        except (ValueError, OverflowError):
+            return False
+    if show == "startup":
+        return app.startup
+    return True
+
+
+def _when(ts: float) -> str:
+    if not ts:
+        return ""
+    from .window import time_ago
+    return time_ago(ts)
+
+
 def _icon_for(app: un.App, provider: QFileIconProvider) -> QIcon | None:
     for path in (app.icon, os.path.join(app.location, "") if app.location else ""):
         if path and os.path.exists(path) and (os.path.isdir(path) or path.lower().endswith((".exe", ".ico", ".dll"))):
@@ -100,6 +144,10 @@ class AppsPage(QWidget):
                                   controller.theme.dark if controller is not None else True, self.devicePixelRatioF()))
 
         top = QHBoxLayout()
+        self.show_only = QComboBox()
+        for key, text in SHOW.items():
+            self.show_only.addItem(tr(text), key)
+        self.show_only.currentIndexChanged.connect(self._filter)
         self.search = QLineEdit()
         self.search.setPlaceholderText(tr("Search apps"))
         self.search.setClearButtonEnabled(True)
@@ -108,14 +156,15 @@ class AppsPage(QWidget):
         self.store.setChecked(True)
         self.store.toggled.connect(self._filter)
         top.addWidget(self.search, 1)
+        top.addWidget(self.show_only)
         top.addWidget(self.store)
         top.addWidget(_button(tr("Refresh"), on_click=self.reload))
         lay.addLayout(top)
 
         self.tree = QTreeWidget()
         self.tree.setObjectName("apps")
-        self.tree.setColumnCount(4)
-        self.tree.setHeaderLabels([tr("Name"), tr("Publisher"), tr("Size"), tr("Installed")])
+        self.tree.setColumnCount(5)
+        self.tree.setHeaderLabels([tr("Name"), tr("Publisher"), tr("Size"), tr("Installed"), tr("Last used")])
         self.tree.setRootIsDecorated(False)
         self.tree.setUniformRowHeights(True)
         self.tree.setSelectionMode(QAbstractItemView.ExtendedSelection)
@@ -124,7 +173,7 @@ class AppsPage(QWidget):
         h = self.tree.header()
         h.setStretchLastSection(False)
         h.setSectionResizeMode(0, QHeaderView.Stretch)
-        for col in (1, 2, 3):
+        for col in (1, 2, 3, 4):
             h.setSectionResizeMode(col, QHeaderView.ResizeToContents)
         self.tree.itemSelectionChanged.connect(self._selection)
         self.tree.itemDoubleClicked.connect(lambda *_: self.uninstall_selected())
@@ -132,6 +181,11 @@ class AppsPage(QWidget):
 
         self.status = _label(tr("Loading the list of apps…"), "muted")
         lay.addWidget(self.status)
+        self.show_note = _label(tr("\"Last used\" is when you last opened it from Start, the taskbar, a shortcut or File "
+                                   "Explorer. Apps that only run in the background (like drivers) don't show a date, "
+                                   "and aren't listed as unused."), "muted", wrap=True)
+        self.show_note.hide()
+        lay.addWidget(self.show_note)
 
         row = QHBoxLayout()
         self.b_uninstall = _button(tr("Uninstall"), "primary", self.uninstall_selected)
@@ -166,6 +220,7 @@ class AppsPage(QWidget):
             # programs first (quick), then Store apps (Windows takes a few seconds to list those)
             try:
                 apps = un.list_apps(include_store=False)
+                _add_usage(apps)
             except Exception as e:
                 log.exception("couldn't list apps")
                 apps = e
@@ -180,6 +235,7 @@ class AppsPage(QWidget):
                     log.debug("couldn't list Store apps", exc_info=True)
                     store = []
                 if store and not cancel.is_set():
+                    _add_usage(store)
                     apps = sorted(apps + store, key=lambda a: a.name.lower())
                     try:
                         signals.listed.emit(apps)
@@ -209,15 +265,18 @@ class AppsPage(QWidget):
         self._icon_queue = []
         for app in apps:
             item = SortItem([app.name, app.publisher, human_size(app.size) if app.size else "",
-                             app.date])
+                             app.date, _when(app.last_used)])
             item.setData(0, APP_ROLE, app)
             item.setData(2, SORT_ROLE, app.size)
             item.setData(3, SORT_ROLE, app.date or "0")
+            item.setData(4, SORT_ROLE, app.last_used)
             tip = [app.name]
             if app.version:
                 tip.append(tr("Version {version}", version=app.version))
             if app.location:
                 tip.append(app.location)
+            if app.startup:
+                tip.append(tr("Starts with Windows"))
             if app.store:
                 tip.append(tr("From the Microsoft Store"))
             elif app.broken:
@@ -259,19 +318,25 @@ class AppsPage(QWidget):
     def _filter(self, *_):
         words = self.search.text().lower().split()
         stores = self.store.isChecked()
+        show = self.show_only.currentData() or "all"
         for i in range(self.tree.topLevelItemCount()):
             item = self.tree.topLevelItem(i)
             app = item.data(0, APP_ROLE)
             text = f"{app.name} {app.publisher}".lower()
-            item.setHidden(not all(w in text for w in words) or (bool(app.store) and not stores))
+            item.setHidden(not all(w in text for w in words) or (bool(app.store) and not stores)
+                           or not _shown(app, show))
+        self.show_note.setVisible(show == "unused")
         self._update_status()
 
     def _update_status(self):
         shown = [self.tree.topLevelItem(i).data(0, APP_ROLE) for i in range(self.tree.topLevelItemCount())
                  if not self.tree.topLevelItem(i).isHidden()]
         total = sum(a.size for a in shown)
-        self.status.setText(tr("{count} apps · {size}", count=len(shown), size=human_size(total)) if self.loaded
-                            else tr("Loading the list of apps…"))
+        text = tr("{count} apps · {size}", count=len(shown), size=human_size(total))
+        unused = sum(1 for a in self.apps if _shown(a, "unused") and (not a.store or self.store.isChecked()))
+        if unused and (self.show_only.currentData() or "all") == "all":
+            text += " · " + tr("{count} not used for 3 months", count=unused)
+        self.status.setText(text if self.loaded else tr("Loading the list of apps…"))
 
     def _selected(self) -> list[un.App]:
         return [i.data(0, APP_ROLE) for i in self.tree.selectedItems()]

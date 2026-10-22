@@ -86,14 +86,14 @@ def _metadata(im, ext: str, final_mode: str) -> dict:
     profile on a colour picture would make the colours come out wrong."""
     keep = {}
     icc = im.info.get("icc_profile")
-    if icc and ext in (".jpg", ".png", ".webp", ".tiff") and len(icc) > 20:
+    if icc and ext in (".jpg", ".png", ".webp", ".tiff", ".avif") and len(icc) > 20:
         space = bytes(icc[16:20])
         fits = (space == b"RGB " and final_mode in ("RGB", "RGBA", "P")) or \
             (space == b"GRAY" and final_mode in ("L", "LA"))
         if fits:
             keep["icc_profile"] = icc
     exif = im.info.get("exif")
-    if isinstance(exif, (bytes, bytearray)) and exif and len(exif) < 60_000 and ext in (".jpg", ".png", ".webp"):
+    if isinstance(exif, (bytes, bytearray)) and exif and len(exif) < 60_000 and ext in (".jpg", ".png", ".webp", ".avif"):
         keep["exif"] = bytes(exif)
     return keep
 
@@ -135,6 +135,9 @@ def save_image(im, out: Path, ext: str, ctx: Ctx, keep_metadata: bool = True):
         if max(im.size) > WEBP_MAX:
             raise RuntimeError(tr("too big for WebP (it can't be wider or taller than 16,383 pixels)"))
         im.save(out, quality=ctx.options.jpg_quality, method=5, **meta)
+    elif ext == ".avif":  # about half the size of a JPG at the same quality
+        im.save(out, quality=max(50, ctx.options.jpg_quality - 15), speed=6,
+                **{k: v for k, v in meta.items() if k in ("exif", "icc_profile")})
     elif ext in (".png", ".tiff"):
         im.save(out, **meta)
     elif ext == ".ico":
@@ -148,6 +151,18 @@ def save_image(im, out: Path, ext: str, ctx: Ctx, keep_metadata: bool = True):
 
 
 WEBP_MAX = 16383  # the largest width or height a WebP picture can have
+
+
+def avif_supported() -> bool:
+    try:
+        from PIL import features
+        return bool(features.check("avif"))
+    except Exception:
+        return False
+
+
+def check_avif(files: list[Path]) -> str | None:
+    return None if avif_supported() else tr("This copy of Corefold can't write AVIF")
 
 
 def keep_format(src: Path) -> str:
@@ -606,7 +621,7 @@ VIDEO_SMALL_ARGS = _PICK + ["-vf", "scale=w='min(1280,iw)':h='min(1280,ih)':forc
                            "force_divisible_by=2"] + _H264 + ["-crf", "28", "-c:a", "aac", "-b:a", "96k",
                                                               "-movflags", "+faststart"]
 
-FORMAT_NAMES = {".jpg": "JPG", ".png": "PNG", ".webp": "WebP", ".ico": "icon (ICO)", ".bmp": "BMP",
+FORMAT_NAMES = {".jpg": "JPG", ".png": "PNG", ".webp": "WebP", ".ico": "icon (ICO)", ".bmp": "BMP", ".avif": "AVIF",
                 ".mp3": "MP3", ".m4a": "M4A", ".wav": "WAV", ".flac": "FLAC", ".ogg": "OGG",
                 ".opus": "Opus", ".aiff": "AIFF", ".mp4": "MP4", ".mov": "MOV", ".webm": "WebM",
                 ".mkv": "MKV", ".gif": "GIF"}
@@ -1025,6 +1040,7 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
               Tool("image:video", tr("Video"), tr("Turn the pictures into a video slideshow"), ex.images_to_video,
                    batch=True, ask="slideshow", check=ex.check_several_images)]
     image += [fmt("image", e, convert_image) for e in (".ico", ".bmp")]
+    image += [fmt("image", ".avif", convert_image, check=check_avif)]
     image += [Tool("image:qr", "QR", tr("Read QR code"), read_qr, renames=False),
               Tool("image:clean", tr("Clean"), tr("Remove location & camera info"), strip_metadata),
               Tool("image:sticker", tr("Sticker"), tr("Make a sticker (WhatsApp, Telegram)"), mt.image_sticker,

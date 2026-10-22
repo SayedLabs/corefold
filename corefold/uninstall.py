@@ -100,6 +100,8 @@ class App:
     store: str = ""        # PackageFullName, for Store apps
     family: str = ""       # PackageFamilyName, for Store apps
     msi: str = ""          # product code, for Windows Installer apps
+    last_used: float = 0.0  # when it was last started (0 = unknown), see usage()
+    startup: bool = False   # starts with Windows
 
     @property
     def needs_admin(self) -> bool:
@@ -285,6 +287,102 @@ def store_apps() -> list[App]:
         apps.append(App(id="store|" + full, name=name, publisher=publisher, version=str(d.get("ver") or ""),
                         location=str(d.get("loc") or ""), store=full, family=str(d.get("fam") or "")))
     return apps
+
+
+# ----------------------------------------------------------------------------- when an app was last used
+
+USERASSIST = r"Software\Microsoft\Windows\CurrentVersion\Explorer\UserAssist"
+# Windows writes some paths in UserAssist with a "known folder" id instead of the folder
+_KNOWN_FOLDERS = {  # id: (environment variables to try, then the folders under it)
+    "{6d809377-6af0-444b-8957-a3773f02200e}": (("ProgramW6432", "ProgramFiles"), ()),
+    "{7c5a40ef-a0fb-4bfc-874a-c0f2e0b9fa8e}": (("ProgramFiles(x86)",), ()),
+    "{905e63b6-c1bf-494e-b29c-65b732d3d21a}": (("ProgramFiles",), ()),
+    "{f1b32785-6fba-4fcf-9d55-7b8e7f157091}": (("LOCALAPPDATA",), ()),
+    "{3eb685db-65f9-4cf6-a03a-e3ef65729f3d}": (("APPDATA",), ()),
+    "{f38bf404-1d43-42f2-9305-67de0b28fc23}": (("SystemRoot",), ()),
+    "{a77f5d77-2e2b-44c3-a6a2-aba601054a51}": (("APPDATA",), ("Microsoft", "Windows", "Start Menu", "Programs")),
+    "{0139d44e-6afe-49f2-8690-3dafcae6ffb8}": (("ProgramData",), ("Microsoft", "Windows", "Start Menu", "Programs")),
+    "{9e3995ab-1f9c-4f13-b827-48b24b6c7174}": (("APPDATA",), ("Microsoft", "Internet Explorer", "Quick Launch",
+                                                             "User Pinned")),
+}
+
+
+def _expand_known(path: str) -> str:
+    head, _, rest = path.partition("\\")
+    known = _KNOWN_FOLDERS.get(head.lower())
+    if not known:
+        return path
+    names, below = known
+    base = next((os.environ[n] for n in names if os.environ.get(n)), "")
+    return os.path.join(base, *below, rest) if base else path
+
+
+def usage() -> dict[str, float]:
+    """When programs were last started from the Start menu, the taskbar, a shortcut or File Explorer
+    (Windows keeps this for every account, in UserAssist). {lower-case path or app id: time}."""
+    import codecs
+    w = _winreg()
+    out: dict[str, float] = {}
+    for guid in _subkeys("HKCU", USERASSIST, 0):
+        try:
+            with w.OpenKey(w.HKEY_CURRENT_USER, f"{USERASSIST}\\{guid}\\Count") as k:
+                i = 0
+                while True:
+                    try:
+                        name, data, _kind = w.EnumValue(k, i)
+                    except OSError:
+                        break
+                    i += 1
+                    if not isinstance(data, bytes) or len(data) < 68:
+                        continue
+                    ft = int.from_bytes(data[60:68], "little")
+                    if not ft:
+                        continue
+                    when = ft / 10_000_000 - 11_644_473_600
+                    if not 946_684_800 < when < time.time() + 86400:  # 2000 … now: anything else is noise
+                        continue
+                    path = _expand_known(codecs.decode(name, "rot13"))
+                    if path.lower().endswith(".lnk") and os.path.isabs(path):
+                        path = lnk_target(Path(path)) or path
+                    key = os.path.normcase(os.path.normpath(path)) if os.path.isabs(path) else path.lower()
+                    out[key] = max(out.get(key, 0.0), when)
+        except OSError:
+            continue
+    return out
+
+
+def last_used(app: App, used: dict[str, float]) -> float:
+    """The last time any program of this app was started (0 = Windows doesn't know)."""
+    best = 0.0
+    if app.store or app.family:
+        fam = (app.family or app.store).lower()
+        for key, when in used.items():
+            if key.startswith(fam.lower()):
+                best = max(best, when)
+        return best
+    places = [app.location] if app.location and _safe_folder(app.location) else []
+    if not places and app.icon and os.path.isabs(app.icon) and _safe_folder(os.path.dirname(app.icon)):
+        places.append(os.path.dirname(app.icon))
+    for place in places:
+        root = os.path.normcase(os.path.normpath(place)).rstrip("\\/") + os.sep
+        for key, when in used.items():
+            if key.startswith(root):
+                best = max(best, when)
+    return best
+
+
+def starts_with_windows(app: App) -> bool:
+    """One of its programs is in a start-with-Windows entry."""
+    loc = app.location if app.location and _safe_folder(app.location) else ""
+    if not loc:
+        return False
+    for hive in ("HKCU", "HKLM"):
+        for view in _views(hive):
+            for value in _values(hive, RUN_KEYS[0], view).values():
+                exe, _ = split_command(str(value))
+                if exe and _inside(exe, loc):
+                    return True
+    return False
 
 
 def fill_sizes(apps: list[App], cancel: threading.Event | None = None, on_size=None, budget_s: float = 20):
