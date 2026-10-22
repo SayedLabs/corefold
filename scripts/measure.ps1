@@ -92,6 +92,7 @@ Start-Sleep 100;                                   Snap "Window closed for 2 min
 
 $n = 0
 Send @("--run", "image:webp", "$work\photo.png");  $n++; Converted $n; Snap "Just converted a 12 MP photo to WebP"
+Start-Sleep 6;                                                         Snap "Six seconds after converting"
 Start-Sleep 60;                                                        Snap "A minute after converting"
 Send @("--run", "image:cutout", "$work\small.png"); $n++; Converted $n 300; Snap "Just removed a background (AI model loaded)"
 Start-Sleep 60;                                                         Snap "A minute after removing a background"
