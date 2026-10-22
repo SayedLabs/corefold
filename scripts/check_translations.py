@@ -56,6 +56,9 @@ def table_texts() -> dict[str, str]:
     add([i18n.LANGUAGES["system"]], "LANGUAGES")
     add(wheel.GROUP_NAMES.values(), "GROUP_NAMES")
     add(window.PAGES, "PAGES")
+    add([e[1] for e in window.NAV if isinstance(e, tuple)], "NAV")
+    for title, intro, features in window.SOON_TEXT.values():
+        add([title, intro, *features], "SOON_TEXT")
     add([converters.PASSWORD_ERROR], "PASSWORD_ERROR")
     add([v[0] for v in moretools.CROP_RATIOS.values()], "CROP_RATIOS")
     add(moretools.STICKERS_IMAGE.values(), "STICKERS_IMAGE")

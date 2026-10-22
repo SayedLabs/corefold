@@ -28,7 +28,7 @@ from PySide6.QtGui import QCursor, QDesktopServices, QGuiApplication, QIcon, QPi
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon
 
-from . import UPDATE_REPO, __version__, i18n, ipc, shellmenu, sounds, updater, winutil
+from . import UPDATE_REPO, __version__, i18n, icons, ipc, shellmenu, sounds, updater, winutil
 from .converters import PASSWORD_ERROR, Options, Result, Tool, pick, release_memory, run_job, warm_up
 from .core import (LEGACY_NAME, category, human_size, lower_this_thread, norm, os_open, set_background_priority,
                    set_downloads_folder, short_name, unique_path)
@@ -36,7 +36,7 @@ from .history import History, size_of
 from .i18n import tr
 from .settings import (APP_NAME, LOG_DIR, TOAST_TIME_SCALE, WINDOW_TEXT_PT, Settings, app_command, app_icon,
                        installed_uninstaller, remove_user_data)
-from .theme import build_theme, stylesheet
+from .theme import build_theme, round_menu, stylesheet
 from .toast import Toast
 from .wheel import Wheel
 
@@ -273,12 +273,13 @@ class Controller(QObject):
         self.tray = QSystemTrayIcon(icon)
         self.tray.activated.connect(self._tray_clicked)
         menu = QMenu()
-        menu.addAction(tr("Open Corefold"), self.show_window)
-        menu.addAction(tr("Settings"), lambda: self.show_window("General"))
-        menu.addAction(tr("Convert what's copied"), self.paste)
+        self.menu_icons = [(menu.addAction(tr("Open Corefold"), self.show_window), "home"),
+                           (menu.addAction(tr("Settings"), lambda: self.show_window("General")), "settings"),
+                           (menu.addAction(tr("Convert what's copied"), self.paste), "arrow_swap")]
         self.act_again = menu.addAction(tr("Do it again…"), self.do_again)
         menu.aboutToShow.connect(self._update_again_action)
         self.recent_menu = menu.addMenu(tr("Recent files"))
+        self.menu_icons += [(self.act_again, "arrow_sync"), (self.recent_menu.menuAction(), "history")]
         self.recent_menu.aboutToShow.connect(self._fill_recent)
         self.act_pause = menu.addAction(tr("Pause"))
         self.act_pause.setCheckable(True)
@@ -286,10 +287,14 @@ class Controller(QObject):
         self.act_pause.toggled.connect(lambda paused: self.set_enabled(not paused))
         self.act_cancel = menu.addAction(tr("Stop all conversions"), self.cancel_all)
         self.act_cancel.setVisible(False)
-        menu.addAction(tr("Check for updates"), lambda: self.check_updates(manual=True))
+        self.menu_icons.append((menu.addAction(tr("Check for updates"), lambda: self.check_updates(manual=True)),
+                                "arrow_download"))
         menu.addSeparator()
         menu.addAction(tr("Quit"), self.ask_quit)
         self.menu = menu
+        for m in (menu, self.recent_menu):
+            round_menu(m)
+        self._color_menu_icons()
         self.tray.setContextMenu(menu)
 
         # updates
@@ -755,8 +760,14 @@ class Controller(QObject):
         if not wheel_only:
             self.app.setStyleSheet(self._css())  # restyles every window: only when it changes
         self.wheel.theme = self.theme
+        if not wheel_only:
+            self._color_menu_icons()
         if self._window is not None:
             self._window.apply_theme(self.theme)
+
+    def _color_menu_icons(self):
+        for action, name in self.menu_icons:
+            action.setIcon(icons.icon(name, self.theme.muted, selected=self.theme.text))
 
     def _system_theme_changed(self, *_):
         if self.settings.appearance == "system":

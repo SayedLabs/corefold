@@ -145,18 +145,28 @@ def paint_wheel(p: QPainter, c: QPointF, R: float, items: list[Item], hover: int
         base = _over(base, QColor(0, 0, 0, 90 if t.dark else 30))
         base.setAlpha(max(base.alpha(), 200))
     p.setPen(Qt.NoPen)
+    if not open_style:  # a soft shadow, so the wheel lifts off whatever is behind it
+        reach = R + POP + 6
+        shadow = QRadialGradient(c, reach)
+        shadow.setColorAt((R - 2) / reach, QColor(0, 0, 0, 70 if t.dark else 34))
+        shadow.setColorAt(1.0, QColor(0, 0, 0, 0))
+        p.setBrush(shadow)
+        p.drawEllipse(c, reach, reach)
     p.setBrush(base)
     if open_style:
         p.drawEllipse(c, R + POP, R + POP)
     else:
         p.drawEllipse(c, R, R)
+    # the pointed-at option: a quiet wash of the accent colour plus a bright edge, not a solid block
+    wash = QColor(t.accent)
+    wash.setAlpha(58 if t.dark else 40)
 
     n = len(items)
     size = max(8, round(R / 17 * look.text_scale))
     if n > 9:
         size = max(7, round(size * 9 / n + 1))
     label_font = QFont("Segoe UI", size)
-    icon_font = QFont("Segoe UI", max(9, round(size * (1.55 if look.labels == "icon" else 1.15))))  # sizes the icons
+    icon_font = QFont("Segoe UI", max(9, round(size * (1.6 if look.labels == "icon" else 1.3))))  # sizes the icons
     label_width = max(70, round(R * 0.61))
     if n:
         seg = 360 / n
@@ -182,19 +192,18 @@ def paint_wheel(p: QPainter, c: QPointF, R: float, items: list[Item], hover: int
                 b = max(12.0, min(ring_w, chord)) + (POP / 2 if grow else 0)
                 bc = QPointF(c.x() + (R + r) / 2 * math.sin(a), c.y() - (R + r) / 2 * math.cos(a))
                 pos = bc
+                fill = QColor(t.wheel_bg)
+                fill.setAlpha(max(fill.alpha(), 235))
+                if hovered and not filled:
+                    fill = fill.lighter(118) if t.dark else fill.darker(107)
+                if tint is not None:
+                    tint.setAlpha(80 if hovered else 50)
+                    fill = _over(fill, tint)
                 if filled:
-                    fill = QColor(t.accent)
-                else:
-                    fill = QColor(t.wheel_bg)
-                    fill.setAlpha(max(fill.alpha(), 235))
-                    if hovered:
-                        fill = fill.lighter(118) if t.dark else fill.darker(107)
-                    if tint is not None:
-                        tint.setAlpha(80 if hovered else 50)
-                        fill = _over(fill, tint)
+                    fill = _over(fill, wash)
                 p.setBrush(fill)
-                p.setPen(QPen(t.accent if active and look.hover == "outline" else t.wheel_line,
-                              3 if active and look.hover == "outline" else 1))
+                ring = active and look.hover in ("outline", "fill")
+                p.setPen(QPen(t.accent if ring else t.wheel_line, (3 if look.hover == "outline" else 2) if ring else 1))
                 p.drawEllipse(bc, b, b)
                 if item.more and more_progress > 0:
                     p.setBrush(Qt.NoBrush)
@@ -223,7 +232,9 @@ def paint_wheel(p: QPainter, c: QPointF, R: float, items: list[Item], hover: int
                         p.drawPath(path)
                 elif glass:
                     if filled:
-                        top, bottom = QColor(t.accent).lighter(130), QColor(t.accent)
+                        top, bottom = QColor(wash), QColor(t.accent)
+                        top.setAlpha(40)
+                        bottom.setAlpha(110 if t.dark else 80)
                     elif tint is not None:  # coloured glass: the tint, clearer near the middle
                         top, bottom = QColor(tint), QColor(tint)
                         top.setAlpha(45 if t.dark else 40)
@@ -231,36 +242,43 @@ def paint_wheel(p: QPainter, c: QPointF, R: float, items: list[Item], hover: int
                     else:
                         shade = QColor(255, 255, 255) if t.dark else QColor(40, 60, 90)
                         top, bottom = QColor(shade), QColor(shade)
-                        top.setAlpha(12 if t.dark else 8)
-                        bottom.setAlpha((46 if t.dark else 34) + (24 if hovered else 0))
+                        top.setAlpha(6 if t.dark else 6)
+                        bottom.setAlpha((26 if t.dark else 26) + (20 if hovered else 0))
                     grad = QRadialGradient(c, rr)
                     grad.setColorAt(max(0.0, min(1.0, r / rr)), top)
                     grad.setColorAt(1.0, bottom)
                     p.setBrush(grad)
-                    p.setPen(QPen(QColor(255, 255, 255, 70) if t.dark else QColor(40, 60, 90, 45), 1))
+                    p.setPen(QPen(QColor(255, 255, 255, 34) if t.dark else QColor(40, 60, 90, 36), 1))
                     p.drawPath(path)
                 else:
-                    if filled:
-                        fill = QColor(t.accent)
-                    elif petals:
+                    if petals:
                         fill = QColor(t.wheel_bg)
-                        if hovered:
+                        if hovered and not filled:
                             fill = fill.lighter(115) if t.dark else fill.darker(106)
                     else:
                         fill = QColor(t.wheel_stripe)
                         if i % 2 == 0:
                             fill.setAlpha(fill.alpha() // 2)
-                        if hovered:
-                            fill.setAlpha(fill.alpha() + 18)
-                    if tint is not None and not filled:
+                        if hovered and not filled:
+                            fill.setAlpha(fill.alpha() + 14)
+                    if tint is not None:
                         tint.setAlpha(70 if hovered else 42)
                         fill = tint if not petals else _over(fill, tint)
+                    if filled:
+                        fill = _over(fill, wash) if (petals or tint is not None) else QColor(wash)
                     p.setBrush(fill)
                     if petals:
                         p.setPen(QPen(fill, 3, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
                     else:
                         p.setPen(QPen(t.wheel_line, 1))
                     p.drawPath(path)
+                if filled and not neon:  # the bright edge along the outside of the pointed-at option
+                    p.setBrush(Qt.NoBrush)
+                    p.setPen(QPen(t.accent, 3, Qt.SolidLine, Qt.RoundCap))
+                    edge = rr - (4 if (petals or glass) else 2.5)
+                    trim = math.degrees(6 / max(edge, 1))
+                    p.drawArc(QRectF(c.x() - edge, c.y() - edge, 2 * edge, 2 * edge),
+                              int((90 - (mid - seg / 2 + gap / 2 + trim)) * 16), int(-(seg - gap - 2 * trim) * 16))
                 if active and look.hover == "outline" and not neon:
                     p.setBrush(Qt.NoBrush)
                     p.setPen(QPen(t.accent, 3, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
@@ -274,8 +292,10 @@ def paint_wheel(p: QPainter, c: QPointF, R: float, items: list[Item], hover: int
                 nr = rr - max(9.0, R / 14)
                 badge = QPointF(c.x() + nr * math.sin(a), c.y() - nr * math.cos(a))
 
+            icon_color = None
             if filled:
-                color = QColor(t.on_accent)
+                color = QColor(t.text)
+                icon_color = QColor(t.accent) if not neon else None
             elif active:
                 color = QColor(t.accent) if not neon else QColor(t.text)
             elif item.ok or item.more:
@@ -283,7 +303,7 @@ def paint_wheel(p: QPainter, c: QPointF, R: float, items: list[Item], hover: int
             else:
                 color = QColor(t.muted)
                 color.setAlpha(150 if hovered else 95)
-            _draw_label(p, pos, item, look, label_font, icon_font, color, active, label_width)
+            _draw_label(p, pos, item, look, label_font, icon_font, color, active, label_width, icon_color)
             if item.number and badge is not None:  # small key number near the outer edge
                 nf = QFont("Segoe UI", max(6, round(size * 0.75)))
                 nf.setWeight(QFont.Weight.Bold)
@@ -299,7 +319,7 @@ def paint_wheel(p: QPainter, c: QPointF, R: float, items: list[Item], hover: int
         hole = QPainterPath()
         hole.addEllipse(c, r, r)
         shine = QLinearGradient(QPointF(c.x(), c.y() - R), QPointF(c.x(), c.y()))
-        shine.setColorAt(0.0, QColor(255, 255, 255, 70 if t.dark else 150))
+        shine.setColorAt(0.0, QColor(255, 255, 255, 30 if t.dark else 120))
         shine.setColorAt(1.0, QColor(255, 255, 255, 0))
         p.setPen(Qt.NoPen)
         p.setBrush(shine)
@@ -311,12 +331,12 @@ def paint_wheel(p: QPainter, c: QPointF, R: float, items: list[Item], hover: int
             p.setBrush(Qt.NoBrush)
             p.setPen(QPen(g, width))
             p.drawEllipse(c, R - 1, R - 1)
-    elif not open_style:
-        rim = QColor(t.accent) if not glass else QColor(255, 255, 255) if t.dark else QColor(40, 60, 90)
-        rim.setAlpha(150 if not glass else (90 if t.dark else 60))
+    elif not open_style:  # a fine edge, lighter than the dividers
+        rim = QColor(255, 255, 255) if t.dark else QColor(17, 17, 19)
+        rim.setAlpha((44 if t.dark else 34) if not glass else (60 if t.dark else 50))
         p.setBrush(Qt.NoBrush)
-        p.setPen(QPen(rim, 2))
-        p.drawEllipse(c, R - 1, R - 1)
+        p.setPen(QPen(rim, 1))
+        p.drawEllipse(c, R - 0.5, R - 0.5)
 
     # middle: what's being dropped, what will happen, and how many options there are
     p.setPen(QPen(t.accent if neon else t.wheel_line, 1.5 if neon else 1))
@@ -366,7 +386,7 @@ def _over(a: QColor, b: QColor) -> QColor:
 
 
 def _draw_label(p: QPainter, pos: QPointF, item: Item, look: Look, font: QFont, icon_font: QFont,
-                color: QColor, active: bool, max_width: int = 102):
+                color: QColor, active: bool, max_width: int = 102, icon_color: QColor | None = None):
     icon = ICONS.get("more" if item.more else item.action, "")
     is_format = item.action in FORMAT_ACTIONS and not item.more
     text = ("★ " if item.favorite and item.ok else "") + item.label
@@ -383,10 +403,10 @@ def _draw_label(p: QPainter, pos: QPointF, item: Item, look: Look, font: QFont, 
     # line icons look smaller than emoji at the same size, so they're drawn a little bigger
     side = round(icon_font.pointSizeF() * (1.3 if mode == "icon" else 1.55))
     if mode == "icon" and icon:
-        icons.paint(p, QRectF(pos.x() - side / 2, pos.y() - side / 2, side, side), icon, color)
+        icons.paint(p, QRectF(pos.x() - side / 2, pos.y() - side / 2, side, side), icon, icon_color or color)
         return
     if mode == "both" and icon:
-        icons.paint(p, QRectF(pos.x() - side / 2, pos.y() - 2 - side, side, side), icon, color)
+        icons.paint(p, QRectF(pos.x() - side / 2, pos.y() - 2 - side, side, side), icon, icon_color or color)
         p.setPen(color)
         p.setFont(font)
         p.drawText(QRectF(pos.x() - half, pos.y() - 1, 2 * half, 22), Qt.AlignCenter, text)

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QDateTime, QLocale, Qt, QUrl, Signal
-from PySide6.QtGui import QColor, QDesktopServices, QGuiApplication, QIcon
+from PySide6.QtGui import QColor, QDesktopServices, QFont, QGuiApplication, QIcon
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QColorDialog, QComboBox, QFileDialog, QFrame,
                                QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox,
                                QPushButton,
@@ -30,9 +30,37 @@ from .winutil import memory_use, reveal_in_explorer, set_title_bar_dark
 if TYPE_CHECKING:
     from .app import Controller
 
-PAGES = ["Home", "Apps", "General", "Look", "Formats", "History", "Updates", "About"]  # tr() when shown
+# every page, in the order they are built (names are English, shown through tr())
+PAGES = ["Home", "History", "Apps", "Archives", "Player", "Viewer", "General", "Look", "Formats", "Updates", "About"]
+SOON = {"Archives": "archive", "Player": "player", "Viewer": "viewer"}  # pages for tools still being made
+# the sidebar: pages, with a small heading before each group (None + heading)
+NAV = ["Home", "History", (None, "Tools"), "Apps", "Archives", "Player", "Viewer",
+       (None, "Settings"), "General", "Look", "Formats", "Updates", "About"]
 PAGE_ICONS = {"Home": "home", "Apps": "broom", "General": "settings", "Look": "paint_brush",  # icons.py
-              "Formats": "puzzle_piece", "History": "history", "Updates": "arrow_sync", "About": "info"}
+              "Formats": "puzzle_piece", "History": "history", "Updates": "arrow_sync", "About": "info",
+              "Archives": "archive", "Player": "video", "Viewer": "image"}
+SOON_TEXT = {  # name, one line, what it will do (English, shown through tr())
+    "Archives": ("Corefold Archive", "Open, look inside and make archives right here, faster and tidier than the "
+                 "usual archive apps.",
+                 ["Open ZIP, RAR, 7z, TAR, ISO and more with a double-click",
+                  "Drag files out of an archive into any folder",
+                  "Change a file inside an archive and save it back",
+                  "Repair damaged ZIP files and rescue what can still be read",
+                  "Extract archives inside archives in one go"]),
+    "Player": ("Corefold Player", "Plays every video and song, smooth in 4K, with clean controls that get out of "
+               "the way.",
+               ["Plays every common video and music format",
+                "Subtitles you can drag in, resize and shift in time",
+                "Picks up where you left off, with a Continue watching list",
+                "A mini player that stays on top of other windows",
+                "Speed, A–B loop, frame by frame, screenshots and clips"]),
+    "Viewer": ("Corefold Viewer", "Flip through a folder of pictures fast, and fix them on the spot.",
+               ["Arrow keys through a whole folder, instantly",
+                "Zoom, turn and crop",
+                "Quick edits, and save as another format",
+                "HEIC, WebP, AVIF and more",
+                "See the details: size, date and camera"]),
+}
 
 
 # ----------------------------------------------------------------------------- small building blocks
@@ -208,7 +236,7 @@ class MainWindow(QWidget):
         self.setAttribute(Qt.WA_StyledBackground)
         self.setWindowTitle(APP_NAME)
         self.setWindowIcon(icon)
-        self.resize(960, 660)
+        self.resize(1040, 700)
         self.setMinimumSize(720, 460)  # fits small laptop screens with big text (150%)
         self.setAcceptDrops(True)      # files can be dropped anywhere on the window
         self._placed = False
@@ -216,7 +244,7 @@ class MainWindow(QWidget):
         sidebar = QWidget()
         sidebar.setObjectName("sidebar")
         sidebar.setAttribute(Qt.WA_StyledBackground)
-        sidebar.setFixedWidth(200)
+        sidebar.setFixedWidth(212)
         logo = QLabel()
         logo.setPixmap(icon.pixmap(30, 30))
         brand = QHBoxLayout()
@@ -225,7 +253,29 @@ class MainWindow(QWidget):
         brand.addStretch()
         self.nav = QListWidget()
         self.nav.setObjectName("nav")
-        self.nav.addItems(self._nav_texts())
+        self.nav_rows: list[str | None] = []   # sidebar row -> page name (None for a heading)
+        for entry in NAV:
+            item = QListWidgetItem()
+            if isinstance(entry, tuple):
+                item.setFlags(Qt.NoItemFlags)
+                f = item.font()
+                f.setPointSizeF(7.5)
+                f.setWeight(QFont.Weight.DemiBold)
+                f.setCapitalization(QFont.Capitalization.AllUppercase)
+                item.setFont(f)
+                self.nav_rows.append(None)
+            else:
+                self.nav_rows.append(entry)
+            self.nav.addItem(item)
+        for row, name in enumerate(self.nav_rows):
+            if name in SOON:  # a small "Soon" pill on the row (clicks go through to the row)
+                holder = QWidget()
+                holder.setAttribute(Qt.WA_TransparentForMouseEvents)
+                hl = QHBoxLayout(holder)
+                hl.setContentsMargins(0, 0, 10, 0)
+                hl.addStretch()
+                hl.addWidget(label(tr("Soon"), "soonPill"))
+                self.nav.setItemWidget(self.nav.item(row), holder)
         self.nav.setIconSize(icons.ICON_SIZE)
         self.refresh_nav()
         self.nav.setCursor(Qt.PointingHandCursor)
@@ -237,12 +287,13 @@ class MainWindow(QWidget):
         side.addWidget(label(tr("Version {version}", version=__version__), "version"))
 
         self.stack = QStackedWidget()
-        for build in (self._home, self._apps, self._general, self._look, self._formats, self._history,
-                      self._updates, self._about):
-            self.stack.addWidget(build())
+        builders = {"Home": self._home, "History": self._history, "Apps": self._apps, "General": self._general,
+                    "Look": self._look, "Formats": self._formats, "Updates": self._updates, "About": self._about}
+        for name in PAGES:
+            self.stack.addWidget(builders[name]() if name in builders else self._soon(name))
         self.nav.currentRowChanged.connect(self._page_changed)
         last = self.c.settings.last_page
-        self.nav.setCurrentRow(PAGES.index(last) if last in PAGES else 0)
+        self.open_page(last if last in PAGES else "Home")
 
         footer = QHBoxLayout()
         footer.addWidget(label(tr("Changes are saved automatically."), "muted"))
@@ -264,30 +315,78 @@ class MainWindow(QWidget):
         self.refresh_updates()
         self.refresh_history()
 
-    def _nav_texts(self) -> list[str]:
-        return [tr(p) for p in PAGES]
-
     def refresh_nav(self):
         show = self.c.settings.sidebar_icons
         t = self.c.theme
-        for i, text in enumerate(self._nav_texts()):
-            item = self.nav.item(i)
-            item.setText(text)
-            item.setIcon(icons.icon(PAGE_ICONS[PAGES[i]], t.text) if show else QIcon())
+        for row, entry in enumerate(NAV):
+            item = self.nav.item(row)
+            if isinstance(entry, tuple):
+                item.setText(tr(entry[1]))
+                item.setForeground(t.muted)
+                continue
+            item.setText(tr(entry))
+            item.setIcon(icons.icon(PAGE_ICONS[entry], t.muted, selected=t.text) if show else QIcon())
+
+    def current_page(self) -> str:
+        row = self.nav.currentRow()
+        return self.nav_rows[row] if 0 <= row < len(self.nav_rows) and self.nav_rows[row] else "Home"
 
     def _apps(self) -> QWidget:
         from .appspage import AppsPage
         self.apps_page = AppsPage(self.c)
         return self.apps_page
 
-    def _page_changed(self, i: int):
-        self.stack.setCurrentIndex(i)
-        if PAGES[i] == "Apps":
+    def _page_changed(self, row: int):
+        name = self.nav_rows[row] if 0 <= row < len(self.nav_rows) else None
+        if name is None:
+            return
+        self.stack.setCurrentIndex(PAGES.index(name))
+        if name == "Apps":
             self.apps_page.ensure_loaded()
-        elif PAGES[i] == "History":
+        elif name == "History":
             self.refresh_history()
-        elif PAGES[i] == "About":
+        elif name == "About":
             self.refresh_memory()
+
+    def _soon(self, name: str) -> QWidget:
+        """A page for a tool that's still being made: what it will do."""
+        product = SOON[name]
+        title, intro, features = SOON_TEXT[name]
+        w, lay = page(tr(title))
+        lay.itemAt(0).widget().hide()  # the big title is shown next to the tile instead
+        head = QHBoxLayout()
+        head.setSpacing(16)
+        tile = QLabel()
+        tile.setPixmap(icons.product_tile(product, 64, self.c.theme.dark, self.devicePixelRatioF()))
+        tile.setFixedSize(68, 68)
+        head.addWidget(tile, 0, Qt.AlignTop)
+        words = QVBoxLayout()
+        words.setSpacing(4)
+        top = QHBoxLayout()
+        top.setSpacing(10)
+        top.addWidget(label(tr(title), "h1"))
+        top.addWidget(label(tr("Coming soon"), "soonPill"), 0, Qt.AlignVCenter)
+        top.addStretch()
+        words.addLayout(top)
+        words.addWidget(label(tr(intro), "muted", wrap=True))
+        head.addLayout(words, 1)
+        lay.addLayout(head)
+        box, bl = card(10)
+        bl.addWidget(label(tr("What it will do"), "h2"))
+        for text in features:
+            row = QHBoxLayout()
+            row.setSpacing(10)
+            dot = QLabel()
+            dot.setPixmap(icons.pixmap("add", 16, self.c.theme.accent, self.devicePixelRatioF()))
+            dot.setFixedWidth(18)
+            row.addWidget(dot, 0, Qt.AlignTop)
+            row.addWidget(label(tr(text), wrap=True), 1)
+            bl.addLayout(row)
+        lay.addWidget(box)
+        lay.addWidget(label(tr("This page shows what's coming. It isn't ready yet, and it will arrive in a free "
+                               "update."), "muted", wrap=True))
+        lay.addStretch()
+        return w
 
     # ---- pages
 
@@ -378,6 +477,7 @@ class MainWindow(QWidget):
         self.quality.setRange(50, 100)
         self.quality.setSuffix(" %")
         self.quality.setValue(s.jpg_quality)
+        self.quality.setMinimumWidth(96)
         self.quality.valueChanged.connect(self._general_changed)
         q_row = QHBoxLayout()
         q_row.addWidget(self.quality)
@@ -388,7 +488,9 @@ class MainWindow(QWidget):
             self.sound.addItem(tr(text), key)
         self.sound.setCurrentIndex(max(0, self.sound.findData(s.sound)))
         self.sound.currentIndexChanged.connect(self._sound_changed)
+        self.sound.setMinimumWidth(160)
         snd_row = QHBoxLayout()
+        snd_row.setSpacing(8)
         snd_row.addWidget(self.sound)
         snd_row.addWidget(button(tr("▶ Play"), on_click=self.c.play_done_sound))
         snd_row.addStretch()
@@ -397,11 +499,15 @@ class MainWindow(QWidget):
         self.volume.setValue(s.volume)
         self.volume.setCursor(Qt.PointingHandCursor)
         self.volume_label = label(f"{s.volume}%", "muted")
-        self.volume_label.setFixedWidth(40)
+        self.volume_label.setFixedWidth(44)
+        self.volume_label.setAlignment(Qt.AlignVCenter | Qt.AlignTrailing)
         self.volume.valueChanged.connect(self._volume_changed)
         self.volume.sliderReleased.connect(self.c.play_done_sound)
         vol_row = QHBoxLayout()
         self.vol_icons = (label(), label())  # quiet / loud speakers, drawn in apply_theme
+        vol_row.setSpacing(10)
+        for lab in self.vol_icons:
+            lab.setFixedSize(20, 20)
         vol_row.addWidget(self.vol_icons[0])
         vol_row.addWidget(self.volume, 1)
         vol_row.addWidget(self.vol_icons[1])
@@ -1155,8 +1261,8 @@ class MainWindow(QWidget):
         self.refresh()
 
     def open_page(self, name: str):
-        if name in PAGES:
-            self.nav.setCurrentRow(PAGES.index(name))
+        if name in self.nav_rows:
+            self.nav.setCurrentRow(self.nav_rows.index(name))
 
     def showEvent(self, e):
         if not self._placed:
@@ -1179,14 +1285,14 @@ class MainWindow(QWidget):
         screen = QGuiApplication.primaryScreen()
         if screen is not None:
             g = screen.availableGeometry()
-            w, h = min(960, g.width() - 40), min(660, g.height() - 40)
+            w, h = min(1040, g.width() - 40), min(700, g.height() - 40)
             self.resize(max(w, self.minimumWidth()), max(h, self.minimumHeight()))
             self.move(g.left() + (g.width() - self.width()) // 2, g.top() + (g.height() - self.height()) // 2)
 
     def _remember_place(self):
         try:
             self.c.settings.window_geometry = bytes(self.saveGeometry().toBase64()).decode("ascii")
-            self.c.settings.last_page = PAGES[self.nav.currentRow()] if self.nav.currentRow() >= 0 else "Home"
+            self.c.settings.last_page = self.current_page()
             self.c.settings_changed()
         except Exception:
             pass

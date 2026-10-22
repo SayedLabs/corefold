@@ -1,50 +1,100 @@
-"""Draws Corefold's icon and installer pictures from the Corefold mark: a rounded tile with its top
-corner folded over and a round "core" in the middle (see the Corefold design system).
+"""Draws Corefold's icon and installer pictures from the Corefold mark: a rounded square with its top
+corner folded over and a round "core" cut out of it, in a teal gradient on a near-black tile.
 
 Makes assets/icon.png, assets/icon.ico, docs/icon.png and the installer's wizard*.bmp.
 Run: python scripts/make_icon.py
 """
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "assets"
-CORE = (10, 119, 104)        # core  #0A7768
-CORE_SOFT = (220, 241, 237)  # core-soft #DCF1ED
-SURFACE = (245, 247, 247)    # surface #F5F7F7
+TOP = (107, 230, 210)      # #6BE6D2, the light end of the gradient
+BOTTOM = (15, 143, 124)    # #0F8F7C, the deep end
+TILE = (11, 11, 12)        # #0B0B0C
+EDGE = (38, 40, 44)        # #26282C, the tile's fine border
 WHITE = (255, 255, 255)
-S = 1024                     # drawn big, then made smaller (smooth edges)
+S = 1024                   # drawn big, then made smaller (smooth edges)
+U = S / 64                 # the design is on a 64-unit grid
 
 
-def app_icon(size: int) -> Image.Image:
-    """The mark as an app icon: the same shape, but solid (a light fold and a white core), so it
-    reads the same on a light or a dark taskbar."""
-    img = mark(CORE, S, hole=False, fold_alpha=0)
-    u = S / 64
-    d = ImageDraw.Draw(img)
-    d.polygon([(40 * u, 4 * u), (60 * u, 24 * u), (40 * u, 24 * u)], fill=(122, 190, 179, 255))
-    d.ellipse(((31 - 9) * u, (38 - 9) * u, (31 + 9) * u, (38 + 9) * u), fill=WHITE + (255,))
+def _box(x0, y0, x1, y1):
+    return (x0 * U, y0 * U, x1 * U, y1 * U)
+
+
+def gradient(size: int, top=TOP, bottom=BOTTOM) -> Image.Image:
+    """Top-left to bottom-right."""
+    down = Image.linear_gradient("L").resize((size, size), Image.BILINEAR)
+    ramp = Image.blend(down, down.rotate(90), 0.5)  # (x + y) / 2: corner to corner
+    return Image.composite(Image.new("RGBA", (size, size), bottom + (255,)),
+                           Image.new("RGBA", (size, size), top + (255,)), ramp)
+
+
+def mark_masks() -> tuple[Image.Image, Image.Image]:
+    """The body (with the notch and the core cut out) and the folded corner, as masks.
+    Body: 10..54 with 10-unit corners; notch x > 33, y < 31; core at (31, 37) r 7.
+    Fold: a triangle (37, 10) (56, 29) (37, 29) with softened corners."""
+    body = Image.new("L", (S, S), 0)
+    d = ImageDraw.Draw(body)
+    d.rounded_rectangle(_box(10, 10, 54, 54), radius=10 * U, fill=255)
+    d.rectangle(_box(33, 0, 64, 31), fill=0)
+    d.ellipse(_box(24, 30, 38, 44), fill=0)
+    fold = Image.new("L", (S, S), 0)
+    ImageDraw.Draw(fold).polygon([(37 * U, 10.2 * U), (56 * U, 29.2 * U), (37 * U, 29.2 * U)], fill=255)
+    fold = fold.filter(ImageFilter.GaussianBlur(0.9 * U)).point(lambda a: 255 if a > 110 else 0)  # soft corners
+    return body, fold
+
+
+def tile_mask() -> Image.Image:
+    m = Image.new("L", (S, S), 0)
+    ImageDraw.Draw(m).rounded_rectangle(_box(2, 2, 62, 62), radius=15 * U, fill=255)
+    return m
+
+
+def _zoomed(mask: Image.Image, zoom: float) -> Image.Image:
+    if zoom == 1:
+        return mask
+    big = mask.resize((round(S * zoom), round(S * zoom)), Image.BILINEAR)
+    off = (big.width - S) // 2
+    return big.crop((off, off, off + S, off + S))
+
+
+def app_icon(size: int, tile: bool = True, zoom: float = 1.0) -> Image.Image:
+    """The full icon: the gradient mark on the dark tile, with a soft teal glow behind it.
+    zoom > 1 makes the mark bigger in its tile (for the tiny sizes, where detail gets lost)."""
+    img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    if tile:
+        tm = tile_mask()
+        img.paste(EDGE + (255,), (0, 0), tm)
+        inner = Image.new("L", (S, S), 0)
+        ImageDraw.Draw(inner).rounded_rectangle(_box(2.8, 2.8, 61.2, 61.2), radius=14.2 * U, fill=255)
+        img.paste(TILE + (255,), (0, 0), inner)
+        glow = Image.new("L", (S, S), 0)
+        ImageDraw.Draw(glow).ellipse(_box(8, 4, 56, 48), fill=80)
+        glow = glow.filter(ImageFilter.GaussianBlur(9 * U))
+        glow = ImageChops.multiply(glow, inner)
+        layer = Image.new("RGBA", (S, S), (60, 199, 178, 0))
+        layer.putalpha(glow)
+        img.alpha_composite(layer)
+    body, fold = (_zoomed(m, zoom) for m in mark_masks())
+    g = gradient(S)
+    g.putalpha(body)
+    img.alpha_composite(g)
+    f = Image.new("RGBA", (S, S), TOP + (0,))
+    f.putalpha(fold.point(lambda a: a * 0.62))
+    img.alpha_composite(f)
     return img.resize((size, size), Image.LANCZOS)
 
 
-def mark(color, size: int, fold_alpha: float = 0.55, hole: bool = True) -> Image.Image:
-    """The mark on a transparent square. Geometry on a 64-unit grid: tile 4..60 with 14 rounded
-    corners; notch 36..60 × 4..28; fold triangle (40,4) (60,24) (40,24); core circle at (31,38) r 9."""
-    u = S / 64
-    img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    body = Image.new("L", (S, S), 0)
-    d = ImageDraw.Draw(body)
-    d.rounded_rectangle((4 * u, 4 * u, 60 * u, 60 * u), radius=14 * u, fill=255)
-    d.rectangle((36 * u, 0, S, 28 * u), fill=0)                            # the notch
-    if hole:
-        d.ellipse(((31 - 9) * u, (38 - 9) * u, (31 + 9) * u, (38 + 9) * u), fill=0)  # the core
-    img.paste(color + (255,), (0, 0), body)
-    fold = Image.new("L", (S, S), 0)
-    ImageDraw.Draw(fold).polygon([(40 * u, 4 * u), (60 * u, 24 * u), (40 * u, 24 * u)], fill=round(255 * fold_alpha))
-    layer = Image.new("RGBA", (S, S), color + (0,))
-    layer.putalpha(fold)
-    img.alpha_composite(layer)
+def mark_only(size: int, color=None) -> Image.Image:
+    """The mark without the tile (one colour, or the gradient when color is None)."""
+    body, fold = mark_masks()
+    img = gradient(S) if color is None else Image.new("RGBA", (S, S), color + (255,))
+    img.putalpha(body)
+    f = Image.new("RGBA", (S, S), (TOP if color is None else color) + (0,))
+    f.putalpha(fold.point(lambda a: a * (0.62 if color is None else 0.55)))
+    img.alpha_composite(f)
     return img.resize((size, size), Image.LANCZOS)
 
 
@@ -55,36 +105,41 @@ def on_background(bg, mark_img: Image.Image, size: tuple[int, int], at: tuple[in
 
 
 def wizard(scale: int) -> Image.Image:
-    """The tall picture on the installer's first and last pages: the mark in white on teal, with a
-    quiet pattern of small folded tiles."""
+    """The tall picture on the installer's first and last pages: the icon on near-black, with a
+    quiet pattern of small marks and a teal glow."""
     w, h = 164 * scale, 314 * scale
-    out = Image.new("RGBA", (w, h), CORE + (255,))
-    small = mark((255, 255, 255), 18 * scale, fold_alpha=0.5, hole=False)
-    faint = Image.new("RGBA", small.size, (0, 0, 0, 0))
-    faint.paste(small, (0, 0))
-    alpha = faint.getchannel("A").point(lambda a: a * 0.07)
-    faint.putalpha(alpha)
+    out = Image.new("RGBA", (w, h), (9, 9, 10, 255))
+    small = mark_only(18 * scale, WHITE)
+    small.putalpha(small.getchannel("A").point(lambda a: a * 0.05))
     step = 30 * scale
     for row, y in enumerate(range(10 * scale, h, step)):
         for x in range(10 * scale + (row % 2) * step // 2, w, step):
-            out.alpha_composite(faint, (x, y))
-    big = mark(WHITE, 104 * scale, fold_alpha=0.55)
-    out.alpha_composite(big, ((w - big.width) // 2, (h - big.height) // 2 - 20 * scale))
+            out.alpha_composite(small, (x, y))
+    glow = Image.new("L", (w, h), 0)
+    cy = h // 2 - 20 * scale
+    ImageDraw.Draw(glow).ellipse((w // 2 - 70 * scale, cy - 70 * scale, w // 2 + 70 * scale, cy + 70 * scale), fill=70)
+    glow = glow.filter(ImageFilter.GaussianBlur(28 * scale))
+    layer = Image.new("RGBA", (w, h), (60, 199, 178, 0))
+    layer.putalpha(glow)
+    out.alpha_composite(layer)
+    big = app_icon(112 * scale)
+    out.alpha_composite(big, ((w - big.width) // 2, cy - big.height // 2))
     return out.convert("RGB")
 
 
 def main():
     icon = app_icon(512)
     icon.save(ASSETS / "icon.png")
-    mark(CORE, 512).save(ROOT / "docs" / "icon.png")  # the website uses the brand mark itself
+    icon.save(ROOT / "docs" / "icon.png")
     big = app_icon(256)
-    big.save(ASSETS / "icon.ico", sizes=[(16, 16), (20, 20), (24, 24), (32, 32), (40, 40), (48, 48), (64, 64),
-                                          (128, 128), (256, 256)])
+    small = [app_icon(n, zoom=1.2 if n <= 24 else 1.1 if n <= 40 else 1.0) for n in (16, 20, 24, 32, 40, 48, 64, 128)]
+    big.save(ASSETS / "icon.ico", sizes=[(n, n) for n in (16, 20, 24, 32, 40, 48, 64, 128, 256)],
+             append_images=small)
     for scale, name in ((1, "wizard.bmp"), (2, "wizard@2x.bmp")):
         wizard(scale).save(ASSETS / name)
     for scale, name in ((1, "wizard-small.bmp"), (2, "wizard-small@2x.bmp")):
         side = 55 * scale
-        m = app_icon(43 * scale)
+        m = app_icon(47 * scale)
         on_background(WHITE, m, (side, side), ((side - m.width) // 2, (side - m.height) // 2)).save(ASSETS / name)
     print("icon and installer pictures written")
 

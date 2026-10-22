@@ -118,6 +118,12 @@ class Toast(QWidget):
             action()
 
     def _show_buttons(self, action_text: str = "", open_path: Path | None = None):
+        # "Cancel" is a quiet button; the accent colour is kept for the thing you'll want next
+        name = "" if self.running else "primary"
+        if self.action.objectName() != name:
+            self.action.setObjectName(name)
+            self.action.style().unpolish(self.action)
+            self.action.style().polish(self.action)
         self.open_path = open_path
         self.open_btn.setVisible(open_path is not None)
         self.action.setText(action_text)
