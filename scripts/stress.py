@@ -62,6 +62,11 @@ def make():
 
 timed(f"make a ZIP with {FILES:,} files (test setup)", make, 120)
 entries = timed("list it (7-Zip)", lambda: ar.list_entries(big), 8)
+small = TMP / "small.zip"
+with zipfile.ZipFile(small, "w") as z:
+    z.writestr("a.txt", "x")
+ArchiveBrowser(c, small, "", ar.list_entries(small), QIcon()).deleteLater()  # Qt's one-time start-up costs
+qapp.processEvents()
 import cProfile, io, pstats  # noqa: E401,E402
 first = cProfile.Profile()
 b = timed("build the archive window", lambda: first.runcall(ArchiveBrowser, c, big, "", entries, QIcon()), 3)
