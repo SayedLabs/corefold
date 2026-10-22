@@ -1,0 +1,35 @@
+# Takes a picture of every screen on a real Windows PC (one of GitHub's), to check the design.
+# Run it by hand: Actions tab -> "Screenshots" -> Run workflow. The pictures are in the run's Artifacts.
+name: Screenshots
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  screenshots:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install what the app needs
+        shell: pwsh
+        run: python -m pip install --quiet -r requirements.txt
+
+      - name: Take the pictures
+        shell: pwsh
+        run: |
+          python scripts/screenshots.py shots dark en
+          python scripts/screenshots.py shots light en
+          python scripts/screenshots.py shots dark ar
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: shots/
