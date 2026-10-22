@@ -1,0 +1,76 @@
+# Measures how light Corefold is on a real Windows PC (one of GitHub's), without publishing anything.
+# Run it by hand: Actions tab -> "Measure memory and CPU" -> Run workflow. The numbers appear on the
+# run's summary page.
+name: Measure memory and CPU
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build the app
+        shell: pwsh
+        run: ./scripts/build.ps1 -Version 0.0.${{ github.run_number }}-measure
+
+      - name: Start it in the tray and measure
+        shell: pwsh
+        run: |
+          # skip the first-run window and the update check, so only the waiting app is measured
+          $cfg = Join-Path $env:APPDATA "Corefold"
+          New-Item -ItemType Directory -Force $cfg | Out-Null
+          '{"first_run": false, "tour_done": true, "check_updates": false}' | Set-Content -Encoding utf8 "$cfg\settings.json"
+
+          $exe = Resolve-Path "dist\Corefold\Corefold.exe"
+          $clock = [Diagnostics.Stopwatch]::StartNew()
+          $p = Start-Process $exe -ArgumentList "--background" -PassThru
+          # started = it has opened its log file (the first thing it does)
+          $log = Join-Path $env:LOCALAPPDATA "Corefold\corefold.log"
+          while (-not (Test-Path $log) -and $clock.Elapsed.TotalSeconds -lt 30) { Start-Sleep -Milliseconds 50 }
+          $startSeconds = [math]::Round($clock.Elapsed.TotalSeconds, 2)
+
+          Start-Sleep 60   # let start-up work finish and memory be handed back
+          $p.Refresh()
+          $cpuBefore = $p.TotalProcessorTime
+          $window = 60
+          Start-Sleep $window
+          $p.Refresh()
+          if ($p.HasExited) { throw "Corefold stopped by itself (exit code $($p.ExitCode)). See the log above." }
+          $cpuUsed = ($p.TotalProcessorTime - $cpuBefore).TotalSeconds
+          $cpuPercent = [math]::Round(100 * $cpuUsed / $window / [Environment]::ProcessorCount, 3)
+          $oneCore = [math]::Round(100 * $cpuUsed / $window, 3)
+          $mb = { param($b) [math]::Round($b / 1MB, 1) }
+          $ws = & $mb $p.WorkingSet64
+          $private = & $mb $p.PrivateMemorySize64
+          $peak = & $mb $p.PeakWorkingSet64
+          $kids = @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $($p.Id)").Count
+
+          $summary = @"
+          ## Corefold waiting in the tray
+
+          | What | Measured | Target |
+          |---|---|---|
+          | Memory (what Task Manager shows, working set) | **$ws MB** | under 40 MB |
+          | Private memory | $private MB | |
+          | Most memory used since start | $peak MB | |
+          | CPU while waiting (of the whole PC) | **$cpuPercent %** | 0 % |
+          | CPU while waiting (of one core) | $oneCore % | |
+          | Time until it started | $startSeconds s | under 1 s |
+          | Extra processes it started | $kids | 0 |
+
+          Measured on GitHub's windows-latest machine ($([Environment]::ProcessorCount) cores), $window seconds of waiting.
+          "@
+          $summary -replace "(?m)^          ", "" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+          Write-Host ($summary -replace "(?m)^          ", "")
+          if (Test-Path $log) { Write-Host "---- log"; Get-Content $log }
+          Stop-Process -Id $p.Id -Force

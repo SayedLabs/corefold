@@ -1,0 +1,19 @@
+PySide6-Essentials>=6.7,<7
+Pillow>=11.2
+pi-heif>=0.20
+pypdf>=5.0
+# locking and unlocking PDFs with a password (AES-256)
+cryptography>=42
+pypdfium2>=4.30
+zxing-cpp>=2.2
+numpy>=1.26
+onnxruntime>=1.18
+# "Copy text" (reads text in pictures with Windows' built-in OCR)
+winrt-runtime>=2.0; sys_platform == "win32"
+winrt-Windows.Foundation>=2.0; sys_platform == "win32"
+winrt-Windows.Foundation.Collections>=2.0; sys_platform == "win32"
+winrt-Windows.Graphics.Imaging>=2.0; sys_platform == "win32"
+winrt-Windows.Media.Ocr>=2.0; sys_platform == "win32"
+winrt-Windows.Storage>=2.0; sys_platform == "win32"
+winrt-Windows.Storage.Streams>=2.0; sys_platform == "win32"
+winrt-Windows.Globalization>=2.0; sys_platform == "win32"
