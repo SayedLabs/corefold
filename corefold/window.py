@@ -191,6 +191,7 @@ class ToolCard(QFrame):
             lay.addWidget(self.title)
             line = label(text, "muted", wrap=True)
             line.setMinimumWidth(1)  # wraps inside the card instead of pushing past its edge (long Arabic lines)
+            line.setContentsMargins(6, 0, 6, 0)
             line.setAttribute(Qt.WA_TransparentForMouseEvents)
             lay.addWidget(line)
             self.stat = label("", "cardStat")
