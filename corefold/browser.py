@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QFileSystemWatcher, QMimeData, Qt, QTimer, QUrl
+from PySide6.QtCore import QFileSystemWatcher, QMimeData, QObject, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QDrag, QGuiApplication, QIcon, QKeySequence, QShortcut
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QFileDialog, QFileIconProvider, QFrame, QHBoxLayout,
                                QHeaderView, QLabel, QLineEdit, QMenu, QMessageBox, QPushButton, QTreeWidget,
@@ -36,10 +37,12 @@ def _inside_any(path: str, folders: set) -> bool:
     return False
 
 
+_DIGITS = re.compile(r"(\d+)")
+
+
 def _natural(text: str) -> list:
     """Sort key where "report-2" comes before "report-10", like in File Explorer."""
-    import re
-    parts = re.split(r"(\d+)", text.strip("\u202a\u202c").lower())
+    parts = _DIGITS.split(text.lower())
     return [(0, int(x), "") if x.isdigit() else (1, 0, x) for x in parts]
 
 
@@ -56,6 +59,11 @@ class Row(QTreeWidgetItem):
         if self.is_dir != other.is_dir:
             return self.is_dir if ascending else other.is_dir
         return self.keys[col] < other.keys[col]
+
+
+class _Listed(QObject):
+    """Carries a fresh listing from the background back to the window."""
+    done = Signal(object)  # (entries or None, error or None)
 
 
 class ArchiveTree(QTreeWidget):
@@ -188,6 +196,7 @@ class ArchiveBrowser(QWidget):
         self.watched: dict[str, tuple[str, tuple]] = {}  # temp file -> (path inside, how it was)
         self.changed: dict[str, Path] = {}               # path inside -> changed file, waiting for an answer
         self.watcher: QFileSystemWatcher | None = None
+        self._lister: _Listed | None = None
         self.check_timer = QTimer(self)
         self.check_timer.setSingleShot(True)
         self.check_timer.timeout.connect(self._check_changes)
@@ -286,11 +295,39 @@ class ArchiveBrowser(QWidget):
         finally:
             QGuiApplication.restoreOverrideCursor()
 
-    def reload(self):
-        try:
-            self.set_entries(ar.list_entries(self.src, self.password))
-        except Exception as e:
-            self.info.setText(tr("Couldn't read the archive: {error}", error=e))
+    def reload(self, wait: bool = False):
+        """Reads the archive again (after a change). Big archives take a moment, so it's read in the
+        background and the window keeps responding; wait=True reads it right here."""
+        if wait:
+            try:
+                self.set_entries(ar.list_entries(self.src, self.password))
+            except Exception as e:
+                self.info.setText(tr("Couldn't read the archive: {error}", error=e))
+            return
+        import threading
+        if self._lister is None:
+            self._lister = _Listed(self)
+            self._lister.done.connect(self._listed)
+        lister, src, password = self._lister, self.src, self.password
+
+        def work():
+            entries, error = None, None
+            try:
+                entries = ar.list_entries(src, password)
+            except Exception as e:
+                error = e
+            try:
+                lister.done.emit((entries, error))
+            except RuntimeError:  # the window was closed meanwhile
+                pass
+        threading.Thread(target=work, daemon=True).start()
+
+    def _listed(self, payload):
+        entries, error = payload
+        if error is not None:
+            self.info.setText(tr("Couldn't read the archive: {error}", error=error))
+        else:
+            self.set_entries(entries)
 
     def _filter(self, text: str):
         text = text.strip().lower()
