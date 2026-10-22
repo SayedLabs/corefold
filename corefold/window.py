@@ -41,7 +41,7 @@ SOON = {"Viewer": "viewer", "Player": "player", "Capture": "capture", "Space": "
 # made share one "Coming soon" row, so the sidebar stays short.
 NAV = ["Home", "History", (None, "Tools"), "Converter", "Apps", "Archives", "Soon",
        (None, "Settings"), "General", "Look", "Formats", "Updates", "About"]
-NAV_LABELS = {"Apps": "Uninstaller", "Archives": "Archive", "Soon": "Coming soon"}  # where the sidebar's name differs from the page's
+NAV_LABELS = {"Apps": "Uninstaller", "Soon": "Coming soon"}  # where the sidebar's name differs from the page's
 NAV_OWNER = {name: "Soon" for name in SOON}  # pages without a row of their own: the row that's lit
 PAGE_ICONS = {"Home": "home", "Converter": "arrow_swap", "Apps": "broom", "General": "settings", "Look": "paint_brush",  # icons.py
               "Formats": "puzzle_piece", "History": "history", "Updates": "arrow_sync", "About": "info",
@@ -816,12 +816,13 @@ class MainWindow(QWidget):
         grid.setHorizontalSpacing(12)
         grid.setVerticalSpacing(12)
         self.tool_cards = {}
+        cols = 3 if len(TOOLS) % 3 == 0 else 2  # no card left alone on a row
         for i, (name, product, title, text) in enumerate(TOOLS):
             c = ToolCard(product, tr(title), tr(text), lambda n=name: self.open_page(n), dark, dpr)
             self.tool_cards[name] = c
-            grid.addWidget(c, i // 2, i % 2)
-        grid.setColumnStretch(0, 1)
-        grid.setColumnStretch(1, 1)
+            grid.addWidget(c, i // cols, i % cols)
+        for col in range(cols):
+            grid.setColumnStretch(col, 1)
         lay.addLayout(grid)
 
         lay.addWidget(label(tr("Coming soon"), "section"))

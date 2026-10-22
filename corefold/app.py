@@ -685,7 +685,7 @@ class Controller(QObject):
         from . import assoc
         s = self.settings
         threading.Thread(target=assoc.sync, args=(s.open_archives, app_command, app_icon(),
-                                                  tr("Archive")), daemon=True).start()
+                                                  tr("Corefold Archive")), daemon=True).start()
 
     # ---- right-click menu
 
