@@ -98,25 +98,30 @@ class DropZone(QFrame):
     """Drop files here, or use the buttons."""
     dropped = Signal(list)
 
-    def __init__(self, on_choose, on_paste):
+    def __init__(self, on_choose, on_paste, title: str = "", sub: str = "", hot_title: str = "",
+                 buttons: list | None = None):
         super().__init__()
         self.setObjectName("dropzone")
         self.setAcceptDrops(True)
         self.setMinimumHeight(118)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(16, 14, 16, 14)
-        self.title = QLabel(tr("Drop files or folders here"))
+        self.title_text = title or tr("Drop files or folders here")
+        self.hot_text = hot_title or tr("Let go to see the options")
+        self.title = QLabel(self.title_text)
         self.title.setObjectName("h2")
-        self.sub = QLabel(tr("Images, video, audio, PDFs, Office files, ZIP / RAR / 7z… You'll see everything "
-                             "Corefold can do with them."))
+        self.sub = QLabel(sub or tr("Images, video, audio, PDFs, Office files, ZIP / RAR / 7z… You'll see everything "
+                                    "Corefold can do with them."))
         self.sub.setObjectName("muted")
         self.sub.setWordWrap(True)
         for w in (self.title, self.sub):
             w.setAlignment(Qt.AlignCenter)
         row = QHBoxLayout()
         row.addStretch()
-        for text, fn in ((tr("Choose files…"), on_choose), (tr("Paste (Ctrl + V)"), on_paste)):
+        for text, fn, *style in buttons or ((tr("Choose files…"), on_choose), (tr("Paste (Ctrl + V)"), on_paste)):
             b = QPushButton(text)
+            if style:
+                b.setObjectName(style[0])
             b.setCursor(Qt.PointingHandCursor)
             b.clicked.connect(fn)
             row.addWidget(b)
@@ -129,7 +134,7 @@ class DropZone(QFrame):
         self.setProperty("hot", "true" if on else "false")
         self.style().unpolish(self)
         self.style().polish(self)
-        self.title.setText(tr("Let go to see the options") if on else tr("Drop files or folders here"))
+        self.title.setText(self.hot_text if on else self.title_text)
 
     def dragEnterEvent(self, e):
         if any(u.isLocalFile() for u in e.mimeData().urls()):

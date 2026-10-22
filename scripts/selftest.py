@@ -336,13 +336,107 @@ def every_tool():
     check(done > 60, f"ran {done} options")
 
 
+def archive_tool():
+    """Corefold Archive with the real 7-Zip: save a changed file back, rescue a damaged ZIP and a
+    damaged 7z, unpack archives inside archives, take files out for dragging, open-with registration."""
+    import io
+    import winreg
+    w = TMP / "archive-tool"
+    w.mkdir()
+    # save a changed file back, at its place inside (ZIP and 7z)
+    for fmt in ("zip", "7z"):
+        arc = w / f"edit.{fmt}"
+        ar.pack_into([src / "Reports", src / "notes.txt"], arc, ctx(), fmt)
+        opened = ar.extract_for_opening(arc, "Reports/report-1.txt", ctx()).outputs[0]
+        opened.write_text("changed in Notepad")
+        ar.update_member(arc, "Reports/report-1.txt", opened, ctx())
+        names = sorted(e.path for e in ar.list_entries(arc) if not e.is_dir)
+        check(names == ["Reports/report-0.txt", "Reports/report-1.txt", "Reports/report-2.txt", "notes.txt"],
+              f"{fmt}: saved back in the same place, nothing added {names}")
+        back = ar.extract_for_opening(arc, "Reports/report-1.txt", ctx()).outputs[0]
+        check(back.read_text() == "changed in Notepad", f"{fmt}: the new version is inside")
+    # rescue: a ZIP with its table of contents cut off, and one with a damaged file
+    good = w / "photos.zip"
+    with zipfile.ZipFile(good, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("a.txt", "hello " * 2000)
+        z.writestr("dir/b.txt", "world " * 2000)
+    data = good.read_bytes()
+    cut = w / "cut.zip"
+    cut.write_bytes(data[:data.rfind(b"PK\x01\x02")])
+    r = ar.repair_archive(cut, ctx())
+    with zipfile.ZipFile(r.outputs[0]) as z:
+        check(sorted(z.namelist()) == ["a.txt", "dir/b.txt"], f"cut-off ZIP rescued {z.namelist()} ({r.note})")
+    bad = bytearray(data)
+    j = bytes(bad).find(b"dir/b.txt") + len("dir/b.txt") + 3
+    bad[j:j + 6] = b"\xff" * 6
+    (w / "bad.zip").write_bytes(bytes(bad))
+    r = ar.repair_archive(w / "bad.zip", ctx())
+    with zipfile.ZipFile(r.outputs[0]) as z:
+        check("a.txt" in z.namelist() and "dir/b.txt" not in z.namelist(), f"damaged file left out {z.namelist()} "
+              f"({r.note})")
+    seven = w / "box.7z"
+    ar.pack_into([src / "Reports"], seven, ctx(), "7z")
+    raw = bytearray(seven.read_bytes())
+    raw[len(raw) - 40:len(raw) - 30] = b"\x00" * 10
+    (w / "box-bad.7z").write_bytes(bytes(raw))
+    try:
+        r = ar.repair_archive(w / "box-bad.7z", ctx())
+        check(r.outputs[0].exists(), f"damaged 7z: {r.note}")
+    except RuntimeError as e:
+        check("rescued" in str(e), f"damaged 7z: nothing could be read, said so ({e})")
+    # archives inside archives
+    inner = io.BytesIO()
+    with zipfile.ZipFile(inner, "w") as z:
+        z.writestr("deep.txt", "deep")
+    outer = w / "outer.zip"
+    with zipfile.ZipFile(outer, "w") as z:
+        z.writestr("inner.zip", inner.getvalue())
+    seven_in = w / "in7"
+    seven_in.mkdir()
+    (seven_in / "x.txt").write_text("x")
+    ar.pack_into([seven_in / "x.txt"], w / "in7.7z", ctx(), "7z")
+    ar.add_files(outer, [w / "in7.7z"], ctx())
+    dest = w / "dest"
+    dest.mkdir()
+    r = ar.extract(outer, ctx(dest=str(dest), nested=True), mode="folder")
+    out = r.outputs[0]
+    check((out / "inner" / "deep.txt").exists() and (out / "in7" / "x.txt").exists() and
+          not (out / "inner.zip").exists(), f"archives inside unpacked ({r.note})")
+    # taking files out for dragging
+    t = ar.extract_for_drag(archive, ["Reports/report-2.txt"], "")
+    check((t / "Reports" / "report-2.txt").exists(), "files taken out for dragging")
+    try:
+        mark = open(str(t / "Reports" / "report-2.txt") + ":Zone.Identifier", "rb").read()
+    except OSError:
+        mark = b""
+    check(b"ZoneId=3" in mark, "dragged-out files keep the internet warning")
+    # double-click to open: registered for this user, and taken out again
+    from corefold import assoc
+    cmd = lambda *a: " ".join(['"C:\\Corefold\\Corefold.exe"', *a])  # noqa: E731
+    try:
+        assoc.register(cmd, "", "Archive")
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Classes\.zip\OpenWithProgids") as k:
+            winreg.QueryValueEx(k, assoc.PROGID)
+        check(assoc.is_current(cmd), "archives: Corefold is under Open with")
+    finally:
+        assoc.unregister()
+    check(not assoc._registered(), "…and taken out again")
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Classes\.zip\OpenWithProgids") as k:
+            winreg.QueryValueEx(k, assoc.PROGID)
+        left = True
+    except OSError:
+        left = False
+    check(not left, "…with nothing left behind")
+
+
 if __name__ == "__main__" and len(sys.argv) > 1:  # run just some: python scripts/selftest.py every_tool
     for name in sys.argv[1:]:
         step(name, globals()[name])
     print(f"selftest: {len(problems)} problem(s)")
     sys.exit(1 if problems else 0)
 
-for name, fn in (("right-click menu", right_click_menu), ("every tool", every_tool), ("uninstaller", uninstaller), ("list", listing), ("extract", extract_all), ("extract one", extract_some), ("open", open_one),
+for name, fn in (("archive tool", archive_tool), ("right-click menu", right_click_menu), ("every tool", every_tool), ("uninstaller", uninstaller), ("list", listing), ("extract", extract_all), ("extract one", extract_some), ("open", open_one),
                  ("test", test_it), ("pack", pack_and_edit), ("video", video)):
     step(name, fn)
 print(f"selftest: {len(problems)} problem(s)")

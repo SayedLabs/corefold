@@ -100,9 +100,10 @@ CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_styl
 # Settings kept on disk while the window has changes that weren't saved yet (see window.py): the
 # window shows them straight away, but they only stay if "Save" is pressed.
 HELD: dict | None = None
+RECENT_ARCHIVES = 8
 # not settings a person edits: what the app remembers by itself
 NOT_EDITED = {"enabled", "first_run", "last_version", "menu_signature", "window_geometry", "last_page",
-              "last_action", "tour_done", "watermark", "fit_mb"}
+              "last_action", "tour_done", "watermark", "fit_mb", "open_archives", "recent_archives"}
 LOOK_KEYS = ("appearance", "accent", "custom_color", "wheel_size", "wheel_style", "wheel_opacity", "label_style",
              "hover_style", "slice_colors", "text_size", "wheel_position", "per_page", "animations", "wheel_numbers",
              "toast_corner", "toast_time", "window_text", "sidebar_icons")
@@ -145,6 +146,8 @@ class Settings:
     context_menu: bool = True      # Corefold in the right-click menu
     menu_style: str = "windows"    # "windows" (a normal submenu) or "wheel"
     menu_signature: str = ""       # what was last written to the right-click menu
+    open_archives: bool = True     # archives open in Corefold with a double-click ("Open with")
+    recent_archives: list = field(default_factory=list)  # archives opened lately (newest first)
     show_unavailable: bool = True  # dim slices that can't be used (False = hide them)
     # keeping the PC fast
     low_priority: bool = True      # conversions run "in the background" (below normal priority)
@@ -220,6 +223,7 @@ class Settings:
                         if isinstance(k, str) and isinstance(v, list)}
         s.hidden_tools = [t for t in s.hidden_tools if isinstance(t, str)]
         s.favorites = [t for t in s.favorites if isinstance(t, str)]
+        s.recent_archives = [t for t in s.recent_archives if isinstance(t, str)][:RECENT_ARCHIVES]
         if not isinstance(s.last_action.get("key"), str) or not isinstance(s.last_action.get("params", {}), dict):
             s.last_action = {}
         return s
