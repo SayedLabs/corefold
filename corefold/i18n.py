@@ -77,3 +77,18 @@ def tr(text: str, /, **values) -> str:
         except (KeyError, IndexError, ValueError):  # a broken translation must never crash the app
             return text.format(**values)
     return out
+
+
+def ltr(text: str) -> str:
+    """A Latin name (an app, a file, a company) shown in Arabic: kept in its own reading order, so
+    "7-Zip 26.04 (x64)" doesn't come out as "Zip 26.04 (x64)-7"."""
+    if not text or not is_rtl():
+        return text
+    import unicodedata
+    for ch in text:
+        kind = unicodedata.bidirectional(ch)
+        if kind == "L":
+            return f"‪{text}‬"
+        if kind in ("R", "AL"):
+            return text
+    return f"‪{text}‬"  # only numbers and signs: keep them as written too

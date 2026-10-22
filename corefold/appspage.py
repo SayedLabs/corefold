@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDialog,
 
 from . import uninstall as un
 from .core import LEGACY_NAME, human_size, short_name
-from .i18n import tr
+from .i18n import tr, ltr
 
 if TYPE_CHECKING:
     from .app import Controller
@@ -53,7 +53,7 @@ class SortItem(QTreeWidgetItem):
         a, b = self.data(col, SORT_ROLE), other.data(col, SORT_ROLE)
         if a is not None and b is not None:
             return a < b
-        return self.text(col).lower() < other.text(col).lower()
+        return self.text(col).strip("\u202a\u202c").lower() < other.text(col).strip("\u202a\u202c").lower()
 
 
 class _Signals(QObject):
@@ -264,7 +264,7 @@ class AppsPage(QWidget):
         self.tree.clear()
         self._icon_queue = []
         for app in apps:
-            item = SortItem([app.name, app.publisher, human_size(app.size) if app.size else "",
+            item = SortItem([ltr(app.name), ltr(app.publisher), human_size(app.size) if app.size else "",
                              app.date, _when(app.last_used)])
             item.setData(0, APP_ROLE, app)
             item.setData(2, SORT_ROLE, app.size)
