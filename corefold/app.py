@@ -364,9 +364,11 @@ class Controller(QObject):
     @property
     def window(self):
         if self._window is None:
+            winutil.log_memory("before the window")
             from .window import MainWindow
             self._window = MainWindow(self, self.icon)
             self._window.apply_theme(self.theme)
+            winutil.log_memory("window built")
         return self._window
 
     def rebuild_window(self, page: str = "Home", **keep):
@@ -491,6 +493,7 @@ class Controller(QObject):
         release_memory()  # also forgets cached file facts and collects garbage
         winutil.trim_memory()
         log.info("tidied up memory")
+        winutil.log_memory("tidied")
 
     # ---- paste: convert what's on the clipboard
 

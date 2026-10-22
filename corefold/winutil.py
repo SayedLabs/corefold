@@ -119,6 +119,11 @@ def release_mutex():
 
 def memory_use() -> int:
     """How much memory Corefold is using right now (the number Task Manager shows), in bytes."""
+    return memory_info()[0]
+
+
+def memory_info() -> tuple[int, int]:
+    """(working set, private memory) in bytes; (0, 0) if Windows won't say."""
     class Counters(ctypes.Structure):
         _fields_ = [("cb", wt.DWORD), ("PageFaultCount", wt.DWORD), ("PeakWorkingSetSize", ctypes.c_size_t),
                     ("WorkingSetSize", ctypes.c_size_t), ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
@@ -131,10 +136,28 @@ def memory_use() -> int:
         get = ctypes.windll.psapi.GetProcessMemoryInfo
         get.argtypes = [wt.HANDLE, ctypes.c_void_p, wt.DWORD]
         if get(kernel32.GetCurrentProcess(), ctypes.byref(c), c.cb):
-            return int(c.WorkingSetSize)
+            return int(c.WorkingSetSize), int(c.PrivateUsage)
     except Exception:
         pass
-    return 0
+    return 0, 0
+
+
+_seen_modules: set[str] = set()
+
+
+def log_memory(where: str):
+    """For measuring (only when COREFOLD_MEMLOG is set): memory now, and what was loaded since last time."""
+    import os
+    import sys
+    if not os.environ.get("COREFOLD_MEMLOG"):
+        return
+    import logging
+    ws, private = memory_info()
+    mods = set(sys.modules)
+    new = sorted({m.split(".")[0] for m in mods - _seen_modules}) if _seen_modules else []
+    _seen_modules.update(mods)
+    logging.getLogger("corefold").info("memory %s: %.1f MB working set, %.1f MB private, %d modules%s", where,
+                                       ws / 2**20, private / 2**20, len(mods), (" new: " + " ".join(new)) if new else "")
 
 
 def trim_memory():
