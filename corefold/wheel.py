@@ -46,7 +46,7 @@ ICONS = {  # action -> line icon (see icons.py)
     "pages": "document_multiple", "images": "image_multiple", "lock": "lock_closed", "unlock": "lock_open",
     "rename": "rename",
 }
-FORMAT_ACTIONS = {"png", "jpg", "webp", "ico", "bmp", "mp3", "m4a", "wav", "flac", "ogg", "opus", "aiff", "mp4",
+FORMAT_ACTIONS = {"png", "jpg", "webp", "ico", "bmp", "avif", "mp3", "m4a", "wav", "flac", "ogg", "opus", "aiff", "mp4",
                   "mov", "webm", "mkv", "gif", "pdf", "text"}
 GROUPS = {  # action -> group, for "colour by kind of action"
     **{a: "convert" for a in FORMAT_ACTIONS},
