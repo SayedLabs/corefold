@@ -19,8 +19,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .i18n import tr
-from .core import NO_WINDOW, TAR_SUFFIXES, Ctx, Result, _cached, app_dir, bundled, is_link, pass_on_zone_mark, \
-    run_with_progress, safe_name, unique_path
+from .core import ARCHIVE_EXT, NO_WINDOW, TAR_SUFFIXES, Ctx, Result, _cached, app_dir, bundled, is_link, norm, \
+    pass_on_zone_mark, run_with_progress, safe_name, unique_path
 
 log = logging.getLogger("corefold")
 DUMMY_PASSWORD = "-pcorefold-no-password"  # never let 7-Zip stop and ask for one
@@ -543,7 +543,6 @@ NESTED_MAX = 200
 
 
 def is_archive_file(p: Path) -> bool:
-    from .core import ARCHIVE_EXT, norm
     try:
         return p.is_file() and not is_link(p) and (norm(p.suffix) in ARCHIVE_EXT or is_tar(p)) \
             and not is_extra_part(p)
@@ -593,7 +592,6 @@ def holds_archives(entries: list[Entry]) -> bool:
 
 
 def is_archive_file_name(name: str) -> bool:
-    from .core import ARCHIVE_EXT, norm
     base = name.rstrip("/").rpartition("/")[2]
     stem, dot, ext = base.rpartition(".")
     if not dot or not stem:
