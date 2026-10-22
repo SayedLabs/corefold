@@ -1336,7 +1336,7 @@ class Controller(QObject):
             self.quit(cleanup=True)
 
 
-PAGE_NAMES = ("Home", "Converter", "Apps", "General", "Look", "Formats", "History", "Updates", "About")
+PAGE_NAMES = ("Home", "Converter", "Apps", "Soon", "General", "Look", "Formats", "History", "Updates", "About")
 OUTPUT_EXT = {"image:pdf": ".pdf", "image:scan": ".pdf", "pdf:merge": ".pdf", "image:video": ".mp4",
               "pack:zip": ".zip", "pack:7z": ".7z"}  # what a tool makes, when it isn't Tool.target
 
