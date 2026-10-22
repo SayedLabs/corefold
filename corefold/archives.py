@@ -673,17 +673,20 @@ def _scan_zip(src: Path, target: Path, ctx: Ctx) -> tuple[int, int]:
                 except OSError:
                     continue
                 if name.endswith("/"):
-                    out.mkdir(parents=True, exist_ok=True)
+                    try:
+                        out.mkdir(parents=True, exist_ok=True)
+                    except OSError:  # a file of that name came first
+                        pass
                     continue
                 if flag & 1 or method not in (0, 8) or csize == 0xFFFFFFFF:  # locked, or a kind not read here
                     bad += 1
                     continue
                 known = not (flag & 8)  # otherwise the sizes come after the data
-                out.parent.mkdir(parents=True, exist_ok=True)
                 check = 0
                 ok = True
                 tmp = out.with_name(out.name + ".part")
                 try:
+                    out.parent.mkdir(parents=True, exist_ok=True)
                     with open(tmp, "wb") as w:
                         if method == 0:
                             if not known:
@@ -719,9 +722,16 @@ def _scan_zip(src: Path, target: Path, ctx: Ctx) -> tuple[int, int]:
                         pos = max(pos, end)
                     else:
                         bad += 1
+                except OSError as e:  # a name that clashes with a folder, an odd name, a full disk
+                    if getattr(e, "errno", None) == 28:  # ENOSPC: no point going on
+                        raise
+                    bad += 1
                 finally:
-                    if tmp.exists():
-                        tmp.unlink()
+                    try:
+                        if tmp.exists():
+                            tmp.unlink()
+                    except OSError:
+                        pass
     return good, bad
 
 

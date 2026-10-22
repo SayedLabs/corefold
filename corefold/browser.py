@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QFileDialog, QFileI
 
 from . import archives as ar
 from .core import APP_NAME, Tool, human_size, short_name
-from .i18n import tr
+from .i18n import ltr, tr
 from .winutil import set_title_bar_dark
 
 if TYPE_CHECKING:
@@ -38,7 +38,7 @@ class Row(QTreeWidgetItem):
             return a_dir if ascending else b_dir
         if col in (1, 2):
             return (self.data(col, SORT_ROLE) or 0) < (other.data(col, SORT_ROLE) or 0)
-        return self.text(col).lower() < other.text(col).lower()
+        return self.text(col).strip("\u202a\u202c").lower() < other.text(col).strip("\u202a\u202c").lower()
 
 
 class ArchiveTree(QTreeWidget):
@@ -68,6 +68,9 @@ class ArchiveBrowser(QWidget):
         title = QLabel(short_name(src.name, 70))
         title.setToolTip(str(src))
         title.setObjectName("h2")
+        from .i18n import is_rtl
+        if is_rtl():  # a Latin file name would otherwise sit on the far side from its tile
+            title.setAlignment(Qt.AlignRight | Qt.AlignAbsolute | Qt.AlignVCenter)
         from . import icons as tiles
         tile = QLabel()
         tile.setPixmap(tiles.product_tile("archive", 34, controller.theme.dark, self.devicePixelRatioF()))
@@ -162,7 +165,7 @@ class ArchiveBrowser(QWidget):
                 return folders[path]
             parent_path, _, name = path.rpartition("/")
             parent = folder(parent_path)
-            item = Row([name, "", "", ""])
+            item = Row([ltr(name), "", "", ""])
             item.setIcon(0, self.icons.icon(QFileIconProvider.Folder))
             item.setData(0, PATH_ROLE, path)
             item.setData(0, DIR_ROLE, True)
@@ -182,7 +185,7 @@ class ArchiveBrowser(QWidget):
                 continue
             parent_path, _, name = path.rpartition("/")
             parent = folder(parent_path)
-            item = Row([name, human_size(e.size), human_size(e.packed) if e.packed else "", e.modified[:16]])
+            item = Row([ltr(name), human_size(e.size), human_size(e.packed) if e.packed else "", e.modified[:16]])
             item.setData(1, SORT_ROLE, e.size)
             item.setData(2, SORT_ROLE, e.packed)
             if e.encrypted:  # locked with a password

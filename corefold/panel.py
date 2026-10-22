@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (QFileDialog, QFrame, QHBoxLayout, QLabel, QLayout
 from .converters import CATEGORY_ICONS, CATEGORY_NAMES, pick, warm_up
 from . import icons
 from .core import human_size, is_cloud_only, quick_size, short_name
-from .i18n import tr
+from .i18n import is_rtl, tr
 from .wheel import FORMAT_ACTIONS, GROUP_NAMES, GROUPS, ICONS, action_of
 
 if TYPE_CHECKING:
@@ -214,6 +214,8 @@ class FilePanel(QFrame):
         self.name = QLabel()
         self.name.setObjectName("h2")
         self.name.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        if is_rtl():  # a Latin file name would otherwise drift to the far side
+            self.name.setAlignment(Qt.AlignRight | Qt.AlignAbsolute | Qt.AlignVCenter)
         self.details = QLabel()
         self.details.setObjectName("muted")
         self.details.setWordWrap(True)
