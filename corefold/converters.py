@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import tempfile
 import threading
+import time
 from dataclasses import dataclass
 from functools import lru_cache, partial
 from pathlib import Path
@@ -374,8 +375,11 @@ def read_qr(src: Path, ctx: Ctx) -> Result:
 
 
 # --- background removal (U²-Net "silueta" model, runs on the PC) ---
+# The model runs in a small helper process (bgworker.py) that Corefold closes when it tidies up,
+# so its few hundred MB go back to Windows instead of staying while Corefold waits in the tray.
 
-_bg_session = None
+_bg_session = None   # only used if the helper can't start (and when testing off Windows)
+_bg_worker = None    # (process, connection) while the helper is running
 _bg_lock = threading.Lock()
 
 
@@ -383,32 +387,91 @@ def bg_model() -> Path | None:
     return bundled("models", "silueta.onnx")
 
 
-def remove_background(src: Path, ctx: Ctx) -> Result:
-    global _bg_session
-    import numpy as np
+def _start_bg_worker(model: Path):
+    import secrets
+    from multiprocessing.connection import Client
+    from .settings import app_command
+    from .core import job_flags
+    key = secrets.token_bytes(32)
+    address = "\\\\.\\pipe\\corefold-bg-" + secrets.token_hex(12)
+    env = dict(os.environ, COREFOLD_WORKER_KEY=key.hex())
+    proc = subprocess.Popen(app_command("--bg-worker", address, f'"{model}"'), env=env, creationflags=job_flags(),
+                            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    deadline = time.monotonic() + 60
+    while True:
+        if proc.poll() is not None:
+            raise RuntimeError(f"helper ended ({proc.returncode})")
+        try:
+            conn = Client(address, "AF_PIPE", authkey=key)
+            log.info("background remover helper started")
+            return proc, conn
+        except (FileNotFoundError, OSError):
+            if time.monotonic() > deadline:
+                proc.kill()
+                raise RuntimeError("helper didn't answer")
+            time.sleep(0.1)
+
+
+def _stop_bg_worker():
+    """Closes the helper (it ends by itself when the pipe closes; forced if it doesn't)."""
+    global _bg_worker
+    worker, _bg_worker = _bg_worker, None
+    if worker is None:
+        return
+    proc, conn = worker
+    try:
+        conn.close()
+    except OSError:
+        pass
+
+    def finish():
+        try:
+            proc.wait(5)
+        except Exception:
+            proc.kill()
+    threading.Thread(target=finish, daemon=True).start()
+
+
+def _bg_mask(small, model: Path):
+    """The 320×320 mask for a 320×320 RGB picture."""
+    global _bg_session, _bg_worker
     from PIL import Image
+    from . import bgworker
+    data = small.tobytes()
+    with _bg_lock:
+        if os.name == "nt" and _bg_session is None:
+            try:
+                if _bg_worker is None or _bg_worker[0].poll() is not None:
+                    _stop_bg_worker()
+                    _bg_worker = _start_bg_worker(model)
+                conn = _bg_worker[1]
+                conn.send_bytes(data)
+                out = conn.recv_bytes(maxlength=bgworker.SIDE ** 2)
+                return Image.frombytes("L", (bgworker.SIDE, bgworker.SIDE), out)
+            except Exception:
+                log.warning("background remover helper failed; running it here instead", exc_info=True)
+                _stop_bg_worker()
+        if _bg_session is None:
+            _bg_session = bgworker.open_model(str(model))
+        out = bgworker.mask_from_rgb(_bg_session, data)
+        return Image.frombytes("L", (bgworker.SIDE, bgworker.SIDE), out)
+
+
+def remove_background(src: Path, ctx: Ctx) -> Result:
+    from PIL import Image
+    from .bgworker import SIDE
     model = bg_model()
     if not model:
         raise RuntimeError(tr("the background remover isn't installed in this copy"))
-    with _bg_lock:
-        if _bg_session is None:
-            import onnxruntime as ort
-            opts = ort.SessionOptions()
-            opts.log_severity_level = 3
-            _bg_session = ort.InferenceSession(str(model), opts, providers=["CPUExecutionProvider"])
-        sess = _bg_session
     ctx.progress(0.1)
     im = load_image(src)
     rgb = im.convert("RGB")
-    x = np.asarray(rgb.resize((320, 320), Image.LANCZOS), dtype=np.float32)
-    x = x / max(float(x.max()), 1e-6)
-    x = (x - np.array([0.485, 0.456, 0.406], dtype=np.float32)) / np.array([0.229, 0.224, 0.225], dtype=np.float32)
-    x = x.transpose(2, 0, 1)[None].astype(np.float32)
     ctx.check()
-    pred = sess.run(None, {sess.get_inputs()[0].name: x})[0][0, 0]
-    pred = (pred - pred.min()) / max(float(pred.max() - pred.min()), 1e-6)
+    small = rgb.resize((SIDE, SIDE), Image.LANCZOS)
+    mask = _bg_mask(small, model)
     ctx.progress(0.8)
-    mask = Image.fromarray((pred * 255).astype(np.uint8)).resize(rgb.size, Image.LANCZOS)
+    ctx.check()
+    mask = mask.resize(rgb.size, Image.LANCZOS)
     if has_alpha(im):  # keep parts that were already transparent
         from PIL import ImageChops
         mask = ImageChops.multiply(mask, im.convert("RGBA").getchannel("A"))
@@ -424,6 +487,7 @@ def release_memory():
     global _bg_session
     with _bg_lock:
         _bg_session = None
+        _stop_bg_worker()
     from .core import clear_cache
     clear_cache()
     import gc
