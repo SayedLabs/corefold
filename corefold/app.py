@@ -667,6 +667,8 @@ class Controller(QObject):
     def remember_archive(self, src: Path):
         """Keeps the list of recently opened archives (shown on the Archive page)."""
         from .settings import RECENT_ARCHIVES
+        if not self.settings.remember_archives:
+            return
         try:  # one opened from inside another archive lives in the temp folder: not worth remembering
             if src.resolve().is_relative_to(Path(tempfile.gettempdir()).resolve()):
                 return
@@ -1423,16 +1425,17 @@ class Controller(QObject):
             self.quit(cleanup=True)
 
 
-PAGE_NAMES = ("Home", "Converter", "Apps", "Archives", "Soon", "General", "Look", "Formats", "History", "Updates", "About")
+PAGE_NAMES = ("Home", "Converter", "Apps", "Archives", "Soon", "General", "Look", "ConvOptions", "WheelLook", "Formats",
+              "AppsSettings", "ArchiveSettings", "History", "Updates", "About")
 OUTPUT_EXT = {"image:pdf": ".pdf", "image:scan": ".pdf", "pdf:merge": ".pdf", "image:video": ".mp4",
               "pack:zip": ".zip", "pack:7z": ".7z"}  # what a tool makes, when it isn't Tool.target
 
 
-def _prune_backups():
-    """Uninstall backups older than 30 days are removed (quietly, in the background)."""
+def _prune_backups(days: int = 30):
+    """Uninstall backups older than this (Settings → Uninstaller) are removed, quietly in the background."""
     try:
         from . import uninstall
-        uninstall.prune_backups()
+        uninstall.prune_backups(max(7, days))
     except Exception:
         log.debug("couldn't prune uninstall backups", exc_info=True)
 
@@ -1638,6 +1641,6 @@ def main() -> int:
     if not s.tour_done and not message and "--background" not in argv:
         QTimer.singleShot(700, controller.show_tour)
     s.save()
-    threading.Thread(target=_prune_backups, daemon=True).start()
+    threading.Thread(target=_prune_backups, args=(s.backup_days,), daemon=True).start()
     QTimer.singleShot(IDLE_TIDY_MS, controller.tidy_up)
     return app.exec()

@@ -20,8 +20,8 @@ STEPS = [
                                 "more options\"."),
     ("broom", "Clean up apps too", "The Apps page uninstalls programs and then removes what they leave behind, with "
                                 "a backup you can put back."),
-    ("paint_brush", "Make it yours", "Change the colours, the wheel's shape and size, the sounds and which options show up, "
-                            "on the Look and Formats pages."),
+    ("paint_brush", "Make it yours", "Change the colours, the wheel's shape and size, the sounds and which options show up "
+                            "in Settings. Each tool has its own tab there."),
 ]
 
 

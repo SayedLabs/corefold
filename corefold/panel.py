@@ -289,7 +289,7 @@ class FilePanel(QFrame):
         if pk.dimmed:
             bits.append(tr("{count} don't fit (greyed out, point at one to see why)", count=pk.dimmed))
         if pk.hidden:
-            bits.append(tr("{count} hidden in Settings → Formats", count=pk.hidden))
+            bits.append(tr("{count} hidden in Settings → Converter → Formats", count=pk.hidden))
         if len(paths) > len(pk.files):
             bits.append(tr("Other parts of a split archive open with the first part"))
         self.summary.setText(" · ".join(bits))
@@ -312,7 +312,7 @@ class FilePanel(QFrame):
                 flow.addWidget(self._button(slot, slot.tool.key in favs))
             self.groups.addWidget(holder)
         if not pk.slots:
-            msg = QLabel(tr("Nothing to do with these files. Check Settings → Formats if you hid some options."))
+            msg = QLabel(tr("Nothing to do with these files. Check Settings → Converter → Formats if you hid some options."))
             msg.setObjectName("muted")
             msg.setWordWrap(True)
             self.groups.addWidget(msg)
