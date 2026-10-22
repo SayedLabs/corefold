@@ -10,6 +10,11 @@ if any(a in ("--cleanup", "--restore", "--restore-point") for a in sys.argv[1:])
     from corefold.uninstall import helper_main  # noqa: E402
     sys.exit(helper_main(sys.argv[1:]))
 
+# The background remover's helper process (runs the AI model, then quits so its memory is freed).
+if "--bg-worker" in sys.argv[1:]:
+    from corefold.bgworker import main as bg_main  # noqa: E402
+    sys.exit(bg_main(sys.argv[1:]))
+
 # Fast path first: if Corefold is already running, hand it this request and quit before loading
 # the heavy parts (Qt). This keeps right-clicking many files quick and light.
 from corefold import ipc  # noqa: E402

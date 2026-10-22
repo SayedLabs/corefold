@@ -458,8 +458,12 @@ class MainWindow(QWidget):
         builders = {"Home": self._home, "Converter": self._converter, "History": self._history, "Apps": self._apps,
                     "Soon": self._soon_all, "General": self._general,
                     "Look": self._look, "Formats": self._formats, "Updates": self._updates, "About": self._about}
+        self._wheel_guard = None
+        self._builders = builders
+        # pages that are rarely opened are only built the first time they are (a faster, lighter window)
+        self._unbuilt = {"Apps", "Soon", *SOON}
         for name in PAGES:
-            self.stack.addWidget(builders[name]() if name in builders else self._soon(name))
+            self.stack.addWidget(QWidget() if name in self._unbuilt else builders[name]())
         self._opening = None  # a page without a sidebar row of its own, while it's being opened
         self.nav.currentRowChanged.connect(self._page_changed)
         self.nav.itemClicked.connect(self._row_clicked)
@@ -567,12 +571,13 @@ class MainWindow(QWidget):
         self.c.settings_changed(menu=True)
         self.c.rebuild_window(self.current_page(), committed=self.committed, pending_startup=self.pending_startup)
 
-    def _no_accidental_scrolling(self):
+    def _no_accidental_scrolling(self, root: QWidget | None = None):
         """Scrolling down a page never changes a setting: lists, number boxes and sliders only react
         to the mouse wheel after they were clicked."""
-        self._wheel_guard = _WheelGuard(self)
+        if self._wheel_guard is None:
+            self._wheel_guard = _WheelGuard(self)
         for cls in (QComboBox, QSpinBox, QSlider):
-            for w in self.findChildren(cls):
+            for w in (root or self).findChildren(cls):
                 w.setFocusPolicy(Qt.StrongFocus)
                 w.installEventFilter(self._wheel_guard)
 
@@ -597,6 +602,19 @@ class MainWindow(QWidget):
         self.apps_page = AppsPage(self.c)
         return self.apps_page
 
+    def _build_page(self, name: str):
+        """Builds a page that was left for later, in its place."""
+        if name not in self._unbuilt:
+            return
+        self._unbuilt.discard(name)
+        i = PAGES.index(name)
+        stand_in = self.stack.widget(i)
+        built = self._builders[name]() if name in self._builders else self._soon(name)
+        self.stack.insertWidget(i, built)
+        self.stack.removeWidget(stand_in)
+        stand_in.deleteLater()
+        self._no_accidental_scrolling(built)
+
     def _row_clicked(self, item):
         """The lit row clicked again (from a page that shares it): go to the row's own page."""
         row = self.nav.row(item)
@@ -609,6 +627,7 @@ class MainWindow(QWidget):
             return
         if self._opening and NAV_OWNER.get(self._opening) == name:
             name = self._opening
+        self._build_page(name)
         self.stack.setCurrentIndex(PAGES.index(name))
         winutil.log_memory(f"page {name}")
         QTimer.singleShot(2500, lambda n=name: winutil.log_memory(f"page {n}, 2.5 s later"))
