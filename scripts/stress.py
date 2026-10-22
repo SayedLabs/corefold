@@ -62,7 +62,12 @@ def make():
 
 timed(f"make a ZIP with {FILES:,} files (test setup)", make, 120)
 entries = timed("list it (7-Zip)", lambda: ar.list_entries(big), 8)
-b = timed("build the archive window", lambda: ArchiveBrowser(c, big, "", entries, QIcon()), 3)
+import cProfile, io, pstats  # noqa: E401,E402
+first = cProfile.Profile()
+b = timed("build the archive window", lambda: first.runcall(ArchiveBrowser, c, big, "", entries, QIcon()), 3)
+out = io.StringIO()
+pstats.Stats(first, stream=out).sort_stats("cumulative").print_stats(30)
+(OUT / "stress-profile-first.txt").write_text(out.getvalue(), "utf-8")
 b.resize(900, 600)
 b.show()
 timed("show it", qapp.processEvents, 3)
@@ -81,7 +86,6 @@ folder = timed(f"take out a folder of {len([m for m in members if m.endswith('.t
                lambda: ar.extract_for_drag(big, members, ""), 15)
 ar.remove_drag_folder(folder)
 timed("reload after a change", lambda: b.reload(wait=True), 5)
-import cProfile, io, pstats  # noqa: E401,E402
 prof = cProfile.Profile()
 prof.runcall(b.reload, wait=True)
 out = io.StringIO()
@@ -89,6 +93,24 @@ pstats.Stats(prof, stream=out).sort_stats("tottime").print_stats(25)
 (OUT / "stress-profile.txt").write_text(out.getvalue(), "utf-8")
 b.close()
 qapp.processEvents()
+
+# ---- the Converter with thousands of files dropped at once
+from PIL import Image  # noqa: E402
+many = TMP / "many"
+many.mkdir()
+for i in range(3000):
+    (many / f"photo-{i}.jpg").write_bytes(b"")
+Image.new("RGB", (64, 48), (200, 100, 50)).save(many / "photo-0.jpg")
+for i in range(1, 3000):
+    (many / f"photo-{i}.jpg").write_bytes((many / "photo-0.jpg").read_bytes())
+files = sorted(many.iterdir())
+w = c.window
+w.show()
+qapp.processEvents()
+timed("drop 3,000 photos on the Converter (options shown)", lambda: (w.show_files(files), qapp.processEvents()), 5)
+from corefold.converters import pick  # noqa: E402
+timed("work out the wheel for 3,000 photos", lambda: pick(files, quick=True), 3)
+w.hide()
 
 (OUT / "stress.txt").write_text("\n".join(lines + [f"stress: {len(problems)} problem(s)"]), "utf-8")
 print(f"stress: {len(problems)} problem(s)")
