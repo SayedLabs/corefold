@@ -87,6 +87,15 @@ def archive_stem(p: Path) -> str:
     return Path(name).stem if Path(name).suffix else name
 
 
+def _listfile(names: list[str]) -> Path:
+    """A temporary list of names for 7-Zip (@listfile). The file is closed before 7-Zip reads it:
+    on Windows a file that is still open can't be deleted afterwards."""
+    fd, name = tempfile.mkstemp(suffix=".txt", prefix="corefold-list-")
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(names))
+    return Path(name)
+
+
 def _pw(password: str) -> str:
     return f"-p{password}" if password else DUMMY_PASSWORD
 
@@ -232,8 +241,7 @@ def _extract_into(src: Path, target: Path, ctx: Ctx, password: str, members: lis
                 _pw(password)]
         listfile = None
         if members:
-            listfile = Path(tempfile.mkstemp(suffix=".txt")[1])
-            listfile.write_text("\n".join(m.replace("/", os.sep) for m in members), encoding="utf-8")
+            listfile = _listfile([m.replace("/", os.sep) for m in members])
             args += ["-scsUTF-8", f"@{listfile}"]
         try:
             code, out = _run7z(args, ctx)
@@ -374,8 +382,7 @@ def pack_into(items: list[Path], out: Path, ctx: Ctx, fmt: str = "zip", level: s
             args.append("-mhe=on" if fmt == "7z" else "-mem=AES256")
         if split_mb and split_mb > 0:
             args.append(f"-v{int(split_mb * 1024)}k")
-        listfile = Path(tempfile.mkstemp(suffix=".txt")[1])
-        listfile.write_text("\n".join(rel), encoding="utf-8")
+        listfile = _listfile(rel)
         try:
             code, output = _run7z([*args, "-scsUTF-8", str(out), f"@{listfile}"], ctx, cwd=parent)
         finally:
@@ -463,8 +470,7 @@ def add_files(src: Path, items: list[Path], ctx: Ctx) -> Result:
     password = ctx.params.get("password", "")
     for parent in {p.parent.resolve() for p in items}:
         group = [p for p in items if p.parent.resolve() == parent]
-        listfile = Path(tempfile.mkstemp(suffix=".txt")[1])
-        listfile.write_text("\n".join(p.name for p in group), encoding="utf-8")
+        listfile = _listfile([p.name for p in group])
         try:
             args = ["a", str(src.resolve()), "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-scsUTF-8", "-ssw", "-y", "-spd"]
             if password:
@@ -480,8 +486,7 @@ def add_files(src: Path, items: list[Path], ctx: Ctx) -> Result:
 def delete_entries(src: Path, members: list[str], ctx: Ctx) -> Result:
     if not can_edit(src):
         raise RuntimeError(tr("only ZIP and 7z archives can be changed"))
-    listfile = Path(tempfile.mkstemp(suffix=".txt")[1])
-    listfile.write_text("\n".join(m.replace("/", os.sep) for m in members), encoding="utf-8")
+    listfile = _listfile([m.replace("/", os.sep) for m in members])
     try:
         code, out = _run7z(["d", str(src), "-bsp1", "-bse1", "-sccUTF-8", "-scsUTF-8", "-y", "-spd",
                             _pw(ctx.params.get("password", "")), f"@{listfile}"], ctx)
