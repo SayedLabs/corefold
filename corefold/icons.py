@@ -92,11 +92,21 @@ _TILE_GLYPHS = {  # drawn on the old 4..60 grid, moved into the 10..54 body by _
                '11.8-5.7 13-13Z"/>',
     "viewer": '<path d="M17 50 26.5 37l6 8 4-5L46 50Z"/><circle cx="23" cy="29" r="3.5"/>',
     "cloud": '<path d="M22 50a7.5 7.5 0 0 1-1-14.9A10 10 0 0 1 40.2 33a8.5 8.5 0 0 1 2.3 17Z"/>',
+    # Capture: the corners of a picked area, around a lens
+    "capture": '<path fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" '
+               'd="M18.5 35V29.5H24M38 29.5H43.5V35M43.5 45V50.5H38M24 50.5H18.5V45"/><circle cx="31" cy="40" r="5"/>',
+    # Space: a disk shown as a pie, one slice pulled out
+    "space": '<path d="M29 32.5a10.5 10.5 0 1 0 10.5 10.5H29Z"/><path d="M31.5 30.5a10.5 10.5 0 0 1 10.5 10.5H31.5Z"/>',
+    # Clipboard: a board with its clip
+    "clipboard": '<rect x="21" y="32" width="20" height="21" rx="3.5" fill="none" stroke-width="4"/>'
+                 '<rect x="25.5" y="29" width="11" height="6.5" rx="2.2"/>'
+                 '<path fill="none" stroke-width="3.4" stroke-linecap="round" d="M26.5 42.5H35.5M26.5 47.5H32"/>',
 }
 _GLYPH_FIT = 'transform="translate(6.857 6.857) scale(0.7857)"'
 PRODUCT_COLORS = {  # (light end, deep end) of each product's gradient
     "corefold": ("#6be6d2", "#0f8f7c"), "converter": ("#b4f08c", "#2f9a52"), "player": ("#ff9cb8", "#c22f5c"), "archive": ("#ffd27a", "#a86c00"),
     "cleaner": ("#a6c1ff", "#2b5fd4"), "viewer": ("#c9bcff", "#6b4bd6"), "cloud": ("#9fe3ff", "#1b86c4"),
+    "capture": ("#ffb08f", "#d4502c"), "space": ("#f2a8ff", "#a23cc0"), "clipboard": ("#d9e2ef", "#5f6f88"),
 }
 
 

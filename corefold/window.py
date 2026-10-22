@@ -32,16 +32,21 @@ if TYPE_CHECKING:
     from .app import Controller
 
 # every page, in the order they are built (names are English, shown through tr())
-PAGES = ["Home", "Converter", "History", "Apps", "Archives", "Player", "Viewer", "Cloud", "General", "Look", "Formats",
-         "Updates", "About"]
-SOON = {"Archives": "archive", "Player": "player", "Viewer": "viewer", "Cloud": "cloud"}  # pages for tools still being made
-# the sidebar: pages, with a small heading before each group (None + heading)
-NAV = ["Home", "History", (None, "Tools"), "Converter", "Apps", "Archives", "Player", "Viewer", "Cloud",
+PAGES = ["Home", "Converter", "History", "Apps", "Soon", "Archives", "Viewer", "Player", "Capture", "Space",
+         "Clipboard", "Cloud", "General", "Look", "Formats", "Updates", "About"]
+# tools still being made: page -> product tile (in the order they're planned)
+SOON = {"Archives": "archive", "Viewer": "viewer", "Player": "player", "Capture": "capture", "Space": "space",
+        "Clipboard": "clipboard", "Cloud": "cloud"}
+# the sidebar: pages, with a small heading before each group (None + heading). The tools still being
+# made share one "Coming soon" row, so the sidebar stays short.
+NAV = ["Home", "History", (None, "Tools"), "Converter", "Apps", "Soon",
        (None, "Settings"), "General", "Look", "Formats", "Updates", "About"]
-NAV_LABELS = {"Apps": "Uninstaller"}  # where the sidebar's name differs from the page's own name
+NAV_LABELS = {"Apps": "Uninstaller", "Soon": "Coming soon"}  # where the sidebar's name differs from the page's
+NAV_OWNER = {name: "Soon" for name in SOON}  # pages without a row of their own: the row that's lit
 PAGE_ICONS = {"Home": "home", "Converter": "arrow_swap", "Apps": "broom", "General": "settings", "Look": "paint_brush",  # icons.py
               "Formats": "puzzle_piece", "History": "history", "Updates": "arrow_sync", "About": "info",
-              "Archives": "archive", "Player": "video", "Viewer": "image", "Cloud": "globe"}
+              "Soon": "star", "Archives": "archive", "Player": "video", "Viewer": "image", "Capture": "screenshot",
+              "Space": "data_pie", "Clipboard": "clipboard", "Cloud": "globe"}
 # the tools on the Home page: page, product tile, name, one line (English, shown through tr())
 TOOLS = [
     ("Converter", "converter", "Corefold Converter",
@@ -56,6 +61,25 @@ SOON_TEXT = {  # name, one line, what it will do (English, shown through tr())
                "Several accounts of the same service at once",
                "Search across all of them",
                "Sign in on Microsoft's and Google's own page: your passwords never reach Corefold"]),
+    "Capture": ("Corefold Capture", "Take a picture or a video of your screen, mark it up and share it in "
+                "seconds.",
+                ["Pick an area, a window or the whole screen with one shortcut",
+                 "Draw arrows, boxes and text, and blur anything private",
+                 "Copy the text you see in any picture or screen",
+                 "Record your screen as a video or a GIF, with sound if you want",
+                 "Everything stays on your PC: nothing is uploaded"]),
+    "Space": ("Corefold Space", "See what's filling your disk and free up space safely.",
+              ["A clear map of the biggest folders and files",
+               "Find duplicate files and photos",
+               "Clean up safe junk: temporary files, old installers, leftover caches",
+               "Never touches Windows or your personal files without asking",
+               "Everything removed goes to the Recycle Bin first"]),
+    "Clipboard": ("Corefold Clipboard", "Everything you copy, kept and easy to find again.",
+                  ["Text, pictures, links and files you copied, in one list",
+                   "Pin what you paste often so it's always at the top",
+                   "Search your clipboard history",
+                   "Paste as plain text, without the formatting",
+                   "Stays on your PC, and skips passwords from password managers"]),
     "Archives": ("Corefold Archive", "Open, look inside and make archives right here, faster and tidier than the "
                  "usual archive apps.",
                  ["Open ZIP, RAR, 7z, TAR, ISO and more with a double-click",
@@ -201,7 +225,7 @@ class ToolCard(QFrame):
             line.setContentsMargins(6, 0, 6, 0)
             line.setAttribute(Qt.WA_TransparentForMouseEvents)
             lay.addWidget(line)
-            self.stat = label("", "cardStat")
+            self.stat = label(pill, "cardStat")
             self.stat.setAttribute(Qt.WA_TransparentForMouseEvents)
             lay.addWidget(self.stat)
             lay.addStretch()
@@ -409,13 +433,13 @@ class MainWindow(QWidget):
                 self.nav_rows.append(entry)
             self.nav.addItem(item)
         for row, name in enumerate(self.nav_rows):
-            if name in SOON:  # a small "Soon" pill on the row (clicks go through to the row)
+            if name == "Soon":  # how many tools are on the way, in a small pill (clicks go through to the row)
                 holder = QWidget()
                 holder.setAttribute(Qt.WA_TransparentForMouseEvents)
                 hl = QHBoxLayout(holder)
                 hl.setContentsMargins(0, 0, 10, 0)
                 hl.addStretch()
-                pill = label(tr("Soon"), "soonPill")
+                pill = label(str(len(SOON)), "soonPill")
                 pill.setFixedHeight(18)
                 hl.addWidget(pill, 0, Qt.AlignVCenter)
                 self.nav.setItemWidget(self.nav.item(row), holder)
@@ -432,11 +456,13 @@ class MainWindow(QWidget):
 
         self.stack = QStackedWidget()
         builders = {"Home": self._home, "Converter": self._converter, "History": self._history, "Apps": self._apps,
-                    "General": self._general,
+                    "Soon": self._soon_all, "General": self._general,
                     "Look": self._look, "Formats": self._formats, "Updates": self._updates, "About": self._about}
         for name in PAGES:
             self.stack.addWidget(builders[name]() if name in builders else self._soon(name))
+        self._opening = None  # a page without a sidebar row of its own, while it's being opened
         self.nav.currentRowChanged.connect(self._page_changed)
+        self.nav.itemClicked.connect(self._row_clicked)
         last = self.c.settings.last_page
         self.open_page(last if last in PAGES else "Home")
 
@@ -563,18 +589,26 @@ class MainWindow(QWidget):
             item.setIcon(icons.icon(PAGE_ICONS[entry], t.muted, selected=t.text) if show else QIcon())
 
     def current_page(self) -> str:
-        row = self.nav.currentRow()
-        return self.nav_rows[row] if 0 <= row < len(self.nav_rows) and self.nav_rows[row] else "Home"
+        i = self.stack.currentIndex()
+        return PAGES[i] if 0 <= i < len(PAGES) else "Home"
 
     def _apps(self) -> QWidget:
         from .appspage import AppsPage
         self.apps_page = AppsPage(self.c)
         return self.apps_page
 
+    def _row_clicked(self, item):
+        """The lit row clicked again (from a page that shares it): go to the row's own page."""
+        row = self.nav.row(item)
+        if 0 <= row < len(self.nav_rows) and self.nav_rows[row] and self.current_page() != self.nav_rows[row]:
+            self._page_changed(row)
+
     def _page_changed(self, row: int):
         name = self.nav_rows[row] if 0 <= row < len(self.nav_rows) else None
         if name is None:
             return
+        if self._opening and NAV_OWNER.get(self._opening) == name:
+            name = self._opening
         self.stack.setCurrentIndex(PAGES.index(name))
         if name == "Apps":
             self.apps_page.ensure_loaded()
@@ -582,6 +616,23 @@ class MainWindow(QWidget):
             self.refresh_history()
         elif name == "About":
             self.refresh_memory()
+
+    def _soon_all(self) -> QWidget:
+        """Every tool that's on the way, each opening its own page."""
+        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
+        w, lay = page(tr("Coming soon"), tr("New tools on the way. Each arrives in a free update."))
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(12)
+        grid.setVerticalSpacing(12)
+        for i, (name, product) in enumerate(SOON.items()):
+            title, intro, _features = SOON_TEXT[name]
+            grid.addWidget(ToolCard(product, tr(title), tr(intro), lambda n=name: self.open_page(n), dark, dpr,
+                                    pill=tr("Soon")), i // 2, i % 2)
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 1)
+        lay.addLayout(grid)
+        lay.addStretch()
+        return w
 
     def _soon(self, name: str) -> QWidget:
         """A page for a tool that's still being made: what it will do."""
@@ -1570,8 +1621,18 @@ class MainWindow(QWidget):
         self.refresh()
 
     def open_page(self, name: str):
-        if name in self.nav_rows:
-            self.nav.setCurrentRow(self.nav_rows.index(name))
+        owner = NAV_OWNER.get(name, name)
+        if owner not in self.nav_rows:
+            return
+        row = self.nav_rows.index(owner)
+        self._opening = name if name != owner else None
+        try:
+            if self.nav.currentRow() == row:
+                self._page_changed(row)
+            else:
+                self.nav.setCurrentRow(row)
+        finally:
+            self._opening = None
 
     def showEvent(self, e):
         if not self._placed:
