@@ -171,9 +171,6 @@ class ArchiveBrowser(QWidget):
         self.nested.setChecked(bool(getattr(controller.settings, "extract_nested", False)))
         self.b_add = btn(tr("Add files…"), self._add)
         self.b_del = btn(tr("Remove"), self._delete, "danger")
-        editable = ar.can_edit(src)
-        self.b_add.setVisible(editable)
-        self.b_del.setVisible(editable)
         row = QHBoxLayout()
         for b in (self.b_here, self.b_to, self.b_open, self.b_more):
             row.addWidget(b)
@@ -198,6 +195,9 @@ class ArchiveBrowser(QWidget):
         lay.addWidget(self.nested)
         lay.addWidget(self._changes_bar())
         lay.addLayout(row)
+        editable = ar.can_edit(src)  # (only once they're in the window: before, each would open as a window)
+        self.b_add.setVisible(editable)
+        self.b_del.setVisible(editable)
 
         # files opened from the archive and changed: offered to be saved back into it
         self.watched: dict[str, tuple[str, tuple]] = {}  # temp file -> (path inside, how it was)
