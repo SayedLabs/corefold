@@ -68,6 +68,7 @@ SOURCE_WINDOW_CLASSES = {"CabinetWClass", "ExploreWClass", "Progman", "WorkerW"}
 DRAG_THRESHOLD_PX = 14
 UPDATE_JOB_ID = -1  # the update download shows in the same popup as conversions
 UPDATE_CHECK_EVERY_MS = 6 * 3600 * 1000
+LIGHT_TIDY_MS = 4_000          # memory a finished job used goes back this soon
 IDLE_TIDY_MS = 45_000          # hand memory back to Windows this long after the last job
 FREE_WINDOW_AFTER_MS = 90_000  # free the main window this long after it's closed
 MENU_WRITE_DELAY_MS = 1500     # wait for more changes before rewriting the right-click menu
@@ -333,6 +334,9 @@ class Controller(QObject):
         self.tidy_timer = QTimer(self)
         self.tidy_timer.setSingleShot(True)
         self.tidy_timer.timeout.connect(self.tidy_up)
+        self.light_tidy_timer = QTimer(self)  # soon after a job: hand back the memory it used
+        self.light_tidy_timer.setSingleShot(True)
+        self.light_tidy_timer.timeout.connect(self.light_tidy)
         self.free_window_timer = QTimer(self)
         self.free_window_timer.setSingleShot(True)
         self.free_window_timer.timeout.connect(self._free_window)
@@ -483,6 +487,15 @@ class Controller(QObject):
         s = self.settings
         set_background_priority(s.low_priority)
         self.pool.setMaxThreadCount(1 if s.one_at_a_time else 2)
+
+    def light_tidy(self):
+        """A few seconds after the last job: memory it used goes back to Windows straight away
+        (the background remover stays ready a little longer, in case more pictures follow)."""
+        if self.cancels:
+            return
+        import gc
+        gc.collect()
+        winutil.trim_memory()
 
     def tidy_up(self):
         """Lets go of memory that's only needed while converting (the background remover alone
@@ -994,6 +1007,7 @@ class Controller(QObject):
         self._update_tooltip()
         if not self.cancels:
             self.tidy_timer.start(IDLE_TIDY_MS)
+            self.light_tidy_timer.start(LIGHT_TIDY_MS)
 
         # a password is needed (or was wrong): ask, then try again with only the files that need it,
         # so files that already worked aren't done twice
