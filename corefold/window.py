@@ -255,7 +255,7 @@ class MainWindow(QWidget):
         self.nav.setObjectName("nav")
         self.nav_rows: list[str | None] = []   # sidebar row -> page name (None for a heading)
         self.nav.ensurePolished()
-        row_h = max(30, self.nav.fontMetrics().height() + 14)  # compact rows, so every page fits
+        row_h = max(36, self.nav.fontMetrics().height() + 20)  # compact rows, so every page fits
         for entry in NAV:
             item = QListWidgetItem()
             if isinstance(entry, tuple):
@@ -265,7 +265,7 @@ class MainWindow(QWidget):
                 f.setWeight(QFont.Weight.DemiBold)
                 f.setCapitalization(QFont.Capitalization.AllUppercase)
                 item.setFont(f)
-                item.setSizeHint(QSize(0, row_h - 2))
+                item.setSizeHint(QSize(0, row_h - 6))
                 self.nav_rows.append(None)
             else:
                 item.setSizeHint(QSize(0, row_h))
