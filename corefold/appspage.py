@@ -92,10 +92,12 @@ class AppsPage(QWidget):
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 10, 0)
         lay.setSpacing(12)
-        lay.addWidget(_label(tr("Apps"), "h1"))
-        lay.addWidget(_label(tr("Uninstall programs, then clean up the folders, shortcuts and registry entries they "
-                                "leave behind. Everything removed is kept as a backup for {days} days, so you can "
-                                "put it back.", days=un.KEEP_DAYS), "muted", wrap=True))
+        from .window import tool_header
+        lay.addLayout(tool_header("cleaner", tr("Corefold Uninstaller"),
+                                  tr("Uninstall programs, then clean up the folders, shortcuts and registry entries they "
+                                     "leave behind. Everything removed is kept as a backup for {days} days, so you can "
+                                     "put it back.", days=un.KEEP_DAYS),
+                                  controller.theme.dark if controller is not None else True, self.devicePixelRatioF()))
 
         top = QHBoxLayout()
         self.search = QLineEdit()

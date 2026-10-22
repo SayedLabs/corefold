@@ -137,6 +137,10 @@ QLabel#warning { color: $text; background: $field; border: 1px solid $line_stron
 QLabel#step { background: $accent_soft; color: $accent; border-radius: 13px; font-weight: 700; }
 QLabel#version { color: $muted; font-size: 8pt; }
 QFrame#card { background: $panel; border: 1px solid $border; border-radius: 12px; }
+QFrame#toolCard { background: $panel; border: 1px solid $border; border-radius: 14px; }
+QFrame#toolCard:hover { border-color: $line_strong; background: $hover; }
+QLabel#cardTitle { font-family: "Segoe UI Variable Display", "Segoe UI"; font-size: 11.5pt; font-weight: 600; }
+QLabel#cardStat { color: $accent; font-size: 8.5pt; font-weight: 600; }
 QFrame#dropzone { border: 1px dashed $line_strong; border-radius: 14px; background: $panel; }
 QFrame#dropzone:hover { border-color: $accent; }
 QFrame#dropzone[hot="true"] { border: 1px solid $accent; background: $accent_soft; }

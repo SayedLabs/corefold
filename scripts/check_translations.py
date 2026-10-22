@@ -57,6 +57,9 @@ def table_texts() -> dict[str, str]:
     add(wheel.GROUP_NAMES.values(), "GROUP_NAMES")
     add(window.PAGES, "PAGES")
     add([e[1] for e in window.NAV if isinstance(e, tuple)], "NAV")
+    add(window.NAV_LABELS.values(), "NAV_LABELS")
+    for _, _, title, text in window.TOOLS:
+        add([title, text], "TOOLS")
     for title, intro, features in window.SOON_TEXT.values():
         add([title, intro, *features], "SOON_TEXT")
     add([converters.PASSWORD_ERROR], "PASSWORD_ERROR")

@@ -97,6 +97,8 @@ def pdf_save_pages(src: Path, out: Path, pages: list[tuple[int, int]], password:
     """Writes a new PDF with these pages: (page number in the original, extra turn in degrees)."""
     from pypdf import PdfWriter
     reader = _reader(src, password)
+    if any(not 0 <= index < len(reader.pages) for index, _ in pages):
+        raise RuntimeError(tr("the PDF changed since its pages were shown. Open it again"))
     writer = PdfWriter()
     for index, turn in pages:
         page = writer.add_page(reader.pages[index])

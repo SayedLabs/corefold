@@ -200,7 +200,101 @@ def uninstaller():
     os.rmdir(junction)
 
 
-for name, fn in (("uninstaller", uninstaller), ("list", listing), ("extract", extract_all), ("extract one", extract_some), ("open", open_one),
+# what the windows for each tool would send (the same as a person choosing the usual options)
+PARAMS = {"image:resize": {"preset": "50"}, "image:rotate": {"how": "left"}, "image:fit": {"mb": 0.01},
+          "image:watermark": {"text": "(c) Test", "logo": "", "position": "br", "size": "medium", "opacity": 60},
+          "audio:trim": {"start": 0.5, "end": 2.0}, "video:trim": {"start": 0.5, "end": 2.0},
+          "audio:fit": {"mb": 0.05}, "video:fit": {"mb": 0.2}, "video:rotate": {"how": "right"},
+          "video:frames": {"mode": "count", "count": 3}, "image:video": {"seconds": 0.5},
+          "video:watermark": {"text": "Hi", "logo": "", "position": "c", "size": "small", "opacity": 50},
+          "pdf:fit": {"mb": 1}, "pack:options": {"format": "7z", "level": "max", "password": "x y", "split_mb": 0},
+          "image:crop": {"box": (0.1, 0.1, 0.6, 0.9)}, "image:sticker": {"preset": "whatsapp"},
+          "video:sticker": {"preset": "whatsapp"}, "audio:speed": {"speed": 1.5}, "video:speed": {"speed": 0.5},
+          "pdf:pages": {"pages": [(0, 90)]}, "pdf:lock": {"new_password": "secret"},
+          "pdf:split": {"mode": "each"}, "files:rename": {"mode": "number", "base": "holiday", "start": 1},
+          "archive:rename": {"mode": "add", "before": "x-"}, "video:volume": {"mode": "louder"},
+          "audio:volume": {"mode": "louder"}}
+
+
+def every_tool():
+    """Every option the wheel offers for a set of real files is run once, the way a click would."""
+    import shutil
+    import subprocess
+    from PIL import Image
+    from pypdf import PdfWriter
+    from corefold import converters as cv
+    from corefold.core import Options
+    S = TMP / "samples"
+    S.mkdir()
+    Image.new("RGB", (800, 600), (30, 120, 200)).save(S / "photo.jpg", quality=95)
+    Image.new("RGBA", (300, 200), (255, 0, 0, 128)).save(S / "logo.png")
+    Image.new("RGB", (320, 240), (200, 120, 30)).save(S / "pic.webp")
+    Image.new("RGB", (320, 240), (20, 220, 30)).save(S / "pic.bmp")
+    Image.new("RGB", (320, 240), (20, 20, 230)).save(S / "pic.tiff")
+    frames = [Image.new("RGB", (120, 90), c) for c in ((255, 0, 0), (0, 255, 0), (0, 0, 255))]
+    frames[0].save(S / "anim.gif", save_all=True, append_images=frames[1:], duration=200, loop=0)
+    ff = cv.find_tool("ffmpeg")
+    subprocess.run([ff, "-v", "error", "-f", "lavfi", "-i", "sine=f=440:d=3", str(S / "tone.wav")], check=True)
+    subprocess.run([ff, "-v", "error", "-f", "lavfi", "-i", "sine=f=440:d=3", str(S / "tone.mp3")], check=True)
+    subprocess.run([ff, "-v", "error", "-f", "lavfi", "-i", "testsrc=s=320x240:d=3", "-f", "lavfi", "-i",
+                    "sine=d=3", "-shortest", "-pix_fmt", "yuv420p", str(S / "clip.mp4")], check=True)
+    subprocess.run([ff, "-v", "error", "-f", "lavfi", "-i", "testsrc=s=320x240:d=2", "-pix_fmt", "yuv420p",
+                    str(S / "silent.mov")], check=True)
+    for n in ("a", "b"):
+        w = PdfWriter()
+        w.add_blank_page(200, 200)
+        w.add_blank_page(200, 200)
+        with open(S / f"{n}.pdf", "wb") as fh:
+            w.write(fh)
+    Image.new("RGB", (600, 800), "white").save(S / "scan.pdf")
+    with zipfile.ZipFile(S / "pack.zip", "w") as z:
+        z.writestr("folder/x.txt", "hello")
+        z.writestr("y.txt", "world")
+    F = TMP / "folder-of-pictures"
+    F.mkdir()
+    for i in range(3):
+        Image.new("RGB", (100 + i, 80), (i * 50, 0, 0)).save(F / f"p{i}.png")
+    singles = [S / n for n in ("photo.jpg", "logo.png", "pic.webp", "pic.bmp", "pic.tiff", "anim.gif", "tone.wav",
+                               "tone.mp3", "clip.mp4", "silent.mov", "a.pdf", "scan.pdf", "pack.zip")] + [F]
+    groups = [[S / "photo.jpg", S / "logo.png"], [S / "a.pdf", S / "b.pdf"], [S / "tone.wav", S / "clip.mp4"]]
+    done = 0
+    for files in [[f] for f in singles] + groups:
+        cv.warm_up(files)
+        pk = cv.pick(files)
+        names = ", ".join(f.name for f in files)
+        for slot in pk.slots:
+            t = slot.tool
+            if not slot.ok or t.run is None:
+                continue
+            work = TMP / "runs" / f"{len(list((TMP / 'runs').glob('*'))) if (TMP / 'runs').exists() else 0}"
+            work.mkdir(parents=True)
+            copies = []
+            for f in files:  # a fresh copy each time: renaming tools change the files themselves
+                c = work / f.name
+                (shutil.copytree if f.is_dir() else shutil.copy2)(f, c)
+                copies.append(c)
+            out = work / "out"
+            out.mkdir()
+            try:
+                res, errs = cv.run_job(t, copies, Options(output_folder=out), params=PARAMS.get(t.key, {}))
+            except Exception:
+                check(False, f"{t.key} on {names}: {traceback.format_exc().splitlines()[-1]}")
+                continue
+            made = [p for p in out.rglob("*") if p.is_file()] + [p for p in res.outputs if p.exists()]
+            empty = [p for p in made if p.is_file() and p.stat().st_size == 0]
+            good = not errs and not empty and (made or res.note or res.clipboard)
+            check(good, f"{t.key} on {names}" + ("" if good else f": {errs} {res.note!r} empty={empty}"))
+            done += 1
+    check(done > 60, f"ran {done} options")
+
+
+if __name__ == "__main__" and len(sys.argv) > 1:  # run just some: python scripts/selftest.py every_tool
+    for name in sys.argv[1:]:
+        step(name, globals()[name])
+    print(f"selftest: {len(problems)} problem(s)")
+    sys.exit(1 if problems else 0)
+
+for name, fn in (("every tool", every_tool), ("uninstaller", uninstaller), ("list", listing), ("extract", extract_all), ("extract one", extract_some), ("open", open_one),
                  ("test", test_it), ("pack", pack_and_edit), ("video", video)):
     step(name, fn)
 print(f"selftest: {len(problems)} problem(s)")

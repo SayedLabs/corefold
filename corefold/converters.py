@@ -748,6 +748,9 @@ def pdf_to_text(src: Path, ctx: Ctx) -> Result:
             page.close()
     finally:
         pdf.close()
+    if not any(part.strip() for part in parts):  # only pictures of pages: an empty .txt would help nobody
+        return Result(note=tr("{name} has no text to take out. It's probably a scan (pictures of pages).",
+                              name=src.name))
     out = ctx.out_path(src, ctx.stem(src) + ".txt")
     out.write_text("\n\n".join(parts), encoding="utf-8")
     return Result([out])

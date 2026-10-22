@@ -501,7 +501,7 @@ class Controller(QObject):
     def paste(self):
         files = self.clipboard_files()
         if files:
-            self.show_window("Home")
+            self.show_window("Converter")
             self.window.show_files(files)
         else:
             self.toast.notify(tr("Nothing to convert"),
@@ -709,7 +709,7 @@ class Controller(QObject):
             self.wheel.popup_at_cursor(files)
         files, self.pending_open = self.pending_open, []
         if files:
-            self.show_window("Home")
+            self.show_window("Converter")
             self.window.show_files(files)
         runs, self.pending_runs = self.pending_runs, {}
         runs = [(k, v) for k, v in runs.items() if v]
@@ -1317,7 +1317,7 @@ class Controller(QObject):
             self.quit(cleanup=True)
 
 
-PAGE_NAMES = ("Home", "General", "Look", "Formats", "History", "Updates", "About")
+PAGE_NAMES = ("Home", "Converter", "Apps", "General", "Look", "Formats", "History", "Updates", "About")
 OUTPUT_EXT = {"image:pdf": ".pdf", "image:scan": ".pdf", "pdf:merge": ".pdf", "image:video": ".mp4",
               "pack:zip": ".zip", "pack:7z": ".7z"}  # what a tool makes, when it isn't Tool.target
 
