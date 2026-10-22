@@ -188,4 +188,6 @@ except Exception:
 print(f"{PREFIX}: {len(list(OUT.glob(PREFIX + '-*.png')))} pictures, {len(problems)} problem(s)")
 for line in problems:
     print(line)
+import faulthandler  # noqa: E402
+faulthandler.disable()  # (a quick exit isn't a crash worth reporting)
 os._exit(0)  # don't wait for the tray and timers

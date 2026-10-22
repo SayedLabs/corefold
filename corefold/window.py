@@ -454,6 +454,7 @@ class MainWindow(QWidget):
                     "Archives": self._archives, "Soon": self._soon_all, "General": self._general,
                     "Look": self._look, "Formats": self._formats, "Updates": self._updates, "About": self._about}
         self._wheel_guard = None
+        self._dots: list[QLabel] = []  # small "+" marks in the accent colour (recoloured with the theme)
         self._builders = builders
         # pages that are rarely opened are only built the first time they are (a faster, lighter window)
         self._unbuilt = {"Apps", "Soon", *SOON}
@@ -624,8 +625,9 @@ class MainWindow(QWidget):
             name = self._opening
         self._build_page(name)
         self.stack.setCurrentIndex(PAGES.index(name))
-        winutil.log_memory(f"page {name}")
-        QTimer.singleShot(2500, lambda n=name: winutil.log_memory(f"page {n}, 2.5 s later"))
+        if os.environ.get("COREFOLD_MEMLOG"):
+            winutil.log_memory(f"page {name}")
+            QTimer.singleShot(2500, lambda n=name: winutil.log_memory(f"page {n}, 2.5 s later"))
         if name == "Apps":
             self.apps_page.ensure_loaded()
         elif name in ("History", "Home"):
@@ -671,9 +673,7 @@ class MainWindow(QWidget):
                      tr("Files from the internet keep Windows' warning after you unpack them.")):
             row = QHBoxLayout()
             row.setSpacing(10)
-            dot = QLabel()
-            dot.setPixmap(icons.pixmap("add", 16, self.c.theme.accent, dpr))
-            dot.setFixedWidth(18)
+            dot = self._accent_dot()
             row.addWidget(dot, 0, Qt.AlignTop)
             row.addWidget(label(text, wrap=True), 1)
             bl.addLayout(row)
@@ -763,6 +763,13 @@ class MainWindow(QWidget):
             self.open_archives.setChecked(True)  # registers first, so Windows lists Corefold
         assoc.open_default_apps()
 
+    def _accent_dot(self) -> QLabel:
+        dot = QLabel()
+        dot.setPixmap(icons.pixmap("add", 16, self.c.theme.accent, self.devicePixelRatioF()))
+        dot.setFixedWidth(18)
+        self._dots.append(dot)
+        return dot
+
     def _soon_all(self) -> QWidget:
         """Every tool that's on the way, each opening its own page."""
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
@@ -793,9 +800,7 @@ class MainWindow(QWidget):
         for text in features:
             row = QHBoxLayout()
             row.setSpacing(10)
-            dot = QLabel()
-            dot.setPixmap(icons.pixmap("add", 16, self.c.theme.accent, self.devicePixelRatioF()))
-            dot.setFixedWidth(18)
+            dot = self._accent_dot()
             row.addWidget(dot, 0, Qt.AlignTop)
             row.addWidget(label(tr(text), wrap=True), 1)
             bl.addLayout(row)
@@ -1393,6 +1398,7 @@ class MainWindow(QWidget):
         conv.setText(tr("{count} files converted", count=locale().toString(st.files)) if st.files else "")
         conv.setVisible(bool(st.files))
         self.tool_cards["Apps"].stat.setVisible(False)
+        self.tool_cards["Archives"].stat.setVisible(False)
         self.power.setToolTip(tr("Turns the wheel and the right-click menu on or off."))
         self.refresh_again()
         self.update_save_bar()
@@ -1753,6 +1759,9 @@ class MainWindow(QWidget):
         self.swatches.apply_theme(t)
         self.preview.theme = t
         self.preview.update()
+        for dot in self._dots:
+            dot.setPixmap(icons.pixmap("add", 16, t.accent, dpr))
+        self.refresh_archives()
         if self.isVisible():
             set_title_bar_dark(self, t.dark)
 
