@@ -81,6 +81,12 @@ folder = timed(f"take out a folder of {len([m for m in members if m.endswith('.t
                lambda: ar.extract_for_drag(big, members, ""), 15)
 ar.remove_drag_folder(folder)
 timed("reload after a change", b.reload, 5)
+import cProfile, io, pstats  # noqa: E401,E402
+prof = cProfile.Profile()
+prof.runcall(b.reload)
+out = io.StringIO()
+pstats.Stats(prof, stream=out).sort_stats("tottime").print_stats(25)
+(OUT / "stress-profile.txt").write_text(out.getvalue(), "utf-8")
 b.close()
 qapp.processEvents()
 
