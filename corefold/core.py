@@ -387,6 +387,19 @@ def run_with_progress(cmd: list[str], ctx: Ctx, parse: Callable[[str], float | N
     return proc.returncode, head + "".join(tail)
 
 
+def is_link(path) -> bool:
+    """A symbolic link or junction: it points somewhere else, so it's never followed or moved as if
+    it were a real folder."""
+    try:
+        st = os.lstat(path)
+    except OSError:
+        return False
+    if getattr(st, "st_file_attributes", 0) & 0x400:  # FILE_ATTRIBUTE_REPARSE_POINT
+        # OneDrive and other cloud folders are reparse points too, but they are real folders
+        return getattr(st, "st_reparse_tag", 0) in (0xA000000C, 0xA0000003)  # SYMLINK, MOUNT_POINT (junction)
+    return os.path.islink(path)
+
+
 ZONE_STREAM = ":Zone.Identifier"
 
 

@@ -784,4 +784,7 @@ STRINGS: dict[str, str] = {
     "Quick edits, and save as another format": "Retouches rapides, et enregistrement dans un autre format",
     "HEIC, WebP, AVIF and more": "HEIC, WebP, AVIF et plus",
     "See the details: size, date and camera": "Voyez les détails : taille, date et appareil",
+    "This app still looks installed (its uninstaller is still there). Removing its files would break it, so nothing will be ticked: use Uninstall instead if you can.": "Cette appli semble toujours installée (son programme de désinstallation est encore là). Supprimer ses fichiers la casserait, donc rien ne sera coché : utilisez plutôt Désinstaller si possible.",
+    "Corefold is busy": "Corefold est occupé",
+    "It's removing an app's leftovers. Quit when that's done.": "Il supprime les restes d'une appli. Quittez quand ce sera fini.",
 }

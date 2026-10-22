@@ -30,7 +30,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon
 
 from . import UPDATE_REPO, __version__, i18n, icons, ipc, shellmenu, sounds, updater, winutil
 from .converters import PASSWORD_ERROR, Options, Result, Tool, pick, release_memory, run_job, warm_up
-from .core import (LEGACY_NAME, category, human_size, lower_this_thread, norm, os_open, set_background_priority,
+from .core import (LEGACY_NAME, category, human_size, is_link, lower_this_thread, norm, os_open, set_background_priority,
                    set_downloads_folder, short_name, unique_path)
 from .history import History, size_of
 from .i18n import tr
@@ -243,6 +243,7 @@ class Controller(QObject):
         self.apply_performance()
         self.ids = itertools.count(1)
         self.cancels: dict[int, threading.Event] = {}
+        self.uninstall_busy = 0  # an app's uninstall or leftover removal is running (Apps page)
         self.jobs: dict[int, dict] = {}  # id -> tool, files, bytes_in, params, rename, after
         self.browsers: list = []         # open archive windows
         self.pending: list[Path] = []    # files arriving from the right-click menu for the wheel
@@ -804,7 +805,7 @@ class Controller(QObject):
 
     def restart(self, page: str = "General"):
         """Starts a fresh copy of Corefold (used after changing the language)."""
-        if self.cancels:
+        if self.cancels or self.uninstall_busy:
             self.toast.notify(tr("Restart later"), tr("Corefold restarts when the conversion is done."),
                               linger_ms=4000)
             QTimer.singleShot(2000, lambda: self.restart(page))
@@ -1214,7 +1215,7 @@ class Controller(QObject):
         threading.Thread(target=work, daemon=True).start()
 
     def _update_downloaded(self, path: str):
-        if self.cancels:  # let running conversions finish first
+        if self.cancels or self.uninstall_busy:  # let running conversions (or an uninstall) finish first
             QTimer.singleShot(2000, lambda: self._update_downloaded(path))
             return
         self.toast.finish(UPDATE_JOB_ID, tr("Installing the update…"), tr("Corefold will be back in a moment."),
@@ -1243,6 +1244,10 @@ class Controller(QObject):
 
     def ask_quit(self):
         """Quit, but check first if a conversion would be stopped half-way."""
+        if self.uninstall_busy:  # moving an app's leftovers into its backup: never stop half-way
+            self.toast.notify(tr("Corefold is busy"), tr("It's removing an app's leftovers. Quit when that's done."),
+                              linger_ms=5000)
+            return
         if self.cancels:
             box = QMessageBox(QMessageBox.Question, tr("Quit Corefold?"),
                               tr("A conversion is still running. Quitting stops it, and the unfinished file isn't "
@@ -1347,14 +1352,16 @@ def downloads_folder() -> Path:
 def clean_old_temp_files():
     """Removes Corefold's leftovers in the temp folder older than a day: files opened from inside
     archives, and working folders left behind if the PC was switched off in the middle of a job."""
+    import re
     import shutil
     cutoff = time.time() - 86400
-    keep = {"corefold-sounds", "corefold-update"}
     temp = Path(tempfile.gettempdir())
-    old = LEGACY_NAME.lower() + "-"  # left by versions before 1.7.0
-    for p in [*temp.glob("corefold-*"), *temp.glob(old + "*")]:
+    # only folders with the exact names Corefold (or its old name, before 1.7.0) gives its working
+    # folders: a prefix, then Python's 8 random letters
+    ours = re.compile(rf"^(corefold|{re.escape(LEGACY_NAME.lower())})-(open-)?[a-z0-9_]{{8}}$")
+    for p in [*temp.glob("corefold-*"), *temp.glob(LEGACY_NAME.lower() + "-*")]:
         try:
-            if p.is_dir() and p.name not in keep and (p.stat().st_mtime < cutoff or p.name.startswith(old)):
+            if ours.match(p.name) and p.is_dir() and not is_link(p) and p.stat().st_mtime < cutoff:
                 shutil.rmtree(p, ignore_errors=True)
         except OSError:
             pass

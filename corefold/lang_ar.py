@@ -865,4 +865,7 @@ STRINGS: dict[str, str] = {
     "Quick edits, and save as another format": "تعديلات سريعة، واحفظها بصيغة ثانية",
     "HEIC, WebP, AVIF and more": "HEIC وWebP وAVIF وغيرها",
     "See the details: size, date and camera": "شوف التفاصيل: الحجم والتاريخ والكاميرا",
+    "This app still looks installed (its uninstaller is still there). Removing its files would break it, so nothing will be ticked: use Uninstall instead if you can.": "يبين إن هالبرنامج لسى مثبّت (برنامج إزالته لسى موجود). حذف ملفاته بيخرّبه، عشان كذا ما بيكون فيه شي محدد: استخدم «إزالة التثبيت» بدالها إذا تقدر.",
+    "Corefold is busy": "كورفولد مشغول",
+    "It's removing an app's leftovers. Quit when that's done.": "يحذف بقايا برنامج الحين. اقفله إذا خلص.",
 }

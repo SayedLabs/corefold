@@ -135,7 +135,72 @@ def video():
         check(True, "a playlist pretending to be a video isn't followed")
 
 
-for name, fn in (("list", listing), ("extract", extract_all), ("extract one", extract_some), ("open", open_one),
+def uninstaller():
+    """A pretend app in this user's part of the registry: its leftovers are found and removed, and
+    nothing else is touched (not even through a junction), then everything is put back."""
+    import subprocess
+    import winreg
+    from corefold import uninstall as un
+    name = "CfTestApp"
+    local, roam = Path(os.environ["LOCALAPPDATA"]), Path(os.environ["APPDATA"])
+    inst = local / "Programs" / name
+    inst.mkdir(parents=True)
+    (inst / "app.exe").write_text("x")
+    (roam / name).mkdir(parents=True)
+    (roam / name / "cfg.ini").write_text("x")
+    precious = TMP / "precious"
+    precious.mkdir()
+    (precious / "family.jpg").write_text("keep me")
+    junction = local / (name + "Cache")
+    subprocess.run(["cmd", "/c", "mklink", "/J", str(junction), str(precious)], check=True, capture_output=True)
+    check(un.is_link(junction), "a junction is seen as a link")
+    key = un.UNINSTALL + "\\" + name
+    with winreg.CreateKey(winreg.HKEY_CURRENT_USER, key) as k:
+        winreg.SetValueEx(k, "DisplayName", 0, winreg.REG_SZ, name)
+        winreg.SetValueEx(k, "InstallLocation", 0, winreg.REG_SZ, str(inst))
+        winreg.SetValueEx(k, "UninstallString", 0, winreg.REG_SZ, f'"{inst / "uninstall.exe"}"')
+    with winreg.CreateKey(winreg.HKEY_CURRENT_USER, "Software\\" + name) as k:
+        winreg.SetValueEx(k, "Theme", 0, winreg.REG_SZ, "dark")
+    with winreg.CreateKey(winreg.HKEY_CURRENT_USER, un.RUN_KEYS[0]) as k:
+        winreg.SetValueEx(k, name, 0, winreg.REG_SZ, f'"{inst / "app.exe"}" --tray')
+    apps = un.list_apps(include_store=False)
+    app = next((a for a in apps if a.name == name), None)
+    check(app is not None and app.broken, "the pretend app is listed (its uninstaller is missing)")
+    left = un.find_leftovers(app, [a for a in apps if a is not app], forced=True)
+    paths = {i.path for i in left}
+    check(str(inst) in paths and str(roam / name) in paths, "its folders are found")
+    check(str(junction) not in paths, "a junction is never offered")
+    check(any(i.kind == "key" and i.path.endswith("Software\\" + name) for i in left), "its registry key is found")
+    check(any(i.kind == "value" and i.value == name for i in left), "its startup entry is found")
+    check(all(un.item_allowed(dict(i.__dict__)) for i in left), "everything offered passes the safety checks")
+    windir = os.environ.get("SystemRoot", r"C:\Windows")
+    for bad in ({"kind": "folder", "path": windir + r"\System32\drivers"},
+                {"kind": "file", "path": windir + r"\System32\kernel32.dll"},
+                {"kind": "folder", "path": str(Path.home() / "Documents")},
+                {"kind": "folder", "path": str(junction)},
+                {"kind": "key", "path": "HKLM\\SYSTEM\\CurrentControlSet\\Services"},
+                {"kind": "key", "path": "HKCU\\Software\\Microsoft\\Windows"}):
+        check(not un.item_allowed(bad), f"refused: {bad['path']}")
+    folder = un.new_backup([name])
+    res = un.remove([i for i in left if i.safe], folder, [name])
+    check(not res["failed"], f"removed without problems {res['failed']}")
+    check(not inst.exists() and not (roam / name).exists(), "its folders are gone (into the backup)")
+    check((precious / "family.jpg").read_text() == "keep me", "the junction's target is untouched")
+    check(not un.key_exists("HKCU", "Software\\" + name, 0), "its registry key is gone")
+    r = un.restore(folder)
+    check(not r["failed"] and (inst / "app.exe").exists() and (roam / name / "cfg.ini").exists(), "undo puts the files back")
+    check(un.key_exists("HKCU", "Software\\" + name, 0), "undo puts the registry key back")
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, un.RUN_KEYS[0]) as k:
+        check(winreg.QueryValueEx(k, name)[0].startswith('"'), "undo puts the startup entry back")
+    # tidy up the pretend app
+    for sub in (key, "Software\\" + name):
+        subprocess.run(["reg", "delete", "HKCU\\" + sub, "/f"], capture_output=True)
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, un.RUN_KEYS[0], 0, winreg.KEY_SET_VALUE) as k:
+        winreg.DeleteValue(k, name)
+    os.rmdir(junction)
+
+
+for name, fn in (("uninstaller", uninstaller), ("list", listing), ("extract", extract_all), ("extract one", extract_some), ("open", open_one),
                  ("test", test_it), ("pack", pack_and_edit), ("video", video)):
     step(name, fn)
 print(f"selftest: {len(problems)} problem(s)")

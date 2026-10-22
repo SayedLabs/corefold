@@ -19,8 +19,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .i18n import tr
-from .core import NO_WINDOW, TAR_SUFFIXES, Ctx, Result, _cached, app_dir, bundled, pass_on_zone_mark, run_with_progress, \
-    safe_name, unique_path
+from .core import NO_WINDOW, TAR_SUFFIXES, Ctx, Result, _cached, app_dir, bundled, is_link, pass_on_zone_mark, \
+    run_with_progress, safe_name, unique_path
 
 log = logging.getLogger("corefold")
 DUMMY_PASSWORD = "-pcorefold-no-password"  # never let 7-Zip stop and ask for one
@@ -281,6 +281,7 @@ def extract(src: Path, ctx: Ctx, mode: str = "smart") -> Result:
     # safe_name: a name like "photos." would lose its dot on Windows and the new folder couldn't be found
     name = safe_name(ctx.options.rename_base) or safe_name(archive_stem(src)) or "Extracted"
 
+    _tidy_old_staging(base)
     staging = Path(tempfile.mkdtemp(prefix=".corefold-unpacking-", dir=base))
     try:
         _hide(staging)
@@ -300,6 +301,20 @@ def extract(src: Path, ctx: Ctx, mode: str = "smart") -> Result:
     finally:
         if staging is not None and staging.exists():
             shutil.rmtree(staging, ignore_errors=True)
+
+
+_STAGING = re.compile(r"^\.corefold-unpacking-[a-z0-9_]{8}$")
+
+
+def _tidy_old_staging(folder: Path):
+    """A hidden unpacking folder left behind when the PC was switched off mid-way (older than a day)."""
+    import time
+    try:
+        for p in folder.iterdir():
+            if _STAGING.match(p.name) and p.is_dir() and not is_link(p) and p.stat().st_mtime < time.time() - 86400:
+                shutil.rmtree(p, ignore_errors=True)
+    except OSError:
+        pass
 
 
 def _move_unique(item: Path, folder: Path) -> Path:

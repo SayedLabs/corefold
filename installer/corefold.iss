@@ -144,6 +144,31 @@ begin
   Result := True;
 end;
 
+{ Deletes a folder's contents except one subfolder (kept when it has something in it). }
+procedure DelTreeExcept(Dir, Keep: String);
+var
+  FindRec: TFindRec;
+begin
+  if FindFirst(Dir + '\*', FindRec) then
+  begin
+    try
+      repeat
+        if (FindRec.Name <> '.') and (FindRec.Name <> '..') and (CompareText(FindRec.Name, Keep) <> 0) then
+        begin
+          if FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY <> 0 then
+            DelTree(Dir + '\' + FindRec.Name, True, True, True)
+          else
+            DeleteFile(Dir + '\' + FindRec.Name);
+        end;
+      until not FindNext(FindRec);
+    finally
+      FindClose(FindRec);
+    end;
+  end;
+  RemoveDir(Dir + '\' + Keep);  { only goes if it's empty }
+  RemoveDir(Dir);
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usPostUninstall then
@@ -157,9 +182,10 @@ begin
                mbConfirmation, MB_YESNO) = IDYES) then
     begin
       DelTree(ExpandConstant('{userappdata}\{#AppName}'), True, True, True);
-      DelTree(ExpandConstant('{localappdata}\{#AppName}'), True, True, True);
       DelTree(ExpandConstant('{userappdata}\{#OldName}'), True, True, True);
-      DelTree(ExpandConstant('{localappdata}\{#OldName}'), True, True, True);
+      { backups of apps removed with Corefold are the person's files: they stay }
+      DelTreeExcept(ExpandConstant('{localappdata}\{#AppName}'), 'Uninstall backups');
+      DelTreeExcept(ExpandConstant('{localappdata}\{#OldName}'), 'Uninstall backups');
     end;
   end;
 end;
