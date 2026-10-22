@@ -647,6 +647,7 @@ class Controller(QObject):
             if password is None:
                 return
         win = ArchiveBrowser(self, src, password, entries, self.icon)
+        log.info("archive window opened (%d items)", len(entries))
         self.browsers = [b for b in self.browsers if _alive(b)] + [win]
         self.remember_archive(src)
         win.show()

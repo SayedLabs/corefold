@@ -26,6 +26,16 @@ DRAG_LIMIT = 256 << 20  # bigger than this (unpacked): use Extract, which shows 
 DRAG_KEEP_MS = 5 * 60_000  # the temporary copies made for a drag are removed this long after the drop
 
 
+def _inside_any(path: str, folders: set) -> bool:
+    """True if path is inside one of these folders (looks at its parents, not at every folder)."""
+    parent = path.rpartition("/")[0]
+    while parent:
+        if parent in folders:
+            return True
+        parent = parent.rpartition("/")[0]
+    return False
+
+
 def _natural(text: str) -> list:
     """Sort key where "report-2" comes before "report-10", like in File Explorer."""
     import re
@@ -250,16 +260,15 @@ class ArchiveBrowser(QWidget):
 
     def _selected_paths(self) -> list[str]:
         """Selected files, plus everything inside selected folders."""
-        paths: list[str] = []
-        for item in self.tree.selectedItems():
-            path = item.data(0, PATH_ROLE)
-            if item.data(0, DIR_ROLE):
-                prefix = path + "/"
-                paths += [e.path.strip("/") for e in self.entries if e.path.strip("/").startswith(prefix)]
-                paths.append(path)
-            else:
-                paths.append(path)
-        return sorted(set(paths))
+        chosen = {item.data(0, PATH_ROLE) for item in self.tree.selectedItems()}
+        folders = {item.data(0, PATH_ROLE) for item in self.tree.selectedItems() if item.data(0, DIR_ROLE)}
+        paths = set(chosen)
+        if folders:  # one pass over the archive (fast even with 100,000 files and everything selected)
+            for e in self.entries:
+                path = e.path.strip("/")
+                if path and _inside_any(path, folders):
+                    paths.add(path)
+        return sorted(paths)
 
     def _buttons(self):
         sel = self.tree.selectedItems()
@@ -309,8 +318,8 @@ class ArchiveBrowser(QWidget):
 
     def _top_selected(self) -> list[str]:
         """Selected items that aren't inside another selected folder."""
-        chosen = [i.data(0, PATH_ROLE) for i in self.tree.selectedItems()]
-        return [p for p in chosen if not any(p != q and p.startswith(q + "/") for q in chosen)]
+        chosen = {i.data(0, PATH_ROLE) for i in self.tree.selectedItems()}
+        return sorted(p for p in chosen if not _inside_any(p, chosen))
 
     def _drag_out(self):
         members = self._selected_paths()

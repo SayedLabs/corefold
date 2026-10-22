@@ -33,6 +33,13 @@ jobs:
           $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
           python scripts/selftest.py *>> shots/selftest.txt
 
+      - name: Time a very big archive
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
+          python scripts/stress.py shots *>> shots/stress-output.txt
+
       - name: Take the pictures
         shell: pwsh
         continue-on-error: true

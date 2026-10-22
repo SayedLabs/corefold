@@ -110,6 +110,29 @@ for ($i = 0; $i -lt 10; $i++) {
 Start-Sleep 5;   Snap "After 10 rounds of open, Uninstaller, close, convert"
 Start-Sleep 110; Snap "Two minutes later (window freed, memory tidied)" 60
 
+# ---- the built app, end to end (the way people use it)
+$checks = New-Object System.Collections.Generic.List[string]
+function Check([bool]$ok, [string]$what) {
+    $line = "- $(if ($ok) { 'ok' } else { '**FAIL**' }): $what"
+    $checks.Add($line)
+    Write-Host $line
+}
+function Count([string]$pattern) { @(Select-String -Path $log -Pattern $pattern -SimpleMatch).Count }
+
+$cmd = (Get-ItemProperty "HKCU:\Software\Classes\Corefold.Archive\shell\open\command" -ErrorAction SilentlyContinue).'(default)'
+Check ($cmd -like "*Corefold.exe*--browse*") "archives can be opened with Corefold (Open with: $cmd)"
+$ow = Get-ItemProperty "HKCU:\Software\Classes\.zip\OpenWithProgids" -ErrorAction SilentlyContinue
+Check ($null -ne $ow -and $null -ne $ow.'Corefold.Archive') "Corefold is listed under Open with for .zip"
+$zip = "$work\docs.zip"
+& $py -c "import zipfile; z = zipfile.ZipFile(r'$zip', 'w'); [z.writestr(f'Reports/r{i}.txt', 'x' * 100) for i in range(30)]; z.close()"
+$before = Count "archive window opened"
+Start-Process $exe -ArgumentList @("--browse", "`"$zip`"") -Wait   # what a double-click runs
+Start-Sleep 4
+Check ((Count "archive window opened") -gt $before) "a double-clicked archive opens in Corefold (while it runs)"
+Check ((Count "background remover helper started") -ge 1) "the background remover ran in its helper"
+$helpers = @(Get-CimInstance Win32_Process -Filter "Name = 'Corefold.exe'" | Where-Object { $_.CommandLine -like "*--bg-worker*" }).Count
+Check ($helpers -eq 0) "no background remover helper is left running ($helpers)"
+
 $p.Refresh()
 $peak = MB $p.PeakWorkingSet64
 $kids = @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $($p.Id)").Count
@@ -127,8 +150,30 @@ $($rows -join "`n")
 - Processes still running under Corefold at the end: $kids
 - App folder: $size MB
 - Machine: GitHub windows-latest, $cores cores
+
+## The built app, end to end
+
+$($checks -join "`n")
 "@
 $text | Out-File -Encoding utf8 $Out
 Write-Host $text
-if (Test-Path $log) { Copy-Item $log (Join-Path (Split-Path $Out) "corefold.log") }
 Stop-Process -Id $p.Id -Force
+Start-Sleep 2
+
+# a double-click while Corefold isn't running starts it with the archive open
+$before = Count "archive window opened"
+$p2 = Start-Process $exe -ArgumentList @("--browse", "`"$zip`"") -PassThru
+Start-Sleep 8
+Check ((Count "archive window opened") -gt $before) "a double-clicked archive opens Corefold when it wasn't running"
+Stop-Process -Id $p2.Id -Force -ErrorAction SilentlyContinue
+Start-Sleep 2
+
+# what the uninstaller runs: the right-click menu and Open with are taken out
+Start-Process $exe -ArgumentList "--remove-shell-menu" -Wait
+Check (-not (Test-Path "HKCU:\Software\Classes\Corefold.Archive")) "uninstalling takes Corefold out of Open with"
+$ow = Get-ItemProperty "HKCU:\Software\Classes\.zip\OpenWithProgids" -ErrorAction SilentlyContinue
+Check ($null -eq $ow -or $null -eq $ow.'Corefold.Archive') "…for .zip too"
+Check (-not (Test-Path "HKCU:\Software\Classes\SystemFileAssociations\.jpg\shell\Corefold")) "…and the right-click menu"
+"`n## Last checks`n`n$($checks[-4..-1] -join "`n")" | Out-File -Append -Encoding utf8 $Out
+if (@($checks | Where-Object { $_ -like "*FAIL*" }).Count) { Write-Host "Some end-to-end checks failed" }
+if (Test-Path $log) { Copy-Item $log (Join-Path (Split-Path $Out) "corefold.log") }
