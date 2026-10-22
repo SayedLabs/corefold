@@ -406,6 +406,11 @@ def archive_tool():
     # taking files out for dragging
     t = ar.extract_for_drag(archive, ["Reports/report-2.txt"], "")
     check((t / "Reports" / "report-2.txt").exists(), "files taken out for dragging")
+    # a folder picked in a ZIP that has no separate folder entries (as Python and many apps write them)
+    t2 = ar.extract_for_drag(good, ["dir", "dir/b.txt"], "")
+    check((t2 / "dir" / "b.txt").exists(), "a folder taken out for dragging (ZIP without folder entries)")
+    ar.remove_drag_folder(t2)
+    check(not t2.exists(), "the copies made for dragging are removed afterwards")
     try:
         mark = open(str(t / "Reports" / "report-2.txt") + ":Zone.Identifier", "rb").read()
     except OSError:

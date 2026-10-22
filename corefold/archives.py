@@ -729,7 +729,10 @@ def repair_archive(src: Path, ctx: Ctx) -> Result:
     """Takes out everything that can still be read from a damaged archive and puts it in a new,
     healthy ZIP next to it ("name (repaired).zip"). The damaged archive is left as it was."""
     password = ctx.params.get("password", "")
-    stage = Path(tempfile.mkdtemp(prefix=".corefold-unpacking-", dir=src.parent))
+    base = ctx.folder_for(src)  # next to it, or the folder chosen for results (a CD or a locked folder: elsewhere)
+    base.mkdir(parents=True, exist_ok=True)
+    _tidy_old_staging(base)
+    stage = Path(tempfile.mkdtemp(prefix=".corefold-unpacking-", dir=base))
     try:
         _hide(stage)
         damaged = 0
@@ -759,7 +762,7 @@ def repair_archive(src: Path, ctx: Ctx) -> Result:
             rescued = [p for p in stage.rglob("*") if p.is_file()]
         if not rescued:
             raise RuntimeError(tr("nothing in this archive could be rescued"))
-        out_zip = unique_path(src.parent / f"{safe_name(archive_stem(src)) or 'Archive'} (repaired).zip")
+        out_zip = unique_path(base / f"{safe_name(archive_stem(src)) or 'Archive'} (repaired).zip")
         outs = pack_into(sorted(stage.iterdir()), out_zip, ctx, "zip", password=password)
         pass_on_zone_mark([src], outs)
     finally:
@@ -778,3 +781,14 @@ def extract_for_drag(src: Path, members: list[str], password: str) -> Path:
     target = Path(tempfile.mkdtemp(prefix="corefold-drag-"))
     _extract_into(src, target, Ctx(Options()), password, members)
     return target
+
+
+def remove_drag_folder(folder: Path):
+    """Removes a temporary folder made by extract_for_drag (and nothing else)."""
+    import tempfile as _tf
+    try:
+        if folder.name.startswith("corefold-drag-") and folder.parent.resolve() == Path(_tf.gettempdir()).resolve() \
+                and folder.is_dir() and not is_link(folder):
+            shutil.rmtree(folder, ignore_errors=True)
+    except OSError:
+        pass

@@ -22,7 +22,8 @@ if TYPE_CHECKING:
 PATH_ROLE = Qt.UserRole
 DIR_ROLE = Qt.UserRole + 1
 SORT_ROLE = Qt.UserRole + 2
-DRAG_LIMIT = 1 << 30  # bigger than this (unpacked): use Extract, which shows progress and can be cancelled
+DRAG_LIMIT = 256 << 20  # bigger than this (unpacked): use Extract, which shows progress and can be cancelled
+DRAG_KEEP_MS = 5 * 60_000  # the temporary copies made for a drag are removed this long after the drop
 
 
 class Row(QTreeWidgetItem):
@@ -65,8 +66,12 @@ class ArchiveBrowser(QWidget):
         self._lock_icon = None  # made the first time a locked file shows up
 
         title = QLabel(short_name(src.name, 70))
-        title.setToolTip(src.name)
+        title.setToolTip(str(src))
         title.setObjectName("h2")
+        from . import icons as tiles
+        tile = QLabel()
+        tile.setPixmap(tiles.product_tile("archive", 34, controller.theme.dark, self.devicePixelRatioF()))
+        tile.setFixedSize(36, 36)
         self.info = QLabel()
         self.info.setObjectName("muted")
         self.search = QLineEdit()
@@ -118,8 +123,15 @@ class ArchiveBrowser(QWidget):
         lay = QVBoxLayout(self)
         lay.setContentsMargins(20, 16, 20, 16)
         lay.setSpacing(10)
-        lay.addWidget(title)
-        lay.addWidget(self.info)
+        head = QHBoxLayout()
+        head.setSpacing(12)
+        head.addWidget(tile, 0, Qt.AlignVCenter)
+        words = QVBoxLayout()
+        words.setSpacing(2)
+        words.addWidget(title)
+        words.addWidget(self.info)
+        head.addLayout(words, 1)
+        lay.addLayout(head)
         lay.addWidget(self.search)
         lay.addWidget(self.tree, 1)
         lay.addWidget(self.nested)
@@ -306,8 +318,9 @@ class ArchiveBrowser(QWidget):
             folder = ar.extract_for_drag(self.src, members, self.password)
         except Exception as e:
             QGuiApplication.restoreOverrideCursor()
-            QMessageBox.warning(self, tr("Couldn't take the files out"), str(e) or tr("the archive is damaged or "
-                                                                                      "incomplete"))
+            why = tr("wrong or missing password") if isinstance(e, ar.NeedPassword) else \
+                str(e) or tr("the archive is damaged or incomplete")
+            QMessageBox.warning(self, tr("Couldn't take the files out"), why)
             return
         QGuiApplication.restoreOverrideCursor()
         urls = []
@@ -318,13 +331,14 @@ class ArchiveBrowser(QWidget):
                     urls.append(QUrl.fromLocalFile(str(path)))
             except OSError:
                 pass
-        if not urls:
-            return
-        mime = QMimeData()
-        mime.setUrls(urls)
-        drag = QDrag(self.tree)
-        drag.setMimeData(mime)
-        drag.exec(Qt.CopyAction)  # Explorer copies them; the temporary copies are tidied away later
+        if urls:
+            mime = QMimeData()
+            mime.setUrls(urls)
+            drag = QDrag(self.tree)
+            drag.setMimeData(mime)
+            drag.exec(Qt.CopyAction)  # Explorer has copied them by the time this returns
+        # the temporary copies go away a little later (an app the files were dropped on may still be reading)
+        QTimer.singleShot(DRAG_KEEP_MS, lambda f=folder: ar.remove_drag_folder(f))
 
     # ---- a file opened from the archive was changed: put it back?
 
@@ -400,11 +414,13 @@ class ArchiveBrowser(QWidget):
         if not changed:
             return
 
+        src = self.src  # (the window may be closed while this runs)
+
         def save_all(items, ctx):  # one after the other: they all change the same archive
             result = None
             for member, path in changed.items():
                 ctx.check()
-                result = ar.update_member(self.src, member, path, ctx)
+                result = ar.update_member(src, member, path, ctx)
             return result
         self._run("archive:update", tr("Save into {name}", name=short_name(self.src.name, 30)), save_all,
                   after="reload")
@@ -438,11 +454,31 @@ class ArchiveBrowser(QWidget):
     # ---- drag files in to add them
 
     def dragEnterEvent(self, e):
-        if ar.can_edit(self.src) and e.mimeData().hasUrls():
+        # files from Explorer or another archive window (not ones dragged out of this one) are added
+        if ar.can_edit(self.src) and e.mimeData().hasUrls() and e.source() is not self.tree:
             e.acceptProposedAction()
 
+    def closeEvent(self, e):
+        self._check_changes()
+        if self.changed and ar.can_edit(self.src):
+            names = ", ".join(short_name(m.rpartition("/")[2], 40) for m in self.changed)
+            box = QMessageBox(QMessageBox.Question, tr("Save into the archive"),
+                              tr("You changed {name}. Save the new version into the archive?", name=names), parent=self)
+            save = box.addButton(tr("Save into the archive"), QMessageBox.AcceptRole)
+            box.addButton(tr("Don't save"), QMessageBox.DestructiveRole)
+            cancel = box.addButton(tr("Cancel"), QMessageBox.RejectRole)
+            box.exec()
+            chosen = box.clickedButton()
+            box.deleteLater()
+            if chosen is cancel:
+                e.ignore()
+                return
+            if chosen is save:
+                self._save_back()
+        super().closeEvent(e)
+
     def dropEvent(self, e):
-        if e.source() is not None:  # files dragged out of this window and let go over it again
+        if e.source() is self.tree:  # files dragged out of this window and let go over it again
             return
         paths = [Path(u.toLocalFile()) for u in e.mimeData().urls() if u.isLocalFile()]
         paths = [p for p in paths if p.exists() and p.resolve() != self.src.resolve()]

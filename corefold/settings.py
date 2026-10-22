@@ -326,12 +326,16 @@ def installed_uninstaller() -> Path | None:
 
 def remove_user_data():
     """Portable version clean-up: settings, logs, the startup entry and the right-click menu."""
-    from . import shellmenu
+    from . import assoc, shellmenu
     set_startup(False)
     try:
         shellmenu.remove()
     except Exception:
         log.exception("could not remove the right-click menu")
+    try:
+        assoc.unregister()  # "Open with" for archives
+    except Exception:
+        log.exception("could not remove opening archives with Corefold")
     logging.shutdown()
     shutil.rmtree(CONFIG_DIR, ignore_errors=True)
     # LOG_DIR also holds the backups of apps removed with Corefold ("Uninstall backups"): those are

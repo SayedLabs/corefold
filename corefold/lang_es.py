@@ -890,4 +890,5 @@ STRINGS: dict[str, str] = {
     "Archives you open show up here.": "Los archivos comprimidos que abras aparecen aquí.",
     "Open an archive": "Abrir un archivo comprimido",
     "All files": "Todos los archivos",
+    "{count} bytes": "{count} bytes",
 }

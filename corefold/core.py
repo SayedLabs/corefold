@@ -190,11 +190,17 @@ def is_cloud_only(path: Path) -> bool:
 
 
 def human_size(n: float) -> str:
+    """"9.8 MB". In Arabic the number and its unit stay in this order (marked as left-to-right),
+    instead of coming out as "MB 9.8"."""
+    from .i18n import is_rtl, tr
     for unit in ("bytes", "KB", "MB", "GB"):
         if n < 1024 or unit == "GB":
-            return f"{n:.0f} {unit}" if unit == "bytes" else f"{n:.1f} {unit}"
+            break
         n /= 1024
-    return f"{n:.1f} GB"
+    if unit == "bytes":
+        return tr("{count} bytes", count=f"{n:.0f}")
+    text = f"{n:.1f} {unit}"
+    return f"\u202a{text}\u202c" if is_rtl() else text
 
 
 class Ctx:

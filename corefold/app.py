@@ -655,6 +655,11 @@ class Controller(QObject):
     def remember_archive(self, src: Path):
         """Keeps the list of recently opened archives (shown on the Archive page)."""
         from .settings import RECENT_ARCHIVES
+        try:  # one opened from inside another archive lives in the temp folder: not worth remembering
+            if src.resolve().is_relative_to(Path(tempfile.gettempdir()).resolve()):
+                return
+        except OSError:
+            return
         key = os.path.normcase(str(src))
         recent = [p for p in self.settings.recent_archives if os.path.normcase(p) != key]
         self.settings.recent_archives = [str(src), *recent][:RECENT_ARCHIVES]
@@ -1406,7 +1411,7 @@ class Controller(QObject):
             self.quit(cleanup=True)
 
 
-PAGE_NAMES = ("Home", "Converter", "Apps", "Soon", "General", "Look", "Formats", "History", "Updates", "About")
+PAGE_NAMES = ("Home", "Converter", "Apps", "Archives", "Soon", "General", "Look", "Formats", "History", "Updates", "About")
 OUTPUT_EXT = {"image:pdf": ".pdf", "image:scan": ".pdf", "pdf:merge": ".pdf", "image:video": ".mp4",
               "pack:zip": ".zip", "pack:7z": ".7z"}  # what a tool makes, when it isn't Tool.target
 

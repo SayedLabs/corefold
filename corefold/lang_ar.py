@@ -971,4 +971,5 @@ STRINGS: dict[str, str] = {
     "Archives you open show up here.": "الأرشيفات اللي تفتحها تظهر هنا.",
     "Open an archive": "افتح أرشيفًا",
     "All files": "كل الملفات",
+    "{count} bytes": "{count} بايت",
 }
