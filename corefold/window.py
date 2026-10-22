@@ -23,7 +23,9 @@ from .panel import DropZone, FilePanel, choose_files
 from .settings import (ACCENTS, APP_NAME, DEFAULT_ACCENT, APPEARANCES, HOVER_STYLES, LABEL_STYLES, LOG_DIR, MENU_STYLES,
                        SHORTCUT_LABELS, SLICE_COLORS, SOUNDS, TEXT_SIZE_NAMES, TOAST_CORNERS, TOAST_TIMES,
                        WHEEL_POSITIONS, WHEEL_SIZE_NAMES, WHEEL_STYLES, WINDOW_TEXT, installed_uninstaller,
-                       FORMAT_KEYS, LOOK_KEYS, editable_keys, general_keys, set_startup, startup_enabled)
+                       ARCHIVE_KEYS, BACKUP_DAYS, CONVERTER_KEYS, EXTRACT_MODES, FORMAT_KEYS, GENERAL_KEYS,
+                       LOOK_KEYS, UNINSTALLER_KEYS, UNUSED_MONTHS, WHEEL_KEYS, editable_keys, set_startup,
+                       startup_enabled)
 from .theme import Theme
 from .wheel import WheelPreview
 from .winutil import memory_use, reveal_in_explorer, set_title_bar_dark
@@ -33,16 +35,28 @@ if TYPE_CHECKING:
 
 # every page, in the order they are built (names are English, shown through tr())
 PAGES = ["Home", "Converter", "History", "Apps", "Archives", "Soon", "Viewer", "Player", "Capture", "Space",
-         "Clipboard", "Cloud", "General", "Look", "Formats", "Updates", "About"]
+         "Clipboard", "Cloud", "General", "Look", "ConvOptions", "WheelLook", "Formats", "AppsSettings",
+         "ArchiveSettings", "Updates", "About"]
 # tools still being made: page -> product tile (in the order they're planned)
 SOON = {"Viewer": "viewer", "Player": "player", "Capture": "capture", "Space": "space",
         "Clipboard": "clipboard", "Cloud": "cloud"}
 # the sidebar: pages, with a small heading before each group (None + heading). The tools still being
 # made share one "Coming soon" row, so the sidebar stays short.
 NAV = ["Home", "History", (None, "Tools"), "Converter", "Apps", "Archives", "Soon",
-       (None, "Settings"), "General", "Look", "Formats", "Updates", "About"]
-NAV_LABELS = {"Apps": "Uninstaller", "Soon": "Coming soon"}  # where the sidebar's name differs from the page's
-NAV_OWNER = {name: "Soon" for name in SOON}  # pages without a row of their own: the row that's lit
+       (None, "App"), "General", "Updates", "About"]
+NAV_LABELS = {"Apps": "Uninstaller", "Soon": "Coming soon", "General": "Settings"}  # sidebar name ≠ page name
+# Settings: a tab for the whole app and one for each tool (a new tool adds its tab here). A tab with
+# several pages shows them as smaller tabs underneath.
+SETTINGS_TABS = [("General", "General", ["General"]),
+                 ("Look", "Appearance", ["Look"]),
+                 ("ConvOptions", "Converter", ["ConvOptions", "WheelLook", "Formats"]),
+                 ("AppsSettings", "Uninstaller", ["AppsSettings"]),
+                 ("ArchiveSettings", "Archives", ["ArchiveSettings"])]
+SETTINGS_SUBTABS = {"ConvOptions": "Options", "WheelLook": "Wheel", "Formats": "Formats"}
+SETTINGS_PAGES = [p for _first, _label, pages in SETTINGS_TABS for p in pages]
+TOOL_SETTINGS = {"Converter": "ConvOptions", "Apps": "AppsSettings", "Archives": "ArchiveSettings"}
+# pages without a sidebar row of their own: the row that's lit
+NAV_OWNER = {**{name: "Soon" for name in SOON}, **{name: "General" for name in SETTINGS_PAGES if name != "General"}}
 PAGE_ICONS = {"Home": "home", "Converter": "arrow_swap", "Apps": "broom", "General": "settings", "Look": "paint_brush",  # icons.py
               "Formats": "puzzle_piece", "History": "history", "Updates": "arrow_sync", "About": "info",
               "Soon": "star", "Archives": "archive", "Player": "video", "Viewer": "image", "Capture": "screenshot",
@@ -452,14 +466,21 @@ class MainWindow(QWidget):
         self.stack = QStackedWidget()
         builders = {"Home": self._home, "Converter": self._converter, "History": self._history, "Apps": self._apps,
                     "Archives": self._archives, "Soon": self._soon_all, "General": self._general,
-                    "Look": self._look, "Formats": self._formats, "Updates": self._updates, "About": self._about}
+                    "Look": self._look, "ConvOptions": self._conv_options, "WheelLook": self._wheel_look,
+                    "Formats": self._formats, "AppsSettings": self._apps_settings,
+                    "ArchiveSettings": self._archive_settings, "Updates": self._updates, "About": self._about}
         self._wheel_guard = None
-        self._dots: list[QLabel] = []  # small "+" marks in the accent colour (recoloured with the theme)
+        self._settings_head()  # (made before the pages: opening one shows or hides it)
+        self._dots: list[QLabel] = []
+        self._gears: list[QPushButton] = []  # small "+" marks in the accent colour (recoloured with the theme)
         self._builders = builders
         # pages that are rarely opened are only built the first time they are (a faster, lighter window)
         self._unbuilt = {"Apps", "Soon", *SOON}
         for name in PAGES:
-            self.stack.addWidget(QWidget() if name in self._unbuilt else builders[name]())
+            built = QWidget() if name in self._unbuilt else builders[name]()
+            if name in SETTINGS_PAGES:  # the "Settings" heading and the tabs above say what this is
+                built.widget().layout().itemAt(0).widget().hide()
+            self.stack.addWidget(built)
         self._opening = None  # a page without a sidebar row of its own, while it's being opened
         self.nav.currentRowChanged.connect(self._page_changed)
         self.nav.itemClicked.connect(self._row_clicked)
@@ -481,6 +502,7 @@ class MainWindow(QWidget):
         content = QVBoxLayout()
         content.setContentsMargins(30, 24, 20, 18)
         content.setSpacing(12)
+        content.addWidget(self.settings_head)
         content.addWidget(self.stack, 1)
         content.addLayout(footer)
 
@@ -595,7 +617,7 @@ class MainWindow(QWidget):
 
     def _apps(self) -> QWidget:
         from .appspage import AppsPage
-        self.apps_page = AppsPage(self.c)
+        self.apps_page = AppsPage(self.c, self)
         return self.apps_page
 
     def _build_page(self, name: str):
@@ -625,6 +647,7 @@ class MainWindow(QWidget):
             name = self._opening
         self._build_page(name)
         self.stack.setCurrentIndex(PAGES.index(name))
+        self._sync_settings_head(name)
         if os.environ.get("COREFOLD_MEMLOG"):
             winutil.log_memory(f"page {name}")
             QTimer.singleShot(2500, lambda n=name: winutil.log_memory(f"page {n}, 2.5 s later"))
@@ -643,7 +666,8 @@ class MainWindow(QWidget):
         w, lay = page(tr("Corefold Archive"))
         lay.itemAt(0).widget().hide()
         lay.addLayout(tool_header("archive", tr("Corefold Archive"),
-                                  tr("Open, extract and make archives: ZIP, RAR, 7z, TAR, ISO and more."), dark, dpr))
+                                  tr("Open, extract and make archives: ZIP, RAR, 7z, TAR, ISO and more."), dark, dpr,
+                                  self.tool_settings_button("Archives")))
         self.archive_drop = DropZone(None, None, title=tr("Drop an archive to open it"),
                                      sub=tr("Or drop files and folders to pack them into a ZIP or 7z."),
                                      hot_title=tr("Let go"),
@@ -679,19 +703,6 @@ class MainWindow(QWidget):
             bl.addLayout(row)
         lay.addWidget(box)
 
-        box, bl = card(8)
-        bl.addWidget(label(tr("Double-click to open"), "h2"))
-        self.open_archives = QCheckBox(tr("Open archives with Corefold (it shows up under \"Open with\")"))
-        self.open_archives.setChecked(self.c.settings.open_archives)
-        self.open_archives.toggled.connect(self.c.set_open_archives)
-        bl.addWidget(self.open_archives)
-        row = QHBoxLayout()
-        row.addWidget(button(tr("Make Corefold the default…"), None, self._default_for_archives))
-        row.addStretch()
-        bl.addLayout(row)
-        bl.addWidget(label(tr("Windows asks you to pick the default app yourself. This opens the right place in "
-                              "Settings."), "muted", wrap=True))
-        lay.addWidget(box)
         lay.addStretch()
         return w
 
@@ -723,7 +734,8 @@ class MainWindow(QWidget):
             lay.addWidget(row)
             shown += 1
         if not shown:
-            lay.addWidget(label(tr("Archives you open show up here."), "muted", wrap=True))
+            lay.addWidget(label(tr("Archives you open show up here.") if self.c.settings.remember_archives else
+                                tr("Turned off in Settings."), "muted", wrap=True))
         self.archive_clear.setVisible(bool(shown))
 
     def _clear_archives(self):
@@ -754,9 +766,75 @@ class MainWindow(QWidget):
 
     def _default_for_archives(self):
         from . import assoc
-        if not self.open_archives.isChecked():
-            self.open_archives.setChecked(True)  # registers first, so Windows lists Corefold
+        if not self.open_archives_setting.isChecked():
+            self.open_archives_setting.setChecked(True)  # registers first, so Windows lists Corefold
         assoc.open_default_apps()
+
+    def _settings_head(self) -> QWidget:
+        """Above the Settings pages: the heading, a tab for the app and each tool, and the smaller tabs
+        of a tool that has several pages."""
+        head = QWidget()
+        v = QVBoxLayout(head)
+        v.setContentsMargins(0, 0, 10, 4)
+        v.setSpacing(6)
+        v.addWidget(label(tr("Settings"), "h1"))
+        row = QHBoxLayout()
+        row.setSpacing(2)
+        self.settings_tabs: dict[str, QPushButton] = {}
+        for first, text, _pages in SETTINGS_TABS:
+            b = button(tr(text), "tab", lambda _=False, f=first: self.open_page(f))
+            b.setCheckable(True)
+            row.addWidget(b)
+            self.settings_tabs[first] = b
+        row.addStretch()
+        v.addLayout(row)
+        line = QFrame()
+        line.setObjectName("tabLine")
+        v.addWidget(line)
+        self.settings_sub = QWidget()
+        sub = QHBoxLayout(self.settings_sub)
+        sub.setContentsMargins(0, 4, 0, 0)
+        sub.setSpacing(4)
+        self.settings_subtabs: dict[str, QPushButton] = {}
+        for page_name, text in SETTINGS_SUBTABS.items():
+            b = button(tr(text), "subtab", lambda _=False, n=page_name: self.open_page(n))
+            b.setCheckable(True)
+            sub.addWidget(b)
+            self.settings_subtabs[page_name] = b
+        sub.addStretch()
+        v.addWidget(self.settings_sub)
+        self.settings_head = head
+        head.hide()
+        return head
+
+    def _sync_settings_head(self, name: str):
+        on = name in SETTINGS_PAGES
+        self.settings_head.setVisible(on)
+        if not on:
+            return
+        for first, _text, pages in SETTINGS_TABS:
+            self.settings_tabs[first].setChecked(name in pages)
+        self.settings_sub.setVisible(name in self.settings_subtabs)
+        for page_name, b in self.settings_subtabs.items():
+            b.setChecked(page_name == name)
+
+    def open_tool_settings(self, tool_page: str):
+        self.open_page(TOOL_SETTINGS.get(tool_page, "General"))
+
+    def tool_settings_button(self, tool_page: str, *more: QWidget) -> QWidget:
+        """The ⚙ button at the top of a tool's page (next to anything else that goes there)."""
+        box = QWidget()
+        row = QHBoxLayout(box)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(8)
+        for w in more:
+            row.addWidget(w)
+        gear = button(tr("Settings"), None, lambda: self.open_tool_settings(tool_page))
+        gear.setIcon(icons.icon("settings", self.c.theme.text))
+        gear.setToolTip(tr("Settings for this tool"))
+        self._gears.append(gear)
+        row.addWidget(gear)
+        return box
 
     def _accent_dot(self) -> QLabel:
         dot = QLabel()
@@ -885,7 +963,8 @@ class MainWindow(QWidget):
         self.power.toggled.connect(self.c.set_enabled)
         lay.addLayout(tool_header("converter", tr("Corefold Converter"),
                                   tr("Convert, shrink and edit pictures, videos, music, PDFs and documents with one "
-                                     "drag."), self.c.theme.dark, self.devicePixelRatioF(), self.power))
+                                     "drag."), self.c.theme.dark, self.devicePixelRatioF(),
+                                  self.tool_settings_button("Converter", self.power)))
         steps, sl = card()
         grid = QGridLayout()
         grid.setHorizontalSpacing(14)
@@ -922,7 +1001,10 @@ class MainWindow(QWidget):
         lay.addStretch()
         return w
 
+    # ---- Settings: one row in the sidebar, a tab for the app and one for each tool
+
     def _general(self) -> QWidget:
+        """Settings that are the same for every tool."""
         s = self.c.settings
         w, lay = page(tr("General"))
 
@@ -936,37 +1018,6 @@ class MainWindow(QWidget):
             self.language.addItem(tr(text) if key == "system" else text, key)
         self.language.setCurrentIndex(max(0, self.language.findData(s.language)))
         self.language.currentIndexChanged.connect(self._language_changed)
-
-        self.shortcut = QComboBox()
-        for key, text in SHORTCUT_LABELS.items():
-            self.shortcut.addItem(tr(text), key)
-        self.shortcut.setCurrentIndex(max(0, self.shortcut.findData(s.shortcut)))
-        self.shortcut.currentIndexChanged.connect(self._general_changed)
-
-        self.save_mode = QComboBox()
-        self.save_mode.addItem(tr("Next to the original file"), "beside")
-        self.save_mode.addItem(tr("Always in one folder"), "folder")
-        self.save_mode.setCurrentIndex(max(0, self.save_mode.findData(s.save_mode)))
-        self.save_mode.currentIndexChanged.connect(self._general_changed)
-
-        self.folder_row = QWidget()
-        fr = QHBoxLayout(self.folder_row)
-        fr.setContentsMargins(0, 0, 0, 0)
-        self.folder_label = label("", "muted")
-        self.folder_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        fr.addWidget(self.folder_label, 1)
-        fr.addWidget(button(tr("Open"), on_click=self._open_output_folder))
-        fr.addWidget(button(tr("Change…"), on_click=self._pick_folder))
-
-        self.quality = QSpinBox()
-        self.quality.setRange(50, 100)
-        self.quality.setSuffix(" %")
-        self.quality.setValue(s.jpg_quality)
-        self.quality.setMinimumWidth(96)
-        self.quality.valueChanged.connect(self._general_changed)
-        q_row = QHBoxLayout()
-        q_row.addWidget(self.quality)
-        q_row.addWidget(label(tr("for JPG and WebP. Higher = better quality, bigger file."), "muted"), 1)
 
         self.sound = QComboBox()
         for key, text in SOUNDS.items():
@@ -998,16 +1049,91 @@ class MainWindow(QWidget):
         vol_row.addWidget(self.vol_icons[1])
         vol_row.addWidget(self.volume_label)
 
+        rows = ((tr("Language"), self.language), (tr("Sound when done"), snd_row), (tr("Volume"), vol_row))
+        for r, (text, widget) in enumerate(rows):
+            grid.addWidget(label(text), r, 0)
+            (grid.addLayout if isinstance(widget, QHBoxLayout) else grid.addWidget)(widget, r, 1)
+        grid.setColumnStretch(1, 1)
+        bl.addLayout(grid)
+        lay.addWidget(box)
+
+        checks, cl = card()
+        self.startup = checkbox(tr("Start Corefold when Windows starts"),
+                                startup_enabled() if self.pending_startup is None else self.pending_startup,
+                                self._startup_toggled)
+        self.show_progress = checkbox(tr("Show a popup while converting and when it's done"), s.show_progress,
+                                      self._general_changed)
+        self.problem_sound = checkbox(tr("Play a soft sound when something goes wrong"), s.sound_problems,
+                                      self._general_changed)
+        for cb in (self.startup, self.show_progress, self.problem_sound):
+            cl.addWidget(cb)
+        lay.addWidget(checks)
+
+        # keeping the PC fast
+        perf, pl = card()
+        pl.addWidget(label(tr("Keep my PC fast"), "h2"))
+        self.low_priority = checkbox(tr("Convert in the background, so games and other apps always come first"),
+                                     s.low_priority, self._performance_changed)
+        self.one_at_a_time = checkbox(tr("Convert one thing at a time (the rest wait in line)"), s.one_at_a_time,
+                                      self._performance_changed)
+        pl.addWidget(self.low_priority)
+        pl.addWidget(self.one_at_a_time)
+        pl.addWidget(label(tr("Corefold also lets go of memory it doesn't need when it's idle, and closes this window "
+                              "completely a little while after you close it."), "muted", wrap=True))
+        lay.addWidget(perf)
+        lay.addLayout(_reset_row(lambda: self.reset_to_defaults(GENERAL_KEYS)))
+        lay.addStretch()
+        return w
+
+    def _conv_options(self) -> QWidget:
+        """The Converter: dragging, where new files go, the right-click menu."""
+        s = self.c.settings
+        w, lay = page(tr("Options"))
+
+        box, bl = card()
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(16)
+        grid.setVerticalSpacing(12)
+        self.shortcut = QComboBox()
+        for key, text in SHORTCUT_LABELS.items():
+            self.shortcut.addItem(tr(text), key)
+        self.shortcut.setCurrentIndex(max(0, self.shortcut.findData(s.shortcut)))
+        self.shortcut.currentIndexChanged.connect(self._general_changed)
+
+        self.save_mode = QComboBox()
+        self.save_mode.addItem(tr("Next to the original file"), "beside")
+        self.save_mode.addItem(tr("Always in one folder"), "folder")
+        self.save_mode.setCurrentIndex(max(0, self.save_mode.findData(s.save_mode)))
+        self.save_mode.currentIndexChanged.connect(self._general_changed)
+
+        self.folder_row = QWidget()
+        fr = QHBoxLayout(self.folder_row)
+        fr.setContentsMargins(0, 0, 0, 0)
+        self.folder_label = label("", "muted")
+        self.folder_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        fr.addWidget(self.folder_label, 1)
+        fr.addWidget(button(tr("Open"), on_click=self._open_output_folder))
+        fr.addWidget(button(tr("Change…"), on_click=self._pick_folder))
+
+        self.quality = QSpinBox()
+        self.quality.setRange(50, 100)
+        self.quality.setSuffix(" %")
+        self.quality.setValue(s.jpg_quality)
+        self.quality.setMinimumWidth(96)
+        self.quality.valueChanged.connect(self._general_changed)
+        q_row = QHBoxLayout()
+        q_row.addWidget(self.quality)
+        q_row.addWidget(label(tr("for JPG and WebP. Higher = better quality, bigger file."), "muted"), 1)
+
         self.unavailable = QComboBox()
         self.unavailable.addItem(tr("Show them dimmed (with the reason)"), True)
         self.unavailable.addItem(tr("Hide them"), False)
         self.unavailable.setCurrentIndex(0 if s.show_unavailable else 1)
         self.unavailable.currentIndexChanged.connect(self._general_changed)
 
-        rows = ((tr("Language"), self.language), (tr("Key to hold while dragging"), self.shortcut),
-                (tr("Save new files"), self.save_mode), ("", self.folder_row), (tr("Image quality"), q_row),
-                (tr("Sound when done"), snd_row), (tr("Volume"), vol_row),
-                (tr("Formats that don't fit a file"), self.unavailable))
+        rows = ((tr("Key to hold while dragging"), self.shortcut), (tr("Save new files"), self.save_mode),
+                ("", self.folder_row), (tr("Image quality"), q_row), (tr("Formats that don't fit a file"),
+                                                                      self.unavailable))
         for r, (text, widget) in enumerate(rows):
             if text:
                 grid.addWidget(label(text), r, 0)
@@ -1034,44 +1160,24 @@ class MainWindow(QWidget):
         checks, cl = card()
         self.ask_names = checkbox(tr("When converting several files, ask for a new name (like vacation-1, "
                                      "vacation-2…)"), s.ask_names, self._general_changed)
-        self.show_progress = checkbox(tr("Show a popup while converting and when it's done"), s.show_progress,
-                                      self._general_changed)
         self.reveal = checkbox(tr("Open the folder with the new file after converting"), s.reveal_after,
                                self._general_changed)
-        self.startup = checkbox(tr("Start Corefold when Windows starts"),
-                                startup_enabled() if self.pending_startup is None else self.pending_startup,
-                                self._startup_toggled)
-        self.problem_sound = checkbox(tr("Play a soft sound when something goes wrong"), s.sound_problems,
-                                      self._general_changed)
         self.tick = checkbox(tr("Play a tiny tick when the wheel opens"), s.sound_tick, self._general_changed)
         self.downloads = checkbox(tr("When an iPhone photo (HEIC) or WebP picture lands in Downloads, offer a "
                                      "JPG copy"), s.watch_downloads, self.c.set_watch_downloads)
         self.pack_everywhere = checkbox(tr("Show ZIP / 7z options on every wheel"), s.pack_on_every_wheel,
                                         self._general_changed)
-        for cb in (self.ask_names, self.show_progress, self.reveal, self.problem_sound, self.tick, self.downloads,
-                   self.pack_everywhere, self.startup):
+        for cb in (self.ask_names, self.reveal, self.tick, self.downloads, self.pack_everywhere):
             cl.addWidget(cb)
         lay.addWidget(checks)
-
-        # keeping the PC fast
-        perf, pl = card()
-        pl.addWidget(label(tr("Keep my PC fast"), "h2"))
-        self.low_priority = checkbox(tr("Convert in the background, so games and other apps always come first"),
-                                     s.low_priority, self._performance_changed)
-        self.one_at_a_time = checkbox(tr("Convert one thing at a time (the rest wait in line)"), s.one_at_a_time,
-                                      self._performance_changed)
-        pl.addWidget(self.low_priority)
-        pl.addWidget(self.one_at_a_time)
-        pl.addWidget(label(tr("Corefold also lets go of memory it doesn't need when it's idle, and closes this window "
-                              "completely a little while after you close it."), "muted", wrap=True))
-        lay.addWidget(perf)
-        lay.addLayout(_reset_row(lambda: self.reset_to_defaults(general_keys())))
+        lay.addLayout(_reset_row(lambda: self.reset_to_defaults(CONVERTER_KEYS)))
         lay.addStretch()
         return w
 
     def _look(self) -> QWidget:
+        """How Corefold looks: light or dark, the accent colour, text size and popups."""
         s = self.c.settings
-        w, lay = page(tr("Look"), tr("Make Corefold yours. The preview updates as you change things."))
+        w, lay = page(tr("Look"))
 
         controls, cl = card(8)
         appearance = Segmented([(k, tr(v)) for k, v in APPEARANCES.items()], s.appearance)
@@ -1080,6 +1186,51 @@ class MainWindow(QWidget):
         self.swatches.changed.connect(lambda v: self._look_changed("accent", v))
         self.swatches.custom_picked.connect(lambda v: setattr(self.c.settings, "custom_color", v))
         self.accent_name = label("", "muted")
+        win_text = Segmented([(k, tr(v)) for k, v in WINDOW_TEXT.items()], s.window_text)
+        win_text.changed.connect(lambda v: self._look_changed("window_text", v))
+        for title, widget in ((tr("Appearance"), appearance), (tr("Accent colour"), self.swatches),
+                              (None, self.accent_name), (tr("Text size in Corefold's windows"), win_text)):
+            if title:
+                cl.addSpacing(6)
+                cl.addWidget(label(title, "h2"))
+            cl.addWidget(widget)
+        cl.addSpacing(10)
+        self.animations = checkbox(tr("Animations"), s.animations, lambda v: self._look_changed("animations", v))
+        cl.addWidget(self.animations)
+        cl.addWidget(checkbox(tr("Icons in the sidebar"), s.sidebar_icons,
+                              lambda v: self._look_changed("sidebar_icons", v)))
+        lay.addWidget(controls)
+
+        # the popups
+        more, ml = card(8)
+        corner = QComboBox()
+        for key, text in TOAST_CORNERS.items():
+            corner.addItem(tr(text), key)
+        corner.setCurrentIndex(max(0, corner.findData(s.toast_corner)))
+        corner.currentIndexChanged.connect(lambda _: self._look_changed("toast_corner", corner.currentData()))
+        corner.setMaximumWidth(320)
+        toast_time = Segmented([(k, tr(v)) for k, v in TOAST_TIMES.items()], s.toast_time)
+        toast_time.changed.connect(lambda v: self._look_changed("toast_time", v))
+        ml.addWidget(label(tr("Where popups appear"), "h2"))
+        prow = QHBoxLayout()
+        prow.addWidget(corner)
+        prow.addWidget(button(tr("Show an example"), on_click=lambda: self.c.toast.notify(
+            tr("Done"), tr("This is where popups will appear."), linger_ms=3000)))
+        prow.addStretch()
+        ml.addLayout(prow)
+        ml.addSpacing(6)
+        ml.addWidget(label(tr("How long popups stay"), "h2"))
+        ml.addWidget(toast_time)
+        lay.addWidget(more)
+        lay.addLayout(_reset_row(lambda: self.reset_to_defaults(LOOK_KEYS)))
+        lay.addStretch()
+        return w
+
+    def _wheel_look(self) -> QWidget:
+        """The Converter's wheel: shape, size, labels, colours, with a live preview."""
+        s = self.c.settings
+        w, lay = page(tr("Wheel"), tr("The preview updates as you change things."))
+        controls, cl = card(8)
         style = Segmented([(k, tr(v)) for k, v in WHEEL_STYLES.items()], s.wheel_style, per_row=3)
         style.changed.connect(lambda v: self._look_changed("wheel_style", v))
         size = Segmented([(k, tr(v)) for k, v in WHEEL_SIZE_NAMES.items()], s.wheel_size)
@@ -1110,54 +1261,20 @@ class MainWindow(QWidget):
         self.opacity.setValue(s.wheel_opacity)
         self.opacity.setCursor(Qt.PointingHandCursor)
         self.opacity.valueChanged.connect(lambda v: self._look_changed("wheel_opacity", v))
-        self.animations = checkbox(tr("Animations"), s.animations, lambda v: self._look_changed("animations", v))
-
-        for title, widget in ((tr("Appearance"), appearance), (tr("Accent colour"), self.swatches),
-                              (None, self.accent_name), (tr("Wheel shape"), style), (tr("Wheel size"), size),
+        for title, widget in ((tr("Wheel shape"), style), (tr("Wheel size"), size),
                               (tr("Slice labels"), labels), (tr("Text size"), text_size),
                               (tr("Pointing at a slice"), hover), (tr("Slice colours"), colors),
                               (tr("Options per page"), per_holder), (tr("Where the wheel opens"), position),
                               (tr("Wheel see-through"), self.opacity)):
-            if title:
-                cl.addSpacing(6)
-                cl.addWidget(label(title, "h2"))
+            cl.addSpacing(6)
+            cl.addWidget(label(title, "h2"))
             cl.addWidget(widget)
         cl.addSpacing(10)
-        cl.addWidget(self.animations)
         self.numbers = checkbox(tr("Show numbers on the slices when the wheel is opened from the right-click menu "
                                    "(press 1–9 to pick, 0 for More)"), s.wheel_numbers,
                                 lambda v: self._look_changed("wheel_numbers", v))
         cl.addWidget(self.numbers)
         cl.addStretch()
-
-        # the window and the popups
-        more, ml = card(8)
-        win_text = Segmented([(k, tr(v)) for k, v in WINDOW_TEXT.items()], s.window_text)
-        win_text.changed.connect(lambda v: self._look_changed("window_text", v))
-        corner = QComboBox()
-        for key, text in TOAST_CORNERS.items():
-            corner.addItem(tr(text), key)
-        corner.setCurrentIndex(max(0, corner.findData(s.toast_corner)))
-        corner.currentIndexChanged.connect(lambda _: self._look_changed("toast_corner", corner.currentData()))
-        corner.setMaximumWidth(320)
-        toast_time = Segmented([(k, tr(v)) for k, v in TOAST_TIMES.items()], s.toast_time)
-        toast_time.changed.connect(lambda v: self._look_changed("toast_time", v))
-        ml.addWidget(label(tr("Text size in Corefold's windows"), "h2"))
-        ml.addWidget(win_text)
-        ml.addSpacing(6)
-        ml.addWidget(label(tr("Where popups appear"), "h2"))
-        prow = QHBoxLayout()
-        prow.addWidget(corner)
-        prow.addWidget(button(tr("Show an example"), on_click=lambda: self.c.toast.notify(
-            tr("Done"), tr("This is where popups will appear."), linger_ms=3000)))
-        prow.addStretch()
-        ml.addLayout(prow)
-        ml.addSpacing(6)
-        ml.addWidget(label(tr("How long popups stay"), "h2"))
-        ml.addWidget(toast_time)
-        ml.addSpacing(6)
-        ml.addWidget(checkbox(tr("Icons in the sidebar"), s.sidebar_icons,
-                              lambda v: self._look_changed("sidebar_icons", v)))
 
         preview_box, pl = card()
         pl.setContentsMargins(12, 12, 12, 12)
@@ -1176,10 +1293,94 @@ class MainWindow(QWidget):
         row.addWidget(controls, 1)
         row.addWidget(preview_box)
         lay.addLayout(row)
-        lay.addWidget(more)
-        lay.addLayout(_reset_row(lambda: self.reset_to_defaults(LOOK_KEYS)))
+        lay.addLayout(_reset_row(lambda: self.reset_to_defaults(WHEEL_KEYS)))
         lay.addStretch()
         return w
+
+    def _apps_settings(self) -> QWidget:
+        """The Uninstaller."""
+        s = self.c.settings
+        w, lay = page(tr("Uninstaller"))
+        box, bl = card()
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(16)
+        grid.setVerticalSpacing(12)
+        self.unused_months = QComboBox()
+        for key, text in UNUSED_MONTHS.items():
+            self.unused_months.addItem(tr(text), key)
+        self.unused_months.setCurrentIndex(max(0, self.unused_months.findData(s.unused_months)))
+        self.unused_months.currentIndexChanged.connect(self._tool_setting_changed)
+        self.backup_days = QComboBox()
+        for key, text in BACKUP_DAYS.items():
+            self.backup_days.addItem(tr(text), key)
+        self.backup_days.setCurrentIndex(max(0, self.backup_days.findData(s.backup_days)))
+        self.backup_days.currentIndexChanged.connect(self._tool_setting_changed)
+        grid.addWidget(label(tr("Count a program as unused after")), 0, 0)
+        grid.addWidget(self.unused_months, 0, 1)
+        grid.addWidget(label(tr("Keep backups of removed leftovers for")), 1, 0)
+        grid.addWidget(self.backup_days, 1, 1)
+        grid.setColumnStretch(2, 1)
+        bl.addLayout(grid)
+        bl.addWidget(label(tr("Backups let you put back anything Corefold removed. Older ones are deleted by "
+                              "themselves to free up space."), "muted", wrap=True))
+        lay.addWidget(box)
+        checks, cl = card()
+        self.restore_point = checkbox(tr("Make a System Restore point before uninstalling (ticked to begin with)"),
+                                      s.restore_point, self._tool_setting_changed)
+        cl.addWidget(self.restore_point)
+        lay.addWidget(checks)
+        lay.addLayout(_reset_row(lambda: self.reset_to_defaults(UNINSTALLER_KEYS)))
+        lay.addStretch()
+        return w
+
+    def _archive_settings(self) -> QWidget:
+        """Corefold Archive."""
+        s = self.c.settings
+        w, lay = page(tr("Archives"))
+        box, bl = card()
+        bl.addWidget(label(tr("Extract here"), "h2"))
+        self.extract_mode = QComboBox()
+        for key, text in EXTRACT_MODES.items():
+            self.extract_mode.addItem(tr(text), key)
+        self.extract_mode.setCurrentIndex(max(0, self.extract_mode.findData(s.extract_mode)))
+        self.extract_mode.currentIndexChanged.connect(self._tool_setting_changed)
+        self.extract_mode.setMaximumWidth(360)
+        bl.addWidget(self.extract_mode)
+        bl.addWidget(label(tr("Smart: an archive with one folder or file inside is unpacked straight into place; "
+                              "anything else goes into a new folder named after the archive."), "muted", wrap=True))
+        self.extract_nested = checkbox(tr("Also unpack archives found inside (ticked to begin with)"),
+                                       s.extract_nested, self._tool_setting_changed)
+        bl.addWidget(self.extract_nested)
+        lay.addWidget(box)
+        box, bl = card()
+        bl.addWidget(label(tr("Double-click to open"), "h2"))
+        self.open_archives_setting = checkbox(tr("Open archives with Corefold (it shows up under \"Open with\")"),
+                                              s.open_archives, self.c.set_open_archives)
+        bl.addWidget(self.open_archives_setting)
+        row = QHBoxLayout()
+        row.addWidget(button(tr("Make Corefold the default…"), None, self._default_for_archives))
+        row.addStretch()
+        bl.addLayout(row)
+        bl.addWidget(label(tr("Windows asks you to pick the default app yourself. This opens the right place in "
+                              "Settings."), "muted", wrap=True))
+        self.remember_archives = checkbox(tr("List the archives I open on the Archive page"), s.remember_archives,
+                                          self._tool_setting_changed)
+        bl.addWidget(self.remember_archives)
+        lay.addWidget(box)
+        lay.addLayout(_reset_row(lambda: self.reset_to_defaults(ARCHIVE_KEYS)))
+        lay.addStretch()
+        return w
+
+    def _tool_setting_changed(self, *_):
+        """A setting on the Uninstaller or Archive tab."""
+        s = self.c.settings
+        s.unused_months = self.unused_months.currentData()
+        s.backup_days = self.backup_days.currentData()
+        s.restore_point = self.restore_point.isChecked()
+        s.extract_mode = self.extract_mode.currentData()
+        s.extract_nested = self.extract_nested.isChecked()
+        s.remember_archives = self.remember_archives.isChecked()
+        self.c.settings_changed()
 
     def _formats(self) -> QWidget:
         w, lay = page(tr("Formats"), tr("Untick anything you don't use. ☆ pins an option to the top of its wheel, "
@@ -1756,6 +1957,8 @@ class MainWindow(QWidget):
         self.preview.update()
         for dot in self._dots:
             dot.setPixmap(icons.pixmap("add", 16, t.accent, dpr))
+        for gear in self._gears:
+            gear.setIcon(icons.icon("settings", t.text))
         self.refresh_archives()
         if self.isVisible():
             set_title_bar_dark(self, t.dark)

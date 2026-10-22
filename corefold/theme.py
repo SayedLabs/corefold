@@ -206,6 +206,15 @@ QPushButton#primary:disabled { background: $accent_soft; border-color: $accent_s
 QPushButton#danger { color: $danger; }
 QPushButton#danger:hover { border-color: $danger; }
 QPushButton#flat { background: transparent; border: none; color: $muted; padding: 2px 6px; }
+QPushButton#tab { background: transparent; border: none; border-bottom: 2px solid transparent; border-radius: 0;
+                  color: $muted; padding: 6px 12px 7px 12px; min-width: 0; font-weight: 600; }
+QPushButton#tab:hover { color: $text; }
+QPushButton#tab:checked { color: $text; border-bottom: 2px solid $accent; }
+QFrame#tabLine { background: $border; border: none; max-height: 1px; min-height: 1px; }
+QPushButton#subtab { background: transparent; border: 1px solid transparent; border-radius: 14px; color: $muted;
+                     padding: 4px 14px; min-width: 0; }
+QPushButton#subtab:hover { color: $text; background: $hover; }
+QPushButton#subtab:checked { color: $text; background: $hover; border-color: $line_strong; }
 QPushButton#flat:hover { color: $text; }
 QPushButton#power { padding: 9px 18px; font-weight: 600; }
 QCheckBox { spacing: 10px; }

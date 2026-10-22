@@ -149,7 +149,9 @@ class ArchiveBrowser(QWidget):
             return b
 
         self.b_here = btn(tr("Extract here"), self._extract_here, "primary")
-        self.b_here.setToolTip(tr("Next to the archive (or in your results folder), without a folder inside a folder"))
+        self.b_here.setToolTip(tr("Next to the archive (or in your results folder), without a folder inside a folder")
+                               if getattr(controller.settings, "extract_mode", "smart") == "smart" else
+                               tr("Next to the archive (or in your results folder), in a new folder"))
         self.b_to = btn(tr("Extract to…"), self._extract_to)
         self.b_open = btn(tr("Open"), lambda: self._open(self.tree.currentItem()))
         self.b_more = btn(tr("More"), lambda: None)
@@ -166,6 +168,7 @@ class ArchiveBrowser(QWidget):
         self.b_more.setMenu(more)
         self.nested = QCheckBox(tr("Also unpack archives inside"))
         self.nested.setToolTip(tr("Archives found inside are unpacked too, each into its own folder."))
+        self.nested.setChecked(bool(getattr(controller.settings, "extract_nested", False)))
         self.b_add = btn(tr("Add files…"), self._add)
         self.b_del = btn(tr("Remove"), self._delete, "danger")
         editable = ar.can_edit(src)
@@ -417,8 +420,9 @@ class ArchiveBrowser(QWidget):
     def _extract_here(self):
         """Everything, the smart way (one item: straight in; several: into a folder named after the archive)."""
         nested = self._nested()
+        mode = getattr(self.c.settings, "extract_mode", "smart")
         self._run("archive:extract", tr("Extract"), lambda items, ctx: ar.extract(
-            self.src, _with(ctx, nested=nested), mode="smart"))
+            self.src, _with(ctx, nested=nested), mode=mode))
 
     def _extract_to(self):
         """Into a folder you pick: the selected items, or everything if nothing is selected."""

@@ -65,7 +65,19 @@ class _Signals(QObject):
 # what the "Show" list can narrow the apps down to (English, shown through tr())
 SHOW = {"all": "All apps", "unused": "Not used for 3 months", "big": "Big (1 GB or more)",
         "new": "Installed in the last 30 days", "startup": "Start with Windows"}
-UNUSED_DAYS = 90
+# "not used for …" (chosen in Settings → Uninstaller): the filter's name and the count in the status line
+UNUSED = {3: ("Not used for 3 months", "{count} not used for 3 months"),
+          6: ("Not used for 6 months", "{count} not used for 6 months"),
+          12: ("Not used for a year", "{count} not used for a year")}
+
+
+def _months(controller) -> int:
+    months = getattr(getattr(controller, "settings", None), "unused_months", 3)
+    return months if months in UNUSED else 3
+
+
+def _backup_days(controller) -> int:
+    return getattr(getattr(controller, "settings", None), "backup_days", un.KEEP_DAYS)
 
 
 def _add_usage(apps: list[un.App]):
@@ -83,10 +95,10 @@ def _add_usage(apps: list[un.App]):
             log.debug("usage of %s", app.name, exc_info=True)
 
 
-def _shown(app: un.App, show: str) -> bool:
+def _shown(app: un.App, show: str, months: int = 3) -> bool:
     now = time.time()
     if show == "unused":  # only when Windows knows: an app with no date may still be in use
-        return bool(app.last_used) and now - app.last_used > UNUSED_DAYS * 86400
+        return bool(app.last_used) and now - app.last_used > months * 30.5 * 86400
     if show == "big":
         return app.size >= 1024 ** 3
     if show == "new":
@@ -118,7 +130,7 @@ def _icon_for(app: un.App, provider: QFileIconProvider) -> QIcon | None:
 # ----------------------------------------------------------------------------- the page
 
 class AppsPage(QWidget):
-    def __init__(self, controller: "Controller"):
+    def __init__(self, controller: "Controller", window=None):
         super().__init__()
         self.c = controller
         self.apps: list[un.App] = []
@@ -140,13 +152,14 @@ class AppsPage(QWidget):
         lay.addLayout(tool_header("cleaner", tr("Corefold Uninstaller"),
                                   tr("Uninstall programs, then clean up the folders, shortcuts and registry entries they "
                                      "leave behind. Everything removed is kept as a backup for {days} days, so you can "
-                                     "put it back.", days=un.KEEP_DAYS),
-                                  controller.theme.dark if controller is not None else True, self.devicePixelRatioF()))
+                                     "put it back.", days=_backup_days(controller)),
+                                  controller.theme.dark if controller is not None else True, self.devicePixelRatioF(),
+                                  window.tool_settings_button("Apps") if window is not None else None))
 
         top = QHBoxLayout()
         self.show_only = QComboBox()
         for key, text in SHOW.items():
-            self.show_only.addItem(tr(text), key)
+            self.show_only.addItem(tr(UNUSED[_months(controller)][0] if key == "unused" else text), key)
         self.show_only.currentIndexChanged.connect(self._filter)
         self.search = QLineEdit()
         self.search.setPlaceholderText(tr("Search apps"))
@@ -324,7 +337,7 @@ class AppsPage(QWidget):
             app = item.data(0, APP_ROLE)
             text = f"{app.name} {app.publisher}".lower()
             item.setHidden(not all(w in text for w in words) or (bool(app.store) and not stores)
-                           or not _shown(app, show))
+                           or not _shown(app, show, _months(self.c)))
         self.show_note.setVisible(show == "unused")
         self._update_status()
 
@@ -333,9 +346,10 @@ class AppsPage(QWidget):
                  if not self.tree.topLevelItem(i).isHidden()]
         total = sum(a.size for a in shown)
         text = tr("{count} apps · {size}", count=len(shown), size=human_size(total))
-        unused = sum(1 for a in self.apps if _shown(a, "unused") and (not a.store or self.store.isChecked()))
+        months = _months(self.c)
+        unused = sum(1 for a in self.apps if _shown(a, "unused", months) and (not a.store or self.store.isChecked()))
         if unused and (self.show_only.currentData() or "all") == "all":
-            text += " · " + tr("{count} not used for 3 months", count=unused)
+            text += " · " + tr(UNUSED[months][1], count=unused)
         self.status.setText(text if self.loaded else tr("Loading the list of apps…"))
 
     def _selected(self) -> list[un.App]:
@@ -434,6 +448,7 @@ class UninstallDialog(QDialog):
         self.quiet.setChecked(len(apps) > 1)
         self.restore_point = QCheckBox(tr("Make a System Restore point first (asks for administrator)"))
         self.restore_point.setVisible(not forced)
+        self.restore_point.setChecked(bool(getattr(getattr(controller, "settings", None), "restore_point", False)))
         l1.addSpacing(6)
         l1.addWidget(self.quiet)
         l1.addWidget(self.restore_point)
@@ -710,7 +725,7 @@ class UninstallDialog(QDialog):
         self.changed = True
         done, failed = len(result["done"]), len(result["failed"])
         detail = tr("{size} freed. Everything is kept as a backup for {days} days: undo it here or from "
-                    "\"Backups…\" on the Apps page.", size=human_size(result["freed"]), days=un.KEEP_DAYS)
+                    "\"Backups…\" on the Apps page.", size=human_size(result["freed"]), days=_backup_days(self.c))
         if failed:
             detail += "\n" + tr("{count} items couldn't be removed (in use, or administrator permission was "
                                 "refused). Restarting the PC and trying again usually helps.", count=failed)
@@ -802,7 +817,7 @@ class BackupsDialog(QDialog):
         lay.addWidget(_label(tr("Backups"), "h2"))
         lay.addWidget(_label(tr("What Corefold removed after uninstalling apps. Put it back, or delete the backup to "
                                 "free the space. Backups are deleted by themselves after {days} days.",
-                                days=un.KEEP_DAYS), "muted", wrap=True))
+                                days=_backup_days(self.c)), "muted", wrap=True))
         self.tree = QTreeWidget()
         self.tree.setObjectName("apps")
         self.tree.setRootIsDecorated(False)

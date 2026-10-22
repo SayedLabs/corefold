@@ -425,10 +425,9 @@ STRINGS: dict[str, str] = {
     "Things you can do: {count}": "ما يمكنك فعله: {count}",
     "{count} don't fit (greyed out, point at one to see why)":
         "غير المناسبة: {count} (باهتة، أشر إلى أحدها لمعرفة السبب)",
-    "{count} hidden in Settings → Formats": "المخفية في الإعدادات ← الصيغ: {count}",
+    "{count} hidden in Settings → Converter → Formats": "المخفية في الإعدادات ← المحوّل ← الصيغ: {count}",
     "Other parts of a split archive open with the first part": "الأجزاء الأخرى من الأرشيف المقسّم تُفتح مع الجزء الأول",
-    "Nothing to do with these files. Check Settings → Formats if you hid some options.":
-        "لا يوجد ما يمكن فعله بهذه الملفات. راجع الإعدادات ← الصيغ إذا كنت قد أخفيت بعض الخيارات.",
+    "Nothing to do with these files. Check Settings → Converter → Formats if you hid some options.": "لا يوجد ما يمكن فعله بهذه الملفات. راجع الإعدادات ← المحوّل ← الصيغ إذا أخفيت بعض الخيارات.",
     "Choose files for Corefold": "اختر ملفات لكورفولد",
 
     # ------------------------------------------------------------------ right-click menu
@@ -512,8 +511,6 @@ STRINGS: dict[str, str] = {
     "Corefold also lets go of memory it doesn't need when it's idle, and closes this window completely a little "
     "while after you close it.": "كما يحرر كورفولد الذاكرة التي لا يحتاجها عندما يكون خاملًا، ويغلق هذه النافذة "
                                  "تمامًا بعد قليل من إغلاقك لها.",
-    "Make Corefold yours. The preview updates as you change things.": "اجعل كورفولد على ذوقك. تتحدث المعاينة مع كل "
-                                                                     "تغيير.",
     " slices": " أجزاء",
     "then a \"More\" slice shows the rest": "ثم يعرض جزء \"المزيد\" الباقي",
     "Animations": "الحركات",
@@ -810,7 +807,7 @@ STRINGS: dict[str, str] = {
     "Clean up apps too": "نظّف التطبيقات أيضًا",
     "The Apps page uninstalls programs and then removes what they leave behind, with a backup you can put back.": "تزيل صفحة التطبيقات البرامج ثم تحذف ما تتركه خلفها، مع نسخة احتياطية يمكنك استعادتها.",
     "Make it yours": "اجعله على ذوقك",
-    "Change the colours, the wheel's shape and size, the sounds and which options show up, on the Look and Formats pages.": "غيّر الألوان وشكل العجلة وحجمها والأصوات والخيارات التي تظهر، من صفحتي المظهر والصيغ.",
+    "Change the colours, the wheel's shape and size, the sounds and which options show up in Settings. Each tool has its own tab there.": "غيّر الألوان وشكل العجلة وحجمها والأصوات والخيارات اللي تظهر من الإعدادات. لكل أداة تبويب خاص فيها هناك.",
     "Welcome": "مرحبًا",
     "Back": "رجوع",
     "Skip": "تخطٍّ",
@@ -973,4 +970,29 @@ STRINGS: dict[str, str] = {
     "Extract selected to…": "فك المحدد إلى…",
     "Select all": "تحديد الكل",
     "Next to the archive (or in your results folder), without a folder inside a folder": "جنب الأرشيف (أو في مجلد النتائج)، بدون مجلد داخل مجلد",
+    "a week": "أسبوع",
+    "a month": "شهر",
+    "3 months": "3 أشهر",
+    "6 months": "6 أشهر",
+    "a year": "سنة",
+    "Smart: no folder inside a folder": "ذكي: بدون مجلد داخل مجلد",
+    "Always into a new folder": "دائمًا في مجلد جديد",
+    "App": "التطبيق",
+    "Not used for 6 months": "غير مستخدمة منذ 6 أشهر",
+    "{count} not used for 6 months": "{count} غير مستخدمة منذ 6 أشهر",
+    "Not used for a year": "غير مستخدمة منذ سنة",
+    "{count} not used for a year": "{count} غير مستخدمة منذ سنة",
+    "Next to the archive (or in your results folder), in a new folder": "جنب الأرشيف (أو في مجلد النتائج)، في مجلد جديد",
+    "Options": "الخيارات",
+    "Wheel": "العجلة",
+    "The preview updates as you change things.": "المعاينة تتحدث وأنت تغيّر.",
+    "Count a program as unused after": "اعتبر البرنامج غير مستخدم بعد",
+    "Keep backups of removed leftovers for": "احتفظ بنسخ البقايا المحذوفة لمدة",
+    "Backups let you put back anything Corefold removed. Older ones are deleted by themselves to free up space.": "النسخ الاحتياطية تخليك ترجع أي شيء حذفه كورفولد. القديمة منها تنحذف لحالها عشان توفر مساحة.",
+    "Make a System Restore point before uninstalling (ticked to begin with)": "إنشاء نقطة استعادة للنظام قبل إلغاء التثبيت (محددة مسبقًا)",
+    "Smart: an archive with one folder or file inside is unpacked straight into place; anything else goes into a new folder named after the archive.": "ذكي: الأرشيف اللي فيه مجلد أو ملف واحد ينفك في مكانه مباشرة؛ وغير كذا ينفك في مجلد جديد باسم الأرشيف.",
+    "Also unpack archives found inside (ticked to begin with)": "فك الأرشيفات اللي بداخله أيضًا (محددة مسبقًا)",
+    "List the archives I open on the Archive page": "اعرض الأرشيفات اللي أفتحها في صفحة الأرشيف",
+    "Turned off in Settings.": "متوقفة من الإعدادات.",
+    "Settings for this tool": "إعدادات هذه الأداة",
 }

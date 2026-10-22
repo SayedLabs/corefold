@@ -90,11 +90,15 @@ TOAST_TIME_SCALE = {"short": 0.6, "normal": 1.0, "long": 2.0}
 WINDOW_TEXT = {"small": "Small", "normal": "Normal", "large": "Large", "huge": "Extra large"}
 WINDOW_TEXT_PT = {"small": 9, "normal": 10, "large": 11.5, "huge": 13}
 SOUNDS = DONE_SOUNDS
+UNUSED_MONTHS = {3: "3 months", 6: "6 months", 12: "a year"}
+BACKUP_DAYS = {7: "a week", 30: "a month", 90: "3 months", 365: "a year"}
+EXTRACT_MODES = {"smart": "Smart: no folder inside a folder", "folder": "Always into a new folder"}
 CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_style": HOVER_STYLES,
            "slice_colors": SLICE_COLORS, "text_size": TEXT_SIZES, "wheel_position": WHEEL_POSITIONS,
            "wheel_size": WHEEL_SIZES, "sound": SOUNDS, "language": LANGUAGES, "menu_style": MENU_STYLES,
            "appearance": APPEARANCES, "shortcut": SHORTCUT_LABELS, "toast_corner": TOAST_CORNERS,
-           "toast_time": TOAST_TIMES, "window_text": WINDOW_TEXT}
+           "toast_time": TOAST_TIMES, "window_text": WINDOW_TEXT, "unused_months": UNUSED_MONTHS,
+           "backup_days": BACKUP_DAYS, "extract_mode": EXTRACT_MODES}
 
 
 # Settings kept on disk while the window has changes that weren't saved yet (see window.py): the
@@ -104,10 +108,18 @@ RECENT_ARCHIVES = 8
 # not settings a person edits: what the app remembers by itself
 NOT_EDITED = {"enabled", "first_run", "last_version", "menu_signature", "window_geometry", "last_page",
               "last_action", "tour_done", "watermark", "fit_mb", "open_archives", "recent_archives"}
-LOOK_KEYS = ("appearance", "accent", "custom_color", "wheel_size", "wheel_style", "wheel_opacity", "label_style",
-             "hover_style", "slice_colors", "text_size", "wheel_position", "per_page", "animations", "wheel_numbers",
-             "toast_corner", "toast_time", "window_text", "sidebar_icons")
+# the settings of each tab of the Settings page (each one has its own "Reset to defaults")
+GENERAL_KEYS = ("language", "sound", "volume", "sound_problems", "show_progress", "low_priority", "one_at_a_time")
+LOOK_KEYS = ("appearance", "accent", "custom_color", "animations", "toast_corner", "toast_time", "window_text",
+             "sidebar_icons")
+CONVERTER_KEYS = ("shortcut", "save_mode", "output_folder", "jpg_quality", "show_unavailable", "context_menu",
+                  "menu_style", "ask_names", "reveal_after", "sound_tick", "watch_downloads", "pack_on_every_wheel")
+WHEEL_KEYS = ("wheel_size", "wheel_style", "wheel_opacity", "label_style", "hover_style", "slice_colors", "text_size",
+              "wheel_position", "per_page", "wheel_numbers")
 FORMAT_KEYS = ("hidden_tools", "favorites", "tool_order")
+UNINSTALLER_KEYS = ("unused_months", "backup_days", "restore_point")
+ARCHIVE_KEYS = ("extract_mode", "extract_nested", "remember_archives")
+UPDATE_KEYS = ("check_updates", "auto_update")
 
 
 def editable_keys() -> list[str]:
@@ -115,7 +127,7 @@ def editable_keys() -> list[str]:
 
 
 def general_keys() -> list[str]:
-    return [k for k in editable_keys() if k not in LOOK_KEYS and k not in FORMAT_KEYS]
+    return list(GENERAL_KEYS)
 
 
 @dataclass
@@ -148,6 +160,13 @@ class Settings:
     menu_signature: str = ""       # what was last written to the right-click menu
     open_archives: bool = True     # archives open in Corefold with a double-click ("Open with")
     recent_archives: list = field(default_factory=list)  # archives opened lately (newest first)
+    extract_mode: str = "smart"    # "Extract here": "smart" (no folder inside a folder) or "folder"
+    extract_nested: bool = False   # also unpack archives found inside
+    remember_archives: bool = True  # list the archives opened lately on the Archive page
+    # the Uninstaller
+    unused_months: int = 3         # "not used for …" filter
+    backup_days: int = 30          # backups of removed leftovers are kept this long
+    restore_point: bool = False    # tick "Make a System Restore point first" to begin with
     show_unavailable: bool = True  # dim slices that can't be used (False = hide them)
     # keeping the PC fast
     low_priority: bool = True      # conversions run "in the background" (below normal priority)
