@@ -369,6 +369,25 @@ class Controller(QObject):
             self._window.apply_theme(self.theme)
         return self._window
 
+    def rebuild_window(self, page: str = "Home", **keep):
+        """Builds the window again from the settings (after Discard or Reset to defaults), in the same
+        place, on the same page."""
+        old = self._window
+        if old is None:
+            return
+        from .window import MainWindow
+        geometry, shown = old.saveGeometry(), old.isVisible()
+        new = MainWindow(self, self.icon, **keep)
+        new.apply_theme(self.theme)
+        new.restoreGeometry(geometry)
+        new._placed = True
+        new.open_page(page)
+        self._window = new
+        if shown:
+            new.show()
+        old.hide()
+        old.deleteLater()
+
     def window_if_open(self):
         """The window if it exists (and nothing is built just to update it)."""
         return self._window

@@ -9,7 +9,7 @@ import logging
 import os
 import shutil
 import sys
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
 from .core import APP_NAME, LEGACY_NAME, Options
@@ -95,6 +95,26 @@ CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_styl
            "wheel_size": WHEEL_SIZES, "sound": SOUNDS, "language": LANGUAGES, "menu_style": MENU_STYLES,
            "appearance": APPEARANCES, "shortcut": SHORTCUT_LABELS, "toast_corner": TOAST_CORNERS,
            "toast_time": TOAST_TIMES, "window_text": WINDOW_TEXT}
+
+
+# Settings kept on disk while the window has changes that weren't saved yet (see window.py): the
+# window shows them straight away, but they only stay if "Save" is pressed.
+HELD: dict | None = None
+# not settings a person edits: what the app remembers by itself
+NOT_EDITED = {"enabled", "first_run", "last_version", "menu_signature", "window_geometry", "last_page",
+              "last_action", "tour_done", "watermark", "fit_mb"}
+LOOK_KEYS = ("appearance", "accent", "custom_color", "wheel_size", "wheel_style", "wheel_opacity", "label_style",
+             "hover_style", "slice_colors", "text_size", "wheel_position", "per_page", "animations", "wheel_numbers",
+             "toast_corner", "toast_time", "window_text", "sidebar_icons")
+FORMAT_KEYS = ("hidden_tools", "favorites", "tool_order")
+
+
+def editable_keys() -> list[str]:
+    return [f.name for f in fields(Settings) if f.name not in NOT_EDITED]
+
+
+def general_keys() -> list[str]:
+    return [k for k in editable_keys() if k not in LOOK_KEYS and k not in FORMAT_KEYS]
 
 
 @dataclass
@@ -209,7 +229,10 @@ class Settings:
             CONFIG_DIR.mkdir(parents=True, exist_ok=True)
             target = CONFIG_DIR / "settings.json"
             tmp = target.with_suffix(".tmp")
-            tmp.write_text(json.dumps(asdict(self), indent=2, ensure_ascii=False), "utf-8")
+            data = asdict(self)
+            if HELD:
+                data.update(HELD)  # unsaved changes in the window don't reach the disk
+            tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), "utf-8")
             os.replace(tmp, target)  # never leaves a half-written settings file
         except OSError:
             log.exception("could not save settings")

@@ -132,6 +132,7 @@ QLabel#soonPill { background: transparent; border: 1px solid $line_strong; borde
 QLabel#h1 { font-family: "Segoe UI Variable Display", "Segoe UI"; font-size: 19pt; font-weight: 600; }
 QLabel#h2 { font-family: "Segoe UI Variable Display", "Segoe UI"; font-size: 11pt; font-weight: 600; }
 QLabel#muted { color: $muted; }
+QLabel#unsaved { color: #e8a33d; font-weight: 600; }
 QLabel#warning { color: $text; background: $field; border: 1px solid $line_strong; border-$lead_side: 2px solid #e8a33d;
                  border-radius: 8px; padding: 8px 10px; }
 QLabel#step { background: $accent_soft; color: $accent; border-radius: 13px; font-weight: 700; }
