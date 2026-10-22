@@ -71,7 +71,7 @@ ACCENTS = {  # key: (name, colour on light, colour on dark) — from the Corefol
 }
 DEFAULT_ACCENT = "core"
 OLD_ACCENTS = {"tangerine": "core"}  # accent names from before 1.7.0
-WHEEL_SIZES = {"small": 135, "medium": 168, "large": 205, "huge": 245}  # outer radius in px
+WHEEL_SIZES = {"small": 148, "medium": 172, "large": 205, "huge": 245}  # outer radius in px
 WHEEL_SIZE_NAMES = {"small": "Small", "medium": "Medium", "large": "Large", "huge": "Huge"}
 WHEEL_STYLES = {"ring": "Classic", "petals": "Petals", "slim": "Slim ring", "bubbles": "Bubbles", "neon": "Neon",
                 "glass": "Glass"}
