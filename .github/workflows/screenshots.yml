@@ -24,12 +24,16 @@ jobs:
 
       - name: Take the pictures
         shell: pwsh
+        continue-on-error: true
         run: |
-          python scripts/screenshots.py shots dark en
-          python scripts/screenshots.py shots light en
-          python scripts/screenshots.py shots dark ar
+          New-Item -ItemType Directory -Force shots | Out-Null
+          foreach ($combo in @("dark en", "light en", "dark ar")) {
+            $a = $combo -split " "
+            python scripts/screenshots.py shots $a[0] $a[1] *>> "shots/output.txt"
+          }
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: screenshots
           path: shots/

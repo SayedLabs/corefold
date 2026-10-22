@@ -110,12 +110,31 @@ def note(name: str) -> float:
 
 # ----------------------------------------------------------------------------- the sounds
 
+def felt(freq: float, length: float = 0.6) -> list[float]:
+    """A felt-covered key: round and soft, no bright 'tok' on top."""
+    n = int(RATE * length)
+    attack = int(RATE * 0.008)
+    out = []
+    for i in range(n):
+        t = i / RATE
+        v = math.sin(2 * math.pi * freq * t) * math.exp(-t * 8.5)
+        v += 0.22 * math.sin(2 * math.pi * freq * 2 * t) * math.exp(-t * 20)
+        v += 0.06 * math.sin(2 * math.pi * freq * 3 * t) * math.exp(-t * 34)
+        if i < attack:
+            v *= 0.5 - 0.5 * math.cos(math.pi * i / attack)
+        out.append(v)
+    return out
+
+
 def corefold():
-    """Signature sound: two juicy wooden notes going up (G5 → C6)."""
-    buf = silence(0.75)
-    mix_into(buf, marimba(note("G5"), 0.55, 0.8), 0.0, 0.8)
-    mix_into(buf, marimba(note("C6"), 0.65, 0.8), 0.085, 1.0)
-    return lowpass(buf, 5200)
+    """Signature sound: a soft 'fold' (a low, round thump) and a warm rising fifth (A4 → E5).
+    Lower and rounder than a chime, so it says "done" without poking."""
+    buf = silence(0.7)
+    thump = [math.sin(2 * math.pi * 165 * i / RATE) * math.exp(-i / RATE * 38) for i in range(int(RATE * 0.12))]
+    mix_into(buf, edges(thump, 4, 30), 0.0, 0.35)
+    mix_into(buf, felt(note("A4"), 0.55), 0.01, 0.75)
+    mix_into(buf, felt(note("E5"), 0.6), 0.075, 0.6)
+    return lowpass(buf, 3000)
 
 
 def peel():

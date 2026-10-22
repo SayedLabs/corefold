@@ -23,6 +23,12 @@ os.environ["APPDATA"] = str(TMP / "roaming")
 os.environ["LOCALAPPDATA"] = str(TMP / "local")
 sys.path.insert(0, str(ROOT))
 
+import faulthandler  # noqa: E402
+
+_log = open(OUT / f"{LANG}-{APPEARANCE}-log.txt", "w", encoding="utf-8")
+faulthandler.enable(_log)
+sys.excepthook = lambda t, e, tb: (_log.write("".join(traceback.format_exception(t, e, tb))), _log.flush())
+
 from PIL import Image, ImageDraw  # noqa: E402
 
 from corefold import settings as st  # noqa: E402
