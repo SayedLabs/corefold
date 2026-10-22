@@ -444,14 +444,15 @@ class UninstallDialog(QDialog):
             l1.addWidget(_label(tr("First the app's own uninstaller runs (follow its steps). Then Corefold looks for "
                                    "anything it left behind, and you choose what goes."), "muted", wrap=True))
         self.quiet = QCheckBox(tr("Uninstall quietly where the app allows it (no questions)"))
-        self.quiet.setVisible(not forced and any(a.quiet or a.msi or a.store for a in apps))
         self.quiet.setChecked(len(apps) > 1)
         self.restore_point = QCheckBox(tr("Make a System Restore point first (asks for administrator)"))
-        self.restore_point.setVisible(not forced)
         self.restore_point.setChecked(bool(getattr(getattr(controller, "settings", None), "restore_point", False)))
         l1.addSpacing(6)
         l1.addWidget(self.quiet)
         l1.addWidget(self.restore_point)
+        # shown or hidden once they're in the dialog (before, showing one would open it as its own window)
+        self.quiet.setVisible(not forced and any(a.quiet or a.msi or a.store for a in apps))
+        self.restore_point.setVisible(not forced)
         l1.addStretch()
         r1 = QHBoxLayout()
         r1.addStretch()
@@ -539,7 +540,7 @@ class UninstallDialog(QDialog):
     def start(self):
         self.busy = True
         self.stack.setCurrentIndex(1)
-        quiet, point = self.quiet.isChecked(), self.restore_point.isChecked() and self.restore_point.isVisible()
+        quiet, point = self.quiet.isChecked(), self.restore_point.isChecked() and not self.restore_point.isHidden()
         apps, everything, forced = list(self.apps), list(self.everything), self.forced
         cancel, skip = self.cancel, self.skip_event
         command = _app_command()
