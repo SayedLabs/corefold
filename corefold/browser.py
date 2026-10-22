@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 
 PATH_ROLE = Qt.UserRole
 DIR_ROLE = Qt.UserRole + 1
+EAGER_LIMIT = 3000  # archives with more items than this fill their folders in only when opened
 DRAG_LIMIT = 256 << 20  # bigger than this (unpacked): use Extract, which shows progress and can be cancelled
 DRAG_KEEP_MS = 5 * 60_000  # the temporary copies made for a drag are removed this long after the drop
 
@@ -125,6 +126,9 @@ class ArchiveBrowser(QWidget):
         self.tree.header().setSectionResizeMode(0, QHeaderView.Stretch)
         self.tree.itemDoubleClicked.connect(lambda item, _col: self._open(item))
         self.tree.itemSelectionChanged.connect(self._buttons)
+        self.tree.itemExpanded.connect(self._expanded)
+        self._folder_icon = self.icons.icon(QFileIconProvider.Folder)
+        self._file_icon = self.icons.icon(QFileIconProvider.File)
         self.tree.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self._tree_menu)
         # keys: Enter opens, Delete removes, Ctrl+F searches
@@ -205,30 +209,25 @@ class ArchiveBrowser(QWidget):
     # ---- contents
 
     def set_entries(self, entries: list[ar.Entry]):
+        """Shows what's in the archive. Folders of a big archive are only filled in when they're
+        opened (or searched), so even 100,000 files show up at once."""
         self.entries = entries
         self.tree.setUpdatesEnabled(False)
         self.tree.clear()
-        view = self.tree
-        folder_icon = self.icons.icon(QFileIconProvider.Folder)
-        file_icon = self.icons.icon(QFileIconProvider.File)
-        right = Qt.AlignRight | Qt.AlignVCenter
-        folders: dict[str, Row] = {}
-        kids: dict[str, list] = {"": []}  # folder path -> the rows inside it
+        self._dirs: dict[str, list] = {"": []}    # folder -> the folders in it
+        self._files: dict[str, list] = {"": []}   # folder -> (path, entry) of the files in it
+        self._dir_time: dict[str, str] = {}
+        self._items: dict[str, Row] = {}          # folder -> its row, once made
+        self._filled: set[str] = set()
 
-        def folder(path: str) -> str:
-            if not path or path in folders:
-                return path
-            parent_path, _, name = path.rpartition("/")
-            folder(parent_path)
-            item = Row([ltr(name), "", "", ""])
-            item.setup(view, True, name)
-            item.setIcon(0, folder_icon)
-            item.setData(0, PATH_ROLE, path)
-            item.setData(0, DIR_ROLE, True)
-            folders[path] = item
-            kids[path] = []
-            kids[parent_path].append(item)
-            return path
+        def ensure(path: str):
+            if path in self._dirs:
+                return
+            parent = path.rpartition("/")[0]
+            ensure(parent)
+            self._dirs[path] = []
+            self._files[path] = []
+            self._dirs[parent].append(path)
 
         files = size = 0
         for e in entries:
@@ -236,39 +235,22 @@ class ArchiveBrowser(QWidget):
             if not path:
                 continue
             if e.is_dir:
-                folder(path)
+                ensure(path)
                 if e.modified:
-                    folders[path].setText(3, e.modified[:16])
+                    self._dir_time[path] = e.modified[:16]
                 continue
-            parent_path, _, name = path.rpartition("/")
-            folder(parent_path)
-            modified = e.modified[:16]
-            item = Row([ltr(name), human_size(e.size), human_size(e.packed) if e.packed else "", modified])
-            item.setup(view, False, name, e.size, e.packed, modified)
-            if e.encrypted:  # locked with a password
-                if self._lock_icon is None:
-                    from . import icons as line_icons
-                    self._lock_icon = line_icons.icon("lock_closed", "#7e8c89")
-                item.setIcon(0, self._lock_icon)
-            else:
-                item.setIcon(0, file_icon)
-            item.setData(0, PATH_ROLE, path)
-            item.setData(0, DIR_ROLE, False)
-            item.setTextAlignment(1, right)
-            item.setTextAlignment(2, right)
-            kids[parent_path].append(item)
+            parent = path.rpartition("/")[0]
+            ensure(parent)
+            self._files[parent].append((path, e))
             files += 1
             size += e.size
-        # in order, then in place: a whole folder's rows at once (much faster than one by one)
-        col, ascending = self.tree.sort_state
-        for path, rows in kids.items():
-            rows.sort(key=lambda r: r.keys[col], reverse=not ascending)
-            rows.sort(key=lambda r: not r.is_dir)  # folders first (the sort keeps the order above)
-            if path:
-                folders[path].addChildren(rows)
-        self.tree.addTopLevelItems(kids[""])
-        if len(folders) < 30:
-            self.tree.expandAll()
+        self.tree.addTopLevelItems(self._rows_for(""))
+        self._filled.add("")
+        if len(entries) <= EAGER_LIMIT:  # small: everything at once
+            for path in list(self._dirs):
+                self._fill(path)
+            if len(self._dirs) < 30:
+                self.tree.expandAll()
         self.tree.setUpdatesEnabled(True)
         try:
             packed = self.src.stat().st_size
@@ -281,6 +263,55 @@ class ArchiveBrowser(QWidget):
         self.info.setText(text + " · " + tr("Drag files out to any folder"))
         self.nested.setVisible(ar.holds_archives(entries))
         self._buttons()
+
+    def _rows_for(self, folder: str) -> list:
+        """The rows inside a folder, in the current order (folders first)."""
+        view = self.tree
+        rows = []
+        for path in self._dirs[folder]:
+            name = path.rpartition("/")[2]
+            item = Row([ltr(name), "", "", self._dir_time.get(path, "")])
+            item.setup(view, True, name)
+            item.setIcon(0, self._folder_icon)
+            item.setData(0, PATH_ROLE, path)
+            item.setData(0, DIR_ROLE, True)
+            if self._dirs[path] or self._files[path]:
+                item.setChildIndicatorPolicy(QTreeWidgetItem.ShowIndicator)
+            self._items[path] = item
+            rows.append(item)
+        right = Qt.AlignRight | Qt.AlignVCenter
+        for path, e in self._files[folder]:
+            name = path.rpartition("/")[2]
+            modified = e.modified[:16]
+            item = Row([ltr(name), human_size(e.size), human_size(e.packed) if e.packed else "", modified])
+            item.setup(view, False, name, e.size, e.packed, modified)
+            if e.encrypted:  # locked with a password
+                if self._lock_icon is None:
+                    from . import icons as line_icons
+                    self._lock_icon = line_icons.icon("lock_closed", "#7e8c89")
+                item.setIcon(0, self._lock_icon)
+            else:
+                item.setIcon(0, self._file_icon)
+            item.setData(0, PATH_ROLE, path)
+            item.setData(0, DIR_ROLE, False)
+            item.setTextAlignment(1, right)
+            item.setTextAlignment(2, right)
+            rows.append(item)
+        col, ascending = self.tree.sort_state
+        rows.sort(key=lambda r: r.keys[col], reverse=not ascending)
+        rows.sort(key=lambda r: not r.is_dir)  # folders first (the sort keeps the order above)
+        return rows
+
+    def _fill(self, folder: str):
+        """Makes the rows of a folder the first time it's needed."""
+        if folder in self._filled or folder not in self._items:
+            return
+        self._filled.add(folder)
+        self._items[folder].addChildren(self._rows_for(folder))
+
+    def _expanded(self, item):
+        if item.data(0, DIR_ROLE):
+            self._fill(item.data(0, PATH_ROLE))
 
     def _sort_by(self, col: int):
         """A column heading was clicked: sort by it (again: the other way round)."""
@@ -331,6 +362,12 @@ class ArchiveBrowser(QWidget):
 
     def _filter(self, text: str):
         text = text.strip().lower()
+        if text:  # fill in the folders that hold a match (they may not have been opened yet)
+            for path in [p for p in self._dirs if text in p.rpartition("/")[2].lower()] + \
+                    [p for rows in self._files.values() for p, _e in rows if text in p.rpartition("/")[2].lower()]:
+                parts = path.split("/")
+                for i in range(1, len(parts)):
+                    self._fill("/".join(parts[:i]))
 
         def visit(item: QTreeWidgetItem, inside_match: bool = False) -> bool:
             # a folder that matches shows everything in it
