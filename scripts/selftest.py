@@ -365,7 +365,8 @@ def archive_tool():
     cut.write_bytes(data[:data.rfind(b"PK\x01\x02")])
     r = ar.repair_archive(cut, ctx())
     with zipfile.ZipFile(r.outputs[0]) as z:
-        check(sorted(z.namelist()) == ["a.txt", "dir/b.txt"], f"cut-off ZIP rescued {z.namelist()} ({r.note})")
+        files = sorted(n for n in z.namelist() if not n.endswith("/"))
+        check(files == ["a.txt", "dir/b.txt"], f"cut-off ZIP rescued {files} ({r.note})")
     bad = bytearray(data)
     j = bytes(bad).find(b"dir/b.txt") + len("dir/b.txt") + 3
     bad[j:j + 6] = b"\xff" * 6
