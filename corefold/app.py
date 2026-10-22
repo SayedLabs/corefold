@@ -1,5 +1,5 @@
 """
-Corefold - Shift-drag file converter for Windows.
+Corefold - everyday tools for Windows (Converter, Uninstaller, Archive).
 
 Runs in the system tray. Hold Shift while dragging a file in File Explorer or on the
 desktop (or right-click it → Corefold) and a wheel of formats appears at the cursor;
@@ -282,7 +282,8 @@ class Controller(QObject):
         menu = QMenu()
         self.menu_icons = [(menu.addAction(tr("Open Corefold"), self.show_window), "home"),
                            (menu.addAction(tr("Settings"), lambda: self.show_window("General")), "settings"),
-                           (menu.addAction(tr("Convert what's copied"), self.paste), "arrow_swap")]
+                           (menu.addAction(tr("Convert what's copied"), self.paste), "arrow_swap"),
+                           (menu.addAction(tr("Open an archive…"), self.choose_archive), "archive")]
         self.act_again = menu.addAction(tr("Do it again…"), self.do_again)
         menu.aboutToShow.connect(self._update_again_action)
         self.recent_menu = menu.addMenu(tr("Recent files"))
@@ -651,6 +652,16 @@ class Controller(QObject):
         win.show()
         win.raise_()
         win.activateWindow()
+
+    def choose_archive(self, parent=None):
+        """Pick an archive and open it (from the tray menu or the Archive page)."""
+        from PySide6.QtWidgets import QFileDialog
+        from .core import ARCHIVE_EXT
+        pattern = " ".join(f"*{e}" for e in sorted(ARCHIVE_EXT))
+        name, _ = QFileDialog.getOpenFileName(parent, tr("Open an archive"), str(Path.home()),
+                                              f"{tr('Archives')} ({pattern});;{tr('All files')} (*)")
+        if name:
+            self.open_browser(Path(name))
 
     def remember_archive(self, src: Path):
         """Keeps the list of recently opened archives (shown on the Archive page)."""

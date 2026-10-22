@@ -694,7 +694,7 @@ STRINGS: dict[str, str] = {
     "Install updates by themselves (Corefold restarts for a moment)": "Güncellemeleri kendiliğinden yükle (Corefold kısa süre yeniden başlar)",
     "Updates come from the official Corefold release page, are checked for damage before installing, and keep all your settings.": "Güncellemeler resmî Corefold sürüm sayfasından gelir, yüklenmeden önce hasara karşı denetlenir ve tüm ayarlarınızı korur.",
     "About": "Hakkında",
-    "Shift-drag file converter for Windows. Everything happens on your PC; nothing is uploaded.": "Windows için Shift ile sürükle dosya dönüştürücü. Her şey bilgisayarınızda olur; hiçbir şey yüklenmez.",
+    "Everyday tools for Windows: convert files, remove programs, open and make archives. Everything happens on your PC; nothing is uploaded.": "Windows için günlük araçlar: dosya dönüştürün, program kaldırın, arşiv açın ve oluşturun. Her şey bilgisayarınızda olur; hiçbir şey yüklenmez.",
     "Show the tour": "Tanıtımı göster",
     "Open log folder": "Günlük klasörünü aç",
     "Quit Corefold": "Corefold'dan çık",

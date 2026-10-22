@@ -2,9 +2,18 @@
 
 *Everyday tools for Windows, by Atomic Works.*
 
-**Shift-drag file converter for Windows.** Hold Shift while dragging a file in File Explorer or on
-the desktop, and a wheel of formats appears at your cursor. Drop the file on a format and it's
-converted. Everything happens on your PC; nothing is uploaded.
+Three tools in one small app that waits in the tray. Everything happens on your PC; nothing is uploaded.
+
+- **Corefold Converter**: hold Shift while dragging a file in File Explorer or on the desktop, and a
+  wheel of formats appears at your cursor. Drop the file on a format and it's converted.
+- **Corefold Uninstaller**: removes programs and everything they leave behind (folders, shortcuts,
+  registry entries), with a backup you can put back. Shows which programs you haven't used in months.
+- **Corefold Archive**: opens ZIP, RAR, 7z, ISO and more with a double-click. Drag files out, change a
+  file inside and save it back, rescue damaged archives, and unpack archives inside archives in one go.
+
+Coming soon: Viewer, Player, Capture, Space, Clipboard and Cloud.
+
+### The Converter
 
 | Drop a… | You can |
 |---|---|

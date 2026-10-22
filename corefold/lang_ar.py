@@ -555,8 +555,7 @@ STRINGS: dict[str, str] = {
     "Updates come from the official Corefold release page, are checked for damage before installing, and keep all "
     "your settings.": "تأتي التحديثات من صفحة إصدارات كورفولد الرسمية، ويتم التحقق من سلامتها قبل التثبيت، وتحتفظ "
                       "بكل إعداداتك.",
-    "Shift-drag file converter for Windows. Everything happens on your PC; nothing is uploaded.":
-        "محوّل ملفات لويندوز بالسحب مع Shift. كل شيء يحدث على جهازك، ولا يُرفع أي شيء.",
+    "Everyday tools for Windows: convert files, remove programs, open and make archives. Everything happens on your PC; nothing is uploaded.": "أدوات يومية لويندوز: حوّل الملفات، احذف البرامج، افتح الأرشيفات واصنعها. كل شيء يصير على جهازك؛ ولا يُرفع أي شيء.",
     "Open log folder": "فتح مجلد السجلات",
     "Quit Corefold": "إغلاق كورفولد",
     "Help make Corefold better": "ساعد في تحسين كورفولد",
