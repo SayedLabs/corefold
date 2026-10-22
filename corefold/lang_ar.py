@@ -212,8 +212,6 @@ STRINGS: dict[str, str] = {
     "Size": "الحجم",
     "Packed": "بعد الضغط",
     "Modified": "آخر تعديل",
-    "Extract all…": "فك ضغط الكل…",
-    "Extract selected…": "فك ضغط المحدد…",
     "Open": "فتح",
     "Test": "فحص",
     "Add files…": "إضافة ملفات…",
@@ -971,4 +969,8 @@ STRINGS: dict[str, str] = {
     "Open an archive": "افتح أرشيفًا",
     "All files": "كل الملفات",
     "{count} bytes": "{count} بايت",
+    "Extract to…": "فك الضغط إلى…",
+    "Extract selected to…": "فك المحدد إلى…",
+    "Select all": "تحديد الكل",
+    "Next to the archive (or in your results folder), without a folder inside a folder": "جنب الأرشيف (أو في مجلد النتائج)، بدون مجلد داخل مجلد",
 }

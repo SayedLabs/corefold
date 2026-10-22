@@ -290,8 +290,6 @@ STRINGS: dict[str, str] = {
     "Search inside the archive": "Rechercher dans l'archive",
     "Packed": "Compressé",
     "Modified": "Modifié",
-    "Extract all…": "Tout extraire…",
-    "Extract selected…": "Extraire la sélection…",
     "Open": "Ouvrir",
     "Test": "Tester",
     "Add files…": "Ajouter des fichiers…",
@@ -891,4 +889,8 @@ STRINGS: dict[str, str] = {
     "Open an archive": "Ouvrir une archive",
     "All files": "Tous les fichiers",
     "{count} bytes": "{count} octets",
+    "Extract to…": "Extraire vers…",
+    "Extract selected to…": "Extraire la sélection vers…",
+    "Select all": "Tout sélectionner",
+    "Next to the archive (or in your results folder), without a folder inside a folder": "À côté de l'archive (ou dans votre dossier de résultats), sans dossier dans un dossier",
 }

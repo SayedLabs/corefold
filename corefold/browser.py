@@ -6,22 +6,22 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QFileSystemWatcher, QMimeData, Qt, QTimer, QUrl
-from PySide6.QtGui import QDrag, QGuiApplication, QIcon
+from PySide6.QtGui import QDrag, QGuiApplication, QIcon, QKeySequence, QShortcut
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QFileDialog, QFileIconProvider, QFrame, QHBoxLayout,
-                               QHeaderView, QLabel, QLineEdit, QMessageBox, QPushButton, QTreeWidget, QTreeWidgetItem,
-                               QVBoxLayout, QWidget)
+                               QHeaderView, QLabel, QLineEdit, QMenu, QMessageBox, QPushButton, QTreeWidget,
+                               QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from . import archives as ar
 from .core import APP_NAME, Tool, human_size, short_name
 from .i18n import ltr, tr
-from .winutil import set_title_bar_dark
+from .theme import round_menu
+from .winutil import reveal_in_explorer, set_title_bar_dark
 
 if TYPE_CHECKING:
     from .app import Controller
 
 PATH_ROLE = Qt.UserRole
 DIR_ROLE = Qt.UserRole + 1
-SORT_ROLE = Qt.UserRole + 2
 DRAG_LIMIT = 256 << 20  # bigger than this (unpacked): use Extract, which shows progress and can be cancelled
 DRAG_KEEP_MS = 5 * 60_000  # the temporary copies made for a drag are removed this long after the drop
 
@@ -44,18 +44,18 @@ def _natural(text: str) -> list:
 
 
 class Row(QTreeWidgetItem):
-    """Sorts folders first, and sizes as numbers (not as text)."""
+    """One file or folder. What it's sorted by is kept on the item itself (asking Qt for it on each of
+    the million comparisons a big archive needs would take seconds); folders always come first."""
+
+    def setup(self, view, is_dir: bool, name: str, size: int = 0, packed: int = 0, modified: str = ""):
+        self.view, self.is_dir = view, is_dir
+        self.keys = (_natural(name), size, packed, modified)
 
     def __lt__(self, other):
-        tree = self.treeWidget()
-        col = tree.sortColumn() if tree else 0
-        a_dir, b_dir = bool(self.data(0, DIR_ROLE)), bool(other.data(0, DIR_ROLE))
-        if a_dir != b_dir:
-            ascending = not tree or tree.header().sortIndicatorOrder() == Qt.AscendingOrder
-            return a_dir if ascending else b_dir
-        if col in (1, 2):
-            return (self.data(col, SORT_ROLE) or 0) < (other.data(col, SORT_ROLE) or 0)
-        return _natural(self.text(col)) < _natural(other.text(col))
+        col, ascending = self.view.sort_state
+        if self.is_dir != other.is_dir:
+            return self.is_dir if ascending else other.is_dir
+        return self.keys[col] < other.keys[col]
 
 
 class ArchiveTree(QTreeWidget):
@@ -106,10 +106,27 @@ class ArchiveBrowser(QWidget):
         self.tree.setHeaderLabels([tr("Name"), tr("Size"), tr("Packed"), tr("Modified")])
         self.tree.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.tree.setUniformRowHeights(True)
-        self.tree.setSortingEnabled(True)
+        # sorted by Corefold (in Python, before the rows go in): Qt's own sorting would be slow for
+        # 100,000 files. Clicking a column heading sorts by it.
+        self.tree.sort_state = (0, True)
+        header = self.tree.header()
+        header.setSectionsClickable(True)
+        header.setSortIndicatorShown(True)
+        header.setSortIndicator(0, Qt.AscendingOrder)
+        header.sectionClicked.connect(self._sort_by)
         self.tree.header().setSectionResizeMode(0, QHeaderView.Stretch)
         self.tree.itemDoubleClicked.connect(lambda item, _col: self._open(item))
         self.tree.itemSelectionChanged.connect(self._buttons)
+        self.tree.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.tree.customContextMenuRequested.connect(self._tree_menu)
+        # keys: Enter opens, Delete removes, Ctrl+F searches
+        QShortcut(QKeySequence(Qt.Key_Return), self.tree, lambda: self._open(self.tree.currentItem()),
+                  context=Qt.WidgetShortcut)
+        QShortcut(QKeySequence(Qt.Key_Enter), self.tree, lambda: self._open(self.tree.currentItem()),
+                  context=Qt.WidgetShortcut)
+        QShortcut(QKeySequence.StandardKey.Delete, self.tree,
+                  lambda: self._delete() if ar.can_edit(self.src) else None, context=Qt.WidgetShortcut)
+        QShortcut(QKeySequence.StandardKey.Find, self, self.search.setFocus)
 
         def btn(text, fn, name=None):
             b = QPushButton(text)
@@ -119,13 +136,22 @@ class ArchiveBrowser(QWidget):
             b.clicked.connect(fn)
             return b
 
-        self.b_all = btn(tr("Extract all…"), self._extract_all, "primary")
-        self.b_sel = btn(tr("Extract selected…"), self._extract_selected)
+        self.b_here = btn(tr("Extract here"), self._extract_here, "primary")
+        self.b_here.setToolTip(tr("Next to the archive (or in your results folder), without a folder inside a folder"))
+        self.b_to = btn(tr("Extract to…"), self._extract_to)
         self.b_open = btn(tr("Open"), lambda: self._open(self.tree.currentItem()))
-        self.b_test = btn(tr("Test"), self._test)
-        self.b_repair = btn(tr("Rescue files…"), self._repair)
-        self.b_repair.setToolTip(tr("For a damaged archive: makes a new ZIP with every file that can still be read. "
-                                    "The archive itself isn't changed."))
+        self.b_more = btn(tr("More"), lambda: None)
+        more = QMenu(self.b_more)
+        round_menu(more)
+        more.addAction(tr("Test"), self._test)
+        rescue = more.addAction(tr("Rescue files…"), self._repair)
+        rescue.setToolTip(tr("For a damaged archive: makes a new ZIP with every file that can still be read. "
+                             "The archive itself isn't changed."))
+        more.setToolTipsVisible(True)
+        more.addSeparator()
+        more.addAction(tr("Select all"), self.tree.selectAll)
+        more.addAction(tr("Show in folder"), lambda: reveal_in_explorer(self.src))
+        self.b_more.setMenu(more)
         self.nested = QCheckBox(tr("Also unpack archives inside"))
         self.nested.setToolTip(tr("Archives found inside are unpacked too, each into its own folder."))
         self.b_add = btn(tr("Add files…"), self._add)
@@ -134,7 +160,7 @@ class ArchiveBrowser(QWidget):
         self.b_add.setVisible(editable)
         self.b_del.setVisible(editable)
         row = QHBoxLayout()
-        for b in (self.b_all, self.b_sel, self.b_open, self.b_test, self.b_repair):
+        for b in (self.b_here, self.b_to, self.b_open, self.b_more):
             row.addWidget(b)
         row.addStretch()
         row.addWidget(self.b_add)
@@ -171,24 +197,29 @@ class ArchiveBrowser(QWidget):
 
     def set_entries(self, entries: list[ar.Entry]):
         self.entries = entries
+        self.tree.setUpdatesEnabled(False)
         self.tree.clear()
-        self.tree.setSortingEnabled(False)
-        folders: dict[str, QTreeWidgetItem] = {}
+        view = self.tree
+        folder_icon = self.icons.icon(QFileIconProvider.Folder)
+        file_icon = self.icons.icon(QFileIconProvider.File)
+        right = Qt.AlignRight | Qt.AlignVCenter
+        folders: dict[str, Row] = {}
+        kids: dict[str, list] = {"": []}  # folder path -> the rows inside it
 
-        def folder(path: str) -> QTreeWidgetItem | None:
-            if not path:
-                return None
-            if path in folders:
-                return folders[path]
+        def folder(path: str) -> str:
+            if not path or path in folders:
+                return path
             parent_path, _, name = path.rpartition("/")
-            parent = folder(parent_path)
+            folder(parent_path)
             item = Row([ltr(name), "", "", ""])
-            item.setIcon(0, self.icons.icon(QFileIconProvider.Folder))
+            item.setup(view, True, name)
+            item.setIcon(0, folder_icon)
             item.setData(0, PATH_ROLE, path)
             item.setData(0, DIR_ROLE, True)
-            (parent.addChild(item) if parent else self.tree.addTopLevelItem(item))
             folders[path] = item
-            return item
+            kids[path] = []
+            kids[parent_path].append(item)
+            return path
 
         files = size = 0
         for e in entries:
@@ -196,33 +227,40 @@ class ArchiveBrowser(QWidget):
             if not path:
                 continue
             if e.is_dir:
-                item = folder(path)
+                folder(path)
                 if e.modified:
-                    item.setText(3, e.modified[:16])
+                    folders[path].setText(3, e.modified[:16])
                 continue
             parent_path, _, name = path.rpartition("/")
-            parent = folder(parent_path)
-            item = Row([ltr(name), human_size(e.size), human_size(e.packed) if e.packed else "", e.modified[:16]])
-            item.setData(1, SORT_ROLE, e.size)
-            item.setData(2, SORT_ROLE, e.packed)
+            folder(parent_path)
+            modified = e.modified[:16]
+            item = Row([ltr(name), human_size(e.size), human_size(e.packed) if e.packed else "", modified])
+            item.setup(view, False, name, e.size, e.packed, modified)
             if e.encrypted:  # locked with a password
                 if self._lock_icon is None:
                     from . import icons as line_icons
                     self._lock_icon = line_icons.icon("lock_closed", "#7e8c89")
                 item.setIcon(0, self._lock_icon)
             else:
-                item.setIcon(0, self.icons.icon(QFileIconProvider.File))
+                item.setIcon(0, file_icon)
             item.setData(0, PATH_ROLE, path)
             item.setData(0, DIR_ROLE, False)
-            item.setTextAlignment(1, Qt.AlignRight | Qt.AlignVCenter)
-            item.setTextAlignment(2, Qt.AlignRight | Qt.AlignVCenter)
-            (parent.addChild(item) if parent else self.tree.addTopLevelItem(item))
+            item.setTextAlignment(1, right)
+            item.setTextAlignment(2, right)
+            kids[parent_path].append(item)
             files += 1
             size += e.size
-        self.tree.setSortingEnabled(True)
-        self.tree.sortByColumn(0, Qt.AscendingOrder)
+        # in order, then in place: a whole folder's rows at once (much faster than one by one)
+        col, ascending = self.tree.sort_state
+        for path, rows in kids.items():
+            rows.sort(key=lambda r: r.keys[col], reverse=not ascending)
+            rows.sort(key=lambda r: not r.is_dir)  # folders first (the sort keeps the order above)
+            if path:
+                folders[path].addChildren(rows)
+        self.tree.addTopLevelItems(kids[""])
         if len(folders) < 30:
             self.tree.expandAll()
+        self.tree.setUpdatesEnabled(True)
         try:
             packed = self.src.stat().st_size
         except OSError:
@@ -234,6 +272,19 @@ class ArchiveBrowser(QWidget):
         self.info.setText(text + " · " + tr("Drag files out to any folder"))
         self.nested.setVisible(ar.holds_archives(entries))
         self._buttons()
+
+    def _sort_by(self, col: int):
+        """A column heading was clicked: sort by it (again: the other way round)."""
+        old_col, ascending = self.tree.sort_state
+        ascending = not ascending if col == old_col else col == 0
+        self.tree.sort_state = (col, ascending)
+        order = Qt.AscendingOrder if ascending else Qt.DescendingOrder
+        self.tree.header().setSortIndicator(col, order)
+        QGuiApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            self.tree.sortItems(col, order)
+        finally:
+            QGuiApplication.restoreOverrideCursor()
 
     def reload(self):
         try:
@@ -272,7 +323,7 @@ class ArchiveBrowser(QWidget):
 
     def _buttons(self):
         sel = self.tree.selectedItems()
-        self.b_sel.setEnabled(bool(sel))
+        self.b_to.setText(tr("Extract selected to…") if sel else tr("Extract to…"))
         self.b_del.setEnabled(bool(sel))
         current = self.tree.currentItem()
         self.b_open.setEnabled(bool(current and not current.data(0, DIR_ROLE)))
@@ -286,20 +337,49 @@ class ArchiveBrowser(QWidget):
     def _pick_folder(self) -> str:
         return QFileDialog.getExistingDirectory(self, tr("Extract to"), str(self.src.parent))
 
-    def _extract_all(self):
+    def _nested(self) -> bool:
+        return self.nested.isVisible() and self.nested.isChecked()
+
+    def _extract_here(self):
+        """Everything, the smart way (one item: straight in; several: into a folder named after the archive)."""
+        nested = self._nested()
+        self._run("archive:extract", tr("Extract"), lambda items, ctx: ar.extract(
+            self.src, _with(ctx, nested=nested), mode="smart"))
+
+    def _extract_to(self):
+        """Into a folder you pick: the selected items, or everything if nothing is selected."""
+        members = self._selected_paths() if self.tree.selectedItems() else None
         dest = self._pick_folder()
-        if dest:
-            nested = self.nested.isVisible() and self.nested.isChecked()
+        if not dest:
+            return
+        nested = self._nested()
+        if members:
+            self._run("archive:extract", tr("Extract"), lambda items, ctx: ar.extract(
+                self.src, _with(ctx, dest=dest, members=members, nested=nested)))
+        else:
             self._run("archive:extract", tr("Extract"), lambda items, ctx: ar.extract(
                 self.src, _with(ctx, dest=dest, nested=nested), mode="folder"))
 
-    def _extract_selected(self):
-        members = self._selected_paths()
-        dest = self._pick_folder() if members else ""
-        if dest:
-            nested = self.nested.isVisible() and self.nested.isChecked()
-            self._run("archive:extract", tr("Extract"), lambda items, ctx: ar.extract(
-                self.src, _with(ctx, dest=dest, members=members, nested=nested)))
+    def _tree_menu(self, pos):
+        """Right-click on the list."""
+        item = self.tree.itemAt(pos)
+        if item is not None and not item.isSelected():
+            self.tree.clearSelection()
+            item.setSelected(True)
+            self.tree.setCurrentItem(item)
+        menu = QMenu(self)
+        round_menu(menu)
+        if item is not None and not item.data(0, DIR_ROLE):
+            menu.addAction(tr("Open"), lambda: self._open(item))
+        if self.tree.selectedItems():
+            menu.addAction(tr("Extract selected to…"), self._extract_to)
+            if ar.can_edit(self.src):
+                menu.addAction(tr("Remove"), self._delete)
+            menu.addSeparator()
+        menu.addAction(tr("Extract here"), self._extract_here)
+        menu.addAction(tr("Select all"), self.tree.selectAll)
+        menu.exec(self.tree.viewport().mapToGlobal(pos))
+        menu.deleteLater()
 
     def _open(self, item):
         if not item or item.data(0, DIR_ROLE):
