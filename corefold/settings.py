@@ -306,5 +306,24 @@ def remove_user_data():
     except Exception:
         log.exception("could not remove the right-click menu")
     logging.shutdown()
-    for folder in (CONFIG_DIR, LOG_DIR):
-        shutil.rmtree(folder, ignore_errors=True)
+    shutil.rmtree(CONFIG_DIR, ignore_errors=True)
+    # LOG_DIR also holds the backups of apps removed with Corefold ("Uninstall backups"): those are
+    # the person's files, so they stay (they can be deleted from the Apps page, or by hand)
+    try:
+        items = list(LOG_DIR.iterdir())
+    except OSError:
+        items = []
+    for item in items:
+        if item.name == "Uninstall backups" and any(item.iterdir()):
+            continue
+        if item.is_dir():
+            shutil.rmtree(item, ignore_errors=True)
+        else:
+            try:
+                item.unlink()
+            except OSError:
+                pass
+    try:
+        LOG_DIR.rmdir()  # only if nothing is left
+    except OSError:
+        pass

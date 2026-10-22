@@ -166,12 +166,16 @@ def download(info: UpdateInfo, current: str, progress: Callable[[float], None] |
     try:
         with _request(info.installer_url, ua, timeout) as resp, open(part, "wb") as fh:
             total = int(resp.headers.get("Content-Length") or info.installer_size or 0)
+            # never more than GitHub said the file is (or 1 GB if it didn't say): a wrong answer can't fill the disk
+            limit = (info.installer_size or 1_000_000_000) + 1_000_000
             while True:
                 if cancel.is_set():
                     raise UpdateError(CANCELLED)
                 chunk = resp.read(256 * 1024)
                 if not chunk:
                     break
+                if done + len(chunk) > limit:
+                    raise UpdateError(tr("the download was damaged (checksum mismatch). Try again later"))
                 fh.write(chunk)
                 digest.update(chunk)
                 done += len(chunk)

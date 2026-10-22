@@ -103,9 +103,12 @@ def pdf_save_pages(src: Path, out: Path, pages: list[tuple[int, int]], password:
         if turn % 360:
             page.rotate(turn % 360)
     tmp = out.with_name(out.name + ".part")
-    with open(tmp, "wb") as fh:
-        writer.write(fh)
-    os.replace(tmp, out)
+    try:
+        with open(tmp, "wb") as fh:
+            writer.write(fh)
+        os.replace(tmp, out)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def pdf_pages(src: Path, ctx: Ctx) -> Result:

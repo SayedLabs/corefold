@@ -43,8 +43,10 @@ def setup_pillow():
         return
     from PIL import Image, ImageFile
     # Big panoramas and scans are fine on a desktop PC (Pillow's default refuses anything over
-    # about 180 megapixels as a safety measure for web servers).
-    Image.MAX_IMAGE_PIXELS = 1_000_000_000
+    # about 180 megapixels as a safety measure for web servers). Pictures over 600 megapixels are
+    # still refused: one of those needs several GB of memory, and a booby-trapped tiny file can
+    # claim to be that big.
+    Image.MAX_IMAGE_PIXELS = 300_000_000
     # A photo that was only partly downloaded still opens (the missing part is grey), like in any
     # picture viewer, instead of failing.
     ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -846,19 +848,30 @@ def office_app_for(src: Path) -> str | None:
 
 # Office is only closed afterwards if nothing else is open in it: PowerPoint (and sometimes Word
 # and Excel) share one copy with whatever the person is working on.
+# Office opens the file read-only, without adding it to its recent files, and with macros switched
+# off: a program that drives Office would otherwise run a document's macros without asking
+# (AutomationSecurity 3 = "disable all macros"; the old value is put back afterwards).
 OFFICE_SCRIPTS = {
     "Word.Application": """
 $app = New-Object -ComObject Word.Application; $app.DisplayAlerts = 0
-try { $d = $app.Documents.Open($env:SAT_IN, $false, $true, $false); $d.ExportAsFixedFormat($env:SAT_OUT, 17); $d.Close(0) }
-finally { if ($app.Documents.Count -eq 0) { $app.Quit() } }""",
+$was = $app.AutomationSecurity; $app.AutomationSecurity = 3
+# a made-up password: a locked file then fails at once, instead of waiting on an invisible password box
+try { $d = $app.Documents.Open($env:CF_IN, $false, $true, $false, "corefold-no-password", "corefold-no-password")
+      $d.ExportAsFixedFormat($env:CF_OUT, 17); $d.Close(0) }
+finally { $app.AutomationSecurity = $was; if ($app.Documents.Count -eq 0) { $app.Quit() } }""",
     "Excel.Application": """
 $app = New-Object -ComObject Excel.Application; $app.DisplayAlerts = $false
-try { $b = $app.Workbooks.Open($env:SAT_IN, 0, $true); $b.ExportAsFixedFormat(0, $env:SAT_OUT); $b.Close($false) }
-finally { if ($app.Workbooks.Count -eq 0) { $app.Quit() } }""",
+$was = $app.AutomationSecurity; $app.AutomationSecurity = 3; $app.EnableEvents = $false
+$m = [Reflection.Missing]::Value
+try { $b = $app.Workbooks.Open($env:CF_IN, 0, $true, $m, "corefold-no-password", "corefold-no-password", $true, $m, $m,
+                              $false, $false, $m, $false)
+      $b.ExportAsFixedFormat(0, $env:CF_OUT); $b.Close($false) }
+finally { $app.AutomationSecurity = $was; $app.EnableEvents = $true; if ($app.Workbooks.Count -eq 0) { $app.Quit() } }""",
     "PowerPoint.Application": """
 $app = New-Object -ComObject PowerPoint.Application
-try { $p = $app.Presentations.Open($env:SAT_IN, -1, 0, 0); $p.SaveAs($env:SAT_OUT, 32); $p.Close() }
-finally { if ($app.Presentations.Count -eq 0) { $app.Quit() } }""",
+$was = $app.AutomationSecurity; $app.AutomationSecurity = 3
+try { $p = $app.Presentations.Open($env:CF_IN, -1, 0, 0); $p.SaveAs($env:CF_OUT, 32); $p.Close() }
+finally { $app.AutomationSecurity = $was; if ($app.Presentations.Count -eq 0) { $app.Quit() } }""",
 }
 
 
@@ -866,7 +879,7 @@ def document_to_pdf(src: Path, ctx: Ctx) -> Result:
     out = ctx.out_path(src, ctx.stem(src) + ".pdf")
     prog = office_app_for(src)
     if prog:
-        env = dict(os.environ, SAT_IN=str(src.resolve()), SAT_OUT=str(out.resolve()))
+        env = dict(os.environ, CF_IN=str(src.resolve()), CF_OUT=str(out.resolve()))
         ps = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
         proc = subprocess.run([str(ps), "-NoProfile", "-NonInteractive", "-Command", OFFICE_SCRIPTS[prog]],
                               capture_output=True, text=True, env=env, timeout=600, stdin=subprocess.DEVNULL,

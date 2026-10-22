@@ -26,7 +26,7 @@ import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from .core import LEGACY_NAME
+from .core import LEGACY_NAME, is_link  # noqa: F401 (is_link is used here and by the selftest)
 
 log = logging.getLogger(__name__)
 
@@ -76,6 +76,7 @@ def clean_name(text: str) -> str:
     text = re.sub(r"\(.*?\)|\[.*?\]", " ", text or "")
     text = re.sub(r"\b\d+(\.\d+)+\b", " ", text)        # version numbers
     text = _NOISE.sub(" ", text)
+    text = re.sub(r"[\s_-]+\d+\s*$", "", text.strip())   # "Studio 2024", "Settings 2"
     return norm(text)
 
 
@@ -123,7 +124,11 @@ class App:
             if pub and n.startswith(pub) and len(n) - len(pub) >= 3:
                 out.add(n[len(pub):])  # "Mozilla Firefox" -> also "firefox"
         if self.location and with_location:
-            out.add(norm(Path(self.location.rstrip("\\/")).name))
+            # the install folder's name counts only when it is the app's name (or a longer form of
+            # it): "C:\\Program Files\\Vendor" for "Vendor Tool" would match the whole vendor folder
+            loc = norm(Path(self.location.rstrip("\\/")).name)
+            if any(loc == n or loc.startswith(n) for n in set(out)):
+                out.add(loc)
         if self.family:
             out.add(norm(self.family.split("_")[0]))
         return {n for n in out if len(n) >= 3 and n not in PROTECTED}
@@ -423,7 +428,7 @@ def still_installed(app: App) -> bool:
                              timeout=30)
             return out.strip() == "yes"
         except Exception:
-            return False
+            return True  # couldn't check: treat it as still installed, so nothing of it is touched
     return key_exists(app.hive, UNINSTALL + "\\" + app.key, app.view)
 
 
@@ -539,6 +544,14 @@ def _safe_folder(path: str) -> bool:
     return norm(Path(p).name) not in PROTECTED
 
 
+# Windows' own and Microsoft's folders: only ever offered for a Microsoft app, and never ticked
+_SYSTEM_PREFIXES = ("microsoft", "windows")
+
+
+def _system_named(name: str) -> bool:
+    return norm(name).startswith(_SYSTEM_PREFIXES)
+
+
 def _inside(child: str, parent: str) -> bool:
     c = os.path.normcase(os.path.normpath(child)).rstrip("\\/")
     p = os.path.normcase(os.path.normpath(parent)).rstrip("\\/")
@@ -586,12 +599,46 @@ def lnk_target(path: Path) -> str:
         return ""
 
 
+def _only_its_shortcuts(folder: Path, keys: set[str], loc: str) -> bool:
+    """A Start-menu folder holds nothing but this app's shortcuts (so it can go as a whole)."""
+    try:
+        entries = list(folder.rglob("*"))[:200]
+    except OSError:
+        return False
+    for e in entries:
+        try:
+            if e.is_dir():
+                continue
+        except OSError:
+            return False
+        if e.suffix.lower() not in (".lnk", ".url", ".ini"):
+            return False
+        if e.suffix.lower() == ".ini":  # desktop.ini
+            continue
+        target = lnk_target(e) if e.suffix.lower() == ".lnk" else ""
+        if not ((loc and target and _inside(target, loc)) or _match(e.stem, keys)):
+            return False
+    return True
+
+
 def find_leftovers(app: App, others: list[App] | None = None, forced: bool = False) -> list[Leftover]:
     """What the app left behind. others = the apps still installed (their folders are never offered)."""
     keys = app.names()
     found: dict[str, Leftover] = {}
-    other_places = [o.location for o in (others or [])
-                    if o.id != app.id and o.location and _safe_folder(o.location)]
+    other_places = []
+    for o in others or []:
+        if o.id == app.id:
+            continue
+        # where another installed app lives: its folder, and where its uninstaller and icon are
+        exe_o, _ = split_command(o.uninstall)
+        for place in (o.location, os.path.dirname(exe_o) if exe_o and os.path.isabs(exe_o) else "",
+                      os.path.dirname(o.icon) if o.icon and os.path.isabs(o.icon) else ""):
+            if place and _safe_folder(place):
+                other_places.append(place)
+    microsoft_app = "microsoft" in norm(app.publisher)
+
+    def system_ok(name: str) -> bool:
+        return not _system_named(name) or microsoft_app
 
     def belongs_to_other(path: str) -> bool:
         for loc in other_places:
@@ -625,8 +672,13 @@ def find_leftovers(app: App, others: list[App] | None = None, forced: bool = Fal
                          _env_path("LOCALAPPDATA", "Programs"), _env_path("ProgramData"), _env_path("APPDATA"),
                          _env_path("LOCALAPPDATA")) if r is not None]
     for place, sure in places:
-        if sure and os.path.isdir(place) and _safe_folder(place) and not belongs_to_other(place):
-            ticked = any(_inside(place, str(r)) for r in usual) or _match(Path(place).name, core) == "exact"
+        if sure and os.path.isdir(place) and _safe_folder(place) and not belongs_to_other(place) \
+                and not is_link(place) and system_ok(Path(place).name):
+            # ticked only in a usual install place, and only when it's clearly the app's own folder:
+            # named after it, or holding its uninstaller or icon
+            # (holding its uninstaller isn't enough: some apps put theirs in a shared vendor folder)
+            named = bool(_match(Path(place).name, core))
+            ticked = named and any(_inside(place, str(r)) for r in usual) and not _system_named(Path(place).name)
             add(Leftover("folder", os.path.normpath(place), "install" if ticked else "maybe", ticked))
 
     # 2. folders named after the app in Program Files, ProgramData, AppData...
@@ -638,14 +690,16 @@ def find_leftovers(app: App, others: list[App] | None = None, forced: bool = Fal
             continue
         for child in children:
             try:
-                if not child.is_dir() or child.is_symlink():
+                if not child.is_dir() or is_link(child):
                     continue
             except OSError:
+                continue
+            if not system_ok(child.name):
                 continue
             how = _match(child.name, keys)
             if how and _safe_folder(str(child)) and not belongs_to_other(str(child)):
                 # a short, plain name ("Notes") might be another app's: shown, but not ticked
-                sure = how == "exact" and len(norm(child.name)) >= 6
+                sure = how == "exact" and len(norm(child.name)) >= 6 and not _system_named(child.name)
                 add(Leftover("folder", str(child), "data" if sure else "maybe", sure))
             elif pub and len(pub) >= 3 and norm(child.name) in (pub, norm(app.publisher)) and pub not in PROTECTED:
                 try:
@@ -653,6 +707,8 @@ def find_leftovers(app: App, others: list[App] | None = None, forced: bool = Fal
                 except OSError:
                     continue
                 for g in grand:
+                    if is_link(g) or not system_ok(g.name):
+                        continue
                     how = _match(g.name, keys)
                     if how and _safe_folder(str(g)) and not belongs_to_other(str(g)):
                         add(Leftover("folder", str(g), "data" if how == "exact" else "maybe", how == "exact"))
@@ -671,8 +727,9 @@ def find_leftovers(app: App, others: list[App] | None = None, forced: bool = Fal
         for e in entries[:5000]:
             try:
                 if e.is_dir():
-                    if _match(e.name, keys) == "exact" and _safe_folder(str(e)):
-                        add(Leftover("folder", str(e), "shortcut", True))
+                    if _match(e.name, keys) == "exact" and _safe_folder(str(e)) and not is_link(e) \
+                            and system_ok(e.name):
+                        add(Leftover("folder", str(e), "shortcut", _only_its_shortcuts(e, keys, loc)))
                     continue
                 if e.suffix.lower() not in (".lnk", ".url"):
                     continue
@@ -836,7 +893,7 @@ def item_allowed(item: dict) -> bool:
     kind = str(item.get("kind", ""))
     path = str(item.get("path", ""))
     if kind in ("folder", "file", "shortcut"):
-        return _path_ok(path, kind)
+        return _path_ok(path, kind) and not is_link(path)
     if kind in ("key", "value"):
         return _registry_ok(path, kind) and (kind == "key" or bool(item.get("value")))
     return False
@@ -900,7 +957,16 @@ def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, a
     data = _manifest(folder)
     if apps:
         data["apps"] = sorted(set(data.get("apps", [])) | set(apps))
+    data["time"] = data.get("time") or time.time()
+    data.setdefault("items", [])
     done, failed, freed = [], [], 0
+
+    def keep(record):
+        """Written down straight away: if Corefold or the PC stops half-way, the backup still lists
+        everything that was already moved, so it can all be put back."""
+        if record.get("stored"):
+            data["items"].append(record)
+            _save_manifest(folder, data)
     winreg = _winreg() if any(i.is_registry for i in items) else None
     for item in items:
         n = uuid.uuid4().hex[:10]
@@ -923,12 +989,13 @@ def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, a
                     record["stored"] = "recycle"
                     freed += item.size
                     done.append(record)
+                    keep(record)
                     _remove_empty_parent(src.parent)
                     continue
                 dest = folder / "files" / n / src.name
                 _move(src, dest)
                 if admin:  # moved out of Program Files: let the user delete the backup later
-                    subprocess.run(["icacls", str(dest), "/reset", "/T", "/C", "/Q"], capture_output=True,
+                    subprocess.run(["icacls", str(dest), "/reset", "/T", "/C", "/L", "/Q"], capture_output=True,
                                    creationflags=NO_WINDOW, timeout=300)
                 record["stored"] = str(dest.relative_to(folder))
                 freed += item.size
@@ -957,15 +1024,12 @@ def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, a
                     winreg.DeleteValue(k, item.value)
                 record["stored"] = str(reg_file.relative_to(folder))
             done.append(record)
+            keep(record)
         except FileNotFoundError:
             done.append(record)
         except Exception as e:
             log.info("couldn't remove %s: %s", item.label(), e)
             failed.append(asdict(item))
-    data.setdefault("items", []).extend(r for r in done if r.get("stored"))
-    data["time"] = data.get("time") or time.time()
-    if data["items"]:
-        _save_manifest(folder, data)
     return {"done": done, "failed": failed, "freed": freed}
 
 

@@ -353,6 +353,12 @@ class UninstallDialog(QDialog):
         if forced:
             l1.addWidget(_label(tr("The app's uninstaller won't run. Corefold only looks for its folders, shortcuts "
                                    "and registry entries, and you choose what goes."), "muted", wrap=True))
+            if any(not a.broken for a in apps):
+                warn = _label(tr("This app still looks installed (its uninstaller is still there). Removing its "
+                                 "files would break it, so nothing will be ticked: use Uninstall instead if you can."),
+                              wrap=True)
+                warn.setObjectName("warning")
+                l1.addWidget(warn)
         else:
             l1.addWidget(_label(tr("First the app's own uninstaller runs (follow its steps). Then Corefold looks for "
                                    "anything it left behind, and you choose what goes."), "muted", wrap=True))
@@ -488,7 +494,11 @@ class UninstallDialog(QDialog):
             found = []
             for app in removed:
                 try:
-                    found += un.find_leftovers(app, installed, forced=forced or app.broken)
+                    items = un.find_leftovers(app, installed, forced=forced or app.broken)
+                    if forced and not app.broken:  # still installed: nothing is ticked for you
+                        for i in items:
+                            i.safe = False
+                    found += items
                 except Exception:
                     log.exception("looking for leftovers of %s failed", app.name)
             self._emit("found", (removed, found))
@@ -600,6 +610,8 @@ class UninstallDialog(QDialog):
         apps = sorted({a.name for a in self.apps})
         command = _app_command()
 
+        self._hold(True)
+
         def work():
             folder = un.new_backup(apps)
             result = un.remove(chosen, folder, apps)
@@ -616,7 +628,14 @@ class UninstallDialog(QDialog):
             self._emit("removed", (folder, result))
         threading.Thread(target=work, daemon=True).start()
 
+    def _hold(self, on: bool):
+        """Tells Corefold not to quit or update itself while files are being moved."""
+        if self.c is not None and on != getattr(self, "_holding", False):
+            self.c.uninstall_busy = max(0, getattr(self.c, "uninstall_busy", 0) + (1 if on else -1))
+            self._holding = on
+
     def _removed(self, data):
+        self._hold(False)
         self.busy = False
         self.stop.setEnabled(True)
         folder, result = data
