@@ -255,7 +255,7 @@ class MainWindow(QWidget):
         self.nav.setObjectName("nav")
         self.nav_rows: list[str | None] = []   # sidebar row -> page name (None for a heading)
         self.nav.ensurePolished()
-        row_h = max(36, self.nav.fontMetrics().height() + 20)  # compact rows, so every page fits
+        row_h = max(34, self.nav.fontMetrics().height() + 18)  # compact rows, so every page fits
         for entry in NAV:
             item = QListWidgetItem()
             if isinstance(entry, tuple):
@@ -283,6 +283,7 @@ class MainWindow(QWidget):
                 hl.addWidget(pill, 0, Qt.AlignVCenter)
                 self.nav.setItemWidget(self.nav.item(row), holder)
         self.nav.setIconSize(icons.ICON_SIZE)
+        self.nav.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # (it still scrolls on tiny screens)
         self.refresh_nav()
         self.nav.setCursor(Qt.PointingHandCursor)
         side = QVBoxLayout(sidebar)
@@ -768,7 +769,8 @@ class MainWindow(QWidget):
         self.history_list.currentRowChanged.connect(lambda _: self._history_buttons())
         lay.addWidget(self.history_list, 1)
         self.history_empty = label(tr("Nothing yet. Converted files will show up here."), "muted")
-        lay.addWidget(self.history_empty)
+        # takes the free space while the list is hidden, so the page doesn't spread out
+        lay.addWidget(self.history_empty, 1, Qt.AlignTop)
         btns = QHBoxLayout()
         self.h_open = button(tr("Open"), on_click=self._history_open)
         self.h_show = button(tr("Show in folder"), on_click=self._history_show)

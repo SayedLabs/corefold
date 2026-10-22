@@ -353,7 +353,7 @@ def run_with_progress(cmd: list[str], ctx: Ctx, parse: Callable[[str], float | N
                       cwd: Path | None = None, env: dict | None = None) -> tuple[int, str]:
     """Runs a program, feeding its output to `parse` for progress; stops it on cancel.
     Returns (exit code, all output)."""
-    out_chunks: list[str] = []
+    head, tail, kept = "", [], 0  # the start and the last part of the output (long videos print a lot)
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
                             cwd=str(cwd) if cwd else None, env=env, creationflags=job_flags())
     buf = ""
@@ -366,7 +366,13 @@ def run_with_progress(cmd: list[str], ctx: Ctx, parse: Callable[[str], float | N
             if not chunk:
                 break
             text = chunk.decode("utf-8", "replace")
-            out_chunks.append(text)
+            if len(head) < 64_000:
+                head += text
+            else:
+                tail.append(text)
+                kept += len(text)
+                while kept > 256_000 and len(tail) > 1:
+                    kept -= len(tail.pop(0))
             buf = (buf + text)[-400:]
             frac = parse(buf)
             if frac is not None:
@@ -378,7 +384,50 @@ def run_with_progress(cmd: list[str], ctx: Ctx, parse: Callable[[str], float | N
             proc.wait()
     if ctx.cancelled:
         raise Cancelled()
-    return proc.returncode, "".join(out_chunks)
+    return proc.returncode, head + "".join(tail)
+
+
+ZONE_STREAM = ":Zone.Identifier"
+
+
+def zone_mark(path: Path) -> bytes | None:
+    """Windows' "this came from the internet" mark on a file (Mark of the Web), if it has one."""
+    if os.name != "nt" or not path.is_file():
+        return None
+    try:
+        with open(str(path) + ZONE_STREAM, "rb") as fh:
+            data = fh.read(8192)
+        return data if b"ZoneId" in data else None
+    except OSError:
+        return None
+
+
+def pass_on_zone_mark(sources, outputs, limit: int = 20000):
+    """New files made from a downloaded file get the same mark, so Windows still warns before they
+    run and Office still opens them in Protected View. Folders get it on every file inside."""
+    if os.name != "nt":
+        return
+    mark = None
+    for src in list(sources)[:50]:
+        mark = zone_mark(Path(src))
+        if mark:
+            break
+    if not mark:
+        return
+    count = 0
+    for out in outputs:
+        out = Path(out)
+        files = [out] if out.is_file() else (f for f in out.rglob("*") if f.is_file()) if out.is_dir() else []
+        for f in files:
+            count += 1
+            if count > limit:
+                return
+            try:
+                if zone_mark(f) is None:
+                    with open(str(f) + ZONE_STREAM, "wb") as fh:
+                        fh.write(mark)
+            except OSError:
+                pass
 
 
 def os_open(path: Path):

@@ -25,7 +25,7 @@ from .i18n import tr
 from .core import (ALIASES, ALL_EXT, ARCHIVE_EXT, AUDIO_EXT, DOCUMENT_EXT, EXCEL_EXT, IMAGE_EXT,  # noqa: F401
                    NO_WINDOW, SLIDES_EXT, job_flags, TAR_SUFFIXES, VIDEO_EXT, WORD_EXT, Cancelled, Ctx, Options, Result,
                    Tool, _cached, app_dir, bundled, is_cached, is_cloud_only, category, fallback_folder, human_size,
-                   norm, os_open,
+                   norm, os_open, pass_on_zone_mark,
                    safe_name, short_name, unique_path, writable)
 
 log = logging.getLogger("corefold")
@@ -445,7 +445,7 @@ def probe(src: Path) -> dict:
                 [find_tool("ffprobe"), "-v", "error", "-show_entries",
                  "format=duration:stream=codec_type,width,height,color_transfer:stream_disposition=attached_pic"
                  ":stream_side_data=rotation",
-                 "-of", "json", str(src)],
+                 "-of", "json", *LOCAL_ONLY, str(src)],
                 capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=20,
                 stdin=subprocess.DEVNULL, creationflags=NO_WINDOW,
             ).stdout
@@ -505,12 +505,17 @@ def media_duration(src: Path) -> float:
     return probe(src)["duration"]
 
 
+# A file only ever reads local files: a video that is really a playlist can't make FFmpeg fetch
+# things from the internet (or tell a server that it was opened).
+LOCAL_ONLY = ["-protocol_whitelist", "file,pipe"]
+
+
 def run_ffmpeg(src: Path, out: Path, args: list[str], ctx: Ctx, pre: list[str] | None = None,
                duration: float | None = None):
     duration = media_duration(src) if duration is None else duration
     args = with_tonemap(src, args)
     cmd = [find_tool("ffmpeg"), "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
-           *(pre or []), "-i", str(src), *args, "-progress", "pipe:1", "-nostats", str(out)]
+           *(pre or []), *LOCAL_ONLY, "-i", str(src), *args, "-progress", "pipe:1", "-nostats", str(out)]
     with tempfile.TemporaryFile(mode="w+", encoding="utf-8", errors="replace") as err:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=err, stdin=subprocess.DEVNULL, text=True,
                                 encoding="utf-8", errors="replace", creationflags=job_flags())
@@ -642,7 +647,8 @@ def video_frame(src: Path, seconds: float, width: int = 240) -> bytes | None:
         args = with_tonemap(src, ["-map", "0:V:0?", "-frames:v", "1", "-vf", f"scale={width}:-2", "-f", "image2pipe",
                                   "-c:v", "png"])
         proc = subprocess.run(
-            [find_tool("ffmpeg"), "-v", "error", "-ss", f"{max(0.0, seconds):.2f}", "-i", str(src), *args, "pipe:1"],
+            [find_tool("ffmpeg"), "-v", "error", "-ss", f"{max(0.0, seconds):.2f}", *LOCAL_ONLY, "-i", str(src), *args,
+             "pipe:1"],
             capture_output=True, timeout=15, stdin=subprocess.DEVNULL, creationflags=NO_WINDOW)
         return proc.stdout or None
     except (OSError, subprocess.SubprocessError, RuntimeError):
@@ -1228,6 +1234,10 @@ def run_job(tool: Tool, files: list[Path], options: Options,
             on_item(i + 1, n, item.name)
         try:
             r = tool.run(item, ctx)
+            try:
+                pass_on_zone_mark([item] if isinstance(item, Path) else item, r.outputs)
+            except Exception:
+                log.debug("couldn't pass on the download mark", exc_info=True)
             total.outputs += r.outputs
             total.clipboard = r.clipboard or total.clipboard
             total.note = r.note or total.note

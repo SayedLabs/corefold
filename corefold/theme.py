@@ -142,7 +142,10 @@ QLabel#section { color: $muted; font-weight: 700; font-size: 8pt; }
 QPushButton#action { padding: 7px 13px; border-radius: 8px; }
 QPushButton#action:hover { background: $hover; border-color: $line_strong; }
 QPushButton#action:disabled { color: $muted; background: transparent; border: 1px dashed $border; }
-QPushButton#small { padding: 2px 8px; min-width: 0; }
+QPushButton#small { padding: 2px 7px; min-width: 0; background: transparent; border: 1px solid transparent; color: $muted;
+                    font-size: 8pt; }
+QPushButton#small:hover { background: $hover; border-color: $line_strong; color: $text; }
+QPushButton#small:disabled { color: $border; background: transparent; border-color: transparent; }
 QTreeWidget#history, QTreeWidget#apps, QListWidget#history { background: $panel; border: 1px solid $border;
         border-radius: 12px; outline: none; padding: 4px; }
 QTreeWidget#history::item, QTreeWidget#apps::item { padding: 5px 2px; }

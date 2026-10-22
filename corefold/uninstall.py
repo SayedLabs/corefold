@@ -777,6 +777,71 @@ def value_to_reg(path: str, name: str, value, kind: int) -> str:
     return f"Windows Registry Editor Version 5.00\r\n\r\n[{_reg_root_name(path)}]\r\n{_reg_string(name)}={data}\r\n"
 
 
+# ---- what the remove and restore steps accept
+# They also run as administrator (the elevated helper reads its plan from a file in the user's
+# folder), so every item is checked again here, whatever the plan says: only the places leftovers
+# can come from, never Windows' own files or settings.
+
+def _path_ok(path: str, kind: str) -> bool:
+    """A file, shortcut or folder that may be moved away or put back."""
+    if not path or not os.path.isabs(path):
+        return False
+    p = os.path.normcase(os.path.normpath(path)).rstrip("\\/")
+    windir = os.path.normcase(os.environ.get("SystemRoot", "c:\\windows"))
+    if p == windir or p.startswith(windir + os.sep):
+        return False
+    if any(norm(part) in ("windowsapps", "system32", "syswow64", "winsxs") for part in Path(p).parts):
+        return False
+    if kind == "folder":
+        return _safe_folder(path)
+    return p not in _protected_paths() and len(Path(p).parts) >= 3
+
+
+def _registry_ok(path: str, kind: str) -> bool:
+    """A registry key or value that may be removed or put back: an app's own key under Software,
+    its uninstall entry, or (values only) its line in a startup key."""
+    head, _, sub = path.partition("\\")
+    if head.upper() not in ("HKCU", "HKLM"):
+        return False
+    s = sub.strip("\\").lower()
+    if kind == "value":
+        return s in (k.lower() for k in RUN_KEYS)
+    if s.startswith(UNINSTALL.lower() + "\\"):
+        return True
+    parts = s.split("\\")
+    return len(parts) >= 2 and parts[0] == "software" and norm(parts[1]) not in PROTECTED
+
+
+def _reg_file_ok(reg_file: Path, item: dict) -> bool:
+    """Every key a backed-up .reg file would write is the item's own key (or inside it)."""
+    try:
+        text = reg_file.read_text("utf-16")
+    except (OSError, UnicodeError):
+        try:
+            text = reg_file.read_text("utf-8-sig")
+        except (OSError, UnicodeError):
+            return False
+    want = _reg_root_name(str(item.get("path", ""))).lower()
+    # a 32-bit key is exported with its real place, under WOW6432Node
+    wants = {want, want.replace("\\software\\", "\\software\\wow6432node\\", 1)}
+    keys = [ln.strip()[1:-1].lstrip("-").lower() for ln in text.splitlines() if ln.strip().startswith("[")]
+    if not keys:
+        return False
+    if item.get("kind") == "value":
+        return all(k in wants for k in keys)
+    return all(any(k == w or k.startswith(w + "\\") for w in wants) for k in keys)
+
+
+def item_allowed(item: dict) -> bool:
+    kind = str(item.get("kind", ""))
+    path = str(item.get("path", ""))
+    if kind in ("folder", "file", "shortcut"):
+        return _path_ok(path, kind)
+    if kind in ("key", "value"):
+        return _registry_ok(path, kind) and (kind == "key" or bool(item.get("value")))
+    return False
+
+
 def _move(src: Path, dest: Path):
     dest.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -841,6 +906,8 @@ def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, a
         n = uuid.uuid4().hex[:10]
         record = dict(asdict(item), stored="")
         try:
+            if not item_allowed(record):
+                raise PermissionError("not a place Corefold cleans up")
             if item.kind in ("folder", "file", "shortcut"):
                 src = Path(item.path)
                 if not src.exists():
@@ -945,6 +1012,8 @@ def restore(folder: Path) -> dict:
             continue
         stored = folder / item.get("stored", "")
         try:
+            if not item_allowed(item) or not _inside(str(stored.resolve()), str(folder.resolve())):
+                raise PermissionError("not something Corefold backed up")
             if item["kind"] in ("folder", "file", "shortcut"):
                 target = Path(item["path"])
                 if not stored.exists():
@@ -953,6 +1022,8 @@ def restore(folder: Path) -> dict:
                     raise FileExistsError(str(target))
                 _move(stored, target)
             else:
+                if not _reg_file_ok(stored, item):
+                    raise PermissionError("unexpected keys in " + str(stored))
                 if not _reg_exe("import", str(stored), *_view_flag(int(item.get("view") or 0))):
                     raise PermissionError("couldn't import " + str(stored))
             done += 1
@@ -1011,6 +1082,11 @@ def helper_main(argv: list[str]) -> int:
         plan = Path(argv[argv.index("--" + kind) + 1])
         payload = json.loads(plan.read_text("utf-8"))
     except (IndexError, ValueError, OSError):
+        return 2
+    # only plans Corefold wrote, about its own backup folders
+    folder = str(payload.get("folder", "")) if isinstance(payload, dict) else ""
+    if not _inside(str(plan.resolve()), str((BACKUP_DIR.parent / "helper").resolve())) or \
+            (kind != "restore-point" and not (folder and _inside(str(Path(folder).resolve()), str(BACKUP_DIR.resolve())))):
         return 2
     try:
         if kind == "cleanup":

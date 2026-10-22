@@ -19,8 +19,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .i18n import tr
-from .core import NO_WINDOW, TAR_SUFFIXES, Ctx, Result, _cached, app_dir, bundled, run_with_progress, safe_name, \
-    unique_path
+from .core import NO_WINDOW, TAR_SUFFIXES, Ctx, Result, _cached, app_dir, bundled, pass_on_zone_mark, run_with_progress, \
+    safe_name, unique_path
 
 log = logging.getLogger("corefold")
 DUMMY_PASSWORD = "-pcorefold-no-password"  # never let 7-Zip stop and ask for one
@@ -223,9 +223,13 @@ def _extract_into(src: Path, target: Path, ctx: Ctx, password: str, members: lis
                 ctx.check()
                 tf.extract(m, target, filter="data")
                 ctx.progress((i + 1) / max(1, len(items)))
+        pass_on_zone_mark([src], [target])
         return
     if find_7z():
-        args = ["x", str(src), f"-o{target}", "-y", "-bsp1", "-bse1", "-bb0", "-sccUTF-8", _pw(password)]
+        # -snz: files from a downloaded archive keep its "from the internet" mark (Windows then still
+        # warns before running them); -spd: names are names, not wildcards
+        args = ["x", str(src), f"-o{target}", "-y", "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-snz", "-spd",
+                _pw(password)]
         listfile = None
         if members:
             listfile = Path(tempfile.mkstemp(suffix=".txt")[1])
@@ -251,6 +255,7 @@ def _extract_into(src: Path, target: Path, ctx: Ctx, password: str, members: lis
                     raise NeedPassword() from e
                 raise
             ctx.progress((i + 1) / max(1, len(infos)))
+    pass_on_zone_mark([src], [target])
 
 
 def extract(src: Path, ctx: Ctx, mode: str = "smart") -> Result:
@@ -362,7 +367,8 @@ def pack_into(items: list[Path], out: Path, ctx: Ctx, fmt: str = "zip", level: s
         raise RuntimeError(tr("pick files that are on the same drive")) from e
     rel = [os.path.relpath(p.resolve(), parent) for p in items]
     if find_7z():
-        args = ["a", f"-t{fmt}", f"-mx={LEVELS.get(level, 5)}", "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-ssw", "-y"]
+        args = ["a", f"-t{fmt}", f"-mx={LEVELS.get(level, 5)}", "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-ssw", "-y",
+                "-spd"]
         if password:
             args.append(f"-p{password}")
             args.append("-mhe=on" if fmt == "7z" else "-mem=AES256")
@@ -460,7 +466,7 @@ def add_files(src: Path, items: list[Path], ctx: Ctx) -> Result:
         listfile = Path(tempfile.mkstemp(suffix=".txt")[1])
         listfile.write_text("\n".join(p.name for p in group), encoding="utf-8")
         try:
-            args = ["a", str(src.resolve()), "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-scsUTF-8", "-ssw", "-y"]
+            args = ["a", str(src.resolve()), "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-scsUTF-8", "-ssw", "-y", "-spd"]
             if password:
                 args.append(f"-p{password}")
             code, out = _run7z([*args, f"@{listfile}"], ctx, cwd=parent)
@@ -477,7 +483,7 @@ def delete_entries(src: Path, members: list[str], ctx: Ctx) -> Result:
     listfile = Path(tempfile.mkstemp(suffix=".txt")[1])
     listfile.write_text("\n".join(m.replace("/", os.sep) for m in members), encoding="utf-8")
     try:
-        code, out = _run7z(["d", str(src), "-bsp1", "-bse1", "-sccUTF-8", "-scsUTF-8", "-y",
+        code, out = _run7z(["d", str(src), "-bsp1", "-bse1", "-sccUTF-8", "-scsUTF-8", "-y", "-spd",
                             _pw(ctx.params.get("password", "")), f"@{listfile}"], ctx)
     finally:
         listfile.unlink(missing_ok=True)
@@ -492,6 +498,10 @@ def extract_for_opening(src: Path, member: str, ctx: Ctx) -> Result:
     inner = Ctx(ctx.options, ctx._progress, ctx.cancel_event, dict(ctx.params, dest=str(target), members=[member]))
     extract(src, inner)
     out = target / member.replace("/", os.sep)
-    if not out.exists():
+    try:
+        inside = out.resolve().is_relative_to(target.resolve())
+    except OSError:
+        inside = False
+    if not inside or not out.is_file():
         raise RuntimeError(tr("couldn't take that file out of the archive"))
     return Result([out])
