@@ -1,7 +1,7 @@
 # Builds the Windows installer on GitHub's servers.
 # - Publish a Release on GitHub (tag like v1.0.0)  -> installer + portable zip get attached to it.
 # - Or run it by hand from the Actions tab           -> download the files from the run's "Artifacts".
-name: Build Satsuma
+name: Build Corefold
 
 on:
   release:
@@ -29,7 +29,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Satsuma
+          name: Corefold
           path: dist/release/*
 
       - name: Attach to release

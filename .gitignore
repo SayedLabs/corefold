@@ -1,0 +1,8 @@
+.venv/
+build/
+dist/
+vendor/
+__pycache__/
+*.spec
+version_info.txt
+corefold/_version.py
