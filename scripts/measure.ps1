@@ -22,17 +22,20 @@ New-Item -ItemType Directory -Force "$work\out" | Out-Null
 $py = Join-Path $Root ".venv\Scripts\python.exe"
 & $py -c @"
 from PIL import Image
-import random
-im = Image.effect_noise((4000, 3000), 60).convert('RGB')
-im = Image.merge('RGB', [im.point(lambda v, k=k: (v * (k + 2)) % 256) for k in range(3)])
-im.save(r'$work\photo.png')
+r = Image.effect_noise((4000, 3000), 60)
+Image.merge('RGB', (r, r.rotate(180), r.transpose(Image.FLIP_LEFT_RIGHT))).save(r'$work\photo.png')
 Image.radial_gradient('L').resize((1200, 900)).convert('RGB').save(r'$work\small.png')
 "@
 $ff = Join-Path $Root "vendor\ffmpeg\ffmpeg.exe"
 & $ff -hide_banner -loglevel error -f lavfi -i "testsrc2=size=1920x1080:rate=30:duration=20" `
     -f lavfi -i "sine=frequency=440:duration=20" -c:v libx264 -preset veryfast -c:a aac -shortest "$work\clip.mp4"
 
+foreach ($f in "photo.png", "small.png", "clip.mp4") {
+    if (-not (Test-Path "$work\$f")) { throw "couldn't make the test file $f" }
+}
+
 $exe = Resolve-Path "dist\Corefold\Corefold.exe"
+$env:COREFOLD_MEMLOG = "1"   # the app writes its memory to its log at each step
 $log = Join-Path $env:LOCALAPPDATA "Corefold\corefold.log"
 Remove-Item $log -ErrorAction SilentlyContinue
 
@@ -70,7 +73,8 @@ function CloseWindow {
 }
 function Converted([int]$atLeast, [int]$timeout = 120) {
     $c = [Diagnostics.Stopwatch]::StartNew()
-    while ((Get-ChildItem "$work\out" -File -Recurse -ErrorAction SilentlyContinue).Count -lt $atLeast -and
+    # new files anywhere in the test folder (next to the originals, or in the output folder)
+    while ((Get-ChildItem $work -File -Recurse -ErrorAction SilentlyContinue).Count - 3 -lt $atLeast -and
            $c.Elapsed.TotalSeconds -lt $timeout) { Start-Sleep -Milliseconds 250 }
     Start-Sleep 2
 }

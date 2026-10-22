@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QColorDial
                                QScrollArea, QSlider, QSpinBox, QStackedWidget, QSystemTrayIcon, QVBoxLayout,
                                QWidget)
 
-from . import UPDATE_REPO, __version__, i18n, icons
+from . import UPDATE_REPO, __version__, i18n, icons, winutil
 from . import settings as settings_mod
 from .converters import CATEGORY_NAMES, catalog, human_size
 from .core import short_name
@@ -610,6 +610,8 @@ class MainWindow(QWidget):
         if self._opening and NAV_OWNER.get(self._opening) == name:
             name = self._opening
         self.stack.setCurrentIndex(PAGES.index(name))
+        winutil.log_memory(f"page {name}")
+        QTimer.singleShot(2500, lambda n=name: winutil.log_memory(f"page {n}, 2.5 s later"))
         if name == "Apps":
             self.apps_page.ensure_loaded()
         elif name in ("History", "Home"):
