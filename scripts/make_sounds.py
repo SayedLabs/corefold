@@ -1,5 +1,5 @@
 """
-Synthesises Satsuma's sounds into assets/sounds/*.wav. Run: python scripts/make_sounds.py
+Synthesises Corefold's sounds into assets/sounds/*.wav. Run: python scripts/make_sounds.py
 
 All sounds are soft, short and warm: smooth starts (no clicks), gentle low-passing (no harsh
 highs), quiet by default. The app scales the volume when it plays them.
@@ -110,7 +110,7 @@ def note(name: str) -> float:
 
 # ----------------------------------------------------------------------------- the sounds
 
-def satsuma():
+def corefold():
     """Signature sound: two juicy wooden notes going up (G5 → C6)."""
     buf = silence(0.75)
     mix_into(buf, marimba(note("G5"), 0.55, 0.8), 0.0, 0.8)
@@ -119,7 +119,7 @@ def satsuma():
 
 
 def peel():
-    """A soft snap, like peeling a satsuma."""
+    """A soft snap, like peeling fruit."""
     buf = silence(0.5)
     mix_into(buf, pluck(note("E4"), 0.45, 0.994), 0.0, 0.9)
     mix_into(buf, pluck(note("B4"), 0.4, 0.993), 0.045, 0.55)
@@ -152,7 +152,7 @@ def tick():
     return lowpass(marimba(note("C7"), 0.08, 0.3), 6000)
 
 
-SOUNDS = {"satsuma": satsuma, "peel": peel, "droplet": droplet, "glass": glass, "problem": problem, "tick": tick}
+SOUNDS = {"corefold": corefold, "peel": peel, "droplet": droplet, "glass": glass, "problem": problem, "tick": tick}
 PEAK = 0.7  # -3 dBFS; the app turns it down further with the volume slider
 
 

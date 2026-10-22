@@ -1,10 +1,10 @@
-# Removes old Satsuma copies left over from earlier downloads:
+# Removes old copies left over from earlier downloads of Corefold (called Satsuma before 1.7.0):
 #   - the first version (satsuma.py + run.bat): stops it, removes its startup entry and files
 #   - older project folders (the ones with build.bat), except the one this script is in
 #   - old "Satsuma-source" zip downloads
 #   - optionally, the Python add-ons the first version installed
-# It never touches the installed Satsuma app or your settings, and asks before deleting anything.
-# Only Satsuma's own files are deleted; any other files in those folders are left alone.
+# It never touches the installed Corefold app or your settings, and asks before deleting anything.
+# Only the app's own files are deleted; any other files in those folders are left alone.
 $ErrorActionPreference = "Continue"
 $ProgressPreference = "SilentlyContinue"
 $Here = (Resolve-Path (Split-Path $PSScriptRoot -Parent)).Path
@@ -25,8 +25,8 @@ function Mentions-Satsuma($file) {
 }
 
 Write-Host ""
-Write-Host "Satsuma clean-up" -ForegroundColor Cyan
-Write-Host "Looking for old copies. Your installed Satsuma app and settings are not touched."
+Write-Host "Corefold clean-up" -ForegroundColor Cyan
+Write-Host "Looking for old copies (from when the app was called Satsuma). Your installed Corefold and settings are not touched."
 Write-Host ""
 
 # ---- 1. stop the old script version and remove its startup entry
@@ -34,7 +34,7 @@ $procs = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
     Where-Object { $_.Name -like "python*.exe" -and $_.CommandLine -match "satsuma" }
 foreach ($p in $procs) {
     Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
-    Write-Host "Stopped the old Satsuma that was running in the background."
+    Write-Host "Stopped the old version that was running in the background."
 }
 $runKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
 $run = (Get-ItemProperty -Path $runKey -Name "Satsuma" -ErrorAction SilentlyContinue).Satsuma
@@ -48,7 +48,8 @@ $roots = @("$env:USERPROFILE\Desktop", "$env:USERPROFILE\Downloads", "$env:USERP
            (Split-Path $Here -Parent))
 if ($env:OneDrive) { $roots += @("$env:OneDrive\Desktop", "$env:OneDrive\Documents") }
 $roots = $roots | Where-Object { $_ -and (Test-Path $_) } | Sort-Object -Unique
-$installed = "$env:LOCALAPPDATA\Programs\Satsuma"
+$installed = "$env:LOCALAPPDATA\Programs\Corefold"
+$installedOld = "$env:LOCALAPPDATA\Programs\Satsuma"  # removed by the Corefold installer itself
 
 $found = @()   # each: @{ Kind; Folder; Items }
 $seen = @{}
@@ -56,7 +57,7 @@ $hits = Get-ChildItem -Path $roots -Recurse -Depth 4 -File -ErrorAction Silently
         -Include "satsuma.py", "satsuma.iss", "Satsuma-source*.zip"
 foreach ($hit in $hits) {
     $path = $hit.FullName
-    if ((Is-Inside $path $Here) -or (Is-Inside $path $installed) -or $path -match "\\\.venv\\") { continue }
+    if ((Is-Inside $path $Here) -or (Is-Inside $path $installed) -or (Is-Inside $path $installedOld) -or $path -match "\\\.venv\\") { continue }
 
     if ($hit.Name -like "Satsuma-source*.zip") {
         if (-not $seen[$path]) { $seen[$path] = 1; $found += @{ Kind = "Old download"; Folder = $hit.DirectoryName; Items = @($path) } }

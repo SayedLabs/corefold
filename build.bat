@@ -1,10 +1,10 @@
 @echo off
-title Building Satsuma
+title Building Corefold
 cd /d "%~dp0"
 set VER=%~1
-if "%VER%"=="" set VER=1.6.0
+if "%VER%"=="" set VER=1.7.0
 
-echo Building Satsuma %VER%. The first time takes a few minutes...
+echo Building Corefold %VER%. The first time takes a few minutes...
 echo.
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\build.ps1" -Version %VER%
 if errorlevel 1 (
@@ -14,7 +14,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-set "SETUP=%~dp0dist\release\Satsuma-Setup-%VER%.exe"
+set "SETUP=%~dp0dist\release\Corefold-Setup-%VER%.exe"
 if not exist "%SETUP%" (
   echo.
   echo The app was built but the installer wasn't. Your files are in dist\release.
@@ -25,11 +25,11 @@ if not exist "%SETUP%" (
 
 echo.
 echo ============================================================
-echo   Installer ready:  dist\release\Satsuma-Setup-%VER%.exe
+echo   Installer ready:  dist\release\Corefold-Setup-%VER%.exe
 echo   Share that file (or the portable zip next to it).
 echo ============================================================
 echo.
-choice /c YN /m "Install Satsuma on this PC now"
+choice /c YN /m "Install Corefold on this PC now"
 if errorlevel 2 (
   explorer /select,"%SETUP%"
 ) else (

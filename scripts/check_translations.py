@@ -1,4 +1,4 @@
-"""Checks the translations (satsuma/lang_ar.py, lang_fr.py, lang_es.py, lang_tr.py) against the app:
+"""Checks the translations (corefold/lang_ar.py, lang_fr.py, lang_es.py, lang_tr.py) against the app:
 every text shown through tr() must be translated, with the same {placeholders}.
 Run:  python scripts/check_translations.py  [language]"""
 from __future__ import annotations
@@ -16,7 +16,7 @@ PLACEHOLDER = re.compile(r"\{(\w+)\}")
 def literal_texts() -> dict[str, str]:
     """Every tr("…") in the source, with where it is."""
     found: dict[str, str] = {}
-    for path in sorted((ROOT / "satsuma").glob("*.py")):
+    for path in sorted((ROOT / "corefold").glob("*.py")):
         if path.name.startswith("lang_"):
             continue
         tree = ast.parse(path.read_text("utf-8"))
@@ -30,7 +30,7 @@ def literal_texts() -> dict[str, str]:
 
 def table_texts() -> dict[str, str]:
     """Texts kept in tables in English and translated when shown (tr(name))."""
-    from satsuma import converters, dialogs, dialogs2, extras, i18n, moretools, settings, sounds, tour, uninstall, \
+    from corefold import converters, dialogs, dialogs2, extras, i18n, moretools, settings, sounds, tour, uninstall, \
         wheel, window
     out: dict[str, str] = {}
 
@@ -68,7 +68,7 @@ def table_texts() -> dict[str, str]:
 
 
 def check(lang: str, wanted: dict[str, str]) -> int:
-    from satsuma.i18n import table_for
+    from corefold.i18n import table_for
     STRINGS = table_for(lang)
     problems = 0
     for text, where in sorted(wanted.items(), key=lambda kv: kv[1]):

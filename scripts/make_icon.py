@@ -1,107 +1,92 @@
-"""Draws Satsuma's icon (assets/icon.png and assets/icon.ico). Run: python scripts/make_icon.py"""
-import math
+"""Draws Corefold's icon and installer pictures from the Corefold mark: a rounded tile with its top
+corner folded over and a round "core" in the middle (see the Corefold design system).
+
+Makes assets/icon.png, assets/icon.ico, docs/icon.png and the installer's wizard*.bmp.
+Run: python scripts/make_icon.py
+"""
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw
 
-S = 1024
-ASSETS = Path(__file__).resolve().parent.parent / "assets"
+ROOT = Path(__file__).resolve().parent.parent
+ASSETS = ROOT / "assets"
+CORE = (10, 119, 104)        # core  #0A7768
+CORE_SOFT = (220, 241, 237)  # core-soft #DCF1ED
+SURFACE = (245, 247, 247)    # surface #F5F7F7
+WHITE = (255, 255, 255)
+S = 1024                     # drawn big, then made smaller (smooth edges)
 
 
-def lerp(a, b, t):
-    return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(len(a)))
-
-
-def fruit(arrows: bool) -> Image.Image:
-    img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    cx, cy, r = 512, 560, 410
-
-    # soft shadow
-    sh = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    ImageDraw.Draw(sh).ellipse((cx - r + 20, cy - r + 40, cx + r + 20, cy + r + 40), fill=(0, 0, 0, 90))
-    img.alpha_composite(sh.filter(ImageFilter.GaussianBlur(28)))
-
-    # orange body: radial gradient lit from top-left
-    body = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    d = ImageDraw.Draw(body)
-    light, mid, dark = (255, 196, 92), (255, 140, 26), (226, 84, 0)
-    hx, hy = cx - 140, cy - 160
-    for i in range(r, 0, -2):
-        t = i / r
-        col = lerp(mid, dark, (t - 0.55) / 0.45) if t > 0.55 else lerp(light, mid, t / 0.55)
-        ox, oy = cx + (hx - cx) * (1 - t), cy + (hy - cy) * (1 - t)
-        d.ellipse((ox - i, oy - i, ox + i, oy + i), fill=col + (255,))
-    mask = Image.new("L", (S, S), 0)
-    ImageDraw.Draw(mask).ellipse((cx - r, cy - r, cx + r, cy + r), fill=255)
-    body.putalpha(mask)
-    img.alpha_composite(body)
-
-    # stem + leaf
+def app_icon(size: int) -> Image.Image:
+    """The mark as an app icon: the same shape, but solid (a light fold and a white core), so it
+    reads the same on a light or a dark taskbar."""
+    img = mark(CORE, S, hole=False, fold_alpha=0)
+    u = S / 64
     d = ImageDraw.Draw(img)
-    d.rounded_rectangle((496, 108, 528, 190), radius=14, fill=(96, 66, 32, 255))
-    leaf = Image.new("RGBA", (300, 130), (0, 0, 0, 0))
-    ld = ImageDraw.Draw(leaf)
-    ld.ellipse((0, 0, 299, 129), fill=(70, 172, 78, 255))
-    ld.line((24, 65, 276, 65), fill=(44, 124, 54, 255), width=9)
-    leaf = leaf.rotate(24, resample=Image.BICUBIC, expand=True)
-    img.alpha_composite(leaf, (512, 18))
+    d.polygon([(40 * u, 4 * u), (60 * u, 24 * u), (40 * u, 24 * u)], fill=(122, 190, 179, 255))
+    d.ellipse(((31 - 9) * u, (38 - 9) * u, (31 + 9) * u, (38 + 9) * u), fill=WHITE + (255,))
+    return img.resize((size, size), Image.LANCZOS)
 
-    if arrows:  # two curved arrows = "convert"
-        d = ImageDraw.Draw(img)
-        white = (255, 255, 255, 245)
-        ar, w = 205, 68
-        box = (cx - ar, cy - ar, cx + ar, cy + ar)
-        for start, end in ((200, 330), (20, 150)):
-            d.arc(box, start, end, fill=white, width=w)
-            a = math.radians(end)
-            px, py = cx + (ar - w / 2) * math.cos(a), cy + (ar - w / 2) * math.sin(a)
-            tx, ty = -math.sin(a), math.cos(a)        # clockwise tangent
-            nx, ny = math.cos(a), math.sin(a)         # outward normal
-            L, Wd = 110, 95
-            d.polygon([(px + tx * L, py + ty * L),
-                       (px + nx * Wd, py + ny * Wd),
-                       (px - nx * Wd, py - ny * Wd)], fill=white)
-    return img
+
+def mark(color, size: int, fold_alpha: float = 0.55, hole: bool = True) -> Image.Image:
+    """The mark on a transparent square. Geometry on a 64-unit grid: tile 4..60 with 14 rounded
+    corners; notch 36..60 × 4..28; fold triangle (40,4) (60,24) (40,24); core circle at (31,38) r 9."""
+    u = S / 64
+    img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    body = Image.new("L", (S, S), 0)
+    d = ImageDraw.Draw(body)
+    d.rounded_rectangle((4 * u, 4 * u, 60 * u, 60 * u), radius=14 * u, fill=255)
+    d.rectangle((36 * u, 0, S, 28 * u), fill=0)                            # the notch
+    if hole:
+        d.ellipse(((31 - 9) * u, (38 - 9) * u, (31 + 9) * u, (38 + 9) * u), fill=0)  # the core
+    img.paste(color + (255,), (0, 0), body)
+    fold = Image.new("L", (S, S), 0)
+    ImageDraw.Draw(fold).polygon([(40 * u, 4 * u), (60 * u, 24 * u), (40 * u, 24 * u)], fill=round(255 * fold_alpha))
+    layer = Image.new("RGBA", (S, S), color + (0,))
+    layer.putalpha(fold)
+    img.alpha_composite(layer)
+    return img.resize((size, size), Image.LANCZOS)
+
+
+def on_background(bg, mark_img: Image.Image, size: tuple[int, int], at: tuple[int, int]) -> Image.Image:
+    out = Image.new("RGBA", size, bg + (255,))
+    out.alpha_composite(mark_img, at)
+    return out.convert("RGB")
+
+
+def wizard(scale: int) -> Image.Image:
+    """The tall picture on the installer's first and last pages: the mark in white on teal, with a
+    quiet pattern of small folded tiles."""
+    w, h = 164 * scale, 314 * scale
+    out = Image.new("RGBA", (w, h), CORE + (255,))
+    small = mark((255, 255, 255), 18 * scale, fold_alpha=0.5, hole=False)
+    faint = Image.new("RGBA", small.size, (0, 0, 0, 0))
+    faint.paste(small, (0, 0))
+    alpha = faint.getchannel("A").point(lambda a: a * 0.07)
+    faint.putalpha(alpha)
+    step = 30 * scale
+    for row, y in enumerate(range(10 * scale, h, step)):
+        for x in range(10 * scale + (row % 2) * step // 2, w, step):
+            out.alpha_composite(faint, (x, y))
+    big = mark(WHITE, 104 * scale, fold_alpha=0.55)
+    out.alpha_composite(big, ((w - big.width) // 2, (h - big.height) // 2 - 20 * scale))
+    return out.convert("RGB")
 
 
 def main():
-    ASSETS.mkdir(exist_ok=True)
-    big, simple = fruit(True), fruit(False)
-    big.resize((512, 512), Image.LANCZOS).save(ASSETS / "icon.png")
-    sizes = [256, 128, 64, 48, 32, 24, 16]
-    frames = [(simple if s <= 24 else big).resize((s, s), Image.LANCZOS) for s in sizes]
-    frames[0].save(ASSETS / "icon.ico", sizes=[(s, s) for s in sizes], append_images=frames[1:])
-    make_wizard_images(big)
-    print("wrote icon.png, icon.ico and installer images in", ASSETS)
-
-
-def make_wizard_images(icon: Image.Image):
-    """Pictures for the installer: a tall side banner and a small corner logo (BMP, 1x and 2x)."""
-    top, bottom = (255, 168, 64), (232, 92, 0)
-    for scale in (1, 2):
-        w, h = 164 * scale, 314 * scale
-        banner = Image.new("RGB", (w, h))
-        d = ImageDraw.Draw(banner)
-        for y in range(h):
-            d.line((0, y, w, y), fill=lerp(top, bottom, y / h))
-        # soft white circle behind the icon
-        glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-        gs = int(w * 0.86)
-        ImageDraw.Draw(glow).ellipse(((w - gs) // 2, int(h * 0.3) - gs // 2 + gs // 2 - gs // 2,
-                                      (w + gs) // 2, int(h * 0.3) + gs // 2), fill=(255, 255, 255, 60))
-        banner = banner.convert("RGBA")
-        banner.alpha_composite(glow.filter(ImageFilter.GaussianBlur(6 * scale)))
-        size = int(w * 0.74)
-        ic = icon.resize((size, size), Image.LANCZOS)
-        banner.alpha_composite(ic, ((w - size) // 2, int(h * 0.3) - size // 2))
-        suffix = "" if scale == 1 else "@2x"
-        banner.convert("RGB").save(ASSETS / f"wizard{suffix}.bmp")
-
-        s = 55 * scale
-        small = Image.new("RGBA", (s, s), (255, 255, 255, 255))
-        ic = icon.resize((s - 4 * scale, s - 4 * scale), Image.LANCZOS)
-        small.alpha_composite(ic, (2 * scale, 2 * scale))
-        small.convert("RGB").save(ASSETS / f"wizard-small{suffix}.bmp")
+    icon = app_icon(512)
+    icon.save(ASSETS / "icon.png")
+    mark(CORE, 512).save(ROOT / "docs" / "icon.png")  # the website uses the brand mark itself
+    big = app_icon(256)
+    big.save(ASSETS / "icon.ico", sizes=[(16, 16), (20, 20), (24, 24), (32, 32), (40, 40), (48, 48), (64, 64),
+                                          (128, 128), (256, 256)])
+    for scale, name in ((1, "wizard.bmp"), (2, "wizard@2x.bmp")):
+        wizard(scale).save(ASSETS / name)
+    for scale, name in ((1, "wizard-small.bmp"), (2, "wizard-small@2x.bmp")):
+        side = 55 * scale
+        m = app_icon(43 * scale)
+        on_background(WHITE, m, (side, side), ((side - m.width) // 2, (side - m.height) // 2)).save(ASSETS / name)
+    print("icon and installer pictures written")
 
 
 if __name__ == "__main__":

@@ -1,7 +1,9 @@
-# Builds Satsuma for Windows:
-#   dist\Satsuma\Satsuma.exe                      (the app folder)
-#   dist\release\Satsuma-Setup-<version>.exe      (installer with desktop icon)
-#   dist\release\Satsuma-<version>-portable.zip   (no-install version)
+# Builds Corefold for Windows:
+#   dist\Corefold\Corefold.exe                      (the app folder)
+#   dist\release\Corefold-Setup-<version>.exe      (installer with desktop icon)
+#   dist\release\Corefold-<version>-portable.zip   (no-install version)
+#   dist\release\ffmpeg-source-*.tar.gz           (FFmpeg's source code and build scripts, which its
+#                                                  GPL licence asks us to offer with every release)
 #
 # Usage:  powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Version 1.0.0
 param(
@@ -23,9 +25,9 @@ $NumericVersion = ($Version -split "[-+]")[0]
 $parts = @($NumericVersion.Split(".") | ForEach-Object { [int]$_ })
 while ($parts.Count -lt 4) { $parts += 0 }
 $VerTuple = ($parts[0..3] -join ", ")
-Write-Host "== Building Satsuma $Version" -ForegroundColor Cyan
+Write-Host "== Building Corefold $Version" -ForegroundColor Cyan
 
-# ---- Python (only needed to BUILD; people who install Satsuma don't need it)
+# ---- Python (only needed to BUILD; people who install Corefold don't need it)
 function Test-Python($cmd, $argsList) {
     try { & $cmd @argsList -c "import sys; assert sys.version_info >= (3, 10)" 2>$null; return $LASTEXITCODE -eq 0 }
     catch { return $false }
@@ -72,19 +74,20 @@ else { Write-Host "== No update source set (see README), so this build won't upd
 @"
 __version__ = "$Version"
 UPDATE_REPO = "$UpdateRepo"
-"@ | Set-Content -Encoding utf8 "satsuma\_version.py"
+"@ | Set-Content -Encoding utf8 "corefold\_version.py"
 @"
 VSVersionInfo(
   ffi=FixedFileInfo(filevers=($VerTuple), prodvers=($VerTuple), mask=0x3f, flags=0x0, OS=0x40004,
                     fileType=0x1, subtype=0x0, date=(0, 0)),
   kids=[
     StringFileInfo([StringTable('040904B0', [
-      StringStruct('CompanyName', 'Satsuma'),
-      StringStruct('FileDescription', 'Satsuma file converter'),
+      StringStruct('CompanyName', 'Atomic Works'),
+      StringStruct('FileDescription', 'Corefold'),
+      StringStruct('LegalCopyright', 'Atomic Works'),
       StringStruct('FileVersion', '$Version'),
-      StringStruct('InternalName', 'Satsuma'),
-      StringStruct('OriginalFilename', 'Satsuma.exe'),
-      StringStruct('ProductName', 'Satsuma'),
+      StringStruct('InternalName', 'Corefold'),
+      StringStruct('OriginalFilename', 'Corefold.exe'),
+      StringStruct('ProductName', 'Corefold'),
       StringStruct('ProductVersion', '$Version')])]),
     VarFileInfo([VarStruct('Translation', [1033, 1200])])
   ]
@@ -94,12 +97,15 @@ VSVersionInfo(
 # ---- FFmpeg (bundled so users don't install anything)
 $FfDir = "vendor\ffmpeg"
 # The "shared" build: ffmpeg.exe and ffprobe.exe use the same DLLs instead of each carrying a full
-# copy, which makes Satsuma about 150 MB smaller on disk.
+# copy, which makes Corefold about 150 MB smaller on disk.
 if (-not (Test-Path "$FfDir\ffmpeg.exe") -or -not (Get-ChildItem $FfDir -Filter "avcodec*.dll" -ErrorAction SilentlyContinue)) {
     Write-Host "== Downloading FFmpeg"
     if (Test-Path $FfDir) { Remove-Item $FfDir -Recurse -Force }
-    $zip = Join-Path $env:TEMP "satsuma-ffmpeg.zip"
-    $tmp = Join-Path $env:TEMP "satsuma-ffmpeg"
+    # which commit of the build scripts made this FFmpeg (offered with the source, see below)
+    $ScriptsRef = ""
+    try { $ScriptsRef = ((git ls-remote https://github.com/BtbN/FFmpeg-Builds refs/tags/latest) -split "\s+")[0] } catch { }
+    $zip = Join-Path $env:TEMP "corefold-ffmpeg.zip"
+    $tmp = Join-Path $env:TEMP "corefold-ffmpeg"
     Invoke-WebRequest $FfmpegUrl -OutFile $zip
     if (Test-Path $tmp) { Remove-Item $tmp -Recurse -Force }
     Expand-Archive $zip $tmp -Force
@@ -110,8 +116,51 @@ if (-not (Test-Path "$FfDir\ffmpeg.exe") -or -not (Get-ChildItem $FfDir -Filter 
     Copy-Item (Join-Path $bin.DirectoryName "*.dll") $FfDir
     $lic = Get-ChildItem $tmp -Recurse -Filter "LICENSE*" | Select-Object -First 1
     if ($lic) { Copy-Item $lic.FullName "$FfDir\FFMPEG-LICENSE.txt" }
+    if ($ScriptsRef) { Set-Content -Encoding ascii "$FfDir\BUILD-SCRIPTS-COMMIT.txt" $ScriptsRef }
     Remove-Item $zip, $tmp -Recurse -Force
 }
+
+# ---- FFmpeg's source code (GPL: whoever passes FFmpeg on must offer its source too)
+# The exact FFmpeg commit is read from the bundled ffmpeg.exe; its source and the build scripts
+# that made it are attached to every release next to the installer.
+$FfVersionLine = (& "$FfDir\ffmpeg.exe" -hide_banner -version | Select-Object -First 1)
+$FfCommit = if ($FfVersionLine -match "-g([0-9a-f]{7,40})") { $Matches[1] } else { "" }
+$ScriptsRef = if (Test-Path "$FfDir\BUILD-SCRIPTS-COMMIT.txt") { (Get-Content "$FfDir\BUILD-SCRIPTS-COMMIT.txt" -Raw).Trim() } else { "" }
+$SourceFiles = @()
+New-Item -ItemType Directory -Force "vendor\ffmpeg-source" | Out-Null
+if ($FfCommit) {
+    $out = "vendor\ffmpeg-source\ffmpeg-source-$FfCommit.tar.gz"
+    if (-not (Test-Path $out)) {
+        Write-Host "== Downloading FFmpeg source ($FfCommit)"
+        try { Invoke-WebRequest "https://github.com/FFmpeg/FFmpeg/archive/$FfCommit.tar.gz" -OutFile $out }
+        catch { Remove-Item $out -ErrorAction SilentlyContinue }
+    }
+    if (Test-Path $out) { $SourceFiles += $out }
+}
+if ($ScriptsRef) {
+    $short = $ScriptsRef.Substring(0, [Math]::Min(10, $ScriptsRef.Length))
+    $out = "vendor\ffmpeg-source\ffmpeg-source-build-scripts-$short.tar.gz"
+    if (-not (Test-Path $out)) {
+        try { Invoke-WebRequest "https://github.com/BtbN/FFmpeg-Builds/archive/$ScriptsRef.tar.gz" -OutFile $out }
+        catch { Remove-Item $out -ErrorAction SilentlyContinue }
+    }
+    if (Test-Path $out) { $SourceFiles += $out }
+}
+if ($SourceFiles.Count -lt 2) {
+    Write-Warning "Couldn't get FFmpeg's source code or build scripts. Don't publish this build until they are attached to the release (see THIRD_PARTY_NOTICES.md)."
+}
+@"
+FFmpeg in this folder: $FfVersionLine
+FFmpeg commit: $FfCommit
+Built with the scripts at https://github.com/BtbN/FFmpeg-Builds (commit $ScriptsRef)
+
+FFmpeg is free software under the GNU GPL version 3 (see FFMPEG-LICENSE.txt). Its complete source
+code, and the scripts used to build it with the libraries it includes, are attached to the same
+Corefold release you downloaded, as ffmpeg-source-*.tar.gz. If you can't get them there, ask
+Atomic Works through the Corefold website and we'll send you a copy; this offer is valid for
+three years after we last ship this version.
+"@ | Set-Content -Encoding utf8 "$FfDir\SOURCE.txt"
+
 
 # ---- 7-Zip (archives: ZIP, RAR, 7z, ISO ...). Uses an installed 7-Zip, or installs one.
 $SzDir = "vendor\7zip"
@@ -154,29 +203,33 @@ if (Test-Path $ModelFile) { $ModelArgs = @("--add-data", "$ModelFile;models") }
 
 # ---- app icon and sounds
 if (-not (Test-Path "assets\icon.ico")) { & $VPy scripts\make_icon.py }
-if (-not (Test-Path "assets\sounds\satsuma.wav")) { & $VPy scripts\make_sounds.py }
+if (-not (Test-Path "assets\sounds\corefold.wav")) { & $VPy scripts\make_sounds.py }
 
 # ---- PyInstaller (one folder: starts fast, fewer antivirus false alarms than --onefile)
 Write-Host "== Packaging app"
-if (Test-Path "dist\Satsuma") { Remove-Item "dist\Satsuma" -Recurse -Force }
-& $VPy -m PyInstaller --noconfirm --clean --windowed --name Satsuma `
+if (Test-Path "dist\Corefold") { Remove-Item "dist\Corefold" -Recurse -Force }
+& $VPy -m PyInstaller --noconfirm --clean --windowed --name Corefold `
     --icon assets\icon.ico --version-file version_info.txt `
     --add-data "assets\icon.png;assets" --add-data "assets\sounds;assets\sounds" @ModelArgs `
-    --collect-submodules satsuma --collect-all pi_heif --collect-all zxingcpp --collect-all pypdfium2 --collect-binaries onnxruntime --collect-all winrt `
+    --collect-submodules corefold --collect-all pi_heif --collect-all zxingcpp --collect-all pypdfium2 --collect-binaries onnxruntime --collect-all winrt `
     --exclude-module tkinter --exclude-module PySide6.QtQml --exclude-module PySide6.QtQuick `
     main.py
 if ($LASTEXITCODE) { throw "PyInstaller failed" }
-# Not needed by Satsuma (software OpenGL fallback, ~20 MB)
-Get-ChildItem "dist\Satsuma" -Recurse -Filter "opengl32sw.dll" | Remove-Item -Force
-Copy-Item $FfDir "dist\Satsuma\ffmpeg" -Recurse
-if (Test-Path "$SzDir\7z.exe") { Copy-Item $SzDir "dist\Satsuma\7zip" -Recurse }
-Copy-Item LICENSE, THIRD_PARTY_NOTICES.md "dist\Satsuma\"
+# Not needed by Corefold (software OpenGL fallback, ~20 MB)
+Get-ChildItem "dist\Corefold" -Recurse -Filter "opengl32sw.dll" | Remove-Item -Force
+Copy-Item $FfDir "dist\Corefold\ffmpeg" -Recurse
+if (Test-Path "$SzDir\7z.exe") { Copy-Item $SzDir "dist\Corefold\7zip" -Recurse }
+Copy-Item LICENSE, THIRD_PARTY_NOTICES.md "dist\Corefold\"
+# the exact version of every Python component in this build (THIRD_PARTY_NOTICES.md points here)
+& $VPy -m pip freeze --all | Where-Object { $_ -notmatch "^(pip|setuptools|wheel|pyinstaller|pyinstaller-hooks-contrib|altgraph|pefile|pywin32-ctypes|packaging)==" } |
+    Set-Content -Encoding utf8 "dist\Corefold\COMPONENT-VERSIONS.txt"
 
 # ---- portable zip
 New-Item -ItemType Directory -Force "dist\release" | Out-Null
-$zipOut = "dist\release\Satsuma-$Version-portable.zip"
+$zipOut = "dist\release\Corefold-$Version-portable.zip"
 if (Test-Path $zipOut) { Remove-Item $zipOut }
-Compress-Archive "dist\Satsuma" $zipOut
+Compress-Archive "dist\Corefold" $zipOut
+foreach ($f in $SourceFiles) { Copy-Item $f "dist\release\" }
 
 # ---- installer (Inno Setup)
 $iscc = @(
@@ -198,8 +251,12 @@ if (-not $iscc) {
 }
 if ($iscc) {
     Write-Host "== Building installer"
-    & $iscc "/DAppVersion=$Version" "/DNumericVersion=$NumericVersion" "installer\satsuma.iss" | Out-Host
+    & $iscc "/DAppVersion=$Version" "/DNumericVersion=$NumericVersion" "installer\corefold.iss" | Out-Host
     if ($LASTEXITCODE) { throw "Inno Setup failed" }
+    # Copies still called Satsuma (1.6.0 and older) only look for "Satsuma-Setup-<version>.exe" when
+    # they check for updates. The same installer under that name lets them update to Corefold.
+    # Once nobody uses those versions any more, this copy can go.
+    Copy-Item "dist\release\Corefold-Setup-$Version.exe" "dist\release\Satsuma-Setup-$Version.exe" -Force
 } else {
     Write-Warning "Inno Setup not found, so no installer was made. Install it from https://jrsoftware.org/isdl.php and run this again."
 }
