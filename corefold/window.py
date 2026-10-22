@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QDateTime, QLocale, Qt, QUrl, Signal
+from PySide6.QtCore import QDateTime, QLocale, QSize, Qt, QUrl, Signal
 from PySide6.QtGui import QColor, QDesktopServices, QFont, QGuiApplication, QIcon
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QColorDialog, QComboBox, QFileDialog, QFrame,
                                QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox,
@@ -254,6 +254,8 @@ class MainWindow(QWidget):
         self.nav = QListWidget()
         self.nav.setObjectName("nav")
         self.nav_rows: list[str | None] = []   # sidebar row -> page name (None for a heading)
+        self.nav.ensurePolished()
+        row_h = max(30, self.nav.fontMetrics().height() + 14)  # compact rows, so every page fits
         for entry in NAV:
             item = QListWidgetItem()
             if isinstance(entry, tuple):
@@ -263,8 +265,10 @@ class MainWindow(QWidget):
                 f.setWeight(QFont.Weight.DemiBold)
                 f.setCapitalization(QFont.Capitalization.AllUppercase)
                 item.setFont(f)
+                item.setSizeHint(QSize(0, row_h - 2))
                 self.nav_rows.append(None)
             else:
+                item.setSizeHint(QSize(0, row_h))
                 self.nav_rows.append(entry)
             self.nav.addItem(item)
         for row, name in enumerate(self.nav_rows):
@@ -274,7 +278,9 @@ class MainWindow(QWidget):
                 hl = QHBoxLayout(holder)
                 hl.setContentsMargins(0, 0, 10, 0)
                 hl.addStretch()
-                hl.addWidget(label(tr("Soon"), "soonPill"))
+                pill = label(tr("Soon"), "soonPill")
+                pill.setFixedHeight(18)
+                hl.addWidget(pill, 0, Qt.AlignVCenter)
                 self.nav.setItemWidget(self.nav.item(row), holder)
         self.nav.setIconSize(icons.ICON_SIZE)
         self.refresh_nav()
@@ -365,7 +371,9 @@ class MainWindow(QWidget):
         top = QHBoxLayout()
         top.setSpacing(10)
         top.addWidget(label(tr(title), "h1"))
-        top.addWidget(label(tr("Coming soon"), "soonPill"), 0, Qt.AlignVCenter)
+        soon_pill = label(tr("Coming soon"), "soonPill")
+        soon_pill.setFixedHeight(20)
+        top.addWidget(soon_pill, 0, Qt.AlignVCenter)
         top.addStretch()
         words.addLayout(top)
         words.addWidget(label(tr(intro), "muted", wrap=True))

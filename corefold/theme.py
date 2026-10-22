@@ -71,7 +71,7 @@ def build_theme(appearance: str, accent_key: str, custom_color: str = "#3cc7b2",
                      bg=QColor("#09090a"), panel=QColor("#111113"), field=QColor("#161618"),
                      border=QColor("#1f1f23"), text=QColor("#f1f1f3"), muted=QColor("#8e8e96"),
                      wheel_bg=QColor(17, 17, 19, a), wheel_stripe=QColor(255, 255, 255, 10),
-                     wheel_center=QColor(9, 9, 10, 250), wheel_line=QColor(255, 255, 255, 22),
+                     wheel_center=QColor(9, 9, 10, 250), wheel_line=QColor(255, 255, 255, 15),
                      danger=QColor("#ff6b78"), sidebar=QColor("#0c0c0d"), line_strong=QColor("#2c2c32"),
                      hover=QColor("#18181b"))
     return Theme(False, accent, on_accent,
@@ -127,7 +127,7 @@ QListWidget#nav::item { padding: 7px 10px; border-radius: 8px; margin: 1px 0; co
 QListWidget#nav::item:hover { background: $hover; color: $text; }
 QListWidget#nav::item:selected { background: $hover; color: $text; border-$lead_side: 2px solid $accent; }
 QListWidget#nav::item:disabled { color: $muted; background: transparent; }
-QLabel#soonPill { background: transparent; border: 1px solid $line_strong; border-radius: 8px; color: $muted;
+QLabel#soonPill { background: transparent; border: 1px solid $line_strong; border-radius: 9px; color: $muted;
                   font-size: 7pt; font-weight: 600; padding: 0 6px; }
 QLabel#h1 { font-family: "Segoe UI Variable Display", "Segoe UI"; font-size: 19pt; font-weight: 600; }
 QLabel#h2 { font-family: "Segoe UI Variable Display", "Segoe UI"; font-size: 11pt; font-weight: 600; }
