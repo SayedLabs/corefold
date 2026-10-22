@@ -64,10 +64,18 @@ def load_image(src: Path):
     setup_pillow()
     with Image.open(src) as im:
         try:
-            out = ImageOps.exif_transpose(im)  # applies phone-camera rotation; returns a copy (first frame)
-        except Exception:  # broken photo details (EXIF) must not stop the picture itself from opening
-            out = im.copy()
-        out.load()
+            upright = im.getexif().get(0x0112, 1) in (0, 1)  # no phone-camera rotation to apply
+        except Exception:
+            upright = False
+        if upright and not getattr(im, "is_animated", False):
+            im.load()  # no copy needed: half the memory for big photos
+            out = im
+        else:
+            try:
+                out = ImageOps.exif_transpose(im)  # applies phone-camera rotation; returns a copy (first frame)
+            except Exception:  # broken photo details (EXIF) must not stop the picture itself from opening
+                out = im.copy()
+            out.load()
     if out.mode in ("I;16", "I;16B", "I;16L", "I;16N", "I", "F"):
         # 16-bit and 32-bit pictures (scanners, cameras, medical): scale down to normal 8-bit greys.
         # Without this they come out almost completely white.
