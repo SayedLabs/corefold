@@ -23,8 +23,12 @@ jobs:
 
       - name: Build app, installer and portable zip
         shell: pwsh
+        env:  # passed as data, never pasted into the script
+          EVENT: ${{ github.event_name }}
+          TAG: ${{ github.event.release.tag_name }}
+          RUN: ${{ github.run_number }}
         run: |
-          $version = if ("${{ github.event_name }}" -eq "release") { "${{ github.event.release.tag_name }}" } else { "0.0.${{ github.run_number }}-dev" }
+          $version = if ($env:EVENT -eq "release") { $env:TAG } else { "0.0.$($env:RUN)-dev" }
           ./scripts/build.ps1 -Version $version
 
       - uses: actions/upload-artifact@v4
@@ -34,6 +38,6 @@ jobs:
 
       - name: Attach to release
         if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2.6.2, pinned: it gets write access
         with:
           files: dist/release/*

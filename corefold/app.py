@@ -195,9 +195,14 @@ class Inbox(QObject):
         # The helper may have written and left already, before the signals above were connected.
         QTimer.singleShot(0, self._check)
 
+    MAX_BYTES = 4 * 1024 * 1024  # thousands of file paths; anything bigger isn't from Corefold
+
     def _read(self):
         if not self.done:
             self.buf.extend(bytes(self.conn.readAll()))
+            if len(self.buf) > self.MAX_BYTES:
+                self.buf.clear()
+                self._finish()
 
     def _check(self):
         if self.done:
@@ -1462,6 +1467,7 @@ def main() -> int:
 
     server = QLocalServer()
     server.setMaxPendingConnections(512)  # hundreds of files right-clicked at once
+    server.setSocketOptions(QLocalServer.SocketOption.UserAccessOption)  # only this Windows user can talk to it
     QLocalServer.removeServer(ipc.SERVER_NAME)
     if not server.listen(ipc.SERVER_NAME):
         log.warning("could not listen for other copies: %s", server.errorString())

@@ -13,7 +13,8 @@ param(
     [string]$UpdateRepo = "",
     [string]$FfmpegUrl = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl-shared.zip",
     # Background remover model (U2-Net "silueta", ~44 MB) from the rembg project
-    [string]$ModelUrl = "https://github.com/danielgatis/rembg/releases/download/v0.0.0/silueta.onnx"
+    [string]$ModelUrl = "https://github.com/danielgatis/rembg/releases/download/v0.0.0/silueta.onnx",
+    [string]$ModelSha256 = "75da6c8d2f8096ec743d071951be73b4a8bc7b3e51d9a6625d63644f90ffeedb"
 )
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"   # makes downloads much faster
@@ -21,6 +22,7 @@ $Root = Split-Path $PSScriptRoot -Parent
 Set-Location $Root
 
 $Version = $Version.TrimStart("v")
+if ($Version -notmatch '^[0-9][0-9A-Za-z.+-]*$') { throw "Not a version number: $Version" }  # it's written into code below
 $NumericVersion = ($Version -split "[-+]")[0]
 $parts = @($NumericVersion.Split(".") | ForEach-Object { [int]$_ })
 while ($parts.Count -lt 4) { $parts += 0 }
@@ -107,6 +109,16 @@ if (-not (Test-Path "$FfDir\ffmpeg.exe") -or -not (Get-ChildItem $FfDir -Filter 
     $zip = Join-Path $env:TEMP "corefold-ffmpeg.zip"
     $tmp = Join-Path $env:TEMP "corefold-ffmpeg"
     Invoke-WebRequest $FfmpegUrl -OutFile $zip
+    # check it against the checksums published next to it, so a broken or swapped download stops here
+    $sumsUrl = ($FfmpegUrl -replace "/[^/]+$", "/checksums.sha256")
+    $zipName = ($FfmpegUrl -split "/")[-1]
+    try { $sums = (Invoke-WebRequest $sumsUrl -UseBasicParsing).Content } catch { $sums = "" }
+    if ($sums -is [byte[]]) { $sums = [Text.Encoding]::UTF8.GetString($sums) }
+    $want = ($sums -split "`n" | Where-Object { $_ -match "\s\*?$([regex]::Escape($zipName))\s*$" } | Select-Object -First 1)
+    if (-not $want) { throw "FFmpeg's checksum list doesn't mention $zipName; not using this download" }
+    $want = ($want.Trim() -split "\s+")[0].ToLower()
+    $got = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+    if ($got -ne $want) { Remove-Item $zip -Force; throw "FFmpeg download doesn't match its checksum" }
     if (Test-Path $tmp) { Remove-Item $tmp -Recurse -Force }
     Expand-Archive $zip $tmp -Force
     $bin = Get-ChildItem $tmp -Recurse -Filter "ffmpeg.exe" | Select-Object -First 1
@@ -163,21 +175,33 @@ three years after we last ship this version.
 
 
 # ---- 7-Zip (archives: ZIP, RAR, 7z, ISO ...). Uses an installed 7-Zip, or installs one.
+# 25.00 or newer only: older ones can be tricked by a booby-trapped archive into writing outside
+# the folder (CVE-2025-11001/11002) or dropping the "downloaded from the internet" mark.
 $SzDir = "vendor\7zip"
+$Sz7Min = [version]"25.0"
+function Get-7ZipVersion($exe) {
+    try { return [version](((Get-Item $exe).VersionInfo.ProductVersion -split "[^0-9.]")[0]) } catch { return [version]"0.0" }
+}
 function Find-7Zip {
     foreach ($d in @("$env:ProgramFiles\7-Zip", "${env:ProgramFiles(x86)}\7-Zip", "$env:LOCALAPPDATA\Programs\7-Zip")) {
-        if ((Test-Path "$d\7z.exe") -and (Test-Path "$d\7z.dll")) { return $d }
+        if ((Test-Path "$d\7z.exe") -and (Test-Path "$d\7z.dll") -and ((Get-7ZipVersion "$d\7z.exe") -ge $Sz7Min)) { return $d }
     }
     return $null
+}
+if ((Test-Path "$SzDir\7z.exe") -and ((Get-7ZipVersion "$SzDir\7z.exe") -lt $Sz7Min)) {
+    Write-Host "== The saved 7-Zip is too old; getting a new one"
+    Remove-Item $SzDir -Recurse -Force
 }
 if (-not (Test-Path "$SzDir\7z.exe")) {
     $found = Find-7Zip
     if (-not $found) {
-        Write-Host "== Installing 7-Zip (needed to build only)"
+        Write-Host "== Installing or updating 7-Zip (needed to build only)"
         if (Get-Command winget -ErrorAction SilentlyContinue) {
             winget install --id 7zip.7zip -e --silent --accept-package-agreements --accept-source-agreements | Out-Host
-        } elseif (Get-Command choco -ErrorAction SilentlyContinue) {
-            choco install 7zip -y --no-progress | Out-Null
+            winget upgrade --id 7zip.7zip -e --silent --accept-package-agreements --accept-source-agreements | Out-Host
+        }
+        if (-not (Find-7Zip) -and (Get-Command choco -ErrorAction SilentlyContinue)) {
+            choco upgrade 7zip -y --no-progress | Out-Null
         }
         $found = Find-7Zip
     }
@@ -186,7 +210,7 @@ if (-not (Test-Path "$SzDir\7z.exe")) {
         Copy-Item "$found\7z.exe", "$found\7z.dll" $SzDir
         foreach ($f in @("License.txt", "readme.txt")) { if (Test-Path "$found\$f") { Copy-Item "$found\$f" "$SzDir\7-ZIP-$f" } }
     } else {
-        Write-Warning "Couldn't find or install 7-Zip; only ZIP and TAR archives will work in this build."
+        throw "Couldn't find or install 7-Zip $Sz7Min or newer. A release without it (or with an old one) would be unsafe or broken."
     }
 }
 
@@ -195,8 +219,11 @@ $ModelFile = "vendor\models\silueta.onnx"
 if (-not (Test-Path $ModelFile)) {
     Write-Host "== Downloading background remover model"
     New-Item -ItemType Directory -Force "vendor\models" | Out-Null
-    try { Invoke-WebRequest $ModelUrl -OutFile $ModelFile }
-    catch { Remove-Item $ModelFile -ErrorAction SilentlyContinue; Write-Warning "Couldn't download the model; 'Cut out' will show as unavailable." }
+    try {
+        Invoke-WebRequest $ModelUrl -OutFile $ModelFile
+        if ((Get-FileHash $ModelFile -Algorithm SHA256).Hash.ToLower() -ne $ModelSha256) { throw "checksum mismatch" }
+    }
+    catch { Remove-Item $ModelFile -ErrorAction SilentlyContinue; Write-Warning "Couldn't download the model ($_); 'Cut out' will show as unavailable." }
 }
 $ModelArgs = @()
 if (Test-Path $ModelFile) { $ModelArgs = @("--add-data", "$ModelFile;models") }
