@@ -62,10 +62,12 @@ def make():
 
 timed(f"make a ZIP with {FILES:,} files (test setup)", make, 120)
 entries = timed("list it (7-Zip)", lambda: ar.list_entries(big), 8)
-b = timed("build the archive window", lambda: ArchiveBrowser(c, big, "", entries, QIcon()), 6)
+b = timed("build the archive window", lambda: ArchiveBrowser(c, big, "", entries, QIcon()), 3)
 b.resize(900, 600)
 b.show()
 timed("show it", qapp.processEvents, 3)
+timed("sort by size (clicking the heading)", lambda: (b._sort_by(1), qapp.processEvents()), 4)
+timed("sort by name again", lambda: (b._sort_by(0), qapp.processEvents()), 4)
 timed("search for one name", lambda: (b._filter("file-59999"), qapp.processEvents()), 2)
 timed("clear the search", lambda: (b._filter(""), qapp.processEvents()), 2)
 b.tree.selectAll()
@@ -78,7 +80,7 @@ members = b._selected_paths()
 folder = timed(f"take out a folder of {len([m for m in members if m.endswith('.txt')]):,} files for dragging",
                lambda: ar.extract_for_drag(big, members, ""), 15)
 ar.remove_drag_folder(folder)
-timed("reload after a change", b.reload, 10)
+timed("reload after a change", b.reload, 5)
 b.close()
 qapp.processEvents()
 

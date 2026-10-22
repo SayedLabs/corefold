@@ -290,8 +290,6 @@ STRINGS: dict[str, str] = {
     "Search inside the archive": "Arşivin içinde ara",
     "Packed": "Sıkıştırılmış",
     "Modified": "Değiştirilme",
-    "Extract all…": "Tümünü çıkar…",
-    "Extract selected…": "Seçileni çıkar…",
     "Open": "Aç",
     "Test": "Test et",
     "Add files…": "Dosya ekle…",
@@ -891,4 +889,8 @@ STRINGS: dict[str, str] = {
     "Open an archive": "Arşiv aç",
     "All files": "Tüm dosyalar",
     "{count} bytes": "{count} bayt",
+    "Extract to…": "Şuraya çıkar…",
+    "Extract selected to…": "Seçileni şuraya çıkar…",
+    "Select all": "Tümünü seç",
+    "Next to the archive (or in your results folder), without a folder inside a folder": "Arşivin yanına (veya sonuç klasörünüze), klasör içinde klasör olmadan",
 }
