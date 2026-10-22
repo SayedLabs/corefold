@@ -292,12 +292,19 @@ def extract(src: Path, ctx: Ctx, mode: str = "smart") -> Result:
         if members or (mode == "smart" and len(items) == 1):
             moved = [_move_unique(item, base) for item in items]
             result = moved[0] if len(moved) == 1 else base
+            created = moved
         else:
             result = unique_path(base / name)
             staging.rename(result)
             staging = None
             _hide(result, False)
-        return Result([result])
+            created = [result]
+        note = ""
+        if ctx.params.get("nested"):  # archives inside: unpacked too (only in what was just made)
+            count = unpack_nested(created, ctx)
+            if count:
+                note = tr("Also unpacked {count} archives that were inside", count=count)
+        return Result([result], note=note)
     finally:
         if staging is not None and staging.exists():
             shutil.rmtree(staging, ignore_errors=True)
@@ -525,3 +532,249 @@ def extract_for_opening(src: Path, member: str, ctx: Ctx) -> Result:
     if not inside or not out.is_file():
         raise RuntimeError(tr("couldn't take that file out of the archive"))
     return Result([out])
+
+
+# ----------------------------------------------------------------------------- archives inside archives
+
+NESTED_DEPTH = 3     # an archive in an archive in an archive, and no deeper
+NESTED_MAX = 200
+
+
+def is_archive_file(p: Path) -> bool:
+    from .core import ARCHIVE_EXT, norm
+    try:
+        return p.is_file() and not is_link(p) and (norm(p.suffix) in ARCHIVE_EXT or is_tar(p)) \
+            and not is_extra_part(p)
+    except OSError:
+        return False
+
+
+def unpack_nested(roots: list[Path], ctx: Ctx) -> int:
+    """Unpacks archives found in roots (files and folders Corefold just made), each into a folder
+    named after it, and removes that inner copy once it's unpacked. Returns how many."""
+    from dataclasses import replace
+    options = replace(ctx.options, rename_base="")
+    done = 0
+    queue = [(r, 1) for r in roots]
+    while queue:
+        root, depth = queue.pop(0)
+        try:
+            found = [root] if root.is_file() else [p for p in sorted(root.rglob("*")) if not is_link(p)]
+        except OSError:
+            continue
+        for f in found:
+            if done >= NESTED_MAX:
+                return done
+            if not is_archive_file(f):
+                continue
+            ctx.check()
+            inner = Ctx(options, None, ctx.cancel_event, {"dest": str(f.parent)})
+            try:
+                made = extract(f, inner, mode="folder").outputs[0]
+            except NeedPassword:
+                continue
+            except Exception:
+                log.info("couldn't unpack %s inside the archive", f.name, exc_info=True)
+                continue
+            try:
+                f.unlink()
+            except OSError:
+                pass
+            done += 1
+            if depth < NESTED_DEPTH:
+                queue.append((made, depth + 1))
+    return done
+
+
+def holds_archives(entries: list[Entry]) -> bool:
+    return any(not e.is_dir and is_archive_file_name(e.path) for e in entries)
+
+
+def is_archive_file_name(name: str) -> bool:
+    from .core import ARCHIVE_EXT, norm
+    p = Path(name.rstrip("/"))
+    return norm(p.suffix) in ARCHIVE_EXT and not is_extra_part(p)
+
+
+# ----------------------------------------------------------------------------- changing a file inside
+
+UPDATE_ALL = "-up1q1r2x2y2z2w2"  # replace the file even if the archive's copy looks newer
+
+
+def update_member(src: Path, member: str, new_file: Path, ctx: Ctx) -> Result:
+    """Puts an edited copy of a file back into the archive, at the same place inside it."""
+    if not can_edit(src):
+        raise RuntimeError(tr("only ZIP and 7z archives can be changed"))
+    parts = [x for x in member.replace("\\", "/").strip("/").split("/") if x]
+    if not parts or any(x in (".", "..") or ":" in x for x in parts):
+        raise RuntimeError(tr("couldn't put that file back into the archive"))
+    rel = os.sep.join(parts)
+    stage = Path(tempfile.mkdtemp(prefix="corefold-"))
+    listfile = None
+    try:
+        dest = stage / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(new_file, dest)
+        listfile = _listfile([rel])
+        args = ["u", str(src.resolve()), UPDATE_ALL, "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-scsUTF-8", "-y", "-spd"]
+        password = ctx.params.get("password", "")
+        if password:
+            args.append(f"-p{password}")
+        code, out = _run7z([*args, f"@{listfile}"], ctx, cwd=stage)
+    finally:
+        if listfile:
+            listfile.unlink(missing_ok=True)
+        shutil.rmtree(stage, ignore_errors=True)
+    if code not in (0, 1):
+        raise _7z_error(out)
+    return Result([src], note=tr("Saved {name} back into {archive}", name=parts[-1], archive=src.name))
+
+
+# ----------------------------------------------------------------------------- rescuing damaged archives
+
+_DAMAGED_LINE = re.compile(r"^ERROR:\s*(?:[^:]*?)\s*:\s*(.+?)\s*$")
+
+
+def _scan_zip(src: Path, target: Path, ctx: Ctx) -> tuple[int, int]:
+    """Reads a ZIP file by its pieces (each file's own header), for ZIPs whose table of contents at the
+    end is missing or broken. Writes every file that checks out; returns (good, damaged)."""
+    import mmap
+    import struct
+    import zlib
+    good = bad = 0
+    root = target.resolve()
+    with open(src, "rb") as fh:
+        try:
+            mm = mmap.mmap(fh.fileno(), 0, access=mmap.ACCESS_READ)
+        except ValueError:  # empty file
+            return 0, 0
+        with mm:
+            size = len(mm)
+            pos = 0
+            while True:
+                ctx.check()
+                i = mm.find(b"PK\x03\x04", pos)
+                if i < 0 or i + 30 > size:
+                    break
+                ctx.progress(i / max(1, size))
+                (_sig, _ver, flag, method, _t, _d, crc, csize, usize, nlen, xlen) = \
+                    struct.unpack("<IHHHHHIIIHH", mm[i:i + 30])
+                raw = mm[i + 30:i + 30 + nlen]
+                name = raw.decode("utf-8" if flag & 0x800 else "cp437", "replace")
+                start = i + 30 + nlen + xlen
+                pos = i + 4
+                parts = [x for x in name.replace("\\", "/").split("/") if x not in ("", ".")]
+                if not parts or ".." in parts or any(":" in x for x in parts) or start > size:
+                    continue
+                out = target.joinpath(*parts)
+                try:
+                    if not out.resolve().is_relative_to(root):
+                        continue
+                except OSError:
+                    continue
+                if name.endswith("/"):
+                    out.mkdir(parents=True, exist_ok=True)
+                    continue
+                if flag & 1 or method not in (0, 8) or csize == 0xFFFFFFFF:  # locked, or a kind not read here
+                    bad += 1
+                    continue
+                known = not (flag & 8)  # otherwise the sizes come after the data
+                out.parent.mkdir(parents=True, exist_ok=True)
+                check = 0
+                ok = True
+                tmp = out.with_name(out.name + ".part")
+                try:
+                    with open(tmp, "wb") as w:
+                        if method == 0:
+                            if not known:
+                                ok = False
+                            else:
+                                data = mm[start:start + csize]
+                                ok = len(data) == csize
+                                w.write(data)
+                                check = zlib.crc32(data)
+                                end = start + csize
+                        else:
+                            d = zlib.decompressobj(-15)
+                            p = start
+                            limit = start + csize if known else size
+                            try:
+                                while p < limit and not d.eof:
+                                    chunk = mm[p:min(limit, p + (1 << 20))]
+                                    p += len(chunk)
+                                    piece = d.decompress(chunk)
+                                    check = zlib.crc32(piece, check)
+                                    w.write(piece)
+                                    ctx.check()
+                                ok = d.eof
+                            except zlib.error:  # damaged data
+                                ok = False
+                            end = p - len(d.unused_data)
+                            if not known and ok and end + 16 <= size:  # the data descriptor holds the check
+                                tail = mm[end:end + 16]
+                                crc = struct.unpack("<I", tail[4:8] if tail[:4] == b"PK\x07\x08" else tail[:4])[0]
+                    if ok and check == crc:
+                        os.replace(tmp, out)
+                        good += 1
+                        pos = max(pos, end)
+                    else:
+                        bad += 1
+                finally:
+                    if tmp.exists():
+                        tmp.unlink()
+    return good, bad
+
+
+def repair_archive(src: Path, ctx: Ctx) -> Result:
+    """Takes out everything that can still be read from a damaged archive and puts it in a new,
+    healthy ZIP next to it ("name (repaired).zip"). The damaged archive is left as it was."""
+    password = ctx.params.get("password", "")
+    stage = Path(tempfile.mkdtemp(prefix=".corefold-unpacking-", dir=src.parent))
+    try:
+        _hide(stage)
+        damaged = 0
+        if find_7z():
+            code, out = _run7z(["x", str(src), f"-o{stage}", "-y", "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-snz",
+                                "-spd", _pw(password)], ctx)
+            if code not in (0, 1):
+                err = _7z_error(out)
+                if isinstance(err, NeedPassword):
+                    raise err
+            for line in out.splitlines():  # files 7-Zip found broken: left out of the new ZIP
+                m = _DAMAGED_LINE.match(line.strip())
+                if m:
+                    broken = stage / m.group(1).replace("/", os.sep)
+                    try:
+                        if broken.is_file() and broken.resolve().is_relative_to(stage.resolve()):
+                            broken.unlink()
+                            damaged += 1
+                    except OSError:
+                        pass
+        rescued = [p for p in stage.rglob("*") if p.is_file()]
+        if not rescued and src.suffix.lower() in (".zip", ".zipx"):  # read it piece by piece instead
+            shutil.rmtree(stage, ignore_errors=True)
+            stage.mkdir()
+            _hide(stage)
+            _good, damaged = _scan_zip(src, stage, ctx)
+            rescued = [p for p in stage.rglob("*") if p.is_file()]
+        if not rescued:
+            raise RuntimeError(tr("nothing in this archive could be rescued"))
+        out_zip = unique_path(src.parent / f"{safe_name(archive_stem(src)) or 'Archive'} (repaired).zip")
+        outs = pack_into(sorted(stage.iterdir()), out_zip, ctx, "zip", password=password)
+        pass_on_zone_mark([src], outs)
+    finally:
+        shutil.rmtree(stage, ignore_errors=True)
+    note = tr("Rescued {count} files", count=len(rescued))
+    if damaged:
+        note += " · " + tr("{count} damaged files couldn't be saved", count=damaged)
+    return Result(outs, note=note)
+
+
+# ----------------------------------------------------------------------------- dragging files out
+
+def extract_for_drag(src: Path, members: list[str], password: str) -> Path:
+    """Takes these files out into a new temporary folder (for dragging them into Explorer)."""
+    from .core import Options
+    target = Path(tempfile.mkdtemp(prefix="corefold-drag-"))
+    _extract_into(src, target, Ctx(Options()), password, members)
+    return target

@@ -23,8 +23,9 @@ if ipc.forward(sys.argv[1:]):
     sys.exit(0)
 
 if "--remove-shell-menu" in sys.argv:  # used by the uninstaller
-    from corefold import shellmenu  # noqa: E402
+    from corefold import assoc, shellmenu  # noqa: E402
     shellmenu.remove()
+    assoc.unregister()
     sys.exit(0)
 
 from corefold import winutil  # noqa: E402

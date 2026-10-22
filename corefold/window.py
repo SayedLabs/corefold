@@ -32,16 +32,16 @@ if TYPE_CHECKING:
     from .app import Controller
 
 # every page, in the order they are built (names are English, shown through tr())
-PAGES = ["Home", "Converter", "History", "Apps", "Soon", "Archives", "Viewer", "Player", "Capture", "Space",
+PAGES = ["Home", "Converter", "History", "Apps", "Archives", "Soon", "Viewer", "Player", "Capture", "Space",
          "Clipboard", "Cloud", "General", "Look", "Formats", "Updates", "About"]
 # tools still being made: page -> product tile (in the order they're planned)
-SOON = {"Archives": "archive", "Viewer": "viewer", "Player": "player", "Capture": "capture", "Space": "space",
+SOON = {"Viewer": "viewer", "Player": "player", "Capture": "capture", "Space": "space",
         "Clipboard": "clipboard", "Cloud": "cloud"}
 # the sidebar: pages, with a small heading before each group (None + heading). The tools still being
 # made share one "Coming soon" row, so the sidebar stays short.
-NAV = ["Home", "History", (None, "Tools"), "Converter", "Apps", "Soon",
+NAV = ["Home", "History", (None, "Tools"), "Converter", "Apps", "Archives", "Soon",
        (None, "Settings"), "General", "Look", "Formats", "Updates", "About"]
-NAV_LABELS = {"Apps": "Uninstaller", "Soon": "Coming soon"}  # where the sidebar's name differs from the page's
+NAV_LABELS = {"Apps": "Uninstaller", "Archives": "Archive", "Soon": "Coming soon"}  # where the sidebar's name differs from the page's
 NAV_OWNER = {name: "Soon" for name in SOON}  # pages without a row of their own: the row that's lit
 PAGE_ICONS = {"Home": "home", "Converter": "arrow_swap", "Apps": "broom", "General": "settings", "Look": "paint_brush",  # icons.py
               "Formats": "puzzle_piece", "History": "history", "Updates": "arrow_sync", "About": "info",
@@ -53,6 +53,8 @@ TOOLS = [
      "Convert, shrink and edit pictures, videos, music, PDFs and documents with one drag."),
     ("Apps", "cleaner", "Corefold Uninstaller",
      "Remove programs and everything they leave behind, with a backup you can put back."),
+    ("Archives", "archive", "Corefold Archive",
+     "Open, extract and make ZIP, RAR and 7z files. Drag files out, change them inside, rescue damaged ones."),
 ]
 SOON_TEXT = {  # name, one line, what it will do (English, shown through tr())
     "Cloud": ("Corefold Cloud", "All your cloud storage in one window: OneDrive, Google Drive, Dropbox and more.",
@@ -80,13 +82,6 @@ SOON_TEXT = {  # name, one line, what it will do (English, shown through tr())
                    "Search your clipboard history",
                    "Paste as plain text, without the formatting",
                    "Stays on your PC, and skips passwords from password managers"]),
-    "Archives": ("Corefold Archive", "Open, look inside and make archives right here, faster and tidier than the "
-                 "usual archive apps.",
-                 ["Open ZIP, RAR, 7z, TAR, ISO and more with a double-click",
-                  "Drag files out of an archive into any folder",
-                  "Change a file inside an archive and save it back",
-                  "Repair damaged ZIP files and rescue what can still be read",
-                  "Extract archives inside archives in one go"]),
     "Player": ("Corefold Player", "Plays every video and song, smooth in 4K, with clean controls that get out of "
                "the way.",
                ["Plays every common video and music format",
@@ -456,7 +451,7 @@ class MainWindow(QWidget):
 
         self.stack = QStackedWidget()
         builders = {"Home": self._home, "Converter": self._converter, "History": self._history, "Apps": self._apps,
-                    "Soon": self._soon_all, "General": self._general,
+                    "Archives": self._archives, "Soon": self._soon_all, "General": self._general,
                     "Look": self._look, "Formats": self._formats, "Updates": self._updates, "About": self._about}
         self._wheel_guard = None
         self._builders = builders
@@ -637,6 +632,136 @@ class MainWindow(QWidget):
             self.refresh_history()
         elif name == "About":
             self.refresh_memory()
+        elif name == "Archives":
+            self.refresh_archives()
+
+    def _archives(self) -> QWidget:
+        """Corefold Archive: open archives, make new ones, and the ones opened lately."""
+        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
+        w, lay = page(tr("Corefold Archive"))
+        lay.itemAt(0).widget().hide()
+        lay.addLayout(tool_header("archive", tr("Corefold Archive"),
+                                  tr("Open, extract and make archives: ZIP, RAR, 7z, TAR, ISO and more."), dark, dpr))
+        self.archive_drop = DropZone(None, None, title=tr("Drop an archive to open it"),
+                                     sub=tr("Or drop files and folders to pack them into a ZIP or 7z."),
+                                     hot_title=tr("Let go"),
+                                     buttons=[(tr("Open an archive…"), self._open_archive, "primary"),
+                                              (tr("Make an archive…"), self._make_archive)])
+        self.archive_drop.dropped.connect(self._archive_dropped)
+        lay.addWidget(self.archive_drop)
+
+        box, bl = card(8)
+        head = QHBoxLayout()
+        head.addWidget(label(tr("Recent archives"), "h2"))
+        head.addStretch()
+        self.archive_clear = button(tr("Clear"), "flat", self._clear_archives)
+        head.addWidget(self.archive_clear)
+        bl.addLayout(head)
+        self.archive_recent_lay = QVBoxLayout()
+        self.archive_recent_lay.setSpacing(2)
+        bl.addLayout(self.archive_recent_lay)
+        lay.addWidget(box)
+
+        box, bl = card(8)
+        bl.addWidget(label(tr("Good to know"), "h2"))
+        for text in (tr("Drag files out of an open archive straight into any folder."),
+                     tr("Open a file inside a ZIP or 7z, change it, and save it back into the archive."),
+                     tr("Archives inside archives can be unpacked in one go."),
+                     tr("A damaged archive? Corefold rescues every file that can still be read."),
+                     tr("Files from the internet keep Windows' warning after you unpack them.")):
+            row = QHBoxLayout()
+            row.setSpacing(10)
+            dot = QLabel()
+            dot.setPixmap(icons.pixmap("add", 16, self.c.theme.accent, dpr))
+            dot.setFixedWidth(18)
+            row.addWidget(dot, 0, Qt.AlignTop)
+            row.addWidget(label(text, wrap=True), 1)
+            bl.addLayout(row)
+        lay.addWidget(box)
+
+        box, bl = card(8)
+        bl.addWidget(label(tr("Double-click to open"), "h2"))
+        self.open_archives = QCheckBox(tr("Open archives with Corefold (it shows up under \"Open with\")"))
+        self.open_archives.setChecked(self.c.settings.open_archives)
+        self.open_archives.toggled.connect(self.c.set_open_archives)
+        bl.addWidget(self.open_archives)
+        row = QHBoxLayout()
+        row.addWidget(button(tr("Make Corefold the default…"), None, self._default_for_archives))
+        row.addStretch()
+        bl.addLayout(row)
+        bl.addWidget(label(tr("Windows asks you to pick the default app yourself. This opens the right place in "
+                              "Settings."), "muted", wrap=True))
+        lay.addWidget(box)
+        lay.addStretch()
+        return w
+
+    def refresh_archives(self):
+        """The archives opened lately (ones that were moved or deleted are left out)."""
+        if "Archives" in self._unbuilt:
+            return
+        lay = self.archive_recent_lay
+        while lay.count():
+            item = lay.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        shown = 0
+        for name in self.c.settings.recent_archives:
+            path = Path(name)
+            try:
+                there = path.is_file()
+            except OSError:
+                there = False
+            if not there:
+                continue
+            row = QPushButton(f"{short_name(path.name, 60)}   ·   {short_name(str(path.parent), 60)}")
+            row.setObjectName("flat")
+            row.setToolTip(str(path))
+            row.setCursor(Qt.PointingHandCursor)
+            row.setIcon(icons.icon("archive", self.c.theme.muted))
+            row.setStyleSheet("text-align: left;" if not i18n.is_rtl() else "text-align: right;")
+            row.clicked.connect(lambda _=False, p=path: self.c.open_browser(p))
+            lay.addWidget(row)
+            shown += 1
+        if not shown:
+            lay.addWidget(label(tr("Archives you open show up here."), "muted", wrap=True))
+        self.archive_clear.setVisible(bool(shown))
+
+    def _clear_archives(self):
+        self.c.forget_archives()
+        self.refresh_archives()
+
+    def _open_archive(self):
+        from .core import ARCHIVE_EXT
+        pattern = " ".join(f"*{e}" for e in sorted(ARCHIVE_EXT))
+        name, _ = QFileDialog.getOpenFileName(self, tr("Open an archive"), str(Path.home()),
+                                              f"{tr('Archives')} ({pattern});;{tr('All files')} (*)")
+        if name:
+            self.c.open_browser(Path(name))
+
+    def _make_archive(self):
+        files = choose_files(self)
+        if files:
+            self._pack(files)
+
+    def _pack(self, files: list[Path]):
+        tool = next((t for tools in catalog(len(files) > 1).values() for t in tools if t.key == "pack:options"), None)
+        if tool is not None:
+            self.c.tool_chosen(tool, files)
+
+    def _archive_dropped(self, paths: list[Path]):
+        from .archives import is_archive_file
+        archives = [p for p in paths if is_archive_file(p)]
+        if archives and len(archives) == len(paths):
+            for p in archives[:5]:
+                self.c.open_browser(p)
+        else:
+            self._pack(paths)
+
+    def _default_for_archives(self):
+        from . import assoc
+        if not self.open_archives.isChecked():
+            self.open_archives.setChecked(True)  # registers first, so Windows lists Corefold
+        assoc.open_default_apps()
 
     def _soon_all(self) -> QWidget:
         """Every tool that's on the way, each opening its own page."""

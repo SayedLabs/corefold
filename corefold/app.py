@@ -626,7 +626,7 @@ class Controller(QObject):
                 self.open_browser(src, new)
             return
         if error is not None:
-            self.tell(tr("Couldn't open the archive"), f"{short_name(src.name)}: {error}")
+            self.offer_repair(src, error)
             return
         if not password and any(e.encrypted for e in entries):
             password = self.ask_password([src])
@@ -634,9 +634,58 @@ class Controller(QObject):
                 return
         win = ArchiveBrowser(self, src, password, entries, self.icon)
         self.browsers = [b for b in self.browsers if _alive(b)] + [win]
+        self.remember_archive(src)
         win.show()
         win.raise_()
         win.activateWindow()
+
+    def remember_archive(self, src: Path):
+        """Keeps the list of recently opened archives (shown on the Archive page)."""
+        from .settings import RECENT_ARCHIVES
+        key = os.path.normcase(str(src))
+        recent = [p for p in self.settings.recent_archives if os.path.normcase(p) != key]
+        self.settings.recent_archives = [str(src), *recent][:RECENT_ARCHIVES]
+        self.settings.save()
+        w = self._window
+        if w is not None and hasattr(w, "refresh_archives"):
+            w.refresh_archives()
+
+    def forget_archives(self):
+        self.settings.recent_archives = []
+        self.settings.save()
+
+    def offer_repair(self, src: Path, error):
+        """An archive that can't be opened: say why, and offer to rescue what can still be read."""
+        box = QMessageBox(QMessageBox.Warning, tr("Couldn't open the archive"),
+                          f"{short_name(src.name)}: {error}\n\n"
+                          + tr("If it's damaged, Corefold can try to rescue the files that can still be read, "
+                               "into a new ZIP next to it. The archive itself isn't changed."))
+        box.setWindowIcon(self.icon)
+        rescue = box.addButton(tr("Rescue files"), QMessageBox.AcceptRole)
+        box.addButton(tr("Close"), QMessageBox.RejectRole)
+        box.exec()
+        chosen = box.clickedButton() is rescue
+        box.deleteLater()
+        if chosen:
+            self.repair_archive(src)
+
+    def repair_archive(self, src: Path, password: str = ""):
+        from . import archives as ar
+        desc = tr("Rescue files from {name}", name=short_name(src.name, 30))
+        tool = Tool("archive:repair", desc, desc, lambda items, ctx: ar.repair_archive(items[0], ctx), batch=True,
+                    renames=False, password=True)
+        self.start_job(tool, [src], {"password": password} if password else {})
+
+    def set_open_archives(self, on: bool):
+        self.settings.open_archives = on
+        self.settings.save()
+        self.sync_archive_opening()
+
+    def sync_archive_opening(self):
+        from . import assoc
+        s = self.settings
+        threading.Thread(target=assoc.sync, args=(s.open_archives, app_command, app_icon(),
+                                                  tr("Archive")), daemon=True).start()
 
     # ---- right-click menu
 
@@ -979,6 +1028,10 @@ class Controller(QObject):
                 os_open(result.outputs[0])
             except OSError as e:
                 self.toast.notify(tr("Couldn't open the file"), str(e))
+            member = job["params"].get("member")
+            for b in self.browsers:  # it watches the file, to offer saving changes back into the archive
+                if member and _alive(b) and files and b.src == files[0]:
+                    b.opened(member, result.outputs[0])
             return
         if after == "reload":
             for b in self.browsers:
@@ -1380,7 +1433,7 @@ def clean_old_temp_files():
     temp = Path(tempfile.gettempdir())
     # only folders with the exact names Corefold (or its old name, before 1.7.0) gives its working
     # folders: a prefix, then Python's 8 random letters
-    ours = re.compile(rf"^(corefold|{re.escape(LEGACY_NAME.lower())})-(open-)?[a-z0-9_]{{8}}$")
+    ours = re.compile(rf"^(corefold|{re.escape(LEGACY_NAME.lower())})-(open-|drag-)?[a-z0-9_]{{8}}$")
     for p in [*temp.glob("corefold-*"), *temp.glob(LEGACY_NAME.lower() + "-*")]:
         try:
             if ours.match(p.name) and p.is_dir() and not is_link(p) and p.stat().st_mtime < cutoff:
@@ -1521,6 +1574,7 @@ def main() -> int:
     # keeps the right-click menu up to date and pointing at this copy (only rewritten if needed)
     controller.update_shell_menu(3000)
     QTimer.singleShot(4000, refresh_startup_entry)
+    QTimer.singleShot(5000, controller.sync_archive_opening)
 
     s = controller.settings
     if brought_over:  # first start after the rename: say what happened, once
