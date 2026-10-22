@@ -81,17 +81,22 @@ _TILE_BODY = "M20 10H33V31H54V44A10 10 0 0 1 44 54H20A10 10 0 0 1 10 44V20A10 10
 _TILE_FOLD = "M37.5 10.6L53.4 26.5A1.6 1.6 0 0 1 52.3 29.2H38.6A1.6 1.6 0 0 1 37 27.6V11.7A1.6 1.6 0 0 1 37.5 10.6Z"
 _TILE_GLYPHS = {  # drawn on the old 4..60 grid, moved into the 10..54 body by _GLYPH_FIT
     "corefold": '<circle cx="31" cy="38" r="8.5"/>',
+    # the Converter: one thing in, another out (two arrows turning around each other)
+    "converter": '<g fill="none" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round">'
+                 '<path d="M17 36.5H40.5M34.5 30.5 40.5 36.5 34.5 42.5"/>'
+                 '<path d="M45 48H21.5M27.5 42 21.5 48 27.5 54"/></g>',
     "player": '<path d="M25 28.5 40 38 25 47.5Z"/>',
     "archive": '<rect x="20" y="28" width="22" height="5" rx="2"/><rect x="20" y="36" width="22" height="5" rx="2"/>'
                '<rect x="20" y="44" width="22" height="5" rx="2"/>',
     "cleaner": '<path d="M31 25c1.2 7.3 5.7 11.8 13 13-7.3 1.2-11.8 5.7-13 13-1.2-7.3-5.7-11.8-13-13 7.3-1.2 '
                '11.8-5.7 13-13Z"/>',
     "viewer": '<path d="M17 50 26.5 37l6 8 4-5L46 50Z"/><circle cx="23" cy="29" r="3.5"/>',
+    "cloud": '<path d="M22 50a7.5 7.5 0 0 1-1-14.9A10 10 0 0 1 40.2 33a8.5 8.5 0 0 1 2.3 17Z"/>',
 }
 _GLYPH_FIT = 'transform="translate(6.857 6.857) scale(0.7857)"'
 PRODUCT_COLORS = {  # (light end, deep end) of each product's gradient
-    "corefold": ("#6be6d2", "#0f8f7c"), "player": ("#ff9cb8", "#c22f5c"), "archive": ("#ffd27a", "#a86c00"),
-    "cleaner": ("#a6c1ff", "#2b5fd4"), "viewer": ("#c9bcff", "#6b4bd6"),
+    "corefold": ("#6be6d2", "#0f8f7c"), "converter": ("#b4f08c", "#2f9a52"), "player": ("#ff9cb8", "#c22f5c"), "archive": ("#ffd27a", "#a86c00"),
+    "cleaner": ("#a6c1ff", "#2b5fd4"), "viewer": ("#c9bcff", "#6b4bd6"), "cloud": ("#9fe3ff", "#1b86c4"),
 }
 
 
@@ -107,7 +112,8 @@ def product_tile(product: str, size: int, dark: bool = True, dpr: float = 1.0) -
         f'<rect x="2.5" y="2.5" width="59" height="59" rx="15" fill="#0b0b0c" stroke="#26282c"/>'
         f'<rect x="2.5" y="2.5" width="59" height="59" rx="15" fill="url(#glow)"/>'
         f'<path d="{_TILE_BODY}" fill="url(#g)"/><path d="{_TILE_FOLD}" fill="{light}" opacity=".62"/>'
-        f'<g fill="#0b0b0c" {_GLYPH_FIT}>{_TILE_GLYPHS.get(product, _TILE_GLYPHS["corefold"])}</g></svg>')
+        f'<g fill="#0b0b0c" stroke="#0b0b0c" stroke-width="0" {_GLYPH_FIT}>'
+        f'{_TILE_GLYPHS.get(product, _TILE_GLYPHS["corefold"])}</g></svg>')
     pm = QPixmap(max(1, round(size * dpr)), max(1, round(size * dpr)))
     pm.fill(Qt.transparent)
     pm.setDevicePixelRatio(dpr)

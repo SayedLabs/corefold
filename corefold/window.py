@@ -6,15 +6,16 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QDateTime, QLocale, QSize, Qt, QUrl, Signal
+from PySide6.QtCore import QDateTime, QEvent, QLocale, QObject, QSize, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QColor, QDesktopServices, QFont, QGuiApplication, QIcon
-from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QColorDialog, QComboBox, QFileDialog, QFrame,
+from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QColorDialog, QComboBox, QFileDialog, QFrame,
                                QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox,
                                QPushButton,
                                QScrollArea, QSlider, QSpinBox, QStackedWidget, QSystemTrayIcon, QVBoxLayout,
                                QWidget)
 
 from . import UPDATE_REPO, __version__, i18n, icons
+from . import settings as settings_mod
 from .converters import CATEGORY_NAMES, catalog, human_size
 from .core import short_name
 from .i18n import LANGUAGES, tr
@@ -22,7 +23,7 @@ from .panel import DropZone, FilePanel, choose_files
 from .settings import (ACCENTS, APP_NAME, DEFAULT_ACCENT, APPEARANCES, HOVER_STYLES, LABEL_STYLES, LOG_DIR, MENU_STYLES,
                        SHORTCUT_LABELS, SLICE_COLORS, SOUNDS, TEXT_SIZE_NAMES, TOAST_CORNERS, TOAST_TIMES,
                        WHEEL_POSITIONS, WHEEL_SIZE_NAMES, WHEEL_STYLES, WINDOW_TEXT, installed_uninstaller,
-                       set_startup, startup_enabled)
+                       FORMAT_KEYS, LOOK_KEYS, editable_keys, general_keys, set_startup, startup_enabled)
 from .theme import Theme
 from .wheel import WheelPreview
 from .winutil import memory_use, reveal_in_explorer, set_title_bar_dark
@@ -31,24 +32,30 @@ if TYPE_CHECKING:
     from .app import Controller
 
 # every page, in the order they are built (names are English, shown through tr())
-PAGES = ["Home", "Converter", "History", "Apps", "Archives", "Player", "Viewer", "General", "Look", "Formats", "Updates",
-         "About"]
-SOON = {"Archives": "archive", "Player": "player", "Viewer": "viewer"}  # pages for tools still being made
+PAGES = ["Home", "Converter", "History", "Apps", "Archives", "Player", "Viewer", "Cloud", "General", "Look", "Formats",
+         "Updates", "About"]
+SOON = {"Archives": "archive", "Player": "player", "Viewer": "viewer", "Cloud": "cloud"}  # pages for tools still being made
 # the sidebar: pages, with a small heading before each group (None + heading)
-NAV = ["Home", "History", (None, "Tools"), "Converter", "Apps", "Archives", "Player", "Viewer",
+NAV = ["Home", "History", (None, "Tools"), "Converter", "Apps", "Archives", "Player", "Viewer", "Cloud",
        (None, "Settings"), "General", "Look", "Formats", "Updates", "About"]
 NAV_LABELS = {"Apps": "Uninstaller"}  # where the sidebar's name differs from the page's own name
 PAGE_ICONS = {"Home": "home", "Converter": "arrow_swap", "Apps": "broom", "General": "settings", "Look": "paint_brush",  # icons.py
               "Formats": "puzzle_piece", "History": "history", "Updates": "arrow_sync", "About": "info",
-              "Archives": "archive", "Player": "video", "Viewer": "image"}
+              "Archives": "archive", "Player": "video", "Viewer": "image", "Cloud": "globe"}
 # the tools on the Home page: page, product tile, name, one line (English, shown through tr())
 TOOLS = [
-    ("Converter", "corefold", "Corefold Converter",
+    ("Converter", "converter", "Corefold Converter",
      "Convert, shrink and edit pictures, videos, music, PDFs and documents with one drag."),
     ("Apps", "cleaner", "Corefold Uninstaller",
      "Remove programs and everything they leave behind, with a backup you can put back."),
 ]
 SOON_TEXT = {  # name, one line, what it will do (English, shown through tr())
+    "Cloud": ("Corefold Cloud", "All your cloud storage in one window: OneDrive, Google Drive, Dropbox and more.",
+              ["See OneDrive, Google Drive and Dropbox side by side, without switching accounts",
+               "Drag files from one cloud to another",
+               "Several accounts of the same service at once",
+               "Search across all of them",
+               "Sign in on Microsoft's and Google's own page: your passwords never reach Corefold"]),
     "Archives": ("Corefold Archive", "Open, look inside and make archives right here, faster and tidier than the "
                  "usual archive apps.",
                  ["Open ZIP, RAR, 7z, TAR, ISO and more with a double-click",
@@ -221,6 +228,35 @@ def date_text(ts: float, long: bool = False) -> str:
     return locale().toString(when, "d MMMM yyyy" if long else "d MMM")
 
 
+class _WheelGuard(QObject):
+    """Sends the mouse wheel on to the page (so it scrolls) unless the box was clicked first."""
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.Wheel and not obj.hasFocus():
+            area = obj.parent()
+            while area is not None and not isinstance(area, QScrollArea):
+                area = area.parent()
+            if area is not None:
+                QApplication.sendEvent(area.verticalScrollBar(), event)
+            event.ignore()
+            return True
+        return False
+
+
+def _reset_row(on_click) -> QHBoxLayout:
+    row = QHBoxLayout()
+    row.addStretch()
+    row.addWidget(button(tr("Reset to defaults"), "flat", on_click))
+    return row
+
+
+def _alive_set_text(lab: QLabel, text: str):
+    try:
+        lab.setText(text)
+    except RuntimeError:  # the window was closed meanwhile
+        pass
+
+
 def _html(text: str) -> str:
     import html
     return html.escape(text, quote=False)
@@ -323,9 +359,14 @@ class Swatches(QWidget):
 # ----------------------------------------------------------------------------- the window
 
 class MainWindow(QWidget):
-    def __init__(self, controller: "Controller", icon: QIcon):
+    def __init__(self, controller: "Controller", icon: QIcon, committed: dict | None = None,
+                 pending_startup: bool | None = None):
         super().__init__()
         self.c = controller
+        # the settings as last saved (what "Discard" goes back to), and a start-with-Windows choice
+        # that isn't saved yet
+        self.committed = committed if committed is not None else self._current_settings()
+        self.pending_startup = pending_startup
         self.icon = icon
         self._batch = False
         self.setObjectName("window")
@@ -400,9 +441,17 @@ class MainWindow(QWidget):
         self.open_page(last if last in PAGES else "Home")
 
         footer = QHBoxLayout()
-        footer.addWidget(label(tr("Changes are saved automatically."), "muted"))
+        footer.setSpacing(8)
+        self.saved_hint = label(tr("Changes to settings are kept when you press Save."), "muted")
+        self.unsaved = label(tr("You have unsaved changes"), "unsaved")
+        footer.addWidget(self.saved_hint)
+        footer.addWidget(self.unsaved)
         footer.addStretch()
-        footer.addWidget(button(tr("Done"), "primary", self.close))
+        self.discard_btn = button(tr("Discard"), None, self.discard_changes)
+        self.save_btn = button(tr("Save"), "primary", self.save_changes)
+        self.done_btn = button(tr("Done"), "primary", self.close)
+        for b in (self.discard_btn, self.save_btn, self.done_btn):
+            footer.addWidget(b)
         content = QVBoxLayout()
         content.setContentsMargins(30, 24, 20, 18)
         content.setSpacing(12)
@@ -418,6 +467,88 @@ class MainWindow(QWidget):
         self.refresh()
         self.refresh_updates()
         self.refresh_history()
+        self._no_accidental_scrolling()
+        self.update_save_bar()
+
+    # ---- saving settings on purpose
+
+    @staticmethod
+    def _current_settings_of(s) -> dict:
+        import copy
+        return {k: copy.deepcopy(getattr(s, k)) for k in editable_keys()}
+
+    def _current_settings(self) -> dict:
+        return self._current_settings_of(self.c.settings)
+
+    def is_dirty(self) -> bool:
+        if self.pending_startup is not None and self.pending_startup != startup_enabled():
+            return True
+        return self._current_settings() != self.committed
+
+    def update_save_bar(self):
+        """Shows Save and Discard while settings were changed but not saved yet."""
+        import copy
+        if not hasattr(self, "save_btn"):
+            return
+        dirty = self.is_dirty()
+        settings_mod.HELD = copy.deepcopy(self.committed) if dirty else None
+        self.unsaved.setVisible(dirty)
+        self.discard_btn.setVisible(dirty)
+        self.save_btn.setVisible(dirty)
+        self.done_btn.setObjectName("" if dirty else "primary")
+        self.done_btn.style().unpolish(self.done_btn)
+        self.done_btn.style().polish(self.done_btn)
+        self.saved_hint.setVisible(not dirty)
+
+    def save_changes(self):
+        old_language = self.committed.get("language")
+        self.committed = self._current_settings()
+        settings_mod.HELD = None
+        if self.pending_startup is not None:
+            set_startup(self.pending_startup)
+            self.pending_startup = None
+        self.c.settings.save()
+        self.update_save_bar()
+        self.saved_hint.setText(tr("Saved"))
+        QTimer.singleShot(2500, lambda: _alive_set_text(self.saved_hint,
+                                                        tr("Changes to settings are kept when you press Save.")))
+        if self.c.settings.language != old_language:
+            self._ask_restart_for_language()
+
+    def discard_changes(self, rebuild: bool = True):
+        """Puts every setting back the way it was last saved."""
+        import copy
+        s = self.c.settings
+        for k, v in self.committed.items():
+            setattr(s, k, copy.deepcopy(v))
+        settings_mod.HELD = None
+        self.pending_startup = None
+        self.c.watch_downloads(s.watch_downloads)
+        self.c.apply_theme()
+        self.c.settings_changed(menu=True)
+        if rebuild:
+            self.c.rebuild_window(self.current_page())
+
+    def reset_to_defaults(self, keys):
+        """Sets these settings to how Corefold comes (still to be saved, so it can be undone)."""
+        import copy
+        from .settings import Settings
+        fresh = Settings()
+        for k in keys:
+            setattr(self.c.settings, k, copy.deepcopy(getattr(fresh, k)))
+        self.c.watch_downloads(self.c.settings.watch_downloads)
+        self.c.apply_theme()
+        self.c.settings_changed(menu=True)
+        self.c.rebuild_window(self.current_page(), committed=self.committed, pending_startup=self.pending_startup)
+
+    def _no_accidental_scrolling(self):
+        """Scrolling down a page never changes a setting: lists, number boxes and sliders only react
+        to the mouse wheel after they were clicked."""
+        self._wheel_guard = _WheelGuard(self)
+        for cls in (QComboBox, QSpinBox, QSlider):
+            for w in self.findChildren(cls):
+                w.setFocusPolicy(Qt.StrongFocus)
+                w.installEventFilter(self._wheel_guard)
 
     def refresh_nav(self):
         show = self.c.settings.sidebar_icons
@@ -497,11 +628,14 @@ class MainWindow(QWidget):
         lay.addLayout(grid)
 
         lay.addWidget(label(tr("Coming soon"), "section"))
-        soon = QHBoxLayout()
-        soon.setSpacing(12)
-        for name, product in SOON.items():
+        soon = QGridLayout()
+        soon.setHorizontalSpacing(12)
+        soon.setVerticalSpacing(12)
+        for i, (name, product) in enumerate(SOON.items()):
             soon.addWidget(ToolCard(product, tr(SOON_TEXT[name][0]), "", lambda n=name: self.open_page(n), dark, dpr,
-                                    small=True, pill=tr("Soon")), 1)
+                                    small=True, pill=tr("Soon")), i // 2, i % 2)
+        soon.setColumnStretch(0, 1)
+        soon.setColumnStretch(1, 1)
         lay.addLayout(soon)
 
         head = QHBoxLayout()
@@ -551,7 +685,7 @@ class MainWindow(QWidget):
         self.power.setCheckable(True)
         self.power.setChecked(self.c.settings.enabled)
         self.power.toggled.connect(self.c.set_enabled)
-        lay.addLayout(tool_header("corefold", tr("Corefold Converter"),
+        lay.addLayout(tool_header("converter", tr("Corefold Converter"),
                                   tr("Convert, shrink and edit pictures, videos, music, PDFs and documents with one "
                                      "drag."), self.c.theme.dark, self.devicePixelRatioF(), self.power))
         steps, sl = card()
@@ -706,7 +840,9 @@ class MainWindow(QWidget):
                                       self._general_changed)
         self.reveal = checkbox(tr("Open the folder with the new file after converting"), s.reveal_after,
                                self._general_changed)
-        self.startup = checkbox(tr("Start Corefold when Windows starts"), startup_enabled(), set_startup)
+        self.startup = checkbox(tr("Start Corefold when Windows starts"),
+                                startup_enabled() if self.pending_startup is None else self.pending_startup,
+                                self._startup_toggled)
         self.problem_sound = checkbox(tr("Play a soft sound when something goes wrong"), s.sound_problems,
                                       self._general_changed)
         self.tick = checkbox(tr("Play a tiny tick when the wheel opens"), s.sound_tick, self._general_changed)
@@ -731,6 +867,7 @@ class MainWindow(QWidget):
         pl.addWidget(label(tr("Corefold also lets go of memory it doesn't need when it's idle, and closes this window "
                               "completely a little while after you close it."), "muted", wrap=True))
         lay.addWidget(perf)
+        lay.addLayout(_reset_row(lambda: self.reset_to_defaults(general_keys())))
         lay.addStretch()
         return w
 
@@ -842,6 +979,7 @@ class MainWindow(QWidget):
         row.addWidget(preview_box)
         lay.addLayout(row)
         lay.addWidget(more)
+        lay.addLayout(_reset_row(lambda: self.reset_to_defaults(LOOK_KEYS)))
         lay.addStretch()
         return w
 
@@ -871,6 +1009,7 @@ class MainWindow(QWidget):
         row.addWidget(button(tr("Show everything again"), on_click=self._show_all_tools))
         row.addWidget(button(tr("Reset the order"), on_click=self._reset_order))
         row.addStretch()
+        row.addWidget(button(tr("Reset to defaults"), on_click=lambda: self.reset_to_defaults(FORMAT_KEYS)))
         lay.addLayout(row)
         lay.addStretch()
         return w
@@ -1058,6 +1197,7 @@ class MainWindow(QWidget):
         self.tool_cards["Apps"].stat.setVisible(False)
         self.power.setToolTip(tr("Turns the wheel and the right-click menu on or off."))
         self.refresh_again()
+        self.update_save_bar()
 
     def refresh_again(self):
         text = self.c.again_text()
@@ -1152,6 +1292,10 @@ class MainWindow(QWidget):
             return
         self.c.settings.language = choice
         self.c.settings_changed()  # the right-click menu changes language when Corefold restarts
+        # (the restart is offered when the change is saved)
+
+    def _ask_restart_for_language(self):
+        choice = self.c.settings.language
         if i18n.resolve(choice) == i18n.language():
             return  # e.g. "Match Windows" while Windows is in the language already in use
         new = i18n.resolve(choice)
@@ -1170,6 +1314,10 @@ class MainWindow(QWidget):
         box.deleteLater()
         if chosen:
             self.c.restart("General")
+
+    def _startup_toggled(self, on: bool):
+        self.pending_startup = on
+        self.update_save_bar()
 
     def _general_changed(self, *_):
         s = self.c.settings
@@ -1412,7 +1560,8 @@ class MainWindow(QWidget):
 
     def sync(self):
         """Pick up changes made from the tray menu or outside the app."""
-        for widget, value in ((self.power, self.c.settings.enabled), (self.startup, startup_enabled()),
+        startup = startup_enabled() if self.pending_startup is None else self.pending_startup
+        for widget, value in ((self.power, self.c.settings.enabled), (self.startup, startup),
                               (self.context, self.c.settings.context_menu),
                               (self.downloads, self.c.settings.watch_downloads)):
             widget.blockSignals(True)
@@ -1474,6 +1623,28 @@ class MainWindow(QWidget):
         if self.c.session_ending:  # Windows is shutting down: never hold it up
             e.accept()
             return
+        if self.is_dirty():
+            box = QMessageBox(QMessageBox.Question, tr("Save your changes?"),
+                              tr("You changed some settings. Keep them?"), parent=self)
+            save = box.addButton(tr("Save"), QMessageBox.AcceptRole)
+            drop = box.addButton(tr("Don't save"), QMessageBox.DestructiveRole)
+            box.addButton(tr("Cancel"), QMessageBox.RejectRole)
+            box.exec()
+            chosen = box.clickedButton()
+            box.deleteLater()
+            if chosen is save:
+                self.save_changes()
+            elif chosen is drop:
+                self.discard_changes(rebuild=False)
+                self._remember_place()
+                e.ignore()
+                self.hide()
+                self.c.rebuild_window(self.current_page())  # the next opening shows the saved settings
+                self.c.window_closed()
+                return
+            else:
+                e.ignore()
+                return
         self._remember_place()
         e.ignore()
         self.hide()
