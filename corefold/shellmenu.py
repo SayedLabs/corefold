@@ -19,7 +19,7 @@ import threading
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from .core import ALL_EXT, APP_NAME, category, norm
+from .core import ALL_EXT, APP_NAME, LEGACY_NAME, category, norm
 from .i18n import tr
 
 log = logging.getLogger("corefold")
@@ -29,7 +29,7 @@ FILE_ROOT = CLASSES + r"\SystemFileAssociations"
 FOLDER_ROOT = CLASSES + r"\Directory"
 ANY_ROOT = CLASSES + r"\*"   # every file; limited to the kinds Corefold has no own menu for (see any_file_filter)
 VERBS = ("Corefold", "CorefoldOpen")
-LEGACY_VERBS = ("Satsuma", "SatsumaOpen")  # written by versions before 1.7.0
+LEGACY_VERBS = (LEGACY_NAME, LEGACY_NAME + "Open")  # written by versions before 1.7.0
 MENU_STYLES = {"windows": "Windows menu", "wheel": "Corefold wheel"}
 OPEN_KEY = "corefold:open"     # "All options…": opens Corefold's window with the files
 SEPARATOR_BEFORE = 0x20       # ECF_SEPARATORBEFORE

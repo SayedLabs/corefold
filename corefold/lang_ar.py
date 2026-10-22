@@ -114,8 +114,8 @@ STRINGS: dict[str, str] = {
     "After that, delete the Corefold folder to finish removing it.": "بعد ذلك احذف مجلد كورفولد لإكمال الإزالة.",
     "Remove": "إزالة",
     "Cancel": "إلغاء",
-    "Satsuma is now Corefold": "ساتسوما صار اسمه كورفولد",
-    "Same app, with a new name and a new look. Your settings, history and backups were kept.": "نفس البرنامج باسم جديد وشكل جديد. إعداداتك وسجلك والنسخ الاحتياطية محفوظة.",
+    "Welcome to the new Corefold": "أهلاً بكورفولد الجديد",
+    "A new name and a new look. Your settings, history and backups were kept.": "اسم جديد وشكل جديد. إعداداتك وسجلك والنسخ الاحتياطية محفوظة.",
     "Corefold was updated": "تم تحديث كورفولد",
     "You're now on version {version}. Your settings were kept.":
         "أنت الآن على الإصدار {version}. تم الاحتفاظ بإعداداتك.",

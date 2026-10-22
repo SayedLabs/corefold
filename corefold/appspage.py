@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QDialog, QFileIconP
                                QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from . import uninstall as un
-from .core import human_size, short_name
+from .core import LEGACY_NAME, human_size, short_name
 from .i18n import tr
 
 if TYPE_CHECKING:
@@ -310,7 +310,7 @@ class AppsPage(QWidget):
 
 
 def _is_self(app: un.App) -> bool:
-    if app.name.lower().startswith(("corefold", "satsuma")):  # satsuma: its name before 1.7.0
+    if app.name.lower().startswith(("corefold", LEGACY_NAME.lower())):
         return True
     if getattr(sys, "frozen", False) and app.location:
         return os.path.normcase(os.path.dirname(sys.executable)).startswith(

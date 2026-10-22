@@ -1,6 +1,6 @@
 # Corefold
 
-*Everyday tools for Windows, by Atomic Works.* (Called **Satsuma** before version 1.7.0.)
+*Everyday tools for Windows, by Atomic Works.*
 
 **Shift-drag file converter for Windows.** Hold Shift while dragging a file in File Explorer or on
 the desktop, and a wheel of formats appears at your cursor. Drop the file on a format and it's
@@ -95,29 +95,16 @@ Updates need to know where your releases are. Copies built by GitHub know automa
 built with `build.bat`, create a file called `update-repo.txt` next to `build.bat` containing your
 repository, e.g. `yourname/corefold`.
 
-## Coming from Satsuma (1.7.0)
-The app used to be called Satsuma. Version 1.7.0 changes the name and the look, nothing else:
-- Installing Corefold over Satsuma upgrades it (same installer ID): the old program folder, its
-  shortcuts and its start-with-Windows entry are replaced by Corefold's.
-- The first time Corefold starts, it moves the old settings, history and uninstall backups from
-  `%APPDATA%\Satsuma` and `%LOCALAPPDATA%\Satsuma` into the Corefold folders, and swaps the old
-  right-click entries for new ones. Nothing is deleted that couldn't be moved.
-- Copies still called Satsuma look for an installer named `Satsuma-Setup-<version>.exe` when they
-  check for updates, so every release also has the same installer under that name. You can drop that
-  copy once nobody uses Satsuma any more (see the end of `scripts/build.ps1`).
-- Renaming the GitHub repository (Settings → General → Repository name → `corefold`) is safe:
-  GitHub forwards the old address, and the updater follows it.
+## Updating from versions before 1.7.0
+Version 1.7.0 gave the app its new name and look. Installing it over an older version upgrades it
+(same installer ID), and the first start moves the old settings, history and uninstall backups into
+the Corefold folders and replaces the old right-click entries. Nothing is deleted that couldn't be
+moved. The code that does this is marked to be removed in 1.8.0.
 
 ## How light is it?
 **Actions → Measure memory and CPU → Run workflow** builds Corefold on one of GitHub's Windows
 PCs, starts it in the tray and writes down its memory, CPU use and start-up time on the run's
 summary page. Nothing is published.
-
-## Removing old copies
-Double-click **`remove-old-versions.bat`**. It finds older copies from when it was called Satsuma (the very first
-`run.bat` version, older project folders, old zip downloads), shows you the list and asks before
-deleting anything. It never touches the installed app or your settings. The installer also stops
-and unhooks the very first version automatically.
 
 ## Uninstalling
 Any of these works:
@@ -143,7 +130,6 @@ It asks whether to delete your settings too. Files you converted are never touch
 4. Wait about 10 minutes (watch the **Actions** tab). The release page will then have:
    - `Corefold-Setup-1.0.0.exe` — the installer (creates the desktop icon)
    - `Corefold-1.0.0-portable.zip` — runs without installing
-   - `Satsuma-Setup-1.0.0.exe` — the same installer, for copies still called Satsuma to update themselves
    - `ffmpeg-source-….tar.gz` — FFmpeg's source code and build scripts (its licence asks for these)
 
    That release page link is what you share with people.
@@ -179,7 +165,7 @@ corefold/wheel.py              the format wheel and its preview
 corefold/theme.py              light/dark themes and accent colours (from the Corefold design system)
 corefold/icons.py              line icons in any colour (icondata.py: Fluent UI System Icons)
 corefold/toast.py              progress / result popup
-corefold/settings.py           saved settings, start with Windows, moving settings over from Satsuma
+corefold/settings.py           saved settings, start with Windows, bringing over settings from older versions
 corefold/converters.py         all the conversions (Pillow, FFmpeg, pypdf, PDFium, zxing, ONNX Runtime)
 corefold/core.py               shared building blocks (app name, file types, jobs, output names)
 corefold/archives.py           ZIP / RAR / 7z: extract, browse, test, create (7-Zip + Python fallback)
@@ -201,6 +187,5 @@ installer/corefold.iss         Inno Setup installer script
 .github/workflows/             automatic builds on GitHub, and the memory/CPU measurement
 docs/                          the download website and privacy policy (GitHub Pages)
 run-from-source.bat            run your changes without building (needs Python)
-remove-old-versions.bat        one-time clean-up of older copies
 ```
 Settings are stored in `%APPDATA%\Corefold`, logs in `%LOCALAPPDATA%\Corefold`.

@@ -253,10 +253,6 @@ if ($iscc) {
     Write-Host "== Building installer"
     & $iscc "/DAppVersion=$Version" "/DNumericVersion=$NumericVersion" "installer\corefold.iss" | Out-Host
     if ($LASTEXITCODE) { throw "Inno Setup failed" }
-    # Copies still called Satsuma (1.6.0 and older) only look for "Satsuma-Setup-<version>.exe" when
-    # they check for updates. The same installer under that name lets them update to Corefold.
-    # Once nobody uses those versions any more, this copy can go.
-    Copy-Item "dist\release\Corefold-Setup-$Version.exe" "dist\release\Satsuma-Setup-$Version.exe" -Force
 } else {
     Write-Warning "Inno Setup not found, so no installer was made. Install it from https://jrsoftware.org/isdl.php and run this again."
 }

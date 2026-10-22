@@ -1335,9 +1335,10 @@ def clean_old_temp_files():
     cutoff = time.time() - 86400
     keep = {"corefold-sounds", "corefold-update"}
     temp = Path(tempfile.gettempdir())
-    for p in [*temp.glob("corefold-*"), *temp.glob("satsuma-*")]:  # satsuma-*: left by versions before 1.7.0
+    old = LEGACY_NAME.lower() + "-"  # left by versions before 1.7.0
+    for p in [*temp.glob("corefold-*"), *temp.glob(old + "*")]:
         try:
-            if p.is_dir() and p.name not in keep and (p.stat().st_mtime < cutoff or p.name.startswith("satsuma-")):
+            if p.is_dir() and p.name not in keep and (p.stat().st_mtime < cutoff or p.name.startswith(old)):
                 shutil.rmtree(p, ignore_errors=True)
         except OSError:
             pass
@@ -1373,7 +1374,7 @@ def refresh_startup_entry():
 
 
 def stop_old_copy():
-    """A copy still called Satsuma (1.6.0 or older) may be running, e.g. next to a portable Corefold.
+    """A copy from before 1.7.0 (the old name) may be running, e.g. next to a portable Corefold.
     It would open a second wheel and keep writing to the old settings, so it's closed first.
     (The installer does the same; this covers the portable version.)"""
     if sys.platform != "win32" or not getattr(sys, "frozen", False):
@@ -1478,8 +1479,8 @@ def main() -> int:
     s = controller.settings
     if brought_over:  # first start after the rename: say what happened, once
         QTimer.singleShot(1500, lambda: controller.toast.notify(
-            tr("Satsuma is now Corefold"),
-            tr("Same app, with a new name and a new look. Your settings, history and backups were kept."),
+            tr("Welcome to the new Corefold"),
+            tr("A new name and a new look. Your settings, history and backups were kept."),
             linger_ms=9000))
     elif s.last_version and s.last_version != __version__ and __version__ != "dev":
         QTimer.singleShot(1500, lambda: controller.toast.notify(

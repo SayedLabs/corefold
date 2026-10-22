@@ -26,6 +26,8 @@ import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from .core import LEGACY_NAME
+
 log = logging.getLogger(__name__)
 
 UNINSTALL = r"Software\Microsoft\Windows\CurrentVersion\Uninstall"
@@ -507,7 +509,7 @@ def _protected_paths() -> frozenset[str]:
                                              "CommonProgramFiles(x86)", "CommonProgramW6432", "TEMP", "TMP")}
     paths |= {str(r) for r in search_roots()} | {str(r) for r in shortcut_roots()}
     # Corefold's own folders (its settings, these backups, and the app itself)
-    for name in ("Corefold", "Satsuma"):  # Satsuma: its name before 1.7.0
+    for name in ("Corefold", LEGACY_NAME):
         paths |= {str(Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / name),
                   str(Path(os.environ.get("APPDATA", str(Path.home()))) / name)}
     if getattr(sys, "frozen", False):

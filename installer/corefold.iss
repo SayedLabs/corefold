@@ -16,7 +16,7 @@
 
 [Setup]
 ; Keep this AppId the same forever, so new versions upgrade the old one in place
-; (it is also the AppId the app had as Satsuma, so those copies are upgraded too).
+; (versions from before 1.7.0, under the old name, have it too, so they are upgraded in place).
 AppId={{D08578D1-4B3E-404B-B56C-3FDF83BAFAE2}
 AppName={#AppName}
 AppVersion={#AppVersion}
@@ -26,7 +26,7 @@ VersionInfoVersion={#NumericVersion}
 VersionInfoCompany={#Publisher}
 VersionInfoProductName={#AppName}
 DefaultDirName={autopf}\{#AppName}
-; Always use the folder named after the app (an upgrade from Satsuma moves to the new folder;
+; Always use the folder named after the app (an upgrade from the old name moves to the new folder;
 ; the old one is removed after installing, see [Code]).
 UsePreviousAppDir=no
 DefaultGroupName={#AppName}
@@ -103,35 +103,17 @@ begin
   Sleep(300);
 end;
 
-{ The very first version was a Python script (satsuma.py + run.bat). Stop it and remove its
-  start-with-Windows entry so it doesn't run next to the real app. }
-procedure RemoveScriptVersion();
-var
-  Value: String;
-  ResultCode: Integer;
-begin
-  if RegQueryStringValue(HKEY_CURRENT_USER, RunKey, '{#OldName}', Value) then
-    if Pos('.py', Lowercase(Value)) > 0 then
-      RegDeleteValue(HKEY_CURRENT_USER, RunKey, '{#OldName}');
-  Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
-    '-NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | ' +
-    'Where-Object { $_.Name -like ''python*.exe'' -and $_.CommandLine -match ''satsuma'' } | ' +
-    'ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"',
-    '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-end;
-
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   Value: String;
 begin
   CloseRunningApp();
-  RemoveScriptVersion();
-  { an installed Satsuma that started with Windows: Corefold keeps doing that }
+  { the old version started with Windows: Corefold keeps doing that }
   OldStartedWithWindows := RegQueryStringValue(HKEY_CURRENT_USER, RunKey, '{#OldName}', Value);
   Result := '';
 end;
 
-{ After upgrading from Satsuma: take away its start-up entry (Corefold's replaces it) and its
+{ After upgrading from the old name: take away its start-up entry (Corefold's replaces it) and its
   old program folder. Settings are moved over by the app itself the first time it starts. }
 procedure RemoveOldVersion();
 var
@@ -157,7 +139,7 @@ var
   ResultCode: Integer;
 begin
   CloseRunningApp();
-  { remove Corefold (and any entries left from Satsuma) from the right-click menu }
+  { remove Corefold (and any entries left by older versions) from the right-click menu }
   Exec(ExpandConstant('{app}\{#AppExe}'), '--remove-shell-menu', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Result := True;
 end;

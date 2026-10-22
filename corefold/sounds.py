@@ -8,13 +8,13 @@ import tempfile
 import wave
 from pathlib import Path
 
-from .core import bundled
+from .core import LEGACY_NAME, bundled
 
 log = logging.getLogger("corefold")
 
 DONE_SOUNDS = {"corefold": "Corefold", "peel": "Peel", "droplet": "Droplet", "glass": "Glass", "off": "No sound"}
 OLD_NAMES = {"pop": "corefold", "chime": "glass", "bubble": "droplet",  # sounds from 1.3.0
-             "satsuma": "corefold"}  # the signature sound was called "satsuma" before 1.7.0
+             LEGACY_NAME.lower(): "corefold"}  # the signature sound had the old name before 1.7.0
 EXTRA_GAIN = {"tick": 0.45}  # the wheel tick is meant to be barely there
 
 

@@ -15,7 +15,7 @@ from typing import Callable
 log = logging.getLogger("corefold")
 
 APP_NAME = "Corefold"
-LEGACY_NAME = "Satsuma"  # the name before 1.7.0; only used to bring old settings along and tidy up
+LEGACY_NAME = "Satsuma"  # the app's name before 1.7.0 (written only here in the app's code). Remove in 1.8.0.
 PUBLISHER = "Atomic Works"
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 BELOW_NORMAL = getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0)

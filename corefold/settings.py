@@ -18,7 +18,7 @@ from .sounds import DONE_SOUNDS, OLD_NAMES
 
 CONFIG_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / APP_NAME
 LOG_DIR = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / APP_NAME
-# where versions before 1.7.0 (called Satsuma) kept the same things
+# where versions before 1.7.0 (the old name) kept the same things
 OLD_CONFIG_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / LEGACY_NAME
 OLD_LOG_DIR = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / LEGACY_NAME
 OLD_OUTPUT_FOLDER = str(Path.home() / "Downloads" / LEGACY_NAME)
@@ -26,7 +26,7 @@ log = logging.getLogger("corefold")
 
 
 def migrate_old_name() -> bool:
-    """Corefold used to be called Satsuma. Brings its settings, history and uninstall backups
+    """Versions before 1.7.0 had another name. Brings their settings, history and uninstall backups
     over to the new folders, once. Never deletes anything that couldn't be moved.
     Returns True if something was brought over."""
     moved = False
@@ -260,7 +260,7 @@ def startup_enabled() -> bool:
 
 
 def remove_old_startup_entry() -> bool:
-    """Removes the start-with-Windows entry made by versions before 1.7.0 (called Satsuma).
+    """Removes the start-with-Windows entry made by versions before 1.7.0 (the old name).
     True if there was one, so the new entry can take its place."""
     import winreg
     try:
