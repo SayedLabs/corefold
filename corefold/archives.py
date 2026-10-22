@@ -139,24 +139,26 @@ def _run7z(args: list[str], ctx: Ctx | None = None, cwd: Path | None = None) -> 
 # ----------------------------------------------------------------------------- listing
 
 def _parse_slt(out: str) -> list[Entry]:
+    """7-Zip's detailed listing: one block of "Key = value" lines per item, blocks split by an empty line.
+    (Written for speed: archives can hold 100,000 items.)"""
     body = out.split("\n----------", 1)[1] if "\n----------" in out else out
-    entries, cur = [], {}
-    for line in body.splitlines() + [""]:
-        line = line.rstrip("\r")
-        if not line.strip():
-            if "Path" in cur:
-                entries.append(Entry(
-                    path=cur["Path"].replace("\\", "/"),
-                    size=int(cur.get("Size") or 0) if (cur.get("Size") or "").isdigit() else 0,
-                    packed=int(cur.get("Packed Size") or 0) if (cur.get("Packed Size") or "").isdigit() else 0,
-                    modified=cur.get("Modified", ""),
-                    is_dir=cur.get("Folder") == "+" or "D" in cur.get("Attributes", "")[:1],
-                    encrypted=cur.get("Encrypted") == "+"))
-            cur = {}
+    body = body.replace("\r\n", "\n")
+    entries = []
+    for block in body.split("\n\n"):
+        if "Path = " not in block:
             continue
-        key, sep, value = line.partition(" = ")
-        if sep:
-            cur[key.strip()] = value
+        cur = dict(line.split(" = ", 1) for line in block.split("\n") if " = " in line)
+        path = cur.get("Path")
+        if not path:
+            continue
+        size, packed, attrs = cur.get("Size", ""), cur.get("Packed Size", ""), cur.get("Attributes", "")
+        entries.append(Entry(
+            path=path.replace("\\", "/"),
+            size=int(size) if size.isdigit() else 0,
+            packed=int(packed) if packed.isdigit() else 0,
+            modified=cur.get("Modified", ""),
+            is_dir=cur.get("Folder") == "+" or attrs[:1] == "D",
+            encrypted=cur.get("Encrypted") == "+"))
     return entries
 
 
@@ -592,8 +594,11 @@ def holds_archives(entries: list[Entry]) -> bool:
 
 def is_archive_file_name(name: str) -> bool:
     from .core import ARCHIVE_EXT, norm
-    p = Path(name.rstrip("/"))
-    return norm(p.suffix) in ARCHIVE_EXT and not is_extra_part(p)
+    base = name.rstrip("/").rpartition("/")[2]
+    stem, dot, ext = base.rpartition(".")
+    if not dot or not stem:
+        return False
+    return norm("." + ext) in ARCHIVE_EXT and not is_extra_part(Path(base))
 
 
 # ----------------------------------------------------------------------------- changing a file inside
