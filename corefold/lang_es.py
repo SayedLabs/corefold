@@ -694,7 +694,7 @@ STRINGS: dict[str, str] = {
     "Install updates by themselves (Corefold restarts for a moment)": "Instalar las actualizaciones solas (Corefold se reinicia un momento)",
     "Updates come from the official Corefold release page, are checked for damage before installing, and keep all your settings.": "Las actualizaciones vienen de la página oficial de versiones de Corefold, se comprueban antes de instalarse y conservan todos tus ajustes.",
     "About": "Acerca de",
-    "Shift-drag file converter for Windows. Everything happens on your PC; nothing is uploaded.": "Conversor de archivos con Mayús + arrastrar para Windows. Todo ocurre en tu PC; no se sube nada.",
+    "Everyday tools for Windows: convert files, remove programs, open and make archives. Everything happens on your PC; nothing is uploaded.": "Herramientas de todos los días para Windows: convierte archivos, quita programas, abre y crea archivos comprimidos. Todo ocurre en tu PC; no se sube nada.",
     "Show the tour": "Ver la presentación",
     "Open log folder": "Abrir la carpeta de registros",
     "Quit Corefold": "Salir de Corefold",

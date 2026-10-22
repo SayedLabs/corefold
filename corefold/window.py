@@ -731,12 +731,7 @@ class MainWindow(QWidget):
         self.refresh_archives()
 
     def _open_archive(self):
-        from .core import ARCHIVE_EXT
-        pattern = " ".join(f"*{e}" for e in sorted(ARCHIVE_EXT))
-        name, _ = QFileDialog.getOpenFileName(self, tr("Open an archive"), str(Path.home()),
-                                              f"{tr('Archives')} ({pattern});;{tr('All files')} (*)")
-        if name:
-            self.c.open_browser(Path(name))
+        self.c.choose_archive(self)
 
     def _make_archive(self):
         files = choose_files(self)
@@ -1306,8 +1301,8 @@ class MainWindow(QWidget):
         text = QVBoxLayout()
         text.addWidget(label(APP_NAME, "h2"))
         text.addWidget(label(tr("Version {version}", version=__version__), "muted"))
-        text.addWidget(label(tr("Shift-drag file converter for Windows. Everything happens on your PC; "
-                                "nothing is uploaded."), "muted", wrap=True))
+        text.addWidget(label(tr("Everyday tools for Windows: convert files, remove programs, open and make "
+                                "archives. Everything happens on your PC; nothing is uploaded."), "muted", wrap=True))
         self.memory = label("", "muted")
         text.addWidget(self.memory)
         top.addWidget(logo, 0, Qt.AlignTop)
