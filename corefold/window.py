@@ -31,14 +31,23 @@ if TYPE_CHECKING:
     from .app import Controller
 
 # every page, in the order they are built (names are English, shown through tr())
-PAGES = ["Home", "History", "Apps", "Archives", "Player", "Viewer", "General", "Look", "Formats", "Updates", "About"]
+PAGES = ["Home", "Converter", "History", "Apps", "Archives", "Player", "Viewer", "General", "Look", "Formats", "Updates",
+         "About"]
 SOON = {"Archives": "archive", "Player": "player", "Viewer": "viewer"}  # pages for tools still being made
 # the sidebar: pages, with a small heading before each group (None + heading)
-NAV = ["Home", "History", (None, "Tools"), "Apps", "Archives", "Player", "Viewer",
+NAV = ["Home", "History", (None, "Tools"), "Converter", "Apps", "Archives", "Player", "Viewer",
        (None, "Settings"), "General", "Look", "Formats", "Updates", "About"]
-PAGE_ICONS = {"Home": "home", "Apps": "broom", "General": "settings", "Look": "paint_brush",  # icons.py
+NAV_LABELS = {"Apps": "Uninstaller"}  # where the sidebar's name differs from the page's own name
+PAGE_ICONS = {"Home": "home", "Converter": "arrow_swap", "Apps": "broom", "General": "settings", "Look": "paint_brush",  # icons.py
               "Formats": "puzzle_piece", "History": "history", "Updates": "arrow_sync", "About": "info",
               "Archives": "archive", "Player": "video", "Viewer": "image"}
+# the tools on the Home page: page, product tile, name, one line (English, shown through tr())
+TOOLS = [
+    ("Converter", "corefold", "Corefold Converter",
+     "Convert, shrink and edit pictures, videos, music, PDFs and documents with one drag."),
+    ("Apps", "cleaner", "Corefold Uninstaller",
+     "Remove programs and everything they leave behind, with a backup you can put back."),
+]
 SOON_TEXT = {  # name, one line, what it will do (English, shown through tr())
     "Archives": ("Corefold Archive", "Open, look inside and make archives right here, faster and tidier than the "
                  "usual archive apps.",
@@ -119,6 +128,85 @@ def page(title: str, subtitle: str = "") -> tuple[QWidget, QVBoxLayout]:
     return scroll, lay
 
 
+def tool_header(product: str, title: str, intro: str, dark: bool, dpr: float, extra: QWidget | None = None,
+                pill: str = "") -> QHBoxLayout:
+    """A tool's own heading: its tile, its name (and a pill like "Coming soon"), one line about it,
+    and something on the far side (like the on/off switch)."""
+    head = QHBoxLayout()
+    head.setSpacing(16)
+    tile = QLabel()
+    tile.setPixmap(icons.product_tile(product, 60, dark, dpr))
+    tile.setFixedSize(62, 62)
+    head.addWidget(tile, 0, Qt.AlignTop)
+    words = QVBoxLayout()
+    words.setSpacing(4)
+    top = QHBoxLayout()
+    top.setSpacing(10)
+    top.addWidget(label(title, "h1"))
+    if pill:
+        p = label(pill, "soonPill")
+        p.setFixedHeight(20)
+        top.addWidget(p, 0, Qt.AlignVCenter)
+    top.addStretch()
+    words.addLayout(top)
+    words.addWidget(label(intro, "muted", wrap=True))
+    head.addLayout(words, 1)
+    if extra is not None:
+        head.addWidget(extra, 0, Qt.AlignTop)
+    return head
+
+
+class ToolCard(QFrame):
+    """A tool on the Home page: click anywhere on it to open it."""
+
+    def __init__(self, product: str, title: str, text: str, on_click, dark: bool, dpr: float, small: bool = False,
+                 pill: str = ""):
+        super().__init__()
+        self.setObjectName("toolCard")
+        self.setCursor(Qt.PointingHandCursor)
+        self.on_click = on_click
+        lay = QHBoxLayout(self) if small else QVBoxLayout(self)
+        lay.setContentsMargins(16, 14, 16, 14)
+        lay.setSpacing(10 if small else 8)
+        tile = QLabel()
+        side = 34 if small else 44
+        tile.setPixmap(icons.product_tile(product, side, dark, dpr))
+        tile.setFixedSize(side + 2, side + 2)
+        tile.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.title = label(title, "cardTitle")
+        self.title.setAttribute(Qt.WA_TransparentForMouseEvents)
+        if small:
+            lay.addWidget(tile, 0, Qt.AlignVCenter)
+            words = QVBoxLayout()
+            words.setSpacing(2)
+            words.addWidget(self.title)
+            if pill:
+                p = label(pill, "muted")
+                p.setAttribute(Qt.WA_TransparentForMouseEvents)
+                words.addWidget(p)
+            lay.addLayout(words, 1)
+        else:
+            lay.addWidget(tile)
+            lay.addWidget(self.title)
+            line = label(text, "muted", wrap=True)
+            line.setAttribute(Qt.WA_TransparentForMouseEvents)
+            lay.addWidget(line)
+            self.stat = label("", "cardStat")
+            self.stat.setAttribute(Qt.WA_TransparentForMouseEvents)
+            lay.addWidget(self.stat)
+            lay.addStretch()
+
+    def mouseReleaseEvent(self, e):
+        if e.button() == Qt.LeftButton and self.rect().contains(e.position().toPoint()):
+            self.on_click()
+
+    def keyPressEvent(self, e):
+        if e.key() in (Qt.Key_Return, Qt.Key_Enter, Qt.Key_Space):
+            self.on_click()
+        else:
+            super().keyPressEvent(e)
+
+
 def locale() -> QLocale:
     """Dates and numbers in the app's language (not always Windows' language)."""
     return QLocale({"ar": QLocale.Language.Arabic, "fr": QLocale.Language.French, "es": QLocale.Language.Spanish,
@@ -128,6 +216,11 @@ def locale() -> QLocale:
 def date_text(ts: float, long: bool = False) -> str:
     when = QDateTime.fromSecsSinceEpoch(int(ts)).date()
     return locale().toString(when, "d MMMM yyyy" if long else "d MMM")
+
+
+def _html(text: str) -> str:
+    import html
+    return html.escape(text, quote=False)
 
 
 def time_ago(ts: float) -> str:
@@ -294,7 +387,8 @@ class MainWindow(QWidget):
         side.addWidget(label(tr("Version {version}", version=__version__), "version"))
 
         self.stack = QStackedWidget()
-        builders = {"Home": self._home, "History": self._history, "Apps": self._apps, "General": self._general,
+        builders = {"Home": self._home, "Converter": self._converter, "History": self._history, "Apps": self._apps,
+                    "General": self._general,
                     "Look": self._look, "Formats": self._formats, "Updates": self._updates, "About": self._about}
         for name in PAGES:
             self.stack.addWidget(builders[name]() if name in builders else self._soon(name))
@@ -331,7 +425,7 @@ class MainWindow(QWidget):
                 item.setText(tr(entry[1]))
                 item.setForeground(t.muted)
                 continue
-            item.setText(tr(entry))
+            item.setText(tr(NAV_LABELS.get(entry, entry)))
             item.setIcon(icons.icon(PAGE_ICONS[entry], t.muted, selected=t.text) if show else QIcon())
 
     def current_page(self) -> str:
@@ -350,7 +444,7 @@ class MainWindow(QWidget):
         self.stack.setCurrentIndex(PAGES.index(name))
         if name == "Apps":
             self.apps_page.ensure_loaded()
-        elif name == "History":
+        elif name in ("History", "Home"):
             self.refresh_history()
         elif name == "About":
             self.refresh_memory()
@@ -361,25 +455,8 @@ class MainWindow(QWidget):
         title, intro, features = SOON_TEXT[name]
         w, lay = page(tr(title))
         lay.itemAt(0).widget().hide()  # the big title is shown next to the tile instead
-        head = QHBoxLayout()
-        head.setSpacing(16)
-        tile = QLabel()
-        tile.setPixmap(icons.product_tile(product, 64, self.c.theme.dark, self.devicePixelRatioF()))
-        tile.setFixedSize(68, 68)
-        head.addWidget(tile, 0, Qt.AlignTop)
-        words = QVBoxLayout()
-        words.setSpacing(4)
-        top = QHBoxLayout()
-        top.setSpacing(10)
-        top.addWidget(label(tr(title), "h1"))
-        soon_pill = label(tr("Coming soon"), "soonPill")
-        soon_pill.setFixedHeight(20)
-        top.addWidget(soon_pill, 0, Qt.AlignVCenter)
-        top.addStretch()
-        words.addLayout(top)
-        words.addWidget(label(tr(intro), "muted", wrap=True))
-        head.addLayout(words, 1)
-        lay.addLayout(head)
+        lay.addLayout(tool_header(product, tr(title), tr(intro), self.c.theme.dark, self.devicePixelRatioF(),
+                                  pill=tr("Coming soon")))
         box, bl = card(10)
         bl.addWidget(label(tr("What it will do"), "h2"))
         for text in features:
@@ -400,7 +477,80 @@ class MainWindow(QWidget):
     # ---- pages
 
     def _home(self) -> QWidget:
-        w, lay = page(tr("Convert files with one drag"))
+        """The start page: every tool, what's coming, and what happened lately."""
+        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
+        w, lay = page(tr("Welcome to Corefold"), tr("Your everyday tools in one place. Pick one to start."))
+        lay.addWidget(label(tr("Your tools"), "section"))
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(12)
+        grid.setVerticalSpacing(12)
+        self.tool_cards = {}
+        for i, (name, product, title, text) in enumerate(TOOLS):
+            c = ToolCard(product, tr(title), tr(text), lambda n=name: self.open_page(n), dark, dpr)
+            self.tool_cards[name] = c
+            grid.addWidget(c, i // 2, i % 2)
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 1)
+        lay.addLayout(grid)
+
+        lay.addWidget(label(tr("Coming soon"), "section"))
+        soon = QHBoxLayout()
+        soon.setSpacing(12)
+        for name, product in SOON.items():
+            soon.addWidget(ToolCard(product, tr(SOON_TEXT[name][0]), "", lambda n=name: self.open_page(n), dark, dpr,
+                                    small=True, pill=tr("Soon")), 1)
+        lay.addLayout(soon)
+
+        head = QHBoxLayout()
+        head.addWidget(label(tr("Recent activity"), "section"))
+        head.addStretch()
+        head.addWidget(button(tr("See all"), "flat", lambda: self.open_page("History")))
+        lay.addLayout(head)
+        recent, self.recent_lay = card(8)
+        lay.addWidget(recent)
+        lay.addStretch()
+        return w
+
+    def _fill_recent(self):
+        """The last few things Corefold did, on the Home page."""
+        while self.recent_lay.count():
+            item = self.recent_lay.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        entries = self.c.history.items[:5]
+        if not entries:
+            self.recent_lay.addWidget(label(tr("Nothing yet. What you do with Corefold shows up here."), "muted",
+                                            wrap=True))
+            return
+        arrow = "←" if i18n.is_rtl() else "→"
+        for e in entries:
+            n_in = max(e.input_count, len(e.inputs))
+            n_out = max(e.output_count, len(e.outputs))
+            what = e.inputs[0] if n_in == 1 and e.inputs else tr("{count} files", count=n_in)
+            result = Path(e.outputs[0]).name if n_out == 1 and e.outputs else \
+                tr("{count} new files", count=n_out) if n_out else tr("no new file")
+            row = QHBoxLayout()
+            row.setSpacing(10)
+            text = label(f"<b>{_html(e.tool)}</b>&nbsp;&nbsp;{_html(short_name(what, 40))} {arrow} "
+                         f"{_html(short_name(result, 40))}")
+            text.setTextFormat(Qt.RichText)
+            row.addWidget(text, 1)
+            row.addWidget(label(time_ago(e.when), "muted"))
+            holder = QWidget()
+            holder.setLayout(row)
+            row.setContentsMargins(0, 0, 0, 0)
+            self.recent_lay.addWidget(holder)
+
+    def _converter(self) -> QWidget:
+        w, lay = page(tr("Corefold Converter"))
+        lay.itemAt(0).widget().hide()  # shown in the heading with the tile instead
+        self.power = button("", "power")
+        self.power.setCheckable(True)
+        self.power.setChecked(self.c.settings.enabled)
+        self.power.toggled.connect(self.c.set_enabled)
+        lay.addLayout(tool_header("corefold", tr("Corefold Converter"),
+                                  tr("Convert, shrink and edit pictures, videos, music, PDFs and documents with one "
+                                     "drag."), self.c.theme.dark, self.devicePixelRatioF(), self.power))
         steps, sl = card()
         grid = QGridLayout()
         grid.setHorizontalSpacing(14)
@@ -432,17 +582,8 @@ class MainWindow(QWidget):
         lay.addLayout(again)
         self.home_stats = label("", "muted")
         lay.addWidget(self.home_stats)
-
-        self.power = button("", "power")
-        self.power.setCheckable(True)
-        self.power.setChecked(self.c.settings.enabled)
-        self.power.toggled.connect(self.c.set_enabled)
-        row = QHBoxLayout()
-        row.addWidget(self.power)
-        row.addSpacing(10)
-        row.addWidget(label(tr("Corefold keeps running in the system tray (by the clock) after you close this "
-                               "window. It uses almost no memory or power while it waits."), "muted", wrap=True), 1)
-        lay.addLayout(row)
+        lay.addWidget(label(tr("Corefold keeps running in the system tray (by the clock) after you close this "
+                               "window. It uses almost no memory or power while it waits."), "muted", wrap=True))
         lay.addStretch()
         return w
 
@@ -908,6 +1049,11 @@ class MainWindow(QWidget):
         self.home_stats.setText(tr("So far: {count} files converted · {size} saved", count=locale().toString(st.files),
                                    size=human_size(st.bytes_saved)) if st.files else "")
         self.home_stats.setVisible(bool(st.files))
+        conv = self.tool_cards["Converter"].stat
+        conv.setText(tr("{count} files converted", count=locale().toString(st.files)) if st.files else "")
+        conv.setVisible(bool(st.files))
+        self.tool_cards["Apps"].stat.setVisible(False)
+        self.power.setToolTip(tr("Turns the wheel and the right-click menu on or off."))
         self.refresh_again()
 
     def refresh_again(self):
@@ -946,6 +1092,7 @@ class MainWindow(QWidget):
         empty = not self.c.history.items
         self.history_list.setVisible(not empty)
         self.history_empty.setVisible(empty)
+        self._fill_recent()
         self._filter_history()
         self._history_buttons()
         self.refresh()
@@ -1192,7 +1339,7 @@ class MainWindow(QWidget):
             self.show_files(files)
 
     def show_files(self, files):
-        self.open_page("Home")
+        self.open_page("Converter")
         self.panel.set_files(files)
 
     def keyPressEvent(self, e):

@@ -137,41 +137,46 @@ def corefold():
     return lowpass(buf, 3000)
 
 
-def peel():
-    """A soft snap, like peeling fruit."""
-    buf = silence(0.5)
-    mix_into(buf, pluck(note("E4"), 0.45, 0.994), 0.0, 0.9)
-    mix_into(buf, pluck(note("B4"), 0.4, 0.993), 0.045, 0.55)
-    return lowpass(buf, 3800)
+def pebble():
+    """("peel") Two soft wooden taps, like a pebble set down on a table: short and low."""
+    buf = silence(0.45)
+    mix_into(buf, felt(note("D4"), 0.28), 0.0, 0.8)
+    mix_into(buf, felt(note("A4"), 0.32), 0.085, 0.55)
+    return lowpass(buf, 2200)
 
 
 def droplet():
-    """Two little drops of juice."""
+    """One round drop: a short, gentle rise, much lower and softer than a bubble."""
     buf = silence(0.4)
-    mix_into(buf, drop(480, 1100, 0.14), 0.0, 0.8)
-    mix_into(buf, drop(640, 1500, 0.12), 0.11, 0.6)
-    return lowpass(buf, 4500)
+    mix_into(buf, drop(330, 560, 0.18), 0.0, 0.9)
+    mix_into(buf, felt(note("E5"), 0.3), 0.07, 0.25)
+    return lowpass(buf, 2600)
 
 
 def glass():
-    """One clear, quiet bell."""
-    return lowpass(bell(note("E6") / 2, 1.2), 6000)
+    """A small, quiet glass bell: the bright overtones are kept low so it rings, not pings."""
+    partials = [(1.0, 1.0, 4.0), (2.76, 0.18, 7.0), (5.40, 0.04, 12.0)]
+    freq, length = note("C5"), 0.9
+    n = int(RATE * length)
+    tone = [sum(a * math.sin(2 * math.pi * freq * r * i / RATE) * math.exp(-i / RATE * d) for r, a, d in partials)
+            for i in range(n)]
+    return lowpass(edges(tone, 6, 60), 3200)
 
 
 def problem():
-    """Something went wrong: two low, gentle notes going down (not a buzzer)."""
-    buf = silence(0.8)
-    mix_into(buf, marimba(note("E4"), 0.5, 0.5), 0.0, 0.9)
-    mix_into(buf, marimba(note("C4"), 0.7, 0.5), 0.14, 1.0)
-    return lowpass(buf, 2500)
+    """Something went wrong: two low, soft notes going down. Calm, not a buzzer."""
+    buf = silence(0.7)
+    mix_into(buf, felt(note("E4"), 0.35), 0.0, 0.8)
+    mix_into(buf, felt(note("B3"), 0.5), 0.13, 0.9)
+    return lowpass(buf, 1800)
 
 
 def tick():
-    """Tiny, very quiet tick when the wheel opens."""
-    return lowpass(marimba(note("C7"), 0.08, 0.3), 6000)
+    """The wheel opening: a tiny, muffled tap you barely hear."""
+    return lowpass(edges(felt(note("A5"), 0.06), 2, 30), 3000)
 
 
-SOUNDS = {"corefold": corefold, "peel": peel, "droplet": droplet, "glass": glass, "problem": problem, "tick": tick}
+SOUNDS = {"corefold": corefold, "peel": pebble, "droplet": droplet, "glass": glass, "problem": problem, "tick": tick}
 PEAK = 0.7  # -3 dBFS; the app turns it down further with the volume slider
 
 
