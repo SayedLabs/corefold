@@ -164,6 +164,7 @@ class ToolCard(QFrame):
         super().__init__()
         self.setObjectName("toolCard")
         self.setCursor(Qt.PointingHandCursor)
+        self.setFocusPolicy(Qt.StrongFocus)  # Tab reaches it; Enter opens it
         self.on_click = on_click
         lay = QHBoxLayout(self) if small else QVBoxLayout(self)
         lay.setContentsMargins(16, 14, 16, 14)
@@ -189,6 +190,7 @@ class ToolCard(QFrame):
             lay.addWidget(tile)
             lay.addWidget(self.title)
             line = label(text, "muted", wrap=True)
+            line.setMinimumWidth(1)  # wraps inside the card instead of pushing past its edge (long Arabic lines)
             line.setAttribute(Qt.WA_TransparentForMouseEvents)
             lay.addWidget(line)
             self.stat = label("", "cardStat")
