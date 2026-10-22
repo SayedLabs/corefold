@@ -26,6 +26,13 @@ DRAG_LIMIT = 256 << 20  # bigger than this (unpacked): use Extract, which shows 
 DRAG_KEEP_MS = 5 * 60_000  # the temporary copies made for a drag are removed this long after the drop
 
 
+def _natural(text: str) -> list:
+    """Sort key where "report-2" comes before "report-10", like in File Explorer."""
+    import re
+    parts = re.split(r"(\d+)", text.strip("\u202a\u202c").lower())
+    return [(0, int(x), "") if x.isdigit() else (1, 0, x) for x in parts]
+
+
 class Row(QTreeWidgetItem):
     """Sorts folders first, and sizes as numbers (not as text)."""
 
@@ -38,7 +45,7 @@ class Row(QTreeWidgetItem):
             return a_dir if ascending else b_dir
         if col in (1, 2):
             return (self.data(col, SORT_ROLE) or 0) < (other.data(col, SORT_ROLE) or 0)
-        return self.text(col).strip("\u202a\u202c").lower() < other.text(col).strip("\u202a\u202c").lower()
+        return _natural(self.text(col)) < _natural(other.text(col))
 
 
 class ArchiveTree(QTreeWidget):
