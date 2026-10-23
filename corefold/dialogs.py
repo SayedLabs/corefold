@@ -279,7 +279,7 @@ class TrimDialog(Base):
 class RenameDialog(Base):
     def __init__(self, files, icon, dark, ext: str = "", single: bool = False):
         super().__init__(tr("Name the new file") if single else tr("Name the new files"),
-                         tr("{count} files", count=len(files)), icon, dark)
+                         describe(files), icon, dark)
         self.files = files
         self.ext = ext  # the format being made (".png"), or "" to keep each file's own
         self.single = single  # all the files go into one new file (a PDF, a ZIP…): no numbers
