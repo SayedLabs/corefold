@@ -346,7 +346,8 @@ def record_command(exe: Path, rect: QRect, out: Path, fps: int = 30, mic: str = 
 
 
 class Recorder:
-    """FFmpeg recording an area of the screen, until stop()."""
+    """FFmpeg recording an area of the screen, until stop(). A pause ends the part recorded so far and
+    a resume starts the next part; stop() joins the parts into one file (without re-encoding)."""
 
     def __init__(self, rect: QRect, out: Path, fps: int = 30, mic: str = "", cursor: bool = True,
                  pc_sound: bool = False):
@@ -357,6 +358,9 @@ class Recorder:
         self.started = 0.0
         self.error = ""
         self.no_pc_sound = False  # the PC's sound was asked for but couldn't be recorded
+        self.parts: list[Path] = []
+        self.paused = False
+        self._before = 0.0        # seconds recorded in the parts before this one
 
     def start(self) -> bool:
         exe = ffmpeg_path()
@@ -364,6 +368,11 @@ class Recorder:
             self.error = tr("FFmpeg is missing, so recording isn't possible.")
             return False
         self.out.parent.mkdir(parents=True, exist_ok=True)
+        return self._start_part(exe)
+
+    def _start_part(self, exe=None) -> bool:
+        exe = exe or ffmpeg_path()
+        part = self.out.with_name(f"{self.out.stem}.part{len(self.parts) + 1}{self.out.suffix}")
         pipe = ""
         if self.pc_sound:
             from .loopback import Loopback
@@ -375,7 +384,7 @@ class Recorder:
                 self.no_pc_sound = True
         from .core import job_flags
         try:
-            self.proc = subprocess.Popen(record_command(exe, self.rect, self.out, self.fps, self.mic, self.cursor,
+            self.proc = subprocess.Popen(record_command(exe, self.rect, part, self.fps, self.mic, self.cursor,
                                                         pipe),
                                          stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
                                          creationflags=job_flags())
@@ -383,7 +392,9 @@ class Recorder:
             self.error = str(e)
             self._stop_sound()
             return False
+        self.parts.append(part)
         self.started = time.monotonic()
+        self.paused = False
         return True
 
     def _stop_sound(self):
@@ -392,16 +403,20 @@ class Recorder:
             lb.stop()
 
     def running(self) -> bool:
-        return self.proc is not None and self.proc.poll() is None
+        """Still recording (or paused)."""
+        return self.paused or (self.proc is not None and self.proc.poll() is None)
 
     def seconds(self) -> float:
-        return time.monotonic() - self.started if self.started else 0.0
+        if self.paused or not self.started:
+            return self._before
+        return self._before + time.monotonic() - self.started
 
-    def stop(self, timeout: float = 15) -> bool:
-        """Asks FFmpeg to finish the file properly (like pressing q)."""
-        p = self.proc
+    def _finish_part(self, timeout: float = 15) -> str:
+        """Asks FFmpeg to finish the part properly (like pressing q). Returns what FFmpeg said."""
+        p, self.proc = self.proc, None
         if p is None:
-            return False
+            return ""
+        self._before += time.monotonic() - self.started
         if p.poll() is None:
             try:
                 p.stdin.write(b"q")
@@ -416,13 +431,57 @@ class Recorder:
                 p.wait(5)
         self._stop_sound()
         try:
-            err = p.stderr.read().decode("utf-8", "replace") if p.stderr else ""
+            return p.stderr.read().decode("utf-8", "replace") if p.stderr else ""
         except (OSError, ValueError):
-            err = ""
+            return ""
+
+    def pause(self) -> bool:
+        if self.paused or self.proc is None:
+            return False
+        self._finish_part()
+        self.paused = True
+        return True
+
+    def resume(self) -> bool:
+        if not self.paused:
+            return False
+        if not self._start_part():
+            return False
+        return True
+
+    def stop(self, timeout: float = 15) -> bool:
+        """Finishes the recording: the last part, then the parts joined into self.out."""
+        if not self.parts:
+            return False
+        err = self._finish_part(timeout) if not self.paused else ""
+        self.paused = False
+        parts = [p for p in self.parts if p.exists() and p.stat().st_size > 1000]
+        try:
+            if len(parts) == 1:
+                os.replace(parts[0], self.out)
+            elif parts:
+                self._join(parts)
+        except OSError as e:
+            err = str(e)
+        for p in self.parts:
+            p.unlink(missing_ok=True)
         ok = self.out.exists() and self.out.stat().st_size > 1000
         if not ok:
             self.error = err.strip().splitlines()[-1] if err.strip() else tr("The recording couldn't be saved.")
         return ok
+
+    def _join(self, parts: list[Path]):
+        from .core import job_flags
+        listing = self.out.with_name(self.out.stem + ".parts.txt")
+        listing.write_text("".join("file '" + str(p).replace("'", "'\\''") + "'\n" for p in parts), "utf-8")
+        try:
+            r = subprocess.run([str(ffmpeg_path()), "-hide_banner", "-loglevel", "error", "-y", "-f", "concat",
+                                "-safe", "0", "-i", str(listing), "-c", "copy", "-movflags", "+faststart",
+                                str(self.out)], capture_output=True, timeout=600, creationflags=job_flags())
+            if r.returncode != 0:
+                raise OSError(r.stderr.decode("utf-8", "replace").strip()[-300:] or "joining failed")
+        finally:
+            listing.unlink(missing_ok=True)
 
 
 # ----------------------------------------------------------------------------- the tool
@@ -619,6 +678,7 @@ class CaptureTool(QObject):
         from .capview import RecordBar
         self.bar = RecordBar(self._rect, self.c.theme)
         self.bar.stop.connect(self.stop_recording)
+        self.bar.pause.connect(self.toggle_pause)
         self.bar.show()
         self.tick.start(500)
         self.c.update_tray_tooltip() if hasattr(self.c, "update_tray_tooltip") else None
@@ -633,6 +693,23 @@ class CaptureTool(QObject):
             return
         if self.bar is not None:
             self.bar.set_seconds(rec.seconds())
+
+    def toggle_pause(self):
+        """Pauses the recording (what happens meanwhile isn't in the video), or carries on."""
+        rec = self.recorder
+        if rec is None:
+            return
+        if rec.paused:
+            if not rec.resume():
+                self.stop_recording()
+                return
+        else:
+            rec.pause()
+        if self.bar is not None:
+            self.bar.set_paused(rec.paused)
+        if self.frame is not None:
+            self.frame.paused = rec.paused
+            self.frame.update()
 
     def _end_frame(self):
         for w in (self.frame, self.bar):

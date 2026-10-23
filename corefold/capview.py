@@ -657,6 +657,7 @@ class RecordFrame(QWidget):
         self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.setGeometry(rect.adjusted(-3, -3, 3, 3))
         self.count = 0
+        self.paused = False
 
     def showEvent(self, e):
         super().showEvent(e)
@@ -666,7 +667,7 @@ class RecordFrame(QWidget):
     def paintEvent(self, e):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
-        p.setPen(QPen(QColor("#e5484d"), 2, Qt.DashLine))
+        p.setPen(QPen(QColor("#8b8d98" if self.paused else "#e5484d"), 2, Qt.DashLine))
         p.drawRect(QRectF(self.rect()).adjusted(1, 1, -1, -1))
         if self.count:
             p.setPen(Qt.NoPen)
@@ -682,8 +683,9 @@ class RecordFrame(QWidget):
 
 
 class RecordBar(QWidget):
-    """Shows while recording: the time, and Stop (left out of the recording itself)."""
+    """Shows while recording: the time, Pause and Stop (left out of the recording itself)."""
     stop = Signal()
+    pause = Signal()
 
     def __init__(self, rect: QRect, theme):
         super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
@@ -696,16 +698,20 @@ class RecordBar(QWidget):
         lay = QHBoxLayout(frame)
         lay.setContentsMargins(14, 8, 8, 8)
         lay.setSpacing(10)
-        dot = QLabel("●")
+        self.dot = dot = QLabel("●")
         dot.setStyleSheet("color: #e5484d; font-size: 12pt;")
         self.time = QLabel("0:00")
         self.time.setStyleSheet("font-weight: 600;")
+        self.pause_btn = QPushButton(tr("Pause"))
+        self.pause_btn.setCursor(Qt.PointingHandCursor)
+        self.pause_btn.clicked.connect(self.pause.emit)
         b = QPushButton(tr("Stop"))
         b.setObjectName("primary")
         b.setCursor(Qt.PointingHandCursor)
         b.clicked.connect(self.stop.emit)
         lay.addWidget(dot)
         lay.addWidget(self.time)
+        lay.addWidget(self.pause_btn)
         lay.addWidget(b)
         self.adjustSize()
         screen = QGuiApplication.screenAt(rect.center()) or QGuiApplication.primaryScreen()
@@ -722,6 +728,11 @@ class RecordBar(QWidget):
         super().showEvent(e)
         from .capture import exclude_from_capture
         exclude_from_capture(self)
+
+    def set_paused(self, paused: bool):
+        self.pause_btn.setText(tr("Resume") if paused else tr("Pause"))
+        self.dot.setStyleSheet(f"color: {'#8b8d98' if paused else '#e5484d'}; font-size: 12pt;")
+        self.adjustSize()
 
     def set_seconds(self, s: float):
         s = int(s)
