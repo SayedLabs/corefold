@@ -23,7 +23,7 @@ class SpeedDialog(Base):
         grid = QGridLayout()
         grid.setSpacing(8)
         for i, s in enumerate(SPEEDS):
-            text = tr("{speed}× slower", speed=f"{1 / s:g}") if s < 1 else tr("{speed}× faster", speed=f"{s:g}")
+            text = tr("{speed}× slower", speed=f"{1 / s:.3g}") if s < 1 else tr("{speed}× faster", speed=f"{s:g}")
             rb = QRadioButton(text)
             rb.setProperty("speed", s)
             rb.setChecked(s == 2.0)
