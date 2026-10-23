@@ -225,6 +225,9 @@ QCheckBox::indicator:checked { background: $accent; border-color: $accent; image
 QProgressBar { background: $border; border: none; border-radius: 2px; max-height: 4px; }
 QProgressBar::chunk { background: $accent; border-radius: 2px; }
 QFrame#toast { background: $panel; border: 1px solid $line_strong; border-radius: 14px; }
+QFrame#clipPopup { background: $panel; border: 1px solid $line_strong; border-radius: 14px; }
+QListWidget#clips { background: transparent; border: none; outline: none; }
+QListWidget#clipsPage { background: $panel; border: 1px solid $border; border-radius: 12px; outline: none; padding: 4px; }
 QLabel#toastTitle { font-weight: 600; }
 QPushButton#close { background: transparent; border: none; color: $muted; padding: 0 4px; font-size: 11pt; }
 QPushButton#close:hover { color: $text; }

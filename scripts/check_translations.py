@@ -78,6 +78,10 @@ def table_texts() -> dict[str, str]:
     add([x for pair in appspage.UNUSED.values() for x in pair], "appspage.UNUSED")
     from corefold import viewer
     add(viewer.DETAIL_LABELS, "viewer.DETAIL_LABELS")
+    from corefold import clipview
+    add([text for _, text in clipview.FILTERS], "clipview.FILTERS")
+    add(settings.CLIP_DAYS.values(), "CLIP_DAYS")
+    add([settings.CLIP_SHORTCUTS["off"]], "CLIP_SHORTCUTS")
     for _, title, text in tour.STEPS:
         add([title, text], "tour.STEPS")
     return out

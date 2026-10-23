@@ -95,13 +95,18 @@ BACKUP_DAYS = {7: "a week", 30: "a month", 90: "3 months", 365: "a year"}
 VIEWER_WHEEL = {"zoom": "Zooms in and out", "browse": "Goes to the next or previous picture"}
 SLIDESHOW_SECONDS = {2: "2 seconds", 4: "4 seconds", 8: "8 seconds"}
 EXTRACT_MODES = {"smart": "Smart: no folder inside a folder", "folder": "Always into a new folder"}
+CLIP_SHORTCUTS = {"win+alt+v": "Win + Alt + V", "ctrl+shift+v": "Ctrl + Shift + V", "ctrl+alt+v": "Ctrl + Alt + V",
+                  "ctrl+`": "Ctrl + `", "off": "No shortcut"}
+CLIP_MAX = {100: "100", 500: "500", 1000: "1000", 5000: "5000"}
+CLIP_DAYS = {1: "a day", 7: "a week", 30: "a month", 365: "a year", 0: "Never"}
 CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_style": HOVER_STYLES,
            "slice_colors": SLICE_COLORS, "text_size": TEXT_SIZES, "wheel_position": WHEEL_POSITIONS,
            "wheel_size": WHEEL_SIZES, "sound": SOUNDS, "language": LANGUAGES, "menu_style": MENU_STYLES,
            "appearance": APPEARANCES, "shortcut": SHORTCUT_LABELS, "toast_corner": TOAST_CORNERS,
            "toast_time": TOAST_TIMES, "window_text": WINDOW_TEXT, "unused_months": UNUSED_MONTHS,
            "backup_days": BACKUP_DAYS, "extract_mode": EXTRACT_MODES, "viewer_wheel": VIEWER_WHEEL,
-           "slideshow_seconds": SLIDESHOW_SECONDS}
+           "slideshow_seconds": SLIDESHOW_SECONDS, "clip_shortcut": CLIP_SHORTCUTS, "clip_max": CLIP_MAX,
+           "clip_days": CLIP_DAYS}
 
 
 # Settings kept on disk while the window has changes that weren't saved yet (see window.py): the
@@ -111,7 +116,8 @@ RECENT_ARCHIVES = 8
 # not settings a person edits: what the app remembers by itself
 NOT_EDITED = {"enabled", "first_run", "last_version", "menu_signature", "window_geometry", "last_page",
               "last_action", "tour_done", "watermark", "fit_mb", "open_archives", "recent_archives",
-              "tools_off", "known_tools", "open_images", "open_emails", "viewer_info", "recent_views"}
+              "tools_off", "known_tools", "open_images", "open_emails", "viewer_info", "recent_views",
+              "clip_paused"}
 # the settings of each tab of the Settings page (each one has its own "Reset to defaults")
 GENERAL_KEYS = ("language", "sound", "volume", "sound_problems", "show_progress", "low_priority", "one_at_a_time")
 LOOK_KEYS = ("appearance", "accent", "custom_color", "animations", "toast_corner", "toast_time", "window_text",
@@ -124,6 +130,7 @@ FORMAT_KEYS = ("hidden_tools", "favorites", "tool_order")
 UNINSTALLER_KEYS = ("unused_months", "backup_days", "restore_point")
 ARCHIVE_KEYS = ("extract_mode", "extract_nested", "remember_archives")
 VIEWER_KEYS = ("viewer_wheel", "viewer_confirm_delete", "slideshow_seconds")
+CLIPBOARD_KEYS = ("clip_shortcut", "clip_paste", "clip_max", "clip_days", "clip_images")
 UPDATE_KEYS = ("check_updates", "auto_update")
 
 
@@ -179,6 +186,13 @@ class Settings:
     slideshow_seconds: int = 4
     viewer_info: bool = False      # the details panel is open
     recent_views: list = field(default_factory=list)  # pictures and emails opened lately (newest first)
+    # the Clipboard
+    clip_shortcut: str = "win+alt+v"  # opens the clipboard from any app
+    clip_paste: bool = True        # picking something pastes it where you were typing (not only copies it)
+    clip_max: int = 500            # copies kept (pinned ones don't count)
+    clip_days: int = 30            # copies older than this are forgotten (0: never)
+    clip_images: bool = True       # keep pictures that are copied
+    clip_paused: bool = False      # new copies aren't kept for now
     # the Uninstaller
     unused_months: int = 3         # "not used for …" filter
     backup_days: int = 30          # backups of removed leftovers are kept this long

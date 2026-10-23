@@ -287,8 +287,10 @@ class Controller(QObject):
         act_settings = menu.addAction(tr("Settings"), lambda: self.show_window("General"))
         self.act_paste = menu.addAction(tr("Convert what's copied"), self.paste)
         self.act_archive = menu.addAction(tr("Open an archive…"), self.choose_archive)
+        self.act_clip = menu.addAction(tr("Clipboard history"), lambda: self.show_clipboard(from_tray=True))
         self.menu_icons = [(act_open, "home"), (act_settings, "settings"), (self.act_paste, "arrow_swap"),
-                           (self.act_archive, "archive")]
+                           (self.act_archive, "archive"), (self.act_clip, "clipboard")]
+        self.clip = None  # Corefold Clipboard, while it's in use
         self.act_again = menu.addAction(tr("Do it again…"), self.do_again)
         menu.aboutToShow.connect(self._update_again_action)
         self.recent_menu = menu.addMenu(tr("Recent files"))
@@ -369,6 +371,9 @@ class Controller(QObject):
             QGuiApplication.styleHints().colorSchemeChanged.connect(self._system_theme_changed)
         except AttributeError:
             pass
+
+        if not self.settings.first_run:  # (once main() has put tools that are new in this version in the Store)
+            QTimer.singleShot(0, self._clipboard_tool)
 
     # ---- the main window is built when needed and freed when it's been closed a while
 
@@ -688,12 +693,19 @@ class Controller(QObject):
         w = self._window
         if w is not None:
             self.rebuild_window("Store", committed=w.committed, pending_startup=w.pending_startup)
+        if on and tool_id == "clipboard" and self.clip is not None:
+            from .clipboard import HOTKEY_NAMES
+            key = HOTKEY_NAMES.get(s.clip_shortcut)
+            if key and self.clip.hotkey.ok:
+                self.toast.notify(tr("Corefold Clipboard"), tr("Press {key} in any app to open your clipboard, then "
+                                                               "pick what to paste.", key=key), linger_ms=7000)
 
     def apply_tools(self):
         """Starts or stops what each tool does in the background, to match the tools in use."""
         self.watch_downloads(self.settings.watch_downloads)
         self.update_shell_menu(500)
         self.sync_archive_opening()
+        self._clipboard_tool()
         self._tray_tools()
         log.info("tools in use: %s", ", ".join(t.id for t in all_tools.enabled(self.settings)) or "none")
 
@@ -703,6 +715,48 @@ class Controller(QObject):
         for act in (self.act_paste, self.act_again, self.act_pause):
             act.setVisible(converter)
         self.act_archive.setVisible(all_tools.is_on(self.settings, "archive"))
+        self.act_clip.setVisible(self.clip is not None)
+
+    # ---- Corefold Clipboard
+
+    def _clipboard_tool(self):
+        """Starts listening for copies when the Clipboard is in use, and stops completely when it isn't."""
+        on = all_tools.is_on(self.settings, "clipboard")
+        if on and self.clip is None:
+            from .clipboard import Clipboard
+            try:
+                self.clip = Clipboard(self.settings)
+            except Exception:
+                log.exception("couldn't start the clipboard history")
+                self.clip = None
+                return
+            self.clip.on_hotkey = self.show_clipboard
+            self._clip_applied = self._clip_settings()
+        elif not on and self.clip is not None:
+            self.clip.stop()
+            self.clip.deleteLater()
+            self.clip = None
+
+    def _clip_settings(self) -> tuple:
+        s = self.settings
+        return s.clip_shortcut, s.clip_max, s.clip_days
+
+    def show_clipboard(self, from_tray: bool = False):
+        """The clipboard popup, near where you're typing (what you pick is pasted there)."""
+        if self.clip is None:
+            return
+        from .clipboard import foreground_window
+        target = 0 if from_tray else foreground_window()
+        if self.clip.popup is None:
+            from .clipview import QuickPaste
+            self.clip.popup = QuickPaste(self, self.clip)
+        self.clip.popup.open(target)
+
+    def set_clipboard_paused(self, paused: bool):
+        self.settings.clip_paused = paused
+        self.settings_changed()
+        if self.clip is not None:
+            self.clip.changed.emit()
 
     def remember_archive(self, src: Path):
         """Keeps the list of recently opened archives (shown on the Archive page)."""
@@ -977,6 +1031,8 @@ class Controller(QObject):
             self._color_menu_icons()
         if self._window is not None:
             self._window.apply_theme(self.theme)
+        if self.clip is not None and self.clip.popup is not None:
+            self.clip.popup.apply_theme(self.theme)
 
     def _color_menu_icons(self):
         for action, name in self.menu_icons:
@@ -995,6 +1051,11 @@ class Controller(QObject):
         menu=True when the change also shows in the right-click menu."""
         self.save_timer.start(400)
         self._apply_toast_settings()
+        if self.clip is not None and self._clip_settings() != getattr(self, "_clip_applied", None):
+            self._clip_applied = self._clip_settings()
+            self.clip.apply_settings()
+            if self._window is not None:
+                self._window.refresh_clipboard_note()
         if self._window is not None:
             self._window.refresh()
         self._update_tooltip()
@@ -1506,6 +1567,9 @@ class Controller(QObject):
             ev.set()
         self.pool.waitForDone(3000)
         self.quick_pool.waitForDone(1000)
+        if self.clip is not None:
+            self.clip.stop()
+            self.clip = None
         self.tray.hide()
         if self.server:
             self.server.close()
@@ -1545,8 +1609,9 @@ class Controller(QObject):
             self.quit(cleanup=True)
 
 
-PAGE_NAMES = ("Home", "Converter", "Apps", "Archives", "Soon", "General", "Look", "ConvOptions", "WheelLook", "Formats",
-              "AppsSettings", "ArchiveSettings", "History", "Updates", "About")
+PAGE_NAMES = ("Home", "Converter", "Apps", "Archives", "Viewer", "Clipboard", "Store", "Soon", "General", "Look",
+              "ConvOptions", "WheelLook", "Formats", "AppsSettings", "ArchiveSettings", "ViewerSettings",
+              "ClipboardSettings", "History", "Updates", "About")
 OUTPUT_EXT = {"image:pdf": ".pdf", "image:scan": ".pdf", "pdf:merge": ".pdf", "image:video": ".mp4",
               "pack:zip": ".zip", "pack:7z": ".7z"}  # what a tool makes, when it isn't Tool.target
 

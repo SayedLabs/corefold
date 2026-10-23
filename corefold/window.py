@@ -2,11 +2,10 @@
 from __future__ import annotations
 
 import os
-import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QDateTime, QEvent, QLocale, QObject, QSize, Qt, QTimer, QUrl, Signal
+from PySide6.QtCore import QEvent, QObject, QSize, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QColor, QDesktopServices, QFont, QGuiApplication, QIcon
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QColorDialog, QComboBox, QFileDialog, QFrame,
                                QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox,
@@ -25,10 +24,11 @@ from .settings import (ACCENTS, APP_NAME, DEFAULT_ACCENT, APPEARANCES, HOVER_STY
                        SHORTCUT_LABELS, SLICE_COLORS, SOUNDS, TEXT_SIZE_NAMES, TOAST_CORNERS, TOAST_TIMES,
                        WHEEL_POSITIONS, WHEEL_SIZE_NAMES, WHEEL_STYLES, WINDOW_TEXT, installed_uninstaller,
                        ARCHIVE_KEYS, BACKUP_DAYS, CONVERTER_KEYS, EXTRACT_MODES, FORMAT_KEYS, GENERAL_KEYS,
-                       SLIDESHOW_SECONDS, VIEWER_KEYS, VIEWER_WHEEL,
+                       SLIDESHOW_SECONDS, VIEWER_KEYS, VIEWER_WHEEL, CLIP_DAYS, CLIP_MAX, CLIP_SHORTCUTS, CLIPBOARD_KEYS,
                        LOOK_KEYS, UNINSTALLER_KEYS, UNUSED_MONTHS, WHEEL_KEYS, editable_keys, set_startup,
                        startup_enabled)
 from .theme import Theme
+from .timefmt import date_text, locale, time_ago  # noqa: F401 (used by other pages)
 from .wheel import WheelPreview
 from .winutil import memory_use, reveal_in_explorer, set_title_bar_dark
 
@@ -198,17 +198,6 @@ class ToolCard(QFrame):
             super().keyPressEvent(e)
 
 
-def locale() -> QLocale:
-    """Dates and numbers in the app's language (not always Windows' language)."""
-    return QLocale({"ar": QLocale.Language.Arabic, "fr": QLocale.Language.French, "es": QLocale.Language.Spanish,
-                    "tr": QLocale.Language.Turkish}.get(i18n.language(), QLocale.Language.English))
-
-
-def date_text(ts: float, long: bool = False) -> str:
-    when = QDateTime.fromSecsSinceEpoch(int(ts)).date()
-    return locale().toString(when, "d MMMM yyyy" if long else "d MMM")
-
-
 class _WheelGuard(QObject):
     """Sends the mouse wheel on to the page (so it scrolls) unless the box was clicked first."""
 
@@ -241,21 +230,6 @@ def _alive_set_text(lab: QLabel, text: str):
 def _html(text: str) -> str:
     import html
     return html.escape(text, quote=False)
-
-
-def time_ago(ts: float) -> str:
-    d = time.time() - ts
-    if d < 60:
-        return tr("just now")
-    if d < 3600:
-        return tr("{count} min ago", count=int(d // 60))
-    if d < 86400:
-        return tr("{count} h ago", count=int(d // 3600))
-    if d < 2 * 86400:
-        return tr("yesterday")
-    if d < 7 * 86400:
-        return tr("{count} days ago", count=int(d // 86400))
-    return date_text(ts)
 
 
 class Segmented(QWidget):
@@ -425,7 +399,8 @@ class MainWindow(QWidget):
                     "Look": self._look, "ConvOptions": self._conv_options, "WheelLook": self._wheel_look,
                     "Formats": self._formats, "AppsSettings": self._apps_settings,
                     "ArchiveSettings": self._archive_settings, "Viewer": self._viewer,
-                    "ViewerSettings": self._viewer_settings, "Updates": self._updates, "About": self._about}
+                    "ViewerSettings": self._viewer_settings, "Clipboard": self._clipboard,
+                    "ClipboardSettings": self._clipboard_settings, "Updates": self._updates, "About": self._about}
         self._wheel_guard = None
         self._settings_head()  # (made before the pages: opening one shows or hides it)
         self._dots: list[QLabel] = []
@@ -433,7 +408,8 @@ class MainWindow(QWidget):
         self._builders = builders
         # pages that are rarely opened are only built the first time they are (a faster, lighter window)
         # (the Converter's page and every Settings page are always made: other parts of the window use them)
-        self._unbuilt = {"Apps", "Store", "Viewer", *SOON, *[tool.page for tool in all_tools.TOOLS
+        self.clip_page = None
+        self._unbuilt = {"Apps", "Store", "Viewer", "Clipboard", *SOON, *[tool.page for tool in all_tools.TOOLS
                                                     if tool.page not in on_pages and tool.page != "Converter"]}
         for name in PAGES:
             built = QWidget() if name in self._unbuilt else builders[name]()
@@ -620,6 +596,8 @@ class MainWindow(QWidget):
             self.refresh_archives()
         elif name == "Viewer":
             self.refresh_views()
+        elif name == "Clipboard" and self.clip_page is not None:
+            self.clip_page.refresh()
 
     def _archives(self) -> QWidget:
         """Corefold Archive: open archives, make new ones, and the ones opened lately."""
@@ -1523,6 +1501,98 @@ class MainWindow(QWidget):
             self.open_images_setting.setChecked(True)
         assoc.open_default_apps()
 
+    def _clipboard(self) -> QWidget:
+        """Corefold Clipboard: everything copied, searchable, with pins."""
+        from .clipview import ClipboardPage
+        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
+        header = tool_header("clipboard", tr("Corefold Clipboard"),
+                             tr("Everything you copy, kept on this PC and easy to find again."), dark, dpr,
+                             self.tool_settings_button("Clipboard"))
+        self.clip_page = ClipboardPage(self.c, header)
+        return self.clip_page
+
+    def _clipboard_settings(self) -> QWidget:
+        """Corefold Clipboard."""
+        s = self.c.settings
+        w, lay = page(tr("Clipboard"))
+        box, bl = card()
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(16)
+        grid.setVerticalSpacing(12)
+        self.clip_shortcut = QComboBox()
+        for key, text in CLIP_SHORTCUTS.items():
+            self.clip_shortcut.addItem(tr(text) if key == "off" else text, key)
+        self.clip_shortcut.setCurrentIndex(max(0, self.clip_shortcut.findData(s.clip_shortcut)))
+        self.clip_max = QComboBox()
+        for n in CLIP_MAX:
+            self.clip_max.addItem(tr("{count} items", count=locale().toString(n)), n)
+        self.clip_max.setCurrentIndex(max(0, self.clip_max.findData(s.clip_max)))
+        self.clip_days = QComboBox()
+        for key, text in CLIP_DAYS.items():
+            self.clip_days.addItem(tr(text), key)
+        self.clip_days.setCurrentIndex(max(0, self.clip_days.findData(s.clip_days)))
+        for combo in (self.clip_shortcut, self.clip_max, self.clip_days):
+            combo.currentIndexChanged.connect(self._clip_setting_changed)
+        grid.addWidget(label(tr("Open your clipboard with")), 0, 0)
+        grid.addWidget(self.clip_shortcut, 0, 1)
+        grid.addWidget(label(tr("Keep up to")), 1, 0)
+        grid.addWidget(self.clip_max, 1, 1)
+        grid.addWidget(label(tr("Forget copies older than")), 2, 0)
+        grid.addWidget(self.clip_days, 2, 1)
+        grid.setColumnStretch(2, 1)
+        bl.addLayout(grid)
+        self.clip_key_note = label(tr("Another app already uses this shortcut, so it can't open the clipboard. Pick "
+                                      "another one."), "warning", wrap=True)
+        bl.addWidget(self.clip_key_note)
+        self.clip_key_note.setVisible(bool(self.c.clip is not None and not self.c.clip.hotkey.ok))
+        bl.addWidget(label(tr("Pinned copies are always kept."), "muted", wrap=True))
+        lay.addWidget(box)
+        box, bl = card()
+        self.clip_paste = checkbox(tr("Paste straight away when you pick something (otherwise it's only copied)"),
+                                   s.clip_paste, self._clip_setting_changed)
+        self.clip_images = checkbox(tr("Keep pictures you copy"), s.clip_images, self._clip_setting_changed)
+        bl.addWidget(self.clip_paste)
+        bl.addWidget(self.clip_images)
+        lay.addWidget(box)
+        box, bl = card()
+        bl.addWidget(label(tr("Privacy"), "h2"))
+        bl.addWidget(label(tr("Your clipboard history stays on this PC and is never uploaded. Passwords copied from "
+                              "password managers are never kept."), "muted", wrap=True))
+        row = QHBoxLayout()
+        row.addWidget(button(tr("Clear the history…"), None, self._clear_clipboard))
+        row.addStretch()
+        bl.addLayout(row)
+        lay.addWidget(box)
+        lay.addLayout(_reset_row(lambda: self.reset_to_defaults(CLIPBOARD_KEYS)))
+        lay.addStretch()
+        return w
+
+    def _clip_setting_changed(self, *_):
+        s = self.c.settings
+        s.clip_shortcut = self.clip_shortcut.currentData()
+        s.clip_max = self.clip_max.currentData()
+        s.clip_days = self.clip_days.currentData()
+        s.clip_paste = self.clip_paste.isChecked()
+        s.clip_images = self.clip_images.isChecked()
+        self.c.settings_changed()
+
+    def refresh_clipboard_note(self):
+        if hasattr(self, "clip_key_note"):
+            self.clip_key_note.setVisible(bool(self.c.clip is not None and not self.c.clip.hotkey.ok))
+
+    def _clear_clipboard(self):
+        if self.c.clip is None:
+            return
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Question)
+        box.setWindowTitle(tr("Clear the clipboard history?"))
+        box.setText(tr("Everything kept is forgotten, except what you pinned."))
+        yes = box.addButton(tr("Clear"), QMessageBox.DestructiveRole)
+        box.addButton(tr("Cancel"), QMessageBox.RejectRole)
+        box.exec()
+        if box.clickedButton() is yes:
+            self.c.clip.clear()
+
     def _archive_settings(self) -> QWidget:
         """Corefold Archive."""
         s = self.c.settings
@@ -2151,6 +2221,8 @@ class MainWindow(QWidget):
             gear.setIcon(icons.icon("settings", t.text))
         self.refresh_archives()
         self.refresh_views()
+        if self.clip_page is not None:
+            self.clip_page.apply_theme(t)
         if self.isVisible():
             set_title_bar_dark(self, t.dark)
 

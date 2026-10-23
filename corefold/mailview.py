@@ -39,6 +39,14 @@ def safe_html(text: str) -> str:
     return text
 
 
+_REMOTE_IMG = re.compile(r"""(?is)<img\b[^>]*\bsrc\s*=\s*["']?\s*(?:https?:)?//[^>]*>""")
+
+
+def drop_remote_pictures(text: str) -> tuple[str, int]:
+    """Takes out pictures that would come from the internet (they tell the sender you opened the email)."""
+    return _REMOTE_IMG.subn("", text)
+
+
 def plain_to_html(text: str) -> str:
     """A plain-text email shown with its links clickable."""
     escaped = html_lib.escape(text)
@@ -124,13 +132,13 @@ class MailWindow(QWidget):
         self.body = MailBody(m)
         self.body.anchorClicked.connect(self._link)
         if m.html:
-            self.body.setHtml(safe_html(m.html))
+            body, self.body.blocked = drop_remote_pictures(safe_html(m.html))
+            self.body.setHtml(body)
         else:
             self.body.setHtml(plain_to_html(m.text or ""))
         self.note = QLabel(tr("Pictures from the internet are blocked, so the sender can't tell you opened this "
                               "email."))
         self.note.setObjectName("muted")
-        self.note.setVisible(self.body.blocked > 0)
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(20, 16, 20, 16)
@@ -140,6 +148,7 @@ class MailWindow(QWidget):
         if atts:
             lay.addWidget(self._attachments(atts))
         lay.addWidget(self.note)
+        self.note.setVisible(self.body.blocked > 0)
         frame = QFrame()
         frame.setObjectName("card")
         fl = QVBoxLayout(frame)
@@ -152,7 +161,7 @@ class MailWindow(QWidget):
         if d is None:
             return ""
         try:
-            from .window import locale
+            from .timefmt import locale
             from PySide6.QtCore import QDateTime
             stamp = QDateTime.fromSecsSinceEpoch(int(d.timestamp()))
             return locale().toString(stamp, "d MMMM yyyy, HH:mm")

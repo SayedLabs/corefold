@@ -16,7 +16,7 @@ from PySide6.QtGui import QColor, QGuiApplication, QImage, QKeySequence, QPainte
 from PySide6.QtWidgets import (QFileDialog, QFrame, QHBoxLayout, QLabel, QMenu, QMessageBox, QPushButton, QVBoxLayout,
                                QWidget)
 
-from . import icons
+from . import i18n, icons
 from .core import ALIASES, APP_NAME, IMAGE_EXT, human_size, norm, short_name
 from .i18n import ltr, tr
 from .theme import round_menu
@@ -459,24 +459,18 @@ class ViewerWindow(QWidget):
             self.icon_buttons.append((b, name))
             return b
 
-        self.b_prev = tool("arrow_rotate_counterclockwise", tr("Previous (Left arrow)"), lambda: self.go(-1), "‹")
-        self.b_next = tool("arrow_rotate_clockwise", tr("Next (Right arrow)"), lambda: self.go(1), "›")
-        for b in (self.b_prev, self.b_next):
-            self.icon_buttons.pop()
-            f = b.font()
-            f.setPointSizeF(16)
-            b.setFont(f)
-        self.b_out = tool("", tr("Zoom out (−)"), lambda: self.view.step_zoom(False), "−")
-        self.b_in = tool("", tr("Zoom in (+)"), lambda: self.view.step_zoom(True), "+")
-        for b in (self.b_out, self.b_in):
-            self.icon_buttons.pop()
+        back, ahead = ("chevron_right", "chevron_left") if i18n.is_rtl() else ("chevron_left", "chevron_right")
+        self.b_prev = tool(back, tr("Previous (Left arrow)"), lambda: self.go(-1))
+        self.b_next = tool(ahead, tr("Next (Right arrow)"), lambda: self.go(1))
+        self.b_out = tool("zoom_out", tr("Zoom out (−)"), lambda: self.view.step_zoom(False))
+        self.b_in = tool("zoom_in", tr("Zoom in (+)"), lambda: self.view.step_zoom(True))
         self.b_left = tool("arrow_rotate_counterclockwise", tr("Turn left (Shift+R)"), lambda: self.rotate(-90))
         self.b_right = tool("arrow_rotate_clockwise", tr("Turn right (R)"), lambda: self.rotate(90))
         self.b_crop = tool("crop", tr("Crop (C)"), self.toggle_crop)
         self.b_delete = tool("delete", tr("Delete (Del): goes to the Recycle Bin"), self.delete)
         self.b_info = tool("info", tr("Details (I)"), self.toggle_info)
-        self.b_show = tool("video", tr("Slideshow (F5)"), self.toggle_slideshow)
-        self.b_full = tool("arrow_minimize", tr("Full screen (F11)"), self.toggle_full)
+        self.b_show = tool("play", tr("Slideshow (F5)"), self.toggle_slideshow)
+        self.b_full = tool("full_screen_maximize", tr("Full screen (F11)"), self.toggle_full)
         self.b_save = QPushButton(tr("Save"))
         self.b_save.setObjectName("primary")
         self.b_save.setCursor(Qt.PointingHandCursor)
