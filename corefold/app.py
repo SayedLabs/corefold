@@ -12,6 +12,7 @@ needed any more is handed back to Windows when Corefold is idle.
 from __future__ import annotations
 
 import copy
+import gc
 import itertools
 import logging
 import logging.handlers
@@ -76,6 +77,7 @@ FREE_WINDOW_AFTER_MS = 90_000  # free the main window this long after it's close
 FREE_POPUPS_AFTER_MS = 60_000  # ... and the quick menu, quick wheel and clipboard popup after they close
 MENU_WRITE_DELAY_MS = 1500     # wait for more changes before rewriting the right-click menu
 MENU_BATCH_MS = 700            # right-clicked files arrive one process at a time; collect them
+GC_EVERY_MS = 2_000            # Python's garbage collector runs on the window's thread this often (see Controller)
 log = logging.getLogger("corefold")
 
 
@@ -377,6 +379,13 @@ class Controller(QObject):
         self.free_popups_timer = QTimer(self)
         self.free_popups_timer.setSingleShot(True)
         self.free_popups_timer.timeout.connect(self._free_popups)
+        # Python's garbage collector only runs here, on the window's thread: run by itself it can start in
+        # any thread (writing the right-click menu, a conversion), and freeing a closed window's widgets from
+        # there crashes Qt
+        gc.disable()
+        self.gc_timer = QTimer(self)
+        self.gc_timer.timeout.connect(collect_garbage)
+        self.gc_timer.start(GC_EVERY_MS)
 
         self._update_tooltip()
         self.tray.show()
@@ -587,7 +596,6 @@ class Controller(QObject):
         (the background remover stays ready a little longer, in case more pictures follow)."""
         if self.cancels:
             return
-        import gc
         gc.collect()
         winutil.trim_memory()
 
@@ -1949,6 +1957,17 @@ PAGE_NAMES = ("Home", "Converter", "Apps", "Archives", "Viewer", "Player", "Clip
               "ViewerSettings", "ClipboardSettings", "CaptureSettings", "History", "Updates", "About", "Shortcuts")
 OUTPUT_EXT = {"image:pdf": ".pdf", "image:scan": ".pdf", "pdf:merge": ".pdf", "image:video": ".mp4",
               "pack:zip": ".zip", "pack:7z": ".7z"}  # what a tool makes, when it isn't Tool.target
+
+
+def collect_garbage():
+    """What Python's own collector would have done by now (the same thresholds), on this thread."""
+    young, middle, old = gc.get_count()
+    if old > 10:
+        gc.collect(2)
+    elif middle > 10:
+        gc.collect(1)
+    elif young > 700:
+        gc.collect(0)
 
 
 def _prune_backups(days: int = 30):
