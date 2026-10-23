@@ -315,11 +315,5 @@ def _file_name(text: str) -> str:
 
 def _mark_from_internet(path: Path):
     """Attachments keep Windows' "this came from the internet" warning, like files saved from a browser."""
-    import os
-    if os.name != "nt":
-        return
-    try:
-        with open(str(path) + ":Zone.Identifier", "w", encoding="ascii") as fh:
-            fh.write("[ZoneTransfer]\r\nZoneId=3\r\n")
-    except OSError:
-        pass
+    from .core import mark_from_internet
+    mark_from_internet(path)
