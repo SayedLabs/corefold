@@ -162,8 +162,9 @@ Press **Y** to install it, or **N** to open the folder with the installer to sha
   `THIRD_PARTY_NOTICES.md`; keep that file included and keep the source public (Option A does both).
   Every release gets FFmpeg's source attached automatically; if the build warns that it couldn't
   get it, don't publish that build.
-- **Privacy:** `docs/privacy.html` is the privacy policy, linked from the website and from
-  *About* in the app. Fill in the date and a contact address before launching.
+- **Privacy:** `docs/privacy.html` is the privacy policy (the same text is in `PRIVACY.md`), linked
+  from the website, from *About* and from the Cloud page in the app. When something new goes online,
+  update both files and the date.
 
 ## Project layout
 ```

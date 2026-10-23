@@ -62,6 +62,7 @@
   .doc { max-width: 46em; padding-bottom: 40px; }
   .doc h1 { font-size: clamp(32px, 5vw, 44px); }
   .doc h2 { font-size: 22px; margin: 32px 0 8px; }
+  .doc ul { padding-left: 22px; } .doc li { margin: 6px 0; }
   .doc table { border-collapse: collapse; width: 100%; font-size: 15px; }
   .doc th, .doc td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
   footer { padding: 36px 0 50px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line);
@@ -80,13 +81,42 @@
 
   <main class="doc">
     <h1>Privacy</h1>
-    <p>Last changed: October 22, 2026</p>
-    <p>Corefold is a Windows app made by Atomic Works. In short: <b>your files never leave your PC, there are no
-      accounts, no ads and no tracking.</b> The only time Corefold goes online by itself is to check for its own updates.</p>
+    <p>Last changed: October 23, 2026</p>
+    <p>Corefold is a free Windows app made by Atomic Works. In short: <b>your files stay on your PC, there are no
+      Corefold accounts, no ads and no tracking, and we have no server that could collect anything.</b> Corefold only
+      goes online by itself to check for its own updates. If you choose to use Corefold Cloud, it talks straight to your
+      own OneDrive or Dropbox, and to nobody else.</p>
 
     <h2>Your files</h2>
     <p>Everything Corefold does to your files (converting, shrinking, removing backgrounds, reading text, opening
-      archives, uninstalling apps) happens on your own PC. Nothing is uploaded, to us or to anyone else.</p>
+      archives and emails, taking screenshots, uninstalling apps) happens on your own PC. Nothing is uploaded, to us
+      or to anyone else, unless you upload it yourself with Corefold Cloud.</p>
+
+    <h2 id="cloud">Corefold Cloud (OneDrive and Dropbox)</h2>
+    <p>Cloud shows your OneDrive and Dropbox in one window. It's optional, and nothing happens until you add an account.</p>
+    <ul>
+      <li><b>Signing in happens on Microsoft's or Dropbox's own page,</b> in your web browser. Corefold never sees your
+        password. While you sign in, Corefold listens on a local address on your own PC (<code>http://localhost</code>)
+        to receive the answer; nothing outside your PC can reach it.</li>
+      <li><b>What Corefold asks for:</b> permission to see, add, change and delete your files, to see your name, email
+        address and how much space you use, and to stay signed in so you don't have to sign in every time.</li>
+      <li><b>What Corefold keeps:</b> the key the service gives back (not your password), plus your name, email address
+        and storage use so the account can be shown. They're kept only on your PC, in
+        <code>%LOCALAPPDATA%\Corefold\Cloud</code>, locked with Windows' own encryption so only your Windows account
+        can unlock them.</li>
+      <li><b>Your files go straight between your PC and the service.</b> They don't pass through Atomic Works or
+        anyone else. Copying from one cloud to another goes through your PC too.</li>
+      <li><b>Files you open</b> from Cloud are downloaded to a temporary folder on your PC so the right app can open
+        them. Changes stay on your PC until you upload the file again.</li>
+      <li><b>Sign out</b> deletes Corefold's key for that account from your PC. To also take back the permission on
+        the service's side, use
+        <a href="https://account.live.com/consent/Manage" rel="noopener">your Microsoft account's app permissions</a>
+        (work or school accounts: <a href="https://myapps.microsoft.com" rel="noopener">My Apps</a>) or
+        <a href="https://www.dropbox.com/account/connected_apps" rel="noopener">Dropbox's connected apps</a>.</li>
+    </ul>
+    <p>Your files on OneDrive and Dropbox are covered by those companies' own policies:
+      <a href="https://privacy.microsoft.com/privacystatement" rel="noopener">Microsoft's privacy statement</a> and
+      <a href="https://www.dropbox.com/privacy" rel="noopener">Dropbox's privacy policy</a>.</p>
 
     <h2>What goes over the internet</h2>
     <table>
@@ -96,16 +126,32 @@
           <td>GitHub, which hosts Corefold's releases (<a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener">GitHub's privacy statement</a>)</td></tr>
       <tr><td>Downloading an update, when you choose to or turn on automatic updates</td>
           <td>A download of the installer.</td><td>GitHub</td></tr>
-      <tr><td>When you click <i>Send feedback</i>, <i>Website</i> or similar links</td>
+      <tr><td>Using Corefold Cloud, only after you add an account</td>
+          <td>Your sign-in, the files and folders you open, upload, download, rename, delete or search for, and the
+            searches you type.</td>
+          <td>Microsoft (OneDrive) or Dropbox, whichever you signed in to</td></tr>
+      <tr><td>When you click <i>Send feedback</i>, <i>Website</i>, <i>Privacy</i> or similar links</td>
           <td>Your web browser opens that page. Anything you then write in a feedback form is public on GitHub.</td><td>GitHub</td></tr>
     </table>
-    <p>Corefold doesn't send usage statistics, crash reports or any information about your files. If a future version
-      offers to send a crash report, it will ask you first and show you what would be sent.</p>
+    <p>Corefold doesn't send usage statistics, crash reports or any information about your files, and it doesn't
+      count its users. If a future version offers to send a crash report, it will ask you first and show you what
+      would be sent.</p>
+    <p>Emails you open in Corefold can't reach the internet either: pictures from the internet are blocked, so the
+      sender can't tell you opened the email.</p>
 
     <h2>What stays on your PC</h2>
-    <p>Corefold keeps its settings, a list of recent conversions and the backups made when you uninstall apps in
-      your user folders (<code>%APPDATA%\Corefold</code> and <code>%LOCALAPPDATA%\Corefold</code>). You can clear the
-      history in the app, and uninstalling Corefold offers to delete all of it.</p>
+    <p>Corefold keeps these in your user folders (<code>%APPDATA%\Corefold</code> and
+      <code>%LOCALAPPDATA%\Corefold</code>), and nowhere else:</p>
+    <ul>
+      <li>your settings;</li>
+      <li>a list of recent conversions (you can clear it in <i>History</i>);</li>
+      <li>your clipboard history, if you use Clipboard (copies that password managers mark as private are never kept);</li>
+      <li>your Cloud accounts' keys, locked as described above;</li>
+      <li>a small log of what the app did, to help find problems, which never leaves your PC unless you send it;</li>
+      <li>the backups made when you uninstall apps with Corefold.</li>
+    </ul>
+    <p>When you uninstall Corefold, it offers to delete all of this. The backups of uninstalled apps are kept, because
+      they're yours; you can delete them yourself.</p>
 
     <h2>This website</h2>
     <p>This site is hosted by GitHub Pages, which may keep logs of visits (like your IP address) for security. The site
@@ -114,8 +160,14 @@
     <h2>Children</h2>
     <p>Corefold doesn't collect personal information from anyone, including children.</p>
 
+    <h2>Your choices</h2>
+    <p>Because Atomic Works doesn't collect or keep any information about you, there's nothing for us to show, change
+      or delete. Everything Corefold keeps is on your own PC, where you can delete it. For files and accounts on
+      OneDrive or Dropbox, use those services' own settings.</p>
+
     <h2>Changes and contact</h2>
-    <p>If this policy changes, the new version will be on this page with a new date. Questions?
+    <p>If this policy changes, the new version will be on this page with a new date, and Corefold's release notes will
+      say so. Questions?
       <a class="issues" href="https://github.com/SayedLabs/corefold/issues/new">Open an issue on GitHub</a>.</p>
   </main>
 
