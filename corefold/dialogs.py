@@ -427,6 +427,7 @@ class WatermarkDialog(Base):
         grid.setHorizontalSpacing(12)
         grid.setVerticalSpacing(10)
         logo_row = QHBoxLayout()
+        logo_row.setSpacing(8)
         logo_row.addWidget(self.logo_label, 1)
         logo_row.addWidget(pick_logo)
         logo_row.addWidget(clear_logo)
