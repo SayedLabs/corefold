@@ -53,6 +53,8 @@ jobs:
           Expand-Archive (Get-ChildItem rel/*.zip | Select-Object -First 1).FullName rel/app
           $exe = (Get-ChildItem rel/app -Recurse -Filter Corefold.exe | Select-Object -First 1).FullName
           python scripts/exetest.py $exe out/exe *>> out/exetest.txt
+          Get-Process Corefold -ErrorAction SilentlyContinue | Stop-Process -Force
+          python scripts/exetest.py $exe out/exe fresh *>> out/exetest-fresh.txt
       - name: Save results
         if: always()
         shell: pwsh

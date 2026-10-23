@@ -55,6 +55,7 @@ if i18n.is_rtl():
     qapp.setLayoutDirection(Qt.RightToLeft)
 from corefold import app as A  # noqa: E402
 from corefold.i18n import tr  # noqa: E402
+from corefold import work  # noqa: E402
 
 A.setup_logging()
 problems = []
@@ -233,14 +234,15 @@ def store_add():
         old.activateWindow()
         settle(0.1)
         QTest.mouseClick(add, Qt.LeftButton, Qt.NoModifier, add.rect().center())
-        flash = flash_after(old.geometry())
+        geometry = old.geometry()
+        flash = flash_after(geometry)
         if c.theme.dark:
             check(flash < 0.3, f"adding {tool.id} doesn't flash a white window (whitest moment {flash:.2f})")
         settle(1.0)
         w = c.window
         check(all_tools.is_on(c.settings, tool.id), f"{tool.id} is added")
         check(w.isVisible(), f"after adding {tool.id} the window is still open")
-        check(not old.isVisible() or old is w, f"after adding {tool.id} only one window is open")
+        check(not work.alive(old) or not old.isVisible() or old is w, f"after adding {tool.id} only one window is open")
         check(tool.page in w.nav_rows, f"{tool.id} is in the sidebar")
         page_ok(w, "Store", f"adding {tool.id}")
         real = (w.screen() or QGuiApplication.primaryScreen()).grabWindow(

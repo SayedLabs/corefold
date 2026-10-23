@@ -1,7 +1,9 @@
 """Clicks through a built Corefold.exe from the outside, with the real mouse, the way a person does:
 adds every tool from the Store and opens it, and saves a picture of the whole screen after each click.
 
-Run: python scripts/exetest.py <Corefold.exe> <folder>   (needs pywinauto and Pillow)
+Run: python scripts/exetest.py <Corefold.exe> <folder> [fresh]   (needs pywinauto and Pillow)
+"fresh" starts it like the very first time: the "Which tools?" question (only the first three kept),
+then the tour, in the light look.
 Prints one line per check and "exetest: N problem(s)"."""
 import os
 import subprocess
@@ -13,6 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 EXE = Path(sys.argv[1]).resolve()
 OUT = Path(sys.argv[2] if len(sys.argv) > 2 else "exetest").resolve()
+FRESH = len(sys.argv) > 3 and sys.argv[3] == "fresh"
 OUT.mkdir(parents=True, exist_ok=True)
 TMP = Path(tempfile.mkdtemp(prefix="corefold-exetest-"))
 os.environ["APPDATA"] = str(TMP / "roaming")
@@ -30,12 +33,15 @@ from corefold import settings as st  # noqa: E402
 from corefold import tools as all_tools  # noqa: E402
 
 s = st.Settings()
-s.first_run = False
-s.tour_done = True
 s.check_updates = False
-s.appearance = "dark"
-s.known_tools = sorted(t.id for t in all_tools.ready())
-s.tools_off = sorted(t.id for t in all_tools.ready() if t.id not in all_tools.ORIGINAL)
+if FRESH:
+    s.appearance = "light"
+else:
+    s.first_run = False
+    s.tour_done = True
+    s.appearance = "dark"
+    s.known_tools = sorted(t.id for t in all_tools.ready())
+    s.tools_off = sorted(t.id for t in all_tools.ready() if t.id not in all_tools.ORIGINAL)
 s.save()
 problems = []
 shot_no = [0]
@@ -64,7 +70,7 @@ def shot(name, win):
     shot_no[0] += 1
     r = win.rectangle()
     img = ImageGrab.grab(bbox=(r.left, r.top, r.right, r.bottom), all_screens=True)
-    img.save(OUT / f"exe-{shot_no[0]:02}-{name}.png")
+    img.save(OUT / f"exe{'-fresh' if FRESH else ''}-{shot_no[0]:02}-{name}.png")
     small = img.convert("L").resize((80, 50))
     white = sum(1 for v in small.getdata() if v > 245) / 4000
     print(f"note  {name}: {white:.2f} white, mean {ImageStat.Stat(small).mean[0]:.0f}", flush=True)
@@ -76,8 +82,40 @@ def click(ctrl):
     mouse.click(coords=((r.left + r.right) // 2, (r.top + r.bottom) // 2))
 
 
-proc = subprocess.Popen([str(EXE), "--page", "Store"])
+def first_start():
+    """The "Which tools?" question: only the first three stay ticked. Then the tour, closed."""
+    for _ in range(40):
+        picks = [w for w in Desktop(backend="uia").windows() if w.window_text() == "Welcome" and w.is_visible()]
+        if picks:
+            break
+        time.sleep(0.5)
+    if not check(bool(picks), "the first start asks which tools"):
+        return
+    pick = picks[0]
+    shot("first-start", pick)
+    for box in pick.descendants(control_type="CheckBox")[3:]:
+        click(box)
+    go = [b for b in pick.descendants(control_type="Button") if b.window_text() == "Continue"]
+    if check(bool(go), "…with Continue"):
+        click(go[0])
+    time.sleep(2)
+    for w in Desktop(backend="uia").windows():
+        if w.window_text() == "Welcome" and w.is_visible():  # the tour
+            shot("tour", w)
+            w.close()
+    time.sleep(1)
+
+
+proc = subprocess.Popen([str(EXE)] if FRESH else [str(EXE), "--page", "Store"])
 try:
+    if FRESH:
+        first_start()
+        win = window()
+        if win is not None:
+            shot("home-after-first-start", win)
+            row = [t for t in win.descendants(control_type="ListItem") if t.window_text() == "Store"]
+            if check(bool(row), "the sidebar has the Store"):
+                click(row[0])
     win = window()
     if check(win is not None, "Corefold.exe opens its window on the Store"):
         win.set_focus()
