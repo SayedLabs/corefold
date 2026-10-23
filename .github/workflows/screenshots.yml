@@ -48,6 +48,14 @@ jobs:
           $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
           python scripts/uitest.py shots *>> shots/uitest-output.txt
 
+      - name: Click through the window like a person
+        timeout-minutes: 20
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          python scripts/navtest.py shots/navtest en dark *>> shots/navtest-output.txt
+          python scripts/navtest.py shots/navtest ar light *>> shots/navtest-output.txt
+
       - name: Take the pictures
         shell: pwsh
         continue-on-error: true

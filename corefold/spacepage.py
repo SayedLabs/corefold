@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import html
+import logging
 import os
 import threading
 from pathlib import Path
@@ -19,6 +20,8 @@ from .i18n import ltr, tr
 from .theme import mix, round_menu
 from .timefmt import date_text
 from .winutil import reveal_in_explorer
+
+log = logging.getLogger("corefold")
 
 if TYPE_CHECKING:
     from .app import Controller
@@ -77,7 +80,7 @@ class Treemap(QWidget):
         self.boxes: list[Box] = []
         self.hover = -1
         self.setMouseTracking(True)
-        self.setMinimumSize(320, 260)
+        self.setMinimumSize(240, 160)  # (small screens with big text: nothing below it gets covered)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.setCursor(Qt.PointingHandCursor)
 
@@ -493,6 +496,7 @@ class SpacePage(QWidget):
         self.items.setContextMenuPolicy(Qt.CustomContextMenu)
         self.items.customContextMenuRequested.connect(self._list_menu)
         self.items.itemDoubleClicked.connect(self._list_open)
+        self.items.setMinimumWidth(240)  # (names stay readable next to the map)
         side.addWidget(self.items, 1)
         holder = QWidget()
         holder.setLayout(side)
@@ -545,20 +549,6 @@ class SpacePage(QWidget):
         for b, name in getattr(self, "_icon_buttons", []):
             b.setIcon(icons.icon(name, t.text, disabled=t.muted))
 
-    def go_back(self) -> bool:
-        """Esc, Back or ←: up one folder in the map, else back to the list of drives (stopping a
-        look that's under way). False if there's nowhere to go back to."""
-        if self.job is not None and self.busy_box.isVisible():
-            self._stop()
-            return True
-        if self.map_box.isVisible():
-            if self.here is not None and self.here.parent is not None:
-                self._up()
-            else:
-                self._back_to_drives()
-            return True
-        return False
-
     def _pick_folder(self):
         folder = QFileDialog.getExistingDirectory(self, tr("Look at a folder"), str(Path.home()))
         if folder:
@@ -575,7 +565,8 @@ class SpacePage(QWidget):
         self.busy_title.setText(tr("Looking through {name}…", name=ltr(str(root))))
         self.busy_line.setText(tr("This takes a moment on a big drive."))
         cancel = self.cancel
-        self.job = _work(lambda progress: space.scan(root, cancel, progress), self._scan_progress, self._scanned)
+        self.job = _work(lambda progress: space.scan(root, cancel, lambda *a: progress(a)), self._scan_progress,
+                         self._scanned)
 
     def _scan_progress(self, args):
         if not _alive(self):
@@ -592,8 +583,13 @@ class SpacePage(QWidget):
             return
         self.job = None
         self.busy_box.hide()
+        if getattr(self, "_leaving", False):
+            self._leaving = False
+            self._back_to_drives()
+            return
         if isinstance(result, Exception) or result is None:
-            self.c.tell(tr("Couldn't look through it"), str(result))
+            log.error("looking through %s failed", self.root, exc_info=result if isinstance(result, Exception) else None)
+            self.c.tell(tr("Couldn't look through it"), ltr(str(self.root)))
             self._back_to_drives()
             return
         if result.cancelled and result.root.size == 0:
@@ -640,6 +636,22 @@ class SpacePage(QWidget):
         self.treemap.show_folder(None)
         if root is not None:
             self.start_scan(root)
+
+    def go_back(self) -> bool:
+        """Back (Alt + Left, the mouse's back button): up a folder, then back to the drives."""
+        if self.section != "map":
+            return False
+        if self.job is not None and self.busy_box.isVisible():
+            self._leaving = True  # (back to the drives, not to what was found so far)
+            self._stop()
+            return True
+        if self.here is not None and self.here.parent is not None:
+            self._up()
+            return True
+        if self.scan is not None:
+            self._back_to_drives()
+            return True
+        return False
 
     def _back_to_drives(self):
         self.scan = self.here = None
@@ -873,7 +885,7 @@ class SpacePage(QWidget):
             self.clean_note.setText(str(freed))
             return
         self.clean_note.setText(tr("Freed {size}. Files that were in use were left alone.", size=human_size(freed)))
-        self.c.tell(tr("Cleaned up"), tr("Freed {size}.", size=human_size(freed)))
+        self.c.say(tr("Cleaned up"), tr("Freed {size}.", size=human_size(freed)), done=True)
         self.junk = []
         self.find_junk()
 
@@ -1045,7 +1057,7 @@ class SpacePage(QWidget):
                            count=len(ticked), size=human_size(total)), tr("Move to the Recycle Bin")):
             return
         gone = space.recycle([Path(p) for p, _ in ticked])
-        self.c.tell(tr("Copies removed"), tr("{count} copies went to the Recycle Bin.", count=gone))
+        self.c.say(tr("Copies removed"), tr("{count} copies went to the Recycle Bin.", count=gone), done=True)
         left = {os.path.normcase(p) for p, _ in ticked if os.path.lexists(p)}
         removed = {os.path.normcase(p) for p, _ in ticked} - left
         self.dupes = [g for g in ([f for f in grp if os.path.normcase(f[0]) not in removed] for grp in self.dupes)

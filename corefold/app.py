@@ -403,10 +403,31 @@ class Controller(QObject):
         new._placed = True
         new.open_page(page)
         self._window = new
-        if shown:
-            new.show()
-        old.hide()
-        old.deleteLater()
+        # the same place on the page (adding a tool from the Store doesn't jump back to the top)
+        bar = getattr(old.stack.currentWidget(), "verticalScrollBar", None)
+        scrolled = bar().value() if bar is not None and page == old.current_page() else 0
+        if not shown:
+            old.hide()
+            old.deleteLater()
+            return
+        # the new window takes the old one's place only once it's drawn: Windows shows a new window
+        # white until it's painted, which flashed a white window over the old one every time
+        new.setWindowOpacity(0.0)
+        new.show()
+        if scrolled:
+            QApplication.sendPostedEvents()  # (laid out, so the page can scroll that far)
+            _keep_scroll(new, scrolled)
+        new.repaint()
+
+        def swap():
+            if _alive(new):
+                new.setWindowOpacity(1.0)
+                new.raise_()
+                new.activateWindow()
+            if _alive(old):
+                old.hide()
+                old.deleteLater()
+        QTimer.singleShot(60, swap)
 
     def window_if_open(self):
         """The window if it exists (and nothing is built just to update it)."""
@@ -432,6 +453,11 @@ class Controller(QObject):
             w.panel.refresh()  # files on the Home page may have been moved or deleted meanwhile
         if page_name:
             w.open_page(page_name)
+        if not w.isVisible():  # (drawn before it's seen, so it never shows up white first)
+            w.setWindowOpacity(0.0)
+            w.show()
+            w.repaint()
+            QTimer.singleShot(60, lambda: w.setWindowOpacity(1.0) if _alive(w) else None)
         w.show()
         w.showNormal()
         w.raise_()
@@ -695,13 +721,17 @@ class Controller(QObject):
         w = self._window
         if w is not None:
             self.rebuild_window("Store", committed=w.committed, pending_startup=w.pending_startup)
-        if on and tool_id == "capture" and self.capture is not None:
+        QTimer.singleShot(400, lambda: self._tool_added_tip(tool_id) if on else None)  # (after the window is drawn)
+
+    def _tool_added_tip(self, tool_id: str):
+        s = self.settings
+        if tool_id == "capture" and self.capture is not None:
             from .hotkey import SHORTCUT_NAMES
             key = SHORTCUT_NAMES.get(s.cap_shortcut)
             if key and self.capture.shot_key.ok:
                 self.toast.notify(tr("Corefold Capture"), tr("Press {key} to take a screenshot.", key=key),
                                   linger_ms=7000)
-        if on and tool_id == "clipboard" and self.clip is not None:
+        if tool_id == "clipboard" and self.clip is not None:
             from .clipboard import HOTKEY_NAMES
             key = HOTKEY_NAMES.get(s.clip_shortcut)
             if key and self.clip.hotkey.ok:
@@ -1004,6 +1034,13 @@ class Controller(QObject):
         if not self.toast.notify(title, detail, linger_ms=6000):
             self.tray.showMessage(title, detail, QSystemTrayIcon.Warning, 6000)
         self.play_problem_sound()
+
+    def say(self, title: str, detail: str, done: bool = False):
+        """A short good-news message (no problem sound; the done sound if a job finished)."""
+        if not self.toast.notify(title, detail, linger_ms=4000):
+            self.tray.showMessage(title, detail, QSystemTrayIcon.Information, 4000)
+        if done:
+            self.play_done_sound()
 
     def open_viewer(self, path: Path):
         """Opens a picture (with the rest of its folder) or an email file in Corefold Viewer."""
@@ -1780,6 +1817,14 @@ def stop_old_copy():
                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     except (OSError, subprocess.SubprocessError):
         pass
+
+
+def _keep_scroll(window, value: int):
+    if not _alive(window):
+        return
+    bar = getattr(window.stack.currentWidget(), "verticalScrollBar", None)
+    if bar is not None:
+        bar().setValue(value)
 
 
 def setup_logging():
