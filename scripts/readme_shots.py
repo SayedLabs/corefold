@@ -252,7 +252,8 @@ if os.name == "nt" and c.quick is not None:
     def quick_menu():
         c.quick.toggle_menu()
         settle(1.0)
-        screen_crop("quick-menu", geo)
+        panel = c.quick.menu.panel.toRect().translated(geo.topLeft())  # (the menu, not the empty screen around it)
+        screen_crop("quick-menu", panel.adjusted(-56, -48, 56, 48).intersected(geo))
         c.quick.menu.hide()
 
     def quick_wheel():

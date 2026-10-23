@@ -28,7 +28,7 @@ jobs:
 
       - name: Use a laptop-sized screen
         shell: pwsh
-        run: python scripts/screenres.py 1600 1000
+        run: python scripts/screenres.py 1920 1080
 
       - name: Take the pictures
         timeout-minutes: 20
