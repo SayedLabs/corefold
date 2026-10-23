@@ -443,6 +443,22 @@ BROWSERS = [
     ("Opera", "opera.exe", r"Opera Software\Opera Stable"),
 ]
 CHROMIUM_CACHES = ("Cache", "Code Cache", "GPUCache")
+# apps built like browsers (Electron) keep the same caches: (name, exe, folder under APPDATA or LOCALAPPDATA)
+APP_CACHES = [
+    ("Discord", "discord.exe", "APPDATA", r"discord"),
+    ("Microsoft Teams", "teams.exe", "APPDATA", r"Microsoft\Teams"),
+    ("Microsoft Teams", "ms-teams.exe", "LOCALAPPDATA",
+     r"Packages\MSTeams_8wekyb3d8bbwe\LocalCache\Microsoft\MSTeams\EBWebView\Default"),
+    ("Slack", "slack.exe", "APPDATA", r"Slack"),
+    ("Visual Studio Code", "code.exe", "APPDATA", r"Code"),
+    ("WhatsApp", "whatsapp.exe", "LOCALAPPDATA",
+     r"Packages\5319275A.WhatsAppDesktop_cv1g1gvanyjgm\LocalState\EBWebView\Default"),
+    ("Spotify", "spotify.exe", "LOCALAPPDATA", r"Spotify\Browser"),
+    ("Steam", "steamwebhelper.exe", "LOCALAPPDATA", r"Steam\htmlcache"),
+]
+# what the graphics card keeps for games (made again the next time a game starts, a little slower once)
+GPU_CACHES = (r"D3DSCache", r"NVIDIA\DXCache", r"NVIDIA\GLCache", r"AMD\DxCache", r"AMD\GLCache",
+              r"Intel\ShaderCache")
 INSTALLER_EXT = {".exe", ".msi", ".msix", ".msixbundle", ".appx", ".appxbundle"}
 OLD_DAYS = 30
 
@@ -520,6 +536,36 @@ def find_junk(downloads: Path | None = None, cancel: threading.Event | None = No
                 j.busy = "Firefox" if "firefox.exe" in running else ""
                 found.append(j)
 
+        found += _app_caches(running, cancel)
+
+        thumbs = Junk("thumbs", "Picture previews", "The small previews File Explorer shows for pictures and "
+                      "videos. Windows makes them again when you open a folder.", ticked=False)
+        explorer = local / "Microsoft" / "Windows" / "Explorer"
+        try:
+            for e in os.scandir(explorer):
+                if e.is_file() and e.name.lower().startswith(("thumbcache_", "iconcache_")) and \
+                        e.name.lower().endswith(".db"):
+                    thumbs.paths.append(Path(e.path))
+                    thumbs.size += e.stat().st_size
+                    thumbs.count += 1
+        except OSError:
+            pass
+        if thumbs.paths:
+            found.append(thumbs)
+
+        gpu = Junk("gpu", "Graphics card caches", "Kept for games and apps that use the graphics card. They're made "
+                   "again the next time, so a game may start a little slower once.", ticked=False)
+        for rel in GPU_CACHES:
+            p = local.joinpath(*rel.split("\\"))
+            if p.is_dir():
+                size, count = _tree_size(p)
+                if size:
+                    gpu.paths.append(p)
+                    gpu.size += size
+                    gpu.count += count
+        if gpu.paths:
+            found.append(gpu)
+
         dumps = Junk("dumps", "Crash reports", "Saved when a program crashed. Only useful to the people who make it.")
         for p in (local / "CrashDumps", local / "Microsoft" / "Windows" / "WER" / "ReportArchive",
                   local / "Microsoft" / "Windows" / "WER" / "ReportQueue"):
@@ -552,6 +598,35 @@ def find_junk(downloads: Path | None = None, cancel: threading.Event | None = No
         if old.paths:
             found.append(old)
     return found
+
+
+def _app_caches(running: set[str], cancel: threading.Event | None = None) -> list[Junk]:
+    """The caches of Discord, Teams, Slack, WhatsApp and the like (one row per app). Only their caches:
+    messages, settings and downloaded files stay."""
+    rows: dict[str, Junk] = {}
+    for name, exe, env, rel in APP_CACHES:
+        if cancel is not None and cancel.is_set():
+            break
+        base = _env_path(env)
+        if base is None:
+            continue
+        root = base.joinpath(*rel.split("\\"))
+        if not root.is_dir():
+            continue
+        j = rows.get(name) or Junk("app:" + exe, "{name}'s cache", "Copies of pictures and pages the app keeps to "
+                                   "load faster. Your messages, settings and downloads stay.", name=name)
+        for cache in CHROMIUM_CACHES + ("Service Worker\\CacheStorage",):
+            p = root.joinpath(*cache.split("\\"))
+            if p.is_dir():
+                size, count = _tree_size(p)
+                j.paths.append(p)
+                j.size += size
+                j.count += count
+        if j.paths:
+            if exe in running:
+                j.busy = name
+            rows[name] = j
+    return [j for j in rows.values() if j.size]
 
 
 def recycle_bin_size() -> tuple[int, int]:
@@ -597,7 +672,7 @@ def clean(junk: Junk, cancel: threading.Event | None = None) -> int:
     for p in junk.paths:
         if cancel is not None and cancel.is_set():
             break
-        if junk.key.startswith("browser:"):  # the cache folder stays (empty), only what's inside goes
+        if junk.key.startswith(("browser:", "app:", "gpu")):  # the folder stays (empty), only what's inside goes
             try:
                 children = list(p.iterdir())
             except OSError:
