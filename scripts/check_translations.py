@@ -73,6 +73,7 @@ def table_texts() -> dict[str, str]:
     add(moretools.STICKERS_VIDEO.values(), "STICKERS_VIDEO")
     add([t for _, t in dialogs2.RenameFilesDialog.MODES], "RenameFilesDialog.MODES")
     add(uninstall.REASONS.values(), "REASONS")
+    add(uninstall.OUTCOMES.values(), "OUTCOMES")
     from corefold import appspage
     add(appspage.SHOW.values(), "appspage.SHOW")
     add([x for pair in appspage.UNUSED.values() for x in pair], "appspage.UNUSED")

@@ -1,6 +1,7 @@
 """The Apps page: uninstall programs, then clean up what they left behind (with a backup)."""
 from __future__ import annotations
 
+import dataclasses
 import logging
 import os
 import sys
@@ -59,6 +60,7 @@ class SortItem(QTreeWidgetItem):
 class _Signals(QObject):
     listed = Signal(object)         # list[App] or an Exception
     sized = Signal(object)          # App
+    phase = Signal(str)             # what's still being worked out: "store", "sizes" or "" (nothing)
     state = Signal(str, object)     # what the uninstall dialog is doing
 
 
@@ -87,10 +89,15 @@ def _add_usage(apps: list[un.App]):
     except Exception:
         log.debug("couldn't read when apps were used", exc_info=True)
         used = {}
+    try:
+        programs = un.startup_programs()
+    except Exception:
+        log.debug("couldn't read what starts with Windows", exc_info=True)
+        programs = []
     for app in apps:
         try:
             app.last_used = un.last_used(app, used)
-            app.startup = un.starts_with_windows(app)
+            app.startup = un.starts_with_windows(app, programs)
         except Exception:
             log.debug("usage of %s", app.name, exc_info=True)
 
@@ -118,6 +125,15 @@ def _when(ts: float) -> str:
     return time_ago(ts)
 
 
+def emit(signal, value) -> bool:
+    """Sends from a worker thread. False once the page is gone."""
+    try:
+        signal.emit(value)
+        return True
+    except RuntimeError:
+        return False
+
+
 def _icon_for(app: un.App, provider: QFileIconProvider) -> QIcon | None:
     for path in (app.icon, os.path.join(app.location, "") if app.location else ""):
         if path and os.path.exists(path) and (os.path.isdir(path) or path.lower().endswith((".exe", ".ico", ".dll"))):
@@ -139,9 +155,12 @@ class AppsPage(QWidget):
         self.signals = _Signals(self)
         self.signals.listed.connect(self._listed)
         self.signals.sized.connect(self._sized)
+        self.signals.phase.connect(self._phase)
+        self.phase = ""
         self.cancel = threading.Event()
         self.provider = QFileIconProvider()
         self._icon_queue: list[QTreeWidgetItem] = []
+        self._items: dict[str, QTreeWidgetItem] = {}
         self.icon_timer = QTimer(self)
         self.icon_timer.timeout.connect(self._load_icons)
 
@@ -230,40 +249,64 @@ class AppsPage(QWidget):
         signals, cancel = self.signals, self.cancel
 
         def work():
-            # programs first (quick), then Store apps (Windows takes a few seconds to list those)
+            # programs first (quick) with the Store apps found last time, then today's Store apps (Windows
+            # takes a few seconds to list those), then the sizes apps don't tell (remembered once worked out)
+            cache = un.load_cache()
+            sizes = cache.get("sizes") if isinstance(cache.get("sizes"), dict) else {}
             try:
                 apps = un.list_apps(include_store=False)
-                _add_usage(apps)
+                for a in apps:
+                    if not a.size and isinstance(sizes.get(un.size_key(a)), int):
+                        a.size = sizes[un.size_key(a)]
+                old_store = un.cached_store_apps(cache)
+                _add_usage(apps + old_store)
             except Exception as e:
                 log.exception("couldn't list apps")
-                apps = e
-            try:
-                signals.listed.emit(apps)
-            except RuntimeError:
+                apps, old_store = e, []
+            if isinstance(apps, list) and not emit(signals.phase, "store"):
                 return
-            if isinstance(apps, list) and not cancel.is_set():
+            if not emit(signals.listed, apps if not isinstance(apps, list) else
+                        sorted(apps + old_store, key=lambda a: a.name.lower())):
+                return
+            if not isinstance(apps, list):
+                return
+            store = None
+            if not cancel.is_set():
                 try:
                     store = un.store_apps()
                 except Exception:
                     log.debug("couldn't list Store apps", exc_info=True)
-                    store = []
-                if store and not cancel.is_set():
-                    _add_usage(store)
-                    apps = sorted(apps + store, key=lambda a: a.name.lower())
-                    try:
-                        signals.listed.emit(apps)
-                    except RuntimeError:
-                        return
-            if isinstance(apps, list):
-                missing = sorted([a for a in apps if not a.size], key=lambda a: a.name.lower())
+            if cancel.is_set():
+                return
+            if store is not None:
+                _add_usage(store)
+                cache["store"] = [dataclasses.asdict(a) for a in store]
+                un.save_cache(cache)
+            else:
+                store = old_store
+            apps = sorted(apps + store, key=lambda a: a.name.lower())
+            if store != old_store and not emit(signals.listed, apps):
+                return
+            missing = sorted([a for a in apps if not a.size and not a.store], key=lambda a: a.name.lower())
+            if missing:
+                emit(signals.phase, "sizes")
 
-                def sized(a):
-                    try:
-                        signals.sized.emit(a)
-                    except RuntimeError:
-                        cancel.set()
-                un.fill_sizes(missing, cancel, sized)
+            def sized(a):
+                sizes[un.size_key(a)] = a.size
+                if not emit(signals.sized, a):
+                    cancel.set()
+            un.fill_sizes(missing, cancel, sized)
+            if missing:
+                known = {un.size_key(a) for a in apps}
+                cache["sizes"] = {k: v for k, v in sizes.items() if k in known}
+                un.save_cache(cache)
+            emit(signals.phase, "")
         threading.Thread(target=work, daemon=True).start()
+
+    def _phase(self, phase: str):
+        self.phase = phase
+        if self.loaded:
+            self._update_status()
 
     def _listed(self, apps):
         self.loading = False
@@ -276,6 +319,7 @@ class AppsPage(QWidget):
         self.tree.setSortingEnabled(False)
         self.tree.clear()
         self._icon_queue = []
+        self._items = {}
         for app in apps:
             item = SortItem([ltr(app.name), ltr(app.publisher), human_size(app.size) if app.size else "",
                              app.date, _when(app.last_used)])
@@ -298,6 +342,7 @@ class AppsPage(QWidget):
             if app.broken:
                 item.setForeground(0, self.palette().placeholderText())
             self.tree.addTopLevelItem(item)
+            self._items[app.id] = item
             if app.id in selected:
                 item.setSelected(True)
             self._icon_queue.append(item)
@@ -306,8 +351,9 @@ class AppsPage(QWidget):
         self.icon_timer.start(15)
 
     def _load_icons(self):
-        """A few icons at a time, so the list shows straight away."""
-        for _ in range(12):
+        """A few icons at a time (Windows can be slow to give some), so the list stays smooth."""
+        end = time.monotonic() + 0.012
+        while time.monotonic() < end:
             if not self._icon_queue:
                 self.icon_timer.stop()
                 return
@@ -320,12 +366,10 @@ class AppsPage(QWidget):
                 item.setIcon(0, icon)
 
     def _sized(self, app):
-        for i in range(self.tree.topLevelItemCount()):
-            item = self.tree.topLevelItem(i)
-            if item.data(0, APP_ROLE) is app:
-                item.setText(2, human_size(app.size))
-                item.setData(2, SORT_ROLE, app.size)
-                break
+        item = self._items.get(app.id)
+        if item is not None and item.data(0, APP_ROLE) is app:
+            item.setText(2, human_size(app.size))
+            item.setData(2, SORT_ROLE, app.size)
         self._update_status()
 
     def _filter(self, *_):
@@ -350,6 +394,10 @@ class AppsPage(QWidget):
         unused = sum(1 for a in self.apps if _shown(a, "unused", months) and (not a.store or self.store.isChecked()))
         if unused and (self.show_only.currentData() or "all") == "all":
             text += " · " + tr(UNUSED[months][1], count=unused)
+        if self.phase == "store":
+            text += " · " + tr("Loading Store apps…")
+        elif self.phase == "sizes":
+            text += " · " + tr("Working out sizes…")
         self.status.setText(text if self.loaded else tr("Loading the list of apps…"))
 
     def _selected(self) -> list[un.App]:
@@ -470,12 +518,23 @@ class UninstallDialog(QDialog):
         self.work_detail = _label("", "muted", wrap=True)
         self.bar = QProgressBar()
         self.bar.setRange(0, 0)
+        self.bar.setTextVisible(False)
+        self.clock = _label("", "muted")
+        self.stuck_note = _label("", "warning", wrap=True)
+        self.stuck_note.hide()
         l2.addStretch()
         l2.addWidget(self.work_title)
         l2.addWidget(self.work_detail)
         l2.addWidget(self.bar)
+        l2.addWidget(self.clock)
+        l2.addWidget(self.stuck_note)
         l2.addStretch()
         r2 = QHBoxLayout()
+        self.show_btn = _button(tr("Show its window"), on_click=lambda: self.control.front.set())
+        self.show_btn.setToolTip(tr("Brings the uninstaller's window to the front, in case it's behind other windows."))
+        self.kill_btn = _button(tr("Stop the uninstaller"), "danger", on_click=lambda: self.control.stop.set())
+        r2.addWidget(self.show_btn)
+        r2.addWidget(self.kill_btn)
         r2.addStretch()
         self.skip = _button(tr("The uninstaller is done"), on_click=self._skip_wait)
         self.skip.setToolTip(tr("If the uninstaller has finished but Corefold is still waiting, click here."))
@@ -501,6 +560,9 @@ class UninstallDialog(QDialog):
         self.left_tree.header().setStretchLastSection(False)
         self.left_tree.itemChanged.connect(self._ticks_changed)
         l3.addWidget(self.left_tree, 1)
+        self.left_problems = _label("", "warning", wrap=True)
+        self.left_problems.hide()
+        l3.addWidget(self.left_problems)
         r3 = QHBoxLayout()
         self.left_info = _label("", "muted")
         r3.addWidget(self.left_info, 1)
@@ -527,7 +589,12 @@ class UninstallDialog(QDialog):
         r4.addWidget(_button(tr("Close"), "primary", self.accept))
         l4.addLayout(r4)
         self.stack.addWidget(p4)
-        self.skip_event = threading.Event()
+        self.control = un.Control(self.cancel)
+        self.problems: list[tuple[un.App, un.Outcome]] = []
+        self.started = 0.0
+        self.ticker = QTimer(self)
+        self.ticker.timeout.connect(self._tick)
+        self._working_buttons()
 
     # ---- running
 
@@ -542,7 +609,7 @@ class UninstallDialog(QDialog):
         self.stack.setCurrentIndex(1)
         quiet, point = self.quiet.isChecked(), self.restore_point.isChecked() and not self.restore_point.isHidden()
         apps, everything, forced = list(self.apps), list(self.everything), self.forced
-        cancel, skip = self.cancel, self.skip_event
+        cancel, control = self.cancel, self.control
         command = _app_command()
 
         def work():
@@ -550,7 +617,7 @@ class UninstallDialog(QDialog):
                 self._emit("restore_point")
                 un.run_elevated(command, "restore-point",
                                 {"description": tr("Before uninstalling {name}", name=apps[0].name)}, cancel)
-            removed, still = [], []
+            removed, problems = [], []
             for n, app in enumerate(apps):
                 if cancel.is_set():
                     break
@@ -558,19 +625,22 @@ class UninstallDialog(QDialog):
                     removed.append(app)
                     continue
                 self._emit("running", (app, n, len(apps)))
-                handle = un.start_uninstall(app, quiet)
-                if handle is None and not app.store:
-                    self._emit("not_started", app)
-                    continue
-                skip.clear()
-                gone = _wait(app, handle, cancel, skip, lambda s: self._emit(s, app))
-                if gone:
+                control.skip.clear()
+                control.stop.clear()
+                try:
+                    outcome = un.run_uninstaller(app, quiet, control, lambda s: self._emit("progress", s))
+                except Exception:
+                    log.exception("uninstalling %s failed", app.name)
+                    outcome = un.Outcome("not_started", 0)
+                if outcome is None:  # the window was closed
+                    break
+                if outcome.result == "removed":
                     removed.append(app)
                     self.changed = True
-                else:  # cancelled in its uninstaller, or it's still listed: its files are left alone
-                    still.append(app)
+                else:  # still installed: its files are left alone
+                    problems.append((app, outcome))
             if cancel.is_set() or not removed:
-                self._emit("stopped", still)
+                self._emit("stopped", problems)
                 return
             self._emit("scanning", None)
             installed = [a for a in everything if a not in removed]
@@ -584,53 +654,115 @@ class UninstallDialog(QDialog):
                     found += items
                 except Exception:
                     log.exception("looking for leftovers of %s failed", app.name)
-            self._emit("found", (removed, found))
+            self._emit("found", (removed, found, problems))
         threading.Thread(target=work, daemon=True).start()
 
     def _skip_wait(self):
-        self.skip_event.set()
+        self.control.skip.set()
 
     def _stop(self):
         self.cancel.set()
         self.reject()
 
+    def _tick(self):
+        secs = int(time.monotonic() - self.started)
+        self.clock.setText(tr("Time so far: {time}", time=f"{secs // 60}:{secs % 60:02d}"))
+
+    def _clock(self, on: bool):
+        if on:
+            self.started = time.monotonic()
+            self._tick()
+            self.ticker.start(1000)
+        else:
+            self.ticker.stop()
+            self.clock.setText("")
+
+    def _working_buttons(self, window: bool = False, stuck: bool = False, skip: bool = False):
+        self.show_btn.setVisible(window)
+        self.kill_btn.setVisible(stuck)
+        self.skip.setVisible(skip)
+        self.stuck_note.setVisible(stuck)
+
     def _state(self, state: str, data):
         if state == "restore_point":
             self.work_title.setText(tr("Making a restore point…"))
-            self.work_detail.setText(tr("This can take a minute."))
-            self.skip.hide()
+            self.work_detail.setText(tr("This can take a minute. If Windows asks for permission, click Yes."))
+            self._working_buttons()
+            self._clock(True)
         elif state == "running":
             app, n, total = data
             self.work_title.setText(tr("Uninstalling {name}…", name=app.name) +
                                     (f"  ({n + 1}/{total})" if total > 1 else ""))
-            self.work_detail.setText(tr("Follow the steps in the app's uninstaller window. Corefold waits until "
-                                        "it's finished."))
-            self.skip.show()
-        elif state == "finishing":
-            self.work_detail.setText(tr("Waiting for the uninstaller to finish…"))
-        elif state == "not_started":
-            self.work_detail.setText(tr("{name}'s uninstaller couldn't be started.", name=data.name))
+            self.work_detail.setText(tr("Starting its uninstaller…"))
+            self.bar.setRange(0, 0)
+            self._working_buttons()
+            self._clock(True)
+        elif state == "progress":
+            self._progress(data)
         elif state == "scanning":
-            self.skip.hide()
+            self._working_buttons()
+            self._clock(False)
             self.work_title.setText(tr("Looking for leftovers…"))
             self.work_detail.setText(tr("Checking program folders, app data, shortcuts and the registry."))
         elif state == "stopped":
             self.busy = False
-            detail = tr("The uninstaller didn't run or was cancelled, so Corefold didn't look for leftovers.")
-            if data:  # it's still listed as installed
-                detail += "\n" + tr('If the app is gone but still listed, use "Remove leftovers only".')
-            self._finish(tr("Nothing was removed"), detail, undo=False)
+            self._clock(False)
+            if data:
+                title = tr("Nothing was removed") if len(data) > 1 else \
+                    tr("{name} wasn't uninstalled", name=data[0][0].name)
+                self._finish(title, _problems_text(data, len(data) > 1), undo=False)
+            else:
+                self._finish(tr("Nothing was removed"), tr("The uninstall was cancelled, so Corefold didn't look "
+                                                           "for leftovers."), undo=False)
         elif state == "found":
-            removed, found = data
+            removed, found, problems = data
             self.busy = False
+            self._clock(False)
             self.leftovers = found
+            self.problems = problems
             if not found:
-                self._finish(tr("All clean"), tr("{name} left nothing behind.", name=removed[0].name)
-                             if len(removed) == 1 else tr("These apps left nothing behind."), undo=False)
+                detail = tr("{name} left nothing behind.", name=removed[0].name) if len(removed) == 1 \
+                    else tr("These apps left nothing behind.")
+                if problems:
+                    detail += "\n\n" + _problems_text(problems, True)
+                self._finish(tr("All clean"), detail, undo=False)
                 return
             self._show_leftovers(removed, found)
+        elif state == "admin":
+            self.work_detail.setText(tr("Some items need administrator permission. If Windows asks, click Yes."))
+        elif state == "removing":
+            n, total, item = data
+            self.bar.setRange(0, total)
+            self.bar.setValue(n)
+            self.work_detail.setText(tr("{number} of {count}: {what}", number=n + 1, count=total,
+                                        what=short_name(item.label(), 70)))
         elif state == "removed":
             self._removed(data)
+
+    def _progress(self, state: str):
+        """What the app's uninstaller is doing (see un.run_uninstaller)."""
+        if state == "starting":
+            self.work_detail.setText(tr("Starting its uninstaller… If Windows asks for permission, click Yes."))
+            self._working_buttons()
+        elif state == "window":
+            self.work_detail.setText(tr("Its uninstaller window is open: follow its steps there. Corefold waits "
+                                        "until it's finished."))
+            self._working_buttons(window=True, skip=True)
+        elif state == "working":
+            self.work_detail.setText(tr("Its uninstaller is working (it has no window to follow)…"))
+            self._working_buttons(skip=True)
+        elif state == "stuck":
+            self.work_detail.setText(tr("Its uninstaller is still running, but it has no window."))
+            self.stuck_note.setText(tr("It hasn't done anything for a minute, so it may be stuck (or waiting for "
+                                       "something it can't show). You can keep waiting, or stop it."))
+            self._working_buttons(stuck=True, skip=True)
+        elif state == "cant_stop":
+            self.stuck_note.setText(tr("Corefold couldn't stop it, because it runs as administrator. Close it "
+                                       "from Task Manager, or keep waiting."))
+            self.stuck_note.show()
+        elif state == "checking":
+            self.work_detail.setText(tr("Its uninstaller has closed. Checking that the app is gone…"))
+            self._working_buttons()
 
     # ---- choosing leftovers
 
@@ -658,6 +790,8 @@ class UninstallDialog(QDialog):
         self.left_tree.blockSignals(False)
         name = removed[0].name if len(removed) == 1 else tr("{count} apps", count=len(removed))
         self.left_title.setText(tr("{name} left {count} things behind", name=name, count=len(found)))
+        self.left_problems.setText(_problems_text(self.problems, True))
+        self.left_problems.setVisible(bool(self.problems))
         self.stack.setCurrentIndex(2)
         self._ticks_changed()
 
@@ -686,28 +820,35 @@ class UninstallDialog(QDialog):
             return
         self.busy = True
         self.stack.setCurrentIndex(1)
-        self.skip.hide()
+        self._working_buttons()
         self.stop.setEnabled(False)
         self.work_title.setText(tr("Removing leftovers…"))
         self.work_detail.setText(tr("Making a backup of everything first."))
+        self._clock(True)
         apps = sorted({a.name for a in self.apps})
         command = _app_command()
 
         self._hold(True)
 
         def work():
-            folder = un.new_backup(apps)
-            result = un.remove(chosen, folder, apps)
-            failed = un.items_from(result["failed"])
-            needs_admin = [i for i in failed if i.needs_admin]
-            if needs_admin:
-                self._emit("admin", None)
-                more = un.run_elevated(command, "cleanup", {"items": result["failed"], "folder": str(folder),
-                                                            "apps": apps})
-                if more and "done" in more:
-                    result["done"] += more["done"]
-                    result["freed"] += more.get("freed", 0)
-                    result["failed"] = more.get("failed", [])
+            folder = None
+            try:
+                folder = un.new_backup(apps)
+                result = un.remove(chosen, folder, apps, on_item=lambda n, total, item: self._emit(
+                    "removing", (n, total, item)))
+                failed = un.items_from(result["failed"])
+                needs_admin = [i for i in failed if i.needs_admin]
+                if needs_admin:
+                    self._emit("admin", None)
+                    more = un.run_elevated(command, "cleanup", {"items": result["failed"], "folder": str(folder),
+                                                                "apps": apps})
+                    if more and "done" in more:
+                        result["done"] += more["done"]
+                        result["freed"] += more.get("freed", 0)
+                        result["failed"] = more.get("failed", [])
+            except Exception:  # never leave the window stuck on "Removing…"
+                log.exception("removing leftovers failed")
+                result = {"done": [], "failed": [dict(i.__dict__) for i in chosen], "freed": 0}
             self._emit("removed", (folder, result))
         threading.Thread(target=work, daemon=True).start()
 
@@ -721,8 +862,9 @@ class UninstallDialog(QDialog):
         self._hold(False)
         self.busy = False
         self.stop.setEnabled(True)
+        self._clock(False)
         folder, result = data
-        self.backup = folder if any(d.get("stored") for d in result["done"]) else None
+        self.backup = folder if folder is not None and any(d.get("stored") for d in result["done"]) else None
         self.changed = True
         done, failed = len(result["done"]), len(result["failed"])
         detail = tr("{size} freed. Everything is kept as a backup for {days} days: undo it here or from "
@@ -768,18 +910,13 @@ class UninstallDialog(QDialog):
         super().closeEvent(e)
 
 
-def _wait(app, handle, cancel, skip, on_state) -> bool:
-    both = threading.Event()
-
-    def watch():
-        while not (cancel.is_set() or skip.is_set() or both.is_set()):
-            time.sleep(0.2)
-        both.set()
-    threading.Thread(target=watch, daemon=True).start()
-    try:
-        return un.wait_until_removed(app, handle, both, on_state)
-    finally:
-        both.set()
+def _problems_text(problems: list[tuple[un.App, un.Outcome]], names: bool) -> str:
+    """One line for each app that is still installed, with why (and its name, when there were several)."""
+    lines = []
+    for app, outcome in problems:
+        why = tr(un.OUTCOMES.get(outcome.result, un.OUTCOMES["still"]), code=outcome.code, error=outcome.error)
+        lines.append(f"{ltr(app.name)}: {why}" if names else why)
+    return "\n".join(lines)
 
 
 def _app_command() -> list[str]:

@@ -371,18 +371,63 @@ def last_used(app: App, used: dict[str, float]) -> float:
     return best
 
 
-def starts_with_windows(app: App) -> bool:
-    """One of its programs is in a start-with-Windows entry."""
-    loc = app.location if app.location and _safe_folder(app.location) else ""
-    if not loc:
-        return False
+def startup_programs() -> list[str]:
+    """The programs in the start-with-Windows entries (read once for the whole list)."""
+    out = []
     for hive in ("HKCU", "HKLM"):
         for view in _views(hive):
             for value in _values(hive, RUN_KEYS[0], view).values():
                 exe, _ = split_command(str(value))
-                if exe and _inside(exe, loc):
-                    return True
-    return False
+                if exe:
+                    out.append(exe)
+    return out
+
+
+def starts_with_windows(app: App, programs: list[str] | None = None) -> bool:
+    """One of its programs is in a start-with-Windows entry."""
+    loc = app.location if app.location and _safe_folder(app.location) else ""
+    if not loc:
+        return False
+    return any(_inside(exe, loc) for exe in (startup_programs() if programs is None else programs))
+
+
+# ----------------------------------------------------------------------------- remembered between visits
+
+LIST_CACHE = BACKUP_DIR.parent / "apps.json"  # Store apps (slow to list) and sizes worked out before
+
+
+def load_cache() -> dict:
+    try:
+        data = json.loads(LIST_CACHE.read_text("utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_cache(data: dict):
+    try:
+        LIST_CACHE.parent.mkdir(parents=True, exist_ok=True)
+        tmp = LIST_CACHE.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, ensure_ascii=False), "utf-8")
+        os.replace(tmp, LIST_CACHE)
+    except OSError:
+        log.debug("couldn't save the list of apps", exc_info=True)
+
+
+def cached_store_apps(data: dict) -> list[App]:
+    apps = []
+    for d in data.get("store") or []:
+        try:
+            app = App(**{k: v for k, v in d.items() if k not in ("last_used", "startup")})
+        except TypeError:
+            continue
+        if app.store:
+            apps.append(app)
+    return apps
+
+
+def size_key(app: App) -> str:
+    return f"{app.id}|{app.version}|{app.location}"
 
 
 def fill_sizes(apps: list[App], cancel: threading.Event | None = None, on_size=None, budget_s: float = 20):
@@ -461,10 +506,10 @@ class SHELLEXECUTEINFOW(ctypes.Structure):
 SEE_MASK_NOCLOSEPROCESS, SEE_MASK_NOASYNC, SEE_MASK_FLAG_NO_UI = 0x40, 0x100, 0x400
 
 
-def shell_run(exe: str, args: str = "", admin: bool = False, show: int = 1, cwd: str | None = None):
+def shell_start(exe: str, args: str = "", admin: bool = False, show: int = 1, cwd: str | None = None):
     """Starts a program the way Explorer does (so its "run as administrator" request is honoured).
-    Returns a process handle (0 if it started without one), or None if it didn't start (or the user
-    said no to the admin prompt)."""
+    Returns (process handle, 0), with handle 0 if it started without one, or (None, Windows error code)
+    if it didn't start: 1223 when the user said no to the admin prompt, 2 or 3 when it isn't there."""
     try:  # Windows asks for COM to be ready on the thread that calls ShellExecuteEx
         ctypes.windll.ole32.CoInitializeEx(None, 0x2 | 0x4)  # apartment threaded, no OLE1 DDE
     except (AttributeError, OSError):
@@ -477,10 +522,15 @@ def shell_run(exe: str, args: str = "", admin: bool = False, show: int = 1, cwd:
     info.lpParameters = args or None
     info.lpDirectory = cwd
     info.nShow = show
-    ok = ctypes.windll.shell32.ShellExecuteExW(ctypes.byref(info))
+    ok = _dll("shell32").ShellExecuteExW(ctypes.byref(info))
     if not ok:
-        return None
-    return info.hProcess or 0  # 0: started, but Windows gave no handle to wait on
+        return None, ctypes.get_last_error()
+    return info.hProcess or 0, 0  # 0: started, but Windows gave no handle to wait on
+
+
+def shell_run(exe: str, args: str = "", admin: bool = False, show: int = 1, cwd: str | None = None):
+    """shell_start without the reason: a process handle (0 if it started without one), or None."""
+    return shell_start(exe, args, admin, show, cwd)[0]
 
 
 def wait_process(handle, cancel: threading.Event | None = None, timeout_s: float | None = None) -> int | None:
@@ -506,19 +556,6 @@ def wait_process(handle, cancel: threading.Event | None = None, timeout_s: float
         k32.CloseHandle(ctypes.c_void_p(handle))
 
 
-def start_uninstall(app: App, quiet: bool = False):
-    """Starts the app's own uninstaller. Returns a process handle (None if it couldn't start)."""
-    if app.store:
-        script = f"Remove-AppxPackage -Package '{app.store}'"
-        return shell_run("powershell.exe", f'-NoProfile -NonInteractive -WindowStyle Hidden -Command "{script}"',
-                         show=0)
-    exe, args = uninstall_command(app, quiet)
-    if not exe:
-        return None
-    cwd = os.path.dirname(exe) if os.path.isabs(exe) and os.path.isdir(os.path.dirname(exe)) else None
-    return shell_run(exe, args, cwd=cwd)
-
-
 def still_installed(app: App) -> bool:
     if app.store:
         try:
@@ -530,18 +567,319 @@ def still_installed(app: App) -> bool:
     return key_exists(app.hive, UNINSTALL + "\\" + app.key, app.view)
 
 
-def wait_until_removed(app: App, handle, cancel: threading.Event, on_state=None, max_s: float = 30 * 60) -> bool:
-    """Waits for the uninstaller to finish. Many uninstallers start a copy of themselves and quit
-    straight away, so this also watches the app's uninstall entry. True once the app is gone."""
-    wait_process(handle, cancel)
-    if on_state:
-        on_state("finishing")
+# Why an app is still there after its uninstaller (English; shown through tr(), with {code} or {error})
+OUTCOMES = {
+    "refused": "Administrator permission was refused, so its uninstaller didn't run.",
+    "missing": "Its uninstaller is missing. Use \"Remove leftovers only\" to clean up what's left.",
+    "not_started": "Its uninstaller couldn't be started (Windows error {code}).",
+    "busy": "Another install or update is running (often Windows Update). Wait for it to finish, then try again.",
+    "cancelled": "It was cancelled in the uninstaller's window.",
+    "failed": "Its uninstaller closed without removing it (code {code}).",
+    "store_failed": "Windows couldn't remove it: {error}",
+    "still": "Its uninstaller finished, but the app is still installed. It may have been cancelled, or it needs "
+             "a restart to finish.",
+    "restart": "It will be fully removed after you restart the PC.",
+    "not_installed": "Windows says it isn't installed any more. Use \"Remove leftovers only\" to clean up "
+                     "what's left.",
+    "stopped": "You stopped its uninstaller.",
+}
+# what Windows Installer's exit codes mean (msiexec)
+_MSI_CODES = {1602: "cancelled", 1618: "busy", 1605: "not_installed", 3010: "restart", 1641: "restart"}
+
+
+@dataclass
+class Outcome:
+    result: str      # "removed", or a key of OUTCOMES
+    code: int = 0    # the uninstaller's exit code or the Windows error
+    error: str = ""  # Windows' own words (Store apps)
+
+
+class Control:
+    """What the user can ask for while an uninstaller runs (set from the window, read by the worker)."""
+
+    def __init__(self, cancel: threading.Event):
+        self.cancel = cancel                # the window was closed: stop following it, leave it running
+        self.skip = threading.Event()       # "the uninstaller is done": stop waiting for it
+        self.stop = threading.Event()       # "stop the uninstaller": end its processes
+        self.front = threading.Event()      # "show its window"
+
+
+def run_uninstaller(app: App, quiet: bool, control: Control, on_state=None, stuck_s: float = 60,
+                    finish_s: float = 20) -> Outcome | None:
+    """Runs the app's own uninstaller and follows it until it's done (None if the window was closed).
+    on_state(state) hears what is happening: "starting" (Windows may ask for permission first),
+    "window" (its window is open: the user follows its steps), "working" (running with no window),
+    "stuck" (no window and it hasn't done anything for stuck_s seconds), "cant_stop" (asked to stop it,
+    but it runs as administrator), "checking" (it ended: making sure the app is gone)."""
+    tell = on_state or (lambda s: None)
+    if app.store:
+        return _run_store(app, control, tell)
+    exe, args = uninstall_command(app, quiet)
+    if not exe or (os.path.isabs(exe) and not os.path.exists(exe)):
+        return Outcome("missing")
+    tell("starting")
+    cwd = os.path.dirname(exe) if os.path.isabs(exe) and os.path.isdir(os.path.dirname(exe)) else None
+    handle, error = shell_start(exe, args, cwd=cwd)
+    if handle is None:
+        return Outcome("refused" if error == 1223 else "missing" if error in (2, 3) else "not_started", error)
+    msi = os.path.basename(exe).lower() == "msiexec.exe"
+    if not handle:  # nothing to follow but its uninstall entry
+        return _wait_entry(app, control, tell)
+    procs = Processes(handle)
+    state, last, idle_since, next_check, gone_at = "", None, time.monotonic(), 0.0, None
+    try:
+        while True:
+            if control.cancel.is_set():
+                return None
+            if control.skip.is_set():
+                break
+            if control.stop.is_set():
+                control.stop.clear()
+                if procs.stop():
+                    return Outcome("stopped")
+                tell("cant_stop")
+            procs.refresh()
+            if not procs.alive():
+                break
+            now = time.monotonic()
+            if now >= next_check:  # cheap: one registry key
+                next_check = now + 2
+                if gone_at is None and not still_installed(app):
+                    gone_at = now
+            if gone_at is not None and now - gone_at > 15:
+                break  # the app is gone: whatever it left open (a "thanks" page...) isn't waited for
+            busy = procs.activity()
+            if last is None or busy[0] - last[0] > 20_000 or busy[1] != last[1]:  # 2 ms of work, or any I/O
+                idle_since = now
+            last = busy
+            windows = procs.windows()
+            new = "window" if windows else "stuck" if now - idle_since >= stuck_s else "working"
+            if new == "window" and (state != "window" or control.front.is_set()):
+                show_window(windows[0])  # it may open behind Corefold
+            control.front.clear()
+            if new != state:
+                state = new
+                tell(new)
+            time.sleep(0.5)
+        code = procs.exit_code()
+    finally:
+        procs.close()
+    tell("checking")
+    quick = control.skip.is_set() or (msi and code in _MSI_CODES)
+    deadline = time.monotonic() + (3 if quick else finish_s)  # some finish removing after they close
+    while still_installed(app):
+        if control.cancel.is_set():
+            return None
+        if time.monotonic() > deadline:
+            if msi and code in _MSI_CODES:
+                return Outcome(_MSI_CODES[code], code)
+            return Outcome("failed" if code else "still", code)
+        time.sleep(1)
+    return Outcome("removed", code)
+
+
+def _wait_entry(app: App, control: Control, tell, max_s: float = 30 * 60) -> Outcome | None:
+    """Started without a process to follow: waits for its uninstall entry to go."""
+    tell("working")
     start = time.monotonic()
-    while not cancel.is_set() and time.monotonic() - start < max_s:
-        if not still_installed(app):
-            return True
-        time.sleep(1.0 if not app.store else 2.0)
-    return not still_installed(app)
+    while still_installed(app):
+        if control.cancel.is_set():
+            return None
+        if control.skip.is_set() or control.stop.is_set() or time.monotonic() - start > max_s:
+            return Outcome("still")
+        time.sleep(1)
+    return Outcome("removed")
+
+
+def _run_store(app: App, control: Control, tell) -> Outcome | None:
+    tell("working")
+    script = ("[Console]::OutputEncoding = [Text.Encoding]::UTF8; "
+              f"try {{ Remove-AppxPackage -Package '{app.store}' -ErrorAction Stop }} "
+              "catch { [Console]::Out.Write($_.Exception.Message); exit 1 }")
+    import tempfile
+    with tempfile.TemporaryFile() as out:
+        p = subprocess.Popen(["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+                              "-Command", script], stdout=out, stderr=subprocess.DEVNULL, creationflags=NO_WINDOW)
+        while p.poll() is None:
+            if control.cancel.is_set():
+                return None
+            if control.stop.is_set():
+                p.kill()
+                return Outcome("stopped")
+            time.sleep(0.3)
+        out.seek(0)
+        text = out.read().decode("utf-8", "replace").strip()
+    tell("checking")
+    if not still_installed(app):
+        return Outcome("removed")
+    if p.returncode:
+        line = next((ln.strip() for ln in text.splitlines() if ln.strip()), "")
+        return Outcome("store_failed", p.returncode, short_text(line, 200) or f"0x{p.returncode & 0xFFFFFFFF:08X}")
+    return Outcome("still")
+
+
+def short_text(text: str, limit: int) -> str:
+    return text if len(text) <= limit else text[:limit - 1].rstrip() + "…"
+
+
+# ----------------------------------------------------------------------------- following its processes
+
+@functools.cache
+def _dll(name: str):
+    """A private copy of a Windows library (its own argument types, and errors kept for get_last_error)."""
+    lib = ctypes.WinDLL(name, use_last_error=True)
+    H, U32, P = ctypes.c_void_p, ctypes.c_uint32, ctypes.c_void_p
+    if name == "kernel32":
+        for fn, args, res in (("CreateToolhelp32Snapshot", (U32, U32), H), ("Process32FirstW", (H, P), ctypes.c_int),
+                              ("Process32NextW", (H, P), ctypes.c_int), ("OpenProcess", (U32, ctypes.c_int, U32), H),
+                              ("WaitForSingleObject", (H, U32), U32), ("GetExitCodeProcess", (H, P), ctypes.c_int),
+                              ("GetProcessTimes", (H, P, P, P, P), ctypes.c_int),
+                              ("GetProcessIoCounters", (H, P), ctypes.c_int), ("TerminateProcess", (H, U32), ctypes.c_int),
+                              ("GetProcessId", (H,), U32), ("CloseHandle", (H,), ctypes.c_int)):
+            getattr(lib, fn).argtypes, getattr(lib, fn).restype = args, res
+    elif name == "user32":
+        for fn, args, res in (("EnumWindows", (_ENUM_PROC, P), ctypes.c_int),
+                              ("GetWindowThreadProcessId", (H, ctypes.POINTER(U32)), U32),
+                              ("IsWindowVisible", (H,), ctypes.c_int), ("IsIconic", (H,), ctypes.c_int),
+                              ("GetWindowRect", (H, P), ctypes.c_int), ("ShowWindow", (H, ctypes.c_int), ctypes.c_int),
+                              ("SetForegroundWindow", (H,), ctypes.c_int)):
+            getattr(lib, fn).argtypes, getattr(lib, fn).restype = args, res
+    return lib
+
+
+_ENUM_PROC = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p) if sys.platform == "win32" else None
+
+
+class PROCESSENTRY32W(ctypes.Structure):
+    _fields_ = [("dwSize", ctypes.c_uint32), ("cntUsage", ctypes.c_uint32), ("th32ProcessID", ctypes.c_uint32),
+                ("th32DefaultHeapID", ctypes.c_size_t), ("th32ModuleID", ctypes.c_uint32),
+                ("cntThreads", ctypes.c_uint32), ("th32ParentProcessID", ctypes.c_uint32),
+                ("pcPriClassBase", ctypes.c_long), ("dwFlags", ctypes.c_uint32), ("szExeFile", ctypes.c_wchar * 260)]
+
+
+def processes() -> list[tuple[int, int, str]]:
+    """Every running process: (id, the id of the process that started it, program name)."""
+    k = _dll("kernel32")
+    snap = k.CreateToolhelp32Snapshot(0x2, 0)  # TH32CS_SNAPPROCESS
+    if not snap or snap == ctypes.c_void_p(-1).value:
+        return []
+    out = []
+    try:
+        e = PROCESSENTRY32W()
+        e.dwSize = ctypes.sizeof(e)
+        ok = k.Process32FirstW(snap, ctypes.byref(e))
+        while ok:
+            out.append((e.th32ProcessID, e.th32ParentProcessID, e.szExeFile))
+            ok = k.Process32NextW(snap, ctypes.byref(e))
+    finally:
+        k.CloseHandle(snap)
+    return out
+
+
+# programs an uninstaller may start that aren't part of it (a "sorry to see you go" page...)
+NOT_PART = {"explorer.exe", "msedge.exe", "chrome.exe", "firefox.exe", "iexplore.exe", "opera.exe", "brave.exe",
+            "vivaldi.exe", "conhost.exe", "werfault.exe", "openwith.exe"}
+SYNCHRONIZE, QUERY_LIMITED, TERMINATE = 0x100000, 0x1000, 0x1
+
+
+class Processes:
+    """An uninstaller and every program it starts: many copy themselves to a temporary folder, start
+    the copy and quit straight away, and the copy does the work."""
+
+    def __init__(self, handle):
+        k = _dll("kernel32")
+        first = k.GetProcessId(handle)
+        self.handles = {first: handle}   # id: handle (kept open, so the id can't be reused meanwhile)
+        self.ended: dict[int, int] = {}  # id: exit code, in the order they ended
+        self.first = first
+
+    def refresh(self):
+        k = _dll("kernel32")
+        for pid, parent, name in processes():
+            if parent in self.handles and pid not in self.handles and name.lower() not in NOT_PART:
+                h = k.OpenProcess(SYNCHRONIZE | QUERY_LIMITED | TERMINATE, False, pid) or \
+                    k.OpenProcess(SYNCHRONIZE | QUERY_LIMITED, False, pid)
+                if h:
+                    self.handles[pid] = h
+        for pid, h in self.handles.items():
+            if pid not in self.ended and k.WaitForSingleObject(h, 0) == 0:
+                code = ctypes.c_uint32()
+                k.GetExitCodeProcess(h, ctypes.byref(code))
+                self.ended[pid] = code.value
+
+    def alive(self) -> list[int]:
+        return [pid for pid in self.handles if pid not in self.ended]
+
+    def activity(self) -> tuple[int, int]:
+        """(processor time used, number of reads and writes) so far, by all of them."""
+        k = _dll("kernel32")
+        cpu = io = 0
+        for pid in self.alive():
+            times = [ctypes.c_uint64() for _ in range(4)]
+            if k.GetProcessTimes(self.handles[pid], *(ctypes.byref(t) for t in times)):
+                cpu += times[2].value + times[3].value
+            counters = (ctypes.c_uint64 * 6)()
+            if k.GetProcessIoCounters(self.handles[pid], counters):
+                io += counters[0] + counters[1] + counters[2]
+        return cpu, io
+
+    def windows(self) -> list[int]:
+        return windows_of(set(self.alive()))
+
+    def exit_code(self) -> int:
+        """The first one's code, or (when it just started a copy of itself and quit) the last one's."""
+        code = self.ended.get(self.first, 0)
+        if not code and len(self.ended) > 1:
+            code = list(self.ended.values())[-1]
+        return code
+
+    def stop(self) -> bool:
+        """Ends them all. False if some keep running (they run as administrator, and Corefold doesn't)."""
+        k = _dll("kernel32")
+        for pid in self.alive():
+            k.TerminateProcess(self.handles[pid], 1)
+        end = time.monotonic() + 3
+        while time.monotonic() < end:
+            self.refresh()
+            if not self.alive():
+                return True
+            time.sleep(0.2)
+        return False
+
+    def close(self):
+        k = _dll("kernel32")
+        for h in self.handles.values():
+            k.CloseHandle(h)
+        self.handles = {}
+
+
+def windows_of(pids: set[int]) -> list[int]:
+    """The visible windows these processes have open."""
+    if not pids:
+        return []
+    u = _dll("user32")
+    found = []
+
+    def each(hwnd, _):
+        pid = ctypes.c_uint32()
+        u.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        if pid.value in pids and u.IsWindowVisible(hwnd):
+            r = (ctypes.c_long * 4)()
+            if u.IsIconic(hwnd) or (u.GetWindowRect(hwnd, r) and r[2] > r[0] and r[3] > r[1]):
+                found.append(hwnd)
+        return 1
+    u.EnumWindows(_ENUM_PROC(each), None)
+    return found
+
+
+def show_window(hwnd):
+    u = _dll("user32")
+    try:
+        if u.IsIconic(hwnd):
+            u.ShowWindow(hwnd, 9)  # SW_RESTORE
+        u.SetForegroundWindow(hwnd)
+    except OSError:
+        pass
 
 
 # ----------------------------------------------------------------------------- finding leftovers
@@ -1072,9 +1410,11 @@ def _save_manifest(folder: Path, data: dict):
     os.replace(tmp, folder / "backup.json")
 
 
-def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, admin: bool = False) -> dict:
+def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, admin: bool = False,
+           on_item=None) -> dict:
     """Moves files into the backup folder and exports, then deletes, registry keys and values.
-    Returns {"done": [...], "failed": [...], "freed": bytes}; failed items can be tried again as admin."""
+    Returns {"done": [...], "failed": [...], "freed": bytes}; failed items can be tried again as admin.
+    on_item(number, count, item) hears which one is next."""
     data = _manifest(folder)
     if apps:
         data["apps"] = sorted(set(data.get("apps", [])) | set(apps))
@@ -1089,7 +1429,9 @@ def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, a
             data["items"].append(record)
             _save_manifest(folder, data)
     winreg = _winreg() if any(i.is_registry for i in items) else None
-    for item in items:
+    for number, item in enumerate(items):
+        if on_item:
+            on_item(number, len(items), item)
         n = uuid.uuid4().hex[:10]
         record = dict(asdict(item), stored="")
         try:
