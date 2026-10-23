@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QPoint, QRectF, Qt, QUrl, Signal
-from PySide6.QtGui import QColor, QDesktopServices, QFont, QFontMetrics, QPainter, QPen
+from PySide6.QtGui import QBrush, QColor, QDesktopServices, QFont, QFontMetrics, QPainter, QPen
 from PySide6.QtWidgets import QButtonGroup, QCheckBox, QFileDialog, QFrame, QHBoxLayout, QHeaderView, QLabel, \
     QMenu, QMessageBox, QProgressBar, QPushButton, QSizePolicy, QStackedWidget, QToolTip, QTreeWidget, \
     QTreeWidgetItem, QVBoxLayout, QWidget
@@ -127,7 +127,7 @@ class Treemap(QWidget):
         if b.kind == "folder":
             return mix(t.panel, t.accent, max(0.12, (0.42 if t.dark else 0.3) - 0.08 * b.level))
         if b.kind == "rest":
-            return mix(t.panel, t.muted, 0.35)
+            return mix(t.panel, t.muted, 0.18)
         color = QColor(KIND_COLORS[space.kind_of(b.name)])
         return color.lighter(100 + 6 * b.level) if t.dark else color
 
@@ -152,6 +152,12 @@ class Treemap(QWidget):
             p.setBrush(color)
             radius = 4 if b.level == 0 else 2
             p.drawRoundedRect(box.adjusted(0.5, 0.5, -0.5, -0.5), radius, radius)
+            if b.kind == "rest":  # many small files: a quiet hatch, so the eye goes to the big ones first
+                hatch = QColor(t.muted)
+                hatch.setAlpha(60)
+                p.setPen(Qt.NoPen)
+                p.setBrush(QBrush(hatch, Qt.BDiagPattern))
+                p.drawRoundedRect(box.adjusted(0.5, 0.5, -0.5, -0.5), radius, radius)
             ink = QColor("#111") if color.lightness() > 150 else QColor("#fff")
             font, metrics = (self.font(), fm) if b.level == 0 else (small, sfm)
             if box.width() > 46 and box.height() > metrics.height() + 2:
