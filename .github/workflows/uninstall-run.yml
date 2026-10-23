@@ -23,9 +23,13 @@ jobs:
       - name: Uninstaller
         shell: pwsh
         run: |
-          python scripts/uninstalltest.py
-          echo "exit code: $LASTEXITCODE"
-          if ($LASTEXITCODE) { exit 1 }
+          $bad = 0
+          foreach ($part in "kinds", "listing", "window") {
+            python scripts/uninstalltest.py $part
+            echo "$part exit code: $LASTEXITCODE"
+            if ($LASTEXITCODE) { $bad = 1 }
+          }
+          exit $bad
       - name: Selftest (uninstaller part)
         shell: pwsh
         run: python scripts/selftest.py uninstaller

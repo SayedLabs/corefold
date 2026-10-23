@@ -233,8 +233,9 @@ def clean_up():
                 pass
 
 
-for name, fn in (("kinds", kinds), ("listing", listing), ("window", window)):
-    step(name, fn)
+ALL = {"kinds": kinds, "listing": listing, "window": window}
+for name in sys.argv[1:] or ALL:  # or just some: python scripts/uninstalltest.py window
+    step(name, ALL[name])
 clean_up()
 print(f"uninstalltest: {len(problems)} problem(s)", flush=True)
 import faulthandler  # noqa: E402
