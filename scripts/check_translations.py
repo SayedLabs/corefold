@@ -90,8 +90,16 @@ def table_texts() -> dict[str, str]:
     add([settings.CLIP_SHORTCUTS["off"]], "CLIP_SHORTCUTS")
     from corefold import capview
     add([text for _, text in capview.TOOLS], "capview.TOOLS")
-    for name in ("CAP_AFTER", "CAP_FPS", "PLAYER_SKIP", "PLAYER_WHEEL"):
+    for name in ("CAP_AFTER", "CAP_FPS", "CAP_DELAY", "PLAYER_SKIP", "PLAYER_WHEEL", "VIEWER_SORTS"):
         add(getattr(settings, name).values(), name)
+    from corefold import clipboard, player, videotools
+    add([text for _, text in clipboard.CHANGES], "clipboard.CHANGES")
+    add([text for _, text in player.FIT_MODES], "player.FIT_MODES")
+    add(videotools.CROPS.values(), "videotools.CROPS")
+    from corefold import pdfstamp
+    add(pdfstamp.NUMBER_PLACES.values(), "pdfstamp.NUMBER_PLACES")
+    add(pdfstamp.SIGN_PAGES.values(), "pdfstamp.SIGN_PAGES")
+    add(pdfstamp.SIGN_PLACES.values(), "pdfstamp.SIGN_PLACES")
     from corefold import space, spacepage
     add(space.KINDS.values(), "space.KINDS")
     add([t for _, t in spacepage.SECTIONS], "spacepage.SECTIONS")
@@ -100,7 +108,14 @@ def table_texts() -> dict[str, str]:
          "Files you deleted earlier. Emptying it can't be undone.", "{name}'s cache",
          "Copies of websites kept to load them faster. They come back as you browse; you stay signed in.",
          "Crash reports", "Saved when a program crashed. Only useful to the people who make it.",
-         "Old installers in Downloads", "Setup files downloaded more than a month ago. They go to the Recycle Bin."],
+         "Old installers in Downloads", "Setup files downloaded more than a month ago. They go to the Recycle Bin.",
+         "Copies of pictures and pages the app keeps to load faster. Your messages, settings and downloads stay.",
+         "Picture previews", "The small previews File Explorer shows for pictures and videos. Windows makes them "
+         "again when you open a folder.", "Graphics card caches", "Kept for games and apps that use the graphics "
+         "card. They're made again the next time, so a game may start a little slower once.",
+         "Windows Update downloads", "Updates Windows has already installed. Windows downloads again any it still "
+         "needs. Windows asks for an administrator.", "The previous Windows", "Kept after a big Windows update, to "
+         "go back to it. Once it's removed, going back isn't possible. Windows asks for an administrator."],
         "space.find_junk")
     from corefold import pdfpage, pdftools
     add([text for card in pdfpage.ACTIONS + pdfpage.MORE for text in card[1:3]], "pdfpage.ACTIONS")

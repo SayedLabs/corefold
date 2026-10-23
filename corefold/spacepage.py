@@ -490,15 +490,26 @@ class SpacePage(QWidget):
         side = QVBoxLayout()
         side.setSpacing(6)
         self.list_mode = "here"
+        self.big_kind = ""             # the biggest files of one kind only ("video"…), from the kinds below
         switch = QHBoxLayout()
         self.here_btn = _button(tr("In this folder"), "subtab", lambda: self._list_mode("here"))
-        self.big_btn = _button(tr("Biggest files"), "subtab", lambda: self._list_mode("big"))
+        self.big_btn = _button(tr("Biggest files"), "subtab", self._all_biggest)
+        self.old_btn = _button(tr("Unused for a year"), "subtab", lambda: self._list_mode("old"))
+        self.old_btn.setToolTip(tr("Big files nobody has opened or changed for over a year"))
+        self.grew_btn = _button(tr("What grew"), "subtab", lambda: self._list_mode("grew"))
         for b in (self.here_btn, self.big_btn):
             b.setCheckable(True)
             switch.addWidget(b)
         switch.addStretch()
         self.here_btn.setChecked(True)
         side.addLayout(switch)
+        switch2 = QHBoxLayout()  # (a second row: they don't fit beside the map in a narrow window)
+        for b in (self.old_btn, self.grew_btn):
+            b.setCheckable(True)
+            switch2.addWidget(b)
+        switch2.addStretch()
+        self.grew_btn.hide()
+        side.addLayout(switch2)
         self.items = QTreeWidget()
         self.items.setObjectName("history")
         self.items.setHeaderLabels([tr("Name"), tr("Size")])
@@ -520,6 +531,8 @@ class SpacePage(QWidget):
         self.kinds_bar = KindsBar(self.c.theme)
         ml.addWidget(self.kinds_bar)
         self.kinds_text = _label("", "muted", wrap=True)
+        self.kinds_text.setToolTip(tr("Click a kind to see its biggest files"))
+        self.kinds_text.linkActivated.connect(self._show_kind)
         ml.addWidget(self.kinds_text)
         lay.addWidget(self.map_box, 1)
         self.map_box.hide()
@@ -586,8 +599,11 @@ class SpacePage(QWidget):
         self.busy_title.setText(tr("Looking through {name}…", name=ltr(str(root))))
         self.busy_line.setText(tr("This takes a moment on a big drive."))
         cancel = self.cancel
-        self.job = _work(lambda progress: space.scan(root, cancel, lambda *a: progress(a)), self._scan_progress,
-                         self._scanned)
+        def work(progress):
+            result = space.scan(root, cancel, lambda *a: progress(a))
+            space.remember(result)
+            return result
+        self.job = _work(work, self._scan_progress, self._scanned)
 
     def _scan_progress(self, args):
         if not _alive(self):
@@ -628,13 +644,41 @@ class SpacePage(QWidget):
         self.busy_box.hide()
         self.map_box.show()
         self._forget_timer.stop()
+        self.grew_btn.setVisible(bool(result.since))
+        if result.since:
+            self.grew_btn.setText(tr("Grew since {date}", date=time.strftime("%Y-%m-%d", time.localtime(result.since))))
+        if self.list_mode == "grew" and not result.since:
+            self.list_mode = "here"
         self.open_folder(folder)
         self.kinds_bar.set_kinds(result.kinds)
+        self._kinds_text()
+
+    def _kinds_text(self):
+        result = self.scan
+        if result is None:
+            return
         total = sum(result.kinds.values()) or 1
-        parts = [f"<span style='color:{KIND_COLORS[k]}'>■</span>&nbsp;{html.escape(tr(space.KINDS[k]))} "
-                 f"{human_size(v)}" for k, v in sorted(result.kinds.items(), key=lambda kv: -kv[1])
-                 if v > total * 0.005]
+        link = self.c.theme.text
+        parts = []
+        for k, v in sorted(result.kinds.items(), key=lambda kv: -kv[1]):
+            if v <= total * 0.005:
+                continue
+            name = html.escape(tr(space.KINDS[k]))
+            if k == self.big_kind and self.list_mode == "big":
+                name = f"<b>{name}</b>"
+            parts.append(f"<span style='color:{KIND_COLORS[k]}'>■</span>&nbsp;<a href='{k}' style='color:{link};"
+                         f"text-decoration:none'>{name}</a> {human_size(v)}")
         self.kinds_text.setText("&nbsp;&nbsp;&nbsp;".join(parts))
+
+    def _all_biggest(self):
+        self.big_kind = ""
+        self._list_mode("big")
+
+    def _show_kind(self, kind: str):
+        """The biggest videos (or pictures, music…) of the whole scan; clicked again, all kinds."""
+        same = self.list_mode == "big" and self.big_kind == kind
+        self.big_kind = "" if same else kind
+        self._list_mode("big")
 
     def _summary(self):
         s, f = self.scan, self.here
@@ -717,10 +761,17 @@ class SpacePage(QWidget):
         self.kept.clear()
 
     def _list_mode(self, mode: str):
+        if mode != "big":
+            self.big_kind = ""
         self.list_mode = mode
         self.here_btn.setChecked(mode == "here")
         self.big_btn.setChecked(mode == "big")
+        self.old_btn.setChecked(mode == "old")
+        self.grew_btn.setChecked(mode == "grew")
+        self.big_btn.setText(tr("Biggest files") if not self.big_kind else
+                             tr("Biggest: {kind}", kind=tr(space.KINDS[self.big_kind])))
         self._fill_list()
+        self._kinds_text()
 
     def _fill_list(self):
         self.items.clear()
@@ -728,8 +779,19 @@ class SpacePage(QWidget):
             return
         rows = []
         if self.list_mode == "big":
-            for size, path in self.scan.biggest:
+            biggest = self.scan.biggest_kind.get(self.big_kind, []) if self.big_kind else self.scan.biggest
+            for size, path in biggest:
                 rows.append((ltr(short_name(Path(path).name, 60)), size, Path(path), None, path))
+        elif self.list_mode == "old":
+            for size, path, used in self.scan.old:
+                when = time.strftime("%Y-%m-%d", time.localtime(used))
+                rows.append((ltr(short_name(Path(path).name, 60)), size, Path(path), None,
+                             path + "\n" + tr("Last used {date}", date=when)))
+        elif self.list_mode == "grew":
+            for delta, path in self.scan.grew:
+                p = Path(path)
+                folder = self._folder_of(p)
+                rows.append((ltr(short_name(p.name or str(p), 60)), delta, p, folder, path))
         else:
             for size, name, folder in self.here.entries()[:300]:
                 rows.append((ltr(name), size,
@@ -737,8 +799,14 @@ class SpacePage(QWidget):
             if self.here.rest:
                 rows.append((tr("{count} smaller files", count=self.here.rest_count), self.here.rest, None, None, None))
         folder_icon = icons.icon("folder", self.c.theme.muted)
+        if not rows and self.list_mode in ("old", "grew"):
+            empty = tr("Nothing big has gone unused for a year.") if self.list_mode == "old" else \
+                tr("Nothing grew much since the last look.")
+            it = QTreeWidgetItem([empty, ""])
+            it.setFlags(Qt.NoItemFlags)
+            self.items.addTopLevelItem(it)
         for text, size, path, folder, tip in rows:
-            it = QTreeWidgetItem([text, human_size(size)])
+            it = QTreeWidgetItem([text, ("+" if self.list_mode == "grew" else "") + human_size(size)])
             if folder is not None:
                 it.setIcon(0, folder_icon)
             it.setTextAlignment(1, Qt.AlignRight | Qt.AlignVCenter)
@@ -771,11 +839,42 @@ class SpacePage(QWidget):
             menu.addAction(tr("Open"), lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(path))))
         menu.addAction(tr("Show in folder"), lambda: reveal_in_explorer(path))
         menu.addSeparator()
+        program = self._program_at(path)
+        if program is not None:
+            menu.addAction(tr("Uninstall {name}…", name=ltr(short_name(program.name, 40))),
+                           lambda: self._uninstall(program, path, folder))
         act = menu.addAction(tr("Move to the Recycle Bin…"), lambda: self._remove(path, folder))
-        if space.protected(path):
+        if space.protected(path) or program is not None:  # (a program's folder in the bin would break it)
             act.setEnabled(False)
             act.setText(tr("Windows needs this (remove programs with the Uninstaller)"))
         menu.exec(pos)
+
+    def _program_at(self, path: Path):
+        """The installed program this folder belongs to (only while the Uninstaller is in use)."""
+        from . import tools as all_tools
+        if os.name != "nt" or not all_tools.is_on(self.c.settings, "uninstaller"):
+            return None
+        from . import uninstall as un
+        if getattr(self, "_apps", None) is None:
+            try:
+                self._apps = un.list_apps(include_store=False)
+            except Exception:
+                log.warning("couldn't list the installed programs", exc_info=True)
+                self._apps = []
+        return un.app_at(path, self._apps)
+
+    def _uninstall(self, program, path: Path, folder):
+        """Uninstalls the program right here (the Uninstaller's own steps, leftovers and backup included),
+        then takes its folder off the map."""
+        from .appspage import UninstallDialog
+        dlg = UninstallDialog(self.c, [program], self._apps or [program], False, self.window().windowIcon())
+        dlg.exec()
+        changed = dlg.changed
+        dlg.deleteLater()
+        self._apps = None  # (read again next time)
+        if changed and not path.exists():
+            size = folder.size if folder is not None else 0
+            self._forget(path, folder, size)
 
     def _remove(self, path: Path, folder):
         size = folder.size if folder is not None else _size(path)
@@ -805,8 +904,10 @@ class SpacePage(QWidget):
         while p is not None:
             p.size = max(0, p.size - size)
             p = p.parent
-        self.scan.biggest = [b for b in self.scan.biggest if Path(b[1]) != path and
-                             not str(b[1]).startswith(str(path) + os.sep)]
+        def gone(b):
+            return Path(b[1]) == path or str(b[1]).startswith(str(path) + os.sep)
+        self.scan.biggest = [b for b in self.scan.biggest if not gone(b)]
+        self.scan.biggest_kind = {k: [b for b in v if not gone(b)] for k, v in self.scan.biggest_kind.items()}
         self.open_folder(self.here if self.here is not folder else (parent or self.scan.root))
 
     def _folder_of(self, path: Path) -> space.Folder | None:
@@ -923,14 +1024,29 @@ class SpacePage(QWidget):
         if not chosen or self.job is not None:
             return
         total = sum(j.size for j in chosen)
-        if not _confirm(self, tr("Clean up?"), tr("{size} of temporary files and caches will be deleted. This can't "
-                                                  "be undone (old installers go to the Recycle Bin).",
-                                                  size=human_size(total)), tr("Clean up")):
+        admin = [j.key for j in chosen if j.admin]
+        text = tr("{size} of temporary files and caches will be deleted. This can't be undone (old installers go "
+                  "to the Recycle Bin).", size=human_size(total))
+        if admin:
+            text += "\n\n" + tr("Windows asks for an administrator for the Windows files.")
+        if not _confirm(self, tr("Clean up?"), text, tr("Clean up")):
             return
         self.clean_btn.setEnabled(False)
         self.clean_note.setText(tr("Cleaning up…"))
         cancel = self.cancel = threading.Event()
-        self.job = _work(lambda progress: sum(space.clean(j, cancel) for j in chosen), lambda _: None, self._cleaned)
+
+        def work(progress):
+            freed = sum(space.clean(j, cancel) for j in chosen if not j.admin)
+            if admin and not cancel.is_set():
+                from . import uninstall as un
+                from .appspage import _app_command
+                answer = un.run_elevated(_app_command(), "space-clean", {"keys": admin}, cancel)
+                if answer is None:  # "No" at Windows' question: the rest was still cleaned
+                    log.info("the administrator clean-up was turned down")
+                else:
+                    freed += int(answer.get("freed") or 0)
+            return freed
+        self.job = _work(work, lambda _: None, self._cleaned)
 
     def _cleaned(self, freed):
         if not _alive(self):

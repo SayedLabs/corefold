@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 os.environ.setdefault("QT_MEDIA_BACKEND", "ffmpeg")  # (before Qt's player is loaded)
 
-from PySide6.QtCore import QEvent, QSize, Qt, QTimer, QUrl  # noqa: E402
+from PySide6.QtCore import QEvent, QSize, Qt, QTimer, QUrl, Signal  # noqa: E402
 from PySide6.QtGui import QCursor, QGuiApplication, QImage, QKeySequence, QPixmap, QShortcut  # noqa: E402
 from PySide6.QtWidgets import QFileDialog, QFrame, QHBoxLayout, QLabel, QMenu, QPushButton, QSizePolicy, QSlider, \
     QStackedWidget, QVBoxLayout, QWidget  # noqa: E402
@@ -55,6 +55,10 @@ def media_in(folder: Path) -> list[Path]:
     except OSError:
         return []
     return sorted(files, key=lambda p: natural_key(p.name))
+
+
+# how the video fills the window (English, shown through tr())
+FIT_MODES = (("fit", "Fit the window"), ("fill", "Fill the window (crops the edges)"), ("stretch", "Stretch"))
 
 
 def clock(ms: int) -> str:
@@ -206,10 +210,44 @@ def subtitle_for(video: Path) -> Path | None:
     return None
 
 
+def chapters_of(path: Path) -> list[tuple[int, str]]:
+    """The chapters inside a film or a lesson: (start in ms, title), read with FFprobe. [] if none."""
+    import subprocess
+    try:
+        from .converters import LOCAL_ONLY, NO_WINDOW, find_tool
+        out = subprocess.run([find_tool("ffprobe"), "-v", "error", "-show_chapters", "-of", "json", *LOCAL_ONLY,
+                              str(path)], capture_output=True, text=True, encoding="utf-8", errors="replace",
+                             timeout=15, stdin=subprocess.DEVNULL, creationflags=NO_WINDOW).stdout
+        found = []
+        for i, ch in enumerate(json.loads(out or "{}").get("chapters", [])):
+            title = ((ch.get("tags") or {}).get("title") or "").strip()
+            found.append((int(float(ch.get("start_time") or 0) * 1000), title or tr("Chapter {number}", number=i + 1)))
+        return found if len(found) > 1 else []
+    except (ValueError, OSError, RuntimeError, subprocess.SubprocessError):
+        return []
+
+
 # ----------------------------------------------------------------------------- the window
 
 class SeekBar(QSlider):
-    """Click anywhere on it to jump there (not just a step)."""
+    """Click anywhere on it to jump there (not just a step). Chapters show as small marks."""
+    chapters: list = []
+
+    def paintEvent(self, e):
+        super().paintEvent(e)
+        if not self.chapters or self.maximum() <= 0:
+            return
+        from PySide6.QtGui import QColor, QPainter
+        p = QPainter(self)
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(255, 255, 255, 170))
+        w, h = self.width(), self.height()
+        for ms, _title in self.chapters[1:]:
+            frac = ms / self.maximum()
+            if self.layoutDirection() == Qt.RightToLeft:
+                frac = 1 - frac
+            p.drawRect(int(frac * w) - 1, h // 2 - 5, 2, 10)
+        p.end()
 
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton and self.maximum() > 0:
@@ -223,8 +261,12 @@ class SeekBar(QSlider):
 
 
 class PlayerWindow(QWidget):
+    chapters_done = Signal(str, object)  # (the file, its chapters), from the thread that reads them
+
     def __init__(self, controller: "Controller", path: Path):
         super().__init__()
+        self.link = ""          # a video playing from the internet (no file)
+        self.chapters_done.connect(self._chapters_loaded)
         from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
         from PySide6.QtMultimediaWidgets import QVideoWidget
         self.c = controller
@@ -344,6 +386,20 @@ class PlayerWindow(QWidget):
         more = QMenu(self.b_more)
         round_menu(more)
         more.addAction(tr("Open a file…"), self.open_dialog)
+        more.addAction(tr("Playlist (Q)"), self.toggle_playlist)
+        self.a_repeat = more.addAction(tr("Repeat this file"), self._repeat)
+        self.a_repeat.setCheckable(True)
+        self.a_shuffle = more.addAction(tr("Shuffle"), self._shuffle)
+        self.a_shuffle.setCheckable(True)
+        picture = more.addMenu(tr("Picture (Z)"))
+        round_menu(picture)
+        self.fit_actions = {}
+        for key, text in FIT_MODES:
+            a = picture.addAction(tr(text), lambda k=key: self.set_fit(k))
+            a.setCheckable(True)
+            a.setChecked(key == "fit")
+            self.fit_actions[key] = a
+        more.addSeparator()
         more.addAction(tr("Save the A–B part as a clip…"), self.save_clip)
         more.addAction(tr("Show in folder"), self._reveal)
         self.b_more.setMenu(more)
@@ -367,10 +423,24 @@ class PlayerWindow(QWidget):
         bl.addLayout(row1)
         bl.addLayout(row2)
 
+        from PySide6.QtWidgets import QListWidget
+        self.playlist = QListWidget()
+        self.playlist.setObjectName("playlist")
+        self.playlist.setFixedWidth(260)
+        self.playlist.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.playlist.itemActivated.connect(lambda it: self._play_row(self.playlist.row(it)))
+        self.playlist.itemClicked.connect(lambda it: self._play_row(self.playlist.row(it)))
+        self.playlist.hide()
+        middle = QHBoxLayout()
+        middle.setContentsMargins(0, 0, 0, 0)
+        middle.setSpacing(0)
+        middle.addWidget(self.screen_stack, 1)
+        middle.addWidget(self.playlist)
+        self.fit = "fit"
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(0)
-        lay.addWidget(self.screen_stack, 1)
+        lay.addLayout(middle, 1)
         lay.addWidget(self.note_box)
         lay.addWidget(self.bar)
         self.note_box.hide()
@@ -403,7 +473,9 @@ class PlayerWindow(QWidget):
                 (",", lambda: self.frame_step(-1)), (".", lambda: self.frame_step(1)), ("S", self.screenshot),
                 ("L", self.mark_loop), ("I", self.toggle_mini), ("G", lambda: self.shift_subs(-SUB_STEP_MS)),
                 ("H", lambda: self.shift_subs(SUB_STEP_MS)), ("V", self.cycle_subs), ("Ctrl+O", self.open_dialog),
-                ("Home", lambda: self._seek_to(0))]
+                ("Home", lambda: self._seek_to(0)), ("Q", self.toggle_playlist), ("Z", self.cycle_fit),
+                ("Ctrl+Right", lambda: self.chapter_step(1)), ("Ctrl+Left", lambda: self.chapter_step(-1)),
+                ("Ctrl+U", self._ask_link)]
         for i in range(10):
             keys.append((str(i), lambda i=i: self._jump_percent(i * 10)))
         for k, fn in keys:
@@ -420,6 +492,8 @@ class PlayerWindow(QWidget):
             self.files = media_in(path.parent) or [path]
             if path not in self.files:
                 self.files.insert(0, path)
+            if self.a_shuffle.isChecked():
+                self.a_shuffle.setChecked(False)
         self.index = self.files.index(path) if path in self.files else 0
         self.subs = None
         self.loop_a = self.loop_b = None
@@ -441,6 +515,8 @@ class PlayerWindow(QWidget):
                 self.resume_to = int(saved.get("pos", 0))
         self._said_playing = False
         log.info("player opened a %s file", path.suffix.lower())
+        self.link = ""
+        self._load_chapters(path)
         self.player.setSource(QUrl.fromLocalFile(str(path)))
         self.player.play()
         if not audio_only:
@@ -451,6 +527,135 @@ class PlayerWindow(QWidget):
 
     def current(self) -> Path:
         return self.files[self.index] if self.files else Path()
+
+    def open_link(self, url: str):
+        """Plays a video or a stream from the internet (only when the person pastes a link)."""
+        url = url.strip()
+        if not re.match(r"^(https?|rtsp|rtmp)://\S+$", url, re.I):
+            self.flash(tr("That isn't a link to a video."), 3500)
+            return
+        self._remember()
+        self.files, self.index, self.link = [], 0, url
+        self.subs = None
+        self.loop_a = self.loop_b = None
+        self.b_loop.setChecked(False)
+        self.seek.chapters = []
+        self.resume_to = 0
+        self.setWindowTitle(f"{url} - {APP_NAME}")
+        self.title.setText(ltr(url if len(url) < 80 else url[:77] + "…"))
+        self.title.setToolTip(url)
+        self.screen_stack.setCurrentWidget(self.video)
+        log.info("player opened a link")
+        self.player.setSource(QUrl(url))
+        self.player.play()
+        self._buttons()
+
+    def _ask_link(self):
+        from PySide6.QtWidgets import QInputDialog
+        start = QGuiApplication.clipboard().text().strip()
+        url, ok = QInputDialog.getText(self, tr("Play a link"), tr("Paste the link of a video or a stream:"),
+                                       text=start if "://" in start else "")
+        if ok and url.strip():
+            self.open_link(url)
+
+    # ---- chapters
+
+    def _load_chapters(self, path: Path):
+        self.seek.chapters = []
+        self.seek.update()
+        if path.suffix.lower() not in (".mkv", ".mp4", ".m4v", ".m4b", ".mov", ".webm", ".m4a", ".mka"):
+            return
+        import threading
+        done = self.chapters_done
+
+        def work():
+            found = chapters_of(path)
+            try:
+                done.emit(str(path), found)
+            except RuntimeError:  # the window was closed
+                pass
+        threading.Thread(target=work, daemon=True, name="corefold-chapters").start()
+
+    def _chapters_loaded(self, path: str, found: list):
+        if path == str(self.current()) and not self.link:
+            self.seek.chapters = found
+            self.seek.update()
+
+    def chapter_step(self, step: int):
+        """The next or the previous chapter (Ctrl+Right, Ctrl+Left)."""
+        marks = self.seek.chapters
+        if not marks:
+            return
+        pos = self.player.position()
+        starts = [ms for ms, _t in marks]
+        i = bisect.bisect_right(starts, pos + 500) - 1  # the chapter playing (half a second of slack)
+        if step < 0 and pos - starts[max(i, 0)] > 3000:
+            target = max(i, 0)  # back to the start of this one first, like a CD player
+        else:
+            target = min(max(i + step, 0), len(starts) - 1)
+        self._seek_to(starts[target])
+        self.flash(marks[target][1])
+
+    # ---- the playlist
+
+    def toggle_playlist(self):
+        if self.mini:
+            return
+        self.playlist.setVisible(not self.playlist.isVisible())
+        self._fill_playlist()
+
+    def _fill_playlist(self):
+        if not self.playlist.isVisible():
+            return
+        self.playlist.blockSignals(True)
+        self.playlist.clear()
+        for i, f in enumerate(self.files):
+            self.playlist.addItem(ltr(f"{i + 1}. {f.stem}"))
+            self.playlist.item(i).setToolTip(f.name)
+        if 0 <= self.index < self.playlist.count():
+            self.playlist.setCurrentRow(self.index)
+            self.playlist.scrollToItem(self.playlist.currentItem())
+        self.playlist.blockSignals(False)
+
+    def _play_row(self, row: int):
+        if 0 <= row < len(self.files) and row != self.index:
+            self.open(self.files[row], keep_list=True)
+
+    def _repeat(self, on: bool):
+        from PySide6.QtMultimedia import QMediaPlayer
+        self.player.setLoops(QMediaPlayer.Loops.Infinite if on else 1)
+        self.flash(tr("Repeating this file") if on else tr("Repeat off"))
+
+    def _shuffle(self, on: bool):
+        """Shuffle: the rest of the list in a random order (the file playing stays where it is)."""
+        import random
+        cur = self.current()
+        if on:
+            rest = [f for f in self.files if f != cur]
+            random.shuffle(rest)
+            self.files = [cur] + rest
+        else:
+            self.files = media_in(cur.parent) or [cur]
+            if cur not in self.files:
+                self.files.insert(0, cur)
+        self.index = self.files.index(cur) if cur in self.files else 0
+        self._buttons()
+        self._fill_playlist()
+        self.flash(tr("Shuffle on") if on else tr("Shuffle off"))
+
+    # ---- how the picture fills the window
+
+    def set_fit(self, key: str):
+        modes = {"fit": Qt.KeepAspectRatio, "fill": Qt.KeepAspectRatioByExpanding, "stretch": Qt.IgnoreAspectRatio}
+        self.fit = key if key in modes else "fit"
+        self.video.setAspectRatioMode(modes[self.fit])
+        for k, a in self.fit_actions.items():
+            a.setChecked(k == self.fit)
+        self.flash(tr(dict(FIT_MODES)[self.fit]), 1500)
+
+    def cycle_fit(self):
+        keys = [k for k, _ in FIT_MODES]
+        self.set_fit(keys[(keys.index(self.fit) + 1) % len(keys)])
 
     def go(self, step: int):
         if len(self.files) < 2:
@@ -470,6 +675,7 @@ class PlayerWindow(QWidget):
         many = len(self.files) > 1
         self.b_prev.setEnabled(many and self.index > 0)
         self.b_next.setEnabled(many and self.index < len(self.files) - 1)
+        self._fill_playlist()
 
     # ---- playing
 
@@ -551,6 +757,9 @@ class PlayerWindow(QWidget):
 
     def save_clip(self):
         """The A–B part as a video of its own (made by the Converter's Trim, in the background)."""
+        if self.link:
+            self.flash(tr("This works with files on your PC."), 3500)
+            return
         if self.loop_a is None or self.loop_b is None:
             self.flash(tr("Mark the start and the end with the loop button (L) first."), 4000)
             return
@@ -742,7 +951,8 @@ class PlayerWindow(QWidget):
         if error == QMediaPlayer.NoError:
             return
         log.warning("player can't play: %s %s", error, text)
-        self.flash(tr("Can't play {name}: {reason}", name=self.current().name, reason=text or str(error)), 8000)
+        self.flash(tr("Can't play {name}: {reason}", name=self.link or self.current().name,
+                      reason=text or str(error)), 8000)
 
     def _tracks(self):
         if self.subs is None and self.player.activeSubtitleTrack() < 0 and self.player.subtitleTracks() \
@@ -801,6 +1011,7 @@ class PlayerWindow(QWidget):
             self.bar.show()
             self.unsetCursor()
         else:
+            self.playlist.hide()
             self.showFullScreen()
             self._still_since = time.monotonic()
             self.idle.start()
@@ -828,6 +1039,7 @@ class PlayerWindow(QWidget):
         self.mini = not self.mini
         if self.mini:
             self._normal_geometry = self.saveGeometry()
+            self.playlist.hide()
             self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
             for b in (self.b_prev, self.b_next, self.b_mute, self.volume, self.title, self.b_speed, self.b_subs,
                       self.b_audio, self.b_loop, self.b_shot, self.b_more):
@@ -886,7 +1098,13 @@ class PlayerWindow(QWidget):
         menu.addSeparator()
         menu.addAction(tr("Save this frame as a picture"), self.screenshot)
         menu.addAction(tr("Add a subtitle file…"), self._pick_subtitles)
+        if self.seek.chapters:
+            sub = menu.addMenu(tr("Chapters"))
+            round_menu(sub)
+            for ms, title in self.seek.chapters:
+                sub.addAction(f"{clock(ms)}  {title}", lambda m=ms: self._seek_to(m))
         menu.addAction(tr("Open a file…"), self.open_dialog)
+        menu.addAction(tr("Play a link…"), self._ask_link)
         menu.exec(QCursor.pos())
 
     def dragEnterEvent(self, e):
@@ -897,7 +1115,10 @@ class PlayerWindow(QWidget):
         paths = [Path(u.toLocalFile()) for u in e.mimeData().urls() if u.isLocalFile()]
         subs = [p for p in paths if p.suffix.lower() in SUB_EXT]
         media = [p for p in paths if is_media(p)]
-        if media:
+        if len(media) > 1:  # several files: they're the playlist, in the order they were picked
+            self.files, self.index = media, 0
+            self.open(media[0], keep_list=True)
+        elif media:
             self.open(media[0])
         if subs:
             self.load_subtitles(subs[0])

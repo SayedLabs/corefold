@@ -389,6 +389,15 @@ def _preview_base(src: Path):
         if category(src) == "video":
             data = video_frame(src, min(1.0, media_duration(src) / 2), 640)
             base = Image.open(io.BytesIO(data)).convert("RGBA") if data else None
+        elif src.suffix.lower() == ".pdf":
+            import pypdfium2 as pdfium
+            pdf = pdfium.PdfDocument(str(src))
+            try:
+                page = pdf[0]
+                base = page.render(scale=640 / max(page.get_width(), page.get_height(), 1)).to_pil().convert("RGBA")
+                page.close()
+            finally:
+                pdf.close()
         else:
             base = load_image(src).convert("RGBA")
             base.thumbnail((640, 640))
@@ -492,7 +501,8 @@ class WatermarkDialog(Base):
         try:
             base = self._base.copy()
             if self.text.text().strip() or self.logo:
-                base.alpha_composite(make_overlay(base.width, base.height, self.params()))
+                dark = self.files[0].suffix.lower() == ".pdf"  # (as the PDF tool draws it)
+                base.alpha_composite(make_overlay(base.width, base.height, {**self.params(), "dark": dark}))
             buf = io.BytesIO()
             base.convert("RGB").save(buf, "PNG")
             pm = QPixmap()
@@ -589,6 +599,10 @@ class PackDialog(Base):
         self.format.addItem(tr("ZIP (opens everywhere)"), "zip")
         if has7z:
             self.format.addItem(tr("7z (smaller files)"), "7z")
+        self.format.addItem(tr("TAR.GZ (for Linux and Mac)"), "tar.gz")
+        self.format.addItem(tr("TAR.XZ (smaller, for Linux and Mac)"), "tar.xz")
+        self.format.addItem(tr("TAR.ZST (fast and small, for Linux and Mac)"), "tar.zst")
+        self.has7z = has7z
         self.level = QComboBox()
         for k, v in (("fast", "Fast"), ("normal", "Normal"), ("max", "Smallest file (slower)")):
             self.level.addItem(tr(v), k)
@@ -622,16 +636,19 @@ class PackDialog(Base):
         self.warn.setObjectName("muted")
         self.warn.setWordWrap(True)
         self.lay.addWidget(self.warn)
-        if not has7z:
-            self.password.setEnabled(False)
-            self.password2.setEnabled(False)
-            self.split.setEnabled(False)
         self.buttons(tr("Make archive"))
         for sig in (self.password.textChanged, self.password2.textChanged, self.format.currentIndexChanged):
             sig.connect(lambda *_: self._check())
         self._check()
 
     def _check(self):
+        tar = str(self.format.currentData()).startswith("tar")
+        for w in (self.password, self.password2, self.split):
+            w.setEnabled(self.has7z and not tar)
+        if tar:
+            self.warn.setText(tr("TAR files can't have a password or be split into parts."))
+            self.ok.setEnabled(True)
+            return
         p1, p2 = self.password.text(), self.password2.text()
         if p1 and p1 != p2:
             self.warn.setText(tr("The two passwords don't match yet."))
@@ -646,13 +663,15 @@ class PackDialog(Base):
             self.warn.setText("")
 
     def params(self):
+        tar = str(self.format.currentData()).startswith("tar")
         return {"format": self.format.currentData(), "level": self.level.currentData(),
-                "password": self.password.text(), "split_mb": self.split.currentData() or 0,
+                "password": "" if tar else self.password.text(),
+                "split_mb": 0 if tar else self.split.currentData() or 0,
                 "rename_base": self.name.text().strip()}
 
 
 class PasswordDialog(Base):
-    def __init__(self, files, icon, dark, wrong: bool = False):
+    def __init__(self, files, icon, dark, wrong: bool = False, remember: bool | None = None):
         super().__init__(tr("Password needed"), tr("{name} is protected with a password.",
                                                    name=short_name(files[0].name)),
                          icon, dark)
@@ -667,13 +686,19 @@ class PasswordDialog(Base):
         show.toggled.connect(lambda on: self.password.setEchoMode(QLineEdit.Normal if on else QLineEdit.Password))
         self.lay.addWidget(self.password)
         self.lay.addWidget(show)
+        self.remember = None
+        if remember is not None and files[0].suffix.lower() != ".pdf":
+            self.remember = QCheckBox(tr("Remember it for other archives (kept locked on this PC)"))
+            self.remember.setChecked(remember)
+            self.lay.addWidget(self.remember)
         self.buttons(tr("Open"))
         self.ok.setEnabled(False)
         self.password.textChanged.connect(lambda t: self.ok.setEnabled(bool(t)))
         self.password.setFocus()
 
     def params(self):
-        return {"password": self.password.text()}
+        return {"password": self.password.text(),
+                "remember": self.remember.isChecked() if self.remember is not None else None}
 
 
 DIALOGS = {"resize": ResizeDialog, "rotate": RotateDialog, "trim": TrimDialog, "fit": FitDialog,

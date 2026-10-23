@@ -32,7 +32,7 @@ from . import UPDATE_REPO, __version__, i18n, icons, ipc, shellmenu, sounds, upd
 from . import tools as all_tools
 from .converters import PASSWORD_ERROR, Options, Result, Tool, pick, release_memory, run_job, warm_up
 from .core import (LEGACY_NAME, category, human_size, is_link, lower_this_thread, norm, os_open, set_background_priority,
-                   set_downloads_folder, short_name, unique_path)
+                   set_downloads_folder, short_name, system_tool, unique_path)
 from .history import History, size_of
 from .i18n import tr
 from .settings import (APP_NAME, LOG_DIR, TOAST_TIME_SCALE, WINDOW_TEXT_PT, Settings, app_command, app_icon,
@@ -304,10 +304,12 @@ class Controller(QObject):
         self.act_archive = menu.addAction(tr("Open an archive…"), self.choose_archive)
         self.act_clip = menu.addAction(tr("Clipboard history"), lambda: self.show_clipboard(from_tray=True))
         self.act_shot = menu.addAction(tr("Take a screenshot"), lambda: self.capture and self.capture.screenshot())
+        self.act_shot_later = menu.addAction(tr("Screenshot with a timer"),
+                                             lambda: self.capture and self.capture.screenshot_later())
         self.act_quick = menu.addAction(tr("Quick menu"), lambda: self.quick and self.quick.toggle_menu())
         self.menu_icons = [(act_open, "home"), (act_settings, "settings"), (self.act_paste, "arrow_swap"),
                            (self.act_archive, "archive"), (self.act_clip, "clipboard"), (self.act_shot, "screenshot"),
-                           (self.act_quick, "layout")]
+                           (self.act_shot_later, "timer"), (self.act_quick, "layout")]
         self.clip = None     # Corefold Clipboard, while it's in use
         self.capture = None  # Corefold Capture, while it's in use
         self.quick = None    # the quick menu and wheel, while one of them is switched on
@@ -362,7 +364,8 @@ class Controller(QObject):
         # keeping memory low while idle
         self.tidy_timer = QTimer(self)
         self.tidy_timer.setSingleShot(True)
-        self.tidy_timer.timeout.connect(self.tidy_up)
+        self.tidy_timer.timeout.connect(self._tidy_when_free)
+        self._tidy_waits = 0
         self.light_tidy_timer = QTimer(self)  # soon after a job: hand back the memory it used
         self.light_tidy_timer.setSingleShot(True)
         self.light_tidy_timer.timeout.connect(self.light_tidy)
@@ -582,6 +585,16 @@ class Controller(QObject):
         gc.collect()
         winutil.trim_memory()
 
+    def _tidy_when_free(self):
+        """Looking through every object takes up to half a second with a big Space map kept: not while
+        someone is using one of Corefold's windows (unless they've been at it for five minutes)."""
+        if QApplication.activeWindow() is not None and self._tidy_waits < 30:
+            self._tidy_waits += 1
+            self.tidy_timer.start(10_000)
+            return
+        self._tidy_waits = 0
+        self.tidy_up()
+
     def tidy_up(self):
         """Lets go of memory that's only needed while converting (the background remover alone
         is about 200 MB), then hands unused memory back to Windows."""
@@ -688,8 +701,27 @@ class Controller(QObject):
     # ---- archives
 
     def ask_password(self, files: list[Path], wrong: bool = False) -> str | None:
-        answer = dialogs.ask("password", files, self.icon, self.theme.dark, wrong=wrong)
-        return None if answer is None else answer["password"]
+        """The archive's password: one remembered earlier that opens it, or what the person types."""
+        from . import passwords
+        if not wrong and files and files[0].suffix.lower() != ".pdf":
+            try:
+                found = passwords.find(files[0])
+            except Exception:
+                found = None
+                log.debug("remembered passwords couldn't be tried", exc_info=True)
+            if found:
+                log.info("a remembered password opened the archive")
+                return found
+        answer = dialogs.ask("password", files, self.icon, self.theme.dark, wrong=wrong,
+                             remember=self.settings.remember_password)
+        if answer is None:
+            return None
+        if answer.get("remember") is not None and answer["remember"] != self.settings.remember_password:
+            self.settings.remember_password = answer["remember"]
+            self.settings_changed()
+        if answer.get("remember"):
+            passwords.add(answer["password"])
+        return answer["password"]
 
     def open_browser(self, src: Path, password: str = ""):
         """Reads what's in the archive in the background (big archives take a moment), then opens
@@ -717,10 +749,21 @@ class Controller(QObject):
                 pass
         threading.Thread(target=work, daemon=True).start()
 
+        def still_reading():  # (a big archive: something on screen says it's coming)
+            if key in self.listing:
+                title = tr("Opening {name}…", name=src.name)
+                if self.toast.notify(title, tr("A big archive takes a moment."), linger_ms=30000):
+                    self._opening_toast = title
+        QTimer.singleShot(700, still_reading)
+
     def _archive_listed(self, payload):
         from .browser import ArchiveBrowser
         src, password, entries, error = payload
         self.listing.discard(str(src).lower())
+        if getattr(self, "_opening_toast", None):
+            if self.toast.isVisible() and not self.toast.running and self.toast.title.text() == self._opening_toast:
+                self.toast.hide()
+            self._opening_toast = None
         if isinstance(error, archives.NeedPassword):  # names are hidden too (7z with a password)
             new = self.ask_password([src], wrong=bool(password))
             if new:
@@ -803,6 +846,7 @@ class Controller(QObject):
         self.act_archive.setVisible(all_tools.is_on(self.settings, "archive"))
         self.act_clip.setVisible(self.clip is not None)
         self.act_shot.setVisible(self.capture is not None)
+        self.act_shot_later.setVisible(self.capture is not None)
         self.act_quick.setVisible(self.quick is not None and self.settings.quick_menu)
 
     def _background_tools(self):
@@ -1050,8 +1094,34 @@ class Controller(QObject):
             self.open_viewer(Path(lines[0]))
         elif word == "play" and lines:
             self.open_player(Path(lines[0]))
+        elif word == "uninstall" and lines:
+            self.uninstall_from_shortcut(Path(lines[0]))
         elif word == "run" and len(lines) >= 2:
             self.run_from_menu(lines[0], lines[1:])
+
+    def uninstall_from_shortcut(self, path: Path):
+        """"Uninstall with Corefold" on a shortcut (the desktop, the Start menu): the Uninstaller's own steps
+        for the program it opens, leftovers and backup included."""
+        if not all_tools.is_on(self.settings, "uninstaller"):
+            return
+        from . import uninstall as un
+        try:
+            apps = un.list_apps(include_store=False)
+        except Exception:
+            log.warning("couldn't list the installed programs", exc_info=True)
+            apps = []
+        program = un.app_for_shortcut(path, apps)
+        if program is None:
+            self.tell(tr("Couldn't tell which program this is"),
+                      tr("{name} doesn't point to an installed program. Find it in the Uninstaller instead.",
+                         name=path.stem))
+            self.show_window("Apps")
+            return
+        from .appspage import UninstallDialog
+        dlg = UninstallDialog(self, [program], apps, False, self.icon)
+        dlg.setWindowFlag(Qt.WindowStaysOnTopHint)
+        dlg.exec()
+        dlg.deleteLater()
 
     def files_from_menu(self, paths: list[str], into: str = "wheel"):
         target = self.pending if into == "wheel" else self.pending_open
@@ -1212,7 +1282,16 @@ class Controller(QObject):
     def apply_theme(self, wheel_only: bool = False):
         self.theme = self._make_theme()
         if not wheel_only:
-            self.app.setStyleSheet(self._css())  # restyles every window: only when it changes
+            # restyles every window: only when it changes, and drawn once at the end instead of widget by widget
+            shown = [w for w in self.app.topLevelWidgets() if w.isVisible()]
+            for w in shown:
+                w.setUpdatesEnabled(False)
+            try:
+                self.app.setStyleSheet(self._css())
+            finally:
+                for w in shown:
+                    if _alive(w):
+                        w.setUpdatesEnabled(True)
         self.wheel.theme = self.theme
         if not wheel_only:
             self._color_menu_icons()
@@ -1918,7 +1997,7 @@ def stop_old_copy():
     if sys.platform != "win32" or not getattr(sys, "frozen", False):
         return
     try:
-        subprocess.run(["taskkill", "/f", "/im", f"{LEGACY_NAME}.exe"], capture_output=True, timeout=10,
+        subprocess.run([system_tool("taskkill.exe"), "/f", "/im", f"{LEGACY_NAME}.exe"], capture_output=True, timeout=10,
                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     except (OSError, subprocess.SubprocessError):
         pass

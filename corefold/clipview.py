@@ -10,10 +10,10 @@ from PySide6.QtCore import QEvent, QPoint, QRect, QSize, Qt, QTimer, QUrl, Signa
 from PySide6.QtGui import QColor, QCursor, QDesktopServices, QFont, QFontMetrics, QGuiApplication, QKeySequence, \
     QPainter, QPainterPath, QPixmap, QShortcut
 from PySide6.QtWidgets import QAbstractItemView, QApplication, QButtonGroup, QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget, \
-    QListWidgetItem, QMenu, QMessageBox, QPushButton, QStyle, QStyledItemDelegate, QVBoxLayout, QWidget
+    QFileDialog, QListWidgetItem, QMenu, QMessageBox, QPushButton, QStyle, QStyledItemDelegate, QVBoxLayout, QWidget
 
 from . import i18n, icons
-from .clipboard import HOTKEY_NAMES, Item
+from .clipboard import CHANGES, HOTKEY_NAMES, Item, change_text, text_item
 from .i18n import ltr, tr
 from .theme import round_menu
 from .timefmt import time_ago
@@ -151,10 +151,12 @@ class ClipList(QListWidget):
     used = Signal(object, bool)   # item, as plain text
     removed = Signal(object)
     pinned = Signal(object, bool)
+    text_used = Signal(str)       # edited or changed text, to paste (or copy) instead of the item
 
-    def __init__(self, clip: "Clipboard", theme, tall: int, click_uses: bool):
+    def __init__(self, clip: "Clipboard", theme, tall: int, click_uses: bool, controller=None):
         super().__init__()
         self.clip = clip
+        self.controller = controller
         self.setObjectName("clips")
         self.rows = Rows(clip, theme, self, tall)
         self.setItemDelegate(self.rows)
@@ -162,12 +164,12 @@ class ClipList(QListWidget):
         self.setMouseTracking(True)
         self.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.setSelectionMode(QAbstractItemView.ExtendedSelection)  # Ctrl+click: several, pasted together
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self._menu)
         self.click_uses = click_uses
         if click_uses:
-            self.itemClicked.connect(lambda it: self.used.emit(it.data(Qt.UserRole), False))
+            self.itemClicked.connect(self._clicked)
         self.itemActivated.connect(lambda it: self.used.emit(it.data(Qt.UserRole), False))
         self.menu_open = False
 
@@ -186,6 +188,19 @@ class ClipList(QListWidget):
             self.setCurrentRow(want)
         self.setUpdatesEnabled(True)
 
+    def _clicked(self, it):
+        from PySide6.QtGui import QGuiApplication
+        if QGuiApplication.keyboardModifiers() & (Qt.ControlModifier | Qt.ShiftModifier):
+            return  # picking several
+        self.used.emit(it.data(Qt.UserRole), False)
+
+    def picked_texts(self) -> list[Item]:
+        """The texts picked with Ctrl+click, in the order they were picked."""
+        return [it.data(Qt.UserRole) for it in self.selectedItems() if it.data(Qt.UserRole).kind in ("text", "link")]
+
+    def _use_together(self, items: list[Item]):
+        self.text_used.emit("\n".join(self._full_text(i).rstrip("\r\n") for i in items))
+
     def current(self) -> Item | None:
         it = self.currentItem()
         return it.data(Qt.UserRole) if it is not None else None
@@ -194,7 +209,11 @@ class ClipList(QListWidget):
         item = self.current()
         if item is not None:
             if e.key() in (Qt.Key_Return, Qt.Key_Enter):
-                self.used.emit(item, bool(e.modifiers() & Qt.ShiftModifier))
+                several = self.picked_texts()
+                if len(several) > 1:
+                    self._use_together(several)
+                else:
+                    self.used.emit(item, bool(e.modifiers() & Qt.ShiftModifier))
                 return
             if e.key() == Qt.Key_Delete:
                 self.removed.emit(item)
@@ -211,12 +230,30 @@ class ClipList(QListWidget):
         item: Item = it.data(Qt.UserRole)
         menu = QMenu(self)
         round_menu(menu)
+        several = self.picked_texts() if it.isSelected() else []
+        if len(several) > 1:
+            menu.addAction(tr("Paste these together ({count})", count=len(several)) if self.click_uses else
+                           tr("Copy these together ({count})", count=len(several)),
+                           lambda: self._use_together(several))
+            menu.addSeparator()
         menu.addAction(tr("Paste") if self.click_uses else tr("Copy"), lambda: self.used.emit(item, False))
         if item.kind in ("text", "link") and item.html:
             menu.addAction(tr("Paste as plain text") if self.click_uses else tr("Copy as plain text"),
                            lambda: self.used.emit(item, True))
+        if item.kind in ("text", "link"):
+            menu.addAction(tr("Edit, then paste…") if self.click_uses else tr("Edit, then copy…"),
+                           lambda: self._edit(item))
+            change = menu.addMenu(tr("Change it"))
+            round_menu(change)
+            for how, name in CHANGES:
+                change.addAction(tr(name), lambda h=how: self._change(item, h))
+            if item.pinned:
+                menu.addAction(tr("Change the saved text…"), lambda: self._resave(item))
         if item.kind == "link":
             menu.addAction(tr("Open the link"), lambda: QDesktopServices.openUrl(QUrl(_web(item.text))))
+        if item.kind == "image":
+            menu.addAction(tr("Copy the text in it"), lambda: self._read_text(item))
+            menu.addAction(tr("Save as…"), lambda: self._save_picture(item))
         if item.kind == "files":
             from pathlib import Path
 
@@ -230,6 +267,62 @@ class ClipList(QListWidget):
             menu.exec(self.viewport().mapToGlobal(pos))
         finally:
             self.menu_open = False
+
+
+    def _full_text(self, item: Item) -> str:
+        if item.partial and item.id:
+            try:
+                return (self.clip.history.get(item.id) or item).text
+            except Exception:
+                pass
+        return item.text
+
+    def _edit(self, item: Item):
+        text = edit_text(self, self._full_text(item), tr("Paste") if self.click_uses else tr("Copy"))
+        if text is not None and text.strip():
+            self.text_used.emit(text)
+
+    def _resave(self, item: Item):
+        text = edit_text(self, self._full_text(item), tr("Save"), tr("Change the saved text…").rstrip("…"))
+        if text is not None and text.strip():
+            self.clip.save_text(text, instead_of=item)
+
+    def _change(self, item: Item, how: str):
+        self.text_used.emit(change_text(self._full_text(item), how))
+
+    def _read_text(self, item: Item):
+        """Windows' own text reading, like Capture's "Copy text"."""
+        from .converters import catalog
+        path = self.clip.history.image_path(item)
+        tool = next((t for kind in catalog().values() for t in kind if t.key.endswith(":ocr")), None)
+        c = self.controller
+        if tool is None or c is None:
+            QMessageBox.information(self, tr("Copy the text in it"), tr("Reading text needs Windows 10 or 11"))
+            return
+        if not path.exists():
+            QMessageBox.information(self, tr("Copy the text in it"), tr("This picture isn't there any more."))
+            return
+        import shutil
+        import tempfile
+        from pathlib import Path
+        copy = Path(tempfile.mkdtemp(prefix="corefold-clip-")) / "picture.png"
+        shutil.copy2(path, copy)
+        c.start_job(tool, [copy])
+
+    def _save_picture(self, item: Item):
+        import shutil
+        from pathlib import Path
+
+        from .capture import new_name, screenshots_folder
+        path = self.clip.history.image_path(item)
+        start = new_name(screenshots_folder().parent, ".png", "Copied picture")
+        name, _ = QFileDialog.getSaveFileName(self, tr("Save as"), str(start), "PNG (*.png)")
+        if not name:
+            return
+        try:
+            shutil.copy2(path, Path(name))
+        except OSError as e:
+            QMessageBox.warning(self, tr("Couldn't save"), str(e))
 
 
 def _web(text: str) -> str:
@@ -277,10 +370,11 @@ class QuickPaste(QWidget):
         self.paused.setCursor(Qt.PointingHandCursor)
         self.paused.clicked.connect(self._resume)
         lay.addWidget(self.paused)
-        self.list = ClipList(clip, controller.theme, 54, click_uses=True)
+        self.list = ClipList(clip, controller.theme, 54, click_uses=True, controller=controller)
         self.list.used.connect(self.use)
         self.list.removed.connect(self._remove)
         self.list.pinned.connect(self._pin)
+        self.list.text_used.connect(lambda text: self.use(text_item(text)))
         lay.addWidget(self.list, 1)
         self.empty = QLabel()
         self.empty.setObjectName("muted")
@@ -470,6 +564,30 @@ def _from_native(x: int, y: int) -> QPoint | None:
     return None
 
 
+def edit_text(parent, text: str, ok_text: str, title: str = "") -> str | None:
+    """A small box to change copied text before it's used. None if cancelled."""
+    from PySide6.QtWidgets import QDialog, QDialogButtonBox, QPlainTextEdit
+    d = QDialog(parent)
+    d.setWindowTitle(title or (tr("Edit, then paste…").rstrip("…") if ok_text == tr("Paste") else
+                               tr("Edit, then copy…").rstrip("…")))
+    d.setWindowFlag(Qt.WindowStaysOnTopHint)
+    d.resize(460, 300)
+    lay = QVBoxLayout(d)
+    box = QPlainTextEdit(text)
+    box.selectAll()
+    lay.addWidget(box, 1)
+    buttons = QDialogButtonBox()
+    ok = buttons.addButton(ok_text, QDialogButtonBox.AcceptRole)
+    ok.setObjectName("primary")
+    buttons.addButton(tr("Cancel"), QDialogButtonBox.RejectRole)
+    buttons.accepted.connect(d.accept)
+    buttons.rejected.connect(d.reject)
+    lay.addWidget(buttons)
+    QShortcut(QKeySequence("Ctrl+Return"), d).activated.connect(d.accept)
+    box.setFocus()
+    return box.toPlainText() if d.exec() == QDialog.Accepted else None
+
+
 def _bring_to_front(hwnd: int):
     if os.name != "nt":
         return
@@ -528,11 +646,12 @@ class ClipboardPage(QWidget):
         self.empty.setMinimumHeight(80)  # (the smallest window still has room for the buttons below)
         lay.addWidget(self.empty, 1)
         if self.clip is not None:
-            self.list = ClipList(self.clip, controller.theme, 60, click_uses=False)
+            self.list = ClipList(self.clip, controller.theme, 60, click_uses=False, controller=controller)
             self.list.setObjectName("clipsPage")
             self.list.used.connect(self._copy)
             self.list.removed.connect(lambda item: self.clip.delete(item))
             self.list.pinned.connect(lambda item, on: self.clip.pin(item, on))
+            self.list.text_used.connect(lambda text: self._copy(text_item(text), True))
             lay.addWidget(self.list, 1)
             self.clip.changed.connect(self._changed)
         foot = QHBoxLayout()
@@ -540,6 +659,13 @@ class ClipboardPage(QWidget):
         self.count.setObjectName("muted")
         foot.addWidget(self.count)
         foot.addStretch()
+        self.save_btn = QPushButton(tr("Save a text…"))
+        self.save_btn.setCursor(Qt.PointingHandCursor)
+        self.save_btn.setToolTip(tr("Keep a text you use often (an address, a reply) pinned at the top, "
+                                    "ready to paste"))
+        self.save_btn.clicked.connect(self._new_text)
+        self.save_btn.setVisible(self.clip is not None)
+        foot.addWidget(self.save_btn)
         self.pause_btn = QPushButton()
         self.pause_btn.setCursor(Qt.PointingHandCursor)
         self.pause_btn.clicked.connect(lambda: self.c.set_clipboard_paused(not self.c.settings.clip_paused))
@@ -594,6 +720,12 @@ class ClipboardPage(QWidget):
     def _copy(self, item: Item, plain: bool):
         if self.clip.copy(item, plain):
             self.c.say(tr("Copied"), tr("Paste it anywhere with Ctrl+V."))
+
+    def _new_text(self):
+        text = edit_text(self, "", tr("Save"), tr("Save a text…").rstrip("…"))
+        if text is not None and text.strip():
+            self.clip.save_text(text)
+            self.c.say(tr("Saved"), tr("It's pinned at the top of your clipboard."))
 
     def _clear(self):
         box = QMessageBox(self)

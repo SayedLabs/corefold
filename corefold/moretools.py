@@ -476,6 +476,37 @@ def undo_rename(done: list[tuple[Path, Path]]) -> int:
     return back
 
 
+# ----------------------------------------------------------------------------- fingerprints
+
+def check_files_only(files: list[Path]) -> str | None:
+    return tr("Pick files, not folders") if any(f.is_dir() for f in files) else None
+
+
+def file_hash(files: list[Path], ctx: Ctx) -> Result:
+    """Each file's SHA-256 (the "checksum" download pages show), copied, to check a download is the
+    real one and not damaged."""
+    import hashlib
+    files = [f for f in files if f.is_file()]
+    if not files:
+        raise RuntimeError(tr("Pick files, not folders"))
+    total = sum(f.stat().st_size for f in files) or 1
+    done = 0
+    lines = []
+    for f in files:
+        h = hashlib.sha256()
+        with open(f, "rb") as fh:
+            while chunk := fh.read(4 * MB):
+                ctx.check()
+                h.update(chunk)
+                done += len(chunk)
+                ctx.progress(done / total)
+        lines.append((f.name, h.hexdigest()))
+    text = lines[0][1] if len(lines) == 1 else "\n".join(f"{d}  {n}" for n, d in lines)
+    shown = lines[0][1][:16] + "…" if len(lines) == 1 else tr("{count} files", count=len(lines))
+    return Result(clipboard=text, note=tr("SHA-256 copied: {text}. Paste it next to the one on the download page to "
+                                          "compare.", text=shown))
+
+
 def check_pictures_folder(files: list[Path]) -> str | None:
     return None if all(f.is_dir() for f in files) else tr("Drop a folder for this")
 

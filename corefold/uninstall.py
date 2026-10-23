@@ -26,7 +26,7 @@ import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from .core import LEGACY_NAME, is_link  # noqa: F401 (is_link is used here and by the selftest)
+from .core import LEGACY_NAME, is_link, system_tool  # noqa: F401 (is_link is used here and by the selftest)
 
 log = logging.getLogger(__name__)
 
@@ -290,10 +290,17 @@ Get-AppxPackage | Where-Object { -not $_.IsFramework -and -not $_.NonRemovable -
 """
 
 
-def powershell(script: str, timeout: float = 90) -> str:
-    r = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-                        "-Command", script], capture_output=True, timeout=timeout, creationflags=NO_WINDOW)
+def powershell(script: str, timeout: float = 90, env: dict | None = None) -> str:
+    """Runs a PowerShell script. Anything that comes from outside (an app's name...) goes in through env
+    ($env:NAME), never into the script's text, where a quote in it could end the string."""
+    r = subprocess.run([system_tool("powershell.exe"), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+                        "-Command", script], capture_output=True, timeout=timeout, creationflags=NO_WINDOW,
+                       env=dict(os.environ, **env) if env else None)
     return r.stdout.decode("utf-8", "replace").strip()
+
+
+# a Store app's PackageFullName ("Name_1.2.3.0_x64__publisherid"): nothing that could end a quoted string
+_PACKAGE_NAME = re.compile(r"^[A-Za-z0-9.\-_~]{3,200}$")
 
 
 def store_apps() -> list[App]:
@@ -472,20 +479,31 @@ def fill_sizes(apps: list[App], cancel: threading.Event | None = None, on_size=N
 
 
 def folder_size(path: Path, limit_s: float = 5) -> int:
+    """The size of everything in a folder. Windows gives each file's size with the folder's listing, so
+    no file is asked about on its own (that kept Python busy enough to slow the window down)."""
     total, start = 0, time.monotonic()
     try:
         if path.is_file():
             return path.stat().st_size
-        for root, dirs, files in os.walk(path):
-            for f in files:
-                try:
-                    total += os.lstat(os.path.join(root, f)).st_size
-                except OSError:
-                    pass
-            if time.monotonic() - start > limit_s:
-                break
     except OSError:
-        pass
+        return 0
+    waiting = [str(path)]
+    while waiting:
+        try:
+            with os.scandir(waiting.pop()) as it:
+                for e in it:
+                    try:
+                        if e.is_dir(follow_symlinks=False):
+                            if not e.is_symlink() and not (hasattr(e, "is_junction") and e.is_junction()):
+                                waiting.append(e.path)
+                        else:
+                            total += e.stat(follow_symlinks=False).st_size
+                    except OSError:
+                        pass
+        except OSError:
+            pass
+        if time.monotonic() - start > limit_s:
+            break
     return total
 
 
@@ -585,8 +603,8 @@ def wait_process(handle, cancel: threading.Event | None = None, timeout_s: float
 def still_installed(app: App) -> bool:
     if app.store:
         try:
-            out = powershell(f"if (Get-AppxPackage | Where-Object PackageFullName -eq '{app.store}') {{ 'yes' }}",
-                             timeout=30)
+            out = powershell("if (Get-AppxPackage | Where-Object PackageFullName -eq $env:CF_PACKAGE) { 'yes' }",
+                             timeout=30, env={"CF_PACKAGE": app.store})
             return out.strip() == "yes"
         except Exception:
             return True  # couldn't check: treat it as still installed, so nothing of it is touched
@@ -719,13 +737,16 @@ def _wait_entry(app: App, control: Control, tell, max_s: float = 30 * 60) -> Out
 
 def _run_store(app: App, control: Control, tell) -> Outcome | None:
     tell("working")
+    if not _PACKAGE_NAME.match(app.store):
+        return Outcome("store_failed", error=app.store)
     script = ("[Console]::OutputEncoding = [Text.Encoding]::UTF8; "
-              f"try {{ Remove-AppxPackage -Package '{app.store}' -ErrorAction Stop }} "
+              "try { Remove-AppxPackage -Package $env:CF_PACKAGE -ErrorAction Stop } "
               "catch { [Console]::Out.Write($_.Exception.Message); exit 1 }")
     import tempfile
     with tempfile.TemporaryFile() as out:
-        p = subprocess.Popen(["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-                              "-Command", script], stdout=out, stderr=subprocess.DEVNULL, creationflags=NO_WINDOW)
+        p = subprocess.Popen([system_tool("powershell.exe"), "-NoProfile", "-NonInteractive", "-ExecutionPolicy",
+                              "Bypass", "-Command", script], stdout=out, stderr=subprocess.DEVNULL,
+                             creationflags=NO_WINDOW, env=dict(os.environ, CF_PACKAGE=app.store))
         while p.poll() is None:
             if control.cancel.is_set():
                 return None
@@ -1076,6 +1097,117 @@ def _inside(child: str, parent: str) -> bool:
     c = os.path.normcase(os.path.normpath(child)).rstrip("\\/")
     p = os.path.normcase(os.path.normpath(parent)).rstrip("\\/")
     return c == p or c.startswith(p + os.sep)
+
+
+def app_at(path, apps: list[App]) -> App | None:
+    """The installed program a folder (or a file) belongs to, from where the programs say they're
+    installed. None for shared places (Program Files itself, Windows…)."""
+    best, best_len = None, -1
+    for app in apps:
+        loc = (app.location or "").strip()
+        if not loc or app.store or not _safe_folder(loc) or not _inside(str(path), loc):
+            continue
+        if len(loc) > best_len:  # (the most precise one: "Foo\\Bar" before "Foo")
+            best, best_len = app, len(loc)
+    return best
+
+
+def app_for_shortcut(path: Path, apps: list[App]) -> App | None:
+    """The installed program a shortcut (or a program file) opens: from the folder it's installed in,
+    or else from the folder its icon or its uninstaller is in."""
+    target = lnk_target(path) if path.suffix.lower() == ".lnk" else str(path)
+    if not target:
+        return None
+    found = app_at(target, apps)
+    if found is not None:
+        return found
+    folder = os.path.dirname(target)
+    if not _safe_folder(folder):
+        return None
+    for app in apps:
+        if app.store:
+            continue
+        for exe in (app.icon.split(",")[0].strip().strip('"'), split_command(app.uninstall)[0]):
+            if exe and os.path.isabs(exe) and _inside(os.path.dirname(exe), folder) and \
+                    _inside(folder, os.path.dirname(exe)):
+                return app
+    return None
+
+
+def app_for_program(exe: str, apps: list[App]) -> App | None:
+    """The installed program (a Store app too) a running program file belongs to."""
+    if not exe:
+        return None
+    for app in apps:  # Store apps run from their own folder under WindowsApps
+        if app.store and app.location and _inside(exe, app.location):
+            return app
+    return app_for_shortcut(Path(exe), apps)
+
+
+def program_at_point(x: int, y: int) -> str:
+    """The program file of the window at this point of the screen (in Windows' pixels), or ""."""
+    if os.name != "nt":
+        return ""
+    from ctypes import wintypes as wt
+    u, k = ctypes.windll.user32, ctypes.windll.kernel32
+    u.WindowFromPoint.restype = wt.HWND
+    u.WindowFromPoint.argtypes = [wt.POINT]
+    u.GetAncestor.restype = wt.HWND
+    u.GetAncestor.argtypes = [wt.HWND, wt.UINT]
+    k.OpenProcess.restype = wt.HANDLE
+    hwnd = u.WindowFromPoint(wt.POINT(x, y))
+    if not hwnd:
+        return ""
+    hwnd = u.GetAncestor(hwnd, 2) or hwnd  # GA_ROOT: the window itself, not a button in it
+
+    def pid_of(h) -> int:
+        pid = wt.DWORD()
+        u.GetWindowThreadProcessId(wt.HWND(h), ctypes.byref(pid))
+        return pid.value
+
+    def path_of(pid: int) -> str:
+        h = k.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return ""
+        try:
+            buf = ctypes.create_unicode_buffer(1024)
+            size = wt.DWORD(1024)
+            return buf.value if k.QueryFullProcessImageNameW(wt.HANDLE(h), 0, buf, ctypes.byref(size)) else ""
+        finally:
+            k.CloseHandle(wt.HANDLE(h))
+    host = pid_of(hwnd)
+    exe = path_of(host)
+    if exe.lower().endswith("\\applicationframehost.exe"):  # a Store app's frame: the app is a window inside it
+        found = []
+        callback = ctypes.WINFUNCTYPE(wt.BOOL, wt.HWND, wt.LPARAM)
+
+        def each(child, _l):
+            pid = pid_of(child)
+            if pid != host:
+                found.append(pid)
+                return False
+            return True
+        u.EnumChildWindows(wt.HWND(hwnd), callback(each), 0)
+        exe = path_of(found[0]) if found else ""
+    return exe
+
+
+# Windows' own extra apps, often never opened, that are safe to remove (and can be put back from the
+# Microsoft Store). Matched by the start of their package family name.
+WINDOWS_EXTRAS = (
+    "microsoft.bingnews", "microsoft.bingweather", "microsoft.bingsports", "microsoft.bingfinance",
+    "microsoft.bingsearch", "microsoft.microsoftsolitairecollection", "clipchamp.clipchamp", "microsoft.getstarted",
+    "microsoft.gethelp", "microsoft.people", "microsoft.windowsfeedbackhub", "microsoft.microsoftofficehub",
+    "microsoft.todos", "microsoft.powerautomatedesktop", "microsoft.windowsmaps", "microsoft.mixedreality.portal",
+    "microsoft.skypeapp", "microsoft.549981c3f5f10", "microsoft.messaging", "microsoft.oneconnect",
+    "microsoft.microsoft3dviewer", "microsoft.print3d", "microsoft.zunevideo", "microsoft.windows.devhome",
+    "microsoftcorporationii.microsoftfamily", "microsoft.windowscommunicationsapps", "king.com.",
+)
+
+
+def is_windows_extra(app: App) -> bool:
+    fam = (app.family or app.store or "").lower()
+    return bool(fam) and fam.startswith(WINDOWS_EXTRAS)
 
 
 def _match(name: str, keys: set[str]) -> str:
@@ -1431,7 +1563,8 @@ def scheduled_tasks() -> list[tuple[str, str]]:
     import csv
     import io
     try:
-        r = subprocess.run(["schtasks.exe", "/Query", "/FO", "CSV", "/V", "/NH"], capture_output=True, timeout=60,
+        r = subprocess.run([system_tool("schtasks.exe"), "/Query", "/FO", "CSV", "/V", "/NH"], capture_output=True,
+                           timeout=60,
                            creationflags=NO_WINDOW)
     except (OSError, subprocess.TimeoutExpired):
         return []
@@ -1471,7 +1604,8 @@ def _reg_root_name(path: str) -> str:
 
 def _reg_exe(*args: str, timeout: float = 60) -> bool:
     try:
-        r = subprocess.run(["reg.exe", *args], capture_output=True, timeout=timeout, creationflags=NO_WINDOW)
+        r = subprocess.run([system_tool("reg.exe"), *args], capture_output=True, timeout=timeout,
+                           creationflags=NO_WINDOW)
         return r.returncode == 0
     except (OSError, subprocess.TimeoutExpired):
         return False
@@ -1570,13 +1704,17 @@ def _registry_ok(path: str, kind: str) -> bool:
 
 def _reg_file_ok(reg_file: Path, item: dict) -> bool:
     """Every key a backed-up .reg file would write is the item's own key (or inside it)."""
+    # Only what reg.exe export and value_to_reg write: UTF-16 starting with its byte order mark. A file
+    # without it could read one way here and another way to reg.exe (which takes plain text files too).
     try:
-        text = reg_file.read_text("utf-16")
-    except (OSError, UnicodeError):
-        try:
-            text = reg_file.read_text("utf-8-sig")
-        except (OSError, UnicodeError):
+        raw = reg_file.read_bytes()
+        if not raw.startswith(b"\xff\xfe"):
             return False
+        text = raw[2:].decode("utf-16-le")
+    except (OSError, UnicodeError):
+        return False
+    if not text.lstrip().startswith("Windows Registry Editor Version 5.00"):
+        return False
     want = _reg_root_name(str(item.get("path", ""))).lower()
     # a 32-bit key is exported with its real place, under WOW6432Node
     wants = {want, want.replace("\\software\\", "\\software\\wow6432node\\", 1)}
@@ -1596,9 +1734,21 @@ def item_allowed(item: dict) -> bool:
     if kind in ("key", "value", "service"):
         return _registry_ok(path, kind) and (kind != "value" or bool(item.get("value")))
     if kind == "task":
-        return path.startswith("\\") and not path.lower().startswith("\\microsoft\\") and '"' not in path \
-            and len(path) < 400
+        return _task_name_ok(path)
     return False
+
+
+def _task_name_ok(name: str) -> bool:
+    """A scheduled task's full name, like "\\Acme\\Updater", and never one of Windows' own (under Microsoft).
+    Only plain names are taken (no empty parts, no "..", no spaces or dots at the ends of a part), so no
+    other spelling can reach a task under Microsoft."""
+    if not name.startswith("\\") or len(name) >= 400 or any(c in name for c in '"/:*?<>|') or \
+            not all(c.isprintable() for c in name):
+        return False
+    parts = name[1:].split("\\")
+    if any(not p or p != p.strip(" .") for p in parts):
+        return False
+    return parts[0].lower() != "microsoft"
 
 
 def _service_ok(path: str) -> bool:
@@ -1606,6 +1756,45 @@ def _service_ok(path: str) -> bool:
     name = path.rsplit("\\", 1)[-1]
     exe_path = _service_program(name)
     return bool(exe_path) and not _windows_program(exe_path)
+
+
+def through_link(path) -> bool:
+    """One of the folders on the way to this path is a link or junction (the path itself is checked by
+    item_allowed). The helper running as administrator never follows one: another account could have
+    made it, pointing at a place only administrators may change."""
+    p = Path(os.path.abspath(str(path)))
+    for parent in list(p.parents)[:-1]:  # (not the drive itself)
+        if is_link(parent):
+            return True
+    return False
+
+
+def reset_permissions(path: Path):
+    """After moving something out of Program Files as administrator: its files take the backup folder's
+    permissions, so the person can delete the backup later. icacls /T goes through junctions inside, even
+    with /L (securitytest.py shows it), and would reset the permissions of whatever one points at (any
+    account can make one in C:\\ProgramData); so with any link inside, each real file and folder is done on
+    its own."""
+    icacls = system_tool("icacls.exe")
+
+    def run(*args: str):
+        subprocess.run([icacls, *args, "/C", "/L", "/Q"], capture_output=True, creationflags=NO_WINDOW, timeout=300)
+
+    links, plain = False, [str(path)]
+    if path.is_dir() and not is_link(path):
+        for root, folders, files in os.walk(path):
+            for name in folders + files:
+                full = os.path.join(root, name)
+                if is_link(full):
+                    links = True
+                else:
+                    plain.append(full)
+            folders[:] = [d for d in folders if not is_link(os.path.join(root, d))]
+    if not links:
+        run(str(path), "/reset", "/T")
+        return
+    for p in plain:
+        run(p, "/reset")
 
 
 def _move(src: Path, dest: Path):
@@ -1737,6 +1926,10 @@ def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, a
                 if not src.exists():
                     done.append(record)
                     continue
+                if admin and through_link(src):
+                    # someone else may have made a folder on the way a link (C:\ProgramData is shared by
+                    # every account): as administrator it would move whatever the link points to
+                    raise PermissionError("the way to it goes through a link")
                 if item.kind == "folder" and not _safe_folder(item.path):
                     raise PermissionError("protected folder")
                 if not _same_drive(src, folder):
@@ -1769,8 +1962,7 @@ def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, a
                         record["left"] = len(left)
                         failed.append(asdict(item))
                 if admin:  # moved out of Program Files: let the user delete the backup later
-                    subprocess.run(["icacls", str(dest), "/reset", "/T", "/C", "/L", "/Q"], capture_output=True,
-                                   creationflags=NO_WINDOW, timeout=300)
+                    reset_permissions(dest)
                 record["stored"] = str(dest.relative_to(folder))
                 freed += item.size
                 _remove_empty_parent(src.parent)
@@ -1841,7 +2033,8 @@ def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, a
 def _run(*args: str, raw: bool = False, timeout: float = 60):
     """A Windows command's output ("" or b"" if it failed)."""
     try:
-        r = subprocess.run(list(args), capture_output=True, timeout=timeout, creationflags=NO_WINDOW)
+        r = subprocess.run([system_tool(args[0]), *args[1:]], capture_output=True, timeout=timeout,
+                           creationflags=NO_WINDOW)
     except (OSError, subprocess.TimeoutExpired):
         return b"" if raw else ""
     if raw:
@@ -1851,7 +2044,7 @@ def _run(*args: str, raw: bool = False, timeout: float = 60):
 
 def _run_ok(*args: str, timeout: float = 60) -> bool:
     try:
-        return subprocess.run(list(args), capture_output=True, timeout=timeout,
+        return subprocess.run([system_tool(args[0]), *args[1:]], capture_output=True, timeout=timeout,
                               creationflags=NO_WINDOW).returncode == 0
     except (OSError, subprocess.TimeoutExpired):
         return False
@@ -1890,7 +2083,7 @@ def backup_size(folder: Path) -> int:
     return folder_size(folder / "files", limit_s=2)
 
 
-def restore(folder: Path) -> dict:
+def restore(folder: Path, admin: bool = False) -> dict:
     """Puts everything in a backup back where it was. Returns {"done": n, "failed": [items]}."""
     data = _manifest(folder)
     left, done, recycled = [], 0, 0
@@ -1904,6 +2097,8 @@ def restore(folder: Path) -> dict:
                 raise PermissionError("not something Corefold backed up")
             if item["kind"] in ("folder", "file", "shortcut"):
                 target = Path(item["path"])
+                if admin and through_link(target):
+                    raise PermissionError("the way to it goes through a link")
                 if not stored.exists():
                     continue
                 if target.exists():
@@ -1971,8 +2166,9 @@ def run_elevated(command: list[str], kind: str, payload: dict, cancel: threading
 
 
 def helper_main(argv: list[str]) -> int:
-    """What the elevated copy does: --cleanup plan.json, --restore plan.json or --restore-point plan.json."""
-    kind = next((a[2:] for a in argv if a in ("--cleanup", "--restore", "--restore-point")), "")
+    """What the elevated copy does: --cleanup plan.json, --restore plan.json, --restore-point plan.json or
+    --space-clean plan.json."""
+    kind = next((a[2:] for a in argv if a in ("--cleanup", "--restore", "--restore-point", "--space-clean")), "")
     try:
         plan = Path(argv[argv.index("--" + kind) + 1])
         payload = json.loads(plan.read_text("utf-8"))
@@ -1983,21 +2179,26 @@ def helper_main(argv: list[str]) -> int:
     # account at the admin prompt, this copy runs as that account, with other folders.
     folder = str(payload.get("folder", "")) if isinstance(payload, dict) else ""
     home = plan.resolve().parent.parent  # ...\Corefold
+    needs_folder = kind not in ("restore-point", "space-clean")
     if plan.resolve().parent.name.lower() != "helper" or home.name.lower() not in ("corefold", LEGACY_NAME.lower()) or \
-            (kind != "restore-point" and not (folder and _inside(str(Path(folder).resolve()),
-                                                                  str(home / BACKUP_DIR.name)))):
+            (needs_folder and not (folder and _inside(str(Path(folder).resolve()), str(home / BACKUP_DIR.name)))):
         return 2
     try:
         if kind == "cleanup":
             out = remove(items_from(payload["items"]), Path(payload["folder"]), payload.get("apps"), admin=True,
                          close_running=bool(payload.get("close")))
+        elif kind == "space-clean":  # Windows' own leftovers, by name only (see space.ADMIN_KEYS)
+            from .space import ADMIN_KEYS, clean_as_admin
+            keys = [k for k in payload.get("keys", []) if k in ADMIN_KEYS]
+            out = {"freed": clean_as_admin(keys)}
         elif kind == "restore":
-            r = restore(Path(payload["folder"]))
+            r = restore(Path(payload["folder"]), admin=True)
             out = {"done": r["done"], "failed": r["failed"]}
         else:
-            desc = str(payload.get("description", "Corefold"))[:60].replace("'", "")
-            powershell(f"Checkpoint-Computer -Description '{desc}' -RestorePointType APPLICATION_UNINSTALL",
-                       timeout=600)
+            # (an app's name is in it: it goes in through env, so no quote in a name can end the string)
+            desc = "".join(c for c in str(payload.get("description", "Corefold"))[:60] if c.isprintable())
+            powershell("Checkpoint-Computer -Description $env:CF_DESCRIPTION -RestorePointType APPLICATION_UNINSTALL",
+                       timeout=600, env={"CF_DESCRIPTION": desc or "Corefold"})
             out = {"done": 1}
     except Exception as e:
         out = {"error": str(e)}
