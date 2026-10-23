@@ -2013,7 +2013,7 @@ class MainWindow(QWidget):
         grid.addWidget(self.unused_months, 0, 1)
         grid.addWidget(label(tr("Keep backups of removed leftovers for")), 1, 0)
         grid.addWidget(self.backup_days, 1, 1)
-        self.uninstall_depth = QComboBox()
+        self.uninstall_depth = Dropdown()
         for key, text in UNINSTALL_DEPTHS.items():
             self.uninstall_depth.addItem(tr(text), key)
         self.uninstall_depth.setCurrentIndex(max(0, self.uninstall_depth.findData(s.uninstall_depth)))

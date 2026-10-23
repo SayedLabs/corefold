@@ -644,7 +644,7 @@ class UninstallDialog(QDialog):
                                "Everything removed is kept as a backup."), "muted", wrap=True))
         depth_row = QHBoxLayout()
         depth_row.addWidget(_label(tr("How deep to clean up:")))
-        self.depth = QComboBox()
+        self.depth = Dropdown()
         for key, text in un.DEPTHS.items():
             self.depth.addItem(tr(text), key)
         self.depth.setCurrentIndex(max(0, self.depth.findData(_depth(controller))))
