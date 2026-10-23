@@ -107,6 +107,7 @@ CAP_AFTER = {"edit": "Open it to mark it up", "copy": "Only copy it"}
 CAP_FPS = {30: "30 frames a second", 60: "60 frames a second (smoother, bigger files)"}
 PLAYER_SKIP = {5: "5 seconds", 10: "10 seconds", 30: "30 seconds"}
 PLAYER_WHEEL = {"volume": "Changes the volume", "seek": "Goes back and forward"}
+QUICK_SEARCH_ENGINES = {"duckduckgo": "DuckDuckGo", "google": "Google", "bing": "Bing"}  # (names, not translated)
 CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_style": HOVER_STYLES,
            "slice_colors": SLICE_COLORS, "text_size": TEXT_SIZES, "wheel_position": WHEEL_POSITIONS,
            "wheel_size": WHEEL_SIZES, "sound": SOUNDS, "language": LANGUAGES, "menu_style": MENU_STYLES,
@@ -115,7 +116,8 @@ CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_styl
            "backup_days": BACKUP_DAYS, "extract_mode": EXTRACT_MODES, "viewer_wheel": VIEWER_WHEEL,
            "slideshow_seconds": SLIDESHOW_SECONDS, "clip_shortcut": CLIP_SHORTCUTS, "clip_max": CLIP_MAX,
            "clip_days": CLIP_DAYS, "cap_shortcut": CAP_SHORTCUTS, "cap_record_shortcut": CAP_RECORD_SHORTCUTS,
-           "cap_after": CAP_AFTER, "cap_fps": CAP_FPS, "player_skip": PLAYER_SKIP, "player_wheel": PLAYER_WHEEL}
+           "cap_after": CAP_AFTER, "cap_fps": CAP_FPS, "player_skip": PLAYER_SKIP, "player_wheel": PLAYER_WHEEL,
+           "quick_search_engine": QUICK_SEARCH_ENGINES}
 
 
 # Settings kept on disk while the window has changes that weren't saved yet (see window.py): the
@@ -146,10 +148,15 @@ CAPTURE_KEYS = ("cap_shortcut", "cap_record_shortcut", "cap_after", "cap_save", 
                 "cap_countdown")
 UPDATE_KEYS = ("check_updates", "auto_update")
 QUICK_KEYS = ("quick_menu", "quick_menu_key", "quick_menu_items", "quick_wheel", "quick_wheel_key",
-              "quick_wheel_items", "quick_button", "quick_links")
+              "quick_wheel_items", "quick_button", "quick_links", "quick_search_engine", "ontop_key")
 # what's on the quick menu and the wheel to begin with (see quick.py)
 QUICK_MENU_ITEMS = ["screenshot", "record", "clipboard", "paste", "again", "archive", "explorer", "taskmgr"]
 QUICK_WHEEL_ITEMS = ["screenshot", "clipboard", "paste", "again", "tool:space", "explorer", "settings", "quickmenu"]
+
+
+def hotkey_ok(combo: str) -> bool:
+    from .hotkey import normalize
+    return normalize(combo) == combo
 
 
 def editable_keys() -> list[str]:
@@ -239,6 +246,8 @@ class Settings:
     quick_button_pos: list = field(default_factory=list)  # [x, y] where it was dragged to
     quick_links: list = field(default_factory=list)  # {"id", "name", "target"}: their own apps, folders, sites
     quick_told: bool = False       # the "press … for the quick menu" tip was shown
+    quick_search_engine: str = "duckduckgo"  # the quick menu's last row: "Search the web for …"
+    ontop_key: str = "ctrl+win+t"  # keeps the window in front on top of the others ("off": no shortcut)
     # the Uninstaller
     unused_months: int = 3         # "not used for …" filter
     backup_days: int = 30          # backups of removed leftovers are kept this long
@@ -336,6 +345,9 @@ class Settings:
         s.quick_button_pos = [int(v) for v in s.quick_button_pos if type(v) is int][:2]
         if s.quick_menu_key == s.quick_wheel_key and s.quick_menu_key != "off":
             s.quick_wheel_key = defaults.quick_wheel_key if s.quick_menu_key != defaults.quick_wheel_key else "off"
+        if s.ontop_key != "off" and (not hotkey_ok(s.ontop_key)
+                                     or s.ontop_key in (s.quick_menu_key, s.quick_wheel_key)):
+            s.ontop_key = "off"
         if not s.known_tools and not s.first_run:  # from before the Store: the tools they had
             from .tools import ORIGINAL
             s.known_tools = list(ORIGINAL)

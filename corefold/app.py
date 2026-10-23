@@ -310,7 +310,7 @@ class Controller(QObject):
                            (self.act_quick, "layout")]
         self.clip = None     # Corefold Clipboard, while it's in use
         self.capture = None  # Corefold Capture, while it's in use
-        self.quick = None    # the quick menu and wheel, while one of them is switched on
+        self.quick = None    # the quick menu and wheel, while one of them (or the on-top shortcut) is on
         self.act_again = menu.addAction(tr("Do it again…"), self.do_again)
         menu.aboutToShow.connect(self._update_again_action)
         self.recent_menu = menu.addMenu(tr("Recent files"))
@@ -839,9 +839,11 @@ class Controller(QObject):
     # ---- Quick access
 
     def _quick_tool(self):
-        """The quick menu's and wheel's shortcuts are only there while one of them is switched on."""
+        """The quick menu's and wheel's shortcuts are only there while one of them is switched on. The
+        "Keep a window on top" shortcut lives there too, so it keeps quick access running (only its
+        shortcuts, nothing is built) even with the menu and the wheel switched off."""
         s = self.settings
-        on = s.quick_menu or s.quick_wheel
+        on = s.quick_menu or s.quick_wheel or s.ontop_key != "off"
         if on and self.quick is None:
             from .quick import QuickAccess
             try:
@@ -867,7 +869,7 @@ class Controller(QObject):
 
     def _quick_settings(self) -> tuple:
         s = self.settings
-        return s.quick_menu, s.quick_menu_key, s.quick_wheel, s.quick_wheel_key, s.quick_button
+        return s.quick_menu, s.quick_menu_key, s.quick_wheel, s.quick_wheel_key, s.quick_button, s.ontop_key
 
     # ---- Corefold Clipboard
 
