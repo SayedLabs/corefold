@@ -1212,7 +1212,16 @@ class Controller(QObject):
     def apply_theme(self, wheel_only: bool = False):
         self.theme = self._make_theme()
         if not wheel_only:
-            self.app.setStyleSheet(self._css())  # restyles every window: only when it changes
+            # restyles every window: only when it changes, and drawn once at the end instead of widget by widget
+            shown = [w for w in self.app.topLevelWidgets() if w.isVisible()]
+            for w in shown:
+                w.setUpdatesEnabled(False)
+            try:
+                self.app.setStyleSheet(self._css())
+            finally:
+                for w in shown:
+                    if _alive(w):
+                        w.setUpdatesEnabled(True)
         self.wheel.theme = self.theme
         if not wheel_only:
             self._color_menu_icons()

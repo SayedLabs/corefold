@@ -247,7 +247,8 @@ def _plain_jpegs(files: list[Path]) -> list[tuple[Path, int, int, int]] | None:
     return out
 
 
-def jpegs_to_pdf(photos: list[tuple[Path, int, int, int]], out: Path, resolution: int, ctx: Ctx):
+def jpegs_to_pdf(photos: list[tuple[Path, int, int, int]], out: Path, resolution: int, ctx: Ctx,
+                 inline: bool = True):
     """JPG photos go into the PDF as they are: nothing is decoded and compressed again, so it's many times
     faster and the photos keep their quality. Phone rotation is applied on the page."""
     import pypdfium2 as pdfium
@@ -257,7 +258,7 @@ def jpegs_to_pdf(photos: list[tuple[Path, int, int, int]], out: Path, resolution
         for i, (f, w, h, turn) in enumerate(photos):
             ctx.check()
             img = pdfium.PdfImage.new(pdf)
-            img.load_jpeg(str(f), inline=False)
+            img.load_jpeg(str(f), inline=inline)
             sw, sh = w * 72 / resolution, h * 72 / resolution
             m = pdfium.PdfMatrix().scale(sw, sh)
             if turn == 3:

@@ -900,6 +900,8 @@ class ViewerWindow(QWidget):
         for name, value in [("Name", path.name), ("Folder", str(path.parent))] + picture_details(path):
             key = QLabel(tr(name))
             key.setObjectName("muted")
+            if name == "Folder":  # a long path breaks after a \ (not in the middle of a name, or cut off)
+                value = value.replace("\\", "\\\u200b")
             val = QLabel(ltr(tr(value) if name == "Location" else value))
             val.setWordWrap(True)
             val.setTextInteractionFlags(Qt.TextSelectableByMouse)

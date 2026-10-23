@@ -47,6 +47,7 @@ jobs:
         if: matrix.scan != ''
         shell: pwsh
         run: |
+          if ("${{ matrix.scan }}" -eq "6") { python scripts/pdfbench.py "$env:TEMP\pdfbench" *>> out/fonts.txt }
           python scripts/scantime.py C:\Windows ${{ matrix.scan }} 90 *>> out/fonts.txt
           python scripts/scantime.py C:\Windows ${{ matrix.scan }} 90 *>> out/fonts.txt
           Get-Content out/fonts.txt

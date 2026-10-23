@@ -130,7 +130,7 @@ def _list_dir(path: str) -> tuple[list, bool]:
     return out, False
 
 
-def scan(root: Path, cancel: threading.Event | None = None, progress=None, workers: int = 6) -> Scan:
+def scan(root: Path, cancel: threading.Event | None = None, progress=None, workers: int = 16) -> Scan:
     """Looks through a folder or a whole drive. progress(files, bytes, folder) is called now and then.
     Several folders are read at once (disks answer faster that way, a lot faster when they're slow)."""
     from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait

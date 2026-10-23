@@ -4,7 +4,6 @@ Images → video and Scan to PDF.
 """
 from __future__ import annotations
 
-import asyncio
 import io
 import logging
 import math
@@ -239,6 +238,7 @@ def read_text(src: Path, ctx: Ctx) -> Result:
     with tempfile.TemporaryDirectory(prefix="corefold-", ignore_cleanup_errors=True) as tmp:
         png = Path(tmp) / "page.png"
         im.save(png)
+        import asyncio  # (only here: loading it takes a moment)
         text = asyncio.run(_windows_ocr(str(png.resolve())))
     text = text.strip()
     if not text:
