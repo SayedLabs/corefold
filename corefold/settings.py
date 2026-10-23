@@ -92,6 +92,7 @@ WINDOW_TEXT_PT = {"small": 9, "normal": 10, "large": 11.5, "huge": 13}
 SOUNDS = DONE_SOUNDS
 UNUSED_MONTHS = {3: "3 months", 6: "6 months", 12: "a year"}
 BACKUP_DAYS = {7: "a week", 30: "a month", 90: "3 months", 365: "a year"}
+UNINSTALL_DEPTHS = {"safe": "Safe", "normal": "Normal", "deep": "Deep"}  # the same as uninstall.DEPTHS
 VIEWER_WHEEL = {"zoom": "Zooms in and out", "browse": "Goes to the next or previous picture"}
 SLIDESHOW_SECONDS = {2: "2 seconds", 4: "4 seconds", 8: "8 seconds"}
 EXTRACT_MODES = {"smart": "Smart: no folder inside a folder", "folder": "Always into a new folder"}
@@ -112,7 +113,7 @@ CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_styl
            "wheel_size": WHEEL_SIZES, "sound": SOUNDS, "language": LANGUAGES, "menu_style": MENU_STYLES,
            "appearance": APPEARANCES, "shortcut": SHORTCUT_LABELS, "toast_corner": TOAST_CORNERS,
            "toast_time": TOAST_TIMES, "window_text": WINDOW_TEXT, "unused_months": UNUSED_MONTHS,
-           "backup_days": BACKUP_DAYS, "extract_mode": EXTRACT_MODES, "viewer_wheel": VIEWER_WHEEL,
+           "backup_days": BACKUP_DAYS, "uninstall_depth": UNINSTALL_DEPTHS, "extract_mode": EXTRACT_MODES, "viewer_wheel": VIEWER_WHEEL,
            "slideshow_seconds": SLIDESHOW_SECONDS, "clip_shortcut": CLIP_SHORTCUTS, "clip_max": CLIP_MAX,
            "clip_days": CLIP_DAYS, "cap_shortcut": CAP_SHORTCUTS, "cap_record_shortcut": CAP_RECORD_SHORTCUTS,
            "cap_after": CAP_AFTER, "cap_fps": CAP_FPS, "player_skip": PLAYER_SKIP, "player_wheel": PLAYER_WHEEL}
@@ -137,7 +138,7 @@ CONVERTER_KEYS = ("shortcut", "save_mode", "output_folder", "jpg_quality", "show
 WHEEL_KEYS = ("wheel_size", "wheel_style", "wheel_opacity", "label_style", "hover_style", "slice_colors", "text_size",
               "wheel_position", "per_page", "wheel_numbers")
 FORMAT_KEYS = ("hidden_tools", "favorites", "tool_order")
-UNINSTALLER_KEYS = ("unused_months", "backup_days", "restore_point")
+UNINSTALLER_KEYS = ("unused_months", "backup_days", "restore_point", "uninstall_depth")
 ARCHIVE_KEYS = ("extract_mode", "extract_nested", "remember_archives")
 VIEWER_KEYS = ("viewer_wheel", "viewer_confirm_delete", "slideshow_seconds")
 CLIPBOARD_KEYS = ("clip_shortcut", "clip_paste", "clip_max", "clip_days", "clip_images")
@@ -243,6 +244,7 @@ class Settings:
     unused_months: int = 3         # "not used for …" filter
     backup_days: int = 30          # backups of removed leftovers are kept this long
     restore_point: bool = False    # tick "Make a System Restore point first" to begin with
+    uninstall_depth: str = "normal"  # how deep leftovers are cleaned up to begin with (UNINSTALL_DEPTHS)
     show_unavailable: bool = True  # dim slices that can't be used (False = hide them)
     # keeping the PC fast
     low_priority: bool = True      # conversions run "in the background" (below normal priority)

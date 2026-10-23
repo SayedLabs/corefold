@@ -27,7 +27,7 @@ from .settings import (ACCENTS, APP_NAME, DEFAULT_ACCENT, APPEARANCES, HOVER_STY
                        SLIDESHOW_SECONDS, VIEWER_KEYS, VIEWER_WHEEL, CLIP_DAYS, CLIP_MAX, CLIP_SHORTCUTS, CLIPBOARD_KEYS,
                        CAP_AFTER, CAP_FPS, CAP_RECORD_SHORTCUTS, CAP_SHORTCUTS, CAPTURE_KEYS, PLAYER_KEYS, PLAYER_SKIP,
                        PLAYER_WHEEL,
-                       LOOK_KEYS, UNINSTALLER_KEYS, UNUSED_MONTHS, WHEEL_KEYS, editable_keys, set_startup,
+                       LOOK_KEYS, UNINSTALL_DEPTHS, UNINSTALLER_KEYS, UNUSED_MONTHS, WHEEL_KEYS, editable_keys, set_startup,
                        startup_enabled)
 from .atomic.widgets import Switch, keep_wrapped_text, mark_rows
 from .theme import Theme
@@ -1948,10 +1948,19 @@ class MainWindow(QWidget):
         grid.addWidget(self.unused_months, 0, 1)
         grid.addWidget(label(tr("Keep backups of removed leftovers for")), 1, 0)
         grid.addWidget(self.backup_days, 1, 1)
+        self.uninstall_depth = QComboBox()
+        for key, text in UNINSTALL_DEPTHS.items():
+            self.uninstall_depth.addItem(tr(text), key)
+        self.uninstall_depth.setCurrentIndex(max(0, self.uninstall_depth.findData(s.uninstall_depth)))
+        self.uninstall_depth.currentIndexChanged.connect(self._tool_setting_changed)
+        grid.addWidget(label(tr("How deep to clean up:")), 2, 0)
+        grid.addWidget(self.uninstall_depth, 2, 1)
         grid.setColumnStretch(2, 1)
         bl.addLayout(grid)
         bl.addWidget(label(tr("Backups let you put back anything Corefold removed. Older ones are deleted by "
                               "themselves to free up space."), "muted", wrap=True))
+        bl.addWidget(label(tr("The depth can also be changed each time, on the list of leftovers. Safe only offers "
+                              "what surely belongs to the app; Deep also looks in more places."), "muted", wrap=True))
         lay.addWidget(box)
         checks, cl = card()
         self.restore_point = checkbox(tr("Make a System Restore point before uninstalling (ticked to begin with)"),
@@ -2620,6 +2629,7 @@ class MainWindow(QWidget):
         s.unused_months = self.unused_months.currentData()
         s.backup_days = self.backup_days.currentData()
         s.restore_point = self.restore_point.isChecked()
+        s.uninstall_depth = self.uninstall_depth.currentData()
         s.extract_mode = self.extract_mode.currentData()
         s.extract_nested = self.extract_nested.isChecked()
         s.remember_archives = self.remember_archives.isChecked()

@@ -46,7 +46,33 @@ REASONS = {
     "registry": "Settings in the registry",
     "maybe": "Might belong to it",
     "package": "App data",
+    "service": "Windows services it installed",
+    "task": "Scheduled tasks",
+    "filetype": "File types and program links",
+    "userfiles": "In your own folders (check before removing)",
 }
+
+# How far a clean-up goes (English; shown through tr()). Every leftover has a level: 3 = surely the app's,
+# 2 = most likely its, 1 = might be its. Some are only looked for in a deep clean-up (Leftover.deep).
+DEPTHS = {"safe": "Safe", "normal": "Normal", "deep": "Deep"}
+DEPTH_HELP = {
+    "safe": "Only what surely belongs to the app. Nothing else is shown.",
+    "normal": "What surely belongs to it is ticked. What only might is shown, so you can tick it yourself.",
+    "deep": "Also looks in more places (sub-folders, your own folders, temporary files, file types), and ticks "
+            "what most likely belongs to it too. Check the list before removing.",
+}
+
+
+def shown_at(item: "Leftover", depth: str) -> bool:
+    if depth == "safe":
+        return item.level >= 3
+    if depth == "deep":
+        return True
+    return not item.deep
+
+
+def ticked_at(item: "Leftover", depth: str) -> bool:
+    return item.level >= 3 or (depth == "deep" and item.level >= 2)
 
 # Folder and key names that are shared by many apps: never offered, whatever the app is called.
 PROTECTED = {
@@ -735,7 +761,9 @@ def _dll(name: str):
                               ("WaitForSingleObject", (H, U32), U32), ("GetExitCodeProcess", (H, P), ctypes.c_int),
                               ("GetProcessTimes", (H, P, P, P, P), ctypes.c_int),
                               ("GetProcessIoCounters", (H, P), ctypes.c_int), ("TerminateProcess", (H, U32), ctypes.c_int),
-                              ("GetProcessId", (H,), U32), ("CloseHandle", (H,), ctypes.c_int)):
+                              ("GetProcessId", (H,), U32), ("CloseHandle", (H,), ctypes.c_int),
+                              ("QueryFullProcessImageNameW", (H, U32, P, P), ctypes.c_int),
+                              ("MoveFileExW", (ctypes.c_wchar_p, ctypes.c_wchar_p, U32), ctypes.c_int)):
             getattr(lib, fn).argtypes, getattr(lib, fn).restype = args, res
     elif name == "user32":
         for fn, args, res in (("EnumWindows", (_ENUM_PROC, P), ctypes.c_int),
@@ -853,6 +881,53 @@ class Processes:
         self.handles = {}
 
 
+def program_of(pid: int) -> str:
+    """The program file a running process was started from ("" if Windows won't say)."""
+    k = _dll("kernel32")
+    h = k.OpenProcess(QUERY_LIMITED, False, pid)
+    if not h:
+        return ""
+    try:
+        buf = ctypes.create_unicode_buffer(1024)
+        size = ctypes.c_uint32(1024)
+        return buf.value if k.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(size)) else ""
+    finally:
+        k.CloseHandle(h)
+
+
+def programs_in(folders: list[str]) -> list[tuple[int, str]]:
+    """The running programs started from inside these folders: (process id, program file)."""
+    folders = [f for f in folders if f and _safe_folder(f)]
+    if not folders:
+        return []
+    me = os.getpid()
+    out = []
+    for pid, _parent, _name in processes():
+        if pid in (0, 4, me):
+            continue
+        exe_path = program_of(pid)
+        if exe_path and any(_inside(exe_path, f) for f in folders):
+            out.append((pid, exe_path))
+    return out
+
+
+def close_programs(pids: list[int]) -> list[int]:
+    """Ends these processes. Returns the ones still running (they run as administrator, or won't end)."""
+    k = _dll("kernel32")
+    handles = {}
+    for pid in pids:
+        h = k.OpenProcess(SYNCHRONIZE | TERMINATE, False, pid)
+        if h:
+            handles[pid] = h
+            k.TerminateProcess(h, 1)
+    still = [pid for pid in pids if pid not in handles]
+    for pid, h in handles.items():
+        if k.WaitForSingleObject(h, 3000) != 0:
+            still.append(pid)
+        k.CloseHandle(h)
+    return still
+
+
 def windows_of(pids: set[int]) -> list[int]:
     """The visible windows these processes have open."""
     if not pids:
@@ -894,13 +969,17 @@ class Leftover:
     view: int = 0          # registry view (64 / 32) for HKLM keys
     value: str = ""        # the value's name, for kind "value"
     app: str = ""
+    level: int = 3         # 3 = surely the app's, 2 = most likely, 1 = might be (see DEPTHS)
+    deep: bool = False     # only looked for in a deep clean-up
 
     @property
     def is_registry(self) -> bool:
-        return self.kind in ("key", "value")
+        return self.kind in ("key", "value", "service")
 
     @property
     def needs_admin(self) -> bool:
+        if self.kind in ("service", "task"):
+            return True
         if self.is_registry:
             return self.path.upper().startswith("HKLM")
         p = os.path.normcase(self.path)
@@ -908,6 +987,10 @@ class Leftover:
         return not p.startswith(user + os.sep)
 
     def label(self) -> str:
+        if self.kind == "service":
+            return self.path.rsplit("\\", 1)[-1] + (f" ({self.value})" if self.value else "")
+        if self.kind == "task":
+            return self.path.lstrip("\\")
         text = f"{self.path} → {self.value}" if self.kind == "value" else self.path
         if self.is_registry and self.view == 32:
             from .i18n import tr
@@ -938,7 +1021,8 @@ def search_roots() -> list[Path]:
 def shortcut_roots() -> list[Path]:
     roots = [_env_path("APPDATA", "Microsoft", "Windows", "Start Menu", "Programs"),
              _env_path("ProgramData", "Microsoft", "Windows", "Start Menu", "Programs"),
-             _env_path("USERPROFILE", "Desktop"), _env_path("PUBLIC", "Desktop")]
+             _env_path("USERPROFILE", "Desktop"), _env_path("PUBLIC", "Desktop"),
+             _env_path("APPDATA", "Microsoft", "Internet Explorer", "Quick Launch", "User Pinned", "TaskBar")]
     return [r for r in roots if r is not None and r.is_dir()]
 
 
@@ -1058,7 +1142,8 @@ def _only_its_shortcuts(folder: Path, keys: set[str], loc: str) -> bool:
 
 
 def find_leftovers(app: App, others: list[App] | None = None, forced: bool = False) -> list[Leftover]:
-    """What the app left behind. others = the apps still installed (their folders are never offered)."""
+    """What the app left behind, everything a deep clean-up would offer (see DEPTHS for what each depth
+    shows and ticks). others = the apps still installed (their folders are never offered)."""
     keys = app.names()
     found: dict[str, Leftover] = {}
     other_places = []
@@ -1085,12 +1170,36 @@ def find_leftovers(app: App, others: list[App] | None = None, forced: bool = Fal
     def add(item: Leftover):
         key = (item.kind, os.path.normcase(item.path), item.value.lower(), item.view)
         k = "|".join(map(str, key))
-        if k in found:
+        if k in found:  # found twice: it counts as found the surer way
             old = found[k]
-            old.safe = old.safe or item.safe
+            old.level, old.deep = max(old.level, item.level), old.deep and item.deep
+            if item.level > old.level or old.reason == "maybe":
+                old.reason = item.reason
             return
         item.app = app.name
         found[k] = item
+
+    def folder(path, reason: str, level: int, deep: bool = False):
+        add(Leftover("folder", os.path.normpath(str(path)), reason if level >= 3 else "maybe" if reason in
+                     ("data", "install") else reason, level=level, deep=deep))
+
+    def dirs(root: Path, limit: int = 2000) -> list[Path]:
+        try:
+            out = []
+            for child in root.iterdir():
+                if len(out) >= limit:
+                    break
+                try:
+                    if child.is_dir() and not is_link(child):
+                        out.append(child)
+                except OSError:
+                    continue
+            return out
+        except OSError:
+            return []
+
+    def usable(path) -> bool:
+        return _safe_folder(str(path)) and not belongs_to_other(str(path))
 
     # 1. the install folder (and the uninstaller's own folder)
     places = []
@@ -1101,57 +1210,56 @@ def find_leftovers(app: App, others: list[App] | None = None, forced: bool = Fal
         places.append((os.path.dirname(exe), _match(Path(os.path.dirname(exe)).name, keys) == "exact"))
     if app.icon and os.path.isabs(app.icon):
         places.append((os.path.dirname(app.icon), _match(Path(os.path.dirname(app.icon)).name, keys) == "exact"))
-    # Ticked when it's in one of the usual places apps install to, or named after the app. A folder
-    # somewhere else ("D:\\Tools") may hold the person's own things too, so that one is only offered.
+    # Sure when it's in one of the usual places apps install to and named after the app. Its registered
+    # folder under another name is most likely its too; a folder somewhere else ("D:\\Tools") may hold the
+    # person's own things, so that one only might be.
     core = app.names(with_location=False)
     usual = [r for r in (_env_path("ProgramFiles"), _env_path("ProgramFiles(x86)"), _env_path("ProgramW6432"),
                          _env_path("LOCALAPPDATA", "Programs"), _env_path("ProgramData"), _env_path("APPDATA"),
                          _env_path("LOCALAPPDATA")) if r is not None]
-    for place, sure in places:
-        if sure and os.path.isdir(place) and _safe_folder(place) and not belongs_to_other(place) \
-                and not is_link(place) and system_ok(Path(place).name):
-            # ticked only in a usual install place, and only when it's clearly the app's own folder:
-            # named after it, or holding its uninstaller or icon
-            # (holding its uninstaller isn't enough: some apps put theirs in a shared vendor folder)
-            named = bool(_match(Path(place).name, core))
-            ticked = named and any(_inside(place, str(r)) for r in usual) and not _system_named(Path(place).name)
-            add(Leftover("folder", os.path.normpath(place), "install" if ticked else "maybe", ticked))
+    for place, own in places:
+        if own and os.path.isdir(place) and usable(place) and not is_link(place) and system_ok(Path(place).name):
+            named = bool(_match(Path(place).name, core)) and not _system_named(Path(place).name)
+            in_usual = any(_inside(place, str(r)) for r in usual)
+            folder(place, "install", 3 if named and in_usual else 2 if in_usual or named else 1)
 
-    # 2. folders named after the app in Program Files, ProgramData, AppData...
+    # 2. folders named after the app in Program Files, ProgramData, AppData... (a deep clean-up also
+    # looks one level further: "AppData\\Local\\Some Vendor\\App")
     pub = clean_name(app.publisher)
     for root in search_roots():
-        try:
-            children = list(root.iterdir())
-        except OSError:
-            continue
-        for child in children:
-            try:
-                if not child.is_dir() or is_link(child):
-                    continue
-            except OSError:
-                continue
+        for child in dirs(root):
             if not system_ok(child.name):
                 continue
             how = _match(child.name, keys)
-            if how and _safe_folder(str(child)) and not belongs_to_other(str(child)):
-                # a short, plain name ("Notes") might be another app's: shown, but not ticked
+            if how and usable(child):
+                # a short, plain name ("Notes") might be another app's
                 sure = how == "exact" and len(norm(child.name)) >= 6 and not _system_named(child.name)
-                add(Leftover("folder", str(child), "data" if sure else "maybe", sure))
+                folder(child, "data", 3 if sure else 2)
             elif pub and len(pub) >= 3 and norm(child.name) in (pub, norm(app.publisher)) and pub not in PROTECTED:
-                try:
-                    grand = [g for g in child.iterdir() if g.is_dir()]
-                except OSError:
-                    continue
-                for g in grand:
-                    if is_link(g) or not system_ok(g.name):
-                        continue
+                for g in dirs(child, 500):
                     how = _match(g.name, keys)
-                    if how and _safe_folder(str(g)) and not belongs_to_other(str(g)):
-                        add(Leftover("folder", str(g), "data" if how == "exact" else "maybe", how == "exact"))
+                    if how and system_ok(g.name) and usable(g):
+                        folder(g, "data", 3 if how == "exact" else 2)
+            elif norm(child.name) not in PROTECTED:
+                for g in dirs(child, 300):
+                    if _match(g.name, keys) == "exact" and len(norm(g.name)) >= 6 and system_ok(g.name) \
+                            and usable(g):
+                        folder(g, "data", 2, deep=True)
     if app.family:  # Store apps keep their data here
         p = _env_path("LOCALAPPDATA", "Packages", app.family)
         if p and p.is_dir():
-            add(Leftover("folder", str(p), "package", True))
+            add(Leftover("folder", str(p), "package"))
+    # deep: temporary files, and folders in the person's own places (saves, exports): never ticked
+    temp = _env_path("TEMP")
+    for child in dirs(temp) if temp else []:
+        if _match(child.name, keys) == "exact" and len(norm(child.name)) >= 5 and usable(child):
+            folder(child, "data", 2, deep=True)
+    home = os.environ.get("USERPROFILE", "")
+    for own in ((home, "Documents"), (home, "Saved Games"), (home, "Documents", "My Games")) if home else ():
+        for child in dirs(Path(*own), 500):
+            if _match(child.name, keys) == "exact" and len(norm(child.name)) >= 6 and system_ok(child.name) \
+                    and usable(child):
+                add(Leftover("folder", str(child), "userfiles", level=1, deep=True))
 
     # 3. shortcuts: named after the app, or pointing into its (now gone) install folder
     loc = app.location if app.location and _safe_folder(app.location) else ""
@@ -1165,7 +1273,7 @@ def find_leftovers(app: App, others: list[App] | None = None, forced: bool = Fal
                 if e.is_dir():
                     if _match(e.name, keys) == "exact" and _safe_folder(str(e)) and not is_link(e) \
                             and system_ok(e.name):
-                        add(Leftover("folder", str(e), "shortcut", _only_its_shortcuts(e, keys, loc)))
+                        add(Leftover("folder", str(e), "shortcut", level=3 if _only_its_shortcuts(e, keys, loc) else 2))
                     continue
                 if e.suffix.lower() not in (".lnk", ".url"):
                     continue
@@ -1174,11 +1282,12 @@ def find_leftovers(app: App, others: list[App] | None = None, forced: bool = Fal
             target = lnk_target(e) if e.suffix.lower() == ".lnk" else ""
             points_in = bool(loc and target and _inside(target, loc))
             if points_in or _match(e.stem, keys) == "exact":
-                add(Leftover("shortcut", str(e), "shortcut", True))
+                add(Leftover("shortcut", str(e), "shortcut"))
 
     # 4. the registry: Software\<App>, Software\<Publisher>\<App> (both views), startup entries
     for hive in ("HKCU", "HKLM"):
         for view in _views(hive):
+            hv = view if hive == "HKLM" else 0
             for sub in _subkeys(hive, "Software", view):
                 if norm(sub) in PROTECTED:
                     continue
@@ -1186,16 +1295,19 @@ def find_leftovers(app: App, others: list[App] | None = None, forced: bool = Fal
                 if how:
                     sure = how == "exact" and len(norm(sub)) >= 6
                     add(Leftover("key", f"{hive}\\Software\\{sub}", "registry" if sure else "maybe",
-                                 sure, view=view if hive == "HKLM" else 0))
+                                 level=3 if sure else 2, view=hv))
                 elif pub and norm(sub) in (pub, norm(app.publisher)):
                     children = _subkeys(hive, f"Software\\{sub}", view)
                     hits = [c for c in children if _match(c, keys) == "exact"]
                     for c in hits:
-                        add(Leftover("key", f"{hive}\\Software\\{sub}\\{c}", "registry", True,
-                                     view=view if hive == "HKLM" else 0))
+                        add(Leftover("key", f"{hive}\\Software\\{sub}\\{c}", "registry", view=hv))
                     if hits and len(hits) == len(children) and not _values(hive, f"Software\\{sub}", view):
-                        add(Leftover("key", f"{hive}\\Software\\{sub}", "registry", True,
-                                     view=view if hive == "HKLM" else 0))
+                        add(Leftover("key", f"{hive}\\Software\\{sub}", "registry", view=hv))
+                elif system_ok(sub):  # deep: Software\<Some vendor>\<App>
+                    for c in _subkeys(hive, f"Software\\{sub}", view)[:300]:
+                        if _match(c, keys) == "exact" and len(norm(c)) >= 6:
+                            add(Leftover("key", f"{hive}\\Software\\{sub}\\{c}", "maybe", level=2, view=hv,
+                                         deep=True))
             for run in RUN_KEYS:
                 for name, value in _values(hive, run, view).items():
                     exe_path, _ = split_command(str(value))
@@ -1203,19 +1315,27 @@ def find_leftovers(app: App, others: list[App] | None = None, forced: bool = Fal
                     named = _match(name, keys) == "exact" or (exe_path and _match(Path(exe_path).stem, keys) == "exact")
                     gone = bool(exe_path and os.path.isabs(exe_path) and not os.path.exists(exe_path))
                     if inside or (named and gone):
-                        add(Leftover("value", f"{hive}\\{run}", "startup", True, value=name,
-                                     view=view if hive == "HKLM" else 0))
+                        add(Leftover("value", f"{hive}\\{run}", "startup", value=name, view=hv))
+            _program_links(app, keys, loc, hive, view, add)
     # 5. its uninstall entry, if it's still there (a broken uninstaller, or "Remove leftovers" on its own)
     if not app.store and key_exists(app.hive, UNINSTALL + "\\" + app.key, app.view):
-        add(Leftover("key", f"{app.hive}\\{UNINSTALL}\\{app.key}", "entry", forced or app.broken,
+        add(Leftover("key", f"{app.hive}\\{UNINSTALL}\\{app.key}", "entry", level=3 if forced or app.broken else 2,
                      view=app.view if app.hive == "HKLM" else 0))
+    # 6. Windows services and scheduled tasks that run one of its programs
+    try:
+        for item in services_of(app, keys, loc) + tasks_of(app, keys, loc):
+            add(item)
+    except Exception:
+        log.debug("looking for services and tasks of %s failed", app.name, exc_info=True)
 
     items = list(found.values())
     # a folder inside another offered folder is covered by it
     folders = [i for i in items if i.kind == "folder"]
     items = [i for i in items if not (i.kind in ("folder", "file", "shortcut") and
-                                      any(f is not i and _inside(i.path, f.path) for f in folders))]
+                                      any(f is not i and _inside(i.path, f.path) and f.level >= i.level
+                                          for f in folders))]
     for i in items:
+        i.safe = ticked_at(i, "normal")
         if i.kind in ("folder", "file"):
             i.size = folder_size(Path(i.path), limit_s=2)
         elif i.kind == "shortcut":
@@ -1223,9 +1343,122 @@ def find_leftovers(app: App, others: list[App] | None = None, forced: bool = Fal
                 i.size = os.path.getsize(i.path)
             except OSError:
                 pass
-    order = {"install": 0, "data": 1, "package": 1, "shortcut": 2, "startup": 3, "registry": 4, "entry": 5,
-             "maybe": 6}
+    order = {"install": 0, "data": 1, "package": 1, "shortcut": 2, "startup": 3, "service": 3, "task": 3,
+             "registry": 4, "filetype": 4, "entry": 5, "maybe": 6, "userfiles": 7}
     return sorted(items, key=lambda i: (order.get(i.reason, 9), i.path.lower()))
+
+
+APP_PATHS = r"Software\Microsoft\Windows\CurrentVersion\App Paths"
+# names under Software\Classes that are Windows' own lists, never one app's
+_CLASS_LISTS = {"clsid", "interface", "typelib", "appid", "directory", "folder", "drive", "allfilesystemobjects",
+                "applications", "systemfileassociations", "mime", "protocols", "installer", "wow6432node",
+                "localsettings", "unknown", "exefile", "lnkfile", "batfile", "cmdfile", "comfile", "dllfile",
+                "msi.package", "msipackage", "inifile", "txtfile", "regfile", "htmlfile", "urlfile", "jpegfile",
+                "pngfile", "giffile", "zip", "compressedfolder", "mailto", "http", "https", "ftp", "file"}
+
+
+def _class_name_ok(name: str) -> bool:
+    return bool(name) and not name.startswith((".", "{", "*")) and norm(name) not in _CLASS_LISTS \
+        and norm(name) not in PROTECTED and not _system_named(name)
+
+
+def _program_links(app: App, keys: set[str], loc: str, hive: str, view: int, add):
+    """App Paths entries and file types (Software\\Classes) that start one of its programs."""
+    hv = view if hive == "HKLM" else 0
+    for sub in _subkeys(hive, APP_PATHS, view):
+        target = str(_values(hive, f"{APP_PATHS}\\{sub}", view).get("", "") or "")
+        exe_path, _ = split_command(target)
+        inside = bool(loc and exe_path and _inside(exe_path, loc))
+        gone = bool(exe_path and os.path.isabs(exe_path) and not os.path.exists(exe_path))
+        if inside or (gone and _match(Path(sub).stem, keys) == "exact"):
+            add(Leftover("key", f"{hive}\\{APP_PATHS}\\{sub}", "filetype", level=3 if inside else 2, view=hv))
+    if not loc:  # file types are recognised by the folder their program is in
+        return
+    for sub in _subkeys(hive, r"Software\Classes", view):
+        if not _class_name_ok(sub):
+            continue
+        command = str(_values(hive, f"Software\\Classes\\{sub}\\shell\\open\\command", view).get("", "") or "")
+        exe_path, _ = split_command(command)
+        if exe_path and _inside(exe_path, loc):
+            add(Leftover("key", f"{hive}\\Software\\Classes\\{sub}", "filetype", level=2, view=hv))
+    for sub in _subkeys(hive, r"Software\Classes\Applications", view):
+        command = str(_values(hive, f"Software\\Classes\\Applications\\{sub}\\shell\\open\\command", view)
+                      .get("", "") or "")
+        exe_path, _ = split_command(command)
+        if exe_path and _inside(exe_path, loc):
+            add(Leftover("key", f"{hive}\\Software\\Classes\\Applications\\{sub}", "filetype", level=3, view=hv))
+
+
+SERVICES = r"SYSTEM\CurrentControlSet\Services"
+
+
+def _service_program(name: str) -> str:
+    v = _values("HKLM", f"{SERVICES}\\{name}", 0)
+    exe_path, _ = split_command(str(v.get("ImagePath") or ""))
+    if exe_path.startswith("\\??\\"):
+        exe_path = exe_path[4:]
+    return exe_path
+
+
+def _windows_program(path: str) -> bool:
+    """Part of Windows (or not a real path): never touched."""
+    windir = os.environ.get("SystemRoot", r"C:\Windows")
+    p = os.path.normcase(path)
+    return not os.path.isabs(path) or _inside(path, windir) or p.endswith(("svchost.exe", "dllhost.exe")) or \
+        p.startswith(("\\systemroot", "system32"))
+
+
+def services_of(app: App, keys: set[str], loc: str) -> list[Leftover]:
+    """Windows services that run one of its programs (sure), or are named after it and whose program is
+    gone (most likely)."""
+    out = []
+    for name in _subkeys("HKLM", SERVICES, 0):
+        exe_path = _service_program(name)
+        if not exe_path or _windows_program(exe_path):
+            continue
+        shown = str(_values("HKLM", f"{SERVICES}\\{name}", 0).get("DisplayName") or "")
+        inside = bool(loc and _inside(exe_path, loc))
+        named = _match(name, keys) == "exact" or (shown and not shown.startswith("@") and
+                                                  _match(shown, keys) == "exact")
+        if inside or (named and not os.path.exists(exe_path)):
+            out.append(Leftover("service", f"HKLM\\{SERVICES}\\{name}", "service", level=3 if inside else 2,
+                                value=shown if not shown.startswith("@") else ""))
+    return out
+
+
+def scheduled_tasks() -> list[tuple[str, str]]:
+    """(task name, the program it runs) for every scheduled task Windows lists."""
+    import csv
+    import io
+    try:
+        r = subprocess.run(["schtasks.exe", "/Query", "/FO", "CSV", "/V", "/NH"], capture_output=True, timeout=60,
+                           creationflags=NO_WINDOW)
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    text = r.stdout.decode("mbcs" if sys.platform == "win32" else "utf-8", "replace")
+    out, seen = [], set()
+    for row in csv.reader(io.StringIO(text)):
+        if len(row) > 8 and row[1].startswith("\\") and row[1] not in seen:
+            seen.add(row[1])
+            out.append((row[1], row[8]))
+    return out
+
+
+def tasks_of(app: App, keys: set[str], loc: str) -> list[Leftover]:
+    out = []
+    for name, command in scheduled_tasks():
+        if name.lower().startswith("\\microsoft\\"):
+            continue
+        exe_path, _ = split_command(command)
+        if not exe_path or _windows_program(exe_path) and not (loc and _inside(exe_path, loc)):
+            continue
+        inside = bool(loc and _inside(exe_path, loc))
+        leaf = name.rsplit("\\", 1)[-1]
+        named = _match(leaf, keys) == "exact" or any(len(k) >= 6 and k in norm(leaf) for k in keys)
+        if inside or (named and not os.path.exists(exe_path)):
+            out.append(Leftover("task", name, "task", level=3 if inside else 2))
+    return out
+
 
 
 # ----------------------------------------------------------------------------- removing (with a backup)
@@ -1322,9 +1555,16 @@ def _registry_ok(path: str, kind: str) -> bool:
     s = sub.strip("\\").lower()
     if kind == "value":
         return s in (k.lower() for k in RUN_KEYS)
-    if s.startswith(UNINSTALL.lower() + "\\"):
-        return True
     parts = s.split("\\")
+    if kind == "service":  # one service's own key (never one of Windows' services: see _service_ok)
+        return head.upper() == "HKLM" and len(parts) == 4 and "\\".join(parts[:3]) == SERVICES.lower()
+    if s.startswith(UNINSTALL.lower() + "\\") or (s.startswith(APP_PATHS.lower() + "\\") and
+                                                  len(parts) == len(APP_PATHS.split("\\")) + 1):
+        return True
+    if parts[:2] == ["software", "classes"]:  # a file type or program link of its own
+        if len(parts) >= 4 and parts[2] == "applications":
+            return parts[3].endswith(".exe")
+        return len(parts) >= 3 and _class_name_ok(parts[2])
     return len(parts) >= 2 and parts[0] == "software" and norm(parts[1]) not in PROTECTED
 
 
@@ -1353,9 +1593,19 @@ def item_allowed(item: dict) -> bool:
     path = str(item.get("path", ""))
     if kind in ("folder", "file", "shortcut"):
         return _path_ok(path, kind) and not is_link(path)
-    if kind in ("key", "value"):
-        return _registry_ok(path, kind) and (kind == "key" or bool(item.get("value")))
+    if kind in ("key", "value", "service"):
+        return _registry_ok(path, kind) and (kind != "value" or bool(item.get("value")))
+    if kind == "task":
+        return path.startswith("\\") and not path.lower().startswith("\\microsoft\\") and '"' not in path \
+            and len(path) < 400
     return False
+
+
+def _service_ok(path: str) -> bool:
+    """A service that may be removed now: it exists, and its program isn't part of Windows."""
+    name = path.rsplit("\\", 1)[-1]
+    exe_path = _service_program(name)
+    return bool(exe_path) and not _windows_program(exe_path)
 
 
 def _move(src: Path, dest: Path):
@@ -1367,6 +1617,45 @@ def _move(src: Path, dest: Path):
             shutil.move(str(src), str(dest))
         else:
             raise
+
+
+def _move_files(src: Path, dest: Path, overwrite: bool = False) -> list[str]:
+    """Moves a folder file by file (for when some of its files are in use and it can't move as a whole),
+    then removes the folders left empty. Returns the files that couldn't be moved."""
+    left = []
+    for root, folders, files in os.walk(src):
+        rel = os.path.relpath(root, src)
+        for f in files:
+            a, b = os.path.join(root, f), os.path.join(dest, rel, f)
+            try:
+                if os.path.exists(b) and not overwrite:
+                    left.append(a)
+                    continue
+                os.makedirs(os.path.dirname(b), exist_ok=True)
+                os.replace(a, b)
+            except OSError:
+                left.append(a)
+        folders[:] = [d for d in folders if not is_link(os.path.join(root, d))]
+    for root, _folders, _files in sorted(os.walk(src), key=lambda t: -len(t[0])):
+        try:
+            os.rmdir(root)
+        except OSError:
+            pass
+    return left
+
+
+def remove_on_restart(paths: list[str]) -> int:
+    """Asks Windows to delete these files (and then their folders, once empty) when the PC restarts.
+    Needs administrator. Returns how many were taken."""
+    k32 = _dll("kernel32")
+    done, parents = 0, set()
+    for path in paths:
+        if k32.MoveFileExW(path, None, 4):  # MOVEFILE_DELAY_UNTIL_REBOOT
+            done += 1
+            parents.add(os.path.dirname(path))
+    for folder in sorted(parents, key=len, reverse=True):
+        k32.MoveFileExW(folder, None, 4)  # Windows only removes it if it's empty by then
+    return done
 
 
 class SHFILEOPSTRUCTW(ctypes.Structure):
@@ -1411,10 +1700,16 @@ def _save_manifest(folder: Path, data: dict):
 
 
 def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, admin: bool = False,
-           on_item=None) -> dict:
+           on_item=None, close_running: bool = False) -> dict:
     """Moves files into the backup folder and exports, then deletes, registry keys and values.
     Returns {"done": [...], "failed": [...], "freed": bytes}; failed items can be tried again as admin.
-    on_item(number, count, item) hears which one is next."""
+    on_item(number, count, item) hears which one is next. close_running: first end the programs still
+    running from the folders (they keep their files in use)."""
+    if close_running:
+        try:
+            close_programs([pid for pid, _ in programs_in([i.path for i in items if i.kind == "folder"])])
+        except Exception:
+            log.debug("couldn't close the programs still running", exc_info=True)
     data = _manifest(folder)
     if apps:
         data["apps"] = sorted(set(data.get("apps", [])) | set(apps))
@@ -1456,13 +1751,60 @@ def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, a
                     _remove_empty_parent(src.parent)
                     continue
                 dest = folder / "files" / n / src.name
-                _move(src, dest)
+                try:
+                    _move(src, dest)
+                except OSError:  # some of its files are in use (or locked): take what can be taken
+                    if item.kind != "folder" or not src.is_dir():
+                        raise
+                    left = _move_files(src, dest)
+                    if left and admin:  # still in use: Windows removes them when the PC restarts
+                        record["left"] = len(left)
+                        record["on_restart"] = remove_on_restart(left)
+                    if not dest.exists():  # nothing could be moved
+                        if not record.get("on_restart"):
+                            raise
+                        done.append(record)
+                        continue
+                    if left and not admin:  # the rest is tried again as administrator (see remove_selected)
+                        record["left"] = len(left)
+                        failed.append(asdict(item))
                 if admin:  # moved out of Program Files: let the user delete the backup later
                     subprocess.run(["icacls", str(dest), "/reset", "/T", "/C", "/L", "/Q"], capture_output=True,
                                    creationflags=NO_WINDOW, timeout=300)
                 record["stored"] = str(dest.relative_to(folder))
                 freed += item.size
                 _remove_empty_parent(src.parent)
+            elif item.kind == "service":
+                if not _service_ok(item.path):
+                    raise PermissionError("not a service Corefold removes")
+                name = item.path.rsplit("\\", 1)[-1]
+                reg_file = folder / "registry" / f"{n}.reg"
+                reg_file.parent.mkdir(parents=True, exist_ok=True)
+                if not _reg_exe("export", _reg_root_name(item.path), str(reg_file), "/y"):
+                    raise PermissionError("couldn't back up " + item.path)
+                _run("sc.exe", "stop", name)
+                for _ in range(20):  # it may take a moment to stop
+                    if "STOPPED" in _run("sc.exe", "query", name) or not key_exists("HKLM", f"{SERVICES}\\{name}", 0):
+                        break
+                    time.sleep(0.5)
+                if not _run_ok("sc.exe", "delete", name):
+                    reg_file.unlink(missing_ok=True)
+                    raise PermissionError("couldn't remove the service " + name)
+                record["stored"] = str(reg_file.relative_to(folder))
+            elif item.kind == "task":
+                xml = _run("schtasks.exe", "/Query", "/TN", item.path, "/XML", raw=True)
+                if not xml:
+                    done.append(record)  # already gone
+                    continue
+                task_file = folder / "tasks" / f"{n}.xml"
+                task_file.parent.mkdir(parents=True, exist_ok=True)
+                if not xml.startswith((b"\xff\xfe", b"\xfe\xff")):  # it says UTF-16, but comes as plain text
+                    xml = xml.decode("mbcs" if sys.platform == "win32" else "utf-8", "replace").encode("utf-16")
+                task_file.write_bytes(xml)
+                if not _run_ok("schtasks.exe", "/Delete", "/TN", item.path, "/F"):
+                    task_file.unlink(missing_ok=True)
+                    raise PermissionError("couldn't remove the task " + item.path)
+                record["stored"] = str(task_file.relative_to(folder))
             elif item.kind == "key":
                 reg_file = folder / "registry" / f"{n}.reg"
                 reg_file.parent.mkdir(parents=True, exist_ok=True)
@@ -1494,6 +1836,25 @@ def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, a
             log.info("couldn't remove %s: %s", item.label(), e)
             failed.append(asdict(item))
     return {"done": done, "failed": failed, "freed": freed}
+
+
+def _run(*args: str, raw: bool = False, timeout: float = 60):
+    """A Windows command's output ("" or b"" if it failed)."""
+    try:
+        r = subprocess.run(list(args), capture_output=True, timeout=timeout, creationflags=NO_WINDOW)
+    except (OSError, subprocess.TimeoutExpired):
+        return b"" if raw else ""
+    if raw:
+        return r.stdout if r.returncode == 0 else b""
+    return r.stdout.decode("mbcs" if sys.platform == "win32" else "utf-8", "replace")
+
+
+def _run_ok(*args: str, timeout: float = 60) -> bool:
+    try:
+        return subprocess.run(list(args), capture_output=True, timeout=timeout,
+                              creationflags=NO_WINDOW).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
 
 
 def _remove_empty_parent(parent: Path):
@@ -1546,8 +1907,15 @@ def restore(folder: Path) -> dict:
                 if not stored.exists():
                     continue
                 if target.exists():
-                    raise FileExistsError(str(target))
-                _move(stored, target)
+                    # what was in use stayed behind (or the app made the folder again): put the rest
+                    # back around it, never over a file that's there
+                    if item["kind"] != "folder" or not target.is_dir() or _move_files(stored, target):
+                        raise FileExistsError(str(target))
+                else:
+                    _move(stored, target)
+            elif item["kind"] == "task":
+                if not _run_ok("schtasks.exe", "/Create", "/TN", item["path"], "/XML", str(stored), "/F"):
+                    raise PermissionError("couldn't put back the task " + item["path"])
             else:
                 if not _reg_file_ok(stored, item):
                     raise PermissionError("unexpected keys in " + str(stored))
@@ -1621,7 +1989,8 @@ def helper_main(argv: list[str]) -> int:
         return 2
     try:
         if kind == "cleanup":
-            out = remove(items_from(payload["items"]), Path(payload["folder"]), payload.get("apps"), admin=True)
+            out = remove(items_from(payload["items"]), Path(payload["folder"]), payload.get("apps"), admin=True,
+                         close_running=bool(payload.get("close")))
         elif kind == "restore":
             r = restore(Path(payload["folder"]))
             out = {"done": r["done"], "failed": r["failed"]}
