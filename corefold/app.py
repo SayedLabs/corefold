@@ -37,6 +37,7 @@ from .history import History, size_of
 from .i18n import tr
 from .settings import (APP_NAME, LOG_DIR, TOAST_TIME_SCALE, WINDOW_TEXT_PT, Settings, app_command, app_icon,
                        installed_uninstaller, remove_user_data)
+from .atomic import tokens as atomic_tokens
 from .theme import build_theme, round_menu, stylesheet
 from .toast import Toast
 from .wheel import Wheel
@@ -499,7 +500,9 @@ class Controller(QObject):
 
     def _make_theme(self):
         s = self.settings
-        return build_theme(s.appearance, s.accent, s.custom_color, s.wheel_opacity)
+        theme = build_theme(s.appearance, s.accent, s.custom_color, s.wheel_opacity)
+        atomic_tokens.use(theme.tokens, s.animations)  # (the parts that draw themselves read it)
+        return theme
 
     def _hide_drag_wheel(self):
         if not self.wheel.click_mode:

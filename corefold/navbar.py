@@ -59,11 +59,11 @@ class _Rows(QStyledItemDelegate):
             p.setPen(QPen(t.accent, 1))
             p.setBrush(t.panel)
             p.drawRoundedRect(r, 7, 7)
-        elif selected or hovered:
+        elif hovered and not selected:  # (the page you're on has a pill that slides, see NavList.paintEvent)
             p.setPen(Qt.NoPen)
-            p.setBrush(mix(t.sidebar or t.panel, t.text, 0.085 if selected else 0.05))
-            p.drawRoundedRect(r, 7, 7)
-        ink = t.text if (selected or hovered or lifted) else mix(t.text, t.sidebar or t.panel, 0.22)
+            p.setBrush(mix(nav.ground(), t.text, 0.05))
+            p.drawRoundedRect(r, 8, 8)
+        ink = t.text if (selected or hovered or lifted) else mix(t.text, nav.ground(), 0.25)
         name = index.data(ICON_ROLE)
         show_icon = name and (compact or nav.show_icons)
         if compact:
@@ -127,6 +127,7 @@ class NavList(QListWidget):
         self.show_icons = show_icons
         self.animate = animate
         self.drag_row = -1
+        self.on_canvas = False   # True for a list on the page area rather than the sidebar
         self._press: QPoint | None = None
         self._press_row = -1
         self.movable: tuple[int, int] = (0, -1)   # first and last row that can be dragged
@@ -183,23 +184,32 @@ class NavList(QListWidget):
         self._mark_y = y
         self.viewport().update()
 
+    def ground(self) -> QColor:
+        """The colour behind the rows (the window's backdrop, or the page area for the Settings list)."""
+        t = self.theme()
+        return t.bg if self.on_canvas else (t.sidebar or t.panel)
+
     def paintEvent(self, e):
-        super().paintEvent(e)
         row = self.currentRow()
-        if row < 0 or self.drag_row >= 0:
-            return
-        if self._mark_y is None or self._mark_anim.state() != QVariantAnimation.Running:
-            self._mark_y = self._row_mark(row)
-        if self._mark_y is None:
-            return
-        p = QPainter(self.viewport())
-        p.setRenderHint(QPainter.Antialiasing)
-        rtl = self.layoutDirection() == Qt.RightToLeft
-        x = self.viewport().width() - 2 - 3 if rtl else 2
-        path = QPainterPath()
-        path.addRoundedRect(QRectF(x, self._mark_y - 8, 3, 16), 1.5, 1.5)
-        p.fillPath(path, self.theme().accent)
-        p.end()
+        if row >= 0 and self.drag_row < 0:
+            if self._mark_y is None or self._mark_anim.state() != QVariantAnimation.Running:
+                self._mark_y = self._row_mark(row)
+            if self._mark_y is not None:  # the pill behind the page you're on, under the rows
+                t = self.theme()
+                p = QPainter(self.viewport())
+                p.setRenderHint(QPainter.Antialiasing)
+                h = self.visualRect(self.model().index(row, 0)).height() - 4
+                pill = QRectF(2, self._mark_y - h / 2, self.viewport().width() - 4, h)
+                path = QPainterPath()
+                path.addRoundedRect(pill, 8, 8)
+                p.fillPath(path, mix(self.ground(), t.accent, 0.15 if t.dark else 0.11))
+                rtl = self.layoutDirection() == Qt.RightToLeft
+                x = pill.right() - 3 if rtl else pill.left()
+                bar = QPainterPath()
+                bar.addRoundedRect(QRectF(x, self._mark_y - 8, 3, 16), 1.5, 1.5)
+                p.fillPath(bar, t.accent)
+                p.end()
+        super().paintEvent(e)
 
     # ---- moving rows
 

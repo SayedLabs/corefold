@@ -6,23 +6,27 @@ from PySide6.QtCore import QByteArray, QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
 
-from .icondata import EVENODD, PATHS
+from .icondata import EVENODD, PATHS, STROKES
 
 _renderers: dict[tuple[str, str], QSvgRenderer] = {}
 
 
 def has(name: str) -> bool:
-    return name in PATHS
+    return name in PATHS or name in STROKES
 
 
 def svg(name: str, color: str) -> bytes:
+    if name in STROKES:
+        return (f'<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">'
+                f'<g fill="none" stroke="{color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">'
+                f'{STROKES[name]}</g></svg>').encode("ascii")
     rule = ' fill-rule="evenodd" clip-rule="evenodd"' if name in EVENODD else ""
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">'
             f'<path d="{PATHS[name]}" fill="{color}"{rule}/></svg>').encode("ascii")
 
 
 def _renderer(name: str, color: QColor) -> QSvgRenderer | None:
-    if name not in PATHS:
+    if not has(name):
         return None
     key = (name, color.name())  # transparency is applied when painting, see paint()
     r = _renderers.get(key)

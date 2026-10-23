@@ -10,7 +10,7 @@ from PySide6.QtGui import QColor, QDesktopServices, QFont, QGuiApplication, QIco
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QColorDialog, QComboBox, QFileDialog, QFrame,
                                QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox,
                                QPushButton,
-                               QScrollArea, QSlider, QSpinBox, QStackedWidget, QSystemTrayIcon, QVBoxLayout,
+                               QScrollArea, QSizePolicy, QSlider, QSpinBox, QStackedWidget, QSystemTrayIcon, QVBoxLayout,
                                QWidget)
 
 from . import UPDATE_REPO, __version__, i18n, icons, winutil
@@ -29,6 +29,7 @@ from .settings import (ACCENTS, APP_NAME, DEFAULT_ACCENT, APPEARANCES, HOVER_STY
                        PLAYER_WHEEL,
                        LOOK_KEYS, UNINSTALLER_KEYS, UNUSED_MONTHS, WHEEL_KEYS, editable_keys, set_startup,
                        startup_enabled)
+from .atomic.widgets import Switch, mark_rows
 from .theme import Theme
 from .timefmt import date_text, locale, time_ago  # noqa: F401 (used by other pages)
 from .navbar import ICON_ROLE
@@ -86,8 +87,8 @@ def button(text: str, name: str | None = None, on_click=None) -> QPushButton:
 
 
 def checkbox(text: str, checked: bool, on_toggle=None) -> QCheckBox:
-    cb = QCheckBox(text)
-    cb.setCursor(Qt.PointingHandCursor)
+    """An on/off setting: a whole row with the words on one side and a switch on the other."""
+    cb = Switch(text)
     cb.setChecked(checked)
     if on_toggle:
         cb.toggled.connect(on_toggle)
@@ -123,16 +124,20 @@ def page(title: str, subtitle: str = "") -> tuple[QWidget, QVBoxLayout]:
 
 def tool_header(product: str, title: str, intro: str, dark: bool, dpr: float, extra: QWidget | None = None,
                 pill: str = "") -> QHBoxLayout:
-    """A tool's own heading: its tile, its name (and a pill like "Coming soon"), one line about it,
-    and something on the far side (like the on/off switch)."""
-    head = QHBoxLayout()
+    """A tool's own heading, on a banner washed with the tool's colour: its tile, its name (and a pill like
+    "Coming soon"), one line about it, and something on the far side (like the on/off switch)."""
+    from .atomic.widgets import GlowPanel
+    banner = GlowPanel(color=QColor(icons.PRODUCT_COLORS.get(product, ("#3cc7b2", "#0f8f7c"))[0 if dark else 1]),
+                       rings=False)
+    head = QHBoxLayout(banner)
+    head.setContentsMargins(20, 18, 20, 18)
     head.setSpacing(16)
     tile = QLabel()
-    tile.setPixmap(icons.product_tile(product, 60, dark, dpr))
-    tile.setFixedSize(62, 62)
+    tile.setPixmap(icons.product_tile(product, 56, dark, dpr))
+    tile.setFixedSize(58, 58)
     head.addWidget(tile, 0, Qt.AlignTop)
     words = QVBoxLayout()
-    words.setSpacing(4)
+    words.setSpacing(3)
     top = QHBoxLayout()
     top.setSpacing(10)
     top.addWidget(label(title, "h1"))
@@ -145,8 +150,11 @@ def tool_header(product: str, title: str, intro: str, dark: bool, dpr: float, ex
     words.addWidget(label(intro, "muted", wrap=True))
     head.addLayout(words, 1)
     if extra is not None:
-        head.addWidget(extra, 0, Qt.AlignTop)
-    return head
+        head.addWidget(extra, 0, Qt.AlignVCenter)
+    outer = QHBoxLayout()
+    outer.setContentsMargins(0, 0, 0, 0)
+    outer.addWidget(banner)
+    return outer
 
 
 class ToolCard(QFrame):
@@ -160,10 +168,10 @@ class ToolCard(QFrame):
         self.setFocusPolicy(Qt.StrongFocus)  # Tab reaches it; Enter opens it
         self.on_click = on_click
         lay = QHBoxLayout(self) if small else QVBoxLayout(self)
-        lay.setContentsMargins(16, 14, 16, 14)
-        lay.setSpacing(10 if small else 8)
+        lay.setContentsMargins(16, 14, 16, 14) if small else lay.setContentsMargins(18, 16, 18, 16)
+        lay.setSpacing(10 if small else 4)
         tile = QLabel()
-        side = 40 if small else 44
+        side = 40
         tile.setPixmap(icons.product_tile(product, side, dark, dpr))
         tile.setFixedSize(side + 2, side + 2)
         tile.setAttribute(Qt.WA_TransparentForMouseEvents)
@@ -186,7 +194,18 @@ class ToolCard(QFrame):
             words.addStretch()
             lay.addLayout(words, 1)
         else:
-            lay.addWidget(tile)
+            top = QHBoxLayout()
+            top.setSpacing(8)
+            top.addWidget(tile)
+            top.addStretch()
+            self.arrow = QLabel()  # (shows when the mouse is over the card)
+            self.arrow.setPixmap(icons.pixmap("arrow_left" if i18n.is_rtl() else "arrow_right", 18,
+                                              icons_color(dark), dpr))
+            self.arrow.setAttribute(Qt.WA_TransparentForMouseEvents)
+            self.arrow.hide()
+            top.addWidget(self.arrow, 0, Qt.AlignTop)
+            lay.addLayout(top)
+            lay.addSpacing(4)
             lay.addWidget(self.title)
             line = label(text, "muted", wrap=True)
             line.setMinimumWidth(1)  # wraps inside the card instead of pushing past its edge (long Arabic lines)
@@ -197,6 +216,16 @@ class ToolCard(QFrame):
             self.stat.setAttribute(Qt.WA_TransparentForMouseEvents)
             lay.addWidget(self.stat)
             lay.addStretch()
+
+    def enterEvent(self, e):
+        if hasattr(self, "arrow"):
+            self.arrow.show()
+        super().enterEvent(e)
+
+    def leaveEvent(self, e):
+        if hasattr(self, "arrow"):
+            self.arrow.hide()
+        super().leaveEvent(e)
 
     def mouseReleaseEvent(self, e):
         if e.button() == Qt.LeftButton and self.rect().contains(e.position().toPoint()):
@@ -259,6 +288,21 @@ def _alive(widget) -> bool:
         return isValid(widget)
     except ImportError:
         return True
+
+
+def icons_color(dark: bool) -> QColor:
+    from .atomic import tokens
+    return tokens.current().muted
+
+
+def _greeting() -> str:
+    from datetime import datetime
+    hour = datetime.now().hour
+    if 5 <= hour < 12:
+        return tr("Good morning")
+    if 12 <= hour < 18:
+        return tr("Good afternoon")
+    return tr("Good evening")
 
 
 def _html(text: str) -> str:
@@ -339,8 +383,8 @@ class Swatches(QWidget):
                 b.setText("+")
                 text = f"color: {'#000' if QColor(color).lightness() > 150 else '#fff'}; font-size: 14pt;"
             b.setStyleSheet(
-                f"QPushButton {{ background: {color}; border: 3px solid {t.panel.name()}; border-radius: 16px;"
-                f" padding: 0; {text} }}"
+                f"QPushButton {{ background: {color}; border: 3px solid {t.panel.name()}; border-radius: 15px;"
+                f" padding: 0; min-height: 0; {text} }}"
                 f"QPushButton:hover {{ border-color: {t.border.name()}; }}"
                 f"QPushButton:checked {{ background: {color}; border: 3px solid {t.text.name()}; }}")
 
@@ -375,11 +419,11 @@ class MainWindow(QWidget):
         self.menu_btn = QPushButton()
         self.menu_btn.setObjectName("navToggle")
         self.menu_btn.setCursor(Qt.PointingHandCursor)
-        self.menu_btn.setFixedSize(40, 36)
+        self.menu_btn.setFixedSize(38, 36)
         self.menu_btn.setIconSize(QSize(18, 18))
         self.menu_btn.clicked.connect(self.toggle_nav)
         self.logo = QLabel()
-        self.logo.setPixmap(icon.pixmap(26, 26))
+        self.logo.setPixmap(icon.pixmap(28, 28))
         self.brand = label(APP_NAME, "brand")
         brand = QHBoxLayout()
         brand.setSpacing(8)
@@ -399,7 +443,7 @@ class MainWindow(QWidget):
         self.nav = NavList(lambda: self.c.theme, self.c.settings.sidebar_icons, self.c.settings.animations)
         self.nav_rows: list[str | None] = []   # sidebar row -> page name (None for a heading)
         self.nav.ensurePolished()
-        row_h = max(36, self.nav.fontMetrics().height() + 18)  # compact rows, so every page fits
+        row_h = max(38, self.nav.fontMetrics().height() + 20)  # rows a finger could hit, and every page fits
         for entry in self.nav_entries:
             item = QListWidgetItem()
             if isinstance(entry, tuple):
@@ -421,8 +465,8 @@ class MainWindow(QWidget):
         self.nav.menu.connect(self._nav_menu)
         self.refresh_nav()
         side = QVBoxLayout(sidebar)
-        side.setContentsMargins(10, 12, 10, 12)
-        side.setSpacing(12)
+        side.setContentsMargins(10, 14, 8, 14)
+        side.setSpacing(14)
         side.addLayout(brand)
         side.addWidget(self.nav, 1)
         self.version_label = label(tr("Version {version}", version=__version__), "version")
@@ -473,7 +517,7 @@ class MainWindow(QWidget):
 
         footer = QHBoxLayout()
         footer.setSpacing(8)
-        self.saved_hint = label(tr("Changes to settings are kept when you press Save."), "muted")
+        self.saved_hint = label(tr("Changes to settings are kept when you press Save."), "subtle")
         self.unsaved = label(tr("You have unsaved changes"), "unsaved")
         footer.addWidget(self.saved_hint)
         footer.addWidget(self.unsaved)
@@ -483,19 +527,31 @@ class MainWindow(QWidget):
         self.done_btn = button(tr("Done"), "primary", self.close)
         for b in (self.discard_btn, self.save_btn, self.done_btn):
             footer.addWidget(b)
-        content = QVBoxLayout()
-        content.setContentsMargins(30, 24, 20, 18)
-        content.setSpacing(12)
-        content.addWidget(self.settings_head)
-        content.addWidget(self.stack, 1)
-        content.addLayout(footer)
+        # the pages sit on a big rounded sheet (the canvas) in front of the window's backdrop
+        self.canvas = QFrame()
+        self.canvas.setObjectName("canvas")
+        cl = QVBoxLayout(self.canvas)
+        cl.setContentsMargins(28, 12, 16, 16)
+        cl.setSpacing(12)
+        cl.addWidget(self._top_bar())
+        body = QHBoxLayout()
+        body.setSpacing(24)
+        body.addWidget(self.settings_side)
+        column = QVBoxLayout()
+        column.setSpacing(12)
+        column.addWidget(self.settings_head)
+        column.addWidget(self.stack, 1)
+        body.addLayout(column, 1)
+        cl.addLayout(body, 1)
+        cl.addLayout(footer)
 
         root = QHBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
+        root.setContentsMargins(0, 8, 0, 8)
         root.setSpacing(0)
         root.addWidget(sidebar)
         root.addWidget(self.edge)
-        root.addLayout(content, 1)
+        root.addWidget(self.canvas, 1)
+        root.addSpacing(8)
 
         self.refresh()
         self.refresh_updates()
@@ -505,6 +561,7 @@ class MainWindow(QWidget):
         self._went: list[str] = []  # pages opened before this one (Back, Alt + Left, the mouse's back button)
         self._going_back = False
         QShortcut(QKeySequence(QKeySequence.StandardKey.Back), self, self.go_back)
+        QShortcut(QKeySequence("Ctrl+K"), self, self.open_palette)
         self._back_button = _BackButton(self)  # (only listens while the window is showing)
 
     # ---- saving settings on purpose
@@ -589,6 +646,7 @@ class MainWindow(QWidget):
             for w in (root or self).findChildren(cls):
                 w.setFocusPolicy(Qt.StrongFocus)
                 w.installEventFilter(self._wheel_guard)
+        mark_rows(root or self)  # (hairlines between settings rows that follow each other)
 
     def refresh_nav(self):
         t = self.c.theme
@@ -707,6 +765,7 @@ class MainWindow(QWidget):
         self.stack.setCurrentIndex(current)
         self.refresh()
         self.refresh_history()
+        self.apply_theme(self.c.theme)
 
     def _nav_menu(self, row: int, pos):
         """Right-click on the sidebar: move a tool, put them back in order, or narrow the sidebar."""
@@ -924,29 +983,47 @@ class MainWindow(QWidget):
         assoc.open_default_apps()
 
     def _settings_head(self) -> QWidget:
-        """Above the Settings pages: the heading, a tab for the app and each tool, and the smaller tabs
-        of a tool that has several pages."""
+        """Settings: a list on the side (the app, then each tool you use), and above the page its name
+        and, for a tool with several pages, small pill tabs."""
+        from .navbar import NavList
+        side = QWidget()
+        sv = QVBoxLayout(side)
+        sv.setContentsMargins(0, 2, 0, 0)
+        sv.setSpacing(10)
+        sv.addWidget(label(tr("Settings"), "h1"))
+        self.settings_list = NavList(lambda: self.c.theme, True, self.c.settings.animations)
+        self.settings_list.setObjectName("settingsNav")
+        self.settings_list.on_canvas = True
+        tool_of = {tool.settings: tool.page for tool in self.tools_on if tool.settings}
+        icon_of = {"General": "settings", "Look": "paint_brush"}
+        self.settings_tabs: dict[str, int] = {}  # the tab's first page -> its row
+        self.settings_list.ensurePolished()
+        row_h = max(36, self.settings_list.fontMetrics().height() + 18)
+        for first, text, _pages in self.settings_tab_list:
+            item = QListWidgetItem(tr(text))
+            item.setSizeHint(QSize(0, row_h))
+            item.setData(Qt.UserRole, first)
+            item.setData(ICON_ROLE, icon_of.get(first) or PAGE_ICONS.get(tool_of.get(first, ""), "settings"))
+            self.settings_tabs[first] = self.settings_list.count()
+            self.settings_list.addItem(item)
+        self.settings_list.setFixedHeight(row_h * len(self.settings_tab_list) + 6)
+        self.settings_list.itemClicked.connect(lambda item: self.open_page(item.data(Qt.UserRole)))
+        self.settings_list.currentRowChanged.connect(self._settings_row_changed)
+        sv.addWidget(self.settings_list)
+        sv.addStretch()
+        side.setFixedWidth(212)
+        side.hide()
+        self.settings_side = side
+
         head = QWidget()
         v = QVBoxLayout(head)
-        v.setContentsMargins(0, 0, 10, 4)
-        v.setSpacing(6)
-        v.addWidget(label(tr("Settings"), "h1"))
-        row = QHBoxLayout()
-        row.setSpacing(2)
-        self.settings_tabs: dict[str, QPushButton] = {}
-        for first, text, _pages in self.settings_tab_list:
-            b = button(tr(text), "tab", lambda _=False, f=first: self.open_page(f))
-            b.setCheckable(True)
-            row.addWidget(b)
-            self.settings_tabs[first] = b
-        row.addStretch()
-        v.addLayout(row)
-        line = QFrame()
-        line.setObjectName("tabLine")
-        v.addWidget(line)
+        v.setContentsMargins(0, 2, 10, 0)
+        v.setSpacing(8)
+        self.settings_title = label("", "h1")
+        v.addWidget(self.settings_title)
         self.settings_sub = QWidget()
         sub = QHBoxLayout(self.settings_sub)
-        sub.setContentsMargins(0, 4, 0, 0)
+        sub.setContentsMargins(0, 0, 0, 2)
         sub.setSpacing(4)
         self.settings_subtabs: dict[str, QPushButton] = {}
         for page_name, text in SETTINGS_SUBTABS.items():
@@ -956,23 +1033,193 @@ class MainWindow(QWidget):
             self.settings_subtabs[page_name] = b
         sub.addStretch()
         v.addWidget(self.settings_sub)
+        head.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         self.settings_head = head
         head.hide()
         return head
 
+    def _settings_row_changed(self, row: int):
+        item = self.settings_list.item(row)
+        if item is not None and not self._syncing_settings:
+            self.open_page(item.data(Qt.UserRole))
+
+    _syncing_settings = False
+
     def _sync_settings_head(self, name: str):
         on = name in SETTINGS_PAGES
         self.settings_head.setVisible(on)
+        self.settings_side.setVisible(on)
         if hasattr(self, "saved_hint"):  # (the hint about Save only means something on the settings)
             self.saved_hint.setVisible(on and self.unsaved.isHidden())
             self.done_btn.setVisible(on or not self.unsaved.isHidden())
+        self._sync_top_bar(name)
         if not on:
             return
-        for first, _text, pages in self.settings_tab_list:
-            self.settings_tabs[first].setChecked(name in pages)
+        for first, text, pages in self.settings_tab_list:
+            if name in pages:
+                self.settings_title.setText(tr(text))
+                self._syncing_settings = True
+                try:
+                    self.settings_list.setCurrentRow(self.settings_tabs[first])
+                finally:
+                    self._syncing_settings = False
         self.settings_sub.setVisible(name in self.settings_subtabs)
         for page_name, b in self.settings_subtabs.items():
             b.setChecked(page_name == name)
+
+    # ---- the strip at the top: Back, where you are, search, light or dark
+
+    def _top_bar(self) -> QWidget:
+        from .atomic.widgets import IconButton, SearchButton
+        bar = QWidget()
+        bar.setObjectName("topBar")
+        row = QHBoxLayout(bar)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(8)
+        self.back_btn = IconButton(tr("Back (Alt + Left)"))
+        self.back_btn.clicked.connect(self.go_back)
+        row.addWidget(self.back_btn)
+        self.crumb = label("", "muted")
+        row.addWidget(self.crumb)
+        row.addStretch()
+        self.search_btn = SearchButton(tr("Search Corefold"))
+        self.search_btn.setMinimumWidth(240)
+        self.search_btn.setToolTip(tr("Find any page, setting or action (Ctrl + K)"))
+        self.search_btn.clicked.connect(self.open_palette)
+        row.addWidget(self.search_btn)
+        self.top_actions = QHBoxLayout()  # (room for more buttons, like the Quick menu's)
+        self.top_actions.setSpacing(4)
+        row.addLayout(self.top_actions)
+        self.theme_btn = IconButton()
+        self.theme_btn.clicked.connect(self.toggle_dark)
+        row.addWidget(self.theme_btn)
+        self.palette = None
+        return bar
+
+    def _sync_top_bar(self, name: str):
+        if not hasattr(self, "crumb"):
+            return
+        if name in SETTINGS_PAGES:
+            where = tr("Settings")
+        elif name in all_tools.BY_PAGE and name not in SOON:
+            where = tr("Tools")
+        elif name in SOON:
+            where = tr("Store")
+        else:
+            where = ""
+        here = tr(NAV_LABELS.get(name, name)) if name not in SETTINGS_PAGES else ""
+        sep = " ‹ " if i18n.is_rtl() else " › "
+        self.crumb.setText(sep.join(x for x in (where, here) if x) if where else "")
+        self.back_btn.setEnabled(bool(getattr(self, "_went", None)))
+
+    def toggle_dark(self):
+        """The sun/moon button: light or dark right away (and kept, without pressing Save)."""
+        s = self.c.settings
+        unsaved = self.is_dirty()
+        s.appearance = "light" if self.c.theme.dark else "dark"
+        seg = getattr(self, "appearance_seg", None)
+        if seg is not None:
+            for i, k in enumerate(seg.keys):
+                seg.group.button(i).setChecked(k == s.appearance)
+        self.c.settings_changed()
+        self.c.apply_theme()
+        if not unsaved:  # nothing else waiting for Save: this is kept straight away
+            self.save_changes()
+        self.update_save_bar()
+
+    # ---- the command palette (Ctrl + K): pages, settings and actions, found by typing
+
+    def open_palette(self):
+        from .atomic.palette import CommandPalette
+        if self.palette is None:
+            self.palette = CommandPalette(self, tr("Search pages, settings and actions"),
+                                          tr("Nothing matches. Try another word."), heading=lambda where: where)
+        self.palette.open(self._commands())
+
+    def _commands(self) -> list:
+        from .atomic.palette import Command
+        t = self.c.theme
+        commands: list[Command] = []
+        go, actions, in_settings = tr("Go to"), tr("Actions"), tr("Settings")
+
+        def ic(name):
+            return icons.icon(name, t.muted)
+
+        # things to do
+        if "Converter" in self.nav_rows:
+            commands.append(Command(tr("Convert files…"), actions, ic("arrow_swap"), self._choose_files,
+                                    keywords="convert pick choose open files"))
+        if self.c.capture is not None:
+            commands.append(Command(tr("Take a screenshot"), actions, ic("screenshot"),
+                                    lambda: QTimer.singleShot(250, self.c.capture.screenshot), keywords="capture"))
+        if self.c.clip is not None:
+            commands.append(Command(tr("Show the clipboard history"), actions, ic("clipboard"),
+                                    self.c.show_clipboard, hint="Win Alt V", keywords="clipboard paste"))
+        commands.append(Command(tr("Switch to light mode") if t.dark else tr("Switch to dark mode"), actions,
+                                ic("weather_sunny" if t.dark else "weather_moon"), self.toggle_dark,
+                                keywords="theme dark light appearance"))
+        if self.c.updates_supported():
+            commands.append(Command(tr("Check for updates"), actions, ic("arrow_sync"),
+                                    lambda: (self.open_page("Updates"), self.c.check_updates(manual=True)),
+                                    keywords="update version"))
+        commands.append(Command(tr("Show the tour again"), actions, ic("sparkle"), self.c.show_tour,
+                                keywords="help start tips"))
+        # pages
+        for name in self.nav_rows:
+            if name:
+                commands.append(Command(tr(NAV_LABELS.get(name, name)), go, ic(PAGE_ICONS.get(name, "apps")),
+                                        lambda n=name: self.open_page(n)))
+        for tool in all_tools.coming():
+            commands.append(Command(tr(tool.name), tr("Coming soon"), ic(tool.icon),
+                                    lambda n=tool.page: self.open_page(n), keywords=tr(tool.line)))
+        # settings: each tab and page, then each setting on them, found by its words
+        tab_of = {}
+        for first, text, pages in self.settings_tab_list:
+            for page_name in pages:
+                tab_of[page_name] = tr(text)
+            commands.append(Command(tr(text), in_settings, ic("settings"), lambda f=first: self.open_page(f)))
+        sep = " ‹ " if i18n.is_rtl() else " › "
+        seen = set()
+        setting_icon = ic("text_description")
+        for page_name, tab in tab_of.items():
+            i = PAGES.index(page_name)
+            w = self.stack.widget(i)
+            if w is None or page_name in self._unbuilt:
+                continue
+            where = in_settings + sep + tab
+            if page_name in SETTINGS_SUBTABS:
+                where += sep + tr(SETTINGS_SUBTABS[page_name])
+            for widget in w.findChildren(QWidget):
+                text = ""
+                if isinstance(widget, QCheckBox):
+                    text = widget.text()
+                elif isinstance(widget, QLabel) and widget.objectName() in ("", "h2") and not widget.pixmap():
+                    text = widget.text()
+                text = text.replace("&", "").strip().rstrip(":")
+                if not text or len(text) > 90 or "<" in text or (page_name, text) in seen:
+                    continue
+                seen.add((page_name, text))
+                commands.append(Command(text, where, setting_icon,
+                                        lambda n=page_name, wd=widget: self._show_setting(n, wd), listed=False))
+        return commands
+
+    def _show_setting(self, page_name: str, widget: QWidget):
+        """Opens the page with this setting, scrolls to it and makes it glow for a moment."""
+        self.open_page(page_name)
+
+        def reveal():
+            if not _alive(widget):
+                return
+            area = widget.parent()
+            while area is not None and not isinstance(area, QScrollArea):
+                area = area.parent()
+            if area is not None:
+                area.ensureWidgetVisible(widget, 40, 80)
+            from .atomic.widgets import flash
+            flash(widget)
+            if widget.focusPolicy() != Qt.NoFocus:
+                widget.setFocus(Qt.ShortcutFocusReason)
+        QTimer.singleShot(60, reveal)
 
     def open_tool_settings(self, tool_page: str):
         self.open_page(TOOL_SETTINGS.get(tool_page, "General"))
@@ -1009,12 +1256,22 @@ class MainWindow(QWidget):
         mine = [tool for tool in all_tools.ready() if tool.id in on]
         more = [tool for tool in all_tools.ready() if tool.id not in on]
 
+        from .atomic.widgets import ResponsiveGrid
+
         def section(title: str, tools: list, kind: str):
             if not tools:
                 return
-            lay.addWidget(label(title, "section"))
+            head = QHBoxLayout()
+            head.setSpacing(8)
+            head.addWidget(label(title, "title"))
+            count = label(str(len(tools)), "chip")
+            head.addWidget(count, 0, Qt.AlignVCenter)
+            head.addStretch()
+            lay.addLayout(head)
+            grid = ResponsiveGrid(300, 12, 3)
             for tool in tools:
-                lay.addWidget(self._store_card(tool, kind, tool.id in fresh, dark, dpr))
+                grid.add(self._store_card(tool, kind, tool.id in fresh, dark, dpr))
+            lay.addWidget(grid)
 
         section(tr("Your tools"), mine, "remove")
         if not mine:
@@ -1025,9 +1282,8 @@ class MainWindow(QWidget):
         if coming:  # many ideas: a tidy grid, the first row shown until "Show all" is pressed
             head = QHBoxLayout()
             head.setSpacing(8)
-            head.addWidget(label(tr("Coming soon"), "section"))
-            count = label(str(len(coming)), "soonPill")
-            count.setFixedHeight(18)
+            head.addWidget(label(tr("Coming soon"), "title"))
+            count = label(str(len(coming)), "chip")
             head.addWidget(count, 0, Qt.AlignVCenter)
             head.addStretch()
             lay.addLayout(head)
@@ -1067,37 +1323,48 @@ class MainWindow(QWidget):
 
     def _store_card(self, tool, kind: str, fresh: bool, dark: bool, dpr: float) -> QFrame:
         box = QFrame()
-        box.setObjectName("card")
-        row = QHBoxLayout(box)
-        row.setContentsMargins(16, 14, 16, 14)
-        row.setSpacing(14)
+        box.setObjectName("toolCard")
+        v = QVBoxLayout(box)
+        v.setContentsMargins(18, 16, 18, 16)
+        v.setSpacing(10)
+        top = QHBoxLayout()
+        top.setSpacing(12)
         tile = QLabel()
         tile.setPixmap(icons.product_tile(tool.product, 46, dark, dpr))
         tile.setFixedSize(48, 48)
-        row.addWidget(tile, 0, Qt.AlignTop)
+        top.addWidget(tile, 0, Qt.AlignTop)
         words = QVBoxLayout()
-        words.setSpacing(3)
-        top = QHBoxLayout()
-        top.setSpacing(8)
-        top.addWidget(label(tr(tool.name), "cardTitle"))
+        words.setSpacing(2)
+        name = QHBoxLayout()
+        name.setSpacing(8)
+        name.addWidget(label(tr(tool.name), "cardTitle"))
         if fresh or kind == "soon":
-            pill = label(tr("New") if fresh else tr("Soon"), "soonPill")
-            pill.setFixedHeight(20)
-            top.addWidget(pill, 0, Qt.AlignVCenter)
-        top.addStretch()
-        words.addLayout(top)
+            pill = label(tr("New") if fresh else tr("Soon"), "newPill" if fresh else "soonPill")
+            pill.setFixedHeight(18)
+            name.addWidget(pill, 0, Qt.AlignVCenter)
+        name.addStretch()
+        words.addLayout(name)
+        state = label(tr("In use") if kind == "remove" else tr("Free"), "subtle")
+        words.addWidget(state)
+        top.addLayout(words, 1)
+        v.addLayout(top)
         line = label(tr(tool.line), "muted", wrap=True)
         line.setMinimumWidth(1)
-        words.addWidget(line)
-        row.addLayout(words, 1)
+        v.addWidget(line)
+        v.addStretch()
+        row = QHBoxLayout()
+        row.setSpacing(8)
         if kind == "remove":
-            row.addWidget(button(tr("Open"), None, lambda: self.open_page(tool.page)), 0, Qt.AlignVCenter)
-            row.addWidget(button(tr("Remove"), "danger", lambda: self._remove_tool(tool)), 0, Qt.AlignVCenter)
+            row.addWidget(button(tr("Open"), None, lambda: self.open_page(tool.page)))
+            row.addStretch()
+            row.addWidget(button(tr("Remove"), "danger", lambda: self._remove_tool(tool)))
         elif kind == "add":
-            row.addWidget(button(tr("Add"), "primary", lambda: self.c.set_tool(tool.id, True)), 0, Qt.AlignVCenter)
+            row.addWidget(button(tr("Add"), "primary", lambda: self.c.set_tool(tool.id, True)))
+            row.addStretch()
         else:
-            row.addWidget(button(tr("See what it will do"), None, lambda: self.open_page(tool.page)), 0,
-                          Qt.AlignVCenter)
+            row.addWidget(button(tr("See what it will do"), None, lambda: self.open_page(tool.page)))
+            row.addStretch()
+        v.addLayout(row)
         return box
 
     def _remove_tool(self, tool):
@@ -1141,55 +1408,107 @@ class MainWindow(QWidget):
     # ---- pages
 
     def _home(self) -> QWidget:
-        """The start page: the tools you use, more in the Store, and what happened lately."""
+        """The start page: a greeting with what Corefold did so far and quick actions, the tools you use,
+        more in the Store, and what happened lately."""
+        from .atomic.widgets import FlowLayout, GlowPanel, ResponsiveGrid
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        w, lay = page(tr("Welcome to Corefold"), tr("Your everyday tools in one place. Pick one to start."))
-        lay.addWidget(label(tr("Your tools"), "section"))
-        grid = QGridLayout()
-        grid.setHorizontalSpacing(12)
-        grid.setVerticalSpacing(12)
+        w, lay = page("")
+        lay.itemAt(0).widget().hide()
+        lay.setSpacing(16)
+
+        hero = GlowPanel()
+        hl = QVBoxLayout(hero)
+        hl.setContentsMargins(28, 24, 28, 22)
+        hl.setSpacing(6)
+        self.hello = label(_greeting(), "display")
+        hl.addWidget(self.hello)
+        hl.addWidget(label(tr("Your everyday tools in one place. Drop files anywhere in this window, or press "
+                              "Ctrl + K to find any page, setting or action."), "muted", wrap=True))
+        hl.addSpacing(10)
+        figures = QHBoxLayout()
+        figures.setSpacing(28)
+        self.hero_figures: dict[str, QLabel] = {}
+        for key, text in (("files", tr("files converted")), ("saved", tr("space saved")),
+                          ("tools", tr("tools in use"))):
+            box = QVBoxLayout()
+            box.setSpacing(0)
+            value = label("0", "heroStat")
+            box.addWidget(value)
+            box.addWidget(label(text, "subtle"))
+            figures.addLayout(box)
+            self.hero_figures[key] = value
+        figures.addStretch()
+        hl.addLayout(figures)
+        hl.addSpacing(8)
+        quick = FlowLayout(spacing=8)
+        self.quick_buttons = []
+        on = {tool.id for tool in self.tools_on}
+        for tool_id, text, name, run in (
+                ("converter", tr("Convert files…"), "arrow_swap", self._choose_files),
+                ("capture", tr("Take a screenshot"), "screenshot",
+                 lambda: self.c.capture and QTimer.singleShot(250, self.c.capture.screenshot)),
+                ("clipboard", tr("Clipboard history"), "clipboard", lambda: self.c.show_clipboard()),
+                ("space", tr("See what fills your disk"), "data_pie", lambda: self.open_page("Space"))):
+            if tool_id in on and len(self.quick_buttons) < 3:
+                b = button(text, "quick", run)
+                b.setIconSize(QSize(18, 18))
+                self.quick_buttons.append((b, name))
+                quick.addWidget(b)
+        store = button(tr("Add tools"), "quick", lambda: self.open_page("Store"))
+        store.setIconSize(QSize(18, 18))
+        self.quick_buttons.append((store, "apps"))
+        quick.addWidget(store)
+        hl.addLayout(quick)
+        lay.addWidget(hero)
+
+        head = QHBoxLayout()
+        head.addWidget(label(tr("Your tools"), "title"))
+        head.addStretch()
+        head.addWidget(button(tr("Open the Store"), "flat", lambda: self.open_page("Store")))
+        lay.addLayout(head)
+        grid = ResponsiveGrid(230, 12, 3)
         self.tool_cards = {}
         mine = self.tools_on
-        cols = 2  # (two columns of short cards: all the tools fit without scrolling)
-        for i, tool in enumerate(mine):
-            c = ToolCard(tool.product, tr(tool.nav), "", lambda n=tool.page: self.open_page(n), dark, dpr,
-                         small=True, pill=tr(tool.line))
+        for tool in mine:
+            c = ToolCard(tool.product, tr(tool.nav), tr(tool.line), lambda n=tool.page: self.open_page(n), dark, dpr)
             self.tool_cards[tool.page] = c
-            grid.addWidget(c, i // cols, i % cols)
-        for col in range(cols):
-            grid.setColumnStretch(col, 1)
-        lay.addLayout(grid)
+            grid.add(c)
+        lay.addWidget(grid)
         if not mine:
             lay.addWidget(label(tr("You haven't added any tools yet. Pick the ones you want below."), "muted",
                                 wrap=True))
 
-        on = {tool.id for tool in mine}
-        others = [(tool, tr("Add")) for tool in all_tools.ready() if tool.id not in on]
+        others = [tool for tool in all_tools.ready() if tool.id not in on]
         coming = len(all_tools.coming())
-        if others or coming:
-            head = QHBoxLayout()
-            head.addWidget(label(tr("More tools"), "section"))
-            head.addStretch()
-            if coming:  # (the ideas are in the Store, so Home stays short)
-                head.addWidget(label(tr("{count} more on the way", count=coming), "muted"))
-            head.addWidget(button(tr("Open the Store"), "flat", lambda: self.open_page("Store")))
-            lay.addLayout(head)
-            soon = QGridLayout()
-            soon.setHorizontalSpacing(12)
-            soon.setVerticalSpacing(12)
-            for i, (tool, pill) in enumerate(others):
-                soon.addWidget(ToolCard(tool.product, tr(tool.name), "", lambda: self.open_page("Store"), dark, dpr,
-                                        small=True, pill=pill), i // 2, i % 2)
-            soon.setColumnStretch(0, 1)
-            soon.setColumnStretch(1, 1)
-            lay.addLayout(soon)
+        if others or coming:  # one line about the Store (the ideas are there, so Home stays short)
+            more, ml = card(0)
+            ml.setContentsMargins(18, 14, 14, 14)
+            row = QHBoxLayout()
+            row.setSpacing(12)
+            tiles = QHBoxLayout()
+            tiles.setSpacing(-8)
+            for tool in (others or all_tools.coming())[:4]:
+                t = QLabel()
+                t.setPixmap(icons.product_tile(tool.product, 30, dark, dpr))
+                tiles.addWidget(t)
+            row.addLayout(tiles)
+            words = []
+            if others:
+                words.append(tr("{count} more ready to add", count=len(others)))
+            if coming:
+                words.append(tr("{count} more on the way", count=coming))
+            row.addWidget(label(" · ".join(words), "muted"), 1)
+            row.addWidget(button(tr("Open the Store"), None, lambda: self.open_page("Store")))
+            ml.addLayout(row)
+            lay.addWidget(more)
 
         head = QHBoxLayout()
-        head.addWidget(label(tr("Recent activity"), "section"))
+        head.addWidget(label(tr("Recent activity"), "title"))
         head.addStretch()
         head.addWidget(button(tr("See all"), "flat", lambda: self.open_page("History")))
         lay.addLayout(head)
-        recent, self.recent_lay = card(8)
+        recent, self.recent_lay = card(0)
+        self.recent_lay.setContentsMargins(6, 6, 6, 6)
         lay.addWidget(recent)
         lay.addStretch()
         return w
@@ -1202,26 +1521,37 @@ class MainWindow(QWidget):
                 item.widget().deleteLater()
         entries = self.c.history.items[:5]
         if not entries:
-            self.recent_lay.addWidget(label(tr("Nothing yet. What you do with Corefold shows up here."), "muted",
-                                            wrap=True))
+            empty = label(tr("Nothing yet. What you do with Corefold shows up here."), "muted", wrap=True)
+            empty.setContentsMargins(12, 10, 12, 10)
+            self.recent_lay.addWidget(empty)
             return
         arrow = "←" if i18n.is_rtl() else "→"
-        for e in entries:
+        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
+        for n, e in enumerate(entries):
             n_in = max(e.input_count, len(e.inputs))
             n_out = max(e.output_count, len(e.outputs))
             what = e.inputs[0] if n_in == 1 and e.inputs else tr("{count} files", count=n_in)
             result = Path(e.outputs[0]).name if n_out == 1 and e.outputs else \
                 tr("{count} new files", count=n_out) if n_out else tr("no new file")
-            row = QHBoxLayout()
-            row.setSpacing(10)
-            text = label(f"<b>{_html(e.tool)}</b>&nbsp;&nbsp;{_html(short_name(what, 40))} {arrow} "
-                         f"{_html(short_name(result, 40))}")
-            text.setTextFormat(Qt.RichText)
-            row.addWidget(text, 1)
-            row.addWidget(label(time_ago(e.when), "muted"))
             holder = QWidget()
-            holder.setLayout(row)
-            row.setContentsMargins(0, 0, 0, 0)
+            row = QHBoxLayout(holder)
+            row.setContentsMargins(10, 8, 12, 8)
+            row.setSpacing(12)
+            tile = QLabel()
+            tile.setPixmap(icons.product_tile("converter", 28, dark, dpr))
+            row.addWidget(tile)
+            words = QVBoxLayout()
+            words.setSpacing(0)
+            words.addWidget(label(e.tool, "cardTitle"))
+            text = label(f"{_html(short_name(what, 44))} {arrow} {_html(short_name(result, 44))}", "muted")
+            text.setTextFormat(Qt.RichText)
+            words.addWidget(text)
+            row.addLayout(words, 1)
+            row.addWidget(label(time_ago(e.when), "subtle"))
+            if n:
+                line = QFrame()
+                line.setObjectName("line")
+                self.recent_lay.addWidget(line)
             self.recent_lay.addWidget(holder)
 
     def _converter(self) -> QWidget:
@@ -1451,6 +1781,7 @@ class MainWindow(QWidget):
 
         controls, cl = card(8)
         appearance = Segmented([(k, tr(v)) for k, v in APPEARANCES.items()], s.appearance)
+        self.appearance_seg = appearance
         appearance.changed.connect(lambda v: self._look_changed("appearance", v))
         self.swatches = Swatches(s.accent, s.custom_color)
         self.swatches.changed.connect(lambda v: self._look_changed("accent", v))
@@ -2467,6 +2798,10 @@ class MainWindow(QWidget):
         self.home_stats.setText(tr("So far: {count} files converted · {size} saved", count=locale().toString(st.files),
                                    size=human_size(st.bytes_saved)) if st.files else "")
         self.home_stats.setVisible(bool(st.files))
+        self.hero_figures["files"].setText(locale().toString(st.files))
+        self.hero_figures["saved"].setText(human_size(st.bytes_saved) if st.bytes_saved else "0")
+        self.hero_figures["tools"].setText(locale().toString(len(self.tools_on)))
+        self.hello.setText(_greeting())
         for page_name, tool_card in self.tool_cards.items():  # a small figure under a tool, where there is one
             text = tr("{count} files converted", count=locale().toString(st.files)) \
                 if page_name == "Converter" and st.files else ""
@@ -2826,6 +3161,14 @@ class MainWindow(QWidget):
 
     def apply_theme(self, t: Theme):
         self.refresh_nav()  # the icons follow the text colour
+        self.back_btn.setIcon(icons.icon("arrow_right" if i18n.is_rtl() else "arrow_left", t.text, disabled=t.tokens.subtle))
+        self.search_btn.glyph = icons.icon("search", t.muted)
+        self.search_btn.update()
+        self.theme_btn.setIcon(icons.icon("weather_sunny" if t.dark else "weather_moon", t.text))
+        self.theme_btn.setToolTip(tr("Switch to light mode") if t.dark else tr("Switch to dark mode"))
+        for b, name in self.quick_buttons:
+            b.setIcon(icons.icon(name, t.accent if not t.dark else t.text))
+        self.settings_list.viewport().update()
         dpr = self.devicePixelRatioF()
         for lab, name in zip(self.vol_icons, ("speaker_0", "speaker_2")):
             lab.setPixmap(icons.pixmap(name, 18, t.muted, dpr))
