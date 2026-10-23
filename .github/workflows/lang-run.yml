@@ -1,0 +1,113 @@
+# Temporary: tries this branch on Windows on every push (removed before merging).
+name: Language run
+
+on:
+  push:
+    branches: [claude/project-thread-4o8onh]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lang-run
+  cancel-in-progress: true
+
+jobs:
+  try:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: languages
+          - name: sweep-fr-small
+            sweep: "--lang fr --look dark --size min --quick"
+          - name: sweep-fr-small-main
+            sweep: "--lang fr --look dark --size min --quick"
+            main: "yes"
+    name: ${{ matrix.name }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install
+        shell: pwsh
+        run: |
+          python -m pip install --quiet -r requirements.txt
+          New-Item -ItemType Directory -Force out | Out-Null
+          python scripts/screenres.py 1920 1080 *>> out/screen.txt
+      - name: Languages
+        if: matrix.name == 'languages'
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          python -X faulthandler scripts/langtest.py out/langtest --look dark *> out/langtest-dark.txt
+          python -X faulthandler scripts/langtest.py out/langtest --look light *> out/langtest-light.txt
+          "exit code $LASTEXITCODE" | Out-File -Append -Encoding utf8 out/langtest-light.txt
+          python -X faulthandler scripts/langtest.py out/langtest --start first --data startdata *> out/langtest-first.txt
+          python -X faulthandler scripts/langtest.py out/langtest --start again --data startdata *> out/langtest-again.txt
+      - name: Checks
+        if: matrix.name == 'checks'
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
+          python scripts/check_translations.py *> out/translations.txt
+          python scripts/selftest.py *> out/selftest.txt
+          python scripts/uitest.py out/uitest *> out/uitest.txt
+      - name: Sweep
+        if: matrix.sweep != ''
+        shell: pwsh
+        continue-on-error: true
+        env:
+          SWEEP: ${{ matrix.sweep }}
+        run: |
+          $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
+          if ("${{ matrix.main }}" -eq "yes") { git fetch -q --depth 1 origin main; git checkout FETCH_HEAD -- corefold scripts/sweeptest.py }
+          python -X faulthandler scripts/sweeptest.py out/sweep @($env:SWEEP -split " ") *> out/sweep.txt
+          "exit code $LASTEXITCODE" | Out-File -Append -Encoding utf8 out/sweep.txt
+      - name: Navtest
+        if: matrix.name == 'navtest'
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          python scripts/navtest.py out/navtest en dark *> out/navtest-en.txt
+          python scripts/navtest.py out/navtest ar light *> out/navtest-ar.txt
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: lang-${{ matrix.name }}
+          path: out/
+
+  results:
+    needs: try
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          path: results
+      - name: Save to the langtest-results branch
+        env:
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd results
+          {
+            echo "Language run of $SHA"
+            for d in */; do
+              echo "== ${d%/}"
+              grep -rhaE "^(sweeptest|navtest|uitest|selftest|langtest)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused|\] [0-9]+ texts" "$d" 2>/dev/null | head -20
+              grep -rhaE "^(FAIL|ERROR) " "$d" 2>/dev/null | sort | uniq -c | sort -rn | head -60
+            done
+          } > summary.txt
+          cat summary.txt
+          git init -q -b langtest-results
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Language run of $SHA"
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${REPO}.git" langtest-results
