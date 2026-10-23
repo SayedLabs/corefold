@@ -58,15 +58,14 @@ def table_texts() -> dict[str, str]:
     add(sounds.DONE_SOUNDS.values(), "DONE_SOUNDS")
     add([i18n.LANGUAGES["system"]], "LANGUAGES")
     add(wheel.GROUP_NAMES.values(), "GROUP_NAMES")
-    add([p for p in window.PAGES if p in window.NAV or p in window.SOON], "PAGES")  # the others are internal
+    add([p for p in window.PAGES if p in window.NAV], "PAGES")  # the others are internal
     add([label for _, label, _ in window.SETTINGS_TABS], "SETTINGS_TABS")
     add(window.SETTINGS_SUBTABS.values(), "SETTINGS_SUBTABS")
     add([e[1] for e in window.NAV if isinstance(e, tuple)], "NAV")
     add(window.NAV_LABELS.values(), "NAV_LABELS")
-    for _, _, title, text in window.TOOLS:
-        add([title, text], "TOOLS")
-    for title, intro, features in window.SOON_TEXT.values():
-        add([title, intro, *features], "SOON_TEXT")
+    from corefold import tools as all_tools
+    for tool in all_tools.TOOLS:
+        add([tool.name, tool.nav, tool.line, *tool.features], "tools.TOOLS")
     add([converters.PASSWORD_ERROR], "PASSWORD_ERROR")
     add([v[0] for v in moretools.CROP_RATIOS.values()], "CROP_RATIOS")
     add(moretools.STICKERS_IMAGE.values(), "STICKERS_IMAGE")
