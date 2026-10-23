@@ -104,6 +104,13 @@ TOOLS: list[ToolInfo] = [
               "Switch one off with a click, and back on just as easily",
               "Works the same way as Task Manager: nothing is ever deleted",
               "Spot programs that added themselves since you last looked"),),
+    ToolInfo("scan", "Scan", "scan", "shield", "Corefold Scan", "Virus scan",
+             "Check your PC for malware with Microsoft Defender, plus Corefold's own checks for tricks viruses use.",
+             ("Quick scan, full scan, or right-click any file, folder or drive",
+              "Microsoft Defender, part of Windows, does the scanning: nothing is uploaded",
+              "Spots tricks viruses use: fake names like photo.jpg.exe, broken signatures, odd programs that "
+              "start with Windows",
+              "See what Defender put in quarantine, and put a file back if you're sure")),
     ToolInfo("pdf", "PDF", "pdf", "document_pdf", "Corefold PDF", "PDF",
              "Merge, split and arrange PDFs, shrink them, and lock them with a password.",
              ("Merge PDFs and arrange their pages by dragging the page pictures",

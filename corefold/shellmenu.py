@@ -29,7 +29,8 @@ FILE_ROOT = CLASSES + r"\SystemFileAssociations"
 FOLDER_ROOT = CLASSES + r"\Directory"
 LNK_ROOT = CLASSES + r"\lnkfile"  # shortcuts: "Uninstall with Corefold" (while the Uninstaller is in use)
 ANY_ROOT = CLASSES + r"\*"   # every file; limited to the kinds Corefold has no own menu for (see any_file_filter)
-VERBS = ("Corefold", "CorefoldOpen", "CorefoldUninstall")
+DRIVE_ROOT = CLASSES + r"\Drive"   # drives: "Scan with Corefold" (while Scan is in use)
+VERBS = ("Corefold", "CorefoldOpen", "CorefoldUninstall", "CorefoldScan")
 LEGACY_VERBS = (LEGACY_NAME, LEGACY_NAME + "Open")  # written by versions before 1.7.0
 UNLOCK_VERB = "CorefoldUnlock"  # Corefold Unlock's "What's using this?" (there while that tool is, Converter or not)
 MENU_STYLES = {"windows": "Windows menu", "wheel": "Corefold wheel"}
@@ -118,7 +119,17 @@ def items_for(ext: str, settings) -> list[Item]:
 
 def plan(settings, command) -> list[Verb]:
     """Everything to write. command(*args) gives the command line that starts Corefold."""
+    from . import tools as all_tools
     verbs: list[Verb] = []
+    if all_tools.is_on(settings, "scan"):  # every file, folder and drive (and many at once)
+        scan = command("--scan", '"%1"')
+        verbs += [Verb(root, "CorefoldScan", tr("Scan with Corefold"), command=scan)
+                  for root in (ANY_ROOT, FOLDER_ROOT, DRIVE_ROOT)]
+    if not (settings.context_menu and all_tools.is_on(settings, "converter")):
+        return verbs
+    if all_tools.is_on(settings, "uninstaller"):  # shortcuts (part of the Converter's menu)
+        verbs.append(Verb(LNK_ROOT, "CorefoldUninstall", tr("Uninstall with Corefold"),
+                          command=command("--uninstall", '"%1"'), single=True))
     style = settings.menu_style if settings.menu_style in MENU_STYLES else "windows"
     cache: dict[str, list[Item]] = {}
     for ext in sorted(ALL_EXT):
@@ -140,10 +151,6 @@ def plan(settings, command) -> list[Verb]:
         verbs.append(Verb(FOLDER_ROOT, "Corefold", tr("Compress with Corefold"), command=command("--convert", '"%1"')))
         verbs.append(Verb(ANY_ROOT, "Corefold", tr("Compress with Corefold"), command=command("--convert", '"%1"'),
                           applies_to=any_file_filter()))
-    from . import tools as all_tools
-    if all_tools.is_on(settings, "uninstaller"):
-        verbs.append(Verb(LNK_ROOT, "CorefoldUninstall", tr("Uninstall with Corefold"),
-                          command=command("--uninstall", '"%1"'), single=True))
     return verbs
 
 
@@ -180,7 +187,7 @@ def _delete_tree(winreg, path: str):
 
 
 def _all_roots() -> list[str]:
-    return [rf"{FILE_ROOT}\{ext}" for ext in sorted(ALL_EXT)] + [FOLDER_ROOT, ANY_ROOT, LNK_ROOT]
+    return [rf"{FILE_ROOT}\{ext}" for ext in sorted(ALL_EXT)] + [FOLDER_ROOT, ANY_ROOT, LNK_ROOT, DRIVE_ROOT]
 
 
 def remove(unlock: bool = True):

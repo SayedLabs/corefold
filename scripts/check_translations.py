@@ -138,6 +138,9 @@ def table_texts() -> dict[str, str]:
     from corefold import startuppage
     add([text for _, text in startuppage.FILTERS], "startuppage.FILTERS")
     add(startuppage.WHERE.values(), "startuppage.WHERE")
+    from corefold import scanpage
+    for name in ("PLACES", "STATUS", "SEVERITY", "SKIPPED", "KINDS"):
+        add(getattr(scanpage, name).values(), "scanpage." + name)
     for _, title, text in tour.STEPS:
         add([title, text], "tour.STEPS")
     from corefold import settings_backup, shortcutspage

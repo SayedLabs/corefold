@@ -497,7 +497,7 @@ class MainWindow(QWidget):
                     "ViewerSettings": self._viewer_settings, "Clipboard": self._clipboard,
                     "ClipboardSettings": self._clipboard_settings, "Space": self._space, "Capture": self._capture,
                     "CaptureSettings": self._capture_settings, "Cloud": self._cloud, "Player": self._player,
-                    "PlayerSettings": self._player_settings, "PDF": self._pdf, "Organizer": self._organizer, "Startup": self._startup, "Updates": self._updates, "About": self._about,
+                    "PlayerSettings": self._player_settings, "PDF": self._pdf, "Organizer": self._organizer, "Startup": self._startup, "Scan": self._scan, "Updates": self._updates, "About": self._about,
                     "Quick": self._quick_settings,
                     "Unlock": self._unlock,
                     "Awake": self._awake,
@@ -518,10 +518,11 @@ class MainWindow(QWidget):
         self.pdf_page = None
         self.organizer_page = None
         self.startup_page = None
+        self.scan_page = None
         self.unlock_page = None
         self.awake_page = None
         self.colors_page = None
-        self._unbuilt = {"Apps", "Store", "Viewer", "Clipboard", "Space", "Capture", "Cloud", "Player", "PDF", "Organizer", "Startup", "Unlock", "Awake", "Colors", *SOON, *[tool.page for tool in all_tools.TOOLS
+        self._unbuilt = {"Apps", "Store", "Viewer", "Clipboard", "Space", "Capture", "Cloud", "Player", "PDF", "Organizer", "Startup", "Scan", "Unlock", "Awake", "Colors", *SOON, *[tool.page for tool in all_tools.TOOLS
                                                     if tool.page not in on_pages and tool.page != "Converter"]}
         for name in PAGES:
             built = QWidget() if name in self._unbuilt else builders[name]()
@@ -890,6 +891,8 @@ class MainWindow(QWidget):
             self.apps_page.ensure_loaded()
         elif name == "Startup" and self.startup_page is not None:
             self.startup_page.ensure_loaded()
+        elif name == "Scan" and self.scan_page is not None:
+            self.scan_page.ensure_loaded()
         elif name in ("History", "Home"):
             self.refresh_history()
         elif name == "About":
@@ -2304,6 +2307,16 @@ class MainWindow(QWidget):
                              tr("See what starts with Windows and switch off what slows it down."), dark, dpr)
         self.startup_page = StartupPage(self.c, header)
         return self.startup_page
+
+    def _scan(self) -> QWidget:
+        """Corefold Scan: Microsoft Defender's scans, and Corefold's own checks for tricks malware uses."""
+        from .scanpage import ScanPage
+        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
+        header = tool_header("scan", tr("Corefold Scan"),
+                             tr("Check your PC for malware with Microsoft Defender, plus Corefold's own checks for "
+                                "tricks viruses use."), dark, dpr)
+        self.scan_page = ScanPage(self.c, header)
+        return self.scan_page
 
     def _player(self) -> QWidget:
         """Corefold Player: open videos and music, and pick up where you left off."""
