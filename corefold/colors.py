@@ -173,11 +173,13 @@ class Loupe(QWidget):
         p.drawRect(mid)
         p.restore()
         p.setBrush(Qt.NoBrush)
-        p.setPen(QPen(QColor(0, 0, 0, 120), 4))
-        p.drawEllipse(centre, radius + 1, radius + 1)
+        p.setPen(QPen(QColor(0, 0, 0, 140), 5))
+        p.drawEllipse(centre, radius + 2, radius + 2)
+        p.setPen(QPen(QColor(255, 255, 255), 2))   # (a white edge, so a dark colour on a dark screen still shows)
+        p.drawEllipse(centre, radius + 1.5, radius + 1.5)
         color = self.color()
         p.setPen(QPen(color if color is not None else QColor(255, 255, 255), 3))
-        p.drawEllipse(centre, radius, radius)
+        p.drawEllipse(centre, radius - 1, radius - 1)
         self._draw_label(p, centre, radius, color)
 
     def _draw_label(self, p: QPainter, centre: QPointF, radius: float, color: QColor | None):

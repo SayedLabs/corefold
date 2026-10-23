@@ -30,7 +30,12 @@ try:
 except (AttributeError, ValueError):
     pass
 import faulthandler  # noqa: E402
-faulthandler.dump_traceback_later(100 if MODE else 290, exit=True)  # stuck somewhere: say where, and stop
+import threading  # noqa: E402
+
+START = time.time()
+# how long this run may take: the whole test ends in under 5 minutes, a run of its own in what it was given
+LIMIT = float(os.environ.get("NEWTEST_LIMIT", "60")) if MODE else 280.0
+faulthandler.dump_traceback_later(LIMIT + 10, exit=True)  # (the last resort, if even the watchdog is stuck)
 
 from corefold import settings as st  # noqa: E402
 from corefold import tools as all_tools  # noqa: E402
@@ -64,6 +69,20 @@ s = c.settings  # (the app's own, from here on)
 u = ctypes.windll.user32
 problems = []
 TAG = f" at {round(float(SCALE) * 100)}%" if MODE == "--scaled" else ""
+
+
+def _out_of_time():
+    """Stuck somewhere: say where, and still end with the summary line."""
+    print(f"FAIL  the test ran out of time after {LIMIT:.0f} s, stuck here:" + TAG, flush=True)
+    faulthandler.dump_traceback(all_threads=True)
+    sys.stderr.flush()
+    print(f"newtest_colors: {len(problems) + 1} problem(s)" + TAG, flush=True)
+    os._exit(1)
+
+
+_watchdog = threading.Timer(LIMIT, _out_of_time)
+_watchdog.daemon = True
+_watchdog.start()
 
 
 def check(ok, what):
@@ -488,30 +507,48 @@ def step(name, fn, *args):
 
 def sub_runs():
     """The same picking at 125%, 150% and 200%, a start with Colors removed, and the page in Arabic (each a
-    run of its own)."""
-    for scale, mode in (("1.25", "--scaled"), ("1.5", "--scaled"), ("2", "--scaled"), ("1", "--removed"),
-                        ("1", "--arabic")):
+    run of its own). Each one writes to a file and gets a time limit; meanwhile this run keeps answering
+    Windows (another app setting the clipboard waits for the one that had it, which is this one)."""
+    runs = (("1.25", "--scaled"), ("1.5", "--scaled"), ("2", "--scaled"), ("1", "--removed"), ("1", "--arabic"))
+    deadline = START + LIMIT - 15
+    for scale, mode in runs:
+        what = f"the run {mode} at {scale}"
+        left = deadline - time.time()
+        if left < 20:
+            check(False, f"{what} was skipped: no time left")
+            continue
+        limit = min(55.0, left)
         env = dict(os.environ)
         env["QT_SCALE_FACTOR"] = scale
+        env["NEWTEST_LIMIT"] = str(int(limit - 8))
         env.pop("APPDATA", None)
         env.pop("LOCALAPPDATA", None)
-        try:
-            r = subprocess.run([sys.executable, __file__, str(OUT), mode], env=env, capture_output=True, text=True,
-                               encoding="utf-8", errors="replace", timeout=110)
-            out = r.stdout + r.stderr
-        except subprocess.TimeoutExpired as e:
-            out = (e.stdout or "") if isinstance(e.stdout, str) else ""
-            check(False, f"the run {mode} at {scale} took too long")
+        log_path = OUT / f"run{mode[1:]}-{scale}.txt"
+        t0 = time.time()
+        with open(log_path, "w", encoding="utf-8") as log_file:
+            proc = subprocess.Popen([sys.executable, __file__, str(OUT), mode], env=env, stdout=log_file,
+                                    stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
+            while proc.poll() is None and time.time() - t0 < limit:
+                settle(0.1)
+            if proc.poll() is None:
+                check(False, f"{what} took too long (stopped after {limit:.0f} s)")
+                subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True, timeout=15)
+                try:
+                    proc.wait(10)
+                except subprocess.TimeoutExpired:
+                    pass
+        out = log_path.read_text("utf-8", errors="replace")
         for line in out.splitlines():
             print(line, flush=True)
             if line.startswith("FAIL"):
                 problems.append(line[6:])
         if not any(line.startswith("newtest_colors") for line in out.splitlines()):
-            check(False, f"the run {mode} at {scale} didn't finish")
+            check(False, f"{what} didn't finish")
+        print(f"note  {what} took {time.time() - t0:.0f} s", flush=True)
 
 
 home = cursor()
-old_clip = QGuiApplication.clipboard().text()
+old_clip = QGuiApplication.clipboard().text() if not MODE else None  # (the first run puts it back)
 if MODE == "--removed":
     step("nothing loaded", nothing_loaded)
 elif MODE == "--arabic":
@@ -540,9 +577,13 @@ else:
         step("history", history)
         step("page", page)
         step("removed", removed)
+        print(f"note  the first run's own checks took {time.time() - START:.0f} s", flush=True)
         sub_runs()
 move(*home)
-set_clip(old_clip)
+if old_clip is not None:
+    set_clip(old_clip)
+_watchdog.cancel()
+print(f"note  {time.time() - START:.0f} s in all" + TAG, flush=True)
 print(f"newtest_colors: {len(problems)} problem(s)" + TAG, flush=True)
 faulthandler.disable()
 os._exit(1 if problems else 0)
