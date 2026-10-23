@@ -237,4 +237,6 @@ for name, fn in (("kinds", kinds), ("listing", listing), ("window", window)):
     step(name, fn)
 clean_up()
 print(f"uninstalltest: {len(problems)} problem(s)", flush=True)
+import faulthandler  # noqa: E402
+faulthandler.disable()
 os._exit(1 if problems else 0)  # like uitest: skips Qt's tidy-up at exit, which can crash on the runner
