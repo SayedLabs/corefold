@@ -1089,6 +1089,19 @@ def _inside(child: str, parent: str) -> bool:
     return c == p or c.startswith(p + os.sep)
 
 
+def app_at(path, apps: list[App]) -> App | None:
+    """The installed program a folder (or a file) belongs to, from where the programs say they're
+    installed. None for shared places (Program Files itself, Windows…)."""
+    best, best_len = None, -1
+    for app in apps:
+        loc = (app.location or "").strip()
+        if not loc or app.store or not _safe_folder(loc) or not _inside(str(path), loc):
+            continue
+        if len(loc) > best_len:  # (the most precise one: "Foo\\Bar" before "Foo")
+            best, best_len = app, len(loc)
+    return best
+
+
 def _match(name: str, keys: set[str]) -> str:
     """ "exact", "maybe" or ""."""
     n = norm(name)

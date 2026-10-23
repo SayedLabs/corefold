@@ -1768,4 +1768,5 @@ STRINGS: dict[str, str] = {
     "Forget the saved passwords": "انسَ كلمات السر المحفوظة",
     "Forgotten": "تم النسيان",
     "No archive passwords are saved now.": "ما فيه كلمات سر محفوظة للأرشيفات الحين.",
+    "Uninstall {name}…": "إلغاء تثبيت {name}…",
 }

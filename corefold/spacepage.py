@@ -771,11 +771,42 @@ class SpacePage(QWidget):
             menu.addAction(tr("Open"), lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(path))))
         menu.addAction(tr("Show in folder"), lambda: reveal_in_explorer(path))
         menu.addSeparator()
+        program = self._program_at(path)
+        if program is not None:
+            menu.addAction(tr("Uninstall {name}…", name=ltr(short_name(program.name, 40))),
+                           lambda: self._uninstall(program, path, folder))
         act = menu.addAction(tr("Move to the Recycle Bin…"), lambda: self._remove(path, folder))
-        if space.protected(path):
+        if space.protected(path) or program is not None:  # (a program's folder in the bin would break it)
             act.setEnabled(False)
             act.setText(tr("Windows needs this (remove programs with the Uninstaller)"))
         menu.exec(pos)
+
+    def _program_at(self, path: Path):
+        """The installed program this folder belongs to (only while the Uninstaller is in use)."""
+        from . import tools as all_tools
+        if os.name != "nt" or not all_tools.is_on(self.c.settings, "uninstaller"):
+            return None
+        from . import uninstall as un
+        if getattr(self, "_apps", None) is None:
+            try:
+                self._apps = un.list_apps(include_store=False)
+            except Exception:
+                log.warning("couldn't list the installed programs", exc_info=True)
+                self._apps = []
+        return un.app_at(path, self._apps)
+
+    def _uninstall(self, program, path: Path, folder):
+        """Uninstalls the program right here (the Uninstaller's own steps, leftovers and backup included),
+        then takes its folder off the map."""
+        from .appspage import UninstallDialog
+        dlg = UninstallDialog(self.c, [program], self._apps or [program], False, self.window().windowIcon())
+        dlg.exec()
+        changed = dlg.changed
+        dlg.deleteLater()
+        self._apps = None  # (read again next time)
+        if changed and not path.exists():
+            size = folder.size if folder is not None else 0
+            self._forget(path, folder, size)
 
     def _remove(self, path: Path, folder):
         size = folder.size if folder is not None else _size(path)

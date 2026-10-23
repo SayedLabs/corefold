@@ -337,6 +337,20 @@ def space():
     check((roaming / "discord" / "Local Storage" / "keep.ldb").exists(), "…and the sign-in stays")
 
 
+def space_programs():
+    from corefold import uninstall as un
+    base = TMP / "Programs"
+    (base / "Foo" / "bin").mkdir(parents=True, exist_ok=True)
+    (base / "Foo Tools").mkdir(exist_ok=True)
+    apps = [un.App(id="foo", name="Foo", location=str(base / "Foo")),
+            un.App(id="foot", name="Foo Tools", location=str(base / "Foo Tools")),
+            un.App(id="all", name="Everything", location=str(base.anchor))]
+    check(un.app_at(base / "Foo", apps).name == "Foo", "Space knows which program a folder is")
+    check(un.app_at(base / "Foo" / "bin", apps).name == "Foo", "…and a folder inside it")
+    check(un.app_at(base / "Foo Tools", apps).name == "Foo Tools", "…not mixed up with a similar name")
+    check(un.app_at(base, apps) is None, "…and a shared folder isn't anyone's")
+
+
 # ----------------------------------------------------------------------------- Player
 
 def player():
@@ -372,7 +386,7 @@ else:
     step("videos", make_videos)
     for name, fn in (("video tools", video_tools), ("fingerprint", fingerprint), ("passwords", passwords),
                      ("capture", capture), ("loopback", loopback), ("clipboard", clipboard), ("viewer", viewer),
-                     ("space", space), ("player", player)):
+                     ("space", space), ("space programs", space_programs), ("player", player)):
         step(name, fn)
 print(f"featuretest: {len(problems)} problem(s)")
 sys.exit(1 if problems else 0)

@@ -1690,4 +1690,5 @@ STRINGS: dict[str, str] = {
     "Forget the saved passwords": "Kaydedilen parolaları unut",
     "Forgotten": "Unutuldu",
     "No archive passwords are saved now.": "Artık kayıtlı arşiv parolası yok.",
+    "Uninstall {name}…": "{name} programını kaldır…",
 }

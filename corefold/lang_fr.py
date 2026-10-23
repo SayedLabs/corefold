@@ -1690,4 +1690,5 @@ STRINGS: dict[str, str] = {
     "Forget the saved passwords": "Oublier les mots de passe enregistrés",
     "Forgotten": "Oubliés",
     "No archive passwords are saved now.": "Aucun mot de passe d'archive n'est enregistré maintenant.",
+    "Uninstall {name}…": "Désinstaller {name}…",
 }
