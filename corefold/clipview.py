@@ -396,7 +396,7 @@ class QuickPaste(QWidget):
         if not self.clip.paste(item, self.target, plain):
             self.c.tell(tr("Couldn't paste"), tr("This picture isn't there any more."))
         elif not (self.target and self.c.settings.clip_paste):
-            self.c.tell(tr("Copied"), tr("Paste it anywhere with Ctrl+V."))
+            self.c.say(tr("Copied"), tr("Paste it anywhere with Ctrl+V."))
 
     def hideEvent(self, e):
         self.list.clear()  # (nothing is held while it's closed)
@@ -585,7 +585,7 @@ class ClipboardPage(QWidget):
 
     def _copy(self, item: Item, plain: bool):
         if self.clip.copy(item, plain):
-            self.c.tell(tr("Copied"), tr("Paste it anywhere with Ctrl+V."))
+            self.c.say(tr("Copied"), tr("Paste it anywhere with Ctrl+V."))
 
     def _clear(self):
         box = QMessageBox(self)

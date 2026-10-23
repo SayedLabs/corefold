@@ -898,7 +898,7 @@ class SpacePage(QWidget):
             self.clean_note.setText(str(freed))
             return
         self.clean_note.setText(tr("Freed {size}. Files that were in use were left alone.", size=human_size(freed)))
-        self.c.tell(tr("Cleaned up"), tr("Freed {size}.", size=human_size(freed)))
+        self.c.say(tr("Cleaned up"), tr("Freed {size}.", size=human_size(freed)), done=True)
         self.junk = []
         self.find_junk()
 
@@ -1070,7 +1070,7 @@ class SpacePage(QWidget):
                            count=len(ticked), size=human_size(total)), tr("Move to the Recycle Bin")):
             return
         gone = space.recycle([Path(p) for p, _ in ticked])
-        self.c.tell(tr("Copies removed"), tr("{count} copies went to the Recycle Bin.", count=gone))
+        self.c.say(tr("Copies removed"), tr("{count} copies went to the Recycle Bin.", count=gone), done=True)
         left = {os.path.normcase(p) for p, _ in ticked if os.path.lexists(p)}
         removed = {os.path.normcase(p) for p, _ in ticked} - left
         self.dupes = [g for g in ([f for f in grp if os.path.normcase(f[0]) not in removed] for grp in self.dupes)

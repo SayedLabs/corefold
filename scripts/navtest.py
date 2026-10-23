@@ -162,6 +162,18 @@ def white_share(img) -> float:
     return white / 4000
 
 
+def flash_after(g, seconds=0.8) -> float:
+    """The whitest the screen got where the window is, in the moments after a click."""
+    screen = QGuiApplication.primaryScreen()
+    worst = 0.0
+    end = time.time() + seconds
+    while time.time() < end:
+        qapp.processEvents()
+        worst = max(worst, white_share(screen.grabWindow(0, g.x(), g.y(), g.width(), g.height()).toImage()))
+        time.sleep(0.01)
+    return worst
+
+
 def page_widget(w, name):
     from corefold.window import PAGES
     return w.stack.widget(PAGES.index(name))
@@ -217,7 +229,13 @@ def store_add():
         if not check(add is not None, f"the Store has an Add button for {tool.id}"):
             continue
         old = c.window
-        click(add)
+        old.raise_()
+        old.activateWindow()
+        settle(0.1)
+        QTest.mouseClick(add, Qt.LeftButton, Qt.NoModifier, add.rect().center())
+        flash = flash_after(old.geometry())
+        if c.theme.dark:
+            check(flash < 0.3, f"adding {tool.id} doesn't flash a white window (whitest moment {flash:.2f})")
         settle(1.0)
         w = c.window
         check(all_tools.is_on(c.settings, tool.id), f"{tool.id} is added")
@@ -306,7 +324,7 @@ def space_nav():
     check(pg.job is not None or pg.scan is not None, "clicking the first drive starts looking through it")
     screen_shot("space-busy")
     seen = []
-    done = until(lambda: (seen.append(pg.busy_line.text()) or True) and pg.job is None, 240)
+    done = until(lambda: (seen.append(pg.busy_line.text()) or True) and pg.job is None, 90)
     took = time.time() - t0
     print(f"note  the first drive: {'done' if done else 'still looking'} after {took:.0f} s; last progress: "
           f"{seen[-1] if seen else ''}", flush=True)

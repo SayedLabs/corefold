@@ -2860,7 +2860,9 @@ class MainWindow(QWidget):
 
     def open_page(self, name: str):
         owner = NAV_OWNER.get(name, name)
-        if owner not in self.nav_rows:
+        if owner not in self.nav_rows:  # (a tool removed since): nothing changes, or Home on opening
+            if self.nav.currentRow() < 0 and name != "Home":
+                self.open_page("Home")
             return
         row = self.nav_rows.index(owner)
         self._opening = name if name != owner else None

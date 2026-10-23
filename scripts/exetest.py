@@ -97,8 +97,17 @@ try:
                     parent = parent.parent() if add is None else parent
             if not check(add is not None, f"an Add button for {tool.id}"):
                 continue
-            click(add)
-            time.sleep(1.0)
+            r, wr = add.rectangle(), win.rectangle()
+            if wr.top < (r.top + r.bottom) // 2 < wr.bottom - 10:
+                click(add)
+            else:
+                add.invoke()  # (below the bottom of the window)
+            worst = 0.0
+            end = time.time() + 1.0
+            while time.time() < end:  # the moments right after the click
+                img = ImageGrab.grab(bbox=(wr.left, wr.top, wr.right, wr.bottom), all_screens=True)
+                worst = max(worst, sum(1 for v in img.convert("L").resize((80, 50)).getdata() if v > 245) / 4000)
+            check(worst < 0.3, f"adding {tool.id} doesn't flash a white window (whitest moment {worst:.2f})")
             win = window()
             check(win is not None, f"after adding {tool.id} the window is there")
             if win is None:
