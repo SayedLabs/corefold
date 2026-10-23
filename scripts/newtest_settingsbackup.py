@@ -415,8 +415,10 @@ def window(lang: str, look: str, taken: bool):
         w.resize(size)
         settle(0.3)
         # "Change" opens the setting
-        for entry, page_name in ((shortcutspage.GLOBAL[1], "ClipboardSettings"),
-                                 (shortcutspage.GLOBAL[4], "Quick"), (shortcutspage.GLOBAL[0], "ConvOptions")):
+        by_setting = {e.setting: e for e in shortcutspage.GLOBAL}  # (by name: new lines can go anywhere)
+        for entry, page_name in ((by_setting["clip_shortcut"], "ClipboardSettings"),
+                                 (by_setting["quick_menu_key"], "Quick"), (by_setting["shortcut"], "ConvOptions"),
+                                 (by_setting["peek_key"], "ViewerSettings")):
             w.open_page("Shortcuts")
             settle(0.2)
             page.change(entry)

@@ -258,19 +258,34 @@ def part(lang, look):
 
     state = {}
 
+    def explain():
+        """What the last look at File Explorer found (for the log)."""
+        for line in peekshell.notes:
+            print(f"        shell: {line}", flush=True)
+
+    def hooked():
+        if c.peek is not None:
+            for line in c.peek.watcher.history[-6:]:
+                print(f"        in front: {line}", flush=True)
+
     def start():
         check(until(lambda: c.peek is not None, 3), "Quick look is running with the Viewer in use")
         hwnd = explorer()
         if not check(bool(hwnd), "a File Explorer window opened on the test folder"):
             return
         state["hwnd"] = hwnd
-        check(until(lambda: peekshell.selection(hwnd) == [str(files["picture"])], 10),
-              f"the selection is read from File Explorer ({peekshell.selection(hwnd)})")
-        t = time.perf_counter()
-        sel = peekshell.selection(hwnd)
-        check(bool(sel), f"…in {(time.perf_counter() - t) * 1000:.0f} ms")
+        print(f"      (the File Explorer window: {hwnd:#x} {peekshell.window_class(hwnd)!r}; this test runs "
+              f"{'as' if ctypes.windll.shell32.IsUserAnAdmin() else 'not as'} administrator)", flush=True)
+        ok = check(until(lambda: peekshell.selection(hwnd) == [str(files["picture"])], 10),
+                   f"the selection is read from File Explorer ({peekshell.selection(hwnd)})")
+        explain()
+        if ok:
+            t = time.perf_counter()
+            peekshell.selection(hwnd)
+            print(f"      (read in {(time.perf_counter() - t) * 1000:.0f} ms)", flush=True)
         check(front(hwnd), "File Explorer is in front")
         check(until(lambda: c.peek.watcher.registered, 3), "…so the shortcut is taken (the foreground hook saw it)")
+        hooked()
         check(not key_free(), "…and Windows says Ctrl + Space is taken now")
 
     def picture():
@@ -281,6 +296,8 @@ def part(lang, look):
         until(lambda: c.peek.watcher.registered, 3)
         t0 = ctrl_space()
         if not check(until(shown, 5), "Ctrl + Space opens the preview window"):
+            hooked()
+            explain()
             return
         w = win()
         first_ms = (w.shown_at - t0) * 1000
@@ -340,6 +357,7 @@ def part(lang, look):
             if not check(peekshell.select(hwnd, str(path)) and
                          until(lambda: peekshell.selection(hwnd) == [str(path)], 5),
                          f"{path.name} is selected in File Explorer"):
+                explain()
                 continue
             until(lambda: c.peek.watcher.registered, 3)
             ctrl_space()

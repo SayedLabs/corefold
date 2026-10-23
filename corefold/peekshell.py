@@ -45,6 +45,8 @@ SID_STopLevelBrowser = _guid("4C96BE40-915C-11CF-99D3-00AA004AE837")
 IID_IShellBrowser = _guid("000214E2-0000-0000-C000-000000000046")
 IID_IFolderView = _guid("CDE725B0-CCC9-4519-917E-325D72FAB4CE")
 IID_IShellItemArray = _guid("B63EA76D-1F85-456F-A19C-48159EFA858B")
+IID_IEnumVARIANT = _guid("00020404-0000-0000-C000-000000000046")
+IID_IWebBrowser2 = _guid("D30C1661-CDAF-11D0-8A3E-00C04FC9E26E")
 
 
 class VARIANT(ctypes.Structure):
@@ -121,7 +123,10 @@ def _browser_hwnd(browser: _Com) -> int:
 
 def _folder_view(browser: _Com, objs: list) -> _Com | None:
     view = _hold(objs, browser.out(15, ()))  # IShellBrowser::QueryActiveShellView
-    return _hold(objs, view.qi(IID_IFolderView)) if view is not None else None
+    fv = _hold(objs, view.qi(IID_IFolderView)) if view is not None else None
+    if fv is None:
+        _note("no folder view" if view is not None else "no shell view")
+    return fv
 
 
 def _view_for(hwnd: int, objs: list) -> _Com | None:
@@ -130,8 +135,10 @@ def _view_for(hwnd: int, objs: list) -> _Com | None:
     u.GetAncestor.restype = ctypes.c_void_p
     u.GetAncestor.argtypes = [ctypes.c_void_p, ctypes.c_uint]
     u.IsWindowVisible.argtypes = [ctypes.c_void_p]
+    notes.clear()
     sw = _hold(objs, _shell_windows())
     if sw is None:
+        _note("no ShellWindows object")
         return None
     if window_class(hwnd) in DESKTOP_CLASSES:
         loc, root = VARIANT(vt=3, val=0), VARIANT()  # VT_I4 CSIDL_DESKTOP
@@ -142,20 +149,17 @@ def _view_for(hwnd: int, objs: list) -> _Com | None:
                                   SWFO_NEEDDISPATCH))
         browser = _browser_of(disp, objs) if disp is not None else None
         return _folder_view(browser, objs) if browser is not None else None
-    count = ctypes.c_long()
-    if sw.call(7, (ctypes.POINTER(ctypes.c_long),), ctypes.byref(count)) < 0:
-        return None
     best = None
-    for i in range(count.value):
-        mine: list = []
-        disp = _hold(mine, sw.out(8, (VARIANT,), VARIANT(vt=3, val=i)))
-        browser = _browser_of(disp, mine) if disp is not None else None
+    for disp in _windows(sw):
+        mine = [disp]
+        browser = _browser_of(disp, mine)
         tab = _browser_hwnd(browser) if browser is not None else 0
-        if not tab or (u.GetAncestor(tab, 2) or 0) != hwnd:  # GA_ROOT: the tab's own window
-            _release(mine)
-            continue
-        visible = bool(u.IsWindowVisible(tab))  # (Windows 11's tabs: only the one shown is visible)
-        if best is not None and not visible:
+        root = (u.GetAncestor(tab, 2) or 0) if tab else 0  # GA_ROOT: the tab's own window
+        visible = bool(u.IsWindowVisible(tab)) if tab else False  # (Windows 11's tabs: only the one shown is)
+        top = _app_hwnd(disp)
+        _note(f"window {tab:#x} {window_class(tab)!r} in {root:#x} (says {top:#x}) visible={visible}"
+              + ("" if browser is not None else " (no shell browser)"))
+        if not tab or hwnd not in (tab, root, top) or (best is not None and not visible):
             _release(mine)
             continue
         if best is not None:
@@ -164,9 +168,61 @@ def _view_for(hwnd: int, objs: list) -> _Com | None:
         if visible:
             break
     if best is None:
+        _note(f"no shell window belongs to {hwnd:#x} {window_class(hwnd)!r}")
         return None
     objs.extend(best)
     return _folder_view(best[-1], objs)
+
+
+def _app_hwnd(disp: _Com) -> int:
+    """The window a File Explorer window says it is (IWebBrowserApp::get_HWND)."""
+    wb = disp.qi(IID_IWebBrowser2)
+    if wb is None:
+        return 0
+    with wb:
+        h = ctypes.c_void_p()
+        return h.value or 0 if wb.call(37, (ctypes.POINTER(ctypes.c_void_p),), ctypes.byref(h)) >= 0 else 0
+
+
+def _windows(sw: _Com):
+    """Every File Explorer window (and tab) the shell knows, as IDispatch (the caller releases each)."""
+    found = 0
+    unk = sw.out(9, ())  # IShellWindows::_NewEnum
+    en = unk.qi(IID_IEnumVARIANT) if unk is not None else None
+    if unk is not None:
+        unk.release()
+    if en is not None:
+        with en:
+            v, got = VARIANT(), ctypes.c_ulong()
+            while True:
+                hr = en.call(3, (ctypes.c_ulong, ctypes.POINTER(VARIANT), ctypes.POINTER(ctypes.c_ulong)), 1,
+                             ctypes.byref(v), ctypes.byref(got))
+                if hr != 0 or got.value != 1:
+                    break
+                if v.vt == 9 and v.val:  # VT_DISPATCH (its reference is now ours)
+                    found += 1
+                    yield _Com(v.val)
+                else:
+                    ctypes.windll.oleaut32.VariantClear(ctypes.byref(v))
+                v = VARIANT()
+    count = ctypes.c_long()
+    hr = sw.call(7, (ctypes.POINTER(ctypes.c_long),), ctypes.byref(count))
+    _note(f"shell windows: {count.value} (hr {hr & 0xFFFFFFFF:#x}), enumerated {found}")
+    if found:
+        return
+    for i in range(count.value):  # (the enumerator didn't work: one by one)
+        disp = sw.out(8, (VARIANT,), VARIANT(vt=3, val=i))
+        _note(f"item {i}: {'ok' if disp is not None else 'failed'}")
+        if disp is not None:
+            yield disp
+
+
+notes: list[str] = []   # what the last look at File Explorer found (for the tests' log)
+
+
+def _note(text: str):
+    notes.append(text)
+    del notes[:-40]
 
 
 def _paths(view: _Com, flags: int, limit: int = MAX_SIBLINGS, budget_s: float = 0.0) -> list[str]:
@@ -176,10 +232,12 @@ def _paths(view: _Com, flags: int, limit: int = MAX_SIBLINGS, budget_s: float = 
         arr = _hold(objs, view.out(8, (ctypes.c_uint, ctypes.c_void_p), flags | SVGIO_FLAG_VIEWORDER,
                                    ctypes.byref(IID_IShellItemArray)))
         if arr is None:
+            _note("nothing selected (or the view gave no list)")
             return []
         n = ctypes.c_ulong()
         if arr.call(7, (ctypes.POINTER(ctypes.c_ulong),), ctypes.byref(n)) < 0:
             return []
+        _note(f"{n.value} item(s)")
         deadline = time.monotonic() + budget_s if budget_s else 0
         free = ctypes.windll.ole32.CoTaskMemFree
         free.argtypes = [ctypes.c_void_p]
@@ -292,6 +350,7 @@ class Watcher(QObject):
         self.key = "off"
         self.ok = True
         self.registered = False
+        self.history: list[str] = []   # the last windows that came to the front (for the tests' log)
         self._thread: threading.Thread | None = None
         self._tid = 0
 
@@ -320,9 +379,15 @@ class Watcher(QObject):
         self._tid = ctypes.windll.kernel32.GetCurrentThreadId()
         _com_ready()
 
+        u.SetTimer.restype = ctypes.c_size_t
+        u.SetTimer.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_uint, ctypes.c_void_p]
+        u.KillTimer.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
+        timer = [0]
+
         def follow(*_):
             """Another window came to the front: take the shortcut only for File Explorer and the desktop."""
-            want = is_files_window(foreground())
+            fg = foreground()
+            want = is_files_window(fg)
             if want and not self.registered:
                 self.registered = bool(u.RegisterHotKey(None, 1, spec[0] | MOD_NOREPEAT, spec[1]))
                 self.ok = self.registered
@@ -331,16 +396,31 @@ class Watcher(QObject):
             elif not want and self.registered:
                 u.UnregisterHotKey(None, 1)
                 self.registered = False
+            self.history.append(f"{fg:#x} {window_class(fg)!r}: {'taken' if self.registered else 'free'}")
+            del self.history[:-20]
+
+        def came_to_front(*_):
+            follow()
+            # once more in a moment: windows that are still coming to the front (or a front window that
+            # changes again without telling) are seen then
+            if timer[0]:
+                u.KillTimer(None, timer[0])
+            timer[0] = u.SetTimer(None, 0, 300, None)
 
         proto = ctypes.WINFUNCTYPE(None, ctypes.c_void_p, ctypes.c_ulong, ctypes.c_void_p, ctypes.c_long,
                                    ctypes.c_long, ctypes.c_ulong, ctypes.c_ulong)
-        callback = proto(follow)
+        callback = proto(came_to_front)
         hook = u.SetWinEventHook(3, 3, None, callback, 0, 0, 0)  # EVENT_SYSTEM_FOREGROUND, WINEVENT_OUTOFCONTEXT
         follow()
         ready.set()
         msg = wt.MSG()
         try:
             while u.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
+                if msg.message == 0x0113 and not msg.hWnd:  # WM_TIMER: the second look (see came_to_front)
+                    u.KillTimer(None, msg.wParam)
+                    timer[0] = 0
+                    follow()
+                    continue
                 if msg.message != 0x0312:  # WM_HOTKEY
                     u.TranslateMessage(ctypes.byref(msg))
                     u.DispatchMessageW(ctypes.byref(msg))
