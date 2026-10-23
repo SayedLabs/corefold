@@ -436,10 +436,10 @@ def start():
     settle(0.2)
     check(c.window.current_page() == "Space", f"the mouse's back button goes back a page ({c.window.current_page()})")
     c.window.open_page("Home")
-    # (every window is restyled: about 1 s on GitHub's slow PCs)
-    timed("switch dark/light", lambda: c.window.toggle_dark(), 1.2, profile="theme")
+    # (every window is restyled and drawn again: 1-2 s on GitHub's PCs, which draw without a graphics card)
+    timed("switch dark/light", lambda: c.window.toggle_dark(), 2.0, profile="theme")
     grab(c.window, "home-switched")
-    timed("switch it back", lambda: c.window.toggle_dark(), 1.2)
+    timed("switch it back", lambda: c.window.toggle_dark(), 2.0)
 
 
 def search():
@@ -718,9 +718,9 @@ def space():
     root = Path(os.environ.get("SystemRoot", "C:/Windows"))
     use0 = _times()
     threading.Timer(30, _stacks, ("space-30s",)).start()  # (where the scan's threads are, if it's slow)
-    # (the first look at a disk waits for the disk: 60-200 s on GitHub's PCs, with the app hardly busy)
-    timed(f"look through {root} (hundreds of thousands of files)", lambda: pg.start_scan(root), 240,
-          wait=lambda: pg.scan is not None and pg.job is None, wait_s=300)
+    # (the first look at a disk waits for the disk: 50-300 s on GitHub's PCs, with the app hardly busy)
+    timed(f"look through {root} (hundreds of thousands of files)", lambda: pg.start_scan(root), 400,
+          wait=lambda: pg.scan is not None and pg.job is None, wait_s=450)
     _say_times("the scan in the page", use0)
     if pg.job is not None:  # (stopped, so the rest can go on)
         say(f"note  still looking: {pg.busy_line.text()}")
@@ -800,7 +800,8 @@ def clipboard():
 def store():
     w = c.window
     for t in all_tools.ready():
-        timed(f"Store: remove {t.id}", lambda i=t.id: (c.set_tool(i, False), qapp.processEvents()), 1.0,
+        # (the window is made again without the tool: about a second on GitHub's PCs)
+        timed(f"Store: remove {t.id}", lambda i=t.id: (c.set_tool(i, False), qapp.processEvents()), 1.5,
               profile="store-remove" if t.id == "viewer" else "")
         timed(f"Store: add {t.id} back", lambda i=t.id: (c.set_tool(i, True), qapp.processEvents()), 1.5)
     w = c.window

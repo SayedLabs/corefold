@@ -362,7 +362,8 @@ class Controller(QObject):
         # keeping memory low while idle
         self.tidy_timer = QTimer(self)
         self.tidy_timer.setSingleShot(True)
-        self.tidy_timer.timeout.connect(self.tidy_up)
+        self.tidy_timer.timeout.connect(self._tidy_when_free)
+        self._tidy_waits = 0
         self.light_tidy_timer = QTimer(self)  # soon after a job: hand back the memory it used
         self.light_tidy_timer.setSingleShot(True)
         self.light_tidy_timer.timeout.connect(self.light_tidy)
@@ -581,6 +582,16 @@ class Controller(QObject):
         import gc
         gc.collect()
         winutil.trim_memory()
+
+    def _tidy_when_free(self):
+        """Looking through every object takes up to half a second with a big Space map kept: not while
+        someone is using one of Corefold's windows (unless they've been at it for five minutes)."""
+        if QApplication.activeWindow() is not None and self._tidy_waits < 30:
+            self._tidy_waits += 1
+            self.tidy_timer.start(10_000)
+            return
+        self._tidy_waits = 0
+        self.tidy_up()
 
     def tidy_up(self):
         """Lets go of memory that's only needed while converting (the background remover alone
