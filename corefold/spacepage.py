@@ -596,6 +596,10 @@ class SpacePage(QWidget):
             return
         self.job = None
         self.busy_box.hide()
+        if getattr(self, "_leaving", False):
+            self._leaving = False
+            self._back_to_drives()
+            return
         if isinstance(result, Exception) or result is None:
             log.error("looking through %s failed", self.root, exc_info=result if isinstance(result, Exception) else None)
             self.c.tell(tr("Couldn't look through it"), ltr(str(self.root)))
@@ -645,6 +649,22 @@ class SpacePage(QWidget):
         self.treemap.show_folder(None)
         if root is not None:
             self.start_scan(root)
+
+    def go_back(self) -> bool:
+        """Back (Alt + Left, the mouse's back button): up a folder, then back to the drives."""
+        if self.section != "map":
+            return False
+        if self.job is not None and self.busy_box.isVisible():
+            self._leaving = True  # (back to the drives, not to what was found so far)
+            self._stop()
+            return True
+        if self.here is not None and self.here.parent is not None:
+            self._up()
+            return True
+        if self.scan is not None:
+            self._back_to_drives()
+            return True
+        return False
 
     def _back_to_drives(self):
         self.scan = self.here = None

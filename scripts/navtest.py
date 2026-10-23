@@ -271,6 +271,14 @@ def every_page():
         settle(0.2)
         click(b)
         check(w.current_page() == page_name, f"the {page_name} settings sub-tab ({w.current_page()})")
+    # Back (Alt + Left) goes to the page before
+    nav_click(w, "Home")
+    nav_click(w, "History")
+    nav_click(w, "About")
+    for want in ("History", "Home"):
+        QTest.keyClick(w, Qt.Key_Left, Qt.AltModifier)
+        settle(0.3)
+        check(w.current_page() == want, f"Alt + Left goes back to {want} ({w.current_page()})")
     nav_click(w, "Home")
     # the Home page's tool cards
     for page_name, card in list(w.tool_cards.items()):
@@ -311,6 +319,30 @@ def space_nav():
     if pg.scan is not None:
         print(f"note  {pg.scan.files:,} files, {pg.scan.folders:,} folders, {pg.scan.denied} private, "
               f"{pg.scan.seconds:.1f} s, cancelled {pg.scan.cancelled}", flush=True)
+    # Back inside the map: up a folder, then the drives (on a smaller folder, so it's quick)
+    if pg.scan is not None:
+        pg._back_to_drives()
+    pg.start_scan(Path(sys.base_prefix))
+    check(until(lambda: pg.job is None, 120) and pg.scan is not None and pg.scan.files > 2000,
+          f"a folder with thousands of files is mapped ({pg.scan.files if pg.scan else 0})")
+    if pg.scan is not None and pg.scan.root.children:
+        pg.open_folder(pg.scan.root.children[0])
+        settle(0.2)
+        QTest.keyClick(w, Qt.Key_Left, Qt.AltModifier)
+        settle(0.3)
+        check(pg.here is pg.scan.root, "Alt + Left in Space goes up a folder")
+        QTest.keyClick(w, Qt.Key_Left, Qt.AltModifier)
+        settle(0.3)
+        check(pg.scan is None and pg.drives_box.isVisible(), "…and then back to the drives")
+        cards = [b for b in pg.findChildren(QPushButton) if b.objectName() == "driveCard" and b.isVisible()]
+        if cards:
+            click(cards[0])
+            settle(0.5)
+            QTest.keyClick(w, Qt.Key_Left, Qt.AltModifier)
+            check(until(lambda: pg.job is None, 30) and pg.drives_box.isVisible(),
+                  "Alt + Left while it looks stops and goes back to the drives")
+            pg.start_scan(Path(sys.base_prefix))
+            until(lambda: pg.job is None, 120)
     # going back to the drives and picking another one
     back = [b for b in pg.findChildren(QPushButton) if b.isVisible() and b.text() in (tr("Other drives"), tr("Back"))]
     if check(bool(back), "the map has a way back to the drives"):

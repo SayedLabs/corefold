@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QEvent, QObject, QSize, Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import QColor, QDesktopServices, QFont, QGuiApplication, QIcon
+from PySide6.QtGui import QColor, QDesktopServices, QFont, QGuiApplication, QIcon, QKeySequence, QShortcut
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QColorDialog, QComboBox, QFileDialog, QFrame,
                                QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox,
                                QPushButton,
@@ -207,6 +207,21 @@ class ToolCard(QFrame):
             self.on_click()
         else:
             super().keyPressEvent(e)
+
+
+class _BackButton(QObject):
+    """The mouse's back button anywhere in the window goes back a page, like in a browser."""
+
+    def __init__(self, window: "MainWindow"):
+        super().__init__(window)
+        self.w = window
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.BackButton and \
+                obj.isWidgetType() and obj.window() is self.w:
+            self.w.go_back()
+            return True
+        return False
 
 
 class _WheelGuard(QObject):
@@ -487,6 +502,10 @@ class MainWindow(QWidget):
         self.refresh_history()
         self._no_accidental_scrolling()
         self.update_save_bar()
+        self._went: list[str] = []  # pages opened before this one (Back, Alt + Left, the mouse's back button)
+        self._going_back = False
+        QShortcut(QKeySequence(QKeySequence.StandardKey.Back), self, self.go_back)
+        self._back_button = _BackButton(self)  # (only listens while the window is showing)
 
     # ---- saving settings on purpose
 
@@ -762,6 +781,11 @@ class MainWindow(QWidget):
             return
         if self._opening and NAV_OWNER.get(self._opening) == name:
             name = self._opening
+        went = getattr(self, "_went", None)
+        before = self.current_page()
+        if went is not None and not self._going_back and before != name:
+            went.append(before)
+            del went[:-30]
         self._build_page(name)
         self.stack.setCurrentIndex(PAGES.index(name))
         self._sync_settings_head(name)
@@ -2848,7 +2872,29 @@ class MainWindow(QWidget):
         finally:
             self._opening = None
 
+    def go_back(self) -> bool:
+        """Back: first inside the page (a page with steps of its own, like a folder in Space), then to the
+        page opened before it."""
+        here = self.stack.currentWidget()
+        if callable(getattr(here, "go_back", None)) and here.go_back():
+            return True
+        while self._went:
+            name = self._went.pop()
+            if NAV_OWNER.get(name, name) in self.nav_rows and name != self.current_page():
+                self._going_back = True
+                try:
+                    self.open_page(name)
+                finally:
+                    self._going_back = False
+                return True
+        return False
+
+    def hideEvent(self, e):
+        QApplication.instance().removeEventFilter(self._back_button)
+        super().hideEvent(e)
+
     def showEvent(self, e):
+        QApplication.instance().installEventFilter(self._back_button)
         if not self._placed:
             self._placed = True
             self._restore_place()

@@ -407,6 +407,11 @@ class Controller(QObject):
             new.show()
         old.hide()
         old.deleteLater()
+        # the same place on the page (adding a tool from the Store doesn't jump back to the top)
+        bar = getattr(old.stack.currentWidget(), "verticalScrollBar", None)
+        if bar is not None and page == old.current_page():
+            value = bar().value()
+            QTimer.singleShot(0, lambda: _keep_scroll(new, value))
 
     def window_if_open(self):
         """The window if it exists (and nothing is built just to update it)."""
@@ -1780,6 +1785,14 @@ def stop_old_copy():
                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     except (OSError, subprocess.SubprocessError):
         pass
+
+
+def _keep_scroll(window, value: int):
+    if not _alive(window):
+        return
+    bar = getattr(window.stack.currentWidget(), "verticalScrollBar", None)
+    if bar is not None:
+        bar().setValue(value)
 
 
 def setup_logging():
