@@ -382,7 +382,22 @@ def _iso(text: str) -> float:
         return 0.0
 
 
-def _stream_to(resp, target: Path, size: int, progress, cancel):
+# where each service's files come from (written in the downloaded file's "from the internet" mark)
+HOSTS = {"onedrive": "https://onedrive.live.com/", "dropbox": "https://www.dropbox.com/"}
+
+
+def local_name(name: str) -> str:
+    """A cloud file's name made safe to save on this PC. Names come from the service, and a shared folder
+    can hold names Windows would read as a path ("..\\..\\Startup\\x.bat", "C:\\x"): those must never
+    leave the folder they're saved in."""
+    from .core import safe_name
+    return safe_name(name.replace("\\", "/").rsplit("/", 1)[-1]) or "file"
+
+
+def _stream_to(resp, target: Path, size: int, progress, cancel, host: str = ""):
+    """Saves a download. The file gets Windows' "from the internet" mark, like one saved by a browser, so
+    Windows still warns before running it and Office opens it in Protected View."""
+    from .core import mark_from_internet
     tmp = target.with_name(target.name + ".corefold-part")
     done = 0
     try:
@@ -398,6 +413,7 @@ def _stream_to(resp, target: Path, size: int, progress, cancel):
                 if progress is not None:
                     progress(done, size)
         os.replace(tmp, target)
+        mark_from_internet(target, host)
     finally:
         if tmp.exists():
             tmp.unlink(missing_ok=True)
@@ -443,7 +459,7 @@ class OneDrive(Client):
 
     def download(self, entry, target, progress=None, cancel=None):
         resp = _request("GET", f"{self.API}/me/drive/items/{entry.id}/content", self.token(), raw=True, timeout=120)
-        _stream_to(resp, target, entry.size, progress, cancel)
+        _stream_to(resp, target, entry.size, progress, cancel, HOSTS["onedrive"])
 
     def upload(self, src, folder, progress=None, cancel=None):
         parent = f"items/{folder.id}" if folder is not None else "root"
@@ -537,7 +553,7 @@ class Dropbox(Client):
     def download(self, entry, target, progress=None, cancel=None):
         resp = _request("POST", f"{self.CONTENT}/files/download", self.token(), raw=True, timeout=120,
                         headers={"Dropbox-API-Arg": json.dumps({"path": entry.id}, ensure_ascii=True)})
-        _stream_to(resp, target, entry.size, progress, cancel)
+        _stream_to(resp, target, entry.size, progress, cancel, HOSTS["dropbox"])
 
     def upload(self, src, folder, progress=None, cancel=None):
         base = folder.id if folder is not None else ""

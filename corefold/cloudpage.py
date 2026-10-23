@@ -458,7 +458,7 @@ class CloudPage(QWidget):
     def open_file(self, e: cloud.Entry):
         acc = self.account
         folder = Path(tempfile.mkdtemp(prefix="corefold-cloud-"))
-        target = folder / e.name
+        target = folder / cloud.local_name(e.name)
 
         def go(progress):
             cloud.client(acc).download(e, target, lambda d, t: progress((e.name, d, t)), self.cancel)
@@ -475,7 +475,7 @@ class CloudPage(QWidget):
         def go(progress):
             from .core import unique_path
             for e in entries:
-                target = unique_path(Path(folder) / e.name)
+                target = unique_path(Path(folder) / cloud.local_name(e.name))
                 cloud.client(acc).download(e, target, lambda d, t, n=e.name: progress((n, d, t)), self.cancel)
             return tr("Downloaded {count} files to {folder}.", count=len(entries), folder=ltr(folder))
         self._run(go, "", refresh=False)
@@ -543,7 +543,7 @@ class CloudPage(QWidget):
             folder = Path(tempfile.mkdtemp(prefix="corefold-cloud-"))
             try:
                 for e in files:
-                    tmp = folder / e.name
+                    tmp = folder / cloud.local_name(e.name)
                     cloud.client(source).download(e, tmp, lambda d, t, n=e.name: progress((n, d, 2 * t)), self.cancel)
                     cloud.client(target).upload(tmp, None, lambda d, t, n=e.name: progress((n, t + d, 2 * t)),
                                                 self.cancel)
