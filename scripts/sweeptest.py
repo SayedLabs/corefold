@@ -45,6 +45,7 @@ try:
 except (AttributeError, ValueError):
     pass
 import faulthandler  # noqa: E402
+faulthandler.enable()  # a crash inside Qt: say where
 faulthandler.dump_traceback_later(int(os.environ.get("SWEEP_STUCK", "1500")), exit=True)  # stuck somewhere: say where, and stop
 
 from corefold import settings as st  # noqa: E402
@@ -386,7 +387,7 @@ def pages():
 
 SKIP_TEXTS = ["Uninstall", "Quit", "Exit", "Restart now", "Restart", "Sign in", "Install", "Update now",
               "Download", "Remove leftovers", "Uninstall selected", "Move to the Recycle Bin", "Delete",
-              "Clean up", "Empty", "Record", "Start recording", "Take a screenshot", "Capture",
+              "Clean up", "Empty", "Record", "Start recording", "Take a screenshot", "Capture", "Pick a colour",
               "Sort", "Undo the last sort"]  # (File Organizer moves real files: organizetest.py tries it in a folder of its own)
 
 

@@ -5,12 +5,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt, Signal
-from PySide6.QtWidgets import (QAbstractItemView, QDialog, QDialogButtonBox, QFileDialog, QFormLayout, QHBoxLayout,
-                               QLineEdit, QListWidget, QListWidgetItem, QMenu, QPushButton, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
+                               QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QMenu, QPushButton, QVBoxLayout,
+                               QWidget)
 
 from . import hotkey, icons, quick
 from .i18n import tr
-from .settings import QUICK_KEYS
+from .settings import QUICK_KEYS, QUICK_SEARCH_ENGINES
 
 
 class KeyRecorder(QPushButton):
@@ -223,6 +224,7 @@ def build(win) -> QWidget:
         if c.quick is not None:
             c.quick.menu_key.stop()
             c.quick.wheel_key.stop()
+            c.quick.ontop_key.stop()
 
     def resume_keys():
         if c.quick is not None:
@@ -235,6 +237,8 @@ def build(win) -> QWidget:
             out[hotkey.normalize(s.quick_menu_key)] = tr("the quick menu")
         if s.quick_wheel and but != "wheel":
             out[hotkey.normalize(s.quick_wheel_key)] = tr("the quick wheel")
+        if but != "ontop":
+            out[hotkey.normalize(s.ontop_key)] = tr("keeping a window on top")
         if c.clip is not None:
             out[s.clip_shortcut] = tr("the clipboard")
         if c.capture is not None:
@@ -259,6 +263,8 @@ def build(win) -> QWidget:
         rec.set_combo(combo)
         if which == "menu":
             s.quick_menu_key = combo
+        elif which == "ontop":
+            s.ontop_key = combo
         else:
             s.quick_wheel_key = combo
         c.settings_changed()
@@ -271,7 +277,9 @@ def build(win) -> QWidget:
     def refresh_notes():
         ok_menu, ok_wheel = c.quick.keys_ok() if c.quick is not None else (True, True)
         taken = tr("Another app already uses this shortcut, so it can't open this. Pick another one.")
-        for note, ok, on in ((menu_note, ok_menu, s.quick_menu), (wheel_note, ok_wheel, s.quick_wheel)):
+        ok_top = c.quick.ontop_key.ok if c.quick is not None else True
+        for note, ok, on in ((menu_note, ok_menu, s.quick_menu), (wheel_note, ok_wheel, s.quick_wheel),
+                             (ontop_note, ok_top, s.ontop_key != "off")):
             note.setText(taken)
             note.setVisible(bool(on and not ok))
 
@@ -293,6 +301,23 @@ def build(win) -> QWidget:
     bl.addWidget(label(tr("Quick actions on the menu (your tools are always on it)"), wrap=True))
     menu_items = ItemList(s, s.quick_menu_items, 40, c.theme)
     bl.addWidget(menu_items)
+    bl.addWidget(label(tr("Typing in the menu also works out sums (12*7), converts units (10 km to mi) and finds "
+                          "pages of Windows Settings. Nothing is sent online unless you pick “Search the web”."),
+                       "muted", wrap=True))
+    find_on = checkbox(tr("Find files and apps as I type"), s.quick_find)
+    bl.addWidget(find_on)
+    find_note = label(tr("Uses Windows' own search index on this PC (or Everything, if it's running). Nothing "
+                         "leaves your PC."), "muted", wrap=True)
+    bl.addWidget(find_note)
+    row = QHBoxLayout()
+    row.addWidget(label(tr("Search the web with")))
+    engine = QComboBox()
+    for key, name in QUICK_SEARCH_ENGINES.items():
+        engine.addItem(name, key)
+    engine.setCurrentIndex(max(0, engine.findData(s.quick_search_engine)))
+    row.addWidget(engine)
+    row.addStretch()
+    bl.addLayout(row)
     lay.addWidget(box)
 
     # the wheel
@@ -303,6 +328,7 @@ def build(win) -> QWidget:
     row = QHBoxLayout()
     row.addWidget(label(tr("Shortcut")))
     wheel_rec = KeyRecorder(s.quick_wheel_key, pause_keys, resume_keys)
+    win.quick_menu_rec, win.quick_wheel_rec = menu_rec, wheel_rec  # (Settings → Shortcuts points at them)
     row.addWidget(wheel_rec)
     row.addStretch()
     bl.addLayout(row)
@@ -321,6 +347,25 @@ def build(win) -> QWidget:
         look.addWidget(button(tr("Change the look…"), "flat", lambda: win.open_page("WheelLook")))
         look.addStretch()
         bl.addLayout(look)
+    lay.addWidget(box)
+
+    # keeping a window on top
+    box, bl = card()
+    bl.addWidget(label(tr("Keep a window on top"), "h2"))
+    bl.addWidget(label(tr("The window you're using stays above all the others until you switch it back. You can "
+                          "put it on the menu or the wheel too."), "muted", wrap=True))
+    ontop_on = checkbox(tr("Use a shortcut for it"), s.ontop_key != "off")
+    bl.addWidget(ontop_on)
+    row = QHBoxLayout()
+    row.addWidget(label(tr("Shortcut")))
+    ontop_rec = KeyRecorder(s.ontop_key if s.ontop_key != "off" else "", pause_keys, resume_keys)
+    win.quick_ontop_rec = ontop_rec  # (Settings → Shortcuts points at it)
+    ontop_rec.setEnabled(s.ontop_key != "off")
+    row.addWidget(ontop_rec)
+    row.addStretch()
+    bl.addLayout(row)
+    ontop_note = label("", "warning", wrap=True)
+    bl.addWidget(ontop_note)
     lay.addWidget(box)
 
     # their own shortcuts
@@ -414,7 +459,8 @@ def build(win) -> QWidget:
         s.quick_menu = menu_on.isChecked()
         s.quick_wheel = wheel_on.isChecked()
         s.quick_button = button_on.isChecked()
-        for wid in (menu_rec, menu_items):
+        s.quick_find = find_on.isChecked()
+        for wid in (menu_rec, menu_items, engine, find_on):
             wid.setEnabled(s.quick_menu)
         for wid in (wheel_rec, wheel_items, button_on):
             wid.setEnabled(s.quick_wheel)
@@ -428,13 +474,31 @@ def build(win) -> QWidget:
             s.quick_wheel_items = list(ids)
         c.settings_changed()
 
-    for cb in (menu_on, wheel_on, button_on):
+    for cb in (menu_on, wheel_on, button_on, find_on):
         cb.toggled.connect(toggled)
     menu_rec.recorded.connect(lambda combo: recorded("menu", combo, menu_rec, menu_note))
+    ontop_rec.recorded.connect(lambda combo: recorded("ontop", combo, ontop_rec, ontop_note))
+
+    def ontop_toggled(on: bool):
+        from .settings import Settings
+        key = Settings().ontop_key
+        s.ontop_key = key if on and key not in others("ontop") else "off"
+        ontop_rec.set_combo(s.ontop_key if s.ontop_key != "off" else "")
+        ontop_rec.setEnabled(on)
+        c.settings_changed()
+        refresh_notes()
+        if on and s.ontop_key == "off":  # (its usual keys are taken: pick others)
+            ontop_rec.start()
+
+    def engine_changed(_=0):
+        s.quick_search_engine = engine.currentData()
+        c.settings_changed()
+    ontop_on.toggled.connect(ontop_toggled)
+    engine.currentIndexChanged.connect(engine_changed)
     wheel_rec.recorded.connect(lambda combo: recorded("wheel", combo, wheel_rec, wheel_note))
     menu_items.changed.connect(lambda ids: items_changed("menu", ids))
     wheel_items.changed.connect(lambda ids: items_changed("wheel", ids))
-    for wid in (menu_rec, menu_items):
+    for wid in (menu_rec, menu_items, engine, find_on):
         wid.setEnabled(s.quick_menu)
     for wid in (wheel_rec, wheel_items, button_on):
         wid.setEnabled(s.quick_wheel)

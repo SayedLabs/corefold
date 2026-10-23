@@ -44,7 +44,7 @@ if TYPE_CHECKING:
 # pages come from tools.py
 _TOOL_SETTINGS_PAGES = [p for tool in all_tools.TOOLS for p in tool.settings_pages]
 PAGES = ["Home", "History", *[tool.page for tool in all_tools.TOOLS], "Store", "General", "Look", "Quick",
-         *_TOOL_SETTINGS_PAGES, "Updates", "About"]
+         "Shortcuts", *_TOOL_SETTINGS_PAGES, "Updates", "About"]
 # tools still being made: page -> product tile (in the order they're planned)
 SOON = {tool.page: tool.product for tool in all_tools.coming()}
 # the sidebar's fixed rows (the tools a person uses go between the two headings) and its names
@@ -53,15 +53,16 @@ NAV_LABELS = {"General": "Settings", **{tool.page: tool.nav for tool in all_tool
 # Settings: a tab for the whole app and one for each tool someone uses. A tab with several pages
 # shows them as smaller tabs underneath.
 BASE_SETTINGS_TABS = [("General", "General", ["General"]), ("Look", "Appearance", ["Look"]),
-                      ("Quick", "Quick access", ["Quick"])]
+                      ("Quick", "Quick access", ["Quick"]), ("Shortcuts", "Shortcuts", ["Shortcuts"])]
 SETTINGS_TABS = BASE_SETTINGS_TABS + [(tool.settings, tool.nav, list(tool.settings_pages))
                                       for tool in all_tools.TOOLS if tool.settings]
 SETTINGS_SUBTABS = {"ConvOptions": "Options", "WheelLook": "Wheel", "Formats": "Formats"}
-SETTINGS_PAGES = ["General", "Look", "Quick", *_TOOL_SETTINGS_PAGES]
+SETTINGS_PAGES = ["General", "Look", "Quick", "Shortcuts", *_TOOL_SETTINGS_PAGES]
 TOOL_SETTINGS = {tool.page: tool.settings for tool in all_tools.TOOLS if tool.settings}
 # pages without a sidebar row of their own: the row that's lit
 NAV_OWNER = {**{name: "Store" for name in SOON}, **{name: "General" for name in SETTINGS_PAGES if name != "General"}}
 PAGE_ICONS = {"Home": "home", "General": "settings", "Look": "paint_brush", "Quick": "layout",  # icons.py
+              "Shortcuts": "keyboard",
               "Formats": "puzzle_piece",
               "History": "history", "Updates": "arrow_sync", "About": "info", "Store": "apps",
               **{tool.page: tool.icon for tool in all_tools.TOOLS}}
@@ -497,7 +498,12 @@ class MainWindow(QWidget):
                     "ClipboardSettings": self._clipboard_settings, "Space": self._space, "Capture": self._capture,
                     "CaptureSettings": self._capture_settings, "Cloud": self._cloud, "Player": self._player,
                     "PlayerSettings": self._player_settings, "PDF": self._pdf, "Organizer": self._organizer, "Startup": self._startup, "Scan": self._scan, "Updates": self._updates, "About": self._about,
-                    "Quick": self._quick_settings}
+                    "Quick": self._quick_settings,
+                    "Unlock": self._unlock,
+                    "Awake": self._awake,
+                    "Shortcuts": self._shortcuts,
+                    "Colors": self._colors,
+                    }
         self._wheel_guard = None
         self._settings_head()  # (made before the pages: opening one shows or hides it)
         self._dots: list[QLabel] = []
@@ -513,7 +519,10 @@ class MainWindow(QWidget):
         self.organizer_page = None
         self.startup_page = None
         self.scan_page = None
-        self._unbuilt = {"Apps", "Store", "Viewer", "Clipboard", "Space", "Capture", "Cloud", "Player", "PDF", "Organizer", "Startup", "Scan", *SOON, *[tool.page for tool in all_tools.TOOLS
+        self.unlock_page = None
+        self.awake_page = None
+        self.colors_page = None
+        self._unbuilt = {"Apps", "Store", "Viewer", "Clipboard", "Space", "Capture", "Cloud", "Player", "PDF", "Organizer", "Startup", "Scan", "Unlock", "Awake", "Colors", *SOON, *[tool.page for tool in all_tools.TOOLS
                                                     if tool.page not in on_pages and tool.page != "Converter"]}
         for name in PAGES:
             built = QWidget() if name in self._unbuilt else builders[name]()
@@ -898,12 +907,18 @@ class MainWindow(QWidget):
             self.space_page.refresh()
         elif name == "Organizer" and self.organizer_page is not None:
             self.organizer_page.ensure_loaded()
+        elif name == "Awake" and self.awake_page is not None:
+            self.awake_page.refresh()
+        elif name == "Colors" and self.colors_page is not None:
+            self.colors_page.refresh()
         elif name == "Capture":
             self.refresh_captures()
         elif name == "Player":
             self.refresh_watching()
         elif name == "CaptureSettings":
             self._find_microphones()
+        elif name == "Shortcuts":
+            self.shortcuts_page.refresh()
 
     def _archives(self) -> QWidget:
         """Corefold Archive: open archives, make new ones, and the ones opened lately."""
@@ -1782,6 +1797,8 @@ class MainWindow(QWidget):
         pl.addWidget(label(tr("Corefold also lets go of memory it doesn't need when it's idle, and closes this window "
                               "completely a little while after you close it."), "muted", wrap=True))
         lay.addWidget(perf)
+        from .settingscard import card as settings_file_card
+        lay.addWidget(settings_file_card(self))
         lay.addLayout(_reset_row(lambda: self.reset_to_defaults(GENERAL_KEYS)))
         lay.addStretch()
         return w
@@ -2167,8 +2184,19 @@ class MainWindow(QWidget):
         grid.addWidget(self.viewer_wheel, 0, 1)
         grid.addWidget(label(tr("Slideshow: each picture for")), 1, 0)
         grid.addWidget(self.slideshow_seconds, 1, 1)
+        from .settings import PEEK_KEYS
+        self.peek_key = QComboBox()
+        for key, text in PEEK_KEYS.items():
+            self.peek_key.addItem(tr(text) if key == "off" else text, key)
+        self.peek_key.setCurrentIndex(max(0, self.peek_key.findData(s.peek_key)))
+        self.peek_key.currentIndexChanged.connect(self._viewer_setting_changed)
+        grid.addWidget(label(tr("Quick look")), 2, 0)
+        grid.addWidget(self.peek_key, 2, 1)
         grid.setColumnStretch(2, 1)
         bl.addLayout(grid)
+        bl.addWidget(label(tr("Select a file in File Explorer or on the desktop and press the shortcut to see what's "
+                              "in it without opening it. Press it again, Space or Esc to close it."), "muted",
+                           wrap=True))
         self.viewer_confirm_delete = checkbox(tr("Ask before sending a picture to the Recycle Bin"),
                                               s.viewer_confirm_delete, self._viewer_setting_changed)
         bl.addWidget(self.viewer_confirm_delete)
@@ -2196,6 +2224,7 @@ class MainWindow(QWidget):
         s = self.c.settings
         s.viewer_wheel = self.viewer_wheel.currentData()
         s.slideshow_seconds = self.slideshow_seconds.currentData()
+        s.peek_key = self.peek_key.currentData()
         s.viewer_confirm_delete = self.viewer_confirm_delete.isChecked()
         self.c.settings_changed()
 
@@ -2223,6 +2252,33 @@ class MainWindow(QWidget):
                              dark, dpr)
         self.space_page = SpacePage(self.c, header)
         return self.space_page
+
+    def _unlock(self) -> QWidget:
+        """Corefold Unlock: which programs are using a file, and closing them."""
+        from .unlockpage import UnlockPage
+        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
+        header = tool_header("unlock", tr("Corefold Unlock"),
+                             tr("Find out which program is holding a file you can't delete or move."), dark, dpr)
+        self.unlock_page = UnlockPage(self.c, header)
+        return self.unlock_page
+
+    def _awake(self) -> QWidget:
+        """Corefold Awake: keep the PC awake, and turn it off later."""
+        from .awakepage import AwakePage
+        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
+        header = tool_header("awake", tr("Corefold Awake"),
+                             tr("Keep your PC from going to sleep, for as long as you choose."), dark, dpr)
+        self.awake_page = AwakePage(self.c, header)
+        return self.awake_page
+
+    def _colors(self) -> QWidget:
+        """Corefold Colors: pick a colour on the screen, and the ones picked lately."""
+        from .colorspage import ColorsPage
+        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
+        header = tool_header("colors", tr("Corefold Colors"),
+                             tr("Pick any colour on your screen and copy it as HEX, RGB or HSL."), dark, dpr)
+        self.colors_page = ColorsPage(self.c, header)
+        return self.colors_page
 
     def _pdf(self) -> QWidget:
         """Corefold PDF: merge, split, arrange, shrink and lock PDFs."""
@@ -2628,6 +2684,12 @@ class MainWindow(QWidget):
         from .quickpage import build
         return build(self)
 
+    def _shortcuts(self) -> QWidget:
+        """Every shortcut in one list (Settings → Shortcuts)."""
+        from .shortcutspage import ShortcutsPage
+        self.shortcuts_page = ShortcutsPage(self)
+        return self.shortcuts_page.widget
+
     def _clipboard_settings(self) -> QWidget:
         """Corefold Clipboard."""
         s = self.c.settings
@@ -2951,6 +3013,9 @@ class MainWindow(QWidget):
             lrow.addStretch()
             ll.addLayout(lrow)
             lay.addWidget(links)
+
+        from .report import card as report_card
+        lay.addWidget(report_card(self))
 
         remove, rl = card()
         rl.addWidget(label(tr("Remove Corefold"), "h2"))
@@ -3377,6 +3442,12 @@ class MainWindow(QWidget):
             self.apps_page.apply_theme(t)
         if self.cloud_page is not None:
             self.cloud_page.apply_theme(t)
+        if self.unlock_page is not None:
+            self.unlock_page.apply_theme(t)
+        if self.awake_page is not None:
+            self.awake_page.apply_theme(t)
+        if self.colors_page is not None:
+            self.colors_page.apply_theme(t)
         if self.isVisible():
             set_title_bar_dark(self, t.dark)
 

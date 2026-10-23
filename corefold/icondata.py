@@ -134,4 +134,9 @@ STROKES: dict[str, str] = {
     "flash": '<path d="M13.5 3 5.5 13.5h6L10.5 21l8-10.5h-6Z"/>',
     "grid": '<rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/>'
             '<rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/>',
+    # the quick menu's Windows commands and its calculator
+    "power": '<path d="M12 3.5v8"/><path d="M7.4 6.4a7.5 7.5 0 1 0 9.2 0"/>',
+    "sign_out": '<path d="M13.5 4.5H7.5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h6"/><path d="M10.5 12h10M17 8.5l3.5 3.5-3.5 3.5"/>',
+    "calculator": '<rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M8.5 7.5h7"/>'
+                  '<path d="M8.75 12h.01M12 12h.01M15.25 12h.01M8.75 15.5h.01M12 15.5h.01M15.25 15.5h.01"/>',
 }

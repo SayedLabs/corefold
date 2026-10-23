@@ -215,5 +215,7 @@ def clean_old_installers(keep_days: float = 1.0):
 
 def run_installer(path: Path):
     """Starts the installer in silent mode. It closes Corefold, upgrades it and starts it again."""
+    from . import __version__, settings_backup
+    settings_backup.keep_copy(__version__)  # the settings as they were, in case the new version loses them
     subprocess.Popen([str(path), "/SILENT", "/SP-", "/SUPPRESSMSGBOXES", "/NORESTART"],
                      close_fds=True)

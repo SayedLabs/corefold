@@ -32,6 +32,7 @@ ANY_ROOT = CLASSES + r"\*"   # every file; limited to the kinds Corefold has no 
 DRIVE_ROOT = CLASSES + r"\Drive"   # drives: "Scan with Corefold" (while Scan is in use)
 VERBS = ("Corefold", "CorefoldOpen", "CorefoldUninstall", "CorefoldScan")
 LEGACY_VERBS = (LEGACY_NAME, LEGACY_NAME + "Open")  # written by versions before 1.7.0
+UNLOCK_VERB = "CorefoldUnlock"  # Corefold Unlock's "What's using this?" (there while that tool is, Converter or not)
 MENU_STYLES = {"windows": "Windows menu", "wheel": "Corefold wheel"}
 OPEN_KEY = "corefold:open"     # "All options…": opens Corefold's window with the files
 SEPARATOR_BEFORE = 0x20       # ECF_SEPARATORBEFORE
@@ -189,12 +190,12 @@ def _all_roots() -> list[str]:
     return [rf"{FILE_ROOT}\{ext}" for ext in sorted(ALL_EXT)] + [FOLDER_ROOT, ANY_ROOT, LNK_ROOT, DRIVE_ROOT]
 
 
-def remove():
-    """Takes every Corefold entry out of the right-click menu."""
+def remove(unlock: bool = True):
+    """Takes every Corefold entry out of the right-click menu (unlock=False: Corefold Unlock's stays)."""
     import winreg
     with _lock:
         for root in _all_roots():
-            for verb in VERBS + LEGACY_VERBS:
+            for verb in VERBS + LEGACY_VERBS + ((UNLOCK_VERB,) if unlock else ()):
                 _delete_tree(winreg, rf"{root}\shell\{verb}")
 
 
@@ -236,6 +237,45 @@ def write(verbs: list[Verb], command, icon: str):
             except OSError:
                 log.exception("could not write right-click menu for %s", v.root)
         _tell_explorer()
+
+
+# ----------------------------------------------------------------------------- Corefold Unlock's entry
+
+def unlock_plan(command) -> list[Verb]:
+    """The "What's using this?" entry on every file and folder, opening Corefold Unlock with it."""
+    title, cmd = tr("What's using this?"), command("--unlock", '"%1"')
+    return [Verb(ANY_ROOT, UNLOCK_VERB, title, command=cmd), Verb(FOLDER_ROOT, UNLOCK_VERB, title, command=cmd)]
+
+
+def sync_unlock(on: bool, written: str, command, icon: str) -> str:
+    """Writes or removes Corefold Unlock's entry, only if it changed since `written` (its signature then).
+    Returns its signature now ("off" when it's not there)."""
+    import winreg
+    if not on:
+        if written != "off":
+            with _lock:
+                for root in (ANY_ROOT, FOLDER_ROOT):
+                    _delete_tree(winreg, rf"{root}\shell\{UNLOCK_VERB}")
+            _tell_explorer()
+        return "off"
+    verbs = unlock_plan(command)
+    sig = signature(verbs, command, icon)
+    if sig == written:
+        return sig
+    SZ = winreg.REG_SZ
+    with _lock:
+        for v in verbs:
+            base = rf"{v.root}\shell\{v.name}"
+            _delete_tree(winreg, base)
+            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, base) as k:
+                winreg.SetValueEx(k, "MUIVerb", 0, SZ, v.title)
+                if icon:
+                    winreg.SetValueEx(k, "Icon", 0, SZ, icon)
+                winreg.SetValueEx(k, "MultiSelectModel", 0, SZ, "Player")
+            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, base + r"\command") as k:
+                winreg.SetValueEx(k, "", 0, SZ, v.command)
+    _tell_explorer()
+    return sig
 
 
 def _tell_explorer():

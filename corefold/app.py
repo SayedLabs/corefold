@@ -12,6 +12,7 @@ needed any more is handed back to Windows when Corefold is idle.
 from __future__ import annotations
 
 import copy
+import gc
 import itertools
 import logging
 import logging.handlers
@@ -77,6 +78,7 @@ FREE_WINDOW_AFTER_MS = 90_000  # free the main window this long after it's close
 FREE_POPUPS_AFTER_MS = 60_000  # ... and the quick menu, quick wheel and clipboard popup after they close
 MENU_WRITE_DELAY_MS = 1500     # wait for more changes before rewriting the right-click menu
 MENU_BATCH_MS = 700            # right-clicked files arrive one process at a time; collect them
+GC_EVERY_MS = 2_000            # Python's garbage collector runs on the window's thread this often (see Controller)
 log = logging.getLogger("corefold")
 
 
@@ -130,7 +132,7 @@ class UpdateSignals(QObject):
 
 
 class BackgroundSignals(QObject):
-    menu_written = Signal(str)         # signature of what's now in the right-click menu
+    menu_written = Signal(str, str)    # signatures of what's now in the right-click menu (the Converter's, Unlock's)
     menu_files_ready = Signal(object)  # [(tool key, files)] read and ready to run
     archive_listed = Signal(object)    # (archive, password, entries or None, error or None)
 
@@ -269,6 +271,7 @@ class Controller(QObject):
         self.pending: list[Path] = []    # files arriving from the right-click menu for the wheel
         self.pending_open: list[Path] = []  # ... for the window ("All options…")
         self.pending_runs: dict[str, list[Path]] = {}  # tool key -> files ("Convert to PNG" in the menu)
+        self.pending_unlock: list[Path] = []  # "What's using this?" (Corefold Unlock)
         self.pending_timer = QTimer(self)
         self.pending_timer.setSingleShot(True)
         self.pending_timer.timeout.connect(self._open_pending)
@@ -300,7 +303,10 @@ class Controller(QObject):
         self.tray.activated.connect(self._tray_clicked)
         self.clip = None     # Corefold Clipboard, while it's in use
         self.capture = None  # Corefold Capture, while it's in use
-        self.quick = None    # the quick menu and wheel, while one of them is switched on
+        self.quick = None    # the quick menu and wheel, while one of them (or the on-top shortcut) is on
+        self.awake = None    # Corefold Awake (and its "Keep awake" tray menu), while it's in use
+        self.colors = None   # Corefold Colors, while it's in use
+        self.peek = None     # the Viewer's Quick look (its shortcut in File Explorer), while it's in use
         self.menu = None
         self._build_tray_menu()
 
@@ -344,6 +350,13 @@ class Controller(QObject):
         self.free_popups_timer = QTimer(self)
         self.free_popups_timer.setSingleShot(True)
         self.free_popups_timer.timeout.connect(self._free_popups)
+        # Python's garbage collector only runs here, on the window's thread: run by itself it can start in
+        # any thread (writing the right-click menu, a conversion), and freeing a closed window's widgets from
+        # there crashes Qt
+        gc.disable()
+        self.gc_timer = QTimer(self)
+        self.gc_timer.timeout.connect(collect_garbage)
+        self.gc_timer.start(GC_EVERY_MS)
 
         self._update_tooltip()
         self.tray.show()
@@ -382,10 +395,11 @@ class Controller(QObject):
         self.act_shot = menu.addAction(tr("Take a screenshot"), lambda: self.capture and self.capture.screenshot())
         self.act_shot_later = menu.addAction(tr("Screenshot with a timer"),
                                              lambda: self.capture and self.capture.screenshot_later())
+        self.act_color = menu.addAction(tr("Pick a colour"), lambda: self.colors and self.colors.pick())
         self.act_quick = menu.addAction(tr("Quick menu"), lambda: self.quick and self.quick.toggle_menu())
         self.menu_icons = [(act_open, "home"), (act_settings, "settings"), (self.act_paste, "arrow_swap"),
                            (self.act_archive, "archive"), (self.act_clip, "clipboard"), (self.act_shot, "screenshot"),
-                           (self.act_shot_later, "timer"), (self.act_quick, "layout")]
+                           (self.act_shot_later, "timer"), (self.act_quick, "layout"), (self.act_color, "color")]
         self.act_again = menu.addAction(tr("Do it again…"), self.do_again)
         menu.aboutToShow.connect(self._update_again_action)
         self.recent_menu = menu.addMenu(tr("Recent files"))
@@ -404,6 +418,8 @@ class Controller(QObject):
         old, self.menu = self.menu, menu
         for m in (menu, self.recent_menu):
             round_menu(m)
+        if self.awake is not None:
+            self.awake.add_tray_menu()  # (its "Keep awake" menu, in the new language)
         self._tray_tools()
         self._color_menu_icons()
         self.tray.setContextMenu(menu)
@@ -488,6 +504,8 @@ class Controller(QObject):
             held += [(self.quick, "menu"), (self.quick, "wheel")]
         if self.clip is not None:
             held.append((self.clip, "popup"))
+        if self.peek is not None:
+            held.append((self.peek, "window"))
         freed = False
         for owner, name in held:
             w = getattr(owner, name)
@@ -547,6 +565,8 @@ class Controller(QObject):
         else:
             self.tray.setToolTip(tr("{app}: hold {key} while dragging a file", app=APP_NAME,
                                     key=self.settings.shortcut_label))
+        if self.awake is not None and self.awake.on:
+            self.tray.setToolTip(self.tray.toolTip() + "\n" + self.awake.status())
 
     def _css(self) -> str:
         return stylesheet(self.theme, WINDOW_TEXT_PT.get(self.settings.window_text, 10) / 10)
@@ -589,7 +609,6 @@ class Controller(QObject):
         (the background remover stays ready a little longer, in case more pictures follow)."""
         if self.cancels:
             return
-        import gc
         gc.collect()
         winutil.trim_memory()
 
@@ -835,6 +854,11 @@ class Controller(QObject):
             if key and self.clip.hotkey.ok:
                 self.toast.notify(tr("Corefold Clipboard"), tr("Press {key} in any app to open your clipboard, then "
                                                                "pick what to paste.", key=key), linger_ms=7000)
+        if tool_id == "colors" and self.colors is not None and s.colors_shortcut != "off" and self.colors.key.ok:
+            from .settings import COLORS_SHORTCUTS
+            self.toast.notify(tr("Corefold Colors"), tr("Press {key} in any app to pick a colour.",
+                                                        key=COLORS_SHORTCUTS.get(s.colors_shortcut, s.colors_shortcut)),
+                              linger_ms=7000)
 
     def apply_tools(self):
         """Starts or stops what each tool does in the background, to match the tools in use."""
@@ -859,15 +883,20 @@ class Controller(QObject):
         self.act_clip.setVisible(self.clip is not None)
         self.act_shot.setVisible(self.capture is not None)
         self.act_shot_later.setVisible(self.capture is not None)
+        self.act_color.setVisible(self.colors is not None)
         self.act_quick.setVisible(self.quick is not None and self.settings.quick_menu)
 
     def _background_tools(self):
         self._clipboard_tool()
         self._capture_tool()
+        self._colors_tool()
         self._quick_tool()
+        self._awake_tool()
+        self._peek_tool()
         self._tray_tools()
         running = [name for name, on in (("clipboard", self.clip), ("capture", self.capture),
-                                         ("quick access", self.quick)) if on is not None]
+                                         ("quick access", self.quick), ("awake", self.awake),
+                                         ("colors", self.colors), ("quick look", self.peek)) if on is not None]
         if running:
             log.info("running in the background: %s", ", ".join(running))
             winutil.log_memory("background tools started")
@@ -892,12 +921,64 @@ class Controller(QObject):
     def _cap_settings(self) -> tuple:
         return self.settings.cap_shortcut, self.settings.cap_record_shortcut
 
+    def _awake_tool(self):
+        """Corefold Awake's tray menu is only there while it's in use (and removing it lets the PC sleep)."""
+        on = all_tools.is_on(self.settings, "awake")
+        if on and self.awake is None:
+            from .awake import AwakeTool
+            try:
+                self.awake = AwakeTool(self)
+            except Exception:
+                log.exception("couldn't start Awake")
+                self.awake = None
+        elif not on and self.awake is not None:
+            self.awake.stop()
+            self.awake.deleteLater()
+            self.awake = None
+            self._update_tooltip()
+
+    def _colors_tool(self):
+        """Corefold Colors' shortcut is only there while it's in use."""
+        on = all_tools.is_on(self.settings, "colors")
+        if on and self.colors is None:
+            from .colors import ColorsTool
+            try:
+                self.colors = ColorsTool(self)
+            except Exception:
+                log.exception("couldn't start Colors")
+                self.colors = None
+                return
+            self._colors_applied = self.settings.colors_shortcut
+        elif not on and self.colors is not None:
+            self.colors.stop()
+            self.colors.deleteLater()
+            self.colors = None
+
+    def _peek_tool(self):
+        """The Viewer's Quick look: only while the Viewer is in use and its shortcut isn't switched off."""
+        on = all_tools.is_on(self.settings, "viewer") and self.settings.peek_key != "off"
+        if on and self.peek is None:
+            from .peek import PeekTool
+            try:
+                self.peek = PeekTool(self)
+            except Exception:
+                log.exception("couldn't start Quick look")
+                self.peek = None
+        elif not on and self.peek is not None:
+            self.peek.stop()
+            self.peek.deleteLater()
+            self.peek = None
+        elif on:
+            self.peek.apply_settings()
+
     # ---- Quick access
 
     def _quick_tool(self):
-        """The quick menu's and wheel's shortcuts are only there while one of them is switched on."""
+        """The quick menu's and wheel's shortcuts are only there while one of them is switched on. The
+        "Keep a window on top" shortcut lives there too, so it keeps quick access running (only its
+        shortcuts, nothing is built) even with the menu and the wheel switched off."""
         s = self.settings
-        on = s.quick_menu or s.quick_wheel
+        on = s.quick_menu or s.quick_wheel or s.ontop_key != "off"
         if on and self.quick is None:
             from .quick import QuickAccess
             try:
@@ -923,7 +1004,7 @@ class Controller(QObject):
 
     def _quick_settings(self) -> tuple:
         s = self.settings
-        return s.quick_menu, s.quick_menu_key, s.quick_wheel, s.quick_wheel_key, s.quick_button
+        return s.quick_menu, s.quick_menu_key, s.quick_wheel, s.quick_wheel_key, s.quick_button, s.ontop_key
 
     # ---- Corefold Clipboard
 
@@ -1058,7 +1139,8 @@ class Controller(QObject):
         s = copy.deepcopy(self.settings)  # a snapshot: the settings may change while this runs
         # the Converter's menu (when it's wanted), and Scan's "Scan with Corefold"
         menu_on = (s.context_menu and all_tools.is_on(s, "converter")) or all_tools.is_on(s, "scan")
-        if not menu_on and s.menu_signature == "off":
+        unlock_on = all_tools.is_on(s, "unlock")  # "What's using this?" is Corefold Unlock's own
+        if not menu_on and s.menu_signature == "off" and not unlock_on and s.unlock_menu_signature == "off":
             return
         self.menu_busy = True
 
@@ -1066,7 +1148,8 @@ class Controller(QObject):
             signature = ""
             try:
                 if not menu_on:
-                    shellmenu.remove()
+                    if s.menu_signature != "off":
+                        shellmenu.remove(unlock=False)
                     signature = "off"
                 else:
                     command, icon = app_command, app_icon()
@@ -1079,15 +1162,26 @@ class Controller(QObject):
                 log.exception("could not update the right-click menu")
                 signature = ""
             try:
-                self.bg.menu_written.emit(signature)
+                unlock = shellmenu.sync_unlock(unlock_on, s.unlock_menu_signature, app_command, app_icon())
+            except Exception:
+                log.exception("could not update Corefold Unlock's right-click entry")
+                unlock = ""
+            try:
+                self.bg.menu_written.emit(signature, unlock)
             except RuntimeError:
                 pass  # quitting
         threading.Thread(target=work, daemon=True).start()
 
-    def _menu_written(self, signature: str):
+    def _menu_written(self, signature: str, unlock: str = ""):
         self.menu_busy = False
+        changed = False
         if signature and signature != self.settings.menu_signature:
             self.settings.menu_signature = signature
+            changed = True
+        if unlock and unlock != self.settings.unlock_menu_signature:
+            self.settings.unlock_menu_signature = unlock
+            changed = True
+        if changed:
             self.settings.save()
 
     # ---- requests from the right-click menu (each file arrives from its own helper process)
@@ -1111,6 +1205,8 @@ class Controller(QObject):
             self.uninstall_from_shortcut(Path(lines[0]))
         elif word == "run" and len(lines) >= 2:
             self.run_from_menu(lines[0], lines[1:])
+        elif word == "unlock" and lines:
+            self.unlock_from_menu(lines)
         elif word == "scan" and lines:
             self.scan_from_menu(lines)
 
@@ -1182,7 +1278,22 @@ class Controller(QObject):
                 files.append(path)
         self.pending_timer.start(MENU_BATCH_MS)
 
+    def unlock_from_menu(self, paths: list[str]):
+        """From "What's using this?" (Corefold Unlock): each selected file arrives on its own, so they're
+        gathered first."""
+        for p in paths:
+            path = Path(p)
+            if path.exists() and path not in self.pending_unlock:
+                self.pending_unlock.append(path)
+        self.pending_timer.start(MENU_BATCH_MS)
+
     def _open_pending(self):
+        unlock, self.pending_unlock = self.pending_unlock, []
+        if unlock and all_tools.is_on(self.settings, "unlock"):
+            self.show_window("Unlock")
+            page = getattr(self.window, "unlock_page", None)
+            if page is not None:
+                page.check(unlock)
         files, self.pending = self.pending, []
         if files:
             self.wheel.popup_at_cursor(files)
@@ -1344,6 +1455,8 @@ class Controller(QObject):
             self.clip.popup.apply_theme(self.theme)
         if self.quick is not None:
             self.quick.apply_theme(self.theme)
+        if self.peek is not None:
+            self.peek.apply_theme(self.theme)
 
     def _color_menu_icons(self):
         for action, name in self.menu_icons:
@@ -1368,6 +1481,9 @@ class Controller(QObject):
             if self._window is not None:
                 self._window.refresh_capture_note()
                 self._window.refresh_captures()
+        if self.colors is not None and self.settings.colors_shortcut != getattr(self, "_colors_applied", None):
+            self._colors_applied = self.settings.colors_shortcut
+            self.colors.apply_settings()
         if self.clip is not None and self._clip_settings() != getattr(self, "_clip_applied", None):
             self._clip_applied = self._clip_settings()
             self.clip.apply_settings()
@@ -1385,6 +1501,7 @@ class Controller(QObject):
             notes = getattr(self._window, "quick_notes", None)
             if notes is not None:
                 notes()
+        self._peek_tool()  # (nothing happens unless its shortcut changed)
         self.watcher.refresh()
         if self._window is not None:
             self._window.refresh()
@@ -1948,9 +2065,18 @@ class Controller(QObject):
         if self.capture is not None:
             self.capture.stop()
             self.capture = None
+        if self.colors is not None:
+            self.colors.stop()
+            self.colors = None
         if self.quick is not None:
             self.quick.stop()
             self.quick = None
+        if self.awake is not None:  # (Windows lets the PC sleep anyway once Corefold has ended)
+            self.awake.stop()
+            self.awake = None
+        if self.peek is not None:
+            self.peek.stop()
+            self.peek = None
         for p in getattr(self, "players", []):
             if _alive(p):
                 p.close()
@@ -1993,13 +2119,24 @@ class Controller(QObject):
             self.quit(cleanup=True)
 
 
-PAGE_NAMES = ("Home", "Converter", "Apps", "Archives", "Viewer", "Player", "Clipboard", "Space", "Capture", "Cloud", "PDF", "Organizer", "Startup", "Scan",
-              "Store", "PlayerSettings",
+PAGE_NAMES = ("Home", "Converter", "Apps", "Archives", "Viewer", "Player", "Clipboard", "Space", "Capture", "Cloud",
+              "PDF", "Organizer", "Startup", "Scan", "Unlock", "Awake", "Colors", "Store", "PlayerSettings",
               "Soon",
               "General", "Look", "ConvOptions", "WheelLook", "Formats", "AppsSettings", "ArchiveSettings",
-              "ViewerSettings", "ClipboardSettings", "CaptureSettings", "History", "Updates", "About")
+              "ViewerSettings", "ClipboardSettings", "CaptureSettings", "History", "Updates", "About", "Shortcuts")
 OUTPUT_EXT = {"image:pdf": ".pdf", "image:scan": ".pdf", "pdf:merge": ".pdf", "image:video": ".mp4",
               "pack:zip": ".zip", "pack:7z": ".7z"}  # what a tool makes, when it isn't Tool.target
+
+
+def collect_garbage():
+    """What Python's own collector would have done by now (the same thresholds), on this thread."""
+    young, middle, old = gc.get_count()
+    if old > 10:
+        gc.collect(2)
+    elif middle > 10:
+        gc.collect(1)
+    elif young > 700:
+        gc.collect(0)
 
 
 def _prune_backups(days: int = 30):
@@ -2171,6 +2308,10 @@ def main() -> int:
 
     controller = Controller(app, icon)
     app.commitDataRequest.connect(controller.end_session)
+    from . import settings_backup
+    if settings_backup.RECOVERED is not None:  # settings.json was lost or damaged: a copy was used
+        from .settingscard import recovered_note
+        QTimer.singleShot(2000, lambda: recovered_note(controller))
     winutil.log_memory("in the tray")
     QTimer.singleShot(20_000, clean_old_temp_files)
 

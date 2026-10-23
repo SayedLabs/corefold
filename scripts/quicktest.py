@@ -292,7 +292,7 @@ def settings_page():
     shot("quick-settings")
     page = w.stack.currentWidget()
     recs = page.findChildren(KeyRecorder)
-    check(len(recs) == 2, "the page has the two shortcut buttons")
+    check(len(recs) == 3, "the page has the three shortcut buttons (menu, wheel, keep on top)")
     menu_rec = recs[0]
     menu_rec.recorded.emit("alt+f4")
     check(s.quick_menu_key == "ctrl+alt+space", "a shortcut Windows uses (Alt + F4) is refused")
@@ -324,7 +324,11 @@ def switched_off():
     s.quick_menu = False
     s.quick_wheel = False
     c.settings_changed()
-    check(c.quick is None, "switching both off stops quick access completely")
+    check(c.quick is not None and c.quick.menu_key.key == "off" and c.quick.wheel_key.key == "off"
+          and c.quick.ontop_key.key == s.ontop_key, "with both off, only the keep-on-top shortcut is left")
+    s.ontop_key = "off"
+    c.settings_changed()
+    check(c.quick is None, "switching that off too stops quick access completely")
     check(not c.act_quick.isVisible(), "…and takes it off the tray menu")
     free = u.RegisterHotKey(None, 78, 0x2 | 0x1 | 0x4000, VK_SPACE)
     check(bool(free), "…and lets go of its shortcuts")
@@ -336,6 +340,8 @@ def switched_off():
     s.quick_menu = True
     c.settings_changed()
     check(c.quick is not None and c.quick.menu_key.ok and c.quick.wheel is None, "switching the menu back on")
+    s.ontop_key = st.Settings().ontop_key
+    c.settings_changed()
 
 
 for name, fn in (("starts", starts), ("menu", menu), ("wheel", wheel), ("button", floating_button),

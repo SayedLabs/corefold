@@ -84,6 +84,9 @@ def table_texts() -> dict[str, str]:
     from corefold import hotkey, quick
     add([a.label for a in quick.ACTIONS.values()], "quick.ACTIONS")
     add(hotkey.PROBLEMS.values(), "hotkey.PROBLEMS")
+    from corefold import quickfind, quicksys
+    add([page.name for page in quickfind.SETTINGS_PAGES], "quickfind.SETTINGS_PAGES")
+    add([text for question, yes, _ in quicksys.CONFIRM.values() for text in (question, yes)], "quicksys.CONFIRM")
     from corefold import clipview
     add([text for _, text in clipview.FILTERS], "clipview.FILTERS")
     add(settings.CLIP_DAYS.values(), "CLIP_DAYS")
@@ -117,6 +120,10 @@ def table_texts() -> dict[str, str]:
          "needs. Windows asks for an administrator.", "The previous Windows", "Kept after a big Windows update, to "
          "go back to it. Once it's removed, going back isn't possible. Windows asks for an administrator."],
         "space.find_junk")
+    from corefold import awake, awakepage
+    add(awake.DURATIONS.values(), "awake.DURATIONS")
+    add([text for _, text in awake.TRAY_CHOICES], "awake.TRAY_CHOICES")
+    add([text for _, text in awakepage.MODES + awakepage.SHUTDOWN_MODES] + ["Custom"], "awakepage.MODES")
     from corefold import pdfpage, pdftools
     add([text for card in pdfpage.ACTIONS + pdfpage.MORE for text in card[1:3]], "pdfpage.ACTIONS")
     add(pdfpage.TIPS.values(), "pdfpage.TIPS")
@@ -136,6 +143,14 @@ def table_texts() -> dict[str, str]:
         add(getattr(scanpage, name).values(), "scanpage." + name)
     for _, title, text in tour.STEPS:
         add([title, text], "tour.STEPS")
+    from corefold import settings_backup, shortcutspage
+    add([e.label for e in shortcutspage.GLOBAL], "shortcutspage.GLOBAL")
+    for heading, _, keys in shortcutspage.WINDOW_KEYS:
+        add([heading, *[k[1] for k in keys]], "shortcutspage.WINDOW_KEYS")
+    add(shortcutspage.STATES.values(), "shortcutspage.STATES")
+    add(["This isn't a Corefold settings file.", "Couldn't open this file.",
+         "These settings were saved by a newer Corefold. Update Corefold first, then try again."],
+        "settings_backup.BadFile")
     return out
 
 

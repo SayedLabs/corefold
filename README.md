@@ -206,6 +206,8 @@ corefold/startuppage.py        Corefold Startup's page
 corefold/scan.py               Corefold Scan: Microsoft Defender's scans, and its own checks for tricks malware uses
 corefold/scanpage.py           Corefold Scan's page
 corefold/trust.py              signatures and "downloaded from" notes, read without the internet
+corefold/unlock.py             which programs have a file open (Windows' Restart Manager), and closing them
+corefold/unlockpage.py         Corefold Unlock's page
 scripts/check_translations.py  checks that every text has a translation
 assets/                        icon, installer pictures and sounds (scripts/make_icon.py, make_sounds.py)
 scripts/build.ps1              builds the app, installer and zip

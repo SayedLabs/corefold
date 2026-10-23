@@ -1,7 +1,8 @@
 """The quick menu: a panel over a dimmed screen that opens from any app with a shortcut (like a game
 overlay). It has the quick actions a person picked, their tools, their own shortcuts and the files
 Corefold made lately. Start typing to search it; arrows and Enter work too; Esc or the shortcut
-again closes it.
+again closes it. Typing also does sums, converts units, finds pages of Windows Settings and offers a
+web search (quickfind.py), and finds apps and files (quicksearch.py). A leading "?" only searches the web.
 
 It's painted rather than made of widgets: it opens in a frame, and only exists once it's been opened."""
 from __future__ import annotations
@@ -27,6 +28,8 @@ except ImportError:
 PAD = 24
 TILE_W, TILE_H, GAP = 116, 92, 10
 ROW_H = 44
+ANSWER_H = 58
+CONFIRM_AFTER_S = 0.6  # "Restart now" only counts this long after it was asked (a double press never restarts)
 MAX_RECENT = 6
 
 
@@ -35,7 +38,9 @@ class Spot:
     """Something on the panel you can point at, and where it is."""
     rect: QRectF
     entry: quick.Entry
-    kind: str = "tile"   # tile, row (a recent file), add (the "Add a shortcut" tile)
+    kind: str = "tile"   # tile, row (a recent file), add (the "Add a shortcut" tile), answer (a sum or a
+    #                      unit), wide (a Settings page, the web search, the "are you sure?" choices),
+    #                      item (an app or a file found as you type, with its own icon)
 
 
 def _rounded(rect: QRectF, r: float) -> QPainterPath:
@@ -85,6 +90,17 @@ class QuickMenu(QWidget):
         self._opened_at = 0.0
         self.clock = QTimer(self)
         self.clock.timeout.connect(self.update)
+        self.confirm = ""      # the Windows command being asked about ("restart"…), see ask()
+        self.asked_at = 0.0
+        self.pressed_at = 0.0  # when the mouse button last went down (a click that began before the question
+        #                        doesn't answer it)
+        self.copied = False
+        self.copy_timer = QTimer(self)
+        self.copy_timer.setSingleShot(True)
+        self.copy_timer.timeout.connect(self.close_animated)
+        self.finder = None     # quicksearch.Finder, once apps and files are looked for
+        self.found_items: dict = {}   # an item's entry id -> its quicksearch.App or Found
+        self.item_icons: dict = {}    # an item's entry id -> its icon (QPixmap or None)
 
     # ---- opening and closing
 
@@ -96,6 +112,13 @@ class QuickMenu(QWidget):
         self.hovered = -1
         self.scroll = 0.0
         self._closing = False
+        self.confirm = ""
+        self.copied = False
+        self.copy_timer.stop()
+        if self.finder is not None:
+            self.finder.cancel()
+        if self.qa.c.settings.quick_find:
+            self._finder().warm()
         self.layout_spots()
         self.selected = 0 if self.spots else -1
         animate = self.qa.c.settings.animations
@@ -140,6 +163,8 @@ class QuickMenu(QWidget):
         self.clock.stop()
         self.anim.stop()
         self.spots = []
+        if self.finder is not None:
+            self.finder.cancel()  # (what comes back now is dropped)
         self.qa.c.popup_closed()
         super().hideEvent(e)
 
@@ -150,14 +175,127 @@ class QuickMenu(QWidget):
                 self.hide()
         super().changeEvent(e)
 
-    def run(self, spot: Spot):
+    def ask(self, action_id: str):
+        """Shows "Restart the PC?" (and the like) with a button that does it: a second, deliberate
+        Enter or click. Esc goes back."""
+        self.confirm = action_id
+        self.asked_at = time.monotonic()
+        self._refilter()
+
+    def run(self, spot: Spot, mods=Qt.NoModifier):
+        sid = spot.entry.id
+        if spot.kind == "answer":  # copied, said so on the row, then put away
+            QGuiApplication.clipboard().setText(spot.entry.en)
+            self.copied = True
+            self.update()
+            self.copy_timer.start(650)
+            return
+        if sid == "cancel":
+            self.confirm = ""
+            self._refilter()
+            return
+        if sid.startswith("confirm:"):
+            if time.monotonic() - self.asked_at < CONFIRM_AFTER_S:  # (not the press that asked, nor a double one)
+                return
+            self.hide()
+            self.qa.run(sid[8:], confirmed=True)
+            return
+        from .quicksys import CONFIRM
+        if spot.kind == "tile" and sid in CONFIRM:
+            self.qa.ask(sid)
+            return
         self.hide()
-        if spot.kind == "add":
+        if spot.kind == "item":
+            self._open_item(spot.entry, mods)
+        elif sid == "web":
+            from .quickfind import search_url
+            quick.open_target(search_url(self.qa.c.settings.quick_search_engine, self.query.removeprefix("?")))
+        elif sid.startswith("ms-settings:"):
+            _open_settings(sid)
+        elif spot.kind == "add":
             self.qa.c.show_window("Quick")
         elif spot.kind == "row":
             quick.open_target(spot.entry.hint)
         else:
             self.qa.run(spot.entry.id)
+
+    def _open_item(self, e: quick.Entry, mods):
+        """An app (Ctrl + Enter: as administrator) or a found file or folder (Shift or Ctrl + Enter: shown
+        in File Explorer)."""
+        from . import quicksearch as qs
+        item = self.found_items.get(e.id)
+        ok = True
+        if isinstance(item, qs.App):
+            ok = qs.launch(item, admin=bool(mods & Qt.ControlModifier))
+        elif isinstance(item, qs.Found):
+            ok = qs.open_found(item, reveal=bool(mods & (Qt.ShiftModifier | Qt.ControlModifier)))
+        if not ok:
+            self.qa.c.tell(tr("Couldn't open it"), tr("{name} isn't there any more, or can't be opened.",
+                                                       name=e.label))
+
+    # ---- apps and files found as you type (quicksearch.py)
+
+    def _finder(self):
+        if self.finder is None:
+            from .quicksearch import Finder
+            self.finder = Finder(self)
+            self.finder.updated.connect(self._found_more)
+            self.finder.apps_ready.connect(self._found_more)
+        return self.finder
+
+    def _found_more(self):
+        """New apps or files came in while the menu is open: shown, keeping what was picked."""
+        if not self.isVisible() or not self.query or self.confirm:
+            return
+        picked = self.spots[self.selected].entry.id if 0 <= self.selected < len(self.spots) else ""
+        self.layout_spots()
+        ids = [sp.entry.id for sp in self.spots]
+        self.selected = ids.index(picked) if picked in ids and self.selected > 0 else (0 if self.spots else -1)
+        self.hovered = -1
+        self.update()
+
+    def _apps_and_files(self, s, query: str, skip: set[str]):
+        """(how well the best app fits, the apps) and the files for what's typed."""
+        from . import quicksearch as qs
+        if not s.quick_find or len(query.strip()) < qs.MIN_CHARS:
+            return 0, [], []
+        f = self._finder()
+        self.found_items = {}
+        app_entries, best = [], 0
+        for score, app in f.apps(query):
+            if app.name.lower() in skip:
+                continue  # (Corefold's own "Task Manager" is there already)
+            eid = "app:" + app.target
+            self.found_items[eid] = app
+            app_entries.append(quick.Entry(eid, app.name, "rocket"))
+            best = max(best, qs.level(score))
+        files = f.files if f.files_for == query.strip() else [
+            x for x in f.files if qs.file_score(query, x.name) > 10]  # (the last ones, while it looks again)
+        file_entries = []
+        for x in files:
+            eid = "find:" + x.path
+            self.found_items[eid] = x
+            file_entries.append(quick.Entry(eid, x.name, "folder" if x.folder else "document",
+                                            str(Path(x.path).parent)))
+        return best, app_entries, file_entries
+
+    def item_icon(self, e: quick.Entry, size: int):
+        """An app's or a file's own icon (looked up once)."""
+        if e.id not in self.item_icons:
+            from . import quicksearch as qs
+            item = self.found_items.get(e.id)
+            px = round(size * self.devicePixelRatioF())
+            pm = None
+            if isinstance(item, qs.App):
+                pm = qs.app_icon(item, px)
+            elif isinstance(item, qs.Found):
+                pm = qs.file_icon(item.path, px)
+            if pm is not None and pm.width():
+                pm.setDevicePixelRatio(pm.width() / size)
+            if len(self.item_icons) > 300:
+                self.item_icons.clear()
+            self.item_icons[e.id] = pm
+        return self.item_icons[e.id]
 
     # ---- what's on it
 
@@ -182,15 +320,58 @@ class QuickMenu(QWidget):
 
     def _sections(self) -> list[tuple[str, list[quick.Entry], str]]:
         s = self.qa.c.settings
+        if self.confirm:
+            from .quicksys import CONFIRM, recycle_bin
+            question, yes, icon = CONFIRM[self.confirm]
+            size = ""
+            if self.confirm == "recycle":
+                from .core import human_size
+                size = human_size(recycle_bin()[1])
+            return [(tr(question), [quick.Entry(f"confirm:{self.confirm}", tr(yes), icon, size),
+                                    quick.Entry("cancel", tr("Cancel"), "dismiss")], "wide")]
         if self.query:
-            q = self.query.lower()
-            found = [e for e in quick.choosable(s) if quick.matches(e, q)]
-            files = [e for e in self._recent() if quick.matches(e, q)]
-            return [(tr("Results"), found, "tile"), (tr("Recent files"), files, "row")]
+            return self._found(s, self.query)
         return [(tr("Quick actions"), quick.entries(s, s.quick_menu_items), "tile"),
                 (tr("Tools"), quick.tool_entries(s), "tile"),
                 (tr("Your shortcuts"), quick.link_entries(s), "links"),
                 (tr("Recent files"), self._recent(), "row")]
+
+    def _found(self, s, query: str) -> list[tuple[str, list[quick.Entry], str]]:
+        """What typing finds: a sum or a unit first, then Corefold's own things and Windows' Settings
+        pages (whichever fits better first), recent files, and a web search last."""
+        from . import quickfind
+        q = query.lower()
+        out = []
+        if query.startswith("?"):  # only the web search
+            return [("", [self._web_row(s, query[1:])], "wide")] if query[1:].strip() else []
+        ans = quickfind.answer(query)
+        if ans is not None:
+            out.append(("", [quick.Entry("answer", ans.shown, "calculator" if ans.kind == "calc" else "ruler",
+                                         ans.source, en=ans.value)], "answer"))
+        scored = [(quickfind.score(q, e.label, e.en, e.hint), i, e) for i, e in enumerate(quick.choosable(s))]
+        scored = sorted((x for x in scored if x[0]), key=lambda x: (-x[0], x[1]))
+        pages = quickfind.settings_pages(query)
+        found = (tr("Results"), [e for _, _, e in scored], "tile")
+        windows = (tr("Windows settings"), [quick.Entry(p.uri, tr(p.name), "settings", en=p.name)
+                                            for _, p in pages], "wide")
+        skip = {t.lower() for _, _, e in scored for t in (e.label, e.en) if t}
+        best_app, apps, files = self._apps_and_files(s, query, skip)
+        # whichever fits best first (on a tie: Corefold's own, then apps, then Windows' settings)
+        groups = [((scored[0][0] if scored else 0), 0, found), (best_app, 1, (tr("Apps"), apps, "item")),
+                  ((pages[0][0] if pages else 0), 2, windows)]
+        out += [g for _, _, g in sorted(groups, key=lambda x: (-x[0], x[1]))]
+        recent = [e for e in self._recent() if quick.matches(e, q)]
+        made = {e.hint for e in recent}
+        out.append((tr("Files and folders"), [e for e in files if e.id[5:] not in made], "item"))
+        out.append((tr("Recent files"), recent, "row"))
+        if query.strip():
+            out.append(("", [self._web_row(s, query)], "wide"))
+        return out
+
+    def _web_row(self, s, text: str) -> quick.Entry:
+        from .settings import QUICK_SEARCH_ENGINES
+        engine = QUICK_SEARCH_ENGINES.get(s.quick_search_engine, "")
+        return quick.Entry("web", tr("Search the web for “{text}”", text=_isolate(text.strip())), "globe", engine)
 
     def layout_spots(self):
         """Works out where everything goes (in screen pixels of this window)."""
@@ -206,9 +387,16 @@ class QuickMenu(QWidget):
                 items = list(items) + [quick.Entry("add", tr("Add a shortcut"), "add")] if not self.query else items
             if not items:
                 continue
-            heads.append((title, y))
-            y += 28
-            if kind == "row":
+            if title:
+                heads.append((title, y))
+                y += 28
+            if kind in ("answer", "wide", "item"):  # the whole width, one under the other
+                h = ANSWER_H if kind == "answer" else ROW_H
+                for e in items:
+                    spots.append(Spot(QRectF(PAD, y, inner_w, h), e, kind))
+                    y += h + 6
+                y += 8
+            elif kind == "row":
                 half = (inner_w - GAP) / 2
                 for i, e in enumerate(items):
                     col, row = i % 2, i // 2
@@ -264,6 +452,12 @@ class QuickMenu(QWidget):
 
     def keyPressEvent(self, e):
         k = e.key()
+        if k == Qt.Key_Escape and self.confirm:  # (back to what was there, not closed)
+            self.confirm = ""
+            self._refilter()
+            return
+        if self.confirm and (e.isAutoRepeat() or k == Qt.Key_Space):
+            return  # (a held Enter never confirms, nor does Space)
         if k == Qt.Key_Escape:
             if self.query:
                 self.query = ""
@@ -273,7 +467,7 @@ class QuickMenu(QWidget):
             return
         if k in (Qt.Key_Return, Qt.Key_Enter, Qt.Key_Space) and not (k == Qt.Key_Space and self.query):
             if 0 <= self.selected < len(self.spots):
-                self.run(self.spots[self.selected])
+                self.run(self.spots[self.selected], e.modifiers())
             return
         if k in (Qt.Key_Left, Qt.Key_Right, Qt.Key_Up, Qt.Key_Down):
             self._move(k)
@@ -284,6 +478,8 @@ class QuickMenu(QWidget):
                 self.selected = (self.selected + step) % len(self.spots)
                 self._keep_in_view(self.selected)
                 self.update()
+            return
+        if self.confirm:
             return
         if k == Qt.Key_Backspace:
             if self.query:
@@ -298,7 +494,14 @@ class QuickMenu(QWidget):
         super().keyPressEvent(e)
 
     def _refilter(self):
+        self.copied = False
+        self.copy_timer.stop()
         self.scroll = 0.0
+        if self.qa.c.settings.quick_find and not self.confirm:
+            q = self.query.strip()
+            self._finder().search("" if q.startswith("?") else q)  # (after a short pause, on a thread)
+        elif self.finder is not None:
+            self.finder.cancel()
         self.layout_spots()
         self.selected = 0 if self.spots else -1
         self.hovered = -1
@@ -350,12 +553,17 @@ class QuickMenu(QWidget):
             self.setCursor(Qt.PointingHandCursor if i >= 0 else Qt.ArrowCursor)
             self.update()
 
+    def mousePressEvent(self, e):
+        self.pressed_at = time.monotonic()
+
     def mouseReleaseEvent(self, e):
         if e.button() != Qt.LeftButton:
             return
         i = self._spot_at(e.position())
+        if i >= 0 and self.confirm and self.pressed_at < self.asked_at:
+            return  # (the click that asked, still going)
         if i >= 0:
-            self.run(self.spots[i])
+            self.run(self.spots[i], e.modifiers())
         elif not self.panel.contains(e.position()):
             self.close_animated()
 
@@ -468,11 +676,13 @@ class QuickMenu(QWidget):
         p.setFont(base)
         if self.query:
             p.setPen(t.text)
-            shown = self.query + "▏"
+            shown = _isolate(self.query) + "▏"  # ("10 km to mi" keeps its order in Arabic too)
             p.drawText(text_rect, Qt.AlignVCenter | Qt.AlignLeading, shown)
         else:
             p.setPen(t.muted)
-            p.drawText(text_rect, Qt.AlignVCenter | Qt.AlignLeading, tr("Type to search actions, tools and shortcuts"))
+            hint = (tr("Type to search apps, files, tools and actions") if self.qa.c.settings.quick_find
+                    else tr("Type to search actions, tools and shortcuts"))
+            p.drawText(text_rect, Qt.AlignVCenter | Qt.AlignLeading, hint)
 
     def _paint_spot(self, p: QPainter, sp: Spot, selected: bool, hovered: bool):
         t = self.theme
@@ -488,6 +698,12 @@ class QuickMenu(QWidget):
             p.setPen(QPen(t.accent if selected else t.border, 1.6 if selected else 1))
             p.drawPath(_rounded(r.adjusted(0.5, 0.5, -0.5, -0.5), ITEM_RADIUS))
         base = QFont(self.font())
+        if sp.kind == "item":
+            self._paint_item(p, sp, selected, base)
+            return
+        if sp.kind in ("answer", "wide"):
+            self._paint_wide(p, sp, selected, base)
+            return
         if sp.kind == "row":
             rtl = is_rtl()
             ic = QRectF(r.right() - 32 if rtl else r.left() + 12, r.center().y() - 10, 20, 20)
@@ -512,6 +728,145 @@ class QuickMenu(QWidget):
         for line in lines:
             p.drawText(QRectF(r.left() + 4, y, r.width() - 8, fm.height()), Qt.AlignCenter, line)
             y += fm.height() - 1
+
+
+    def _side_note(self, sp: Spot, selected: bool) -> str:
+        """The small "what Enter does" on the right of a row."""
+        sid = sp.entry.id
+        if sp.kind == "answer":
+            return tr("Copied") if self.copied else tr("Enter to copy")
+        if not selected:
+            return ""
+        if sid.startswith("confirm:"):
+            return tr("Enter to confirm")
+        if sid == "cancel":
+            return "Esc"
+        if sp.kind == "item":
+            from . import quicksearch as qs
+            item = self.found_items.get(sid)
+            if isinstance(item, qs.Found):
+                return tr("Shift + Enter: show in folder")
+            if isinstance(item, qs.App) and item.admin:
+                return tr("Ctrl + Enter: run as administrator")
+        return tr("Enter to open")
+
+    def _paint_item(self, p: QPainter, sp: Spot, selected: bool, base: QFont):
+        """An app or a file found as you type: its own icon, its name and (for a file) its folder."""
+        t = self.theme
+        r = sp.rect
+        rtl = is_rtl()
+        size = 22
+        ic = QRectF(r.right() - 14 - size if rtl else r.left() + 14, r.center().y() - size / 2, size, size)
+        pm = self.item_icon(sp.entry, size)
+        if pm is not None:
+            p.drawPixmap(ic.topLeft(), pm)
+        else:
+            icons.paint(p, ic.adjusted(1, 1, -1, -1), sp.entry.icon, t.accent if selected else t.muted)
+        inner = r.adjusted(14 if rtl else 14 + size + 12, 0, -(14 + size + 12) if rtl else -14, 0)
+        small = QFont(base)
+        small.setPointSizeF(base.pointSizeF() * 0.88)
+        fm_s = QFontMetrics(small)
+        side = self._side_note(sp, selected)
+        side_w = 0
+        if side:
+            side_w = min(fm_s.horizontalAdvance(side) + 16, int(inner.width() * 0.45))
+            p.setFont(small)
+            p.setPen(t.muted)
+            p.drawText(inner, Qt.AlignVCenter | Qt.AlignTrailing, fm_s.elidedText(side, Qt.ElideRight, side_w - 8))
+        text = inner.adjusted(side_w if rtl else 0, 0, 0 if rtl else -side_w, 0)
+        f = QFont(base)
+        f.setWeight(QFont.Weight.DemiBold if selected else QFont.Weight.Normal)
+        fm = QFontMetrics(f)
+        label = fm.elidedText(sp.entry.label, Qt.ElideMiddle, int(text.width() * (0.6 if sp.entry.hint else 1)))
+        p.setFont(f)
+        p.setPen(t.text)
+        p.drawText(text, Qt.AlignVCenter | Qt.AlignLeading, label)
+        if sp.entry.hint:  # the folder it's in
+            used = fm.horizontalAdvance(label) + 12
+            rest = text.adjusted(0 if rtl else used, 0, -used if rtl else 0, 0)
+            if rest.width() > 30:
+                p.setFont(small)
+                p.setPen(t.muted)
+                p.drawText(rest, Qt.AlignVCenter | Qt.AlignLeading,
+                           fm_s.elidedText(_isolate(sp.entry.hint), Qt.ElideMiddle, int(rest.width())))
+
+    def _paint_wide(self, p: QPainter, sp: Spot, selected: bool, base: QFont):
+        """A row the width of the panel: a sum's or a unit's answer, a Settings page, the web search, or
+        one of the "are you sure?" choices."""
+        t = self.theme
+        r = sp.rect
+        rtl = is_rtl()
+        answer = sp.kind == "answer"
+        ic_size = 24 if answer else 20
+        ic = QRectF(r.right() - 14 - ic_size if rtl else r.left() + 14, r.center().y() - ic_size / 2,
+                    ic_size, ic_size)
+        icons.paint(p, ic, sp.entry.icon, t.accent if (selected or answer) else t.muted)
+        inner = r.adjusted(14 if rtl else 14 + ic_size + 12, 0, -(14 + ic_size + 12) if rtl else -14, 0)
+        side = self._side_note(sp, selected)
+        small = QFont(base)
+        small.setPointSizeF(base.pointSizeF() * 0.88)
+        side_w = 0
+        if side:
+            fm_s = QFontMetrics(small)
+            side_w = fm_s.horizontalAdvance(side) + 16
+            p.setFont(small)
+            p.setPen(t.accent if (answer and self.copied) else t.muted)
+            p.drawText(inner, Qt.AlignVCenter | Qt.AlignTrailing, side)
+        text = inner.adjusted(side_w if rtl else 0, 0, 0 if rtl else -side_w, 0)
+        if answer:  # what was understood, small, and the answer under it, big
+            p.setFont(small)
+            p.setPen(t.muted)
+            top = QRectF(text.left(), r.top() + 7, text.width(), 18)
+            p.drawText(top, Qt.AlignVCenter | Qt.AlignLeading,
+                       QFontMetrics(small).elidedText(_ltr(sp.entry.hint), Qt.ElideRight, int(top.width())))
+            big = QFont(base)
+            big.setPointSizeF(base.pointSizeF() * 1.35)
+            big.setWeight(QFont.Weight.Bold)
+            p.setFont(big)
+            p.setPen(t.text)
+            bottom = QRectF(text.left(), r.top() + 24, text.width(), r.height() - 30)
+            p.drawText(bottom, Qt.AlignVCenter | Qt.AlignLeading,
+                       QFontMetrics(big).elidedText(_ltr("= " + sp.entry.label), Qt.ElideRight, int(bottom.width())))
+            return
+        f = QFont(base)
+        f.setWeight(QFont.Weight.DemiBold if selected else QFont.Weight.Normal)
+        fm = QFontMetrics(f)
+        label = fm.elidedText(sp.entry.label, Qt.ElideRight, int(text.width()))
+        p.setFont(f)
+        p.setPen(t.text)
+        p.drawText(text, Qt.AlignVCenter | Qt.AlignLeading, label)
+        if sp.entry.hint:  # (the search engine, the size of the Recycle Bin)
+            used = fm.horizontalAdvance(label) + 10
+            rest = text.adjusted(0 if rtl else used, 0, -used if rtl else 0, 0)
+            if rest.width() > 30:
+                p.setFont(small)
+                p.setPen(t.muted)
+                p.drawText(rest, Qt.AlignVCenter | Qt.AlignLeading,
+                           QFontMetrics(small).elidedText(sp.entry.hint, Qt.ElideRight, int(rest.width())))
+
+
+def _ltr(text: str) -> str:
+    """A sum or a unit stays in its own order in Arabic ("= 84", not "84 =")."""
+    return f"\u202a{text}\u202c" if is_rtl() else text
+
+
+def _isolate(text: str) -> str:
+    """What the person typed, kept in its own direction inside a sentence of the other one."""
+    return f"\u2068{text}\u2069"
+
+
+def _open_settings(uri: str):
+    """A page of Windows Settings (ms-settings:display…)."""
+    import os
+    try:
+        if os.name == "nt":
+            os.startfile(uri)  # type: ignore[attr-defined]
+            return
+    except OSError:
+        pass
+    from PySide6.QtCore import QUrl
+    from PySide6.QtGui import QDesktopServices
+    QDesktopServices.openUrl(QUrl(uri))
 
 
 def _motion(name: str, fallback: int) -> int:

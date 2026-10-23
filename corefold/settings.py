@@ -108,8 +108,12 @@ CAP_AFTER = {"edit": "Open it to mark it up", "copy": "Only copy it"}
 CAP_DELAY = {3: "3 seconds", 5: "5 seconds", 10: "10 seconds"}
 CAP_FPS = {30: "30 frames a second", 60: "60 frames a second (smoother, bigger files)"}
 VIEWER_SORTS = {"name": "Name", "newest": "Newest first", "oldest": "Oldest first", "biggest": "Biggest first"}
+COLORS_SHORTCUTS = {"win+shift+c": "Win + Shift + C", "win+alt+c": "Win + Alt + C", "off": "No shortcut"}
+COLORS_FORMATS = {"hex": "HEX", "rgb": "RGB", "hsl": "HSL"}
 PLAYER_SKIP = {5: "5 seconds", 10: "10 seconds", 30: "30 seconds"}
 PLAYER_WHEEL = {"volume": "Changes the volume", "seek": "Goes back and forward"}
+PEEK_KEYS = {"ctrl+space": "Ctrl + Space", "ctrl+shift+space": "Ctrl + Shift + Space", "off": "No shortcut"}
+QUICK_SEARCH_ENGINES = {"duckduckgo": "DuckDuckGo", "google": "Google", "bing": "Bing"}  # (names, not translated)
 CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_style": HOVER_STYLES,
            "slice_colors": SLICE_COLORS, "text_size": TEXT_SIZES, "wheel_position": WHEEL_POSITIONS,
            "wheel_size": WHEEL_SIZES, "sound": SOUNDS, "language": LANGUAGES, "menu_style": MENU_STYLES,
@@ -120,7 +124,10 @@ CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_styl
            "slideshow_seconds": SLIDESHOW_SECONDS, "clip_shortcut": CLIP_SHORTCUTS, "clip_max": CLIP_MAX,
            "clip_days": CLIP_DAYS, "cap_shortcut": CAP_SHORTCUTS, "cap_record_shortcut": CAP_RECORD_SHORTCUTS,
            "cap_after": CAP_AFTER, "cap_fps": CAP_FPS, "cap_delay": CAP_DELAY, "player_skip": PLAYER_SKIP,
-           "player_wheel": PLAYER_WHEEL}
+           "player_wheel": PLAYER_WHEEL,
+           "quick_search_engine": QUICK_SEARCH_ENGINES,
+           "colors_shortcut": COLORS_SHORTCUTS, "colors_format": COLORS_FORMATS,
+           "peek_key": PEEK_KEYS}
 
 
 # Settings kept on disk while the window has changes that weren't saved yet (see window.py): the
@@ -133,7 +140,11 @@ NOT_EDITED = {"enabled", "first_run", "last_version", "menu_signature", "window_
               "tools_off", "known_tools", "open_images", "open_emails", "viewer_info", "viewer_strip", "recent_views",
               "archive_preview",
               "clip_paused", "open_media", "player_volume", "nav_order", "nav_width", "nav_compact",
-              "quick_button_pos", "quick_told", "remember_password"}
+              "quick_button_pos", "quick_told", "remember_password",
+              "unlock_menu_signature",
+              "awake_mode", "awake_minutes", "awake_until", "awake_screen", "shutdown_at", "shutdown_planned",
+              "colors_shortcut", "colors_format", "colors_history",  # (Colors: chosen on its page, kept right away)
+              }
 # the settings of each tab of the Settings page (each one has its own "Reset to defaults")
 GENERAL_KEYS = ("language", "sound", "volume", "sound_problems", "show_progress", "low_priority", "one_at_a_time")
 LOOK_KEYS = ("appearance", "accent", "custom_color", "animations", "toast_corner", "toast_time", "window_text",
@@ -146,17 +157,23 @@ WHEEL_KEYS = ("wheel_size", "wheel_style", "wheel_opacity", "label_style", "hove
 FORMAT_KEYS = ("hidden_tools", "favorites", "tool_order")
 UNINSTALLER_KEYS = ("unused_months", "backup_days", "restore_point", "uninstall_depth")
 ARCHIVE_KEYS = ("extract_mode", "extract_nested", "remember_archives")
-VIEWER_KEYS = ("viewer_wheel", "viewer_confirm_delete", "slideshow_seconds", "viewer_sort")
+VIEWER_KEYS = ("viewer_wheel", "viewer_confirm_delete", "slideshow_seconds", "viewer_sort", "peek_key")
 CLIPBOARD_KEYS = ("clip_shortcut", "clip_paste", "clip_max", "clip_days", "clip_images", "clip_ignore")
 PLAYER_KEYS = ("player_resume", "player_skip", "player_wheel", "player_next", "player_subtitles")
 CAPTURE_KEYS = ("cap_shortcut", "cap_record_shortcut", "cap_after", "cap_delay", "cap_save", "cap_fps", "cap_mic",
                 "cap_pc_sound", "cap_cursor", "cap_countdown")
 UPDATE_KEYS = ("check_updates", "auto_update")
 QUICK_KEYS = ("quick_menu", "quick_menu_key", "quick_menu_items", "quick_wheel", "quick_wheel_key",
-              "quick_wheel_items", "quick_button", "quick_links")
+              "quick_wheel_items", "quick_button", "quick_links", "quick_search_engine", "ontop_key",
+              "quick_find")
 # what's on the quick menu and the wheel to begin with (see quick.py)
 QUICK_MENU_ITEMS = ["screenshot", "record", "clipboard", "paste", "again", "archive", "explorer", "taskmgr"]
 QUICK_WHEEL_ITEMS = ["screenshot", "clipboard", "paste", "again", "tool:space", "explorer", "settings", "quickmenu"]
+
+
+def hotkey_ok(combo: str) -> bool:
+    from .hotkey import normalize
+    return normalize(combo) == combo
 
 
 def editable_keys() -> list[str]:
@@ -196,6 +213,7 @@ class Settings:
     context_menu: bool = True      # Corefold in the right-click menu
     menu_style: str = "windows"    # "windows" (a normal submenu) or "wheel"
     menu_signature: str = ""       # what was last written to the right-click menu
+    unlock_menu_signature: str = ""  # Corefold Unlock's "What's using this?" entry, the same way
     # the Store: tools removed by this person, and the tools they've been offered (others are "New")
     tools_off: list = field(default_factory=list)
     known_tools: list = field(default_factory=list)
@@ -211,6 +229,7 @@ class Settings:
     viewer_confirm_delete: bool = True
     viewer_sort: str = "name"      # the order of a folder's pictures: name, newest, oldest, biggest
     slideshow_seconds: int = 4
+    peek_key: str = "ctrl+space"   # Quick look at the file selected in File Explorer (only taken while it's in front)
     viewer_info: bool = False      # the details panel is open
     viewer_strip: bool = True      # the small pictures along the bottom are shown
     archive_preview: bool = True   # the archive window shows the picked file beside the list
@@ -243,6 +262,10 @@ class Settings:
     cap_pc_sound: bool = True      # what the PC plays (videos, games, calls) is recorded too
     cap_cursor: bool = True        # the mouse shows in recordings
     cap_countdown: bool = True     # 3, 2, 1 before recording starts
+    # Colors
+    colors_shortcut: str = "win+shift+c"  # pick a colour from any app
+    colors_format: str = "hex"     # copied as "hex", "rgb" or "hsl"
+    colors_history: list = field(default_factory=list)  # colours picked lately ("#RRGGBB", newest first)
     # Quick access: a menu and a wheel that open from any app
     quick_menu: bool = True
     quick_menu_key: str = "ctrl+alt+space"
@@ -254,6 +277,16 @@ class Settings:
     quick_button_pos: list = field(default_factory=list)  # [x, y] where it was dragged to
     quick_links: list = field(default_factory=list)  # {"id", "name", "target"}: their own apps, folders, sites
     quick_told: bool = False       # the "press … for the quick menu" tip was shown
+    quick_search_engine: str = "duckduckgo"  # the quick menu's last row: "Search the web for …"
+    quick_find: bool = True        # typing in the quick menu finds apps and files too (quicksearch.py)
+    ontop_key: str = "ctrl+win+t"  # keeps the window in front on top of the others ("off": no shortcut)
+    # Corefold Awake (chosen on its page, not in Settings)
+    awake_mode: str = "on"         # what "Keep awake" does: "on" (until switched off), "for" a while, "until" a time
+    awake_minutes: int = 60        # "for a while": how long, last chosen
+    awake_until: str = ""          # "until a time": "HH:MM", last chosen
+    awake_screen: bool = False     # keep the screen on too
+    shutdown_at: str = ""          # when Windows will turn the PC off (planned on the Awake page), ISO time
+    shutdown_planned: str = ""     # when that was planned (a restart since has cleared it)
     # the Uninstaller
     unused_months: int = 3         # "not used for …" filter
     backup_days: int = 30          # backups of removed leftovers are kept this long
@@ -298,13 +331,29 @@ class Settings:
 
     @classmethod
     def load(cls) -> "Settings":
-        s = cls()
+        path = CONFIG_DIR / "settings.json"
+        broken = False
         try:
-            data = json.loads((CONFIG_DIR / "settings.json").read_text("utf-8"))
-        except (OSError, ValueError):
-            return s
+            data = json.loads(path.read_text("utf-8"))
+        except FileNotFoundError:
+            data = None
+        except OSError:
+            log.exception("couldn't read the settings")
+            data = None
+        except ValueError:
+            data, broken = None, True
         if not isinstance(data, dict):
-            return s
+            # missing or damaged: the newest copy made before an update, if there is one
+            from .settings_backup import recover
+            data = recover(path, broken or data is not None)
+            if data is None:
+                return cls()
+        return cls.from_data(data)
+
+    @classmethod
+    def from_data(cls, data: dict) -> "Settings":
+        """Settings from what was saved, keeping only values of the right kind (the rest stay as default)."""
+        s = cls()
         defaults = cls()
         for key, default in asdict(defaults).items():
             if key not in data:
@@ -350,8 +399,13 @@ class Settings:
                          for x in s.quick_links if isinstance(x, dict) and isinstance(x.get("target"), str)
                          and x.get("id")][:24]
         s.quick_button_pos = [int(v) for v in s.quick_button_pos if type(v) is int][:2]
+        s.colors_history = [h.upper() for h in s.colors_history if isinstance(h, str) and len(h) == 7
+                            and h[0] == "#" and all(ch in "0123456789abcdefABCDEF" for ch in h[1:])][:24]
         if s.quick_menu_key == s.quick_wheel_key and s.quick_menu_key != "off":
             s.quick_wheel_key = defaults.quick_wheel_key if s.quick_menu_key != defaults.quick_wheel_key else "off"
+        if s.ontop_key != "off" and (not hotkey_ok(s.ontop_key)
+                                     or s.ontop_key in (s.quick_menu_key, s.quick_wheel_key)):
+            s.ontop_key = "off"
         if not s.known_tools and not s.first_run:  # from before the Store: the tools they had
             from .tools import ORIGINAL
             s.known_tools = list(ORIGINAL)
