@@ -1,24 +1,80 @@
-# Corefold
+<p align="center">
+  <img src="docs/icon.png" alt="" width="96">
+</p>
 
-*Everyday tools for Windows, by Atomic Works.*
+<h1 align="center">Corefold</h1>
 
-Everyday tools in one small app that waits in the tray. Everything happens on your PC; nothing is uploaded.
+<p align="center">
+  <b>Everyday tools for Windows, in one small app that waits in the tray.</b><br>
+  Convert any file with one drag, uninstall apps without the leftovers, open every archive, and more.<br>
+  Everything happens on your PC; nothing is uploaded.
+</p>
 
-- **Corefold Converter**: hold Shift while dragging a file in File Explorer or on the desktop, and a
-  wheel of formats appears at your cursor. Drop the file on a format and it's converted.
-- **Corefold Uninstaller**: removes programs and everything they leave behind (folders, shortcuts,
-  registry entries), with a backup you can put back. Shows which programs you haven't used in months.
-- **Corefold Archive**: opens ZIP, RAR, 7z, ISO and more with a double-click. Drag files out, change a
-  file inside and save it back, rescue damaged archives, and unpack archives inside archives in one go.
+<p align="center">
+  <a href="https://github.com/SayedLabs/corefold/releases/latest"><img src="https://img.shields.io/github/v/release/SayedLabs/corefold?label=download&color=0a7768" alt="Download the latest version"></a>
+  <a href="https://github.com/SayedLabs/corefold/releases"><img src="https://img.shields.io/github/downloads/SayedLabs/corefold/total?color=0a7768" alt="Downloads"></a>
+  <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0a7768" alt="Windows 10 and 11">
+  <img src="https://img.shields.io/badge/languages-5-0a7768" alt="5 languages">
+</p>
 
-Also in the Store: Corefold Viewer, Player, Capture, Space, Clipboard, PDF, File Organizer, Startup and Scan. Coming soon: Cloud.
+<p align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/home-en-dark.png">
+  <img src="docs/screenshots/home-en-light.png" alt="The Corefold window: the Home page with every tool">
+</picture>
+</p>
 
-- **Corefold PDF**: merge PDFs and arrange their pages by dragging page pictures (turn, delete, undo),
-  split a PDF or take out the pages you need, compress it (three levels), pictures to PDF (on A4 or Letter
-  if you want) and pages to pictures, and lock a PDF with a password (with or without printing and
-  copying) or unlock one that's yours. Locked PDFs can be used too, once their password is typed.
+## What's inside
+Corefold is a set of tools you pick from the **Store**. Add only the ones you want: a tool you don't
+add isn't loaded at all, so Corefold stays light.
 
-### The Converter
+**Files and media**
+
+| | |
+|---|---|
+| **Converter** | Hold Shift while dragging a file, and a wheel of formats appears at your cursor. Drop it on one and it's converted: pictures, videos, music, PDFs and Office files. |
+| **Archive** | Opens ZIP, RAR, 7z, ISO and more with a double-click. Drag files out, change a file inside and save it back, rescue damaged archives. |
+| **PDF** | Merge, split and arrange PDFs by dragging page pictures, shrink them, turn pictures into a PDF, and lock them with a password. |
+| **Viewer** | Flip through a folder of pictures with the arrow keys and fix them on the spot. Select any file in File Explorer and press Ctrl + Space for a quick look. Opens Outlook emails without Outlook. |
+| **Player** | Plays every video and song, smooth in 4K, with subtitles, a mini player and a Continue watching list. |
+| **File Organizer** | Sorts a messy Downloads or Desktop into clear folders with one click. See where every file will go first, and undo it all. |
+
+**Your PC**
+
+| | |
+|---|---|
+| **Uninstaller** | Removes programs and everything they leave behind (folders, shortcuts, registry entries), with a backup you can put back. |
+| **Startup** | Everything that starts with Windows in one list. Switch off what slows it down, and back on just as easily. |
+| **Space** | A clear map of what's filling your disk, duplicate files, and safe junk to clean up. |
+| **Virus scan** | Checks your PC with Microsoft Defender, plus Corefold's own checks for tricks viruses use. Fully offline. |
+| **Unlock** | Finds out which program is holding a file you can't delete or move, and asks it to let go. |
+| **Awake** | Keeps your PC from going to sleep for as long as you choose, or turns it off at a time you pick. |
+
+**Screen and clipboard**
+
+| | |
+|---|---|
+| **Capture** | A picture or a video of your screen in one shortcut. Mark it up, blur what's private, copy the text in it. |
+| **Clipboard** | Everything you copy, kept and easy to find again: press Win + Alt + V in any app. |
+| **Colors** | Pick any colour on your screen with a magnifier and copy it as HEX, RGB or HSL. |
+
+Coming soon: **Cloud** (OneDrive and Dropbox in one window), and more in the Store's *Coming soon* list.
+
+## The Converter wheel
+<p align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/wheel-en-dark.png">
+  <img src="docs/screenshots/wheel-en-light.png" alt="The format wheel around a dragged photo" width="560">
+</picture>
+</p>
+
+Hold **Shift** while dragging a file in File Explorer or on the desktop. Drop it on a format and
+it's converted next to the original, which is never moved or changed. Drop several files to convert
+them all. You can also **right-click** a file → **Corefold**, or press **Ctrl + V** in Corefold to
+convert a copied picture.
+
+<details>
+<summary><b>Everything the Converter can do</b></summary>
 
 | Drop a… | You can |
 |---|---|
@@ -47,30 +103,88 @@ Other ways to use it: **right-click** a file → **Corefold** → *Convert to PN
 right-click). *All options…* at the bottom opens Corefold with the file. Prefer the wheel? Pick
 **Corefold wheel** under *General → Right-click menu*. Or press **Ctrl + V** in Corefold (or *Convert
 what's copied* in the tray menu) to convert a copied picture or copied files.
+</details>
 
-**English, العربية, Français, Español and Türkçe.** Corefold follows the language of Windows; change it
-under *General → Language*. In Arabic the whole app is right-to-left.
+## Quick menu and quick wheel
+<table>
+  <tr>
+    <td width="50%"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/quick-menu-en-dark.png">
+  <img src="docs/screenshots/quick-menu-en-light.png" alt="The quick menu over the desktop">
+</picture></td>
+    <td width="50%"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/quick-wheel-en-dark.png">
+  <img src="docs/screenshots/quick-wheel-en-light.png" alt="The quick wheel">
+</picture></td>
+  </tr>
+</table>
 
-**Uninstall apps, without the leftovers.** The **Apps** page lists every installed program (and Store
-app) with its size and install date. **Uninstall** runs the app's own uninstaller, then looks for what
-it left behind: its folders in Program Files, AppData and ProgramData, shortcuts, startup entries and
-registry keys. Things that clearly belong to the app are ticked; things that only might are shown
-unticked, and shared places (Windows, Microsoft, Common Files…) are never touched. Nothing is deleted
-outright: files are moved into a backup and registry keys are exported first, so **Backups…** can put
-everything back for 30 days. Also: quiet uninstall for several apps at once, an optional System
-Restore point first, and *Remove leftovers only* for apps whose uninstaller is missing.
+Press **Ctrl + Alt + Space** anywhere and the **quick menu** opens over whatever you're doing: take a
+screenshot, open your clipboard history, convert what's copied, open File Explorer or Task Manager,
+or start typing to find any of them. Hold **Alt + `** for the **quick wheel**, point at a slice and let
+go. Choose what's on each one, add your own apps, folders and websites, and change the keys under
+*Settings → Quick access*.
 
-**Light on your PC.** Corefold waits in the tray using almost no memory or power. Conversions run at
-low priority and one at a time (both can be changed under *General → Keep my PC fast*), memory it
-doesn't need is handed back to Windows when it's idle, the window is freed a little while after you
-close it, and right-clicking many files at once doesn't start many copies of the app.
+## A window that gets out of your way
+<table>
+  <tr>
+    <td width="50%"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/search-en-dark.png">
+  <img src="docs/screenshots/search-en-light.png" alt="Ctrl + K finds any tool or setting">
+</picture></td>
+    <td width="50%"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/store-en-dark.png">
+  <img src="docs/screenshots/store-en-light.png" alt="The Store: add and remove tools">
+</picture></td>
+  </tr>
+  <tr>
+    <td width="50%"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/apps-en-dark.png">
+  <img src="docs/screenshots/apps-en-light.png" alt="The Uninstaller lists every app with its size">
+</picture></td>
+    <td width="50%"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/space-en-dark.png">
+  <img src="docs/screenshots/space-en-light.png" alt="Space shows what fills your disk">
+</picture></td>
+  </tr>
+</table>
 
-Drop several files at once to convert them all. The original file is never moved or changed.
+Press **Ctrl + K** to find any tool, page or setting by typing. Drag the sidebar to put your tools in
+your order, or shrink it to icons. Dark or light (or follow Windows), seven accent colours or your
+own, and your own text size. Every screen is built on **Atomic**, our design system, so all of it
+looks and moves the same way.
+
+## In your language
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/home-ar-light.png" alt="Corefold in Arabic, light"></td>
+    <td width="50%"><img src="docs/screenshots/home-ar-dark.png" alt="Corefold in Arabic, dark"></td>
+  </tr>
+</table>
+
+**English, العربية, Français, Español and Türkçe.** Corefold asks which language you want the first time it
+starts, and the language button at the top of the window switches it any time, without restarting. In
+Arabic the whole app is right-to-left.
+
+## Private and light
+- **Nothing leaves your PC.** No account, no tracking, no uploads. The only thing Corefold asks the
+  internet is whether there's a newer version (you can switch that off).
+- **Light on your PC.** Corefold waits in the tray using almost no memory or power. Conversions run at
+  low priority and one at a time (both can be changed under *General → Keep my PC fast*), and memory it
+  doesn't need is handed back to Windows when it's idle.
+- **Careful with your files.** Originals are never changed, the Uninstaller keeps a backup for 30 days,
+  and Space sends what you remove to the Recycle Bin first.
+
+Read the full [privacy policy](PRIVACY.md).
 
 ## Installing
-Run **Corefold-Setup.exe**, keep the two boxes ticked, click **Install**. That's it: a desktop
-icon, a Start menu entry, and Corefold starts with Windows. No admin rights or Python needed.
-Installing a newer version on top upgrades it and keeps your settings.
+[**Download Corefold-Setup.exe**](https://github.com/SayedLabs/corefold/releases/latest), run it, keep
+the two boxes ticked and click **Install**. That's it: a desktop icon, a Start menu entry, and Corefold
+starts with Windows. No admin rights or Python needed. Installing a newer version on top upgrades it
+and keeps your settings.
+
+Windows may say *"Windows protected your PC"* the first time, because the app isn't signed yet:
+click **More info → Run anyway**.
 
 ## Customizing
 Open Corefold from the desktop icon (or click the teal tray icon):
@@ -89,40 +203,11 @@ Open Corefold from the desktop icon (or click the teal tray icon):
 - **History:** recent conversions (open them or show them in their folder) and your stats:
   files converted and space saved.
 
-## Website
-The `docs` folder is a ready-made download page. To put it online for free: on GitHub open
-**Settings → Pages**, under *Branch* choose **main** and **/docs**, click **Save**. A minute later it's
-at `https://<your-name>.github.io/corefold/` with a big download button that always points at your
-newest release, plus an "Is it safe?" section that explains the Windows warning.
-
 ## Updates
-Corefold updates itself, so nobody has to download it again. It checks your GitHub releases page
-a few seconds after starting and every few hours. When there's a newer version it shows
+Corefold updates itself, so you never have to download it again. It checks for a newer version a few
+seconds after starting and every few hours. When there's a newer version it shows
 **Update now**; one click downloads it, checks it isn't damaged, installs it and restarts Corefold
 with all settings kept. On the **Updates** page you can let it install updates by itself.
-
-**To publish an update:** change the files in your GitHub repository, then go to
-**Releases → Draft a new release**, type a higher tag (e.g. `v1.3.0`) and click **Publish**.
-GitHub builds it in about 10 minutes, and every copy of Corefold picks it up.
-
-Updates need to know where your releases are. Copies built by GitHub know automatically. For copies
-built with `build.bat`, create a file called `update-repo.txt` next to `build.bat` containing your
-repository, e.g. `yourname/corefold`.
-
-## Updating from versions before 1.7.0
-Version 1.7.0 gave the app its new name and look. Installing it over an older version upgrades it
-(same installer ID), and the first start moves the old settings, history and uninstall backups into
-the Corefold folders and replaces the old right-click entries. Nothing is deleted that couldn't be
-moved.
-
-Versions 1.5.3 to 1.6.0 update themselves to the newest Corefold: every release also carries a copy of
-the installer under the old name, because that is the only file their updater looks for. Older
-versions than that have to download Corefold by hand once.
-
-## How light is it?
-**Actions → Measure memory and CPU → Run workflow** builds Corefold on one of GitHub's Windows
-PCs, starts it in the tray and writes down its memory, CPU use and start-up time on the run's
-summary page. Nothing is published.
 
 ## Uninstalling
 Any of these works:
@@ -133,87 +218,10 @@ Any of these works:
 It asks whether to delete your settings too. Files you converted are never touched.
 (Portable version: **About → Remove settings and quit**, then delete the folder.)
 
----
+## Licence
+Corefold is free. Its code is MIT licensed ([LICENSE](LICENSE)), and the open-source parts it includes
+are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-## Releasing it (no Python needed for the people who download it)
-
-### Option A — let GitHub build it (recommended)
-1. Make a free account at github.com, then click **New repository**, name it `corefold`, make it **Public**.
-2. On the new repo page click **uploading an existing file**, drag in *everything in this folder*,
-   and click **Commit changes**. The website sometimes skips the `.github` folder, so check that
-   `.github/workflows/release.yml` is there. If it isn't: **Add file → Create new file**, type
-   `.github/workflows/release.yml` as the name, paste in that file's contents, and commit.
-3. Go to **Releases → Draft a new release**. In "Choose a tag" type `v1.0.0` and click *Create new tag*.
-   Give it a title and click **Publish release**.
-4. Wait about 10 minutes (watch the **Actions** tab). The release page will then have:
-   - `Corefold-Setup-1.0.0.exe` — the installer (creates the desktop icon)
-   - `Corefold-1.0.0-portable.zip` — runs without installing
-   - `ffmpeg-source-….tar.gz` — FFmpeg's source code and build scripts (its licence asks for these)
-
-   That release page link is what you share with people.
-5. For an update, change the code, then publish a new release with a higher number (`v1.3.0`).
-   Everyone's Corefold updates itself (see **Updates** above).
-
-### Option B — build on your own PC
-Double-click **`build.bat`**. It downloads everything it needs (installing Python and Inno Setup
-for you if they're missing), builds the installer, then asks **"Install Corefold on this PC now?"**.
-Press **Y** to install it, or **N** to open the folder with the installer to share it.
-
----
-
-## Good to know before you share it
-- **"Windows protected your PC" warning:** new apps without a code-signing certificate show this.
-  People click *More info → Run anyway*. To remove it, sign the app (e.g. Microsoft
-  *Trusted Signing* or a code-signing certificate from a certificate authority).
-- **Antivirus:** apps packaged with PyInstaller are occasionally flagged by mistake. If that
-  happens, submit the file as a false positive (Microsoft: https://www.microsoft.com/wdsi/filesubmission).
-- **Licenses:** Corefold's code is MIT. It bundles FFmpeg (GPL) and other open-source parts listed in
-  `THIRD_PARTY_NOTICES.md`; keep that file included and keep the source public (Option A does both).
-  Every release gets FFmpeg's source attached automatically; if the build warns that it couldn't
-  get it, don't publish that build.
-- **Privacy:** `docs/privacy.html` is the privacy policy (the same text is in `PRIVACY.md`), linked
-  from the website, from *About* and from the Cloud page in the app. When something new goes online,
-  update both files and the date.
-
-## Project layout
-```
-main.py                        entry point
-corefold/app.py                tray icon, Shift-drag detection, jobs, startup
-corefold/window.py             the Corefold window (Home, Apps, General, Look, Formats, History, Updates, About)
-corefold/wheel.py              the format wheel and its preview
-corefold/theme.py              light/dark themes and accent colours (from the Corefold design system)
-corefold/icons.py              line icons in any colour (icondata.py: Fluent UI System Icons)
-corefold/toast.py              progress / result popup
-corefold/settings.py           saved settings, start with Windows, bringing over settings from older versions
-corefold/converters.py         all the conversions (Pillow, FFmpeg, pypdf, PDFium, zxing, ONNX Runtime)
-corefold/core.py               shared building blocks (app name, file types, jobs, output names)
-corefold/archives.py           ZIP / RAR / 7z: extract, browse, test, create (7-Zip + Python fallback)
-corefold/extras.py             make it fit, copy text (OCR), watermark, frames, slideshow, scan
-corefold/browser.py            the archive window
-corefold/panel.py              the Home page drop area with every option as buttons
-corefold/sounds.py             sounds at the chosen volume
-corefold/dialogs.py            resize / rotate / trim / fit / watermark / archive / password windows
-corefold/history.py            recent conversions and stats
-corefold/shellmenu.py          the right-click menu in File Explorer
-corefold/ipc.py                hands right-click requests to the running app without loading it again
-corefold/i18n.py               languages; corefold/lang_ar.py has the Arabic text
-corefold/updater.py            self-updates from GitHub Releases (checksum-verified)
-corefold/uninstall.py          the Apps page: uninstalling and leftovers, with backups
-corefold/pdftools.py          Corefold PDF's work: merge, split, compress, pictures, passwords (pypdf, PDFium)
-corefold/pdfpage.py           Corefold PDF's page: the cards and the page board
-corefold/startup.py            what starts with Windows, switched on and off the way Task Manager does
-corefold/startuppage.py        Corefold Startup's page
-corefold/scan.py               Corefold Scan: Microsoft Defender's scans, and its own checks for tricks malware uses
-corefold/scanpage.py           Corefold Scan's page
-corefold/trust.py              signatures and "downloaded from" notes, read without the internet
-corefold/unlock.py             which programs have a file open (Windows' Restart Manager), and closing them
-corefold/unlockpage.py         Corefold Unlock's page
-scripts/check_translations.py  checks that every text has a translation
-assets/                        icon, installer pictures and sounds (scripts/make_icon.py, make_sounds.py)
-scripts/build.ps1              builds the app, installer and zip
-installer/corefold.iss         Inno Setup installer script
-.github/workflows/             automatic builds on GitHub, and the memory/CPU measurement
-docs/                          the download website and privacy policy (GitHub Pages)
-run-from-source.bat            run your changes without building (needs Python)
-```
-Settings are stored in `%APPDATA%\Corefold`, logs in `%LOCALAPPDATA%\Corefold`.
+## Working on Corefold
+How to run it from the source, build it, test it on a real Windows PC and publish a release is in
+[DEVELOPING.md](DEVELOPING.md).
