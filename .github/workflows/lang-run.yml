@@ -26,6 +26,11 @@ jobs:
             sweep: "--lang en --look dark --quick"
           - name: sweep-ar
             sweep: "--lang ar --look light"
+          - name: sweep-ar-formats
+            sweep: "--lang ar --look light --pages Formats"
+          - name: sweep-ar-main
+            sweep: "--lang ar --look light"
+            main: "yes"
           - name: sweep-first
             sweep: "--lang en --look light --first-run --quick"
           - name: navtest
@@ -68,7 +73,9 @@ jobs:
           SWEEP: ${{ matrix.sweep }}
         run: |
           $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
-          python scripts/sweeptest.py out/sweep @($env:SWEEP -split " ") *> out/sweep.txt
+          if ("${{ matrix.main }}" -eq "yes") { git fetch -q --depth 1 origin main; git checkout FETCH_HEAD -- corefold scripts/sweeptest.py }
+          python -X faulthandler scripts/sweeptest.py out/sweep @($env:SWEEP -split " ") *> out/sweep.txt
+          "exit code $LASTEXITCODE" | Out-File -Append -Encoding utf8 out/sweep.txt
       - name: Navtest
         if: matrix.name == 'navtest'
         shell: pwsh

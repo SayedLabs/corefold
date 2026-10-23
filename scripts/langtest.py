@@ -100,7 +100,9 @@ def first_start():
 
     def drive():
         app = QApplication.instance()
-        top = app.activeModalWidget()
+        # (what's showing, by kind: the test PC's windows aren't always the active ones)
+        top = app.activeModalWidget() or next((w for w in app.topLevelWidgets() if w.isVisible() and type(w).__name__
+                                               in ("ToolPicker", "Tour")), None)
         pickers = [w for w in app.topLevelWidgets() if isinstance(w, welcome.LanguagePicker) and w.isVisible()]
         if pickers:
             dlg = pickers[0]
