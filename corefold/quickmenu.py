@@ -29,6 +29,7 @@ PAD = 24
 TILE_W, TILE_H, GAP = 116, 92, 10
 ROW_H = 44
 ANSWER_H = 58
+CONFIRM_AFTER_S = 0.6  # "Restart now" only counts this long after it was asked (a double press never restarts)
 MAX_RECENT = 6
 
 
@@ -90,6 +91,8 @@ class QuickMenu(QWidget):
         self.clock.timeout.connect(self.update)
         self.confirm = ""      # the Windows command being asked about ("restart"…), see ask()
         self.asked_at = 0.0
+        self.pressed_at = 0.0  # when the mouse button last went down (a click that began before the question
+        #                        doesn't answer it)
         self.copied = False
         self.copy_timer = QTimer(self)
         self.copy_timer.setSingleShot(True)
@@ -182,7 +185,7 @@ class QuickMenu(QWidget):
             self._refilter()
             return
         if sid.startswith("confirm:"):
-            if time.monotonic() - self.asked_at < 0.3:  # (not the same press that asked)
+            if time.monotonic() - self.asked_at < CONFIRM_AFTER_S:  # (not the press that asked, nor a double one)
                 return
             self.hide()
             self.qa.run(sid[8:], confirmed=True)
@@ -443,10 +446,15 @@ class QuickMenu(QWidget):
             self.setCursor(Qt.PointingHandCursor if i >= 0 else Qt.ArrowCursor)
             self.update()
 
+    def mousePressEvent(self, e):
+        self.pressed_at = time.monotonic()
+
     def mouseReleaseEvent(self, e):
         if e.button() != Qt.LeftButton:
             return
         i = self._spot_at(e.position())
+        if i >= 0 and self.confirm and self.pressed_at < self.asked_at:
+            return  # (the click that asked, still going)
         if i >= 0:
             self.run(self.spots[i])
         elif not self.panel.contains(e.position()):

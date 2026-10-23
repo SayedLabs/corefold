@@ -325,7 +325,7 @@ def switched_off():
     s.quick_wheel = False
     c.settings_changed()
     check(c.quick is not None and c.quick.menu_key.key == "off" and c.quick.wheel_key.key == "off"
-          and c.quick.ontop_key.ok, "with both off, only the keep-on-top shortcut is left")
+          and c.quick.ontop_key.key == s.ontop_key, "with both off, only the keep-on-top shortcut is left")
     s.ontop_key = "off"
     c.settings_changed()
     check(c.quick is None, "switching that off too stops quick access completely")

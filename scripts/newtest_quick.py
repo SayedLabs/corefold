@@ -49,6 +49,19 @@ def logic():
     for text in ("1/0", "2**99999", "9**9999", "hello", "7", "-5", "e", "__import__('os')", "(1+", "1+*2",
                  "().__class__", "x*2", "a" * 200):
         check(qf.calculate(text) is None, f"{text[:30]!r} isn't a sum (or can't be worked out)")
+    # sums that would take ages (or all the memory) if they were worked out: refused straight away
+    for text in ("round(5,-999999999)", "round(5; -999999999)", "round(5; 999999999)", "round(2.5; 1.5)",
+                 "round(1,2,3)", "9**9**9", "2**10000*2**10000", "floor(1e308)*floor(1e308)", "10**400",
+                 "(10**400)**2", "exp(1e9)", "ceil(1e308)**2", "sqrt(4, 9)", "max(9**9999, 1)"):
+        start = time.perf_counter()
+        a = qf.calculate(text)
+        took = time.perf_counter() - start
+        check(a is None and took < 0.05, f"{text!r} is refused quickly ({a.value if a else None}, "
+                                          f"{took * 1000:.1f} ms)")
+    for text, want in {"round(3.14159, 2)": "3.14", "round(1234, -2)": "1200", "(10**300)%7": "1"}.items():
+        start = time.perf_counter()
+        a = qf.calculate(text)
+        check(a is not None and a.value == want and time.perf_counter() - start < 0.05, f"{text!r} = {want}")
     units = {"10 km to mi": "6.21371", "5 ft in cm": "152.4", "100 f to c": "37.7778", "-40 c = f": "-40",
              "0 c to k": "273.15", "3.5 GB in MB": "3584", "60 mph to km/h": "96.5606", "2 l to cups": "8.45351",
              "1 day in hours": "24", "1 acre in m2": "4046.86", "10 kg → lb": "22.0462", "١٠ km to mi": "6.21371",
@@ -282,22 +295,28 @@ def part(lang, look):
         type_text("restart")
         idx = next((i for i, sp in enumerate(m.spots) if sp.entry.id == "restart"), -1)
         check(idx >= 0, "'restart' finds Restart")
-        m.selected = idx
+        m.selected = max(idx, 0)
         press(VK_ENTER)
-        check(m.confirm == "restart" and m.spots and m.spots[0].entry.id == "confirm:restart",
-              "Enter on it asks first: a confirm row")
-        check(m.isVisible() and not ran, "…in the menu, and nothing happened yet")
+        asked = m.confirm == "restart" and m.spots and m.spots[0].entry.id == "confirm:restart"
+        if asked:
+            press(VK_ENTER)  # a double press (straight after it asked): never taken as the answer
+            m.run(m.spots[0])
+        settle(0.2)
+        check(asked, "Enter on it asks first: a confirm row")
+        check(m.isVisible() and m.confirm == "restart" and not ran,
+              f"a second press straight after it asked doesn't count ({ran})")
         shot("confirm")
-        m.run(m.spots[0])  # the very same moment: not taken as the answer
-        check(not ran and m.isVisible(), "a press straight after it asked doesn't count")
         press(VK_ESC)
         check(m.confirm == "" and m.isVisible() and m.query == "restart", "Esc goes back (it didn't restart)")
         settle(0.5)
         check(not ran, "…and nothing ran")
         # the whole way, with the command itself switched off for this test
-        m.selected = next(i for i, sp in enumerate(m.spots) if sp.entry.id == "restart")
+        idx = next((i for i, sp in enumerate(m.spots) if sp.entry.id == "restart"), -1)
+        if not check(idx >= 0, "Restart is there again"):
+            return
+        m.selected = idx
         press(VK_ENTER)
-        settle(0.4)
+        settle(0.9)  # (a deliberate second press, not a double one)
         press(VK_ENTER)
         check(until(lambda: bool(ran), 2) and ran == ["restart"], f"a second Enter on the confirm row does it ({ran})")
         ran.clear()
@@ -327,9 +346,21 @@ def part(lang, look):
             _bring_to_front(hwnd)
             check(until(lambda: quicksys.foreground() == hwnd, 3), "…and it's in front")
             check(not quicksys.is_on_top(hwnd), "…not on top to begin with")
+            keys = (VK_CTRL, VK_LWIN, ord("T"))
+            if not c.quick.ontop_key.ok:  # (Windows or another app, like PowerToys, has Ctrl + Win + T here)
+                from corefold import shortcutspage
+                entry = next(e for e in shortcutspage.GLOBAL if e.setting == "ontop_key")
+                check(shortcutspage.state(c, entry) == "taken", "Ctrl + Win + T is taken on this PC: Settings → "
+                      "Shortcuts says another app is using it (and nothing else nags about it)")
+                s.ontop_key = "ctrl+alt+shift+t"
+                c.settings_changed()
+                keys = (VK_CTRL, VK_ALT, 0x10, ord("T"))
+                _bring_to_front(hwnd)
+                until(lambda: quicksys.foreground() == hwnd, 2)
             check(c.quick.ontop_key.ok, f"the keep-on-top shortcut works ({s.ontop_key})")
-            press(VK_CTRL, VK_LWIN, ord("T"))
-            check(until(lambda: quicksys.is_on_top(hwnd), 3), "Ctrl + Win + T keeps Notepad on top (WS_EX_TOPMOST)")
+            press(*keys)
+            check(until(lambda: quicksys.is_on_top(hwnd), 3),
+                  f"{hotkey_display(s.ontop_key)} keeps Notepad on top (WS_EX_TOPMOST)")
             flash = getattr(c.quick, "_flash", None)
             check(flash is not None and until(flash.isVisible, 1), "…with a coloured border round it for a moment")
             shot("ontop")
@@ -337,7 +368,7 @@ def part(lang, look):
             check(_gone(flash), "…which is gone a second later")
             _bring_to_front(hwnd)
             until(lambda: quicksys.foreground() == hwnd, 2)
-            press(VK_CTRL, VK_LWIN, ord("T"))
+            press(*keys)
             check(until(lambda: not quicksys.is_on_top(hwnd), 3), "pressing it again puts it back to normal")
             # from the menu: the window that was in front before it opened
             _bring_to_front(hwnd)
@@ -386,6 +417,11 @@ def part(lang, look):
                      ("on top", on_top), ("page", settings_page)):
         step(name, fn)
     check(not ran, f"no Windows command was left to run ({ran})")
+
+
+def hotkey_display(combo):
+    from corefold.hotkey import display
+    return display(combo)
 
 
 def _windows_of_class(name):

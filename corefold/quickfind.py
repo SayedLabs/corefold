@@ -88,6 +88,8 @@ _FUNCS = {"sqrt": math.sqrt, "abs": abs, "round": round, "floor": math.floor, "c
 _NAMES = {"pi": math.pi, "e": math.e}
 MAX_EXPONENT = 10_000
 MAX_INT_DIGITS = 400
+MAX_ROUND_DIGITS = 15   # round(5, -999999999) would work out 10**999999999 first (and hang)
+_ONE_ARG = {"sqrt", "abs", "floor", "ceil", "sin", "cos", "tan", "log", "ln", "exp"}
 
 
 class _Bad(Exception):
@@ -119,7 +121,14 @@ def _eval(node):
         return out
     if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in _FUNCS
             and node.args and not node.keywords and len(node.args) <= 8):
-        return _FUNCS[node.func.id](*[_eval(a) for a in node.args])
+        name = node.func.id
+        args = [_eval(a) for a in node.args]
+        if name in _ONE_ARG and len(args) != 1:
+            raise _Bad
+        if name == "round" and (len(args) > 2 or (len(args) == 2 and (type(args[1]) is not int
+                                                                      or abs(args[1]) > MAX_ROUND_DIGITS))):
+            raise _Bad
+        return _FUNCS[name](*args)
     raise _Bad
 
 

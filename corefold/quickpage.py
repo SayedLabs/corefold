@@ -354,6 +354,7 @@ def build(win) -> QWidget:
     row = QHBoxLayout()
     row.addWidget(label(tr("Shortcut")))
     ontop_rec = KeyRecorder(s.ontop_key if s.ontop_key != "off" else "", pause_keys, resume_keys)
+    win.quick_ontop_rec = ontop_rec  # (Settings → Shortcuts points at it)
     ontop_rec.setEnabled(s.ontop_key != "off")
     row.addWidget(ontop_rec)
     row.addStretch()
