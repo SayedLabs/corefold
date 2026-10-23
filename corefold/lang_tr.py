@@ -1096,7 +1096,6 @@ STRINGS: dict[str, str] = {
     "Look at a folder": "Bir klasöre bak",
     "Looking through {name}…": "{name} inceleniyor…",
     "This takes a moment on a big drive.": "Büyük bir sürücüde biraz sürer.",
-    "{count} files, {size}": "{count} dosya, {size}",
     "Couldn't look through it": "İncelenemedi",
     "{size} in {count} files": "{count} dosyada {size}",
     "stopped before the end": "bitmeden durduruldu",
@@ -1315,7 +1314,6 @@ STRINGS: dict[str, str] = {
     # ------------------------------------------------------------------ the sidebar, Space's drives, tools on the way
     "USB drive": "USB sürücü",
     "Local disk": "Yerel disk",
-    "{percent}% full": "%{percent} dolu",
     "Any folder, on any drive": "Herhangi bir sürücüde, herhangi bir klasör",
     "Back (Esc)": "Geri (Esc)",
     "Show all {count}": "Tümünü göster ({count})",
@@ -1768,7 +1766,6 @@ STRINGS: dict[str, str] = {
     "Kept after a big Windows update, to go back to it. Once it's removed, going back isn't possible. Windows asks for an administrator.": "Büyük bir Windows güncellemesinden sonra geri dönmek için saklanır. Kaldırıldıktan sonra geri dönmek mümkün olmaz. Windows yönetici izni ister.",
     "Unused for a year": "Bir yıldır kullanılmayanlar",
     "Big files nobody has opened or changed for over a year": "Bir yıldan uzun süredir kimsenin açmadığı veya değiştirmediği büyük dosyalar",
-    "What grew": "Büyüyenler",
     "Grew since {date}": "{date} tarihinden beri büyüyenler",
     "Last used {date}": "Son kullanım: {date}",
     "Nothing big has gone unused for a year.": "Bir yıldır kullanılmayan büyük bir şey yok.",
@@ -1787,4 +1784,6 @@ STRINGS: dict[str, str] = {
     "Apply": "Uygula",
     "this camera file has no picture Corefold can show": "bu fotoğraf makinesi dosyasında Corefold'un gösterebileceği bir resim yok",
     "Make videos with the graphics card when there is one (several times faster)": "Varsa videoları ekran kartıyla yap (birkaç kat daha hızlı)",
+    "Almost full": "Neredeyse dolu",
+    "Can be freed": "Boşaltılabilir",
 }

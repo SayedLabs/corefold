@@ -1174,7 +1174,6 @@ STRINGS: dict[str, str] = {
     "Look at a folder": "افحص مجلد",
     "Looking through {name}…": "نفحص {name}…",
     "This takes a moment on a big drive.": "ياخذ شوي على القرص الكبير.",
-    "{count} files, {size}": "{count} ملف، {size}",
     "Couldn't look through it": "ما قدرنا نفحصه",
     "{size} in {count} files": "{size} في {count} ملف",
     "stopped before the end": "توقف قبل النهاية",
@@ -1393,7 +1392,6 @@ STRINGS: dict[str, str] = {
     # ------------------------------------------------------------------ the sidebar, Space's drives, tools on the way
     "USB drive": "فلاش USB",
     "Local disk": "قرص محلي",
-    "{percent}% full": "ممتلئ {percent}%",
     "Any folder, on any drive": "أي مجلد، في أي قرص",
     "Back (Esc)": "رجوع (Esc)",
     "Show all {count}": "اعرض الكل ({count})",
@@ -1846,7 +1844,6 @@ STRINGS: dict[str, str] = {
     "Kept after a big Windows update, to go back to it. Once it's removed, going back isn't possible. Windows asks for an administrator.": "ينحفظ بعد تحديث ويندوز الكبير عشان ترجع له. إذا انشال ما تقدر ترجع. ويندوز بيطلب صلاحية المسؤول.",
     "Unused for a year": "ما انستخدمت من سنة",
     "Big files nobody has opened or changed for over a year": "ملفات كبيرة محد فتحها ولا غيّرها من أكثر من سنة",
-    "What grew": "اللي كبر",
     "Grew since {date}": "كبر من {date}",
     "Last used {date}": "آخر استخدام {date}",
     "Nothing big has gone unused for a year.": "ما فيه شي كبير ما انستخدم من سنة.",
@@ -1865,4 +1862,6 @@ STRINGS: dict[str, str] = {
     "Apply": "طبّق",
     "this camera file has no picture Corefold can show": "ملف الكاميرا هذا ما فيه صورة يقدر Corefold يعرضها",
     "Make videos with the graphics card when there is one (several times faster)": "سوّ الفيديوهات بكرت الشاشة إذا موجود (أسرع بكم مرة)",
+    "Almost full": "شبه ممتلئ",
+    "Can be freed": "تقدر تفضّي",
 }
