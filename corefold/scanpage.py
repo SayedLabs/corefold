@@ -229,6 +229,9 @@ def verdict_words(r: scan.ScanResult, d: scan.Defender | None) -> tuple[str, str
         icon = "shield_dismiss"
     elif r.defender_problem == "failed":
         title, icon = tr("Microsoft Defender couldn't finish the scan"), "shield_error"
+    elif r.defender_problem == "cleaning":
+        title, icon = tr("Microsoft Defender couldn't deal with everything it found. Open Windows Security to "
+                         "see what to do."), "shield_error"
     elif found:
         title, icon = tr("Threats Microsoft Defender found: {count}", count=found), "shield_error"
     else:
@@ -709,13 +712,15 @@ class ScanPage(QWidget):
         t = tokens.current()
         icon, title, line = verdict_words(r, self.defender)
         color = {"shield": t.success, "shield_error": t.danger, "shield_dismiss": t.warning}.get(icon, t.muted)
-        dealt = bool(r.threats) and all(th.get("status") in GONE for th in r.threats)
+        dealt = bool(r.threats) and all(th.get("status") in GONE for th in r.threats) and not r.defender_problem
         if dealt:
             color = t.warning
         self.verdict_icon.setPixmap(icons.pixmap(icon, 30, color, self.devicePixelRatioF()))
         self.verdict_title.setText(title)
         self.verdict_line.setText(line)
-        if r.threats and not dealt:
+        if r.defender_problem == "cleaning":
+            note = ""   # (the title says it)
+        elif r.threats and not dealt:
             note = tr("Microsoft Defender couldn't deal with everything it found. Open Windows Security to see what "
                       "to do.")
         elif dealt:

@@ -144,7 +144,7 @@ def state():
          f"days ago, others={d.others}, skipped={d.skipped} (known {d.skipped_known}) in {time.time() - t:.1f} s")
     check(d.read and d.enabled, "Defender's status is read: it's on")
     check(d.updated > 0, "when its list of threats was updated is known")
-    check(time.time() - t < 15, "reading the status is quick enough")
+    check(time.time() - t < 30, "reading the status is quick enough")  # (the first PowerShell on a cold PC is slow)
     if d.skipped_known:
         EXCLUSIONS_BEFORE.extend(v for k, v in d.skipped if k == "path")
         ch = scan.Checks()
@@ -339,13 +339,25 @@ def defender_scans():
         note(f"skipped folder: threats {r.threats}, skipped {r.skipped}")
         check(r.threats and any("eicar" in th["name"].lower() for th in r.threats),
               "a threat where Defender is told not to look is still found")
-        check(r.threats and all(th["status"] == "" for th in r.threats) and (hidden / "eicar.com").exists(),
-              "and it's shown as still there (Defender didn't touch it)")
+        there = (hidden / "eicar.com").exists()
+        note(f"after the scan the file is {'still there' if there else 'gone'}")
+        check(r.threats and all((th["status"] == "") == there for th in r.threats),
+              "what the page says Defender did matches what happened to the file")
+        # (which pass acts on it: Defender looking without acting must leave it)
+        eicar(hidden / "eicar.com")
+        scan.run_defender(scan.CUSTOM, [str(hidden)], threading.Event(), scan.find_mpcmdrun(), report_only=True)
+        time.sleep(3)
+        check((hidden / "eicar.com").exists(), "looking without acting leaves the file where it is")
+        (hidden / "eicar.com").unlink(missing_ok=True)
     finally:
         ps(f"Remove-MpPreference -ExclusionPath '{hidden}'")
     # a path that isn't there
     r = scan.scan(scan.CUSTOM, [str(WORK / "nothing-here.exe")])
     check(r.defender_problem == "failed", f"a file that isn't there: Defender says it couldn't ({r.defender_code:#x})")
+    said = ("Scan starting...\r\n\r\nScan finished.\r\n\r\nCleaning started...\r\n\r\nCleaning failed.\r\n\r\n"
+            "CmdTool: Failed with hr = 0x80508023.")
+    check(scan._CLEANING_FAILED.search(said) and not scan._CLEANING_FAILED.search("CmdTool: Failed with hr = 0x2"),
+          "a scan that finished but couldn't clean up isn't called a failed scan")
 
 
 def quarantine():
@@ -470,7 +482,7 @@ def _quick_scan():
          f"{len(r.threats)} threats, {len(r.findings)} findings, {r.looked_at} files looked at")
     for f in r.findings:
         note(f"   finding: {f['kind']} {f['level']} {f['path']} {f['detail']}")
-    check(r.defender_ran and not r.defender_problem, f"a whole quick scan finishes ({took:.0f} s)")
+    check(r.defender_ran and r.defender_problem in ("", "cleaning"), f"a whole quick scan finishes ({took:.0f} s)")
 
 
 # ----------------------------------------------------------------------------- the right-click menu
@@ -636,7 +648,7 @@ def page():
     check(dlg.group.isVisible(), "and lists what's in it")
     dlg.grab().save(str(OUT / f"scan-quarantine-{LANG}-{LOOK}.png"))
     dlg.close()
-    # a threat Defender leaves where it is: "Delete it…"
+    # a threat where Defender is told not to look: found, and the page says truly what happened to it
     hidden = WORK / "page-skipped"
     ps(f"Add-MpPreference -ExclusionPath '{hidden}'")
     try:
@@ -645,21 +657,34 @@ def page():
         pg.scan_paths([str(hidden)])
         check(until(lambda: not c.scan_runner.running, 120), "a scan where Defender is told not to look finishes")
         settle(0.5)
-        still = [r for r in pg.threat_rows if r.threat.get("status") == ""]
-        check(still, "the threat it left is shown as still there")
-        w.grab().save(str(OUT / f"scan-still-there-{LANG}-{LOOK}.png"))
-        if still:
-            real = QMessageBox.question
-            QMessageBox.question = staticmethod(lambda *a, **k: QMessageBox.Yes)
-            try:
-                pg.delete_threat(still[0])
-            finally:
-                QMessageBox.question = real
-            settle(0.4)
-            check(not (hidden / "eicar.com").exists(), "Delete it…: the file is gone")
-            check(pg.threat_rows and pg.threat_rows[0].threat.get("status") == "deleted", "and the row says so")
+        there = (hidden / "eicar.com").exists()
+        check(pg.threat_rows and all((r.threat.get("status") == "") == there for r in pg.threat_rows),
+              f"the threat is shown {'as still there' if there else 'as dealt with'}, as it is")
     finally:
         ps(f"Remove-MpPreference -ExclusionPath '{hidden}'")
+        shutil.rmtree(hidden, ignore_errors=True)
+    # a threat Defender left where it is: "Delete it…" (a harmless file stands in for it)
+    left = WORK / "left-behind" / "notes.txt"
+    left.parent.mkdir(parents=True, exist_ok=True)
+    left.write_text("a stand-in")
+    pg.result = scan.ScanResult(scan.CUSTOM, [str(left.parent)], time.time(), time.time(), defender_ran=True,
+                                threats=[{"name": "Test:Left/Behind", "files": [str(left)], "status": "",
+                                          "severity": "", "category": ""}])
+    pg._show_result(pg.result)
+    settle(0.4)
+    still = [r for r in pg.threat_rows if r.threat.get("status") == ""]
+    check(still, "a threat Defender left is shown as still there")
+    w.grab().save(str(OUT / f"scan-still-there-{LANG}-{LOOK}.png"))
+    if still:
+        real = QMessageBox.question
+        QMessageBox.question = staticmethod(lambda *a, **k: QMessageBox.Yes)
+        try:
+            pg.delete_threat(still[0])
+        finally:
+            QMessageBox.question = real
+        settle(0.4)
+        check(not left.exists(), "Delete it…: the file is gone")
+        check(pg.threat_rows and pg.threat_rows[0].threat.get("status") == "deleted", "and the row says so")
     for size in ((760, 540), (1500, 900)):
         w.resize(*size)
         settle(0.5)

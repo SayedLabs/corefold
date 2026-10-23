@@ -299,7 +299,8 @@ class ScanResult:
     started: float = 0
     finished: float = 0
     defender_ran: bool = False        # Defender scanned (and finished)
-    defender_problem: str = ""        # "", "not-here", "off", "failed", "stopped"
+    defender_problem: str = ""        # "", "not-here", "off", "failed", "stopped", "cleaning" (scanned, but
+                                      # Defender couldn't deal with everything it found)
     defender_code: int = 0
     threats: list = field(default_factory=list)
     findings: list = field(default_factory=list)
@@ -403,6 +404,7 @@ class Stopped(Exception):
 
 _FAILED = re.compile(r"failed with hr\s*=\s*(0x[0-9a-f]+)", re.I)
 _SKIPPED = re.compile(r"^Scanning (.+) was skipped\.\s*$", re.I | re.M)
+_CLEANING_FAILED = re.compile(r"^Scan finished\.\s*$.*^Cleaning failed\.\s*$", re.I | re.M | re.S)
 
 
 def run_defender(kind: str, paths: list[str], cancel: threading.Event, exe: str = "",
@@ -974,6 +976,14 @@ def scan(kind: str, paths: list[str] | None = None, cancel: threading.Event | No
             if code in (0, 2):
                 result.defender_ran = True
                 result.threats = [asdict(t) for t in threats]
+            elif _CLEANING_FAILED.search(said):
+                # (it scanned, then couldn't clean something up: what's left is in its notes)
+                result.defender_ran = True
+                result.defender_problem = "cleaning"
+                time.sleep(1.0)
+                add_detections(threats, detections_since(result.started - 2), add_unknown=kind != CUSTOM)
+                result.threats = [asdict(t) for t in threats]
+                log.warning("Defender couldn't clean up after its scan: %#x", code)
             else:
                 result.defender_problem = "failed"
                 log.warning("Defender's scan failed: %#x %s", code, said.strip()[-500:])
