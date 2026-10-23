@@ -82,6 +82,9 @@ def table_texts() -> dict[str, str]:
     from corefold import hotkey, quick
     add([a.label for a in quick.ACTIONS.values()], "quick.ACTIONS")
     add(hotkey.PROBLEMS.values(), "hotkey.PROBLEMS")
+    from corefold import quickfind, quicksys
+    add([page.name for page in quickfind.SETTINGS_PAGES], "quickfind.SETTINGS_PAGES")
+    add([text for question, yes, _ in quicksys.CONFIRM.values() for text in (question, yes)], "quicksys.CONFIRM")
     from corefold import clipview
     add([text for _, text in clipview.FILTERS], "clipview.FILTERS")
     add(settings.CLIP_DAYS.values(), "CLIP_DAYS")

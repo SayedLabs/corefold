@@ -2,8 +2,8 @@
 uses most (Corefold's tools, its quick actions, and their own apps, folders and websites).
 
 What can go on them is listed once here (ACTIONS); the menu (quickmenu.py) and the wheel
-(quickwheel.py) are only built the first time they're opened, and nothing at all runs while both are
-switched off in Settings."""
+(quickwheel.py) are only built the first time they're opened, and nothing at all runs while both (and
+the "Keep a window on top" shortcut) are switched off in Settings."""
 from __future__ import annotations
 
 import logging
@@ -49,6 +49,13 @@ ACTIONS: dict[str, Action] = {a.id: a for a in (
     Action("store", "Store", "apps"),
     Action("updates", "Check for updates", "arrow_download"),
     Action("quickmenu", "Quick menu", "layout"),
+    Action("ontop", "Keep a window on top", "pin"),
+    Action("sleep", "Sleep", "weather_moon"),
+    Action("hibernate", "Hibernate", "weather_moon"),
+    Action("restart", "Restart", "arrow_clockwise"),
+    Action("shutdown", "Shut down", "power"),
+    Action("signout", "Sign out", "sign_out"),
+    Action("recycle", "Empty the Recycle Bin", "delete"),
 )}
 
 
@@ -100,6 +107,10 @@ def entry(settings, action_id: str) -> Entry | None:
     a = ACTIONS.get(action_id)
     if a is None or (a.tool and not all_tools.is_on(settings, a.tool)):
         return None
+    if a.id == "hibernate":  # (only on a PC where it's switched on)
+        from .quicksys import hibernate_allowed
+        if not hibernate_allowed():
+            return None
     return Entry(a.id, tr(a.label), a.icon, en=a.label)
 
 
@@ -170,7 +181,7 @@ def _lock():
 
 
 class QuickAccess(QObject):
-    """The two shortcuts and what they open. Made only while the menu or the wheel is switched on."""
+    """The shortcuts and what they open. Made only while the menu, the wheel or the keep-on-top shortcut is on."""
 
     def __init__(self, controller):
         super().__init__()
@@ -183,6 +194,11 @@ class QuickAccess(QObject):
         self.menu_key.pressed.connect(self.toggle_menu, Qt.ConnectionType.QueuedConnection)
         self.wheel_key = Hotkey()
         self.wheel_key.pressed.connect(self.open_wheel_from_key, Qt.ConnectionType.QueuedConnection)
+        # "Keep a window on top" has a shortcut of its own (it works with the menu and the wheel off too)
+        self.ontop_key = Hotkey()
+        self.ontop_key.pressed.connect(lambda: self.toggle_on_top(), Qt.ConnectionType.QueuedConnection)
+        self.front = 0       # the window that was in front when the menu or the wheel opened
+        self._emptier = None  # quicksys.RecycleEmptier, while the Recycle Bin is being emptied
         self.apply_settings()
 
     @property
@@ -193,6 +209,7 @@ class QuickAccess(QObject):
         s = self.settings
         self.menu_key.set(s.quick_menu_key if s.quick_menu else "off")
         self.wheel_key.set(s.quick_wheel_key if s.quick_wheel else "off")
+        self.ontop_key.set(s.ontop_key)
         if not s.quick_menu and self.menu is not None:
             self.menu.close()
             self.menu.deleteLater()
@@ -217,6 +234,7 @@ class QuickAccess(QObject):
     def stop(self):
         self.menu_key.stop()
         self.wheel_key.stop()
+        self.ontop_key.stop()
         for w in (self.menu, self.wheel, self.button):
             if w is not None:
                 w.close()
@@ -242,7 +260,31 @@ class QuickAccess(QObject):
         if self.menu.isVisible():
             self.menu.close_animated()
         else:
+            self._remember_front()
             self.menu.open()
+
+    def ask(self, action_id: str):
+        """Restarting, shutting down, signing out and emptying the Recycle Bin are asked about in the menu
+        first (also when they were picked on the wheel)."""
+        if self.menu is None:
+            from .quickmenu import QuickMenu
+            self.menu = QuickMenu(self)
+        if self.wheel is not None and self.wheel.isVisible():
+            self.wheel.hide()
+        if action_id == "recycle":
+            from .quicksys import recycle_bin
+            if recycle_bin()[0] == 0:
+                if self.menu.isVisible():
+                    self.menu.hide()
+                self.c.say(tr("The Recycle Bin is already empty"), "")
+                return
+        if not self.menu.isVisible():
+            self.menu.open()
+        self.menu.ask(action_id)
+
+    def _remember_front(self):
+        from .quicksys import foreground, usable
+        self.front = usable(foreground())
 
     # ---- the wheel
 
@@ -259,6 +301,7 @@ class QuickAccess(QObject):
         if w.isVisible():
             w.hide()
             return
+        self._remember_front()
         if self.menu is not None and self.menu.isVisible():
             self.menu.hide()
         from .hotkey import parse
@@ -267,13 +310,20 @@ class QuickAccess(QObject):
 
     def open_wheel_at(self, center=None):
         if self.settings.quick_wheel:
+            self._remember_front()
             self._wheel().popup(center=center)
 
     # ---- doing things
 
-    def run(self, action_id: str):
+    def run(self, action_id: str, confirmed: bool = False):
         """Does what an entry on the menu or the wheel says (once the menu or wheel is out of the way)."""
+        from .quicksys import CONFIRM
+        if action_id in CONFIRM and not confirmed:
+            QTimer.singleShot(0, lambda: self.ask(action_id))
+            return
         delay = 180 if action_id in ("screenshot", "record") else 0  # (not in the picture)
+        if action_id in ("sleep", "hibernate", "restart", "shutdown", "signout"):
+            delay = 400  # (the menu is gone before the screen goes)
         QTimer.singleShot(delay, lambda: self._run(action_id))
 
     def _run(self, action_id: str):
@@ -311,7 +361,54 @@ class QuickAccess(QObject):
             "store": lambda: c.show_window("Store"),
             "updates": lambda: c.check_updates(manual=True),
             "quickmenu": self.toggle_menu,
+            "ontop": lambda: self.toggle_on_top(self.front),
+            "recycle": self._empty_recycle_bin,
         }
+        from .quicksys import SYSTEM, run as run_system
+        for name in SYSTEM:
+            actions.setdefault(name, lambda n=name: run_system(n))
         fn = actions.get(action_id)
         if fn is not None:
             fn()
+
+    # ---- Windows' own commands and keeping a window on top (see quicksys.py)
+
+    def _empty_recycle_bin(self):
+        if self._emptier is not None:
+            return
+        from .core import human_size
+        from .quicksys import RecycleEmptier
+
+        def done(freed: int):
+            self._emptier = None
+            self.c.say(tr("Recycle Bin emptied"), tr("{size} freed", size=human_size(freed)) if freed else "")
+        self._emptier = RecycleEmptier()
+        self._emptier.done.connect(done, Qt.ConnectionType.QueuedConnection)
+        self._emptier.start()
+
+    def toggle_on_top(self, hwnd: int = 0):
+        """Keeps the window in front (or hwnd) above all the others, or puts it back to normal."""
+        from . import quicksys as sysc
+        hwnd = sysc.usable(hwnd or sysc.foreground())
+        if not hwnd:
+            self.c.tell(tr("No window to keep on top"), tr("Click the window you want first, then try again."))
+            return
+        name = sysc.title(hwnd) or tr("This window")
+        on = not sysc.is_on_top(hwnd)
+        if not sysc.set_on_top(hwnd, on):
+            self.c.tell(tr("Couldn't keep it on top"),
+                        tr("Windows didn't let Corefold change “{title}”. It may be running as administrator.",
+                           title=name))
+            return
+        log.info("quick access: a window %s", "stays on top" if on else "is back to normal")
+        if on:
+            from .hotkey import display
+            key = display(self.settings.ontop_key)
+            self.c.say(tr("“{title}” stays on top", title=name),
+                       tr("Press {key} again to put it back to normal.", key=key) if key else "")
+            rect = sysc.frame(hwnd)
+            if rect.isValid():
+                self._flash = sysc.Flash(rect, self.c.theme.accent)  # (kept until it's gone)
+                self._flash.flash()
+        else:
+            self.c.say(tr("“{title}” is back to normal", title=name), "")
