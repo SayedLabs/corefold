@@ -10,9 +10,11 @@ Names (setObjectName) understood here:
     primary     the main button                 danger     a button that deletes or removes
     ghost       a button with no box            flat       a link-like button
     small       a small ghost button            iconButton a square button with an icon
+    pillButton  a round-ended ghost button with an icon and a word or two (the language button)
     tab, subtab tabs and pill tabs              searchBox  the search field in the top strip
     segmented   a strip of segment buttons      segment    one choice in it (checkable)
     line        a 1 px divider                  warning    a box with a warning stripe
+    dropdownBox, dropdownList   the open list of a Dropdown (widgets.py)
 """
 from __future__ import annotations
 
@@ -81,6 +83,10 @@ QPushButton#iconButton { padding: 0; min-width: 0; border-radius: ${r_md}px; bac
 QPushButton#iconButton:hover { background: $hover; }
 QPushButton#iconButton:pressed { background: $pressed; }
 QPushButton#iconButton:disabled { background: transparent; }
+QPushButton#pillButton { padding: 0 12px; min-width: 0; border-radius: 17px; background: transparent;
+        border: 1px solid transparent; color: $muted; font-weight: 600; }
+QPushButton#pillButton:hover { background: $hover; color: $text; border-color: $line_strong; }
+QPushButton#pillButton:pressed { background: $pressed; }
 QPushButton#tab { background: transparent; border: none; border-bottom: 2px solid transparent; border-radius: 0;
                   color: $muted; padding: 6px 12px 7px 12px; min-width: 0; font-weight: 600; }
 QPushButton#tab:hover { color: $text; }
@@ -109,6 +115,10 @@ QComboBox::drop-down { border: none; width: 28px; }
 QComboBox::down-arrow { image: url($down); width: 12px; height: 12px; }
 QComboBox QAbstractItemView { background: $raised; border: 1px solid $line_strong; outline: none; padding: 4px;
         selection-background-color: $hover; selection-color: $text; }
+QComboBox { combobox-popup: 0; }
+QFrame#dropdownBox { background: transparent; border: none; margin: 0; padding: 0; }
+QListView#dropdownList { background: $raised; border: 1px solid $line_strong; border-radius: ${r_lg}px; padding: 4px 0;
+        outline: none; }
 QSpinBox, QDoubleSpinBox { padding-right: 24px; }
 QSpinBox::up-button, QDoubleSpinBox::up-button { subcontrol-origin: border; subcontrol-position: top right;
         width: 22px; border: none; background: transparent; border-top-right-radius: ${r_md}px; }

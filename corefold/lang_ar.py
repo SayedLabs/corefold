@@ -599,11 +599,6 @@ STRINGS: dict[str, str] = {
     "{count} new files": "ملفات جديدة: {count}",
     "no new file": "لا يوجد ملف جديد",
     "{count} failed": "فشل: {count}",
-    "Restart Corefold?": "إعادة تشغيل كورفولد؟",
-    "Corefold needs to restart to change the language. It only takes a moment.":
-        "يحتاج كورفولد إلى إعادة التشغيل لتغيير اللغة. لن يستغرق ذلك سوى لحظة.",
-    "Restart now": "إعادة التشغيل الآن",
-    "Later": "لاحقًا",
     "Save converted files in": "حفظ الملفات المحوّلة في",
     "Pin to the top of the wheel": "تثبيت في أول العجلة",
     "Move earlier on the wheel": "تقديم في العجلة",
@@ -2012,6 +2007,9 @@ STRINGS: dict[str, str] = {
     "Moved or deleted since, so not put back: {count}": "نُقلت أو حُذفت منذ ذلك الوقت فلم تُعد: {count}",
     "Open in a program: {count}. Close it and press Undo again.": "مفتوحة في برنامج: {count}. أغلقه واضغط تراجع مرة أخرى.",
     "Never touches folders, shortcuts or files that are open": "لا يلمس المجلدات ولا الاختصارات ولا الملفات المفتوحة",
+    "Choose your language": "اختر لغتك",
+    "You can change it any time with the language button at the top of Corefold's window.": "تقدر تغيّرها في أي وقت من زر اللغة أعلى نافذة كورفولد.",
+    "Windows language": "لغة ويندوز",
     "Almost full": "شبه ممتلئ",
     "Can be freed": "تقدر تفضّي",
 }

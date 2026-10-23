@@ -5,11 +5,12 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QEvent, QObject, QSize, Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import QColor, QDesktopServices, QFont, QGuiApplication, QIcon, QKeySequence, QShortcut
+from PySide6.QtCore import QEvent, QObject, QPoint, QSize, Qt, QTimer, QUrl, Signal
+from PySide6.QtGui import (QColor, QDesktopServices, QFont, QGuiApplication, QIcon, QKeySequence, QPainter, QPixmap,
+                           QShortcut)
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QColorDialog, QComboBox, QFileDialog, QFrame,
-                               QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox,
-                               QPushButton,
+                               QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMenu,
+                               QMessageBox, QPushButton,
                                QScrollArea, QSizePolicy, QSlider, QSpinBox, QStackedWidget, QSystemTrayIcon, QVBoxLayout,
                                QWidget)
 
@@ -29,8 +30,8 @@ from .settings import (ACCENTS, APP_NAME, DEFAULT_ACCENT, APPEARANCES, HOVER_STY
                        PLAYER_WHEEL,
                        LOOK_KEYS, UNINSTALL_DEPTHS, UNINSTALLER_KEYS, UNUSED_MONTHS, WHEEL_KEYS, editable_keys, set_startup,
                        startup_enabled)
-from .atomic.widgets import Switch, keep_wrapped_text, mark_rows
-from .theme import Theme
+from .atomic.widgets import Dropdown, Switch, keep_wrapped_text, mark_rows
+from .theme import Theme, round_menu
 from .timefmt import date_text, locale, time_ago  # noqa: F401 (used by other pages)
 from .navbar import ICON_ROLE
 from .wheel import WheelPreview
@@ -618,8 +619,9 @@ class MainWindow(QWidget):
         self.saved_hint.setText(tr("Saved"))
         QTimer.singleShot(2500, lambda: _alive_set_text(self.saved_hint,
                                                         tr("Changes to settings are kept when you press Save.")))
-        if self.c.settings.language != old_language:
-            self._ask_restart_for_language()
+        if self.c.settings.language != old_language:  # the new language shows straight away
+            choice = self.c.settings.language
+            QTimer.singleShot(0, lambda: self.c.switch_language(choice))
 
     def discard_changes(self, rebuild: bool = True):
         """Puts every setting back the way it was last saved."""
@@ -1124,8 +1126,59 @@ class MainWindow(QWidget):
         self.theme_btn = IconButton()
         self.theme_btn.clicked.connect(self.toggle_dark)
         row.addWidget(self.theme_btn)
+        # the language, at the far end: changes straight away (no restart)
+        self.lang_btn = QPushButton()
+        self.lang_btn.setObjectName("pillButton")
+        self.lang_btn.setCursor(Qt.PointingHandCursor)
+        self.lang_btn.setFixedHeight(34)
+        self.lang_btn.setIconSize(QSize(18, 18))
+        self.lang_btn.setToolTip(tr("Language"))
+        self.lang_btn.setAccessibleName(tr("Language"))
+        self.lang_btn.clicked.connect(self._language_menu)
+        row.addWidget(self.lang_btn)
+        self.show_language()
         self.palette = None
         return bar
+
+    def show_language(self):
+        """The language button and the Language list show the language in use."""
+        self.lang_btn.setText(" " + i18n.LANGUAGES.get(i18n.language(), "English"))  # (a little room after the globe)
+        if hasattr(self, "language"):
+            self.language.blockSignals(True)
+            self.language.setCurrentIndex(max(0, self.language.findData(self.c.settings.language)))
+            self.language.blockSignals(False)
+
+    def _language_menu(self):
+        """The languages, each in its own words, under the language button."""
+        menu = QMenu(self)
+        round_menu(menu)
+        t = self.c.theme
+        mark = QPixmap(16, 16)
+        mark.fill(Qt.transparent)
+        p = QPainter(mark)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setPen(Qt.NoPen)
+        p.setBrush(t.accent)
+        p.drawEllipse(4, 4, 8, 8)
+        p.end()
+        chosen = self.c.settings.language
+        for key, text in i18n.LANGUAGES.items():
+            act = menu.addAction(tr(text) if key == "system" else text)
+            if key == chosen:
+                act.setIcon(QIcon(mark))
+                f = act.font()
+                f.setBold(True)
+                act.setFont(f)
+            act.triggered.connect(lambda _=False, k=key: QTimer.singleShot(0, lambda: self.c.switch_language(k)))
+            if key == "system":
+                menu.addSeparator()
+        rtl = i18n.is_rtl()
+        corner = self.lang_btn.rect().bottomLeft() if rtl else self.lang_btn.rect().bottomRight()
+        at = self.lang_btn.mapToGlobal(corner)
+        menu.ensurePolished()
+        width = menu.sizeHint().width()
+        menu.popup(QPoint(at.x() if rtl else at.x() - width, at.y() + 4))
+        menu.aboutToHide.connect(menu.deleteLater)
 
     def _sync_top_bar(self, name: str):
         if not hasattr(self, "crumb"):
@@ -1655,13 +1708,13 @@ class MainWindow(QWidget):
         grid.setHorizontalSpacing(16)
         grid.setVerticalSpacing(12)
 
-        self.language = QComboBox()
+        self.language = Dropdown()
         for key, text in LANGUAGES.items():
             self.language.addItem(tr(text) if key == "system" else text, key)
         self.language.setCurrentIndex(max(0, self.language.findData(s.language)))
         self.language.currentIndexChanged.connect(self._language_changed)
 
-        self.sound = QComboBox()
+        self.sound = Dropdown()
         for key, text in SOUNDS.items():
             self.sound.addItem(tr(text), key)
         self.sound.setCurrentIndex(max(0, self.sound.findData(s.sound)))
@@ -1736,13 +1789,13 @@ class MainWindow(QWidget):
         grid = QGridLayout()
         grid.setHorizontalSpacing(16)
         grid.setVerticalSpacing(12)
-        self.shortcut = QComboBox()
+        self.shortcut = Dropdown()
         for key, text in SHORTCUT_LABELS.items():
             self.shortcut.addItem(tr(text), key)
         self.shortcut.setCurrentIndex(max(0, self.shortcut.findData(s.shortcut)))
         self.shortcut.currentIndexChanged.connect(self._general_changed)
 
-        self.save_mode = QComboBox()
+        self.save_mode = Dropdown()
         self.save_mode.addItem(tr("Next to the original file"), "beside")
         self.save_mode.addItem(tr("Always in one folder"), "folder")
         self.save_mode.setCurrentIndex(max(0, self.save_mode.findData(s.save_mode)))
@@ -1767,7 +1820,7 @@ class MainWindow(QWidget):
         q_row.addWidget(self.quality)
         q_row.addWidget(label(tr("for JPG and WebP. Higher = better quality, bigger file."), "muted"), 1)
 
-        self.unavailable = QComboBox()
+        self.unavailable = Dropdown()
         self.unavailable.addItem(tr("Show them dimmed (with the reason)"), True)
         self.unavailable.addItem(tr("Hide them"), False)
         self.unavailable.setCurrentIndex(0 if s.show_unavailable else 1)
@@ -1848,7 +1901,7 @@ class MainWindow(QWidget):
 
         # the popups
         more, ml = card(8)
-        corner = QComboBox()
+        corner = Dropdown()
         for key, text in TOAST_CORNERS.items():
             corner.addItem(tr(text), key)
         corner.setCurrentIndex(max(0, corner.findData(s.toast_corner)))
@@ -1950,12 +2003,12 @@ class MainWindow(QWidget):
         grid = QGridLayout()
         grid.setHorizontalSpacing(16)
         grid.setVerticalSpacing(12)
-        self.unused_months = QComboBox()
+        self.unused_months = Dropdown()
         for key, text in UNUSED_MONTHS.items():
             self.unused_months.addItem(tr(text), key)
         self.unused_months.setCurrentIndex(max(0, self.unused_months.findData(s.unused_months)))
         self.unused_months.currentIndexChanged.connect(self._tool_setting_changed)
-        self.backup_days = QComboBox()
+        self.backup_days = Dropdown()
         for key, text in BACKUP_DAYS.items():
             self.backup_days.addItem(tr(text), key)
         self.backup_days.setCurrentIndex(max(0, self.backup_days.findData(s.backup_days)))
@@ -1964,7 +2017,7 @@ class MainWindow(QWidget):
         grid.addWidget(self.unused_months, 0, 1)
         grid.addWidget(label(tr("Keep backups of removed leftovers for")), 1, 0)
         grid.addWidget(self.backup_days, 1, 1)
-        self.uninstall_depth = QComboBox()
+        self.uninstall_depth = Dropdown()
         for key, text in UNINSTALL_DEPTHS.items():
             self.uninstall_depth.addItem(tr(text), key)
         self.uninstall_depth.setCurrentIndex(max(0, self.uninstall_depth.findData(s.uninstall_depth)))
@@ -2094,12 +2147,12 @@ class MainWindow(QWidget):
         grid = QGridLayout()
         grid.setHorizontalSpacing(16)
         grid.setVerticalSpacing(12)
-        self.viewer_wheel = QComboBox()
+        self.viewer_wheel = Dropdown()
         for key, text in VIEWER_WHEEL.items():
             self.viewer_wheel.addItem(tr(text), key)
         self.viewer_wheel.setCurrentIndex(max(0, self.viewer_wheel.findData(s.viewer_wheel)))
         self.viewer_wheel.currentIndexChanged.connect(self._viewer_setting_changed)
-        self.slideshow_seconds = QComboBox()
+        self.slideshow_seconds = Dropdown()
         for key, text in SLIDESHOW_SECONDS.items():
             self.slideshow_seconds.addItem(tr(text), key)
         self.slideshow_seconds.setCurrentIndex(max(0, self.slideshow_seconds.findData(s.slideshow_seconds)))
@@ -2269,11 +2322,11 @@ class MainWindow(QWidget):
         grid = QGridLayout()
         grid.setHorizontalSpacing(16)
         grid.setVerticalSpacing(12)
-        self.player_skip = QComboBox()
+        self.player_skip = Dropdown()
         for key, text in PLAYER_SKIP.items():
             self.player_skip.addItem(tr(text), key)
         self.player_skip.setCurrentIndex(max(0, self.player_skip.findData(s.player_skip)))
-        self.player_wheel = QComboBox()
+        self.player_wheel = Dropdown()
         for key, text in PLAYER_WHEEL.items():
             self.player_wheel.addItem(tr(text), key)
         self.player_wheel.setCurrentIndex(max(0, self.player_wheel.findData(s.player_wheel)))
@@ -2423,15 +2476,15 @@ class MainWindow(QWidget):
         grid = QGridLayout()
         grid.setHorizontalSpacing(16)
         grid.setVerticalSpacing(12)
-        self.cap_shortcut = QComboBox()
+        self.cap_shortcut = Dropdown()
         for key, text in CAP_SHORTCUTS.items():
             self.cap_shortcut.addItem(tr(text) if key == "off" else text, key)
         self.cap_shortcut.setCurrentIndex(max(0, self.cap_shortcut.findData(s.cap_shortcut)))
-        self.cap_record_shortcut = QComboBox()
+        self.cap_record_shortcut = Dropdown()
         for key, text in CAP_RECORD_SHORTCUTS.items():
             self.cap_record_shortcut.addItem(tr(text) if key == "off" else text, key)
         self.cap_record_shortcut.setCurrentIndex(max(0, self.cap_record_shortcut.findData(s.cap_record_shortcut)))
-        self.cap_after = QComboBox()
+        self.cap_after = Dropdown()
         for key, text in CAP_AFTER.items():
             self.cap_after.addItem(tr(text), key)
         self.cap_after.setCurrentIndex(max(0, self.cap_after.findData(s.cap_after)))
@@ -2441,7 +2494,7 @@ class MainWindow(QWidget):
         grid.addWidget(self.cap_record_shortcut, 1, 1)
         grid.addWidget(label(tr("After a screenshot")), 2, 0)
         grid.addWidget(self.cap_after, 2, 1)
-        self.cap_delay = QComboBox()
+        self.cap_delay = Dropdown()
         for key, text in CAP_DELAY.items():
             self.cap_delay.addItem(tr(text), key)
         self.cap_delay.setCurrentIndex(max(0, self.cap_delay.findData(s.cap_delay)))
@@ -2464,11 +2517,11 @@ class MainWindow(QWidget):
         grid = QGridLayout()
         grid.setHorizontalSpacing(16)
         grid.setVerticalSpacing(12)
-        self.cap_fps = QComboBox()
+        self.cap_fps = Dropdown()
         for key, text in CAP_FPS.items():
             self.cap_fps.addItem(tr(text), key)
         self.cap_fps.setCurrentIndex(max(0, self.cap_fps.findData(s.cap_fps)))
-        self.cap_mic = QComboBox()
+        self.cap_mic = Dropdown()
         self.cap_mic.addItem(tr("No sound"), "")
         if s.cap_mic:
             self.cap_mic.addItem(s.cap_mic, s.cap_mic)
@@ -2558,15 +2611,15 @@ class MainWindow(QWidget):
         grid = QGridLayout()
         grid.setHorizontalSpacing(16)
         grid.setVerticalSpacing(12)
-        self.clip_shortcut = QComboBox()
+        self.clip_shortcut = Dropdown()
         for key, text in CLIP_SHORTCUTS.items():
             self.clip_shortcut.addItem(tr(text) if key == "off" else text, key)
         self.clip_shortcut.setCurrentIndex(max(0, self.clip_shortcut.findData(s.clip_shortcut)))
-        self.clip_max = QComboBox()
+        self.clip_max = Dropdown()
         for n in CLIP_MAX:
             self.clip_max.addItem(tr("{count} items", count=locale().toString(n)), n)
         self.clip_max.setCurrentIndex(max(0, self.clip_max.findData(s.clip_max)))
-        self.clip_days = QComboBox()
+        self.clip_days = Dropdown()
         for key, text in CLIP_DAYS.items():
             self.clip_days.addItem(tr(text), key)
         self.clip_days.setCurrentIndex(max(0, self.clip_days.findData(s.clip_days)))
@@ -2645,7 +2698,7 @@ class MainWindow(QWidget):
         w, lay = page(tr("Archives"))
         box, bl = card()
         bl.addWidget(label(tr("Extract here"), "h2"))
-        self.extract_mode = QComboBox()
+        self.extract_mode = Dropdown()
         for key, text in EXTRACT_MODES.items():
             self.extract_mode.addItem(tr(text), key)
         self.extract_mode.setCurrentIndex(max(0, self.extract_mode.findData(s.extract_mode)))
@@ -3028,29 +3081,7 @@ class MainWindow(QWidget):
         if choice == self.c.settings.language:
             return
         self.c.settings.language = choice
-        self.c.settings_changed()  # the right-click menu changes language when Corefold restarts
-        # (the restart is offered when the change is saved)
-
-    def _ask_restart_for_language(self):
-        choice = self.c.settings.language
-        if i18n.resolve(choice) == i18n.language():
-            return  # e.g. "Match Windows" while Windows is in the language already in use
-        new = i18n.resolve(choice)
-        # ask in the new language, since that's the one the person picked
-        old = i18n.language()
-        i18n.set_language(new)
-        title, text = tr("Restart Corefold?"), tr("Corefold needs to restart to change the language. It only takes "
-                                                  "a moment.")
-        now_text, later_text = tr("Restart now"), tr("Later")
-        i18n.set_language(old)
-        box = QMessageBox(QMessageBox.Question, title, text, parent=self)
-        now = box.addButton(now_text, QMessageBox.AcceptRole)
-        box.addButton(later_text, QMessageBox.RejectRole)
-        box.exec()
-        chosen = box.clickedButton() is now
-        box.deleteLater()
-        if chosen:
-            self.c.restart("General")
+        self.c.settings_changed()  # (the new language shows when the change is saved)
 
     def _startup_toggled(self, on: bool):
         self.pending_startup = on
@@ -3293,6 +3324,7 @@ class MainWindow(QWidget):
         self.theme_btn.setIcon(icons.icon("weather_sunny" if t.dark else "weather_moon", t.text))
         self.quick_btn.setIcon(icons.icon("layout", t.text))
         self.theme_btn.setToolTip(tr("Switch to light mode") if t.dark else tr("Switch to dark mode"))
+        self.lang_btn.setIcon(icons.icon("globe", t.text))
         for b, name in self.quick_buttons:
             b.setIcon(icons.icon(name, t.accent if not t.dark else t.text))
         self.settings_list.viewport().update()

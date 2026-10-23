@@ -30,6 +30,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon
 
 from . import UPDATE_REPO, __version__, i18n, icons, ipc, shellmenu, sounds, updater, winutil
 from . import tools as all_tools
+from . import settings as settings_mod
 from .converters import PASSWORD_ERROR, Options, Result, Tool, pick, release_memory, run_job, warm_up
 from .core import (LEGACY_NAME, category, human_size, is_link, lower_this_thread, norm, os_open, set_background_priority,
                    set_downloads_folder, short_name, system_tool, unique_path)
@@ -297,43 +298,11 @@ class Controller(QObject):
 
         self.tray = QSystemTrayIcon(icon)
         self.tray.activated.connect(self._tray_clicked)
-        menu = QMenu()
-        act_open = menu.addAction(tr("Open Corefold"), self.show_window)
-        act_settings = menu.addAction(tr("Settings"), lambda: self.show_window("General"))
-        self.act_paste = menu.addAction(tr("Convert what's copied"), self.paste)
-        self.act_archive = menu.addAction(tr("Open an archive…"), self.choose_archive)
-        self.act_clip = menu.addAction(tr("Clipboard history"), lambda: self.show_clipboard(from_tray=True))
-        self.act_shot = menu.addAction(tr("Take a screenshot"), lambda: self.capture and self.capture.screenshot())
-        self.act_shot_later = menu.addAction(tr("Screenshot with a timer"),
-                                             lambda: self.capture and self.capture.screenshot_later())
-        self.act_quick = menu.addAction(tr("Quick menu"), lambda: self.quick and self.quick.toggle_menu())
-        self.menu_icons = [(act_open, "home"), (act_settings, "settings"), (self.act_paste, "arrow_swap"),
-                           (self.act_archive, "archive"), (self.act_clip, "clipboard"), (self.act_shot, "screenshot"),
-                           (self.act_shot_later, "timer"), (self.act_quick, "layout")]
         self.clip = None     # Corefold Clipboard, while it's in use
         self.capture = None  # Corefold Capture, while it's in use
         self.quick = None    # the quick menu and wheel, while one of them is switched on
-        self.act_again = menu.addAction(tr("Do it again…"), self.do_again)
-        menu.aboutToShow.connect(self._update_again_action)
-        self.recent_menu = menu.addMenu(tr("Recent files"))
-        self.menu_icons += [(self.act_again, "arrow_sync"), (self.recent_menu.menuAction(), "history")]
-        self.recent_menu.aboutToShow.connect(self._fill_recent)
-        self.act_pause = menu.addAction(tr("Pause"))
-        self.act_pause.setCheckable(True)
-        self.act_pause.setChecked(not self.settings.enabled)
-        self.act_pause.toggled.connect(lambda paused: self.set_enabled(not paused))
-        self.act_cancel = menu.addAction(tr("Stop all conversions"), self.cancel_all)
-        self.act_cancel.setVisible(False)
-        self.menu_icons.append((menu.addAction(tr("Check for updates"), lambda: self.check_updates(manual=True)),
-                                "arrow_download"))
-        menu.addSeparator()
-        menu.addAction(tr("Quit"), self.ask_quit)
-        self.menu = menu
-        for m in (menu, self.recent_menu):
-            round_menu(m)
-        self._tray_tools()
-        self._color_menu_icons()
-        self.tray.setContextMenu(menu)
+        self.menu = None
+        self._build_tray_menu()
 
         # updates
         self.update_state = "idle"  # idle, checking, uptodate, available, downloading, error
@@ -401,6 +370,45 @@ class Controller(QObject):
 
         if not self.settings.first_run:  # (once main() has put tools that are new in this version in the Store)
             QTimer.singleShot(0, self._background_tools)
+
+    def _build_tray_menu(self):
+        """The tray icon's right-click menu (made again when the language changes)."""
+        menu = QMenu()
+        act_open = menu.addAction(tr("Open Corefold"), self.show_window)
+        act_settings = menu.addAction(tr("Settings"), lambda: self.show_window("General"))
+        self.act_paste = menu.addAction(tr("Convert what's copied"), self.paste)
+        self.act_archive = menu.addAction(tr("Open an archive…"), self.choose_archive)
+        self.act_clip = menu.addAction(tr("Clipboard history"), lambda: self.show_clipboard(from_tray=True))
+        self.act_shot = menu.addAction(tr("Take a screenshot"), lambda: self.capture and self.capture.screenshot())
+        self.act_shot_later = menu.addAction(tr("Screenshot with a timer"),
+                                             lambda: self.capture and self.capture.screenshot_later())
+        self.act_quick = menu.addAction(tr("Quick menu"), lambda: self.quick and self.quick.toggle_menu())
+        self.menu_icons = [(act_open, "home"), (act_settings, "settings"), (self.act_paste, "arrow_swap"),
+                           (self.act_archive, "archive"), (self.act_clip, "clipboard"), (self.act_shot, "screenshot"),
+                           (self.act_shot_later, "timer"), (self.act_quick, "layout")]
+        self.act_again = menu.addAction(tr("Do it again…"), self.do_again)
+        menu.aboutToShow.connect(self._update_again_action)
+        self.recent_menu = menu.addMenu(tr("Recent files"))
+        self.menu_icons += [(self.act_again, "arrow_sync"), (self.recent_menu.menuAction(), "history")]
+        self.recent_menu.aboutToShow.connect(self._fill_recent)
+        self.act_pause = menu.addAction(tr("Pause"))
+        self.act_pause.setCheckable(True)
+        self.act_pause.setChecked(not self.settings.enabled)
+        self.act_pause.toggled.connect(lambda paused: self.set_enabled(not paused))
+        self.act_cancel = menu.addAction(tr("Stop all conversions"), self.cancel_all)
+        self.act_cancel.setVisible(False)
+        self.menu_icons.append((menu.addAction(tr("Check for updates"), lambda: self.check_updates(manual=True)),
+                                "arrow_download"))
+        menu.addSeparator()
+        menu.addAction(tr("Quit"), self.ask_quit)
+        old, self.menu = self.menu, menu
+        for m in (menu, self.recent_menu):
+            round_menu(m)
+        self._tray_tools()
+        self._color_menu_icons()
+        self.tray.setContextMenu(menu)
+        if old is not None:
+            old.deleteLater()
 
     # ---- the main window is built when needed and freed when it's been closed a while
 
@@ -1358,8 +1366,48 @@ class Controller(QObject):
             self._window.sync()
         self.settings_changed()
 
+    def switch_language(self, choice: str):
+        """Puts Corefold in another language straight away, with no restart: the window, the tray menu,
+        popups and the right-click menu. (Windows like the Viewer that are open keep their words until
+        they're opened again.)"""
+        s = self.settings
+        s.language = choice
+        if settings_mod.HELD is not None:  # other changes may still wait for Save: this one doesn't
+            settings_mod.HELD["language"] = choice
+        w = self._window
+        if w is not None:
+            w.committed["language"] = choice
+        s.save()
+        if i18n.resolve(choice) == i18n.language():  # e.g. "Match Windows" while Windows is in this language
+            if w is not None:
+                w.show_language()
+            return
+        lang = i18n.set_language(choice)
+        log.info("language changed to %s", lang)
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            self._show_language(lang, w)
+        finally:
+            QApplication.restoreOverrideCursor()
+
+    def _show_language(self, lang: str, w):
+        if w is not None:
+            w.setUpdatesEnabled(False)  # (the old window isn't drawn half changed before the new one shows)
+        self.app.setLayoutDirection(Qt.RightToLeft if i18n.is_rtl() else Qt.LeftToRight)
+        load_qt_translations(self.app, lang)
+        css = self._css()
+        if css != self.app.styleSheet():  # (only right-to-left changes it: restyling everything is slow)
+            self.app.setStyleSheet(css)
+        self._build_tray_menu()
+        self._update_tooltip()
+        self.toast.retranslate()
+        self._free_popups()   # (the quick menu, wheel and clipboard popup are made again in the new language)
+        self.update_shell_menu(500)
+        if w is not None:
+            self.rebuild_window(w.current_page(), committed=w.committed, pending_startup=w.pending_startup)
+
     def restart(self, page: str = "General"):
-        """Starts a fresh copy of Corefold (used after changing the language)."""
+        """Starts a fresh copy of Corefold."""
         if self.cancels or self.uninstall_busy:
             self.toast.notify(tr("Restart later"), tr("Corefold restarts when the conversion is done."),
                               linger_ms=4000)
@@ -2026,8 +2074,16 @@ def setup_logging():
                                                   exc_info=(a.exc_type, a.exc_value, a.exc_traceback))
 
 
+_qt_words = None  # the QTranslator in use for Qt's own words
+
+
 def load_qt_translations(app: QApplication, lang: str):
     """Qt's own words (in standard buttons and menus) in the chosen language."""
+    global _qt_words
+    if _qt_words is not None:  # (the language was changed while running)
+        app.removeTranslator(_qt_words)
+        _qt_words.deleteLater()
+        _qt_words = None
     if lang == "en":
         return
     try:
@@ -2035,6 +2091,7 @@ def load_qt_translations(app: QApplication, lang: str):
         translator = QTranslator(app)
         if translator.load(f"qtbase_{lang}", QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)):
             app.installTranslator(translator)
+            _qt_words = translator
     except Exception:
         log.debug("no Qt translations", exc_info=True)
 
@@ -2051,15 +2108,12 @@ def main() -> int:
     winutil.set_app_id(APP_ID)
     argv = sys.argv[1:]
 
-    settings_lang = Settings.load().language
-    lang = i18n.set_language(settings_lang)
+    first = Settings.load()
+    lang = i18n.set_language(first.language)
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setQuitOnLastWindowClosed(False)
     app.setApplicationVersion(__version__)
-    if i18n.is_rtl():
-        app.setLayoutDirection(Qt.RightToLeft)
-    load_qt_translations(app, lang)
 
     icon_path = resource("assets", "icon.png")
     if icon_path.exists():
@@ -2069,6 +2123,13 @@ def main() -> int:
         pm.fill()
         icon = QIcon(pm)
     app.setWindowIcon(icon)
+
+    from . import welcome
+    if welcome.should_ask(first, argv):  # the first start after installing: which language, before anything else
+        lang = i18n.set_language(welcome.ask_language(app, icon, first))
+        log.info("language picked on the first start: %s", lang)
+    app.setLayoutDirection(Qt.RightToLeft if i18n.is_rtl() else Qt.LeftToRight)
+    load_qt_translations(app, lang)
 
     controller = Controller(app, icon)
     app.commitDataRequest.connect(controller.end_session)
@@ -2134,7 +2195,7 @@ def main() -> int:
         s.known_tools = sorted({tool.id for tool in all_tools.ready()})  # (offered now, in the first-start question)
         if not message or not message.startswith(b"show"):
             controller.show_window("Home")
-        if not message and "--background" not in argv:
+        if (not message or message.startswith(b"show")) and "--background" not in argv:  # (a plain start is "show")
             QTimer.singleShot(500, controller.first_start)  # which tools, then the tour
     else:
         offered = all_tools.offer_new_tools(s)  # tools new in this version wait in the Store
@@ -2144,7 +2205,7 @@ def main() -> int:
             QTimer.singleShot(2500, lambda: controller.toast.notify(
                 tr("New tools in the Store"), tr("{names}. Add the ones you want from Corefold's Store.", names=names),
                 linger_ms=9000))
-        if not s.tour_done and not message and "--background" not in argv:
+        if not s.tour_done and (not message or message.startswith(b"show")) and "--background" not in argv:
             QTimer.singleShot(700, controller.show_tour)
     s.save()
     threading.Thread(target=_prune_backups, args=(s.backup_days,), daemon=True).start()
