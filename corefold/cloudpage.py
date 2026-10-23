@@ -156,6 +156,7 @@ class CloudPage(QWidget):
             act.setEnabled(cloud.available(key))
         add.setMenu(menu)
         side.addWidget(add)
+        side.addStretch()  # (takes the list's place while there are no accounts: the button stays on top)
         body.addLayout(side)
         main = QVBoxLayout()
         main.setSpacing(8)
@@ -358,6 +359,10 @@ class CloudPage(QWidget):
 
     def _buttons(self):
         have = self.account is not None
+        any_account = bool(getattr(self, "accounts", None))
+        for w in (self.account_list, self.up_btn, self.where, self.search, self.upload_btn, self.folder_btn,
+                  self.refresh_btn, self.space):
+            w.setVisible(any_account)  # nothing to browse yet: only "Add an account" and the note
         for b in (self.upload_btn, self.folder_btn, self.refresh_btn):
             b.setEnabled(have and not self._working())
         self.up_btn.setEnabled(have and bool(self.trail))

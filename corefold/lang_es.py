@@ -1146,6 +1146,7 @@ STRINGS: dict[str, str] = {
     "No duplicates found.": "No se encontraron duplicados.",
     "{count} copies of {name}": "{count} copias de {name}",
     "{count} smaller files": "{count} archivos más pequeños",
+    "{count} smaller items": "{count} elementos más pequeños",
     "Remove the ticked copies ({size})": "Quitar las copias marcadas ({size})",
     "{count} files have copies, taking {size} more than they need.": "{count} archivos tienen copias, que ocupan {size} de más.",
     "Keep one copy": "Conserva una copia",

@@ -1146,6 +1146,7 @@ STRINGS: dict[str, str] = {
     "No duplicates found.": "Kopya bulunamadı.",
     "{count} copies of {name}": "{name} dosyasının {count} kopyası",
     "{count} smaller files": "{count} küçük dosya",
+    "{count} smaller items": "{count} küçük öğe",
     "Remove the ticked copies ({size})": "İşaretli kopyaları kaldır ({size})",
     "{count} files have copies, taking {size} more than they need.": "{count} dosyanın kopyası var; gerekenden {size} fazla yer kaplıyorlar.",
     "Keep one copy": "Bir kopya bırakın",
