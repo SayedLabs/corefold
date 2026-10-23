@@ -2193,7 +2193,7 @@ def main() -> int:
         s.known_tools = sorted({tool.id for tool in all_tools.ready()})  # (offered now, in the first-start question)
         if not message or not message.startswith(b"show"):
             controller.show_window("Home")
-        if not message and "--background" not in argv:
+        if (not message or message.startswith(b"show")) and "--background" not in argv:  # (a plain start is "show")
             QTimer.singleShot(500, controller.first_start)  # which tools, then the tour
     else:
         offered = all_tools.offer_new_tools(s)  # tools new in this version wait in the Store
@@ -2203,7 +2203,7 @@ def main() -> int:
             QTimer.singleShot(2500, lambda: controller.toast.notify(
                 tr("New tools in the Store"), tr("{names}. Add the ones you want from Corefold's Store.", names=names),
                 linger_ms=9000))
-        if not s.tour_done and not message and "--background" not in argv:
+        if not s.tour_done and (not message or message.startswith(b"show")) and "--background" not in argv:
             QTimer.singleShot(700, controller.show_tour)
     s.save()
     threading.Thread(target=_prune_backups, args=(s.backup_days,), daemon=True).start()
