@@ -356,8 +356,23 @@ def space_nav():
         QTest.keyClick(w, Qt.Key_Left, Qt.AltModifier)
         settle(0.3)
         check(pg.scan is None and pg.drives_box.isVisible(), "…and then back to the drives")
+        # opening it again: the map that was made, right away (no looking through it again)
+        from corefold import spacepage
+        made = pg.kept.get(spacepage._key(Path(sys.base_prefix)))
+        t0 = time.time()
+        pg.start_scan(Path(sys.base_prefix))
+        settle(0.2)
+        check(made is not None and pg.job is None and pg.scan is made[0] and pg.map_box.isVisible(),
+              f"opening a folder again shows its map right away ({time.time() - t0:.2f} s)")
+        if pg.scan is not None:
+            click(pg.again_btn)
+            check(pg.job is not None and pg.busy_box.isVisible(), "Look again looks through it afresh")
+            until(lambda: pg.job is None, 120)
+            check(pg.scan is not None and made is not None and pg.scan is not made[0], "…and makes a new map")
+            pg._back_to_drives()
         cards = [b for b in pg.findChildren(QPushButton) if b.objectName() == "driveCard" and b.isVisible()]
         if cards:
+            pg.kept.clear()  # (so the drive is looked through, not shown from before)
             click(cards[0])
             settle(0.5)
             QTest.keyClick(w, Qt.Key_Left, Qt.AltModifier)

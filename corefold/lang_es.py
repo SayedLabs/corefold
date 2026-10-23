@@ -1573,4 +1573,6 @@ STRINGS: dict[str, str] = {
     "You stopped its uninstaller.": "Detuviste su desinstalador.",
     "{name} wasn't uninstalled": "{name} no se desinstaló",
     "{number} of {count}: {what}": "{number} de {count}: {what}",
+    "mapped {when}": "revisado {when}",
+    "Look through it again, to see what changed since": "Volver a revisarlo, para ver qué ha cambiado desde entonces",
 }

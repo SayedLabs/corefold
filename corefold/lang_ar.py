@@ -1651,4 +1651,6 @@ STRINGS: dict[str, str] = {
     "You stopped its uninstaller.": "أوقفتَ برنامج إلغاء تثبيته.",
     "{name} wasn't uninstalled": "لم يُلغَ تثبيت {name}",
     "{number} of {count}: {what}": "{number} من {count}: {what}",
+    "mapped {when}": "فُحص {when}",
+    "Look through it again, to see what changed since": "افحصه من جديد لترى ما تغيّر منذ ذلك الوقت",
 }

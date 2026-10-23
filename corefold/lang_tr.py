@@ -1573,4 +1573,6 @@ STRINGS: dict[str, str] = {
     "You stopped its uninstaller.": "Kaldırıcısını durdurdunuz.",
     "{name} wasn't uninstalled": "{name} kaldırılmadı",
     "{number} of {count}: {what}": "{number}/{count}: {what}",
+    "mapped {when}": "{when} incelendi",
+    "Look through it again, to see what changed since": "Neyin değiştiğini görmek için yeniden incele",
 }
