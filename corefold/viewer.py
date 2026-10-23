@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import threading
+from functools import lru_cache
 from collections import OrderedDict
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -60,10 +61,17 @@ def pil_to_qimage(im) -> QImage:
     return QImage(im.tobytes("raw", "RGB"), w, h, 3 * w, QImage.Format_RGB888).copy()
 
 
+@lru_cache(maxsize=1)
+def _qt_reads_tiff() -> bool:
+    """Qt's TIFF reader opens a big TIFF several times faster than Pillow (it comes with Qt on Windows)."""
+    from PySide6.QtGui import QImageReader
+    return b"tiff" in {bytes(f) for f in QImageReader.supportedImageFormats()}
+
+
 def load_picture(path: Path) -> QImage:
-    """Reads a picture (Qt's own readers are fastest; Pillow does HEIC, AVIF, TIFF and the rest).
+    """Reads a picture (Qt's own readers are fastest; Pillow does HEIC, AVIF and the rest).
     Phone photos are turned the right way up."""
-    if path.suffix.lower() in QT_READS:
+    if path.suffix.lower() in QT_READS or path.suffix.lower() in (".tif", ".tiff") and _qt_reads_tiff():
         from PySide6.QtGui import QImageReader
         reader = QImageReader(str(path))
         reader.setAutoTransform(True)
@@ -900,6 +908,8 @@ class ViewerWindow(QWidget):
         for name, value in [("Name", path.name), ("Folder", str(path.parent))] + picture_details(path):
             key = QLabel(tr(name))
             key.setObjectName("muted")
+            if name == "Folder":  # a long path breaks after a \ (not in the middle of a name, or cut off)
+                value = value.replace("\\", "\\\u200b")
             val = QLabel(ltr(tr(value) if name == "Location" else value))
             val.setWordWrap(True)
             val.setTextInteractionFlags(Qt.TextSelectableByMouse)

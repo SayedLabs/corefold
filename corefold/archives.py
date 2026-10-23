@@ -19,8 +19,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .i18n import tr
-from .core import ARCHIVE_EXT, NO_WINDOW, TAR_SUFFIXES, Ctx, Result, _cached, app_dir, bundled, is_link, norm, \
-    pass_on_zone_mark, run_with_progress, safe_name, unique_path
+from .core import ARCHIVE_EXT, NO_WINDOW, TAR_SUFFIXES, Cancelled, Ctx, Result, _cached, app_dir, bundled, is_link, \
+    norm, pass_on_zone_mark, remove_file, run_with_progress, safe_name, unique_path
 
 log = logging.getLogger("corefold")
 DUMMY_PASSWORD = "-pcorefold-no-password"  # never let 7-Zip stop and ask for one
@@ -43,14 +43,22 @@ class Entry:
 
 # ----------------------------------------------------------------------------- helpers
 
+_found_7z: list[str] = []
+
+
 def find_7z() -> str | None:
+    if _found_7z and os.path.exists(_found_7z[0]):  # (asked for every menu and wheel entry: looked up once)
+        return _found_7z[0]
+    _found_7z.clear()
     exe = "7z.exe" if os.name == "nt" else "7z"
     for cand in (bundled("7zip", exe), app_dir() / "7zip" / exe, app_dir() / "vendor" / "7zip" / exe):
         if cand and Path(cand).exists():
+            _found_7z.append(str(cand))
             return str(cand)
     for name in ("7z", "7zz", "7za"):
         found = shutil.which(name)
         if found:
+            _found_7z.append(found)
             return found
     return None
 
@@ -407,16 +415,22 @@ def pack_into(items: list[Path], out: Path, ctx: Ctx, fmt: str = "zip", level: s
         if split_mb and split_mb > 0:
             args.append(f"-v{int(split_mb * 1024)}k")
         listfile = _listfile(rel)
+
+        def remove_made():
+            # remove only what this run made: the archive and its numbered parts (.001, .002 …),
+            # never other files that just start with the same name
+            remove_file(out)
+            for part in out.parent.glob(glob_escape(out.name) + ".[0-9][0-9][0-9]"):
+                remove_file(part)
         try:
             code, output = _run7z([*args, "-scsUTF-8", str(out), f"@{listfile}"], ctx, cwd=parent)
+        except Cancelled:  # stopped halfway: no half-made archive is left behind
+            remove_made()
+            raise
         finally:
             listfile.unlink(missing_ok=True)
         if code not in (0, 1):
-            # remove only what this run made: the archive and its numbered parts (.001, .002 …),
-            # never other files that just start with the same name
-            out.unlink(missing_ok=True)
-            for part in out.parent.glob(glob_escape(out.name) + ".[0-9][0-9][0-9]"):
-                part.unlink(missing_ok=True)
+            remove_made()
             raise _7z_error(output)
         if split_mb:
             return sorted(out.parent.glob(glob_escape(out.name) + ".[0-9][0-9][0-9]"))
@@ -438,7 +452,7 @@ def pack_into(items: list[Path], out: Path, ctx: Ctx, fmt: str = "zip", level: s
                 zf.write(f, arc)
                 ctx.progress((i + 1) / max(1, len(files)))
     except BaseException:
-        out.unlink(missing_ok=True)
+        remove_file(out)
         raise
     return [out]
 

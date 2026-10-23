@@ -26,7 +26,7 @@ from .i18n import tr
 from .core import (ALIASES, ALL_EXT, ARCHIVE_EXT, AUDIO_EXT, DOCUMENT_EXT, EXCEL_EXT, IMAGE_EXT,  # noqa: F401
                    NO_WINDOW, SLIDES_EXT, job_flags, TAR_SUFFIXES, VIDEO_EXT, WORD_EXT, Cancelled, Ctx, Options, Result,
                    Tool, _cached, app_dir, bundled, is_cached, is_cloud_only, category, fallback_folder, human_size,
-                   norm, os_open, pass_on_zone_mark,
+                   lower_this_thread, norm, os_open, pass_on_zone_mark, remove_file,
                    safe_name, short_name, unique_path, writable)
 
 log = logging.getLogger("corefold")
@@ -59,10 +59,15 @@ def setup_pillow():
     _heif_registered = True
 
 
-def load_image(src: Path):
+def load_image(src: Path, fit: int = 0):
+    """The picture, upright. With fit, a JPG may be read at a smaller size that's still at least fit pixels on its
+    long side (many times faster when a phone photo is made small)."""
     from PIL import Image, ImageOps
     setup_pillow()
     with Image.open(src) as im:
+        if fit and im.format == "JPEG" and max(im.size) > fit * 2:
+            scale = fit / max(im.size)
+            im.draft(im.mode, (max(1, int(im.width * scale)), max(1, int(im.height * scale))))
         try:
             upright = im.getexif().get(0x0112, 1) in (0, 1)  # no phone-camera rotation to apply
         except Exception:
@@ -138,16 +143,19 @@ def save_image(im, out: Path, ext: str, ctx: Ctx, keep_metadata: bool = True):
     meta = _metadata(original, ext, im.mode) if keep_metadata else {}
     if "icc_profile" in im.info and "icc_profile" not in meta:
         im.info = {k: v for k, v in im.info.items() if k != "icc_profile"}  # Pillow would copy it anyway
-    if ext == ".jpg":
-        im.save(out, quality=ctx.options.jpg_quality, optimize=True, progressive=True, **meta)
+    big = im.width * im.height > BIG_PICTURE
+    if ext == ".jpg":  # progressive takes three times as long on a big photo for a file only 5% smaller
+        im.save(out, quality=ctx.options.jpg_quality, optimize=True, progressive=not big, **meta)
     elif ext == ".webp":
         if max(im.size) > WEBP_MAX:
             raise RuntimeError(tr("too big for WebP (it can't be wider or taller than 16,383 pixels)"))
-        im.save(out, quality=ctx.options.jpg_quality, method=5, **meta)
+        im.save(out, quality=ctx.options.jpg_quality, method=4, **meta)
     elif ext == ".avif":  # about half the size of a JPG at the same quality
         im.save(out, quality=max(50, ctx.options.jpg_quality - 15), speed=6,
                 **{k: v for k, v in meta.items() if k in ("exif", "icc_profile")})
-    elif ext in (".png", ".tiff"):
+    elif ext == ".png":  # a big photo packs twice as fast at level 3, for a file a little bigger
+        im.save(out, compress_level=3 if big else 6, **meta)
+    elif ext == ".tiff":
         im.save(out, **meta)
     elif ext == ".ico":
         im = im.convert("RGBA")
@@ -159,6 +167,7 @@ def save_image(im, out: Path, ext: str, ctx: Ctx, keep_metadata: bool = True):
         im.save(out)
 
 
+BIG_PICTURE = 8_000_000  # pixels: a phone photo is 12 million
 WEBP_MAX = 16383  # the largest width or height a WebP picture can have
 
 
@@ -224,12 +233,86 @@ def _all_pages(f: Path):
     yield flatten(load_image(f))
 
 
+def _plain_jpegs(files: list[Path]) -> list[tuple[Path, int, int, int, bool]] | None:
+    """(file, width, height, phone rotation, grey) when every file is an ordinary JPG photo, else None."""
+    from PIL import Image
+    out = []
+    for f in files:
+        try:
+            with Image.open(f) as im:
+                if im.format != "JPEG" or im.mode not in ("RGB", "L"):
+                    return None
+                turn = im.getexif().get(0x0112, 1) or 1
+                if turn not in (1, 3, 6, 8):  # (mirrored ones go the long way)
+                    return None
+                out.append((f, im.width, im.height, turn, im.mode == "L"))
+        except Exception:
+            return None
+    return out
+
+
+def jpegs_to_pdf(photos: list[tuple[Path, int, int, int, bool]], out: Path, resolution: int, ctx: Ctx):
+    """JPG photos go into the PDF as they are: nothing is decoded and compressed again, so it's many times
+    faster and the photos keep their quality. Phone rotation is applied on the page. The PDF is written
+    here directly (a PDF of pictures is a short list of parts), so each photo is one plain file copy."""
+    tmp = out.with_name(out.name + ".part")
+    offsets: list[int] = []
+    n = len(photos)
+    # parts: 1 the catalog, 2 the page list, then for each photo: its page, its drawing, the photo
+    kids = " ".join(f"{3 + 3 * i} 0 R" for i in range(n))
+    try:
+        with open(tmp, "wb") as fh:
+            def part(body: bytes, stream: bytes | None = None):
+                offsets.append(fh.tell())
+                fh.write(f"{len(offsets)} 0 obj\n".encode("ascii") + body)
+                if stream is not None:
+                    fh.write(b"\nstream\n" + stream + b"\nendstream")
+                fh.write(b"\nendobj\n")
+            fh.write(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
+            part(b"<< /Type /Catalog /Pages 2 0 R >>")
+            part(f"<< /Type /Pages /Kids [{kids}] /Count {n} >>".encode("ascii"))
+            for i, (f, w, h, turn, gray) in enumerate(photos):
+                ctx.check()
+                data = Path(f).read_bytes()
+                sw, sh = w * 72 / resolution, h * 72 / resolution
+                pw, ph = (sh, sw) if turn in (6, 8) else (sw, sh)
+                # where the photo goes on the page: a x b y c d (turned the way the phone held it)
+                a, b, c, d, e, g = {1: (sw, 0, 0, sh, 0, 0), 3: (-sw, 0, 0, -sh, sw, sh),
+                                    6: (0, -sw, sh, 0, 0, sw), 8: (0, sw, -sh, 0, sh, 0)}[turn]
+                draw = f"q {a:.4f} {b:.4f} {c:.4f} {d:.4f} {e:.4f} {g:.4f} cm /Im0 Do Q".encode("ascii")
+                me = 3 + 3 * i
+                part(f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {pw:.4f} {ph:.4f}] "
+                     f"/Resources << /XObject << /Im0 {me + 2} 0 R >> >> /Contents {me + 1} 0 R >>".encode("ascii"))
+                part(f"<< /Length {len(draw)} >>".encode("ascii"), draw)
+                part(f"<< /Type /XObject /Subtype /Image /Width {w} /Height {h} /BitsPerComponent 8 "
+                     f"/ColorSpace /{'DeviceGray' if gray else 'DeviceRGB'} /Filter /DCTDecode "
+                     f"/Length {len(data)} >>".encode("ascii"), data)
+                ctx.progress((i + 1) / (n + 1))
+            xref = fh.tell()
+            fh.write(f"xref\n0 {len(offsets) + 1}\n0000000000 65535 f \n".encode("ascii"))
+            fh.write("".join(f"{o:010d} 00000 n \n" for o in offsets).encode("ascii"))
+            fh.write(f"trailer\n<< /Size {len(offsets) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n"
+                     .encode("ascii"))
+        os.replace(tmp, out)
+    finally:
+        if tmp.exists():
+            tmp.unlink(missing_ok=True)
+
+
 def images_to_pdf(files: list[Path], ctx: Ctx) -> Result:
     if ctx.options.rename_base:
         name = safe_name(ctx.options.rename_base)
     else:
         name = files[0].stem if len(files) == 1 else f"{files[0].stem} +{len(files) - 1}"
     out = ctx.out_path(files[0], name + ".pdf")
+
+    photos = _plain_jpegs(files)
+    if photos:
+        import time
+        started = time.monotonic()
+        jpegs_to_pdf(photos, out, 150, ctx)
+        log.info("%d JPG photos put in a PDF as they are (%.1f s)", len(photos), time.monotonic() - started)
+        return Result([out])
 
     def pages():
         for i, f in enumerate(files):
@@ -243,7 +326,7 @@ def images_to_pdf(files: list[Path], ctx: Ctx) -> Result:
 def image_small(src: Path, ctx: Ctx) -> Result:
     """Shrink for sharing: max 1920 px, JPG quality 80."""
     from PIL import Image
-    im = flatten(load_image(src))
+    im = flatten(load_image(src, fit=1920))
     im.thumbnail((1920, 1920), Image.LANCZOS)
     out = ctx.out_path(src, f"{ctx.stem(src)} (small).jpg")
     im.save(out, quality=80, optimize=True, progressive=True)
@@ -624,11 +707,11 @@ def run_ffmpeg(src: Path, out: Path, args: list[str], ctx: Ctx, pre: list[str] |
         real_file = str(out) != os.devnull
         if ctx.cancelled:
             if real_file:
-                out.unlink(missing_ok=True)
+                remove_file(out)
             raise Cancelled()
         if proc.returncode:
             if real_file:
-                out.unlink(missing_ok=True)
+                remove_file(out)
             err.seek(0)
             lines = [ln for ln in err.read().strip().splitlines() if ln.strip()]
             log.error("ffmpeg failed for %s: %s", src, "\n".join(lines[-10:]))
@@ -1317,6 +1400,23 @@ def friendly_error(e: Exception) -> str:
     return str(e) or name
 
 
+# picture tools that only use Pillow: several photos are done at once (one per processor core, up to 4), at
+# the job's low priority, so 20 phone photos take a fraction of the time and the PC still feels normal
+SERIAL_IMAGE_TOOLS = {"image:cutout", "image:ocr", "image:video", "image:sticker", "image:pdf", "image:scan"}
+
+
+def _parallel(tool: Tool, items: list) -> int:
+    if tool.batch or len(items) < 2 or not tool.key.startswith("image:") or tool.key in SERIAL_IMAGE_TOOLS:
+        return 1
+    workers = min(4, max(1, (os.cpu_count() or 2) - 1), len(items))
+    try:
+        if max(p.stat().st_size for p in items) > 40 * 2**20:  # very big pictures: fewer at once (memory)
+            workers = min(workers, 2)
+    except OSError:
+        pass
+    return workers
+
+
 def run_job(tool: Tool, files: list[Path], options: Options,
             progress: Callable[[float], None] | None = None,
             cancel: threading.Event | None = None,
@@ -1329,26 +1429,39 @@ def run_job(tool: Tool, files: list[Path], options: Options,
     total, errors = Result(), []
     items = [files] if tool.batch else list(files)
     n = len(items)
-    for i, item in enumerate(items):
+    workers = _parallel(tool, items)
+    parts = [0.0] * n  # how far each file is (several are worked on at once)
+    lock = threading.Lock()
+    started = [0]
+
+    def part(i, f):
+        with lock:
+            parts[i] = f
+            done = sum(parts)
+        progress(done / n)
+
+    def one(i, item):
+        """(result, None), (None, error text) or (None, None) when it was cancelled."""
         if cancel.is_set():
-            break
-        ctx = Ctx(options, lambda f, i=i: progress((i + f) / n), cancel, params,
-                  index=None if tool.batch else i, total=n)
+            return None, None
+        if workers > 1:
+            lower_this_thread()
+        ctx = Ctx(options, lambda f, i=i: part(i, f), cancel, params, index=None if tool.batch else i, total=n)
         if on_item and n > 1:
-            on_item(i + 1, n, item.name)
+            with lock:
+                started[0] += 1
+                number = started[0]
+            on_item(number, n, item.name)
         try:
             r = tool.run(item, ctx)
             try:
                 pass_on_zone_mark([item] if isinstance(item, Path) else item, r.outputs)
             except Exception:
                 log.debug("couldn't pass on the download mark", exc_info=True)
-            total.outputs += r.outputs
-            total.clipboard = r.clipboard or total.clipboard
-            total.note = r.note or total.note
-            total.undo += r.undo
+            return r, None
         except Cancelled:
             ctx.discard()
-            break
+            return None, None
         except Exception as e:  # keep going with the remaining files
             ctx.discard()
             if isinstance(item, Path):
@@ -1356,10 +1469,34 @@ def run_job(tool: Tool, files: list[Path], options: Options,
             else:
                 name = short_name(item[0].name) if len(item) == 1 else tr("{count} files", count=len(item))
             if type(e).__name__ == "NeedPassword":
-                total.locked.append(item)  # the app asks for the password and tries just these again
+                with lock:
+                    total.locked.append(item)  # the app asks for the password and tries just these again
                 log.info("%s needs a password: %s", tool.label, name)
             else:
                 log.exception("%s failed on %s", tool.label, name)
-            errors.append(f"{name}: {friendly_error(e)}")
-        progress((i + 1) / n)
+            return None, f"{name}: {friendly_error(e)}"
+        finally:
+            part(i, 1.0)
+
+    if workers > 1:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="corefold-job") as pool:
+            outcomes = list(pool.map(one, range(n), items))
+    else:
+        outcomes = []
+        for i, item in enumerate(items):
+            if cancel.is_set():
+                break
+            r, err = one(i, item)
+            outcomes.append((r, err))
+            if r is None and err is None:  # cancelled
+                break
+    for r, err in outcomes:  # in the order the files were given
+        if r is not None:
+            total.outputs += r.outputs
+            total.clipboard = r.clipboard or total.clipboard
+            total.note = r.note or total.note
+            total.undo += r.undo
+        elif err is not None:
+            errors.append(err)
     return total, errors

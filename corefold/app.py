@@ -362,7 +362,8 @@ class Controller(QObject):
         # keeping memory low while idle
         self.tidy_timer = QTimer(self)
         self.tidy_timer.setSingleShot(True)
-        self.tidy_timer.timeout.connect(self.tidy_up)
+        self.tidy_timer.timeout.connect(self._tidy_when_free)
+        self._tidy_waits = 0
         self.light_tidy_timer = QTimer(self)  # soon after a job: hand back the memory it used
         self.light_tidy_timer.setSingleShot(True)
         self.light_tidy_timer.timeout.connect(self.light_tidy)
@@ -582,6 +583,16 @@ class Controller(QObject):
         gc.collect()
         winutil.trim_memory()
 
+    def _tidy_when_free(self):
+        """Looking through every object takes up to half a second with a big Space map kept: not while
+        someone is using one of Corefold's windows (unless they've been at it for five minutes)."""
+        if QApplication.activeWindow() is not None and self._tidy_waits < 30:
+            self._tidy_waits += 1
+            self.tidy_timer.start(10_000)
+            return
+        self._tidy_waits = 0
+        self.tidy_up()
+
     def tidy_up(self):
         """Lets go of memory that's only needed while converting (the background remover alone
         is about 200 MB), then hands unused memory back to Windows."""
@@ -717,10 +728,21 @@ class Controller(QObject):
                 pass
         threading.Thread(target=work, daemon=True).start()
 
+        def still_reading():  # (a big archive: something on screen says it's coming)
+            if key in self.listing:
+                title = tr("Opening {name}…", name=src.name)
+                if self.toast.notify(title, tr("A big archive takes a moment."), linger_ms=30000):
+                    self._opening_toast = title
+        QTimer.singleShot(700, still_reading)
+
     def _archive_listed(self, payload):
         from .browser import ArchiveBrowser
         src, password, entries, error = payload
         self.listing.discard(str(src).lower())
+        if getattr(self, "_opening_toast", None):
+            if self.toast.isVisible() and not self.toast.running and self.toast.title.text() == self._opening_toast:
+                self.toast.hide()
+            self._opening_toast = None
         if isinstance(error, archives.NeedPassword):  # names are hidden too (7z with a password)
             new = self.ask_password([src], wrong=bool(password))
             if new:
@@ -1212,7 +1234,16 @@ class Controller(QObject):
     def apply_theme(self, wheel_only: bool = False):
         self.theme = self._make_theme()
         if not wheel_only:
-            self.app.setStyleSheet(self._css())  # restyles every window: only when it changes
+            # restyles every window: only when it changes, and drawn once at the end instead of widget by widget
+            shown = [w for w in self.app.topLevelWidgets() if w.isVisible()]
+            for w in shown:
+                w.setUpdatesEnabled(False)
+            try:
+                self.app.setStyleSheet(self._css())
+            finally:
+                for w in shown:
+                    if _alive(w):
+                        w.setUpdatesEnabled(True)
         self.wheel.theme = self.theme
         if not wheel_only:
             self._color_menu_icons()

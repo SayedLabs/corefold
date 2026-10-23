@@ -9,6 +9,7 @@ import sys
 import tempfile
 import threading
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Callable
 
@@ -138,6 +139,34 @@ def unique_path(p: Path) -> Path:
         return cand
 
 
+def remove_file(p: Path):
+    """Deletes a half-made file. Right after a program is stopped Windows (or the virus scanner looking at the
+    new file) can still hold it for a moment: then it's tried again in the background for a while, so stopping
+    a job never waits for it. Never raises."""
+    import time
+
+    def attempt() -> bool:
+        try:
+            p.unlink(missing_ok=True)
+            return True
+        except PermissionError:
+            return False
+        except OSError:
+            return True
+    for _ in range(3):
+        if attempt():
+            return
+        time.sleep(0.1)
+
+    def later():
+        for _ in range(120):
+            time.sleep(0.5)
+            if attempt():
+                return
+        logging.getLogger("corefold").info("couldn't remove %s (still in use)", p)
+    threading.Thread(target=later, daemon=True, name="corefold-remove").start()
+
+
 WINDOWS_RESERVED = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
 
 
@@ -262,7 +291,7 @@ class Ctx:
                 if p.is_dir():
                     shutil.rmtree(p, ignore_errors=True)
                 elif p.exists():
-                    p.unlink()
+                    remove_file(p)
             except OSError:
                 pass
         self.made.clear()
@@ -310,6 +339,7 @@ def category(p: Path) -> str:
 
 # ----------------------------------------------------------------------------- helpers
 
+@lru_cache(maxsize=1)
 def app_dir() -> Path:
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent

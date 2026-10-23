@@ -108,7 +108,7 @@ def _chevron_image(color: QColor, up: bool) -> str:
 # Corefold's own parts (Qt's widgets and the shared names come from atomic/qss.py)
 QSS = Template("""
 QWidget#sidebar { background: transparent; }
-QLabel#brand { font-family: "Segoe UI Variable Display", "Segoe UI"; font-size: 12.5pt; font-weight: 700; }
+QLabel#brand { font-family: $font_display; font-size: 12.5pt; font-weight: 700; }
 QListWidget#nav { background: transparent; border: none; outline: none; }
 QPushButton#navToggle { background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 0;
                         min-width: 0; }
@@ -126,9 +126,9 @@ QLabel#newPill { background: $accent; color: $on_accent; border-radius: 9px; fon
 QFrame#toolCard { background: $panel; border: 1px solid $border; border-radius: 14px; }
 QFrame#toolCard:hover { border-color: $accent_line; background: $tool_hover; }
 QFrame#toolCard:focus { border-color: $accent; }
-QLabel#cardTitle { font-family: "Segoe UI Variable Display", "Segoe UI"; font-size: 11pt; font-weight: 600; }
+QLabel#cardTitle { font-family: $font_display; font-size: 11pt; font-weight: 600; }
 QLabel#cardStat { color: $accent_text; font-size: 8.5pt; font-weight: 600; }
-QLabel#heroStat { font-family: "Segoe UI Variable Display", "Segoe UI"; font-size: 17pt; font-weight: 700; }
+QLabel#heroStat { font-family: $font_display; font-size: 17pt; font-weight: 700; }
 QFrame#dropzone { border: 1px dashed $line_strong; border-radius: 14px; background: $panel; }
 QFrame#dropzone:hover { border-color: $accent; }
 QFrame#dropzone[hot="true"] { border: 1px solid $accent; background: $accent_soft; }
@@ -190,7 +190,7 @@ def stylesheet(t: Theme, scale: float = 1.0) -> str:
         accent_text=(p.accent if p.dark else p.accent.darker(108)).name(),
         tool_hover=mix(p.surface, p.accent, 0.05 if p.dark else 0.035).name(),
         nav_hover=mix(p.backdrop, p.text, 0.06).name(), nav_press=mix(p.backdrop, p.text, 0.1).name(),
-        lead_side=lead,
+        lead_side=lead, font_display=tokens.FONT_DISPLAY,
     )
     return qss.scaled(base + own, scale)
 
