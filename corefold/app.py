@@ -839,6 +839,10 @@ class Controller(QObject):
     def apply_tools(self):
         """Starts or stops what each tool does in the background, to match the tools in use."""
         self.watch_downloads(self.settings.watch_downloads)
+        runner = getattr(self, "scan_runner", None)
+        if runner is not None and not all_tools.is_on(self.settings, "scan"):
+            runner.stop()  # (removed in the Store: its scan stops too, and nothing of it is kept)
+            self.scan_runner = None
         self.update_shell_menu(500)
         self.sync_archive_opening()
         self._background_tools()
@@ -1052,7 +1056,8 @@ class Controller(QObject):
             self.menu_timer.start(MENU_WRITE_DELAY_MS)
             return
         s = copy.deepcopy(self.settings)  # a snapshot: the settings may change while this runs
-        menu_on = s.context_menu and all_tools.is_on(s, "converter")  # the menu is the Converter's
+        # the Converter's menu (when it's wanted), and Scan's "Scan with Corefold"
+        menu_on = (s.context_menu and all_tools.is_on(s, "converter")) or all_tools.is_on(s, "scan")
         if not menu_on and s.menu_signature == "off":
             return
         self.menu_busy = True
@@ -1106,6 +1111,36 @@ class Controller(QObject):
             self.uninstall_from_shortcut(Path(lines[0]))
         elif word == "run" and len(lines) >= 2:
             self.run_from_menu(lines[0], lines[1:])
+        elif word == "scan" and lines:
+            self.scan_from_menu(lines)
+
+    def scan_from_menu(self, paths: list[str]):
+        """"Scan with Corefold" on files, folders or drives: each arrives from its own helper process, so
+        they're collected for a moment and scanned together."""
+        if not all_tools.is_on(self.settings, "scan"):
+            return
+        waiting = getattr(self, "pending_scan", None)
+        if waiting is None:
+            waiting = self.pending_scan = []
+            self.scan_timer = QTimer(self, singleShot=True, interval=MENU_BATCH_MS)
+            self.scan_timer.timeout.connect(self._scan_pending)
+        for p in paths:
+            if os.path.exists(p) and p not in waiting:
+                waiting.append(p)
+        self.scan_timer.start()
+
+    def _scan_pending(self):
+        paths, self.pending_scan = self.pending_scan, []
+        if not paths:
+            return
+        from .scanpage import runner
+        r = runner(self)
+        if r.running:
+            self.tell(tr("A scan is already running"), tr("Scan these again when it's done."))
+            self.show_window("Scan")
+            return
+        r.start("custom", paths)
+        self.show_window("Scan")
 
     def uninstall_from_shortcut(self, path: Path):
         """"Uninstall with Corefold" on a shortcut (the desktop, the Start menu): the Uninstaller's own steps
@@ -1902,6 +1937,9 @@ class Controller(QObject):
             self.settings.save()
         for ev in self.cancels.values():
             ev.set()
+        runner = getattr(self, "scan_runner", None)
+        if runner is not None and runner.running:
+            runner.stop(wait_s=3)  # (Defender's scan is stopped too, not left running)
         self.pool.waitForDone(3000)
         self.quick_pool.waitForDone(1000)
         if self.clip is not None:
@@ -1955,7 +1993,7 @@ class Controller(QObject):
             self.quit(cleanup=True)
 
 
-PAGE_NAMES = ("Home", "Converter", "Apps", "Archives", "Viewer", "Player", "Clipboard", "Space", "Capture", "Cloud", "PDF", "Organizer", "Startup",
+PAGE_NAMES = ("Home", "Converter", "Apps", "Archives", "Viewer", "Player", "Clipboard", "Space", "Capture", "Cloud", "PDF", "Organizer", "Startup", "Scan",
               "Store", "PlayerSettings",
               "Soon",
               "General", "Look", "ConvOptions", "WheelLook", "Formats", "AppsSettings", "ArchiveSettings",
