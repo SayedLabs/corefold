@@ -1666,4 +1666,6 @@ STRINGS: dict[str, str] = {
     "What surely belongs to it is ticked. What only might is shown, so you can tick it yourself.": "اللي أكيد يخصه يكون محدد. واللي يمكن يخصه يطلع بدون تحديد، وأنت تحدده إذا تبي.",
     "Windows services it installed": "خدمات ويندوز اللي ثبّتها",
     "{count} files were still in use: Windows removes them when you restart the PC.": "{count} ملفات كانت لسا مستخدمة: ويندوز بيشيلها لما تعيد تشغيل الكمبيوتر.",
+    "Opening {name}…": "جارٍ فتح {name}…",
+    "A big archive takes a moment.": "الأرشيف الكبير يحتاج لحظة.",
 }

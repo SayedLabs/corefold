@@ -1588,4 +1588,6 @@ STRINGS: dict[str, str] = {
     "What surely belongs to it is ticked. What only might is shown, so you can tick it yourself.": "Lo que seguro es suyo está marcado. Lo que solo podría serlo se muestra para que lo marques tú.",
     "Windows services it installed": "Servicios de Windows que instaló",
     "{count} files were still in use: Windows removes them when you restart the PC.": "{count} archivos seguían en uso: Windows los quita cuando reinicies el PC.",
+    "Opening {name}…": "Abriendo {name}…",
+    "A big archive takes a moment.": "Un archivo comprimido grande tarda un momento.",
 }

@@ -717,10 +717,21 @@ class Controller(QObject):
                 pass
         threading.Thread(target=work, daemon=True).start()
 
+        def still_reading():  # (a big archive: something on screen says it's coming)
+            if key in self.listing:
+                title = tr("Opening {name}…", name=src.name)
+                if self.toast.notify(title, tr("A big archive takes a moment."), linger_ms=30000):
+                    self._opening_toast = title
+        QTimer.singleShot(700, still_reading)
+
     def _archive_listed(self, payload):
         from .browser import ArchiveBrowser
         src, password, entries, error = payload
         self.listing.discard(str(src).lower())
+        if getattr(self, "_opening_toast", None):
+            if self.toast.isVisible() and not self.toast.running and self.toast.title.text() == self._opening_toast:
+                self.toast.hide()
+            self._opening_toast = None
         if isinstance(error, archives.NeedPassword):  # names are hidden too (7z with a password)
             new = self.ask_password([src], wrong=bool(password))
             if new:

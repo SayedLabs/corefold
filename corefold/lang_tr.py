@@ -1588,4 +1588,6 @@ STRINGS: dict[str, str] = {
     "What surely belongs to it is ticked. What only might is shown, so you can tick it yourself.": "Kesinlikle ona ait olanlar işaretlidir. Yalnızca ait olabilecekler gösterilir, isterseniz kendiniz işaretlersiniz.",
     "Windows services it installed": "Yüklediği Windows hizmetleri",
     "{count} files were still in use: Windows removes them when you restart the PC.": "{count} dosya hâlâ kullanımdaydı: Windows bunları bilgisayarı yeniden başlattığınızda kaldırır.",
+    "Opening {name}…": "{name} açılıyor…",
+    "A big archive takes a moment.": "Büyük bir arşiv biraz zaman alır.",
 }
