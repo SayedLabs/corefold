@@ -373,6 +373,49 @@ def quarantine():
         pass
 
 
+def as_admin():
+    """Asking Defender as administrator: no file's name can make cmd.exe run something (& ^ ; % are allowed in
+    file names)."""
+    exe = scan.find_mpcmdrun()
+    out = str(WORK / "answer.txt")
+    odd = r"C:\x\eicar&md;cf-injected&.com"
+    prog, params = scan._admin_command(exe, ["-Restore", "-FilePath", odd], out)
+    check(prog == exe and f'"{odd}"' in params, "a file's path is never given to cmd.exe")
+    check(scan._admin_command(exe, ["-Restore", "-FilePath", 'a".exe'], out) is None,
+          "an argument with a quote in it is refused")
+    prog = scan._admin_command(exe, ["-Restore", "-ListAll"], out)[0]
+    check(prog.lower().endswith("cmd.exe"), "fixed words still bring back Defender's answer")
+    # for real: a threat whose name hides a command, quarantined, then put back as administrator
+    folder = WORK / "odd-names"
+    name = "eicar&md;cf-injected&.com"
+    eicar(folder / name)
+    scan.scan(scan.CUSTOM, [str(folder)])
+    time.sleep(1)
+    if (folder / name).exists():
+        check(False, "the oddly named threat is quarantined")
+        return
+    mine = [i for i in scan.quarantine(ask_admin=False) or [] if i.path.lower().endswith(name)]
+    check(mine, "and it's in the quarantine")
+    places = [Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "cf-injected",
+              Path.cwd() / "cf-injected", folder / "cf-injected", Path.home() / "cf-injected",
+              Path(exe).parent / "cf-injected"]
+    if mine:
+        box = {}
+        th = threading.Thread(target=lambda: box.setdefault("r", scan._mpcmdrun(
+            ["-Restore", "-FilePath", mine[0].path], admin=True)), daemon=True)
+        th.start()
+        th.join(150)
+        note(f"restored as administrator: {box.get('r')}")
+        check(box.get("r", (-1,))[0] == 0, "putting it back as administrator: Defender says done")
+        time.sleep(2)
+        check((folder / name).exists(), "the file is back")
+    made = [str(p) for p in places if p.exists()]
+    check(not made, f"and the command hidden in its name didn't run {made}")
+    for p in places:
+        shutil.rmtree(p, ignore_errors=True)
+    shutil.rmtree(folder, ignore_errors=True)
+
+
 def stopping():
     cancel = threading.Event()
     box = {}
@@ -649,7 +692,7 @@ def tidy():
 
 parts = [("state", state), ("signatures", signatures), ("names", names), ("hosts", hosts), ("startup", startup),
          ("running", running), ("menu", menu), ("Defender scans", defender_scans), ("quarantine", quarantine),
-         ("stopping", stopping)]
+         ("as administrator", as_admin), ("stopping", stopping)]
 if QUICK:
     parts.append(("quick scan", quick_scan))
 parts.append(("page", page))

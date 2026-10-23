@@ -484,9 +484,26 @@ def parse_quarantine(text: str) -> list[Quarantined]:
     return items
 
 
+_FIXED_ARG = re.compile(r"-[A-Za-z]+")
+
+
+def _admin_command(exe: str, args: list[str], out: str) -> tuple[str, str] | None:
+    """What to start as administrator: (program, its arguments). Only arguments that are fixed words
+    ("-Restore", "-ListAll") go through cmd.exe, for its answer in a file; anything else (a file's path, a
+    threat's name: & ^ ; % are allowed in file names, and cmd would run what follows them) starts MpCmdRun
+    itself, every argument in quotes, and only its exit code comes back. None if an argument can't be
+    passed safely at all."""
+    if any('"' in a or any(ord(ch) < 32 for ch in a) or a.endswith("\\") for a in args):
+        return None
+    if all(_FIXED_ARG.fullmatch(a) for a in args) and '"' not in out and "%" not in out:
+        cmd = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "cmd.exe")
+        return cmd, f'/c ""{exe}" {" ".join(args)} > "{out}" 2>&1"'
+    return exe, " ".join(f'"{a}"' for a in args)
+
+
 def _mpcmdrun(args: list[str], admin: bool, timeout: float = 120) -> tuple[int, str]:
-    """Runs MpCmdRun; as administrator (Windows asks first) when admin is True, through a temporary file
-    for its answer. (None, "") style failures come back as (-1, "")."""
+    """Runs MpCmdRun; as administrator (Windows asks first) when admin is True. (None, "") style failures
+    come back as (-1, "")."""
     exe = find_mpcmdrun()
     if not exe:
         return -1, ""
@@ -498,9 +515,11 @@ def _mpcmdrun(args: list[str], admin: bool, timeout: float = 120) -> tuple[int, 
     fd, out = tempfile.mkstemp(prefix="corefold-defender-", suffix=".txt")
     os.close(fd)
     try:
-        quoted = " ".join(f'"{a}"' if " " in a or not a else a for a in args)
-        cmd = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "cmd.exe")
-        handle = shell_run(cmd, f'/c ""{exe}" {quoted} > "{out}" 2>&1"', admin=True, show=0)
+        command = _admin_command(exe, args, out)
+        if command is None:
+            log.warning("not asking Defender as administrator: an argument can't be passed safely")
+            return -1, ""
+        handle = shell_run(command[0], command[1], admin=True, show=0)
         if handle is None:
             return -1, ""   # (the person said no)
         code = wait_process(handle, timeout_s=timeout)
