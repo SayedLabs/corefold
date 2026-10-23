@@ -18,8 +18,17 @@ RADIUS = {"xs": 4, "sm": 6, "md": 8, "lg": 12, "xl": 16, "canvas": 14, "pill": 9
 
 # ---- type: Segoe UI Variable on Windows 11 (Segoe UI on 10), sizes in points at 100 % text size
 
-FONT_TEXT = '"Segoe UI Variable Text", "Segoe UI"'
-FONT_DISPLAY = '"Segoe UI Variable Display", "Segoe UI"'
+def _has_variable_segoe() -> bool:
+    import os
+    return os.path.exists(os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts", "SegUIVar.ttf"))
+
+
+# One family each, never a list: with a list ("Segoe UI Variable Text", "Segoe UI") Qt looks through every font
+# on the PC the first time text is measured, which froze the window for seconds when it first opened.
+_VARIABLE = _has_variable_segoe()
+FONT_TEXT = '"Segoe UI Variable Text"' if _VARIABLE else '"Segoe UI"'
+FONT_DISPLAY = '"Segoe UI Variable Display"' if _VARIABLE else '"Segoe UI"'
+TEXT_FAMILY = FONT_TEXT.strip('"')  # (for QFont)
 TYPE = {
     "caption": 8.0,     # small print, pills, keyboard hints
     "body": 10.0,       # everything by default

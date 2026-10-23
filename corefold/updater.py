@@ -193,16 +193,24 @@ def download(info: UpdateInfo, current: str, progress: Callable[[float], None] |
 
 
 def clean_old_installers(keep_days: float = 1.0):
-    """Deletes installers left from earlier updates (about 100 MB each)."""
+    """Deletes installers left from earlier updates (about 100 MB each), also the one a version from
+    before 1.7.0 downloaded to update to Corefold (its own folder goes too once it's empty)."""
     import time
-    folder = Path(tempfile.gettempdir()) / "corefold-update"
+    from .core import LEGACY_NAME
+    temp = Path(tempfile.gettempdir())
     cutoff = time.time() - keep_days * 86400
-    for p in list(folder.glob("Corefold-Setup-*")) if folder.is_dir() else []:
-        try:
-            if p.stat().st_mtime < cutoff:
-                p.unlink()
-        except OSError:
-            pass
+    for folder, prefix in ((temp / "corefold-update", "Corefold"),
+                           (temp / f"{LEGACY_NAME.lower()}-update", LEGACY_NAME)):
+        for p in list(folder.glob(f"{prefix}-Setup-*")) if folder.is_dir() else []:
+            try:
+                if p.stat().st_mtime < cutoff:
+                    p.unlink()
+            except OSError:
+                pass
+    try:
+        (temp / f"{LEGACY_NAME.lower()}-update").rmdir()  # only if it's empty
+    except OSError:
+        pass
 
 
 def run_installer(path: Path):

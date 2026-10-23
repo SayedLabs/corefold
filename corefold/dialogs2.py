@@ -6,7 +6,7 @@ import threading
 from PySide6.QtCore import QObject, QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
-                               QRadioButton, QSpinBox, QStackedWidget, QWidget)
+                               QPushButton, QRadioButton, QSpinBox, QStackedWidget, QWidget)
 
 from .core import short_name
 from .dialogs import Base, describe
@@ -402,7 +402,264 @@ class CropDialog(Base):
         return {"box": tuple(self.area.box)}
 
 
+# ----------------------------------------------------------------------------- video: crop, subtitles, sound
+
+class _Choices(Base):
+    """A title, a few choices (one is picked), a note and a button."""
+
+    def __init__(self, files, icon, dark, title: str, choices: dict, note: str, ok: str, key: str,
+                 translate: bool = True):
+        super().__init__(title, describe(files), icon, dark)
+        self.key = key
+        self.group = QButtonGroup(self)
+        for i, (value, text) in enumerate(choices.items()):
+            rb = QRadioButton(tr(text) if translate else text)
+            rb.setProperty("value", value)
+            rb.setChecked(i == 0)
+            self.group.addButton(rb)
+            self.lay.addWidget(rb)
+        if note:
+            n = QLabel(note)
+            n.setObjectName("muted")
+            n.setWordWrap(True)
+            self.lay.addWidget(n)
+        self.buttons(ok)
+
+    def params(self):
+        b = self.group.checkedButton()
+        return {self.key: b.property("value") if b else None}
+
+
+class VideoCropDialog(_Choices):
+    def __init__(self, files, icon, dark):
+        from .videotools import CROPS
+        super().__init__(files, icon, dark, tr("Crop the video"), CROPS,
+                         tr("Shapes are cut from the middle of the picture. Saved as a new file; your original "
+                            "stays as it is."), tr("Crop"), "how")
+
+
+class SoundDialog(_Choices):
+    def __init__(self, files, icon, dark):
+        from .videotools import SOUND_FORMATS
+        super().__init__(files, icon, dark, tr("Save the sound"), SOUND_FORMATS,
+                         tr("WAV and FLAC keep every detail but are big; MP3 and M4A play everywhere."), tr("Save"),
+                         "format", translate=False)
+
+
+class SubtitlesDialog(Base):
+    def __init__(self, files, icon, dark):
+        from .videotools import subtitles_next_to
+        super().__init__(tr("Put subtitles in the video"), describe(files), icon, dark)
+        row = QHBoxLayout()
+        self.path = QLineEdit()
+        self.path.setPlaceholderText(tr("A subtitle file (.srt, .ass, .vtt)"))
+        found = subtitles_next_to(files[0])
+        if found is not None:
+            self.path.setText(str(found))
+        pick = QPushButton(tr("Choose…"))
+        pick.clicked.connect(self._pick)
+        row.addWidget(self.path, 1)
+        row.addWidget(pick)
+        self.lay.addLayout(row)
+        self.burn = QRadioButton(tr("Draw them into the picture (plays on phones and TVs too)"))
+        self.track = QRadioButton(tr("Add them as subtitles you can turn off (MKV, no quality lost, fast)"))
+        self.burn.setChecked(True)
+        group = QButtonGroup(self)
+        group.addButton(self.burn)
+        group.addButton(self.track)
+        self.lay.addWidget(self.burn)
+        self.lay.addWidget(self.track)
+        self.buttons(tr("Put them in"))
+        self.ok.setEnabled(bool(self.path.text()))
+        self.path.textChanged.connect(lambda t: self.ok.setEnabled(bool(t.strip())))
+
+    def _pick(self):
+        from PySide6.QtWidgets import QFileDialog
+        name, _ = QFileDialog.getOpenFileName(self, tr("Choose…"), self.path.text(),
+                                              tr("Subtitles") + " (*.srt *.ass *.ssa *.vtt)")
+        if name:
+            self.path.setText(name)
+
+    def params(self):
+        return {"subtitles": self.path.text().strip().strip('"'), "how": "burn" if self.burn.isChecked() else "track"}
+
+
+class PageNumbersDialog(Base):
+    def __init__(self, files, icon, dark):
+        from .pdfstamp import NUMBER_PLACES
+        super().__init__(tr("Number the pages"), describe(files), icon, dark)
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(12)
+        grid.setVerticalSpacing(10)
+        self.place = QComboBox()
+        for k, v in NUMBER_PLACES.items():
+            self.place.addItem(tr(v), k)
+        self.style = QComboBox()
+        self.style.addItem("1, 2, 3…", "n")
+        self.style.addItem("1 / 12, 2 / 12…", "of")
+        grid.addWidget(QLabel(tr("Where")), 0, 0)
+        grid.addWidget(self.place, 0, 1)
+        grid.addWidget(QLabel(tr("Style")), 1, 0)
+        grid.addWidget(self.style, 1, 1)
+        self.lay.addLayout(grid)
+        self.skip = QCheckBox(tr("No number on the first page (a cover)"))
+        self.lay.addWidget(self.skip)
+        note = QLabel(tr("Saved as a new file; your original stays as it is."))
+        note.setObjectName("muted")
+        note.setWordWrap(True)
+        self.lay.addWidget(note)
+        self.buttons(tr("Number them"))
+
+    def params(self):
+        return {"place": self.place.currentData(), "style": self.style.currentData(),
+                "skip": 1 if self.skip.isChecked() else 0}
+
+
+class SignaturePad(QWidget):
+    """Draw a signature with the mouse, a pen or a finger."""
+
+    def __init__(self):
+        super().__init__()
+        self.setMinimumSize(420, 150)
+        self.setCursor(Qt.CrossCursor)
+        self.strokes: list[list[QPointF]] = []
+        self.picture = QImage()   # a picture of a signature picked instead
+
+    def clear(self):
+        self.strokes, self.picture = [], QImage()
+        self.update()
+
+    def empty(self) -> bool:
+        return not self.strokes and self.picture.isNull()
+
+    def mousePressEvent(self, e):
+        if e.button() == Qt.LeftButton:
+            if not self.picture.isNull():
+                self.picture = QImage()
+            self.strokes.append([e.position()])
+            self.update()
+
+    def mouseMoveEvent(self, e):
+        if e.buttons() & Qt.LeftButton and self.strokes:
+            self.strokes[-1].append(e.position())
+            self.update()
+
+    def mouseReleaseEvent(self, e):
+        self.changed()
+
+    def changed(self):
+        pass  # (set by the dialog)
+
+    def _draw(self, p: QPainter, scale: float = 1.0):
+        pen = QPen(QColor("#1a2a6c"), 2.6 * scale, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+        p.setPen(pen)
+        for stroke in self.strokes:
+            if len(stroke) == 1:
+                p.drawPoint(stroke[0] * scale)
+            for a, b in zip(stroke, stroke[1:]):
+                p.drawLine(a * scale, b * scale)
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.fillRect(self.rect(), QColor("#ffffff"))
+        p.setPen(QPen(QColor("#c9ccd1"), 1, Qt.DashLine))
+        p.drawLine(16, self.height() - 34, self.width() - 16, self.height() - 34)
+        if not self.picture.isNull():
+            pm = QPixmap.fromImage(self.picture).scaled(self.size() * 0.9, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            p.drawPixmap((self.width() - pm.width()) // 2, (self.height() - pm.height()) // 2, pm)
+        self._draw(p)
+        p.end()
+
+    def save(self, path) -> bool:
+        if not self.picture.isNull():
+            return self.picture.save(str(path), "PNG")
+        img = QImage(self.size() * 3, QImage.Format.Format_ARGB32)
+        img.fill(Qt.transparent)
+        p = QPainter(img)
+        p.setRenderHint(QPainter.Antialiasing)
+        self._draw(p, 3.0)
+        p.end()
+        return img.save(str(path), "PNG")
+
+
+class SignDialog(Base):
+    def __init__(self, files, icon, dark):
+        from .pdfstamp import SIGN_PAGES, SIGN_PLACES
+        from .settings import CONFIG_DIR
+        super().__init__(tr("Sign the PDF"), describe(files), icon, dark)
+        self.kept = CONFIG_DIR / "signature.png"
+        self.lay.addWidget(QLabel(tr("Draw your signature:")))
+        self.pad = SignaturePad()
+        self.pad.changed = self._changed
+        self.lay.addWidget(self.pad)
+        row = QHBoxLayout()
+        clear = QPushButton(tr("Clear"))
+        clear.clicked.connect(lambda: (self.pad.clear(), self._changed()))
+        pick = QPushButton(tr("Use a picture of it…"))
+        pick.clicked.connect(self._pick)
+        row.addWidget(clear)
+        row.addWidget(pick)
+        row.addStretch()
+        self.lay.addLayout(row)
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(12)
+        self.pages = QComboBox()
+        for k, v in SIGN_PAGES.items():
+            self.pages.addItem(tr(v), k)
+        self.place = QComboBox()
+        for k, v in SIGN_PLACES.items():
+            self.place.addItem(tr(v), k)
+        self.size = QComboBox()
+        for k in ("small", "medium", "large"):
+            self.size.addItem(tr(k.capitalize()), k)
+        self.size.setCurrentIndex(1)
+        for r, (text, w) in enumerate(((tr("Pages"), self.pages), (tr("Where"), self.place), (tr("Size"), self.size))):
+            grid.addWidget(QLabel(text), r, 0)
+            grid.addWidget(w, r, 1)
+        self.lay.addLayout(grid)
+        self.remember = QCheckBox(tr("Remember my signature on this PC"))
+        self.lay.addWidget(self.remember)
+        if self.kept.exists():
+            self.pad.picture = QImage(str(self.kept))
+            self.remember.setChecked(True)
+        self.buttons(tr("Sign"))
+        self._changed()
+
+    def _changed(self):
+        self.ok.setEnabled(not self.pad.empty()) if hasattr(self, "ok") else None
+
+    def _pick(self):
+        from PySide6.QtWidgets import QFileDialog
+        name, _ = QFileDialog.getOpenFileName(self, tr("Use a picture of it…").rstrip("…"), "",
+                                              tr("Images") + " (*.png *.jpg *.jpeg *.webp *.bmp)")
+        if name:
+            img = QImage(name)
+            if not img.isNull():
+                self.pad.strokes, self.pad.picture = [], img
+                self.pad.update()
+                self._changed()
+
+    def params(self):
+        import tempfile
+        from pathlib import Path
+        out = Path(tempfile.mkdtemp(prefix="corefold-sign-")) / "signature.png"
+        self.pad.save(out)
+        try:
+            if self.remember.isChecked():
+                self.kept.parent.mkdir(parents=True, exist_ok=True)
+                self.pad.save(self.kept)
+            else:
+                self.kept.unlink(missing_ok=True)
+        except OSError:
+            pass
+        return {"signature": str(out), "pages": self.pages.currentData(), "place": self.place.currentData(),
+                "size": self.size.currentData()}
+
+
 def register(dialogs: dict):
     from .pdfpages import PagesDialog
     dialogs.update({"pages": PagesDialog, "speed": SpeedDialog, "sticker": StickerDialog, "lock": LockDialog,
-                    "rename_files": RenameFilesDialog, "crop": CropDialog})
+                    "rename_files": RenameFilesDialog, "crop": CropDialog, "video_crop": VideoCropDialog,
+                    "sound": SoundDialog, "subtitles": SubtitlesDialog, "page_numbers": PageNumbersDialog,
+                    "sign": SignDialog})

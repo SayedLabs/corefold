@@ -14,7 +14,7 @@ from PySide6.QtWidgets import QAbstractItemView, QFileDialog, QHBoxLayout, QHead
     QLineEdit, QListWidget, QListWidgetItem, QMenu, QMessageBox, QProgressBar, QPushButton, QTreeWidget, \
     QTreeWidgetItem, QVBoxLayout, QWidget
 
-from . import cloud, icons, work
+from . import UPDATE_REPO, cloud, icons, work
 from .core import human_size, short_name
 from .i18n import ltr, tr
 from .theme import round_menu
@@ -156,6 +156,12 @@ class CloudPage(QWidget):
             act.setEnabled(cloud.available(key))
         add.setMenu(menu)
         side.addWidget(add)
+        if UPDATE_REPO:  # what Cloud reaches and keeps, before signing in
+            owner, _, name = UPDATE_REPO.partition("/")
+            privacy = self._button(tr("Privacy"), lambda: QDesktopServices.openUrl(
+                QUrl(f"https://{owner}.github.io/{name}/privacy.html#cloud")))
+            privacy.setObjectName("flat")
+            side.addWidget(privacy, 0, Qt.AlignLeft)
         side.addStretch()  # (takes the list's place while there are no accounts: the button stays on top)
         body.addLayout(side)
         main = QVBoxLayout()
@@ -452,7 +458,7 @@ class CloudPage(QWidget):
     def open_file(self, e: cloud.Entry):
         acc = self.account
         folder = Path(tempfile.mkdtemp(prefix="corefold-cloud-"))
-        target = folder / e.name
+        target = folder / cloud.local_name(e.name)
 
         def go(progress):
             cloud.client(acc).download(e, target, lambda d, t: progress((e.name, d, t)), self.cancel)
@@ -469,7 +475,7 @@ class CloudPage(QWidget):
         def go(progress):
             from .core import unique_path
             for e in entries:
-                target = unique_path(Path(folder) / e.name)
+                target = unique_path(Path(folder) / cloud.local_name(e.name))
                 cloud.client(acc).download(e, target, lambda d, t, n=e.name: progress((n, d, t)), self.cancel)
             return tr("Downloaded {count} files to {folder}.", count=len(entries), folder=ltr(folder))
         self._run(go, "", refresh=False)
@@ -537,7 +543,7 @@ class CloudPage(QWidget):
             folder = Path(tempfile.mkdtemp(prefix="corefold-cloud-"))
             try:
                 for e in files:
-                    tmp = folder / e.name
+                    tmp = folder / cloud.local_name(e.name)
                     cloud.client(source).download(e, tmp, lambda d, t, n=e.name: progress((n, d, 2 * t)), self.cancel)
                     cloud.client(target).upload(tmp, None, lambda d, t, n=e.name: progress((n, t + d, 2 * t)),
                                                 self.cancel)

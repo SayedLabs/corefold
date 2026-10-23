@@ -26,6 +26,7 @@ from .converters import Pick, Slot, pick, warm_up
 from .core import APP_NAME
 from .i18n import tr
 from .settings import TEXT_SIZES, WHEEL_SIZES, Settings
+from .atomic.tokens import TEXT_FAMILY
 from .theme import Theme
 
 CENTER = -2  # hover value for the cancel area in the middle
@@ -44,17 +45,20 @@ ICONS = {  # action -> line icon (see icons.py)
     "7z": "archive", "options": "lock_closed_key", "pdf": "document_pdf", "more": "add", "crop": "crop",
     "sticker": "sticker", "mute": "speaker_mute", "volume": "speaker_2", "speed": "fast_forward",
     "pages": "document_multiple", "images": "image_multiple", "lock": "lock_closed", "unlock": "lock_open",
-    "rename": "rename",
+    "rename": "rename", "subtitles": "closed_caption", "srt": "closed_caption", "sound": "music_note_2",
+    "join": "merge", "hash": "shield_checkmark", "numbers": "text_description",
+    "sign": "paint_brush",
 }
 FORMAT_ACTIONS = {"png", "jpg", "webp", "ico", "bmp", "avif", "mp3", "m4a", "wav", "flac", "ogg", "opus", "aiff", "mp4",
                   "mov", "webm", "mkv", "gif", "pdf", "text"}
 GROUPS = {  # action -> group, for "colour by kind of action"
     **{a: "convert" for a in FORMAT_ACTIONS},
     **{a: "edit" for a in ("resize", "rotate", "trim", "watermark", "cutout", "clean", "frames", "video", "scan",
-                           "crop", "sticker", "mute", "volume", "speed", "pages", "rename")},
+                           "crop", "sticker", "mute", "volume", "speed", "pages", "rename", "subtitles", "join",
+                           "numbers", "sign")},
     **{a: "shrink" for a in ("fit", "small", "compress")},
     **{a: "archive" for a in ("zip", "7z", "options", "extract", "folder", "browse", "test", "merge", "split")},
-    **{a: "read" for a in ("ocr", "qr", "images")},
+    **{a: "read" for a in ("ocr", "qr", "images", "srt", "hash", "sound")},
     **{a: "archive" for a in ("lock", "unlock")},
 }
 GROUP_COLORS = {"convert": "#3b82f6", "edit": "#a855f7", "shrink": "#22c55e", "archive": "#f59e0b",
@@ -205,8 +209,7 @@ def paint_wheel(p: QPainter, c: QPointF, R: float, items: list[Item], hover: int
     size = max(8.5, min(11.5, R / 16.5 * look.text_scale))
     if n > 10:
         size = max(8.0, size * 10 / n + 0.8)
-    label_font = QFont("Segoe UI Variable Text", 1)
-    label_font.setFamilies(["Segoe UI Variable Text", "Segoe UI"])
+    label_font = QFont(TEXT_FAMILY, 1)
     label_font.setPointSizeF(size)
     icon_px = round(size * (2.5 if look.labels == "icon" else 2.05))
     if n:
@@ -387,8 +390,7 @@ def paint_wheel(p: QPainter, c: QPointF, R: float, items: list[Item], hover: int
     def chord_at(dy: float) -> float:  # how wide the middle is at this height (with a margin)
         return max(20.0, 2 * math.sqrt(max(1.0, hub ** 2 - dy ** 2)) - 14)
 
-    f1 = QFont("Segoe UI Variable Text", 1)
-    f1.setFamilies(["Segoe UI Variable Text", "Segoe UI"])
+    f1 = QFont(TEXT_FAMILY, 1)
     f1.setPointSizeF(max(8.5, min(12.0, hub / 5.6 * look.text_scale)))
     f1.setWeight(QFont.Weight.DemiBold)
     f2 = QFont(f1)

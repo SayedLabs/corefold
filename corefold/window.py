@@ -25,9 +25,9 @@ from .settings import (ACCENTS, APP_NAME, DEFAULT_ACCENT, APPEARANCES, HOVER_STY
                        WHEEL_POSITIONS, WHEEL_SIZE_NAMES, WHEEL_STYLES, WINDOW_TEXT, installed_uninstaller,
                        ARCHIVE_KEYS, BACKUP_DAYS, CONVERTER_KEYS, EXTRACT_MODES, FORMAT_KEYS, GENERAL_KEYS,
                        SLIDESHOW_SECONDS, VIEWER_KEYS, VIEWER_WHEEL, CLIP_DAYS, CLIP_MAX, CLIP_SHORTCUTS, CLIPBOARD_KEYS,
-                       CAP_AFTER, CAP_FPS, CAP_RECORD_SHORTCUTS, CAP_SHORTCUTS, CAPTURE_KEYS, PLAYER_KEYS, PLAYER_SKIP,
+                       CAP_AFTER, CAP_DELAY, CAP_FPS, CAP_RECORD_SHORTCUTS, CAP_SHORTCUTS, CAPTURE_KEYS, PLAYER_KEYS, PLAYER_SKIP,
                        PLAYER_WHEEL,
-                       LOOK_KEYS, UNINSTALLER_KEYS, UNUSED_MONTHS, WHEEL_KEYS, editable_keys, set_startup,
+                       LOOK_KEYS, UNINSTALL_DEPTHS, UNINSTALLER_KEYS, UNUSED_MONTHS, WHEEL_KEYS, editable_keys, set_startup,
                        startup_enabled)
 from .atomic.widgets import Switch, keep_wrapped_text, mark_rows
 from .theme import Theme
@@ -241,15 +241,17 @@ class ToolCard(QFrame):
 
 
 class _BackButton(QObject):
-    """The mouse's back button anywhere in the window goes back a page, like in a browser."""
+    """The mouse's back button anywhere in the window goes back a page, like in a browser. It listens on
+    the window's own screen window, which sees every click in it before the widgets do but none of the
+    widgets' own events (listening on the whole app ran Python for every event, thousands when the look
+    changes)."""
 
     def __init__(self, window: "MainWindow"):
         super().__init__(window)
         self.w = window
 
     def eventFilter(self, obj, event):
-        if event.type() == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.BackButton and \
-                obj.isWidgetType() and obj.window() is self.w:
+        if event.type() == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.BackButton:
             self.w.go_back()
             return True
         return False
@@ -569,7 +571,7 @@ class MainWindow(QWidget):
         self._going_back = False
         QShortcut(QKeySequence(QKeySequence.StandardKey.Back), self, self.go_back)
         QShortcut(QKeySequence("Ctrl+K"), self, self.open_palette)
-        self._back_button = _BackButton(self)  # (only listens while the window is showing)
+        self._back_button = _BackButton(self)
 
     # ---- saving settings on purpose
 
@@ -1180,6 +1182,14 @@ class MainWindow(QWidget):
         if self.c.capture is not None:
             commands.append(Command(tr("Take a screenshot"), actions, ic("screenshot"),
                                     lambda: QTimer.singleShot(250, self.c.capture.screenshot), keywords="capture"))
+            commands.append(Command(tr("Screenshot with a timer"), actions, ic("timer"),
+                                    lambda: QTimer.singleShot(250, self.c.capture.screenshot_later),
+                                    keywords="capture delay wait countdown"))
+            commands.append(Command(tr("Record a GIF"), actions, ic("filmstrip_image"),
+                                    lambda: QTimer.singleShot(250, self.c.capture.record_gif),
+                                    keywords="capture animation record"))
+            commands.append(Command(tr("Pin what's copied to the screen"), actions, ic("pin"),
+                                    self.c.capture.pin_last, keywords="capture pin float on top"))
         if self.c.clip is not None:
             commands.append(Command(tr("Show the clipboard history"), actions, ic("clipboard"),
                                     self.c.show_clipboard, hint="Win Alt V", keywords="clipboard paste"))
@@ -1798,7 +1808,9 @@ class MainWindow(QWidget):
                                      "JPG copy"), s.watch_downloads, self.c.set_watch_downloads)
         self.pack_everywhere = checkbox(tr("Show ZIP / 7z options on every wheel"), s.pack_on_every_wheel,
                                         self._general_changed)
-        for cb in (self.ask_names, self.reveal, self.tick, self.downloads, self.pack_everywhere):
+        self.video_gpu = checkbox(tr("Make videos with the graphics card when there is one (several times faster)"),
+                                  s.video_gpu, self._general_changed)
+        for cb in (self.ask_names, self.reveal, self.tick, self.downloads, self.pack_everywhere, self.video_gpu):
             cl.addWidget(cb)
         lay.addWidget(checks)
         lay.addLayout(_reset_row(lambda: self.reset_to_defaults(CONVERTER_KEYS)))
@@ -1951,10 +1963,19 @@ class MainWindow(QWidget):
         grid.addWidget(self.unused_months, 0, 1)
         grid.addWidget(label(tr("Keep backups of removed leftovers for")), 1, 0)
         grid.addWidget(self.backup_days, 1, 1)
+        self.uninstall_depth = QComboBox()
+        for key, text in UNINSTALL_DEPTHS.items():
+            self.uninstall_depth.addItem(tr(text), key)
+        self.uninstall_depth.setCurrentIndex(max(0, self.uninstall_depth.findData(s.uninstall_depth)))
+        self.uninstall_depth.currentIndexChanged.connect(self._tool_setting_changed)
+        grid.addWidget(label(tr("How deep to clean up:")), 2, 0)
+        grid.addWidget(self.uninstall_depth, 2, 1)
         grid.setColumnStretch(2, 1)
         bl.addLayout(grid)
         bl.addWidget(label(tr("Backups let you put back anything Corefold removed. Older ones are deleted by "
                               "themselves to free up space."), "muted", wrap=True))
+        bl.addWidget(label(tr("The depth can also be changed each time, on the list of leftovers. Safe only offers "
+                              "what surely belongs to the app; Deep also looks in more places."), "muted", wrap=True))
         lay.addWidget(box)
         checks, cl = card()
         self.restore_point = checkbox(tr("Make a System Restore point before uninstalling (ticked to begin with)"),
@@ -2409,6 +2430,12 @@ class MainWindow(QWidget):
         grid.addWidget(self.cap_record_shortcut, 1, 1)
         grid.addWidget(label(tr("After a screenshot")), 2, 0)
         grid.addWidget(self.cap_after, 2, 1)
+        self.cap_delay = QComboBox()
+        for key, text in CAP_DELAY.items():
+            self.cap_delay.addItem(tr(text), key)
+        self.cap_delay.setCurrentIndex(max(0, self.cap_delay.findData(s.cap_delay)))
+        grid.addWidget(label(tr("A screenshot with a timer waits")), 3, 0)
+        grid.addWidget(self.cap_delay, 3, 1)
         grid.setColumnStretch(2, 1)
         bl.addLayout(grid)
         self.cap_key_note = label(tr("Another app already uses one of these shortcuts. Pick another one."), "warning",
@@ -2442,13 +2469,17 @@ class MainWindow(QWidget):
         grid.addWidget(self.cap_mic, 1, 1)
         grid.setColumnStretch(2, 1)
         bl.addLayout(grid)
+        self.cap_pc_sound = checkbox(tr("Record the PC's sound too (videos, games, calls)"), s.cap_pc_sound,
+                                     self._cap_setting_changed)
         self.cap_cursor = checkbox(tr("Show the mouse pointer in recordings"), s.cap_cursor, self._cap_setting_changed)
         self.cap_countdown = checkbox(tr("Count down 3, 2, 1 before recording starts"), s.cap_countdown,
                                       self._cap_setting_changed)
+        bl.addWidget(self.cap_pc_sound)
         bl.addWidget(self.cap_cursor)
         bl.addWidget(self.cap_countdown)
         lay.addWidget(box)
-        for combo in (self.cap_shortcut, self.cap_record_shortcut, self.cap_after, self.cap_fps, self.cap_mic):
+        for combo in (self.cap_shortcut, self.cap_record_shortcut, self.cap_after, self.cap_delay, self.cap_fps,
+                      self.cap_mic):
             combo.currentIndexChanged.connect(self._cap_setting_changed)
         lay.addLayout(_reset_row(lambda: self.reset_to_defaults(CAPTURE_KEYS)))
         lay.addStretch()
@@ -2489,9 +2520,11 @@ class MainWindow(QWidget):
         s.cap_shortcut = self.cap_shortcut.currentData()
         s.cap_record_shortcut = self.cap_record_shortcut.currentData()
         s.cap_after = self.cap_after.currentData()
+        s.cap_delay = self.cap_delay.currentData()
         s.cap_save = self.cap_save.isChecked()
         s.cap_fps = self.cap_fps.currentData()
         s.cap_mic = self.cap_mic.currentData() or ""
+        s.cap_pc_sound = self.cap_pc_sound.isChecked()
         s.cap_cursor = self.cap_cursor.isChecked()
         s.cap_countdown = self.cap_countdown.isChecked()
         self.c.settings_changed()
@@ -2553,6 +2586,12 @@ class MainWindow(QWidget):
         bl.addWidget(label(tr("Privacy"), "h2"))
         bl.addWidget(label(tr("Your clipboard history stays on this PC and is never uploaded. Passwords copied from "
                               "password managers are never kept."), "muted", wrap=True))
+        bl.addWidget(label(tr("Never keep copies from these apps"), wrap=True))
+        self.clip_ignore = QLineEdit(s.clip_ignore)
+        self.clip_ignore.setPlaceholderText(tr("For example: mybank.exe, notes.exe"))
+        self.clip_ignore.setClearButtonEnabled(True)
+        self.clip_ignore.editingFinished.connect(self._clip_setting_changed)
+        bl.addWidget(self.clip_ignore)
         row = QHBoxLayout()
         row.addWidget(button(tr("Clear the history…"), None, self._clear_clipboard))
         row.addStretch()
@@ -2567,6 +2606,7 @@ class MainWindow(QWidget):
         s.clip_shortcut = self.clip_shortcut.currentData()
         s.clip_max = self.clip_max.currentData()
         s.clip_days = self.clip_days.currentData()
+        s.clip_ignore = self.clip_ignore.text().strip()
         s.clip_paste = self.clip_paste.isChecked()
         s.clip_images = self.clip_images.isChecked()
         self.c.settings_changed()
@@ -2622,9 +2662,25 @@ class MainWindow(QWidget):
                                           self._tool_setting_changed)
         bl.addWidget(self.remember_archives)
         lay.addWidget(box)
+        box, bl = card()
+        bl.addWidget(label(tr("Passwords"), "h2"))
+        bl.addWidget(label(tr("When you tick \"Remember it\" in the password box, Corefold tries that password first "
+                              "next time. They're locked to your Windows account and never leave this PC."), "muted",
+                           wrap=True))
+        row = QHBoxLayout()
+        self.forget_passwords = button(tr("Forget the saved passwords"), None, self._forget_passwords)
+        row.addWidget(self.forget_passwords)
+        row.addStretch()
+        bl.addLayout(row)
+        lay.addWidget(box)
         lay.addLayout(_reset_row(lambda: self.reset_to_defaults(ARCHIVE_KEYS)))
         lay.addStretch()
         return w
+
+    def _forget_passwords(self):
+        from . import passwords
+        passwords.forget_all()
+        self.c.say(tr("Forgotten"), tr("No archive passwords are saved now."))
 
     def _tool_setting_changed(self, *_):
         """A setting on the Uninstaller or Archive tab."""
@@ -2632,6 +2688,7 @@ class MainWindow(QWidget):
         s.unused_months = self.unused_months.currentData()
         s.backup_days = self.backup_days.currentData()
         s.restore_point = self.restore_point.isChecked()
+        s.uninstall_depth = self.uninstall_depth.currentData()
         s.extract_mode = self.extract_mode.currentData()
         s.extract_nested = self.extract_nested.isChecked()
         s.remember_archives = self.remember_archives.isChecked()
@@ -2999,6 +3056,7 @@ class MainWindow(QWidget):
         s.reveal_after = self.reveal.isChecked()
         s.sound_problems = self.problem_sound.isChecked()
         s.sound_tick = self.tick.isChecked()
+        s.video_gpu = self.video_gpu.isChecked()
         changed = s.pack_on_every_wheel != self.pack_everywhere.isChecked()
         s.pack_on_every_wheel = self.pack_everywhere.isChecked()
         self.c.settings_changed(menu=changed)
@@ -3247,6 +3305,8 @@ class MainWindow(QWidget):
             self.clip_page.apply_theme(t)
         if self.space_page is not None:
             self.space_page.apply_theme(t)
+        if getattr(self, "apps_page", None) is not None:
+            self.apps_page.apply_theme(t)
         if self.cloud_page is not None:
             self.cloud_page.apply_theme(t)
         if self.isVisible():
@@ -3296,12 +3356,9 @@ class MainWindow(QWidget):
                 return True
         return False
 
-    def hideEvent(self, e):
-        QApplication.instance().removeEventFilter(self._back_button)
-        super().hideEvent(e)
-
     def showEvent(self, e):
-        QApplication.instance().installEventFilter(self._back_button)
+        if self.windowHandle() is not None:
+            self.windowHandle().installEventFilter(self._back_button)
         if not self._placed:
             self._placed = True
             self._restore_place()

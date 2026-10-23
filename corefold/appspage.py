@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QFileInfo, QObject, Qt, QTimer, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDialog, QFileIconProvider, QHBoxLayout, QHeaderView,
-                               QLabel, QLineEdit, QMessageBox, QProgressBar, QPushButton, QStackedWidget,
+                               QLabel, QLineEdit, QMenu, QMessageBox, QProgressBar, QPushButton, QStackedWidget,
                                QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from . import uninstall as un
@@ -66,7 +66,8 @@ class _Signals(QObject):
 
 # what the "Show" list can narrow the apps down to (English, shown through tr())
 SHOW = {"all": "All apps", "unused": "Not used for 3 months", "big": "Big (1 GB or more)",
-        "new": "Installed in the last 30 days", "startup": "Start with Windows"}
+        "new": "Installed in the last 30 days", "startup": "Start with Windows",
+        "extras": "Extras that came with Windows"}
 # "not used for …" (chosen in Settings → Uninstaller): the filter's name and the count in the status line
 UNUSED = {3: ("Not used for 3 months", "{count} not used for 3 months"),
           6: ("Not used for 6 months", "{count} not used for 6 months"),
@@ -76,6 +77,11 @@ UNUSED = {3: ("Not used for 3 months", "{count} not used for 3 months"),
 def _months(controller) -> int:
     months = getattr(getattr(controller, "settings", None), "unused_months", 3)
     return months if months in UNUSED else 3
+
+
+def _depth(controller) -> str:
+    depth = getattr(getattr(controller, "settings", None), "uninstall_depth", "normal")
+    return depth if depth in un.DEPTHS else "normal"
 
 
 def _backup_days(controller) -> int:
@@ -115,6 +121,8 @@ def _shown(app: un.App, show: str, months: int = 3) -> bool:
             return False
     if show == "startup":
         return app.startup
+    if show == "extras":
+        return un.is_windows_extra(app)
     return True
 
 
@@ -144,6 +152,48 @@ def _icon_for(app: un.App, provider: QFileIconProvider) -> QIcon | None:
 
 
 # ----------------------------------------------------------------------------- the page
+
+class HunterButton(QPushButton):
+    """Drag it onto any window: the program that window belongs to is found in the list."""
+    found = Signal(str)   # the program file of the window it was let go on ("" for none)
+
+    def __init__(self, theme=None):
+        super().__init__()
+        self.setAccessibleName(tr("Drag onto a window"))
+        self.setToolTip(tr("Drag onto a window") + "\n" +
+                        tr("Don't know a program's name? Drag this onto one of its windows."))
+        self.setCursor(Qt.OpenHandCursor)
+        self.apply_theme(theme)
+
+    def apply_theme(self, theme):
+        from . import icons
+        self.setIcon(icons.icon("target", theme.text if theme is not None else "#888888"))
+
+    def mousePressEvent(self, e):
+        if e.button() == Qt.LeftButton:
+            self.setDown(True)
+            self.grabMouse(Qt.CrossCursor)
+            return
+        super().mousePressEvent(e)
+
+    def mouseReleaseEvent(self, e):
+        if e.button() != Qt.LeftButton:
+            return super().mouseReleaseEvent(e)
+        self.releaseMouse()
+        self.setDown(False)
+        if self.rect().contains(e.position().toPoint()):
+            return  # let go on the button itself: nothing picked
+        exe = ""
+        if os.name == "nt":
+            import ctypes
+            from ctypes import wintypes as wt
+            pt = wt.POINT()
+            ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
+            exe = un.program_at_point(pt.x, pt.y)
+        if exe and os.path.normcase(exe) == os.path.normcase(sys.executable):
+            exe = ""  # Corefold's own window
+        self.found.emit(exe)
+
 
 class AppsPage(QWidget):
     def __init__(self, controller: "Controller", window=None):
@@ -191,6 +241,9 @@ class AppsPage(QWidget):
         top.addWidget(self.show_only)
         top.addWidget(self.store)
         top.addWidget(_button(tr("Refresh"), on_click=self.reload))
+        self.hunter = HunterButton(controller.theme if controller is not None else None)
+        self.hunter.found.connect(self._hunted)
+        top.addWidget(self.hunter)
         lay.addLayout(top)
 
         self.tree = QTreeWidget()
@@ -229,7 +282,14 @@ class AppsPage(QWidget):
         row.addWidget(self.b_leftovers)
         row.addWidget(self.b_folder)
         row.addStretch()
-        row.addWidget(_button(tr("Backups…"), on_click=self.show_backups))
+        self.b_more = _button(tr("More"))
+        more = QMenu(self.b_more)
+        from .theme import round_menu
+        round_menu(more)
+        more.addAction(tr("Browser extensions…"), self.show_extensions)
+        more.addAction(tr("Backups…"), self.show_backups)
+        self.b_more.setMenu(more)
+        row.addWidget(self.b_more)
         lay.addLayout(row)
         self._selection()
 
@@ -374,8 +434,8 @@ class AppsPage(QWidget):
 
     def _filter(self, *_):
         words = self.search.text().lower().split()
-        stores = self.store.isChecked()
         show = self.show_only.currentData() or "all"
+        stores = self.store.isChecked() or show == "extras"  # (Windows' extras are Store apps)
         for i in range(self.tree.topLevelItemCount()):
             item = self.tree.topLevelItem(i)
             app = item.data(0, APP_ROLE)
@@ -429,6 +489,35 @@ class AppsPage(QWidget):
         dlg.deleteLater()
         if dlg.changed:
             self.reload()
+
+    def _hunted(self, exe: str):
+        """A window was picked with "Drag onto a window": its program is picked in the list."""
+        app = un.app_for_program(exe, self.apps) if exe else None
+        if app is None:
+            QMessageBox.information(self, tr("Drag onto a window"),
+                                    tr("That window belongs to Windows itself or to a program that isn't installed "
+                                       "(it runs on its own).") if exe else tr("No window there."))
+            return
+        if app.store and not self.store.isChecked():
+            self.store.setChecked(True)
+        self.search.clear()
+        self.show_only.setCurrentIndex(0)
+        for i in range(self.tree.topLevelItemCount()):
+            item = self.tree.topLevelItem(i)
+            if item.data(0, APP_ROLE).id == app.id:
+                self.tree.clearSelection()
+                item.setSelected(True)
+                self.tree.setCurrentItem(item)
+                self.tree.scrollToItem(item, QAbstractItemView.PositionAtCenter)
+                self.window().raise_()
+                self.status.setText(tr("Found: {name}. Press Uninstall to remove it.", name=app.name))
+                return
+
+    def apply_theme(self, theme):
+        self.hunter.apply_theme(theme)
+
+    def show_extensions(self):
+        ExtensionsDialog(self.window().windowIcon()).exec()
 
     def show_backups(self):
         dlg = BackupsDialog(self.c, self.window().windowIcon())
@@ -552,6 +641,18 @@ class UninstallDialog(QDialog):
         l3.addWidget(self.left_title)
         l3.addWidget(_label(tr("Ticked items clearly belong to the app. Unticked ones only might, so check them first. "
                                "Everything removed is kept as a backup."), "muted", wrap=True))
+        depth_row = QHBoxLayout()
+        depth_row.addWidget(_label(tr("How deep to clean up:")))
+        self.depth = QComboBox()
+        for key, text in un.DEPTHS.items():
+            self.depth.addItem(tr(text), key)
+        self.depth.setCurrentIndex(max(0, self.depth.findData(_depth(controller))))
+        self.depth.currentIndexChanged.connect(self._depth_changed)
+        depth_row.addWidget(self.depth)
+        depth_row.addStretch()
+        l3.addLayout(depth_row)
+        self.depth_help = _label("", "muted", wrap=True)
+        l3.addWidget(self.depth_help)
         self.left_tree = QTreeWidget()
         self.left_tree.setObjectName("apps")
         self.left_tree.setHeaderLabels([tr("What"), tr("Size")])
@@ -563,6 +664,10 @@ class UninstallDialog(QDialog):
         self.left_problems = _label("", "warning", wrap=True)
         self.left_problems.hide()
         l3.addWidget(self.left_problems)
+        self.close_running = QCheckBox()
+        self.close_running.setChecked(True)
+        l3.addWidget(self.close_running)
+        self.close_running.setVisible(False)
         r3 = QHBoxLayout()
         self.left_info = _label("", "muted")
         r3.addWidget(self.left_info, 1)
@@ -590,6 +695,9 @@ class UninstallDialog(QDialog):
         l4.addLayout(r4)
         self.stack.addWidget(p4)
         self.control = un.Control(self.cancel)
+        self.removed_apps: list[un.App] = []
+        self.no_ticks: set[int] = set()
+        self.running: list[tuple[int, str]] = []
         self.problems: list[tuple[un.App, un.Outcome]] = []
         self.started = 0.0
         self.ticker = QTimer(self)
@@ -644,16 +752,21 @@ class UninstallDialog(QDialog):
                 return
             self._emit("scanning", None)
             installed = [a for a in everything if a not in removed]
-            found = []
+            found, no_ticks = [], set()
             for app in removed:
                 try:
                     items = un.find_leftovers(app, installed, forced=forced or app.broken)
                     if forced and not app.broken:  # still installed: nothing is ticked for you
-                        for i in items:
-                            i.safe = False
+                        no_ticks |= {id(i) for i in items}
                     found += items
                 except Exception:
                     log.exception("looking for leftovers of %s failed", app.name)
+            try:
+                running = un.programs_in([i.path for i in found if i.kind == "folder"])
+            except Exception:
+                log.debug("couldn't see what's running", exc_info=True)
+                running = []
+            self.no_ticks, self.running = no_ticks, running
             self._emit("found", (removed, found, problems))
         threading.Thread(target=work, daemon=True).start()
 
@@ -766,11 +879,24 @@ class UninstallDialog(QDialog):
 
     # ---- choosing leftovers
 
+    def _depth_changed(self, *_):
+        depth = self.depth.currentData() or "normal"
+        settings = getattr(self.c, "settings", None)
+        if settings is not None and getattr(settings, "uninstall_depth", None) != depth:
+            settings.uninstall_depth = depth
+            settings.save()
+        if self.removed_apps:
+            self._show_leftovers(self.removed_apps, self.leftovers)
+
     def _show_leftovers(self, removed, found):
+        self.removed_apps = removed
+        depth = self.depth.currentData() or "normal"
+        self.depth_help.setText(tr(un.DEPTH_HELP[depth]))
+        shown = [i for i in found if un.shown_at(i, depth)]
         self.left_tree.blockSignals(True)
         self.left_tree.clear()
         groups: dict[str, QTreeWidgetItem] = {}
-        for item in found:
+        for item in shown:
             group = groups.get(item.reason)
             if group is None:
                 group = QTreeWidgetItem([tr(un.REASONS.get(item.reason, item.reason)), ""])
@@ -782,16 +908,21 @@ class UninstallDialog(QDialog):
                 groups[item.reason] = group
             row = QTreeWidgetItem([item.label(), human_size(item.size) if item.size else ""])
             row.setFlags(row.flags() | Qt.ItemIsUserCheckable)
-            row.setCheckState(0, Qt.Checked if item.safe else Qt.Unchecked)
+            ticked = un.ticked_at(item, depth) and id(item) not in self.no_ticks
+            row.setCheckState(0, Qt.Checked if ticked else Qt.Unchecked)
             row.setData(0, APP_ROLE, item)
             row.setToolTip(0, item.label())
             group.addChild(row)
         self.left_tree.expandAll()
         self.left_tree.blockSignals(False)
         name = removed[0].name if len(removed) == 1 else tr("{count} apps", count=len(removed))
-        self.left_title.setText(tr("{name} left {count} things behind", name=name, count=len(found)))
+        self.left_title.setText(tr("{name} left {count} things behind", name=name, count=len(shown)))
         self.left_problems.setText(_problems_text(self.problems, True))
         self.left_problems.setVisible(bool(self.problems))
+        names = sorted({os.path.basename(exe) for _, exe in self.running})
+        self.close_running.setText(tr("Close what's still running from its folders first: {names}",
+                                      names=", ".join(names[:5]) + ("…" if len(names) > 5 else "")))
+        self.close_running.setVisible(bool(names))
         self.stack.setCurrentIndex(2)
         self._ticks_changed()
 
@@ -827,6 +958,7 @@ class UninstallDialog(QDialog):
         self._clock(True)
         apps = sorted({a.name for a in self.apps})
         command = _app_command()
+        close = self.close_running.isVisible() and self.close_running.isChecked()
 
         self._hold(True)
 
@@ -835,13 +967,13 @@ class UninstallDialog(QDialog):
             try:
                 folder = un.new_backup(apps)
                 result = un.remove(chosen, folder, apps, on_item=lambda n, total, item: self._emit(
-                    "removing", (n, total, item)))
+                    "removing", (n, total, item)), close_running=close)
                 failed = un.items_from(result["failed"])
                 needs_admin = [i for i in failed if i.needs_admin]
                 if needs_admin:
                     self._emit("admin", None)
                     more = un.run_elevated(command, "cleanup", {"items": result["failed"], "folder": str(folder),
-                                                                "apps": apps})
+                                                                "apps": apps, "close": close})
                     if more and "done" in more:
                         result["done"] += more["done"]
                         result["freed"] += more.get("freed", 0)
@@ -869,6 +1001,10 @@ class UninstallDialog(QDialog):
         done, failed = len(result["done"]), len(result["failed"])
         detail = tr("{size} freed. Everything is kept as a backup for {days} days: undo it here or from "
                     "\"Backups…\" on the Apps page.", size=human_size(result["freed"]), days=_backup_days(self.c))
+        later = sum(int(d.get("on_restart") or 0) for d in result["done"])
+        if later:
+            detail += "\n" + tr("{count} files were still in use: Windows removes them when you restart the PC.",
+                                count=later)
         if failed:
             detail += "\n" + tr("{count} items couldn't be removed (in use, or administrator permission was "
                                 "refused). Restarting the PC and trying again usually helps.", count=failed)
@@ -1021,3 +1157,78 @@ class BackupsDialog(QDialog):
         if not un.delete_backup(folder):
             QMessageBox.warning(self, tr("Backups"), tr("Some files in the backup couldn't be deleted."))
         self.fill()
+
+
+class ExtensionsDialog(QDialog):
+    """The browsers' extensions: each one is removed in its browser, which is opened on it."""
+
+    def __init__(self, icon: QIcon):
+        super().__init__(None, Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
+        self.setWindowIcon(icon)
+        self.setWindowTitle(tr("Browser extensions"))
+        self.setMinimumSize(640, 420)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(22, 20, 22, 18)
+        lay.addWidget(_label(tr("Browser extensions"), "h2"))
+        lay.addWidget(_label(tr("What's been added to your browsers. Ones that see every website can read what you "
+                                "type on them, so keep only the ones you know."), "muted", wrap=True))
+        self.tree = QTreeWidget()
+        self.tree.setObjectName("apps")
+        self.tree.setRootIsDecorated(False)
+        self.tree.setSortingEnabled(True)
+        self.tree.setHeaderLabels([tr("Extension"), tr("Browser"), tr("Sees every website"), tr("Size")])
+        self.tree.header().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.tree.header().setStretchLastSection(False)
+        self.tree.itemSelectionChanged.connect(self._selection)
+        self.tree.itemDoubleClicked.connect(lambda *_: self.remove())
+        lay.addWidget(self.tree, 1)
+        self.status = _label("", "muted", wrap=True)
+        lay.addWidget(self.status)
+        row = QHBoxLayout()
+        self.b_remove = _button(tr("Remove in the browser"), "primary", self.remove)
+        self.b_remove.setToolTip(tr("Opens the browser on it: press Remove there. (A browser puts back an "
+                                    "extension deleted behind its back.)"))
+        row.addWidget(self.b_remove)
+        row.addWidget(_button(tr("Refresh"), on_click=self.fill))
+        row.addStretch()
+        row.addWidget(_button(tr("Close"), on_click=self.accept))
+        lay.addLayout(row)
+        self.fill()
+
+    def fill(self):
+        from . import extensions
+        self.tree.clear()
+        found = extensions.find()
+        # the profile is only named for a browser with several of them
+        several = {b for b in {e.browser for e in found} if len({e.profile_dir for e in found if e.browser == b}) > 1}
+        for ext in found:
+            where = f"{ext.browser} ({ext.profile})" if ext.browser in several and ext.profile else ext.browser
+            name = ext.name + ("" if ext.on else "  " + tr("(turned off)"))
+            item = SortItem([name, where, tr("Yes") if ext.all_sites else "", human_size(ext.size) if ext.size else ""])
+            item.setData(0, APP_ROLE, ext)
+            item.setData(3, SORT_ROLE, ext.size)
+            item.setToolTip(0, f"{ext.name} {ext.version}\n{ext.id}")
+            self.tree.addTopLevelItem(item)
+        self.tree.sortItems(1, Qt.AscendingOrder)
+        self.status.setText(tr("{count} extensions, {sites} of them see every website.", count=len(found),
+                               sites=sum(1 for e in found if e.all_sites)) if found else
+                            tr("No browser extensions found."))
+        self._selection()
+
+    def _ext(self):
+        items = self.tree.selectedItems()
+        return items[0].data(0, APP_ROLE) if items else None
+
+    def _selection(self):
+        self.b_remove.setEnabled(self._ext() is not None)
+
+    def remove(self):
+        from . import extensions
+        ext = self._ext()
+        if ext is None:
+            return
+        if extensions.open_page(ext):
+            self.status.setText(tr("{browser} is open on {name}: press Remove there, then Refresh here.",
+                                   browser=ext.browser, name=ext.name))
+        else:
+            self.status.setText(tr("{browser} wasn't found on this PC.", browser=ext.browser))

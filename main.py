@@ -5,8 +5,9 @@ import time
 if sys.platform != "win32":
     sys.exit("Corefold only runs on Windows.")
 
-# The elevated helper used by the Apps page (removing leftovers in Program Files, restore points).
-if any(a in ("--cleanup", "--restore", "--restore-point") for a in sys.argv[1:]):
+# The elevated helper used by the Apps page (removing leftovers in Program Files, restore points) and by
+# Space (Windows' own leftovers).
+if any(a in ("--cleanup", "--restore", "--restore-point", "--space-clean") for a in sys.argv[1:]):
     from corefold.uninstall import helper_main  # noqa: E402
     sys.exit(helper_main(sys.argv[1:]))
 

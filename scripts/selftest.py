@@ -261,7 +261,12 @@ PARAMS = {"image:resize": {"preset": "50"}, "image:rotate": {"how": "left"}, "im
           "pdf:pages": {"pages": [(0, 90)]}, "pdf:lock": {"new_password": "secret"},
           "pdf:split": {"mode": "each"}, "files:rename": {"mode": "number", "base": "holiday", "start": 1},
           "archive:rename": {"mode": "add", "before": "x-"}, "video:volume": {"mode": "louder"},
-          "audio:volume": {"mode": "louder"}}
+          "audio:volume": {"mode": "louder"}, "video:crop": {"how": "square"},
+          "pdf:numbers": {"place": "br", "style": "of", "skip": 1},
+          "pdf:watermark": {"text": "Draft", "logo": "", "position": "tile", "size": "large", "opacity": 40},
+          "pdf:sign": {"signature": str(TMP / "samples" / "sign.png"), "pages": "last", "place": "br",
+                       "size": "medium"},
+          "video:subtitles": {"subtitles": str(TMP / "samples" / "words.srt"), "how": "track"}}
 
 
 def every_tool():
@@ -279,6 +284,10 @@ def every_tool():
     Image.new("RGB", (320, 240), (200, 120, 30)).save(S / "pic.webp")
     Image.new("RGB", (320, 240), (20, 220, 30)).save(S / "pic.bmp")
     Image.new("RGB", (320, 240), (20, 20, 230)).save(S / "pic.tiff")
+    sig = Image.new("RGB", (300, 100), "white")
+    sig.paste((10, 20, 90), (20, 40, 280, 60))
+    sig.save(S / "sign.png")
+    (S / "words.srt").write_text("1\n00:00:00,000 --> 00:00:01,500\nHello\n", "utf-8")
     frames = [Image.new("RGB", (120, 90), c) for c in ((255, 0, 0), (0, 255, 0), (0, 0, 255))]
     frames[0].save(S / "anim.gif", save_all=True, append_images=frames[1:], duration=200, loop=0)
     ff = cv.find_tool("ffmpeg")
