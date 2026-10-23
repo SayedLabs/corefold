@@ -40,7 +40,7 @@ errors = []
 SYSTEM32 = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32"
 NOTEPAD = SYSTEM32 / "notepad.exe"
 GONE = TMP / "gone" / "NotThereAnyMore.exe"
-TEST = ["CfStartupTest", "CfStartupGone", "CfStartupLater", "CfStartupWide", "CfStartupWide32"]
+TEST = ["CfStartupTest", "CfStartupGone", "CfStartupLater", "CfStartupHost", "CfStartupWide", "CfStartupWide32"]
 HKLM_64 = winreg.KEY_WOW64_64KEY
 HKLM_32 = winreg.KEY_WOW64_32KEY
 
@@ -133,6 +133,8 @@ print(f"admin: {startup.is_admin()}, 64-bit Windows: {startup._is_64bit()}, "
 def listing():
     put(winreg.HKEY_CURRENT_USER, startup.RUN, "CfStartupTest", f'"{NOTEPAD}" /startup')
     put(winreg.HKEY_CURRENT_USER, startup.RUN, "CfStartupGone", f'"{GONE}" --tray')
+    put(winreg.HKEY_CURRENT_USER, startup.RUN, "CfStartupHost", "rundll32.exe shell32.dll,Control_RunDLL",
+        winreg.REG_EXPAND_SZ)
     folder = startup.folders()["User-Folder"]
     folder.mkdir(parents=True, exist_ok=True)
     make_shortcut(folder / "CfStartupNotes.lnk", NOTEPAD)
@@ -151,6 +153,10 @@ def listing():
         check("microsoft" in e.publisher.lower(), f"its publisher is read from the file ({e.publisher!r})")
     g = find(entries, "CfStartupGone")
     check(g is not None and g.missing, "an entry whose program is gone is listed and marked")
+    h = find(entries, "CfStartupHost")
+    check(h is not None and h.name == "CfStartupHost" and not h.publisher and not h.missing
+          and h.exe.lower().endswith(r"system32\rundll32.exe"),
+          f"a program started through rundll32 keeps its own entry name ({h.name if h else None!r}, {h.exe if h else ''})")
     s_ = find(entries, "CfStartupNotes.lnk", "User-Folder")
     check(s_ is not None, "a shortcut in the Startup folder is listed")
     if s_:
@@ -386,6 +392,10 @@ def page():
           "it's marked New, and the New filter is there")
     gone = next((r for r in pg.rows if r.entry.value == "CfStartupGone"), None)
     check(gone is not None and gone.entry.missing, "the one whose program is gone says so")
+    row = next((r for r in pg.rows if r.entry.value == "CfStartupTest"), None)  # (the list was made again)
+    check(row is not None and row.switch.isChecked(), "after Look again, the made-up program is still on")
+    if row is None:
+        return
     settle(0.3)
     w.grab().save(str(OUT / f"startup-new-{LANG}-{LOOK}.png"))
     # a change Windows refuses: the switch goes back and the page says why

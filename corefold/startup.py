@@ -28,6 +28,11 @@ SEEN_FILE = "startup-seen.json"
 # (Windows' own note: an odd first byte is "switched off", then the time it was, as a FILETIME)
 ON_BYTES = bytes([2]) + bytes(11)
 EPOCH_AS_FILETIME = 116444736000000000
+# programs that only run something else: their own name ("Windows host process") says nothing, so
+# the entry's name is shown instead
+HOSTS = {"rundll32.exe", "cmd.exe", "powershell.exe", "pwsh.exe", "wscript.exe", "cscript.exe", "mshta.exe",
+         "conhost.exe", "explorer.exe", "regsvr32.exe", "javaw.exe", "java.exe", "pythonw.exe", "python.exe",
+         "py.exe", "pyw.exe", "msiexec.exe", "schtasks.exe", "start.exe"}
 
 
 @dataclass
@@ -208,6 +213,9 @@ def _make(where: str, value: str, command: str, exe: str, notes: dict) -> Entry:
     if exe and os.path.isabs(exe):
         e.missing = not os.path.exists(exe)
         name, e.publisher = _program_name(exe)
+        if os.path.basename(exe).lower() in HOSTS:
+            name = ""   # (and the publisher is the host's, so it's left out too)
+            e.publisher = ""
         if name:
             e.name = name
     if where.endswith("Folder") and e.name == value:

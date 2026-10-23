@@ -126,6 +126,7 @@ class EntryRow(QWidget):
         if pos is None and button is not None:
             pos = button.mapToGlobal(button.rect().bottomLeft())
         m.exec(pos)
+        m.deleteLater()
 
 
 def _key(e: startup.Entry) -> tuple:
