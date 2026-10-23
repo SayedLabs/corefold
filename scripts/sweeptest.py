@@ -44,7 +44,7 @@ try:
 except (AttributeError, ValueError):
     pass
 import faulthandler  # noqa: E402
-faulthandler.dump_traceback_later(1500, exit=True)  # stuck somewhere: say where, and stop
+faulthandler.dump_traceback_later(int(os.environ.get("SWEEP_STUCK", "1500")), exit=True)  # stuck somewhere: say where, and stop
 
 from corefold import settings as st  # noqa: E402
 from corefold import tools as all_tools  # noqa: E402
@@ -102,35 +102,45 @@ if hasattr(os, "startfile"):
 _real_popen = subprocess.Popen
 
 
-class _NoPopen:
-    def __init__(self, args, **_):
-        opened.append(f"program {args}")
-        self.pid, self.returncode, self.stdout, self.stderr = 0, 0, None, None
-
-    def poll(self):
-        return 0
-
-    def wait(self, *_a, **_k):
-        return 0
-
-    def communicate(self, *_a, **_k):
-        return "", ""
-
-    def kill(self):
-        pass
-
-    terminate = kill
-
-
-def _popen(args, *a, **k):
+def _blocked(args) -> bool:
     text = " ".join(map(str, args)) if isinstance(args, (list, tuple)) else str(args)
     # Corefold restarting itself, Explorer, an installer or an uninstaller: only noted
-    if "--restarted" in text or "explorer" in text.lower() or "/SILENT" in text or "unins" in text.lower():
-        return _NoPopen(args)
-    return _real_popen(args, *a, **k)
+    return "--restarted" in text or "explorer" in text.lower() or "/SILENT" in text or "unins" in text.lower()
 
 
-subprocess.Popen = _popen
+class _Popen(_real_popen):
+    """subprocess.Popen, but what would open a program outside the test is only noted. (A class, not a
+    function: asyncio makes its own Popen from this one.)"""
+
+    def __init__(self, args, *a, **k):
+        self._fake = _blocked(args)
+        if not self._fake:
+            super().__init__(args, *a, **k)
+            return
+        opened.append(f"program {args}")
+        self._child_created = False
+        self.args, self.pid, self.returncode = args, 0, 0
+        self.stdin = self.stdout = self.stderr = None
+
+    def poll(self):
+        return 0 if self._fake else super().poll()
+
+    def wait(self, *a, **k):
+        return 0 if self._fake else super().wait(*a, **k)
+
+    def communicate(self, *a, **k):
+        return ("", "") if self._fake else super().communicate(*a, **k)
+
+    def kill(self):
+        if not self._fake:
+            super().kill()
+
+    def terminate(self):
+        if not self._fake:
+            super().terminate()
+
+
+subprocess.Popen = _Popen
 QFileDialog.getOpenFileName = staticmethod(lambda *a, **k: ("", ""))
 QFileDialog.getOpenFileNames = staticmethod(lambda *a, **k: ([], ""))
 QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: ("", ""))

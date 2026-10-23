@@ -14,7 +14,7 @@ permissions:
 
 concurrency:
   group: bughunt-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false   # three people push to next: each push is tried, newest waiting runs replace older ones
 
 jobs:
   try:
