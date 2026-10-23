@@ -3293,6 +3293,8 @@ class MainWindow(QWidget):
             self.clip_page.apply_theme(t)
         if self.space_page is not None:
             self.space_page.apply_theme(t)
+        if getattr(self, "apps_page", None) is not None:
+            self.apps_page.apply_theme(t)
         if self.cloud_page is not None:
             self.cloud_page.apply_theme(t)
         if self.isVisible():

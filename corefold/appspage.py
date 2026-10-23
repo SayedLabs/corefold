@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QFileInfo, QObject, Qt, QTimer, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDialog, QFileIconProvider, QHBoxLayout, QHeaderView,
-                               QLabel, QLineEdit, QMessageBox, QProgressBar, QPushButton, QStackedWidget,
+                               QLabel, QLineEdit, QMenu, QMessageBox, QProgressBar, QPushButton, QStackedWidget,
                                QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from . import uninstall as un
@@ -157,10 +157,17 @@ class HunterButton(QPushButton):
     """Drag it onto any window: the program that window belongs to is found in the list."""
     found = Signal(str)   # the program file of the window it was let go on ("" for none)
 
-    def __init__(self):
-        super().__init__(tr("Drag onto a window"))
-        self.setToolTip(tr("Don't know a program's name? Drag this onto one of its windows."))
+    def __init__(self, theme=None):
+        super().__init__()
+        self.setAccessibleName(tr("Drag onto a window"))
+        self.setToolTip(tr("Drag onto a window") + "\n" +
+                        tr("Don't know a program's name? Drag this onto one of its windows."))
         self.setCursor(Qt.OpenHandCursor)
+        self.apply_theme(theme)
+
+    def apply_theme(self, theme):
+        from . import icons
+        self.setIcon(icons.icon("target", theme.text if theme is not None else "#888888"))
 
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton:
@@ -234,6 +241,9 @@ class AppsPage(QWidget):
         top.addWidget(self.show_only)
         top.addWidget(self.store)
         top.addWidget(_button(tr("Refresh"), on_click=self.reload))
+        self.hunter = HunterButton(controller.theme if controller is not None else None)
+        self.hunter.found.connect(self._hunted)
+        top.addWidget(self.hunter)
         lay.addLayout(top)
 
         self.tree = QTreeWidget()
@@ -272,11 +282,14 @@ class AppsPage(QWidget):
         row.addWidget(self.b_leftovers)
         row.addWidget(self.b_folder)
         row.addStretch()
-        self.hunter = HunterButton()
-        self.hunter.found.connect(self._hunted)
-        row.addWidget(self.hunter)
-        row.addWidget(_button(tr("Browser extensions…"), on_click=self.show_extensions))
-        row.addWidget(_button(tr("Backups…"), on_click=self.show_backups))
+        self.b_more = _button(tr("More"))
+        more = QMenu(self.b_more)
+        from .theme import round_menu
+        round_menu(more)
+        more.addAction(tr("Browser extensions…"), self.show_extensions)
+        more.addAction(tr("Backups…"), self.show_backups)
+        self.b_more.setMenu(more)
+        row.addWidget(self.b_more)
         lay.addLayout(row)
         self._selection()
 
@@ -499,6 +512,9 @@ class AppsPage(QWidget):
                 self.window().raise_()
                 self.status.setText(tr("Found: {name}. Press Uninstall to remove it.", name=app.name))
                 return
+
+    def apply_theme(self, theme):
+        self.hunter.apply_theme(theme)
 
     def show_extensions(self):
         ExtensionsDialog(self.window().windowIcon()).exec()

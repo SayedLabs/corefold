@@ -623,7 +623,7 @@ def shortcut_program():
     got = []
     hunter.found.connect(got.append)
     hunter.found.emit("")
-    check(got == [""] and hunter.text(), "the \"Drag onto a window\" button")
+    check(got == [""] and not hunter.icon().isNull() and hunter.accessibleName(), "the \"Drag onto a window\" button")
     s = Settings()
     s.tools_off = []
     verbs = shellmenu.plan(s, lambda *a: " ".join(a))
