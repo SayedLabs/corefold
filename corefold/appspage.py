@@ -275,6 +275,7 @@ class AppsPage(QWidget):
         self.hunter = HunterButton()
         self.hunter.found.connect(self._hunted)
         row.addWidget(self.hunter)
+        row.addWidget(_button(tr("Browser extensions…"), on_click=self.show_extensions))
         row.addWidget(_button(tr("Backups…"), on_click=self.show_backups))
         lay.addLayout(row)
         self._selection()
@@ -498,6 +499,9 @@ class AppsPage(QWidget):
                 self.window().raise_()
                 self.status.setText(tr("Found: {name}. Press Uninstall to remove it.", name=app.name))
                 return
+
+    def show_extensions(self):
+        ExtensionsDialog(self.window().windowIcon()).exec()
 
     def show_backups(self):
         dlg = BackupsDialog(self.c, self.window().windowIcon())
@@ -1137,3 +1141,76 @@ class BackupsDialog(QDialog):
         if not un.delete_backup(folder):
             QMessageBox.warning(self, tr("Backups"), tr("Some files in the backup couldn't be deleted."))
         self.fill()
+
+
+class ExtensionsDialog(QDialog):
+    """The browsers' extensions: each one is removed in its browser, which is opened on it."""
+
+    def __init__(self, icon: QIcon):
+        super().__init__(None, Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
+        self.setWindowIcon(icon)
+        self.setWindowTitle(tr("Browser extensions"))
+        self.setMinimumSize(640, 420)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(22, 20, 22, 18)
+        lay.addWidget(_label(tr("Browser extensions"), "h2"))
+        lay.addWidget(_label(tr("What's been added to your browsers. Ones that see every website can read what you "
+                                "type on them, so keep only the ones you know."), "muted", wrap=True))
+        self.tree = QTreeWidget()
+        self.tree.setObjectName("apps")
+        self.tree.setRootIsDecorated(False)
+        self.tree.setSortingEnabled(True)
+        self.tree.setHeaderLabels([tr("Extension"), tr("Browser"), tr("Sees every website"), tr("Size")])
+        self.tree.header().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.tree.header().setStretchLastSection(False)
+        self.tree.itemSelectionChanged.connect(self._selection)
+        self.tree.itemDoubleClicked.connect(lambda *_: self.remove())
+        lay.addWidget(self.tree, 1)
+        self.status = _label("", "muted", wrap=True)
+        lay.addWidget(self.status)
+        row = QHBoxLayout()
+        self.b_remove = _button(tr("Remove in the browser"), "primary", self.remove)
+        self.b_remove.setToolTip(tr("Opens the browser on it: press Remove there. (A browser puts back an "
+                                    "extension deleted behind its back.)"))
+        row.addWidget(self.b_remove)
+        row.addWidget(_button(tr("Refresh"), on_click=self.fill))
+        row.addStretch()
+        row.addWidget(_button(tr("Close"), on_click=self.accept))
+        lay.addLayout(row)
+        self.fill()
+
+    def fill(self):
+        from . import extensions
+        self.tree.clear()
+        found = extensions.find()
+        for ext in found:
+            where = f"{ext.browser} ({ext.profile})" if ext.profile and ext.profile != "Default" else ext.browser
+            name = ext.name + ("" if ext.on else "  " + tr("(turned off)"))
+            item = SortItem([name, where, tr("Yes") if ext.all_sites else "", human_size(ext.size) if ext.size else ""])
+            item.setData(0, APP_ROLE, ext)
+            item.setData(3, SORT_ROLE, ext.size)
+            item.setToolTip(0, f"{ext.name} {ext.version}\n{ext.id}")
+            self.tree.addTopLevelItem(item)
+        self.tree.sortItems(1, Qt.AscendingOrder)
+        self.status.setText(tr("{count} extensions, {sites} of them see every website.", count=len(found),
+                               sites=sum(1 for e in found if e.all_sites)) if found else
+                            tr("No browser extensions found."))
+        self._selection()
+
+    def _ext(self):
+        items = self.tree.selectedItems()
+        return items[0].data(0, APP_ROLE) if items else None
+
+    def _selection(self):
+        self.b_remove.setEnabled(self._ext() is not None)
+
+    def remove(self):
+        from . import extensions
+        ext = self._ext()
+        if ext is None:
+            return
+        if extensions.open_page(ext):
+            self.status.setText(tr("{browser} is open on {name}: press Remove there, then Refresh here.",
+                                   browser=ext.browser, name=ext.name))
+        else:
+            self.status.setText(tr("{browser} wasn't found on this PC.", browser=ext.browser))

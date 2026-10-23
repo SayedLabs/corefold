@@ -28,7 +28,7 @@ if os.name != "nt":  # (a quick try on Linux: Windows' parts are pretend ones)
         sys.modules[name] = mock.MagicMock()
 
 from PySide6.QtCore import QPointF, QRect, Qt  # noqa: E402
-from PySide6.QtGui import QColor, QImage  # noqa: E402
+from PySide6.QtGui import QColor, QIcon, QImage  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from corefold.core import Ctx, Options  # noqa: E402
@@ -616,6 +616,68 @@ def shortcut_program():
           "…not while the Uninstaller is off")
 
 
+def browser_extensions():
+    import json as _json
+
+    from corefold import appspage
+    from corefold import extensions as ex
+    local, roaming = TMP / "ext-local", TMP / "ext-roaming"
+    prof = local / "Google" / "Chrome" / "User Data" / "Profile 1"
+    (prof.parent / "Local State").parent.mkdir(parents=True, exist_ok=True)
+    (prof.parent / "Local State").write_text(_json.dumps({"profile": {"info_cache": {"Profile 1": {"name": "Work"}}}}))
+
+    def add(ext_id, version, manifest, locales=None):
+        folder = prof / "Extensions" / ext_id / version
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "manifest.json").write_text(_json.dumps(manifest), encoding="utf-8")
+        for lang, msgs in (locales or {}).items():
+            (folder / "_locales" / lang).mkdir(parents=True, exist_ok=True)
+            (folder / "_locales" / lang / "messages.json").write_text("\ufeff" + _json.dumps(msgs), encoding="utf-8")
+    add("a" * 32, "1.0_0", {"name": "Old", "version": "1.0"})
+    add("a" * 32, "1.10_0", {"name": "__MSG_appName__", "version": "1.10", "default_locale": "en",
+                             "content_scripts": [{"matches": ["<all_urls>"]}]},
+        {"en": {"appname": {"message": "Ad Stopper"}}})
+    add("b" * 32, "2.0", {"name": "Notes", "version": "2.0", "permissions": ["storage"]})
+    add("c" * 32, "1.0", {"name": "Browser part", "version": "1.0"})
+    (prof / "Preferences").write_text(_json.dumps({"extensions": {"settings": {
+        "b" * 32: {"state": 0}, "c" * 32: {"location": 5}}}}))
+    ff = roaming / "Mozilla" / "Firefox" / "Profiles" / "x1y2.default-release"
+    ff.mkdir(parents=True, exist_ok=True)
+    (ff / "extensions.json").write_text(_json.dumps({"addons": [
+        {"id": "u@o", "type": "extension", "location": "app-profile", "version": "3", "active": True,
+         "defaultLocale": {"name": "uBlock"}, "userPermissions": {"origins": ["<all_urls>"]}},
+        {"id": "sys@m", "type": "extension", "location": "app-system-defaults", "defaultLocale": {"name": "System"}}]}))
+    found = ex.find(local, roaming)
+    names = {e.name: e for e in found}
+    check(set(names) == {"Ad Stopper", "Notes", "uBlock"},
+          f"the browsers' extensions, without the browsers' own parts ({sorted(names)})")
+    ad = names.get("Ad Stopper")
+    check(ad is not None and ad.version == "1.10" and ad.all_sites and ad.profile == "Work",
+          "…the newest copy, its name in its own language, the profile, and that it sees every website")
+    check(names.get("Notes") is not None and not names["Notes"].on and not names["Notes"].all_sites,
+          "…a turned-off one")
+    check(names.get("uBlock") is not None and names["uBlock"].all_sites and names["uBlock"].browser == "Firefox",
+          "…Firefox's")
+    if ad is not None:
+        cmd = ex.page_command(ad, "chrome.exe")
+        check(cmd == ["chrome.exe", "--profile-directory=Profile 1", f"chrome://extensions/?id={'a' * 32}"],
+              "Remove in the browser opens its extensions page on it")
+    old = os.environ.get("LOCALAPPDATA"), os.environ.get("APPDATA")
+    os.environ["LOCALAPPDATA"], os.environ["APPDATA"] = str(local), str(roaming)
+    try:
+        dlg = appspage.ExtensionsDialog(QIcon())
+        check(dlg.tree.topLevelItemCount() == 3 and not dlg.b_remove.isEnabled(), "the Browser extensions window")
+        dlg.tree.topLevelItem(0).setSelected(True)
+        check(dlg.b_remove.isEnabled(), "…an extension picked")
+        dlg.close()
+    finally:
+        for key, value in zip(("LOCALAPPDATA", "APPDATA"), old):
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
 # ----------------------------------------------------------------------------- PDF
 
 def pdf_stamps():
@@ -730,7 +792,8 @@ else:
                      ("space", space), ("space programs", space_programs), ("chapters", chapters), ("player", player),
                      ("saved texts", saved_texts), ("viewer strip", viewer_strip), ("viewer more", viewer_more), ("space kinds", space_kinds),
                      ("space more", space_more),
-                     ("shortcut program", shortcut_program), ("pdf stamps", pdf_stamps)):
+                     ("shortcut program", shortcut_program), ("browser extensions", browser_extensions),
+                     ("pdf stamps", pdf_stamps)):
         step(name, fn)
 print(f"featuretest: {len(problems)} problem(s)")
 sys.exit(1 if problems else 0)
