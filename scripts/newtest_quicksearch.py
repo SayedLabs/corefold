@@ -109,6 +109,47 @@ def shell_add_recent(path: str):
     ctypes.windll.shell32.SHAddToRecentDocs(3, path)  # SHARD_PATHW
 
 
+def recent_items_for(path: Path) -> list[Path]:
+    """Windows' Recent items that point at path (named "x.txt.lnk" or "x.lnk", depending on Windows)."""
+    from corefold import quicksearch as qs
+    recent = Path(qs.known_folder("recent"))
+    try:
+        lnks = [p for p in recent.iterdir() if p.suffix.lower() == ".lnk" and p.name.lower().startswith(path.stem.lower())]
+    except OSError:
+        return []
+    return [p for p in lnks if os.path.normcase(qs.lnk_target(str(p))) == os.path.normcase(str(path))]
+
+
+def recent_item(path: Path, seconds: float) -> Path | None:
+    end = time.time() + seconds
+    while True:
+        found = recent_items_for(path)
+        if found or time.time() >= end:
+            return found[0] if found else None
+        time.sleep(0.2)
+
+
+def own_shortcut(path: Path):
+    """Shortcuts made the way any app makes them (WScript.Shell), to a file and to a folder, read back."""
+    from corefold import quicksearch as qs
+    tmp = Path(tempfile.mkdtemp(prefix="corefold-lnk-"))
+    try:
+        for target, lnk in ((path, tmp / "to a file.lnk"), (path.parent, tmp / "to a folder.lnk")):
+            script = ("$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:CF_LNK); "
+                      "$s.TargetPath = $env:CF_TARGET; $s.Save()")
+            try:
+                subprocess.run(["powershell", "-NoProfile", "-Command", script], timeout=30, capture_output=True,
+                               env=dict(os.environ, CF_LNK=str(lnk), CF_TARGET=str(target)))
+            except Exception:
+                pass
+            if check(lnk.exists(), f"a shortcut {lnk.stem} was made for the test"):
+                got = qs.lnk_target(str(lnk))
+                check(os.path.normcase(got.rstrip("\\")) == os.path.normcase(str(target).rstrip("\\")),
+                      f"…and Corefold reads where it points ({got})")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def prepare(name: str) -> tuple[Path, str]:
     """Makes the file in Documents, then waits for Windows' index (or else its Recent items) to have it."""
     from corefold import quicksearch as qs
@@ -134,15 +175,14 @@ def prepare(name: str) -> tuple[Path, str]:
         else:
             skip("index not available: the index didn't pick up the new file within 60 seconds")
     # Windows' Recent items: the way it works with no index (and always added)
+    own_shortcut(path)
     shell_add_recent(str(path))
-    recent = Path(qs.known_folder("recent"))
-    lnk = recent / f"{path.name}.lnk"
-    end = time.time() + 10
-    while time.time() < end and not lnk.exists():
-        time.sleep(0.2)
-    if check(lnk.exists(), f"Windows made a Recent item for it ({lnk.name})"):
-        target = qs.lnk_target(str(lnk))
-        check(os.path.normcase(target) == os.path.normcase(str(path)), f"…which is read right ({target})")
+    lnk = recent_item(path, 10)
+    if lnk is None:
+        skip("Windows made no Recent item for it on this PC (its Recent items may be switched off): the Recent "
+             "items weren't checked with it")
+    else:
+        check(True, f"Windows made a Recent item for it ({lnk.name})")
         got = qs.recent_query(name)
         check(any(os.path.normcase(f.path) == os.path.normcase(str(path)) for f in got),
               f"the Recent items find it by name ({[f.path for f in got]})")
@@ -150,8 +190,12 @@ def prepare(name: str) -> tuple[Path, str]:
     if not qs.everything_window():
         check(qs.everything_query(name) is None, "…and asking it gives nothing (no waiting)")
     src, files = qs.find_files(name)
-    check(any(os.path.normcase(f.path) == os.path.normcase(str(path)) for f in files),
-          f"all of it together finds the file (from {src})")
+    if source or lnk is not None or src == "everything":
+        check(any(os.path.normcase(f.path) == os.path.normcase(str(path)) for f in files),
+              f"all of it together finds the file (from {src})")
+        check(not any("\\recent\\" in f.path.lower() for f in files), "…and not Windows' own Recent shortcut for it")
+    else:
+        skip("no index and no Recent items on this PC: nothing can find the file")
     return path, source or "recent"
 
 
@@ -504,7 +548,6 @@ if PART:
 logic()
 name = f"cfqs{random.randint(10000, 99999)}"
 path = None
-lnk = None
 try:
     from PySide6.QtWidgets import QApplication
     _qapp = QApplication(sys.argv[:1])  # (for the icons)
@@ -514,8 +557,6 @@ try:
         check(False, f"apps: {traceback.format_exc().splitlines()[-1]}")
         traceback.print_exc()
     path, source = prepare(name)
-    from corefold import quicksearch as qs
-    lnk = Path(qs.known_folder("recent")) / f"{path.name}.lnk"
     for lang, look in (("en", "dark"), ("ar", "light")):
         print(f"---- {lang} {look} (files from {source})", flush=True)
         env = dict(os.environ, CF_QS_NAME=name, CF_QS_FILE=str(path))
@@ -536,13 +577,14 @@ except Exception:
     check(False, f"the test itself: {traceback.format_exc().splitlines()[-1]}")
     traceback.print_exc()
 finally:
-    for p in (path, lnk):
+    for p in ([path, *recent_items_for(path)] if path is not None else []):
         try:
             if p is not None and p.exists():
                 p.unlink()
         except OSError:
             pass
     check(path is None or not path.exists(), "the test's file is removed")
+    check(path is None or not recent_items_for(path), "…and its Recent item")
 (OUT / "problems.txt").write_text("\n".join(problems) or "none", "utf-8")
 print(f"newtest_quicksearch: {len(problems)} problem(s)", flush=True)
 faulthandler.disable()

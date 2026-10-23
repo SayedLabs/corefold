@@ -819,11 +819,13 @@ def find_files(text: str, limit: int = MAX_FILES, stale=lambda: False) -> tuple[
     found = list(found or [])
     if not stale():
         found += recent_query(text, limit)
+    # (Windows' own Recent shortcuts aren't what's looked for: what they point at is, and is there already)
+    recent = os.path.join(os.path.normcase(os.path.normpath(known_folder("recent"))), "")
     seen: set[str] = set()
     ranked = []
     for i, f in enumerate(found):
         key = os.path.normcase(os.path.normpath(f.path))
-        if key in seen:
+        if key in seen or key.startswith(recent):
             continue
         seen.add(key)
         ranked.append((file_score(text, f.name), i, f))
