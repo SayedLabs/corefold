@@ -1365,12 +1365,6 @@ STRINGS: dict[str, str] = {
     "Find and replace in file names": "Dosya adlarında bul ve değiştir",
     "Use the date a photo was taken, or a song's title and artist": "Fotoğrafın çekildiği tarihi ya da şarkının adını ve sanatçısını kullanın",
     "See every new name first, and undo it all with one click": "Önce her yeni adı görün, hepsini tek tıkla geri alın",
-    "Corefold Search": "Corefold Search",
-    "Press a shortcut and type: open any app, file or setting in a second.": "Bir kısayola basıp yazın: herhangi bir uygulamayı, dosyayı ya da ayarı bir saniyede açın.",
-    "Find apps, files and folders as you type": "Yazarken uygulama, dosya ve klasörleri bulun",
-    "Do quick sums and unit conversions in the same box": "Aynı kutuda hızlı hesap ve birim dönüştürme yapın",
-    "Open Windows settings by name": "Windows ayarlarını adıyla açın",
-    "Works without the internet: nothing you type leaves your PC": "İnternetsiz çalışır: yazdığınız hiçbir şey bilgisayarınızdan çıkmaz",
     "Corefold Colors": "Corefold Colors",
     "Pick any colour on your screen and copy it as HEX, RGB or HSL.": "Ekrandaki herhangi bir rengi seçip HEX, RGB ya da HSL olarak kopyalayın.",
     "Pick a colour anywhere with one shortcut": "Tek kısayolla her yerden renk seçin",
@@ -1801,4 +1795,10 @@ STRINGS: dict[str, str] = {
     "Language & region": "Dil ve bölge",
     "Privacy & security": "Gizlilik ve güvenlik",
     "Windows Update": "Windows Update",
+    # ---- quick menu: find apps and files
+    "Type to search apps, files, tools and actions": "Uygulama, dosya, araç ve eylem aramak için yazın",
+    "Shift + Enter: show in folder": "Shift + Enter: klasöründe göster",
+    "Ctrl + Enter: run as administrator": "Ctrl + Enter: yönetici olarak çalıştır",
+    "Find files and apps as I type": "Yazarken dosya ve uygulamaları bul",
+    "Uses Windows' own search index on this PC (or Everything, if it's running). Nothing leaves your PC.": "Bu bilgisayarda Windows'un kendi arama dizinini kullanır (ya da açıksa Everything'i). Hiçbir şey bilgisayarınızdan çıkmaz.",
 }

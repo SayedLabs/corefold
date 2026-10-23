@@ -151,7 +151,8 @@ CAPTURE_KEYS = ("cap_shortcut", "cap_record_shortcut", "cap_after", "cap_save", 
                 "cap_countdown")
 UPDATE_KEYS = ("check_updates", "auto_update")
 QUICK_KEYS = ("quick_menu", "quick_menu_key", "quick_menu_items", "quick_wheel", "quick_wheel_key",
-              "quick_wheel_items", "quick_button", "quick_links", "quick_search_engine", "ontop_key")
+              "quick_wheel_items", "quick_button", "quick_links", "quick_search_engine", "ontop_key",
+              "quick_find")
 # what's on the quick menu and the wheel to begin with (see quick.py)
 QUICK_MENU_ITEMS = ["screenshot", "record", "clipboard", "paste", "again", "archive", "explorer", "taskmgr"]
 QUICK_WHEEL_ITEMS = ["screenshot", "clipboard", "paste", "again", "tool:space", "explorer", "settings", "quickmenu"]
@@ -251,6 +252,7 @@ class Settings:
     quick_links: list = field(default_factory=list)  # {"id", "name", "target"}: their own apps, folders, sites
     quick_told: bool = False       # the "press … for the quick menu" tip was shown
     quick_search_engine: str = "duckduckgo"  # the quick menu's last row: "Search the web for …"
+    quick_find: bool = True        # typing in the quick menu finds apps and files too (quicksearch.py)
     ontop_key: str = "ctrl+win+t"  # keeps the window in front on top of the others ("off": no shortcut)
     # Corefold Awake (chosen on its page, not in Settings)
     awake_mode: str = "on"         # what "Keep awake" does: "on" (until switched off), "for" a while, "until" a time

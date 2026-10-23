@@ -1365,12 +1365,6 @@ STRINGS: dict[str, str] = {
     "Find and replace in file names": "Buscar y reemplazar en los nombres de archivo",
     "Use the date a photo was taken, or a song's title and artist": "Usa la fecha en que se tomó una foto, o el título y artista de una canción",
     "See every new name first, and undo it all with one click": "Mira primero cada nombre nuevo y deshazlo todo con un clic",
-    "Corefold Search": "Corefold Search",
-    "Press a shortcut and type: open any app, file or setting in a second.": "Pulsa un atajo y escribe: abre cualquier app, archivo o ajuste en un segundo.",
-    "Find apps, files and folders as you type": "Encuentra apps, archivos y carpetas mientras escribes",
-    "Do quick sums and unit conversions in the same box": "Haz cuentas rápidas y conversiones de unidades en el mismo cuadro",
-    "Open Windows settings by name": "Abre los ajustes de Windows por su nombre",
-    "Works without the internet: nothing you type leaves your PC": "Funciona sin internet: nada de lo que escribes sale de tu PC",
     "Corefold Colors": "Corefold Colors",
     "Pick any colour on your screen and copy it as HEX, RGB or HSL.": "Elige cualquier color de tu pantalla y cópialo como HEX, RGB o HSL.",
     "Pick a colour anywhere with one shortcut": "Elige un color en cualquier sitio con un atajo",
@@ -1801,4 +1795,10 @@ STRINGS: dict[str, str] = {
     "Language & region": "Idioma y región",
     "Privacy & security": "Privacidad y seguridad",
     "Windows Update": "Windows Update",
+    # ---- quick menu: find apps and files
+    "Type to search apps, files, tools and actions": "Escribe para buscar apps, archivos, herramientas y acciones",
+    "Shift + Enter: show in folder": "Mayús + Intro: mostrar en la carpeta",
+    "Ctrl + Enter: run as administrator": "Ctrl + Intro: ejecutar como administrador",
+    "Find files and apps as I type": "Encontrar archivos y apps mientras escribo",
+    "Uses Windows' own search index on this PC (or Everything, if it's running). Nothing leaves your PC.": "Usa el índice de búsqueda de Windows en este PC (o Everything, si está abierto). Nada sale de tu PC.",
 }

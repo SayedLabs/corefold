@@ -304,6 +304,11 @@ def build(win) -> QWidget:
     bl.addWidget(label(tr("Typing in the menu also works out sums (12*7), converts units (10 km to mi) and finds "
                           "pages of Windows Settings. Nothing is sent online unless you pick “Search the web”."),
                        "muted", wrap=True))
+    find_on = checkbox(tr("Find files and apps as I type"), s.quick_find)
+    bl.addWidget(find_on)
+    find_note = label(tr("Uses Windows' own search index on this PC (or Everything, if it's running). Nothing "
+                         "leaves your PC."), "muted", wrap=True)
+    bl.addWidget(find_note)
     row = QHBoxLayout()
     row.addWidget(label(tr("Search the web with")))
     engine = QComboBox()
@@ -453,7 +458,8 @@ def build(win) -> QWidget:
         s.quick_menu = menu_on.isChecked()
         s.quick_wheel = wheel_on.isChecked()
         s.quick_button = button_on.isChecked()
-        for wid in (menu_rec, menu_items, engine):
+        s.quick_find = find_on.isChecked()
+        for wid in (menu_rec, menu_items, engine, find_on):
             wid.setEnabled(s.quick_menu)
         for wid in (wheel_rec, wheel_items, button_on):
             wid.setEnabled(s.quick_wheel)
@@ -467,7 +473,7 @@ def build(win) -> QWidget:
             s.quick_wheel_items = list(ids)
         c.settings_changed()
 
-    for cb in (menu_on, wheel_on, button_on):
+    for cb in (menu_on, wheel_on, button_on, find_on):
         cb.toggled.connect(toggled)
     menu_rec.recorded.connect(lambda combo: recorded("menu", combo, menu_rec, menu_note))
     ontop_rec.recorded.connect(lambda combo: recorded("ontop", combo, ontop_rec, ontop_note))
@@ -491,7 +497,7 @@ def build(win) -> QWidget:
     wheel_rec.recorded.connect(lambda combo: recorded("wheel", combo, wheel_rec, wheel_note))
     menu_items.changed.connect(lambda ids: items_changed("menu", ids))
     wheel_items.changed.connect(lambda ids: items_changed("wheel", ids))
-    for wid in (menu_rec, menu_items, engine):
+    for wid in (menu_rec, menu_items, engine, find_on):
         wid.setEnabled(s.quick_menu)
     for wid in (wheel_rec, wheel_items, button_on):
         wid.setEnabled(s.quick_wheel)
