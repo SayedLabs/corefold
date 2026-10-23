@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QEvent, QPoint, QRect, QSize, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QColor, QCursor, QDesktopServices, QFont, QFontMetrics, QGuiApplication, QKeySequence, \
     QPainter, QPainterPath, QPixmap, QShortcut
-from PySide6.QtWidgets import QAbstractItemView, QButtonGroup, QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget, \
+from PySide6.QtWidgets import QAbstractItemView, QApplication, QButtonGroup, QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget, \
     QListWidgetItem, QMenu, QMessageBox, QPushButton, QStyle, QStyledItemDelegate, QVBoxLayout, QWidget
 
 from . import i18n, icons
@@ -342,7 +342,7 @@ class QuickPaste(QWidget):
         super().changeEvent(e)
 
     def _hide_if_away(self):
-        if not self.isActiveWindow() and not self.list.menu_open and QGuiApplication.activeModalWidget() is None:
+        if not self.isActiveWindow() and not self.list.menu_open and QApplication.activeModalWidget() is None:
             self.hide()
 
     def open(self, target: int):

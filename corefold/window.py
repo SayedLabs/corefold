@@ -42,7 +42,7 @@ if TYPE_CHECKING:
 # every page, in the order they are built (names are English, shown through tr()); each tool's
 # pages come from tools.py
 _TOOL_SETTINGS_PAGES = [p for tool in all_tools.TOOLS for p in tool.settings_pages]
-PAGES = ["Home", "History", *[tool.page for tool in all_tools.TOOLS], "Store", "General", "Look",
+PAGES = ["Home", "History", *[tool.page for tool in all_tools.TOOLS], "Store", "General", "Look", "Quick",
          *_TOOL_SETTINGS_PAGES, "Updates", "About"]
 # tools still being made: page -> product tile (in the order they're planned)
 SOON = {tool.page: tool.product for tool in all_tools.coming()}
@@ -51,15 +51,17 @@ NAV = ["Home", "History", (None, "Tools"), "Store", (None, "App"), "General", "U
 NAV_LABELS = {"General": "Settings", **{tool.page: tool.nav for tool in all_tools.TOOLS}}
 # Settings: a tab for the whole app and one for each tool someone uses. A tab with several pages
 # shows them as smaller tabs underneath.
-BASE_SETTINGS_TABS = [("General", "General", ["General"]), ("Look", "Appearance", ["Look"])]
+BASE_SETTINGS_TABS = [("General", "General", ["General"]), ("Look", "Appearance", ["Look"]),
+                      ("Quick", "Quick access", ["Quick"])]
 SETTINGS_TABS = BASE_SETTINGS_TABS + [(tool.settings, tool.nav, list(tool.settings_pages))
                                       for tool in all_tools.TOOLS if tool.settings]
 SETTINGS_SUBTABS = {"ConvOptions": "Options", "WheelLook": "Wheel", "Formats": "Formats"}
-SETTINGS_PAGES = ["General", "Look", *_TOOL_SETTINGS_PAGES]
+SETTINGS_PAGES = ["General", "Look", "Quick", *_TOOL_SETTINGS_PAGES]
 TOOL_SETTINGS = {tool.page: tool.settings for tool in all_tools.TOOLS if tool.settings}
 # pages without a sidebar row of their own: the row that's lit
 NAV_OWNER = {**{name: "Store" for name in SOON}, **{name: "General" for name in SETTINGS_PAGES if name != "General"}}
-PAGE_ICONS = {"Home": "home", "General": "settings", "Look": "paint_brush", "Formats": "puzzle_piece",  # icons.py
+PAGE_ICONS = {"Home": "home", "General": "settings", "Look": "paint_brush", "Quick": "layout",  # icons.py
+              "Formats": "puzzle_piece",
               "History": "history", "Updates": "arrow_sync", "About": "info", "Store": "apps",
               **{tool.page: tool.icon for tool in all_tools.TOOLS}}
 
@@ -491,7 +493,8 @@ class MainWindow(QWidget):
                     "ViewerSettings": self._viewer_settings, "Clipboard": self._clipboard,
                     "ClipboardSettings": self._clipboard_settings, "Space": self._space, "Capture": self._capture,
                     "CaptureSettings": self._capture_settings, "Cloud": self._cloud, "Player": self._player,
-                    "PlayerSettings": self._player_settings, "Updates": self._updates, "About": self._about}
+                    "PlayerSettings": self._player_settings, "Updates": self._updates, "About": self._about,
+                    "Quick": self._quick_settings}
         self._wheel_guard = None
         self._settings_head()  # (made before the pages: opening one shows or hides it)
         self._dots: list[QLabel] = []
@@ -2458,6 +2461,10 @@ class MainWindow(QWidget):
             cap = self.c.capture
             bad = cap is not None and not (cap.shot_key.ok and cap.rec_key.ok)
             self.cap_key_note.setVisible(bool(bad))
+
+    def _quick_settings(self) -> QWidget:
+        from .quickpage import build
+        return build(self)
 
     def _clipboard_settings(self) -> QWidget:
         """Corefold Clipboard."""

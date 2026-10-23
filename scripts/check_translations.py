@@ -78,6 +78,9 @@ def table_texts() -> dict[str, str]:
     add([x for pair in appspage.UNUSED.values() for x in pair], "appspage.UNUSED")
     from corefold import viewer
     add(viewer.DETAIL_LABELS, "viewer.DETAIL_LABELS")
+    from corefold import hotkey, quick
+    add([a.label for a in quick.ACTIONS.values()], "quick.ACTIONS")
+    add(hotkey.PROBLEMS.values(), "hotkey.PROBLEMS")
     from corefold import clipview
     add([text for _, text in clipview.FILTERS], "clipview.FILTERS")
     add(settings.CLIP_DAYS.values(), "CLIP_DAYS")

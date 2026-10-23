@@ -126,7 +126,8 @@ RECENT_ARCHIVES = 8
 NOT_EDITED = {"enabled", "first_run", "last_version", "menu_signature", "window_geometry", "last_page",
               "last_action", "tour_done", "watermark", "fit_mb", "open_archives", "recent_archives",
               "tools_off", "known_tools", "open_images", "open_emails", "viewer_info", "recent_views",
-              "clip_paused", "open_media", "player_volume", "nav_order", "nav_width", "nav_compact"}
+              "clip_paused", "open_media", "player_volume", "nav_order", "nav_width", "nav_compact",
+              "quick_button_pos", "quick_told"}
 # the settings of each tab of the Settings page (each one has its own "Reset to defaults")
 GENERAL_KEYS = ("language", "sound", "volume", "sound_problems", "show_progress", "low_priority", "one_at_a_time")
 LOOK_KEYS = ("appearance", "accent", "custom_color", "animations", "toast_corner", "toast_time", "window_text",
@@ -144,6 +145,11 @@ PLAYER_KEYS = ("player_resume", "player_skip", "player_wheel", "player_next", "p
 CAPTURE_KEYS = ("cap_shortcut", "cap_record_shortcut", "cap_after", "cap_save", "cap_fps", "cap_mic", "cap_cursor",
                 "cap_countdown")
 UPDATE_KEYS = ("check_updates", "auto_update")
+QUICK_KEYS = ("quick_menu", "quick_menu_key", "quick_menu_items", "quick_wheel", "quick_wheel_key",
+              "quick_wheel_items", "quick_button", "quick_links")
+# what's on the quick menu and the wheel to begin with (see quick.py)
+QUICK_MENU_ITEMS = ["screenshot", "record", "clipboard", "paste", "again", "archive", "explorer", "taskmgr"]
+QUICK_WHEEL_ITEMS = ["screenshot", "clipboard", "paste", "again", "tool:space", "explorer", "settings", "quickmenu"]
 
 
 def editable_keys() -> list[str]:
@@ -222,6 +228,17 @@ class Settings:
     cap_mic: str = ""              # the microphone recorded with the screen ("" = none)
     cap_cursor: bool = True        # the mouse shows in recordings
     cap_countdown: bool = True     # 3, 2, 1 before recording starts
+    # Quick access: a menu and a wheel that open from any app
+    quick_menu: bool = True
+    quick_menu_key: str = "ctrl+alt+space"
+    quick_menu_items: list = field(default_factory=lambda: list(QUICK_MENU_ITEMS))
+    quick_wheel: bool = True
+    quick_wheel_key: str = "alt+`"  # hold it, point, let go (or tap it and click)
+    quick_wheel_items: list = field(default_factory=lambda: list(QUICK_WHEEL_ITEMS))
+    quick_button: bool = False     # a small round button on the screen that opens the wheel
+    quick_button_pos: list = field(default_factory=list)  # [x, y] where it was dragged to
+    quick_links: list = field(default_factory=list)  # {"id", "name", "target"}: their own apps, folders, sites
+    quick_told: bool = False       # the "press … for the quick menu" tip was shown
     # the Uninstaller
     unused_months: int = 3         # "not used for …" filter
     backup_days: int = 30          # backups of removed leftovers are kept this long
@@ -311,6 +328,14 @@ class Settings:
         s.known_tools = [t for t in s.known_tools if isinstance(t, str)]
         s.nav_order = [t for t in s.nav_order if isinstance(t, str)]
         s.nav_width = min(340, max(190, s.nav_width))
+        s.quick_menu_items = [t for t in s.quick_menu_items if isinstance(t, str)][:40]
+        s.quick_wheel_items = [t for t in s.quick_wheel_items if isinstance(t, str)][:12]
+        s.quick_links = [{"id": str(x.get("id", "")), "name": str(x.get("name", "")), "target": str(x["target"])}
+                         for x in s.quick_links if isinstance(x, dict) and isinstance(x.get("target"), str)
+                         and x.get("id")][:24]
+        s.quick_button_pos = [int(v) for v in s.quick_button_pos if type(v) is int][:2]
+        if s.quick_menu_key == s.quick_wheel_key and s.quick_menu_key != "off":
+            s.quick_wheel_key = defaults.quick_wheel_key if s.quick_menu_key != defaults.quick_wheel_key else "off"
         if not s.known_tools and not s.first_run:  # from before the Store: the tools they had
             from .tools import ORIGINAL
             s.known_tools = list(ORIGINAL)

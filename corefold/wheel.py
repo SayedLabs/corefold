@@ -75,6 +75,7 @@ class Item:
     action: str = ""       # "resize", "jpg", ... (decides the icon and group colour)
     more: bool = False     # the "More" slice
     number: str = ""       # the key that picks it in click mode ("1"…"9", "0" for More)
+    icon: str = ""         # its own icon (the quick wheel's items); otherwise the action's
 
 
 def item_for(slot: Slot, favorite: bool) -> Item:
@@ -439,7 +440,7 @@ def _over(a: QColor, b: QColor) -> QColor:
 
 def _draw_label(p: QPainter, pos: QPointF, item: Item, look: Look, font: QFont, icon_px: int,
                 color: QColor, active: bool, max_width: float = 102, icon_color: QColor | None = None):
-    icon = ICONS.get("more" if item.more else item.action, "")
+    icon = item.icon or ICONS.get("more" if item.more else item.action, "")
     is_format = item.action in FORMAT_ACTIONS and not item.more
     text = ("★ " if item.favorite and item.ok else "") + item.label
     mode = look.labels
