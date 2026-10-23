@@ -189,6 +189,8 @@ corefold/ipc.py                hands right-click requests to the running app wit
 corefold/i18n.py               languages; corefold/lang_ar.py has the Arabic text
 corefold/updater.py            self-updates from GitHub Releases (checksum-verified)
 corefold/uninstall.py          the Apps page: uninstalling and leftovers, with backups
+corefold/unlock.py             which programs have a file open (Windows' Restart Manager), and closing them
+corefold/unlockpage.py         Corefold Unlock's page
 scripts/check_translations.py  checks that every text has a translation
 assets/                        icon, installer pictures and sounds (scripts/make_icon.py, make_sounds.py)
 scripts/build.ps1              builds the app, installer and zip
