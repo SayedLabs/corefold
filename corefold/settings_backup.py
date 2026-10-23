@@ -23,6 +23,7 @@ EXTENSION = ".corefold"
 FOLDER = "settings-backups"   # in the settings folder: the copies made before updates
 KEEP = 5                      # copies kept (the newest)
 MAX_BYTES = 4_000_000         # a settings file is a few KB: anything this big isn't one
+MAX_TARGET = 2000             # a quick link's target (a program, file, folder or site) longer than this is dropped
 # not "settings" a person edits, but their choices all the same: they go in the file too. (Window
 # size and place, recent files, "Do it again" and other things the app only remembers stay out.)
 ALSO_KEPT = ("tools_off", "known_tools", "nav_order", "nav_compact", "watermark", "fit_mb", "open_archives",
@@ -101,7 +102,7 @@ def read(path: Path) -> Saved:
                 when = datetime.fromtimestamp(path.stat().st_mtime)
             except (OSError, ValueError):
                 when = None
-            return Saved(data, "", when, None)
+            return Saved(_safe_links(data), "", when, None)
         raise BadFile("This isn't a Corefold settings file.")
     version = data.get("format_version")
     if type(version) is not int or version < 1:
@@ -117,8 +118,26 @@ def read(path: Path) -> Saved:
         when = None
     app_version = data.get("app_version")
     startup = data.get("start_with_windows")
-    return Saved(values, app_version if isinstance(app_version, str) else "", when,
+    return Saved(_safe_links(values), app_version if isinstance(app_version, str) else "", when,
                  startup if isinstance(startup, bool) else None)
+
+
+def _safe_links(values: dict) -> dict:
+    """Quick links open programs: only ones with a plain, sensible target are kept from a file."""
+    links = values.get("quick_links")
+    if links is None:
+        return values
+    values = dict(values)
+    values["quick_links"] = [x for x in links if isinstance(links, list) and isinstance(x, dict)
+                             and isinstance(x.get("target"), str) and 0 < len(x["target"]) <= MAX_TARGET
+                             and isinstance(x.get("name", ""), str)] if isinstance(links, list) else []
+    return values
+
+
+def links(saved: Saved) -> list[tuple[str, str]]:
+    """(name, target) of the quick links the file brings (they open programs, files and sites)."""
+    return [(str(x.get("name") or ""), x["target"]) for x in saved.settings.get("quick_links") or []
+            if x.get("id")]
 
 
 def apply(current, saved: Saved):

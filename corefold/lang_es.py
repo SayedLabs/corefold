@@ -1732,6 +1732,7 @@ STRINGS: dict[str, str] = {
     "Hide the keys": "Ocultar las teclas",
     "Show the keys": "Mostrar las teclas",
     "Pick other keys, or close the app that uses these.": "Elige otras teclas o cierra la aplicación que usa estas.",
+    "It also adds links to your quick menu ({count}). They open:": "También añade enlaces a tu menú rápido ({count}). Abren:",
     # ---- quick menu: sums, units, Windows settings, web search, Windows commands, keep on top
     "Sleep": "Suspender",
     "Hibernate": "Hibernar",
