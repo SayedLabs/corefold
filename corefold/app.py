@@ -1212,6 +1212,9 @@ class Controller(QObject):
             if self.quick is not None:
                 self.quick.apply_settings()
             self._tray_tools()
+            btn = getattr(self._window, "quick_btn", None)
+            if btn is not None:
+                btn.setVisible(bool(self.settings.quick_menu))
             notes = getattr(self._window, "quick_notes", None)
             if notes is not None:
                 notes()

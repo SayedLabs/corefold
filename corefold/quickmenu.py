@@ -19,8 +19,11 @@ from . import icons, quick
 from .core import APP_NAME
 from .i18n import is_rtl, tr
 
-PANEL_RADIUS = 14
-ITEM_RADIUS = 10
+try:  # the design system's sizes (atomic/tokens.py)
+    from .atomic.tokens import RADIUS
+    PANEL_RADIUS, ITEM_RADIUS = RADIUS["xl"], RADIUS["md"]
+except ImportError:
+    PANEL_RADIUS, ITEM_RADIUS = 14, 10
 PAD = 24
 TILE_W, TILE_H, GAP = 116, 92, 10
 ROW_H = 44
@@ -39,6 +42,14 @@ def _rounded(rect: QRectF, r: float) -> QPainterPath:
     path = QPainterPath()
     path.addRoundedRect(rect, r, r)
     return path
+
+
+def _colors(t) -> tuple[QColor, QColor]:
+    """The panel's colour and the colour behind the tile under the mouse."""
+    tok = getattr(t, "tokens", None)
+    if tok is not None:
+        return tok.raised, tok.accent_soft
+    return t.panel, t.hover
 
 
 def _alpha(c: QColor, a: int) -> QColor:
@@ -67,7 +78,7 @@ class QuickMenu(QWidget):
         self.max_scroll = 0.0
         self.t = 1.0  # opening animation, 0..1
         self.anim = QVariantAnimation(self)
-        self.anim.setDuration(150)
+        self.anim.setDuration(_motion("fast", 150))
         self.anim.valueChanged.connect(self._animate)
         self.anim.finished.connect(self._anim_done)
         self._closing = False
@@ -361,7 +372,7 @@ class QuickMenu(QWidget):
         # a soft shadow, then the panel
         for i, a in ((18, 10), (10, 18), (4, 30)):
             p.fillPath(_rounded(panel.adjusted(-i, -i + 6, i, i + 6), PANEL_RADIUS + i), QColor(0, 0, 0, a))
-        p.fillPath(_rounded(panel, PANEL_RADIUS), _alpha(t.panel, 250))
+        p.fillPath(_rounded(panel, PANEL_RADIUS), _alpha(_colors(t)[0], 250))
         p.setPen(QPen(t.border, 1))
         p.drawPath(_rounded(panel.adjusted(0.5, 0.5, -0.5, -0.5), PANEL_RADIUS))
         self._paint_header(p, panel)
@@ -388,8 +399,8 @@ class QuickMenu(QWidget):
                 down = edge == self.view.top()
                 band = QRectF(self.view.left() + 1, edge if down else edge - 18, self.view.width() - 2, 18)
                 g = QLinearGradient(0, band.top(), 0, band.bottom())
-                g.setColorAt(0 if down else 1, _alpha(t.panel, 250))
-                g.setColorAt(1 if down else 0, _alpha(t.panel, 0))
+                g.setColorAt(0 if down else 1, _alpha(_colors(t)[0], 250))
+                g.setColorAt(1 if down else 0, _alpha(_colors(t)[0], 0))
                 p.fillRect(band, g)
             track = self.view.adjusted(0, 6, 0, -6)
             frac = track.height() / (track.height() + self.max_scroll)
@@ -468,11 +479,11 @@ class QuickMenu(QWidget):
         path = _rounded(r, ITEM_RADIUS)
         if sp.kind == "add":
             p.setPen(QPen(t.line_strong, 1.2, Qt.DashLine))
-            p.setBrush(t.hover if (selected or hovered) else Qt.NoBrush)
+            p.setBrush(_colors(t)[1] if (selected or hovered) else Qt.NoBrush)
             p.drawPath(_rounded(r.adjusted(0.6, 0.6, -0.6, -0.6), ITEM_RADIUS))
             p.setBrush(Qt.NoBrush)
         else:
-            p.fillPath(path, t.hover if (selected or hovered) else t.field)
+            p.fillPath(path, _colors(t)[1] if (selected or hovered) else t.field)
             p.setPen(QPen(t.accent if selected else t.border, 1.6 if selected else 1))
             p.drawPath(_rounded(r.adjusted(0.5, 0.5, -0.5, -0.5), ITEM_RADIUS))
         base = QFont(self.font())
@@ -500,6 +511,14 @@ class QuickMenu(QWidget):
         for line in lines:
             p.drawText(QRectF(r.left() + 4, y, r.width() - 8, fm.height()), Qt.AlignCenter, line)
             y += fm.height() - 1
+
+
+def _motion(name: str, fallback: int) -> int:
+    try:
+        from .atomic.tokens import MOTION
+        return MOTION.get(name, fallback)
+    except ImportError:
+        return fallback
 
 
 def _two_lines(text: str, fm: QFontMetrics, width: float) -> list[str]:

@@ -1114,6 +1114,10 @@ class MainWindow(QWidget):
         row.addWidget(self.search_btn)
         self.top_actions = QHBoxLayout()  # (room for more buttons, like the Quick menu's)
         self.top_actions.setSpacing(4)
+        self.quick_btn = IconButton(tr("Quick menu"))
+        self.quick_btn.clicked.connect(lambda: self.c.quick and self.c.quick.toggle_menu())
+        self.quick_btn.setVisible(bool(self.c.settings.quick_menu))
+        self.top_actions.addWidget(self.quick_btn)
         row.addLayout(self.top_actions)
         self.theme_btn = IconButton()
         self.theme_btn.clicked.connect(self.toggle_dark)
@@ -3204,6 +3208,7 @@ class MainWindow(QWidget):
         self.search_btn.glyph = icons.icon("search", t.muted)
         self.search_btn.update()
         self.theme_btn.setIcon(icons.icon("weather_sunny" if t.dark else "weather_moon", t.text))
+        self.quick_btn.setIcon(icons.icon("layout", t.text))
         self.theme_btn.setToolTip(tr("Switch to light mode") if t.dark else tr("Switch to dark mode"))
         for b, name in self.quick_buttons:
             b.setIcon(icons.icon(name, t.accent if not t.dark else t.text))
