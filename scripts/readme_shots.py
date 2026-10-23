@@ -197,8 +197,8 @@ def space_map():  # a real map, of a folder every PC has
     w.open_page("Space")
     settle(0.5)
     sp = w.stack.currentWidget()
-    sp.start_scan(Path(os.environ.get("ProgramFiles", sys.prefix)))
-    end = time.time() + 180
+    sp.start_scan(Path(os.environ.get("ProgramFiles(x86)", sys.prefix)))
+    end = time.time() + 300
     while sp.job is not None and time.time() < end:
         settle(0.5)
     if sp.job is not None:
@@ -252,7 +252,7 @@ if os.name == "nt" and c.quick is not None:
     def quick_menu():
         c.quick.toggle_menu()
         settle(1.0)
-        screen_crop("quick-menu", geo.adjusted(0, 0, 0, -48))  # (without the taskbar)
+        screen_crop("quick-menu", geo)
         c.quick.menu.hide()
 
     def quick_wheel():
