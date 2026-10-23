@@ -21,6 +21,8 @@ try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 except (AttributeError, ValueError):
     pass
+import faulthandler  # noqa: E402
+faulthandler.dump_traceback_later(420, exit=True)  # stuck somewhere: say where, and stop
 
 from PIL import Image, ImageDraw  # noqa: E402
 

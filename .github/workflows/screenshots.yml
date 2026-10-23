@@ -41,6 +41,7 @@ jobs:
           python scripts/stress.py shots *>> shots/stress-output.txt
 
       - name: Click through the newer tools
+        timeout-minutes: 10
         shell: pwsh
         continue-on-error: true
         run: |
