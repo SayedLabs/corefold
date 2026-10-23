@@ -249,6 +249,7 @@ class Controller(QObject):
         self.uninstall_busy = 0  # an app's uninstall or leftover removal is running (Apps page)
         self.jobs: dict[int, dict] = {}  # id -> tool, files, bytes_in, params, rename, after
         self.browsers: list = []         # open archive windows
+        self.viewers: list = []          # open picture and email windows
         self.pending: list[Path] = []    # files arriving from the right-click menu for the wheel
         self.pending_open: list[Path] = []  # ... for the window ("All options…")
         self.pending_runs: dict[str, list[Path]] = {}  # tool key -> files ("Convert to PNG" in the menu)
@@ -752,12 +753,22 @@ class Controller(QObject):
         self.settings.save()
         self.sync_archive_opening()
 
+    def set_open_files(self, key: str, on: bool):
+        """open_images / open_emails (Settings → Viewer): applied at once, like opening archives."""
+        setattr(self.settings, key, on)
+        self.settings.save()
+        self.sync_archive_opening()
+
     def sync_archive_opening(self):
+        """Double-clicking archives, pictures and emails opens them in Corefold, as chosen in Settings
+        (and only for the tools in use)."""
         from . import assoc
         s = self.settings
-        threading.Thread(target=assoc.sync, args=(s.open_archives and all_tools.is_on(s, "archive"), app_command,
-                                                  app_icon(),
-                                                  tr("Corefold Archive")), daemon=True).start()
+        viewer = all_tools.is_on(s, "viewer")
+        wanted = {"archive": (s.open_archives and all_tools.is_on(s, "archive"), tr("Corefold Archive")),
+                  "image": (s.open_images and viewer, tr("Corefold Viewer")),
+                  "email": (s.open_emails and viewer, tr("Corefold Viewer"))}
+        threading.Thread(target=assoc.sync, args=(wanted, app_command, app_icon(), ""), daemon=True).start()
 
     # ---- right-click menu
 
@@ -828,6 +839,8 @@ class Controller(QObject):
             self.files_from_menu(lines, into="window")
         elif word == "browse" and lines:
             self.browse_from_menu(lines[0])
+        elif word == "view" and lines:
+            self.open_viewer(Path(lines[0]))
         elif word == "run" and len(lines) >= 2:
             self.run_from_menu(lines[0], lines[1:])
 
@@ -897,6 +910,56 @@ class Controller(QObject):
         if not self.toast.notify(title, detail, linger_ms=6000):
             self.tray.showMessage(title, detail, QSystemTrayIcon.Warning, 6000)
         self.play_problem_sound()
+
+    def open_viewer(self, path: Path):
+        """Opens a picture (with the rest of its folder) or an email file in Corefold Viewer."""
+        from .viewer import is_picture
+        if not path.is_file():
+            return
+        self.viewers = [v for v in self.viewers if _alive(v)]
+        if path.suffix.lower() in (".eml", ".msg"):
+            from . import mail
+            from .mailview import MailWindow
+            try:
+                win = MailWindow(self, path, self.icon)
+            except (mail.MailError, OSError) as e:
+                self.tell(tr("Couldn't open the email"), f"{short_name(path.name)}: {e}")
+                return
+        elif is_picture(path):
+            for v in self.viewers:  # a picture window is open already: show it there
+                if hasattr(v, "open") and not v.isFullScreen() and v.isVisible():
+                    if v._leave_ok():
+                        v.open(path)
+                        v.showNormal()
+                        v.raise_()
+                        v.activateWindow()
+                        self.remember_view(path)
+                    return
+            from .viewer import ViewerWindow
+            win = ViewerWindow(self, path, self.icon)
+        else:
+            self.tell(tr("Can't open this here"), short_name(path.name))
+            return
+        self.viewers.append(win)
+        self.remember_view(path)
+        win.show()
+        win.raise_()
+        win.activateWindow()
+
+    def remember_view(self, path: Path):
+        from .settings import RECENT_ARCHIVES
+        try:
+            if path.resolve().is_relative_to(Path(tempfile.gettempdir()).resolve()):
+                return
+        except OSError:
+            return
+        key = os.path.normcase(str(path))
+        rest = [p for p in self.settings.recent_views if os.path.normcase(p) != key]
+        self.settings.recent_views = [str(path), *rest][:RECENT_ARCHIVES]
+        self.settings.save()
+        w = self._window
+        if w is not None and hasattr(w, "refresh_views"):
+            w.refresh_views()
 
     def browse_from_menu(self, path: str):
         p = Path(path)

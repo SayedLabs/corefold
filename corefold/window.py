@@ -25,6 +25,7 @@ from .settings import (ACCENTS, APP_NAME, DEFAULT_ACCENT, APPEARANCES, HOVER_STY
                        SHORTCUT_LABELS, SLICE_COLORS, SOUNDS, TEXT_SIZE_NAMES, TOAST_CORNERS, TOAST_TIMES,
                        WHEEL_POSITIONS, WHEEL_SIZE_NAMES, WHEEL_STYLES, WINDOW_TEXT, installed_uninstaller,
                        ARCHIVE_KEYS, BACKUP_DAYS, CONVERTER_KEYS, EXTRACT_MODES, FORMAT_KEYS, GENERAL_KEYS,
+                       SLIDESHOW_SECONDS, VIEWER_KEYS, VIEWER_WHEEL,
                        LOOK_KEYS, UNINSTALLER_KEYS, UNUSED_MONTHS, WHEEL_KEYS, editable_keys, set_startup,
                        startup_enabled)
 from .theme import Theme
@@ -423,7 +424,8 @@ class MainWindow(QWidget):
                     "Archives": self._archives, "Store": self._store, "General": self._general,
                     "Look": self._look, "ConvOptions": self._conv_options, "WheelLook": self._wheel_look,
                     "Formats": self._formats, "AppsSettings": self._apps_settings,
-                    "ArchiveSettings": self._archive_settings, "Updates": self._updates, "About": self._about}
+                    "ArchiveSettings": self._archive_settings, "Viewer": self._viewer,
+                    "ViewerSettings": self._viewer_settings, "Updates": self._updates, "About": self._about}
         self._wheel_guard = None
         self._settings_head()  # (made before the pages: opening one shows or hides it)
         self._dots: list[QLabel] = []
@@ -431,7 +433,7 @@ class MainWindow(QWidget):
         self._builders = builders
         # pages that are rarely opened are only built the first time they are (a faster, lighter window)
         # (the Converter's page and every Settings page are always made: other parts of the window use them)
-        self._unbuilt = {"Apps", "Store", *SOON, *[tool.page for tool in all_tools.TOOLS
+        self._unbuilt = {"Apps", "Store", "Viewer", *SOON, *[tool.page for tool in all_tools.TOOLS
                                                     if tool.page not in on_pages and tool.page != "Converter"]}
         for name in PAGES:
             built = QWidget() if name in self._unbuilt else builders[name]()
@@ -616,6 +618,8 @@ class MainWindow(QWidget):
             self.refresh_memory()
         elif name == "Archives":
             self.refresh_archives()
+        elif name == "Viewer":
+            self.refresh_views()
 
     def _archives(self) -> QWidget:
         """Corefold Archive: open archives, make new ones, and the ones opened lately."""
@@ -1361,6 +1365,164 @@ class MainWindow(QWidget):
         lay.addStretch()
         return w
 
+    def _viewer(self) -> QWidget:
+        """Corefold Viewer: open pictures and email files, and the ones opened lately."""
+        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
+        w, lay = page(tr("Corefold Viewer"))
+        lay.itemAt(0).widget().hide()
+        lay.addLayout(tool_header("viewer", tr("Corefold Viewer"),
+                                  tr("Flip through a folder of pictures fast, fix them on the spot, and open email "
+                                     "files."), dark, dpr, self.tool_settings_button("Viewer")))
+        self.viewer_drop = DropZone(None, None, title=tr("Drop a picture or an email file"),
+                                    sub=tr("Pictures open with the rest of their folder: use the arrow keys to flip "
+                                           "through. Outlook (.msg) and .eml emails open without Outlook."),
+                                    hot_title=tr("Let go"),
+                                    buttons=[(tr("Open a picture…"), self._open_picture, "primary"),
+                                             (tr("Open an email…"), self._open_email)])
+        self.viewer_drop.dropped.connect(lambda paths: [self.c.open_viewer(p) for p in paths[:3]])
+        lay.addWidget(self.viewer_drop)
+
+        box, bl = card(8)
+        head = QHBoxLayout()
+        head.addWidget(label(tr("Opened lately"), "h2"))
+        head.addStretch()
+        self.views_clear = button(tr("Clear"), "flat", self._clear_views)
+        head.addWidget(self.views_clear)
+        bl.addLayout(head)
+        self.views_lay = QVBoxLayout()
+        self.views_lay.setSpacing(2)
+        bl.addLayout(self.views_lay)
+        lay.addWidget(box)
+
+        box, bl = card(8)
+        bl.addWidget(label(tr("Good to know"), "h2"))
+        for text in (tr("Arrow keys flip through the folder; the mouse wheel zooms, a double-click shows the "
+                        "actual size."),
+                     tr("R turns the picture, C crops it, Delete sends it to the Recycle Bin, F11 is full screen."),
+                     tr("Turning and cropping only change the file when you press Save, and the photo's details "
+                        "are kept."),
+                     tr("Emails never load anything from the internet, and links show where they really go "
+                        "first.")):
+            row = QHBoxLayout()
+            row.setSpacing(10)
+            row.addWidget(self._accent_dot(), 0, Qt.AlignTop)
+            row.addWidget(label(text, wrap=True), 1)
+            bl.addLayout(row)
+        lay.addWidget(box)
+        lay.addStretch()
+        return w
+
+    def refresh_views(self):
+        """The pictures and emails opened lately (ones that were moved or deleted are left out)."""
+        if "Viewer" in self._unbuilt:
+            return
+        lay = self.views_lay
+        while lay.count():
+            item = lay.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        shown = 0
+        for name in self.c.settings.recent_views:
+            path = Path(name)
+            try:
+                there = path.is_file()
+            except OSError:
+                there = False
+            if not there:
+                continue
+            email = path.suffix.lower() in (".eml", ".msg")
+            row = QPushButton(f"{short_name(path.name, 60)}   ·   {short_name(str(path.parent), 60)}")
+            row.setObjectName("flat")
+            row.setToolTip(str(path))
+            row.setCursor(Qt.PointingHandCursor)
+            row.setIcon(icons.icon("chat" if email else "image", self.c.theme.muted))
+            row.setStyleSheet("text-align: left;" if not i18n.is_rtl() else "text-align: right;")
+            row.clicked.connect(lambda _=False, p=path: self.c.open_viewer(p))
+            lay.addWidget(row)
+            shown += 1
+        if not shown:
+            lay.addWidget(label(tr("Pictures and emails you open show up here."), "muted", wrap=True))
+        self.views_clear.setVisible(bool(shown))
+
+    def _clear_views(self):
+        self.c.settings.recent_views = []
+        self.c.settings.save()
+        self.refresh_views()
+
+    def _open_picture(self):
+        from .viewer import PICTURE_EXT
+        pattern = " ".join(f"*{e}" for e in sorted(PICTURE_EXT))
+        name, _ = QFileDialog.getOpenFileName(self, tr("Open a picture"), str(Path.home() / "Pictures"),
+                                              f"{tr('Pictures')} ({pattern});;{tr('All files')} (*)")
+        if name:
+            self.c.open_viewer(Path(name))
+
+    def _open_email(self):
+        name, _ = QFileDialog.getOpenFileName(self, tr("Open an email"), str(Path.home()),
+                                              f"{tr('Emails')} (*.msg *.eml);;{tr('All files')} (*)")
+        if name:
+            self.c.open_viewer(Path(name))
+
+    def _viewer_settings(self) -> QWidget:
+        """Corefold Viewer."""
+        s = self.c.settings
+        w, lay = page(tr("Viewer"))
+        box, bl = card()
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(16)
+        grid.setVerticalSpacing(12)
+        self.viewer_wheel = QComboBox()
+        for key, text in VIEWER_WHEEL.items():
+            self.viewer_wheel.addItem(tr(text), key)
+        self.viewer_wheel.setCurrentIndex(max(0, self.viewer_wheel.findData(s.viewer_wheel)))
+        self.viewer_wheel.currentIndexChanged.connect(self._viewer_setting_changed)
+        self.slideshow_seconds = QComboBox()
+        for key, text in SLIDESHOW_SECONDS.items():
+            self.slideshow_seconds.addItem(tr(text), key)
+        self.slideshow_seconds.setCurrentIndex(max(0, self.slideshow_seconds.findData(s.slideshow_seconds)))
+        self.slideshow_seconds.currentIndexChanged.connect(self._viewer_setting_changed)
+        grid.addWidget(label(tr("The mouse wheel")), 0, 0)
+        grid.addWidget(self.viewer_wheel, 0, 1)
+        grid.addWidget(label(tr("Slideshow: each picture for")), 1, 0)
+        grid.addWidget(self.slideshow_seconds, 1, 1)
+        grid.setColumnStretch(2, 1)
+        bl.addLayout(grid)
+        self.viewer_confirm_delete = checkbox(tr("Ask before sending a picture to the Recycle Bin"),
+                                              s.viewer_confirm_delete, self._viewer_setting_changed)
+        bl.addWidget(self.viewer_confirm_delete)
+        lay.addWidget(box)
+        box, bl = card()
+        bl.addWidget(label(tr("Double-click to open"), "h2"))
+        self.open_images_setting = checkbox(tr("Open pictures with Corefold (it shows up under \"Open with\")"),
+                                            s.open_images, lambda on: self.c.set_open_files("open_images", on))
+        self.open_emails_setting = checkbox(tr("Open email files (.msg, .eml) with Corefold"), s.open_emails,
+                                            lambda on: self.c.set_open_files("open_emails", on))
+        bl.addWidget(self.open_images_setting)
+        bl.addWidget(self.open_emails_setting)
+        row = QHBoxLayout()
+        row.addWidget(button(tr("Make Corefold the default…"), None, self._default_for_viewer))
+        row.addStretch()
+        bl.addLayout(row)
+        bl.addWidget(label(tr("Windows asks you to pick the default app yourself. This opens the right place in "
+                              "Settings."), "muted", wrap=True))
+        lay.addWidget(box)
+        lay.addLayout(_reset_row(lambda: self.reset_to_defaults(VIEWER_KEYS)))
+        lay.addStretch()
+        return w
+
+    def _viewer_setting_changed(self, *_):
+        s = self.c.settings
+        s.viewer_wheel = self.viewer_wheel.currentData()
+        s.slideshow_seconds = self.slideshow_seconds.currentData()
+        s.viewer_confirm_delete = self.viewer_confirm_delete.isChecked()
+        self.c.settings_changed()
+
+    def _default_for_viewer(self):
+        from . import assoc
+        if not self.open_images_setting.isChecked():
+            self.open_images_setting.setChecked(True)
+        assoc.open_default_apps()
+
     def _archive_settings(self) -> QWidget:
         """Corefold Archive."""
         s = self.c.settings
@@ -1988,6 +2150,7 @@ class MainWindow(QWidget):
         for gear in self._gears:
             gear.setIcon(icons.icon("settings", t.text))
         self.refresh_archives()
+        self.refresh_views()
         if self.isVisible():
             set_title_bar_dark(self, t.dark)
 

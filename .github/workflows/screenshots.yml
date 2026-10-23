@@ -40,6 +40,13 @@ jobs:
           $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
           python scripts/stress.py shots *>> shots/stress-output.txt
 
+      - name: Click through the newer tools
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
+          python scripts/uitest.py shots *>> shots/uitest-output.txt
+
       - name: Take the pictures
         shell: pwsh
         continue-on-error: true
