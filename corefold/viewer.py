@@ -96,8 +96,8 @@ def raw_preview(path: Path):
         if i < 0:
             break
         start = i + 3
-        try:
-            im = Image.open(io.BytesIO(data[i:]))
+        try:  # (its start is enough to know its size: no copy of the whole file for each one)
+            im = Image.open(io.BytesIO(data[i:i + (1 << 20)]))
             px = im.width * im.height
         except Exception:
             continue
