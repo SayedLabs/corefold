@@ -45,6 +45,7 @@ try:
 except (AttributeError, ValueError):
     pass
 import faulthandler  # noqa: E402
+faulthandler.enable()  # a crash inside Qt: say where
 faulthandler.dump_traceback_later(int(os.environ.get("SWEEP_STUCK", "1500")), exit=True)  # stuck somewhere: say where, and stop
 
 from corefold import settings as st  # noqa: E402
