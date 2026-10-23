@@ -723,10 +723,6 @@ STRINGS: dict[str, str] = {
     "Remove the list of recent conversions? Your files aren't touched.": "Effacer la liste des conversions récentes ? Vos fichiers ne sont pas touchés.",
     "Reset stats": "Remettre les statistiques à zéro",
     "Start counting files converted and space saved from zero?": "Recommencer à compter les fichiers convertis et l'espace gagné à partir de zéro ?",
-    "Restart Corefold?": "Redémarrer Corefold ?",
-    "Corefold needs to restart to change the language. It only takes a moment.": "Corefold doit redémarrer pour changer de langue. Cela ne prend qu'un instant.",
-    "Restart now": "Redémarrer maintenant",
-    "Later": "Plus tard",
     "Save converted files in": "Enregistrer les fichiers convertis dans",
     "Pin to the top of the wheel": "Épingler en haut de la roue",
     "Move earlier on the wheel": "Avancer sur la roue",
@@ -1787,4 +1783,7 @@ STRINGS: dict[str, str] = {
     "Apply": "Appliquer",
     "this camera file has no picture Corefold can show": "ce fichier d'appareil photo ne contient aucune image que Corefold peut afficher",
     "Make videos with the graphics card when there is one (several times faster)": "Créer les vidéos avec la carte graphique s'il y en a une (plusieurs fois plus rapide)",
+    "Choose your language": "Choisissez votre langue",
+    "You can change it any time with the language button at the top of Corefold's window.": "Vous pourrez la changer à tout moment avec le bouton de langue en haut de la fenêtre de Corefold.",
+    "Windows language": "Langue de Windows",
 }

@@ -8,10 +8,11 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, Qt, QTimer, Signal
 from PySide6.QtGui import QIcon, QPixmap
-from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QDialog, QDoubleSpinBox, QFileDialog,
+from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QDialog, QDoubleSpinBox, QFileDialog,
                                QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QRadioButton, QSlider,
                                QSpinBox, QVBoxLayout)
 
+from .atomic.widgets import Dropdown
 from .converters import RESIZE_PRESETS, ROTATIONS, category, load_image, media_duration, norm, video_frame
 from .core import human_size, quick_size, safe_name, short_name
 from .i18n import tr
@@ -421,11 +422,11 @@ class WatermarkDialog(Base):
         pick_logo.clicked.connect(self._pick_logo)
         clear_logo = QPushButton(tr("No logo"))
         clear_logo.clicked.connect(self._clear_logo)
-        self.position = QComboBox()
+        self.position = Dropdown()
         for k, v in POSITIONS.items():
             self.position.addItem(tr(v), k)
         self.position.setCurrentIndex(max(0, self.position.findData(last.get("position", "br"))))
-        self.size = QComboBox()
+        self.size = Dropdown()
         for k in WM_SIZES:
             self.size.addItem(tr(k.capitalize()), k)
         self.size.setCurrentIndex(max(0, self.size.findData(last.get("size", "medium"))))
@@ -595,7 +596,7 @@ class PackDialog(Base):
         has7z = bool(find_7z())
         self.name = QLineEdit()
         self.name.setPlaceholderText(tr("Name (optional)"))
-        self.format = QComboBox()
+        self.format = Dropdown()
         self.format.addItem(tr("ZIP (opens everywhere)"), "zip")
         if has7z:
             self.format.addItem(tr("7z (smaller files)"), "7z")
@@ -603,7 +604,7 @@ class PackDialog(Base):
         self.format.addItem(tr("TAR.XZ (smaller, for Linux and Mac)"), "tar.xz")
         self.format.addItem(tr("TAR.ZST (fast and small, for Linux and Mac)"), "tar.zst")
         self.has7z = has7z
-        self.level = QComboBox()
+        self.level = Dropdown()
         for k, v in (("fast", "Fast"), ("normal", "Normal"), ("max", "Smallest file (slower)")):
             self.level.addItem(tr(v), k)
         self.level.setCurrentIndex(1)
@@ -616,7 +617,7 @@ class PackDialog(Base):
         show = QCheckBox(tr("Show"))
         show.toggled.connect(lambda on: [w.setEchoMode(QLineEdit.Normal if on else QLineEdit.Password)
                                          for w in (self.password, self.password2)])
-        self.split = QComboBox()
+        self.split = Dropdown()
         for mb, text in SPLITS:
             self.split.addItem(tr(text), mb)
         grid = QGridLayout()

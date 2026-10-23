@@ -723,10 +723,6 @@ STRINGS: dict[str, str] = {
     "Remove the list of recent conversions? Your files aren't touched.": "Son dönüştürmeler listesi silinsin mi? Dosyalarınıza dokunulmaz.",
     "Reset stats": "İstatistikleri sıfırla",
     "Start counting files converted and space saved from zero?": "Dönüştürülen dosyalar ve kazanılan alan sıfırdan sayılmaya başlansın mı?",
-    "Restart Corefold?": "Corefold yeniden başlatılsın mı?",
-    "Corefold needs to restart to change the language. It only takes a moment.": "Dili değiştirmek için Corefold'nın yeniden başlaması gerekiyor. Yalnızca bir an sürer.",
-    "Restart now": "Şimdi yeniden başlat",
-    "Later": "Sonra",
     "Save converted files in": "Dönüştürülen dosyaları şuraya kaydet",
     "Pin to the top of the wheel": "Çarkın en üstüne sabitle",
     "Move earlier on the wheel": "Çarkta öne al",
@@ -1787,4 +1783,7 @@ STRINGS: dict[str, str] = {
     "Apply": "Uygula",
     "this camera file has no picture Corefold can show": "bu fotoğraf makinesi dosyasında Corefold'un gösterebileceği bir resim yok",
     "Make videos with the graphics card when there is one (several times faster)": "Varsa videoları ekran kartıyla yap (birkaç kat daha hızlı)",
+    "Choose your language": "Dilinizi seçin",
+    "You can change it any time with the language button at the top of Corefold's window.": "İstediğiniz zaman Corefold penceresinin üstündeki dil düğmesiyle değiştirebilirsiniz.",
+    "Windows language": "Windows dili",
 }

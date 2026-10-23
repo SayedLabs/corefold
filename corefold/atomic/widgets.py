@@ -6,14 +6,17 @@
     Group        a rounded box of rows with hairlines between them
     GlowPanel    a box washed with the accent colour, for the top of a start page
     IconButton   a square button with only an icon
+    ChoiceCard   a big card to pick one of a few (a checkable button: a ring, a title, a note, a chip)
+    Dropdown     a list to pick one thing from (a QComboBox whose open list matches the family:
+                 rounded, soft highlight under the mouse, a mark on the one picked)
     mark_rows()  hairlines between switch rows that follow each other in a box
 """
 from __future__ import annotations
 
 from PySide6.QtCore import QEasingCurve, QEvent, QObject, QPointF, QRect, QRectF, QSize, Qt, QVariantAnimation
-from PySide6.QtGui import QFontMetrics, QLinearGradient, QPainter, QPainterPath, QPen, QRadialGradient
-from PySide6.QtWidgets import (QCheckBox, QFrame, QGridLayout, QHBoxLayout, QLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout,
-                               QWidget)
+from PySide6.QtGui import QFont, QFontMetrics, QIcon, QLinearGradient, QPainter, QPainterPath, QPen, QRadialGradient
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxLayout, QLayout, QLabel, QListView,
+                               QPushButton, QSizePolicy, QStyle, QStyledItemDelegate, QVBoxLayout, QWidget)
 
 from . import tokens
 from .tokens import MOTION, RADIUS, alpha, mix
@@ -552,4 +555,203 @@ class IconButton(QPushButton):
         self.setIconSize(QSize(18, 18))
 
 
-__all__ = ["Switch", "Group", "SettingRow", "GlowPanel", "IconButton", "mark_rows", "flash", "ResponsiveGrid", "FlowLayout", "SearchButton", "keep_wrapped_text"]
+class _DropdownRow(QStyledItemDelegate):
+    """One row of an open Dropdown, drawn from the tokens (Qt's own drawing used the bright accent
+    behind the row under the mouse, edge to edge)."""
+
+    def __init__(self, combo: QComboBox):
+        super().__init__(combo)
+        self.combo = combo
+
+    def sizeHint(self, option, index) -> QSize:
+        fm = QFontMetrics(option.font)
+        text = str(index.data(Qt.DisplayRole) or "")
+        icon = 24 if isinstance(index.data(Qt.DecorationRole), QIcon) else 0
+        return QSize(fm.horizontalAdvance(text) + icon + 40, max(32, fm.height() + 14))
+
+    def paint(self, p: QPainter, option, index):
+        t = tokens.current()
+        p.save()
+        p.setRenderHint(QPainter.Antialiasing)
+        rtl = self.combo.layoutDirection() == Qt.RightToLeft
+        enabled = bool(index.flags() & Qt.ItemIsEnabled)
+        under_mouse = bool(option.state & (QStyle.State_Selected | QStyle.State_MouseOver)) and enabled
+        picked = index.row() == self.combo.currentIndex()
+        r = QRectF(option.rect).adjusted(4, 1, -4, -1)
+        if under_mouse or picked:
+            p.setPen(Qt.NoPen)
+            p.setBrush(t.hover if under_mouse else t.accent_soft)
+            p.drawRoundedRect(r, RADIUS["sm"], RADIUS["sm"])
+        if picked:  # a short accent mark on the leading side, like the sidebar's
+            mark = QRectF(r.right() - 4 if rtl else r.left() + 1, r.center().y() - 7, 3, 14)
+            p.setPen(Qt.NoPen)
+            p.setBrush(t.accent)
+            p.drawRoundedRect(mark, 1.5, 1.5)
+        x = r.adjusted(14, 0, -14, 0)
+        icon = index.data(Qt.DecorationRole)
+        if isinstance(icon, QIcon) and not icon.isNull():
+            box = QRect(int(x.right() - 16 if rtl else x.left()), int(x.center().y() - 8), 16, 16)
+            icon.paint(p, box)
+            x = x.adjusted(0, 0, -24, 0) if rtl else x.adjusted(24, 0, 0, 0)
+        font = QFont(option.font)
+        if picked:
+            font.setWeight(QFont.Weight.DemiBold)
+        p.setFont(font)
+        p.setPen(t.text if enabled else t.subtle)
+        text = QFontMetrics(font).elidedText(str(index.data(Qt.DisplayRole) or ""), Qt.ElideRight, int(x.width()))
+        p.drawText(x, (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignVCenter | Qt.AlignAbsolute, text)
+        p.restore()
+
+
+class Dropdown(QComboBox):
+    """A list to pick one thing from. Works like any QComboBox; only the open list looks different: it
+    drops below, rounded (no square corners or Windows' square shadow around it), with a soft
+    highlight under the mouse and an accent mark on the one picked."""
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        view = QListView()
+        view.setObjectName("dropdownList")
+        view.setMouseTracking(True)
+        view.setVerticalScrollMode(QListView.ScrollPerPixel)
+        self.setView(view)
+        self.setItemDelegate(_DropdownRow(self))
+        self.setMaxVisibleItems(12)
+        box = view.window()  # (Qt's frame around the list: see-through, so the rounded corners show)
+        box.setObjectName("dropdownBox")
+        box.setWindowFlags(box.windowFlags() | Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint)
+        box.setAttribute(Qt.WA_TranslucentBackground)
+
+    def showPopup(self):
+        super().showPopup()
+        box = self.view().window()
+        # opens right below the box, at least as wide as it (Qt's own spot can cover the box)
+        below = self.mapToGlobal(self.rect().bottomLeft())
+        screen = self.screen().availableGeometry() if self.screen() else None
+        geo = box.geometry()
+        geo.moveTop(below.y() + 4)
+        if self.layoutDirection() == Qt.RightToLeft:
+            geo.moveRight(self.mapToGlobal(self.rect().bottomRight()).x())
+        else:
+            geo.moveLeft(below.x())
+        if screen is not None and geo.bottom() > screen.bottom():  # no room below: above the box instead
+            geo.moveBottom(self.mapToGlobal(self.rect().topLeft()).y() - 4)
+        box.setGeometry(geo)
+
+
+class ChoiceCard(QPushButton):
+    """A big card to pick one of a few things: a ring on the leading side, a title, an optional note
+    under it and a small chip on the trailing side. Checkable; put the cards in an exclusive
+    QButtonGroup. The arrow keys move between cards in the same layout."""
+
+    def __init__(self, title: str, note: str = "", chip: str = "", parent: QWidget | None = None):
+        super().__init__(title, parent)
+        self.note = note
+        self.chip = chip
+        self.setCheckable(True)
+        self.setAutoDefault(False)  # (Enter in a dialog presses its main button, not the card)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setAttribute(Qt.WA_Hover)
+        self.setObjectName("choiceCard")
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+    def _fonts(self) -> tuple[QFont, QFont]:
+        big = QFont(self.font())
+        big.setPointSizeF(self.font().pointSizeF() * 1.15)
+        big.setWeight(QFont.Weight.DemiBold)
+        small = QFont(self.font())
+        small.setPointSizeF(max(7.0, self.font().pointSizeF() * 0.85))
+        return big, small
+
+    def sizeHint(self) -> QSize:
+        big, small = self._fonts()
+        h = QFontMetrics(big).height() + (QFontMetrics(small).height() + 2 if self.note else 0) + 26
+        w = QFontMetrics(big).horizontalAdvance(self.text()) + 120
+        if self.chip:
+            w += QFontMetrics(small).horizontalAdvance(self.chip) + 30
+        return QSize(w, max(52, h))
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(160, self.sizeHint().height())
+
+    _keyboard_focus = False
+
+    def focusInEvent(self, e):
+        self._keyboard_focus = e.reason() in (Qt.TabFocusReason, Qt.BacktabFocusReason)
+        super().focusInEvent(e)
+
+    def focusOutEvent(self, e):
+        self._keyboard_focus = False
+        super().focusOutEvent(e)
+
+    def keyPressEvent(self, e):
+        step = {Qt.Key_Down: 1, Qt.Key_Right: 1, Qt.Key_Up: -1, Qt.Key_Left: -1}.get(e.key())
+        group = self.group()
+        if step is None or group is None:
+            return super().keyPressEvent(e)
+        if self.layoutDirection() == Qt.RightToLeft and e.key() in (Qt.Key_Left, Qt.Key_Right):
+            step = -step
+        cards = [b for b in group.buttons() if b.isVisible() and b.isEnabled()]
+        if self in cards:
+            nxt = cards[(cards.index(self) + step) % len(cards)]
+            nxt.setFocus(Qt.TabFocusReason)
+            nxt.click()
+
+    def paintEvent(self, _e):
+        t = tokens.current()
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        rtl = self.layoutDirection() == Qt.RightToLeft
+        on = self.isChecked()
+        hover = self.underMouse()
+        r = QRectF(self.rect()).adjusted(1, 1, -1, -1)
+        p.setPen(QPen(t.accent if on else (t.subtle if hover else t.line_strong), 2 if on else 1))
+        p.setBrush(t.accent_soft if on else (t.hover if hover else t.surface))
+        p.drawRoundedRect(r, RADIUS["lg"], RADIUS["lg"])
+        if self.hasFocus() and self._keyboard_focus and not on:
+            p.setPen(QPen(t.accent, 2))
+            p.setBrush(Qt.NoBrush)
+            p.drawRoundedRect(r, RADIUS["lg"], RADIUS["lg"])
+        # the ring
+        cx = r.right() - 26 if rtl else r.left() + 26
+        cy = r.center().y()
+        p.setPen(QPen(t.accent if on else t.subtle, 1.5))
+        p.setBrush(Qt.NoBrush)
+        p.drawEllipse(QPointF(cx, cy), 9, 9)
+        if on:
+            p.setPen(Qt.NoPen)
+            p.setBrush(t.accent)
+            p.drawEllipse(QPointF(cx, cy), 5, 5)
+        big, small = self._fonts()
+        left, right = (r.left() + 16, r.right() - 48) if rtl else (r.left() + 48, r.right() - 16)
+        if self.chip:  # the chip, on the trailing side
+            cw = QFontMetrics(small).horizontalAdvance(self.chip) + 18
+            ch = QFontMetrics(small).height() + 6
+            chip = QRectF(left if rtl else right - cw, cy - ch / 2, cw, ch)
+            p.setPen(Qt.NoPen)
+            p.setBrush(alpha(t.accent, 40))
+            p.drawRoundedRect(chip, ch / 2, ch / 2)
+            p.setFont(small)
+            p.setPen(t.text)
+            p.drawText(chip, Qt.AlignCenter, self.chip)
+            if rtl:
+                left += cw + 10
+            else:
+                right -= cw + 10
+        align = (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute
+        bh = QFontMetrics(big).height()
+        sh = QFontMetrics(small).height() + 2 if self.note else 0
+        top = cy - (bh + sh) / 2
+        p.setFont(big)
+        p.setPen(t.text)
+        p.drawText(QRectF(left, top, right - left, bh), align | Qt.AlignVCenter,
+                   QFontMetrics(big).elidedText(self.text(), Qt.ElideRight, int(right - left)))
+        if self.note:
+            p.setFont(small)
+            p.setPen(t.muted)
+            p.drawText(QRectF(left, top + bh + 2, right - left, sh), align | Qt.AlignVCenter,
+                       QFontMetrics(small).elidedText(self.note, Qt.ElideRight, int(right - left)))
+        p.end()
+
+
+__all__ = ["Switch", "ChoiceCard", "Dropdown", "Group", "SettingRow", "GlowPanel", "IconButton", "mark_rows", "flash", "ResponsiveGrid", "FlowLayout", "SearchButton", "keep_wrapped_text"]

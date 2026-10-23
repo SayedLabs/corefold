@@ -12,11 +12,12 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QFileInfo, QObject, Qt, QTimer, Signal
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDialog, QFileIconProvider, QHBoxLayout, QHeaderView,
+from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QDialog, QFileIconProvider, QHBoxLayout, QHeaderView,
                                QLabel, QLineEdit, QMenu, QMessageBox, QProgressBar, QPushButton, QStackedWidget,
                                QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from . import uninstall as un
+from .atomic.widgets import Dropdown
 from .core import LEGACY_NAME, human_size, short_name
 from .i18n import tr, ltr
 
@@ -226,7 +227,7 @@ class AppsPage(QWidget):
                                   window.tool_settings_button("Apps") if window is not None else None))
 
         top = QHBoxLayout()
-        self.show_only = QComboBox()
+        self.show_only = Dropdown()
         for key, text in SHOW.items():
             self.show_only.addItem(tr(UNUSED[_months(controller)][0] if key == "unused" else text), key)
         self.show_only.currentIndexChanged.connect(self._filter)
