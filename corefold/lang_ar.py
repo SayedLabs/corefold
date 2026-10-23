@@ -1224,6 +1224,7 @@ STRINGS: dict[str, str] = {
     "No duplicates found.": "ما لقينا مكررات.",
     "{count} copies of {name}": "{count} نسخ من {name}",
     "{count} smaller files": "{count} ملفات أصغر",
+    "{count} smaller items": "{count} عناصر أصغر",
     "Remove the ticked copies ({size})": "احذف النسخ المحددة ({size})",
     "{count} files have copies, taking {size} more than they need.": "{count} ملفات لها نسخ، وتاخذ {size} زيادة عن حاجتها.",
     "Keep one copy": "خلّ نسخة وحدة",
