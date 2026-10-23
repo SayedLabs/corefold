@@ -368,22 +368,29 @@ def _resource_path(res: str) -> str:
     return rest or res
 
 
-def add_detections(threats: list[Threat], detections: list[dict]):
-    """Fills in what Defender did with each threat (and adds any its own notes have that its answer didn't)."""
-    by_name = {t.name.lower(): t for t in threats}
+def _same_file(a: str, b: str) -> bool:
+    def norm(x: str) -> str:
+        return os.path.normcase(x.split("->")[0].strip())
+    return norm(a) == norm(b)
+
+
+def add_detections(threats: list[Threat], detections: list[dict], add_unknown: bool = True):
+    """Fills in what Defender did with each threat, from its own notes. A note belongs to a threat when the
+    name and a file match (the same threat found earlier somewhere else is another note). add_unknown also
+    adds threats only its notes mention (a quick or full scan doesn't always list them in its answer)."""
     for d in detections:
         name = str(d.get("name") or "")
         status = STATUS_IDS.get(int(d.get("st") or 0), "")
         files = [_resource_path(str(r)) for r in (d.get("res") or []) if r]
-        t = by_name.get(name.lower())
+        t = next((t for t in threats if t.name.lower() == name.lower() and
+                  (not t.files or any(_same_file(a, b) for a in t.files for b in files))), None)
         if t is None:
-            if not name:
+            if not name or not add_unknown:
                 continue
-            t = Threat(name, files)
+            t = Threat(name, [])
             threats.append(t)
-            by_name[name.lower()] = t
         for f in files:
-            if f not in t.files:
+            if not any(_same_file(f, x) for x in t.files):
                 t.files.append(f)
         if status:
             t.status = status
@@ -918,7 +925,8 @@ def scan(kind: str, paths: list[str] | None = None, cancel: threading.Event | No
     """A whole scan: Defender and Corefold's own checks side by side. on_finding(Finding) and on_stage(str)
     are called (on this thread or the checks' thread) as things are found."""
     cancel = cancel or threading.Event()
-    paths = [str(p) for p in (paths or [])]
+    # (full, long names: Defender's notes use them, and "C:\\Users\\RUNNER~1" wouldn't match)
+    paths = [os.path.realpath(str(p)) if os.path.exists(str(p)) else str(p) for p in (paths or [])]
     result = ScanResult(kind, paths, started=time.time())
     checks = Checks(cancel, on_finding)
     side = threading.Thread(target=lambda: _safe(corefold_checks, kind, paths, checks, defender), daemon=True,
@@ -940,7 +948,7 @@ def scan(kind: str, paths: list[str] | None = None, cancel: threading.Event | No
                 count, threats = parse_scan_output(said)
                 if code == 2 or count:
                     time.sleep(1.0)   # (Defender notes what it did a moment after it answers)
-                    add_detections(threats, detections_since(result.started - 5))
+                    add_detections(threats, detections_since(result.started - 2))
             result.defender_code = code
             if code in (0, 2):
                 result.defender_ran = True
@@ -981,7 +989,7 @@ def _custom_scan(paths: list[str], cancel: threading.Event, exe: str, result: Sc
     act_code, act_said = run_defender(CUSTOM, places or paths, cancel, exe)
     result.skipped = skipped_by_defender(act_said)
     time.sleep(1.0)
-    add_detections(threats, detections_since(result.started - 5))
+    add_detections(threats, detections_since(result.started - 2), add_unknown=False)
     for t in threats:
         if t.status:
             continue
