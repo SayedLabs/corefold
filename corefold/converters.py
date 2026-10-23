@@ -1170,7 +1170,9 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
             Tool("pack:options", tr("Archive…"), tr("Archive with a password, split or max compression"), ar.pack,
                  batch=True, ask="pack"),
             Tool("files:rename", tr("Rename"), tr("Rename the files (numbers, replace text…)"), mt.rename_files,
-                 batch=True, ask="rename_files", renames=False)]
+                 batch=True, ask="rename_files", renames=False),
+            Tool("files:hash", "SHA-256", tr("Copy the file's fingerprint, to check a download"), mt.file_hash,
+                 batch=True, renames=False, check=mt.check_files_only)]
 
     folder = [Tool(f"folder:{k}", label, desc, partial(mt.convert_folder, fmt=k), check=mt.check_pictures_folder,
                    renames=False)

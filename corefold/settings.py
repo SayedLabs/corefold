@@ -132,7 +132,7 @@ NOT_EDITED = {"enabled", "first_run", "last_version", "menu_signature", "window_
               "last_action", "tour_done", "watermark", "fit_mb", "open_archives", "recent_archives",
               "tools_off", "known_tools", "open_images", "open_emails", "viewer_info", "recent_views",
               "clip_paused", "open_media", "player_volume", "nav_order", "nav_width", "nav_compact",
-              "quick_button_pos", "quick_told"}
+              "quick_button_pos", "quick_told", "remember_password"}
 # the settings of each tab of the Settings page (each one has its own "Reset to defaults")
 GENERAL_KEYS = ("language", "sound", "volume", "sound_problems", "show_progress", "low_priority", "one_at_a_time")
 LOOK_KEYS = ("appearance", "accent", "custom_color", "animations", "toast_corner", "toast_time", "window_text",
@@ -216,6 +216,7 @@ class Settings:
     clip_max: int = 500            # copies kept (pinned ones don't count)
     clip_days: int = 30            # copies older than this are forgotten (0: never)
     clip_images: bool = True       # keep pictures that are copied
+    remember_password: bool = False  # "Remember it" is ticked in the archive password box
     clip_paused: bool = False      # new copies aren't kept for now
     clip_ignore: str = ""          # programs whose copies are never kept ("mybank.exe, notes.exe")
     # the Player

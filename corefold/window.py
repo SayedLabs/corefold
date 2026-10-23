@@ -2648,9 +2648,25 @@ class MainWindow(QWidget):
                                           self._tool_setting_changed)
         bl.addWidget(self.remember_archives)
         lay.addWidget(box)
+        box, bl = card()
+        bl.addWidget(label(tr("Passwords"), "h2"))
+        bl.addWidget(label(tr("When you tick \"Remember it\" in the password box, Corefold tries that password first "
+                              "next time. They're locked to your Windows account and never leave this PC."), "muted",
+                           wrap=True))
+        row = QHBoxLayout()
+        self.forget_passwords = button(tr("Forget the saved passwords"), None, self._forget_passwords)
+        row.addWidget(self.forget_passwords)
+        row.addStretch()
+        bl.addLayout(row)
+        lay.addWidget(box)
         lay.addLayout(_reset_row(lambda: self.reset_to_defaults(ARCHIVE_KEYS)))
         lay.addStretch()
         return w
+
+    def _forget_passwords(self):
+        from . import passwords
+        passwords.forget_all()
+        self.c.say(tr("Forgotten"), tr("No archive passwords are saved now."))
 
     def _tool_setting_changed(self, *_):
         """A setting on the Uninstaller or Archive tab."""

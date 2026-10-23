@@ -652,7 +652,7 @@ class PackDialog(Base):
 
 
 class PasswordDialog(Base):
-    def __init__(self, files, icon, dark, wrong: bool = False):
+    def __init__(self, files, icon, dark, wrong: bool = False, remember: bool | None = None):
         super().__init__(tr("Password needed"), tr("{name} is protected with a password.",
                                                    name=short_name(files[0].name)),
                          icon, dark)
@@ -667,13 +667,19 @@ class PasswordDialog(Base):
         show.toggled.connect(lambda on: self.password.setEchoMode(QLineEdit.Normal if on else QLineEdit.Password))
         self.lay.addWidget(self.password)
         self.lay.addWidget(show)
+        self.remember = None
+        if remember is not None and files[0].suffix.lower() != ".pdf":
+            self.remember = QCheckBox(tr("Remember it for other archives (kept locked on this PC)"))
+            self.remember.setChecked(remember)
+            self.lay.addWidget(self.remember)
         self.buttons(tr("Open"))
         self.ok.setEnabled(False)
         self.password.textChanged.connect(lambda t: self.ok.setEnabled(bool(t)))
         self.password.setFocus()
 
     def params(self):
-        return {"password": self.password.text()}
+        return {"password": self.password.text(),
+                "remember": self.remember.isChecked() if self.remember is not None else None}
 
 
 DIALOGS = {"resize": ResizeDialog, "rotate": RotateDialog, "trim": TrimDialog, "fit": FitDialog,

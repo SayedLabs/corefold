@@ -701,8 +701,27 @@ class Controller(QObject):
     # ---- archives
 
     def ask_password(self, files: list[Path], wrong: bool = False) -> str | None:
-        answer = dialogs.ask("password", files, self.icon, self.theme.dark, wrong=wrong)
-        return None if answer is None else answer["password"]
+        """The archive's password: one remembered earlier that opens it, or what the person types."""
+        from . import passwords
+        if not wrong and files and files[0].suffix.lower() != ".pdf":
+            try:
+                found = passwords.find(files[0])
+            except Exception:
+                found = None
+                log.debug("remembered passwords couldn't be tried", exc_info=True)
+            if found:
+                log.info("a remembered password opened the archive")
+                return found
+        answer = dialogs.ask("password", files, self.icon, self.theme.dark, wrong=wrong,
+                             remember=self.settings.remember_password)
+        if answer is None:
+            return None
+        if answer.get("remember") is not None and answer["remember"] != self.settings.remember_password:
+            self.settings.remember_password = answer["remember"]
+            self.settings_changed()
+        if answer.get("remember"):
+            passwords.add(answer["password"])
+        return answer["password"]
 
     def open_browser(self, src: Path, password: str = ""):
         """Reads what's in the archive in the background (big archives take a moment), then opens

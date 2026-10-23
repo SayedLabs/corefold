@@ -217,6 +217,35 @@ def is_encrypted(src: Path) -> bool:
     return _cached("encrypted", src, work)
 
 
+def password_works(src: Path, password: str) -> bool:
+    """True if the password opens the archive: tried on its smallest locked file only, so it's quick
+    even for a big archive."""
+    try:
+        entries = list_entries(src, password)
+    except NeedPassword:
+        return False  # the names are locked too (7z): this password didn't open them
+    locked = [e for e in entries if e.encrypted and not e.is_dir]
+    if not locked:
+        return True
+    smallest = min(locked, key=lambda e: e.size)
+    if find_7z():
+        listfile = _listfile([smallest.path])
+        try:
+            code, _ = _run7z(["t", str(src), "-sccUTF-8", "-scsUTF-8", _pw(password), f"@{listfile}"])
+        finally:
+            listfile.unlink(missing_ok=True)
+        return code == 0
+    try:
+        with zipfile.ZipFile(src) as zf:
+            zf.setpassword(password.encode())
+            with zf.open(smallest.path) as f:
+                while f.read(1 << 20):
+                    pass
+        return True
+    except (RuntimeError, zipfile.BadZipFile, KeyError, OSError):
+        return False
+
+
 def top_level(entries: list[Entry]) -> set[str]:
     return {e.path.strip("/").split("/", 1)[0] for e in entries if e.path.strip("/")}
 
