@@ -1,5 +1,5 @@
 ; Corefold installer (Inno Setup 6). Built by scripts\build.ps1.
-; Installs for the current user only: no admin prompt, one page, two clicks.
+; Installs for the current user only: no admin prompt, the licence agreement and one page.
 
 #ifndef AppVersion
   #define AppVersion "1.0.0"
@@ -39,6 +39,8 @@ DisableWelcomePage=yes
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 DisableReadyPage=yes
+; Corefold's licence agreement (English and Arabic). Silent installs and updates skip this page.
+LicenseFile=..\EULA.txt
 WizardStyle=modern
 WizardImageFile=..\assets\wizard.bmp,..\assets\wizard@2x.bmp
 WizardSmallImageFile=..\assets\wizard-small.bmp,..\assets\wizard-small@2x.bmp

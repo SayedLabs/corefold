@@ -1,21 +1,15 @@
-MIT License
+Corefold
+Copyright (c) 2026 Atomic Works. All rights reserved.
 
-Copyright (c) 2026 Atomic Works
+Corefold, its source code and everything in this repository are the property of Atomic Works,
+unless a file says otherwise. You may not copy, change, publish, share, sell or otherwise use any of
+it without written permission from Atomic Works.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Using the Corefold program is covered by the End User License Agreement in EULA.txt.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Earlier versions: source code that Atomic Works published under the MIT License before
+October 2026 stays under the MIT License for those published copies. This notice covers everything
+added or changed after that.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+Third-party parts keep their own licenses. They are listed in THIRD_PARTY_NOTICES.md, and the full
+texts are in the licenses folder.
