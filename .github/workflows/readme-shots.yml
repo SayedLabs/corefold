@@ -6,8 +6,6 @@ name: README pictures
 
 on:
   workflow_dispatch:
-  push:
-    branches: [claude/project-thread-dfi6hr]
 
 permissions:
   contents: write   # the pictures are saved to the "screenshots" branch

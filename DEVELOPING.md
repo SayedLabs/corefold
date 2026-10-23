@@ -94,7 +94,8 @@ corefold/colors.py             Corefold Colors (colorspage.py)
 corefold/peek.py               Quick look: Ctrl + Space on a file in File Explorer (peekview.py, peekshell.py)
 corefold/quicksearch.py        search on the quick menu (quickfind.py, quicksys.py)
 corefold/welcome.py            the first start: Choose your language
-corefold/report.py             Report a problem: a zip of logs and settings, nothing sent
+corefold/report.py             "Report a problem": a zip of the logs, and a filled-in GitHub issue
+corefold/settings_backup.py    settings saved to a file and read back, and the copy kept before each update
 corefold/wheel.py              the format wheel and its preview
 corefold/theme.py              light/dark themes and accent colours (from the Corefold design system)
 corefold/icons.py              line icons in any colour (icondata.py: Fluent UI System Icons)
