@@ -1096,7 +1096,6 @@ STRINGS: dict[str, str] = {
     "Look at a folder": "Mirar una carpeta",
     "Looking through {name}…": "Revisando {name}…",
     "This takes a moment on a big drive.": "En un disco grande tarda un poco.",
-    "{count} files, {size}": "{count} archivos, {size}",
     "Couldn't look through it": "No se pudo revisar",
     "{size} in {count} files": "{size} en {count} archivos",
     "stopped before the end": "se detuvo antes del final",
@@ -1315,7 +1314,6 @@ STRINGS: dict[str, str] = {
     # ------------------------------------------------------------------ the sidebar, Space's drives, tools on the way
     "USB drive": "Unidad USB",
     "Local disk": "Disco local",
-    "{percent}% full": "Lleno al {percent} %",
     "Any folder, on any drive": "Cualquier carpeta, en cualquier unidad",
     "Back (Esc)": "Atrás (Esc)",
     "Show all {count}": "Ver todas ({count})",
@@ -1768,7 +1766,6 @@ STRINGS: dict[str, str] = {
     "Kept after a big Windows update, to go back to it. Once it's removed, going back isn't possible. Windows asks for an administrator.": "Se guarda tras una gran actualización de Windows para volver a él. Una vez quitado, no se puede volver atrás. Windows pide un administrador.",
     "Unused for a year": "Sin usar desde hace un año",
     "Big files nobody has opened or changed for over a year": "Archivos grandes que nadie ha abierto ni cambiado en más de un año",
-    "What grew": "Lo que creció",
     "Grew since {date}": "Creció desde el {date}",
     "Last used {date}": "Último uso: {date}",
     "Nothing big has gone unused for a year.": "Nada grande lleva un año sin usarse.",
@@ -1787,4 +1784,6 @@ STRINGS: dict[str, str] = {
     "Apply": "Aplicar",
     "this camera file has no picture Corefold can show": "este archivo de cámara no tiene ninguna imagen que Corefold pueda mostrar",
     "Make videos with the graphics card when there is one (several times faster)": "Hacer los vídeos con la tarjeta gráfica si hay una (varias veces más rápido)",
+    "Almost full": "Casi lleno",
+    "Can be freed": "Se puede liberar",
 }

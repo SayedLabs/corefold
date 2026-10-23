@@ -1096,7 +1096,6 @@ STRINGS: dict[str, str] = {
     "Look at a folder": "Examiner un dossier",
     "Looking through {name}…": "Examen de {name}…",
     "This takes a moment on a big drive.": "Cela prend un moment sur un gros disque.",
-    "{count} files, {size}": "{count} fichiers, {size}",
     "Couldn't look through it": "Impossible de l'examiner",
     "{size} in {count} files": "{size} dans {count} fichiers",
     "stopped before the end": "arrêté avant la fin",
@@ -1315,7 +1314,6 @@ STRINGS: dict[str, str] = {
     # ------------------------------------------------------------------ the sidebar, Space's drives, tools on the way
     "USB drive": "Clé USB",
     "Local disk": "Disque local",
-    "{percent}% full": "Plein à {percent} %",
     "Any folder, on any drive": "N'importe quel dossier, sur n'importe quel disque",
     "Back (Esc)": "Retour (Échap)",
     "Show all {count}": "Tout afficher ({count})",
@@ -1768,7 +1766,6 @@ STRINGS: dict[str, str] = {
     "Kept after a big Windows update, to go back to it. Once it's removed, going back isn't possible. Windows asks for an administrator.": "Conservé après une grosse mise à jour de Windows, pour y revenir. Une fois supprimé, impossible de revenir en arrière. Windows demande un administrateur.",
     "Unused for a year": "Inutilisés depuis un an",
     "Big files nobody has opened or changed for over a year": "Gros fichiers que personne n'a ouverts ni modifiés depuis plus d'un an",
-    "What grew": "Ce qui a grossi",
     "Grew since {date}": "A grossi depuis le {date}",
     "Last used {date}": "Dernière utilisation : {date}",
     "Nothing big has gone unused for a year.": "Rien de gros n'est resté inutilisé depuis un an.",
@@ -1787,4 +1784,6 @@ STRINGS: dict[str, str] = {
     "Apply": "Appliquer",
     "this camera file has no picture Corefold can show": "ce fichier d'appareil photo ne contient aucune image que Corefold peut afficher",
     "Make videos with the graphics card when there is one (several times faster)": "Créer les vidéos avec la carte graphique s'il y en a une (plusieurs fois plus rapide)",
+    "Almost full": "Presque plein",
+    "Can be freed": "Peut être libéré",
 }

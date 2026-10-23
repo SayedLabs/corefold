@@ -11,6 +11,7 @@ Names (setObjectName) understood here:
     ghost       a button with no box            flat       a link-like button
     small       a small ghost button            iconButton a square button with an icon
     tab, subtab tabs and pill tabs              searchBox  the search field in the top strip
+    segmented   a strip of segment buttons      segment    one choice in it (checkable)
     line        a 1 px divider                  warning    a box with a warning stripe
 """
 from __future__ import annotations
@@ -88,6 +89,11 @@ QPushButton#subtab { background: transparent; border: 1px solid transparent; bor
                      padding: 4px 14px; min-width: 0; font-weight: 600; }
 QPushButton#subtab:hover { color: $text; background: $hover; }
 QPushButton#subtab:checked { color: $text; background: $surface; border-color: $line_strong; }
+QFrame#segmented { background: $segmented; border: 1px solid $border; border-radius: 10px; }
+QPushButton#segment { background: transparent; border: 1px solid transparent; border-radius: 7px; color: $muted;
+                      padding: 5px 14px; min-width: 0; font-weight: 600; }
+QPushButton#segment:hover { color: $text; }
+QPushButton#segment:checked { color: $text; background: $raised; border-color: $line_strong; }
 
 QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit, QPlainTextEdit {
         background: $field; border: 1px solid $line_strong; border-bottom-color: $line_bottom; border-radius: ${r_md}px;
@@ -137,6 +143,9 @@ QTreeView, QListView, QTableView { background: $surface; border: 1px solid $bord
 QTreeView::item, QListView::item { padding: 5px 2px; }
 QTreeView::item:hover, QListView::item:hover { background: $hover; }
 QTreeView::item:selected, QListView::item:selected { background: $accent_soft; color: $text; }
+QTreeView::indicator { width: 16px; height: 16px; border-radius: 4px; border: 1px solid $line_strong; background: $field; }
+QTreeView::indicator:hover { border-color: $muted; }
+QTreeView::indicator:checked { background: $accent; border-color: $accent; image: url($check); }
 QHeaderView::section { background: $surface; color: $muted; border: none; border-bottom: 1px solid $border; padding: 7px 6px;
         font-weight: 600; font-size: ${caption_plus}pt; }
 
@@ -171,6 +180,7 @@ def base(p: Palette, rtl: bool = False, check: str = "", up: str = "", down: str
         text=p.text.name(), muted=p.muted.name(), subtle=p.subtle.name(),
         backdrop=p.backdrop.name(), canvas=p.canvas.name(), surface=p.surface.name(), raised=p.raised.name(),
         field=p.field.name(), hover=p.hover.name(), pressed=p.pressed.name(),
+        segmented=(p.backdrop if p.dark else p.pressed).name(),
         border=p.border.name(), line_strong=p.line_strong.name(),
         line_bottom=(p.line_strong if p.dark else mix(p.line_strong, p.text, 0.12)).name(),
         accent=p.accent.name(), on_accent=p.on_accent.name(), accent_soft=p.accent_soft.name(),
