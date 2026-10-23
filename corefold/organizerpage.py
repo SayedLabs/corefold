@@ -209,6 +209,7 @@ class OrganizerPage(QWidget):
 
         self.tree = QTreeWidget()
         self.tree.setObjectName("history")
+        self.tree.setProperty("ticks", True)  # (tick boxes drawn like every other check box in Corefold)
         self.tree.setHeaderLabels([tr("Name"), tr("Size")])
         self.tree.setUniformRowHeights(True)
         self.tree.setIconSize(QSize(18, 18))

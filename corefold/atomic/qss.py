@@ -137,6 +137,11 @@ QTreeView, QListView, QTableView { background: $surface; border: 1px solid $bord
 QTreeView::item, QListView::item { padding: 5px 2px; }
 QTreeView::item:hover, QListView::item:hover { background: $hover; }
 QTreeView::item:selected, QListView::item:selected { background: $accent_soft; color: $text; }
+QTreeView[ticks="true"]::indicator { width: 16px; height: 16px; border-radius: 4px; border: 1px solid $line_strong;
+        background: $field; }
+QTreeView[ticks="true"]::indicator:hover { border-color: $muted; }
+QTreeView[ticks="true"]::indicator:checked { background: $accent; border-color: $accent; image: url($check); }
+QTreeView[ticks="true"]::indicator:indeterminate { background: $accent_soft; border-color: $accent; }
 QHeaderView::section { background: $surface; color: $muted; border: none; border-bottom: 1px solid $border; padding: 7px 6px;
         font-weight: 600; font-size: ${caption_plus}pt; }
 
