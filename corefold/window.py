@@ -25,6 +25,7 @@ from .settings import (ACCENTS, APP_NAME, DEFAULT_ACCENT, APPEARANCES, HOVER_STY
                        WHEEL_POSITIONS, WHEEL_SIZE_NAMES, WHEEL_STYLES, WINDOW_TEXT, installed_uninstaller,
                        ARCHIVE_KEYS, BACKUP_DAYS, CONVERTER_KEYS, EXTRACT_MODES, FORMAT_KEYS, GENERAL_KEYS,
                        SLIDESHOW_SECONDS, VIEWER_KEYS, VIEWER_WHEEL, CLIP_DAYS, CLIP_MAX, CLIP_SHORTCUTS, CLIPBOARD_KEYS,
+                       CAP_AFTER, CAP_FPS, CAP_RECORD_SHORTCUTS, CAP_SHORTCUTS, CAPTURE_KEYS,
                        LOOK_KEYS, UNINSTALLER_KEYS, UNUSED_MONTHS, WHEEL_KEYS, editable_keys, set_startup,
                        startup_enabled)
 from .theme import Theme
@@ -227,6 +228,14 @@ def _alive_set_text(lab: QLabel, text: str):
         pass
 
 
+def _alive(widget) -> bool:
+    try:
+        from shiboken6 import isValid
+        return isValid(widget)
+    except ImportError:
+        return True
+
+
 def _html(text: str) -> str:
     import html
     return html.escape(text, quote=False)
@@ -400,7 +409,8 @@ class MainWindow(QWidget):
                     "Formats": self._formats, "AppsSettings": self._apps_settings,
                     "ArchiveSettings": self._archive_settings, "Viewer": self._viewer,
                     "ViewerSettings": self._viewer_settings, "Clipboard": self._clipboard,
-                    "ClipboardSettings": self._clipboard_settings, "Updates": self._updates, "About": self._about}
+                    "ClipboardSettings": self._clipboard_settings, "Space": self._space, "Capture": self._capture,
+                    "CaptureSettings": self._capture_settings, "Updates": self._updates, "About": self._about}
         self._wheel_guard = None
         self._settings_head()  # (made before the pages: opening one shows or hides it)
         self._dots: list[QLabel] = []
@@ -409,7 +419,8 @@ class MainWindow(QWidget):
         # pages that are rarely opened are only built the first time they are (a faster, lighter window)
         # (the Converter's page and every Settings page are always made: other parts of the window use them)
         self.clip_page = None
-        self._unbuilt = {"Apps", "Store", "Viewer", "Clipboard", *SOON, *[tool.page for tool in all_tools.TOOLS
+        self.space_page = None
+        self._unbuilt = {"Apps", "Store", "Viewer", "Clipboard", "Space", "Capture", *SOON, *[tool.page for tool in all_tools.TOOLS
                                                     if tool.page not in on_pages and tool.page != "Converter"]}
         for name in PAGES:
             built = QWidget() if name in self._unbuilt else builders[name]()
@@ -598,6 +609,12 @@ class MainWindow(QWidget):
             self.refresh_views()
         elif name == "Clipboard" and self.clip_page is not None:
             self.clip_page.refresh()
+        elif name == "Space" and self.space_page is not None:
+            self.space_page.refresh()
+        elif name == "Capture":
+            self.refresh_captures()
+        elif name == "CaptureSettings":
+            self._find_microphones()
 
     def _archives(self) -> QWidget:
         """Corefold Archive: open archives, make new ones, and the ones opened lately."""
@@ -1511,6 +1528,215 @@ class MainWindow(QWidget):
         self.clip_page = ClipboardPage(self.c, header)
         return self.clip_page
 
+    def _space(self) -> QWidget:
+        """Corefold Space: what's filling the disk, junk to clean up, duplicates."""
+        from .spacepage import SpacePage
+        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
+        header = tool_header("space", tr("Corefold Space"), tr("See what's filling your disk and free up space safely."),
+                             dark, dpr)
+        self.space_page = SpacePage(self.c, header)
+        return self.space_page
+
+    def _capture(self) -> QWidget:
+        """Corefold Capture: screenshots and recordings."""
+        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
+        w, lay = page(tr("Corefold Capture"))
+        lay.itemAt(0).widget().hide()
+        lay.addLayout(tool_header("capture", tr("Corefold Capture"),
+                                  tr("Take a picture or a video of your screen, mark it up and share it in seconds."),
+                                  dark, dpr, self.tool_settings_button("Capture")))
+        box, bl = card()
+        row = QHBoxLayout()
+        row.setSpacing(10)
+        row.addWidget(button(tr("Take a screenshot"), "primary", lambda: self.c.capture and self.c.capture.screenshot()))
+        row.addWidget(button(tr("Record the screen"), None, lambda: self.c.capture and self.c.capture.record()))
+        row.addStretch()
+        bl.addLayout(row)
+        self.capture_keys = label("", "muted", wrap=True)
+        bl.addWidget(self.capture_keys)
+        lay.addWidget(box)
+        box, bl = card(8)
+        head = QHBoxLayout()
+        head.addWidget(label(tr("Lately"), "h2"))
+        head.addStretch()
+        head.addWidget(button(tr("Open the folder"), "flat", self._open_capture_folder))
+        bl.addLayout(head)
+        self.captures_lay = QVBoxLayout()
+        self.captures_lay.setSpacing(2)
+        bl.addLayout(self.captures_lay)
+        lay.addWidget(box)
+        box, bl = card(8)
+        bl.addWidget(label(tr("Good to know"), "h2"))
+        for text in (tr("Drag over an area, click a window, or press Enter for the whole screen."),
+                     tr("Every screenshot is copied straight away: paste it anywhere with Ctrl+V."),
+                     tr("Blur hides passwords and names for good: the picture saved has no way back to them."),
+                     tr("Recordings are saved as MP4 videos in Videos\\Captures. Nothing is uploaded.")):
+            r = QHBoxLayout()
+            r.setSpacing(10)
+            r.addWidget(self._accent_dot(), 0, Qt.AlignTop)
+            r.addWidget(label(text, wrap=True), 1)
+            bl.addLayout(r)
+        lay.addWidget(box)
+        lay.addStretch()
+        return w
+
+    def refresh_captures(self):
+        if "Capture" in self._unbuilt:
+            return
+        from .capture import recent_captures
+        from .hotkey import SHORTCUT_NAMES
+        s = self.c.settings
+        bits = []
+        if s.cap_shortcut != "off":
+            bits.append(tr("Screenshot: {key}", key=SHORTCUT_NAMES.get(s.cap_shortcut, "")))
+        if s.cap_record_shortcut != "off":
+            bits.append(tr("Start or stop recording: {key}", key=SHORTCUT_NAMES.get(s.cap_record_shortcut, "")))
+        self.capture_keys.setText("   ·   ".join(bits) or tr("Pick shortcuts in Settings to capture from any app."))
+        lay = self.captures_lay
+        while lay.count():
+            item = lay.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        files = recent_captures(8)
+        for path in files:
+            video = path.suffix.lower() == ".mp4"
+            row = QPushButton(f"{short_name(path.name, 60)}   ·   {time_ago(path.stat().st_mtime)}")
+            row.setObjectName("flat")
+            row.setToolTip(str(path))
+            row.setCursor(Qt.PointingHandCursor)
+            row.setIcon(icons.icon("video" if video else "image", self.c.theme.muted))
+            row.setStyleSheet("text-align: left;" if not i18n.is_rtl() else "text-align: right;")
+            row.clicked.connect(lambda _=False, p=path, v=video: QDesktopServices.openUrl(QUrl.fromLocalFile(str(p)))
+                                if v else self.c.open_viewer(p))
+            lay.addWidget(row)
+        if not files:
+            lay.addWidget(label(tr("Your screenshots and recordings show up here."), "muted", wrap=True))
+
+    def _open_capture_folder(self):
+        from .capture import screenshots_folder
+        folder = screenshots_folder()
+        folder.mkdir(parents=True, exist_ok=True)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder)))
+
+    def _capture_settings(self) -> QWidget:
+        """Corefold Capture."""
+        s = self.c.settings
+        w, lay = page(tr("Capture"))
+        box, bl = card()
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(16)
+        grid.setVerticalSpacing(12)
+        self.cap_shortcut = QComboBox()
+        for key, text in CAP_SHORTCUTS.items():
+            self.cap_shortcut.addItem(tr(text) if key == "off" else text, key)
+        self.cap_shortcut.setCurrentIndex(max(0, self.cap_shortcut.findData(s.cap_shortcut)))
+        self.cap_record_shortcut = QComboBox()
+        for key, text in CAP_RECORD_SHORTCUTS.items():
+            self.cap_record_shortcut.addItem(tr(text) if key == "off" else text, key)
+        self.cap_record_shortcut.setCurrentIndex(max(0, self.cap_record_shortcut.findData(s.cap_record_shortcut)))
+        self.cap_after = QComboBox()
+        for key, text in CAP_AFTER.items():
+            self.cap_after.addItem(tr(text), key)
+        self.cap_after.setCurrentIndex(max(0, self.cap_after.findData(s.cap_after)))
+        grid.addWidget(label(tr("Take a screenshot with")), 0, 0)
+        grid.addWidget(self.cap_shortcut, 0, 1)
+        grid.addWidget(label(tr("Start or stop recording with")), 1, 0)
+        grid.addWidget(self.cap_record_shortcut, 1, 1)
+        grid.addWidget(label(tr("After a screenshot")), 2, 0)
+        grid.addWidget(self.cap_after, 2, 1)
+        grid.setColumnStretch(2, 1)
+        bl.addLayout(grid)
+        self.cap_key_note = label(tr("Another app already uses one of these shortcuts. Pick another one."), "warning",
+                                  wrap=True)
+        bl.addWidget(self.cap_key_note)
+        self.refresh_capture_note()
+        self.cap_save = checkbox(tr("Also save every screenshot in Pictures\\Screenshots"), s.cap_save,
+                                 self._cap_setting_changed)
+        bl.addWidget(self.cap_save)
+        bl.addWidget(label(tr("Print Screen on its own may open Windows' Snipping Tool: Windows lets you turn that off "
+                              "in Settings, Accessibility, Keyboard."), "muted", wrap=True))
+        lay.addWidget(box)
+        box, bl = card()
+        bl.addWidget(label(tr("Recording"), "h2"))
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(16)
+        grid.setVerticalSpacing(12)
+        self.cap_fps = QComboBox()
+        for key, text in CAP_FPS.items():
+            self.cap_fps.addItem(tr(text), key)
+        self.cap_fps.setCurrentIndex(max(0, self.cap_fps.findData(s.cap_fps)))
+        self.cap_mic = QComboBox()
+        self.cap_mic.addItem(tr("No sound"), "")
+        if s.cap_mic:
+            self.cap_mic.addItem(s.cap_mic, s.cap_mic)
+            self.cap_mic.setCurrentIndex(1)
+        self._mics_found = False
+        grid.addWidget(label(tr("Smoothness")), 0, 0)
+        grid.addWidget(self.cap_fps, 0, 1)
+        grid.addWidget(label(tr("Microphone")), 1, 0)
+        grid.addWidget(self.cap_mic, 1, 1)
+        grid.setColumnStretch(2, 1)
+        bl.addLayout(grid)
+        self.cap_cursor = checkbox(tr("Show the mouse pointer in recordings"), s.cap_cursor, self._cap_setting_changed)
+        self.cap_countdown = checkbox(tr("Count down 3, 2, 1 before recording starts"), s.cap_countdown,
+                                      self._cap_setting_changed)
+        bl.addWidget(self.cap_cursor)
+        bl.addWidget(self.cap_countdown)
+        lay.addWidget(box)
+        for combo in (self.cap_shortcut, self.cap_record_shortcut, self.cap_after, self.cap_fps, self.cap_mic):
+            combo.currentIndexChanged.connect(self._cap_setting_changed)
+        lay.addLayout(_reset_row(lambda: self.reset_to_defaults(CAPTURE_KEYS)))
+        lay.addStretch()
+        return w
+
+    def _find_microphones(self):
+        """Asks FFmpeg which microphones there are (only when the page is opened: it takes a moment)."""
+        if self._mics_found or not hasattr(self, "cap_mic"):
+            return
+        self._mics_found = True
+        import threading
+
+        from .capture import microphones
+        holder = {}
+
+        def work():
+            holder["mics"] = microphones()
+        t = threading.Thread(target=work, daemon=True)
+        t.start()
+
+        def fill():
+            if t.is_alive():
+                QTimer.singleShot(200, fill)
+                return
+            if not _alive(self.cap_mic):
+                return
+            current = self.c.settings.cap_mic
+            self.cap_mic.blockSignals(True)
+            for mic in holder.get("mics", []):
+                if self.cap_mic.findData(mic) < 0:
+                    self.cap_mic.addItem(mic, mic)
+            self.cap_mic.setCurrentIndex(max(0, self.cap_mic.findData(current)))
+            self.cap_mic.blockSignals(False)
+        QTimer.singleShot(200, fill)
+
+    def _cap_setting_changed(self, *_):
+        s = self.c.settings
+        s.cap_shortcut = self.cap_shortcut.currentData()
+        s.cap_record_shortcut = self.cap_record_shortcut.currentData()
+        s.cap_after = self.cap_after.currentData()
+        s.cap_save = self.cap_save.isChecked()
+        s.cap_fps = self.cap_fps.currentData()
+        s.cap_mic = self.cap_mic.currentData() or ""
+        s.cap_cursor = self.cap_cursor.isChecked()
+        s.cap_countdown = self.cap_countdown.isChecked()
+        self.c.settings_changed()
+
+    def refresh_capture_note(self):
+        if hasattr(self, "cap_key_note"):
+            cap = self.c.capture
+            bad = cap is not None and not (cap.shot_key.ok and cap.rec_key.ok)
+            self.cap_key_note.setVisible(bool(bad))
+
     def _clipboard_settings(self) -> QWidget:
         """Corefold Clipboard."""
         s = self.c.settings
@@ -2223,6 +2449,8 @@ class MainWindow(QWidget):
         self.refresh_views()
         if self.clip_page is not None:
             self.clip_page.apply_theme(t)
+        if self.space_page is not None:
+            self.space_page.apply_theme(t)
         if self.isVisible():
             set_title_bar_dark(self, t.dark)
 

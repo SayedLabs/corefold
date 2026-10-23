@@ -99,6 +99,12 @@ CLIP_SHORTCUTS = {"win+alt+v": "Win + Alt + V", "ctrl+shift+v": "Ctrl + Shift + 
                   "ctrl+`": "Ctrl + `", "off": "No shortcut"}
 CLIP_MAX = {100: "100", 500: "500", 1000: "1000", 5000: "5000"}
 CLIP_DAYS = {1: "a day", 7: "a week", 30: "a month", 365: "a year", 0: "Never"}
+CAP_SHORTCUTS = {"ctrl+printscreen": "Ctrl + Print Screen", "printscreen": "Print Screen",
+                 "win+shift+a": "Win + Shift + A", "off": "No shortcut"}
+CAP_RECORD_SHORTCUTS = {"ctrl+shift+printscreen": "Ctrl + Shift + Print Screen", "win+shift+r": "Win + Shift + R",
+                        "off": "No shortcut"}
+CAP_AFTER = {"edit": "Open it to mark it up", "copy": "Only copy it"}
+CAP_FPS = {30: "30 frames a second", 60: "60 frames a second (smoother, bigger files)"}
 CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_style": HOVER_STYLES,
            "slice_colors": SLICE_COLORS, "text_size": TEXT_SIZES, "wheel_position": WHEEL_POSITIONS,
            "wheel_size": WHEEL_SIZES, "sound": SOUNDS, "language": LANGUAGES, "menu_style": MENU_STYLES,
@@ -106,7 +112,8 @@ CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_styl
            "toast_time": TOAST_TIMES, "window_text": WINDOW_TEXT, "unused_months": UNUSED_MONTHS,
            "backup_days": BACKUP_DAYS, "extract_mode": EXTRACT_MODES, "viewer_wheel": VIEWER_WHEEL,
            "slideshow_seconds": SLIDESHOW_SECONDS, "clip_shortcut": CLIP_SHORTCUTS, "clip_max": CLIP_MAX,
-           "clip_days": CLIP_DAYS}
+           "clip_days": CLIP_DAYS, "cap_shortcut": CAP_SHORTCUTS, "cap_record_shortcut": CAP_RECORD_SHORTCUTS,
+           "cap_after": CAP_AFTER, "cap_fps": CAP_FPS}
 
 
 # Settings kept on disk while the window has changes that weren't saved yet (see window.py): the
@@ -131,6 +138,8 @@ UNINSTALLER_KEYS = ("unused_months", "backup_days", "restore_point")
 ARCHIVE_KEYS = ("extract_mode", "extract_nested", "remember_archives")
 VIEWER_KEYS = ("viewer_wheel", "viewer_confirm_delete", "slideshow_seconds")
 CLIPBOARD_KEYS = ("clip_shortcut", "clip_paste", "clip_max", "clip_days", "clip_images")
+CAPTURE_KEYS = ("cap_shortcut", "cap_record_shortcut", "cap_after", "cap_save", "cap_fps", "cap_mic", "cap_cursor",
+                "cap_countdown")
 UPDATE_KEYS = ("check_updates", "auto_update")
 
 
@@ -193,6 +202,15 @@ class Settings:
     clip_days: int = 30            # copies older than this are forgotten (0: never)
     clip_images: bool = True       # keep pictures that are copied
     clip_paused: bool = False      # new copies aren't kept for now
+    # Capture
+    cap_shortcut: str = "ctrl+printscreen"          # a screenshot
+    cap_record_shortcut: str = "ctrl+shift+printscreen"  # start or stop recording
+    cap_after: str = "edit"        # after a screenshot: open the editor, or only copy it
+    cap_save: bool = True          # also save every screenshot in Pictures\Screenshots
+    cap_fps: int = 30
+    cap_mic: str = ""              # the microphone recorded with the screen ("" = none)
+    cap_cursor: bool = True        # the mouse shows in recordings
+    cap_countdown: bool = True     # 3, 2, 1 before recording starts
     # the Uninstaller
     unused_months: int = 3         # "not used for …" filter
     backup_days: int = 30          # backups of removed leftovers are kept this long

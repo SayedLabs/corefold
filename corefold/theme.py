@@ -225,6 +225,9 @@ QCheckBox::indicator:checked { background: $accent; border-color: $accent; image
 QProgressBar { background: $border; border: none; border-radius: 2px; max-height: 4px; }
 QProgressBar::chunk { background: $accent; border-radius: 2px; }
 QFrame#toast { background: $panel; border: 1px solid $line_strong; border-radius: 14px; }
+QPushButton#driveCard { background: $panel; border: 1px solid $border; border-radius: 12px; padding: 0; text-align: left; }
+QPushButton#driveCard:hover { border-color: $line_strong; background: $hover; }
+QProgressBar#low::chunk { background: $danger; }
 QFrame#clipPopup { background: $panel; border: 1px solid $line_strong; border-radius: 14px; }
 QListWidget#clips { background: transparent; border: none; outline: none; }
 QListWidget#clipsPage { background: $panel; border: 1px solid $border; border-radius: 12px; outline: none; padding: 4px; }

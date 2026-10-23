@@ -14,7 +14,6 @@ import logging
 import os
 import re
 import sqlite3
-import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,6 +21,7 @@ from pathlib import Path
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Qt, Signal
 from PySide6.QtGui import QGuiApplication, QImage, QPixmap
 
+from .hotkey import SHORTCUT_NAMES, SHORTCUTS, Hotkey
 from .settings import LOG_DIR
 
 log = logging.getLogger("corefold")
@@ -35,12 +35,9 @@ THUMB = 160                # px: the longest side of a picture's small preview
 SETTLE_MS = 120            # apps often put several things on the clipboard in a row: read the last
 TRIM_EVERY_S = 60
 
-# the shortcut that opens the clipboard: key -> (modifiers, virtual key)
-MOD_ALT, MOD_CONTROL, MOD_SHIFT, MOD_WIN, MOD_NOREPEAT = 0x1, 0x2, 0x4, 0x8, 0x4000
-HOTKEYS = {"win+alt+v": (MOD_WIN | MOD_ALT, 0x56), "ctrl+shift+v": (MOD_CONTROL | MOD_SHIFT, 0x56),
-           "ctrl+alt+v": (MOD_CONTROL | MOD_ALT, 0x56), "ctrl+`": (MOD_CONTROL, 0xC0), "off": None}
-HOTKEY_NAMES = {"win+alt+v": "Win + Alt + V", "ctrl+shift+v": "Ctrl + Shift + V", "ctrl+alt+v": "Ctrl + Alt + V",
-                "ctrl+`": "Ctrl + `"}
+# the shortcut that opens the clipboard (see hotkey.py)
+HOTKEYS = {k: SHORTCUTS[k] for k in ("win+alt+v", "ctrl+shift+v", "ctrl+alt+v", "ctrl+`", "off")}
+HOTKEY_NAMES = {k: SHORTCUT_NAMES[k] for k in HOTKEYS if k != "off"}
 
 # copies marked like this ask clipboard tools not to keep them (password managers, banking apps)
 PRIVATE_FORMATS = ("ExcludeClipboardContentFromMonitorProcessing", "Clipboard Viewer Ignore")
@@ -434,66 +431,6 @@ def press_paste():
     u.keybd_event(VK_V, 0, 0, 0)
     u.keybd_event(VK_V, 0, 2, 0)
     u.keybd_event(VK_CONTROL, 0, 2, 0)
-
-
-class Hotkey(QObject):
-    """The shortcut that opens the clipboard, from any app. Windows tells a tiny thread of its own
-    (asleep until the keys are pressed), so it works even while a Corefold window is busy."""
-    pressed = Signal()
-
-    def __init__(self):
-        super().__init__()
-        self._thread: threading.Thread | None = None
-        self._tid = 0
-        self.key = "off"
-        self.ok = True
-
-    def set(self, key: str) -> bool:
-        """Starts listening for this shortcut. False if another app already uses it."""
-        if key == self.key and (self._thread is not None or key == "off"):
-            return self.ok
-        self.stop()
-        self.key = key
-        spec = HOTKEYS.get(key)
-        if not spec or os.name != "nt":
-            self.ok = True
-            return True
-        ready, result = threading.Event(), {}
-
-        def loop():
-            import ctypes.wintypes as wt
-            u = ctypes.windll.user32
-            result["tid"] = ctypes.windll.kernel32.GetCurrentThreadId()
-            result["ok"] = bool(u.RegisterHotKey(None, 1, spec[0] | MOD_NOREPEAT, spec[1]))
-            ready.set()
-            if not result["ok"]:
-                return
-            msg = wt.MSG()
-            while u.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
-                if msg.message == 0x0312:  # WM_HOTKEY
-                    self.pressed.emit()
-            u.UnregisterHotKey(None, 1)
-
-        t = threading.Thread(target=loop, name="corefold-clipboard-key", daemon=True)
-        t.start()
-        ready.wait(3)
-        self.ok = bool(result.get("ok"))
-        if self.ok:
-            self._thread, self._tid = t, result.get("tid", 0)
-        else:
-            log.info("the clipboard shortcut %s is used by another app", key)
-        return self.ok
-
-    def stop(self):
-        t = self._thread
-        self._thread = None
-        if t is not None and t.is_alive():
-            try:
-                ctypes.windll.user32.PostThreadMessageW(self._tid, 0x0012, 0, 0)  # WM_QUIT
-            except Exception:
-                pass
-            t.join(1)
-        self.key = "off"
 
 
 # ----------------------------------------------------------------------------- saving pictures

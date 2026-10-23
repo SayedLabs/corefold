@@ -194,8 +194,8 @@ def is_cloud_only(path: Path) -> bool:
 def human_size(n: float) -> str:
     """"9.8 MB". In Arabic the number and its unit stay in this order (marked as left-to-right),
     instead of coming out as "MB 9.8"."""
-    for unit in ("bytes", "KB", "MB", "GB"):
-        if n < 1024 or unit == "GB":
+    for unit in ("bytes", "KB", "MB", "GB", "TB"):
+        if n < 1024 or unit == "TB":
             break
         n /= 1024
     if unit == "bytes":

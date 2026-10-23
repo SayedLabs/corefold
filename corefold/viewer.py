@@ -802,7 +802,7 @@ class ViewerWindow(QWidget):
         src = self.current()
         try:
             im = apply_edits(load_image(src), self.edits)
-            tmp = out.with_name(out.name + ".part")
+            tmp = out.with_name(f"{out.stem}.part{out.suffix}")  # (Pillow picks the format from the end of the name)
             ctx = Ctx(self.c.settings.options("", 1))
             ctx.options.jpg_quality = max(ctx.options.jpg_quality, 95)
             save_image(im, tmp, ext, ctx)
