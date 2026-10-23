@@ -1,0 +1,12 @@
+
+errors:
+
+notes:
+63 presses in all; would have opened: 1 (program explorer /select,"C:\Users\runneradmin\Desktop")
+the search ran 225 of 225 things
+round 1: 30 windows, 1421 widgets, 215 MB, 51438 Python objects
+round 2: 30 windows, 1421 widgets, 220 MB, 51629 Python objects
+after 10 opens: 171 MB, 14 widgets, 4 windows
+after 20 opens: 180 MB, 14 widgets, 4 windows
+after 30 opens: 181 MB, 14 widgets, 4 windows
+after 40 opens: 182 MB, 14 widgets, 4 windows

@@ -1,0 +1,91 @@
+ok    Downloads can be sorted
+ok    every file goes to the right kind of folder []
+ok    what stays, stays for the right reason []
+ok    hidden and system files aren't even listed []
+ok    folders aren't listed
+ok    the file called Videos (no extension) stays
+ok    a name already taken gets a new one (dup (2).jpg)
+ok    the Pictures folder that's already there is used
+ok    a file with a folder's name: the folder gets another name (الفيديوهات (2))
+ok    planning changed nothing
+ok    sorted 24 of 24, failed []
+ok    the file left out stayed
+ok    data.xyz stayed
+ok    README stayed
+ok    Corefold.lnk stayed
+ok    site.url stayed
+ok    big.iso.crdownload stayed
+ok    movie.mkv stayed
+ok    movie.mkv.part stayed
+ok    open in word.docx stayed
+ok    nothing inside folders moved
+ok    every file is still there, unchanged (41 of 41)
+ok    a read-only file moved and is still read-only
+ok    looking again: only the file left out is still loose ['budget.xlsx']
+ok    the sort is kept for Undo
+ok    undo with a file open: that one is kept for another Undo ([WindowsPath('C:/Users/RUNNER~1/AppData/Local/Temp/corefold-organizetest-vx9e9pdv/Downloads/الخطوط/Cairo.ttf')])
+ok    pressing Undo again puts it back too
+ok    and its folder is removed then
+ok    undo: the deleted file is counted as gone (1)
+ok    undo: a file whose name was taken again comes back with a new name
+ok    undo: the Pictures folder that was already there stays, with its own file
+ok    undo: the file called Videos is untouched
+ok    undo: the folders it made are gone again
+ok    undo: every file is back, unchanged (40 of 40)
+ok    C:\ isn't sorted (drive)
+ok    C:\Users\runneradmin isn't sorted (home)
+ok    C:\Users\RUNNER~1\AppData\Local\Temp\corefold-organizetest-vx9e9pdv\roaming isn't sorted (system)
+ok    C:\Windows isn't sorted (system)
+ok    C:\Windows\System32 isn't sorted (system)
+ok    C:\Program Files isn't sorted (system)
+ok    C:\ProgramData isn't sorted (system)
+ok    C:\Users\runneradmin\AppData\Local\Temp isn't sorted (system)
+ok    a project folder isn't sorted
+ok    and sorting it does nothing
+ok    a program's own folder isn't sorted
+ok    Downloads with a downloaded .dll in it can still be sorted
+ok    a folder that isn't there says so
+ok    in Arabic, the Pictures folder made in English is used (Pictures)
+ok    a new folder gets its Arabic name, with no invisible marks in it ('الموسيقى')
+ok    and they're sorted there
+ok    undo puts back only the last sort
+ok    the sort before it stays sorted
+3000 files: plan 0.69 s, sort 1.42 s, undo 1.64 s
+ok    3,000 files: all sorted and all put back (2667)
+ok    and the folder is as it was
+ok    quick enough
+ok    removed in the Store: not in the sidebar
+ok    removed in the Store: its page isn't loaded at all
+ok    added from the Store: in the sidebar
+ok    the page opens
+ok    the plan comes up
+ok    the Desktop card says what's waiting (ملف واحد للترتيب)
+ok    the page shows 26 files to sort (26 expected)
+ok    the Sort button says how many (رتّب 26 ملفًا)
+ok    one line per folder, and one for what stays (8)
+ok    leaving a folder and a file out: the count goes down
+ok    the folder left out is remembered
+ok    sorting: done
+ok    it says what it did ('رُتّب 24 ملفًا في 6 مجلدات.')
+ok    what was left out stayed
+ok    the rest is in its folders
+ok    Undo is there, with what the last sort was
+ok    looking again: the picture and the folder left out are listed, still left out ({WindowsPath('C:/Users/RUNNER~1/AppData/Local/Temp/corefold-organizetest-vx9e9pdv/Downloads/dup.jpg'): False, WindowsPath('C:/Users/RUNNER~1/AppData/Local/Temp/corefold-organizetest-vx9e9pdv/Downloads/Cairo.ttf'): False})
+ok    undo: done
+ok    undo from the page: every file is back where it was
+ok    and there's nothing left to undo
+ok    Windows' folder: refused
+ok    it says why, and Sort can't be pressed
+ok    clicking the Desktop card shows the Desktop
+ok    with its one file
+ok    and back to Downloads
+ok    at 760×520 the Sort button is inside the window
+ok    at 760×520 nothing sticks out sideways (648 in 648)
+ok    at 760×520 the folder cards are wide enough []
+ok    at 1500×900 the Sort button is inside the window
+ok    at 1500×900 nothing sticks out sideways (1208 in 1208)
+ok    at 1500×900 the folder cards are wide enough []
+ok    coming back to the page: a new download is in the plan
+ok    removed again: gone from the sidebar
+ok    no errors behind any click (0)
+organizetest: 0 problem(s)

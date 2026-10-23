@@ -1,0 +1,20 @@
+File Organizer run of d42a7312903927fb7c7f068fe067acab220a6935
+== organizer-ar-light
+organizetest: 0 problem(s)
+sweeptest ar-light-1040x700: 0 problem(s)
+== organizer-en-dark
+[ar] 1931 texts, 0 problem(s), 0 unused
+[fr] 1931 texts, 0 problem(s), 0 unused
+[es] 1931 texts, 0 problem(s), 0 unused
+[tr] 1931 texts, 0 problem(s), 0 unused
+organizetest: 0 problem(s)
+sweeptest en-dark-1040x700: 0 problem(s)
+== organizer-es-dark-200
+organizetest: 0 problem(s)
+sweeptest es-dark-1040x700-x2: 0 problem(s)
+== organizer-fr-dark-150
+organizetest: 0 problem(s)
+sweeptest fr-dark-1040x700-x1.5: 0 problem(s)
+== organizer-tr-light-small
+organizetest: 0 problem(s)
+sweeptest tr-light-min: 0 problem(s)
