@@ -1,0 +1,233 @@
+ok    the wheel has video:crop
+ok    the wheel has video:subtitles
+ok    the wheel has video:srt
+ok    the wheel has video:sound
+ok    the wheel has video:join
+ok    the wheel has audio:join
+ok    the wheel has files:hash
+ok    black bars are found
+ok    crop: the black bars are gone
+ok    crop to square: 480x480
+ok    crop to vertical: 270x480
+ok    crop to wide: 640x360
+ok    a video without bars says so
+ok    the subtitle file next to it is found
+ok    subtitles drawn into the picture
+ok    subtitles added as a track (MKV)
+ok    SRT is offered only for videos with subtitles inside
+ok    the subtitles come out again as .srt (Arabic intact)
+ok    the sound of a video as .m4a
+ok    the sound of a video as .wav
+ok    the sound of a video as .flac
+ok    join needs 2 or more files
+ok    join won't mix videos and sound
+ok    two videos joined (one without sound): 5.0 s
+ok    two sound files joined
+ok    the video is handed to the graphics card
+ok    �not for two passes
+ffmpeg failed for C:\Users\RUNNER~1\AppData\Local\Temp\corefold-featuretest-092fc119\videos\bars.mp4: [h264_nvenc @ 00000251a28be980] Cannot load nvcuda.dll
+[vost#0:0/h264_nvenc @ 00000251a2853a40] [enc:h264_nvenc @ 00000251a2840ac0] Error while opening encoder - maybe incorrect parameters such as bit_rate, rate, width or height.
+[vf#0:0 @ 00000251a42fe840] Error sending frames to consumers: Operation not permitted
+[vf#0:0 @ 00000251a42fe840] Task finished with error code: -1 (Operation not permitted)
+[vf#0:0 @ 00000251a42fe840] Terminating thread with return code -1 (Operation not permitted)
+[vost#0:0/h264_nvenc @ 00000251a2853a40] [enc:h264_nvenc @ 00000251a2840ac0] Could not open encoder before EOF
+[vost#0:0/h264_nvenc @ 00000251a2853a40] Task finished with error code: -22 (Invalid argument)
+[vost#0:0/h264_nvenc @ 00000251a2853a40] Terminating thread with return code -22 (Invalid argument)
+[out#0/mp4 @ 00000251a27f8400] Nothing was written into output file, because at least one of its streams received no packets.
+the graphics card couldn't make gpu.mp4; trying again the usual way
+(graphics card encoder here: none )
+ok    a video is made either way
+ok    SHA-256 of a file is copied
+ok    SHA-256 isn't offered for folders
+ok    a password is tried quickly (.7z)
+ok    a password is tried quickly (.zip)
+ok    no passwords are saved to begin with
+ok    passwords are remembered once each, newest first
+ok    the saved passwords aren't readable in the file
+ok    a remembered password opens the archive
+ok    Forget the saved passwords
+ok    make a .tar.gz (['tarme/a.txt', 'tarme/inner/b.txt'])
+ok    �test it
+ok    �and unpack it
+ok    �or only one file from it (['inner\\b.txt'])
+ok    make a .tar.xz (['tarme/a.txt', 'tarme/inner/b.txt'])
+ok    �test it
+ok    �and unpack it
+ok    �or only one file from it (['inner\\b.txt'])
+ok    make a .tar.zst (['tarme/a.txt', 'tarme/inner/b.txt'])
+ok    �test it
+ok    �and unpack it
+ok    �or only one file from it (['inner\\b.txt'])
+ok    Make an archive offers TAR (no password or parts for it)
+ok    a single .zst file shows what's in it
+ok    �and unpacks
+ok    a damaged .tar.zst is found
+ok    read one file inside a .zip without unpacking it
+ok    �the archive window shows a picture and a text beside the list ({'photo.png': 'picture', 'readme.txt': 'text', 'tool.bin': 'none'})
+ok    �with the text in it
+ok    P hides the preview
+ok    read one file inside a .tar.zst without unpacking it
+ok    �the archive window shows a picture and a text beside the list ({'photo.png': 'picture', 'readme.txt': 'text', 'tool.bin': 'none'})
+ok    �with the text in it
+ok    P hides the preview
+ok    recording without sound has no sound track
+ok    the PC's sound is recorded
+ok    the microphone and the PC's sound mixed in one track
+ok    steps are numbered 1, 2, 3
+ok    a step is drawn in the picture
+ok    the pinned picture grows with the mouse wheel
+ok    the screenshot timer counts down, then takes it
+ok    recording starts 
+ok    pause
+ok    carry on
+ok    the parts are joined into one file 
+ok    �and the parts are gone
+ok    �without the paused time (5.3 s, 2.5 s before the pause)
+the PC's sound can be recorded here: False
+ok    no speakers: says why (Error 0x80070490)
+ok    UPPERCASE
+ok    Capital Letters
+ok    Remove extra spaces
+ok    Join into one line
+ok    Tidy JSON
+ok    Tidy JSON leaves other text alone
+ok    edited text becomes a copy to paste
+ok    apps the clipboard ignores
+ok    Change it, from the list (['THIRD'])
+ok    Ctrl+click picks several (['first', 'third'])
+ok    �pasted together, one per line
+ok    the list's menu can edit
+ok    the list's menu can resave
+ok    the list's menu can read_text
+ok    the list's menu can save_picture
+ok    pictures by name
+ok    pictures newest first
+ok    pictures oldest first
+ok    pictures biggest first
+ok    flip left to right
+ok    flip upside down
+ok    flip on screen
+ok    Discord's cache is found
+ok    Slack's cache is found
+ok    graphics card caches are found (not ticked)
+ok    picture previews are found (not ticked)
+ok    cleaning empties the cache folder (it stays)
+ok    �and the sign-in stays
+ok    Space knows which program a folder is
+ok    �and a folder inside it
+ok    �not mixed up with a similar name
+ok    �and a shared folder isn't anyone's
+ok    chapters ([(0, 'Opening'), (1500, 'The end')])
+ok    �none in a file without them
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'C:/Users/RUNNER~1/AppData/Local/Temp/corefold-featuretest-092fc119/videos/bars.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf63.1.102
+ok    the player lists the folder (16 files)
+  Duration: 00:00:03.00, start: 0.000000, bitrate: 133 kb/s
+  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 640x480 [SAR 1:1 DAR 4:3], 50 kb/s, 30 fps, 30 tbr, 15360 tbn (default)
+    Metadata:
+      handler_name    : VideoHandler
+      encoder         : Lavc63.1.102 libx264
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, mono, fltp, 69 kb/s (default)
+    Metadata:
+      handler_name    : SoundHandler
+ok    the playlist shows
+ok    Z: fill the window
+ok    shuffle keeps the file that's playing first
+Input #0, matroska,webm, from 'C:/Users/RUNNER~1/AppData/Local/Temp/corefold-featuretest-092fc119/videos/chapters.mkv':
+  Metadata:
+    ENCODER         : Lavf63.1.102
+  Duration: 00:00:03.02, start: 0.000000, bitrate: 126 kb/s
+  Chapters:
+    Chapter #0:0: start 0.000000, end 1.500000
+      Metadata:
+        title           : Opening
+    Chapter #0:1: start 1.500000, end 3.000000
+      Metadata:
+        title           : The end
+  Stream #0:0: Video: h264 (High), yuv420p(progressive), 640x480 [SAR 1:1 DAR 4:3], 30 fps, 30 tbr, 1k tbn (default)
+    Metadata:
+      HANDLER_NAME    : VideoHandler
+      ENCODER         : Lavc63.1.102 libx264
+      DURATION        : 00:00:03.000000000
+  Stream #0:1: Audio: aac (LC), 44100 Hz, mono, fltp (default)
+    Metadata:
+      HANDLER_NAME    : SoundHandler
+      DURATION        : 00:00:03.023000000
+[av1_mf @ 000001D7804B52C0] could not find any MFT for the given media type
+[av1_mf @ 000001D7804B52C0] could not create MFT
+[h264_mf @ 000001D7804B52C0] MFT name: 'H264 Encoder MFT'
+[hevc_mf @ 000001D7804B82C0] could not find any MFT for the given media type
+[hevc_mf @ 000001D7804B82C0] could not create MFT
+[AVHWFramesContext @ 000001D780B92280] Could not create the surfaces
+[AVHWFramesContext @ 000001D780B92280] Error creating an internal frame pool
+[h264 @ 000001D7804B5680] Failed setup for format dxva2_vld: hwaccel initialisation returned error.
+ok    the seek bar shows the chapters
+ok    Ctrl+Right: the next chapter
+ok    a pasted text that isn't a link isn't played
+ok    a saved text is pinned at the top
+ok    changing a saved text replaces it
+ok    a small picture for the strip
+ok    the strip has every picture (3)
+ok    �with the one shown picked
+ok    �and their small pictures (3)
+ok    clicking one in the strip shows it
+ok    T hides the strip
+ok    Light makes it brighter
+ok    Colour all the way down: grey
+ok    Auto stretches a dull photo
+ok    nothing changed: the same picture
+ok    the preview matches the saved file
+ok    �(saved)
+ok    a camera RAW file shows its full preview (1200)
+ok    an SVG drawing
+ok    �both open in the Viewer
+ok    X: the next picture beside this one
+ok    �and X again goes back
+ok    Light and colour is a change to save
+ok    the biggest videos, from every folder (['movie.mp4', 'clip.mkv'])
+ok    �and pictures apart
+ok    big files unused for a year ([(3145728, 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\corefold-featuretest-092fc119\\drive\\Old\\backup.zip', 1729712347.5449183)])
+ok    the first look has nothing to compare with
+ok    what grew since the last look ([('Games', 83)])
+ok    �only where it happened (not the drive too)
+ok    Windows' own leftovers are fixed places
+ok    �only the administrator copy removes them
+(Disk Cleanup here: True, takeown skips links: True)
+ok    the administrator copy takes a Space plan
+ok    �and cleans nothing it wasn't made to
+ok    �nor a plan from anywhere else
+ok    a shortcut's program, found from its icon when it doesn't say where it's installed
+ok    �or from where it's installed
+ok    �and Windows' own programs aren't anyone's
+ok    a window's program: a Store app, from the folder it runs from
+ok    �an installed program
+ok    �and nothing for no window
+ok    the program of the window under a point (C:\Windows\explorer.exe)
+ok    "Extras that came with Windows" shows only Windows' own extra apps
+ok    the "Drag onto a window" button
+ok    "Uninstall with Corefold" on shortcuts
+ok    �not while the Uninstaller is off
+ok    the browsers' extensions, without the browsers' own parts (['Ad Stopper', 'Notes', 'uBlock'])
+ok    �the newest copy, its name in its own language, the profile, and that it sees every website
+ok    �a turned-off one
+ok    �Firefox's
+ok    Remove in the browser opens its extensions page on it
+ok    the Browser extensions window
+ok    �an extension picked
+ok    page numbers, the cover left out (['', '1 / 2', '2 / 2'])
+ok    the watermarked PDF keeps every page
+ok    page 1: the watermark is in the middle
+ok    page 1: �and not in the corner
+ok    page 2: the watermark is in the middle
+ok    page 2: �and not in the corner
+ok    page 3: the watermark is in the middle
+ok    page 3: �and not in the corner
+ok    the signature is cut to its ink ((320, 30))
+ok    signed at the bottom right of the last page
+ok    �and the paper isn't on the page
+ok    �the other pages aren't signed
+featuretest: 0 problem(s)

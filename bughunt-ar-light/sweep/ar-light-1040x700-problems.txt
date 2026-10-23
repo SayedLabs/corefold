@@ -1,0 +1,14 @@
+
+errors:
+
+notes:
+373 presses in all; would have opened: 6 (file:///C:/Users/runneradmin/Pictures/Screenshots, startfile ('ms-settings:defaultapps?registeredAppUser=Corefold',), startfile ('ms-settings:defaultapps?registeredAppUser=Corefold',), startfile ('ms-settings:defaultapps?registeredAppUser=Corefold',), file:///C:/Users/RUNNER~1/AppData/Local/Temp/corefold-sweep-cwky10_g/local/Corefold, quit)
+the search ran 225 of 225 things
+round 1: 30 windows, 1405 widgets, 275 MB, 57373 Python objects
+round 2: 28 windows, 1403 widgets, 266 MB, 57819 Python objects
+round 3: 28 windows, 1403 widgets, 266 MB, 57344 Python objects
+memory as tools come and go (275 → 266 → 266 MB, -0.0 MB a round)
+after 10 opens: 222 MB, 14 widgets, 4 windows
+after 20 opens: 223 MB, 14 widgets, 4 windows
+after 30 opens: 223 MB, 14 widgets, 4 windows
+after 40 opens: 223 MB, 14 widgets, 4 windows

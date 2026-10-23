@@ -1,0 +1,38 @@
+         723832 function calls (723171 primitive calls) in 0.188 seconds
+
+   Ordered by: cumulative time
+   List reduced from 202 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.001    0.001    0.188    0.188 D:\a\corefold\corefold\corefold\browser.py:204(__init__)
+        1    0.053    0.053    0.173    0.173 D:\a\corefold\corefold\corefold\browser.py:362(set_entries)
+        2    0.004    0.002    0.094    0.047 {built-in method builtins.any}
+        1    0.000    0.000    0.094    0.094 D:\a\corefold\corefold\corefold\archives.py:809(holds_archives)
+    60001    0.012    0.000    0.090    0.000 D:\a\corefold\corefold\corefold\archives.py:810(<genexpr>)
+    60000    0.032    0.000    0.078    0.000 D:\a\corefold\corefold\corefold\archives.py:813(is_archive_file_name)
+    60000    0.015    0.000    0.027    0.000 D:\a\corefold\corefold\corefold\core.py:287(norm)
+   180664    0.021    0.000    0.021    0.000 {method 'rpartition' of 'str' objects}
+        2    0.007    0.004    0.007    0.004 {method 'icon' of 'PySide6.QtWidgets.QFileIconProvider' objects}
+60661/60000    0.006    0.000    0.007    0.000 D:\a\corefold\corefold\corefold\browser.py:374(ensure)
+    60000    0.006    0.000    0.006    0.000 {method 'strip' of 'str' objects}
+    60015    0.006    0.000    0.006    0.000 {method 'get' of 'dict' objects}
+    60702    0.006    0.000    0.006    0.000 {method 'append' of 'list' objects}
+    60003    0.006    0.000    0.006    0.000 {method 'lower' of 'str' objects}
+    60013    0.005    0.000    0.005    0.000 {method 'rstrip' of 'str' objects}
+        1    0.000    0.000    0.001    0.001 D:\a\corefold\corefold\corefold\archives.py:650(can_edit)
+        1    0.000    0.000    0.001    0.001 D:\a\corefold\corefold\corefold\archives.py:46(find_7z)
+       16    0.001    0.000    0.001    0.000 {method 'addWidget' of 'PySide6.QtWidgets.QBoxLayout' objects}
+        2    0.001    0.001    0.001    0.001 {method 'addWidget' of 'PySide6.QtWidgets.QSplitter' objects}
+        5    0.000    0.000    0.001    0.000 D:\a\corefold\corefold\corefold\core.py:313(app_dir)
+        1    0.000    0.000    0.001    0.001 D:\a\corefold\corefold\corefold\core.py:319(bundled)
+        5    0.000    0.000    0.001    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\pathlib.py:1228(resolve)
+        1    0.000    0.000    0.001    0.001 D:\a\corefold\corefold\corefold\browser.py:133(__init__)
+        5    0.000    0.000    0.000    0.000 <frozen ntpath>:705(realpath)
+        1    0.000    0.000    0.000    0.000 D:\a\corefold\corefold\corefold\icons.py:161(product_tile)
+        1    0.000    0.000    0.000    0.000 {method 'setClearButtonEnabled' of 'PySide6.QtWidgets.QLineEdit' objects}
+        1    0.000    0.000    0.000    0.000 D:\a\corefold\corefold\corefold\browser.py:195(__init__)
+       11    0.000    0.000    0.000    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\pathlib.py:835(stat)
+        1    0.000    0.000    0.000    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\shutil.py:1486(which)
+       10    0.000    0.000    0.000    0.000 {built-in method nt._getfinalpathname}
+
+
