@@ -7,10 +7,10 @@ import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QPoint, QRectF, Qt, QUrl, Signal
+from PySide6.QtCore import QPoint, QRectF, QSize, Qt, QUrl, Signal
 from PySide6.QtGui import QBrush, QColor, QDesktopServices, QFont, QFontMetrics, QPainter, QPen
-from PySide6.QtWidgets import QButtonGroup, QCheckBox, QFileDialog, QFrame, QHBoxLayout, QHeaderView, QLabel, \
-    QMenu, QMessageBox, QProgressBar, QPushButton, QSizePolicy, QStackedWidget, QToolTip, QTreeWidget, \
+from PySide6.QtWidgets import QApplication, QButtonGroup, QCheckBox, QFileDialog, QFrame, QGridLayout, \
+    QHBoxLayout, QHeaderView, QLabel, QMenu, QMessageBox, QProgressBar, QPushButton, QSizePolicy, QStackedWidget, QToolTip, QTreeWidget, \
     QTreeWidgetItem, QVBoxLayout, QWidget
 
 from . import icons, space, work
@@ -243,6 +243,102 @@ class KindsBar(QWidget):
             x += part
 
 
+# ----------------------------------------------------------------------------- the drives
+
+class DriveCard(QPushButton):
+    """A drive to pick: its name, how full it is (the bar turns amber, then red, as it fills) and
+    what's free. With no drive, it's the "Look at a folder" card."""
+
+    def __init__(self, theme, drive: space.Drive | None = None, title: str = "", line: str = ""):
+        super().__init__()
+        self.theme, self.drive = theme, drive
+        if drive is not None:
+            name = drive.path.rstrip("\\")
+            label = drive.label or (tr("USB drive") if drive.removable else tr("Local disk"))
+            self.title = ltr(f"{label} ({name})")
+            self.line = tr("{free} free of {total}", free=human_size(drive.free), total=human_size(drive.total))
+            self.fill = drive.used / drive.total if drive.total else 0.0
+        else:
+            self.title, self.line, self.fill = title, line, None
+        self.setAccessibleName(self.title)
+        self.setToolTip(f"{self.title}\n{self.line}")
+        self.setCursor(Qt.PointingHandCursor)
+        self.setMinimumHeight(96)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.setAttribute(Qt.WA_Hover)
+        self.setFocusPolicy(Qt.StrongFocus)
+
+    def sizeHint(self):
+        return QSize(260, self.minimumHeight())
+
+    def _bar_color(self) -> QColor:
+        t = self.theme
+        if self.fill is None or self.fill < 0.8:
+            return t.accent
+        return QColor("#e8a33d") if self.fill < 0.9 else (t.danger or QColor("#e5484d"))
+
+    def paintEvent(self, e):
+        t = self.theme
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        rtl = self.layoutDirection() == Qt.RightToLeft
+        hover = self.underMouse()
+        r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        if self.drive is None:  # "Look at a folder": a quieter, dashed card
+            pen = QPen(t.accent if hover else t.line_strong or t.border, 1, Qt.DashLine)
+            p.setPen(pen)
+            p.setBrush(t.hover if hover else Qt.NoBrush)
+        else:
+            p.setPen(QPen(t.accent if self.hasFocus() else (t.line_strong if hover else t.border) or t.border, 1))
+            p.setBrush(t.hover if hover else t.panel)
+            if self.isDown():
+                p.setBrush(mix(t.panel, t.text, 0.08))
+        p.drawRoundedRect(r, 12, 12)
+        pad = 16
+        top = r.top() + pad if self.drive is not None else r.center().y() - 20  # (the folder card: centred)
+        tile = QRectF(r.right() - pad - 40 if rtl else r.left() + pad, top, 40, 40)
+        p.setPen(Qt.NoPen)
+        p.setBrush(mix(t.panel, t.accent, 0.2 if t.dark else 0.13))
+        p.drawRoundedRect(tile, 10, 10)
+        glyph = "folder_search" if self.drive is None else "hard_drive"
+        icons.paint(p, tile.adjusted(10, 10, -10, -10), glyph, t.accent)
+        x0 = tile.right() + 14 if not rtl else r.left() + pad
+        x1 = r.right() - pad if not rtl else tile.left() - 14
+        side = (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute
+        title_font = QFont(self.font())
+        title_font.setPointSizeF(self.font().pointSizeF() + 1.5)
+        title_font.setWeight(QFont.Weight.DemiBold)
+        fm = QFontMetrics(title_font)
+        p.setFont(title_font)
+        p.setPen(t.text)
+        right_text = ""
+        if self.fill is not None:
+            right_text = tr("{percent}% full", percent=round(self.fill * 100))
+        rfm = QFontMetrics(self.font())
+        right_w = rfm.horizontalAdvance(right_text) + 12 if right_text else 0
+        title_box = QRectF(x0 + (right_w if rtl else 0), tile.top() - 1, x1 - x0 - right_w, fm.height())
+        p.drawText(title_box, side | Qt.AlignVCenter, fm.elidedText(self.title, Qt.ElideRight, int(title_box.width())))
+        if right_text:
+            p.setFont(self.font())
+            p.setPen(self._bar_color() if self.fill >= 0.8 else t.muted)
+            p.drawText(QRectF(x0, tile.top() - 1, x1 - x0, fm.height()),
+                       ((Qt.AlignLeft if rtl else Qt.AlignRight) | Qt.AlignAbsolute) | Qt.AlignVCenter, right_text)
+        p.setFont(self.font())
+        p.setPen(t.muted)
+        line_box = QRectF(x0, title_box.bottom() + 2, x1 - x0, rfm.height())
+        p.drawText(line_box, side | Qt.AlignVCenter, rfm.elidedText(self.line, Qt.ElideRight, int(line_box.width())))
+        if self.fill is not None:  # how full: a soft track and a rounded bar
+            bar = QRectF(x0, r.bottom() - pad - 8, x1 - x0, 8)
+            p.setPen(Qt.NoPen)
+            p.setBrush(mix(t.panel, t.text, 0.1 if t.dark else 0.08))
+            p.drawRoundedRect(bar, 4, 4)
+            w = max(8.0, bar.width() * min(1.0, self.fill))
+            done = QRectF(bar.right() - w if rtl else bar.left(), bar.top(), w, bar.height())
+            p.setBrush(self._bar_color())
+            p.drawRoundedRect(done, 4, 4)
+        p.end()
+
+
 def _confirm(parent, title: str, text: str, yes: str) -> bool:
     box = QMessageBox(parent)
     box.setIcon(QMessageBox.Question)
@@ -316,13 +412,12 @@ class SpacePage(QWidget):
         dl.setContentsMargins(0, 0, 0, 0)
         dl.setSpacing(8)
         dl.addWidget(_label(tr("Pick a drive to see what's filling it."), "muted"))
-        self.drive_rows = QVBoxLayout()
-        self.drive_rows.setSpacing(8)
+        self.drive_rows = QGridLayout()
+        self.drive_rows.setHorizontalSpacing(12)
+        self.drive_rows.setVerticalSpacing(12)
+        self.drive_rows.setColumnStretch(0, 1)
+        self.drive_rows.setColumnStretch(1, 1)
         dl.addLayout(self.drive_rows)
-        row = QHBoxLayout()
-        row.addWidget(_button(tr("Look at a folder…"), None, self._pick_folder))
-        row.addStretch()
-        dl.addLayout(row)
         dl.addStretch()
         lay.addWidget(self.drives_box)
         # looking (with Stop)
@@ -337,6 +432,8 @@ class SpacePage(QWidget):
         self.busy_bar.setTextVisible(False)
         stop = _button(tr("Stop"), None, self._stop)
         top = QHBoxLayout()
+        top.setSpacing(10)
+        top.addWidget(self._back_button())
         top.addWidget(self.busy_title, 1)
         top.addWidget(stop)
         bl.addLayout(top)
@@ -350,14 +447,18 @@ class SpacePage(QWidget):
         ml.setContentsMargins(0, 0, 0, 0)
         ml.setSpacing(8)
         nav = QHBoxLayout()
-        nav.setSpacing(6)
+        nav.setSpacing(8)
+        self.back_btn = self._back_button()
         self.up_btn = _button(tr("Up"), None, self._up)
         self.where = ElidedLabel()
         self.where.setObjectName("h2")
-        self.again_btn = _button(tr("Look again"), "flat", self._rescan)
-        self.drives_btn = _button(tr("Other drives"), "flat", self._back_to_drives)
-        nav.addWidget(self.up_btn)
+        self.again_btn = _button(tr("Look again"), None, self._rescan)
+        self.drives_btn = _button(tr("Other drives"), None, self._back_to_drives)
+        self._icon_buttons = [(self.up_btn, "arrow_up"), (self.again_btn, "arrow_clockwise"),
+                              (self.drives_btn, "hard_drive")]
+        nav.addWidget(self.back_btn)
         nav.addWidget(self.where, 1)
+        nav.addWidget(self.up_btn)
         nav.addWidget(self.again_btn)
         nav.addWidget(self.drives_btn)
         ml.addLayout(nav)
@@ -404,40 +505,59 @@ class SpacePage(QWidget):
         ml.addWidget(self.kinds_text)
         lay.addWidget(self.map_box, 1)
         self.map_box.hide()
+        self._paint_backs()
         self._fill_drives()
         return w
 
     def _fill_drives(self):
-        lay = self.drive_rows
-        while lay.count():
-            item = lay.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        _clear_layout(self.drive_rows)
+        cards = []
         for d in space.drives():
-            card = QPushButton()
+            card = DriveCard(self.c.theme, d)
             card.setObjectName("driveCard")
-            card.setCursor(Qt.PointingHandCursor)
-            cl = QVBoxLayout(card)
-            cl.setContentsMargins(16, 12, 16, 12)
-            cl.setSpacing(6)
-            name = d.path.rstrip("\\")
-            title = f"{d.label} ({name})" if d.label else name
-            top = QHBoxLayout()
-            top.addWidget(_label(ltr(title), "cardTitle"))
-            top.addStretch()
-            top.addWidget(_label(tr("{free} free of {total}", free=human_size(d.free), total=human_size(d.total)),
-                                 "muted"))
-            cl.addLayout(top)
-            bar = QProgressBar()
-            bar.setRange(0, 1000)
-            bar.setValue(round(1000 * d.used / d.total) if d.total else 0)
-            bar.setTextVisible(False)
-            if d.total and d.free / d.total < 0.1:
-                bar.setObjectName("low")
-            cl.addWidget(bar)
-            card.setMinimumHeight(70)
             card.clicked.connect(lambda _=False, p=d.path: self.start_scan(Path(p)))
-            lay.addWidget(card)
+            cards.append(card)
+        folder = DriveCard(self.c.theme, None, tr("Look at a folder…"), tr("Any folder, on any drive"))
+        folder.clicked.connect(self._pick_folder)
+        for i, card in enumerate(cards + [folder]):
+            self.drive_rows.addWidget(card, i // 2, i % 2)
+        self.drive_cards = cards + [folder]
+
+    def _back_button(self) -> QPushButton:
+        """← : back to the drives (or up a folder), like Esc."""
+        b = QPushButton()
+        b.setObjectName("iconButton")
+        b.setCursor(Qt.PointingHandCursor)
+        b.setFixedSize(34, 34)
+        b.setToolTip(tr("Back (Esc)"))
+        b.setAccessibleName(tr("Back"))
+        b.clicked.connect(self.go_back)
+        self._backs = getattr(self, "_backs", [])
+        self._backs.append(b)
+        self._paint_backs()
+        return b
+
+    def _paint_backs(self):
+        t = self.c.theme
+        rtl = self.layoutDirection() == Qt.RightToLeft or QApplication.layoutDirection() == Qt.RightToLeft
+        for b in getattr(self, "_backs", []):
+            b.setIcon(icons.icon("arrow_right" if rtl else "arrow_left", t.text))
+        for b, name in getattr(self, "_icon_buttons", []):
+            b.setIcon(icons.icon(name, t.text, disabled=t.muted))
+
+    def go_back(self) -> bool:
+        """Esc, Back or ←: up one folder in the map, else back to the list of drives (stopping a
+        look that's under way). False if there's nowhere to go back to."""
+        if self.job is not None and self.busy_box.isVisible():
+            self._stop()
+            return True
+        if self.map_box.isVisible():
+            if self.here is not None and self.here.parent is not None:
+                self._up()
+            else:
+                self._back_to_drives()
+            return True
+        return False
 
     def _pick_folder(self):
         folder = QFileDialog.getExistingDirectory(self, tr("Look at a folder"), str(Path.home()))
@@ -939,6 +1059,10 @@ class SpacePage(QWidget):
     def apply_theme(self, theme):
         self.treemap.theme = theme
         self.kinds_bar.theme = theme
+        for card in getattr(self, "drive_cards", []):
+            card.theme = theme
+            card.update()
+        self._paint_backs()
         self.treemap.update()
         self.kinds_bar.update()
 

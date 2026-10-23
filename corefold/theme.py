@@ -68,19 +68,19 @@ def build_theme(appearance: str, accent_key: str, custom_color: str = "#3cc7b2",
     a = round(255 * opacity / 100)
     if dark:
         return Theme(True, accent, on_accent,
-                     bg=QColor("#09090a"), panel=QColor("#111113"), field=QColor("#161618"),
-                     border=QColor("#1f1f23"), text=QColor("#f1f1f3"), muted=QColor("#8e8e96"),
+                     bg=QColor("#0e0e10"), panel=QColor("#151518"), field=QColor("#1a1a1e"),
+                     border=QColor("#232328"), text=QColor("#f2f2f5"), muted=QColor("#9696a0"),
                      wheel_bg=QColor(17, 17, 19, a), wheel_stripe=QColor(255, 255, 255, 10),
                      wheel_center=QColor(9, 9, 10, 250), wheel_line=QColor(255, 255, 255, 15),
-                     danger=QColor("#ff6b78"), sidebar=QColor("#0c0c0d"), line_strong=QColor("#2c2c32"),
-                     hover=QColor("#18181b"))
+                     danger=QColor("#ff6b78"), sidebar=QColor("#0a0a0c"), line_strong=QColor("#303037"),
+                     hover=QColor("#1d1d22"))
     return Theme(False, accent, on_accent,
-                 bg=QColor("#f7f7f8"), panel=QColor("#ffffff"), field=QColor("#ffffff"),
-                 border=QColor("#e6e6e9"), text=QColor("#111113"), muted=QColor("#65656d"),
+                 bg=QColor("#f6f6f8"), panel=QColor("#ffffff"), field=QColor("#ffffff"),
+                 border=QColor("#e5e5ea"), text=QColor("#141417"), muted=QColor("#60606a"),
                  wheel_bg=QColor(255, 255, 255, a), wheel_stripe=QColor(17, 17, 19, 10),
                  wheel_center=QColor(255, 255, 255, 252), wheel_line=QColor(17, 17, 19, 26),
-                 danger=QColor("#c0263a"), sidebar=QColor("#fbfbfc"), line_strong=QColor("#d4d4d9"),
-                 hover=QColor("#f0f0f2"))
+                 danger=QColor("#c0263a"), sidebar=QColor("#eeeef2"), line_strong=QColor("#d3d3da"),
+                 hover=QColor("#f0f0f4"))
 
 
 def _image(name: str, color: QColor, draw) -> str:
@@ -120,16 +120,16 @@ QSS = Template("""
 * { font-family: "Segoe UI Variable Text", "Segoe UI"; font-size: 10pt; color: $text; }
 QWidget#window { background: $bg; }
 QWidget#sidebar { background: $sidebar; border-$inner_side: 1px solid $border; }
-QLabel#brand { font-family: "Segoe UI Variable Display", "Segoe UI"; font-size: 13pt; font-weight: 600; }
+QLabel#brand { font-family: "Segoe UI Variable Display", "Segoe UI"; font-size: 12.5pt; font-weight: 600; }
 QListWidget#nav { background: transparent; border: none; outline: none; }
-QListWidget#nav::item { padding: 7px 10px; border-radius: 8px; margin: 1px 0; color: $muted;
-                        border-$lead_side: 2px solid transparent; }
-QListWidget#nav::item:hover { background: $hover; color: $text; }
-QListWidget#nav::item:selected { background: $hover; color: $text; border-$lead_side: 2px solid $accent; }
-QListWidget#nav::item:disabled { color: $muted; background: transparent; }
+QPushButton#navToggle { background: transparent; border: 1px solid transparent; border-radius: 7px; padding: 0;
+                        min-width: 0; }
+QPushButton#navToggle:hover { background: $nav_hover; }
+QPushButton#navToggle:pressed { background: $nav_press; }
+QPushButton#iconButton { padding: 0; min-width: 0; border-radius: 8px; }
 QLabel#soonPill { background: transparent; border: 1px solid $line_strong; border-radius: 9px; color: $muted;
                   font-size: 7pt; font-weight: 600; padding: 0 6px; }
-QLabel#h1 { font-family: "Segoe UI Variable Display", "Segoe UI"; font-size: 19pt; font-weight: 600; }
+QLabel#h1 { font-family: "Segoe UI Variable Display", "Segoe UI"; font-size: 21pt; font-weight: 600; }
 QLabel#h2 { font-family: "Segoe UI Variable Display", "Segoe UI"; font-size: 11pt; font-weight: 600; }
 QLabel#muted { color: $muted; }
 QLabel#unsaved { color: #e8a33d; font-weight: 600; }
@@ -146,7 +146,7 @@ QLabel#cardStat { color: $accent; font-size: 8.5pt; font-weight: 600; }
 QFrame#dropzone { border: 1px dashed $line_strong; border-radius: 14px; background: $panel; }
 QFrame#dropzone:hover { border-color: $accent; }
 QFrame#dropzone[hot="true"] { border: 1px solid $accent; background: $accent_soft; }
-QLabel#section { color: $muted; font-weight: 700; font-size: 8pt; }
+QLabel#section { color: $muted; font-weight: 600; font-size: 8.5pt; padding-top: 6px; }
 QPushButton#action { padding: 7px 13px; border-radius: 8px; }
 QPushButton#action:hover { background: $hover; border-color: $line_strong; }
 QPushButton#action:disabled { color: $muted; background: transparent; border: 1px dashed $border; }
@@ -195,12 +195,14 @@ QSlider::handle:horizontal { background: $text; width: 14px; height: 14px; margi
 QPushButton#star { background: transparent; border: none; font-size: 13pt; padding: 0 4px; color: $muted; }
 QPushButton#star:checked { color: $accent; background: transparent; }
 QLabel#stat { font-family: "Segoe UI Variable Display", "Segoe UI"; font-size: 20pt; font-weight: 600; color: $text; }
-QPushButton { background: $field; border: 1px solid $line_strong; border-radius: 8px; padding: 7px 16px; }
+QPushButton { background: $field; border: 1px solid $line_strong; border-bottom-color: $line_bottom; border-radius: 8px;
+              padding: 7px 16px; }
 QPushButton:hover { background: $hover; border-color: $muted; }
 QPushButton:pressed { background: $border; }
 QPushButton:checked { background: $accent_soft; color: $text; border-color: $accent; }
 QPushButton:disabled { color: $muted; border-color: $border; }
-QPushButton#primary { background: $accent; color: $on_accent; border: 1px solid $accent; font-weight: 600; }
+QPushButton#primary { background: $accent; color: $on_accent; border: 1px solid $accent;
+                      border-bottom-color: $accent_edge; font-weight: 600; }
 QPushButton#primary:hover { background: $accent_hover; border-color: $accent_hover; }
 QPushButton#primary:disabled { background: $accent_soft; border-color: $accent_soft; color: $muted; }
 QPushButton#danger { color: $danger; }
@@ -279,6 +281,10 @@ def stylesheet(t: Theme, scale: float = 1.0) -> str:
         danger=(t.danger or QColor("#c0263a")).name(),
         sidebar=(t.sidebar or t.panel).name(), line_strong=(t.line_strong or t.border).name(),
         hover=(t.hover or t.field).name(),
+        nav_hover=mix(t.sidebar or t.panel, t.text, 0.06).name(), nav_press=mix(t.sidebar or t.panel, t.text, 0.1).name(),
+        line_bottom=(mix(t.line_strong or t.border, t.bg, 0.0) if t.dark else mix(t.line_strong or t.border,
+                                                                                 t.text, 0.12)).name(),
+        accent_edge=(t.accent.darker(118) if not t.dark else t.accent.darker(108)).name(),
         check=_check_image(t.on_accent), up=_chevron_image(t.muted, True), down=_chevron_image(t.muted, False),
         # the sidebar's edge faces the pages: on the right in English, on the left in Arabic
         inner_side="left" if rtl else "right",

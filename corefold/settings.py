@@ -126,7 +126,7 @@ RECENT_ARCHIVES = 8
 NOT_EDITED = {"enabled", "first_run", "last_version", "menu_signature", "window_geometry", "last_page",
               "last_action", "tour_done", "watermark", "fit_mb", "open_archives", "recent_archives",
               "tools_off", "known_tools", "open_images", "open_emails", "viewer_info", "recent_views",
-              "clip_paused", "open_media", "player_volume"}
+              "clip_paused", "open_media", "player_volume", "nav_order", "nav_width", "nav_compact"}
 # the settings of each tab of the Settings page (each one has its own "Reset to defaults")
 GENERAL_KEYS = ("language", "sound", "volume", "sound_problems", "show_progress", "low_priority", "one_at_a_time")
 LOOK_KEYS = ("appearance", "accent", "custom_color", "animations", "toast_corner", "toast_time", "window_text",
@@ -256,6 +256,9 @@ class Settings:
     last_page: str = "Home"
     window_text: str = "normal"
     sidebar_icons: bool = True
+    nav_order: list = field(default_factory=list)   # the tools in the sidebar, in the order they were dragged
+    nav_width: int = 232
+    nav_compact: bool = False      # the sidebar shows icons only
     # "Do it again": the last thing you did (tool key, its choices; never a password)
     last_action: dict = field(default_factory=dict)
     tour_done: bool = False
@@ -306,6 +309,8 @@ class Settings:
         s.tools_off = [t for t in s.tools_off if isinstance(t, str)]
         s.recent_views = [t for t in s.recent_views if isinstance(t, str)][:RECENT_ARCHIVES]
         s.known_tools = [t for t in s.known_tools if isinstance(t, str)]
+        s.nav_order = [t for t in s.nav_order if isinstance(t, str)]
+        s.nav_width = min(340, max(190, s.nav_width))
         if not s.known_tools and not s.first_run:  # from before the Store: the tools they had
             from .tools import ORIGINAL
             s.known_tools = list(ORIGINAL)
