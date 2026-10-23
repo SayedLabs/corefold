@@ -1,0 +1,14 @@
+Use test of a5b68faab2bef8dc714076ac5df591c173438435
+== use-ar-light
+SLOW     0.44 s  open the Clipboard page
+FAIL  every page opens in under 0.4 s (48 pages; slow: Clipboard 0.44 s)
+note  the scan in the page: 258 s, this app used 12% of one core, the whole PC was 7% busy (4 cores)
+note  the scan on its own: 10 s, this app used 174% of one core, the whole PC was 63% busy (4 cores)
+note  looking for copies: 1 s, this app used 291% of one core, the whole PC was 73% busy (4 cores)
+SLOW    30.34 s  (limit 30 s)  20 phone photos → WebP
+usetest ar-light: 21 problem(s)
+== use-en-dark
+note  the scan in the page: 58 s, this app used 45% of one core, the whole PC was 15% busy (4 cores)
+note  the scan on its own: 11 s, this app used 183% of one core, the whole PC was 49% busy (4 cores)
+note  looking for copies: 1 s, this app used 289% of one core, the whole PC was 77% busy (4 cores)
+usetest en-dark: 7 problem(s)
