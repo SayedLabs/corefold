@@ -424,6 +424,8 @@ class PlayerWindow(QWidget):
         self.subs = None
         self.loop_a = self.loop_b = None
         self.b_loop.setChecked(False)
+        self.note_timer.stop()
+        self.note_box.hide()
         self.setWindowTitle(f"{path.name} - {APP_NAME}")
         self.title.setText(ltr(path.name))
         self.title.setToolTip(str(path))
