@@ -1,0 +1,96 @@
+2026-10-23 21:11:14,580 INFO running in the background: clipboard, capture, quick access
+2026-10-23 21:17:24,760 INFO running in the background: clipboard, capture, quick access
+2026-10-23 21:17:24,760 INFO tools in use: uninstaller, archive, viewer, player, capture, space, clipboard, pdf
+2026-10-23 21:17:26,219 INFO running in the background: clipboard, capture, quick access
+2026-10-23 21:17:26,219 INFO tools in use: archive, viewer, player, capture, space, clipboard, pdf
+2026-10-23 21:17:27,772 INFO running in the background: clipboard, capture, quick access
+2026-10-23 21:17:27,772 INFO tools in use: viewer, player, capture, space, clipboard, pdf
+2026-10-23 21:17:29,182 INFO running in the background: clipboard, capture, quick access
+2026-10-23 21:17:29,188 INFO tools in use: player, capture, space, clipboard, pdf
+2026-10-23 21:17:30,609 INFO running in the background: clipboard, capture, quick access
+2026-10-23 21:17:30,609 INFO tools in use: capture, space, clipboard, pdf
+2026-10-23 21:17:31,989 INFO running in the background: clipboard, quick access
+2026-10-23 21:17:31,989 INFO tools in use: space, clipboard, pdf
+2026-10-23 21:17:33,336 INFO running in the background: clipboard, quick access
+2026-10-23 21:17:33,336 INFO tools in use: clipboard, pdf
+2026-10-23 21:17:34,693 INFO running in the background: quick access
+2026-10-23 21:17:34,693 INFO tools in use: pdf
+2026-10-23 21:17:36,029 INFO running in the background: quick access
+2026-10-23 21:17:36,029 INFO tools in use: none
+2026-10-23 21:17:38,011 INFO running in the background: quick access
+2026-10-23 21:17:38,011 INFO tools in use: pdf
+2026-10-23 21:17:39,233 INFO running in the background: clipboard, quick access
+2026-10-23 21:17:39,233 INFO tools in use: clipboard, pdf
+2026-10-23 21:17:40,484 INFO running in the background: clipboard, quick access
+2026-10-23 21:17:40,484 INFO tools in use: space, clipboard, pdf
+2026-10-23 21:17:41,722 INFO running in the background: clipboard, capture, quick access
+2026-10-23 21:17:41,722 INFO tools in use: capture, space, clipboard, pdf
+2026-10-23 21:17:42,974 INFO running in the background: clipboard, capture, quick access
+2026-10-23 21:17:42,974 INFO tools in use: player, capture, space, clipboard, pdf
+2026-10-23 21:17:42,988 INFO media files open with Corefold
+2026-10-23 21:17:44,275 INFO running in the background: clipboard, capture, quick access
+2026-10-23 21:17:44,275 INFO tools in use: viewer, player, capture, space, clipboard, pdf
+2026-10-23 21:17:44,283 INFO image files open with Corefold
+2026-10-23 21:17:44,288 INFO email files open with Corefold
+2026-10-23 21:17:45,568 INFO running in the background: clipboard, capture, quick access
+2026-10-23 21:17:45,568 INFO tools in use: archive, viewer, player, capture, space, clipboard, pdf
+2026-10-23 21:17:45,578 INFO archive files open with Corefold
+2026-10-23 21:17:46,903 INFO running in the background: clipboard, capture, quick access
+2026-10-23 21:17:46,903 INFO tools in use: uninstaller, archive, viewer, player, capture, space, clipboard, pdf
+2026-10-23 21:17:48,212 INFO running in the background: clipboard, capture, quick access
+2026-10-23 21:17:48,212 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space, clipboard, pdf
+2026-10-23 21:17:51,142 INFO running in the background: clipboard, capture, quick access
+2026-10-23 21:17:51,142 INFO tools in use: uninstaller, archive, viewer, player, capture, space, clipboard, pdf
+2026-10-23 21:17:52,799 INFO running in the background: clipboard, capture, quick access
+2026-10-23 21:17:52,799 INFO tools in use: archive, viewer, player, capture, space, clipboard, pdf
+2026-10-23 21:17:53,848 INFO right-click menu updated
+2026-10-23 21:17:54,407 INFO running in the background: clipboard, capture, quick access
+2026-10-23 21:17:54,407 INFO tools in use: viewer, player, capture, space, clipboard, pdf
+2026-10-23 21:17:55,935 INFO running in the background: clipboard, capture, quick access
+2026-10-23 21:17:55,935 INFO tools in use: player, capture, space, clipboard, pdf
+2026-10-23 21:17:57,330 INFO running in the background: clipboard, capture, quick access
+2026-10-23 21:17:57,330 INFO tools in use: capture, space, clipboard, pdf
+2026-10-23 21:17:58,695 INFO running in the background: clipboard, quick access
+2026-10-23 21:17:58,695 INFO tools in use: space, clipboard, pdf
+2026-10-23 21:18:00,070 INFO running in the background: clipboard, quick access
+2026-10-23 21:18:00,070 INFO tools in use: clipboard, pdf
+2026-10-23 21:18:01,433 INFO running in the background: quick access
+2026-10-23 21:18:01,433 INFO tools in use: pdf
+2026-10-23 21:18:02,764 INFO running in the background: quick access
+2026-10-23 21:18:02,764 INFO tools in use: none
+2026-10-23 21:18:04,730 INFO running in the background: quick access
+2026-10-23 21:18:04,730 INFO tools in use: pdf
+2026-10-23 21:18:05,952 INFO running in the background: clipboard, quick access
+2026-10-23 21:18:05,952 INFO tools in use: clipboard, pdf
+2026-10-23 21:18:07,204 INFO running in the background: clipboard, quick access
+2026-10-23 21:18:07,204 INFO tools in use: space, clipboard, pdf
+2026-10-23 21:18:08,440 INFO running in the background: clipboard, capture, quick access
+2026-10-23 21:18:08,440 INFO tools in use: capture, space, clipboard, pdf
+2026-10-23 21:18:09,693 INFO running in the background: clipboard, capture, quick access
+2026-10-23 21:18:09,693 INFO tools in use: player, capture, space, clipboard, pdf
+2026-10-23 21:18:09,707 INFO media files open with Corefold
+2026-10-23 21:18:10,974 INFO running in the background: clipboard, capture, quick access
+2026-10-23 21:18:10,975 INFO tools in use: viewer, player, capture, space, clipboard, pdf
+2026-10-23 21:18:10,983 INFO image files open with Corefold
+2026-10-23 21:18:10,989 INFO email files open with Corefold
+2026-10-23 21:18:12,278 INFO running in the background: clipboard, capture, quick access
+2026-10-23 21:18:12,278 INFO tools in use: archive, viewer, player, capture, space, clipboard, pdf
+2026-10-23 21:18:12,286 INFO archive files open with Corefold
+2026-10-23 21:18:13,605 INFO running in the background: clipboard, capture, quick access
+2026-10-23 21:18:13,605 INFO tools in use: uninstaller, archive, viewer, player, capture, space, clipboard, pdf
+2026-10-23 21:18:14,915 INFO running in the background: clipboard, capture, quick access
+2026-10-23 21:18:14,915 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space, clipboard, pdf
+2026-10-23 21:18:21,224 INFO tidied up memory
+2026-10-23 21:18:22,878 INFO right-click menu updated
+2026-10-23 21:18:31,611 INFO tidied up memory
+2026-10-23 21:18:33,650 INFO tidied up memory
+2026-10-23 21:18:46,145 INFO tidied up memory
+2026-10-23 21:18:48,196 INFO tidied up memory
+2026-10-23 21:18:56,224 INFO tidied up memory
+2026-10-23 21:19:02,718 INFO tidied up memory
+2026-10-23 21:19:04,753 INFO tidied up memory
+2026-10-23 21:19:23,288 INFO tidied up memory
+2026-10-23 21:19:25,465 INFO tidied up memory
+2026-10-23 21:19:27,508 INFO tidied up memory
+2026-10-23 21:19:29,568 INFO tidied up memory
+2026-10-23 21:19:37,557 INFO tidied up memory

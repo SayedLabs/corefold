@@ -1,0 +1,20 @@
+PDF tool run of b48480e7f69a3dfa728f213eeb93f31da22be294
+== pdf-ar-light
+pdftest: 0 problem(s)
+sweeptest ar-light-1040x700: 0 problem(s)
+== pdf-en-dark
+[ar] 1878 texts, 0 problem(s), 0 unused
+[fr] 1878 texts, 0 problem(s), 0 unused
+[es] 1878 texts, 0 problem(s), 0 unused
+[tr] 1878 texts, 0 problem(s), 0 unused
+pdftest: 0 problem(s)
+sweeptest en-dark-1040x700: 0 problem(s)
+== pdf-es-dark-200
+pdftest: 0 problem(s)
+sweeptest es-dark-1040x700-x2: 0 problem(s)
+== pdf-fr-dark-150
+pdftest: 0 problem(s)
+sweeptest fr-dark-1040x700-x1.5: 0 problem(s)
+== pdf-tr-light-small
+pdftest: 0 problem(s)
+sweeptest tr-light-min: 0 problem(s)

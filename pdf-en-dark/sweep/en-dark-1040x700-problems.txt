@@ -1,0 +1,12 @@
+
+errors:
+
+notes:
+58 presses in all; would have opened: 0 ()
+the search ran 225 of 225 things
+round 1: 30 windows, 1413 widgets, 202 MB, 51172 Python objects
+round 2: 30 windows, 1413 widgets, 214 MB, 51207 Python objects
+after 10 opens: 180 MB, 16 widgets, 6 windows
+after 20 opens: 179 MB, 14 widgets, 4 windows
+after 30 opens: 180 MB, 14 widgets, 4 windows
+after 40 opens: 180 MB, 14 widgets, 4 windows
