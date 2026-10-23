@@ -564,7 +564,9 @@ def store_cycles():
         check(sizes[-1][1] <= sizes[1][1] * 1.1 + 50, f"widgets don't pile up as tools come and go "
                                                        f"({' → '.join(str(x[1]) for x in sizes)})")
         if sizes[-1][2]:
-            per_round = (sizes[-1][2] - sizes[1][2]) / (len(sizes) - 2)
+            # the first rounds fill caches (icons, fonts, pages): what counts is whether it still grows at the end
+            half = len(sizes) // 2
+            per_round = (sizes[-1][2] - sizes[half][2]) / (len(sizes) - 1 - half)
             check(per_round <= (3 if len(sizes) > 5 else 15), f"memory doesn't keep growing as tools come and go "
                   f"({' → '.join(f'{x[2]:.0f}' for x in sizes)} MB, {per_round:.1f} MB a round)")
     apply_size(c.window)
@@ -633,6 +635,7 @@ def search():
     skip = {tr("Check for updates")}
     titles = [(cmd.title, cmd.where) for cmd in w._commands() if cmd.title not in skip]
     missed, ran = [], 0
+    last = [""]
     for title, where in titles:
         w = c.window
         if not w.isVisible():
@@ -641,7 +644,9 @@ def search():
         QTest.keyClick(w, Qt.Key_K, Qt.ControlModifier)
         settle(0.15)
         pal = w.palette
-        if not check(pal is not None and pal.isVisible(), f"Ctrl + K opens the search (for {title[:40]!r})"):
+        if not check(pal is not None and pal.isVisible(), f"Ctrl + K opens the search (for {title[:40]!r}; active "
+                     f"window {type(qapp.activeWindow()).__name__}, focus {type(qapp.focusWidget()).__name__} "
+                     f"{qapp.focusWidget().objectName() if qapp.focusWidget() else ''!r}, last ran {last[0]!r})"):
             w.open_palette()
             pal = w.palette
         pal.search.setText(title)  # (typed: QTest can only type plain ASCII)
@@ -667,6 +672,7 @@ def search():
                     type(top).__name__ not in ("MainWindow", "Toast"):
                 top.hide()
         ran += 1
+        last[0] = title
         check(not pal.isVisible() if alive(pal) else True, f"the search closes after running {title[:40]!r}")
         check(len(errors) == before, f"the search runs {title[:40]!r} ({where}) without an error")
     for m in missed[:20]:

@@ -517,7 +517,7 @@ class ClipboardPage(QWidget):
         self.empty.setObjectName("muted")
         self.empty.setAlignment(Qt.AlignCenter)
         self.empty.setWordWrap(True)
-        self.empty.setMinimumHeight(160)
+        self.empty.setMinimumHeight(80)  # (the smallest window still has room for the buttons below)
         lay.addWidget(self.empty, 1)
         if self.clip is not None:
             self.list = ClipList(self.clip, controller.theme, 60, click_uses=False)
