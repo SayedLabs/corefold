@@ -155,9 +155,11 @@ under *General → Language*. In Arabic the whole app is right-to-left.
 - **Careful with your files.** Originals are never changed, the Uninstaller keeps a backup for 30 days,
   and Space sends what you remove to the Recycle Bin first.
 
+Read the full [privacy policy](PRIVACY.md).
+
 ## Installing
-[**Download Corefold-Setup.exe**](https://github.com/SayedLabs/corefold/releases/latest), run it, keep
-the two boxes ticked and click **Install**. That's it: a desktop icon, a Start menu entry, and Corefold
+[**Download Corefold-Setup.exe**](https://github.com/SayedLabs/corefold/releases/latest), run it, accept
+the licence agreement, keep the two boxes ticked and click **Install**. That's it: a desktop icon, a Start menu entry, and Corefold
 starts with Windows. No admin rights or Python needed. Installing a newer version on top upgrades it
 and keeps your settings.
 
@@ -182,8 +184,8 @@ Open Corefold from the desktop icon (or click the teal tray icon):
   files converted and space saved.
 
 ## Updates
-Corefold updates itself, so nobody has to download it again. It checks your GitHub releases page
-a few seconds after starting and every few hours. When there's a newer version it shows
+Corefold updates itself, so you never have to download it again. It checks for a newer version a few
+seconds after starting and every few hours. When there's a newer version it shows
 **Update now**; one click downloads it, checks it isn't damaged, installs it and restarts Corefold
 with all settings kept. On the **Updates** page you can let it install updates by itself.
 
@@ -196,7 +198,12 @@ Any of these works:
 It asks whether to delete your settings too. Files you converted are never touched.
 (Portable version: **About → Remove settings and quit**, then delete the folder.)
 
+## Licence
+Corefold is free to use under its licence agreement ([EULA.txt](EULA.txt)). The third-party parts it
+includes are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+<!-- private -->
+
 ## Working on Corefold
-How to run it from the source, build it, test it on a real Windows PC and publish a release is in
-[DEVELOPING.md](DEVELOPING.md). Corefold's code is MIT licensed; the open-source parts it uses are
-listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+How to run it from the source, build it and test it on a real Windows PC is in
+[DEVELOPING.md](DEVELOPING.md); how to publish a release is in [RELEASING.md](RELEASING.md).

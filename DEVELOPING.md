@@ -1,52 +1,20 @@
 # Working on Corefold
 
-How to run, build, test, release and publish Corefold. For what the app does, see the
+How to run, build and test Corefold. For what the app does, see the
 [README](README.md).
 
 ## Running it from the source
 Double-click **`run-from-source.bat`** (needs Python 3.12). It installs what's in
 `requirements.txt` and starts Corefold from the code as it is, without building anything.
 
-## Releasing it
-
-### Option A — let GitHub build it (recommended)
-1. Make a free account at github.com, then click **New repository**, name it `corefold`, make it **Public**.
-2. On the new repo page click **uploading an existing file**, drag in *everything in this folder*,
-   and click **Commit changes**. The website sometimes skips the `.github` folder, so check that
-   `.github/workflows/release.yml` is there. If it isn't: **Add file → Create new file**, type
-   `.github/workflows/release.yml` as the name, paste in that file's contents, and commit.
-3. Go to **Releases → Draft a new release**. In "Choose a tag" type `v1.0.0` and click *Create new tag*.
-   Give it a title and click **Publish release**.
-4. Wait about 10 minutes (watch the **Actions** tab). The release page will then have:
-   - `Corefold-Setup-1.0.0.exe` — the installer (creates the desktop icon)
-   - `Corefold-1.0.0-portable.zip` — runs without installing
-   - `ffmpeg-source-….tar.gz` — FFmpeg's source code and build scripts (its licence asks for these)
-
-   That release page link is what you share with people.
-5. For an update, change the code, then publish a new release with a higher number (`v1.3.0`).
-   Everyone's Corefold updates itself (see [Updates](README.md#updates)).
-
-### Option B — build on your own PC
+## Building it on your own PC
 Double-click **`build.bat`**. It downloads everything it needs (installing Python and Inno Setup
 for you if they're missing), builds the installer, then asks **"Install Corefold on this PC now?"**.
 Press **Y** to install it, or **N** to open the folder with the installer to share it.
 
----
-
-## Publishing an update
-change the files in your GitHub repository, then go to
-**Releases → Draft a new release**, type a higher tag (e.g. `v1.3.0`) and click **Publish**.
-GitHub builds it in about 10 minutes, and every copy of Corefold picks it up.
-
-Updates need to know where your releases are. Copies built by GitHub know automatically. For copies
-built with `build.bat`, create a file called `update-repo.txt` next to `build.bat` containing your
-repository, e.g. `yourname/corefold`.
-
-## Website
-The `docs` folder is a ready-made download page. To put it online for free: on GitHub open
-**Settings → Pages**, under *Branch* choose **main** and **/docs**, click **Save**. A minute later it's
-at `https://<your-name>.github.io/corefold/` with a big download button that always points at your
-newest release, plus an "Is it safe?" section that explains the Windows warning.
+## Releasing it
+How to build a release and publish it is in [RELEASING.md](RELEASING.md). Every installed copy
+updates itself from the releases of `SayedLabs/corefold` (see [Updates](README.md#updates)).
 
 ## Checking it on a real Windows PC
 These run on one of GitHub's Windows PCs. Start them from the **Actions** tab → pick one → **Run workflow**.
@@ -69,10 +37,10 @@ summary page. Nothing is published.
   *Trusted Signing* or a code-signing certificate from a certificate authority).
 - **Antivirus:** apps packaged with PyInstaller are occasionally flagged by mistake. If that
   happens, submit the file as a false positive (Microsoft: https://www.microsoft.com/wdsi/filesubmission).
-- **Licenses:** Corefold's code is MIT. It bundles FFmpeg (GPL) and other open-source parts listed in
-  `THIRD_PARTY_NOTICES.md`; keep that file included and keep the source public (Option A does both).
-  Every release gets FFmpeg's source attached automatically; if the build warns that it couldn't
-  get it, don't publish that build.
+- **Licences:** Corefold is used under its licence agreement (`EULA.txt`, shown by the installer). It
+  includes FFmpeg (as a separate program) and other third-party parts listed in
+  `THIRD_PARTY_NOTICES.md`; keep that file included. Every release gets FFmpeg's source attached
+  automatically; if the build warns that it couldn't get it, don't publish that build.
 - **Privacy:** `docs/privacy.html` is the privacy policy (the same text is in `PRIVACY.md`), linked
   from the website, from *About* and from the Cloud page in the app. When something new goes online,
   update both files and the date.
@@ -81,7 +49,8 @@ summary page. Nothing is published.
 Version 1.7.0 gave the app its new name and look. Installing it over an older version upgrades it
 (same installer ID), and the first start moves the old settings, history and uninstall backups into
 the Corefold folders and replaces the old right-click entries. Nothing is deleted that couldn't be
-moved. The code that does this is marked to be removed in 1.8.0.
+moved. That code stays as long as releases also carry the copy for the old updater (see
+[RELEASING.md](RELEASING.md)).
 
 ## Project layout
 ```
