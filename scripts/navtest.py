@@ -370,6 +370,7 @@ def space_nav():
             until(lambda: pg.job is None, 120)
             check(pg.scan is not None and made is not None and pg.scan is not made[0], "…and makes a new map")
             pg._back_to_drives()
+            settle(0.3)  # (the drive cards come up)
         cards = [b for b in pg.findChildren(QPushButton) if b.objectName() == "driveCard" and b.isVisible()]
         if cards:
             pg.kept.clear()  # (so the drive is looked through, not shown from before)
