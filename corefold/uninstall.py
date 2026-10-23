@@ -472,20 +472,31 @@ def fill_sizes(apps: list[App], cancel: threading.Event | None = None, on_size=N
 
 
 def folder_size(path: Path, limit_s: float = 5) -> int:
+    """The size of everything in a folder. Windows gives each file's size with the folder's listing, so
+    no file is asked about on its own (that kept Python busy enough to slow the window down)."""
     total, start = 0, time.monotonic()
     try:
         if path.is_file():
             return path.stat().st_size
-        for root, dirs, files in os.walk(path):
-            for f in files:
-                try:
-                    total += os.lstat(os.path.join(root, f)).st_size
-                except OSError:
-                    pass
-            if time.monotonic() - start > limit_s:
-                break
     except OSError:
-        pass
+        return 0
+    waiting = [str(path)]
+    while waiting:
+        try:
+            with os.scandir(waiting.pop()) as it:
+                for e in it:
+                    try:
+                        if e.is_dir(follow_symlinks=False):
+                            if not e.is_symlink() and not (hasattr(e, "is_junction") and e.is_junction()):
+                                waiting.append(e.path)
+                        else:
+                            total += e.stat(follow_symlinks=False).st_size
+                    except OSError:
+                        pass
+        except OSError:
+            pass
+        if time.monotonic() - start > limit_s:
+            break
     return total
 
 
