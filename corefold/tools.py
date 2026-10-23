@@ -77,6 +77,7 @@ TOOLS: list[ToolInfo] = [
              "See what's filling your disk and free up space safely.",
              ("A clear map of the biggest folders and files",
               "Find duplicate files and photos",
+              "Find and remove empty folders",
               "Clean up safe junk: temporary files, old installers, leftover caches",
               "Never touches Windows or your personal files without asking",
               "Files you remove go to the Recycle Bin first")),

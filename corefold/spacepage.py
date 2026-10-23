@@ -960,6 +960,11 @@ class SpacePage(QWidget):
         row.addWidget(self.dupe_btn)
         row.addWidget(_button(tr("In a folder…"), None, self._dupes_in_folder))
         row.addStretch()
+
+        def empty_folders():  # (a window of its own: corefold/emptyview.py, loaded only when asked for)
+            from .emptyview import EmptyFoldersDialog
+            EmptyFoldersDialog.show_for(self)
+        row.addWidget(_button(tr("Find empty folders…"), None, empty_folders))
         lay.addLayout(row)
         self.dupe_where = _label(tr("Your folders: {names}", names=", ".join(tr(n) for n in DUPE_FOLDERS)), "muted",
                                  wrap=True)
