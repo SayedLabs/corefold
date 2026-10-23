@@ -1,0 +1,64 @@
+# Makes the pictures the README and the website show, on a real Windows PC (one of GitHub's), in English
+# and Arabic, dark and light. Run it by hand after the look changes: Actions tab -> "README pictures" ->
+# Run workflow. The pictures are in the run's Artifacts and in the "readme" folder of the "screenshots"
+# branch; copy the ones you want into docs/screenshots/.
+name: README pictures
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/project-thread-dfi6hr]
+
+permissions:
+  contents: write   # the pictures are saved to the "screenshots" branch
+
+jobs:
+  pictures:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install what the app needs
+        shell: pwsh
+        run: python -m pip install --quiet -r requirements.txt
+
+      - name: Use a laptop-sized screen
+        shell: pwsh
+        run: python scripts/screenres.py 1600 1000
+
+      - name: Take the pictures
+        timeout-minutes: 20
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force readme | Out-Null
+          foreach ($combo in @("en dark", "en light", "ar light", "ar dark")) {
+            $a = $combo -split " "
+            python scripts/readme_shots.py readme $a[0] $a[1] *>> "readme/output.txt"
+          }
+          Get-Content readme/output.txt
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: readme-pictures
+          path: readme/
+
+      - name: Save the pictures to the screenshots branch
+        if: always()
+        shell: pwsh
+        run: |
+          git fetch -q origin screenshots
+          git worktree add -q shots-branch FETCH_HEAD
+          New-Item -ItemType Directory -Force shots-branch/readme | Out-Null
+          Remove-Item shots-branch/readme/* -Force -ErrorAction SilentlyContinue
+          Copy-Item readme/* shots-branch/readme/
+          Set-Location shots-branch
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "README pictures of $env:GITHUB_SHA"
+          git push -q "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:screenshots
