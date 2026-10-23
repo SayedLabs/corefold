@@ -1,0 +1,12 @@
+
+errors:
+
+notes:
+54 presses in all; would have opened: 1 (startfile ('windowsdefender://threat',))
+the search ran 224 of 224 things
+round 1: 30 windows, 1444 widgets, 242 MB, 53000 Python objects
+round 2: 28 windows, 1442 widgets, 241 MB, 52829 Python objects
+after 10 opens: 194 MB, 14 widgets, 4 windows
+after 20 opens: 195 MB, 14 widgets, 4 windows
+after 30 opens: 195 MB, 14 widgets, 4 windows
+after 40 opens: 195 MB, 14 widgets, 4 windows

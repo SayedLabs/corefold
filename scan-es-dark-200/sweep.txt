@@ -1,0 +1,1053 @@
+----- start
+ok    the window opens
+ok    every ready tool can be added
+ok    start: no errors behind the clicks (0)
+----- pages
+ok    page Home: the Home page opens (Home)
+ok    page Home: the Home page shows (748x608)
+ok    Home page at 1040x700: nothing cut off or sticking out
+ok    page Home: opens without errors
+ok    page Scan: the Scan page opens (Scan)
+ok    page Scan: the Scan page shows (748x608)
+ok    Scan page at 1040x700: nothing cut off or sticking out
+ok    page Scan: opens without errors
+ok    page Store: the Store page opens (Store)
+ok    page Store: the Store page shows (748x608)
+ok    Store page at 1040x700: nothing cut off or sticking out
+ok    page Store: opens without errors
+ok    Back many times lands on a page (Home)
+ok    pages: no errors behind the clicks (0)
+----- buttons
+ok    buttons on Home: the Home page opens (Home)
+ok    buttons on Home: the Home page shows (748x608)
+ok    back to Home after 'Añadir herramientas': the Home page opens (Home)
+ok    back to Home after 'Añadir herramientas': the Home page shows (748x608)
+ok    back to Home after 'Abrir la Tienda': the Home page opens (Home)
+ok    back to Home after 'Abrir la Tienda': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'Abrir la Tienda': the Home page opens (Home)
+ok    back to Home after 'Abrir la Tienda': the Home page shows (748x608)
+ok    back to Home after 'Ver todo': the Home page opens (Home)
+ok    back to Home after 'Ver todo': the Home page shows (748x608)
+ok    Home: pressed 18 control(s)
+ok    buttons on Scan: the Scan page opens (Scan)
+ok    buttons on Scan: the Scan page shows (748x608)
+note  a dialog came up: QuarantineDialog 'Cuarentena de Defender': 
+ok    Scan: pressed 3 control(s)
+ok    buttons on Store: the Store page opens (Store)
+ok    buttons on Store: the Store page shows (748x608)
+ok    back to Store after 'Abrir': the Store page opens (Store)
+ok    back to Store after 'Abrir': the Store page shows (748x608)
+ok    back to Store after 'Abrir': the Store page opens (Store)
+ok    back to Store after 'Abrir': the Store page shows (748x608)
+ok    back to Store after 'Abrir': the Store page opens (Store)
+ok    back to Store after 'Abrir': the Store page shows (748x608)
+ok    back to Store after 'Abrir': the Store page opens (Store)
+ok    back to Store after 'Abrir': the Store page shows (748x608)
+ok    back to Store after 'Abrir': the Store page opens (Store)
+ok    back to Store after 'Abrir': the Store page shows (748x608)
+ok    back to Store after 'Abrir': the Store page opens (Store)
+ok    back to Store after 'Abrir': the Store page shows (748x608)
+ok    back to Store after 'Abrir': the Store page opens (Store)
+ok    back to Store after 'Abrir': the Store page shows (748x608)
+ok    back to Store after 'Abrir': the Store page opens (Store)
+ok    back to Store after 'Abrir': the Store page shows (748x608)
+ok    back to Store after 'Abrir': the Store page opens (Store)
+ok    back to Store after 'Abrir': the Store page shows (748x608)
+ok    back to Store after 'Abrir': the Store page opens (Store)
+ok    back to Store after 'Abrir': the Store page shows (748x608)
+ok    back to Store after 'Abrir': the Store page opens (Store)
+ok    back to Store after 'Abrir': the Store page shows (748x608)
+ok    back to Store after 'Abrir': the Store page opens (Store)
+ok    back to Store after 'Abrir': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    Store: pressed 33 control(s)
+note  54 presses in all; would have opened: 1 (startfile ('windowsdefender://threat',))
+ok    buttons: no errors behind the clicks (0)
+----- keyboard
+ok    Tab and Esc on Home work without an error
+ok    Tab and Esc on Scan work without an error
+ok    Tab and Esc on Store work without an error
+ok    keyboard: no errors behind the clicks (0)
+----- tray
+ok    the tray's 'Abrir Corefold' works without an error
+ok    the tray's 'Ajustes' works without an error
+ok    the tray's 'Convertir lo copiado' works without an error
+ok    the tray's 'Abrir un archivo comprimido…' works without an error
+ok    the tray's 'Historial del portapapeles' works without an error
+ok    the tray's 'Hacer una captura de pantalla' works without an error
+ok    the tray's 'Captura con temporizador' works without an error
+ok    the tray's 'Menú rápido' works without an error
+ok    the tray's 'Repetir…' works without an error
+ok    the clipboard popup opens over another window
+ok    Esc closes the clipboard popup
+ok    after Esc you're back where you were typing (QLineEdit)
+ok    tray: no errors behind the clicks (0)
+----- search
+ok    Ctrl + K opens the search (for 'Convertir archivos…'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran '')
+ok    the search closes after running 'Convertir archivos…'
+ok    the search runs 'Convertir archivos…' (Acciones) without an error
+ok    Ctrl + K opens the search (for 'Hacer una captura de pantalla'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Convertir archivos…')
+ok    the search closes after running 'Hacer una captura de pantalla'
+ok    the search runs 'Hacer una captura de pantalla' (Acciones) without an error
+ok    Ctrl + K opens the search (for 'Captura con temporizador'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Hacer una captura de pantalla')
+ok    the search closes after running 'Captura con temporizador'
+ok    the search runs 'Captura con temporizador' (Acciones) without an error
+ok    Ctrl + K opens the search (for 'Grabar un GIF'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Captura con temporizador')
+ok    the search closes after running 'Grabar un GIF'
+ok    the search runs 'Grabar un GIF' (Acciones) without an error
+ok    Ctrl + K opens the search (for 'Fijar lo copiado en la pantalla'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Grabar un GIF')
+ok    the search closes after running 'Fijar lo copiado en la pantalla'
+ok    the search runs 'Fijar lo copiado en la pantalla' (Acciones) without an error
+ok    Ctrl + K opens the search (for 'Mostrar el historial del portapapeles'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Fijar lo copiado en la pantalla')
+ok    the search closes after running 'Mostrar el historial del portapapeles'
+ok    the search runs 'Mostrar el historial del portapapeles' (Acciones) without an error
+ok    Ctrl + K opens the search (for 'Cambiar al modo claro'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Mostrar el historial del portapapeles')
+ok    the search closes after running 'Cambiar al modo claro'
+ok    the search runs 'Cambiar al modo claro' (Acciones) without an error
+ok    Ctrl + K opens the search (for 'Ver la guía otra vez'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Cambiar al modo claro')
+note  a dialog came up: Tour 'Bienvenida': 
+ok    the search closes after running 'Ver la guía otra vez'
+ok    the search runs 'Ver la guía otra vez' (Acciones) without an error
+ok    Ctrl + K opens the search (for 'Inicio'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Ver la guía otra vez')
+ok    the search closes after running 'Inicio'
+ok    the search runs 'Inicio' (Ir a) without an error
+ok    Ctrl + K opens the search (for 'Historial'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Inicio')
+ok    the search closes after running 'Historial'
+ok    the search runs 'Historial' (Ir a) without an error
+ok    Ctrl + K opens the search (for 'Conversor'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Historial')
+ok    the search closes after running 'Conversor'
+ok    the search runs 'Conversor' (Ir a) without an error
+ok    Ctrl + K opens the search (for 'Desinstalador'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Conversor')
+ok    the search closes after running 'Desinstalador'
+ok    the search runs 'Desinstalador' (Ir a) without an error
+ok    Ctrl + K opens the search (for 'Archivos comprimidos'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Desinstalador')
+ok    the search closes after running 'Archivos comprimidos'
+ok    the search runs 'Archivos comprimidos' (Ir a) without an error
+ok    Ctrl + K opens the search (for 'Visor'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Archivos comprimidos')
+ok    the search closes after running 'Visor'
+ok    the search runs 'Visor' (Ir a) without an error
+ok    Ctrl + K opens the search (for 'Reproductor'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Visor')
+ok    the search closes after running 'Reproductor'
+ok    the search runs 'Reproductor' (Ir a) without an error
+ok    Ctrl + K opens the search (for 'Captura'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Reproductor')
+ok    the search closes after running 'Captura'
+ok    the search runs 'Captura' (Ir a) without an error
+ok    Ctrl + K opens the search (for 'Espacio'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Captura')
+ok    the search closes after running 'Espacio'
+ok    the search runs 'Espacio' (Ir a) without an error
+ok    Ctrl + K opens the search (for 'Portapapeles'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Espacio')
+ok    the search closes after running 'Portapapeles'
+ok    the search runs 'Portapapeles' (Ir a) without an error
+ok    Ctrl + K opens the search (for 'Arranque'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Portapapeles')
+ok    the search closes after running 'Arranque'
+ok    the search runs 'Arranque' (Ir a) without an error
+ok    Ctrl + K opens the search (for 'Antivirus'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Arranque')
+ok    the search closes after running 'Antivirus'
+ok    the search runs 'Antivirus' (Ir a) without an error
+ok    Ctrl + K opens the search (for 'PDF'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Antivirus')
+ok    the search closes after running 'PDF'
+ok    the search runs 'PDF' (Ir a) without an error
+ok    Ctrl + K opens the search (for 'Organizador de archivos'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'PDF')
+ok    the search closes after running 'Organizador de archivos'
+ok    the search runs 'Organizador de archivos' (Ir a) without an error
+ok    Ctrl + K opens the search (for 'Tienda'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Organizador de archivos')
+ok    the search closes after running 'Tienda'
+ok    the search runs 'Tienda' (Ir a) without an error
+ok    Ctrl + K opens the search (for 'Ajustes'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Tienda')
+ok    the search closes after running 'Ajustes'
+ok    the search runs 'Ajustes' (Ir a) without an error
+ok    Ctrl + K opens the search (for 'Actualizaciones'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Ajustes')
+ok    the search closes after running 'Actualizaciones'
+ok    the search runs 'Actualizaciones' (Ir a) without an error
+ok    Ctrl + K opens the search (for 'Acerca de'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Actualizaciones')
+ok    the search closes after running 'Acerca de'
+ok    the search runs 'Acerca de' (Ir a) without an error
+ok    Ctrl + K opens the search (for 'Corefold Cloud'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Acerca de')
+ok    the search closes after running 'Corefold Cloud'
+ok    the search runs 'Corefold Cloud' (Muy pronto) without an error
+ok    Ctrl + K opens the search (for 'Corefold Rename'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Cloud')
+ok    the search closes after running 'Corefold Rename'
+ok    the search runs 'Corefold Rename' (Muy pronto) without an error
+ok    Ctrl + K opens the search (for 'Corefold Search'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Rename')
+ok    the search closes after running 'Corefold Search'
+ok    the search runs 'Corefold Search' (Muy pronto) without an error
+ok    Ctrl + K opens the search (for 'Corefold Colors'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Search')
+ok    the search closes after running 'Corefold Colors'
+ok    the search runs 'Corefold Colors' (Muy pronto) without an error
+ok    Ctrl + K opens the search (for 'Corefold Ruler'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Colors')
+ok    the search closes after running 'Corefold Ruler'
+ok    the search runs 'Corefold Ruler' (Muy pronto) without an error
+ok    Ctrl + K opens the search (for 'Corefold Check'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Ruler')
+ok    the search closes after running 'Corefold Check'
+ok    the search runs 'Corefold Check' (Muy pronto) without an error
+ok    Ctrl + K opens the search (for 'Corefold Shredder'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Check')
+ok    the search closes after running 'Corefold Shredder'
+ok    the search runs 'Corefold Shredder' (Muy pronto) without an error
+ok    Ctrl + K opens the search (for 'Corefold Fonts'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Shredder')
+ok    the search closes after running 'Corefold Fonts'
+ok    the search runs 'Corefold Fonts' (Muy pronto) without an error
+ok    Ctrl + K opens the search (for 'Corefold Network'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Fonts')
+ok    the search closes after running 'Corefold Network'
+ok    the search runs 'Corefold Network' (Muy pronto) without an error
+ok    Ctrl + K opens the search (for 'Corefold Battery'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Network')
+ok    the search closes after running 'Corefold Battery'
+ok    the search runs 'Corefold Battery' (Muy pronto) without an error
+ok    Ctrl + K opens the search (for 'Corefold Focus'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Battery')
+ok    the search closes after running 'Corefold Focus'
+ok    the search runs 'Corefold Focus' (Muy pronto) without an error
+ok    Ctrl + K opens the search (for 'Corefold Layouts'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Focus')
+ok    the search closes after running 'Corefold Layouts'
+ok    the search runs 'Corefold Layouts' (Muy pronto) without an error
+ok    Ctrl + K opens the search (for 'Corefold Drivers'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Layouts')
+ok    the search closes after running 'Corefold Drivers'
+ok    the search runs 'Corefold Drivers' (Muy pronto) without an error
+ok    Ctrl + K opens the search (for 'Corefold Awake'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Drivers')
+ok    the search closes after running 'Corefold Awake'
+ok    the search runs 'Corefold Awake' (Muy pronto) without an error
+ok    Ctrl + K opens the search (for 'Corefold Snippets'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Awake')
+ok    the search closes after running 'Corefold Snippets'
+ok    the search runs 'Corefold Snippets' (Muy pronto) without an error
+ok    Ctrl + K opens the search (for 'Corefold Backup'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Snippets')
+ok    the search closes after running 'Corefold Backup'
+ok    the search runs 'Corefold Backup' (Muy pronto) without an error
+ok    Ctrl + K opens the search (for 'Corefold Notes'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Backup')
+ok    the search closes after running 'Corefold Notes'
+ok    the search runs 'Corefold Notes' (Muy pronto) without an error
+ok    Ctrl + K opens the search (for 'Corefold System'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Notes')
+ok    the search closes after running 'Corefold System'
+ok    the search runs 'Corefold System' (Muy pronto) without an error
+ok    Ctrl + K opens the search (for 'Corefold Unlock'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold System')
+ok    the search closes after running 'Corefold Unlock'
+ok    the search runs 'Corefold Unlock' (Muy pronto) without an error
+ok    Ctrl + K opens the search (for 'Corefold Sound'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Unlock')
+ok    the search closes after running 'Corefold Sound'
+ok    the search runs 'Corefold Sound' (Muy pronto) without an error
+ok    Ctrl + K opens the search (for 'General'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Sound')
+ok    the search closes after running 'General'
+ok    the search runs 'General' (Ajustes) without an error
+ok    Ctrl + K opens the search (for 'Tema'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'General')
+ok    the search closes after running 'Tema'
+ok    the search runs 'Tema' (Ajustes) without an error
+ok    Ctrl + K opens the search (for 'Acceso rápido'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Tema')
+ok    the search closes after running 'Acceso rápido'
+ok    the search runs 'Acceso rápido' (Ajustes) without an error
+ok    Ctrl + K opens the search (for 'Conversor'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Acceso rápido')
+ok    the search closes after running 'Conversor'
+ok    the search runs 'Conversor' (Ajustes) without an error
+ok    Ctrl + K opens the search (for 'Desinstalador'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Conversor')
+ok    the search closes after running 'Desinstalador'
+ok    the search runs 'Desinstalador' (Ajustes) without an error
+ok    Ctrl + K opens the search (for 'Archivos comprimidos'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Desinstalador')
+ok    the search closes after running 'Archivos comprimidos'
+ok    the search runs 'Archivos comprimidos' (Ajustes) without an error
+ok    Ctrl + K opens the search (for 'Visor'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Archivos comprimidos')
+ok    the search closes after running 'Visor'
+ok    the search runs 'Visor' (Ajustes) without an error
+ok    Ctrl + K opens the search (for 'Reproductor'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Visor')
+ok    the search closes after running 'Reproductor'
+ok    the search runs 'Reproductor' (Ajustes) without an error
+ok    Ctrl + K opens the search (for 'Captura'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Reproductor')
+ok    the search closes after running 'Captura'
+ok    the search runs 'Captura' (Ajustes) without an error
+ok    Ctrl + K opens the search (for 'Portapapeles'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Captura')
+ok    the search closes after running 'Portapapeles'
+ok    the search runs 'Portapapeles' (Ajustes) without an error
+ok    Ctrl + K opens the search (for 'Idioma'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Portapapeles')
+ok    the search closes after running 'Idioma'
+ok    the search runs 'Idioma' (Ajustes › General) without an error
+ok    Ctrl + K opens the search (for 'Sonido al terminar'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Idioma')
+ok    the search closes after running 'Sonido al terminar'
+ok    the search runs 'Sonido al terminar' (Ajustes › General) without an error
+ok    Ctrl + K opens the search (for 'Volumen'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Sonido al terminar')
+ok    the search closes after running 'Volumen'
+ok    the search runs 'Volumen' (Ajustes › General) without an error
+ok    Ctrl + K opens the search (for 'Iniciar Corefold al iniciar Windows'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Volumen')
+ok    the search closes after running 'Iniciar Corefold al iniciar Windows'
+ok    the search runs 'Iniciar Corefold al iniciar Windows' (Ajustes › General) without an error
+ok    Ctrl + K opens the search (for 'Mostrar un aviso mientras convierte y al'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Iniciar Corefold al iniciar Windows')
+ok    the search closes after running 'Mostrar un aviso mientras convierte y al'
+ok    the search runs 'Mostrar un aviso mientras convierte y al' (Ajustes › General) without an error
+ok    Ctrl + K opens the search (for 'Reproducir un sonido suave cuando algo f'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Mostrar un aviso mientras convierte y al terminar')
+ok    the search closes after running 'Reproducir un sonido suave cuando algo f'
+ok    the search runs 'Reproducir un sonido suave cuando algo f' (Ajustes › General) without an error
+ok    Ctrl + K opens the search (for 'Mantener mi PC rápido'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Reproducir un sonido suave cuando algo falla')
+ok    the search closes after running 'Mantener mi PC rápido'
+ok    the search runs 'Mantener mi PC rápido' (Ajustes › General) without an error
+ok    Ctrl + K opens the search (for 'Convertir en segundo plano, para que los'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Mantener mi PC rápido')
+ok    the search closes after running 'Convertir en segundo plano, para que los'
+ok    the search runs 'Convertir en segundo plano, para que los' (Ajustes › General) without an error
+ok    Ctrl + K opens the search (for 'Convertir una cosa a la vez (el resto es'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Convertir en segundo plano, para que los juegos y otras apps vayan siempre primero')
+ok    the search closes after running 'Convertir una cosa a la vez (el resto es'
+ok    the search runs 'Convertir una cosa a la vez (el resto es' (Ajustes › General) without an error
+ok    Ctrl + K opens the search (for 'Tema'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Convertir una cosa a la vez (el resto espera su turno)')
+ok    the search closes after running 'Tema'
+ok    the search runs 'Tema' (Ajustes › Tema) without an error
+ok    Ctrl + K opens the search (for 'Color de acento'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Tema')
+ok    the search closes after running 'Color de acento'
+ok    the search runs 'Color de acento' (Ajustes › Tema) without an error
+ok    Ctrl + K opens the search (for 'Tamaño del texto en las ventanas de Core'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Color de acento')
+ok    the search closes after running 'Tamaño del texto en las ventanas de Core'
+ok    the search runs 'Tamaño del texto en las ventanas de Core' (Ajustes › Tema) without an error
+ok    Ctrl + K opens the search (for 'Animaciones'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Tamaño del texto en las ventanas de Corefold')
+ok    the search closes after running 'Animaciones'
+ok    the search runs 'Animaciones' (Ajustes › Tema) without an error
+ok    Ctrl + K opens the search (for 'Iconos en la barra lateral'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Animaciones')
+ok    the search closes after running 'Iconos en la barra lateral'
+ok    the search runs 'Iconos en la barra lateral' (Ajustes › Tema) without an error
+ok    Ctrl + K opens the search (for 'Dónde aparecen los avisos'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Iconos en la barra lateral')
+ok    the search closes after running 'Dónde aparecen los avisos'
+ok    the search runs 'Dónde aparecen los avisos' (Ajustes › Tema) without an error
+ok    Ctrl + K opens the search (for 'Cuánto duran los avisos'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Dónde aparecen los avisos')
+ok    the search closes after running 'Cuánto duran los avisos'
+ok    the search runs 'Cuánto duran los avisos' (Ajustes › Tema) without an error
+ok    Ctrl + K opens the search (for 'Menú rápido'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Cuánto duran los avisos')
+ok    the search closes after running 'Menú rápido'
+ok    the search runs 'Menú rápido' (Ajustes › Acceso rápido) without an error
+ok    Ctrl + K opens the search (for 'Abrir un menú rápido sobre la pantalla d'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Menú rápido')
+ok    the search closes after running 'Abrir un menú rápido sobre la pantalla d'
+ok    the search runs 'Abrir un menú rápido sobre la pantalla d' (Ajustes › Acceso rápido) without an error
+ok    Ctrl + K opens the search (for 'Acceso directo'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Abrir un menú rápido sobre la pantalla desde cualquier aplicación')
+ok    the search closes after running 'Acceso directo'
+ok    the search runs 'Acceso directo' (Ajustes › Acceso rápido) without an error
+ok    Ctrl + K opens the search (for 'Acciones rápidas del menú (tus herramien'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Acceso directo')
+ok    the search closes after running 'Acciones rápidas del menú (tus herramien'
+ok    the search runs 'Acciones rápidas del menú (tus herramien' (Ajustes › Acceso rápido) without an error
+ok    Ctrl + K opens the search (for 'Rueda rápida'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Acciones rápidas del menú (tus herramientas siempre están)')
+ok    the search closes after running 'Rueda rápida'
+ok    the search runs 'Rueda rápida' (Ajustes › Acceso rápido) without an error
+ok    Ctrl + K opens the search (for 'Abrir una rueda rápida alrededor del rat'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Rueda rápida')
+ok    the search closes after running 'Abrir una rueda rápida alrededor del rat'
+ok    the search runs 'Abrir una rueda rápida alrededor del rat' (Ajustes › Acceso rápido) without an error
+ok    Ctrl + K opens the search (for 'Mostrar un pequeño botón redondo en la p'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Abrir una rueda rápida alrededor del ratón desde cualquier aplicación')
+ok    the search closes after running 'Mostrar un pequeño botón redondo en la p'
+ok    the search runs 'Mostrar un pequeño botón redondo en la p' (Ajustes › Acceso rápido) without an error
+ok    Ctrl + K opens the search (for 'En la rueda (hasta 12)'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Mostrar un pequeño botón redondo en la pantalla que abre la rueda')
+ok    the search closes after running 'En la rueda (hasta 12)'
+ok    the search runs 'En la rueda (hasta 12)' (Ajustes › Acceso rápido) without an error
+ok    Ctrl + K opens the search (for 'Tus accesos directos'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'En la rueda (hasta 12)')
+ok    the search closes after running 'Tus accesos directos'
+ok    the search runs 'Tus accesos directos' (Ajustes › Acceso rápido) without an error
+ok    Ctrl + K opens the search (for 'Tecla que mantener al arrastrar'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Tus accesos directos')
+ok    the search closes after running 'Tecla que mantener al arrastrar'
+ok    the search runs 'Tecla que mantener al arrastrar' (Ajustes › Conversor › Opciones) without an error
+ok    Ctrl + K opens the search (for 'Guardar los archivos nuevos'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Tecla que mantener al arrastrar')
+ok    the search closes after running 'Guardar los archivos nuevos'
+ok    the search runs 'Guardar los archivos nuevos' (Ajustes › Conversor › Opciones) without an error
+ok    Ctrl + K opens the search (for 'Calidad de imagen'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Guardar los archivos nuevos')
+ok    the search closes after running 'Calidad de imagen'
+ok    the search runs 'Calidad de imagen' (Ajustes › Conversor › Opciones) without an error
+ok    Ctrl + K opens the search (for 'Formatos que no encajan con un archivo'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Calidad de imagen')
+ok    the search closes after running 'Formatos que no encajan con un archivo'
+ok    the search runs 'Formatos que no encajan con un archivo' (Ajustes › Conversor › Opciones) without an error
+ok    Ctrl + K opens the search (for 'Menú del clic derecho'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Formatos que no encajan con un archivo')
+ok    the search closes after running 'Menú del clic derecho'
+ok    the search runs 'Menú del clic derecho' (Ajustes › Conversor › Opciones) without an error
+ok    Ctrl + K opens the search (for 'Mostrar Corefold al hacer clic derecho e'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Menú del clic derecho')
+ok    the search closes after running 'Mostrar Corefold al hacer clic derecho e'
+ok    the search runs 'Mostrar Corefold al hacer clic derecho e' (Ajustes › Conversor › Opciones) without an error
+ok    Ctrl + K opens the search (for 'Al convertir varios archivos, pedir un n'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Mostrar Corefold al hacer clic derecho en un archivo o carpeta')
+ok    the search closes after running 'Al convertir varios archivos, pedir un n'
+ok    the search runs 'Al convertir varios archivos, pedir un n' (Ajustes › Conversor › Opciones) without an error
+ok    Ctrl + K opens the search (for 'Abrir la carpeta con el archivo nuevo tr'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Al convertir varios archivos, pedir un nombre nuevo (como vacaciones-1, vacaciones-2…)')
+ok    the search closes after running 'Abrir la carpeta con el archivo nuevo tr'
+ok    the search runs 'Abrir la carpeta con el archivo nuevo tr' (Ajustes › Conversor › Opciones) without an error
+ok    Ctrl + K opens the search (for 'Reproducir un pequeño clic al abrirse la'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Abrir la carpeta con el archivo nuevo tras convertir')
+ok    the search closes after running 'Reproducir un pequeño clic al abrirse la'
+ok    the search runs 'Reproducir un pequeño clic al abrirse la' (Ajustes › Conversor › Opciones) without an error
+ok    Ctrl + K opens the search (for 'Mostrar las opciones ZIP / 7z en todas l'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Reproducir un pequeño clic al abrirse la rueda')
+ok    the search closes after running 'Mostrar las opciones ZIP / 7z en todas l'
+ok    the search runs 'Mostrar las opciones ZIP / 7z en todas l' (Ajustes › Conversor › Opciones) without an error
+ok    Ctrl + K opens the search (for 'Hacer los vídeos con la tarjeta gráfica '; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Mostrar las opciones ZIP / 7z en todas las ruedas')
+ok    the search closes after running 'Hacer los vídeos con la tarjeta gráfica '
+ok    the search runs 'Hacer los vídeos con la tarjeta gráfica ' (Ajustes › Conversor › Opciones) without an error
+ok    Ctrl + K opens the search (for 'Forma de la rueda'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Hacer los vídeos con la tarjeta gráfica si hay una (varias veces más rápido)')
+ok    the search closes after running 'Forma de la rueda'
+ok    the search runs 'Forma de la rueda' (Ajustes › Conversor › Rueda) without an error
+ok    Ctrl + K opens the search (for 'Tamaño de la rueda'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Forma de la rueda')
+ok    the search closes after running 'Tamaño de la rueda'
+ok    the search runs 'Tamaño de la rueda' (Ajustes › Conversor › Rueda) without an error
+ok    Ctrl + K opens the search (for 'Etiquetas de las porciones'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Tamaño de la rueda')
+ok    the search closes after running 'Etiquetas de las porciones'
+ok    the search runs 'Etiquetas de las porciones' (Ajustes › Conversor › Rueda) without an error
+ok    Ctrl + K opens the search (for 'Tamaño del texto'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Etiquetas de las porciones')
+ok    the search closes after running 'Tamaño del texto'
+ok    the search runs 'Tamaño del texto' (Ajustes › Conversor › Rueda) without an error
+ok    Ctrl + K opens the search (for 'Al señalar una porción'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Tamaño del texto')
+ok    the search closes after running 'Al señalar una porción'
+ok    the search runs 'Al señalar una porción' (Ajustes › Conversor › Rueda) without an error
+ok    Ctrl + K opens the search (for 'Colores de las porciones'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Al señalar una porción')
+ok    the search closes after running 'Colores de las porciones'
+ok    the search runs 'Colores de las porciones' (Ajustes › Conversor › Rueda) without an error
+ok    Ctrl + K opens the search (for 'Opciones por página'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Colores de las porciones')
+ok    the search closes after running 'Opciones por página'
+ok    the search runs 'Opciones por página' (Ajustes › Conversor › Rueda) without an error
+ok    Ctrl + K opens the search (for 'Dónde se abre la rueda'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Opciones por página')
+ok    the search closes after running 'Dónde se abre la rueda'
+ok    the search runs 'Dónde se abre la rueda' (Ajustes › Conversor › Rueda) without an error
+ok    Ctrl + K opens the search (for 'Transparencia de la rueda'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Dónde se abre la rueda')
+ok    the search closes after running 'Transparencia de la rueda'
+ok    the search runs 'Transparencia de la rueda' (Ajustes › Conversor › Rueda) without an error
+ok    Ctrl + K opens the search (for 'Imágenes'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Transparencia de la rueda')
+ok    the search closes after running 'Imágenes'
+ok    the search runs 'Imágenes' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'PNG  ·  Convertir a PNG'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Imágenes')
+ok    the search closes after running 'PNG  ·  Convertir a PNG'
+ok    the search runs 'PNG  ·  Convertir a PNG' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'JPG  ·  Convertir a JPG'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'PNG  ·  Convertir a PNG')
+ok    the search closes after running 'JPG  ·  Convertir a JPG'
+ok    the search runs 'JPG  ·  Convertir a JPG' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'WEBP  ·  Convertir a WebP'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'JPG  ·  Convertir a JPG')
+ok    the search closes after running 'WEBP  ·  Convertir a WebP'
+ok    the search runs 'WEBP  ·  Convertir a WebP' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'PDF  ·  Combinar en un solo PDF'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'WEBP  ·  Convertir a WebP')
+ok    the search closes after running 'PDF  ·  Combinar en un solo PDF'
+ok    the search runs 'PDF  ·  Combinar en un solo PDF' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Redimensionar  ·  Hacerla más grande o m'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'PDF  ·  Combinar en un solo PDF')
+ok    the search closes after running 'Redimensionar  ·  Hacerla más grande o m'
+ok    the search runs 'Redimensionar  ·  Hacerla más grande o m' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Girar  ·  Girar o voltear'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Redimensionar  ·  Hacerla más grande o más pequeña')
+ok    the search closes after running 'Girar  ·  Girar o voltear'
+ok    the search runs 'Girar  ·  Girar o voltear' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Recortar  ·  Cortar los bordes'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Girar  ·  Girar o voltear')
+ok    the search closes after running 'Recortar  ·  Cortar los bordes'
+ok    the search runs 'Recortar  ·  Cortar los bordes' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Ajustar tamaño  ·  Que quepa en un límit'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Recortar  ·  Cortar los bordes')
+ok    the search closes after running 'Ajustar tamaño  ·  Que quepa en un límit'
+ok    the search runs 'Ajustar tamaño  ·  Que quepa en un límit' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Recortar fondo  ·  Quitar el fondo'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Ajustar tamaño  ·  Que quepa en un límite de tamaño (Discord, correo…)')
+ok    the search closes after running 'Recortar fondo  ·  Quitar el fondo'
+ok    the search runs 'Recortar fondo  ·  Quitar el fondo' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Copiar texto  ·  Copiar el texto de la i'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Recortar fondo  ·  Quitar el fondo')
+ok    the search closes after running 'Copiar texto  ·  Copiar el texto de la i'
+ok    the search runs 'Copiar texto  ·  Copiar el texto de la i' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Pequeña  ·  Reducir para compartir'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Copiar texto  ·  Copiar el texto de la imagen')
+ok    the search closes after running 'Pequeña  ·  Reducir para compartir'
+ok    the search runs 'Pequeña  ·  Reducir para compartir' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Marca de agua  ·  Añadir tu nombre o log'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Pequeña  ·  Reducir para compartir')
+ok    the search closes after running 'Marca de agua  ·  Añadir tu nombre o log'
+ok    the search runs 'Marca de agua  ·  Añadir tu nombre o log' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Escanear  ·  Limpiar fotos de papeles y '; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Marca de agua  ·  Añadir tu nombre o logotipo')
+ok    the search closes after running 'Escanear  ·  Limpiar fotos de papeles y '
+ok    the search runs 'Escanear  ·  Limpiar fotos de papeles y ' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Vídeo  ·  Convertir las imágenes en un v'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Escanear  ·  Limpiar fotos de papeles y hacer un PDF')
+ok    the search closes after running 'Vídeo  ·  Convertir las imágenes en un v'
+ok    the search runs 'Vídeo  ·  Convertir las imágenes en un v' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'ICO  ·  Convertir a icono (ICO)'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Vídeo  ·  Convertir las imágenes en un vídeo de diapositivas')
+ok    the search closes after running 'ICO  ·  Convertir a icono (ICO)'
+ok    the search runs 'ICO  ·  Convertir a icono (ICO)' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'BMP  ·  Convertir a BMP'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'ICO  ·  Convertir a icono (ICO)')
+ok    the search closes after running 'BMP  ·  Convertir a BMP'
+ok    the search runs 'BMP  ·  Convertir a BMP' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'AVIF  ·  Convertir a AVIF'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'BMP  ·  Convertir a BMP')
+ok    the search closes after running 'AVIF  ·  Convertir a AVIF'
+ok    the search runs 'AVIF  ·  Convertir a AVIF' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'QR  ·  Leer código QR'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'AVIF  ·  Convertir a AVIF')
+ok    the search closes after running 'QR  ·  Leer código QR'
+ok    the search runs 'QR  ·  Leer código QR' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Limpiar  ·  Quitar la ubicación y los da'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'QR  ·  Leer código QR')
+ok    the search closes after running 'Limpiar  ·  Quitar la ubicación y los da'
+ok    the search runs 'Limpiar  ·  Quitar la ubicación y los da' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Sticker  ·  Hacer un sticker (WhatsApp, '; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Limpiar  ·  Quitar la ubicación y los datos de la cámara')
+ok    the search closes after running 'Sticker  ·  Hacer un sticker (WhatsApp, '
+ok    the search runs 'Sticker  ·  Hacer un sticker (WhatsApp, ' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Audio'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Sticker  ·  Hacer un sticker (WhatsApp, Telegram)')
+ok    the search closes after running 'Audio'
+ok    the search runs 'Audio' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'MP3  ·  Convertir a MP3'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Audio')
+ok    the search closes after running 'MP3  ·  Convertir a MP3'
+ok    the search runs 'MP3  ·  Convertir a MP3' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'M4A  ·  Convertir a M4A'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'MP3  ·  Convertir a MP3')
+ok    the search closes after running 'M4A  ·  Convertir a M4A'
+ok    the search runs 'M4A  ·  Convertir a M4A' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'WAV  ·  Convertir a WAV'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'M4A  ·  Convertir a M4A')
+ok    the search closes after running 'WAV  ·  Convertir a WAV'
+ok    the search runs 'WAV  ·  Convertir a WAV' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'FLAC  ·  Convertir a FLAC'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'WAV  ·  Convertir a WAV')
+ok    the search closes after running 'FLAC  ·  Convertir a FLAC'
+ok    the search runs 'FLAC  ·  Convertir a FLAC' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'OGG  ·  Convertir a OGG'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'FLAC  ·  Convertir a FLAC')
+ok    the search closes after running 'OGG  ·  Convertir a OGG'
+ok    the search runs 'OGG  ·  Convertir a OGG' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'OPUS  ·  Convertir a Opus'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'OGG  ·  Convertir a OGG')
+ok    the search closes after running 'OPUS  ·  Convertir a Opus'
+ok    the search runs 'OPUS  ·  Convertir a Opus' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'AIFF  ·  Convertir a AIFF'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'OPUS  ·  Convertir a Opus')
+ok    the search closes after running 'AIFF  ·  Convertir a AIFF'
+ok    the search runs 'AIFF  ·  Convertir a AIFF' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Recortar  ·  Cortar el principio o el fi'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'AIFF  ·  Convertir a AIFF')
+ok    the search closes after running 'Recortar  ·  Cortar el principio o el fi'
+ok    the search runs 'Recortar  ·  Cortar el principio o el fi' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Ajustar tamaño  ·  Que quepa en un límit'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Recortar  ·  Cortar el principio o el final')
+ok    the search closes after running 'Ajustar tamaño  ·  Que quepa en un límit'
+ok    the search runs 'Ajustar tamaño  ·  Que quepa en un límit' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Volumen  ·  Arreglar el volumen (muy baj'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Ajustar tamaño  ·  Que quepa en un límite de tamaño')
+ok    the search closes after running 'Volumen  ·  Arreglar el volumen (muy baj'
+ok    the search runs 'Volumen  ·  Arreglar el volumen (muy baj' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Velocidad  ·  Acelerar o ralentizar'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Volumen  ·  Arreglar el volumen (muy bajo o muy alto)')
+ok    the search closes after running 'Velocidad  ·  Acelerar o ralentizar'
+ok    the search runs 'Velocidad  ·  Acelerar o ralentizar' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Unir  ·  Unirlos en un solo archivo, uno'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Velocidad  ·  Acelerar o ralentizar')
+ok    the search closes after running 'Unir  ·  Unirlos en un solo archivo, uno'
+ok    the search runs 'Unir  ·  Unirlos en un solo archivo, uno' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Vídeo'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Unir  ·  Unirlos en un solo archivo, uno tras otro')
+ok    the search closes after running 'Vídeo'
+ok    the search runs 'Vídeo' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'MP4  ·  Convertir a MP4'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Vídeo')
+ok    the search closes after running 'MP4  ·  Convertir a MP4'
+ok    the search runs 'MP4  ·  Convertir a MP4' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'MOV  ·  Convertir a MOV'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'MP4  ·  Convertir a MP4')
+ok    the search closes after running 'MOV  ·  Convertir a MOV'
+ok    the search runs 'MOV  ·  Convertir a MOV' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'WEBM  ·  Convertir a WebM'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'MOV  ·  Convertir a MOV')
+ok    the search closes after running 'WEBM  ·  Convertir a WebM'
+ok    the search runs 'WEBM  ·  Convertir a WebM' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'MKV  ·  Convertir a MKV'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'WEBM  ·  Convertir a WebM')
+ok    the search closes after running 'MKV  ·  Convertir a MKV'
+ok    the search runs 'MKV  ·  Convertir a MKV' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'GIF  ·  Convertir a GIF'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'MKV  ·  Convertir a MKV')
+ok    the search closes after running 'GIF  ·  Convertir a GIF'
+ok    the search runs 'GIF  ·  Convertir a GIF' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Fotogramas  ·  Guardar imágenes del víde'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'GIF  ·  Convertir a GIF')
+ok    the search closes after running 'Fotogramas  ·  Guardar imágenes del víde'
+ok    the search runs 'Fotogramas  ·  Guardar imágenes del víde' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'MP3  ·  Guardar el sonido como MP3'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Fotogramas  ·  Guardar imágenes del vídeo')
+ok    the search closes after running 'MP3  ·  Guardar el sonido como MP3'
+ok    the search runs 'MP3  ·  Guardar el sonido como MP3' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Silenciar  ·  Quitar el sonido'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'MP3  ·  Guardar el sonido como MP3')
+ok    the search closes after running 'Silenciar  ·  Quitar el sonido'
+ok    the search runs 'Silenciar  ·  Quitar el sonido' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Recortar  ·  Quitar las barras negras, o'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Silenciar  ·  Quitar el sonido')
+ok    the search closes after running 'Recortar  ·  Quitar las barras negras, o'
+ok    the search runs 'Recortar  ·  Quitar las barras negras, o' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Subtítulos  ·  Poner un archivo de subtí'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Recortar  ·  Quitar las barras negras, o hacerlo cuadrado o vertical')
+ok    the search closes after running 'Subtítulos  ·  Poner un archivo de subtí'
+ok    the search runs 'Subtítulos  ·  Poner un archivo de subtí' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'SRT  ·  Guardar los subtítulos de dentro'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Subtítulos  ·  Poner un archivo de subtítulos en el vídeo')
+ok    the search closes after running 'SRT  ·  Guardar los subtítulos de dentro'
+ok    the search runs 'SRT  ·  Guardar los subtítulos de dentro' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Sonido…  ·  Guardar el sonido (M4A, WAV,'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'SRT  ·  Guardar los subtítulos de dentro como .srt')
+ok    the search closes after running 'Sonido…  ·  Guardar el sonido (M4A, WAV,'
+ok    the search runs 'Sonido…  ·  Guardar el sonido (M4A, WAV,' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Unir  ·  Unirlos en un solo vídeo, uno t'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Sonido…  ·  Guardar el sonido (M4A, WAV, FLAC…)')
+ok    the search closes after running 'Unir  ·  Unirlos en un solo vídeo, uno t'
+ok    the search runs 'Unir  ·  Unirlos en un solo vídeo, uno t' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Sticker  ·  Hacer un sticker o un GIF pa'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Unir  ·  Unirlos en un solo vídeo, uno tras otro')
+ok    the search closes after running 'Sticker  ·  Hacer un sticker o un GIF pa'
+ok    the search runs 'Sticker  ·  Hacer un sticker o un GIF pa' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'PDF'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Sticker  ·  Hacer un sticker o un GIF para chats (WhatsApp, Telegram, Discord)')
+ok    the search closes after running 'PDF'
+ok    the search runs 'PDF' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Unir  ·  Combinar en un solo PDF'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'PDF')
+ok    the search closes after running 'Unir  ·  Combinar en un solo PDF'
+ok    the search runs 'Unir  ·  Combinar en un solo PDF' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Comprimir  ·  Hacer el archivo más peque'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Unir  ·  Combinar en un solo PDF')
+ok    the search closes after running 'Comprimir  ·  Hacer el archivo más peque'
+ok    the search runs 'Comprimir  ·  Hacer el archivo más peque' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Ajustar tamaño  ·  Que quepa en un límit'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Comprimir  ·  Hacer el archivo más pequeño')
+ok    the search closes after running 'Ajustar tamaño  ·  Que quepa en un límit'
+ok    the search runs 'Ajustar tamaño  ·  Que quepa en un límit' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Dividir  ·  Un PDF por página'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Ajustar tamaño  ·  Que quepa en un límite de tamaño (correo…)')
+ok    the search closes after running 'Dividir  ·  Un PDF por página'
+ok    the search runs 'Dividir  ·  Un PDF por página' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'PNG  ·  Páginas a imágenes'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Dividir  ·  Un PDF por página')
+ok    the search closes after running 'PNG  ·  Páginas a imágenes'
+ok    the search runs 'PNG  ·  Páginas a imágenes' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Texto  ·  Sacar el texto'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'PNG  ·  Páginas a imágenes')
+ok    the search closes after running 'Texto  ·  Sacar el texto'
+ok    the search runs 'Texto  ·  Sacar el texto' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Páginas  ·  Girar, borrar o reordenar pá'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Texto  ·  Sacar el texto')
+ok    the search closes after running 'Páginas  ·  Girar, borrar o reordenar pá'
+ok    the search runs 'Páginas  ·  Girar, borrar o reordenar pá' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Imágenes  ·  Guardar las imágenes que co'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Páginas  ·  Girar, borrar o reordenar páginas')
+ok    the search closes after running 'Imágenes  ·  Guardar las imágenes que co'
+ok    the search runs 'Imágenes  ·  Guardar las imágenes que co' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Números de página  ·  Numera cada página'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Imágenes  ·  Guardar las imágenes que contiene')
+ok    the search closes after running 'Números de página  ·  Numera cada página'
+ok    the search runs 'Números de página  ·  Numera cada página' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Marca de agua  ·  Añade un texto o un lo'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Números de página  ·  Numera cada página')
+ok    the search closes after running 'Marca de agua  ·  Añade un texto o un lo'
+ok    the search runs 'Marca de agua  ·  Añade un texto o un lo' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Firmar  ·  Pon tu firma'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Marca de agua  ·  Añade un texto o un logo a cada página')
+ok    the search closes after running 'Firmar  ·  Pon tu firma'
+ok    the search runs 'Firmar  ·  Pon tu firma' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Bloquear  ·  Proteger con contraseña'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Firmar  ·  Pon tu firma')
+ok    the search closes after running 'Bloquear  ·  Proteger con contraseña'
+ok    the search runs 'Bloquear  ·  Proteger con contraseña' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Desbloquear  ·  Quitar la contraseña'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Bloquear  ·  Proteger con contraseña')
+ok    the search closes after running 'Desbloquear  ·  Quitar la contraseña'
+ok    the search runs 'Desbloquear  ·  Quitar la contraseña' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Word, Excel y PowerPoint'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Desbloquear  ·  Quitar la contraseña')
+ok    the search closes after running 'Word, Excel y PowerPoint'
+ok    the search runs 'Word, Excel y PowerPoint' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'PDF  ·  Convertir a PDF'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Word, Excel y PowerPoint')
+ok    the search closes after running 'PDF  ·  Convertir a PDF'
+ok    the search runs 'PDF  ·  Convertir a PDF' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Archivos comprimidos (ZIP, RAR, 7z…)'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'PDF  ·  Convertir a PDF')
+ok    the search closes after running 'Archivos comprimidos (ZIP, RAR, 7z…)'
+ok    the search runs 'Archivos comprimidos (ZIP, RAR, 7z…)' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Extraer  ·  Extraer aquí'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Archivos comprimidos (ZIP, RAR, 7z…)')
+ok    the search closes after running 'Extraer  ·  Extraer aquí'
+ok    the search runs 'Extraer  ·  Extraer aquí' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'A una carpeta  ·  Extraer en su propia c'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Extraer  ·  Extraer aquí')
+ok    the search closes after running 'A una carpeta  ·  Extraer en su propia c'
+ok    the search runs 'A una carpeta  ·  Extraer en su propia c' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Explorar  ·  Ver qué hay dentro'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'A una carpeta  ·  Extraer en su propia carpeta')
+ok    the search closes after running 'Explorar  ·  Ver qué hay dentro'
+ok    the search runs 'Explorar  ·  Ver qué hay dentro' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Probar  ·  Comprobar que no está dañado'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Explorar  ·  Ver qué hay dentro')
+ok    the search closes after running 'Probar  ·  Comprobar que no está dañado'
+ok    the search runs 'Probar  ·  Comprobar que no está dañado' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'ZIP  ·  Convertir en ZIP'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Probar  ·  Comprobar que no está dañado')
+ok    the search closes after running 'ZIP  ·  Convertir en ZIP'
+ok    the search runs 'ZIP  ·  Convertir en ZIP' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for '7z  ·  Convertir en 7z (más pequeño)'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'ZIP  ·  Convertir en ZIP')
+ok    the search closes after running '7z  ·  Convertir en 7z (más pequeño)'
+ok    the search runs '7z  ·  Convertir en 7z (más pequeño)' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Renombrar  ·  Renombrar los archivos (nú'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran '7z  ·  Convertir en 7z (más pequeño)')
+ok    the search closes after running 'Renombrar  ·  Renombrar los archivos (nú'
+ok    the search runs 'Renombrar  ·  Renombrar los archivos (nú' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Carpetas'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Renombrar  ·  Renombrar los archivos (números, reemplazar texto…)')
+ok    the search closes after running 'Carpetas'
+ok    the search runs 'Carpetas' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'JPG  ·  Convertir las imágenes de dentro'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Carpetas')
+ok    the search closes after running 'JPG  ·  Convertir las imágenes de dentro'
+ok    the search runs 'JPG  ·  Convertir las imágenes de dentro' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'PNG  ·  Convertir las imágenes de dentro'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'JPG  ·  Convertir las imágenes de dentro a JPG')
+ok    the search closes after running 'PNG  ·  Convertir las imágenes de dentro'
+ok    the search runs 'PNG  ·  Convertir las imágenes de dentro' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'WebP  ·  Convertir las imágenes de dentr'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'PNG  ·  Convertir las imágenes de dentro a PNG')
+ok    the search closes after running 'WebP  ·  Convertir las imágenes de dentr'
+ok    the search runs 'WebP  ·  Convertir las imágenes de dentr' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Pequeña  ·  Reducir las imágenes de dent'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'WebP  ·  Convertir las imágenes de dentro a WebP')
+ok    the search closes after running 'Pequeña  ·  Reducir las imágenes de dent'
+ok    the search runs 'Pequeña  ·  Reducir las imágenes de dent' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Cualquier archivo o carpeta (comprimir, '; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Pequeña  ·  Reducir las imágenes de dentro para compartirlas')
+ok    the search closes after running 'Cualquier archivo o carpeta (comprimir, '
+ok    the search runs 'Cualquier archivo o carpeta (comprimir, ' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'ZIP  ·  Meter en un archivo ZIP'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Cualquier archivo o carpeta (comprimir, renombrar)')
+ok    the search closes after running 'ZIP  ·  Meter en un archivo ZIP'
+ok    the search runs 'ZIP  ·  Meter en un archivo ZIP' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for '7z  ·  Meter en un archivo 7z (más peque'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'ZIP  ·  Meter en un archivo ZIP')
+ok    the search closes after running '7z  ·  Meter en un archivo 7z (más peque'
+ok    the search runs '7z  ·  Meter en un archivo 7z (más peque' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Comprimir…  ·  Comprimir con contraseña,'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran '7z  ·  Meter en un archivo 7z (más pequeño que ZIP)')
+ok    the search closes after running 'Comprimir…  ·  Comprimir con contraseña,'
+ok    the search runs 'Comprimir…  ·  Comprimir con contraseña,' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'SHA-256  ·  Copiar la huella del archivo'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Comprimir…  ·  Comprimir con contraseña, en partes o con compresión máxima')
+ok    the search closes after running 'SHA-256  ·  Copiar la huella del archivo'
+ok    the search runs 'SHA-256  ·  Copiar la huella del archivo' (Ajustes › Conversor › Formatos) without an error
+ok    Ctrl + K opens the search (for 'Considerar un programa sin usar después '; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'SHA-256  ·  Copiar la huella del archivo, para comprobar una descarga')
+ok    the search closes after running 'Considerar un programa sin usar después '
+ok    the search runs 'Considerar un programa sin usar después ' (Ajustes › Desinstalador) without an error
+ok    Ctrl + K opens the search (for 'Guardar copias de los restos eliminados '; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Considerar un programa sin usar después de')
+ok    the search closes after running 'Guardar copias de los restos eliminados '
+ok    the search runs 'Guardar copias de los restos eliminados ' (Ajustes › Desinstalador) without an error
+ok    Ctrl + K opens the search (for 'Profundidad de la limpieza'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Guardar copias de los restos eliminados durante')
+ok    the search closes after running 'Profundidad de la limpieza'
+ok    the search runs 'Profundidad de la limpieza' (Ajustes › Desinstalador) without an error
+ok    Ctrl + K opens the search (for 'Crear un punto de restauración antes de '; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Profundidad de la limpieza')
+ok    the search closes after running 'Crear un punto de restauración antes de '
+ok    the search runs 'Crear un punto de restauración antes de ' (Ajustes › Desinstalador) without an error
+ok    Ctrl + K opens the search (for 'Extraer aquí'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Crear un punto de restauración antes de desinstalar (marcado al principio)')
+ok    the search closes after running 'Extraer aquí'
+ok    the search runs 'Extraer aquí' (Ajustes › Archivos comprimidos) without an error
+ok    Ctrl + K opens the search (for 'Extraer también los archivos comprimidos'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Extraer aquí')
+ok    the search closes after running 'Extraer también los archivos comprimidos'
+ok    the search runs 'Extraer también los archivos comprimidos' (Ajustes › Archivos comprimidos) without an error
+ok    Ctrl + K opens the search (for 'Abrir con doble clic'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Extraer también los archivos comprimidos de dentro (marcado al principio)')
+ok    the search closes after running 'Abrir con doble clic'
+ok    the search runs 'Abrir con doble clic' (Ajustes › Archivos comprimidos) without an error
+ok    Ctrl + K opens the search (for 'Abrir archivos comprimidos con Corefold '; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Abrir con doble clic')
+ok    the search closes after running 'Abrir archivos comprimidos con Corefold '
+ok    the search runs 'Abrir archivos comprimidos con Corefold ' (Ajustes › Archivos comprimidos) without an error
+ok    Ctrl + K opens the search (for 'Mostrar los archivos comprimidos que abr'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Abrir archivos comprimidos con Corefold (aparece en «Abrir con»)')
+ok    the search closes after running 'Mostrar los archivos comprimidos que abr'
+ok    the search runs 'Mostrar los archivos comprimidos que abr' (Ajustes › Archivos comprimidos) without an error
+ok    Ctrl + K opens the search (for 'Contraseñas'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Mostrar los archivos comprimidos que abro en la página Archivo')
+ok    the search closes after running 'Contraseñas'
+ok    the search runs 'Contraseñas' (Ajustes › Archivos comprimidos) without an error
+ok    Ctrl + K opens the search (for 'La rueda del ratón'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Contraseñas')
+ok    the search closes after running 'La rueda del ratón'
+ok    the search runs 'La rueda del ratón' (Ajustes › Visor) without an error
+ok    Ctrl + K opens the search (for 'Presentación: cada imagen durante'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'La rueda del ratón')
+ok    the search closes after running 'Presentación: cada imagen durante'
+ok    the search runs 'Presentación: cada imagen durante' (Ajustes › Visor) without an error
+ok    Ctrl + K opens the search (for 'Preguntar antes de enviar una imagen a l'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Presentación: cada imagen durante')
+ok    the search closes after running 'Preguntar antes de enviar una imagen a l'
+ok    the search runs 'Preguntar antes de enviar una imagen a l' (Ajustes › Visor) without an error
+ok    Ctrl + K opens the search (for 'Abrir con doble clic'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Preguntar antes de enviar una imagen a la Papelera')
+ok    the search closes after running 'Abrir con doble clic'
+ok    the search runs 'Abrir con doble clic' (Ajustes › Visor) without an error
+ok    Ctrl + K opens the search (for 'Abrir imágenes con Corefold (aparece en '; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Abrir con doble clic')
+ok    the search closes after running 'Abrir imágenes con Corefold (aparece en '
+ok    the search runs 'Abrir imágenes con Corefold (aparece en ' (Ajustes › Visor) without an error
+ok    Ctrl + K opens the search (for 'Abrir archivos de correo (.msg, .eml) co'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Abrir imágenes con Corefold (aparece en «Abrir con»)')
+ok    the search closes after running 'Abrir archivos de correo (.msg, .eml) co'
+ok    the search runs 'Abrir archivos de correo (.msg, .eml) co' (Ajustes › Visor) without an error
+ok    Ctrl + K opens the search (for 'Las flechas saltan'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Abrir archivos de correo (.msg, .eml) con Corefold')
+ok    the search closes after running 'Las flechas saltan'
+ok    the search runs 'Las flechas saltan' (Ajustes › Reproductor) without an error
+ok    Ctrl + K opens the search (for 'La rueda del ratón sobre un vídeo'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Las flechas saltan')
+ok    the search closes after running 'La rueda del ratón sobre un vídeo'
+ok    the search runs 'La rueda del ratón sobre un vídeo' (Ajustes › Reproductor) without an error
+ok    Ctrl + K opens the search (for 'Seguir donde lo dejé'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'La rueda del ratón sobre un vídeo')
+ok    the search closes after running 'Seguir donde lo dejé'
+ok    the search runs 'Seguir donde lo dejé' (Ajustes › Reproductor) without an error
+ok    Ctrl + K opens the search (for 'Cuando acabe un archivo, reproducir el s'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Seguir donde lo dejé')
+ok    the search closes after running 'Cuando acabe un archivo, reproducir el s'
+ok    the search runs 'Cuando acabe un archivo, reproducir el s' (Ajustes › Reproductor) without an error
+ok    Ctrl + K opens the search (for 'Activar los subtítulos del propio vídeo'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Cuando acabe un archivo, reproducir el siguiente de su carpeta')
+ok    the search closes after running 'Activar los subtítulos del propio vídeo'
+ok    the search runs 'Activar los subtítulos del propio vídeo' (Ajustes › Reproductor) without an error
+ok    Ctrl + K opens the search (for 'Abrir con doble clic'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Activar los subtítulos del propio vídeo')
+ok    the search closes after running 'Abrir con doble clic'
+ok    the search runs 'Abrir con doble clic' (Ajustes › Reproductor) without an error
+ok    Ctrl + K opens the search (for 'Abrir vídeos y música con Corefold (apar'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Abrir con doble clic')
+ok    the search closes after running 'Abrir vídeos y música con Corefold (apar'
+ok    the search runs 'Abrir vídeos y música con Corefold (apar' (Ajustes › Reproductor) without an error
+ok    Ctrl + K opens the search (for 'Hacer una captura con'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Abrir vídeos y música con Corefold (aparece en «Abrir con»)')
+ok    the search closes after running 'Hacer una captura con'
+ok    the search runs 'Hacer una captura con' (Ajustes › Captura) without an error
+ok    Ctrl + K opens the search (for 'Iniciar o detener la grabación con'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Hacer una captura con')
+ok    the search closes after running 'Iniciar o detener la grabación con'
+ok    the search runs 'Iniciar o detener la grabación con' (Ajustes › Captura) without an error
+ok    Ctrl + K opens the search (for 'Después de una captura'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Iniciar o detener la grabación con')
+ok    the search closes after running 'Después de una captura'
+ok    the search runs 'Después de una captura' (Ajustes › Captura) without an error
+ok    Ctrl + K opens the search (for 'Una captura con temporizador espera'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Después de una captura')
+ok    the search closes after running 'Una captura con temporizador espera'
+ok    the search runs 'Una captura con temporizador espera' (Ajustes › Captura) without an error
+ok    Ctrl + K opens the search (for 'Guardar también cada captura en Imágenes'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Una captura con temporizador espera')
+ok    the search closes after running 'Guardar también cada captura en Imágenes'
+ok    the search runs 'Guardar también cada captura en Imágenes' (Ajustes › Captura) without an error
+ok    Ctrl + K opens the search (for 'Grabación'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Guardar también cada captura en Imágenes\\Capturas de pantalla')
+ok    the search closes after running 'Grabación'
+ok    the search runs 'Grabación' (Ajustes › Captura) without an error
+ok    Ctrl + K opens the search (for 'Fluidez'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Grabación')
+ok    the search closes after running 'Fluidez'
+ok    the search runs 'Fluidez' (Ajustes › Captura) without an error
+ok    Ctrl + K opens the search (for 'Micrófono'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Fluidez')
+ok    the search closes after running 'Micrófono'
+ok    the search runs 'Micrófono' (Ajustes › Captura) without an error
+ok    Ctrl + K opens the search (for 'Grabar también el sonido del PC (vídeos,'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Micrófono')
+ok    the search closes after running 'Grabar también el sonido del PC (vídeos,'
+ok    the search runs 'Grabar también el sonido del PC (vídeos,' (Ajustes › Captura) without an error
+ok    Ctrl + K opens the search (for 'Mostrar el puntero del ratón en las grab'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Grabar también el sonido del PC (vídeos, juegos, llamadas)')
+ok    the search closes after running 'Mostrar el puntero del ratón en las grab'
+ok    the search runs 'Mostrar el puntero del ratón en las grab' (Ajustes › Captura) without an error
+ok    Ctrl + K opens the search (for 'Contar 3, 2, 1 antes de empezar a grabar'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Mostrar el puntero del ratón en las grabaciones')
+ok    the search closes after running 'Contar 3, 2, 1 antes de empezar a grabar'
+ok    the search runs 'Contar 3, 2, 1 antes de empezar a grabar' (Ajustes › Captura) without an error
+ok    Ctrl + K opens the search (for 'Abrir el portapapeles con'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Contar 3, 2, 1 antes de empezar a grabar')
+ok    the search closes after running 'Abrir el portapapeles con'
+ok    the search runs 'Abrir el portapapeles con' (Ajustes › Portapapeles) without an error
+ok    Ctrl + K opens the search (for 'Guardar hasta'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Abrir el portapapeles con')
+ok    the search closes after running 'Guardar hasta'
+ok    the search runs 'Guardar hasta' (Ajustes › Portapapeles) without an error
+ok    Ctrl + K opens the search (for 'Olvidar las copias de más de'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Guardar hasta')
+ok    the search closes after running 'Olvidar las copias de más de'
+ok    the search runs 'Olvidar las copias de más de' (Ajustes › Portapapeles) without an error
+ok    Ctrl + K opens the search (for 'Pegar enseguida al elegir algo (si no, s'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Olvidar las copias de más de')
+ok    the search closes after running 'Pegar enseguida al elegir algo (si no, s'
+ok    the search runs 'Pegar enseguida al elegir algo (si no, s' (Ajustes › Portapapeles) without an error
+ok    Ctrl + K opens the search (for 'Guardar las imágenes que copias'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Pegar enseguida al elegir algo (si no, solo se copia)')
+ok    the search closes after running 'Guardar las imágenes que copias'
+ok    the search runs 'Guardar las imágenes que copias' (Ajustes › Portapapeles) without an error
+ok    Ctrl + K opens the search (for 'Privacidad'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Guardar las imágenes que copias')
+ok    the search closes after running 'Privacidad'
+ok    the search runs 'Privacidad' (Ajustes › Portapapeles) without an error
+ok    Ctrl + K opens the search (for 'No guardar nunca lo copiado desde estas '; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Privacidad')
+ok    the search closes after running 'No guardar nunca lo copiado desde estas '
+ok    the search runs 'No guardar nunca lo copiado desde estas ' (Ajustes › Portapapeles) without an error
+note  the search ran 225 of 225 things
+ok    search: no errors behind the clicks (0)
+----- quick
+ok    the quick menu opens (round 1, at 479,257)
+ok    the quick menu is on the screen (0,0 960x540 on 960x540)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 479,257
+ok    the quick wheel is on the screen at 479,257 (293,71 372x372)
+ok    the quick menu and wheel at 479,257: no errors
+ok    the quick menu opens (round 1, at 2,2)
+ok    the quick menu is on the screen (0,0 960x540 on 960x540)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 2,2
+ok    the quick wheel is on the screen at 2,2 (0,0 372x372)
+ok    the quick menu and wheel at 2,2: no errors
+ok    the quick menu opens (round 1, at 957,2)
+ok    the quick menu is on the screen (0,0 960x540 on 960x540)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 957,2
+ok    the quick wheel is on the screen at 957,2 (587,0 372x372)
+ok    the quick menu and wheel at 957,2: no errors
+ok    the quick menu opens (round 1, at 2,513)
+ok    the quick menu is on the screen (0,0 960x540 on 960x540)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 2,513
+ok    the quick wheel is on the screen at 2,513 (0,143 372x372)
+ok    the quick menu and wheel at 2,513: no errors
+ok    the quick menu opens (round 1, at 957,513)
+ok    the quick menu is on the screen (0,0 960x540 on 960x540)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 957,513
+ok    the quick wheel is on the screen at 957,513 (587,143 372x372)
+ok    the quick menu and wheel at 957,513: no errors
+ok    the quick menu opens (round 2, at 479,257)
+ok    the quick menu is on the screen (0,0 960x540 on 960x540)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 479,257
+ok    the quick wheel is on the screen at 479,257 (293,71 372x372)
+ok    the quick menu and wheel at 479,257: no errors
+ok    the quick menu opens (round 2, at 2,2)
+ok    the quick menu is on the screen (0,0 960x540 on 960x540)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 2,2
+ok    the quick wheel is on the screen at 2,2 (0,0 372x372)
+ok    the quick menu and wheel at 2,2: no errors
+ok    the quick menu opens (round 2, at 957,2)
+ok    the quick menu is on the screen (0,0 960x540 on 960x540)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 957,2
+ok    the quick wheel is on the screen at 957,2 (587,0 372x372)
+ok    the quick menu and wheel at 957,2: no errors
+ok    the quick menu opens (round 2, at 2,513)
+ok    the quick menu is on the screen (0,0 960x540 on 960x540)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 2,513
+ok    the quick wheel is on the screen at 2,513 (0,143 372x372)
+ok    the quick menu and wheel at 2,513: no errors
+ok    the quick menu opens (round 2, at 957,513)
+ok    the quick menu is on the screen (0,0 960x540 on 960x540)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 957,513
+ok    the quick wheel is on the screen at 957,513 (587,143 372x372)
+ok    the quick menu and wheel at 957,513: no errors
+ok    the quick menu opens (round 3, at 479,257)
+ok    the quick menu is on the screen (0,0 960x540 on 960x540)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 479,257
+ok    the quick wheel is on the screen at 479,257 (293,71 372x372)
+ok    the quick menu and wheel at 479,257: no errors
+ok    the quick menu opens (round 3, at 2,2)
+ok    the quick menu is on the screen (0,0 960x540 on 960x540)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 2,2
+ok    the quick wheel is on the screen at 2,2 (0,0 372x372)
+ok    the quick menu and wheel at 2,2: no errors
+ok    the quick menu opens (round 3, at 957,2)
+ok    the quick menu is on the screen (0,0 960x540 on 960x540)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 957,2
+ok    the quick wheel is on the screen at 957,2 (587,0 372x372)
+ok    the quick menu and wheel at 957,2: no errors
+ok    the quick menu opens (round 3, at 2,513)
+ok    the quick menu is on the screen (0,0 960x540 on 960x540)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 2,513
+ok    the quick wheel is on the screen at 2,513 (0,143 372x372)
+ok    the quick menu and wheel at 2,513: no errors
+ok    the quick menu opens (round 3, at 957,513)
+ok    the quick menu is on the screen (0,0 960x540 on 960x540)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 957,513
+ok    the quick wheel is on the screen at 957,513 (587,143 372x372)
+ok    the quick menu and wheel at 957,513: no errors
+ok    the floating button shows
+ok    the floating button goes away
+ok    the floating button shows
+ok    the floating button goes away
+ok    quick: no errors behind the clicks (0)
+----- sizes
+ok    Home page, smallest window (720x460): nothing cut off or sticking out
+ok    Scan page, smallest window (720x460): nothing cut off or sticking out
+ok    Store page, smallest window (720x460): nothing cut off or sticking out
+ok    Home page, 1366x768 window (962x531): nothing cut off or sticking out
+ok    Scan page, 1366x768 window (962x531): nothing cut off or sticking out
+ok    Store page, 1366x768 window (962x531): nothing cut off or sticking out
+ok    Home page, maximized window (960x505): nothing cut off or sticking out
+ok    Scan page, maximized window (960x505): nothing cut off or sticking out
+ok    Store page, maximized window (960x505): nothing cut off or sticking out
+ok    sizes: no errors behind the clicks (0)
+----- store
+ok    round 1: removing converter takes it out of the sidebar
+ok    round 1: after removing converter the window is still open (Store)
+ok    round 1: a removed converter page can't be opened
+ok    round 1: removing uninstaller takes it out of the sidebar
+ok    round 1: after removing uninstaller the window is still open (Store)
+ok    round 1: a removed uninstaller page can't be opened
+ok    round 1: removing archive takes it out of the sidebar
+ok    round 1: after removing archive the window is still open (Store)
+ok    round 1: a removed archive page can't be opened
+ok    round 1: removing viewer takes it out of the sidebar
+ok    round 1: after removing viewer the window is still open (Store)
+ok    round 1: a removed viewer page can't be opened
+ok    round 1: removing player takes it out of the sidebar
+ok    round 1: after removing player the window is still open (Store)
+ok    round 1: a removed player page can't be opened
+ok    round 1: removing capture takes it out of the sidebar
+ok    round 1: after removing capture the window is still open (Store)
+ok    a removed Capture lets go of its shortcuts
+ok    round 1: a removed capture page can't be opened
+ok    round 1: removing space takes it out of the sidebar
+ok    round 1: after removing space the window is still open (Store)
+ok    round 1: a removed space page can't be opened
+ok    round 1: removing clipboard takes it out of the sidebar
+ok    round 1: after removing clipboard the window is still open (Store)
+ok    a removed Clipboard stops watching what's copied
+ok    round 1: a removed clipboard page can't be opened
+ok    round 1: removing startup takes it out of the sidebar
+ok    round 1: after removing startup the window is still open (Store)
+ok    round 1: a removed startup page can't be opened
+ok    round 1: removing scan takes it out of the sidebar
+ok    round 1: after removing scan the window is still open (Store)
+ok    round 1: a removed scan page can't be opened
+ok    round 1: removing pdf takes it out of the sidebar
+ok    round 1: after removing pdf the window is still open (Store)
+ok    round 1: a removed pdf page can't be opened
+ok    round 1: removing organizer takes it out of the sidebar
+ok    round 1: after removing organizer the window is still open (Store)
+ok    round 1: a removed organizer page can't be opened
+ok    round 1: every tool can be removed
+ok    Home with no tools, round 1: nothing cut off or sticking out
+ok    the Store with no tools, round 1: the Store page opens (Store)
+ok    the Store with no tools, round 1: the Store page shows (684x412)
+ok    round 1: organizer can be added back
+ok    round 1: pdf can be added back
+ok    round 1: scan can be added back
+ok    round 1: startup can be added back
+ok    round 1: clipboard can be added back
+ok    round 1: space can be added back
+ok    round 1: capture can be added back
+ok    round 1: player can be added back
+ok    round 1: viewer can be added back
+ok    round 1: archive can be added back
+ok    round 1: uninstaller can be added back
+ok    round 1: converter can be added back
+note  round 1: 30 windows, 1444 widgets, 246 MB, 52818 Python objects
+ok    round 2: removing converter takes it out of the sidebar
+ok    round 2: after removing converter the window is still open (Store)
+ok    round 2: a removed converter page can't be opened
+ok    round 2: removing uninstaller takes it out of the sidebar
+ok    round 2: after removing uninstaller the window is still open (Store)
+ok    round 2: a removed uninstaller page can't be opened
+ok    round 2: removing archive takes it out of the sidebar
+ok    round 2: after removing archive the window is still open (Store)
+ok    round 2: a removed archive page can't be opened
+ok    round 2: removing viewer takes it out of the sidebar
+ok    round 2: after removing viewer the window is still open (Store)
+ok    round 2: a removed viewer page can't be opened
+ok    round 2: removing player takes it out of the sidebar
+ok    round 2: after removing player the window is still open (Store)
+ok    round 2: a removed player page can't be opened
+ok    round 2: removing capture takes it out of the sidebar
+ok    round 2: after removing capture the window is still open (Store)
+ok    a removed Capture lets go of its shortcuts
+ok    round 2: a removed capture page can't be opened
+ok    round 2: removing space takes it out of the sidebar
+ok    round 2: after removing space the window is still open (Store)
+ok    round 2: a removed space page can't be opened
+ok    round 2: removing clipboard takes it out of the sidebar
+ok    round 2: after removing clipboard the window is still open (Store)
+ok    a removed Clipboard stops watching what's copied
+ok    round 2: a removed clipboard page can't be opened
+ok    round 2: removing startup takes it out of the sidebar
+ok    round 2: after removing startup the window is still open (Store)
+ok    round 2: a removed startup page can't be opened
+ok    round 2: removing scan takes it out of the sidebar
+ok    round 2: after removing scan the window is still open (Store)
+ok    round 2: a removed scan page can't be opened
+ok    round 2: removing pdf takes it out of the sidebar
+ok    round 2: after removing pdf the window is still open (Store)
+ok    round 2: a removed pdf page can't be opened
+ok    round 2: removing organizer takes it out of the sidebar
+ok    round 2: after removing organizer the window is still open (Store)
+ok    round 2: a removed organizer page can't be opened
+ok    round 2: every tool can be removed
+ok    Home with no tools, round 2: nothing cut off or sticking out
+ok    the Store with no tools, round 2: the Store page opens (Store)
+ok    the Store with no tools, round 2: the Store page shows (684x412)
+ok    round 2: organizer can be added back
+ok    round 2: pdf can be added back
+ok    round 2: scan can be added back
+ok    round 2: startup can be added back
+ok    round 2: clipboard can be added back
+ok    round 2: space can be added back
+ok    round 2: capture can be added back
+ok    round 2: player can be added back
+ok    round 2: viewer can be added back
+ok    round 2: archive can be added back
+ok    round 2: uninstaller can be added back
+ok    round 2: converter can be added back
+note  round 2: 30 windows, 1444 widgets, 257 MB, 52853 Python objects
+ok    store: no errors behind the clicks (0)
+----- reopen
+note  after 10 opens: 195 MB, 14 widgets, 4 windows
+note  after 20 opens: 204 MB, 14 widgets, 4 windows
+note  after 30 opens: 208 MB, 14 widgets, 4 windows
+note  after 40 opens: 208 MB, 14 widgets, 4 windows
+ok    nothing is left behind as the window is opened and closed (14 → 14 → 14 → 14 widgets)
+ok    memory doesn't climb as the window is opened and closed (195 → 204 → 208 → 208 MB, 440 KB an open)
+ok    reopen: no errors behind the clicks (0)
+ok    the log has no errors (0: [])
+sweeptest es-dark-1040x700-x2: 0 problem(s)

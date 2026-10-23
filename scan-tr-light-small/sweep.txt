@@ -1,0 +1,1056 @@
+----- start
+ok    the window opens
+ok    every ready tool can be added
+ok    start: no errors behind the clicks (0)
+----- pages
+ok    page Home: the Home page opens (Home)
+ok    page Home: the Home page shows (618x374)
+ok    Home page at 720x460: nothing cut off or sticking out
+ok    page Home: opens without errors
+ok    page Scan: the Scan page opens (Scan)
+ok    page Scan: the Scan page shows (618x374)
+ok    Scan page at 720x460: nothing cut off or sticking out
+ok    page Scan: opens without errors
+ok    page Store: the Store page opens (Store)
+ok    page Store: the Store page shows (618x374)
+ok    Store page at 720x460: nothing cut off or sticking out
+ok    page Store: opens without errors
+ok    Back many times lands on a page (Home)
+ok    pages: no errors behind the clicks (0)
+----- buttons
+ok    buttons on Home: the Home page opens (Home)
+ok    buttons on Home: the Home page shows (618x374)
+ok    back to Home after 'Araç ekle': the Home page opens (Home)
+ok    back to Home after 'Araç ekle': the Home page shows (618x374)
+ok    back to Home after 'Mağazayı aç': the Home page opens (Home)
+ok    back to Home after 'Mağazayı aç': the Home page shows (618x374)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (618x374)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (618x374)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (618x374)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (618x374)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (618x374)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (618x374)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (618x374)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (618x374)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (618x374)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (618x374)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (618x374)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (618x374)
+ok    back to Home after 'Mağazayı aç': the Home page opens (Home)
+ok    back to Home after 'Mağazayı aç': the Home page shows (618x374)
+ok    back to Home after 'Tümünü gör': the Home page opens (Home)
+ok    back to Home after 'Tümünü gör': the Home page shows (618x374)
+ok    Home: pressed 18 control(s)
+ok    buttons on Scan: the Scan page opens (Scan)
+ok    buttons on Scan: the Scan page shows (618x374)
+note  a dialog came up: QuarantineDialog 'Defender karantinası': 
+ok    Scan: pressed 3 control(s)
+ok    buttons on Store: the Store page opens (Store)
+ok    buttons on Store: the Store page shows (618x374)
+ok    back to Store after 'Aç': the Store page opens (Store)
+ok    back to Store after 'Aç': the Store page shows (618x374)
+ok    back to Store after 'Aç': the Store page opens (Store)
+ok    back to Store after 'Aç': the Store page shows (618x374)
+ok    back to Store after 'Aç': the Store page opens (Store)
+ok    back to Store after 'Aç': the Store page shows (618x374)
+ok    back to Store after 'Aç': the Store page opens (Store)
+ok    back to Store after 'Aç': the Store page shows (618x374)
+ok    back to Store after 'Aç': the Store page opens (Store)
+ok    back to Store after 'Aç': the Store page shows (618x374)
+ok    back to Store after 'Aç': the Store page opens (Store)
+ok    back to Store after 'Aç': the Store page shows (618x374)
+ok    back to Store after 'Aç': the Store page opens (Store)
+ok    back to Store after 'Aç': the Store page shows (618x374)
+ok    back to Store after 'Aç': the Store page opens (Store)
+ok    back to Store after 'Aç': the Store page shows (618x374)
+ok    back to Store after 'Aç': the Store page opens (Store)
+ok    back to Store after 'Aç': the Store page shows (618x374)
+ok    back to Store after 'Aç': the Store page opens (Store)
+ok    back to Store after 'Aç': the Store page shows (618x374)
+ok    back to Store after 'Aç': the Store page opens (Store)
+ok    back to Store after 'Aç': the Store page shows (618x374)
+ok    back to Store after 'Aç': the Store page opens (Store)
+ok    back to Store after 'Aç': the Store page shows (618x374)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (618x374)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (618x374)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (618x374)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (618x374)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (618x374)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (618x374)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (618x374)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (618x374)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (618x374)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (618x374)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (618x374)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (618x374)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (618x374)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (618x374)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (618x374)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (618x374)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (618x374)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (618x374)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (618x374)
+ok    Store: pressed 33 control(s)
+note  54 presses in all; would have opened: 1 (startfile ('windowsdefender://threat',))
+ok    buttons: no errors behind the clicks (0)
+----- keyboard
+ok    Tab and Esc on Home work without an error
+ok    Tab and Esc on Scan work without an error
+ok    Tab and Esc on Store work without an error
+ok    keyboard: no errors behind the clicks (0)
+----- tray
+ok    the tray's "Corefold'yı aç" works without an error
+ok    the tray's 'Ayarlar' works without an error
+ok    the tray's 'Kopyalananı dönüştür' works without an error
+ok    the tray's 'Arşiv aç…' works without an error
+ok    the tray's 'Pano geçmişi' works without an error
+ok    the tray's 'Ekran görüntüsü al' works without an error
+ok    the tray's 'Zamanlayıcılı ekran görüntüsü' works without an error
+ok    the tray's 'Hızlı menü' works without an error
+ok    the tray's 'Tekrar yap…' works without an error
+ok    the clipboard popup opens over another window
+ok    Esc closes the clipboard popup
+ok    after Esc you're back where you were typing (QLineEdit)
+ok    tray: no errors behind the clicks (0)
+----- search
+ok    Ctrl + K opens the search (for 'Dosya dönüştür…'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran '')
+ok    the search closes after running 'Dosya dönüştür…'
+ok    the search runs 'Dosya dönüştür…' (İşlemler) without an error
+ok    Ctrl + K opens the search (for 'Ekran görüntüsü al'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Dosya dönüştür…')
+ok    the search closes after running 'Ekran görüntüsü al'
+ok    the search runs 'Ekran görüntüsü al' (İşlemler) without an error
+ok    Ctrl + K opens the search (for 'Zamanlayıcılı ekran görüntüsü'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Ekran görüntüsü al')
+ok    the search closes after running 'Zamanlayıcılı ekran görüntüsü'
+ok    the search runs 'Zamanlayıcılı ekran görüntüsü' (İşlemler) without an error
+ok    Ctrl + K opens the search (for 'GIF kaydet'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Zamanlayıcılı ekran görüntüsü')
+ok    the search closes after running 'GIF kaydet'
+ok    the search runs 'GIF kaydet' (İşlemler) without an error
+ok    Ctrl + K opens the search (for 'Kopyalananı ekrana sabitle'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'GIF kaydet')
+ok    the search closes after running 'Kopyalananı ekrana sabitle'
+ok    the search runs 'Kopyalananı ekrana sabitle' (İşlemler) without an error
+ok    Ctrl + K opens the search (for 'Pano geçmişini göster'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Kopyalananı ekrana sabitle')
+ok    the search closes after running 'Pano geçmişini göster'
+ok    the search runs 'Pano geçmişini göster' (İşlemler) without an error
+ok    Ctrl + K opens the search (for 'Koyu moda geç'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Pano geçmişini göster')
+ok    the search closes after running 'Koyu moda geç'
+ok    the search runs 'Koyu moda geç' (İşlemler) without an error
+ok    Ctrl + K opens the search (for 'Turu yeniden göster'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Koyu moda geç')
+note  a dialog came up: Tour 'Hoş geldiniz': 
+ok    the search closes after running 'Turu yeniden göster'
+ok    the search runs 'Turu yeniden göster' (İşlemler) without an error
+ok    Ctrl + K opens the search (for 'Ana sayfa'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Turu yeniden göster')
+ok    the search closes after running 'Ana sayfa'
+ok    the search runs 'Ana sayfa' (Git) without an error
+ok    Ctrl + K opens the search (for 'Geçmiş'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Ana sayfa')
+ok    the search closes after running 'Geçmiş'
+ok    the search runs 'Geçmiş' (Git) without an error
+ok    Ctrl + K opens the search (for 'Dönüştürücü'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Geçmiş')
+ok    the search closes after running 'Dönüştürücü'
+ok    the search runs 'Dönüştürücü' (Git) without an error
+ok    Ctrl + K opens the search (for 'Kaldırıcı'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Dönüştürücü')
+ok    the search closes after running 'Kaldırıcı'
+ok    the search runs 'Kaldırıcı' (Git) without an error
+ok    Ctrl + K opens the search (for 'Arşivler'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Kaldırıcı')
+ok    the search closes after running 'Arşivler'
+ok    the search runs 'Arşivler' (Git) without an error
+ok    Ctrl + K opens the search (for 'Görüntüleyici'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Arşivler')
+ok    the search closes after running 'Görüntüleyici'
+ok    the search runs 'Görüntüleyici' (Git) without an error
+ok    Ctrl + K opens the search (for 'Oynatıcı'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Görüntüleyici')
+ok    the search closes after running 'Oynatıcı'
+ok    the search runs 'Oynatıcı' (Git) without an error
+ok    Ctrl + K opens the search (for 'Yakalama'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Oynatıcı')
+ok    the search closes after running 'Yakalama'
+ok    the search runs 'Yakalama' (Git) without an error
+ok    Ctrl + K opens the search (for 'Alan'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Yakalama')
+ok    the search closes after running 'Alan'
+ok    the search runs 'Alan' (Git) without an error
+ok    Ctrl + K opens the search (for 'Pano'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Alan')
+ok    the search closes after running 'Pano'
+ok    the search runs 'Pano' (Git) without an error
+ok    Ctrl + K opens the search (for 'Başlangıç'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Pano')
+ok    the search closes after running 'Başlangıç'
+ok    the search runs 'Başlangıç' (Git) without an error
+ok    Ctrl + K opens the search (for 'Virüs tarama'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Başlangıç')
+ok    the search closes after running 'Virüs tarama'
+ok    the search runs 'Virüs tarama' (Git) without an error
+ok    Ctrl + K opens the search (for 'PDF'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Virüs tarama')
+ok    the search closes after running 'PDF'
+ok    the search runs 'PDF' (Git) without an error
+ok    Ctrl + K opens the search (for 'Dosya Düzenleyici'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'PDF')
+ok    the search closes after running 'Dosya Düzenleyici'
+ok    the search runs 'Dosya Düzenleyici' (Git) without an error
+ok    Ctrl + K opens the search (for 'Mağaza'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Dosya Düzenleyici')
+ok    the search closes after running 'Mağaza'
+ok    the search runs 'Mağaza' (Git) without an error
+ok    Ctrl + K opens the search (for 'Ayarlar'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Mağaza')
+ok    the search closes after running 'Ayarlar'
+ok    the search runs 'Ayarlar' (Git) without an error
+ok    Ctrl + K opens the search (for 'Güncellemeler'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Ayarlar')
+ok    the search closes after running 'Güncellemeler'
+ok    the search runs 'Güncellemeler' (Git) without an error
+ok    Ctrl + K opens the search (for 'Hakkında'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Güncellemeler')
+ok    the search closes after running 'Hakkında'
+ok    the search runs 'Hakkında' (Git) without an error
+ok    Ctrl + K opens the search (for 'Corefold Cloud'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Hakkında')
+ok    the search closes after running 'Corefold Cloud'
+ok    the search runs 'Corefold Cloud' (Çok yakında) without an error
+ok    Ctrl + K opens the search (for 'Corefold Rename'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Cloud')
+ok    the search closes after running 'Corefold Rename'
+ok    the search runs 'Corefold Rename' (Çok yakında) without an error
+ok    Ctrl + K opens the search (for 'Corefold Search'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Rename')
+ok    the search closes after running 'Corefold Search'
+ok    the search runs 'Corefold Search' (Çok yakında) without an error
+ok    Ctrl + K opens the search (for 'Corefold Colors'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Search')
+ok    the search closes after running 'Corefold Colors'
+ok    the search runs 'Corefold Colors' (Çok yakında) without an error
+ok    Ctrl + K opens the search (for 'Corefold Ruler'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Colors')
+ok    the search closes after running 'Corefold Ruler'
+ok    the search runs 'Corefold Ruler' (Çok yakında) without an error
+ok    Ctrl + K opens the search (for 'Corefold Check'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Ruler')
+ok    the search closes after running 'Corefold Check'
+ok    the search runs 'Corefold Check' (Çok yakında) without an error
+ok    Ctrl + K opens the search (for 'Corefold Shredder'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Check')
+ok    the search closes after running 'Corefold Shredder'
+ok    the search runs 'Corefold Shredder' (Çok yakında) without an error
+ok    Ctrl + K opens the search (for 'Corefold Fonts'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Shredder')
+ok    the search closes after running 'Corefold Fonts'
+ok    the search runs 'Corefold Fonts' (Çok yakında) without an error
+ok    Ctrl + K opens the search (for 'Corefold Network'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Fonts')
+ok    the search closes after running 'Corefold Network'
+ok    the search runs 'Corefold Network' (Çok yakında) without an error
+ok    Ctrl + K opens the search (for 'Corefold Battery'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Network')
+ok    the search closes after running 'Corefold Battery'
+ok    the search runs 'Corefold Battery' (Çok yakında) without an error
+ok    Ctrl + K opens the search (for 'Corefold Focus'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Battery')
+ok    the search closes after running 'Corefold Focus'
+ok    the search runs 'Corefold Focus' (Çok yakında) without an error
+ok    Ctrl + K opens the search (for 'Corefold Layouts'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Focus')
+ok    the search closes after running 'Corefold Layouts'
+ok    the search runs 'Corefold Layouts' (Çok yakında) without an error
+ok    Ctrl + K opens the search (for 'Corefold Drivers'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Layouts')
+ok    the search closes after running 'Corefold Drivers'
+ok    the search runs 'Corefold Drivers' (Çok yakında) without an error
+ok    Ctrl + K opens the search (for 'Corefold Awake'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Drivers')
+ok    the search closes after running 'Corefold Awake'
+ok    the search runs 'Corefold Awake' (Çok yakında) without an error
+ok    Ctrl + K opens the search (for 'Corefold Snippets'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Awake')
+ok    the search closes after running 'Corefold Snippets'
+ok    the search runs 'Corefold Snippets' (Çok yakında) without an error
+ok    Ctrl + K opens the search (for 'Corefold Backup'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Snippets')
+ok    the search closes after running 'Corefold Backup'
+ok    the search runs 'Corefold Backup' (Çok yakında) without an error
+ok    Ctrl + K opens the search (for 'Corefold Notes'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Backup')
+ok    the search closes after running 'Corefold Notes'
+ok    the search runs 'Corefold Notes' (Çok yakında) without an error
+ok    Ctrl + K opens the search (for 'Corefold System'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Notes')
+ok    the search closes after running 'Corefold System'
+ok    the search runs 'Corefold System' (Çok yakında) without an error
+ok    Ctrl + K opens the search (for 'Corefold Unlock'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold System')
+ok    the search closes after running 'Corefold Unlock'
+ok    the search runs 'Corefold Unlock' (Çok yakında) without an error
+ok    Ctrl + K opens the search (for 'Corefold Sound'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Unlock')
+ok    the search closes after running 'Corefold Sound'
+ok    the search runs 'Corefold Sound' (Çok yakında) without an error
+ok    Ctrl + K opens the search (for 'Genel'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold Sound')
+ok    the search closes after running 'Genel'
+ok    the search runs 'Genel' (Ayarlar) without an error
+ok    Ctrl + K opens the search (for 'Tema'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Genel')
+ok    the search closes after running 'Tema'
+ok    the search runs 'Tema' (Ayarlar) without an error
+ok    Ctrl + K opens the search (for 'Hızlı erişim'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Tema')
+ok    the search closes after running 'Hızlı erişim'
+ok    the search runs 'Hızlı erişim' (Ayarlar) without an error
+ok    Ctrl + K opens the search (for 'Dönüştürücü'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Hızlı erişim')
+ok    the search closes after running 'Dönüştürücü'
+ok    the search runs 'Dönüştürücü' (Ayarlar) without an error
+ok    Ctrl + K opens the search (for 'Kaldırıcı'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Dönüştürücü')
+ok    the search closes after running 'Kaldırıcı'
+ok    the search runs 'Kaldırıcı' (Ayarlar) without an error
+ok    Ctrl + K opens the search (for 'Arşivler'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Kaldırıcı')
+ok    the search closes after running 'Arşivler'
+ok    the search runs 'Arşivler' (Ayarlar) without an error
+ok    Ctrl + K opens the search (for 'Görüntüleyici'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Arşivler')
+ok    the search closes after running 'Görüntüleyici'
+ok    the search runs 'Görüntüleyici' (Ayarlar) without an error
+ok    Ctrl + K opens the search (for 'Oynatıcı'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Görüntüleyici')
+ok    the search closes after running 'Oynatıcı'
+ok    the search runs 'Oynatıcı' (Ayarlar) without an error
+ok    Ctrl + K opens the search (for 'Yakalama'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Oynatıcı')
+ok    the search closes after running 'Yakalama'
+ok    the search runs 'Yakalama' (Ayarlar) without an error
+ok    Ctrl + K opens the search (for 'Pano'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Yakalama')
+ok    the search closes after running 'Pano'
+ok    the search runs 'Pano' (Ayarlar) without an error
+ok    Ctrl + K opens the search (for 'Dil'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Pano')
+ok    the search closes after running 'Dil'
+ok    the search runs 'Dil' (Ayarlar › Genel) without an error
+ok    Ctrl + K opens the search (for 'Bitince çalan ses'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Dil')
+ok    the search closes after running 'Bitince çalan ses'
+ok    the search runs 'Bitince çalan ses' (Ayarlar › Genel) without an error
+ok    Ctrl + K opens the search (for 'Ses düzeyi'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Bitince çalan ses')
+ok    the search closes after running 'Ses düzeyi'
+ok    the search runs 'Ses düzeyi' (Ayarlar › Genel) without an error
+ok    Ctrl + K opens the search (for "Windows başlarken Corefold'yı başlat"; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Ses düzeyi')
+ok    the search closes after running "Windows başlarken Corefold'yı başlat"
+ok    the search runs "Windows başlarken Corefold'yı başlat" (Ayarlar › Genel) without an error
+ok    Ctrl + K opens the search (for 'Dönüştürürken ve bitince bir açılır penc'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran "Windows başlarken Corefold'yı başlat")
+ok    the search closes after running 'Dönüştürürken ve bitince bir açılır penc'
+ok    the search runs 'Dönüştürürken ve bitince bir açılır penc' (Ayarlar › Genel) without an error
+ok    Ctrl + K opens the search (for 'Bir şeyler ters gittiğinde yumuşak bir s'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Dönüştürürken ve bitince bir açılır pencere göster')
+ok    the search closes after running 'Bir şeyler ters gittiğinde yumuşak bir s'
+ok    the search runs 'Bir şeyler ters gittiğinde yumuşak bir s' (Ayarlar › Genel) without an error
+ok    Ctrl + K opens the search (for 'Bilgisayarımı hızlı tut'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Bir şeyler ters gittiğinde yumuşak bir ses çal')
+ok    the search closes after running 'Bilgisayarımı hızlı tut'
+ok    the search runs 'Bilgisayarımı hızlı tut' (Ayarlar › Genel) without an error
+ok    Ctrl + K opens the search (for 'Arka planda dönüştür, böylece oyunlar ve'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Bilgisayarımı hızlı tut')
+ok    the search closes after running 'Arka planda dönüştür, böylece oyunlar ve'
+ok    the search runs 'Arka planda dönüştür, böylece oyunlar ve' (Ayarlar › Genel) without an error
+ok    Ctrl + K opens the search (for 'Aynı anda tek bir şey dönüştür (diğerler'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Arka planda dönüştür, böylece oyunlar ve diğer uygulamalar hep önce gelir')
+ok    the search closes after running 'Aynı anda tek bir şey dönüştür (diğerler'
+ok    the search runs 'Aynı anda tek bir şey dönüştür (diğerler' (Ayarlar › Genel) without an error
+ok    Ctrl + K opens the search (for 'Tema'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Aynı anda tek bir şey dönüştür (diğerleri sırada bekler)')
+ok    the search closes after running 'Tema'
+ok    the search runs 'Tema' (Ayarlar › Tema) without an error
+ok    Ctrl + K opens the search (for 'Vurgu rengi'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Tema')
+ok    the search closes after running 'Vurgu rengi'
+ok    the search runs 'Vurgu rengi' (Ayarlar › Tema) without an error
+ok    Ctrl + K opens the search (for 'Corefold pencerelerinde metin boyutu'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Vurgu rengi')
+ok    the search closes after running 'Corefold pencerelerinde metin boyutu'
+ok    the search runs 'Corefold pencerelerinde metin boyutu' (Ayarlar › Tema) without an error
+ok    Ctrl + K opens the search (for 'Animasyonlar'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Corefold pencerelerinde metin boyutu')
+ok    the search closes after running 'Animasyonlar'
+ok    the search runs 'Animasyonlar' (Ayarlar › Tema) without an error
+ok    Ctrl + K opens the search (for 'Kenar çubuğunda simgeler'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Animasyonlar')
+ok    the search closes after running 'Kenar çubuğunda simgeler'
+ok    the search runs 'Kenar çubuğunda simgeler' (Ayarlar › Tema) without an error
+ok    Ctrl + K opens the search (for 'Açılır pencerelerin göründüğü yer'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Kenar çubuğunda simgeler')
+ok    the search closes after running 'Açılır pencerelerin göründüğü yer'
+ok    the search runs 'Açılır pencerelerin göründüğü yer' (Ayarlar › Tema) without an error
+ok    Ctrl + K opens the search (for 'Açılır pencerelerin kalma süresi'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Açılır pencerelerin göründüğü yer')
+ok    the search closes after running 'Açılır pencerelerin kalma süresi'
+ok    the search runs 'Açılır pencerelerin kalma süresi' (Ayarlar › Tema) without an error
+ok    Ctrl + K opens the search (for 'Hızlı menü'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Açılır pencerelerin kalma süresi')
+ok    the search closes after running 'Hızlı menü'
+ok    the search runs 'Hızlı menü' (Ayarlar › Hızlı erişim) without an error
+ok    Ctrl + K opens the search (for 'Her uygulamadan ekranın üstünde hızlı bi'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Hızlı menü')
+ok    the search closes after running 'Her uygulamadan ekranın üstünde hızlı bi'
+ok    the search runs 'Her uygulamadan ekranın üstünde hızlı bi' (Ayarlar › Hızlı erişim) without an error
+ok    Ctrl + K opens the search (for 'Kısayol'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Her uygulamadan ekranın üstünde hızlı bir menü aç')
+ok    the search closes after running 'Kısayol'
+ok    the search runs 'Kısayol' (Ayarlar › Hızlı erişim) without an error
+ok    Ctrl + K opens the search (for 'Menüdeki hızlı işlemler (araçlarınız her'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Kısayol')
+ok    the search closes after running 'Menüdeki hızlı işlemler (araçlarınız her'
+ok    the search runs 'Menüdeki hızlı işlemler (araçlarınız her' (Ayarlar › Hızlı erişim) without an error
+ok    Ctrl + K opens the search (for 'Hızlı çark'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Menüdeki hızlı işlemler (araçlarınız her zaman menüde)')
+ok    the search closes after running 'Hızlı çark'
+ok    the search runs 'Hızlı çark' (Ayarlar › Hızlı erişim) without an error
+ok    Ctrl + K opens the search (for 'Her uygulamadan farenin etrafında hızlı '; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Hızlı çark')
+ok    the search closes after running 'Her uygulamadan farenin etrafında hızlı '
+ok    the search runs 'Her uygulamadan farenin etrafında hızlı ' (Ayarlar › Hızlı erişim) without an error
+ok    Ctrl + K opens the search (for 'Ekranda çarkı açan küçük yuvarlak bir dü'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Her uygulamadan farenin etrafında hızlı bir çark aç')
+ok    the search closes after running 'Ekranda çarkı açan küçük yuvarlak bir dü'
+ok    the search runs 'Ekranda çarkı açan küçük yuvarlak bir dü' (Ayarlar › Hızlı erişim) without an error
+ok    Ctrl + K opens the search (for 'Çarkta (en fazla 12)'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Ekranda çarkı açan küçük yuvarlak bir düğme göster')
+ok    the search closes after running 'Çarkta (en fazla 12)'
+ok    the search runs 'Çarkta (en fazla 12)' (Ayarlar › Hızlı erişim) without an error
+ok    Ctrl + K opens the search (for 'Kısayollarınız'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Çarkta (en fazla 12)')
+ok    the search closes after running 'Kısayollarınız'
+ok    the search runs 'Kısayollarınız' (Ayarlar › Hızlı erişim) without an error
+ok    Ctrl + K opens the search (for 'Sürüklerken basılı tutulacak tuş'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Kısayollarınız')
+ok    the search closes after running 'Sürüklerken basılı tutulacak tuş'
+ok    the search runs 'Sürüklerken basılı tutulacak tuş' (Ayarlar › Dönüştürücü › Seçenekler) without an error
+ok    Ctrl + K opens the search (for 'Yeni dosyaları kaydet'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Sürüklerken basılı tutulacak tuş')
+ok    the search closes after running 'Yeni dosyaları kaydet'
+ok    the search runs 'Yeni dosyaları kaydet' (Ayarlar › Dönüştürücü › Seçenekler) without an error
+ok    Ctrl + K opens the search (for 'Resim kalitesi'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Yeni dosyaları kaydet')
+ok    the search closes after running 'Resim kalitesi'
+ok    the search runs 'Resim kalitesi' (Ayarlar › Dönüştürücü › Seçenekler) without an error
+ok    Ctrl + K opens the search (for 'Bir dosyaya uymayan biçimler'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Resim kalitesi')
+ok    the search closes after running 'Bir dosyaya uymayan biçimler'
+ok    the search runs 'Bir dosyaya uymayan biçimler' (Ayarlar › Dönüştürücü › Seçenekler) without an error
+ok    Ctrl + K opens the search (for 'Sağ tık menüsü'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Bir dosyaya uymayan biçimler')
+ok    the search closes after running 'Sağ tık menüsü'
+ok    the search runs 'Sağ tık menüsü' (Ayarlar › Dönüştürücü › Seçenekler) without an error
+ok    Ctrl + K opens the search (for 'Bir dosya veya klasöre sağ tıkladığımda '; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Sağ tık menüsü')
+ok    the search closes after running 'Bir dosya veya klasöre sağ tıkladığımda '
+ok    the search runs 'Bir dosya veya klasöre sağ tıkladığımda ' (Ayarlar › Dönüştürücü › Seçenekler) without an error
+ok    Ctrl + K opens the search (for 'Birden çok dosya dönüştürürken yeni bir '; active window MainWindow, focus QLineEdit 'paletteSearch', last ran "Bir dosya veya klasöre sağ tıkladığımda Corefold'yı göster")
+ok    the search closes after running 'Birden çok dosya dönüştürürken yeni bir '
+ok    the search runs 'Birden çok dosya dönüştürürken yeni bir ' (Ayarlar › Dönüştürücü › Seçenekler) without an error
+ok    Ctrl + K opens the search (for 'Dönüştürdükten sonra yeni dosyanın klasö'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Birden çok dosya dönüştürürken yeni bir ad sor (tatil-1, tatil-2… gibi)')
+ok    the search closes after running 'Dönüştürdükten sonra yeni dosyanın klasö'
+ok    the search runs 'Dönüştürdükten sonra yeni dosyanın klasö' (Ayarlar › Dönüştürücü › Seçenekler) without an error
+ok    Ctrl + K opens the search (for 'Çark açıldığında küçük bir tık sesi çal'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Dönüştürdükten sonra yeni dosyanın klasörünü aç')
+ok    the search closes after running 'Çark açıldığında küçük bir tık sesi çal'
+ok    the search runs 'Çark açıldığında küçük bir tık sesi çal' (Ayarlar › Dönüştürücü › Seçenekler) without an error
+ok    Ctrl + K opens the search (for "İndirilenler'e bir iPhone fotoğrafı (HEI"; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Çark açıldığında küçük bir tık sesi çal')
+ok    the search closes after running "İndirilenler'e bir iPhone fotoğrafı (HEI"
+ok    the search runs "İndirilenler'e bir iPhone fotoğrafı (HEI" (Ayarlar › Dönüştürücü › Seçenekler) without an error
+ok    Ctrl + K opens the search (for 'ZIP / 7z seçeneklerini her çarkta göster'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran "İndirilenler'e bir iPhone fotoğrafı (HEIC) veya WebP resmi geldiğinde JPG kopyası öner")
+ok    the search closes after running 'ZIP / 7z seçeneklerini her çarkta göster'
+ok    the search runs 'ZIP / 7z seçeneklerini her çarkta göster' (Ayarlar › Dönüştürücü › Seçenekler) without an error
+ok    Ctrl + K opens the search (for 'Varsa videoları ekran kartıyla yap (birk'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'ZIP / 7z seçeneklerini her çarkta göster')
+ok    the search closes after running 'Varsa videoları ekran kartıyla yap (birk'
+ok    the search runs 'Varsa videoları ekran kartıyla yap (birk' (Ayarlar › Dönüştürücü › Seçenekler) without an error
+ok    Ctrl + K opens the search (for 'Çark şekli'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Varsa videoları ekran kartıyla yap (birkaç kat daha hızlı)')
+ok    the search closes after running 'Çark şekli'
+ok    the search runs 'Çark şekli' (Ayarlar › Dönüştürücü › Çark) without an error
+ok    Ctrl + K opens the search (for 'Çark boyutu'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Çark şekli')
+ok    the search closes after running 'Çark boyutu'
+ok    the search runs 'Çark boyutu' (Ayarlar › Dönüştürücü › Çark) without an error
+ok    Ctrl + K opens the search (for 'Dilim etiketleri'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Çark boyutu')
+ok    the search closes after running 'Dilim etiketleri'
+ok    the search runs 'Dilim etiketleri' (Ayarlar › Dönüştürücü › Çark) without an error
+ok    Ctrl + K opens the search (for 'Metin boyutu'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Dilim etiketleri')
+ok    the search closes after running 'Metin boyutu'
+ok    the search runs 'Metin boyutu' (Ayarlar › Dönüştürücü › Çark) without an error
+ok    Ctrl + K opens the search (for 'Bir dilimin üzerine gelince'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Metin boyutu')
+ok    the search closes after running 'Bir dilimin üzerine gelince'
+ok    the search runs 'Bir dilimin üzerine gelince' (Ayarlar › Dönüştürücü › Çark) without an error
+ok    Ctrl + K opens the search (for 'Dilim renkleri'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Bir dilimin üzerine gelince')
+ok    the search closes after running 'Dilim renkleri'
+ok    the search runs 'Dilim renkleri' (Ayarlar › Dönüştürücü › Çark) without an error
+ok    Ctrl + K opens the search (for 'Sayfa başına seçenek'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Dilim renkleri')
+ok    the search closes after running 'Sayfa başına seçenek'
+ok    the search runs 'Sayfa başına seçenek' (Ayarlar › Dönüştürücü › Çark) without an error
+ok    Ctrl + K opens the search (for 'Çarkın açıldığı yer'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Sayfa başına seçenek')
+ok    the search closes after running 'Çarkın açıldığı yer'
+ok    the search runs 'Çarkın açıldığı yer' (Ayarlar › Dönüştürücü › Çark) without an error
+ok    Ctrl + K opens the search (for 'Çark saydamlığı'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Çarkın açıldığı yer')
+ok    the search closes after running 'Çark saydamlığı'
+ok    the search runs 'Çark saydamlığı' (Ayarlar › Dönüştürücü › Çark) without an error
+ok    Ctrl + K opens the search (for 'Resimler'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Çark saydamlığı')
+ok    the search closes after running 'Resimler'
+ok    the search runs 'Resimler' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'PNG  ·  PNG biçimine dönüştür'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Resimler')
+ok    the search closes after running 'PNG  ·  PNG biçimine dönüştür'
+ok    the search runs 'PNG  ·  PNG biçimine dönüştür' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'JPG  ·  JPG biçimine dönüştür'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'PNG  ·  PNG biçimine dönüştür')
+ok    the search closes after running 'JPG  ·  JPG biçimine dönüştür'
+ok    the search runs 'JPG  ·  JPG biçimine dönüştür' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'WEBP  ·  WebP biçimine dönüştür'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'JPG  ·  JPG biçimine dönüştür')
+ok    the search closes after running 'WEBP  ·  WebP biçimine dönüştür'
+ok    the search runs 'WEBP  ·  WebP biçimine dönüştür' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for "PDF  ·  Tek bir PDF'de birleştir"; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'WEBP  ·  WebP biçimine dönüştür')
+ok    the search closes after running "PDF  ·  Tek bir PDF'de birleştir"
+ok    the search runs "PDF  ·  Tek bir PDF'de birleştir" (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Boyutlandır  ·  Büyült veya küçült'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran "PDF  ·  Tek bir PDF'de birleştir")
+ok    the search closes after running 'Boyutlandır  ·  Büyült veya küçült'
+ok    the search runs 'Boyutlandır  ·  Büyült veya küçült' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Döndür  ·  Döndür veya çevir'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Boyutlandır  ·  Büyült veya küçült')
+ok    the search closes after running 'Döndür  ·  Döndür veya çevir'
+ok    the search runs 'Döndür  ·  Döndür veya çevir' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Kırp  ·  Kenarları kes'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Döndür  ·  Döndür veya çevir')
+ok    the search closes after running 'Kırp  ·  Kenarları kes'
+ok    the search runs 'Kırp  ·  Kenarları kes' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Boyuta sığdır  ·  Bir boyut sınırına sığ'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Kırp  ·  Kenarları kes')
+ok    the search closes after running 'Boyuta sığdır  ·  Bir boyut sınırına sığ'
+ok    the search runs 'Boyuta sığdır  ·  Bir boyut sınırına sığ' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Dekupe  ·  Arka planı kaldır'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Boyuta sığdır  ·  Bir boyut sınırına sığdır (Discord, e-posta…)')
+ok    the search closes after running 'Dekupe  ·  Arka planı kaldır'
+ok    the search runs 'Dekupe  ·  Arka planı kaldır' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Metni kopyala  ·  Resimdeki metni kopyal'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Dekupe  ·  Arka planı kaldır')
+ok    the search closes after running 'Metni kopyala  ·  Resimdeki metni kopyal'
+ok    the search runs 'Metni kopyala  ·  Resimdeki metni kopyal' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Küçük  ·  Paylaşmak için küçült'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Metni kopyala  ·  Resimdeki metni kopyala')
+ok    the search closes after running 'Küçük  ·  Paylaşmak için küçült'
+ok    the search runs 'Küçük  ·  Paylaşmak için küçült' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Filigran  ·  Adınızı veya logonuzu ekley'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Küçük  ·  Paylaşmak için küçült')
+ok    the search closes after running 'Filigran  ·  Adınızı veya logonuzu ekley'
+ok    the search runs 'Filigran  ·  Adınızı veya logonuzu ekley' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Tara  ·  Kâğıt fotoğraflarını temizleyip'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Filigran  ·  Adınızı veya logonuzu ekleyin')
+ok    the search closes after running 'Tara  ·  Kâğıt fotoğraflarını temizleyip'
+ok    the search runs 'Tara  ·  Kâğıt fotoğraflarını temizleyip' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Video  ·  Resimlerden slayt gösterisi vi'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Tara  ·  Kâğıt fotoğraflarını temizleyip PDF yap')
+ok    the search closes after running 'Video  ·  Resimlerden slayt gösterisi vi'
+ok    the search runs 'Video  ·  Resimlerden slayt gösterisi vi' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'ICO  ·  simge (ICO) biçimine dönüştür'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Video  ·  Resimlerden slayt gösterisi videosu yap')
+ok    the search closes after running 'ICO  ·  simge (ICO) biçimine dönüştür'
+ok    the search runs 'ICO  ·  simge (ICO) biçimine dönüştür' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'BMP  ·  BMP biçimine dönüştür'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'ICO  ·  simge (ICO) biçimine dönüştür')
+ok    the search closes after running 'BMP  ·  BMP biçimine dönüştür'
+ok    the search runs 'BMP  ·  BMP biçimine dönüştür' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'AVIF  ·  AVIF biçimine dönüştür'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'BMP  ·  BMP biçimine dönüştür')
+ok    the search closes after running 'AVIF  ·  AVIF biçimine dönüştür'
+ok    the search runs 'AVIF  ·  AVIF biçimine dönüştür' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'QR  ·  QR kodu oku'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'AVIF  ·  AVIF biçimine dönüştür')
+ok    the search closes after running 'QR  ·  QR kodu oku'
+ok    the search runs 'QR  ·  QR kodu oku' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Temizle  ·  Konum ve kamera bilgilerini '; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'QR  ·  QR kodu oku')
+ok    the search closes after running 'Temizle  ·  Konum ve kamera bilgilerini '
+ok    the search runs 'Temizle  ·  Konum ve kamera bilgilerini ' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Çıkartma  ·  Çıkartma yap (WhatsApp, Tel'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Temizle  ·  Konum ve kamera bilgilerini kaldır')
+ok    the search closes after running 'Çıkartma  ·  Çıkartma yap (WhatsApp, Tel'
+ok    the search runs 'Çıkartma  ·  Çıkartma yap (WhatsApp, Tel' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Ses'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Çıkartma  ·  Çıkartma yap (WhatsApp, Telegram)')
+ok    the search closes after running 'Ses'
+ok    the search runs 'Ses' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'MP3  ·  MP3 biçimine dönüştür'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Ses')
+ok    the search closes after running 'MP3  ·  MP3 biçimine dönüştür'
+ok    the search runs 'MP3  ·  MP3 biçimine dönüştür' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'M4A  ·  M4A biçimine dönüştür'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'MP3  ·  MP3 biçimine dönüştür')
+ok    the search closes after running 'M4A  ·  M4A biçimine dönüştür'
+ok    the search runs 'M4A  ·  M4A biçimine dönüştür' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'WAV  ·  WAV biçimine dönüştür'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'M4A  ·  M4A biçimine dönüştür')
+ok    the search closes after running 'WAV  ·  WAV biçimine dönüştür'
+ok    the search runs 'WAV  ·  WAV biçimine dönüştür' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'FLAC  ·  FLAC biçimine dönüştür'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'WAV  ·  WAV biçimine dönüştür')
+ok    the search closes after running 'FLAC  ·  FLAC biçimine dönüştür'
+ok    the search runs 'FLAC  ·  FLAC biçimine dönüştür' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'OGG  ·  OGG biçimine dönüştür'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'FLAC  ·  FLAC biçimine dönüştür')
+ok    the search closes after running 'OGG  ·  OGG biçimine dönüştür'
+ok    the search runs 'OGG  ·  OGG biçimine dönüştür' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'OPUS  ·  Opus biçimine dönüştür'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'OGG  ·  OGG biçimine dönüştür')
+ok    the search closes after running 'OPUS  ·  Opus biçimine dönüştür'
+ok    the search runs 'OPUS  ·  Opus biçimine dönüştür' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'AIFF  ·  AIFF biçimine dönüştür'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'OPUS  ·  Opus biçimine dönüştür')
+ok    the search closes after running 'AIFF  ·  AIFF biçimine dönüştür'
+ok    the search runs 'AIFF  ·  AIFF biçimine dönüştür' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Kırp  ·  Başını veya sonunu kes'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'AIFF  ·  AIFF biçimine dönüştür')
+ok    the search closes after running 'Kırp  ·  Başını veya sonunu kes'
+ok    the search runs 'Kırp  ·  Başını veya sonunu kes' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Boyuta sığdır  ·  Bir boyut sınırına sığ'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Kırp  ·  Başını veya sonunu kes')
+ok    the search closes after running 'Boyuta sığdır  ·  Bir boyut sınırına sığ'
+ok    the search runs 'Boyuta sığdır  ·  Bir boyut sınırına sığ' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Ses düzeyi  ·  Ses düzeyini düzelt (çok '; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Boyuta sığdır  ·  Bir boyut sınırına sığdır')
+ok    the search closes after running 'Ses düzeyi  ·  Ses düzeyini düzelt (çok '
+ok    the search runs 'Ses düzeyi  ·  Ses düzeyini düzelt (çok ' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Hız  ·  Hızlandır veya yavaşlat'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Ses düzeyi  ·  Ses düzeyini düzelt (çok kısık veya çok yüksek)')
+ok    the search closes after running 'Hız  ·  Hızlandır veya yavaşlat'
+ok    the search runs 'Hız  ·  Hızlandır veya yavaşlat' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Birleştir  ·  Art arda tek dosyada birle'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Hız  ·  Hızlandır veya yavaşlat')
+ok    the search closes after running 'Birleştir  ·  Art arda tek dosyada birle'
+ok    the search runs 'Birleştir  ·  Art arda tek dosyada birle' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Video'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Birleştir  ·  Art arda tek dosyada birleştir')
+ok    the search closes after running 'Video'
+ok    the search runs 'Video' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'MP4  ·  MP4 biçimine dönüştür'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Video')
+ok    the search closes after running 'MP4  ·  MP4 biçimine dönüştür'
+ok    the search runs 'MP4  ·  MP4 biçimine dönüştür' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'MOV  ·  MOV biçimine dönüştür'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'MP4  ·  MP4 biçimine dönüştür')
+ok    the search closes after running 'MOV  ·  MOV biçimine dönüştür'
+ok    the search runs 'MOV  ·  MOV biçimine dönüştür' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'WEBM  ·  WebM biçimine dönüştür'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'MOV  ·  MOV biçimine dönüştür')
+ok    the search closes after running 'WEBM  ·  WebM biçimine dönüştür'
+ok    the search runs 'WEBM  ·  WebM biçimine dönüştür' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'MKV  ·  MKV biçimine dönüştür'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'WEBM  ·  WebM biçimine dönüştür')
+ok    the search closes after running 'MKV  ·  MKV biçimine dönüştür'
+ok    the search runs 'MKV  ·  MKV biçimine dönüştür' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'GIF  ·  GIF biçimine dönüştür'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'MKV  ·  MKV biçimine dönüştür')
+ok    the search closes after running 'GIF  ·  GIF biçimine dönüştür'
+ok    the search runs 'GIF  ·  GIF biçimine dönüştür' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Kareler  ·  Videodan resim kaydet'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'GIF  ·  GIF biçimine dönüştür')
+ok    the search closes after running 'Kareler  ·  Videodan resim kaydet'
+ok    the search runs 'Kareler  ·  Videodan resim kaydet' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'MP3  ·  Sesi MP3 olarak kaydet'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Kareler  ·  Videodan resim kaydet')
+ok    the search closes after running 'MP3  ·  Sesi MP3 olarak kaydet'
+ok    the search runs 'MP3  ·  Sesi MP3 olarak kaydet' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Sessiz  ·  Sesi kaldır'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'MP3  ·  Sesi MP3 olarak kaydet')
+ok    the search closes after running 'Sessiz  ·  Sesi kaldır'
+ok    the search runs 'Sessiz  ·  Sesi kaldır' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Kırp  ·  Siyah şeritleri kaldır ya da ka'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Sessiz  ·  Sesi kaldır')
+ok    the search closes after running 'Kırp  ·  Siyah şeritleri kaldır ya da ka'
+ok    the search runs 'Kırp  ·  Siyah şeritleri kaldır ya da ka' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Altyazılar  ·  Videoya altyazı dosyası e'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Kırp  ·  Siyah şeritleri kaldır ya da kare veya dikey yap')
+ok    the search closes after running 'Altyazılar  ·  Videoya altyazı dosyası e'
+ok    the search runs 'Altyazılar  ·  Videoya altyazı dosyası e' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'SRT  ·  İçindeki altyazıyı .srt olarak k'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Altyazılar  ·  Videoya altyazı dosyası ekle')
+ok    the search closes after running 'SRT  ·  İçindeki altyazıyı .srt olarak k'
+ok    the search runs 'SRT  ·  İçindeki altyazıyı .srt olarak k' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Ses…  ·  Sesi kaydet (M4A, WAV, FLAC…)'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'SRT  ·  İçindeki altyazıyı .srt olarak kaydet')
+ok    the search closes after running 'Ses…  ·  Sesi kaydet (M4A, WAV, FLAC…)'
+ok    the search runs 'Ses…  ·  Sesi kaydet (M4A, WAV, FLAC…)' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Birleştir  ·  Art arda tek videoda birle'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Ses…  ·  Sesi kaydet (M4A, WAV, FLAC…)')
+ok    the search closes after running 'Birleştir  ·  Art arda tek videoda birle'
+ok    the search runs 'Birleştir  ·  Art arda tek videoda birle' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for "Çıkartma  ·  Çıkartma veya sohbet GIF'i "; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Birleştir  ·  Art arda tek videoda birleştir')
+ok    the search closes after running "Çıkartma  ·  Çıkartma veya sohbet GIF'i "
+ok    the search runs "Çıkartma  ·  Çıkartma veya sohbet GIF'i " (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for "PDF'ler"; active window MainWindow, focus QLineEdit 'paletteSearch', last ran "Çıkartma  ·  Çıkartma veya sohbet GIF'i yap (WhatsApp, Telegram, Discord)")
+ok    the search closes after running "PDF'ler"
+ok    the search runs "PDF'ler" (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for "Birleştir  ·  Tek bir PDF'de birleştir"; active window MainWindow, focus QLineEdit 'paletteSearch', last ran "PDF'ler")
+ok    the search closes after running "Birleştir  ·  Tek bir PDF'de birleştir"
+ok    the search runs "Birleştir  ·  Tek bir PDF'de birleştir" (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Sıkıştır  ·  Dosyayı küçült'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran "Birleştir  ·  Tek bir PDF'de birleştir")
+ok    the search closes after running 'Sıkıştır  ·  Dosyayı küçült'
+ok    the search runs 'Sıkıştır  ·  Dosyayı küçült' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Boyuta sığdır  ·  Bir boyut sınırına sığ'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Sıkıştır  ·  Dosyayı küçült')
+ok    the search closes after running 'Boyuta sığdır  ·  Bir boyut sınırına sığ'
+ok    the search runs 'Boyuta sığdır  ·  Bir boyut sınırına sığ' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Böl  ·  Sayfa başına bir PDF'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Boyuta sığdır  ·  Bir boyut sınırına sığdır (e-posta…)')
+ok    the search closes after running 'Böl  ·  Sayfa başına bir PDF'
+ok    the search runs 'Böl  ·  Sayfa başına bir PDF' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'PNG  ·  Sayfalardan resimlere'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Böl  ·  Sayfa başına bir PDF')
+ok    the search closes after running 'PNG  ·  Sayfalardan resimlere'
+ok    the search runs 'PNG  ·  Sayfalardan resimlere' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Metin  ·  Metni çıkar'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'PNG  ·  Sayfalardan resimlere')
+ok    the search closes after running 'Metin  ·  Metni çıkar'
+ok    the search runs 'Metin  ·  Metni çıkar' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Sayfalar  ·  Sayfaları döndür, sil veya '; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Metin  ·  Metni çıkar')
+ok    the search closes after running 'Sayfalar  ·  Sayfaları döndür, sil veya '
+ok    the search runs 'Sayfalar  ·  Sayfaları döndür, sil veya ' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Resimler  ·  İçindeki resimleri kaydet'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Sayfalar  ·  Sayfaları döndür, sil veya yeniden sırala')
+ok    the search closes after running 'Resimler  ·  İçindeki resimleri kaydet'
+ok    the search runs 'Resimler  ·  İçindeki resimleri kaydet' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Sayfa numaraları  ·  Her sayfayı numaral'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Resimler  ·  İçindeki resimleri kaydet')
+ok    the search closes after running 'Sayfa numaraları  ·  Her sayfayı numaral'
+ok    the search runs 'Sayfa numaraları  ·  Her sayfayı numaral' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Filigran  ·  Her sayfaya metin ya da log'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Sayfa numaraları  ·  Her sayfayı numaralandırın')
+ok    the search closes after running 'Filigran  ·  Her sayfaya metin ya da log'
+ok    the search runs 'Filigran  ·  Her sayfaya metin ya da log' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'İmzala  ·  İmzanızı ekleyin'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Filigran  ·  Her sayfaya metin ya da logo ekleyin')
+ok    the search closes after running 'İmzala  ·  İmzanızı ekleyin'
+ok    the search runs 'İmzala  ·  İmzanızı ekleyin' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Kilitle  ·  Parolayla koru'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'İmzala  ·  İmzanızı ekleyin')
+ok    the search closes after running 'Kilitle  ·  Parolayla koru'
+ok    the search runs 'Kilitle  ·  Parolayla koru' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Kilidi aç  ·  Parolayı kaldır'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Kilitle  ·  Parolayla koru')
+ok    the search closes after running 'Kilidi aç  ·  Parolayı kaldır'
+ok    the search runs 'Kilidi aç  ·  Parolayı kaldır' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Word, Excel ve PowerPoint'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Kilidi aç  ·  Parolayı kaldır')
+ok    the search closes after running 'Word, Excel ve PowerPoint'
+ok    the search runs 'Word, Excel ve PowerPoint' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for "PDF  ·  PDF'ye dönüştür"; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Word, Excel ve PowerPoint')
+ok    the search closes after running "PDF  ·  PDF'ye dönüştür"
+ok    the search runs "PDF  ·  PDF'ye dönüştür" (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Arşivler (ZIP, RAR, 7z…)'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran "PDF  ·  PDF'ye dönüştür")
+ok    the search closes after running 'Arşivler (ZIP, RAR, 7z…)'
+ok    the search runs 'Arşivler (ZIP, RAR, 7z…)' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Çıkar  ·  Buraya çıkar'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Arşivler (ZIP, RAR, 7z…)')
+ok    the search closes after running 'Çıkar  ·  Buraya çıkar'
+ok    the search runs 'Çıkar  ·  Buraya çıkar' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Klasöre  ·  Kendi klasörüne çıkar'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Çıkar  ·  Buraya çıkar')
+ok    the search closes after running 'Klasöre  ·  Kendi klasörüne çıkar'
+ok    the search runs 'Klasöre  ·  Kendi klasörüne çıkar' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Göz at  ·  İçinde ne olduğunu gör'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Klasöre  ·  Kendi klasörüne çıkar')
+ok    the search closes after running 'Göz at  ·  İçinde ne olduğunu gör'
+ok    the search runs 'Göz at  ·  İçinde ne olduğunu gör' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Test et  ·  Hasarlı olmadığını kontrol e'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Göz at  ·  İçinde ne olduğunu gör')
+ok    the search closes after running 'Test et  ·  Hasarlı olmadığını kontrol e'
+ok    the search runs 'Test et  ·  Hasarlı olmadığını kontrol e' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for "ZIP  ·  ZIP'e çevir"; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Test et  ·  Hasarlı olmadığını kontrol et')
+ok    the search closes after running "ZIP  ·  ZIP'e çevir"
+ok    the search runs "ZIP  ·  ZIP'e çevir" (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for "7z  ·  7z'ye çevir (daha küçük)"; active window MainWindow, focus QLineEdit 'paletteSearch', last ran "ZIP  ·  ZIP'e çevir")
+ok    the search closes after running "7z  ·  7z'ye çevir (daha küçük)"
+ok    the search runs "7z  ·  7z'ye çevir (daha küçük)" (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Ad değiştir  ·  Dosyaları yeniden adland'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran "7z  ·  7z'ye çevir (daha küçük)")
+ok    the search closes after running 'Ad değiştir  ·  Dosyaları yeniden adland'
+ok    the search runs 'Ad değiştir  ·  Dosyaları yeniden adland' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Klasörler'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Ad değiştir  ·  Dosyaları yeniden adlandır (numara, metin değiştirme…)')
+ok    the search closes after running 'Klasörler'
+ok    the search runs 'Klasörler' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for "JPG  ·  İçindeki resimleri JPG'ye dönüşt"; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Klasörler')
+ok    the search closes after running "JPG  ·  İçindeki resimleri JPG'ye dönüşt"
+ok    the search runs "JPG  ·  İçindeki resimleri JPG'ye dönüşt" (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for "PNG  ·  İçindeki resimleri PNG'ye dönüşt"; active window MainWindow, focus QLineEdit 'paletteSearch', last ran "JPG  ·  İçindeki resimleri JPG'ye dönüştür")
+ok    the search closes after running "PNG  ·  İçindeki resimleri PNG'ye dönüşt"
+ok    the search runs "PNG  ·  İçindeki resimleri PNG'ye dönüşt" (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for "WebP  ·  İçindeki resimleri WebP'ye dönü"; active window MainWindow, focus QLineEdit 'paletteSearch', last ran "PNG  ·  İçindeki resimleri PNG'ye dönüştür")
+ok    the search closes after running "WebP  ·  İçindeki resimleri WebP'ye dönü"
+ok    the search runs "WebP  ·  İçindeki resimleri WebP'ye dönü" (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Küçük  ·  Paylaşmak için içindeki resiml'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran "WebP  ·  İçindeki resimleri WebP'ye dönüştür")
+ok    the search closes after running 'Küçük  ·  Paylaşmak için içindeki resiml'
+ok    the search runs 'Küçük  ·  Paylaşmak için içindeki resiml' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Tüm dosya ve klasörler (arşivle, yeniden'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Küçük  ·  Paylaşmak için içindeki resimleri küçült')
+ok    the search closes after running 'Tüm dosya ve klasörler (arşivle, yeniden'
+ok    the search runs 'Tüm dosya ve klasörler (arşivle, yeniden' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'ZIP  ·  ZIP dosyasına koy'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Tüm dosya ve klasörler (arşivle, yeniden adlandır)')
+ok    the search closes after running 'ZIP  ·  ZIP dosyasına koy'
+ok    the search runs 'ZIP  ·  ZIP dosyasına koy' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for "7z  ·  7z dosyasına koy (ZIP'ten küçük)"; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'ZIP  ·  ZIP dosyasına koy')
+ok    the search closes after running "7z  ·  7z dosyasına koy (ZIP'ten küçük)"
+ok    the search runs "7z  ·  7z dosyasına koy (ZIP'ten küçük)" (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Arşivle…  ·  Parolalı, bölünmüş veya en '; active window MainWindow, focus QLineEdit 'paletteSearch', last ran "7z  ·  7z dosyasına koy (ZIP'ten küçük)")
+ok    the search closes after running 'Arşivle…  ·  Parolalı, bölünmüş veya en '
+ok    the search runs 'Arşivle…  ·  Parolalı, bölünmüş veya en ' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'SHA-256  ·  İndirilen dosyayı doğrulamak'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Arşivle…  ·  Parolalı, bölünmüş veya en yüksek sıkıştırmayla arşivle')
+ok    the search closes after running 'SHA-256  ·  İndirilen dosyayı doğrulamak'
+ok    the search runs 'SHA-256  ·  İndirilen dosyayı doğrulamak' (Ayarlar › Dönüştürücü › Biçimler) without an error
+ok    Ctrl + K opens the search (for 'Bir programı şu süreden sonra kullanılmı'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'SHA-256  ·  İndirilen dosyayı doğrulamak için dosyanın parmak izini kopyala')
+ok    the search closes after running 'Bir programı şu süreden sonra kullanılmı'
+ok    the search runs 'Bir programı şu süreden sonra kullanılmı' (Ayarlar › Kaldırıcı) without an error
+ok    Ctrl + K opens the search (for 'Kaldırılan artıkların yedeklerini şu sür'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Bir programı şu süreden sonra kullanılmıyor say')
+ok    the search closes after running 'Kaldırılan artıkların yedeklerini şu sür'
+ok    the search runs 'Kaldırılan artıkların yedeklerini şu sür' (Ayarlar › Kaldırıcı) without an error
+ok    Ctrl + K opens the search (for 'Temizlik derinliği'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Kaldırılan artıkların yedeklerini şu süre sakla')
+ok    the search closes after running 'Temizlik derinliği'
+ok    the search runs 'Temizlik derinliği' (Ayarlar › Kaldırıcı) without an error
+ok    Ctrl + K opens the search (for 'Kaldırmadan önce Sistem Geri Yükleme nok'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Temizlik derinliği')
+ok    the search closes after running 'Kaldırmadan önce Sistem Geri Yükleme nok'
+ok    the search runs 'Kaldırmadan önce Sistem Geri Yükleme nok' (Ayarlar › Kaldırıcı) without an error
+ok    Ctrl + K opens the search (for 'Buraya çıkar'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Kaldırmadan önce Sistem Geri Yükleme noktası oluştur (baştan işaretli)')
+ok    the search closes after running 'Buraya çıkar'
+ok    the search runs 'Buraya çıkar' (Ayarlar › Arşivler) without an error
+ok    Ctrl + K opens the search (for 'İçinde bulunan arşivleri de aç (baştan i'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Buraya çıkar')
+ok    the search closes after running 'İçinde bulunan arşivleri de aç (baştan i'
+ok    the search runs 'İçinde bulunan arşivleri de aç (baştan i' (Ayarlar › Arşivler) without an error
+ok    Ctrl + K opens the search (for 'Çift tıklayarak açma'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'İçinde bulunan arşivleri de aç (baştan işaretli)')
+ok    the search closes after running 'Çift tıklayarak açma'
+ok    the search runs 'Çift tıklayarak açma' (Ayarlar › Arşivler) without an error
+ok    Ctrl + K opens the search (for 'Arşivleri Corefold ile aç ("Birlikte aç"'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Çift tıklayarak açma')
+ok    the search closes after running 'Arşivleri Corefold ile aç ("Birlikte aç"'
+ok    the search runs 'Arşivleri Corefold ile aç ("Birlikte aç"' (Ayarlar › Arşivler) without an error
+ok    Ctrl + K opens the search (for 'Açtığım arşivleri Arşiv sayfasında liste'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Arşivleri Corefold ile aç ("Birlikte aç" altında görünür)')
+ok    the search closes after running 'Açtığım arşivleri Arşiv sayfasında liste'
+ok    the search runs 'Açtığım arşivleri Arşiv sayfasında liste' (Ayarlar › Arşivler) without an error
+ok    Ctrl + K opens the search (for 'Parolalar'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Açtığım arşivleri Arşiv sayfasında listele')
+ok    the search closes after running 'Parolalar'
+ok    the search runs 'Parolalar' (Ayarlar › Arşivler) without an error
+ok    Ctrl + K opens the search (for 'Fare tekerleği'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Parolalar')
+ok    the search closes after running 'Fare tekerleği'
+ok    the search runs 'Fare tekerleği' (Ayarlar › Görüntüleyici) without an error
+ok    Ctrl + K opens the search (for 'Slayt gösterisi: her resim için'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Fare tekerleği')
+ok    the search closes after running 'Slayt gösterisi: her resim için'
+ok    the search runs 'Slayt gösterisi: her resim için' (Ayarlar › Görüntüleyici) without an error
+ok    Ctrl + K opens the search (for "Bir resmi Geri Dönüşüm Kutusu'na gönderm"; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Slayt gösterisi: her resim için')
+ok    the search closes after running "Bir resmi Geri Dönüşüm Kutusu'na gönderm"
+ok    the search runs "Bir resmi Geri Dönüşüm Kutusu'na gönderm" (Ayarlar › Görüntüleyici) without an error
+ok    Ctrl + K opens the search (for 'Çift tıklayarak açma'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran "Bir resmi Geri Dönüşüm Kutusu'na göndermeden önce sor")
+ok    the search closes after running 'Çift tıklayarak açma'
+ok    the search runs 'Çift tıklayarak açma' (Ayarlar › Görüntüleyici) without an error
+ok    Ctrl + K opens the search (for 'Resimleri Corefold ile aç ("Birlikte aç"'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Çift tıklayarak açma')
+ok    the search closes after running 'Resimleri Corefold ile aç ("Birlikte aç"'
+ok    the search runs 'Resimleri Corefold ile aç ("Birlikte aç"' (Ayarlar › Görüntüleyici) without an error
+ok    Ctrl + K opens the search (for 'E-posta dosyalarını (.msg, .eml) Corefol'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Resimleri Corefold ile aç ("Birlikte aç" altında görünür)')
+ok    the search closes after running 'E-posta dosyalarını (.msg, .eml) Corefol'
+ok    the search runs 'E-posta dosyalarını (.msg, .eml) Corefol' (Ayarlar › Görüntüleyici) without an error
+ok    Ctrl + K opens the search (for 'Ok tuşları şu kadar atlar'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'E-posta dosyalarını (.msg, .eml) Corefold ile aç')
+ok    the search closes after running 'Ok tuşları şu kadar atlar'
+ok    the search runs 'Ok tuşları şu kadar atlar' (Ayarlar › Oynatıcı) without an error
+ok    Ctrl + K opens the search (for 'Video üzerinde fare tekerleği'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Ok tuşları şu kadar atlar')
+ok    the search closes after running 'Video üzerinde fare tekerleği'
+ok    the search runs 'Video üzerinde fare tekerleği' (Ayarlar › Oynatıcı) without an error
+ok    Ctrl + K opens the search (for 'Kaldığım yerden devam et'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Video üzerinde fare tekerleği')
+ok    the search closes after running 'Kaldığım yerden devam et'
+ok    the search runs 'Kaldığım yerden devam et' (Ayarlar › Oynatıcı) without an error
+ok    Ctrl + K opens the search (for 'Bir dosya bitince klasördeki sonrakini o'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Kaldığım yerden devam et')
+ok    the search closes after running 'Bir dosya bitince klasördeki sonrakini o'
+ok    the search runs 'Bir dosya bitince klasördeki sonrakini o' (Ayarlar › Oynatıcı) without an error
+ok    Ctrl + K opens the search (for 'Videonun kendi altyazısını aç'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Bir dosya bitince klasördeki sonrakini oynat')
+ok    the search closes after running 'Videonun kendi altyazısını aç'
+ok    the search runs 'Videonun kendi altyazısını aç' (Ayarlar › Oynatıcı) without an error
+ok    Ctrl + K opens the search (for 'Çift tıklayarak açma'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Videonun kendi altyazısını aç')
+ok    the search closes after running 'Çift tıklayarak açma'
+ok    the search runs 'Çift tıklayarak açma' (Ayarlar › Oynatıcı) without an error
+ok    Ctrl + K opens the search (for 'Videoları ve müziği Corefold ile aç ("Bi'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Çift tıklayarak açma')
+ok    the search closes after running 'Videoları ve müziği Corefold ile aç ("Bi'
+ok    the search runs 'Videoları ve müziği Corefold ile aç ("Bi' (Ayarlar › Oynatıcı) without an error
+ok    Ctrl + K opens the search (for 'Ekran görüntüsünü şununla al'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Videoları ve müziği Corefold ile aç ("Birlikte aç" altında görünür)')
+ok    the search closes after running 'Ekran görüntüsünü şununla al'
+ok    the search runs 'Ekran görüntüsünü şununla al' (Ayarlar › Yakalama) without an error
+ok    Ctrl + K opens the search (for 'Kaydı şununla başlat veya durdur'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Ekran görüntüsünü şununla al')
+ok    the search closes after running 'Kaydı şununla başlat veya durdur'
+ok    the search runs 'Kaydı şununla başlat veya durdur' (Ayarlar › Yakalama) without an error
+ok    Ctrl + K opens the search (for 'Ekran görüntüsünden sonra'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Kaydı şununla başlat veya durdur')
+ok    the search closes after running 'Ekran görüntüsünden sonra'
+ok    the search runs 'Ekran görüntüsünden sonra' (Ayarlar › Yakalama) without an error
+ok    Ctrl + K opens the search (for 'Zamanlayıcılı ekran görüntüsü bekler'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Ekran görüntüsünden sonra')
+ok    the search closes after running 'Zamanlayıcılı ekran görüntüsü bekler'
+ok    the search runs 'Zamanlayıcılı ekran görüntüsü bekler' (Ayarlar › Yakalama) without an error
+ok    Ctrl + K opens the search (for 'Her ekran görüntüsünü Resimler\\Ekran Gör'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Zamanlayıcılı ekran görüntüsü bekler')
+ok    the search closes after running 'Her ekran görüntüsünü Resimler\\Ekran Gör'
+ok    the search runs 'Her ekran görüntüsünü Resimler\\Ekran Gör' (Ayarlar › Yakalama) without an error
+ok    Ctrl + K opens the search (for 'Kayıt'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Her ekran görüntüsünü Resimler\\Ekran Görüntüleri klasörüne de kaydet')
+ok    the search closes after running 'Kayıt'
+ok    the search runs 'Kayıt' (Ayarlar › Yakalama) without an error
+ok    Ctrl + K opens the search (for 'Akıcılık'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Kayıt')
+ok    the search closes after running 'Akıcılık'
+ok    the search runs 'Akıcılık' (Ayarlar › Yakalama) without an error
+ok    Ctrl + K opens the search (for 'Mikrofon'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Akıcılık')
+ok    the search closes after running 'Mikrofon'
+ok    the search runs 'Mikrofon' (Ayarlar › Yakalama) without an error
+ok    Ctrl + K opens the search (for 'Bilgisayarın sesini de kaydet (videolar,'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Mikrofon')
+ok    the search closes after running 'Bilgisayarın sesini de kaydet (videolar,'
+ok    the search runs 'Bilgisayarın sesini de kaydet (videolar,' (Ayarlar › Yakalama) without an error
+ok    Ctrl + K opens the search (for 'Kayıtlarda fare işaretçisini göster'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Bilgisayarın sesini de kaydet (videolar, oyunlar, aramalar)')
+ok    the search closes after running 'Kayıtlarda fare işaretçisini göster'
+ok    the search runs 'Kayıtlarda fare işaretçisini göster' (Ayarlar › Yakalama) without an error
+ok    Ctrl + K opens the search (for 'Kayıt başlamadan önce 3, 2, 1 diye say'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Kayıtlarda fare işaretçisini göster')
+ok    the search closes after running 'Kayıt başlamadan önce 3, 2, 1 diye say'
+ok    the search runs 'Kayıt başlamadan önce 3, 2, 1 diye say' (Ayarlar › Yakalama) without an error
+ok    Ctrl + K opens the search (for 'Panoyu şununla aç'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Kayıt başlamadan önce 3, 2, 1 diye say')
+ok    the search closes after running 'Panoyu şununla aç'
+ok    the search runs 'Panoyu şununla aç' (Ayarlar › Pano) without an error
+ok    Ctrl + K opens the search (for 'En fazla sakla'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Panoyu şununla aç')
+ok    the search closes after running 'En fazla sakla'
+ok    the search runs 'En fazla sakla' (Ayarlar › Pano) without an error
+ok    Ctrl + K opens the search (for 'Şundan eski kopyaları unut'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'En fazla sakla')
+ok    the search closes after running 'Şundan eski kopyaları unut'
+ok    the search runs 'Şundan eski kopyaları unut' (Ayarlar › Pano) without an error
+ok    Ctrl + K opens the search (for 'Bir şey seçtiğinizde hemen yapıştır (yok'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Şundan eski kopyaları unut')
+ok    the search closes after running 'Bir şey seçtiğinizde hemen yapıştır (yok'
+ok    the search runs 'Bir şey seçtiğinizde hemen yapıştır (yok' (Ayarlar › Pano) without an error
+ok    Ctrl + K opens the search (for 'Kopyaladığınız resimleri sakla'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Bir şey seçtiğinizde hemen yapıştır (yoksa yalnızca kopyalanır)')
+ok    the search closes after running 'Kopyaladığınız resimleri sakla'
+ok    the search runs 'Kopyaladığınız resimleri sakla' (Ayarlar › Pano) without an error
+ok    Ctrl + K opens the search (for 'Gizlilik'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Kopyaladığınız resimleri sakla')
+ok    the search closes after running 'Gizlilik'
+ok    the search runs 'Gizlilik' (Ayarlar › Pano) without an error
+ok    Ctrl + K opens the search (for 'Bu uygulamalardan kopyalananları asla sa'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Gizlilik')
+ok    the search closes after running 'Bu uygulamalardan kopyalananları asla sa'
+ok    the search runs 'Bu uygulamalardan kopyalananları asla sa' (Ayarlar › Pano) without an error
+note  the search ran 226 of 226 things
+ok    search: no errors behind the clicks (0)
+----- quick
+ok    the quick menu opens (round 1, at 959,515)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 959,515
+ok    the quick wheel is on the screen at 959,515 (773,329 372x372)
+ok    the quick menu and wheel at 959,515: no errors
+ok    the quick menu opens (round 1, at 2,2)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 2,2
+ok    the quick wheel is on the screen at 2,2 (0,0 372x372)
+ok    the quick menu and wheel at 2,2: no errors
+ok    the quick menu opens (round 1, at 1917,2)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 1917,2
+ok    the quick wheel is on the screen at 1917,2 (1547,0 372x372)
+ok    the quick menu and wheel at 1917,2: no errors
+ok    the quick menu opens (round 1, at 2,1029)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 2,1029
+ok    the quick wheel is on the screen at 2,1029 (0,659 372x372)
+ok    the quick menu and wheel at 2,1029: no errors
+ok    the quick menu opens (round 1, at 1917,1029)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 1917,1029
+ok    the quick wheel is on the screen at 1917,1029 (1547,659 372x372)
+ok    the quick menu and wheel at 1917,1029: no errors
+ok    the quick menu opens (round 2, at 959,515)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 959,515
+ok    the quick wheel is on the screen at 959,515 (773,329 372x372)
+ok    the quick menu and wheel at 959,515: no errors
+ok    the quick menu opens (round 2, at 2,2)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 2,2
+ok    the quick wheel is on the screen at 2,2 (0,0 372x372)
+ok    the quick menu and wheel at 2,2: no errors
+ok    the quick menu opens (round 2, at 1917,2)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 1917,2
+ok    the quick wheel is on the screen at 1917,2 (1547,0 372x372)
+ok    the quick menu and wheel at 1917,2: no errors
+ok    the quick menu opens (round 2, at 2,1029)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 2,1029
+ok    the quick wheel is on the screen at 2,1029 (0,659 372x372)
+ok    the quick menu and wheel at 2,1029: no errors
+ok    the quick menu opens (round 2, at 1917,1029)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 1917,1029
+ok    the quick wheel is on the screen at 1917,1029 (1547,659 372x372)
+ok    the quick menu and wheel at 1917,1029: no errors
+ok    the quick menu opens (round 3, at 959,515)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 959,515
+ok    the quick wheel is on the screen at 959,515 (773,329 372x372)
+ok    the quick menu and wheel at 959,515: no errors
+ok    the quick menu opens (round 3, at 2,2)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 2,2
+ok    the quick wheel is on the screen at 2,2 (0,0 372x372)
+ok    the quick menu and wheel at 2,2: no errors
+ok    the quick menu opens (round 3, at 1917,2)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 1917,2
+ok    the quick wheel is on the screen at 1917,2 (1547,0 372x372)
+ok    the quick menu and wheel at 1917,2: no errors
+ok    the quick menu opens (round 3, at 2,1029)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 2,1029
+ok    the quick wheel is on the screen at 2,1029 (0,659 372x372)
+ok    the quick menu and wheel at 2,1029: no errors
+ok    the quick menu opens (round 3, at 1917,1029)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 1917,1029
+ok    the quick wheel is on the screen at 1917,1029 (1547,659 372x372)
+ok    the quick menu and wheel at 1917,1029: no errors
+ok    the floating button shows
+ok    the floating button goes away
+ok    the floating button shows
+ok    the floating button goes away
+ok    quick: no errors behind the clicks (0)
+----- sizes
+ok    Home page, smallest window (720x460): nothing cut off or sticking out
+ok    Scan page, smallest window (720x460): nothing cut off or sticking out
+ok    Store page, smallest window (720x460): nothing cut off or sticking out
+ok    Home page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Scan page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Store page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Home page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Scan page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Store page, maximized window (1920x1009): nothing cut off or sticking out
+ok    sizes: no errors behind the clicks (0)
+----- store
+ok    round 1: removing converter takes it out of the sidebar
+ok    round 1: after removing converter the window is still open (Store)
+ok    round 1: a removed converter page can't be opened
+ok    round 1: removing uninstaller takes it out of the sidebar
+ok    round 1: after removing uninstaller the window is still open (Store)
+ok    round 1: a removed uninstaller page can't be opened
+ok    round 1: removing archive takes it out of the sidebar
+ok    round 1: after removing archive the window is still open (Store)
+ok    round 1: a removed archive page can't be opened
+ok    round 1: removing viewer takes it out of the sidebar
+ok    round 1: after removing viewer the window is still open (Store)
+ok    round 1: a removed viewer page can't be opened
+ok    round 1: removing player takes it out of the sidebar
+ok    round 1: after removing player the window is still open (Store)
+ok    round 1: a removed player page can't be opened
+ok    round 1: removing capture takes it out of the sidebar
+ok    round 1: after removing capture the window is still open (Store)
+ok    a removed Capture lets go of its shortcuts
+ok    round 1: a removed capture page can't be opened
+ok    round 1: removing space takes it out of the sidebar
+ok    round 1: after removing space the window is still open (Store)
+ok    round 1: a removed space page can't be opened
+ok    round 1: removing clipboard takes it out of the sidebar
+ok    round 1: after removing clipboard the window is still open (Store)
+ok    a removed Clipboard stops watching what's copied
+ok    round 1: a removed clipboard page can't be opened
+ok    round 1: removing startup takes it out of the sidebar
+ok    round 1: after removing startup the window is still open (Store)
+ok    round 1: a removed startup page can't be opened
+ok    round 1: removing scan takes it out of the sidebar
+ok    round 1: after removing scan the window is still open (Store)
+ok    round 1: a removed scan page can't be opened
+ok    round 1: removing pdf takes it out of the sidebar
+ok    round 1: after removing pdf the window is still open (Store)
+ok    round 1: a removed pdf page can't be opened
+ok    round 1: removing organizer takes it out of the sidebar
+ok    round 1: after removing organizer the window is still open (Store)
+ok    round 1: a removed organizer page can't be opened
+ok    round 1: every tool can be removed
+ok    Home with no tools, round 1: nothing cut off or sticking out
+ok    the Store with no tools, round 1: the Store page opens (Store)
+ok    the Store with no tools, round 1: the Store page shows (618x374)
+ok    round 1: organizer can be added back
+ok    round 1: pdf can be added back
+ok    round 1: scan can be added back
+ok    round 1: startup can be added back
+ok    round 1: clipboard can be added back
+ok    round 1: space can be added back
+ok    round 1: capture can be added back
+ok    round 1: player can be added back
+ok    round 1: viewer can be added back
+ok    round 1: archive can be added back
+ok    round 1: uninstaller can be added back
+ok    round 1: converter can be added back
+note  round 1: 30 windows, 1444 widgets, 229 MB, 52691 Python objects
+ok    round 2: removing converter takes it out of the sidebar
+ok    round 2: after removing converter the window is still open (Store)
+ok    round 2: a removed converter page can't be opened
+ok    round 2: removing uninstaller takes it out of the sidebar
+ok    round 2: after removing uninstaller the window is still open (Store)
+ok    round 2: a removed uninstaller page can't be opened
+ok    round 2: removing archive takes it out of the sidebar
+ok    round 2: after removing archive the window is still open (Store)
+ok    round 2: a removed archive page can't be opened
+ok    round 2: removing viewer takes it out of the sidebar
+ok    round 2: after removing viewer the window is still open (Store)
+ok    round 2: a removed viewer page can't be opened
+ok    round 2: removing player takes it out of the sidebar
+ok    round 2: after removing player the window is still open (Store)
+ok    round 2: a removed player page can't be opened
+ok    round 2: removing capture takes it out of the sidebar
+ok    round 2: after removing capture the window is still open (Store)
+ok    a removed Capture lets go of its shortcuts
+ok    round 2: a removed capture page can't be opened
+ok    round 2: removing space takes it out of the sidebar
+ok    round 2: after removing space the window is still open (Store)
+ok    round 2: a removed space page can't be opened
+ok    round 2: removing clipboard takes it out of the sidebar
+ok    round 2: after removing clipboard the window is still open (Store)
+ok    a removed Clipboard stops watching what's copied
+ok    round 2: a removed clipboard page can't be opened
+ok    round 2: removing startup takes it out of the sidebar
+ok    round 2: after removing startup the window is still open (Store)
+ok    round 2: a removed startup page can't be opened
+ok    round 2: removing scan takes it out of the sidebar
+ok    round 2: after removing scan the window is still open (Store)
+ok    round 2: a removed scan page can't be opened
+ok    round 2: removing pdf takes it out of the sidebar
+ok    round 2: after removing pdf the window is still open (Store)
+ok    round 2: a removed pdf page can't be opened
+ok    round 2: removing organizer takes it out of the sidebar
+ok    round 2: after removing organizer the window is still open (Store)
+ok    round 2: a removed organizer page can't be opened
+ok    round 2: every tool can be removed
+ok    Home with no tools, round 2: nothing cut off or sticking out
+ok    the Store with no tools, round 2: the Store page opens (Store)
+ok    the Store with no tools, round 2: the Store page shows (618x374)
+ok    round 2: organizer can be added back
+ok    round 2: pdf can be added back
+ok    round 2: scan can be added back
+ok    round 2: startup can be added back
+ok    round 2: clipboard can be added back
+ok    round 2: space can be added back
+ok    round 2: capture can be added back
+ok    round 2: player can be added back
+ok    round 2: viewer can be added back
+ok    round 2: archive can be added back
+ok    round 2: uninstaller can be added back
+ok    round 2: converter can be added back
+note  round 2: 28 windows, 1442 widgets, 223 MB, 52849 Python objects
+ok    store: no errors behind the clicks (0)
+----- reopen
+note  after 10 opens: 187 MB, 14 widgets, 4 windows
+note  after 20 opens: 188 MB, 14 widgets, 4 windows
+note  after 30 opens: 188 MB, 14 widgets, 4 windows
+note  after 40 opens: 188 MB, 14 widgets, 4 windows
+ok    nothing is left behind as the window is opened and closed (14 → 14 → 14 → 14 widgets)
+ok    memory doesn't climb as the window is opened and closed (187 → 188 → 188 → 188 MB, 40 KB an open)
+ok    reopen: no errors behind the clicks (0)
+ok    the log has no errors (0: [])
+sweeptest tr-light-min: 0 problem(s)

@@ -1,0 +1,17 @@
+Scan tool run of bdfcc0e510ecd0919872ddff18e1ca2713b05638
+== scan-en-dark
+scantest: 0 problem(s)
+[ar] 2069 texts, 0 problem(s), 0 unused
+[fr] 2069 texts, 0 problem(s), 0 unused
+[es] 2069 texts, 0 problem(s), 0 unused
+[tr] 2069 texts, 0 problem(s), 0 unused
+sweeptest en-dark-1040x700: 0 problem(s)
+== scan-es-dark-200
+scantest: 0 problem(s)
+sweeptest es-dark-1040x700-x2: 0 problem(s)
+== scan-fr-dark-150
+scantest: 0 problem(s)
+sweeptest fr-dark-1040x700-x1.5: 0 problem(s)
+== scan-tr-light-small
+scantest: 0 problem(s)
+sweeptest tr-light-min: 0 problem(s)
