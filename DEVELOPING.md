@@ -84,6 +84,17 @@ corefold/capture.py            Corefold Capture (capview.py is the editor)
 corefold/spacepage.py          Corefold Space (space.py does the scanning and cleaning)
 corefold/clipboard.py          Corefold Clipboard (clipview.py is its window)
 corefold/cloud.py              Corefold Cloud (cloudpage.py), waiting for its app keys
+corefold/pdftools.py           Corefold PDF: merge, split, compress, pictures, passwords (pdfpage.py: its page board)
+corefold/organizer.py          Corefold File Organizer (organizerpage.py)
+corefold/startup.py            Corefold Startup: switched on and off the way Task Manager does (startuppage.py)
+corefold/scan.py               Corefold Scan: Defender's scans and its own checks (scanpage.py; trust.py reads signatures offline)
+corefold/unlock.py             Corefold Unlock: which programs have a file open, and closing them (unlockpage.py)
+corefold/awake.py              Corefold Awake (awakepage.py)
+corefold/colors.py             Corefold Colors (colorspage.py)
+corefold/peek.py               Quick look: Ctrl + Space on a file in File Explorer (peekview.py, peekshell.py)
+corefold/quicksearch.py        search on the quick menu (quickfind.py, quicksys.py)
+corefold/welcome.py            the first start: Choose your language
+corefold/report.py             Report a problem: a zip of logs and settings, nothing sent
 corefold/wheel.py              the format wheel and its preview
 corefold/theme.py              light/dark themes and accent colours (from the Corefold design system)
 corefold/icons.py              line icons in any colour (icondata.py: Fluent UI System Icons)
