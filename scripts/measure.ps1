@@ -135,6 +135,17 @@ Check ((Count "background remover helper started") -ge 1) "the background remove
 $helpers = @(Get-CimInstance Win32_Process -Filter "Name = 'Corefold.exe'" | Where-Object { $_.CommandLine -like "*--bg-worker*" }).Count
 Check ($helpers -eq 0) "no background remover helper is left running ($helpers)"
 
+# a video double-clicked: Corefold Player (Qt's player and its FFmpeg must be in the build)
+$mp4 = "$work\clip.mp4"
+& "dist\Corefold\ffmpeg\ffmpeg.exe" -v error -y -f lavfi -i "testsrc2=s=1280x720:d=20:r=30" -f lavfi -i "sine=d=20" `
+    -c:v libx264 -preset ultrafast -pix_fmt yuv420p -c:a aac -shortest $mp4
+Check (@(Get-ChildItem "dist\Corefold" -Recurse -Filter "ffmpegmediaplugin.dll").Count -ge 1) "the build has Qt's player (FFmpeg plugin)"
+Start-Process $exe -ArgumentList @("--play", "`"$mp4`"") -Wait
+Start-Sleep 6
+Check ((Count "player is playing") -ge 1) "a double-clicked video plays in Corefold Player"
+Check ((Count "player can't play") -eq 0) "…without errors"
+Snap "Playing a 720p video" 5
+
 $p.Refresh()
 $peak = MB $p.PeakWorkingSet64
 $kids = @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $($p.Id)").Count

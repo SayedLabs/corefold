@@ -444,8 +444,8 @@ def player_tool():
     srt = folder / "words.srt"
     srt.write_text("1\n00:00:00,500 --> 00:00:07,000\nHello from the subtitles\n", "utf-8")
     vid = folder / "Episode 1.mkv"
-    subprocess.run([ff, "-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=s=1280x720:d=8:r=30", "-f", "lavfi", "-i",
-                    "sine=f=440:d=8", "-i", str(srt), "-map", "0", "-map", "1", "-map", "2", "-c:v", "libx264",
+    subprocess.run([ff, "-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=s=1280x720:d=60:r=30", "-f", "lavfi", "-i",
+                    "sine=f=440:d=60", "-i", str(srt), "-map", "0", "-map", "1", "-map", "2", "-c:v", "libx264",
                     "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-c:s", "srt",
                     "-metadata:s:s:0", "language=eng", str(vid)], check=True)
     subprocess.run([ff, "-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=s=640x360:d=3:r=25", "-c:v", "libx264",
@@ -462,7 +462,7 @@ def player_tool():
     win.resize(1100, 680)
     playing = until(lambda: win.player.playbackState() == QMediaPlayer.PlayingState and win.player.position() > 300, 12)
     check(playing, f"…and plays ({time.time() - t0:.1f} s, {win.player.errorString()})")
-    check(7500 <= win.player.duration() <= 8500, f"its length ({win.player.duration()} ms)")
+    check(59500 <= win.player.duration() <= 60500, f"its length ({win.player.duration()} ms)")
     check(win.player.hasVideo() and win.player.hasAudio(), f"picture and sound (video {win.player.hasVideo()}, "
                                                            f"sound {win.player.hasAudio()})")
     check(len(win.player.subtitleTracks()) == 1, f"its own subtitles ({len(win.player.subtitleTracks())})")
@@ -501,8 +501,8 @@ def player_tool():
     check(win.isFullScreen(), "full screen")
     win.toggle_full()
     settle(0.3)
-    win._seek_to(5000)
-    until(lambda: win.player.position() >= 5000, 3)
+    win._seek_to(30000)
+    until(lambda: win.player.position() >= 30000, 3)
     win.player.pause()
     settle(0.3)
     win._remember()
@@ -510,7 +510,8 @@ def player_tool():
     win.go(1)
     check(until(lambda: win.current().name == "Episode 2.mp4" and win.player.position() > 200, 8), "the next file")
     win.open(vid)
-    check(until(lambda: win.player.position() >= 4500, 8), f"picks up where it left off ({win.player.position()} ms)")
+    check(until(lambda: win.player.position() >= 29000, 4), f"picks up where it left off ({win.player.position()} ms)")
+    check(win.note.text() != "" and win.note_btn.isVisible(), f"…and says so, with Start over ({win.note.text()})")
     win.open(song)
     check(until(lambda: win.player.position() > 200, 8) and win.screen_stack.currentWidget() is win.cover,
           "a song plays, with its picture")

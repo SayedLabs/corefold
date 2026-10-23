@@ -229,10 +229,20 @@ QPushButton#driveCard { background: $panel; border: 1px solid $border; border-ra
 QPushButton#driveCard:hover { border-color: $line_strong; background: $hover; }
 QProgressBar#low::chunk { background: $danger; }
 QWidget#playerWindow { background: #000000; }
-QLabel#playerCover { background: $bg; }
-QLabel#playerNote { color: $text; }
+QFrame#playerBar, QWidget#playerNoteBox { background: #121314; }
+QFrame#playerBar QLabel, QWidget#playerNoteBox QLabel { color: #f2f2f2; background: transparent; }
+QFrame#playerBar QLabel#muted { color: #a3a6a8; }
+QFrame#playerBar QPushButton#small, QWidget#playerNoteBox QPushButton { color: #e8e8e8; background: transparent;
+        border: 1px solid transparent; font-size: 9pt; }
+QFrame#playerBar QPushButton#small:hover, QWidget#playerNoteBox QPushButton:hover { background: #26282a;
+        border-color: #3a3c3e; }
+QFrame#playerBar QPushButton#small:checked { background: #1f3330; border-color: $accent; }
+QFrame#playerBar QPushButton#small:disabled { color: #55585a; }
+QFrame#playerBar QSlider::groove:horizontal { background: #3a3c3e; }
+QFrame#playerBar QSlider::handle:horizontal { background: #f2f2f2; }
 QSlider#seek::groove:horizontal { height: 6px; border-radius: 3px; }
 QSlider#seek::sub-page:horizontal { border-radius: 3px; }
+QLabel#playerCover { background: #0b0b0c; }
 QFrame#clipPopup { background: $panel; border: 1px solid $line_strong; border-radius: 14px; }
 QListWidget#clips { background: transparent; border: none; outline: none; }
 QListWidget#clipsPage { background: $panel; border: 1px solid $border; border-radius: 12px; outline: none; padding: 4px; }

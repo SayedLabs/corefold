@@ -7,6 +7,7 @@ from __future__ import annotations
 import bisect
 import html
 import json
+import logging
 import os
 import re
 import time
@@ -29,6 +30,8 @@ from .winutil import set_title_bar_dark  # noqa: E402
 
 if TYPE_CHECKING:
     from .app import Controller
+
+log = logging.getLogger("corefold")
 
 VIDEO_EXT = {".mp4", ".mkv", ".mov", ".avi", ".wmv", ".webm", ".m4v", ".mpg", ".mpeg", ".ts", ".mts", ".m2ts", ".flv",
              ".3gp", ".ogv", ".vob"}
@@ -270,6 +273,8 @@ class PlayerWindow(QWidget):
         note_row.addWidget(self.note, 1)
         note_row.addWidget(self.note_btn)
         self.note_box = QWidget()
+        self.note_box.setObjectName("playerNoteBox")
+        self.note_box.setAttribute(Qt.WA_StyledBackground)
         self.note_box.setLayout(note_row)
         self.note_timer = QTimer(self)
         self.note_timer.setSingleShot(True)
@@ -355,7 +360,7 @@ class PlayerWindow(QWidget):
                   self.b_more):
             row2.addWidget(b)
         self.bar = QFrame()
-        self.bar.setObjectName("viewerBar")
+        self.bar.setObjectName("playerBar")
         bl = QVBoxLayout(self.bar)
         bl.setContentsMargins(14, 8, 14, 8)
         bl.setSpacing(4)
@@ -430,6 +435,8 @@ class PlayerWindow(QWidget):
             saved = load_positions().get(str(path))
             if saved:
                 self.resume_to = int(saved.get("pos", 0))
+        self._said_playing = False
+        log.info("player opened a %s file", path.suffix.lower())
         self.player.setSource(QUrl.fromLocalFile(str(path)))
         self.player.play()
         if not audio_only:
@@ -701,6 +708,9 @@ class PlayerWindow(QWidget):
 
     def _status(self, status):
         from PySide6.QtMultimedia import QMediaPlayer
+        if status == QMediaPlayer.BufferedMedia and not self._said_playing:
+            self._said_playing = True
+            log.info("player is playing (video %s, sound %s)", self.player.hasVideo(), self.player.hasAudio())
         if status in (QMediaPlayer.LoadedMedia, QMediaPlayer.BufferedMedia) and self.resume_to:
             to, self.resume_to = self.resume_to, 0
             self._seek_to(to)
@@ -715,6 +725,7 @@ class PlayerWindow(QWidget):
         from PySide6.QtMultimedia import QMediaPlayer
         if error == QMediaPlayer.NoError:
             return
+        log.warning("player can't play: %s %s", error, text)
         self.flash(tr("Can't play {name}: {reason}", name=self.current().name, reason=text or str(error)), 8000)
 
     def _tracks(self):
@@ -881,15 +892,17 @@ class PlayerWindow(QWidget):
 
     # ---- looks and closing
 
+    INK, DIM = "#ececec", "#55585a"  # (the player is always dark, whatever the app's look)
+
     def _set_icon(self, b: QPushButton, name: str):
         for i, (btn, _n) in enumerate(self.icon_buttons):
             if btn is b:
                 self.icon_buttons[i] = (btn, name)
-        b.setIcon(icons.icon(name, self.c.theme.text, disabled=self.c.theme.muted))
+        b.setIcon(icons.icon(name, self.INK, disabled=self.DIM))
 
     def apply_theme(self, theme):
         for b, name in self.icon_buttons:
-            b.setIcon(icons.icon(name, theme.text, disabled=theme.muted))
+            b.setIcon(icons.icon(name, self.INK, disabled=self.DIM))
         set_title_bar_dark(self, True)
 
     def showEvent(self, e):
