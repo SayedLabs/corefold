@@ -26,7 +26,7 @@ from .i18n import tr
 from .core import (ALIASES, ALL_EXT, ARCHIVE_EXT, AUDIO_EXT, DOCUMENT_EXT, EXCEL_EXT, IMAGE_EXT,  # noqa: F401
                    NO_WINDOW, SLIDES_EXT, job_flags, TAR_SUFFIXES, VIDEO_EXT, WORD_EXT, Cancelled, Ctx, Options, Result,
                    Tool, _cached, app_dir, bundled, is_cached, is_cloud_only, category, fallback_folder, human_size,
-                   norm, os_open, pass_on_zone_mark, remove_file,
+                   lower_this_thread, norm, os_open, pass_on_zone_mark, remove_file,
                    safe_name, short_name, unique_path, writable)
 
 log = logging.getLogger("corefold")
@@ -59,10 +59,15 @@ def setup_pillow():
     _heif_registered = True
 
 
-def load_image(src: Path):
+def load_image(src: Path, fit: int = 0):
+    """The picture, upright. With fit, a JPG may be read at a smaller size that's still at least fit pixels on its
+    long side (many times faster when a phone photo is made small)."""
     from PIL import Image, ImageOps
     setup_pillow()
     with Image.open(src) as im:
+        if fit and im.format == "JPEG" and max(im.size) > fit * 2:
+            scale = fit / max(im.size)
+            im.draft(im.mode, (max(1, int(im.width * scale)), max(1, int(im.height * scale))))
         try:
             upright = im.getexif().get(0x0112, 1) in (0, 1)  # no phone-camera rotation to apply
         except Exception:
@@ -303,7 +308,7 @@ def images_to_pdf(files: list[Path], ctx: Ctx) -> Result:
 def image_small(src: Path, ctx: Ctx) -> Result:
     """Shrink for sharing: max 1920 px, JPG quality 80."""
     from PIL import Image
-    im = flatten(load_image(src))
+    im = flatten(load_image(src, fit=1920))
     im.thumbnail((1920, 1920), Image.LANCZOS)
     out = ctx.out_path(src, f"{ctx.stem(src)} (small).jpg")
     im.save(out, quality=80, optimize=True, progressive=True)
@@ -1377,6 +1382,23 @@ def friendly_error(e: Exception) -> str:
     return str(e) or name
 
 
+# picture tools that only use Pillow: several photos are done at once (one per processor core, up to 4), at
+# the job's low priority, so 20 phone photos take a fraction of the time and the PC still feels normal
+SERIAL_IMAGE_TOOLS = {"image:cutout", "image:ocr", "image:video", "image:sticker", "image:pdf", "image:scan"}
+
+
+def _parallel(tool: Tool, items: list) -> int:
+    if tool.batch or len(items) < 2 or not tool.key.startswith("image:") or tool.key in SERIAL_IMAGE_TOOLS:
+        return 1
+    workers = min(4, max(1, (os.cpu_count() or 2) - 1), len(items))
+    try:
+        if max(p.stat().st_size for p in items) > 40 * 2**20:  # very big pictures: fewer at once (memory)
+            workers = min(workers, 2)
+    except OSError:
+        pass
+    return workers
+
+
 def run_job(tool: Tool, files: list[Path], options: Options,
             progress: Callable[[float], None] | None = None,
             cancel: threading.Event | None = None,
@@ -1389,26 +1411,39 @@ def run_job(tool: Tool, files: list[Path], options: Options,
     total, errors = Result(), []
     items = [files] if tool.batch else list(files)
     n = len(items)
-    for i, item in enumerate(items):
+    workers = _parallel(tool, items)
+    parts = [0.0] * n  # how far each file is (several are worked on at once)
+    lock = threading.Lock()
+    started = [0]
+
+    def part(i, f):
+        with lock:
+            parts[i] = f
+            done = sum(parts)
+        progress(done / n)
+
+    def one(i, item):
+        """(result, None), (None, error text) or (None, None) when it was cancelled."""
         if cancel.is_set():
-            break
-        ctx = Ctx(options, lambda f, i=i: progress((i + f) / n), cancel, params,
-                  index=None if tool.batch else i, total=n)
+            return None, None
+        if workers > 1:
+            lower_this_thread()
+        ctx = Ctx(options, lambda f, i=i: part(i, f), cancel, params, index=None if tool.batch else i, total=n)
         if on_item and n > 1:
-            on_item(i + 1, n, item.name)
+            with lock:
+                started[0] += 1
+                number = started[0]
+            on_item(number, n, item.name)
         try:
             r = tool.run(item, ctx)
             try:
                 pass_on_zone_mark([item] if isinstance(item, Path) else item, r.outputs)
             except Exception:
                 log.debug("couldn't pass on the download mark", exc_info=True)
-            total.outputs += r.outputs
-            total.clipboard = r.clipboard or total.clipboard
-            total.note = r.note or total.note
-            total.undo += r.undo
+            return r, None
         except Cancelled:
             ctx.discard()
-            break
+            return None, None
         except Exception as e:  # keep going with the remaining files
             ctx.discard()
             if isinstance(item, Path):
@@ -1416,10 +1451,34 @@ def run_job(tool: Tool, files: list[Path], options: Options,
             else:
                 name = short_name(item[0].name) if len(item) == 1 else tr("{count} files", count=len(item))
             if type(e).__name__ == "NeedPassword":
-                total.locked.append(item)  # the app asks for the password and tries just these again
+                with lock:
+                    total.locked.append(item)  # the app asks for the password and tries just these again
                 log.info("%s needs a password: %s", tool.label, name)
             else:
                 log.exception("%s failed on %s", tool.label, name)
-            errors.append(f"{name}: {friendly_error(e)}")
-        progress((i + 1) / n)
+            return None, f"{name}: {friendly_error(e)}"
+        finally:
+            part(i, 1.0)
+
+    if workers > 1:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="corefold-job") as pool:
+            outcomes = list(pool.map(one, range(n), items))
+    else:
+        outcomes = []
+        for i, item in enumerate(items):
+            if cancel.is_set():
+                break
+            r, err = one(i, item)
+            outcomes.append((r, err))
+            if r is None and err is None:  # cancelled
+                break
+    for r, err in outcomes:  # in the order the files were given
+        if r is not None:
+            total.outputs += r.outputs
+            total.clipboard = r.clipboard or total.clipboard
+            total.note = r.note or total.note
+            total.undo += r.undo
+        elif err is not None:
+            errors.append(err)
     return total, errors

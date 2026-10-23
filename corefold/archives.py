@@ -43,14 +43,22 @@ class Entry:
 
 # ----------------------------------------------------------------------------- helpers
 
+_found_7z: list[str] = []
+
+
 def find_7z() -> str | None:
+    if _found_7z and os.path.exists(_found_7z[0]):  # (asked for every menu and wheel entry: looked up once)
+        return _found_7z[0]
+    _found_7z.clear()
     exe = "7z.exe" if os.name == "nt" else "7z"
     for cand in (bundled("7zip", exe), app_dir() / "7zip" / exe, app_dir() / "vendor" / "7zip" / exe):
         if cand and Path(cand).exists():
+            _found_7z.append(str(cand))
             return str(cand)
     for name in ("7z", "7zz", "7za"):
         found = shutil.which(name)
         if found:
+            _found_7z.append(found)
             return found
     return None
 

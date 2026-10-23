@@ -37,6 +37,14 @@ jobs:
           choco install ffmpeg -y --no-progress | Out-Null
           New-Item -ItemType Directory -Force out | Out-Null
           python scripts/screenres.py 1920 1080 *>> out/screen.txt
+      - name: First font use
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          foreach ($f in @("", "Segoe UI", "Segoe UI Variable Text", "css", "families", "Segoe UI")) {
+            python scripts/fonttime.py "$f" *>> out/fonts.txt
+          }
+          Get-Content out/fonts.txt
       - name: Use every tool
         timeout-minutes: 45
         shell: pwsh
@@ -67,7 +75,7 @@ jobs:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd results
-          { echo "Use test of $SHA"; for d in */; do echo "== ${d%/}"; grep -rhaE "^(SLOW|FAIL|ERROR)|usetest .*problem" "$d" | head -80; done; } > summary.txt
+          { echo "Use test of $SHA"; for d in */; do echo "== ${d%/}"; cat "$d/fonts.txt" 2>/dev/null; grep -rhaE "^(SLOW|FAIL|ERROR)|usetest .*problem" "$d" | head -80; done; } > summary.txt
           git init -q -b usetest-results
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

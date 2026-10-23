@@ -9,6 +9,7 @@ import sys
 import tempfile
 import threading
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Callable
 
@@ -278,7 +279,7 @@ class Ctx:
                 if p.is_dir():
                     shutil.rmtree(p, ignore_errors=True)
                 elif p.exists():
-                    p.unlink()
+                    remove_file(p)
             except OSError:
                 pass
         self.made.clear()
@@ -326,6 +327,7 @@ def category(p: Path) -> str:
 
 # ----------------------------------------------------------------------------- helpers
 
+@lru_cache(maxsize=1)
 def app_dir() -> Path:
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent

@@ -612,7 +612,8 @@ def player():
             ps = [x for x in getattr(c, "players", []) if alive(x)]
             return bool(ps) and ps[-1].current() == p and ps[-1].player.playbackState() == QMediaPlayer.PlayingState \
                 and ps[-1].player.position() > 200
-        timed(f"play a {label}", lambda p=path: c.open_player(p), limit, wait=playing)
+        timed(f"play a {label}", lambda p=path: c.open_player(p), limit, wait=playing,
+              profile="player" if win is None else "")
         win = next((x for x in getattr(c, "players", []) if alive(x)), None)
         if win is not None and win.player.errorString():
             check(False, f"…{label}: {win.player.errorString()}")
