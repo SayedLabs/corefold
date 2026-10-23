@@ -23,6 +23,11 @@ class ToolInfo:
     ready: bool = True      # False: still being made ("Coming soon")
 
 
+def _cloud_ready() -> bool:
+    from .cloudkeys import any_set
+    return any_set()
+
+
 TOOLS: list[ToolInfo] = [
     ToolInfo("converter", "Converter", "converter", "arrow_swap", "Corefold Converter", "Converter",
              "Convert, shrink and edit pictures, videos, music, PDFs and documents with one drag.",
@@ -83,14 +88,14 @@ TOOLS: list[ToolInfo] = [
               "Paste as plain text, without the formatting",
               "Stays on your PC, and skips passwords from password managers"),
              settings="ClipboardSettings", settings_pages=("ClipboardSettings",)),
-    ToolInfo("cloud", "Cloud", "cloud", "globe", "Corefold Cloud", "Cloud",
-             "All your cloud storage in one window: OneDrive, Google Drive, Dropbox and more.",
-             ("See OneDrive, Google Drive and Dropbox side by side, without switching accounts",
+    ToolInfo("cloud", "Cloud", "cloud", "cloud", "Corefold Cloud", "Cloud",
+             "All your cloud storage in one window: OneDrive and Dropbox, with Google Drive to come.",
+             ("See OneDrive and Dropbox side by side, without switching accounts",
               "Drag files from one cloud to another",
               "Several accounts of the same service at once",
               "Search across all of them",
-              "Sign in on Microsoft's and Google's own page: your passwords never reach Corefold"),
-             ready=False),
+              "Sign in on Microsoft's and Dropbox's own page: your passwords never reach Corefold"),
+             ready=_cloud_ready()),
 ]
 BY_ID = {t.id: t for t in TOOLS}
 BY_PAGE = {t.page: t for t in TOOLS}
