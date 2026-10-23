@@ -40,6 +40,8 @@ s.language = LANG
 s.check_updates = False
 s.animations = False   # every picture shows the finished screen, not half of an animation
 s.quick_told = True
+s.quick_links = [{"id": "docs", "name": "Documents", "target": str(Path.home() / "Documents")},
+                 {"id": "web", "name": "GitHub", "target": "https://github.com"}]
 s.save()
 st.CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 (st.CONFIG_DIR / "history.json").write_text(json.dumps({
@@ -188,8 +190,23 @@ def page(page_name: str, what: str, wait: float = 0.8):
 step("home", home)
 step("search", search)
 step("store", page("Store", "store"))
-step("apps", page("Apps", "apps", 8.0))
-step("space", page("Space", "space", 1.5))
+step("apps", page("Apps", "apps", 15.0))
+
+
+def space_map():  # a real map, of a folder every PC has
+    w.open_page("Space")
+    settle(0.5)
+    sp = w.stack.currentWidget()
+    sp.start_scan(Path(os.environ.get("ProgramFiles", sys.prefix)))
+    end = time.time() + 180
+    while sp.job is not None and time.time() < end:
+        settle(0.5)
+    if sp.job is not None:
+        sp._stop()
+    grab(w, "space", 3.0)
+
+
+step("space", space_map)
 step("viewer", page("Viewer", "viewer"))
 step("look", page("Look", "look"))
 w.hide()
