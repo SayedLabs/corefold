@@ -156,6 +156,7 @@ QTreeView::item:selected, QListView::item:selected { background: $accent_soft; c
 QTreeView::indicator { width: 16px; height: 16px; border-radius: 4px; border: 1px solid $line_strong; background: $field; }
 QTreeView::indicator:hover { border-color: $muted; }
 QTreeView::indicator:checked { background: $accent; border-color: $accent; image: url($check); }
+QTreeView::indicator:indeterminate { background: $accent_soft; border-color: $accent; }
 QHeaderView::section { background: $surface; color: $muted; border: none; border-bottom: 1px solid $border; padding: 7px 6px;
         font-weight: 600; font-size: ${caption_plus}pt; }
 

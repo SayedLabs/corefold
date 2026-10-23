@@ -496,7 +496,7 @@ class MainWindow(QWidget):
                     "ViewerSettings": self._viewer_settings, "Clipboard": self._clipboard,
                     "ClipboardSettings": self._clipboard_settings, "Space": self._space, "Capture": self._capture,
                     "CaptureSettings": self._capture_settings, "Cloud": self._cloud, "Player": self._player,
-                    "PlayerSettings": self._player_settings, "PDF": self._pdf, "Startup": self._startup, "Updates": self._updates, "About": self._about,
+                    "PlayerSettings": self._player_settings, "PDF": self._pdf, "Organizer": self._organizer, "Startup": self._startup, "Updates": self._updates, "About": self._about,
                     "Quick": self._quick_settings}
         self._wheel_guard = None
         self._settings_head()  # (made before the pages: opening one shows or hides it)
@@ -510,8 +510,9 @@ class MainWindow(QWidget):
         self.space_page = None
         self.cloud_page = None
         self.pdf_page = None
+        self.organizer_page = None
         self.startup_page = None
-        self._unbuilt = {"Apps", "Store", "Viewer", "Clipboard", "Space", "Capture", "Cloud", "Player", "PDF", "Startup", *SOON, *[tool.page for tool in all_tools.TOOLS
+        self._unbuilt = {"Apps", "Store", "Viewer", "Clipboard", "Space", "Capture", "Cloud", "Player", "PDF", "Organizer", "Startup", *SOON, *[tool.page for tool in all_tools.TOOLS
                                                     if tool.page not in on_pages and tool.page != "Converter"]}
         for name in PAGES:
             built = QWidget() if name in self._unbuilt else builders[name]()
@@ -892,6 +893,8 @@ class MainWindow(QWidget):
             self.clip_page.refresh()
         elif name == "Space" and self.space_page is not None:
             self.space_page.refresh()
+        elif name == "Organizer" and self.organizer_page is not None:
+            self.organizer_page.ensure_loaded()
         elif name == "Capture":
             self.refresh_captures()
         elif name == "Player":
@@ -2227,6 +2230,15 @@ class MainWindow(QWidget):
                              dark, dpr)
         self.pdf_page = PdfPage(self.c, header)
         return self.pdf_page
+
+    def _organizer(self) -> QWidget:
+        """Corefold File Organizer: sorts a messy folder into a folder for each kind of file."""
+        from .organizerpage import OrganizerPage
+        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
+        header = tool_header("organizer", tr("Corefold File Organizer"),
+                             tr("Sort a messy Downloads or Desktop into clear folders with one click."), dark, dpr)
+        self.organizer_page = OrganizerPage(self.c, header)
+        return self.organizer_page
 
     def _startup(self) -> QWidget:
         """Corefold Startup: what starts with Windows, each with a switch."""
