@@ -606,6 +606,35 @@ def store_cycles():
     apply_size(c.window)
 
 
+# ---------------------------------------------------------------------------- open and close, all day
+
+def reopen():
+    """The window is opened and closed many times, the way a tray app is used all day: after it's been
+    closed a while it's freed, and built again on the next open. Memory must not climb each time."""
+    from PySide6.QtGui import QPixmapCache
+    seen = []
+    for n in range(40):
+        c.show_window(["Home", "Store", "General", "Converter"][n % 4])
+        settle(0.4)
+        c.window.close()
+        settle(0.2)
+        c._free_window()  # (what happens on its own a while after it's closed)
+        settle(0.4)
+        if n % 10 == 9:
+            gc.collect()
+            QPixmapCache.clear()
+            settle(0.5)
+            seen.append(_rss_mb())
+            note(f"after {n + 1} opens: {seen[-1]:.0f} MB, {len(qapp.allWidgets())} widgets, "
+                 f"{len([x for x in qapp.topLevelWidgets() if alive(x)])} windows")
+    if len(seen) >= 3 and seen[-1]:
+        per_open = (seen[-1] - seen[1]) / 20
+        check(per_open <= 0.15, f"memory doesn't climb as the window is opened and closed "
+                                f"({' → '.join(f'{x:.0f}' for x in seen)} MB, {per_open * 1024:.0f} KB an open)")
+    c.show_window("Home")
+    apply_size(c.window)
+
+
 # ---------------------------------------------------------------------------- the tray menu
 
 def tray():
@@ -814,7 +843,7 @@ def sizes():
 sections = [("start", start), ("pages", pages)]
 if not ARGS.quick:
     sections += [("buttons", buttons), ("keyboard", keyboard), ("tray", tray), ("search", search), ("quick", quick)]
-sections += [("sizes", sizes), ("store", store_cycles)]
+sections += [("sizes", sizes), ("store", store_cycles), ("reopen", reopen)]
 if ARGS.only:
     sections = [x for x in sections if x[0] == "start" or x[0] in ARGS.only.split(",")]
 for name, fn in sections:

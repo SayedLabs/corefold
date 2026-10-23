@@ -41,9 +41,9 @@ jobs:
             sweep: "--lang ar --look dark --size max --quick"
             scale: "2"
           - name: leak
-            sweep: "--lang en --look dark --quick --only store --rounds 10"
+            sweep: "--lang en --look dark --quick --only store,reopen --rounds 10"
           - name: leak-200
-            sweep: "--lang ar --look light --quick --only store --rounds 10"
+            sweep: "--lang ar --look light --quick --only store,reopen --rounds 10"
             scale: "2"
           - name: first-run
             sweep: "--lang en --look light --first-run --quick"
