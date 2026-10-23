@@ -718,6 +718,48 @@ def tar_formats():
         check(True, "a damaged .tar.zst is found")
 
 
+def archive_preview():
+    from corefold import archives as ar
+    from corefold.browser import ArchiveBrowser
+    src = TMP / "peek"
+    src.mkdir(parents=True, exist_ok=True)
+    img = QImage(300, 200, QImage.Format_RGB32)
+    img.fill(QColor("#3366cc"))
+    img.save(str(src / "photo.png"))
+    (src / "readme.txt").write_text("Hello from inside the archive", encoding="utf-8")
+    (src / "tool.bin").write_bytes(bytes(range(256)) * 10)
+    for fmt in ("zip", "tar.zst"):
+        out = ar.pack_into([src / "photo.png", src / "readme.txt", src / "tool.bin"], TMP / f"peek.{fmt}", ctx(),
+                           fmt=fmt)[0]
+        check(ar.read_member(out, "readme.txt") == b"Hello from inside the archive",
+              f"read one file inside a .{fmt} without unpacking it")
+        c = FakeController()
+        win = ArchiveBrowser(c, out, "", ar.list_entries(out), QIcon())
+        win.show()
+        app = QApplication.instance()
+        shown = {}
+        for i in range(win.tree.topLevelItemCount()):
+            item = win.tree.topLevelItem(i)
+            win.tree.setCurrentItem(item)
+            win._load_preview()
+            for _ in range(100):
+                app.processEvents()
+                if win.preview.currentWidget() is not win.preview.message or \
+                        win.preview.message.text() != "Loading…":
+                    break
+                time.sleep(0.03)
+            pane = win.preview
+            shown[item.text(0)] = ("picture" if pane.currentWidget() is pane.picture else
+                                   "text" if pane.currentWidget() is pane.text else "none")
+        check(shown == {"photo.png": "picture", "readme.txt": "text", "tool.bin": "none"},
+              f"…the archive window shows a picture and a text beside the list ({shown})")
+        check("Hello" in win.preview.text.toPlainText(), "…with the text in it")
+        win.set_preview(False)
+        check(win.preview.isHidden() and c.settings.archive_preview is False, "P hides the preview")
+        win.close()
+        app.processEvents()
+
+
 # ----------------------------------------------------------------------------- PDF
 
 def pdf_stamps():
@@ -826,7 +868,7 @@ if __name__ == "__main__" and len(sys.argv) > 1:
         step(name, globals()[name])
 else:
     step("videos", make_videos)
-    for name, fn in (("video tools", video_tools), ("graphics card", graphics_card), ("fingerprint", fingerprint), ("passwords", passwords), ("tar formats", tar_formats),
+    for name, fn in (("video tools", video_tools), ("graphics card", graphics_card), ("fingerprint", fingerprint), ("passwords", passwords), ("tar formats", tar_formats), ("archive preview", archive_preview),
                      ("capture", capture), ("recording pause", recording_pause), ("loopback", loopback),
                      ("clipboard", clipboard), ("clip list", clip_list), ("viewer", viewer),
                      ("space", space), ("space programs", space_programs), ("chapters", chapters), ("player", player),

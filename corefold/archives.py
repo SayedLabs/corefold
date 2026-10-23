@@ -714,6 +714,47 @@ def extract_for_opening(src: Path, member: str, ctx: Ctx) -> Result:
     return Result([out])
 
 
+PREVIEW_MAX = 40 << 20  # files bigger than this (unpacked) get no preview
+
+
+def read_member(src: Path, member: str, password: str = "", limit: int = PREVIEW_MAX) -> bytes:
+    """The start (up to limit bytes) of one file inside the archive, without writing it anywhere."""
+    if is_tar(src):
+        with _open_tar(src) as tf:
+            for m in tf:
+                if m.isfile() and _tar_name(m.name) == member:
+                    f = tf.extractfile(m)
+                    return f.read(limit) if f else b""
+        raise RuntimeError(tr("couldn't take that file out of the archive"))
+    if is_zst(src):
+        import zstandard
+        with open(src, "rb") as fh, zstandard.ZstdDecompressor().stream_reader(fh) as reader:
+            return reader.read(limit)
+    exe = find_7z()
+    if exe:
+        listfile = _listfile([member.replace("/", os.sep)])
+        try:
+            proc = subprocess.Popen([exe, "e", "-so", "-sccUTF-8", "-scsUTF-8", "-spd", _pw(password), str(src),
+                                     f"@{listfile}"], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                    stdin=subprocess.DEVNULL, creationflags=NO_WINDOW)
+            try:
+                data = proc.stdout.read(limit)
+            finally:
+                proc.kill()  # (enough read: the rest isn't needed)
+                _out, err = proc.communicate(timeout=10)
+        finally:
+            listfile.unlink(missing_ok=True)
+        if not data and proc.returncode not in (0, 1):  # (nothing read: 7-Zip had finished by itself)
+            raise _7z_error(err.decode("utf-8", "replace"))
+        return data
+    with zipfile.ZipFile(src) as zf:
+        try:
+            with zf.open(member, pwd=password.encode() if password else None) as f:
+                return f.read(limit)
+        except RuntimeError as e:
+            raise NeedPassword() from e
+
+
 # ----------------------------------------------------------------------------- archives inside archives
 
 NESTED_DEPTH = 3     # an archive in an archive in an archive, and no deeper

@@ -131,6 +131,7 @@ RECENT_ARCHIVES = 8
 NOT_EDITED = {"enabled", "first_run", "last_version", "menu_signature", "window_geometry", "last_page",
               "last_action", "tour_done", "watermark", "fit_mb", "open_archives", "recent_archives",
               "tools_off", "known_tools", "open_images", "open_emails", "viewer_info", "viewer_strip", "recent_views",
+              "archive_preview",
               "clip_paused", "open_media", "player_volume", "nav_order", "nav_width", "nav_compact",
               "quick_button_pos", "quick_told", "remember_password"}
 # the settings of each tab of the Settings page (each one has its own "Reset to defaults")
@@ -212,6 +213,7 @@ class Settings:
     slideshow_seconds: int = 4
     viewer_info: bool = False      # the details panel is open
     viewer_strip: bool = True      # the small pictures along the bottom are shown
+    archive_preview: bool = True   # the archive window shows the picked file beside the list
     recent_views: list = field(default_factory=list)  # pictures and emails opened lately (newest first)
     # the Clipboard
     clip_shortcut: str = "win+alt+v"  # opens the clipboard from any app
