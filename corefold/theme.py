@@ -171,6 +171,11 @@ QListWidget#playlist { background: #121314; color: #e8e8e8; border: none; border
 QListWidget#playlist::item { padding: 6px 8px; border-radius: 6px; }
 QListWidget#playlist::item:hover { background: #1d1f21; }
 QListWidget#playlist::item:selected { background: #1f3330; color: #ffffff; }
+QListWidget#viewerStrip { background: $panel; border: none; border-top: 1px solid $border; outline: none;
+        padding: 4px 8px; }
+QListWidget#viewerStrip::item { border-radius: 8px; padding: 2px; border: 2px solid transparent; }
+QListWidget#viewerStrip::item:hover { background: $hover; }
+QListWidget#viewerStrip::item:selected { background: transparent; border: 2px solid $accent; }
 QFrame#clipPopup { background: $raised; border: 1px solid $line_strong; border-radius: 16px; }
 QListWidget#clips { background: transparent; border: none; outline: none; }
 QListWidget#clipsPage { background: $panel; border: 1px solid $border; border-radius: 12px; outline: none; padding: 4px; }

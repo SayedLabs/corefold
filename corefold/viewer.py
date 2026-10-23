@@ -12,10 +12,11 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QObject, QPointF, QRectF, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QGuiApplication, QImage, QKeySequence, QPainter, QPen, QPixmap, QShortcut, QTransform
-from PySide6.QtWidgets import (QFileDialog, QFrame, QHBoxLayout, QLabel, QMenu, QMessageBox, QPushButton, QVBoxLayout,
-                               QWidget)
+from PySide6.QtCore import QObject, QPoint, QPointF, QRectF, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import (QColor, QGuiApplication, QIcon, QImage, QKeySequence, QPainter, QPen, QPixmap, QShortcut,
+                           QTransform)
+from PySide6.QtWidgets import (QFileDialog, QFrame, QHBoxLayout, QLabel, QListView, QListWidget, QListWidgetItem,
+                               QMenu, QMessageBox, QPushButton, QVBoxLayout, QWidget)
 
 from . import i18n, icons
 from .core import ALIASES, APP_NAME, IMAGE_EXT, human_size, norm, short_name
@@ -91,6 +92,26 @@ def load_picture(path: Path) -> QImage:
             return img
     from .converters import load_image
     return pil_to_qimage(load_image(path))
+
+
+THUMB = 72      # px: the pictures in the strip along the bottom
+STRIP_AHEAD = 24  # the strip's small pictures made around the one shown (the rest when scrolled to)
+
+
+def small_picture(path: Path, size: int = THUMB) -> QImage:
+    """A small copy for the strip, read at that size when the format allows it (much faster)."""
+    if path.suffix.lower() in QT_READS:
+        from PySide6.QtGui import QImageReader
+        reader = QImageReader(str(path))
+        reader.setAutoTransform(True)
+        full = reader.size()
+        if full.isValid() and full.width() > 0 and full.height() > 0:
+            reader.setScaledSize(full.scaled(size * 2, size * 2, Qt.KeepAspectRatio))
+        img = reader.read()
+        if not img.isNull():
+            return img
+    img = load_picture(path)
+    return img.scaled(size * 2, size * 2, Qt.KeepAspectRatio, Qt.SmoothTransformation) if not img.isNull() else img
 
 
 # the names of the details shown (English, shown through tr())
@@ -171,6 +192,7 @@ def _flipped(image: QImage, way: str) -> QImage:
 
 class _Loaded(QObject):
     done = Signal(object, object)  # (path, QImage or Exception)
+    small = Signal(object, object)  # (path, small QImage) for the strip
 
 
 class PictureView(QWidget):
@@ -518,6 +540,7 @@ class ViewerWindow(QWidget):
         more.addAction(tr("Copy to a folder…"), lambda: self.to_folder(move=False))
         more.addAction(tr("Flip left to right (H)"), lambda: self.flip("h"))
         more.addAction(tr("Flip upside down (V)"), lambda: self.flip("v"))
+        more.addAction(tr("Show or hide the small pictures (T)"), self.toggle_strip)
         order = more.addMenu(tr("Sort by"))
         round_menu(order)
         self.sort_actions = {}
@@ -583,6 +606,29 @@ class ViewerWindow(QWidget):
         self.crop_bar.hide()
         self.view.crop_changed.connect(self._crop_text)
 
+        # the strip of small pictures along the bottom
+        self.strip = QListWidget()
+        self.strip.setObjectName("viewerStrip")
+        self.strip.setViewMode(QListView.IconMode)
+        self.strip.setFlow(QListView.LeftToRight)
+        self.strip.setWrapping(False)
+        self.strip.setMovement(QListView.Static)
+        self.strip.setIconSize(QSize(THUMB, THUMB))
+        self.strip.setGridSize(QSize(THUMB + 10, THUMB + 10))
+        self.strip.setFixedHeight(THUMB + 28)
+        self.strip.setHorizontalScrollMode(QListView.ScrollPerPixel)
+        self.strip.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.strip.setFocusPolicy(Qt.NoFocus)
+        self.strip.itemClicked.connect(lambda it: self.go_to(self.strip.row(it)))
+        self.strip.horizontalScrollBar().valueChanged.connect(lambda _v: self._strip_timer.start(120))
+        self._strip_timer = QTimer(self)
+        self._strip_timer.setSingleShot(True)
+        self._strip_timer.timeout.connect(self._strip_visible)
+        self._strip_files: list[Path] = []
+        self._strip_asked: set[str] = set()
+        self.loader.small.connect(self._small_loaded)
+        self.strip.setVisible(bool(getattr(s, "viewer_strip", True)))
+
         # details
         self.info = QFrame()
         self.info.setObjectName("card")
@@ -602,6 +648,7 @@ class ViewerWindow(QWidget):
         lay.addWidget(self.bar)
         lay.addWidget(self.crop_bar)
         lay.addLayout(middle, 1)
+        lay.addWidget(self.strip)
 
         keys = ((Qt.Key_Right, lambda: self.go(1)), (Qt.Key_Left, lambda: self.go(-1)),
                 (Qt.Key_PageDown, lambda: self.go(1)), (Qt.Key_PageUp, lambda: self.go(-1)),
@@ -614,6 +661,7 @@ class ViewerWindow(QWidget):
                 (Qt.Key_F5, self.toggle_slideshow), (Qt.Key_F11, self.toggle_full), (Qt.Key_F, self.toggle_full),
                 (Qt.Key_F2, self.rename), (Qt.Key_M, lambda: self.to_folder(move=True)),
                 (Qt.Key_H, lambda: self.flip("h")), (Qt.Key_V, lambda: self.flip("v")),
+                (Qt.Key_T, self.toggle_strip),
                 (Qt.Key_Escape, self._escape), (Qt.Key_Return, self._enter), (Qt.Key_Enter, self._enter))
         for key, fn in keys:
             QShortcut(QKeySequence(key), self, fn)
@@ -677,6 +725,7 @@ class ViewerWindow(QWidget):
             if 0 <= i < len(self.files):
                 self._load(self.files[i])
         self._fill_info()
+        self._fill_strip()
         self._movie(path)
 
     def _movie(self, path: Path):
@@ -1003,6 +1052,73 @@ class ViewerWindow(QWidget):
 
     # ---- view
 
+    # ---- the strip
+
+    def toggle_strip(self):
+        if self.isFullScreen():
+            return
+        self.strip.setVisible(self.strip.isHidden())
+        self.c.settings.viewer_strip = not self.strip.isHidden()
+        self.c.settings.save()
+        self._fill_strip()
+
+    def _fill_strip(self):
+        if self.strip.isHidden():
+            return
+        if self._strip_files != self.files:  # opened, sorted, or a file deleted, renamed or moved
+            self._strip_files = list(self.files)
+            self._strip_asked.clear()
+            self.strip.clear()
+            blank = QPixmap(THUMB, THUMB)
+            blank.fill(Qt.transparent)
+            for f in self.files:
+                it = QListWidgetItem(QIcon(blank), "")
+                it.setToolTip(f.name)
+                it.setSizeHint(QSize(THUMB + 10, THUMB + 10))
+                self.strip.addItem(it)
+        if 0 <= self.index < self.strip.count():
+            self.strip.setCurrentRow(self.index)
+            self.strip.scrollToItem(self.strip.item(self.index), QListView.PositionAtCenter)
+        lo, hi = max(0, self.index - STRIP_AHEAD), min(len(self.files), self.index + STRIP_AHEAD + 1)
+        self._make_small(self.files[lo:hi])
+
+    def _strip_visible(self):
+        """Small pictures for the part of the strip scrolled to."""
+        if self.strip.isHidden() or not self.strip.count():
+            return
+        first = self.strip.indexAt(self.strip.viewport().rect().topLeft() + QPoint(4, 4)).row()
+        first = max(first, 0)
+        self._make_small(self.files[first:first + STRIP_AHEAD])
+
+    def _make_small(self, files: list[Path]):
+        wanted = [f for f in files if str(f) not in self._strip_asked]
+        if not wanted:
+            return
+        self._strip_asked.update(str(f) for f in wanted)
+        loader = self.loader
+
+        def work():
+            for f in wanted:
+                try:
+                    img = small_picture(f)
+                except Exception:
+                    continue
+                try:
+                    loader.small.emit(f, img)
+                except RuntimeError:  # the window was closed
+                    return
+        threading.Thread(target=work, daemon=True, name="corefold-viewer-strip").start()
+
+    def _small_loaded(self, path: Path, img: QImage):
+        if img.isNull():
+            return
+        try:
+            row = self._strip_files.index(path)
+        except ValueError:
+            return
+        if row < self.strip.count():
+            self.strip.item(row).setIcon(QIcon(QPixmap.fromImage(img)))
+
     def toggle_info(self):
         self.info.setVisible(not self.info.isVisible())
         self.c.settings.viewer_info = self.info.isVisible()
@@ -1049,9 +1165,12 @@ class ViewerWindow(QWidget):
         if self.isFullScreen():
             self.showNormal()
             self.bar.show()
+            self.strip.setVisible(bool(getattr(self.c.settings, "viewer_strip", True)))
+            self._fill_strip()
         else:
             self.showFullScreen()
             self.bar.hide()
+            self.strip.hide()
 
     def _escape(self):
         if self.view.crop is not None:
