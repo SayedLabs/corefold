@@ -858,11 +858,11 @@ def pdf_merge(files: list[Path], ctx: Ctx) -> Result:
 
 
 def write_compressed_pdf(src: Path, out: Path, ctx: Ctx, quality: int = 65, max_dim: int = 1800,
-                         progress_span: tuple[float, float] = (0.0, 0.9)):
+                         progress_span: tuple[float, float] = (0.0, 0.9), reader=None):
     """Shrinks big pictures inside the PDF and squeezes the rest. Text stays sharp."""
     from PIL import Image
     from pypdf import PdfWriter
-    reader = _open_reader(src)
+    reader = reader or _open_reader(src)
     writer = PdfWriter(clone_from=reader)
     n = max(1, len(writer.pages))
     a, b = progress_span

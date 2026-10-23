@@ -50,6 +50,7 @@ jobs:
           - name: upgrade
             upgrade: "v1.7.5"
           - name: navtest
+          - name: pdf
           - name: exe
     name: ${{ matrix.name }}
     steps:
@@ -107,6 +108,15 @@ jobs:
           python scripts/sweeptest.py out/sweep --keep updata --quick *> out/sweep.txt
           Copy-Item -Recurse updata/roaming out/upgrade-data -ErrorAction SilentlyContinue
 
+      - name: Corefold PDF, every tool and its page
+        if: matrix.name == 'pdf'
+        timeout-minutes: 20
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          python scripts/pdftest.py out/pdftest en dark *> out/pdftest-en.txt
+          python scripts/pdftest.py out/pdftest ar light *> out/pdftest-ar.txt
+
       - name: Click through the window like a person
         if: matrix.name == 'navtest'
         timeout-minutes: 30
@@ -157,7 +167,7 @@ jobs:
             echo "Bug hunt of $SHA"
             for d in */; do
               echo "== ${d%/}"
-              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused" "$d" 2>/dev/null | head -20
+              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|pdftest)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused" "$d" 2>/dev/null | head -20
               grep -rhaE "^(FAIL|ERROR) " "$d" 2>/dev/null | sort | uniq -c | sort -rn | head -60
             done
           } > summary.txt

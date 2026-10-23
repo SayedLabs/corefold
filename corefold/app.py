@@ -1555,9 +1555,11 @@ class Controller(QObject):
         win.activateWindow()
 
     # params that only make sense for the files they were chosen for (or are secret) aren't kept
-    NOT_REPEATED = {"password", "new_password", "pages"}
+    NOT_REPEATED = {"password", "new_password", "pages", "passwords"}
 
     def remember_action(self, tool: Tool, params: dict, rename: dict):
+        if tool.key.startswith("pdftool:"):  # (Corefold PDF's page: "Do it again" stays the Converter's)
+            return
         kept = {k: v for k, v in params.items() if k not in self.NOT_REPEATED}
         try:
             import json
@@ -1826,7 +1828,7 @@ class Controller(QObject):
             self.quit(cleanup=True)
 
 
-PAGE_NAMES = ("Home", "Converter", "Apps", "Archives", "Viewer", "Player", "Clipboard", "Space", "Capture", "Cloud",
+PAGE_NAMES = ("Home", "Converter", "Apps", "Archives", "Viewer", "Player", "Clipboard", "Space", "Capture", "Cloud", "PDF",
               "Store", "PlayerSettings",
               "Soon",
               "General", "Look", "ConvOptions", "WheelLook", "Formats", "AppsSettings", "ArchiveSettings",
