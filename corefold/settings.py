@@ -107,6 +107,7 @@ CAP_AFTER = {"edit": "Open it to mark it up", "copy": "Only copy it"}
 CAP_FPS = {30: "30 frames a second", 60: "60 frames a second (smoother, bigger files)"}
 PLAYER_SKIP = {5: "5 seconds", 10: "10 seconds", 30: "30 seconds"}
 PLAYER_WHEEL = {"volume": "Changes the volume", "seek": "Goes back and forward"}
+PEEK_KEYS = {"ctrl+space": "Ctrl + Space", "ctrl+shift+space": "Ctrl + Shift + Space", "off": "No shortcut"}
 QUICK_SEARCH_ENGINES = {"duckduckgo": "DuckDuckGo", "google": "Google", "bing": "Bing"}  # (names, not translated)
 CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_style": HOVER_STYLES,
            "slice_colors": SLICE_COLORS, "text_size": TEXT_SIZES, "wheel_position": WHEEL_POSITIONS,
@@ -117,7 +118,7 @@ CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_styl
            "slideshow_seconds": SLIDESHOW_SECONDS, "clip_shortcut": CLIP_SHORTCUTS, "clip_max": CLIP_MAX,
            "clip_days": CLIP_DAYS, "cap_shortcut": CAP_SHORTCUTS, "cap_record_shortcut": CAP_RECORD_SHORTCUTS,
            "cap_after": CAP_AFTER, "cap_fps": CAP_FPS, "player_skip": PLAYER_SKIP, "player_wheel": PLAYER_WHEEL,
-           "quick_search_engine": QUICK_SEARCH_ENGINES}
+           "quick_search_engine": QUICK_SEARCH_ENGINES, "peek_key": PEEK_KEYS}
 
 
 # Settings kept on disk while the window has changes that weren't saved yet (see window.py): the
@@ -144,7 +145,7 @@ WHEEL_KEYS = ("wheel_size", "wheel_style", "wheel_opacity", "label_style", "hove
 FORMAT_KEYS = ("hidden_tools", "favorites", "tool_order")
 UNINSTALLER_KEYS = ("unused_months", "backup_days", "restore_point")
 ARCHIVE_KEYS = ("extract_mode", "extract_nested", "remember_archives")
-VIEWER_KEYS = ("viewer_wheel", "viewer_confirm_delete", "slideshow_seconds")
+VIEWER_KEYS = ("viewer_wheel", "viewer_confirm_delete", "slideshow_seconds", "peek_key")
 CLIPBOARD_KEYS = ("clip_shortcut", "clip_paste", "clip_max", "clip_days", "clip_images")
 PLAYER_KEYS = ("player_resume", "player_skip", "player_wheel", "player_next", "player_subtitles")
 CAPTURE_KEYS = ("cap_shortcut", "cap_record_shortcut", "cap_after", "cap_save", "cap_fps", "cap_mic", "cap_cursor",
@@ -213,6 +214,7 @@ class Settings:
     viewer_wheel: str = "zoom"     # the mouse wheel zooms, or goes to the next picture
     viewer_confirm_delete: bool = True
     slideshow_seconds: int = 4
+    peek_key: str = "ctrl+space"   # Quick look at the file selected in File Explorer (only taken while it's in front)
     viewer_info: bool = False      # the details panel is open
     recent_views: list = field(default_factory=list)  # pictures and emails opened lately (newest first)
     # the Clipboard

@@ -53,6 +53,7 @@ TOOLS: list[ToolInfo] = [
     ToolInfo("viewer", "Viewer", "viewer", "image", "Corefold Viewer", "Viewer",
              "Flip through a folder of pictures fast, fix them on the spot, and open email files.",
              ("Arrow keys through a whole folder, instantly",
+              "Quick look: select any file in File Explorer and press Ctrl + Space to see what's in it",
               "Zoom, turn and crop, then save or save as another format",
               "HEIC, WebP, AVIF and more, with the photo's details",
               "Open Outlook (.msg) and .eml emails without Outlook, save their attachments, save them as PDF"),

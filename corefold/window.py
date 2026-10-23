@@ -2096,8 +2096,19 @@ class MainWindow(QWidget):
         grid.addWidget(self.viewer_wheel, 0, 1)
         grid.addWidget(label(tr("Slideshow: each picture for")), 1, 0)
         grid.addWidget(self.slideshow_seconds, 1, 1)
+        from .settings import PEEK_KEYS
+        self.peek_key = QComboBox()
+        for key, text in PEEK_KEYS.items():
+            self.peek_key.addItem(tr(text) if key == "off" else text, key)
+        self.peek_key.setCurrentIndex(max(0, self.peek_key.findData(s.peek_key)))
+        self.peek_key.currentIndexChanged.connect(self._viewer_setting_changed)
+        grid.addWidget(label(tr("Quick look")), 2, 0)
+        grid.addWidget(self.peek_key, 2, 1)
         grid.setColumnStretch(2, 1)
         bl.addLayout(grid)
+        bl.addWidget(label(tr("Select a file in File Explorer or on the desktop and press the shortcut to see what's "
+                              "in it without opening it. Press it again, Space or Esc to close it."), "muted",
+                           wrap=True))
         self.viewer_confirm_delete = checkbox(tr("Ask before sending a picture to the Recycle Bin"),
                                               s.viewer_confirm_delete, self._viewer_setting_changed)
         bl.addWidget(self.viewer_confirm_delete)
@@ -2125,6 +2136,7 @@ class MainWindow(QWidget):
         s = self.c.settings
         s.viewer_wheel = self.viewer_wheel.currentData()
         s.slideshow_seconds = self.slideshow_seconds.currentData()
+        s.peek_key = self.peek_key.currentData()
         s.viewer_confirm_delete = self.viewer_confirm_delete.isChecked()
         self.c.settings_changed()
 
