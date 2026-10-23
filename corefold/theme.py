@@ -228,6 +228,11 @@ QFrame#toast { background: $panel; border: 1px solid $line_strong; border-radius
 QPushButton#driveCard { background: $panel; border: 1px solid $border; border-radius: 12px; padding: 0; text-align: left; }
 QPushButton#driveCard:hover { border-color: $line_strong; background: $hover; }
 QProgressBar#low::chunk { background: $danger; }
+QWidget#playerWindow { background: #000000; }
+QLabel#playerCover { background: $bg; }
+QLabel#playerNote { color: $text; }
+QSlider#seek::groove:horizontal { height: 6px; border-radius: 3px; }
+QSlider#seek::sub-page:horizontal { border-radius: 3px; }
 QFrame#clipPopup { background: $panel; border: 1px solid $line_strong; border-radius: 14px; }
 QListWidget#clips { background: transparent; border: none; outline: none; }
 QListWidget#clipsPage { background: $panel; border: 1px solid $border; border-radius: 12px; outline: none; padding: 4px; }

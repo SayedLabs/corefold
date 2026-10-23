@@ -1,4 +1,5 @@
-"""Opening files with a double-click: archives (Corefold Archive), pictures and emails (Corefold Viewer).
+"""Opening files with a double-click: archives (Corefold Archive), pictures and emails (Corefold Viewer),
+videos and music (Corefold Player).
 
 Corefold adds itself to "Open with" for these (for the current user only, no admin rights), and
 registers as an app Windows can make the default for them. Windows doesn't let apps make themselves
@@ -34,6 +35,9 @@ GROUPS = {
                    (".jpg", ".jpeg", ".jfif", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff", ".heic", ".heif",
                     ".avif", ".ico")),
     "email": Group("Corefold.Email", "--view", (".eml", ".msg")),
+    "media": Group("Corefold.Media", "--play",
+                   (".mp4", ".mkv", ".mov", ".avi", ".wmv", ".webm", ".m4v", ".mpg", ".mpeg", ".ts", ".m2ts", ".flv",
+                    ".3gp", ".mp3", ".m4a", ".aac", ".flac", ".wav", ".ogg", ".opus", ".wma")),
 }
 # (kept for older callers: the archive group)
 PROGID = GROUPS["archive"].progid
