@@ -1,0 +1,16 @@
+2026-10-23 19:49:26,245 INFO running in the background: quick access
+2026-10-23 19:49:27,835 INFO running in the background: quick access
+2026-10-23 19:49:27,836 INFO tools in use: converter, uninstaller, archive, viewer
+2026-10-23 19:49:27,847 INFO archive files open with Corefold
+2026-10-23 19:49:27,865 INFO image files open with Corefold
+2026-10-23 19:49:27,872 INFO email files open with Corefold
+2026-10-23 19:49:29,321 INFO right-click menu updated
+2026-10-23 19:49:32,861 INFO running in the background: quick access
+2026-10-23 19:49:32,861 INFO tools in use: converter, uninstaller, archive, viewer, player
+2026-10-23 19:49:32,876 INFO media files open with Corefold
+2026-10-23 19:49:38,039 INFO running in the background: capture, quick access
+2026-10-23 19:49:38,075 INFO tools in use: converter, uninstaller, archive, viewer, player, capture
+2026-10-23 19:49:43,062 INFO running in the background: capture, quick access
+2026-10-23 19:49:43,062 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space
+2026-10-23 19:49:48,358 INFO running in the background: clipboard, capture, quick access
+2026-10-23 19:49:48,358 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space, clipboard

@@ -1,0 +1,48 @@
+Bug hunt of 36d111561eac934ba4c9621cc133a28935d8a9b0
+== bughunt-ar-dark-200
+sweeptest ar-dark-max-x2: 0 problem(s)
+== bughunt-ar-light
+sweeptest ar-light-1040x700: 0 problem(s)
+== bughunt-checks
+selftest: 0 problem(s)
+[ar] 1587 texts, 0 problem(s), 0 unused
+[fr] 1587 texts, 0 problem(s), 0 unused
+[es] 1587 texts, 0 problem(s), 0 unused
+[tr] 1587 texts, 0 problem(s), 0 unused
+stress: 0 problem(s)
+uitest: 0 problem(s)
+== bughunt-en-dark
+ok    Ctrl + K opens the search (for 'Count a program as unused after'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Archive…  ·  Archive with a password, split or max compression')
+ok    the search closes after running 'Count a program as unused after'
+ok    the search runs 'Count a program as unused after' (Settings › Uninstaller) without an error
+ok    Ctrl + K opens the search (for 'Keep backups of removed leftovers for'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Count a program as unused after')
+sweeptest en-dark-1040x700: 0 problem(s)
+== bughunt-es-light-max-150
+sweeptest es-light-max-x1.5: 0 problem(s)
+== bughunt-exe
+exetest: 0 problem(s)
+== bughunt-first-run
+sweeptest en-light-1040x700-first: 0 problem(s)
+== bughunt-fr-dark-small
+sweeptest fr-dark-min: 0 problem(s)
+== bughunt-leak-200
+sweeptest ar-light-1040x700-x2: 0 problem(s)
+== bughunt-leak
+sweeptest en-dark-1040x700: 0 problem(s)
+== bughunt-navtest
+quicktest: 0 problem(s)
+navtest: 0 problem(s)
+quicktest: 0 problem(s)
+navtest: 0 problem(s)
+== bughunt-tr-dark-small-125
+sweeptest tr-dark-min-x1.25: 0 problem(s)
+== bughunt-upgrade
+  "unused_months": 3,
+sweeptest en-dark-1040x700-upgrade: 0 problem(s)
+== bughunt-use-ar-light
+usetest ar-light: 22 problem(s)
+      2 SLOW     1.51 s  (limit 1.5 s)  Store: remove uninstaller   · window froze 1.27 s
+      2 SLOW     0.45 s  open the Clipboard page
+      2 FAIL  every page opens in under 0.4 s (48 pages; slow: Clipboard 0.45 s)
+== bughunt-use-en-dark
+usetest en-dark: 5 problem(s)

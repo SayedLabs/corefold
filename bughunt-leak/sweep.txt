@@ -1,0 +1,418 @@
+----- start
+ok    the window opens
+ok    every ready tool can be added
+ok    start: no errors behind the clicks (0)
+----- store
+ok    round 1: removing converter takes it out of the sidebar
+ok    round 1: after removing converter the window is still open (Store)
+ok    round 1: a removed converter page can't be opened
+ok    round 1: removing uninstaller takes it out of the sidebar
+ok    round 1: after removing uninstaller the window is still open (Store)
+ok    round 1: a removed uninstaller page can't be opened
+ok    round 1: removing archive takes it out of the sidebar
+ok    round 1: after removing archive the window is still open (Store)
+ok    round 1: a removed archive page can't be opened
+ok    round 1: removing viewer takes it out of the sidebar
+ok    round 1: after removing viewer the window is still open (Store)
+ok    round 1: a removed viewer page can't be opened
+ok    round 1: removing player takes it out of the sidebar
+ok    round 1: after removing player the window is still open (Store)
+ok    round 1: a removed player page can't be opened
+ok    round 1: removing capture takes it out of the sidebar
+ok    round 1: after removing capture the window is still open (Store)
+ok    a removed Capture lets go of its shortcuts
+ok    round 1: a removed capture page can't be opened
+ok    round 1: removing space takes it out of the sidebar
+ok    round 1: after removing space the window is still open (Store)
+ok    round 1: a removed space page can't be opened
+ok    round 1: removing clipboard takes it out of the sidebar
+ok    round 1: after removing clipboard the window is still open (Store)
+ok    a removed Clipboard stops watching what's copied
+ok    round 1: a removed clipboard page can't be opened
+ok    round 1: every tool can be removed
+ok    Home with no tools, round 1: nothing cut off or sticking out
+ok    the Store with no tools, round 1: the Store page opens (Store)
+ok    the Store with no tools, round 1: the Store page shows (748x608)
+ok    round 1: clipboard can be added back
+ok    round 1: space can be added back
+ok    round 1: capture can be added back
+ok    round 1: player can be added back
+ok    round 1: viewer can be added back
+ok    round 1: archive can be added back
+ok    round 1: uninstaller can be added back
+ok    round 1: converter can be added back
+note  round 1: 27 windows, 1345 widgets, 148 MB, 48004 Python objects
+ok    round 2: removing converter takes it out of the sidebar
+ok    round 2: after removing converter the window is still open (Store)
+ok    round 2: a removed converter page can't be opened
+ok    round 2: removing uninstaller takes it out of the sidebar
+ok    round 2: after removing uninstaller the window is still open (Store)
+ok    round 2: a removed uninstaller page can't be opened
+ok    round 2: removing archive takes it out of the sidebar
+ok    round 2: after removing archive the window is still open (Store)
+ok    round 2: a removed archive page can't be opened
+ok    round 2: removing viewer takes it out of the sidebar
+ok    round 2: after removing viewer the window is still open (Store)
+ok    round 2: a removed viewer page can't be opened
+ok    round 2: removing player takes it out of the sidebar
+ok    round 2: after removing player the window is still open (Store)
+ok    round 2: a removed player page can't be opened
+ok    round 2: removing capture takes it out of the sidebar
+ok    round 2: after removing capture the window is still open (Store)
+ok    a removed Capture lets go of its shortcuts
+ok    round 2: a removed capture page can't be opened
+ok    round 2: removing space takes it out of the sidebar
+ok    round 2: after removing space the window is still open (Store)
+ok    round 2: a removed space page can't be opened
+ok    round 2: removing clipboard takes it out of the sidebar
+ok    round 2: after removing clipboard the window is still open (Store)
+ok    a removed Clipboard stops watching what's copied
+ok    round 2: a removed clipboard page can't be opened
+ok    round 2: every tool can be removed
+ok    Home with no tools, round 2: nothing cut off or sticking out
+ok    the Store with no tools, round 2: the Store page opens (Store)
+ok    the Store with no tools, round 2: the Store page shows (748x608)
+ok    round 2: clipboard can be added back
+ok    round 2: space can be added back
+ok    round 2: capture can be added back
+ok    round 2: player can be added back
+ok    round 2: viewer can be added back
+ok    round 2: archive can be added back
+ok    round 2: uninstaller can be added back
+ok    round 2: converter can be added back
+note  round 2: 27 windows, 1345 widgets, 177 MB, 48385 Python objects
+ok    round 3: removing converter takes it out of the sidebar
+ok    round 3: after removing converter the window is still open (Store)
+ok    round 3: a removed converter page can't be opened
+ok    round 3: removing uninstaller takes it out of the sidebar
+ok    round 3: after removing uninstaller the window is still open (Store)
+ok    round 3: a removed uninstaller page can't be opened
+ok    round 3: removing archive takes it out of the sidebar
+ok    round 3: after removing archive the window is still open (Store)
+ok    round 3: a removed archive page can't be opened
+ok    round 3: removing viewer takes it out of the sidebar
+ok    round 3: after removing viewer the window is still open (Store)
+ok    round 3: a removed viewer page can't be opened
+ok    round 3: removing player takes it out of the sidebar
+ok    round 3: after removing player the window is still open (Store)
+ok    round 3: a removed player page can't be opened
+ok    round 3: removing capture takes it out of the sidebar
+ok    round 3: after removing capture the window is still open (Store)
+ok    a removed Capture lets go of its shortcuts
+ok    round 3: a removed capture page can't be opened
+ok    round 3: removing space takes it out of the sidebar
+ok    round 3: after removing space the window is still open (Store)
+ok    round 3: a removed space page can't be opened
+ok    round 3: removing clipboard takes it out of the sidebar
+ok    round 3: after removing clipboard the window is still open (Store)
+ok    a removed Clipboard stops watching what's copied
+ok    round 3: a removed clipboard page can't be opened
+ok    round 3: every tool can be removed
+ok    Home with no tools, round 3: nothing cut off or sticking out
+ok    the Store with no tools, round 3: the Store page opens (Store)
+ok    the Store with no tools, round 3: the Store page shows (748x608)
+ok    round 3: clipboard can be added back
+ok    round 3: space can be added back
+ok    round 3: capture can be added back
+ok    round 3: player can be added back
+ok    round 3: viewer can be added back
+ok    round 3: archive can be added back
+ok    round 3: uninstaller can be added back
+ok    round 3: converter can be added back
+note  round 3: 27 windows, 1345 widgets, 180 MB, 48486 Python objects
+ok    round 4: removing converter takes it out of the sidebar
+ok    round 4: after removing converter the window is still open (Store)
+ok    round 4: a removed converter page can't be opened
+ok    round 4: removing uninstaller takes it out of the sidebar
+ok    round 4: after removing uninstaller the window is still open (Store)
+ok    round 4: a removed uninstaller page can't be opened
+ok    round 4: removing archive takes it out of the sidebar
+ok    round 4: after removing archive the window is still open (Store)
+ok    round 4: a removed archive page can't be opened
+ok    round 4: removing viewer takes it out of the sidebar
+ok    round 4: after removing viewer the window is still open (Store)
+ok    round 4: a removed viewer page can't be opened
+ok    round 4: removing player takes it out of the sidebar
+ok    round 4: after removing player the window is still open (Store)
+ok    round 4: a removed player page can't be opened
+ok    round 4: removing capture takes it out of the sidebar
+ok    round 4: after removing capture the window is still open (Store)
+ok    a removed Capture lets go of its shortcuts
+ok    round 4: a removed capture page can't be opened
+ok    round 4: removing space takes it out of the sidebar
+ok    round 4: after removing space the window is still open (Store)
+ok    round 4: a removed space page can't be opened
+ok    round 4: removing clipboard takes it out of the sidebar
+ok    round 4: after removing clipboard the window is still open (Store)
+ok    a removed Clipboard stops watching what's copied
+ok    round 4: a removed clipboard page can't be opened
+ok    round 4: every tool can be removed
+ok    Home with no tools, round 4: nothing cut off or sticking out
+ok    the Store with no tools, round 4: the Store page opens (Store)
+ok    the Store with no tools, round 4: the Store page shows (748x608)
+ok    round 4: clipboard can be added back
+ok    round 4: space can be added back
+ok    round 4: capture can be added back
+ok    round 4: player can be added back
+ok    round 4: viewer can be added back
+ok    round 4: archive can be added back
+ok    round 4: uninstaller can be added back
+ok    round 4: converter can be added back
+note  round 4: 27 windows, 1345 widgets, 191 MB, 48586 Python objects
+ok    round 5: removing converter takes it out of the sidebar
+ok    round 5: after removing converter the window is still open (Store)
+ok    round 5: a removed converter page can't be opened
+ok    round 5: removing uninstaller takes it out of the sidebar
+ok    round 5: after removing uninstaller the window is still open (Store)
+ok    round 5: a removed uninstaller page can't be opened
+ok    round 5: removing archive takes it out of the sidebar
+ok    round 5: after removing archive the window is still open (Store)
+ok    round 5: a removed archive page can't be opened
+ok    round 5: removing viewer takes it out of the sidebar
+ok    round 5: after removing viewer the window is still open (Store)
+ok    round 5: a removed viewer page can't be opened
+ok    round 5: removing player takes it out of the sidebar
+ok    round 5: after removing player the window is still open (Store)
+ok    round 5: a removed player page can't be opened
+ok    round 5: removing capture takes it out of the sidebar
+ok    round 5: after removing capture the window is still open (Store)
+ok    a removed Capture lets go of its shortcuts
+ok    round 5: a removed capture page can't be opened
+ok    round 5: removing space takes it out of the sidebar
+ok    round 5: after removing space the window is still open (Store)
+ok    round 5: a removed space page can't be opened
+ok    round 5: removing clipboard takes it out of the sidebar
+ok    round 5: after removing clipboard the window is still open (Store)
+ok    a removed Clipboard stops watching what's copied
+ok    round 5: a removed clipboard page can't be opened
+ok    round 5: every tool can be removed
+ok    Home with no tools, round 5: nothing cut off or sticking out
+ok    the Store with no tools, round 5: the Store page opens (Store)
+ok    the Store with no tools, round 5: the Store page shows (748x608)
+ok    round 5: clipboard can be added back
+ok    round 5: space can be added back
+ok    round 5: capture can be added back
+ok    round 5: player can be added back
+ok    round 5: viewer can be added back
+ok    round 5: archive can be added back
+ok    round 5: uninstaller can be added back
+ok    round 5: converter can be added back
+note  round 5: 27 windows, 1345 widgets, 193 MB, 48161 Python objects
+ok    round 6: removing converter takes it out of the sidebar
+ok    round 6: after removing converter the window is still open (Store)
+ok    round 6: a removed converter page can't be opened
+ok    round 6: removing uninstaller takes it out of the sidebar
+ok    round 6: after removing uninstaller the window is still open (Store)
+ok    round 6: a removed uninstaller page can't be opened
+ok    round 6: removing archive takes it out of the sidebar
+ok    round 6: after removing archive the window is still open (Store)
+ok    round 6: a removed archive page can't be opened
+ok    round 6: removing viewer takes it out of the sidebar
+ok    round 6: after removing viewer the window is still open (Store)
+ok    round 6: a removed viewer page can't be opened
+ok    round 6: removing player takes it out of the sidebar
+ok    round 6: after removing player the window is still open (Store)
+ok    round 6: a removed player page can't be opened
+ok    round 6: removing capture takes it out of the sidebar
+ok    round 6: after removing capture the window is still open (Store)
+ok    a removed Capture lets go of its shortcuts
+ok    round 6: a removed capture page can't be opened
+ok    round 6: removing space takes it out of the sidebar
+ok    round 6: after removing space the window is still open (Store)
+ok    round 6: a removed space page can't be opened
+ok    round 6: removing clipboard takes it out of the sidebar
+ok    round 6: after removing clipboard the window is still open (Store)
+ok    a removed Clipboard stops watching what's copied
+ok    round 6: a removed clipboard page can't be opened
+ok    round 6: every tool can be removed
+ok    Home with no tools, round 6: nothing cut off or sticking out
+ok    the Store with no tools, round 6: the Store page opens (Store)
+ok    the Store with no tools, round 6: the Store page shows (748x608)
+ok    round 6: clipboard can be added back
+ok    round 6: space can be added back
+ok    round 6: capture can be added back
+ok    round 6: player can be added back
+ok    round 6: viewer can be added back
+ok    round 6: archive can be added back
+ok    round 6: uninstaller can be added back
+ok    round 6: converter can be added back
+note  round 6: 27 windows, 1345 widgets, 195 MB, 48656 Python objects
+ok    round 7: removing converter takes it out of the sidebar
+ok    round 7: after removing converter the window is still open (Store)
+ok    round 7: a removed converter page can't be opened
+ok    round 7: removing uninstaller takes it out of the sidebar
+ok    round 7: after removing uninstaller the window is still open (Store)
+ok    round 7: a removed uninstaller page can't be opened
+ok    round 7: removing archive takes it out of the sidebar
+ok    round 7: after removing archive the window is still open (Store)
+ok    round 7: a removed archive page can't be opened
+ok    round 7: removing viewer takes it out of the sidebar
+ok    round 7: after removing viewer the window is still open (Store)
+ok    round 7: a removed viewer page can't be opened
+ok    round 7: removing player takes it out of the sidebar
+ok    round 7: after removing player the window is still open (Store)
+ok    round 7: a removed player page can't be opened
+ok    round 7: removing capture takes it out of the sidebar
+ok    round 7: after removing capture the window is still open (Store)
+ok    a removed Capture lets go of its shortcuts
+ok    round 7: a removed capture page can't be opened
+ok    round 7: removing space takes it out of the sidebar
+ok    round 7: after removing space the window is still open (Store)
+ok    round 7: a removed space page can't be opened
+ok    round 7: removing clipboard takes it out of the sidebar
+ok    round 7: after removing clipboard the window is still open (Store)
+ok    a removed Clipboard stops watching what's copied
+ok    round 7: a removed clipboard page can't be opened
+ok    round 7: every tool can be removed
+ok    Home with no tools, round 7: nothing cut off or sticking out
+ok    the Store with no tools, round 7: the Store page opens (Store)
+ok    the Store with no tools, round 7: the Store page shows (748x608)
+ok    round 7: clipboard can be added back
+ok    round 7: space can be added back
+ok    round 7: capture can be added back
+ok    round 7: player can be added back
+ok    round 7: viewer can be added back
+ok    round 7: archive can be added back
+ok    round 7: uninstaller can be added back
+ok    round 7: converter can be added back
+note  round 7: 27 windows, 1345 widgets, 211 MB, 48869 Python objects
+ok    round 8: removing converter takes it out of the sidebar
+ok    round 8: after removing converter the window is still open (Store)
+ok    round 8: a removed converter page can't be opened
+ok    round 8: removing uninstaller takes it out of the sidebar
+ok    round 8: after removing uninstaller the window is still open (Store)
+ok    round 8: a removed uninstaller page can't be opened
+ok    round 8: removing archive takes it out of the sidebar
+ok    round 8: after removing archive the window is still open (Store)
+ok    round 8: a removed archive page can't be opened
+ok    round 8: removing viewer takes it out of the sidebar
+ok    round 8: after removing viewer the window is still open (Store)
+ok    round 8: a removed viewer page can't be opened
+ok    round 8: removing player takes it out of the sidebar
+ok    round 8: after removing player the window is still open (Store)
+ok    round 8: a removed player page can't be opened
+ok    round 8: removing capture takes it out of the sidebar
+ok    round 8: after removing capture the window is still open (Store)
+ok    a removed Capture lets go of its shortcuts
+ok    round 8: a removed capture page can't be opened
+ok    round 8: removing space takes it out of the sidebar
+ok    round 8: after removing space the window is still open (Store)
+ok    round 8: a removed space page can't be opened
+ok    round 8: removing clipboard takes it out of the sidebar
+ok    round 8: after removing clipboard the window is still open (Store)
+ok    a removed Clipboard stops watching what's copied
+ok    round 8: a removed clipboard page can't be opened
+ok    round 8: every tool can be removed
+ok    Home with no tools, round 8: nothing cut off or sticking out
+ok    the Store with no tools, round 8: the Store page opens (Store)
+ok    the Store with no tools, round 8: the Store page shows (748x608)
+ok    round 8: clipboard can be added back
+ok    round 8: space can be added back
+ok    round 8: capture can be added back
+ok    round 8: player can be added back
+ok    round 8: viewer can be added back
+ok    round 8: archive can be added back
+ok    round 8: uninstaller can be added back
+ok    round 8: converter can be added back
+note  round 8: 27 windows, 1345 widgets, 218 MB, 48904 Python objects
+ok    round 9: removing converter takes it out of the sidebar
+ok    round 9: after removing converter the window is still open (Store)
+ok    round 9: a removed converter page can't be opened
+ok    round 9: removing uninstaller takes it out of the sidebar
+ok    round 9: after removing uninstaller the window is still open (Store)
+ok    round 9: a removed uninstaller page can't be opened
+ok    round 9: removing archive takes it out of the sidebar
+ok    round 9: after removing archive the window is still open (Store)
+ok    round 9: a removed archive page can't be opened
+ok    round 9: removing viewer takes it out of the sidebar
+ok    round 9: after removing viewer the window is still open (Store)
+ok    round 9: a removed viewer page can't be opened
+ok    round 9: removing player takes it out of the sidebar
+ok    round 9: after removing player the window is still open (Store)
+ok    round 9: a removed player page can't be opened
+ok    round 9: removing capture takes it out of the sidebar
+ok    round 9: after removing capture the window is still open (Store)
+ok    a removed Capture lets go of its shortcuts
+ok    round 9: a removed capture page can't be opened
+ok    round 9: removing space takes it out of the sidebar
+ok    round 9: after removing space the window is still open (Store)
+ok    round 9: a removed space page can't be opened
+ok    round 9: removing clipboard takes it out of the sidebar
+ok    round 9: after removing clipboard the window is still open (Store)
+ok    a removed Clipboard stops watching what's copied
+ok    round 9: a removed clipboard page can't be opened
+ok    round 9: every tool can be removed
+ok    Home with no tools, round 9: nothing cut off or sticking out
+ok    the Store with no tools, round 9: the Store page opens (Store)
+ok    the Store with no tools, round 9: the Store page shows (748x608)
+ok    round 9: clipboard can be added back
+ok    round 9: space can be added back
+ok    round 9: capture can be added back
+ok    round 9: player can be added back
+ok    round 9: viewer can be added back
+ok    round 9: archive can be added back
+ok    round 9: uninstaller can be added back
+ok    round 9: converter can be added back
+note  round 9: 27 windows, 1345 widgets, 221 MB, 48939 Python objects
+ok    round 10: removing converter takes it out of the sidebar
+ok    round 10: after removing converter the window is still open (Store)
+ok    round 10: a removed converter page can't be opened
+ok    round 10: removing uninstaller takes it out of the sidebar
+ok    round 10: after removing uninstaller the window is still open (Store)
+ok    round 10: a removed uninstaller page can't be opened
+ok    round 10: removing archive takes it out of the sidebar
+ok    round 10: after removing archive the window is still open (Store)
+ok    round 10: a removed archive page can't be opened
+ok    round 10: removing viewer takes it out of the sidebar
+ok    round 10: after removing viewer the window is still open (Store)
+ok    round 10: a removed viewer page can't be opened
+ok    round 10: removing player takes it out of the sidebar
+ok    round 10: after removing player the window is still open (Store)
+ok    round 10: a removed player page can't be opened
+ok    round 10: removing capture takes it out of the sidebar
+ok    round 10: after removing capture the window is still open (Store)
+ok    a removed Capture lets go of its shortcuts
+ok    round 10: a removed capture page can't be opened
+ok    round 10: removing space takes it out of the sidebar
+ok    round 10: after removing space the window is still open (Store)
+ok    round 10: a removed space page can't be opened
+ok    round 10: removing clipboard takes it out of the sidebar
+ok    round 10: after removing clipboard the window is still open (Store)
+ok    a removed Clipboard stops watching what's copied
+ok    round 10: a removed clipboard page can't be opened
+ok    round 10: every tool can be removed
+ok    Home with no tools, round 10: nothing cut off or sticking out
+ok    the Store with no tools, round 10: the Store page opens (Store)
+ok    the Store with no tools, round 10: the Store page shows (748x608)
+ok    round 10: clipboard can be added back
+ok    round 10: space can be added back
+ok    round 10: capture can be added back
+ok    round 10: player can be added back
+ok    round 10: viewer can be added back
+ok    round 10: archive can be added back
+ok    round 10: uninstaller can be added back
+ok    round 10: converter can be added back
+note  round 10: 27 windows, 1345 widgets, 223 MB, 48974 Python objects
+note  grew 58 KB in 1285 blocks at threading.py:1075 > threading.py:1012 > app.py:1038 > shellmenu.py:127 > shellmenu.py:103
+note  grew 57 KB in 1168 blocks at window.py:514 > window.py:2660 > window.py:3107 > window.py:93 > widgets.py:29
+note  grew 56 KB in 1152 blocks at window.py:514 > window.py:2660 > window.py:3107 > window.py:93 > widgets.py:29
+note  grew 44 KB in 1095 blocks at app.py:423 > window.py:514 > window.py:2660 > window.py:3110 > window.py:82
+note  grew 44 KB in 1095 blocks at app.py:423 > window.py:514 > window.py:2660 > window.py:3109 > window.py:82
+note  grew 44 KB in 1095 blocks at app.py:423 > window.py:514 > window.py:2660 > window.py:3102 > window.py:82
+note  grew 43 KB in 1080 blocks at app.py:423 > window.py:514 > window.py:2660 > window.py:3110 > window.py:82
+note  grew 43 KB in 1080 blocks at app.py:423 > window.py:514 > window.py:2660 > window.py:3109 > window.py:82
+note  Python objects that grew: tuple +30666, CField +44, getset_descriptor +16, StgDict +8, ReferenceType +8, list +6, PyCStructType +4, PyCPointerType +4
+note  after the app tidies up: 223 MB; with the picture cache emptied too: 209 MB (picture cache limit 10 MB)
+ok    widgets don't pile up as tools come and go (1345 → 1345 → 1345 → 1345 → 1345 → 1345 → 1345 → 1345 → 1345 → 1345)
+ok    no runaway memory as tools come and go (148 → 177 → 180 → 191 → 193 → 195 → 211 → 218 → 221 → 223 MB, 6.9 MB a round)
+ok    store: no errors behind the clicks (0)
+----- reopen
+note  after 10 opens: 161 MB, 14 widgets, 4 windows
+note  after 20 opens: 169 MB, 14 widgets, 4 windows
+note  after 30 opens: 171 MB, 14 widgets, 4 windows
+note  after 40 opens: 155 MB, 14 widgets, 4 windows
+ok    nothing is left behind as the window is opened and closed (14 → 14 → 14 → 14 widgets)
+ok    memory doesn't climb as the window is opened and closed (161 → 169 → 171 → 155 MB, -203 KB an open)
+ok    reopen: no errors behind the clicks (0)
+ok    the log has no errors (0: [])
+sweeptest en-dark-1040x700: 0 problem(s)
