@@ -1,0 +1,121 @@
+# TEMPORARY (delete before the pull request is merged): tries Corefold Startup on real Windows PCs on
+# every push to its branch. What it found goes to the "startup-results" branch, summary.txt on top.
+name: Startup tool run
+
+on:
+  push:
+    branches: [claude/project-thread-qvqr66]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: startup-run
+  cancel-in-progress: true
+
+jobs:
+  try:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: en-dark
+            lang: en
+            look: dark
+          - name: ar-light
+            lang: ar
+            look: light
+          - name: fr-dark-150
+            lang: fr
+            look: dark
+            scale: "1.5"
+          - name: tr-light-small
+            lang: tr
+            look: light
+            size: min
+          - name: es-dark-200
+            lang: es
+            look: dark
+            scale: "2"
+    name: ${{ matrix.name }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install what the app needs
+        shell: pwsh
+        run: |
+          python -m pip install --quiet -r requirements.txt
+          New-Item -ItemType Directory -Force out | Out-Null
+          python scripts/screenres.py 1920 1080 *>> out/screen.txt
+
+      - name: Translations
+        if: matrix.name == 'en-dark'
+        shell: pwsh
+        continue-on-error: true
+        run: python scripts/check_translations.py *> out/translations.txt
+
+      - name: The scenario test
+        shell: pwsh
+        continue-on-error: true
+        env:
+          QT_SCALE_FACTOR: ${{ matrix.scale }}
+        run: |
+          if (-not $env:QT_SCALE_FACTOR) { Remove-Item Env:QT_SCALE_FACTOR }
+          python scripts/startuptest.py out/startuptest ${{ matrix.lang }} ${{ matrix.look }} *> out/startuptest.txt
+
+      - name: Every button on the page, and the Store
+        timeout-minutes: 25
+        shell: pwsh
+        continue-on-error: true
+        env:
+          QT_SCALE_FACTOR: ${{ matrix.scale }}
+          SIZE: ${{ matrix.size }}
+        run: |
+          if (-not $env:QT_SCALE_FACTOR) { Remove-Item Env:QT_SCALE_FACTOR }
+          $size = if ($env:SIZE) { $env:SIZE } else { "1040x700" }
+          python scripts/sweeptest.py out/sweep --lang ${{ matrix.lang }} --look ${{ matrix.look }} --size $size --pages Startup,Store,Home --rounds 2 *> out/sweep.txt
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: startup-${{ matrix.name }}
+          path: out/
+
+  results:
+    needs: try
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          path: results
+
+      - name: Sum up and save to the startup-results branch
+        env:
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd results
+          {
+            echo "Startup tool run of $SHA"
+            for d in */; do
+              echo "== ${d%/}"
+              grep -rhaE "^(startuptest|sweeptest)[^:]*: [0-9]+ problem|\[[a-z]{2}\] [0-9]+ texts" "$d" 2>/dev/null | head -20
+              grep -rhaE "^(FAIL|ERROR) " "$d" 2>/dev/null | sort | uniq -c | sort -rn | head -60
+            done
+          } > summary.txt
+          cat summary.txt
+          git init -q -b startup-results
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Startup tool run of $SHA"
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${REPO}.git" startup-results
