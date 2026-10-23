@@ -1,0 +1,15 @@
+
+errors:
+
+notes:
+General: pressing 'رجّع الإعدادات الافتراضية' took 3.8 s
+433 presses in all; would have opened: 8 (file:///C:/Users/runneradmin/Pictures/Screenshots, program explorer /select,"C:\Users\runneradmin\Documents\Visual Studio 18\Templates\ProjectTemplates\TypeScript", program explorer /select,"C:\Users\runneradmin\Desktop", startfile ('ms-settings:defaultapps?registeredAppUser=Corefold',), startfile ('ms-settings:defaultapps?registeredAppUser=Corefold',), startfile ('ms-settings:defaultapps?registeredAppUser=Corefold',), file:///C:/Users/RUNNER~1/AppData/Local/Temp/corefold-sweep-iffrgct8/local/Corefold, quit)
+the search ran 235 of 235 things
+round 1: 31 windows, 1609 widgets, 288 MB, 56918 Python objects
+round 2: 31 windows, 1609 widgets, 288 MB, 56953 Python objects
+round 3: 31 windows, 1609 widgets, 288 MB, 56988 Python objects
+memory as tools come and go (288 → 288 → 288 MB, -0.0 MB a round)
+after 10 opens: 249 MB, 15 widgets, 5 windows
+after 20 opens: 250 MB, 15 widgets, 5 windows
+after 30 opens: 250 MB, 15 widgets, 5 windows
+after 40 opens: 250 MB, 15 widgets, 5 windows

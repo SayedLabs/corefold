@@ -1,0 +1,264 @@
+ok    UTF-16 with a byte-order mark
+ok    UTF-16 without one
+ok    UTF-8
+ok    UTF-8 cut in the middle of a letter at the end
+ok    UTF-8 with a byte-order mark
+ok    an old Windows (ANSI) text file
+ok    text is told apart from other files
+ok    a.PNG is picture
+ok    a.heic is picture
+ok    a.mp4 is video
+ok    a.flac is audio
+ok    a.pdf is pdf
+ok    a.py is text
+ok    a.zip is archive
+ok    a.7z is archive
+ok    a.xyz is looked at
+ok    Ctrl + Space to begin with
+---- en dark
+ok    Quick look is running with the Viewer in use
+ok    a File Explorer window opened on the test folder
+      (the File Explorer window: 0x1801b4 'CabinetWClass'; this test runs as administrator)
+ok    …showing the test folder ('C:\\Users\\runneradmin\\AppData\\Local\\Temp\\corefold-newtest-peek-z3nosk8a\\files', wanted 'C:\\Users\\runneradmin\\AppData\\Local\\Temp\\corefold-newtest-peek-z3nosk8a\\files')
+      (Explorer didn't select the picture by itself: selecting it here)
+ok    the selection is read from File Explorer (['C:\\Users\\runneradmin\\AppData\\Local\\Temp\\corefold-newtest-peek-z3nosk8a\\files\\a photo.png'])
+        shell: window 0x19022c 'ShellTabWindowClass' in 0x1801b4 (says 0x1801b4) visible=True
+        shell: the view shows C:\Users\runneradmin\AppData\Local\Temp\corefold-newtest-peek-z3nosk8a\files: 1 item(s) selected (hr 0x0)
+        shell: 1 path(s) from 1 shell item(s)
+      (read in 10 ms)
+ok    File Explorer is in front
+ok    …so the shortcut is taken (the foreground hook saw it)
+        in front: 0x20200 'CASCADIA_HOSTING_WINDOW_CLASS': free
+        in front: 0x20200 'CASCADIA_HOSTING_WINDOW_CLASS': free
+        in front: 0x1801b4 'CabinetWClass': taken
+ok    …and Windows says Ctrl + Space is taken now
+ok    Ctrl + Space opens the preview window
+      (from the key press to the window: 102 ms, the first time)
+ok    …with the selected picture (C:\Users\runneradmin\AppData\Local\Temp\corefold-newtest-peek-z3nosk8a\files\a photo.png)
+ok    …shown as a picture
+ok    …and the picture appears
+      (the picture itself after 137 ms)
+ok    …in a window without a frame
+ok    …in the middle of the screen
+ok    …and it has the keyboard
+ok    the rest of the folder is read for ← and → (7)
+ok    → goes to the next file in the folder (C:\Users\runneradmin\AppData\Local\Temp\corefold-newtest-peek-z3nosk8a\files\b notes.txt)
+ok    ← goes back
+ok    Esc closes it
+ok    …and File Explorer is in front again
+ok    …with the shortcut taken again
+ok    Ctrl + Space opens it again
+ok    …in 33 ms from the key press (aim: under 300 ms)
+ok    Ctrl + Space in the preview closes it
+ok    …and opens it once more
+ok    Space closes it too
+ok    b notes.txt is selected in File Explorer
+ok    …Ctrl + Space shows b notes.txt
+ok    …as text (QPlainTextEdit)
+ok    …'Open with Corefold' is offered only when Corefold opens it (False)
+ok    …Esc closes it
+ok    …and nothing of the preview is kept
+ok    c document.pdf is selected in File Explorer
+ok    …Ctrl + Space shows c document.pdf
+ok    …as pdf (QScrollArea)
+ok    …all 3 pages drawn
+ok    …'Open with Corefold' is offered only when Corefold opens it (False)
+ok    …Esc closes it
+ok    …and nothing of the preview is kept
+ok    d folder is selected in File Explorer
+ok    …Ctrl + Space shows d folder
+ok    …as folder (QWidget)
+ok    …its files counted (6 files and 1 folders, 84.0 KB)
+ok    …'Open with Corefold' is offered only when Corefold opens it (False)
+ok    …Esc closes it
+ok    …and nothing of the preview is kept
+ok    e archive.zip is selected in File Explorer
+ok    …Ctrl + Space shows e archive.zip
+ok    …as archive (QTreeWidget)
+ok    …its 12 items listed
+ok    …'Open with Corefold' is offered only when Corefold opens it (True)
+ok    …Esc closes it
+ok    …and nothing of the preview is kept
+ok    f data.dat is selected in File Explorer
+ok    …Ctrl + Space shows f data.dat
+ok    …as other (QWidget)
+ok    …'Open with Corefold' is offered only when Corefold opens it (False)
+ok    …Esc closes it
+ok    …and nothing of the preview is kept
+ok    g clip.mp4 is selected in File Explorer
+ok    …Ctrl + Space shows g clip.mp4
+ok    …as video (_Media)
+ok    …playing without sound
+ok    …'Open with Corefold' is offered only when Corefold opens it (True)
+ok    …Esc closes it
+ok    …and nothing of the preview is kept
+ok    two files selected
+ok    …Ctrl + Space shows the two of them
+ok    → goes to the other one (b notes.txt)
+ok    …and round to the first again
+ok    the desktop is there
+ok    the desktop is in front (Progman)
+ok    a file on the desktop is selected (['C:\\Users\\runneradmin\\Desktop\\corefold quick look test.txt'])
+ok    …the shortcut is taken while the desktop is in front
+ok    …and Ctrl + Space shows the desktop file
+ok    Notepad opened
+ok    …and it's in front
+ok    …so Quick look let go of the shortcut
+ok    …Windows says nobody holds Ctrl + Space (Notepad gets it)
+ok    Ctrl + Space in Notepad doesn't open a preview
+ok    …and Notepad is still in front
+ok    the window is hidden after closing
+ok    …and freed a while later (like the quick menu)
+ok    removing the Viewer stops Quick look
+ok    …its thread (and the foreground hook) is gone
+ok    …and Ctrl + Space is free even with File Explorer in front
+ok    putting the Viewer back starts it again
+ok    …and switching its shortcut off stops it
+ok    Settings → Viewer has the shortcut
+ok    picking another shortcut is used straight away
+(en dark) 0 problem(s)
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'C:/Users/runneradmin/AppData/Local/Temp/corefold-newtest-peek-z3nosk8a/files/g clip.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf63.1.102
+  Duration: 00:00:03.00, start: 0.000000, bitrate: 60 kb/s
+  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 640x360 [SAR 1:1 DAR 16:9], 55 kb/s, 25 fps, 25 tbr, 12800 tbn (default)
+    Metadata:
+      handler_name    : VideoHandler
+      encoder         : Lavc63.1.102 libx264
+[av1_mf @ 000001F72E62F380] could not find any MFT for the given media type
+[av1_mf @ 000001F72E62F380] could not create MFT
+[h264_mf @ 000001F72E62EC40] MFT name: 'H264 Encoder MFT'
+[hevc_mf @ 000001F72E62F380] could not find any MFT for the given media type
+[hevc_mf @ 000001F72E62F380] could not create MFT
+[AVHWFramesContext @ 000001F72ECB7280] Could not create the surfaces
+[AVHWFramesContext @ 000001F72ECB7280] Error creating an internal frame pool
+[h264 @ 000001F72E630600] Failed setup for format dxva2_vld: hwaccel initialisation returned error.
+
+---- ar light
+ok    Quick look is running with the Viewer in use
+ok    a File Explorer window opened on the test folder
+      (the File Explorer window: 0x202ce 'CabinetWClass'; this test runs as administrator)
+ok    …showing the test folder ('C:\\Users\\runneradmin\\AppData\\Local\\Temp\\corefold-newtest-peek-9v64fij9\\files', wanted 'C:\\Users\\runneradmin\\AppData\\Local\\Temp\\corefold-newtest-peek-9v64fij9\\files')
+      (Explorer didn't select the picture by itself: selecting it here)
+ok    the selection is read from File Explorer (['C:\\Users\\runneradmin\\AppData\\Local\\Temp\\corefold-newtest-peek-9v64fij9\\files\\a photo.png'])
+        shell: window 0x10b0232 'ShellTabWindowClass' in 0x202ce (says 0x202ce) visible=True
+        shell: the view shows C:\Users\runneradmin\AppData\Local\Temp\corefold-newtest-peek-9v64fij9\files: 1 item(s) selected (hr 0x0)
+        shell: 1 path(s) from 1 shell item(s)
+      (read in 8 ms)
+ok    File Explorer is in front
+ok    …so the shortcut is taken (the foreground hook saw it)
+        in front: 0x20200 'CASCADIA_HOSTING_WINDOW_CLASS': free
+        in front: 0x20200 'CASCADIA_HOSTING_WINDOW_CLASS': free
+        in front: 0x10b0232 'ShellTabWindowClass': free
+        in front: 0x202ce 'CabinetWClass': taken
+        in front: 0x202ce 'CabinetWClass': taken
+ok    …and Windows says Ctrl + Space is taken now
+ok    Ctrl + Space opens the preview window
+      (from the key press to the window: 108 ms, the first time)
+ok    …with the selected picture (C:\Users\runneradmin\AppData\Local\Temp\corefold-newtest-peek-9v64fij9\files\a photo.png)
+ok    …shown as a picture
+ok    …and the picture appears
+      (the picture itself after 123 ms)
+ok    …in a window without a frame
+ok    …in the middle of the screen
+ok    …and it has the keyboard
+ok    the rest of the folder is read for ← and → (7)
+ok    → goes to the next file in the folder (C:\Users\runneradmin\AppData\Local\Temp\corefold-newtest-peek-9v64fij9\files\b notes.txt)
+ok    ← goes back
+ok    Esc closes it
+ok    …and File Explorer is in front again
+ok    …with the shortcut taken again
+ok    Ctrl + Space opens it again
+ok    …in 34 ms from the key press (aim: under 300 ms)
+ok    Ctrl + Space in the preview closes it
+ok    …and opens it once more
+ok    Space closes it too
+ok    b notes.txt is selected in File Explorer
+ok    …Ctrl + Space shows b notes.txt
+ok    …as text (QPlainTextEdit)
+ok    …'Open with Corefold' is offered only when Corefold opens it (False)
+ok    …Esc closes it
+ok    …and nothing of the preview is kept
+ok    c document.pdf is selected in File Explorer
+ok    …Ctrl + Space shows c document.pdf
+ok    …as pdf (QScrollArea)
+ok    …all 3 pages drawn
+ok    …'Open with Corefold' is offered only when Corefold opens it (False)
+ok    …Esc closes it
+ok    …and nothing of the preview is kept
+ok    d folder is selected in File Explorer
+ok    …Ctrl + Space shows d folder
+ok    …as folder (QWidget)
+ok    …its files counted (٦ ملفات و١ مجلد، ‪⁦84.0 KB⁩‬)
+ok    …'Open with Corefold' is offered only when Corefold opens it (False)
+ok    …Esc closes it
+ok    …and nothing of the preview is kept
+ok    e archive.zip is selected in File Explorer
+ok    …Ctrl + Space shows e archive.zip
+ok    …as archive (QTreeWidget)
+ok    …its 12 items listed
+ok    …'Open with Corefold' is offered only when Corefold opens it (True)
+ok    …Esc closes it
+ok    …and nothing of the preview is kept
+ok    f data.dat is selected in File Explorer
+ok    …Ctrl + Space shows f data.dat
+ok    …as other (QWidget)
+ok    …'Open with Corefold' is offered only when Corefold opens it (False)
+ok    …Esc closes it
+ok    …and nothing of the preview is kept
+ok    g clip.mp4 is selected in File Explorer
+ok    …Ctrl + Space shows g clip.mp4
+ok    …as video (_Media)
+ok    …playing without sound
+ok    …'Open with Corefold' is offered only when Corefold opens it (True)
+ok    …Esc closes it
+ok    …and nothing of the preview is kept
+ok    two files selected
+ok    …Ctrl + Space shows the two of them
+ok    → goes to the other one (b notes.txt)
+ok    …and round to the first again
+ok    the desktop is there
+ok    the desktop is in front (Progman)
+ok    a file on the desktop is selected (['C:\\Users\\runneradmin\\Desktop\\corefold quick look test.txt'])
+ok    …the shortcut is taken while the desktop is in front
+ok    …and Ctrl + Space shows the desktop file
+ok    Notepad opened
+ok    …and it's in front
+ok    …so Quick look let go of the shortcut
+ok    …Windows says nobody holds Ctrl + Space (Notepad gets it)
+ok    Ctrl + Space in Notepad doesn't open a preview
+ok    …and Notepad is still in front
+ok    the window is hidden after closing
+ok    …and freed a while later (like the quick menu)
+ok    removing the Viewer stops Quick look
+ok    …its thread (and the foreground hook) is gone
+ok    …and Ctrl + Space is free even with File Explorer in front
+ok    putting the Viewer back starts it again
+ok    …and switching its shortcut off stops it
+ok    Settings → Viewer has the shortcut
+ok    picking another shortcut is used straight away
+(ar light) 0 problem(s)
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'C:/Users/runneradmin/AppData/Local/Temp/corefold-newtest-peek-9v64fij9/files/g clip.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf63.1.102
+  Duration: 00:00:03.00, start: 0.000000, bitrate: 60 kb/s
+  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 640x360 [SAR 1:1 DAR 16:9], 55 kb/s, 25 fps, 25 tbr, 12800 tbn (default)
+    Metadata:
+      handler_name    : VideoHandler
+      encoder         : Lavc63.1.102 libx264
+[av1_mf @ 000002B43621FB40] could not find any MFT for the given media type
+[av1_mf @ 000002B43621FB40] could not create MFT
+[h264_mf @ 000002B43621E540] MFT name: 'H264 Encoder MFT'
+[hevc_mf @ 000002B43621EC80] could not find any MFT for the given media type
+[hevc_mf @ 000002B43621EC80] could not create MFT
+[AVHWFramesContext @ 000002B43681BD80] Could not create the surfaces
+[AVHWFramesContext @ 000002B43681BD80] Error creating an internal frame pool
+[h264 @ 000002B43621F040] Failed setup for format dxva2_vld: hwaccel initialisation returned error.
+
+newtest_peek: 0 problem(s)
