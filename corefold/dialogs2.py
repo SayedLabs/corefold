@@ -407,12 +407,13 @@ class CropDialog(Base):
 class _Choices(Base):
     """A title, a few choices (one is picked), a note and a button."""
 
-    def __init__(self, files, icon, dark, title: str, choices: dict, note: str, ok: str, key: str):
+    def __init__(self, files, icon, dark, title: str, choices: dict, note: str, ok: str, key: str,
+                 translate: bool = True):
         super().__init__(title, describe(files), icon, dark)
         self.key = key
         self.group = QButtonGroup(self)
         for i, (value, text) in enumerate(choices.items()):
-            rb = QRadioButton(tr(text))
+            rb = QRadioButton(tr(text) if translate else text)
             rb.setProperty("value", value)
             rb.setChecked(i == 0)
             self.group.addButton(rb)
@@ -442,7 +443,7 @@ class SoundDialog(_Choices):
         from .videotools import SOUND_FORMATS
         super().__init__(files, icon, dark, tr("Save the sound"), SOUND_FORMATS,
                          tr("WAV and FLAC keep every detail but are big; MP3 and M4A play everywhere."), tr("Save"),
-                         "format")
+                         "format", translate=False)
 
 
 class SubtitlesDialog(Base):
