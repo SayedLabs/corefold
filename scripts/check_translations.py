@@ -96,6 +96,8 @@ def table_texts() -> dict[str, str]:
     add([text for _, text in clipboard.CHANGES], "clipboard.CHANGES")
     add([text for _, text in player.FIT_MODES], "player.FIT_MODES")
     add(videotools.CROPS.values(), "videotools.CROPS")
+    from corefold import pdfstamp
+    add(pdfstamp.NUMBER_PLACES.values(), "pdfstamp.NUMBER_PLACES")
     from corefold import space, spacepage
     add(space.KINDS.values(), "space.KINDS")
     add([t for _, t in spacepage.SECTIONS], "spacepage.SECTIONS")

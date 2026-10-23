@@ -27,7 +27,7 @@ if os.name != "nt":  # (a quick try on Linux: Windows' parts are pretend ones)
     for name in ("winreg", "winsound"):
         sys.modules[name] = mock.MagicMock()
 
-from PySide6.QtCore import QPoint, QPointF, QRect  # noqa: E402
+from PySide6.QtCore import QPointF, QRect  # noqa: E402
 from PySide6.QtGui import QColor, QImage  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
@@ -194,7 +194,7 @@ def passwords():
 
 def capture():
     from corefold import capture as cap
-    from corefold.capview import Canvas, PinnedPicture, Shape, draw_shape
+    from corefold.capview import Canvas, PinnedPicture, Shape
     exe = Path("ffmpeg")
     plain = cap.record_command(exe, QRect(0, 0, 400, 300), TMP / "r.mp4", 30, "", True, "")
     check("-c:a" not in plain, "recording without sound has no sound track")
@@ -283,6 +283,22 @@ def clipboard():
     check(cb.ignored_apps(S()) == {"mybank.exe", "notes.exe", "c:\\x\\y.exe"}, "apps the clipboard ignores")
 
 
+def saved_texts():
+    from types import SimpleNamespace
+
+    from corefold import clipboard as cb
+    fake = SimpleNamespace(history=cb.History(TMP / "clip"), changed=SimpleNamespace(emit=lambda: None))
+    first = cb.Clipboard.save_text(fake, "My address, 12 Street")
+    fake.history.add(cb.text_item("copied later"))
+    items = fake.history.items()
+    check(items[0].id == first.id and items[0].pinned, "a saved text is pinned at the top")
+    second = cb.Clipboard.save_text(fake, "My new address", instead_of=first)
+    texts = [i.text for i in fake.history.items()]
+    check("My new address" in texts and "My address, 12 Street" not in texts and second.pinned,
+          "changing a saved text replaces it")
+    fake.history.close()
+
+
 # ----------------------------------------------------------------------------- Viewer
 
 def viewer():
@@ -312,7 +328,44 @@ def viewer():
     check(v._flipped(q, "h").pixelColor(3, 0) == QColor("#ff0000"), "flip on screen")
 
 
+def viewer_strip():
+    from corefold.viewer import ViewerWindow, small_picture
+    folder = TMP / "photos"
+    check(not small_picture(folder / "a.jpg").isNull(), "a small picture for the strip")
+    c = FakeController()
+    c.settings.viewer_strip = True
+    win = ViewerWindow(c, folder / "b.jpg", c.icon)
+    win.show()
+    for _ in range(40):
+        app.processEvents()
+        time.sleep(0.05)
+    check(win.strip.count() == len(win.files) == 3, f"the strip has every picture ({win.strip.count()})")
+    check(win.strip.currentRow() == win.index, "…with the one shown picked")
+    filled = sum(not win.strip.item(i).icon().isNull() for i in range(win.strip.count()))
+    check(filled == 3, f"…and their small pictures ({filled})")
+    win.strip.itemClicked.emit(win.strip.item(2))
+    check(win.index == 2, "clicking one in the strip shows it")
+    win.toggle_strip()
+    check(win.strip.isHidden() and not c.settings.viewer_strip, "T hides the strip")
+    win.close()
+    app.processEvents()
+
+
 # ----------------------------------------------------------------------------- Space
+
+def space_kinds():
+    from corefold import space as sp
+    root = TMP / "kinds"
+    root.mkdir()
+    (root / "movie.mp4").write_bytes(b"x" * 9000)
+    (root / "sub").mkdir()
+    (root / "sub" / "clip.mkv").write_bytes(b"x" * 5000)
+    (root / "photo.jpg").write_bytes(b"x" * 3000)
+    result = sp.scan(root)
+    videos = [Path(p).name for _, p in result.biggest_kind["video"]]
+    check(videos == ["movie.mp4", "clip.mkv"], f"the biggest videos, from every folder ({videos})")
+    check([Path(p).name for _, p in result.biggest_kind["picture"]] == ["photo.jpg"], "…and pictures apart")
+
 
 def space():
     from corefold import space as sp
@@ -351,6 +404,66 @@ def space_programs():
     check(un.app_at(base, apps) is None, "…and a shared folder isn't anyone's")
 
 
+def shortcut_program():
+    from corefold import shellmenu
+    from corefold import uninstall as un
+    from corefold.settings import Settings
+    base = TMP / "Programs"
+    (base / "Bar").mkdir(parents=True, exist_ok=True)
+    exe = base / "Bar" / "bar.exe"
+    exe.write_bytes(b"MZ")
+    apps = [un.App(id="bar", name="Bar", icon=f'"{exe}",0'),
+            un.App(id="foo", name="Foo", location=str(base / "Foo"))]
+    check(getattr(un.app_for_shortcut(exe, apps), "name", None) == "Bar",
+          "a shortcut's program, found from its icon when it doesn't say where it's installed")
+    check(un.app_for_shortcut(base / "Foo" / "bin" / "x.exe", apps).name == "Foo", "…or from where it's installed")
+    check(un.app_for_shortcut(Path(os.environ.get("WINDIR", "C:\\Windows")) / "notepad.exe", apps) is None,
+          "…and Windows' own programs aren't anyone's")
+    s = Settings()
+    s.tools_off = []
+    verbs = shellmenu.plan(s, lambda *a: " ".join(a))
+    lnk = [v for v in verbs if v.name == "CorefoldUninstall"]
+    check(len(lnk) == 1 and lnk[0].single and "--uninstall" in lnk[0].command,
+          "\"Uninstall with Corefold\" on shortcuts")
+    s.tools_off = ["uninstaller"]
+    check(not any(v.name == "CorefoldUninstall" for v in shellmenu.plan(s, lambda *a: " ".join(a))),
+          "…not while the Uninstaller is off")
+
+
+# ----------------------------------------------------------------------------- PDF
+
+def pdf_stamps():
+    import pypdfium2 as pdfium
+    from pypdf import PdfWriter
+
+    from corefold import pdfstamp as ps
+    src = TMP / "doc.pdf"
+    w = PdfWriter()
+    w.add_blank_page(595, 842)
+    w.add_blank_page(842, 595)
+    w.add_blank_page(595, 842).rotate(90)
+    with open(src, "wb") as fh:
+        w.write(fh)
+    out = TMP / "pdf-out"
+    out.mkdir()
+    res = ps.page_numbers(src, Ctx(Options(output_folder=out), params={"place": "br", "style": "of", "skip": 1}))
+    pdf = pdfium.PdfDocument(str(res.outputs[0]))
+    texts = [pdf[i].get_textpage().get_text_range().strip() for i in range(len(pdf))]
+    check(texts == ["", "1 / 2", "2 / 2"], f"page numbers, the cover left out ({texts})")
+    pdf.close()
+    res = ps.watermark_pdf(src, Ctx(Options(output_folder=out), params={
+        "text": "Draft", "logo": "", "position": "c", "size": "large", "opacity": 60}))
+    pdf = pdfium.PdfDocument(str(res.outputs[0]))
+    check(len(pdf) == 3, "the watermarked PDF keeps every page")
+    for i in range(len(pdf)):
+        im = pdf[i].render(scale=0.5).to_pil().convert("L")
+        w_, h_ = im.size
+        middle = im.crop((w_ // 3, h_ // 3, 2 * w_ // 3, 2 * h_ // 3))
+        check(middle.getextrema()[0] < 200, f"page {i + 1}: the watermark is in the middle")
+        check(im.crop((0, 0, w_ // 6, h_ // 6)).getextrema()[0] > 250, f"page {i + 1}: …and not in the corner")
+    pdf.close()
+
+
 # ----------------------------------------------------------------------------- Player
 
 def player():
@@ -386,7 +499,9 @@ else:
     step("videos", make_videos)
     for name, fn in (("video tools", video_tools), ("fingerprint", fingerprint), ("passwords", passwords),
                      ("capture", capture), ("loopback", loopback), ("clipboard", clipboard), ("viewer", viewer),
-                     ("space", space), ("space programs", space_programs), ("player", player)):
+                     ("space", space), ("space programs", space_programs), ("player", player),
+                     ("saved texts", saved_texts), ("viewer strip", viewer_strip), ("space kinds", space_kinds),
+                     ("shortcut program", shortcut_program), ("pdf stamps", pdf_stamps)):
         step(name, fn)
 print(f"featuretest: {len(problems)} problem(s)")
 sys.exit(1 if problems else 0)
