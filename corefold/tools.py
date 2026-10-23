@@ -103,6 +103,13 @@ TOOLS: list[ToolInfo] = [
               "See how much each one slows down your PC when it starts",
               "Spot programs that added themselves without asking"),
              ready=False),
+    ToolInfo("scan", "Scan", "scan", "shield", "Corefold Scan", "Virus scan",
+             "Check your PC for malware with Microsoft Defender, plus Corefold's own checks for tricks viruses use.",
+             ("Quick scan, full scan, or right-click any file, folder or drive",
+              "Microsoft Defender, part of Windows, does the scanning: nothing is uploaded",
+              "Spots tricks viruses use: fake names like photo.jpg.exe, broken signatures, odd programs that "
+              "start with Windows",
+              "See what Defender put in quarantine, and put a file back if you're sure")),
     ToolInfo("pdf", "PDF", "pdf", "document_pdf", "Corefold PDF", "PDF",
              "Read, fill in and sign PDFs, and merge, split or shrink them.",
              ("Open and read PDFs fast",

@@ -100,6 +100,9 @@ def table_texts() -> dict[str, str]:
          "Crash reports", "Saved when a program crashed. Only useful to the people who make it.",
          "Old installers in Downloads", "Setup files downloaded more than a month ago. They go to the Recycle Bin."],
         "space.find_junk")
+    from corefold import scanpage
+    for name in ("PLACES", "STATUS", "SEVERITY", "SKIPPED", "KINDS"):
+        add(getattr(scanpage, name).values(), "scanpage." + name)
     for _, title, text in tour.STEPS:
         add([title, text], "tour.STEPS")
     return out

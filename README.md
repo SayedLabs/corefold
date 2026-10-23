@@ -11,7 +11,7 @@ Everyday tools in one small app that waits in the tray. Everything happens on yo
 - **Corefold Archive**: opens ZIP, RAR, 7z, ISO and more with a double-click. Drag files out, change a
   file inside and save it back, rescue damaged archives, and unpack archives inside archives in one go.
 
-Also in the Store: Corefold Viewer, Player, Capture, Space and Clipboard. Coming soon: Cloud.
+Also in the Store: Corefold Viewer, Player, Capture, Space, Clipboard and Scan. Coming soon: Cloud.
 
 ### The Converter
 
@@ -189,6 +189,9 @@ corefold/ipc.py                hands right-click requests to the running app wit
 corefold/i18n.py               languages; corefold/lang_ar.py has the Arabic text
 corefold/updater.py            self-updates from GitHub Releases (checksum-verified)
 corefold/uninstall.py          the Apps page: uninstalling and leftovers, with backups
+corefold/scan.py               Corefold Scan: Microsoft Defender's scans, and its own checks for tricks malware uses
+corefold/scanpage.py           Corefold Scan's page
+corefold/trust.py              signatures and "downloaded from" notes, read without the internet
 scripts/check_translations.py  checks that every text has a translation
 assets/                        icon, installer pictures and sounds (scripts/make_icon.py, make_sounds.py)
 scripts/build.ps1              builds the app, installer and zip

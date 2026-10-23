@@ -114,6 +114,10 @@ _TILE_GLYPHS = {  # drawn on the old 4..60 grid, moved into the 10..54 body by _
                  '<path fill="none" stroke-width="3.4" stroke-linecap="round" d="M26.5 42.5H35.5M26.5 47.5H32"/>',
     # Startup: a bolt (switched on as Windows starts)
     "startup": '<path d="M34 26 21.5 42H30.5L28 54 41 37.5H32Z"/>',
+    # Scan: a shield, and the line of a scan passing over it
+    "scan": '<path fill="none" stroke-width="3.8" stroke-linejoin="round" '
+            'd="M31 26.5 42 31V39c0 7-5 11.5-11 14-6-2.5-11-7-11-14V31Z"/>'
+            '<path fill="none" stroke-width="3.8" stroke-linecap="round" d="M15.5 40.5H46.5"/>',
     # PDF: a signature on a line
     "pdf": '<path fill="none" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" '
            'd="M18 44c3.5-7 7.5-11 9.5-8.5s-2.5 9 .5 9 4.5-6.5 7.5-6.5 1.5 5 4.5 4.5 3-2 4.5-2.5M19 51H43"/>',
@@ -147,7 +151,7 @@ PRODUCT_COLORS = {  # (light end, deep end) of each product's gradient
     "corefold": ("#6be6d2", "#0f8f7c"), "converter": ("#b4f08c", "#2f9a52"), "player": ("#ff9cb8", "#c22f5c"), "archive": ("#ffd27a", "#a86c00"),
     "cleaner": ("#a6c1ff", "#2b5fd4"), "viewer": ("#c9bcff", "#6b4bd6"), "cloud": ("#9fe3ff", "#1b86c4"),
     "capture": ("#ffb08f", "#d4502c"), "space": ("#f2a8ff", "#a23cc0"), "clipboard": ("#d9e2ef", "#5f6f88"),
-    "startup": ("#fff09a", "#c79300"), "pdf": ("#ffa494", "#cc2f2a"), "rename": ("#9ff0d0", "#13906a"),
+    "startup": ("#fff09a", "#c79300"), "scan": ("#7cf3d3", "#2563eb"), "pdf": ("#ffa494", "#cc2f2a"), "rename": ("#9ff0d0", "#13906a"),
     "search": ("#a9d4ff", "#3a63d8"),
     "colors": ("#ffb3e6", "#c4318f"), "ruler": ("#e0e6a8", "#8a9a1f"), "hash": ("#9ee8c0", "#1c8a55"),
     "shredder": ("#c9c9cf", "#55555e"), "fonts": ("#ffd1a6", "#c4621c"), "network": ("#99e6ff", "#127fae"),
