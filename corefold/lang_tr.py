@@ -1733,6 +1733,7 @@ STRINGS: dict[str, str] = {
     "Hide the keys": "Tuşları gizle",
     "Show the keys": "Tuşları göster",
     "Pick other keys, or close the app that uses these.": "Başka tuşlar seçin ya da bunları kullanan uygulamayı kapatın.",
+    "It also adds links to your quick menu ({count}). They open:": "Hızlı menünüze bağlantılar da ekler ({count}). Açtıkları:",
     # ---- quick menu: sums, units, Windows settings, web search, Windows commands, keep on top
     "Sleep": "Uyku",
     "Hibernate": "Hazırda beklet",

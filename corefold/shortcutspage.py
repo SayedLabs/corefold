@@ -119,6 +119,15 @@ def keys_text(c, entry: Global) -> str:
     return hotkey.display(value) or value
 
 
+def _wrapping(lab):
+    """Words that wrap in a narrow window (the keys and buttons next to them keep their room)."""
+    lab.setWordWrap(True)
+    lab.setMinimumWidth(1)
+    lab.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+    lab.setProperty("keepsHeight", True)  # (the layout gives it the height its lines need at any width)
+    return lab
+
+
 def _kbd(text: str):
     """Keys as printed on the keyboard, always left to right (arrows too, in Arabic)."""
     from .window import label
@@ -143,21 +152,20 @@ class ShortcutsPage:
         self.widget, lay = page(tr("Shortcuts"), tr("Every keyboard shortcut in Corefold. The ones that work in any "
                                                     "app can be changed."))
         box, bl = card()
-        bl.addWidget(label(tr("Keys that work in any app"), "h2"))
+        bl.addWidget(_wrapping(label(tr("Keys that work in any app"), "h2")))
         self.rows = []
         for r, entry in enumerate(GLOBAL):
             if r:
                 line = QFrame()
                 line.setObjectName("line")
                 bl.addWidget(line)
-            row = QHBoxLayout()
+            line_box = QWidget()
+            row = QHBoxLayout(line_box)
+            row.setContentsMargins(0, 0, 0, 0)
             row.setSpacing(12)
             words = QVBoxLayout()
             words.setSpacing(2)
-            what = label(tr(entry.label), "shortcutWhat")
-            what.setToolTip(what.text())
-            what.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)  # (a narrow window cuts it short)
-            words.addWidget(what)
+            words.addWidget(_wrapping(label(tr(entry.label), "shortcutWhat")))
             status = label("", "muted")
             words.addWidget(status)
             row.addLayout(words, 1)
@@ -165,7 +173,7 @@ class ShortcutsPage:
             row.addWidget(keys, 0, Qt.AlignVCenter)
             change = button(tr("Change"), "flat", lambda _=False, e=entry: self.change(e))
             row.addWidget(change, 0, Qt.AlignVCenter)
-            bl.addLayout(row)
+            bl.addWidget(line_box)
             self.rows.append((entry, keys, status, change))
         lay.addWidget(box)
 
@@ -173,8 +181,7 @@ class ShortcutsPage:
         for heading, tool, keys_list in WINDOW_KEYS:
             box, bl = card()
             top = QHBoxLayout()
-            top.addWidget(label(tr(heading), "h2"))
-            top.addStretch()
+            top.addWidget(_wrapping(label(tr(heading), "h2")), 1)
             body = QWidget()
             g = QGridLayout(body)
             g.setContentsMargins(0, 0, 0, 0)
@@ -184,7 +191,7 @@ class ShortcutsPage:
                 if only and not all_tools.is_on(self.c.settings, only[0]):
                     continue
                 g.addWidget(_kbd(keys), r, 0, Qt.AlignLeading | Qt.AlignVCenter)
-                g.addWidget(label(tr(what), "shortcutWhat", wrap=True), r, 1)
+                g.addWidget(_wrapping(label(tr(what), "shortcutWhat")), r, 1)
             g.setColumnStretch(1, 1)
             toggle = button("", "flat")
             toggle.clicked.connect(lambda _=False, b=body, t=toggle: self._show(b, t, b.isHidden()))

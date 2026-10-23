@@ -1811,6 +1811,7 @@ STRINGS: dict[str, str] = {
     "Hide the keys": "إخفاء المفاتيح",
     "Show the keys": "عرض المفاتيح",
     "Pick other keys, or close the app that uses these.": "اختر مفاتيح أخرى، أو أغلق البرنامج الذي يستخدمها.",
+    "It also adds links to your quick menu ({count}). They open:": "ويضيف أيضًا روابط إلى قائمتك السريعة ({count}). تفتح هذه:",
     # ---- quick menu: sums, units, Windows settings, web search, Windows commands, keep on top
     "Sleep": "السكون",
     "Hibernate": "الإسبات",

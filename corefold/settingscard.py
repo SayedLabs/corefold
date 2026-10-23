@@ -9,6 +9,7 @@ from PySide6.QtCore import QStandardPaths
 from PySide6.QtWidgets import QFileDialog, QHBoxLayout, QMessageBox, QWidget
 
 from . import settings_backup
+from .core import short_name
 from .i18n import tr
 
 log = logging.getLogger("corefold")
@@ -75,6 +76,19 @@ def describe(saved: settings_backup.Saved) -> str:
     return tr("Saved with Corefold {version}.", version=saved.app_version or "?")
 
 
+def links_note(saved: settings_backup.Saved, shown: int = 6) -> str:
+    """The quick menu links the file brings: they open programs, so the person sees them before agreeing."""
+    found = settings_backup.links(saved)
+    if not found:
+        return ""
+    lines = [f"•  {short_name(name, 40)} ({short_name(target, 70)})" if name else f"•  {short_name(target, 70)}"
+             for name, target in found[:shown]]
+    if len(found) > shown:
+        lines.append(tr("…and {count} more", count=len(found) - shown))
+    return "\n\n" + tr("It also adds links to your quick menu ({count}). They open:", count=len(found)) + "\n" + \
+        "\n".join(lines)
+
+
 def bring_back(win, path: Path | None = None, ask: bool = True) -> bool:
     """Reads a settings file, says what it is, and (once the person agrees) uses it and restarts Corefold."""
     title = tr("Bring back settings")
@@ -94,7 +108,7 @@ def bring_back(win, path: Path | None = None, ask: bool = True) -> bool:
     if ask:
         box = QMessageBox(QMessageBox.Question, title, describe(saved), parent=win)
         box.setInformativeText(tr("Your current settings are replaced with these, and Corefold restarts to use them. "
-                                  "Your history, clipboard and window size stay as they are."))
+                                  "Your history, clipboard and window size stay as they are.") + links_note(saved))
         yes = box.addButton(tr("Bring them back"), QMessageBox.AcceptRole)
         box.addButton(tr("Cancel"), QMessageBox.RejectRole)
         box.setDefaultButton(yes)

@@ -6,9 +6,10 @@ Pictures of the pages go to out/newtest_settingsbackup/. Everything else happens
 user's real settings, Desktop and registry are left alone). Prints one line per check and
 "newtest_settingsbackup: N problem(s)".
 
-(The window parts run in two child copies of this script, one for each language and look:
+(The window parts run in child copies of this script, one for each language and look:
   python scripts/newtest_settingsbackup.py --ui en dark
-  python scripts/newtest_settingsbackup.py --ui ar light --taken)"""
+  python scripts/newtest_settingsbackup.py --ui ar light --taken
+  python scripts/newtest_settingsbackup.py --ui fr dark)"""
 import json
 import os
 import subprocess
@@ -147,6 +148,23 @@ def logic():
                                      "sound": "corefold"}), "utf-8")
         new = sb.apply(s, sb.read(plain))
         check(new.language == "tr" and new.accent == "lime", "a plain settings.json is accepted too")
+        # quick links open programs: odd ones are dropped, and the question lists the others
+        notepad = "C:\\Windows\\notepad.exe"
+        junk.write_text(json.dumps({"format": sb.FORMAT, "format_version": 1, "settings": {"quick_links": [
+            {"id": "a", "name": "Notepad", "target": notepad},
+            {"id": "b", "name": "Number", "target": 12},
+            {"id": "c", "name": "Huge", "target": "C:\\" + "x" * 3000},
+            {"id": "d", "name": "No target"}, "not a link"]}}), "utf-8")
+        saved = sb.read(junk)
+        check([x.get("id") for x in saved.settings["quick_links"]] == ["a"],
+              f"quick links whose target isn't plain text, or is huge, are dropped ({saved.settings['quick_links']})")
+        check(sb.apply(s, saved).quick_links == [{"id": "a", "name": "Notepad", "target": notepad}],
+              "…and the good one is brought back")
+        from corefold import settingscard
+        note = settingscard.links_note(saved)
+        check(f"Notepad ({notepad})" in note and "(1)" in note,
+              f"the question says which programs the links open: {note.strip()!r}")
+        check(settingscard.links_note(sb.read(plain)) == "", "…and says nothing when there are none")
 
     def tools():
         s = fresh(known_tools=sorted(ready), tools_off=[])
@@ -377,6 +395,25 @@ def window(lang: str, look: str, taken: bool):
         bar.setValue(bar.maximum())
         settle(0.4)
         w.grab().save(str(OUT / f"shortcuts-{lang}-{look}-2.png"))
+        # the smallest window: the words wrap, nothing is cut off or sticks out
+        size = w.size()
+        w.resize(720, 460)
+        settle(0.6)
+        from PySide6.QtWidgets import QLabel, QPushButton
+        area = w.stack.currentWidget()
+        marks = "‪‬"
+        cut = [lab.text()[:40] for lab in area.widget().findChildren(QLabel) if lab.isVisible() and lab.text()
+               and ((not lab.wordWrap() and lab.fontMetrics().horizontalAdvance(lab.text().strip(marks))
+                     > lab.contentsRect().width() + 3)
+                    or (lab.wordWrap() and lab.heightForWidth(lab.width()) > lab.height() + 4))]
+        cut += [b.text()[:30] for b in area.widget().findChildren(QPushButton) if b.isVisible() and b.text()
+                and b.fontMetrics().horizontalAdvance(b.text()) > b.width() - 4]
+        check(not cut and area.widget().width() <= area.viewport().width(),
+              f"at 720 x 460 nothing on Shortcuts is cut off ({cut}, {area.widget().width()} of "
+              f"{area.viewport().width()}px)")
+        w.grab().save(str(OUT / f"shortcuts-{lang}-{look}-small.png"))
+        w.resize(size)
+        settle(0.3)
         # "Change" opens the setting
         for entry, page_name in ((shortcutspage.GLOBAL[1], "ClipboardSettings"),
                                  (shortcutspage.GLOBAL[4], "Quick"), (shortcutspage.GLOBAL[0], "ConvOptions")):
@@ -496,7 +533,7 @@ if UI:
     sys.exit(1 if problems else 0)
 
 logic()
-for args in (["en", "dark"], ["ar", "light", "--taken"]):
+for args in (["en", "dark"], ["ar", "light", "--taken"], ["fr", "dark"]):
     print(f"---- the window: {' '.join(args)}", flush=True)
     try:
         child = subprocess.run([sys.executable, str(Path(__file__).resolve()), "--ui", *args], capture_output=True,
