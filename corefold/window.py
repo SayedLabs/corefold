@@ -494,7 +494,7 @@ class MainWindow(QWidget):
         self.done_btn.setObjectName("" if dirty else "primary")
         self.done_btn.style().unpolish(self.done_btn)
         self.done_btn.style().polish(self.done_btn)
-        self.saved_hint.setVisible(not dirty)
+        self.saved_hint.setVisible(not dirty and self.current_page() in SETTINGS_PAGES)
 
     def save_changes(self):
         old_language = self.committed.get("language")
@@ -770,6 +770,8 @@ class MainWindow(QWidget):
     def _sync_settings_head(self, name: str):
         on = name in SETTINGS_PAGES
         self.settings_head.setVisible(on)
+        if hasattr(self, "saved_hint"):  # (the hint about Save only means something on the settings)
+            self.saved_hint.setVisible(on and self.unsaved.isHidden())
         if not on:
             return
         for first, _text, pages in self.settings_tab_list:
