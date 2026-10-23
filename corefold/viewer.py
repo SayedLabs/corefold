@@ -739,7 +739,7 @@ class ViewerWindow(QWidget):
         ab.setContentsMargins(14, 6, 14, 6)
         ab.setSpacing(8)
         self.sliders = {}
-        for key, text in (("light", tr("Light")), ("contrast", tr("Contrast")), ("colour", tr("Colour"))):
+        for key, text in (("light", tr("Brightness")), ("contrast", tr("Contrast")), ("colour", tr("Colour"))):
             ab.addWidget(QLabel(text))
             sl = QSlider(Qt.Horizontal)
             sl.setRange(-100, 100)

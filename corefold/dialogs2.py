@@ -614,7 +614,7 @@ class SignDialog(Base):
         for k in ("small", "medium", "large"):
             self.size.addItem(tr(k.capitalize()), k)
         self.size.setCurrentIndex(1)
-        for r, (text, w) in enumerate(((tr("On"), self.pages), (tr("Where"), self.place), (tr("Size"), self.size))):
+        for r, (text, w) in enumerate(((tr("Pages"), self.pages), (tr("Where"), self.place), (tr("Size"), self.size))):
             grid.addWidget(QLabel(text), r, 0)
             grid.addWidget(w, r, 1)
         self.lay.addLayout(grid)
