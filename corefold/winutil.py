@@ -166,6 +166,14 @@ def trim_memory():
         k32 = ctypes.windll.kernel32
         k32.GetCurrentProcess.restype = wt.HANDLE
         k32.SetProcessWorkingSetSize.argtypes = [wt.HANDLE, ctypes.c_size_t, ctypes.c_size_t]
+        # free blocks left in the heaps (by the window, after it was freed) go back first
+        k32.GetProcessHeaps.restype = wt.DWORD
+        k32.GetProcessHeaps.argtypes = [wt.DWORD, ctypes.POINTER(wt.HANDLE)]
+        k32.HeapCompact.restype = ctypes.c_size_t
+        k32.HeapCompact.argtypes = [wt.HANDLE, wt.DWORD]
+        heaps = (wt.HANDLE * 256)()
+        for h in heaps[:min(k32.GetProcessHeaps(256, heaps), 256)]:
+            k32.HeapCompact(h, 0)
         k32.SetProcessWorkingSetSize(k32.GetCurrentProcess(), ctypes.c_size_t(-1), ctypes.c_size_t(-1))
     except Exception:
         pass

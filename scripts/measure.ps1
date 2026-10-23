@@ -81,8 +81,15 @@ function Converted([int]$atLeast, [int]$timeout = 120) {
     Start-Sleep 2
 }
 
+# the quick menu's shortcut (Ctrl+Alt+Space), pressed the way a person would
+Add-Type -Name Keys -Namespace Measure -MemberDefinition '[DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);'
+function Press([byte[]]$keys) {
+    foreach ($k in $keys) { [Measure.Keys]::keybd_event($k, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 30 }
+    for ($i = $keys.Count - 1; $i -ge 0; $i--) { [Measure.Keys]::keybd_event($keys[$i], 0, 2, [UIntPtr]::Zero) }
+}
+
 Start-Sleep 70   # start-up work finished and memory handed back (it tidies 45 s after starting)
-Snap "Waiting in the tray" 60
+Snap "Waiting in the tray (3 minutes)" 180
 
 Send @("--page", "Home");          Start-Sleep 4; Snap "Window open: Home" 20
 Send @("--page", "Converter");     Start-Sleep 3; Snap "Window open: Converter"
@@ -91,6 +98,10 @@ Send @("--page", "History");       Start-Sleep 3; Snap "Window open: History"
 Send @("--page", "Look");          Start-Sleep 3; Snap "Window open: Look (wheel previews)"
 CloseWindow;                        Start-Sleep 5; Snap "Window just closed" 20
 Start-Sleep 100;                                   Snap "Window closed for 2 minutes (freed)" 30
+
+Press 0x11, 0x12, 0x20;            Start-Sleep 3; Snap "Quick menu open"
+Press 0x1B;                        Start-Sleep 3; Snap "Quick menu just closed"
+Start-Sleep 115;                                  Snap "Quick menu closed for 2 minutes" 30
 
 $n = 0
 Send @("--run", "image:webp", "$work\photo.png");  $n++; Converted $n; Snap "Just converted a 12 MP photo to WebP"

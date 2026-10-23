@@ -11,6 +11,13 @@ from .icondata import EVENODD, PATHS, STROKES
 _renderers: dict[tuple[str, str], QSvgRenderer] = {}
 
 
+def forget():
+    """Lets go of the drawn icons kept to be quick (once the window has been freed)."""
+    from PySide6.QtGui import QPixmapCache
+    _renderers.clear()
+    QPixmapCache.clear()
+
+
 def has(name: str) -> bool:
     return name in PATHS or name in STROKES
 
