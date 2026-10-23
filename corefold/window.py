@@ -685,17 +685,8 @@ class MainWindow(QWidget):
         w = self.stack.widget(i)
         if w is None or not (self.c.settings.animations and self.isVisible()) or PAGES[i] == "Player":
             return  # (the Player's video draws itself: it's left alone)
-        from PySide6.QtCore import QPropertyAnimation
-        from PySide6.QtWidgets import QGraphicsOpacityEffect
-        effect = QGraphicsOpacityEffect(w)
-        effect.setOpacity(0.0)
-        w.setGraphicsEffect(effect)
-        anim = QPropertyAnimation(effect, b"opacity", w)
-        anim.setDuration(150)
-        anim.setStartValue(0.0)
-        anim.setEndValue(1.0)
-        anim.finished.connect(lambda: _alive(w) and w.setGraphicsEffect(None))
-        anim.start(QPropertyAnimation.DeleteWhenStopped)
+        from .atomic import motion
+        motion.fade_in(w, 170)
 
     def _compact_now(self) -> bool:
         return self.c.settings.nav_compact or getattr(self, "_auto_compact", False)
