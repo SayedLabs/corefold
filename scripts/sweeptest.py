@@ -191,19 +191,18 @@ def note(what):
 
 
 def settle(seconds=0.25):
+    """Lets the app run a moment, the way its own event loop would (widgets put away are deleted too)."""
     end = time.time() + seconds
     while time.time() < end:
-        qapp.processEvents()
-        time.sleep(0.01)
+        QTest.qWait(10)
 
 
 def until(cond, seconds=10):
     end = time.time() + seconds
     while time.time() < end:
-        qapp.processEvents()
+        QTest.qWait(20)
         if cond():
             return True
-        time.sleep(0.02)
     return False
 
 
@@ -281,7 +280,7 @@ def looks_ok(w, where: str):
             if need > wid.contentsRect().width() - 2 * wid.margin() + 3:
                 cut.append(f"label {wid.text()[:40]!r} needs {need}px, has {wid.contentsRect().width()}px")
         elif isinstance(wid, QLabel) and wid.text() and wid.wordWrap() and not wid.pixmap():
-            room = wid.contentsRect().height()
+            room = wid.height()  # (heightForWidth counts the label's margins too)
             need = wid.heightForWidth(wid.width())
             if need > room + 4 and wid.maximumHeight() >= need:  # (a label that's elided on purpose has a max)
                 cut.append(f"label {wid.text()[:40]!r} needs {need}px of height, has {room}px")
