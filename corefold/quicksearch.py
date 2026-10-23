@@ -515,6 +515,26 @@ def everything_window() -> int:
     return 0
 
 
+def everything_ready(hwnd: int = 0) -> bool:
+    """Everything is running and has its list of files (it hasn't while it's starting or indexing)."""
+    hwnd = hwnd or everything_window()
+    if not hwnd:
+        return False
+    try:
+        import ctypes
+        from ctypes import POINTER, byref, c_size_t, c_uint, c_void_p
+        u = ctypes.windll.user32
+        u.SendMessageTimeoutW.argtypes = [c_void_p, c_uint, c_size_t, c_void_p, c_uint, c_uint, POINTER(c_size_t)]
+        u.SendMessageTimeoutW.restype = ctypes.c_ssize_t
+        result = c_size_t()
+        # WM_USER with EVERYTHING_IPC_IS_DB_LOADED (SMTO_ABORTIFHUNG)
+        if not u.SendMessageTimeoutW(c_void_p(hwnd), 0x0400, 401, None, 0x2, 300, byref(result)):
+            return False
+        return bool(result.value)
+    except Exception:
+        return False
+
+
 def parse_everything(data: bytes) -> list[Found]:
     """Everything's answer (EVERYTHING_IPC_LIST2 with names and paths) as found files."""
     out: list[Found] = []
@@ -549,8 +569,8 @@ def everything_query(text: str, limit: int = 40, timeout: float = 1.0, stale=lam
     """Asks Everything (if it's running) for files whose names fit what's typed. None: it isn't there
     or didn't answer."""
     target = everything_window()
-    if not target:
-        return None
+    if not target or not everything_ready(target):
+        return None  # (not there, or still loading: Windows' index is asked instead)
     import ctypes
     from ctypes import POINTER, byref, c_size_t, c_ssize_t, c_uint, c_void_p, c_wchar_p, wintypes
     u, k = ctypes.windll.user32, ctypes.windll.kernel32

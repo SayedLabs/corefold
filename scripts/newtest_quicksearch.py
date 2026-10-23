@@ -34,6 +34,7 @@ except (AttributeError, ValueError):
     pass
 PART = sys.argv[1:3] if len(sys.argv) >= 3 else None
 faulthandler.dump_traceback_later(95 if PART else 295, exit=True)  # stuck somewhere: say where, and stop
+STARTED = time.monotonic()
 problems = []
 
 
@@ -205,6 +206,10 @@ def everything_real(path: Path, name: str):
     if qs.everything_window():
         skip("Everything was already running: not started for the test")
         return
+    left = 280 - (time.monotonic() - STARTED)  # (the whole test stays under 5 minutes)
+    if left < 40:
+        skip(f"no time left to try Everything ({left:.0f} s)")
+        return
     tmp = Path(tempfile.mkdtemp(prefix="corefold-everything-"))
     exe = tmp / "Everything.exe"
     proc = None
@@ -225,17 +230,32 @@ def everything_real(path: Path, name: str):
             skip("Everything.exe wasn't in the download")
             return
         proc = subprocess.Popen([str(exe), "-startup"], cwd=str(tmp))
-        end = time.time() + 45
-        found = None
-        while time.time() < end:
-            if qs.everything_window():
-                found = qs.everything_query(name)
-                if found and any(os.path.normcase(f.path) == os.path.normcase(str(path)) for f in found):
-                    break
-            time.sleep(1)
-        check(bool(qs.everything_window()), "Everything started")
+        t0 = time.monotonic()
+        started = ready = False
+        end = time.time() + min(45, left - 30)
+        while time.time() < end and not ready:  # (it reads the drives first: asked until it says it's done)
+            started = started or bool(qs.everything_window())
+            ready = started and qs.everything_ready()
+            if not ready:
+                time.sleep(0.5)
+        if not started:
+            skip("Everything didn't start on this PC (it's a download from voidtools.com)")
+            return
+        if not ready:
+            skip("Everything started but hadn't read the drives in time: it wasn't asked")
+            return
+        check(True, f"Everything started and read the drives ({time.monotonic() - t0:.0f} s)")
+        found, answered = None, False
+        end = time.time() + max(5, min(20, 280 - (time.monotonic() - STARTED) - 10))
+        while time.time() < end:  # (a file made just before may take a moment to be in its list)
+            found = qs.everything_query(name)
+            answered = answered or found is not None
+            if found and any(os.path.normcase(f.path) == os.path.normcase(str(path)) for f in found):
+                break
+            time.sleep(0.5)
+        check(answered, "Everything answers over its messages")
         check(bool(found) and any(os.path.normcase(f.path) == os.path.normcase(str(path)) for f in found),
-              f"Everything answers over its messages and has the new file ({[f.path for f in found or []][:3]})")
+              f"…and has the new file ({[f.path for f in found or []][:3]})")
         t = time.monotonic()
         src, files = qs.find_files(name)
         ms = (time.monotonic() - t) * 1000
