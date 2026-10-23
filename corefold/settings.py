@@ -127,7 +127,7 @@ NOT_EDITED = {"enabled", "first_run", "last_version", "menu_signature", "window_
               "last_action", "tour_done", "watermark", "fit_mb", "open_archives", "recent_archives",
               "tools_off", "known_tools", "open_images", "open_emails", "viewer_info", "recent_views",
               "clip_paused", "open_media", "player_volume", "nav_order", "nav_width", "nav_compact",
-              "quick_button_pos", "quick_told"}
+              "quick_button_pos", "quick_told", "unlock_menu_signature"}
 # the settings of each tab of the Settings page (each one has its own "Reset to defaults")
 GENERAL_KEYS = ("language", "sound", "volume", "sound_problems", "show_progress", "low_priority", "one_at_a_time")
 LOOK_KEYS = ("appearance", "accent", "custom_color", "animations", "toast_corner", "toast_time", "window_text",
@@ -188,6 +188,7 @@ class Settings:
     context_menu: bool = True      # Corefold in the right-click menu
     menu_style: str = "windows"    # "windows" (a normal submenu) or "wheel"
     menu_signature: str = ""       # what was last written to the right-click menu
+    unlock_menu_signature: str = ""  # Corefold Unlock's "What's using this?" entry, the same way
     # the Store: tools removed by this person, and the tools they've been offered (others are "New")
     tools_off: list = field(default_factory=list)
     known_tools: list = field(default_factory=list)

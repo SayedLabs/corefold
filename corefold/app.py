@@ -129,7 +129,7 @@ class UpdateSignals(QObject):
 
 
 class BackgroundSignals(QObject):
-    menu_written = Signal(str)         # signature of what's now in the right-click menu
+    menu_written = Signal(str, str)    # signatures of what's now in the right-click menu (the Converter's, Unlock's)
     menu_files_ready = Signal(object)  # [(tool key, files)] read and ready to run
     archive_listed = Signal(object)    # (archive, password, entries or None, error or None)
 
@@ -268,6 +268,7 @@ class Controller(QObject):
         self.pending: list[Path] = []    # files arriving from the right-click menu for the wheel
         self.pending_open: list[Path] = []  # ... for the window ("All options…")
         self.pending_runs: dict[str, list[Path]] = {}  # tool key -> files ("Convert to PNG" in the menu)
+        self.pending_unlock: list[Path] = []  # "What's using this?" (Corefold Unlock)
         self.pending_timer = QTimer(self)
         self.pending_timer.setSingleShot(True)
         self.pending_timer.timeout.connect(self._open_pending)
@@ -1001,7 +1002,8 @@ class Controller(QObject):
             return
         s = copy.deepcopy(self.settings)  # a snapshot: the settings may change while this runs
         menu_on = s.context_menu and all_tools.is_on(s, "converter")  # the menu is the Converter's
-        if not menu_on and s.menu_signature == "off":
+        unlock_on = all_tools.is_on(s, "unlock")  # "What's using this?" is Corefold Unlock's own
+        if not menu_on and s.menu_signature == "off" and not unlock_on and s.unlock_menu_signature == "off":
             return
         self.menu_busy = True
 
@@ -1009,7 +1011,8 @@ class Controller(QObject):
             signature = ""
             try:
                 if not menu_on:
-                    shellmenu.remove()
+                    if s.menu_signature != "off":
+                        shellmenu.remove(unlock=False)
                     signature = "off"
                 else:
                     command, icon = app_command, app_icon()
@@ -1022,15 +1025,26 @@ class Controller(QObject):
                 log.exception("could not update the right-click menu")
                 signature = ""
             try:
-                self.bg.menu_written.emit(signature)
+                unlock = shellmenu.sync_unlock(unlock_on, s.unlock_menu_signature, app_command, app_icon())
+            except Exception:
+                log.exception("could not update Corefold Unlock's right-click entry")
+                unlock = ""
+            try:
+                self.bg.menu_written.emit(signature, unlock)
             except RuntimeError:
                 pass  # quitting
         threading.Thread(target=work, daemon=True).start()
 
-    def _menu_written(self, signature: str):
+    def _menu_written(self, signature: str, unlock: str = ""):
         self.menu_busy = False
+        changed = False
         if signature and signature != self.settings.menu_signature:
             self.settings.menu_signature = signature
+            changed = True
+        if unlock and unlock != self.settings.unlock_menu_signature:
+            self.settings.unlock_menu_signature = unlock
+            changed = True
+        if changed:
             self.settings.save()
 
     # ---- requests from the right-click menu (each file arrives from its own helper process)
@@ -1052,6 +1066,8 @@ class Controller(QObject):
             self.open_player(Path(lines[0]))
         elif word == "run" and len(lines) >= 2:
             self.run_from_menu(lines[0], lines[1:])
+        elif word == "unlock" and lines:
+            self.unlock_from_menu(lines)
 
     def files_from_menu(self, paths: list[str], into: str = "wheel"):
         target = self.pending if into == "wheel" else self.pending_open
@@ -1069,7 +1085,22 @@ class Controller(QObject):
                 files.append(path)
         self.pending_timer.start(MENU_BATCH_MS)
 
+    def unlock_from_menu(self, paths: list[str]):
+        """From "What's using this?" (Corefold Unlock): each selected file arrives on its own, so they're
+        gathered first."""
+        for p in paths:
+            path = Path(p)
+            if path.exists() and path not in self.pending_unlock:
+                self.pending_unlock.append(path)
+        self.pending_timer.start(MENU_BATCH_MS)
+
     def _open_pending(self):
+        unlock, self.pending_unlock = self.pending_unlock, []
+        if unlock and all_tools.is_on(self.settings, "unlock"):
+            self.show_window("Unlock")
+            page = getattr(self.window, "unlock_page", None)
+            if page is not None:
+                page.check(unlock)
         files, self.pending = self.pending, []
         if files:
             self.wheel.popup_at_cursor(files)
@@ -1827,7 +1858,7 @@ class Controller(QObject):
 
 
 PAGE_NAMES = ("Home", "Converter", "Apps", "Archives", "Viewer", "Player", "Clipboard", "Space", "Capture", "Cloud",
-              "Store", "PlayerSettings",
+              "Unlock", "Store", "PlayerSettings",
               "Soon",
               "General", "Look", "ConvOptions", "WheelLook", "Formats", "AppsSettings", "ArchiveSettings",
               "ViewerSettings", "ClipboardSettings", "CaptureSettings", "History", "Updates", "About")
