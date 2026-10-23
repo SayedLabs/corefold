@@ -32,7 +32,7 @@ from . import UPDATE_REPO, __version__, i18n, icons, ipc, shellmenu, sounds, upd
 from . import tools as all_tools
 from .converters import PASSWORD_ERROR, Options, Result, Tool, pick, release_memory, run_job, warm_up
 from .core import (LEGACY_NAME, category, human_size, is_link, lower_this_thread, norm, os_open, set_background_priority,
-                   set_downloads_folder, short_name, unique_path)
+                   set_downloads_folder, short_name, system_tool, unique_path)
 from .history import History, size_of
 from .i18n import tr
 from .settings import (APP_NAME, LOG_DIR, TOAST_TIME_SCALE, WINDOW_TEXT_PT, Settings, app_command, app_icon,
@@ -1916,7 +1916,7 @@ def stop_old_copy():
     if sys.platform != "win32" or not getattr(sys, "frozen", False):
         return
     try:
-        subprocess.run(["taskkill", "/f", "/im", f"{LEGACY_NAME}.exe"], capture_output=True, timeout=10,
+        subprocess.run([system_tool("taskkill.exe"), "/f", "/im", f"{LEGACY_NAME}.exe"], capture_output=True, timeout=10,
                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     except (OSError, subprocess.SubprocessError):
         pass

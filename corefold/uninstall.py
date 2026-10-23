@@ -26,7 +26,7 @@ import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from .core import LEGACY_NAME, is_link  # noqa: F401 (is_link is used here and by the selftest)
+from .core import LEGACY_NAME, is_link, system_tool  # noqa: F401 (is_link is used here and by the selftest)
 
 log = logging.getLogger(__name__)
 
@@ -290,10 +290,17 @@ Get-AppxPackage | Where-Object { -not $_.IsFramework -and -not $_.NonRemovable -
 """
 
 
-def powershell(script: str, timeout: float = 90) -> str:
-    r = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-                        "-Command", script], capture_output=True, timeout=timeout, creationflags=NO_WINDOW)
+def powershell(script: str, timeout: float = 90, env: dict | None = None) -> str:
+    """Runs a PowerShell script. Anything that comes from outside (an app's name...) goes in through env
+    ($env:NAME), never into the script's text, where a quote in it could end the string."""
+    r = subprocess.run([system_tool("powershell.exe"), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+                        "-Command", script], capture_output=True, timeout=timeout, creationflags=NO_WINDOW,
+                       env=dict(os.environ, **env) if env else None)
     return r.stdout.decode("utf-8", "replace").strip()
+
+
+# a Store app's PackageFullName ("Name_1.2.3.0_x64__publisherid"): nothing that could end a quoted string
+_PACKAGE_NAME = re.compile(r"^[A-Za-z0-9.\-_~]{3,200}$")
 
 
 def store_apps() -> list[App]:
@@ -585,8 +592,8 @@ def wait_process(handle, cancel: threading.Event | None = None, timeout_s: float
 def still_installed(app: App) -> bool:
     if app.store:
         try:
-            out = powershell(f"if (Get-AppxPackage | Where-Object PackageFullName -eq '{app.store}') {{ 'yes' }}",
-                             timeout=30)
+            out = powershell("if (Get-AppxPackage | Where-Object PackageFullName -eq $env:CF_PACKAGE) { 'yes' }",
+                             timeout=30, env={"CF_PACKAGE": app.store})
             return out.strip() == "yes"
         except Exception:
             return True  # couldn't check: treat it as still installed, so nothing of it is touched
@@ -719,13 +726,16 @@ def _wait_entry(app: App, control: Control, tell, max_s: float = 30 * 60) -> Out
 
 def _run_store(app: App, control: Control, tell) -> Outcome | None:
     tell("working")
+    if not _PACKAGE_NAME.match(app.store):
+        return Outcome("store_failed", error=app.store)
     script = ("[Console]::OutputEncoding = [Text.Encoding]::UTF8; "
-              f"try {{ Remove-AppxPackage -Package '{app.store}' -ErrorAction Stop }} "
+              "try { Remove-AppxPackage -Package $env:CF_PACKAGE -ErrorAction Stop } "
               "catch { [Console]::Out.Write($_.Exception.Message); exit 1 }")
     import tempfile
     with tempfile.TemporaryFile() as out:
-        p = subprocess.Popen(["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-                              "-Command", script], stdout=out, stderr=subprocess.DEVNULL, creationflags=NO_WINDOW)
+        p = subprocess.Popen([system_tool("powershell.exe"), "-NoProfile", "-NonInteractive", "-ExecutionPolicy",
+                              "Bypass", "-Command", script], stdout=out, stderr=subprocess.DEVNULL,
+                             creationflags=NO_WINDOW, env=dict(os.environ, CF_PACKAGE=app.store))
         while p.poll() is None:
             if control.cancel.is_set():
                 return None
@@ -1431,7 +1441,8 @@ def scheduled_tasks() -> list[tuple[str, str]]:
     import csv
     import io
     try:
-        r = subprocess.run(["schtasks.exe", "/Query", "/FO", "CSV", "/V", "/NH"], capture_output=True, timeout=60,
+        r = subprocess.run([system_tool("schtasks.exe"), "/Query", "/FO", "CSV", "/V", "/NH"], capture_output=True,
+                           timeout=60,
                            creationflags=NO_WINDOW)
     except (OSError, subprocess.TimeoutExpired):
         return []
@@ -1471,7 +1482,8 @@ def _reg_root_name(path: str) -> str:
 
 def _reg_exe(*args: str, timeout: float = 60) -> bool:
     try:
-        r = subprocess.run(["reg.exe", *args], capture_output=True, timeout=timeout, creationflags=NO_WINDOW)
+        r = subprocess.run([system_tool("reg.exe"), *args], capture_output=True, timeout=timeout,
+                           creationflags=NO_WINDOW)
         return r.returncode == 0
     except (OSError, subprocess.TimeoutExpired):
         return False
@@ -1570,13 +1582,17 @@ def _registry_ok(path: str, kind: str) -> bool:
 
 def _reg_file_ok(reg_file: Path, item: dict) -> bool:
     """Every key a backed-up .reg file would write is the item's own key (or inside it)."""
+    # Only what reg.exe export and value_to_reg write: UTF-16 starting with its byte order mark. A file
+    # without it could read one way here and another way to reg.exe (which takes plain text files too).
     try:
-        text = reg_file.read_text("utf-16")
-    except (OSError, UnicodeError):
-        try:
-            text = reg_file.read_text("utf-8-sig")
-        except (OSError, UnicodeError):
+        raw = reg_file.read_bytes()
+        if not raw.startswith(b"\xff\xfe"):
             return False
+        text = raw[2:].decode("utf-16-le")
+    except (OSError, UnicodeError):
+        return False
+    if not text.lstrip().startswith("Windows Registry Editor Version 5.00"):
+        return False
     want = _reg_root_name(str(item.get("path", ""))).lower()
     # a 32-bit key is exported with its real place, under WOW6432Node
     wants = {want, want.replace("\\software\\", "\\software\\wow6432node\\", 1)}
@@ -1596,9 +1612,21 @@ def item_allowed(item: dict) -> bool:
     if kind in ("key", "value", "service"):
         return _registry_ok(path, kind) and (kind != "value" or bool(item.get("value")))
     if kind == "task":
-        return path.startswith("\\") and not path.lower().startswith("\\microsoft\\") and '"' not in path \
-            and len(path) < 400
+        return _task_name_ok(path)
     return False
+
+
+def _task_name_ok(name: str) -> bool:
+    """A scheduled task's full name, like "\\Acme\\Updater", and never one of Windows' own (under Microsoft).
+    Task Scheduler takes a doubled backslash or a space at the end of a part as the plain name, so only
+    plain names are taken."""
+    if not name.startswith("\\") or len(name) >= 400 or any(c in name for c in '"/:*?<>|') or \
+            not all(c.isprintable() for c in name):
+        return False
+    parts = name[1:].split("\\")
+    if any(not p or p != p.strip(" .") for p in parts):
+        return False
+    return parts[0].lower() != "microsoft"
 
 
 def _service_ok(path: str) -> bool:
@@ -1606,6 +1634,44 @@ def _service_ok(path: str) -> bool:
     name = path.rsplit("\\", 1)[-1]
     exe_path = _service_program(name)
     return bool(exe_path) and not _windows_program(exe_path)
+
+
+def through_link(path) -> bool:
+    """One of the folders on the way to this path is a link or junction (the path itself is checked by
+    item_allowed). The helper running as administrator never follows one: another account could have
+    made it, pointing at a place only administrators may change."""
+    p = Path(os.path.abspath(str(path)))
+    for parent in list(p.parents)[:-1]:  # (not the drive itself)
+        if is_link(parent):
+            return True
+    return False
+
+
+def reset_permissions(path: Path):
+    """After moving something out of Program Files as administrator: its files take the backup folder's
+    permissions, so the person can delete the backup later. Links inside are never gone through: one could
+    point at a place only administrators may change (icacls /T doesn't promise to leave junctions alone),
+    so with any link inside, each real file and folder is done on its own."""
+    icacls = system_tool("icacls.exe")
+
+    def run(*args: str):
+        subprocess.run([icacls, *args, "/C", "/L", "/Q"], capture_output=True, creationflags=NO_WINDOW, timeout=300)
+
+    links, plain = False, [str(path)]
+    if path.is_dir() and not is_link(path):
+        for root, folders, files in os.walk(path):
+            for name in folders + files:
+                full = os.path.join(root, name)
+                if is_link(full):
+                    links = True
+                else:
+                    plain.append(full)
+            folders[:] = [d for d in folders if not is_link(os.path.join(root, d))]
+    if not links:
+        run(str(path), "/reset", "/T")
+        return
+    for p in plain:
+        run(p, "/reset")
 
 
 def _move(src: Path, dest: Path):
@@ -1737,6 +1803,10 @@ def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, a
                 if not src.exists():
                     done.append(record)
                     continue
+                if admin and through_link(src):
+                    # someone else may have made a folder on the way a link (C:\ProgramData is shared by
+                    # every account): as administrator it would move whatever the link points to
+                    raise PermissionError("the way to it goes through a link")
                 if item.kind == "folder" and not _safe_folder(item.path):
                     raise PermissionError("protected folder")
                 if not _same_drive(src, folder):
@@ -1769,8 +1839,7 @@ def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, a
                         record["left"] = len(left)
                         failed.append(asdict(item))
                 if admin:  # moved out of Program Files: let the user delete the backup later
-                    subprocess.run(["icacls", str(dest), "/reset", "/T", "/C", "/L", "/Q"], capture_output=True,
-                                   creationflags=NO_WINDOW, timeout=300)
+                    reset_permissions(dest)
                 record["stored"] = str(dest.relative_to(folder))
                 freed += item.size
                 _remove_empty_parent(src.parent)
@@ -1841,7 +1910,8 @@ def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, a
 def _run(*args: str, raw: bool = False, timeout: float = 60):
     """A Windows command's output ("" or b"" if it failed)."""
     try:
-        r = subprocess.run(list(args), capture_output=True, timeout=timeout, creationflags=NO_WINDOW)
+        r = subprocess.run([system_tool(args[0]), *args[1:]], capture_output=True, timeout=timeout,
+                           creationflags=NO_WINDOW)
     except (OSError, subprocess.TimeoutExpired):
         return b"" if raw else ""
     if raw:
@@ -1851,7 +1921,7 @@ def _run(*args: str, raw: bool = False, timeout: float = 60):
 
 def _run_ok(*args: str, timeout: float = 60) -> bool:
     try:
-        return subprocess.run(list(args), capture_output=True, timeout=timeout,
+        return subprocess.run([system_tool(args[0]), *args[1:]], capture_output=True, timeout=timeout,
                               creationflags=NO_WINDOW).returncode == 0
     except (OSError, subprocess.TimeoutExpired):
         return False
@@ -1890,7 +1960,7 @@ def backup_size(folder: Path) -> int:
     return folder_size(folder / "files", limit_s=2)
 
 
-def restore(folder: Path) -> dict:
+def restore(folder: Path, admin: bool = False) -> dict:
     """Puts everything in a backup back where it was. Returns {"done": n, "failed": [items]}."""
     data = _manifest(folder)
     left, done, recycled = [], 0, 0
@@ -1904,6 +1974,8 @@ def restore(folder: Path) -> dict:
                 raise PermissionError("not something Corefold backed up")
             if item["kind"] in ("folder", "file", "shortcut"):
                 target = Path(item["path"])
+                if admin and through_link(target):
+                    raise PermissionError("the way to it goes through a link")
                 if not stored.exists():
                     continue
                 if target.exists():
@@ -1992,12 +2064,13 @@ def helper_main(argv: list[str]) -> int:
             out = remove(items_from(payload["items"]), Path(payload["folder"]), payload.get("apps"), admin=True,
                          close_running=bool(payload.get("close")))
         elif kind == "restore":
-            r = restore(Path(payload["folder"]))
+            r = restore(Path(payload["folder"]), admin=True)
             out = {"done": r["done"], "failed": r["failed"]}
         else:
-            desc = str(payload.get("description", "Corefold"))[:60].replace("'", "")
-            powershell(f"Checkpoint-Computer -Description '{desc}' -RestorePointType APPLICATION_UNINSTALL",
-                       timeout=600)
+            # (an app's name is in it: it goes in through env, so no quote in a name can end the string)
+            desc = "".join(c for c in str(payload.get("description", "Corefold"))[:60] if c.isprintable())
+            powershell("Checkpoint-Computer -Description $env:CF_DESCRIPTION -RestorePointType APPLICATION_UNINSTALL",
+                       timeout=600, env={"CF_DESCRIPTION": desc or "Corefold"})
             out = {"done": 1}
     except Exception as e:
         out = {"error": str(e)}

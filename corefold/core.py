@@ -314,6 +314,34 @@ def app_dir() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
+def system_tool(name: str) -> str:
+    """The full path of one of Windows' own programs (reg.exe, sc.exe, powershell.exe...). Never just the
+    name: Windows would look in Corefold's own folder and the current folder first, and the helper that
+    runs as administrator must only ever start Windows' real ones."""
+    if os.name != "nt":
+        return name
+    system32 = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32"
+    if name.lower() == "powershell.exe":
+        return str(system32 / "WindowsPowerShell" / "v1.0" / name)
+    return str(system32 / name)
+
+
+def find_program(name: str) -> str | None:
+    """A program installed on the PC (7-Zip, FFmpeg...), looked for only in the folders on PATH. Unlike
+    shutil.which, never in the current folder: when Corefold is started from a downloads folder, a
+    "7z.exe" lying there must not be the one that runs."""
+    exts = [""] if os.name != "nt" or os.path.splitext(name)[1] else [".exe", ".com"]
+    for folder in os.environ.get("PATH", "").split(os.pathsep):
+        folder = folder.strip().strip('"')
+        if not folder or not os.path.isabs(folder):
+            continue
+        for ext in exts:
+            p = os.path.join(folder, name + ext)
+            if os.path.isfile(p) and (os.name == "nt" or os.access(p, os.X_OK)):
+                return p
+    return None
+
+
 def bundled(*parts: str) -> Path | None:
     """A file shipped with the app (or in vendor/ when running from source)."""
     roots = [Path(getattr(sys, "_MEIPASS", app_dir())), app_dir(), app_dir() / "vendor"]
@@ -420,6 +448,21 @@ def zone_mark(path: Path) -> bytes | None:
         return data if b"ZoneId" in data else None
     except OSError:
         return None
+
+
+def mark_from_internet(path: Path, url: str = ""):
+    """Gives a file that came from the internet (a cloud download, an email's attachment) Windows' mark for
+    it, like a browser does: Windows then warns before running it, and Office opens it in Protected View."""
+    if os.name != "nt":
+        return
+    text = "[ZoneTransfer]\r\nZoneId=3\r\n"
+    if url and all(c.isprintable() for c in url):
+        text += f"HostUrl={url}\r\n"
+    try:
+        with open(str(path) + ZONE_STREAM, "w", encoding="utf-8") as fh:
+            fh.write(text)
+    except OSError:
+        pass
 
 
 def pass_on_zone_mark(sources, outputs, limit: int = 20000):
