@@ -272,6 +272,7 @@ def part(lang, look):
 
     def start():
         check(until(lambda: c.peek is not None, 3), "Quick look is running with the Viewer in use")
+        state["before"] = peekshell.foreground()  # (the terminal)
         hwnd = explorer()
         if not check(bool(hwnd), "a File Explorer window opened on the test folder"):
             return
@@ -292,6 +293,15 @@ def part(lang, look):
             peekshell.selection(hwnd)
             print(f"      (read in {(time.perf_counter() - t) * 1000:.0f} ms)", flush=True)
         check(front(hwnd), "File Explorer is in front")
+        if not until(lambda: c.peek.watcher.registered, 3) and state.get("before"):
+            # (once on GitHub's runner the hook heard nothing when the test forced Explorer to the front with
+            # AttachThreadInput; going to the terminal and back is what a person would do)
+            hooked()
+            print("      (the hook didn't hear File Explorer come to the front: going to the terminal and back)",
+                  flush=True)
+            front(state["before"])
+            settle(0.5)
+            front(hwnd)
         check(until(lambda: c.peek.watcher.registered, 3), "…so the shortcut is taken (the foreground hook saw it)")
         hooked()
         check(not key_free(), "…and Windows says Ctrl + Space is taken now")
