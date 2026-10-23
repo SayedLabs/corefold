@@ -1,0 +1,189 @@
+ok    the Store has an Add button for viewer
+ok    viewer is added
+ok    after adding viewer the window is still open
+ok    after adding viewer only one window is open
+ok    viewer is in the sidebar
+ok    adding viewer: the Store page is open (Store)
+ok    adding viewer: the Store page was built
+ok    adding viewer: the Store page is showing (808x628)
+ok    adding viewer: the screen shows the Store page as drawn (difference 0.00)
+ok    open viewer from the Store: the Viewer page is open (Viewer)
+ok    open viewer from the Store: the Viewer page was built
+ok    open viewer from the Store: the Viewer page is showing (808x628)
+ok    open viewer from the Store: the screen shows the Viewer page as drawn (difference 0.00)
+ok    the Store has an Add button for player
+ok    player is added
+ok    after adding player the window is still open
+ok    after adding player only one window is open
+ok    player is in the sidebar
+ok    adding player: the Store page is open (Store)
+ok    adding player: the Store page was built
+ok    adding player: the Store page is showing (808x628)
+ok    adding player: the screen shows the Store page as drawn (difference 0.00)
+ok    open player from the Store: the Player page is open (Player)
+ok    open player from the Store: the Player page was built
+ok    open player from the Store: the Player page is showing (808x628)
+ok    open player from the Store: the screen shows the Player page as drawn (difference 0.00)
+ok    the Store has an Add button for capture
+ok    capture is added
+ok    after adding capture the window is still open
+ok    after adding capture only one window is open
+ok    capture is in the sidebar
+ok    adding capture: the Store page is open (Store)
+ok    adding capture: the Store page was built
+ok    adding capture: the Store page is showing (808x628)
+ok    adding capture: the screen shows the Store page as drawn (difference 0.00)
+ok    open capture from the Store: the Capture page is open (Capture)
+ok    open capture from the Store: the Capture page was built
+ok    open capture from the Store: the Capture page is showing (808x628)
+ok    open capture from the Store: the screen shows the Capture page as drawn (difference 0.00)
+ok    the Store has an Add button for space
+ok    space is added
+ok    after adding space the window is still open
+ok    after adding space only one window is open
+ok    space is in the sidebar
+ok    adding space: the Store page is open (Store)
+ok    adding space: the Store page was built
+ok    adding space: the Store page is showing (808x628)
+ok    adding space: the screen shows the Store page as drawn (difference 0.00)
+ok    open space from the Store: the Space page is open (Space)
+ok    open space from the Store: the Space page was built
+ok    open space from the Store: the Space page is showing (808x628)
+ok    open space from the Store: the screen shows the Space page as drawn (difference 0.00)
+ok    the Store has an Add button for clipboard
+ok    clipboard is added
+ok    after adding clipboard the window is still open
+ok    after adding clipboard only one window is open
+ok    clipboard is in the sidebar
+ok    adding clipboard: the Store page is open (Store)
+ok    adding clipboard: the Store page was built
+ok    adding clipboard: the Store page is showing (808x628)
+ok    adding clipboard: the screen shows the Store page as drawn (difference 0.00)
+ok    open clipboard from the Store: the Clipboard page is open (Clipboard)
+ok    open clipboard from the Store: the Clipboard page was built
+ok    open clipboard from the Store: the Clipboard page is showing (808x628)
+ok    open clipboard from the Store: the screen shows the Clipboard page as drawn (difference 0.00)
+ok    store: no errors behind the clicks (0)
+ok    sidebar Home: the Home page is open (Home)
+ok    sidebar Home: the Home page was built
+ok    sidebar Home: the Home page is showing (808x628)
+ok    sidebar Home: the screen shows the Home page as drawn (difference 0.00)
+ok    sidebar History: the History page is open (History)
+ok    sidebar History: the History page was built
+ok    sidebar History: the History page is showing (808x628)
+ok    sidebar History: the screen shows the History page as drawn (difference 0.00)
+ok    sidebar Converter: the Converter page is open (Converter)
+ok    sidebar Converter: the Converter page was built
+ok    sidebar Converter: the Converter page is showing (808x628)
+ok    sidebar Converter: the screen shows the Converter page as drawn (difference 0.00)
+ok    Converter has a Settings button
+ok    Converter's Settings button opens ConvOptions (ConvOptions)
+ok    back to Converter from its settings (Converter)
+ok    sidebar Apps: the Apps page is open (Apps)
+ok    sidebar Apps: the Apps page was built
+ok    sidebar Apps: the Apps page is showing (808x628)
+ok    sidebar Apps: the screen shows the Apps page as drawn (difference 0.00)
+ok    Apps has a Settings button
+ok    Apps's Settings button opens AppsSettings (AppsSettings)
+ok    back to Apps from its settings (Apps)
+ok    sidebar Archives: the Archives page is open (Archives)
+ok    sidebar Archives: the Archives page was built
+ok    sidebar Archives: the Archives page is showing (808x628)
+ok    sidebar Archives: the screen shows the Archives page as drawn (difference 0.00)
+ok    Archives has a Settings button
+ok    Archives's Settings button opens ArchiveSettings (ArchiveSettings)
+ok    back to Archives from its settings (Archives)
+ok    sidebar Viewer: the Viewer page is open (Viewer)
+ok    sidebar Viewer: the Viewer page was built
+ok    sidebar Viewer: the Viewer page is showing (808x628)
+ok    sidebar Viewer: the screen shows the Viewer page as drawn (difference 0.00)
+ok    Viewer has a Settings button
+ok    Viewer's Settings button opens ViewerSettings (ViewerSettings)
+ok    back to Viewer from its settings (Viewer)
+ok    sidebar Player: the Player page is open (Player)
+ok    sidebar Player: the Player page was built
+ok    sidebar Player: the Player page is showing (808x628)
+ok    sidebar Player: the screen shows the Player page as drawn (difference 0.00)
+ok    Player has a Settings button
+ok    Player's Settings button opens PlayerSettings (PlayerSettings)
+ok    back to Player from its settings (Player)
+ok    sidebar Capture: the Capture page is open (Capture)
+ok    sidebar Capture: the Capture page was built
+ok    sidebar Capture: the Capture page is showing (808x628)
+ok    sidebar Capture: the screen shows the Capture page as drawn (difference 0.00)
+ok    Capture has a Settings button
+ok    Capture's Settings button opens CaptureSettings (CaptureSettings)
+ok    back to Capture from its settings (Capture)
+ok    sidebar Space: the Space page is open (Space)
+ok    sidebar Space: the Space page was built
+ok    sidebar Space: the Space page is showing (808x628)
+ok    sidebar Space: the screen shows the Space page as drawn (difference 0.00)
+ok    sidebar Clipboard: the Clipboard page is open (Clipboard)
+ok    sidebar Clipboard: the Clipboard page was built
+ok    sidebar Clipboard: the Clipboard page is showing (808x628)
+ok    sidebar Clipboard: the screen shows the Clipboard page as drawn (difference 0.00)
+ok    Clipboard has a Settings button
+ok    Clipboard's Settings button opens ClipboardSettings (ClipboardSettings)
+ok    back to Clipboard from its settings (Clipboard)
+ok    sidebar Store: the Store page is open (Store)
+ok    sidebar Store: the Store page was built
+ok    sidebar Store: the Store page is showing (808x628)
+ok    sidebar Store: the screen shows the Store page as drawn (difference 0.00)
+ok    sidebar General: the General page is open (General)
+ok    sidebar General: the General page was built
+ok    sidebar General: the General page is showing (732x533)
+ok    sidebar General: the screen shows the General page as drawn (difference 0.00)
+ok    sidebar Updates: the Updates page is open (Updates)
+ok    sidebar Updates: the Updates page was built
+ok    sidebar Updates: the Updates page is showing (808x628)
+ok    sidebar Updates: the screen shows the Updates page as drawn (difference 0.00)
+ok    sidebar About: the About page is open (About)
+ok    sidebar About: the About page was built
+ok    sidebar About: the About page is showing (808x628)
+ok    sidebar About: the screen shows the About page as drawn (difference 0.00)
+ok    the General settings tab (General)
+ok    the Look settings tab (Look)
+ok    the Quick settings tab (Quick)
+ok    the ConvOptions settings tab (ConvOptions)
+ok    the AppsSettings settings tab (AppsSettings)
+ok    the ArchiveSettings settings tab (ArchiveSettings)
+ok    the ViewerSettings settings tab (ViewerSettings)
+ok    the PlayerSettings settings tab (PlayerSettings)
+ok    the CaptureSettings settings tab (CaptureSettings)
+ok    the ClipboardSettings settings tab (ClipboardSettings)
+ok    the ConvOptions settings sub-tab (ConvOptions)
+ok    the WheelLook settings sub-tab (WheelLook)
+ok    the Formats settings sub-tab (Formats)
+ok    Alt + Left goes back to History (History)
+ok    Alt + Left goes back to Home (Home)
+ok    the Converter card on Home opens it (Converter)
+ok    the Apps card on Home opens it (Apps)
+ok    the Archives card on Home opens it (Archives)
+ok    the Viewer card on Home opens it (Viewer)
+ok    the Player card on Home opens it (Player)
+ok    the Capture card on Home opens it (Capture)
+ok    the Space card on Home opens it (Space)
+ok    the Clipboard card on Home opens it (Clipboard)
+ok    pages: no errors behind the clicks (0)
+ok    the Space page
+ok    Space lists the drives (2)
+ok    clicking the first drive starts looking through it
+note  the first drive: still looking after 91 s; last progress: 362,965 ملف، ‪83.0 GB‬   ·   ‪C:\Program Files\Azure Cosmos DB Emulator\Packages\DataExplorer‬
+ok    Stop stops looking (0.0 s)
+ok    the first drive is mapped (364154 files in 91 s)
+note  364,154 files, 68,511 folders, 5 private, 91.3 s, cancelled True
+ok    a folder with thousands of files is mapped (12884)
+ok    Alt + Left in Space goes up a folder
+ok    …and then back to the drives
+ok    opening a folder again shows its map right away (0.22 s)
+ok    Look again looks through it afresh
+ok    …and makes a new map
+ok    Alt + Left while it looks stops and goes back to the drives
+ok    the map has a way back to the drives (map True, drives False, busy False, looking False, page Space)
+ok    back at the drives
+ok    Space can be left and opened again while it looks
+ok    the Space clean tab
+ok    the Space dupes tab
+ok    the Space map tab
+ok    space: no errors behind the clicks (0)
+navtest: 0 problem(s)
