@@ -400,6 +400,12 @@ def start():
     check(not slow, f"every page opens in under 0.4 s ({len(names)} pages; slow: {', '.join(slow) or 'none'})")
     for p in slow:
         problems.append(f"slow page: {p}")
+    c.window.open_page("Space")
+    c.window.open_page("Store")
+    settle(0.2)
+    QTest.mouseClick(c.window.stack.currentWidget(), Qt.MouseButton.BackButton)
+    settle(0.2)
+    check(c.window.current_page() == "Space", f"the mouse's back button goes back a page ({c.window.current_page()})")
     c.window.open_page("Home")
     timed("switch dark/light", lambda: c.window.toggle_dark(), 0.8, profile="theme")
     grab(c.window, "home-switched")
@@ -680,8 +686,11 @@ def space():
     settle(0.5)
     grab(w, "space-drives")
     root = Path(os.environ.get("SystemRoot", "C:/Windows"))
+    use0 = _times()
+    threading.Timer(30, _stacks, ("space-30s",)).start()  # (where the scan's threads are, if it's slow)
     timed(f"look through {root} (hundreds of thousands of files)", lambda: pg.start_scan(root), 90,
           wait=lambda: pg.scan is not None and pg.job is None, wait_s=200)
+    _say_times("the scan in the page", use0)
     if pg.job is not None:  # (stopped, so the rest can go on)
         say(f"note  still looking: {pg.busy_line.text()}")
         pg._stop()
@@ -689,8 +698,10 @@ def space():
     from corefold import space as sp
     stop = threading.Event()
     threading.Timer(60, stop.set).start()
+    use0 = _times()
     with setup():
         r = sp.scan(root, stop)
+    _say_times("the scan on its own", use0)
     say(f"note  the same again, on its own (the disk remembers part of it now): {r.files:,} files, {r.folders:,} "
         f"folders in {r.seconds:.1f} s ({r.files / max(r.seconds, 0.1):,.0f} a second){' (stopped)' if r.cancelled else ''}")
     if pg.scan is not None:
@@ -705,8 +716,10 @@ def space():
     timed("look for junk", lambda: None, 30, wait=lambda: pg.job is None, wait_s=120)
     grab(w, "space-clean")
     pg.show_section("dupes")
+    use0 = _times()
     timed("look for copies in a folder of 1,530 files + 800 pictures", lambda: pg.find_dupes([S]), 20,
           wait=lambda: pg.job is None, wait_s=120)
+    _say_times("looking for copies", use0)
     grab(w, "space-dupes")
 
 
@@ -762,6 +775,42 @@ def store():
     w = c.window
     w.open_page("Store")
     grab(w, "store")
+
+
+def _times():
+    """(this app's processor seconds, the whole PC's busy and total processor seconds, now)."""
+    import ctypes
+    from ctypes import wintypes as wt
+    k = ctypes.windll.kernel32
+    k.GetCurrentProcess.restype = wt.HANDLE
+    k.GetProcessTimes.argtypes = [wt.HANDLE] + [ctypes.POINTER(wt.FILETIME)] * 4
+    k.GetSystemTimes.argtypes = [ctypes.POINTER(wt.FILETIME)] * 3
+
+    def sec(f):
+        return (f.dwHighDateTime << 32 | f.dwLowDateTime) / 1e7
+    a, b, ker, usr = (wt.FILETIME() for _ in range(4))
+    k.GetProcessTimes(k.GetCurrentProcess(), ctypes.byref(a), ctypes.byref(b), ctypes.byref(ker), ctypes.byref(usr))
+    idle_, sk, su = (wt.FILETIME() for _ in range(3))
+    k.GetSystemTimes(ctypes.byref(idle_), ctypes.byref(sk), ctypes.byref(su))
+    total = sec(sk) + sec(su)  # (kernel time includes idle time)
+    return sec(ker) + sec(usr), total - sec(idle_), total, time.perf_counter()
+
+
+def _say_times(what, before):
+    mine, busy, total, t = (x - y for x, y in zip(_times(), before))
+    cores = os.cpu_count() or 1
+    say(f"note  {what}: {t:.0f} s, this app used {mine / max(t, 0.01) * 100:.0f}% of one core, the whole PC was "
+        f"{busy / max(total, 0.01) * 100:.0f}% busy ({cores} cores)")
+
+
+def _stacks(name):
+    lines = []
+    for th in threading.enumerate():
+        frame = sys._current_frames().get(th.ident)
+        if frame is not None and th.ident != threading.main_thread().ident:
+            lines.append(f"--- {th.name}")
+            lines += [f"  {Path(f.filename).name}:{f.lineno} {f.name}" for f in traceback.extract_stack(frame)[-6:]]
+    (OUT / f"{TAG}-stacks-{name}.txt").write_text("\n".join(lines), "utf-8")
 
 
 def idle():

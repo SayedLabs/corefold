@@ -241,15 +241,17 @@ class ToolCard(QFrame):
 
 
 class _BackButton(QObject):
-    """The mouse's back button anywhere in the window goes back a page, like in a browser."""
+    """The mouse's back button anywhere in the window goes back a page, like in a browser. It listens on
+    the window's own screen window, which sees every click in it before the widgets do but none of the
+    widgets' own events (listening on the whole app ran Python for every event, thousands when the look
+    changes)."""
 
     def __init__(self, window: "MainWindow"):
         super().__init__(window)
         self.w = window
 
     def eventFilter(self, obj, event):
-        if event.type() == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.BackButton and \
-                obj.isWidgetType() and obj.window() is self.w:
+        if event.type() == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.BackButton:
             self.w.go_back()
             return True
         return False
@@ -568,7 +570,7 @@ class MainWindow(QWidget):
         self._going_back = False
         QShortcut(QKeySequence(QKeySequence.StandardKey.Back), self, self.go_back)
         QShortcut(QKeySequence("Ctrl+K"), self, self.open_palette)
-        self._back_button = _BackButton(self)  # (only listens while the window is showing)
+        self._back_button = _BackButton(self)
 
     # ---- saving settings on purpose
 
@@ -3294,12 +3296,9 @@ class MainWindow(QWidget):
                 return True
         return False
 
-    def hideEvent(self, e):
-        QApplication.instance().removeEventFilter(self._back_button)
-        super().hideEvent(e)
-
     def showEvent(self, e):
-        QApplication.instance().installEventFilter(self._back_button)
+        if self.windowHandle() is not None:
+            self.windowHandle().installEventFilter(self._back_button)
         if not self._placed:
             self._placed = True
             self._restore_place()

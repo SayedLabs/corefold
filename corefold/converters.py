@@ -143,16 +143,19 @@ def save_image(im, out: Path, ext: str, ctx: Ctx, keep_metadata: bool = True):
     meta = _metadata(original, ext, im.mode) if keep_metadata else {}
     if "icc_profile" in im.info and "icc_profile" not in meta:
         im.info = {k: v for k, v in im.info.items() if k != "icc_profile"}  # Pillow would copy it anyway
-    if ext == ".jpg":
-        im.save(out, quality=ctx.options.jpg_quality, optimize=True, progressive=True, **meta)
+    big = im.width * im.height > BIG_PICTURE
+    if ext == ".jpg":  # progressive takes three times as long on a big photo for a file only 5% smaller
+        im.save(out, quality=ctx.options.jpg_quality, optimize=True, progressive=not big, **meta)
     elif ext == ".webp":
         if max(im.size) > WEBP_MAX:
             raise RuntimeError(tr("too big for WebP (it can't be wider or taller than 16,383 pixels)"))
-        im.save(out, quality=ctx.options.jpg_quality, method=5, **meta)
+        im.save(out, quality=ctx.options.jpg_quality, method=4, **meta)
     elif ext == ".avif":  # about half the size of a JPG at the same quality
         im.save(out, quality=max(50, ctx.options.jpg_quality - 15), speed=6,
                 **{k: v for k, v in meta.items() if k in ("exif", "icc_profile")})
-    elif ext in (".png", ".tiff"):
+    elif ext == ".png":  # a big photo packs twice as fast at level 3, for a file a little bigger
+        im.save(out, compress_level=3 if big else 6, **meta)
+    elif ext == ".tiff":
         im.save(out, **meta)
     elif ext == ".ico":
         im = im.convert("RGBA")
@@ -164,6 +167,7 @@ def save_image(im, out: Path, ext: str, ctx: Ctx, keep_metadata: bool = True):
         im.save(out)
 
 
+BIG_PICTURE = 8_000_000  # pixels: a phone photo is 12 million
 WEBP_MAX = 16383  # the largest width or height a WebP picture can have
 
 
