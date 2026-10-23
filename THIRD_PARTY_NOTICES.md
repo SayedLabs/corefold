@@ -19,6 +19,7 @@ Corefold is listed in `COMPONENT-VERSIONS.txt` next to `Corefold.exe`.
 | PyWinRT (Windows text reading) | MIT | https://github.com/pywinrt/pywinrt |
 | ONNX Runtime | MIT | https://github.com/microsoft/onnxruntime |
 | NumPy | BSD-3 | https://numpy.org |
+| SoundCard (recording the PC's sound) / CFFI | BSD-3 / MIT | https://github.com/bastibe/SoundCard · https://github.com/python-cffi/cffi |
 | "silueta" background-removal model (U²-Net) | Apache 2.0 (U²-Net) · distributed by rembg (MIT) | https://github.com/xuebinqin/U-2-Net · https://github.com/danielgatis/rembg |
 | Fluent UI System Icons (the line icons in the app) | MIT, © Microsoft Corporation | https://github.com/microsoft/fluentui-system-icons |
 | Python | PSF License | https://www.python.org |

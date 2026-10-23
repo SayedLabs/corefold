@@ -304,10 +304,12 @@ class Controller(QObject):
         self.act_archive = menu.addAction(tr("Open an archive…"), self.choose_archive)
         self.act_clip = menu.addAction(tr("Clipboard history"), lambda: self.show_clipboard(from_tray=True))
         self.act_shot = menu.addAction(tr("Take a screenshot"), lambda: self.capture and self.capture.screenshot())
+        self.act_shot_later = menu.addAction(tr("Screenshot with a timer"),
+                                             lambda: self.capture and self.capture.screenshot_later())
         self.act_quick = menu.addAction(tr("Quick menu"), lambda: self.quick and self.quick.toggle_menu())
         self.menu_icons = [(act_open, "home"), (act_settings, "settings"), (self.act_paste, "arrow_swap"),
                            (self.act_archive, "archive"), (self.act_clip, "clipboard"), (self.act_shot, "screenshot"),
-                           (self.act_quick, "layout")]
+                           (self.act_shot_later, "timer"), (self.act_quick, "layout")]
         self.clip = None     # Corefold Clipboard, while it's in use
         self.capture = None  # Corefold Capture, while it's in use
         self.quick = None    # the quick menu and wheel, while one of them is switched on
@@ -825,6 +827,7 @@ class Controller(QObject):
         self.act_archive.setVisible(all_tools.is_on(self.settings, "archive"))
         self.act_clip.setVisible(self.clip is not None)
         self.act_shot.setVisible(self.capture is not None)
+        self.act_shot_later.setVisible(self.capture is not None)
         self.act_quick.setVisible(self.quick is not None and self.settings.quick_menu)
 
     def _background_tools(self):

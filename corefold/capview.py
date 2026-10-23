@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from .app import Controller
 
 TOOLS = [("arrow", "Arrow"), ("box", "Box"), ("marker", "Marker"), ("pen", "Pen"), ("text", "Text"),
-         ("blur", "Blur"), ("crop", "Crop")]
+         ("step", "Steps"), ("blur", "Blur"), ("crop", "Crop")]
 COLORS = ["#e5484d", "#f5a524", "#30a46c", "#0090ff", "#111111", "#ffffff"]
 
 
@@ -84,6 +84,18 @@ def draw_shape(p: QPainter, s: Shape, base: QImage | None = None):
         p.setBrush(s.color)
         p.setPen(QPen(s.color, 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
         p.drawPolygon(QPolygonF([b, left, right]))
+    elif s.kind == "step" and s.text:  # a numbered circle: 1, 2, 3 ... where you click
+        r = max(11.0, s.width * 3.2)
+        c = s.points[0]
+        p.setPen(QPen(QColor("#ffffff"), max(1.5, r / 7)))
+        p.setBrush(s.color)
+        p.drawEllipse(c, r, r)
+        f = QFont("Segoe UI")
+        f.setPixelSize(max(10, round(r * (1.15 if len(s.text) < 2 else 0.9))))
+        f.setWeight(QFont.Weight.Bold)
+        p.setFont(f)
+        p.setPen(QColor("#111111") if s.color.lightness() > 170 else QColor("#ffffff"))
+        p.drawText(QRectF(c.x() - r, c.y() - r, r * 2, r * 2), Qt.AlignCenter, s.text)
     elif s.kind == "text" and s.text:
         f = QFont("Segoe UI")
         f.setPixelSize(max(12, round(s.width * 6)))
@@ -165,6 +177,10 @@ class Canvas(QWidget):
             text, ok = QInputDialog.getText(self, tr("Text"), tr("Type the text to put on the picture:"))
             if ok and text.strip():
                 self._add(Shape("text", self.color, self.pen_width, [pt], text.strip()))
+            return
+        if self.tool == "step":
+            n = sum(1 for sh in self.shapes if sh.kind == "step") + 1
+            self._add(Shape("step", self.color, self.pen_width, [pt], str(n)))
             return
         if self.tool == "crop":
             self.crop_rect = QRectF(pt, pt)
@@ -312,6 +328,11 @@ class CaptureEditor(QWidget):
         self.b_text.setToolTip(tr("Reads the words in the picture and copies them"))
         self.b_text.clicked.connect(self.copy_text)
         actions.addWidget(self.b_text)
+        pin = QPushButton(tr("Pin"))
+        pin.setCursor(Qt.PointingHandCursor)
+        pin.setToolTip(tr("Keeps the picture on top of everything, to look at while you work (P)"))
+        pin.clicked.connect(self.pin)
+        actions.addWidget(pin)
         copy = QPushButton(tr("Copy"))
         copy.setCursor(Qt.PointingHandCursor)
         copy.clicked.connect(self.copy)
@@ -347,7 +368,7 @@ class CaptureEditor(QWidget):
         lay.addLayout(foot)
         for keys, fn in (("Ctrl+Z", self.canvas.undo), ("Ctrl+Y", self.canvas.redo), ("Ctrl+Shift+Z", self.canvas.redo),
                          ("Ctrl+C", self.copy), ("Ctrl+S", self.save), ("Ctrl+Shift+S", self.save_as),
-                         ("Esc", self.close)):
+                         ("P", self.pin), ("Esc", self.close)):
             QShortcut(QKeySequence(keys), self).activated.connect(fn)
         self._size_to(image)
         self._update_status()
@@ -392,6 +413,11 @@ class CaptureEditor(QWidget):
     def copy(self):
         QGuiApplication.clipboard().setImage(self.canvas.result())
         self.c.toast.notify(tr("Copied"), tr("Paste the picture anywhere with Ctrl+V."), linger_ms=3500)
+
+    def pin(self):
+        """The picture (with its marks) in a small window that stays on top; the editor closes."""
+        pin_picture(self.c, self.canvas.result(), self.geometry().center())
+        self.close()
 
     def _write(self, path: Path) -> bool:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -457,6 +483,165 @@ class CaptureEditor(QWidget):
         if self.dirty and self.saved is not None:
             self._write(self.saved)  # (marks made after saving are kept in the file)
         super().closeEvent(e)
+
+
+# ----------------------------------------------------------------------------- pinned pictures
+
+_pins: list = []
+
+
+def pin_picture(controller, image: QImage, center=None):
+    pin = PinnedPicture(controller, image)
+    _pins[:] = [w for w in _pins if _alive(w)] + [pin]
+    if center is not None:
+        pin.move(center.x() - pin.width() // 2, center.y() - pin.height() // 2)
+    pin.show()
+    return pin
+
+
+def _alive(widget) -> bool:
+    try:
+        from shiboken6 import isValid
+        return isValid(widget)
+    except ImportError:
+        return True
+
+
+class PinnedPicture(QWidget):
+    """A screenshot that stays on top of every window. Drag it anywhere, the mouse wheel makes it
+    bigger or smaller (Ctrl+wheel: see-through), double-click or Esc closes it."""
+
+    def __init__(self, controller, image: QImage):
+        super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+        self.c = controller
+        self.image = image
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setWindowTitle(f"{tr('Pinned picture')} - {APP_NAME}")
+        self.setCursor(Qt.SizeAllCursor)
+        self.setToolTip(tr("Drag to move · wheel: size · Ctrl+wheel: see-through · double-click: close"))
+        self._drag = None
+        ratio = self.devicePixelRatioF() or 1.0
+        screen = QGuiApplication.primaryScreen().availableGeometry()
+        w, h = image.width() / ratio, image.height() / ratio
+        self.zoom = min(1.0, (screen.width() * 0.6) / max(1, w), (screen.height() * 0.6) / max(1, h))
+        self._resize()
+        QShortcut(QKeySequence("Esc"), self).activated.connect(self.close)
+        QShortcut(QKeySequence("Ctrl+C"), self).activated.connect(self.copy)
+
+    def _resize(self):
+        ratio = self.devicePixelRatioF() or 1.0
+        self.resize(max(40, round(self.image.width() / ratio * self.zoom)) + 2,
+                    max(30, round(self.image.height() / ratio * self.zoom)) + 2)
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.SmoothPixmapTransform)
+        p.drawImage(QRectF(1, 1, self.width() - 2, self.height() - 2), self.image)
+        p.setPen(QPen(QColor(60, 199, 178), 1))
+        p.drawRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5))
+
+    def mousePressEvent(self, e):
+        if e.button() == Qt.LeftButton:
+            self._drag = e.globalPosition().toPoint() - self.frameGeometry().topLeft()
+        elif e.button() == Qt.RightButton:
+            menu = QMenu(self)
+            round_menu(menu)
+            menu.addAction(tr("Copy"), self.copy)
+            menu.addAction(tr("Mark it up"), self.edit)
+            menu.addAction(tr("Actual size"), self.actual_size)
+            menu.addSeparator()
+            menu.addAction(tr("Close"), self.close)
+            menu.exec(e.globalPosition().toPoint())
+
+    def mouseMoveEvent(self, e):
+        if self._drag is not None and e.buttons() & Qt.LeftButton:
+            self.move(e.globalPosition().toPoint() - self._drag)
+
+    def mouseReleaseEvent(self, e):
+        self._drag = None
+
+    def mouseDoubleClickEvent(self, e):
+        self.close()
+
+    def wheelEvent(self, e):
+        step = 1 if e.angleDelta().y() > 0 else -1
+        if e.modifiers() & Qt.ControlModifier:
+            self.setWindowOpacity(min(1.0, max(0.25, self.windowOpacity() + step * 0.1)))
+            return
+        center = self.geometry().center()
+        self.zoom = min(4.0, max(0.1, self.zoom * (1.12 if step > 0 else 1 / 1.12)))
+        self._resize()
+        self.move(center.x() - self.width() // 2, center.y() - self.height() // 2)
+
+    def actual_size(self):
+        center = self.geometry().center()
+        self.zoom = 1.0
+        self._resize()
+        self.move(center.x() - self.width() // 2, center.y() - self.height() // 2)
+
+    def copy(self):
+        QGuiApplication.clipboard().setImage(self.image)
+        self.c.toast.notify(tr("Copied"), tr("Paste the picture anywhere with Ctrl+V."), linger_ms=3000)
+
+    def edit(self):
+        cap = self.c.capture
+        if cap is not None:
+            cap.edit(self.image)
+            self.close()
+
+
+class Countdown(QWidget):
+    """5, 4, 3, 2, 1 at the top of the screen before a screenshot (left out of the screenshot)."""
+
+    def __init__(self, seconds: int, done):
+        super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool
+                         | Qt.WindowTransparentForInput | Qt.WindowDoesNotAcceptFocus)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WA_ShowWithoutActivating)
+        self.left, self.done = seconds, done
+        self.resize(84, 84)
+        from PySide6.QtGui import QCursor
+        screen = QGuiApplication.screenAt(QCursor.pos()) or QGuiApplication.primaryScreen()
+        g = screen.availableGeometry()
+        self.move(g.center().x() - 42, g.top() + 40)
+        from PySide6.QtCore import QTimer
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self._tick)
+        self.timer.start(1000)
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        from .capture import exclude_from_capture
+        exclude_from_capture(self)
+
+    def _tick(self):
+        self.left -= 1
+        if self.left <= 0:
+            self.timer.stop()
+            self.hide()
+            self.done()
+            self.close()
+            self.deleteLater()
+            return
+        self.update()
+
+    def cancel(self):
+        self.timer.stop()
+        self.close()
+        self.deleteLater()
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(20, 22, 24, 210))
+        p.drawEllipse(QRectF(self.rect()).adjusted(2, 2, -2, -2))
+        f = QFont(self.font())
+        f.setPointSizeF(26)
+        f.setWeight(QFont.Weight.Bold)
+        p.setFont(f)
+        p.setPen(QColor("#fff"))
+        p.drawText(QRectF(self.rect()), Qt.AlignCenter, str(self.left))
 
 
 # ----------------------------------------------------------------------------- recording

@@ -36,7 +36,10 @@ class Action:
 
 ACTIONS: dict[str, Action] = {a.id: a for a in (
     Action("screenshot", "Take a screenshot", "screenshot", "capture"),
+    Action("screenshot_later", "Screenshot with a timer", "timer", "capture"),
     Action("record", "Start or stop recording", "record", "capture"),
+    Action("record_gif", "Record a GIF", "filmstrip_image", "capture"),
+    Action("pin", "Pin what's copied to the screen", "pin", "capture"),
     Action("clipboard", "Clipboard history", "clipboard", "clipboard"),
     Action("paste", "Convert what's copied", "arrow_swap", "converter"),
     Action("again", "Do it again", "arrow_sync", "converter"),
@@ -273,7 +276,7 @@ class QuickAccess(QObject):
 
     def run(self, action_id: str):
         """Does what an entry on the menu or the wheel says (once the menu or wheel is out of the way)."""
-        delay = 180 if action_id in ("screenshot", "record") else 0  # (not in the picture)
+        delay = 180 if action_id in ("screenshot", "screenshot_later", "record", "record_gif") else 0  # (not in the picture)
         QTimer.singleShot(delay, lambda: self._run(action_id))
 
     def _run(self, action_id: str):
@@ -298,7 +301,10 @@ class QuickAccess(QObject):
         c = self.c
         actions: dict[str, Callable[[], object]] = {
             "screenshot": lambda: c.capture and c.capture.screenshot(),
+            "screenshot_later": lambda: c.capture and c.capture.screenshot_later(),
             "record": lambda: c.capture and c.capture.toggle_recording(),
+            "record_gif": lambda: c.capture and c.capture.record_gif(),
+            "pin": lambda: c.capture and c.capture.pin_last(),
             "clipboard": lambda: c.show_clipboard(),
             "paste": c.paste,
             "again": c.do_again,

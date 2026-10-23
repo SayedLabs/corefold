@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (QFileDialog, QFrame, QHBoxLayout, QLabel, QMenu, 
 from . import i18n, icons
 from .core import ALIASES, APP_NAME, IMAGE_EXT, human_size, norm, short_name
 from .i18n import ltr, tr
+from .settings import VIEWER_SORTS as SORTS
 from .theme import round_menu
 from .winutil import reveal_in_explorer, set_title_bar_dark
 
@@ -42,13 +43,23 @@ def natural_key(name: str):
     return [(0, int(x), "") if x.isdigit() else (1, 0, x) for x in re.split(r"(\d+)", name.lower())]
 
 
-def pictures_in(folder: Path) -> list[Path]:
-    """The pictures in a folder, in the order File Explorer shows them by name."""
+
+def pictures_in(folder: Path, sort: str = "name") -> list[Path]:
+    """The pictures in a folder: by name the way File Explorer orders them, or by date or size."""
     try:
         found = [e for e in os.scandir(folder) if e.is_file() and is_picture(Path(e.name))]
     except OSError:
         return []
-    return [Path(e.path) for e in sorted(found, key=lambda e: natural_key(e.name))]
+    found.sort(key=lambda e: natural_key(e.name))
+    if sort in ("newest", "oldest", "biggest"):
+        def stat(e):
+            try:
+                st = e.stat()
+                return st.st_size if sort == "biggest" else st.st_mtime
+            except OSError:
+                return 0
+        found.sort(key=stat, reverse=sort != "oldest")  # (stable: same dates stay in name order)
+    return [Path(e.path) for e in found]
 
 
 def pil_to_qimage(im) -> QImage:
@@ -142,10 +153,20 @@ def apply_edits(im, edits: list):
     for op, value in edits:
         if op == "rotate" and value % 360:
             im = im.transpose(turns[value % 360])
+        elif op == "flip":
+            im = im.transpose(Image.Transpose.FLIP_LEFT_RIGHT if value == "h" else Image.Transpose.FLIP_TOP_BOTTOM)
         elif op == "crop":
             x, y, w, h = value
             im = im.crop((max(0, x), max(0, y), min(im.width, x + w), min(im.height, y + h)))
     return im
+
+
+def _flipped(image: QImage, way: str) -> QImage:
+    o = Qt.Orientation.Horizontal if way == "h" else Qt.Orientation.Vertical
+    try:
+        return image.flipped(o)  # (Qt 6.9 and later)
+    except AttributeError:
+        return image.mirrored(way == "h", way == "v")
 
 
 class _Loaded(QObject):
@@ -492,6 +513,19 @@ class ViewerWindow(QWidget):
         more.addAction(tr("Show in folder"), lambda: reveal_in_explorer(self.current()))
         more.addAction(tr("More options in the Converter…"), self.to_converter)
         more.addSeparator()
+        more.addAction(tr("Rename… (F2)"), self.rename)
+        more.addAction(tr("Move to a folder… (M)"), lambda: self.to_folder(move=True))
+        more.addAction(tr("Copy to a folder…"), lambda: self.to_folder(move=False))
+        more.addAction(tr("Flip left to right (H)"), lambda: self.flip("h"))
+        more.addAction(tr("Flip upside down (V)"), lambda: self.flip("v"))
+        order = more.addMenu(tr("Sort by"))
+        round_menu(order)
+        self.sort_actions = {}
+        for key, text in SORTS.items():
+            a = order.addAction(tr(text), lambda k=key: self.set_sort(k))
+            a.setCheckable(True)
+            self.sort_actions[key] = a
+        more.addSeparator()
         more.addAction(tr("Set as desktop background"), self.set_wallpaper)
         self.b_more.setMenu(more)
 
@@ -578,6 +612,8 @@ class ViewerWindow(QWidget):
                 (Qt.Key_1, self.view.actual_size), (Qt.Key_R, lambda: self.rotate(90)),
                 (Qt.Key_C, self.toggle_crop), (Qt.Key_I, self.toggle_info), (Qt.Key_Delete, self.delete),
                 (Qt.Key_F5, self.toggle_slideshow), (Qt.Key_F11, self.toggle_full), (Qt.Key_F, self.toggle_full),
+                (Qt.Key_F2, self.rename), (Qt.Key_M, lambda: self.to_folder(move=True)),
+                (Qt.Key_H, lambda: self.flip("h")), (Qt.Key_V, lambda: self.flip("v")),
                 (Qt.Key_Escape, self._escape), (Qt.Key_Return, self._enter), (Qt.Key_Enter, self._enter))
         for key, fn in keys:
             QShortcut(QKeySequence(key), self, fn)
@@ -592,7 +628,10 @@ class ViewerWindow(QWidget):
 
     def open(self, path: Path):
         """Shows this picture, with the others in its folder a key press away."""
-        folder_files = pictures_in(path.parent)
+        sort = getattr(self.c.settings, "viewer_sort", "name")
+        for k, a in getattr(self, "sort_actions", {}).items():
+            a.setChecked(k == sort)
+        folder_files = pictures_in(path.parent, sort)
         key = os.path.normcase(str(path))
         self.files = folder_files if any(os.path.normcase(str(f)) == key for f in folder_files) else [path]
         self.index = next((i for i, f in enumerate(self.files) if os.path.normcase(str(f)) == key), 0)
@@ -698,6 +737,8 @@ class ViewerWindow(QWidget):
         for op, value in self.edits:
             if op == "rotate":
                 image = image.transformed(QTransform().rotate(value), Qt.SmoothTransformation)
+            elif op == "flip":
+                image = _flipped(image, value)
             elif op == "crop":
                 x, y, w, h = value
                 image = image.copy(x, y, w, h)
@@ -712,6 +753,82 @@ class ViewerWindow(QWidget):
         self.edits.append(("rotate", angle))
         self.view.set_image(self.view.image.transformed(QTransform().rotate(angle), Qt.SmoothTransformation))
         self._buttons()
+
+    def flip(self, way: str):
+        """Mirrors the picture: "h" left to right, "v" upside down (saved with Save, like turning)."""
+        if self.view.image.isNull() or self.view.movie is not None:
+            return
+        self._end_crop()
+        self.edits.append(("flip", way))
+        self.view.set_image(_flipped(self.view.image, way))
+        self._buttons()
+
+    def set_sort(self, key: str):
+        self.c.settings.viewer_sort = key
+        self.c.settings_changed()
+        if self.files:
+            self.open(self.current())
+
+    def rename(self):
+        """F2: a new name for the picture (the extension stays)."""
+        from PySide6.QtWidgets import QInputDialog
+        src = self.current()
+        if not src.name or not src.exists() or not self._leave_ok():
+            return
+        name, ok = QInputDialog.getText(self, tr("Rename"), tr("New name:"), text=src.stem)
+        name = (name or "").strip().rstrip(".")
+        if not ok or not name or name == src.stem:
+            return
+        from .core import safe_name
+        out = src.with_name(safe_name(name) + src.suffix)
+        if out.exists() and os.path.normcase(str(out)) != os.path.normcase(str(src)):
+            QMessageBox.warning(self, tr("Couldn't rename"), tr("There's already a file called {name}.", name=out.name))
+            return
+        try:
+            src.rename(out)
+        except OSError as e:
+            QMessageBox.warning(self, tr("Couldn't rename"), str(e))
+            return
+        image = self.cache.pop(str(src), None)
+        if image is not None:
+            self.cache[str(out)] = image
+        self.files[self.index] = out
+        self.show_current()
+
+    def to_folder(self, move: bool):
+        """Moves (or copies) the picture to another folder: handy for sorting a pile of photos."""
+        import shutil
+        src = self.current()
+        if not src.name or not src.exists() or not self._leave_ok():
+            return
+        start = getattr(self, "_last_folder", "") or str(src.parent)
+        folder = QFileDialog.getExistingDirectory(self, tr("Move to a folder") if move else tr("Copy to a folder"),
+                                                  start)
+        if not folder:
+            return
+        self._last_folder = folder
+        from .core import unique_path
+        out = unique_path(Path(folder) / src.name)
+        try:
+            if move:
+                shutil.move(str(src), str(out))
+            else:
+                shutil.copy2(src, out)
+        except OSError as e:
+            QMessageBox.warning(self, tr("Couldn't move it") if move else tr("Couldn't copy it"), str(e))
+            return
+        if not move:
+            self.c.toast.notify(tr("Copied"), out.name, linger_ms=2000)
+            return
+        self.cache.pop(str(src), None)
+        del self.files[self.index]
+        self.c.toast.notify(tr("Moved"), tr("{name} is now in {folder}.", name=out.name, folder=Path(folder).name),
+                            linger_ms=2500)
+        if not self.files:
+            self.close()
+            return
+        self.index = min(self.index, len(self.files) - 1)
+        self.show_current()
 
     def toggle_crop(self):
         if self.view.crop is not None:
