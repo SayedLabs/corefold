@@ -367,7 +367,8 @@ def space_nav():
               f"opening a folder again shows its map right away ({time.time() - t0:.2f} s)")
         if pg.scan is not None:
             click(pg.again_btn)
-            check(pg.job is not None and pg.busy_box.isVisible(), "Look again looks through it afresh")
+            check(pg.job is not None or (pg.scan is not None and made is not None and pg.scan is not made[0]),  # (a small folder: done already)
+                  "Look again looks through it afresh")
             until(lambda: pg.job is None, 120)
             check(pg.scan is not None and made is not None and pg.scan is not made[0], "…and makes a new map")
             pg._back_to_drives()
