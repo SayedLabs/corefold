@@ -493,7 +493,7 @@ class MainWindow(QWidget):
                     "ViewerSettings": self._viewer_settings, "Clipboard": self._clipboard,
                     "ClipboardSettings": self._clipboard_settings, "Space": self._space, "Capture": self._capture,
                     "CaptureSettings": self._capture_settings, "Cloud": self._cloud, "Player": self._player,
-                    "PlayerSettings": self._player_settings, "Updates": self._updates, "About": self._about,
+                    "PlayerSettings": self._player_settings, "Awake": self._awake, "Updates": self._updates, "About": self._about,
                     "Quick": self._quick_settings}
         self._wheel_guard = None
         self._settings_head()  # (made before the pages: opening one shows or hides it)
@@ -506,7 +506,8 @@ class MainWindow(QWidget):
         self.clip_page = None
         self.space_page = None
         self.cloud_page = None
-        self._unbuilt = {"Apps", "Store", "Viewer", "Clipboard", "Space", "Capture", "Cloud", "Player", *SOON, *[tool.page for tool in all_tools.TOOLS
+        self.awake_page = None
+        self._unbuilt = {"Apps", "Store", "Viewer", "Clipboard", "Space", "Capture", "Cloud", "Player", "Awake", *SOON, *[tool.page for tool in all_tools.TOOLS
                                                     if tool.page not in on_pages and tool.page != "Converter"]}
         for name in PAGES:
             built = QWidget() if name in self._unbuilt else builders[name]()
@@ -884,6 +885,8 @@ class MainWindow(QWidget):
             self.clip_page.refresh()
         elif name == "Space" and self.space_page is not None:
             self.space_page.refresh()
+        elif name == "Awake" and self.awake_page is not None:
+            self.awake_page.refresh()
         elif name == "Capture":
             self.refresh_captures()
         elif name == "Player":
@@ -2140,6 +2143,15 @@ class MainWindow(QWidget):
         self.space_page = SpacePage(self.c, header)
         return self.space_page
 
+    def _awake(self) -> QWidget:
+        """Corefold Awake: keep the PC awake, and turn it off later."""
+        from .awakepage import AwakePage
+        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
+        header = tool_header("awake", tr("Corefold Awake"),
+                             tr("Keep your PC from going to sleep, for as long as you choose."), dark, dpr)
+        self.awake_page = AwakePage(self.c, header)
+        return self.awake_page
+
     def _player(self) -> QWidget:
         """Corefold Player: open videos and music, and pick up where you left off."""
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
@@ -3237,6 +3249,8 @@ class MainWindow(QWidget):
             self.space_page.apply_theme(t)
         if self.cloud_page is not None:
             self.cloud_page.apply_theme(t)
+        if self.awake_page is not None:
+            self.awake_page.apply_theme(t)
         if self.isVisible():
             set_title_bar_dark(self, t.dark)
 

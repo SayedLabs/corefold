@@ -100,6 +100,10 @@ def table_texts() -> dict[str, str]:
          "Crash reports", "Saved when a program crashed. Only useful to the people who make it.",
          "Old installers in Downloads", "Setup files downloaded more than a month ago. They go to the Recycle Bin."],
         "space.find_junk")
+    from corefold import awake, awakepage
+    add(awake.DURATIONS.values(), "awake.DURATIONS")
+    add([text for _, text in awake.TRAY_CHOICES], "awake.TRAY_CHOICES")
+    add([text for _, text in awakepage.MODES + awakepage.SHUTDOWN_MODES] + ["Custom"], "awakepage.MODES")
     for _, title, text in tour.STEPS:
         add([title, text], "tour.STEPS")
     return out
