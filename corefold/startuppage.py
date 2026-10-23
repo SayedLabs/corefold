@@ -157,6 +157,7 @@ class StartupPage(QWidget):
         self.new_ids: set[str] = set()   # marked New this time Corefold runs (kept when looking again)
         self.admin = startup.is_admin()
         self._icons = QFileIconProvider()
+        self._icon_cache: dict[str, QIcon | None] = {}
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 10, 0)
         lay.setSpacing(12)
@@ -264,6 +265,7 @@ class StartupPage(QWidget):
         self._fill()
 
     def _fill(self):
+        scrolled = self.scroll.verticalScrollBar().value()
         for row in self.rows:
             row.hide()
             row.deleteLater()
@@ -277,13 +279,18 @@ class StartupPage(QWidget):
         if not any_new and self.kind == "new":
             self._filter("")
         self.filter()
+        QTimer.singleShot(0, lambda: work.alive(self) and self.scroll.verticalScrollBar().setValue(scrolled))
 
     def _icon(self, e: startup.Entry) -> QIcon | None:
+        """The program's own icon (kept, so looking again doesn't read every file's icon again)."""
         for path in (e.exe, e.extra.get("file", "")):
-            if path and os.path.isfile(path):
-                ic = self._icons.icon(QFileInfo(path))
-                if not ic.isNull():
-                    return ic
+            if not path:
+                continue
+            if path not in self._icon_cache:
+                ic = self._icons.icon(QFileInfo(path)) if os.path.isfile(path) else None
+                self._icon_cache[path] = ic if ic is not None and not ic.isNull() else None
+            if self._icon_cache[path] is not None:
+                return self._icon_cache[path]
         return None
 
     # ---- search and filters
