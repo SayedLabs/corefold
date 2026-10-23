@@ -80,7 +80,7 @@ class Treemap(QWidget):
         self.boxes: list[Box] = []
         self.hover = -1
         self.setMouseTracking(True)
-        self.setMinimumSize(320, 260)
+        self.setMinimumSize(240, 160)  # (small screens with big text: nothing below it gets covered)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.setCursor(Qt.PointingHandCursor)
 
@@ -496,6 +496,7 @@ class SpacePage(QWidget):
         self.items.setContextMenuPolicy(Qt.CustomContextMenu)
         self.items.customContextMenuRequested.connect(self._list_menu)
         self.items.itemDoubleClicked.connect(self._list_open)
+        self.items.setMinimumWidth(240)  # (names stay readable next to the map)
         side.addWidget(self.items, 1)
         holder = QWidget()
         holder.setLayout(side)
