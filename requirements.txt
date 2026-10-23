@@ -1,4 +1,6 @@
 PySide6-Essentials>=6.7,<7
+# Corefold Player (Qt's player, with an LGPL build of FFmpeg)
+PySide6-Addons>=6.7,<7
 Pillow>=11.2
 pi-heif>=0.20
 pypdf>=5.0

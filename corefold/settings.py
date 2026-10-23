@@ -105,6 +105,8 @@ CAP_RECORD_SHORTCUTS = {"ctrl+shift+printscreen": "Ctrl + Shift + Print Screen",
                         "off": "No shortcut"}
 CAP_AFTER = {"edit": "Open it to mark it up", "copy": "Only copy it"}
 CAP_FPS = {30: "30 frames a second", 60: "60 frames a second (smoother, bigger files)"}
+PLAYER_SKIP = {5: "5 seconds", 10: "10 seconds", 30: "30 seconds"}
+PLAYER_WHEEL = {"volume": "Changes the volume", "seek": "Goes back and forward"}
 CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_style": HOVER_STYLES,
            "slice_colors": SLICE_COLORS, "text_size": TEXT_SIZES, "wheel_position": WHEEL_POSITIONS,
            "wheel_size": WHEEL_SIZES, "sound": SOUNDS, "language": LANGUAGES, "menu_style": MENU_STYLES,
@@ -113,7 +115,7 @@ CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_styl
            "backup_days": BACKUP_DAYS, "extract_mode": EXTRACT_MODES, "viewer_wheel": VIEWER_WHEEL,
            "slideshow_seconds": SLIDESHOW_SECONDS, "clip_shortcut": CLIP_SHORTCUTS, "clip_max": CLIP_MAX,
            "clip_days": CLIP_DAYS, "cap_shortcut": CAP_SHORTCUTS, "cap_record_shortcut": CAP_RECORD_SHORTCUTS,
-           "cap_after": CAP_AFTER, "cap_fps": CAP_FPS}
+           "cap_after": CAP_AFTER, "cap_fps": CAP_FPS, "player_skip": PLAYER_SKIP, "player_wheel": PLAYER_WHEEL}
 
 
 # Settings kept on disk while the window has changes that weren't saved yet (see window.py): the
@@ -124,7 +126,7 @@ RECENT_ARCHIVES = 8
 NOT_EDITED = {"enabled", "first_run", "last_version", "menu_signature", "window_geometry", "last_page",
               "last_action", "tour_done", "watermark", "fit_mb", "open_archives", "recent_archives",
               "tools_off", "known_tools", "open_images", "open_emails", "viewer_info", "recent_views",
-              "clip_paused"}
+              "clip_paused", "open_media", "player_volume"}
 # the settings of each tab of the Settings page (each one has its own "Reset to defaults")
 GENERAL_KEYS = ("language", "sound", "volume", "sound_problems", "show_progress", "low_priority", "one_at_a_time")
 LOOK_KEYS = ("appearance", "accent", "custom_color", "animations", "toast_corner", "toast_time", "window_text",
@@ -138,6 +140,7 @@ UNINSTALLER_KEYS = ("unused_months", "backup_days", "restore_point")
 ARCHIVE_KEYS = ("extract_mode", "extract_nested", "remember_archives")
 VIEWER_KEYS = ("viewer_wheel", "viewer_confirm_delete", "slideshow_seconds")
 CLIPBOARD_KEYS = ("clip_shortcut", "clip_paste", "clip_max", "clip_days", "clip_images")
+PLAYER_KEYS = ("player_resume", "player_skip", "player_wheel", "player_next", "player_subtitles")
 CAPTURE_KEYS = ("cap_shortcut", "cap_record_shortcut", "cap_after", "cap_save", "cap_fps", "cap_mic", "cap_cursor",
                 "cap_countdown")
 UPDATE_KEYS = ("check_updates", "auto_update")
@@ -202,6 +205,14 @@ class Settings:
     clip_days: int = 30            # copies older than this are forgotten (0: never)
     clip_images: bool = True       # keep pictures that are copied
     clip_paused: bool = False      # new copies aren't kept for now
+    # the Player
+    open_media: bool = True        # videos and music open in Corefold ("Open with")
+    player_resume: bool = True     # pick up where you left off
+    player_skip: int = 10          # seconds the arrow keys jump
+    player_wheel: str = "volume"   # the mouse wheel over the video: volume or seeking
+    player_next: bool = True       # play the next file in the folder when one ends
+    player_subtitles: bool = True  # turn on a video's own subtitles
+    player_volume: int = 80
     # Capture
     cap_shortcut: str = "ctrl+printscreen"          # a screenshot
     cap_record_shortcut: str = "ctrl+shift+printscreen"  # start or stop recording
@@ -281,6 +292,7 @@ class Settings:
         s.wheel_opacity = min(100, max(60, s.wheel_opacity))
         s.volume = min(100, max(0, s.volume))
         s.per_page = min(16, max(6, s.per_page))
+        s.player_volume = min(100, max(0, s.player_volume))
         s.jpg_quality = min(100, max(50, s.jpg_quality))
         s.fit_mb = min(4000.0, max(0.1, s.fit_mb))
         wm = dict(defaults.watermark)

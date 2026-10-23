@@ -858,7 +858,8 @@ class Controller(QObject):
         viewer = all_tools.is_on(s, "viewer")
         wanted = {"archive": (s.open_archives and all_tools.is_on(s, "archive"), tr("Corefold Archive")),
                   "image": (s.open_images and viewer, tr("Corefold Viewer")),
-                  "email": (s.open_emails and viewer, tr("Corefold Viewer"))}
+                  "email": (s.open_emails and viewer, tr("Corefold Viewer")),
+                  "media": (s.open_media and all_tools.is_on(s, "player"), tr("Corefold Player"))}
         threading.Thread(target=assoc.sync, args=(wanted, app_command, app_icon(), ""), daemon=True).start()
 
     # ---- right-click menu
@@ -932,6 +933,8 @@ class Controller(QObject):
             self.browse_from_menu(lines[0])
         elif word == "view" and lines:
             self.open_viewer(Path(lines[0]))
+        elif word == "play" and lines:
+            self.open_player(Path(lines[0]))
         elif word == "run" and len(lines) >= 2:
             self.run_from_menu(lines[0], lines[1:])
 
@@ -1033,6 +1036,31 @@ class Controller(QObject):
             return
         self.viewers.append(win)
         self.remember_view(path)
+        win.show()
+        win.raise_()
+        win.activateWindow()
+
+    def open_player(self, path: Path):
+        """Plays a video or song (with the rest of its folder) in Corefold Player."""
+        if not path.is_file():
+            return
+        self.players = [p for p in getattr(self, "players", []) if _alive(p)]
+        for p in self.players:  # one window: a new file plays in it
+            if p.isVisible():
+                p.open(path)
+                if not p.isFullScreen():
+                    p.showNormal()
+                p.raise_()
+                p.activateWindow()
+                return
+        from .player import PlayerWindow
+        try:
+            win = PlayerWindow(self, path)
+        except Exception as e:  # (Qt's player missing from a broken install)
+            log.exception("couldn't start the player")
+            self.tell(tr("Can't play this here"), str(e))
+            return
+        self.players.append(win)
         win.show()
         win.raise_()
         win.activateWindow()
@@ -1616,6 +1644,9 @@ class Controller(QObject):
         if self.capture is not None:
             self.capture.stop()
             self.capture = None
+        for p in getattr(self, "players", []):
+            if _alive(p):
+                p.close()
         self.tray.hide()
         if self.server:
             self.server.close()
@@ -1655,7 +1686,8 @@ class Controller(QObject):
             self.quit(cleanup=True)
 
 
-PAGE_NAMES = ("Home", "Converter", "Apps", "Archives", "Viewer", "Clipboard", "Space", "Capture", "Cloud", "Store",
+PAGE_NAMES = ("Home", "Converter", "Apps", "Archives", "Viewer", "Player", "Clipboard", "Space", "Capture", "Cloud",
+              "Store", "PlayerSettings",
               "Soon",
               "General", "Look", "ConvOptions", "WheelLook", "Formats", "AppsSettings", "ArchiveSettings",
               "ViewerSettings", "ClipboardSettings", "CaptureSettings", "History", "Updates", "About")
