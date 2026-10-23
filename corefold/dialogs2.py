@@ -6,7 +6,7 @@ import threading
 from PySide6.QtCore import QObject, QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
-                               QRadioButton, QSpinBox, QStackedWidget, QWidget)
+                               QPushButton, QRadioButton, QSpinBox, QStackedWidget, QWidget)
 
 from .core import short_name
 from .dialogs import Base, describe
@@ -402,7 +402,89 @@ class CropDialog(Base):
         return {"box": tuple(self.area.box)}
 
 
+# ----------------------------------------------------------------------------- video: crop, subtitles, sound
+
+class _Choices(Base):
+    """A title, a few choices (one is picked), a note and a button."""
+
+    def __init__(self, files, icon, dark, title: str, choices: dict, note: str, ok: str, key: str):
+        super().__init__(title, describe(files), icon, dark)
+        self.key = key
+        self.group = QButtonGroup(self)
+        for i, (value, text) in enumerate(choices.items()):
+            rb = QRadioButton(tr(text))
+            rb.setProperty("value", value)
+            rb.setChecked(i == 0)
+            self.group.addButton(rb)
+            self.lay.addWidget(rb)
+        if note:
+            n = QLabel(note)
+            n.setObjectName("muted")
+            n.setWordWrap(True)
+            self.lay.addWidget(n)
+        self.buttons(ok)
+
+    def params(self):
+        b = self.group.checkedButton()
+        return {self.key: b.property("value") if b else None}
+
+
+class VideoCropDialog(_Choices):
+    def __init__(self, files, icon, dark):
+        from .videotools import CROPS
+        super().__init__(files, icon, dark, tr("Crop the video"), CROPS,
+                         tr("Shapes are cut from the middle of the picture. Saved as a new file; your original "
+                            "stays as it is."), tr("Crop"), "how")
+
+
+class SoundDialog(_Choices):
+    def __init__(self, files, icon, dark):
+        from .videotools import SOUND_FORMATS
+        super().__init__(files, icon, dark, tr("Save the sound"), SOUND_FORMATS,
+                         tr("WAV and FLAC keep every detail but are big; MP3 and M4A play everywhere."), tr("Save"),
+                         "format")
+
+
+class SubtitlesDialog(Base):
+    def __init__(self, files, icon, dark):
+        from .videotools import subtitles_next_to
+        super().__init__(tr("Put subtitles in the video"), describe(files), icon, dark)
+        row = QHBoxLayout()
+        self.path = QLineEdit()
+        self.path.setPlaceholderText(tr("A subtitle file (.srt, .ass, .vtt)"))
+        found = subtitles_next_to(files[0])
+        if found is not None:
+            self.path.setText(str(found))
+        pick = QPushButton(tr("Choose…"))
+        pick.clicked.connect(self._pick)
+        row.addWidget(self.path, 1)
+        row.addWidget(pick)
+        self.lay.addLayout(row)
+        self.burn = QRadioButton(tr("Draw them into the picture (plays on phones and TVs too)"))
+        self.track = QRadioButton(tr("Add them as subtitles you can turn off (MKV, no quality lost, fast)"))
+        self.burn.setChecked(True)
+        group = QButtonGroup(self)
+        group.addButton(self.burn)
+        group.addButton(self.track)
+        self.lay.addWidget(self.burn)
+        self.lay.addWidget(self.track)
+        self.buttons(tr("Put them in"))
+        self.ok.setEnabled(bool(self.path.text()))
+        self.path.textChanged.connect(lambda t: self.ok.setEnabled(bool(t.strip())))
+
+    def _pick(self):
+        from PySide6.QtWidgets import QFileDialog
+        name, _ = QFileDialog.getOpenFileName(self, tr("Choose…"), self.path.text(),
+                                              tr("Subtitles") + " (*.srt *.ass *.ssa *.vtt)")
+        if name:
+            self.path.setText(name)
+
+    def params(self):
+        return {"subtitles": self.path.text().strip().strip('"'), "how": "burn" if self.burn.isChecked() else "track"}
+
+
 def register(dialogs: dict):
     from .pdfpages import PagesDialog
     dialogs.update({"pages": PagesDialog, "speed": SpeedDialog, "sticker": StickerDialog, "lock": LockDialog,
-                    "rename_files": RenameFilesDialog, "crop": CropDialog})
+                    "rename_files": RenameFilesDialog, "crop": CropDialog, "video_crop": VideoCropDialog,
+                    "sound": SoundDialog, "subtitles": SubtitlesDialog})

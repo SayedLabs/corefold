@@ -683,14 +683,17 @@ LOCAL_ONLY = ["-protocol_whitelist", "file,pipe"]
 
 
 def run_ffmpeg(src: Path, out: Path, args: list[str], ctx: Ctx, pre: list[str] | None = None,
-               duration: float | None = None):
+               duration: float | None = None, more_inputs: list[Path] | None = None, cwd: Path | None = None):
+    """FFmpeg from src to out, with progress and Stop. more_inputs come after src (-i 1, 2 …)."""
     duration = media_duration(src) if duration is None else duration
-    args = with_tonemap(src, args)
+    args = with_tonemap(src, args) if not more_inputs else args
+    extra = [x for p in (more_inputs or []) for x in (*LOCAL_ONLY, "-i", str(p))]
     cmd = [find_tool("ffmpeg"), "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
-           *(pre or []), *LOCAL_ONLY, "-i", str(src), *args, "-progress", "pipe:1", "-nostats", str(out)]
+           *(pre or []), *LOCAL_ONLY, "-i", str(src), *extra, *args, "-progress", "pipe:1", "-nostats", str(out)]
     with tempfile.TemporaryFile(mode="w+", encoding="utf-8", errors="replace") as err:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=err, stdin=subprocess.DEVNULL, text=True,
-                                encoding="utf-8", errors="replace", creationflags=job_flags())
+                                encoding="utf-8", errors="replace", creationflags=job_flags(),
+                                cwd=str(cwd) if cwd else None)
         try:
             for line in proc.stdout:
                 if ctx.cancelled:
@@ -1153,7 +1156,7 @@ def both(*checks):
 
 def catalog(multi: bool = False) -> dict[str, list[Tool]]:
     """Every tool Corefold has, per kind of file, in default wheel order."""
-    from . import archives as ar, extras as ex, moretools as mt
+    from . import archives as ar, extras as ex, moretools as mt, videotools as vt
 
     def fmt(kind, ext, fn, check=None, **kw):
         return Tool(f"{kind}:{ext[1:]}", ext[1:].upper(),
@@ -1205,7 +1208,9 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
     audio += [Tool("audio:trim", tr("Trim"), tr("Cut the start or end"), trim_media, ask="trim"),
               Tool("audio:fit", tr("Fit size"), tr("Make it fit a size limit"), ex.fit, ask="fit"),
               Tool("audio:volume", tr("Volume"), tr("Fix the volume (too quiet or too loud)"), mt.fix_volume),
-              Tool("audio:speed", tr("Speed"), tr("Speed up or slow down"), mt.change_speed, ask="speed")]
+              Tool("audio:speed", tr("Speed"), tr("Speed up or slow down"), mt.change_speed, ask="speed"),
+              Tool("audio:join", tr("Join"), tr("Join them into one file, one after another"), vt.join_media,
+                   batch=True, check=vt.check_join)]
 
     video = [fmt("video", e, ffmpeg_convert, check=check_gif_length if e == ".gif" else None, args=a)
              for e, a in VIDEO_ARGS.items()]
@@ -1225,6 +1230,16 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
               Tool("video:volume", tr("Volume"), tr("Fix the volume (too quiet or too loud)"), mt.fix_volume,
                    check=check_has_audio, slow_check=True),
               Tool("video:speed", tr("Speed"), tr("Speed up or slow down"), mt.change_speed, ask="speed"),
+              Tool("video:crop", tr("Crop"), tr("Remove black bars, or make it square or vertical"), vt.crop_video,
+                   ask="video_crop"),
+              Tool("video:subtitles", tr("Subtitles"), tr("Put a subtitle file into the video"), vt.add_subtitles,
+                   ask="subtitles"),
+              Tool("video:srt", "SRT", tr("Save the subtitles inside as .srt"), vt.save_subtitles,
+                   check=vt.check_has_subtitles, slow_check=True),
+              Tool("video:sound", tr("Sound…"), tr("Save the sound (M4A, WAV, FLAC…)"), vt.video_sound, ask="sound",
+                   check=check_has_audio, slow_check=True),
+              Tool("video:join", tr("Join"), tr("Join them into one video, one after another"), vt.join_media,
+                   batch=True, check=vt.check_join),
               Tool("video:sticker", tr("Sticker"), tr("Make a sticker or chat GIF (WhatsApp, Telegram, Discord)"),
                    mt.video_sticker, ask="sticker")]
 

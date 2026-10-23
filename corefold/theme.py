@@ -166,6 +166,11 @@ QFrame#playerBar QSlider::handle:horizontal { background: #f2f2f2; border-color:
 QSlider#seek::groove:horizontal { height: 6px; border-radius: 3px; }
 QSlider#seek::sub-page:horizontal { border-radius: 3px; }
 QLabel#playerCover { background: #0b0b0c; }
+QListWidget#playlist { background: #121314; color: #e8e8e8; border: none; border-left: 1px solid #26282a; outline: none;
+        padding: 4px; }
+QListWidget#playlist::item { padding: 6px 8px; border-radius: 6px; }
+QListWidget#playlist::item:hover { background: #1d1f21; }
+QListWidget#playlist::item:selected { background: #1f3330; color: #ffffff; }
 QFrame#clipPopup { background: $raised; border: 1px solid $line_strong; border-radius: 16px; }
 QListWidget#clips { background: transparent; border: none; outline: none; }
 QListWidget#clipsPage { background: $panel; border: 1px solid $border; border-radius: 12px; outline: none; padding: 4px; }

@@ -57,6 +57,10 @@ def media_in(folder: Path) -> list[Path]:
     return sorted(files, key=lambda p: natural_key(p.name))
 
 
+# how the video fills the window (English, shown through tr())
+FIT_MODES = (("fit", "Fit the window"), ("fill", "Fill the window (crops the edges)"), ("stretch", "Stretch"))
+
+
 def clock(ms: int) -> str:
     s = max(0, int(ms // 1000))
     h, m, s = s // 3600, s // 60 % 60, s % 60
@@ -344,6 +348,20 @@ class PlayerWindow(QWidget):
         more = QMenu(self.b_more)
         round_menu(more)
         more.addAction(tr("Open a file…"), self.open_dialog)
+        more.addAction(tr("Playlist (Q)"), self.toggle_playlist)
+        self.a_repeat = more.addAction(tr("Repeat this file"), self._repeat)
+        self.a_repeat.setCheckable(True)
+        self.a_shuffle = more.addAction(tr("Shuffle"), self._shuffle)
+        self.a_shuffle.setCheckable(True)
+        picture = more.addMenu(tr("Picture (Z)"))
+        round_menu(picture)
+        self.fit_actions = {}
+        for key, text in FIT_MODES:
+            a = picture.addAction(tr(text), lambda k=key: self.set_fit(k))
+            a.setCheckable(True)
+            a.setChecked(key == "fit")
+            self.fit_actions[key] = a
+        more.addSeparator()
         more.addAction(tr("Save the A–B part as a clip…"), self.save_clip)
         more.addAction(tr("Show in folder"), self._reveal)
         self.b_more.setMenu(more)
@@ -367,10 +385,24 @@ class PlayerWindow(QWidget):
         bl.addLayout(row1)
         bl.addLayout(row2)
 
+        from PySide6.QtWidgets import QListWidget
+        self.playlist = QListWidget()
+        self.playlist.setObjectName("playlist")
+        self.playlist.setFixedWidth(260)
+        self.playlist.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.playlist.itemActivated.connect(lambda it: self._play_row(self.playlist.row(it)))
+        self.playlist.itemClicked.connect(lambda it: self._play_row(self.playlist.row(it)))
+        self.playlist.hide()
+        middle = QHBoxLayout()
+        middle.setContentsMargins(0, 0, 0, 0)
+        middle.setSpacing(0)
+        middle.addWidget(self.screen_stack, 1)
+        middle.addWidget(self.playlist)
+        self.fit = "fit"
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(0)
-        lay.addWidget(self.screen_stack, 1)
+        lay.addLayout(middle, 1)
         lay.addWidget(self.note_box)
         lay.addWidget(self.bar)
         self.note_box.hide()
@@ -403,7 +435,7 @@ class PlayerWindow(QWidget):
                 (",", lambda: self.frame_step(-1)), (".", lambda: self.frame_step(1)), ("S", self.screenshot),
                 ("L", self.mark_loop), ("I", self.toggle_mini), ("G", lambda: self.shift_subs(-SUB_STEP_MS)),
                 ("H", lambda: self.shift_subs(SUB_STEP_MS)), ("V", self.cycle_subs), ("Ctrl+O", self.open_dialog),
-                ("Home", lambda: self._seek_to(0))]
+                ("Home", lambda: self._seek_to(0)), ("Q", self.toggle_playlist), ("Z", self.cycle_fit)]
         for i in range(10):
             keys.append((str(i), lambda i=i: self._jump_percent(i * 10)))
         for k, fn in keys:
@@ -420,6 +452,8 @@ class PlayerWindow(QWidget):
             self.files = media_in(path.parent) or [path]
             if path not in self.files:
                 self.files.insert(0, path)
+            if self.a_shuffle.isChecked():
+                self.a_shuffle.setChecked(False)
         self.index = self.files.index(path) if path in self.files else 0
         self.subs = None
         self.loop_a = self.loop_b = None
@@ -452,6 +486,67 @@ class PlayerWindow(QWidget):
     def current(self) -> Path:
         return self.files[self.index] if self.files else Path()
 
+    # ---- the playlist
+
+    def toggle_playlist(self):
+        if self.mini:
+            return
+        self.playlist.setVisible(not self.playlist.isVisible())
+        self._fill_playlist()
+
+    def _fill_playlist(self):
+        if not self.playlist.isVisible():
+            return
+        self.playlist.blockSignals(True)
+        self.playlist.clear()
+        for i, f in enumerate(self.files):
+            self.playlist.addItem(ltr(f"{i + 1}. {f.stem}"))
+            self.playlist.item(i).setToolTip(f.name)
+        if 0 <= self.index < self.playlist.count():
+            self.playlist.setCurrentRow(self.index)
+            self.playlist.scrollToItem(self.playlist.currentItem())
+        self.playlist.blockSignals(False)
+
+    def _play_row(self, row: int):
+        if 0 <= row < len(self.files) and row != self.index:
+            self.open(self.files[row], keep_list=True)
+
+    def _repeat(self, on: bool):
+        from PySide6.QtMultimedia import QMediaPlayer
+        self.player.setLoops(QMediaPlayer.Loops.Infinite if on else 1)
+        self.flash(tr("Repeating this file") if on else tr("Repeat off"))
+
+    def _shuffle(self, on: bool):
+        """Shuffle: the rest of the list in a random order (the file playing stays where it is)."""
+        import random
+        cur = self.current()
+        if on:
+            rest = [f for f in self.files if f != cur]
+            random.shuffle(rest)
+            self.files = [cur] + rest
+        else:
+            self.files = media_in(cur.parent) or [cur]
+            if cur not in self.files:
+                self.files.insert(0, cur)
+        self.index = self.files.index(cur) if cur in self.files else 0
+        self._buttons()
+        self._fill_playlist()
+        self.flash(tr("Shuffle on") if on else tr("Shuffle off"))
+
+    # ---- how the picture fills the window
+
+    def set_fit(self, key: str):
+        modes = {"fit": Qt.KeepAspectRatio, "fill": Qt.KeepAspectRatioByExpanding, "stretch": Qt.IgnoreAspectRatio}
+        self.fit = key if key in modes else "fit"
+        self.video.setAspectRatioMode(modes[self.fit])
+        for k, a in self.fit_actions.items():
+            a.setChecked(k == self.fit)
+        self.flash(tr(dict(FIT_MODES)[self.fit]), 1500)
+
+    def cycle_fit(self):
+        keys = [k for k, _ in FIT_MODES]
+        self.set_fit(keys[(keys.index(self.fit) + 1) % len(keys)])
+
     def go(self, step: int):
         if len(self.files) < 2:
             return
@@ -470,6 +565,7 @@ class PlayerWindow(QWidget):
         many = len(self.files) > 1
         self.b_prev.setEnabled(many and self.index > 0)
         self.b_next.setEnabled(many and self.index < len(self.files) - 1)
+        self._fill_playlist()
 
     # ---- playing
 
@@ -801,6 +897,7 @@ class PlayerWindow(QWidget):
             self.bar.show()
             self.unsetCursor()
         else:
+            self.playlist.hide()
             self.showFullScreen()
             self._still_since = time.monotonic()
             self.idle.start()
@@ -828,6 +925,7 @@ class PlayerWindow(QWidget):
         self.mini = not self.mini
         if self.mini:
             self._normal_geometry = self.saveGeometry()
+            self.playlist.hide()
             self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
             for b in (self.b_prev, self.b_next, self.b_mute, self.volume, self.title, self.b_speed, self.b_subs,
                       self.b_audio, self.b_loop, self.b_shot, self.b_more):
@@ -897,7 +995,10 @@ class PlayerWindow(QWidget):
         paths = [Path(u.toLocalFile()) for u in e.mimeData().urls() if u.isLocalFile()]
         subs = [p for p in paths if p.suffix.lower() in SUB_EXT]
         media = [p for p in paths if is_media(p)]
-        if media:
+        if len(media) > 1:  # several files: they're the playlist, in the order they were picked
+            self.files, self.index = media, 0
+            self.open(media[0], keep_list=True)
+        elif media:
             self.open(media[0])
         if subs:
             self.load_subtitles(subs[0])
