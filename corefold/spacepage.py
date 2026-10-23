@@ -6,13 +6,13 @@ import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QObject, QPoint, QRectF, Qt, QUrl, Signal
+from PySide6.QtCore import QPoint, QRectF, Qt, QUrl, Signal
 from PySide6.QtGui import QColor, QDesktopServices, QFont, QFontMetrics, QPainter, QPen
 from PySide6.QtWidgets import QButtonGroup, QCheckBox, QFileDialog, QFrame, QHBoxLayout, QHeaderView, QLabel, \
     QMenu, QMessageBox, QProgressBar, QPushButton, QSizePolicy, QStackedWidget, QToolTip, QTreeWidget, \
     QTreeWidgetItem, QVBoxLayout, QWidget
 
-from . import icons, space
+from . import icons, space, work
 from .core import human_size, short_name
 from .i18n import ltr, tr
 from .theme import mix, round_menu
@@ -28,27 +28,7 @@ SECTIONS = [("map", "Disk map"), ("clean", "Clean up"), ("dupes", "Duplicates")]
 DUPE_FOLDERS = ("Desktop", "Documents", "Downloads", "Pictures", "Videos", "Music")
 
 
-class _Signals(QObject):
-    progress = Signal(object)
-    done = Signal(object)
-
-
-def _work(fn, on_progress, on_done):
-    """Runs fn(progress) on its own thread; on_done gets what it returns (on the window's thread)."""
-    sig = _Signals()
-    sig.progress.connect(on_progress)
-    sig.done.connect(on_done)
-
-    def run():
-        try:
-            result = fn(sig.progress.emit)
-        except Exception as e:  # (shown, never lost)
-            result = e
-        sig.done.emit(result)
-    t = threading.Thread(target=run, daemon=True, name="corefold-space")
-    t.sig = sig  # (kept alive while it runs)
-    t.start()
-    return t
+_work = work.run
 
 
 # ----------------------------------------------------------------------------- the map
@@ -967,9 +947,4 @@ def _clear_layout(lay):
 
 
 
-def _alive(widget) -> bool:
-    try:
-        from shiboken6 import isValid
-        return isValid(widget)
-    except ImportError:
-        return True
+_alive = work.alive

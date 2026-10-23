@@ -410,7 +410,8 @@ class MainWindow(QWidget):
                     "ArchiveSettings": self._archive_settings, "Viewer": self._viewer,
                     "ViewerSettings": self._viewer_settings, "Clipboard": self._clipboard,
                     "ClipboardSettings": self._clipboard_settings, "Space": self._space, "Capture": self._capture,
-                    "CaptureSettings": self._capture_settings, "Updates": self._updates, "About": self._about}
+                    "CaptureSettings": self._capture_settings, "Cloud": self._cloud, "Updates": self._updates,
+                    "About": self._about}
         self._wheel_guard = None
         self._settings_head()  # (made before the pages: opening one shows or hides it)
         self._dots: list[QLabel] = []
@@ -420,7 +421,8 @@ class MainWindow(QWidget):
         # (the Converter's page and every Settings page are always made: other parts of the window use them)
         self.clip_page = None
         self.space_page = None
-        self._unbuilt = {"Apps", "Store", "Viewer", "Clipboard", "Space", "Capture", *SOON, *[tool.page for tool in all_tools.TOOLS
+        self.cloud_page = None
+        self._unbuilt = {"Apps", "Store", "Viewer", "Clipboard", "Space", "Capture", "Cloud", *SOON, *[tool.page for tool in all_tools.TOOLS
                                                     if tool.page not in on_pages and tool.page != "Converter"]}
         for name in PAGES:
             built = QWidget() if name in self._unbuilt else builders[name]()
@@ -1537,6 +1539,15 @@ class MainWindow(QWidget):
         self.space_page = SpacePage(self.c, header)
         return self.space_page
 
+    def _cloud(self) -> QWidget:
+        """Corefold Cloud: OneDrive and Dropbox side by side."""
+        from .cloudpage import CloudPage
+        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
+        header = tool_header("cloud", tr("Corefold Cloud"),
+                             tr("Your OneDrive and Dropbox in one window. Drag files between them."), dark, dpr)
+        self.cloud_page = CloudPage(self.c, header)
+        return self.cloud_page
+
     def _capture(self) -> QWidget:
         """Corefold Capture: screenshots and recordings."""
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
@@ -2451,6 +2462,8 @@ class MainWindow(QWidget):
             self.clip_page.apply_theme(t)
         if self.space_page is not None:
             self.space_page.apply_theme(t)
+        if self.cloud_page is not None:
+            self.cloud_page.apply_theme(t)
         if self.isVisible():
             set_title_bar_dark(self, t.dark)
 

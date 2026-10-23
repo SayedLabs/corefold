@@ -1652,7 +1652,8 @@ class Controller(QObject):
             self.quit(cleanup=True)
 
 
-PAGE_NAMES = ("Home", "Converter", "Apps", "Archives", "Viewer", "Clipboard", "Space", "Capture", "Store", "Soon",
+PAGE_NAMES = ("Home", "Converter", "Apps", "Archives", "Viewer", "Clipboard", "Space", "Capture", "Cloud", "Store",
+              "Soon",
               "General", "Look", "ConvOptions", "WheelLook", "Formats", "AppsSettings", "ArchiveSettings",
               "ViewerSettings", "ClipboardSettings", "CaptureSettings", "History", "Updates", "About")
 OUTPUT_EXT = {"image:pdf": ".pdf", "image:scan": ".pdf", "pdf:merge": ".pdf", "image:video": ".mp4",
