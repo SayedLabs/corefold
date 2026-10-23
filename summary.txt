@@ -1,0 +1,85 @@
+Language run of 6cf944260173027242153735fe9c299ceed9bf6f
+== lang-languages-1
+langtest-first: 0 problem(s)
+Windows fatal exception: access violation
+langtest: 0 problem(s)
+Windows fatal exception: access violation
+exit code -1073741819
+langtest-again: 0 problem(s)
+Windows fatal exception: access violation
+langtest: 0 problem(s)
+Windows fatal exception: access violation
+exit code -1073741819
+== lang-languages-2
+langtest-first: 0 problem(s)
+Windows fatal exception: access violation
+Windows fatal exception: access violation
+exit code -1073741819
+langtest-again: 0 problem(s)
+Windows fatal exception: access violation
+langtest: 0 problem(s)
+Windows fatal exception: access violation
+exit code -1073741819
+== lang-languages-3
+langtest-first: 0 problem(s)
+Windows fatal exception: access violation
+langtest: 0 problem(s)
+Windows fatal exception: access violation
+exit code -1073741819
+langtest-again: 0 problem(s)
+Windows fatal exception: access violation
+langtest: 0 problem(s)
+Windows fatal exception: access violation
+exit code -1073741819
+== lang-languages-4
+langtest-first: 0 problem(s)
+Windows fatal exception: access violation
+langtest: 0 problem(s)
+Windows fatal exception: access violation
+exit code -1073741819
+langtest-again: 0 problem(s)
+Windows fatal exception: access violation
+langtest: 0 problem(s)
+Windows fatal exception: access violation
+exit code -1073741819
+== lang-languages-5
+langtest-first: 0 problem(s)
+Windows fatal exception: access violation
+langtest: 0 problem(s)
+Windows fatal exception: access violation
+exit code -1073741819
+langtest-again: 0 problem(s)
+Windows fatal exception: access violation
+langtest: 0 problem(s)
+Windows fatal exception: access violation
+exit code -1073741819
+== lang-languages-6
+langtest-first: 0 problem(s)
+Windows fatal exception: access violation
+langtest: 0 problem(s)
+Windows fatal exception: access violation
+exit code -1073741819
+langtest-again: 0 problem(s)
+Windows fatal exception: access violation
+langtest: 0 problem(s)
+Windows fatal exception: access violation
+exit code -1073741819
+== lang-sweep-fr-small-1
+sweeptest fr-dark-min: 0 problem(s)
+exit code -1073741819
+== lang-sweep-fr-small-2
+sweeptest fr-dark-min: 0 problem(s)
+exit code -1073741819
+== lang-sweep-fr-small-3
+sweeptest fr-dark-min: 0 problem(s)
+exit code -1073741819
+== lang-sweep-fr-small-main-1
+sweeptest fr-dark-min: 0 problem(s)
+exit code -1073741819
+== lang-sweep-fr-small-main-2
+sweeptest fr-dark-min: 0 problem(s)
+exit code -1073741819
+== lang-sweep-fr-small-main-3
+sweeptest fr-dark-min: 1 problem(s)
+exit code -1073741819
+      1 FAIL  Space page at 720x460: text cut off: DriveCard '' is cut by its QWidget 'scrollContent' (0,101 298x98 in 608x190)

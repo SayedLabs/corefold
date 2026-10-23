@@ -1,0 +1,13 @@
+Space page at 720x460: text cut off: DriveCard '' is cut by its QWidget 'scrollContent' (0,101 298x98 in 608x190)
+
+errors:
+
+notes:
+round 1: 28 windows, 1403 widgets, 171 MB, 49947 Python objects
+round 2: 28 windows, 1403 widgets, 184 MB, 50523 Python objects
+round 3: 28 windows, 1403 widgets, 194 MB, 50558 Python objects
+memory as tools come and go (171 → 184 → 194 MB, 9.8 MB a round)
+after 10 opens: 149 MB, 14 widgets, 4 windows
+after 20 opens: 149 MB, 14 widgets, 4 windows
+after 30 opens: 147 MB, 14 widgets, 4 windows
+after 40 opens: 147 MB, 14 widgets, 4 windows

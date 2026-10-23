@@ -1,0 +1,477 @@
+----- start
+ok    the window opens
+ok    every ready tool can be added
+ok    start: no errors behind the clicks (0)
+----- pages
+ok    page Home: the Home page opens (Home)
+ok    page Home: the Home page shows (618x374)
+ok    Home page at 720x460: nothing cut off or sticking out
+ok    page Home: opens without errors
+ok    page History: the History page opens (History)
+ok    page History: the History page shows (618x374)
+ok    History page at 720x460: nothing cut off or sticking out
+ok    page History: opens without errors
+ok    page Converter: the Converter page opens (Converter)
+ok    page Converter: the Converter page shows (618x374)
+ok    Converter page at 720x460: nothing cut off or sticking out
+ok    page Converter: opens without errors
+ok    page Apps: the Apps page opens (Apps)
+ok    page Apps: the Apps page shows (618x374)
+ok    Apps page at 720x460: nothing cut off or sticking out
+ok    page Apps: opens without errors
+ok    page Archives: the Archives page opens (Archives)
+ok    page Archives: the Archives page shows (618x374)
+ok    Archives page at 720x460: nothing cut off or sticking out
+ok    page Archives: opens without errors
+ok    page Viewer: the Viewer page opens (Viewer)
+ok    page Viewer: the Viewer page shows (618x374)
+ok    Viewer page at 720x460: nothing cut off or sticking out
+ok    page Viewer: opens without errors
+ok    page Player: the Player page opens (Player)
+ok    page Player: the Player page shows (618x374)
+ok    Player page at 720x460: nothing cut off or sticking out
+ok    page Player: opens without errors
+ok    page Capture: the Capture page opens (Capture)
+ok    page Capture: the Capture page shows (618x374)
+ok    Capture page at 720x460: nothing cut off or sticking out
+ok    page Capture: opens without errors
+ok    page Space: the Space page opens (Space)
+ok    page Space: the Space page shows (618x374)
+ok    Space page at 720x460: nothing cut off or sticking out
+ok    page Space: opens without errors
+ok    page Clipboard: the Clipboard page opens (Clipboard)
+ok    page Clipboard: the Clipboard page shows (618x374)
+ok    Clipboard page at 720x460: nothing cut off or sticking out
+ok    page Clipboard: opens without errors
+ok    page Cloud: the Cloud page opens (Cloud)
+ok    page Cloud: the Cloud page shows (618x374)
+ok    Cloud page at 720x460: nothing cut off or sticking out
+ok    page Cloud: opens without errors
+ok    page Startup: the Startup page opens (Startup)
+ok    page Startup: the Startup page shows (618x374)
+ok    Startup page at 720x460: nothing cut off or sticking out
+ok    page Startup: opens without errors
+ok    page PDF: the PDF page opens (PDF)
+ok    page PDF: the PDF page shows (618x374)
+ok    PDF page at 720x460: nothing cut off or sticking out
+ok    page PDF: opens without errors
+ok    page Rename: the Rename page opens (Rename)
+ok    page Rename: the Rename page shows (618x374)
+ok    Rename page at 720x460: nothing cut off or sticking out
+ok    page Rename: opens without errors
+ok    page Search: the Search page opens (Search)
+ok    page Search: the Search page shows (618x374)
+ok    Search page at 720x460: nothing cut off or sticking out
+ok    page Search: opens without errors
+ok    page Colors: the Colors page opens (Colors)
+ok    page Colors: the Colors page shows (618x374)
+ok    Colors page at 720x460: nothing cut off or sticking out
+ok    page Colors: opens without errors
+ok    page Ruler: the Ruler page opens (Ruler)
+ok    page Ruler: the Ruler page shows (618x374)
+ok    Ruler page at 720x460: nothing cut off or sticking out
+ok    page Ruler: opens without errors
+ok    page Check: the Check page opens (Check)
+ok    page Check: the Check page shows (618x374)
+ok    Check page at 720x460: nothing cut off or sticking out
+ok    page Check: opens without errors
+ok    page Shredder: the Shredder page opens (Shredder)
+ok    page Shredder: the Shredder page shows (618x374)
+ok    Shredder page at 720x460: nothing cut off or sticking out
+ok    page Shredder: opens without errors
+ok    page Fonts: the Fonts page opens (Fonts)
+ok    page Fonts: the Fonts page shows (618x374)
+ok    Fonts page at 720x460: nothing cut off or sticking out
+ok    page Fonts: opens without errors
+ok    page Network: the Network page opens (Network)
+ok    page Network: the Network page shows (618x374)
+ok    Network page at 720x460: nothing cut off or sticking out
+ok    page Network: opens without errors
+ok    page Battery: the Battery page opens (Battery)
+ok    page Battery: the Battery page shows (618x374)
+ok    Battery page at 720x460: nothing cut off or sticking out
+ok    page Battery: opens without errors
+ok    page Focus: the Focus page opens (Focus)
+ok    page Focus: the Focus page shows (618x374)
+ok    Focus page at 720x460: nothing cut off or sticking out
+ok    page Focus: opens without errors
+ok    page Layouts: the Layouts page opens (Layouts)
+ok    page Layouts: the Layouts page shows (618x374)
+ok    Layouts page at 720x460: nothing cut off or sticking out
+ok    page Layouts: opens without errors
+ok    page Drivers: the Drivers page opens (Drivers)
+ok    page Drivers: the Drivers page shows (618x374)
+ok    Drivers page at 720x460: nothing cut off or sticking out
+ok    page Drivers: opens without errors
+ok    page Awake: the Awake page opens (Awake)
+ok    page Awake: the Awake page shows (618x374)
+ok    Awake page at 720x460: nothing cut off or sticking out
+ok    page Awake: opens without errors
+ok    page Snippets: the Snippets page opens (Snippets)
+ok    page Snippets: the Snippets page shows (618x374)
+ok    Snippets page at 720x460: nothing cut off or sticking out
+ok    page Snippets: opens without errors
+ok    page Backup: the Backup page opens (Backup)
+ok    page Backup: the Backup page shows (618x374)
+ok    Backup page at 720x460: nothing cut off or sticking out
+ok    page Backup: opens without errors
+ok    page Notes: the Notes page opens (Notes)
+ok    page Notes: the Notes page shows (618x374)
+ok    Notes page at 720x460: nothing cut off or sticking out
+ok    page Notes: opens without errors
+ok    page System: the System page opens (System)
+ok    page System: the System page shows (618x374)
+ok    System page at 720x460: nothing cut off or sticking out
+ok    page System: opens without errors
+ok    page Unlock: the Unlock page opens (Unlock)
+ok    page Unlock: the Unlock page shows (618x374)
+ok    Unlock page at 720x460: nothing cut off or sticking out
+ok    page Unlock: opens without errors
+ok    page Organizer: the Organizer page opens (Organizer)
+ok    page Organizer: the Organizer page shows (618x374)
+ok    Organizer page at 720x460: nothing cut off or sticking out
+ok    page Organizer: opens without errors
+ok    page Sound: the Sound page opens (Sound)
+ok    page Sound: the Sound page shows (618x374)
+ok    Sound page at 720x460: nothing cut off or sticking out
+ok    page Sound: opens without errors
+ok    page Store: the Store page opens (Store)
+ok    page Store: the Store page shows (618x374)
+ok    Store page at 720x460: nothing cut off or sticking out
+ok    page Store: opens without errors
+ok    page General: the General page opens (General)
+ok    page General: the General page shows (554x279)
+ok    General page at 720x460: nothing cut off or sticking out
+ok    page General: opens without errors
+ok    page Look: the Look page opens (Look)
+ok    page Look: the Look page shows (554x279)
+ok    Look page at 720x460: nothing cut off or sticking out
+ok    page Look: opens without errors
+ok    page Quick: the Quick page opens (Quick)
+ok    page Quick: the Quick page shows (554x279)
+ok    Quick page at 720x460: nothing cut off or sticking out
+ok    page Quick: opens without errors
+ok    page ConvOptions: the ConvOptions page opens (ConvOptions)
+ok    page ConvOptions: the ConvOptions page shows (554x242)
+ok    ConvOptions page at 720x460: nothing cut off or sticking out
+ok    page ConvOptions: opens without errors
+ok    page WheelLook: the WheelLook page opens (WheelLook)
+ok    page WheelLook: the WheelLook page shows (554x242)
+ok    WheelLook page at 720x460: nothing cut off or sticking out
+ok    page WheelLook: opens without errors
+ok    page Formats: the Formats page opens (Formats)
+ok    page Formats: the Formats page shows (554x242)
+ok    Formats page at 720x460: nothing cut off or sticking out
+ok    page Formats: opens without errors
+ok    page AppsSettings: the AppsSettings page opens (AppsSettings)
+ok    page AppsSettings: the AppsSettings page shows (554x279)
+ok    AppsSettings page at 720x460: nothing cut off or sticking out
+ok    page AppsSettings: opens without errors
+ok    page ArchiveSettings: the ArchiveSettings page opens (ArchiveSettings)
+ok    page ArchiveSettings: the ArchiveSettings page shows (554x279)
+ok    ArchiveSettings page at 720x460: nothing cut off or sticking out
+ok    page ArchiveSettings: opens without errors
+ok    page ViewerSettings: the ViewerSettings page opens (ViewerSettings)
+ok    page ViewerSettings: the ViewerSettings page shows (554x279)
+ok    ViewerSettings page at 720x460: nothing cut off or sticking out
+ok    page ViewerSettings: opens without errors
+ok    page PlayerSettings: the PlayerSettings page opens (PlayerSettings)
+ok    page PlayerSettings: the PlayerSettings page shows (554x279)
+ok    PlayerSettings page at 720x460: nothing cut off or sticking out
+ok    page PlayerSettings: opens without errors
+ok    page CaptureSettings: the CaptureSettings page opens (CaptureSettings)
+ok    page CaptureSettings: the CaptureSettings page shows (554x279)
+ok    CaptureSettings page at 720x460: nothing cut off or sticking out
+ok    page CaptureSettings: opens without errors
+ok    page ClipboardSettings: the ClipboardSettings page opens (ClipboardSettings)
+ok    page ClipboardSettings: the ClipboardSettings page shows (554x279)
+ok    ClipboardSettings page at 720x460: nothing cut off or sticking out
+ok    page ClipboardSettings: opens without errors
+ok    page Updates: the Updates page opens (Updates)
+ok    page Updates: the Updates page shows (618x374)
+ok    Updates page at 720x460: nothing cut off or sticking out
+ok    page Updates: opens without errors
+ok    page About: the About page opens (About)
+ok    page About: the About page shows (618x374)
+ok    About page at 720x460: nothing cut off or sticking out
+ok    page About: opens without errors
+ok    Back many times lands on a page (ClipboardSettings)
+ok    pages: no errors behind the clicks (0)
+----- sizes
+ok    Home page, smallest window (720x460): nothing cut off or sticking out
+ok    History page, smallest window (720x460): nothing cut off or sticking out
+ok    Converter page, smallest window (720x460): nothing cut off or sticking out
+ok    Apps page, smallest window (720x460): nothing cut off or sticking out
+ok    Archives page, smallest window (720x460): nothing cut off or sticking out
+ok    Viewer page, smallest window (720x460): nothing cut off or sticking out
+ok    Player page, smallest window (720x460): nothing cut off or sticking out
+ok    Capture page, smallest window (720x460): nothing cut off or sticking out
+ok    Space page, smallest window (720x460): nothing cut off or sticking out
+ok    Clipboard page, smallest window (720x460): nothing cut off or sticking out
+ok    Cloud page, smallest window (720x460): nothing cut off or sticking out
+ok    Startup page, smallest window (720x460): nothing cut off or sticking out
+ok    PDF page, smallest window (720x460): nothing cut off or sticking out
+ok    Rename page, smallest window (720x460): nothing cut off or sticking out
+ok    Search page, smallest window (720x460): nothing cut off or sticking out
+ok    Colors page, smallest window (720x460): nothing cut off or sticking out
+ok    Ruler page, smallest window (720x460): nothing cut off or sticking out
+ok    Check page, smallest window (720x460): nothing cut off or sticking out
+ok    Shredder page, smallest window (720x460): nothing cut off or sticking out
+ok    Fonts page, smallest window (720x460): nothing cut off or sticking out
+ok    Network page, smallest window (720x460): nothing cut off or sticking out
+ok    Battery page, smallest window (720x460): nothing cut off or sticking out
+ok    Focus page, smallest window (720x460): nothing cut off or sticking out
+ok    Layouts page, smallest window (720x460): nothing cut off or sticking out
+ok    Drivers page, smallest window (720x460): nothing cut off or sticking out
+ok    Awake page, smallest window (720x460): nothing cut off or sticking out
+ok    Snippets page, smallest window (720x460): nothing cut off or sticking out
+ok    Backup page, smallest window (720x460): nothing cut off or sticking out
+ok    Notes page, smallest window (720x460): nothing cut off or sticking out
+ok    System page, smallest window (720x460): nothing cut off or sticking out
+ok    Unlock page, smallest window (720x460): nothing cut off or sticking out
+ok    Organizer page, smallest window (720x460): nothing cut off or sticking out
+ok    Sound page, smallest window (720x460): nothing cut off or sticking out
+ok    Store page, smallest window (720x460): nothing cut off or sticking out
+ok    General page, smallest window (720x460): nothing cut off or sticking out
+ok    Look page, smallest window (720x460): nothing cut off or sticking out
+ok    Quick page, smallest window (720x460): nothing cut off or sticking out
+ok    ConvOptions page, smallest window (720x460): nothing cut off or sticking out
+ok    WheelLook page, smallest window (720x460): nothing cut off or sticking out
+ok    Formats page, smallest window (720x460): nothing cut off or sticking out
+ok    AppsSettings page, smallest window (720x460): nothing cut off or sticking out
+ok    ArchiveSettings page, smallest window (720x460): nothing cut off or sticking out
+ok    ViewerSettings page, smallest window (720x460): nothing cut off or sticking out
+ok    PlayerSettings page, smallest window (720x460): nothing cut off or sticking out
+ok    CaptureSettings page, smallest window (720x460): nothing cut off or sticking out
+ok    ClipboardSettings page, smallest window (720x460): nothing cut off or sticking out
+ok    Updates page, smallest window (720x460): nothing cut off or sticking out
+ok    About page, smallest window (720x460): nothing cut off or sticking out
+ok    Home page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    History page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Converter page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Apps page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Archives page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Viewer page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Player page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Capture page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Space page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Clipboard page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Cloud page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Startup page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    PDF page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Rename page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Search page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Colors page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Ruler page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Check page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Shredder page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Fonts page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Network page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Battery page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Focus page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Layouts page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Drivers page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Awake page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Snippets page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Backup page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Notes page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    System page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Unlock page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Organizer page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Sound page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Store page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    General page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Look page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Quick page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    ConvOptions page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    WheelLook page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Formats page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    AppsSettings page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    ArchiveSettings page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    ViewerSettings page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    PlayerSettings page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    CaptureSettings page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    ClipboardSettings page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Updates page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    About page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Home page, maximized window (1920x1009): nothing cut off or sticking out
+ok    History page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Converter page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Apps page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Archives page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Viewer page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Player page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Capture page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Space page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Clipboard page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Cloud page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Startup page, maximized window (1920x1009): nothing cut off or sticking out
+ok    PDF page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Rename page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Search page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Colors page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Ruler page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Check page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Shredder page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Fonts page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Network page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Battery page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Focus page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Layouts page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Drivers page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Awake page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Snippets page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Backup page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Notes page, maximized window (1920x1009): nothing cut off or sticking out
+ok    System page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Unlock page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Organizer page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Sound page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Store page, maximized window (1920x1009): nothing cut off or sticking out
+ok    General page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Look page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Quick page, maximized window (1920x1009): nothing cut off or sticking out
+ok    ConvOptions page, maximized window (1920x1009): nothing cut off or sticking out
+ok    WheelLook page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Formats page, maximized window (1920x1009): nothing cut off or sticking out
+ok    AppsSettings page, maximized window (1920x1009): nothing cut off or sticking out
+ok    ArchiveSettings page, maximized window (1920x1009): nothing cut off or sticking out
+ok    ViewerSettings page, maximized window (1920x1009): nothing cut off or sticking out
+ok    PlayerSettings page, maximized window (1920x1009): nothing cut off or sticking out
+ok    CaptureSettings page, maximized window (1920x1009): nothing cut off or sticking out
+ok    ClipboardSettings page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Updates page, maximized window (1920x1009): nothing cut off or sticking out
+ok    About page, maximized window (1920x1009): nothing cut off or sticking out
+ok    sizes: no errors behind the clicks (0)
+----- store
+ok    round 1: removing converter takes it out of the sidebar
+ok    round 1: after removing converter the window is still open (Store)
+ok    round 1: a removed converter page can't be opened
+ok    round 1: removing uninstaller takes it out of the sidebar
+ok    round 1: after removing uninstaller the window is still open (Store)
+ok    round 1: a removed uninstaller page can't be opened
+ok    round 1: removing archive takes it out of the sidebar
+ok    round 1: after removing archive the window is still open (Store)
+ok    round 1: a removed archive page can't be opened
+ok    round 1: removing viewer takes it out of the sidebar
+ok    round 1: after removing viewer the window is still open (Store)
+ok    round 1: a removed viewer page can't be opened
+ok    round 1: removing player takes it out of the sidebar
+ok    round 1: after removing player the window is still open (Store)
+ok    round 1: a removed player page can't be opened
+ok    round 1: removing capture takes it out of the sidebar
+ok    round 1: after removing capture the window is still open (Store)
+ok    a removed Capture lets go of its shortcuts
+ok    round 1: a removed capture page can't be opened
+ok    round 1: removing space takes it out of the sidebar
+ok    round 1: after removing space the window is still open (Store)
+ok    round 1: a removed space page can't be opened
+ok    round 1: removing clipboard takes it out of the sidebar
+ok    round 1: after removing clipboard the window is still open (Store)
+ok    a removed Clipboard stops watching what's copied
+ok    round 1: a removed clipboard page can't be opened
+ok    round 1: every tool can be removed
+ok    Home with no tools, round 1: nothing cut off or sticking out
+ok    the Store with no tools, round 1: the Store page opens (Store)
+ok    the Store with no tools, round 1: the Store page shows (618x374)
+ok    round 1: clipboard can be added back
+ok    round 1: space can be added back
+ok    round 1: capture can be added back
+ok    round 1: player can be added back
+ok    round 1: viewer can be added back
+ok    round 1: archive can be added back
+ok    round 1: uninstaller can be added back
+ok    round 1: converter can be added back
+note  round 1: 28 windows, 1404 widgets, 174 MB, 49967 Python objects
+ok    round 2: removing converter takes it out of the sidebar
+ok    round 2: after removing converter the window is still open (Store)
+ok    round 2: a removed converter page can't be opened
+ok    round 2: removing uninstaller takes it out of the sidebar
+ok    round 2: after removing uninstaller the window is still open (Store)
+ok    round 2: a removed uninstaller page can't be opened
+ok    round 2: removing archive takes it out of the sidebar
+ok    round 2: after removing archive the window is still open (Store)
+ok    round 2: a removed archive page can't be opened
+ok    round 2: removing viewer takes it out of the sidebar
+ok    round 2: after removing viewer the window is still open (Store)
+ok    round 2: a removed viewer page can't be opened
+ok    round 2: removing player takes it out of the sidebar
+ok    round 2: after removing player the window is still open (Store)
+ok    round 2: a removed player page can't be opened
+ok    round 2: removing capture takes it out of the sidebar
+ok    round 2: after removing capture the window is still open (Store)
+ok    a removed Capture lets go of its shortcuts
+ok    round 2: a removed capture page can't be opened
+ok    round 2: removing space takes it out of the sidebar
+ok    round 2: after removing space the window is still open (Store)
+ok    round 2: a removed space page can't be opened
+ok    round 2: removing clipboard takes it out of the sidebar
+ok    round 2: after removing clipboard the window is still open (Store)
+ok    a removed Clipboard stops watching what's copied
+ok    round 2: a removed clipboard page can't be opened
+ok    round 2: every tool can be removed
+ok    Home with no tools, round 2: nothing cut off or sticking out
+ok    the Store with no tools, round 2: the Store page opens (Store)
+ok    the Store with no tools, round 2: the Store page shows (618x374)
+ok    round 2: clipboard can be added back
+ok    round 2: space can be added back
+ok    round 2: capture can be added back
+ok    round 2: player can be added back
+ok    round 2: viewer can be added back
+ok    round 2: archive can be added back
+ok    round 2: uninstaller can be added back
+ok    round 2: converter can be added back
+note  round 2: 28 windows, 1404 widgets, 194 MB, 50540 Python objects
+ok    round 3: removing converter takes it out of the sidebar
+ok    round 3: after removing converter the window is still open (Store)
+ok    round 3: a removed converter page can't be opened
+ok    round 3: removing uninstaller takes it out of the sidebar
+ok    round 3: after removing uninstaller the window is still open (Store)
+ok    round 3: a removed uninstaller page can't be opened
+ok    round 3: removing archive takes it out of the sidebar
+ok    round 3: after removing archive the window is still open (Store)
+ok    round 3: a removed archive page can't be opened
+ok    round 3: removing viewer takes it out of the sidebar
+ok    round 3: after removing viewer the window is still open (Store)
+ok    round 3: a removed viewer page can't be opened
+ok    round 3: removing player takes it out of the sidebar
+ok    round 3: after removing player the window is still open (Store)
+ok    round 3: a removed player page can't be opened
+ok    round 3: removing capture takes it out of the sidebar
+ok    round 3: after removing capture the window is still open (Store)
+ok    a removed Capture lets go of its shortcuts
+ok    round 3: a removed capture page can't be opened
+ok    round 3: removing space takes it out of the sidebar
+ok    round 3: after removing space the window is still open (Store)
+ok    round 3: a removed space page can't be opened
+ok    round 3: removing clipboard takes it out of the sidebar
+ok    round 3: after removing clipboard the window is still open (Store)
+ok    a removed Clipboard stops watching what's copied
+ok    round 3: a removed clipboard page can't be opened
+ok    round 3: every tool can be removed
+ok    Home with no tools, round 3: nothing cut off or sticking out
+ok    the Store with no tools, round 3: the Store page opens (Store)
+ok    the Store with no tools, round 3: the Store page shows (618x374)
+ok    round 3: clipboard can be added back
+ok    round 3: space can be added back
+ok    round 3: capture can be added back
+ok    round 3: player can be added back
+ok    round 3: viewer can be added back
+ok    round 3: archive can be added back
+ok    round 3: uninstaller can be added back
+ok    round 3: converter can be added back
+note  round 3: 28 windows, 1404 widgets, 198 MB, 50575 Python objects
+ok    widgets don't pile up as tools come and go (1404 → 1404 → 1404)
+note  memory as tools come and go (174 → 194 → 198 MB, 4.3 MB a round)
+ok    store: no errors behind the clicks (0)
+----- reopen
+note  after 10 opens: 161 MB, 14 widgets, 4 windows
+note  after 20 opens: 169 MB, 14 widgets, 4 windows
+note  after 30 opens: 171 MB, 14 widgets, 4 windows
+note  after 40 opens: 159 MB, 14 widgets, 4 windows
+ok    nothing is left behind as the window is opened and closed (14 → 14 → 14 → 14 widgets)
+ok    memory doesn't climb as the window is opened and closed (161 → 169 → 171 → 159 MB, -63 KB an open)
+ok    reopen: no errors behind the clicks (0)
+ok    the log has no errors (0: [])
+sweeptest fr-dark-min: 0 problem(s)
+exit code -1073741819

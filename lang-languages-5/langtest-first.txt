@@ -1,0 +1,50 @@
+ok    the language Windows is in (en) is picked already
+ok    the page shows in Arabic once picked
+ok    the first start shows Choose your language
+ok    the language picked is saved (ar)
+ok    what comes next is in that language ('مرحبًا')
+ok    ... and right to left
+ok    the tour follows
+ok    the first start is over
+ok    the window opens
+ok    the language button says ' العربية'
+ok    no errors (0)
+langtest-first: 0 problem(s)
+Windows fatal exception: access violation
+
+Thread 0x00001ce8 (most recent call first):
+  File "D:\a\corefold\corefold\corefold\hotkey.py", line 224 in loop
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1012 in run
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x000016f0 (most recent call first):
+  File "D:\a\corefold\corefold\corefold\hotkey.py", line 224 in loop
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1012 in run
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x00000afc (most recent call first):
+  File "D:\a\corefold\corefold\corefold\hotkey.py", line 224 in loop
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1012 in run
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x00002378 (most recent call first):
+  File "D:\a\corefold\corefold\corefold\hotkey.py", line 224 in loop
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1012 in run
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x000001f8 (most recent call first):
+  File "D:\a\corefold\corefold\corefold\hotkey.py", line 224 in loop
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1012 in run
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1032 in _bootstrap
+
+Current thread 0x0000194c (most recent call first):
+  File "D:\a\corefold\corefold\scripts\langtest.py", line 82 in finish
+  File "D:\a\corefold\corefold\scripts\langtest.py", line 164 in done
+  File "D:\a\corefold\corefold\corefold\app.py", line 2212 in main
+  File "D:\a\corefold\corefold\scripts\langtest.py", line 173 in first_start
+  File "D:\a\corefold\corefold\scripts\langtest.py", line 178 in <module>
