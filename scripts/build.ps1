@@ -14,7 +14,11 @@ param(
     [string]$FfmpegUrl = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl-shared.zip",
     # Background remover model (U2-Net "silueta", ~44 MB) from the rembg project
     [string]$ModelUrl = "https://github.com/danielgatis/rembg/releases/download/v0.0.0/silueta.onnx",
-    [string]$ModelSha256 = "75da6c8d2f8096ec743d071951be73b4a8bc7b3e51d9a6625d63644f90ffeedb"
+    [string]$ModelSha256 = "75da6c8d2f8096ec743d071951be73b4a8bc7b3e51d9a6625d63644f90ffeedb",
+    # Also put a copy of the installer under the name the updater of versions 1.5.3 to 1.6.0 looks
+    # for (from before the app was renamed in 1.7.0), so those copies update themselves too. The
+    # release workflow turns this on; nothing else needs it.
+    [switch]$OldUpdaterCopy
 )
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"   # makes downloads much faster
@@ -282,6 +286,15 @@ if ($iscc) {
     if ($LASTEXITCODE) { throw "Inno Setup failed" }
 } else {
     Write-Warning "Inno Setup not found, so no installer was made. Install it from https://jrsoftware.org/isdl.php and run this again."
+}
+
+# ---- the same installer for copies from before 1.7.0 (see -OldUpdaterCopy above). Their updater
+# only takes "<old name>-Setup-<version>.exe" listed in SHA256SUMS.txt; it runs it like Corefold's
+# does, and the installer upgrades that copy to Corefold (installer\corefold.iss, [Code]).
+if ($OldUpdaterCopy) {
+    $setup = "dist\release\Corefold-Setup-$Version.exe"
+    if (-not (Test-Path $setup)) { throw "No installer to copy for older versions" }
+    Copy-Item $setup "dist\release\Satsuma-Setup-$Version.exe"
 }
 
 # ---- checksums (the app's updater checks the installer against this file)

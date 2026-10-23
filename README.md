@@ -108,7 +108,11 @@ repository, e.g. `yourname/corefold`.
 Version 1.7.0 gave the app its new name and look. Installing it over an older version upgrades it
 (same installer ID), and the first start moves the old settings, history and uninstall backups into
 the Corefold folders and replaces the old right-click entries. Nothing is deleted that couldn't be
-moved. The code that does this is marked to be removed in 1.8.0.
+moved.
+
+Versions 1.5.3 to 1.6.0 update themselves to the newest Corefold: every release also carries a copy of
+the installer under the old name, because that is the only file their updater looks for. Older
+versions than that have to download Corefold by hand once.
 
 ## How light is it?
 **Actions → Measure memory and CPU → Run workflow** builds Corefold on one of GitHub's Windows
