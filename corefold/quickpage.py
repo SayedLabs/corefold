@@ -303,6 +303,7 @@ def build(win) -> QWidget:
     row = QHBoxLayout()
     row.addWidget(label(tr("Shortcut")))
     wheel_rec = KeyRecorder(s.quick_wheel_key, pause_keys, resume_keys)
+    win.quick_menu_rec, win.quick_wheel_rec = menu_rec, wheel_rec  # (Settings → Shortcuts points at them)
     row.addWidget(wheel_rec)
     row.addStretch()
     bl.addLayout(row)

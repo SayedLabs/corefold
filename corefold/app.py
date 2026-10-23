@@ -1884,7 +1884,7 @@ PAGE_NAMES = ("Home", "Converter", "Apps", "Archives", "Viewer", "Player", "Clip
               "Unlock", "Awake", "Store", "PlayerSettings",
               "Soon",
               "General", "Look", "ConvOptions", "WheelLook", "Formats", "AppsSettings", "ArchiveSettings",
-              "ViewerSettings", "ClipboardSettings", "CaptureSettings", "History", "Updates", "About")
+              "ViewerSettings", "ClipboardSettings", "CaptureSettings", "History", "Updates", "About", "Shortcuts")
 OUTPUT_EXT = {"image:pdf": ".pdf", "image:scan": ".pdf", "pdf:merge": ".pdf", "image:video": ".mp4",
               "pack:zip": ".zip", "pack:7z": ".7z"}  # what a tool makes, when it isn't Tool.target
 
@@ -2045,6 +2045,10 @@ def main() -> int:
 
     controller = Controller(app, icon)
     app.commitDataRequest.connect(controller.end_session)
+    from . import settings_backup
+    if settings_backup.RECOVERED is not None:  # settings.json was lost or damaged: a copy was used
+        from .settingscard import recovered_note
+        QTimer.singleShot(2000, lambda: recovered_note(controller))
     winutil.log_memory("in the tray")
     QTimer.singleShot(20_000, clean_old_temp_files)
 
