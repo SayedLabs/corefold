@@ -43,7 +43,7 @@ if TYPE_CHECKING:
 # pages come from tools.py
 _TOOL_SETTINGS_PAGES = [p for tool in all_tools.TOOLS for p in tool.settings_pages]
 PAGES = ["Home", "History", *[tool.page for tool in all_tools.TOOLS], "Store", "General", "Look", "Quick",
-         *_TOOL_SETTINGS_PAGES, "Updates", "About"]
+         "Shortcuts", *_TOOL_SETTINGS_PAGES, "Updates", "About"]
 # tools still being made: page -> product tile (in the order they're planned)
 SOON = {tool.page: tool.product for tool in all_tools.coming()}
 # the sidebar's fixed rows (the tools a person uses go between the two headings) and its names
@@ -52,15 +52,16 @@ NAV_LABELS = {"General": "Settings", **{tool.page: tool.nav for tool in all_tool
 # Settings: a tab for the whole app and one for each tool someone uses. A tab with several pages
 # shows them as smaller tabs underneath.
 BASE_SETTINGS_TABS = [("General", "General", ["General"]), ("Look", "Appearance", ["Look"]),
-                      ("Quick", "Quick access", ["Quick"])]
+                      ("Quick", "Quick access", ["Quick"]), ("Shortcuts", "Shortcuts", ["Shortcuts"])]
 SETTINGS_TABS = BASE_SETTINGS_TABS + [(tool.settings, tool.nav, list(tool.settings_pages))
                                       for tool in all_tools.TOOLS if tool.settings]
 SETTINGS_SUBTABS = {"ConvOptions": "Options", "WheelLook": "Wheel", "Formats": "Formats"}
-SETTINGS_PAGES = ["General", "Look", "Quick", *_TOOL_SETTINGS_PAGES]
+SETTINGS_PAGES = ["General", "Look", "Quick", "Shortcuts", *_TOOL_SETTINGS_PAGES]
 TOOL_SETTINGS = {tool.page: tool.settings for tool in all_tools.TOOLS if tool.settings}
 # pages without a sidebar row of their own: the row that's lit
 NAV_OWNER = {**{name: "Store" for name in SOON}, **{name: "General" for name in SETTINGS_PAGES if name != "General"}}
 PAGE_ICONS = {"Home": "home", "General": "settings", "Look": "paint_brush", "Quick": "layout",  # icons.py
+              "Shortcuts": "keyboard",
               "Formats": "puzzle_piece",
               "History": "history", "Updates": "arrow_sync", "About": "info", "Store": "apps",
               **{tool.page: tool.icon for tool in all_tools.TOOLS}}
@@ -494,7 +495,7 @@ class MainWindow(QWidget):
                     "ClipboardSettings": self._clipboard_settings, "Space": self._space, "Capture": self._capture,
                     "CaptureSettings": self._capture_settings, "Cloud": self._cloud, "Player": self._player,
                     "PlayerSettings": self._player_settings, "Updates": self._updates, "About": self._about,
-                    "Quick": self._quick_settings}
+                    "Quick": self._quick_settings, "Shortcuts": self._shortcuts}
         self._wheel_guard = None
         self._settings_head()  # (made before the pages: opening one shows or hides it)
         self._dots: list[QLabel] = []
@@ -890,6 +891,8 @@ class MainWindow(QWidget):
             self.refresh_watching()
         elif name == "CaptureSettings":
             self._find_microphones()
+        elif name == "Shortcuts":
+            self.shortcuts_page.refresh()
 
     def _archives(self) -> QWidget:
         """Corefold Archive: open archives, make new ones, and the ones opened lately."""
@@ -1709,6 +1712,8 @@ class MainWindow(QWidget):
         pl.addWidget(label(tr("Corefold also lets go of memory it doesn't need when it's idle, and closes this window "
                               "completely a little while after you close it."), "muted", wrap=True))
         lay.addWidget(perf)
+        from .settingscard import card as settings_file_card
+        lay.addWidget(settings_file_card(self))
         lay.addLayout(_reset_row(lambda: self.reset_to_defaults(GENERAL_KEYS)))
         lay.addStretch()
         return w
@@ -2494,6 +2499,12 @@ class MainWindow(QWidget):
         from .quickpage import build
         return build(self)
 
+    def _shortcuts(self) -> QWidget:
+        """Every shortcut in one list (Settings → Shortcuts)."""
+        from .shortcutspage import ShortcutsPage
+        self.shortcuts_page = ShortcutsPage(self)
+        return self.shortcuts_page.widget
+
     def _clipboard_settings(self) -> QWidget:
         """Corefold Clipboard."""
         s = self.c.settings
@@ -2793,6 +2804,9 @@ class MainWindow(QWidget):
             lrow.addStretch()
             ll.addLayout(lrow)
             lay.addWidget(links)
+
+        from .report import card as report_card
+        lay.addWidget(report_card(self))
 
         remove, rl = card()
         rl.addWidget(label(tr("Remove Corefold"), "h2"))

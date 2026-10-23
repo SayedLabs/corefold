@@ -282,13 +282,29 @@ class Settings:
 
     @classmethod
     def load(cls) -> "Settings":
-        s = cls()
+        path = CONFIG_DIR / "settings.json"
+        broken = False
         try:
-            data = json.loads((CONFIG_DIR / "settings.json").read_text("utf-8"))
-        except (OSError, ValueError):
-            return s
+            data = json.loads(path.read_text("utf-8"))
+        except FileNotFoundError:
+            data = None
+        except OSError:
+            log.exception("couldn't read the settings")
+            data = None
+        except ValueError:
+            data, broken = None, True
         if not isinstance(data, dict):
-            return s
+            # missing or damaged: the newest copy made before an update, if there is one
+            from .settings_backup import recover
+            data = recover(path, broken or data is not None)
+            if data is None:
+                return cls()
+        return cls.from_data(data)
+
+    @classmethod
+    def from_data(cls, data: dict) -> "Settings":
+        """Settings from what was saved, keeping only values of the right kind (the rest stay as default)."""
+        s = cls()
         defaults = cls()
         for key, default in asdict(defaults).items():
             if key not in data:

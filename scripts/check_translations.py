@@ -102,6 +102,14 @@ def table_texts() -> dict[str, str]:
         "space.find_junk")
     for _, title, text in tour.STEPS:
         add([title, text], "tour.STEPS")
+    from corefold import settings_backup, shortcutspage
+    add([e.label for e in shortcutspage.GLOBAL], "shortcutspage.GLOBAL")
+    for heading, _, keys in shortcutspage.WINDOW_KEYS:
+        add([heading, *[k[1] for k in keys]], "shortcutspage.WINDOW_KEYS")
+    add(shortcutspage.STATES.values(), "shortcutspage.STATES")
+    add(["This isn't a Corefold settings file.", "Couldn't open this file.",
+         "These settings were saved by a newer Corefold. Update Corefold first, then try again."],
+        "settings_backup.BadFile")
     return out
 
 
