@@ -75,7 +75,7 @@
   <header>
     <a href="./" style="display:contents;color:inherit;text-decoration:none"><svg class="mark" viewBox="8 8 48 48" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M20 10H33V31H54V44A10 10 0 0 1 44 54H20A10 10 0 0 1 10 44V20A10 10 0 0 1 20 10ZM24 37a7 7 0 1 0 14 0a7 7 0 1 0 -14 0Z"/><path fill="currentColor" opacity=".62" d="M37.5 10.6L53.4 26.5A1.6 1.6 0 0 1 52.3 29.2H38.6A1.6 1.6 0 0 1 37 27.6V11.7A1.6 1.6 0 0 1 37.5 10.6Z"/></svg><b>Corefold</b></a>
     <span class="by">by Atomic Works</span>
-    <nav><a href="./#features">Features</a><a href="./#safe">Is it safe?</a><a href="./#faq">Questions</a><a class="repo" href="https://github.com/SayedLabs/corefold">GitHub</a></nav>
+    <nav><a href="./#features">Features</a><a href="./#safe">Is it safe?</a><a href="./#faq">Questions</a></nav>
   </header>
 
   <div class="hero">
@@ -138,7 +138,7 @@
       <h2>Is it safe?</h2>
       <ul>
         <li><b>Your files stay on your PC.</b> Corefold doesn't upload anything, unless you put files in your own OneDrive or Dropbox with Cloud. By itself it only goes online to check for its own updates. <a href="privacy.html">Read the privacy policy</a>.</li>
-        <li><b>The code is public.</b> Anyone can read every line on <a class="repo" href="https://github.com/SayedLabs/corefold">GitHub</a>, and every download is built there automatically from that code.</li>
+        <li><b>Checked downloads.</b> Every download is built automatically on GitHub and comes with its SHA-256 checksums, so you can make sure the file is exactly the one we published.</li>
         <li><b>Originals are never changed.</b> Corefold always makes a new file.</li>
         <li><b>Easy to remove.</b> Uninstall it like any app, from Windows Settings or from inside Corefold.</li>
       </ul>
@@ -154,17 +154,16 @@
   <section id="faq">
     <h2>Questions</h2>
     <details><summary>Is it really free?</summary><p>Yes. No ads, no account, no trial.</p></details>
-    <details><summary>Does it work without internet?</summary><p>Yes, everything happens on your PC, even removing backgrounds.</p></details>
+    <details><summary>Does it work without internet?</summary><p>Yes, everything happens on your PC, even removing backgrounds. Only Cloud needs the internet, to reach your OneDrive or Dropbox.</p></details>
     <details><summary>How do I update it?</summary><p>You don't have to. Corefold checks for new versions and updates itself in one click, keeping your settings.</p></details>
     <details><summary>Can it make RAR files?</summary><p>It opens and extracts RAR files. Making new RAR files isn't possible for free apps (the format belongs to WinRAR), so Corefold makes ZIP and 7z files, which open everywhere.</p></details>
     <details><summary>How do I uninstall it?</summary><p>Windows Settings → Apps → Installed apps → Corefold → Uninstall. Or in Corefold: About → Uninstall.</p></details>
   </section>
 
   <footer>
-    <span>Corefold is free and open source, made by Atomic Works.</span>
+    <span>Corefold is free, made by Atomic Works.</span>
     <a class="issues" href="https://github.com/SayedLabs/corefold/issues/new">Report a problem</a>
     <a href="privacy.html">Privacy</a>
-    <a class="repo" href="https://github.com/SayedLabs/corefold">Source code</a>
   </footer>
 </div>
 <script>
@@ -174,7 +173,6 @@
     if (!/github\.io$/.test(location.hostname)) return;
     var base = "https://github.com/" + owner + "/" + repo;
     document.querySelectorAll("a.download").forEach(function (a) { a.href = base + "/releases/latest"; });
-    document.querySelectorAll("a.repo").forEach(function (a) { a.href = base; });
     document.querySelectorAll("a.issues").forEach(function (a) { a.href = base + "/issues/new"; });
   })();
 </script>
