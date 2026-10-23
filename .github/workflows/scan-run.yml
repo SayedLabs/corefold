@@ -63,7 +63,7 @@ jobs:
         run: python scripts/check_translations.py *>&1 | Tee-Object out/translations.txt
 
       - name: The scenario test
-        timeout-minutes: 40
+        timeout-minutes: 32
         shell: pwsh
         continue-on-error: true
         env:

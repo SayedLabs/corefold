@@ -38,7 +38,7 @@ try:
 except (AttributeError, ValueError):
     pass
 import faulthandler  # noqa: E402
-faulthandler.dump_traceback_later(1800, exit=True)  # stuck somewhere: say where, and stop
+faulthandler.dump_traceback_later(1500, exit=True)  # stuck somewhere: say where, and stop
 
 import winreg  # noqa: E402
 
@@ -106,6 +106,26 @@ def broken_copy(src: Path, dst: Path) -> Path:
     data[i] = (data[i] + 1) % 256
     dst.write_bytes(bytes(data))
     return dst
+
+
+def defender_skips(folder: Path, want: bool, limit=90) -> bool:
+    """Defender takes a while to follow a change to what it's told to skip: wait until a scan of a clean
+    file in the folder is skipped (or isn't), so the test sees what a real PC would."""
+    probe = folder / "probe.txt"
+    probe.parent.mkdir(parents=True, exist_ok=True)
+    probe.write_text("nothing here")
+    t = time.time()
+    said = ""
+    while time.time() - t < limit:
+        said = scan.run_defender(scan.CUSTOM, [str(probe)], threading.Event(), scan.find_mpcmdrun())[1]
+        if bool(scan.skipped_by_defender(said)) == want:
+            note(f"Defender {'skips' if want else 'looks at'} {folder.name} after {time.time() - t:.0f} s")
+            probe.unlink()
+            return True
+        time.sleep(2)
+    note(f"Defender still {'looks at' if want else 'skips'} {folder.name} after {limit} s: {said.strip()[-300:]!r}")
+    probe.unlink()
+    return False
 
 
 def mpcmdrun_running() -> bool:
@@ -281,6 +301,7 @@ def defender_scans():
     if EXCLUSIONS_BEFORE:  # (the test PC skips whole drives; a real one doesn't)
         ps("Remove-MpPreference -ExclusionPath " + ",".join(f"'{p}'" for p in EXCLUSIONS_BEFORE))
     folder = WORK / "threats"
+    check(defender_skips(folder, False), "Defender looks at the test folder once it's no longer told to skip it")
     eicar(folder / "eicar.com")
     with zipfile.ZipFile(folder / "parcel.zip", "w") as z:
         z.writestr("inside/eicar.com", EICAR)
@@ -312,7 +333,7 @@ def defender_scans():
     hidden = WORK / "skipped-by-defender"
     ps(f"Add-MpPreference -ExclusionPath '{hidden}'")
     try:
-        time.sleep(2)
+        check(defender_skips(hidden, True), "Defender follows being told to skip a folder")
         eicar(hidden / "eicar.com")
         r = scan.scan(scan.CUSTOM, [str(hidden)])
         note(f"skipped folder: threats {r.threats}, skipped {r.skipped}")
@@ -375,8 +396,32 @@ def stopping():
 
 
 def quick_scan():
+    """A whole quick scan, the way the PC normally is (the test PC skips its drives, which keeps it short).
+    Stopped after 15 minutes so a slow PC doesn't hold everything up."""
+    if EXCLUSIONS_BEFORE:
+        ps("Add-MpPreference -ExclusionPath " + ",".join(f"'{p}'" for p in EXCLUSIONS_BEFORE))
+    try:
+        _quick_scan()
+    finally:
+        if EXCLUSIONS_BEFORE:
+            ps("Remove-MpPreference -ExclusionPath " + ",".join(f"'{p}'" for p in EXCLUSIONS_BEFORE))
+            defender_skips(WORK / "threats", False)
+
+
+def _quick_scan():
+    cancel = threading.Event()
+    box = {}
+    th = threading.Thread(target=lambda: box.setdefault("r", scan.scan(scan.QUICK, cancel=cancel)))
     t = time.time()
-    r = scan.scan(scan.QUICK)
+    th.start()
+    th.join(15 * 60)
+    if th.is_alive():
+        cancel.set()
+        th.join(60)
+        note(f"quick scan: still going after 15 minutes, stopped ({time.time() - t:.0f} s)")
+        check(not th.is_alive() and not mpcmdrun_running(), "a long quick scan stops when asked")
+        return
+    r = box["r"]
     took = time.time() - t
     note(f"quick scan: {took:.0f} s, code {r.defender_code:#x}, problem {r.defender_problem!r}, "
          f"{len(r.threats)} threats, {len(r.findings)} findings, {r.looked_at} files looked at")
@@ -552,7 +597,7 @@ def page():
     hidden = WORK / "page-skipped"
     ps(f"Add-MpPreference -ExclusionPath '{hidden}'")
     try:
-        time.sleep(2)
+        defender_skips(hidden, True)
         eicar(hidden / "eicar.com")
         pg.scan_paths([str(hidden)])
         check(until(lambda: not c.scan_runner.running, 120), "a scan where Defender is told not to look finishes")
@@ -596,6 +641,7 @@ def page():
 
 
 def tidy():
+    subprocess.run(["taskkill", "/F", "/IM", "MpCmdRun.exe"], capture_output=True)
     if EXCLUSIONS_BEFORE:
         ps("Add-MpPreference -ExclusionPath " + ",".join(f"'{p}'" for p in EXCLUSIONS_BEFORE))
     shutil.rmtree(WORK, ignore_errors=True)

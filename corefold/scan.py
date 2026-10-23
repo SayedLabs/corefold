@@ -639,6 +639,8 @@ class Checks:
             try:
                 with os.scandir(here) as it:
                     for entry in it:
+                        if self.cancel.is_set():
+                            return
                         try:
                             if entry.is_symlink():
                                 continue
@@ -925,7 +927,7 @@ def scan(kind: str, paths: list[str] | None = None, cancel: threading.Event | No
     """A whole scan: Defender and Corefold's own checks side by side. on_finding(Finding) and on_stage(str)
     are called (on this thread or the checks' thread) as things are found."""
     cancel = cancel or threading.Event()
-    # (full, long names: Defender's notes use them, and "C:\\Users\\RUNNER~1" wouldn't match)
+    # (full, long names: Defender's notes use them, and a short name like RUNNER~1 wouldn't match)
     paths = [os.path.realpath(str(p)) if os.path.exists(str(p)) else str(p) for p in (paths or [])]
     result = ScanResult(kind, paths, started=time.time())
     checks = Checks(cancel, on_finding)
