@@ -114,7 +114,7 @@ def _shown(app: un.App, show: str, months: int = 3) -> bool:
 def _when(ts: float) -> str:
     if not ts:
         return ""
-    from .window import time_ago
+    from .timefmt import time_ago
     return time_ago(ts)
 
 
