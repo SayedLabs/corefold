@@ -108,7 +108,7 @@ def _chevron_image(color: QColor, up: bool) -> str:
 # Corefold's own parts (Qt's widgets and the shared names come from atomic/qss.py)
 QSS = Template("""
 QWidget#sidebar { background: transparent; }
-QLabel#brand { font-family: "Segoe UI Variable Display", "Segoe UI"; font-size: 12.5pt; font-weight: 700; }
+QLabel#brand { font-family: $font_display; font-size: 12.5pt; font-weight: 700; }
 QListWidget#nav { background: transparent; border: none; outline: none; }
 QPushButton#navToggle { background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 0;
                         min-width: 0; }
@@ -126,9 +126,9 @@ QLabel#newPill { background: $accent; color: $on_accent; border-radius: 9px; fon
 QFrame#toolCard { background: $panel; border: 1px solid $border; border-radius: 14px; }
 QFrame#toolCard:hover { border-color: $accent_line; background: $tool_hover; }
 QFrame#toolCard:focus { border-color: $accent; }
-QLabel#cardTitle { font-family: "Segoe UI Variable Display", "Segoe UI"; font-size: 11pt; font-weight: 600; }
+QLabel#cardTitle { font-family: $font_display; font-size: 11pt; font-weight: 600; }
 QLabel#cardStat { color: $accent_text; font-size: 8.5pt; font-weight: 600; }
-QLabel#heroStat { font-family: "Segoe UI Variable Display", "Segoe UI"; font-size: 17pt; font-weight: 700; }
+QLabel#heroStat { font-family: $font_display; font-size: 17pt; font-weight: 700; }
 QFrame#dropzone { border: 1px dashed $line_strong; border-radius: 14px; background: $panel; }
 QFrame#dropzone:hover { border-color: $accent; }
 QFrame#dropzone[hot="true"] { border: 1px solid $accent; background: $accent_soft; }
@@ -166,6 +166,16 @@ QFrame#playerBar QSlider::handle:horizontal { background: #f2f2f2; border-color:
 QSlider#seek::groove:horizontal { height: 6px; border-radius: 3px; }
 QSlider#seek::sub-page:horizontal { border-radius: 3px; }
 QLabel#playerCover { background: #0b0b0c; }
+QListWidget#playlist { background: #121314; color: #e8e8e8; border: none; border-left: 1px solid #26282a; outline: none;
+        padding: 4px; }
+QListWidget#playlist::item { padding: 6px 8px; border-radius: 6px; }
+QListWidget#playlist::item:hover { background: #1d1f21; }
+QListWidget#playlist::item:selected { background: #1f3330; color: #ffffff; }
+QListWidget#viewerStrip { background: $panel; border: none; border-top: 1px solid $border; outline: none;
+        padding: 4px 8px; }
+QListWidget#viewerStrip::item { border-radius: 8px; padding: 2px; border: 2px solid transparent; }
+QListWidget#viewerStrip::item:hover { background: $hover; }
+QListWidget#viewerStrip::item:selected { background: transparent; border: 2px solid $accent; }
 QFrame#clipPopup { background: $raised; border: 1px solid $line_strong; border-radius: 16px; }
 QListWidget#clips { background: transparent; border: none; outline: none; }
 QListWidget#clipsPage { background: $panel; border: 1px solid $border; border-radius: 12px; outline: none; padding: 4px; }
@@ -190,7 +200,7 @@ def stylesheet(t: Theme, scale: float = 1.0) -> str:
         accent_text=(p.accent if p.dark else p.accent.darker(108)).name(),
         tool_hover=mix(p.surface, p.accent, 0.05 if p.dark else 0.035).name(),
         nav_hover=mix(p.backdrop, p.text, 0.06).name(), nav_press=mix(p.backdrop, p.text, 0.1).name(),
-        lead_side=lead,
+        lead_side=lead, font_display=tokens.FONT_DISPLAY,
     )
     return qss.scaled(base + own, scale)
 

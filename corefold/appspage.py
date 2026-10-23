@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QFileInfo, QObject, Qt, QTimer, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDialog, QFileIconProvider, QHBoxLayout, QHeaderView,
-                               QLabel, QLineEdit, QMessageBox, QProgressBar, QPushButton, QStackedWidget,
+                               QLabel, QLineEdit, QMenu, QMessageBox, QProgressBar, QPushButton, QStackedWidget,
                                QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from . import uninstall as un
@@ -66,7 +66,8 @@ class _Signals(QObject):
 
 # what the "Show" list can narrow the apps down to (English, shown through tr())
 SHOW = {"all": "All apps", "unused": "Not used for 3 months", "big": "Big (1 GB or more)",
-        "new": "Installed in the last 30 days", "startup": "Start with Windows"}
+        "new": "Installed in the last 30 days", "startup": "Start with Windows",
+        "extras": "Extras that came with Windows"}
 # "not used for …" (chosen in Settings → Uninstaller): the filter's name and the count in the status line
 UNUSED = {3: ("Not used for 3 months", "{count} not used for 3 months"),
           6: ("Not used for 6 months", "{count} not used for 6 months"),
@@ -120,6 +121,8 @@ def _shown(app: un.App, show: str, months: int = 3) -> bool:
             return False
     if show == "startup":
         return app.startup
+    if show == "extras":
+        return un.is_windows_extra(app)
     return True
 
 
@@ -149,6 +152,48 @@ def _icon_for(app: un.App, provider: QFileIconProvider) -> QIcon | None:
 
 
 # ----------------------------------------------------------------------------- the page
+
+class HunterButton(QPushButton):
+    """Drag it onto any window: the program that window belongs to is found in the list."""
+    found = Signal(str)   # the program file of the window it was let go on ("" for none)
+
+    def __init__(self, theme=None):
+        super().__init__()
+        self.setAccessibleName(tr("Drag onto a window"))
+        self.setToolTip(tr("Drag onto a window") + "\n" +
+                        tr("Don't know a program's name? Drag this onto one of its windows."))
+        self.setCursor(Qt.OpenHandCursor)
+        self.apply_theme(theme)
+
+    def apply_theme(self, theme):
+        from . import icons
+        self.setIcon(icons.icon("target", theme.text if theme is not None else "#888888"))
+
+    def mousePressEvent(self, e):
+        if e.button() == Qt.LeftButton:
+            self.setDown(True)
+            self.grabMouse(Qt.CrossCursor)
+            return
+        super().mousePressEvent(e)
+
+    def mouseReleaseEvent(self, e):
+        if e.button() != Qt.LeftButton:
+            return super().mouseReleaseEvent(e)
+        self.releaseMouse()
+        self.setDown(False)
+        if self.rect().contains(e.position().toPoint()):
+            return  # let go on the button itself: nothing picked
+        exe = ""
+        if os.name == "nt":
+            import ctypes
+            from ctypes import wintypes as wt
+            pt = wt.POINT()
+            ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
+            exe = un.program_at_point(pt.x, pt.y)
+        if exe and os.path.normcase(exe) == os.path.normcase(sys.executable):
+            exe = ""  # Corefold's own window
+        self.found.emit(exe)
+
 
 class AppsPage(QWidget):
     def __init__(self, controller: "Controller", window=None):
@@ -196,6 +241,9 @@ class AppsPage(QWidget):
         top.addWidget(self.show_only)
         top.addWidget(self.store)
         top.addWidget(_button(tr("Refresh"), on_click=self.reload))
+        self.hunter = HunterButton(controller.theme if controller is not None else None)
+        self.hunter.found.connect(self._hunted)
+        top.addWidget(self.hunter)
         lay.addLayout(top)
 
         self.tree = QTreeWidget()
@@ -234,7 +282,14 @@ class AppsPage(QWidget):
         row.addWidget(self.b_leftovers)
         row.addWidget(self.b_folder)
         row.addStretch()
-        row.addWidget(_button(tr("Backups…"), on_click=self.show_backups))
+        self.b_more = _button(tr("More"))
+        more = QMenu(self.b_more)
+        from .theme import round_menu
+        round_menu(more)
+        more.addAction(tr("Browser extensions…"), self.show_extensions)
+        more.addAction(tr("Backups…"), self.show_backups)
+        self.b_more.setMenu(more)
+        row.addWidget(self.b_more)
         lay.addLayout(row)
         self._selection()
 
@@ -379,8 +434,8 @@ class AppsPage(QWidget):
 
     def _filter(self, *_):
         words = self.search.text().lower().split()
-        stores = self.store.isChecked()
         show = self.show_only.currentData() or "all"
+        stores = self.store.isChecked() or show == "extras"  # (Windows' extras are Store apps)
         for i in range(self.tree.topLevelItemCount()):
             item = self.tree.topLevelItem(i)
             app = item.data(0, APP_ROLE)
@@ -434,6 +489,35 @@ class AppsPage(QWidget):
         dlg.deleteLater()
         if dlg.changed:
             self.reload()
+
+    def _hunted(self, exe: str):
+        """A window was picked with "Drag onto a window": its program is picked in the list."""
+        app = un.app_for_program(exe, self.apps) if exe else None
+        if app is None:
+            QMessageBox.information(self, tr("Drag onto a window"),
+                                    tr("That window belongs to Windows itself or to a program that isn't installed "
+                                       "(it runs on its own).") if exe else tr("No window there."))
+            return
+        if app.store and not self.store.isChecked():
+            self.store.setChecked(True)
+        self.search.clear()
+        self.show_only.setCurrentIndex(0)
+        for i in range(self.tree.topLevelItemCount()):
+            item = self.tree.topLevelItem(i)
+            if item.data(0, APP_ROLE).id == app.id:
+                self.tree.clearSelection()
+                item.setSelected(True)
+                self.tree.setCurrentItem(item)
+                self.tree.scrollToItem(item, QAbstractItemView.PositionAtCenter)
+                self.window().raise_()
+                self.status.setText(tr("Found: {name}. Press Uninstall to remove it.", name=app.name))
+                return
+
+    def apply_theme(self, theme):
+        self.hunter.apply_theme(theme)
+
+    def show_extensions(self):
+        ExtensionsDialog(self.window().windowIcon()).exec()
 
     def show_backups(self):
         dlg = BackupsDialog(self.c, self.window().windowIcon())
@@ -1073,3 +1157,78 @@ class BackupsDialog(QDialog):
         if not un.delete_backup(folder):
             QMessageBox.warning(self, tr("Backups"), tr("Some files in the backup couldn't be deleted."))
         self.fill()
+
+
+class ExtensionsDialog(QDialog):
+    """The browsers' extensions: each one is removed in its browser, which is opened on it."""
+
+    def __init__(self, icon: QIcon):
+        super().__init__(None, Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
+        self.setWindowIcon(icon)
+        self.setWindowTitle(tr("Browser extensions"))
+        self.setMinimumSize(640, 420)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(22, 20, 22, 18)
+        lay.addWidget(_label(tr("Browser extensions"), "h2"))
+        lay.addWidget(_label(tr("What's been added to your browsers. Ones that see every website can read what you "
+                                "type on them, so keep only the ones you know."), "muted", wrap=True))
+        self.tree = QTreeWidget()
+        self.tree.setObjectName("apps")
+        self.tree.setRootIsDecorated(False)
+        self.tree.setSortingEnabled(True)
+        self.tree.setHeaderLabels([tr("Extension"), tr("Browser"), tr("Sees every website"), tr("Size")])
+        self.tree.header().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.tree.header().setStretchLastSection(False)
+        self.tree.itemSelectionChanged.connect(self._selection)
+        self.tree.itemDoubleClicked.connect(lambda *_: self.remove())
+        lay.addWidget(self.tree, 1)
+        self.status = _label("", "muted", wrap=True)
+        lay.addWidget(self.status)
+        row = QHBoxLayout()
+        self.b_remove = _button(tr("Remove in the browser"), "primary", self.remove)
+        self.b_remove.setToolTip(tr("Opens the browser on it: press Remove there. (A browser puts back an "
+                                    "extension deleted behind its back.)"))
+        row.addWidget(self.b_remove)
+        row.addWidget(_button(tr("Refresh"), on_click=self.fill))
+        row.addStretch()
+        row.addWidget(_button(tr("Close"), on_click=self.accept))
+        lay.addLayout(row)
+        self.fill()
+
+    def fill(self):
+        from . import extensions
+        self.tree.clear()
+        found = extensions.find()
+        # the profile is only named for a browser with several of them
+        several = {b for b in {e.browser for e in found} if len({e.profile_dir for e in found if e.browser == b}) > 1}
+        for ext in found:
+            where = f"{ext.browser} ({ext.profile})" if ext.browser in several and ext.profile else ext.browser
+            name = ext.name + ("" if ext.on else "  " + tr("(turned off)"))
+            item = SortItem([name, where, tr("Yes") if ext.all_sites else "", human_size(ext.size) if ext.size else ""])
+            item.setData(0, APP_ROLE, ext)
+            item.setData(3, SORT_ROLE, ext.size)
+            item.setToolTip(0, f"{ext.name} {ext.version}\n{ext.id}")
+            self.tree.addTopLevelItem(item)
+        self.tree.sortItems(1, Qt.AscendingOrder)
+        self.status.setText(tr("{count} extensions, {sites} of them see every website.", count=len(found),
+                               sites=sum(1 for e in found if e.all_sites)) if found else
+                            tr("No browser extensions found."))
+        self._selection()
+
+    def _ext(self):
+        items = self.tree.selectedItems()
+        return items[0].data(0, APP_ROLE) if items else None
+
+    def _selection(self):
+        self.b_remove.setEnabled(self._ext() is not None)
+
+    def remove(self):
+        from . import extensions
+        ext = self._ext()
+        if ext is None:
+            return
+        if extensions.open_page(ext):
+            self.status.setText(tr("{browser} is open on {name}: press Remove there, then Refresh here.",
+                                   browser=ext.browser, name=ext.name))
+        else:
+            self.status.setText(tr("{browser} wasn't found on this PC.", browser=ext.browser))

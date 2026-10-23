@@ -479,20 +479,31 @@ def fill_sizes(apps: list[App], cancel: threading.Event | None = None, on_size=N
 
 
 def folder_size(path: Path, limit_s: float = 5) -> int:
+    """The size of everything in a folder. Windows gives each file's size with the folder's listing, so
+    no file is asked about on its own (that kept Python busy enough to slow the window down)."""
     total, start = 0, time.monotonic()
     try:
         if path.is_file():
             return path.stat().st_size
-        for root, dirs, files in os.walk(path):
-            for f in files:
-                try:
-                    total += os.lstat(os.path.join(root, f)).st_size
-                except OSError:
-                    pass
-            if time.monotonic() - start > limit_s:
-                break
     except OSError:
-        pass
+        return 0
+    waiting = [str(path)]
+    while waiting:
+        try:
+            with os.scandir(waiting.pop()) as it:
+                for e in it:
+                    try:
+                        if e.is_dir(follow_symlinks=False):
+                            if not e.is_symlink() and not (hasattr(e, "is_junction") and e.is_junction()):
+                                waiting.append(e.path)
+                        else:
+                            total += e.stat(follow_symlinks=False).st_size
+                    except OSError:
+                        pass
+        except OSError:
+            pass
+        if time.monotonic() - start > limit_s:
+            break
     return total
 
 
@@ -1086,6 +1097,117 @@ def _inside(child: str, parent: str) -> bool:
     c = os.path.normcase(os.path.normpath(child)).rstrip("\\/")
     p = os.path.normcase(os.path.normpath(parent)).rstrip("\\/")
     return c == p or c.startswith(p + os.sep)
+
+
+def app_at(path, apps: list[App]) -> App | None:
+    """The installed program a folder (or a file) belongs to, from where the programs say they're
+    installed. None for shared places (Program Files itself, Windows…)."""
+    best, best_len = None, -1
+    for app in apps:
+        loc = (app.location or "").strip()
+        if not loc or app.store or not _safe_folder(loc) or not _inside(str(path), loc):
+            continue
+        if len(loc) > best_len:  # (the most precise one: "Foo\\Bar" before "Foo")
+            best, best_len = app, len(loc)
+    return best
+
+
+def app_for_shortcut(path: Path, apps: list[App]) -> App | None:
+    """The installed program a shortcut (or a program file) opens: from the folder it's installed in,
+    or else from the folder its icon or its uninstaller is in."""
+    target = lnk_target(path) if path.suffix.lower() == ".lnk" else str(path)
+    if not target:
+        return None
+    found = app_at(target, apps)
+    if found is not None:
+        return found
+    folder = os.path.dirname(target)
+    if not _safe_folder(folder):
+        return None
+    for app in apps:
+        if app.store:
+            continue
+        for exe in (app.icon.split(",")[0].strip().strip('"'), split_command(app.uninstall)[0]):
+            if exe and os.path.isabs(exe) and _inside(os.path.dirname(exe), folder) and \
+                    _inside(folder, os.path.dirname(exe)):
+                return app
+    return None
+
+
+def app_for_program(exe: str, apps: list[App]) -> App | None:
+    """The installed program (a Store app too) a running program file belongs to."""
+    if not exe:
+        return None
+    for app in apps:  # Store apps run from their own folder under WindowsApps
+        if app.store and app.location and _inside(exe, app.location):
+            return app
+    return app_for_shortcut(Path(exe), apps)
+
+
+def program_at_point(x: int, y: int) -> str:
+    """The program file of the window at this point of the screen (in Windows' pixels), or ""."""
+    if os.name != "nt":
+        return ""
+    from ctypes import wintypes as wt
+    u, k = ctypes.windll.user32, ctypes.windll.kernel32
+    u.WindowFromPoint.restype = wt.HWND
+    u.WindowFromPoint.argtypes = [wt.POINT]
+    u.GetAncestor.restype = wt.HWND
+    u.GetAncestor.argtypes = [wt.HWND, wt.UINT]
+    k.OpenProcess.restype = wt.HANDLE
+    hwnd = u.WindowFromPoint(wt.POINT(x, y))
+    if not hwnd:
+        return ""
+    hwnd = u.GetAncestor(hwnd, 2) or hwnd  # GA_ROOT: the window itself, not a button in it
+
+    def pid_of(h) -> int:
+        pid = wt.DWORD()
+        u.GetWindowThreadProcessId(wt.HWND(h), ctypes.byref(pid))
+        return pid.value
+
+    def path_of(pid: int) -> str:
+        h = k.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return ""
+        try:
+            buf = ctypes.create_unicode_buffer(1024)
+            size = wt.DWORD(1024)
+            return buf.value if k.QueryFullProcessImageNameW(wt.HANDLE(h), 0, buf, ctypes.byref(size)) else ""
+        finally:
+            k.CloseHandle(wt.HANDLE(h))
+    host = pid_of(hwnd)
+    exe = path_of(host)
+    if exe.lower().endswith("\\applicationframehost.exe"):  # a Store app's frame: the app is a window inside it
+        found = []
+        callback = ctypes.WINFUNCTYPE(wt.BOOL, wt.HWND, wt.LPARAM)
+
+        def each(child, _l):
+            pid = pid_of(child)
+            if pid != host:
+                found.append(pid)
+                return False
+            return True
+        u.EnumChildWindows(wt.HWND(hwnd), callback(each), 0)
+        exe = path_of(found[0]) if found else ""
+    return exe
+
+
+# Windows' own extra apps, often never opened, that are safe to remove (and can be put back from the
+# Microsoft Store). Matched by the start of their package family name.
+WINDOWS_EXTRAS = (
+    "microsoft.bingnews", "microsoft.bingweather", "microsoft.bingsports", "microsoft.bingfinance",
+    "microsoft.bingsearch", "microsoft.microsoftsolitairecollection", "clipchamp.clipchamp", "microsoft.getstarted",
+    "microsoft.gethelp", "microsoft.people", "microsoft.windowsfeedbackhub", "microsoft.microsoftofficehub",
+    "microsoft.todos", "microsoft.powerautomatedesktop", "microsoft.windowsmaps", "microsoft.mixedreality.portal",
+    "microsoft.skypeapp", "microsoft.549981c3f5f10", "microsoft.messaging", "microsoft.oneconnect",
+    "microsoft.microsoft3dviewer", "microsoft.print3d", "microsoft.zunevideo", "microsoft.windows.devhome",
+    "microsoftcorporationii.microsoftfamily", "microsoft.windowscommunicationsapps", "king.com.",
+)
+
+
+def is_windows_extra(app: App) -> bool:
+    fam = (app.family or app.store or "").lower()
+    return bool(fam) and fam.startswith(WINDOWS_EXTRAS)
 
 
 def _match(name: str, keys: set[str]) -> str:
@@ -2044,8 +2166,9 @@ def run_elevated(command: list[str], kind: str, payload: dict, cancel: threading
 
 
 def helper_main(argv: list[str]) -> int:
-    """What the elevated copy does: --cleanup plan.json, --restore plan.json or --restore-point plan.json."""
-    kind = next((a[2:] for a in argv if a in ("--cleanup", "--restore", "--restore-point")), "")
+    """What the elevated copy does: --cleanup plan.json, --restore plan.json, --restore-point plan.json or
+    --space-clean plan.json."""
+    kind = next((a[2:] for a in argv if a in ("--cleanup", "--restore", "--restore-point", "--space-clean")), "")
     try:
         plan = Path(argv[argv.index("--" + kind) + 1])
         payload = json.loads(plan.read_text("utf-8"))
@@ -2056,14 +2179,18 @@ def helper_main(argv: list[str]) -> int:
     # account at the admin prompt, this copy runs as that account, with other folders.
     folder = str(payload.get("folder", "")) if isinstance(payload, dict) else ""
     home = plan.resolve().parent.parent  # ...\Corefold
+    needs_folder = kind not in ("restore-point", "space-clean")
     if plan.resolve().parent.name.lower() != "helper" or home.name.lower() not in ("corefold", LEGACY_NAME.lower()) or \
-            (kind != "restore-point" and not (folder and _inside(str(Path(folder).resolve()),
-                                                                  str(home / BACKUP_DIR.name)))):
+            (needs_folder and not (folder and _inside(str(Path(folder).resolve()), str(home / BACKUP_DIR.name)))):
         return 2
     try:
         if kind == "cleanup":
             out = remove(items_from(payload["items"]), Path(payload["folder"]), payload.get("apps"), admin=True,
                          close_running=bool(payload.get("close")))
+        elif kind == "space-clean":  # Windows' own leftovers, by name only (see space.ADMIN_KEYS)
+            from .space import ADMIN_KEYS, clean_as_admin
+            keys = [k for k in payload.get("keys", []) if k in ADMIN_KEYS]
+            out = {"freed": clean_as_admin(keys)}
         elif kind == "restore":
             r = restore(Path(payload["folder"]), admin=True)
             out = {"done": r["done"], "failed": r["failed"]}

@@ -2,8 +2,8 @@
 Archives: open, extract, test, browse and create them.
 
 Uses the bundled 7-Zip (7z.exe + 7z.dll), which reads ZIP, RAR, 7z, ISO, CAB, TAR, GZ, XZ and more,
-and writes ZIP and 7z. TAR files (and .tar.gz/.bz2/.xz) go through Python's tarfile, and ZIP falls
-back to Python's zipfile when 7-Zip isn't there (e.g. running from source).
+and writes ZIP and 7z. TAR files (and .tar.gz/.bz2/.xz/.zst) go through Python's tarfile (zstd through
+zstandard), and ZIP falls back to Python's zipfile when 7-Zip isn't there (e.g. running from source).
 """
 from __future__ import annotations
 
@@ -19,8 +19,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .i18n import tr
-from .core import ARCHIVE_EXT, NO_WINDOW, TAR_SUFFIXES, Ctx, Result, _cached, app_dir, bundled, find_program, \
-    is_link, norm, pass_on_zone_mark, run_with_progress, safe_name, unique_path
+from .core import ARCHIVE_EXT, NO_WINDOW, TAR_SUFFIXES, Cancelled, Ctx, Result, _cached, app_dir, bundled, \
+    find_program, is_link, norm, pass_on_zone_mark, remove_file, run_with_progress, safe_name, unique_path
 
 log = logging.getLogger("corefold")
 DUMMY_PASSWORD = "-pcorefold-no-password"  # never let 7-Zip stop and ask for one
@@ -43,14 +43,22 @@ class Entry:
 
 # ----------------------------------------------------------------------------- helpers
 
+_found_7z: list[str] = []
+
+
 def find_7z() -> str | None:
+    if _found_7z and os.path.exists(_found_7z[0]):  # (asked for every menu and wheel entry: looked up once)
+        return _found_7z[0]
+    _found_7z.clear()
     exe = "7z.exe" if os.name == "nt" else "7z"
     for cand in (bundled("7zip", exe), app_dir() / "7zip" / exe, app_dir() / "vendor" / "7zip" / exe):
         if cand and Path(cand).exists():
+            _found_7z.append(str(cand))
             return str(cand)
     for name in ("7z", "7zz", "7za"):
         found = find_program(name)
         if found:
+            _found_7z.append(found)
             return found
     return None
 
@@ -63,6 +71,80 @@ def _tar_name(name: str) -> str:
 
 def is_tar(p: Path) -> bool:
     return p.name.lower().endswith(TAR_SUFFIXES)
+
+
+def is_zst(p: Path) -> bool:
+    """One file packed with zstd (not a TAR of several)."""
+    return p.name.lower().endswith(".zst") and not is_tar(p)
+
+
+class _open_tar:
+    """A TAR file of any kind, .tar.zst too. Read it from start to end ("for m in tf"): a zstd one
+    can't be read in any other order. .progress() is how far through the file the reading is."""
+
+    def __init__(self, src: Path):
+        self.src = src
+        self.raw = None
+        self.tf = None
+
+    def __enter__(self) -> tarfile.TarFile:
+        low = self.src.name.lower()
+        if low.endswith((".zst", ".tzst")):
+            import zstandard
+            self.raw = open(self.src, "rb")
+            stream = zstandard.ZstdDecompressor().stream_reader(self.raw)
+            self.tf = tarfile.open(fileobj=stream, mode="r|")
+        else:
+            self.tf = tarfile.open(self.src, "r:*")
+            self.raw = self.tf.fileobj
+        return self.tf
+
+    def progress(self) -> float:
+        try:
+            raw = getattr(self.raw, "fileobj", None) or getattr(self.raw, "_fp", None) or self.raw  # (the file itself)
+            return min(1.0, raw.tell() / max(1, self.src.stat().st_size))
+        except (OSError, AttributeError, ValueError):
+            return 0.0
+
+    def __exit__(self, *exc):
+        if self.tf is not None:
+            self.tf.close()
+        if self.raw is not None and self.src.name.lower().endswith((".zst", ".tzst")):
+            self.raw.close()
+        return False
+
+
+def _unzst(src: Path, out, ctx: Ctx | None = None):
+    """Unpacks one zstd file into out (an open file)."""
+    import zstandard
+    size = max(1, src.stat().st_size)
+    with open(src, "rb") as fh, zstandard.ZstdDecompressor().stream_reader(fh) as reader:
+        while True:
+            if ctx is not None:
+                ctx.check()
+            chunk = reader.read(1 << 20)
+            if not chunk:
+                break
+            out.write(chunk)
+            if ctx is not None:
+                ctx.progress(min(1.0, fh.tell() / size))
+
+
+def _zstd_errors() -> tuple:
+    try:
+        import zstandard
+        return (zstandard.ZstdError,)
+    except ImportError:
+        return ()
+
+
+class _Nowhere:
+    def write(self, _data):
+        pass
+
+
+def _zst_inner_name(src: Path) -> str:
+    return src.name[:-4] or "file"
 
 
 def is_extra_part(p: Path) -> bool:
@@ -165,11 +247,19 @@ def _parse_slt(out: str) -> list[Entry]:
 def list_entries(src: Path, password: str = "") -> list[Entry]:
     if is_tar(src):
         try:
-            with tarfile.open(src, "r:*") as tf:
+            with _open_tar(src) as tf:
                 return [Entry(_tar_name(m.name), m.size, 0, _tar_time(m.mtime), m.isdir())
-                        for m in tf.getmembers() if _tar_name(m.name)]
-        except (tarfile.TarError, OSError, EOFError) as e:
+                        for m in tf if _tar_name(m.name)]
+        except (tarfile.TarError, OSError, EOFError, *_zstd_errors()) as e:
             raise RuntimeError(tr("the archive is damaged or isn't a TAR file")) from e
+    if is_zst(src):
+        try:
+            import zstandard
+            with open(src, "rb") as fh:
+                size = zstandard.frame_content_size(fh.read(18))
+        except (OSError, *_zstd_errors()) as e:
+            raise RuntimeError(tr("the archive is damaged or incomplete")) from e
+        return [Entry(_zst_inner_name(src), max(0, size), src.stat().st_size, _tar_time(src.stat().st_mtime))]
     if find_7z():
         code, out = _run7z(["l", "-slt", "-sccUTF-8", _pw(password), str(src)])
         if code not in (0, 1):
@@ -198,7 +288,7 @@ def _tar_time(ts: float) -> str:
 
 def is_encrypted(src: Path) -> bool:
     def work():
-        if is_tar(src):
+        if is_tar(src) or is_zst(src):
             return False
         try:
             return any(e.encrypted for e in list_entries(src))
@@ -209,12 +299,41 @@ def is_encrypted(src: Path) -> bool:
     return _cached("encrypted", src, work)
 
 
+def password_works(src: Path, password: str) -> bool:
+    """True if the password opens the archive: tried on its smallest locked file only, so it's quick
+    even for a big archive."""
+    try:
+        entries = list_entries(src, password)
+    except NeedPassword:
+        return False  # the names are locked too (7z): this password didn't open them
+    locked = [e for e in entries if e.encrypted and not e.is_dir]
+    if not locked:
+        return True
+    smallest = min(locked, key=lambda e: e.size)
+    if find_7z():
+        listfile = _listfile([smallest.path])
+        try:
+            code, _ = _run7z(["t", str(src), "-sccUTF-8", "-scsUTF-8", _pw(password), f"@{listfile}"])
+        finally:
+            listfile.unlink(missing_ok=True)
+        return code == 0
+    try:
+        with zipfile.ZipFile(src) as zf:
+            zf.setpassword(password.encode())
+            with zf.open(smallest.path) as f:
+                while f.read(1 << 20):
+                    pass
+        return True
+    except (RuntimeError, zipfile.BadZipFile, KeyError, OSError):
+        return False
+
+
 def top_level(entries: list[Entry]) -> set[str]:
     return {e.path.strip("/").split("/", 1)[0] for e in entries if e.path.strip("/")}
 
 
 def check_readable(files: list[Path]) -> str | None:
-    if is_tar(files[0]):
+    if is_tar(files[0]) or is_zst(files[0]):
         return None
     if not find_7z() and files[0].suffix.lower() != ".zip":
         return tr("Needs 7-Zip (reinstall Corefold)")
@@ -225,15 +344,19 @@ def check_readable(files: list[Path]) -> str | None:
 
 def _extract_into(src: Path, target: Path, ctx: Ctx, password: str, members: list[str] | None = None):
     if is_tar(src):
-        with tarfile.open(src, "r:*") as tf:
-            items = tf.getmembers()
-            if members:
-                wanted = set(members)
-                items = [m for m in items if _tar_name(m.name) in wanted]
-            for i, m in enumerate(items):
+        wanted = set(members or [])
+        opened = _open_tar(src)
+        with opened as tf:
+            for m in tf:  # (start to end, the only way a .tar.zst can be read)
                 ctx.check()
-                tf.extract(m, target, filter="data")
-                ctx.progress((i + 1) / max(1, len(items)))
+                if not wanted or _tar_name(m.name) in wanted:
+                    tf.extract(m, target, filter="data")
+                ctx.progress(opened.progress())
+        pass_on_zone_mark([src], [target])
+        return
+    if is_zst(src):
+        with open(target / _zst_inner_name(src), "wb") as out:
+            _unzst(src, out, ctx)
         pass_on_zone_mark([src], [target])
         return
     if find_7z():
@@ -346,16 +469,22 @@ def _hide(path: Path, hidden: bool = True):
 
 def test_archive(src: Path, ctx: Ctx) -> Result:
     password = ctx.params.get("password", "")
-    if is_tar(src):
-        with tarfile.open(src, "r:*") as tf:
-            members = tf.getmembers()
-            for i, m in enumerate(members):
-                ctx.check()
-                if m.isfile():
-                    f = tf.extractfile(m)
-                    while f and f.read(1 << 20):
-                        pass
-                ctx.progress((i + 1) / max(1, len(members)))
+    if is_tar(src) or is_zst(src):
+        try:
+            if is_zst(src):
+                _unzst(src, _Nowhere(), ctx)
+            else:
+                opened = _open_tar(src)
+                with opened as tf:
+                    for m in tf:
+                        ctx.check()
+                        if m.isfile():
+                            f = tf.extractfile(m)
+                            while f and f.read(1 << 20):
+                                pass
+                        ctx.progress(opened.progress())
+        except (tarfile.TarError, EOFError, *_zstd_errors()) as e:
+            raise RuntimeError(tr("the archive is damaged or incomplete")) from e
         return Result(note=tr("No problems found in {name}", name=src.name))
     if find_7z():
         code, out = _run7z(["t", str(src), "-bsp1", "-bse1", "-sccUTF-8", _pw(password)], ctx)
@@ -377,6 +506,46 @@ def test_archive(src: Path, ctx: Ctx) -> Result:
 # ----------------------------------------------------------------------------- creating
 
 LEVELS = {"fast": 1, "normal": 5, "max": 9}
+# TAR files (for Linux and Mac), made by Corefold itself: their packing level for fast, normal and max
+TAR_FORMATS = {"tar.gz": (1, 6, 9), "tar.xz": (1, 6, 9), "tar.zst": (1, 6, 19)}
+
+
+def _pack_tar(items: list[Path], rel: list[str], out: Path, ctx: Ctx, fmt: str, level: str):
+    fast, normal, best = TAR_FORMATS[fmt]
+    n = {"fast": fast, "max": best}.get(level, normal)
+    files: list[tuple[Path, str]] = []
+    for p, r in zip(items, rel):
+        files.append((p, r))
+        if p.is_dir() and not is_link(p):
+            for f in sorted(p.rglob("*")):
+                files.append((f, os.path.join(r, os.path.relpath(f, p))))
+    total = max(1, sum(f.stat().st_size for f, _ in files if f.is_file() and not f.is_symlink()))
+    done = 0
+    raw = zst = None
+    try:
+        if fmt == "tar.zst":
+            import zstandard
+            raw = open(out, "wb")
+            zst = zstandard.ZstdCompressor(level=n, threads=-1).stream_writer(raw)
+            tf = tarfile.open(fileobj=zst, mode="w|", format=tarfile.PAX_FORMAT)
+        elif fmt == "tar.xz":
+            tf = tarfile.open(out, "w:xz", preset=n, format=tarfile.PAX_FORMAT)
+        else:
+            tf = tarfile.open(out, "w:gz", compresslevel=n, format=tarfile.PAX_FORMAT)
+        with tf:
+            for f, arc in files:
+                ctx.check()
+                tf.add(f, arc.replace(os.sep, "/"), recursive=False)
+                if f.is_file():
+                    done += f.stat().st_size
+                    ctx.progress(done / total)
+        if zst is not None:
+            zst.close()  # (closes the file too)
+    except BaseException:
+        if raw is not None:
+            raw.close()
+        out.unlink(missing_ok=True)
+        raise
 
 
 def _pack_name(items: list[Path], ctx: Ctx) -> str:
@@ -392,12 +561,15 @@ def _pack_name(items: list[Path], ctx: Ctx) -> str:
 
 def pack_into(items: list[Path], out: Path, ctx: Ctx, fmt: str = "zip", level: str = "normal",
               password: str = "", split_mb: float = 0) -> list[Path]:
-    """Creates out (a .zip or .7z) from the items. Returns the file(s) written."""
+    """Creates out (a .zip, .7z, .tar.gz, .tar.xz or .tar.zst) from the items. Returns the file(s) written."""
     try:
         parent = Path(os.path.commonpath([str(p.parent.resolve()) for p in items]))
     except ValueError as e:  # different drives
         raise RuntimeError(tr("pick files that are on the same drive")) from e
     rel = [os.path.relpath(p.resolve(), parent) for p in items]
+    if fmt in TAR_FORMATS:  # (no password or parts: TAR has neither)
+        _pack_tar(items, rel, out, ctx, fmt, level)
+        return [out]
     if find_7z():
         args = ["a", f"-t{fmt}", f"-mx={LEVELS.get(level, 5)}", "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-ssw", "-y",
                 "-spd"]
@@ -407,16 +579,22 @@ def pack_into(items: list[Path], out: Path, ctx: Ctx, fmt: str = "zip", level: s
         if split_mb and split_mb > 0:
             args.append(f"-v{int(split_mb * 1024)}k")
         listfile = _listfile(rel)
+
+        def remove_made():
+            # remove only what this run made: the archive and its numbered parts (.001, .002 …),
+            # never other files that just start with the same name
+            remove_file(out)
+            for part in out.parent.glob(glob_escape(out.name) + ".[0-9][0-9][0-9]"):
+                remove_file(part)
         try:
             code, output = _run7z([*args, "-scsUTF-8", str(out), f"@{listfile}"], ctx, cwd=parent)
+        except Cancelled:  # stopped halfway: no half-made archive is left behind
+            remove_made()
+            raise
         finally:
             listfile.unlink(missing_ok=True)
         if code not in (0, 1):
-            # remove only what this run made: the archive and its numbered parts (.001, .002 …),
-            # never other files that just start with the same name
-            out.unlink(missing_ok=True)
-            for part in out.parent.glob(glob_escape(out.name) + ".[0-9][0-9][0-9]"):
-                part.unlink(missing_ok=True)
+            remove_made()
             raise _7z_error(output)
         if split_mb:
             return sorted(out.parent.glob(glob_escape(out.name) + ".[0-9][0-9][0-9]"))
@@ -438,7 +616,7 @@ def pack_into(items: list[Path], out: Path, ctx: Ctx, fmt: str = "zip", level: s
                 zf.write(f, arc)
                 ctx.progress((i + 1) / max(1, len(files)))
     except BaseException:
-        out.unlink(missing_ok=True)
+        remove_file(out)
         raise
     return [out]
 
@@ -534,6 +712,61 @@ def extract_for_opening(src: Path, member: str, ctx: Ctx) -> Result:
     if not inside or not out.is_file():
         raise RuntimeError(tr("couldn't take that file out of the archive"))
     return Result([out])
+
+
+PREVIEW_MAX = 40 << 20  # files bigger than this (unpacked) get no preview
+
+
+def read_member(src: Path, member: str, password: str = "", limit: int = PREVIEW_MAX, cancel=None) -> bytes:
+    """The start (up to limit bytes) of one file inside the archive, without writing it anywhere.
+    cancel (a threading.Event) stops it early: another file was picked meanwhile."""
+    from .core import Cancelled
+    if is_tar(src):
+        with _open_tar(src) as tf:
+            for m in tf:
+                if cancel is not None and cancel.is_set():
+                    raise Cancelled()
+                if m.isfile() and _tar_name(m.name) == member:
+                    f = tf.extractfile(m)
+                    return f.read(limit) if f else b""
+        raise RuntimeError(tr("couldn't take that file out of the archive"))
+    if is_zst(src):
+        import zstandard
+        with open(src, "rb") as fh, zstandard.ZstdDecompressor().stream_reader(fh) as reader:
+            return reader.read(limit)
+    exe = find_7z()
+    if exe:
+        listfile = _listfile([member.replace("/", os.sep)])
+        try:
+            proc = subprocess.Popen([exe, "e", "-so", "-sccUTF-8", "-scsUTF-8", "-spd", _pw(password), str(src),
+                                     f"@{listfile}"], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                    stdin=subprocess.DEVNULL, creationflags=NO_WINDOW)
+            if cancel is not None:  # (a big solid archive can take a while to reach the file)
+                def watch():
+                    while proc.poll() is None:
+                        if cancel.wait(0.2):
+                            proc.kill()
+                            return
+                import threading
+                threading.Thread(target=watch, daemon=True).start()
+            try:
+                data = proc.stdout.read(limit)
+            finally:
+                proc.kill()  # (enough read: the rest isn't needed)
+                _out, err = proc.communicate(timeout=10)
+        finally:
+            listfile.unlink(missing_ok=True)
+        if cancel is not None and cancel.is_set():
+            raise Cancelled()
+        if not data and proc.returncode not in (0, 1):  # (nothing read: 7-Zip had finished by itself)
+            raise _7z_error(err.decode("utf-8", "replace"))
+        return data
+    with zipfile.ZipFile(src) as zf:
+        try:
+            with zf.open(member, pwd=password.encode() if password else None) as f:
+                return f.read(limit)
+        except RuntimeError as e:
+            raise NeedPassword() from e
 
 
 # ----------------------------------------------------------------------------- archives inside archives
