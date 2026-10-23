@@ -549,20 +549,6 @@ class SpacePage(QWidget):
         for b, name in getattr(self, "_icon_buttons", []):
             b.setIcon(icons.icon(name, t.text, disabled=t.muted))
 
-    def go_back(self) -> bool:
-        """Esc, Back or ←: up one folder in the map, else back to the list of drives (stopping a
-        look that's under way). False if there's nowhere to go back to."""
-        if self.job is not None and self.busy_box.isVisible():
-            self._stop()
-            return True
-        if self.map_box.isVisible():
-            if self.here is not None and self.here.parent is not None:
-                self._up()
-            else:
-                self._back_to_drives()
-            return True
-        return False
-
     def _pick_folder(self):
         folder = QFileDialog.getExistingDirectory(self, tr("Look at a folder"), str(Path.home()))
         if folder:

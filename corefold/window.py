@@ -2775,8 +2775,10 @@ class MainWindow(QWidget):
         if e.matches(QKeySequence.StandardKey.Paste):
             self.c.paste()
             return
-        if e.key() == Qt.Key.Key_Escape:  # Esc closes the window, like most settings windows
-            self.close()
+        if e.key() == Qt.Key.Key_Escape:  # Esc steps back inside a page (Space), else closes the window
+            here = self.stack.currentWidget()
+            if not (callable(getattr(here, "go_back", None)) and here.go_back()):
+                self.close()
             return
         super().keyPressEvent(e)
 
