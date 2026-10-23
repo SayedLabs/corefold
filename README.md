@@ -11,7 +11,7 @@ Everyday tools in one small app that waits in the tray. Everything happens on yo
 - **Corefold Archive**: opens ZIP, RAR, 7z, ISO and more with a double-click. Drag files out, change a
   file inside and save it back, rescue damaged archives, and unpack archives inside archives in one go.
 
-Also in the Store: Corefold Viewer, Player, Capture, Space and Clipboard. Coming soon: Cloud.
+Also in the Store: Corefold Viewer, Player, Capture, Space, Clipboard and File Organizer. Coming soon: Cloud.
 
 ### The Converter
 
