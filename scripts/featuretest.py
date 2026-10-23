@@ -401,6 +401,64 @@ def viewer_strip():
     app.processEvents()
 
 
+def viewer_more():
+    import io
+
+    import numpy as np
+    from PIL import Image
+
+    from corefold import viewer as v
+    a = np.zeros((4, 4, 3), np.uint8)
+    a[..., :] = (100, 60, 30)
+    check(v.adjust_array(a, light=50)[0, 0, 0] > 100, "Light makes it brighter")
+    check(v.adjust_array(a, colour=-100)[0, 0].std() < 1, "Colour all the way down: grey")
+    dull = np.tile(np.linspace(90, 160, 64, dtype=np.uint8)[None, :, None], (8, 1, 3))
+    fixed = v.adjust_array(dull, auto=True)
+    check(fixed.min() < 10 and fixed.max() > 245, "Auto stretches a dull photo")
+    im = Image.new("RGB", (8, 8), (100, 100, 100))
+    check(v.apply_edits(im, [("adjust", (0, 0, 0, False))]).getpixel((0, 0)) == (100, 100, 100),
+          "nothing changed: the same picture")
+    q = QImage(8, 8, QImage.Format_RGB32)
+    q.fill(QColor(100, 100, 100))
+    check(v._adjusted_qimage(q, (50, 0, 0, False)).pixelColor(0, 0).red() == 125, "the preview matches the saved file")
+    check(v.apply_edits(im, [("adjust", (50, 0, 0, False))]).getpixel((0, 0))[0] == 125, "…(saved)")
+    # a camera file: a small header, then its full-size preview (and a smaller one first, like real ones)
+    small, big = io.BytesIO(), io.BytesIO()
+    Image.new("RGB", (160, 120), (0, 0, 255)).save(small, "JPEG")
+    Image.new("RGB", (1200, 800), (255, 0, 0)).save(big, "JPEG")
+    raw = TMP / "photos" / "IMG_0001.CR2"
+    raw.write_bytes(b"II*\x00" + b"\x00" * 500 + small.getvalue() + b"\x00" * 100 + big.getvalue())
+    pic = v.load_picture(raw)
+    check((pic.width(), pic.height()) == (1200, 800), f"a camera RAW file shows its full preview ({pic.width()})")
+    svg = TMP / "photos" / "logo.svg"
+    svg.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><rect width="40" height="20" '
+                   'fill="#00ff00"/></svg>', "utf-8")
+    pic = v.load_picture(svg)
+    check(pic.width() > 40 and pic.pixelColor(pic.width() // 2, pic.height() // 2).green() > 200, "an SVG drawing")
+    check(v.is_picture(raw) and v.is_picture(svg), "…both open in the Viewer")
+    c = FakeController()
+    win = v.ViewerWindow(c, TMP / "photos" / "a.jpg", c.icon)
+    win.show()
+    for _ in range(30):
+        app.processEvents()
+        time.sleep(0.03)
+    win.toggle_compare()
+    for _ in range(30):
+        app.processEvents()
+        time.sleep(0.03)
+    check(win.view2.isVisible() and not win.view2.image.isNull(), "X: the next picture beside this one")
+    win.toggle_compare()
+    check(win.view2.isHidden(), "…and X again goes back")
+    win.toggle_adjust()
+    win.sliders["light"].setValue(60)
+    win._adjust_preview()
+    win.apply_adjust()
+    check(win.edits and win.edits[-1][0] == "adjust", "Light and colour is a change to save")
+    win.edits = []
+    win.close()
+    app.processEvents()
+
+
 # ----------------------------------------------------------------------------- Space
 
 def space_kinds():
@@ -575,7 +633,7 @@ else:
                      ("capture", capture), ("recording pause", recording_pause), ("loopback", loopback),
                      ("clipboard", clipboard), ("clip list", clip_list), ("viewer", viewer),
                      ("space", space), ("space programs", space_programs), ("chapters", chapters), ("player", player),
-                     ("saved texts", saved_texts), ("viewer strip", viewer_strip), ("space kinds", space_kinds),
+                     ("saved texts", saved_texts), ("viewer strip", viewer_strip), ("viewer more", viewer_more), ("space kinds", space_kinds),
                      ("shortcut program", shortcut_program), ("pdf stamps", pdf_stamps)):
         step(name, fn)
 print(f"featuretest: {len(problems)} problem(s)")
