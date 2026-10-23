@@ -56,7 +56,7 @@ s.quick_wheel = True
 s.output_folder = str(TMP / "Converted")
 s.save()
 
-from PySide6.QtCore import QEventLoop, QPoint, Qt, QTimer  # noqa: E402
+from PySide6.QtCore import QEvent, QEventLoop, QObject, QPoint, Qt, QTimer  # noqa: E402
 from PySide6.QtGui import QDesktopServices, QGuiApplication, QIcon  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QMenu, QMessageBox  # noqa: E402
@@ -158,6 +158,26 @@ def _where(frame) -> str:
 
 
 watch = Watch()
+held: list[tuple[str, float, str]] = []
+
+
+def _held_watch():
+    """Notices when no Python thread could run for a while (one held Python's lock in a long C call, like
+    loading a DLL), and notes where every thread was right after: the one that held it shows up."""
+    me = threading.get_ident()
+    last = time.perf_counter()
+    while True:
+        time.sleep(0.005)
+        now = time.perf_counter()
+        if now - last > 0.3:
+            frames = sys._current_frames()
+            names = {t.ident: t.name for t in threading.enumerate()}
+            where = " | ".join(f"{names.get(i, i)}: {_where(f)}" for i, f in frames.items() if i != me)
+            held.append((watch.label, now - last, where))
+        last = now
+
+
+threading.Thread(target=_held_watch, daemon=True).start()
 
 
 @contextmanager
@@ -842,10 +862,46 @@ def idle():
         a, b, ker, usr = wt.FILETIME(), wt.FILETIME(), wt.FILETIME(), wt.FILETIME()
         k.GetProcessTimes(h, ctypes.byref(a), ctypes.byref(b), ctypes.byref(ker), ctypes.byref(usr))
         return ((ker.dwHighDateTime << 32 | ker.dwLowDateTime) + (usr.dwHighDateTime << 32 | usr.dwLowDateTime)) / 1e7
+    k.OpenThread.restype = wt.HANDLE
+    k.GetThreadTimes.argtypes = [wt.HANDLE] + [ctypes.POINTER(wt.FILETIME)] * 4
+
+    def thread_cpu():
+        out = {}
+        for th in threading.enumerate():
+            hth = k.OpenThread(0x0800, False, th.native_id or 0)
+            if hth:
+                a, b, ker, usr = wt.FILETIME(), wt.FILETIME(), wt.FILETIME(), wt.FILETIME()
+                k.GetThreadTimes(hth, ctypes.byref(a), ctypes.byref(b), ctypes.byref(ker), ctypes.byref(usr))
+                k.CloseHandle(hth)
+                out[th.name] = out.get(th.name, 0) + ((ker.dwHighDateTime << 32 | ker.dwLowDateTime)
+                                                      + (usr.dwHighDateTime << 32 | usr.dwLowDateTime)) / 1e7
+        return out
+
+    class Count(QObject):  # which objects get timer events on the window's thread while idle
+        def __init__(self):
+            super().__init__()
+            self.n: dict[str, int] = {}
+
+        def eventFilter(self, obj, e):
+            if e.type() == QEvent.Type.Timer:
+                key = type(obj).__name__ + (f" {obj.objectName()}" if obj.objectName() else "")
+                self.n[key] = self.n.get(key, 0) + 1
+            return False
     watch.timer.stop()  # (the test's own heartbeat isn't the app's work)
+    th0 = thread_cpu()
     c0, t0 = cpu(), time.perf_counter()
     settle(15)
     used = (cpu() - c0) / (time.perf_counter() - t0) * 100
+    th1 = thread_cpu()
+    busy = sorted(((th1[n] - th0.get(n, 0), n) for n in th1), reverse=True)[:6]
+    say("note  idle, processor time by thread in 15 s: " + ", ".join(f"{n} {t:.2f} s" for t, n in busy)
+        + f" (all Python threads {sum(t for t, _ in busy):.2f} s of {used * 0.15:.2f} s)")
+    counter = Count()
+    qapp.installEventFilter(counter)
+    settle(5)
+    qapp.removeEventFilter(counter)
+    say("note  idle, timers on the window's thread in 5 s: "
+        + ", ".join(f"{n} ×{v}" for n, v in sorted(counter.n.items(), key=lambda x: -x[1])[:10]))
     watch.timer.start()
     check(used < 1.5, f"idle in the tray: {used:.2f}% of one processor core")
 
@@ -891,6 +947,10 @@ say("")
 say(f"freezes (the window didn't answer for more than {FREEZE} s):")
 for label, took, where in sorted(watch.stalls, key=lambda x: -x[1])[:60]:
     say(f"  {took:5.2f} s  {label}  ·  {where}")
+say("")
+say("Python held up (no thread could run for more than 0.3 s):")
+for label, took, where in sorted(held, key=lambda x: -x[1])[:30]:
+    say(f"  {took:5.2f} s  {label}  ·  {where[:900]}")
 log_file = st.LOG_DIR / "corefold.log"
 if log_file.exists():
     text = log_file.read_text("utf-8", "replace")
