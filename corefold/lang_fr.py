@@ -1365,12 +1365,6 @@ STRINGS: dict[str, str] = {
     "Find and replace in file names": "Rechercher et remplacer dans les noms de fichiers",
     "Use the date a photo was taken, or a song's title and artist": "Utilisez la date de prise d'une photo, ou le titre et l'artiste d'une chanson",
     "See every new name first, and undo it all with one click": "Voyez chaque nouveau nom d'abord, et annulez tout d'un clic",
-    "Corefold Search": "Corefold Search",
-    "Press a shortcut and type: open any app, file or setting in a second.": "Appuyez sur un raccourci et tapez : ouvrez une appli, un fichier ou un réglage en une seconde.",
-    "Find apps, files and folders as you type": "Trouvez applis, fichiers et dossiers pendant la saisie",
-    "Do quick sums and unit conversions in the same box": "Faites des calculs rapides et des conversions d'unités dans la même case",
-    "Open Windows settings by name": "Ouvrez les paramètres Windows par leur nom",
-    "Works without the internet: nothing you type leaves your PC": "Fonctionne sans Internet : rien de ce que vous tapez ne quitte votre PC",
     "Corefold Colors": "Corefold Colors",
     "Pick any colour on your screen and copy it as HEX, RGB or HSL.": "Prélevez n'importe quelle couleur à l'écran et copiez-la en HEX, RGB ou HSL.",
     "Pick a colour anywhere with one shortcut": "Prélevez une couleur n'importe où avec un raccourci",
@@ -1847,4 +1841,10 @@ STRINGS: dict[str, str] = {
     "Press {key} in any app to pick a colour.": "Appuyez sur {key} dans n'importe quelle appli pour prélever une couleur.",
     "A magnifier shows every pixel, so you get exactly the one you want": "Une loupe montre chaque pixel, pour prélever exactement le bon",
     "Your last 24 colours, ready to copy again": "Vos 24 dernières couleurs, prêtes à être recopiées",
+    # ---- quick menu: find apps and files
+    "Type to search apps, files, tools and actions": "Tapez pour chercher des applis, fichiers, outils et actions",
+    "Shift + Enter: show in folder": "Maj + Entrée : afficher dans le dossier",
+    "Ctrl + Enter: run as administrator": "Ctrl + Entrée : exécuter en tant qu'administrateur",
+    "Find files and apps as I type": "Trouver fichiers et applis pendant la saisie",
+    "Uses Windows' own search index on this PC (or Everything, if it's running). Nothing leaves your PC.": "Utilise l'index de recherche de Windows sur ce PC (ou Everything, s'il est lancé). Rien ne quitte votre PC.",
 }

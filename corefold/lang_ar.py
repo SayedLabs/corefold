@@ -1443,12 +1443,6 @@ STRINGS: dict[str, str] = {
     "Find and replace in file names": "دوّر واستبدل في أسماء الملفات",
     "Use the date a photo was taken, or a song's title and artist": "استخدم تاريخ تصوير الصورة، أو اسم الأغنية والفنان",
     "See every new name first, and undo it all with one click": "شوف كل اسم جديد أول، وتراجع عن الكل بضغطة",
-    "Corefold Search": "البحث من كورفولد",
-    "Press a shortcut and type: open any app, file or setting in a second.": "اضغط اختصار واكتب: افتح أي برنامج أو ملف أو إعداد في ثانية.",
-    "Find apps, files and folders as you type": "لقّ البرامج والملفات والمجلدات وانت تكتب",
-    "Do quick sums and unit conversions in the same box": "سوّ حسابات سريعة وتحويل وحدات في نفس المربع",
-    "Open Windows settings by name": "افتح إعدادات ويندوز باسمها",
-    "Works without the internet: nothing you type leaves your PC": "يشتغل بدون إنترنت: ولا شي تكتبه يطلع من جهازك",
     "Corefold Colors": "الألوان من كورفولد",
     "Pick any colour on your screen and copy it as HEX, RGB or HSL.": "اختار أي لون على شاشتك وانسخه بصيغة HEX أو RGB أو HSL.",
     "Pick a colour anywhere with one shortcut": "اختار لون من أي مكان باختصار واحد",
@@ -1925,4 +1919,10 @@ STRINGS: dict[str, str] = {
     "Press {key} in any app to pick a colour.": "اضغط {key} في أي برنامج عشان تختار لون.",
     "A magnifier shows every pixel, so you get exactly the one you want": "عدسة مكبّرة تبيّن كل بكسل، عشان تختار اللون اللي تبيه بالضبط",
     "Your last 24 colours, ready to copy again": "آخر 24 لون اخترتها، جاهزة تنسخها من جديد",
+    # ---- quick menu: find apps and files
+    "Type to search apps, files, tools and actions": "اكتب عشان تدوّر على البرامج والملفات والأدوات والإجراءات",
+    "Shift + Enter: show in folder": "Shift + Enter: اعرضه في مجلده",
+    "Ctrl + Enter: run as administrator": "Ctrl + Enter: شغّله كمسؤول",
+    "Find files and apps as I type": "لقّ الملفات والبرامج وانا أكتب",
+    "Uses Windows' own search index on this PC (or Everything, if it's running). Nothing leaves your PC.": "يستخدم فهرس البحث حق ويندوز في هالجهاز (أو Everything إذا كان شغّال). ولا شي يطلع من جهازك.",
 }
