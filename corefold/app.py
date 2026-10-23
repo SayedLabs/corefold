@@ -315,6 +315,7 @@ class Controller(QObject):
         self.quick = None    # the quick menu and wheel, while one of them (or the on-top shortcut) is on
         self.awake = None    # Corefold Awake (and its "Keep awake" tray menu), while it's in use
         self.colors = None   # Corefold Colors, while it's in use
+        self.peek = None     # the Viewer's Quick look (its shortcut in File Explorer), while it's in use
         self.act_again = menu.addAction(tr("Do it again…"), self.do_again)
         menu.aboutToShow.connect(self._update_again_action)
         self.recent_menu = menu.addMenu(tr("Recent files"))
@@ -481,6 +482,8 @@ class Controller(QObject):
             held += [(self.quick, "menu"), (self.quick, "wheel")]
         if self.clip is not None:
             held.append((self.clip, "popup"))
+        if self.peek is not None:
+            held.append((self.peek, "window"))
         freed = False
         for owner, name in held:
             w = getattr(owner, name)
@@ -823,10 +826,11 @@ class Controller(QObject):
         self._colors_tool()
         self._quick_tool()
         self._awake_tool()
+        self._peek_tool()
         self._tray_tools()
         running = [name for name, on in (("clipboard", self.clip), ("capture", self.capture),
                                          ("quick access", self.quick), ("awake", self.awake),
-                                         ("colors", self.colors)) if on is not None]
+                                         ("colors", self.colors), ("quick look", self.peek)) if on is not None]
         if running:
             log.info("running in the background: %s", ", ".join(running))
             winutil.log_memory("background tools started")
@@ -883,6 +887,23 @@ class Controller(QObject):
             self.colors.stop()
             self.colors.deleteLater()
             self.colors = None
+
+    def _peek_tool(self):
+        """The Viewer's Quick look: only while the Viewer is in use and its shortcut isn't switched off."""
+        on = all_tools.is_on(self.settings, "viewer") and self.settings.peek_key != "off"
+        if on and self.peek is None:
+            from .peek import PeekTool
+            try:
+                self.peek = PeekTool(self)
+            except Exception:
+                log.exception("couldn't start Quick look")
+                self.peek = None
+        elif not on and self.peek is not None:
+            self.peek.stop()
+            self.peek.deleteLater()
+            self.peek = None
+        elif on:
+            self.peek.apply_settings()
 
     # ---- Quick access
 
@@ -1302,6 +1323,8 @@ class Controller(QObject):
             self.clip.popup.apply_theme(self.theme)
         if self.quick is not None:
             self.quick.apply_theme(self.theme)
+        if self.peek is not None:
+            self.peek.apply_theme(self.theme)
 
     def _color_menu_icons(self):
         for action, name in self.menu_icons:
@@ -1346,6 +1369,7 @@ class Controller(QObject):
             notes = getattr(self._window, "quick_notes", None)
             if notes is not None:
                 notes()
+        self._peek_tool()  # (nothing happens unless its shortcut changed)
         self.watcher.refresh()
         if self._window is not None:
             self._window.refresh()
@@ -1873,6 +1897,9 @@ class Controller(QObject):
         if self.awake is not None:  # (Windows lets the PC sleep anyway once Corefold has ended)
             self.awake.stop()
             self.awake = None
+        if self.peek is not None:
+            self.peek.stop()
+            self.peek = None
         for p in getattr(self, "players", []):
             if _alive(p):
                 p.close()
