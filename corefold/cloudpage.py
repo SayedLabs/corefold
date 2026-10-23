@@ -14,7 +14,7 @@ from PySide6.QtWidgets import QAbstractItemView, QFileDialog, QHBoxLayout, QHead
     QLineEdit, QListWidget, QListWidgetItem, QMenu, QMessageBox, QProgressBar, QPushButton, QTreeWidget, \
     QTreeWidgetItem, QVBoxLayout, QWidget
 
-from . import cloud, icons, work
+from . import UPDATE_REPO, cloud, icons, work
 from .core import human_size, short_name
 from .i18n import ltr, tr
 from .theme import round_menu
@@ -156,6 +156,12 @@ class CloudPage(QWidget):
             act.setEnabled(cloud.available(key))
         add.setMenu(menu)
         side.addWidget(add)
+        if UPDATE_REPO:  # what Cloud reaches and keeps, before signing in
+            owner, _, name = UPDATE_REPO.partition("/")
+            privacy = self._button(tr("Privacy"), lambda: QDesktopServices.openUrl(
+                QUrl(f"https://{owner}.github.io/{name}/privacy.html#cloud")))
+            privacy.setObjectName("flat")
+            side.addWidget(privacy, 0, Qt.AlignLeft)
         side.addStretch()  # (takes the list's place while there are no accounts: the button stays on top)
         body.addLayout(side)
         main = QVBoxLayout()
