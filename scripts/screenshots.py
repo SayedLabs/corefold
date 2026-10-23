@@ -105,6 +105,14 @@ try:
 except Exception:
     problems.append(f"show_files: {traceback.format_exc()}")
 save(w, "window-0-home-with-file", wait=2.0)
+try:  # the sidebar with icons only
+    w.set_nav_compact(True)
+    w.open_page("Space")
+    save(w, "window-sidebar-icons-only", wait=1.0)
+    w.set_nav_compact(False)
+    settle(0.5)
+except Exception:
+    problems.append(f"sidebar: {traceback.format_exc()}")
 
 # ---- the wheel, in every style
 from corefold.converters import catalog  # noqa: E402

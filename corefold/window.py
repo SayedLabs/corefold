@@ -163,14 +163,14 @@ class ToolCard(QFrame):
         lay.setContentsMargins(16, 14, 16, 14)
         lay.setSpacing(10 if small else 8)
         tile = QLabel()
-        side = 34 if small else 44
+        side = 40 if small else 44
         tile.setPixmap(icons.product_tile(product, side, dark, dpr))
         tile.setFixedSize(side + 2, side + 2)
         tile.setAttribute(Qt.WA_TransparentForMouseEvents)
         self.title = label(title, "cardTitle")
         self.title.setAttribute(Qt.WA_TransparentForMouseEvents)
         if small:
-            lay.addWidget(tile, 0, Qt.AlignVCenter)
+            lay.addWidget(tile, 0, Qt.AlignTop)
             words = QVBoxLayout()
             words.setSpacing(2)
             words.addWidget(self.title)
@@ -179,6 +179,11 @@ class ToolCard(QFrame):
                 p.setMinimumWidth(1)  # wraps inside the card (long lines, long translations)
                 p.setAttribute(Qt.WA_TransparentForMouseEvents)
                 words.addWidget(p)
+            self.stat = label("", "cardStat")  # (a small figure, like how many files it converted)
+            self.stat.setAttribute(Qt.WA_TransparentForMouseEvents)
+            self.stat.hide()
+            words.addWidget(self.stat)
+            words.addStretch()
             lay.addLayout(words, 1)
         else:
             lay.addWidget(tile)
@@ -983,7 +988,7 @@ class MainWindow(QWidget):
             head.addWidget(count, 0, Qt.AlignVCenter)
             head.addStretch()
             lay.addLayout(head)
-            lay.addWidget(label(tr("Tools we're thinking about making. Tell us which ones you'd use."), "muted",
+            lay.addWidget(label(tr("Tools we're making or thinking about. Each one comes in a free update when it's ready."), "muted",
                                 wrap=True))
             grid = QGridLayout()
             grid.setHorizontalSpacing(10)
@@ -1102,9 +1107,10 @@ class MainWindow(QWidget):
         grid.setVerticalSpacing(12)
         self.tool_cards = {}
         mine = self.tools_on
-        cols = 3 if len(mine) % 3 == 0 or len(mine) > 4 else 2  # no card left alone on a row
+        cols = 2  # (two columns of short cards: all the tools fit without scrolling)
         for i, tool in enumerate(mine):
-            c = ToolCard(tool.product, tr(tool.name), tr(tool.line), lambda n=tool.page: self.open_page(n), dark, dpr)
+            c = ToolCard(tool.product, tr(tool.nav), "", lambda n=tool.page: self.open_page(n), dark, dpr,
+                         small=True, pill=tr(tool.line))
             self.tool_cards[tool.page] = c
             grid.addWidget(c, i // cols, i % cols)
         for col in range(cols):

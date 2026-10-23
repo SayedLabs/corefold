@@ -230,7 +230,7 @@ class NavList(QListWidget):
                 if over != self.drag_row:
                     self._move_row(self.drag_row, over)
                     self.drag_row = over
-                return
+            return  # (a pressed button moving over rows doesn't pick them)
         super().mouseMoveEvent(e)
 
     def mouseReleaseEvent(self, e):
