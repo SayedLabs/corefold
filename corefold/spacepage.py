@@ -93,9 +93,12 @@ class Treemap(QWidget):
 
     @staticmethod
     def _entries(folder: space.Folder, limit: int) -> list[tuple[int, str, object]]:
-        out = [e for e in folder.entries() if e[0] > 0][:limit]
-        if folder.rest > 0:
-            out.append((folder.rest, tr("{count} smaller files", count=folder.rest_count), "rest"))
+        everything = [e for e in folder.entries() if e[0] > 0]
+        out, left = everything[:limit], everything[limit:]
+        rest, count = folder.rest + sum(e[0] for e in left), folder.rest_count + len(left)
+        if rest > 0:  # (what doesn't get a box of its own still takes its share of the map)
+            name = tr("{count} smaller items", count=count) if left else tr("{count} smaller files", count=count)
+            out.append((rest, name, "rest"))
             out.sort(key=lambda e: e[0], reverse=True)
         return out
 
