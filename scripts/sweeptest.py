@@ -279,12 +279,26 @@ def looks_ok(w, where: str):
             need = max(wid.fontMetrics().horizontalAdvance(line) for line in wid.text().split("\n"))
             if need > wid.contentsRect().width() - 2 * wid.margin() + 3:
                 cut.append(f"label {wid.text()[:40]!r} needs {need}px, has {wid.contentsRect().width()}px")
+        elif isinstance(wid, QLabel) and wid.text() and wid.wordWrap() and not wid.pixmap():
+            room = wid.contentsRect().height()
+            need = wid.heightForWidth(wid.width())
+            if need > room + 4 and wid.maximumHeight() >= need:  # (a label that's elided on purpose has a max)
+                cut.append(f"label {wid.text()[:40]!r} needs {need}px of height, has {room}px")
         elif isinstance(wid, QPushButton) and wid.text() and wid.text().strip():
             fm = wid.fontMetrics()
             need = fm.horizontalAdvance(wid.text().replace("&&", "&").replace("&", "")) + \
                 (wid.iconSize().width() + 4 if not wid.icon().isNull() else 0)
             if need > wid.width() - 4:
                 cut.append(f"button {wid.text()[:40]!r} needs {need}px, has {wid.width()}px")
+        parent = wid.parentWidget()
+        if parent is not None and wid.window() is w and not wid.isWindow() and parent.isVisible() \
+                and not isinstance(parent.parentWidget(), QAbstractScrollArea) \
+                and not isinstance(parent, QAbstractScrollArea) and type(parent).__name__ not in ("QStackedWidget",):
+            r = wid.geometry()
+            if not parent.rect().adjusted(-2, -2, 2, 2).contains(r) and r.intersects(parent.rect()):
+                cut.append(f"{type(wid).__name__} {wid.objectName() or (wid.text()[:30] if hasattr(wid, 'text') and callable(wid.text) else '')!r} "
+                           f"is cut by its {type(parent).__name__} {parent.objectName()!r} "
+                           f"({r.x()},{r.y()} {r.width()}x{r.height()} in {parent.width()}x{parent.height()})")
         if not _scroll_ancestor(wid, w) and wid.window() is w:
             r = QRect(wid.mapTo(w, QPoint(0, 0)), wid.size())
             if not win.adjusted(-2, -2, 2, 2).contains(r) and r.intersects(win):
