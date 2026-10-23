@@ -1,0 +1,38 @@
+# Checks that copies from before 1.7.0 still update themselves to a new Corefold: builds Corefold the
+# way a release does, then installs each old version from its release on GitHub and lets that
+# version's own updater install the build (see scripts/oldupdatetest.py). Run it by hand from the
+# Actions tab; nothing is published. The result is on the run's summary page.
+name: Update from old versions
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/project-thread-x6alng]
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # the old versions' tags
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Build like a release
+        shell: pwsh
+        run: ./scripts/build.ps1 -Version 1.99.0 -OldUpdaterCopy
+
+      - name: Update every old version to it
+        shell: pwsh
+        run: |
+          .venv\Scripts\python.exe scripts\oldupdatetest.py dist\release 1.99.0 out
+          $code = $LASTEXITCODE
+          if (Test-Path out\oldupdate.txt) { "``````" , (Get-Content out\oldupdate.txt), "``````" | Add-Content $env:GITHUB_STEP_SUMMARY }
+          exit $code

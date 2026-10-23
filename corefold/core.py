@@ -17,7 +17,9 @@ from . import i18n
 log = logging.getLogger("corefold")
 
 APP_NAME = "Corefold"
-LEGACY_NAME = "Satsuma"  # the app's name before 1.7.0 (written only here in the app's code). Remove in 1.8.0.
+LEGACY_NAME = "Satsuma"  # the app's name before 1.7.0 (written only here in the app's code).
+# Keep it: releases carry an installer for that version's updater (build.ps1 -OldUpdaterCopy), so
+# copies from before 1.7.0 still land here and need their settings moved over.
 PUBLISHER = "Atomic Works"
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 BELOW_NORMAL = getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0)
