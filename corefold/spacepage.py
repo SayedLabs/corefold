@@ -1,14 +1,17 @@
 """Corefold Space's page: a map of what's filling a drive, cleaning up junk, and finding duplicates."""
 from __future__ import annotations
 
+import gc
 import html
 import logging
 import os
 import threading
+import time
+from collections import OrderedDict
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QPoint, QRectF, QSize, Qt, QUrl, Signal
+from PySide6.QtCore import QPoint, QRectF, QSize, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QBrush, QColor, QDesktopServices, QFont, QFontMetrics, QPainter, QPen
 from PySide6.QtWidgets import QApplication, QButtonGroup, QCheckBox, QFileDialog, QFrame, QGridLayout, \
     QHBoxLayout, QHeaderView, QLabel, QMenu, QMessageBox, QProgressBar, QPushButton, QSizePolicy, QStackedWidget, QToolTip, QTreeWidget, \
@@ -18,7 +21,7 @@ from . import icons, space, work
 from .core import human_size, short_name
 from .i18n import ltr, tr
 from .theme import mix, round_menu
-from .timefmt import date_text
+from .timefmt import date_text, time_ago
 from .winutil import reveal_in_explorer
 
 log = logging.getLogger("corefold")
@@ -30,6 +33,8 @@ KIND_COLORS = {"video": "#e5484d", "picture": "#30a46c", "music": "#8e4ec6", "do
                "archive": "#f5a524", "program": "#12a594", "other": "#8b8d98"}
 SECTIONS = [("map", "Disk map"), ("clean", "Clean up"), ("dupes", "Duplicates")]
 DUPE_FOLDERS = ("Desktop", "Documents", "Downloads", "Pictures", "Videos", "Music")
+KEEP_MAPS = 2             # drives (or folders) whose map is kept, so opening one again is instant
+FORGET_AFTER = 20 * 60    # seconds: maps not looked at for this long are let go (a big drive's map is big)
 
 
 _work = work.run
@@ -252,7 +257,8 @@ class DriveCard(QPushButton):
     """A drive to pick: its name, how full it is (the bar turns amber, then red, as it fills) and
     what's free. With no drive, it's the "Look at a folder" card."""
 
-    def __init__(self, theme, drive: space.Drive | None = None, title: str = "", line: str = ""):
+    def __init__(self, theme, drive: space.Drive | None = None, title: str = "", line: str = "",
+                 seen: float | None = None):
         super().__init__()
         self.theme, self.drive = theme, drive
         if drive is not None:
@@ -260,6 +266,8 @@ class DriveCard(QPushButton):
             label = drive.label or (tr("USB drive") if drive.removable else tr("Local disk"))
             self.title = ltr(f"{label} ({name})")
             self.line = tr("{free} free of {total}", free=human_size(drive.free), total=human_size(drive.total))
+            if seen is not None:  # its map is kept: opening it again is instant
+                self.line += "   ·   " + tr("mapped {when}", when=time_ago(seen))
             self.fill = drive.used / drive.total if drive.total else 0.0
         else:
             self.title, self.line, self.fill = title, line, None
@@ -365,6 +373,11 @@ class SpacePage(QWidget):
         self.job = None
         self.junk: list[space.Junk] = []
         self.dupes: list = []
+        # the maps already made, newest last: key -> [scan, the folder open in it, when it was made]
+        self.kept: OrderedDict[str, list] = OrderedDict()
+        self._forget_timer = QTimer(self)
+        self._forget_timer.setSingleShot(True)
+        self._forget_timer.timeout.connect(self._forget_old_maps)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 10, 0)
         lay.setSpacing(12)
@@ -456,6 +469,7 @@ class SpacePage(QWidget):
         self.where = ElidedLabel()
         self.where.setObjectName("h2")
         self.again_btn = _button(tr("Look again"), None, self._rescan)
+        self.again_btn.setToolTip(tr("Look through it again, to see what changed since"))
         self.drives_btn = _button(tr("Other drives"), None, self._back_to_drives)
         self._icon_buttons = [(self.up_btn, "arrow_up"), (self.again_btn, "arrow_clockwise"),
                               (self.drives_btn, "hard_drive")]
@@ -517,7 +531,8 @@ class SpacePage(QWidget):
         _clear_layout(self.drive_rows)
         cards = []
         for d in space.drives():
-            card = DriveCard(self.c.theme, d)
+            kept = self.kept.get(_key(Path(d.path)))
+            card = DriveCard(self.c.theme, d, seen=kept[2] if kept else None)
             card.setObjectName("driveCard")
             card.clicked.connect(lambda _=False, p=d.path: self.start_scan(Path(p)))
             cards.append(card)
@@ -554,8 +569,14 @@ class SpacePage(QWidget):
         if folder:
             self.start_scan(Path(folder))
 
-    def start_scan(self, root: Path):
+    def start_scan(self, root: Path, again: bool = False):
         if self.job is not None:
+            return
+        kept = None if again else self.kept.get(_key(root))
+        if kept is not None:  # already looked through: its map, right away
+            self.kept.move_to_end(_key(root))
+            self.root = root
+            self._show_map(kept[0], kept[1])
             return
         self.cancel = threading.Event()
         self.root = root
@@ -595,9 +616,19 @@ class SpacePage(QWidget):
         if result.cancelled and result.root.size == 0:
             self._back_to_drives()
             return
+        self.kept[_key(self.root)] = [result, result.root, time.time()]
+        self.kept.move_to_end(_key(self.root))
+        while len(self.kept) > KEEP_MAPS:
+            self.kept.popitem(last=False)
+        self._show_map(result, result.root)
+
+    def _show_map(self, result: space.Scan, folder: space.Folder):
         self.scan = result
+        self.drives_box.hide()
+        self.busy_box.hide()
         self.map_box.show()
-        self.open_folder(result.root)
+        self._forget_timer.stop()
+        self.open_folder(folder)
         self.kinds_bar.set_kinds(result.kinds)
         total = sum(result.kinds.values()) or 1
         parts = [f"<span style='color:{KIND_COLORS[k]}'>■</span>&nbsp;{html.escape(tr(space.KINDS[k]))} "
@@ -616,10 +647,17 @@ class SpacePage(QWidget):
             bits.append(tr("{count} folders Windows keeps private were skipped", count=s.denied))
         if f is s.root and s.cloud:
             bits.append(tr("{count} files only in the cloud take no space here", count=f"{s.cloud:,}"))
+        kept = self.kept.get(_key(s.root.path))
+        if kept is not None and kept[0] is s and time.time() - kept[2] >= 60:
+            bits.append(tr("mapped {when}", when=time_ago(kept[2])))
         self.summary.setText("   ·   ".join(bits))
 
     def open_folder(self, folder: space.Folder):
         self.here = folder
+        if self.scan is not None:
+            kept = self.kept.get(_key(self.scan.root.path))
+            if kept is not None and kept[0] is self.scan:
+                kept[1] = folder  # (opening it again comes back here)
         self.where.set_full(str(folder.path))
         self.up_btn.setEnabled(folder.parent is not None)
         self.treemap.show_folder(folder)
@@ -635,7 +673,8 @@ class SpacePage(QWidget):
         self.scan = self.here = None
         self.treemap.show_folder(None)
         if root is not None:
-            self.start_scan(root)
+            self.kept.pop(_key(root), None)
+            self.start_scan(root, again=True)
 
     def go_back(self) -> bool:
         """Back (Alt + Left, the mouse's back button): up a folder, then back to the drives."""
@@ -661,6 +700,21 @@ class SpacePage(QWidget):
         self.busy_box.hide()
         self.drives_box.show()
         self._fill_drives()
+        if self.kept:
+            self._forget_timer.start(FORGET_AFTER * 1000)
+
+    def _forget_old_maps(self):
+        """Lets go of the maps no one has looked at for a while (a whole drive's map takes room)."""
+        showing = self.scan
+        for key in [k for k, v in self.kept.items() if v[0] is not showing]:
+            del self.kept[key]
+        gc.collect()  # (a map is a tree of folders pointing at each other)
+        if showing is None:
+            self._fill_drives()
+
+    def forget_maps(self):
+        """Files were deleted here: the maps kept are out of date (the next look starts afresh)."""
+        self.kept.clear()
 
     def _list_mode(self, mode: str):
         self.list_mode = mode
@@ -888,6 +942,7 @@ class SpacePage(QWidget):
         self.clean_note.setText(tr("Freed {size}. Files that were in use were left alone.", size=human_size(freed)))
         self.c.say(tr("Cleaned up"), tr("Freed {size}.", size=human_size(freed)), done=True)
         self.junk = []
+        self.forget_maps()
         self.find_junk()
 
     # ---- duplicates
@@ -1058,6 +1113,7 @@ class SpacePage(QWidget):
                            count=len(ticked), size=human_size(total)), tr("Move to the Recycle Bin")):
             return
         gone = space.recycle([Path(p) for p, _ in ticked])
+        self.forget_maps()
         self.c.say(tr("Copies removed"), tr("{count} copies went to the Recycle Bin.", count=gone), done=True)
         left = {os.path.normcase(p) for p, _ in ticked if os.path.lexists(p)}
         removed = {os.path.normcase(p) for p, _ in ticked} - left
@@ -1078,6 +1134,10 @@ class SpacePage(QWidget):
         self._paint_backs()
         self.treemap.update()
         self.kinds_bar.update()
+
+
+def _key(path: Path) -> str:
+    return os.path.normcase(os.path.normpath(str(path)))
 
 
 def _size(path: Path) -> int:
