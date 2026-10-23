@@ -1,0 +1,970 @@
+"""Corefold Viewer: a fast window for flipping through the pictures in a folder.
+
+Pictures are read in the background (the next and previous ones too, so the arrow keys feel
+instant). Turning and cropping change only what's on screen until you press Save; Save keeps the
+photo's details (date taken, camera, colour profile). Deleting sends to the Recycle Bin."""
+from __future__ import annotations
+
+import os
+import threading
+from collections import OrderedDict
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from PySide6.QtCore import QObject, QPointF, QRectF, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QColor, QGuiApplication, QImage, QKeySequence, QPainter, QPen, QPixmap, QShortcut, QTransform
+from PySide6.QtWidgets import (QFileDialog, QFrame, QHBoxLayout, QLabel, QMenu, QMessageBox, QPushButton, QVBoxLayout,
+                               QWidget)
+
+from . import icons
+from .core import ALIASES, APP_NAME, IMAGE_EXT, human_size, norm, short_name
+from .i18n import ltr, tr
+from .theme import round_menu
+from .winutil import reveal_in_explorer, set_title_bar_dark
+
+if TYPE_CHECKING:
+    from .app import Controller
+
+PICTURE_EXT = IMAGE_EXT | {e for e, to in ALIASES.items() if to in IMAGE_EXT} | {".jpe", ".tga", ".psd", ".dib"}
+CACHE_BYTES = 600 << 20   # decoded pictures kept for quick flipping
+QT_READS = {".png", ".jpg", ".jpeg", ".jpe", ".jfif", ".bmp", ".gif", ".webp", ".ico", ".dib"}
+ZOOMS = (0.05, 0.1, 0.25, 0.33, 0.5, 0.67, 0.8, 1, 1.25, 1.5, 2, 3, 4, 6, 8, 12, 16)
+CROP_RATIOS = {"free": None, "square": (1, 1), "4:3": (4, 3), "3:2": (3, 2), "16:9": (16, 9)}
+
+
+def is_picture(p: Path) -> bool:
+    return p.suffix.lower() in PICTURE_EXT
+
+
+def natural_key(name: str):
+    import re
+    return [(0, int(x), "") if x.isdigit() else (1, 0, x) for x in re.split(r"(\d+)", name.lower())]
+
+
+def pictures_in(folder: Path) -> list[Path]:
+    """The pictures in a folder, in the order File Explorer shows them by name."""
+    try:
+        found = [e for e in os.scandir(folder) if e.is_file() and is_picture(Path(e.name))]
+    except OSError:
+        return []
+    return [Path(e.path) for e in sorted(found, key=lambda e: natural_key(e.name))]
+
+
+def pil_to_qimage(im) -> QImage:
+    """A Pillow picture as a QImage (its own copy of the pixels)."""
+    has_alpha = im.mode in ("RGBA", "LA", "PA") or "transparency" in im.info
+    im = im.convert("RGBA" if has_alpha else "RGB")
+    w, h = im.size
+    if has_alpha:
+        return QImage(im.tobytes("raw", "RGBA"), w, h, 4 * w, QImage.Format_RGBA8888).copy()
+    return QImage(im.tobytes("raw", "RGB"), w, h, 3 * w, QImage.Format_RGB888).copy()
+
+
+def load_picture(path: Path) -> QImage:
+    """Reads a picture (Qt's own readers are fastest; Pillow does HEIC, AVIF, TIFF and the rest).
+    Phone photos are turned the right way up."""
+    if path.suffix.lower() in QT_READS:
+        from PySide6.QtGui import QImageReader
+        reader = QImageReader(str(path))
+        reader.setAutoTransform(True)
+        img = reader.read()
+        if not img.isNull():
+            return img
+    from .converters import load_image
+    return pil_to_qimage(load_image(path))
+
+
+# the names of the details shown (English, shown through tr())
+DETAIL_LABELS = ("Name", "Folder", "Dimensions", "File size", "Format", "Taken", "Camera", "Lens", "Exposure",
+                 "Location", "This photo says where it was taken")
+
+
+def picture_details(path: Path) -> list[tuple[str, str]]:
+    """What there is to know about a photo: size, date taken, camera… (English labels, shown through tr())."""
+    rows: list[tuple[str, str]] = []
+    try:
+        st = path.stat()
+        rows.append(("File size", human_size(st.st_size)))
+    except OSError:
+        pass
+    try:
+        from PIL import ExifTags, Image
+        from .converters import setup_pillow
+        setup_pillow()
+        with Image.open(path) as im:
+            rows.insert(0, ("Dimensions", f"{im.width} × {im.height}"))
+            rows.append(("Format", im.format or path.suffix[1:].upper()))
+            exif = im.getexif()
+            sub = exif.get_ifd(0x8769) if exif else {}
+            def get(tag):
+                return sub.get(tag) or exif.get(tag)
+            taken = get(36867) or get(306)
+            if taken:
+                rows.append(("Taken", str(taken).replace(":", "-", 2)))
+            camera = " ".join(str(x).strip() for x in (exif.get(271), exif.get(272)) if x)
+            if camera:
+                rows.append(("Camera", camera))
+            if get(42036):
+                rows.append(("Lens", str(get(42036))))
+            bits = []
+            if get(33434):
+                t = float(get(33434))
+                bits.append(f"1/{round(1 / t)} s" if 0 < t < 1 else f"{t:g} s")
+            if get(33437):
+                bits.append(f"f/{float(get(33437)):g}")
+            if get(34855):
+                bits.append(f"ISO {get(34855)}")
+            if get(37386):
+                bits.append(f"{float(get(37386)):g} mm")
+            if bits:
+                rows.append(("Exposure", " · ".join(bits)))
+            if exif.get_ifd(0x8825):
+                rows.append(("Location", "This photo says where it was taken"))
+            del ExifTags
+    except Exception:
+        pass
+    return rows
+
+
+def apply_edits(im, edits: list):
+    """The window's turns (clockwise degrees) and crops (x, y, w, h in the picture as it looks then),
+    done to a Pillow picture."""
+    from PIL import Image
+    turns = {90: Image.Transpose.ROTATE_270, 180: Image.Transpose.ROTATE_180, 270: Image.Transpose.ROTATE_90}
+    for op, value in edits:
+        if op == "rotate" and value % 360:
+            im = im.transpose(turns[value % 360])
+        elif op == "crop":
+            x, y, w, h = value
+            im = im.crop((max(0, x), max(0, y), min(im.width, x + w), min(im.height, y + h)))
+    return im
+
+
+class _Loaded(QObject):
+    done = Signal(object, object)  # (path, QImage or Exception)
+
+
+class PictureView(QWidget):
+    """The picture, zoomed to fit or to any size, moved with the mouse; and the crop frame."""
+    zoom_changed = Signal()
+    crop_changed = Signal()
+
+    def __init__(self, dark: bool):
+        super().__init__()
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.setMouseTracking(True)
+        self.image = QImage()
+        self.pixmap = QPixmap()
+        self.fit = True
+        self.zoom = 1.0
+        self.center = QPointF(0, 0)   # the picture point in the middle of the view (when not fitting)
+        self.dark = dark
+        self.wheel_zooms = True
+        self._drag = None
+        self.crop: QRectF | None = None   # in picture pixels, while cropping
+        self.crop_ratio = None
+        self._crop_drag = None
+        self.movie = None
+
+    # ---- what's shown
+
+    def set_image(self, image: QImage, keep_view: bool = False):
+        self.image = image
+        self.pixmap = QPixmap.fromImage(image) if not image.isNull() else QPixmap()
+        if not keep_view:
+            self.fit = True
+            self.center = QPointF(image.width() / 2, image.height() / 2)
+        self.crop = None
+        self.update()
+        self.zoom_changed.emit()
+
+    def scale(self) -> float:
+        if self.image.isNull():
+            return 1.0
+        if self.fit:
+            w, h = max(1, self.width() - 24), max(1, self.height() - 24)
+            return min(1.0, w / self.image.width(), h / self.image.height())
+        return self.zoom
+
+    def target(self) -> QRectF:
+        s = self.scale()
+        w, h = self.image.width() * s, self.image.height() * s
+        if self.fit:
+            return QRectF((self.width() - w) / 2, (self.height() - h) / 2, w, h)
+        return QRectF(self.width() / 2 - self.center.x() * s, self.height() / 2 - self.center.y() * s, w, h)
+
+    def set_zoom(self, z: float, around: QPointF | None = None):
+        if self.image.isNull():
+            return
+        z = max(ZOOMS[0], min(ZOOMS[-1], z))
+        around = around or QPointF(self.width() / 2, self.height() / 2)
+        before = self.to_image(around)
+        self.fit = False
+        self.zoom = z
+        # keep the point under the mouse where it was
+        s = z
+        self.center = QPointF(before.x() - (around.x() - self.width() / 2) / s,
+                              before.y() - (around.y() - self.height() / 2) / s)
+        self._clamp()
+        self.update()
+        self.zoom_changed.emit()
+
+    def step_zoom(self, up: bool, around: QPointF | None = None):
+        now = self.scale()
+        options = [z for z in ZOOMS if (z > now * 1.01 if up else z < now * 0.99)]
+        if options:
+            self.set_zoom(options[0] if up else options[-1], around)
+
+    def fit_view(self):
+        self.fit = True
+        self.update()
+        self.zoom_changed.emit()
+
+    def actual_size(self):
+        self.set_zoom(1.0)
+
+    def to_image(self, p: QPointF) -> QPointF:
+        r = self.target()
+        s = self.scale()
+        return QPointF((p.x() - r.x()) / s, (p.y() - r.y()) / s)
+
+    def _clamp(self):
+        if self.image.isNull():
+            return
+        s = self.scale()
+        half_w, half_h = self.width() / 2 / s, self.height() / 2 / s
+        iw, ih = self.image.width(), self.image.height()
+        x = iw / 2 if iw <= 2 * half_w else min(max(self.center.x(), half_w), iw - half_w)
+        y = ih / 2 if ih <= 2 * half_h else min(max(self.center.y(), half_h), ih - half_h)
+        self.center = QPointF(x, y)
+
+    # ---- drawing
+
+    def paintEvent(self, _):
+        p = QPainter(self)
+        p.fillRect(self.rect(), QColor("#0b0b0c") if self.dark else QColor("#ececec"))
+        if self.pixmap.isNull():
+            p.end()
+            return
+        r = self.target()
+        if self.image.hasAlphaChannel():  # a soft checkerboard behind see-through pictures
+            p.save()
+            p.setClipRect(r)
+            size = 10
+            light, dark = (QColor("#2a2b2e"), QColor("#202124")) if self.dark else (QColor("#ffffff"), QColor("#e4e4e4"))
+            for yy in range(int(r.top()) // size, int(r.bottom()) // size + 1):
+                for xx in range(int(r.left()) // size, int(r.right()) // size + 1):
+                    p.fillRect(xx * size, yy * size, size, size, light if (xx + yy) % 2 else dark)
+            p.restore()
+        p.setRenderHint(QPainter.SmoothPixmapTransform, self.scale() < 2)
+        p.drawPixmap(r, self.pixmap, QRectF(self.pixmap.rect()))
+        if self.crop is not None:
+            s = self.scale()
+            c = QRectF(r.x() + self.crop.x() * s, r.y() + self.crop.y() * s, self.crop.width() * s,
+                       self.crop.height() * s)
+            shade = QColor(0, 0, 0, 150)
+            p.fillRect(QRectF(r.left(), r.top(), r.width(), c.top() - r.top()), shade)
+            p.fillRect(QRectF(r.left(), c.bottom(), r.width(), r.bottom() - c.bottom()), shade)
+            p.fillRect(QRectF(r.left(), c.top(), c.left() - r.left(), c.height()), shade)
+            p.fillRect(QRectF(c.right(), c.top(), r.right() - c.right(), c.height()), shade)
+            p.setPen(QPen(QColor("#ffffff"), 1.5))
+            p.drawRect(c)
+            p.setPen(QPen(QColor(255, 255, 255, 90), 1))
+            for i in (1, 2):  # thirds
+                p.drawLine(QPointF(c.left() + c.width() * i / 3, c.top()), QPointF(c.left() + c.width() * i / 3, c.bottom()))
+                p.drawLine(QPointF(c.left(), c.top() + c.height() * i / 3), QPointF(c.right(), c.top() + c.height() * i / 3))
+            p.setBrush(QColor("#ffffff"))
+            p.setPen(Qt.NoPen)
+            for pt in (c.topLeft(), c.topRight(), c.bottomLeft(), c.bottomRight()):
+                p.drawEllipse(pt, 5, 5)
+        p.end()
+
+    def resizeEvent(self, e):
+        self._clamp()
+        super().resizeEvent(e)
+        self.zoom_changed.emit()
+
+    # ---- mouse
+
+    def wheelEvent(self, e):
+        if self.wheel_zooms or e.modifiers() & Qt.ControlModifier:
+            self.step_zoom(e.angleDelta().y() > 0, e.position())
+        else:
+            win = self.window()
+            if hasattr(win, "go"):
+                win.go(-1 if e.angleDelta().y() > 0 else 1)
+
+    def mouseDoubleClickEvent(self, e):
+        if self.crop is not None:
+            return
+        if self.fit and self.scale() < 1:
+            self.set_zoom(1.0, e.position())
+        else:
+            self.fit_view()
+
+    def mousePressEvent(self, e):
+        if e.button() != Qt.LeftButton:
+            return
+        if self.crop is not None:
+            self._crop_drag = (self._crop_handle(e.position()), self.to_image(e.position()), QRectF(self.crop))
+            return
+        if not self.fit:
+            self._drag = (e.position(), QPointF(self.center))
+            self.setCursor(Qt.ClosedHandCursor)
+
+    def mouseMoveEvent(self, e):
+        if self.crop is not None:
+            if self._crop_drag:
+                self._move_crop(e.position())
+            else:
+                handle = self._crop_handle(e.position())
+                self.setCursor({"move": Qt.SizeAllCursor, "": Qt.CrossCursor}.get(handle, Qt.SizeFDiagCursor
+                                                                                    if handle in ("tl", "br") else
+                                                                                    Qt.SizeBDiagCursor))
+            return
+        if self._drag:
+            start, center = self._drag
+            s = self.scale()
+            d = e.position() - start
+            self.center = QPointF(center.x() - d.x() / s, center.y() - d.y() / s)
+            self._clamp()
+            self.update()
+        else:
+            self.setCursor(Qt.OpenHandCursor if not self.fit else Qt.ArrowCursor)
+
+    def mouseReleaseEvent(self, e):
+        self._drag = None
+        self._crop_drag = None
+        if not self.fit and self.crop is None:
+            self.setCursor(Qt.OpenHandCursor)
+
+    # ---- cropping
+
+    def start_crop(self):
+        if self.image.isNull():
+            return
+        self.fit_view()
+        w, h = self.image.width(), self.image.height()
+        self.crop = QRectF(w * 0.1, h * 0.1, w * 0.8, h * 0.8)
+        self.set_crop_ratio(self.crop_ratio)
+
+    def set_crop_ratio(self, ratio):
+        self.crop_ratio = ratio
+        if self.crop is None:
+            return
+        if ratio:
+            w, h = self.image.width(), self.image.height()
+            rw, rh = ratio
+            if w * rh > h * rw:  # wider than the ratio: full height
+                ch, cw = h * 0.9, h * 0.9 * rw / rh
+            else:
+                cw, ch = w * 0.9, w * 0.9 * rh / rw
+            self.crop = QRectF((w - cw) / 2, (h - ch) / 2, cw, ch)
+        self.update()
+        self.crop_changed.emit()
+
+    def _crop_handle(self, pos: QPointF) -> str:
+        r = self.target()
+        s = self.scale()
+        c = self.crop
+        corners = {"tl": (c.left(), c.top()), "tr": (c.right(), c.top()), "bl": (c.left(), c.bottom()),
+                   "br": (c.right(), c.bottom())}
+        for name, (x, y) in corners.items():
+            if abs(r.x() + x * s - pos.x()) < 12 and abs(r.y() + y * s - pos.y()) < 12:
+                return name
+        pt = self.to_image(pos)
+        return "move" if c.contains(pt) else ""
+
+    def _move_crop(self, pos: QPointF):
+        handle, start, rect = self._crop_drag
+        pt = self.to_image(pos)
+        w, h = self.image.width(), self.image.height()
+        dx, dy = pt.x() - start.x(), pt.y() - start.y()
+        c = QRectF(rect)
+        if handle == "move":
+            c.translate(dx, dy)
+            c.moveLeft(min(max(0, c.left()), w - c.width()))
+            c.moveTop(min(max(0, c.top()), h - c.height()))
+        elif handle:
+            left, top, right, bottom = c.left(), c.top(), c.right(), c.bottom()
+            if "l" in handle:
+                left = min(max(0, left + dx), right - 8)
+            if "r" in handle:
+                right = max(min(w, right + dx), left + 8)
+            if "t" in handle:
+                top = min(max(0, top + dy), bottom - 8)
+            if "b" in handle:
+                bottom = max(min(h, bottom + dy), top + 8)
+            c = QRectF(left, top, right - left, bottom - top)
+            if self.crop_ratio:  # keep the shape: the height follows the width
+                rw, rh = self.crop_ratio
+                new_h = c.width() * rh / rw
+                if "t" in handle:
+                    c.setTop(c.bottom() - new_h)
+                else:
+                    c.setHeight(new_h)
+                if c.top() < 0 or c.bottom() > h:
+                    return
+        else:  # a new frame
+            c = QRectF(start, pt).normalized().intersected(QRectF(0, 0, w, h))
+        self.crop = c
+        self.update()
+        self.crop_changed.emit()
+
+
+class ViewerWindow(QWidget):
+    """One window: the picture, a bar of buttons, and the photo's details on the side."""
+
+    def __init__(self, controller: "Controller", path: Path, icon):
+        super().__init__()
+        self.c = controller
+        self.setObjectName("window")
+        self.setAttribute(Qt.WA_StyledBackground)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setWindowIcon(icon)
+        self.resize(1180, 780)
+        s = controller.settings
+        self.files: list[Path] = [path]
+        self.index = 0
+        self.cache: OrderedDict[str, QImage] = OrderedDict()
+        self.loading: set[str] = set()
+        self.edits: list = []          # turns and crops not saved yet
+        self.loader = _Loaded(self)
+        self.loader.done.connect(self._loaded)
+        self.slideshow = QTimer(self)
+        self.slideshow.timeout.connect(lambda: self.go(1, wrap=True))
+
+        self.view = PictureView(controller.theme.dark)
+        self.view.wheel_zooms = getattr(s, "viewer_wheel", "zoom") == "zoom"
+        self.view.zoom_changed.connect(self._zoom_text)
+
+        # the bar
+        self.title = QLabel()
+        self.title.setObjectName("h2")
+        self.counter = QLabel()
+        self.counter.setObjectName("muted")
+        self.zoom_label = QPushButton("100%")
+        self.zoom_label.setObjectName("small")
+        self.zoom_label.setToolTip(tr("Fit to the window / actual size"))
+        self.zoom_label.clicked.connect(lambda: self.view.fit_view() if not self.view.fit else self.view.actual_size())
+        self.icon_buttons: list[tuple[QPushButton, str]] = []
+
+        def tool(name, tip, fn, text=""):
+            b = QPushButton(text)
+            b.setObjectName("small")
+            b.setToolTip(tip)
+            b.setCursor(Qt.PointingHandCursor)
+            b.setIconSize(QSize(18, 18))
+            b.clicked.connect(fn)
+            self.icon_buttons.append((b, name))
+            return b
+
+        self.b_prev = tool("arrow_rotate_counterclockwise", tr("Previous (Left arrow)"), lambda: self.go(-1), "‹")
+        self.b_next = tool("arrow_rotate_clockwise", tr("Next (Right arrow)"), lambda: self.go(1), "›")
+        for b in (self.b_prev, self.b_next):
+            self.icon_buttons.pop()
+            f = b.font()
+            f.setPointSizeF(16)
+            b.setFont(f)
+        self.b_out = tool("", tr("Zoom out (−)"), lambda: self.view.step_zoom(False), "−")
+        self.b_in = tool("", tr("Zoom in (+)"), lambda: self.view.step_zoom(True), "+")
+        for b in (self.b_out, self.b_in):
+            self.icon_buttons.pop()
+        self.b_left = tool("arrow_rotate_counterclockwise", tr("Turn left (Shift+R)"), lambda: self.rotate(-90))
+        self.b_right = tool("arrow_rotate_clockwise", tr("Turn right (R)"), lambda: self.rotate(90))
+        self.b_crop = tool("crop", tr("Crop (C)"), self.toggle_crop)
+        self.b_delete = tool("delete", tr("Delete (Del): goes to the Recycle Bin"), self.delete)
+        self.b_info = tool("info", tr("Details (I)"), self.toggle_info)
+        self.b_show = tool("video", tr("Slideshow (F5)"), self.toggle_slideshow)
+        self.b_full = tool("arrow_minimize", tr("Full screen (F11)"), self.toggle_full)
+        self.b_save = QPushButton(tr("Save"))
+        self.b_save.setObjectName("primary")
+        self.b_save.setCursor(Qt.PointingHandCursor)
+        self.b_save.clicked.connect(self.save)
+        self.b_more = QPushButton(tr("More"))
+        self.b_more.setCursor(Qt.PointingHandCursor)
+        more = QMenu(self.b_more)
+        round_menu(more)
+        more.addAction(tr("Save as…"), self.save_as)
+        more.addAction(tr("Copy the picture"), self.copy)
+        more.addAction(tr("Show in folder"), lambda: reveal_in_explorer(self.current()))
+        more.addAction(tr("More options in the Converter…"), self.to_converter)
+        more.addSeparator()
+        more.addAction(tr("Set as desktop background"), self.set_wallpaper)
+        self.b_more.setMenu(more)
+
+        bar = QHBoxLayout()
+        bar.setContentsMargins(14, 8, 14, 8)
+        bar.setSpacing(6)
+        words = QVBoxLayout()
+        words.setSpacing(0)
+        words.addWidget(self.title)
+        words.addWidget(self.counter)
+        bar.addWidget(self.b_prev)
+        bar.addWidget(self.b_next)
+        bar.addSpacing(8)
+        bar.addLayout(words, 1)
+        for b in (self.b_out, self.zoom_label, self.b_in):
+            bar.addWidget(b)
+        bar.addSpacing(10)
+        for b in (self.b_left, self.b_right, self.b_crop, self.b_delete, self.b_info, self.b_show, self.b_full):
+            bar.addWidget(b)
+        bar.addSpacing(10)
+        bar.addWidget(self.b_save)
+        bar.addWidget(self.b_more)
+        self.bar = QFrame()
+        self.bar.setObjectName("viewerBar")
+        self.bar.setLayout(bar)
+
+        # cropping: the shapes and Apply
+        self.crop_bar = QFrame()
+        self.crop_bar.setObjectName("viewerBar")
+        cb = QHBoxLayout(self.crop_bar)
+        cb.setContentsMargins(14, 6, 14, 6)
+        cb.setSpacing(6)
+        cb.addWidget(QLabel(tr("Crop")))
+        self.crop_buttons = {}
+        for key, text in (("free", tr("Free")), ("square", tr("Square")), ("4:3", "4:3"), ("3:2", "3:2"),
+                          ("16:9", "16:9")):
+            b = QPushButton(text)
+            b.setCheckable(True)
+            b.setChecked(key == "free")
+            b.setCursor(Qt.PointingHandCursor)
+            b.clicked.connect(lambda _=False, k=key: self._crop_ratio(k))
+            self.crop_buttons[key] = b
+            cb.addWidget(b)
+        cb.addStretch()
+        self.crop_size = QLabel()
+        self.crop_size.setObjectName("muted")
+        cb.addWidget(self.crop_size)
+        cancel = QPushButton(tr("Cancel"))
+        cancel.clicked.connect(self.toggle_crop)
+        apply = QPushButton(tr("Crop"))
+        apply.setObjectName("primary")
+        apply.clicked.connect(self.apply_crop)
+        cb.addWidget(cancel)
+        cb.addWidget(apply)
+        self.crop_bar.hide()
+        self.view.crop_changed.connect(self._crop_text)
+
+        # details
+        self.info = QFrame()
+        self.info.setObjectName("card")
+        self.info.setFixedWidth(270)
+        self.info_lay = QVBoxLayout(self.info)
+        self.info_lay.setContentsMargins(16, 14, 16, 14)
+        self.info.setVisible(bool(getattr(s, "viewer_info", False)))
+
+        middle = QHBoxLayout()
+        middle.setContentsMargins(0, 0, 0, 0)
+        middle.setSpacing(0)
+        middle.addWidget(self.view, 1)
+        middle.addWidget(self.info)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(0)
+        lay.addWidget(self.bar)
+        lay.addWidget(self.crop_bar)
+        lay.addLayout(middle, 1)
+
+        keys = ((Qt.Key_Right, lambda: self.go(1)), (Qt.Key_Left, lambda: self.go(-1)),
+                (Qt.Key_PageDown, lambda: self.go(1)), (Qt.Key_PageUp, lambda: self.go(-1)),
+                (Qt.Key_Space, lambda: self.go(1)), (Qt.Key_Backspace, lambda: self.go(-1)),
+                (Qt.Key_Home, lambda: self.go_to(0)), (Qt.Key_End, lambda: self.go_to(len(self.files) - 1)),
+                (Qt.Key_Plus, lambda: self.view.step_zoom(True)), (Qt.Key_Equal, lambda: self.view.step_zoom(True)),
+                (Qt.Key_Minus, lambda: self.view.step_zoom(False)), (Qt.Key_0, self.view.fit_view),
+                (Qt.Key_1, self.view.actual_size), (Qt.Key_R, lambda: self.rotate(90)),
+                (Qt.Key_C, self.toggle_crop), (Qt.Key_I, self.toggle_info), (Qt.Key_Delete, self.delete),
+                (Qt.Key_F5, self.toggle_slideshow), (Qt.Key_F11, self.toggle_full), (Qt.Key_F, self.toggle_full),
+                (Qt.Key_Escape, self._escape), (Qt.Key_Return, self._enter), (Qt.Key_Enter, self._enter))
+        for key, fn in keys:
+            QShortcut(QKeySequence(key), self, fn)
+        QShortcut(QKeySequence("Shift+R"), self, lambda: self.rotate(-90))
+        QShortcut(QKeySequence.StandardKey.Copy, self, self.copy)
+        QShortcut(QKeySequence.StandardKey.Save, self, self.save)
+
+        self.apply_theme(controller.theme)
+        self.open(path)
+
+    # ---- files
+
+    def open(self, path: Path):
+        """Shows this picture, with the others in its folder a key press away."""
+        folder_files = pictures_in(path.parent)
+        key = os.path.normcase(str(path))
+        self.files = folder_files if any(os.path.normcase(str(f)) == key for f in folder_files) else [path]
+        self.index = next((i for i, f in enumerate(self.files) if os.path.normcase(str(f)) == key), 0)
+        self.show_current()
+
+    def current(self) -> Path:
+        return self.files[self.index] if self.files else Path()
+
+    def go(self, step: int, wrap: bool = False):
+        if not self.files or not self._leave_ok():
+            return
+        new = self.index + step
+        if wrap:
+            new %= len(self.files)
+        if 0 <= new < len(self.files):
+            self.index = new
+            self.show_current()
+
+    def go_to(self, index: int):
+        if self.files and 0 <= index < len(self.files) and self._leave_ok():
+            self.index = index
+            self.show_current()
+
+    def show_current(self):
+        path = self.current()
+        self.edits = []
+        self._end_crop()
+        self.title.setText(ltr(short_name(path.name, 60)))
+        self.title.setToolTip(str(path))
+        self.setWindowTitle(f"{path.name} - {APP_NAME}")
+        self.counter.setText(tr("{number} of {total}", number=self.index + 1, total=len(self.files)))
+        self._buttons()
+        key = str(path)
+        if key in self.cache:
+            self.cache.move_to_end(key)
+            self._show_image(path, self.cache[key])
+        else:
+            self.view.set_image(QImage())
+            self.counter.setText(self.counter.text() + " · " + tr("Opening…"))
+            self._load(path)
+        for step in (1, -1):  # the next and the previous one, so the arrow keys are instant
+            i = self.index + step
+            if 0 <= i < len(self.files):
+                self._load(self.files[i])
+        self._fill_info()
+        self._movie(path)
+
+    def _movie(self, path: Path):
+        """Animated GIFs and WebPs play."""
+        if self.view.movie is not None:
+            self.view.movie.stop()
+            self.view.movie.deleteLater()
+            self.view.movie = None
+        if path.suffix.lower() not in (".gif", ".webp"):
+            return
+        from PySide6.QtGui import QMovie
+        movie = QMovie(str(path))
+        if movie.isValid() and movie.frameCount() != 1:
+            movie.frameChanged.connect(lambda _n: self.view.set_image(movie.currentImage(), keep_view=True))
+            self.view.movie = movie
+            movie.start()
+
+    def _load(self, path: Path):
+        key = str(path)
+        if key in self.cache or key in self.loading:
+            return
+        self.loading.add(key)
+        loader = self.loader
+
+        def work():
+            try:
+                result = load_picture(path)
+            except Exception as e:
+                result = e
+            try:
+                loader.done.emit(path, result)
+            except RuntimeError:  # the window was closed meanwhile
+                pass
+        threading.Thread(target=work, daemon=True).start()
+
+    def _loaded(self, path: Path, result):
+        key = str(path)
+        self.loading.discard(key)
+        if isinstance(result, QImage) and not result.isNull():
+            self.cache[key] = result
+            self.cache.move_to_end(key)
+            total = sum(img.sizeInBytes() for img in self.cache.values())
+            while total > CACHE_BYTES and len(self.cache) > 1:
+                _old, img = self.cache.popitem(last=False)
+                total -= img.sizeInBytes()
+        if path == self.current():
+            if isinstance(result, QImage) and not result.isNull():
+                self._show_image(path, result)
+                self.counter.setText(tr("{number} of {total}", number=self.index + 1, total=len(self.files)))
+            else:
+                self.view.set_image(QImage())
+                self.counter.setText(tr("Couldn't open this picture") + (f": {result}" if str(result) else ""))
+
+    def _show_image(self, path: Path, image: QImage):
+        self.view.set_image(self._edited(image))
+
+    def _edited(self, image: QImage) -> QImage:
+        for op, value in self.edits:
+            if op == "rotate":
+                image = image.transformed(QTransform().rotate(value), Qt.SmoothTransformation)
+            elif op == "crop":
+                x, y, w, h = value
+                image = image.copy(x, y, w, h)
+        return image
+
+    # ---- changes
+
+    def rotate(self, angle: int):
+        if self.view.image.isNull() or self.view.movie is not None:
+            return
+        self._end_crop()
+        self.edits.append(("rotate", angle))
+        self.view.set_image(self.view.image.transformed(QTransform().rotate(angle), Qt.SmoothTransformation))
+        self._buttons()
+
+    def toggle_crop(self):
+        if self.view.crop is not None:
+            self._end_crop()
+            return
+        if self.view.image.isNull() or self.view.movie is not None:
+            return
+        self.view.start_crop()
+        self.crop_bar.show()
+        self._crop_ratio("free")
+        self._crop_text()
+
+    def _crop_ratio(self, key: str):
+        for k, b in self.crop_buttons.items():
+            b.setChecked(k == key)
+        self.view.set_crop_ratio(CROP_RATIOS[key])
+
+    def _crop_text(self):
+        c = self.view.crop
+        self.crop_size.setText(f"{round(c.width())} × {round(c.height())}" if c is not None else "")
+
+    def apply_crop(self):
+        c = self.view.crop
+        if c is None:
+            return
+        rect = (round(c.x()), round(c.y()), max(1, round(c.width())), max(1, round(c.height())))
+        self.edits.append(("crop", rect))
+        image = self.view.image.copy(*rect)
+        self._end_crop()
+        self.view.set_image(image)
+        self._buttons()
+
+    def _end_crop(self):
+        self.view.crop = None
+        self.crop_bar.hide()
+        self.view.setCursor(Qt.ArrowCursor)
+        self.view.update()
+
+    def _buttons(self):
+        self.b_save.setVisible(bool(self.edits))
+        many = len(self.files) > 1
+        self.b_prev.setEnabled(many and self.index > 0)
+        self.b_next.setEnabled(many and self.index < len(self.files) - 1)
+        self.b_show.setEnabled(many)
+
+    def _leave_ok(self) -> bool:
+        """Before moving on from a picture with changes that weren't saved: save them?"""
+        if not self.edits:
+            return True
+        box = QMessageBox(QMessageBox.Question, tr("Save the changes?"),
+                          tr("You turned or cropped {name}. Save the changes?", name=self.current().name), parent=self)
+        save = box.addButton(tr("Save"), QMessageBox.AcceptRole)
+        skip = box.addButton(tr("Don't save"), QMessageBox.DestructiveRole)
+        box.addButton(tr("Cancel"), QMessageBox.RejectRole)
+        box.exec()
+        chosen = box.clickedButton()
+        box.deleteLater()
+        if chosen is save:
+            return self.save()
+        if chosen is skip:
+            self.edits = []
+            return True
+        return False
+
+    def save(self) -> bool:
+        """Writes the turned or cropped picture over the original (its details are kept)."""
+        if not self.edits:
+            return True
+        src = self.current()
+        ext = norm(src.suffix)
+        if ext not in (".jpg", ".png", ".webp", ".bmp", ".tiff", ".avif"):
+            return self.save_as()
+        return self._write(src, ext)
+
+    def save_as(self) -> bool:
+        src = self.current()
+        if not src.name:
+            return False
+        filters = {".jpg": "JPG (*.jpg)", ".png": "PNG (*.png)", ".webp": "WebP (*.webp)", ".avif": "AVIF (*.avif)",
+                   ".bmp": "BMP (*.bmp)", ".tiff": "TIFF (*.tiff)"}
+        stem = src.stem + (" (edited)" if self.edits else "")
+        guess = norm(src.suffix) if norm(src.suffix) in filters else ".jpg"
+        name, chosen = QFileDialog.getSaveFileName(self, tr("Save as"), str(src.with_name(stem + guess)),
+                                                   ";;".join(filters.values()), filters[guess])
+        if not name:
+            return False
+        out = Path(name)
+        ext = norm(out.suffix) or next((e for e, f in filters.items() if f == chosen), ".jpg")
+        if not out.suffix:
+            out = out.with_suffix(ext)
+        return self._write(out, ext)
+
+    def _write(self, out: Path, ext: str) -> bool:
+        from .converters import load_image, save_image
+        from .core import Ctx
+        src = self.current()
+        try:
+            im = apply_edits(load_image(src), self.edits)
+            tmp = out.with_name(out.name + ".part")
+            ctx = Ctx(self.c.settings.options("", 1))
+            ctx.options.jpg_quality = max(ctx.options.jpg_quality, 95)
+            save_image(im, tmp, ext, ctx)
+            os.replace(tmp, out)
+        except Exception as e:
+            try:
+                tmp.unlink(missing_ok=True)
+            except (OSError, UnboundLocalError):
+                pass
+            QMessageBox.warning(self, tr("Couldn't save"), str(e))
+            return False
+        self.edits = []
+        self.cache.pop(str(out), None)
+        if out == src:
+            self.cache.pop(str(src), None)
+            self.show_current()
+        else:
+            self.open(out)
+        self.c.toast.notify(tr("Saved"), out.name, linger_ms=2500)
+        return True
+
+    def delete(self):
+        path = self.current()
+        if not path.name or not path.exists():
+            return
+        if getattr(self.c.settings, "viewer_confirm_delete", True):
+            box = QMessageBox(QMessageBox.Question, tr("Delete this picture?"),
+                              tr("{name} goes to the Recycle Bin, where you can put it back.", name=path.name),
+                              parent=self)
+            yes = box.addButton(tr("Delete"), QMessageBox.DestructiveRole)
+            box.addButton(tr("Cancel"), QMessageBox.RejectRole)
+            box.exec()
+            chosen = box.clickedButton() is yes
+            box.deleteLater()
+            if not chosen:
+                return
+        from .uninstall import recycle
+        try:
+            ok = recycle(path)
+        except Exception:
+            ok = False
+        if not ok:
+            QMessageBox.warning(self, tr("Couldn't delete"), tr("{name} couldn't be moved to the Recycle Bin.",
+                                                                name=path.name))
+            return
+        self.cache.pop(str(path), None)
+        self.edits = []
+        del self.files[self.index]
+        if not self.files:
+            self.close()
+            return
+        self.index = min(self.index, len(self.files) - 1)
+        self.show_current()
+
+    def copy(self):
+        if not self.view.image.isNull():
+            QGuiApplication.clipboard().setImage(self.view.image)
+            self.c.toast.notify(tr("Copied"), tr("The picture is on the clipboard."), linger_ms=2000)
+
+    def to_converter(self):
+        self.c.show_window("Converter")
+        self.c.window.show_files([self.current()])
+
+    def set_wallpaper(self):
+        import ctypes
+        path = self.current()
+        try:
+            ok = ctypes.windll.user32.SystemParametersInfoW(20, 0, str(path), 3)  # SPI_SETDESKWALLPAPER
+        except Exception:
+            ok = False
+        if not ok:
+            QMessageBox.warning(self, tr("Couldn't change the background"), path.name)
+
+    # ---- view
+
+    def toggle_info(self):
+        self.info.setVisible(not self.info.isVisible())
+        self.c.settings.viewer_info = self.info.isVisible()
+        self.c.settings.save()
+        self._fill_info()
+
+    def _fill_info(self):
+        if not self.info.isVisible():
+            return
+        lay = self.info_lay
+        while lay.count():
+            item = lay.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        head = QLabel(tr("Details"))
+        head.setObjectName("h2")
+        lay.addWidget(head)
+        path = self.current()
+        for name, value in [("Name", path.name), ("Folder", str(path.parent))] + picture_details(path):
+            key = QLabel(tr(name))
+            key.setObjectName("muted")
+            val = QLabel(ltr(tr(value) if name == "Location" else value))
+            val.setWordWrap(True)
+            val.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            lay.addWidget(key)
+            lay.addWidget(val)
+        lay.addStretch()
+
+    def toggle_slideshow(self):
+        if self.slideshow.isActive():
+            self.slideshow.stop()
+            return
+        if len(self.files) < 2:
+            return
+        seconds = int(getattr(self.c.settings, "slideshow_seconds", 4) or 4)
+        self.slideshow.start(seconds * 1000)
+        if not self.isFullScreen():
+            self.toggle_full()
+
+    def toggle_full(self):
+        if self.isFullScreen():
+            self.showNormal()
+            self.bar.show()
+        else:
+            self.showFullScreen()
+            self.bar.hide()
+
+    def _escape(self):
+        if self.view.crop is not None:
+            self._end_crop()
+        elif self.slideshow.isActive() or self.isFullScreen():
+            self.slideshow.stop()
+            if self.isFullScreen():
+                self.toggle_full()
+        else:
+            self.close()
+
+    def _enter(self):
+        if self.view.crop is not None:
+            self.apply_crop()
+
+    def _zoom_text(self):
+        self.zoom_label.setText(f"{round(self.view.scale() * 100)}%")
+
+    def apply_theme(self, theme):
+        self.view.dark = theme.dark
+        for b, name in self.icon_buttons:
+            if name:
+                b.setIcon(icons.icon(name, theme.text))
+        self.view.update()
+
+    def closeEvent(self, e):
+        if not self._leave_ok():
+            e.ignore()
+            return
+        self.slideshow.stop()
+        if self.view.movie is not None:
+            self.view.movie.stop()
+        self.cache.clear()
+        super().closeEvent(e)
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        set_title_bar_dark(self, self.c.theme.dark)

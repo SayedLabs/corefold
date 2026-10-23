@@ -92,13 +92,16 @@ WINDOW_TEXT_PT = {"small": 9, "normal": 10, "large": 11.5, "huge": 13}
 SOUNDS = DONE_SOUNDS
 UNUSED_MONTHS = {3: "3 months", 6: "6 months", 12: "a year"}
 BACKUP_DAYS = {7: "a week", 30: "a month", 90: "3 months", 365: "a year"}
+VIEWER_WHEEL = {"zoom": "Zooms in and out", "browse": "Goes to the next or previous picture"}
+SLIDESHOW_SECONDS = {2: "2 seconds", 4: "4 seconds", 8: "8 seconds"}
 EXTRACT_MODES = {"smart": "Smart: no folder inside a folder", "folder": "Always into a new folder"}
 CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_style": HOVER_STYLES,
            "slice_colors": SLICE_COLORS, "text_size": TEXT_SIZES, "wheel_position": WHEEL_POSITIONS,
            "wheel_size": WHEEL_SIZES, "sound": SOUNDS, "language": LANGUAGES, "menu_style": MENU_STYLES,
            "appearance": APPEARANCES, "shortcut": SHORTCUT_LABELS, "toast_corner": TOAST_CORNERS,
            "toast_time": TOAST_TIMES, "window_text": WINDOW_TEXT, "unused_months": UNUSED_MONTHS,
-           "backup_days": BACKUP_DAYS, "extract_mode": EXTRACT_MODES}
+           "backup_days": BACKUP_DAYS, "extract_mode": EXTRACT_MODES, "viewer_wheel": VIEWER_WHEEL,
+           "slideshow_seconds": SLIDESHOW_SECONDS}
 
 
 # Settings kept on disk while the window has changes that weren't saved yet (see window.py): the
@@ -108,7 +111,7 @@ RECENT_ARCHIVES = 8
 # not settings a person edits: what the app remembers by itself
 NOT_EDITED = {"enabled", "first_run", "last_version", "menu_signature", "window_geometry", "last_page",
               "last_action", "tour_done", "watermark", "fit_mb", "open_archives", "recent_archives",
-              "tools_off", "known_tools"}
+              "tools_off", "known_tools", "open_images", "open_emails", "viewer_info", "recent_views"}
 # the settings of each tab of the Settings page (each one has its own "Reset to defaults")
 GENERAL_KEYS = ("language", "sound", "volume", "sound_problems", "show_progress", "low_priority", "one_at_a_time")
 LOOK_KEYS = ("appearance", "accent", "custom_color", "animations", "toast_corner", "toast_time", "window_text",
@@ -120,6 +123,7 @@ WHEEL_KEYS = ("wheel_size", "wheel_style", "wheel_opacity", "label_style", "hove
 FORMAT_KEYS = ("hidden_tools", "favorites", "tool_order")
 UNINSTALLER_KEYS = ("unused_months", "backup_days", "restore_point")
 ARCHIVE_KEYS = ("extract_mode", "extract_nested", "remember_archives")
+VIEWER_KEYS = ("viewer_wheel", "viewer_confirm_delete", "slideshow_seconds")
 UPDATE_KEYS = ("check_updates", "auto_update")
 
 
@@ -167,6 +171,14 @@ class Settings:
     extract_mode: str = "smart"    # "Extract here": "smart" (no folder inside a folder) or "folder"
     extract_nested: bool = False   # also unpack archives found inside
     remember_archives: bool = True  # list the archives opened lately on the Archive page
+    # the Viewer
+    open_images: bool = True       # pictures and email files open in Corefold ("Open with")
+    open_emails: bool = True
+    viewer_wheel: str = "zoom"     # the mouse wheel zooms, or goes to the next picture
+    viewer_confirm_delete: bool = True
+    slideshow_seconds: int = 4
+    viewer_info: bool = False      # the details panel is open
+    recent_views: list = field(default_factory=list)  # pictures and emails opened lately (newest first)
     # the Uninstaller
     unused_months: int = 3         # "not used for …" filter
     backup_days: int = 30          # backups of removed leftovers are kept this long
@@ -248,6 +260,7 @@ class Settings:
         s.favorites = [t for t in s.favorites if isinstance(t, str)]
         s.recent_archives = [t for t in s.recent_archives if isinstance(t, str)][:RECENT_ARCHIVES]
         s.tools_off = [t for t in s.tools_off if isinstance(t, str)]
+        s.recent_views = [t for t in s.recent_views if isinstance(t, str)][:RECENT_ARCHIVES]
         s.known_tools = [t for t in s.known_tools if isinstance(t, str)]
         if not s.known_tools and not s.first_run:  # from before the Store: the tools they had
             from .tools import ORIGINAL

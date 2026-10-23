@@ -1,108 +1,146 @@
-"""Opening archives with a double-click.
+"""Opening files with a double-click: archives (Corefold Archive), pictures and emails (Corefold Viewer).
 
-Corefold adds itself to "Open with" for archives (for the current user only, no admin rights), and
+Corefold adds itself to "Open with" for these (for the current user only, no admin rights), and
 registers as an app Windows can make the default for them. Windows doesn't let apps make themselves
 the default: the person picks it in Settings, which Corefold can open at the right place."""
 from __future__ import annotations
 
 import logging
 import os
+from dataclasses import dataclass
 
 from .core import APP_NAME
 
 log = logging.getLogger("corefold")
 
-PROGID = "Corefold.Archive"
 CLASSES = r"Software\Classes"
 CAPABILITIES = r"Software\Corefold\Capabilities"
 REGISTERED = r"Software\RegisteredApplications"
-# the archives a double-click should open (the ones people meet; Corefold reads more than these)
-EXTENSIONS = (".zip", ".7z", ".rar", ".tar", ".gz", ".tgz", ".bz2", ".xz", ".txz", ".iso", ".cab", ".zipx",
-              ".001", ".lzh", ".arj", ".wim")
 
 
-def _command(app_command) -> str:
-    return app_command("--browse", '"%1"')
+@dataclass(frozen=True)
+class Group:
+    progid: str
+    flag: str              # what the double-click runs: Corefold.exe <flag> "file"
+    extensions: tuple
 
 
-def is_current(app_command) -> bool:
+GROUPS = {
+    # the archives a double-click should open (the ones people meet; Corefold reads more than these)
+    "archive": Group("Corefold.Archive", "--browse",
+                     (".zip", ".7z", ".rar", ".tar", ".gz", ".tgz", ".bz2", ".xz", ".txz", ".iso", ".cab", ".zipx",
+                      ".001", ".lzh", ".arj", ".wim")),
+    "image": Group("Corefold.Picture", "--view",
+                   (".jpg", ".jpeg", ".jfif", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff", ".heic", ".heif",
+                    ".avif", ".ico")),
+    "email": Group("Corefold.Email", "--view", (".eml", ".msg")),
+}
+# (kept for older callers: the archive group)
+PROGID = GROUPS["archive"].progid
+EXTENSIONS = GROUPS["archive"].extensions
+
+
+def _command(app_command, group: Group) -> str:
+    return app_command(group.flag, '"%1"')
+
+
+def is_current(app_command, name: str = "archive") -> bool:
     """True if the registration is there and points at this copy of Corefold."""
     import winreg
+    group = GROUPS[name]
     try:
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, rf"{CLASSES}\{PROGID}\shell\open\command") as k:
-            return winreg.QueryValueEx(k, "")[0] == _command(app_command)
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, rf"{CLASSES}\{group.progid}\shell\open\command") as k:
+            return winreg.QueryValueEx(k, "")[0] == _command(app_command, group)
     except OSError:
         return False
 
 
-def _registered() -> bool:
+def _registered(name: str = "archive") -> bool:
     import winreg
     try:
-        winreg.OpenKey(winreg.HKEY_CURRENT_USER, rf"{CLASSES}\{PROGID}").Close()
+        winreg.OpenKey(winreg.HKEY_CURRENT_USER, rf"{CLASSES}\{GROUPS[name].progid}").Close()
         return True
     except OSError:
         return False
 
 
-def register(app_command, icon: str, description: str):
+def register(app_command, icon: str, description: str, name: str = "archive"):
     import winreg
+    group = GROUPS[name]
     SZ = winreg.REG_SZ
     hk = winreg.HKEY_CURRENT_USER
-    with winreg.CreateKey(hk, rf"{CLASSES}\{PROGID}") as k:
+    with winreg.CreateKey(hk, rf"{CLASSES}\{group.progid}") as k:
         winreg.SetValueEx(k, "", 0, SZ, description)
         winreg.SetValueEx(k, "FriendlyTypeName", 0, SZ, description)
     if icon:
-        with winreg.CreateKey(hk, rf"{CLASSES}\{PROGID}\DefaultIcon") as k:
+        with winreg.CreateKey(hk, rf"{CLASSES}\{group.progid}\DefaultIcon") as k:
             winreg.SetValueEx(k, "", 0, SZ, f'"{icon}",0')
-    with winreg.CreateKey(hk, rf"{CLASSES}\{PROGID}\shell\open\command") as k:
-        winreg.SetValueEx(k, "", 0, SZ, _command(app_command))
-    for ext in EXTENSIONS:
+    with winreg.CreateKey(hk, rf"{CLASSES}\{group.progid}\shell\open\command") as k:
+        winreg.SetValueEx(k, "", 0, SZ, _command(app_command, group))
+    for ext in group.extensions:
         with winreg.CreateKey(hk, rf"{CLASSES}\{ext}\OpenWithProgids") as k:
-            winreg.SetValueEx(k, PROGID, 0, winreg.REG_NONE, b"")
+            winreg.SetValueEx(k, group.progid, 0, winreg.REG_NONE, b"")
     with winreg.CreateKey(hk, CAPABILITIES) as k:
         winreg.SetValueEx(k, "ApplicationName", 0, SZ, APP_NAME)
         winreg.SetValueEx(k, "ApplicationDescription", 0, SZ, description)
     with winreg.CreateKey(hk, CAPABILITIES + r"\FileAssociations") as k:
-        for ext in EXTENSIONS:
-            winreg.SetValueEx(k, ext, 0, SZ, PROGID)
+        for ext in group.extensions:
+            winreg.SetValueEx(k, ext, 0, SZ, group.progid)
     with winreg.CreateKey(hk, REGISTERED) as k:
         winreg.SetValueEx(k, APP_NAME, 0, SZ, CAPABILITIES)
     _tell_explorer()
-    log.info("archives open with Corefold")
+    log.info("%s files open with Corefold", name)
 
 
-def unregister():
-    """Takes out only what register() wrote."""
+def unregister(name: str | None = None):
+    """Takes out only what register() wrote: for one group, or for all of them (uninstalling)."""
     import winreg
     from .shellmenu import _delete_tree
     hk = winreg.HKEY_CURRENT_USER
-    for ext in EXTENSIONS:
+    for key in ([name] if name else list(GROUPS)):
+        group = GROUPS[key]
+        for ext in group.extensions:
+            try:
+                with winreg.OpenKey(hk, rf"{CLASSES}\{ext}\OpenWithProgids", 0, winreg.KEY_SET_VALUE) as k:
+                    winreg.DeleteValue(k, group.progid)
+            except OSError:
+                pass
         try:
-            with winreg.OpenKey(hk, rf"{CLASSES}\{ext}\OpenWithProgids", 0, winreg.KEY_SET_VALUE) as k:
-                winreg.DeleteValue(k, PROGID)
+            with winreg.OpenKey(hk, CAPABILITIES + r"\FileAssociations", 0,
+                                winreg.KEY_SET_VALUE | winreg.KEY_QUERY_VALUE) as k:
+                for ext in group.extensions:
+                    try:
+                        if winreg.QueryValueEx(k, ext)[0] == group.progid:
+                            winreg.DeleteValue(k, ext)
+                    except OSError:
+                        pass
         except OSError:
             pass
-    try:
-        with winreg.OpenKey(hk, REGISTERED, 0, winreg.KEY_SET_VALUE) as k:
-            winreg.DeleteValue(k, APP_NAME)
-    except OSError:
-        pass
-    _delete_tree(winreg, rf"{CLASSES}\{PROGID}")
-    _delete_tree(winreg, r"Software\Corefold")
+        _delete_tree(winreg, rf"{CLASSES}\{group.progid}")
+    if not any(_registered(key) for key in GROUPS):  # nothing left: Corefold isn't an app for any file
+        try:
+            with winreg.OpenKey(hk, REGISTERED, 0, winreg.KEY_SET_VALUE) as k:
+                winreg.DeleteValue(k, APP_NAME)
+        except OSError:
+            pass
+        _delete_tree(winreg, r"Software\Corefold")
     _tell_explorer()
 
 
-def sync(on: bool, app_command, icon: str, description: str):
-    """Registers (or un-registers) only when something changed, so starting Corefold stays quick."""
+def sync(on, app_command, icon: str, description: str, name: str = "archive"):
+    """Registers (or un-registers) only when something changed, so starting Corefold stays quick.
+    on may be a bool (for the group called name) or {group: (on, description)} for several."""
     if os.name != "nt":
         return
-    try:
-        if on and not is_current(app_command):
-            register(app_command, icon, description)
-        elif not on and _registered():
-            unregister()
-    except OSError:
-        log.exception("couldn't update opening archives with Corefold")
+    wanted = on if isinstance(on, dict) else {name: (bool(on), description)}
+    for key, (want, text) in wanted.items():
+        try:
+            if want and not is_current(app_command, key):
+                register(app_command, icon, text, key)
+            elif not want and _registered(key):
+                unregister(key)
+        except OSError:
+            log.exception("couldn't update opening %s files with Corefold", key)
 
 
 def open_default_apps() -> bool:
