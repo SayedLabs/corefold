@@ -84,7 +84,7 @@ def table_texts() -> dict[str, str]:
     add([settings.CLIP_SHORTCUTS["off"]], "CLIP_SHORTCUTS")
     from corefold import capview
     add([text for _, text in capview.TOOLS], "capview.TOOLS")
-    for name in ("CAP_AFTER", "CAP_FPS"):
+    for name in ("CAP_AFTER", "CAP_FPS", "PLAYER_SKIP", "PLAYER_WHEEL"):
         add(getattr(settings, name).values(), name)
     from corefold import space, spacepage
     add(space.KINDS.values(), "space.KINDS")
