@@ -1,0 +1,10 @@
+2026-10-23 04:53:47,173 INFO tools in use: converter, uninstaller, archive, viewer
+2026-10-23 04:53:49,169 INFO right-click menu updated
+2026-10-23 04:53:52,439 INFO tools in use: converter, uninstaller, archive, viewer, player
+2026-10-23 04:53:52,463 INFO media files open with Corefold
+2026-10-23 04:53:57,673 INFO running in the background: capture
+2026-10-23 04:53:57,673 INFO tools in use: converter, uninstaller, archive, viewer, player, capture
+2026-10-23 04:54:02,860 INFO running in the background: capture
+2026-10-23 04:54:02,861 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space
+2026-10-23 04:54:08,139 INFO running in the background: clipboard, capture
+2026-10-23 04:54:08,139 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space, clipboard

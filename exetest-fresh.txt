@@ -1,0 +1,14 @@
+FAIL  the first start asks which tools
+D:\a\corefold\corefold\scripts\exetest.py:75: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+  white = sum(1 for v in small.getdata() if v > 245) / 4000
+note  home-after-first-start: 0.71 white, mean 242
+ok    the sidebar has the Store
+ok    Corefold.exe opens its window on the Store
+note  store: 0.78 white, mean 244
+FAIL  the Store isn't white
+FAIL  an Add button for viewer
+FAIL  an Add button for player
+FAIL  an Add button for capture
+FAIL  an Add button for space
+FAIL  an Add button for clipboard
+exetest: 7 problem(s)
