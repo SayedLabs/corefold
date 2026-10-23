@@ -321,7 +321,7 @@ def space_tool():
         (root / folder).mkdir(parents=True, exist_ok=True)
         for name, size in files.items():
             (root / folder / name).write_bytes(_os.urandom(min(size, 4096)) * (size // 4096 + 1))
-    (root / "Photos" / "copy of IMG_0001.jpg").write_bytes((root / "Photos" / "IMG_0001.jpg").read_bytes())
+    (root / "Photos" / "copy of IMG_0040.jpg").write_bytes((root / "Photos" / "IMG_0040.jpg").read_bytes())
     c.show_window("Space")
     w = c.window
     w.resize(1100, 720)
@@ -340,12 +340,13 @@ def space_tool():
     d = sp.drives()
     check(bool(d) and d[0].total > 0, f"the drives ({', '.join(x.path for x in d)})")
     import threading as _th
-    stop = _th.Event()
-    _th.Timer(20, stop.set).start()
-    big = sp.scan(Path(_os.environ.get("ProgramFiles", "C:/Program Files")), stop)
-    rate = big.files / max(0.1, big.seconds)
-    check(big.files > 1000, f"a big folder: {big.files:,} files in {big.seconds:.1f} s ({rate:,.0f} files a second"
-                            f"{', stopped after 20 s' if big.cancelled else ''})")
+    for workers in (6, 1):  # (the second one has the disk's cache on its side)
+        stop = _th.Event()
+        _th.Timer(15, stop.set).start()
+        big = sp.scan(Path(_os.environ.get("ProgramFiles", "C:/Program Files")), stop, workers=workers)
+        rate = big.files / max(0.1, big.seconds)
+        check(big.files > 1000, f"a big folder, {workers} at a time: {big.files:,} files in {big.seconds:.1f} s "
+                                f"({rate:,.0f} files a second{', stopped after 15 s' if big.cancelled else ''})")
     pg.show_section("clean")
     check(until(lambda: pg.job is None, 60), "looking for junk")
     settle(0.4)
