@@ -484,8 +484,39 @@ class SubtitlesDialog(Base):
         return {"subtitles": self.path.text().strip().strip('"'), "how": "burn" if self.burn.isChecked() else "track"}
 
 
+class PageNumbersDialog(Base):
+    def __init__(self, files, icon, dark):
+        from .pdfstamp import NUMBER_PLACES
+        super().__init__(tr("Number the pages"), describe(files), icon, dark)
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(12)
+        grid.setVerticalSpacing(10)
+        self.place = QComboBox()
+        for k, v in NUMBER_PLACES.items():
+            self.place.addItem(tr(v), k)
+        self.style = QComboBox()
+        self.style.addItem("1, 2, 3…", "n")
+        self.style.addItem("1 / 12, 2 / 12…", "of")
+        grid.addWidget(QLabel(tr("Where")), 0, 0)
+        grid.addWidget(self.place, 0, 1)
+        grid.addWidget(QLabel(tr("Style")), 1, 0)
+        grid.addWidget(self.style, 1, 1)
+        self.lay.addLayout(grid)
+        self.skip = QCheckBox(tr("No number on the first page (a cover)"))
+        self.lay.addWidget(self.skip)
+        note = QLabel(tr("Saved as a new file; your original stays as it is."))
+        note.setObjectName("muted")
+        note.setWordWrap(True)
+        self.lay.addWidget(note)
+        self.buttons(tr("Number them"))
+
+    def params(self):
+        return {"place": self.place.currentData(), "style": self.style.currentData(),
+                "skip": 1 if self.skip.isChecked() else 0}
+
+
 def register(dialogs: dict):
     from .pdfpages import PagesDialog
     dialogs.update({"pages": PagesDialog, "speed": SpeedDialog, "sticker": StickerDialog, "lock": LockDialog,
                     "rename_files": RenameFilesDialog, "crop": CropDialog, "video_crop": VideoCropDialog,
-                    "sound": SoundDialog, "subtitles": SubtitlesDialog})
+                    "sound": SoundDialog, "subtitles": SubtitlesDialog, "page_numbers": PageNumbersDialog})

@@ -389,6 +389,15 @@ def _preview_base(src: Path):
         if category(src) == "video":
             data = video_frame(src, min(1.0, media_duration(src) / 2), 640)
             base = Image.open(io.BytesIO(data)).convert("RGBA") if data else None
+        elif src.suffix.lower() == ".pdf":
+            import pypdfium2 as pdfium
+            pdf = pdfium.PdfDocument(str(src))
+            try:
+                page = pdf[0]
+                base = page.render(scale=640 / max(page.get_width(), page.get_height(), 1)).to_pil().convert("RGBA")
+                page.close()
+            finally:
+                pdf.close()
         else:
             base = load_image(src).convert("RGBA")
             base.thumbnail((640, 640))
@@ -492,7 +501,8 @@ class WatermarkDialog(Base):
         try:
             base = self._base.copy()
             if self.text.text().strip() or self.logo:
-                base.alpha_composite(make_overlay(base.width, base.height, self.params()))
+                dark = self.files[0].suffix.lower() == ".pdf"  # (as the PDF tool draws it)
+                base.alpha_composite(make_overlay(base.width, base.height, {**self.params(), "dark": dark}))
             buf = io.BytesIO()
             base.convert("RGB").save(buf, "PNG")
             pm = QPixmap()

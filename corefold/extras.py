@@ -273,7 +273,7 @@ def needs_shaping(text: str) -> bool:
     return any(unicodedata.bidirectional(c) in ("R", "AL") or 0x0900 <= ord(c) < 0x1000 for c in text)
 
 
-def _text_image_qt(text: str, px: int):
+def _text_image_qt(text: str, px: int, dark: bool = False):
     """The watermark text drawn by Qt (correct Arabic joining and right-to-left order), or None."""
     try:
         from PIL import Image
@@ -294,10 +294,10 @@ def _text_image_qt(text: str, px: int):
         p = QPainter(img)
         p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
         p.setFont(font)
-        p.setPen(QColor(0, 0, 0, 120))
+        p.setPen(QColor(255, 255, 255, 120) if dark else QColor(0, 0, 0, 120))
         p.drawText(QRect(pad + shadow, pad + shadow, w, h), int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop),
                    text)
-        p.setPen(QColor(255, 255, 255, 255))
+        p.setPen(QColor(60, 60, 60, 255) if dark else QColor(255, 255, 255, 255))
         p.drawText(QRect(pad, pad, w, h), int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop), text)
         p.end()
         data = bytes(img.constBits())[: img.bytesPerLine() * h]
@@ -308,13 +308,16 @@ def _text_image_qt(text: str, px: int):
 
 
 def make_overlay(w: int, h: int, params: dict):
-    """A transparent picture the size of the image/video, with the text and/or logo on it."""
+    """A transparent picture the size of the image/video, with the text and/or logo on it.
+    params["dark"]: dark grey text (on a PDF's white pages) instead of white."""
     from PIL import Image, ImageDraw
     text = (params.get("text") or "").strip()
     logo_path = params.get("logo") or ""
     opacity = max(5, min(100, int(params.get("opacity", 60)))) / 100
     rel = WM_SIZES.get(params.get("size", "medium"), 0.055)
     pos = params.get("position", "br")
+    dark = bool(params.get("dark"))
+    ink, shade = ((60, 60, 60, 255), (255, 255, 255, 120)) if dark else ((255, 255, 255, 255), (0, 0, 0, 120))
     short = min(w, h)
     margin = int(short * 0.03)
 
@@ -327,7 +330,7 @@ def make_overlay(w: int, h: int, params: dict):
         parts.append(logo)
     if text:
         px = max(10, int(short * rel))
-        txt = _text_image_qt(text, px) if needs_shaping(text) else None
+        txt = _text_image_qt(text, px, dark) if needs_shaping(text) else None
         if txt is None:
             font = _font(px)
             probe_img = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
@@ -337,8 +340,8 @@ def make_overlay(w: int, h: int, params: dict):
             txt = Image.new("RGBA", (tw, th), (0, 0, 0, 0))
             d = ImageDraw.Draw(txt)
             shadow = max(1, pad // 2)
-            d.text((pad - l + shadow, pad - t + shadow), text, font=font, fill=(0, 0, 0, 120))
-            d.text((pad - l, pad - t), text, font=font, fill=(255, 255, 255, 255))
+            d.text((pad - l + shadow, pad - t + shadow), text, font=font, fill=shade)
+            d.text((pad - l, pad - t), text, font=font, fill=ink)
         parts.append(txt)
     if not parts:
         raise RuntimeError(tr("type some text or pick a logo for the watermark"))

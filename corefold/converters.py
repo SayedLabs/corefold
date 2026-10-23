@@ -1156,7 +1156,7 @@ def both(*checks):
 
 def catalog(multi: bool = False) -> dict[str, list[Tool]]:
     """Every tool Corefold has, per kind of file, in default wheel order."""
-    from . import archives as ar, extras as ex, moretools as mt, videotools as vt
+    from . import archives as ar, extras as ex, moretools as mt, pdfstamp as ps, videotools as vt
 
     def fmt(kind, ext, fn, check=None, **kw):
         return Tool(f"{kind}:{ext[1:]}", ext[1:].upper(),
@@ -1258,6 +1258,10 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
                 check=check_pdf_locked, slow_check=True),
            Tool("pdf:images", tr("Pictures"), tr("Save the pictures inside"), mt.pdf_images, check=check_pdf_locked,
                 slow_check=True),
+           Tool("pdf:numbers", tr("Page numbers"), tr("Number every page"), ps.page_numbers, ask="page_numbers",
+                check=check_pdf_locked, slow_check=True),
+           Tool("pdf:watermark", tr("Watermark"), tr("Add text or a logo to every page"), ps.watermark_pdf,
+                ask="watermark", check=check_pdf_locked, slow_check=True),
            Tool("pdf:lock", tr("Lock"), tr("Protect with a password"), mt.pdf_lock, ask="lock",
                 check=mt.check_can_lock, slow_check=True),
            Tool("pdf:unlock", tr("Unlock"), tr("Remove the password"), mt.pdf_unlock, password=True,
