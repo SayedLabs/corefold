@@ -236,5 +236,5 @@ def clean_up():
 for name, fn in (("kinds", kinds), ("listing", listing), ("window", window)):
     step(name, fn)
 clean_up()
-print(f"uninstalltest: {len(problems)} problem(s)")
-sys.exit(1 if problems else 0)
+print(f"uninstalltest: {len(problems)} problem(s)", flush=True)
+os._exit(1 if problems else 0)  # like uitest: skips Qt's tidy-up at exit, which can crash on the runner
