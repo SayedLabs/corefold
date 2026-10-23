@@ -117,6 +117,12 @@ def table_texts() -> dict[str, str]:
          "needs. Windows asks for an administrator.", "The previous Windows", "Kept after a big Windows update, to "
          "go back to it. Once it's removed, going back isn't possible. Windows asks for an administrator."],
         "space.find_junk")
+    from corefold import pdfpage, pdftools
+    add([text for card in pdfpage.ACTIONS + pdfpage.MORE for text in card[1:3]], "pdfpage.ACTIONS")
+    add(pdfpage.TIPS.values(), "pdfpage.TIPS")
+    add([v[0] for table in (pdftools.COMPRESS_LEVELS, pdftools.PAGE_SIZES, pdftools.MARGINS) for v in table.values()],
+        "pdftools tables")
+    add(list(pdftools.DPIS.values()) + list(pdftools.SPLIT_MODES.values()), "pdftools tables")
     for _, title, text in tour.STEPS:
         add([title, text], "tour.STEPS")
     return out
