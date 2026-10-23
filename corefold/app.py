@@ -730,6 +730,9 @@ class Controller(QObject):
         self._clipboard_tool()
         self._capture_tool()
         self._tray_tools()
+        running = [name for name, on in (("clipboard", self.clip), ("capture", self.capture)) if on is not None]
+        if running:
+            log.info("running in the background: %s", ", ".join(running))
 
     def _capture_tool(self):
         """Corefold Capture's shortcuts are only there while it's in use."""
