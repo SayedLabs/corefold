@@ -1328,7 +1328,7 @@ STRINGS: dict[str, str] = {
     "Put the tools back in order": "Volver a ordenar las herramientas",
     "Remove from Corefold…": "Quitar de Corefold…",
     "Tools we're making or thinking about. Each one comes in a free update when it's ready.": "Herramientas que estamos haciendo o pensando hacer. Cada una llegará en una actualización gratuita cuando esté lista.",
-    "Startup": "Inicio",
+    "Startup": "Arranque",
     "PDF": "PDF",
     "Colors": "Colores",
     "Ruler": "Regla",

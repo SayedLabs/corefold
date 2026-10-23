@@ -151,6 +151,8 @@ class StartupPage(QWidget):
         self.kind = ""
         self.loading = False
         self.busy = 0
+        self.job = None
+        self.switching: list = []
         self.new_ids: set[str] = set()   # marked New this time Corefold runs (kept when looking again)
         self.admin = startup.is_admin()
         self._icons = QFileIconProvider()
@@ -192,6 +194,7 @@ class StartupPage(QWidget):
         lay.addWidget(self.problem)
         self.group = Group()
         holder = QWidget()
+        holder.setObjectName("scrollContent")  # (see-through, like every page's scrolling part)
         hl = QVBoxLayout(holder)
         hl.setContentsMargins(0, 0, 0, 0)
         hl.setSpacing(0)
@@ -233,7 +236,7 @@ class StartupPage(QWidget):
             found = startup.list_entries()
             startup.mark_new(found)
             return found
-        work.run(read, lambda _: None, self._loaded, name="corefold-startup")
+        self.job = work.run(read, lambda _: None, self._loaded, name="corefold-startup")
 
     def _loaded(self, result):
         if not work.alive(self):
@@ -321,11 +324,14 @@ class StartupPage(QWidget):
         row.switch.setEnabled(False)
         self.busy += 1
         self.refresh_btn.setEnabled(False)
-        work.run(lambda _p: startup.set_on(e, on), lambda _: None,
-                 lambda result, r=row, want=on: self._switched(r, want, result), name="corefold-startup-switch")
+        # (the job is kept until its answer is in: an answer whose job was thrown away never arrives)
+        job = work.run(lambda _p: startup.set_on(e, on), lambda _: None,
+                       lambda result, r=row, want=on: self._switched(r, want, result), name="corefold-startup-switch")
+        self.switching.append(job)
 
     def _switched(self, row: EntryRow, want: bool, result):
         self.busy -= 1
+        self.switching = [j for j in self.switching if j.is_alive()]
         if not work.alive(self):
             return
         self.refresh_btn.setEnabled(not self.busy and not self.loading)
