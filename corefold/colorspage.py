@@ -4,10 +4,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import QComboBox, QFrame, QGridLayout, QHBoxLayout, QLabel, QMessageBox, QPushButton, \
+from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QMessageBox, QPushButton, \
     QScrollArea, QVBoxLayout, QWidget
 
 from . import colors
+from .atomic.widgets import Dropdown
 from .i18n import ltr, tr
 from .settings import COLORS_FORMATS, COLORS_SHORTCUTS
 from .window import Segmented, _alive, button, card, label
@@ -53,7 +54,7 @@ class ColorsPage(QScrollArea):
         grid.setVerticalSpacing(12)
         self.format = Segmented([(k, v) for k, v in COLORS_FORMATS.items()], s.colors_format, per_row=3)
         self.format.changed.connect(self._format_changed)
-        self.shortcut = QComboBox()
+        self.shortcut = Dropdown()
         for key, text in COLORS_SHORTCUTS.items():
             self.shortcut.addItem(tr(text) if key == "off" else text, key)
         self.shortcut.setCurrentIndex(max(0, self.shortcut.findData(s.colors_shortcut)))
