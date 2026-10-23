@@ -16,6 +16,7 @@ Corefold is listed in `COMPONENT-VERSIONS.txt` next to `Corefold.exe`.
 | cryptography (PDF passwords) | Apache 2.0 or BSD-3 (your choice) | https://github.com/pyca/cryptography |
 | zxing-cpp | Apache 2.0 | https://github.com/zxing-cpp/zxing-cpp |
 | 7-Zip (`7zip\7z.exe`, `7z.dll`), a separate program Corefold runs for archives | GNU LGPL, with the unRAR restriction (see `7zip\7-ZIP-License.txt`): the RAR code may only be used to open RAR files, not to make them | https://www.7-zip.org |
+| zstandard / Zstandard (.tar.zst and .zst archives) | BSD-3 | https://github.com/indygreg/python-zstandard · https://github.com/facebook/zstd |
 | PyWinRT (Windows text reading) | MIT | https://github.com/pywinrt/pywinrt |
 | ONNX Runtime | MIT | https://github.com/microsoft/onnxruntime |
 | NumPy | BSD-3 | https://numpy.org |

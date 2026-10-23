@@ -599,6 +599,10 @@ class PackDialog(Base):
         self.format.addItem(tr("ZIP (opens everywhere)"), "zip")
         if has7z:
             self.format.addItem(tr("7z (smaller files)"), "7z")
+        self.format.addItem(tr("TAR.GZ (for Linux and Mac)"), "tar.gz")
+        self.format.addItem(tr("TAR.XZ (smaller, for Linux and Mac)"), "tar.xz")
+        self.format.addItem(tr("TAR.ZST (fast and small, for Linux and Mac)"), "tar.zst")
+        self.has7z = has7z
         self.level = QComboBox()
         for k, v in (("fast", "Fast"), ("normal", "Normal"), ("max", "Smallest file (slower)")):
             self.level.addItem(tr(v), k)
@@ -632,16 +636,19 @@ class PackDialog(Base):
         self.warn.setObjectName("muted")
         self.warn.setWordWrap(True)
         self.lay.addWidget(self.warn)
-        if not has7z:
-            self.password.setEnabled(False)
-            self.password2.setEnabled(False)
-            self.split.setEnabled(False)
         self.buttons(tr("Make archive"))
         for sig in (self.password.textChanged, self.password2.textChanged, self.format.currentIndexChanged):
             sig.connect(lambda *_: self._check())
         self._check()
 
     def _check(self):
+        tar = str(self.format.currentData()).startswith("tar")
+        for w in (self.password, self.password2, self.split):
+            w.setEnabled(self.has7z and not tar)
+        if tar:
+            self.warn.setText(tr("TAR files can't have a password or be split into parts."))
+            self.ok.setEnabled(True)
+            return
         p1, p2 = self.password.text(), self.password2.text()
         if p1 and p1 != p2:
             self.warn.setText(tr("The two passwords don't match yet."))
@@ -656,8 +663,10 @@ class PackDialog(Base):
             self.warn.setText("")
 
     def params(self):
+        tar = str(self.format.currentData()).startswith("tar")
         return {"format": self.format.currentData(), "level": self.level.currentData(),
-                "password": self.password.text(), "split_mb": self.split.currentData() or 0,
+                "password": "" if tar else self.password.text(),
+                "split_mb": 0 if tar else self.split.currentData() or 0,
                 "rename_base": self.name.text().strip()}
 
 

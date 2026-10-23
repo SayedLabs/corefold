@@ -678,6 +678,46 @@ def browser_extensions():
                 os.environ[key] = value
 
 
+def tar_formats():
+    from corefold import archives as ar
+    src = TMP / "tarme"
+    (src / "inner").mkdir(parents=True, exist_ok=True)
+    (src / "a.txt").write_text("hello " * 1000)
+    (src / "inner" / "b.txt").write_text("world")
+    for fmt in ar.TAR_FORMATS:
+        out = ar.pack_into([src], TMP / f"made.{fmt}", ctx(), fmt=fmt, level="max")[0]
+        names = sorted(e.path for e in ar.list_entries(out) if not e.is_dir)
+        check(names == ["tarme/a.txt", "tarme/inner/b.txt"], f"make a .{fmt} ({names})")
+        check("No problems" in ar.test_archive(out, ctx()).note, "…test it")
+        dest = TMP / f"un-{fmt}"
+        res = ar.extract(out, ctx(dest=str(dest)))
+        check((res.outputs[0] / "inner" / "b.txt").read_text() == "world", "…and unpack it")
+        one = ar.extract(out, ctx(dest=str(TMP / f"one-{fmt}"), members=["tarme/inner/b.txt"]))
+        got = sorted(str(f.relative_to(one.outputs[0])) for f in one.outputs[0].rglob("*") if f.is_file())
+        check(got == [os.path.join("inner", "b.txt")], f"…or only one file from it ({got})")
+    from corefold.dialogs import PackDialog
+    dlg = PackDialog([src / "a.txt"], QIcon(), True)
+    dlg.format.setCurrentIndex(dlg.format.findData("tar.zst"))
+    dlg.password.setText("x")
+    check(not dlg.password.isEnabled() and not dlg.split.isEnabled() and dlg.params()["password"] == "" and
+          dlg.params()["format"] == "tar.zst", "Make an archive offers TAR (no password or parts for it)")
+    dlg.close()
+    import zstandard
+    single = TMP / "notes.txt.zst"
+    single.write_bytes(zstandard.ZstdCompressor().compress(b"just one file"))
+    entries = ar.list_entries(single)
+    check([(e.path, e.size) for e in entries] == [("notes.txt", 13)], "a single .zst file shows what's in it")
+    res = ar.extract(single, ctx(dest=str(TMP / "unzst")))
+    check(res.outputs[0].read_bytes() == b"just one file", "…and unpacks")
+    broken = TMP / "broken.tar.zst"
+    broken.write_bytes(zstandard.ZstdCompressor().compress(b"x" * 5000)[:-8])
+    try:
+        ar.test_archive(broken, ctx())
+        check(False, "a damaged .tar.zst is found")
+    except RuntimeError:
+        check(True, "a damaged .tar.zst is found")
+
+
 # ----------------------------------------------------------------------------- PDF
 
 def pdf_stamps():
@@ -786,7 +826,7 @@ if __name__ == "__main__" and len(sys.argv) > 1:
         step(name, globals()[name])
 else:
     step("videos", make_videos)
-    for name, fn in (("video tools", video_tools), ("graphics card", graphics_card), ("fingerprint", fingerprint), ("passwords", passwords),
+    for name, fn in (("video tools", video_tools), ("graphics card", graphics_card), ("fingerprint", fingerprint), ("passwords", passwords), ("tar formats", tar_formats),
                      ("capture", capture), ("recording pause", recording_pause), ("loopback", loopback),
                      ("clipboard", clipboard), ("clip list", clip_list), ("viewer", viewer),
                      ("space", space), ("space programs", space_programs), ("chapters", chapters), ("player", player),

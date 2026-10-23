@@ -21,3 +21,5 @@ winrt-Windows.Media.Ocr>=2.0; sys_platform == "win32"
 winrt-Windows.Storage>=2.0; sys_platform == "win32"
 winrt-Windows.Storage.Streams>=2.0; sys_platform == "win32"
 winrt-Windows.Globalization>=2.0; sys_platform == "win32"
+# Archive: .tar.zst and .zst files
+zstandard>=0.22
