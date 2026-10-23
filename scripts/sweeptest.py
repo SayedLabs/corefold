@@ -621,6 +621,61 @@ def keyboard():
     apply_size(c.window)
 
 
+# ---------------------------------------------------------------------------- search (Ctrl + K)
+
+def search():
+    """Every page, action and setting the search knows: typed in, found, and run with Enter."""
+    w = c.window
+    if not hasattr(w, "open_palette"):
+        note("no search in this version")
+        return
+    from corefold.atomic.palette import CMD_ROLE
+    skip = {tr("Check for updates")}
+    titles = [(cmd.title, cmd.where) for cmd in w._commands() if cmd.title not in skip]
+    missed, ran = [], 0
+    for title, where in titles:
+        w = c.window
+        if not w.isVisible():
+            c.show_window("Home")
+        before = len(errors)
+        QTest.keyClick(w, Qt.Key_K, Qt.ControlModifier)
+        settle(0.15)
+        pal = w.palette
+        if not check(pal is not None and pal.isVisible(), f"Ctrl + K opens the search (for {title[:40]!r})"):
+            w.open_palette()
+            pal = w.palette
+        pal.search.setText(title)  # (typed: QTest can only type plain ASCII)
+        settle(0.1)
+        found = [pal.list.item(i).data(CMD_ROLE) for i in range(pal.list.count())]
+        found = [x for x in found if x is not None]
+        if not any(x.title == title for x in found):
+            missed.append(f"{title} ({where})")
+            QTest.keyClick(pal.search, Qt.Key_Escape)
+            settle(0.1)
+            continue
+        while pal.list.currentItem() is not None and pal.list.currentItem().data(CMD_ROLE) is not None \
+                and pal.list.currentItem().data(CMD_ROLE).title != title:
+            row = pal.list.currentRow()
+            QTest.keyClick(pal.search, Qt.Key_Down)
+            if pal.list.currentRow() == row:
+                break
+        QTest.keyClick(pal.search, Qt.Key_Return)
+        settle(0.5)
+        _close_dialogs()
+        for top in qapp.topLevelWidgets():  # the capture overlay, the clipboard popup
+            if alive(top) and top.isVisible() and top.isWindow() and \
+                    type(top).__name__ not in ("MainWindow", "Toast"):
+                top.hide()
+        ran += 1
+        check(not pal.isVisible() if alive(pal) else True, f"the search closes after running {title[:40]!r}")
+        check(len(errors) == before, f"the search runs {title[:40]!r} ({where}) without an error")
+    for m in missed[:20]:
+        check(False, f"the search can't find what it lists: {m}")
+    note(f"the search ran {ran} of {len(titles)} things")
+    c.show_window("Home")
+    apply_size(c.window)
+
+
 # ---------------------------------------------------------------------------- quick menu and wheel
 
 def quick():
@@ -695,7 +750,7 @@ def sizes():
 
 sections = [("start", start), ("pages", pages)]
 if not ARGS.quick:
-    sections += [("buttons", buttons), ("keyboard", keyboard), ("tray", tray), ("quick", quick)]
+    sections += [("buttons", buttons), ("keyboard", keyboard), ("tray", tray), ("search", search), ("quick", quick)]
 sections += [("sizes", sizes), ("store", store_cycles)]
 if ARGS.only:
     sections = [x for x in sections if x[0] == "start" or x[0] in ARGS.only.split(",")]
