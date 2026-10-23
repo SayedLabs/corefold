@@ -15,8 +15,10 @@ New-Item -ItemType Directory -Force $cfg | Out-Null
 $work = Join-Path $env:TEMP "corefold-measure"
 Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force "$work\out" | Out-Null
+# every tool in use (the most Corefold does while it waits in the tray)
 @{ first_run = $false; tour_done = $true; check_updates = $false; output_folder = "$work\out";
-   sound = "off" } | ConvertTo-Json | Set-Content -Encoding utf8 "$cfg\settings.json"
+   sound = "off"; known_tools = @("converter", "uninstaller", "archive", "viewer", "clipboard", "space", "capture");
+   tools_off = @() } | ConvertTo-Json | Set-Content -Encoding utf8 "$cfg\settings.json"
 
 # test files: a 12-megapixel photo and a 20-second 1080p video
 $py = Join-Path $Root ".venv\Scripts\python.exe"

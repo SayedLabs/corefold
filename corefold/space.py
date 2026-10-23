@@ -104,78 +104,102 @@ def _skip_dir(entry: os.DirEntry) -> bool:
     return False
 
 
-def scan(root: Path, cancel: threading.Event | None = None, progress=None) -> Scan:
-    """Looks through a folder or a whole drive. progress(files, bytes, folder) is called now and then."""
+_GONE = -1  # (in a listing: not a regular file, left out)
+
+
+def _list_dir(path: str) -> tuple[list, bool]:
+    """One folder's entries as (name, is folder, size, attributes); the slow part (asking the disk),
+    done on helper threads. Folders that lead elsewhere (junctions, links) are left out."""
+    out = []
+    try:
+        with os.scandir(path) as it:
+            for e in it:
+                try:
+                    if e.is_dir(follow_symlinks=False):
+                        if not _skip_dir(e):
+                            out.append((e.name, True, 0, 0))
+                        continue
+                    st = e.stat(follow_symlinks=False)
+                    if os.name != "nt" and not stat.S_ISREG(st.st_mode):
+                        continue
+                    out.append((e.name, False, st.st_size, getattr(st, "st_file_attributes", 0)))
+                except OSError:
+                    continue
+    except OSError:
+        return out, True
+    return out, False
+
+
+def scan(root: Path, cancel: threading.Event | None = None, progress=None, workers: int = 6) -> Scan:
+    """Looks through a folder or a whole drive. progress(files, bytes, folder) is called now and then.
+    Several folders are read at once (disks answer faster that way, a lot faster when they're slow)."""
+    from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
     started = time.monotonic()
     top = Folder(str(root))
     result = Scan(top)
     order = [top]
-    stack = [top]
+    waiting = [top]          # folders still to read
     biggest: list[tuple[int, str]] = []
     kinds = dict.fromkeys(KINDS, 0)
-    seen = total = 0
-    while stack:
-        if cancel is not None and cancel.is_set():
-            result.cancelled = True
-            break
-        folder = stack.pop()
-        here = str(folder.path)
-        heap: list[tuple[int, str]] = []
-        try:
-            with os.scandir(here) as it:
-                for entry in it:
-                    seen += 1
-                    if seen % PROGRESS_EVERY == 0:
-                        if progress is not None:
-                            progress(result.files, total, here)
-                        if cancel is not None and cancel.is_set():
-                            break
-                    try:
-                        is_dir = entry.is_dir(follow_symlinks=False)
-                    except OSError:
-                        continue
+    total = 0
+    last_report = 0
+    hidden_bits = _OFFLINE | _RECALL_ACCESS | _RECALL_OPEN
+    with ThreadPoolExecutor(max_workers=max(1, workers), thread_name_prefix="corefold-scan") as pool:
+        busy: dict = {}
+        while waiting or busy:
+            if cancel is not None and cancel.is_set():
+                result.cancelled = True
+                for fut in busy:
+                    fut.cancel()
+                break
+            while waiting and len(busy) < workers * 4:
+                folder = waiting.pop()
+                path = str(folder.path)
+                busy[pool.submit(_list_dir, path)] = (folder, path)
+            done, _ = wait(list(busy), timeout=0.5, return_when=FIRST_COMPLETED)
+            for fut in done:
+                folder, path = busy.pop(fut)
+                try:
+                    entries, denied = fut.result()
+                except Exception:
+                    entries, denied = [], True
+                if denied:
+                    folder.denied = True
+                    result.denied += 1
+                heap: list[tuple[int, str]] = []
+                for name, is_dir, size, attrs in entries:
                     if is_dir:
-                        if _skip_dir(entry):
-                            continue
-                        child = Folder(entry.name, folder)
+                        child = Folder(name, folder)
                         folder.children.append(child)
                         order.append(child)
-                        stack.append(child)
+                        waiting.append(child)
                         continue
-                    try:
-                        st = entry.stat(follow_symlinks=False)
-                    except OSError:
-                        continue
-                    if not stat.S_ISREG(st.st_mode) and os.name != "nt":
-                        continue
-                    attrs = getattr(st, "st_file_attributes", 0)
-                    if attrs & (_OFFLINE | _RECALL_ACCESS | _RECALL_OPEN):
+                    if attrs & hidden_bits:
                         result.cloud += 1  # only in the cloud: it takes no space on this PC
                         continue
-                    size = st.st_size
                     folder.files += 1
                     folder.size += size
                     total += size
                     result.files += 1
-                    kinds[kind_of(entry.name)] += size
+                    kinds[kind_of(name)] += size
                     if len(heap) < TOP_FILES:
-                        heapq.heappush(heap, (size, entry.name))
+                        heapq.heappush(heap, (size, name))
                     elif size > heap[0][0]:
-                        small = heapq.heapreplace(heap, (size, entry.name))
+                        small = heapq.heapreplace(heap, (size, name))
                         folder.rest += small[0]
                         folder.rest_count += 1
                     else:
                         folder.rest += size
                         folder.rest_count += 1
                     if len(biggest) < TOP_OVERALL:
-                        heapq.heappush(biggest, (size, entry.path))
+                        heapq.heappush(biggest, (size, os.path.join(path, name)))
                     elif size > biggest[0][0]:
-                        heapq.heapreplace(biggest, (size, entry.path))
-        except OSError:
-            folder.denied = True
-            result.denied += 1
-        heap.sort(reverse=True)
-        folder.big = heap
+                        heapq.heapreplace(biggest, (size, os.path.join(path, name)))
+                heap.sort(reverse=True)
+                folder.big = heap
+                if progress is not None and result.files - last_report >= PROGRESS_EVERY:
+                    last_report = result.files
+                    progress(result.files, total, path)
     # add each folder's size to the folders around it (deepest first)
     for f in reversed(order):
         f.children.sort(key=lambda c: c.size, reverse=True)

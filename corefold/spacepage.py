@@ -1,6 +1,7 @@
 """Corefold Space's page: a map of what's filling a drive, cleaning up junk, and finding duplicates."""
 from __future__ import annotations
 
+import html
 import os
 import threading
 from pathlib import Path
@@ -33,16 +34,47 @@ _work = work.run
 
 # ----------------------------------------------------------------------------- the map
 
+class ElidedLabel(QLabel):
+    """A long path that shortens itself in the middle to fit (the whole of it in its tooltip)."""
+
+    def __init__(self):
+        super().__init__()
+        self.full = ""
+        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+
+    def set_full(self, text: str):
+        self.full = text
+        self.setToolTip(text)
+        self._fit()
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._fit()
+
+    def _fit(self):
+        self.setText(ltr(self.fontMetrics().elidedText(self.full, Qt.ElideMiddle, max(40, self.width() - 4))))
+
+
+class Box:
+    __slots__ = ("rect", "name", "size", "kind", "level", "folder", "parent")
+
+    def __init__(self, rect, name, size, kind, level, folder, parent):
+        self.rect, self.name, self.size, self.kind = rect, name, size, kind   # kind: folder, file or rest
+        self.level, self.folder, self.parent = level, folder, parent           # folder: the Folder (folders)
+
+
 class Treemap(QWidget):
-    """Boxes as big as what they hold. Folders show what's inside them; click one to go in."""
+    """Boxes as big as what they hold. Folders show what's inside them (a few levels down while
+    there's room); click a folder to go in."""
     opened = Signal(object)            # a Folder
     menu = Signal(object, object)      # (path, Folder or None), global position
+    DEPTH = 3
 
     def __init__(self, theme):
         super().__init__()
         self.theme = theme
         self.folder: space.Folder | None = None
-        self.boxes: list[tuple[QRectF, str, int, object, bool]] = []  # rect, name, size, Folder|None, top level
+        self.boxes: list[Box] = []
         self.hover = -1
         self.setMouseTracking(True)
         self.setMinimumSize(320, 260)
@@ -72,34 +104,29 @@ class Treemap(QWidget):
         f = self.folder
         if f is None or f.size <= 0:
             return
-        r = QRectF(self.rect()).adjusted(1, 1, -1, -1)
-        entries = self._entries(f, 120)
+        self._nest(f, QRectF(self.rect()).adjusted(1, 1, -1, -1), 0)
+
+    def _nest(self, folder: space.Folder, r: QRectF, level: int):
+        entries = self._entries(folder, 120 if level == 0 else 48)
         rects = space.squarify([e[0] for e in entries], r.x(), r.y(), r.width(), r.height())
         for (size, name, what), (x, y, w, h) in zip(entries, rects):
-            box = QRectF(x, y, w, h)
             if w < 2 or h < 2:
                 continue
             sub = what if isinstance(what, space.Folder) else None
-            self.boxes.append((box, name, size, sub if sub is not None else ("rest" if what == "rest" else None), True))
-            if sub is not None and w > 70 and h > 56 and sub.size > 0:  # what's inside, one level down
-                inner = box.adjusted(3, 20, -3, -3)
-                kids = self._entries(sub, 40)
-                for (s2, n2, w2), (x2, y2, ww, hh) in zip(kids, space.squarify([k[0] for k in kids], inner.x(),
-                                                                                inner.y(), inner.width(),
-                                                                                inner.height())):
-                    if ww >= 3 and hh >= 3:
-                        self.boxes.append((QRectF(x2, y2, ww, hh), n2, s2,
-                                           ("in", sub, w2 if isinstance(w2, space.Folder) else n2), False))
+            kind = "folder" if sub is not None else "rest" if what == "rest" else "file"
+            self.boxes.append(Box(QRectF(x, y, w, h), name, size, kind, level, sub, folder))
+            if sub is not None and level + 1 < self.DEPTH and sub.size > 0 and w > 36 and h > 34:
+                head = 18 if w > 60 and h > 40 else 3
+                self._nest(sub, QRectF(x, y, w, h).adjusted(3, head, -3, -3), level + 1)
 
-    def _color(self, name: str, what) -> QColor:
+    def _color(self, b: Box) -> QColor:
         t = self.theme
-        if isinstance(what, tuple):
-            what = what[2]
-        if isinstance(what, space.Folder):
-            return mix(t.panel, t.accent, 0.42 if t.dark else 0.3)
-        if what == "rest" or not isinstance(name, str):
+        if b.kind == "folder":
+            return mix(t.panel, t.accent, max(0.12, (0.42 if t.dark else 0.3) - 0.08 * b.level))
+        if b.kind == "rest":
             return mix(t.panel, t.muted, 0.35)
-        return QColor(KIND_COLORS[space.kind_of(name)])
+        color = QColor(KIND_COLORS[space.kind_of(b.name)])
+        return color.lighter(100 + 6 * b.level) if t.dark else color
 
     def paintEvent(self, e):
         p = QPainter(self)
@@ -112,36 +139,33 @@ class Treemap(QWidget):
         small = QFont(self.font())
         small.setPointSizeF(max(7.0, self.font().pointSizeF() - 1.5))
         fm, sfm = QFontMetrics(self.font()), QFontMetrics(small)
-        for i, (box, name, size, what, top) in enumerate(self.boxes):
-            color = self._color(name, what)
-            if not top:
-                color = color.lighter(112) if t.dark else color.darker(104)
+        left = Qt.AlignLeft | Qt.AlignTop | Qt.AlignAbsolute
+        for i, b in enumerate(self.boxes):
+            color = self._color(b)
             if i == self.hover:
                 color = color.lighter(125)
+            box = b.rect
             p.setPen(QPen(t.bg, 1.2))
             p.setBrush(color)
-            p.drawRoundedRect(box.adjusted(0.5, 0.5, -0.5, -0.5), 4 if top else 2, 4 if top else 2)
+            radius = 4 if b.level == 0 else 2
+            p.drawRoundedRect(box.adjusted(0.5, 0.5, -0.5, -0.5), radius, radius)
             ink = QColor("#111") if color.lightness() > 150 else QColor("#fff")
-            if top and box.width() > 46 and box.height() > 18:
+            font, metrics = (self.font(), fm) if b.level == 0 else (small, sfm)
+            if box.width() > 46 and box.height() > metrics.height() + 2:
                 p.setPen(ink)
-                p.setFont(self.font())
-                label = fm.elidedText(f"{name}", Qt.ElideMiddle, int(box.width() - 10))
-                p.drawText(box.adjusted(6, 2, -4, 0), Qt.AlignLeft | Qt.AlignTop | Qt.AlignAbsolute, label)
-                if box.height() > 36 and not isinstance(what, space.Folder):
+                p.setFont(font)
+                p.drawText(box.adjusted(5, 1, -4, 0), left,
+                           metrics.elidedText(b.name, Qt.ElideMiddle, int(box.width() - 10)))
+                if b.kind != "folder" and box.height() > metrics.height() * 2 + 6 and b.level == 0:
                     p.setFont(small)
-                    p.drawText(box.adjusted(6, 4 + fm.height(), -4, 0), Qt.AlignLeft | Qt.AlignTop | Qt.AlignAbsolute,
-                               sfm.elidedText(human_size(size), Qt.ElideRight, int(box.width() - 10)))
-            elif not top and box.width() > 60 and box.height() > 16:
-                p.setPen(ink)
-                p.setFont(small)
-                p.drawText(box.adjusted(4, 1, -3, 0), Qt.AlignLeft | Qt.AlignTop | Qt.AlignAbsolute,
-                           sfm.elidedText(name, Qt.ElideMiddle, int(box.width() - 8)))
+                    p.drawText(box.adjusted(5, 3 + metrics.height(), -4, 0), left,
+                               sfm.elidedText(human_size(b.size), Qt.ElideRight, int(box.width() - 10)))
 
     def _at(self, pos) -> int:
         found = -1
-        for i, (box, *_rest) in enumerate(self.boxes):
-            if box.contains(pos):
-                found = i  # (inner boxes come after their folder: the innermost wins)
+        for i, b in enumerate(self.boxes):
+            if b.rect.contains(pos):
+                found = i  # (boxes inside a folder come after it: the innermost wins)
         return found
 
     def mouseMoveEvent(self, e):
@@ -150,11 +174,11 @@ class Treemap(QWidget):
             self.hover = i
             self.update()
         if i >= 0:
-            box, name, size, what, top = self.boxes[i]
+            b = self.boxes[i]
             where = ""
-            if isinstance(what, tuple):
-                where = f"{what[1].name}  ›  "
-            QToolTip.showText(e.globalPosition().toPoint(), f"{where}{name}\n{human_size(size)}", self)
+            if b.parent is not None and b.parent is not self.folder:
+                where = f"{b.parent.name}  ›  "
+            QToolTip.showText(e.globalPosition().toPoint(), f"{where}{b.name}\n{human_size(b.size)}", self)
 
     def leaveEvent(self, e):
         self.hover = -1
@@ -162,18 +186,12 @@ class Treemap(QWidget):
 
     def _target(self, i: int):
         """(path, Folder or None, folder to open) for a box."""
-        box, name, size, what, top = self.boxes[i]
-        base = self.folder.path
-        if isinstance(what, tuple):  # inside a folder box
-            sub, inner = what[1], what[2]
-            if isinstance(inner, space.Folder):
-                return inner.path, inner, sub
-            return sub.path / inner, None, sub
-        if isinstance(what, space.Folder):
-            return what.path, what, what
-        if what == "rest":
-            return None, None, None
-        return base / name, None, None
+        b = self.boxes[i]
+        if b.kind == "folder":
+            return b.folder.path, b.folder, b.folder
+        if b.kind == "rest":
+            return None, None, b.parent if b.parent is not self.folder else None
+        return b.parent.path / b.name, None, b.parent if b.parent is not self.folder else None
 
     def mouseReleaseEvent(self, e):
         i = self._at(e.position())
@@ -325,8 +343,8 @@ class SpacePage(QWidget):
         nav = QHBoxLayout()
         nav.setSpacing(6)
         self.up_btn = _button(tr("Up"), None, self._up)
-        self.where = _label("", "h2")
-        self.where.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.where = ElidedLabel()
+        self.where.setObjectName("h2")
         self.again_btn = _button(tr("Look again"), "flat", self._rescan)
         self.drives_btn = _button(tr("Other drives"), "flat", self._back_to_drives)
         nav.addWidget(self.up_btn)
@@ -457,9 +475,10 @@ class SpacePage(QWidget):
         self.open_folder(result.root)
         self.kinds_bar.set_kinds(result.kinds)
         total = sum(result.kinds.values()) or 1
-        parts = [f"{tr(space.KINDS[k])} {human_size(v)}" for k, v in sorted(result.kinds.items(), key=lambda kv: -kv[1])
+        parts = [f"<span style='color:{KIND_COLORS[k]}'>■</span>&nbsp;{html.escape(tr(space.KINDS[k]))} "
+                 f"{human_size(v)}" for k, v in sorted(result.kinds.items(), key=lambda kv: -kv[1])
                  if v > total * 0.005]
-        self.kinds_text.setText("   ·   ".join(parts))
+        self.kinds_text.setText("&nbsp;&nbsp;&nbsp;".join(parts))
 
     def _summary(self):
         s, f = self.scan, self.here
@@ -476,7 +495,7 @@ class SpacePage(QWidget):
 
     def open_folder(self, folder: space.Folder):
         self.here = folder
-        self.where.setText(ltr(short_name(str(folder.path), 90)))
+        self.where.set_full(str(folder.path))
         self.up_btn.setEnabled(folder.parent is not None)
         self.treemap.show_folder(folder)
         self._summary()
