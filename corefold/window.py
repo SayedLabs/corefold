@@ -31,6 +31,7 @@ from .settings import (ACCENTS, APP_NAME, DEFAULT_ACCENT, APPEARANCES, HOVER_STY
                        startup_enabled)
 from .theme import Theme
 from .timefmt import date_text, locale, time_ago  # noqa: F401 (used by other pages)
+from .navbar import ICON_ROLE
 from .wheel import WheelPreview
 from .winutil import memory_use, reveal_in_explorer, set_title_bar_dark
 
@@ -61,6 +62,8 @@ PAGE_ICONS = {"Home": "home", "General": "settings", "Look": "paint_brush", "For
               "History": "history", "Updates": "arrow_sync", "About": "info", "Store": "apps",
               **{tool.page: tool.icon for tool in all_tools.TOOLS}}
 
+
+COMPACT_NAV = 60   # the sidebar's width with icons only
 
 # ----------------------------------------------------------------------------- small building blocks
 
@@ -160,28 +163,34 @@ class ToolCard(QFrame):
         lay.setContentsMargins(16, 14, 16, 14)
         lay.setSpacing(10 if small else 8)
         tile = QLabel()
-        side = 34 if small else 44
+        side = 40 if small else 44
         tile.setPixmap(icons.product_tile(product, side, dark, dpr))
         tile.setFixedSize(side + 2, side + 2)
         tile.setAttribute(Qt.WA_TransparentForMouseEvents)
         self.title = label(title, "cardTitle")
         self.title.setAttribute(Qt.WA_TransparentForMouseEvents)
         if small:
-            lay.addWidget(tile, 0, Qt.AlignVCenter)
+            lay.addWidget(tile, 0, Qt.AlignTop)
             words = QVBoxLayout()
             words.setSpacing(2)
             words.addWidget(self.title)
             if pill:
-                p = label(pill, "muted")
+                p = label(pill, "muted", wrap=True)
+                p.setMinimumWidth(1)  # wraps inside the card (long lines, long translations)
                 p.setAttribute(Qt.WA_TransparentForMouseEvents)
                 words.addWidget(p)
+            self.stat = label("", "cardStat")  # (a small figure, like how many files it converted)
+            self.stat.setAttribute(Qt.WA_TransparentForMouseEvents)
+            self.stat.hide()
+            words.addWidget(self.stat)
+            words.addStretch()
             lay.addLayout(words, 1)
         else:
             lay.addWidget(tile)
             lay.addWidget(self.title)
             line = label(text, "muted", wrap=True)
             line.setMinimumWidth(1)  # wraps inside the card instead of pushing past its edge (long Arabic lines)
-            line.setContentsMargins(6, 0, 6, 0)
+            line.setContentsMargins(0, 0, 2, 0)
             line.setAttribute(Qt.WA_TransparentForMouseEvents)
             lay.addWidget(line)
             self.stat = label(pill, "cardStat")
@@ -346,63 +355,75 @@ class MainWindow(QWidget):
         sidebar = QWidget()
         sidebar.setObjectName("sidebar")
         sidebar.setAttribute(Qt.WA_StyledBackground)
-        sidebar.setFixedWidth(212)
-        logo = QLabel()
-        logo.setPixmap(icon.pixmap(30, 30))
+        self.sidebar = sidebar
+        # the menu button (icons only, or names too), the logo and the name
+        self.menu_btn = QPushButton()
+        self.menu_btn.setObjectName("navToggle")
+        self.menu_btn.setCursor(Qt.PointingHandCursor)
+        self.menu_btn.setFixedSize(40, 36)
+        self.menu_btn.setIconSize(QSize(18, 18))
+        self.menu_btn.clicked.connect(self.toggle_nav)
+        self.logo = QLabel()
+        self.logo.setPixmap(icon.pixmap(26, 26))
+        self.brand = label(APP_NAME, "brand")
         brand = QHBoxLayout()
-        brand.addWidget(logo)
-        brand.addWidget(label(APP_NAME, "brand"))
+        brand.setSpacing(8)
+        brand.setContentsMargins(0, 0, 0, 0)
+        brand.addWidget(self.menu_btn)
+        brand.addWidget(self.logo)
+        brand.addWidget(self.brand)
         brand.addStretch()
-        # the tools this person uses (the Store adds and removes them; nothing of the others is built)
+        # the tools this person uses (the Store adds and removes them; nothing of the others is built),
+        # in the order they dragged them into
         self.tools_on = all_tools.enabled(self.c.settings)
         on_pages = {tool.page for tool in self.tools_on}
         self.nav_entries = NAV[:3] + [tool.page for tool in self.tools_on] + NAV[3:]
         self.settings_tab_list = BASE_SETTINGS_TABS + [(tool.settings, tool.nav, list(tool.settings_pages))
                                                        for tool in self.tools_on if tool.settings]
-        self.nav = QListWidget()
-        self.nav.setObjectName("nav")
+        from .navbar import BADGE_ROLE, EdgeHandle, NavList
+        self.nav = NavList(lambda: self.c.theme, self.c.settings.sidebar_icons, self.c.settings.animations)
         self.nav_rows: list[str | None] = []   # sidebar row -> page name (None for a heading)
         self.nav.ensurePolished()
-        row_h = max(34, self.nav.fontMetrics().height() + 18)  # compact rows, so every page fits
+        row_h = max(36, self.nav.fontMetrics().height() + 18)  # compact rows, so every page fits
         for entry in self.nav_entries:
             item = QListWidgetItem()
             if isinstance(entry, tuple):
                 item.setFlags(Qt.NoItemFlags)
-                f = item.font()
-                f.setPointSizeF(7.5)
-                f.setWeight(QFont.Weight.DemiBold)
-                f.setCapitalization(QFont.Capitalization.AllUppercase)
-                item.setFont(f)
                 item.setSizeHint(QSize(0, row_h - 6))
                 self.nav_rows.append(None)
             else:
                 item.setSizeHint(QSize(0, row_h))
+                item.setData(Qt.UserRole, entry)
                 self.nav_rows.append(entry)
             self.nav.addItem(item)
+        first_tool = 3
+        self.nav.movable = (first_tool, first_tool + len(self.tools_on) - 1)
         addable = len([tool for tool in all_tools.ready() if tool.page not in on_pages])
-        for row, name in enumerate(self.nav_rows):
-            if name == "Store" and addable:  # tools you can add, in a small pill (clicks go through to the row)
-                holder = QWidget()
-                holder.setAttribute(Qt.WA_TransparentForMouseEvents)
-                hl = QHBoxLayout(holder)
-                hl.setContentsMargins(0, 0, 10, 0)
-                hl.addStretch()
-                pill = label(str(addable), "soonPill")
-                pill.setFixedHeight(18)
-                hl.addWidget(pill, 0, Qt.AlignVCenter)
-                self.nav.setItemWidget(self.nav.item(row), holder)
+        if addable:  # tools you can add, in a small pill on the Store's row
+            self.nav.item(self.nav_rows.index("Store")).setData(BADGE_ROLE, addable)
         self.nav.setIconSize(icons.ICON_SIZE)
-        self.nav.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # (it still scrolls on tiny screens)
+        self.nav.moved.connect(self._nav_moved)
+        self.nav.menu.connect(self._nav_menu)
         self.refresh_nav()
-        self.nav.setCursor(Qt.PointingHandCursor)
         side = QVBoxLayout(sidebar)
-        side.setContentsMargins(14, 18, 14, 14)
-        side.setSpacing(14)
+        side.setContentsMargins(10, 12, 10, 12)
+        side.setSpacing(12)
         side.addLayout(brand)
         side.addWidget(self.nav, 1)
-        side.addWidget(label(tr("Version {version}", version=__version__), "version"))
+        self.version_label = label(tr("Version {version}", version=__version__), "version")
+        self.version_label.setContentsMargins(8, 0, 8, 0)
+        side.addWidget(self.version_label)
+        self.edge = EdgeHandle(sidebar)
+        self.edge.dragged.connect(self._nav_dragged)
+        self.edge.released.connect(self._nav_released)
+        self.edge.toggled.connect(self.toggle_nav)
+        self._nav_anim = None
+        self._narrow = False
+        self._auto_compact = False   # icons only because the window is narrow (not the person's choice)
+        self._apply_nav_width(COMPACT_NAV if self.c.settings.nav_compact else self.c.settings.nav_width)
 
         self.stack = QStackedWidget()
+        self.stack.currentChanged.connect(self._fade_in)
         builders = {"Home": self._home, "Converter": self._converter, "History": self._history, "Apps": self._apps,
                     "Archives": self._archives, "Store": self._store, "General": self._general,
                     "Look": self._look, "ConvOptions": self._conv_options, "WheelLook": self._wheel_look,
@@ -458,6 +479,7 @@ class MainWindow(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
         root.addWidget(sidebar)
+        root.addWidget(self.edge)
         root.addLayout(content, 1)
 
         self.refresh()
@@ -550,16 +572,160 @@ class MainWindow(QWidget):
                 w.installEventFilter(self._wheel_guard)
 
     def refresh_nav(self):
-        show = self.c.settings.sidebar_icons
         t = self.c.theme
-        for row, entry in enumerate(self.nav_entries):
-            item = self.nav.item(row)
+        self.nav.show_icons = self.c.settings.sidebar_icons
+        compact = self._compact_now()
+        for row, entry in enumerate(self.nav_entries):  # (headings never move)
             if isinstance(entry, tuple):
-                item.setText(tr(entry[1]))
-                item.setForeground(t.muted)
-                continue
-            item.setText(tr(NAV_LABELS.get(entry, entry)))
-            item.setIcon(icons.icon(PAGE_ICONS[entry], t.muted, selected=t.text) if show else QIcon())
+                self.nav.item(row).setText(tr(entry[1]))
+        for row in range(self.nav.count()):  # (tools can have been dragged: go by each row's own page)
+            item = self.nav.item(row)
+            name = item.data(Qt.UserRole)
+            if name:
+                text = tr(NAV_LABELS.get(name, name))
+                item.setText(text)
+                item.setData(ICON_ROLE, PAGE_ICONS[name])
+                item.setToolTip(text if compact else "")
+        self.menu_btn.setIcon(icons.icon("navigation", t.text))
+        self.menu_btn.setToolTip(tr("Show the names") if compact else tr("Icons only"))
+        self.nav.viewport().update()
+
+    # ---- the sidebar: narrow or wide, and the tools in your order
+
+    def _apply_nav_width(self, width: int):
+        self.sidebar.setFixedWidth(width)
+        compact = width < COMPACT_NAV + 40
+        for w in (self.logo, self.brand, self.version_label):
+            w.setVisible(not compact)
+
+    def _fade_in(self, i: int):
+        """A page that's opened fades in (quickly), so moving between pages feels smooth."""
+        w = self.stack.widget(i)
+        if w is None or not (self.c.settings.animations and self.isVisible()) or PAGES[i] == "Player":
+            return  # (the Player's video draws itself: it's left alone)
+        from PySide6.QtCore import QPropertyAnimation
+        from PySide6.QtWidgets import QGraphicsOpacityEffect
+        effect = QGraphicsOpacityEffect(w)
+        effect.setOpacity(0.0)
+        w.setGraphicsEffect(effect)
+        anim = QPropertyAnimation(effect, b"opacity", w)
+        anim.setDuration(150)
+        anim.setStartValue(0.0)
+        anim.setEndValue(1.0)
+        anim.finished.connect(lambda: _alive(w) and w.setGraphicsEffect(None))
+        anim.start(QPropertyAnimation.DeleteWhenStopped)
+
+    def _compact_now(self) -> bool:
+        return self.c.settings.nav_compact or getattr(self, "_auto_compact", False)
+
+    def toggle_nav(self):
+        self.set_nav_compact(not self._compact_now())
+
+    def set_nav_compact(self, compact: bool, remember: bool = True):
+        """Icons only (narrow) or icons and names, sliding between the two."""
+        if remember:
+            self.c.settings.nav_compact = compact
+            self._auto_compact = False
+            self.c.settings_changed()
+        compact = self._compact_now()
+        target = COMPACT_NAV if compact else self.c.settings.nav_width
+        for row in range(self.nav.count()):
+            item = self.nav.item(row)
+            if item.data(Qt.UserRole):
+                item.setToolTip(item.text() if compact else "")
+        self.menu_btn.setToolTip(tr("Show the names") if compact else tr("Icons only"))
+        if self._nav_anim is not None:
+            self._nav_anim.stop()
+        if not (self.c.settings.animations and self.isVisible()):
+            self._apply_nav_width(target)
+            return
+        from PySide6.QtCore import QEasingCurve, QVariantAnimation
+        anim = QVariantAnimation(self)
+        anim.setDuration(180)
+        anim.setEasingCurve(QEasingCurve.OutCubic)
+        anim.setStartValue(self.sidebar.width())
+        anim.setEndValue(target)
+        anim.valueChanged.connect(lambda v: self._apply_nav_width(int(v)))
+        self._nav_anim = anim
+        anim.start()
+
+    def _nav_dragged(self, width: int):
+        """The sidebar's edge being dragged: wider, narrower, or (far enough) icons only."""
+        s = self.c.settings
+        if width < COMPACT_NAV + 50:
+            if not self._compact_now():
+                self.set_nav_compact(True)
+            return
+        if self._compact_now():
+            s.nav_width = max(190, min(340, width))
+            self.set_nav_compact(False)
+            return
+        s.nav_width = max(190, min(340, width))
+        if self._nav_anim is not None:
+            self._nav_anim.stop()
+        self._apply_nav_width(s.nav_width)
+
+    def _nav_released(self):
+        self.c.settings_changed()
+
+    def _nav_moved(self, pages: list):
+        """Tools dragged into a new order: remembered, and the Home page and Settings follow it."""
+        by_page = {tool.page: tool for tool in all_tools.TOOLS}
+        self.c.settings.nav_order = [by_page[p].id for p in pages if p in by_page]
+        self.c.settings_changed()
+        self.nav_rows = [self.nav.item(r).data(Qt.UserRole) for r in range(self.nav.count())]
+        self.tools_on = all_tools.enabled(self.c.settings)
+        self._rebuild_home()
+
+    def _rebuild_home(self):
+        i = PAGES.index("Home")
+        old = self.stack.widget(i)
+        current = self.stack.currentIndex()
+        new = self._home()
+        self.stack.insertWidget(i, new)
+        self.stack.removeWidget(old)
+        old.deleteLater()
+        self.stack.setCurrentIndex(current)
+        self.refresh()
+        self.refresh_history()
+
+    def _nav_menu(self, row: int, pos):
+        """Right-click on the sidebar: move a tool, put them back in order, or narrow the sidebar."""
+        from PySide6.QtWidgets import QMenu
+        from .theme import round_menu
+        menu = QMenu(self)
+        round_menu(menu)
+        if self.nav.can_drag(row):
+            first, last = self.nav.movable
+            up = menu.addAction(tr("Move up"), lambda: self.nav.move_by(row, -1))
+            up.setEnabled(row > first)
+            down = menu.addAction(tr("Move down"), lambda: self.nav.move_by(row, 1))
+            down.setEnabled(row < last)
+            menu.addAction(tr("Put the tools back in order"), self._reset_nav_order)
+            menu.addSeparator()
+            page = self.nav.item(row).data(Qt.UserRole)
+            tool = all_tools.BY_PAGE.get(page)
+            if tool is not None:
+                menu.addAction(tr("Remove from Corefold…"), lambda: self._remove_tool(tool))
+                menu.addSeparator()
+        menu.addAction(tr("Show the names") if self._compact_now() else tr("Icons only"), self.toggle_nav)
+        menu.exec(pos)
+
+    def _reset_nav_order(self):
+        self.c.settings.nav_order = []
+        self.c.settings_changed()
+        self.c.rebuild_window(self.current_page(), committed=self.committed, pending_startup=self.pending_startup)
+
+    def resizeEvent(self, e):
+        """A narrow window shows the sidebar's icons only (and names again when it's wide enough)."""
+        super().resizeEvent(e)
+        if not hasattr(self, "sidebar"):
+            return
+        narrow = self.width() < 860
+        if narrow != self._narrow:
+            self._narrow = narrow
+            self._auto_compact = narrow
+            self.set_nav_compact(narrow, remember=False)
 
     def current_page(self) -> str:
         i = self.stack.currentIndex()
@@ -830,7 +996,47 @@ class MainWindow(QWidget):
             lay.addWidget(label(tr("You haven't added any tools yet. Pick the ones you want below."), "muted",
                                 wrap=True))
         section(tr("Add more"), more, "add")
-        section(tr("Coming soon"), all_tools.coming(), "soon")
+        coming = all_tools.coming()
+        if coming:  # many ideas: a tidy grid, the first row shown until "Show all" is pressed
+            head = QHBoxLayout()
+            head.setSpacing(8)
+            head.addWidget(label(tr("Coming soon"), "section"))
+            count = label(str(len(coming)), "soonPill")
+            count.setFixedHeight(18)
+            head.addWidget(count, 0, Qt.AlignVCenter)
+            head.addStretch()
+            lay.addLayout(head)
+            lay.addWidget(label(tr("Tools we're making or thinking about. Each one comes in a free update when it's ready."), "muted",
+                                wrap=True))
+            grid = QGridLayout()
+            grid.setHorizontalSpacing(10)
+            grid.setVerticalSpacing(10)
+            cols, first = 3, 6
+            hidden: list[QWidget] = []
+            for i, tool in enumerate(coming):
+                tile = ToolCard(tool.product, tr(tool.nav), "", lambda n=tool.page: self.open_page(n), dark, dpr,
+                                small=True, pill=tr(tool.line))
+                grid.addWidget(tile, i // cols, i % cols)
+                if i >= first:
+                    tile.hide()
+                    hidden.append(tile)
+            for col in range(cols):
+                grid.setColumnStretch(col, 1)
+            lay.addLayout(grid)
+            if hidden:
+                more_btn = button(tr("Show all {count}", count=len(coming)), "flat")
+
+                def toggle():
+                    show = hidden[0].isHidden()
+                    for tile in hidden:
+                        tile.setVisible(show)
+                    more_btn.setText(tr("Show less") if show else tr("Show all {count}", count=len(coming)))
+                more_btn.clicked.connect(toggle)
+                row = QHBoxLayout()
+                row.addStretch()
+                row.addWidget(more_btn)
+                row.addStretch()
+                lay.addLayout(row)
         lay.addStretch()
         return w
 
@@ -919,9 +1125,10 @@ class MainWindow(QWidget):
         grid.setVerticalSpacing(12)
         self.tool_cards = {}
         mine = self.tools_on
-        cols = 3 if len(mine) % 3 == 0 or len(mine) > 4 else 2  # no card left alone on a row
+        cols = 2  # (two columns of short cards: all the tools fit without scrolling)
         for i, tool in enumerate(mine):
-            c = ToolCard(tool.product, tr(tool.name), tr(tool.line), lambda n=tool.page: self.open_page(n), dark, dpr)
+            c = ToolCard(tool.product, tr(tool.nav), "", lambda n=tool.page: self.open_page(n), dark, dpr,
+                         small=True, pill=tr(tool.line))
             self.tool_cards[tool.page] = c
             grid.addWidget(c, i // cols, i % cols)
         for col in range(cols):
@@ -932,12 +1139,14 @@ class MainWindow(QWidget):
                                 wrap=True))
 
         on = {tool.id for tool in mine}
-        others = [(tool, tr("Add")) for tool in all_tools.ready() if tool.id not in on] + \
-            [(tool, tr("Soon")) for tool in all_tools.coming()]
-        if others:
+        others = [(tool, tr("Add")) for tool in all_tools.ready() if tool.id not in on]
+        coming = len(all_tools.coming())
+        if others or coming:
             head = QHBoxLayout()
             head.addWidget(label(tr("More tools"), "section"))
             head.addStretch()
+            if coming:  # (the ideas are in the Store, so Home stays short)
+                head.addWidget(label(tr("{count} more on the way", count=coming), "muted"))
             head.addWidget(button(tr("Open the Store"), "flat", lambda: self.open_page("Store")))
             lay.addLayout(head)
             soon = QGridLayout()
