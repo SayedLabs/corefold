@@ -580,19 +580,78 @@ def tray():
 # ---------------------------------------------------------------------------- keyboard
 
 def keyboard():
-    """Tab through each page and press Esc: no errors, and the window stays open."""
+    """Tab through each page and press Esc (which steps back, or closes the window to the tray): no errors."""
     w = c.window
     for name in every_page_name(w)[:40]:
-        w.open_page(name)
+        before = len(errors)
+        c.show_window(name)
         settle(0.15)
-        w.activateWindow()
+        w = c.window
         for _ in range(25):
             QTest.keyClick(qapp.focusWidget() or w, Qt.Key_Tab)
         qapp.processEvents()
         QTest.keyClick(qapp.focusWidget() or w, Qt.Key_Escape)
         settle(0.1)
-        check(c.window.isVisible(), f"Tab and Esc on {name} leave the window open")
-        c.show_window(name)
+        check(len(errors) == before, f"Tab and Esc on {name} work without an error")
+    c.show_window("Home")
+    apply_size(c.window)
+
+
+# ---------------------------------------------------------------------------- quick menu and wheel
+
+def quick():
+    """The quick menu and the quick wheel open and close again and again, in every corner of the screen,
+    and always stay on the screen."""
+    q = getattr(c, "quick", None)
+    if q is None:
+        note("no quick access in this version")
+        return
+    from PySide6.QtGui import QCursor
+    screen = QGuiApplication.primaryScreen().availableGeometry()
+    spots = [screen.center(), screen.topLeft() + QPoint(2, 2), screen.topRight() + QPoint(-2, 2),
+             screen.bottomLeft() + QPoint(2, -2), screen.bottomRight() + QPoint(-2, -2)]
+    for round_ in range(3):
+        for spot in spots:
+            before = len(errors)
+            QCursor.setPos(spot)
+            q.toggle_menu()
+            settle(0.5)
+            m = getattr(q, "menu", None)
+            if check(m is not None and m.isVisible(), f"the quick menu opens (round {round_ + 1}, at {spot.x()},{spot.y()})"):
+                g = m.frameGeometry()
+                scr = (QGuiApplication.screenAt(spot) or QGuiApplication.primaryScreen()).geometry()
+                check(scr.adjusted(-2, -2, 2, 2).contains(g), f"the quick menu is on the screen ({g.x()},{g.y()} "
+                                                              f"{g.width()}x{g.height()} on {scr.width()}x{scr.height()})")
+                if round_ == 0 and spot == spots[0]:
+                    grab(m, "quick-menu")
+            q.toggle_menu()
+            settle(0.5)
+            check(m is None or not m.isVisible(), "the quick menu closes with its shortcut again")
+            q.open_wheel_at(spot)
+            settle(0.5)
+            wh = getattr(q, "wheel", None)
+            if check(wh is not None and wh.isVisible(), f"the quick wheel opens at {spot.x()},{spot.y()}"):
+                g = wh.frameGeometry()
+                scr = (QGuiApplication.screenAt(spot) or QGuiApplication.primaryScreen()).geometry()
+                check(scr.adjusted(-2, -2, 2, 2).contains(g), f"the quick wheel is on the screen at {spot.x()},"
+                                                              f"{spot.y()} ({g.x()},{g.y()} {g.width()}x{g.height()})")
+                if round_ == 0 and spot == spots[0]:
+                    grab(wh, "quick-wheel")
+                QTest.keyClick(wh, Qt.Key_Escape)
+                settle(0.4)
+                if wh.isVisible():
+                    check(False, "Esc closes the quick wheel")
+                    wh.hide()
+            check(len(errors) == before, f"the quick menu and wheel at {spot.x()},{spot.y()}: no errors")
+    # the floating button comes and goes with its setting
+    s_ = c.settings
+    was = s_.quick_button
+    for on in (True, False, True, was):
+        s_.quick_button = on
+        c.settings_changed()
+        settle(0.3)
+        b = getattr(c.quick, "button", None) if c.quick else None
+        check(bool(b is not None and b.isVisible()) == on, f"the floating button {'shows' if on else 'goes away'}")
 
 
 # ---------------------------------------------------------------------------- sizes
@@ -615,7 +674,7 @@ def sizes():
 
 sections = [("start", start), ("pages", pages)]
 if not ARGS.quick:
-    sections += [("buttons", buttons), ("keyboard", keyboard), ("tray", tray)]
+    sections += [("buttons", buttons), ("keyboard", keyboard), ("tray", tray), ("quick", quick)]
 sections += [("sizes", sizes), ("store", store_cycles)]
 if ARGS.only:
     sections = [x for x in sections if x[0] == "start" or x[0] in ARGS.only.split(",")]

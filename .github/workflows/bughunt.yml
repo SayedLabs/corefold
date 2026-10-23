@@ -109,6 +109,10 @@ jobs:
         run: |
           python scripts/navtest.py out/navtest en dark *> out/navtest-en.txt
           python scripts/navtest.py out/navtest ar light *> out/navtest-ar.txt
+          if (Test-Path scripts/quicktest.py) {
+            python scripts/quicktest.py out/quicktest en dark *> out/quicktest-en.txt
+            python scripts/quicktest.py out/quicktest ar light *> out/quicktest-ar.txt
+          }
 
       - name: The built Corefold.exe
         if: matrix.name == 'exe'
@@ -147,7 +151,7 @@ jobs:
             echo "Bug hunt of $SHA"
             for d in */; do
               echo "== ${d%/}"
-              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused" "$d" 2>/dev/null | head -20
+              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused" "$d" 2>/dev/null | head -20
               grep -rhaE "^(FAIL|ERROR) " "$d" 2>/dev/null | sort | uniq -c | sort -rn | head -60
             done
           } > summary.txt
