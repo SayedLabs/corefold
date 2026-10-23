@@ -431,6 +431,8 @@ class PlayerWindow(QWidget):
         self.screen_stack.setCurrentWidget(self.cover if audio_only else self.video)
         self._show_cover(None)
         self.resume_to = 0
+        self._resume_said = False
+        self._resume_tries = 0
         if self.c.settings.player_resume:
             saved = load_positions().get(str(path))
             if saved:
@@ -683,7 +685,18 @@ class PlayerWindow(QWidget):
 
     # ---- what the player says
 
+    def _start_over(self):
+        self.resume_to = 0
+        self._seek_to(0)
+
     def _position(self, pos: int):
+        if self.resume_to:  # (a jump asked for while the file was still opening can be lost: ask again)
+            if pos >= self.resume_to - 1500 or self._resume_tries >= 5:
+                self.resume_to = 0
+            elif pos > 0:
+                self._resume_tries += 1
+                self.player.setPosition(self.resume_to)
+                return
         if not self.seek.isSliderDown():
             self.seek.setValue(int(pos))
         self.t_now.setText(clock(pos))
@@ -712,10 +725,11 @@ class PlayerWindow(QWidget):
             self._said_playing = True
             log.info("player is playing (video %s, sound %s)", self.player.hasVideo(), self.player.hasAudio())
         if status in (QMediaPlayer.LoadedMedia, QMediaPlayer.BufferedMedia) and self.resume_to:
-            to, self.resume_to = self.resume_to, 0
-            self._seek_to(to)
-            self.flash(tr("Picking up where you left off ({time}).", time=clock(to)), 6000, tr("Start over"),
-                       lambda: self._seek_to(0))
+            if not self._resume_said:
+                self._resume_said = True
+                self.flash(tr("Picking up where you left off ({time}).", time=clock(self.resume_to)), 6000,
+                           tr("Start over"), self._start_over)
+            self.player.setPosition(self.resume_to)  # (checked again as it plays: see _position)
         elif status == QMediaPlayer.EndOfMedia:
             save_position(self.current(), 0, self.player.duration())  # (finished: not in Continue watching)
             if self.c.settings.player_next and self.index < len(self.files) - 1:
