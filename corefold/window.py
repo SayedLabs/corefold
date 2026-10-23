@@ -386,7 +386,7 @@ class Swatches(QWidget):
                 text = f"color: {'#000' if QColor(color).lightness() > 150 else '#fff'}; font-size: 14pt;"
             b.setStyleSheet(
                 f"QPushButton {{ background: {color}; border: 3px solid {t.panel.name()}; border-radius: 15px;"
-                f" padding: 0; min-height: 0; {text} }}"
+                f" padding: 0; {text} }}"
                 f"QPushButton:hover {{ border-color: {t.border.name()}; }}"
                 f"QPushButton:checked {{ background: {color}; border: 3px solid {t.text.name()}; }}")
 
@@ -445,7 +445,7 @@ class MainWindow(QWidget):
         self.nav = NavList(lambda: self.c.theme, self.c.settings.sidebar_icons, self.c.settings.animations)
         self.nav_rows: list[str | None] = []   # sidebar row -> page name (None for a heading)
         self.nav.ensurePolished()
-        row_h = max(38, self.nav.fontMetrics().height() + 20)  # rows a finger could hit, and every page fits
+        row_h = max(36, self.nav.fontMetrics().height() + 18)  # compact rows, so every page fits
         for entry in self.nav_entries:
             item = QListWidgetItem()
             if isinstance(entry, tuple):
@@ -467,8 +467,8 @@ class MainWindow(QWidget):
         self.nav.menu.connect(self._nav_menu)
         self.refresh_nav()
         side = QVBoxLayout(sidebar)
-        side.setContentsMargins(10, 14, 8, 14)
-        side.setSpacing(14)
+        side.setContentsMargins(10, 12, 8, 12)
+        side.setSpacing(12)
         side.addLayout(brand)
         side.addWidget(self.nav, 1)
         self.version_label = label(tr("Version {version}", version=__version__), "version")
@@ -498,6 +498,7 @@ class MainWindow(QWidget):
         self._wheel_guard = None
         self._settings_head()  # (made before the pages: opening one shows or hides it)
         self._dots: list[QLabel] = []
+        self._stat_glyphs: list[tuple[QLabel, str]] = []  # (icons on the History page's figures)
         self._gears: list[QPushButton] = []  # small "+" marks in the accent colour (recoloured with the theme)
         self._builders = builders
         # pages that are rarely opened are only built the first time they are (a faster, lighter window)
@@ -548,6 +549,7 @@ class MainWindow(QWidget):
         cl.addLayout(body, 1)
         cl.addLayout(footer)
 
+        self.canvas.installEventFilter(self)  # (the Settings list narrows to icons when space is short)
         root = QHBoxLayout(self)
         root.setContentsMargins(0, 8, 0, 8)
         root.setSpacing(0)
@@ -808,6 +810,24 @@ class MainWindow(QWidget):
             self._auto_compact = narrow
             self.set_nav_compact(narrow, remember=False)
 
+    def eventFilter(self, obj, event):
+        if obj is getattr(self, "canvas", None) and event.type() == QEvent.Type.Resize:
+            self._fit_settings_side(event.size().width())
+        return False
+
+    def _fit_settings_side(self, canvas_width: int):
+        """The Settings list shows names when there's room for them and the page beside it, icons otherwise."""
+        narrow = canvas_width < 1000
+        if narrow == getattr(self, "_settings_narrow", None):
+            return
+        self._settings_narrow = narrow
+        self.settings_side.setFixedWidth(52 if narrow else 212)
+        self.settings_side_title.setVisible(not narrow)
+        for row in range(self.settings_list.count()):
+            item = self.settings_list.item(row)
+            item.setToolTip(item.text() if narrow else "")
+        self.settings_list.viewport().update()
+
     def current_page(self) -> str:
         i = self.stack.currentIndex()
         return PAGES[i] if 0 <= i < len(PAGES) else "Home"
@@ -993,7 +1013,8 @@ class MainWindow(QWidget):
         sv = QVBoxLayout(side)
         sv.setContentsMargins(0, 2, 0, 0)
         sv.setSpacing(10)
-        sv.addWidget(label(tr("Settings"), "h1"))
+        self.settings_side_title = label(tr("Settings"), "h1")
+        sv.addWidget(self.settings_side_title)
         self.settings_list = NavList(lambda: self.c.theme, True, self.c.settings.animations)
         self.settings_list.setObjectName("settingsNav")
         self.settings_list.on_canvas = True
@@ -1006,7 +1027,8 @@ class MainWindow(QWidget):
             item = QListWidgetItem(tr(text))
             item.setSizeHint(QSize(0, row_h))
             item.setData(Qt.UserRole, first)
-            item.setData(ICON_ROLE, icon_of.get(first) or PAGE_ICONS.get(tool_of.get(first, ""), "settings"))
+            item.setData(ICON_ROLE, icon_of.get(first) or PAGE_ICONS.get(tool_of.get(first, ""))
+                         or PAGE_ICONS.get(first, "settings"))
             self.settings_tabs[first] = self.settings_list.count()
             self.settings_list.addItem(item)
         self.settings_list.setFixedHeight(row_h * len(self.settings_tab_list) + 6)
@@ -2630,27 +2652,29 @@ class MainWindow(QWidget):
 
     def _history(self) -> QWidget:
         w, lay = page(tr("History"))
-        stats, sl = card()
-        row = QHBoxLayout()
+        tiles = QHBoxLayout()
+        tiles.setSpacing(12)
         self.stat_files = label("0", "stat")
         self.stat_saved = label("0", "stat")
         self.stat_jobs = label("0", "stat")
-        for value, text in ((self.stat_files, tr("files converted")), (self.stat_saved, tr("space saved")),
-                            (self.stat_jobs, tr("conversions"))):
-            col = QVBoxLayout()
-            col.setSpacing(0)
-            col.addWidget(value)
-            col.addWidget(label(text, "muted"))
-            row.addLayout(col)
-            row.addSpacing(30)
-        row.addStretch()
-        sl.addLayout(row)
-        self.stat_since = label("", "muted")
-        sl.addWidget(self.stat_since)
-        lay.addWidget(stats)
+        for value, text, name in ((self.stat_files, tr("files converted"), "document_multiple"),
+                                  (self.stat_saved, tr("space saved"), "storage"),
+                                  (self.stat_jobs, tr("conversions"), "arrow_swap")):
+            tile, tl = card(2)
+            tl.setContentsMargins(18, 14, 18, 14)
+            glyph = QLabel()
+            self._stat_glyphs.append((glyph, name))
+            tl.addWidget(glyph)
+            tl.addSpacing(6)
+            tl.addWidget(value)
+            tl.addWidget(label(text, "muted"))
+            tiles.addWidget(tile, 1)
+        lay.addLayout(tiles)
+        self.stat_since = label("", "subtle")
+        lay.addWidget(self.stat_since)
 
         head = QHBoxLayout()
-        head.addWidget(label(tr("Recent conversions"), "h2"))
+        head.addWidget(label(tr("Recent conversions"), "title"))
         head.addStretch()
         self.history_search = QLineEdit()
         self.history_search.setPlaceholderText(tr("Search"))
@@ -2710,28 +2734,36 @@ class MainWindow(QWidget):
         return w
 
     def _about(self) -> QWidget:
+        from .atomic.widgets import GlowPanel
         w, lay = page(tr("About"))
-        top = QHBoxLayout()
+        hero = GlowPanel()
+        top = QHBoxLayout(hero)
+        top.setContentsMargins(26, 24, 26, 22)
+        top.setSpacing(20)
         logo = QLabel()
-        logo.setPixmap(self.icon.pixmap(72, 72))
+        logo.setPixmap(self.icon.pixmap(80, 80))
         text = QVBoxLayout()
-        text.addWidget(label(APP_NAME, "h2"))
-        text.addWidget(label(tr("Version {version}", version=__version__), "muted"))
+        text.setSpacing(4)
+        name_row = QHBoxLayout()
+        name_row.setSpacing(10)
+        name_row.addWidget(label(APP_NAME, "display"))
+        name_row.addWidget(label(tr("Version {version}", version=__version__), "chip"), 0, Qt.AlignVCenter)
+        name_row.addStretch()
+        text.addLayout(name_row)
         text.addWidget(label(tr("Everyday tools for Windows: convert files, remove programs, open and make "
                                 "archives. Everything happens on your PC; nothing is uploaded."), "muted", wrap=True))
-        self.memory = label("", "muted")
+        self.memory = label("", "subtle")
         text.addWidget(self.memory)
-        top.addWidget(logo, 0, Qt.AlignTop)
-        top.addSpacing(10)
-        top.addLayout(text, 1)
-        lay.addLayout(top)
-
+        text.addSpacing(8)
         row = QHBoxLayout()
         row.addWidget(button(tr("Show the tour"), on_click=self.c.show_tour))
         row.addWidget(button(tr("Open log folder"), on_click=self._open_logs))
         row.addWidget(button(tr("Quit Corefold"), on_click=self.c.ask_quit))
         row.addStretch()
-        lay.addLayout(row)
+        text.addLayout(row)
+        top.addWidget(logo, 0, Qt.AlignTop)
+        top.addLayout(text, 1)
+        lay.addWidget(hero)
 
         if UPDATE_REPO:
             owner, _, name = UPDATE_REPO.partition("/")
@@ -3177,6 +3209,8 @@ class MainWindow(QWidget):
             b.setIcon(icons.icon(name, t.accent if not t.dark else t.text))
         self.settings_list.viewport().update()
         dpr = self.devicePixelRatioF()
+        for glyph, name in self._stat_glyphs:
+            glyph.setPixmap(icons.pixmap(name, 22, t.accent, dpr))
         for lab, name in zip(self.vol_icons, ("speaker_0", "speaker_2")):
             lab.setPixmap(icons.pixmap(name, 18, t.muted, dpr))
         for b, name in getattr(self, "link_buttons", []):

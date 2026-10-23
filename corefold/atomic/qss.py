@@ -53,7 +53,7 @@ QFrame#tabLine { background: $border; border: none; max-height: 1px; min-height:
 QFrame#toast { background: $raised; border: 1px solid $line_strong; border-radius: ${r_xl}px; }
 
 QPushButton { background: $field; border: 1px solid $line_strong; border-bottom-color: $line_bottom;
-              border-radius: ${r_md}px; padding: 6px 15px; min-height: 20px; }
+              border-radius: ${r_md}px; padding: 7px 15px; }
 QPushButton:hover { background: $hover; }
 QPushButton:pressed { background: $pressed; border-bottom-color: $line_strong; }
 QPushButton:checked { background: $accent_soft; color: $text; border-color: $accent; }
@@ -71,11 +71,11 @@ QPushButton#ghost:hover { background: $hover; }
 QPushButton#ghost:pressed { background: $pressed; }
 QPushButton#flat { background: transparent; border: none; color: $accent_text; padding: 3px 6px; font-weight: 600; }
 QPushButton#flat:hover { color: $text; }
-QPushButton#small { padding: 2px 8px; min-height: 0; min-width: 0; background: transparent; border: 1px solid transparent;
+QPushButton#small { padding: 2px 8px; min-width: 0; background: transparent; border: 1px solid transparent;
                     color: $muted; font-size: ${caption}pt; }
 QPushButton#small:hover { background: $hover; border-color: $line_strong; color: $text; }
 QPushButton#small:disabled { color: $border; background: transparent; border-color: transparent; }
-QPushButton#iconButton { padding: 0; min-width: 0; min-height: 0; border-radius: ${r_md}px; background: transparent;
+QPushButton#iconButton { padding: 0; min-width: 0; border-radius: ${r_md}px; background: transparent;
                          border: 1px solid transparent; }
 QPushButton#iconButton:hover { background: $hover; }
 QPushButton#iconButton:pressed { background: $pressed; }
@@ -85,7 +85,7 @@ QPushButton#tab { background: transparent; border: none; border-bottom: 2px soli
 QPushButton#tab:hover { color: $text; }
 QPushButton#tab:checked { color: $text; border-bottom: 2px solid $accent; }
 QPushButton#subtab { background: transparent; border: 1px solid transparent; border-radius: 15px; color: $muted;
-                     padding: 4px 14px; min-width: 0; min-height: 0; font-weight: 600; }
+                     padding: 4px 14px; min-width: 0; font-weight: 600; }
 QPushButton#subtab:hover { color: $text; background: $hover; }
 QPushButton#subtab:checked { color: $text; background: $surface; border-color: $line_strong; }
 

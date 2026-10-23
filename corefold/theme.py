@@ -111,7 +111,7 @@ QWidget#sidebar { background: transparent; }
 QLabel#brand { font-family: "Segoe UI Variable Display", "Segoe UI"; font-size: 12.5pt; font-weight: 700; }
 QListWidget#nav { background: transparent; border: none; outline: none; }
 QPushButton#navToggle { background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 0;
-                        min-width: 0; min-height: 0; }
+                        min-width: 0; }
 QPushButton#navToggle:hover { background: $nav_hover; }
 QPushButton#navToggle:pressed { background: $nav_press; }
 QFrame#palettePanel { background: transparent; border: none; }
@@ -170,7 +170,7 @@ QFrame#clipPopup { background: $raised; border: 1px solid $line_strong; border-r
 QListWidget#clips { background: transparent; border: none; outline: none; }
 QListWidget#clipsPage { background: $panel; border: 1px solid $border; border-radius: 12px; outline: none; padding: 4px; }
 QLabel#toastTitle { font-weight: 600; }
-QPushButton#close { background: transparent; border: none; color: $muted; padding: 0 4px; font-size: 11pt; min-height: 0; }
+QPushButton#close { background: transparent; border: none; color: $muted; padding: 0 4px; font-size: 11pt; }
 QPushButton#close:hover { color: $text; }
 """)
 
