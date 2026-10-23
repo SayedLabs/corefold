@@ -132,7 +132,7 @@ _TILE_GLYPHS = {  # drawn on the old 4..60 grid, moved into the 10..54 body by _
     "notes": '<path fill="none" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round" d="M20 29H42V43L35 50H20ZM35 50V43H42M25 36H37M25 41.5H31"/>',
     "system": '<rect x="17" y="29" width="28" height="18" rx="3" fill="none" stroke-width="3.6"/><path fill="none" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round" d="M25 53H37M31 47V53"/>',
     "unlock": '<rect x="20" y="38" width="22" height="15" rx="3.5"/><path fill="none" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round" d="M25 38V33.5a6 6 0 0 1 11.5-2.5"/>',
-    "tidy": '<path fill="none" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round" d="M17 33.5c0-2 1.5-3.5 3.5-3.5h6l3 3.5h12c2 0 3.5 1.5 3.5 3.5V49c0 2-1.5 3.5-3.5 3.5h-21C18.5 52.5 17 51 17 49ZM23.5 42H38.5M23.5 47H33"/>',
+    "organizer": '<path fill="none" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round" d="M17 33.5c0-2 1.5-3.5 3.5-3.5h6l3 3.5h12c2 0 3.5 1.5 3.5 3.5V49c0 2-1.5 3.5-3.5 3.5h-21C18.5 52.5 17 51 17 49ZM23.5 42H38.5M23.5 47H33"/>',
     "sound": '<path d="M19 37h5l8-7v22l-8-7h-5Z"/><path fill="none" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round" d="M37 36a7 7 0 0 1 0 10M41 32a13 13 0 0 1 0 18"/>',
 }
 _GLYPH_FIT = 'transform="translate(6.857 6.857) scale(0.7857)"'
@@ -147,7 +147,7 @@ PRODUCT_COLORS = {  # (light end, deep end) of each product's gradient
     "battery": ("#b8f5a3", "#3b9a1f"), "focus": ("#ffb0a8", "#c4382c"), "layouts": ("#b5c4ff", "#4257c9"),
     "drivers": ("#d4c4a8", "#7a5f34"), "awake": ("#f2cfa0", "#9c6420"), "snippets": ("#c8b5ff", "#6a3fd0"),
     "backup": ("#9fe3dc", "#16867a"), "notes": ("#fff2a0", "#c8a400"), "system": ("#b9d3e8", "#3d6a8f"),
-    "unlock": ("#ffc6a0", "#c9661c"), "tidy": ("#a6e3ff", "#2a7cc4"), "sound": ("#ffb8d4", "#bf3f74"),
+    "unlock": ("#ffc6a0", "#c9661c"), "organizer": ("#a6e3ff", "#2a7cc4"), "sound": ("#ffb8d4", "#bf3f74"),
 }
 
 
