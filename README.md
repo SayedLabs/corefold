@@ -158,8 +158,8 @@ under *General → Language*. In Arabic the whole app is right-to-left.
 Read the full [privacy policy](PRIVACY.md).
 
 ## Installing
-[**Download Corefold-Setup.exe**](https://github.com/SayedLabs/corefold/releases/latest), run it, accept
-the licence agreement, keep the two boxes ticked and click **Install**. That's it: a desktop icon, a Start menu entry, and Corefold
+[**Download Corefold-Setup.exe**](https://github.com/SayedLabs/corefold/releases/latest), run it, keep
+the two boxes ticked and click **Install**. That's it: a desktop icon, a Start menu entry, and Corefold
 starts with Windows. No admin rights or Python needed. Installing a newer version on top upgrades it
 and keeps your settings.
 
@@ -199,11 +199,9 @@ It asks whether to delete your settings too. Files you converted are never touch
 (Portable version: **About → Remove settings and quit**, then delete the folder.)
 
 ## Licence
-Corefold is free to use under its licence agreement ([EULA.txt](EULA.txt)). The third-party parts it
-includes are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-
-<!-- private -->
+Corefold is free. Its code is MIT licensed ([LICENSE](LICENSE)), and the open-source parts it includes
+are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Working on Corefold
-How to run it from the source, build it and test it on a real Windows PC is in
-[DEVELOPING.md](DEVELOPING.md); how to publish a release is in [RELEASING.md](RELEASING.md).
+How to run it from the source, build it, test it on a real Windows PC and publish a release is in
+[DEVELOPING.md](DEVELOPING.md).
