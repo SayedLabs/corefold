@@ -386,6 +386,7 @@ class Settings:
 # ----------------------------------------------------------------------------- start with Windows
 
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+STARTUP_APPROVED = r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
 
 
 def app_command(*args: str) -> str:
@@ -408,13 +409,33 @@ def launch_command() -> str:
 
 
 def startup_enabled() -> bool:
+    """Corefold starts with Windows: its entry is there, and it isn't switched off (in Task Manager or
+    Corefold Startup)."""
     import winreg
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as k:
             winreg.QueryValueEx(k, APP_NAME)
-            return True
     except OSError:
         return False
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, STARTUP_APPROVED) as k:
+            note = winreg.QueryValueEx(k, APP_NAME)[0]
+        return not (isinstance(note, bytes) and note[:1] and note[0] & 1)
+    except OSError:
+        return True
+
+
+def _clear_off_note():
+    """Switched off in Task Manager (or Corefold Startup) earlier: switching it on here means on."""
+    import winreg
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, STARTUP_APPROVED, 0,
+                            winreg.KEY_QUERY_VALUE | winreg.KEY_SET_VALUE) as k:
+            note = winreg.QueryValueEx(k, APP_NAME)[0]
+            if isinstance(note, bytes) and note[:1] and note[0] & 1:
+                winreg.SetValueEx(k, APP_NAME, 0, winreg.REG_BINARY, bytes([2]) + bytes(11))
+    except OSError:
+        pass
 
 
 def remove_old_startup_entry() -> bool:
@@ -436,6 +457,7 @@ def set_startup(on: bool):
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as k:
             if on:
                 winreg.SetValueEx(k, APP_NAME, 0, winreg.REG_SZ, launch_command())
+                _clear_off_note()
             else:
                 try:
                     winreg.DeleteValue(k, APP_NAME)

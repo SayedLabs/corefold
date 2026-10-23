@@ -117,6 +117,20 @@ def table_texts() -> dict[str, str]:
          "needs. Windows asks for an administrator.", "The previous Windows", "Kept after a big Windows update, to "
          "go back to it. Once it's removed, going back isn't possible. Windows asks for an administrator."],
         "space.find_junk")
+    from corefold import pdfpage, pdftools
+    add([text for card in pdfpage.ACTIONS + pdfpage.MORE for text in card[1:3]], "pdfpage.ACTIONS")
+    add(pdfpage.TIPS.values(), "pdfpage.TIPS")
+    add([v[0] for table in (pdftools.COMPRESS_LEVELS, pdftools.PAGE_SIZES, pdftools.MARGINS) for v in table.values()],
+        "pdftools tables")
+    add(list(pdftools.DPIS.values()) + list(pdftools.SPLIT_MODES.values()), "pdftools tables")
+    from corefold import organizer, organizerpage
+    add([name for name, _ in organizer.KINDS.values()], "organizer.KINDS")
+    add(organizer.STAYS.values(), "organizer.STAYS")
+    add(organizer.REFUSED.values(), "organizer.REFUSED")
+    add([name for _, name, _ in organizerpage.PLACES], "organizerpage.PLACES")
+    from corefold import startuppage
+    add([text for _, text in startuppage.FILTERS], "startuppage.FILTERS")
+    add(startuppage.WHERE.values(), "startuppage.WHERE")
     from corefold import scanpage
     for name in ("PLACES", "STATUS", "SEVERITY", "SKIPPED", "KINDS"):
         add(getattr(scanpage, name).values(), "scanpage." + name)

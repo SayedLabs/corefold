@@ -5,9 +5,10 @@ import threading
 
 from PySide6.QtCore import QObject, QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QImage, QPainter, QPen, QPixmap
-from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
+from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
                                QPushButton, QRadioButton, QSpinBox, QStackedWidget, QWidget)
 
+from .atomic.widgets import Dropdown
 from .core import short_name
 from .dialogs import Base, describe
 from .i18n import tr
@@ -116,7 +117,7 @@ class RenameFilesDialog(Base):
         super().__init__(tr("Rename"), tr("{count} files", count=len(files)) if len(files) != 1
                          else short_name(files[0].name), icon, dark)
         self.files = files
-        self.mode = QComboBox()
+        self.mode = Dropdown()
         for key, text in self.MODES:
             self.mode.addItem(tr(text), key)
         self.lay.addWidget(self.mode)
@@ -343,7 +344,7 @@ class CropDialog(Base):
     def __init__(self, files, icon, dark):
         super().__init__(tr("Crop"), describe(files), icon, dark)
         self.area = CropArea()
-        self.ratio = QComboBox()
+        self.ratio = Dropdown()
         for key, (text, value) in CROP_RATIOS.items():
             self.ratio.addItem(tr(text), key)
         self.ratio.currentIndexChanged.connect(lambda _: self.area.set_ratio(CROP_RATIOS[self.ratio.currentData()][1]))
@@ -491,10 +492,10 @@ class PageNumbersDialog(Base):
         grid = QGridLayout()
         grid.setHorizontalSpacing(12)
         grid.setVerticalSpacing(10)
-        self.place = QComboBox()
+        self.place = Dropdown()
         for k, v in NUMBER_PLACES.items():
             self.place.addItem(tr(v), k)
-        self.style = QComboBox()
+        self.style = Dropdown()
         self.style.addItem("1, 2, 3…", "n")
         self.style.addItem("1 / 12, 2 / 12…", "of")
         grid.addWidget(QLabel(tr("Where")), 0, 0)
@@ -604,13 +605,13 @@ class SignDialog(Base):
         self.lay.addLayout(row)
         grid = QGridLayout()
         grid.setHorizontalSpacing(12)
-        self.pages = QComboBox()
+        self.pages = Dropdown()
         for k, v in SIGN_PAGES.items():
             self.pages.addItem(tr(v), k)
-        self.place = QComboBox()
+        self.place = Dropdown()
         for k, v in SIGN_PLACES.items():
             self.place.addItem(tr(v), k)
-        self.size = QComboBox()
+        self.size = Dropdown()
         for k in ("small", "medium", "large"):
             self.size.addItem(tr(k.capitalize()), k)
         self.size.setCurrentIndex(1)
