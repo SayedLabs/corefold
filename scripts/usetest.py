@@ -810,6 +810,8 @@ def idle():
         f"{pmc.PrivateUsage / 2**20:.0f} MB private")
 
 
+from importlib.metadata import version as _version  # noqa: E402
+say("note  versions: " + ", ".join(f"{n} {_version(n)}" for n in ("PySide6-Essentials", "Pillow", "pypdfium2", "pypdf")))
 with setup():
     t0 = time.perf_counter()
     make_files()

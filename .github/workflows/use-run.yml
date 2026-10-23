@@ -24,6 +24,12 @@ jobs:
             args: "--lang en --look dark"
           - name: ar-light
             args: "--lang ar --look light"
+          - name: scan-6
+            scan: "6"
+          - name: scan-16
+            scan: "16"
+          - name: scan-32
+            scan: "32"
     name: ${{ matrix.name }}
     steps:
       - uses: actions/checkout@v7
@@ -37,15 +43,24 @@ jobs:
           choco install ffmpeg -y --no-progress | Out-Null
           New-Item -ItemType Directory -Force out | Out-Null
           python scripts/screenres.py 1920 1080 *>> out/screen.txt
+      - name: Cold scan
+        if: matrix.scan != ''
+        shell: pwsh
+        run: |
+          python scripts/scantime.py C:\Windows ${{ matrix.scan }} 90 *>> out/fonts.txt
+          python scripts/scantime.py C:\Windows ${{ matrix.scan }} 90 *>> out/fonts.txt
+          Get-Content out/fonts.txt
       - name: First font use
+        if: matrix.scan == ''
         shell: pwsh
         continue-on-error: true
         run: |
-          foreach ($f in @("", "Segoe UI", "Segoe UI Variable Text", "css", "families", "Segoe UI")) {
+          foreach ($f in @("css", "css-var", "css-segoe", "css-app", "css", "css-app")) {
             python scripts/fonttime.py "$f" *>> out/fonts.txt
           }
           Get-Content out/fonts.txt
       - name: Use every tool
+        if: matrix.scan == ''
         timeout-minutes: 45
         shell: pwsh
         continue-on-error: true

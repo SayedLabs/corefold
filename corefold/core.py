@@ -137,22 +137,32 @@ def unique_path(p: Path) -> Path:
         return cand
 
 
-def remove_file(p: Path, wait_s: float = 3.0):
+def remove_file(p: Path):
     """Deletes a half-made file. Right after a program is stopped Windows (or the virus scanner looking at the
-    new file) can still hold it for a moment: tries again for a few seconds, and never raises."""
+    new file) can still hold it for a moment: then it's tried again in the background for a while, so stopping
+    a job never waits for it. Never raises."""
     import time
-    end = time.monotonic() + wait_s
-    while True:
+
+    def attempt() -> bool:
         try:
             p.unlink(missing_ok=True)
-            return
+            return True
         except PermissionError:
-            if time.monotonic() > end:
-                logging.getLogger("corefold").info("couldn't remove %s (still in use)", p)
-                return
-            time.sleep(0.15)
+            return False
         except OSError:
+            return True
+    for _ in range(3):
+        if attempt():
             return
+        time.sleep(0.1)
+
+    def later():
+        for _ in range(120):
+            time.sleep(0.5)
+            if attempt():
+                return
+        logging.getLogger("corefold").info("couldn't remove %s (still in use)", p)
+    threading.Thread(target=later, daemon=True, name="corefold-remove").start()
 
 
 WINDOWS_RESERVED = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}

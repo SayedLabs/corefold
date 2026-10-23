@@ -293,7 +293,10 @@ def images_to_pdf(files: list[Path], ctx: Ctx) -> Result:
 
     photos = _plain_jpegs(files)
     if photos:
+        import time
+        started = time.monotonic()
         jpegs_to_pdf(photos, out, 150, ctx)
+        log.info("%d JPG photos put in a PDF as they are (%.1f s)", len(photos), time.monotonic() - started)
         return Result([out])
 
     def pages():

@@ -9,8 +9,14 @@ from PySide6.QtWidgets import QApplication, QLabel  # noqa: E402
 app = QApplication(sys.argv)
 t1 = time.perf_counter()
 fam = sys.argv[1] if len(sys.argv) > 1 else ""
-if fam == "css":
-    app.setStyleSheet('* { font-family: "Segoe UI Variable Text", "Segoe UI"; font-size: 10pt; }')
+if fam.startswith("css"):
+    css = {"css": '"Segoe UI Variable Text", "Segoe UI"', "css-var": '"Segoe UI Variable Text"',
+           "css-segoe": '"Segoe UI"', "css-app": None}[fam]
+    if css is None:
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+        from corefold.atomic.tokens import FONT_TEXT
+        css = FONT_TEXT
+    app.setStyleSheet('* { font-family: %s; font-size: 10pt; }' % css)
     w = QLabel("Hello")
     w.ensurePolished()
     h = w.fontMetrics().height()

@@ -26,6 +26,7 @@ from .converters import Pick, Slot, pick, warm_up
 from .core import APP_NAME
 from .i18n import tr
 from .settings import TEXT_SIZES, WHEEL_SIZES, Settings
+from .atomic.tokens import TEXT_FAMILY
 from .theme import Theme
 
 CENTER = -2  # hover value for the cancel area in the middle
@@ -205,8 +206,7 @@ def paint_wheel(p: QPainter, c: QPointF, R: float, items: list[Item], hover: int
     size = max(8.5, min(11.5, R / 16.5 * look.text_scale))
     if n > 10:
         size = max(8.0, size * 10 / n + 0.8)
-    label_font = QFont("Segoe UI Variable Text", 1)
-    label_font.setFamilies(["Segoe UI Variable Text", "Segoe UI"])
+    label_font = QFont(TEXT_FAMILY, 1)
     label_font.setPointSizeF(size)
     icon_px = round(size * (2.5 if look.labels == "icon" else 2.05))
     if n:
@@ -387,8 +387,7 @@ def paint_wheel(p: QPainter, c: QPointF, R: float, items: list[Item], hover: int
     def chord_at(dy: float) -> float:  # how wide the middle is at this height (with a margin)
         return max(20.0, 2 * math.sqrt(max(1.0, hub ** 2 - dy ** 2)) - 14)
 
-    f1 = QFont("Segoe UI Variable Text", 1)
-    f1.setFamilies(["Segoe UI Variable Text", "Segoe UI"])
+    f1 = QFont(TEXT_FAMILY, 1)
     f1.setPointSizeF(max(8.5, min(12.0, hub / 5.6 * look.text_scale)))
     f1.setWeight(QFont.Weight.DemiBold)
     f2 = QFont(f1)
