@@ -129,6 +129,20 @@ if WINDOWS:
 HIDDEN = ["desktop.ini", "~$CV final v3.docx", "secret.jpg", "system.pdf"]
 
 
+def wipe(folder: Path):
+    """Removes a test folder, read-only and hidden files too."""
+    if not folder.exists():
+        return
+    if WINDOWS:
+        subprocess.run(["attrib", "-r", "-h", "-s", str(folder / "*"), "/s", "/d"], capture_output=True)
+    shutil.rmtree(folder, onerror=lambda fn, p, _e: (os.chmod(p, 0o666), fn(p)))
+
+
+def videos_file() -> str:
+    """A FILE named like the Videos folder (in this language): the folder must get another name."""
+    return org.folder_name("videos")
+
+
 def make_mess():
     MESS.mkdir()
     for i, name in enumerate([*EXPECT, *STAY]):
@@ -145,7 +159,7 @@ def make_mess():
     attrib(MESS / "read-only.pdf", "+r")
     (MESS / "Pictures").mkdir()
     fill(MESS / "Pictures" / "dup.jpg", 300)         # (the loose dup.jpg must not replace it)
-    fill(MESS / "Videos", 301)                        # (a FILE called Videos: videos go somewhere else)
+    fill(MESS / videos_file(), 301)                   # (a FILE called Videos: videos go somewhere else)
     (MESS / "Project").mkdir()
     fill(MESS / "Project" / "main.py", 302)          # (folders are never touched)
     fill(MESS / "Project" / "photo.jpg", 303)
@@ -167,7 +181,7 @@ def plan_and_sort():
         listed = {i.path.name for i in p.items}
         check(not listed & set(HIDDEN), f"hidden and system files aren't even listed {sorted(listed & set(HIDDEN))}")
         check(not listed & {"Project", "Pictures"}, "folders aren't listed")
-        check(stays.get("Videos") == "unknown", "the file called Videos (no extension) stays")
+        check(stays.get(videos_file()) == "unknown", "the file called Videos (no extension) stays")
         dup = next(i for i in p.items if i.path.name == "dup.jpg")
         check(dup.target.name == "dup (2).jpg" and dup.renamed, f"a name already taken gets a new one ({dup.target.name})")
         check(p.folders["pictures"].name == "Pictures" and "pictures" not in p.new_folders,
@@ -233,7 +247,7 @@ def plan_and_sort():
             check(False, f"undo: {name} is back")
     check((MESS / "Pictures" / "dup.jpg").is_file() and (MESS / "Pictures").is_dir(),
           "undo: the Pictures folder that was already there stays, with its own file")
-    check((MESS / "Videos").is_file(), "undo: the file called Videos is untouched")
+    check((MESS / videos_file()).is_file(), "undo: the file called Videos is untouched")
     made = [org.folder_name(k) for k in ("documents", "music", "archives", "installers")]
     check(not any((MESS / m).exists() for m in made), "undo: the folders it made are gone again")
     after = contents(MESS)
@@ -363,8 +377,8 @@ def page():
             time.sleep(0.02)
         return False
 
-    shutil.rmtree(MESS, ignore_errors=True)
-    shutil.rmtree(TMP / "Desktop", ignore_errors=True)
+    wipe(MESS)
+    wipe(TMP / "Desktop")
     make_mess()
     (TMP / "Desktop").mkdir()
     fill(TMP / "Desktop" / "shot.png", 7)
@@ -387,7 +401,8 @@ def page():
     pg = w.organizer_page
     check(pg is not None, "the page opens")
     check(until(lambda: not pg.loading and pg.plan is not None), "the plan comes up")
-    check(until(lambda: "1" in pg.cards["desktop"].line), f"the Desktop card says what's waiting ({pg.cards['desktop'].line})")
+    check(until(lambda: pg.cards["desktop"].line == OP.to_sort_text(1)),
+          f"the Desktop card says what's waiting ({pg.cards['desktop'].line})")
     settle(0.5)
     w.grab().save(str(OUT / f"organizer-{LANG}-{LOOK}.png"))
     moving = len(pg.plan.moving())
@@ -444,6 +459,9 @@ def page():
         l = pg.sort_btn.mapTo(w, pg.sort_btn.rect().topLeft())
         check(0 <= l.x() and r.x() <= w.width() and r.y() <= w.height() and pg.sort_btn.isVisible(),
               f"at {size[0]}×{size[1]} the Sort button is inside the window")
+        scroll = pg.layout().itemAt(0).widget()
+        check(scroll.widget().width() <= scroll.viewport().width(),
+              f"at {size[0]}×{size[1]} nothing sticks out sideways ({scroll.widget().width()} in {scroll.viewport().width()})")
         cut = [card.key for card in pg.cards.values() if card.width() < 120]
         check(not cut, f"at {size[0]}×{size[1]} the folder cards are wide enough {cut}")
         w.grab().save(str(OUT / f"organizer-{size[0]}-{LANG}-{LOOK}.png"))

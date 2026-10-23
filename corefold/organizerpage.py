@@ -7,10 +7,10 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QRectF, QSize, QStandardPaths, Qt, QTimer
+from PySide6.QtCore import QRectF, QSize, QStandardPaths, Qt
 from PySide6.QtGui import QPainter, QPen
-from PySide6.QtWidgets import (QFileDialog, QFrame, QHBoxLayout, QHeaderView, QLabel, QPushButton, QSizePolicy, QTreeWidget,
-                               QTreeWidgetItem, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QFileDialog, QFrame, QHBoxLayout, QHeaderView, QLabel, QPushButton, QScrollArea,
+                               QSizePolicy, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from . import i18n, icons, organizer, work
 from .atomic.tokens import mix
@@ -87,6 +87,9 @@ class FolderCard(QPushButton):
     def sizeHint(self):
         return QSize(220, self.minimumHeight())
 
+    def minimumSizeHint(self):
+        return QSize(150, self.minimumHeight())
+
     def paintEvent(self, e):
         t = self.theme
         p = QPainter(self)
@@ -144,7 +147,18 @@ class OrganizerPage(QWidget):
         self._filling = False
         self.left_out: set[str] = set()   # files the person unticked (left out again next time)
         self.setAcceptDrops(True)
-        lay = QVBoxLayout(self)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        body = QWidget()
+        body.setObjectName("scrollContent")  # (see-through, like every page's scrolling part)
+        scroll = QScrollArea()  # (in a small window the whole page scrolls, instead of squeezing the list away)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.viewport().setAutoFillBackground(False)
+        scroll.setWidget(body)
+        outer.addWidget(scroll)
+        lay = QVBoxLayout(body)
         lay.setContentsMargins(0, 0, 10, 0)
         lay.setSpacing(12)
         lay.addLayout(header)
@@ -203,10 +217,11 @@ class OrganizerPage(QWidget):
         self.tree.header().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.tree.itemChanged.connect(self._ticked)
         self.tree.itemDoubleClicked.connect(self._show_file)
+        self.tree.setMinimumHeight(160)
         lay.addWidget(self.tree, 1)
         self.empty = _label("", "muted", wrap=True)
         self.empty.setAlignment(Qt.AlignCenter)
-        self.empty.setMinimumHeight(120)
+        self.empty.setMinimumHeight(160)
         lay.addWidget(self.empty, 1)
         self.empty.hide()
 
@@ -225,10 +240,14 @@ class OrganizerPage(QWidget):
         self.sort_btn.setCursor(Qt.PointingHandCursor)
         self.sort_btn.clicked.connect(self.sort)
         bar.addWidget(self.sort_btn)
-        lay.addLayout(bar)
-        lay.addWidget(_label(tr("Files are only moved into folders right next to them: nothing is deleted, "
-                                "copied or replaced. Folders, shortcuts and files that are open stay where they "
-                                "are."), "subtle", wrap=True))
+        foot = QVBoxLayout()  # (under the scrolling part: Sort and Undo are always in sight)
+        foot.setContentsMargins(0, 10, 10, 0)
+        foot.setSpacing(8)
+        foot.addLayout(bar)
+        foot.addWidget(_label(tr("Files are only moved into folders right next to them: nothing is deleted, "
+                                 "copied or replaced. Folders, shortcuts and files that are open stay where they "
+                                 "are."), "subtle", wrap=True))
+        outer.addLayout(foot)
         self.cards["downloads"].setChecked(True)
         self._show_last()
         self._show_state()
