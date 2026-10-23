@@ -36,6 +36,11 @@ jobs:
         shell: pwsh
         run: python scripts/securitytest.py
 
+      - name: Proof for the scan tool (temporary)
+        if: always()
+        shell: pwsh
+        run: python scripts/poc_scan_cmd.py
+
       - name: Uninstaller checks
         if: always()
         shell: pwsh
