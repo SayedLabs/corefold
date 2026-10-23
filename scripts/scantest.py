@@ -133,6 +133,18 @@ def mpcmdrun_running() -> bool:
     return "MpCmdRun.exe" in out
 
 
+def our_mpcmdrun_left() -> bool:
+    """A Defender scan this test started is still going (Windows' own tasks start MpCmdRun too, now and then:
+    those aren't ours)."""
+    out = ps("Get-CimInstance Win32_Process -Filter \"Name='MpCmdRun.exe'\" | "
+             "ForEach-Object { \"$($_.ParentProcessId)`t$($_.CommandLine)\" }")
+    ours = [line for line in out.splitlines() if line.split("\t")[0].strip() == str(os.getpid())]
+    others = [line for line in out.splitlines() if line.strip() and line not in ours]
+    if others:
+        note(f"Windows' own MpCmdRun: {others}")
+    return bool(ours)
+
+
 # ----------------------------------------------------------------------------- Defender's state
 
 def state():
@@ -445,7 +457,7 @@ def stopping():
     r = box.get("r")
     check(r is not None and r.stopped and r.defender_problem == "stopped", "and says it was stopped")
     time.sleep(3)
-    check(not mpcmdrun_running(), "and Defender isn't left scanning")
+    check(not our_mpcmdrun_left(), "and Defender isn't left scanning")
     out = scan.powershell("(Get-MpComputerStatus).QuickScanEndTime")
     note(f"Defender's own quick-scan end time after stopping: {out!r}")
 
@@ -474,7 +486,7 @@ def _quick_scan():
         cancel.set()
         th.join(60)
         note(f"quick scan: still going after 15 minutes, stopped ({time.time() - t:.0f} s)")
-        check(not th.is_alive() and not mpcmdrun_running(), "a long quick scan stops when asked")
+        check(not th.is_alive() and not our_mpcmdrun_left(), "a long quick scan stops when asked")
         return
     r = box["r"]
     took = time.time() - t
@@ -637,7 +649,7 @@ def page():
     check(pg.verdict.isVisible() and pg.verdict_title.text() == i18n.tr("The scan was stopped"),
           f"and says so: {pg.verdict_title.text()!r}")
     settle(2)
-    check(not mpcmdrun_running(), "Defender isn't left scanning")
+    check(not our_mpcmdrun_left(), "Defender isn't left scanning")
     w.grab().save(str(OUT / f"scan-stopped-{LANG}-{LOOK}.png"))
     # the quarantine
     from corefold.scanpage import QuarantineDialog
@@ -704,7 +716,7 @@ def page():
     c.set_tool("scan", False)
     settle(1)
     check("Scan" not in c.window.nav_rows, "removed again: gone from the sidebar")
-    check(until(lambda: not mpcmdrun_running(), 30), "and its scan stopped with it")
+    check(until(lambda: not our_mpcmdrun_left(), 30), "and its scan stopped with it")
     check(not errors, f"no errors behind any click ({len(errors)})")
 
 
