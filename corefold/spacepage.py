@@ -832,14 +832,19 @@ class SpacePage(QWidget):
         dl.setContentsMargins(0, 2, 0, 0)
         dl.setSpacing(10)
         dl.addWidget(_label(tr("Pick a drive to see what's filling it."), "muted"))
+        cards = QWidget()  # (scrolls when there are more drives than fit, or the window is small)
+        cards.setObjectName("scrollContent")
+        cl = QVBoxLayout(cards)
+        cl.setContentsMargins(0, 0, 0, 0)
         self.drive_rows = QGridLayout()
         self.drive_rows.setHorizontalSpacing(12)
         self.drive_rows.setVerticalSpacing(12)
         self.drive_rows.setColumnStretch(0, 1)
         self.drive_rows.setColumnStretch(1, 1)
-        dl.addLayout(self.drive_rows)
-        dl.addStretch()
-        lay.addWidget(self.drives_box)
+        cl.addLayout(self.drive_rows)
+        cl.addStretch()
+        dl.addWidget(_scroller(cards), 1)
+        lay.addWidget(self.drives_box, 1)
         # looking (with Stop): a ring that goes round, with what it found so far
         self.busy_box = QWidget()
         bl = QVBoxLayout(self.busy_box)
@@ -1403,12 +1408,7 @@ class SpacePage(QWidget):
         il.setContentsMargins(0, 0, 0, 0)
         il.addWidget(self.junk_box)
         il.addStretch()
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.NoFrame)
-        scroll.setWidget(inner)
-        scroll.viewport().setAutoFillBackground(False)
-        lay.addWidget(scroll, 1)
+        lay.addWidget(_scroller(inner), 1)
         row = QHBoxLayout()
         again = _button(tr("Look again"), "ghost", self.find_junk)
         self._icon_buttons.append((again, "arrow_clockwise"))
@@ -1797,6 +1797,16 @@ def _label(text: str, name: str | None = None, wrap: bool = False) -> QLabel:
         lab.setObjectName(name)
     lab.setWordWrap(wrap)
     return lab
+
+
+def _scroller(inner: QWidget) -> QScrollArea:
+    """inner, scrolling up and down when it doesn't fit (no frame, the page shows through)."""
+    scroll = QScrollArea()
+    scroll.setWidgetResizable(True)
+    scroll.setFrameShape(QFrame.NoFrame)
+    scroll.setWidget(inner)
+    scroll.viewport().setAutoFillBackground(False)
+    return scroll
 
 
 def _button(text: str, name: str | None = None, on_click=None) -> QPushButton:
