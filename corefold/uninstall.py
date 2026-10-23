@@ -1102,6 +1102,28 @@ def app_at(path, apps: list[App]) -> App | None:
     return best
 
 
+def app_for_shortcut(path: Path, apps: list[App]) -> App | None:
+    """The installed program a shortcut (or a program file) opens: from the folder it's installed in,
+    or else from the folder its icon or its uninstaller is in."""
+    target = lnk_target(path) if path.suffix.lower() == ".lnk" else str(path)
+    if not target:
+        return None
+    found = app_at(target, apps)
+    if found is not None:
+        return found
+    folder = os.path.dirname(target)
+    if not _safe_folder(folder):
+        return None
+    for app in apps:
+        if app.store:
+            continue
+        for exe in (app.icon.split(",")[0].strip().strip('"'), split_command(app.uninstall)[0]):
+            if exe and os.path.isabs(exe) and _inside(os.path.dirname(exe), folder) and \
+                    _inside(folder, os.path.dirname(exe)):
+                return app
+    return None
+
+
 def _match(name: str, keys: set[str]) -> str:
     """ "exact", "maybe" or ""."""
     n = norm(name)

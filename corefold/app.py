@@ -1094,8 +1094,34 @@ class Controller(QObject):
             self.open_viewer(Path(lines[0]))
         elif word == "play" and lines:
             self.open_player(Path(lines[0]))
+        elif word == "uninstall" and lines:
+            self.uninstall_from_shortcut(Path(lines[0]))
         elif word == "run" and len(lines) >= 2:
             self.run_from_menu(lines[0], lines[1:])
+
+    def uninstall_from_shortcut(self, path: Path):
+        """"Uninstall with Corefold" on a shortcut (the desktop, the Start menu): the Uninstaller's own steps
+        for the program it opens, leftovers and backup included."""
+        if not all_tools.is_on(self.settings, "uninstaller"):
+            return
+        from . import uninstall as un
+        try:
+            apps = un.list_apps(include_store=False)
+        except Exception:
+            log.warning("couldn't list the installed programs", exc_info=True)
+            apps = []
+        program = un.app_for_shortcut(path, apps)
+        if program is None:
+            self.tell(tr("Couldn't tell which program this is"),
+                      tr("{name} doesn't point to an installed program. Find it in the Uninstaller instead.",
+                         name=path.stem))
+            self.show_window("Apps")
+            return
+        from .appspage import UninstallDialog
+        dlg = UninstallDialog(self, [program], apps, False, self.icon)
+        dlg.setWindowFlag(Qt.WindowStaysOnTopHint)
+        dlg.exec()
+        dlg.deleteLater()
 
     def files_from_menu(self, paths: list[str], into: str = "wheel"):
         target = self.pending if into == "wheel" else self.pending_open
