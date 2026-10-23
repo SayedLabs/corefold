@@ -288,9 +288,11 @@ class Controller(QObject):
         self.act_paste = menu.addAction(tr("Convert what's copied"), self.paste)
         self.act_archive = menu.addAction(tr("Open an archive…"), self.choose_archive)
         self.act_clip = menu.addAction(tr("Clipboard history"), lambda: self.show_clipboard(from_tray=True))
+        self.act_shot = menu.addAction(tr("Take a screenshot"), lambda: self.capture and self.capture.screenshot())
         self.menu_icons = [(act_open, "home"), (act_settings, "settings"), (self.act_paste, "arrow_swap"),
-                           (self.act_archive, "archive"), (self.act_clip, "clipboard")]
-        self.clip = None  # Corefold Clipboard, while it's in use
+                           (self.act_archive, "archive"), (self.act_clip, "clipboard"), (self.act_shot, "screenshot")]
+        self.clip = None     # Corefold Clipboard, while it's in use
+        self.capture = None  # Corefold Capture, while it's in use
         self.act_again = menu.addAction(tr("Do it again…"), self.do_again)
         menu.aboutToShow.connect(self._update_again_action)
         self.recent_menu = menu.addMenu(tr("Recent files"))
@@ -373,7 +375,7 @@ class Controller(QObject):
             pass
 
         if not self.settings.first_run:  # (once main() has put tools that are new in this version in the Store)
-            QTimer.singleShot(0, self._clipboard_tool)
+            QTimer.singleShot(0, self._background_tools)
 
     # ---- the main window is built when needed and freed when it's been closed a while
 
@@ -693,6 +695,12 @@ class Controller(QObject):
         w = self._window
         if w is not None:
             self.rebuild_window("Store", committed=w.committed, pending_startup=w.pending_startup)
+        if on and tool_id == "capture" and self.capture is not None:
+            from .hotkey import SHORTCUT_NAMES
+            key = SHORTCUT_NAMES.get(s.cap_shortcut)
+            if key and self.capture.shot_key.ok:
+                self.toast.notify(tr("Corefold Capture"), tr("Press {key} to take a screenshot.", key=key),
+                                  linger_ms=7000)
         if on and tool_id == "clipboard" and self.clip is not None:
             from .clipboard import HOTKEY_NAMES
             key = HOTKEY_NAMES.get(s.clip_shortcut)
@@ -705,7 +713,7 @@ class Controller(QObject):
         self.watch_downloads(self.settings.watch_downloads)
         self.update_shell_menu(500)
         self.sync_archive_opening()
-        self._clipboard_tool()
+        self._background_tools()
         self._tray_tools()
         log.info("tools in use: %s", ", ".join(t.id for t in all_tools.enabled(self.settings)) or "none")
 
@@ -716,6 +724,32 @@ class Controller(QObject):
             act.setVisible(converter)
         self.act_archive.setVisible(all_tools.is_on(self.settings, "archive"))
         self.act_clip.setVisible(self.clip is not None)
+        self.act_shot.setVisible(self.capture is not None)
+
+    def _background_tools(self):
+        self._clipboard_tool()
+        self._capture_tool()
+        self._tray_tools()
+
+    def _capture_tool(self):
+        """Corefold Capture's shortcuts are only there while it's in use."""
+        on = all_tools.is_on(self.settings, "capture")
+        if on and self.capture is None:
+            from .capture import CaptureTool
+            try:
+                self.capture = CaptureTool(self)
+            except Exception:
+                log.exception("couldn't start Capture")
+                self.capture = None
+                return
+            self._cap_applied = self._cap_settings()
+        elif not on and self.capture is not None:
+            self.capture.stop()
+            self.capture.deleteLater()
+            self.capture = None
+
+    def _cap_settings(self) -> tuple:
+        return self.settings.cap_shortcut, self.settings.cap_record_shortcut
 
     # ---- Corefold Clipboard
 
@@ -1051,6 +1085,12 @@ class Controller(QObject):
         menu=True when the change also shows in the right-click menu."""
         self.save_timer.start(400)
         self._apply_toast_settings()
+        if self.capture is not None and self._cap_settings() != getattr(self, "_cap_applied", None):
+            self._cap_applied = self._cap_settings()
+            self.capture.apply_settings()
+            if self._window is not None:
+                self._window.refresh_capture_note()
+                self._window.refresh_captures()
         if self.clip is not None and self._clip_settings() != getattr(self, "_clip_applied", None):
             self._clip_applied = self._clip_settings()
             self.clip.apply_settings()
@@ -1570,6 +1610,9 @@ class Controller(QObject):
         if self.clip is not None:
             self.clip.stop()
             self.clip = None
+        if self.capture is not None:
+            self.capture.stop()
+            self.capture = None
         self.tray.hide()
         if self.server:
             self.server.close()
@@ -1609,9 +1652,9 @@ class Controller(QObject):
             self.quit(cleanup=True)
 
 
-PAGE_NAMES = ("Home", "Converter", "Apps", "Archives", "Viewer", "Clipboard", "Store", "Soon", "General", "Look",
-              "ConvOptions", "WheelLook", "Formats", "AppsSettings", "ArchiveSettings", "ViewerSettings",
-              "ClipboardSettings", "History", "Updates", "About")
+PAGE_NAMES = ("Home", "Converter", "Apps", "Archives", "Viewer", "Clipboard", "Space", "Capture", "Store", "Soon",
+              "General", "Look", "ConvOptions", "WheelLook", "Formats", "AppsSettings", "ArchiveSettings",
+              "ViewerSettings", "ClipboardSettings", "CaptureSettings", "History", "Updates", "About")
 OUTPUT_EXT = {"image:pdf": ".pdf", "image:scan": ".pdf", "pdf:merge": ".pdf", "image:video": ".mp4",
               "pack:zip": ".zip", "pack:7z": ".7z"}  # what a tool makes, when it isn't Tool.target
 

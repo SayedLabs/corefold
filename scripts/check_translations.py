@@ -82,6 +82,20 @@ def table_texts() -> dict[str, str]:
     add([text for _, text in clipview.FILTERS], "clipview.FILTERS")
     add(settings.CLIP_DAYS.values(), "CLIP_DAYS")
     add([settings.CLIP_SHORTCUTS["off"]], "CLIP_SHORTCUTS")
+    from corefold import capview
+    add([text for _, text in capview.TOOLS], "capview.TOOLS")
+    for name in ("CAP_AFTER", "CAP_FPS"):
+        add(getattr(settings, name).values(), name)
+    from corefold import space, spacepage
+    add(space.KINDS.values(), "space.KINDS")
+    add([t for _, t in spacepage.SECTIONS], "spacepage.SECTIONS")
+    add(spacepage.DUPE_FOLDERS, "spacepage.DUPE_FOLDERS")
+    add(["Temporary files", "Left behind by programs and installers. Only ones older than a day.", "Recycle Bin",
+         "Files you deleted earlier. Emptying it can't be undone.", "{name}'s cache",
+         "Copies of websites kept to load them faster. They come back as you browse; you stay signed in.",
+         "Crash reports", "Saved when a program crashed. Only useful to the people who make it.",
+         "Old installers in Downloads", "Setup files downloaded more than a month ago. They go to the Recycle Bin."],
+        "space.find_junk")
     for _, title, text in tour.STEPS:
         add([title, text], "tour.STEPS")
     return out

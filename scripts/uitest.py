@@ -32,7 +32,7 @@ s = st.Settings()
 s.first_run = False
 s.tour_done = True
 s.check_updates = False
-s.known_tools = ["converter", "uninstaller", "archive", "viewer", "clipboard"]
+s.known_tools = ["converter", "uninstaller", "archive", "viewer", "clipboard", "space", "capture"]
 s.viewer_confirm_delete = False
 s.save()
 
@@ -44,6 +44,24 @@ from corefold import app as A  # noqa: E402
 
 c = A.Controller(qapp, QIcon(str(ROOT / "assets" / "icon.png")))
 problems = []
+dialogs = []
+
+
+def _close_dialogs():
+    """A question nobody is there to answer would stop the checks: note it and close it."""
+    from PySide6.QtWidgets import QMessageBox
+    box = qapp.activeModalWidget()
+    if box is not None:
+        text = box.text() if isinstance(box, QMessageBox) else ""
+        dialogs.append(f"{box.windowTitle()}: {text}")
+        print(f"note  a dialog came up: {box.windowTitle()}: {text}", flush=True)
+        box.reject()
+
+
+from PySide6.QtCore import QTimer  # noqa: E402
+_closer = QTimer()
+_closer.timeout.connect(_close_dialogs)
+_closer.start(1500)
 
 
 def check(ok, what):
@@ -293,6 +311,123 @@ def clipboard():
     check(c.clip is not None and c.clip.history.count() >= 4, "adding it back keeps the history")
 
 
+def space_tool():
+    import os as _os
+    root = TMP / "Space"
+    for folder, files in (("Videos/Trips", {"beach.mp4": 3_000_000, "city.mov": 1_200_000}),
+                          ("Photos", {f"IMG_{i:04}.jpg": 90_000 + i * 900 for i in range(60)}),
+                          ("Documents", {"report.pdf": 400_000, "notes.docx": 80_000}),
+                          ("Backups", {"old.zip": 2_000_000})):
+        (root / folder).mkdir(parents=True, exist_ok=True)
+        for name, size in files.items():
+            (root / folder / name).write_bytes(_os.urandom(min(size, 4096)) * (size // 4096 + 1))
+    (root / "Photos" / "copy of IMG_0001.jpg").write_bytes((root / "Photos" / "IMG_0001.jpg").read_bytes())
+    c.show_window("Space")
+    w = c.window
+    w.resize(1100, 720)
+    settle(0.5)
+    pg = w.space_page
+    check(pg is not None, "the Space page opens")
+    w.grab().save(str(OUT / "space-drives.png"))
+    t0 = time.time()
+    pg.start_scan(root)
+    check(until(lambda: pg.scan is not None, 20), f"looking through a folder ({time.time() - t0:.2f} s)")
+    settle(0.6)
+    w.grab().save(str(OUT / "space-map.png"))
+    check(pg.scan is not None and pg.scan.files == 66, f"every file counted ({pg.scan.files if pg.scan else 0})")
+    check(len(pg.treemap.boxes) >= 4, f"the map has boxes ({len(pg.treemap.boxes)})")
+    from corefold import space as sp
+    d = sp.drives()
+    check(bool(d) and d[0].total > 0, f"the drives ({', '.join(x.path for x in d)})")
+    t0 = time.time()
+    big = sp.scan(Path(_os.environ.get("ProgramFiles", "C:/Program Files")))
+    check(big.files > 1000, f"a big folder: {big.files:,} files in {big.seconds:.1f} s")
+    pg.show_section("clean")
+    check(until(lambda: pg.job is None, 60), "looking for junk")
+    settle(0.4)
+    w.grab().save(str(OUT / "space-clean.png"))
+    check(any(j.key == "temp" for j in pg.junk), f"temporary files found ({[j.key for j in pg.junk]})")
+    pg.show_section("dupes")
+    pg.find_dupes([root])
+    check(until(lambda: pg.job is None, 30), "looking for duplicates")
+    settle(0.4)
+    w.grab().save(str(OUT / "space-dupes.png"))
+    check(pg.dupe_tree.topLevelItemCount() == 1, f"the copied photo is found ({pg.dupe_tree.topLevelItemCount()})")
+
+
+def capture_tool():
+    from PySide6.QtCore import QPoint, QPointF, QRect
+    from PySide6.QtGui import QColor, QGuiApplication
+    until(lambda: c.capture is not None, 3)
+    cap = c.capture
+    check(cap is not None, "Capture is running")
+    if cap is None:
+        return
+    check(cap.shot_key.ok and cap.rec_key.ok, "its shortcuts (Ctrl + Print Screen, Ctrl + Shift + Print Screen) work")
+    # picking an area: the frozen screen comes up, Esc gives up
+    cap.screenshot()
+    check(until(lambda: cap.picker is not None and cap.picker.snips, 3), "a screenshot freezes the screen")
+    if cap.picker and cap.picker.snips:
+        settle(0.4)
+        cap.picker.snips[0].grab().save(str(OUT / "capture-pick.png"))
+        snip = cap.picker.snips[0]
+        snip.start, snip.end = snip.rect().topLeft() + QPoint(100, 100), snip.rect().topLeft() + QPoint(500, 380)
+        snip._finish(snip.selection())
+    check(until(lambda: any(e.isVisible() for e in cap.editors), 3), "picking an area opens the editor")
+    ed = next((e for e in cap.editors if e.isVisible()), None)
+    if ed is None:
+        return
+    check(ed.canvas.base.width() >= 400, f"the picture is the area picked ({ed.canvas.base.width()} px)")
+    check(ed.saved is not None and ed.saved.exists(), "…saved in Pictures\\Screenshots")
+    check(not QGuiApplication.clipboard().image().isNull(), "…and copied")
+    from corefold.capview import Shape
+    cv = ed.canvas
+    cv._add(Shape("arrow", QColor("#e5484d"), 4, [QPointF(20, 20), QPointF(200, 120)]))
+    cv._add(Shape("box", QColor("#0090ff"), 4, [QPointF(220, 40), QPointF(360, 160)]))
+    cv._add(Shape("blur", QColor("#000"), 4, [QPointF(10, 150), QPointF(150, 260)]))
+    cv._add(Shape("text", QColor("#e5484d"), 4, [QPointF(30, 200)], "Look here"))
+    cv._add(Shape("marker", QColor("#f5a524"), 4, [QPointF(200, 220), QPointF(300, 225), QPointF(380, 222)]))
+    ed.resize(900, 600)
+    settle(0.5)
+    ed.grab().save(str(OUT / "capture-editor.png"))
+    out = cv.result()
+    check(out.size() == cv.base.size(), "the marks are drawn into the picture")
+    w0 = cv.base.width()
+    cv.crop(QRect(0, 0, 200, 150))
+    check(cv.base.width() == 200, "crop")
+    cv.undo()
+    check(cv.base.width() == w0 and len(cv.shapes) == 5, "undo the crop")
+    cv.undo()
+    check(len(cv.shapes) == 4, "undo a mark")
+    cv.redo()
+    check(len(cv.shapes) == 5, "redo")
+    check(ed.save() and ed.saved.exists(), "Save")
+    ed.close()
+    settle(0.2)
+    # recording a few seconds
+    c.settings.cap_countdown = False
+    from corefold.capture import Recorder, new_name, videos_folder
+    rec = Recorder(QRect(0, 0, 640, 360), new_name(videos_folder(), ".mp4", "Recording"))
+    check(rec.start(), f"recording starts {rec.error}")
+    t0 = time.time()
+    while time.time() - t0 < 3:
+        qapp.processEvents()
+        time.sleep(0.05)
+    ok = rec.stop()
+    size = rec.out.stat().st_size if rec.out.exists() else 0
+    check(ok and size > 5000, f"a 3-second recording is saved ({size} bytes) {rec.error}")
+    c.show_window("Capture")
+    settle(0.5)
+    c.window.grab().save(str(OUT / "capture-page.png"))
+    c.window.open_page("CaptureSettings")
+    settle(0.8)
+    c.window.grab().save(str(OUT / "capture-settings.png"))
+    try:
+        rec.out.unlink()
+    except OSError:
+        pass
+
+
 def store():
     c.show_window("Store")
     w = c.window
@@ -311,7 +446,8 @@ def store():
     c.window.grab().save(str(OUT / "viewer-settings.png"))
 
 
-for name, fn in (("viewer", viewer), ("email", email), ("clipboard", clipboard), ("store", store)):
+for name, fn in (("viewer", viewer), ("email", email), ("clipboard", clipboard), ("space", space_tool),
+                 ("capture", capture_tool), ("store", store)):
     step(name, fn)
 (OUT / "uitest.txt").write_text("\n".join(problems) or "none", "utf-8")
 print(f"uitest: {len(problems)} problem(s)", flush=True)
