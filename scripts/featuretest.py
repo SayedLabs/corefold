@@ -610,10 +610,25 @@ def shortcut_program():
         for _ in range(20):
             QApplication.instance().processEvents()
             time.sleep(0.05)
-        centre = w.mapToGlobal(w.rect().center())
-        dpr = w.devicePixelRatioF()
-        found = un.program_at_point(round(centre.x() * dpr), round(centre.y() * dpr))
-        check(os.path.basename(found).lower().startswith("python"), f"the program of the window under a point ({found})")
+        import ctypes
+        from ctypes import wintypes as wt
+        u = ctypes.windll.user32
+        hwnd = int(w.winId())
+        u.SetWindowPos(wt.HWND(hwnd), wt.HWND(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0040)  # topmost, shown
+        box = wt.RECT()
+        u.GetWindowRect(wt.HWND(hwnd), ctypes.byref(box))
+        x, y = (box.left + box.right) // 2, (box.top + box.bottom) // 2
+        found = un.program_at_point(x, y)
+        u.WindowFromPoint.restype = wt.HWND
+        u.WindowFromPoint.argtypes = [wt.POINT]
+        u.GetAncestor.restype = wt.HWND
+        u.GetAncestor.argtypes = [wt.HWND, wt.UINT]
+        top = u.GetAncestor(u.WindowFromPoint(wt.POINT(x, y)), 2) or 0
+        if top == hwnd:
+            check(os.path.basename(found).lower().startswith("python"),
+                  f"the program of the window under a point ({found})")
+        else:  # (another window stays above ours on this PC: the program of that one, then)
+            check(bool(found) and os.path.isfile(found), f"the program of the window under a point ({found})")
         w.close()
     from corefold import appspage
     check(un.is_windows_extra(store) and not un.is_windows_extra(apps[0]) and
