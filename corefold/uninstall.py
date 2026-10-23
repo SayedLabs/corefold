@@ -2017,8 +2017,9 @@ def run_elevated(command: list[str], kind: str, payload: dict, cancel: threading
 
 
 def helper_main(argv: list[str]) -> int:
-    """What the elevated copy does: --cleanup plan.json, --restore plan.json or --restore-point plan.json."""
-    kind = next((a[2:] for a in argv if a in ("--cleanup", "--restore", "--restore-point")), "")
+    """What the elevated copy does: --cleanup plan.json, --restore plan.json, --restore-point plan.json or
+    --space-clean plan.json."""
+    kind = next((a[2:] for a in argv if a in ("--cleanup", "--restore", "--restore-point", "--space-clean")), "")
     try:
         plan = Path(argv[argv.index("--" + kind) + 1])
         payload = json.loads(plan.read_text("utf-8"))
@@ -2029,14 +2030,18 @@ def helper_main(argv: list[str]) -> int:
     # account at the admin prompt, this copy runs as that account, with other folders.
     folder = str(payload.get("folder", "")) if isinstance(payload, dict) else ""
     home = plan.resolve().parent.parent  # ...\Corefold
+    needs_folder = kind not in ("restore-point", "space-clean")
     if plan.resolve().parent.name.lower() != "helper" or home.name.lower() not in ("corefold", LEGACY_NAME.lower()) or \
-            (kind != "restore-point" and not (folder and _inside(str(Path(folder).resolve()),
-                                                                  str(home / BACKUP_DIR.name)))):
+            (needs_folder and not (folder and _inside(str(Path(folder).resolve()), str(home / BACKUP_DIR.name)))):
         return 2
     try:
         if kind == "cleanup":
             out = remove(items_from(payload["items"]), Path(payload["folder"]), payload.get("apps"), admin=True,
                          close_running=bool(payload.get("close")))
+        elif kind == "space-clean":  # Windows' own leftovers, by name only (see space.ADMIN_KEYS)
+            from .space import ADMIN_KEYS, clean_as_admin
+            keys = [k for k in payload.get("keys", []) if k in ADMIN_KEYS]
+            out = {"freed": clean_as_admin(keys)}
         elif kind == "restore":
             r = restore(Path(payload["folder"]))
             out = {"done": r["done"], "failed": r["failed"]}

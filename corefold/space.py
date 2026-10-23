@@ -9,6 +9,7 @@ from __future__ import annotations
 import ctypes
 import hashlib
 import heapq
+import json
 import logging
 import os
 import shutil
@@ -23,6 +24,8 @@ log = logging.getLogger("corefold")
 TOP_FILES = 48         # files remembered per folder (the rest are added up as "smaller files")
 TOP_OVERALL = 100      # the biggest files of the whole drive
 TOP_KIND = 60          # the biggest files of each kind (videos, pictures…)
+TOP_OLD = 100          # the biggest files nobody has opened or changed for a year
+OLD_AFTER_DAYS = 365
 PROGRESS_EVERY = 2000  # entries between progress reports
 
 # reparse points that lead somewhere else (junctions, links): not followed, so nothing counts twice
@@ -84,6 +87,9 @@ class Scan:
     biggest: list = field(default_factory=list)   # (size, path) of the biggest files, biggest first
     kinds: dict = field(default_factory=dict)     # kind -> bytes
     biggest_kind: dict = field(default_factory=dict)  # kind -> (size, path) of its biggest files, biggest first
+    old: list = field(default_factory=list)       # (size, path, last used) of big files untouched for a year
+    grew: list = field(default_factory=list)      # (bytes more, path) since the last look, from remember()
+    since: float = 0.0                            # when that last look was
     files: int = 0
     folders: int = 0
     denied: int = 0                               # folders Windows didn't let Corefold into
@@ -110,8 +116,9 @@ _GONE = -1  # (in a listing: not a regular file, left out)
 
 
 def _list_dir(path: str) -> tuple[list, bool]:
-    """One folder's entries as (name, is folder, size, attributes); the slow part (asking the disk),
-    done on helper threads. Folders that lead elsewhere (junctions, links) are left out."""
+    """One folder's entries as (name, is folder, size, attributes, last used); the slow part (asking the
+    disk), done on helper threads. Folders that lead elsewhere (junctions, links) are left out. "Last used"
+    is the later of the last change and the last opening (Windows doesn't always note openings)."""
     out = []
     try:
         with os.scandir(path) as it:
@@ -119,12 +126,13 @@ def _list_dir(path: str) -> tuple[list, bool]:
                 try:
                     if e.is_dir(follow_symlinks=False):
                         if not _skip_dir(e):
-                            out.append((e.name, True, 0, 0))
+                            out.append((e.name, True, 0, 0, 0.0))
                         continue
                     st = e.stat(follow_symlinks=False)
                     if os.name != "nt" and not stat.S_ISREG(st.st_mode):
                         continue
-                    out.append((e.name, False, st.st_size, getattr(st, "st_file_attributes", 0)))
+                    out.append((e.name, False, st.st_size, getattr(st, "st_file_attributes", 0),
+                                max(st.st_mtime, st.st_atime)))
                 except OSError:
                     continue
     except OSError:
@@ -144,6 +152,8 @@ def scan(root: Path, cancel: threading.Event | None = None, progress=None, worke
     biggest: list[tuple[int, str]] = []
     kinds = dict.fromkeys(KINDS, 0)
     by_kind: dict[str, list] = {k: [] for k in KINDS}
+    old: list = []
+    old_before = time.time() - OLD_AFTER_DAYS * 86400
     total = 0
     last_report = 0
     hidden_bits = _OFFLINE | _RECALL_ACCESS | _RECALL_OPEN
@@ -171,7 +181,7 @@ def scan(root: Path, cancel: threading.Event | None = None, progress=None, worke
                     folder.denied = True
                     result.denied += 1
                 heap: list[tuple[int, str]] = []
-                for name, is_dir, size, attrs in entries:
+                for name, is_dir, size, attrs, used in entries:
                     if is_dir:
                         child = Folder(name, folder)
                         folder.children.append(child)
@@ -187,6 +197,12 @@ def scan(root: Path, cancel: threading.Event | None = None, progress=None, worke
                     result.files += 1
                     kind = kind_of(name)
                     kinds[kind] += size
+                    if 0 < used < old_before and size >= 1 << 20:
+                        item = (size, os.path.join(path, name), used)
+                        if len(old) < TOP_OLD:
+                            heapq.heappush(old, item)
+                        elif size > old[0][0]:
+                            heapq.heapreplace(old, item)
                     of_kind = by_kind[kind]
                     if len(of_kind) < TOP_KIND:
                         heapq.heappush(of_kind, (size, os.path.join(path, name)))
@@ -225,8 +241,79 @@ def scan(root: Path, cancel: threading.Event | None = None, progress=None, worke
     result.biggest = sorted(biggest, reverse=True)
     result.kinds = kinds
     result.biggest_kind = {k: sorted(v, reverse=True) for k, v in by_kind.items()}
+    result.old = sorted(old, reverse=True)
     result.seconds = time.monotonic() - started
     return result
+
+
+# ----------------------------------------------------------------------------- what grew since last time
+
+GREW_MIN = 50 << 20      # folders that grew less than this aren't mentioned
+KEEP_FOLDERS = 30 << 20  # folders remembered for next time: the ones at least this big…
+KEEP_DEPTH = 5           # …this deep at most
+KEEP_ROOTS = 12
+
+
+def _history_file() -> Path:
+    return Path(os.environ.get("LOCALAPPDATA") or str(Path.home())) / "Corefold" / "space-history.json"
+
+
+def folder_sizes(result: Scan) -> dict[str, int]:
+    """The sizes of the bigger folders, to compare with next time."""
+    out: dict[str, int] = {}
+    todo = [(result.root, 0)]
+    while todo:
+        f, depth = todo.pop()
+        out[str(f.path)] = f.size
+        if depth < KEEP_DEPTH:
+            todo += [(c, depth + 1) for c in f.children if c.size >= KEEP_FOLDERS]
+    return out
+
+
+def growth(before: dict[str, int], now: dict[str, int]) -> list[tuple[int, str]]:
+    """The folders that grew the most: the ones it really happened in (a folder isn't listed when one
+    folder inside it holds most of what it grew)."""
+    grew = {p: size - before.get(p, 0) for p, size in now.items()
+            if size - before.get(p, 0) >= GREW_MIN and (p in before or os.path.dirname(p) in before)}
+    keep = []
+    for p, delta in grew.items():
+        inside = [d for q, d in grew.items() if q != p and os.path.dirname(q) == p]
+        if inside and max(inside) >= delta * 0.7:
+            continue
+        keep.append((delta, p))
+    keep.sort(reverse=True)
+    return keep[:30]
+
+
+def remember(result: Scan, file: Path | None = None) -> None:
+    """Notes what grew since the last look at the same drive or folder (result.grew), and keeps this
+    look's folder sizes for next time. A look stopped before the end isn't kept."""
+    file = file or _history_file()
+    key = os.path.normcase(str(result.root.path))
+    try:
+        data = json.loads(file.read_text("utf-8"))
+        if not isinstance(data, dict):
+            data = {}
+    except (OSError, ValueError):
+        data = {}
+    now = folder_sizes(result)
+    last = data.get(key)
+    if isinstance(last, dict) and isinstance(last.get("sizes"), dict):
+        result.grew = growth(last["sizes"], now)
+        result.since = float(last.get("time") or 0)
+    if result.cancelled:
+        return
+    data[key] = {"time": time.time(), "sizes": now}
+    if len(data) > KEEP_ROOTS:  # the drives and folders looked at longest ago are forgotten
+        for old in sorted(data, key=lambda k: data[k].get("time", 0))[:len(data) - KEEP_ROOTS]:
+            data.pop(old, None)
+    try:
+        file.parent.mkdir(parents=True, exist_ok=True)
+        tmp = file.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data), "utf-8")
+        os.replace(tmp, file)
+    except OSError:
+        log.warning("couldn't keep the folder sizes for next time", exc_info=True)
 
 
 def squarify(sizes: list[float], x: float, y: float, w: float, h: float) -> list[tuple[float, float, float, float]]:
@@ -387,6 +474,7 @@ class Junk:
     to_bin: bool = False       # goes to the Recycle Bin (personal files), not deleted for good
     ticked: bool = True        # ticked to begin with
     name: str = ""             # a name in the title ("Google Chrome")
+    admin: bool = False        # Windows' own files: removed by an administrator copy of Corefold (Windows asks)
 
 
 def _tree_size(path: Path, limit_s: float = 20.0) -> tuple[int, int]:
@@ -591,6 +679,8 @@ def find_junk(downloads: Path | None = None, cancel: threading.Event | None = No
         if dumps.paths:
             found.append(dumps)
 
+    found += _admin_junk(cancel)
+
     if downloads is not None and downloads.is_dir():
         old = Junk("installers", "Old installers in Downloads", "Setup files downloaded more than a month ago. "
                    "They go to the Recycle Bin.", to_bin=True, ticked=False)
@@ -608,6 +698,88 @@ def find_junk(downloads: Path | None = None, cancel: threading.Event | None = No
         if old.paths:
             found.append(old)
     return found
+
+
+# Windows' own leftovers, which only an administrator can remove. The administrator copy of Corefold
+# is only told which of these keys to clean; the folders come from here, never from the request.
+ADMIN_KEYS = ("winupdate", "winold")
+
+
+def _windows_dir() -> Path:
+    """Where Windows is, from Windows itself (not from the environment, which a program could change)."""
+    if os.name == "nt":
+        buf = ctypes.create_unicode_buffer(260)
+        if ctypes.windll.kernel32.GetSystemWindowsDirectoryW(buf, 260):
+            return Path(buf.value)
+    return Path(os.environ.get("SystemRoot") or r"C:\Windows")
+
+
+def admin_path(key: str) -> Path | None:
+    windows = _windows_dir()
+    if key == "winupdate":
+        return windows / "SoftwareDistribution" / "Download"
+    if key == "winold":
+        return Path(windows.drive + "\\") / "Windows.old"
+    return None
+
+
+def _admin_junk(cancel: threading.Event | None = None) -> list[Junk]:
+    if os.name != "nt":
+        return []
+    rows = []
+    updates = admin_path("winupdate")
+    if updates is not None and updates.is_dir():
+        size, count = _tree_size(updates, 10.0)
+        if size > 20 << 20:
+            rows.append(Junk("winupdate", "Windows Update downloads", "Updates Windows has already installed. "
+                             "Windows downloads again any it still needs. Windows asks for an administrator.",
+                             [updates], size, count, ticked=False, admin=True))
+    old = admin_path("winold")
+    if old is not None and old.is_dir() and not (cancel is not None and cancel.is_set()):
+        size, count = _tree_size(old, 20.0)
+        rows.append(Junk("winold", "The previous Windows", "Kept after a big Windows update, to go back to it. Once "
+                         "it's removed, going back isn't possible. Windows asks for an administrator.",
+                         [old], size, count, ticked=False, admin=True))
+    return rows
+
+
+def clean_as_admin(keys: list[str]) -> int:
+    """In the administrator copy of Corefold: removes Windows' own leftovers. Returns the bytes freed."""
+    import subprocess
+    flags = 0x08000000  # CREATE_NO_WINDOW
+    system32 = _windows_dir() / "System32"
+    freed = 0
+
+    def run(name, *args, timeout=600):
+        try:  # (Windows' own programs, by their full path)
+            subprocess.run([str(system32 / (name + ".exe")), *args], capture_output=True, timeout=timeout,
+                           stdin=subprocess.DEVNULL, creationflags=flags)
+        except (OSError, subprocess.SubprocessError):
+            log.warning("%s failed", name, exc_info=True)
+    for key in keys:
+        path = admin_path(key) if key in ADMIN_KEYS else None
+        if path is None or not path.is_dir():
+            continue
+        before = _tree_size(path, 60.0)[0]
+        if key == "winupdate":
+            # Windows Update has to stop while its downloads go; it starts again straight after
+            run("net", "stop", "wuauserv", timeout=120)
+            run("net", "stop", "bits", timeout=120)
+            try:
+                for child in path.iterdir():
+                    _remove(child)
+            finally:
+                run("net", "start", "bits", timeout=120)
+                run("net", "start", "wuauserv", timeout=120)
+        elif key == "winold":
+            # the previous Windows belongs to the system: take it over first, then remove it (rd doesn't follow
+            # the links inside it into the Windows in use)
+            run("takeown", "/F", str(path), "/R", "/A", "/D", "Y", timeout=1800)
+            run("icacls", str(path), "/grant", "*S-1-5-32-544:F", "/T", "/C", "/Q", timeout=1800)
+            run("cmd", "/c", "rd", "/s", "/q", str(path), timeout=1800)
+        after = _tree_size(path, 60.0)[0] if path.exists() else 0
+        freed += max(0, before - after)
+    return freed
 
 
 def _app_caches(running: set[str], cancel: threading.Event | None = None) -> list[Junk]:
@@ -666,7 +838,7 @@ def _remove(p: Path) -> bool:
 
 def clean(junk: Junk, cancel: threading.Event | None = None) -> int:
     """Removes it. Returns the bytes freed (files in use are left alone)."""
-    if junk.busy:
+    if junk.busy or junk.admin:  # (Windows' own leftovers: clean_as_admin, in the administrator copy)
         return 0
     if junk.key == "bin":
         if os.name == "nt" and junk.size:

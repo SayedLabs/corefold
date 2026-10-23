@@ -494,12 +494,22 @@ class SpacePage(QWidget):
         switch = QHBoxLayout()
         self.here_btn = _button(tr("In this folder"), "subtab", lambda: self._list_mode("here"))
         self.big_btn = _button(tr("Biggest files"), "subtab", self._all_biggest)
+        self.old_btn = _button(tr("Unused for a year"), "subtab", lambda: self._list_mode("old"))
+        self.old_btn.setToolTip(tr("Big files nobody has opened or changed for over a year"))
+        self.grew_btn = _button(tr("What grew"), "subtab", lambda: self._list_mode("grew"))
         for b in (self.here_btn, self.big_btn):
             b.setCheckable(True)
             switch.addWidget(b)
         switch.addStretch()
         self.here_btn.setChecked(True)
         side.addLayout(switch)
+        switch2 = QHBoxLayout()  # (a second row: they don't fit beside the map in a narrow window)
+        for b in (self.old_btn, self.grew_btn):
+            b.setCheckable(True)
+            switch2.addWidget(b)
+        switch2.addStretch()
+        self.grew_btn.hide()
+        side.addLayout(switch2)
         self.items = QTreeWidget()
         self.items.setObjectName("history")
         self.items.setHeaderLabels([tr("Name"), tr("Size")])
@@ -589,8 +599,11 @@ class SpacePage(QWidget):
         self.busy_title.setText(tr("Looking through {name}…", name=ltr(str(root))))
         self.busy_line.setText(tr("This takes a moment on a big drive."))
         cancel = self.cancel
-        self.job = _work(lambda progress: space.scan(root, cancel, lambda *a: progress(a)), self._scan_progress,
-                         self._scanned)
+        def work(progress):
+            result = space.scan(root, cancel, lambda *a: progress(a))
+            space.remember(result)
+            return result
+        self.job = _work(work, self._scan_progress, self._scanned)
 
     def _scan_progress(self, args):
         if not _alive(self):
@@ -631,6 +644,11 @@ class SpacePage(QWidget):
         self.busy_box.hide()
         self.map_box.show()
         self._forget_timer.stop()
+        self.grew_btn.setVisible(bool(result.since))
+        if result.since:
+            self.grew_btn.setText(tr("Grew since {date}", date=time.strftime("%Y-%m-%d", time.localtime(result.since))))
+        if self.list_mode == "grew" and not result.since:
+            self.list_mode = "here"
         self.open_folder(folder)
         self.kinds_bar.set_kinds(result.kinds)
         self._kinds_text()
@@ -748,6 +766,8 @@ class SpacePage(QWidget):
         self.list_mode = mode
         self.here_btn.setChecked(mode == "here")
         self.big_btn.setChecked(mode == "big")
+        self.old_btn.setChecked(mode == "old")
+        self.grew_btn.setChecked(mode == "grew")
         self.big_btn.setText(tr("Biggest files") if not self.big_kind else
                              tr("Biggest: {kind}", kind=tr(space.KINDS[self.big_kind])))
         self._fill_list()
@@ -762,6 +782,16 @@ class SpacePage(QWidget):
             biggest = self.scan.biggest_kind.get(self.big_kind, []) if self.big_kind else self.scan.biggest
             for size, path in biggest:
                 rows.append((ltr(short_name(Path(path).name, 60)), size, Path(path), None, path))
+        elif self.list_mode == "old":
+            for size, path, used in self.scan.old:
+                when = time.strftime("%Y-%m-%d", time.localtime(used))
+                rows.append((ltr(short_name(Path(path).name, 60)), size, Path(path), None,
+                             path + "\n" + tr("Last used {date}", date=when)))
+        elif self.list_mode == "grew":
+            for delta, path in self.scan.grew:
+                p = Path(path)
+                folder = self._folder_of(p)
+                rows.append((ltr(short_name(p.name or str(p), 60)), delta, p, folder, path))
         else:
             for size, name, folder in self.here.entries()[:300]:
                 rows.append((ltr(name), size,
@@ -769,8 +799,14 @@ class SpacePage(QWidget):
             if self.here.rest:
                 rows.append((tr("{count} smaller files", count=self.here.rest_count), self.here.rest, None, None, None))
         folder_icon = icons.icon("folder", self.c.theme.muted)
+        if not rows and self.list_mode in ("old", "grew"):
+            empty = tr("Nothing big has gone unused for a year.") if self.list_mode == "old" else \
+                tr("Nothing grew much since the last look.")
+            it = QTreeWidgetItem([empty, ""])
+            it.setFlags(Qt.NoItemFlags)
+            self.items.addTopLevelItem(it)
         for text, size, path, folder, tip in rows:
-            it = QTreeWidgetItem([text, human_size(size)])
+            it = QTreeWidgetItem([text, ("+" if self.list_mode == "grew" else "") + human_size(size)])
             if folder is not None:
                 it.setIcon(0, folder_icon)
             it.setTextAlignment(1, Qt.AlignRight | Qt.AlignVCenter)
@@ -988,14 +1024,29 @@ class SpacePage(QWidget):
         if not chosen or self.job is not None:
             return
         total = sum(j.size for j in chosen)
-        if not _confirm(self, tr("Clean up?"), tr("{size} of temporary files and caches will be deleted. This can't "
-                                                  "be undone (old installers go to the Recycle Bin).",
-                                                  size=human_size(total)), tr("Clean up")):
+        admin = [j.key for j in chosen if j.admin]
+        text = tr("{size} of temporary files and caches will be deleted. This can't be undone (old installers go "
+                  "to the Recycle Bin).", size=human_size(total))
+        if admin:
+            text += "\n\n" + tr("Windows asks for an administrator for the Windows files.")
+        if not _confirm(self, tr("Clean up?"), text, tr("Clean up")):
             return
         self.clean_btn.setEnabled(False)
         self.clean_note.setText(tr("Cleaning up…"))
         cancel = self.cancel = threading.Event()
-        self.job = _work(lambda progress: sum(space.clean(j, cancel) for j in chosen), lambda _: None, self._cleaned)
+
+        def work(progress):
+            freed = sum(space.clean(j, cancel) for j in chosen if not j.admin)
+            if admin and not cancel.is_set():
+                from . import uninstall as un
+                from .appspage import _app_command
+                answer = un.run_elevated(_app_command(), "space-clean", {"keys": admin}, cancel)
+                if answer is None:  # "No" at Windows' question: the rest was still cleaned
+                    log.info("the administrator clean-up was turned down")
+                else:
+                    freed += int(answer.get("freed") or 0)
+            return freed
+        self.job = _work(work, lambda _: None, self._cleaned)
 
     def _cleaned(self, freed):
         if not _alive(self):

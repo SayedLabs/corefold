@@ -494,6 +494,49 @@ def space_kinds():
     check([Path(p).name for _, p in result.biggest_kind["picture"]] == ["photo.jpg"], "…and pictures apart")
 
 
+def space_more():
+    from corefold import space as sp
+    root = TMP / "drive"
+    (root / "Old").mkdir(parents=True)
+    (root / "Games").mkdir()
+    old = root / "Old" / "backup.zip"
+    with open(old, "wb") as fh:
+        fh.truncate(3 << 20)
+    two_years = time.time() - 2 * 365 * 86400
+    os.utime(old, (two_years, two_years))
+    with open(root / "Games" / "fresh.bin", "wb") as fh:
+        fh.truncate(3 << 20)
+    history = TMP / "space-history.json"
+    first = sp.scan(root)
+    check([Path(p).name for _, p, _u in first.old] == ["backup.zip"], f"big files unused for a year ({first.old})")
+    sp.remember(first, history)
+    check(not first.grew and not first.since, "the first look has nothing to compare with")
+    with open(root / "Games" / "update.pak", "wb") as fh:
+        fh.truncate(80 << 20)
+    second = sp.scan(root)
+    sp.remember(second, history)
+    grew = [(Path(p).name, d >> 20) for d, p in second.grew]
+    check(second.since > 0 and grew and grew[0][0] == "Games", f"what grew since the last look ({grew})")
+    check(len(grew) == 1, "…only where it happened (not the drive too)")
+    check(sp.admin_path("winupdate").name == "Download" and sp.admin_path("winold").name == "Windows.old",
+          "Windows' own leftovers are fixed places")
+    row = sp.Junk("winold", "x", "y", [root / "Games"], 1, 1, admin=True)
+    check(sp.clean(row) == 0 and (root / "Games").exists(), "…only the administrator copy removes them")
+    import json
+
+    from corefold import uninstall as un
+    helper = TMP / "Corefold" / "helper"
+    helper.mkdir(parents=True)
+    plan = helper / "space-clean-test.json"
+    plan.write_text(json.dumps({"keys": ["evil", str(root)]}), "utf-8")
+    check(un.helper_main(["--space-clean", str(plan)]) == 0, "the administrator copy takes a Space plan")
+    answer = json.loads(plan.with_suffix(".result.json").read_text("utf-8"))
+    check(answer == {"freed": 0} and (root / "Games").exists(), "…and cleans nothing it wasn't made to")
+    stray = TMP / "plan.json"
+    stray.write_text(json.dumps({"keys": ["winold"]}), "utf-8")
+    check(un.helper_main(["--space-clean", str(stray)]) == 2, "…nor a plan from anywhere else")
+
+
 def space():
     from corefold import space as sp
     local, roaming = Path(os.environ["LOCALAPPDATA"]), Path(os.environ["APPDATA"])
@@ -670,6 +713,7 @@ else:
                      ("clipboard", clipboard), ("clip list", clip_list), ("viewer", viewer),
                      ("space", space), ("space programs", space_programs), ("chapters", chapters), ("player", player),
                      ("saved texts", saved_texts), ("viewer strip", viewer_strip), ("viewer more", viewer_more), ("space kinds", space_kinds),
+                     ("space more", space_more),
                      ("shortcut program", shortcut_program), ("pdf stamps", pdf_stamps)):
         step(name, fn)
 print(f"featuretest: {len(problems)} problem(s)")
