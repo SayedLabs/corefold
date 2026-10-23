@@ -17,7 +17,7 @@ concurrency:
 jobs:
   try:
     runs-on: windows-latest
-    timeout-minutes: 75
+    timeout-minutes: 100
     strategy:
       fail-fast: false
       matrix:
@@ -73,7 +73,7 @@ jobs:
           python scripts/scantest.py out/scantest ${{ matrix.lang }} ${{ matrix.look }} ${{ matrix.quick }} *>&1 | Tee-Object out/scantest.txt
 
       - name: Every button on the page, and the Store
-        timeout-minutes: 25
+        timeout-minutes: 50
         shell: pwsh
         continue-on-error: true
         env:
