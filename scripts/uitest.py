@@ -339,9 +339,13 @@ def space_tool():
     from corefold import space as sp
     d = sp.drives()
     check(bool(d) and d[0].total > 0, f"the drives ({', '.join(x.path for x in d)})")
-    t0 = time.time()
-    big = sp.scan(Path(_os.environ.get("ProgramFiles", "C:/Program Files")))
-    check(big.files > 1000, f"a big folder: {big.files:,} files in {big.seconds:.1f} s")
+    import threading as _th
+    stop = _th.Event()
+    _th.Timer(20, stop.set).start()
+    big = sp.scan(Path(_os.environ.get("ProgramFiles", "C:/Program Files")), stop)
+    rate = big.files / max(0.1, big.seconds)
+    check(big.files > 1000, f"a big folder: {big.files:,} files in {big.seconds:.1f} s ({rate:,.0f} files a second"
+                            f"{', stopped after 20 s' if big.cancelled else ''})")
     pg.show_section("clean")
     check(until(lambda: pg.job is None, 60), "looking for junk")
     settle(0.4)
