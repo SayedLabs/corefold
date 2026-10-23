@@ -19,6 +19,16 @@ jobs:
       - name: Install
         shell: pwsh
         run: python -m pip install --quiet -r requirements.txt
+      - name: Translations and the older checks
+        timeout-minutes: 15
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          choco install ffmpeg -y --no-progress | Out-Null
+          $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
+          python scripts/check_translations.py *>> out/translations.txt
+          python scripts/uitest.py out/uitest *>> out/uitest.txt
       - name: Click through
         timeout-minutes: 25
         shell: pwsh
