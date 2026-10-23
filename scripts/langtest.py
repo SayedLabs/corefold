@@ -32,6 +32,7 @@ try:
 except (AttributeError, ValueError):
     pass
 import faulthandler  # noqa: E402
+faulthandler.enable()  # a crash says where it happened
 faulthandler.dump_traceback_later(600, exit=True)  # stuck somewhere: say where, and stop
 
 from corefold import i18n  # noqa: E402
@@ -400,6 +401,7 @@ settle(0.6)
 check(i18n.language() == "fr", "Save puts Corefold in French straight away")
 check(not restarted, "... with no restart")
 check(c.window.current_page() == "General" and not c.window.is_dirty(), "... still on General, nothing left to save")
+note("back to English")
 c.switch_language("en")
 settle(1.0)
 

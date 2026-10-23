@@ -20,10 +20,31 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: languages
-          - name: sweep-fr-small
+          - name: languages-1
+            lang: "yes"
+          - name: languages-2
+            lang: "yes"
+          - name: languages-3
+            lang: "yes"
+          - name: languages-4
+            lang: "yes"
+          - name: languages-5
+            lang: "yes"
+          - name: languages-6
+            lang: "yes"
+          - name: sweep-fr-small-1
             sweep: "--lang fr --look dark --size min --quick"
-          - name: sweep-fr-small-main
+          - name: sweep-fr-small-main-1
+            sweep: "--lang fr --look dark --size min --quick"
+            main: "yes"
+          - name: sweep-fr-small-2
+            sweep: "--lang fr --look dark --size min --quick"
+          - name: sweep-fr-small-main-2
+            sweep: "--lang fr --look dark --size min --quick"
+            main: "yes"
+          - name: sweep-fr-small-3
+            sweep: "--lang fr --look dark --size min --quick"
+          - name: sweep-fr-small-main-3
             sweep: "--lang fr --look dark --size min --quick"
             main: "yes"
     name: ${{ matrix.name }}
@@ -39,11 +60,12 @@ jobs:
           New-Item -ItemType Directory -Force out | Out-Null
           python scripts/screenres.py 1920 1080 *>> out/screen.txt
       - name: Languages
-        if: matrix.name == 'languages'
+        if: matrix.lang == 'yes'
         shell: pwsh
         continue-on-error: true
         run: |
           python -X faulthandler scripts/langtest.py out/langtest --look dark *> out/langtest-dark.txt
+          "exit code $LASTEXITCODE" | Out-File -Append -Encoding utf8 out/langtest-dark.txt
           python -X faulthandler scripts/langtest.py out/langtest --look light *> out/langtest-light.txt
           "exit code $LASTEXITCODE" | Out-File -Append -Encoding utf8 out/langtest-light.txt
           python -X faulthandler scripts/langtest.py out/langtest --start first --data startdata *> out/langtest-first.txt
@@ -100,7 +122,7 @@ jobs:
             echo "Language run of $SHA"
             for d in */; do
               echo "== ${d%/}"
-              grep -rhaE "^(sweeptest|navtest|uitest|selftest|langtest)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused|\] [0-9]+ texts" "$d" 2>/dev/null | head -20
+              grep -rhaE "^(sweeptest|navtest|uitest|selftest|langtest)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused|\] [0-9]+ texts|fatal exception|^exit code" "$d" 2>/dev/null | head -20
               grep -rhaE "^(FAIL|ERROR) " "$d" 2>/dev/null | sort | uniq -c | sort -rn | head -60
             done
           } > summary.txt
