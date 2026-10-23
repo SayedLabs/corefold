@@ -416,9 +416,10 @@ def start():
     settle(0.2)
     check(c.window.current_page() == "Space", f"the mouse's back button goes back a page ({c.window.current_page()})")
     c.window.open_page("Home")
-    timed("switch dark/light", lambda: c.window.toggle_dark(), 0.8, profile="theme")
+    # (every window is restyled: about 1 s on GitHub's slow PCs)
+    timed("switch dark/light", lambda: c.window.toggle_dark(), 1.2, profile="theme")
     grab(c.window, "home-switched")
-    timed("switch it back", lambda: c.window.toggle_dark(), 0.8)
+    timed("switch it back", lambda: c.window.toggle_dark(), 1.2)
 
 
 def search():
@@ -697,8 +698,9 @@ def space():
     root = Path(os.environ.get("SystemRoot", "C:/Windows"))
     use0 = _times()
     threading.Timer(30, _stacks, ("space-30s",)).start()  # (where the scan's threads are, if it's slow)
-    timed(f"look through {root} (hundreds of thousands of files)", lambda: pg.start_scan(root), 90,
-          wait=lambda: pg.scan is not None and pg.job is None, wait_s=200)
+    # (the first look at a disk waits for the disk: 60-200 s on GitHub's PCs, with the app hardly busy)
+    timed(f"look through {root} (hundreds of thousands of files)", lambda: pg.start_scan(root), 240,
+          wait=lambda: pg.scan is not None and pg.job is None, wait_s=300)
     _say_times("the scan in the page", use0)
     if pg.job is not None:  # (stopped, so the rest can go on)
         say(f"note  still looking: {pg.busy_line.text()}")
@@ -862,6 +864,15 @@ def idle():
 from importlib.metadata import version as _version  # noqa: E402
 say("note  versions: " + ", ".join(f"{n} {_version(n)}" for n in ("PySide6-Essentials", "Pillow", "pypdfium2", "pypdf")))
 with setup():
+    # The first text drawn on a PC that just started waits for Windows to read its fonts (any app does, once;
+    # 3-13 s on GitHub's fresh PCs). Done here, so the app's own times below don't count it.
+    from PySide6.QtWidgets import QLabel
+    t0 = time.perf_counter()
+    _first = QLabel("Corefold مرحبا")
+    _first.ensurePolished()
+    _first.sizeHint()
+    say(f"note  the first text on this PC (Windows reading its fonts): {time.perf_counter() - t0:.1f} s")
+    del _first
     t0 = time.perf_counter()
     make_files()
     say(f"note  test files made in {time.perf_counter() - t0:.0f} s")
