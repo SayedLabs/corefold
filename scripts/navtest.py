@@ -283,8 +283,10 @@ def every_page():
                 check(w.current_page() == name, f"back to {name} from its settings ({w.current_page()})")
     # settings tabs
     nav_click(w, "General")
-    for first, b in w.settings_tabs.items():
-        click(b)
+    for first, row in w.settings_tabs.items():  # (a list on the side of the Settings pages)
+        rect = w.settings_list.visualRect(w.settings_list.model().index(row, 0))
+        QTest.mouseClick(w.settings_list.viewport(), Qt.LeftButton, Qt.NoModifier, rect.center())
+        settle(0.2)
         check(w.current_page() == first, f"the {first} settings tab ({w.current_page()})")
     for page_name, b in w.settings_subtabs.items():
         w.open_page("ConvOptions")

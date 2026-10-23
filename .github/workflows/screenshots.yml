@@ -48,6 +48,14 @@ jobs:
           $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
           python scripts/uitest.py shots *>> shots/uitest-output.txt
 
+      - name: Try the quick menu and the quick wheel with real keys
+        timeout-minutes: 10
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          python scripts/quicktest.py shots/quick en dark *>> shots/quicktest-output.txt
+          python scripts/quicktest.py shots/quick ar light *>> shots/quicktest-output.txt
+
       - name: Click through the window like a person
         timeout-minutes: 20
         shell: pwsh

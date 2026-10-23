@@ -891,6 +891,7 @@ class ViewerWindow(QWidget):
         while lay.count():
             item = lay.takeAt(0)
             if item.widget():
+                item.widget().hide()  # (not drawn again at its old place before it goes)
                 item.widget().deleteLater()
         head = QLabel(tr("Details"))
         head.setObjectName("h2")

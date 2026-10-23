@@ -803,6 +803,7 @@ class SpacePage(QWidget):
         while self.junk_rows.count():
             item = self.junk_rows.takeAt(0)
             if item.widget():
+                item.widget().hide()  # (not drawn again at its old place before it goes)
                 item.widget().deleteLater()
             elif item.layout():
                 _clear_layout(item.layout())
@@ -1106,6 +1107,7 @@ def _clear_layout(lay):
         item = lay.takeAt(0)
         if item.widget():
             item.widget().hide()  # (gone at once, not when Qt gets round to deleting it)
+            item.widget().hide()  # (not drawn again at its old place before it goes)
             item.widget().deleteLater()
         elif item.layout():
             _clear_layout(item.layout())

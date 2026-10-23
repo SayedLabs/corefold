@@ -105,6 +105,16 @@ try:
 except Exception:
     problems.append(f"show_files: {traceback.format_exc()}")
 save(w, "window-0-home-with-file", wait=2.0)
+try:  # the search (Ctrl + K): everything, then a few letters typed
+    w.open_page("Home")
+    settle(0.3)
+    w.open_palette()
+    save(w, "window-search", wait=0.5)
+    w.palette.search.setText("so")
+    save(w, "window-search-typed", wait=0.4)
+    w.palette.close_palette()
+except Exception:
+    problems.append(f"search: {traceback.format_exc()}")
 try:  # the sidebar with icons only
     w.set_nav_compact(True)
     w.open_page("Space")

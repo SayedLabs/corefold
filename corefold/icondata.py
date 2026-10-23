@@ -116,3 +116,17 @@ PATHS: dict[str, str] = {
     "cursor": "M5.5 3.48325C5.5 2.23498 6.93571 1.53286 7.92098 2.29927L21.4353 12.8116C22.5626 13.6885 21.9425 15.4956 20.5143 15.4956H13.6619C13.1574 15.4956 12.6806 15.7264 12.3676 16.1222L8.17661 21.4224C7.2945 22.538 5.5 21.9142 5.5 20.492L5.5 3.48325ZM20.5143 13.9956L7 3.48325L7 20.492L11.191 15.1918C11.7884 14.4363 12.6987 13.9956 13.6619 13.9956H20.5143Z",
 }
 EVENODD: set[str] = set()
+
+# A few of Corefold's own, drawn as strokes 1.5 px wide on the same 24×24 grid (they sit well next to
+# the Fluent ones): name -> SVG shapes, coloured by icons.svg()
+STROKES: dict[str, str] = {
+    "weather_moon": '<path d="M19.5 14.6A8 8 0 0 1 9.4 4.5a8 8 0 1 0 10.1 10.1Z"/>',
+    "weather_sunny": '<circle cx="12" cy="12" r="4"/><path d="M12 2.8v1.9M12 19.3v1.9M2.8 12h1.9M19.3 12h1.9'
+                     'M5.5 5.5l1.35 1.35M17.15 17.15l1.35 1.35M5.5 18.5l1.35-1.35M17.15 6.85l1.35-1.35"/>',
+    "dismiss": '<path d="M6 6l12 12M18 6L6 18"/>',
+    "sparkle": '<path d="M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9Z"/>'
+               '<path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8Z"/>',
+    "flash": '<path d="M13.5 3 5.5 13.5h6L10.5 21l8-10.5h-6Z"/>',
+    "grid": '<rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/>'
+            '<rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/>',
+}

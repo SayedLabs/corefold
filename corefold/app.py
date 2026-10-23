@@ -37,6 +37,7 @@ from .history import History, size_of
 from .i18n import tr
 from .settings import (APP_NAME, LOG_DIR, TOAST_TIME_SCALE, WINDOW_TEXT_PT, Settings, app_command, app_icon,
                        installed_uninstaller, remove_user_data)
+from .atomic import tokens as atomic_tokens
 from .theme import build_theme, round_menu, stylesheet
 from .toast import Toast
 from .wheel import Wheel
@@ -289,10 +290,13 @@ class Controller(QObject):
         self.act_archive = menu.addAction(tr("Open an archive…"), self.choose_archive)
         self.act_clip = menu.addAction(tr("Clipboard history"), lambda: self.show_clipboard(from_tray=True))
         self.act_shot = menu.addAction(tr("Take a screenshot"), lambda: self.capture and self.capture.screenshot())
+        self.act_quick = menu.addAction(tr("Quick menu"), lambda: self.quick and self.quick.toggle_menu())
         self.menu_icons = [(act_open, "home"), (act_settings, "settings"), (self.act_paste, "arrow_swap"),
-                           (self.act_archive, "archive"), (self.act_clip, "clipboard"), (self.act_shot, "screenshot")]
+                           (self.act_archive, "archive"), (self.act_clip, "clipboard"), (self.act_shot, "screenshot"),
+                           (self.act_quick, "layout")]
         self.clip = None     # Corefold Clipboard, while it's in use
         self.capture = None  # Corefold Capture, while it's in use
+        self.quick = None    # the quick menu and wheel, while one of them is switched on
         self.act_again = menu.addAction(tr("Do it again…"), self.do_again)
         menu.aboutToShow.connect(self._update_again_action)
         self.recent_menu = menu.addMenu(tr("Recent files"))
@@ -499,7 +503,9 @@ class Controller(QObject):
 
     def _make_theme(self):
         s = self.settings
-        return build_theme(s.appearance, s.accent, s.custom_color, s.wheel_opacity)
+        theme = build_theme(s.appearance, s.accent, s.custom_color, s.wheel_opacity)
+        atomic_tokens.use(theme.tokens, s.animations)  # (the parts that draw themselves read it)
+        return theme
 
     def _hide_drag_wheel(self):
         if not self.wheel.click_mode:
@@ -755,12 +761,15 @@ class Controller(QObject):
         self.act_archive.setVisible(all_tools.is_on(self.settings, "archive"))
         self.act_clip.setVisible(self.clip is not None)
         self.act_shot.setVisible(self.capture is not None)
+        self.act_quick.setVisible(self.quick is not None and self.settings.quick_menu)
 
     def _background_tools(self):
         self._clipboard_tool()
         self._capture_tool()
+        self._quick_tool()
         self._tray_tools()
-        running = [name for name, on in (("clipboard", self.clip), ("capture", self.capture)) if on is not None]
+        running = [name for name, on in (("clipboard", self.clip), ("capture", self.capture),
+                                         ("quick access", self.quick)) if on is not None]
         if running:
             log.info("running in the background: %s", ", ".join(running))
 
@@ -783,6 +792,37 @@ class Controller(QObject):
 
     def _cap_settings(self) -> tuple:
         return self.settings.cap_shortcut, self.settings.cap_record_shortcut
+
+    # ---- Quick access
+
+    def _quick_tool(self):
+        """The quick menu's and wheel's shortcuts are only there while one of them is switched on."""
+        s = self.settings
+        on = s.quick_menu or s.quick_wheel
+        if on and self.quick is None:
+            from .quick import QuickAccess
+            try:
+                self.quick = QuickAccess(self)
+            except Exception:
+                log.exception("couldn't start quick access")
+                self.quick = None
+                return
+            self._quick_applied = self._quick_settings()
+            if not s.quick_told and s.quick_menu and self.quick.menu_key.ok:
+                s.quick_told = True
+                self.save_timer.start(400)
+                from .hotkey import display
+                QTimer.singleShot(4000, lambda: self.toast.notify(
+                    tr("Quick menu"), tr("Press {key} in any app for your tools and shortcuts.",
+                                         key=display(s.quick_menu_key)), linger_ms=7000))
+        elif not on and self.quick is not None:
+            self.quick.stop()
+            self.quick.deleteLater()
+            self.quick = None
+
+    def _quick_settings(self) -> tuple:
+        s = self.settings
+        return s.quick_menu, s.quick_menu_key, s.quick_wheel, s.quick_wheel_key, s.quick_button
 
     # ---- Corefold Clipboard
 
@@ -890,7 +930,7 @@ class Controller(QObject):
                   "image": (s.open_images and viewer, tr("Corefold Viewer")),
                   "email": (s.open_emails and viewer, tr("Corefold Viewer")),
                   "media": (s.open_media and all_tools.is_on(s, "player"), tr("Corefold Player"))}
-        threading.Thread(target=assoc.sync, args=(wanted, app_command, app_icon(), ""), daemon=True).start()
+        assoc.sync_in_background(wanted, app_command, app_icon())
 
     # ---- right-click menu
 
@@ -1135,6 +1175,8 @@ class Controller(QObject):
             self._window.apply_theme(self.theme)
         if self.clip is not None and self.clip.popup is not None:
             self.clip.popup.apply_theme(self.theme)
+        if self.quick is not None:
+            self.quick.apply_theme(self.theme)
 
     def _color_menu_icons(self):
         for action, name in self.menu_icons:
@@ -1164,6 +1206,18 @@ class Controller(QObject):
             self.clip.apply_settings()
             if self._window is not None:
                 self._window.refresh_clipboard_note()
+        if self._quick_settings() != getattr(self, "_quick_applied", None):
+            self._quick_applied = self._quick_settings()
+            self._quick_tool()
+            if self.quick is not None:
+                self.quick.apply_settings()
+            self._tray_tools()
+            btn = getattr(self._window, "quick_btn", None)
+            if btn is not None:
+                btn.setVisible(bool(self.settings.quick_menu))
+            notes = getattr(self._window, "quick_notes", None)
+            if notes is not None:
+                notes()
         if self._window is not None:
             self._window.refresh()
         self._update_tooltip()
@@ -1681,6 +1735,9 @@ class Controller(QObject):
         if self.capture is not None:
             self.capture.stop()
             self.capture = None
+        if self.quick is not None:
+            self.quick.stop()
+            self.quick = None
         for p in getattr(self, "players", []):
             if _alive(p):
                 p.close()
