@@ -1708,7 +1708,7 @@ STRINGS: dict[str, str] = {
     'A folder or drive…': 'مجلد أو قرص…',
     "The places malware hides most: what's running, what starts with Windows, and your Downloads. Usually a few minutes.": 'الأماكن اللي تختبي فيها البرامج الخبيثة أكثر شي: اللي شغّال، واللي يشتغل مع ويندوز، والتنزيلات. عادةً كم دقيقة.',
     'Every file on every drive. It can take an hour or more, and you can keep using your PC.': 'كل ملف في كل قرص. ممكن ياخذ ساعة أو أكثر، وتقدر تكمّل شغلك على جهازك.',
-    'A file, a folder or a drive. You can also drop files here, or right-click them and pick "Scan with Corefold".': 'ملف أو مجلد أو قرص. وتقدر بعد تسحب الملفات هنا، أو تضغط عليها كليك يمين وتختار "Scan with Corefold".',
+    'A file, a folder or a drive. You can also drop files here, or right-click them and pick "Scan with Corefold".': 'ملف أو مجلد أو قرص. وتقدر بعد تسحب الملفات هنا، أو تضغط عليها كليك يمين وتختار "افحص بـ Corefold".',
     'You can close this window: Corefold tells you when the scan is done.': 'تقدر تسكّر هالنافذة: Corefold يعلمك لما يخلص الفحص.',
     'What Microsoft Defender found': 'اللي لقاه Microsoft Defender',
     "Worth a look, from Corefold's own checks": 'يستاهل نظرة، من فحوصات Corefold نفسه',
