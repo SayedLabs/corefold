@@ -682,15 +682,107 @@ def media_duration(src: Path) -> float:
 LOCAL_ONLY = ["-protocol_whitelist", "file,pipe"]
 
 
+# ----------------------------------------------------------------------------- the graphics card
+
+GPU_ENCODERS = ("h264_nvenc", "h264_qsv", "h264_amf")  # NVIDIA, Intel, AMD
+_gpu: dict = {}
+_gpu_lock = threading.Lock()
+
+
+def gpu_encoder() -> str:
+    """The graphics card's H.264 encoder that really works on this PC (tried once with a tiny video), or ""."""
+    with _gpu_lock:
+        if "encoder" in _gpu:
+            return _gpu["encoder"]
+        found = ""
+        try:
+            exe = find_tool("ffmpeg")
+            listed = subprocess.run([exe, "-hide_banner", "-encoders"], capture_output=True, text=True, timeout=20,
+                                    stdin=subprocess.DEVNULL, creationflags=NO_WINDOW).stdout
+            for enc in GPU_ENCODERS:
+                if f" {enc} " not in listed:
+                    continue
+                r = subprocess.run([exe, "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i",
+                                    "color=c=black:s=256x256:d=0.2", "-frames:v", "3", *_gpu_video_args([], enc, 23),
+                                    "-f", "null", "-"], capture_output=True, timeout=30, stdin=subprocess.DEVNULL,
+                                   creationflags=NO_WINDOW)
+                if r.returncode == 0:
+                    found = enc
+                    break
+        except (OSError, RuntimeError, subprocess.SubprocessError):
+            found = ""
+        log.info("graphics card video encoder: %s", found or "none")
+        _gpu["encoder"] = found
+        return found
+
+
+def _gpu_video_args(rest: list[str], enc: str, crf: int | None, bitrate: str = "") -> list[str]:
+    """The encoder's own words for "this quality" (FFmpeg's x264 CRF, roughly matched)."""
+    if enc == "h264_nvenc":
+        q = ["-rc", "vbr", "-b:v", bitrate] if bitrate else ["-rc", "vbr", "-cq", str((crf or 20) + 2), "-b:v", "0"]
+        return ["-c:v", enc, "-preset", "p5", *q, "-pix_fmt", "yuv420p", *rest]
+    if enc == "h264_qsv":
+        q = ["-b:v", bitrate] if bitrate else ["-global_quality", str((crf or 20) + 2)]
+        return ["-c:v", enc, "-preset", "medium", *q, "-pix_fmt", "nv12", *rest]
+    q = ["-b:v", bitrate] if bitrate else ["-rc", "cqp", "-qp_i", str(crf or 20), "-qp_p", str((crf or 20) + 2)]
+    return ["-c:v", enc, "-quality", "balanced", *q, "-pix_fmt", "nv12", *rest]
+
+
+def with_gpu(args: list[str], enc: str) -> list[str] | None:
+    """The same FFmpeg arguments with the graphics card making the H.264 video, or None when they can't
+    be swapped (no x264 in them, two passes, or settings only x264 has)."""
+    if not enc or "libx264" not in args or "-pass" in args or "-x264-params" in args or "-tune" in args:
+        return None
+    out, crf, bitrate, i = [], None, "", 0
+    while i < len(args):
+        a = args[i]
+        nxt = args[i + 1] if i + 1 < len(args) else ""
+        if a == "-c:v" and nxt == "libx264":
+            i += 2
+            continue
+        if a == "-crf":
+            crf = int(float(nxt)) if nxt.replace(".", "", 1).isdigit() else 20
+            i += 2
+            continue
+        if a in ("-preset", "-pix_fmt", "-profile:v", "-level"):
+            i += 2
+            continue
+        if a == "-b:v":
+            bitrate = nxt
+            i += 2
+            continue
+        out.append(a)
+        i += 1
+    return _gpu_video_args(out, enc, crf, bitrate)
+
+
 def run_ffmpeg(src: Path, out: Path, args: list[str], ctx: Ctx, pre: list[str] | None = None,
-               duration: float | None = None):
+               duration: float | None = None, more_inputs: list[Path] | None = None, cwd: Path | None = None):
+    """FFmpeg from src to out, with progress and Stop. more_inputs come after src (-i 1, 2 …).
+    With the graphics card option on, H.264 videos are made by the graphics card; if that fails, the
+    usual way follows by itself."""
+    fast = with_gpu(args, gpu_encoder()) if getattr(ctx.options, "gpu", False) and "libx264" in args else None
+    if fast is not None:
+        try:
+            return _run_ffmpeg(src, out, fast, ctx, pre, duration, more_inputs, cwd)
+        except Cancelled:
+            raise
+        except RuntimeError:
+            log.warning("the graphics card couldn't make %s; trying again the usual way", out.name)
+    return _run_ffmpeg(src, out, args, ctx, pre, duration, more_inputs, cwd)
+
+
+def _run_ffmpeg(src: Path, out: Path, args: list[str], ctx: Ctx, pre: list[str] | None = None,
+                duration: float | None = None, more_inputs: list[Path] | None = None, cwd: Path | None = None):
     duration = media_duration(src) if duration is None else duration
-    args = with_tonemap(src, args)
+    args = with_tonemap(src, args) if not more_inputs else args
+    extra = [x for p in (more_inputs or []) for x in (*LOCAL_ONLY, "-i", str(p))]
     cmd = [find_tool("ffmpeg"), "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
-           *(pre or []), *LOCAL_ONLY, "-i", str(src), *args, "-progress", "pipe:1", "-nostats", str(out)]
+           *(pre or []), *LOCAL_ONLY, "-i", str(src), *extra, *args, "-progress", "pipe:1", "-nostats", str(out)]
     with tempfile.TemporaryFile(mode="w+", encoding="utf-8", errors="replace") as err:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=err, stdin=subprocess.DEVNULL, text=True,
-                                encoding="utf-8", errors="replace", creationflags=job_flags())
+                                encoding="utf-8", errors="replace", creationflags=job_flags(),
+                                cwd=str(cwd) if cwd else None)
         try:
             for line in proc.stdout:
                 if ctx.cancelled:
@@ -1153,7 +1245,7 @@ def both(*checks):
 
 def catalog(multi: bool = False) -> dict[str, list[Tool]]:
     """Every tool Corefold has, per kind of file, in default wheel order."""
-    from . import archives as ar, extras as ex, moretools as mt
+    from . import archives as ar, extras as ex, moretools as mt, pdfstamp as ps, videotools as vt
 
     def fmt(kind, ext, fn, check=None, **kw):
         return Tool(f"{kind}:{ext[1:]}", ext[1:].upper(),
@@ -1167,7 +1259,9 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
             Tool("pack:options", tr("Archive…"), tr("Archive with a password, split or max compression"), ar.pack,
                  batch=True, ask="pack"),
             Tool("files:rename", tr("Rename"), tr("Rename the files (numbers, replace text…)"), mt.rename_files,
-                 batch=True, ask="rename_files", renames=False)]
+                 batch=True, ask="rename_files", renames=False),
+            Tool("files:hash", "SHA-256", tr("Copy the file's fingerprint, to check a download"), mt.file_hash,
+                 batch=True, renames=False, check=mt.check_files_only)]
 
     folder = [Tool(f"folder:{k}", label, desc, partial(mt.convert_folder, fmt=k), check=mt.check_pictures_folder,
                    renames=False)
@@ -1205,7 +1299,9 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
     audio += [Tool("audio:trim", tr("Trim"), tr("Cut the start or end"), trim_media, ask="trim"),
               Tool("audio:fit", tr("Fit size"), tr("Make it fit a size limit"), ex.fit, ask="fit"),
               Tool("audio:volume", tr("Volume"), tr("Fix the volume (too quiet or too loud)"), mt.fix_volume),
-              Tool("audio:speed", tr("Speed"), tr("Speed up or slow down"), mt.change_speed, ask="speed")]
+              Tool("audio:speed", tr("Speed"), tr("Speed up or slow down"), mt.change_speed, ask="speed"),
+              Tool("audio:join", tr("Join"), tr("Join them into one file, one after another"), vt.join_media,
+                   batch=True, check=vt.check_join)]
 
     video = [fmt("video", e, ffmpeg_convert, check=check_gif_length if e == ".gif" else None, args=a)
              for e, a in VIDEO_ARGS.items()]
@@ -1225,6 +1321,16 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
               Tool("video:volume", tr("Volume"), tr("Fix the volume (too quiet or too loud)"), mt.fix_volume,
                    check=check_has_audio, slow_check=True),
               Tool("video:speed", tr("Speed"), tr("Speed up or slow down"), mt.change_speed, ask="speed"),
+              Tool("video:crop", tr("Crop"), tr("Remove black bars, or make it square or vertical"), vt.crop_video,
+                   ask="video_crop"),
+              Tool("video:subtitles", tr("Subtitles"), tr("Put a subtitle file into the video"), vt.add_subtitles,
+                   ask="subtitles"),
+              Tool("video:srt", "SRT", tr("Save the subtitles inside as .srt"), vt.save_subtitles,
+                   check=vt.check_has_subtitles, slow_check=True),
+              Tool("video:sound", tr("Sound…"), tr("Save the sound (M4A, WAV, FLAC…)"), vt.video_sound, ask="sound",
+                   check=check_has_audio, slow_check=True),
+              Tool("video:join", tr("Join"), tr("Join them into one video, one after another"), vt.join_media,
+                   batch=True, check=vt.check_join),
               Tool("video:sticker", tr("Sticker"), tr("Make a sticker or chat GIF (WhatsApp, Telegram, Discord)"),
                    mt.video_sticker, ask="sticker")]
 
@@ -1241,6 +1347,12 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
                 check=check_pdf_locked, slow_check=True),
            Tool("pdf:images", tr("Pictures"), tr("Save the pictures inside"), mt.pdf_images, check=check_pdf_locked,
                 slow_check=True),
+           Tool("pdf:numbers", tr("Page numbers"), tr("Number every page"), ps.page_numbers, ask="page_numbers",
+                check=check_pdf_locked, slow_check=True),
+           Tool("pdf:watermark", tr("Watermark"), tr("Add text or a logo to every page"), ps.watermark_pdf,
+                ask="watermark", check=check_pdf_locked, slow_check=True),
+           Tool("pdf:sign", tr("Sign"), tr("Put your signature on it"), ps.sign_pdf, ask="sign",
+                check=check_pdf_locked, slow_check=True),
            Tool("pdf:lock", tr("Lock"), tr("Protect with a password"), mt.pdf_lock, ask="lock",
                 check=mt.check_can_lock, slow_check=True),
            Tool("pdf:unlock", tr("Unlock"), tr("Remove the password"), mt.pdf_unlock, password=True,

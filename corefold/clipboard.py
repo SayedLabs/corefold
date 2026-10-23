@@ -58,6 +58,52 @@ def kind_of_text(text: str) -> str:
     return "link" if len(t) < 4096 and _URL.match(t) else "text"
 
 
+# quick changes to copied text before it's pasted (English names, shown through tr())
+CHANGES = (("upper", "UPPERCASE"), ("lower", "lowercase"), ("title", "Capital Letters"),
+           ("spaces", "Remove extra spaces"), ("one_line", "Join into one line"), ("json", "Tidy JSON"))
+
+
+def change_text(text: str, how: str) -> str:
+    """The text changed one of the CHANGES ways (as it was, if it can't be: JSON that isn't JSON)."""
+    if how == "upper":
+        return text.upper()
+    if how == "lower":
+        return text.lower()
+    if how == "title":
+        return " ".join(w[:1].upper() + w[1:].lower() for w in text.split(" "))
+    if how == "spaces":
+        lines = [_SPACES.sub(" ", line).strip() for line in text.splitlines()]
+        out: list[str] = []
+        for line in lines:  # (at most one empty line in a row)
+            if line or (out and out[-1]):
+                out.append(line)
+        return "\n".join(out).strip()
+    if how == "one_line":
+        return _SPACES.sub(" ", " ".join(text.split())).strip()
+    if how == "json":
+        import json
+        try:
+            return json.dumps(json.loads(text), indent=2, ensure_ascii=False)
+        except ValueError:
+            return text
+    return text
+
+
+def text_item(text: str) -> "Item":
+    """A copy made here (edited or changed text), not in the history yet."""
+    return Item(kind=kind_of_text(text), text=text, digest=_digest("text", text), size=len(text))
+
+
+def ignored_apps(settings) -> set[str]:
+    """The programs (like bank.exe) whose copies are never kept, as the person typed them in Settings."""
+    names = set()
+    for part in (settings.clip_ignore or "").replace(";", ",").split(","):
+        part = part.strip().strip('"').lower()
+        if part:
+            names.add(part if part.endswith(".exe") else part + ".exe")
+    return names
+
+
 def _digest(kind: str, data) -> str:
     h = hashlib.sha1(kind.encode())
     h.update(b"\0")
@@ -545,7 +591,8 @@ class Clipboard(QObject):
             if md is None or is_private(md):
                 return
             app_path = clipboard_app()
-            if os.path.basename(app_path).lower() in PASSWORD_APPS:
+            exe = os.path.basename(app_path).lower()
+            if exe in PASSWORD_APPS or (exe and exe in ignored_apps(self.settings)):
                 return
             found = from_mime(md, self.settings.clip_images)
         except Exception:
@@ -628,6 +675,17 @@ class Clipboard(QObject):
     def pin(self, item: Item, on: bool):
         self.history.pin(item.id, on)
         self.changed.emit()
+
+    def save_text(self, text: str, instead_of: Item | None = None) -> Item:
+        """A text typed in to keep at hand (an address, a reply used often): kept pinned, at the top.
+        instead_of is the saved text it replaces, when one was changed."""
+        item = self.history.add(text_item(text))
+        self.history.pin(item.id, True)
+        item.pinned = True
+        if instead_of is not None and instead_of.id and instead_of.id != item.id:
+            self.history.delete(instead_of.id)
+        self.changed.emit()
+        return item
 
     def delete(self, item: Item):
         self.history.delete(item.id)

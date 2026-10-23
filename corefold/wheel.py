@@ -45,17 +45,20 @@ ICONS = {  # action -> line icon (see icons.py)
     "7z": "archive", "options": "lock_closed_key", "pdf": "document_pdf", "more": "add", "crop": "crop",
     "sticker": "sticker", "mute": "speaker_mute", "volume": "speaker_2", "speed": "fast_forward",
     "pages": "document_multiple", "images": "image_multiple", "lock": "lock_closed", "unlock": "lock_open",
-    "rename": "rename",
+    "rename": "rename", "subtitles": "closed_caption", "srt": "closed_caption", "sound": "music_note_2",
+    "join": "merge", "hash": "shield_checkmark", "numbers": "text_description",
+    "sign": "paint_brush",
 }
 FORMAT_ACTIONS = {"png", "jpg", "webp", "ico", "bmp", "avif", "mp3", "m4a", "wav", "flac", "ogg", "opus", "aiff", "mp4",
                   "mov", "webm", "mkv", "gif", "pdf", "text"}
 GROUPS = {  # action -> group, for "colour by kind of action"
     **{a: "convert" for a in FORMAT_ACTIONS},
     **{a: "edit" for a in ("resize", "rotate", "trim", "watermark", "cutout", "clean", "frames", "video", "scan",
-                           "crop", "sticker", "mute", "volume", "speed", "pages", "rename")},
+                           "crop", "sticker", "mute", "volume", "speed", "pages", "rename", "subtitles", "join",
+                           "numbers", "sign")},
     **{a: "shrink" for a in ("fit", "small", "compress")},
     **{a: "archive" for a in ("zip", "7z", "options", "extract", "folder", "browse", "test", "merge", "split")},
-    **{a: "read" for a in ("ocr", "qr", "images")},
+    **{a: "read" for a in ("ocr", "qr", "images", "srt", "hash", "sound")},
     **{a: "archive" for a in ("lock", "unlock")},
 }
 GROUP_COLORS = {"convert": "#3b82f6", "edit": "#a855f7", "shrink": "#22c55e", "archive": "#f59e0b",

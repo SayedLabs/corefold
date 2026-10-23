@@ -85,6 +85,7 @@ jobs:
           foreach ($part in "kinds", "listing", "window", "leftovers") { python scripts/uninstalltest.py $part *>> out/uninstalltest.txt }
           python scripts/stress.py out/stress *> out/stress.txt
           python scripts/uitest.py out/uitest *> out/uitest.txt
+          python scripts/featuretest.py *> out/featuretest.txt
 
       - name: Every page and button
         if: matrix.sweep != ''
@@ -176,7 +177,7 @@ jobs:
             echo "Bug hunt of $SHA"
             for d in */; do
               echo "== ${d%/}"
-              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused" "$d" 2>/dev/null | head -20
+              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest|featuretest)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused" "$d" 2>/dev/null | head -20
               grep -rhaE "^(FAIL|ERROR|SLOW) " "$d" 2>/dev/null | sort | uniq -c | sort -rn | head -60
             done
           } > summary.txt

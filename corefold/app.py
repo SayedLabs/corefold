@@ -304,10 +304,12 @@ class Controller(QObject):
         self.act_archive = menu.addAction(tr("Open an archive…"), self.choose_archive)
         self.act_clip = menu.addAction(tr("Clipboard history"), lambda: self.show_clipboard(from_tray=True))
         self.act_shot = menu.addAction(tr("Take a screenshot"), lambda: self.capture and self.capture.screenshot())
+        self.act_shot_later = menu.addAction(tr("Screenshot with a timer"),
+                                             lambda: self.capture and self.capture.screenshot_later())
         self.act_quick = menu.addAction(tr("Quick menu"), lambda: self.quick and self.quick.toggle_menu())
         self.menu_icons = [(act_open, "home"), (act_settings, "settings"), (self.act_paste, "arrow_swap"),
                            (self.act_archive, "archive"), (self.act_clip, "clipboard"), (self.act_shot, "screenshot"),
-                           (self.act_quick, "layout")]
+                           (self.act_shot_later, "timer"), (self.act_quick, "layout")]
         self.clip = None     # Corefold Clipboard, while it's in use
         self.capture = None  # Corefold Capture, while it's in use
         self.quick = None    # the quick menu and wheel, while one of them is switched on
@@ -699,8 +701,27 @@ class Controller(QObject):
     # ---- archives
 
     def ask_password(self, files: list[Path], wrong: bool = False) -> str | None:
-        answer = dialogs.ask("password", files, self.icon, self.theme.dark, wrong=wrong)
-        return None if answer is None else answer["password"]
+        """The archive's password: one remembered earlier that opens it, or what the person types."""
+        from . import passwords
+        if not wrong and files and files[0].suffix.lower() != ".pdf":
+            try:
+                found = passwords.find(files[0])
+            except Exception:
+                found = None
+                log.debug("remembered passwords couldn't be tried", exc_info=True)
+            if found:
+                log.info("a remembered password opened the archive")
+                return found
+        answer = dialogs.ask("password", files, self.icon, self.theme.dark, wrong=wrong,
+                             remember=self.settings.remember_password)
+        if answer is None:
+            return None
+        if answer.get("remember") is not None and answer["remember"] != self.settings.remember_password:
+            self.settings.remember_password = answer["remember"]
+            self.settings_changed()
+        if answer.get("remember"):
+            passwords.add(answer["password"])
+        return answer["password"]
 
     def open_browser(self, src: Path, password: str = ""):
         """Reads what's in the archive in the background (big archives take a moment), then opens
@@ -825,6 +846,7 @@ class Controller(QObject):
         self.act_archive.setVisible(all_tools.is_on(self.settings, "archive"))
         self.act_clip.setVisible(self.clip is not None)
         self.act_shot.setVisible(self.capture is not None)
+        self.act_shot_later.setVisible(self.capture is not None)
         self.act_quick.setVisible(self.quick is not None and self.settings.quick_menu)
 
     def _background_tools(self):
@@ -1072,8 +1094,34 @@ class Controller(QObject):
             self.open_viewer(Path(lines[0]))
         elif word == "play" and lines:
             self.open_player(Path(lines[0]))
+        elif word == "uninstall" and lines:
+            self.uninstall_from_shortcut(Path(lines[0]))
         elif word == "run" and len(lines) >= 2:
             self.run_from_menu(lines[0], lines[1:])
+
+    def uninstall_from_shortcut(self, path: Path):
+        """"Uninstall with Corefold" on a shortcut (the desktop, the Start menu): the Uninstaller's own steps
+        for the program it opens, leftovers and backup included."""
+        if not all_tools.is_on(self.settings, "uninstaller"):
+            return
+        from . import uninstall as un
+        try:
+            apps = un.list_apps(include_store=False)
+        except Exception:
+            log.warning("couldn't list the installed programs", exc_info=True)
+            apps = []
+        program = un.app_for_shortcut(path, apps)
+        if program is None:
+            self.tell(tr("Couldn't tell which program this is"),
+                      tr("{name} doesn't point to an installed program. Find it in the Uninstaller instead.",
+                         name=path.stem))
+            self.show_window("Apps")
+            return
+        from .appspage import UninstallDialog
+        dlg = UninstallDialog(self, [program], apps, False, self.icon)
+        dlg.setWindowFlag(Qt.WindowStaysOnTopHint)
+        dlg.exec()
+        dlg.deleteLater()
 
     def files_from_menu(self, paths: list[str], into: str = "wheel"):
         target = self.pending if into == "wheel" else self.pending_open

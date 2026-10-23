@@ -59,6 +59,7 @@ class Options:
     jpg_quality: int = 90
     rename_base: str = ""              # "" = keep original names
     rename_start: int = 1
+    gpu: bool = False                  # videos made with the graphics card when it can (much faster)
 
 
 @dataclass
@@ -307,9 +308,10 @@ WORD_EXT = {".doc", ".docx", ".rtf", ".odt"}
 EXCEL_EXT = {".xls", ".xlsx", ".ods"}
 SLIDES_EXT = {".ppt", ".pptx", ".odp"}
 DOCUMENT_EXT = WORD_EXT | EXCEL_EXT | SLIDES_EXT
-TAR_SUFFIXES = (".tar", ".tar.gz", ".tgz", ".tar.bz2", ".tbz2", ".tbz", ".tar.xz", ".txz")
+TAR_SUFFIXES = (".tar", ".tar.gz", ".tgz", ".tar.bz2", ".tbz2", ".tbz", ".tar.xz", ".txz", ".tar.zst", ".tzst")
 ARCHIVE_EXT = {".zip", ".rar", ".7z", ".tar", ".gz", ".tgz", ".bz2", ".tbz2", ".tbz", ".xz", ".txz", ".iso",
-               ".cab", ".wim", ".lzh", ".lha", ".arj", ".z", ".lzma", ".zipx", ".001", ".cpio", ".rpm", ".deb"}
+               ".cab", ".wim", ".lzh", ".lha", ".arj", ".z", ".lzma", ".zipx", ".001", ".cpio", ".rpm", ".deb", ".zst",
+               ".tzst"}
 ALL_EXT = IMAGE_EXT | AUDIO_EXT | VIDEO_EXT | DOCUMENT_EXT | ARCHIVE_EXT | {".pdf"} | set(ALIASES)
 
 
