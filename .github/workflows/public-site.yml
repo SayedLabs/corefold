@@ -1,0 +1,54 @@
+# Copies what people may see to the public repository (update-repo.txt): the README, the licence
+# agreement and notices, the privacy policy and the website (docs/, served by GitHub Pages there).
+# The public repository then has these files and nothing else: no code, no workflows. Its releases,
+# issues and old history stay as they are.
+# Run it by hand from the Actions tab after the website, README or notices change.
+# PUBLIC_RELEASE_TOKEN: the same token release.yml uses ("Contents: read and write" on that repository).
+name: Update the public page
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Find the public repository
+        id: repo
+        run: |
+          repo="$(tr -d '[:space:]' < update-repo.txt)"
+          if [ "$repo" = "$GITHUB_REPOSITORY" ]; then
+            echo "This is the public repository itself; run this in the private one." >&2; exit 1
+          fi
+          echo "repo=$repo" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ steps.repo.outputs.repo }}
+          token: ${{ secrets.PUBLIC_RELEASE_TOKEN }}
+          path: public
+          fetch-depth: 1
+
+      - name: Copy the public files
+        run: |
+          find public -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp LICENSE EULA.txt THIRD_PARTY_NOTICES.md public/
+          [ -f PRIVACY.md ] && cp PRIVACY.md public/
+          cp -r docs licenses public/
+          [ -d .github/ISSUE_TEMPLATE ] && mkdir -p public/.github && cp -r .github/ISSUE_TEMPLATE public/.github/
+          # the README without what's only for working on the code (from a "<!-- private -->" line on)
+          sed '/<!-- private -->/,$d' README.md > public/README.md
+
+      - name: Publish
+        working-directory: public
+        run: |
+          git add -A
+          if git diff --cached --quiet; then echo "Nothing changed."; exit 0; fi
+          git -c user.name="sayed" -c user.email="210825126+SayedLabs@users.noreply.github.com" \
+            commit -q -m "Update the README, website and notices"
+          git push -q origin HEAD

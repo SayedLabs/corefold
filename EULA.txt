@@ -1,0 +1,117 @@
+﻿COREFOLD END USER LICENSE AGREEMENT
+Last changed: October 23, 2026
+
+This agreement is between you and Atomic Works, the maker of Corefold. By installing or using
+Corefold you agree to it. If you don't agree, don't install or use Corefold.
+
+1. What you may do
+   Corefold is free. You may install it on as many of your own PCs as you like and use it for
+   anything, at home or at work. You may tell anyone where to download it.
+
+2. What you may not do
+   - Sell, rent or lend Corefold, or charge for it in any way.
+   - Share changed copies of Corefold, or put it inside other software or installers, without
+     written permission from Atomic Works.
+   - Remove or change Corefold's name, copyright notices or this agreement.
+   - Take apart, decompile or reverse engineer Corefold's own code, except where the law allows
+     it even though this agreement says otherwise, or as section 3 allows.
+
+3. Third-party parts
+   Corefold includes software made by others (see THIRD_PARTY_NOTICES.md and the licenses folder
+   next to Corefold.exe). Each part is covered by its own license, and nothing in this agreement
+   limits what those licenses let you do. In particular, for the parts under the GNU LGPL (such as
+   Qt, PySide6 and the libraries next to them), you may change them, replace them with your own
+   versions, and reverse engineer Corefold as far as needed to debug such changes. The source code
+   of the GPL and LGPL parts is offered as described in THIRD_PARTY_NOTICES.md.
+
+4. Updates
+   Corefold checks GitHub for new versions and can update itself. You can turn this off in the
+   Updates page. Updates are covered by this agreement unless they come with a new one.
+
+5. Your privacy
+   Corefold works on your PC and doesn't collect information about you. The privacy policy is at
+   https://sayedlabs.github.io/corefold/privacy.html
+
+6. Ownership
+   Corefold is licensed to you, not sold. Atomic Works keeps all rights not given to you here.
+
+7. No warranty
+   Corefold is given "as is", without any warranty, as far as the law allows. Atomic Works doesn't
+   promise that it is free of mistakes or fits any purpose. Keep backups of files that matter.
+
+8. Limit of liability
+   As far as the law allows, Atomic Works is not liable for any damage or loss from using or not
+   being able to use Corefold, including lost data or lost profit.
+
+9. Ending
+   This agreement ends if you break it. Then you must stop using Corefold and remove it. You can
+   end it at any time by uninstalling Corefold.
+
+10. Earlier versions
+   Copies of Corefold that you got under the MIT License (versions whose source code was published
+   under it) stay under the MIT License. This agreement covers newer versions.
+
+11. Contact
+   Questions: https://github.com/SayedLabs/corefold/issues
+
+If a part of this agreement can't be enforced, the rest still applies. The Arabic translation below
+is for convenience; if the two differ, the English text applies.
+
+--------------------------------------------------------------------------------------------------
+
+اتفاقية ترخيص المستخدم النهائي لبرنامج Corefold
+آخر تعديل: 23 أكتوبر 2026
+
+هذه الاتفاقية بينك وبين Atomic Works، صانع Corefold. بتثبيت Corefold أو استخدامه فأنت توافق عليها.
+إذا لم توافق، فلا تثبّت Corefold ولا تستخدمه.
+
+1. ما يحق لك
+   Corefold مجاني. يحق لك تثبيته على أي عدد من أجهزتك واستخدامه لأي غرض، في البيت أو العمل.
+   ويحق لك أن تخبر أي شخص من أين يحمّله.
+
+2. ما لا يحق لك
+   - بيع Corefold أو تأجيره أو إعارته، أو أخذ مقابل عليه بأي شكل.
+   - نشر نسخ معدّلة من Corefold، أو وضعه داخل برامج أو مثبّتات أخرى، بدون إذن مكتوب من Atomic Works.
+   - إزالة اسم Corefold أو حقوق النشر أو هذه الاتفاقية، أو تغييرها.
+   - تفكيك كود Corefold الخاص أو فك ترجمته أو الهندسة العكسية له، إلا حيث يسمح القانون بذلك رغم
+     هذه الاتفاقية، أو كما يسمح البند 3.
+
+3. الأجزاء من أطراف أخرى
+   يحتوي Corefold على برامج صنعها آخرون (انظر THIRD_PARTY_NOTICES.md ومجلد licenses بجانب Corefold.exe).
+   كل جزء تحكمه رخصته، ولا شيء في هذه الاتفاقية يقيّد ما تسمح لك به تلك الرخص. وتحديداً، للأجزاء
+   الخاضعة لرخصة GNU LGPL (مثل Qt وPySide6 والمكتبات التي بجانبها) يحق لك تعديلها واستبدالها بنسخ
+   خاصة بك، والهندسة العكسية لـ Corefold بالقدر اللازم لتصحيح هذه التعديلات. ويُتاح الكود المصدري
+   للأجزاء الخاضعة لـ GPL وLGPL كما هو موضّح في THIRD_PARTY_NOTICES.md.
+
+4. التحديثات
+   يتحقق Corefold من وجود إصدارات جديدة على GitHub ويمكنه تحديث نفسه. يمكنك إيقاف ذلك من صفحة
+   التحديثات. تشمل هذه الاتفاقية التحديثات ما لم تأتِ مع اتفاقية جديدة.
+
+5. خصوصيتك
+   يعمل Corefold على جهازك ولا يجمع معلومات عنك. سياسة الخصوصية على
+   https://sayedlabs.github.io/corefold/privacy.html
+
+6. الملكية
+   Corefold مرخّص لك وليس مبيعاً لك. تحتفظ Atomic Works بكل الحقوق غير الممنوحة لك هنا.
+
+7. بدون ضمان
+   يُقدَّم Corefold "كما هو" بدون أي ضمان، بالقدر الذي يسمح به القانون. لا تَعِد Atomic Works بأنه
+   خالٍ من الأخطاء أو مناسب لغرض معيّن. احتفظ بنسخ احتياطية من ملفاتك المهمة.
+
+8. حدود المسؤولية
+   بالقدر الذي يسمح به القانون، لا تتحمل Atomic Works مسؤولية أي ضرر أو خسارة من استخدام Corefold
+   أو عدم القدرة على استخدامه، بما في ذلك فقدان البيانات أو الأرباح.
+
+9. الإنهاء
+   تنتهي هذه الاتفاقية إذا خالفتها، وعندها يجب أن تتوقف عن استخدام Corefold وتزيله. ويمكنك إنهاؤها
+   في أي وقت بإلغاء تثبيت Corefold.
+
+10. الإصدارات السابقة
+   نسخ Corefold التي حصلت عليها بموجب رخصة MIT (الإصدارات التي نُشر كودها بموجبها) تبقى خاضعة لرخصة
+   MIT. وتشمل هذه الاتفاقية الإصدارات الأحدث.
+
+11. التواصل
+   للأسئلة: https://github.com/SayedLabs/corefold/issues
+
+إذا تعذّر تطبيق جزء من هذه الاتفاقية، يبقى الباقي سارياً. هذه الترجمة العربية للتسهيل؛ وإذا اختلف
+النصان، يُعتمد النص الإنجليزي.

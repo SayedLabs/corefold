@@ -1,8 +1,10 @@
 # Third-party software in Corefold
 
-Corefold is made by Atomic Works. Its own code is MIT-licensed (see LICENSE). It ships with these
-components, each under its own licence. The exact version of every Python component in a copy of
-Corefold is listed in `COMPONENT-VERSIONS.txt` next to `Corefold.exe`.
+Corefold is made by Atomic Works and is covered by its own licence agreement (`EULA.txt`). It ships
+with these components, each under its own licence, which the agreement doesn't limit. The exact
+version of every Python component in a copy of Corefold is listed in `COMPONENT-VERSIONS.txt` next to
+`Corefold.exe`. The full texts of the GPL, LGPL and Apache licences are in the `licenses` folder, and
+each Python component's own licence and copyright files are in `licenses\python`.
 
 | Component | Licence | Source |
 |---|---|---|
@@ -37,3 +39,16 @@ Corefold is listed in `COMPONENT-VERSIONS.txt` next to `Corefold.exe`.
 
 The Qt, Qt Multimedia's FFmpeg and libheif libraries are included as separate DLL files in the `_internal` folder and can
 be replaced by the user, as the LGPL requires.
+
+## Replacing the LGPL libraries
+
+Corefold is built as a folder of separate files, never as one packed program, so that the LGPL parts
+stay replaceable. You may change these libraries or put your own builds of them in their place (the
+same version, built the same way, works best), and reverse engineer Corefold as far as you need to
+debug such changes. Nothing in `EULA.txt` takes these rights away. Corefold doesn't change any of
+these libraries and links to them only at run time.
+
+## Earlier versions
+
+Corefold's own source code up to October 2026 was published under the MIT License. Those published
+copies stay under the MIT License; newer versions are covered by `EULA.txt`.

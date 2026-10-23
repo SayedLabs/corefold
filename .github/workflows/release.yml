@@ -1,12 +1,22 @@
 # Builds the Windows installer on GitHub's servers.
-# - Publish a Release on GitHub (tag like v1.0.0)  -> installer + portable zip get attached to it.
-# - Or run it by hand from the Actions tab           -> download the files from the run's "Artifacts".
+# The code is in this private repository; the downloads live in the public one (update-repo.txt),
+# because every copy of Corefold looks for its updates there.
+# - Run it by hand from the Actions tab and type a version (like 1.8.0) -> it builds and puts a DRAFT
+#   release with every file in the public repository. Open it there, check it, and press Publish.
+# - Run it without a version                                             -> download the files from
+#   the run's "Artifacts" (nothing is published).
+# - Publish a Release in this same repository (tag like v1.0.0)          -> the files get attached to it.
 name: Build Corefold
 
 on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, like 1.8.0 (leave empty for a test build)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -22,14 +32,26 @@ jobs:
           python-version: "3.12"
 
       - name: Build app, installer and portable zip
+        id: build
         shell: pwsh
         env:  # passed as data, never pasted into the script
           EVENT: ${{ github.event_name }}
           TAG: ${{ github.event.release.tag_name }}
+          INPUT: ${{ inputs.version }}
           RUN: ${{ github.run_number }}
         run: |
-          $version = if ($env:EVENT -eq "release") { $env:TAG } else { "0.0.$($env:RUN)-dev" }
-          ./scripts/build.ps1 -Version $version
+          $release = if ($env:EVENT -eq "release") { $env:TAG } else { "$env:INPUT".Trim() }
+          if ($release) {
+            $version = $release.TrimStart("v")
+            # -OldUpdaterCopy: copies from before 1.7.0 only update to a release that has it
+            ./scripts/build.ps1 -Version $version -OldUpdaterCopy
+            "version=$version" >> $env:GITHUB_OUTPUT
+            "repo=$((Get-Content update-repo.txt -Raw).Trim())" >> $env:GITHUB_OUTPUT
+            $notes = "release-notes/$version.md"
+            "notes=$(if (Test-Path $notes) { $notes } else { '' })" >> $env:GITHUB_OUTPUT
+          } else {
+            ./scripts/build.ps1 -Version "0.0.$($env:RUN)-dev"
+          }
 
       - uses: actions/upload-artifact@v7
         with:
@@ -40,4 +62,18 @@ jobs:
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2.6.2, pinned: it gets write access
         with:
+          files: dist/release/*
+
+      # A draft in the public repository: nobody sees it, and no copy updates to it, until it's published.
+      # PUBLIC_RELEASE_TOKEN: a fine-grained token with "Contents: read and write" on that repository only.
+      - name: Draft the release in the public repository
+        if: github.event_name == 'workflow_dispatch' && steps.build.outputs.version != ''
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2.6.2
+        with:
+          repository: ${{ steps.build.outputs.repo }}
+          token: ${{ secrets.PUBLIC_RELEASE_TOKEN || github.token }}
+          tag_name: v${{ steps.build.outputs.version }}
+          name: Corefold ${{ steps.build.outputs.version }}
+          body_path: ${{ steps.build.outputs.notes }}
+          draft: true
           files: dist/release/*
