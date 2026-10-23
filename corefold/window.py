@@ -29,7 +29,7 @@ from .settings import (ACCENTS, APP_NAME, DEFAULT_ACCENT, APPEARANCES, HOVER_STY
                        PLAYER_WHEEL,
                        LOOK_KEYS, UNINSTALLER_KEYS, UNUSED_MONTHS, WHEEL_KEYS, editable_keys, set_startup,
                        startup_enabled)
-from .atomic.widgets import Switch, mark_rows
+from .atomic.widgets import Switch, keep_wrapped_text, mark_rows
 from .theme import Theme
 from .timefmt import date_text, locale, time_ago  # noqa: F401 (used by other pages)
 from .navbar import ICON_ROLE
@@ -540,6 +540,7 @@ class MainWindow(QWidget):
         cl.addWidget(self._top_bar())
         body = QHBoxLayout()
         body.setSpacing(24)
+        self._body = body
         body.addWidget(self.settings_side)
         column = QVBoxLayout()
         column.setSpacing(12)
@@ -652,6 +653,7 @@ class MainWindow(QWidget):
                 w.setFocusPolicy(Qt.StrongFocus)
                 w.installEventFilter(self._wheel_guard)
         mark_rows(root or self)  # (hairlines between settings rows that follow each other)
+        keep_wrapped_text(root or self)
 
     def refresh_nav(self):
         t = self.c.theme
@@ -808,6 +810,9 @@ class MainWindow(QWidget):
 
     def _fit_settings_side(self, canvas_width: int):
         """The Settings list shows names when there's room for them and the page beside it, icons otherwise."""
+        tight = canvas_width < 720  # the smallest windows: less room around the pages
+        self.canvas.layout().setContentsMargins(*((16, 10, 10, 12) if tight else (28, 12, 16, 16)))
+        self._body.setSpacing(12 if tight else 24)
         narrow = canvas_width < 1000
         if narrow == getattr(self, "_settings_narrow", None):
             return
@@ -1022,11 +1027,10 @@ class MainWindow(QWidget):
                          or PAGE_ICONS.get(first, "settings"))
             self.settings_tabs[first] = self.settings_list.count()
             self.settings_list.addItem(item)
-        self.settings_list.setFixedHeight(row_h * len(self.settings_tab_list) + 6)
+        self.settings_list.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)  # (a short window: it scrolls)
         self.settings_list.itemClicked.connect(lambda item: self.open_page(item.data(Qt.UserRole)))
         self.settings_list.currentRowChanged.connect(self._settings_row_changed)
-        sv.addWidget(self.settings_list)
-        sv.addStretch()
+        sv.addWidget(self.settings_list, 1)
         side.setFixedWidth(212)
         side.hide()
         self.settings_side = side
@@ -1544,6 +1548,7 @@ class MainWindow(QWidget):
             empty = label(tr("Nothing yet. What you do with Corefold shows up here."), "muted", wrap=True)
             empty.setContentsMargins(12, 10, 12, 10)
             self.recent_lay.addWidget(empty)
+            keep_wrapped_text(self.recent_lay.parentWidget())
             return
         arrow = "←" if i18n.is_rtl() else "→"
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
@@ -1573,6 +1578,7 @@ class MainWindow(QWidget):
                 line.setObjectName("line")
                 self.recent_lay.addWidget(line)
             self.recent_lay.addWidget(holder)
+        keep_wrapped_text(self.recent_lay.parentWidget())
 
     def _converter(self) -> QWidget:
         w, lay = page(tr("Corefold Converter"))
@@ -1644,7 +1650,7 @@ class MainWindow(QWidget):
             self.sound.addItem(tr(text), key)
         self.sound.setCurrentIndex(max(0, self.sound.findData(s.sound)))
         self.sound.currentIndexChanged.connect(self._sound_changed)
-        self.sound.setMinimumWidth(160)
+        self.sound.setMinimumWidth(120)
         snd_row = QHBoxLayout()
         snd_row.setSpacing(8)
         snd_row.addWidget(self.sound)

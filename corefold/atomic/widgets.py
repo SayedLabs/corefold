@@ -10,7 +10,7 @@
 """
 from __future__ import annotations
 
-from PySide6.QtCore import QEasingCurve, QPointF, QRect, QRectF, QSize, Qt, QVariantAnimation
+from PySide6.QtCore import QEasingCurve, QEvent, QObject, QPointF, QRect, QRectF, QSize, Qt, QVariantAnimation
 from PySide6.QtGui import QFontMetrics, QLinearGradient, QPainter, QPainterPath, QPen, QRadialGradient
 from PySide6.QtWidgets import (QCheckBox, QFrame, QGridLayout, QHBoxLayout, QLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout,
                                QWidget)
@@ -78,6 +78,13 @@ class Switch(QCheckBox):
 
     def hitButton(self, pos) -> bool:
         return self.rect().contains(pos)
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        if self.text():  # (some layouts, like a scroll area's, don't ask for the height at this width)
+            h = self.heightForWidth(self.width())
+            if h != self.minimumHeight():
+                self.setMinimumHeight(h)
 
     # ---- motion
 
@@ -197,6 +204,31 @@ class Switch(QCheckBox):
     def focusOutEvent(self, e):
         self._keyboard_focus = False
         super().focusOutEvent(e)
+
+
+class _KeepWrappedText(QObject):
+    """Wrapped text keeps the height it needs at its width (layouts in a scroll area can squeeze it)."""
+
+    def eventFilter(self, obj, e):
+        if e.type() == QEvent.Type.Resize and isinstance(obj, QLabel) and obj.wordWrap():
+            h = obj.heightForWidth(obj.width())
+            if h > 0 and h != obj.minimumHeight():
+                obj.setMinimumHeight(h)
+        return False
+
+
+_keeper: _KeepWrappedText | None = None
+
+
+def keep_wrapped_text(root: QWidget) -> None:
+    """Every word-wrapped label under root keeps the height its lines need."""
+    global _keeper
+    if _keeper is None:
+        _keeper = _KeepWrappedText()
+    for lab in root.findChildren(QLabel):
+        if lab.wordWrap() and not lab.property("keepsHeight"):
+            lab.setProperty("keepsHeight", True)
+            lab.installEventFilter(_keeper)
 
 
 def mark_rows(root: QWidget) -> None:
@@ -520,4 +552,4 @@ class IconButton(QPushButton):
         self.setIconSize(QSize(18, 18))
 
 
-__all__ = ["Switch", "Group", "SettingRow", "GlowPanel", "IconButton", "mark_rows", "flash", "ResponsiveGrid", "FlowLayout", "SearchButton"]
+__all__ = ["Switch", "Group", "SettingRow", "GlowPanel", "IconButton", "mark_rows", "flash", "ResponsiveGrid", "FlowLayout", "SearchButton", "keep_wrapped_text"]
