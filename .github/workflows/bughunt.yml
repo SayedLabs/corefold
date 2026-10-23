@@ -1,7 +1,8 @@
 # Tries everything in the app on real Windows PCs (GitHub's), on every push to "next" and by hand:
 # every page and button in several languages, looks, window sizes and screen scales, the first start, an
 # upgrade from 1.7.5, the built Corefold.exe, and the older checks. What it found is on the
-# "bughunt-results" branch (replaced on every run; it isn't part of the app), with summary.txt on top.
+# "bughunt-results" branch (replaced on every run; it isn't part of the app; a run by hand on another branch saves to
+# "bughunt-results-<branch>"), with summary.txt on top.
 name: Bug hunt
 
 on:
@@ -50,6 +51,10 @@ jobs:
           - name: upgrade
             upgrade: "v1.7.5"
           - name: navtest
+          - name: use-en-dark
+            use: "--lang en --look dark"
+          - name: use-ar-light
+            use: "--lang ar --look light"
           - name: exe
     name: ${{ matrix.name }}
     steps:
@@ -77,9 +82,10 @@ jobs:
           $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
           python scripts/check_translations.py *> out/translations.txt
           python scripts/selftest.py *> out/selftest.txt
-          foreach ($part in "kinds", "listing", "window") { python scripts/uninstalltest.py $part *>> out/uninstalltest.txt }
+          foreach ($part in "kinds", "listing", "window", "leftovers") { python scripts/uninstalltest.py $part *>> out/uninstalltest.txt }
           python scripts/stress.py out/stress *> out/stress.txt
           python scripts/uitest.py out/uitest *> out/uitest.txt
+          python scripts/featuretest.py *> out/featuretest.txt
 
       - name: Every page and button
         if: matrix.sweep != ''
@@ -120,6 +126,18 @@ jobs:
             python scripts/quicktest.py out/quicktest ar light *> out/quicktest-ar.txt
           }
 
+      - name: Every tool with real-size files, timed (freezes listed with where they come from)
+        if: matrix.use != ''
+        timeout-minutes: 45
+        shell: pwsh
+        continue-on-error: true
+        env:
+          USE: ${{ matrix.use }}
+        run: |
+          choco install ffmpeg -y --no-progress | Out-Null
+          $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
+          python scripts/usetest.py out/usetest @($env:USE -split " ") *> out/usetest.txt
+
       - name: The built Corefold.exe
         if: matrix.name == 'exe'
         timeout-minutes: 30
@@ -151,20 +169,22 @@ jobs:
           SHA: ${{ github.sha }}
           REPO: ${{ github.repository }}
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # a run started by hand on another branch keeps its results apart from next's
+          OUT: ${{ github.ref_name == 'next' && 'bughunt-results' || format('bughunt-results-{0}', github.ref_name) }}
         run: |
           cd results
           {
             echo "Bug hunt of $SHA"
             for d in */; do
               echo "== ${d%/}"
-              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused" "$d" 2>/dev/null | head -20
-              grep -rhaE "^(FAIL|ERROR) " "$d" 2>/dev/null | sort | uniq -c | sort -rn | head -60
+              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest|featuretest)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused" "$d" 2>/dev/null | head -20
+              grep -rhaE "^(FAIL|ERROR|SLOW) " "$d" 2>/dev/null | sort | uniq -c | sort -rn | head -60
             done
           } > summary.txt
           cat summary.txt
-          git init -q -b bughunt-results
+          git init -q -b "$OUT"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -q -m "Bug hunt of $SHA"
-          git push -q -f "https://x-access-token:${TOKEN}@github.com/${REPO}.git" bughunt-results
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${REPO}.git" "$OUT"

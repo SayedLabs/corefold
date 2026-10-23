@@ -7,13 +7,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QFileSystemWatcher, QMimeData, QObject, Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import QDrag, QGuiApplication, QIcon, QKeySequence, QShortcut
+from PySide6.QtGui import QDrag, QGuiApplication, QIcon, QImage, QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QFileDialog, QFileIconProvider, QFrame, QHBoxLayout,
-                               QHeaderView, QLabel, QLineEdit, QMenu, QMessageBox, QPushButton, QTreeWidget,
-                               QTreeWidgetItem, QVBoxLayout, QWidget)
+                               QHeaderView, QLabel, QLineEdit, QMenu, QMessageBox, QPlainTextEdit, QPushButton,
+                               QSplitter, QStackedWidget, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from . import archives as ar
-from .core import APP_NAME, Tool, human_size, short_name
+from .core import APP_NAME, Cancelled, Tool, human_size, short_name
 from .i18n import ltr, tr
 from .theme import round_menu
 from .winutil import reveal_in_explorer, set_title_bar_dark
@@ -60,6 +60,128 @@ class Row(QTreeWidgetItem):
         if self.is_dir != other.is_dir:
             return self.is_dir if ascending else other.is_dir
         return self.keys[col] < other.keys[col]
+
+
+PICTURE_EXT = {".png", ".jpg", ".jpeg", ".jfif", ".webp", ".bmp", ".gif", ".tif", ".tiff", ".heic", ".heif", ".avif",
+               ".ico", ".svg"}
+TEXT_EXT = {".txt", ".md", ".log", ".csv", ".tsv", ".json", ".xml", ".ini", ".cfg", ".conf", ".nfo", ".srt", ".vtt",
+            ".yml", ".yaml", ".toml", ".html", ".htm", ".css", ".js", ".ts", ".py", ".bat", ".cmd", ".ps1", ".sh",
+            ".c", ".h", ".cpp", ".hpp", ".cs", ".java", ".kt", ".go", ".rs", ".php", ".rb", ".lua", ".sql", ".reg",
+            ".gitignore", ".diz"}
+TEXT_SHOWN = 256 << 10     # this much of a text file is shown
+SNIFF_MAX = 2 << 20        # a file with an unknown kind is looked at for text when it's this small
+PREVIEW_PX = 1600          # pictures are made this small (at most) for the preview
+
+
+def preview_of(name: str, data: bytes) -> tuple[str, object]:
+    """("picture", QImage), ("text", str) or ("none", why) for a file's first bytes."""
+    ext = os.path.splitext(name.lower())[1] or name.lower()
+    if ext in PICTURE_EXT:
+        img = QImage()
+        if ext == ".svg":
+            from PySide6.QtCore import QByteArray
+            from PySide6.QtGui import QPainter
+            from PySide6.QtSvg import QSvgRenderer
+            r = QSvgRenderer(QByteArray(data))
+            if r.isValid():
+                size = r.defaultSize()
+                size.scale(min(PREVIEW_PX, max(64, size.width() * 2)), min(PREVIEW_PX, max(64, size.height() * 2)),
+                           Qt.KeepAspectRatio)
+                img = QImage(size, QImage.Format_ARGB32_Premultiplied)
+                img.fill(0)
+                p = QPainter(img)
+                r.render(p)
+                p.end()
+        else:
+            img.loadFromData(data)
+        if img.isNull():  # HEIC, AVIF…: through Pillow
+            try:
+                import io
+
+                from PIL import Image, ImageOps
+                try:
+                    import pi_heif
+                    pi_heif.register_heif_opener()
+                except Exception:
+                    pass
+                with Image.open(io.BytesIO(data)) as im:
+                    im = ImageOps.exif_transpose(im)
+                    im.thumbnail((PREVIEW_PX, PREVIEW_PX))
+                    im = im.convert("RGBA")
+                    img = QImage(im.tobytes(), im.width, im.height, im.width * 4, QImage.Format_RGBA8888).copy()
+            except Exception:
+                img = QImage()
+        if img.isNull():
+            return "none", tr("This picture can't be shown.")
+        if max(img.width(), img.height()) > PREVIEW_PX:
+            img = img.scaled(PREVIEW_PX, PREVIEW_PX, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        return "picture", img
+    head = data[:TEXT_SHOWN]
+    if head.startswith((b"\xff\xfe", b"\xfe\xff")):
+        return "text", head.decode("utf-16", "replace")
+    if b"\0" in head[:8192]:
+        return "none", tr("No preview for this kind of file. Double-click to open it.")
+    text = head.decode("utf-8-sig", "replace")
+    if ext not in TEXT_EXT and text.count("\ufffd") > max(8, len(text) // 50):
+        return "none", tr("No preview for this kind of file. Double-click to open it.")
+    return "text", text
+
+
+class PreviewPane(QStackedWidget):
+    """Beside the list: the picked file's picture or text."""
+
+    def __init__(self):
+        super().__init__()
+        self.setObjectName("archivePreview")
+        self.setMinimumWidth(180)
+        self.message = QLabel()
+        self.message.setObjectName("muted")
+        self.message.setAlignment(Qt.AlignCenter)
+        self.message.setWordWrap(True)
+        self.picture = QLabel()
+        self.picture.setAlignment(Qt.AlignCenter)
+        self.picture.setMinimumSize(1, 1)
+        self.text = QPlainTextEdit()
+        self.text.setReadOnly(True)
+        self.text.setLineWrapMode(QPlainTextEdit.NoWrap)
+        for w in (self.message, self.picture, self.text):
+            self.addWidget(w)
+        self.image = QImage()
+        self.show_message(tr("Pick a file to see it here."))
+
+    def show_message(self, text: str):
+        self.image = QImage()
+        self.message.setText(text)
+        self.setCurrentWidget(self.message)
+
+    def show_picture(self, img: QImage):
+        self.image = img
+        self.setCurrentWidget(self.picture)
+        self._fit()
+
+    def show_text(self, text: str):
+        self.image = QImage()
+        self.text.setPlainText(text)
+        self.setCurrentWidget(self.text)
+
+    def _fit(self):
+        if self.image.isNull():
+            return
+        ratio = self.devicePixelRatioF()
+        pix = QPixmap.fromImage(self.image)
+        size = self.picture.size() * ratio
+        if pix.width() > size.width() or pix.height() > size.height():
+            pix = pix.scaled(size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        pix.setDevicePixelRatio(ratio)
+        self.picture.setPixmap(pix)
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._fit()
+
+
+class _Previewed(QObject):
+    done = Signal(object)  # (number of the request, kind, what to show)
 
 
 class _Listed(QObject):
@@ -163,6 +285,9 @@ class ArchiveBrowser(QWidget):
                              "The archive itself isn't changed."))
         more.setToolTipsVisible(True)
         more.addSeparator()
+        self.a_preview = more.addAction(tr("Show a preview (P)"))
+        self.a_preview.setCheckable(True)
+        self.a_preview.triggered.connect(self.set_preview)
         more.addAction(tr("Select all"), self.tree.selectAll)
         more.addAction(tr("Show in folder"), lambda: reveal_in_explorer(self.src))
         self.b_more.setMenu(more)
@@ -191,7 +316,30 @@ class ArchiveBrowser(QWidget):
         head.addLayout(words, 1)
         lay.addLayout(head)
         lay.addWidget(self.search)
-        lay.addWidget(self.tree, 1)
+        self.preview = PreviewPane()
+        self.split = QSplitter(Qt.Horizontal)
+        self.split.setChildrenCollapsible(False)
+        self.split.addWidget(self.tree)
+        self.split.addWidget(self.preview)
+        self.split.setStretchFactor(0, 3)
+        self.split.setStretchFactor(1, 2)
+        self.split.setSizes([480, 320])
+        lay.addWidget(self.split, 1)
+        self._preview_asked = 0
+        self._preview_stop = None  # stops the preview being read (another file was picked)
+        self._previewed = _Previewed(self)
+        self._previewed.done.connect(self._preview_ready)
+        self.preview_timer = QTimer(self)
+        self.preview_timer.setSingleShot(True)
+        self.preview_timer.setInterval(150)
+        self.preview_timer.timeout.connect(self._load_preview)
+        self.tree.currentItemChanged.connect(lambda *_: self.preview_timer.start() if self.preview.isVisibleTo(self)
+                                             else None)
+        QShortcut(QKeySequence(Qt.Key_P), self.tree, lambda: self.set_preview(self.preview.isHidden()),
+                  context=Qt.WidgetShortcut)
+        shown = bool(getattr(controller.settings, "archive_preview", True))
+        self.preview.setVisible(shown)
+        self.a_preview.setChecked(shown)
         lay.addWidget(self.nested)
         lay.addWidget(self._changes_bar())
         lay.addLayout(row)
@@ -404,6 +552,68 @@ class ArchiveBrowser(QWidget):
         self.b_del.setEnabled(bool(sel))
         current = self.tree.currentItem()
         self.b_open.setEnabled(bool(current and not current.data(0, DIR_ROLE)))
+
+    # ---- the preview
+
+    def set_preview(self, on: bool):
+        self.preview.setVisible(on)
+        self.a_preview.setChecked(on)
+        self.c.settings.archive_preview = on
+        self.c.settings.save()
+        if on:
+            self._load_preview()
+
+    def _load_preview(self):
+        item = self.tree.currentItem()
+        self._preview_asked += 1
+        asked = self._preview_asked
+        if self._preview_stop is not None:
+            self._preview_stop.set()
+            self._preview_stop = None
+        if item is None:
+            self.preview.show_message(tr("Pick a file to see it here."))
+            return
+        if item.data(0, DIR_ROLE):
+            self.preview.show_message(item.text(0))
+            return
+        member, size = item.data(0, PATH_ROLE), item.keys[1]
+        name = member.rpartition("/")[2]
+        ext = os.path.splitext(name.lower())[1]
+        if size > ar.PREVIEW_MAX or (ext not in PICTURE_EXT and ext not in TEXT_EXT and size > SNIFF_MAX):
+            self.preview.show_message(tr("No preview for this kind of file. Double-click to open it.") if
+                                      size <= ar.PREVIEW_MAX else tr("Too big to show here. Double-click to open it."))
+            return
+        self.preview.show_message(tr("Loading…"))
+        import threading
+        signals, src, password = self._previewed, self.src, self.password
+        limit = ar.PREVIEW_MAX if ext in PICTURE_EXT else TEXT_SHOWN
+        stop = self._preview_stop = threading.Event()
+
+        def work():
+            try:
+                kind, what = preview_of(name, ar.read_member(src, member, password, limit, stop))
+            except Cancelled:
+                return
+            except ar.NeedPassword:
+                kind, what = "none", tr("This file is locked with a password.")
+            except Exception as e:
+                kind, what = "none", tr("Couldn't read it: {error}", error=e)
+            try:
+                signals.done.emit((asked, kind, what))
+            except RuntimeError:  # the window was closed meanwhile
+                pass
+        threading.Thread(target=work, daemon=True).start()
+
+    def _preview_ready(self, payload):
+        asked, kind, what = payload
+        if asked != self._preview_asked:
+            return  # another file was picked meanwhile
+        if kind == "picture":
+            self.preview.show_picture(what)
+        elif kind == "text":
+            self.preview.show_text(what)
+        else:
+            self.preview.show_message(what)
 
     # ---- actions (run in the background with the usual progress popup)
 
@@ -652,6 +862,8 @@ class ArchiveBrowser(QWidget):
                 return
             if chosen is save:
                 self._save_back()
+        if self._preview_stop is not None:
+            self._preview_stop.set()
         super().closeEvent(e)
 
     def dropEvent(self, e):

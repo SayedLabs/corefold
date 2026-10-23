@@ -27,9 +27,10 @@ log = logging.getLogger("corefold")
 CLASSES = r"Software\Classes"
 FILE_ROOT = CLASSES + r"\SystemFileAssociations"
 FOLDER_ROOT = CLASSES + r"\Directory"
+LNK_ROOT = CLASSES + r"\lnkfile"  # shortcuts: "Uninstall with Corefold" (while the Uninstaller is in use)
 ANY_ROOT = CLASSES + r"\*"   # every file; limited to the kinds Corefold has no own menu for (see any_file_filter)
 DRIVE_ROOT = CLASSES + r"\Drive"   # drives: "Scan with Corefold" (while Scan is in use)
-VERBS = ("Corefold", "CorefoldOpen", "CorefoldScan")
+VERBS = ("Corefold", "CorefoldOpen", "CorefoldUninstall", "CorefoldScan")
 LEGACY_VERBS = (LEGACY_NAME, LEGACY_NAME + "Open")  # written by versions before 1.7.0
 MENU_STYLES = {"windows": "Windows menu", "wheel": "Corefold wheel"}
 OPEN_KEY = "corefold:open"     # "All options…": opens Corefold's window with the files
@@ -52,6 +53,7 @@ class Verb:
     command: str = ""   # set for a single entry
     items: list | None = None  # set for a submenu
     applies_to: str = ""       # only show for files matching this (Windows search syntax)
+    single: bool = False       # for one file at a time
 
 
 # ----------------------------------------------------------------------------- what the menu shows
@@ -124,6 +126,9 @@ def plan(settings, command) -> list[Verb]:
                   for root in (ANY_ROOT, FOLDER_ROOT, DRIVE_ROOT)]
     if not (settings.context_menu and all_tools.is_on(settings, "converter")):
         return verbs
+    if all_tools.is_on(settings, "uninstaller"):  # shortcuts (part of the Converter's menu)
+        verbs.append(Verb(LNK_ROOT, "CorefoldUninstall", tr("Uninstall with Corefold"),
+                          command=command("--uninstall", '"%1"'), single=True))
     style = settings.menu_style if settings.menu_style in MENU_STYLES else "windows"
     cache: dict[str, list[Item]] = {}
     for ext in sorted(ALL_EXT):
@@ -181,7 +186,7 @@ def _delete_tree(winreg, path: str):
 
 
 def _all_roots() -> list[str]:
-    return [rf"{FILE_ROOT}\{ext}" for ext in sorted(ALL_EXT)] + [FOLDER_ROOT, ANY_ROOT, DRIVE_ROOT]
+    return [rf"{FILE_ROOT}\{ext}" for ext in sorted(ALL_EXT)] + [FOLDER_ROOT, ANY_ROOT, LNK_ROOT, DRIVE_ROOT]
 
 
 def remove():
@@ -211,7 +216,7 @@ def write(verbs: list[Verb], command, icon: str):
                     if icon:
                         winreg.SetValueEx(k, "Icon", 0, SZ, icon)
                     # "Player" keeps the entry when many files are selected (Windows hides it past 15)
-                    winreg.SetValueEx(k, "MultiSelectModel", 0, SZ, "Player")
+                    winreg.SetValueEx(k, "MultiSelectModel", 0, SZ, "Single" if v.single else "Player")
                     if v.items is not None:
                         winreg.SetValueEx(k, "SubCommands", 0, SZ, "")  # "this is a submenu"
                 if v.items is None:

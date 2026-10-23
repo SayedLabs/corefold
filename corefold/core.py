@@ -9,6 +9,7 @@ import sys
 import tempfile
 import threading
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Callable
 
@@ -17,7 +18,9 @@ from . import i18n
 log = logging.getLogger("corefold")
 
 APP_NAME = "Corefold"
-LEGACY_NAME = "Satsuma"  # the app's name before 1.7.0 (written only here in the app's code). Remove in 1.8.0.
+LEGACY_NAME = "Satsuma"  # the app's name before 1.7.0 (written only here in the app's code).
+# Keep it: releases carry an installer for that version's updater (build.ps1 -OldUpdaterCopy), so
+# copies from before 1.7.0 still land here and need their settings moved over.
 PUBLISHER = "Atomic Works"
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 BELOW_NORMAL = getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0)
@@ -56,6 +59,7 @@ class Options:
     jpg_quality: int = 90
     rename_base: str = ""              # "" = keep original names
     rename_start: int = 1
+    gpu: bool = False                  # videos made with the graphics card when it can (much faster)
 
 
 @dataclass
@@ -134,6 +138,34 @@ def unique_path(p: Path) -> Path:
             _reserved.clear()
         _reserved.add(os.path.normcase(str(cand)))
         return cand
+
+
+def remove_file(p: Path):
+    """Deletes a half-made file. Right after a program is stopped Windows (or the virus scanner looking at the
+    new file) can still hold it for a moment: then it's tried again in the background for a while, so stopping
+    a job never waits for it. Never raises."""
+    import time
+
+    def attempt() -> bool:
+        try:
+            p.unlink(missing_ok=True)
+            return True
+        except PermissionError:
+            return False
+        except OSError:
+            return True
+    for _ in range(3):
+        if attempt():
+            return
+        time.sleep(0.1)
+
+    def later():
+        for _ in range(120):
+            time.sleep(0.5)
+            if attempt():
+                return
+        logging.getLogger("corefold").info("couldn't remove %s (still in use)", p)
+    threading.Thread(target=later, daemon=True, name="corefold-remove").start()
 
 
 WINDOWS_RESERVED = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
@@ -260,7 +292,7 @@ class Ctx:
                 if p.is_dir():
                     shutil.rmtree(p, ignore_errors=True)
                 elif p.exists():
-                    p.unlink()
+                    remove_file(p)
             except OSError:
                 pass
         self.made.clear()
@@ -276,9 +308,10 @@ WORD_EXT = {".doc", ".docx", ".rtf", ".odt"}
 EXCEL_EXT = {".xls", ".xlsx", ".ods"}
 SLIDES_EXT = {".ppt", ".pptx", ".odp"}
 DOCUMENT_EXT = WORD_EXT | EXCEL_EXT | SLIDES_EXT
-TAR_SUFFIXES = (".tar", ".tar.gz", ".tgz", ".tar.bz2", ".tbz2", ".tbz", ".tar.xz", ".txz")
+TAR_SUFFIXES = (".tar", ".tar.gz", ".tgz", ".tar.bz2", ".tbz2", ".tbz", ".tar.xz", ".txz", ".tar.zst", ".tzst")
 ARCHIVE_EXT = {".zip", ".rar", ".7z", ".tar", ".gz", ".tgz", ".bz2", ".tbz2", ".tbz", ".xz", ".txz", ".iso",
-               ".cab", ".wim", ".lzh", ".lha", ".arj", ".z", ".lzma", ".zipx", ".001", ".cpio", ".rpm", ".deb"}
+               ".cab", ".wim", ".lzh", ".lha", ".arj", ".z", ".lzma", ".zipx", ".001", ".cpio", ".rpm", ".deb", ".zst",
+               ".tzst"}
 ALL_EXT = IMAGE_EXT | AUDIO_EXT | VIDEO_EXT | DOCUMENT_EXT | ARCHIVE_EXT | {".pdf"} | set(ALIASES)
 
 
@@ -308,10 +341,39 @@ def category(p: Path) -> str:
 
 # ----------------------------------------------------------------------------- helpers
 
+@lru_cache(maxsize=1)
 def app_dir() -> Path:
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent
     return Path(__file__).resolve().parent.parent
+
+
+def system_tool(name: str) -> str:
+    """The full path of one of Windows' own programs (reg.exe, sc.exe, powershell.exe...). Never just the
+    name: Windows would look in Corefold's own folder and the current folder first, and the helper that
+    runs as administrator must only ever start Windows' real ones."""
+    if os.name != "nt":
+        return name
+    system32 = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32"
+    if name.lower() == "powershell.exe":
+        return str(system32 / "WindowsPowerShell" / "v1.0" / name)
+    return str(system32 / name)
+
+
+def find_program(name: str) -> str | None:
+    """A program installed on the PC (7-Zip, FFmpeg...), looked for only in the folders on PATH. Unlike
+    shutil.which, never in the current folder: when Corefold is started from a downloads folder, a
+    "7z.exe" lying there must not be the one that runs."""
+    exts = [""] if os.name != "nt" or os.path.splitext(name)[1] else [".exe", ".com"]
+    for folder in os.environ.get("PATH", "").split(os.pathsep):
+        folder = folder.strip().strip('"')
+        if not folder or not os.path.isabs(folder):
+            continue
+        for ext in exts:
+            p = os.path.join(folder, name + ext)
+            if os.path.isfile(p) and (os.name == "nt" or os.access(p, os.X_OK)):
+                return p
+    return None
 
 
 def bundled(*parts: str) -> Path | None:
@@ -420,6 +482,21 @@ def zone_mark(path: Path) -> bytes | None:
         return data if b"ZoneId" in data else None
     except OSError:
         return None
+
+
+def mark_from_internet(path: Path, url: str = ""):
+    """Gives a file that came from the internet (a cloud download, an email's attachment) Windows' mark for
+    it, like a browser does: Windows then warns before running it, and Office opens it in Protected View."""
+    if os.name != "nt":
+        return
+    text = "[ZoneTransfer]\r\nZoneId=3\r\n"
+    if url and all(c.isprintable() for c in url):
+        text += f"HostUrl={url}\r\n"
+    try:
+        with open(str(path) + ZONE_STREAM, "w", encoding="utf-8") as fh:
+            fh.write(text)
+    except OSError:
+        pass
 
 
 def pass_on_zone_mark(sources, outputs, limit: int = 20000):

@@ -28,8 +28,12 @@ jobs:
           TAG: ${{ github.event.release.tag_name }}
           RUN: ${{ github.run_number }}
         run: |
-          $version = if ($env:EVENT -eq "release") { $env:TAG } else { "0.0.$($env:RUN)-dev" }
-          ./scripts/build.ps1 -Version $version
+          if ($env:EVENT -eq "release") {
+            # -OldUpdaterCopy: copies from before 1.7.0 only update to a release that has it
+            ./scripts/build.ps1 -Version $env:TAG -OldUpdaterCopy
+          } else {
+            ./scripts/build.ps1 -Version "0.0.$($env:RUN)-dev"
+          }
 
       - uses: actions/upload-artifact@v7
         with:

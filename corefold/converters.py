@@ -26,7 +26,7 @@ from .i18n import tr
 from .core import (ALIASES, ALL_EXT, ARCHIVE_EXT, AUDIO_EXT, DOCUMENT_EXT, EXCEL_EXT, IMAGE_EXT,  # noqa: F401
                    NO_WINDOW, SLIDES_EXT, job_flags, TAR_SUFFIXES, VIDEO_EXT, WORD_EXT, Cancelled, Ctx, Options, Result,
                    Tool, _cached, app_dir, bundled, is_cached, is_cloud_only, category, fallback_folder, human_size,
-                   norm, os_open, pass_on_zone_mark,
+                   find_program, lower_this_thread, norm, os_open, pass_on_zone_mark, remove_file, system_tool,
                    safe_name, short_name, unique_path, writable)
 
 log = logging.getLogger("corefold")
@@ -59,10 +59,15 @@ def setup_pillow():
     _heif_registered = True
 
 
-def load_image(src: Path):
+def load_image(src: Path, fit: int = 0):
+    """The picture, upright. With fit, a JPG may be read at a smaller size that's still at least fit pixels on its
+    long side (many times faster when a phone photo is made small)."""
     from PIL import Image, ImageOps
     setup_pillow()
     with Image.open(src) as im:
+        if fit and im.format == "JPEG" and max(im.size) > fit * 2:
+            scale = fit / max(im.size)
+            im.draft(im.mode, (max(1, int(im.width * scale)), max(1, int(im.height * scale))))
         try:
             upright = im.getexif().get(0x0112, 1) in (0, 1)  # no phone-camera rotation to apply
         except Exception:
@@ -138,16 +143,19 @@ def save_image(im, out: Path, ext: str, ctx: Ctx, keep_metadata: bool = True):
     meta = _metadata(original, ext, im.mode) if keep_metadata else {}
     if "icc_profile" in im.info and "icc_profile" not in meta:
         im.info = {k: v for k, v in im.info.items() if k != "icc_profile"}  # Pillow would copy it anyway
-    if ext == ".jpg":
-        im.save(out, quality=ctx.options.jpg_quality, optimize=True, progressive=True, **meta)
+    big = im.width * im.height > BIG_PICTURE
+    if ext == ".jpg":  # progressive takes three times as long on a big photo for a file only 5% smaller
+        im.save(out, quality=ctx.options.jpg_quality, optimize=True, progressive=not big, **meta)
     elif ext == ".webp":
         if max(im.size) > WEBP_MAX:
             raise RuntimeError(tr("too big for WebP (it can't be wider or taller than 16,383 pixels)"))
-        im.save(out, quality=ctx.options.jpg_quality, method=5, **meta)
+        im.save(out, quality=ctx.options.jpg_quality, method=4, **meta)
     elif ext == ".avif":  # about half the size of a JPG at the same quality
         im.save(out, quality=max(50, ctx.options.jpg_quality - 15), speed=6,
                 **{k: v for k, v in meta.items() if k in ("exif", "icc_profile")})
-    elif ext in (".png", ".tiff"):
+    elif ext == ".png":  # a big photo packs twice as fast at level 3, for a file a little bigger
+        im.save(out, compress_level=3 if big else 6, **meta)
+    elif ext == ".tiff":
         im.save(out, **meta)
     elif ext == ".ico":
         im = im.convert("RGBA")
@@ -159,6 +167,7 @@ def save_image(im, out: Path, ext: str, ctx: Ctx, keep_metadata: bool = True):
         im.save(out)
 
 
+BIG_PICTURE = 8_000_000  # pixels: a phone photo is 12 million
 WEBP_MAX = 16383  # the largest width or height a WebP picture can have
 
 
@@ -224,12 +233,86 @@ def _all_pages(f: Path):
     yield flatten(load_image(f))
 
 
+def _plain_jpegs(files: list[Path]) -> list[tuple[Path, int, int, int, bool]] | None:
+    """(file, width, height, phone rotation, grey) when every file is an ordinary JPG photo, else None."""
+    from PIL import Image
+    out = []
+    for f in files:
+        try:
+            with Image.open(f) as im:
+                if im.format != "JPEG" or im.mode not in ("RGB", "L"):
+                    return None
+                turn = im.getexif().get(0x0112, 1) or 1
+                if turn not in (1, 3, 6, 8):  # (mirrored ones go the long way)
+                    return None
+                out.append((f, im.width, im.height, turn, im.mode == "L"))
+        except Exception:
+            return None
+    return out
+
+
+def jpegs_to_pdf(photos: list[tuple[Path, int, int, int, bool]], out: Path, resolution: int, ctx: Ctx):
+    """JPG photos go into the PDF as they are: nothing is decoded and compressed again, so it's many times
+    faster and the photos keep their quality. Phone rotation is applied on the page. The PDF is written
+    here directly (a PDF of pictures is a short list of parts), so each photo is one plain file copy."""
+    tmp = out.with_name(out.name + ".part")
+    offsets: list[int] = []
+    n = len(photos)
+    # parts: 1 the catalog, 2 the page list, then for each photo: its page, its drawing, the photo
+    kids = " ".join(f"{3 + 3 * i} 0 R" for i in range(n))
+    try:
+        with open(tmp, "wb") as fh:
+            def part(body: bytes, stream: bytes | None = None):
+                offsets.append(fh.tell())
+                fh.write(f"{len(offsets)} 0 obj\n".encode("ascii") + body)
+                if stream is not None:
+                    fh.write(b"\nstream\n" + stream + b"\nendstream")
+                fh.write(b"\nendobj\n")
+            fh.write(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
+            part(b"<< /Type /Catalog /Pages 2 0 R >>")
+            part(f"<< /Type /Pages /Kids [{kids}] /Count {n} >>".encode("ascii"))
+            for i, (f, w, h, turn, gray) in enumerate(photos):
+                ctx.check()
+                data = Path(f).read_bytes()
+                sw, sh = w * 72 / resolution, h * 72 / resolution
+                pw, ph = (sh, sw) if turn in (6, 8) else (sw, sh)
+                # where the photo goes on the page: a x b y c d (turned the way the phone held it)
+                a, b, c, d, e, g = {1: (sw, 0, 0, sh, 0, 0), 3: (-sw, 0, 0, -sh, sw, sh),
+                                    6: (0, -sw, sh, 0, 0, sw), 8: (0, sw, -sh, 0, sh, 0)}[turn]
+                draw = f"q {a:.4f} {b:.4f} {c:.4f} {d:.4f} {e:.4f} {g:.4f} cm /Im0 Do Q".encode("ascii")
+                me = 3 + 3 * i
+                part(f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {pw:.4f} {ph:.4f}] "
+                     f"/Resources << /XObject << /Im0 {me + 2} 0 R >> >> /Contents {me + 1} 0 R >>".encode("ascii"))
+                part(f"<< /Length {len(draw)} >>".encode("ascii"), draw)
+                part(f"<< /Type /XObject /Subtype /Image /Width {w} /Height {h} /BitsPerComponent 8 "
+                     f"/ColorSpace /{'DeviceGray' if gray else 'DeviceRGB'} /Filter /DCTDecode "
+                     f"/Length {len(data)} >>".encode("ascii"), data)
+                ctx.progress((i + 1) / (n + 1))
+            xref = fh.tell()
+            fh.write(f"xref\n0 {len(offsets) + 1}\n0000000000 65535 f \n".encode("ascii"))
+            fh.write("".join(f"{o:010d} 00000 n \n" for o in offsets).encode("ascii"))
+            fh.write(f"trailer\n<< /Size {len(offsets) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n"
+                     .encode("ascii"))
+        os.replace(tmp, out)
+    finally:
+        if tmp.exists():
+            tmp.unlink(missing_ok=True)
+
+
 def images_to_pdf(files: list[Path], ctx: Ctx) -> Result:
     if ctx.options.rename_base:
         name = safe_name(ctx.options.rename_base)
     else:
         name = files[0].stem if len(files) == 1 else f"{files[0].stem} +{len(files) - 1}"
     out = ctx.out_path(files[0], name + ".pdf")
+
+    photos = _plain_jpegs(files)
+    if photos:
+        import time
+        started = time.monotonic()
+        jpegs_to_pdf(photos, out, 150, ctx)
+        log.info("%d JPG photos put in a PDF as they are (%.1f s)", len(photos), time.monotonic() - started)
+        return Result([out])
 
     def pages():
         for i, f in enumerate(files):
@@ -243,7 +326,7 @@ def images_to_pdf(files: list[Path], ctx: Ctx) -> Result:
 def image_small(src: Path, ctx: Ctx) -> Result:
     """Shrink for sharing: max 1920 px, JPG quality 80."""
     from PIL import Image
-    im = flatten(load_image(src))
+    im = flatten(load_image(src, fit=1920))
     im.thumbnail((1920, 1920), Image.LANCZOS)
     out = ctx.out_path(src, f"{ctx.stem(src)} (small).jpg")
     im.save(out, quality=80, optimize=True, progressive=True)
@@ -518,7 +601,7 @@ def find_tool(name: str) -> str:
     for cand in (app_dir() / "ffmpeg" / exe, app_dir() / "vendor" / "ffmpeg" / exe):
         if cand.exists():
             return str(cand)
-    found = shutil.which(name)
+    found = find_program(name)
     if found:
         return found
     raise RuntimeError(tr("FFmpeg is missing. Reinstall Corefold to fix audio and video conversion."))
@@ -599,15 +682,107 @@ def media_duration(src: Path) -> float:
 LOCAL_ONLY = ["-protocol_whitelist", "file,pipe"]
 
 
+# ----------------------------------------------------------------------------- the graphics card
+
+GPU_ENCODERS = ("h264_nvenc", "h264_qsv", "h264_amf")  # NVIDIA, Intel, AMD
+_gpu: dict = {}
+_gpu_lock = threading.Lock()
+
+
+def gpu_encoder() -> str:
+    """The graphics card's H.264 encoder that really works on this PC (tried once with a tiny video), or ""."""
+    with _gpu_lock:
+        if "encoder" in _gpu:
+            return _gpu["encoder"]
+        found = ""
+        try:
+            exe = find_tool("ffmpeg")
+            listed = subprocess.run([exe, "-hide_banner", "-encoders"], capture_output=True, text=True, timeout=20,
+                                    stdin=subprocess.DEVNULL, creationflags=NO_WINDOW).stdout
+            for enc in GPU_ENCODERS:
+                if f" {enc} " not in listed:
+                    continue
+                r = subprocess.run([exe, "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i",
+                                    "color=c=black:s=256x256:d=0.2", "-frames:v", "3", *_gpu_video_args([], enc, 23),
+                                    "-f", "null", "-"], capture_output=True, timeout=30, stdin=subprocess.DEVNULL,
+                                   creationflags=NO_WINDOW)
+                if r.returncode == 0:
+                    found = enc
+                    break
+        except (OSError, RuntimeError, subprocess.SubprocessError):
+            found = ""
+        log.info("graphics card video encoder: %s", found or "none")
+        _gpu["encoder"] = found
+        return found
+
+
+def _gpu_video_args(rest: list[str], enc: str, crf: int | None, bitrate: str = "") -> list[str]:
+    """The encoder's own words for "this quality" (FFmpeg's x264 CRF, roughly matched)."""
+    if enc == "h264_nvenc":
+        q = ["-rc", "vbr", "-b:v", bitrate] if bitrate else ["-rc", "vbr", "-cq", str((crf or 20) + 2), "-b:v", "0"]
+        return ["-c:v", enc, "-preset", "p5", *q, "-pix_fmt", "yuv420p", *rest]
+    if enc == "h264_qsv":
+        q = ["-b:v", bitrate] if bitrate else ["-global_quality", str((crf or 20) + 2)]
+        return ["-c:v", enc, "-preset", "medium", *q, "-pix_fmt", "nv12", *rest]
+    q = ["-b:v", bitrate] if bitrate else ["-rc", "cqp", "-qp_i", str(crf or 20), "-qp_p", str((crf or 20) + 2)]
+    return ["-c:v", enc, "-quality", "balanced", *q, "-pix_fmt", "nv12", *rest]
+
+
+def with_gpu(args: list[str], enc: str) -> list[str] | None:
+    """The same FFmpeg arguments with the graphics card making the H.264 video, or None when they can't
+    be swapped (no x264 in them, two passes, or settings only x264 has)."""
+    if not enc or "libx264" not in args or "-pass" in args or "-x264-params" in args or "-tune" in args:
+        return None
+    out, crf, bitrate, i = [], None, "", 0
+    while i < len(args):
+        a = args[i]
+        nxt = args[i + 1] if i + 1 < len(args) else ""
+        if a == "-c:v" and nxt == "libx264":
+            i += 2
+            continue
+        if a == "-crf":
+            crf = int(float(nxt)) if nxt.replace(".", "", 1).isdigit() else 20
+            i += 2
+            continue
+        if a in ("-preset", "-pix_fmt", "-profile:v", "-level"):
+            i += 2
+            continue
+        if a == "-b:v":
+            bitrate = nxt
+            i += 2
+            continue
+        out.append(a)
+        i += 1
+    return _gpu_video_args(out, enc, crf, bitrate)
+
+
 def run_ffmpeg(src: Path, out: Path, args: list[str], ctx: Ctx, pre: list[str] | None = None,
-               duration: float | None = None):
+               duration: float | None = None, more_inputs: list[Path] | None = None, cwd: Path | None = None):
+    """FFmpeg from src to out, with progress and Stop. more_inputs come after src (-i 1, 2 …).
+    With the graphics card option on, H.264 videos are made by the graphics card; if that fails, the
+    usual way follows by itself."""
+    fast = with_gpu(args, gpu_encoder()) if getattr(ctx.options, "gpu", False) and "libx264" in args else None
+    if fast is not None:
+        try:
+            return _run_ffmpeg(src, out, fast, ctx, pre, duration, more_inputs, cwd)
+        except Cancelled:
+            raise
+        except RuntimeError:
+            log.warning("the graphics card couldn't make %s; trying again the usual way", out.name)
+    return _run_ffmpeg(src, out, args, ctx, pre, duration, more_inputs, cwd)
+
+
+def _run_ffmpeg(src: Path, out: Path, args: list[str], ctx: Ctx, pre: list[str] | None = None,
+                duration: float | None = None, more_inputs: list[Path] | None = None, cwd: Path | None = None):
     duration = media_duration(src) if duration is None else duration
-    args = with_tonemap(src, args)
+    args = with_tonemap(src, args) if not more_inputs else args
+    extra = [x for p in (more_inputs or []) for x in (*LOCAL_ONLY, "-i", str(p))]
     cmd = [find_tool("ffmpeg"), "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
-           *(pre or []), *LOCAL_ONLY, "-i", str(src), *args, "-progress", "pipe:1", "-nostats", str(out)]
+           *(pre or []), *LOCAL_ONLY, "-i", str(src), *extra, *args, "-progress", "pipe:1", "-nostats", str(out)]
     with tempfile.TemporaryFile(mode="w+", encoding="utf-8", errors="replace") as err:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=err, stdin=subprocess.DEVNULL, text=True,
-                                encoding="utf-8", errors="replace", creationflags=job_flags())
+                                encoding="utf-8", errors="replace", creationflags=job_flags(),
+                                cwd=str(cwd) if cwd else None)
         try:
             for line in proc.stdout:
                 if ctx.cancelled:
@@ -624,11 +799,11 @@ def run_ffmpeg(src: Path, out: Path, args: list[str], ctx: Ctx, pre: list[str] |
         real_file = str(out) != os.devnull
         if ctx.cancelled:
             if real_file:
-                out.unlink(missing_ok=True)
+                remove_file(out)
             raise Cancelled()
         if proc.returncode:
             if real_file:
-                out.unlink(missing_ok=True)
+                remove_file(out)
             err.seek(0)
             lines = [ln for ln in err.read().strip().splitlines() if ln.strip()]
             log.error("ffmpeg failed for %s: %s", src, "\n".join(lines[-10:]))
@@ -924,7 +1099,7 @@ def find_libreoffice() -> str | None:
         p = Path(base) / "LibreOffice" / "program" / "soffice.exe"
         if p.exists():
             return str(p)
-    return shutil.which("soffice")
+    return find_program("soffice")
 
 
 def office_app_for(src: Path) -> str | None:
@@ -1019,7 +1194,7 @@ def _run_stoppable(cmd: list[str], ctx: Ctx, timeout: float) -> tuple[int, str]:
 
 def _kill_tree(proc):
     if os.name == "nt":
-        subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], capture_output=True,
+        subprocess.run([system_tool("taskkill.exe"), "/T", "/F", "/PID", str(proc.pid)], capture_output=True,
                        stdin=subprocess.DEVNULL, creationflags=NO_WINDOW)
     else:
         proc.kill()
@@ -1070,7 +1245,7 @@ def both(*checks):
 
 def catalog(multi: bool = False) -> dict[str, list[Tool]]:
     """Every tool Corefold has, per kind of file, in default wheel order."""
-    from . import archives as ar, extras as ex, moretools as mt
+    from . import archives as ar, extras as ex, moretools as mt, pdfstamp as ps, videotools as vt
 
     def fmt(kind, ext, fn, check=None, **kw):
         return Tool(f"{kind}:{ext[1:]}", ext[1:].upper(),
@@ -1084,7 +1259,9 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
             Tool("pack:options", tr("Archive…"), tr("Archive with a password, split or max compression"), ar.pack,
                  batch=True, ask="pack"),
             Tool("files:rename", tr("Rename"), tr("Rename the files (numbers, replace text…)"), mt.rename_files,
-                 batch=True, ask="rename_files", renames=False)]
+                 batch=True, ask="rename_files", renames=False),
+            Tool("files:hash", "SHA-256", tr("Copy the file's fingerprint, to check a download"), mt.file_hash,
+                 batch=True, renames=False, check=mt.check_files_only)]
 
     folder = [Tool(f"folder:{k}", label, desc, partial(mt.convert_folder, fmt=k), check=mt.check_pictures_folder,
                    renames=False)
@@ -1122,7 +1299,9 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
     audio += [Tool("audio:trim", tr("Trim"), tr("Cut the start or end"), trim_media, ask="trim"),
               Tool("audio:fit", tr("Fit size"), tr("Make it fit a size limit"), ex.fit, ask="fit"),
               Tool("audio:volume", tr("Volume"), tr("Fix the volume (too quiet or too loud)"), mt.fix_volume),
-              Tool("audio:speed", tr("Speed"), tr("Speed up or slow down"), mt.change_speed, ask="speed")]
+              Tool("audio:speed", tr("Speed"), tr("Speed up or slow down"), mt.change_speed, ask="speed"),
+              Tool("audio:join", tr("Join"), tr("Join them into one file, one after another"), vt.join_media,
+                   batch=True, check=vt.check_join)]
 
     video = [fmt("video", e, ffmpeg_convert, check=check_gif_length if e == ".gif" else None, args=a)
              for e, a in VIDEO_ARGS.items()]
@@ -1142,6 +1321,16 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
               Tool("video:volume", tr("Volume"), tr("Fix the volume (too quiet or too loud)"), mt.fix_volume,
                    check=check_has_audio, slow_check=True),
               Tool("video:speed", tr("Speed"), tr("Speed up or slow down"), mt.change_speed, ask="speed"),
+              Tool("video:crop", tr("Crop"), tr("Remove black bars, or make it square or vertical"), vt.crop_video,
+                   ask="video_crop"),
+              Tool("video:subtitles", tr("Subtitles"), tr("Put a subtitle file into the video"), vt.add_subtitles,
+                   ask="subtitles"),
+              Tool("video:srt", "SRT", tr("Save the subtitles inside as .srt"), vt.save_subtitles,
+                   check=vt.check_has_subtitles, slow_check=True),
+              Tool("video:sound", tr("Sound…"), tr("Save the sound (M4A, WAV, FLAC…)"), vt.video_sound, ask="sound",
+                   check=check_has_audio, slow_check=True),
+              Tool("video:join", tr("Join"), tr("Join them into one video, one after another"), vt.join_media,
+                   batch=True, check=vt.check_join),
               Tool("video:sticker", tr("Sticker"), tr("Make a sticker or chat GIF (WhatsApp, Telegram, Discord)"),
                    mt.video_sticker, ask="sticker")]
 
@@ -1158,6 +1347,12 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
                 check=check_pdf_locked, slow_check=True),
            Tool("pdf:images", tr("Pictures"), tr("Save the pictures inside"), mt.pdf_images, check=check_pdf_locked,
                 slow_check=True),
+           Tool("pdf:numbers", tr("Page numbers"), tr("Number every page"), ps.page_numbers, ask="page_numbers",
+                check=check_pdf_locked, slow_check=True),
+           Tool("pdf:watermark", tr("Watermark"), tr("Add text or a logo to every page"), ps.watermark_pdf,
+                ask="watermark", check=check_pdf_locked, slow_check=True),
+           Tool("pdf:sign", tr("Sign"), tr("Put your signature on it"), ps.sign_pdf, ask="sign",
+                check=check_pdf_locked, slow_check=True),
            Tool("pdf:lock", tr("Lock"), tr("Protect with a password"), mt.pdf_lock, ask="lock",
                 check=mt.check_can_lock, slow_check=True),
            Tool("pdf:unlock", tr("Unlock"), tr("Remove the password"), mt.pdf_unlock, password=True,
@@ -1317,6 +1512,23 @@ def friendly_error(e: Exception) -> str:
     return str(e) or name
 
 
+# picture tools that only use Pillow: several photos are done at once (one per processor core, up to 4), at
+# the job's low priority, so 20 phone photos take a fraction of the time and the PC still feels normal
+SERIAL_IMAGE_TOOLS = {"image:cutout", "image:ocr", "image:video", "image:sticker", "image:pdf", "image:scan"}
+
+
+def _parallel(tool: Tool, items: list) -> int:
+    if tool.batch or len(items) < 2 or not tool.key.startswith("image:") or tool.key in SERIAL_IMAGE_TOOLS:
+        return 1
+    workers = min(4, max(1, (os.cpu_count() or 2) - 1), len(items))
+    try:
+        if max(p.stat().st_size for p in items) > 40 * 2**20:  # very big pictures: fewer at once (memory)
+            workers = min(workers, 2)
+    except OSError:
+        pass
+    return workers
+
+
 def run_job(tool: Tool, files: list[Path], options: Options,
             progress: Callable[[float], None] | None = None,
             cancel: threading.Event | None = None,
@@ -1329,26 +1541,39 @@ def run_job(tool: Tool, files: list[Path], options: Options,
     total, errors = Result(), []
     items = [files] if tool.batch else list(files)
     n = len(items)
-    for i, item in enumerate(items):
+    workers = _parallel(tool, items)
+    parts = [0.0] * n  # how far each file is (several are worked on at once)
+    lock = threading.Lock()
+    started = [0]
+
+    def part(i, f):
+        with lock:
+            parts[i] = f
+            done = sum(parts)
+        progress(done / n)
+
+    def one(i, item):
+        """(result, None), (None, error text) or (None, None) when it was cancelled."""
         if cancel.is_set():
-            break
-        ctx = Ctx(options, lambda f, i=i: progress((i + f) / n), cancel, params,
-                  index=None if tool.batch else i, total=n)
+            return None, None
+        if workers > 1:
+            lower_this_thread()
+        ctx = Ctx(options, lambda f, i=i: part(i, f), cancel, params, index=None if tool.batch else i, total=n)
         if on_item and n > 1:
-            on_item(i + 1, n, item.name)
+            with lock:
+                started[0] += 1
+                number = started[0]
+            on_item(number, n, item.name)
         try:
             r = tool.run(item, ctx)
             try:
                 pass_on_zone_mark([item] if isinstance(item, Path) else item, r.outputs)
             except Exception:
                 log.debug("couldn't pass on the download mark", exc_info=True)
-            total.outputs += r.outputs
-            total.clipboard = r.clipboard or total.clipboard
-            total.note = r.note or total.note
-            total.undo += r.undo
+            return r, None
         except Cancelled:
             ctx.discard()
-            break
+            return None, None
         except Exception as e:  # keep going with the remaining files
             ctx.discard()
             if isinstance(item, Path):
@@ -1356,10 +1581,34 @@ def run_job(tool: Tool, files: list[Path], options: Options,
             else:
                 name = short_name(item[0].name) if len(item) == 1 else tr("{count} files", count=len(item))
             if type(e).__name__ == "NeedPassword":
-                total.locked.append(item)  # the app asks for the password and tries just these again
+                with lock:
+                    total.locked.append(item)  # the app asks for the password and tries just these again
                 log.info("%s needs a password: %s", tool.label, name)
             else:
                 log.exception("%s failed on %s", tool.label, name)
-            errors.append(f"{name}: {friendly_error(e)}")
-        progress((i + 1) / n)
+            return None, f"{name}: {friendly_error(e)}"
+        finally:
+            part(i, 1.0)
+
+    if workers > 1:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="corefold-job") as pool:
+            outcomes = list(pool.map(one, range(n), items))
+    else:
+        outcomes = []
+        for i, item in enumerate(items):
+            if cancel.is_set():
+                break
+            r, err = one(i, item)
+            outcomes.append((r, err))
+            if r is None and err is None:  # cancelled
+                break
+    for r, err in outcomes:  # in the order the files were given
+        if r is not None:
+            total.outputs += r.outputs
+            total.clipboard = r.clipboard or total.clipboard
+            total.note = r.note or total.note
+            total.undo += r.undo
+        elif err is not None:
+            errors.append(err)
     return total, errors
