@@ -27,7 +27,7 @@ if os.name != "nt":  # (a quick try on Linux: Windows' parts are pretend ones)
     for name in ("winreg", "winsound"):
         sys.modules[name] = mock.MagicMock()
 
-from PySide6.QtCore import QPointF, QRect  # noqa: E402
+from PySide6.QtCore import QPointF, QRect, Qt  # noqa: E402
 from PySide6.QtGui import QColor, QImage  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
@@ -251,6 +251,29 @@ def Qt_Phase():
     return Qt.NoScrollPhase
 
 
+def recording_pause():
+    if os.name != "nt":
+        print("(recording the screen needs Windows)")
+        return
+    from corefold.capture import Recorder
+    from corefold.converters import media_duration
+    out = TMP / "rec" / "paused.mp4"
+    rec = Recorder(QRect(0, 0, 320, 240), out, 15)
+    check(rec.start(), f"recording starts {rec.error}")
+    time.sleep(2.5)
+    check(rec.pause() and rec.paused and rec.running(), "pause")
+    time.sleep(2)
+    seconds = rec.seconds()
+    check(rec.resume() and not rec.paused, "carry on")
+    time.sleep(2.5)
+    ok = rec.stop()
+    check(ok and out.exists(), f"the parts are joined into one file {rec.error}")
+    check(not list(out.parent.glob("*.part*")), "…and the parts are gone")
+    if ok:
+        d = media_duration(out)
+        check(3.5 < d < 7.5, f"…without the paused time ({d:.1f} s, {seconds:.1f} s before the pause)")
+
+
 def loopback():
     if os.name != "nt":
         return
@@ -297,6 +320,33 @@ def saved_texts():
     check("My new address" in texts and "My address, 12 Street" not in texts and second.pinned,
           "changing a saved text replaces it")
     fake.history.close()
+
+
+def clip_list():
+    from types import SimpleNamespace
+
+    from corefold import clipboard as cb
+    from corefold.clipview import ClipList
+    hist = cb.History(TMP / "clip-list")
+    for t in ("first", "second", "third"):
+        hist.add(cb.text_item(t))
+    clip = SimpleNamespace(history=hist)
+    c = FakeController()
+    lst = ClipList(clip, c.theme, 56, click_uses=True, controller=c)
+    lst.fill(hist.items())
+    got = []
+    lst.text_used.connect(got.append)
+    lst._change(lst.item(0).data(Qt.UserRole), "upper")
+    check(got == ["THIRD"], f"Change it, from the list ({got})")
+    lst.item(2).setSelected(True)
+    lst.item(0).setSelected(True)
+    picked = [i.text for i in lst.picked_texts()]
+    check(sorted(picked) == ["first", "third"], f"Ctrl+click picks several ({picked})")
+    lst._use_together(lst.picked_texts())
+    check(got[-1] in ("first\nthird", "third\nfirst"), "…pasted together, one per line")
+    for name in ("_edit", "_resave", "_read_text", "_save_picture"):
+        check(callable(getattr(lst, name, None)), f"the list's menu can {name.strip('_')}")
+    hist.close()
 
 
 # ----------------------------------------------------------------------------- Viewer
@@ -466,6 +516,18 @@ def pdf_stamps():
 
 # ----------------------------------------------------------------------------- Player
 
+def chapters():
+    from corefold.player import chapters_of
+    meta = TMP / "chapters.txt"
+    meta.write_text(";FFMETADATA1\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=0\nEND=1500\ntitle=Opening\n"
+                    "[CHAPTER]\nTIMEBASE=1/1000\nSTART=1500\nEND=3000\ntitle=The end\n", "utf-8")
+    ffmpeg("-i", str(VID / "bars.mp4"), "-i", str(meta), "-map_metadata", "1", "-map_chapters", "1", "-c", "copy",
+           str(VID / "chapters.mkv"))
+    found = chapters_of(VID / "chapters.mkv")
+    check([(round(ms / 100), t) for ms, t in found] == [(0, "Opening"), (15, "The end")], f"chapters ({found})")
+    check(chapters_of(VID / "quiet.mp4") == [], "…none in a file without them")
+
+
 def player():
     try:
         from corefold.player import FIT_MODES, PlayerWindow
@@ -488,6 +550,18 @@ def player():
     win.a_shuffle.setChecked(True)
     win._shuffle(True)
     check(win.files[0] == win.current() and win.index == 0, "shuffle keeps the file that's playing first")
+    if (VID / "chapters.mkv").exists():
+        win.open(VID / "chapters.mkv")
+        for _ in range(60):
+            app.processEvents()
+            time.sleep(0.05)
+            if win.seek.chapters:
+                break
+        check(len(win.seek.chapters) == 2, "the seek bar shows the chapters")
+        win.chapter_step(1)
+        check(win.seek.value() >= 1400 or win.player.position() >= 1400, "Ctrl+Right: the next chapter")
+    win.open_link("not a link")
+    check(not win.link, "a pasted text that isn't a link isn't played")
     win.close()
     app.processEvents()
 
@@ -498,8 +572,9 @@ if __name__ == "__main__" and len(sys.argv) > 1:
 else:
     step("videos", make_videos)
     for name, fn in (("video tools", video_tools), ("fingerprint", fingerprint), ("passwords", passwords),
-                     ("capture", capture), ("loopback", loopback), ("clipboard", clipboard), ("viewer", viewer),
-                     ("space", space), ("space programs", space_programs), ("player", player),
+                     ("capture", capture), ("recording pause", recording_pause), ("loopback", loopback),
+                     ("clipboard", clipboard), ("clip list", clip_list), ("viewer", viewer),
+                     ("space", space), ("space programs", space_programs), ("chapters", chapters), ("player", player),
                      ("saved texts", saved_texts), ("viewer strip", viewer_strip), ("space kinds", space_kinds),
                      ("shortcut program", shortcut_program), ("pdf stamps", pdf_stamps)):
         step(name, fn)
