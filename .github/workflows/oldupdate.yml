@@ -6,8 +6,6 @@ name: Update from old versions
 
 on:
   workflow_dispatch:
-  push:
-    branches: [claude/project-thread-x6alng]
 
 permissions:
   contents: read
