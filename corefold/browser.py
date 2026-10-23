@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QFileDialog, QFileI
                                QSplitter, QStackedWidget, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from . import archives as ar
-from .core import APP_NAME, Tool, human_size, short_name
+from .core import APP_NAME, Cancelled, Tool, human_size, short_name
 from .i18n import ltr, tr
 from .theme import round_menu
 from .winutil import reveal_in_explorer, set_title_bar_dark
@@ -326,6 +326,7 @@ class ArchiveBrowser(QWidget):
         self.split.setSizes([480, 320])
         lay.addWidget(self.split, 1)
         self._preview_asked = 0
+        self._preview_stop = None  # stops the preview being read (another file was picked)
         self._previewed = _Previewed(self)
         self._previewed.done.connect(self._preview_ready)
         self.preview_timer = QTimer(self)
@@ -566,6 +567,9 @@ class ArchiveBrowser(QWidget):
         item = self.tree.currentItem()
         self._preview_asked += 1
         asked = self._preview_asked
+        if self._preview_stop is not None:
+            self._preview_stop.set()
+            self._preview_stop = None
         if item is None:
             self.preview.show_message(tr("Pick a file to see it here."))
             return
@@ -583,10 +587,13 @@ class ArchiveBrowser(QWidget):
         import threading
         signals, src, password = self._previewed, self.src, self.password
         limit = ar.PREVIEW_MAX if ext in PICTURE_EXT else TEXT_SHOWN
+        stop = self._preview_stop = threading.Event()
 
         def work():
             try:
-                kind, what = preview_of(name, ar.read_member(src, member, password, limit))
+                kind, what = preview_of(name, ar.read_member(src, member, password, limit, stop))
+            except Cancelled:
+                return
             except ar.NeedPassword:
                 kind, what = "none", tr("This file is locked with a password.")
             except Exception as e:
@@ -855,6 +862,8 @@ class ArchiveBrowser(QWidget):
                 return
             if chosen is save:
                 self._save_back()
+        if self._preview_stop is not None:
+            self._preview_stop.set()
         super().closeEvent(e)
 
     def dropEvent(self, e):

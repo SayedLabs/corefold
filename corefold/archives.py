@@ -717,11 +717,15 @@ def extract_for_opening(src: Path, member: str, ctx: Ctx) -> Result:
 PREVIEW_MAX = 40 << 20  # files bigger than this (unpacked) get no preview
 
 
-def read_member(src: Path, member: str, password: str = "", limit: int = PREVIEW_MAX) -> bytes:
-    """The start (up to limit bytes) of one file inside the archive, without writing it anywhere."""
+def read_member(src: Path, member: str, password: str = "", limit: int = PREVIEW_MAX, cancel=None) -> bytes:
+    """The start (up to limit bytes) of one file inside the archive, without writing it anywhere.
+    cancel (a threading.Event) stops it early: another file was picked meanwhile."""
+    from .core import Cancelled
     if is_tar(src):
         with _open_tar(src) as tf:
             for m in tf:
+                if cancel is not None and cancel.is_set():
+                    raise Cancelled()
                 if m.isfile() and _tar_name(m.name) == member:
                     f = tf.extractfile(m)
                     return f.read(limit) if f else b""
@@ -737,6 +741,14 @@ def read_member(src: Path, member: str, password: str = "", limit: int = PREVIEW
             proc = subprocess.Popen([exe, "e", "-so", "-sccUTF-8", "-scsUTF-8", "-spd", _pw(password), str(src),
                                      f"@{listfile}"], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                     stdin=subprocess.DEVNULL, creationflags=NO_WINDOW)
+            if cancel is not None:  # (a big solid archive can take a while to reach the file)
+                def watch():
+                    while proc.poll() is None:
+                        if cancel.wait(0.2):
+                            proc.kill()
+                            return
+                import threading
+                threading.Thread(target=watch, daemon=True).start()
             try:
                 data = proc.stdout.read(limit)
             finally:
@@ -744,6 +756,8 @@ def read_member(src: Path, member: str, password: str = "", limit: int = PREVIEW
                 _out, err = proc.communicate(timeout=10)
         finally:
             listfile.unlink(missing_ok=True)
+        if cancel is not None and cancel.is_set():
+            raise Cancelled()
         if not data and proc.returncode not in (0, 1):  # (nothing read: 7-Zip had finished by itself)
             raise _7z_error(err.decode("utf-8", "replace"))
         return data
