@@ -423,6 +423,7 @@ class MainWindow(QWidget):
         self._apply_nav_width(COMPACT_NAV if self.c.settings.nav_compact else self.c.settings.nav_width)
 
         self.stack = QStackedWidget()
+        self.stack.currentChanged.connect(self._fade_in)
         builders = {"Home": self._home, "Converter": self._converter, "History": self._history, "Apps": self._apps,
                     "Archives": self._archives, "Store": self._store, "General": self._general,
                     "Look": self._look, "ConvOptions": self._conv_options, "WheelLook": self._wheel_look,
@@ -596,6 +597,23 @@ class MainWindow(QWidget):
         compact = width < COMPACT_NAV + 40
         for w in (self.logo, self.brand, self.version_label):
             w.setVisible(not compact)
+
+    def _fade_in(self, i: int):
+        """A page that's opened fades in (quickly), so moving between pages feels smooth."""
+        w = self.stack.widget(i)
+        if w is None or not (self.c.settings.animations and self.isVisible()) or PAGES[i] == "Player":
+            return  # (the Player's video draws itself: it's left alone)
+        from PySide6.QtCore import QPropertyAnimation
+        from PySide6.QtWidgets import QGraphicsOpacityEffect
+        effect = QGraphicsOpacityEffect(w)
+        effect.setOpacity(0.0)
+        w.setGraphicsEffect(effect)
+        anim = QPropertyAnimation(effect, b"opacity", w)
+        anim.setDuration(150)
+        anim.setStartValue(0.0)
+        anim.setEndValue(1.0)
+        anim.finished.connect(lambda: _alive(w) and w.setGraphicsEffect(None))
+        anim.start(QPropertyAnimation.DeleteWhenStopped)
 
     def _compact_now(self) -> bool:
         return self.c.settings.nav_compact or getattr(self, "_auto_compact", False)
@@ -996,7 +1014,7 @@ class MainWindow(QWidget):
             cols, first = 3, 6
             hidden: list[QWidget] = []
             for i, tool in enumerate(coming):
-                tile = ToolCard(tool.product, tr(tool.name), "", lambda n=tool.page: self.open_page(n), dark, dpr,
+                tile = ToolCard(tool.product, tr(tool.nav), "", lambda n=tool.page: self.open_page(n), dark, dpr,
                                 small=True, pill=tr(tool.line))
                 grid.addWidget(tile, i // cols, i % cols)
                 if i >= first:

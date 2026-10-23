@@ -1093,6 +1093,7 @@ def _clear_layout(lay):
     while lay.count():
         item = lay.takeAt(0)
         if item.widget():
+            item.widget().hide()  # (gone at once, not when Qt gets round to deleting it)
             item.widget().deleteLater()
         elif item.layout():
             _clear_layout(item.layout())
