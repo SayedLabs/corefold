@@ -430,8 +430,9 @@ def page():
     check((MESS / "Cairo.ttf").is_file() and left_pic.is_file(), "what was left out stayed")
     check((MESS / org.folder_name("documents") / "notes.txt").is_file(), "the rest is in its folders")
     check(pg.undo_btn.isEnabled() and pg.last.text(), "Undo is there, with what the last sort was")
-    check(len(pg.plan.moving()) == 1 and pg.plan.moving()[0].path == left_pic,
-          "looking again: the picture left out is still left out (the folder too)")
+    still = {i.path: i.on for i in pg.plan.items if i.kind}
+    check(still == {left_pic: False, MESS / "Cairo.ttf": False} and not pg.plan.moving() and not pg.sort_btn.isEnabled(),
+          f"looking again: the picture and the folder left out are listed, still left out ({still})")
     w.grab().save(str(OUT / f"organizer-sorted-{LANG}-{LOOK}.png"))
     QTest.mouseClick(pg.undo_btn, Qt.LeftButton)
     check(until(lambda: not pg.busy and not pg.loading, 30), "undo: done")
