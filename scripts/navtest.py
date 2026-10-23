@@ -334,7 +334,8 @@ def space_nav():
           f"{seen[-1] if seen else ''}", flush=True)
     if not done:
         click(next(b for b in pg.findChildren(QPushButton) if b.text() == tr("Stop")))
-        check(until(lambda: pg.job is None, 30), "Stop stops looking")
+        t1 = time.time()
+        check(until(lambda: pg.job is None, 30), f"Stop stops looking ({time.time() - t1:.1f} s)")
     check(pg.scan is not None and pg.scan.files > 1000, f"the first drive is mapped "
                                                           f"({pg.scan.files if pg.scan else 0} files in {took:.0f} s)")
     screen_shot("space-map")
@@ -383,7 +384,9 @@ def space_nav():
             until(lambda: pg.job is None, 120)
     # going back to the drives and picking another one
     back = [b for b in pg.findChildren(QPushButton) if b.isVisible() and b.text() in (tr("Other drives"), tr("Back"))]
-    if check(bool(back), "the map has a way back to the drives"):
+    if check(bool(back), f"the map has a way back to the drives (map {pg.map_box.isVisible()}, drives "
+                         f"{pg.drives_box.isVisible()}, busy {pg.busy_box.isVisible()}, looking {pg.job is not None}, "
+                         f"page {w.current_page()})"):
         click(back[0])
         cards = [b for b in pg.findChildren(QPushButton) if b.objectName() == "driveCard" and b.isVisible()]
         check(len(cards) >= 1, "back at the drives")
