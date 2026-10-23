@@ -579,11 +579,21 @@ def store_cycles():
         after = tracemalloc.take_snapshot()
         for stat in after.compare_to(snaps[0], "traceback")[:8]:
             note(f"grew {stat.size_diff / 1024:.0f} KB in {stat.count_diff} blocks at "
-                 f"{' < '.join(f'{Path(f.filename).name}:{f.lineno}' for f in stat.traceback[:4])}")
+                 f"{' > '.join(f'{Path(f.filename).name}:{f.lineno}' for f in list(stat.traceback)[-5:])}")
         tracemalloc.stop()
         now = _kinds()
         grown = sorted(((now.get(k, 0) - kinds[0].get(k, 0), k) for k in now), reverse=True)[:8]
         note("Python objects that grew: " + ", ".join(f"{k} +{n}" for n, k in grown if n > 0))
+    if ARGS.rounds > 5:  # is what grew only kept for later (caches), or lost?
+        from PySide6.QtGui import QPixmapCache
+        c.tidy_up()
+        settle(1.0)
+        tidied = _rss_mb()
+        QPixmapCache.clear()
+        gc.collect()
+        settle(1.0)
+        note(f"after the app tidies up: {tidied:.0f} MB; with the picture cache emptied too: {_rss_mb():.0f} MB "
+             f"(picture cache limit {QPixmapCache.cacheLimit() / 1024:.0f} MB)")
     if len(sizes) >= 3:
         check(sizes[-1][1] <= sizes[1][1] * 1.1 + 50, f"widgets don't pile up as tools come and go "
                                                        f"({' → '.join(str(x[1]) for x in sizes)})")
