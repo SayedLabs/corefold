@@ -434,6 +434,27 @@ def archive_tool():
     except OSError:
         left = False
     check(not left, "…with nothing left behind")
+    # switching a setting on and off quickly: one change at a time, and the last choice stays
+    import logging
+    errors = []
+
+    class Catch(logging.Handler):
+        def emit(self, record):
+            if record.levelno >= logging.ERROR:
+                errors.append(record.getMessage())
+    catch = Catch()
+    logging.getLogger("corefold").addHandler(catch)
+    try:
+        threads = [assoc.sync_in_background({"media": (i % 2 == 0, "Player")}, cmd, "") for i in range(12)]
+        threads.append(assoc.sync_in_background({"media": (True, "Player")}, cmd, ""))
+        for t in threads:
+            t.join(60)
+        check(not errors, f"quick on/off of opening media files: no registry errors ({errors[:2]})")
+        check(assoc.is_current(cmd, "media"), "…and the last choice (on) is the one that stays")
+    finally:
+        logging.getLogger("corefold").removeHandler(catch)
+        assoc.unregister()
+    check(not assoc._registered("media"), "…and taken out again")
 
 
 if __name__ == "__main__" and len(sys.argv) > 1:  # run just some: python scripts/selftest.py every_tool

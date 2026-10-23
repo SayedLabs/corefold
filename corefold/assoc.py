@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from dataclasses import dataclass
 
 from .core import APP_NAME
@@ -17,6 +18,11 @@ log = logging.getLogger("corefold")
 CLASSES = r"Software\Classes"
 CAPABILITIES = r"Software\Corefold\Capabilities"
 REGISTERED = r"Software\RegisteredApplications"
+
+# one change to the registry at a time: switching a setting on and off quickly started two at once,
+# and one could delete a key the other was still writing to
+_lock = threading.RLock()
+_pending = None
 
 
 @dataclass(frozen=True)
@@ -98,6 +104,11 @@ def register(app_command, icon: str, description: str, name: str = "archive"):
 
 def unregister(name: str | None = None):
     """Takes out only what register() wrote: for one group, or for all of them (uninstalling)."""
+    with _lock:
+        _unregister(name)
+
+
+def _unregister(name: str | None):
     import winreg
     from .shellmenu import _delete_tree
     hk = winreg.HKEY_CURRENT_USER
@@ -137,14 +148,33 @@ def sync(on, app_command, icon: str, description: str, name: str = "archive"):
     if os.name != "nt":
         return
     wanted = on if isinstance(on, dict) else {name: (bool(on), description)}
-    for key, (want, text) in wanted.items():
-        try:
-            if want and not is_current(app_command, key):
-                register(app_command, icon, text, key)
-            elif not want and _registered(key):
-                unregister(key)
-        except OSError:
-            log.exception("couldn't update opening %s files with Corefold", key)
+    with _lock:
+        for key, (want, text) in wanted.items():
+            try:
+                if want and not is_current(app_command, key):
+                    register(app_command, icon, text, key)
+                elif not want and _registered(key):
+                    _unregister(key)
+            except OSError:
+                log.exception("couldn't update opening %s files with Corefold", key)
+
+
+def sync_in_background(on, app_command, icon: str, description: str = ""):
+    """sync() without holding up the window. When settings change quickly, the changes are done one
+    after another and the newest choice is the one that stays."""
+    global _pending
+    _pending = (on, app_command, icon, description)
+    thread = threading.Thread(target=_sync_pending, daemon=True)
+    thread.start()
+    return thread
+
+
+def _sync_pending():
+    global _pending
+    with _lock:
+        job, _pending = _pending, None
+        if job:
+            sync(*job)
 
 
 def open_default_apps() -> bool:

@@ -930,7 +930,7 @@ class Controller(QObject):
                   "image": (s.open_images and viewer, tr("Corefold Viewer")),
                   "email": (s.open_emails and viewer, tr("Corefold Viewer")),
                   "media": (s.open_media and all_tools.is_on(s, "player"), tr("Corefold Player"))}
-        threading.Thread(target=assoc.sync, args=(wanted, app_command, app_icon(), ""), daemon=True).start()
+        assoc.sync_in_background(wanted, app_command, app_icon())
 
     # ---- right-click menu
 
