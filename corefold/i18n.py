@@ -73,10 +73,27 @@ def tr(text: str, /, **values) -> str:
     out = _table.get(text, text) if _table else text
     if values:
         try:
-            return out.format(**values)
+            out = out.format(**values)
         except (KeyError, IndexError, ValueError):  # a broken translation must never crash the app
             return text.format(**values)
-    return out
+    return _rtl_start(out) if _lang in RTL_LANGUAGES else out
+
+
+def _rtl_start(text: str) -> str:
+    """An Arabic sentence that starts with a Latin word ("Space pauses…", "{name} is protected…") would
+    be laid out left to right, with its words and full stop out of order: mark it as right to left."""
+    import unicodedata
+    for ch in text:
+        kind = unicodedata.bidirectional(ch)
+        if kind in ("R", "AL"):
+            return text
+        if kind == "L":
+            break
+    else:
+        return text
+    if any(unicodedata.bidirectional(ch) in ("R", "AL") for ch in text):
+        return "\u200f" + text  # (text with no Arabic at all, like "PNG", stays as it is)
+    return text
 
 
 def ltr(text: str) -> str:
