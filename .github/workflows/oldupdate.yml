@@ -31,6 +31,8 @@ jobs:
 
       - name: Update every old version to it
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}   # only to look up account names without hitting the hourly limit
         run: |
           .venv\Scripts\python.exe scripts\oldupdatetest.py dist\release 1.99.0 out
           $code = $LASTEXITCODE

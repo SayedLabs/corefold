@@ -19,6 +19,7 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 import winreg
 import zlib
@@ -130,6 +131,33 @@ def wait_for(test, seconds: float) -> bool:
     return test()
 
 
+checked_owners: set[str] = set()
+
+
+def old_owner_free(repo: str):
+    """Whether the GitHub account name an old build asks for can be taken by anyone. GitHub only
+    sends old names on while nobody owns them, so whoever takes one decides what those builds see."""
+    owner = repo.split("/")[0]
+    if owner.lower() == REPO.split("/")[0].lower() or owner.lower() in checked_owners:
+        return
+    checked_owners.add(owner.lower())
+    req = urllib.request.Request(f"https://api.github.com/users/{owner}", headers={
+        "User-Agent": "oldupdatetest", "Accept": "application/vnd.github+json",
+        **({"Authorization": f"Bearer {os.environ['GH_TOKEN']}"} if os.environ.get("GH_TOKEN") else {})})
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            who = json.loads(r.read().decode())
+        say(f"  info the old account name {owner} now belongs to {who.get('login')} "
+            f"({who.get('type')}, id {who.get('id')}, made {who.get('created_at')})")
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            say(f"  info the old account name {owner} is free: anyone can take it")
+        else:
+            say(f"  info couldn't look up the old account name {owner} (GitHub answered {e.code})")
+    except OSError as e:
+        say(f"  info couldn't look up the old account name {owner} ({e})")
+
+
 def baked_repo(exe: Path) -> str:
     """The repository an old build checks for updates (its _version.py, packed inside the exe)."""
     blob = exe.read_bytes()
@@ -223,6 +251,7 @@ def test_old(tag: str, data, files):
     repo = baked_repo(old_exe)
     if not check(bool(repo), f"its updater asks github.com/{repo or '?'}"):
         return
+    old_owner_free(repo)
     updater = load_old_updater(tag)
 
     # does GitHub still answer under the name this build asks for? (renamed repositories redirect)
@@ -274,6 +303,10 @@ def test_old(tag: str, data, files):
     except (OSError, ValueError):
         lang = None
     check(lang == "ar", f"settings kept (language: {lang})")
+    # the installer the old version downloaded (about 100 MB) is cleared like Corefold's own
+    check(path.exists(), f"the downloaded installer waits in {path.parent} (Corefold clears it after a day)")
+    new_updater.clean_old_installers(keep_days=0)
+    check(not path.parent.exists(), "Corefold clears it and its folder")
     clean_up()
 
 
