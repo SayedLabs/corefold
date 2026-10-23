@@ -90,7 +90,7 @@ jobs:
 
   results:
     needs: try
-    if: always()
+    if: ${{ !cancelled() }}  # (a run replaced by a newer push has nothing to sum up)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v7
