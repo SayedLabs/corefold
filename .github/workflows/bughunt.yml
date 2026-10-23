@@ -50,6 +50,10 @@ jobs:
           - name: upgrade
             upgrade: "v1.7.5"
           - name: navtest
+          - name: use-en-dark
+            use: "--lang en --look dark"
+          - name: use-ar-light
+            use: "--lang ar --look light"
           - name: exe
     name: ${{ matrix.name }}
     steps:
@@ -120,6 +124,18 @@ jobs:
             python scripts/quicktest.py out/quicktest ar light *> out/quicktest-ar.txt
           }
 
+      - name: Every tool with real-size files, timed (freezes listed with where they come from)
+        if: matrix.use != ''
+        timeout-minutes: 45
+        shell: pwsh
+        continue-on-error: true
+        env:
+          USE: ${{ matrix.use }}
+        run: |
+          choco install ffmpeg -y --no-progress | Out-Null
+          $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
+          python scripts/usetest.py out/usetest @($env:USE -split " ") *> out/usetest.txt
+
       - name: The built Corefold.exe
         if: matrix.name == 'exe'
         timeout-minutes: 30
@@ -157,8 +173,8 @@ jobs:
             echo "Bug hunt of $SHA"
             for d in */; do
               echo "== ${d%/}"
-              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused" "$d" 2>/dev/null | head -20
-              grep -rhaE "^(FAIL|ERROR) " "$d" 2>/dev/null | sort | uniq -c | sort -rn | head -60
+              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused" "$d" 2>/dev/null | head -20
+              grep -rhaE "^(FAIL|ERROR|SLOW) " "$d" 2>/dev/null | sort | uniq -c | sort -rn | head -60
             done
           } > summary.txt
           cat summary.txt

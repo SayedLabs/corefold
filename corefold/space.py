@@ -621,6 +621,9 @@ def _online_only(st) -> bool:
     return bool(getattr(st, "st_file_attributes", 0) & (_OFFLINE | _RECALL_ACCESS | _RECALL_OPEN))
 
 
+WHOLE_UP_TO = 8 * 2**20  # (bytes)
+
+
 def _hash(path: str, first_only: bool) -> bytes | None:
     h = hashlib.blake2b(digest_size=20)
     try:
@@ -674,27 +677,34 @@ def find_duplicates(folders: list[Path], min_size: int = 100 * 1024, cancel: thr
     by_size.clear()
     groups: list[list[tuple[str, int, float]]] = []
     done = 0
-    for size, files in sorted(candidates, key=lambda c: c[0] * (len(c[1]) - 1), reverse=True):
-        if cancel is not None and cancel.is_set():
-            return []
-        quick: dict[bytes, list] = {}
-        for path, mtime in files:
-            d = _hash(path, True)
-            if d is not None:
-                quick.setdefault(d, []).append((path, mtime))
-        for same in quick.values():
-            if len(same) < 2:
-                continue
-            full: dict[bytes, list] = {}
-            for path, mtime in same:
+    # Files up to WHOLE_UP_TO are read once, whole; bigger ones first by their start, then whole only when the
+    # starts are the same. Several are read at once: opening a file is the slow part (the virus scanner looks
+    # at each one), not reading it.
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=8, thread_name_prefix="corefold-dupes") as pool:
+        for size, files in sorted(candidates, key=lambda c: c[0] * (len(c[1]) - 1), reverse=True):
+            if cancel is not None and cancel.is_set():
+                return []
+            whole = size <= WHOLE_UP_TO
+            first: dict[bytes, list] = {}
+            for (path, mtime), d in zip(files, pool.map(lambda f: _hash(f[0], not whole), files)):
+                if d is not None:
+                    first.setdefault(d, []).append((path, mtime))
+            for same in first.values():
+                if len(same) < 2:
+                    continue
+                if whole:
+                    groups.append([(path, size, mtime) for path, mtime in same])
+                    continue
                 if cancel is not None and cancel.is_set():
                     return []
-                d = _hash(path, False) if size > 64 * 1024 else _hash(path, True)
-                if d is not None:
-                    full.setdefault(d, []).append((path, size, mtime))
-            groups += [g for g in full.values() if len(g) > 1]
-        done += 1
-        if progress is not None:
-            progress("compare", done, len(candidates))
+                full: dict[bytes, list] = {}
+                for (path, mtime), d in zip(same, pool.map(lambda f: _hash(f[0], False), same)):
+                    if d is not None:
+                        full.setdefault(d, []).append((path, size, mtime))
+                groups += [g for g in full.values() if len(g) > 1]
+            done += 1
+            if progress is not None:
+                progress("compare", done, len(candidates))
     groups.sort(key=lambda g: g[0][1] * (len(g) - 1), reverse=True)
     return groups

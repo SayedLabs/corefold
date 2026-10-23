@@ -681,27 +681,18 @@ def space():
     grab(w, "space-drives")
     root = Path(os.environ.get("SystemRoot", "C:/Windows"))
     timed(f"look through {root} (hundreds of thousands of files)", lambda: pg.start_scan(root), 90,
-          wait=lambda: pg.scan is not None and pg.job is None, wait_s=150)
+          wait=lambda: pg.scan is not None and pg.job is None, wait_s=200)
     if pg.job is not None:  # (stopped, so the rest can go on)
         say(f"note  still looking: {pg.busy_line.text()}")
         pg._stop()
         until(lambda: pg.job is None, 30)
-    import cProfile
-    import io
-    import pstats
     from corefold import space as sp
     stop = threading.Event()
-    threading.Timer(40, stop.set).start()
-    prof = cProfile.Profile()
+    threading.Timer(60, stop.set).start()
     with setup():
-        r = prof.runcall(sp.scan, root, stop)
-    out = io.StringIO()
-    pstats.Stats(prof, stream=out).sort_stats("tottime").print_stats(25)
-    (OUT / f"{TAG}-profile-scan.txt").write_text(out.getvalue(), "utf-8")
-    say(f"note  scan on its own: {r.files:,} files, {r.folders:,} folders in {r.seconds:.1f} s "
-        f"({r.files / max(r.seconds, 0.1):,.0f} a second){' (stopped)' if r.cancelled else ''}")
-    settle(0.5)
-    grab(w, "space-map")
+        r = sp.scan(root, stop)
+    say(f"note  the same again, on its own (the disk remembers part of it now): {r.files:,} files, {r.folders:,} "
+        f"folders in {r.seconds:.1f} s ({r.files / max(r.seconds, 0.1):,.0f} a second){' (stopped)' if r.cancelled else ''}")
     if pg.scan is not None:
         say(f"note  {pg.scan.files:,} files in {pg.scan.seconds:.1f} s")
         sub = max(pg.scan.root.children, key=lambda f: f.size) if getattr(pg.scan.root, "children", None) else None
@@ -819,8 +810,8 @@ with setup():
 watch.paused = 0
 
 step("start", start)
-for name, fn in (("search", search), ("quick", quick), ("converter", converter), ("archive", archive),
-                 ("viewer", viewer), ("player", player), ("capture", capture), ("space", space),
+for name, fn in (("search", search), ("quick", quick), ("space", space), ("converter", converter), ("archive", archive),
+                 ("viewer", viewer), ("player", player), ("capture", capture),
                  ("clipboard", clipboard), ("store", store), ("idle", idle)):
     step(name, fn)
     for top in qapp.topLevelWidgets():  # nothing a step left open gets in the next one's way
