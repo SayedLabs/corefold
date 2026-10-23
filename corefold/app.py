@@ -312,6 +312,7 @@ class Controller(QObject):
         self.clip = None     # Corefold Clipboard, while it's in use
         self.capture = None  # Corefold Capture, while it's in use
         self.quick = None    # the quick menu and wheel, while one of them is switched on
+        self.awake = None    # Corefold Awake (and its "Keep awake" tray menu), while it's in use
         self.act_again = menu.addAction(tr("Do it again…"), self.do_again)
         menu.aboutToShow.connect(self._update_again_action)
         self.recent_menu = menu.addMenu(tr("Recent files"))
@@ -537,6 +538,8 @@ class Controller(QObject):
         else:
             self.tray.setToolTip(tr("{app}: hold {key} while dragging a file", app=APP_NAME,
                                     key=self.settings.shortcut_label))
+        if self.awake is not None and self.awake.on:
+            self.tray.setToolTip(self.tray.toolTip() + "\n" + self.awake.status())
 
     def _css(self) -> str:
         return stylesheet(self.theme, WINDOW_TEXT_PT.get(self.settings.window_text, 10) / 10)
@@ -810,9 +813,10 @@ class Controller(QObject):
         self._clipboard_tool()
         self._capture_tool()
         self._quick_tool()
+        self._awake_tool()
         self._tray_tools()
         running = [name for name, on in (("clipboard", self.clip), ("capture", self.capture),
-                                         ("quick access", self.quick)) if on is not None]
+                                         ("quick access", self.quick), ("awake", self.awake)) if on is not None]
         if running:
             log.info("running in the background: %s", ", ".join(running))
             winutil.log_memory("background tools started")
@@ -836,6 +840,22 @@ class Controller(QObject):
 
     def _cap_settings(self) -> tuple:
         return self.settings.cap_shortcut, self.settings.cap_record_shortcut
+
+    def _awake_tool(self):
+        """Corefold Awake's tray menu is only there while it's in use (and removing it lets the PC sleep)."""
+        on = all_tools.is_on(self.settings, "awake")
+        if on and self.awake is None:
+            from .awake import AwakeTool
+            try:
+                self.awake = AwakeTool(self)
+            except Exception:
+                log.exception("couldn't start Awake")
+                self.awake = None
+        elif not on and self.awake is not None:
+            self.awake.stop()
+            self.awake.deleteLater()
+            self.awake = None
+            self._update_tooltip()
 
     # ---- Quick access
 
@@ -1815,6 +1835,9 @@ class Controller(QObject):
         if self.quick is not None:
             self.quick.stop()
             self.quick = None
+        if self.awake is not None:  # (Windows lets the PC sleep anyway once Corefold has ended)
+            self.awake.stop()
+            self.awake = None
         for p in getattr(self, "players", []):
             if _alive(p):
                 p.close()
@@ -1858,7 +1881,7 @@ class Controller(QObject):
 
 
 PAGE_NAMES = ("Home", "Converter", "Apps", "Archives", "Viewer", "Player", "Clipboard", "Space", "Capture", "Cloud",
-              "Unlock", "Store", "PlayerSettings",
+              "Unlock", "Awake", "Store", "PlayerSettings",
               "Soon",
               "General", "Look", "ConvOptions", "WheelLook", "Formats", "AppsSettings", "ArchiveSettings",
               "ViewerSettings", "ClipboardSettings", "CaptureSettings", "History", "Updates", "About")

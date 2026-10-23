@@ -127,7 +127,10 @@ NOT_EDITED = {"enabled", "first_run", "last_version", "menu_signature", "window_
               "last_action", "tour_done", "watermark", "fit_mb", "open_archives", "recent_archives",
               "tools_off", "known_tools", "open_images", "open_emails", "viewer_info", "recent_views",
               "clip_paused", "open_media", "player_volume", "nav_order", "nav_width", "nav_compact",
-              "quick_button_pos", "quick_told", "unlock_menu_signature"}
+              "quick_button_pos", "quick_told",
+              "unlock_menu_signature",
+              "awake_mode", "awake_minutes", "awake_until", "awake_screen", "shutdown_at", "shutdown_planned",
+              }
 # the settings of each tab of the Settings page (each one has its own "Reset to defaults")
 GENERAL_KEYS = ("language", "sound", "volume", "sound_problems", "show_progress", "low_priority", "one_at_a_time")
 LOOK_KEYS = ("appearance", "accent", "custom_color", "animations", "toast_corner", "toast_time", "window_text",
@@ -240,6 +243,13 @@ class Settings:
     quick_button_pos: list = field(default_factory=list)  # [x, y] where it was dragged to
     quick_links: list = field(default_factory=list)  # {"id", "name", "target"}: their own apps, folders, sites
     quick_told: bool = False       # the "press … for the quick menu" tip was shown
+    # Corefold Awake (chosen on its page, not in Settings)
+    awake_mode: str = "on"         # what "Keep awake" does: "on" (until switched off), "for" a while, "until" a time
+    awake_minutes: int = 60        # "for a while": how long, last chosen
+    awake_until: str = ""          # "until a time": "HH:MM", last chosen
+    awake_screen: bool = False     # keep the screen on too
+    shutdown_at: str = ""          # when Windows will turn the PC off (planned on the Awake page), ISO time
+    shutdown_planned: str = ""     # when that was planned (a restart since has cleared it)
     # the Uninstaller
     unused_months: int = 3         # "not used for …" filter
     backup_days: int = 30          # backups of removed leftovers are kept this long
