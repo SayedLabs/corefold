@@ -2,7 +2,7 @@
 
 *Everyday tools for Windows, by Atomic Works.*
 
-Three tools in one small app that waits in the tray. Everything happens on your PC; nothing is uploaded.
+Everyday tools in one small app that waits in the tray. Everything happens on your PC; nothing is uploaded.
 
 - **Corefold Converter**: hold Shift while dragging a file in File Explorer or on the desktop, and a
   wheel of formats appears at your cursor. Drop the file on a format and it's converted.
@@ -11,7 +11,7 @@ Three tools in one small app that waits in the tray. Everything happens on your 
 - **Corefold Archive**: opens ZIP, RAR, 7z, ISO and more with a double-click. Drag files out, change a
   file inside and save it back, rescue damaged archives, and unpack archives inside archives in one go.
 
-Coming soon: Viewer, Player, Capture, Space, Clipboard and Cloud.
+Also in the Store: Corefold Viewer, Player, Capture, Space and Clipboard. Coming soon: Cloud.
 
 ### The Converter
 
