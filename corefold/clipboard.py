@@ -676,6 +676,17 @@ class Clipboard(QObject):
         self.history.pin(item.id, on)
         self.changed.emit()
 
+    def save_text(self, text: str, instead_of: Item | None = None) -> Item:
+        """A text typed in to keep at hand (an address, a reply used often): kept pinned, at the top.
+        instead_of is the saved text it replaces, when one was changed."""
+        item = self.history.add(text_item(text))
+        self.history.pin(item.id, True)
+        item.pinned = True
+        if instead_of is not None and instead_of.id and instead_of.id != item.id:
+            self.history.delete(instead_of.id)
+        self.changed.emit()
+        return item
+
     def delete(self, item: Item):
         self.history.delete(item.id)
         self.changed.emit()

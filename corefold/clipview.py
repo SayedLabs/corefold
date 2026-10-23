@@ -224,6 +224,8 @@ class ClipList(QListWidget):
             round_menu(change)
             for how, name in CHANGES:
                 change.addAction(tr(name), lambda h=how: self._change(item, h))
+            if item.pinned:
+                menu.addAction(tr("Change the saved text…"), lambda: self._resave(item))
         if item.kind == "link":
             menu.addAction(tr("Open the link"), lambda: QDesktopServices.openUrl(QUrl(_web(item.text))))
         if item.kind == "image":
@@ -496,6 +498,11 @@ def _from_native(x: int, y: int) -> QPoint | None:
         if text is not None and text.strip():
             self.text_used.emit(text)
 
+    def _resave(self, item: Item):
+        text = edit_text(self, self._full_text(item), tr("Save"), tr("Change the saved text…").rstrip("…"))
+        if text is not None and text.strip():
+            self.clip.save_text(text, instead_of=item)
+
     def _change(self, item: Item, how: str):
         self.text_used.emit(change_text(self._full_text(item), how))
 
@@ -534,12 +541,12 @@ def _from_native(x: int, y: int) -> QPoint | None:
             QMessageBox.warning(self, tr("Couldn't save"), str(e))
 
 
-def edit_text(parent, text: str, ok_text: str) -> str | None:
+def edit_text(parent, text: str, ok_text: str, title: str = "") -> str | None:
     """A small box to change copied text before it's used. None if cancelled."""
     from PySide6.QtWidgets import QDialog, QDialogButtonBox, QPlainTextEdit
     d = QDialog(parent)
-    d.setWindowTitle(tr("Edit, then paste…").rstrip("…") if ok_text == tr("Paste") else
-                     tr("Edit, then copy…").rstrip("…"))
+    d.setWindowTitle(title or (tr("Edit, then paste…").rstrip("…") if ok_text == tr("Paste") else
+                               tr("Edit, then copy…").rstrip("…")))
     d.setWindowFlag(Qt.WindowStaysOnTopHint)
     d.resize(460, 300)
     lay = QVBoxLayout(d)
@@ -629,6 +636,13 @@ class ClipboardPage(QWidget):
         self.count.setObjectName("muted")
         foot.addWidget(self.count)
         foot.addStretch()
+        self.save_btn = QPushButton(tr("Save a text…"))
+        self.save_btn.setCursor(Qt.PointingHandCursor)
+        self.save_btn.setToolTip(tr("Keep a text you use often (an address, a reply) pinned at the top, "
+                                    "ready to paste"))
+        self.save_btn.clicked.connect(self._new_text)
+        self.save_btn.setVisible(self.clip is not None)
+        foot.addWidget(self.save_btn)
         self.pause_btn = QPushButton()
         self.pause_btn.setCursor(Qt.PointingHandCursor)
         self.pause_btn.clicked.connect(lambda: self.c.set_clipboard_paused(not self.c.settings.clip_paused))
@@ -683,6 +697,12 @@ class ClipboardPage(QWidget):
     def _copy(self, item: Item, plain: bool):
         if self.clip.copy(item, plain):
             self.c.say(tr("Copied"), tr("Paste it anywhere with Ctrl+V."))
+
+    def _new_text(self):
+        text = edit_text(self, "", tr("Save"), tr("Save a text…").rstrip("…"))
+        if text is not None and text.strip():
+            self.clip.save_text(text)
+            self.c.say(tr("Saved"), tr("It's pinned at the top of your clipboard."))
 
     def _clear(self):
         box = QMessageBox(self)
