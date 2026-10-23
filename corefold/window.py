@@ -945,6 +945,7 @@ class MainWindow(QWidget):
         while lay.count():
             item = lay.takeAt(0)
             if item.widget():
+                item.widget().hide()  # (not drawn again at its old place before it goes)
                 item.widget().deleteLater()
         shown = 0
         for name in self.c.settings.recent_archives:
@@ -1542,6 +1543,7 @@ class MainWindow(QWidget):
         while self.recent_lay.count():
             item = self.recent_lay.takeAt(0)
             if item.widget():
+                item.widget().hide()  # (not drawn again at its old place before it goes)
                 item.widget().deleteLater()
         entries = self.c.history.items[:5]
         if not entries:
@@ -2015,6 +2017,7 @@ class MainWindow(QWidget):
         while lay.count():
             item = lay.takeAt(0)
             if item.widget():
+                item.widget().hide()  # (not drawn again at its old place before it goes)
                 item.widget().deleteLater()
         shown = 0
         for name in self.c.settings.recent_views:
@@ -2184,6 +2187,7 @@ class MainWindow(QWidget):
         while lay.count():
             item = lay.takeAt(0)
             if item.widget():
+                item.widget().hide()  # (not drawn again at its old place before it goes)
                 item.widget().deleteLater()
         items = continue_watching(8)
         for path, pos, dur, when in items:
@@ -2344,6 +2348,7 @@ class MainWindow(QWidget):
         while lay.count():
             item = lay.takeAt(0)
             if item.widget():
+                item.widget().hide()  # (not drawn again at its old place before it goes)
                 item.widget().deleteLater()
         files = recent_captures(8)
         for path in files:
