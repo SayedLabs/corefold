@@ -721,13 +721,17 @@ class Controller(QObject):
         w = self._window
         if w is not None:
             self.rebuild_window("Store", committed=w.committed, pending_startup=w.pending_startup)
-        if on and tool_id == "capture" and self.capture is not None:
+        QTimer.singleShot(400, lambda: self._tool_added_tip(tool_id) if on else None)  # (after the window is drawn)
+
+    def _tool_added_tip(self, tool_id: str):
+        s = self.settings
+        if tool_id == "capture" and self.capture is not None:
             from .hotkey import SHORTCUT_NAMES
             key = SHORTCUT_NAMES.get(s.cap_shortcut)
             if key and self.capture.shot_key.ok:
                 self.toast.notify(tr("Corefold Capture"), tr("Press {key} to take a screenshot.", key=key),
                                   linger_ms=7000)
-        if on and tool_id == "clipboard" and self.clip is not None:
+        if tool_id == "clipboard" and self.clip is not None:
             from .clipboard import HOTKEY_NAMES
             key = HOTKEY_NAMES.get(s.clip_shortcut)
             if key and self.clip.hotkey.ok:

@@ -50,7 +50,8 @@ def check(ok, what):
 
 def window():
     for _ in range(40):
-        wins = [w for w in Desktop(backend="uia").windows() if w.window_text() == "Corefold" and w.is_visible()]
+        wins = [w for w in Desktop(backend="uia").windows() if w.window_text() == "Corefold" and w.is_visible()
+                and w.rectangle().width() > 600]  # (not a toast)
         if wins:
             return wins[0]
         time.sleep(0.5)

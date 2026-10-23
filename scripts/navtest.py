@@ -164,11 +164,11 @@ def white_share(img) -> float:
 
 def flash_after(g, seconds=0.8) -> float:
     """The whitest the screen got where the window is, in the moments after a click."""
-    screen = QGuiApplication.primaryScreen()
     worst = 0.0
     end = time.time() + seconds
     while time.time() < end:
         qapp.processEvents()
+        screen = QGuiApplication.screenAt(g.center()) or QGuiApplication.primaryScreen()
         worst = max(worst, white_share(screen.grabWindow(0, g.x(), g.y(), g.width(), g.height()).toImage()))
         time.sleep(0.01)
     return worst
