@@ -309,7 +309,7 @@ class QuickPaste(QWidget):
         for n in range(1, 10):  # Ctrl+1…9 pastes that row
             sc = QShortcut(QKeySequence(f"Ctrl+{n}"), self)
             sc.activated.connect(lambda n=n: self._use_row(n - 1))
-        QShortcut(QKeySequence("Esc"), self).activated.connect(self.hide)
+        QShortcut(QKeySequence("Esc"), self).activated.connect(self.cancel)
         self.clip.changed.connect(self._changed)
 
     def eventFilter(self, obj, e):
@@ -402,6 +402,13 @@ class QuickPaste(QWidget):
         self.list.clear()  # (nothing is held while it's closed)
         self.list.rows.thumbs.clear()
         super().hideEvent(e)
+
+    def cancel(self):
+        """Esc: closes it and goes back to where you were typing (Windows would otherwise bring up
+        whichever window happens to be next, and your typing would land somewhere else)."""
+        self.hide()
+        if self.target:
+            _bring_to_front(self.target)
 
     def _use_row(self, row: int):
         if 0 <= row < self.list.count():

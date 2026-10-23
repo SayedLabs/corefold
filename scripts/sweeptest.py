@@ -596,8 +596,30 @@ def tray():
         for top in qapp.topLevelWidgets():  # the capture overlay, the clipboard popup
             if alive(top) and top.isVisible() and top is not c.window and top.isWindow() and \
                     type(top).__name__ not in ("MainWindow", "Toast"):
-                top.hide()
+                top.cancel() if callable(getattr(top, "cancel", None)) else top.hide()  # (Esc, where it has one)
         check(len(errors) == before, f"the tray's {act.text()!r} works without an error")
+    # Esc in the clipboard popup goes back to where you were typing
+    if c.clip is not None and os.name == "nt":
+        from PySide6.QtWidgets import QLineEdit
+        editor = QLineEdit()
+        editor.setWindowTitle("typing here")
+        editor.resize(300, 40)
+        editor.show()
+        editor.raise_()
+        editor.activateWindow()
+        settle(0.5)
+        c.show_clipboard()
+        settle(0.5)
+        pop = c.clip.popup
+        if check(pop is not None and pop.isVisible(), "the clipboard popup opens over another window"):
+            QTest.keyClick(pop.search, Qt.Key_Escape)
+            settle(0.6)
+            check(not pop.isVisible(), "Esc closes the clipboard popup")
+            check(qapp.activeWindow() is editor, f"after Esc you're back where you were typing "
+                                                 f"({type(qapp.activeWindow()).__name__})")
+        editor.close()
+        editor.deleteLater()
+        settle(0.2)
     c.menu.aboutToShow.emit()
     c.recent_menu.aboutToShow.emit()
     settle(0.2)
@@ -670,7 +692,7 @@ def search():
         for top in qapp.topLevelWidgets():  # the capture overlay, the clipboard popup
             if alive(top) and top.isVisible() and top.isWindow() and \
                     type(top).__name__ not in ("MainWindow", "Toast"):
-                top.hide()
+                top.cancel() if callable(getattr(top, "cancel", None)) else top.hide()  # (Esc, where it has one)
         ran += 1
         last[0] = title
         check(not pal.isVisible() if alive(pal) else True, f"the search closes after running {title[:40]!r}")
