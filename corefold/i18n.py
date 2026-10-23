@@ -1,8 +1,9 @@
 """
 Translations. Every piece of text people see goes through tr("English text", name=value).
 
-The language is picked once when Corefold starts (changing it in Settings restarts the app), so
-tr() is just a dictionary lookup. English is the source; corefold/lang_<code>.py hold the others
+tr() is just a dictionary lookup in the language in use. Changing the language while Corefold runs
+(Controller.switch_language) builds the window and menus again in the new one.
+English is the source; corefold/lang_<code>.py hold the others
 (Arabic, French, Spanish, Turkish).
 scripts/check_translations.py makes sure nothing is left untranslated.
 """

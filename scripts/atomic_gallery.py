@@ -10,11 +10,11 @@ sys.path.insert(0, str(ROOT))
 
 from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtGui import QColor  # noqa: E402
-from PySide6.QtWidgets import (QApplication, QComboBox, QFrame, QHBoxLayout, QLabel, QLineEdit,  # noqa: E402
+from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel, QLineEdit,  # noqa: E402
                                QProgressBar, QPushButton, QSlider, QVBoxLayout, QWidget)
 
 from corefold.atomic import qss, tokens  # noqa: E402
-from corefold.atomic.widgets import GlowPanel, Group, SearchButton, SettingRow, Switch, mark_rows  # noqa: E402
+from corefold.atomic.widgets import Dropdown, GlowPanel, Group, SearchButton, SettingRow, Switch, mark_rows  # noqa: E402
 
 
 def gallery() -> QWidget:
@@ -57,7 +57,7 @@ def gallery() -> QWidget:
     row = QHBoxLayout()
     edit = QLineEdit()
     edit.setPlaceholderText("A text box")
-    combo = QComboBox()
+    combo = Dropdown()
     combo.addItems(["A list", "Another"])
     slider = QSlider(Qt.Horizontal)
     slider.setValue(60)
@@ -78,7 +78,7 @@ def gallery() -> QWidget:
     lay.addWidget(lab("Settings", "eyebrow"))
     group = Group()
     group.add(SettingRow("A setting with a switch", "A line about what it does.", Switch()))
-    combo2 = QComboBox()
+    combo2 = Dropdown()
     combo2.addItems(["Automatic"])
     group.add(SettingRow("A setting with a list", "", combo2))
     lay.addWidget(group)
