@@ -40,6 +40,8 @@ jobs:
           - name: ar-dark-200
             sweep: "--lang ar --look dark --size max --quick"
             scale: "2"
+          - name: leak
+            sweep: "--lang en --look dark --quick --only store --rounds 10"
           - name: first-run
             sweep: "--lang en --look light --first-run --quick"
           - name: upgrade

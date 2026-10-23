@@ -27,6 +27,7 @@ ap.add_argument("--size", default="1040x700")
 ap.add_argument("--first-run", action="store_true")
 ap.add_argument("--keep", default="")
 ap.add_argument("--quick", action="store_true")
+ap.add_argument("--rounds", type=int, default=3, help="how many times every tool is removed and added back")
 ap.add_argument("--pages", default="", help="only these pages (comma-separated), to look at one closely")
 ap.add_argument("--only", default="", help="only these parts (comma-separated: pages,buttons,keyboard,tray,sizes,store)")
 ARGS = ap.parse_args()
@@ -519,7 +520,7 @@ def store_cycles():
     of a removed tool keeps running, and the window and memory don't grow each round."""
     sizes = []
     ids = [t.id for t in all_tools.ready()]
-    for round_ in range(3):
+    for round_ in range(ARGS.rounds):
         for tid in ids:
             c.set_tool(tid, False)
             settle(0.3)
@@ -551,12 +552,13 @@ def store_cycles():
         everything = len(qapp.allWidgets())
         sizes.append((tops, everything, _rss_mb()))
         note(f"round {round_ + 1}: {tops} windows, {everything} widgets, {sizes[-1][2]:.0f} MB")
-    if len(sizes) == 3:
-        check(sizes[2][1] <= sizes[1][1] * 1.1 + 50, f"widgets don't pile up as tools come and go "
-                                                     f"({sizes[0][1]} → {sizes[1][1]} → {sizes[2][1]})")
-        if sizes[2][2]:
-            check(sizes[2][2] <= sizes[1][2] + 40, f"memory doesn't keep growing as tools come and go "
-                                                   f"({sizes[0][2]:.0f} → {sizes[1][2]:.0f} → {sizes[2][2]:.0f} MB)")
+    if len(sizes) >= 3:
+        check(sizes[-1][1] <= sizes[1][1] * 1.1 + 50, f"widgets don't pile up as tools come and go "
+                                                       f"({' → '.join(str(x[1]) for x in sizes)})")
+        if sizes[-1][2]:
+            per_round = (sizes[-1][2] - sizes[1][2]) / (len(sizes) - 2)
+            check(per_round <= (3 if len(sizes) > 5 else 15), f"memory doesn't keep growing as tools come and go "
+                  f"({' → '.join(f'{x[2]:.0f}' for x in sizes)} MB, {per_round:.1f} MB a round)")
     apply_size(c.window)
 
 
