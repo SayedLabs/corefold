@@ -116,9 +116,11 @@ def _profiles(user_data: Path) -> list[tuple[str, str]]:
 
 
 def _chromium_profile(browser, exe, scheme, folder: Path, profile_dir: str, profile: str) -> list[Extension]:
-    prefs = {}
+    prefs: dict = {}
     for f in ("Secure Preferences", "Preferences"):  # what's turned off, and what came with the browser
-        prefs.update((_read_json(folder / f).get("extensions") or {}).get("settings") or {})
+        for ext_id, state in ((_read_json(folder / f).get("extensions") or {}).get("settings") or {}).items():
+            if isinstance(state, dict):
+                prefs.setdefault(ext_id, {}).update(state)
     found = []
     try:
         ids = [e for e in os.scandir(folder / "Extensions") if e.is_dir() and _ID.match(e.name)]
@@ -185,8 +187,10 @@ def find(local: Path | None = None, roaming: Path | None = None) -> list[Extensi
     if roaming is not None:
         browser, exe, base, scheme = OPERA
         folder = roaming.joinpath(*base.split("\\"))
-        if (folder / "Extensions").is_dir():
-            found += _chromium_profile(browser, exe, scheme, folder, "", "")
+        for profile in (folder, folder / "Default"):  # (newer Operas keep it one folder down)
+            if (profile / "Extensions").is_dir():
+                found += _chromium_profile(browser, exe, scheme, profile, "", "")
+                break
         found += _firefox(roaming.joinpath(*FIREFOX[2].split("\\")))
     found.sort(key=lambda x: (x.browser, x.profile, x.name.lower()))
     return found

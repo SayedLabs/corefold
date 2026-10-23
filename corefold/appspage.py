@@ -1183,8 +1183,10 @@ class ExtensionsDialog(QDialog):
         from . import extensions
         self.tree.clear()
         found = extensions.find()
+        # the profile is only named for a browser with several of them
+        several = {b for b in {e.browser for e in found} if len({e.profile_dir for e in found if e.browser == b}) > 1}
         for ext in found:
-            where = f"{ext.browser} ({ext.profile})" if ext.profile and ext.profile != "Default" else ext.browser
+            where = f"{ext.browser} ({ext.profile})" if ext.browser in several and ext.profile else ext.browser
             name = ext.name + ("" if ext.on else "  " + tr("(turned off)"))
             item = SortItem([name, where, tr("Yes") if ext.all_sites else "", human_size(ext.size) if ext.size else ""])
             item.setData(0, APP_ROLE, ext)

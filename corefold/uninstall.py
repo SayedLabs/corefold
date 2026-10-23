@@ -1143,6 +1143,7 @@ def program_at_point(x: int, y: int) -> str:
     u.WindowFromPoint.restype = wt.HWND
     u.WindowFromPoint.argtypes = [wt.POINT]
     u.GetAncestor.restype = wt.HWND
+    u.GetAncestor.argtypes = [wt.HWND, wt.UINT]
     k.OpenProcess.restype = wt.HANDLE
     hwnd = u.WindowFromPoint(wt.POINT(x, y))
     if not hwnd:

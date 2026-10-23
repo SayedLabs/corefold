@@ -596,6 +596,21 @@ def shortcut_program():
           "a window's program: a Store app, from the folder it runs from")
     check(getattr(un.app_for_program(str(exe), apps), "name", None) == "Bar", "…an installed program")
     check(un.app_for_program("", apps) is None, "…and nothing for no window")
+    if os.name == "nt":  # a window of this program, found from a point on it
+        from PySide6.QtWidgets import QWidget
+        w = QWidget(None, Qt.WindowStaysOnTopHint)
+        w.resize(300, 200)
+        w.show()
+        w.raise_()
+        w.activateWindow()
+        for _ in range(20):
+            QApplication.instance().processEvents()
+            time.sleep(0.05)
+        centre = w.mapToGlobal(w.rect().center())
+        dpr = w.devicePixelRatioF()
+        found = un.program_at_point(round(centre.x() * dpr), round(centre.y() * dpr))
+        check(os.path.basename(found).lower().startswith("python"), f"the program of the window under a point ({found})")
+        w.close()
     from corefold import appspage
     check(un.is_windows_extra(store) and not un.is_windows_extra(apps[0]) and
           appspage._shown(store, "extras") and not appspage._shown(apps[0], "extras"),
@@ -639,8 +654,10 @@ def browser_extensions():
         {"en": {"appname": {"message": "Ad Stopper"}}})
     add("b" * 32, "2.0", {"name": "Notes", "version": "2.0", "permissions": ["storage"]})
     add("c" * 32, "1.0", {"name": "Browser part", "version": "1.0"})
+    (prof / "Secure Preferences").write_text(_json.dumps({"extensions": {"settings": {
+        "b" * 32: {"location": 1}, "c" * 32: {"location": 5}}}}))
     (prof / "Preferences").write_text(_json.dumps({"extensions": {"settings": {
-        "b" * 32: {"state": 0}, "c" * 32: {"location": 5}}}}))
+        "b" * 32: {"state": 0}, "c" * 32: {"state": 1}}}}))
     ff = roaming / "Mozilla" / "Firefox" / "Profiles" / "x1y2.default-release"
     ff.mkdir(parents=True, exist_ok=True)
     (ff / "extensions.json").write_text(_json.dumps({"addons": [
