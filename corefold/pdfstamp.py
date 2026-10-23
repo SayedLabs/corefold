@@ -153,3 +153,58 @@ def watermark_pdf(src: Path, ctx: Ctx) -> Result:
         _stamp(page, writer, content.encode("ascii"), {"/XObject": DictionaryObject({NameObject("/CfMark"): pic})})
         ctx.progress((i + 1) / len(pages))
     return Result([_save(writer, src, ctx, "watermarked")])
+
+
+# ----------------------------------------------------------------------------- signature
+
+SIGN_PAGES = {"last": "The last page", "first": "The first page", "all": "Every page"}
+SIGN_PLACES = {"br": "Bottom right", "bl": "Bottom left", "bc": "Bottom middle"}
+SIGN_SIZES = {"small": 0.18, "medium": 0.26, "large": 0.36}  # of the page's width
+
+
+def signature_picture(path: Path):
+    """The signature, cut to its ink: a photo or scan of one on white paper loses the paper."""
+    from PIL import Image, ImageOps
+    with Image.open(path) as im:
+        im = ImageOps.exif_transpose(im).convert("RGBA")
+    if im.getchannel("A").getextrema()[0] == 255:  # no see-through parts: make the paper see-through
+        grey = ImageOps.autocontrast(im.convert("L"), cutoff=1)
+        ink = grey.point(lambda v: 0 if v > 200 else 255 if v < 120 else int((200 - v) * 255 / 80))
+        im.putalpha(ink)
+    box = im.getchannel("A").point(lambda v: 255 if v > 24 else 0).getbbox()
+    if box is None:
+        raise RuntimeError(tr("the signature is empty"))
+    return im.crop(box)
+
+
+def sign_pdf(src: Path, ctx: Ctx) -> Result:
+    from pypdf import PdfWriter
+    from pypdf.generic import DictionaryObject, NameObject
+    sig_path = Path(ctx.params.get("signature") or "")
+    if not sig_path.is_file():
+        raise RuntimeError(tr("draw your signature or pick a picture of it"))
+    sig = signature_picture(sig_path)
+    if max(sig.size) > 1600:
+        sig.thumbnail((1600, 1600))
+    which = ctx.params.get("pages", "last")
+    place = ctx.params.get("place", "br")
+    rel = SIGN_SIZES.get(ctx.params.get("size", "medium"), 0.26)
+    writer = PdfWriter(clone_from=_reader(src, ctx))
+    pages = writer.pages
+    picked = range(len(pages)) if which == "all" else [0] if which == "first" else [len(pages) - 1]
+    pic = _picture(writer, sig)
+    for n, i in enumerate(picked):
+        ctx.check()
+        page = pages[i]
+        x0, y0, w, h = _upright(page)
+        bw = w * rel
+        bh = bw * sig.height / sig.width
+        if bh > h * 0.25:  # a tall signature isn't allowed to cover the page
+            bh = h * 0.25
+            bw = bh * sig.width / sig.height
+        margin = max(24.0, min(w, h) * 0.06)
+        x = {"bl": margin, "bc": (w - bw) / 2}.get(place, w - margin - bw)
+        content = f"q {bw:.3f} 0 0 {bh:.3f} {x0 + x:.3f} {y0 + margin:.3f} cm /CfSign Do Q"
+        _stamp(page, writer, content.encode("ascii"), {"/XObject": DictionaryObject({NameObject("/CfSign"): pic})})
+        ctx.progress((n + 1) / len(picked))
+    return Result([_save(writer, src, ctx, "signed")])

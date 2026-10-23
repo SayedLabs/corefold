@@ -589,6 +589,23 @@ def pdf_stamps():
         check(middle.getextrema()[0] < 200, f"page {i + 1}: the watermark is in the middle")
         check(im.crop((0, 0, w_ // 6, h_ // 6)).getextrema()[0] > 250, f"page {i + 1}: …and not in the corner")
     pdf.close()
+    # a signature photographed on white paper: only the ink goes on the page
+    from PIL import Image
+    sig = Image.new("RGB", (400, 150), (250, 250, 248))
+    sig.paste((20, 30, 110), (40, 60, 360, 90))
+    sig.save(TMP / "sig.jpg")
+    cut = ps.signature_picture(TMP / "sig.jpg")
+    check(abs(cut.width - 320) < 12 and cut.getpixel((0, 0))[3] > 200, f"the signature is cut to its ink ({cut.size})")
+    res = ps.sign_pdf(src, Ctx(Options(output_folder=out), params={"signature": str(TMP / "sig.jpg"), "pages": "last",
+                                                                 "place": "br", "size": "medium"}))
+    pdf = pdfium.PdfDocument(str(res.outputs[0]))
+    last = pdf[2].render(scale=0.5).to_pil().convert("L")
+    w_, h_ = last.size
+    check(last.crop((w_ // 2, h_ * 3 // 4, w_, h_)).getextrema()[0] < 120, "signed at the bottom right of the last page")
+    check(last.crop((0, 0, w_, h_ // 2)).getextrema()[0] > 250, "…and the paper isn't on the page")
+    first = pdf[0].render(scale=0.5).to_pil().convert("L")
+    check(first.getextrema()[0] > 250, "…the other pages aren't signed")
+    pdf.close()
 
 
 # ----------------------------------------------------------------------------- Player

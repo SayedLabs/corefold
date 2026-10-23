@@ -515,8 +515,151 @@ class PageNumbersDialog(Base):
                 "skip": 1 if self.skip.isChecked() else 0}
 
 
+class SignaturePad(QWidget):
+    """Draw a signature with the mouse, a pen or a finger."""
+
+    def __init__(self):
+        super().__init__()
+        self.setMinimumSize(420, 150)
+        self.setCursor(Qt.CrossCursor)
+        self.strokes: list[list[QPointF]] = []
+        self.picture = QImage()   # a picture of a signature picked instead
+
+    def clear(self):
+        self.strokes, self.picture = [], QImage()
+        self.update()
+
+    def empty(self) -> bool:
+        return not self.strokes and self.picture.isNull()
+
+    def mousePressEvent(self, e):
+        if e.button() == Qt.LeftButton:
+            if not self.picture.isNull():
+                self.picture = QImage()
+            self.strokes.append([e.position()])
+            self.update()
+
+    def mouseMoveEvent(self, e):
+        if e.buttons() & Qt.LeftButton and self.strokes:
+            self.strokes[-1].append(e.position())
+            self.update()
+
+    def mouseReleaseEvent(self, e):
+        self.changed()
+
+    def changed(self):
+        pass  # (set by the dialog)
+
+    def _draw(self, p: QPainter, scale: float = 1.0):
+        pen = QPen(QColor("#1a2a6c"), 2.6 * scale, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+        p.setPen(pen)
+        for stroke in self.strokes:
+            if len(stroke) == 1:
+                p.drawPoint(stroke[0] * scale)
+            for a, b in zip(stroke, stroke[1:]):
+                p.drawLine(a * scale, b * scale)
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.fillRect(self.rect(), QColor("#ffffff"))
+        p.setPen(QPen(QColor("#c9ccd1"), 1, Qt.DashLine))
+        p.drawLine(16, self.height() - 34, self.width() - 16, self.height() - 34)
+        if not self.picture.isNull():
+            pm = QPixmap.fromImage(self.picture).scaled(self.size() * 0.9, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            p.drawPixmap((self.width() - pm.width()) // 2, (self.height() - pm.height()) // 2, pm)
+        self._draw(p)
+        p.end()
+
+    def save(self, path) -> bool:
+        if not self.picture.isNull():
+            return self.picture.save(str(path), "PNG")
+        img = QImage(self.size() * 3, QImage.Format.Format_ARGB32)
+        img.fill(Qt.transparent)
+        p = QPainter(img)
+        p.setRenderHint(QPainter.Antialiasing)
+        self._draw(p, 3.0)
+        p.end()
+        return img.save(str(path), "PNG")
+
+
+class SignDialog(Base):
+    def __init__(self, files, icon, dark):
+        from .pdfstamp import SIGN_PAGES, SIGN_PLACES
+        from .settings import CONFIG_DIR
+        super().__init__(tr("Sign the PDF"), describe(files), icon, dark)
+        self.kept = CONFIG_DIR / "signature.png"
+        self.lay.addWidget(QLabel(tr("Draw your signature:")))
+        self.pad = SignaturePad()
+        self.pad.changed = self._changed
+        self.lay.addWidget(self.pad)
+        row = QHBoxLayout()
+        clear = QPushButton(tr("Clear"))
+        clear.clicked.connect(lambda: (self.pad.clear(), self._changed()))
+        pick = QPushButton(tr("Use a picture of it…"))
+        pick.clicked.connect(self._pick)
+        row.addWidget(clear)
+        row.addWidget(pick)
+        row.addStretch()
+        self.lay.addLayout(row)
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(12)
+        self.pages = QComboBox()
+        for k, v in SIGN_PAGES.items():
+            self.pages.addItem(tr(v), k)
+        self.place = QComboBox()
+        for k, v in SIGN_PLACES.items():
+            self.place.addItem(tr(v), k)
+        self.size = QComboBox()
+        for k in ("small", "medium", "large"):
+            self.size.addItem(tr(k.capitalize()), k)
+        self.size.setCurrentIndex(1)
+        for r, (text, w) in enumerate(((tr("On"), self.pages), (tr("Where"), self.place), (tr("Size"), self.size))):
+            grid.addWidget(QLabel(text), r, 0)
+            grid.addWidget(w, r, 1)
+        self.lay.addLayout(grid)
+        self.remember = QCheckBox(tr("Remember my signature on this PC"))
+        self.lay.addWidget(self.remember)
+        if self.kept.exists():
+            self.pad.picture = QImage(str(self.kept))
+            self.remember.setChecked(True)
+        self.buttons(tr("Sign"))
+        self._changed()
+
+    def _changed(self):
+        self.ok.setEnabled(not self.pad.empty()) if hasattr(self, "ok") else None
+
+    def _pick(self):
+        from PySide6.QtWidgets import QFileDialog
+        name, _ = QFileDialog.getOpenFileName(self, tr("Use a picture of it…").rstrip("…"), "",
+                                              tr("Images") + " (*.png *.jpg *.jpeg *.webp *.bmp)")
+        if name:
+            img = QImage(name)
+            if not img.isNull():
+                self.pad.strokes, self.pad.picture = [], img
+                self.pad.update()
+                self._changed()
+
+    def params(self):
+        import tempfile
+        from pathlib import Path
+        out = Path(tempfile.mkdtemp(prefix="corefold-sign-")) / "signature.png"
+        self.pad.save(out)
+        try:
+            if self.remember.isChecked():
+                self.kept.parent.mkdir(parents=True, exist_ok=True)
+                self.pad.save(self.kept)
+            else:
+                self.kept.unlink(missing_ok=True)
+        except OSError:
+            pass
+        return {"signature": str(out), "pages": self.pages.currentData(), "place": self.place.currentData(),
+                "size": self.size.currentData()}
+
+
 def register(dialogs: dict):
     from .pdfpages import PagesDialog
     dialogs.update({"pages": PagesDialog, "speed": SpeedDialog, "sticker": StickerDialog, "lock": LockDialog,
                     "rename_files": RenameFilesDialog, "crop": CropDialog, "video_crop": VideoCropDialog,
-                    "sound": SoundDialog, "subtitles": SubtitlesDialog, "page_numbers": PageNumbersDialog})
+                    "sound": SoundDialog, "subtitles": SubtitlesDialog, "page_numbers": PageNumbersDialog,
+                    "sign": SignDialog})

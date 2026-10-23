@@ -1351,6 +1351,8 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
                 check=check_pdf_locked, slow_check=True),
            Tool("pdf:watermark", tr("Watermark"), tr("Add text or a logo to every page"), ps.watermark_pdf,
                 ask="watermark", check=check_pdf_locked, slow_check=True),
+           Tool("pdf:sign", tr("Sign"), tr("Put your signature on it"), ps.sign_pdf, ask="sign",
+                check=check_pdf_locked, slow_check=True),
            Tool("pdf:lock", tr("Lock"), tr("Protect with a password"), mt.pdf_lock, ask="lock",
                 check=mt.check_can_lock, slow_check=True),
            Tool("pdf:unlock", tr("Unlock"), tr("Remove the password"), mt.pdf_unlock, password=True,
