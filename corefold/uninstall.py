@@ -1618,8 +1618,8 @@ def item_allowed(item: dict) -> bool:
 
 def _task_name_ok(name: str) -> bool:
     """A scheduled task's full name, like "\\Acme\\Updater", and never one of Windows' own (under Microsoft).
-    Task Scheduler takes a doubled backslash or a space at the end of a part as the plain name, so only
-    plain names are taken."""
+    Only plain names are taken (no empty parts, no "..", no spaces or dots at the ends of a part), so no
+    other spelling can reach a task under Microsoft."""
     if not name.startswith("\\") or len(name) >= 400 or any(c in name for c in '"/:*?<>|') or \
             not all(c.isprintable() for c in name):
         return False
@@ -1649,9 +1649,10 @@ def through_link(path) -> bool:
 
 def reset_permissions(path: Path):
     """After moving something out of Program Files as administrator: its files take the backup folder's
-    permissions, so the person can delete the backup later. Links inside are never gone through: one could
-    point at a place only administrators may change (icacls /T doesn't promise to leave junctions alone),
-    so with any link inside, each real file and folder is done on its own."""
+    permissions, so the person can delete the backup later. icacls /T goes through junctions inside, even
+    with /L (securitytest.py shows it), and would reset the permissions of whatever one points at (any
+    account can make one in C:\\ProgramData); so with any link inside, each real file and folder is done on
+    its own."""
     icacls = system_tool("icacls.exe")
 
     def run(*args: str):

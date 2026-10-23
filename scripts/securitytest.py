@@ -70,9 +70,10 @@ def restore_point_description():
     note(f"old way: a name with ’ ran a command: {marker.exists()}")
     check(marker.exists(), "the old way really let an app's name run a command (proof of the problem)")
     marker.unlink(missing_ok=True)
-    out = un.powershell("Write-Output $env:CF_DESCRIPTION", env={"CF_DESCRIPTION": desc})
+    got = BASE / "description.txt"
+    un.powershell(f"[IO.File]::WriteAllText('{got}', $env:CF_DESCRIPTION)", env={"CF_DESCRIPTION": desc})
     check(not marker.exists(), "Corefold's way: nothing in the name runs")
-    check(out == desc, "…and the description arrives exactly as it was")
+    check(got.exists() and got.read_text("utf-8-sig") == desc, "…and the description arrives exactly as it was")
 
 
 def icacls_into_junctions():
@@ -154,7 +155,7 @@ def task_names():
     if os.name == "nt":
         r = subprocess.run([system_tool("schtasks.exe"), "/Query", "/TN", "\\\\Microsoft\\Windows\\Defrag\\ScheduledDefrag"],
                            capture_output=True)
-        note(f"Task Scheduler reads a doubled backslash as the plain name: {r.returncode == 0}")
+        note(f"Task Scheduler takes a doubled backslash for the plain name: {r.returncode == 0}")
 
 
 def store_names():
