@@ -43,6 +43,7 @@ GLOBAL = [
     Global("Open the quick wheel", "quick_wheel_key", "Quick", "quick_wheel_rec", live="quick.wheel_key",
            switch="quick_wheel"),
     Global("Keep a window on top", "ontop_key", "Quick", "quick_ontop_rec", live="quick.ontop_key"),
+    Global("Pick a colour", "colors_shortcut", "Colors", "", tool="colors", live="colors.key"),
 ]
 
 # keys inside Corefold's windows: (heading, the tool it's for or "", [(keys, what it does[, its tool])])

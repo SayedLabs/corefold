@@ -105,6 +105,8 @@ CAP_RECORD_SHORTCUTS = {"ctrl+shift+printscreen": "Ctrl + Shift + Print Screen",
                         "off": "No shortcut"}
 CAP_AFTER = {"edit": "Open it to mark it up", "copy": "Only copy it"}
 CAP_FPS = {30: "30 frames a second", 60: "60 frames a second (smoother, bigger files)"}
+COLORS_SHORTCUTS = {"win+shift+c": "Win + Shift + C", "win+alt+c": "Win + Alt + C", "off": "No shortcut"}
+COLORS_FORMATS = {"hex": "HEX", "rgb": "RGB", "hsl": "HSL"}
 PLAYER_SKIP = {5: "5 seconds", 10: "10 seconds", 30: "30 seconds"}
 PLAYER_WHEEL = {"volume": "Changes the volume", "seek": "Goes back and forward"}
 QUICK_SEARCH_ENGINES = {"duckduckgo": "DuckDuckGo", "google": "Google", "bing": "Bing"}  # (names, not translated)
@@ -117,7 +119,8 @@ CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_styl
            "slideshow_seconds": SLIDESHOW_SECONDS, "clip_shortcut": CLIP_SHORTCUTS, "clip_max": CLIP_MAX,
            "clip_days": CLIP_DAYS, "cap_shortcut": CAP_SHORTCUTS, "cap_record_shortcut": CAP_RECORD_SHORTCUTS,
            "cap_after": CAP_AFTER, "cap_fps": CAP_FPS, "player_skip": PLAYER_SKIP, "player_wheel": PLAYER_WHEEL,
-           "quick_search_engine": QUICK_SEARCH_ENGINES}
+           "quick_search_engine": QUICK_SEARCH_ENGINES,
+           "colors_shortcut": COLORS_SHORTCUTS, "colors_format": COLORS_FORMATS}
 
 
 # Settings kept on disk while the window has changes that weren't saved yet (see window.py): the
@@ -132,6 +135,7 @@ NOT_EDITED = {"enabled", "first_run", "last_version", "menu_signature", "window_
               "quick_button_pos", "quick_told",
               "unlock_menu_signature",
               "awake_mode", "awake_minutes", "awake_until", "awake_screen", "shutdown_at", "shutdown_planned",
+              "colors_shortcut", "colors_format", "colors_history",  # (Colors: chosen on its page, kept right away)
               }
 # the settings of each tab of the Settings page (each one has its own "Reset to defaults")
 GENERAL_KEYS = ("language", "sound", "volume", "sound_problems", "show_progress", "low_priority", "one_at_a_time")
@@ -239,6 +243,10 @@ class Settings:
     cap_mic: str = ""              # the microphone recorded with the screen ("" = none)
     cap_cursor: bool = True        # the mouse shows in recordings
     cap_countdown: bool = True     # 3, 2, 1 before recording starts
+    # Colors
+    colors_shortcut: str = "win+shift+c"  # pick a colour from any app
+    colors_format: str = "hex"     # copied as "hex", "rgb" or "hsl"
+    colors_history: list = field(default_factory=list)  # colours picked lately ("#RRGGBB", newest first)
     # Quick access: a menu and a wheel that open from any app
     quick_menu: bool = True
     quick_menu_key: str = "ctrl+alt+space"
@@ -370,6 +378,8 @@ class Settings:
                          for x in s.quick_links if isinstance(x, dict) and isinstance(x.get("target"), str)
                          and x.get("id")][:24]
         s.quick_button_pos = [int(v) for v in s.quick_button_pos if type(v) is int][:2]
+        s.colors_history = [h.upper() for h in s.colors_history if isinstance(h, str) and len(h) == 7
+                            and h[0] == "#" and all(ch in "0123456789abcdefABCDEF" for ch in h[1:])][:24]
         if s.quick_menu_key == s.quick_wheel_key and s.quick_menu_key != "off":
             s.quick_wheel_key = defaults.quick_wheel_key if s.quick_menu_key != defaults.quick_wheel_key else "off"
         if s.ontop_key != "off" and (not hotkey_ok(s.ontop_key)

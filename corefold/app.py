@@ -305,14 +305,16 @@ class Controller(QObject):
         self.act_archive = menu.addAction(tr("Open an archive…"), self.choose_archive)
         self.act_clip = menu.addAction(tr("Clipboard history"), lambda: self.show_clipboard(from_tray=True))
         self.act_shot = menu.addAction(tr("Take a screenshot"), lambda: self.capture and self.capture.screenshot())
+        self.act_color = menu.addAction(tr("Pick a colour"), lambda: self.colors and self.colors.pick())
         self.act_quick = menu.addAction(tr("Quick menu"), lambda: self.quick and self.quick.toggle_menu())
         self.menu_icons = [(act_open, "home"), (act_settings, "settings"), (self.act_paste, "arrow_swap"),
                            (self.act_archive, "archive"), (self.act_clip, "clipboard"), (self.act_shot, "screenshot"),
-                           (self.act_quick, "layout")]
+                           (self.act_quick, "layout"), (self.act_color, "color")]
         self.clip = None     # Corefold Clipboard, while it's in use
         self.capture = None  # Corefold Capture, while it's in use
         self.quick = None    # the quick menu and wheel, while one of them (or the on-top shortcut) is on
         self.awake = None    # Corefold Awake (and its "Keep awake" tray menu), while it's in use
+        self.colors = None   # Corefold Colors, while it's in use
         self.act_again = menu.addAction(tr("Do it again…"), self.do_again)
         menu.aboutToShow.connect(self._update_again_action)
         self.recent_menu = menu.addMenu(tr("Recent files"))
@@ -788,6 +790,11 @@ class Controller(QObject):
             if key and self.clip.hotkey.ok:
                 self.toast.notify(tr("Corefold Clipboard"), tr("Press {key} in any app to open your clipboard, then "
                                                                "pick what to paste.", key=key), linger_ms=7000)
+        if tool_id == "colors" and self.colors is not None and s.colors_shortcut != "off" and self.colors.key.ok:
+            from .settings import COLORS_SHORTCUTS
+            self.toast.notify(tr("Corefold Colors"), tr("Press {key} in any app to pick a colour.",
+                                                        key=COLORS_SHORTCUTS.get(s.colors_shortcut, s.colors_shortcut)),
+                              linger_ms=7000)
 
     def apply_tools(self):
         """Starts or stops what each tool does in the background, to match the tools in use."""
@@ -807,16 +814,19 @@ class Controller(QObject):
         self.act_archive.setVisible(all_tools.is_on(self.settings, "archive"))
         self.act_clip.setVisible(self.clip is not None)
         self.act_shot.setVisible(self.capture is not None)
+        self.act_color.setVisible(self.colors is not None)
         self.act_quick.setVisible(self.quick is not None and self.settings.quick_menu)
 
     def _background_tools(self):
         self._clipboard_tool()
         self._capture_tool()
+        self._colors_tool()
         self._quick_tool()
         self._awake_tool()
         self._tray_tools()
         running = [name for name, on in (("clipboard", self.clip), ("capture", self.capture),
-                                         ("quick access", self.quick), ("awake", self.awake)) if on is not None]
+                                         ("quick access", self.quick), ("awake", self.awake),
+                                         ("colors", self.colors)) if on is not None]
         if running:
             log.info("running in the background: %s", ", ".join(running))
             winutil.log_memory("background tools started")
@@ -856,6 +866,23 @@ class Controller(QObject):
             self.awake.deleteLater()
             self.awake = None
             self._update_tooltip()
+
+    def _colors_tool(self):
+        """Corefold Colors' shortcut is only there while it's in use."""
+        on = all_tools.is_on(self.settings, "colors")
+        if on and self.colors is None:
+            from .colors import ColorsTool
+            try:
+                self.colors = ColorsTool(self)
+            except Exception:
+                log.exception("couldn't start Colors")
+                self.colors = None
+                return
+            self._colors_applied = self.settings.colors_shortcut
+        elif not on and self.colors is not None:
+            self.colors.stop()
+            self.colors.deleteLater()
+            self.colors = None
 
     # ---- Quick access
 
@@ -1299,6 +1326,9 @@ class Controller(QObject):
             if self._window is not None:
                 self._window.refresh_capture_note()
                 self._window.refresh_captures()
+        if self.colors is not None and self.settings.colors_shortcut != getattr(self, "_colors_applied", None):
+            self._colors_applied = self.settings.colors_shortcut
+            self.colors.apply_settings()
         if self.clip is not None and self._clip_settings() != getattr(self, "_clip_applied", None):
             self._clip_applied = self._clip_settings()
             self.clip.apply_settings()
@@ -1834,6 +1864,9 @@ class Controller(QObject):
         if self.capture is not None:
             self.capture.stop()
             self.capture = None
+        if self.colors is not None:
+            self.colors.stop()
+            self.colors = None
         if self.quick is not None:
             self.quick.stop()
             self.quick = None
@@ -1883,7 +1916,7 @@ class Controller(QObject):
 
 
 PAGE_NAMES = ("Home", "Converter", "Apps", "Archives", "Viewer", "Player", "Clipboard", "Space", "Capture", "Cloud",
-              "Unlock", "Awake", "Store", "PlayerSettings",
+              "Unlock", "Awake", "Colors", "Store", "PlayerSettings",
               "Soon",
               "General", "Look", "ConvOptions", "WheelLook", "Formats", "AppsSettings", "ArchiveSettings",
               "ViewerSettings", "ClipboardSettings", "CaptureSettings", "History", "Updates", "About", "Shortcuts")

@@ -56,6 +56,8 @@ ACTIONS: dict[str, Action] = {a.id: a for a in (
     Action("shutdown", "Shut down", "power"),
     Action("signout", "Sign out", "sign_out"),
     Action("recycle", "Empty the Recycle Bin", "delete"),
+    Action("awake", "Keep awake", "coffee", "awake"),
+    Action("pickcolor", "Pick a colour", "color", "colors"),
 )}
 
 
@@ -363,6 +365,8 @@ class QuickAccess(QObject):
             "quickmenu": self.toggle_menu,
             "ontop": lambda: self.toggle_on_top(self.front),
             "recycle": self._empty_recycle_bin,
+            "awake": lambda: c.awake and c.awake.toggle(),
+            "pickcolor": lambda: c.colors and QTimer.singleShot(150, c.colors.pick),  # (once the menu is gone)
         }
         from .quicksys import SYSTEM, run as run_system
         for name in SYSTEM:

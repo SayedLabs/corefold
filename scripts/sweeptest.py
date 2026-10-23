@@ -387,7 +387,7 @@ def pages():
 
 SKIP_TEXTS = ["Uninstall", "Quit", "Exit", "Restart now", "Restart", "Sign in", "Install", "Update now",
               "Download", "Remove leftovers", "Uninstall selected", "Move to the Recycle Bin", "Delete",
-              "Clean up", "Empty", "Record", "Start recording", "Take a screenshot", "Capture"]
+              "Clean up", "Empty", "Record", "Start recording", "Take a screenshot", "Capture", "Pick a colour"]
 
 
 def _skipped(text: str) -> bool:

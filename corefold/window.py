@@ -499,6 +499,7 @@ class MainWindow(QWidget):
                     "Unlock": self._unlock,
                     "Awake": self._awake,
                     "Shortcuts": self._shortcuts,
+                    "Colors": self._colors,
                     }
         self._wheel_guard = None
         self._settings_head()  # (made before the pages: opening one shows or hides it)
@@ -513,7 +514,8 @@ class MainWindow(QWidget):
         self.cloud_page = None
         self.unlock_page = None
         self.awake_page = None
-        self._unbuilt = {"Apps", "Store", "Viewer", "Clipboard", "Space", "Capture", "Cloud", "Player", "Unlock", "Awake", *SOON, *[tool.page for tool in all_tools.TOOLS
+        self.colors_page = None
+        self._unbuilt = {"Apps", "Store", "Viewer", "Clipboard", "Space", "Capture", "Cloud", "Player", "Unlock", "Awake", "Colors", *SOON, *[tool.page for tool in all_tools.TOOLS
                                                     if tool.page not in on_pages and tool.page != "Converter"]}
         for name in PAGES:
             built = QWidget() if name in self._unbuilt else builders[name]()
@@ -893,6 +895,8 @@ class MainWindow(QWidget):
             self.space_page.refresh()
         elif name == "Awake" and self.awake_page is not None:
             self.awake_page.refresh()
+        elif name == "Colors" and self.colors_page is not None:
+            self.colors_page.refresh()
         elif name == "Capture":
             self.refresh_captures()
         elif name == "Player":
@@ -2171,6 +2175,15 @@ class MainWindow(QWidget):
         self.awake_page = AwakePage(self.c, header)
         return self.awake_page
 
+    def _colors(self) -> QWidget:
+        """Corefold Colors: pick a colour on the screen, and the ones picked lately."""
+        from .colorspage import ColorsPage
+        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
+        header = tool_header("colors", tr("Corefold Colors"),
+                             tr("Pick any colour on your screen and copy it as HEX, RGB or HSL."), dark, dpr)
+        self.colors_page = ColorsPage(self.c, header)
+        return self.colors_page
+
     def _player(self) -> QWidget:
         """Corefold Player: open videos and music, and pick up where you left off."""
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
@@ -3281,6 +3294,8 @@ class MainWindow(QWidget):
             self.unlock_page.apply_theme(t)
         if self.awake_page is not None:
             self.awake_page.apply_theme(t)
+        if self.colors_page is not None:
+            self.colors_page.apply_theme(t)
         if self.isVisible():
             set_title_bar_dark(self, t.dark)
 
