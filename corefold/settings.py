@@ -92,6 +92,7 @@ WINDOW_TEXT_PT = {"small": 9, "normal": 10, "large": 11.5, "huge": 13}
 SOUNDS = DONE_SOUNDS
 UNUSED_MONTHS = {3: "3 months", 6: "6 months", 12: "a year"}
 BACKUP_DAYS = {7: "a week", 30: "a month", 90: "3 months", 365: "a year"}
+UNINSTALL_DEPTHS = {"safe": "Safe", "normal": "Normal", "deep": "Deep"}  # the same as uninstall.DEPTHS
 VIEWER_WHEEL = {"zoom": "Zooms in and out", "browse": "Goes to the next or previous picture"}
 SLIDESHOW_SECONDS = {2: "2 seconds", 4: "4 seconds", 8: "8 seconds"}
 EXTRACT_MODES = {"smart": "Smart: no folder inside a folder", "folder": "Always into a new folder"}
@@ -104,7 +105,9 @@ CAP_SHORTCUTS = {"ctrl+printscreen": "Ctrl + Print Screen", "printscreen": "Prin
 CAP_RECORD_SHORTCUTS = {"ctrl+shift+printscreen": "Ctrl + Shift + Print Screen", "win+shift+r": "Win + Shift + R",
                         "off": "No shortcut"}
 CAP_AFTER = {"edit": "Open it to mark it up", "copy": "Only copy it"}
+CAP_DELAY = {3: "3 seconds", 5: "5 seconds", 10: "10 seconds"}
 CAP_FPS = {30: "30 frames a second", 60: "60 frames a second (smoother, bigger files)"}
+VIEWER_SORTS = {"name": "Name", "newest": "Newest first", "oldest": "Oldest first", "biggest": "Biggest first"}
 COLORS_SHORTCUTS = {"win+shift+c": "Win + Shift + C", "win+alt+c": "Win + Alt + C", "off": "No shortcut"}
 COLORS_FORMATS = {"hex": "HEX", "rgb": "RGB", "hsl": "HSL"}
 PLAYER_SKIP = {5: "5 seconds", 10: "10 seconds", 30: "30 seconds"}
@@ -116,10 +119,12 @@ CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_styl
            "wheel_size": WHEEL_SIZES, "sound": SOUNDS, "language": LANGUAGES, "menu_style": MENU_STYLES,
            "appearance": APPEARANCES, "shortcut": SHORTCUT_LABELS, "toast_corner": TOAST_CORNERS,
            "toast_time": TOAST_TIMES, "window_text": WINDOW_TEXT, "unused_months": UNUSED_MONTHS,
-           "backup_days": BACKUP_DAYS, "extract_mode": EXTRACT_MODES, "viewer_wheel": VIEWER_WHEEL,
+           "backup_days": BACKUP_DAYS, "uninstall_depth": UNINSTALL_DEPTHS, "extract_mode": EXTRACT_MODES,
+           "viewer_wheel": VIEWER_WHEEL, "viewer_sort": VIEWER_SORTS,
            "slideshow_seconds": SLIDESHOW_SECONDS, "clip_shortcut": CLIP_SHORTCUTS, "clip_max": CLIP_MAX,
            "clip_days": CLIP_DAYS, "cap_shortcut": CAP_SHORTCUTS, "cap_record_shortcut": CAP_RECORD_SHORTCUTS,
-           "cap_after": CAP_AFTER, "cap_fps": CAP_FPS, "player_skip": PLAYER_SKIP, "player_wheel": PLAYER_WHEEL,
+           "cap_after": CAP_AFTER, "cap_fps": CAP_FPS, "cap_delay": CAP_DELAY, "player_skip": PLAYER_SKIP,
+           "player_wheel": PLAYER_WHEEL,
            "quick_search_engine": QUICK_SEARCH_ENGINES,
            "colors_shortcut": COLORS_SHORTCUTS, "colors_format": COLORS_FORMATS,
            "peek_key": PEEK_KEYS}
@@ -132,9 +137,10 @@ RECENT_ARCHIVES = 8
 # not settings a person edits: what the app remembers by itself
 NOT_EDITED = {"enabled", "first_run", "last_version", "menu_signature", "window_geometry", "last_page",
               "last_action", "tour_done", "watermark", "fit_mb", "open_archives", "recent_archives",
-              "tools_off", "known_tools", "open_images", "open_emails", "viewer_info", "recent_views",
+              "tools_off", "known_tools", "open_images", "open_emails", "viewer_info", "viewer_strip", "recent_views",
+              "archive_preview",
               "clip_paused", "open_media", "player_volume", "nav_order", "nav_width", "nav_compact",
-              "quick_button_pos", "quick_told",
+              "quick_button_pos", "quick_told", "remember_password",
               "unlock_menu_signature",
               "awake_mode", "awake_minutes", "awake_until", "awake_screen", "shutdown_at", "shutdown_planned",
               "colors_shortcut", "colors_format", "colors_history",  # (Colors: chosen on its page, kept right away)
@@ -144,17 +150,18 @@ GENERAL_KEYS = ("language", "sound", "volume", "sound_problems", "show_progress"
 LOOK_KEYS = ("appearance", "accent", "custom_color", "animations", "toast_corner", "toast_time", "window_text",
              "sidebar_icons")
 CONVERTER_KEYS = ("shortcut", "save_mode", "output_folder", "jpg_quality", "show_unavailable", "context_menu",
-                  "menu_style", "ask_names", "reveal_after", "sound_tick", "watch_downloads", "pack_on_every_wheel")
+                  "menu_style", "ask_names", "reveal_after", "sound_tick", "watch_downloads", "pack_on_every_wheel",
+                  "video_gpu")
 WHEEL_KEYS = ("wheel_size", "wheel_style", "wheel_opacity", "label_style", "hover_style", "slice_colors", "text_size",
               "wheel_position", "per_page", "wheel_numbers")
 FORMAT_KEYS = ("hidden_tools", "favorites", "tool_order")
-UNINSTALLER_KEYS = ("unused_months", "backup_days", "restore_point")
+UNINSTALLER_KEYS = ("unused_months", "backup_days", "restore_point", "uninstall_depth")
 ARCHIVE_KEYS = ("extract_mode", "extract_nested", "remember_archives")
-VIEWER_KEYS = ("viewer_wheel", "viewer_confirm_delete", "slideshow_seconds", "peek_key")
-CLIPBOARD_KEYS = ("clip_shortcut", "clip_paste", "clip_max", "clip_days", "clip_images")
+VIEWER_KEYS = ("viewer_wheel", "viewer_confirm_delete", "slideshow_seconds", "viewer_sort", "peek_key")
+CLIPBOARD_KEYS = ("clip_shortcut", "clip_paste", "clip_max", "clip_days", "clip_images", "clip_ignore")
 PLAYER_KEYS = ("player_resume", "player_skip", "player_wheel", "player_next", "player_subtitles")
-CAPTURE_KEYS = ("cap_shortcut", "cap_record_shortcut", "cap_after", "cap_save", "cap_fps", "cap_mic", "cap_cursor",
-                "cap_countdown")
+CAPTURE_KEYS = ("cap_shortcut", "cap_record_shortcut", "cap_after", "cap_delay", "cap_save", "cap_fps", "cap_mic",
+                "cap_pc_sound", "cap_cursor", "cap_countdown")
 UPDATE_KEYS = ("check_updates", "auto_update")
 QUICK_KEYS = ("quick_menu", "quick_menu_key", "quick_menu_items", "quick_wheel", "quick_wheel_key",
               "quick_wheel_items", "quick_button", "quick_links", "quick_search_engine", "ontop_key",
@@ -185,6 +192,7 @@ class Settings:
     save_mode: str = "beside"      # "beside" or "folder"
     output_folder: str = str(Path.home() / "Downloads" / "Corefold")
     jpg_quality: int = 90
+    video_gpu: bool = True         # videos are made with the graphics card when there is one (falls back by itself)
     reveal_after: bool = False
     show_progress: bool = True
     enabled: bool = True
@@ -219,9 +227,12 @@ class Settings:
     open_emails: bool = True
     viewer_wheel: str = "zoom"     # the mouse wheel zooms, or goes to the next picture
     viewer_confirm_delete: bool = True
+    viewer_sort: str = "name"      # the order of a folder's pictures: name, newest, oldest, biggest
     slideshow_seconds: int = 4
     peek_key: str = "ctrl+space"   # Quick look at the file selected in File Explorer (only taken while it's in front)
     viewer_info: bool = False      # the details panel is open
+    viewer_strip: bool = True      # the small pictures along the bottom are shown
+    archive_preview: bool = True   # the archive window shows the picked file beside the list
     recent_views: list = field(default_factory=list)  # pictures and emails opened lately (newest first)
     # the Clipboard
     clip_shortcut: str = "win+alt+v"  # opens the clipboard from any app
@@ -229,7 +240,9 @@ class Settings:
     clip_max: int = 500            # copies kept (pinned ones don't count)
     clip_days: int = 30            # copies older than this are forgotten (0: never)
     clip_images: bool = True       # keep pictures that are copied
+    remember_password: bool = False  # "Remember it" is ticked in the archive password box
     clip_paused: bool = False      # new copies aren't kept for now
+    clip_ignore: str = ""          # programs whose copies are never kept ("mybank.exe, notes.exe")
     # the Player
     open_media: bool = True        # videos and music open in Corefold ("Open with")
     player_resume: bool = True     # pick up where you left off
@@ -243,8 +256,10 @@ class Settings:
     cap_record_shortcut: str = "ctrl+shift+printscreen"  # start or stop recording
     cap_after: str = "edit"        # after a screenshot: open the editor, or only copy it
     cap_save: bool = True          # also save every screenshot in Pictures\Screenshots
+    cap_delay: int = 5             # seconds "Screenshot with a timer" waits
     cap_fps: int = 30
     cap_mic: str = ""              # the microphone recorded with the screen ("" = none)
+    cap_pc_sound: bool = True      # what the PC plays (videos, games, calls) is recorded too
     cap_cursor: bool = True        # the mouse shows in recordings
     cap_countdown: bool = True     # 3, 2, 1 before recording starts
     # Colors
@@ -276,6 +291,7 @@ class Settings:
     unused_months: int = 3         # "not used for …" filter
     backup_days: int = 30          # backups of removed leftovers are kept this long
     restore_point: bool = False    # tick "Make a System Restore point first" to begin with
+    uninstall_depth: str = "normal"  # how deep leftovers are cleaned up to begin with (UNINSTALL_DEPTHS)
     show_unavailable: bool = True  # dim slices that can't be used (False = hide them)
     # keeping the PC fast
     low_priority: bool = True      # conversions run "in the background" (below normal priority)
@@ -413,7 +429,7 @@ class Settings:
     def options(self, rename_base: str = "", rename_start: int = 1) -> Options:
         folder = Path(self.output_folder) if self.save_mode == "folder" else None
         return Options(output_folder=folder, jpg_quality=self.jpg_quality,
-                       rename_base=rename_base, rename_start=rename_start)
+                       rename_base=rename_base, rename_start=rename_start, gpu=bool(self.video_gpu))
 
     @property
     def shortcut_label(self) -> str:
