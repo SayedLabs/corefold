@@ -387,7 +387,8 @@ def pages():
 
 SKIP_TEXTS = ["Uninstall", "Quit", "Exit", "Restart now", "Restart", "Sign in", "Install", "Update now",
               "Download", "Remove leftovers", "Uninstall selected", "Move to the Recycle Bin", "Delete",
-              "Clean up", "Empty", "Record", "Start recording", "Take a screenshot", "Capture", "Pick a colour"]
+              "Clean up", "Empty", "Record", "Start recording", "Take a screenshot", "Capture", "Pick a colour",
+              "Sort", "Undo the last sort"]  # (File Organizer moves real files: organizetest.py tries it in a folder of its own)
 
 
 def _skipped(text: str) -> bool:

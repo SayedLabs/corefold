@@ -13,11 +13,13 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QPoint, QRectF, QSize, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QBrush, QColor, QDesktopServices, QFont, QFontMetrics, QPainter, QPen
-from PySide6.QtWidgets import QApplication, QButtonGroup, QCheckBox, QFileDialog, QFrame, QGridLayout, \
-    QHBoxLayout, QHeaderView, QLabel, QMenu, QMessageBox, QProgressBar, QPushButton, QSizePolicy, QStackedWidget, QToolTip, QTreeWidget, \
-    QTreeWidgetItem, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QApplication, QButtonGroup, QCheckBox, QComboBox, QFileDialog, QFrame, QGridLayout, \
+    QHBoxLayout, QHeaderView, QLabel, QMenu, QMessageBox, QProgressBar, QPushButton, QScrollArea, QSizePolicy, QStackedWidget, \
+    QStyledItemDelegate, QToolTip, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
 from . import icons, space, work
+from .atomic.tokens import alpha, on_color
+from .atomic.widgets import FlowLayout, GlowPanel, Group
 from .core import human_size, short_name
 from .i18n import ltr, tr
 from .theme import mix, round_menu
@@ -31,13 +33,38 @@ if TYPE_CHECKING:
 
 KIND_COLORS = {"video": "#e5484d", "picture": "#30a46c", "music": "#8e4ec6", "document": "#0090ff",
                "archive": "#f5a524", "program": "#12a594", "other": "#8b8d98"}
+# each folder at the top of the map gets a hue of its own (what's inside it is a shade of it)
+FOLDER_HUES = ("#4f8cff", "#b06cf0", "#f08a4b", "#2fb8a6", "#e8619b", "#d9b03a", "#7a7ff5", "#5cba5c")
 SECTIONS = [("map", "Disk map"), ("clean", "Clean up"), ("dupes", "Duplicates")]
+SECTION_ICONS = {"map": "data_pie", "clean": "broom", "dupes": "copy"}
+JUNK_ICONS = {"temp": "timer", "bin": "delete", "browser": "globe", "thumbs": "image_multiple", "gpu": "top_speed",
+              "dumps": "stethoscope", "installers": "box", "winupdate": "arrow_download", "winold": "history",
+              "app": "apps"}
 DUPE_FOLDERS = ("Desktop", "Documents", "Downloads", "Pictures", "Videos", "Music")
 KEEP_MAPS = 2             # drives (or folders) whose map is kept, so opening one again is instant
 FORGET_AFTER = 20 * 60    # seconds: maps not looked at for this long are let go (a big drive's map is big)
+SHARE = Qt.UserRole + 1   # a list row's share of the biggest row (its little bar)
+TINT = Qt.UserRole + 2    # …and the bar's colour
 
 
 _work = work.run
+
+
+def _fill_color(theme, fill: float) -> QColor:
+    """How full a drive is: the accent, then amber, then red as it fills."""
+    if fill < 0.8:
+        return QColor(theme.accent)
+    return QColor(theme.tokens.warning) if fill < 0.9 else QColor(theme.danger or "#e5484d")
+
+
+def _ring(p: QPainter, r: QRectF, fill: float | None, color: QColor, track: QColor, width: float):
+    """A round gauge: a soft track and an arc for how much of it is used (from the top, clockwise)."""
+    p.setBrush(Qt.NoBrush)
+    p.setPen(QPen(track, width, Qt.SolidLine, Qt.RoundCap))
+    p.drawEllipse(r)
+    if fill:
+        p.setPen(QPen(color, width, Qt.SolidLine, Qt.RoundCap))
+        p.drawArc(r, 90 * 16, -int(360 * 16 * max(0.02, min(1.0, fill))))
 
 
 # ----------------------------------------------------------------------------- the map
@@ -63,20 +90,153 @@ class ElidedLabel(QLabel):
         self.setText(ltr(self.fontMetrics().elidedText(self.full, Qt.ElideMiddle, max(40, self.width() - 4))))
 
 
-class Box:
-    __slots__ = ("rect", "name", "size", "kind", "level", "folder", "parent")
+class Crumbs(QWidget):
+    """Where you are in the map, as a path you can click: C:  ›  Users  ›  Sara. Folders in the middle
+    fold into "…" when it doesn't fit."""
+    picked = Signal(object)  # a Folder
 
-    def __init__(self, rect, name, size, kind, level, folder, parent):
+    def __init__(self, theme):
+        super().__init__()
+        self.theme = theme
+        self.chain: list[space.Folder] = []
+        self.root_title = ""   # "Windows (C:)" for a drive
+        self.parts: list[tuple[QRectF, str, space.Folder | None, bool]] = []  # (where, text, folder, last)
+        self.hover = -1
+        self.setMouseTracking(True)
+        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+        self.setFixedHeight(34)
+
+    def set_folder(self, folder: space.Folder | None):
+        self.chain = []
+        f = folder
+        while f is not None:
+            self.chain.insert(0, f)
+            f = f.parent
+        if folder is not None:
+            self.setToolTip(str(folder.path))
+            self.setAccessibleName(str(folder.path))
+        self.hover = -1
+        self._lay_out()
+        self.update()
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._lay_out()
+
+    def _fonts(self) -> tuple[QFont, QFont]:
+        plain = QFont(self.font())
+        last = QFont(self.font())
+        last.setPointSizeF(self.font().pointSizeF() + 2.5)
+        last.setWeight(QFont.Weight.DemiBold)
+        return plain, last
+
+    def _name(self, f: space.Folder) -> str:
+        if f.parent is None:  # (marks that keep a Latin name in order come back when it's drawn)
+            return (self.root_title or f.name.rstrip("\\/") or f.name).strip("\u202a\u202c")
+        return f.name
+
+    def _lay_out(self):
+        self.parts = []
+        if not self.chain:
+            return
+        plain, last = self._fonts()
+        fm, lfm = QFontMetrics(plain), QFontMetrics(last)
+        gap = 22  # (room for the › between two names)
+        items = [(self._name(f), f) for f in self.chain]
+        shown = list(range(len(items)))
+
+        def width_of(idx):
+            w = 0
+            for n, i in enumerate(idx):
+                text = items[i][0] if i >= 0 else "…"
+                w += (lfm if i == len(items) - 1 else fm).horizontalAdvance(text) + 12 + (gap if n else 0)
+            return w
+        while width_of(shown) > self.width():  # fold the middle into "…"
+            if len(shown) > 2 and shown[1] != -1:
+                shown[1] = -1
+            elif len(shown) > 3:
+                shown.pop(2)
+            else:
+                break
+        rtl = self.layoutDirection() == Qt.RightToLeft
+        x = 0.0
+        avail = float(self.width())
+        for n, i in enumerate(shown):
+            is_last = i == len(items) - 1
+            m = lfm if is_last else fm
+            text = items[i][0] if i >= 0 else "…"
+            folder = items[i][1] if i >= 0 else items[shown[n + 1] - 1][1] if n + 1 < len(shown) else None
+            if n:
+                x += gap
+            full = m.horizontalAdvance(text) + 12
+            w = min(full, max(30.0, avail - x))
+            if w < full:
+                text = m.elidedText(text, Qt.ElideMiddle, int(w - 12))
+            r = QRectF(avail - x - w if rtl else x, 0, w, self.height())
+            self.parts.append((r, text, None if is_last else folder, is_last))
+            x += w
+
+    def paintEvent(self, e):
+        t = self.theme
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        plain, last = self._fonts()
+        rtl = self.layoutDirection() == Qt.RightToLeft
+        for n, (r, text, folder, is_last) in enumerate(self.parts):
+            if n:  # the › before it
+                prev = self.parts[n - 1][0]
+                mid = (prev.left() + r.right()) / 2 if rtl else (prev.right() + r.left()) / 2
+                icons.paint(p, QRectF(mid - 6, r.center().y() - 6, 12, 12), "chevron_left" if rtl else "chevron_right",
+                            t.muted)
+            if n == self.hover and folder is not None:
+                p.setPen(Qt.NoPen)
+                p.setBrush(t.hover)
+                p.drawRoundedRect(r.adjusted(0, 3, 0, -3), 7, 7)
+            p.setFont(last if is_last else plain)
+            p.setPen(t.text if is_last or n == self.hover else t.muted)
+            p.drawText(r, Qt.AlignCenter, ltr(text))
+        p.end()
+
+    def _at(self, pos) -> int:
+        for n, (r, _t, folder, _l) in enumerate(self.parts):
+            if folder is not None and r.contains(pos):
+                return n
+        return -1
+
+    def mouseMoveEvent(self, e):
+        n = self._at(e.position())
+        if n != self.hover:
+            self.hover = n
+            self.setCursor(Qt.PointingHandCursor if n >= 0 else Qt.ArrowCursor)
+            self.update()
+
+    def leaveEvent(self, e):
+        self.hover = -1
+        self.update()
+
+    def mouseReleaseEvent(self, e):
+        n = self._at(e.position())
+        if n >= 0 and e.button() == Qt.LeftButton:
+            self.picked.emit(self.parts[n][2])
+
+
+class Box:
+    __slots__ = ("rect", "name", "size", "kind", "level", "folder", "parent", "hue")
+
+    def __init__(self, rect, name, size, kind, level, folder, parent, hue=None):
         self.rect, self.name, self.size, self.kind = rect, name, size, kind   # kind: folder, file or rest
         self.level, self.folder, self.parent = level, folder, parent           # folder: the Folder (folders)
+        self.hue = hue                                                          # the hue of its top folder
 
 
 class Treemap(QWidget):
     """Boxes as big as what they hold. Folders show what's inside them (a few levels down while
-    there's room); click a folder to go in."""
+    there's room); click a folder to go in. Each folder at the top has a colour of its own; files
+    are coloured by kind (videos red, pictures green…)."""
     opened = Signal(object)            # a Folder
     menu = Signal(object, object)      # (path, Folder or None), global position
     DEPTH = 3
+    HEAD = 20                          # a folder's name strip
 
     def __init__(self, theme):
         super().__init__()
@@ -84,6 +244,7 @@ class Treemap(QWidget):
         self.folder: space.Folder | None = None
         self.boxes: list[Box] = []
         self.hover = -1
+        self.focus_kind = ""           # one kind picked below the map: the other files step back
         self.setMouseTracking(True)
         self.setMinimumSize(240, 160)  # (small screens with big text: nothing below it gets covered)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -115,29 +276,38 @@ class Treemap(QWidget):
         f = self.folder
         if f is None or f.size <= 0:
             return
-        self._nest(f, QRectF(self.rect()).adjusted(1, 1, -1, -1), 0)
+        self._nest(f, QRectF(self.rect()), 0, None)
 
-    def _nest(self, folder: space.Folder, r: QRectF, level: int):
+    def _nest(self, folder: space.Folder, r: QRectF, level: int, hue):
         entries = self._entries(folder, 120 if level == 0 else 48)
         rects = space.squarify([e[0] for e in entries], r.x(), r.y(), r.width(), r.height())
+        hues = 0
         for (size, name, what), (x, y, w, h) in zip(entries, rects):
             if w < 2 or h < 2:
                 continue
             sub = what if isinstance(what, space.Folder) else None
             kind = "folder" if sub is not None else "rest" if what == "rest" else "file"
-            self.boxes.append(Box(QRectF(x, y, w, h), name, size, kind, level, sub, folder))
-            if sub is not None and level + 1 < self.DEPTH and sub.size > 0 and w > 36 and h > 34:
-                head = 18 if w > 60 and h > 40 else 3
-                self._nest(sub, QRectF(x, y, w, h).adjusted(3, head, -3, -3), level + 1)
+            own = hue
+            if own is None and sub is not None:
+                own = FOLDER_HUES[hues % len(FOLDER_HUES)]
+                hues += 1
+            self.boxes.append(Box(QRectF(x, y, w, h), name, size, kind, level, sub, folder, own))
+            if sub is not None and level + 1 < self.DEPTH and sub.size > 0 and w > 40 and h > 38:
+                head = self.HEAD if w > 60 and h > 44 else 4
+                self._nest(sub, QRectF(x, y, w, h).adjusted(4, head, -4, -4), level + 1, own)
 
     def _color(self, b: Box) -> QColor:
         t = self.theme
+        base = t.tokens.surface
         if b.kind == "folder":
-            return mix(t.panel, t.accent, max(0.12, (0.42 if t.dark else 0.3) - 0.08 * b.level))
+            return mix(base, QColor(b.hue), (0.22 if t.dark else 0.19) + 0.1 * b.level)
         if b.kind == "rest":
-            return mix(t.panel, t.muted, 0.18)
-        color = QColor(KIND_COLORS[space.kind_of(b.name)])
-        return color.lighter(100 + 6 * b.level) if t.dark else color
+            return mix(base, t.muted, 0.14)
+        kind = space.kind_of(b.name)
+        color = mix(QColor(KIND_COLORS[kind]), base, 0.12 if t.dark else 0.0)
+        if self.focus_kind and kind != self.focus_kind:
+            color = mix(color, base, 0.78)
+        return color
 
     def paintEvent(self, e):
         p = QPainter(self)
@@ -149,34 +319,62 @@ class Treemap(QWidget):
             return
         small = QFont(self.font())
         small.setPointSizeF(max(7.0, self.font().pointSizeF() - 1.5))
-        fm, sfm = QFontMetrics(self.font()), QFontMetrics(small)
-        left = Qt.AlignLeft | Qt.AlignTop | Qt.AlignAbsolute
+        head = QFont(small)
+        head.setWeight(QFont.Weight.DemiBold)
+        name_font = QFont(self.font())
+        name_font.setWeight(QFont.Weight.DemiBold)
+        fm, sfm, hfm = QFontMetrics(name_font), QFontMetrics(small), QFontMetrics(head)
+        rtl = self.layoutDirection() == Qt.RightToLeft
+        lead = (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignTop | Qt.AlignAbsolute
+        trail = (Qt.AlignLeft if rtl else Qt.AlignRight) | Qt.AlignTop | Qt.AlignAbsolute
         for i, b in enumerate(self.boxes):
             color = self._color(b)
-            if i == self.hover:
-                color = color.lighter(125)
-            box = b.rect
-            p.setPen(QPen(t.bg, 1.2))
-            p.setBrush(color)
-            radius = 4 if b.level == 0 else 2
-            p.drawRoundedRect(box.adjusted(0.5, 0.5, -0.5, -0.5), radius, radius)
+            box = b.rect.adjusted(1, 1, -1, -1)  # (a hairline of the page between boxes)
+            if box.width() < 1 or box.height() < 1:
+                continue
+            radius = 6 if b.level == 0 else 4
+            p.setPen(Qt.NoPen)
+            p.setBrush(color.lighter(112) if i == self.hover else color)
+            p.drawRoundedRect(box, radius, radius)
             if b.kind == "rest":  # many small files: a quiet hatch, so the eye goes to the big ones first
-                hatch = QColor(t.muted)
-                hatch.setAlpha(60)
-                p.setPen(Qt.NoPen)
-                p.setBrush(QBrush(hatch, Qt.BDiagPattern))
-                p.drawRoundedRect(box.adjusted(0.5, 0.5, -0.5, -0.5), radius, radius)
-            ink = QColor("#111") if color.lightness() > 150 else QColor("#fff")
-            font, metrics = (self.font(), fm) if b.level == 0 else (small, sfm)
-            if box.width() > 46 and box.height() > metrics.height() + 2:
+                p.setBrush(QBrush(alpha(t.muted, 38), Qt.BDiagPattern))
+                p.drawRoundedRect(box, radius, radius)
+            ink = on_color(color)
+            soft = alpha(ink, 170)
+            if b.kind == "folder" and box.width() > 60 and box.height() > 44 and b.level + 1 < self.DEPTH:
+                # a folder showing what's inside it: its name (and size) in the strip at the top
+                strip = QRectF(box.left() + 6, box.top() + 2, box.width() - 12, self.HEAD - 4)
+                size_text = human_size(b.size)
+                size_w = sfm.horizontalAdvance(size_text) + 8
+                p.setFont(head)
+                p.setPen(ink)
+                room = strip.width() - (size_w if strip.width() > size_w + 50 else 0)
+                p.drawText(QRectF(strip.left() + (strip.width() - room if rtl else 0), strip.top(), room, strip.height()),
+                           lead | Qt.AlignVCenter, hfm.elidedText(b.name, Qt.ElideMiddle, int(room)))
+                if strip.width() > size_w + 50:
+                    p.setFont(small)
+                    p.setPen(soft)
+                    p.drawText(strip, trail | Qt.AlignVCenter, size_text)
+                continue
+            font, metrics = (name_font, fm) if b.level == 0 else (head, hfm)
+            inner = box.adjusted(7, 4, -7, -2)
+            name = metrics.elidedText(b.name, Qt.ElideMiddle, int(inner.width()))
+            if box.width() > 48 and box.height() > metrics.height() + 4 and (name == b.name or len(name) >= 6):
                 p.setPen(ink)
                 p.setFont(font)
-                p.drawText(box.adjusted(5, 1, -4, 0), left,
-                           metrics.elidedText(b.name, Qt.ElideMiddle, int(box.width() - 10)))
-                if b.kind != "folder" and box.height() > metrics.height() * 2 + 6 and b.level == 0:
+                p.drawText(inner, lead, name)
+                if box.height() > metrics.height() + sfm.height() + 8:
                     p.setFont(small)
-                    p.drawText(box.adjusted(5, 3 + metrics.height(), -4, 0), left,
-                               sfm.elidedText(human_size(b.size), Qt.ElideRight, int(box.width() - 10)))
+                    p.setPen(soft)
+                    p.drawText(inner.adjusted(0, metrics.height() + 1, 0, 0), lead,
+                               sfm.elidedText(human_size(b.size), Qt.ElideRight, int(inner.width())))
+        if 0 <= self.hover < len(self.boxes):  # what's under the mouse: a ring of the accent
+            b = self.boxes[self.hover]
+            p.setBrush(Qt.NoBrush)
+            p.setPen(QPen(t.accent, 2))
+            r = 6 if b.level == 0 else 4
+            p.drawRoundedRect(b.rect.adjusted(1.5, 1.5, -1.5, -1.5), r, r)
+        p.end()
 
     def _at(self, pos) -> int:
         found = -1
@@ -222,71 +420,250 @@ class Treemap(QWidget):
 
 
 class KindsBar(QWidget):
-    """One bar split by kind of file (videos, pictures, …), with the sizes underneath."""
+    """One bar split by kind of file (videos, pictures, …). Click a part to see that kind's biggest files."""
+    picked = Signal(str)
 
     def __init__(self, theme):
         super().__init__()
         self.theme = theme
         self.kinds: dict = {}
-        self.setMinimumHeight(14)
-        self.setMaximumHeight(14)
+        self.focus = ""
+        self.hover = ""
+        self.parts: list[tuple[QRectF, str]] = []
+        self.setFixedHeight(12)
+        self.setMouseTracking(True)
+        self.setCursor(Qt.PointingHandCursor)
 
     def set_kinds(self, kinds: dict):
         self.kinds = {k: v for k, v in kinds.items() if v > 0}
+        self._lay_out()
         self.update()
 
-    def paintEvent(self, e):
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._lay_out()
+
+    def _lay_out(self):
+        self.parts = []
         total = sum(self.kinds.values())
         if not total:
             return
+        rtl = self.layoutDirection() == Qt.RightToLeft
+        gap = 3.0
+        shown = [(k, v) for k, v in sorted(self.kinds.items(), key=lambda kv: kv[1], reverse=True)]
+        room = self.width() - gap * (len(shown) - 1)
+        x = 0.0
+        for kind, size in shown:
+            w = max(2.0, room * size / total)
+            self.parts.append((QRectF(self.width() - x - w if rtl else x, 1, w, self.height() - 2), kind))
+            x += w + gap
+
+    def paintEvent(self, e):
+        if not self.parts:
+            return
+        t = self.theme
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
-        x = 0.0
-        w = self.width()
-        for kind, size in sorted(self.kinds.items(), key=lambda kv: kv[1], reverse=True):
-            part = w * size / total
-            p.setPen(Qt.NoPen)
-            p.setBrush(QColor(KIND_COLORS[kind]))
-            p.drawRect(QRectF(x, 2, max(1.0, part), 10))
-            x += part
+        p.setPen(Qt.NoPen)
+        for r, kind in self.parts:
+            color = QColor(KIND_COLORS[kind])
+            if self.focus and kind != self.focus:
+                color = mix(color, t.tokens.canvas, 0.7)
+            elif kind == self.hover:
+                color = color.lighter(115)
+            p.setBrush(color)
+            p.drawRoundedRect(r, min(5.0, r.width() / 2), 5)
+        p.end()
+
+    def _at(self, pos) -> str:
+        return next((k for r, k in self.parts if r.left() - 2 <= pos.x() <= r.right() + 2), "")
+
+    def mouseMoveEvent(self, e):
+        kind = self._at(e.position())
+        if kind != self.hover:
+            self.hover = kind
+            self.update()
+        if kind:
+            QToolTip.showText(e.globalPosition().toPoint(), f"{tr(space.KINDS[kind])}  ·  {human_size(self.kinds[kind])}",
+                              self)
+
+    def leaveEvent(self, e):
+        self.hover = ""
+        self.update()
+
+    def mouseReleaseEvent(self, e):
+        kind = self._at(e.position())
+        if kind and e.button() == Qt.LeftButton:
+            self.picked.emit(kind)
+
+
+class KindChip(QPushButton):
+    """A kind of file under the map: its colour, its name and how much of it there is. Click it to see
+    its biggest files."""
+
+    def __init__(self, theme, kind: str, size: int):
+        super().__init__()
+        self.theme, self.kind, self.size = theme, kind, size
+        self.name = tr(space.KINDS[kind])
+        self.amount = human_size(size)
+        self.setCheckable(True)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setAttribute(Qt.WA_Hover)
+        self.setAccessibleName(f"{self.name} {self.amount}")
+        self.setToolTip(tr("Click a kind to see its biggest files"))
+
+    def sizeHint(self):
+        bold = QFont(self.font())
+        bold.setWeight(QFont.Weight.DemiBold)
+        w = QFontMetrics(bold).horizontalAdvance(self.name) + self.fontMetrics().horizontalAdvance(self.amount)
+        return QSize(w + 44, max(28, self.fontMetrics().height() + 12))
+
+    def minimumSizeHint(self):
+        return self.sizeHint()
+
+    def paintEvent(self, e):
+        t = self.theme
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        if self.isChecked():
+            p.setPen(QPen(QColor(KIND_COLORS[self.kind]), 1))
+            p.setBrush(mix(t.tokens.surface, QColor(KIND_COLORS[self.kind]), 0.16 if t.dark else 0.1))
+        else:
+            p.setPen(QPen(t.line_strong if self.underMouse() else t.border, 1))
+            p.setBrush(t.hover if self.underMouse() else t.tokens.surface)
+        p.drawRoundedRect(r, r.height() / 2, r.height() / 2)
+        rtl = self.layoutDirection() == Qt.RightToLeft
+        dot = QRectF(r.right() - 20 if rtl else r.left() + 12, r.center().y() - 4, 8, 8)
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(KIND_COLORS[self.kind]))
+        p.drawEllipse(dot)
+        bold = QFont(self.font())
+        bold.setWeight(QFont.Weight.DemiBold)
+        name_w = QFontMetrics(bold).horizontalAdvance(self.name)
+        x = dot.left() - 7 - name_w if rtl else dot.right() + 7
+        p.setFont(bold)
+        p.setPen(t.text)
+        p.drawText(QRectF(x, r.top(), name_w + 1, r.height()), Qt.AlignVCenter | Qt.AlignLeft | Qt.AlignAbsolute, self.name)
+        amount_w = self.fontMetrics().horizontalAdvance(self.amount)
+        x = x - 6 - amount_w if rtl else x + name_w + 6
+        p.setFont(self.font())
+        p.setPen(t.muted)
+        p.drawText(QRectF(x, r.top(), amount_w + 1, r.height()), Qt.AlignVCenter | Qt.AlignLeft | Qt.AlignAbsolute,
+                   self.amount)
+        p.end()
+
+
+class ShareDelegate(QStyledItemDelegate):
+    """A list row with a thin bar under its name: its size next to the biggest row's."""
+
+    def __init__(self, theme, parent=None):
+        super().__init__(parent)
+        self.theme = theme
+
+    def paint(self, p, option, index):
+        super().paint(p, option, index)
+        share = index.data(SHARE)
+        if not share:
+            return
+        r = QRectF(option.rect)
+        rtl = option.direction == Qt.RightToLeft
+        room = max(0.0, r.width() - 16)
+        w = max(3.0, room * min(1.0, share))
+        bar = QRectF(r.right() - 8 - w if rtl else r.left() + 8, r.bottom() - 3.5, w, 2.5)
+        p.save()
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setPen(Qt.NoPen)
+        p.setBrush(alpha(QColor(index.data(TINT) or self.theme.accent), 150))
+        p.drawRoundedRect(bar, 1.5, 1.5)
+        p.restore()
+
+
+class Spinner(QWidget):
+    """A ring that goes round while Space looks through a drive, with how much it found so far inside."""
+
+    def __init__(self, theme):
+        super().__init__()
+        self.theme = theme
+        self.angle = 0
+        self.text = ""
+        self.sub = ""
+        self.setFixedSize(150, 150)
+        self.timer = QTimer(self)
+        self.timer.setInterval(16)
+        self.timer.timeout.connect(self._turn)
+
+    def set_text(self, text: str, sub: str = ""):
+        self.text, self.sub = text, sub
+        self.update()
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        self.timer.start()
+
+    def hideEvent(self, e):
+        super().hideEvent(e)
+        self.timer.stop()  # (nothing goes round while no one sees it)
+
+    def _turn(self):
+        self.angle = (self.angle + 5) % 360
+        self.update()
+
+    def paintEvent(self, e):
+        t = self.theme
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        r = QRectF(self.rect()).adjusted(8, 8, -8, -8)
+        p.setPen(Qt.NoPen)
+        p.setBrush(mix(t.tokens.surface, t.accent, 0.07 if t.dark else 0.05))
+        p.drawEllipse(r)
+        _ring(p, r, None, t.accent, mix(t.tokens.surface, t.text, 0.08), 7)
+        p.setPen(QPen(t.accent, 7, Qt.SolidLine, Qt.RoundCap))
+        p.drawArc(r, -self.angle * 16, 100 * 16)
+        big = QFont(self.font())
+        big.setPointSizeF(self.font().pointSizeF() + 5)
+        big.setWeight(QFont.Weight.DemiBold)
+        p.setFont(big)
+        p.setPen(t.text)
+        fm = QFontMetrics(big)
+        p.drawText(QRectF(r.left(), r.center().y() - fm.height() + 4, r.width(), fm.height()), Qt.AlignCenter,
+                   fm.elidedText(self.text, Qt.ElideRight, int(r.width() - 24)))
+        p.setFont(self.font())
+        p.setPen(t.muted)
+        p.drawText(QRectF(r.left() + 14, r.center().y() + 6, r.width() - 28, self.fontMetrics().height()), Qt.AlignCenter,
+                   self.fontMetrics().elidedText(self.sub, Qt.ElideRight, int(r.width() - 28)))
+        p.end()
 
 
 # ----------------------------------------------------------------------------- the drives
 
 class DriveCard(QPushButton):
-    """A drive to pick: its name, how full it is (the bar turns amber, then red, as it fills) and
-    what's free. With no drive, it's the "Look at a folder" card."""
+    """A drive to pick: a ring for how full it is (amber, then red, as it fills), its name and what's
+    free. With no drive, it's the "Look at a folder" card."""
 
     def __init__(self, theme, drive: space.Drive | None = None, title: str = "", line: str = "",
                  seen: float | None = None):
         super().__init__()
         self.theme, self.drive = theme, drive
+        self.seen = ""
         if drive is not None:
-            name = drive.path.rstrip("\\")
-            label = drive.label or (tr("USB drive") if drive.removable else tr("Local disk"))
-            self.title = ltr(f"{label} ({name})")
+            self.title = _drive_title(drive)
             self.line = tr("{free} free of {total}", free=human_size(drive.free), total=human_size(drive.total))
             if seen is not None:  # its map is kept: opening it again is instant
-                self.line += "   ·   " + tr("mapped {when}", when=time_ago(seen))
+                self.seen = tr("mapped {when}", when=time_ago(seen))
             self.fill = drive.used / drive.total if drive.total else 0.0
         else:
             self.title, self.line, self.fill = title, line, None
         self.setAccessibleName(self.title)
-        self.setToolTip(f"{self.title}\n{self.line}")
+        self.setToolTip("\n".join(x for x in (self.title, self.line, self.seen) if x))
         self.setCursor(Qt.PointingHandCursor)
-        self.setMinimumHeight(96)
+        self.setMinimumHeight(98)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.setAttribute(Qt.WA_Hover)
         self.setFocusPolicy(Qt.StrongFocus)
 
     def sizeHint(self):
-        return QSize(260, self.minimumHeight())
-
-    def _bar_color(self) -> QColor:
-        t = self.theme
-        if self.fill is None or self.fill < 0.8:
-            return t.accent
-        return QColor("#e8a33d") if self.fill < 0.9 else (t.danger or QColor("#e5484d"))
+        return QSize(280, self.minimumHeight())
 
     def paintEvent(self, e):
         t = self.theme
@@ -296,58 +673,70 @@ class DriveCard(QPushButton):
         hover = self.underMouse()
         r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
         if self.drive is None:  # "Look at a folder": a quieter, dashed card
-            pen = QPen(t.accent if hover else t.line_strong or t.border, 1, Qt.DashLine)
-            p.setPen(pen)
+            p.setPen(QPen(t.accent if hover else t.line_strong or t.border, 1, Qt.DashLine))
             p.setBrush(t.hover if hover else Qt.NoBrush)
         else:
             p.setPen(QPen(t.accent if self.hasFocus() else (t.line_strong if hover else t.border) or t.border, 1))
             p.setBrush(t.hover if hover else t.panel)
             if self.isDown():
                 p.setBrush(mix(t.panel, t.text, 0.08))
-        p.drawRoundedRect(r, 12, 12)
-        pad = 16
-        top = r.top() + pad if self.drive is not None else r.center().y() - 20  # (the folder card: centred)
-        tile = QRectF(r.right() - pad - 40 if rtl else r.left() + pad, top, 40, 40)
-        p.setPen(Qt.NoPen)
-        p.setBrush(mix(t.panel, t.accent, 0.2 if t.dark else 0.13))
-        p.drawRoundedRect(tile, 10, 10)
-        glyph = "folder_search" if self.drive is None else "hard_drive"
-        icons.paint(p, tile.adjusted(10, 10, -10, -10), glyph, t.accent)
-        x0 = tile.right() + 14 if not rtl else r.left() + pad
-        x1 = r.right() - pad if not rtl else tile.left() - 14
+        p.drawRoundedRect(r, 14, 14)
+        pad = 18
+        size = 58.0
+        ring = QRectF(r.right() - pad - size if rtl else r.left() + pad, r.center().y() - size / 2, size, size)
+        track = mix(t.panel, t.text, 0.1 if t.dark else 0.08)
+        if self.fill is None:
+            p.setPen(Qt.NoPen)
+            p.setBrush(mix(t.panel, t.accent, 0.18 if t.dark else 0.12))
+            p.drawEllipse(ring.adjusted(3, 3, -3, -3))
+            icons.paint(p, ring.adjusted(17, 17, -17, -17), "folder_search", t.accent)
+        else:
+            color = _fill_color(t, self.fill)
+            _ring(p, ring.adjusted(3, 3, -3, -3), self.fill, color, track, 6)
+            pct = QFont(self.font())
+            pct.setWeight(QFont.Weight.DemiBold)
+            pct.setPointSizeF(self.font().pointSizeF() + 0.5)
+            p.setFont(pct)
+            p.setPen(t.text)
+            p.drawText(ring, Qt.AlignCenter, ltr(f"{round(self.fill * 100)}%"))
+        chevron = 16.0
+        x0 = ring.right() + 16 if not rtl else r.left() + pad + chevron + 8
+        x1 = r.right() - pad - chevron - 8 if not rtl else ring.left() - 16
         side = (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute
         title_font = QFont(self.font())
         title_font.setPointSizeF(self.font().pointSizeF() + 1.5)
         title_font.setWeight(QFont.Weight.DemiBold)
-        fm = QFontMetrics(title_font)
+        fm, rfm = QFontMetrics(title_font), QFontMetrics(self.font())
+        lines = 2 + (1 if self.seen else 0) + (1 if self.fill is not None and self.fill >= 0.9 and not self.seen else 0)
+        block = fm.height() + (lines - 1) * (rfm.height() + 2)
+        y = r.center().y() - block / 2
         p.setFont(title_font)
         p.setPen(t.text)
-        right_text = ""
-        if self.fill is not None:
-            right_text = tr("{percent}% full", percent=round(self.fill * 100))
-        rfm = QFontMetrics(self.font())
-        right_w = rfm.horizontalAdvance(right_text) + 12 if right_text else 0
-        title_box = QRectF(x0 + (right_w if rtl else 0), tile.top() - 1, x1 - x0 - right_w, fm.height())
-        p.drawText(title_box, side | Qt.AlignVCenter, fm.elidedText(self.title, Qt.ElideRight, int(title_box.width())))
-        if right_text:
-            p.setFont(self.font())
-            p.setPen(self._bar_color() if self.fill >= 0.8 else t.muted)
-            p.drawText(QRectF(x0, tile.top() - 1, x1 - x0, fm.height()),
-                       ((Qt.AlignLeft if rtl else Qt.AlignRight) | Qt.AlignAbsolute) | Qt.AlignVCenter, right_text)
+        p.drawText(QRectF(x0, y, x1 - x0, fm.height()), side | Qt.AlignVCenter,
+                   fm.elidedText(self.title, Qt.ElideRight, int(x1 - x0)))
+        y += fm.height() + 2
         p.setFont(self.font())
         p.setPen(t.muted)
-        line_box = QRectF(x0, title_box.bottom() + 2, x1 - x0, rfm.height())
-        p.drawText(line_box, side | Qt.AlignVCenter, rfm.elidedText(self.line, Qt.ElideRight, int(line_box.width())))
-        if self.fill is not None:  # how full: a soft track and a rounded bar
-            bar = QRectF(x0, r.bottom() - pad - 8, x1 - x0, 8)
-            p.setPen(Qt.NoPen)
-            p.setBrush(mix(t.panel, t.text, 0.1 if t.dark else 0.08))
-            p.drawRoundedRect(bar, 4, 4)
-            w = max(8.0, bar.width() * min(1.0, self.fill))
-            done = QRectF(bar.right() - w if rtl else bar.left(), bar.top(), w, bar.height())
-            p.setBrush(self._bar_color())
-            p.drawRoundedRect(done, 4, 4)
+        p.drawText(QRectF(x0, y, x1 - x0, rfm.height()), side | Qt.AlignVCenter,
+                   rfm.elidedText(self.line, Qt.ElideRight, int(x1 - x0)))
+        y += rfm.height() + 2
+        if self.fill is not None and self.fill >= 0.9 and not self.seen:
+            p.setPen(_fill_color(t, self.fill))
+            p.drawText(QRectF(x0, y, x1 - x0, rfm.height()), side | Qt.AlignVCenter,
+                       rfm.elidedText(tr("Almost full"), Qt.ElideRight, int(x1 - x0)))
+        elif self.seen:
+            p.setPen(t.tokens.subtle)
+            p.drawText(QRectF(x0, y, x1 - x0, rfm.height()), side | Qt.AlignVCenter,
+                       rfm.elidedText(self.seen, Qt.ElideRight, int(x1 - x0)))
+        arrow = QRectF(r.left() + pad if rtl else r.right() - pad - chevron, r.center().y() - chevron / 2, chevron, chevron)
+        icons.paint(p, arrow, "chevron_left" if rtl else "chevron_right", t.accent if hover else t.tokens.subtle)
         p.end()
+
+
+def _drive_title(drive: space.Drive) -> str:
+    """"Windows (C:)", "USB drive (E:)"."""
+    label = drive.label or (tr("USB drive") if drive.removable else tr("Local disk"))
+    return ltr(f"{label} ({drive.path.rstrip(chr(92))})")
 
 
 def _confirm(parent, title: str, text: str, yes: str) -> bool:
@@ -382,18 +771,27 @@ class SpacePage(QWidget):
         lay.setContentsMargins(0, 0, 10, 0)
         lay.setSpacing(12)
         lay.addLayout(header)
+        # the tool's banner steps aside while a map is open (the map needs the room)
+        self.banner = header.itemAt(0).widget() if header.count() else None
         tabs = QHBoxLayout()
         tabs.setSpacing(6)
+        strip = QFrame()
+        strip.setObjectName("segmented")
+        sl = QHBoxLayout(strip)
+        sl.setContentsMargins(3, 3, 3, 3)
+        sl.setSpacing(2)
         self.section_buttons = QButtonGroup(self)
         for key, text in SECTIONS:
-            b = QPushButton(tr(text))
-            b.setObjectName("subtab")
+            b = QPushButton(" " + tr(text))  # (a little room after the icon)
+            b.setObjectName("segment")
             b.setCheckable(True)
             b.setCursor(Qt.PointingHandCursor)
             b.setChecked(key == "map")
+            b.setIconSize(QSize(16, 16))
             b.clicked.connect(lambda _=False, k=key: self.show_section(k))
             self.section_buttons.addButton(b)
-            tabs.addWidget(b)
+            sl.addWidget(b)
+        tabs.addWidget(strip)
         tabs.addStretch()
         lay.addLayout(tabs)
         self.sections = QStackedWidget()
@@ -402,14 +800,20 @@ class SpacePage(QWidget):
         self.sections.addWidget(self._dupes_section())
         lay.addWidget(self.sections, 1)
         self.section = "map"
+        self._paint_backs()
 
     def show_section(self, key: str):
         self.section = key
         self.sections.setCurrentIndex([k for k, _ in SECTIONS].index(key))
         for b, (k, _t) in zip(self.section_buttons.buttons(), SECTIONS):
             b.setChecked(k == key)
+        self._show_banner()
         if key == "clean" and not self.junk and self.job is None:
             self.find_junk()
+
+    def _show_banner(self):
+        if self.banner is not None:
+            self.banner.setVisible(self.section != "map" or self.drives_box.isVisible())
 
     def refresh(self):
         if self.scan is None and self.job is None:
@@ -425,37 +829,48 @@ class SpacePage(QWidget):
         # the drives (to begin with)
         self.drives_box = QWidget()
         dl = QVBoxLayout(self.drives_box)
-        dl.setContentsMargins(0, 0, 0, 0)
-        dl.setSpacing(8)
+        dl.setContentsMargins(0, 2, 0, 0)
+        dl.setSpacing(10)
         dl.addWidget(_label(tr("Pick a drive to see what's filling it."), "muted"))
+        cards = QWidget()  # (scrolls when there are more drives than fit, or the window is small)
+        cards.setObjectName("scrollContent")
+        cl = QVBoxLayout(cards)
+        cl.setContentsMargins(0, 0, 0, 0)
         self.drive_rows = QGridLayout()
         self.drive_rows.setHorizontalSpacing(12)
         self.drive_rows.setVerticalSpacing(12)
         self.drive_rows.setColumnStretch(0, 1)
         self.drive_rows.setColumnStretch(1, 1)
-        dl.addLayout(self.drive_rows)
-        dl.addStretch()
-        lay.addWidget(self.drives_box)
-        # looking (with Stop)
-        self.busy_box = QFrame()
-        self.busy_box.setObjectName("card")
+        cl.addLayout(self.drive_rows)
+        cl.addStretch()
+        dl.addWidget(_scroller(cards), 1)
+        lay.addWidget(self.drives_box, 1)
+        # looking (with Stop): a ring that goes round, with what it found so far
+        self.busy_box = QWidget()
         bl = QVBoxLayout(self.busy_box)
-        bl.setContentsMargins(18, 16, 18, 16)
-        self.busy_title = _label("", "h2")
-        self.busy_line = _label("", "muted")
-        self.busy_bar = QProgressBar()
-        self.busy_bar.setRange(0, 0)
-        self.busy_bar.setTextVisible(False)
-        stop = _button(tr("Stop"), None, self._stop)
+        bl.setContentsMargins(0, 0, 0, 0)
+        bl.setSpacing(10)
         top = QHBoxLayout()
-        top.setSpacing(10)
         top.addWidget(self._back_button())
-        top.addWidget(self.busy_title, 1)
-        top.addWidget(stop)
+        top.addStretch()
         bl.addLayout(top)
+        bl.addStretch(2)
+        self.spinner = Spinner(self.c.theme)
+        bl.addWidget(self.spinner, 0, Qt.AlignHCenter)
+        bl.addSpacing(6)
+        self.busy_title = _label("", "h2")
+        self.busy_title.setAlignment(Qt.AlignCenter)
+        bl.addWidget(self.busy_title)
+        self.busy_line = ElidedLabel()
+        self.busy_line.setObjectName("muted")
+        self.busy_line.setAlignment(Qt.AlignCenter)
         bl.addWidget(self.busy_line)
-        bl.addWidget(self.busy_bar)
-        lay.addWidget(self.busy_box)
+        bl.addSpacing(6)
+        stop = _button(tr("Stop"), None, self._stop)
+        stop.setMinimumWidth(120)
+        bl.addWidget(stop, 0, Qt.AlignHCenter)
+        bl.addStretch(3)
+        lay.addWidget(self.busy_box, 1)
         self.busy_box.hide()
         # the map
         self.map_box = QWidget()
@@ -463,23 +878,21 @@ class SpacePage(QWidget):
         ml.setContentsMargins(0, 0, 0, 0)
         ml.setSpacing(8)
         nav = QHBoxLayout()
-        nav.setSpacing(8)
+        nav.setSpacing(6)
         self.back_btn = self._back_button()
-        self.up_btn = _button(tr("Up"), None, self._up)
-        self.where = ElidedLabel()
-        self.where.setObjectName("h2")
-        self.again_btn = _button(tr("Look again"), None, self._rescan)
+        self.where = Crumbs(self.c.theme)
+        self.where.picked.connect(self.open_folder)
+        self.again_btn = _button(tr("Look again"), "ghost", self._rescan)
         self.again_btn.setToolTip(tr("Look through it again, to see what changed since"))
-        self.drives_btn = _button(tr("Other drives"), None, self._back_to_drives)
-        self._icon_buttons = [(self.up_btn, "arrow_up"), (self.again_btn, "arrow_clockwise"),
-                              (self.drives_btn, "hard_drive")]
+        self.drives_btn = _button(tr("Other drives"), "ghost", self._back_to_drives)
+        self._icon_buttons = [(self.again_btn, "arrow_clockwise"), (self.drives_btn, "hard_drive")]
         nav.addWidget(self.back_btn)
         nav.addWidget(self.where, 1)
-        nav.addWidget(self.up_btn)
         nav.addWidget(self.again_btn)
         nav.addWidget(self.drives_btn)
         ml.addLayout(nav)
         self.summary = _label("", "muted", wrap=True)
+        self.summary.setTextFormat(Qt.RichText)
         ml.addWidget(self.summary)
         body = QHBoxLayout()
         body.setSpacing(12)
@@ -488,33 +901,21 @@ class SpacePage(QWidget):
         self.treemap.menu.connect(lambda what, pos: self._menu(what[0], what[1], pos))
         body.addWidget(self.treemap, 3)
         side = QVBoxLayout()
-        side.setSpacing(6)
+        side.setSpacing(8)
         self.list_mode = "here"
         self.big_kind = ""             # the biggest files of one kind only ("video"…), from the kinds below
-        switch = QHBoxLayout()
-        self.here_btn = _button(tr("In this folder"), "subtab", lambda: self._list_mode("here"))
-        self.big_btn = _button(tr("Biggest files"), "subtab", self._all_biggest)
-        self.old_btn = _button(tr("Unused for a year"), "subtab", lambda: self._list_mode("old"))
-        self.old_btn.setToolTip(tr("Big files nobody has opened or changed for over a year"))
-        self.grew_btn = _button(tr("What grew"), "subtab", lambda: self._list_mode("grew"))
-        for b in (self.here_btn, self.big_btn):
-            b.setCheckable(True)
-            switch.addWidget(b)
-        switch.addStretch()
-        self.here_btn.setChecked(True)
-        side.addLayout(switch)
-        switch2 = QHBoxLayout()  # (a second row: they don't fit beside the map in a narrow window)
-        for b in (self.old_btn, self.grew_btn):
-            b.setCheckable(True)
-            switch2.addWidget(b)
-        switch2.addStretch()
-        self.grew_btn.hide()
-        side.addLayout(switch2)
+        self.modes = ["here", "big", "old", "grew"]
+        self.mode_box = QComboBox()
+        self.mode_box.setAccessibleName(tr("Show"))
+        self.mode_box.currentIndexChanged.connect(self._mode_picked)
+        side.addWidget(self.mode_box)
         self.items = QTreeWidget()
         self.items.setObjectName("history")
         self.items.setHeaderLabels([tr("Name"), tr("Size")])
         self.items.setRootIsDecorated(False)
         self.items.setUniformRowHeights(True)
+        self.items.setItemDelegateForColumn(0, ShareDelegate(self.c.theme, self.items))
+        self.items.setStyleSheet("QTreeView::item { padding: 6px 2px 9px 2px; }")  # (room for the bars)
         self.items.header().setStretchLastSection(False)
         self.items.header().setSectionResizeMode(0, QHeaderView.Stretch)
         self.items.header().setSectionResizeMode(1, QHeaderView.ResizeToContents)
@@ -528,22 +929,25 @@ class SpacePage(QWidget):
         side.setContentsMargins(0, 0, 0, 0)
         body.addWidget(holder, 2)
         ml.addLayout(body, 1)
+        ml.addSpacing(2)
         self.kinds_bar = KindsBar(self.c.theme)
+        self.kinds_bar.picked.connect(self._show_kind)
         ml.addWidget(self.kinds_bar)
-        self.kinds_text = _label("", "muted", wrap=True)
-        self.kinds_text.setToolTip(tr("Click a kind to see its biggest files"))
-        self.kinds_text.linkActivated.connect(self._show_kind)
-        ml.addWidget(self.kinds_text)
+        self.kinds_holder = QWidget()
+        self.kinds_row = FlowLayout(self.kinds_holder, 6)
+        self.kind_chips: list[KindChip] = []
+        ml.addWidget(self.kinds_holder)
         lay.addWidget(self.map_box, 1)
         self.map_box.hide()
-        self._paint_backs()
+        self._fill_modes()
         self._fill_drives()
         return w
 
     def _fill_drives(self):
         _clear_layout(self.drive_rows)
         cards = []
-        for d in space.drives():
+        self.drives = space.drives()
+        for d in self.drives:
             kept = self.kept.get(_key(Path(d.path)))
             card = DriveCard(self.c.theme, d, seen=kept[2] if kept else None)
             card.setObjectName("driveCard")
@@ -566,7 +970,6 @@ class SpacePage(QWidget):
         b.clicked.connect(self.go_back)
         self._backs = getattr(self, "_backs", [])
         self._backs.append(b)
-        self._paint_backs()
         return b
 
     def _paint_backs(self):
@@ -576,6 +979,8 @@ class SpacePage(QWidget):
             b.setIcon(icons.icon("arrow_right" if rtl else "arrow_left", t.text))
         for b, name in getattr(self, "_icon_buttons", []):
             b.setIcon(icons.icon(name, t.text, disabled=t.muted))
+        for b, (key, _t) in zip(self.section_buttons.buttons() if hasattr(self, "section_buttons") else [], SECTIONS):
+            b.setIcon(icons.icon(SECTION_ICONS[key], t.muted))
 
     def _pick_folder(self):
         folder = QFileDialog.getExistingDirectory(self, tr("Look at a folder"), str(Path.home()))
@@ -596,8 +1001,10 @@ class SpacePage(QWidget):
         self.drives_box.hide()
         self.map_box.hide()
         self.busy_box.show()
+        self._show_banner()
         self.busy_title.setText(tr("Looking through {name}…", name=ltr(str(root))))
-        self.busy_line.setText(tr("This takes a moment on a big drive."))
+        self.busy_line.set_full(tr("This takes a moment on a big drive."))
+        self.spinner.set_text("", "")
         cancel = self.cancel
         def work(progress):
             result = space.scan(root, cancel, lambda *a: progress(a))
@@ -609,8 +1016,8 @@ class SpacePage(QWidget):
         if not _alive(self):
             return
         files, size, folder = args if isinstance(args, tuple) else (0, 0, "")
-        self.busy_line.setText(tr("{count} files, {size}", count=f"{files:,}", size=human_size(size))
-                               + "   ·   " + ltr(short_name(folder, 70)))
+        self.spinner.set_text(human_size(size), tr("{count} files", count=f"{files:,}"))
+        self.busy_line.set_full(str(folder))
 
     def _stop(self):
         self.cancel.set()
@@ -643,32 +1050,45 @@ class SpacePage(QWidget):
         self.drives_box.hide()
         self.busy_box.hide()
         self.map_box.show()
+        self._show_banner()
         self._forget_timer.stop()
-        self.grew_btn.setVisible(bool(result.since))
-        if result.since:
-            self.grew_btn.setText(tr("Grew since {date}", date=time.strftime("%Y-%m-%d", time.localtime(result.since))))
         if self.list_mode == "grew" and not result.since:
             self.list_mode = "here"
+        self._fill_modes()
+        root = _key(result.root.path)
+        self.where.root_title = next((_drive_title(d) for d in self.drives if _key(Path(d.path)) == root), "")
         self.open_folder(folder)
         self.kinds_bar.set_kinds(result.kinds)
-        self._kinds_text()
+        self._fill_kinds()
 
-    def _kinds_text(self):
+    def _fill_kinds(self):
+        """The kinds of file under the map, biggest first (the very small ones left out)."""
+        for chip in self.kind_chips:
+            self.kinds_row.removeWidget(chip)
+            chip.hide()
+            chip.deleteLater()
+        self.kind_chips = []
         result = self.scan
         if result is None:
             return
         total = sum(result.kinds.values()) or 1
-        link = self.c.theme.text
-        parts = []
         for k, v in sorted(result.kinds.items(), key=lambda kv: -kv[1]):
             if v <= total * 0.005:
                 continue
-            name = html.escape(tr(space.KINDS[k]))
-            if k == self.big_kind and self.list_mode == "big":
-                name = f"<b>{name}</b>"
-            parts.append(f"<span style='color:{KIND_COLORS[k]}'>■</span>&nbsp;<a href='{k}' style='color:{link};"
-                         f"text-decoration:none'>{name}</a> {human_size(v)}")
-        self.kinds_text.setText("&nbsp;&nbsp;&nbsp;".join(parts))
+            chip = KindChip(self.c.theme, k, v)
+            chip.clicked.connect(lambda _=False, kind=k: self._show_kind(kind))
+            self.kinds_row.addWidget(chip)
+            self.kind_chips.append(chip)
+        self._mark_kind()
+
+    def _mark_kind(self):
+        """The kind picked (if any): its chip stands out, and on the map the other files step back."""
+        kind = self.big_kind if self.list_mode == "big" else ""
+        for chip in self.kind_chips:
+            chip.setChecked(chip.kind == kind)
+        self.kinds_bar.focus = self.treemap.focus_kind = kind
+        self.kinds_bar.update()
+        self.treemap.update()
 
     def _all_biggest(self):
         self.big_kind = ""
@@ -684,17 +1104,18 @@ class SpacePage(QWidget):
         s, f = self.scan, self.here
         if s is None or f is None:
             return
-        bits = [tr("{size} in {count} files", size=human_size(f.size), count=f"{f.files:,}")]
+        size = f"<b style='color:{self.c.theme.text.name()}'>{html.escape(human_size(f.size))}</b>"
+        bits = [tr("{size} in {count} files", size=size, count=f"{f.files:,}")]
         if s.cancelled:
-            bits.append(tr("stopped before the end"))
+            bits.append(html.escape(tr("stopped before the end")))
         if f is s.root and s.denied:
-            bits.append(tr("{count} folders Windows keeps private were skipped", count=s.denied))
+            bits.append(html.escape(tr("{count} folders Windows keeps private were skipped", count=s.denied)))
         if f is s.root and s.cloud:
-            bits.append(tr("{count} files only in the cloud take no space here", count=f"{s.cloud:,}"))
+            bits.append(html.escape(tr("{count} files only in the cloud take no space here", count=f"{s.cloud:,}")))
         kept = self.kept.get(_key(s.root.path))
         if kept is not None and kept[0] is s and time.time() - kept[2] >= 60:
-            bits.append(tr("mapped {when}", when=time_ago(kept[2])))
-        self.summary.setText("   ·   ".join(bits))
+            bits.append(html.escape(tr("mapped {when}", when=time_ago(kept[2]))))
+        self.summary.setText("&nbsp;&nbsp;·&nbsp;&nbsp;".join(bits))
 
     def open_folder(self, folder: space.Folder):
         self.here = folder
@@ -702,8 +1123,7 @@ class SpacePage(QWidget):
             kept = self.kept.get(_key(self.scan.root.path))
             if kept is not None and kept[0] is self.scan:
                 kept[1] = folder  # (opening it again comes back here)
-        self.where.set_full(str(folder.path))
-        self.up_btn.setEnabled(folder.parent is not None)
+        self.where.set_folder(folder)
         self.treemap.show_folder(folder)
         self._summary()
         self._fill_list()
@@ -743,6 +1163,7 @@ class SpacePage(QWidget):
         self.map_box.hide()
         self.busy_box.hide()
         self.drives_box.show()
+        self._show_banner()
         self._fill_drives()
         if self.kept:
             self._forget_timer.start(FORGET_AFTER * 1000)
@@ -760,18 +1181,40 @@ class SpacePage(QWidget):
         """Files were deleted here: the maps kept are out of date (the next look starts afresh)."""
         self.kept.clear()
 
+    def _fill_modes(self):
+        """What the list beside the map shows: this folder, the biggest files (of one kind), the ones
+        unused for a year, what grew since the last look."""
+        names = {"here": tr("In this folder"),
+                 "big": tr("Biggest files") if not self.big_kind else
+                 tr("Biggest: {kind}", kind=tr(space.KINDS[self.big_kind])),
+                 "old": tr("Unused for a year")}
+        since = self.scan.since if self.scan is not None else 0
+        if since:
+            names["grew"] = tr("Grew since {date}", date=time.strftime("%Y-%m-%d", time.localtime(since)))
+        self.modes = [m for m in ("here", "big", "old", "grew") if m in names]
+        self.mode_box.blockSignals(True)
+        self.mode_box.clear()
+        for m in self.modes:
+            self.mode_box.addItem(names[m])
+        self.mode_box.setItemData(self.modes.index("old"), tr("Big files nobody has opened or changed for over a year"),
+                                  Qt.ToolTipRole)
+        self.mode_box.setCurrentIndex(self.modes.index(self.list_mode) if self.list_mode in self.modes else 0)
+        self.mode_box.blockSignals(False)
+
+    def _mode_picked(self, i: int):
+        if 0 <= i < len(self.modes):
+            mode = self.modes[i]
+            if mode == "big":
+                self.big_kind = ""
+            self._list_mode(mode)
+
     def _list_mode(self, mode: str):
         if mode != "big":
             self.big_kind = ""
         self.list_mode = mode
-        self.here_btn.setChecked(mode == "here")
-        self.big_btn.setChecked(mode == "big")
-        self.old_btn.setChecked(mode == "old")
-        self.grew_btn.setChecked(mode == "grew")
-        self.big_btn.setText(tr("Biggest files") if not self.big_kind else
-                             tr("Biggest: {kind}", kind=tr(space.KINDS[self.big_kind])))
+        self._fill_modes()
         self._fill_list()
-        self._kinds_text()
+        self._mark_kind()
 
     def _fill_list(self):
         self.items.clear()
@@ -805,12 +1248,17 @@ class SpacePage(QWidget):
             it = QTreeWidgetItem([empty, ""])
             it.setFlags(Qt.NoItemFlags)
             self.items.addTopLevelItem(it)
+        top = max((r[1] for r in rows), default=0) or 1
+        folder_tint = mix(self.c.theme.muted, self.c.theme.accent, 0.5)
         for text, size, path, folder, tip in rows:
             it = QTreeWidgetItem([text, ("+" if self.list_mode == "grew" else "") + human_size(size)])
             if folder is not None:
                 it.setIcon(0, folder_icon)
             it.setTextAlignment(1, Qt.AlignRight | Qt.AlignVCenter)
             it.setData(0, Qt.UserRole, (path, folder))
+            it.setData(0, SHARE, size / top)
+            it.setData(0, TINT, folder_tint if folder is not None or path is None
+                       else QColor(KIND_COLORS[space.kind_of(str(path))]))
             if tip:
                 it.setToolTip(0, tip)
             self.items.addTopLevelItem(it)
@@ -931,26 +1379,45 @@ class SpacePage(QWidget):
         w = QWidget()
         lay = QVBoxLayout(w)
         lay.setContentsMargins(0, 0, 0, 0)
-        lay.setSpacing(10)
-        lay.addWidget(_label(tr("Things that are safe to remove. Nothing personal is touched without asking."),
-                             "muted", wrap=True))
-        self.junk_box = QFrame()
-        self.junk_box.setObjectName("card")
-        self.junk_rows = QVBoxLayout(self.junk_box)
-        self.junk_rows.setContentsMargins(18, 14, 18, 14)
-        self.junk_rows.setSpacing(10)
-        lay.addWidget(self.junk_box)
-        row = QHBoxLayout()
+        lay.setSpacing(12)
+        # how much can go, and the button that does it
+        hero = GlowPanel(rings=False)
+        hl = QHBoxLayout(hero)
+        hl.setContentsMargins(20, 16, 20, 16)
+        hl.setSpacing(16)
+        hl.addWidget(IconTile("broom", 48), 0, Qt.AlignVCenter)
+        words = QVBoxLayout()
+        words.setSpacing(2)
+        self.clean_head = _label(tr("Can be freed"), "subtle")
+        words.addWidget(self.clean_head)
+        self.clean_total = _label("", "stat")
+        words.addWidget(self.clean_total)
+        words.addWidget(_label(tr("Things that are safe to remove. Nothing personal is touched without asking."),
+                               "muted", wrap=True))
+        hl.addLayout(words, 1)
         self.clean_btn = _button(tr("Clean up"), "primary", self._clean)
-        row.addWidget(self.clean_btn)
-        row.addWidget(_button(tr("Look again"), None, self.find_junk))
-        row.addStretch()
+        self.clean_btn.setMinimumHeight(38)
+        hl.addWidget(self.clean_btn, 0, Qt.AlignVCenter)
+        lay.addWidget(hero)
+        # what was found, one row each
+        self.junk_box = Group()
+        self.junk_rows = self.junk_box.lay
+        inner = QWidget()
+        inner.setObjectName("scrollContent")
+        il = QVBoxLayout(inner)
+        il.setContentsMargins(0, 0, 0, 0)
+        il.addWidget(self.junk_box)
+        il.addStretch()
+        lay.addWidget(_scroller(inner), 1)
+        row = QHBoxLayout()
+        again = _button(tr("Look again"), "ghost", self.find_junk)
+        self._icon_buttons.append((again, "arrow_clockwise"))
+        row.addWidget(again)
+        self.clean_note = _label("", "muted", wrap=True)
+        row.addWidget(self.clean_note, 1)
         row.addWidget(_button(tr("More in Windows' Storage settings…"), "flat",
                               lambda: QDesktopServices.openUrl(QUrl("ms-settings:storagesense"))))
         lay.addLayout(row)
-        self.clean_note = _label("", "muted", wrap=True)
-        lay.addWidget(self.clean_note)
-        lay.addStretch()
         self.junk_checks: list[tuple[QCheckBox, space.Junk]] = []
         return w
 
@@ -968,7 +1435,8 @@ class SpacePage(QWidget):
         if self.job is not None:
             return
         self._clear_junk_rows()
-        self.junk_rows.addWidget(_label(tr("Looking for things that can go…"), "muted"))
+        self.junk_rows.addWidget(_note_row(tr("Looking for things that can go…")))
+        self.clean_total.setText("…")
         self.clean_btn.setEnabled(False)
         downloads = None
         try:
@@ -985,33 +1453,18 @@ class SpacePage(QWidget):
         self.job = None
         self._clear_junk_rows()
         if isinstance(result, Exception):
-            self.junk_rows.addWidget(_label(str(result), "muted", wrap=True))
+            self.junk_rows.addWidget(_note_row(str(result)))
+            self.clean_total.setText(human_size(0))
             return
         self.junk = [j for j in result if j.size > 0 or j.key == "bin"]
         if not self.junk:
-            self.junk_rows.addWidget(_label(tr("Nothing to clean up. Nice and tidy."), "muted"))
+            self.junk_rows.addWidget(_note_row(tr("Nothing to clean up. Nice and tidy.")))
         for j in self.junk:
-            row = QHBoxLayout()
-            row.setSpacing(12)
-            title = tr(j.title, name=j.name) if j.name else tr(j.title)
-            cb = QCheckBox(title)
-            cb.setCursor(Qt.PointingHandCursor)
-            cb.setChecked(j.ticked and j.size > 0 and not j.busy)
-            cb.setEnabled(j.size > 0 and not j.busy)
-            cb.toggled.connect(self._junk_total)
-            words = QVBoxLayout()
-            words.setSpacing(2)
-            words.addWidget(cb)
-            detail = tr(j.detail)
-            if j.busy:
-                detail = tr("Close {name} first, then look again.", name=j.busy)
-            note = _label(detail, "muted", wrap=True)
-            note.setContentsMargins(28, 0, 0, 0)
-            words.addWidget(note)
-            row.addLayout(words, 1)
-            row.addWidget(_label(human_size(j.size) if j.size else tr("Empty"), "h2"), 0, Qt.AlignTop)
-            self.junk_rows.addLayout(row)
-            self.junk_checks.append((cb, j))
+            row = JunkRow(j)
+            row.check.toggled.connect(self._junk_total)
+            self.junk_rows.addWidget(row)
+            self.junk_checks.append((row.check, j))
+        self.clean_total.setText(human_size(sum(j.size for j in self.junk if not j.busy)))
         self._junk_total()
 
     def _junk_total(self, *_):
@@ -1067,11 +1520,23 @@ class SpacePage(QWidget):
         w = QWidget()
         lay = QVBoxLayout(w)
         lay.setContentsMargins(0, 0, 0, 0)
-        lay.setSpacing(10)
-        lay.addWidget(_label(tr("Files that are exactly the same, byte for byte. Pick the copies to remove: they go to "
-                                "the Recycle Bin."), "muted", wrap=True))
+        lay.setSpacing(12)
+        top = QFrame()
+        top.setObjectName("card")
+        tl = QHBoxLayout(top)
+        tl.setContentsMargins(18, 16, 18, 16)
+        tl.setSpacing(16)
+        tl.addWidget(IconTile("copy", 48), 0, Qt.AlignTop)
+        words = QVBoxLayout()
+        words.setSpacing(4)
+        words.addWidget(_label(tr("Files that are exactly the same, byte for byte. Pick the copies to remove: they go "
+                                  "to the Recycle Bin."), None, wrap=True))
+        self.dupe_where = _label(tr("Your folders: {names}", names=", ".join(tr(n) for n in DUPE_FOLDERS)), "muted",
+                                 wrap=True)
+        words.addWidget(self.dupe_where)
         row = QHBoxLayout()
         row.setSpacing(8)
+        row.setContentsMargins(0, 6, 0, 0)
         self.dupe_btn = _button(tr("Find duplicates in your folders"), "primary", lambda: self.find_dupes(None))
         row.addWidget(self.dupe_btn)
         row.addWidget(_button(tr("In a folder…"), None, self._dupes_in_folder))
@@ -1081,10 +1546,9 @@ class SpacePage(QWidget):
             from .emptyview import EmptyFoldersDialog
             EmptyFoldersDialog.show_for(self)
         row.addWidget(_button(tr("Find empty folders…"), None, empty_folders))
-        lay.addLayout(row)
-        self.dupe_where = _label(tr("Your folders: {names}", names=", ".join(tr(n) for n in DUPE_FOLDERS)), "muted",
-                                 wrap=True)
-        lay.addWidget(self.dupe_where)
+        words.addLayout(row)
+        tl.addLayout(words, 1)
+        lay.addWidget(top)
         self.dupe_bar = QProgressBar()
         self.dupe_bar.setTextVisible(False)
         self.dupe_bar.hide()
@@ -1247,14 +1711,81 @@ class SpacePage(QWidget):
         self.cancel.set()
 
     def apply_theme(self, theme):
-        self.treemap.theme = theme
-        self.kinds_bar.theme = theme
-        for card in getattr(self, "drive_cards", []):
-            card.theme = theme
-            card.update()
+        for part in (self.treemap, self.kinds_bar, self.where, self.spinner, *self.kind_chips,
+                     *getattr(self, "drive_cards", [])):
+            part.theme = theme
+            part.update()
+        self.items.itemDelegateForColumn(0).theme = theme
         self._paint_backs()
-        self.treemap.update()
-        self.kinds_bar.update()
+        self._summary()
+        self._fill_list()
+
+
+class IconTile(QWidget):
+    """A rounded square washed with the accent, with a line icon on it."""
+
+    def __init__(self, icon: str, size: int = 40):
+        super().__init__()
+        self.icon = icon
+        self.setFixedSize(size, size)
+
+    def paintEvent(self, e):
+        from .atomic import tokens
+        t = tokens.current()
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        r = QRectF(self.rect())
+        p.setPen(Qt.NoPen)
+        p.setBrush(mix(t.surface, t.accent, 0.2 if t.dark else 0.13))
+        p.drawRoundedRect(r, r.width() * 0.28, r.width() * 0.28)
+        pad = r.width() * 0.26
+        icons.paint(p, r.adjusted(pad, pad, -pad, -pad), self.icon, t.accent)
+        p.end()
+
+
+class JunkRow(QWidget):
+    """Something that can go: an icon, a tick, what it is, and how big. Clicking the row ticks it."""
+
+    def __init__(self, j: space.Junk):
+        super().__init__()
+        self.junk = j
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(16, 12, 16, 12)
+        lay.setSpacing(14)
+        lay.addWidget(IconTile(JUNK_ICONS.get(j.key.split(":")[0], "delete"), 36), 0, Qt.AlignTop)
+        words = QVBoxLayout()
+        words.setSpacing(2)
+        title = tr(j.title, name=j.name) if j.name else tr(j.title)
+        self.check = QCheckBox(title)
+        self.check.setCursor(Qt.PointingHandCursor)
+        self.check.setChecked(j.ticked and j.size > 0 and not j.busy)
+        self.check.setEnabled(j.size > 0 and not j.busy)
+        bold = QFont(self.check.font())
+        bold.setWeight(QFont.Weight.DemiBold)
+        self.check.setFont(bold)
+        words.addWidget(self.check)
+        detail = tr(j.detail)
+        if j.busy:
+            detail = tr("Close {name} first, then look again.", name=j.busy)
+        note = _label(detail, "muted", wrap=True)
+        note.setContentsMargins(28, 0, 0, 0)
+        words.addWidget(note)
+        lay.addLayout(words, 1)
+        size = _label(human_size(j.size) if j.size else tr("Empty"), "h2" if j.size else "muted")
+        lay.addWidget(size, 0, Qt.AlignTop)
+        if self.check.isEnabled():
+            self.setCursor(Qt.PointingHandCursor)
+
+    def mouseReleaseEvent(self, e):
+        if e.button() == Qt.LeftButton and self.check.isEnabled() and self.rect().contains(e.position().toPoint()):
+            self.check.toggle()
+
+
+def _note_row(text: str) -> QWidget:
+    """A quiet line inside a box of rows ("Looking…", "Nothing to clean up")."""
+    lab = _label(text, "muted", wrap=True)
+    lab.setContentsMargins(16, 14, 16, 14)
+    return lab
 
 
 def _key(path: Path) -> str:
@@ -1271,6 +1802,16 @@ def _label(text: str, name: str | None = None, wrap: bool = False) -> QLabel:
         lab.setObjectName(name)
     lab.setWordWrap(wrap)
     return lab
+
+
+def _scroller(inner: QWidget) -> QScrollArea:
+    """inner, scrolling up and down when it doesn't fit (no frame, the page shows through)."""
+    scroll = QScrollArea()
+    scroll.setWidgetResizable(True)
+    scroll.setFrameShape(QFrame.NoFrame)
+    scroll.setWidget(inner)
+    scroll.viewport().setAutoFillBackground(False)
+    return scroll
 
 
 def _button(text: str, name: str | None = None, on_click=None) -> QPushButton:

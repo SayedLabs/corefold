@@ -19,8 +19,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .i18n import tr
-from .core import ARCHIVE_EXT, NO_WINDOW, TAR_SUFFIXES, Cancelled, Ctx, Result, _cached, app_dir, bundled, is_link, \
-    norm, pass_on_zone_mark, remove_file, run_with_progress, safe_name, unique_path
+from .core import ARCHIVE_EXT, NO_WINDOW, TAR_SUFFIXES, Cancelled, Ctx, Result, _cached, app_dir, bundled, \
+    find_program, is_link, norm, pass_on_zone_mark, remove_file, run_with_progress, safe_name, unique_path
 
 log = logging.getLogger("corefold")
 DUMMY_PASSWORD = "-pcorefold-no-password"  # never let 7-Zip stop and ask for one
@@ -56,7 +56,7 @@ def find_7z() -> str | None:
             _found_7z.append(str(cand))
             return str(cand)
     for name in ("7z", "7zz", "7za"):
-        found = shutil.which(name)
+        found = find_program(name)
         if found:
             _found_7z.append(found)
             return found

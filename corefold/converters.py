@@ -26,7 +26,7 @@ from .i18n import tr
 from .core import (ALIASES, ALL_EXT, ARCHIVE_EXT, AUDIO_EXT, DOCUMENT_EXT, EXCEL_EXT, IMAGE_EXT,  # noqa: F401
                    NO_WINDOW, SLIDES_EXT, job_flags, TAR_SUFFIXES, VIDEO_EXT, WORD_EXT, Cancelled, Ctx, Options, Result,
                    Tool, _cached, app_dir, bundled, is_cached, is_cloud_only, category, fallback_folder, human_size,
-                   lower_this_thread, norm, os_open, pass_on_zone_mark, remove_file,
+                   find_program, lower_this_thread, norm, os_open, pass_on_zone_mark, remove_file, system_tool,
                    safe_name, short_name, unique_path, writable)
 
 log = logging.getLogger("corefold")
@@ -601,7 +601,7 @@ def find_tool(name: str) -> str:
     for cand in (app_dir() / "ffmpeg" / exe, app_dir() / "vendor" / "ffmpeg" / exe):
         if cand.exists():
             return str(cand)
-    found = shutil.which(name)
+    found = find_program(name)
     if found:
         return found
     raise RuntimeError(tr("FFmpeg is missing. Reinstall Corefold to fix audio and video conversion."))
@@ -1033,11 +1033,11 @@ def pdf_merge(files: list[Path], ctx: Ctx) -> Result:
 
 
 def write_compressed_pdf(src: Path, out: Path, ctx: Ctx, quality: int = 65, max_dim: int = 1800,
-                         progress_span: tuple[float, float] = (0.0, 0.9)):
+                         progress_span: tuple[float, float] = (0.0, 0.9), reader=None):
     """Shrinks big pictures inside the PDF and squeezes the rest. Text stays sharp."""
     from PIL import Image
     from pypdf import PdfWriter
-    reader = _open_reader(src)
+    reader = reader or _open_reader(src)
     writer = PdfWriter(clone_from=reader)
     n = max(1, len(writer.pages))
     a, b = progress_span
@@ -1099,7 +1099,7 @@ def find_libreoffice() -> str | None:
         p = Path(base) / "LibreOffice" / "program" / "soffice.exe"
         if p.exists():
             return str(p)
-    return shutil.which("soffice")
+    return find_program("soffice")
 
 
 def office_app_for(src: Path) -> str | None:
@@ -1194,7 +1194,7 @@ def _run_stoppable(cmd: list[str], ctx: Ctx, timeout: float) -> tuple[int, str]:
 
 def _kill_tree(proc):
     if os.name == "nt":
-        subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], capture_output=True,
+        subprocess.run([system_tool("taskkill.exe"), "/T", "/F", "/PID", str(proc.pid)], capture_output=True,
                        stdin=subprocess.DEVNULL, creationflags=NO_WINDOW)
     else:
         proc.kill()

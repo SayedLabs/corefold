@@ -90,6 +90,10 @@ class Toast(QWidget):
         self.hide_timer.setSingleShot(True)
         self.hide_timer.timeout.connect(self.hide)
 
+    def retranslate(self):
+        """The language was changed: the words that stay on the toast."""
+        self.open_btn.setText(tr("Open"))
+
     def _place(self):
         """A corner of the screen you're working on (by default bottom right, bottom left in Arabic)."""
         self.adjustSize()

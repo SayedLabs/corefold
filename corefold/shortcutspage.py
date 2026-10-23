@@ -82,7 +82,7 @@ WINDOW_KEYS = [
     ]),
 ]
 
-STATES = {"working": "Working", "off": "Switched off", "taken": "Another app is using it", "unused": "Not in use"}
+STATES = {"working": "Working", "off": "Turned off", "taken": "Another app is using it", "unused": "Not in use"}
 
 
 def running(c, path: str):

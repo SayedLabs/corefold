@@ -128,7 +128,7 @@ class AwakeTool(QObject):
         self.timer.setSingleShot(True)
         self.timer.timeout.connect(self._tick)
         self.menu = None
-        self._add_tray_menu()
+        self.add_tray_menu()
 
     @property
     def on(self) -> bool:
@@ -237,7 +237,9 @@ class AwakeTool(QObject):
 
     # ---- the tray's "Keep awake" menu
 
-    def _add_tray_menu(self):
+    def add_tray_menu(self):
+        """Puts "Keep awake" in the tray menu (again, after the tray menu was made again in another language)."""
+        self._remove_tray_menu()
         from . import icons
         from .theme import round_menu
         from PySide6.QtWidgets import QMenu
@@ -343,6 +345,9 @@ class AwakeTool(QObject):
             set_state(ES_CONTINUOUS)
             log.info("awake: off (stopped)")
         self.mode, self.end = "", None
+        self._remove_tray_menu()
+
+    def _remove_tray_menu(self):
         if self.menu is not None:
             self.c.menu_icons = [e for e in self.c.menu_icons if e[0] is not self.menu.menuAction()]
             self.c.menu.removeAction(self.menu.menuAction())

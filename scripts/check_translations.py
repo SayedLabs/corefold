@@ -124,6 +124,20 @@ def table_texts() -> dict[str, str]:
     add(awake.DURATIONS.values(), "awake.DURATIONS")
     add([text for _, text in awake.TRAY_CHOICES], "awake.TRAY_CHOICES")
     add([text for _, text in awakepage.MODES + awakepage.SHUTDOWN_MODES] + ["Custom"], "awakepage.MODES")
+    from corefold import pdfpage, pdftools
+    add([text for card in pdfpage.ACTIONS + pdfpage.MORE for text in card[1:3]], "pdfpage.ACTIONS")
+    add(pdfpage.TIPS.values(), "pdfpage.TIPS")
+    add([v[0] for table in (pdftools.COMPRESS_LEVELS, pdftools.PAGE_SIZES, pdftools.MARGINS) for v in table.values()],
+        "pdftools tables")
+    add(list(pdftools.DPIS.values()) + list(pdftools.SPLIT_MODES.values()), "pdftools tables")
+    from corefold import organizer, organizerpage
+    add([name for name, _ in organizer.KINDS.values()], "organizer.KINDS")
+    add(organizer.STAYS.values(), "organizer.STAYS")
+    add(organizer.REFUSED.values(), "organizer.REFUSED")
+    add([name for _, name, _ in organizerpage.PLACES], "organizerpage.PLACES")
+    from corefold import startuppage
+    add([text for _, text in startuppage.FILTERS], "startuppage.FILTERS")
+    add(startuppage.WHERE.values(), "startuppage.WHERE")
     for _, title, text in tour.STEPS:
         add([title, text], "tour.STEPS")
     from corefold import settings_backup, shortcutspage

@@ -10,8 +10,11 @@ Names (setObjectName) understood here:
     primary     the main button                 danger     a button that deletes or removes
     ghost       a button with no box            flat       a link-like button
     small       a small ghost button            iconButton a square button with an icon
+    pillButton  a round-ended ghost button with an icon and a word or two (the language button)
     tab, subtab tabs and pill tabs              searchBox  the search field in the top strip
+    segmented   a strip of segment buttons      segment    one choice in it (checkable)
     line        a 1 px divider                  warning    a box with a warning stripe
+    dropdownBox, dropdownList   the open list of a Dropdown (widgets.py)
 """
 from __future__ import annotations
 
@@ -80,6 +83,10 @@ QPushButton#iconButton { padding: 0; min-width: 0; border-radius: ${r_md}px; bac
 QPushButton#iconButton:hover { background: $hover; }
 QPushButton#iconButton:pressed { background: $pressed; }
 QPushButton#iconButton:disabled { background: transparent; }
+QPushButton#pillButton { padding: 0 12px; min-width: 0; border-radius: 17px; background: transparent;
+        border: 1px solid transparent; color: $muted; font-weight: 600; }
+QPushButton#pillButton:hover { background: $hover; color: $text; border-color: $line_strong; }
+QPushButton#pillButton:pressed { background: $pressed; }
 QPushButton#tab { background: transparent; border: none; border-bottom: 2px solid transparent; border-radius: 0;
                   color: $muted; padding: 6px 12px 7px 12px; min-width: 0; font-weight: 600; }
 QPushButton#tab:hover { color: $text; }
@@ -88,6 +95,11 @@ QPushButton#subtab { background: transparent; border: 1px solid transparent; bor
                      padding: 4px 14px; min-width: 0; font-weight: 600; }
 QPushButton#subtab:hover { color: $text; background: $hover; }
 QPushButton#subtab:checked { color: $text; background: $surface; border-color: $line_strong; }
+QFrame#segmented { background: $segmented; border: 1px solid $border; border-radius: 10px; }
+QPushButton#segment { background: transparent; border: 1px solid transparent; border-radius: 7px; color: $muted;
+                      padding: 5px 14px; min-width: 0; font-weight: 600; }
+QPushButton#segment:hover { color: $text; }
+QPushButton#segment:checked { color: $text; background: $raised; border-color: $line_strong; }
 
 QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit, QPlainTextEdit {
         background: $field; border: 1px solid $line_strong; border-bottom-color: $line_bottom; border-radius: ${r_md}px;
@@ -103,6 +115,10 @@ QComboBox::drop-down { border: none; width: 28px; }
 QComboBox::down-arrow { image: url($down); width: 12px; height: 12px; }
 QComboBox QAbstractItemView { background: $raised; border: 1px solid $line_strong; outline: none; padding: 4px;
         selection-background-color: $hover; selection-color: $text; }
+QComboBox { combobox-popup: 0; }
+QFrame#dropdownBox { background: transparent; border: none; margin: 0; padding: 0; }
+QListView#dropdownList { background: $raised; border: 1px solid $line_strong; border-radius: ${r_lg}px; padding: 4px 0;
+        outline: none; }
 QSpinBox, QDoubleSpinBox { padding-right: 24px; }
 QSpinBox::up-button, QDoubleSpinBox::up-button { subcontrol-origin: border; subcontrol-position: top right;
         width: 22px; border: none; background: transparent; border-top-right-radius: ${r_md}px; }
@@ -137,6 +153,10 @@ QTreeView, QListView, QTableView { background: $surface; border: 1px solid $bord
 QTreeView::item, QListView::item { padding: 5px 2px; }
 QTreeView::item:hover, QListView::item:hover { background: $hover; }
 QTreeView::item:selected, QListView::item:selected { background: $accent_soft; color: $text; }
+QTreeView::indicator { width: 16px; height: 16px; border-radius: 4px; border: 1px solid $line_strong; background: $field; }
+QTreeView::indicator:hover { border-color: $muted; }
+QTreeView::indicator:checked { background: $accent; border-color: $accent; image: url($check); }
+QTreeView::indicator:indeterminate { background: $accent_soft; border-color: $accent; }
 QHeaderView::section { background: $surface; color: $muted; border: none; border-bottom: 1px solid $border; padding: 7px 6px;
         font-weight: 600; font-size: ${caption_plus}pt; }
 
@@ -171,6 +191,7 @@ def base(p: Palette, rtl: bool = False, check: str = "", up: str = "", down: str
         text=p.text.name(), muted=p.muted.name(), subtle=p.subtle.name(),
         backdrop=p.backdrop.name(), canvas=p.canvas.name(), surface=p.surface.name(), raised=p.raised.name(),
         field=p.field.name(), hover=p.hover.name(), pressed=p.pressed.name(),
+        segmented=(p.backdrop if p.dark else p.pressed).name(),
         border=p.border.name(), line_strong=p.line_strong.name(),
         line_bottom=(p.line_strong if p.dark else mix(p.line_strong, p.text, 0.12)).name(),
         accent=p.accent.name(), on_accent=p.on_accent.name(), accent_soft=p.accent_soft.name(),
