@@ -523,10 +523,18 @@ def _rss_mb() -> float:
         return 0.0
 
 
+def _kinds() -> dict:
+    out: dict = {}
+    for o in gc.get_objects():
+        k = type(o).__name__
+        out[k] = out.get(k, 0) + 1
+    return out
+
+
 def store_cycles():
     """Every tool removed and added back, three times over: the sidebar, pages and tray follow, nothing
     of a removed tool keeps running, and the window and memory don't grow each round."""
-    sizes = []
+    sizes, snaps, kinds = [], [], []
     ids = [t.id for t in all_tools.ready()]
     for round_ in range(ARGS.rounds):
         for tid in ids:
@@ -559,7 +567,23 @@ def store_cycles():
         tops = len([x for x in qapp.topLevelWidgets() if alive(x)])
         everything = len(qapp.allWidgets())
         sizes.append((tops, everything, _rss_mb()))
-        note(f"round {round_ + 1}: {tops} windows, {everything} widgets, {sizes[-1][2]:.0f} MB")
+        note(f"round {round_ + 1}: {tops} windows, {everything} widgets, {sizes[-1][2]:.0f} MB, "
+             f"{len(gc.get_objects())} Python objects")
+        if ARGS.rounds > 5 and round_ == ARGS.rounds // 2:  # what grows in the second half, if anything
+            import tracemalloc
+            tracemalloc.start(8)
+            snaps.append(tracemalloc.take_snapshot())
+            kinds.append(_kinds())
+    if snaps:
+        import tracemalloc
+        after = tracemalloc.take_snapshot()
+        for stat in after.compare_to(snaps[0], "traceback")[:8]:
+            note(f"grew {stat.size_diff / 1024:.0f} KB in {stat.count_diff} blocks at "
+                 f"{' < '.join(f'{Path(f.filename).name}:{f.lineno}' for f in stat.traceback[:4])}")
+        tracemalloc.stop()
+        now = _kinds()
+        grown = sorted(((now.get(k, 0) - kinds[0].get(k, 0), k) for k in now), reverse=True)[:8]
+        note("Python objects that grew: " + ", ".join(f"{k} +{n}" for n, k in grown if n > 0))
     if len(sizes) >= 3:
         check(sizes[-1][1] <= sizes[1][1] * 1.1 + 50, f"widgets don't pile up as tools come and go "
                                                        f"({' → '.join(str(x[1]) for x in sizes)})")
@@ -693,6 +717,7 @@ def search():
             if alive(top) and top.isVisible() and top.isWindow() and \
                     type(top).__name__ not in ("MainWindow", "Toast"):
                 top.cancel() if callable(getattr(top, "cancel", None)) else top.hide()  # (Esc, where it has one)
+        settle(0.4)  # (a person doesn't press the next key in the same instant)
         ran += 1
         last[0] = title
         check(not pal.isVisible() if alive(pal) else True, f"the search closes after running {title[:40]!r}")
