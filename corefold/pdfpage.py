@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QFileDialog, QFrame, QHBoxLayo
                                QListWidget, QListWidgetItem, QMenu, QMessageBox, QPushButton, QScrollArea,
                                QStackedWidget, QVBoxLayout, QWidget)
 
-from . import i18n, icons, pdftools, work
+from . import icons, pdftools, work
 from .atomic import tokens
 from .atomic.widgets import FlowLayout, IconButton, ResponsiveGrid
 from .core import IMAGE_EXT, norm, short_name
@@ -531,8 +531,11 @@ class PdfPage(QWidget):
         dot.setFixedSize(10, 10)
         dot.setStyleSheet(f"background: {FILE_COLORS[fi % len(FILE_COLORS)]}; border-radius: 5px;")
         h.addWidget(dot)
-        text = f"{short_name(self.files[fi].name, 40)}  ·  {tr('{count} pages', count=self.counts[fi])}"
-        h.addWidget(_label("\u200f" + text if i18n.is_rtl() else text, "muted"))  # (reads right to left)
+        # (the name and the count in labels of their own: a Latin file name and Arabic words never get mixed up)
+        h.addWidget(_label(short_name(self.files[fi].name, 40), "muted"))
+        h.addWidget(_label("·", "muted"))
+        h.addWidget(_label(tr("{count} pages", count=self.counts[fi]), "muted"))
+        h.addSpacing(6)
         self.legend.addWidget(chip)
         self.legend_box.updateGeometry()
 
