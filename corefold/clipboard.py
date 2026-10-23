@@ -121,6 +121,10 @@ class History:
         if self._db is None:
             self.images.mkdir(parents=True, exist_ok=True)
             db = sqlite3.connect(str(self.folder / "history.db"))
+            try:  # each copy is kept without waiting for the disk (it used to hold the app up to a second)
+                db.execute("PRAGMA journal_mode=WAL")
+            except sqlite3.Error:
+                pass
             db.execute("PRAGMA synchronous=NORMAL")
             db.execute("PRAGMA cache_size=-512")  # (KB: it stays small while Corefold waits in the tray)
             db.execute("CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, kind TEXT NOT NULL, text TEXT,"

@@ -26,7 +26,7 @@ from .i18n import tr
 from .core import (ALIASES, ALL_EXT, ARCHIVE_EXT, AUDIO_EXT, DOCUMENT_EXT, EXCEL_EXT, IMAGE_EXT,  # noqa: F401
                    NO_WINDOW, SLIDES_EXT, job_flags, TAR_SUFFIXES, VIDEO_EXT, WORD_EXT, Cancelled, Ctx, Options, Result,
                    Tool, _cached, app_dir, bundled, is_cached, is_cloud_only, category, fallback_folder, human_size,
-                   norm, os_open, pass_on_zone_mark,
+                   norm, os_open, pass_on_zone_mark, remove_file,
                    safe_name, short_name, unique_path, writable)
 
 log = logging.getLogger("corefold")
@@ -224,12 +224,72 @@ def _all_pages(f: Path):
     yield flatten(load_image(f))
 
 
+def _plain_jpegs(files: list[Path]) -> list[tuple[Path, int, int, int]] | None:
+    """(file, width, height, phone rotation) when every file is an ordinary JPG photo, else None."""
+    from PIL import Image
+    out = []
+    for f in files:
+        try:
+            with Image.open(f) as im:
+                if im.format != "JPEG" or im.mode not in ("RGB", "L"):
+                    return None
+                turn = im.getexif().get(0x0112, 1) or 1
+                if turn not in (1, 3, 6, 8):  # (mirrored ones go the long way)
+                    return None
+                out.append((f, im.width, im.height, turn))
+        except Exception:
+            return None
+    return out
+
+
+def jpegs_to_pdf(photos: list[tuple[Path, int, int, int]], out: Path, resolution: int, ctx: Ctx):
+    """JPG photos go into the PDF as they are: nothing is decoded and compressed again, so it's many times
+    faster and the photos keep their quality. Phone rotation is applied on the page."""
+    import pypdfium2 as pdfium
+    pdf = pdfium.PdfDocument.new()
+    tmp = out.with_name(out.name + ".part")
+    try:
+        for i, (f, w, h, turn) in enumerate(photos):
+            ctx.check()
+            img = pdfium.PdfImage.new(pdf)
+            img.load_jpeg(str(f), inline=False)
+            sw, sh = w * 72 / resolution, h * 72 / resolution
+            m = pdfium.PdfMatrix().scale(sw, sh)
+            if turn == 3:
+                m = m.rotate(180).translate(sw, sh)
+            elif turn == 6:
+                m = m.rotate(90).translate(0, sw)
+            elif turn == 8:
+                m = m.rotate(-90).translate(sh, 0)
+            img.set_matrix(m)
+            page = pdf.new_page(*((sh, sw) if turn in (6, 8) else (sw, sh)))
+            page.insert_obj(img)
+            page.gen_content()
+            page.close()
+            ctx.progress((i + 1) / (len(photos) + 1))
+        pdf.save(str(tmp))
+        pdf.close()
+        os.replace(tmp, out)
+    finally:
+        try:
+            pdf.close()
+        except Exception:
+            pass
+        if tmp.exists():
+            tmp.unlink(missing_ok=True)
+
+
 def images_to_pdf(files: list[Path], ctx: Ctx) -> Result:
     if ctx.options.rename_base:
         name = safe_name(ctx.options.rename_base)
     else:
         name = files[0].stem if len(files) == 1 else f"{files[0].stem} +{len(files) - 1}"
     out = ctx.out_path(files[0], name + ".pdf")
+
+    photos = _plain_jpegs(files)
+    if photos:
+        jpegs_to_pdf(photos, out, 150, ctx)
+        return Result([out])
 
     def pages():
         for i, f in enumerate(files):
@@ -624,11 +684,11 @@ def run_ffmpeg(src: Path, out: Path, args: list[str], ctx: Ctx, pre: list[str] |
         real_file = str(out) != os.devnull
         if ctx.cancelled:
             if real_file:
-                out.unlink(missing_ok=True)
+                remove_file(out)
             raise Cancelled()
         if proc.returncode:
             if real_file:
-                out.unlink(missing_ok=True)
+                remove_file(out)
             err.seek(0)
             lines = [ln for ln in err.read().strip().splitlines() if ln.strip()]
             log.error("ffmpeg failed for %s: %s", src, "\n".join(lines[-10:]))

@@ -189,13 +189,26 @@ def until(cond, seconds=10):
     return False
 
 
-def timed(what, fn, limit, wait=None, wait_s=None):
+def timed(what, fn, limit, wait=None, wait_s=None, profile=""):
     """Runs one thing a person does (a click), then waits for its result if `wait` is given. 'SLOW' when it
-    took longer than `limit`; any freeze while it ran is listed separately."""
+    took longer than `limit`; any freeze while it ran is listed separately. With `profile`, where the time
+    went is saved in <folder>/profile-<profile>.txt."""
     watch.label = what
     t0 = time.perf_counter()
     try:
-        result = fn()
+        if profile:
+            import cProfile
+            import io
+            import pstats
+            prof = cProfile.Profile()
+            result = prof.runcall(fn)
+            out = io.StringIO()
+            stats = pstats.Stats(prof, stream=out)
+            stats.sort_stats("cumulative").print_stats(45)
+            stats.sort_stats("tottime").print_stats(30)
+            (OUT / f"{TAG}-profile-{profile}.txt").write_text(out.getvalue(), "utf-8")
+        else:
+            result = fn()
         done = True if wait is None else until(wait, wait_s or max(limit * 4, 10))
     except Exception:
         watch.label = ""
@@ -296,8 +309,8 @@ def make_files():
     big.resize((4000, 3000)).save(S / "photo.webp", quality=85)
     big.resize((4000, 3000)).save(S / "photo.tif")
     try:
-        import pillow_heif
-        pillow_heif.register_heif_opener()
+        import pi_heif
+        pi_heif.register_heif_opener()
         big.resize((4032, 3024)).save(S / "iphone.heic", quality=80)
     except Exception as e:
         say(f"note  no HEIC test file ({e})")
@@ -332,7 +345,7 @@ def make_files():
         d = ImageDraw.Draw(p)
         for y in range(100, 1700, 40):
             d.text((100, y), f"Page {i + 1} line {y} " * 6, fill=(0, 0, 0))
-    pages[0].save(S / "Report 40 pages.pdf", save_all=True, append_images=pages[1:])
+    pages[0].save(S / "Report 40 pages.pdf", save_all=True, append_images=pages[1:], resolution=150)
     # a folder with many files, to pack and to look for copies
     work = S / "Project"
     for i in range(1500):
@@ -359,7 +372,7 @@ def start():
               4)
     settle(1)
     w = timed("the window opens the first time", lambda: (c.show_window("Home"), c.window)[1], 2.5,
-              wait=lambda: c.window.isVisible())
+              wait=lambda: c.window.isVisible(), profile="window")
     w.resize(1100, 720)
     settle(0.5)
     grab(w, "home")
@@ -388,7 +401,7 @@ def start():
     for p in slow:
         problems.append(f"slow page: {p}")
     c.window.open_page("Home")
-    timed("switch dark/light", lambda: c.window.toggle_dark(), 0.8)
+    timed("switch dark/light", lambda: c.window.toggle_dark(), 0.8, profile="theme")
     grab(c.window, "home-switched")
     timed("switch it back", lambda: c.window.toggle_dark(), 0.8)
 
@@ -478,20 +491,20 @@ def converter():
           0.35, wait=lambda: c.wheel.isVisible(), wait_s=3)
     grab(c.wheel, "wheel")
     c.wheel.hide()
-    run("20 phone photos → PNG", phone, ("to:png",), 40, expect=20)
-    run("20 phone photos → WebP", phone, ("to:webp",), 30, expect=20)
+    run("20 phone photos → PNG", phone, ("image:png",), 40, expect=20)
+    run("20 phone photos → WebP", phone, ("image:webp",), 30, expect=20)
     run("20 phone photos → smaller", phone, ("image:small",), 25, expect=20)
     run("20 phone photos → one PDF", phone, ("image:pdf",), 30)
-    run("48 MP picture → JPG", [S / "panorama-48mp.png"], ("to:jpg",), 6)
+    run("48 MP picture → JPG", [S / "panorama-48mp.png"], ("image:jpg",), 6)
     if (S / "iphone.heic").exists():
-        run("iPhone HEIC → JPG", [S / "iphone.heic"], ("to:jpg",), 4)
+        run("iPhone HEIC → JPG", [S / "iphone.heic"], ("image:jpg",), 4)
     run("90 s 1080p video → smaller", [S / "Trip 1080p.mp4"], ("video:small",), 120)
-    run("90 s 1080p video → MP3", [S / "Trip 1080p.mp4"], ("video:mp3", "to:mp3"), 15)
-    run("90 s 1080p video → GIF", [S / "Trip 1080p.mp4"], ("to:gif",), 90)
-    run("4K HEVC film → MP4", [S / "Film 4K HEVC.mkv"], ("to:mp4",), 150)
-    run("phone .mov → MP4", [S / "Phone video.mov"], ("to:mp4",), 30)
-    run("4 min WAV → MP3", [S / "Long song.wav"], ("to:mp3",), 15)
-    run("FLAC → MP3", [S / "Song.flac"], ("to:mp3",), 15)
+    run("90 s 1080p video → MP3", [S / "Trip 1080p.mp4"], ("video:mp3",), 15)
+    run("90 s 1080p video → GIF", [S / "Trip 1080p.mp4"], ("video:gif",), 90)
+    run("4K HEVC film → MP4", [S / "Film 4K HEVC.mkv"], ("video:mp4",), 150)
+    run("phone .mov → MP4", [S / "Phone video.mov"], ("video:mp4",), 30)
+    run("4 min WAV → MP3", [S / "Long song.wav"], ("audio:mp3",), 15)
+    run("FLAC → MP3", [S / "Song.flac"], ("audio:mp3",), 15)
     run("40-page PDF → pictures", [S / "Report 40 pages.pdf"], ("pdf:png", "pdf:images"), 40)
     run("40-page PDF → smaller", [S / "Report 40 pages.pdf"], ("pdf:compress",), 40)
     run("folder of 1,530 files → ZIP", [S / "Project"], ("pack:zip",), 20)
@@ -667,7 +680,25 @@ def space():
     grab(w, "space-drives")
     root = Path(os.environ.get("SystemRoot", "C:/Windows"))
     timed(f"look through {root} (hundreds of thousands of files)", lambda: pg.start_scan(root), 90,
-          wait=lambda: pg.scan is not None and pg.job is None, wait_s=300)
+          wait=lambda: pg.scan is not None and pg.job is None, wait_s=150)
+    if pg.job is not None:  # (stopped, so the rest can go on)
+        say(f"note  still looking: {pg.busy_line.text()}")
+        pg._stop()
+        until(lambda: pg.job is None, 30)
+    import cProfile
+    import io
+    import pstats
+    from corefold import space as sp
+    stop = threading.Event()
+    threading.Timer(40, stop.set).start()
+    prof = cProfile.Profile()
+    with setup():
+        r = prof.runcall(sp.scan, root, stop)
+    out = io.StringIO()
+    pstats.Stats(prof, stream=out).sort_stats("tottime").print_stats(25)
+    (OUT / f"{TAG}-profile-scan.txt").write_text(out.getvalue(), "utf-8")
+    say(f"note  scan on its own: {r.files:,} files, {r.folders:,} folders in {r.seconds:.1f} s "
+        f"({r.files / max(r.seconds, 0.1):,.0f} a second){' (stopped)' if r.cancelled else ''}")
     settle(0.5)
     grab(w, "space-map")
     if pg.scan is not None:
@@ -693,20 +724,29 @@ def clipboard():
         return
     cb = QGuiApplication.clipboard()
     from PySide6.QtGui import QColor, QImage
+    from corefold import clipboard as A_clip
     t0 = time.perf_counter()
-    watch.label = "copying 300 texts and 15 pictures, one after another"
-    for i in range(300):
+    label = "copying 60 texts and 15 pictures, one after another"
+    before = clip.history.count()
+    watch.label = label
+    for i in range(60):  # as fast as a person copies (Ctrl + C, switch, Ctrl + C …)
         cb.setText(f"Copied text number {i} — some words to search in, https://example.com/{i}")
-        QTest.qWait(25)
+        QTest.qWait(250)
     for i in range(15):
         img = QImage(1920, 1080, QImage.Format.Format_RGB32)
         img.fill(QColor(10 * i, 120, 200))
         cb.setImage(img)
-        QTest.qWait(250)
+        QTest.qWait(700)
+    until(lambda: clip.history.count() >= before + 75, 10)
     watch.label = ""
-    say(f"note  copying 315 things took {time.perf_counter() - t0:.1f} s; kept {clip.history.count()}")
-    frozen = watch.worst.pop("copying 300 texts and 15 pictures, one after another", 0)
-    check(frozen < 1.0, f"copying many things doesn't freeze the app (longest {frozen:.2f} s)")
+    frozen = watch.worst.pop(label, 0)
+    check(clip.history.count() >= before + 75, f"every copy is kept ({clip.history.count() - before} of 75, "
+                                               f"{time.perf_counter() - t0:.1f} s)")
+    check(frozen < 0.25, f"copying doesn't hold the app up (longest {frozen:.2f} s)")
+    with setup():
+        for i in range(300):  # a long history, for the lists below
+            clip.history.add(A_clip.Item(kind="text", text=f"Older copy {i} with words", digest=f"old-{i}",
+                                         size=24))
     timed("open the clipboard list with 300+ copies", lambda: c.show_clipboard(), 0.5,
           wait=lambda: clip.popup is not None and clip.popup.isVisible())
     pop = clip.popup
@@ -716,14 +756,16 @@ def clipboard():
             timed(f"search the clipboard: {text!r}", lambda t=text: (pop.search.setText(t), qapp.processEvents()), 0.2)
         pop.hide()
     c.show_window("Clipboard")
-    timed("the Clipboard page with 300+ copies", lambda: (c.window.open_page("Clipboard"), qapp.processEvents()), 0.6)
+    timed("the Clipboard page with 300+ copies", lambda: (c.window.open_page("Clipboard"), qapp.processEvents()), 0.6,
+          profile="clip-page")
     grab(c.window, "clip-page")
 
 
 def store():
     w = c.window
     for t in all_tools.ready():
-        timed(f"Store: remove {t.id}", lambda i=t.id: (c.set_tool(i, False), qapp.processEvents()), 1.0)
+        timed(f"Store: remove {t.id}", lambda i=t.id: (c.set_tool(i, False), qapp.processEvents()), 1.0,
+              profile="store-remove" if t.id == "viewer" else "")
         timed(f"Store: add {t.id} back", lambda i=t.id: (c.set_tool(i, True), qapp.processEvents()), 1.5)
     w = c.window
     w.open_page("Store")
@@ -739,6 +781,9 @@ def idle():
     import ctypes
     from ctypes import wintypes as wt
     k = ctypes.windll.kernel32
+    k.GetCurrentProcess.restype = wt.HANDLE
+    k.GetProcessTimes.argtypes = [wt.HANDLE] + [ctypes.POINTER(wt.FILETIME)] * 4
+    ctypes.windll.psapi.GetProcessMemoryInfo.argtypes = [wt.HANDLE, ctypes.c_void_p, wt.DWORD]
     h = k.GetCurrentProcess()
 
     def cpu():
