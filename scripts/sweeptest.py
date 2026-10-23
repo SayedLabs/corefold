@@ -326,8 +326,13 @@ def page_opens(w, name: str, what: str):
 
 
 def grab(w, name):
+    """A picture of the window, and of the whole page when it scrolls (what's below shows too)."""
     try:
         w.grab().save(str(OUT / f"{TAG}-{name}.png"))
+        here = w.stack.currentWidget() if hasattr(w, "stack") else None
+        inner = here.widget() if here is not None and hasattr(here, "widget") and callable(here.widget) else None
+        if inner is not None and inner.height() > here.height() + 20:
+            inner.grab().save(str(OUT / f"{TAG}-{name}-whole.png"))
     except Exception:
         pass
 
@@ -508,10 +513,14 @@ def _rss_mb() -> float:
                         ("PeakPagefileUsage", ctypes.c_size_t), ("PrivateUsage", ctypes.c_size_t)]
         pmc = PMC()
         pmc.cb = ctypes.sizeof(PMC)
-        ctypes.windll.psapi.GetProcessMemoryInfo(ctypes.windll.kernel32.GetCurrentProcess(), ctypes.byref(pmc),
-                                                 pmc.cb)
+        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        k32.GetCurrentProcess.restype = wintypes.HANDLE
+        k32.K32GetProcessMemoryInfo.argtypes = [wintypes.HANDLE, ctypes.POINTER(PMC), wintypes.DWORD]
+        if not k32.K32GetProcessMemoryInfo(k32.GetCurrentProcess(), ctypes.byref(pmc), pmc.cb):
+            note(f"couldn't read the memory in use (error {ctypes.get_last_error()})")
         return pmc.PrivateUsage / 1e6
-    except Exception:
+    except Exception as e:
+        note(f"couldn't read the memory in use: {e!r}")
         return 0.0
 
 
@@ -653,11 +662,8 @@ def quick():
                                                               f"{spot.y()} ({g.x()},{g.y()} {g.width()}x{g.height()})")
                 if round_ == 0 and spot == spots[0]:
                     grab(wh, "quick-wheel")
-                QTest.keyClick(wh, Qt.Key_Escape)
-                settle(0.4)
-                if wh.isVisible():
-                    check(False, "Esc closes the quick wheel")
-                    wh.hide()
+                wh.hide()  # (Esc on the wheel is read from the real keyboard: scripts/quicktest.py presses it)
+                settle(0.2)
             check(len(errors) == before, f"the quick menu and wheel at {spot.x()},{spot.y()}: no errors")
     # the floating button comes and goes with its setting
     s_ = c.settings
