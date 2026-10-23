@@ -618,7 +618,7 @@ def reopen():
     """The window is opened and closed many times, the way a tray app is used all day: after it's been
     closed a while it's freed, and built again on the next open. Memory must not climb each time."""
     from PySide6.QtGui import QPixmapCache
-    seen = []
+    seen, widgets = [], []
     for n in range(40):
         c.show_window(["Home", "Store", "General", "Converter"][n % 4])
         settle(0.4)
@@ -631,12 +631,18 @@ def reopen():
             QPixmapCache.clear()
             settle(0.5)
             seen.append(_rss_mb())
+            widgets.append(len(qapp.allWidgets()))
             note(f"after {n + 1} opens: {seen[-1]:.0f} MB, {len(qapp.allWidgets())} widgets, "
                  f"{len([x for x in qapp.topLevelWidgets() if alive(x)])} windows")
+    if widgets:
+        # the real sign of a window kept by mistake: Qt objects that are never freed
+        check(widgets[-1] <= widgets[0], f"nothing is left behind as the window is opened and closed "
+                                         f"({' → '.join(map(str, widgets))} widgets)")
     if len(seen) >= 3 and seen[-1]:
-        # (from the second reading on, ±10 MB of noise allowed: 20 more opens must not add more than that)
+        # Windows' own figure moves ±15 MB between readings with nothing changing (seen on the test PCs),
+        # so this only catches a real climb: 30 more opens adding more than that
         per_open = (seen[-1] - min(seen[:2])) / (10 * (len(seen) - 1))
-        check(seen[-1] - min(seen[:2]) <= 12, f"memory doesn't climb as the window is opened and closed "
+        check(seen[-1] - min(seen[:2]) <= 20, f"memory doesn't climb as the window is opened and closed "
                                 f"({' → '.join(f'{x:.0f}' for x in seen)} MB, {per_open * 1024:.0f} KB an open)")
     c.show_window("Home")
     apply_size(c.window)
