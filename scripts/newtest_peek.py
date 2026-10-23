@@ -280,8 +280,12 @@ def part(lang, look):
               f"{'as' if ctypes.windll.shell32.IsUserAnAdmin() else 'not as'} administrator)", flush=True)
         check(until(lambda: os.path.normcase(peekshell.shown_folder(hwnd)) == os.path.normcase(str(folder)), 10),
               f"…showing the test folder ({peekshell.shown_folder(hwnd)!r}, wanted {str(folder)!r})")
-        ok = check(until(lambda: peekshell.selection(hwnd) == [str(files["picture"])], 10),
-                   f"the selection is read from File Explorer ({peekshell.selection(hwnd)})")
+        picked = lambda: peekshell.selection(hwnd) == [str(files["picture"])]  # noqa: E731
+        if not until(picked, 5):
+            # (Explorer on GitHub's runner opens the folder but doesn't always select the file "/select," names)
+            print("      (Explorer didn't select the picture by itself: selecting it here)", flush=True)
+            peekshell.select(hwnd, str(files["picture"]))
+        ok = check(until(picked, 5), f"the selection is read from File Explorer ({peekshell.selection(hwnd)})")
         explain()
         if ok:
             t = time.perf_counter()
