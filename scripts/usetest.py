@@ -890,7 +890,7 @@ def idle():
     watch.timer.stop()  # (the test's own heartbeat isn't the app's work)
     th0 = thread_cpu()
     c0, t0 = cpu(), time.perf_counter()
-    settle(15)
+    wait_ms(15000)  # (one wait: settle() wakes up the test itself 100 times a second)
     used = (cpu() - c0) / (time.perf_counter() - t0) * 100
     th1 = thread_cpu()
     busy = sorted(((th1[n] - th0.get(n, 0), n) for n in th1), reverse=True)[:6]
@@ -898,7 +898,7 @@ def idle():
         + f" (all Python threads {sum(t for t, _ in busy):.2f} s of {used * 0.15:.2f} s)")
     counter = Count()
     qapp.installEventFilter(counter)
-    settle(5)
+    wait_ms(5000)
     qapp.removeEventFilter(counter)
     say("note  idle, timers on the window's thread in 5 s: "
         + ", ".join(f"{n} ×{v}" for n, v in sorted(counter.n.items(), key=lambda x: -x[1])[:10]))
@@ -922,13 +922,16 @@ say("note  versions: " + ", ".join(f"{n} {_version(n)}" for n in ("PySide6-Essen
 with setup():
     # The first text drawn on a PC that just started waits for Windows to read its fonts (any app does, once;
     # 3-13 s on GitHub's fresh PCs). Done here, so the app's own times below don't count it.
-    from PySide6.QtWidgets import QLabel
+    # (with the fonts the app uses: Windows 11 itself uses them all day, so on a person's PC they're ready)
+    from PySide6.QtGui import QFont, QFontMetrics
+    from corefold.atomic import tokens as _tokens
     t0 = time.perf_counter()
-    _first = QLabel("Corefold مرحبا")
-    _first.ensurePolished()
-    _first.sizeHint()
+    for _fam in {_tokens.TEXT_FAMILY, _tokens.FONT_DISPLAY.strip('"'), "Segoe UI"}:
+        for _bold in (False, True):
+            _f = QFont(_fam, 11)
+            _f.setBold(_bold)
+            QFontMetrics(_f).horizontalAdvance("Corefold مرحبا ✓ → 123")
     say(f"note  the first text on this PC (Windows reading its fonts): {time.perf_counter() - t0:.1f} s")
-    del _first
     t0 = time.perf_counter()
     make_files()
     say(f"note  test files made in {time.perf_counter() - t0:.0f} s")
