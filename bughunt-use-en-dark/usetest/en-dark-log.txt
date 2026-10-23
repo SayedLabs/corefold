@@ -1,0 +1,80 @@
+2026-10-23 20:20:19,520 INFO running in the background: clipboard, capture, quick access
+2026-10-23 20:21:58,970 INFO job 1: image:png on 20 item(s)
+2026-10-23 20:22:04,944 INFO job 2: image:webp on 20 item(s)
+2026-10-23 20:22:33,481 INFO job 3: image:small on 20 item(s)
+2026-10-23 20:22:35,055 INFO job 4: image:pdf on 20 item(s)
+2026-10-23 20:22:35,133 INFO 20 JPG photos put in a PDF as they are (0.1 s)
+2026-10-23 20:22:35,176 INFO job 5: image:jpg on 1 item(s)
+2026-10-23 20:22:36,275 INFO job 6: video:small on 1 item(s)
+2026-10-23 20:22:36,625 INFO graphics card video encoder: none
+2026-10-23 20:23:13,467 INFO job 7: video:mp3 on 1 item(s)
+2026-10-23 20:23:14,329 INFO job 8: video:gif on 1 item(s)
+2026-10-23 20:23:38,522 INFO job 9: video:mp4 on 1 item(s)
+2026-10-23 20:24:31,052 INFO job 10: video:mp4 on 1 item(s)
+2026-10-23 20:24:36,931 INFO job 11: audio:mp3 on 1 item(s)
+2026-10-23 20:24:38,765 INFO job 12: audio:mp3 on 1 item(s)
+2026-10-23 20:24:39,974 INFO job 13: pdf:png on 1 item(s)
+2026-10-23 20:24:43,411 INFO job 14: pdf:compress on 1 item(s)
+2026-10-23 20:24:45,741 INFO job 15: pack:zip on 1 item(s)
+2026-10-23 20:24:46,880 INFO job 16: pack:7z on 1 item(s)
+2026-10-23 20:24:52,443 INFO job 17: video:small on 1 item(s)
+2026-10-23 20:24:57,930 INFO archive window opened (20001 items)
+2026-10-23 20:24:58,789 INFO job 18: archive:open on 1 item(s)
+2026-10-23 20:24:59,130 INFO job 19: archive:extract on 1 item(s)
+2026-10-23 20:25:08,260 INFO archive window opened (1546 items)
+2026-10-23 20:25:15,230 INFO player opened a .mp4 file
+2026-10-23 20:25:15,514 INFO player is playing (video True, sound True)
+2026-10-23 20:25:15,788 INFO player opened a .mkv file
+2026-10-23 20:25:15,851 INFO player is playing (video True, sound True)
+2026-10-23 20:25:16,459 INFO player opened a .webm file
+2026-10-23 20:25:16,626 INFO player is playing (video True, sound True)
+2026-10-23 20:25:16,803 INFO player opened a .mov file
+2026-10-23 20:25:16,904 INFO player is playing (video True, sound False)
+2026-10-23 20:25:17,120 INFO player opened a .mp3 file
+2026-10-23 20:25:17,174 INFO player is playing (video False, sound True)
+2026-10-23 20:25:17,426 INFO player opened a .flac file
+2026-10-23 20:25:17,473 INFO player is playing (video False, sound True)
+2026-10-23 20:25:17,726 INFO player opened a .mp4 file
+2026-10-23 20:25:17,828 INFO player is playing (video True, sound True)
+2026-10-23 20:25:56,742 INFO running in the background: clipboard, capture, quick access
+2026-10-23 20:25:56,743 INFO tools in use: uninstaller, archive, viewer, player, capture, space, clipboard
+2026-10-23 20:25:56,759 INFO archive files open with Corefold
+2026-10-23 20:25:56,773 INFO image files open with Corefold
+2026-10-23 20:25:56,785 INFO email files open with Corefold
+2026-10-23 20:25:56,808 INFO media files open with Corefold
+2026-10-23 20:25:57,721 INFO running in the background: clipboard, capture, quick access
+2026-10-23 20:25:57,721 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space, clipboard
+2026-10-23 20:25:58,871 INFO running in the background: clipboard, capture, quick access
+2026-10-23 20:25:58,871 INFO tools in use: converter, archive, viewer, player, capture, space, clipboard
+2026-10-23 20:26:00,041 INFO running in the background: clipboard, capture, quick access
+2026-10-23 20:26:00,041 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space, clipboard
+2026-10-23 20:26:00,907 INFO right-click menu updated
+2026-10-23 20:26:01,249 INFO running in the background: clipboard, capture, quick access
+2026-10-23 20:26:01,250 INFO tools in use: converter, uninstaller, viewer, player, capture, space, clipboard
+2026-10-23 20:26:02,163 INFO running in the background: clipboard, capture, quick access
+2026-10-23 20:26:02,163 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space, clipboard
+2026-10-23 20:26:02,179 INFO archive files open with Corefold
+2026-10-23 20:26:03,214 INFO running in the background: clipboard, capture, quick access
+2026-10-23 20:26:03,214 INFO tools in use: converter, uninstaller, archive, player, capture, space, clipboard
+2026-10-23 20:26:04,220 INFO running in the background: clipboard, capture, quick access
+2026-10-23 20:26:04,222 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space, clipboard
+2026-10-23 20:26:04,241 INFO image files open with Corefold
+2026-10-23 20:26:04,249 INFO email files open with Corefold
+2026-10-23 20:26:05,325 INFO running in the background: clipboard, capture, quick access
+2026-10-23 20:26:05,326 INFO tools in use: converter, uninstaller, archive, viewer, capture, space, clipboard
+2026-10-23 20:26:06,270 INFO running in the background: clipboard, capture, quick access
+2026-10-23 20:26:06,270 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space, clipboard
+2026-10-23 20:26:06,295 INFO media files open with Corefold
+2026-10-23 20:26:07,260 INFO running in the background: clipboard, quick access
+2026-10-23 20:26:07,261 INFO tools in use: converter, uninstaller, archive, viewer, player, space, clipboard
+2026-10-23 20:26:08,264 INFO running in the background: clipboard, capture, quick access
+2026-10-23 20:26:08,264 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space, clipboard
+2026-10-23 20:26:09,326 INFO running in the background: clipboard, capture, quick access
+2026-10-23 20:26:09,326 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, clipboard
+2026-10-23 20:26:10,244 INFO running in the background: clipboard, capture, quick access
+2026-10-23 20:26:10,245 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space, clipboard
+2026-10-23 20:26:11,352 INFO running in the background: capture, quick access
+2026-10-23 20:26:11,353 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space
+2026-10-23 20:26:12,390 INFO running in the background: clipboard, capture, quick access
+2026-10-23 20:26:12,391 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space, clipboard
+2026-10-23 20:26:15,392 INFO tidied up memory

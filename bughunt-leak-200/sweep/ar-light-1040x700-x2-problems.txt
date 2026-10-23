@@ -1,0 +1,28 @@
+
+errors:
+
+notes:
+round 1: 28 windows, 1403 widgets, 173 MB, 48433 Python objects
+round 2: 28 windows, 1403 widgets, 194 MB, 49006 Python objects
+round 3: 28 windows, 1403 widgets, 196 MB, 49041 Python objects
+round 4: 28 windows, 1403 widgets, 206 MB, 49076 Python objects
+round 5: 28 windows, 1403 widgets, 208 MB, 49111 Python objects
+round 6: 28 windows, 1403 widgets, 208 MB, 49146 Python objects
+round 7: 28 windows, 1403 widgets, 233 MB, 49497 Python objects
+round 8: 28 windows, 1403 widgets, 243 MB, 49469 Python objects
+round 9: 28 windows, 1403 widgets, 244 MB, 49549 Python objects
+round 10: 28 windows, 1403 widgets, 244 MB, 49299 Python objects
+grew 65 KB in 1328 blocks at window.py:514 > window.py:2705 > window.py:3153 > window.py:93 > widgets.py:29
+grew 64 KB in 1312 blocks at window.py:514 > window.py:2705 > window.py:3153 > window.py:93 > widgets.py:29
+grew 51 KB in 1163 blocks at threading.py:1075 > threading.py:1012 > app.py:1060 > shellmenu.py:129 > shellmenu.py:105
+grew 50 KB in 1245 blocks at app.py:425 > window.py:514 > window.py:2705 > window.py:3156 > window.py:82
+grew 50 KB in 1245 blocks at app.py:425 > window.py:514 > window.py:2705 > window.py:3155 > window.py:82
+grew 50 KB in 1245 blocks at app.py:425 > window.py:514 > window.py:2705 > window.py:3148 > window.py:82
+grew 49 KB in 1230 blocks at app.py:425 > window.py:514 > window.py:2705 > window.py:3156 > window.py:82
+grew 49 KB in 1230 blocks at app.py:425 > window.py:514 > window.py:2705 > window.py:3155 > window.py:82
+Python objects that grew: tuple +32377, Tool +82, cell +59, CField +44, function +40, partial +30, getset_descriptor +16, dict +14
+after the app tidies up: 234 MB; with the picture cache emptied too: 220 MB (picture cache limit 10 MB)
+after 10 opens: 173 MB, 14 widgets, 4 windows
+after 20 opens: 171 MB, 14 widgets, 4 windows
+after 30 opens: 169 MB, 14 widgets, 4 windows
+after 40 opens: 168 MB, 14 widgets, 4 windows
