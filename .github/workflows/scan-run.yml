@@ -1,0 +1,59 @@
+# TEMPORARY (delete before the pull request is merged): tries Corefold Scan on real Windows PCs on
+# every push to its branch. What it found goes to the "scan-results" branch, summary.txt on top.
+name: Scan tool run
+
+on:
+  push:
+    branches: [claude/project-thread-0fzfp0]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: scan-run
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: What Defender says
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          python scripts/scanprobe.py *> out/probe.txt
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: scan-probe
+          path: out/
+
+  results:
+    needs: probe
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          path: results
+      - name: Save to the scan-results branch
+        env:
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd results
+          echo "Scan tool run of $SHA" > summary.txt
+          git init -q -b scan-results
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Scan tool run of $SHA"
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${REPO}.git" scan-results
