@@ -13,13 +13,13 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QPoint, QRectF, QSize, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QBrush, QColor, QDesktopServices, QFont, QFontMetrics, QPainter, QPen
-from PySide6.QtWidgets import QApplication, QButtonGroup, QCheckBox, QComboBox, QFileDialog, QFrame, QGridLayout, \
+from PySide6.QtWidgets import QApplication, QButtonGroup, QCheckBox, QFileDialog, QFrame, QGridLayout, \
     QHBoxLayout, QHeaderView, QLabel, QMenu, QMessageBox, QProgressBar, QPushButton, QScrollArea, QSizePolicy, QStackedWidget, \
     QStyledItemDelegate, QToolTip, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
 from . import icons, space, work
 from .atomic.tokens import alpha, on_color
-from .atomic.widgets import FlowLayout, GlowPanel, Group
+from .atomic.widgets import Dropdown, FlowLayout, GlowPanel, Group
 from .core import human_size, short_name
 from .i18n import ltr, tr
 from .theme import mix, round_menu
@@ -905,7 +905,7 @@ class SpacePage(QWidget):
         self.list_mode = "here"
         self.big_kind = ""             # the biggest files of one kind only ("video"…), from the kinds below
         self.modes = ["here", "big", "old", "grew"]
-        self.mode_box = QComboBox()
+        self.mode_box = Dropdown()
         self.mode_box.setAccessibleName(tr("Show"))
         self.mode_box.currentIndexChanged.connect(self._mode_picked)
         side.addWidget(self.mode_box)

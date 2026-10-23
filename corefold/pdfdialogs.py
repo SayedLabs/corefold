@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
+from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
                                QPushButton, QRadioButton, QSizePolicy, QSpinBox)
 
+from .atomic.widgets import Dropdown
 from .dialogs import Base, describe
 from .dialogs2 import LockDialog
 from .i18n import tr
@@ -36,8 +37,8 @@ def _chosen(group: QButtonGroup, default):
     return b.property("key") if b else default
 
 
-def _combo(options: dict, chosen, translate: bool = True) -> QComboBox:
-    box = QComboBox()
+def _combo(options: dict, chosen, translate: bool = True) -> Dropdown:
+    box = Dropdown()
     for key, text in options.items():
         text = text if isinstance(text, str) else text[0]
         box.addItem(tr(text) if translate else text, key)

@@ -2185,7 +2185,7 @@ class MainWindow(QWidget):
         grid.addWidget(label(tr("Slideshow: each picture for")), 1, 0)
         grid.addWidget(self.slideshow_seconds, 1, 1)
         from .settings import PEEK_KEYS
-        self.peek_key = QComboBox()
+        self.peek_key = Dropdown()
         for key, text in PEEK_KEYS.items():
             self.peek_key.addItem(tr(text) if key == "off" else text, key)
         self.peek_key.setCurrentIndex(max(0, self.peek_key.findData(s.peek_key)))

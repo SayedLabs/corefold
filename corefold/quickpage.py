@@ -5,11 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt, Signal
-from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
+from PySide6.QtWidgets import (QAbstractItemView, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
                                QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QMenu, QPushButton, QVBoxLayout,
                                QWidget)
 
 from . import hotkey, icons, quick
+from .atomic.widgets import Dropdown
 from .i18n import tr
 from .settings import QUICK_KEYS, QUICK_SEARCH_ENGINES
 
@@ -311,7 +312,7 @@ def build(win) -> QWidget:
     bl.addWidget(find_note)
     row = QHBoxLayout()
     row.addWidget(label(tr("Search the web with")))
-    engine = QComboBox()
+    engine = Dropdown()
     for key, name in QUICK_SEARCH_ENGINES.items():
         engine.addItem(name, key)
     engine.setCurrentIndex(max(0, engine.findData(s.quick_search_engine)))

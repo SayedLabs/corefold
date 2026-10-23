@@ -35,6 +35,7 @@ class Switch(QCheckBox):
         self._pos = 0.0               # 0 = off, 1 = on (animated in between)
         self._hover = False
         self._anim: QVariantAnimation | None = None
+        self._heights: dict = {}      # (width, text, description, font) -> height of the words
         self.setCursor(Qt.PointingHandCursor)
         self.setAttribute(Qt.WA_Hover)
         sp = QSizePolicy(QSizePolicy.Expanding if text else QSizePolicy.Fixed, QSizePolicy.Preferred)
@@ -51,6 +52,18 @@ class Switch(QCheckBox):
         return QRect(0, 0, max(40, width - TRACK_W - 16), 10000)
 
     def _text_height(self, width: int) -> int:
+        # layouts ask for this many times at the same few widths while a window is built, and measuring
+        # wrapped text is slow on Windows (Arabic most of all), so the last few answers are kept
+        key = (width, self.text(), self.description, self.font().key())
+        cache = self._heights
+        if key in cache:
+            return cache[key]
+        if len(cache) > 8:
+            cache.clear()
+        cache[key] = h = self._measure_text_height(width)
+        return h
+
+    def _measure_text_height(self, width: int) -> int:
         fm = QFontMetrics(self.font())
         h = fm.boundingRect(self._text_rect(width), Qt.TextWordWrap, self.text()).height()
         if self.description:
