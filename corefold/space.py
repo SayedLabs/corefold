@@ -22,6 +22,7 @@ log = logging.getLogger("corefold")
 
 TOP_FILES = 48         # files remembered per folder (the rest are added up as "smaller files")
 TOP_OVERALL = 100      # the biggest files of the whole drive
+TOP_KIND = 60          # the biggest files of each kind (videos, pictures…)
 PROGRESS_EVERY = 2000  # entries between progress reports
 
 # reparse points that lead somewhere else (junctions, links): not followed, so nothing counts twice
@@ -82,6 +83,7 @@ class Scan:
     root: Folder
     biggest: list = field(default_factory=list)   # (size, path) of the biggest files, biggest first
     kinds: dict = field(default_factory=dict)     # kind -> bytes
+    biggest_kind: dict = field(default_factory=dict)  # kind -> (size, path) of its biggest files, biggest first
     files: int = 0
     folders: int = 0
     denied: int = 0                               # folders Windows didn't let Corefold into
@@ -141,6 +143,7 @@ def scan(root: Path, cancel: threading.Event | None = None, progress=None, worke
     waiting = [top]          # folders still to read
     biggest: list[tuple[int, str]] = []
     kinds = dict.fromkeys(KINDS, 0)
+    by_kind: dict[str, list] = {k: [] for k in KINDS}
     total = 0
     last_report = 0
     hidden_bits = _OFFLINE | _RECALL_ACCESS | _RECALL_OPEN
@@ -182,7 +185,13 @@ def scan(root: Path, cancel: threading.Event | None = None, progress=None, worke
                     folder.size += size
                     total += size
                     result.files += 1
-                    kinds[kind_of(name)] += size
+                    kind = kind_of(name)
+                    kinds[kind] += size
+                    of_kind = by_kind[kind]
+                    if len(of_kind) < TOP_KIND:
+                        heapq.heappush(of_kind, (size, os.path.join(path, name)))
+                    elif size > of_kind[0][0]:
+                        heapq.heapreplace(of_kind, (size, os.path.join(path, name)))
                     if len(heap) < TOP_FILES:
                         heapq.heappush(heap, (size, name))
                     elif size > heap[0][0]:
@@ -215,6 +224,7 @@ def scan(root: Path, cancel: threading.Event | None = None, progress=None, worke
     result.folders = top.folders
     result.biggest = sorted(biggest, reverse=True)
     result.kinds = kinds
+    result.biggest_kind = {k: sorted(v, reverse=True) for k, v in by_kind.items()}
     result.seconds = time.monotonic() - started
     return result
 

@@ -490,9 +490,10 @@ class SpacePage(QWidget):
         side = QVBoxLayout()
         side.setSpacing(6)
         self.list_mode = "here"
+        self.big_kind = ""             # the biggest files of one kind only ("video"…), from the kinds below
         switch = QHBoxLayout()
         self.here_btn = _button(tr("In this folder"), "subtab", lambda: self._list_mode("here"))
-        self.big_btn = _button(tr("Biggest files"), "subtab", lambda: self._list_mode("big"))
+        self.big_btn = _button(tr("Biggest files"), "subtab", self._all_biggest)
         for b in (self.here_btn, self.big_btn):
             b.setCheckable(True)
             switch.addWidget(b)
@@ -520,6 +521,8 @@ class SpacePage(QWidget):
         self.kinds_bar = KindsBar(self.c.theme)
         ml.addWidget(self.kinds_bar)
         self.kinds_text = _label("", "muted", wrap=True)
+        self.kinds_text.setToolTip(tr("Click a kind to see its biggest files"))
+        self.kinds_text.linkActivated.connect(self._show_kind)
         ml.addWidget(self.kinds_text)
         lay.addWidget(self.map_box, 1)
         self.map_box.hide()
@@ -630,11 +633,34 @@ class SpacePage(QWidget):
         self._forget_timer.stop()
         self.open_folder(folder)
         self.kinds_bar.set_kinds(result.kinds)
+        self._kinds_text()
+
+    def _kinds_text(self):
+        result = self.scan
+        if result is None:
+            return
         total = sum(result.kinds.values()) or 1
-        parts = [f"<span style='color:{KIND_COLORS[k]}'>■</span>&nbsp;{html.escape(tr(space.KINDS[k]))} "
-                 f"{human_size(v)}" for k, v in sorted(result.kinds.items(), key=lambda kv: -kv[1])
-                 if v > total * 0.005]
+        link = self.c.theme.text
+        parts = []
+        for k, v in sorted(result.kinds.items(), key=lambda kv: -kv[1]):
+            if v <= total * 0.005:
+                continue
+            name = html.escape(tr(space.KINDS[k]))
+            if k == self.big_kind and self.list_mode == "big":
+                name = f"<b>{name}</b>"
+            parts.append(f"<span style='color:{KIND_COLORS[k]}'>■</span>&nbsp;<a href='{k}' style='color:{link};"
+                         f"text-decoration:none'>{name}</a> {human_size(v)}")
         self.kinds_text.setText("&nbsp;&nbsp;&nbsp;".join(parts))
+
+    def _all_biggest(self):
+        self.big_kind = ""
+        self._list_mode("big")
+
+    def _show_kind(self, kind: str):
+        """The biggest videos (or pictures, music…) of the whole scan; clicked again, all kinds."""
+        same = self.list_mode == "big" and self.big_kind == kind
+        self.big_kind = "" if same else kind
+        self._list_mode("big")
 
     def _summary(self):
         s, f = self.scan, self.here
@@ -717,10 +743,15 @@ class SpacePage(QWidget):
         self.kept.clear()
 
     def _list_mode(self, mode: str):
+        if mode != "big":
+            self.big_kind = ""
         self.list_mode = mode
         self.here_btn.setChecked(mode == "here")
         self.big_btn.setChecked(mode == "big")
+        self.big_btn.setText(tr("Biggest files") if not self.big_kind else
+                             tr("Biggest: {kind}", kind=tr(space.KINDS[self.big_kind])))
         self._fill_list()
+        self._kinds_text()
 
     def _fill_list(self):
         self.items.clear()
@@ -728,7 +759,8 @@ class SpacePage(QWidget):
             return
         rows = []
         if self.list_mode == "big":
-            for size, path in self.scan.biggest:
+            biggest = self.scan.biggest_kind.get(self.big_kind, []) if self.big_kind else self.scan.biggest
+            for size, path in biggest:
                 rows.append((ltr(short_name(Path(path).name, 60)), size, Path(path), None, path))
         else:
             for size, name, folder in self.here.entries()[:300]:
@@ -836,8 +868,10 @@ class SpacePage(QWidget):
         while p is not None:
             p.size = max(0, p.size - size)
             p = p.parent
-        self.scan.biggest = [b for b in self.scan.biggest if Path(b[1]) != path and
-                             not str(b[1]).startswith(str(path) + os.sep)]
+        def gone(b):
+            return Path(b[1]) == path or str(b[1]).startswith(str(path) + os.sep)
+        self.scan.biggest = [b for b in self.scan.biggest if not gone(b)]
+        self.scan.biggest_kind = {k: [b for b in v if not gone(b)] for k, v in self.scan.biggest_kind.items()}
         self.open_folder(self.here if self.here is not folder else (parent or self.scan.root))
 
     def _folder_of(self, path: Path) -> space.Folder | None:
