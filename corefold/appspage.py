@@ -710,7 +710,7 @@ class UninstallDialog(QDialog):
             if data:
                 title = tr("Nothing was removed") if len(data) > 1 else \
                     tr("{name} wasn't uninstalled", name=data[0][0].name)
-                self._finish(title, _problems_text(data), undo=False)
+                self._finish(title, _problems_text(data, len(data) > 1), undo=False)
             else:
                 self._finish(tr("Nothing was removed"), tr("The uninstall was cancelled, so Corefold didn't look "
                                                            "for leftovers."), undo=False)
@@ -724,7 +724,7 @@ class UninstallDialog(QDialog):
                 detail = tr("{name} left nothing behind.", name=removed[0].name) if len(removed) == 1 \
                     else tr("These apps left nothing behind.")
                 if problems:
-                    detail += "\n\n" + _problems_text(problems)
+                    detail += "\n\n" + _problems_text(problems, True)
                 self._finish(tr("All clean"), detail, undo=False)
                 return
             self._show_leftovers(removed, found)
@@ -790,7 +790,7 @@ class UninstallDialog(QDialog):
         self.left_tree.blockSignals(False)
         name = removed[0].name if len(removed) == 1 else tr("{count} apps", count=len(removed))
         self.left_title.setText(tr("{name} left {count} things behind", name=name, count=len(found)))
-        self.left_problems.setText(_problems_text(self.problems))
+        self.left_problems.setText(_problems_text(self.problems, True))
         self.left_problems.setVisible(bool(self.problems))
         self.stack.setCurrentIndex(2)
         self._ticks_changed()
@@ -910,12 +910,12 @@ class UninstallDialog(QDialog):
         super().closeEvent(e)
 
 
-def _problems_text(problems: list[tuple[un.App, un.Outcome]]) -> str:
-    """One line for each app that is still installed, with why."""
+def _problems_text(problems: list[tuple[un.App, un.Outcome]], names: bool) -> str:
+    """One line for each app that is still installed, with why (and its name, when there were several)."""
     lines = []
     for app, outcome in problems:
         why = tr(un.OUTCOMES.get(outcome.result, un.OUTCOMES["still"]), code=outcome.code, error=outcome.error)
-        lines.append(f"{ltr(app.name)}: {why}" if len(problems) > 1 else why)
+        lines.append(f"{ltr(app.name)}: {why}" if names else why)
     return "\n".join(lines)
 
 
