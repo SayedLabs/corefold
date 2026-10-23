@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import html
+import logging
 import os
 import threading
 from pathlib import Path
@@ -19,6 +20,8 @@ from .i18n import ltr, tr
 from .theme import mix, round_menu
 from .timefmt import date_text
 from .winutil import reveal_in_explorer
+
+log = logging.getLogger("corefold")
 
 if TYPE_CHECKING:
     from .app import Controller
@@ -575,7 +578,8 @@ class SpacePage(QWidget):
         self.busy_title.setText(tr("Looking through {name}…", name=ltr(str(root))))
         self.busy_line.setText(tr("This takes a moment on a big drive."))
         cancel = self.cancel
-        self.job = _work(lambda progress: space.scan(root, cancel, progress), self._scan_progress, self._scanned)
+        self.job = _work(lambda progress: space.scan(root, cancel, lambda *a: progress(a)), self._scan_progress,
+                         self._scanned)
 
     def _scan_progress(self, args):
         if not _alive(self):
@@ -593,7 +597,8 @@ class SpacePage(QWidget):
         self.job = None
         self.busy_box.hide()
         if isinstance(result, Exception) or result is None:
-            self.c.tell(tr("Couldn't look through it"), str(result))
+            log.error("looking through %s failed", self.root, exc_info=result if isinstance(result, Exception) else None)
+            self.c.tell(tr("Couldn't look through it"), ltr(str(self.root)))
             self._back_to_drives()
             return
         if result.cancelled and result.root.size == 0:
