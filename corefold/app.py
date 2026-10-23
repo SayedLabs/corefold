@@ -73,6 +73,7 @@ UPDATE_CHECK_EVERY_MS = 6 * 3600 * 1000
 LIGHT_TIDY_MS = 4_000          # memory a finished job used goes back this soon
 IDLE_TIDY_MS = 45_000          # hand memory back to Windows this long after the last job
 FREE_WINDOW_AFTER_MS = 90_000  # free the main window this long after it's closed
+FREE_POPUPS_AFTER_MS = 60_000  # ... and the quick menu, quick wheel and clipboard popup after they close
 MENU_WRITE_DELAY_MS = 1500     # wait for more changes before rewriting the right-click menu
 MENU_BATCH_MS = 700            # right-clicked files arrive one process at a time; collect them
 log = logging.getLogger("corefold")
@@ -138,11 +139,12 @@ class BackgroundSignals(QObject):
 class DragWatcher(QObject):
     """Notices a Shift-drag (or the chosen key) that starts in File Explorer or on the desktop.
 
-    Checks the mouse often only while a button is held; otherwise it looks rarely, so Corefold
-    uses next to no CPU while it waits in the tray."""
+    Checks the mouse often only while a button is held; otherwise it looks rarely (a drag lasts far
+    longer than that), so Corefold uses next to no CPU while it waits in the tray. With the Converter
+    paused or removed it doesn't look at all."""
     started = Signal()
     released = Signal()
-    FAST_MS, IDLE_MS, PAUSED_MS = 15, 45, 400
+    FAST_MS, IDLE_MS = 15, 90
 
     def __init__(self, settings: Settings):
         super().__init__()
@@ -151,16 +153,26 @@ class DragWatcher(QObject):
         self.press_pos = None
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.poll)
-        self.timer.start(self.IDLE_MS)
+        self.refresh()
+
+    def wanted(self) -> bool:
+        return self.settings.enabled and "converter" not in getattr(self.settings, "tools_off", ())
+
+    def refresh(self):
+        """Starts or stops watching, to match the settings."""
+        if self.wanted() or self.pressed:
+            if not self.timer.isActive():
+                self.timer.start(self.IDLE_MS)
+        else:
+            self.timer.stop()
 
     def _interval(self, ms: int):
         if self.timer.interval() != ms:
             self.timer.setInterval(ms)
 
     def poll(self):
-        if not (self.settings.enabled and "converter" not in getattr(self.settings, "tools_off", ())) \
-                and not self.pressed:
-            self._interval(self.PAUSED_MS)
+        if not self.wanted() and not self.pressed:
+            self.timer.stop()
             return
         down = winutil.key_down(winutil.primary_button())
         if down and not self.pressed:
@@ -236,7 +248,9 @@ class Controller(QObject):
         set_background_priority(self.settings.low_priority)
         self.history = History()
         self.theme = self._make_theme()
+        winutil.log_memory("Qt started")
         app.setStyleSheet(self._css())
+        winutil.log_memory("look applied")
         self._window = None
         self.told_about_tray = False
         self.session_ending = False
@@ -355,9 +369,13 @@ class Controller(QObject):
         self.free_window_timer = QTimer(self)
         self.free_window_timer.setSingleShot(True)
         self.free_window_timer.timeout.connect(self._free_window)
+        self.free_popups_timer = QTimer(self)
+        self.free_popups_timer.setSingleShot(True)
+        self.free_popups_timer.timeout.connect(self._free_popups)
 
         self._update_tooltip()
         self.tray.show()
+        winutil.log_memory("tray icon shown")
 
         # "Convert to JPG?" for photos that land in Downloads
         self.downloads = downloads_folder()
@@ -447,6 +465,27 @@ class Controller(QObject):
         self._window = None
         w.deleteLater()
         self.tidy_timer.start(2000)
+
+    def popup_closed(self):
+        self.free_popups_timer.start(FREE_POPUPS_AFTER_MS)
+
+    def _free_popups(self):
+        """The quick menu covers the whole screen, so even hidden it holds a picture of it in memory
+        (about 8 MB on a Full HD screen, 33 MB on a 4K one): it's made again the next time it opens."""
+        held = []
+        if self.quick is not None:
+            held += [(self.quick, "menu"), (self.quick, "wheel")]
+        if self.clip is not None:
+            held.append((self.clip, "popup"))
+        freed = False
+        for owner, name in held:
+            w = getattr(owner, name)
+            if w is not None and not w.isVisible():
+                setattr(owner, name, None)
+                w.deleteLater()
+                freed = True
+        if freed:
+            self.tidy_timer.start(2000)
 
     def show_window(self, page_name: str | None = None):
         self.free_window_timer.stop()
@@ -549,6 +588,8 @@ class Controller(QObject):
         if self.cancels or self.wheel.isVisible():
             self.tidy_timer.start(IDLE_TIDY_MS)
             return
+        if self._window is None and not self.browsers and not self.viewers:
+            icons.forget()
         release_memory()  # also forgets cached file facts and collects garbage
         winutil.trim_memory()
         log.info("tidied up memory")
@@ -751,6 +792,7 @@ class Controller(QObject):
         self.sync_archive_opening()
         self._background_tools()
         self._tray_tools()
+        self.watcher.refresh()
         log.info("tools in use: %s", ", ".join(t.id for t in all_tools.enabled(self.settings)) or "none")
 
     def _tray_tools(self):
@@ -772,6 +814,7 @@ class Controller(QObject):
                                          ("quick access", self.quick)) if on is not None]
         if running:
             log.info("running in the background: %s", ", ".join(running))
+            winutil.log_memory("background tools started")
 
     def _capture_tool(self):
         """Corefold Capture's shortcuts are only there while it's in use."""
@@ -808,6 +851,7 @@ class Controller(QObject):
                 self.quick = None
                 return
             self._quick_applied = self._quick_settings()
+            winutil.log_memory("quick access on")
             if not s.quick_told and s.quick_menu and self.quick.menu_key.ok:
                 s.quick_told = True
                 self.save_timer.start(400)
@@ -815,6 +859,7 @@ class Controller(QObject):
                 QTimer.singleShot(4000, lambda: self.toast.notify(
                     tr("Quick menu"), tr("Press {key} in any app for your tools and shortcuts.",
                                          key=display(s.quick_menu_key)), linger_ms=7000))
+                QTimer.singleShot(5000, lambda: winutil.log_memory("quick menu tip shown"))
         elif not on and self.quick is not None:
             self.quick.stop()
             self.quick.deleteLater()
@@ -1218,6 +1263,7 @@ class Controller(QObject):
             notes = getattr(self._window, "quick_notes", None)
             if notes is not None:
                 notes()
+        self.watcher.refresh()
         if self._window is not None:
             self._window.refresh()
         self._update_tooltip()
@@ -1945,6 +1991,7 @@ def main() -> int:
 
     controller = Controller(app, icon)
     app.commitDataRequest.connect(controller.end_session)
+    winutil.log_memory("in the tray")
     QTimer.singleShot(20_000, clean_old_temp_files)
 
     server = QLocalServer()
@@ -2021,4 +2068,5 @@ def main() -> int:
     s.save()
     threading.Thread(target=_prune_backups, args=(s.backup_days,), daemon=True).start()
     QTimer.singleShot(IDLE_TIDY_MS, controller.tidy_up)
+    QTimer.singleShot(IDLE_TIDY_MS - 5000, lambda: winutil.log_memory("before the first tidy"))
     return app.exec()

@@ -140,6 +140,7 @@ class QuickMenu(QWidget):
         self.clock.stop()
         self.anim.stop()
         self.spots = []
+        self.qa.c.popup_closed()
         super().hideEvent(e)
 
     def changeEvent(self, e):

@@ -401,6 +401,7 @@ class QuickPaste(QWidget):
     def hideEvent(self, e):
         self.list.clear()  # (nothing is held while it's closed)
         self.list.rows.thumbs.clear()
+        self.c.popup_closed()
         super().hideEvent(e)
 
     def cancel(self):

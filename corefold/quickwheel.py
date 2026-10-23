@@ -169,6 +169,7 @@ class LauncherWheel(QWidget):
         self.watch.stop()
         self.trap.stop()
         self.hold_vk = 0
+        self.qa.c.popup_closed()
         super().hideEvent(e)
 
     def _trapped(self, vk: int) -> bool:
