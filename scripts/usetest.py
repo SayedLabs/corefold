@@ -411,7 +411,8 @@ def start():
     c.window.open_page("Space")
     c.window.open_page("Store")
     settle(0.2)
-    QTest.mouseClick(c.window.stack.currentWidget(), Qt.MouseButton.BackButton)
+    QTest.mouseClick(c.window.windowHandle(), Qt.MouseButton.BackButton, Qt.KeyboardModifier.NoModifier,
+                     c.window.stack.geometry().center())  # (through the window, the way a real click comes)
     settle(0.2)
     check(c.window.current_page() == "Space", f"the mouse's back button goes back a page ({c.window.current_page()})")
     c.window.open_page("Home")
