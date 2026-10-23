@@ -79,7 +79,34 @@ def tr(text: str, /, **values) -> str:
         if _lang == "ar" and any(isinstance(v, int) or (isinstance(v, str) and v[:1].isdigit())
                                  for v in values.values()):
             out = arabic_counts(out)
-    return _rtl_start(out) if _lang in RTL_LANGUAGES else out
+    return _rtl_start(_isolate_latin(out)) if _lang in RTL_LANGUAGES else out
+
+
+_LATIN = "A-Za-z0-9\u00c0-\u024f"
+_latin_run_re = None
+
+
+def _isolate_latin(text: str) -> str:
+    """Latin words with spaces between them in an Arabic sentence ("Ctrl + K", "File Explorer") are kept
+    in a box of their own (Unicode isolates): Qt otherwise measures the first wrapped line a little too wide
+    and cuts its last word off at the left edge. HTML tags are left as they are."""
+    global _latin_run_re
+    if " " not in text or not any("a" <= ch.lower() <= "z" for ch in text):
+        return text
+    if _latin_run_re is None:
+        import re
+        token = f"[{_LATIN}](?:[{_LATIN}._'\u2019&+\\/:-]*[{_LATIN}])?"
+        _latin_run_re = re.compile(f"{token}(?:(?:[ \u00a0]+[+&/\u2013-])*[ \u00a0]+{token})+")
+
+    def box(m):
+        run = m.group(0)
+        return f"\u2066{run}\u2069" if any(ch.isalpha() and ch.isascii() or "\u00c0" <= ch <= "\u024f"
+                                            for ch in run) else run
+    if "<" in text:
+        import re
+        parts = re.split(r"(<[^>]*>)", text)
+        return "".join(part if part.startswith("<") else _latin_run_re.sub(box, part) for part in parts)
+    return _latin_run_re.sub(box, text)
 
 
 # Arabic says a count's noun differently by the number: 1 ملف, ملفين, 3–10 ملفات, 11–99 ملفًا, 100 ملف.
