@@ -522,6 +522,10 @@ def space_more():
           "Windows' own leftovers are fixed places")
     row = sp.Junk("winold", "x", "y", [root / "Games"], 1, 1, admin=True)
     check(sp.clean(row) == 0 and (root / "Games").exists(), "…only the administrator copy removes them")
+    if os.name == "nt":
+        system32 = sp._windows_dir() / "System32"
+        print(f"(Disk Cleanup here: {(system32 / 'cleanmgr.exe').is_file()}, "
+              f"takeown skips links: {sp._takeown_skips_links(system32)})")
     import json
 
     from corefold import uninstall as un

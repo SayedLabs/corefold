@@ -772,14 +772,60 @@ def clean_as_admin(keys: list[str]) -> int:
                 run("net", "start", "bits", timeout=120)
                 run("net", "start", "wuauserv", timeout=120)
         elif key == "winold":
-            # the previous Windows belongs to the system: take it over first, then remove it (rd doesn't follow
-            # the links inside it into the Windows in use)
-            run("takeown", "/F", str(path), "/R", "/A", "/D", "Y", timeout=1800)
-            run("icacls", str(path), "/grant", "*S-1-5-32-544:F", "/T", "/C", "/Q", timeout=1800)
-            run("cmd", "/c", "rd", "/s", "/q", str(path), timeout=1800)
+            # Windows' own Disk Cleanup removes it the way Windows means it to ("Previous Windows
+            # installation(s)"); what it leaves (or everything, without Disk Cleanup) goes the hard way
+            _previous_windows_by_windows(system32, run)
+            if path.is_dir() and _tree_size(path, 60.0)[0] > 50 << 20:
+                # take it over first, without following the links inside it to the folders of the Windows in use
+                # (old profiles link to today's), then remove it (rd doesn't follow them either)
+                own = ["takeown", "/F", str(path), "/R", "/A", "/D", "Y"]
+                if _takeown_skips_links(system32):
+                    own.append("/SKIPSL")
+                run(*own, timeout=1800)
+                run("icacls", str(path), "/grant", "*S-1-5-32-544:F", "/T", "/C", "/L", "/Q", timeout=1800)
+                run("cmd", "/c", "rd", "/s", "/q", str(path), timeout=1800)
         after = _tree_size(path, 60.0)[0] if path.exists() else 0
         freed += max(0, before - after)
     return freed
+
+
+VOLUME_CACHES = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches"
+SAGE_RUN = 6213  # Disk Cleanup's numbered set of what to clean, only ours
+
+
+def _previous_windows_by_windows(system32: Path, run) -> bool:
+    """Disk Cleanup's "Previous Windows installation(s)", and nothing else, run once."""
+    cleanmgr = system32 / "cleanmgr.exe"
+    if os.name != "nt" or not cleanmgr.is_file():
+        return False
+    import winreg
+    name = f"StateFlags{SAGE_RUN:04d}"
+    key = VOLUME_CACHES + "\\Previous Installations"
+    access = winreg.KEY_SET_VALUE | getattr(winreg, "KEY_WOW64_64KEY", 0)
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key, 0, access) as k:
+            winreg.SetValueEx(k, name, 0, winreg.REG_DWORD, 2)
+    except OSError:
+        return False
+    try:
+        run("cleanmgr", f"/sagerun:{SAGE_RUN}", timeout=3600)
+    finally:
+        try:  # (Disk Cleanup's settings are left as they were)
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key, 0, access) as k:
+                winreg.DeleteValue(k, name)
+        except OSError:
+            pass
+    return True
+
+
+def _takeown_skips_links(system32: Path) -> bool:
+    import subprocess
+    try:
+        r = subprocess.run([str(system32 / "takeown.exe"), "/?"], capture_output=True, timeout=30,
+                           stdin=subprocess.DEVNULL, creationflags=0x08000000)
+        return b"/SKIPSL" in r.stdout.upper()
+    except (OSError, subprocess.SubprocessError):
+        return False
 
 
 def _app_caches(running: set[str], cancel: threading.Event | None = None) -> list[Junk]:
