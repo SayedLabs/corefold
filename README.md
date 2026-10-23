@@ -11,7 +11,12 @@ Everyday tools in one small app that waits in the tray. Everything happens on yo
 - **Corefold Archive**: opens ZIP, RAR, 7z, ISO and more with a double-click. Drag files out, change a
   file inside and save it back, rescue damaged archives, and unpack archives inside archives in one go.
 
-Also in the Store: Corefold Viewer, Player, Capture, Space, Clipboard and File Organizer. Coming soon: Cloud.
+Also in the Store: Corefold Viewer, Player, Capture, Space, Clipboard, PDF and File Organizer. Coming soon: Cloud.
+
+- **Corefold PDF**: merge PDFs and arrange their pages by dragging page pictures (turn, delete, undo),
+  split a PDF or take out the pages you need, compress it (three levels), pictures to PDF (on A4 or Letter
+  if you want) and pages to pictures, and lock a PDF with a password (with or without printing and
+  copying) or unlock one that's yours. Locked PDFs can be used too, once their password is typed.
 
 ### The Converter
 
@@ -194,6 +199,8 @@ corefold/ipc.py                hands right-click requests to the running app wit
 corefold/i18n.py               languages; corefold/lang_ar.py has the Arabic text
 corefold/updater.py            self-updates from GitHub Releases (checksum-verified)
 corefold/uninstall.py          the Apps page: uninstalling and leftovers, with backups
+corefold/pdftools.py          Corefold PDF's work: merge, split, compress, pictures, passwords (pypdf, PDFium)
+corefold/pdfpage.py           Corefold PDF's page: the cards and the page board
 scripts/check_translations.py  checks that every text has a translation
 assets/                        icon, installer pictures and sounds (scripts/make_icon.py, make_sounds.py)
 scripts/build.ps1              builds the app, installer and zip
