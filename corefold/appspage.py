@@ -78,6 +78,11 @@ def _months(controller) -> int:
     return months if months in UNUSED else 3
 
 
+def _depth(controller) -> str:
+    depth = getattr(getattr(controller, "settings", None), "uninstall_depth", "normal")
+    return depth if depth in un.DEPTHS else "normal"
+
+
 def _backup_days(controller) -> int:
     return getattr(getattr(controller, "settings", None), "backup_days", un.KEEP_DAYS)
 
@@ -552,6 +557,18 @@ class UninstallDialog(QDialog):
         l3.addWidget(self.left_title)
         l3.addWidget(_label(tr("Ticked items clearly belong to the app. Unticked ones only might, so check them first. "
                                "Everything removed is kept as a backup."), "muted", wrap=True))
+        depth_row = QHBoxLayout()
+        depth_row.addWidget(_label(tr("How deep to clean up:")))
+        self.depth = QComboBox()
+        for key, text in un.DEPTHS.items():
+            self.depth.addItem(tr(text), key)
+        self.depth.setCurrentIndex(max(0, self.depth.findData(_depth(controller))))
+        self.depth.currentIndexChanged.connect(self._depth_changed)
+        depth_row.addWidget(self.depth)
+        depth_row.addStretch()
+        l3.addLayout(depth_row)
+        self.depth_help = _label("", "muted", wrap=True)
+        l3.addWidget(self.depth_help)
         self.left_tree = QTreeWidget()
         self.left_tree.setObjectName("apps")
         self.left_tree.setHeaderLabels([tr("What"), tr("Size")])
@@ -563,6 +580,10 @@ class UninstallDialog(QDialog):
         self.left_problems = _label("", "warning", wrap=True)
         self.left_problems.hide()
         l3.addWidget(self.left_problems)
+        self.close_running = QCheckBox()
+        self.close_running.setChecked(True)
+        l3.addWidget(self.close_running)
+        self.close_running.setVisible(False)
         r3 = QHBoxLayout()
         self.left_info = _label("", "muted")
         r3.addWidget(self.left_info, 1)
@@ -590,6 +611,9 @@ class UninstallDialog(QDialog):
         l4.addLayout(r4)
         self.stack.addWidget(p4)
         self.control = un.Control(self.cancel)
+        self.removed_apps: list[un.App] = []
+        self.no_ticks: set[int] = set()
+        self.running: list[tuple[int, str]] = []
         self.problems: list[tuple[un.App, un.Outcome]] = []
         self.started = 0.0
         self.ticker = QTimer(self)
@@ -644,16 +668,21 @@ class UninstallDialog(QDialog):
                 return
             self._emit("scanning", None)
             installed = [a for a in everything if a not in removed]
-            found = []
+            found, no_ticks = [], set()
             for app in removed:
                 try:
                     items = un.find_leftovers(app, installed, forced=forced or app.broken)
                     if forced and not app.broken:  # still installed: nothing is ticked for you
-                        for i in items:
-                            i.safe = False
+                        no_ticks |= {id(i) for i in items}
                     found += items
                 except Exception:
                     log.exception("looking for leftovers of %s failed", app.name)
+            try:
+                running = un.programs_in([i.path for i in found if i.kind == "folder"])
+            except Exception:
+                log.debug("couldn't see what's running", exc_info=True)
+                running = []
+            self.no_ticks, self.running = no_ticks, running
             self._emit("found", (removed, found, problems))
         threading.Thread(target=work, daemon=True).start()
 
@@ -766,11 +795,24 @@ class UninstallDialog(QDialog):
 
     # ---- choosing leftovers
 
+    def _depth_changed(self, *_):
+        depth = self.depth.currentData() or "normal"
+        settings = getattr(self.c, "settings", None)
+        if settings is not None and getattr(settings, "uninstall_depth", None) != depth:
+            settings.uninstall_depth = depth
+            settings.save()
+        if self.removed_apps:
+            self._show_leftovers(self.removed_apps, self.leftovers)
+
     def _show_leftovers(self, removed, found):
+        self.removed_apps = removed
+        depth = self.depth.currentData() or "normal"
+        self.depth_help.setText(tr(un.DEPTH_HELP[depth]))
+        shown = [i for i in found if un.shown_at(i, depth)]
         self.left_tree.blockSignals(True)
         self.left_tree.clear()
         groups: dict[str, QTreeWidgetItem] = {}
-        for item in found:
+        for item in shown:
             group = groups.get(item.reason)
             if group is None:
                 group = QTreeWidgetItem([tr(un.REASONS.get(item.reason, item.reason)), ""])
@@ -782,16 +824,21 @@ class UninstallDialog(QDialog):
                 groups[item.reason] = group
             row = QTreeWidgetItem([item.label(), human_size(item.size) if item.size else ""])
             row.setFlags(row.flags() | Qt.ItemIsUserCheckable)
-            row.setCheckState(0, Qt.Checked if item.safe else Qt.Unchecked)
+            ticked = un.ticked_at(item, depth) and id(item) not in self.no_ticks
+            row.setCheckState(0, Qt.Checked if ticked else Qt.Unchecked)
             row.setData(0, APP_ROLE, item)
             row.setToolTip(0, item.label())
             group.addChild(row)
         self.left_tree.expandAll()
         self.left_tree.blockSignals(False)
         name = removed[0].name if len(removed) == 1 else tr("{count} apps", count=len(removed))
-        self.left_title.setText(tr("{name} left {count} things behind", name=name, count=len(found)))
+        self.left_title.setText(tr("{name} left {count} things behind", name=name, count=len(shown)))
         self.left_problems.setText(_problems_text(self.problems, True))
         self.left_problems.setVisible(bool(self.problems))
+        names = sorted({os.path.basename(exe) for _, exe in self.running})
+        self.close_running.setText(tr("Close what's still running from its folders first: {names}",
+                                      names=", ".join(names[:5]) + ("…" if len(names) > 5 else "")))
+        self.close_running.setVisible(bool(names))
         self.stack.setCurrentIndex(2)
         self._ticks_changed()
 
@@ -827,6 +874,7 @@ class UninstallDialog(QDialog):
         self._clock(True)
         apps = sorted({a.name for a in self.apps})
         command = _app_command()
+        close = self.close_running.isVisible() and self.close_running.isChecked()
 
         self._hold(True)
 
@@ -835,13 +883,13 @@ class UninstallDialog(QDialog):
             try:
                 folder = un.new_backup(apps)
                 result = un.remove(chosen, folder, apps, on_item=lambda n, total, item: self._emit(
-                    "removing", (n, total, item)))
+                    "removing", (n, total, item)), close_running=close)
                 failed = un.items_from(result["failed"])
                 needs_admin = [i for i in failed if i.needs_admin]
                 if needs_admin:
                     self._emit("admin", None)
                     more = un.run_elevated(command, "cleanup", {"items": result["failed"], "folder": str(folder),
-                                                                "apps": apps})
+                                                                "apps": apps, "close": close})
                     if more and "done" in more:
                         result["done"] += more["done"]
                         result["freed"] += more.get("freed", 0)
@@ -869,6 +917,10 @@ class UninstallDialog(QDialog):
         done, failed = len(result["done"]), len(result["failed"])
         detail = tr("{size} freed. Everything is kept as a backup for {days} days: undo it here or from "
                     "\"Backups…\" on the Apps page.", size=human_size(result["freed"]), days=_backup_days(self.c))
+        later = sum(int(d.get("on_restart") or 0) for d in result["done"])
+        if later:
+            detail += "\n" + tr("{count} files were still in use: Windows removes them when you restart the PC.",
+                                count=later)
         if failed:
             detail += "\n" + tr("{count} items couldn't be removed (in use, or administrator permission was "
                                 "refused). Restarting the PC and trying again usually helps.", count=failed)

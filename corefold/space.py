@@ -144,7 +144,8 @@ def scan(root: Path, cancel: threading.Event | None = None, progress=None, worke
     total = 0
     last_report = 0
     hidden_bits = _OFFLINE | _RECALL_ACCESS | _RECALL_OPEN
-    with ThreadPoolExecutor(max_workers=max(1, workers), thread_name_prefix="corefold-scan") as pool:
+    pool = ThreadPoolExecutor(max_workers=max(1, workers), thread_name_prefix="corefold-scan")
+    try:
         busy: dict = {}
         while waiting or busy:
             if cancel is not None and cancel.is_set():
@@ -200,6 +201,9 @@ def scan(root: Path, cancel: threading.Event | None = None, progress=None, worke
                 if progress is not None and result.files - last_report >= PROGRESS_EVERY:
                     last_report = result.files
                     progress(result.files, total, path)
+    finally:
+        # (on Stop, folders still being read are left to finish on their own: a huge one can take a while)
+        pool.shutdown(wait=not result.cancelled, cancel_futures=True)
     # add each folder's size to the folders around it (deepest first)
     for f in reversed(order):
         f.children.sort(key=lambda c: c.size, reverse=True)

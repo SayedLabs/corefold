@@ -53,7 +53,7 @@ def table_texts() -> dict[str, str]:
     add([v[0] for v in settings.ACCENTS.values()], "ACCENTS")
     for name in ("SHORTCUT_LABELS", "WHEEL_SIZE_NAMES", "WHEEL_STYLES", "LABEL_STYLES", "HOVER_STYLES",
                  "SLICE_COLORS", "TEXT_SIZE_NAMES", "WHEEL_POSITIONS", "APPEARANCES", "MENU_STYLES",
-                 "TOAST_CORNERS", "TOAST_TIMES", "WINDOW_TEXT", "UNUSED_MONTHS", "BACKUP_DAYS", "EXTRACT_MODES",
+                 "TOAST_CORNERS", "TOAST_TIMES", "WINDOW_TEXT", "UNUSED_MONTHS", "BACKUP_DAYS", "UNINSTALL_DEPTHS", "EXTRACT_MODES",
                  "VIEWER_WHEEL", "SLIDESHOW_SECONDS"):
         add(getattr(settings, name).values(), name)
     add(sounds.DONE_SOUNDS.values(), "DONE_SOUNDS")
@@ -74,6 +74,8 @@ def table_texts() -> dict[str, str]:
     add([t for _, t in dialogs2.RenameFilesDialog.MODES], "RenameFilesDialog.MODES")
     add(uninstall.REASONS.values(), "REASONS")
     add(uninstall.OUTCOMES.values(), "OUTCOMES")
+    add(uninstall.DEPTHS.values(), "DEPTHS")
+    add(uninstall.DEPTH_HELP.values(), "DEPTH_HELP")
     from corefold import appspage
     add(appspage.SHOW.values(), "appspage.SHOW")
     add([x for pair in appspage.UNUSED.values() for x in pair], "appspage.UNUSED")

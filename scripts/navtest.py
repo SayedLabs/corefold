@@ -334,7 +334,8 @@ def space_nav():
           f"{seen[-1] if seen else ''}", flush=True)
     if not done:
         click(next(b for b in pg.findChildren(QPushButton) if b.text() == tr("Stop")))
-        check(until(lambda: pg.job is None, 30), "Stop stops looking")
+        t1 = time.time()
+        check(until(lambda: pg.job is None, 30), f"Stop stops looking ({time.time() - t1:.1f} s)")
     check(pg.scan is not None and pg.scan.files > 1000, f"the first drive is mapped "
                                                           f"({pg.scan.files if pg.scan else 0} files in {took:.0f} s)")
     screen_shot("space-map")
@@ -356,8 +357,25 @@ def space_nav():
         QTest.keyClick(w, Qt.Key_Left, Qt.AltModifier)
         settle(0.3)
         check(pg.scan is None and pg.drives_box.isVisible(), "…and then back to the drives")
+        # opening it again: the map that was made, right away (no looking through it again)
+        from corefold import spacepage
+        made = pg.kept.get(spacepage._key(Path(sys.base_prefix)))
+        t0 = time.time()
+        pg.start_scan(Path(sys.base_prefix))
+        settle(0.2)
+        check(made is not None and pg.job is None and pg.scan is made[0] and pg.map_box.isVisible(),
+              f"opening a folder again shows its map right away ({time.time() - t0:.2f} s)")
+        if pg.scan is not None:
+            click(pg.again_btn)
+            check(pg.job is not None or (pg.scan is not None and made is not None and pg.scan is not made[0]),  # (a small folder: done already)
+                  "Look again looks through it afresh")
+            until(lambda: pg.job is None, 120)
+            check(pg.scan is not None and made is not None and pg.scan is not made[0], "…and makes a new map")
+            pg._back_to_drives()
+            settle(0.3)  # (the drive cards come up)
         cards = [b for b in pg.findChildren(QPushButton) if b.objectName() == "driveCard" and b.isVisible()]
         if cards:
+            pg.kept.clear()  # (so the drive is looked through, not shown from before)
             click(cards[0])
             settle(0.5)
             QTest.keyClick(w, Qt.Key_Left, Qt.AltModifier)
@@ -367,7 +385,9 @@ def space_nav():
             until(lambda: pg.job is None, 120)
     # going back to the drives and picking another one
     back = [b for b in pg.findChildren(QPushButton) if b.isVisible() and b.text() in (tr("Other drives"), tr("Back"))]
-    if check(bool(back), "the map has a way back to the drives"):
+    if check(bool(back), f"the map has a way back to the drives (map {pg.map_box.isVisible()}, drives "
+                         f"{pg.drives_box.isVisible()}, busy {pg.busy_box.isVisible()}, looking {pg.job is not None}, "
+                         f"page {w.current_page()})"):
         click(back[0])
         cards = [b for b in pg.findChildren(QPushButton) if b.objectName() == "driveCard" and b.isVisible()]
         check(len(cards) >= 1, "back at the drives")

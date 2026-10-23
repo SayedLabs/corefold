@@ -77,7 +77,7 @@ jobs:
           $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
           python scripts/check_translations.py *> out/translations.txt
           python scripts/selftest.py *> out/selftest.txt
-          foreach ($part in "kinds", "listing", "window") { python scripts/uninstalltest.py $part *>> out/uninstalltest.txt }
+          foreach ($part in "kinds", "listing", "window", "leftovers") { python scripts/uninstalltest.py $part *>> out/uninstalltest.txt }
           python scripts/stress.py out/stress *> out/stress.txt
           python scripts/uitest.py out/uitest *> out/uitest.txt
 
