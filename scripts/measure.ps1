@@ -16,12 +16,12 @@ $work = Join-Path $env:TEMP "corefold-measure"
 Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force "$work\out" | Out-Null
 # every tool in use (the most Corefold does while it waits in the tray)
+$py = Join-Path $Root ".venv\Scripts\python.exe"
+$ready = @(& $py -c "from corefold import tools; print('\n'.join(t.id for t in tools.ready()))")
 @{ first_run = $false; tour_done = $true; check_updates = $false; output_folder = "$work\out";
-   sound = "off"; known_tools = @("converter", "uninstaller", "archive", "viewer", "player", "clipboard", "space", "capture");
-   tools_off = @() } | ConvertTo-Json | Set-Content -Encoding utf8 "$cfg\settings.json"
+   sound = "off"; known_tools = $ready; tools_off = @() } | ConvertTo-Json | Set-Content -Encoding utf8 "$cfg\settings.json"
 
 # test files: a 12-megapixel photo and a 20-second 1080p video
-$py = Join-Path $Root ".venv\Scripts\python.exe"
 & $py -c @"
 from PIL import Image
 r = Image.effect_noise((4000, 3000), 60)
@@ -96,6 +96,9 @@ Send @("--page", "Converter");     Start-Sleep 3; Snap "Window open: Converter"
 Send @("--page", "Apps");          Start-Sleep 15; Snap "Window open: Uninstaller (list loaded)" 20
 Send @("--page", "History");       Start-Sleep 3; Snap "Window open: History"
 Send @("--page", "Look");          Start-Sleep 3; Snap "Window open: Look (wheel previews)"
+foreach ($page in "PDF", "Organizer", "Startup", "Scan") {
+    Send @("--page", $page);       Start-Sleep 4; Snap "Window open: $page"
+}
 CloseWindow;                        Start-Sleep 5; Snap "Window just closed" 20
 Start-Sleep 100;                                   Snap "Window closed for 2 minutes (freed)" 30
 
