@@ -59,6 +59,7 @@ class Options:
     jpg_quality: int = 90
     rename_base: str = ""              # "" = keep original names
     rename_start: int = 1
+    gpu: bool = False                  # videos made with the graphics card when it can (much faster)
 
 
 @dataclass

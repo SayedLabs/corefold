@@ -682,9 +682,98 @@ def media_duration(src: Path) -> float:
 LOCAL_ONLY = ["-protocol_whitelist", "file,pipe"]
 
 
+# ----------------------------------------------------------------------------- the graphics card
+
+GPU_ENCODERS = ("h264_nvenc", "h264_qsv", "h264_amf")  # NVIDIA, Intel, AMD
+_gpu: dict = {}
+_gpu_lock = threading.Lock()
+
+
+def gpu_encoder() -> str:
+    """The graphics card's H.264 encoder that really works on this PC (tried once with a tiny video), or ""."""
+    with _gpu_lock:
+        if "encoder" in _gpu:
+            return _gpu["encoder"]
+        found = ""
+        try:
+            exe = find_tool("ffmpeg")
+            listed = subprocess.run([exe, "-hide_banner", "-encoders"], capture_output=True, text=True, timeout=20,
+                                    stdin=subprocess.DEVNULL, creationflags=NO_WINDOW).stdout
+            for enc in GPU_ENCODERS:
+                if f" {enc} " not in listed:
+                    continue
+                r = subprocess.run([exe, "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i",
+                                    "color=c=black:s=256x256:d=0.2", "-frames:v", "3", *_gpu_video_args([], enc, 23),
+                                    "-f", "null", "-"], capture_output=True, timeout=30, stdin=subprocess.DEVNULL,
+                                   creationflags=NO_WINDOW)
+                if r.returncode == 0:
+                    found = enc
+                    break
+        except (OSError, RuntimeError, subprocess.SubprocessError):
+            found = ""
+        log.info("graphics card video encoder: %s", found or "none")
+        _gpu["encoder"] = found
+        return found
+
+
+def _gpu_video_args(rest: list[str], enc: str, crf: int | None, bitrate: str = "") -> list[str]:
+    """The encoder's own words for "this quality" (FFmpeg's x264 CRF, roughly matched)."""
+    if enc == "h264_nvenc":
+        q = ["-rc", "vbr", "-b:v", bitrate] if bitrate else ["-rc", "vbr", "-cq", str((crf or 20) + 2), "-b:v", "0"]
+        return ["-c:v", enc, "-preset", "p5", *q, "-pix_fmt", "yuv420p", *rest]
+    if enc == "h264_qsv":
+        q = ["-b:v", bitrate] if bitrate else ["-global_quality", str((crf or 20) + 2)]
+        return ["-c:v", enc, "-preset", "medium", *q, "-pix_fmt", "nv12", *rest]
+    q = ["-b:v", bitrate] if bitrate else ["-rc", "cqp", "-qp_i", str(crf or 20), "-qp_p", str((crf or 20) + 2)]
+    return ["-c:v", enc, "-quality", "balanced", *q, "-pix_fmt", "nv12", *rest]
+
+
+def with_gpu(args: list[str], enc: str) -> list[str] | None:
+    """The same FFmpeg arguments with the graphics card making the H.264 video, or None when they can't
+    be swapped (no x264 in them, two passes, or settings only x264 has)."""
+    if not enc or "libx264" not in args or "-pass" in args or "-x264-params" in args or "-tune" in args:
+        return None
+    out, crf, bitrate, i = [], None, "", 0
+    while i < len(args):
+        a = args[i]
+        nxt = args[i + 1] if i + 1 < len(args) else ""
+        if a == "-c:v" and nxt == "libx264":
+            i += 2
+            continue
+        if a == "-crf":
+            crf = int(float(nxt)) if nxt.replace(".", "", 1).isdigit() else 20
+            i += 2
+            continue
+        if a in ("-preset", "-pix_fmt", "-profile:v", "-level"):
+            i += 2
+            continue
+        if a == "-b:v":
+            bitrate = nxt
+            i += 2
+            continue
+        out.append(a)
+        i += 1
+    return _gpu_video_args(out, enc, crf, bitrate)
+
+
 def run_ffmpeg(src: Path, out: Path, args: list[str], ctx: Ctx, pre: list[str] | None = None,
                duration: float | None = None, more_inputs: list[Path] | None = None, cwd: Path | None = None):
-    """FFmpeg from src to out, with progress and Stop. more_inputs come after src (-i 1, 2 …)."""
+    """FFmpeg from src to out, with progress and Stop. more_inputs come after src (-i 1, 2 …).
+    With the graphics card option on, H.264 videos are made by the graphics card; if that fails, the
+    usual way follows by itself."""
+    fast = with_gpu(args, gpu_encoder()) if getattr(ctx.options, "gpu", False) and "libx264" in args else None
+    if fast is not None:
+        try:
+            return _run_ffmpeg(src, out, fast, ctx, pre, duration, more_inputs, cwd)
+        except Cancelled:
+            raise
+        except RuntimeError:
+            log.warning("the graphics card couldn't make %s; trying again the usual way", out.name)
+    return _run_ffmpeg(src, out, args, ctx, pre, duration, more_inputs, cwd)
+
+
+def _run_ffmpeg(src: Path, out: Path, args: list[str], ctx: Ctx, pre: list[str] | None = None,
+                duration: float | None = None, more_inputs: list[Path] | None = None, cwd: Path | None = None):
     duration = media_duration(src) if duration is None else duration
     args = with_tonemap(src, args) if not more_inputs else args
     extra = [x for p in (more_inputs or []) for x in (*LOCAL_ONLY, "-i", str(p))]

@@ -151,6 +151,25 @@ def video_tools():
     check(joined.suffix == ".mp3" and abs(probe(joined)["duration"] - 4) < 0.5, "two sound files joined")
 
 
+def graphics_card():
+    from corefold import converters as cv
+    args = cv.VIDEO_ARGS[".mp4"]
+    fast = cv.with_gpu(args, "h264_nvenc")
+    check(fast is not None and "libx264" not in fast and "h264_nvenc" in fast and "-crf" not in fast,
+          "the video is handed to the graphics card")
+    check(cv.with_gpu(["-c:v", "libx264", "-pass", "1"], "h264_nvenc") is None, "…not for two passes")
+    enc = cv.gpu_encoder()
+    print("(graphics card encoder here:", enc or "none", ")")
+    out = TMP / "gpu.mp4"
+    real = cv.gpu_encoder
+    try:  # a graphics card that says it can but then fails: the usual way follows by itself
+        cv.gpu_encoder = lambda: "h264_nvenc" if not enc else enc
+        cv.run_ffmpeg(VID / "bars.mp4", out, args, Ctx(Options(gpu=True)))
+    finally:
+        cv.gpu_encoder = real
+    check(out.exists() and cv.media_duration(out) > 2, "a video is made either way")
+
+
 def fingerprint():
     import hashlib
 
@@ -629,7 +648,7 @@ if __name__ == "__main__" and len(sys.argv) > 1:
         step(name, globals()[name])
 else:
     step("videos", make_videos)
-    for name, fn in (("video tools", video_tools), ("fingerprint", fingerprint), ("passwords", passwords),
+    for name, fn in (("video tools", video_tools), ("graphics card", graphics_card), ("fingerprint", fingerprint), ("passwords", passwords),
                      ("capture", capture), ("recording pause", recording_pause), ("loopback", loopback),
                      ("clipboard", clipboard), ("clip list", clip_list), ("viewer", viewer),
                      ("space", space), ("space programs", space_programs), ("chapters", chapters), ("player", player),

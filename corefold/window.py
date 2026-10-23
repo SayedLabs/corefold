@@ -1805,7 +1805,9 @@ class MainWindow(QWidget):
                                      "JPG copy"), s.watch_downloads, self.c.set_watch_downloads)
         self.pack_everywhere = checkbox(tr("Show ZIP / 7z options on every wheel"), s.pack_on_every_wheel,
                                         self._general_changed)
-        for cb in (self.ask_names, self.reveal, self.tick, self.downloads, self.pack_everywhere):
+        self.video_gpu = checkbox(tr("Make videos with the graphics card when there is one (several times faster)"),
+                                  s.video_gpu, self._general_changed)
+        for cb in (self.ask_names, self.reveal, self.tick, self.downloads, self.pack_everywhere, self.video_gpu):
             cl.addWidget(cb)
         lay.addWidget(checks)
         lay.addLayout(_reset_row(lambda: self.reset_to_defaults(CONVERTER_KEYS)))
@@ -3042,6 +3044,7 @@ class MainWindow(QWidget):
         s.reveal_after = self.reveal.isChecked()
         s.sound_problems = self.problem_sound.isChecked()
         s.sound_tick = self.tick.isChecked()
+        s.video_gpu = self.video_gpu.isChecked()
         changed = s.pack_on_every_wheel != self.pack_everywhere.isChecked()
         s.pack_on_every_wheel = self.pack_everywhere.isChecked()
         self.c.settings_changed(menu=changed)
