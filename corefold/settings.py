@@ -107,7 +107,8 @@ HELD: dict | None = None
 RECENT_ARCHIVES = 8
 # not settings a person edits: what the app remembers by itself
 NOT_EDITED = {"enabled", "first_run", "last_version", "menu_signature", "window_geometry", "last_page",
-              "last_action", "tour_done", "watermark", "fit_mb", "open_archives", "recent_archives"}
+              "last_action", "tour_done", "watermark", "fit_mb", "open_archives", "recent_archives",
+              "tools_off", "known_tools"}
 # the settings of each tab of the Settings page (each one has its own "Reset to defaults")
 GENERAL_KEYS = ("language", "sound", "volume", "sound_problems", "show_progress", "low_priority", "one_at_a_time")
 LOOK_KEYS = ("appearance", "accent", "custom_color", "animations", "toast_corner", "toast_time", "window_text",
@@ -158,6 +159,9 @@ class Settings:
     context_menu: bool = True      # Corefold in the right-click menu
     menu_style: str = "windows"    # "windows" (a normal submenu) or "wheel"
     menu_signature: str = ""       # what was last written to the right-click menu
+    # the Store: tools removed by this person, and the tools they've been offered (others are "New")
+    tools_off: list = field(default_factory=list)
+    known_tools: list = field(default_factory=list)
     open_archives: bool = True     # archives open in Corefold with a double-click ("Open with")
     recent_archives: list = field(default_factory=list)  # archives opened lately (newest first)
     extract_mode: str = "smart"    # "Extract here": "smart" (no folder inside a folder) or "folder"
@@ -243,6 +247,11 @@ class Settings:
         s.hidden_tools = [t for t in s.hidden_tools if isinstance(t, str)]
         s.favorites = [t for t in s.favorites if isinstance(t, str)]
         s.recent_archives = [t for t in s.recent_archives if isinstance(t, str)][:RECENT_ARCHIVES]
+        s.tools_off = [t for t in s.tools_off if isinstance(t, str)]
+        s.known_tools = [t for t in s.known_tools if isinstance(t, str)]
+        if not s.known_tools and not s.first_run:  # from before the Store: the tools they had
+            from .tools import ORIGINAL
+            s.known_tools = list(ORIGINAL)
         if not isinstance(s.last_action.get("key"), str) or not isinstance(s.last_action.get("params", {}), dict):
             s.last_action = {}
         return s

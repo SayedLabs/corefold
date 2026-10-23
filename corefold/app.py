@@ -29,6 +29,7 @@ from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon
 
 from . import UPDATE_REPO, __version__, i18n, icons, ipc, shellmenu, sounds, updater, winutil
+from . import tools as all_tools
 from .converters import PASSWORD_ERROR, Options, Result, Tool, pick, release_memory, run_job, warm_up
 from .core import (LEGACY_NAME, category, human_size, is_link, lower_this_thread, norm, os_open, set_background_priority,
                    set_downloads_folder, short_name, unique_path)
@@ -156,7 +157,8 @@ class DragWatcher(QObject):
             self.timer.setInterval(ms)
 
     def poll(self):
-        if not self.settings.enabled and not self.pressed:
+        if not (self.settings.enabled and "converter" not in getattr(self.settings, "tools_off", ())) \
+                and not self.pressed:
             self._interval(self.PAUSED_MS)
             return
         down = winutil.key_down(winutil.primary_button())
@@ -280,10 +282,12 @@ class Controller(QObject):
         self.tray = QSystemTrayIcon(icon)
         self.tray.activated.connect(self._tray_clicked)
         menu = QMenu()
-        self.menu_icons = [(menu.addAction(tr("Open Corefold"), self.show_window), "home"),
-                           (menu.addAction(tr("Settings"), lambda: self.show_window("General")), "settings"),
-                           (menu.addAction(tr("Convert what's copied"), self.paste), "arrow_swap"),
-                           (menu.addAction(tr("Open an archive…"), self.choose_archive), "archive")]
+        act_open = menu.addAction(tr("Open Corefold"), self.show_window)
+        act_settings = menu.addAction(tr("Settings"), lambda: self.show_window("General"))
+        self.act_paste = menu.addAction(tr("Convert what's copied"), self.paste)
+        self.act_archive = menu.addAction(tr("Open an archive…"), self.choose_archive)
+        self.menu_icons = [(act_open, "home"), (act_settings, "settings"), (self.act_paste, "arrow_swap"),
+                           (self.act_archive, "archive")]
         self.act_again = menu.addAction(tr("Do it again…"), self.do_again)
         menu.aboutToShow.connect(self._update_again_action)
         self.recent_menu = menu.addMenu(tr("Recent files"))
@@ -302,6 +306,7 @@ class Controller(QObject):
         self.menu = menu
         for m in (menu, self.recent_menu):
             round_menu(m)
+        self._tray_tools()
         self._color_menu_icons()
         self.tray.setContextMenu(menu)
 
@@ -551,6 +556,7 @@ class Controller(QObject):
 
     def watch_downloads(self, on: bool):
         self.settings.watch_downloads = on
+        on = on and all_tools.is_on(self.settings, "converter")  # a Converter feature
         folder = str(self.downloads)
         if on and self.downloads.is_dir():
             try:
@@ -664,6 +670,39 @@ class Controller(QObject):
         if name:
             self.open_browser(Path(name))
 
+    # ---- the Store: the tools this person uses
+
+    def set_tool(self, tool_id: str, on: bool):
+        """Adds or removes a tool (from the Store): the window is made again with or without it."""
+        s = self.settings
+        off = set(s.tools_off)
+        if on:
+            off.discard(tool_id)
+        else:
+            off.add(tool_id)
+        s.tools_off = sorted(off)
+        s.known_tools = sorted(set(s.known_tools) | {tool_id})
+        s.save()
+        self.apply_tools()
+        w = self._window
+        if w is not None:
+            self.rebuild_window("Store", committed=w.committed, pending_startup=w.pending_startup)
+
+    def apply_tools(self):
+        """Starts or stops what each tool does in the background, to match the tools in use."""
+        self.watch_downloads(self.settings.watch_downloads)
+        self.update_shell_menu(500)
+        self.sync_archive_opening()
+        self._tray_tools()
+        log.info("tools in use: %s", ", ".join(t.id for t in all_tools.enabled(self.settings)) or "none")
+
+    def _tray_tools(self):
+        """The tray menu only offers what the tools in use can do."""
+        converter = all_tools.is_on(self.settings, "converter")
+        for act in (self.act_paste, self.act_again, self.act_pause):
+            act.setVisible(converter)
+        self.act_archive.setVisible(all_tools.is_on(self.settings, "archive"))
+
     def remember_archive(self, src: Path):
         """Keeps the list of recently opened archives (shown on the Archive page)."""
         from .settings import RECENT_ARCHIVES
@@ -716,7 +755,8 @@ class Controller(QObject):
     def sync_archive_opening(self):
         from . import assoc
         s = self.settings
-        threading.Thread(target=assoc.sync, args=(s.open_archives, app_command, app_icon(),
+        threading.Thread(target=assoc.sync, args=(s.open_archives and all_tools.is_on(s, "archive"), app_command,
+                                                  app_icon(),
                                                   tr("Corefold Archive")), daemon=True).start()
 
     # ---- right-click menu
@@ -742,14 +782,15 @@ class Controller(QObject):
             self.menu_timer.start(MENU_WRITE_DELAY_MS)
             return
         s = copy.deepcopy(self.settings)  # a snapshot: the settings may change while this runs
-        if not s.context_menu and s.menu_signature == "off":
+        menu_on = s.context_menu and all_tools.is_on(s, "converter")  # the menu is the Converter's
+        if not menu_on and s.menu_signature == "off":
             return
         self.menu_busy = True
 
         def work():
             signature = ""
             try:
-                if not s.context_menu:
+                if not menu_on:
                     shellmenu.remove()
                     signature = "off"
                 else:
@@ -1124,6 +1165,22 @@ class Controller(QObject):
         if first and self.settings.reveal_after and not errors and not cancelled:
             winutil.reveal_in_explorer(first)
 
+    def first_start(self):
+        """The very first start: which tools this person wants, then the short tour."""
+        from .store import ask_tools
+        picked = ask_tools(self.icon, self.theme.dark)
+        s = self.settings
+        ready = {tool.id for tool in all_tools.ready()}
+        s.known_tools = sorted(set(s.known_tools) | ready)
+        if picked is not None:
+            s.tools_off = sorted(ready - picked)
+        s.save()
+        self.apply_tools()
+        if self._window is not None:
+            self.rebuild_window("Home")
+        if not s.tour_done:
+            QTimer.singleShot(300, self.show_tour)
+
     def show_tour(self):
         from .tour import Tour
         dlg = Tour(self.icon, self.settings.shortcut_label, self.theme.accent)
@@ -1195,7 +1252,7 @@ class Controller(QObject):
 
     def _update_again_action(self):
         text = self.again_text()
-        self.act_again.setVisible(bool(text))
+        self.act_again.setVisible(bool(text) and all_tools.is_on(self.settings, "converter"))
         if text:
             self.act_again.setText(text)
 
@@ -1634,12 +1691,24 @@ def main() -> int:
         QTimer.singleShot(200, lambda: controller.handle_message(message.decode("utf-8")))
     elif message is None and "--background" not in argv:
         controller.show_window("Home")
-    if s.first_run:
+    fresh = s.first_run
+    if fresh:
         s.first_run = False
+        s.known_tools = sorted({tool.id for tool in all_tools.ready()})  # (offered now, in the first-start question)
         if not message or not message.startswith(b"show"):
             controller.show_window("Home")
-    if not s.tour_done and not message and "--background" not in argv:
-        QTimer.singleShot(700, controller.show_tour)
+        if not message and "--background" not in argv:
+            QTimer.singleShot(500, controller.first_start)  # which tools, then the tour
+    else:
+        offered = all_tools.offer_new_tools(s)  # tools new in this version wait in the Store
+        if offered:
+            controller.apply_tools()
+            names = ", ".join(tr(tool.name) for tool in offered)
+            QTimer.singleShot(2500, lambda: controller.toast.notify(
+                tr("New tools in the Store"), tr("{names}. Add the ones you want from Corefold's Store.", names=names),
+                linger_ms=9000))
+        if not s.tour_done and not message and "--background" not in argv:
+            QTimer.singleShot(700, controller.show_tour)
     s.save()
     threading.Thread(target=_prune_backups, args=(s.backup_days,), daemon=True).start()
     QTimer.singleShot(IDLE_TIDY_MS, controller.tidy_up)

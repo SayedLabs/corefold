@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QColorDial
                                QWidget)
 
 from . import UPDATE_REPO, __version__, i18n, icons, winutil
+from . import tools as all_tools
 from . import settings as settings_mod
 from .converters import CATEGORY_NAMES, catalog, human_size
 from .core import short_name
@@ -33,83 +34,29 @@ from .winutil import memory_use, reveal_in_explorer, set_title_bar_dark
 if TYPE_CHECKING:
     from .app import Controller
 
-# every page, in the order they are built (names are English, shown through tr())
-PAGES = ["Home", "Converter", "History", "Apps", "Archives", "Soon", "Viewer", "Player", "Capture", "Space",
-         "Clipboard", "Cloud", "General", "Look", "ConvOptions", "WheelLook", "Formats", "AppsSettings",
-         "ArchiveSettings", "Updates", "About"]
+# every page, in the order they are built (names are English, shown through tr()); each tool's
+# pages come from tools.py
+_TOOL_SETTINGS_PAGES = [p for tool in all_tools.TOOLS for p in tool.settings_pages]
+PAGES = ["Home", "History", *[tool.page for tool in all_tools.TOOLS], "Store", "General", "Look",
+         *_TOOL_SETTINGS_PAGES, "Updates", "About"]
 # tools still being made: page -> product tile (in the order they're planned)
-SOON = {"Viewer": "viewer", "Player": "player", "Capture": "capture", "Space": "space",
-        "Clipboard": "clipboard", "Cloud": "cloud"}
-# the sidebar: pages, with a small heading before each group (None + heading). The tools still being
-# made share one "Coming soon" row, so the sidebar stays short.
-NAV = ["Home", "History", (None, "Tools"), "Converter", "Apps", "Archives", "Soon",
-       (None, "App"), "General", "Updates", "About"]
-NAV_LABELS = {"Apps": "Uninstaller", "Soon": "Coming soon", "General": "Settings"}  # sidebar name ≠ page name
-# Settings: a tab for the whole app and one for each tool (a new tool adds its tab here). A tab with
-# several pages shows them as smaller tabs underneath.
-SETTINGS_TABS = [("General", "General", ["General"]),
-                 ("Look", "Appearance", ["Look"]),
-                 ("ConvOptions", "Converter", ["ConvOptions", "WheelLook", "Formats"]),
-                 ("AppsSettings", "Uninstaller", ["AppsSettings"]),
-                 ("ArchiveSettings", "Archives", ["ArchiveSettings"])]
+SOON = {tool.page: tool.product for tool in all_tools.coming()}
+# the sidebar's fixed rows (the tools a person uses go between the two headings) and its names
+NAV = ["Home", "History", (None, "Tools"), "Store", (None, "App"), "General", "Updates", "About"]
+NAV_LABELS = {"General": "Settings", **{tool.page: tool.nav for tool in all_tools.TOOLS}}
+# Settings: a tab for the whole app and one for each tool someone uses. A tab with several pages
+# shows them as smaller tabs underneath.
+BASE_SETTINGS_TABS = [("General", "General", ["General"]), ("Look", "Appearance", ["Look"])]
+SETTINGS_TABS = BASE_SETTINGS_TABS + [(tool.settings, tool.nav, list(tool.settings_pages))
+                                      for tool in all_tools.TOOLS if tool.settings]
 SETTINGS_SUBTABS = {"ConvOptions": "Options", "WheelLook": "Wheel", "Formats": "Formats"}
-SETTINGS_PAGES = [p for _first, _label, pages in SETTINGS_TABS for p in pages]
-TOOL_SETTINGS = {"Converter": "ConvOptions", "Apps": "AppsSettings", "Archives": "ArchiveSettings"}
+SETTINGS_PAGES = ["General", "Look", *_TOOL_SETTINGS_PAGES]
+TOOL_SETTINGS = {tool.page: tool.settings for tool in all_tools.TOOLS if tool.settings}
 # pages without a sidebar row of their own: the row that's lit
-NAV_OWNER = {**{name: "Soon" for name in SOON}, **{name: "General" for name in SETTINGS_PAGES if name != "General"}}
-PAGE_ICONS = {"Home": "home", "Converter": "arrow_swap", "Apps": "broom", "General": "settings", "Look": "paint_brush",  # icons.py
-              "Formats": "puzzle_piece", "History": "history", "Updates": "arrow_sync", "About": "info",
-              "Soon": "star", "Archives": "archive", "Player": "video", "Viewer": "image", "Capture": "screenshot",
-              "Space": "data_pie", "Clipboard": "clipboard", "Cloud": "globe"}
-# the tools on the Home page: page, product tile, name, one line (English, shown through tr())
-TOOLS = [
-    ("Converter", "converter", "Corefold Converter",
-     "Convert, shrink and edit pictures, videos, music, PDFs and documents with one drag."),
-    ("Apps", "cleaner", "Corefold Uninstaller",
-     "Remove programs and everything they leave behind, with a backup you can put back."),
-    ("Archives", "archive", "Corefold Archive",
-     "Open, extract and make ZIP, RAR and 7z files. Drag files out, change them inside, rescue damaged ones."),
-]
-SOON_TEXT = {  # name, one line, what it will do (English, shown through tr())
-    "Cloud": ("Corefold Cloud", "All your cloud storage in one window: OneDrive, Google Drive, Dropbox and more.",
-              ["See OneDrive, Google Drive and Dropbox side by side, without switching accounts",
-               "Drag files from one cloud to another",
-               "Several accounts of the same service at once",
-               "Search across all of them",
-               "Sign in on Microsoft's and Google's own page: your passwords never reach Corefold"]),
-    "Capture": ("Corefold Capture", "Take a picture or a video of your screen, mark it up and share it in "
-                "seconds.",
-                ["Pick an area, a window or the whole screen with one shortcut",
-                 "Draw arrows, boxes and text, and blur anything private",
-                 "Copy the text you see in any picture or screen",
-                 "Record your screen as a video or a GIF, with sound if you want",
-                 "Everything stays on your PC: nothing is uploaded"]),
-    "Space": ("Corefold Space", "See what's filling your disk and free up space safely.",
-              ["A clear map of the biggest folders and files",
-               "Find duplicate files and photos",
-               "Clean up safe junk: temporary files, old installers, leftover caches",
-               "Never touches Windows or your personal files without asking",
-               "Everything removed goes to the Recycle Bin first"]),
-    "Clipboard": ("Corefold Clipboard", "Everything you copy, kept and easy to find again.",
-                  ["Text, pictures, links and files you copied, in one list",
-                   "Pin what you paste often so it's always at the top",
-                   "Search your clipboard history",
-                   "Paste as plain text, without the formatting",
-                   "Stays on your PC, and skips passwords from password managers"]),
-    "Player": ("Corefold Player", "Plays every video and song, smooth in 4K, with clean controls that get out of "
-               "the way.",
-               ["Plays every common video and music format",
-                "Subtitles you can drag in, resize and shift in time",
-                "Picks up where you left off, with a Continue watching list",
-                "A mini player that stays on top of other windows",
-                "Speed, A–B loop, frame by frame, screenshots and clips"]),
-    "Viewer": ("Corefold Viewer", "Flip through a folder of pictures fast, and fix them on the spot.",
-               ["Arrow keys through a whole folder, instantly",
-                "Zoom, turn and crop",
-                "Quick edits, and save as another format",
-                "HEIC, WebP, AVIF and more",
-                "See the details: size, date and camera"]),
-}
+NAV_OWNER = {**{name: "Store" for name in SOON}, **{name: "General" for name in SETTINGS_PAGES if name != "General"}}
+PAGE_ICONS = {"Home": "home", "General": "settings", "Look": "paint_brush", "Formats": "puzzle_piece",  # icons.py
+              "History": "history", "Updates": "arrow_sync", "About": "info", "Store": "apps",
+              **{tool.page: tool.icon for tool in all_tools.TOOLS}}
 
 
 # ----------------------------------------------------------------------------- small building blocks
@@ -421,12 +368,18 @@ class MainWindow(QWidget):
         brand.addWidget(logo)
         brand.addWidget(label(APP_NAME, "brand"))
         brand.addStretch()
+        # the tools this person uses (the Store adds and removes them; nothing of the others is built)
+        self.tools_on = all_tools.enabled(self.c.settings)
+        on_pages = {tool.page for tool in self.tools_on}
+        self.nav_entries = NAV[:3] + [tool.page for tool in self.tools_on] + NAV[3:]
+        self.settings_tab_list = BASE_SETTINGS_TABS + [(tool.settings, tool.nav, list(tool.settings_pages))
+                                                       for tool in self.tools_on if tool.settings]
         self.nav = QListWidget()
         self.nav.setObjectName("nav")
         self.nav_rows: list[str | None] = []   # sidebar row -> page name (None for a heading)
         self.nav.ensurePolished()
         row_h = max(34, self.nav.fontMetrics().height() + 18)  # compact rows, so every page fits
-        for entry in NAV:
+        for entry in self.nav_entries:
             item = QListWidgetItem()
             if isinstance(entry, tuple):
                 item.setFlags(Qt.NoItemFlags)
@@ -442,13 +395,15 @@ class MainWindow(QWidget):
                 self.nav_rows.append(entry)
             self.nav.addItem(item)
         for row, name in enumerate(self.nav_rows):
-            if name == "Soon":  # how many tools are on the way, in a small pill (clicks go through to the row)
+            fresh = len(all_tools.new_tools(self.c.settings)) + len([tool for tool in all_tools.ready()
+                                                                     if tool.page not in on_pages])
+            if name == "Store" and fresh:  # tools you can add, in a small pill (clicks go through to the row)
                 holder = QWidget()
                 holder.setAttribute(Qt.WA_TransparentForMouseEvents)
                 hl = QHBoxLayout(holder)
                 hl.setContentsMargins(0, 0, 10, 0)
                 hl.addStretch()
-                pill = label(str(len(SOON)), "soonPill")
+                pill = label(str(len([tool for tool in all_tools.ready() if tool.page not in on_pages])), "soonPill")
                 pill.setFixedHeight(18)
                 hl.addWidget(pill, 0, Qt.AlignVCenter)
                 self.nav.setItemWidget(self.nav.item(row), holder)
@@ -465,7 +420,7 @@ class MainWindow(QWidget):
 
         self.stack = QStackedWidget()
         builders = {"Home": self._home, "Converter": self._converter, "History": self._history, "Apps": self._apps,
-                    "Archives": self._archives, "Soon": self._soon_all, "General": self._general,
+                    "Archives": self._archives, "Store": self._store, "General": self._general,
                     "Look": self._look, "ConvOptions": self._conv_options, "WheelLook": self._wheel_look,
                     "Formats": self._formats, "AppsSettings": self._apps_settings,
                     "ArchiveSettings": self._archive_settings, "Updates": self._updates, "About": self._about}
@@ -475,7 +430,9 @@ class MainWindow(QWidget):
         self._gears: list[QPushButton] = []  # small "+" marks in the accent colour (recoloured with the theme)
         self._builders = builders
         # pages that are rarely opened are only built the first time they are (a faster, lighter window)
-        self._unbuilt = {"Apps", "Soon", *SOON}
+        # (the Converter's page and every Settings page are always made: other parts of the window use them)
+        self._unbuilt = {"Apps", "Store", *SOON, *[tool.page for tool in all_tools.TOOLS
+                                                    if tool.page not in on_pages and tool.page != "Converter"]}
         for name in PAGES:
             built = QWidget() if name in self._unbuilt else builders[name]()
             if name in SETTINGS_PAGES:  # the "Settings" heading and the tabs above say what this is
@@ -602,7 +559,7 @@ class MainWindow(QWidget):
     def refresh_nav(self):
         show = self.c.settings.sidebar_icons
         t = self.c.theme
-        for row, entry in enumerate(NAV):
+        for row, entry in enumerate(self.nav_entries):
             item = self.nav.item(row)
             if isinstance(entry, tuple):
                 item.setText(tr(entry[1]))
@@ -781,7 +738,7 @@ class MainWindow(QWidget):
         row = QHBoxLayout()
         row.setSpacing(2)
         self.settings_tabs: dict[str, QPushButton] = {}
-        for first, text, _pages in SETTINGS_TABS:
+        for first, text, _pages in self.settings_tab_list:
             b = button(tr(text), "tab", lambda _=False, f=first: self.open_page(f))
             b.setCheckable(True)
             row.addWidget(b)
@@ -812,7 +769,7 @@ class MainWindow(QWidget):
         self.settings_head.setVisible(on)
         if not on:
             return
-        for first, _text, pages in SETTINGS_TABS:
+        for first, _text, pages in self.settings_tab_list:
             self.settings_tabs[first].setChecked(name in pages)
         self.settings_sub.setVisible(name in self.settings_subtabs)
         for page_name, b in self.settings_subtabs.items():
@@ -843,34 +800,93 @@ class MainWindow(QWidget):
         self._dots.append(dot)
         return dot
 
-    def _soon_all(self) -> QWidget:
-        """Every tool that's on the way, each opening its own page."""
+    def _store(self) -> QWidget:
+        """The Store: the tools you use, the ones you can add, and the ones on the way."""
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        w, lay = page(tr("Coming soon"), tr("New tools on the way. Each arrives in a free update."))
-        grid = QGridLayout()
-        grid.setHorizontalSpacing(12)
-        grid.setVerticalSpacing(12)
-        for i, (name, product) in enumerate(SOON.items()):
-            title, intro, _features = SOON_TEXT[name]
-            grid.addWidget(ToolCard(product, tr(title), tr(intro), lambda n=name: self.open_page(n), dark, dpr,
-                                    pill=tr("Soon")), i // 2, i % 2)
-        grid.setColumnStretch(0, 1)
-        grid.setColumnStretch(1, 1)
-        lay.addLayout(grid)
+        w, lay = page(tr("Store"), tr("Add the tools you use and remove the ones you don't. Everything is free, and "
+                                      "a tool you remove isn't loaded at all, so Corefold stays light."))
+        on = {tool.id for tool in self.tools_on}
+        fresh = {tool.id for tool in all_tools.new_tools(self.c.settings)}
+        mine = [tool for tool in all_tools.ready() if tool.id in on]
+        more = [tool for tool in all_tools.ready() if tool.id not in on]
+
+        def section(title: str, tools: list, kind: str):
+            if not tools:
+                return
+            lay.addWidget(label(title, "section"))
+            for tool in tools:
+                lay.addWidget(self._store_card(tool, kind, tool.id in fresh, dark, dpr))
+
+        section(tr("Your tools"), mine, "remove")
+        if not mine:
+            lay.addWidget(label(tr("You haven't added any tools yet. Pick the ones you want below."), "muted",
+                                wrap=True))
+        section(tr("Add more"), more, "add")
+        section(tr("Coming soon"), all_tools.coming(), "soon")
         lay.addStretch()
         return w
 
+    def _store_card(self, tool, kind: str, fresh: bool, dark: bool, dpr: float) -> QFrame:
+        box = QFrame()
+        box.setObjectName("card")
+        row = QHBoxLayout(box)
+        row.setContentsMargins(16, 14, 16, 14)
+        row.setSpacing(14)
+        tile = QLabel()
+        tile.setPixmap(icons.product_tile(tool.product, 46, dark, dpr))
+        tile.setFixedSize(48, 48)
+        row.addWidget(tile, 0, Qt.AlignTop)
+        words = QVBoxLayout()
+        words.setSpacing(3)
+        top = QHBoxLayout()
+        top.setSpacing(8)
+        top.addWidget(label(tr(tool.name), "cardTitle"))
+        if fresh or kind == "soon":
+            pill = label(tr("New") if fresh else tr("Soon"), "soonPill")
+            pill.setFixedHeight(20)
+            top.addWidget(pill, 0, Qt.AlignVCenter)
+        top.addStretch()
+        words.addLayout(top)
+        line = label(tr(tool.line), "muted", wrap=True)
+        line.setMinimumWidth(1)
+        words.addWidget(line)
+        row.addLayout(words, 1)
+        if kind == "remove":
+            row.addWidget(button(tr("Open"), None, lambda: self.open_page(tool.page)), 0, Qt.AlignVCenter)
+            row.addWidget(button(tr("Remove"), "danger", lambda: self._remove_tool(tool)), 0, Qt.AlignVCenter)
+        elif kind == "add":
+            row.addWidget(button(tr("Add"), "primary", lambda: self.c.set_tool(tool.id, True)), 0, Qt.AlignVCenter)
+        else:
+            row.addWidget(button(tr("See what it will do"), None, lambda: self.open_page(tool.page)), 0,
+                          Qt.AlignVCenter)
+        return box
+
+    def _remove_tool(self, tool):
+        text = tr("{name} leaves the sidebar and stops running. Its settings are kept, so you can add it back "
+                  "any time from the Store.", name=tr(tool.name))
+        if tool.id == "converter":
+            text += "\n\n" + tr("The wheel and Corefold's right-click menu go away with it.")
+        elif tool.id == "archive":
+            text += "\n\n" + tr("Archives won't open in Corefold with a double-click any more.")
+        box = QMessageBox(QMessageBox.Question, tr("Remove {name}?", name=tr(tool.name)), text, parent=self)
+        remove = box.addButton(tr("Remove"), QMessageBox.DestructiveRole)
+        box.addButton(tr("Cancel"), QMessageBox.RejectRole)
+        box.exec()
+        chosen = box.clickedButton() is remove
+        box.deleteLater()
+        if chosen:
+            self.c.set_tool(tool.id, False)
+
     def _soon(self, name: str) -> QWidget:
         """A page for a tool that's still being made: what it will do."""
-        product = SOON[name]
-        title, intro, features = SOON_TEXT[name]
-        w, lay = page(tr(title))
+        tool = all_tools.BY_PAGE[name]
+        w, lay = page(tr(tool.name))
         lay.itemAt(0).widget().hide()  # the big title is shown next to the tile instead
-        lay.addLayout(tool_header(product, tr(title), tr(intro), self.c.theme.dark, self.devicePixelRatioF(),
-                                  pill=tr("Coming soon")))
+        lay.addLayout(tool_header(tool.product, tr(tool.name), tr(tool.line), self.c.theme.dark,
+                                  self.devicePixelRatioF(), pill=tr("Coming soon")))
         box, bl = card(10)
         bl.addWidget(label(tr("What it will do"), "h2"))
-        for text in features:
+        for text in tool.features:
             row = QHBoxLayout()
             row.setSpacing(10)
             dot = self._accent_dot()
@@ -886,7 +902,7 @@ class MainWindow(QWidget):
     # ---- pages
 
     def _home(self) -> QWidget:
-        """The start page: every tool, what's coming, and what happened lately."""
+        """The start page: the tools you use, more in the Store, and what happened lately."""
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
         w, lay = page(tr("Welcome to Corefold"), tr("Your everyday tools in one place. Pick one to start."))
         lay.addWidget(label(tr("Your tools"), "section"))
@@ -894,25 +910,37 @@ class MainWindow(QWidget):
         grid.setHorizontalSpacing(12)
         grid.setVerticalSpacing(12)
         self.tool_cards = {}
-        cols = 3 if len(TOOLS) % 3 == 0 else 2  # no card left alone on a row
-        for i, (name, product, title, text) in enumerate(TOOLS):
-            c = ToolCard(product, tr(title), tr(text), lambda n=name: self.open_page(n), dark, dpr)
-            self.tool_cards[name] = c
+        mine = self.tools_on
+        cols = 3 if len(mine) % 3 == 0 or len(mine) > 4 else 2  # no card left alone on a row
+        for i, tool in enumerate(mine):
+            c = ToolCard(tool.product, tr(tool.name), tr(tool.line), lambda n=tool.page: self.open_page(n), dark, dpr)
+            self.tool_cards[tool.page] = c
             grid.addWidget(c, i // cols, i % cols)
         for col in range(cols):
             grid.setColumnStretch(col, 1)
         lay.addLayout(grid)
+        if not mine:
+            lay.addWidget(label(tr("You haven't added any tools yet. Pick the ones you want below."), "muted",
+                                wrap=True))
 
-        lay.addWidget(label(tr("Coming soon"), "section"))
-        soon = QGridLayout()
-        soon.setHorizontalSpacing(12)
-        soon.setVerticalSpacing(12)
-        for i, (name, product) in enumerate(SOON.items()):
-            soon.addWidget(ToolCard(product, tr(SOON_TEXT[name][0]), "", lambda n=name: self.open_page(n), dark, dpr,
-                                    small=True, pill=tr("Soon")), i // 2, i % 2)
-        soon.setColumnStretch(0, 1)
-        soon.setColumnStretch(1, 1)
-        lay.addLayout(soon)
+        on = {tool.id for tool in mine}
+        others = [(tool, tr("Add")) for tool in all_tools.ready() if tool.id not in on] + \
+            [(tool, tr("Soon")) for tool in all_tools.coming()]
+        if others:
+            head = QHBoxLayout()
+            head.addWidget(label(tr("More tools"), "section"))
+            head.addStretch()
+            head.addWidget(button(tr("Open the Store"), "flat", lambda: self.open_page("Store")))
+            lay.addLayout(head)
+            soon = QGridLayout()
+            soon.setHorizontalSpacing(12)
+            soon.setVerticalSpacing(12)
+            for i, (tool, pill) in enumerate(others):
+                soon.addWidget(ToolCard(tool.product, tr(tool.name), "", lambda: self.open_page("Store"), dark, dpr,
+                                        small=True, pill=pill), i // 2, i % 2)
+            soon.setColumnStretch(0, 1)
+            soon.setColumnStretch(1, 1)
+            lay.addLayout(soon)
 
         head = QHBoxLayout()
         head.addWidget(label(tr("Recent activity"), "section"))
@@ -1590,11 +1618,11 @@ class MainWindow(QWidget):
         self.home_stats.setText(tr("So far: {count} files converted · {size} saved", count=locale().toString(st.files),
                                    size=human_size(st.bytes_saved)) if st.files else "")
         self.home_stats.setVisible(bool(st.files))
-        conv = self.tool_cards["Converter"].stat
-        conv.setText(tr("{count} files converted", count=locale().toString(st.files)) if st.files else "")
-        conv.setVisible(bool(st.files))
-        self.tool_cards["Apps"].stat.setVisible(False)
-        self.tool_cards["Archives"].stat.setVisible(False)
+        for page_name, tool_card in self.tool_cards.items():  # a small figure under a tool, where there is one
+            text = tr("{count} files converted", count=locale().toString(st.files)) \
+                if page_name == "Converter" and st.files else ""
+            tool_card.stat.setText(text)
+            tool_card.stat.setVisible(bool(text))
         self.power.setToolTip(tr("Turns the wheel and the right-click menu on or off."))
         self.refresh_again()
         self.update_save_bar()
