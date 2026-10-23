@@ -1,0 +1,17 @@
+2026-10-23 20:45:58,611 INFO starting Corefold 0.0.39-bughunt
+2026-10-23 20:46:09,107 INFO running in the background: quick access
+2026-10-23 20:46:09,166 INFO archive files open with Corefold
+2026-10-23 20:46:09,317 INFO right-click menu updated
+2026-10-23 20:46:11,422 INFO running in the background: quick access
+2026-10-23 20:46:11,422 INFO tools in use: converter, uninstaller, archive, viewer
+2026-10-23 20:46:11,434 INFO image files open with Corefold
+2026-10-23 20:46:11,438 INFO email files open with Corefold
+2026-10-23 20:46:16,816 INFO running in the background: quick access
+2026-10-23 20:46:16,816 INFO tools in use: converter, uninstaller, archive, viewer, player
+2026-10-23 20:46:16,830 INFO media files open with Corefold
+2026-10-23 20:46:22,260 INFO running in the background: capture, quick access
+2026-10-23 20:46:22,260 INFO tools in use: converter, uninstaller, archive, viewer, player, capture
+2026-10-23 20:46:27,672 INFO running in the background: capture, quick access
+2026-10-23 20:46:27,672 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space
+2026-10-23 20:46:33,123 INFO running in the background: clipboard, capture, quick access
+2026-10-23 20:46:33,123 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space, clipboard
