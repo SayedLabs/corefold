@@ -66,7 +66,8 @@ class _Signals(QObject):
 
 # what the "Show" list can narrow the apps down to (English, shown through tr())
 SHOW = {"all": "All apps", "unused": "Not used for 3 months", "big": "Big (1 GB or more)",
-        "new": "Installed in the last 30 days", "startup": "Start with Windows"}
+        "new": "Installed in the last 30 days", "startup": "Start with Windows",
+        "extras": "Extras that came with Windows"}
 # "not used for …" (chosen in Settings → Uninstaller): the filter's name and the count in the status line
 UNUSED = {3: ("Not used for 3 months", "{count} not used for 3 months"),
           6: ("Not used for 6 months", "{count} not used for 6 months"),
@@ -120,6 +121,8 @@ def _shown(app: un.App, show: str, months: int = 3) -> bool:
             return False
     if show == "startup":
         return app.startup
+    if show == "extras":
+        return un.is_windows_extra(app)
     return True
 
 
@@ -149,6 +152,41 @@ def _icon_for(app: un.App, provider: QFileIconProvider) -> QIcon | None:
 
 
 # ----------------------------------------------------------------------------- the page
+
+class HunterButton(QPushButton):
+    """Drag it onto any window: the program that window belongs to is found in the list."""
+    found = Signal(str)   # the program file of the window it was let go on ("" for none)
+
+    def __init__(self):
+        super().__init__(tr("Drag onto a window"))
+        self.setToolTip(tr("Don't know a program's name? Drag this onto one of its windows."))
+        self.setCursor(Qt.OpenHandCursor)
+
+    def mousePressEvent(self, e):
+        if e.button() == Qt.LeftButton:
+            self.setDown(True)
+            self.grabMouse(Qt.CrossCursor)
+            return
+        super().mousePressEvent(e)
+
+    def mouseReleaseEvent(self, e):
+        if e.button() != Qt.LeftButton:
+            return super().mouseReleaseEvent(e)
+        self.releaseMouse()
+        self.setDown(False)
+        if self.rect().contains(e.position().toPoint()):
+            return  # let go on the button itself: nothing picked
+        exe = ""
+        if os.name == "nt":
+            import ctypes
+            from ctypes import wintypes as wt
+            pt = wt.POINT()
+            ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
+            exe = un.program_at_point(pt.x, pt.y)
+        if exe and os.path.normcase(exe) == os.path.normcase(sys.executable):
+            exe = ""  # Corefold's own window
+        self.found.emit(exe)
+
 
 class AppsPage(QWidget):
     def __init__(self, controller: "Controller", window=None):
@@ -234,6 +272,9 @@ class AppsPage(QWidget):
         row.addWidget(self.b_leftovers)
         row.addWidget(self.b_folder)
         row.addStretch()
+        self.hunter = HunterButton()
+        self.hunter.found.connect(self._hunted)
+        row.addWidget(self.hunter)
         row.addWidget(_button(tr("Backups…"), on_click=self.show_backups))
         lay.addLayout(row)
         self._selection()
@@ -379,8 +420,8 @@ class AppsPage(QWidget):
 
     def _filter(self, *_):
         words = self.search.text().lower().split()
-        stores = self.store.isChecked()
         show = self.show_only.currentData() or "all"
+        stores = self.store.isChecked() or show == "extras"  # (Windows' extras are Store apps)
         for i in range(self.tree.topLevelItemCount()):
             item = self.tree.topLevelItem(i)
             app = item.data(0, APP_ROLE)
@@ -434,6 +475,29 @@ class AppsPage(QWidget):
         dlg.deleteLater()
         if dlg.changed:
             self.reload()
+
+    def _hunted(self, exe: str):
+        """A window was picked with "Drag onto a window": its program is picked in the list."""
+        app = un.app_for_program(exe, self.apps) if exe else None
+        if app is None:
+            QMessageBox.information(self, tr("Drag onto a window"),
+                                    tr("That window belongs to Windows itself or to a program that isn't installed "
+                                       "(it runs on its own).") if exe else tr("No window there."))
+            return
+        if app.store and not self.store.isChecked():
+            self.store.setChecked(True)
+        self.search.clear()
+        self.show_only.setCurrentIndex(0)
+        for i in range(self.tree.topLevelItemCount()):
+            item = self.tree.topLevelItem(i)
+            if item.data(0, APP_ROLE).id == app.id:
+                self.tree.clearSelection()
+                item.setSelected(True)
+                self.tree.setCurrentItem(item)
+                self.tree.scrollToItem(item, QAbstractItemView.PositionAtCenter)
+                self.window().raise_()
+                self.status.setText(tr("Found: {name}. Press Uninstall to remove it.", name=app.name))
+                return
 
     def show_backups(self):
         dlg = BackupsDialog(self.c, self.window().windowIcon())

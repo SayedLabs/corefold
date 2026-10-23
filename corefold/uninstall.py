@@ -1124,6 +1124,81 @@ def app_for_shortcut(path: Path, apps: list[App]) -> App | None:
     return None
 
 
+def app_for_program(exe: str, apps: list[App]) -> App | None:
+    """The installed program (a Store app too) a running program file belongs to."""
+    if not exe:
+        return None
+    for app in apps:  # Store apps run from their own folder under WindowsApps
+        if app.store and app.location and _inside(exe, app.location):
+            return app
+    return app_for_shortcut(Path(exe), apps)
+
+
+def program_at_point(x: int, y: int) -> str:
+    """The program file of the window at this point of the screen (in Windows' pixels), or ""."""
+    if os.name != "nt":
+        return ""
+    from ctypes import wintypes as wt
+    u, k = ctypes.windll.user32, ctypes.windll.kernel32
+    u.WindowFromPoint.restype = wt.HWND
+    u.WindowFromPoint.argtypes = [wt.POINT]
+    u.GetAncestor.restype = wt.HWND
+    k.OpenProcess.restype = wt.HANDLE
+    hwnd = u.WindowFromPoint(wt.POINT(x, y))
+    if not hwnd:
+        return ""
+    hwnd = u.GetAncestor(hwnd, 2) or hwnd  # GA_ROOT: the window itself, not a button in it
+
+    def pid_of(h) -> int:
+        pid = wt.DWORD()
+        u.GetWindowThreadProcessId(wt.HWND(h), ctypes.byref(pid))
+        return pid.value
+
+    def path_of(pid: int) -> str:
+        h = k.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return ""
+        try:
+            buf = ctypes.create_unicode_buffer(1024)
+            size = wt.DWORD(1024)
+            return buf.value if k.QueryFullProcessImageNameW(wt.HANDLE(h), 0, buf, ctypes.byref(size)) else ""
+        finally:
+            k.CloseHandle(wt.HANDLE(h))
+    host = pid_of(hwnd)
+    exe = path_of(host)
+    if exe.lower().endswith("\\applicationframehost.exe"):  # a Store app's frame: the app is a window inside it
+        found = []
+        callback = ctypes.WINFUNCTYPE(wt.BOOL, wt.HWND, wt.LPARAM)
+
+        def each(child, _l):
+            pid = pid_of(child)
+            if pid != host:
+                found.append(pid)
+                return False
+            return True
+        u.EnumChildWindows(wt.HWND(hwnd), callback(each), 0)
+        exe = path_of(found[0]) if found else ""
+    return exe
+
+
+# Windows' own extra apps, often never opened, that are safe to remove (and can be put back from the
+# Microsoft Store). Matched by the start of their package family name.
+WINDOWS_EXTRAS = (
+    "microsoft.bingnews", "microsoft.bingweather", "microsoft.bingsports", "microsoft.bingfinance",
+    "microsoft.bingsearch", "microsoft.microsoftsolitairecollection", "clipchamp.clipchamp", "microsoft.getstarted",
+    "microsoft.gethelp", "microsoft.people", "microsoft.windowsfeedbackhub", "microsoft.microsoftofficehub",
+    "microsoft.todos", "microsoft.powerautomatedesktop", "microsoft.windowsmaps", "microsoft.mixedreality.portal",
+    "microsoft.skypeapp", "microsoft.549981c3f5f10", "microsoft.messaging", "microsoft.oneconnect",
+    "microsoft.microsoft3dviewer", "microsoft.print3d", "microsoft.zunevideo", "microsoft.windows.devhome",
+    "microsoftcorporationii.microsoftfamily", "microsoft.windowscommunicationsapps", "king.com.",
+)
+
+
+def is_windows_extra(app: App) -> bool:
+    fam = (app.family or app.store or "").lower()
+    return bool(fam) and fam.startswith(WINDOWS_EXTRAS)
+
+
 def _match(name: str, keys: set[str]) -> str:
     """ "exact", "maybe" or ""."""
     n = norm(name)

@@ -589,6 +589,22 @@ def shortcut_program():
     check(un.app_for_shortcut(base / "Foo" / "bin" / "x.exe", apps).name == "Foo", "…or from where it's installed")
     check(un.app_for_shortcut(Path(os.environ.get("WINDIR", "C:\\Windows")) / "notepad.exe", apps) is None,
           "…and Windows' own programs aren't anyone's")
+    store = un.App(id="news", name="News", store="Microsoft.BingNews_4.1_x64__8wekyb3d8bbwe",
+                   family="Microsoft.BingNews_8wekyb3d8bbwe", location=str(base / "WindowsApps" / "Microsoft.BingNews_4.1"))
+    apps.append(store)
+    check(getattr(un.app_for_program(str(Path(store.location) / "News.exe"), apps), "name", None) == "News",
+          "a window's program: a Store app, from the folder it runs from")
+    check(getattr(un.app_for_program(str(exe), apps), "name", None) == "Bar", "…an installed program")
+    check(un.app_for_program("", apps) is None, "…and nothing for no window")
+    from corefold import appspage
+    check(un.is_windows_extra(store) and not un.is_windows_extra(apps[0]) and
+          appspage._shown(store, "extras") and not appspage._shown(apps[0], "extras"),
+          "\"Extras that came with Windows\" shows only Windows' own extra apps")
+    hunter = appspage.HunterButton()
+    got = []
+    hunter.found.connect(got.append)
+    hunter.found.emit("")
+    check(got == [""] and hunter.text(), "the \"Drag onto a window\" button")
     s = Settings()
     s.tools_off = []
     verbs = shellmenu.plan(s, lambda *a: " ".join(a))
