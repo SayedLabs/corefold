@@ -68,7 +68,7 @@ jobs:
           New-Item -ItemType Directory -Force out | Out-Null
           python scripts/screenres.py 1920 1080 *>> out/screen.txt
 
-      - name: Older checks (translations, archives and video, a very big archive, the newer tools)
+      - name: Older checks (translations, archives and video, the Uninstaller, a very big archive, the newer tools)
         if: matrix.name == 'checks'
         shell: pwsh
         continue-on-error: true
@@ -77,6 +77,7 @@ jobs:
           $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
           python scripts/check_translations.py *> out/translations.txt
           python scripts/selftest.py *> out/selftest.txt
+          python scripts/uninstalltest.py *> out/uninstalltest.txt
           python scripts/stress.py out/stress *> out/stress.txt
           python scripts/uitest.py out/uitest *> out/uitest.txt
 

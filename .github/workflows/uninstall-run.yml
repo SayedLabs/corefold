@@ -1,0 +1,28 @@
+# Temporary: runs the Uninstaller checks on every push to this branch. Removed before merging.
+name: Uninstaller checks
+
+on:
+  push:
+    branches: [claude/project-thread-4xrj62]
+
+jobs:
+  check:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install
+        shell: pwsh
+        run: python -m pip install --quiet -r requirements.txt
+      - name: Translations
+        shell: pwsh
+        run: python scripts/check_translations.py
+      - name: Uninstaller
+        shell: pwsh
+        run: python scripts/uninstalltest.py
+      - name: Selftest (uninstaller part)
+        shell: pwsh
+        run: python scripts/selftest.py uninstaller
