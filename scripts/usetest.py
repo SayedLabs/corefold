@@ -56,7 +56,7 @@ s.quick_wheel = True
 s.output_folder = str(TMP / "Converted")
 s.save()
 
-from PySide6.QtCore import QPoint, Qt, QTimer  # noqa: E402
+from PySide6.QtCore import QEventLoop, QPoint, Qt, QTimer  # noqa: E402
 from PySide6.QtGui import QDesktopServices, QGuiApplication, QIcon  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QMenu, QMessageBox  # noqa: E402
@@ -174,13 +174,21 @@ def setup():
 def settle(seconds=0.25):
     end = time.time() + seconds
     while time.time() < end:
-        QTest.qWait(10)
+        wait_ms(10)
+
+
+def wait_ms(ms):
+    """Lets the app run for a moment. (Not QTest.qWait: it keeps Python's lock the whole time, so the app's
+    own helper threads hardly ran and a scan in the Space page took five times as long as it really does.)"""
+    loop = QEventLoop()
+    QTimer.singleShot(ms, loop.quit)
+    loop.exec()
 
 
 def until(cond, seconds=10):
     end = time.time() + seconds
     while time.time() < end:
-        QTest.qWait(15)
+        wait_ms(15)
         try:
             if cond():
                 return True
@@ -216,7 +224,7 @@ def timed(what, fn, limit, wait=None, wait_s=None, profile=""):
         traceback.print_exc()
         return None
     took = time.perf_counter() - t0
-    QTest.qWait(30)
+    wait_ms(30)
     watch.label = ""
     frozen = watch.worst.pop(what, 0)
     if not done:
@@ -592,7 +600,7 @@ def viewer():
     def hold_arrow():  # like holding → down: a new picture every 40 ms
         for _ in range(30):
             win.go(1)
-            QTest.qWait(40)
+            wait_ms(40)
     timed("hold → for 30 pictures (keeps up, no freeze)", hold_arrow, 2.5,
           wait=lambda: win.current() == folder[430] and not win.view.image.isNull())
     timed("Home → first picture", lambda: QTest.keyClick(win, Qt.Key_Home), 1,
@@ -633,7 +641,7 @@ def player():
     for i, ms in enumerate((60000, 10000, 80000, 30000, 45000)):
         timed(f"jump to {ms // 1000} s", lambda m=ms: win._seek_to(m), 0.8,
               wait=lambda m=ms: abs(win.player.position() - m) < 2500)
-    timed("click along the bar 10 times quickly", lambda: [(win._seek_to(5000 * k), QTest.qWait(60)) for k in range(10)],
+    timed("click along the bar 10 times quickly", lambda: [(win._seek_to(5000 * k), wait_ms(60)) for k in range(10)],
           1.5, wait=lambda: abs(win.player.position() - 45000) < 3000)
     timed("pause", win.toggle, 0.3, wait=lambda: win.player.playbackState() != QMediaPlayer.PlayingState)
     timed("play", win.toggle, 0.5, wait=lambda: win.player.playbackState() == QMediaPlayer.PlayingState)
@@ -736,12 +744,12 @@ def clipboard():
     watch.label = label
     for i in range(60):  # as fast as a person copies (Ctrl + C, switch, Ctrl + C …)
         cb.setText(f"Copied text number {i} — some words to search in, https://example.com/{i}")
-        QTest.qWait(250)
+        wait_ms(250)
     for i in range(15):
         img = QImage(1920, 1080, QImage.Format.Format_RGB32)
         img.fill(QColor(10 * i, 120, 200))
         cb.setImage(img)
-        QTest.qWait(700)
+        wait_ms(700)
     until(lambda: clip.history.count() >= before + 75, 10)
     watch.label = ""
     frozen = watch.worst.pop(label, 0)

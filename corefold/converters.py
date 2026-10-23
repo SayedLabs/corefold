@@ -233,8 +233,8 @@ def _all_pages(f: Path):
     yield flatten(load_image(f))
 
 
-def _plain_jpegs(files: list[Path]) -> list[tuple[Path, int, int, int]] | None:
-    """(file, width, height, phone rotation) when every file is an ordinary JPG photo, else None."""
+def _plain_jpegs(files: list[Path]) -> list[tuple[Path, int, int, int, bool]] | None:
+    """(file, width, height, phone rotation, grey) when every file is an ordinary JPG photo, else None."""
     from PIL import Image
     out = []
     for f in files:
@@ -245,46 +245,56 @@ def _plain_jpegs(files: list[Path]) -> list[tuple[Path, int, int, int]] | None:
                 turn = im.getexif().get(0x0112, 1) or 1
                 if turn not in (1, 3, 6, 8):  # (mirrored ones go the long way)
                     return None
-                out.append((f, im.width, im.height, turn))
+                out.append((f, im.width, im.height, turn, im.mode == "L"))
         except Exception:
             return None
     return out
 
 
-def jpegs_to_pdf(photos: list[tuple[Path, int, int, int]], out: Path, resolution: int, ctx: Ctx,
-                 inline: bool = True):
+def jpegs_to_pdf(photos: list[tuple[Path, int, int, int, bool]], out: Path, resolution: int, ctx: Ctx):
     """JPG photos go into the PDF as they are: nothing is decoded and compressed again, so it's many times
-    faster and the photos keep their quality. Phone rotation is applied on the page."""
-    import pypdfium2 as pdfium
-    pdf = pdfium.PdfDocument.new()
+    faster and the photos keep their quality. Phone rotation is applied on the page. The PDF is written
+    here directly (a PDF of pictures is a short list of parts), so each photo is one plain file copy."""
     tmp = out.with_name(out.name + ".part")
+    offsets: list[int] = []
+    n = len(photos)
+    # parts: 1 the catalog, 2 the page list, then for each photo: its page, its drawing, the photo
+    kids = " ".join(f"{3 + 3 * i} 0 R" for i in range(n))
     try:
-        for i, (f, w, h, turn) in enumerate(photos):
-            ctx.check()
-            img = pdfium.PdfImage.new(pdf)
-            img.load_jpeg(str(f), inline=inline)
-            sw, sh = w * 72 / resolution, h * 72 / resolution
-            m = pdfium.PdfMatrix().scale(sw, sh)
-            if turn == 3:
-                m = m.rotate(180).translate(sw, sh)
-            elif turn == 6:
-                m = m.rotate(90).translate(0, sw)
-            elif turn == 8:
-                m = m.rotate(-90).translate(sh, 0)
-            img.set_matrix(m)
-            page = pdf.new_page(*((sh, sw) if turn in (6, 8) else (sw, sh)))
-            page.insert_obj(img)
-            page.gen_content()
-            page.close()
-            ctx.progress((i + 1) / (len(photos) + 1))
-        pdf.save(str(tmp))
-        pdf.close()
+        with open(tmp, "wb") as fh:
+            def part(body: bytes, stream: bytes | None = None):
+                offsets.append(fh.tell())
+                fh.write(f"{len(offsets)} 0 obj\n".encode("ascii") + body)
+                if stream is not None:
+                    fh.write(b"\nstream\n" + stream + b"\nendstream")
+                fh.write(b"\nendobj\n")
+            fh.write(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
+            part(b"<< /Type /Catalog /Pages 2 0 R >>")
+            part(f"<< /Type /Pages /Kids [{kids}] /Count {n} >>".encode("ascii"))
+            for i, (f, w, h, turn, gray) in enumerate(photos):
+                ctx.check()
+                data = Path(f).read_bytes()
+                sw, sh = w * 72 / resolution, h * 72 / resolution
+                pw, ph = (sh, sw) if turn in (6, 8) else (sw, sh)
+                # where the photo goes on the page: a x b y c d (turned the way the phone held it)
+                a, b, c, d, e, g = {1: (sw, 0, 0, sh, 0, 0), 3: (-sw, 0, 0, -sh, sw, sh),
+                                    6: (0, -sw, sh, 0, 0, sw), 8: (0, sw, -sh, 0, sh, 0)}[turn]
+                draw = f"q {a:.4f} {b:.4f} {c:.4f} {d:.4f} {e:.4f} {g:.4f} cm /Im0 Do Q".encode("ascii")
+                me = 3 + 3 * i
+                part(f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {pw:.4f} {ph:.4f}] "
+                     f"/Resources << /XObject << /Im0 {me + 2} 0 R >> >> /Contents {me + 1} 0 R >>".encode("ascii"))
+                part(f"<< /Length {len(draw)} >>".encode("ascii"), draw)
+                part(f"<< /Type /XObject /Subtype /Image /Width {w} /Height {h} /BitsPerComponent 8 "
+                     f"/ColorSpace /{'DeviceGray' if gray else 'DeviceRGB'} /Filter /DCTDecode "
+                     f"/Length {len(data)} >>".encode("ascii"), data)
+                ctx.progress((i + 1) / (n + 1))
+            xref = fh.tell()
+            fh.write(f"xref\n0 {len(offsets) + 1}\n0000000000 65535 f \n".encode("ascii"))
+            fh.write("".join(f"{o:010d} 00000 n \n" for o in offsets).encode("ascii"))
+            fh.write(f"trailer\n<< /Size {len(offsets) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n"
+                     .encode("ascii"))
         os.replace(tmp, out)
     finally:
-        try:
-            pdf.close()
-        except Exception:
-            pass
         if tmp.exists():
             tmp.unlink(missing_ok=True)
 
