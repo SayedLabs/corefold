@@ -1,7 +1,8 @@
 # Tries everything in the app on real Windows PCs (GitHub's), on every push to "next" and by hand:
 # every page and button in several languages, looks, window sizes and screen scales, the first start, an
 # upgrade from 1.7.5, the built Corefold.exe, and the older checks. What it found is on the
-# "bughunt-results" branch (replaced on every run; it isn't part of the app), with summary.txt on top.
+# "bughunt-results" branch (replaced on every run; it isn't part of the app; a run by hand on another branch saves to
+# "bughunt-results-<branch>"), with summary.txt on top.
 name: Bug hunt
 
 on:
@@ -167,6 +168,8 @@ jobs:
           SHA: ${{ github.sha }}
           REPO: ${{ github.repository }}
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # a run started by hand on another branch keeps its results apart from next's
+          OUT: ${{ github.ref_name == 'next' && 'bughunt-results' || format('bughunt-results-{0}', github.ref_name) }}
         run: |
           cd results
           {
@@ -178,9 +181,9 @@ jobs:
             done
           } > summary.txt
           cat summary.txt
-          git init -q -b bughunt-results
+          git init -q -b "$OUT"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -q -m "Bug hunt of $SHA"
-          git push -q -f "https://x-access-token:${TOKEN}@github.com/${REPO}.git" bughunt-results
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${REPO}.git" "$OUT"
