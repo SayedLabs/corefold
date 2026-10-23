@@ -128,6 +128,9 @@ def table_texts() -> dict[str, str]:
     add(organizer.STAYS.values(), "organizer.STAYS")
     add(organizer.REFUSED.values(), "organizer.REFUSED")
     add([name for _, name, _ in organizerpage.PLACES], "organizerpage.PLACES")
+    from corefold import startuppage
+    add([text for _, text in startuppage.FILTERS], "startuppage.FILTERS")
+    add(startuppage.WHERE.values(), "startuppage.WHERE")
     for _, title, text in tour.STEPS:
         add([title, text], "tour.STEPS")
     return out
