@@ -28,18 +28,37 @@
 Corefold is a set of tools you pick from the **Store**. Add only the ones you want: a tool you don't
 add isn't loaded at all, so Corefold stays light.
 
+**Files and media**
+
 | | |
 |---|---|
 | **Converter** | Hold Shift while dragging a file, and a wheel of formats appears at your cursor. Drop it on one and it's converted: pictures, videos, music, PDFs and Office files. |
-| **Uninstaller** | Removes programs and everything they leave behind (folders, shortcuts, registry entries), with a backup you can put back. |
 | **Archive** | Opens ZIP, RAR, 7z, ISO and more with a double-click. Drag files out, change a file inside and save it back, rescue damaged archives. |
-| **Viewer** | Flip through a folder of pictures with the arrow keys, fix them on the spot, and open Outlook emails without Outlook. |
+| **PDF** | Merge, split and arrange PDFs by dragging page pictures, shrink them, turn pictures into a PDF, and lock them with a password. |
+| **Viewer** | Flip through a folder of pictures with the arrow keys and fix them on the spot. Select any file in File Explorer and press Ctrl + Space for a quick look. Opens Outlook emails without Outlook. |
 | **Player** | Plays every video and song, smooth in 4K, with subtitles, a mini player and a Continue watching list. |
-| **Capture** | A picture or a video of your screen in one shortcut. Mark it up, blur what's private, copy the text in it. |
-| **Space** | A clear map of what's filling your disk, duplicate files, and safe junk to clean up. |
-| **Clipboard** | Everything you copy, kept and easy to find again: press Win + Alt + V in any app. |
+| **File Organizer** | Sorts a messy Downloads or Desktop into clear folders with one click. See where every file will go first, and undo it all. |
 
-Coming soon: **Cloud** (OneDrive and Dropbox in one window), **Startup**, **PDF** and **File Organizer**.
+**Your PC**
+
+| | |
+|---|---|
+| **Uninstaller** | Removes programs and everything they leave behind (folders, shortcuts, registry entries), with a backup you can put back. |
+| **Startup** | Everything that starts with Windows in one list. Switch off what slows it down, and back on just as easily. |
+| **Space** | A clear map of what's filling your disk, duplicate files, and safe junk to clean up. |
+| **Virus scan** | Checks your PC with Microsoft Defender, plus Corefold's own checks for tricks viruses use. Fully offline. |
+| **Unlock** | Finds out which program is holding a file you can't delete or move, and asks it to let go. |
+| **Awake** | Keeps your PC from going to sleep for as long as you choose, or turns it off at a time you pick. |
+
+**Screen and clipboard**
+
+| | |
+|---|---|
+| **Capture** | A picture or a video of your screen in one shortcut. Mark it up, blur what's private, copy the text in it. |
+| **Clipboard** | Everything you copy, kept and easy to find again: press Win + Alt + V in any app. |
+| **Colors** | Pick any colour on your screen with a magnifier and copy it as HEX, RGB or HSL. |
+
+Coming soon: **Cloud** (OneDrive and Dropbox in one window), and more in the Store's *Coming soon* list.
 
 ## The Converter wheel
 <p align="center">
@@ -143,8 +162,9 @@ looks and moves the same way.
   </tr>
 </table>
 
-**English, العربية, Français, Español and Türkçe.** Corefold follows the language of Windows; change it
-under *General → Language*. In Arabic the whole app is right-to-left.
+**English, العربية, Français, Español and Türkçe.** Corefold asks which language you want the first time it
+starts, and the language button at the top of the window switches it any time, without restarting. In
+Arabic the whole app is right-to-left.
 
 ## Private and light
 - **Nothing leaves your PC.** No account, no tracking, no uploads. The only thing Corefold asks the
