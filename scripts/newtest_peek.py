@@ -119,7 +119,8 @@ def make_files(folder: Path) -> dict:
 # ---------------------------------------------------------------------------- the real thing, in one language
 
 def part(lang, look):
-    tmp = Path(tempfile.mkdtemp(prefix="corefold-newtest-peek-"))
+    # (the long spelling: the temp folder is often written C:\\Users\\RUNNER~1\\…, and File Explorer gives long names)
+    tmp = Path(os.path.realpath(tempfile.mkdtemp(prefix="corefold-newtest-peek-")))
     os.environ["APPDATA"] = str(tmp / "roaming")
     os.environ["LOCALAPPDATA"] = str(tmp / "local")
     from corefold import settings as st
@@ -244,7 +245,8 @@ def part(lang, look):
 
     def explorer():
         before = set(_windows_of_class("CabinetWClass"))
-        subprocess.Popen(["explorer.exe", f"/select,{files['picture']}"])
+        # (written out by hand: a list would put the quotes round "/select,…" too, and Explorer wouldn't select)
+        subprocess.Popen(f'explorer.exe /select,"{files["picture"]}"')
         hwnd = 0
         end = time.time() + 20
         while time.time() < end and not hwnd:
@@ -276,6 +278,8 @@ def part(lang, look):
         state["hwnd"] = hwnd
         print(f"      (the File Explorer window: {hwnd:#x} {peekshell.window_class(hwnd)!r}; this test runs "
               f"{'as' if ctypes.windll.shell32.IsUserAnAdmin() else 'not as'} administrator)", flush=True)
+        check(until(lambda: os.path.normcase(peekshell.shown_folder(hwnd)) == os.path.normcase(str(folder)), 10),
+              f"…showing the test folder ({peekshell.shown_folder(hwnd)!r}, wanted {str(folder)!r})")
         ok = check(until(lambda: peekshell.selection(hwnd) == [str(files["picture"])], 10),
                    f"the selection is read from File Explorer ({peekshell.selection(hwnd)})")
         explain()

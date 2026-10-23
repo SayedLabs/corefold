@@ -47,6 +47,8 @@ IID_IFolderView = _guid("CDE725B0-CCC9-4519-917E-325D72FAB4CE")
 IID_IShellItemArray = _guid("B63EA76D-1F85-456F-A19C-48159EFA858B")
 IID_IEnumVARIANT = _guid("00020404-0000-0000-C000-000000000046")
 IID_IWebBrowser2 = _guid("D30C1661-CDAF-11D0-8A3E-00C04FC9E26E")
+IID_IPersistFolder2 = _guid("1AC3D9F0-175C-11D1-95BE-00609797EA4F")
+IID_IEnumIDList = _guid("000214F2-0000-0000-C000-000000000046")
 
 
 class VARIANT(ctypes.Structure):
@@ -226,19 +228,35 @@ def _note(text: str):
 
 
 def _paths(view: _Com, flags: int, limit: int = MAX_SIBLINGS, budget_s: float = 0.0) -> list[str]:
+    """The paths of the selected (or all) items of a folder view, in the order shown. Read as shell items;
+    if the view won't hand those over, as item IDs joined to the folder's (both are documented ways)."""
+    count = ctypes.c_int()
+    hr = view.call(7, (ctypes.c_uint, ctypes.POINTER(ctypes.c_int)), flags, ctypes.byref(count))  # ItemCount
+    which = "selected" if flags == SVGIO_SELECTION else "in all"
+    _note(f"the view shows {folder_of(view) or '?'}: {count.value} item(s) {which} (hr {hr & 0xFFFFFFFF:#x})")
+    if hr >= 0 and count.value == 0:
+        return []
+    deadline = time.monotonic() + budget_s if budget_s else 0
+    out = _as_shell_items(view, flags, limit, deadline)
+    if not out:
+        out = _as_item_ids(view, flags, limit, deadline)
+    return out
+
+
+def _as_shell_items(view: _Com, flags: int, limit: int, deadline: float) -> list[str]:
     objs: list = []
     out: list[str] = []
     try:
-        arr = _hold(objs, view.out(8, (ctypes.c_uint, ctypes.c_void_p), flags | SVGIO_FLAG_VIEWORDER,
-                                   ctypes.byref(IID_IShellItemArray)))
-        if arr is None:
-            _note("nothing selected (or the view gave no list)")
+        ptr = ctypes.c_void_p()
+        hr = view.call(8, (ctypes.c_uint, ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)),  # IFolderView::Items
+                       flags | SVGIO_FLAG_VIEWORDER, ctypes.byref(IID_IShellItemArray), ctypes.byref(ptr))
+        if hr < 0 or not ptr.value:
+            _note(f"no list of shell items (hr {hr & 0xFFFFFFFF:#x})")
             return []
+        arr = _hold(objs, _Com(ptr.value))
         n = ctypes.c_ulong()
         if arr.call(7, (ctypes.POINTER(ctypes.c_ulong),), ctypes.byref(n)) < 0:
             return []
-        _note(f"{n.value} item(s)")
-        deadline = time.monotonic() + budget_s if budget_s else 0
         free = ctypes.windll.ole32.CoTaskMemFree
         free.argtypes = [ctypes.c_void_p]
         for i in range(min(n.value, limit)):
@@ -253,9 +271,80 @@ def _paths(view: _Com, flags: int, limit: int = MAX_SIBLINGS, budget_s: float = 
                     free(name)
             if deadline and time.monotonic() > deadline:
                 break
+        _note(f"{len(out)} path(s) from {n.value} shell item(s)")
         return out
     finally:
         _release(objs)
+
+
+def _folder_pidl(view: _Com) -> int:
+    """The folder a view shows, as an ID list (the caller frees it), or 0."""
+    pf = view.out(5, (ctypes.c_void_p,), ctypes.byref(IID_IPersistFolder2))  # IFolderView::GetFolder
+    if pf is None:
+        return 0
+    with pf:
+        pidl = ctypes.c_void_p()
+        return pidl.value or 0 if pf.call(5, (ctypes.POINTER(ctypes.c_void_p),), ctypes.byref(pidl)) >= 0 else 0
+
+
+def _pidl_path(pidl: int) -> str:
+    s = ctypes.windll.shell32
+    s.SHGetNameFromIDList.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.POINTER(ctypes.c_void_p)]
+    name = ctypes.c_void_p()
+    if s.SHGetNameFromIDList(pidl, SIGDN_FILESYSPATH, ctypes.byref(name)) < 0 or not name.value:
+        return ""
+    try:
+        return ctypes.wstring_at(name.value)
+    finally:
+        ctypes.windll.ole32.CoTaskMemFree(name)
+
+
+def folder_of(view: _Com) -> str:
+    pidl = _folder_pidl(view)
+    if not pidl:
+        return ""
+    try:
+        return _pidl_path(pidl)
+    finally:
+        ctypes.windll.ole32.CoTaskMemFree(ctypes.c_void_p(pidl))
+
+
+def _as_item_ids(view: _Com, flags: int, limit: int, deadline: float) -> list[str]:
+    s = ctypes.windll.shell32
+    s.ILCombine.restype = ctypes.c_void_p
+    s.ILCombine.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    free = ctypes.windll.ole32.CoTaskMemFree
+    free.argtypes = [ctypes.c_void_p]
+    folder = _folder_pidl(view)
+    if not folder:
+        _note("no folder for the item IDs")
+        return []
+    out: list[str] = []
+    try:
+        en = view.out(8, (ctypes.c_uint, ctypes.c_void_p), flags | SVGIO_FLAG_VIEWORDER,
+                      ctypes.byref(IID_IEnumIDList))
+        if en is None:
+            _note("no list of item IDs either")
+            return []
+        with en:
+            child, got = ctypes.c_void_p(), ctypes.c_ulong()
+            while len(out) < limit and en.call(3, (ctypes.c_ulong, ctypes.POINTER(ctypes.c_void_p),
+                                                   ctypes.POINTER(ctypes.c_ulong)), 1, ctypes.byref(child),
+                                               ctypes.byref(got)) == 0 and got.value == 1:
+                full = s.ILCombine(folder, child)
+                free(child)
+                if full:
+                    path = _pidl_path(full)
+                    free(full)
+                    if path:
+                        out.append(path)
+                if deadline and time.monotonic() > deadline:
+                    break
+                child = ctypes.c_void_p()
+        _note(f"{len(out)} path(s) from item IDs")
+        return out
+    finally:
+        free(folder)
 
 
 def _com_ready():
@@ -312,10 +401,26 @@ def select(hwnd: int, path: str, only: bool = True) -> bool:
         if shell_view is None or s.SHParseDisplayName(path, None, ctypes.byref(pidl), 0, None) < 0:
             return False
         flags = SVSI_SELECT | SVSI_ENSUREVISIBLE | SVSI_FOCUSED | (SVSI_DESELECTOTHERS if only else 0)
-        return shell_view.call(14, (ctypes.c_void_p, ctypes.c_uint), s.ILFindLastID(pidl), flags) >= 0
+        hr = shell_view.call(14, (ctypes.c_void_p, ctypes.c_uint), s.ILFindLastID(pidl), flags)
+        if hr < 0:
+            _note(f"couldn't select {path} in {folder_of(view) or '?'} (hr {hr & 0xFFFFFFFF:#x})")
+        return hr >= 0
     finally:
         if pidl.value:
             ctypes.windll.ole32.CoTaskMemFree(pidl)
+        _release(objs)
+
+
+def shown_folder(hwnd: int) -> str:
+    """The folder this File Explorer window shows ("" if it isn't a folder on disk)."""
+    if os.name != "nt":
+        return ""
+    _com_ready()
+    objs: list = []
+    try:
+        view = _view_for(hwnd, objs)
+        return folder_of(view) if view is not None else ""
+    finally:
         _release(objs)
 
 
