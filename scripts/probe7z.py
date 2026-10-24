@@ -20,7 +20,7 @@ for pw in ["secret1", "كلمة سر", "Pässwörd€"]:
             run(["a", f"-t{fmt}", f"-p{pw}", "-sccUTF-8", str(arc), str(d / "a.txt")], show=False)
             data = pw.encode("utf-8") if enc == "utf-8" else pw.encode("oem", "replace")
             print(f"== {fmt} pw={pw!r} stdin={enc}")
-            run(["t", "-p", "-sccUTF-8", str(arc)], data + b"\n")
+            run(["t", "-sccUTF-8", "-bse1", str(arc)], data + b"\n")
             run(["t", "-sccUTF-8", str(arc)], data + b"\n")
             # made with the password from stdin, then tested with the command-line password
             arc2 = d / f"s-{fmt}-{abs(hash(pw+enc))}.{fmt}"
@@ -29,13 +29,18 @@ for pw in ["secret1", "كلمة سر", "Pässwörd€"]:
 # not encrypted, -p given: does it wait / read?
 plain = d / "plain.zip"
 run(["a", "-tzip", str(plain), str(d / "a.txt")], show=False)
-run(["t", "-p", "-sccUTF-8", str(plain)], b"")
-run(["l", "-slt", "-p", "-sccUTF-8", str(plain)], b"")
+run(["t", "-sccUTF-8", str(plain)], b"")
+run(["l", "-slt", "-sccUTF-8", str(plain)], b"")
 # wrong password from stdin, and none at all (stdin closed)
 arc = d / "w.7z"
 run(["a", "-t7z", "-pabc", "-mhe=on", str(arc), str(d / "a.txt")], show=False)
-run(["l", "-slt", "-p", "-sccUTF-8", str(arc)], b"nope\n")
-run(["l", "-slt", "-p", "-sccUTF-8", str(arc)], b"")
-run(["l", "-slt", "-p", "-sccUTF-8", str(arc)], b"abc\n")
-run(["e", "-so", "-p", "-sccUTF-8", str(arc), "a.txt"], b"abc\n")
-run(["x", "-p", "-y", f"-o{d/'out'}", "-bsp1", "-bse1", "-sccUTF-8", str(arc)], b"abc\n")
+run(["l", "-slt", "-sccUTF-8", str(arc)], b"nope\n")
+run(["l", "-slt", "-sccUTF-8", str(arc)], b"")
+run(["l", "-slt", "-sccUTF-8", str(arc)], b"abc\n")
+run(["e", "-so", "-sccUTF-8", str(arc), "a.txt"], b"abc\n")
+run(["x", "-y", f"-o{d/'out'}", "-bsp1", "-bse1", "-sccUTF-8", str(arc)], b"abc\n")
+run(["x", "-y", f"-o{d/'out2'}", "-bsp1", "-bse1", "-sccUTF-8", str(arc)], b"nope\nnope\nnope\n")
+# add to an existing locked 7z / update: does "a -p" + stdin keep working, and "a" with -mhe
+run(["a", "-t7z", "-p", "-mhe=on", "-sccUTF-8", str(d/'h.7z'), str(d / "a.txt")], b"abc\n")
+run(["l", "-slt", "-sccUTF-8", str(d/'h.7z')], b"abc\n")
+run(["d", "-sccUTF-8", str(d/'h.7z'), "a.txt"], b"abc\n")

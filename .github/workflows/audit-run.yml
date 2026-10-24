@@ -22,4 +22,4 @@ jobs:
         shell: pwsh
         run: |
           & "$env:ProgramFiles\7-Zip\7z.exe" | Select-Object -First 2
-          python scripts/probe7z.py
+          $env:PYTHONIOENCODING = "utf-8"; python scripts/probe7z.py
