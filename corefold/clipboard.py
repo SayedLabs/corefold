@@ -227,12 +227,20 @@ class History:
                 pass
             db.execute("PRAGMA synchronous=NORMAL")
             db.execute("PRAGMA cache_size=-512")  # (KB: it stays small while Corefold waits in the tray)
+            # a copy that's deleted (or forgotten after its days) is wiped from the file, not only marked free:
+            # otherwise a password or a card number copied once could still be read from history.db later
+            db.execute("PRAGMA secure_delete=ON")
             db.execute("CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, kind TEXT NOT NULL, text TEXT,"
                        " html TEXT, image TEXT, width INTEGER, height INTEGER, digest TEXT UNIQUE NOT NULL,"
                        " pinned INTEGER DEFAULT 0, created REAL, used REAL, app TEXT, size INTEGER)")
             db.execute("CREATE INDEX IF NOT EXISTS items_used ON items (pinned, used)")
             db.execute("SELECT COUNT(*) FROM items").fetchone()
             db.commit()
+            if db.execute("PRAGMA user_version").fetchone()[0] < 1:
+                # (once: copies deleted before secure_delete was on are still in the file's free space)
+                db.execute("VACUUM")
+                db.execute("PRAGMA user_version=1")
+                db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         except sqlite3.DatabaseError:
             db.close()
             raise
@@ -313,6 +321,10 @@ class History:
             return 0
         self.db.executemany("DELETE FROM items WHERE id = ?", [(r[0],) for r in rows])
         self.db.commit()
+        try:  # (the log beside the file still holds the deleted copies until it's written into it)
+            self.db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        except sqlite3.Error:
+            pass
         for _, image in rows:
             if image:
                 for name in (image, thumb_name(image)):
@@ -333,6 +345,7 @@ class History:
 
     def trim(self, max_items: int, max_days: int) -> int:
         """Forgets the oldest copies (never pinned ones) past the limits."""
+        self._forget_damaged(max_days or 30)
         n = 0
         if max_days > 0:
             n += self._forget("pinned = 0 AND used < ?", (time.time() - max_days * 86400,))
@@ -340,6 +353,17 @@ class History:
             n += self._forget("pinned = 0 AND id NOT IN (SELECT id FROM items WHERE pinned = 0"
                               " ORDER BY used DESC LIMIT ?)", (max_items,))
         return n
+
+    def _forget_damaged(self, days: int):
+        """A damaged history put aside (see _open) holds copies too: it goes once it's older than the days
+        copies are kept."""
+        for suffix in ("", "-wal", "-shm"):
+            old = self.folder / ("history (damaged).db" + suffix)
+            try:
+                if old.exists() and time.time() - old.stat().st_mtime > days * 86400:
+                    old.unlink()
+            except OSError:
+                pass
 
     def image_path(self, item: Item) -> Path:
         return self.images / item.image

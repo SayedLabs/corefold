@@ -379,8 +379,9 @@ def _find_dialog(pid: int, timeout: float = 15) -> int:
 
 
 def recycle_for_good():
-    """A drive whose Recycle Bin is off (like a USB stick or a network folder, or a file too big for it): the
-    old flags deleted the file for good without a word. Now Windows asks first, and saying no keeps it."""
+    """A file too big for the Recycle Bin (the same as a drive with none): the old flags deleted it for good
+    without a word. Now Windows asks first, and saying no keeps it. (Only a Recycle Bin the person turned
+    off in its settings still deletes without asking: that's their own choice in Windows.)"""
     if not WINDOWS:
         note("Windows only")
         return
@@ -396,14 +397,15 @@ def recycle_for_good():
     key_path = rf"Software\Microsoft\Windows\CurrentVersion\Explorer\BitBucket\Volume\{guid}"
     key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path)
     try:
-        old = winreg.QueryValueEx(key, "NukeOnDelete")[0]
+        old = winreg.QueryValueEx(key, "MaxCapacity")[0]
     except OSError:
         old = None
-    winreg.SetValueEx(key, "NukeOnDelete", 0, winreg.REG_DWORD, 1)  # this drive's Recycle Bin: off
+    winreg.SetValueEx(key, "MaxCapacity", 0, winreg.REG_DWORD, 1)  # this drive's Recycle Bin: 1 MB at most
     try:
         # the old way: gone for good, no question
+        big = b"x" * (5 * 2 ** 20)
         before = folder / "old way.txt"
-        before.write_text("kept?")
+        before.write_bytes(big)
         op = uninstall.SHFILEOPSTRUCTW()
         op.wFunc, op.pFrom, op.fFlags = 3, str(before) + "\0", 0x04 | 0x10 | 0x40 | 0x400
         ctypes.windll.shell32.SHFileOperationW(ctypes.byref(op))
@@ -413,7 +415,7 @@ def recycle_for_good():
             note("the old way: deleted for good, nothing was asked (the problem)")
         for name, fn in (("Space", lambda p: space.recycle([p])), ("the rest of the app", uninstall.recycle)):
             target = folder / f"{name}.txt"
-            target.write_text("my file")
+            target.write_bytes(big)
             answer = {}
             worker = threading.Thread(target=lambda: answer.setdefault("r", fn(target)), daemon=True)
             worker.start()
@@ -426,9 +428,9 @@ def recycle_for_good():
             check(not answer.get("r"), f"{name}: and it isn't counted as gone ({answer.get('r')})")
     finally:
         if old is None:
-            winreg.DeleteValue(key, "NukeOnDelete")
+            winreg.DeleteValue(key, "MaxCapacity")
         else:
-            winreg.SetValueEx(key, "NukeOnDelete", 0, winreg.REG_DWORD, old)
+            winreg.SetValueEx(key, "MaxCapacity", 0, winreg.REG_DWORD, old)
         winreg.CloseKey(key)
     # with the Recycle Bin on, nothing is asked and the file goes there
     target = folder / "normal.txt"
@@ -520,11 +522,66 @@ def archive_passwords():
         check(archives.password_works(out, password), f"{fmt}: still locked with the same password")
 
 
+# ----------------------------------------------------------------------------- Clipboard history
+
+def _file_has(folder: Path, secret: bytes) -> bool:
+    return any(secret in p.read_bytes() for p in folder.glob("history*.db*") if p.is_file())
+
+
+def clipboard_wiped():
+    import sqlite3
+    from corefold import clipboard
+    secret = "CARD 4111 1111 1111 1111 exp 09/29"
+    raw = secret.encode()
+    # the old way: a deleted row stays in the file's free space
+    folder = fresh("clip-old")
+    db = sqlite3.connect(str(folder / "history.db"))
+    db.execute("PRAGMA journal_mode=WAL")
+    db.execute("CREATE TABLE items (id INTEGER PRIMARY KEY, text TEXT)")
+    db.execute("INSERT INTO items (text) VALUES (?)", (secret * 50,))
+    db.commit()
+    db.execute("DELETE FROM items")
+    db.commit()
+    db.close()
+    note(f"the old way, deleted copy still in the file: {_file_has(folder, raw)}")
+    # an old history like that is wiped once when Corefold opens it
+    h = clipboard.History(folder)
+    h.db.execute("SELECT 1").fetchone()
+    h.close()
+    check(not _file_has(folder, raw), "an older history: copies deleted before are wiped when it's opened")
+    # Corefold's way: deleted, forgotten after its days, and cleared
+    folder = fresh("clip-new")
+    h = clipboard.History(folder)
+    one = h.add(clipboard.text_item(secret + " one"))
+    h.add(clipboard.text_item("ordinary text"))
+    check(_file_has(folder, raw), "a copy is kept (it's in the file)")
+    h.delete(one.id)
+    check(not _file_has(folder, (secret + " one").encode()), "deleted: it's gone from the file and its log")
+    old = h.add(clipboard.text_item(secret + " two"))
+    h.db.execute("UPDATE items SET used = ? WHERE id = ?", (time.time() - 40 * 86400, old.id))
+    h.db.commit()
+    h.trim(500, 30)
+    check(not _file_has(folder, (secret + " two").encode()), "forgotten after 30 days: gone from the file")
+    h.add(clipboard.text_item(secret + " three"))
+    h.clear(keep_pinned=True)
+    h.close()
+    check(not _file_has(folder, raw), "Clear: nothing of it left in the file")
+    # a damaged history that was put aside goes once it's older than the days copies are kept
+    damaged = folder / "history (damaged).db"
+    damaged.write_bytes(b"SQLite format 3\0" + raw)
+    os.utime(damaged, (time.time() - 31 * 86400,) * 2)
+    h = clipboard.History(folder)
+    h.trim(500, 30)
+    h.close()
+    check(not damaged.exists(), "an old damaged history (with copies in it) is removed")
+
+
 step("File Organizer: a crash part-way through a sort", organizer_crash)
 step("File Organizer: Undo checks it's the same file", organizer_identity)
 step("Cloud: downloads checked before they're kept", cloud_downloads)
 step("Damaged ZIPs and ZIP bombs", zip_bombs)
 step("Archive passwords stay off the command line", archive_passwords)
+step("Clipboard: deleted copies are wiped", clipboard_wiped)
 step("Recycle Bin deletes that would be for good", recycle_for_good)
 
 print(f"audittest: {len(problems)} problem(s)", flush=True)

@@ -570,7 +570,7 @@ class OrganizerPage(QWidget):
         self.sort_btn.setText(tr("Sorting…"))
         self._show_state()
         self.job = work.run(lambda progress: organizer.sort(p, progress), lambda _: None, self._sorted,
-                            name="corefold-organizer-sort")
+                            name="corefold-organizer-sort", busy=True)
 
     def _sorted(self, result):
         if not work.alive(self):
@@ -609,7 +609,7 @@ class OrganizerPage(QWidget):
         self.problem.hide()
         self._show_state()
         self.job = work.run(lambda progress: organizer.undo(progress), lambda _: None, self._undone,
-                            name="corefold-organizer-undo")
+                            name="corefold-organizer-undo", busy=True)
 
     def _undone(self, result):
         if not work.alive(self):

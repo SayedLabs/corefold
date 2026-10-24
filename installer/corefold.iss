@@ -73,7 +73,13 @@ Type: files; Name: "{autoprograms}\{#OldName}.lnk"
 Type: files; Name: "{autodesktop}\{#OldName}.lnk"
 
 [UninstallDelete]
-Type: filesandordirs; Name: "{app}"
+; only Corefold's own folders: the uninstaller removes every file it installed by itself, and the folder goes
+; once it's empty (never "everything in {app}": installed with /DIR into a folder holding other things, that
+; would delete them too)
+Type: filesandordirs; Name: "{app}\_internal"
+Type: filesandordirs; Name: "{app}\ffmpeg"
+Type: filesandordirs; Name: "{app}\7zip"
+Type: dirifempty; Name: "{app}"
 
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"
@@ -91,28 +97,150 @@ Filename: "{app}\{#AppExe}"; Parameters: "--background"; Flags: nowait; Check: W
 [Code]
 const
   RunKey = 'Software\Microsoft\Windows\CurrentVersion\Run';
+  { How long Corefold is given to finish what it's doing and close by itself (seconds). }
+  CloseWait = 60;
 
 var
   OldStartedWithWindows: Boolean;
 
-procedure CloseRunningApp();
+function SetEnvironmentVariable(lpName, lpValue: String): BOOL;
+  external 'SetEnvironmentVariableW@kernel32.dll stdcall';
+
+{ PowerShell with the paths it needs passed as data (environment variables), never pasted into its script. }
+function RunPowerShell(Script: String; var ResultCode: Integer): Boolean;
+begin
+  SetEnvironmentVariable('CF_APP', ExpandConstant('{app}\{#AppExe}'));
+  SetEnvironmentVariable('CF_PIPE', 'Corefold-' + GetEnv('USERNAME'));
+  SetEnvironmentVariable('CF_WAIT', IntToStr(CloseWait));
+  Result := Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+                 '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "' + Script + '"', '',
+                 SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
+{ Asks the running Corefold (only the copy installed here: another program that happens to be called
+  Corefold.exe is never touched) to close, the way it closes by itself: what it's doing (a conversion, sorting
+  files, an uninstall) is finished first and nothing new starts. It says it heard by leaving a mark file.
+  0: no Corefold from this folder runs (any more). 1: still running after CloseWait seconds.
+  2: it didn't answer (a version from before 1.10 doesn't know how), so it can only be stopped. }
+function AskAppToClose(): Integer;
 var
   ResultCode: Integer;
 begin
-  Exec(ExpandConstant('{sys}\taskkill.exe'), '/f /im {#AppExe}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  { the same app under its name before 1.7.0 }
+  Result := 2;
+  SetEnvironmentVariable('CF_MARK', ExpandConstant('{localappdata}\{#AppName}\closing-for-installer'));
+  if RunPowerShell(
+    '$ErrorActionPreference = ''SilentlyContinue''; ' +
+    'function Mine { Get-Process -Name Corefold | Where-Object { $_.Path -eq $env:CF_APP } }; ' +
+    'if (-not (Mine)) { exit 0 }; ' +
+    'Remove-Item -LiteralPath $env:CF_MARK -Force; ' +
+    'try { $p = New-Object System.IO.Pipes.NamedPipeClientStream(''.'', $env:CF_PIPE, [System.IO.Pipes.PipeDirection]::Out); ' +
+    '$p.Connect(3000); $b = [Text.Encoding]::UTF8.GetBytes(''quit''); $p.Write($b, 0, $b.Length); $p.Flush(); $p.Dispose() } catch {}; ' +
+    '$heard = (Get-Date).AddSeconds(6); ' +
+    'while ((Mine) -and -not (Test-Path -LiteralPath $env:CF_MARK) -and ((Get-Date) -lt $heard)) { Start-Sleep -Milliseconds 200 }; ' +
+    'if (-not (Mine)) { exit 0 }; ' +
+    'if (-not (Test-Path -LiteralPath $env:CF_MARK)) { exit 2 }; ' +
+    '$end = (Get-Date).AddSeconds([int]$env:CF_WAIT); ' +
+    'while ((Mine) -and ((Get-Date) -lt $end)) { Start-Sleep -Milliseconds 250 }; ' +
+    'if (Mine) { exit 1 } else { exit 0 }', ResultCode) and (ResultCode >= 0) and (ResultCode <= 2) then
+    Result := ResultCode;
+end;
+
+{ Stops the Corefold installed here at once (only when it didn't close by itself, or PowerShell can't run). }
+procedure StopApp();
+var
+  ResultCode: Integer;
+begin
+  if not RunPowerShell(
+      '$ErrorActionPreference = ''SilentlyContinue''; ' +
+      'Get-Process -Name Corefold | Where-Object { $_.Path -eq $env:CF_APP } | Stop-Process -Force; ' +
+      'Start-Sleep -Milliseconds 300', ResultCode) then
+    Exec(ExpandConstant('{sys}\taskkill.exe'), '/f /im {#AppExe}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
+{ True when Corefold isn't running any more (it closed, or the person chose to stop it). }
+function CloseRunningApp(Silent: Boolean): Boolean;
+var
+  ResultCode, Answer: Integer;
+begin
+  Result := True;
+  while True do
+  begin
+    Answer := AskAppToClose();
+    if Answer = 0 then
+      Break;
+    if (Answer = 2) or Silent then
+    begin
+      { an older Corefold that can't be asked; or an automatic update (Corefold already waited for its work
+        before starting this installer) }
+      StopApp();
+      Break;
+    end;
+    case MsgBox('Corefold is still finishing something (a conversion, sorting files, or an app''s uninstall).' + #13#10#13#10 +
+                'Retry: wait for it to finish.' + #13#10 +
+                'Ignore: close Corefold now (what it is doing is stopped half-way).' + #13#10 +
+                'Abort: stop.', mbError, MB_ABORTRETRYIGNORE) of
+      IDIGNORE:
+        begin
+          StopApp();
+          Break;
+        end;
+      IDABORT:
+        begin
+          Result := False;
+          Exit;
+        end;
+    end;
+  end;
+  { the same app under its name before 1.7.0 (it can't be asked: those versions don't know how) }
   Exec(ExpandConstant('{sys}\taskkill.exe'), '/f /im {#OldExe}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Sleep(300);
+end;
+
+{ An installation folder chosen on the command line (/DIR=) that already holds other things: Corefold would
+  be mixed in with them, so it's refused. Its own folder from before (Corefold.exe in it) is fine. }
+function FolderIsSafe(): Boolean;
+var
+  FindRec: TFindRec;
+  Dir: String;
+begin
+  Result := True;
+  Dir := ExpandConstant('{app}');
+  if FileExists(Dir + '\{#AppExe}') or FileExists(Dir + '\{#OldExe}') then
+    Exit;
+  if FindFirst(Dir + '\*', FindRec) then
+  begin
+    try
+      repeat
+        if (FindRec.Name <> '.') and (FindRec.Name <> '..') then
+        begin
+          Result := False;
+          Exit;
+        end;
+      until not FindNext(FindRec);
+    finally
+      FindClose(FindRec);
+    end;
+  end;
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   Value: String;
 begin
-  CloseRunningApp();
+  Result := '';
+  if not FolderIsSafe() then
+  begin
+    Result := 'The folder ' + ExpandConstant('{app}') + ' already has other files in it. ' +
+              'Install Corefold into an empty folder (or leave out /DIR to use its usual folder).';
+    Exit;
+  end;
+  if not CloseRunningApp(WizardSilent()) then
+  begin
+    Result := 'Corefold is still busy. Install again when it''s done.';
+    Exit;
+  end;
   { the old version started with Windows: Corefold keeps doing that }
   OldStartedWithWindows := RegQueryStringValue(HKEY_CURRENT_USER, RunKey, '{#OldName}', Value);
-  Result := '';
 end;
 
 { After upgrading from the old name: take away its start-up entry (Corefold's replaces it) and its
@@ -140,10 +268,11 @@ function InitializeUninstall(): Boolean;
 var
   ResultCode: Integer;
 begin
-  CloseRunningApp();
+  Result := CloseRunningApp(UninstallSilent());
+  if not Result then
+    Exit;
   { remove Corefold (and any entries left by older versions) from the right-click menu }
   Exec(ExpandConstant('{app}\{#AppExe}'), '--remove-shell-menu', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  Result := True;
 end;
 
 { Deletes a folder's contents except one subfolder (kept when it has something in it). }
@@ -179,9 +308,12 @@ begin
     RegDeleteValue(HKEY_CURRENT_USER, RunKey, '{#AppName}');
     RegDeleteValue(HKEY_CURRENT_USER, RunKey, '{#OldName}');
     if (not UninstallSilent) and
-       (MsgBox('Also delete your Corefold settings?' + #13#10#13#10 +
+       (MsgBox('Also delete your Corefold settings and what it keeps for you?' + #13#10#13#10 +
+               'That is: settings, the clipboard history (pinned copies too), saved archive passwords, ' +
+               'your saved signature, cloud sign-ins and the File Organizer''s Undo. ' +
+               'Backups of apps removed with Corefold are kept either way.' + #13#10#13#10 +
                'Choose No if you might install Corefold again and want to keep them.',
-               mbConfirmation, MB_YESNO) = IDYES) then
+               mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES) then
     begin
       DelTree(ExpandConstant('{userappdata}\{#AppName}'), True, True, True);
       DelTree(ExpandConstant('{userappdata}\{#OldName}'), True, True, True);

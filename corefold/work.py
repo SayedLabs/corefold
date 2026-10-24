@@ -11,18 +11,38 @@ class _Signals(QObject):
     done = Signal(object)
 
 
-def run(fn, on_progress, on_done, name: str = "corefold-work") -> threading.Thread:
+_busy: set[int] = set()
+_lock = threading.Lock()
+_ids = iter(range(1, 1 << 62))
+
+
+def busy() -> bool:
+    """A job that moves or changes the person's files is running (Corefold waits for it before it quits or
+    is updated: stopped half-way, files would be left half-sorted or half-changed)."""
+    with _lock:
+        return bool(_busy)
+
+
+def run(fn, on_progress, on_done, name: str = "corefold-work", busy: bool = False) -> threading.Thread:
     """Runs fn(progress) on its own thread. on_progress gets what progress() is given, and on_done
-    what fn returns (or the exception it raised), both on the window's thread."""
+    what fn returns (or the exception it raised), both on the window's thread. busy: it changes files
+    (see busy())."""
     sig = _Signals()
     sig.progress.connect(on_progress)
     sig.done.connect(on_done)
+    job = next(_ids)
+    if busy:
+        with _lock:
+            _busy.add(job)
 
     def go():
         try:
             result = fn(sig.progress.emit)
         except Exception as e:  # (shown, never lost)
             result = e
+        finally:
+            with _lock:
+                _busy.discard(job)
         sig.done.emit(result)
     t = threading.Thread(target=go, daemon=True, name=name)
     t.sig = sig  # (kept alive while it runs)

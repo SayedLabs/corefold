@@ -268,7 +268,7 @@ class UnlockPage(QWidget):
         self._run(lambda _p: unlock.find(paths), self._found)
 
     def _run(self, fn, done):
-        job = work.run(fn, lambda _: None, done, name="corefold-unlock")
+        job = work.run(fn, lambda _: None, done, name="corefold-unlock", busy=True)
         self.jobs.append(job)
 
     def _found(self, result):

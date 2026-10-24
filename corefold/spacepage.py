@@ -1508,7 +1508,7 @@ class SpacePage(QWidget):
                 else:
                     freed += int(answer.get("freed") or 0)
             return freed
-        self.job = _work(work, lambda _: None, self._cleaned)
+        self.job = _work(work, lambda _: None, self._cleaned, busy=True)
 
     def _cleaned(self, freed):
         if not _alive(self):
