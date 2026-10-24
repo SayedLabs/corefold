@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
+import threading
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QFileInfo, QSize, Qt, QTimer
-from PySide6.QtGui import QGuiApplication, QIcon
+from PySide6.QtCore import QFileInfo, QObject, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QGuiApplication, QIcon, QPixmap
 from PySide6.QtWidgets import QButtonGroup, QFileIconProvider, QFrame, QHBoxLayout, QLabel, QLineEdit, QMenu, \
     QMessageBox, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
@@ -76,11 +78,49 @@ def _para(text: str) -> str:
     return "\u200f" + text if text and i18n.is_rtl() else text
 
 
+def _icon_paths(e: startup.Entry) -> list[str]:
+    return [p for p in (e.exe, e.extra.get("file", "")) if p]
+
+
+def _icon_key(e: startup.Entry) -> str:
+    """What a program's icon is kept under: the files it's read from."""
+    return "\n".join(_icon_paths(e))
+
+
 def matches(e: startup.Entry, text: str, show: str) -> bool:
     if show == "on" and not starts(e) or show == "off" and starts(e) or show == "new" and not e.new:
         return False
     text = text.strip().lower()
     return not text or any(text in s.lower() for s in (e.name, e.value, e.publisher, e.command))
+
+
+class _IconMade(QObject):
+    made = Signal(str, object)   # the icon's key (its program's paths) and its picture (a QImage, or None)
+
+
+def _make_icons(wanted: dict[str, list[str]], cancel: threading.Event, signal):
+    """Reads the programs' icons off the window's thread (Windows can take a while to give one)."""
+    import ctypes
+    from .appspage import _icon_image
+    ctypes.windll.ole32.CoInitializeEx(None, 2)  # (the shell wants it on every thread it's asked from)
+    try:
+        for key, paths in wanted.items():
+            if cancel.is_set():
+                return
+            image = None
+            for path in paths:
+                try:
+                    image = _icon_image(path) if os.path.isfile(path) else None
+                except Exception:
+                    log.debug("no icon for %s", path, exc_info=True)
+                if image is not None:
+                    break
+            try:
+                signal.emit(key, image)
+            except RuntimeError:  # (the page is gone)
+                return
+    finally:
+        ctypes.windll.ole32.CoUninitialize()
 
 
 class EntryRow(QWidget):
@@ -89,11 +129,11 @@ class EntryRow(QWidget):
     def __init__(self, page: "StartupPage", entry: startup.Entry, icon: QIcon | None):
         super().__init__()
         self.page, self.entry = page, entry
-        tile = QLabel()
+        tile = self.tile = QLabel()
         tile.setFixedSize(28, 28)
         tile.setAlignment(Qt.AlignCenter)
         if icon is not None and not icon.isNull():
-            tile.setPixmap(icon.pixmap(QSize(24, 24), self.devicePixelRatioF()))
+            self.set_icon(icon)
         else:
             tile.setPixmap(icons.pixmap("apps", 22, page.c.theme.muted, self.devicePixelRatioF()))
         self.switch = Switch()
@@ -129,6 +169,9 @@ class EntryRow(QWidget):
         self.setToolTip(ltr(entry.command))
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(lambda pos: self._menu(None, self.mapToGlobal(pos)))
+
+    def set_icon(self, icon: QIcon):
+        self.tile.setPixmap(icon.pixmap(QSize(24, 24), self.devicePixelRatioF()))
 
     def _toggled(self, on: bool):
         self.page.switch(self, on)
@@ -215,6 +258,10 @@ class StartupPage(QWidget):
         self.admin = startup.is_admin()
         self._icons = QFileIconProvider()
         self._icon_cache: dict[str, QIcon | None] = {}
+        self._icon_rows: dict[str, list[EntryRow]] = {}   # rows waiting for their program's icon
+        self._icon_cancel = threading.Event()
+        self._icon_signal = _IconMade(self)
+        self._icon_signal.made.connect(self._icon_made)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 10, 0)
         lay.setSpacing(12)
@@ -357,6 +404,8 @@ class StartupPage(QWidget):
             row.hide()
             row.deleteLater()
         self.rows = []
+        self._icon_cancel.set()
+        self._icon_rows = {}
         todo = list(self.entries)
 
         def more():
@@ -365,7 +414,10 @@ class StartupPage(QWidget):
             end = time.monotonic() + FILL_SLICE_S
             while todo and time.monotonic() < end:
                 e = todo.pop(0)
-                row = EntryRow(self, e, self._icon(e))
+                icon = self._icon(e)
+                row = EntryRow(self, e, icon)
+                if icon is None and _icon_key(e) and _icon_key(e) not in self._icon_cache:
+                    self._icon_rows.setdefault(_icon_key(e), []).append(row)
                 row.section = section_of(e)  # (a row stays in its part until the list is read again)
                 self.groups[row.section].add(row)
                 self.rows.append(row)
@@ -379,6 +431,7 @@ class StartupPage(QWidget):
             if not any_new and self.kind == "new":
                 self._filter("")
             self._done_loading()
+            self._start_icons()
             QTimer.singleShot(0, lambda: work.alive(self) and self.scroll.verticalScrollBar().setValue(scrolled))
 
         self._filling = todo
@@ -398,15 +451,27 @@ class StartupPage(QWidget):
                 self._icon_cache[logo] = ic if not ic.isNull() else None
             if self._icon_cache[logo] is not None:
                 return self._icon_cache[logo]
-        for path in (e.exe, e.extra.get("file", "")):
-            if not path:
-                continue
-            if path not in self._icon_cache:
-                ic = self._icons.icon(QFileInfo(path)) if os.path.isfile(path) else None
-                self._icon_cache[path] = ic if ic is not None and not ic.isNull() else None
-            if self._icon_cache[path] is not None:
-                return self._icon_cache[path]
-        return None
+        key = _icon_key(e)
+        if key and key not in self._icon_cache and sys.platform != "win32":  # (Qt's own, for tests elsewhere)
+            ic = next((self._icons.icon(QFileInfo(p)) for p in _icon_paths(e) if os.path.isfile(p)), None)
+            self._icon_cache[key] = ic if ic is not None and not ic.isNull() else None
+        return self._icon_cache.get(key)  # (on Windows the ones not read yet come from _start_icons)
+
+    def _start_icons(self):
+        """The icons not read yet, read on a thread; each row gets its icon as it comes."""
+        if not self._icon_rows:
+            return
+        self._icon_cancel = threading.Event()
+        wanted = {key: _icon_paths(rows[0].entry) for key, rows in self._icon_rows.items()}
+        threading.Thread(target=_make_icons, args=(wanted, self._icon_cancel, self._icon_signal.made),
+                         name="corefold-startup-icons", daemon=True).start()
+
+    def _icon_made(self, key: str, image):
+        ic = QIcon(QPixmap.fromImage(image)) if image is not None else None
+        self._icon_cache[key] = ic if ic is not None and not ic.isNull() else None
+        for row in self._icon_rows.pop(key, []):
+            if ic is not None and work.alive(row):
+                row.set_icon(ic)
 
     # ---- search and filters
 

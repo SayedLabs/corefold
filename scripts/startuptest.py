@@ -423,6 +423,9 @@ def page():
     check(row is not None and row.switch.isChecked(), "the made-up program is there, switched on")
     if row is None:
         return
+    key = "\n".join(p for p in (row.entry.exe, row.entry.extra.get("file", "")) if p)
+    check(until(lambda: pg._icon_cache.get(key) is not None, 10),
+          "its program's icon comes (read off the window's thread)")
     check(not row.isHidden() and row.switch.isVisible(), "its switch can be seen")
     QTest.mouseClick(row.switch, Qt.LeftButton, Qt.NoModifier, row.switch.rect().center())
     check(until(lambda: row.switch.isEnabled() and not pg.busy, 15), "clicking its switch: done")
