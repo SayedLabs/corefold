@@ -230,8 +230,16 @@ class PdfPage(QWidget):
             self.cards[key] = self.grid.add(ActionCard(key, tr(title), tr(line), icon_name,
                                                        lambda k=key: self.start(k)))
         v.addWidget(self.grid)
-        v.addWidget(_label(tr("Your PDFs are never changed: every result is a new file next to the original."),
-                           "subtle", wrap=True))
+        row = QHBoxLayout()
+        self.where = _label("", "subtle", wrap=True)
+        self._show_where()
+        change = QPushButton(tr("Change where"))
+        change.setObjectName("small")
+        change.setCursor(Qt.PointingHandCursor)
+        change.clicked.connect(lambda: self.c.show_window("ConvOptions"))
+        row.addWidget(self.where, 1)
+        row.addWidget(change, 0, Qt.AlignTop)
+        v.addLayout(row)
         v.addStretch()
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -398,6 +406,20 @@ class PdfPage(QWidget):
             sc.setContext(Qt.WidgetWithChildrenShortcut)
             sc.activated.connect(fn)
         return box
+
+    def _show_where(self):
+        """Where the new files go: the Converter's choice (Settings › Converter), the same for every tool."""
+        s = self.c.settings
+        if getattr(s, "save_mode", "beside") == "folder":
+            self.where.setText(tr("Your PDFs are never changed: every result is a new file in {folder}.",
+                                  folder=s.output_folder))
+        else:
+            self.where.setText(tr("Your PDFs are never changed: every result is a new file next to the original."))
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        if hasattr(self, "where"):
+            self._show_where()
 
     def _shown(self, index: int):
         if self.banner is not None:  # (the board gets the room of the tool's banner)

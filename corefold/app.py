@@ -1734,6 +1734,10 @@ class Controller(QObject):
         if result.clipboard:
             QGuiApplication.clipboard().setText(result.clipboard)
         first = result.outputs[0] if result.outputs else None
+        # a whole archive came out without a problem: what Settings › Archives says happens next
+        extracted = bool(tool and tool.key in ("archive:extract", "archive:folder") and not cancelled and not errors
+                         and result.outputs and not job["params"].get("members"))
+        recycled = self._recycle_extracted(files) if extracted and self.settings.extract_recycle else 0
 
         if cancelled:
             title, detail, linger = tr("Cancelled"), tr("Nothing was saved for the unfinished file."), 3000
@@ -1756,6 +1760,9 @@ class Controller(QObject):
             linger = 4500
         else:
             title, detail, linger = tr("Nothing to do"), "", 3000
+        if recycled:
+            detail += "\n" + tr("The archive went to the Recycle Bin") if recycled == 1 else \
+                "\n" + tr("{count} files went to the Recycle Bin", count=recycled)
 
         extra_text, extra = "", None
         if result.undo and not cancelled:
@@ -1775,8 +1782,25 @@ class Controller(QObject):
             self.play_done_sound()
         elif errors and not cancelled:
             self.play_problem_sound()
-        if first and self.settings.reveal_after and not errors and not cancelled:
+        if first and (self.settings.reveal_after or (extracted and self.settings.extract_reveal)) \
+                and not errors and not cancelled:
             winutil.reveal_in_explorer(first)
+
+    def _recycle_extracted(self, archives: list[Path]) -> int:
+        """Sends the extracted archives, each with all its parts, to the Recycle Bin (closing the
+        Archive windows that show them). Returns how many files went."""
+        from . import archives as ar
+        from .space import recycle
+        kept = set()
+        for b in list(self.browsers):
+            if _alive(b) and b.src in archives and not b.close():  # (it asked about unsaved changes: Cancel)
+                kept.add(b.src)
+        parts = [p for a in archives if a not in kept for p in ar.archive_parts(Path(a))]
+        try:
+            return recycle(parts)
+        except Exception:
+            log.exception("couldn't send the extracted archives to the Recycle Bin")
+            return 0
 
     def first_start(self):
         """The very first start: which tools this person wants, then the short tour."""

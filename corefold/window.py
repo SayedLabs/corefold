@@ -2353,6 +2353,9 @@ class MainWindow(QWidget):
         self.viewer_confirm_delete = checkbox(tr("Ask before sending a picture to the Recycle Bin"),
                                               s.viewer_confirm_delete, self._viewer_setting_changed)
         bl.addWidget(self.viewer_confirm_delete)
+        self.viewer_loop = checkbox(tr("After the last picture in a folder, start again from the first"),
+                                    s.viewer_loop, self._viewer_setting_changed)
+        bl.addWidget(self.viewer_loop)
         lay.addWidget(box)
         box, bl = card()
         bl.addWidget(label(tr("Double-click to open"), "h2"))
@@ -2379,6 +2382,7 @@ class MainWindow(QWidget):
         s.slideshow_seconds = self.slideshow_seconds.currentData()
         s.peek_key = self.peek_key.currentData()
         s.viewer_confirm_delete = self.viewer_confirm_delete.isChecked()
+        s.viewer_loop = self.viewer_loop.isChecked()
         self.c.settings_changed()
 
     def _default_for_viewer(self):
@@ -2950,6 +2954,15 @@ class MainWindow(QWidget):
         self.extract_nested = checkbox(tr("Also unpack archives found inside (ticked to begin with)"),
                                        s.extract_nested, self._tool_setting_changed)
         bl.addWidget(self.extract_nested)
+        bl.addWidget(label(tr("Once it's extracted"), "h2"))
+        self.extract_reveal = checkbox(tr("Open the folder with what came out"), s.extract_reveal,
+                                       self._tool_setting_changed)
+        self.extract_recycle = checkbox(tr("Send the archive to the Recycle Bin (all its parts too)"),
+                                        s.extract_recycle, self._tool_setting_changed)
+        bl.addWidget(self.extract_reveal)
+        bl.addWidget(self.extract_recycle)
+        bl.addWidget(label(tr("Only when everything came out without a problem. Extracting a few items from the "
+                              "Archive window never removes the archive."), "muted", wrap=True))
         lay.addWidget(box)
         box, bl = card()
         bl.addWidget(label(tr("Double-click to open"), "h2"))
@@ -2997,6 +3010,8 @@ class MainWindow(QWidget):
         if self.built("ArchiveSettings"):
             s.extract_mode = self.extract_mode.currentData()
             s.extract_nested = self.extract_nested.isChecked()
+            s.extract_reveal = self.extract_reveal.isChecked()
+            s.extract_recycle = self.extract_recycle.isChecked()
             s.remember_archives = self.remember_archives.isChecked()
         self.c.settings_changed()
 

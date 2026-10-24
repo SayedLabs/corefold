@@ -156,8 +156,8 @@ WHEEL_KEYS = ("wheel_size", "wheel_style", "wheel_opacity", "label_style", "hove
               "wheel_position", "per_page", "wheel_numbers")
 FORMAT_KEYS = ("hidden_tools", "favorites", "tool_order")
 UNINSTALLER_KEYS = ("unused_months", "backup_days", "restore_point", "uninstall_depth")
-ARCHIVE_KEYS = ("extract_mode", "extract_nested", "remember_archives")
-VIEWER_KEYS = ("viewer_wheel", "viewer_confirm_delete", "slideshow_seconds", "viewer_sort", "peek_key")
+ARCHIVE_KEYS = ("extract_mode", "extract_nested", "remember_archives", "extract_reveal", "extract_recycle")
+VIEWER_KEYS = ("viewer_wheel", "viewer_confirm_delete", "slideshow_seconds", "viewer_sort", "peek_key", "viewer_loop")
 CLIPBOARD_KEYS = ("clip_shortcut", "clip_paste", "clip_max", "clip_days", "clip_images", "clip_ignore")
 PLAYER_KEYS = ("player_resume", "player_skip", "player_wheel", "player_next", "player_subtitles")
 CAPTURE_KEYS = ("cap_shortcut", "cap_record_shortcut", "cap_after", "cap_delay", "cap_save", "cap_fps", "cap_mic",
@@ -222,12 +222,15 @@ class Settings:
     extract_mode: str = "smart"    # "Extract here": "smart" (no folder inside a folder) or "folder"
     extract_nested: bool = False   # also unpack archives found inside
     remember_archives: bool = True  # list the archives opened lately on the Archive page
+    extract_reveal: bool = False   # open the folder once an archive is extracted
+    extract_recycle: bool = False  # then send the archive (and its parts) to the Recycle Bin
     # the Viewer
     open_images: bool = True       # pictures and email files open in Corefold ("Open with")
     open_emails: bool = True
     viewer_wheel: str = "zoom"     # the mouse wheel zooms, or goes to the next picture
     viewer_confirm_delete: bool = True
     viewer_sort: str = "name"      # the order of a folder's pictures: name, newest, oldest, biggest
+    viewer_loop: bool = False      # after the last picture comes the first one again (and back)
     slideshow_seconds: int = 4
     peek_key: str = "ctrl+space"   # Quick look at the file selected in File Explorer (only taken while it's in front)
     viewer_info: bool = False      # the details panel is open
