@@ -1,0 +1,360 @@
+ok    the Store has an Add button for viewer
+ok    adding viewer doesn't flash a white window (whitest moment 0.00)
+ok    viewer is added
+ok    after adding viewer the window is still open
+ok    after adding viewer only one window is open
+ok    viewer is in the sidebar
+ok    adding viewer: the Store page is open (Store)
+ok    adding viewer: the Store page was built
+ok    adding viewer: the Store page is showing (808x628)
+ok    adding viewer: the screen shows the Store page as drawn (difference 0.00)
+ok    after adding viewer the window isn't white (0.00)
+ok    open viewer from the Store: the Viewer page is open (Viewer)
+ok    open viewer from the Store: the Viewer page was built
+ok    open viewer from the Store: the Viewer page is showing (808x628)
+ok    open viewer from the Store: the screen shows the Viewer page as drawn (difference 0.00)
+ok    the Store has an Add button for player
+ok    adding player doesn't flash a white window (whitest moment 0.00)
+ok    player is added
+ok    after adding player the window is still open
+ok    after adding player only one window is open
+ok    player is in the sidebar
+ok    adding player: the Store page is open (Store)
+ok    adding player: the Store page was built
+ok    adding player: the Store page is showing (808x628)
+ok    adding player: the screen shows the Store page as drawn (difference 0.00)
+ok    after adding player the window isn't white (0.00)
+ok    open player from the Store: the Player page is open (Player)
+ok    open player from the Store: the Player page was built
+ok    open player from the Store: the Player page is showing (808x628)
+ok    open player from the Store: the screen shows the Player page as drawn (difference 0.00)
+ok    the Store has an Add button for capture
+ok    adding capture doesn't flash a white window (whitest moment 0.00)
+ok    capture is added
+ok    after adding capture the window is still open
+ok    after adding capture only one window is open
+ok    capture is in the sidebar
+ok    adding capture: the Store page is open (Store)
+ok    adding capture: the Store page was built
+ok    adding capture: the Store page is showing (808x628)
+ok    adding capture: the screen shows the Store page as drawn (difference 0.00)
+ok    after adding capture the window isn't white (0.00)
+ok    open capture from the Store: the Capture page is open (Capture)
+ok    open capture from the Store: the Capture page was built
+ok    open capture from the Store: the Capture page is showing (808x628)
+ok    open capture from the Store: the screen shows the Capture page as drawn (difference 0.00)
+ok    the Store has an Add button for space
+ok    adding space doesn't flash a white window (whitest moment 0.00)
+ok    space is added
+ok    after adding space the window is still open
+ok    after adding space only one window is open
+ok    space is in the sidebar
+ok    adding space: the Store page is open (Store)
+ok    adding space: the Store page was built
+ok    adding space: the Store page is showing (808x628)
+ok    adding space: the screen shows the Store page as drawn (difference 0.00)
+ok    after adding space the window isn't white (0.00)
+ok    open space from the Store: the Space page is open (Space)
+ok    open space from the Store: the Space page was built
+ok    open space from the Store: the Space page is showing (808x628)
+ok    open space from the Store: the screen shows the Space page as drawn (difference 0.00)
+ok    the Store has an Add button for clipboard
+ok    adding clipboard doesn't flash a white window (whitest moment 0.00)
+ok    clipboard is added
+ok    after adding clipboard the window is still open
+ok    after adding clipboard only one window is open
+ok    clipboard is in the sidebar
+ok    adding clipboard: the Store page is open (Store)
+ok    adding clipboard: the Store page was built
+ok    adding clipboard: the Store page is showing (808x628)
+ok    adding clipboard: the screen shows the Store page as drawn (difference 0.00)
+ok    after adding clipboard the window isn't white (0.00)
+ok    open clipboard from the Store: the Clipboard page is open (Clipboard)
+ok    open clipboard from the Store: the Clipboard page was built
+ok    open clipboard from the Store: the Clipboard page is showing (808x628)
+ok    open clipboard from the Store: the screen shows the Clipboard page as drawn (difference 0.00)
+ok    the Store has an Add button for cloud
+ok    adding cloud doesn't flash a white window (whitest moment 0.00)
+ok    cloud is added
+ok    after adding cloud the window is still open
+ok    after adding cloud only one window is open
+ok    cloud is in the sidebar
+ok    adding cloud: the Store page is open (Store)
+ok    adding cloud: the Store page was built
+ok    adding cloud: the Store page is showing (808x628)
+ok    adding cloud: the screen shows the Store page as drawn (difference 0.00)
+ok    after adding cloud the window isn't white (0.00)
+ok    open cloud from the Store: the Cloud page is open (Cloud)
+ok    open cloud from the Store: the Cloud page was built
+ok    open cloud from the Store: the Cloud page is showing (808x628)
+ok    open cloud from the Store: the screen shows the Cloud page as drawn (difference 0.00)
+ok    the Store has an Add button for startup
+ok    adding startup doesn't flash a white window (whitest moment 0.00)
+ok    startup is added
+ok    after adding startup the window is still open
+ok    after adding startup only one window is open
+ok    startup is in the sidebar
+ok    adding startup: the Store page is open (Store)
+ok    adding startup: the Store page was built
+ok    adding startup: the Store page is showing (808x628)
+ok    adding startup: the screen shows the Store page as drawn (difference 0.00)
+ok    after adding startup the window isn't white (0.00)
+ok    open startup from the Store: the Startup page is open (Startup)
+ok    open startup from the Store: the Startup page was built
+ok    open startup from the Store: the Startup page is showing (808x628)
+ok    open startup from the Store: the screen shows the Startup page as drawn (difference 0.00)
+ok    the Store has an Add button for scan
+ok    adding scan doesn't flash a white window (whitest moment 0.00)
+ok    scan is added
+ok    after adding scan the window is still open
+ok    after adding scan only one window is open
+ok    scan is in the sidebar
+ok    adding scan: the Store page is open (Store)
+ok    adding scan: the Store page was built
+ok    adding scan: the Store page is showing (808x628)
+ok    adding scan: the screen shows the Store page as drawn (difference 0.00)
+ok    after adding scan the window isn't white (0.00)
+ok    open scan from the Store: the Scan page is open (Scan)
+ok    open scan from the Store: the Scan page was built
+ok    open scan from the Store: the Scan page is showing (808x628)
+ok    open scan from the Store: the screen shows the Scan page as drawn (difference 0.00)
+ok    the Store has an Add button for pdf
+ok    adding pdf doesn't flash a white window (whitest moment 0.00)
+ok    pdf is added
+ok    after adding pdf the window is still open
+ok    after adding pdf only one window is open
+ok    pdf is in the sidebar
+ok    adding pdf: the Store page is open (Store)
+ok    adding pdf: the Store page was built
+ok    adding pdf: the Store page is showing (808x628)
+ok    adding pdf: the screen shows the Store page as drawn (difference 0.00)
+ok    after adding pdf the window isn't white (0.00)
+ok    open pdf from the Store: the PDF page is open (PDF)
+ok    open pdf from the Store: the PDF page was built
+ok    open pdf from the Store: the PDF page is showing (808x628)
+ok    open pdf from the Store: the screen shows the PDF page as drawn (difference 0.00)
+ok    the Store has an Add button for colors
+ok    adding colors doesn't flash a white window (whitest moment 0.00)
+ok    colors is added
+ok    after adding colors the window is still open
+ok    after adding colors only one window is open
+ok    colors is in the sidebar
+ok    adding colors: the Store page is open (Store)
+ok    adding colors: the Store page was built
+ok    adding colors: the Store page is showing (808x628)
+ok    adding colors: the screen shows the Store page as drawn (difference 0.00)
+ok    after adding colors the window isn't white (0.00)
+ok    open colors from the Store: the Colors page is open (Colors)
+ok    open colors from the Store: the Colors page was built
+ok    open colors from the Store: the Colors page is showing (808x628)
+ok    open colors from the Store: the screen shows the Colors page as drawn (difference 0.00)
+ok    the Store has an Add button for awake
+ok    adding awake doesn't flash a white window (whitest moment 0.00)
+ok    awake is added
+ok    after adding awake the window is still open
+ok    after adding awake only one window is open
+ok    awake is in the sidebar
+ok    adding awake: the Store page is open (Store)
+ok    adding awake: the Store page was built
+ok    adding awake: the Store page is showing (808x628)
+ok    adding awake: the screen shows the Store page as drawn (difference 0.00)
+ok    after adding awake the window isn't white (0.00)
+ok    open awake from the Store: the Awake page is open (Awake)
+ok    open awake from the Store: the Awake page was built
+ok    open awake from the Store: the Awake page is showing (808x628)
+ok    open awake from the Store: the screen shows the Awake page as drawn (difference 0.00)
+ok    the Store has an Add button for unlock
+ok    adding unlock doesn't flash a white window (whitest moment 0.00)
+ok    unlock is added
+ok    after adding unlock the window is still open
+ok    after adding unlock only one window is open
+ok    unlock is in the sidebar
+ok    adding unlock: the Store page is open (Store)
+ok    adding unlock: the Store page was built
+ok    adding unlock: the Store page is showing (808x628)
+ok    adding unlock: the screen shows the Store page as drawn (difference 0.00)
+ok    after adding unlock the window isn't white (0.00)
+ok    open unlock from the Store: the Unlock page is open (Unlock)
+ok    open unlock from the Store: the Unlock page was built
+ok    open unlock from the Store: the Unlock page is showing (808x628)
+ok    open unlock from the Store: the screen shows the Unlock page as drawn (difference 0.00)
+ok    the Store has an Add button for organizer
+ok    adding organizer doesn't flash a white window (whitest moment 0.00)
+ok    organizer is added
+ok    after adding organizer the window is still open
+ok    after adding organizer only one window is open
+ok    organizer is in the sidebar
+ok    adding organizer: the Store page is open (Store)
+ok    adding organizer: the Store page was built
+ok    adding organizer: the Store page is showing (808x628)
+ok    adding organizer: the screen shows the Store page as drawn (difference 0.00)
+ok    after adding organizer the window isn't white (0.00)
+ok    open organizer from the Store: the Organizer page is open (Organizer)
+ok    open organizer from the Store: the Organizer page was built
+ok    open organizer from the Store: the Organizer page is showing (808x628)
+ok    open organizer from the Store: the screen shows the Organizer page as drawn (difference 0.00)
+ok    store: no errors behind the clicks (0)
+ok    sidebar Home: the Home page is open (Home)
+ok    sidebar Home: the Home page was built
+ok    sidebar Home: the Home page is showing (808x628)
+ok    sidebar Home: the screen shows the Home page as drawn (difference 0.00)
+ok    sidebar History: the History page is open (History)
+ok    sidebar History: the History page was built
+ok    sidebar History: the History page is showing (808x628)
+ok    sidebar History: the screen shows the History page as drawn (difference 0.00)
+ok    sidebar Converter: the Converter page is open (Converter)
+ok    sidebar Converter: the Converter page was built
+ok    sidebar Converter: the Converter page is showing (808x628)
+ok    sidebar Converter: the screen shows the Converter page as drawn (difference 0.00)
+ok    Converter has a Settings button
+ok    Converter's Settings button opens ConvOptions (ConvOptions)
+ok    back to Converter from its settings (Converter)
+ok    sidebar Apps: the Apps page is open (Apps)
+ok    sidebar Apps: the Apps page was built
+ok    sidebar Apps: the Apps page is showing (808x628)
+ok    sidebar Apps: the screen shows the Apps page as drawn (difference 0.00)
+ok    Apps has a Settings button
+ok    Apps's Settings button opens AppsSettings (AppsSettings)
+ok    back to Apps from its settings (Apps)
+ok    sidebar Archives: the Archives page is open (Archives)
+ok    sidebar Archives: the Archives page was built
+ok    sidebar Archives: the Archives page is showing (808x628)
+ok    sidebar Archives: the screen shows the Archives page as drawn (difference 0.00)
+ok    Archives has a Settings button
+ok    Archives's Settings button opens ArchiveSettings (ArchiveSettings)
+ok    back to Archives from its settings (Archives)
+ok    sidebar Viewer: the Viewer page is open (Viewer)
+ok    sidebar Viewer: the Viewer page was built
+ok    sidebar Viewer: the Viewer page is showing (808x628)
+ok    sidebar Viewer: the screen shows the Viewer page as drawn (difference 0.00)
+ok    Viewer has a Settings button
+ok    Viewer's Settings button opens ViewerSettings (ViewerSettings)
+ok    back to Viewer from its settings (Viewer)
+ok    sidebar Player: the Player page is open (Player)
+ok    sidebar Player: the Player page was built
+ok    sidebar Player: the Player page is showing (808x628)
+ok    sidebar Player: the screen shows the Player page as drawn (difference 0.00)
+ok    Player has a Settings button
+ok    Player's Settings button opens PlayerSettings (PlayerSettings)
+ok    back to Player from its settings (Player)
+ok    sidebar Capture: the Capture page is open (Capture)
+ok    sidebar Capture: the Capture page was built
+ok    sidebar Capture: the Capture page is showing (808x628)
+ok    sidebar Capture: the screen shows the Capture page as drawn (difference 0.00)
+ok    Capture has a Settings button
+ok    Capture's Settings button opens CaptureSettings (CaptureSettings)
+ok    back to Capture from its settings (Capture)
+ok    sidebar Space: the Space page is open (Space)
+ok    sidebar Space: the Space page was built
+ok    sidebar Space: the Space page is showing (808x628)
+ok    sidebar Space: the screen shows the Space page as drawn (difference 0.00)
+ok    sidebar Clipboard: the Clipboard page is open (Clipboard)
+ok    sidebar Clipboard: the Clipboard page was built
+ok    sidebar Clipboard: the Clipboard page is showing (808x628)
+ok    sidebar Clipboard: the screen shows the Clipboard page as drawn (difference 0.00)
+ok    Clipboard has a Settings button
+ok    Clipboard's Settings button opens ClipboardSettings (ClipboardSettings)
+ok    back to Clipboard from its settings (Clipboard)
+ok    sidebar Cloud: the Cloud page is open (Cloud)
+ok    sidebar Cloud: the Cloud page was built
+ok    sidebar Cloud: the Cloud page is showing (808x628)
+ok    sidebar Cloud: the screen shows the Cloud page as drawn (difference 0.00)
+ok    sidebar Startup: the Startup page is open (Startup)
+ok    sidebar Startup: the Startup page was built
+ok    sidebar Startup: the Startup page is showing (808x628)
+ok    sidebar Startup: the screen shows the Startup page as drawn (difference 0.00)
+ok    sidebar Scan: the Scan page is open (Scan)
+ok    sidebar Scan: the Scan page was built
+ok    sidebar Scan: the Scan page is showing (808x628)
+ok    sidebar Scan: the screen shows the Scan page as drawn (difference 0.00)
+ok    sidebar PDF: the PDF page is open (PDF)
+ok    sidebar PDF: the PDF page was built
+ok    sidebar PDF: the PDF page is showing (808x628)
+ok    sidebar PDF: the screen shows the PDF page as drawn (difference 0.00)
+ok    sidebar Colors: the Colors page is open (Colors)
+ok    sidebar Colors: the Colors page was built
+ok    sidebar Colors: the Colors page is showing (808x628)
+ok    sidebar Colors: the screen shows the Colors page as drawn (difference 0.00)
+ok    sidebar Awake: the Awake page is open (Awake)
+ok    sidebar Awake: the Awake page was built
+ok    sidebar Awake: the Awake page is showing (808x628)
+ok    sidebar Awake: the screen shows the Awake page as drawn (difference 0.00)
+ok    sidebar Unlock: the Unlock page is open (Unlock)
+ok    sidebar Unlock: the Unlock page was built
+ok    sidebar Unlock: the Unlock page is showing (808x628)
+ok    sidebar Unlock: the screen shows the Unlock page as drawn (difference 0.00)
+ok    sidebar Organizer: the Organizer page is open (Organizer)
+ok    sidebar Organizer: the Organizer page was built
+ok    sidebar Organizer: the Organizer page is showing (808x628)
+ok    sidebar Organizer: the screen shows the Organizer page as drawn (difference 0.00)
+ok    sidebar Store: the Store page is open (Store)
+ok    sidebar Store: the Store page was built
+ok    sidebar Store: the Store page is showing (808x628)
+ok    sidebar Store: the screen shows the Store page as drawn (difference 0.00)
+ok    sidebar General: the General page is open (General)
+ok    sidebar General: the General page was built
+ok    sidebar General: the General page is showing (732x533)
+ok    sidebar General: the screen shows the General page as drawn (difference 0.00)
+ok    sidebar Updates: the Updates page is open (Updates)
+ok    sidebar Updates: the Updates page was built
+ok    sidebar Updates: the Updates page is showing (808x628)
+ok    sidebar Updates: the screen shows the Updates page as drawn (difference 0.00)
+ok    sidebar About: the About page is open (About)
+ok    sidebar About: the About page was built
+ok    sidebar About: the About page is showing (808x628)
+ok    sidebar About: the screen shows the About page as drawn (difference 0.00)
+ok    the General settings tab (General)
+ok    the Look settings tab (Look)
+ok    the Quick settings tab (Quick)
+ok    the Shortcuts settings tab (Shortcuts)
+ok    the ConvOptions settings tab (ConvOptions)
+ok    the AppsSettings settings tab (AppsSettings)
+ok    the ArchiveSettings settings tab (ArchiveSettings)
+ok    the ViewerSettings settings tab (ViewerSettings)
+ok    the PlayerSettings settings tab (PlayerSettings)
+ok    the CaptureSettings settings tab (CaptureSettings)
+ok    the ClipboardSettings settings tab (ClipboardSettings)
+ok    the ConvOptions settings sub-tab (ConvOptions)
+ok    the WheelLook settings sub-tab (WheelLook)
+ok    the Formats settings sub-tab (Formats)
+ok    Alt + Left goes back to History (History)
+ok    Alt + Left goes back to Home (Home)
+ok    the Converter card on Home opens it (Converter)
+ok    the Apps card on Home opens it (Apps)
+ok    the Archives card on Home opens it (Archives)
+ok    the Viewer card on Home opens it (Viewer)
+ok    the Player card on Home opens it (Player)
+ok    the Capture card on Home opens it (Capture)
+ok    the Space card on Home opens it (Space)
+ok    the Clipboard card on Home opens it (Clipboard)
+ok    the Cloud card on Home opens it (Cloud)
+ok    the Startup card on Home opens it (Startup)
+ok    the Scan card on Home opens it (Scan)
+ok    the PDF card on Home opens it (PDF)
+ok    the Colors card on Home opens it (Colors)
+ok    the Awake card on Home opens it (Awake)
+ok    the Unlock card on Home opens it (Unlock)
+ok    the Organizer card on Home opens it (Organizer)
+ok    pages: no errors behind the clicks (0)
+ok    the Space page
+ok    Space lists the drives (2)
+ok    clicking the first drive starts looking through it
+note  the first drive: still looking after 91 s; last progress: C:\hostedtoolcache\windows\go\1.25.14\x64\src\cmd\gofmt\testdata
+ok    Stop stops looking (0.0 s)
+ok    the first drive is mapped (222988 files in 91 s)
+note  222,988 files, 26,280 folders, 1 private, 91.2 s, cancelled True
+ok    a folder with thousands of files is mapped (12885)
+ok    Alt + Left in Space goes up a folder
+ok    …and then back to the drives
+ok    opening a folder again shows its map right away (0.22 s)
+ok    Look again looks through it afresh
+ok    …and makes a new map
+ok    Alt + Left while it looks stops and goes back to the drives
+ok    the map has a way back to the drives (map True, drives False, busy False, looking False, page Space)
+ok    back at the drives
+ok    Space can be left and opened again while it looks
+ok    the Space clean tab
+ok    the Space dupes tab
+ok    the Space map tab
+ok    space: no errors behind the clicks (0)
+navtest: 0 problem(s)
