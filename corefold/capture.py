@@ -157,8 +157,9 @@ class Snip(QWidget):
     for the whole screen. Esc gives up."""
     picked = Signal(object, object)   # (QImage, its rectangle on screen in Qt's coordinates), or (None, None)
 
-    def __init__(self, screen, shot: QPixmap, windows: list[QRect]):
+    def __init__(self, screen, shot: QPixmap, windows: list[QRect], hint: str = ""):
         super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+        self.hint = hint
         self.screen_ = screen
         self.shot = shot
         self.geo = screen.geometry()
@@ -167,6 +168,9 @@ class Snip(QWidget):
         self.start: QPoint | None = None
         self.end: QPoint | None = None
         self.hover: QRect | None = None
+        self.mouse: QPoint | None = None   # where the mouse is (the magnifier follows it)
+        self._pixels = None                # the frozen screen as an image, for the magnifier's colour
+        self._drawn = QRect()              # where the magnifier was last drawn
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.setCursor(Qt.CrossCursor)
         self.setMouseTracking(True)
@@ -180,12 +184,79 @@ class Snip(QWidget):
         self.raise_()
         self.setFocus()
         self._hover_at(self.mapFromGlobal(QCursor.pos()))
+        self._follow(self.mapFromGlobal(QCursor.pos()))
 
     def _hover_at(self, pos: QPoint):
         under = next((w for w in self.windows if w.contains(pos)), None)
         if under != self.hover:
             self.hover = under
             self.update()
+
+    # ---- the magnifier: the pixels around the mouse, big, with where it is and the colour there
+    MAG, ZOOM = 120, 8
+
+    def _mag_rect(self, pos: QPoint) -> QRect:
+        size, wide = self.MAG + 2, self.MAG + 52   # (the line under it is wider than the picture)
+        x, y = pos.x() + 22, pos.y() + 22
+        if x + wide > self.width():
+            x = pos.x() - 22 - size
+        if y + size + 26 > self.height():
+            y = pos.y() - 22 - size - 26
+        return QRect(x, y, wide, size + 26)
+
+    def _follow(self, pos: QPoint):
+        """The mouse moved: only the magnifier's old and new places are drawn again (a whole screen each
+        time would make it lag on a big monitor)."""
+        self.mouse = pos
+        new = self._mag_rect(pos)
+        self.update(self._drawn.united(new).adjusted(-2, -2, 2, 2))
+        self._drawn = new
+
+    def _paint_magnifier(self, p: QPainter):
+        if self.mouse is None or not self.rect().contains(self.mouse):
+            return
+        ratio = self.shot.devicePixelRatio() or 1.0
+        if self._pixels is None:
+            self._pixels = self.shot.toImage()
+        cx, cy = round(self.mouse.x() * ratio), round(self.mouse.y() * ratio)
+        n = self.MAG // self.ZOOM  # pixels shown across
+        src = QRect(cx - n // 2, cy - n // 2, n, n)
+        box = self._mag_rect(self.mouse)
+        view = QRect(box.x() + 1, box.y() + 1, self.MAG, self.MAG)
+        clip = QPainterPath()
+        clip.addRoundedRect(QRectF(view), 10, 10)
+        p.save()
+        p.setClipPath(clip)
+        p.fillRect(view, QColor(20, 22, 24))
+        p.drawImage(QRectF(view), self._pixels, QRectF(src))
+        p.setPen(QPen(QColor(255, 255, 255, 28), 1))
+        for k in range(1, n):  # (the pixel grid)
+            p.drawLine(view.x() + k * self.ZOOM, view.y(), view.x() + k * self.ZOOM, view.bottom())
+            p.drawLine(view.x(), view.y() + k * self.ZOOM, view.right(), view.y() + k * self.ZOOM)
+        mid = QRect(view.x() + (n // 2) * self.ZOOM, view.y() + (n // 2) * self.ZOOM, self.ZOOM, self.ZOOM)
+        p.setPen(QPen(QColor("#3cc7b2"), 2))
+        p.setBrush(Qt.NoBrush)
+        p.drawRect(mid)
+        p.restore()
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setPen(QPen(QColor(255, 255, 255, 200), 1.5))
+        p.setBrush(Qt.NoBrush)
+        p.drawRoundedRect(QRectF(view).adjusted(-0.5, -0.5, 0.5, 0.5), 10, 10)
+        color = self._pixels.pixelColor(min(max(cx, 0), self._pixels.width() - 1),
+                                        min(max(cy, 0), self._pixels.height() - 1))
+        label = QRect(view.x(), view.bottom() + 5, self.MAG + 48, 21)
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(20, 22, 24, 225))
+        p.drawRoundedRect(label, 6, 6)
+        p.setBrush(color)
+        p.setPen(QPen(QColor(255, 255, 255, 120), 1))
+        p.drawRoundedRect(QRect(label.x() + 6, label.y() + 5, 11, 11), 3, 3)
+        f = QFont(self.font())
+        f.setPointSizeF(8)
+        p.setFont(f)
+        p.setPen(QColor("#fff"))
+        p.drawText(label.adjusted(22, 0, -4, 0), Qt.AlignVCenter | Qt.AlignLeft,
+                   f"{cx}, {cy}   {color.name().upper()}")
 
     def selection(self) -> QRect | None:
         if self.start is None or self.end is None:
@@ -221,8 +292,9 @@ class Snip(QWidget):
             p.drawRoundedRect(box, 6, 6)
             p.setPen(QColor("#fff"))
             p.drawText(box, Qt.AlignCenter, text)
+        self._paint_magnifier(p)
         if self.start is None:
-            hint = tr("Drag over what you want, or click a window. Enter: the whole screen. Esc: cancel.")
+            hint = self.hint or tr("Drag over what you want, or click a window. Enter: the whole screen. Esc: cancel.")
             f = QFont(self.font())
             f.setPointSizeF(10)
             p.setFont(f)
@@ -233,6 +305,11 @@ class Snip(QWidget):
             p.drawRoundedRect(box, 10, 10)
             p.setPen(QColor("#fff"))
             p.drawText(box, Qt.AlignCenter, hint)
+
+    def leaveEvent(self, e):  # (on to another monitor: the magnifier goes there)
+        super().leaveEvent(e)
+        self.mouse = None
+        self.update(self._drawn.adjusted(-2, -2, 2, 2))
 
     def mousePressEvent(self, e):
         if e.button() == Qt.RightButton:
@@ -245,10 +322,13 @@ class Snip(QWidget):
     def mouseMoveEvent(self, e):
         pos = e.position().toPoint()
         if self.start is not None:
+            old = self.selection() or QRect(self.start, self.end).normalized()
             self.end = pos
-            self.update()
+            now = self.selection() or QRect(self.start, self.end).normalized()
+            self.update(old.united(now).adjusted(-40, -40, 40, 40))  # (with its size label)
         else:
             self._hover_at(pos)
+        self._follow(pos)
 
     def mouseReleaseEvent(self, e):
         if e.button() != Qt.LeftButton or self.start is None:
@@ -260,6 +340,12 @@ class Snip(QWidget):
         self._finish(sel)
 
     def keyPressEvent(self, e):
+        moves = {Qt.Key_Left: (-1, 0), Qt.Key_Right: (1, 0), Qt.Key_Up: (0, -1), Qt.Key_Down: (0, 1)}
+        if e.key() in moves:  # the arrow keys move the mouse one pixel (Shift: ten), to pick exactly
+            step = 10 if e.modifiers() & Qt.ShiftModifier else 1
+            dx, dy = moves[e.key()]
+            QCursor.setPos(QCursor.pos() + QPoint(dx * step, dy * step))
+            return
         if e.key() == Qt.Key_Escape:
             self._finish(None)
         elif e.key() in (Qt.Key_Return, Qt.Key_Enter):
@@ -284,8 +370,9 @@ class Snip(QWidget):
 class Picker:
     """Freezes every screen and lets you pick an area on one of them."""
 
-    def __init__(self, on_picked):
+    def __init__(self, on_picked, hint: str = ""):
         self.on_picked = on_picked
+        self.hint = hint
         self.snips: list[Snip] = []
         self.answered = False
 
@@ -294,7 +381,7 @@ class Picker:
         shots = [(s, s.grabWindow(0)) for s in screens]
         windows = visible_windows()
         for screen, shot in shots:
-            snip = Snip(screen, shot, windows)
+            snip = Snip(screen, shot, windows, self.hint)
             snip.picked.connect(self._picked)
             self.snips.append(snip)
             snip.show()
@@ -329,6 +416,9 @@ class CaptureTool(QObject):
         self.editors: list = []
         self.shot_key = Hotkey()
         self.shot_key.pressed.connect(self.screenshot, Qt.ConnectionType.QueuedConnection)
+        self.text_key = Hotkey()
+        self.text_key.pressed.connect(self.copy_text, Qt.ConnectionType.QueuedConnection)
+        self._reader = None
         self._hidden = None
         self._later = None     # the countdown before a screenshot with a timer
         self.apply_settings()
@@ -338,6 +428,7 @@ class CaptureTool(QObject):
         return self.c.settings
 
     def apply_settings(self) -> bool:
+        self.text_key.set(self.settings.cap_text_shortcut)
         return self.shot_key.set(self.settings.cap_shortcut)
 
     def stop(self):
@@ -345,6 +436,7 @@ class CaptureTool(QObject):
             self._later.cancel()
             self._later = None
         self.shot_key.stop()
+        self.text_key.stop()
 
     def _hide_corefold(self):
         """Corefold's own window steps aside while you pick (it comes back afterwards)."""
@@ -365,6 +457,49 @@ class CaptureTool(QObject):
             return
         self.picker = Picker(self._picked)
         QTimer.singleShot(self._hide_corefold() or 10, self.picker.start)
+
+    def copy_text(self):
+        """Copies the text in a part of the screen, straight away (no editor): drag over it, it's read with
+        Windows' own OCR, and it's on the clipboard."""
+        if self.picker is not None:
+            return
+        self.picker = Picker(self._text_picked, tr("Drag over the text to copy. Esc: cancel."))
+        QTimer.singleShot(self._hide_corefold() or 10, self.picker.start)
+
+    def _text_picked(self, img, rect):
+        self.picker = None
+        self._show_corefold()
+        if img is None:
+            return
+        from .capview import _Reader
+        from .extras import ocr_available
+        if not ocr_available():
+            self.c.tell(tr("Can't read text here"), tr("Reading text needs Windows 10 or 11"))
+            return
+        reader = self._reader = _Reader(self)
+        reader.done.connect(self._text_read)
+        reader.start(img)
+
+    def _text_read(self, lines, error: str, missing: bool):
+        self._reader = None
+        if error:
+            self.c.tell(tr("Can't read text here"), error)
+            return
+        from .extras import lines_text
+        text = lines_text(lines or []).strip()
+        if not text:
+            self.c.toast.notify(tr("No text found"), tr("Try a bigger part of the screen."), linger_ms=4000)
+            return
+        QGuiApplication.clipboard().setText(text)
+        import re
+        preview = re.sub(r"\s+", " ", text)
+        preview = preview if len(preview) <= 80 else preview[:77] + "..."
+        if missing:
+            from .capview import add_arabic
+            self.c.toast.notify(tr("Copied the text"), preview, tr("Read Arabic too…"),
+                                lambda: add_arabic(self.c, None), linger_ms=8000)
+        else:
+            self.c.toast.notify(tr("Copied the text"), preview, linger_ms=4000)
 
     def screenshot_later(self, seconds: int | None = None):
         """A screenshot after a few seconds (time to open a menu, or hover over something)."""

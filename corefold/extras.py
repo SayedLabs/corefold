@@ -293,6 +293,52 @@ def _rtl_tag(tag: str) -> bool:
     return tag.split("-")[0].lower() in RTL_OCR
 
 
+ARABIC_OCR = "Language.OCR~~~ar-SA~0.0.1.0"   # Windows' Arabic text reading (a small optional part of Windows)
+
+
+def rtl_reader_missing() -> bool:
+    """Windows can't read Arabic (or Hebrew…) yet: its text-reading part for it isn't installed. (Not on the
+    window's thread: it loads Windows' OCR.)"""
+    try:
+        from winrt.windows.media.ocr import OcrEngine
+        tags = [lang.language_tag for lang in OcrEngine.available_recognizer_languages]
+    except Exception:
+        return False
+    return bool(tags) and not any(_rtl_tag(t) for t in tags)
+
+
+def writes_arabic() -> bool:
+    """This person writes Arabic: Corefold is in Arabic, or Windows has an Arabic (Persian, Urdu, Hebrew) keyboard."""
+    from .i18n import language
+    if language() == "ar":
+        return True
+    if os.name != "nt":
+        return False
+    try:
+        import ctypes
+        n = ctypes.windll.user32.GetKeyboardLayoutList(0, None)
+        layouts = (ctypes.c_void_p * max(n, 1))()
+        n = ctypes.windll.user32.GetKeyboardLayoutList(n, layouts)
+        return any(((layouts[i] or 0) & 0x3FF) in (0x01, 0x29, 0x20, 0x0D) for i in range(n))
+    except Exception:
+        return False
+
+
+def add_arabic_reader() -> bool:
+    """Adds Windows' Arabic text reading (asks for administrator permission; takes a minute, so not on the
+    window's thread). True once it's there."""
+    from .uninstall import shell_start, wait_process
+    windows = Path(os.environ.get("SystemRoot", r"C:\Windows"))
+    ps = windows / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+    command = (f"try {{ Add-WindowsCapability -Online -Name '{ARABIC_OCR}' -ErrorAction Stop | Out-Null; exit 0 }} "
+               f"catch {{ exit 1 }}")
+    handle, _ = shell_start(str(ps), f'-NoProfile -NonInteractive -WindowStyle Hidden -Command "{command}"',
+                            admin=True, show=0)
+    if handle is None:
+        return False
+    return wait_process(handle, timeout_s=1200) == 0 and not rtl_reader_missing()
+
+
 def _engines():
     """Windows' reader for the PC's language, and, when one is installed, a reader for the other way of
     writing too (Arabic next to English): each reads only its own letters well."""
@@ -380,7 +426,8 @@ def ocr_pieces(width: int, height: int, limit: int) -> tuple[float, list[tuple[i
     """How much bigger to make a picture for reading (small text reads better bigger), and the strips
     (top, bottom in the bigger picture's pixels) to read when it's taller than Windows can read at once."""
     longest = max(width, height, 1)
-    f = min(3.0, max(1.0, 1200 / longest, min(2.0, 1800 / longest)))
+    # (screen text is small: Windows reads it much better twice as big, and a little bigger still for big screens)
+    f = min(3.0, max(2.0 if longest <= 2600 else 1.5, 1200 / longest))
     f = min(f, limit / max(width, 1))  # (too wide: smaller, there's no reading in pieces side by side)
     h = round(height * f)
     if h <= limit:
@@ -396,11 +443,28 @@ def ocr_pieces(width: int, height: int, limit: int) -> tuple[float, list[tuple[i
         top += step
 
 
+def _for_reading(im):
+    """Grey, with light text on a dark background (a dark app, a terminal) turned into dark text on light: Windows
+    reads that much better. (Only the copy that's read; the picture stays as it is.)"""
+    from PIL import ImageOps
+    grey = im.convert("L")
+    hist = grey.histogram()
+    half, seen, median = grey.width * grey.height / 2, 0, 255
+    for level, count in enumerate(hist):
+        seen += count
+        if seen >= half:
+            median = level
+            break
+    if median < 110:
+        grey = ImageOps.invert(grey)
+    return grey.convert("RGB")
+
+
 def read_lines(im) -> list[OcrLine]:
     """Reads the text in a picture (Pillow) with Windows' own OCR: lines of words with where each one is.
     Takes a moment, so not on the window's thread."""
     from PIL import Image
-    im = flatten(im)
+    im = _for_reading(flatten(im))
     try:
         from winrt.windows.media.ocr import OcrEngine
         limit = int(OcrEngine.max_image_dimension)

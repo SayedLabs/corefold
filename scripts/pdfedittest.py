@@ -815,6 +815,77 @@ def editor():
           "a locked PDF opens with its password")
     ed.close_editor(ask=False)
 
+    # the list of pages, Find and Replace, and turning, deleting and moving pages
+    four = make_doc("pages and words.pdf", 4)
+    pg.open_editor(four)
+    check(until(lambda: ed.src == four and len(ed.pages) == 4 and ed.pages[0].pm is not None, 15), "a 4-page PDF opens")
+    check(ed.side.isVisible() and ed.thumb_list.count() == 4, f"the list of pages is shown ({ed.thumb_list.count()})")
+    check(until(lambda: 0 in ed.thumb_imgs, 10), "its pages get small pictures")
+    ed.show_find()
+    ed.find_box.setText("total: 500")
+    check(until(lambda: ed._reading() == 0 and len(ed.matches) == 4, 15),
+          f"Find looks on every page, big and small letters alike ({len(ed.matches)}, {ed.found_label.text()!r})")
+    check(ed.found_label.text() == i18n.tr("{number} of {count}", number=1, count=4), f"1 of 4 ({ed.found_label.text()})")
+    ed.next_match(1)
+    check(ed.match_at == 1 and ed.matches[1][0].index == 1, "Next goes to the next page's")
+    w.grab().save(str(OUT / f"editor-find-{LANG}-{LOOK}.png"))
+    ed.case_box.setChecked(True)
+    check(until(lambda: not ed.matches, 3), "Match case: \"total\" isn't \"Total\"")
+    ed.case_box.setChecked(False)
+    until(lambda: len(ed.matches) == 4, 3)
+    ed.replace_box.setText("Total: 999")
+    ed.replace_one()
+    check(len(ed.matches) == 3 and [d["text"] for d in items("text")] == ["Total: 999 SAR"],
+          f"Replace changes that one line ({[d['text'] for d in items('text')]})")
+    ed.replace_all()
+    texts = sorted(d["text"] for d in items("text"))
+    check(not ed.matches and texts == ["Total: 999 SAR"] * 4, f"Replace all changes the rest ({texts})")
+    ed.hide_find()
+    ed.turn_pages(90, [1])
+    check(ed.pages[1].rotation() == 90 and abs(ed.pages[1].sceneBoundingRect().width() - ed.pages[1].h) < 8,
+          "a page turns")
+    ed.delete_pages([2])
+    check(ed.order == [0, 1, 3] and not ed.pages[2].isVisible() and ed.thumb_list.count() == 3, "a page is deleted")
+    ed.move_pages(-1, [3])
+    check(ed.order == [0, 3, 1], f"a page moves up ({ed.order})")
+    ed.undo()
+    check(ed.order == [0, 1, 3], "Undo puts it back")
+    ed.redo()
+    check(ed.order == [0, 3, 1] and ed.thumb_list.item(1).data(Qt.UserRole) == 3, "Redo moves it again")
+    ed.thumb_list.clearSelection()
+    ed.thumb_list.item(2).setSelected(True)
+    QTest.keyClick(ed.thumb_list, Qt.Key_Delete)
+    check(ed.order == [0, 3], f"Delete in the list of pages deletes the picked one ({ed.order})")
+    ed.undo()
+    check(ed.order == [0, 3, 1], "…and Undo brings it back")
+    view.setFocus()
+    told = []
+    real_tell = c.tell
+    c.tell = lambda title, detail: told.append(detail)
+    ed.delete_pages([0, 1, 3])
+    c.tell = real_tell
+    check(len(ed.order) == 3 and told, "the last pages can't all be deleted")
+    p1 = ed.pages[1]
+    click(p1, 60, 100)
+    check(ed.page_at(p1.mapToScene(QPointF(60, 100))) is p1, "a turned page is found under the mouse")
+    settle(0.3)
+    w.grab().save(str(OUT / f"editor-pages-{LANG}-{LOOK}.png"))
+    t0 = time.time() - 0.01
+    ed.save()
+    check(until(lambda: not c.jobs, 60), "saved")
+    settle(0.3)
+    made = outputs_since(t0)
+    if made:
+        r_ = PdfReader(str(made[0]))
+        got = [(text_of(made[0], k), r_.pages[k].rotation) for k in range(len(r_.pages))]
+        check(len(got) == 3 and "page 1" in got[0][0] and "page 4" in got[1][0] and "page 2" in got[2][0],
+              f"saved with the pages in their new order ({[g[0].splitlines()[0] for g in got]})")
+        check([g[1] for g in got] == [0, 0, 90], f"…the turned one turned ({[g[1] for g in got]})")
+        check(all("999 SAR" in g[0] and "500 SAR" not in g[0] for g in got), "…and the replaced words in all")
+    else:
+        check(False, "a new PDF is made")
+    ed.close_editor(ask=False)
+
     for size in ((760, 520), (1500, 900)):
         pg.open_editor(DOC)
         until(lambda: ed.src == DOC and ed.pages and ed.pages[0].pm is not None, 15)

@@ -5,6 +5,7 @@ another by dragging."""
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import tempfile
 import threading
@@ -12,11 +13,11 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QMimeData, Qt, QUrl
-from PySide6.QtGui import QDesktopServices, QDrag, QKeySequence, QShortcut
+from PySide6.QtCore import QMimeData, QRect, QRectF, QSize, Qt, QUrl
+from PySide6.QtGui import QColor, QDesktopServices, QDrag, QFont, QFontMetrics, QKeySequence, QPainter, QShortcut
 from PySide6.QtWidgets import QAbstractItemView, QFileDialog, QHBoxLayout, QHeaderView, QInputDialog, QLabel, \
-    QLineEdit, QListWidget, QListWidgetItem, QMenu, QMessageBox, QProgressBar, QPushButton, QTreeWidget, \
-    QTreeWidgetItem, QVBoxLayout, QWidget
+    QLineEdit, QListWidget, QListWidgetItem, QMenu, QMessageBox, QProgressBar, QPushButton, QStyle, \
+    QStyledItemDelegate, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
 from . import UPDATE_REPO, cloud, icons, work
 from .core import human_size, short_name
@@ -28,8 +29,15 @@ if TYPE_CHECKING:
     from .app import Controller
 
 DRAG_MIME = "application/x-corefold-cloud"
+# where each service's own app is downloaded from (for "Add a cloud" when it isn't on this PC)
+GET_APP = {"onedrive": "https://www.microsoft.com/microsoft-365/onedrive/download",
+           "dropbox": "https://www.dropbox.com/install",
+           "gdrive": "https://www.google.com/drive/download/",
+           "icloud": "https://apps.microsoft.com/detail/9pktq5699m62"}
 ACCOUNT = Qt.UserRole + 1          # (the account a search result belongs to)
 TEMP_PREFIX = "corefold-cloud-"
+PREVIEW_MAX = 300 * 1024 * 1024    # (an online file bigger than this isn't downloaded just to look at it)
+KEPT = 30                          # transfers kept in the list
 
 
 def _ui_error(e) -> str:
@@ -87,6 +95,189 @@ def clean_old_temp(days: float = 2):
         pass
 
 
+def service_name(acc: cloud.Account) -> str:
+    """OneDrive, Dropbox…, or for a folder added by hand that isn't any service's, the folder's name."""
+    return cloud.SERVICES.get(acc.service) or acc.who
+
+
+def space_text(acc: cloud.Account) -> str:
+    """"3.2 GB free of 15 GB", "Uses 12 GB" (a folder: how much is left is only known online), or ""."""
+    if acc.total:
+        return tr("{free} free of {total}", free=human_size(max(0, acc.total - acc.used)), total=human_size(acc.total))
+    if acc.used or acc.extra.get("measured"):
+        return tr("Uses {size}", size=human_size(acc.used))
+    return ""
+
+
+class AccountRows(QStyledItemDelegate):
+    """An account in the list: its service, whose it is, and its space (with a bar when the total is known)."""
+
+    def __init__(self, page: "CloudPage"):
+        super().__init__(page)
+        self.page = page
+
+    def sizeHint(self, option, index):
+        small = QFont(option.font)
+        small.setPointSizeF(max(7.0, option.font.pointSizeF() - 1))
+        bold = QFont(option.font)
+        bold.setWeight(QFont.DemiBold)
+        return QSize(100, 16 + QFontMetrics(bold).height() + 2 * QFontMetrics(small).height() + 3 + 10)
+
+    def paint(self, p: QPainter, opt, index):
+        acc = index.data(Qt.UserRole)
+        if acc is None:
+            return
+        t = self.page.c.theme
+        p.save()
+        p.setRenderHint(QPainter.Antialiasing)
+        rtl = opt.direction == Qt.RightToLeft
+        r = opt.rect.adjusted(2, 2, -2, -2)
+        if opt.state & QStyle.State_Selected:
+            soft = QColor(t.accent)
+            soft.setAlpha(46 if t.dark else 34)
+            p.setPen(Qt.NoPen)
+            p.setBrush(soft)
+            p.drawRoundedRect(r, 8, 8)
+        elif opt.state & QStyle.State_MouseOver:
+            p.setPen(Qt.NoPen)
+            p.setBrush(t.hover or t.field)
+            p.drawRoundedRect(r, 8, 8)
+        icon = index.data(Qt.DecorationRole)
+        s = 20
+        x = r.right() - 10 - s if rtl else r.left() + 10
+        if icon is not None:
+            icon.paint(p, QRect(x, r.top() + 10, s, s))
+        text = r.adjusted(10, 8, -10, -8)
+        text = text.adjusted(0, 0, -(s + 8), 0) if rtl else text.adjusted(s + 8, 0, 0, 0)
+        align = (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignVCenter
+        f = QFont(opt.font)
+        f.setWeight(QFont.DemiBold)
+        p.setFont(f)
+        p.setPen(t.text)
+        line = QFontMetrics(f).height()
+        p.drawText(QRect(text.left(), text.top(), text.width(), line), align,
+                   QFontMetrics(f).elidedText(service_name(acc), Qt.ElideRight, text.width()))
+        small = QFont(opt.font)
+        small.setPointSizeF(max(7.0, opt.font.pointSizeF() - 1))
+        p.setFont(small)
+        p.setPen(t.muted)
+        fm = QFontMetrics(small)
+        under = index.data(Qt.UserRole + 2) or ""
+        p.drawText(QRect(text.left(), text.top() + line + 1, text.width(), fm.height()), align,
+                   fm.elidedText(under, Qt.ElideRight, text.width()))
+        said = space_text(acc)
+        top = text.top() + line + fm.height() + 3
+        if said:
+            p.setPen(t.muted)
+            p.drawText(QRect(text.left(), top, text.width(), fm.height()), align,
+                       fm.elidedText(said, Qt.ElideRight, text.width()))
+        if acc.total:  # (how full it is)
+            bar = QRectF(text.left(), top + fm.height() + 4, text.width(), 4)
+            p.setPen(Qt.NoPen)
+            p.setBrush(t.border)
+            p.drawRoundedRect(bar, 2, 2)
+            share = min(1.0, acc.used / acc.total)
+            full = QRectF(bar)
+            full.setWidth(max(4.0, bar.width() * share))
+            if rtl:
+                full.moveRight(bar.right())
+            p.setBrush(t.danger if share > 0.9 and t.danger else t.accent)
+            p.drawRoundedRect(full, 2, 2)
+        p.restore()
+
+
+def _natural(text: str) -> list:
+    """Sorts "file 2" before "file 10"."""
+    return [(0, int(p), "") if p.isdigit() else (1, 0, p) for p in re.split(r"(\d+)", text.casefold()) if p]
+
+
+class Row(QTreeWidgetItem):
+    """A file or folder in the list. Sorts by the column clicked; folders always come first."""
+
+    def __lt__(self, other):
+        tw = self.treeWidget()
+        a, b = self.data(0, Qt.UserRole), other.data(0, Qt.UserRole)
+        if tw is None or a is None or b is None:
+            return super().__lt__(other)
+        down = tw.header().sortIndicatorOrder() == Qt.DescendingOrder
+        if a.folder != b.folder:
+            return a.folder != down
+        col = tw.sortColumn()
+        ka = (a.size if col == 1 else a.modified or 0) if col in (1, 2) else 0
+        kb = (b.size if col == 1 else b.modified or 0) if col in (1, 2) else 0
+        if ka != kb:
+            return ka < kb
+        return _natural(a.name) < _natural(b.name)
+
+
+class Crumbs(QWidget):
+    """Where you are: the cloud, then each folder opened, as buttons; a click goes back there."""
+
+    def __init__(self, page: "CloudPage"):
+        super().__init__()
+        self.page = page
+        self.lay = QHBoxLayout(self)
+        self.lay.setContentsMargins(0, 0, 0, 0)
+        self.lay.setSpacing(0)
+        self.parts: list[str] = []
+
+    def text(self) -> str:
+        return " › ".join(self.parts)
+
+    def _clear(self):
+        while self.lay.count():
+            w = self.lay.takeAt(0).widget()
+            if w is not None:
+                w.hide()
+                w.deleteLater()
+
+    def show_text(self, text: str):
+        """Just words (what a search found)."""
+        self._clear()
+        self.parts = [text]
+        label = QLabel(text)
+        label.setObjectName("h2")
+        self.lay.addWidget(label)
+        self.lay.addStretch()
+
+    def show_trail(self, top: str, names: list[str]):
+        self._clear()
+        self.parts = [top, *names]
+        from .i18n import is_rtl
+        arrow = "‹" if is_rtl() else "›"
+        steps = list(enumerate(self.parts))
+        if len(steps) > 5:  # (a deep folder: the cloud, "…", and the last three)
+            steps = steps[:1] + [(-1, "…")] + steps[-3:]
+        for n, (i, name) in enumerate(steps):
+            if n:
+                sep = QLabel(arrow)
+                sep.setObjectName("muted")
+                sep.setContentsMargins(2, 0, 2, 0)
+                self.lay.addWidget(sep)
+            last = i == len(self.parts) - 1
+            b = QPushButton(ltr(short_name(name, 40)))
+            b.setObjectName("crumbHere" if last else "crumb")
+            b.setToolTip(ltr(name) if len(name) > 40 else "")
+            if i < 0:
+                b.setEnabled(False)
+            elif not last:
+                b.setCursor(Qt.PointingHandCursor)
+                b.clicked.connect(lambda _=False, i=i: self.page.go_to(i))
+            self.lay.addWidget(b)
+        self.lay.addStretch()
+
+
+class Transfer:
+    """One thing Cloud does (an upload, a download, a copy…), for the list of transfers."""
+
+    def __init__(self, what: str, fn, refresh: bool):
+        self.what, self.fn, self.refresh = what, fn, refresh
+        self.state = "waiting"   # waiting, working, done, failed, cancelled
+        self.note = ""
+        self.done = self.total = 0
+        self.item: QListWidgetItem | None = None
+
+
 class Files(QTreeWidget):
     """The files of one folder (or what a search found). Files and folders dropped in are uploaded; items dragged
     out go to another account, or to File Explorer for folders on this PC."""
@@ -107,6 +298,11 @@ class Files(QTreeWidget):
         self.setAcceptDrops(True)
         self.setDragEnabled(True)
         self.setDragDropMode(QAbstractItemView.DragDrop)
+        self.setSortingEnabled(True)
+        self.sortByColumn(0, Qt.AscendingOrder)
+        self.header().setSortIndicatorShown(True)
+        self.header().setSectionsClickable(True)
+        self.headerItem().setToolTip(0, tr("Click a column's name to sort by it"))
 
     def picked(self) -> tuple[cloud.Account | None, list]:
         """The selected items of one account (the first one picked, when a search found things in several)."""
@@ -217,6 +413,8 @@ class CloudPage(QWidget):
         self.shown: list = []                 # what the list shows, [(account, entry)]
         self.dragging = None
         self.job = None                       # the transfer (or change) going on; others wait in the queue
+        self.current: Transfer | None = None
+        self.peeker = None                    # the Quick look window, once a file was previewed
         self.cancel = threading.Event()
         self.queue: list = []
         self.view = 0                         # (an answer for a folder that's no longer wanted is dropped)
@@ -238,17 +436,18 @@ class CloudPage(QWidget):
         self.account_list.setContextMenuPolicy(Qt.CustomContextMenu)
         self.account_list.customContextMenuRequested.connect(self._account_menu)
         side.addWidget(self.account_list, 1)
-        self.add_btn = QPushButton(tr("Sign in to an account"), self)  # (shown before it's laid out)
+        self.account_list.setItemDelegate(AccountRows(self))
+        self.account_list.setMouseTracking(True)
+        self.add_btn = QPushButton(tr("Add a cloud"), self)  # (shown before it's laid out)
         self.add_btn.setObjectName("primary")
         self.add_btn.setCursor(Qt.PointingHandCursor)
-        menu = QMenu(self.add_btn)
-        round_menu(menu)
-        for key in cloud.ONLINE:
-            if cloud.available(key):
-                menu.addAction(cloud.SERVICES[key], lambda k=key: self.sign_in(k))
-        self.add_btn.setMenu(menu)
-        self.add_btn.setVisible(not menu.isEmpty())
+        self.add_menu = QMenu(self.add_btn)
+        round_menu(self.add_menu)
+        self.add_menu.aboutToShow.connect(self._fill_add_menu)
+        self.add_btn.setMenu(self.add_menu)
+        self.add_btn.setMinimumWidth(self.add_btn.sizeHint().width() + 18)  # (room for the menu's arrow)
         side.addWidget(self.add_btn)
+        self.space_job = None
         self.again_btn = self._button(tr("Look again"), self.look_for_folders)
         self.again_btn.setToolTip(tr("Look again for cloud folders on this PC"))
         side.addWidget(self.again_btn)
@@ -265,8 +464,7 @@ class CloudPage(QWidget):
         top = QHBoxLayout()
         top.setSpacing(6)
         self.up_btn = self._button(tr("Up"), self.up)
-        self.where = QLabel()
-        self.where.setObjectName("h2")
+        self.where = Crumbs(self)
         self.search = QLineEdit()
         self.search.setPlaceholderText(tr("Search all your clouds"))
         self.search.setClearButtonEnabled(True)
@@ -292,7 +490,9 @@ class CloudPage(QWidget):
         self.upload_btn.setMinimumWidth(self.upload_btn.sizeHint().width() + 18)  # (room for the menu's arrow)
         self.folder_btn = self._button(tr("New folder"), self.new_folder)
         self.refresh_btn = self._button(tr("Refresh"), self.refresh)
-        for b in (self.upload_btn, self.folder_btn, self.refresh_btn):
+        self.preview_btn = self._button(tr("Preview"), self.preview_current)
+        self.preview_btn.setToolTip(tr("See what's in the picked file without opening it (Space)"))
+        for b in (self.upload_btn, self.folder_btn, self.refresh_btn, self.preview_btn):
             acts.addWidget(b)
         acts.addStretch()
         self.space = QLabel()
@@ -309,6 +509,14 @@ class CloudPage(QWidget):
         self.empty.setAlignment(Qt.AlignCenter)
         self.empty.setWordWrap(True)
         main.addWidget(self.empty, 1)
+        self.transfers: list[Transfer] = []
+        self.transfer_list = QListWidget()
+        self.transfer_list.setObjectName("history")
+        self.transfer_list.setMaximumHeight(150)
+        self.transfer_list.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.transfer_list.customContextMenuRequested.connect(self._transfer_menu)
+        self.transfer_list.hide()
+        main.addWidget(self.transfer_list)
         status = QHBoxLayout()
         self.status = QLabel()
         self.status.setObjectName("muted")
@@ -318,7 +526,12 @@ class CloudPage(QWidget):
         self.bar.setTextVisible(False)
         self.bar.setMaximumWidth(220)
         self.stop_btn = self._button(tr("Cancel"), self.stop)
+        self.transfers_btn = self._button(tr("Transfers"), self._toggle_transfers)
+        self.transfers_btn.setObjectName("flat")
+        self.transfers_btn.setToolTip(tr("What Cloud uploaded, downloaded and copied, and what's waiting"))
+        self.transfers_btn.hide()
         status.addWidget(self.status, 1)
+        status.addWidget(self.transfers_btn)
         status.addWidget(self.sign_again_btn)
         status.addWidget(self.bar)
         status.addWidget(self.stop_btn)
@@ -328,7 +541,8 @@ class CloudPage(QWidget):
         # keys: Enter opens, Delete deletes, F2 renames, Backspace goes up, F5 looks again, Ctrl+F searches
         for keys, fn in ((Qt.Key_Return, self._open_current), (Qt.Key_Enter, self._open_current),
                          (QKeySequence.StandardKey.Delete, lambda: self._with_picked(self.delete)),
-                         (Qt.Key_F2, self._rename_current), (Qt.Key_Backspace, self.go_back)):
+                         (Qt.Key_F2, self._rename_current), (Qt.Key_Backspace, self.go_back),
+                         (Qt.Key_Space, self.preview_current)):
             QShortcut(QKeySequence(keys), self.files, fn, context=Qt.WidgetShortcut)
         QShortcut(QKeySequence(Qt.Key_F5), self, self.refresh, context=Qt.WidgetWithChildrenShortcut)
         QShortcut(QKeySequence.StandardKey.Find, self, self.search.setFocus, context=Qt.WidgetWithChildrenShortcut)
@@ -369,6 +583,7 @@ class CloudPage(QWidget):
             first = self.found is None  # (the first time: the list starts at the top, with what was found)
             self.found = [] if isinstance(result, Exception) else result
             self.load_accounts(None if first or self.account is None else self.account.key)
+            self.measure()
         self.finder = work.run(go, lambda _: None, done, name="corefold-cloud-find")
 
     def load_accounts(self, pick: str | None = None):
@@ -382,13 +597,14 @@ class CloudPage(QWidget):
             self.space.setText("")
             if self.found is None:
                 self.empty.setText(tr("Looking for your clouds on this PC…"))
-            elif self.add_btn.isVisible():
+            elif any(cloud.available(k) for k in cloud.ONLINE):
                 self.empty.setText(tr("No cloud folders on this PC yet. Install OneDrive, Dropbox, Google Drive or "
                                       "iCloud and its files show up here, or sign in to OneDrive or Dropbox: you "
                                       "sign in on their own page, so your password never reaches Corefold."))
             else:
                 self.empty.setText(tr("No cloud folders on this PC yet. Install OneDrive, Dropbox, Google Drive or "
-                                      "iCloud and sign in to it, and its files show up here."))
+                                      "iCloud and sign in to it, and its files show up here. Is your cloud's folder "
+                                      "somewhere else? Add it with Add a cloud."))
             self._buttons()
             return
         keys = [a.key for a in self.accounts]
@@ -409,12 +625,18 @@ class CloudPage(QWidget):
             # (a folder on this PC: its email when the app says it, else "On this PC", or its folder's name when
             # one service has several)
             under = acc.email or (acc.who if acc.local and local.count(acc.service) > 1 else tr("On this PC"))
-            it = QListWidgetItem(here if acc.local else online,
-                                 f"{cloud.SERVICES.get(acc.service, acc.service)}\n{ltr(short_name(under, 34))}")
+            if acc.service not in cloud.SERVICES:  # (a folder added by hand: its name is the title, its place under it)
+                under = acc.local
+            it = QListWidgetItem(here if acc.local else online, f"{service_name(acc)}\n{ltr(short_name(under, 34))}")
             it.setData(Qt.UserRole, acc)
+            it.setData(Qt.UserRole + 2, ltr(short_name(under, 40)))
             if acc.local:
-                tip = tr("On this PC: {folder}. The {service} app keeps it in sync.", folder=ltr(acc.local),
-                         service=cloud.SERVICES.get(acc.service, ""))
+                tip = (tr("On this PC: {folder}. The {service} app keeps it in sync.", folder=ltr(acc.local),
+                          service=cloud.SERVICES[acc.service]) if acc.service in cloud.SERVICES else
+                       tr("On this PC: {folder}.", folder=ltr(acc.local)))
+                if not acc.total and cloud.available(acc.service):
+                    tip += "\n" + tr("Sign in to {service} to see how much space is left.",
+                                     service=cloud.SERVICES[acc.service])
             else:
                 tip = acc.name
                 if acc.total:
@@ -441,11 +663,8 @@ class CloudPage(QWidget):
         acc = self.account
         if acc is None:
             self.space.setText("")
-        elif acc.local:
-            self.space.setText("")  # (the account's tip says where the folder is and who keeps it in sync)
         else:
-            self.space.setText(tr("{used} of {total} used", used=human_size(acc.used), total=human_size(acc.total))
-                               if acc.total else "")
+            self.space.setText(space_text(acc))
 
     def _switch_to(self, acc: cloud.Account):
         """Shows this account in the list (a search result from another account was opened)."""
@@ -467,9 +686,94 @@ class CloudPage(QWidget):
         round_menu(menu)
         if acc.local:
             menu.addAction(tr("Open in File Explorer"), lambda: self._explore(Path(acc.local)))
+            if acc.extra.get("added"):
+                menu.addAction(tr("Remove from the list"), lambda: self.remove_folder(acc))
         else:
             menu.addAction(tr("Sign out"), lambda: self.sign_out(acc))
         menu.exec(self.account_list.viewport().mapToGlobal(pos))
+
+    def _fill_add_menu(self):
+        """Sign in online (when this copy can), add any folder, or get a cloud's app that isn't on this PC."""
+        menu = self.add_menu
+        menu.clear()
+        for key in cloud.ONLINE:
+            if cloud.available(key):
+                menu.addAction(icons.icon("cloud", self.c.theme.muted), tr("Sign in to {service}",
+                               service=cloud.SERVICES[key]), lambda k=key: self.sign_in(k))
+        menu.addAction(icons.icon("folder", self.c.theme.muted), tr("A cloud folder on this PC…"), self.pick_folder)
+        here = {a.service for a in self.found or []} | {a.service for a in self.accounts if not a.local}
+        missing = [k for k in GET_APP if k not in here]
+        if missing:
+            menu.addSeparator()
+            get = menu.addMenu(tr("Get a cloud's app"))
+            round_menu(get)
+            for key in missing:
+                get.addAction(cloud.SERVICES[key], lambda k=key: QDesktopServices.openUrl(QUrl(GET_APP[k])))
+            menu.addAction(tr("Look again"), self.look_for_folders)
+
+    def pick_folder(self):
+        """Adds a folder Corefold didn't find by itself (a cloud app's folder somewhere else, a synced folder…)."""
+        start = str(Path(self.account.local)) if self.account is not None and self.account.local else str(Path.home())
+        folder = QFileDialog.getExistingDirectory(self, tr("Add a cloud folder"), start)
+        if not folder:
+            return
+        from . import cloudlocal
+        try:
+            acc = cloudlocal.add_folder(folder)
+        except (OSError, cloud.CloudError) as e:
+            self.status.setText(_ui_error(e))
+            return
+        self.found = [a for a in self.found or [] if a.key != acc.key] + [acc]
+        self.load_accounts(acc.key)
+        self.status.setText(tr("Added {name}.", name=ltr(acc.title)))
+        self.measure()
+
+    def remove_folder(self, acc: cloud.Account):
+        from . import cloudlocal
+        try:
+            cloudlocal.remove_folder(acc.local)
+        except OSError as e:
+            self.status.setText(_ui_error(e))
+            return
+        self.found = [a for a in self.found or [] if a.key != acc.key]
+        if self.account is not None and self.account.key == acc.key:
+            self.account = None
+        self.load_accounts()
+
+    def measure(self):
+        """Each account's space, off the window's thread: online ones ask their service, a folder on this PC adds up
+        its files (a whole drive, like Google Drive's, tells its own size)."""
+        if self.space_job is not None and self.space_job.is_alive():
+            return
+        accounts = list(self.accounts)
+
+        def go(progress):
+            from . import cloudlocal
+            for acc in accounts:
+                try:
+                    if acc.local:
+                        used, total = cloudlocal.space(acc)
+                    else:
+                        c = cloud.client(acc)
+                        c.fill_profile()
+                        cloud.remember_account(acc)
+                        used, total = acc.used, acc.total
+                except Exception:  # (no internet, signed out…: the space just isn't shown)
+                    continue
+                progress((acc.key, used, total))
+            return None
+
+        def got(what):
+            if not work.alive(self):
+                return
+            key, used, total = what
+            for acc in self.accounts + list(self.found or []):
+                if acc.key == key:
+                    acc.used, acc.total = used, total
+                    acc.extra["measured"] = True
+            self.account_list.viewport().update()
+            self._space_text()
+        self.space_job = work.run(go, got, lambda _: None, name="corefold-cloud-space")
 
     def sign_in(self, service: str):
         if self._working():
@@ -538,8 +842,7 @@ class CloudPage(QWidget):
         self.view += 1
         view = self.view
         self.view_cancel.set()
-        name = cloud.SERVICES.get(acc.service, "")
-        self.where.setText(ltr(short_name(name + (folder.path if folder else ""), 80)))
+        self.where.show_trail(service_name(acc), [e.name for e in self.trail])
         self.sign_again_btn.hide()
         opening = tr("Opening…")
         if not self._working() and not quiet:
@@ -583,12 +886,13 @@ class CloudPage(QWidget):
         folder_icon, file_icon = icons.icon("folder", theme.muted), icons.icon("document", theme.muted)
         online_icon = icons.icon("cloud", theme.muted)
         searching = self.results is not None
-        for acc, e in sorted(found, key=lambda f: (not f[1].folder, f[1].name.lower())):
+        self.files.setSortingEnabled(False)  # (sorted once, after they're all in)
+        for acc, e in found:
             name = ltr(e.name)
             if searching:
-                where = cloud.SERVICES.get(acc.service, "") + " · " + (e.path.rsplit("/", 1)[0] or "/")
+                where = service_name(acc) + " · " + (e.path.rsplit("/", 1)[0] or "/")
                 name = f"{name}   ·   {ltr(short_name(where, 60))}"
-            it = QTreeWidgetItem([name, "" if e.folder else human_size(e.size),
+            it = Row([name, "" if e.folder else human_size(e.size),
                                   date_text(e.modified, True) if e.modified else ""])
             it.setIcon(0, folder_icon if e.folder else online_icon if e.online else file_icon)
             if e.online:
@@ -597,6 +901,7 @@ class CloudPage(QWidget):
             it.setData(0, ACCOUNT, acc)
             it.setTextAlignment(1, Qt.AlignRight | Qt.AlignVCenter)
             self.files.addTopLevelItem(it)
+        self.files.setSortingEnabled(True)
         nothing = not found
         self.files.setVisible(not nothing)
         self.empty.setVisible(nothing)
@@ -619,6 +924,8 @@ class CloudPage(QWidget):
         for b in (self.upload_btn, self.folder_btn):
             b.setEnabled(browsing)
         self.refresh_btn.setEnabled(have)
+        self.preview_btn.setVisible(any_account)
+        self.preview_btn.setEnabled(have and bool(self.shown))
         self.up_btn.setEnabled(have and (bool(self.trail) or self.results is not None))
 
     def go_back(self) -> bool:
@@ -630,6 +937,14 @@ class CloudPage(QWidget):
             self.up()
             return True
         return False
+
+    def go_to(self, depth: int):
+        """Back to a folder on the way here (0: the cloud's top)."""
+        if self.results is not None:
+            self.end_search()
+        if 0 <= depth < len(self.trail):
+            del self.trail[depth:]
+            self.open_here()
 
     def up(self):
         if self.results is not None:
@@ -692,6 +1007,8 @@ class CloudPage(QWidget):
         one = picked[0] if len(picked) == 1 else None
         if one is not None:
             menu.addAction(tr("Open"), lambda: self._open(acc, one))
+            if not one.folder:
+                menu.addAction(tr("Preview") + "\tSpace", lambda: self.preview(acc, one))
         if acc.local and one is not None:
             menu.addAction(tr("Show in folder"), lambda: self._explore(Path(one.id), select=True))
         menu.addAction(tr("Download…"), lambda: self.download(acc, picked))
@@ -720,6 +1037,111 @@ class CloudPage(QWidget):
             here = self._here()
             self._explore(Path(here.id) if here else Path(self.account.local))
 
+    # ---- a look inside a file (the Viewer's Quick look)
+
+    def preview_current(self):
+        acc, e = self._item_of(self.files.currentItem())
+        if e is not None and not e.folder:
+            self.preview(acc, e)
+
+    def preview(self, acc: cloud.Account, e: cloud.Entry):
+        """Shows what's in a file without opening it. An online file is downloaded to a temporary folder first."""
+        if acc.local:
+            here = [Path(x.id) for a, x in self.shown if not x.folder and a.key == acc.key]
+            self._peek(Path(e.id), here)
+            return
+        if e.size > PREVIEW_MAX:
+            self.status.setText(tr("{name} is too big to preview. Download it to see it.", name=ltr(e.name)))
+            return
+
+        def go(progress, cancel):
+            folder = Path(tempfile.mkdtemp(prefix=TEMP_PREFIX))
+            target = folder / cloud.local_name(e.name)
+            cloud.client(acc).download(e, target, lambda d, t: progress((e.name, d, t)), cancel)
+            return target
+        self._run(go, refresh=False, what=tr("Preview {name}", name=ltr(e.name)), then=lambda p: self._peek(p, [p]))
+
+    def _peek(self, path: Path, siblings: list[Path]):
+        from .peekview import PeekWindow
+        if getattr(self, "peeker", None) is None:
+            class Host:  # (what the Quick look window needs from its tool)
+                c = self.c
+                window = None
+            self.peeker = PeekWindow(Host())
+        self.peeker.show_files([path], 0)
+        if len(siblings) > 1:
+            self.peeker.set_folder(0, siblings)  # (← → go to the other files here)
+
+    # ---- the list of transfers
+
+    def _toggle_transfers(self):
+        self.transfer_list.setVisible(not self.transfer_list.isVisible())
+
+    def _transfer_text(self, t: Transfer) -> str:
+        if t.state == "working" and t.total:
+            return f"{t.what}   ·   {human_size(t.done)} / {human_size(t.total)}"
+        state = {"waiting": tr("Waiting"), "working": tr("Working…"), "done": t.note or tr("Done"),
+                 "failed": t.note, "cancelled": tr("Cancelled")}[t.state]
+        return f"{t.what}   ·   {state}" if state else t.what
+
+    def _show_transfer(self, t: Transfer):
+        if t.item is None:
+            t.item = QListWidgetItem()
+            self.transfer_list.insertItem(0, t.item)
+        t.item.setText(self._transfer_text(t))
+        theme = self.c.theme
+        name = {"waiting": "timer", "working": "arrow_sync", "done": "shield_checkmark", "failed": "warning",
+                "cancelled": "dismiss"}[t.state]
+        color = theme.danger if t.state == "failed" else theme.accent if t.state == "working" else theme.muted
+        t.item.setIcon(icons.icon(name, color))
+        t.item.setData(Qt.UserRole, t)
+        self._show_transfer_count()
+
+    def _transfer_menu(self, pos):
+        it = self.transfer_list.itemAt(pos)
+        t = it.data(Qt.UserRole) if it is not None else None
+        menu = QMenu(self)
+        round_menu(menu)
+        if t is not None and t.state == "waiting":
+            menu.addAction(tr("Don't do this one"), lambda: self._drop_waiting(t))
+        if t is not None and t.state == "working":
+            menu.addAction(tr("Cancel"), self.cancel.set)
+        if any(x.state in ("done", "failed", "cancelled") for x in self.transfers):
+            menu.addAction(tr("Clear the finished ones"), self._clear_finished)
+        if not menu.isEmpty():
+            menu.exec(self.transfer_list.viewport().mapToGlobal(pos))
+
+    def _drop_waiting(self, t: Transfer):
+        if t in self.queue:
+            self.queue.remove(t)
+            t.state = "cancelled"
+            self._show_transfer(t)
+
+    def _clear_finished(self):
+        for t in [x for x in self.transfers if x.state in ("done", "failed", "cancelled")]:
+            self.transfers.remove(t)
+            if t.item is not None:
+                self.transfer_list.takeItem(self.transfer_list.row(t.item))
+        self._show_transfer_count()
+
+    def _show_transfer_count(self):
+        waiting = sum(x.state in ("waiting", "working") for x in self.transfers)
+        self.transfers_btn.setText(tr("Transfers") + (f" ({waiting})" if waiting else ""))
+        self.transfers_btn.setVisible(bool(self.transfers))
+        if not self.transfers:
+            self.transfer_list.hide()
+
+    def _keep(self, t: Transfer):
+        self.transfers.append(t)
+        while len(self.transfers) > KEPT:
+            old = next((x for x in self.transfers if x.state in ("done", "failed", "cancelled")), None)
+            if old is None:
+                break
+            self.transfers.remove(old)
+            if old.item is not None:
+                self.transfer_list.takeItem(self.transfer_list.row(old.item))
+        self._show_transfer(t)
+
     # ---- doing things (one at a time; more wait their turn)
 
     def _busy(self, on: bool, text: str = "", spin: bool = False, can_stop: bool = True):
@@ -743,36 +1165,69 @@ class CloudPage(QWidget):
             if self.queue:
                 text += "   ·   " + tr("{count} more waiting", count=len(self.queue))
             self.status.setText(text)
+            t = self.current
+            if t is not None:
+                t.done, t.total = done, total
+                self._show_transfer(t)
 
     def stop(self):
         """Cancel: what's going on stops, and what was waiting is dropped."""
+        for t in self.queue:
+            t.state = "cancelled"
+            self._show_transfer(t)
         self.queue.clear()
         self.cancel.set()
 
-    def _run(self, fn, refresh: bool = True):
-        """fn(progress, cancel) does the work off the window's thread and returns what to say when it's done."""
+    def _run(self, fn, refresh: bool = True, what: str = "", then=None):
+        """fn(progress, cancel) does the work off the window's thread and returns what to say when it's done
+        (or, with then, what then(result) gets). what names it in the list of transfers."""
+        t = fn if isinstance(fn, Transfer) else Transfer(what or tr("Working…"), fn, refresh)
+        if then is not None:
+            t.then = then
+        if t not in self.transfers:
+            self._keep(t)
         if self._working():
-            self.queue.append((fn, refresh))
+            self.queue.append(t)
             self.status.setText(tr("Waiting for what's going on to finish…") + "   ·   " +
                                 tr("{count} more waiting", count=len(self.queue)))
             return
         self.cancel = threading.Event()
         cancel = self.cancel
-        self._busy(True, tr("Working…"))
+        self.current = t
+        t.state = "working"
+        self._show_transfer(t)
+        self._busy(True, t.what)
 
         def finished(result):
             self.job = None
+            self.current = None
             if not work.alive(self):
                 return
             self._busy(False)
-            self.status.setText(_ui_error(result) if isinstance(result, Exception) else (result or ""))
+            after = getattr(t, "then", None)
+            if isinstance(result, Exception):
+                t.state = "cancelled" if cancel.is_set() else "failed"
+                t.note = _ui_error(result)
+                self.status.setText(t.note)
+            elif after is not None:
+                t.state = "done"
+                self.status.setText("")
+                try:
+                    after(result)
+                except Exception as e:  # (a file the Quick look can't show…)
+                    self.status.setText(_ui_error(e))
+            else:
+                t.state, t.note = "done", result or ""
+                self.status.setText(t.note)
+            self._show_transfer(t)
             if isinstance(result, cloud.SignInNeeded):
                 self.sign_again_btn.show()
-            if refresh:
+            if t.refresh:
                 self.refresh(quiet=True)  # (what was done stays in the status line)
             if self.queue:
-                self._run(*self.queue.pop(0))
-        self.job = work.run(lambda progress: fn(progress, cancel), self._progress, finished, name="corefold-cloud")
+                self._run(self.queue.pop(0))
+        self.job = work.run(lambda progress: t.fn(progress, cancel), self._progress, finished,
+                            name="corefold-cloud")
 
     def open_file(self, acc: cloud.Account, e: cloud.Entry):
         from .core import os_open
@@ -790,7 +1245,7 @@ class CloudPage(QWidget):
             cloud.client(acc).download(e, target, lambda d, t: progress((e.name, d, t)), cancel)
             os_open(target)
             return tr("Opened {name}. Changes to it stay on this PC until you upload it again.", name=ltr(e.name))
-        self._run(go, refresh=False)
+        self._run(go, refresh=False, what=tr("Open {name}", name=ltr(e.name)))
 
     def download(self, acc: cloud.Account, entries: list):
         folder = QFileDialog.getExistingDirectory(self, tr("Download to"), self.download_to)
@@ -803,7 +1258,7 @@ class CloudPage(QWidget):
             count = sum(cloud.download_tree(c, e, Path(folder), progress, cancel) for e in entries)
             return tr("Downloaded 1 file to {folder}.", folder=ltr(folder)) if count == 1 else \
                 tr("Downloaded {count} files to {folder}.", count=count, folder=ltr(folder))
-        self._run(go, refresh=False)
+        self._run(go, refresh=False, what=tr("Download {what}", what=self._what(entries)))
 
     def _pick_upload(self):
         names, _ = QFileDialog.getOpenFileNames(self, tr("Upload"), str(Path.home()))
@@ -824,7 +1279,8 @@ class CloudPage(QWidget):
             c = cloud.client(acc)
             count = sum(cloud.upload_tree(c, p, folder, progress, cancel) for p in paths)
             return tr("Uploaded 1 file.") if count == 1 else tr("Uploaded {count} files.", count=count)
-        self._run(go)
+        what = ltr(paths[0].name) if len(paths) == 1 else tr("{count} items", count=len(paths))
+        self._run(go, what=tr("Upload {what}", what=what))
 
     def new_folder(self):
         if self.account is None:
@@ -838,7 +1294,7 @@ class CloudPage(QWidget):
         def go(progress, cancel):
             cloud.client(acc).new_folder(name, folder)
             return tr("Made the folder {name}.", name=ltr(name))
-        self._run(go)
+        self._run(go, what=tr("New folder {name}", name=ltr(name)))
 
     def rename(self, acc: cloud.Account, e: cloud.Entry):
         name, ok = QInputDialog.getText(self, tr("Rename"), tr("New name:"), text=e.name)
@@ -849,7 +1305,7 @@ class CloudPage(QWidget):
         def go(progress, cancel):
             cloud.client(acc).rename(e, name)
             return tr("Renamed.")
-        self._run(go)
+        self._run(go, what=tr("Rename {name}", name=ltr(e.name)))
 
     def delete(self, acc: cloud.Account, entries: list):
         box = QMessageBox(self)
@@ -857,8 +1313,9 @@ class CloudPage(QWidget):
         box.setWindowTitle(tr("Delete?"))
         what = ltr(entries[0].name) if len(entries) == 1 else tr("{count} items", count=len(entries))
         service = cloud.SERVICES.get(acc.service, "")
-        box.setText(tr("{what} goes to the Recycle Bin, and {service} keeps it in its deleted files for a while.",
-                       what=what, service=service) if acc.local else
+        box.setText((tr("{what} goes to the Recycle Bin, and {service} keeps it in its deleted files for a while.",
+                        what=what, service=service) if service else tr("{what} goes to the Recycle Bin.", what=what))
+                    if acc.local else
                     tr("{what} goes to the deleted files of {service}, where you can put it back for a while.",
                        what=what, service=service))
         yes = box.addButton(tr("Delete"), QMessageBox.DestructiveRole)
@@ -874,7 +1331,7 @@ class CloudPage(QWidget):
                     raise cloud.CloudError("cancelled")
                 c.delete(e)
             return tr("Deleted.")
-        self._run(go)
+        self._run(go, what=tr("Delete {what}", what=what))
 
     def copy_to(self, source: cloud.Account, entries: list, target: cloud.Account, into: cloud.Entry | None):
         """Copies files and folders from one account to another (into a folder there, or its top). Online ones go
@@ -898,7 +1355,12 @@ class CloudPage(QWidget):
                     shutil.rmtree(folder, ignore_errors=True)
             return tr("Copied 1 file to {name}.", name=ltr(target.title)) if count == 1 else \
                 tr("Copied {count} files to {name}.", count=count, name=ltr(target.title))
-        self._run(go, refresh=self.account is not None and self.account.key == target.key)
+        self._run(go, refresh=self.account is not None and self.account.key == target.key,
+                  what=tr("Copy {what} to {name}", what=self._what(entries), name=ltr(target.title)))
+
+    @staticmethod
+    def _what(entries: list) -> str:
+        return ltr(entries[0].name) if len(entries) == 1 else tr("{count} items", count=len(entries))
 
     def search_all(self):
         text = self.search.text().strip()
@@ -913,7 +1375,7 @@ class CloudPage(QWidget):
         self.view_cancel.set()
         self.view_cancel = cancel = threading.Event()
         self.results = []
-        self.where.setText(tr("Found: {text}", text=ltr(text)))
+        self.where.show_text(tr("Found: {text}", text=ltr(text)))
         self.files.clear()
         self.files.hide()
         self.empty.show()

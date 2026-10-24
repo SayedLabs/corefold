@@ -969,14 +969,54 @@ def _fill(writer, values: dict, fields: list[dict]):
         form.get_object()[NameObject("/NeedAppearances")] = __import__("pypdf").generic.BooleanObject(False)
 
 
+_INHERITED = ("/Resources", "/MediaBox", "/CropBox", "/Rotate")
+
+
+def _arrange(writer, order: list[int] | None, turns: dict[int, int]):
+    """Turns pages, and keeps only the pages in order, in that order (the editor's list of pages)."""
+    from pypdf.generic import ArrayObject, NameObject, NumberObject
+    pages = list(writer.pages)
+    moved = order is not None and order != list(range(len(pages)))
+    if not moved and not turns:
+        return
+    for page in pages:  # (what a page took from the page groups it's in, it keeps itself)
+        for key in _INHERITED:
+            if key in page:
+                continue
+            node = page.get("/Parent")
+            while node is not None:
+                node = node.get_object()
+                if key in node:
+                    page[NameObject(key)] = node[key]
+                    break
+                node = node.get("/Parent")
+    for i, degrees in turns.items():
+        if 0 <= i < len(pages):
+            pages[i].rotate(degrees % 360)
+    if not moved:
+        return
+    keep = [pages[i] for i in order if 0 <= i < len(pages)]
+    if not keep:
+        raise RuntimeError(tr("a PDF needs at least one page"))
+    root = writer._root_object["/Pages"]
+    for page in keep:
+        page[NameObject("/Parent")] = root.indirect_reference
+    root[NameObject("/Kids")] = ArrayObject([p.indirect_reference for p in keep])
+    root[NameObject("/Count")] = NumberObject(len(keep))
+    writer.flattened_pages = None  # (pypdf's own list of the pages: made again when it's needed)
+
+
 def save_edits(src: Path, ctx: Ctx) -> Result:
-    """ctx.params: edits (the editor's list of dicts), fields ({name: value}), password."""
+    """ctx.params: edits (the editor's list of dicts), fields ({name: value}), password; order (the pages kept,
+    in their new order) and turns ({page: degrees clockwise}), when the pages were changed."""
     from pypdf import PdfReader, PdfWriter, Transformation
     from pypdf.annotations import Text
     edits: list[dict] = list(ctx.params.get("edits") or [])
     values: dict = dict(ctx.params.get("fields") or {})
     password = ctx.params.get("password", "") or ""
-    if not edits and not values:
+    order = ctx.params.get("order")
+    turns = {int(k): int(v) for k, v in (ctx.params.get("turns") or {}).items() if int(v) % 360}
+    if not edits and not values and order is None and not turns:
         raise RuntimeError(tr("nothing was changed"))
     # 1. old pieces out (or moved)
     changes: dict[int, dict] = {}
@@ -1038,6 +1078,7 @@ def save_edits(src: Path, ctx: Ctx) -> Result:
         note = Text(rect=(l, b, r, t), text=str(d["text"]), open=False)
         writer.add_annotation(page_number=i, annotation=note)
     _fill(writer, values, fields)
+    _arrange(writer, order, turns)
     if password:
         writer.encrypt(user_password=password, owner_password=password, algorithm="AES-256")
     ctx.progress(0.9)

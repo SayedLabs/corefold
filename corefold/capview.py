@@ -8,10 +8,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject, QPointF, QRect, QRectF, QSize, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QGuiApplication, QImage, QKeySequence, QPainter, QPainterPath, QPen, \
-    QPolygonF, QShortcut, QTransform
+from PySide6.QtGui import QColor, QFont, QFontMetricsF, QGuiApplication, QIcon, QImage, QKeySequence, QPainter, \
+    QPainterPath, QPen, QPixmap, QPolygonF, QShortcut, QTransform
 from PySide6.QtWidgets import QButtonGroup, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QMenu, \
-    QPushButton, QVBoxLayout, QWidget
+    QMessageBox, QPushButton, QVBoxLayout, QWidget
 
 from . import icons
 from .core import APP_NAME
@@ -26,7 +26,15 @@ log = logging.getLogger("corefold")
 
 TOOLS = [("select", "Select text"), ("arrow", "Arrow"), ("line", "Line"), ("box", "Box"), ("ellipse", "Ellipse"),
          ("marker", "Marker"), ("pen", "Pen"), ("text", "Text"), ("step", "Steps"), ("blur", "Blur"), ("crop", "Crop")]
+# each tool's icon (Steps has a numbered circle drawn for it), and the groups the bar shows them in
+TOOL_ICONS = {"select": "scan_text", "arrow": "arrow_up_right", "line": "line_horizontal_1",
+              "box": "rectangle_landscape", "ellipse": "circle", "marker": "highlight", "pen": "pen", "text": "text_t",
+              "step": "", "blur": "drop", "crop": "crop"}
+TOOL_GROUPS = [("select",), ("arrow", "line", "box", "ellipse"), ("marker", "pen", "text", "step"), ("blur", "crop")]
 COLORS = ["#e5484d", "#f5a524", "#30a46c", "#0090ff", "#111111", "#ffffff"]
+
+
+SIZES = [("thin", 2.5), ("medium", 4.0), ("thick", 7.0)]   # line sizes (text and steps grow with them)
 
 
 class Shape:
@@ -36,6 +44,70 @@ class Shape:
     def rect(self) -> QRectF:
         a, b = self.points[0], self.points[-1]
         return QRectF(a, b).normalized()
+
+    def clone(self) -> "Shape":
+        return Shape(self.kind, self.color, self.width, [QPointF(pt) for pt in self.points], self.text)
+
+    def handles(self) -> list[QPointF]:
+        """Where it can be pulled to change its size: the two ends of a line or arrow, the corners of a box."""
+        if self.kind in ("line", "arrow"):
+            return [self.points[0], self.points[-1]]
+        if self.kind in ("box", "ellipse", "blur"):
+            r = self.rect()
+            return [r.topLeft(), r.topRight(), r.bottomRight(), r.bottomLeft()]
+        return []
+
+    def bounds(self) -> QRectF:
+        """The area it covers in the picture."""
+        if self.kind == "step":
+            r = max(11.0, self.width * 3.2)
+            c = self.points[0]
+            return QRectF(c.x() - r, c.y() - r, r * 2, r * 2)
+        if self.kind == "text":
+            f = _text_font(self.width)
+            box = QRectF(QFontMetricsF(f).boundingRect(QRectF(0, 0, 4000, 4000), Qt.TextWordWrap, self.text))
+            box.moveTopLeft(self.points[0])
+            pad = max(4, f.pixelSize() // 4)
+            return box.adjusted(-pad, -pad / 2, pad, pad / 2)
+        half = self.width * (2 if self.kind == "marker" else 0.5)
+        if self.kind in ("pen", "marker"):
+            return QPolygonF(self.points).boundingRect().adjusted(-half, -half, half, half)
+        return self.rect().adjusted(-half, -half, half, half)
+
+    def hit(self, pt: QPointF, slack: float) -> bool:
+        """Is this point on it? (A box or a ring only on its line, so a new mark can still start inside it.)"""
+        if not self.bounds().adjusted(-slack, -slack, slack, slack).contains(pt):
+            return False
+        reach = self.width * (2 if self.kind == "marker" else 0.5) + slack
+        if self.kind in ("line", "arrow", "pen", "marker"):
+            pts = self.points if self.kind in ("pen", "marker") else [self.points[0], self.points[-1]]
+            if len(pts) == 1:
+                return math.hypot(pt.x() - pts[0].x(), pt.y() - pts[0].y()) <= reach
+            return any(_to_segment(pt, a, b) <= reach for a, b in zip(pts, pts[1:]))
+        if self.kind == "box":
+            r = self.rect()
+            inner = r.adjusted(reach, reach, -reach, -reach)
+            return not (inner.width() > 0 and inner.height() > 0 and inner.contains(pt))
+        if self.kind == "ellipse":
+            r = self.rect()
+            rx, ry = max(r.width() / 2, 1.0), max(r.height() / 2, 1.0)
+            dx, dy = (pt.x() - r.center().x()) / rx, (pt.y() - r.center().y()) / ry
+            return abs(math.hypot(dx, dy) - 1) * min(rx, ry) <= reach
+        return True  # blur, text, step: anywhere on them
+
+
+def _to_segment(p: QPointF, a: QPointF, b: QPointF) -> float:
+    dx, dy = b.x() - a.x(), b.y() - a.y()
+    length = dx * dx + dy * dy
+    t = 0.0 if length == 0 else max(0.0, min(1.0, ((p.x() - a.x()) * dx + (p.y() - a.y()) * dy) / length))
+    return math.hypot(p.x() - (a.x() + t * dx), p.y() - (a.y() + t * dy))
+
+
+def _text_font(width: float) -> QFont:
+    f = QFont("Segoe UI")
+    f.setPixelSize(max(12, round(width * 6)))
+    f.setWeight(QFont.Weight.DemiBold)
+    return f
 
 
 def draw_shape(p: QPainter, s: Shape, base: QImage | None = None):
@@ -104,9 +176,7 @@ def draw_shape(p: QPainter, s: Shape, base: QImage | None = None):
         p.setPen(QColor("#111111") if s.color.lightness() > 170 else QColor("#ffffff"))
         p.drawText(QRectF(c.x() - r, c.y() - r, r * 2, r * 2), Qt.AlignCenter, s.text)
     elif s.kind == "text" and s.text:
-        f = QFont("Segoe UI")
-        f.setPixelSize(max(12, round(s.width * 6)))
-        f.setWeight(QFont.Weight.DemiBold)
+        f = _text_font(s.width)
         p.setFont(f)
         box = p.fontMetrics().boundingRect(QRect(0, 0, 4000, 4000), Qt.TextWordWrap, s.text)
         box.moveTopLeft(s.points[0].toPoint())
@@ -134,7 +204,9 @@ def _even(kind: str, a: QPointF, b: QPointF) -> QPointF:
 
 class TextLayer:
     """The words Windows read in the picture, to pick with the mouse like text in a document: drag over
-    them (across lines too), double-click one word, triple-click a line. Right to left in Arabic."""
+    them (across lines too), double-click one word, triple-click a line. Right to left in Arabic. Dragging
+    from a spot with no words draws a box and picks just the words in it (a column, part of a table), and
+    Ctrl+click adds or takes away one word (Ctrl+drag adds more), so any words can be picked exactly."""
 
     def __init__(self, lines: list):
         self.lines = [ln for ln in lines if ln.words]
@@ -159,6 +231,8 @@ class TextLayer:
             self.bands.append(band)
         self.anchor: int | None = None
         self.focus: int | None = None
+        self.kept: set[int] = set()                # picked before this drag (Ctrl adds to them)
+        self.chosen: set[int] = set()              # the words picked
         self._holes: QPainterPath | None = None
 
     def __bool__(self) -> bool:
@@ -192,13 +266,45 @@ class TextLayer:
             return None
         return self.first[best] + pick
 
-    def picked(self) -> tuple[int, int] | None:
-        if self.anchor is None or self.focus is None:
-            return None
-        return min(self.anchor, self.focus), max(self.anchor, self.focus)
+    def picked(self) -> list[int] | None:
+        """The picked words, in reading order (None: none)."""
+        return sorted(self.chosen) if self.chosen else None
 
-    def pick(self, a: int | None, b: int | None = None):
+    def pick(self, a: int | None, b: int | None = None, add: bool = False):
+        """Picks the words from a to b in reading order (with add, next to those already picked)."""
+        self.kept = set(self.chosen) if add else set()
         self.anchor, self.focus = a, (a if b is None else b)
+        self._range()
+
+    def move_to(self, at: int):
+        """The drag goes on to this word."""
+        self.focus = at
+        self._range()
+
+    def _range(self):
+        if self.anchor is None or self.focus is None:
+            self.chosen = set(self.kept)
+            return
+        lo, hi = min(self.anchor, self.focus), max(self.anchor, self.focus)
+        self.chosen = self.kept | set(range(lo, hi + 1))
+
+    def toggle(self, at: int):
+        """Ctrl+click: this word is added, or taken away when it was picked."""
+        self.chosen ^= {at}
+        self.kept = set(self.chosen)
+        self.anchor = self.focus = None
+
+    def pick_box(self, box: QRectF, add: bool = False):
+        """The words inside a box drawn on the picture (each word whose middle is in it)."""
+        if not add:
+            self.kept = set()
+        self.anchor = self.focus = None
+        box = box.normalized()
+        inside = set()
+        for i, (n, w) in enumerate(self.words):
+            if box.contains(self.to_pic[n].map(QPointF(w.x + w.w / 2, w.y + w.h / 2))):  # (its middle is in it)
+                inside.add(i)
+        self.chosen = self.kept | inside
 
     def pick_all(self):
         self.pick(0, len(self.words) - 1)
@@ -207,13 +313,14 @@ class TextLayer:
         n = self.words[index][0]
         self.pick(self.first[n], self.first[n] + len(self.lines[n].words) - 1)
 
-    def text(self, span: tuple[int, int] | None = None) -> str:
+    def text(self, picked: list[int] | None = None) -> str:
         """The picked words (or all of them), a line of text for each line in the picture."""
         from .extras import join_words
-        a, b = span or (0, len(self.words) - 1)
+        picked = range(len(self.words)) if picked is None else picked
         rows: list[list] = []
         last = None
-        for n, w in self.words[a:b + 1]:
+        for i in picked:
+            n, w = self.words[i]
             if n != last:
                 rows.append([])
                 last = n
@@ -260,16 +367,13 @@ class TextLayer:
         return spans
 
     def picked_boxes(self) -> list[tuple[int, QRectF]]:
-        span = self.picked()
-        if span is None:
+        if not self.chosen:
             return []
         out = []
         for n, ln in enumerate(self.lines):
-            lo, hi = max(span[0], self.first[n]), min(span[1], self.first[n] + len(ln.words) - 1)
-            if lo > hi:
-                continue
-            chosen = {i - self.first[n] for i in range(lo, hi + 1)}
-            out.extend((n, self._pad(r)) for r in self._spans(n, ln.words, chosen))
+            here = {i - self.first[n] for i in self.chosen if self.first[n] <= i < self.first[n] + len(ln.words)}
+            if here:
+                out.extend((n, self._pad(r)) for r in self._spans(n, ln.words, here))
         return out
 
     def picked_bounds(self) -> QRectF:
@@ -305,8 +409,10 @@ class Canvas(QWidget):
         super().__init__()
         self.base = image.convertToFormat(QImage.Format_ARGB32_Premultiplied)
         self.shapes: list[Shape] = []
-        self.undone: list = []      # for redo: shapes, or ("crop", old base, old shapes)
-        self.history: list = []     # what undo takes back: "shape" or ("crop", old base, old shapes)
+        self.undone: list = []      # for redo: (picture, marks) as they were before Undo
+        self.history: list = []     # what Undo goes back to: (picture, marks) before each change
+        self.selected: int | None = None   # the mark picked to move, resize, recolour or delete
+        self._drag = None           # moving or resizing it: (handle or -1, where it started, the mark then)
         self.tool = "arrow"
         self.color = QColor(COLORS[0])
         self.pen_width = 4.0
@@ -316,10 +422,13 @@ class Canvas(QWidget):
         self.accent = QColor("#3cc7b2")
         self._clicks = (0.0, -1, 0)  # when the last click was, on which word, how many in a row
         self._picking = False
+        self._box: QRectF | None = None   # the box being drawn to pick the words in it
+        self._box_add = False
         self.changed.connect(self._forget_text)
         self.setMouseTracking(True)
         self.setCursor(Qt.CrossCursor)
         self.setMinimumSize(360, 240)
+        self.setFocusPolicy(Qt.ClickFocus)
 
     # picture <-> widget
     def _scale(self) -> tuple[float, QPointF]:
@@ -352,8 +461,8 @@ class Canvas(QWidget):
             self.set_text(None)
 
     def picked_text(self) -> str:
-        span = self.text.picked() if self.text else None
-        return self.text.text(span) if span else ""
+        picked = self.text.picked() if self.text else None
+        return self.text.text(picked) if picked else ""
 
     def pick_all(self):
         if self.text:
@@ -375,24 +484,34 @@ class Canvas(QWidget):
             return
         pt = self.to_image(e.position())
         at = self.text.word_at(pt, near_only=True)
-        if at is None:
-            self.unpick()
+        ctrl = bool(e.modifiers() & Qt.ControlModifier)
+        if at is None or e.modifiers() & Qt.AltModifier:  # from a spot with no words (or with Alt): a box
+            if not ctrl:
+                self.text.pick(None)
+            self._box = QRectF(pt, pt)
+            self._box_add = ctrl
+            self._picking = True
+            self.picked.emit()
+            self.update()
             return
         import time
         last, word, n = self._clicks
         now = time.monotonic()
         quick = now - last < QGuiApplication.styleHints().mouseDoubleClickInterval() / 1000
-        n = n + 1 if quick and (word == at or n >= 2 and self.text.words[word][0] == self.text.words[at][0]) else 1
+        same = word == at or n >= 2 and self.text.words[word][0] == self.text.words[at][0]
+        n = n + 1 if quick and not ctrl and same else 1
         self._clicks = (now, at, n)
         if n == 2:
             self.text.pick(at)
         elif n >= 3:
             self.text.pick_line(at)
+        elif ctrl and at in self.text.chosen:
+            self.text.toggle(at)
         else:
-            if e.modifiers() & Qt.ShiftModifier and self.text.picked():
-                self.text.focus = at
+            if e.modifiers() & Qt.ShiftModifier and self.text.anchor is not None:
+                self.text.move_to(at)
             else:
-                self.text.pick(at)
+                self.text.pick(at, add=ctrl)
             self._picking = True
         self.picked.emit()
         self.update()
@@ -400,8 +519,19 @@ class Canvas(QWidget):
     def mouseDoubleClickEvent(self, e):
         if self.selecting() and e.button() == Qt.LeftButton:
             self._press_select(e)  # (Qt sends the second click of a double-click here)
-        else:
-            super().mouseDoubleClickEvent(e)
+            return
+        at = self.mark_at(self.to_image(e.position())) if e.button() == Qt.LeftButton else None
+        if at is not None and self.shapes[at].kind == "text":  # a double-click on a text changes its words
+            mark = self.shapes[at]
+            text, ok = QInputDialog.getText(self, tr("Text"), tr("Type the text to put on the picture:"),
+                                            text=mark.text)
+            if ok and text.strip() and text.strip() != mark.text:
+                self._record()
+                mark.text = text.strip()
+                self.changed.emit()
+                self.update()
+            return
+        super().mouseDoubleClickEvent(e)
 
     def paintEvent(self, e):
         p = QPainter(self)
@@ -417,8 +547,24 @@ class Canvas(QWidget):
         p.setClipRect(QRectF(0, 0, self.base.width(), self.base.height()))
         for shape in self.shapes + ([self.current] if self.current else []):
             draw_shape(p, shape, self.base)
+        if self.selected is not None and not self.selecting() and self.selected < len(self.shapes):
+            mark = self.shapes[self.selected]
+            p.setBrush(Qt.NoBrush)
+            p.setPen(QPen(QColor(self.accent), 1.5 / s, Qt.DashLine))
+            p.drawRect(mark.bounds().adjusted(-3 / s, -3 / s, 3 / s, 3 / s))
+            p.setPen(QPen(QColor(self.accent), 1.5 / s))
+            p.setBrush(QColor("#ffffff"))
+            k = 4.5 / s
+            for h in mark.handles():
+                p.drawEllipse(h, k, k)
         if self.selecting() and self.text:
             self.text.paint(p, QRectF(0, 0, self.base.width(), self.base.height()), self.accent, s)
+            if self._box is not None:  # (the box being drawn)
+                fill = QColor(self.accent)
+                fill.setAlpha(30)
+                p.setPen(QPen(QColor(self.accent), 1.5 / s, Qt.DashLine))
+                p.setBrush(fill)
+                p.drawRect(self._box.normalized())
         if self.crop_rect is not None:
             path = QPainterPath()
             path.addRect(QRectF(0, 0, self.base.width(), self.base.height()))
@@ -436,6 +582,12 @@ class Canvas(QWidget):
             self._press_select(e)
             return
         pt = self.to_image(e.position())
+        if self.tool != "crop" and self._grab(pt):
+            return
+        if self.selected is not None:
+            self.selected = None
+            self.picked.emit()
+            self.update()
         if self.tool == "text":
             text, ok = QInputDialog.getText(self, tr("Text"), tr("Type the text to put on the picture:"))
             if ok and text.strip():
@@ -451,18 +603,133 @@ class Canvas(QWidget):
             self.current = Shape(self.tool, self.color, self.pen_width, [pt, pt])
         self.update()
 
+    # ---- the marks already made: pick one to move it, pull its ends or corners, recolour or delete it
+    def _slack(self) -> float:
+        return 6 / max(self._scale()[0], 0.01)
+
+    def mark_at(self, pt: QPointF) -> int | None:
+        for i in range(len(self.shapes) - 1, -1, -1):
+            if self.shapes[i].hit(pt, self._slack()):
+                return i
+        return None
+
+    def _handle_at(self, pt: QPointF) -> int | None:
+        if self.selected is None or self.selected >= len(self.shapes):
+            return None
+        for n, h in enumerate(self.shapes[self.selected].handles()):
+            if math.hypot(pt.x() - h.x(), pt.y() - h.y()) <= self._slack() * 1.5:
+                return n
+        return None
+
+    def _grab(self, pt: QPointF) -> bool:
+        """A press on a mark (or on the picked mark's handle) picks it and starts moving or resizing it."""
+        handle = self._handle_at(pt)
+        if handle is None:
+            at = self.mark_at(pt)
+            if at is None:
+                return False
+            self.selected = at
+            handle = -1
+        self._record()
+        self._drag = (handle, pt, self.shapes[self.selected].clone(), False)
+        self.picked.emit()
+        self.update()
+        return True
+
+    def _dragging(self, pt: QPointF, even: bool):
+        handle, start, was, _ = self._drag
+        mark = self.shapes[self.selected]
+        if handle < 0:
+            dx, dy = pt.x() - start.x(), pt.y() - start.y()
+            mark.points = [QPointF(q.x() + dx, q.y() + dy) for q in was.points]
+        elif mark.kind in ("line", "arrow"):
+            fixed = was.points[-1] if handle == 0 else was.points[0]
+            moved = _even(mark.kind, fixed, pt) if even else pt
+            mark.points = [moved, fixed] if handle == 0 else [fixed, moved]
+        else:
+            corners = was.handles()
+            opposite = corners[(handle + 2) % 4]
+            moved = _even(mark.kind, opposite, pt) if even else pt
+            mark.points = [opposite, moved]
+        self._drag = (handle, start, was, True)
+        self.update()
+
+    def _drop(self):
+        moved = self._drag[3]
+        self._drag = None
+        if moved:
+            self.undone.clear()
+            self.changed.emit()
+        else:
+            self.history.pop()  # (just a click: nothing changed)
+        self.update()
+
+    def delete_selected(self) -> bool:
+        if self.selected is None or self.selected >= len(self.shapes):
+            return False
+        self._record()
+        del self.shapes[self.selected]
+        self.selected = None
+        self.changed.emit()
+        self.update()
+        return True
+
+    def restyle(self, color: QColor | None = None, width: float | None = None):
+        """A colour or size picked while a mark is picked changes that mark too."""
+        if self.selected is None or self.selected >= len(self.shapes):
+            return
+        mark = self.shapes[self.selected]
+        if (color is None or QColor(color) == mark.color) and (width is None or width == mark.width):
+            return
+        self._record()
+        if color is not None:
+            mark.color = QColor(color)
+        if width is not None and mark.kind != "blur":
+            mark.width = width
+        self.changed.emit()
+        self.update()
+
+    def keyPressEvent(self, e):
+        if e.key() in (Qt.Key_Delete, Qt.Key_Backspace) and self.delete_selected():
+            return
+        moves = {Qt.Key_Left: (-1, 0), Qt.Key_Right: (1, 0), Qt.Key_Up: (0, -1), Qt.Key_Down: (0, 1)}
+        if e.key() in moves and self.selected is not None and self.selected < len(self.shapes):
+            step = 10 if e.modifiers() & Qt.ShiftModifier else 1
+            dx, dy = (v * step for v in moves[e.key()])
+            self._record()
+            mark = self.shapes[self.selected]
+            mark.points = [QPointF(q.x() + dx, q.y() + dy) for q in mark.points]
+            self.changed.emit()
+            self.update()
+            return
+        super().keyPressEvent(e)
+
     def mouseMoveEvent(self, e):
         pt = self.to_image(e.position())
+        if self._drag is not None and e.buttons() & Qt.LeftButton:
+            self._dragging(pt, bool(e.modifiers() & Qt.ShiftModifier))
+            return
         if self.selecting():
             if self._picking and e.buttons() & Qt.LeftButton and self.text:
-                at = self.text.word_at(pt)
-                if at is not None and at != self.text.focus:
-                    self.text.focus = at
+                if self._box is not None:
+                    self._box.setBottomRight(pt)
+                    self.text.pick_box(self._box, self._box_add)
                     self.picked.emit()
                     self.update()
+                else:
+                    at = self.text.word_at(pt)
+                    if at is not None and at != self.text.focus:
+                        self.text.move_to(at)
+                        self.picked.emit()
+                        self.update()
             on_word = bool(self.text) and self.text.word_at(pt, near_only=True) is not None
             self.setCursor(Qt.IBeamCursor if on_word or self._picking else Qt.ArrowCursor)
             return
+        if not e.buttons() and self.tool != "crop":  # (what a press here would do)
+            handle = self._handle_at(pt)
+            self.setCursor(Qt.SizeAllCursor if handle is None and self.mark_at(pt) is not None else
+                           Qt.PointingHandCursor if handle is not None else
+                           Qt.IBeamCursor if self.tool == "text" else Qt.CrossCursor)
         if self.crop_rect is not None and e.buttons() & Qt.LeftButton:
             self.crop_rect = QRectF(self.crop_rect.topLeft(), pt)
             self.update()
@@ -478,10 +745,15 @@ class Canvas(QWidget):
     def mouseReleaseEvent(self, e):
         if e.button() != Qt.LeftButton:
             return
+        if self._drag is not None:
+            self._drop()
+            return
         if self.selecting():
             if self._picking:
                 self._picking = False
+                self._box = None
                 self.picked.emit()
+                self.update()
             return
         if self.crop_rect is not None:
             r = self.crop_rect.normalized().toRect().intersected(self.base.rect())
@@ -498,49 +770,60 @@ class Canvas(QWidget):
             self._add(shape)
         self.update()
 
+    def _snap(self):
+        return self.base, [m.clone() for m in self.shapes]
+
+    def _record(self):
+        """Keeps how the picture and its marks are now, for Undo."""
+        self.history.append(self._snap())
+        del self.history[:-100]  # (the last hundred changes)
+
     def _add(self, shape: Shape):
-        self.shapes.append(shape)
-        self.history.append("shape")
+        self._record()
         self.undone.clear()
+        self.shapes.append(shape)
+        self.selected = len(self.shapes) - 1 if shape.kind not in ("pen", "marker") else None
         self.changed.emit()
         self.update()
 
     def crop(self, r: QRect):
-        old = (self.base, list(self.shapes))
-        self.base = self.base.copy(r)
-        for s in self.shapes:
-            s.points = [QPointF(pt.x() - r.x(), pt.y() - r.y()) for pt in s.points]
-        self.history.append(("crop",) + old + (r,))
+        self._record()
         self.undone.clear()
+        self.base = self.base.copy(r)
+        for m in self.shapes:
+            m.points = [QPointF(pt.x() - r.x(), pt.y() - r.y()) for pt in m.points]
+        self.selected = None
         self.changed.emit()
         self.update()
 
     def undo(self):
         if not self.history:
             return
-        step = self.history.pop()
-        if step == "shape":
-            self.undone.append(self.shapes.pop())
-        else:
-            _, base, shapes, r = step
-            for s in shapes:
-                s.points = [QPointF(pt.x() + r.x(), pt.y() + r.y()) for pt in s.points]
-            self.undone.append(("crop", r))
-            self.base, self.shapes = base, shapes
+        self.undone.append(self._snap())
+        self.base, self.shapes = self.history.pop()
+        self.selected = None
         self.changed.emit()
         self.update()
 
     def redo(self):
         if not self.undone:
             return
-        step = self.undone.pop()
-        undone = list(self.undone)
-        if isinstance(step, Shape):
-            self._add(step)
-        else:
-            self.crop(step[1])
-        self.undone = undone
+        self.history.append(self._snap())
+        self.base, self.shapes = self.undone.pop()
+        self.selected = None
+        self.changed.emit()
         self.update()
+
+    def for_reading(self) -> QImage:
+        """The picture as its words are read: without the marks (an arrow or a highlight over a word makes it
+        read wrong), but blurred where it's blurred (what's hidden stays hidden)."""
+        out = self.base.copy()
+        p = QPainter(out)
+        for shape in self.shapes:
+            if shape.kind == "blur":
+                draw_shape(p, shape, self.base)
+        p.end()
+        return out
 
     def result(self) -> QImage:
         """The picture with the marks drawn in."""
@@ -578,39 +861,68 @@ class CaptureEditor(QWidget):
         self.pill.all.connect(self.canvas.pick_all)
         bar = QHBoxLayout()
         bar.setContentsMargins(12, 8, 12, 8)
-        bar.setSpacing(4)
+        bar.setSpacing(2)
+        bar.addStretch()
         self.tools = QButtonGroup(self)
         self.tool_buttons: dict[str, QPushButton] = {}
-        for key, text in TOOLS:
-            b = QPushButton(tr(text))
-            b.setObjectName("subtab")
-            b.setCheckable(True)
-            b.setCursor(Qt.PointingHandCursor)
-            b.setChecked(key == "arrow")
-            b.clicked.connect(lambda _=False, k=key: self._tool(k))
-            b.setMinimumWidth(b.fontMetrics().horizontalAdvance(b.text()) + 30)
-            self.tools.addButton(b)
-            self.tool_buttons[key] = b
-            bar.addWidget(b)
-            if key in ("arrow", "line", "box", "ellipse"):
-                b.setToolTip(tr("Hold Shift for straight lines, squares and circles"))
-            if key == "select":
-                b.setToolTip(tr("Pick words in the picture to copy, like text in a document"))
-                bar.addSpacing(8)
-        bar.addSpacing(8)
+        names = dict(TOOLS)
+        for g, group in enumerate(TOOL_GROUPS):
+            if g:
+                bar.addWidget(_bar_line())
+            for key in group:
+                b = QPushButton(tr(names[key]) if key == "select" else "")
+                b.setObjectName("capTool")
+                b.setCheckable(True)
+                b.setCursor(Qt.PointingHandCursor)
+                b.setChecked(key == "arrow")
+                b.setIconSize(QSize(20, 20))
+                b.setFixedHeight(36)
+                if key != "select":
+                    b.setFixedWidth(38)
+                b.setAccessibleName(tr(names[key]))
+                tip = tr(names[key])
+                if key in ("arrow", "line", "box", "ellipse"):
+                    tip += "\n" + tr("Hold Shift for straight lines, squares and circles")
+                if key == "select":
+                    tip = tr("Pick words in the picture to copy, like text in a document")
+                b.setToolTip(tip)
+                b.clicked.connect(lambda _=False, k=key: self._tool(k))
+                self.tools.addButton(b)
+                self.tool_buttons[key] = b
+                bar.addWidget(b)
+        bar.addWidget(_bar_line())
         self.swatches = QButtonGroup(self)
         for color in COLORS:
             b = QPushButton()
+            b.setObjectName("capSwatch")
             b.setCheckable(True)
-            b.setFixedSize(22, 22)
+            b.setFixedSize(26, 26)
             b.setCursor(Qt.PointingHandCursor)
-            b.setStyleSheet(f"QPushButton {{ background: {color}; border: 2px solid transparent; border-radius: 11px;"
-                            f" padding: 0; }} QPushButton:checked {{ border-color: palette(text); }}")
+            b.setAccessibleName(color)
+            b.setStyleSheet(f"QPushButton#capSwatch {{ background: {color}; }}")
             b.setChecked(color == COLORS[0])
             b.clicked.connect(lambda _=False, c=color: self._color(c))
             self.swatches.addButton(b)
             bar.addWidget(b)
-        bar.addSpacing(8)
+        bar.addWidget(_bar_line())
+        self.sizes = QButtonGroup(self)
+        self.size_buttons: dict[str, QPushButton] = {}
+        tips = {"thin": tr("Thin"), "medium": tr("Medium"), "thick": tr("Thick")}
+        for key, width in SIZES:
+            b = QPushButton()
+            b.setObjectName("capTool")
+            b.setCheckable(True)
+            b.setFixedSize(32, 36)
+            b.setCursor(Qt.PointingHandCursor)
+            b.setToolTip(tips[key] + "\n" + tr("How thick lines are, and how big text and steps are"))
+            b.setAccessibleName(tips[key])
+            b.setProperty("dot", width)
+            b.setChecked(width == self.canvas.pen_width)
+            b.clicked.connect(lambda _=False, w=width: self._size(w))
+            self.sizes.addButton(b)
+            self.size_buttons[key] = b
+            bar.addWidget(b)
+        bar.addWidget(_bar_line())
         self.b_undo = self._icon_button("arrow_rotate_counterclockwise", tr("Undo (Ctrl+Z)"), self.canvas.undo)
         self.b_redo = self._icon_button("arrow_rotate_clockwise", tr("Redo (Ctrl+Y)"), self.canvas.redo)
         bar.addWidget(self.b_undo)
@@ -623,12 +935,12 @@ class CaptureEditor(QWidget):
         self.b_text.setToolTip(tr("Copies the words you picked, or all the words in the picture"))
         self.b_text.clicked.connect(self.copy_text)
         actions.addWidget(self.b_text)
-        pin = QPushButton(tr("Pin"))
+        pin = self.b_pin = QPushButton(tr("Pin"))
         pin.setCursor(Qt.PointingHandCursor)
         pin.setToolTip(tr("Keeps the picture on top of everything, to look at while you work (P)"))
         pin.clicked.connect(self.pin)
         actions.addWidget(pin)
-        copy = QPushButton(tr("Copy"))
+        copy = self.b_copy = QPushButton(tr("Copy"))
         copy.setCursor(Qt.PointingHandCursor)
         copy.clicked.connect(self.copy)
         actions.addWidget(copy)
@@ -651,6 +963,7 @@ class CaptureEditor(QWidget):
         top.setLayout(bar)
         self.status = QLabel()
         self.status.setObjectName("muted")
+        self.status.setMinimumWidth(1)  # (a long hint is cut on a small window, never makes it wider)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(0)
@@ -659,9 +972,18 @@ class CaptureEditor(QWidget):
         foot = QHBoxLayout()
         foot.setContentsMargins(14, 8, 14, 10)
         foot.addWidget(self.status, 1)
+        # Windows can't read Arabic until its Arabic text reading is added: offered to those who write Arabic
+        self.b_arabic = QPushButton(tr("Read Arabic too…"))
+        self.b_arabic.setObjectName("flat")
+        self.b_arabic.setCursor(Qt.PointingHandCursor)
+        self.b_arabic.setToolTip(tr("Arabic words come out wrong until Windows' Arabic text reading is added"))
+        self.b_arabic.clicked.connect(self.add_arabic)
+        self.b_arabic.hide()
+        foot.addWidget(self.b_arabic)
         foot.addLayout(actions)
         lay.addLayout(foot)
         for keys, fn in (("Ctrl+Z", self.canvas.undo), ("Ctrl+Y", self.canvas.redo), ("Ctrl+Shift+Z", self.canvas.redo),
+                         ("Del", self.canvas.delete_selected),
                          ("Ctrl+C", self.copy), ("Ctrl+S", self.save), ("Ctrl+Shift+S", self.save_as),
                          ("Ctrl+A", self.pick_all), ("P", self.pin), ("Esc", self._esc)):
             QShortcut(QKeySequence(keys), self).activated.connect(fn)
@@ -671,7 +993,8 @@ class CaptureEditor(QWidget):
 
     def _icon_button(self, name: str, tip: str, fn) -> QPushButton:
         b = QPushButton()
-        b.setObjectName("small")
+        b.setObjectName("capTool")
+        b.setFixedSize(38, 36)
         b.setToolTip(tip)
         b.setCursor(Qt.PointingHandCursor)
         b.setIconSize(QSize(18, 18))
@@ -699,7 +1022,11 @@ class CaptureEditor(QWidget):
         self.canvas.update()
 
     def _esc(self):
-        if not self.canvas.unpick():
+        if self.canvas.selected is not None:
+            self.canvas.selected = None
+            self.canvas.update()
+            self._update_status()
+        elif not self.canvas.unpick():
             self.close()
 
     def pick_all(self):
@@ -719,6 +1046,11 @@ class CaptureEditor(QWidget):
 
     def _color(self, color: str):
         self.canvas.color = QColor(color)
+        self.canvas.restyle(color=QColor(color))
+
+    def _size(self, width: float):
+        self.canvas.pen_width = width
+        self.canvas.restyle(width=width)
 
     def _changed(self):
         self.dirty = True
@@ -734,12 +1066,14 @@ class CaptureEditor(QWidget):
             elif self.canvas.text is not None and not self.canvas.text:
                 bits.append(tr("No text found in the picture"))
             elif self.canvas.text:
-                span = self.canvas.text.picked()
-                bits.append(tr("Words picked: {count}", count=span[1] - span[0] + 1) if span else
-                            tr("Drag over the words you want · double-click: one word · Ctrl+A: all"))
+                picked = self.canvas.text.picked()
+                bits.append(tr("Words picked: {count}", count=len(picked)) if picked else
+                            tr("Drag over words, or draw a box around them · Ctrl+click: add or remove a word"))
             self.status.setText("   ·   ".join(bits))
             return
-        if self.saved is not None:
+        if self.canvas.selected is not None:
+            bits.append(tr("Drag it to move it, pull its dots to change its size · Delete: remove it"))
+        elif self.saved is not None:
             bits.append(tr("Saved as {name}", name=self.saved.name) if not self.dirty else
                         tr("Changes not saved yet"))
         self.status.setText("   ·   ".join(bits))
@@ -834,13 +1168,14 @@ class CaptureEditor(QWidget):
             return
         self.reading = True
         self._update_status()
-        image = self.canvas.result()
+        image = self.canvas.for_reading()
         reader = self._reader = _Reader(self)
-        reader.done.connect(lambda lines, error, img=image: self._words_read(img, lines, error))
+        reader.done.connect(lambda lines, error, missing, img=image: self._words_read(img, lines, error, missing))
         reader.start(image)
 
-    def _words_read(self, image: QImage, lines, error: str):
+    def _words_read(self, image: QImage, lines, error: str, missing: bool = False):
         self.reading = False
+        self.b_arabic.setVisible(missing and not error)
         if error:
             self._copy_after = False
             self._update_status()
@@ -856,8 +1191,30 @@ class CaptureEditor(QWidget):
             self.copy_text()
         self._update_status()
 
+    def add_arabic(self):
+        """Adds Windows' Arabic text reading, then reads the picture again."""
+        def done(ok):
+            if not _alive(self):
+                return
+            self.b_arabic.setEnabled(True)
+            self.b_arabic.setText(tr("Read Arabic too…"))
+            if ok:
+                self.b_arabic.hide()
+                self.canvas.set_text(None)
+                if self.canvas.selecting():
+                    self.read_words()
+        if add_arabic(self.c, self, done):
+            self.b_arabic.setEnabled(False)
+            self.b_arabic.setText(tr("Adding Arabic…"))
+
     def apply_theme(self, theme):
         set_title_bar_dark(self, theme.dark)
+        for key, b in self.tool_buttons.items():
+            b.setIcon(_tool_icon(key, theme.text, theme.accent))
+        for b in self.size_buttons.values():
+            b.setIcon(_size_icon(float(b.property("dot")), theme.text, theme.accent))
+        for b, name in ((self.b_text, "scan_text"), (self.b_pin, "pin"), (self.b_copy, "copy")):
+            b.setIcon(icons.icon(name, theme.text))
         self.canvas.accent = QColor(theme.accent)
         for b in (self.b_undo, self.b_redo):
             b.setIcon(icons.icon(b.property("icon_name"), theme.text))
@@ -871,6 +1228,101 @@ class CaptureEditor(QWidget):
             from .capture import write_later
             write_later(self.canvas.result(), self.saved)  # (marks made after saving are kept in the file)
         super().closeEvent(e)
+
+
+def _bar_line() -> QFrame:
+    """A thin line between the bar's groups."""
+    line = QFrame()
+    line.setObjectName("capBarLine")
+    line.setFixedSize(1, 22)
+    box = QWidget()
+    lay = QHBoxLayout(box)
+    lay.setContentsMargins(6, 0, 6, 0)
+    lay.addWidget(line)
+    return box
+
+
+def _size_icon(width: float, color: QColor, on: QColor) -> QIcon:
+    """A dot as big as the line size."""
+    ic = QIcon()
+    for c, state in ((color, QIcon.State.Off), (on, QIcon.State.On)):
+        for dpr in (1.0, 2.0):
+            pm = QPixmap(round(20 * dpr), round(20 * dpr))
+            pm.setDevicePixelRatio(dpr)
+            pm.fill(Qt.transparent)
+            p = QPainter(pm)
+            p.setRenderHint(QPainter.Antialiasing)
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(c))
+            r = 0.6 + width * 0.95
+            p.drawEllipse(QPointF(10, 10), r, r)
+            p.end()
+            ic.addPixmap(pm, QIcon.Mode.Normal, state)
+    return ic
+
+
+def _tool_icon(key: str, color: QColor, on: QColor) -> QIcon:
+    """A tool's icon, in the accent colour while it's the one in use."""
+    if TOOL_ICONS.get(key):
+        ic = icons.icon(TOOL_ICONS[key], color)
+        for size in (20, 24, 32):
+            for dpr in (1.0, 2.0):
+                ic.addPixmap(icons.pixmap(TOOL_ICONS[key], size, on, dpr), QIcon.Mode.Normal, QIcon.State.On)
+        return ic
+    ic = QIcon()  # Steps: a numbered circle
+    for c, state in ((color, QIcon.State.Off), (on, QIcon.State.On)):
+        for dpr in (1.0, 2.0):
+            pm = QPixmap(round(20 * dpr), round(20 * dpr))
+            pm.setDevicePixelRatio(dpr)
+            pm.fill(Qt.transparent)
+            p = QPainter(pm)
+            p.setRenderHint(QPainter.Antialiasing)
+            p.setPen(QPen(QColor(c), 1.6))
+            p.drawEllipse(QRectF(2, 2, 16, 16))
+            f = QFont()
+            f.setPixelSize(11)
+            f.setBold(True)
+            p.setFont(f)
+            p.drawText(QRectF(2, 2, 16, 16), Qt.AlignCenter, "1")
+            p.end()
+            ic.addPixmap(pm, QIcon.Mode.Normal, state)
+    return ic
+
+
+_adding = None
+
+
+def add_arabic(controller, parent, then=None) -> bool:
+    """Asks, then adds Windows' Arabic text reading (with administrator permission, off the window's thread);
+    then(ok) afterwards. False if the person said no."""
+    global _adding
+    box = QMessageBox(parent)
+    box.setIcon(QMessageBox.Question)
+    box.setWindowTitle(tr("Read Arabic too"))
+    box.setText(tr("Windows reads Arabic once its Arabic text reading is added. It's a small part of Windows, "
+                   "downloaded from Microsoft, and Windows asks for administrator permission. Add it now?"))
+    yes = box.addButton(tr("Add it"), QMessageBox.AcceptRole)
+    box.addButton(tr("Cancel"), QMessageBox.RejectRole)
+    box.exec()
+    if box.clickedButton() is not yes:
+        return False
+    from . import work
+    c = controller
+
+    def go(_progress):
+        from .extras import add_arabic_reader
+        return add_arabic_reader()
+
+    def done(ok):
+        if ok is True:
+            c.toast.notify(tr("Arabic added"), tr("Corefold now reads Arabic in pictures too."), linger_ms=4000)
+        else:
+            c.tell(tr("Arabic wasn't added"), tr("Windows didn't add it (no permission, or no internet). You can "
+                                                 "also add it in Settings → Time & language → Language."))
+        if then is not None:
+            then(ok is True)
+    _adding = work.run(go, lambda _: None, done, name="corefold-add-arabic")
+    return True
 
 
 class TextPill(QFrame):
@@ -908,14 +1360,14 @@ class TextPill(QFrame):
 
 
 class _Reader(QObject):
-    """Reads the words in a picture on a thread of its own."""
-    done = Signal(object, str)
+    """Reads the words in a picture on a thread of its own (and says whether Windows can't read Arabic yet)."""
+    done = Signal(object, str, bool)
 
     def start(self, image: QImage):
         import threading
 
         def work():
-            lines, error = None, ""
+            lines, error, missing = None, "", False
             try:
                 from PIL import Image
                 from PySide6.QtCore import QBuffer, QByteArray, QIODevice
@@ -926,13 +1378,14 @@ class _Reader(QObject):
                 buf.close()
                 import io
 
-                from .extras import read_lines
+                from .extras import read_lines, rtl_reader_missing, writes_arabic
                 lines = read_lines(Image.open(io.BytesIO(bytes(data))))
+                missing = rtl_reader_missing() and writes_arabic()
             except Exception as e:  # (no OCR language, an old Windows...)
                 log.warning("reading the text failed", exc_info=True)
                 error = str(e) or type(e).__name__
             try:
-                self.done.emit(lines, error)
+                self.done.emit(lines, error, missing)
             except RuntimeError:  # the editor was closed meanwhile
                 pass
         threading.Thread(target=work, daemon=True, name="corefold-read-text").start()

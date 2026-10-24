@@ -107,7 +107,7 @@ TOOLS: list[ToolInfo] = [
               "start with Windows",
               "See what Defender put in quarantine, and put a file back if you're sure")),
     ToolInfo("pdf", "PDF", "pdf", "document_pdf", "Corefold PDF", "PDF",
-             "Merge, split and arrange PDFs, shrink them, and lock them with a password.",
+             "Change what's in a PDF, merge, split and arrange its pages, shrink it and lock it.",
              ("Merge PDFs and arrange their pages by dragging the page pictures",
               "Split a PDF, or take out just the pages you need",
               "Turn and delete pages, and undo any step",

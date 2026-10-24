@@ -16,12 +16,13 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QObject, QPointF, QRectF, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import (QBrush, QColor, QFontDatabase, QFontMetricsF, QImage, QKeySequence, QPainter,
+from PySide6.QtCore import QObject, QPoint, QPointF, QRectF, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import (QBrush, QColor, QFontDatabase, QFontMetricsF, QIcon, QImage, QKeySequence, QPainter,
                            QPainterPath, QPen, QPixmap, QShortcut, QTextCursor, QTransform)
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QColorDialog, QFileDialog, QFrame, QGraphicsItem,
                                QGraphicsObject, QGraphicsScene, QGraphicsTextItem, QGraphicsView, QHBoxLayout,
-                               QLabel, QMenu, QMessageBox, QPlainTextEdit, QPushButton, QSpinBox,
+                               QLabel, QLineEdit, QListView, QListWidget, QListWidgetItem, QMenu, QMessageBox,
+                               QPlainTextEdit, QPushButton, QSizePolicy, QSpinBox,
                                QStyleOptionGraphicsItem, QStyle, QVBoxLayout, QWidget)
 
 from . import icons, pdfedit, pdftools, work
@@ -66,6 +67,7 @@ WIDTHS = {"Thin": 1.0, "Medium": 2.5, "Thick": 5.0}
 INK = ["#000000", "#1f3a93", "#d32f2f", "#2e7d32", "#f57c00", "#7b1fa2", "#ffffff"]
 PENS = ["#ffd400", "#7cf27c", "#ff8ad8", "#7ec8ff", "#ffb35c"]
 FIELD_TINT = QColor(70, 130, 255, 38)
+THUMB = QSize(72, 96)    # the small pictures in the list of pages
 
 
 # ----------------------------------------------------------------------------- drawing pages off the window's thread
@@ -74,6 +76,7 @@ class _Signals(QObject):
     opened = Signal(object)        # (sizes, fields) or an Exception
     image = Signal(int, float, object, object)  # page, scale, hidden pieces, QImage
     layout = Signal(int, object)
+    thumb = Signal(int, object)                 # page, a small QImage of it (for the list of pages)
 
 
 class Renderer:
@@ -85,6 +88,7 @@ class Renderer:
         self.cv = threading.Condition()
         self.renders: dict[int, tuple[float, tuple]] = {}
         self.layouts: list[int] = []
+        self.thumbs: list[tuple[int, float]] = []
         self.stopped = False
         self.thread = threading.Thread(target=self._run, daemon=True, name="corefold-pdf-editor")
         self.thread.start()
@@ -101,11 +105,17 @@ class Renderer:
                     self.layouts.append(i)
             self.cv.notify()
 
+    def want_thumbs(self, wishes: list[tuple[int, float]]):
+        with self.cv:
+            self.thumbs = list(wishes)
+            self.cv.notify()
+
     def close(self):
         with self.cv:
             self.stopped = True
             self.renders.clear()
             self.layouts.clear()
+            self.thumbs.clear()
             self.cv.notify()
 
     def _run(self):
@@ -127,7 +137,7 @@ class Renderer:
             self.sig.opened.emit((sizes, fields))
             while True:
                 with self.cv:
-                    while not self.stopped and not self.renders and not self.layouts:
+                    while not self.stopped and not self.renders and not self.layouts and not self.thumbs:
                         self.cv.wait()
                     if self.stopped:
                         return
@@ -135,8 +145,10 @@ class Renderer:
                         i = next(iter(self.renders))
                         scale, hide = self.renders.pop(i)
                         job = ("render", i, scale, hide)
-                    else:
+                    elif self.layouts:
                         job = ("layout", self.layouts.pop(0))
+                    else:
+                        job = ("thumb", *self.thumbs.pop(0))
                 try:
                     if job[0] == "render":
                         _, i, scale, hide = job
@@ -144,6 +156,11 @@ class Renderer:
                             data, w, h, stride = pdfedit.render(doc, i, scale, hide)
                         img = QImage(data, w, h, stride, QImage.Format.Format_RGBX8888).copy()
                         self.sig.image.emit(i, scale, hide, img)
+                    elif job[0] == "thumb":
+                        _, i, scale = job
+                        with pdftools.PDFIUM:
+                            data, w, h, stride = pdfedit.render(doc, i, scale, ())
+                        self.sig.thumb.emit(i, QImage(data, w, h, stride, QImage.Format.Format_RGBX8888).copy())
                     else:
                         with pdftools.PDFIUM:
                             layout = pdfedit.read_layout(doc, job[1])
@@ -681,7 +698,7 @@ class OldPiece(QGraphicsObject):
     def mouseMoveEvent(self, e):
         if self.press is None:
             return
-        delta = e.scenePos() - self.press
+        delta = self.page.mapFromScene(e.scenePos()) - self.page.mapFromScene(self.press)
         if self.moving is None:
             if delta.manhattanLength() < 3:
                 return
@@ -863,6 +880,49 @@ class _FieldText(QGraphicsTextItem):
 
 # ----------------------------------------------------------------------------- the view
 
+class FoundMarks(QGraphicsItem):
+    """What Find found on one page: a soft box over each, a stronger one over the one it's on."""
+
+    def __init__(self, page: PageItem, rects: list, current: int):
+        super().__init__(page)
+        self.rects, self.current = rects, current
+        self.setZValue(4)
+        self.setAcceptedMouseButtons(Qt.NoButton)
+
+    def boundingRect(self) -> QRectF:
+        r = QRectF()
+        for x in self.rects:
+            r = r.united(x)
+        return r.adjusted(-3, -3, 3, 3)
+
+    def paint(self, p, option, widget=None):
+        accent = tokens.current().accent
+        for n, r in enumerate(self.rects):
+            on = n == self.current
+            p.setPen(QPen(accent, 1.4 if on else 0.6))
+            p.setBrush(QColor(255, 196, 0, 150 if on else 70))
+            p.drawRoundedRect(r.adjusted(-1, -1, 1, 1), 1.5, 1.5)
+
+
+class PagesList(QListWidget):
+    """The list of pages at the side. Delete deletes the picked pages, Ctrl + ↑ ↓ move them (only while the list
+    itself has the keyboard: elsewhere those keys are the pages' own)."""
+
+    def __init__(self, editor: "PdfEditor"):
+        super().__init__()
+        self.editor = editor
+
+    def keyPressEvent(self, e):
+        if e.key() == Qt.Key_Delete:
+            if self.selectedItems():  # (only pages picked here: never the page that just happens to be in sight)
+                self.editor.delete_pages()
+            return
+        if e.modifiers() & Qt.ControlModifier and e.key() in (Qt.Key_Up, Qt.Key_Down):
+            self.editor.move_pages(-1 if e.key() == Qt.Key_Up else 1)
+            return
+        super().keyPressEvent(e)
+
+
 class EditorView(QGraphicsView):
     """The pages one under the other, with the tools' mouse work."""
 
@@ -1040,7 +1100,10 @@ class EditorView(QGraphicsView):
             dx, dy = steps[e.key()]
             far = 10 if e.modifiers() & Qt.ShiftModifier else 1
             for item in ed.selected_items():
-                item.moveBy(dx * far, dy * far)
+                page = item.parentItem()
+                d = page.mapFromScene(QPointF(dx * far, dy * far)) - page.mapFromScene(QPointF(0, 0)) \
+                    if page is not None else QPointF(dx * far, dy * far)
+                item.moveBy(d.x(), d.y())
             ed.commit()
             return
         if e.key() == Qt.Key_Escape:
@@ -1095,6 +1158,14 @@ class PdfEditor(QWidget):
         self.future: list[dict] = []
         self.current: dict = {"items": [], "removed": [], "fields": {}}
         self.saved: dict | None = None
+        self.order: list[int] = []          # the pages in the order shown (a deleted one isn't in it)
+        self.turns: dict[int, int] = {}     # pages turned: degrees clockwise
+        self.position: dict[int, int] = {}  # where each page is in the order
+        self.thumb_imgs: dict[int, QImage] = {}
+        self.thumb_items: dict[int, QListWidgetItem] = {}
+        self.matches: list = []             # what Find found: (page, piece or text box, start)
+        self.match_at = -1
+        self.found_marks: list[FoundMarks] = []
         self.zoom = 1.0
         self.fit = True                     # the zoom follows the window's width
         self.tool = "select"
@@ -1143,6 +1214,17 @@ class PdfEditor(QWidget):
         self.redo_btn.clicked.connect(self.redo)
         top.addWidget(self.undo_btn)
         top.addWidget(self.redo_btn)
+        top.addSpacing(6)
+        self.find_btn = IconButton(tr("Find and replace (Ctrl + F)"))
+        self.find_btn.setIcon(icons.icon("search", muted))
+        self.find_btn.clicked.connect(lambda: self.show_find())
+        self.pages_btn = IconButton(tr("The pages: turn, delete and move them"))
+        self.pages_btn.setIcon(icons.icon("document_multiple", muted))
+        self.pages_btn.setCheckable(True)
+        self.pages_btn.setChecked(True)
+        self.pages_btn.clicked.connect(lambda _on: self._side_shown())
+        top.addWidget(self.find_btn)
+        top.addWidget(self.pages_btn)
         top.addSpacing(6)
         out_btn = IconButton(tr("Zoom out (Ctrl + -)"))
         out_btn.setIcon(icons.icon("zoom_out", muted))
@@ -1273,11 +1355,49 @@ class PdfEditor(QWidget):
         pl.addWidget(self.delete_btn)
         v.addWidget(self.props)
 
+        self._build_find(v)
+        body = QHBoxLayout()
+        body.setSpacing(8)
+        self.side = QWidget()
+        self.side.setObjectName("pdfPagesSide")
+        sl = QVBoxLayout(self.side)
+        sl.setContentsMargins(0, 0, 0, 0)
+        sl.setSpacing(4)
+        self.thumb_list = PagesList(self)
+        self.thumb_list.setObjectName("history")
+        self.thumb_list.setIconSize(THUMB)
+        self.thumb_list.setSpacing(2)
+        self.thumb_list.setSelectionMode(QListWidget.ExtendedSelection)
+        self.thumb_list.setDragDropMode(QListWidget.InternalMove)
+        self.thumb_list.setDefaultDropAction(Qt.MoveAction)
+        self.thumb_list.setMovement(QListView.Snap)
+        self.thumb_list.setToolTip(tr("Drag a page to move it. Right-click for more."))
+        self.thumb_list.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.thumb_list.customContextMenuRequested.connect(self._page_menu)
+        self.thumb_list.itemClicked.connect(lambda it: self.go_to_page(it.data(Qt.UserRole)))
+        self.thumb_list.model().rowsMoved.connect(lambda *_: QTimer.singleShot(0, self._pages_dragged))
+        self.thumb_list.verticalScrollBar().valueChanged.connect(lambda _v: self._want_thumbs())
+        self.thumb_list.setFixedWidth(THUMB.width() + 78)
+        sl.addWidget(self.thumb_list, 1)
+        acts = QHBoxLayout()
+        acts.setSpacing(2)
+        for icon_name, words, fn in (("arrow_rotate_counterclockwise", "Turn left", lambda: self.turn_pages(-90)),
+                                     ("arrow_rotate_clockwise", "Turn right", lambda: self.turn_pages(90)),
+                                     ("delete", "Delete the page", self.delete_pages)):
+            b = IconButton(tr(words))
+            b.setIcon(icons.icon(icon_name, muted, tokens.alpha(QColor(muted), 90)))
+            b.clicked.connect(fn)
+            acts.addWidget(b)
+        acts.addStretch()
+        sl.addLayout(acts)
+        body.addWidget(self.side)
         self.view = EditorView(self)
-        v.addWidget(self.view, 1)
+        body.addWidget(self.view, 1)
+        v.addLayout(body, 1)
         foot = QHBoxLayout()
         self.where = QLabel()
         self.where.setObjectName("muted")
+        self.where.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)  # (never cut short by the hint)
         foot.addWidget(self.where)
         self.hint = QLabel()
         self.hint.setObjectName("muted")
@@ -1290,7 +1410,10 @@ class PdfEditor(QWidget):
                          ("Ctrl+Y", self.redo), (QKeySequence.Save, self.save),
                          ("Ctrl+V", self.paste), (QKeySequence.ZoomIn, lambda: self.zoom_step(1)),
                          ("Ctrl+=", lambda: self.zoom_step(1)),
-                         (QKeySequence.ZoomOut, lambda: self.zoom_step(-1)), ("Ctrl+0", self.fit_width)):
+                         (QKeySequence.ZoomOut, lambda: self.zoom_step(-1)), ("Ctrl+0", self.fit_width),
+                         (QKeySequence.Find, self.show_find), ("Ctrl+H", lambda: self.show_find(replace=True)),
+                         (QKeySequence.FindNext, lambda: self.next_match(1)),
+                         (QKeySequence.FindPrevious, lambda: self.next_match(-1))):
             for seq in QKeySequence.keyBindings(keys) if not isinstance(keys, str) else [QKeySequence(keys)]:
                 if seq.isEmpty() or seq.toString() in taken:
                     continue
@@ -1315,6 +1438,11 @@ class PdfEditor(QWidget):
     def open(self, src: Path, password: str = ""):
         self.close_renderer()
         self.pages, self.offsets, self.thumbs = [], [], []
+        self.order, self.turns, self.position = [], {}, {}
+        self.thumb_imgs, self.thumb_items = {}, {}
+        self.thumb_list.clear()
+        self.matches, self.match_at, self.found_marks = [], -1, []
+        self.find_bar.hide()
         self.scene.clear()
         self.kept.clear()
         self.fields, self.field_list, self.field_items, self.removed = {}, [], [], []
@@ -1331,6 +1459,7 @@ class PdfEditor(QWidget):
         self.renderer.sig.opened.connect(self._opened)
         self.renderer.sig.image.connect(self._image)
         self.renderer.sig.layout.connect(self._layout)
+        self.renderer.sig.thumb.connect(self._thumb)
         self._tidy_temp()
 
     def _opened(self, result):
@@ -1342,16 +1471,13 @@ class PdfEditor(QWidget):
             self.close_editor(ask=False)
             return
         sizes, fields = result
-        y = 0.0
         for i, (w, h) in enumerate(sizes):
             page = PageItem(i, w, h)
-            page.setPos(-w / 2, y)
             self.scene.addItem(page)
             self.pages.append(page)
-            self.offsets.append(y)
-            y += h + GAP
-        width = max((w for w, _ in sizes), default=600)
-        self.scene.setSceneRect(QRectF(-width / 2 - 40, -GAP, width + 80, y + GAP))
+        self.order = list(range(len(self.pages)))
+        self._place_pages()
+        self._fill_thumbs()
         self.field_list = fields
         for f in fields:
             if 0 <= f["page"] < len(self.pages):
@@ -1364,7 +1490,8 @@ class PdfEditor(QWidget):
     def close_renderer(self):
         if self.renderer is not None:
             self.renderer.close()
-            for s in (self.renderer.sig.opened, self.renderer.sig.image, self.renderer.sig.layout):
+            for s in (self.renderer.sig.opened, self.renderer.sig.image, self.renderer.sig.layout,
+                      self.renderer.sig.thumb):
                 try:
                     s.disconnect()
                 except (RuntimeError, TypeError):
@@ -1391,6 +1518,9 @@ class PdfEditor(QWidget):
                 return False
         self.close_renderer()
         self.pages, self.offsets, self.thumbs, self.field_items = [], [], [], []
+        self.order, self.position, self.matches, self.found_marks = [], {}, [], []
+        self.thumb_imgs, self.thumb_items = {}, {}
+        self.thumb_list.clear()
         self.scene.clear()
         self.kept.clear()
         self.src = None
@@ -1398,7 +1528,10 @@ class PdfEditor(QWidget):
         return True
 
     def go_back(self) -> bool:
-        """Esc: stops typing, then goes back to the Select tool, then closes the editor."""
+        """Esc: closes Find, stops typing, then goes back to the Select tool, then closes the editor."""
+        if self.find_bar.isVisible():
+            self.hide_find()
+            return True
         if self.scene.focusItem() is not None:
             self.end_text_edits()
             self.scene.setFocusItem(None)
@@ -1427,9 +1560,9 @@ class PdfEditor(QWidget):
     def page_at(self, sp: QPointF) -> PageItem | None:
         import bisect
         k = bisect.bisect_right(self.offsets, sp.y()) - 1
-        for i in (k, k + 1):
-            if 0 <= i < len(self.pages):
-                page = self.pages[i]
+        for n in (k, k + 1):
+            if 0 <= n < len(self.order):
+                page = self.pages[self.order[n]]
                 if page.sceneBoundingRect().adjusted(3, 3, -3, -3).contains(sp):
                     return page
         return None
@@ -1438,8 +1571,14 @@ class PdfEditor(QWidget):
         self.visible_timer.start()
         self._where()
 
+    def _side_shown(self):
+        """The list of pages: as the button says, unless the window is too narrow for it."""
+        self.side.setVisible(self.pages_btn.isChecked() and self.width() >= 720)
+        QTimer.singleShot(0, self._want_thumbs)
+
     def resizeEvent(self, e):
         super().resizeEvent(e)
+        self._side_shown()
         short = self.tools_wide > self.width() - 8  # (no room for all the tools' names: just the chosen one's)
         if short != self.tools_short:
             self.tools_short = short
@@ -1457,15 +1596,15 @@ class PdfEditor(QWidget):
 
     def _in_sight(self) -> list[int]:
         import bisect
-        if not self.pages:
+        if not self.order:
             return []
         r = self.view.mapToScene(self.view.viewport().rect()).boundingRect()
         first = max(0, bisect.bisect_right(self.offsets, r.top()) - 1)
         out = []
-        for i in range(first, len(self.pages)):
-            if self.offsets[i] > r.bottom():
+        for n in range(first, len(self.order)):
+            if self.offsets[n] > r.bottom():
                 break
-            out.append(i)
+            out.append(self.order[n])
         return out
 
     def _scale(self) -> float:
@@ -1488,7 +1627,10 @@ class PdfEditor(QWidget):
         return tuple(sorted(out))
 
     def _near(self, sight: list[int]) -> list[int]:
-        return list(range(max(0, sight[0] - KEEP_NEAR), min(len(self.pages), sight[-1] + KEEP_NEAR + 1)))
+        at = [self.position[i] for i in sight if i in self.position]
+        if not at:
+            return []
+        return self.order[max(0, min(at) - KEEP_NEAR):max(at) + KEEP_NEAR + 1]
 
     def _ask_pages(self):
         if self.renderer is None or not self.pages:
@@ -1500,7 +1642,8 @@ class PdfEditor(QWidget):
         scale = self._scale()
         middle = sight[len(sight) // 2]
         wishes = []
-        for i in sorted(near, key=lambda k: (k not in sight, abs(k - middle))):
+        mid = self.position.get(middle, 0)
+        for i in sorted(near, key=lambda k: (k not in sight, abs(self.position.get(k, 0) - mid))):
             page = self.pages[i]
             s = min(scale, math.sqrt(MAX_PIXELS / max(1.0, page.w * page.h)))
             key = (round(s, 3), self.hidden(i))
@@ -1541,9 +1684,13 @@ class PdfEditor(QWidget):
             page.pieces.append(OldPiece(self, page, "line", d))
         for d in layout.get("images", []):
             page.pieces.append(OldPiece(self, page, "image", d))
+        for piece in page.pieces:
+            piece.setAcceptedMouseButtons(Qt.LeftButton if self.tool in ("select", "edit") else Qt.NoButton)
         self._pieces_shown(page)
         if self.tool == "edit":
             self._refresh()
+        if self.find_bar.isVisible() and self.find_box.text():
+            self.find_timer.start()
 
     def _pieces_shown(self, page: PageItem):
         hidden = set(self.hidden(page.index))
@@ -1555,7 +1702,443 @@ class PdfEditor(QWidget):
         if sight and self.pages:
             r = self.view.mapToScene(self.view.viewport().rect()).boundingRect()
             best = max(sight, key=lambda i: QRectF(self.pages[i].sceneBoundingRect()).intersected(r).height())
-            self.where.setText(tr("Page {number} of {count}", number=best + 1, count=len(self.pages)))
+            self.where.setText(tr("Page {number} of {count}", number=self.position.get(best, 0) + 1,
+                                  count=len(self.order)))
+            it = self.thumb_items.get(best)
+            if it is not None and not self.thumb_list.selectedItems():
+                from PySide6.QtCore import QItemSelectionModel
+                self.thumb_list.selectionModel().setCurrentIndex(self.thumb_list.indexFromItem(it),
+                                                                 QItemSelectionModel.NoUpdate)
+                self.thumb_list.scrollToItem(it)
+
+    # ---- the pages: their order, turned, deleted (the list at the side)
+
+    def _shown_size(self, i: int) -> tuple[float, float]:
+        page = self.pages[i]
+        return (page.h, page.w) if self.turns.get(i, 0) % 180 else (page.w, page.h)
+
+    def _place_pages(self):
+        """Puts the pages one under the other in their order, each turned as it should be."""
+        shown = set(self.order)
+        for page in self.pages:
+            page.setVisible(page.index in shown)
+        y, width = 0.0, 0.0
+        self.offsets, self.position = [], {}
+        for n, i in enumerate(self.order):
+            page = self.pages[i]
+            dw, dh = self._shown_size(i)
+            page.setTransformOriginPoint(page.w / 2, page.h / 2)
+            page.setRotation(self.turns.get(i, 0))
+            page.setPos(-page.w / 2, y + dh / 2 - page.h / 2)  # (turned around its middle)
+            self.offsets.append(y)
+            self.position[i] = n
+            y += dh + GAP
+            width = max(width, dw)
+        width = width or 600
+        self.scene.setSceneRect(QRectF(-width / 2 - 40, -GAP, width + 80, max(y, GAP) + GAP))
+        if self.fit:
+            QTimer.singleShot(0, self.fit_width)
+        self.visible_timer.start()
+        self._where()
+
+    def _fill_thumbs(self):
+        picked = {it.data(Qt.UserRole) for it in self.thumb_list.selectedItems()}
+        self.thumb_list.blockSignals(True)
+        self.thumb_list.model().blockSignals(True)
+        self.thumb_list.clear()
+        self.thumb_items = {}
+        for n, i in enumerate(self.order):
+            it = QListWidgetItem(str(n + 1))
+            it.setData(Qt.UserRole, i)
+            it.setTextAlignment(Qt.AlignCenter)
+            it.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled)
+            self.thumb_list.addItem(it)
+            self.thumb_items[i] = it
+            self._thumb_icon(i)
+            it.setSelected(i in picked)
+        self.thumb_list.model().blockSignals(False)
+        self.thumb_list.blockSignals(False)
+        self.thumb_list.viewport().update()
+        QTimer.singleShot(0, self._want_thumbs)
+
+    def _thumb_icon(self, i: int):
+        it = self.thumb_items.get(i)
+        if it is None:
+            return
+        page = self.pages[i]
+        img = self.thumb_imgs.get(i)
+        dpr = self.devicePixelRatioF()
+        if img is None:  # (white until it's drawn)
+            k = min(THUMB.width() / page.w, THUMB.height() / page.h)
+            pm = QPixmap(max(1, round(page.w * k * dpr)), max(1, round(page.h * k * dpr)))
+            pm.fill(QColor("#ffffff"))
+        else:
+            pm = QPixmap.fromImage(img)
+        turn = self.turns.get(i, 0)
+        if turn:
+            pm = pm.transformed(QTransform().rotate(turn), Qt.SmoothTransformation)
+        pm.setDevicePixelRatio(dpr)
+        icon = QIcon(pm)
+        icon.addPixmap(pm, QIcon.Selected)  # (not tinted when picked: the row shows it)
+        it.setIcon(icon)
+
+    def _want_thumbs(self):
+        if self.renderer is None or not self.order or not self.side.isVisible():
+            return
+        lst = self.thumb_list
+        first = lst.indexAt(QPoint(4, 4)).row()
+        last = lst.indexAt(QPoint(4, lst.viewport().height() - 4)).row()
+        first = max(0, first if first >= 0 else 0)
+        last = last if last >= 0 else len(self.order) - 1
+        dpr = self.devicePixelRatioF()
+        wishes = []
+        for n in range(max(0, first - 6), min(len(self.order), last + 7)):
+            i = self.order[n]
+            if i not in self.thumb_imgs:
+                page = self.pages[i]
+                wishes.append((i, min(THUMB.width() / page.w, THUMB.height() / page.h) * dpr))
+        self.renderer.want_thumbs(wishes)
+
+    def _thumb(self, i: int, img: QImage):
+        if not work.alive(self) or i >= len(self.pages):
+            return
+        self.thumb_imgs[i] = img
+        self._thumb_icon(i)
+
+    def go_to_page(self, i: int):
+        if i not in self.position:
+            return
+        page = self.pages[i]
+        r = page.sceneBoundingRect()
+        bar = self.view.verticalScrollBar()
+        top = self.view.mapFromScene(QPointF(r.center().x(), r.top() - GAP / 2)).y()
+        bar.setValue(bar.value() + top)
+
+    def picked_pages(self) -> list[int]:
+        """The pages picked in the list (or the one in sight), in their order."""
+        picked = [it.data(Qt.UserRole) for it in self.thumb_list.selectedItems()]
+        if not picked:
+            sight = self._in_sight()
+            if sight:
+                r = self.view.mapToScene(self.view.viewport().rect()).boundingRect()
+                picked = [max(sight, key=lambda i: QRectF(self.pages[i].sceneBoundingRect()).intersected(r).height())]
+        return sorted(picked, key=lambda i: self.position.get(i, 0))
+
+    def turn_pages(self, degrees: int, pages: list[int] | None = None):
+        pages = self.picked_pages() if pages is None else pages
+        if not pages:
+            return
+        self.end_text_edits()
+        for i in pages:
+            self.turns[i] = (self.turns.get(i, 0) + degrees) % 360
+        self._place_pages()
+        for i in pages:
+            self._thumb_icon(i)
+        self.commit()
+
+    def delete_pages(self, pages: list[int] | None = None):
+        pages = self.picked_pages() if pages is None else pages
+        if not pages:
+            return
+        if len(pages) >= len(self.order):
+            self.c.tell(tr("Corefold PDF"), tr("A PDF needs at least one page."))
+            return
+        self.end_text_edits()
+        self.scene.clearSelection()
+        self.order = [i for i in self.order if i not in pages]
+        self._place_pages()
+        self._fill_thumbs()
+        self.commit()
+        self.hint.setText(tr("Deleted. Undo (Ctrl + Z) brings it back."))
+
+    def move_pages(self, step: int, pages: list[int] | None = None):
+        """Earlier (-1) or later (+1) by one place."""
+        pages = self.picked_pages() if pages is None else pages
+        if not pages:
+            return
+        order = list(self.order)
+        for i in (pages if step < 0 else reversed(pages)):
+            n = order.index(i)
+            m = n + step
+            if 0 <= m < len(order) and order[m] not in pages:
+                order[n], order[m] = order[m], order[n]
+        if order != self.order:
+            self.order = order
+            self._place_pages()
+            self._fill_thumbs()
+            self.commit()
+
+    def _pages_dragged(self):
+        order = [self.thumb_list.item(n).data(Qt.UserRole) for n in range(self.thumb_list.count())]
+        if order != self.order and sorted(order) == sorted(self.order):
+            self.order = order
+            self._place_pages()
+            self._fill_thumbs()
+            self.commit()
+
+    def _page_menu(self, pos):
+        it = self.thumb_list.itemAt(pos)
+        if it is not None and not it.isSelected():
+            self.thumb_list.clearSelection()
+            it.setSelected(True)
+        pages = self.picked_pages()
+        if not pages:
+            return
+        menu = QMenu(self)
+        round_menu(menu)
+        menu.addAction(tr("Turn right"), lambda: self.turn_pages(90, pages))
+        menu.addAction(tr("Turn left"), lambda: self.turn_pages(-90, pages))
+        menu.addAction(tr("Turn upside down"), lambda: self.turn_pages(180, pages))
+        menu.addSeparator()
+        up = menu.addAction(tr("Move up"), lambda: self.move_pages(-1, pages))
+        up.setEnabled(self.position.get(pages[0], 0) > 0)
+        down = menu.addAction(tr("Move down"), lambda: self.move_pages(1, pages))
+        down.setEnabled(self.position.get(pages[-1], 0) < len(self.order) - 1)
+        menu.addSeparator()
+        gone = menu.addAction(tr("Delete the page") if len(pages) == 1 else
+                              tr("Delete {count} pages", count=len(pages)), lambda: self.delete_pages(pages))
+        gone.setEnabled(len(pages) < len(self.order))
+        menu.exec(self.thumb_list.viewport().mapToGlobal(pos))
+
+    # ---- find and replace
+
+    def _build_find(self, v):
+        self.find_bar = QFrame()
+        self.find_bar.setObjectName("pdfFindBar")
+        fl = FlowLayout(self.find_bar, 6)
+        muted = self.c.theme.muted
+        self.find_box = QLineEdit()
+        self.find_box.setPlaceholderText(tr("Find in this PDF"))
+        self.find_box.setClearButtonEnabled(True)
+        self.find_box.setMinimumWidth(200)
+        self.find_timer = QTimer(self)
+        self.find_timer.setSingleShot(True)
+        self.find_timer.setInterval(180)
+        self.find_timer.timeout.connect(self.find_all)
+        self.find_box.textChanged.connect(lambda _t: self.find_timer.start())
+        self.find_box.returnPressed.connect(lambda: self.next_match(1))
+        self.case_box = QCheckBox(tr("Match case"))
+        self.case_box.toggled.connect(lambda _on: self.find_all())
+        prev_btn = IconButton(tr("Previous (Shift + F3)"))
+        prev_btn.setIcon(icons.icon("chevron_left", muted))
+        prev_btn.clicked.connect(lambda: self.next_match(-1))
+        next_btn = IconButton(tr("Next (F3)"))
+        next_btn.setIcon(icons.icon("chevron_right", muted))
+        next_btn.clicked.connect(lambda: self.next_match(1))
+        self.found_label = QLabel()
+        self.found_label.setObjectName("muted")
+        self.found_label.setMinimumWidth(90)
+        self.replace_box = QLineEdit()
+        self.replace_box.setPlaceholderText(tr("Replace with"))
+        self.replace_box.setMinimumWidth(160)
+        self.replace_box.returnPressed.connect(self.replace_one)
+        self.replace_btn = QPushButton(tr("Replace"))
+        self.replace_btn.setCursor(Qt.PointingHandCursor)
+        self.replace_btn.clicked.connect(self.replace_one)
+        self.replace_all_btn = QPushButton(tr("Replace all"))
+        self.replace_all_btn.setCursor(Qt.PointingHandCursor)
+        self.replace_all_btn.clicked.connect(self.replace_all)
+        close = IconButton(tr("Close (Esc)"))
+        close.setIcon(icons.icon("dismiss", muted))
+        close.clicked.connect(self.hide_find)
+        for w in (self.find_box, prev_btn, next_btn, self.found_label, self.case_box, self.replace_box,
+                  self.replace_btn, self.replace_all_btn, close):
+            fl.addWidget(w)
+        self.find_bar.hide()
+        v.addWidget(self.find_bar)
+
+    def show_find(self, replace: bool = False):
+        if not self.pages:
+            return
+        self.end_text_edits()
+        self.find_bar.show()
+        # every page's words are needed (read one by one, in the background)
+        if self.renderer is not None:
+            need = [i for i in self.order if not self.pages[i].asked_layout]
+            self.renderer.want_layout(need)
+            for i in need:
+                self.pages[i].asked_layout = True
+        box = self.replace_box if replace and self.find_box.text() else self.find_box
+        box.setFocus()
+        box.selectAll()
+        if self.find_box.text():
+            self.find_all()
+
+    def hide_find(self):
+        self.find_bar.hide()
+        self.matches, self.match_at = [], -1
+        self._show_matches()
+        self.view.setFocus()
+
+    def _reading(self) -> int:
+        """How many pages' words are still being read."""
+        return sum(1 for i in self.order if self.pages[i].layout is None)
+
+    def _spans(self, text: str, query: str) -> list[int]:
+        if not query:
+            return []
+        hay, needle = (text, query) if self.case_box.isChecked() else (text.casefold(), query.casefold())
+        if len(hay) != len(text):  # (a letter that changes length when its case is folded)
+            hay, needle = text.lower(), query.lower()
+        out, at = [], hay.find(needle)
+        while at >= 0:
+            out.append(at)
+            at = hay.find(needle, at + max(1, len(needle)))
+        return out
+
+    def find_all(self):
+        """Looks for the words on every page: the PDF's own lines, and text added or changed here."""
+        query = self.find_box.text()
+        keep = self.matches[self.match_at] if 0 <= self.match_at < len(self.matches) else None
+        found = []
+        if query and self.find_bar.isVisible():
+            for i in self.order:
+                page = self.pages[i]
+                hidden = set(self.hidden(i))
+                for piece in page.pieces:
+                    if piece.kind == "line" and not hidden.intersection(piece.objs):
+                        for at in self._spans(piece.d.get("text", ""), query):
+                            found.append((page, piece, at))
+                for item in page.childItems():
+                    if isinstance(item, TextMark):
+                        for at in self._spans(item.text(), query):
+                            found.append((page, item, at))
+            found.sort(key=lambda f: (self.position.get(f[0].index, 0), round(self._match_rect(*f).y() / 4),
+                                      self._match_rect(*f).x()))
+        self.matches = found
+        if keep is not None and keep in found:
+            self.match_at = found.index(keep)
+        else:
+            self.match_at = 0 if found else -1
+        self._show_matches()
+
+    def _match_rect(self, page, obj, at: int) -> QRectF:
+        """Where the words are on the page (each letter taken as the same width: close enough to show)."""
+        n = len(self.find_box.text())
+        if isinstance(obj, OldPiece):
+            text = obj.d.get("text", "")
+            x, y, w, h = obj.d["rect"]
+            rtl = bool(obj.d.get("rtl"))
+        else:
+            text = obj.text()
+            r = obj.mapRectToParent(obj.boundingRect()).adjusted(pdfedit.TEXT_MARGIN, pdfedit.TEXT_MARGIN,
+                                                                 -pdfedit.TEXT_MARGIN, -pdfedit.TEXT_MARGIN)
+            x, y, w, h = r.x(), r.y(), r.width(), r.height()
+            rtl = obj.anchor is not None
+            lines = text.split("\n")
+            if len(lines) > 1:  # (which line it's on)
+                k = text.count("\n", 0, at)
+                h = h / len(lines)
+                y += h * k
+                start = text.rfind("\n", 0, at) + 1
+                at -= start
+                text = lines[k]
+        each = w / max(1, len(text))
+        left = x + w - (at + n) * each if rtl else x + at * each
+        return QRectF(left, y, max(2.0, n * each), h)
+
+    def _show_matches(self):
+        for m in self.found_marks:
+            if m.scene() is not None:
+                self.scene.removeItem(m)
+        self.found_marks = []
+        by_page: dict = {}
+        for n, (page, obj, at) in enumerate(self.matches):
+            rects, current = by_page.setdefault(page.index, ([], [-1]))
+            if n == self.match_at:
+                current[0] = len(rects)
+            rects.append(self._match_rect(page, obj, at))
+        for i, (rects, current) in by_page.items():
+            self.found_marks.append(FoundMarks(self.pages[i], rects, current[0]))
+        query = self.find_box.text()
+        reading = self._reading()
+        if not query:
+            text = ""
+        elif self.matches:
+            text = tr("{number} of {count}", number=self.match_at + 1, count=len(self.matches))
+        else:
+            text = tr("Reading the pages…") if reading else tr("Not found")
+        if reading and self.matches:
+            text += " …"
+        self.found_label.setText(text)
+        self.replace_btn.setEnabled(bool(self.matches))
+        self.replace_all_btn.setEnabled(bool(self.matches) and not reading)
+        self.replace_all_btn.setToolTip(tr("Reading the pages…") if reading else "")
+
+    def next_match(self, step: int):
+        if not self.find_bar.isVisible():
+            self.show_find()
+            return
+        if not self.matches:
+            return
+        self.match_at = (self.match_at + step) % len(self.matches)
+        self._show_matches()
+        self._see_match()
+
+    def _see_match(self):
+        if not 0 <= self.match_at < len(self.matches):
+            return
+        page, obj, at = self.matches[self.match_at]
+        r = page.mapRectToScene(self._match_rect(page, obj, at))
+        view = self.view.mapToScene(self.view.viewport().rect()).boundingRect()
+        if not view.adjusted(0, 30, 0, -30).contains(r):
+            self.view.centerOn(QPointF(view.center().x() if self.fit else r.center().x(), r.center().y()))
+
+    def _replaced(self, text: str, at: int | None) -> str:
+        """The words with what was found replaced: at one place, or everywhere (at None)."""
+        query, new = self.find_box.text(), self.replace_box.text()
+        if at is not None:
+            return text[:at] + new + text[at + len(query):]
+        out, last = [], 0
+        for k in self._spans(text, query):
+            out.append(text[last:k] + new)
+            last = k + len(query)
+        return "".join(out) + text[last:]
+
+    def _put(self, obj, text: str):
+        if isinstance(obj, OldPiece):
+            item = self.line_to_text(obj, text)
+            self._pieces_shown(obj.page)
+            return item
+        obj.document().setPlainText(text)
+        obj.d["text"] = text
+        obj._grown()
+        return obj
+
+    def replace_one(self):
+        if not 0 <= self.match_at < len(self.matches):
+            return
+        self.end_text_edits()
+        page, obj, at = self.matches[self.match_at]
+        text = obj.d.get("text", "") if isinstance(obj, OldPiece) else obj.text()
+        self._put(obj, self._replaced(text, at))
+        self.commit()
+        self._ask_pages()
+        n = self.match_at
+        self.matches = []  # (the next one is where this one was)
+        self.find_all()
+        if self.matches:
+            self.match_at = min(n, len(self.matches) - 1)
+            self._show_matches()
+            self._see_match()
+
+    def replace_all(self):
+        if not self.matches or self._reading():
+            return
+        self.end_text_edits()
+        done, count = set(), 0
+        for page, obj, _at in list(self.matches):
+            if id(obj) in done:
+                continue
+            done.add(id(obj))
+            text = obj.d.get("text", "") if isinstance(obj, OldPiece) else obj.text()
+            count += len(self._spans(text, self.find_box.text()))
+            self._put(obj, self._replaced(text, None))
+        self.commit()
+        self._ask_pages()
+        self.matches = []
+        self.find_all()
+        self.found_label.setText(tr("Replaced {count}", count=count))
 
     # ---- zoom
 
@@ -1592,7 +2175,7 @@ class PdfEditor(QWidget):
         if not self.pages:
             return
         self.fit = True
-        width = max(p.w for p in self.pages)
+        width = max((self._shown_size(i)[0] for i in self.order), default=600)
         room = max(200, self.view.viewport().width() - 40)
         zoom = room / (width * self.logicalDpiX() / 72)
         self.set_zoom(min(zoom, 2.0))
@@ -1670,6 +2253,10 @@ class PdfEditor(QWidget):
         return [i for i in self.scene.selectedItems() if isinstance(i, (Mark, TextMark, OldPiece))]
 
     def selection_changed(self):
+        if self.scene.selectedItems() and self.thumb_list.selectedItems():
+            self.thumb_list.clearSelection()  # (Delete is for what's picked on the page now)
+            if self.thumb_list.hasFocus():
+                self.view.setFocus()
         if not self._filling:
             self._refresh()
 
@@ -1819,6 +2406,15 @@ class PdfEditor(QWidget):
 
     def edit_line(self, piece: OldPiece, at: QPointF | None = None):
         """A line of the PDF's own text becomes a text box with its words, ready to change."""
+        item = self.line_to_text(piece)
+        self._ask_pages()
+        self.scene.clearSelection()
+        item.setSelected(True)
+        item.start_edit(at)
+        self.set_tool_quiet("select") if self.tool not in ("edit", "text") else None
+
+    def line_to_text(self, piece: OldPiece, text: str | None = None) -> "TextMark":
+        """A line of the PDF's own text as a text box in its place (with other words, for Replace)."""
         page, d = piece.page, piece.d
         family = d["font"]
         if family not in set(QFontDatabase.families()):
@@ -1828,18 +2424,14 @@ class PdfEditor(QWidget):
         fm = QFontMetricsF(pdfedit.font_for(st), pdfedit.layout_device())
         x, y, w, h = d["rect"]
         top = d["base"] - fm.ascent() - pdfedit.TEXT_MARGIN if d.get("base") else y
-        item = self.add_item(dict(st, kind="text", page=page.index, text=d["text"], was=d["text"],
-                                  x=x - pdfedit.TEXT_MARGIN, y=top, replaces=list(piece.objs),
+        item = self.add_item(dict(st, kind="text", page=page.index, text=d["text"] if text is None else text,
+                                  was=d["text"], x=x - pdfedit.TEXT_MARGIN, y=top, replaces=list(piece.objs),
                                   rtl=bool(d.get("rtl"))), commit=False)
         if d.get("rtl"):
             item.anchor = x + w + pdfedit.TEXT_MARGIN
             item._grown()
         piece.setVisible(False)
-        self._ask_pages()
-        self.scene.clearSelection()
-        item.setSelected(True)
-        item.start_edit(at)
-        self.set_tool_quiet("select") if self.tool not in ("edit", "text") else None
+        return item
 
     def set_tool_quiet(self, key: str):
         self.tool = key
@@ -2087,7 +2679,8 @@ class PdfEditor(QWidget):
     def model(self) -> dict:
         changed = {k: v for k, v in self.fields.items()
                    if any(f["name"] == k and f.get("value", "") != v for f in self.field_list)}
-        return {"items": self.model_items(), "removed": [dict(d) for d in self.removed], "fields": changed}
+        return {"items": self.model_items(), "removed": [dict(d) for d in self.removed], "fields": changed,
+                "order": list(self.order), "turns": {str(k): v for k, v in sorted(self.turns.items()) if v % 360}}
 
     def end_text_edits(self):
         for page in self.pages:
@@ -2138,9 +2731,17 @@ class PdfEditor(QWidget):
         self.fields.update(state["fields"])
         for item in self.field_items:
             item.update()
+        order = state.get("order") or list(range(len(self.pages)))
+        turns = {int(k): v for k, v in (state.get("turns") or {}).items()}
+        if order != self.order or turns != self.turns:
+            self.order, self.turns = list(order), turns
+            self._place_pages()
+            self._fill_thumbs()
         for page in self.pages:
             self._pieces_shown(page)
         self._ask_pages()
+        if self.find_bar.isVisible():
+            self.find_all()
         self._refresh()
 
     # ---- saving
@@ -2156,6 +2757,10 @@ class PdfEditor(QWidget):
                                                     and not d.get("replaces"))]
         edits += [dict(d, kind="remove") for d in state["removed"]]
         params = {"edits": edits, "fields": state["fields"], "password": self.password}
+        if state["order"] != list(range(len(self.pages))):
+            params["order"] = state["order"]
+        if state["turns"]:
+            params["turns"] = state["turns"]
         self.c.start_job(pdfedit.EDIT, [self.src], params)
         self.saved = state
         self._refresh()

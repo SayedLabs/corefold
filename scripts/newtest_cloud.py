@@ -851,6 +851,45 @@ def page_part():
               "Back goes up again")
     step("folders", open_folder)
 
+    def shown():
+        return [page.files.topLevelItem(i).data(0, Qt.UserRole) for i in range(page.files.topLevelItemCount())]
+
+    def browsing():
+        from PySide6.QtWidgets import QPushButton
+        page._double_click(next(page.files.topLevelItem(i) for i in range(page.files.topLevelItemCount())
+                                if page.files.topLevelItem(i).data(0, Qt.UserRole).name == "Photos"), 0)
+        until(lambda: names() == ["2024"], 5)
+        page._double_click(page.files.topLevelItem(0), 0)
+        check(until(lambda: len(page.trail) == 2, 5), "a folder in a folder opens")
+        until(lambda: False, 0.1)
+        crumbs = [b for b in page.where.findChildren(QPushButton) if b.isVisible()]
+        texts = [b.text() for b in crumbs]
+        check(len(crumbs) == 3 and "Photos" in texts[1] and "2024" in texts[2],
+              f"the path at the top has a button for each folder ({texts})")
+        crumbs[0].click()
+        check(until(lambda: len(page.trail) == 0 and len(names()) == 3, 5), "clicking the cloud's name goes to its top")
+        # sorting by a column: folders stay first
+        page.files.sortByColumn(1, Qt.DescendingOrder)
+        got = shown()
+        files = [e for e in got if not e.folder]
+        check(got[0].folder and [e.size for e in files] == sorted((e.size for e in files), reverse=True),
+              f"sorting by size, biggest first, folders first ({[e.name for e in got]})")
+        page.files.sortByColumn(0, Qt.DescendingOrder)
+        got = shown()
+        check(got[0].folder and [e.name.casefold() for e in got if not e.folder] ==
+              sorted((e.name.casefold() for e in got if not e.folder), reverse=True), "sorting by name, Z to A")
+        page.files.sortByColumn(0, Qt.AscendingOrder)
+        # preview: the Viewer's Quick look on the picked file, without opening it
+        first = next(i for i in range(page.files.topLevelItemCount())
+                     if not page.files.topLevelItem(i).data(0, Qt.UserRole).folder)
+        page.files.setCurrentItem(page.files.topLevelItem(first))
+        page.preview_current()
+        check(until(lambda: page.peeker is not None and page.peeker.isVisible(), 5) and
+              str(page.peeker.current()) == page.files.topLevelItem(first).data(0, Qt.UserRole).id,
+              "Preview shows the picked file in Quick look")
+        page.peeker.close_peek(back=False)
+    step("browsing", browsing)
+
     def uploads():
         src = TMP / "to-upload"
         make_files(src, "upload")
@@ -858,10 +897,56 @@ def page_part():
         page.upload([src / "notes.txt"])
         check(len(page.queue) == 1, "a second upload waits its turn")
         check(until(lambda: not page._working() and not page.queue, 15), "both finish")
+        until(lambda: all(t.state == "done" for t in page.transfers), 5)
+        states = [t.state for t in page.transfers]
+        check(page.transfers_btn.isVisible() and states.count("done") >= 2 and page.transfer_list.count() >= 2,
+              f"both are in the list of transfers, done ({states})")
+        page._toggle_transfers()
+        until(lambda: False, 0.2)
+        check(page.transfer_list.isVisible(), "the list of transfers opens")
+        shot = f"cloud-transfers-{LANG}-{LOOK}.png"
+        check(w.grab().save(str(OUT / shot)), f"picture saved: {shot}")
+        page._clear_finished()
+        check(not page.transfers and not page.transfers_btn.isVisible(), "the finished ones can be cleared")
         check(same_tree(src, od / "to-upload") and (od / "notes (2).txt").exists(),
               f"they're in the folder ({page.status.text()})")
         check(until(lambda: "to-upload" in names(), 5), "and listed")
     step("uploads", uploads)
+
+    def adding():
+        page._fill_add_menu()
+        texts = [a.text() for a in page.add_menu.actions()]
+        check(page.add_btn.isVisible() and any("…" in t for t in texts),
+              f"Add a cloud is always there, with adding a folder ({texts})")
+        check(until(lambda: all(a.extra.get("measured") for a in page.accounts), 15),
+              "every account's space is looked at")
+        od_acc = page.accounts[0]
+        check(cloudpage.space_text(od_acc) != "" and od_acc.used > 0, f"a folder says how much it uses "
+                                                                      f"({cloudpage.space_text(od_acc)})")
+        online = page.accounts[-1]
+        uses = cloudpage.tr("Uses {size}", size=cloudpage.human_size(online.used))
+        check(cloudpage.space_text(online) != uses and online.total > online.used,
+              f"an online account says how much is free ({cloudpage.space_text(online)})")
+        extra = TMP / "home" / "Synced stuff"
+        make_files(extra, "extra")
+        from unittest import mock as _m
+        with _m.patch.object(cloudpage.QFileDialog, "getExistingDirectory", return_value=str(extra)):
+            page.pick_folder()
+        added = [a for a in page.accounts if a.local and Path(a.local) == extra]
+        check(len(added) == 1 and added[0].extra.get("added") and page.account is added[0],
+              f"a folder can be added by hand, and is opened ({page.status.text()})")
+        check(until(lambda: "notes.txt" in names(), 5), f"its files are shown ({names()})")
+        page.look_for_folders()
+        check(until(lambda: not page.looking and any(a.local and Path(a.local) == extra for a in page.accounts), 10),
+              "it's still there after looking again")
+        until(lambda: False, 0.3)
+        shot = f"cloud-added-{LANG}-{LOOK}.png"
+        check(w.grab().save(str(OUT / shot)), f"picture saved: {shot}")
+        page.remove_folder(added[0])
+        check(not any(a.local and Path(a.local) == extra for a in page.accounts) and extra.exists(),
+              "Remove from the list takes it off (its files stay)")
+        page.account_list.setCurrentRow(0)
+    step("adding a folder", adding)
 
     def other_accounts():
         online = page.accounts[-1]

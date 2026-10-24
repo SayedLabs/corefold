@@ -94,6 +94,8 @@ class Account:
 
     @property
     def title(self) -> str:
+        if self.service not in SERVICES:  # (a folder added by hand that isn't any service's: its own name)
+            return self.who
         name = SERVICES.get(self.service, self.service)
         return name if self.who in ("", name) else f"{name} · {self.who}"
 
