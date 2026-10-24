@@ -794,8 +794,6 @@ STRINGS: dict[str, str] = {
     "Let go over \"PNG\", \"Resize\", \"Make smaller\"… The new file appears next to the original, which is never changed. Let go in the middle to cancel.": "أفلت فوق «PNG» أو «تغيير الحجم» أو «تصغير»… يظهر الملف الجديد بجانب الأصلي الذي لا يتغير أبدًا. أفلت في المنتصف للإلغاء.",
     "Or right-click it": "أو انقر عليه بزر الماوس الأيمن",
     "Right-click any file or folder and choose Corefold. On Windows 11 it's under \"Show more options\".": "انقر بزر الماوس الأيمن على أي ملف أو مجلد واختر كورفولد. في ويندوز 11 تجده تحت «إظهار المزيد من الخيارات».",
-    "Clean up apps too": "نظّف التطبيقات أيضًا",
-    "The Apps page uninstalls programs and then removes what they leave behind, with a backup you can put back.": "تزيل صفحة التطبيقات البرامج ثم تحذف ما تتركه خلفها، مع نسخة احتياطية يمكنك استعادتها.",
     "Make it yours": "اجعله على ذوقك",
     "Change the colours, the wheel's shape and size, the sounds and which options show up in Settings. Each tool has its own tab there.": "غيّر الألوان وشكل العجلة وحجمها والأصوات والخيارات اللي تظهر من الإعدادات. لكل أداة تبويب خاص فيها هناك.",
     "Welcome": "مرحبًا",
@@ -2472,4 +2470,6 @@ STRINGS: dict[str, str] = {
     "Off. It isn't loaded, so it uses nothing.": 'مطفّى. ما ينحمّل، فما ياخذ شي من جهازك.',
     'No tools switched on here yet.': 'ما فيه أدوات مشغّلة هنا للحين.',
     '{count} more you can switch on': '{count} غيرها تقدر تشغّلها',
+    'Everything in four sections': 'كل شي في أربعة أقسام',
+    'Files, Images & screen, Computer and Quick tools: open one to see its tools. Switch on only the ones you use, so Corefold stays light.': 'الملفات، والصور والشاشة، والجهاز، والأدوات السريعة: افتح أي قسم وتلقى أدواته. شغّل بس اللي تستخدمها، فيظل كورفولد خفيف.',
 }

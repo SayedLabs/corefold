@@ -572,8 +572,6 @@ STRINGS: dict[str, str] = {
     "Let go over \"PNG\", \"Resize\", \"Make smaller\"… The new file appears next to the original, which is never changed. Let go in the middle to cancel.": "\"PNG\", \"Boyutlandır\", \"Küçült\"… üzerine bırakın. Yeni dosya, hiç değiştirilmeyen orijinalin yanında belirir. İptal etmek için ortada bırakın.",
     "Or right-click it": "Ya da sağ tıklayın",
     "Right-click any file or folder and choose Corefold. On Windows 11 it's under \"Show more options\".": "Herhangi bir dosya veya klasöre sağ tıklayıp Corefold'yı seçin. Windows 11'de \"Daha fazla seçenek göster\" altındadır.",
-    "Clean up apps too": "Uygulamaları da temizleyin",
-    "The Apps page uninstalls programs and then removes what they leave behind, with a backup you can put back.": "Uygulamalar sayfası programları kaldırır ve ardından geride bıraktıklarını siler; geri koyabileceğiniz bir yedekle.",
     "Make it yours": "Kendinize göre ayarlayın",
     "Change the colours, the wheel's shape and size, the sounds and which options show up in Settings. Each tool has its own tab there.": "Renkleri, çarkın şeklini ve boyutunu, sesleri ve görünen seçenekleri Ayarlar'dan değiştirin. Orada her aracın kendi sekmesi var.",
     "Welcome": "Hoş geldiniz",
@@ -2395,4 +2393,6 @@ STRINGS: dict[str, str] = {
     "Off. It isn't loaded, so it uses nothing.": 'Kapalı. Yüklenmez, hiçbir şey kullanmaz.',
     'No tools switched on here yet.': 'Burada henüz açık araç yok.',
     '{count} more you can switch on': 'Açabileceğiniz {count} araç daha',
+    'Everything in four sections': 'Her şey dört bölümde',
+    'Files, Images & screen, Computer and Quick tools: open one to see its tools. Switch on only the ones you use, so Corefold stays light.': 'Dosyalar, Görüntü ve ekran, Bilgisayar ve Hızlı araçlar: araçlarını görmek için birini açın. Yalnızca kullandıklarınızı açın, böylece Corefold hafif kalır.',
 }
