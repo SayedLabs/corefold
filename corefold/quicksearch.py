@@ -349,7 +349,8 @@ def launch(app: App, admin: bool = False) -> bool:
         return False
     try:
         if app.shell:
-            subprocess.Popen(["explorer.exe", "shell:AppsFolder\\" + app.target], close_fds=True)
+            from .core import system_tool
+            subprocess.Popen([system_tool("explorer.exe"), "shell:AppsFolder\\" + app.target], close_fds=True)
         elif admin and app.admin:
             os.startfile(app.target, "runas")  # type: ignore[attr-defined]
         else:
@@ -983,7 +984,8 @@ def open_found(f: Found, reveal: bool = False) -> bool:
         return False
     if reveal:
         if IS_WIN:
-            subprocess.Popen(f'explorer /select,"{f.path}"')
+            from .core import system_tool
+            subprocess.Popen(f'"{system_tool("explorer.exe")}" /select,"{f.path}"')
         return True
     from .quick import open_target
     return open_target(f.path)

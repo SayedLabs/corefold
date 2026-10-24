@@ -610,7 +610,8 @@ class ScanPage(QWidget):
             os.startfile(SECURITY_LINK)
         except (OSError, AttributeError):
             try:
-                subprocess.Popen(["explorer.exe", SECURITY_LINK])
+                from .core import system_tool
+                subprocess.Popen([system_tool("explorer.exe"), SECURITY_LINK])
             except OSError:
                 log.warning("couldn't open Windows Security")
 
