@@ -1826,6 +1826,7 @@ class MainWindow(QWidget):
             while self.strip_row.count():
                 item = self.strip_row.takeAt(0)
                 if item.widget():
+                    item.widget().hide()  # (not drawn again at its old place before it goes)
                     item.widget().deleteLater()
             self.strip_tabs = {}
             t = self.c.theme
@@ -1834,8 +1835,10 @@ class MainWindow(QWidget):
             first.setIconSize(QSize(16, 16))
             self.strip_tabs[sec.page] = first
             for tool in [t for t in self.tools_on if all_tools.SECTION_OF[t.id] is sec]:
-                self.strip_tabs[tool.page] = button(tr(tool.nav), "stripTab",
-                                                    lambda _=False, n=tool.page: self.open_page(n))
+                b = button(tr(tool.nav), "stripTab", lambda _=False, n=tool.page: self.open_page(n))
+                b.setIcon(icons.icon(tool.icon, t.muted))
+                b.setIconSize(QSize(16, 16))
+                self.strip_tabs[tool.page] = b
             for b in self.strip_tabs.values():
                 b.setCheckable(True)
                 self.strip_row.addWidget(b)
@@ -3781,8 +3784,8 @@ class MainWindow(QWidget):
         for b, name in self.quick_buttons:
             b.setIcon(icons.icon(name, t.accent if not t.dark else t.text))
         self.settings_list.viewport().update()
-        if self.strip_section is not None:  # (its icon follows the text colour)
-            self.strip_tabs[self.strip_section.page].setIcon(icons.icon(self.strip_section.icon, t.text))
+        self.strip_section = None  # (made again: its icons follow the text colour)
+        self._sync_section_strip(self.current_page())
         dpr = self.devicePixelRatioF()
         for glyph, name in self._stat_glyphs:
             glyph.setPixmap(icons.pixmap(name, 22, t.accent, dpr))
