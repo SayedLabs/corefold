@@ -1847,6 +1847,9 @@ def remove_on_restart(paths: list[str]) -> int:
     return done
 
 
+RECYCLE_FLAGS = 0x04 | 0x10 | 0x40 | 0x400 | 0x4000  # (FOF_WANTNUKEWARNING: asks before deleting for good)
+
+
 class SHFILEOPSTRUCTW(ctypes.Structure):
     _fields_ = [("hwnd", ctypes.c_void_p), ("wFunc", ctypes.c_uint), ("pFrom", ctypes.c_wchar_p),
                 ("pTo", ctypes.c_wchar_p), ("fFlags", ctypes.c_ushort), ("fAnyOperationsAborted", ctypes.c_int),
@@ -1858,7 +1861,10 @@ def recycle(path: Path) -> bool:
     op = SHFILEOPSTRUCTW()
     op.wFunc = 3  # FO_DELETE
     op.pFrom = str(path) + "\0"  # the list ends with two nulls
-    op.fFlags = 0x04 | 0x10 | 0x40 | 0x400  # silent, no questions, allow undo (Recycle Bin), no error windows
+    # silent, no questions, to the Recycle Bin, no error windows, and ask before anything would be deleted for
+    # good instead: a file too big for the Recycle Bin, or on a drive that has none (a USB stick, a network
+    # folder), otherwise goes for good without a word
+    op.fFlags = RECYCLE_FLAGS
     ok = ctypes.windll.shell32.SHFileOperationW(ctypes.byref(op)) == 0 and not op.fAnyOperationsAborted
     return ok and not path.exists()
 

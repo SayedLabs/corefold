@@ -5,7 +5,11 @@ Nothing is decided without the person seeing it first: plan() says where every f
 sort() only moves what the plan says. Files are only ever renamed into a folder next to them (never
 copied, never deleted, never overwritten), and the last sort can be undone, even after a restart.
 Left alone: folders, shortcuts, hidden and system files, files still downloading, files a program has
-open, and kinds of file Corefold doesn't know. Windows' and programs' own folders aren't sorted at all."""
+open, and kinds of file Corefold doesn't know. Windows' and programs' own folders aren't sorted at all.
+
+Every move is written down before it's made (organizer-journal.jsonl), so a sort cut short by a crash or a
+power cut can still be undone, and Undo only moves a file back if it's still the file that was moved (same
+size and time, and the same file on the disk): a different file that took its place later stays where it is."""
 from __future__ import annotations
 
 import json
@@ -19,6 +23,7 @@ from pathlib import Path
 log = logging.getLogger("corefold")
 
 STATE_FILE = "organizer.json"
+JOURNAL_FILE = "organizer-journal.jsonl"
 
 # kind: (its folder's English name, shown and named through the language's table; its file types)
 KINDS = {
@@ -316,6 +321,39 @@ def loose_count(folder: Path, known: bool = False) -> int:
 
 # ----------------------------------------------------------------------------- sorting and undoing
 
+def _sort_files(p: Plan, todo: list[Item], journal: "_Journal", moves: list, used: set, taken: set, res: Result,
+                progress):
+    for n, item in enumerate(todo, 1):
+        src = item.path
+        folder = p.folders[item.kind]
+        try:
+            st = os.lstat(src)
+        except OSError:
+            res.failed.append((src, "gone"))
+            continue
+        dst = item.target if item.target is not None else folder / src.name
+        if os.path.lexists(dst) or dst.parent != folder:  # (something took its name since the plan)
+            dst = _free_name(folder, src.name, taken)
+        move = [str(src), str(dst), st.st_size, st.st_mtime_ns]
+        journal.moving(move)
+        try:
+            if os.name != "nt" and os.path.lexists(dst):  # (Windows itself never replaces a file on rename)
+                raise FileExistsError(dst)
+            os.rename(src, dst)
+        except OSError as e:
+            journal.failed()
+            log.info("organizer: couldn't move %s: %s", src, e)
+            res.failed.append((src, "in_use" if getattr(e, "winerror", 0) in (32, 33) else "error"))
+            continue
+        move.append(_file_id(dst))
+        journal.moved(move[-1])
+        moves.append(move)
+        used.add(item.kind)
+        res.moved += 1
+        if progress and n % 200 == 0:
+            progress((n, len(todo)))
+
+
 def sort(p: Plan, progress=None) -> Result:
     """Moves what the plan says (each file is checked again just before). Kept so it can be undone."""
     res = Result()
@@ -330,38 +368,20 @@ def sort(p: Plan, progress=None) -> Result:
     before = state.get("last")  # (kept if this sort ends up moving nothing)
     record = {"folder": str(p.folder), "time": time.time(), "moves": moves, "made": made}
     state["last"] = record
+    journal = _Journal(record)
     for kind in {i.kind for i in todo}:
         f = p.folders[kind]
         if not f.is_dir():
             try:
+                journal.made(f)  # (written down first: a folder made just before a crash is still taken away)
                 f.mkdir()
                 made.append(str(f))
             except OSError as e:
                 log.warning("couldn't make %s: %s", f, e)
-    for n, item in enumerate(todo, 1):
-        src = item.path
-        folder = p.folders[item.kind]
-        if not os.path.lexists(src):
-            res.failed.append((src, "gone"))
-            continue
-        dst = item.target if item.target is not None else folder / src.name
-        if os.path.lexists(dst) or dst.parent != folder:  # (something took its name since the plan)
-            dst = _free_name(folder, src.name, taken)
-        try:
-            if os.name != "nt" and os.path.lexists(dst):  # (Windows itself never replaces a file on rename)
-                raise FileExistsError(dst)
-            os.rename(src, dst)
-        except OSError as e:
-            log.info("organizer: couldn't move %s: %s", src, e)
-            res.failed.append((src, "in_use" if getattr(e, "winerror", 0) in (32, 33) else "error"))
-            continue
-        moves.append([str(src), str(dst)])
-        used.add(item.kind)
-        res.moved += 1
-        if n % 200 == 0:
-            _save(state)
-            if progress:
-                progress((n, len(todo)))
+    try:
+        _sort_files(p, todo, journal, moves, used, taken, res, progress)
+    finally:
+        journal.close()
     for f in list(made):  # (a folder made for files that all stayed)
         if not any(m[1].startswith(f + os.sep) for m in moves):
             try:
@@ -379,6 +399,7 @@ def sort(p: Plan, progress=None) -> Result:
         else:
             state.pop("last", None)
     _save(state)
+    journal.finish()
     return res
 
 
@@ -402,7 +423,8 @@ def auto_sort(folder: Path, days: float = 1.0) -> Result:
 
 
 def last_sort() -> dict | None:
-    """The last sort that can still be undone: {"folder", "time", "moves": [[from, to]…], "made": […]}."""
+    """The last sort that can still be undone: {"folder", "time", "moves": [[from, to, size, time, id]…],
+    "made": […]}."""
     last = _load().get("last")
     return last if last and last.get("moves") else None
 
@@ -413,6 +435,7 @@ class UndoResult:
     gone: int = 0                                     # moved or deleted since: nothing to put back
     failed: list[Path] = field(default_factory=list)  # in use: kept for another Undo
     renamed: int = 0                                  # put back as "name (2)" (its old name was taken)
+    changed: int = 0                                  # a different file is there now: left alone
 
 
 def undo(progress=None) -> UndoResult:
@@ -425,9 +448,13 @@ def undo(progress=None) -> UndoResult:
     left = []
     moves = last.get("moves", [])
     taken: set[str] = set()
-    for n, (src, dst) in enumerate(reversed(moves), 1):
+    for n, move in enumerate(reversed(moves), 1):
+        src, dst = move[0], move[1]
         if not os.path.lexists(dst):
             res.gone += 1
+            continue
+        if not _same_file(dst, move):
+            res.changed += 1
             continue
         back = Path(src)
         if os.path.lexists(back):
@@ -441,11 +468,15 @@ def undo(progress=None) -> UndoResult:
         except OSError as e:
             log.info("organizer: couldn't put back %s: %s", dst, e)
             res.failed.append(Path(dst))
-            left.append([src, dst])
+            left.append(move)
             if back != Path(src):
                 res.renamed -= 1
-        if progress and n % 200 == 0:
-            progress((n, len(moves)))
+        if n % 200 == 0:
+            # (a crash part-way: what's still to do, and what stayed, can be undone again)
+            last["moves"] = moves[:len(moves) - n] + list(reversed(left))
+            _save(state)
+            if progress:
+                progress((n, len(moves)))
     made = []
     for f in last.get("made", []):
         try:
@@ -481,11 +512,170 @@ def _state_path() -> Path:
 
 
 def _load() -> dict:
+    state = _read_state()
+    if _Journal.open_now == 0 and _journal_path().exists():
+        state = _recover(state)
+    return state
+
+
+def _read_state() -> dict:
     try:
         data = json.loads(_state_path().read_text(encoding="utf-8"))
         return data if isinstance(data, dict) else {}
     except (OSError, ValueError):
         return {}
+
+
+# ----------------------------------------------------------------------------- the journal
+
+def _journal_path() -> Path:
+    from .settings import CONFIG_DIR
+    return CONFIG_DIR / JOURNAL_FILE
+
+
+def _file_id(path) -> int:
+    """The file's number on its disk (0 where the disk has none that lasts, like FAT32 drives)."""
+    try:
+        return os.lstat(path).st_ino or 0
+    except OSError:
+        return 0
+
+
+def _same_file(path, move: list) -> bool:
+    """Still the file that was moved there: the same size and time (a rename keeps both), and the same file
+    on the disk. Moves written down before 1.10 have neither, so they're taken as they are."""
+    if len(move) < 4:
+        return True
+    try:
+        st = os.lstat(path)
+    except OSError:
+        return False
+    if stat.S_ISDIR(st.st_mode) or st.st_size != move[2] or st.st_mtime_ns != move[3]:
+        return False
+    return len(move) < 5 or not move[4] or not st.st_ino or st.st_ino == move[4]
+
+
+class _Journal:
+    """Each move written down just before it's made, one line each. Lines reach Windows straight away (so a
+    crash of Corefold loses none), and the disk itself every second (a power cut loses at most that)."""
+    open_now = 0  # (a sort is running: its journal isn't one left by a crash)
+
+    def __init__(self, record: dict):
+        _Journal.open_now += 1
+        self.counted = True
+        self.fh = None
+        self.synced = time.monotonic()
+        try:
+            path = _journal_path()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self.fh = open(path, "w", encoding="utf-8")
+            self._write({"sort": {"folder": record["folder"], "time": record["time"]}}, sync=True)
+        except OSError as e:
+            log.warning("couldn't start the organizer's journal: %s", e)
+            self.fh = None
+
+    def _write(self, line: dict, sync: bool = False):
+        if self.fh is None:
+            return
+        try:
+            self.fh.write(json.dumps(line, ensure_ascii=False) + "\n")
+            self.fh.flush()
+            if sync or time.monotonic() - self.synced > 1:
+                os.fsync(self.fh.fileno())
+                self.synced = time.monotonic()
+        except OSError as e:
+            log.warning("couldn't write the organizer's journal: %s", e)
+
+    def made(self, folder: Path):
+        self._write({"made": str(folder)})
+
+    def moving(self, move: list):
+        self._write({"move": move})
+
+    def moved(self, file_id: int):
+        self._write({"ok": file_id})
+
+    def failed(self):
+        self._write({"no": 1})
+
+    def close(self):
+        if self.fh is not None:
+            try:
+                self.fh.close()
+            except OSError:
+                pass
+            self.fh = None
+        if self.counted:
+            _Journal.open_now -= 1
+            self.counted = False
+
+    def finish(self):
+        """The sort is kept in organizer.json now: the journal isn't needed any more."""
+        self.close()
+        try:
+            _journal_path().unlink()
+        except OSError:
+            pass
+
+
+def _recover(state: dict) -> dict:
+    """A sort that was cut short (Corefold or Windows stopped part-way): what it moved becomes the last sort,
+    so Undo puts it back. A move written down but maybe not made counts only if the file is there."""
+    record, move = None, None
+    moves: list[list] = []
+    made: list[str] = []
+
+    def settle(m, file_id=None):
+        if m is None:
+            return
+        if file_id is None:  # (cut short between writing it down and the answer)
+            if not (os.path.lexists(m[1]) and not os.path.lexists(m[0]) and _same_file(m[1], m)):
+                return
+            file_id = _file_id(m[1])
+        moves.append(m[:4] + [file_id])
+
+    try:
+        with open(_journal_path(), encoding="utf-8") as fh:
+            for raw in fh:
+                try:
+                    line = json.loads(raw)
+                except ValueError:  # (the last line, half-written)
+                    break
+                if not isinstance(line, dict):
+                    continue
+                if "sort" in line:
+                    record = line["sort"]
+                elif "made" in line:
+                    made.append(str(line["made"]))
+                elif "move" in line:
+                    settle(move)
+                    m = line["move"]
+                    move = m if isinstance(m, list) and len(m) >= 4 else None
+                elif "ok" in line:
+                    settle(move, int(line["ok"] or 0))
+                    move = None
+                elif "no" in line:
+                    move = None
+            settle(move)
+    except OSError as e:
+        log.warning("couldn't read the organizer's journal: %s", e)
+        return state
+    if record is not None and moves:
+        log.info("organizer: a sort was cut short; %d moves can be undone", len(moves))
+        state["last"] = {"folder": record.get("folder", ""), "time": record.get("time", 0), "moves": moves,
+                         "made": [f for f in made if os.path.isdir(f)], "cut_short": True}
+    else:
+        for f in made:  # (made just before the crash, nothing in it)
+            try:
+                os.rmdir(f)
+            except OSError:
+                pass
+    _save(state)
+    try:
+        _journal_path().unlink()
+    except OSError:
+        pass
+    return state
 
 
 def _save(state: dict):

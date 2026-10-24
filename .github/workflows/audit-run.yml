@@ -23,3 +23,21 @@ jobs:
         run: |
           & "$env:ProgramFiles\7-Zip\7z.exe" | Select-Object -First 2
           $env:PYTHONIOENCODING = "utf-8"; python scripts/probe7z.py
+
+  audit:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install
+        shell: pwsh
+        run: python -m pip install --quiet -r requirements.txt
+      - name: audittest
+        shell: pwsh
+        run: |
+          $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
+          $env:PYTHONIOENCODING = "utf-8"
+          python scripts/audittest.py

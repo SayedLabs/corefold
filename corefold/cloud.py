@@ -67,6 +67,7 @@ class Entry:
     modified: float = 0.0
     parent: str = ""
     online: bool = False     # a file in a folder on this PC that is kept online only (opening it downloads it)
+    hash: str = ""           # the service's own check of the file's content ("quickxor:…" or "dropbox:…")
 
 
 @dataclass
@@ -475,24 +476,114 @@ def local_name(name: str) -> str:
     return ("." if dots and rest else "") + rest or "file"
 
 
-def _stream_to(resp, target: Path, size: int, progress, cancel, host: str = ""):
-    """Saves a download. The file gets Windows' "from the internet" mark, like one saved by a browser, so
+class QuickXorHash:
+    """OneDrive's check of a file's content (Microsoft's "quickXorHash"): each byte is XORed into a 160-bit
+    ring, 11 bits further along for each byte, and the length is XORed into the last 8 bytes."""
+    MASK = (1 << 160) - 1
+
+    def __init__(self):
+        self.h, self.shift, self.length = 0, 0, 0
+
+    def update(self, data: bytes):
+        n = len(data)
+        if not n:
+            return
+        # the bytes that land on the same place (every 160th) are XORed together first, all at once
+        rows = data + bytes(-n % 160)
+        while len(rows) > 160:
+            half = len(rows) // 320 * 160
+            folded = (int.from_bytes(rows[:half], "little") ^ int.from_bytes(rows[half:2 * half], "little"))
+            rows = folded.to_bytes(half, "little") if len(rows) == 2 * half else \
+                (folded ^ int.from_bytes(rows[2 * half:], "little")).to_bytes(half, "little")
+        for i in range(min(n, 160)):
+            if rows[i]:
+                k = (self.shift + 11 * i) % 160
+                self.h ^= ((rows[i] << k) | (rows[i] >> (160 - k))) & self.MASK
+        self.shift = (self.shift + 11 * (n % 160)) % 160
+        self.length += n
+
+    def digest(self) -> str:
+        out = bytearray(self.h.to_bytes(20, "little"))
+        for i, b in enumerate(self.length.to_bytes(8, "little")):
+            out[12 + i] ^= b
+        return base64.b64encode(bytes(out)).decode("ascii")
+
+
+class DropboxHash:
+    """Dropbox's "content_hash": SHA-256 of each 4 MB block, then SHA-256 of those."""
+    BLOCK = 4 * 1024 * 1024
+
+    def __init__(self):
+        self.blocks, self.block, self.left = hashlib.sha256(), hashlib.sha256(), self.BLOCK
+
+    def update(self, data: bytes):
+        view = memoryview(data)
+        while view:
+            piece = view[:self.left]
+            self.block.update(piece)
+            self.left -= len(piece)
+            view = view[len(piece):]
+            if not self.left:
+                self.blocks.update(self.block.digest())
+                self.block, self.left = hashlib.sha256(), self.BLOCK
+
+    def digest(self) -> str:
+        if self.left != self.BLOCK:
+            self.blocks.update(self.block.digest())
+            self.block, self.left = hashlib.sha256(), self.BLOCK
+        return self.blocks.hexdigest()
+
+
+def _checker(check: str):
+    kind, _, want = check.partition(":")
+    if kind == "quickxor":
+        return QuickXorHash(), want
+    if kind == "dropbox":
+        return DropboxHash(), want.lower()
+    return None, ""
+
+
+CUT_OFF = "the download was cut off; try again"
+NOT_THE_SAME = "the downloaded file isn't the same as the one in the account; try again"
+
+
+def _stream_to(resp, target: Path, size: int, progress, cancel, host: str = "", check: str = ""):
+    """Saves a download. It only takes the file's place once all of it has arrived and matches what the
+    service says (its size, and its own content check), so a dropped connection never leaves a cut-off file
+    that looks whole. The file gets Windows' "from the internet" mark, like one saved by a browser, so
     Windows still warns before running it and Office opens it in Protected View."""
+    import http.client
     from .core import mark_from_internet
     tmp = target.with_name(target.name + ".corefold-part")
     done = 0
+    hasher, want = _checker(check)
+    try:
+        sent = int(resp.headers.get("Content-Length") or -1)
+    except (AttributeError, TypeError, ValueError):
+        sent = -1
     try:
         with resp, open(tmp, "wb") as f:
             while True:
                 if cancel is not None and cancel.is_set():
                     raise CloudError("cancelled")
-                chunk = resp.read(256 * 1024)
+                try:
+                    chunk = resp.read(256 * 1024)
+                except (http.client.HTTPException, ConnectionError, TimeoutError, socket.timeout) as e:
+                    raise CloudError(CUT_OFF) from e
                 if not chunk:
                     break
                 f.write(chunk)
+                if hasher is not None:
+                    hasher.update(chunk)
                 done += len(chunk)
                 if progress is not None:
                     progress(done, size)
+        if (size and done != size) or (sent >= 0 and done != sent):
+            log.warning("cloud download cut off: %d of %d bytes (sent as %d)", done, size, sent)
+            raise CloudError(CUT_OFF)
+        if hasher is not None and want and hasher.digest() != want:
+            log.warning("cloud download doesn't match the service's check (%s)", check.partition(":")[0])
+            raise CloudError(NOT_THE_SAME)
         os.replace(tmp, target)
         mark_from_internet(target, host)
     finally:
@@ -523,9 +614,11 @@ class OneDrive(Client):
 
     def _entry(self, d: dict) -> Entry:
         parent = d.get("parentReference", {}) or {}
+        qx = ((d.get("file") or {}).get("hashes") or {}).get("quickXorHash", "")
         return Entry(d.get("name", ""), "folder" in d, d.get("id", ""), (parent.get("path", "") or "")
                      .split("root:", 1)[-1] + "/" + d.get("name", ""), int(d.get("size", 0) or 0),
-                     _iso(d.get("lastModifiedDateTime", "")), parent.get("id", ""))
+                     _iso(d.get("lastModifiedDateTime", "")), parent.get("id", ""),
+                     hash="quickxor:" + qx if qx else "")
 
     def list(self, folder):
         where = f"items/{folder.id}" if folder is not None else "root"
@@ -539,7 +632,7 @@ class OneDrive(Client):
 
     def download(self, entry, target, progress=None, cancel=None):
         resp = self.call("GET", f"{self.API}/me/drive/items/{entry.id}/content", raw=True, timeout=120)
-        _stream_to(resp, target, entry.size, progress, cancel, HOSTS["onedrive"])
+        _stream_to(resp, target, entry.size, progress, cancel, HOSTS["onedrive"], entry.hash)
 
     def upload(self, src, folder, progress=None, cancel=None):
         parent = f"items/{folder.id}" if folder is not None else "root"
@@ -619,7 +712,8 @@ class Dropbox(Client):
         folder = d.get(".tag") == "folder"
         path = d.get("path_display", "")
         return Entry(d.get("name", ""), folder, d.get("path_lower", path.lower()), path, int(d.get("size", 0) or 0),
-                     _iso(d.get("server_modified", "")), path.rsplit("/", 1)[0].lower())
+                     _iso(d.get("server_modified", "")), path.rsplit("/", 1)[0].lower(),
+                     hash="dropbox:" + d["content_hash"] if d.get("content_hash") else "")
 
     def list(self, folder):
         page = self.call("POST", f"{self.API}/files/list_folder",
@@ -633,7 +727,7 @@ class Dropbox(Client):
     def download(self, entry, target, progress=None, cancel=None):
         resp = self.call("POST", f"{self.CONTENT}/files/download", raw=True, timeout=120, tries=3,
                          headers={"Dropbox-API-Arg": json.dumps({"path": entry.id}, ensure_ascii=True)})
-        _stream_to(resp, target, entry.size, progress, cancel, HOSTS["dropbox"])
+        _stream_to(resp, target, entry.size, progress, cancel, HOSTS["dropbox"], entry.hash)
 
     def upload(self, src, folder, progress=None, cancel=None):
         base = folder.id if folder is not None else ""

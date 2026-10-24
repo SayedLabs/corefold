@@ -626,6 +626,9 @@ class OrganizerPage(QWidget):
                                    count=result.renamed)
             if result.gone:
                 text += "\n" + tr("Moved or deleted since, so not put back: {count}", count=result.gone)
+            if result.changed:
+                text += "\n" + tr("A different file is in its place now, so it was left alone: {count}",
+                                   count=result.changed)
             if result.failed:
                 text += "\n" + tr("Open in a program: {count}. Close it and press Undo again.",
                                    count=len(result.failed))
