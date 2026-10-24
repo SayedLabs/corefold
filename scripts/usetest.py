@@ -704,16 +704,6 @@ def capture():
         grab(ed, "capture-editor")
         timed("Save in the editor (written on a thread)", ed.save, 1.0, wait=lambda: not ed.dirty)
         ed.close()
-    c.settings.cap_countdown = False
-    if hasattr(cap, "record"):
-        from corefold.capture import Recorder, new_name, videos_folder
-        scr = QGuiApplication.primaryScreen().geometry()
-        rec = Recorder(scr, new_name(videos_folder(), ".mp4", "Recording"))
-        timed("start recording the whole screen", rec.start, 2)
-        settle(6)
-        timed("stop recording (the video is saved)", rec.stop, 6)
-        size = rec.out.stat().st_size if rec.out.exists() else 0
-        check(size > 20000, f"a 6-second full-screen recording ({size // 1024} KB) {rec.error}")
 
 
 def space():

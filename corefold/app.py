@@ -248,6 +248,7 @@ class Controller(QObject):
         self.server: QLocalServer | None = None
         self.icon = icon
         self.settings = Settings.load()
+        settings_mod.ACTIVE = self.settings
         set_background_priority(self.settings.low_priority)
         self.history = History()
         self.theme = self._make_theme()
@@ -927,7 +928,7 @@ class Controller(QObject):
             self.capture = None
 
     def _cap_settings(self) -> tuple:
-        return self.settings.cap_shortcut, self.settings.cap_record_shortcut
+        return (self.settings.cap_shortcut,)
 
     def _awake_tool(self):
         """Corefold Awake's tray menu is only there while it's in use (and removing it lets the PC sleep)."""
