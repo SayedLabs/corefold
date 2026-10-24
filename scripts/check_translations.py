@@ -93,7 +93,7 @@ def table_texts() -> dict[str, str]:
     add([settings.CLIP_SHORTCUTS["off"]], "CLIP_SHORTCUTS")
     from corefold import capview
     add([text for _, text in capview.TOOLS], "capview.TOOLS")
-    for name in ("CAP_AFTER", "CAP_FPS", "CAP_DELAY", "PLAYER_SKIP", "PLAYER_WHEEL", "VIEWER_SORTS"):
+    for name in ("CAP_AFTER", "CAP_DELAY", "PLAYER_SKIP", "PLAYER_WHEEL", "VIEWER_SORTS"):
         add(getattr(settings, name).values(), name)
     from corefold import clipboard, player, videotools
     add([text for _, text in clipboard.CHANGES], "clipboard.CHANGES")
