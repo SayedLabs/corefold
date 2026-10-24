@@ -376,7 +376,7 @@ for code in ["ar", "fr", "es", "tr", "system", "en", "ar", "en"]:
           f"{code}: the window stays open on the same page ({w.current_page()})")
     check(c.settings.language == code and st.Settings.load().language == code, f"{code}: saved")
     check(qapp.layoutDirection() == (Qt.RightToLeft if want == "ar" else Qt.LeftToRight), f"{code}: reading direction")
-    check(c.menu.actions()[0].text() == words(want, "Open Corefold"), f"{code}: the tray menu is in {want}")
+    check(next(a for a in c.menu.actions() if a.isVisible()).text() == words(want, "Open Corefold"), f"{code}: the tray menu is in {want}")
     home = w.nav.item(w.nav_rows.index("Home")).text()
     check(home == words(want, "Home"), f"{code}: the window is in {want} ({home!r})")
     w.open_page("General")  # (a Settings page is made the first time it's opened)

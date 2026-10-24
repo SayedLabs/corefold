@@ -72,6 +72,7 @@ SOURCE_WINDOW_CLASSES = {"CabinetWClass", "ExploreWClass", "Progman", "WorkerW"}
 DRAG_THRESHOLD_PX = 14
 UPDATE_JOB_ID = -1  # the update download shows in the same popup as conversions
 UPDATE_CHECK_EVERY_MS = 6 * 3600 * 1000
+UPDATE_RETELL_MS = 30 * 60_000  # full screen when a new version was found: say it this much later
 LIGHT_TIDY_MS = 4_000          # memory a finished job used goes back this soon
 IDLE_TIDY_MS = 45_000          # hand memory back to Windows this long after the last job
 FREE_WINDOW_AFTER_MS = 90_000  # free the main window this long after it's closed
@@ -302,6 +303,8 @@ class Controller(QObject):
 
         self.tray = QSystemTrayIcon(icon)
         self.tray.activated.connect(self._tray_clicked)
+        self.tray.messageClicked.connect(self._tray_message_clicked)
+        self.update_message_at = 0.0  # when the Windows notice about a new version was shown
         self.clip = None     # Corefold Clipboard, while it's in use
         self.capture = None  # Corefold Capture, while it's in use
         self.quick = None    # the quick menu and wheel, while one of them (or the on-top shortcut) is on
@@ -316,7 +319,6 @@ class Controller(QObject):
         self.update_info: updater.UpdateInfo | None = None
         self.update_error = ""
         self.update_cancel: threading.Event | None = None
-        self.notified_version = ""
         self.usignals = UpdateSignals()
         self.usignals.checked.connect(self._update_checked)
         self.usignals.progress.connect(self.toast.set_progress)
@@ -389,6 +391,13 @@ class Controller(QObject):
     def _build_tray_menu(self):
         """The tray icon's right-click menu (made again when the language changes)."""
         menu = QMenu()
+        self.act_update = menu.addAction("", self.start_update)  # shown while a new version is waiting
+        f = self.act_update.font()
+        f.setBold(True)
+        self.act_update.setFont(f)
+        self.act_update_sep = menu.addSeparator()
+        self.act_update.setVisible(False)
+        self.act_update_sep.setVisible(False)
         act_open = menu.addAction(tr("Open Corefold"), self.show_window)
         act_settings = menu.addAction(tr("Settings"), lambda: self.show_window("General"))
         self.act_paste = menu.addAction(tr("Convert what's copied"), self.paste)
@@ -415,6 +424,7 @@ class Controller(QObject):
         self.act_cancel.setVisible(False)
         self.menu_icons.append((menu.addAction(tr("Check for updates"), lambda: self.check_updates(manual=True)),
                                 "arrow_download"))
+        self.menu_icons.append((self.act_update, "arrow_download"))
         menu.addSeparator()
         menu.addAction(tr("Quit"), self.ask_quit)
         old, self.menu = self.menu, menu
@@ -427,6 +437,8 @@ class Controller(QObject):
         self.tray.setContextMenu(menu)
         if old is not None:
             old.deleteLater()
+        if hasattr(self, "update_state"):  # (made again for a new language: a waiting version keeps its line)
+            self._show_update_marks()
 
     # ---- the main window is built when needed and freed when it's been closed a while
 
@@ -569,6 +581,9 @@ class Controller(QObject):
                                     key=self.settings.shortcut_label))
         if self.awake is not None and self.awake.on:
             self.tray.setToolTip(self.tray.toolTip() + "\n" + self.awake.status())
+        if self.update_waiting():
+            self.tray.setToolTip(self.tray.toolTip() + "\n" + tr("Corefold {version} is available",
+                                                                    version=self.update_info.version))
 
     def _css(self) -> str:
         return stylesheet(self.theme, WINDOW_TEXT_PT.get(self.settings.window_text, 10) / 10)
@@ -1984,6 +1999,51 @@ class Controller(QObject):
         if self._window is not None:
             self._window.refresh_updates()
 
+    def update_waiting(self) -> bool:
+        """A newer version was found and isn't being installed yet."""
+        return self.update_state == "available" and self.update_info is not None
+
+    def _show_update_marks(self):
+        """While a new version waits: a line at the top of the tray menu, in the tray tip, on the Home page
+        and on the Updates row of the sidebar (so a missed message isn't the only sign)."""
+        waiting = self.update_waiting()
+        if hasattr(self, "act_update"):
+            if waiting:
+                self.act_update.setText(tr("Update to Corefold {version}", version=self.update_info.version)
+                                        if self.can_self_install() else
+                                        tr("Get Corefold {version}", version=self.update_info.version))
+            self.act_update.setVisible(waiting)
+            self.act_update_sep.setVisible(waiting)
+        if hasattr(self, "act_cancel"):
+            self._update_tooltip()
+        if self._window is not None:
+            self._window.show_update_marks()
+
+    def _tell_update(self):
+        """Say once a day that a new version is out (not while a game or presentation is full screen):
+        in Corefold's own corner message, or as a Windows notification if that one is busy."""
+        info = self.update_info
+        if not self.update_waiting() or not self.settings.check_updates:
+            return
+        told = f"{info.version} {time.strftime('%Y-%m-%d')}"
+        if self.settings.update_told == told:
+            return
+        if winutil.user_busy():
+            QTimer.singleShot(UPDATE_RETELL_MS, self._tell_update)
+            return
+        title = tr("Corefold {version} is available", version=info.version)
+        detail = tr("One click to update. Your settings are kept.")
+        if not self.toast.notify(title, detail, tr("Update now") if self.can_self_install() else tr("Get it"),
+                                 self.start_update, 15000):
+            self.tray.showMessage(title, detail, QSystemTrayIcon.Information, 15000)
+            self.update_message_at = time.monotonic()
+        self.settings.update_told = told
+        self.save_timer.start(400)
+
+    def _tray_message_clicked(self):
+        if self.update_waiting() and time.monotonic() - self.update_message_at < 120:
+            self.show_window("Updates")
+
     def check_updates(self, manual: bool = False):
         manual = manual is True  # timer/menu signals may pass other values
         if not self.updates_supported():
@@ -2009,7 +2069,9 @@ class Controller(QObject):
 
     def _update_checked(self, info, err: str, manual: bool):
         if err:
-            self.update_state, self.update_error = "error", err
+            # (offline later on: the version found before still waits)
+            self.update_state = "available" if self.update_info else "error"
+            self.update_error = err
             log.info("update check: %s", err)
             if manual:
                 self.toast.notify(tr("Couldn't check for updates"), err)
@@ -2020,24 +2082,22 @@ class Controller(QObject):
                 if not manual and winutil.user_busy():  # a game or presentation is full screen: install a bit later
                     QTimer.singleShot(15 * 60_000, self.check_updates)
                     self._refresh_updates_page()
+                    self._show_update_marks()
                     return
                 self._refresh_updates_page()
                 self.start_update()
                 return
-            if manual or (self.notified_version != info.version and not winutil.user_busy()):
-                shown = self.toast.notify(tr("Corefold {version} is available", version=info.version),
-                                          tr("One click to update. Your settings are kept."),
-                                          tr("Update now") if self.can_self_install() else tr("Get it"),
-                                          self.start_update, 15000)
-                if shown:  # if a conversion was on screen, say it at the next check instead
-                    self.notified_version = info.version
+            if manual:
+                self.settings.update_told = ""
+            self._tell_update()
         else:
-            self.update_state = "uptodate"
+            self.update_state, self.update_info = "uptodate", None
             if manual:
                 self.toast.notify(tr("You're up to date"),
                                   tr("Corefold {version} is the newest version.", version=__version__),
                                   linger_ms=4000)
         self._refresh_updates_page()
+        self._show_update_marks()
 
     def start_update(self):
         info = self.update_info
@@ -2051,6 +2111,7 @@ class Controller(QObject):
         self.toast.start(UPDATE_JOB_ID, tr("Downloading Corefold {version}", version=info.version),
                          tr("Corefold restarts by itself when it's done."))
         self._refresh_updates_page()
+        self._show_update_marks()
         cancel = self.update_cancel
 
         def work():
@@ -2090,6 +2151,7 @@ class Controller(QObject):
             self.update_error = msg
             self.toast.finish(UPDATE_JOB_ID, tr("Update failed"), msg, None, 9000)
         self._refresh_updates_page()
+        self._show_update_marks()
 
     # ---- quitting / removing
 

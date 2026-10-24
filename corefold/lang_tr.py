@@ -173,6 +173,8 @@ STRINGS: dict[str, str] = {
     "Corefold {version} is available": "Corefold {version} çıktı",
     "One click to update. Your settings are kept.": "Güncellemek için tek tıklama. Ayarlarınız korunur.",
     "Update now": "Şimdi güncelle",
+    "Update to Corefold {version}": "Corefold {version} sürümüne güncelle",
+    "Get Corefold {version}": "Corefold {version} sürümünü indir",
     "Get it": "İndir",
     "You're up to date": "Güncelsiniz",
     "Corefold {version} is the newest version.": "Corefold {version} en yeni sürüm.",

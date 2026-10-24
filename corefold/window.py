@@ -32,7 +32,7 @@ from .settings import (ACCENTS, APP_NAME, DEFAULT_ACCENT, APPEARANCES, HOVER_STY
 from .atomic.widgets import Dropdown, Switch, keep_wrapped_text, mark_rows
 from .theme import Theme, round_menu
 from .timefmt import date_text, locale, time_ago  # noqa: F401 (used by other pages)
-from .navbar import ICON_ROLE
+from .navbar import BADGE_ROLE, ICON_ROLE
 from .wheel import WheelPreview
 from .winutil import memory_use, reveal_in_explorer, set_title_bar_dark
 
@@ -868,6 +868,8 @@ class MainWindow(QWidget):
                 item.setText(text)
                 item.setData(ICON_ROLE, PAGE_ICONS[name])
                 item.setToolTip(self._nav_tip(name, text, compact))
+                if name == "Updates":
+                    item.setData(BADGE_ROLE, tr("New") if self.c.update_waiting() else None)
         self.menu_btn.setIcon(icons.icon("navigation", t.text))
         self.menu_btn.setToolTip(tr("Show the names") if compact else tr("Icons only"))
         self.nav.viewport().update()
@@ -1925,6 +1927,21 @@ class MainWindow(QWidget):
         w, lay = page("")
         lay.itemAt(0).widget().hide()
         lay.setSpacing(16)
+
+        # a new version is waiting: a line above everything, until it's installed
+        self.update_banner, bl = card(4)
+        top = QHBoxLayout()
+        text = QVBoxLayout()
+        text.setSpacing(2)
+        self.update_banner_title = label("", "h2", wrap=True)
+        text.addWidget(self.update_banner_title)
+        text.addWidget(label(tr("One click to update. Your settings are kept."), "muted", wrap=True))
+        top.addLayout(text, 1)
+        self.update_banner_button = button("", "primary", self.c.start_update)
+        top.addWidget(self.update_banner_button, 0, Qt.AlignVCenter)
+        bl.addLayout(top)
+        lay.addWidget(self.update_banner)
+        self._fill_update_banner()
 
         hero = GlowPanel()
         hl = QVBoxLayout(hero)
@@ -3760,6 +3777,26 @@ class MainWindow(QWidget):
         self.c.settings.auto_update = self.auto_install.isChecked()
         self.c.settings_changed()
         self.refresh_updates()
+
+    def show_update_marks(self):
+        """A new version was found, or isn't waiting any more: the Home line and the sidebar's "New"."""
+        waiting = self.c.update_waiting()
+        for row in range(self.nav.count()):
+            item = self.nav.item(row)
+            if item.data(Qt.UserRole) == "Updates":
+                item.setData(BADGE_ROLE, tr("New") if waiting else None)
+        self.nav.viewport().update()
+        if self.built("Home"):
+            self._fill_update_banner()
+
+    def _fill_update_banner(self):
+        info = self.c.update_info
+        waiting = self.c.update_waiting()
+        self.update_banner.setVisible(waiting)
+        if waiting:
+            self.update_banner_title.setText(tr("Corefold {version} is available", version=info.version))
+            self.update_banner_button.setText(tr("Update now") if self.c.can_self_install()
+                                              else tr("Open download page"))
 
     def refresh_updates(self):
         if not self.built("Updates"):
