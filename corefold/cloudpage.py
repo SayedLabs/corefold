@@ -438,7 +438,7 @@ class CloudPage(QWidget):
         side.addWidget(self.account_list, 1)
         self.account_list.setItemDelegate(AccountRows(self))
         self.account_list.setMouseTracking(True)
-        self.add_btn = QPushButton(tr("Add a cloud"))
+        self.add_btn = QPushButton(tr("Add a cloud"), self)  # (shown before it's laid out)
         self.add_btn.setObjectName("primary")
         self.add_btn.setCursor(Qt.PointingHandCursor)
         self.add_menu = QMenu(self.add_btn)

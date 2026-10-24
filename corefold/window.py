@@ -336,8 +336,8 @@ class ToolSwitchCard(QFrame):
         self.state = label(tr("Open") + (" ←" if i18n.is_rtl() else " →") if on else
                            tr("Off. It isn't loaded, so it uses nothing."), "cardStat" if on else "subtle")
         self.state.setAttribute(Qt.WA_TransparentForMouseEvents)
-        self.state.setVisible(not on)
         lay.addWidget(self.state)
+        self.state.setVisible(not on)  # (once it's in the card: shown before, it was a window of its own for a moment)
 
     def enterEvent(self, e):
         if self.on:
@@ -1507,7 +1507,7 @@ class MainWindow(QWidget):
         row.addWidget(self.search_btn)
         self.top_actions = QHBoxLayout()  # (room for more buttons, like the Quick menu's)
         self.top_actions.setSpacing(4)
-        self.quick_btn = IconButton(tr("Quick menu"))
+        self.quick_btn = IconButton(tr("Quick menu"), parent=self)  # (shown below: never a window of its own)
         self.quick_btn.clicked.connect(lambda: self.c.quick and self.c.quick.toggle_menu())
         self.quick_btn.setVisible(bool(self.c.settings.quick_menu))
         self.top_actions.addWidget(self.quick_btn)

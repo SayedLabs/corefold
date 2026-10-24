@@ -672,7 +672,7 @@ class ClipboardPage(QWidget):
         self.count.setObjectName("muted")
         foot.addWidget(self.count)
         foot.addStretch()
-        self.save_btn = QPushButton(tr("Save a text…"))
+        self.save_btn = QPushButton(tr("Save a text…"), self)  # (shown before it's laid out: never a window of its own)
         self.save_btn.setCursor(Qt.PointingHandCursor)
         self.save_btn.setToolTip(tr("Keep a text you use often (an address, a reply) pinned at the top, "
                                     "ready to paste"))

@@ -305,7 +305,7 @@ class SettingRow(QWidget):
         self.title = QLabel(title)
         self.title.setWordWrap(True)
         words.addWidget(self.title)
-        self.description = QLabel(description)
+        self.description = QLabel(description, self)  # (shown before its row is laid out: never a window of its own)
         self.description.setObjectName("muted")
         self.description.setWordWrap(True)
         self.description.setVisible(bool(description))
