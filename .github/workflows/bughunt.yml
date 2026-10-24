@@ -77,6 +77,18 @@ jobs:
           New-Item -ItemType Directory -Force out | Out-Null
           python scripts/screenres.py 1920 1080 *>> out/screen.txt
 
+      - name: Corefold's own FFmpeg (the one the app ships), so the tests use it too
+        shell: pwsh
+        run: |
+          git fetch -q --depth 1 origin +refs/heads/ffmpeg-lean:refs/remotes/origin/ffmpeg-lean
+          if ($LASTEXITCODE -eq 0) {
+            git archive --format=zip -o ffmpeg-lean.zip refs/remotes/origin/ffmpeg-lean
+            Expand-Archive ffmpeg-lean.zip vendor\ffmpeg -Force
+            Remove-Item ffmpeg-lean.zip
+            & vendor\ffmpeg\ffmpeg.exe -hide_banner -version | Select-Object -First 1
+          }
+          exit 0
+
       - name: Older checks (translations, archives and video, the Uninstaller, a very big archive, the newer tools, awkward files)
         if: matrix.name == 'checks'
         shell: pwsh
