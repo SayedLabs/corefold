@@ -118,6 +118,16 @@ def main():
         check(wait(lambda: (box / "k.txt").is_file()), "with both off, it's extracted…")
         wait(lambda: False, 1)
         check(z2.exists() and not revealed, "…and the archive stays, nothing opened")
+
+        from PySide6.QtWidgets import QFileDialog
+        elsewhere = TMP / "picked folder"
+        elsewhere.mkdir()
+        QFileDialog.getExistingDirectory = staticmethod(lambda *a, **k: str(elsewhere))
+        to = next((t for t in catalog(False)["archive"] if t.key == "archive:to"), None)
+        if check(to is not None, "archives have \"Extract to…\""):
+            c.tool_chosen(to, [z2])
+            check(wait(lambda: (elsewhere / "k.txt").is_file()), "\"Extract to…\" puts it in the folder picked")
+            check(not (box / "k (2).txt").exists(), "…and not next to the archive")
     step("after extracting", extract_settings)
 
     def convert_settings():

@@ -2102,6 +2102,7 @@ STRINGS: dict[str, str] = {
     "Pictures to PDF…": "صور إلى PDF…",
     "What do you want to do?": "ماذا تريد أن تفعل؟",
     "Your PDFs are never changed: every result is a new file next to the original.": "لا تتغير ملفاتك أبدًا: كل نتيجة ملف جديد بجانب الأصلي.",
+    "Extract into a folder you pick": "فك الضغط في مجلد تختاره",
     "Save the list…": "حفظ القائمة…",
     "Copy the name": "نسخ الاسم",
     "Copy the names": "نسخ الأسماء",

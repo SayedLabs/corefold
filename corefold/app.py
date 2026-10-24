@@ -1614,7 +1614,13 @@ class Controller(QObject):
         params: dict = {}
         # No password question up front (that meant reading every archive first, which froze the
         # window on big ones): if one is needed, the job says so and job_done() asks.
-        if tool.ask:
+        if tool.ask == "folder":  # "Extract to…": where (as in 7-Zip and WinRAR)
+            from PySide6.QtWidgets import QFileDialog
+            chosen = QFileDialog.getExistingDirectory(None, tool.description, str(files[0].parent))
+            if not chosen:
+                return
+            params["dest"] = chosen
+        elif tool.ask:
             extra = {}
             if tool.ask == "fit":
                 extra["last_mb"] = self.settings.fit_mb
@@ -1754,7 +1760,7 @@ class Controller(QObject):
             QGuiApplication.clipboard().setText(result.clipboard)
         first = result.outputs[0] if result.outputs else None
         # a whole archive came out without a problem: what Settings › Archives says happens next
-        extracted = bool(tool and tool.key in ("archive:extract", "archive:folder") and not cancelled and not errors
+        extracted = bool(tool and tool.key in ("archive:extract", "archive:folder", "archive:to") and not cancelled and not errors
                          and result.outputs and not job["params"].get("members"))
         recycled = self._recycle_extracted(files) if extracted and self.settings.extract_recycle else 0
         # converted to another format: the originals can go (Settings › Converter); each only when it came out

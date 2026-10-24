@@ -2025,6 +2025,7 @@ STRINGS: dict[str, str] = {
     "Pictures to PDF…": "Images en PDF…",
     "What do you want to do?": "Que voulez-vous faire ?",
     "Your PDFs are never changed: every result is a new file next to the original.": "Vos PDF ne sont jamais modifiés : chaque résultat est un nouveau fichier à côté de l'original.",
+    "Extract into a folder you pick": "Extraire dans un dossier de votre choix",
     "Save the list…": "Enregistrer la liste…",
     "Copy the name": "Copier le nom",
     "Copy the names": "Copier les noms",
