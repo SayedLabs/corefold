@@ -14,9 +14,9 @@ import tempfile
 from functools import lru_cache
 from pathlib import Path
 
-from .converters import (AUDIO_ARGS, Ctx, Result, category, flatten, has_alpha, is_animated, keep_format,
+from .converters import (AUDIO_ARGS, Ctx, Result, category, flatten, has_alpha, is_animated, is_multipage, keep_format,
                          load_image, media_duration, probe, rgb_or_rgba, run_ffmpeg, save_image,
-                         save_animated, write_compressed_pdf, write_pages_pdf)
+                         save_animated, save_pages, write_compressed_pdf, write_pages_pdf)
 from .core import human_size, safe_name
 from .i18n import tr
 
@@ -79,7 +79,11 @@ def _fit_video(src: Path, ctx: Ctx, mb: float, target: int) -> Result:
         raise RuntimeError(tr("too long to fit in {limit}. Try {need} MB or more, or trim it first",
                               limit=size_tag(mb), need=need))
     height = 1080 if vbr >= 2_000_000 else 720 if vbr >= 1_000_000 else 480 if vbr >= 450_000 else 360
-    vf = f"scale=-2:'min(ih,{height})',pad=ceil(iw/2)*2:ceil(ih/2)*2"
+    # the short side is limited: a phone video filmed upright (1080 × 1920) stays 1080 wide, not 608
+    if info["height"] > info["width"] > 0:
+        vf = f"scale='min(iw,{height})':-2,pad=ceil(iw/2)*2:ceil(ih/2)*2"
+    else:
+        vf = f"scale=-2:'min(ih,{height})',pad=ceil(iw/2)*2:ceil(ih/2)*2"
     if vbr < 600_000:
         vf += ",fps=24"
     out = ctx.out_path(src, f"{ctx.stem(src)} ({size_tag(mb)}).mp4")
@@ -574,6 +578,10 @@ def watermark_image(src: Path, ctx: Ctx) -> Result:
     out = ctx.out_path(src, f"{ctx.stem(src)} (watermarked){ext}")
     if is_animated(src):
         save_animated(src, out, lambda frame: Image.alpha_composite(frame, overlay))
+        return Result([out])
+    if is_multipage(src):
+        save_pages(src, out, lambda page: Image.alpha_composite(
+            rgb_or_rgba(page).convert("RGBA"), make_overlay(page.width, page.height, ctx.params)))
         return Result([out])
     im.alpha_composite(overlay)
     save_image(im if ext in (".png", ".webp", ".tiff", ".gif") else im.convert("RGB"), out, ext, ctx)

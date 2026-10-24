@@ -189,11 +189,29 @@ class History:
     def _open(self):
         if self._db is None:
             self.images.mkdir(parents=True, exist_ok=True)
-            # (used by one thread at a time: made on the opening one, then only on the app's)
-            db = sqlite3.connect(str(self.folder / "history.db"), check_same_thread=False)
+            try:
+                db = self._connect()
+            except sqlite3.DatabaseError:
+                # a damaged history (the PC lost power while writing, a disk error) is put aside, and a new one
+                # is started: otherwise nothing copied would ever be kept again
+                log.exception("the clipboard history is damaged; starting a new one")
+                for suffix in ("", "-wal", "-shm"):
+                    old = self.folder / ("history.db" + suffix)
+                    try:
+                        if old.exists():
+                            os.replace(old, self.folder / ("history (damaged).db" + suffix))
+                    except OSError:
+                        pass
+                db = self._connect()
+            self._db = db
+
+    def _connect(self) -> sqlite3.Connection:
+        # (used by one thread at a time: made on the opening one, then only on the app's)
+        db = sqlite3.connect(str(self.folder / "history.db"), check_same_thread=False)
+        try:
             try:  # each copy is kept without waiting for the disk (it used to hold the app up to a second)
                 db.execute("PRAGMA journal_mode=WAL")
-            except sqlite3.Error:
+            except sqlite3.OperationalError:
                 pass
             db.execute("PRAGMA synchronous=NORMAL")
             db.execute("PRAGMA cache_size=-512")  # (KB: it stays small while Corefold waits in the tray)
@@ -201,8 +219,12 @@ class History:
                        " html TEXT, image TEXT, width INTEGER, height INTEGER, digest TEXT UNIQUE NOT NULL,"
                        " pinned INTEGER DEFAULT 0, created REAL, used REAL, app TEXT, size INTEGER)")
             db.execute("CREATE INDEX IF NOT EXISTS items_used ON items (pinned, used)")
+            db.execute("SELECT COUNT(*) FROM items").fetchone()
             db.commit()
-            self._db = db
+        except sqlite3.DatabaseError:
+            db.close()
+            raise
+        return db
 
     def close(self):
         if self._opening is not None:

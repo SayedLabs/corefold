@@ -84,9 +84,16 @@ def clock(ms: int) -> str:
 def load_positions() -> dict:
     try:
         data = json.loads(POSITIONS.read_text("utf-8"))
-        return data if isinstance(data, dict) else {}
+        return {k: v for k, v in data.items() if isinstance(v, dict)} if isinstance(data, dict) else {}
     except (OSError, ValueError):
         return {}
+
+
+def _when(kv) -> float:
+    try:
+        return float(kv[1].get("when", 0))
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def save_position(path: Path, pos: int, dur: int):
@@ -97,7 +104,7 @@ def save_position(path: Path, pos: int, dur: int):
         data.pop(key, None)
     elif dur > 0:
         data[key] = {"pos": int(pos), "dur": int(dur), "when": time.time()}
-    newest = sorted(data.items(), key=lambda kv: kv[1].get("when", 0), reverse=True)[:KEEP_POSITIONS]
+    newest = sorted(data.items(), key=_when, reverse=True)[:KEEP_POSITIONS]
     try:
         POSITIONS.parent.mkdir(parents=True, exist_ok=True)
         tmp = POSITIONS.with_suffix(".tmp")
@@ -117,12 +124,12 @@ def forget_positions():
 def continue_watching(limit: int = 8) -> list[tuple[Path, int, int, float]]:
     """(file, position, length, when) of files left part way, newest first (moved ones left out)."""
     out = []
-    for key, v in sorted(load_positions().items(), key=lambda kv: kv[1].get("when", 0), reverse=True):
+    for key, v in sorted(load_positions().items(), key=_when, reverse=True):
         p = Path(key)
         try:
             if p.is_file():
                 out.append((p, int(v.get("pos", 0)), int(v.get("dur", 0)), float(v.get("when", 0))))
-        except OSError:
+        except (OSError, TypeError, ValueError):
             continue
         if len(out) >= limit:
             break
@@ -214,8 +221,9 @@ class Subtitles:
 def subtitle_for(video: Path) -> Path | None:
     """A subtitle file next to the video with the same name ("Film.srt", "Film.en.srt")."""
     try:
+        stem = video.stem.lower()  # (Windows names ignore case: "film.srt" goes with "Film.mp4")
         for p in sorted(video.parent.iterdir()):
-            if p.suffix.lower() in SUB_EXT and (p.stem == video.stem or p.stem.startswith(video.stem + ".")):
+            if p.suffix.lower() in SUB_EXT and (p.stem.lower() == stem or p.stem.lower().startswith(stem + ".")):
                 return p
     except OSError:
         pass
@@ -802,10 +810,13 @@ class PlayerWindow(QWidget):
             n += 1
         try:
             folder.mkdir(parents=True, exist_ok=True)
-            img.save(str(out), "PNG")
+            saved = img.save(str(out), "PNG")
         except OSError:
-            pass
+            saved = False
         QGuiApplication.clipboard().setImage(img)
+        if not saved:  # (the folder is on a drive that's gone, or can't be written to: it's still copied)
+            self.flash(tr("Copied") + " · " + tr("Couldn't save"), 3500)
+            return
         self.flash(tr("Saved and copied: {name}", name=out.name), 3500)
         self.last_shot = out
 

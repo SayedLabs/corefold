@@ -10,8 +10,9 @@ import re
 import uuid
 from pathlib import Path
 
-from .converters import (AUDIO_ARGS, Ctx, Result, category, is_animated, keep_format, load_image, media_duration, norm,
-                         pdf_lock_state, probe, rgb_or_rgba, run_ffmpeg, safe_name, save_animated, save_image, tr)
+from .converters import (AUDIO_ARGS, Ctx, Result, category, is_animated, is_multipage, keep_format, load_image,
+                         media_duration, norm, pdf_lock_state, probe, rgb_or_rgba, run_ffmpeg, safe_name, save_animated,
+                         save_image, save_pages, tr)
 
 log = logging.getLogger("corefold")
 MB = 1024 * 1024
@@ -149,6 +150,9 @@ def crop_image(src: Path, ctx: Ctx) -> Result:
             size = first.size
         b = crop_box(*size, box)
         save_animated(src, out, lambda frame: frame.crop(b))
+        return Result([out])
+    if is_multipage(src):
+        save_pages(src, out, lambda page: page.crop(crop_box(page.width, page.height, box)))
         return Result([out])
     im = load_image(src)
     save_image(im.crop(crop_box(im.width, im.height, box)), out, ext, ctx)

@@ -57,6 +57,7 @@ jobs:
           - name: use-ar-light
             use: "--lang ar --look light"
           - name: languages
+          - name: tools
           - name: newtests
           - name: exe
     name: ${{ matrix.name }}
@@ -76,7 +77,7 @@ jobs:
           New-Item -ItemType Directory -Force out | Out-Null
           python scripts/screenres.py 1920 1080 *>> out/screen.txt
 
-      - name: Older checks (translations, archives and video, the Uninstaller, a very big archive, the newer tools)
+      - name: Older checks (translations, archives and video, the Uninstaller, a very big archive, the newer tools, awkward files)
         if: matrix.name == 'checks'
         shell: pwsh
         continue-on-error: true
@@ -92,6 +93,20 @@ jobs:
           python scripts/captexttest.py out/captext en dark *> out/captexttest.txt
           python scripts/capfoldertest.py out/capfolder en dark *> out/capfoldertest-en.txt
           python scripts/capfoldertest.py out/capfolder ar light *> out/capfoldertest-ar.txt
+          python scripts/edgetest.py *> out/edgetest.txt
+
+      - name: Each tool's own test (File Organizer, Startup, Scan)
+        if: matrix.name == 'tools'
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
+          foreach ($t in "organizetest", "startuptest") {
+            python scripts/$t.py out/$t en dark *> "out/$t-en.txt"
+            python scripts/$t.py out/$t ar light *> "out/$t-ar.txt"
+          }
+          # once: it puts a test threat back from quarantine, and Windows then lets that one be on this PC
+          python scripts/scantest.py out/scantest ar light *> out/scantest.txt
 
       - name: Every page and button
         if: matrix.sweep != ''
@@ -213,7 +228,7 @@ jobs:
             echo "Bug hunt of $SHA"
             for d in */; do
               echo "== ${d%/}"
-              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest|featuretest|pdftest|langtest|captexttest|capfoldertest|newtest_[a-z]+)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused" "$d" 2>/dev/null | head -20
+              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest|featuretest|pdftest|langtest|captexttest|capfoldertest|edgetest|organizetest|startuptest|scantest|newtest_[a-z]+)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused" "$d" 2>/dev/null | head -20
               grep -rhaE "^(FAIL|ERROR|SLOW) " "$d" 2>/dev/null | sort | uniq -c | sort -rn | head -60
             done
           } > summary.txt

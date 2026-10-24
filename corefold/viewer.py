@@ -139,8 +139,9 @@ def svg_picture(path: Path, longest: int = 2400) -> QImage:
     size = r.defaultSize()
     if size.isEmpty():
         size = QSize(1000, 1000)
-    size = size.scaled(longest, longest, Qt.KeepAspectRatio) if max(size.width(), size.height()) < longest // 2 \
-        else size
+    side = max(size.width(), size.height())
+    if side < longest // 2 or side > longest * 2:  # small ones made sharp; huge ones (99999 px) not drawn at that size
+        size = size.scaled(longest, longest, Qt.KeepAspectRatio)
     img = QImage(size, QImage.Format.Format_ARGB32_Premultiplied)
     img.fill(Qt.transparent)
     p = QPainter(img)
@@ -951,7 +952,9 @@ class ViewerWindow(QWidget):
                     self._fill_compare()
             else:
                 self.view.set_image(QImage())
-                self.counter.setText(tr("Couldn't open this picture") + (f": {result}" if str(result) else ""))
+                from .converters import friendly_error
+                why = friendly_error(result) if isinstance(result, Exception) else ""
+                self.counter.setText(tr("Couldn't open this picture") + (f": {why}" if why else ""))
 
     def _show_image(self, path: Path, image: QImage):
         self.view.set_image(self._edited(image))

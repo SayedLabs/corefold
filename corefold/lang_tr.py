@@ -262,7 +262,6 @@ STRINGS: dict[str, str] = {
     "Delete backup": "Yedeği sil",
     "Delete this backup for good? It can't be put back after that.": "Bu yedek kalıcı olarak silinsin mi? Bundan sonra geri konamaz.",
     "Some files in the backup couldn't be deleted.": "Yedekteki bazı dosyalar silinemedi.",
-    "not an archive Corefold can open": "Corefold'nın açabileceği bir arşiv değil",
     "the archive is damaged or incomplete": "arşiv hasarlı veya eksik",
     "a part of this split archive is missing": "bu bölünmüş arşivin bir parçası eksik",
     "the disk is full": "disk dolu",

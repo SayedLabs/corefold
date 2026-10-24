@@ -159,9 +159,13 @@ def save_image(im, out: Path, ext: str, ctx: Ctx, keep_metadata: bool = True):
         im.save(out, **meta)
     elif ext == ".ico":
         im = im.convert("RGBA")
+        # an icon is at most 256 × 256: shrunk first, so a panorama doesn't need a square of its full width
+        im.thumbnail((256, 256), Image.LANCZOS)
         side = max(im.size)
         square = Image.new("RGBA", (side, side), (0, 0, 0, 0))
         square.paste(im, ((side - im.width) // 2, (side - im.height) // 2))
+        if side < 16:  # an icon smaller than 16 pixels would be saved with no picture in it at all
+            square = square.resize((16, 16), Image.NEAREST)
         square.save(out, sizes=[(s, s) for s in (16, 24, 32, 48, 64, 128, 256)])
     else:
         im.save(out)
@@ -381,37 +385,72 @@ def save_animated(src: Path, out: Path, change):
         f.close()
 
 
+def is_multipage(src: Path) -> bool:
+    """A TIFF with more than one page (scans, faxes)."""
+    if norm(src.suffix) != ".tiff":
+        return False
+
+    def work():
+        try:
+            from PIL import Image
+            setup_pillow()
+            with Image.open(src) as im:
+                return getattr(im, "n_frames", 1) > 1
+        except Exception:
+            return False
+    return _cached("pages", src, work)
+
+
+def save_pages(src: Path, out: Path, change):
+    """Applies change(page) to every page of a multi-page TIFF and saves them all (before, only the first
+    page was kept). Pages keep their own colours; black-and-white scans stay small (Group 4)."""
+    from PIL import Image, ImageSequence
+    setup_pillow()
+    pages = []
+    with Image.open(src) as im:
+        for frame in ImageSequence.Iterator(im):
+            pages.append(change(frame.copy()))
+    squeeze = "group4" if all(pg.mode == "1" for pg in pages) else "tiff_deflate"
+    pages[0].save(out, "TIFF", save_all=True, append_images=pages[1:], compression=squeeze)
+    for pg in pages:
+        pg.close()
+
+
 def resize_image(src: Path, ctx: Ctx) -> Result:
     from PIL import Image, ImageOps
     p = ctx.params
     preset = p.get("preset", "50")
     im = load_image(src)
-    w, h = im.size
     square = 0
-    if preset == "custom":
-        new_w = max(1, int(p.get("width", 1000)))
-        size = (new_w, max(1, round(h * new_w / w)))
-        tag = f"{size[0]}x{size[1]}"
-    else:
-        _, kind, value = RESIZE_PRESETS[preset]
+    kind, value = "custom", 0
+
+    def size_for(w: int, h: int) -> tuple[int, int]:
+        if kind == "custom":
+            new_w = max(1, int(p.get("width", 1000)))
+            return new_w, max(1, round(h * new_w / w))
         if kind == "scale":
-            size = (max(1, round(w * value)), max(1, round(h * value)))
-            tag = f"{int(value * 100)}%"
-        elif kind == "fit":
-            scale = min(1.0, value / max(w, h))  # never blow small images up
-            size = (max(1, round(w * scale)), max(1, round(h * scale)))
-            tag = f"{size[0]}x{size[1]}"
-        else:
-            square, size, tag = value, (value, value), "square"
+            return max(1, round(w * value)), max(1, round(h * value))
+        scale = min(1.0, value / max(w, h))  # "fit": never blow small images up
+        return max(1, round(w * scale)), max(1, round(h * scale))
+    if preset != "custom":
+        _, kind, value = RESIZE_PRESETS[preset]
+    if kind == "square":
+        square, tag = value, "square"
+    elif kind == "scale":
+        tag = f"{int(value * 100)}%"
+    else:
+        tag = "%dx%d" % size_for(*im.size)
 
     def change(frame):
         if square:
             return ImageOps.fit(rgb_or_rgba(frame), (square, square), Image.LANCZOS)
-        return frame.resize(size, Image.LANCZOS)
+        return frame.resize(size_for(*frame.size), Image.LANCZOS)
     ext = keep_format(src)
     out = ctx.out_path(src, f"{ctx.stem(src)} ({tag}){ext}")
     if is_animated(src):
         save_animated(src, out, change)
+    elif is_multipage(src):
+        save_pages(src, out, change)
     else:
         save_image(change(im), out, ext, ctx)
     return Result([out])
@@ -436,6 +475,8 @@ def rotate_image(src: Path, ctx: Ctx) -> Result:
     out = ctx.out_path(src, f"{ctx.stem(src)} ({ROTATIONS[how][1]}){ext}")
     if is_animated(src):
         save_animated(src, out, lambda frame: frame.transpose(ops[how]))
+    elif is_multipage(src):
+        save_pages(src, out, lambda page: page.transpose(ops[how]))
     else:
         save_image(load_image(src).transpose(ops[how]), out, ext, ctx)
     return Result([out])
@@ -443,11 +484,19 @@ def rotate_image(src: Path, ctx: Ctx) -> Result:
 
 def strip_metadata(src: Path, ctx: Ctx) -> Result:
     from PIL import Image
+    ext = keep_format(src)
+    if is_animated(src) or is_multipage(src):  # every frame or page is kept (before, only the first one)
+        out = ctx.out_path(src, f"{ctx.stem(src)} (clean){ext}")
+        pixels_only = lambda frame: Image.frombytes(frame.mode, frame.size, frame.tobytes())  # noqa: E731
+        if is_animated(src):
+            save_animated(src, out, pixels_only)
+        else:
+            save_pages(src, out, lambda page: pixels_only(page if page.mode != "P" else page.convert("RGBA")))
+        return Result([out])
     im = load_image(src)
     if im.mode == "P":
         im = im.convert("RGBA" if has_alpha(im) else "RGB")
     clean = Image.frombytes(im.mode, im.size, im.tobytes())  # pixels only: no EXIF, GPS, camera info
-    ext = keep_format(src)
     if ext in (".jpg", ".bmp"):
         clean = flatten(clean)
     out = ctx.out_path(src, f"{ctx.stem(src)} (clean){ext}")
