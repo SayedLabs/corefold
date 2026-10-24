@@ -1,0 +1,88 @@
+# No window may flash: runs scripts/newtest_flash.py (every tool on, every page, the tools' own windows
+# and jobs, from source, with no console the way Corefold.exe has none) and the built Corefold.exe with
+# scripts/exetest.py, both watching every window Windows shows (scripts/flashwatch.py). Runs when the
+# app's code changes, and by hand.
+name: No flashing windows
+
+on:
+  push:
+    paths:
+      - corefold/**
+      - main.py
+      - requirements.txt
+      - scripts/flashwatch.py
+      - scripts/newtest_flash.py
+      - scripts/exetest.py
+      - scripts/build.ps1
+      - .github/workflows/flashtest.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flashtest-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flash:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        how: [source, exe]
+    name: ${{ matrix.how }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install what the app needs
+        shell: pwsh
+        run: |
+          python -m pip install --quiet -r requirements.txt
+          New-Item -ItemType Directory -Force out | Out-Null
+          python scripts/screenres.py 1920 1080 *>> out/screen.txt
+
+      - name: Corefold's own FFmpeg (the one the app ships)
+        shell: pwsh
+        run: |
+          git fetch -q --depth 1 origin +refs/heads/ffmpeg-lean:refs/remotes/origin/ffmpeg-lean
+          if ($LASTEXITCODE -eq 0) {
+            git archive --format=zip -o ffmpeg-lean.zip refs/remotes/origin/ffmpeg-lean
+            Expand-Archive ffmpeg-lean.zip vendor\ffmpeg -Force
+            Remove-Item ffmpeg-lean.zip
+          }
+          exit 0
+
+      - name: Every tool, page and window, from source
+        if: matrix.how == 'source'
+        timeout-minutes: 15
+        shell: pwsh
+        run: |
+          $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
+          python scripts/newtest_flash.py out/flash *> out/newtest_flash-run.txt
+          Get-Content out/flash/newtest_flash.txt
+          if (-not (Select-String -Quiet -Path out/flash/newtest_flash.txt -Pattern "^newtest_flash: 0 problem")) { exit 1 }
+
+      - name: The built Corefold.exe
+        if: matrix.how == 'exe'
+        timeout-minutes: 25
+        shell: pwsh
+        run: |
+          ./scripts/build.ps1 -Version 0.0.${{ github.run_number }}-flash *> out/build.txt
+          if ($LASTEXITCODE) { Get-Content out/build.txt -Tail 40; exit 1 }
+          python -m pip install --quiet pywinauto
+          $exe = Get-ChildItem -Recurse dist -Filter Corefold.exe | Select-Object -First 1
+          python scripts/exetest.py $exe.FullName out/exetest *> out/exetest.txt
+          Get-Content out/exetest.txt
+          if (-not (Select-String -Quiet -Path out/exetest.txt -Pattern "^exetest: 0 problem")) { exit 1 }
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: flashtest-${{ matrix.how }}
+          path: out/
