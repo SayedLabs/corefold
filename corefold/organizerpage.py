@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QRectF, QSize, QStandardPaths, Qt
 from PySide6.QtGui import QPainter, QPen
-from PySide6.QtWidgets import (QFileDialog, QFrame, QHBoxLayout, QHeaderView, QLabel, QPushButton, QScrollArea,
+from PySide6.QtWidgets import (QCheckBox, QFileDialog, QFrame, QHBoxLayout, QHeaderView, QLabel, QPushButton, QScrollArea,
                                QSizePolicy, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from . import i18n, icons, organizer, work
@@ -245,6 +245,11 @@ class OrganizerPage(QWidget):
         foot.setContentsMargins(0, 10, 10, 0)
         foot.setSpacing(8)
         foot.addLayout(bar)
+        # (as Hazel, File Juggler and DropIt do: the folder stays tidy without opening Corefold)
+        self.auto = QCheckBox(tr("Keep this folder tidy by itself: once a day, files that have been here a day "
+                                 "go into their folders (you can undo it)"))
+        self.auto.toggled.connect(self._auto_changed)
+        foot.addWidget(self.auto)
         foot.addWidget(_label(tr("Files are only moved into folders right next to them: nothing is deleted, "
                                  "copied or replaced. Folders, shortcuts and files that are open stay where they "
                                  "are."), "subtle", wrap=True))
@@ -289,6 +294,27 @@ class OrganizerPage(QWidget):
         self.note.hide()
         self.load()
 
+    def _show_auto(self):
+        kept = self.c.settings.organize_auto_folder
+        self.auto.blockSignals(True)
+        self.auto.setChecked(bool(kept) and self.folder is not None and
+                             os.path.normcase(kept) == os.path.normcase(str(self.folder)))
+        self.auto.blockSignals(False)
+
+    def _auto_changed(self, on: bool):
+        """One folder is kept tidy: ticking it here moves that job to this folder."""
+        s = self.c.settings
+        if on and self.folder is not None:
+            if organizer.refused(self.folder, known=self.key != "other"):
+                self._show_auto()
+                return
+            s.organize_auto_folder = str(self.folder)
+            s.organize_auto_last = 0.0  # (the first tidy comes with the next look, within the hour)
+        elif not on:
+            s.organize_auto_folder = ""
+        s.save()
+        self.c.keep_tidy()
+
     def current_folder(self) -> Path | None:
         return self.other if self.key == "other" else known_folder(self.key)
 
@@ -326,6 +352,7 @@ class OrganizerPage(QWidget):
         if folder is None:
             return
         self.folder = folder
+        self._show_auto()
         self.loading = True
         self._show_state()
         known = self.key != "other"

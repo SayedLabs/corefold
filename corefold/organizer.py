@@ -382,6 +382,25 @@ def sort(p: Plan, progress=None) -> Result:
     return res
 
 
+def auto_sort(folder: Path, days: float = 1.0) -> Result:
+    """"Keep this folder tidy by itself": a sort of the files that arrived at least `days` ago (one just
+    downloaded or saved is likely still being used, so it waits for the next day). Undone like any sort."""
+    p = plan(folder)
+    if p.refused:
+        return Result()
+    cutoff = time.time() - days * 86400
+    for item in p.moving():
+        try:
+            st = item.path.stat()
+            arrived = max(st.st_mtime, getattr(st, "st_birthtime", st.st_ctime))  # (Windows: when it came)
+        except OSError:
+            item.on = False
+            continue
+        if arrived > cutoff:
+            item.on = False
+    return sort(p)
+
+
 def last_sort() -> dict | None:
     """The last sort that can still be undone: {"folder", "time", "moves": [[from, to]…], "made": […]}."""
     last = _load().get("last")

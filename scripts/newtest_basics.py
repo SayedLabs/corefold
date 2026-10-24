@@ -3,6 +3,7 @@
 - after converting: keep the original's date, send the original to the Recycle Bin;
 - after extracting: open the folder, send the archive (all its parts) to the Recycle Bin; Extract to…;
 - the Viewer going round a folder, its mouse side buttons, copying the path and dragging a picture out;
+- File Organizer keeping a folder tidy by itself (and its Undo);
 - the PDF page saying where new files go; Scan's hidden findings; a Player setting.
 
 Run from the repository's folder: python scripts/newtest_basics.py
@@ -44,6 +45,23 @@ def step(name, fn):
     except Exception:
         check(False, f"{name}: {traceback.format_exc().splitlines()[-1]}")
         traceback.print_exc()
+
+
+def set_dates(path: Path, when: float):
+    """A file that arrived then: its dates, and on Windows the date it was made (os.utime can't set that)."""
+    os.utime(path, (when, when))
+    if os.name != "nt":
+        return
+    import ctypes
+    from ctypes import wintypes
+    k32 = ctypes.windll.kernel32
+    k32.CreateFileW.restype = wintypes.HANDLE
+    h = k32.CreateFileW(str(path), 0x100, 0, None, 3, 0x80, None)  # FILE_WRITE_ATTRIBUTES, OPEN_EXISTING
+    ft = wintypes.FILETIME()
+    value = int(when * 10_000_000) + 116444736000000000
+    ft.dwLowDateTime, ft.dwHighDateTime = value & 0xFFFFFFFF, value >> 32
+    k32.SetFileTime(wintypes.HANDLE(h), ctypes.byref(ft), None, None)
+    k32.CloseHandle(wintypes.HANDLE(h))
 
 
 def main():
@@ -235,6 +253,40 @@ def main():
         check(any(t.startswith("Keep this one") for t in seen) and "Copy the path" in seen,
               f"right-clicking a copy offers to keep it ({seen})")
     step("copies found by Space", space_copies)
+
+    def keep_tidy():
+        from corefold import organizer
+        box = TMP / "Messy downloads"
+        box.mkdir()
+        old = time.time() - 3 * 86400
+        for n in ("holiday.jpg", "letter.pdf", "song.mp3"):
+            (box / n).write_bytes(b"x" * 100)
+            set_dates(box / n, old)
+        (box / "today.jpg").write_bytes(b"x" * 100)
+        w.open_page("Organizer")
+        qapp.processEvents()
+        page = w.organizer_page
+        page.set_folder(box)
+        wait(lambda: not page.loading, 20)
+        page.auto.setChecked(True)
+        check(c.settings.organize_auto_folder == str(box) and c.organize_timer is not None,
+              "ticking \"Keep this folder tidy by itself\" keeps it, and Corefold looks at it every hour")
+        c.tidy_folder(now=True)
+        check(wait(lambda: (box / "Pictures" / "holiday.jpg").exists() and getattr(c, "_tidy_job", 1) is None, 30),
+              "the files that came days ago go into their folders")
+        check((box / "today.jpg").exists(), "…and one that came today waits for tomorrow")
+        check(c.settings.organize_auto_last > time.time() - 60, "the time it was tidied is kept (once a day)")
+        c._untidy()
+        check(wait(lambda: (box / "holiday.jpg").exists() and (box / "song.mp3").exists(), 30),
+              "Undo puts them back")
+        before = c.settings.organize_auto_last
+        c.tidy_folder()
+        check(getattr(c, "_tidy_job", None) is None and c.settings.organize_auto_last == before,
+              "not again on the same day")
+        page.auto.setChecked(False)
+        check(not c.settings.organize_auto_folder and c.organize_timer is None, "unticking stops it")
+        check(organizer.refused(box) == "", "(a folder Corefold may sort)")
+    step("keeping a folder tidy", keep_tidy)
 
     def viewer_loop():
         from PySide6.QtGui import QColor, QImage

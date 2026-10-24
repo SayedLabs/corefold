@@ -288,6 +288,8 @@ class Settings:
     shutdown_at: str = ""          # when Windows will turn the PC off (planned on the Awake page), ISO time
     shutdown_planned: str = ""     # when that was planned (a restart since has cleared it)
     # the Uninstaller
+    organize_auto_folder: str = ""  # a folder File Organizer keeps tidy by itself, once a day ("" = none)
+    organize_auto_last: float = 0.0  # when it last did (seconds since 1970)
     unused_months: int = 3         # "not used for …" filter
     backup_days: int = 30          # backups of removed leftovers are kept this long
     restore_point: bool = False    # tick "Make a System Restore point first" to begin with
