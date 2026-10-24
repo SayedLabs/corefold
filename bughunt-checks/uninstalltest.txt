@@ -1,0 +1,71 @@
+ok    a quick uninstaller: removed in 0.6s ['starting', 'working', 'checking']
+ok    one that starts a copy of itself and quits: removed in 4.5s ['starting', 'working', 'checking']
+ok    one with a window: removed, ['starting', 'working', 'window', 'working', 'checking']
+ok    one that fails: failed (code 3) in 3.5s
+ok    one that closes but the app stays: still in 4.5s
+ok    one that leaves a program running: removed in 17.1s (not waited for)
+ok    one that hangs: seen as stuck, then stopped: stopped in 6.1s ['starting', 'working', 'stuck']
+ok    one whose uninstaller is missing: missing
+ok    "the uninstaller is done" stops the wait: still in 4.5s
+uninstalltest: 0 problem(s)
+  programs: 59 in 0.05s, Store apps: 2 in 2.17s, usage: 0.00s
+ok    programs and usage are listed quickly
+  first visit: list shown after 0.16s (2 Store apps), everything after 3.78s; status: 61 apps � 34.1 GB
+ok    first visit: the list shows within a few seconds
+  second visit: list shown after 0.06s (2 Store apps), everything after 0.76s; status: 61 apps � 34.1 GB
+ok    second visit: the list shows within a few seconds
+ok    second visit: Store apps show straight away (remembered)
+uninstalltest: 0 problem(s)
+  states: ['running', 'starting', 'working', 'checking', 'running', 'starting', 'working', 'checking', 'scanning', 'found']
+ok    the window gets to the end (page 3)
+ok    the time so far ticks (['Time so far: 0:00', 'Time so far: 0:01', 'Time so far: 0:02']�)
+ok    what went wrong is shown: 'CfTestDlgOk left nothing behind.\n\nCfTestDlgFail: Its uninstaller closed without removing it (code 3).'
+uninstalltest: 0 problem(s)
+  found 10 in 4.2s:
+    3 folder   install   C:\Users\RUNNER~1\AppData\Local\Temp\corefold-uninstalltest-lueijd5t\local\Programs\CfDeepApp
+    3 folder   data      C:\Users\RUNNER~1\AppData\Local\Temp\corefold-uninstalltest-lueijd5t\roaming\CfDeepApp
+    3 task     task      CfDeepAppUpdate
+    3 service  service   CfDeepAppSvc
+    2 key      filetype  HKCU\Software\Classes\CfDeepApp.Doc
+    3 key      filetype  HKCU\Software\Microsoft\Windows\CurrentVersion\App Paths\cfdeepapp.exe
+    2 deep folder   maybe     C:\Users\RUNNER~1\AppData\Local\Temp\CfDeepApp
+    2 deep folder   maybe     C:\Users\RUNNER~1\AppData\Local\Temp\corefold-uninstalltest-lueijd5t\local\SomeVendorX\CfDeepApp
+    2 deep key      maybe     HKCU\Software\SomeVendorX\CfDeepApp
+    1 deep folder   userfiles C:\Users\runneradmin\Documents\CfDeepApp
+ok    its install folder: sure
+ok    its settings folder: sure
+ok    a folder under another vendor's: deep, most likely
+ok    its temporary files: deep, most likely
+ok    its folder in Documents: deep, never ticked
+ok    a registry key under another vendor: deep
+ok    its App Paths entry: sure
+ok    its file type: most likely
+ok    its scheduled task: sure
+ok    its Windows service: sure
+ok    another program's folder isn't offered
+ok    everything offered passes the safety checks
+ok    each depth offers more: safe 5, normal 6, deep 10
+ok    the person's own folders are never ticked, even when deep
+ok    refused: service HKLM\SYSTEM\CurrentControlSet\Services\Dnscache
+ok    refused: task \Microsoft\Windows\Defrag\ScheduledDefrag
+ok    refused: key HKCU\Software\Classes\.txt
+ok    refused: key HKCU\Software\Classes\CLSID
+ok    refused: key HKLM\Software\Classes\exefile
+ok    the program still running from its folder is seen [(8512, 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\corefold-uninstalltest-lueijd5t\\local\\Programs\\CfDeepApp\\pythonw.exe')]
+  removed 9, failed ['C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\corefold-uninstalltest-lueijd5t\\roaming\\CfDeepApp']
+ok    the running program was closed first
+ok    its install folder is gone (nothing in use any more)
+ok    a folder with a file in use: everything else is moved, the file in use stays
+ok    �and it's tried again (as administrator)
+ok    its folder in Documents is kept (not ticked)
+ok    its service is removed
+ok    its scheduled task is removed
+ok    its file type is removed
+ok    the file still in use is left for Windows to remove at restart (1)
+  put back 10, failed []
+ok    everything is put back
+ok    the folders are back (the one with a file in use too)
+ok    the service is back
+ok    the scheduled task is back
+ok    the file type is back
+uninstalltest: 0 problem(s)
