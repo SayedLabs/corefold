@@ -450,6 +450,26 @@ def _tidy_old_staging(folder: Path):
         pass
 
 
+_PART_NUMBER = re.compile(r"\.\d{3}$")
+_RAR_PART = re.compile(r"^(.*)\.part\d+\.rar$", re.IGNORECASE)
+
+
+def archive_parts(src: Path) -> list[Path]:
+    """The archive and the other files it's split into: name.7z.001, .002 …; name.part1.rar, .part2.rar …;
+    name.zip with name.z01 …; name.rar with name.r00 …. Never other files that just start the same."""
+    folder, name = src.parent, src.name
+    found = {src}
+    if _PART_NUMBER.search(name):
+        found |= set(folder.glob(glob_escape(name[:-4]) + ".[0-9][0-9][0-9]"))
+    elif m := _RAR_PART.match(name):
+        found |= {p for p in folder.glob(glob_escape(m.group(1)) + ".part*.rar")
+                  if (n := _RAR_PART.match(p.name)) and n.group(1).lower() == m.group(1).lower()}
+    elif src.suffix.lower() in (".zip", ".rar"):
+        letter = src.suffix.lower()[1]
+        found |= set(folder.glob(glob_escape(src.stem) + f".{letter}[0-9][0-9]"))
+    return sorted(p for p in found if p.is_file())
+
+
 def _move_unique(item: Path, folder: Path) -> Path:
     target = unique_path(folder / item.name)
     shutil.move(str(item), str(target))

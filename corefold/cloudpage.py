@@ -96,6 +96,7 @@ class Files(QTreeWidget):
         self.page = page
         self.setObjectName("history")
         self.setHeaderLabels([tr("Name"), tr("Size"), tr("Changed")])
+        self.headerItem().setTextAlignment(1, Qt.AlignRight | Qt.AlignVCenter)
         self.setRootIsDecorated(False)
         self.setUniformRowHeights(True)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)

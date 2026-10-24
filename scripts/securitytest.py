@@ -3,7 +3,8 @@ shown safely) and then that Corefold's way is safe. Covers the helper that runs 
 restore point's description, links on the way, icacls going into junctions, backed-up registry files,
 scheduled task names, Startup's names), programs started by name (also: the folder Corefold was started
 in, and no program of Windows' own started by its name alone anywhere in the code), cloud downloads,
-booby-trapped pictures (EPS through Ghostscript) and videos that would go online when played.
+Unlock's delete-at-restart, booby-trapped pictures (EPS through Ghostscript) and videos that would go
+online when played.
 
 Run as administrator (GitHub's Windows runners are): python scripts/securitytest.py
 Prints one line per check, then "securitytest: N problem(s)".
@@ -426,6 +427,36 @@ def cloud_folders_with_junctions():
     check(n == 1 and not (got / "cloud-mine" / "elsewhere").exists(), f"…nor copies what they point at ({n} file(s))")
 
 
+def delete_at_restart_junctions():
+    """Unlock's "Delete when the PC restarts" runs as administrator: a folder with a junction inside (to
+    another folder, or to Windows) only loses the junction itself, never what it points at, and nothing
+    is taken through a junction, nor from Windows, programs' folders or a whole drive."""
+    from corefold import unlock
+    outside = BASE / "unlock-outside"
+    outside.mkdir()
+    (outside / "private.txt").write_text("not to be deleted")
+    box = BASE / "unlock-box"
+    box.mkdir()
+    (box / "stuck.txt").write_text("delete me")
+    junction(box / "elsewhere", outside)
+    windir = Path(os.environ.get("SystemRoot", r"C:\Windows"))
+    junction(box / "windows", windir)
+    order = unlock.at_restart_order([str(box)])
+    norm = {os.path.normcase(x) for x in order}
+    want = {os.path.normcase(str(x)) for x in (box / "stuck.txt", box / "elsewhere", box / "windows", box)}
+    check(norm == want, f"a folder with junctions inside: only its own things and the junctions ({len(order)})")
+    check(os.path.normcase(order[-1]) == os.path.normcase(str(box)), "…the folder itself last")
+    check(unlock.at_restart_order([str(box / "elsewhere")]) == [str(box / "elsewhere")],
+          "a junction chosen on its own is only the junction")
+    allowed = unlock.at_restart_allowed
+    check(allowed(str(box)) and allowed(str(box / "elsewhere")), "the chosen folder and its junctions are allowed")
+    check(not allowed(str(box / "elsewhere" / "private.txt")), "a file reached through a junction is refused")
+    check(not allowed(str(box / "windows" / "notepad.exe")), "…Windows reached through a junction too")
+    for place in (windir, windir / "System32", Path(os.environ.get("ProgramFiles", r"C:\Program Files")),
+                  Path(os.environ.get("SystemDrive", "C:") + "\\")):
+        check(not allowed(str(place)), f"{place} is refused")
+
+
 step("restore point description", restore_point_description)
 step("icacls and junctions", icacls_into_junctions)
 step("links on the way", links_on_the_way)
@@ -435,6 +466,7 @@ step("Store package names", store_names)
 step("programs started by name", programs_by_name)
 step("cloud downloads", cloud_downloads)
 step("cloud folders with junctions", cloud_folders_with_junctions)
+step("delete at restart and junctions", delete_at_restart_junctions)
 step("started from a folder", started_in_downloads)
 step("programs in the code", programs_in_the_code)
 step("Startup's names", startup_names)

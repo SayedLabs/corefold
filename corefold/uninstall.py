@@ -2166,9 +2166,10 @@ def run_elevated(command: list[str], kind: str, payload: dict, cancel: threading
 
 
 def helper_main(argv: list[str]) -> int:
-    """What the elevated copy does: --cleanup plan.json, --restore plan.json, --restore-point plan.json or
-    --space-clean plan.json."""
-    kind = next((a[2:] for a in argv if a in ("--cleanup", "--restore", "--restore-point", "--space-clean")), "")
+    """What the elevated copy does: --cleanup plan.json, --restore plan.json, --restore-point plan.json,
+    --space-clean plan.json or --delete-at-restart plan.json."""
+    kind = next((a[2:] for a in argv if a in ("--cleanup", "--restore", "--restore-point", "--space-clean",
+                                               "--delete-at-restart")), "")
     try:
         plan = Path(argv[argv.index("--" + kind) + 1])
         payload = json.loads(plan.read_text("utf-8"))
@@ -2179,7 +2180,7 @@ def helper_main(argv: list[str]) -> int:
     # account at the admin prompt, this copy runs as that account, with other folders.
     folder = str(payload.get("folder", "")) if isinstance(payload, dict) else ""
     home = plan.resolve().parent.parent  # ...\Corefold
-    needs_folder = kind not in ("restore-point", "space-clean")
+    needs_folder = kind not in ("restore-point", "space-clean", "delete-at-restart")
     if plan.resolve().parent.name.lower() != "helper" or home.name.lower() not in ("corefold", LEGACY_NAME.lower()) or \
             (needs_folder and not (folder and _inside(str(Path(folder).resolve()), str(home / BACKUP_DIR.name)))):
         return 2
@@ -2191,6 +2192,13 @@ def helper_main(argv: list[str]) -> int:
             from .space import ADMIN_KEYS, clean_as_admin
             keys = [k for k in payload.get("keys", []) if k in ADMIN_KEYS]
             out = {"freed": clean_as_admin(keys)}
+        elif kind == "delete-at-restart":  # Corefold Unlock: what nothing would let go of
+            from .unlock import at_restart_allowed, delete_at_restart
+            paths = [str(p) for p in payload.get("paths", []) if isinstance(p, str) and os.path.isabs(p)
+                     and os.path.lexists(p)]
+            allowed = [p for p in paths if at_restart_allowed(p)]
+            out = delete_at_restart(allowed) if allowed else {"scheduled": 0, "failed": 0}
+            out["refused"] = len(paths) - len(allowed)
         elif kind == "restore":
             r = restore(Path(payload["folder"]), admin=True)
             out = {"done": r["done"], "failed": r["failed"]}

@@ -24,8 +24,8 @@ if TYPE_CHECKING:
 
 log = logging.getLogger("corefold")
 
-TOOLS = [("select", "Select text"), ("arrow", "Arrow"), ("box", "Box"), ("marker", "Marker"), ("pen", "Pen"), ("text", "Text"),
-         ("step", "Steps"), ("blur", "Blur"), ("crop", "Crop")]
+TOOLS = [("select", "Select text"), ("arrow", "Arrow"), ("line", "Line"), ("box", "Box"), ("ellipse", "Ellipse"),
+         ("marker", "Marker"), ("pen", "Pen"), ("text", "Text"), ("step", "Steps"), ("blur", "Blur"), ("crop", "Crop")]
 COLORS = ["#e5484d", "#f5a524", "#30a46c", "#0090ff", "#111111", "#ffffff"]
 
 
@@ -72,6 +72,10 @@ def draw_shape(p: QPainter, s: Shape, base: QImage | None = None):
         p.drawPath(path)
     elif s.kind == "box":
         p.drawRoundedRect(s.rect(), s.width, s.width)
+    elif s.kind == "ellipse":
+        p.drawEllipse(s.rect())
+    elif s.kind == "line":
+        p.drawLine(s.points[0], s.points[-1])
     elif s.kind == "arrow":
         a, b = s.points[0], s.points[-1]
         dx, dy = b.x() - a.x(), b.y() - a.y()
@@ -114,6 +118,18 @@ def draw_shape(p: QPainter, s: Shape, base: QImage | None = None):
         p.drawRoundedRect(QRectF(box).adjusted(-pad, -pad / 2, pad, pad / 2), pad, pad)
         p.setPen(s.color)
         p.drawText(box, Qt.TextWordWrap, s.text)
+
+
+def _even(kind: str, a: QPointF, b: QPointF) -> QPointF:
+    """Where the mouse is, evened out (with Shift): lines and arrows straight or at 45°, boxes square,
+    ellipses round."""
+    dx, dy = b.x() - a.x(), b.y() - a.y()
+    if kind in ("line", "arrow"):
+        angle = round(math.atan2(dy, dx) / (math.pi / 4)) * (math.pi / 4)
+        length = math.hypot(dx, dy)
+        return QPointF(a.x() + math.cos(angle) * length, a.y() + math.sin(angle) * length)
+    side = max(abs(dx), abs(dy))
+    return QPointF(a.x() + math.copysign(side, dx or 1), a.y() + math.copysign(side, dy or 1))
 
 
 class TextLayer:
@@ -454,6 +470,8 @@ class Canvas(QWidget):
             if self.current.kind in ("pen", "marker"):
                 self.current.points.append(pt)
             else:
+                if e.modifiers() & Qt.ShiftModifier:  # Shift: straight or at 45°, square, round
+                    pt = _even(self.current.kind, self.current.points[0], pt)
                 self.current.points[-1] = pt
             self.update()
 
@@ -543,6 +561,7 @@ class CaptureEditor(QWidget):
         self.c = controller
         self.saved = saved
         self.dirty = False
+        self._edits = 0   # marks made so far (a save that finishes after more marks leaves it unsaved)
         self.setObjectName("window")
         self.setAttribute(Qt.WA_StyledBackground)
         self.setAttribute(Qt.WA_DeleteOnClose)
@@ -573,6 +592,8 @@ class CaptureEditor(QWidget):
             self.tools.addButton(b)
             self.tool_buttons[key] = b
             bar.addWidget(b)
+            if key in ("arrow", "line", "box", "ellipse"):
+                b.setToolTip(tr("Hold Shift for straight lines, squares and circles"))
             if key == "select":
                 b.setToolTip(tr("Pick words in the picture to copy, like text in a document"))
                 bar.addSpacing(8)
@@ -614,7 +635,7 @@ class CaptureEditor(QWidget):
         self.b_save = QPushButton(tr("Save"))
         self.b_save.setObjectName("primary")
         self.b_save.setCursor(Qt.PointingHandCursor)
-        self.b_save.clicked.connect(self.save)
+        self.b_save.clicked.connect(lambda: self.save())
         actions.addWidget(self.b_save)
         more = QPushButton(tr("More"))
         more.setCursor(Qt.PointingHandCursor)
@@ -701,6 +722,7 @@ class CaptureEditor(QWidget):
 
     def _changed(self):
         self.dirty = True
+        self._edits += 1
         self._update_status()
 
     def _update_status(self):
@@ -734,27 +756,32 @@ class CaptureEditor(QWidget):
         pin_picture(self.c, self.canvas.result(), self.geometry().center())
         self.close()
 
-    def _write(self, path: Path) -> bool:
-        fmt = "JPG" if path.suffix.lower() in (".jpg", ".jpeg") else "PNG"
-        try:  # (the screenshots folder can be on a drive that's gone)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            ok = self.canvas.result().save(str(path), fmt, 92 if fmt == "JPG" else -1)
-        except OSError:
-            ok = False
-        if not ok:
-            self.c.tell(tr("Couldn't save"), str(path))
-        return ok
+    def _write(self, path: Path, then=None, toast: bool = False):
+        """Saved on a thread (the editor doesn't stop while a big PNG is written); then() once it's there."""
+        from .capture import write_later
+        edits = self._edits
+        c = self.c
 
-    def save(self) -> bool:
+        def done(ok: bool):
+            if not ok:
+                c.tell(tr("Couldn't save"), str(path))
+                return
+            if toast:
+                c.toast.notify(tr("Saved"), path.name, tr("Show in folder"), lambda p=path: reveal_in_explorer(p),
+                               linger_ms=4000)
+            if not _alive(self):
+                return
+            self.saved = path
+            self.dirty = self._edits != edits
+            self._update_status()
+            if then is not None:
+                then()
+        write_later(self.canvas.result(), path, done)
+
+    def save(self, then=None) -> bool:
+        """Starts saving (see _write); self.saved is the file once it's there."""
         from .capture import new_name, screenshots_folder
-        path = self.saved or new_name(screenshots_folder(), ".png")
-        if not self._write(path):
-            return False
-        self.saved = path
-        self.dirty = False
-        self._update_status()
-        self.c.toast.notify(tr("Saved"), path.name, tr("Show in folder"), lambda p=path: reveal_in_explorer(p),
-                            linger_ms=4000)
+        self._write(self.saved or new_name(screenshots_folder(), ".png"), then, toast=True)
         return True
 
     def save_as(self):
@@ -762,21 +789,18 @@ class CaptureEditor(QWidget):
         start = self.saved or new_name(screenshots_folder(), ".png")
         name, _ = QFileDialog.getSaveFileName(self, tr("Save as"), str(start), "PNG (*.png);;JPG (*.jpg)")
         if name:
-            path = Path(name)
-            if self._write(path):
-                self.saved = path
-                self.dirty = False
-                self._update_status()
+            self._write(Path(name))
 
     def _reveal(self):
-        if self.saved is None and not self.save():
+        if self.saved is None:
+            self.save(lambda: reveal_in_explorer(self.saved))
             return
         reveal_in_explorer(self.saved)
 
     def _viewer(self):
         if self.saved is None or self.dirty:
-            if not self.save():
-                return
+            self.save(lambda: self.c.open_viewer(self.saved))
+            return
         self.c.open_viewer(self.saved)
 
     def copy_text(self):
@@ -844,7 +868,8 @@ class CaptureEditor(QWidget):
 
     def closeEvent(self, e):
         if self.dirty and self.saved is not None:
-            self._write(self.saved)  # (marks made after saving are kept in the file)
+            from .capture import write_later
+            write_later(self.canvas.result(), self.saved)  # (marks made after saving are kept in the file)
         super().closeEvent(e)
 
 

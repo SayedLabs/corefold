@@ -1171,6 +1171,22 @@ class PlayerWindow(QWidget):
         super().showEvent(e)
         set_title_bar_dark(self, True)
 
+    def changeEvent(self, e):
+        """Settings › Player: a video pauses while the window is minimised, and goes on when it's back."""
+        super().changeEvent(e)
+        if e.type() != QEvent.WindowStateChange or not getattr(self.c.settings, "player_pause_minimized", False):
+            return
+        from PySide6.QtMultimedia import QMediaPlayer
+        if self.isMinimized():
+            video = self.screen_stack.currentWidget() is self.video  # (music goes on playing)
+            if video and self.player.playbackState() == QMediaPlayer.PlayingState:
+                self.player.pause()
+                self._paused_minimized = True
+        elif getattr(self, "_paused_minimized", False):
+            self._paused_minimized = False
+            if self.player.playbackState() == QMediaPlayer.PausedState:
+                self.player.play()
+
     def closeEvent(self, e):
         self._remember()
         self.idle.stop()

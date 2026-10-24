@@ -107,7 +107,7 @@ CAP_AFTER = {"edit": "Open it to mark it up", "copy": "Only copy it"}
 CAP_DELAY = {3: "3 seconds", 5: "5 seconds", 10: "10 seconds"}
 VIEWER_SORTS = {"name": "Name", "newest": "Newest first", "oldest": "Oldest first", "biggest": "Biggest first"}
 COLORS_SHORTCUTS = {"win+shift+c": "Win + Shift + C", "win+alt+c": "Win + Alt + C", "off": "No shortcut"}
-COLORS_FORMATS = {"hex": "HEX", "rgb": "RGB", "hsl": "HSL"}
+COLORS_FORMATS = {"hex": "HEX", "rgb": "RGB", "hsl": "HSL", "hsv": "HSV", "cmyk": "CMYK"}
 PLAYER_SKIP = {5: "5 seconds", 10: "10 seconds", 30: "30 seconds"}
 PLAYER_WHEEL = {"volume": "Changes the volume", "seek": "Goes back and forward"}
 PEEK_KEYS = {"ctrl+space": "Ctrl + Space", "ctrl+shift+space": "Ctrl + Shift + Space", "off": "No shortcut"}
@@ -154,10 +154,11 @@ WHEEL_KEYS = ("wheel_size", "wheel_style", "wheel_opacity", "label_style", "hove
               "wheel_position", "per_page", "wheel_numbers")
 FORMAT_KEYS = ("hidden_tools", "favorites", "tool_order")
 UNINSTALLER_KEYS = ("unused_months", "backup_days", "restore_point", "uninstall_depth")
-ARCHIVE_KEYS = ("extract_mode", "extract_nested", "remember_archives")
-VIEWER_KEYS = ("viewer_wheel", "viewer_confirm_delete", "slideshow_seconds", "viewer_sort", "peek_key")
+ARCHIVE_KEYS = ("extract_mode", "extract_nested", "remember_archives", "extract_reveal", "extract_recycle")
+VIEWER_KEYS = ("viewer_wheel", "viewer_confirm_delete", "slideshow_seconds", "viewer_sort", "peek_key", "viewer_loop")
 CLIPBOARD_KEYS = ("clip_shortcut", "clip_paste", "clip_max", "clip_days", "clip_images", "clip_ignore")
-PLAYER_KEYS = ("player_resume", "player_skip", "player_wheel", "player_next", "player_subtitles")
+PLAYER_KEYS = ("player_resume", "player_skip", "player_wheel", "player_next", "player_subtitles",
+               "player_pause_minimized")
 CAPTURE_KEYS = ("cap_shortcut", "cap_after", "cap_delay", "cap_save", "cap_folder")
 UPDATE_KEYS = ("check_updates", "auto_update")
 QUICK_KEYS = ("quick_menu", "quick_menu_key", "quick_menu_items", "quick_wheel", "quick_wheel_key",
@@ -219,12 +220,15 @@ class Settings:
     extract_mode: str = "smart"    # "Extract here": "smart" (no folder inside a folder) or "folder"
     extract_nested: bool = False   # also unpack archives found inside
     remember_archives: bool = True  # list the archives opened lately on the Archive page
+    extract_reveal: bool = False   # open the folder once an archive is extracted
+    extract_recycle: bool = False  # then send the archive (and its parts) to the Recycle Bin
     # the Viewer
     open_images: bool = True       # pictures and email files open in Corefold ("Open with")
     open_emails: bool = True
     viewer_wheel: str = "zoom"     # the mouse wheel zooms, or goes to the next picture
     viewer_confirm_delete: bool = True
     viewer_sort: str = "name"      # the order of a folder's pictures: name, newest, oldest, biggest
+    viewer_loop: bool = False      # after the last picture comes the first one again (and back)
     slideshow_seconds: int = 4
     peek_key: str = "ctrl+space"   # Quick look at the file selected in File Explorer (only taken while it's in front)
     viewer_info: bool = False      # the details panel is open
@@ -247,6 +251,7 @@ class Settings:
     player_wheel: str = "volume"   # the mouse wheel over the video: volume or seeking
     player_next: bool = True       # play the next file in the folder when one ends
     player_subtitles: bool = True  # turn on a video's own subtitles
+    player_pause_minimized: bool = False  # pause while the window is minimised (and go on when it's back)
     player_volume: int = 80
     # Capture
     cap_shortcut: str = "ctrl+printscreen"          # a screenshot
@@ -256,7 +261,7 @@ class Settings:
     cap_delay: int = 5             # seconds "Screenshot with a timer" waits
     # Colors
     colors_shortcut: str = "win+shift+c"  # pick a colour from any app
-    colors_format: str = "hex"     # copied as "hex", "rgb" or "hsl"
+    colors_format: str = "hex"     # copied as "hex", "rgb", "hsl", "hsv" or "cmyk"
     colors_history: list = field(default_factory=list)  # colours picked lately ("#RRGGBB", newest first)
     # Quick access: a menu and a wheel that open from any app
     quick_menu: bool = True

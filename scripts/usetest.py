@@ -428,6 +428,15 @@ def start():
     check(not slow, f"every page opens in under 0.4 s ({len(names)} pages; slow: {', '.join(slow) or 'none'})")
     for p in slow:
         problems.append(f"slow page: {p}")
+    ap = getattr(c.window, "apps_page", None)
+    if ap is not None:  # (the Uninstaller's icons are made on a thread now: they still come)
+        end = time.monotonic() + 20
+        while time.monotonic() < end and not (ap.loaded and any(
+                not ap.tree.topLevelItem(i).icon(0).isNull() for i in range(ap.tree.topLevelItemCount()))):
+            settle(0.2)
+        with_icon = sum(1 for i in range(ap.tree.topLevelItemCount()) if not ap.tree.topLevelItem(i).icon(0).isNull())
+        check(with_icon > 0, f"the Uninstaller's list shows the apps' icons ({with_icon} of "
+                             f"{ap.tree.topLevelItemCount()})")
     c.window.open_page("Space")
     c.window.open_page("Store")
     settle(0.2)
@@ -693,7 +702,7 @@ def capture():
     ed = next((e for e in cap.editors if e.isVisible()), None)
     if ed is not None:
         grab(ed, "capture-editor")
-        timed("Save in the editor", ed.save, 1.0)
+        timed("Save in the editor (written on a thread)", ed.save, 1.0, wait=lambda: not ed.dirty)
         ed.close()
 
 

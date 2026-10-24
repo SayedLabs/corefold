@@ -20,7 +20,7 @@ concurrency:
 jobs:
   try:
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 70   # (the two full sweeps, every page, button and search entry, take 30-45 minutes)
     strategy:
       fail-fast: false
       matrix:
@@ -58,6 +58,7 @@ jobs:
             use: "--lang ar --look light"
           - name: languages
           - name: tools
+          - name: newtests
           - name: exe
     name: ${{ matrix.name }}
     steps:
@@ -94,7 +95,7 @@ jobs:
           python scripts/capfoldertest.py out/capfolder ar light *> out/capfoldertest-ar.txt
           python scripts/edgetest.py *> out/edgetest.txt
 
-      - name: Each tool's own test (File Organizer, Startup, Scan, and the newer tools' tests)
+      - name: Each tool's own test (File Organizer, Startup, Scan)
         if: matrix.name == 'tools'
         shell: pwsh
         continue-on-error: true
@@ -106,13 +107,10 @@ jobs:
           }
           # once: it puts a test threat back from quarantine, and Windows then lets that one be on this PC
           python scripts/scantest.py out/scantest ar light *> out/scantest.txt
-          foreach ($t in Get-ChildItem scripts -Filter "newtest_*.py") {
-            python scripts/$($t.Name) *> "out/$($t.BaseName).txt"
-          }
 
       - name: Every page and button
         if: matrix.sweep != ''
-        timeout-minutes: 30
+        timeout-minutes: 55
         shell: pwsh
         continue-on-error: true
         env:
@@ -180,6 +178,16 @@ jobs:
           python scripts/langtest.py out/langtest --look light *> out/langtest-light.txt
           python scripts/langtest.py out/langtest --start first --data startdata *> out/langtest-first.txt
           python scripts/langtest.py out/langtest --start again --data startdata *> out/langtest-again.txt
+
+      - name: The 1.8 tools' own tests (Awake, Colors, Unlock, quick menu and search, Quick look, empty folders, settings in a file)
+        if: matrix.name == 'newtests'
+        timeout-minutes: 40
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          foreach ($t in Get-ChildItem scripts -Filter "newtest_*.py") {
+            python $t.FullName *> "out/$($t.BaseName).txt"
+          }
 
       - name: The built Corefold.exe
         if: matrix.name == 'exe'

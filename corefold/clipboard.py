@@ -14,6 +14,7 @@ import logging
 import os
 import re
 import sqlite3
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -161,13 +162,35 @@ class History:
         self.folder = folder
         self.images = folder / "images"
         self._db: sqlite3.Connection | None = None
+        self._opening: threading.Thread | None = None
+
+    def open_early(self):
+        """Opens the history in the background, so the first copy or the first look at it doesn't wait
+        (opening it can take a second while Windows' virus check looks at the files)."""
+        if self._db is None and self._opening is None:
+            self._opening = threading.Thread(target=self._open_quietly, daemon=True)
+            self._opening.start()
+
+    def _open_quietly(self):
+        try:
+            self._open()
+        except Exception:
+            log.debug("couldn't open the clipboard history early", exc_info=True)
 
     @property
     def db(self) -> sqlite3.Connection:
+        if self._opening is not None:
+            self._opening.join()
+            self._opening = None
+        if self._db is None:
+            self._open()
+        return self._db
+
+    def _open(self):
         if self._db is None:
             self.images.mkdir(parents=True, exist_ok=True)
             try:
-                self._db = self._open()
+                db = self._connect()
             except sqlite3.DatabaseError:
                 # a damaged history (the PC lost power while writing, a disk error) is put aside, and a new one
                 # is started: otherwise nothing copied would ever be kept again
@@ -179,11 +202,12 @@ class History:
                             os.replace(old, self.folder / ("history (damaged).db" + suffix))
                     except OSError:
                         pass
-                self._db = self._open()
-        return self._db
+                db = self._connect()
+            self._db = db
 
-    def _open(self) -> sqlite3.Connection:
-        db = sqlite3.connect(str(self.folder / "history.db"))
+    def _connect(self) -> sqlite3.Connection:
+        # (used by one thread at a time: made on the opening one, then only on the app's)
+        db = sqlite3.connect(str(self.folder / "history.db"), check_same_thread=False)
         try:
             try:  # each copy is kept without waiting for the disk (it used to hold the app up to a second)
                 db.execute("PRAGMA journal_mode=WAL")
@@ -203,6 +227,9 @@ class History:
         return db
 
     def close(self):
+        if self._opening is not None:
+            self._opening.join()
+            self._opening = None
         if self._db is not None:
             try:
                 self._db.close()
@@ -554,6 +581,7 @@ class Clipboard(QObject):
         super().__init__()
         self.settings = settings
         self.history = History(folder)
+        self.history.open_early()
         self.popup = None
         self.on_hotkey = None        # set by the app: opens the popup
         self._own: int | None = None  # the clipboard's change number after Corefold copied something itself
