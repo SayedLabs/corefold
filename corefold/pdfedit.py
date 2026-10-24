@@ -728,43 +728,85 @@ def _highlights(writer, page, geo: Geo, marks: list[dict]):
     page.merge_transformed_page(over, Transformation(geo.ctm()))
 
 
+def _overlap(a, b) -> float:
+    """How much two (left, bottom, right, top) boxes overlap, in square points."""
+    return max(0.0, min(a[2], b[2]) - max(a[0], b[0])) * max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+
+
 def _take_out(src: Path, password: str, changes: dict[int, dict]) -> bytes:
     """With PDFium: the old pieces that were changed or deleted are taken out of their pages, and the
-    moved ones are moved. Gives the PDF as bytes (without its password: the new copy gets it again)."""
+    moved ones are moved. What's under a cover is taken out of the file, not just hidden: pieces fully
+    under it go, and a piece partly under it (a line with one number covered, a scanned page) becomes a
+    picture of itself without the covered part. Gives the PDF as bytes (without its password: the new
+    copy gets it again)."""
     import pypdfium2 as pdfium
     import pypdfium2.raw as c
     with PDFIUM:
         doc = pdfium.PdfDocument(str(src), password=password or None)
+        alone = None  # (a second copy, to draw one piece on its own)
         try:
             for index, change in changes.items():
                 page = doc[index]
                 try:
                     geo = page_geo(page)
                     count = c.FPDFPage_CountObjects(page.raw)
+                    objs = [c.FPDFPage_GetObject(page.raw, k) for k in range(count)]
                     gone = {k for k in change.get("remove", ()) if 0 <= k < count}
-                    # what a cover hides completely is taken out too (covered words are really gone)
-                    for x, y, w, h in change.get("covers", ()):
-                        l, b, r, t = geo.rect_to_user(x, y, w, h)
-                        for k in range(count):
-                            o = c.FPDFPage_GetObject(page.raw, k)
-                            if c.FPDFPageObj_GetType(o) not in (c.FPDF_PAGEOBJ_TEXT, c.FPDF_PAGEOBJ_IMAGE):
-                                continue
-                            ol, ob, orr, ot = _bounds(o)
-                            if ol >= l - 0.5 and ob >= b - 0.5 and orr <= r + 0.5 and ot <= t + 0.5:
-                                gone.add(k)
-                    for k, (old, new) in change.get("move", {}).items():
-                        if k in gone or not 0 <= k < count:
-                            continue
+                    moves = {k: v for k, v in change.get("move", {}).items() if 0 <= k < count and k not in gone}
+                    matrices = {}
+                    for k, (old, new) in moves.items():
                         ol, ob, orr, ot = geo.rect_to_user(*old)
                         nl, nb, nr, nt = geo.rect_to_user(*new)
                         sx = (nr - nl) / (orr - ol) if orr - ol > 0.01 else 1.0
                         sy = (nt - nb) / (ot - ob) if ot - ob > 0.01 else 1.0
-                        c.FPDFPageObj_Transform(c.FPDFPage_GetObject(page.raw, k), sx, 0, 0, sy,
-                                                nl - sx * ol, nb - sy * ob)
+                        matrices[k] = (sx, 0, 0, sy, nl - sx * ol, nb - sy * ob)
+                        c.FPDFPageObj_Transform(objs[k], *matrices[k])
+                    covers = [geo.rect_to_user(*r) for r in change.get("covers", ())]
+                    partly = []
+                    for k, o in enumerate(objs):
+                        if k in gone or not covers:
+                            continue
+                        box = _bounds(o)
+                        if any(box[0] >= l - 0.5 and box[1] >= b - 0.5 and box[2] <= r + 0.5 and box[3] <= t + 0.5
+                               for l, b, r, t in covers):
+                            gone.add(k)
+                        elif any(_overlap(box, cv) > 0.01 for cv in covers):
+                            partly.append(k)
+                    pictures = {}
+                    if partly:
+                        if alone is None:
+                            alone = pdfium.PdfDocument(str(src), password=password or None)
+                        for k in partly:
+                            pic = _without_covered(alone, index, k, matrices, geo, change.get("covers", ()), objs[k])
+                            if pic is not None:
+                                pictures[k] = pic
+                    for k in sorted(pictures, reverse=True):  # (from the top down: the places below stay put)
+                        img = c.FPDFPageObj_NewImageObj(doc.raw)
+                        bitmap, matrix = pictures[k]
+                        c.FPDFImageObj_SetBitmap(None, 0, img, bitmap.raw)
+                        c.FPDFImageObj_SetMatrix(img, *matrix)
+                        if hasattr(c, "FPDFPage_InsertObjectAtIndex"):
+                            c.FPDFPage_InsertObjectAtIndex(page.raw, img, k)
+                        else:
+                            c.FPDFPage_InsertObject(page.raw, img)
+                        gone.add(k)
                     for k in sorted(gone, reverse=True):
-                        o = c.FPDFPage_GetObject(page.raw, k)
+                        o = objs[k]
                         if o and c.FPDFPage_RemoveObject(page.raw, o):
                             c.FPDFPageObj_Destroy(o)
+                    for n in reversed(range(c.FPDFPage_GetAnnotCount(page.raw)) if covers else ()):
+                        annot = c.FPDFPage_GetAnnot(page.raw, n)  # (notes, stamps, form boxes under a cover)
+                        try:
+                            rect = c.FS_RECTF()
+                            hit = c.FPDFAnnot_GetRect(annot, rect) and \
+                                c.FPDFAnnot_GetSubtype(annot) not in (c.FPDF_ANNOT_POPUP, c.FPDF_ANNOT_LINK) and \
+                                any(_overlap((min(rect.left, rect.right), min(rect.bottom, rect.top),
+                                              max(rect.left, rect.right), max(rect.bottom, rect.top)), cv) > 0.01
+                                    for cv in covers)
+                        finally:
+                            c.FPDFPage_CloseAnnot(annot)
+                        if hit:
+                            c.FPDFPage_RemoveAnnot(page.raw, n)
                     if not c.FPDFPage_GenerateContent(page.raw):
                         raise RuntimeError(tr("page {number} couldn't be changed", number=index + 1))
                 finally:
@@ -773,7 +815,88 @@ def _take_out(src: Path, password: str, changes: dict[int, dict]) -> bytes:
             doc.save(out, flags=c.FPDF_REMOVE_SECURITY if password else c.FPDF_NO_INCREMENTAL)
             return out.getvalue()
         finally:
+            if alone is not None:
+                alone.close()
             doc.close()
+
+
+def _without_covered(alone, index: int, k: int, matrices: dict, geo: "Geo", covers, obj):
+    """A picture of the page's piece k on its own, with the covered parts cut out (see-through), and
+    where it goes (an image matrix), or None when nothing of it is under a cover. Call with PDFIUM held."""
+    import pypdfium2 as pdfium
+    import pypdfium2.raw as c
+    page = alone[index]
+    try:
+        count = c.FPDFPage_CountObjects(page.raw)
+        mine = c.FPDFPage_GetObject(page.raw, k)
+        if k in matrices:
+            c.FPDFPageObj_Transform(mine, *matrices[k])
+        for o in [c.FPDFPage_GetObject(page.raw, n) for n in range(count) if n != k]:
+            c.FPDFPage_RemoveObject(page.raw, o)  # (in memory only: the page isn't saved)
+            c.FPDFPageObj_Destroy(o)
+        # where the piece is, as the page is shown
+        l, b, r, t = _bounds(obj)
+        corners = [geo.to_display(x, y) for x, y in ((l, b), (r, b), (l, t), (r, t))]
+        x0, y0 = max(0.0, min(p[0] for p in corners)), max(0.0, min(p[1] for p in corners))
+        x1, y1 = min(geo.width, max(p[0] for p in corners)), min(geo.height, max(p[1] for p in corners))
+        if x1 - x0 < 0.5 or y1 - y0 < 0.5:
+            return None
+        scale = 300 / 72
+        if c.FPDFPageObj_GetType(obj) == c.FPDF_PAGEOBJ_IMAGE:  # (a scan keeps about its own sharpness)
+            pw, ph = ctypes.c_uint(), ctypes.c_uint()
+            if c.FPDFImageObj_GetImagePixelSize(obj, pw, ph):
+                scale = min(400 / 72, max(100 / 72, max(pw.value, ph.value) / max(x1 - x0, y1 - y0, 1)))
+        scale = min(scale, math.sqrt(40e6 / max(1.0, (x1 - x0) * (y1 - y0))))
+        bitmap = page.render(scale=scale, crop=(x0, geo.height - y1, geo.width - x1, y0), fill_color=(0, 0, 0, 0),
+                             may_draw_forms=False)
+        img = bitmap.to_pil().convert("RGBA")
+        alpha = img.getchannel("A")
+        hidden = False
+        for x, y, w, h in covers:
+            box = (round((x - x0) * scale), round((y - y0) * scale), round((x + w - x0) * scale),
+                   round((y + h - y0) * scale))
+            box = (max(0, box[0]), max(0, box[1]), min(img.width, box[2]), min(img.height, box[3]))
+            if box[2] <= box[0] or box[3] <= box[1]:
+                continue
+            if alpha.crop(box).getbbox() is not None:
+                hidden = True
+            img.paste((0, 0, 0, 0), box)
+        if not hidden:
+            return None  # (nothing of it shows under the covers: it can stay as it is)
+        out = pdfium.PdfBitmap.from_pil(img if img.getchannel("A").getextrema()[0] < 255 else img.convert("RGB"))
+        # the picture's corners on the page (images are drawn into a 1 × 1 square)
+        bl, br, tl = geo.to_user(x0, y1), geo.to_user(x1, y1), geo.to_user(x0, y0)
+        matrix = (br[0] - bl[0], br[1] - bl[1], tl[0] - bl[0], tl[1] - bl[1], bl[0], bl[1])
+        return out, matrix
+    finally:
+        page.close()
+
+
+def _drop_lost_fields(reader):
+    """Form boxes a cover took off the page: their fields (and what was typed in them) go too, before the
+    copy is made (the copy only takes what's still used)."""
+    from pypdf.generic import ArrayObject, IndirectObject, NameObject
+    root = reader.trailer["/Root"]
+    form = root.get("/AcroForm")
+    if form is None:
+        return
+    form = form.get_object()
+    on_pages = {ref.idnum for page in reader.pages for ref in (page.get("/Annots") or [])
+                if isinstance(ref, IndirectObject)}
+
+    def keep(ref) -> bool:
+        field = ref.get_object()
+        kids = field.get("/Kids")
+        if kids is not None:
+            left = ArrayObject(k for k in kids if keep(k))
+            if not left:
+                return False
+            field[NameObject("/Kids")] = left
+            return True
+        return field.get("/Subtype") != "/Widget" or (isinstance(ref, IndirectObject) and ref.idnum in on_pages)
+    fields = form.get("/Fields")
+    if fields is not None:
+        form[NameObject("/Fields")] = ArrayObject(f for f in fields.get_object() if keep(f))
 
 
 def _field_picture(writer, w: float, h: float, field: dict, value: str):
@@ -869,6 +992,8 @@ def save_edits(src: Path, ctx: Ctx) -> Result:
     ctx.progress(0.05)
     if changes:
         reader = PdfReader(io.BytesIO(_take_out(src, password, changes)))
+        if any(ch.get("covers") for ch in changes.values()):
+            _drop_lost_fields(reader)
     else:
         reader = open_reader(src, password)
     fields = read_fields(reader) if values else []

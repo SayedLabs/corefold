@@ -2444,7 +2444,7 @@ STRINGS: dict[str, str] = {
     'Drag across words to cross them out.': 'Üstünü çizmek için kelimelerin üzerinde sürükleyin.',
     'Draw with the mouse or a pen.': 'Fare veya kalemle çizin.',
     'Drag to draw the shape.': 'Şekli çizmek için sürükleyin.',
-    'Drag over what should be hidden. Words and pictures fully under it are taken out of the file.': 'Gizlenecek yerin üzerinde sürükleyin. Tamamen altında kalan kelimeler ve resimler dosyadan çıkarılır.',
+    "Drag over what should be hidden. What's under it is taken out of the file, not just hidden.": 'Gizlenecek yerin üzerinde sürükleyin. Altında kalan, yalnızca örtülmez, dosyadan çıkarılır.',
     'Click where the note should go.': 'Notun gideceği yere tıklayın.',
     'Thin': 'İnce',
     'Thick': 'Kalın',

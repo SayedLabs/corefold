@@ -60,7 +60,7 @@ HINTS = {"select": "Click something to select it and drag it to move it. Double-
          "strike": "Drag across words to cross them out.",
          "draw": "Draw with the mouse or a pen.",
          "shape": "Drag to draw the shape.",
-         "cover": "Drag over what should be hidden. Words and pictures fully under it are taken out of the file.",
+         "cover": "Drag over what should be hidden. What's under it is taken out of the file, not just hidden.",
          "note": "Click where the note should go."}
 WIDTHS = {"Thin": 1.0, "Medium": 2.5, "Thick": 5.0}
 INK = ["#000000", "#1f3a93", "#d32f2f", "#2e7d32", "#f57c00", "#7b1fa2", "#ffffff"]

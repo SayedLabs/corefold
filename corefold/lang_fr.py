@@ -2444,7 +2444,7 @@ STRINGS: dict[str, str] = {
     'Drag across words to cross them out.': 'Faites glisser sur les mots pour les barrer.',
     'Draw with the mouse or a pen.': 'Dessinez avec la souris ou un stylet.',
     'Drag to draw the shape.': 'Faites glisser pour dessiner la forme.',
-    'Drag over what should be hidden. Words and pictures fully under it are taken out of the file.': 'Faites glisser sur ce qui doit être caché. Les mots et images entièrement dessous sont retirés du fichier.',
+    "Drag over what should be hidden. What's under it is taken out of the file, not just hidden.": 'Faites glisser sur ce qui doit être caché. Ce qui est dessous est retiré du fichier, pas seulement masqué.',
     'Click where the note should go.': 'Cliquez là où la note doit aller.',
     'Thin': 'Fin',
     'Thick': 'Épais',

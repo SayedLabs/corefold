@@ -174,6 +174,68 @@ def picture_of(path: Path, page: int = 0, scale: float = 1.0, password: str = ""
         doc.close()
 
 
+def cover_hides_for_real():
+    """Cover over part of a line (one number) and part of a scan: what's under it is really gone."""
+    from pypdf.generic import DecodedStreamObject
+    from PIL import Image
+    src = FILES / "bank.pdf"
+    w = PdfWriter()
+    page = w.add_blank_page(595, 842)
+    font = DictionaryObject({NameObject("/Type"): NameObject("/Font"), NameObject("/Subtype"): NameObject("/Type1"),
+                             NameObject("/BaseFont"): NameObject("/Helvetica")})
+    scan = Image.new("RGB", (400, 200), (40, 90, 220))
+    scan.paste((230, 20, 20), (200, 0, 400, 200))  # (the right half is the secret)
+    img = DecodedStreamObject()
+    img.set_data(scan.tobytes())
+    img.update({NameObject("/Type"): NameObject("/XObject"), NameObject("/Subtype"): NameObject("/Image"),
+                NameObject("/Width"): NumberObject(400), NameObject("/Height"): NumberObject(200),
+                NameObject("/ColorSpace"): NameObject("/DeviceRGB"), NameObject("/BitsPerComponent"): NumberObject(8)})
+    page[NameObject("/Resources")] = DictionaryObject({
+        NameObject("/Font"): DictionaryObject({NameObject("/F1"): w._add_object(font)}),
+        NameObject("/XObject"): DictionaryObject({NameObject("/Im1"): w._add_object(img)})})
+    content = DecodedStreamObject()
+    content.set_data(b"BT /F1 14 Tf 50 700 Td (Name: Ali   IBAN: SA4420000001234567891234) Tj ET "
+                     b"BT /F1 14 Tf 50 650 Td (Keep this line) Tj ET q 200 0 0 100 50 400 cm /Im1 Do Q")
+    page[NameObject("/Contents")] = w._add_object(content)
+    w.write(str(src))
+    doc = pdfium.PdfDocument(str(src))
+    tp = doc[0].get_textpage()
+    i = tp.get_text_range().index("SA44")
+    boxes = [tp.get_charbox(k) for k in range(i, i + 24)]
+    doc.close()
+    l, b = min(x[0] for x in boxes) - 2, min(x[1] for x in boxes) - 2
+    r, t = max(x[2] for x in boxes) + 2, max(x[3] for x in boxes) + 2
+    edits = [dict(kind="cover", page=0, x=l, y=842 - t, w=r - l, h=t - b, color="#ffffff"),
+             dict(kind="cover", page=0, x=150, y=842 - 500, w=100, h=100, color="#ffffff")]  # (the scan's red half)
+    out = pe.save_edits(src, ctx(edits=edits)).outputs[0]
+    words = text_of(out)
+    check("SA44" not in words and b"SA44" not in all_streams_text(out),
+          f"Cover over one number in a line: it's gone from the file ({words!r})")
+    check("Keep this line" in words, "the lines it doesn't touch stay real text")
+    pic = picture_of(out, scale=2)
+    dark = sum(1 for x in range(100, 160) for y in range(2 * 128, 2 * 146) if sum(pic.getpixel((x, y))) < 300)
+    check(dark > 30, f"the rest of the covered line still shows ({dark} dark dots)")
+    red = 0
+    for im in PdfReader(str(out)).pages[0].images:
+        data = im.image.convert("RGB").tobytes()
+        red += sum(1 for k in range(0, len(data), 3) if data[k] > 180 and data[k + 1] < 80 and data[k + 2] < 80)
+    check(red == 0, f"Cover over half a scan: the covered half isn't in the file ({red} red dots)")
+    blue = pic.getpixel((2 * 100, 2 * (842 - 450)))
+    check(blue[2] > 150 and blue[0] < 120, f"and the half it doesn't cover still shows ({blue})")
+    white = pic.getpixel((2 * 200, 2 * (842 - 450)))
+    check(min(white) > 240, f"the covered half shows the cover ({white})")
+    # a form box under a cover: what was typed in it goes too
+    form = make_form(FILES / "covered form.pdf")
+    filled = pe.save_edits(form, ctx(fields={"name": "Zxqv Secret"})).outputs[0]
+    box = next(f for f in pe.read_fields(PdfReader(str(filled))) if f["name"] == "name")
+    x, y, bw, bh = box["rect"]
+    out = pe.save_edits(filled, ctx(edits=[dict(kind="cover", page=box["page"], x=x - 2, y=y - 2, w=bw + 4, h=bh + 4,
+                                                color="#ffffff")])).outputs[0]
+    left = PdfReader(str(out)).get_fields() or {}
+    check(b"Zxqv" not in all_streams_text(out) and "name" not in left and "agree" in left,
+          f"Cover over a form box: it and what was typed in it are gone, the other boxes stay ({sorted(left)})")
+
+
 def all_streams_text(path: Path) -> bytes:
     """Every stream in the file, unpacked (to be sure removed words aren't left anywhere)."""
     r = PdfReader(str(path))
@@ -191,6 +253,9 @@ def all_streams_text(path: Path) -> bytes:
         except Exception:
             pass
     return b"\n".join(out)
+
+
+step("cover", cover_hides_for_real)
 
 
 DOC = make_doc("letter.pdf")
