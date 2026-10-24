@@ -327,6 +327,7 @@ def sort(p: Plan, progress=None) -> Result:
     used: set[str] = set()
     taken: set[str] = set()
     state = _load()
+    before = state.get("last")  # (kept if this sort ends up moving nothing)
     record = {"folder": str(p.folder), "time": time.time(), "moves": moves, "made": made}
     state["last"] = record
     for kind in {i.kind for i in todo}:
@@ -372,8 +373,11 @@ def sort(p: Plan, progress=None) -> Result:
     remembered = state.setdefault("folders", {}).setdefault(_norm(p.folder), {})
     for kind in used:
         remembered[kind] = p.folders[kind].name
-    if not moves:
-        state.pop("last", None)
+    if not moves:  # nothing moved: the sort before this one can still be undone
+        if before:
+            state["last"] = before
+        else:
+            state.pop("last", None)
     _save(state)
     return res
 

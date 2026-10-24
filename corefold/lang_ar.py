@@ -175,7 +175,6 @@ STRINGS: dict[str, str] = {
         "تعذّر تشغيل برنامج الإزالة. يمكنك إزالة كورفولد من إعدادات ويندوز ← التطبيقات ← التطبيقات المثبتة.",
 
     # ------------------------------------------------------------------ archives
-    "not an archive Corefold can open": "هذا ليس أرشيفًا يستطيع كورفولد فتحه",
     "the archive is damaged or incomplete": "الأرشيف تالف أو غير مكتمل",
     "a part of this split archive is missing": "جزء من هذا الأرشيف المقسّم مفقود",
     "the disk is full": "القرص ممتلئ",
