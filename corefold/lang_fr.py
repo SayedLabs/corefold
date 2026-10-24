@@ -1026,7 +1026,7 @@ STRINGS: dict[str, str] = {
     "Pin": "Épingler",
     "Search your clipboard": "Rechercher dans le presse-papiers",
     "Paused: new copies aren't kept. Resume": "En pause : les nouvelles copies ne sont pas gardées. Reprendre",
-    "Enter pastes  ·  Shift+Enter: plain text  ·  Ctrl+P pins": "Entrée colle  ·  Maj+Entrée : texte brut  ·  Ctrl+P épingle",
+    "Enter pastes  ·  Ctrl+1…9: that row  ·  Shift+Enter: plain text  ·  Ctrl+P pins": "Entrée colle  ·  Ctrl+1…9 : cette ligne  ·  Maj+Entrée : texte brut  ·  Ctrl+P épingle",
     "Open the Clipboard in Corefold": "Ouvrir le Presse-papiers dans Corefold",
     "No shortcut": "Aucun raccourci",
     "Couldn't paste": "Impossible de coller",

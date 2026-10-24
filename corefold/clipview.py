@@ -55,6 +55,7 @@ class Rows(QStyledItemDelegate):
         self.clip, self.theme, self.tall = clip, theme, tall
         self.thumbs: dict[int, QPixmap] = {}
         self.signs: dict[tuple, QPixmap] = {}
+        self.numbers = False   # the first nine rows show their number (Ctrl + that number pastes it)
 
     def sizeHint(self, option, index):
         return QSize(100, self.tall)
@@ -118,7 +119,8 @@ class Rows(QStyledItemDelegate):
             s = 18
             sign = self._sign(KIND_ICONS.get(item.kind, "document"), t.muted, s, dpr)
             p.drawPixmap(QRect(tile.center().x() - s // 2, tile.center().y() - s // 2, s, s), sign)
-        pin_w = 20 if item.pinned else 0
+        number = str(index.row() + 1) if self.numbers and index.row() < 9 else ""
+        pin_w = (20 if item.pinned else 0) + (18 if number else 0)
         if rtl:
             text = QRect(r.left() + 10 + pin_w, r.top() + 6, tile.left() - 10 - (r.left() + 10 + pin_w), r.height() - 12)
         else:
@@ -143,6 +145,15 @@ class Rows(QStyledItemDelegate):
             s = 14
             x = r.left() + 10 if rtl else r.right() - 10 - s
             p.drawPixmap(QRect(x, r.center().y() - s // 2, s, s), self._sign("pin", t.accent, s, dpr))
+        if number:
+            end = 10 + (20 if item.pinned else 0)
+            spot = QRect(r.left() + end if rtl else r.right() - end - 14, r.top(), 14, r.height())
+            p.setFont(small)
+            faint = QColor(t.muted)
+            if not opt.state & QStyle.State_Selected:
+                faint.setAlpha(150)
+            p.setPen(faint)
+            p.drawText(spot, Qt.AlignCenter, number)
         p.restore()
 
 
@@ -371,6 +382,7 @@ class QuickPaste(QWidget):
         self.paused.clicked.connect(self._resume)
         lay.addWidget(self.paused)
         self.list = ClipList(clip, controller.theme, 54, click_uses=True, controller=controller)
+        self.list.rows.numbers = True
         self.list.used.connect(self.use)
         self.list.removed.connect(self._remove)
         self.list.pinned.connect(self._pin)
@@ -383,8 +395,9 @@ class QuickPaste(QWidget):
         lay.addWidget(self.empty, 1)
         foot = QHBoxLayout()
         foot.setSpacing(6)
-        self.hint = QLabel(tr("Enter pastes  ·  Shift+Enter: plain text  ·  Ctrl+P pins"))
+        self.hint = QLabel(tr("Enter pastes  ·  Ctrl+1…9: that row  ·  Shift+Enter: plain text  ·  Ctrl+P pins"))
         self.hint.setObjectName("muted")
+        self.hint.setWordWrap(True)  # (two lines in longer languages, never wider than the popup)
         small = self.hint.font()
         small.setPointSizeF(8)
         self.hint.setFont(small)

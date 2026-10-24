@@ -1103,7 +1103,7 @@ STRINGS: dict[str, str] = {
     "Pin": "تثبيت",
     "Search your clipboard": "ابحث في الحافظة",
     "Paused: new copies aren't kept. Resume": "متوقف: النسخ الجديدة ما تنحفظ. استئناف",
-    "Enter pastes  ·  Shift+Enter: plain text  ·  Ctrl+P pins": "Enter يلصق  ·  Shift+Enter: نص عادي  ·  Ctrl+P يثبّت",
+    "Enter pastes  ·  Ctrl+1…9: that row  ·  Shift+Enter: plain text  ·  Ctrl+P pins": "Enter يلصق  ·  Ctrl+1…9: ذاك السطر  ·  Shift+Enter: نص عادي  ·  Ctrl+P يثبّت",
     "Open the Clipboard in Corefold": "افتح الحافظة في كورفولد",
     "No shortcut": "بدون اختصار",
     "Couldn't paste": "ما قدرنا نلصق",

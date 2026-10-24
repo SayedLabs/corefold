@@ -1026,7 +1026,7 @@ STRINGS: dict[str, str] = {
     "Pin": "Sabitle",
     "Search your clipboard": "Panoda ara",
     "Paused: new copies aren't kept. Resume": "Duraklatıldı: yeni kopyalar saklanmıyor. Sürdür",
-    "Enter pastes  ·  Shift+Enter: plain text  ·  Ctrl+P pins": "Enter yapıştırır  ·  Shift+Enter: düz metin  ·  Ctrl+P sabitler",
+    "Enter pastes  ·  Ctrl+1…9: that row  ·  Shift+Enter: plain text  ·  Ctrl+P pins": "Enter yapıştırır  ·  Ctrl+1…9: o satır  ·  Shift+Enter: düz metin  ·  Ctrl+P sabitler",
     "Open the Clipboard in Corefold": "Pano'yu Corefold'da aç",
     "No shortcut": "Kısayol yok",
     "Couldn't paste": "Yapıştırılamadı",
