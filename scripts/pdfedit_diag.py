@@ -25,3 +25,4 @@ for name, d in (("raw", raw), ("fixed", data)):
         print(tu.get_object().get_data().decode("latin-1") if tu else "no ToUnicode")
     doc = pdfium.PdfDocument(d)
     print(name, "pdfium:", [hex(ord(ch)) for ch in doc[0].get_textpage().get_text_range()])
+print("SEARCHABLE:", "جديد" in pdfium.PdfDocument(data)[0].get_textpage().get_text_range())

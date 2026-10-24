@@ -214,15 +214,18 @@ def _arabic_unicode(data: bytes, typed: str) -> bytes:
     import io
     import re
     from pypdf import PdfReader, PdfWriter
-    swap = {}
-    for a, b in _SAME_JOINED.items():
-        if b in typed and a not in typed:
-            swap[a] = b
-        elif a in typed and b not in typed:
-            swap[b] = a
-    if not swap:
+    # (Persian letter, Arabic letter, then their start and middle shapes, which look the same)
+    same = (("\u06cc", "\u064a", "\ufbfe", "\ufef3", "\ufbff", "\ufef4"),
+            ("\u06a9", "\u0643", "\ufb90", "\ufedb", "\ufb91", "\ufedc"))
+    hex_swap = {}
+    for persian, arabic, *shapes in same:
+        pairs = [(persian, arabic)] + list(zip(shapes[::2], shapes[1::2]))
+        if arabic in typed and persian not in typed:
+            hex_swap.update({f"{ord(a):04X}": f"{ord(b):04X}" for a, b in pairs})
+        elif persian in typed and arabic not in typed:
+            hex_swap.update({f"{ord(b):04X}": f"{ord(a):04X}" for a, b in pairs})
+    if not hex_swap:
         return data
-    hex_swap = {f"{ord(a):04X}": f"{ord(b):04X}" for a, b in swap.items()}
 
     def fix_dest(m):
         h = m.group(1).upper()
