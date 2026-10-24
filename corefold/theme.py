@@ -130,6 +130,11 @@ QFrame#toolCard[off="true"] { background: transparent; border-style: dashed; }
 QFrame#toolCard[featured="true"] { border-color: $accent_line; background: $tool_hover; }
 QFrame#toolCard[featured="true"]:hover { border-color: $accent; }
 QLabel#bigCardTitle { font-family: $font_display; font-size: 13pt; font-weight: 700; }
+QPushButton#crumb, QPushButton#crumbHere { background: transparent; border: 1px solid transparent; border-radius: 7px;
+  padding: 3px 7px; min-width: 0; font-size: 12pt; }
+QPushButton#crumb { color: $muted; }
+QPushButton#crumb:hover { background: $hover; color: $text; }
+QPushButton#crumbHere { color: $text; font-weight: 600; }
 QPushButton#capTool { background: transparent; border: 1px solid transparent; border-radius: 9px; padding: 0 10px;
                       min-width: 0; color: $text; font-weight: 600; }
 QPushButton#capTool:hover { background: $hover; }
