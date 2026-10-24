@@ -50,8 +50,11 @@ def check(ok, what):
 
 def window():
     for _ in range(40):
-        wins = [w for w in Desktop(backend="uia").windows() if w.window_text() == "Corefold" and w.is_visible()
-                and w.rectangle().width() > 600]  # (not a toast)
+        try:
+            wins = [w for w in Desktop(backend="uia").windows() if w.window_text() == "Corefold" and w.is_visible()
+                    and w.rectangle().width() > 600]  # (not a toast)
+        except Exception:  # a window (a toast, a menu) closed while Windows was listing them: look again
+            wins = []
         if wins:
             return wins[0]
         time.sleep(0.5)
@@ -62,7 +65,13 @@ def shot(name, win):
     """The window as it is on the screen; returns how much of it is plain white."""
     time.sleep(1.5)
     shot_no[0] += 1
-    r = win.rectangle()
+    try:
+        r = win.rectangle()
+    except Exception:  # the window was made again in the meantime (after adding a tool): the new one
+        win = window()
+        if win is None:
+            return 1.0
+        r = win.rectangle()
     img = ImageGrab.grab(bbox=(r.left, r.top, r.right, r.bottom), all_screens=True)
     img.save(OUT / f"exe-{shot_no[0]:02}-{name}.png")
     small = img.convert("L").resize((80, 50))
@@ -113,6 +122,7 @@ try:
             if win is None:
                 break
             check(shot(f"added-{tool.id}", win) < 0.3, f"after switching on {tool.id} the window isn't white")
+            win = window() or win  # (the window may have been made again meanwhile)
             wr = win.rectangle()  # (its tab, in the strip at the top: not its switch or its name on the card)
             tab = [b for b in win.descendants() if b.window_text() == tool.nav and b.rectangle().top < wr.top + 150
                    and b.element_info.control_type not in ("ListItem", "Text")]

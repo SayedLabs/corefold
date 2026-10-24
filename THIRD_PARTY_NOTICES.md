@@ -6,7 +6,7 @@ Corefold is listed in `COMPONENT-VERSIONS.txt` next to `Corefold.exe`.
 
 | Component | Licence | Source |
 |---|---|---|
-| FFmpeg (`ffmpeg\ffmpeg.exe`, `ffprobe.exe` and their DLLs) — separate programs Corefold runs | GPL v3 (see `ffmpeg\FFMPEG-LICENSE.txt`) | Attached to every Corefold release as `ffmpeg-source-*.tar.gz` (see below) · https://ffmpeg.org · built by https://github.com/BtbN/FFmpeg-Builds |
+| FFmpeg (`ffmpeg\ffmpeg.exe`, `ffprobe.exe` and their DLLs) — separate programs Corefold runs | GPL v3 (see `ffmpeg\FFMPEG-LICENSE.txt`) | Attached to every Corefold release as `ffmpeg-source-*` (see below) · https://ffmpeg.org · built with the libraries and image of https://github.com/BtbN/FFmpeg-Builds |
 | Qt 6 / PySide6 / Shiboken6 | LGPL v3 | https://download.qt.io/official_releases/qt/ · https://download.qt.io/official_releases/QtForPython/ · https://code.qt.io |
 | FFmpeg libraries inside Qt Multimedia (Corefold Player: `avcodec`, `avformat`, `avutil`, `swresample`, `swscale` DLLs in `_internal\PySide6`), built by The Qt Company | LGPL v2.1 or later | https://ffmpeg.org · https://code.qt.io/cgit/qt/qtmultimedia.git (how Qt builds it) |
 | Pillow | MIT-CMU (HPND) | https://github.com/python-pillow/Pillow |
@@ -29,8 +29,9 @@ Corefold is listed in `COMPONENT-VERSIONS.txt` next to `Corefold.exe`.
 
 - **FFmpeg:** every Corefold release on GitHub has FFmpeg's complete source code for the exact
   version it ships (`ffmpeg-source-<commit>.tar.gz`) and the build scripts used to make it, which
-  name every library built into it (`ffmpeg-source-build-scripts-<commit>.tar.gz`). The version and
-  commit are also written in `ffmpeg\SOURCE.txt`.
+  name every library built into it (`ffmpeg-source-build-scripts-<commit>.tar.gz`), plus
+  Corefold's own script that picks which of those parts go in (`ffmpeg-source-corefold-build.sh`,
+  also `ffmpeg\FFMPEG-BUILD.sh`). The version and commit are also written in `ffmpeg\SOURCE.txt`.
 - **Qt, PySide6, the FFmpeg libraries inside Qt Multimedia and libheif** are used without changes. Their source code for the versions in
   `COMPONENT-VERSIONS.txt` is at the links above.
 - **Written offer:** if you can't get any of this source code from those places, ask Atomic Works

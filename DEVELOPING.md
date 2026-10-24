@@ -21,7 +21,7 @@ automatically.
 2. Wait about 10 minutes (watch the **Actions** tab). GitHub builds it and the release page gets:
    - `Corefold-Setup-1.8.0.exe`: the installer (creates the desktop icon)
    - `Corefold-1.8.0-portable.zip`: runs without installing
-   - `ffmpeg-source-….tar.gz`: FFmpeg's source code and build scripts (its licence asks for these)
+   - `ffmpeg-source-…`: FFmpeg's source code and build scripts (its licence asks for these)
 3. Every installed copy of Corefold picks it up and updates itself (see [Updates](README.md#updates)).
 
 ## Website
@@ -39,6 +39,15 @@ These run on one of GitHub's Windows PCs. Start them from the **Actions** tab �
   (`scripts/readme_shots.py`). Run it after the look changes, and copy the new pictures in.
 - **Bug hunt** runs every test on a clean Windows PC and lists what went wrong.
 - **Measure memory and CPU**: see below.
+
+## Corefold's FFmpeg
+Corefold ships its own smaller FFmpeg (about 55 MB instead of 190 MB): FFmpeg itself plus only the
+libraries Corefold uses (`scripts/ffmpeg-lean.sh` lists them). **Actions → Build Corefold's FFmpeg →
+Run workflow** makes it and keeps it on the `ffmpeg-lean` branch, where every build takes it from.
+Run it again to move to a newer FFmpeg (change the version in `scripts/ffmpeg-lean.sh` and the
+image in `.github/workflows/ffmpeg-lean.yml` together), then run the **Bug hunt**. If Corefold
+starts writing a new kind of file with FFmpeg, add its library there first. Without that branch,
+the build falls back to BtbN's full FFmpeg.
 
 ## How light is it?
 **Actions → Measure memory and CPU → Run workflow** builds Corefold on one of GitHub's Windows

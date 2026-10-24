@@ -311,8 +311,12 @@ def alive(w) -> bool:
 
 
 def ffmpeg(*args):
+    """Makes a test file. A full FFmpeg on PATH comes first: Corefold's own one can't write every
+    kind (HEVC, for one), only read it."""
+    import shutil
     from corefold.converters import find_tool
-    subprocess.run([find_tool("ffmpeg"), "-v", "error", "-y", *map(str, args)], check=True)
+    exe = shutil.which("ffmpeg") or find_tool("ffmpeg")
+    subprocess.run([exe, "-v", "error", "-y", *map(str, args)], check=True)
 
 
 # ---------------------------------------------------------------------------- test files

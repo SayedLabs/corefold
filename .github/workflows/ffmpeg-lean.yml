@@ -1,0 +1,53 @@
+# Builds the smaller FFmpeg that Corefold ships (see scripts/ffmpeg-lean.sh) and saves it to the
+# "ffmpeg-lean" branch, where scripts/build.ps1 takes it from. Run it by hand when FFmpeg should be
+# updated: Actions tab -> "Build Corefold's FFmpeg" -> Run workflow.
+name: Build Corefold's FFmpeg
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: "FFmpeg version to build (a tag of the same release as the image below, like n9.0.2)"
+        required: false
+
+permissions:
+  contents: write   # the build is saved to the "ffmpeg-lean" branch
+
+jobs:
+  ffmpeg:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build
+        env:
+          COMMIT: ${{ inputs.commit }}
+        run: |
+          IMAGE=ghcr.io/btbn/ffmpeg-builds/win64-gpl-shared-9.0:latest   # BtbN's libraries for FFmpeg 9.0
+          docker pull -q "$IMAGE"
+          # the build scripts (and so the library versions) that made this image
+          SCRIPTS=$(git ls-remote https://github.com/BtbN/FFmpeg-Builds refs/tags/latest | cut -f1)
+          COMMIT=${COMMIT:-n9.0.2}
+          echo "FFmpeg $COMMIT, scripts $SCRIPTS"
+          mkdir -p out
+          docker run --rm -v "$PWD:/work" "$IMAGE" bash /work/scripts/ffmpeg-lean.sh "$COMMIT" /work/out/bin
+          sudo chown -R "$(id -u):$(id -g)" out
+          echo "$SCRIPTS" > out/bin/BUILD-SCRIPTS-COMMIT.txt
+          docker image inspect --format '{{index .RepoDigests 0}}' "$IMAGE" > out/bin/BUILD-IMAGE.txt
+          cat out/bin/FFMPEG-VERSION.txt
+          ls -la out/bin
+          du -sh out/bin
+
+      - name: Save to the ffmpeg-lean branch
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          cd out/bin
+          git init -q -b ffmpeg-lean
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Corefold's FFmpeg $(cat FFMPEG-VERSION.txt)"
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${REPO}.git" ffmpeg-lean
