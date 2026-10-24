@@ -24,8 +24,8 @@ if TYPE_CHECKING:
 
 log = logging.getLogger("corefold")
 
-TOOLS = [("select", "Select text"), ("arrow", "Arrow"), ("box", "Box"), ("marker", "Marker"), ("pen", "Pen"), ("text", "Text"),
-         ("step", "Steps"), ("blur", "Blur"), ("crop", "Crop")]
+TOOLS = [("select", "Select text"), ("arrow", "Arrow"), ("line", "Line"), ("box", "Box"), ("ellipse", "Ellipse"),
+         ("marker", "Marker"), ("pen", "Pen"), ("text", "Text"), ("step", "Steps"), ("blur", "Blur"), ("crop", "Crop")]
 COLORS = ["#e5484d", "#f5a524", "#30a46c", "#0090ff", "#111111", "#ffffff"]
 
 
@@ -72,6 +72,10 @@ def draw_shape(p: QPainter, s: Shape, base: QImage | None = None):
         p.drawPath(path)
     elif s.kind == "box":
         p.drawRoundedRect(s.rect(), s.width, s.width)
+    elif s.kind == "ellipse":
+        p.drawEllipse(s.rect())
+    elif s.kind == "line":
+        p.drawLine(s.points[0], s.points[-1])
     elif s.kind == "arrow":
         a, b = s.points[0], s.points[-1]
         dx, dy = b.x() - a.x(), b.y() - a.y()
@@ -114,6 +118,18 @@ def draw_shape(p: QPainter, s: Shape, base: QImage | None = None):
         p.drawRoundedRect(QRectF(box).adjusted(-pad, -pad / 2, pad, pad / 2), pad, pad)
         p.setPen(s.color)
         p.drawText(box, Qt.TextWordWrap, s.text)
+
+
+def _even(kind: str, a: QPointF, b: QPointF) -> QPointF:
+    """Where the mouse is, evened out (with Shift): lines and arrows straight or at 45°, boxes square,
+    ellipses round."""
+    dx, dy = b.x() - a.x(), b.y() - a.y()
+    if kind in ("line", "arrow"):
+        angle = round(math.atan2(dy, dx) / (math.pi / 4)) * (math.pi / 4)
+        length = math.hypot(dx, dy)
+        return QPointF(a.x() + math.cos(angle) * length, a.y() + math.sin(angle) * length)
+    side = max(abs(dx), abs(dy))
+    return QPointF(a.x() + math.copysign(side, dx or 1), a.y() + math.copysign(side, dy or 1))
 
 
 class TextLayer:
@@ -454,6 +470,8 @@ class Canvas(QWidget):
             if self.current.kind in ("pen", "marker"):
                 self.current.points.append(pt)
             else:
+                if e.modifiers() & Qt.ShiftModifier:  # Shift: straight or at 45°, square, round
+                    pt = _even(self.current.kind, self.current.points[0], pt)
                 self.current.points[-1] = pt
             self.update()
 
@@ -574,6 +592,8 @@ class CaptureEditor(QWidget):
             self.tools.addButton(b)
             self.tool_buttons[key] = b
             bar.addWidget(b)
+            if key in ("arrow", "line", "box", "ellipse"):
+                b.setToolTip(tr("Hold Shift for straight lines, squares and circles"))
             if key == "select":
                 b.setToolTip(tr("Pick words in the picture to copy, like text in a document"))
                 bar.addSpacing(8)
