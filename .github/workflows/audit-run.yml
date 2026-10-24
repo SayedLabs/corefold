@@ -47,14 +47,23 @@ jobs:
           $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
           $env:PYTHONIOENCODING = "utf-8"
           $failed = @()
+          function Code($n) { "== $n exit code: $LASTEXITCODE (0x{0:X8})" -f $LASTEXITCODE }
           python scripts/check_translations.py; if ($LASTEXITCODE) { $failed += "translations" }
-          python scripts/organizetest.py out/organizetest en dark; if ($LASTEXITCODE) { $failed += "organizetest" }
+          python scripts/organizetest.py out/organizetest en dark; Code organizetest; if ($LASTEXITCODE) { $failed += "organizetest" }
           python scripts/featuretest.py; if ($LASTEXITCODE) { $failed += "featuretest" }
           python scripts/edgetest.py; if ($LASTEXITCODE) { $failed += "edgetest" }
           foreach ($t in "newtest_cloud", "newtest_emptyfolders", "newtest_unlock", "newtest_basics") {
-            python scripts/$t.py; if ($LASTEXITCODE) { $failed += $t }
+            python scripts/$t.py; Code $t; if ($LASTEXITCODE) { $failed += $t }
           }
-          if ($failed) { "FAILED: $failed"; exit 1 }
+          if ($failed) { "FAILED: $failed" }
+          # the same two on main, to see if it was already so
+          git fetch -q origin main
+          git worktree add -q ..\main origin/main
+          Push-Location ..\main
+          python scripts/organizetest.py out/organizetest en dark; Code "main organizetest"
+          python scripts/newtest_basics.py; Code "main newtest_basics"
+          Pop-Location
+          if ($failed) { exit 1 }
 
   installer:
     runs-on: windows-latest
