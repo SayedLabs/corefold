@@ -2,7 +2,8 @@
 overlay). It has the quick actions a person picked, their tools, their own shortcuts and the files
 Corefold made lately. Start typing to search it; arrows and Enter work too; Esc or the shortcut
 again closes it. Typing also does sums, converts units, finds pages of Windows Settings and offers a
-web search (quickfind.py), and finds apps and files (quicksearch.py). A leading "?" only searches the web.
+web search (quickfind.py), and finds apps, files and the windows already open (quicksearch.py). A leading
+"?" only searches the web.
 
 It's painted rather than made of widgets: it opens in a frame, and only exists once it's been opened."""
 from __future__ import annotations
@@ -99,7 +100,8 @@ class QuickMenu(QWidget):
         self.copy_timer.setSingleShot(True)
         self.copy_timer.timeout.connect(self.close_animated)
         self.finder = None     # quicksearch.Finder, once apps and files are looked for
-        self.found_items: dict = {}   # an item's entry id -> its quicksearch.App or Found
+        self.found_items: dict = {}   # an item's entry id -> its quicksearch.App, Found or Window
+        self.windows: list = []       # the windows open when it opened (quicksearch.Window, front to back)
         self.item_icons: dict = {}    # an item's entry id -> its icon (QPixmap or None)
 
     # ---- opening and closing
@@ -119,6 +121,10 @@ class QuickMenu(QWidget):
             self.finder.cancel()
         if self.qa.c.settings.quick_find:
             self._finder().warm()
+            from .quicksearch import open_windows
+            self.windows = open_windows()  # (before this one is in front)
+        else:
+            self.windows = []
         self.layout_spots()
         self.selected = 0 if self.spots else -1
         animate = self.qa.c.settings.animations
@@ -227,6 +233,10 @@ class QuickMenu(QWidget):
         ok = True
         if isinstance(item, qs.App):
             ok = qs.launch(item, admin=bool(mods & Qt.ControlModifier))
+        elif isinstance(item, qs.Window):
+            if not qs.switch_to(item):
+                self.qa.c.tell(tr("Couldn't switch to it"), tr("That window has been closed."))
+            return
         elif isinstance(item, qs.Found):
             ok = qs.open_found(item, reveal=bool(mods & (Qt.ShiftModifier | Qt.ControlModifier)))
         if not ok:
@@ -254,13 +264,26 @@ class QuickMenu(QWidget):
         self.hovered = -1
         self.update()
 
+    def _open_windows(self, query: str) -> tuple[int, list[quick.Entry]]:
+        """(how well the best one fits, the windows already open that fit what's typed)."""
+        from . import quicksearch as qs
+        if len(query.strip()) < qs.MIN_CHARS or not self.windows:
+            return 0, []
+        out, best = [], 0
+        for score, w in qs.match_windows(self.windows, query):
+            eid = f"win:{w.hwnd}"
+            self.found_items[eid] = w
+            from .clipboard import app_name
+            out.append(quick.Entry(eid, w.title, "layout", app_name(w.exe) if w.exe else ""))
+            best = max(best, qs.level(score))
+        return best, out
+
     def _apps_and_files(self, s, query: str, skip: set[str]):
         """(how well the best app fits, the apps) and the files for what's typed."""
         from . import quicksearch as qs
         if not s.quick_find or len(query.strip()) < qs.MIN_CHARS:
             return 0, [], []
         f = self._finder()
-        self.found_items = {}
         app_entries, best = [], 0
         for score, app in f.apps(query):
             if app.name.lower() in skip:
@@ -288,6 +311,8 @@ class QuickMenu(QWidget):
             pm = None
             if isinstance(item, qs.App):
                 pm = qs.app_icon(item, px)
+            elif isinstance(item, qs.Window):
+                pm = qs.file_icon(item.exe, px) if item.exe else None
             elif isinstance(item, qs.Found):
                 pm = qs.file_icon(item.path, px)
             if pm is not None and pm.width():
@@ -355,10 +380,12 @@ class QuickMenu(QWidget):
         windows = (tr("Windows settings"), [quick.Entry(p.uri, tr(p.name), "settings", en=p.name)
                                             for _, p in pages], "wide")
         skip = {t.lower() for _, _, e in scored for t in (e.label, e.en) if t}
+        self.found_items = {}
         best_app, apps, files = self._apps_and_files(s, query, skip)
-        # whichever fits best first (on a tie: Corefold's own, then apps, then Windows' settings)
-        groups = [((scored[0][0] if scored else 0), 0, found), (best_app, 1, (tr("Apps"), apps, "item")),
-                  ((pages[0][0] if pages else 0), 2, windows)]
+        best_win, open_now = self._open_windows(query)
+        # whichever fits best first (on a tie: Corefold's own, then the windows open, apps, Windows' settings)
+        groups = [((scored[0][0] if scored else 0), 0, found), (best_win, 1, (tr("Open windows"), open_now, "item")),
+                  (best_app, 2, (tr("Apps"), apps, "item")), ((pages[0][0] if pages else 0), 3, windows)]
         out += [g for _, _, g in sorted(groups, key=lambda x: (-x[0], x[1]))]
         recent = [e for e in self._recent() if quick.matches(e, q)]
         made = {e.hint for e in recent}
@@ -746,6 +773,8 @@ class QuickMenu(QWidget):
             item = self.found_items.get(sid)
             if isinstance(item, qs.Found):
                 return tr("Shift + Enter: show in folder")
+            if isinstance(item, qs.Window):
+                return tr("Enter to switch to it")
             if isinstance(item, qs.App) and item.admin:
                 return tr("Ctrl + Enter: run as administrator")
         return tr("Enter to open")

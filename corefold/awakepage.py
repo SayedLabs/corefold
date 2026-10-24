@@ -1,17 +1,19 @@
-"""Corefold Awake's page: keep the PC awake (until it's switched off, for a while, or until a time), and
-turn the PC off later."""
+"""Corefold Awake's page: keep the PC awake (until it's switched off, for a while, or until a time), by
+itself while chosen programs are open, and turn the PC off later."""
 from __future__ import annotations
 
+import os
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QLocale, QTime, QTimer, Qt, Signal
-from PySide6.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QLabel, QMessageBox, QPushButton, QScrollArea,
-                               QSpinBox, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QButtonGroup, QFileDialog, QFrame, QHBoxLayout, QLabel, QMenu, QMessageBox,
+                               QPushButton, QScrollArea, QSpinBox, QVBoxLayout, QWidget)
 
 from . import awake, icons
-from .atomic.widgets import FlowLayout, Switch, keep_wrapped_text
+from .atomic.widgets import FlowLayout, IconButton, Switch, keep_wrapped_text
 from .i18n import tr
+from .theme import round_menu
 
 if TYPE_CHECKING:
     from .app import Controller
@@ -203,6 +205,7 @@ class AwakePage(QScrollArea):
         lay.setSpacing(14)
         lay.addLayout(header)
         lay.addWidget(self._awake_card())
+        lay.addWidget(self._auto_card())
         lay.addWidget(self._shutdown_card())
         lay.addStretch()
         self.setWidget(inner)
@@ -322,6 +325,111 @@ class AwakePage(QScrollArea):
     def _screen_toggled(self, on: bool):
         if self.tool is not None:
             self.tool.set_screen(on)
+
+    # ---- by itself
+
+    def _auto_card(self) -> QFrame:
+        s = self.c.settings
+        box = QFrame()
+        box.setObjectName("card")
+        lay = QVBoxLayout(box)
+        lay.setContentsMargins(20, 18, 20, 18)
+        lay.setSpacing(10)
+        lay.addWidget(_label(tr("By itself"), "section"))
+        lay.addWidget(_label(tr("Stay awake while one of these programs is open"), wrap=True))
+        lay.addWidget(_label(tr("Handy for a download, a game, a video call or a long export. It lets the PC sleep "
+                                "again once they're all closed."), "muted", wrap=True))
+        self.apps_box = QVBoxLayout()
+        self.apps_box.setContentsMargins(0, 0, 0, 0)
+        self.apps_box.setSpacing(4)
+        lay.addLayout(self.apps_box)
+        row = QHBoxLayout()
+        self.add_app = QPushButton(tr("Add a program…"))
+        self.add_app.setCursor(Qt.PointingHandCursor)
+        self.add_app.clicked.connect(self._add_menu)
+        row.addWidget(self.add_app)
+        row.addStretch()
+        lay.addLayout(row)
+        line = QFrame()
+        line.setObjectName("line")
+        lay.addWidget(line)
+        self.low_battery = Switch(tr("Let it sleep when the battery runs low"),
+                                  tr("On battery, with less than {percent}% left.", percent=awake.LOW_BATTERY))
+        self.low_battery.setChecked(s.awake_low_battery)
+        self.low_battery.toggled.connect(self._low_battery_toggled)
+        lay.addWidget(self.low_battery)
+        self._show_apps()
+        return box
+
+    def _show_apps(self):
+        while self.apps_box.count():
+            item = self.apps_box.takeAt(0)
+            old = item.widget()
+            if old is not None:
+                old.hide()
+                old.deleteLater()
+        t = self.c.theme
+        for path in self.c.settings.awake_apps:
+            row = QWidget()
+            h = QHBoxLayout(row)
+            h.setContentsMargins(0, 0, 0, 0)
+            h.setSpacing(10)
+            icon = QLabel()
+            icon.setFixedSize(24, 24)
+            if os.path.isfile(path):
+                from PySide6.QtCore import QFileInfo
+                from PySide6.QtWidgets import QFileIconProvider
+                icon.setPixmap(QFileIconProvider().icon(QFileInfo(path)).pixmap(20, 20))
+            h.addWidget(icon)
+            name = _label(awake.program_title(path))
+            name.setToolTip(path)
+            h.addWidget(name, 1)
+            remove = IconButton(tr("Remove"), 28)
+            remove.setIcon(icons.icon("dismiss", t.muted))
+            remove.clicked.connect(lambda _=False, p=path: self._remove_app(p))
+            h.addWidget(remove)
+            row.path = path
+            self.apps_box.addWidget(row)
+
+    def _add_menu(self):
+        m = QMenu(self)
+        round_menu(m)
+        have = {os.path.basename(p).lower() for p in self.c.settings.awake_apps}
+        found = [p for p in awake.window_programs() if os.path.basename(p).lower() not in have]
+        if found:
+            m.addSection(tr("Open now"))
+        else:
+            m.addAction(tr("No other program has a window open")).setEnabled(False)
+        for path in sorted(found, key=lambda p: awake.program_title(p).lower()):
+            m.addAction(awake.program_title(path), lambda p=path: self.add_program(p))
+        m.addSeparator()
+        m.addAction(tr("Choose a program file…"), self._browse)
+        m.exec(self.add_app.mapToGlobal(self.add_app.rect().bottomLeft()))
+        m.deleteLater()
+
+    def _browse(self):
+        start = os.environ.get("ProgramFiles", "")
+        path, _ = QFileDialog.getOpenFileName(self, tr("Choose a program file…"), start, tr("Programs") + " (*.exe)")
+        if path:
+            self.add_program(os.path.normpath(path))
+
+    def add_program(self, path: str):
+        if self.tool is not None:
+            self.tool.set_programs(self.c.settings.awake_apps + [path])
+        self._show_apps()
+        self.refresh()
+
+    def _remove_app(self, path: str):
+        if self.tool is not None:
+            self.tool.set_programs([p for p in self.c.settings.awake_apps if p != path])
+        self._show_apps()
+        self.refresh()
+
+    def _low_battery_toggled(self, on: bool):
+        self.c.settings.awake_low_battery = bool(on)
+        self.c.settings_changed()
+        if self.tool is not None:
+            self.tool.watch()
 
     # ---- turning the PC off later
 

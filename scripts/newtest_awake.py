@@ -1,7 +1,8 @@
 """Checks Corefold Awake on a real Windows PC: keeping the PC awake really shows in "powercfg /requests"
-(and goes away), a timed period ends by itself, the tray menu, removing the tool, and Windows' own
-shutdown timer (planned an hour ahead and always cancelled again). Then the page is built in English
-(dark) and Arabic (light), and pictures of it are saved in out/newtest_awake/.
+(and goes away), a timed period ends by itself, the tray menu, staying awake by itself while Notepad is
+open (and the low battery rule), removing the tool, and Windows' own shutdown timer (planned an hour
+ahead and always cancelled again). Then the page is built in English (dark) and Arabic (light), and
+pictures of it are saved in out/newtest_awake/.
 
 Run from the repo root: python scripts/newtest_awake.py
 Prints one line per check and "newtest_awake: N problem(s)"; exits 1 if there were any."""
@@ -248,6 +249,45 @@ def main_checks():
               f"one planned before Windows last started (at {boot:%H:%M}) is forgotten")
     step("shutdown timer", shutdown_timer)
 
+    def by_itself():
+        """Staying awake while a chosen program is open, with a real Notepad, and the battery rule."""
+        notepad = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "notepad.exe")
+        print("programs with a window open:", [os.path.basename(p) for p in awake.window_programs()][:15])
+        names = awake.program_names()
+        check(os.path.basename(sys.executable).lower() in names, f"the programs running now are read ({len(names)})")
+        tool.let_sleep()
+        tool.set_programs([notepad])
+        check(c.settings.awake_apps == [notepad] and tool.watcher.isActive() and not tool.on,
+              "Notepad chosen, not open: it looks every 30 seconds, and the PC can sleep")
+        proc = subprocess.Popen([notepad])
+        try:
+            check(until(lambda: "notepad.exe" in awake.program_names(), 10), "(Notepad started)")
+            tool.watch(power=None)
+            check(tool.mode == "app" and tool.app == "notepad.exe" and holds("SYSTEM"),
+                  f"Notepad open: staying awake by itself ({tool.status()})")
+            check("Notepad" in tool.status() or "notepad" in tool.status().lower(), "it says which program")
+            tool.let_sleep()
+            tool.watch(power=None)
+            check(not tool.on and not holds("SYSTEM"), "Let it sleep while Notepad is open: it stays off")
+            tool.waived = set()
+            tool.watch(power=(False, 9))
+            check(not tool.on, "on battery with 9% left: it doesn't start")
+            tool.watch(power=(True, 9))
+            check(tool.mode == "app", "plugged in: it does")
+            tool.watch(power=(False, 9))
+            check(not tool.on and not holds("SYSTEM") and tool.low, "the battery runs low: it lets the PC sleep")
+            tool.watch(power=(True, 50))
+            check(tool.mode == "app" and holds("SYSTEM"), "charged again: back on for Notepad")
+        finally:
+            proc.kill()
+            proc.wait(10)
+        until(lambda: "notepad.exe" not in awake.program_names(), 10)
+        tool.watch(power=None)
+        check(not tool.on and not holds("SYSTEM"), "Notepad closed: the PC can sleep again")
+        tool.set_programs([])
+        check(not tool.watcher.isActive(), "nothing chosen: it doesn't look any more")
+    step("by itself", by_itself)
+
     def removed():
         tool.keep()
         check(holds("SYSTEM"), "(on again before removing the tool)")
@@ -316,6 +356,18 @@ def page_checks():
     settle(0.3)
     check(pg.until.isVisible() and pg.off_at.isVisible() and not pg.duration.isVisible(),
           f"[{LANG}] Until a time and At a time show their time boxes")
+    notepad = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "notepad.exe")
+    pg.add_program(notepad)
+    settle(0.3)
+    rows = [pg.apps_box.itemAt(i).widget() for i in range(pg.apps_box.count())]
+    check(c.settings.awake_apps == [notepad] and len(rows) == 1 and rows[0].path == notepad,
+          f"[{LANG}] a program added on the page is listed")
+    pg.verticalScrollBar().setValue(pg.verticalScrollBar().maximum())
+    settle(0.3)
+    w.grab().save(str(OUT / f"awake-itself-{LANG}-{LOOK}.png"))
+    pg._remove_app(notepad)
+    settle(0.3)
+    check(not c.settings.awake_apps and pg.apps_box.count() == 0, f"[{LANG}] ...and removed")
     w.resize(760, 760)
     settle(0.5)
     w.grab().save(str(OUT / f"awake-small-{LANG}-{LOOK}.png"))

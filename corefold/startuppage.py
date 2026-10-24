@@ -3,33 +3,42 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
+import threading
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QFileInfo, QSize, Qt, QTimer
-from PySide6.QtGui import QGuiApplication, QIcon
+from PySide6.QtCore import QFileInfo, QObject, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QGuiApplication, QIcon, QPixmap
 from PySide6.QtWidgets import QButtonGroup, QFileIconProvider, QFrame, QHBoxLayout, QLabel, QLineEdit, QMenu, \
     QMessageBox, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from . import i18n, icons, startup, work
 from .atomic.widgets import Group, IconButton, SettingRow, Switch
+from .core import short_name
 from .i18n import ltr, tr
 from .theme import round_menu
 from .timefmt import date_text
-from .winutil import reveal_in_explorer
+from .winutil import properties, reveal_in_explorer
 
 if TYPE_CHECKING:
     from .app import Controller
 
 log = logging.getLogger("corefold")
 
+FILL_SLICE_S = 0.03   # rows are made this long at a time, so the window never stops while a long list comes up
 FILTERS = [("", "All"), ("on", "Switched on"), ("off", "Switched off"), ("new", "New")]
 # where an entry comes from (English, shown through tr())
 WHERE = {"HKCU-Run": "Registry, this user", "HKLM-Run": "Registry, everyone",
          "HKLM-Run32": "Registry, everyone (32-bit)", "User-Folder": "Startup folder, this user",
-         "Common-Folder": "Startup folder, everyone"}
+         "Common-Folder": "Startup folder, everyone", "Store-App": "Microsoft Store app",
+         "Task": "Scheduled task"}
 # the list in three parts, so what's old is clearly old: (key, heading, a line about it)
 SECTIONS = [("on", "Starting with Windows", ""),
+            ("later", "Started a minute after you sign in",
+             "Corefold starts these itself, a minute after you sign in, so your PC is ready to use sooner. Windows "
+             "skips them, and Corefold has to start with Windows for this."),
             ("off", "Switched off",
              "Windows keeps these so they can be switched back on. Some may have been switched off a long time "
              "ago, by you, by Task Manager or by the program itself."),
@@ -41,7 +50,14 @@ SECTIONS = [("on", "Starting with Windows", ""),
 def section_of(e: startup.Entry) -> str:
     if e.missing and not e.own:
         return "gone"
+    if e.extra.get("later"):
+        return "later"
     return "on" if e.on else "off"
+
+
+def starts(e: startup.Entry) -> bool:
+    """It starts when the person signs in: by Windows, or a minute later by Corefold."""
+    return e.on or bool(e.extra.get("later"))
 
 
 def describe(e: startup.Entry) -> str:
@@ -52,7 +68,7 @@ def describe(e: startup.Entry) -> str:
     elif e.publisher:
         bits.append(ltr(e.publisher))
     bits.append(tr(WHERE.get(e.where, e.where)))
-    if not e.on and e.off_since:
+    if not e.on and e.off_since and not e.extra.get("later"):
         bits.append(tr("Off since {date}", date=date_text(e.off_since, long=True)))
     return _para("  ·  ".join(bits))
 
@@ -62,11 +78,49 @@ def _para(text: str) -> str:
     return "\u200f" + text if text and i18n.is_rtl() else text
 
 
+def _icon_paths(e: startup.Entry) -> list[str]:
+    return [p for p in (e.exe, e.extra.get("file", "")) if p]
+
+
+def _icon_key(e: startup.Entry) -> str:
+    """What a program's icon is kept under: the files it's read from."""
+    return "\n".join(_icon_paths(e))
+
+
 def matches(e: startup.Entry, text: str, show: str) -> bool:
-    if show == "on" and not e.on or show == "off" and e.on or show == "new" and not e.new:
+    if show == "on" and not starts(e) or show == "off" and starts(e) or show == "new" and not e.new:
         return False
     text = text.strip().lower()
     return not text or any(text in s.lower() for s in (e.name, e.value, e.publisher, e.command))
+
+
+class _IconMade(QObject):
+    made = Signal(str, object)   # the icon's key (its program's paths) and its picture (a QImage, or None)
+
+
+def _make_icons(wanted: dict[str, list[str]], cancel: threading.Event, signal):
+    """Reads the programs' icons off the window's thread (Windows can take a while to give one)."""
+    import ctypes
+    from .appspage import _icon_image
+    ctypes.windll.ole32.CoInitializeEx(None, 2)  # (the shell wants it on every thread it's asked from)
+    try:
+        for key, paths in wanted.items():
+            if cancel.is_set():
+                return
+            image = None
+            for path in paths:
+                try:
+                    image = _icon_image(path) if os.path.isfile(path) else None
+                except Exception:
+                    log.debug("no icon for %s", path, exc_info=True)
+                if image is not None:
+                    break
+            try:
+                signal.emit(key, image)
+            except RuntimeError:  # (the page is gone)
+                return
+    finally:
+        ctypes.windll.ole32.CoUninitialize()
 
 
 class EntryRow(QWidget):
@@ -75,15 +129,16 @@ class EntryRow(QWidget):
     def __init__(self, page: "StartupPage", entry: startup.Entry, icon: QIcon | None):
         super().__init__()
         self.page, self.entry = page, entry
-        tile = QLabel()
+        tile = self.tile = QLabel()
         tile.setFixedSize(28, 28)
         tile.setAlignment(Qt.AlignCenter)
         if icon is not None and not icon.isNull():
-            tile.setPixmap(icon.pixmap(QSize(24, 24), self.devicePixelRatioF()))
+            self.set_icon(icon)
         else:
             tile.setPixmap(icons.pixmap("apps", 22, page.c.theme.muted, self.devicePixelRatioF()))
         self.switch = Switch()
-        self.switch.setChecked(entry.on)
+        self.switch.setChecked(starts(entry))
+        self.switch.setEnabled(not entry.locked)
         self.switch.setAccessibleName(entry.name)
         self.switch.toggled.connect(self._toggled)
         more = IconButton(tr("More"), 30)
@@ -104,7 +159,8 @@ class EntryRow(QWidget):
         pills.setContentsMargins(0, 4, 0, 0)
         pills.setSpacing(6)
         for shown, text, name in ((entry.new, tr("New"), "chip"),
-                                  (entry.admin and not page.admin, tr("Asks for permission"), "badge")):
+                                  (entry.admin and not page.admin, tr("Asks for permission"), "badge"),
+                                  (entry.locked, tr("Set by your organisation"), "badge")):
             if shown:
                 pills.addWidget(_label(text, name))
         if pills.count():  # (under the name and the line about it)
@@ -113,6 +169,9 @@ class EntryRow(QWidget):
         self.setToolTip(ltr(entry.command))
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(lambda pos: self._menu(None, self.mapToGlobal(pos)))
+
+    def set_icon(self, icon: QIcon):
+        self.tile.setPixmap(icon.pixmap(QSize(24, 24), self.devicePixelRatioF()))
 
     def _toggled(self, on: bool):
         self.page.switch(self, on)
@@ -136,10 +195,36 @@ class EntryRow(QWidget):
         go.triggered.connect(lambda: reveal_in_explorer(Path(place)))
         copy = m.addAction(icons.icon("copy", self.page.c.theme.muted), tr("Copy what it runs"))
         copy.triggered.connect(lambda: QGuiApplication.clipboard().setText(e.command))
+        if e.extra.get("later"):
+            m.addAction(icons.icon("arrow_undo", self.page.c.theme.muted), tr("Start it with Windows again"),
+                        lambda: self.page.start_later(self, False))
+        elif startup.can_start_later(e) and e.on:
+            from .settings import startup_enabled
+            ready = startup_enabled()
+            act = m.addAction(icons.icon("timer", self.page.c.theme.muted),
+                              tr("Start it a minute after sign-in") if ready else
+                              tr("Start it a minute after sign-in (Corefold has to start with Windows)"),
+                              lambda: self.page.start_later(self, True))
+            act.setEnabled(ready)
+        props = m.addAction(tr("Properties"))
+        props.setEnabled(bool(e.exe and os.path.isfile(e.exe)))
+        props.triggered.connect(lambda: properties(Path(e.exe)))
+        m.addSeparator()
+        m.addAction(icons.icon("search", self.page.c.theme.muted),
+                    tr("Search the web for “{text}”", text=short_name(e.name, 40)), self._search)
         if pos is None and button is not None:
             pos = button.mapToGlobal(button.rect().bottomLeft())
         m.exec(pos)
         m.deleteLater()
+
+
+    def _search(self):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        from .quickfind import search_url
+        e = self.entry
+        what = e.name if not e.exe else f"{e.name} {os.path.basename(e.exe)}"
+        QDesktopServices.openUrl(QUrl(search_url(self.page.c.settings.quick_search_engine, what)))
 
 
 def _key(e: startup.Entry) -> tuple:
@@ -164,6 +249,7 @@ class StartupPage(QWidget):
         self.rows: list[EntryRow] = []
         self.kind = ""
         self.loading = False
+        self._filling = None   # the entries whose rows are still to be made
         self.busy = 0
         self.job = None
         self.switching: list = []
@@ -172,6 +258,10 @@ class StartupPage(QWidget):
         self.admin = startup.is_admin()
         self._icons = QFileIconProvider()
         self._icon_cache: dict[str, QIcon | None] = {}
+        self._icon_rows: dict[str, list[EntryRow]] = {}   # rows waiting for their program's icon
+        self._icon_cancel = threading.Event()
+        self._icon_signal = _IconMade(self)
+        self._icon_signal.made.connect(self._icon_made)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 10, 0)
         lay.setSpacing(12)
@@ -281,13 +371,12 @@ class StartupPage(QWidget):
     def _loaded(self, result):
         if not work.alive(self):
             return
-        self.loading = False
-        self.refresh_btn.setEnabled(not self.busy)
         if isinstance(result, Exception):
             log.warning("couldn't read what starts with Windows: %s", result)
             self.entries = []
             self._say(tr("Corefold couldn't read what starts with Windows."))
         else:
+            self._mark_later(result)
             for e in result:
                 if e.id in self.new_ids:
                     e.new = True
@@ -302,39 +391,87 @@ class StartupPage(QWidget):
             if same:  # (nothing changed: the rows stay, without a flicker)
                 for row, e in zip(self.rows, result):
                     row.entry = e
-                self._show_state()
+                self._regroup()  # (one switched since is put in its part now)
+                self._done_loading()
                 return
         self._fill()
 
     def _fill(self):
+        """Makes the rows a few at a time (each reads its program's icon), showing them as they come;
+        the page counts as loading until the last one is there."""
         scrolled = self.scroll.verticalScrollBar().value()
         for row in self.rows:
             row.hide()
             row.deleteLater()
         self.rows = []
-        for e in self.entries:
-            row = EntryRow(self, e, self._icon(e))
-            row.section = section_of(e)  # (a row stays in its part until the list is read again)
-            self.groups[row.section].add(row)
-            self.rows.append(row)
-        any_new = any(e.new for e in self.entries)
-        self.filter_buttons["new"].setVisible(any_new)
-        if not any_new and self.kind == "new":
-            self._filter("")
+        self._icon_cancel.set()
+        self._icon_rows = {}
+        todo = list(self.entries)
+
+        def more():
+            if not work.alive(self) or self._filling is not todo:
+                return
+            end = time.monotonic() + FILL_SLICE_S
+            while todo and time.monotonic() < end:
+                e = todo.pop(0)
+                icon = self._icon(e)
+                row = EntryRow(self, e, icon)
+                if icon is None and _icon_key(e) and _icon_key(e) not in self._icon_cache:
+                    self._icon_rows.setdefault(_icon_key(e), []).append(row)
+                row.section = section_of(e)  # (a row stays in its part until the list is read again)
+                self.groups[row.section].add(row)
+                self.rows.append(row)
+            if todo:
+                self.filter()
+                QTimer.singleShot(0, more)
+                return
+            self._filling = None
+            any_new = any(e.new for e in self.entries)
+            self.filter_buttons["new"].setVisible(any_new)
+            if not any_new and self.kind == "new":
+                self._filter("")
+            self._done_loading()
+            self._start_icons()
+            QTimer.singleShot(0, lambda: work.alive(self) and self.scroll.verticalScrollBar().setValue(scrolled))
+
+        self._filling = todo
+        more()
+
+    def _done_loading(self):
+        self.loading = False
+        self.refresh_btn.setEnabled(not self.busy)
         self.filter()
-        QTimer.singleShot(0, lambda: work.alive(self) and self.scroll.verticalScrollBar().setValue(scrolled))
 
     def _icon(self, e: startup.Entry) -> QIcon | None:
         """The program's own icon (kept, so looking again doesn't read every file's icon again)."""
-        for path in (e.exe, e.extra.get("file", "")):
-            if not path:
-                continue
-            if path not in self._icon_cache:
-                ic = self._icons.icon(QFileInfo(path)) if os.path.isfile(path) else None
-                self._icon_cache[path] = ic if ic is not None and not ic.isNull() else None
-            if self._icon_cache[path] is not None:
-                return self._icon_cache[path]
-        return None
+        logo = e.extra.get("icon", "")
+        if logo:  # (a Store app: its logo picture)
+            if logo not in self._icon_cache:
+                ic = QIcon(logo)
+                self._icon_cache[logo] = ic if not ic.isNull() else None
+            if self._icon_cache[logo] is not None:
+                return self._icon_cache[logo]
+        key = _icon_key(e)
+        if key and key not in self._icon_cache and sys.platform != "win32":  # (Qt's own, for tests elsewhere)
+            ic = next((self._icons.icon(QFileInfo(p)) for p in _icon_paths(e) if os.path.isfile(p)), None)
+            self._icon_cache[key] = ic if ic is not None and not ic.isNull() else None
+        return self._icon_cache.get(key)  # (on Windows the ones not read yet come from _start_icons)
+
+    def _start_icons(self):
+        """The icons not read yet, read on a thread; each row gets its icon as it comes."""
+        if not self._icon_rows:
+            return
+        self._icon_cancel = threading.Event()
+        wanted = {key: _icon_paths(rows[0].entry) for key, rows in self._icon_rows.items()}
+        threading.Thread(target=_make_icons, args=(wanted, self._icon_cancel, self._icon_signal.made),
+                         name="corefold-startup-icons", daemon=True).start()
+
+    def _icon_made(self, key: str, image):
+        ic = QIcon(QPixmap.fromImage(image)) if image is not None else None
+        self._icon_cache[key] = ic if ic is not None and not ic.isNull() else None
+        for row in self._icon_rows.pop(key, []):
+            if ic is not None and work.alive(row):
+                row.set_icon(ic)
 
     # ---- search and filters
 
@@ -379,11 +516,73 @@ class StartupPage(QWidget):
             self.empty.setText(tr("Nothing matches."))
         self.empty.setVisible((self.loading and not self.rows) or not shown)
         self.scroll.setVisible(shown > 0)
-        on = sum(1 for e in self.entries if e.on)
+        on = sum(1 for e in self.entries if starts(e))
         off = len(self.entries) - on
         self.count.setText(tr("Starting with Windows: {count}", count=on) +
                            ("  ·  " + tr("Switched off: {count}", count=off) if off else ""))
         self.count.setVisible(bool(self.entries))
+
+    # ---- started a minute later, by Corefold
+
+    def _mark_later(self, entries: list[startup.Entry]):
+        """Marks the ones Corefold starts later, and forgets any switched back on elsewhere (Task Manager)
+        or gone, so nothing is ever started twice."""
+        s = self.c.settings
+        kept = {d["id"]: d for d in s.startup_later}
+        now = []
+        for e in entries:
+            d = kept.get(e.id)
+            if d is None:
+                continue
+            if e.on or not startup.can_start_later(e):
+                continue
+            e.extra["later"] = True
+            now.append(startup.later_item(e))
+        if now != s.startup_later:
+            s.startup_later = now
+            self.c.settings_changed()
+
+    def start_later(self, row: EntryRow, later: bool):
+        """Puts a program off until a minute after sign-in (switched off in Windows, started by Corefold),
+        or gives it back to Windows."""
+        e = row.entry
+        if self.busy:
+            return
+        row.switch.setEnabled(False)
+        self.busy += 1
+        self.refresh_btn.setEnabled(False)
+        job = work.run(lambda _p: startup.set_on(e, not later), lambda _: None,
+                       lambda result, r=row: self._later_done(r, later, result), name="corefold-startup-later")
+        self.switching.append(job)
+
+    def _later_done(self, row: EntryRow, later: bool, result):
+        self.busy -= 1
+        self.switching = [j for j in self.switching if j.is_alive()]
+        if not work.alive(self):
+            return
+        self.refresh_btn.setEnabled(not self.busy and not self.loading)
+        if not work.alive(row):
+            return
+        row.switch.setEnabled(True)
+        e = row.entry
+        if result is not True:
+            if isinstance(result, Exception):
+                log.warning("couldn't put %s off: %s", e.value, result)
+            self._say(tr("Windows didn't allow that change, so {name} is as it was.", name=ltr(e.name)))
+            return
+        s = self.c.settings
+        s.startup_later = [d for d in s.startup_later if d["id"] != e.id]
+        if later:
+            e.extra["later"] = True
+            s.startup_later.append(startup.later_item(e))
+        else:
+            e.extra.pop("later", None)
+        self.c.settings_changed()
+        self.problem.hide()
+        row.set_checked_quietly(True)
+        row.refresh_text()
+        self._regroup()
+        self.filter()
 
     # ---- switching on and off
 
@@ -391,6 +590,15 @@ class StartupPage(QWidget):
         """A switch was flipped: change it (off the window's thread, as Windows may ask for permission
         first), and put the switch back if it didn't work."""
         e = row.entry
+        if e.extra.get("later"):  # (already off in Windows: Corefold just doesn't start it any more)
+            if not on:
+                e.extra.pop("later", None)
+                s = self.c.settings
+                s.startup_later = [d for d in s.startup_later if d["id"] != e.id]
+                self.c.settings_changed()
+                row.refresh_text()
+                self._show_state()
+            return
         row.switch.setEnabled(False)
         self.busy += 1
         self.refresh_btn.setEnabled(False)

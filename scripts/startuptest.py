@@ -1,6 +1,7 @@
 """Corefold Startup, tried for real on a Windows PC: made-up programs are added to the places Windows
 starts things from, then listed, switched off and on (by code and by clicking the page), searched and
-filtered, and everything is checked against what Task Manager writes. Every other startup entry on the
+filtered, and everything is checked against what Task Manager writes. Store apps' startup tasks are
+tried with a made-up package, and scheduled tasks with a made-up task. Every other startup entry on the
 PC must be exactly as it was at the end, and nothing is ever deleted.
 
 Run: python scripts/startuptest.py <folder> [en|ar|fr|es|tr] [dark|light]
@@ -41,7 +42,8 @@ SYSTEM32 = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32"
 NOTEPAD = SYSTEM32 / "notepad.exe"
 GONE = TMP / "gone" / "NotThereAnyMore.exe"
 TEST = ["CfStartupTest", "CfStartupGone", "CfStartupLater", "CfStartupHost", "CfStartupWide", "CfStartupWide32",
-        "CfStartupLeft", "CfStartupAway", 'Cf"Startup\\Odd', "CfStartupWideLeft", "CfStartupWideLeft32"]
+        "CfStartupLeft", "CfStartupAway", 'Cf"Startup\\Odd', "CfStartupWideLeft", "CfStartupWideLeft32",
+        "CfStartupDelay"]
 HKLM_64 = winreg.KEY_WOW64_64KEY
 HKLM_32 = winreg.KEY_WOW64_32KEY
 
@@ -421,6 +423,9 @@ def page():
     check(row is not None and row.switch.isChecked(), "the made-up program is there, switched on")
     if row is None:
         return
+    key = "\n".join(p for p in (row.entry.exe, row.entry.extra.get("file", "")) if p)
+    check(until(lambda: pg._icon_cache.get(key) is not None, 10),
+          "its program's icon comes (read off the window's thread)")
     check(not row.isHidden() and row.switch.isVisible(), "its switch can be seen")
     QTest.mouseClick(row.switch, Qt.LeftButton, Qt.NoModifier, row.switch.rect().center())
     check(until(lambda: row.switch.isEnabled() and not pg.busy, 15), "clicking its switch: done")
@@ -524,6 +529,61 @@ def page():
         check(pg.problem.isHidden(), "no problem shown")
     finally:
         startup.leftovers = real_left
+    # put off until a minute after sign-in: Windows skips it, Corefold starts it
+    import corefold.settings as cs
+    from corefold import startuppage
+    real_enabled = cs.startup_enabled
+    cs.startup_enabled = lambda: True  # (as if Corefold started with Windows)
+    proof = TMP / "later-proof.txt"
+    put(winreg.HKEY_CURRENT_USER, startup.RUN, "CfStartupDelay", f'"{SYSTEM32 / "cmd.exe"}" /c echo later> "{proof}"')
+    try:
+        QTest.mouseClick(pg.refresh_btn, Qt.LeftButton)
+        check(until(lambda: not pg.loading and any(r.entry.value == "CfStartupDelay" for r in pg.rows), 15),
+              "(one to put off is listed)")
+        row = next((r for r in pg.rows if r.entry.value == "CfStartupDelay"), None)
+        if row is not None:
+            seen = []
+
+            class Menu(startuppage.QMenu):  # (shows nothing: only says what it would offer)
+                def exec(self, *_):
+                    seen.extend((x.text(), x.isEnabled()) for x in self.actions() if x.text())
+            real_menu, startuppage.QMenu = startuppage.QMenu, Menu
+            try:
+                row._menu(None, row.mapToGlobal(row.rect().center()))
+            finally:
+                startuppage.QMenu = real_menu
+            check((i18n.tr("Start it a minute after sign-in"), True) in seen,
+                  f"its menu offers to start it a minute later {seen}")
+            pg.start_later(row, True)
+            check(until(lambda: not pg.busy, 15), "putting it off: done")
+            note = get(winreg.HKEY_CURRENT_USER, startup.APPROVED + r"\Run", "CfStartupDelay")
+            check(isinstance(note, bytes) and note[0] == 3 and row.switch.isChecked()
+                  and row_in(pg, "CfStartupDelay", "later")
+                  and any(d["id"] == row.entry.id for d in c.settings.startup_later),
+                  "Windows skips it now, and it's in \"Started a minute after you sign in\", switched on")
+            QTest.mouseClick(pg.refresh_btn, Qt.LeftButton)
+            check(until(lambda: not pg.loading, 15) and row_in(pg, "CfStartupDelay", "later"),
+                  "…still there when read again")
+            pg.scroll.ensureWidgetVisible(next(r for r in pg.rows if r.entry.value == "CfStartupDelay"))
+            settle(0.4)
+            w.grab().save(str(OUT / f"startup-later-{LANG}-{LOOK}.png"))
+            c.start_later()
+            check(until(proof.exists, 15), "Corefold starts it, with what it was given to run")
+            # switched back on in Task Manager: Corefold forgets it (it would start twice)
+            put(winreg.HKEY_CURRENT_USER, startup.APPROVED + r"\Run", "CfStartupDelay", startup.ON_BYTES,
+                winreg.REG_BINARY)
+            QTest.mouseClick(pg.refresh_btn, Qt.LeftButton)
+            check(until(lambda: not pg.loading, 15) and row_in(pg, "CfStartupDelay", "on")
+                  and not c.settings.startup_later, "switched back on elsewhere: Corefold doesn't start it any more")
+            row = next(r for r in pg.rows if r.entry.value == "CfStartupDelay")
+            pg.start_later(row, True)
+            until(lambda: not pg.busy, 15)
+            pg.start_later(row, False)
+            check(until(lambda: not pg.busy, 15) and row.entry.on and not c.settings.startup_later
+                  and get(winreg.HKEY_CURRENT_USER, startup.APPROVED + r"\Run", "CfStartupDelay") == startup.ON_BYTES,
+                  "\"Start it with Windows again\" gives it back to Windows")
+    finally:
+        cs.startup_enabled = real_enabled
     for small in ((760, 520), (1500, 900)):
         w.resize(*small)
         settle(0.4)
@@ -539,6 +599,113 @@ def page():
 def row_in(pg, value, part):
     r = next((r for r in pg.rows if r.entry.value == value), None)
     return r is not None and r.parent() is pg.groups[part]
+
+
+def store_apps():
+    """Store apps start with Windows from a "startup task" in their package: made-up packages in a test key
+    are listed, switched off and on (the number Task Manager writes), and one the organisation decides
+    can't be switched. Then this PC's real Store apps are read the same way."""
+    real = startup.list_entries()
+    print(f"this PC's Store apps that can start with Windows: "
+          f"{[(e.name, e.on) for e in real if e.where == 'Store-App']}", flush=True)
+    saved = startup.STORE_PACKAGES, startup.STORE_STATES
+    startup.STORE_PACKAGES, startup.STORE_STATES = STORE_TEST + r"\Packages", STORE_TEST + r"\SystemAppData"
+    try:
+        root = TMP / "WindowsApps" / "CfStoreTest_1.0.0.0_x64__cf0test0id"
+        (root / "Assets").mkdir(parents=True)
+        (root / "Assets" / "StoreLogo.scale-100.png").write_bytes(
+            bytes.fromhex("89504e470d0a1a0a0000000d4948445200000001000000010806000000"
+                          "1f15c4890000000d49444154789c6360f8cfc0f01f0005000201e2213"
+                          "0bc0000000049454e44ae426082"))
+        (root / "AppxManifest.xml").write_text("""<?xml version="1.0" encoding="utf-8"?>
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+         xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5">
+  <Identity Name="CfStoreTest" Publisher="CN=Test" Version="1.0.0.0" ProcessorArchitecture="x64"/>
+  <Properties><DisplayName>Cf Store Test</DisplayName><PublisherDisplayName>Cf Test Maker</PublisherDisplayName>
+    <Logo>Assets\\StoreLogo.png</Logo></Properties>
+  <Applications><Application Id="App" Executable="CfStore.exe"><Extensions>
+    <uap5:Extension Category="windows.startupTask" Executable="CfStore.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap5:StartupTask TaskId="CfAutoStart" Enabled="true" DisplayName="Cf Store Helper"/></uap5:Extension>
+    <uap5:Extension Category="windows.startupTask" Executable="CfStore.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap5:StartupTask TaskId="CfAskFirst" Enabled="false"/></uap5:Extension>
+    <uap5:Extension Category="windows.startupTask" Executable="CfStore.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap5:StartupTask TaskId="CfByRules" Enabled="true"/></uap5:Extension>
+  </Extensions></Application></Applications>
+</Package>""", "utf-8")
+        key = startup.STORE_PACKAGES + "\\" + root.name
+        put(winreg.HKEY_CURRENT_USER, key, "PackageRootFolder", str(root))
+        put(winreg.HKEY_CURRENT_USER, key, "DisplayName", "Cf Store Test")
+        family = "CfStoreTest_cf0test0id"
+        check(startup.family_of(root.name) == family, f"a package's family name ({startup.family_of(root.name)})")
+        put(winreg.HKEY_CURRENT_USER, startup.STORE_STATES + rf"\{family}\CfByRules", "State", 3, winreg.REG_DWORD)
+        found = [e for e in startup.list_entries() if e.where == "Store-App"]
+        auto = find(found, "CfAutoStart")
+        ask = find(found, "CfAskFirst")
+        rules = find(found, "CfByRules")
+        if not check(auto and ask and rules, f"the Store app's three startup tasks are listed "
+                                             f"{[(e.name, e.value) for e in found]}"):
+            return
+        check(auto.on and not ask.on and not rules.on, "on as the app was made (Enabled), off when it asks first, "
+                                                       "and off when the organisation's rules say so")
+        check(auto.name == "Cf Store Helper" and ask.name == "Cf Store Test" and auto.publisher == "Cf Test Maker",
+              f"named as the task or the app says, with its maker ({auto.name}, {ask.name}, {auto.publisher})")
+        check(auto.extra.get("icon", "").endswith("StoreLogo.scale-100.png"), f"its logo ({auto.extra.get('icon')})")
+        check(not auto.admin and rules.locked and not auto.locked, "this user's own: no administrator, and the one "
+                                                                    "under rules can't be switched")
+        state = lambda task: get(winreg.HKEY_CURRENT_USER, startup.STORE_STATES + rf"\{family}\{task}", "State")  # noqa: E731
+        check(startup.set_on(auto, False) and not auto.on and state("CfAutoStart") == 1,
+              f"switched off the way Task Manager does it (State {state('CfAutoStart')})")
+        again = find([e for e in startup.list_entries() if e.where == "Store-App"], "CfAutoStart")
+        check(again is not None and not again.on, "…and it's still off when the list is read again")
+        check(startup.set_on(auto, True) and auto.on and state("CfAutoStart") == 2,
+              f"switched back on (State {state('CfAutoStart')})")
+        check(startup.set_on(ask, True) and state("CfAskFirst") == 2, "one that asks first can be switched on too")
+        check(not startup.set_on(rules, True) and state("CfByRules") == 3, "the organisation's choice is left alone")
+    finally:
+        startup.STORE_PACKAGES, startup.STORE_STATES = saved
+        try:
+            subprocess.run([str(SYSTEM32 / "reg.exe"), "delete", "HKCU\\" + STORE_TEST, "/f"], capture_output=True,
+                           timeout=30)
+        except (OSError, subprocess.SubprocessError):
+            pass
+
+
+STORE_TEST = r"Software\CorefoldStartupTest"
+TASK_TEST = "\\CfStartupTestTask"
+
+
+def schtasks(*args) -> subprocess.CompletedProcess:
+    return subprocess.run([str(SYSTEM32 / "schtasks.exe"), *args], capture_output=True, timeout=60)
+
+
+def scheduled_tasks():
+    """Programs started by a scheduled task when someone signs in (what Autoruns shows): a made-up task is
+    listed with its program's name, switched off and on with Windows' own schtasks, and removed again."""
+    real = startup.task_entries()
+    print(f"this PC's scheduled tasks that start at sign-in: {[(e.name, e.value, e.on) for e in real][:12]}",
+          flush=True)
+    check(not any(e.value.startswith("\\Microsoft\\") for e in real), "Windows' own tasks aren't listed")
+    made = schtasks("/Create", "/SC", "ONLOGON", "/TN", TASK_TEST, "/TR", f'"{NOTEPAD}" /cf', "/F")
+    if not check(made.returncode == 0, f"a test task was made ({made.stderr.decode('mbcs', 'replace').strip()})"):
+        return
+    try:
+        task = find(startup.list_entries(), TASK_TEST, "Task")
+        if not check(task is not None, "the task is in the list"):
+            return
+        check(task.on and task.exe.lower() == str(NOTEPAD).lower() and "/cf" in task.command,
+              f"switched on, with the program it runs ({task.on}, {task.command})")
+        check(task.name != "CfStartupTestTask", f"named after its program, not the task ({task.name})")
+        check(task.extra.get("mine") and not task.admin, "this user's own task needs no administrator")
+        check(not task.missing and task not in startup.leftovers([task]), "its program is there")
+        check(startup.set_on(task, False) and not task.on and startup._task_enabled(TASK_TEST) is False,
+              "switched off (Task Scheduler says Disabled)")
+        again = find(startup.list_entries(), TASK_TEST, "Task")
+        check(again is not None and not again.on, "…and it's still off when the list is read again")
+        check(startup.set_on(task, True) and task.on and startup._task_enabled(TASK_TEST) is True,
+              "switched back on")
+    finally:
+        schtasks("/Delete", "/TN", TASK_TEST, "/F")
+    check(find(startup.list_entries(), TASK_TEST, "Task") is None, "gone from the list once deleted")
 
 
 def tidy():
@@ -563,7 +730,8 @@ def tidy():
 
 
 for name, fn in (("listing", listing), ("switching", switching), ("whole PC", whole_pc), ("new", new_since),
-                 ("own entry", own_entry), ("leftovers", leftovers), ("page", page)):
+                 ("own entry", own_entry), ("leftovers", leftovers), ("Store apps", store_apps), ("scheduled tasks", scheduled_tasks),
+                 ("page", page)):
     step(name, fn)
 step("tidy", tidy)
 (OUT / f"startuptest-{LANG}.txt").write_text("\n".join(problems) or "none", "utf-8")

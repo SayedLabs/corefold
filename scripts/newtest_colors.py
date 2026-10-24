@@ -415,6 +415,31 @@ def page():
     pg._remove()
     settle(0.2)
     check(SAMPLE[3] not in s.colors_history and len(pg.swatches) == len(SAMPLE) - 1, "Remove takes one colour off")
+    # a colour typed or pasted
+    pg.typed.setText("not a colour")
+    pg.typed.returnPressed.emit()
+    check(pg.typed_note.isVisible() and len(pg.swatches) == len(SAMPLE) - 1, "something that isn't a colour is refused")
+    pg.typed.setText("rgb(30, 144, 255)")
+    pg.typed.returnPressed.emit()
+    settle(0.2)
+    check(s.colors_history[0] == "#1E90FF" and pg.selected == "#1E90FF" and not pg.typed_note.isVisible()
+          and not pg.typed.text(), f"rgb(30, 144, 255) typed: added and shown ({s.colors_history[:2]})")
+    pg._copy("oklch")
+    check(clip_text() == "oklch(65.2% 0.190 253.2)", f"OKLCH copied as CSS writes it ({clip_text()!r})")
+    pg._copy("vec4")
+    check(clip_text() == "vec4(0.118, 0.565, 1.000, 1.0)", f"VEC4 copied ({clip_text()!r})")
+    said = [lab.text() for lab in pg.samples.values()]
+    check(said == ["Aa  3.2:1  ·  Large text only", "Aa  6.5:1  ·  AA"], f"how readable text is on it: {said}")
+    pg.typed.setText("hsl(0, 100%, 50%)")
+    pg.typed.returnPressed.emit()
+    pg.typed.setText("#fff")
+    pg.typed.returnPressed.emit()
+    pg.typed.setText("navy")
+    pg.typed.returnPressed.emit()
+    settle(0.2)
+    check(s.colors_history[:3] == ["#000080", "#FFFFFF", "#FF0000"], f"hsl(), short HEX and names too "
+                                                                      f"({s.colors_history[:3]})")
+    w.grab().save(str(OUT / "page-typed-en-dark.png"))
 
     def answer():
         box = qapp.activeModalWidget()

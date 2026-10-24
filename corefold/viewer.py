@@ -15,8 +15,8 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QObject, QPoint, QPointF, QRectF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import (QColor, QGuiApplication, QIcon, QImage, QKeySequence, QPainter, QPen, QPixmap, QShortcut,
                            QTransform)
-from PySide6.QtWidgets import (QFileDialog, QFrame, QHBoxLayout, QLabel, QListView, QListWidget, QListWidgetItem,
-                               QMenu, QMessageBox, QPushButton, QSlider, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QFileDialog, QFrame, QHBoxLayout, QLabel, QListView, QListWidget,
+                               QListWidgetItem, QMenu, QMessageBox, QPushButton, QSlider, QVBoxLayout, QWidget)
 
 from . import i18n, icons
 from .core import ALIASES, APP_NAME, IMAGE_EXT, human_size, norm, short_name
@@ -337,6 +337,7 @@ class PictureView(QWidget):
         self.dark = dark
         self.wheel_zooms = True
         self._drag = None
+        self._press = None                # where a drag of the file out of the window may start
         self.crop: QRectF | None = None   # in picture pixels, while cropping
         self.crop_ratio = None
         self._crop_drag = None
@@ -479,6 +480,11 @@ class PictureView(QWidget):
             self.fit_view()
 
     def mousePressEvent(self, e):
+        if e.button() in (Qt.BackButton, Qt.ForwardButton):  # (the mouse's side buttons, as in other viewers)
+            win = self.window()
+            if hasattr(win, "go"):
+                win.go(-1 if e.button() == Qt.BackButton else 1)
+            return
         if e.button() != Qt.LeftButton:
             return
         if self.crop is not None:
@@ -487,6 +493,8 @@ class PictureView(QWidget):
         if not self.fit:
             self._drag = (e.position(), QPointF(self.center))
             self.setCursor(Qt.ClosedHandCursor)
+        else:
+            self._press = e.position()
 
     def mouseMoveEvent(self, e):
         if self.crop is not None:
@@ -497,6 +505,13 @@ class PictureView(QWidget):
                 self.setCursor({"move": Qt.SizeAllCursor, "": Qt.CrossCursor}.get(handle, Qt.SizeFDiagCursor
                                                                                     if handle in ("tl", "br") else
                                                                                     Qt.SizeBDiagCursor))
+            return
+        if self._press is not None and e.buttons() & Qt.LeftButton and \
+                (e.position() - self._press).manhattanLength() >= QApplication.startDragDistance():
+            self._press = None  # dragged out of the window: the file goes where it's dropped (a chat, an email…)
+            win = self.window()
+            if hasattr(win, "drag_out"):
+                win.drag_out()
             return
         if self._drag:
             start, center = self._drag
@@ -510,6 +525,7 @@ class PictureView(QWidget):
 
     def mouseReleaseEvent(self, e):
         self._drag = None
+        self._press = None
         self._crop_drag = None
         if not self.fit and self.crop is None:
             self.setCursor(Qt.OpenHandCursor)
@@ -658,6 +674,7 @@ class ViewerWindow(QWidget):
         more.addAction(tr("Save as…"), self.save_as)
         more.addAction(tr("Copy the picture"), self.copy)
         more.addAction(tr("Show in folder"), lambda: reveal_in_explorer(self.current()))
+        more.addAction(tr("Copy the path (Ctrl+Shift+C)"), self.copy_path)
         more.addAction(tr("Open with…"), lambda: self._with_saved(open_with))
         more.addAction(tr("Print…"), lambda: self._with_saved(print_file))
         more.addAction(tr("More options in the Converter…"), self.to_converter)
@@ -838,6 +855,7 @@ class ViewerWindow(QWidget):
             QShortcut(QKeySequence(key), self, fn)
         QShortcut(QKeySequence("Shift+R"), self, lambda: self.rotate(-90))
         QShortcut(QKeySequence.StandardKey.Copy, self, self.copy)
+        QShortcut(QKeySequence("Ctrl+Shift+C"), self, self.copy_path)
         QShortcut(QKeySequence.StandardKey.Save, self, self.save)
 
         self.apply_theme(controller.theme)
@@ -1310,6 +1328,27 @@ class ViewerWindow(QWidget):
         if not self.view.image.isNull():
             QGuiApplication.clipboard().setImage(self.view.image)
             self.c.toast.notify(tr("Copied"), tr("The picture is on the clipboard."), linger_ms=2000)
+
+    def copy_path(self):
+        path = self.current()
+        if path:
+            QGuiApplication.clipboard().setText(str(path))
+            self.c.toast.notify(tr("Copied"), short_name(path.name), linger_ms=2000)
+
+    def drag_out(self):
+        """The picture's file, dragged out of the window into another app (copied there, never moved)."""
+        from PySide6.QtCore import QMimeData, QUrl
+        from PySide6.QtGui import QDrag
+        path = self.current()
+        if not path or not path.is_file():
+            return
+        data = QMimeData()
+        data.setUrls([QUrl.fromLocalFile(str(path))])
+        drag = QDrag(self)
+        drag.setMimeData(data)
+        if not self.view.pixmap.isNull():
+            drag.setPixmap(self.view.pixmap.scaled(96, 96, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        drag.exec(Qt.CopyAction)
 
     def to_converter(self):
         self.c.show_window("Converter")

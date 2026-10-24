@@ -370,8 +370,23 @@ def page_part():
               f"it says so ({page.status.text()!r})")
         name = f"unlock-{LANG}-{LOOK}-free.png"
         check(c.window.grab().save(str(OUT / name)), f"picture saved: {name}")
+        check(page.move_btn.isVisible() and page.rename_btn.isVisible(), "Move to… and Rename… are offered too")
+        page.rename("Quarterly report 2.docx")
+        renamed = work_dir / "Quarterly report 2.docx"
+        check(until(lambda: not page.busy, 15) and renamed.exists() and not report.exists()
+              and page.paths == [renamed], f"Rename… renames it, and the page follows it ({page.status.text()!r})")
+        page.rename("bad:name.docx")
+        check(page.problem.isVisible() and renamed.exists(), "a name Windows can't take is refused")
+        moved_to = work_dir / "moved"
+        moved_to.mkdir()
+        page.move(str(moved_to))
+        moved = moved_to / renamed.name
+        check(until(lambda: not page.busy, 15) and moved.exists() and not renamed.exists() and page.paths == [moved],
+              f"Move to… moves it ({page.status.text()!r})")
+        page.move(str(moved_to))
+        check(page.problem.isVisible() and moved.exists(), "moving it where it already is is refused")
         page.delete_btn.click()
-        check(until(lambda: not page.busy, 15) and not report.exists(), "Delete it sends it to the Recycle Bin")
+        check(until(lambda: not page.busy, 15) and not moved.exists(), "Delete it sends it to the Recycle Bin")
     step("closing from the page", closes_from_page)
 
     if LANG != "en":

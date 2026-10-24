@@ -24,7 +24,8 @@ from .settings import (ACCENTS, APP_NAME, DEFAULT_ACCENT, APPEARANCES, HOVER_STY
                        SHORTCUT_LABELS, SLICE_COLORS, SOUNDS, TEXT_SIZE_NAMES, TOAST_CORNERS, TOAST_TIMES,
                        WHEEL_POSITIONS, WHEEL_SIZE_NAMES, WHEEL_STYLES, WINDOW_TEXT, installed_uninstaller,
                        ARCHIVE_KEYS, BACKUP_DAYS, CONVERTER_KEYS, EXTRACT_MODES, FORMAT_KEYS, GENERAL_KEYS,
-                       SLIDESHOW_SECONDS, VIEWER_KEYS, VIEWER_WHEEL, CLIP_DAYS, CLIP_MAX, CLIP_SHORTCUTS, CLIPBOARD_KEYS,
+                       SLIDESHOW_SECONDS, VIEWER_KEYS, VIEWER_WHEEL, CLIP_DAYS, CLIP_MAX, CLIP_SHORTCUTS,
+                       CLIP_PLAIN_SHORTCUTS, CLIPBOARD_KEYS,
                        CAP_AFTER, CAP_DELAY, CAP_SHORTCUTS, CAP_TEXT_SHORTCUTS, CAPTURE_KEYS, PLAYER_KEYS, PLAYER_SKIP,
                        PLAYER_WHEEL,
                        LOOK_KEYS, UNINSTALL_DEPTHS, UNINSTALLER_KEYS, UNUSED_MONTHS, WHEEL_KEYS, editable_keys, set_startup,
@@ -2665,7 +2666,7 @@ class MainWindow(QWidget):
         from .colorspage import ColorsPage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
         header = tool_header("colors", tr("Corefold Colors"),
-                             tr("Pick any colour on your screen and copy it as HEX, RGB, HSL, HSV or CMYK."), dark, dpr)
+                             tr("Pick any colour on your screen and copy it as HEX, RGB, HSL, OKLCH and more."), dark, dpr)
         self.colors_page = ColorsPage(self.c, header)
         return self.colors_page
 
@@ -3076,6 +3077,10 @@ class MainWindow(QWidget):
         for key, text in CLIP_SHORTCUTS.items():
             self.clip_shortcut.addItem(tr(text) if key == "off" else text, key)
         self.clip_shortcut.setCurrentIndex(max(0, self.clip_shortcut.findData(s.clip_shortcut)))
+        self.clip_plain_key = Dropdown()
+        for key, text in CLIP_PLAIN_SHORTCUTS.items():
+            self.clip_plain_key.addItem(tr(text) if key == "off" else text, key)
+        self.clip_plain_key.setCurrentIndex(max(0, self.clip_plain_key.findData(s.clip_plain_key)))
         self.clip_max = Dropdown()
         for n in CLIP_MAX:
             self.clip_max.addItem(tr("{count} items", count=locale().toString(n)), n)
@@ -3084,14 +3089,16 @@ class MainWindow(QWidget):
         for key, text in CLIP_DAYS.items():
             self.clip_days.addItem(tr(text), key)
         self.clip_days.setCurrentIndex(max(0, self.clip_days.findData(s.clip_days)))
-        for combo in (self.clip_shortcut, self.clip_max, self.clip_days):
+        for combo in (self.clip_shortcut, self.clip_plain_key, self.clip_max, self.clip_days):
             combo.currentIndexChanged.connect(self._clip_setting_changed)
         grid.addWidget(label(tr("Open your clipboard with")), 0, 0)
         grid.addWidget(self.clip_shortcut, 0, 1)
-        grid.addWidget(label(tr("Keep up to")), 1, 0)
-        grid.addWidget(self.clip_max, 1, 1)
-        grid.addWidget(label(tr("Forget copies older than")), 2, 0)
-        grid.addWidget(self.clip_days, 2, 1)
+        grid.addWidget(label(tr("Paste as plain text with")), 1, 0)
+        grid.addWidget(self.clip_plain_key, 1, 1)
+        grid.addWidget(label(tr("Keep up to")), 2, 0)
+        grid.addWidget(self.clip_max, 2, 1)
+        grid.addWidget(label(tr("Forget copies older than")), 3, 0)
+        grid.addWidget(self.clip_days, 3, 1)
         grid.setColumnStretch(2, 1)
         bl.addLayout(grid)
         self.clip_key_note = label(tr("Another app already uses this shortcut, so it can't open the clipboard. Pick "
@@ -3129,6 +3136,7 @@ class MainWindow(QWidget):
     def _clip_setting_changed(self, *_):
         s = self.c.settings
         s.clip_shortcut = self.clip_shortcut.currentData()
+        s.clip_plain_key = self.clip_plain_key.currentData()
         s.clip_max = self.clip_max.currentData()
         s.clip_days = self.clip_days.currentData()
         s.clip_ignore = self.clip_ignore.text().strip()

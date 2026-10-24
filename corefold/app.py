@@ -917,6 +917,7 @@ class Controller(QObject):
         self._quick_tool()
         self._awake_tool()
         self._peek_tool()
+        self.keep_tidy()
         self._tray_tools()
         running = [name for name, on in (("clipboard", self.clip), ("capture", self.capture),
                                          ("quick access", self.quick), ("awake", self.awake),
@@ -924,6 +925,78 @@ class Controller(QObject):
         if running:
             log.info("running in the background: %s", ", ".join(running))
             winutil.log_memory("background tools started")
+
+    def start_later(self, items: list | None = None):
+        """Starts the programs put off until a minute after sign-in (Corefold Startup), one by one."""
+        from . import startup
+        items = list(self.settings.startup_later) if items is None else items
+        if not items:
+            return
+        ok = startup.start_now(items[0])
+        log.info("started later: %s%s", items[0].get("name"), "" if ok else " (couldn't)")
+        if len(items) > 1:
+            QTimer.singleShot(startup.LATER_GAP_S * 1000, lambda: self.start_later(items[1:]))
+
+    def keep_tidy(self):
+        """File Organizer's "keep this folder tidy by itself": a look every hour, a sort once a day."""
+        on = bool(self.settings.organize_auto_folder) and all_tools.is_on(self.settings, "organizer")
+        timer = getattr(self, "organize_timer", None)
+        if on and timer is None:
+            self.organize_timer = timer = QTimer(self)
+            timer.setInterval(3600 * 1000)
+            timer.timeout.connect(self.tidy_folder)
+            timer.start()
+            QTimer.singleShot(10 * 60 * 1000, self.tidy_folder)  # (not while Corefold itself is starting)
+        elif not on and timer is not None:
+            timer.stop()
+            timer.deleteLater()
+            self.organize_timer = None
+
+    def tidy_folder(self, now: bool = False):
+        """Sorts the folder kept tidy, if a day has gone by since the last time (or now)."""
+        from . import work
+        s = self.settings
+        folder = s.organize_auto_folder
+        if not folder or not all_tools.is_on(s, "organizer") or getattr(self, "_tidy_job", None) is not None:
+            return
+        if not now and time.time() - s.organize_auto_last < 23 * 3600:
+            return
+
+        def go(_progress):
+            from . import organizer
+            return organizer.auto_sort(Path(folder))
+        self._tidy_job = work.run(go, lambda _: None, lambda r, f=folder: self._tidied(f, r), name="corefold-tidy")
+
+    def _tidied(self, folder: str, result):
+        self._tidy_job = None
+        self.settings.organize_auto_last = time.time()
+        self.settings.save()
+        if isinstance(result, Exception):
+            log.warning("couldn't tidy %s: %s", folder, result)
+            return
+        log.info("tidied %s: %d files", folder, result.moved)
+        if not result.moved:
+            return
+        page = getattr(self._window, "organizer_page", None) if self._window is not None else None
+        if page is not None:
+            page.ensure_loaded()
+        detail = tr("1 file went into its folder.") if result.moved == 1 else \
+            tr("{count} files went into their folders.", count=result.moved)
+        self.toast.notify(tr("Tidied {folder}", folder=Path(folder).name), detail, tr("Undo"), self._untidy,
+                          linger_ms=12000)
+
+    def _untidy(self):
+        from . import organizer, work
+        page = getattr(self._window, "organizer_page", None) if self._window is not None else None
+
+        def done(result):
+            self._untidy_job = None
+            if page is not None and work.alive(page):
+                page.ensure_loaded()
+            if not isinstance(result, Exception) and result.back:
+                self.toast.notify(tr("Put back"), tr("Put 1 file back where it was.") if result.back == 1 else
+                                  tr("Put {count} files back where they were.", count=result.back), linger_ms=4000)
+        self._untidy_job = work.run(lambda p: organizer.undo(p), lambda _: None, done, name="corefold-untidy")
 
     def _capture_tool(self):
         """Corefold Capture's shortcuts are only there while it's in use."""
@@ -1052,7 +1125,7 @@ class Controller(QObject):
 
     def _clip_settings(self) -> tuple:
         s = self.settings
-        return s.clip_shortcut, s.clip_max, s.clip_days
+        return s.clip_shortcut, s.clip_plain_key, s.clip_max, s.clip_days
 
     def show_clipboard(self, from_tray: bool = False):
         """The clipboard popup, near where you're typing (what you pick is pasted there)."""
@@ -2523,6 +2596,9 @@ def main() -> int:
         if not s.tour_done and (not message or message.startswith(b"show")) and "--background" not in argv:
             QTimer.singleShot(700, controller.show_tour)
     s.save()
+    if "--background" in argv and s.startup_later:  # (started with Windows: the programs put off come next)
+        from .startup import LATER_AFTER_S
+        QTimer.singleShot(LATER_AFTER_S * 1000, controller.start_later)
     threading.Thread(target=_prune_backups, args=(s.backup_days,), daemon=True).start()
     QTimer.singleShot(IDLE_TIDY_MS, controller.tidy_up)
     QTimer.singleShot(IDLE_TIDY_MS - 5000, lambda: winutil.log_memory("before the first tidy"))

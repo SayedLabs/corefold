@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QFileInfo, QSize, Qt
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QFileDialog, QFileIconProvider, QFrame, QHBoxLayout, QLabel, QMessageBox, \
-    QPushButton, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFileDialog, QFileIconProvider, QFrame, QHBoxLayout, QInputDialog, QLabel, \
+    QMessageBox, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from . import i18n, icons, unlock, work
 from .atomic.widgets import Group, SettingRow
@@ -195,10 +195,14 @@ class UnlockPage(QWidget):
         self.close_all_btn = _button(tr("Close all"), "primary", self.close_all)
         self.delete_btn = _button(tr("Delete it"), "danger", self.delete)
         self.again_btn = _button(tr("Check again"), None, lambda: self.check(self.paths))
+        self.move_btn = _button(tr("Move to…"), None, self.move)
+        self.rename_btn = _button(tr("Rename…"), None, self.rename)
         self.later_btn = _button(tr("Delete when the PC restarts"), None, self.delete_at_restart)
         self.later_btn.setToolTip(tr("Windows deletes it as the PC starts, before any program can open it."))
         buttons.addWidget(self.close_all_btn)
         buttons.addWidget(self.delete_btn)
+        buttons.addWidget(self.move_btn)
+        buttons.addWidget(self.rename_btn)
         buttons.addWidget(self.later_btn)
         buttons.addStretch()
         buttons.addWidget(self.again_btn)
@@ -336,6 +340,8 @@ class UnlockPage(QWidget):
         exists = any(os.path.lexists(p) for p in self.paths)
         can_delete = found is not None and not programs and exists
         self.delete_btn.setVisible(can_delete)
+        self.move_btn.setVisible(can_delete)
+        self.rename_btn.setVisible(can_delete and len(self.paths) == 1)
         self.bin_note.setVisible(can_delete)
         # (what won't let go, even of a program that won't close: Windows deletes it as the PC starts)
         stuck = any(self.states.get(p.pid) in ("stuck", "no_window") or not p.closable for p in programs)
@@ -355,7 +361,8 @@ class UnlockPage(QWidget):
 
     def _set_busy(self, on: bool, text: str = ""):
         self.busy = on
-        for b in (self.close_all_btn, self.delete_btn, self.again_btn, self.later_btn):
+        for b in (self.close_all_btn, self.delete_btn, self.move_btn, self.rename_btn, self.again_btn,
+                  self.later_btn):
             b.setEnabled(not on)
         for row in self.rows:
             for b in (row.close_btn, row.force_btn):
@@ -483,6 +490,75 @@ class UnlockPage(QWidget):
         self.status.setText(tr("Sent to the Recycle Bin. You can put it back from there."))
         self.status.show()
         self.again_btn.hide()
+
+    # ---- moving and renaming, now that nothing has it open (as IObit Unlocker does)
+
+    def move(self, dest: str | None = None):
+        if self.busy or not self.paths:
+            return
+        if dest is None:
+            dest = QFileDialog.getExistingDirectory(self, tr("Move to…"), str(self.paths[0].parent))
+        if not dest:
+            return
+        dest_dir = Path(dest)
+        taken = [p.name for p in self.paths if (dest_dir / p.name).exists() or (dest_dir / p.name) == p]
+        if taken:
+            self._say(tr("There's already something called {name} there.", name=ltr(taken[0])))
+            return
+        paths = list(self.paths)
+        self._set_busy(True, tr("Moving it…"))
+
+        def go(_p):
+            import shutil
+            moved = []
+            for p in paths:
+                target = dest_dir / p.name
+                shutil.move(str(p), str(target))
+                moved.append(target)
+            return moved
+        self._run(go, lambda result: self._moved(result, tr("Moved to {folder}.", folder=ltr(str(dest_dir)))))
+
+    def rename(self, new_name: str | None = None):
+        if self.busy or len(self.paths) != 1:
+            return
+        old = self.paths[0]
+        if new_name is None:
+            new_name, ok = QInputDialog.getText(self, tr("Rename…"), tr("New name:"), text=old.name)
+            if not ok:
+                return
+        new_name = new_name.strip().rstrip(". ")
+        if not new_name or new_name == old.name:
+            return
+        if any(ch in new_name for ch in '\\/:*?"<>|'):
+            self._say(tr("A name can't have any of these in it: {chars}", chars='\\ / : * ? " < > |'))
+            return
+        target = old.with_name(new_name)
+        if target.exists() and os.path.normcase(str(target)) != os.path.normcase(str(old)):
+            self._say(tr("There's already something called {name} there.", name=ltr(new_name)))
+            return
+        self._set_busy(True, tr("Renaming it…"))
+
+        def go(_p):
+            os.rename(old, target)
+            return [target]
+        self._run(go, lambda result: self._moved(result, tr("Renamed to {name}.", name=ltr(new_name))))
+
+    def _moved(self, result, said: str):
+        self.jobs = [j for j in self.jobs if j.is_alive()]
+        if not work.alive(self):
+            return
+        self._set_busy(False)
+        if isinstance(result, Exception):
+            log.warning("couldn't move or rename %s: %s", self.paths, result)
+            self._fill()
+            self._say(tr("Windows didn't let Corefold do it. Something may have opened it again: check again."))
+            return
+        self.paths = list(result)
+        self._show_path()
+        self._say("")
+        self._fill()
+        self.status.setText(said)
+        self.status.show()
 
     def delete_at_restart(self):
         """Windows deletes it as the PC starts (as administrator, so Windows asks first). For good: it

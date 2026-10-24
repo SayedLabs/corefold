@@ -291,6 +291,9 @@ class AppsPage(QWidget):
         top.addWidget(self.show_only)
         top.addWidget(self.store)
         top.addWidget(_button(tr("Refresh"), on_click=self.reload))
+        self.b_updates = _button(tr("Updates…"), on_click=self.show_updates)
+        self.b_updates.setToolTip(tr("Look for newer versions of your apps, and update them"))
+        top.addWidget(self.b_updates)
         self.hunter = HunterButton(controller.theme if controller is not None else None)
         self.hunter.found.connect(self._hunted)
         top.addWidget(self.hunter)
@@ -658,6 +661,13 @@ class AppsPage(QWidget):
 
     def show_extensions(self):
         ExtensionsDialog(self.window().windowIcon()).exec()
+
+    def show_updates(self):
+        dlg = UpdatesDialog(self.window().windowIcon())
+        dlg.exec()
+        dlg.deleteLater()
+        if dlg.changed:
+            self.reload()
 
     def show_backups(self):
         dlg = BackupsDialog(self.c, self.window().windowIcon())
@@ -1297,6 +1307,186 @@ class BackupsDialog(QDialog):
         if not un.delete_backup(folder):
             QMessageBox.warning(self, tr("Backups"), tr("Some files in the backup couldn't be deleted."))
         self.fill()
+
+
+class UpdatesDialog(QDialog):
+    """Newer versions of the installed apps (Windows' own winget finds them), updated one by one."""
+
+    def __init__(self, icon: QIcon):
+        super().__init__(None, Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
+        self.setWindowIcon(icon)
+        self.setWindowTitle(tr("App updates"))
+        self.setMinimumSize(640, 420)
+        self.changed = False
+        self.busy = False
+        self.stop = threading.Event()
+        self.jobs: list = []
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(22, 20, 22, 18)
+        lay.addWidget(_label(tr("App updates"), "h2"))
+        lay.addWidget(_label(tr("Newer versions of your apps, found by Windows' own package manager. Each one is "
+                                "downloaded from where its maker publishes it, and installed quietly where the app "
+                                "allows it."), "muted", wrap=True))
+        self.tree = QTreeWidget()
+        self.tree.setObjectName("apps")
+        self.tree.setRootIsDecorated(False)
+        self.tree.setHeaderLabels([tr("App"), tr("Installed"), tr("New version"), ""])
+        h = self.tree.header()
+        h.setStretchLastSection(False)
+        h.setSectionResizeMode(0, QHeaderView.Stretch)
+        for col in (1, 2, 3):
+            h.setSectionResizeMode(col, QHeaderView.ResizeToContents)
+        self.tree.itemChanged.connect(lambda *_: self._selection())
+        lay.addWidget(self.tree, 1)
+        self.status = _label("", "muted", wrap=True)
+        lay.addWidget(self.status)
+        row = QHBoxLayout()
+        self.b_update = _button(tr("Update ticked"), "primary", self.update_ticked)
+        self.b_store = _button(tr("Get it from the Microsoft Store"), on_click=self._store)
+        self.b_store.hide()
+        self.b_again = _button(tr("Check again"), on_click=self.check)
+        row.addWidget(self.b_update)
+        row.addWidget(self.b_store)
+        row.addWidget(self.b_again)
+        row.addStretch()
+        self.b_close = _button(tr("Close"), on_click=self.reject)
+        row.addWidget(self.b_close)
+        lay.addLayout(row)
+        self.check()
+
+    def _run(self, fn, done, progress=lambda _x: None):
+        from . import work
+        self.jobs = [j for j in self.jobs if j.is_alive()]
+        self.jobs.append(work.run(fn, progress, done, name="corefold-app-updates"))
+
+    def _busy(self, on: bool, text: str = ""):
+        self.busy = on
+        self.b_again.setEnabled(not on)
+        if text:
+            self.status.setText(text)
+        self._selection()
+
+    def check(self):
+        if self.busy:
+            return
+        from . import appupdates
+        self.tree.clear()
+        self.b_store.hide()
+        self._busy(True, tr("Looking for newer versions… (this can take a minute)"))
+        self._run(lambda _p: appupdates.check(), self._checked)
+
+    def _checked(self, result):
+        from . import work
+        if not work.alive(self):
+            return
+        self._busy(False)
+        if isinstance(result, FileNotFoundError):
+            self.status.setText(tr("Windows' package manager (winget) isn't on this PC. It comes with "
+                                   "“App Installer” from the Microsoft Store."))
+            self.b_store.show()
+            return
+        if isinstance(result, Exception):
+            log.warning("couldn't check for app updates: %s", result)
+            self.status.setText(tr("Couldn't look for updates: {error}", error=str(result) or type(result).__name__))
+            return
+        self.fill(result)
+
+    def fill(self, updates):
+        self.tree.blockSignals(True)
+        self.tree.clear()
+        for u in updates:
+            item = QTreeWidgetItem([u.name, ltr(u.version), ltr(u.available), ""])
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            item.setCheckState(0, Qt.Checked)
+            item.setData(0, APP_ROLE, u)
+            item.setToolTip(0, u.id)
+            self.tree.addTopLevelItem(item)
+        self.tree.blockSignals(False)
+        n = len(updates)
+        self.status.setText(tr("All your apps are up to date.") if not n else tr("1 app has a newer version.")
+                            if n == 1 else tr("{count} apps have a newer version.", count=n))
+        self._selection()
+
+    def _ticked(self) -> list[QTreeWidgetItem]:
+        return [self.tree.topLevelItem(i) for i in range(self.tree.topLevelItemCount())
+                if self.tree.topLevelItem(i).checkState(0) == Qt.Checked
+                and self.tree.topLevelItem(i).text(3) != tr("Updated")]
+
+    def _selection(self):
+        self.b_update.setEnabled(not self.busy and bool(self._ticked()))
+        self.b_update.setVisible(self.tree.topLevelItemCount() > 0)
+
+    def update_ticked(self):
+        items = self._ticked()
+        if self.busy or not items:
+            return
+        from . import appupdates
+        todo = [(i, item.data(0, APP_ROLE)) for i, item in enumerate(items)]
+        self.stop.clear()
+        self._busy(True)
+        self.b_close.setText(tr("Stop after this one"))
+
+        def go(progress):
+            done = []
+            for n, (i, u) in enumerate(todo):
+                if self.stop.is_set():
+                    break
+                progress(("start", i, u, n, len(todo)))
+                try:
+                    ok, said = appupdates.update(u)
+                except Exception as e:
+                    ok, said = False, str(e)
+                progress(("done", i, u, ok, said))
+                done.append(ok)
+            return done
+
+        def step(info):
+            if not work_alive():
+                return
+            if info[0] == "start":
+                _, i, u, n, total = info
+                items[i].setText(3, tr("Updating…"))
+                self.status.setText(tr("Updating {name} ({n} of {total})…", name=u.name, n=n + 1, total=total))
+            else:
+                _, i, u, ok, said = info
+                items[i].setText(3, tr("Updated") if ok else tr("Couldn't update"))
+                if not ok and said:
+                    items[i].setToolTip(3, said)
+                self.changed = self.changed or ok
+
+        def work_alive():
+            from . import work
+            return work.alive(self)
+        self._run(go, self._updated, step)
+
+    def _updated(self, result):
+        from . import work
+        if not work.alive(self):
+            return
+        self._busy(False)
+        self.b_close.setText(tr("Close"))
+        if isinstance(result, Exception):
+            self.status.setText(tr("Couldn't update: {error}", error=str(result)))
+            return
+        ok = sum(1 for x in result if x)
+        failed = len(result) - ok
+        said = tr("Updated 1 app.") if ok == 1 else tr("Updated {count} apps.", count=ok)
+        if failed:
+            said += " " + tr("{failed} couldn't be updated: point at them to see why.", failed=failed)
+        self.status.setText(said)
+
+    def _store(self):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        from . import appupdates
+        QDesktopServices.openUrl(QUrl(appupdates.STORE_PAGE))
+
+    def reject(self):
+        if self.busy:
+            self.stop.set()  # (the one being installed is never cut off halfway)
+            self.status.setText(tr("Stopping after this one…"))
+            return
+        super().reject()
 
 
 class ExtensionsDialog(QDialog):

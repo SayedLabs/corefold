@@ -20,6 +20,10 @@ OUT.mkdir(parents=True, exist_ok=True)
 ONE = len(sys.argv) > 1 and sys.argv[1] == "--one"
 LANG = sys.argv[2] if ONE and len(sys.argv) > 2 else "en"
 LOOK = sys.argv[3] if ONE and len(sys.argv) > 3 else "dark"
+try:  # (the Arabic run's lines, on a console that isn't UTF-8)
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except (AttributeError, ValueError):
+    pass
 
 if not ONE:  # each language in a fresh process (settings and language are read once)
     problems = []
@@ -41,10 +45,6 @@ TMP = Path(tempfile.mkdtemp(prefix="corefold-updatetest-"))
 os.environ["APPDATA"] = str(TMP / "roaming")
 os.environ["LOCALAPPDATA"] = str(TMP / "local")
 sys.path.insert(0, str(ROOT))
-try:
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-except (AttributeError, ValueError):
-    pass
 import faulthandler  # noqa: E402
 faulthandler.dump_traceback_later(120, exit=True)  # stuck somewhere: say where, and stop
 

@@ -490,6 +490,48 @@ def part(lang, look):
             if lang == "ar":
                 shot("calc")
 
+    def open_windows():
+        """A window already open is found by its title and switched to (as Alt + Tab, PowerToys Run)."""
+        doc = Path(tempfile.mkdtemp(prefix="cf-switch-")) / "CfSwitchCheck.txt"
+        doc.write_text("switch", "utf-8")
+        before = set(_windows_of_class("Notepad"))
+        proc = subprocess.Popen([os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "notepad.exe"),
+                                 str(doc)])
+        try:
+            new = []
+            end = time.time() + 15
+            while time.time() < end and not new:
+                settle(0.3)
+                new = [h for h in _windows_of_class("Notepad") if h not in before]
+            if not check(bool(new), "(a Notepad window to switch to)"):
+                return
+            hwnd = new[0]
+            u.ShowWindow(ctypes.c_void_p(hwnd), 6)  # SW_MINIMIZE
+            settle(0.5)
+            listed = qs.open_windows()
+            check(any(w.hwnd == hwnd and "CfSwitchCheck" in w.title and w.exe.lower().endswith("notepad.exe")
+                      for w in listed), f"the open windows are read, with their program ({len(listed)})")
+            check(open_menu(), "the menu opens to switch windows")
+            m = menu()
+            type_text("CfSwitch")
+            row = next((i for i, sp in enumerate(m.spots) if sp.entry.id == f"win:{hwnd}"), -1)
+            check(row >= 0 and m.spots[row].entry.hint.lower().startswith("notepad"),
+                  f"typing part of its title finds it, with its program ({[sp.entry.label for sp in m.spots][:4]})")
+            if row < 0:
+                return
+            check(m.item_icon(m.spots[row].entry, 22) is not None, "…with the program's icon")
+            m.selected = row
+            check(m._side_note(m.spots[row], True) == tr("Enter to switch to it"), "…and says Enter switches to it")
+            shot("windows")
+            press(VK_ENTER)
+            check(until(lambda: not m.isVisible(), 2), "Enter puts the menu away")
+            u.GetForegroundWindow.restype = ctypes.c_void_p
+            ok = until(lambda: (u.GetForegroundWindow() or 0) == hwnd, 4)
+            check(ok and not u.IsIconic(ctypes.c_void_p(hwnd)), "…and Notepad is in front, no longer minimised")
+        finally:
+            proc.kill()
+            settle(0.5)
+
     def closing():
         check(open_menu(), "the menu opens to be closed while it looks")
         m = menu()
@@ -539,7 +581,8 @@ def part(lang, look):
         settle(0.2)
 
     DEBOUNCE = qs.DEBOUNCE_MS / 1000
-    for what, fn in (("files", files), ("apps", apps_rows), ("closing", closing), ("prefixes", prefixes),
+    for what, fn in (("files", files), ("apps", apps_rows), ("open windows", open_windows), ("closing", closing),
+                     ("prefixes", prefixes),
                      ("page", settings_page)):
         step(what, fn)
 

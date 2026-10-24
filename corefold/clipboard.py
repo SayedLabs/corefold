@@ -611,6 +611,9 @@ class Clipboard(QObject):
         self.hotkey = Hotkey()
         self.hotkey.pressed.connect(self._hotkey_pressed, Qt.ConnectionType.QueuedConnection)
         self.hotkey.set(settings.clip_shortcut)
+        self.plain_key = Hotkey()
+        self.plain_key.pressed.connect(self.paste_plain, Qt.ConnectionType.QueuedConnection)
+        self.plain_key.set(settings.clip_plain_key)
 
     def stop(self):
         try:
@@ -619,6 +622,7 @@ class Clipboard(QObject):
             pass
         self.timer.stop()
         self.hotkey.stop()
+        self.plain_key.stop()
         self.pool.waitForDone(3000)
         if self.popup is not None:
             self.popup.close()
@@ -629,6 +633,7 @@ class Clipboard(QObject):
     def apply_settings(self) -> bool:
         """After the Clipboard's settings changed. False if the shortcut couldn't be used."""
         ok = self.hotkey.set(self.settings.clip_shortcut)
+        self.plain_key.set(self.settings.clip_plain_key)
         self.trim(force=True)
         return ok
 
@@ -763,6 +768,24 @@ class Clipboard(QObject):
             return False
         if not (self.settings.clip_paste and hwnd):
             return True
+        focus_window(hwnd)
+        self._press_paste_soon(60)
+        return True
+
+    def paste_plain(self):
+        """Its own shortcut, in any app (as PowerToys' "Paste as plain text"): pastes the text that's
+        copied without its fonts, colours, sizes or links. What isn't text (files, a picture) is pasted
+        as it is."""
+        md = self.cb.mimeData()
+        if md is not None and md.hasText() and not md.hasUrls() and set(md.formats()) - {"text/plain"}:
+            text = md.text()
+            if text:
+                self.cb.setText(text)
+                self._own = sequence_number()  # (the same text: not kept again)
+        self._press_paste_soon(0)
+
+    def _press_paste_soon(self, wait_ms: int):
+        """Ctrl+V in the window in front, once the keys of the shortcut that asked for it are let go."""
         tries = [0]
 
         def go():
@@ -772,6 +795,4 @@ class Clipboard(QObject):
                 return
             press_paste()
 
-        focus_window(hwnd)
-        QTimer.singleShot(60, go)
-        return True
+        QTimer.singleShot(wait_ms, go)

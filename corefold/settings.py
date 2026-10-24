@@ -99,6 +99,8 @@ SLIDESHOW_SECONDS = {2: "2 seconds", 4: "4 seconds", 8: "8 seconds"}
 EXTRACT_MODES = {"smart": "Smart: no folder inside a folder", "folder": "Always into a new folder"}
 CLIP_SHORTCUTS = {"win+alt+v": "Win + Alt + V", "ctrl+shift+v": "Ctrl + Shift + V", "ctrl+alt+v": "Ctrl + Alt + V",
                   "ctrl+`": "Ctrl + `", "off": "No shortcut"}
+CLIP_PLAIN_SHORTCUTS = {"ctrl+alt+win+v": "Ctrl + Alt + Win + V", "ctrl+alt+shift+v": "Ctrl + Alt + Shift + V",
+                        "off": "No shortcut"}
 CLIP_MAX = {100: "100", 500: "500", 1000: "1000", 5000: "5000"}
 CLIP_DAYS = {1: "a day", 7: "a week", 30: "a month", 365: "a year", 0: "Never"}
 CAP_SHORTCUTS = {"ctrl+printscreen": "Ctrl + Print Screen", "printscreen": "Print Screen",
@@ -109,7 +111,8 @@ CAP_AFTER = {"edit": "Open it to mark it up", "copy": "Only copy it"}
 CAP_DELAY = {3: "3 seconds", 5: "5 seconds", 10: "10 seconds"}
 VIEWER_SORTS = {"name": "Name", "newest": "Newest first", "oldest": "Oldest first", "biggest": "Biggest first"}
 COLORS_SHORTCUTS = {"win+shift+c": "Win + Shift + C", "win+alt+c": "Win + Alt + C", "off": "No shortcut"}
-COLORS_FORMATS = {"hex": "HEX", "rgb": "RGB", "hsl": "HSL", "hsv": "HSV", "cmyk": "CMYK"}
+COLORS_FORMATS = {"hex": "HEX", "rgb": "RGB", "hsl": "HSL", "hsv": "HSV", "cmyk": "CMYK", "oklch": "OKLCH",
+                  "vec4": "VEC4"}
 PLAYER_SKIP = {5: "5 seconds", 10: "10 seconds", 30: "30 seconds"}
 PLAYER_WHEEL = {"volume": "Changes the volume", "seek": "Goes back and forward"}
 PEEK_KEYS = {"ctrl+space": "Ctrl + Space", "ctrl+shift+space": "Ctrl + Shift + Space", "off": "No shortcut"}
@@ -122,7 +125,8 @@ CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_styl
            "backup_days": BACKUP_DAYS, "uninstall_depth": UNINSTALL_DEPTHS, "extract_mode": EXTRACT_MODES,
            "viewer_wheel": VIEWER_WHEEL, "viewer_sort": VIEWER_SORTS,
            "slideshow_seconds": SLIDESHOW_SECONDS, "clip_shortcut": CLIP_SHORTCUTS, "clip_max": CLIP_MAX,
-           "clip_days": CLIP_DAYS, "cap_shortcut": CAP_SHORTCUTS, "cap_text_shortcut": CAP_TEXT_SHORTCUTS,
+           "clip_plain_key": CLIP_PLAIN_SHORTCUTS, "clip_days": CLIP_DAYS, "cap_shortcut": CAP_SHORTCUTS,
+           "cap_text_shortcut": CAP_TEXT_SHORTCUTS,
            "cap_after": CAP_AFTER, "cap_delay": CAP_DELAY, "player_skip": PLAYER_SKIP,
            "player_wheel": PLAYER_WHEEL,
            "quick_search_engine": QUICK_SEARCH_ENGINES,
@@ -142,7 +146,8 @@ NOT_EDITED = {"enabled", "first_run", "last_version", "update_told", "menu_signa
               "clip_paused", "open_media", "player_volume", "nav_order", "section_order", "nav_width", "nav_compact",
               "quick_button_pos", "quick_told", "remember_password",
               "unlock_menu_signature",
-              "awake_mode", "awake_minutes", "awake_until", "awake_screen", "shutdown_at", "shutdown_planned",
+              "awake_mode", "awake_minutes", "awake_until", "awake_screen", "awake_apps", "awake_low_battery",
+              "startup_later", "shutdown_at", "shutdown_planned",
               "colors_shortcut", "colors_format", "colors_history",  # (Colors: chosen on its page, kept right away)
               }
 # the settings of each tab of the Settings page (each one has its own "Reset to defaults")
@@ -158,7 +163,8 @@ FORMAT_KEYS = ("hidden_tools", "favorites", "tool_order")
 UNINSTALLER_KEYS = ("unused_months", "backup_days", "restore_point", "uninstall_depth")
 ARCHIVE_KEYS = ("extract_mode", "extract_nested", "remember_archives", "extract_reveal", "extract_recycle")
 VIEWER_KEYS = ("viewer_wheel", "viewer_confirm_delete", "slideshow_seconds", "viewer_sort", "peek_key", "viewer_loop")
-CLIPBOARD_KEYS = ("clip_shortcut", "clip_paste", "clip_max", "clip_days", "clip_images", "clip_ignore")
+CLIPBOARD_KEYS = ("clip_shortcut", "clip_plain_key", "clip_paste", "clip_max", "clip_days", "clip_images",
+                  "clip_ignore")
 PLAYER_KEYS = ("player_resume", "player_skip", "player_wheel", "player_next", "player_subtitles",
                "player_pause_minimized")
 CAPTURE_KEYS = ("cap_shortcut", "cap_text_shortcut", "cap_after", "cap_delay", "cap_save", "cap_folder")
@@ -242,6 +248,7 @@ class Settings:
     recent_views: list = field(default_factory=list)  # pictures and emails opened lately (newest first)
     # the Clipboard
     clip_shortcut: str = "win+alt+v"  # opens the clipboard from any app
+    clip_plain_key: str = "ctrl+alt+win+v"  # pastes what's copied as plain text, in any app
     clip_paste: bool = True        # picking something pastes it where you were typing (not only copies it)
     clip_max: int = 500            # copies kept (pinned ones don't count)
     clip_days: int = 30            # copies older than this are forgotten (0: never)
@@ -267,7 +274,7 @@ class Settings:
     cap_delay: int = 5             # seconds "Screenshot with a timer" waits
     # Colors
     colors_shortcut: str = "win+shift+c"  # pick a colour from any app
-    colors_format: str = "hex"     # copied as "hex", "rgb", "hsl", "hsv" or "cmyk"
+    colors_format: str = "hex"     # copied as "hex", "rgb", "hsl", "hsv", "cmyk", "oklch" or "vec4"
     colors_history: list = field(default_factory=list)  # colours picked lately ("#RRGGBB", newest first)
     # Quick access: a menu and a wheel that open from any app
     quick_menu: bool = True
@@ -288,9 +295,15 @@ class Settings:
     awake_minutes: int = 60        # "for a while": how long, last chosen
     awake_until: str = ""          # "until a time": "HH:MM", last chosen
     awake_screen: bool = False     # keep the screen on too
+    awake_apps: list = field(default_factory=list)  # stay awake by itself while one of these programs is open
+    startup_later: list = field(default_factory=list)  # programs Corefold starts a minute after sign-in
+    #                                                    ({"id", "name", "command", "file"}; off in Windows)
+    awake_low_battery: bool = True  # on battery, let the PC sleep again once it runs low
     shutdown_at: str = ""          # when Windows will turn the PC off (planned on the Awake page), ISO time
     shutdown_planned: str = ""     # when that was planned (a restart since has cleared it)
     # the Uninstaller
+    organize_auto_folder: str = ""  # a folder File Organizer keeps tidy by itself, once a day ("" = none)
+    organize_auto_last: float = 0.0  # when it last did (seconds since 1970)
     unused_months: int = 3         # "not used for …" filter
     backup_days: int = 30          # backups of removed leftovers are kept this long
     restore_point: bool = False    # tick "Make a System Restore point first" to begin with
@@ -405,6 +418,9 @@ class Settings:
                          for x in s.quick_links if isinstance(x, dict) and isinstance(x.get("target"), str)
                          and x.get("id")][:24]
         s.quick_button_pos = [int(v) for v in s.quick_button_pos if type(v) is int][:2]
+        s.awake_apps = [a for a in s.awake_apps if isinstance(a, str) and a.strip()][:30]
+        s.startup_later = [{k: str(d.get(k) or "") for k in ("id", "name", "command", "file")}
+                           for d in s.startup_later if isinstance(d, dict) and d.get("id")][:50]
         s.colors_history = [h.upper() for h in s.colors_history if isinstance(h, str) and len(h) == 7
                             and h[0] == "#" and all(ch in "0123456789abcdefABCDEF" for ch in h[1:])][:24]
         if s.quick_menu_key == s.quick_wheel_key and s.quick_menu_key != "off":
