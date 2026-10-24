@@ -1,0 +1,35 @@
+Select text run of 6fedec6855b3e362229fde8167e8323dfeceafd9
+== captext-arabic-first
+featuretest: 0 problem(s)
+[ar] 2358 texts, 0 problem(s), 0 unused
+[fr] 2358 texts, 0 problem(s), 0 unused
+[es] 2358 texts, 0 problem(s), 0 unused
+[tr] 2358 texts, 0 problem(s), 0 unused
+captexttest: 0 problem(s)
+captexttest: 0 problem(s)
+note  Windows read: Meeting notes for Monday | Send the invoice to Sara before noon | اجتماع الفريق يوم الأحد | أرسل الملف إلى Corefold قبل الظهر | Order number 48213 ships today
+note  Windows read: Meeting notes for Monday | Send the invoice to Sara before noon | اجتماع الفريق يوم الأحد | أرسل الملف إلى Corefold قبل الظهر | Order number 48213 ships today
+== captext-arabic-too
+featuretest: 0 problem(s)
+[ar] 2358 texts, 0 problem(s), 0 unused
+[fr] 2358 texts, 0 problem(s), 0 unused
+[es] 2358 texts, 0 problem(s), 0 unused
+[tr] 2358 texts, 0 problem(s), 0 unused
+captexttest: 0 problem(s)
+captexttest: 0 problem(s)
+note  Windows read: Meeting notes for Monday | Send the invoice to Sara before noon | اجتماع الفريق يوم الأحد | أرسل الملف إلى Corefold قبل الظهر | Order number 48213 ships today
+note  Windows read: Meeting notes for Monday | Send the invoice to Sara before noon | اجتماع الفريق يوم الأحد | أرسل الملف إلى Corefold قبل الظهر | Order number 48213 ships today
+== captext-english-only
+featuretest: 0 problem(s)
+[ar] 2358 texts, 0 problem(s), 0 unused
+[fr] 2358 texts, 0 problem(s), 0 unused
+[es] 2358 texts, 0 problem(s), 0 unused
+[tr] 2358 texts, 0 problem(s), 0 unused
+captexttest: 0 problem(s)
+captexttest: 0 problem(s)
+note  Windows read: Meeting notes for Monday | Send the invoice to Sara before noon | El-oi>l | )-g-bJl Corefold UJIc a-La-Jl | Order number 48213 ships today
+note  this PC has no Arabic text reading
+note  no Arabic words were read on this PC: the Arabic part is left out
+note  Windows read: Meeting notes for Monday | Send the invoice to Sara before noon | El-oi>l | )-g-bJl Corefold UJIc a-La-Jl | Order number 48213 ships today
+note  this PC has no Arabic text reading
+note  no Arabic words were read on this PC: the Arabic part is left out

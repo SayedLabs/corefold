@@ -1,0 +1,26 @@
+
+Path          : 
+Online        : True
+RestartNeeded : False
+
+If the Windows Display Language has changed, it will take effect after the next sign-in.
+If the Windows Display Language has changed, it will take effect after the next sign-in.
+
+LanguageTag     : ar-SA
+Autonym         : العربية (المملكة العربية السعودية)‏
+EnglishName     : Arabic
+LocalizedName   : Arabic (Saudi Arabia)
+ScriptName      : Arabic
+InputMethodTips : {0401:00000401}
+Spellchecking   : True
+Handwriting     : False
+
+LanguageTag     : en-US
+Autonym         : English (United States)
+EnglishName     : English
+LocalizedName   : English (United States)
+ScriptName      : Latin
+InputMethodTips : {0409:00000409}
+Spellchecking   : True
+Handwriting     : False
+
