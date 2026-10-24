@@ -159,6 +159,8 @@ def save_image(im, out: Path, ext: str, ctx: Ctx, keep_metadata: bool = True):
         im.save(out, **meta)
     elif ext == ".ico":
         im = im.convert("RGBA")
+        # an icon is at most 256 × 256: shrunk first, so a panorama doesn't need a square of its full width
+        im.thumbnail((256, 256), Image.LANCZOS)
         side = max(im.size)
         square = Image.new("RGBA", (side, side), (0, 0, 0, 0))
         square.paste(im, ((side - im.width) // 2, (side - im.height) // 2))
