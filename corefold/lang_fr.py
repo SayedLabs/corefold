@@ -2027,6 +2027,7 @@ STRINGS: dict[str, str] = {
     "Pictures to PDF…": "Images en PDF…",
     "What do you want to do?": "Que voulez-vous faire ?",
     "Your PDFs are never changed: every result is a new file next to the original.": "Vos PDF ne sont jamais modifiés : chaque résultat est un nouveau fichier à côté de l'original.",
+    "Scheduled task": "Tâche planifiée",
     "Keep this folder tidy by itself: once a day, files that have been here a day go into their folders (you can undo it)": "Garder ce dossier rangé tout seul : une fois par jour, les fichiers présents depuis un jour vont dans leurs dossiers (vous pouvez annuler)",
     "Tidied {folder}": "{folder} rangé",
     "1 file went into its folder.": "1 fichier est allé dans son dossier.",

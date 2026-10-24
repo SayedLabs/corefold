@@ -1,7 +1,7 @@
 """Corefold Startup, tried for real on a Windows PC: made-up programs are added to the places Windows
 starts things from, then listed, switched off and on (by code and by clicking the page), searched and
 filtered, and everything is checked against what Task Manager writes. Store apps' startup tasks are
-tried with a made-up package. Every other startup entry on the
+tried with a made-up package, and scheduled tasks with a made-up task. Every other startup entry on the
 PC must be exactly as it was at the end, and nothing is ever deleted.
 
 Run: python scripts/startuptest.py <folder> [en|ar|fr|es|tr] [dark|light]
@@ -612,6 +612,41 @@ def store_apps():
 
 
 STORE_TEST = r"Software\CorefoldStartupTest"
+TASK_TEST = "\\CfStartupTestTask"
+
+
+def schtasks(*args) -> subprocess.CompletedProcess:
+    return subprocess.run([str(SYSTEM32 / "schtasks.exe"), *args], capture_output=True, timeout=60)
+
+
+def scheduled_tasks():
+    """Programs started by a scheduled task when someone signs in (what Autoruns shows): a made-up task is
+    listed with its program's name, switched off and on with Windows' own schtasks, and removed again."""
+    real = startup.task_entries()
+    print(f"this PC's scheduled tasks that start at sign-in: {[(e.name, e.value, e.on) for e in real][:12]}",
+          flush=True)
+    check(not any(e.value.startswith("\\Microsoft\\") for e in real), "Windows' own tasks aren't listed")
+    made = schtasks("/Create", "/SC", "ONLOGON", "/TN", TASK_TEST, "/TR", f'"{NOTEPAD}" /cf', "/F")
+    if not check(made.returncode == 0, f"a test task was made ({made.stderr.decode('mbcs', 'replace').strip()})"):
+        return
+    try:
+        task = find(startup.list_entries(), TASK_TEST, "Task")
+        if not check(task is not None, "the task is in the list"):
+            return
+        check(task.on and task.exe.lower() == str(NOTEPAD).lower() and "/cf" in task.command,
+              f"switched on, with the program it runs ({task.on}, {task.command})")
+        check(task.name != "CfStartupTestTask", f"named after its program, not the task ({task.name})")
+        check(task.extra.get("mine") and not task.admin, "this user's own task needs no administrator")
+        check(not task.missing and task not in startup.leftovers([task]), "its program is there")
+        check(startup.set_on(task, False) and not task.on and startup._task_enabled(TASK_TEST) is False,
+              "switched off (Task Scheduler says Disabled)")
+        again = find(startup.list_entries(), TASK_TEST, "Task")
+        check(again is not None and not again.on, "…and it's still off when the list is read again")
+        check(startup.set_on(task, True) and task.on and startup._task_enabled(TASK_TEST) is True,
+              "switched back on")
+    finally:
+        schtasks("/Delete", "/TN", TASK_TEST, "/F")
+    check(find(startup.list_entries(), TASK_TEST, "Task") is None, "gone from the list once deleted")
 
 
 def tidy():
@@ -636,7 +671,8 @@ def tidy():
 
 
 for name, fn in (("listing", listing), ("switching", switching), ("whole PC", whole_pc), ("new", new_since),
-                 ("own entry", own_entry), ("leftovers", leftovers), ("Store apps", store_apps), ("page", page)):
+                 ("own entry", own_entry), ("leftovers", leftovers), ("Store apps", store_apps), ("scheduled tasks", scheduled_tasks),
+                 ("page", page)):
     step(name, fn)
 step("tidy", tidy)
 (OUT / f"startuptest-{LANG}.txt").write_text("\n".join(problems) or "none", "utf-8")

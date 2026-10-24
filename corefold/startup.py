@@ -14,6 +14,10 @@ description (its AppxManifest.xml), which Windows switches on or off with a numb
 under AppModel\\SystemAppData (2 is on, 1 is "switched off by the person"). That is what Task Manager
 changes too, so Store apps are switched the same way, and need no administrator.
 
+Programs also start with Windows as a scheduled task that runs when someone signs in (or when the PC
+starts): updaters, helpers, tray apps. Those are listed too (not Windows' own, under \\Microsoft), and
+switched off and on the way Task Scheduler does it (the task is disabled, never deleted).
+
 The one thing ever removed is a leftover: a line whose program was deleted from the PC, and only when
 the person asks (a copy of each one is kept in startup-removed.json first)."""
 from __future__ import annotations
@@ -69,6 +73,8 @@ class Entry:
     @property
     def admin(self) -> bool:
         """Belongs to the whole PC: an administrator has to change it."""
+        if self.where == "Task":
+            return not self.extra.get("mine")
         return not self.where.startswith(("HKCU", "User", "Store"))
 
     @property
@@ -292,6 +298,10 @@ def list_entries() -> list[Entry]:
         out += store_entries()
     except Exception:
         log.warning("couldn't read the Store apps' startup tasks", exc_info=True)
+    try:
+        out += task_entries()
+    except Exception:
+        log.warning("couldn't read the scheduled tasks that start with Windows", exc_info=True)
     out.sort(key=lambda e: (not e.own, e.name.lower()))
     return out
 
@@ -432,6 +442,96 @@ def store_entries() -> list[Entry]:
     return out
 
 
+# ----------------------------------------------------------------------------- scheduled tasks
+
+TASKS_SCRIPT = r"""
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+$me = "$env:USERDOMAIN\$env:USERNAME"
+@(Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object {
+    $_.TaskPath -notlike '\Microsoft\*' -and
+    ($_.Triggers | Where-Object { $_.CimClass.CimClassName -in 'MSFT_TaskLogonTrigger', 'MSFT_TaskBootTrigger' }) } |
+  ForEach-Object {
+    $a = @($_.Actions | Where-Object { $_.Execute })[0]
+    $u = "$($_.Principal.UserId)"
+    [pscustomobject]@{ p = "$($_.TaskPath)"; n = "$($_.TaskName)"; on = ("$($_.State)" -ne 'Disabled');
+      x = "$($a.Execute)"; args = "$($a.Arguments)"; u = $u;
+      mine = ($u -and ($u -eq $env:USERNAME -or $u -eq $me)) } }) | ConvertTo-Json -Compress
+"""
+
+
+def task_entries() -> list[Entry]:
+    """Scheduled tasks (not Windows' own) that run when someone signs in or the PC starts."""
+    if os.name != "nt":
+        return []
+    from .uninstall import powershell
+    raw = powershell(TASKS_SCRIPT, timeout=60)
+    if not raw:
+        return []
+    data = json.loads(raw)
+    if isinstance(data, dict):
+        data = [data]
+    out = []
+    for d in data if isinstance(data, list) else []:
+        path, name = str(d.get("p") or "\\"), str(d.get("n") or "")
+        if not name:
+            continue
+        full = path + name if path.endswith("\\") else f"{path}\\{name}"
+        exe = os.path.expandvars(str(d.get("x") or "").strip().strip('"'))
+        exe = _full_path(exe) if exe else ""
+        args = str(d.get("args") or "")
+        command = (f'"{exe}" {args}' if " " in exe else f"{exe} {args}").strip() if exe else full
+        e = Entry(id=f"Task|{full}", name=name, value=full, command=command, exe=exe, where="Task",
+                  on=bool(d.get("on", True)), extra={"mine": bool(d.get("mine"))})
+        if exe and os.path.isabs(exe):
+            title, e.publisher = _program_name(exe)
+            if os.path.basename(exe).lower() in HOSTS:
+                title, e.publisher = "", ""
+            e.name = title or name
+            e.missing = is_gone(exe)
+        out.append(e)
+    return out
+
+
+def _task_enabled(full: str) -> bool | None:
+    """What Task Scheduler says now: is the task enabled (None if it can't be read)."""
+    from .uninstall import powershell
+    folder, _, name = full.rpartition("\\")
+    state = powershell("$t = Get-ScheduledTask -TaskPath $env:CF_TASK_PATH -TaskName $env:CF_TASK_NAME "
+                       "-ErrorAction SilentlyContinue; if ($t) { \"$($t.State)\" }", timeout=30,
+                       env={"CF_TASK_PATH": folder + "\\", "CF_TASK_NAME": name})
+    return None if not state else state.strip() != "Disabled"
+
+
+def _set_scheduled(entry: Entry, on: bool, ask_admin: bool) -> bool:
+    """Enables or disables the task with Windows' own schtasks.exe; as administrator when it belongs to
+    the whole PC (Windows asks first)."""
+    import subprocess
+    from .core import NO_WINDOW, system_tool
+    flag = "/ENABLE" if on else "/DISABLE"
+    tool = system_tool("schtasks.exe")
+    try:
+        r = subprocess.run([tool, "/Change", "/TN", entry.value, flag], capture_output=True, timeout=30,
+                           creationflags=NO_WINDOW)
+        done = r.returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        done = False
+    if not done:
+        if not ask_admin:
+            raise NeedsAdmin(entry.value)
+        if not plain_name(entry.value) or '"' in entry.value or entry.value.endswith("\\"):
+            return False  # (a name schtasks can't be given safely on its command line)
+        from .uninstall import shell_run, wait_process
+        handle = shell_run(tool, f'/Change /TN "{entry.value}" {flag}', admin=True, show=0)
+        if handle is None:
+            return False  # (the person said no)
+        wait_process(handle, timeout_s=30)
+    ok = _task_enabled(entry.value) == on
+    if ok:
+        entry.on = on
+        entry.off_since = 0 if on else time.time()
+    return ok
+
+
 def _set_task(entry: Entry, on: bool) -> bool:
     if entry.locked:
         return False
@@ -498,6 +598,8 @@ def set_on(entry: Entry, on: bool, ask_admin: bool = True) -> bool:
     the whole PC asks Windows for an administrator first (False if that's refused)."""
     if entry.where == "Store-App":
         return _set_task(entry, on)
+    if entry.where == "Task":
+        return _set_scheduled(entry, on, ask_admin)
     note = ON_BYTES if on else off_note()
     hive, _, _, approved = PLACES[entry.where]
     try:
@@ -549,7 +651,7 @@ def is_admin() -> bool:
 
 def leftovers(entries: list[Entry]) -> list[Entry]:
     """The lines whose program was removed from this PC (they can't run, and do nothing)."""
-    return [e for e in entries if e.missing and not e.own]
+    return [e for e in entries if e.missing and not e.own and e.where in PLACES]
 
 
 def _keep_copy(gone: list[Entry]):

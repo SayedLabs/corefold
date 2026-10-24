@@ -13,10 +13,11 @@ from PySide6.QtWidgets import QButtonGroup, QFileIconProvider, QFrame, QHBoxLayo
 
 from . import i18n, icons, startup, work
 from .atomic.widgets import Group, IconButton, SettingRow, Switch
+from .core import short_name
 from .i18n import ltr, tr
 from .theme import round_menu
 from .timefmt import date_text
-from .winutil import reveal_in_explorer
+from .winutil import properties, reveal_in_explorer
 
 if TYPE_CHECKING:
     from .app import Controller
@@ -27,7 +28,8 @@ FILTERS = [("", "All"), ("on", "Switched on"), ("off", "Switched off"), ("new", 
 # where an entry comes from (English, shown through tr())
 WHERE = {"HKCU-Run": "Registry, this user", "HKLM-Run": "Registry, everyone",
          "HKLM-Run32": "Registry, everyone (32-bit)", "User-Folder": "Startup folder, this user",
-         "Common-Folder": "Startup folder, everyone", "Store-App": "Microsoft Store app"}
+         "Common-Folder": "Startup folder, everyone", "Store-App": "Microsoft Store app",
+         "Task": "Scheduled task"}
 # the list in three parts, so what's old is clearly old: (key, heading, a line about it)
 SECTIONS = [("on", "Starting with Windows", ""),
             ("off", "Switched off",
@@ -138,10 +140,25 @@ class EntryRow(QWidget):
         go.triggered.connect(lambda: reveal_in_explorer(Path(place)))
         copy = m.addAction(icons.icon("copy", self.page.c.theme.muted), tr("Copy what it runs"))
         copy.triggered.connect(lambda: QGuiApplication.clipboard().setText(e.command))
+        props = m.addAction(tr("Properties"))
+        props.setEnabled(bool(e.exe and os.path.isfile(e.exe)))
+        props.triggered.connect(lambda: properties(Path(e.exe)))
+        m.addSeparator()
+        m.addAction(icons.icon("search", self.page.c.theme.muted),
+                    tr("Search the web for “{text}”", text=short_name(e.name, 40)), self._search)
         if pos is None and button is not None:
             pos = button.mapToGlobal(button.rect().bottomLeft())
         m.exec(pos)
         m.deleteLater()
+
+
+    def _search(self):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        from .quickfind import search_url
+        e = self.entry
+        what = e.name if not e.exe else f"{e.name} {os.path.basename(e.exe)}"
+        QDesktopServices.openUrl(QUrl(search_url(self.page.c.settings.quick_search_engine, what)))
 
 
 def _key(e: startup.Entry) -> tuple:

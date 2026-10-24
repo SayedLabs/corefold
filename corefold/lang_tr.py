@@ -2027,6 +2027,7 @@ STRINGS: dict[str, str] = {
     "Pictures to PDF…": "Resimlerden PDF'ye…",
     "What do you want to do?": "Ne yapmak istiyorsunuz?",
     "Your PDFs are never changed: every result is a new file next to the original.": "PDF'leriniz asla değiştirilmez: her sonuç, orijinalin yanında yeni bir dosyadır.",
+    "Scheduled task": "Zamanlanmış görev",
     "Keep this folder tidy by itself: once a day, files that have been here a day go into their folders (you can undo it)": "Bu klasörü kendiliğinden düzenli tut: günde bir kez, bir gündür burada olan dosyalar kendi klasörlerine gider (geri alabilirsiniz)",
     "Tidied {folder}": "{folder} düzenlendi",
     "1 file went into its folder.": "1 dosya klasörüne gitti.",
