@@ -1,6 +1,8 @@
 # Security checks on a real Windows PC (scripts/securitytest.py), with the Uninstaller's own checks
-# (they move, back up and put back leftovers the way the administrator helper does) and the self-test
-# (7-Zip and FFmpeg found the safe way). Runs when the parts it checks change, and by hand.
+# (they move, back up and put back leftovers the way the administrator helper does), the self-test
+# (7-Zip and FFmpeg found the safe way) and a look for known holes in the Python packages Corefold
+# ships with. Runs when the parts it checks change, every Monday (new holes are found all the time),
+# and by hand.
 name: Security checks
 
 on:
@@ -10,8 +12,16 @@ on:
       - corefold/core.py
       - corefold/cloud.py
       - corefold/archives.py
+      - corefold/ipc.py
+      - corefold/startup.py
+      - corefold/player.py
+      - corefold/__init__.py
+      - main.py
+      - requirements.txt
       - scripts/securitytest.py
       - .github/workflows/security.yml
+  schedule:
+    - cron: "17 5 * * 1"
   workflow_dispatch:
 
 permissions:
@@ -30,9 +40,18 @@ jobs:
 
       - name: Install what the app needs
         shell: pwsh
-        run: python -m pip install --quiet -r requirements.txt
+        run: |
+          python -m pip install --quiet -r requirements.txt
+          choco install ffmpeg -y --no-progress | Out-Null
+
+      - name: Known holes in the packages
+        shell: pwsh
+        run: |
+          python -m pip install --quiet pip-audit
+          python -m pip_audit -r requirements.txt --desc off
 
       - name: Security checks
+        if: always()
         shell: pwsh
         run: python scripts/securitytest.py
 
@@ -51,7 +70,6 @@ jobs:
         if: always()
         shell: pwsh
         run: |
-          choco install ffmpeg -y --no-progress | Out-Null
           $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
           python scripts/selftest.py
 

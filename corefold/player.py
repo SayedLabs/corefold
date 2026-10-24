@@ -16,6 +16,17 @@ from typing import TYPE_CHECKING
 
 os.environ.setdefault("QT_MEDIA_BACKEND", "ffmpeg")  # (before Qt's player is loaded)
 
+
+def local_only(on: bool = True):
+    """A file on the PC is played without going online: a file can say it's made of parts on the internet
+    (a playlist dressed up as a video), and opening it would tell that site you did. Qt's player reads
+    this each time it opens something; a link pasted on purpose may go online."""
+    if on:
+        os.environ["QT_FFMPEG_PROTOCOL_WHITELIST"] = "file"
+    else:
+        os.environ.pop("QT_FFMPEG_PROTOCOL_WHITELIST", None)
+
+
 from PySide6.QtCore import QEvent, QSize, Qt, QTimer, QUrl, Signal  # noqa: E402
 from PySide6.QtGui import QCursor, QGuiApplication, QImage, QKeySequence, QPixmap, QShortcut  # noqa: E402
 from PySide6.QtWidgets import QFileDialog, QFrame, QHBoxLayout, QLabel, QMenu, QPushButton, QSizePolicy, QSlider, \
@@ -517,6 +528,7 @@ class PlayerWindow(QWidget):
         log.info("player opened a %s file", path.suffix.lower())
         self.link = ""
         self._load_chapters(path)
+        local_only()
         self.player.setSource(QUrl.fromLocalFile(str(path)))
         self.player.play()
         if not audio_only:
@@ -546,6 +558,7 @@ class PlayerWindow(QWidget):
         self.title.setToolTip(url)
         self.screen_stack.setCurrentWidget(self.video)
         log.info("player opened a link")
+        local_only(False)
         self.player.setSource(QUrl(url))
         self.player.play()
         self._buttons()
