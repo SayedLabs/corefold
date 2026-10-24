@@ -2151,6 +2151,7 @@ STRINGS: dict[str, str] = {
     "Pictures to PDF…": "صور إلى PDF…",
     "What do you want to do?": "ماذا تريد أن تفعل؟",
     "Your PDFs are never changed: every result is a new file next to the original.": "لا تتغير ملفاتك أبدًا: كل نتيجة ملف جديد بجانب الأصلي.",
+    "Corefold doesn't delete Windows' or programs' own folders this way.": "كورفولد ما يحذف مجلدات ويندوز أو البرامج بهالطريقة.",
     "Show the hidden ones again ({count})": "أظهر المخفية مرة ثانية ({count})",
     "What you chose not to see again shows up in the next scan.": "اللي اخترت ما تشوفه مرة ثانية بيظهر في الفحص الجاي.",
     "They show up in the next scan": "بتظهر في الفحص الجاي",

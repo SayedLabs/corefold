@@ -2074,6 +2074,7 @@ STRINGS: dict[str, str] = {
     "Pictures to PDF…": "Imágenes a PDF…",
     "What do you want to do?": "¿Qué quieres hacer?",
     "Your PDFs are never changed: every result is a new file next to the original.": "Tus PDF nunca se cambian: cada resultado es un archivo nuevo junto al original.",
+    "Corefold doesn't delete Windows' or programs' own folders this way.": "Corefold no elimina así las carpetas de Windows ni de los programas.",
     "Show the hidden ones again ({count})": "Volver a mostrar los ocultos ({count})",
     "What you chose not to see again shows up in the next scan.": "Lo que elegiste no volver a ver aparecerá en el próximo análisis.",
     "They show up in the next scan": "Aparecerán en el próximo análisis",

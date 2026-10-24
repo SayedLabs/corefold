@@ -241,6 +241,25 @@ def core():
         check(sorted(order) == sorted(want) and order[-1] == str(box)
               and order.index(str(box / "sub" / "b.txt")) < order.index(str(box / "sub")),
               f"the order empties each folder before the folder itself ({order})")
+        # a junction inside is only the junction: what it points at is never on the list
+        outside = TMP / "outside"
+        outside.mkdir()
+        (outside / "keep.txt").write_text("not to be deleted\n")
+        jbox = TMP / "with-junction"
+        jbox.mkdir()
+        subprocess.run(["cmd", "/c", "mklink", "/J", str(jbox / "j"), str(outside)], capture_output=True)
+        if check((jbox / "j").exists(), "a junction to another folder was made for the test"):
+            listed = unlock.at_restart_order([str(jbox)])
+            check(str(outside / "keep.txt") not in listed and str(jbox / "j" / "keep.txt") not in listed
+                  and str(jbox / "j") in listed, f"a junction inside is deleted as itself, never gone through ({listed})")
+            listed = unlock.at_restart_order([str(jbox / "j")])
+            check(listed == [str(jbox / "j")], f"a junction picked itself is only the junction ({listed})")
+            check(unlock.at_restart_allowed(str(jbox)) and not unlock.at_restart_allowed(str(jbox / "j" / "keep.txt")),
+                  "the administrator copy refuses anything reached through a junction")
+        windir = os.environ.get("SystemRoot", r"C:\Windows")
+        check(not unlock.at_restart_allowed(os.path.join(windir, "notepad.exe"))
+              and not unlock.at_restart_allowed(os.environ.get("ProgramFiles", r"C:\Program Files"))
+              and not unlock.at_restart_allowed("C:\\"), "…and Windows, Program Files and a drive")
         if not unlock.is_admin():
             print("note  not administrator here: Windows wouldn't take the request (the page asks first)", flush=True)
             return

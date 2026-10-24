@@ -415,17 +415,42 @@ MAX_AT_RESTART = 20000     # files and folders Windows is asked to delete at the
 
 def at_restart_order(paths: list[str]) -> list[str]:
     """Everything to delete, innermost first: Windows deletes them in this order as the PC starts,
-    and a folder only goes once it's empty."""
+    and a folder only goes once it's empty. A link or junction is only the link: what it points at
+    (another drive, Windows' own folders) is never gone through."""
+    from .core import is_link
     order: list[str] = []
+
+    def walk(folder: str):
+        try:
+            with os.scandir(folder) as it:
+                entries = list(it)
+        except OSError:
+            entries = []
+        for e in entries:
+            if len(order) > MAX_AT_RESTART:
+                return
+            if not is_link(e.path) and e.is_dir(follow_symlinks=False):
+                walk(e.path)  # (its own folders and files come first)
+            order.append(e.path)
+
     for p in paths:
-        if os.path.isdir(p) and not os.path.islink(p):
-            for root, dirs, files in os.walk(p, topdown=False):  # (a folder's own folders came first)
-                order += [os.path.join(root, f) for f in files]
-                order += [os.path.join(root, d) for d in dirs]
-                if len(order) > MAX_AT_RESTART:
-                    return order
+        if not is_link(p) and os.path.isdir(p):
+            walk(p)
+            if len(order) > MAX_AT_RESTART:
+                return order
         order.append(p)
     return order
+
+
+def at_restart_allowed(path: str) -> bool:
+    """What the administrator copy agrees to delete as the PC starts: never through a link or junction,
+    never Windows, programs' folders or a drive, and a folder only where Corefold would remove one."""
+    from .core import is_link
+    from .space import protected
+    from .uninstall import _safe_folder, through_link
+    if through_link(path) or protected(Path(path)):
+        return False
+    return is_link(path) or not os.path.isdir(path) or _safe_folder(path)
 
 
 def delete_at_restart(paths: list[str]) -> dict:
