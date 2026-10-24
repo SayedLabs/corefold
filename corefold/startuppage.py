@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
 
 log = logging.getLogger("corefold")
 
+FILL_SLICE_S = 0.03   # rows are made this long at a time, so the window never stops while a long list comes up
 FILTERS = [("", "All"), ("on", "Switched on"), ("off", "Switched off"), ("new", "New")]
 # where an entry comes from (English, shown through tr())
 WHERE = {"HKCU-Run": "Registry, this user", "HKLM-Run": "Registry, everyone",
@@ -204,6 +206,7 @@ class StartupPage(QWidget):
         self.rows: list[EntryRow] = []
         self.kind = ""
         self.loading = False
+        self._filling = None   # the entries whose rows are still to be made
         self.busy = 0
         self.job = None
         self.switching: list = []
@@ -321,8 +324,6 @@ class StartupPage(QWidget):
     def _loaded(self, result):
         if not work.alive(self):
             return
-        self.loading = False
-        self.refresh_btn.setEnabled(not self.busy)
         if isinstance(result, Exception):
             log.warning("couldn't read what starts with Windows: %s", result)
             self.entries = []
@@ -344,27 +345,49 @@ class StartupPage(QWidget):
                 for row, e in zip(self.rows, result):
                     row.entry = e
                 self._regroup()  # (one switched since is put in its part now)
-                self.filter()
+                self._done_loading()
                 return
         self._fill()
 
     def _fill(self):
+        """Makes the rows a few at a time (each reads its program's icon), showing them as they come;
+        the page counts as loading until the last one is there."""
         scrolled = self.scroll.verticalScrollBar().value()
         for row in self.rows:
             row.hide()
             row.deleteLater()
         self.rows = []
-        for e in self.entries:
-            row = EntryRow(self, e, self._icon(e))
-            row.section = section_of(e)  # (a row stays in its part until the list is read again)
-            self.groups[row.section].add(row)
-            self.rows.append(row)
-        any_new = any(e.new for e in self.entries)
-        self.filter_buttons["new"].setVisible(any_new)
-        if not any_new and self.kind == "new":
-            self._filter("")
+        todo = list(self.entries)
+
+        def more():
+            if not work.alive(self) or self._filling is not todo:
+                return
+            end = time.monotonic() + FILL_SLICE_S
+            while todo and time.monotonic() < end:
+                e = todo.pop(0)
+                row = EntryRow(self, e, self._icon(e))
+                row.section = section_of(e)  # (a row stays in its part until the list is read again)
+                self.groups[row.section].add(row)
+                self.rows.append(row)
+            if todo:
+                self.filter()
+                QTimer.singleShot(0, more)
+                return
+            self._filling = None
+            any_new = any(e.new for e in self.entries)
+            self.filter_buttons["new"].setVisible(any_new)
+            if not any_new and self.kind == "new":
+                self._filter("")
+            self._done_loading()
+            QTimer.singleShot(0, lambda: work.alive(self) and self.scroll.verticalScrollBar().setValue(scrolled))
+
+        self._filling = todo
+        more()
+
+    def _done_loading(self):
+        self.loading = False
+        self.refresh_btn.setEnabled(not self.busy)
         self.filter()
-        QTimer.singleShot(0, lambda: work.alive(self) and self.scroll.verticalScrollBar().setValue(scrolled))
 
     def _icon(self, e: startup.Entry) -> QIcon | None:
         """The program's own icon (kept, so looking again doesn't read every file's icon again)."""
