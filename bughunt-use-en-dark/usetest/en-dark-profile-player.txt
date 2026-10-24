@@ -1,0 +1,91 @@
+         10166 function calls (10120 primitive calls) in 0.138 seconds
+
+   Ordered by: cumulative time
+   List reduced from 443 to 45 due to restriction <45>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.018    0.018 D:\a\corefold\corefold\corefold\player.py:1165(apply_theme)
+        2    0.000    0.000    0.016    0.008 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py:323(wait)
+       12    0.001    0.000    0.016    0.001 D:\a\corefold\corefold\corefold\icons.py:76(icon)
+        1    0.000    0.000    0.015    0.015 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\subprocess.py:807(__init__)
+        1    0.000    0.000    0.015    0.015 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\subprocess.py:1436(_execute_child)
+        1    0.000    0.000    0.015    0.015 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\subprocess.py:1282(_close_pipe_fds)
+      192    0.004    0.000    0.014    0.000 D:\a\corefold\corefold\corefold\icons.py:64(pixmap)
+        1    0.005    0.005    0.013    0.013 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\contextlib.py:567(__exit__)
+      192    0.001    0.000    0.010    0.000 D:\a\corefold\corefold\corefold\icons.py:48(paint)
+        4    0.000    0.000    0.008    0.002 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\contextlib.py:477(_exit_wrapper)
+       10    0.000    0.000    0.008    0.001 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\subprocess.py:218(Close)
+        6    0.000    0.000    0.008    0.001 {built-in method _winapi.CloseHandle}
+        1    0.008    0.008    0.008    0.008 {method 'show' of 'PySide6.QtWidgets.QWidget' objects}
+      193    0.007    0.000    0.007    0.000 {method 'render' of 'PySide6.QtSvg.QSvgRenderer' objects}
+        2    0.002    0.001    0.002    0.001 {method 'winId' of 'PySide6.QtWidgets.QWidget' objects}
+      192    0.002    0.000    0.002    0.000 D:\a\corefold\corefold\corefold\icons.py:35(_renderer)
+        1    0.000    0.000    0.002    0.002 <frozen importlib._bootstrap>:1349(_find_and_load)
+        1    0.000    0.000    0.002    0.002 <frozen importlib._bootstrap>:1304(_find_and_load_unlocked)
+        1    0.000    0.000    0.002    0.002 <frozen importlib._bootstrap>:911(_load_unlocked)
+        3    0.000    0.000    0.002    0.001 <frozen importlib._bootstrap>:480(_call_with_frames_removed)
+        1    0.000    0.000    0.001    0.001 <frozen importlib._bootstrap>:806(module_from_spec)
+        1    0.000    0.000    0.001    0.001 <frozen importlib._bootstrap_external>:1291(create_module)
+        1    0.001    0.001    0.001    0.001 {built-in method _imp.create_dynamic}
+      2/1    0.089    0.045    0.001    0.001 D:\a\corefold\corefold\corefold\player.py:286(__init__)
+      2/1    0.000    0.000    0.001    0.001 D:\a\corefold\corefold\corefold\player.py:508(open)
+        1    0.000    0.000    0.001    0.001 D:\a\corefold\corefold\corefold\player.py:63(media_in)
+       71    0.001    0.000    0.001    0.000 {method 'connect' of 'PySide6.QtCore.SignalInstance' objects}
+        2    0.000    0.000    0.001    0.001 {built-in method builtins.sorted}
+        1    0.000    0.000    0.001    0.001 D:\a\corefold\corefold\corefold\player.py:221(subtitle_for)
+       32    0.000    0.000    0.001    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\pathlib.py:835(stat)
+       12    0.001    0.000    0.001    0.000 D:\a\corefold\corefold\corefold\player.py:362(tool)
+       60    0.000    0.000    0.001    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\pathlib.py:1050(iterdir)
+        1    0.000    0.000    0.001    0.001 D:\a\corefold\corefold\corefold\player.py:998(_show_cover)
+        1    0.000    0.000    0.001    0.001 D:\a\corefold\corefold\corefold\icons.py:176(product_tile)
+      3/2    0.000    0.000    0.001    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py:975(start)
+        1    0.000    0.000    0.001    0.001 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\subprocess.py:1165(communicate)
+        1    0.000    0.000    0.001    0.001 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\subprocess.py:1603(_communicate)
+       34    0.001    0.000    0.001    0.000 {built-in method nt.stat}
+      3/2    0.000    0.000    0.001    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py:637(wait)
+    31/30    0.000    0.000    0.001    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\pathlib.py:886(is_file)
+        3    0.001    0.000    0.001    0.000 {method 'addLayout' of 'PySide6.QtWidgets.QBoxLayout' objects}
+       40    0.000    0.000    0.001    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\enum.py:720(__call__)
+        1    0.000    0.000    0.001    0.001 D:\a\corefold\corefold\corefold\converters.py:648(find_tool)
+        2    0.000    0.000    0.001    0.000 {method 'addWidget' of 'PySide6.QtWidgets.QStackedWidget' objects}
+       18    0.000    0.000    0.000    0.000 {method 'addAction' of 'PySide6.QtWidgets.QMenu' objects}
+
+
+         10166 function calls (10120 primitive calls) in 0.138 seconds
+
+   Ordered by: internal time
+   List reduced from 443 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+      2/1    0.089    0.045    0.001    0.001 D:\a\corefold\corefold\corefold\player.py:286(__init__)
+        1    0.008    0.008    0.008    0.008 {method 'show' of 'PySide6.QtWidgets.QWidget' objects}
+      193    0.007    0.000    0.007    0.000 {method 'render' of 'PySide6.QtSvg.QSvgRenderer' objects}
+        1    0.005    0.005    0.013    0.013 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\contextlib.py:567(__exit__)
+      7/0    0.004    0.001    0.000          {built-in method time.sleep}
+      192    0.004    0.000    0.014    0.000 D:\a\corefold\corefold\corefold\icons.py:64(pixmap)
+        2    0.002    0.001    0.002    0.001 {method 'winId' of 'PySide6.QtWidgets.QWidget' objects}
+      192    0.002    0.000    0.002    0.000 D:\a\corefold\corefold\corefold\icons.py:35(_renderer)
+      192    0.001    0.000    0.010    0.000 D:\a\corefold\corefold\corefold\icons.py:48(paint)
+        1    0.001    0.001    0.001    0.001 {built-in method _imp.create_dynamic}
+       71    0.001    0.000    0.001    0.000 {method 'connect' of 'PySide6.QtCore.SignalInstance' objects}
+       12    0.001    0.000    0.016    0.001 D:\a\corefold\corefold\corefold\icons.py:76(icon)
+       34    0.001    0.000    0.001    0.000 {built-in method nt.stat}
+        3    0.001    0.000    0.001    0.000 {method 'addLayout' of 'PySide6.QtWidgets.QBoxLayout' objects}
+       12    0.001    0.000    0.001    0.000 D:\a\corefold\corefold\corefold\player.py:362(tool)
+       18    0.000    0.000    0.000    0.000 {method 'addAction' of 'PySide6.QtWidgets.QMenu' objects}
+      193    0.000    0.000    0.000    0.000 {method 'fill' of 'PySide6.QtGui.QPixmap' objects}
+        2    0.000    0.000    0.001    0.000 {method 'addWidget' of 'PySide6.QtWidgets.QStackedWidget' objects}
+      192    0.000    0.000    0.000    0.000 {method 'addPixmap' of 'PySide6.QtGui.QIcon' objects}
+        1    0.000    0.000    0.015    0.015 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\subprocess.py:807(__init__)
+       25    0.000    0.000    0.000    0.000 {method 'addWidget' of 'PySide6.QtWidgets.QBoxLayout' objects}
+        2    0.000    0.000    0.000    0.000 {built-in method nt.listdir}
+        1    0.000    0.000    0.001    0.001 D:\a\corefold\corefold\corefold\icons.py:176(product_tile)
+      384    0.000    0.000    0.000    0.000 {method 'center' of 'PySide6.QtCore.QRectF' objects}
+        1    0.000    0.000    0.000    0.000 {method 'raise_' of 'PySide6.QtWidgets.QWidget' objects}
+      2/1    0.000    0.000    0.000    0.000 D:\a\corefold\corefold\corefold\app.py:1398(open_player)
+      612    0.000    0.000    0.000    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\enum.py:202(__get__)
+      193    0.000    0.000    0.000    0.000 {method 'setRenderHint' of 'PySide6.QtGui.QPainter' objects}
+      216    0.000    0.000    0.000    0.000 {method 'name' of 'PySide6.QtGui.QColor' objects}
+       26    0.000    0.000    0.000    0.000 D:\a\corefold\corefold\corefold\player.py:1096(eventFilter)
+
+

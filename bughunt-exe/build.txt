@@ -1,0 +1,127 @@
+== Building Corefold 0.0.74-bughunt
+== Creating build environment
+== Updates will come from github.com/SayedLabs/corefold
+== Downloading FFmpeg source (n9.0.2)
+== Downloading background remover model
+== Packaging app
+201 INFO: PyInstaller: 6.22.3, contrib hooks: 2026.9
+201 INFO: Python: 3.12.10
+235 INFO: Platform: Windows-2025Server-10.0.26100-SP0
+235 INFO: Python environment: D:\a\corefold\corefold\.venv
+237 INFO: wrote D:\a\corefold\corefold\Corefold.spec
+245 INFO: Removing temporary files and cleaning cache in C:\Users\runneradmin\AppData\Local\pyinstaller
+3345 INFO: Module search paths (PYTHONPATH):
+['D:\\a\\corefold\\corefold',
+ 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\python312.zip',
+ 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\DLLs',
+ 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib',
+ 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64',
+ 'D:\\a\\corefold\\corefold\\.venv',
+ 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages',
+ 'D:\\a\\corefold\\corefold']
+3706 INFO: Appending 'binaries' from .spec
+3707 INFO: Appending 'datas' from .spec
+3715 INFO: checking Analysis
+3715 INFO: Building Analysis because Analysis-00.toc is non existent
+3715 INFO: Looking for Python shared library...
+3715 INFO: Using Python shared library: C:\hostedtoolcache\windows\Python\3.12.10\x64\python312.dll
+3715 INFO: Running Analysis Analysis-00.toc
+3715 INFO: Target bytecode optimization level: 0
+3715 INFO: Initializing module dependency graph...
+3736 INFO: Initializing module graph hook caches...
+3750 INFO: Analyzing modules for base_library.zip ...
+4866 INFO: Processing standard module hook 'hook-heapq.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+4988 INFO: Processing standard module hook 'hook-encodings.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+6661 INFO: Processing standard module hook 'hook-math.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+6957 INFO: Processing standard module hook 'hook-pickle.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+8829 INFO: Caching module dependency graph...
+8868 INFO: Analyzing D:\a\corefold\corefold\main.py
+9019 INFO: Processing standard module hook 'hook-_ctypes.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+9167 INFO: Processing standard module hook 'hook-platform.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+9637 INFO: Processing standard module hook 'hook-multiprocessing.util.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+9813 INFO: Processing standard module hook 'hook-xml.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+10237 INFO: Processing standard module hook 'hook-sqlite3.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+10631 INFO: Processing standard module hook 'hook-PySide6.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+10812 INFO: Processing standard module hook 'hook-shiboken6.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+10970 INFO: Processing standard module hook 'hook-PySide6.QtNetwork.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+15699 INFO: Processing standard module hook 'hook-PySide6.QtCore.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+21042 INFO: Processing standard module hook 'hook-PySide6.QtGui.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+45878 INFO: Processing standard module hook 'hook-PIL.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+46218 INFO: Processing standard module hook 'hook-PIL.Image.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+46514 INFO: Processing standard module hook 'hook-numpy.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+46809 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+46809 INFO: SetuptoolsInfo: initializing cached setuptools info...
+48148 INFO: Processing standard module hook 'hook-sysconfig.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+48346 INFO: Processing standard module hook 'hook-webbrowser.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+49418 INFO: Processing standard module hook 'hook-difflib.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+50609 INFO: Processing standard module hook 'hook-xml.etree.cElementTree.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+50794 INFO: Processing standard module hook 'hook-PIL.ImageFilter.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+51776 INFO: Processing standard module hook 'hook-xml.dom.domreg.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+52237 INFO: Processing standard module hook 'hook-cryptography.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+54567 INFO: hook-cryptography: cryptography does not seem to be using dynamically linked OpenSSL.
+55022 INFO: Processing standard module hook 'hook-onnxruntime.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+55108 INFO: Processing pre-safe-import-module hook 'hook-tensorflow.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\pre_safe_import_module'
+55112 INFO: Processing standard module hook 'hook-pypdfium2.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+55127 INFO: Processing standard module hook 'hook-pypdfium2_raw.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+55802 INFO: Processing standard module hook 'hook-winrt.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\winrt\\__pyinstaller'
+57638 INFO: Processing standard module hook 'hook-PySide6.QtWidgets.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+62979 INFO: Processing standard module hook 'hook-PySide6.QtSvg.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+65578 INFO: Processing standard module hook 'hook-PySide6.QtMultimedia.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+72527 INFO: Processing standard module hook 'hook-PySide6.QtMultimediaWidgets.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+74578 INFO: Analyzing hidden import 'pi_heif.HeifImagePlugin'
+74580 INFO: Analyzing hidden import 'pypdfium2.__main__'
+74591 INFO: Analyzing hidden import 'winrt.__pyinstaller'
+74593 INFO: Analyzing hidden import 'winrt.__pyinstaller.hook-winrt'
+74595 INFO: Analyzing hidden import 'winrt.system.hresult'
+74597 INFO: Processing module hooks (post-graph stage)...
+74944 INFO: Processing standard module hook 'hook-PIL.SpiderImagePlugin.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+75009 INFO: Performing binary vs. data reclassification (354 entries)
+75052 INFO: Looking for ctypes DLLs
+75424 INFO: Analyzing run-time hooks ...
+75428 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+75432 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+75434 INFO: Including run-time hook 'pyi_rth_multiprocessing.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+75436 INFO: Including run-time hook 'pyi_rth_pyside6.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+75438 INFO: Processing pre-find-module-path hook 'hook-_pyi_rth_utils.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_find_module_path'
+75440 INFO: Processing standard module hook 'hook-_pyi_rth_utils.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+75442 INFO: Including run-time hook 'pyi_rth_cryptography_openssl.py' from 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\rthooks'
+75467 INFO: Creating base_library.zip...
+75491 INFO: Looking for dynamic libraries
+76456 INFO: Extra DLL search directories (AddDllDirectory): ['D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\shiboken6', 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\numpy.libs', 'D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages']
+76456 INFO: Extra DLL search directories (PATH): ['D:\\a\\corefold\\corefold\\.venv\\Lib\\site-packages\\PySide6']
+79063 INFO: Warnings written to D:\a\corefold\corefold\build\Corefold\warn-Corefold.txt
+79148 INFO: Graph cross-reference written to D:\a\corefold\corefold\build\Corefold\xref-Corefold.html
+79190 INFO: checking PYZ
+79190 INFO: Building PYZ because PYZ-00.toc is non existent
+79190 INFO: Building PYZ (ZlibArchive) D:\a\corefold\corefold\build\Corefold\PYZ-00.pyz
+80206 INFO: Building PYZ (ZlibArchive) D:\a\corefold\corefold\build\Corefold\PYZ-00.pyz completed successfully.
+80222 INFO: checking PKG
+80222 INFO: Building PKG because PKG-00.toc is non existent
+80222 INFO: Building PKG (CArchive) Corefold.pkg
+80242 INFO: Building PKG (CArchive) Corefold.pkg completed successfully.
+80244 INFO: Bootloader D:\a\corefold\corefold\.venv\Lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\runw.exe
+80244 INFO: checking EXE
+80244 INFO: Building EXE because EXE-00.toc is non existent
+80244 INFO: Building EXE from EXE-00.toc
+80244 INFO: Copying bootloader EXE to D:\a\corefold\corefold\build\Corefold\Corefold.exe
+80246 INFO: Copying icon to EXE
+80248 INFO: Copying version information to EXE
+80252 INFO: Copying 0 resources to EXE
+80252 INFO: Embedding manifest in EXE
+80254 INFO: Appending PKG archive to EXE
+80258 INFO: Fixing EXE headers
+80349 INFO: Building EXE from EXE-00.toc completed successfully.
+80357 INFO: checking COLLECT
+80359 INFO: Building COLLECT because COLLECT-00.toc is non existent
+80359 INFO: Building COLLECT COLLECT-00.toc
+80933 INFO: Building COLLECT COLLECT-00.toc completed successfully.
+80944 INFO: Build complete! The results are available in: D:\a\corefold\corefold\dist
+== Building installer
+
+== Done! Your files are in dist\release
+   Corefold-0.0.74-bughunt-portable.zip
+   Corefold-Setup-0.0.74-bughunt.exe
+   ffmpeg-source-build-scripts-937868360a.tar.gz
+   ffmpeg-source-corefold-build.sh
+   ffmpeg-source-n9.0.2.tar.gz
+   SHA256SUMS.txt

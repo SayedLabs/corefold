@@ -1,0 +1,38 @@
+         722437 function calls (721775 primitive calls) in 0.203 seconds
+
+   Ordered by: cumulative time
+   List reduced from 156 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+      2/1    0.042    0.021    0.186    0.186 D:\a\corefold\corefold\corefold\browser.py:204(__init__)
+        1    0.002    0.002    0.116    0.116 D:\a\corefold\corefold\corefold\browser.py:365(set_entries)
+        1    0.000    0.000    0.111    0.111 D:\a\corefold\corefold\corefold\archives.py:844(holds_archives)
+        1    0.005    0.005    0.111    0.111 {built-in method builtins.any}
+    60001    0.015    0.000    0.106    0.000 D:\a\corefold\corefold\corefold\archives.py:845(<genexpr>)
+    60000    0.038    0.000    0.091    0.000 D:\a\corefold\corefold\corefold\archives.py:848(is_archive_file_name)
+    60000    0.018    0.000    0.032    0.000 D:\a\corefold\corefold\corefold\core.py:321(norm)
+   180664    0.025    0.000    0.025    0.000 {method 'rpartition' of 'str' objects}
+60661/60000    0.008    0.000    0.009    0.000 D:\a\corefold\corefold\corefold\browser.py:377(ensure)
+        2    0.008    0.004    0.008    0.004 {method 'icon' of 'PySide6.QtWidgets.QFileIconProvider' objects}
+    60670    0.007    0.000    0.007    0.000 {method 'append' of 'list' objects}
+    60015    0.007    0.000    0.007    0.000 {method 'get' of 'dict' objects}
+    60000    0.007    0.000    0.007    0.000 {method 'strip' of 'str' objects}
+    60003    0.007    0.000    0.007    0.000 {method 'lower' of 'str' objects}
+    60000    0.006    0.000    0.006    0.000 {method 'rstrip' of 'str' objects}
+       16    0.002    0.000    0.002    0.000 {method 'addWidget' of 'PySide6.QtWidgets.QBoxLayout' objects}
+        2    0.001    0.001    0.001    0.001 {method 'addWidget' of 'PySide6.QtWidgets.QSplitter' objects}
+        1    0.000    0.000    0.001    0.001 D:\a\corefold\corefold\corefold\browser.py:133(__init__)
+        1    0.000    0.000    0.000    0.000 D:\a\corefold\corefold\corefold\browser.py:195(__init__)
+        1    0.000    0.000    0.000    0.000 D:\a\corefold\corefold\corefold\icons.py:176(product_tile)
+        1    0.000    0.000    0.000    0.000 {method 'setClearButtonEnabled' of 'PySide6.QtWidgets.QLineEdit' objects}
+       19    0.000    0.000    0.000    0.000 {method 'connect' of 'PySide6.QtCore.SignalInstance' objects}
+        6    0.000    0.000    0.000    0.000 D:\a\corefold\corefold\corefold\browser.py:268(btn)
+        1    0.000    0.000    0.000    0.000 {method 'setVerticalScrollMode' of 'PySide6.QtWidgets.QAbstractItemView' objects}
+        1    0.000    0.000    0.000    0.000 D:\a\corefold\corefold\corefold\browser.py:735(_changes_bar)
+        3    0.000    0.000    0.000    0.000 {method 'addWidget' of 'PySide6.QtWidgets.QStackedWidget' objects}
+        1    0.000    0.000    0.000    0.000 D:\a\corefold\corefold\corefold\browser.py:421(_rows_for)
+        5    0.000    0.000    0.000    0.000 {method 'execute' of 'sqlite3.Connection' objects}
+        1    0.000    0.000    0.000    0.000 {method 'render' of 'PySide6.QtSvg.QSvgRenderer' objects}
+        4    0.000    0.000    0.000    0.000 {method 'setVisible' of 'PySide6.QtWidgets.QWidget' objects}
+
+
