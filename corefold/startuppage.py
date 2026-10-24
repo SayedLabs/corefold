@@ -227,7 +227,7 @@ class StartupPage(QWidget):
             top.addWidget(_label(tr(title), "section"), 1)
             if key == "gone":
                 self.clean_btn = QPushButton(tr("Remove leftovers"))
-                self.clean_btn.setObjectName("small")
+                self.clean_btn.setIcon(icons.icon("delete", self.c.theme.muted))
                 self.clean_btn.setCursor(Qt.PointingHandCursor)
                 self.clean_btn.clicked.connect(self.remove_leftovers)
                 top.addWidget(self.clean_btn, 0, Qt.AlignBottom)
@@ -314,7 +314,8 @@ class StartupPage(QWidget):
         self.rows = []
         for e in self.entries:
             row = EntryRow(self, e, self._icon(e))
-            self.groups[section_of(e)].add(row)
+            row.section = section_of(e)  # (a row stays in its part until the list is read again)
+            self.groups[row.section].add(row)
             self.rows.append(row)
         any_new = any(e.new for e in self.entries)
         self.filter_buttons["new"].setVisible(any_new)
@@ -349,7 +350,7 @@ class StartupPage(QWidget):
             seen = matches(row.entry, text, self.kind)
             row.setVisible(seen)
             if seen:
-                shown.add(section_of(row.entry))
+                shown.add(row.section)
         for key, group in self.groups.items():
             self.heads[key].setVisible(key in shown)
             group.setVisible(key in shown)
