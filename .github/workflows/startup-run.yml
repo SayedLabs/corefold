@@ -1,0 +1,51 @@
+# TEMPORARY (delete before merging): runs the Startup test on every push to this branch and saves the
+# pictures and results to the "startup-results" branch.
+name: Startup run
+
+on:
+  push:
+    branches: [claude/project-thread-0zzwj3]
+
+permissions:
+  contents: write
+
+jobs:
+  startup:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install what the app needs
+        shell: pwsh
+        run: python -m pip install --quiet -r requirements.txt
+      - name: Translations
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          python scripts/check_translations.py *> out/translations.txt
+          Get-Content out/translations.txt -Tail 6
+      - name: Startup test in every language
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          foreach ($combo in @("en dark", "ar light", "fr dark", "es light", "tr dark", "ar dark", "en light")) {
+            $a = $combo -split " "
+            python scripts/startuptest.py out $a[0] $a[1] *> "out/startuptest-$($a[0])-$($a[1]).log"
+            "$combo : " + (Get-Content "out/startuptest-$($a[0])-$($a[1]).log" -Tail 1) | Add-Content out/summary.txt
+          }
+          Get-Content out/summary.txt
+          Select-String -Path out/*.log -Pattern "^FAIL|^ERROR" | Select-Object -First 40
+      - name: Save the results
+        shell: pwsh
+        run: |
+          git config user.name "sayed"
+          git config user.email "210825126+SayedLabs@users.noreply.github.com"
+          git checkout --orphan startup-results
+          git rm -rf --quiet .
+          git add out
+          git commit -m "Startup run results" --quiet
+          git push -f origin startup-results

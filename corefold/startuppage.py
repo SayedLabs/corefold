@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QFileInfo, QSize, Qt, QTimer
 from PySide6.QtGui import QGuiApplication, QIcon
 from PySide6.QtWidgets import QButtonGroup, QFileIconProvider, QFrame, QHBoxLayout, QLabel, QLineEdit, QMenu, \
-    QPushButton, QScrollArea, QVBoxLayout, QWidget
+    QMessageBox, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from . import i18n, icons, startup, work
 from .atomic.widgets import Group, IconButton, SettingRow, Switch
@@ -28,6 +28,20 @@ FILTERS = [("", "All"), ("on", "Switched on"), ("off", "Switched off"), ("new", 
 WHERE = {"HKCU-Run": "Registry, this user", "HKLM-Run": "Registry, everyone",
          "HKLM-Run32": "Registry, everyone (32-bit)", "User-Folder": "Startup folder, this user",
          "Common-Folder": "Startup folder, everyone"}
+# the list in three parts, so what's old is clearly old: (key, heading, a line about it)
+SECTIONS = [("on", "Starting with Windows", ""),
+            ("off", "Switched off",
+             "Windows keeps these so they can be switched back on. Some may have been switched off a long time "
+             "ago, by you, by Task Manager or by the program itself."),
+            ("gone", "Left behind by removed programs",
+             "Their program was removed from this PC, but its line stayed behind. They can't start anything and "
+             "do no harm: removing them only tidies the list.")]
+
+
+def section_of(e: startup.Entry) -> str:
+    if e.missing and not e.own:
+        return "gone"
+    return "on" if e.on else "off"
 
 
 def describe(e: startup.Entry) -> str:
@@ -90,8 +104,7 @@ class EntryRow(QWidget):
         pills.setContentsMargins(0, 4, 0, 0)
         pills.setSpacing(6)
         for shown, text, name in ((entry.new, tr("New"), "chip"),
-                                  (entry.admin and not page.admin, tr("Asks for permission"), "badge"),
-                                  (entry.missing, tr("Its program isn't there any more"), "badge")):
+                                  (entry.admin and not page.admin, tr("Asks for permission"), "badge")):
             if shown:
                 pills.addWidget(_label(text, name))
         if pills.count():  # (under the name and the line about it)
@@ -154,6 +167,7 @@ class StartupPage(QWidget):
         self.busy = 0
         self.job = None
         self.switching: list = []
+        self.after_load = ""
         self.new_ids: set[str] = set()   # marked New this time Corefold runs (kept when looking again)
         self.admin = startup.is_admin()
         self._icons = QFileIconProvider()
@@ -191,16 +205,40 @@ class StartupPage(QWidget):
         self.refresh_btn.clicked.connect(self.load)
         bar.addWidget(self.refresh_btn)
         lay.addLayout(bar)
+        lay.addWidget(_label(tr("Everything here is read from this PC, just now. Nothing comes from the internet "
+                                "or from another computer."), "subtle", wrap=True))
         self.problem = _label("", "warning", wrap=True)
         self.problem.hide()
         lay.addWidget(self.problem)
-        self.group = Group()
         holder = QWidget()
         holder.setObjectName("scrollContent")  # (see-through, like every page's scrolling part)
         hl = QVBoxLayout(holder)
         hl.setContentsMargins(0, 0, 0, 0)
-        hl.setSpacing(0)
-        hl.addWidget(self.group)
+        hl.setSpacing(6)
+        self.groups: dict[str, Group] = {}
+        self.heads: dict[str, QWidget] = {}
+        for key, title, about in SECTIONS:
+            head = QWidget()
+            hv = QVBoxLayout(head)
+            hv.setContentsMargins(0, 6 if key == "on" else 14, 0, 0)
+            hv.setSpacing(2)
+            top = QHBoxLayout()
+            top.setSpacing(8)
+            top.addWidget(_label(tr(title), "section"), 1)
+            if key == "gone":
+                self.clean_btn = QPushButton(tr("Remove leftovers"))
+                self.clean_btn.setObjectName("small")
+                self.clean_btn.setCursor(Qt.PointingHandCursor)
+                self.clean_btn.clicked.connect(self.remove_leftovers)
+                top.addWidget(self.clean_btn, 0, Qt.AlignBottom)
+            hv.addLayout(top)
+            if about:
+                hv.addWidget(_label(tr(about), "subtle", wrap=True))
+            self.heads[key] = head
+            self.groups[key] = Group()
+            hl.addWidget(head)
+            hl.addWidget(self.groups[key])
+        self.group = self.groups["on"]
         hl.addStretch()
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
@@ -244,7 +282,7 @@ class StartupPage(QWidget):
         if not work.alive(self):
             return
         self.loading = False
-        self.refresh_btn.setEnabled(True)
+        self.refresh_btn.setEnabled(not self.busy)
         if isinstance(result, Exception):
             log.warning("couldn't read what starts with Windows: %s", result)
             self.entries = []
@@ -256,7 +294,11 @@ class StartupPage(QWidget):
             self.new_ids |= {e.id for e in result if e.new}
             same = [_key(e) for e in result] == [_key(e) for e in self.entries] and self.rows
             self.entries = result
-            self.problem.hide()
+            if self.after_load:  # (what removing the leftovers had to say)
+                self._say(self.after_load)
+            else:
+                self.problem.hide()
+            self.after_load = ""
             if same:  # (nothing changed: the rows stay, without a flicker)
                 for row, e in zip(self.rows, result):
                     row.entry = e
@@ -272,7 +314,7 @@ class StartupPage(QWidget):
         self.rows = []
         for e in self.entries:
             row = EntryRow(self, e, self._icon(e))
-            self.group.add(row)
+            self.groups[section_of(e)].add(row)
             self.rows.append(row)
         any_new = any(e.new for e in self.entries)
         self.filter_buttons["new"].setVisible(any_new)
@@ -302,9 +344,16 @@ class StartupPage(QWidget):
 
     def filter(self):
         text = self.search.text()
+        shown = set()
         for row in self.rows:
-            row.setVisible(matches(row.entry, text, self.kind))
-        self.group.update()
+            seen = matches(row.entry, text, self.kind)
+            row.setVisible(seen)
+            if seen:
+                shown.add(section_of(row.entry))
+        for key, group in self.groups.items():
+            self.heads[key].setVisible(key in shown)
+            group.setVisible(key in shown)
+            group.update()
         self._show_state()
 
     def _show_state(self):
@@ -332,6 +381,7 @@ class StartupPage(QWidget):
         row.switch.setEnabled(False)
         self.busy += 1
         self.refresh_btn.setEnabled(False)
+        self.clean_btn.setEnabled(False)
         # (the job is kept until its answer is in: an answer whose job was thrown away never arrives)
         job = work.run(lambda _p: startup.set_on(e, on), lambda _: None,
                        lambda result, r=row, want=on: self._switched(r, want, result), name="corefold-startup-switch")
@@ -343,6 +393,7 @@ class StartupPage(QWidget):
         if not work.alive(self):
             return
         self.refresh_btn.setEnabled(not self.busy and not self.loading)
+        self.clean_btn.setEnabled(not self.busy)
         if not work.alive(row):
             return
         row.switch.setEnabled(True)
@@ -357,6 +408,48 @@ class StartupPage(QWidget):
             row.set_checked_quietly(not want)
             self._say(tr("Windows didn't allow that change, so {name} is as it was.", name=ltr(row.entry.name)))
         self._show_state()
+
+    # ---- leftovers of removed programs
+
+    def remove_leftovers(self, ask: bool = True):
+        """Removes the lines whose program is gone from this PC (after asking), then reads the list again."""
+        gone = startup.leftovers(self.entries)
+        if not gone or self.busy or self.loading:
+            return
+        if ask:
+            box = QMessageBox(QMessageBox.Question, tr("Remove leftovers?"),
+                              tr("Leftovers to remove: {count}", count=len(gone)) + "\n\n"
+                              + tr("They're taken out of the startup list. Their programs are already gone, so "
+                                   "nothing else changes. Corefold keeps a copy of each line first."),
+                              parent=self)
+            yes = box.addButton(tr("Remove"), QMessageBox.DestructiveRole)
+            box.addButton(tr("Cancel"), QMessageBox.RejectRole)
+            box.exec()
+            chosen = box.clickedButton() is yes
+            box.deleteLater()
+            if not chosen:
+                return
+        self.busy += 1
+        self.refresh_btn.setEnabled(False)
+        self.clean_btn.setEnabled(False)
+        self.problem.hide()
+        job = work.run(lambda _p: startup.remove_leftovers(gone), lambda _: None,
+                       lambda result, n=len(gone): self._removed(n, result), name="corefold-startup-clean")
+        self.switching.append(job)
+
+    def _removed(self, asked: int, result):
+        self.busy -= 1
+        self.switching = [j for j in self.switching if j.is_alive()]
+        if not work.alive(self):
+            return
+        self.clean_btn.setEnabled(not self.busy)
+        if isinstance(result, Exception):
+            log.warning("couldn't remove the leftovers: %s", result)
+            result = []
+        if len(result) < asked:
+            self.after_load = tr("Windows didn't allow removing some of them ({count}), so they're as they were.",
+                                 count=asked - len(result))
+        self.load()
 
     def _sync_own_setting(self):
         """Corefold's own line switched: Settings → General shows the same."""
