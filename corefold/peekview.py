@@ -727,6 +727,7 @@ class PeekWindow(QWidget):
         tree.setFocusPolicy(Qt.NoFocus)
         tree.setRootIsDecorated(False)
         tree.setHeaderLabels([tr("Name"), tr("Size")])
+        tree.headerItem().setTextAlignment(1, Qt.AlignTrailing | Qt.AlignVCenter)
         tree.setUniformRowHeights(True)
         folder_icon = icons.icon("folder", self.c.theme.muted)
         file_icon = icons.icon("document", self.c.theme.muted)

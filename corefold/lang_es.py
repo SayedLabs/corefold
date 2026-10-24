@@ -707,7 +707,7 @@ STRINGS: dict[str, str] = {
     "The new file appears in your Corefold folder.": "El archivo nuevo aparece en tu carpeta de Corefold.",
     "Drop the file on a format (or click it).": "Suelta el archivo sobre un formato (o haz clic en él).",
     "Let go in the middle to cancel.": "Suelta en el centro para cancelar.",
-    "Corefold is on": "Corefold está activado",
+    "Converter is on": "El conversor está activado",
     "Paused. Click to turn on": "En pausa. Haz clic para activar",
     "Your colour": "Tu color",
     "Colours: blue = convert · purple = edit · green = make smaller · pink = read · amber = archive": "Colores: azul = convertir · morado = editar · verde = reducir · rosa = leer · ámbar = comprimir",
@@ -2365,4 +2365,5 @@ STRINGS: dict[str, str] = {
     "Windows language": "Idioma de Windows",
     "Almost full": "Casi lleno",
     "Can be freed": "Se puede liberar",
+    "Ticked below (all found: {size})": "Marcado abajo (todo lo encontrado: {size})",
 }

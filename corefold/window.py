@@ -3165,7 +3165,7 @@ class MainWindow(QWidget):
             tr("The new file appears in your Corefold folder.")
         self.step_labels[2].setText(tr("Drop the file on a format (or click it).") + " " + where + " "
                                     + tr("Let go in the middle to cancel."))
-        self.power.setText(tr("Corefold is on") if s.enabled else tr("Paused. Click to turn on"))
+        self.power.setText(tr("Converter is on") if s.enabled else tr("Paused. Click to turn on"))
         if self.built("Look"):
             self.accent_name.setText(tr("Your colour") if s.accent == "custom" else tr(ACCENTS[s.accent][0]))
         if self.built("WheelLook"):
