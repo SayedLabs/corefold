@@ -484,4 +484,5 @@ for name, fn in (("files", files), ("ranges", ranges), ("tools", tools), ("big",
 (OUT / f"pdftest-{LANG}.txt").write_text("\n".join(problems) or "none", "utf-8")
 print(f"pdftest: {len(problems)} problem(s)", flush=True)
 faulthandler.disable()
-os._exit(1 if problems else 0)
+from testexit import finish  # (Qt can crash in Windows' tidy-up at exit, after every check passed)
+finish(1 if problems else 0)

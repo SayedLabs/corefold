@@ -450,7 +450,8 @@ if PART:
     part(*PART)
     print(f"({' '.join(PART)}) {len(problems)} problem(s)", flush=True)
     faulthandler.disable()
-    os._exit(1 if problems else 0)
+    from testexit import finish  # (Qt can crash in Windows' tidy-up at exit, after every check passed)
+    finish(1 if problems else 0)
 
 logic()
 for lang, look in (("en", "dark"), ("ar", "light")):

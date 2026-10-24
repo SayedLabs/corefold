@@ -977,4 +977,5 @@ if log_file.exists():
                                         "utf-8")
 print(f"usetest {TAG}: {len(problems)} problem(s)", flush=True)
 faulthandler.disable()
-os._exit(0)
+from testexit import finish  # (Qt can crash in Windows' tidy-up at exit, after every check passed)
+finish(0)

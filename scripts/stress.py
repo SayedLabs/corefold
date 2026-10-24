@@ -122,4 +122,5 @@ w.hide()
 print(f"stress: {len(problems)} problem(s)")
 import faulthandler  # noqa: E402
 faulthandler.disable()
-os._exit(0)
+from testexit import finish  # (Qt can crash in Windows' tidy-up at exit, after every check passed)
+finish(0)
