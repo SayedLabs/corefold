@@ -21,6 +21,8 @@ if "--bg-worker" in sys.argv[1:]:
 # the heavy parts (Qt). This keeps right-clicking many files quick and light.
 from corefold import ipc  # noqa: E402
 
+ipc.leave_start_folder(sys.argv)
+
 if ipc.forward(sys.argv[1:]):
     sys.exit(0)
 

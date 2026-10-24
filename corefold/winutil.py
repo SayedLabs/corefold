@@ -70,7 +70,8 @@ def registry_prefers_dark() -> bool:
 
 def reveal_in_explorer(path: Path):
     if path.exists():
-        subprocess.Popen(f'explorer /select,"{path}"')
+        from .core import system_tool  # (Windows' own explorer.exe, never one of that name elsewhere)
+        subprocess.Popen(f'"{system_tool("explorer.exe")}" /select,"{path}"')
 
 
 def play_sound(path: Path | None):

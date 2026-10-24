@@ -306,6 +306,7 @@ class _Media(QWidget):
         row.addWidget(self.clock)
         row.addWidget(self.mute_btn)
         lay.addLayout(row)
+        os.environ["QT_FFMPEG_PROTOCOL_WHITELIST"] = "file"  # (never online: see player.local_only)
         self.player.setSource(QUrl.fromLocalFile(str(path)))
         self.mute_btn.setChecked(video)
         self.audio.setMuted(video)

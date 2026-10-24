@@ -461,8 +461,10 @@ HOSTS = {"onedrive": "https://onedrive.live.com/", "dropbox": "https://www.dropb
 def local_name(name: str) -> str:
     """A cloud file's name made safe to save on this PC. Names come from the service, and a shared folder
     can hold names Windows would read as a path ("..\\..\\Startup\\x.bat", "C:\\x"): those must never
-    leave the folder they're saved in."""
+    leave the folder they're saved in. Writing-direction marks go too: "invoice\u202egpj.exe" would show
+    as "invoiceexe.jpg"."""
     from .core import safe_name
+    name = "".join(c for c in name if not ("\u202a" <= c <= "\u202e" or "\u2066" <= c <= "\u2069"))
     name = name.replace("\\", "/").rsplit("/", 1)[-1]
     rest = safe_name(name)
     dots = len(name) - len(name.lstrip(" ."))  # (".gitignore" keeps its dot; "..", on its own, isn't a name)
@@ -733,7 +735,8 @@ def upload_tree(c: Client, src: Path, folder: Entry | None, progress=None, cance
         inside = sorted(src.iterdir(), key=lambda p: p.name.lower())
     except OSError:
         inside = []
-    return sum(upload_tree(c, p, made, progress, cancel) for p in inside if not p.is_symlink())
+    from .core import is_link  # (a junction too, not only a link: it leads out of the folder, or round in a circle)
+    return sum(upload_tree(c, p, made, progress, cancel) for p in inside if not is_link(p))
 
 
 def available(service: str) -> bool:

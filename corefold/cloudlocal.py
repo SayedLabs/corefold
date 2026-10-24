@@ -172,8 +172,11 @@ def check_name(name: str):
 
 
 def _skipped(d: os.DirEntry) -> bool:
+    from .core import is_link
     name = d.name
     if name.startswith((".", "~$")) or name.lower() in SKIP or name.endswith(".corefold-part"):
+        return True
+    if is_link(d.path):  # (a link or junction leads out of the cloud folder, or round in a circle)
         return True
     try:
         return bool(getattr(d.stat(follow_symlinks=False), "st_file_attributes", 0) & HIDDEN)

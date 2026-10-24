@@ -169,8 +169,11 @@ def open_target(target: str) -> bool:
 
 
 def _windows(cmd: list[str]):
+    """One of Windows' own programs, by its full path (never one of the same name in the current folder)."""
     if os.name != "nt":
         return
+    from .core import system_tool
+    cmd = [system_tool(cmd[0]), *cmd[1:]]
     try:
         subprocess.Popen(cmd, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), close_fds=True)
     except OSError:
