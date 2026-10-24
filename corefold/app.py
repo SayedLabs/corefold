@@ -1125,7 +1125,7 @@ class Controller(QObject):
 
     def _clip_settings(self) -> tuple:
         s = self.settings
-        return s.clip_shortcut, s.clip_max, s.clip_days
+        return s.clip_shortcut, s.clip_plain_key, s.clip_max, s.clip_days
 
     def show_clipboard(self, from_tray: bool = False):
         """The clipboard popup, near where you're typing (what you pick is pasted there)."""

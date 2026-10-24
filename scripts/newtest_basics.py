@@ -5,7 +5,8 @@
 - after extracting: open the folder, send the archive (all its parts) to the Recycle Bin; Extract to…;
 - the Viewer going round a folder, its mouse side buttons, copying the path and dragging a picture out;
 - File Organizer keeping a folder tidy by itself (and its Undo);
-- the PDF page saying where new files go; Scan's hidden findings; a Player setting.
+- the PDF page saying where new files go; Scan's hidden findings; a Player setting;
+- the Clipboard's "paste as plain text" shortcut, pressed for real.
 
 Run from the repository's folder: python scripts/newtest_basics.py
 Everything happens in a temporary folder (the user's real settings are left alone). Prints one line
@@ -425,6 +426,52 @@ def main():
         w.player_pause_minimized.setChecked(True)
         check(c.settings.player_pause_minimized, "the Player keeps \"pause a video while minimised\"")
     step("the Player setting", player_setting)
+
+    def paste_plain():
+        from PySide6.QtCore import QMimeData
+        from PySide6.QtWidgets import QTextEdit
+        check(wait(lambda: c.clip is not None, 10), "the Clipboard is running")
+        key = c.clip.plain_key
+        check(c.settings.clip_plain_key == "ctrl+alt+win+v" and (key.ok or os.name != "nt"),
+              f"\"Paste as plain text\" listens for Ctrl + Alt + Win + V (ok={key.ok})")
+        md = QMimeData()
+        md.setText("Bold words")
+        md.setHtml("<b style='color:red'>Bold words</b>")
+        qapp.clipboard().setMimeData(md)
+        qapp.processEvents()
+        box = QTextEdit()
+        box.setWindowTitle("Corefold paste test")
+        box.resize(400, 200)
+        box.show()
+        box.raise_()
+        box.activateWindow()
+        box.setFocus()
+        wait(lambda: box.hasFocus(), 3)
+        front = False
+        if os.name == "nt":
+            import ctypes
+            u = ctypes.windll.user32
+            u.SetForegroundWindow(int(box.winId()))
+            front = wait(lambda: u.GetForegroundWindow() == int(box.winId()), 3)
+            if front:
+                for vk in (0x11, 0x12, 0x5B, 0x56):   # Ctrl, Alt, Win, V: pressed the way a person does
+                    u.keybd_event(vk, 0, 0, 0)
+                for vk in (0x56, 0x5B, 0x12, 0x11):
+                    u.keybd_event(vk, 0, 2, 0)
+        if not front:
+            print("      (the test window isn't in front: the shortcut is called directly)")
+            c.clip.paste_plain()
+        if os.name == "nt":
+            check(wait(lambda: "Bold words" in box.toPlainText(), 8),
+                  f"the shortcut pastes the copied words ({box.toPlainText()!r})")
+            html = box.toHtml()
+            check("font-weight:700" not in html and "#ff0000" not in html,
+                  "…without their bold or colour")
+        md = qapp.clipboard().mimeData()
+        check(md.text() == "Bold words" and not md.hasHtml(), "…and what's copied is now the plain words")
+        box.close()
+        box.deleteLater()
+    step("pasting as plain text", paste_plain)
 
 
 step("the test", main)

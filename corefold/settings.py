@@ -99,6 +99,8 @@ SLIDESHOW_SECONDS = {2: "2 seconds", 4: "4 seconds", 8: "8 seconds"}
 EXTRACT_MODES = {"smart": "Smart: no folder inside a folder", "folder": "Always into a new folder"}
 CLIP_SHORTCUTS = {"win+alt+v": "Win + Alt + V", "ctrl+shift+v": "Ctrl + Shift + V", "ctrl+alt+v": "Ctrl + Alt + V",
                   "ctrl+`": "Ctrl + `", "off": "No shortcut"}
+CLIP_PLAIN_SHORTCUTS = {"ctrl+alt+win+v": "Ctrl + Alt + Win + V", "ctrl+alt+shift+v": "Ctrl + Alt + Shift + V",
+                        "off": "No shortcut"}
 CLIP_MAX = {100: "100", 500: "500", 1000: "1000", 5000: "5000"}
 CLIP_DAYS = {1: "a day", 7: "a week", 30: "a month", 365: "a year", 0: "Never"}
 CAP_SHORTCUTS = {"ctrl+printscreen": "Ctrl + Print Screen", "printscreen": "Print Screen",
@@ -121,7 +123,7 @@ CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_styl
            "backup_days": BACKUP_DAYS, "uninstall_depth": UNINSTALL_DEPTHS, "extract_mode": EXTRACT_MODES,
            "viewer_wheel": VIEWER_WHEEL, "viewer_sort": VIEWER_SORTS,
            "slideshow_seconds": SLIDESHOW_SECONDS, "clip_shortcut": CLIP_SHORTCUTS, "clip_max": CLIP_MAX,
-           "clip_days": CLIP_DAYS, "cap_shortcut": CAP_SHORTCUTS,
+           "clip_plain_key": CLIP_PLAIN_SHORTCUTS, "clip_days": CLIP_DAYS, "cap_shortcut": CAP_SHORTCUTS,
            "cap_after": CAP_AFTER, "cap_delay": CAP_DELAY, "player_skip": PLAYER_SKIP,
            "player_wheel": PLAYER_WHEEL,
            "quick_search_engine": QUICK_SEARCH_ENGINES,
@@ -158,7 +160,8 @@ FORMAT_KEYS = ("hidden_tools", "favorites", "tool_order")
 UNINSTALLER_KEYS = ("unused_months", "backup_days", "restore_point", "uninstall_depth")
 ARCHIVE_KEYS = ("extract_mode", "extract_nested", "remember_archives", "extract_reveal", "extract_recycle")
 VIEWER_KEYS = ("viewer_wheel", "viewer_confirm_delete", "slideshow_seconds", "viewer_sort", "peek_key", "viewer_loop")
-CLIPBOARD_KEYS = ("clip_shortcut", "clip_paste", "clip_max", "clip_days", "clip_images", "clip_ignore")
+CLIPBOARD_KEYS = ("clip_shortcut", "clip_plain_key", "clip_paste", "clip_max", "clip_days", "clip_images",
+                  "clip_ignore")
 PLAYER_KEYS = ("player_resume", "player_skip", "player_wheel", "player_next", "player_subtitles",
                "player_pause_minimized")
 CAPTURE_KEYS = ("cap_shortcut", "cap_after", "cap_delay", "cap_save", "cap_folder")
@@ -242,6 +245,7 @@ class Settings:
     recent_views: list = field(default_factory=list)  # pictures and emails opened lately (newest first)
     # the Clipboard
     clip_shortcut: str = "win+alt+v"  # opens the clipboard from any app
+    clip_plain_key: str = "ctrl+alt+win+v"  # pastes what's copied as plain text, in any app
     clip_paste: bool = True        # picking something pastes it where you were typing (not only copies it)
     clip_max: int = 500            # copies kept (pinned ones don't count)
     clip_days: int = 30            # copies older than this are forgotten (0: never)

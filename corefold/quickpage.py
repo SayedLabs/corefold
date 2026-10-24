@@ -242,6 +242,7 @@ def build(win) -> QWidget:
             out[hotkey.normalize(s.ontop_key)] = tr("keeping a window on top")
         if c.clip is not None:
             out[s.clip_shortcut] = tr("the clipboard")
+            out[s.clip_plain_key] = tr("pasting as plain text")
         if c.capture is not None:
             out[s.cap_shortcut] = tr("screenshots")
         out.pop("off", None)

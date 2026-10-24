@@ -34,6 +34,8 @@ GLOBAL = [
            tool="converter", names="SHORTCUT_LABELS"),
     Global("Show the clipboard history", "clip_shortcut", "ClipboardSettings", "clip_shortcut", tool="clipboard",
            live="clip.hotkey"),
+    Global("Paste what's copied as plain text", "clip_plain_key", "ClipboardSettings", "clip_plain_key",
+           tool="clipboard", live="clip.plain_key"),
     Global("Take a screenshot", "cap_shortcut", "CaptureSettings", "cap_shortcut", tool="capture",
            live="capture.shot_key"),
     Global("Quick look at the file selected in File Explorer", "peek_key", "ViewerSettings", "peek_key", tool="viewer",
