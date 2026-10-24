@@ -1,0 +1,14 @@
+
+errors:
+
+notes:
+437 presses in all; would have opened: 10 (file:///C:/Users/runneradmin/Pictures/Screenshots, program "C:\Windows\explorer.exe" /select,"C:\Users\runneradmin\Documents\Visual Studio 18\Templates\ProjectTemplates\Visual C++", startfile ('windowsdefender://threat',), program "C:\Windows\explorer.exe" /select,"C:\Users\runneradmin\Desktop", startfile ('ms-settings:defaultapps?registeredAppUser=Corefold',), startfile ('ms-settings:defaultapps?registeredAppUser=Corefold',), startfile ('ms-settings:defaultapps?registeredAppUser=Corefold',), file:///C:/Users/runneradmin/Pictures/Screenshots)
+the search ran 243 of 243 things
+round 1: 13 windows, 959 widgets, 279 MB, 60151 Python objects
+round 2: 11 windows, 957 widgets, 261 MB, 61039 Python objects
+round 3: 11 windows, 957 widgets, 262 MB, 60553 Python objects
+memory as tools come and go (279 → 261 → 262 MB, 0.8 MB a round)
+after 10 opens: 222 MB, 15 widgets, 5 windows
+after 20 opens: 222 MB, 15 widgets, 5 windows
+after 30 opens: 212 MB, 15 widgets, 5 windows
+after 40 opens: 213 MB, 15 widgets, 5 windows

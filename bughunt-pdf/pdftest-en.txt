@@ -1,0 +1,72 @@
+ok    the made-up PDFs can be read back by their colours
+ok    pages typed: 1-3, 5
+ok    pages typed: 4- (to the end)
+ok    pages typed backwards: 3-1
+ok    Arabic digits and comma work
+ok    '' is refused with a reason (Type the pages, like 1-3, 5)
+ok    'abc' is refused with a reason ("abc" isn't a page or pages)
+ok    '0' is refused with a reason (There's no page 0: this PDF has 5 pages)
+ok    '6' is refused with a reason (There's no page 6: this PDF has 5 pages)
+ok    '2-9' is refused with a reason (There's no page 9: this PDF has 5 pages)
+ok    '--' is refused with a reason ("--" isn't a page or pages)
+ok    pages from two PDFs, in a new order ([(7, 'tl'), (0, 'tr'), (4, 'br'), (5, 'bl')])
+ok    and each turned as asked
+ok    each page as its own PDF
+ok    one page as a JPG, turned (pic.jpg)
+ok    split, each: [[0], [1], [2], [3], [4]]
+ok    split, every: [[0, 1], [2, 3], [4]]
+ok    split, ranges: [[0, 1], [4], [2, 3]]
+ok    splitting a one-page PDF says there's nothing to split
+ok    take out pages 5, 1-2 (in that order)
+ok    delete pages 2-4
+ok    deleting every page is refused
+ok    compress: three levels, each smaller (8751105 → {'light': 2895869, 'normal': 908798, 'strong': 218186})
+ok    a PDF that can't get smaller says so, and leaves no file
+ok    a wide picture on a4 gets a page on its side (842, 595)
+ok    a wide picture on letter gets a page on its side (792, 612)
+ok    PDF to pictures: pages 2-3 as PNG
+ok    lock: needs the password
+ok    lock: printing not allowed when unticked
+ok    unlock with a wrong password asks again
+ok    unlock with the password
+ok    a locked PDF can be compressed once its password is given
+ok    300 + 1 pages merged in 0.1 s
+ok    switched off: not shown
+ok    switched off: its page isn't loaded
+ok    switched on: shown in its section
+ok    the page opens
+ok    16 cards
+ok    Split card: every 2 pages (3 files)
+ok    Compress card: asks how much
+ok    Lock card: a locked copy
+ok    Unlock card: asks the password, unlocks
+ok    Unlock card on a PDF without a password: nothing made, says so
+ok    Pictures to PDF card
+ok    PDF to pictures card: page 2
+ok    Cancel makes nothing
+ok    merge: all 10 pages and their pictures come up (10)
+ok    including the locked one (its password was asked)
+ok    the board gets the banner's room
+ok    clicking two pages selects them
+ok    Turn right turns just those
+ok    Delete removes them
+ok    Undo brings them back, still turned
+ok    Ctrl + Z undoes the turn
+ok    typing 9-10, 1 selects those pages
+ok    a page list that makes no sense: the page says why
+ok    a page moved to the front
+ok    See it big opens the page and closes again
+ok    Merge and save: done
+ok    the saved PDF has the pages in the board's order ([11, 0, 1, 2, 3, 4, 5, 6, 7, 10])
+ok    and it opens without a password
+ok    Save selected pages, each as its own PDF (2)
+ok    a PDF dropped on the board adds its pages
+ok    closing with changes asks first (Cancel: stays) (True, 1)
+ok    at 760×520 the save button is inside the window (602,730,498 in 760×520)
+ok    at 1500×900 the save button is inside the window (1336,1464,874 in 1500×900)
+ok    closing goes back to the cards
+ok    pictures dropped on the page become a PDF
+ok    Back from an untouched board goes straight to the cards
+ok    switched off again: not shown
+ok    no errors behind any click (0)
+pdftest: 0 problem(s)
