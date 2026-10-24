@@ -461,8 +461,10 @@ HOSTS = {"onedrive": "https://onedrive.live.com/", "dropbox": "https://www.dropb
 def local_name(name: str) -> str:
     """A cloud file's name made safe to save on this PC. Names come from the service, and a shared folder
     can hold names Windows would read as a path ("..\\..\\Startup\\x.bat", "C:\\x"): those must never
-    leave the folder they're saved in."""
+    leave the folder they're saved in. Writing-direction marks go too: "invoice\u202egpj.exe" would show
+    as "invoiceexe.jpg"."""
     from .core import safe_name
+    name = "".join(c for c in name if not ("\u202a" <= c <= "\u202e" or "\u2066" <= c <= "\u2069"))
     name = name.replace("\\", "/").rsplit("/", 1)[-1]
     rest = safe_name(name)
     dots = len(name) - len(name.lstrip(" ."))  # (".gitignore" keeps its dot; "..", on its own, isn't a name)

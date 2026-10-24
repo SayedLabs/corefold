@@ -200,7 +200,7 @@ def programs_by_name():
 def cloud_downloads():
     for name, want in (("..\\..\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\x.bat", "x.bat"),
                        ("C:\\Windows\\x.dll", "x.dll"), ("C:x.exe", "C_x.exe"), ("a/b.txt", "b.txt"), ("..", "file"),
-                       ("CON", "_CON"), ("photo.jpg", "photo.jpg")):
+                       ("CON", "_CON"), ("photo.jpg", "photo.jpg"), ("invoice\u202egpj.exe", "invoicegpj.exe")):
         got = cloud.local_name(name)
         check(got == want, f"cloud name {name!r} is saved as {got!r}")
         folder = TMP / "cloud"
