@@ -546,4 +546,5 @@ for name, fn in (("viewer", viewer), ("email", email), ("clipboard", clipboard),
 print(f"uitest: {len(problems)} problem(s)", flush=True)
 import faulthandler  # noqa: E402
 faulthandler.disable()
-os._exit(0)
+from testexit import finish  # (Qt can crash in Windows' tidy-up at exit, after every check passed)
+finish(0)

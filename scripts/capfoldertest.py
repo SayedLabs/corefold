@@ -214,7 +214,8 @@ def main():
 def finish():
     check(not errors, f"no errors ({len(errors)})")
     print(f"capfoldertest: {len(problems)} problem(s)", flush=True)
-    os._exit(1 if problems else 0)
+    from testexit import finish as finish_now  # (Qt can crash in Windows' tidy-up at exit, after every check passed)
+    finish_now(1 if problems else 0)
 
 
 if __name__ == "__main__":

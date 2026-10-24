@@ -316,4 +316,5 @@ if log_file.exists():
 say(f"newtest_flash: {len(problems)} problem(s)")
 LOG.close()
 faulthandler.disable()
-os._exit(1 if problems else 0)
+from testexit import finish  # (Qt can crash in Windows' tidy-up at exit, after every check passed)
+finish(1 if problems else 0)

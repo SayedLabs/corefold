@@ -79,7 +79,8 @@ def finish():
     print(f"langtest{'-' + ARGS.start if ARGS.start else ''}: {len(problems)} problem(s)", flush=True)
     (OUT / f"problems-{ARGS.start or TAG}.txt").write_text("\n".join(problems), "utf-8")
     sys.stdout.flush()
-    os._exit(1 if problems else 0)
+    from testexit import finish as finish_now  # (Qt can crash in Windows' tidy-up at exit, after every check passed)
+    finish_now(1 if problems else 0)
 
 
 # ---------------------------------------------------------------------------- a real start of Corefold
