@@ -178,8 +178,38 @@ def _listfile(names: list[str]) -> Path:
     return Path(name)
 
 
-def _pw(password: str) -> str:
-    return f"-p{password}" if password else DUMMY_PASSWORD
+def _pw(password: str, making: bool = False):
+    """A password for 7-Zip. It never goes on 7-Zip's command line, where other programs, logs and security
+    tools can read every program's command line: _run7z leaves it out and types it in through 7-Zip's input
+    instead, as a person would when 7-Zip asks for it ("-p" with no password asks when making an archive;
+    opening one asks by itself when it needs one)."""
+    if not password:
+        return DUMMY_PASSWORD  # (not secret: it only stops 7-Zip from waiting for one)
+    return _Secret(password, making)
+
+
+class _Secret:
+    def __init__(self, password: str, making: bool):
+        self.password, self.making = password, making
+
+    def __repr__(self):  # (never in a log)
+        return "<password>"
+
+
+def _with_password(cmd: list) -> tuple[list[str], bytes | None]:
+    """The command as 7-Zip is started (no password in it), and what's typed in for 7-Zip to read."""
+    out, typed = [], None
+    for a in cmd:
+        if isinstance(a, _Secret):
+            if a.making:
+                out.append("-p")
+            # (twice: some 7-Zip versions ask again to be sure when making an archive; UTF-8, as -sccUTF-8 says)
+            typed = ((a.password + "\n") * 2).encode("utf-8")
+        else:
+            out.append(a)
+    if typed is not None and "-sccUTF-8" not in out:
+        out.insert(2, "-sccUTF-8")
+    return out, typed
 
 
 def _7z_error(output: str) -> Exception:
@@ -207,16 +237,16 @@ def _progress(buf: str) -> float | None:
     return int(found[-1]) / 100 if found else None
 
 
-def _run7z(args: list[str], ctx: Ctx | None = None, cwd: Path | None = None) -> tuple[int, str]:
+def _run7z(args: list, ctx: Ctx | None = None, cwd: Path | None = None) -> tuple[int, str]:
     exe = find_7z()
     if not exe:
         raise RuntimeError(tr("7-Zip is missing. Reinstall Corefold to fix archives"))
-    cmd = [exe, *args]
+    cmd, typed = _with_password([exe, *args])
     if ctx is None:
-        proc = subprocess.run(cmd, capture_output=True, stdin=subprocess.DEVNULL, cwd=str(cwd) if cwd else None,
+        proc = subprocess.run(cmd, capture_output=True, input=typed or b"", cwd=str(cwd) if cwd else None,
                               timeout=120, creationflags=NO_WINDOW)
         return proc.returncode, (proc.stdout + proc.stderr).decode("utf-8", "replace")
-    return run_with_progress(cmd, ctx, _progress, cwd=cwd)
+    return run_with_progress(cmd, ctx, _progress, cwd=cwd, typed=typed)
 
 
 # ----------------------------------------------------------------------------- listing
@@ -343,6 +373,57 @@ def check_readable(files: list[Path]) -> str | None:
 
 # ----------------------------------------------------------------------------- extracting
 
+class _SpaceGuard:
+    """Watches the disk while 7-Zip unpacks: stops it before the disk's last RESCUE_RESERVE is used, or
+    once it has written more than `budget` (a damaged archive being rescued). 7-Zip itself only stops when
+    the disk is completely full, and Windows and other programs then fail too."""
+
+    def __init__(self, ctx: Ctx, folder: Path, budget: int | None = None):
+        import threading
+        self.outer, self.folder, self.budget = ctx, folder, budget
+        self.inner = Ctx(ctx.options, ctx.progress, threading.Event(), ctx.params, ctx.index, ctx.total)
+        self.tripped = ""
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._watch, daemon=True, name="corefold-space-guard")
+
+    def _free(self) -> int | None:
+        try:
+            return shutil.disk_usage(self.folder).free
+        except OSError:
+            return None
+
+    def _watch(self):
+        start = self._free()
+        while not self._stop.wait(0.25):
+            if self.outer.cancelled:
+                self.inner.cancel_event.set()
+                return
+            free = self._free()
+            if free is None or start is None:
+                continue
+            if self.budget is not None and start - free > self.budget:
+                self.tripped = "budget"
+            elif free < RESCUE_RESERVE and start >= RESCUE_RESERVE:
+                self.tripped = "full"
+            if self.tripped:
+                self.inner.cancel_event.set()
+                return
+
+    def __enter__(self) -> Ctx:
+        self._thread.start()
+        return self.inner
+
+    def __exit__(self, kind, exc, tb):
+        self._stop.set()
+        self._thread.join(2)
+        if kind is not None and issubclass(kind, Cancelled) and self.tripped:
+            if self.tripped == "budget":
+                raise RuntimeError(tr("this archive unpacks to far more than its size or the free space allows, "
+                                      "so rescuing it was stopped")) from None
+            raise RuntimeError(tr("the disk is nearly full, so unpacking was stopped before it filled it")) from None
+        return False
+
+
 def _extract_into(src: Path, target: Path, ctx: Ctx, password: str, members: list[str] | None = None):
     if is_tar(src):
         wanted = set(members or [])
@@ -370,7 +451,8 @@ def _extract_into(src: Path, target: Path, ctx: Ctx, password: str, members: lis
             listfile = _listfile([m.replace("/", os.sep) for m in members])
             args += ["-scsUTF-8", f"@{listfile}"]
         try:
-            code, out = _run7z(args, ctx)
+            with _SpaceGuard(ctx, target) as guarded:
+                code, out = _run7z(args, guarded)
         finally:
             if listfile:
                 listfile.unlink(missing_ok=True)
@@ -595,7 +677,7 @@ def pack_into(items: list[Path], out: Path, ctx: Ctx, fmt: str = "zip", level: s
         args = ["a", f"-t{fmt}", f"-mx={LEVELS.get(level, 5)}", "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-ssw", "-y",
                 "-spd"]
         if password:
-            args.append(f"-p{password}")
+            args.append(_pw(password, making=True))
             args.append("-mhe=on" if fmt == "7z" else "-mem=AES256")
         if split_mb and split_mb > 0:
             args.append(f"-v{int(split_mb * 1024)}k")
@@ -697,7 +779,7 @@ def add_files(src: Path, items: list[Path], ctx: Ctx) -> Result:
         try:
             args = ["a", str(src.resolve()), "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-scsUTF-8", "-ssw", "-y", "-spd"]
             if password:
-                args.append(f"-p{password}")
+                args.append(_pw(password, making=True))
             code, out = _run7z([*args, f"@{listfile}"], ctx, cwd=parent)
         finally:
             listfile.unlink(missing_ok=True)
@@ -759,9 +841,16 @@ def read_member(src: Path, member: str, password: str = "", limit: int = PREVIEW
     if exe:
         listfile = _listfile([member.replace("/", os.sep)])
         try:
-            proc = subprocess.Popen([exe, "e", "-so", "-sccUTF-8", "-scsUTF-8", "-spd", _pw(password), str(src),
-                                     f"@{listfile}"], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                    stdin=subprocess.DEVNULL, creationflags=NO_WINDOW)
+            cmd, typed = _with_password([exe, "e", "-so", "-sccUTF-8", "-scsUTF-8", "-spd", _pw(password), str(src),
+                                         f"@{listfile}"])
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                    stdin=subprocess.PIPE if typed else subprocess.DEVNULL, creationflags=NO_WINDOW)
+            if typed:
+                try:
+                    proc.stdin.write(typed)
+                    proc.stdin.close()
+                except OSError:
+                    pass
             if cancel is not None:  # (a big solid archive can take a while to reach the file)
                 def watch():
                     while proc.poll() is None:
@@ -876,7 +965,7 @@ def update_member(src: Path, member: str, new_file: Path, ctx: Ctx) -> Result:
         args = ["u", str(src.resolve()), UPDATE_ALL, "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-scsUTF-8", "-y", "-spd"]
         password = ctx.params.get("password", "")
         if password:
-            args.append(f"-p{password}")
+            args.append(_pw(password, making=True))
         code, out = _run7z([*args, f"@{listfile}"], ctx, cwd=stage)
     finally:
         if listfile:
@@ -892,9 +981,32 @@ def update_member(src: Path, member: str, new_file: Path, ctx: Ctx) -> Result:
 _DAMAGED_LINE = re.compile(r"^ERROR:\s*(?:[^:]*?)\s*:\s*(.+?)\s*$")
 
 
-def _scan_zip(src: Path, target: Path, ctx: Ctx) -> tuple[int, int]:
+# A damaged ZIP is read piece by piece with no table of contents to trust, so what it unpacks to is capped:
+# never more than RESCUE_RATIO times its own size (at least RESCUE_MIN), and never into the last
+# RESCUE_RESERVE of the disk. A "ZIP bomb" (a few KB that unpack to many GB) then stops early instead of
+# filling the disk or the memory. Each piece is unpacked a few MB at a time, never all at once.
+RESCUE_RATIO = 200
+RESCUE_MIN = 2 * 1024 ** 3
+RESCUE_RESERVE = 1024 ** 3
+_RESCUE_STEP = 4 * 1024 * 1024
+
+
+def _rescue_budget(src_size: int, target: Path) -> int:
+    try:
+        free = shutil.disk_usage(target).free - RESCUE_RESERVE
+    except OSError:
+        free = RESCUE_MIN
+    return max(0, min(free, max(RESCUE_MIN, RESCUE_RATIO * src_size)))
+
+
+class _TooBig(Exception):
+    pass
+
+
+def _scan_zip(src: Path, target: Path, ctx: Ctx, budget: int | None = None) -> tuple[int, int, bool]:
     """Reads a ZIP file by its pieces (each file's own header), for ZIPs whose table of contents at the
-    end is missing or broken. Writes every file that checks out; returns (good, damaged)."""
+    end is missing or broken. Writes every file that checks out; returns (good, damaged, stopped: it would
+    have unpacked to more than the budget)."""
     import mmap
     import struct
     import zlib
@@ -904,9 +1016,10 @@ def _scan_zip(src: Path, target: Path, ctx: Ctx) -> tuple[int, int]:
         try:
             mm = mmap.mmap(fh.fileno(), 0, access=mmap.ACCESS_READ)
         except ValueError:  # empty file
-            return 0, 0
+            return 0, 0, False
         with mm:
             size = len(mm)
+            left = _rescue_budget(size, target) if budget is None else budget  # (for every piece, kept or not)
             pos = 0
             while True:
                 ctx.check()
@@ -935,50 +1048,71 @@ def _scan_zip(src: Path, target: Path, ctx: Ctx) -> tuple[int, int]:
                     except OSError:  # a file of that name came first
                         pass
                     continue
-                if flag & 1 or method not in (0, 8) or csize == 0xFFFFFFFF:  # locked, or a kind not read here
+                if flag & 1 or method not in (0, 8) or 0xFFFFFFFF in (csize, usize):  # locked, or a kind not read here
                     bad += 1
                     continue
                 known = not (flag & 8)  # otherwise the sizes come after the data
+                if known and usize > left:
+                    return good, bad + 1, True
+                cap = usize if known else left  # (more than it says it holds: damaged, or made to harm)
                 check = 0
                 ok = True
+                made = 0
                 tmp = out.with_name(out.name + ".part")
                 try:
                     out.parent.mkdir(parents=True, exist_ok=True)
                     with open(tmp, "wb") as w:
                         if method == 0:
-                            if not known:
+                            if not known or start + csize > size:
                                 ok = False
                             else:
-                                data = mm[start:start + csize]
-                                ok = len(data) == csize
-                                w.write(data)
-                                check = zlib.crc32(data)
+                                for p in range(start, start + csize, _RESCUE_STEP):
+                                    data = mm[p:min(start + csize, p + _RESCUE_STEP)]
+                                    w.write(data)
+                                    check = zlib.crc32(data, check)
+                                    ctx.check()
+                                made = csize
+                                left -= csize
                                 end = start + csize
                         else:
                             d = zlib.decompressobj(-15)
                             p = start
                             limit = start + csize if known else size
+                            pending = b""
                             try:
-                                while p < limit and not d.eof:
-                                    chunk = mm[p:min(limit, p + (1 << 20))]
-                                    p += len(chunk)
-                                    piece = d.decompress(chunk)
+                                while not d.eof:
+                                    if not pending:
+                                        if p >= limit:
+                                            break
+                                        pending = mm[p:min(limit, p + (1 << 20))]
+                                        p += len(pending)
+                                    piece = d.decompress(pending, _RESCUE_STEP)
+                                    pending = d.unconsumed_tail
+                                    made += len(piece)
+                                    left -= len(piece)
+                                    if left < 0:
+                                        raise _TooBig()
+                                    if made > cap:
+                                        ok = False
+                                        break
                                     check = zlib.crc32(piece, check)
                                     w.write(piece)
                                     ctx.check()
-                                ok = d.eof
+                                ok = ok and d.eof
                             except zlib.error:  # damaged data
                                 ok = False
-                            end = p - len(d.unused_data)
+                            end = p - len(pending) - len(d.unused_data)
                             if not known and ok and end + 16 <= size:  # the data descriptor holds the check
                                 tail = mm[end:end + 16]
                                 crc = struct.unpack("<I", tail[4:8] if tail[:4] == b"PK\x07\x08" else tail[:4])[0]
-                    if ok and check == crc:
+                    if ok and check == crc and (not known or made == usize):
                         os.replace(tmp, out)
                         good += 1
                         pos = max(pos, end)
                     else:
                         bad += 1
+                except _TooBig:
+                    return good, bad + 1, True
                 except OSError as e:  # a name that clashes with a folder, an odd name, a full disk
                     if getattr(e, "errno", None) == 28:  # ENOSPC: no point going on
                         raise
@@ -989,7 +1123,7 @@ def _scan_zip(src: Path, target: Path, ctx: Ctx) -> tuple[int, int]:
                             tmp.unlink()
                     except OSError:
                         pass
-    return good, bad
+    return good, bad, False
 
 
 def repair_archive(src: Path, ctx: Ctx) -> Result:
@@ -1004,8 +1138,9 @@ def repair_archive(src: Path, ctx: Ctx) -> Result:
         _hide(stage)
         damaged = 0
         if find_7z():
-            code, out = _run7z(["x", str(src), f"-o{stage}", "-y", "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-snz",
-                                "-spd", _pw(password)], ctx)
+            with _SpaceGuard(ctx, stage, _rescue_budget(src.stat().st_size, stage)) as guarded:
+                code, out = _run7z(["x", str(src), f"-o{stage}", "-y", "-bsp1", "-bse1", "-bb0", "-sccUTF-8",
+                                    "-snz", "-spd", _pw(password)], guarded)
             if code not in (0, 1):
                 err = _7z_error(out)
                 if isinstance(err, NeedPassword):
@@ -1021,13 +1156,17 @@ def repair_archive(src: Path, ctx: Ctx) -> Result:
                     except OSError:
                         pass
         rescued = [p for p in stage.rglob("*") if p.is_file()]
+        stopped = False
         if not rescued and src.suffix.lower() in (".zip", ".zipx"):  # read it piece by piece instead
             shutil.rmtree(stage, ignore_errors=True)
             stage.mkdir()
             _hide(stage)
-            _good, damaged = _scan_zip(src, stage, ctx)
+            _good, damaged, stopped = _scan_zip(src, stage, ctx)
             rescued = [p for p in stage.rglob("*") if p.is_file()]
         if not rescued:
+            if stopped:
+                raise RuntimeError(tr("this archive unpacks to far more than its size or the free space allows, "
+                                      "so rescuing it was stopped"))
             raise RuntimeError(tr("nothing in this archive could be rescued"))
         out_zip = unique_path(base / f"{safe_name(archive_stem(src)) or 'Archive'} (repaired).zip")
         outs = pack_into(sorted(stage.iterdir()), out_zip, ctx, "zip", password=password)
@@ -1035,6 +1174,8 @@ def repair_archive(src: Path, ctx: Ctx) -> Result:
     finally:
         shutil.rmtree(stage, ignore_errors=True)
     note = tr("Rescued {count} files", count=len(rescued))
+    if stopped:
+        note += " · " + tr("Stopped early: the rest would unpack to far more than the archive's size")
     if damaged:
         note += " · " + tr("{count} damaged files couldn't be saved", count=damaged)
     return Result(outs, note=note)

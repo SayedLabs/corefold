@@ -328,8 +328,10 @@ class Local(Client):
         with _plain_errors():
             st = src.stat()
             size, done = st.st_size, 0
+            # (copied under a passing name first: a copy cut short never looks like the whole file)
+            part = dst.with_name(dst.name + ".corefold-part")
             try:
-                with open(src, "rb") as f, open(dst, "xb") as g:
+                with open(src, "rb") as f, open(part, "xb") as g:
                     while True:
                         if cancel is not None and cancel.is_set():
                             raise CloudError("cancelled")
@@ -340,10 +342,14 @@ class Local(Client):
                         done += len(piece)
                         if progress is not None:
                             progress(done, size)
-                os.utime(dst, (st.st_atime, st.st_mtime))
+                if done != size:  # (it changed while it was copied: the cloud app was still syncing it)
+                    from .cloud import CUT_OFF
+                    raise CloudError(CUT_OFF)
+                os.utime(part, (st.st_atime, st.st_mtime))
+                os.rename(part, dst)  # (never over something that took the name meanwhile)
             except BaseException:
                 with contextlib.suppress(OSError):
-                    dst.unlink()
+                    part.unlink()
                 raise
         if progress is not None and not size:
             progress(0, 0)

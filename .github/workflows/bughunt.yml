@@ -92,6 +92,7 @@ jobs:
       - name: Older checks (translations, archives and video, the Uninstaller, a very big archive, the newer tools, awkward files)
         if: matrix.name == 'checks'
         shell: pwsh
+        id: check1
         continue-on-error: true
         run: |
           choco install ffmpeg -y --no-progress | Out-Null
@@ -107,10 +108,12 @@ jobs:
           python scripts/capfoldertest.py out/capfolder en dark *> out/capfoldertest-en.txt
           python scripts/capfoldertest.py out/capfolder ar light *> out/capfoldertest-ar.txt
           python scripts/edgetest.py *> out/edgetest.txt
+          python scripts/audittest.py *> out/audittest.txt
 
       - name: Each tool's own test (File Organizer, Startup, Scan)
         if: matrix.name == 'tools'
         shell: pwsh
+        id: check2
         continue-on-error: true
         run: |
           $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
@@ -125,6 +128,7 @@ jobs:
         if: matrix.sweep != ''
         timeout-minutes: 55
         shell: pwsh
+        id: check3
         continue-on-error: true
         env:
           SWEEP: ${{ matrix.sweep }}
@@ -138,6 +142,7 @@ jobs:
         if: matrix.upgrade != ''
         timeout-minutes: 30
         shell: pwsh
+        id: check4
         continue-on-error: true
         env:
           OLD: ${{ matrix.upgrade }}
@@ -151,6 +156,7 @@ jobs:
         if: matrix.name == 'pdf'
         timeout-minutes: 20
         shell: pwsh
+        id: check5
         continue-on-error: true
         run: |
           python scripts/pdftest.py out/pdftest en dark *> out/pdftest-en.txt
@@ -162,6 +168,7 @@ jobs:
         if: matrix.name == 'navtest'
         timeout-minutes: 30
         shell: pwsh
+        id: check6
         continue-on-error: true
         run: |
           python scripts/navtest.py out/navtest en dark *> out/navtest-en.txt
@@ -175,6 +182,7 @@ jobs:
         if: matrix.use != ''
         timeout-minutes: 45
         shell: pwsh
+        id: check7
         continue-on-error: true
         env:
           USE: ${{ matrix.use }}
@@ -187,6 +195,7 @@ jobs:
         if: matrix.name == 'languages'
         timeout-minutes: 20
         shell: pwsh
+        id: check8
         continue-on-error: true
         run: |
           python scripts/langtest.py out/langtest --look dark *> out/langtest-dark.txt
@@ -198,6 +207,7 @@ jobs:
         if: matrix.name == 'newtests'
         timeout-minutes: 40
         shell: pwsh
+        id: check9
         continue-on-error: true
         run: |
           foreach ($t in Get-ChildItem scripts -Filter "newtest_*.py") {
@@ -208,6 +218,7 @@ jobs:
         if: matrix.name == 'exe'
         timeout-minutes: 30
         shell: pwsh
+        id: check10
         continue-on-error: true
         run: |
           ./scripts/build.ps1 -Version 0.0.${{ github.run_number }}-bughunt *> out/build.txt
@@ -222,6 +233,19 @@ jobs:
         with:
           name: bughunt-${{ matrix.name }}
           path: out/
+
+      # (each check above goes on after a failure, so every result is saved; this makes the run red for it)
+      - name: Did every check pass?
+        if: always()
+        shell: pwsh
+        env:
+          OUTCOMES: ${{ toJSON(steps) }}
+        run: |
+          $steps = $env:OUTCOMES | ConvertFrom-Json
+          $bad = @($steps.PSObject.Properties | Where-Object { $_.Value.outcome -eq "failure" } | ForEach-Object { $_.Name })
+          $found = @(Get-ChildItem out -Recurse -Filter *.txt -ErrorAction SilentlyContinue |
+                     Select-String -Pattern "^[a-z_]+[^:]*: [1-9][0-9]* problem" | ForEach-Object { $_.Line })
+          if ($bad -or $found) { "Failed steps: $bad"; $found; exit 1 }
 
   results:
     needs: try
@@ -245,7 +269,7 @@ jobs:
             echo "Bug hunt of $SHA"
             for d in */; do
               echo "== ${d%/}"
-              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest|featuretest|pdftest|pdfedittest|langtest|captexttest|capmarkstest|capfoldertest|edgetest|organizetest|startuptest|scantest|newtest_[a-z]+|dllcheck)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused|^App folder:|Corefold-Setup-" "$d" 2>/dev/null | head -20
+              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest|featuretest|pdftest|pdfedittest|langtest|captexttest|capmarkstest|capfoldertest|edgetest|audittest|organizetest|startuptest|scantest|newtest_[a-z]+|dllcheck)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused|^App folder:|Corefold-Setup-" "$d" 2>/dev/null | head -20
               grep -rhaE "^(FAIL|ERROR|SLOW) " "$d" 2>/dev/null | sort | uniq -c | sort -rn | head -60
             done
           } > summary.txt
@@ -256,3 +280,8 @@ jobs:
           git add -A
           git commit -q -m "Bug hunt of $SHA"
           git push -q -f "https://x-access-token:${TOKEN}@github.com/${REPO}.git" "$OUT"
+          # a problem anywhere makes the whole run red (the results above are saved first)
+          if grep -qE ": [1-9][0-9]* problem|^ +[0-9]+ (FAIL|ERROR) " summary.txt; then
+            echo "Problems were found: see summary.txt above"
+            exit 1
+          fi

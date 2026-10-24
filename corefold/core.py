@@ -427,12 +427,19 @@ def _cached(kind: str, path: Path, fn):
 
 
 def run_with_progress(cmd: list[str], ctx: Ctx, parse: Callable[[str], float | None],
-                      cwd: Path | None = None, env: dict | None = None) -> tuple[int, str]:
-    """Runs a program, feeding its output to `parse` for progress; stops it on cancel.
-    Returns (exit code, all output)."""
+                      cwd: Path | None = None, env: dict | None = None, typed: bytes | None = None) -> tuple[int, str]:
+    """Runs a program, feeding its output to `parse` for progress; stops it on cancel. `typed` is given to
+    the program as if typed in (a password it asks for). Returns (exit code, all output)."""
     head, tail, kept = "", [], 0  # the start and the last part of the output (long videos print a lot)
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            stdin=subprocess.PIPE if typed else subprocess.DEVNULL,
                             cwd=str(cwd) if cwd else None, env=env, creationflags=job_flags())
+    if typed:
+        try:  # (a few bytes: they fit in the pipe, so this never waits)
+            proc.stdin.write(typed)
+            proc.stdin.close()
+        except OSError:
+            pass
     buf = ""
     try:
         while True:

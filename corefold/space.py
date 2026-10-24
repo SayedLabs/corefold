@@ -451,11 +451,14 @@ def recycle(paths: list[Path]) -> int:
             except OSError:
                 pass
         return gone
-    from .uninstall import SHFILEOPSTRUCTW
+    from .uninstall import RECYCLE_FLAGS, SHFILEOPSTRUCTW
     op = SHFILEOPSTRUCTW()
     op.wFunc = 3  # FO_DELETE
     op.pFrom = "\0".join(str(p) for p in paths) + "\0"
-    op.fFlags = 0x04 | 0x10 | 0x40 | 0x400  # silent, no questions, to the Recycle Bin, no error windows
+    # silent, no questions, to the Recycle Bin, no error windows, and ask before anything would be deleted for
+    # good instead: a file too big for the Recycle Bin, or on a drive that has none (a USB stick, a network
+    # folder), otherwise goes for good without a word
+    op.fFlags = RECYCLE_FLAGS
     ctypes.windll.shell32.SHFileOperationW(ctypes.byref(op))
     return sum(1 for p in paths if not os.path.lexists(p))
 

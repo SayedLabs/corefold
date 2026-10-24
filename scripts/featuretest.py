@@ -871,4 +871,5 @@ else:
                      ("pdf stamps", pdf_stamps)):
         step(name, fn)
 print(f"featuretest: {len(problems)} problem(s)")
-sys.exit(1 if problems else 0)
+from testexit import finish  # (Qt can crash in Windows' tidy-up at exit, after every check passed)
+finish(1 if problems else 0)

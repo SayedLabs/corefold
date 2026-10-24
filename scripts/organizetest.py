@@ -485,4 +485,5 @@ for name, fn in (("plan and sort", plan_and_sort), ("folders not sorted", folder
 (OUT / f"organizetest-{LANG}.txt").write_text("\n".join(problems) or "none", "utf-8")
 print(f"organizetest: {len(problems)} problem(s)", flush=True)
 faulthandler.disable()
-os._exit(1 if problems else 0)
+from testexit import finish  # (Qt can crash in Windows' tidy-up at exit, after every check passed)
+finish(1 if problems else 0)

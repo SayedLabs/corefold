@@ -50,6 +50,9 @@ def _ui_error(e) -> str:
         "there's no space left in this account": tr("There's no space left in this account."),
         "there's no space left on this PC": tr("There's no space left on this PC."),
         "it isn't there any more": tr("It isn't there any more."),
+        cloud.CUT_OFF: tr("The download was cut off before the end, so it wasn't kept. Try again."),
+        cloud.NOT_THE_SAME: tr("The downloaded file isn't the same as the one in the account, so it wasn't kept. "
+                               "Try again."),
         "the service asks to wait a moment, try again soon": tr("The service asks to wait a moment. Try again "
                                                                  "soon."),
         "the service is having trouble right now, try again soon": tr("The service is having trouble right now. "

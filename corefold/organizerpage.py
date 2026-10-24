@@ -570,7 +570,7 @@ class OrganizerPage(QWidget):
         self.sort_btn.setText(tr("Sorting…"))
         self._show_state()
         self.job = work.run(lambda progress: organizer.sort(p, progress), lambda _: None, self._sorted,
-                            name="corefold-organizer-sort")
+                            name="corefold-organizer-sort", busy=True)
 
     def _sorted(self, result):
         if not work.alive(self):
@@ -609,7 +609,7 @@ class OrganizerPage(QWidget):
         self.problem.hide()
         self._show_state()
         self.job = work.run(lambda progress: organizer.undo(progress), lambda _: None, self._undone,
-                            name="corefold-organizer-undo")
+                            name="corefold-organizer-undo", busy=True)
 
     def _undone(self, result):
         if not work.alive(self):
@@ -626,6 +626,9 @@ class OrganizerPage(QWidget):
                                    count=result.renamed)
             if result.gone:
                 text += "\n" + tr("Moved or deleted since, so not put back: {count}", count=result.gone)
+            if result.changed:
+                text += "\n" + tr("A different file is in its place now, so it was left alone: {count}",
+                                   count=result.changed)
             if result.failed:
                 text += "\n" + tr("Open in a program: {count}. Close it and press Undo again.",
                                    count=len(result.failed))

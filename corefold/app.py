@@ -30,6 +30,7 @@ from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon
 
 from . import UPDATE_REPO, __version__, i18n, icons, ipc, shellmenu, sounds, updater, winutil
+from . import work as page_work
 from . import tools as all_tools
 from . import settings as settings_mod
 from .converters import PASSWORD_ERROR, Options, Result, Tool, pick, release_memory, run_job, warm_up
@@ -267,6 +268,7 @@ class Controller(QObject):
         self.ids = itertools.count(1)
         self.cancels: dict[int, threading.Event] = {}
         self.uninstall_busy = 0  # an app's uninstall or leftover removal is running (Apps page)
+        self.quit_pending = False  # the installer asked Corefold to close (see quit_for_installer)
         self.jobs: dict[int, dict] = {}  # id -> tool, files, bytes_in, params, rename, after
         self.browsers: list = []         # open archive windows
         self.viewers: list = []          # open picture and email windows
@@ -965,7 +967,8 @@ class Controller(QObject):
         def go(_progress):
             from . import organizer
             return organizer.auto_sort(Path(folder))
-        self._tidy_job = work.run(go, lambda _: None, lambda r, f=folder: self._tidied(f, r), name="corefold-tidy")
+        self._tidy_job = work.run(go, lambda _: None, lambda r, f=folder: self._tidied(f, r), name="corefold-tidy",
+                                  busy=True)
 
     def _tidied(self, folder: str, result):
         self._tidy_job = None
@@ -996,7 +999,8 @@ class Controller(QObject):
             if not isinstance(result, Exception) and result.back:
                 self.toast.notify(tr("Put back"), tr("Put 1 file back where it was.") if result.back == 1 else
                                   tr("Put {count} files back where they were.", count=result.back), linger_ms=4000)
-        self._untidy_job = work.run(lambda p: organizer.undo(p), lambda _: None, done, name="corefold-untidy")
+        self._untidy_job = work.run(lambda p: organizer.undo(p), lambda _: None, done, name="corefold-untidy",
+                                    busy=True)
 
     def _capture_tool(self):
         """Corefold Capture's shortcuts are only there while it's in use."""
@@ -1285,7 +1289,13 @@ class Controller(QObject):
 
     def handle_message(self, text: str):
         word, _, rest = text.partition("\n")
+        word = word.strip()
         lines = [line.strip() for line in rest.split("\n") if line.strip()]
+        if word == "quit":  # the installer, before it updates or removes Corefold
+            self.quit_for_installer()
+            return
+        if self.quit_pending:  # (closing for the installer: nothing new is started)
+            return
         if word == "show":
             self.show_window(lines[0] if lines and lines[0] in PAGE_NAMES else None)
         elif word == "convert":
@@ -1739,6 +1749,10 @@ class Controller(QObject):
 
     def start_job(self, tool: Tool, files: list[Path], params: dict | None = None, rename: dict | None = None,
                   after: str | None = None, carry: dict | None = None):
+        if self.quit_pending:
+            self.toast.notify(tr("Corefold is closing for an update"), tr("Try again in a moment, when it's back."),
+                              linger_ms=4000)
+            return
         self.tidy_timer.stop()
         job_id = next(self.ids)
         cancel = threading.Event()
@@ -2199,8 +2213,31 @@ class Controller(QObject):
                 self.usignals.failed.emit(tr("something went wrong"))
         threading.Thread(target=work, daemon=True).start()
 
+    def busy_with_files(self) -> bool:
+        """Something is converting, sorting, moving or changing files: stopped now, it'd be left half-done."""
+        return bool(self.cancels) or bool(self.uninstall_busy) or page_work.busy()
+
+    def quit_for_installer(self):
+        """The installer asks Corefold to close (to update or remove it). What's running finishes first and
+        nothing new starts; the installer waits for it (and only stops Corefold itself if it never closes)."""
+        if not self.quit_pending:
+            self.quit_pending = True
+            log.info("the installer asked Corefold to close")
+            try:  # (tells the installer it was heard: older versions don't answer, so it stops those itself)
+                LOG_DIR.mkdir(parents=True, exist_ok=True)
+                (LOG_DIR / "closing-for-installer").write_text(str(os.getpid()), encoding="utf-8")
+            except OSError:
+                pass
+            if self.busy_with_files():
+                self.toast.notify(tr("Closing for the update"),
+                                  tr("Corefold closes as soon as what it's doing is finished."), linger_ms=6000)
+        if self.busy_with_files():
+            QTimer.singleShot(500, self.quit_for_installer)
+            return
+        self.quit()
+
     def _update_downloaded(self, path: str):
-        if self.cancels or self.uninstall_busy:  # let running conversions (or an uninstall) finish first
+        if self.busy_with_files():  # let running conversions (or an uninstall, a sort…) finish first
             QTimer.singleShot(2000, lambda: self._update_downloaded(path))
             return
         self.toast.finish(UPDATE_JOB_ID, tr("Installing the update…"), tr("Corefold will be back in a moment."),
@@ -2232,6 +2269,10 @@ class Controller(QObject):
         """Quit, but check first if a conversion would be stopped half-way."""
         if self.uninstall_busy:  # moving an app's leftovers into its backup: never stop half-way
             self.toast.notify(tr("Corefold is busy"), tr("It's removing an app's leftovers. Quit when that's done."),
+                              linger_ms=5000)
+            return
+        if page_work.busy():  # sorting, putting back or changing files: never stop half-way
+            self.toast.notify(tr("Corefold is busy"), tr("It's sorting or changing files. Quit when that's done."),
                               linger_ms=5000)
             return
         if self.cancels:

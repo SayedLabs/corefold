@@ -1487,6 +1487,8 @@ class SpacePage(QWidget):
         admin = [j.key for j in chosen if j.admin]
         text = tr("{size} of temporary files and caches will be deleted. This can't be undone (old installers go "
                   "to the Recycle Bin).", size=human_size(total))
+        if any(j.key == "bin" for j in chosen):
+            text += "\n\n" + tr("The Recycle Bin is emptied too: what's in it is deleted for good.")
         if admin:
             text += "\n\n" + tr("Windows asks for an administrator for the Windows files.")
         if not _confirm(self, tr("Clean up?"), text, tr("Clean up")):
@@ -1506,7 +1508,7 @@ class SpacePage(QWidget):
                 else:
                     freed += int(answer.get("freed") or 0)
             return freed
-        self.job = _work(work, lambda _: None, self._cleaned)
+        self.job = _work(work, lambda _: None, self._cleaned, busy=True)
 
     def _cleaned(self, freed):
         if not _alive(self):

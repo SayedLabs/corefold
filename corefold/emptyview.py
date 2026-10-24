@@ -279,7 +279,7 @@ class EmptyFoldersDialog(QDialog):
         self.pick_btn.setEnabled(False)
         self._status(tr("Sending them to the Recycle Bin…"))
         self.job = work.run(lambda progress: emptyfolders.remove(chosen), lambda _: None,
-                            lambda gone: self._removed(chosen, gone), name="corefold-empty")
+                            lambda gone: self._removed(chosen, gone), name="corefold-empty", busy=True)
 
     def _removed(self, chosen, gone):
         if not work.alive(self):

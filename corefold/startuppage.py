@@ -552,7 +552,7 @@ class StartupPage(QWidget):
         self.busy += 1
         self.refresh_btn.setEnabled(False)
         job = work.run(lambda _p: startup.set_on(e, not later), lambda _: None,
-                       lambda result, r=row: self._later_done(r, later, result), name="corefold-startup-later")
+                       lambda result, r=row: self._later_done(r, later, result), name="corefold-startup-later", busy=True)
         self.switching.append(job)
 
     def _later_done(self, row: EntryRow, later: bool, result):
@@ -605,7 +605,7 @@ class StartupPage(QWidget):
         self.clean_btn.setEnabled(False)
         # (the job is kept until its answer is in: an answer whose job was thrown away never arrives)
         job = work.run(lambda _p: startup.set_on(e, on), lambda _: None,
-                       lambda result, r=row, want=on: self._switched(r, want, result), name="corefold-startup-switch")
+                       lambda result, r=row, want=on: self._switched(r, want, result), name="corefold-startup-switch", busy=True)
         self.switching.append(job)
 
     def _switched(self, row: EntryRow, want: bool, result):
@@ -655,7 +655,7 @@ class StartupPage(QWidget):
         self.clean_btn.setEnabled(False)
         self.problem.hide()
         job = work.run(lambda _p: startup.remove_leftovers(gone), lambda _: None,
-                       lambda result, n=len(gone): self._removed(n, result), name="corefold-startup-clean")
+                       lambda result, n=len(gone): self._removed(n, result), name="corefold-startup-clean", busy=True)
         self.switching.append(job)
 
     def _removed(self, asked: int, result):
