@@ -74,6 +74,8 @@ jobs:
           $py = ".venv\Scripts\python.exe"
           & vendor\ffmpeg\ffmpeg.exe -hide_banner -version *> out/ffmpeg-version.txt
           & vendor\ffmpeg\ffmpeg.exe -hide_banner -encoders *> out/ffmpeg-encoders.txt
+          & vendor\ffmpeg\ffmpeg.exe -hide_banner -y -f gdigrab -framerate 30 -t 2 -i desktop -c:v libx264 -pix_fmt yuv420p out/gdigrab.mp4 *> out/gdigrab.txt
+          Get-Content out/gdigrab.txt -Tail 5
           & $py scripts/selftest.py *> out/selftest.txt
           & $py scripts/featuretest.py *> out/featuretest.txt
           & $py scripts/stress.py out/stress *> out/stress.txt
