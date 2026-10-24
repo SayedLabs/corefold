@@ -852,6 +852,13 @@ def editor():
     check(ed.order == [0, 1, 3], "Undo puts it back")
     ed.redo()
     check(ed.order == [0, 3, 1] and ed.thumb_list.item(1).data(Qt.UserRole) == 3, "Redo moves it again")
+    ed.thumb_list.clearSelection()
+    ed.thumb_list.item(2).setSelected(True)
+    QTest.keyClick(ed.thumb_list, Qt.Key_Delete)
+    check(ed.order == [0, 3], f"Delete in the list of pages deletes the picked one ({ed.order})")
+    ed.undo()
+    check(ed.order == [0, 3, 1], "…and Undo brings it back")
+    view.setFocus()
     told = []
     real_tell = c.tell
     c.tell = lambda title, detail: told.append(detail)

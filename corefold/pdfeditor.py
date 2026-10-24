@@ -904,6 +904,25 @@ class FoundMarks(QGraphicsItem):
             p.drawRoundedRect(r.adjusted(-1, -1, 1, 1), 1.5, 1.5)
 
 
+class PagesList(QListWidget):
+    """The list of pages at the side. Delete deletes the picked pages, Ctrl + ↑ ↓ move them (only while the list
+    itself has the keyboard: elsewhere those keys are the pages' own)."""
+
+    def __init__(self, editor: "PdfEditor"):
+        super().__init__()
+        self.editor = editor
+
+    def keyPressEvent(self, e):
+        if e.key() == Qt.Key_Delete:
+            if self.selectedItems():  # (only pages picked here: never the page that just happens to be in sight)
+                self.editor.delete_pages()
+            return
+        if e.modifiers() & Qt.ControlModifier and e.key() in (Qt.Key_Up, Qt.Key_Down):
+            self.editor.move_pages(-1 if e.key() == Qt.Key_Up else 1)
+            return
+        super().keyPressEvent(e)
+
+
 class EditorView(QGraphicsView):
     """The pages one under the other, with the tools' mouse work."""
 
@@ -1344,7 +1363,7 @@ class PdfEditor(QWidget):
         sl = QVBoxLayout(self.side)
         sl.setContentsMargins(0, 0, 0, 0)
         sl.setSpacing(4)
-        self.thumb_list = QListWidget()
+        self.thumb_list = PagesList(self)
         self.thumb_list.setObjectName("history")
         self.thumb_list.setIconSize(THUMB)
         self.thumb_list.setSpacing(2)
@@ -1371,7 +1390,6 @@ class PdfEditor(QWidget):
             acts.addWidget(b)
         acts.addStretch()
         sl.addLayout(acts)
-        QShortcut(QKeySequence(Qt.Key_Delete), self.thumb_list, self.delete_pages, context=Qt.WidgetShortcut)
         body.addWidget(self.side)
         self.view = EditorView(self)
         body.addWidget(self.view, 1)
@@ -1686,11 +1704,11 @@ class PdfEditor(QWidget):
             self.where.setText(tr("Page {number} of {count}", number=self.position.get(best, 0) + 1,
                                   count=len(self.order)))
             it = self.thumb_items.get(best)
-            if it is not None and not it.isSelected() and len(self.thumb_list.selectedItems()) <= 1:
-                self.thumb_list.blockSignals(True)
-                self.thumb_list.setCurrentItem(it)
+            if it is not None and not self.thumb_list.selectedItems():
+                from PySide6.QtCore import QItemSelectionModel
+                self.thumb_list.selectionModel().setCurrentIndex(self.thumb_list.indexFromItem(it),
+                                                                 QItemSelectionModel.NoUpdate)
                 self.thumb_list.scrollToItem(it)
-                self.thumb_list.blockSignals(False)
 
     # ---- the pages: their order, turned, deleted (the list at the side)
 
@@ -2234,6 +2252,10 @@ class PdfEditor(QWidget):
         return [i for i in self.scene.selectedItems() if isinstance(i, (Mark, TextMark, OldPiece))]
 
     def selection_changed(self):
+        if self.scene.selectedItems() and self.thumb_list.selectedItems():
+            self.thumb_list.clearSelection()  # (Delete is for what's picked on the page now)
+            if self.thumb_list.hasFocus():
+                self.view.setFocus()
         if not self._filling:
             self._refresh()
 

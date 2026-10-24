@@ -897,6 +897,7 @@ def page_part():
         page.upload([src / "notes.txt"])
         check(len(page.queue) == 1, "a second upload waits its turn")
         check(until(lambda: not page._working() and not page.queue, 15), "both finish")
+        until(lambda: all(t.state == "done" for t in page.transfers), 5)
         states = [t.state for t in page.transfers]
         check(page.transfers_btn.isVisible() and states.count("done") >= 2 and page.transfer_list.count() >= 2,
               f"both are in the list of transfers, done ({states})")
