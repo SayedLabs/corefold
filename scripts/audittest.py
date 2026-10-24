@@ -333,12 +333,14 @@ def zip_bombs():
     if WINDOWS and archives.find_7z():
         big = folder / "big.7z"
         src = fresh("bombs-src")
-        (src / "zeros.bin").write_bytes(bytes(300 * 2 ** 20))
+        with open(src / "zeros.bin", "wb") as f:  # (1 GB: big enough that 7-Zip is still writing when it's checked)
+            for _ in range(64):
+                f.write(bytes(16 * 2 ** 20))
         subprocess.run([archives.find_7z(), "a", "-t7z", "-mx1", str(big), str(src / "zeros.bin")],
                        capture_output=True, check=True)
         free = shutil.disk_usage(folder).free
         old_reserve = archives.RESCUE_RESERVE
-        archives.RESCUE_RESERVE = free - 100 * 2 ** 20  # (as if only 100 MB more could be written)
+        archives.RESCUE_RESERVE = free - 300 * 2 ** 20  # (as if only 300 MB more could be written)
         try:
             err = ""
             try:
@@ -537,8 +539,10 @@ def clipboard_wiped():
     folder = fresh("clip-old")
     db = sqlite3.connect(str(folder / "history.db"))
     db.execute("PRAGMA journal_mode=WAL")
-    db.execute("CREATE TABLE items (id INTEGER PRIMARY KEY, text TEXT)")
-    db.execute("INSERT INTO items (text) VALUES (?)", (secret * 50,))
+    db.execute("CREATE TABLE items (id INTEGER PRIMARY KEY, kind TEXT NOT NULL, text TEXT, html TEXT, image TEXT,"
+               " width INTEGER, height INTEGER, digest TEXT UNIQUE NOT NULL, pinned INTEGER DEFAULT 0, created REAL,"
+               " used REAL, app TEXT, size INTEGER)")  # (the history as Corefold 1.9 made it)
+    db.execute("INSERT INTO items (kind, text, digest) VALUES ('text', ?, 'x')", (secret * 50,))
     db.commit()
     db.execute("DELETE FROM items")
     db.commit()
