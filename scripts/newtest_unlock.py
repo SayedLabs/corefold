@@ -242,7 +242,7 @@ def core():
               and order.index(str(box / "sub" / "b.txt")) < order.index(str(box / "sub")),
               f"the order empties each folder before the folder itself ({order})")
         # a junction inside is only the junction: what it points at is never on the list
-        outside = TMP / "outside"
+        outside = TMP / "junction-target"
         outside.mkdir()
         (outside / "keep.txt").write_text("not to be deleted\n")
         jbox = TMP / "with-junction"

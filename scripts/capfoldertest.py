@@ -161,11 +161,13 @@ def main():
     img.fill(QColor("#3cc7b2"))
     c.settings.cap_after = "copy"
     cap._picked(img, QRect(0, 0, 320, 200))
+    until(lambda: list(pics.glob("Screenshot *.png")), 10)  # (written on a thread)
     shots = list(pics.glob("Screenshot *.png"))
     check(len(shots) == 1, f"a screenshot is saved in the picked folder ({[p.name for p in shots]})")
     from corefold.capview import CaptureEditor
     ed = CaptureEditor(c, img)
-    check(ed.save() and ed.saved.parent == pics, "the editor's Save uses it too")
+    ed.save()
+    check(until(lambda: ed.saved is not None, 10) and ed.saved.parent == pics, "the editor's Save uses it too")
     ed.close()
     opened.clear()
     click(win, tr("Open"))

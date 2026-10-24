@@ -778,9 +778,11 @@ class CaptureEditor(QWidget):
                 then()
         write_later(self.canvas.result(), path, done)
 
-    def save(self, then=None):
+    def save(self, then=None) -> bool:
+        """Starts saving (see _write); self.saved is the file once it's there."""
         from .capture import new_name, screenshots_folder
         self._write(self.saved or new_name(screenshots_folder(), ".png"), then, toast=True)
+        return True
 
     def save_as(self):
         from .capture import new_name, screenshots_folder
