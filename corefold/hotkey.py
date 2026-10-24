@@ -20,13 +20,13 @@ SHORTCUTS = {
     "ctrl+alt+v": (MOD_CONTROL | MOD_ALT, 0x56), "ctrl+`": (MOD_CONTROL, 0xC0),
     "ctrl+printscreen": (MOD_CONTROL, VK_SNAPSHOT), "printscreen": (0, VK_SNAPSHOT),
     "win+shift+a": (MOD_WIN | MOD_SHIFT, 0x41), "ctrl+shift+printscreen": (MOD_CONTROL | MOD_SHIFT, VK_SNAPSHOT),
-    "win+shift+r": (MOD_WIN | MOD_SHIFT, 0x52), "off": None,
+    "win+shift+r": (MOD_WIN | MOD_SHIFT, 0x52), "win+shift+t": (MOD_WIN | MOD_SHIFT, 0x54), "off": None,
 }
 SHORTCUT_NAMES = {
     "win+alt+v": "Win + Alt + V", "ctrl+shift+v": "Ctrl + Shift + V", "ctrl+alt+v": "Ctrl + Alt + V",
     "ctrl+`": "Ctrl + `", "ctrl+printscreen": "Ctrl + Print Screen", "printscreen": "Print Screen",
     "win+shift+a": "Win + Shift + A", "ctrl+shift+printscreen": "Ctrl + Shift + Print Screen",
-    "win+shift+r": "Win + Shift + R",
+    "win+shift+r": "Win + Shift + R", "win+shift+t": "Win + Shift + T",
 }
 
 

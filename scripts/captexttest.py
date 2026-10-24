@@ -335,6 +335,36 @@ def english_more(cv, ed, drag, where, real):
     settle(0.05)
     check(cv.picked_text() == "" and ed.isVisible() and not ed.pill.isVisible(), "Esc lets go of the words "
           "(and keeps the editor open)")
+    # a box (Alt+drag, or a drag from a spot with no words) picks just the words inside it, line by line
+    def box_of(word):
+        w = next(w for ln in cv.text.lines for w in ln.words if w.text == word)
+        return cv.to_widget(QRectF(w.x, w.y, w.w, w.h))
+    a, b = box_of("notes"), box_of("invoice")
+    tl, br = QPoint(round(a.left()) - 2, round(a.top()) - 2), QPoint(round(b.right()) + 2, round(b.bottom()) + 2)
+    QTest.mousePress(cv, Qt.LeftButton, Qt.AltModifier, tl)
+    for k in range(1, 9):
+        QTest.mouseMove(cv, tl + (br - tl) * (k / 8))
+        qapp.processEvents()
+    QTest.mouseRelease(cv, Qt.LeftButton, Qt.AltModifier, br)
+    settle(0.1)
+    box = QRectF(QPointF(tl), QPointF(br))
+    want = "\n".join(" ".join(w.text for w in ln.words
+                              if box.contains(cv.to_widget(QRectF(w.x, w.y, w.w, w.h)).center()))
+                     for ln in cv.text.lines[:2])
+    check(cv.picked_text() == want and not cv.picked_text().startswith("Meeting") and "Send" not in cv.picked_text(),
+          f"a box picks only the words inside it, not whole lines ({cv.picked_text()!r})")
+    ed.grab().save(str(OUT / f"{LANG}-{LOOK}-5-box.png"))
+    QTest.mouseClick(cv, Qt.LeftButton, Qt.ControlModifier, where("Sara"))
+    settle(0.05)
+    check(cv.picked_text().endswith("Sara"), f"Ctrl+click adds a word ({cv.picked_text()!r})")
+    QTest.mouseClick(cv, Qt.LeftButton, Qt.ControlModifier, where("Sara"))
+    settle(0.05)
+    check(cv.picked_text() == want, f"Ctrl+click on it again takes it away ({cv.picked_text()!r})")
+    QTest.mouseClick(cv, Qt.LeftButton, Qt.ControlModifier, where("notes"))
+    settle(0.05)
+    check("notes" not in cv.picked_text() and cv.picked_text() != "", f"…any picked word ({cv.picked_text()!r})")
+    QTest.keyClick(ed, Qt.Key_Escape)
+    settle(0.05)
     # a click away from the words picks nothing
     QTest.mouseClick(cv, Qt.LeftButton, Qt.NoModifier, cv.to_widget(QRectF(450, 400, 1, 1)).center().toPoint())
     check(cv.picked_text() == "", "a click away from the words picks nothing")

@@ -943,7 +943,7 @@ class Controller(QObject):
             self.capture = None
 
     def _cap_settings(self) -> tuple:
-        return (self.settings.cap_shortcut,)
+        return (self.settings.cap_shortcut, self.settings.cap_text_shortcut)
 
     def _awake_tool(self):
         """Corefold Awake's tray menu is only there while it's in use (and removing it lets the PC sleep)."""

@@ -25,7 +25,7 @@ from .settings import (ACCENTS, APP_NAME, DEFAULT_ACCENT, APPEARANCES, HOVER_STY
                        WHEEL_POSITIONS, WHEEL_SIZE_NAMES, WHEEL_STYLES, WINDOW_TEXT, installed_uninstaller,
                        ARCHIVE_KEYS, BACKUP_DAYS, CONVERTER_KEYS, EXTRACT_MODES, FORMAT_KEYS, GENERAL_KEYS,
                        SLIDESHOW_SECONDS, VIEWER_KEYS, VIEWER_WHEEL, CLIP_DAYS, CLIP_MAX, CLIP_SHORTCUTS, CLIPBOARD_KEYS,
-                       CAP_AFTER, CAP_DELAY, CAP_SHORTCUTS, CAPTURE_KEYS, PLAYER_KEYS, PLAYER_SKIP,
+                       CAP_AFTER, CAP_DELAY, CAP_SHORTCUTS, CAP_TEXT_SHORTCUTS, CAPTURE_KEYS, PLAYER_KEYS, PLAYER_SKIP,
                        PLAYER_WHEEL,
                        LOOK_KEYS, UNINSTALL_DEPTHS, UNINSTALLER_KEYS, UNUSED_MONTHS, WHEEL_KEYS, editable_keys, set_startup,
                        startup_enabled)
@@ -2674,7 +2674,7 @@ class MainWindow(QWidget):
         from .pdfpage import PdfPage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
         header = tool_header("pdf", tr("Corefold PDF"),
-                             tr("Merge, split and arrange PDFs, shrink them, and lock them with a password."),
+                             tr("Change what's in a PDF, merge, split and arrange its pages, shrink it and lock it."),
                              dark, dpr)
         self.pdf_page = PdfPage(self.c, header)
         return self.pdf_page
@@ -2913,6 +2913,8 @@ class MainWindow(QWidget):
         bits = []
         if s.cap_shortcut != "off":
             bits.append(tr("Screenshot: {key}", key=SHORTCUT_NAMES.get(s.cap_shortcut, "")))
+        if s.cap_text_shortcut != "off":
+            bits.append(tr("Copy text from the screen: {key}", key=SHORTCUT_NAMES.get(s.cap_text_shortcut, "")))
         self.capture_keys.setText("   ·   ".join(bits) or tr("Pick shortcuts in Settings to capture from any app."))
         lay = self.captures_lay
         while lay.count():
@@ -2961,8 +2963,14 @@ class MainWindow(QWidget):
         for key, text in CAP_AFTER.items():
             self.cap_after.addItem(tr(text), key)
         self.cap_after.setCurrentIndex(max(0, self.cap_after.findData(s.cap_after)))
+        self.cap_text_shortcut = Dropdown()
+        for key, text in CAP_TEXT_SHORTCUTS.items():
+            self.cap_text_shortcut.addItem(tr(text) if key == "off" else text, key)
+        self.cap_text_shortcut.setCurrentIndex(max(0, self.cap_text_shortcut.findData(s.cap_text_shortcut)))
         grid.addWidget(label(tr("Take a screenshot with")), 0, 0)
         grid.addWidget(self.cap_shortcut, 0, 1)
+        grid.addWidget(label(tr("Copy the text on the screen with")), 3, 0)
+        grid.addWidget(self.cap_text_shortcut, 3, 1)
         grid.addWidget(label(tr("After a screenshot")), 1, 0)
         grid.addWidget(self.cap_after, 1, 1)
         self.cap_delay = Dropdown()
@@ -2999,7 +3007,7 @@ class MainWindow(QWidget):
         bl.addLayout(row)
         self._show_cap_folder()
         lay.addWidget(box)
-        for combo in (self.cap_shortcut, self.cap_after, self.cap_delay):
+        for combo in (self.cap_shortcut, self.cap_text_shortcut, self.cap_after, self.cap_delay):
             combo.currentIndexChanged.connect(self._cap_setting_changed)
         lay.addLayout(_reset_row(lambda: self.reset_to_defaults(CAPTURE_KEYS)))
         lay.addStretch()
@@ -3034,6 +3042,7 @@ class MainWindow(QWidget):
     def _cap_setting_changed(self, *_):
         s = self.c.settings
         s.cap_shortcut = self.cap_shortcut.currentData()
+        s.cap_text_shortcut = self.cap_text_shortcut.currentData()
         s.cap_after = self.cap_after.currentData()
         s.cap_delay = self.cap_delay.currentData()
         s.cap_save = self.cap_save.isChecked()

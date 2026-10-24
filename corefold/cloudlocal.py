@@ -11,12 +11,18 @@ import errno
 import json
 import logging
 import os
+import shutil
 import stat
 import string
+import threading
 import time
 from pathlib import Path
 
-from .cloud import Account, Client, CloudError, Entry
+from .cloud import FOLDER, Account, Client, CloudError, Entry
+
+ADDED_FILE = FOLDER / "folders.json"   # cloud folders the person added by hand (only their places: nothing secret)
+_added_lock = threading.Lock()
+SPACE_S = 20.0                         # how long adding up a big cloud folder's files may take
 
 log = logging.getLogger("corefold")
 
@@ -139,7 +145,101 @@ def find() -> list[Account]:
             look(add)
         except Exception:  # (one odd app setup must never hide the others)
             log.exception("cloud folders: %s", look.__name__)
+    for service, folder in _load_added():
+        add(service, folder)
+        if found and os.path.normcase(found[-1].local) == os.path.normcase(str(folder)):
+            found[-1].extra["added"] = True
     return found
+
+
+# ----------------------------------------------------------------------------- folders added by hand
+
+def guess_service(folder) -> str:
+    """Which cloud a folder belongs to, from its name or its drive's (any other folder is just "folder")."""
+    p = Path(folder)
+    names = [n.casefold() for n in (p.name, *(q.name for q in p.parents)) if n]
+    try:
+        if not p.name and _label(str(p)) == "Google Drive":
+            return "gdrive"
+    except OSError:
+        pass
+    for service, words in (("onedrive", ("onedrive",)), ("dropbox", ("dropbox",)),
+                           ("gdrive", ("google drive", "my drive", "googledrive")),
+                           ("icloud", ("iclouddrive", "icloud drive"))):
+        if any(w in n for n in names for w in words):
+            return service
+    return "folder"
+
+
+def _load_added() -> list[tuple[str, Path]]:
+    with _added_lock:
+        try:
+            data = json.loads(ADDED_FILE.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return []
+    out = []
+    for d in data if isinstance(data, list) else []:
+        if isinstance(d, dict) and isinstance(d.get("folder"), str) and d["folder"]:
+            out.append((str(d.get("service") or "folder"), Path(d["folder"])))
+    return out
+
+
+def _save_added(items: list[tuple[str, Path]]):
+    with _added_lock:
+        FOLDER.mkdir(parents=True, exist_ok=True)
+        tmp = ADDED_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps([{"service": s, "folder": str(f)} for s, f in items]), encoding="utf-8")
+        os.replace(tmp, ADDED_FILE)
+
+
+def add_folder(folder) -> Account:
+    """Adds a folder (a cloud app's folder somewhere Corefold didn't look, or any synced folder) to Cloud."""
+    p = Path(os.path.abspath(str(folder)))
+    if not p.is_dir():
+        raise CloudError("it isn't there any more")
+    service = guess_service(p)
+    items = [(s, f) for s, f in _load_added() if os.path.normcase(str(f)) != os.path.normcase(str(p))]
+    _save_added(items + [(service, p)])
+    return Account(service, "", extra={"local": str(p), "added": True})
+
+
+def remove_folder(folder):
+    """Takes an added folder off the list (nothing in it is touched)."""
+    key = os.path.normcase(os.path.abspath(str(folder)))
+    _save_added([(s, f) for s, f in _load_added() if os.path.normcase(os.path.abspath(str(f))) != key])
+
+
+def space(acc: Account, cancel=None) -> tuple[int, int]:
+    """(used, total) for a cloud folder on this PC. A whole drive (Google Drive's) tells both, as the account's
+    space; a folder only tells what its files take (adding them up, also those kept online only), total 0."""
+    root = Path(acc.local)
+    if not root.name:
+        try:
+            u = shutil.disk_usage(str(root))
+            return u.used, u.total
+        except OSError:
+            return 0, 0
+    used = 0
+    deadline = time.monotonic() + SPACE_S
+    stack = [str(root)]
+    while stack and time.monotonic() < deadline:
+        if cancel is not None and cancel.is_set():
+            break
+        try:
+            with os.scandir(stack.pop()) as it:
+                for d in it:
+                    try:
+                        if d.is_symlink() or _skipped(d):
+                            continue
+                        if d.is_dir(follow_symlinks=False):
+                            stack.append(d.path)
+                        else:
+                            used += d.stat(follow_symlinks=False).st_size
+                    except OSError:
+                        continue
+        except OSError:
+            continue
+    return used, 0
 
 
 # ----------------------------------------------------------------------------- working with them
