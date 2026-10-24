@@ -1,5 +1,6 @@
 """Checks the everyday things each tool should do (as other apps do), on a real Windows PC:
-- the Uninstaller's right-click menu and saving its list; which copies Space ticks;
+- the Uninstaller's right-click menu and saving its list, and its app updates (winget); which copies
+  Space ticks;
 - after converting: keep the original's date, send the original to the Recycle Bin;
 - after extracting: open the folder, send the archive (all its parts) to the Recycle Bin; Extract to…;
 - the Viewer going round a folder, its mouse side buttons, copying the path and dragging a picture out;
@@ -27,7 +28,7 @@ try:
 except (AttributeError, ValueError):
     pass
 import faulthandler  # noqa: E402
-faulthandler.dump_traceback_later(280, exit=True)  # stuck somewhere: say where, and stop
+faulthandler.dump_traceback_later(420, exit=True)  # stuck somewhere: say where, and stop
 
 problems = []
 
@@ -62,6 +63,13 @@ def set_dates(path: Path, when: float):
     ft.dwLowDateTime, ft.dwHighDateTime = value & 0xFFFFFFFF, value >> 32
     k32.SetFileTime(wintypes.HANDLE(h), ctypes.byref(ft), None, None)
     k32.CloseHandle(wintypes.HANDLE(h))
+
+
+def _try(fn):
+    try:
+        return fn()
+    except Exception as e:
+        return e
 
 
 def main():
@@ -215,6 +223,51 @@ def main():
         check("Uninstall" in seen and any(t.startswith("Search the web") for t in seen) and "Copy the name" in seen,
               f"right-clicking an app offers Uninstall, a web search and copying its name ({seen})")
     step("the Uninstaller's list", uninstaller_list)
+
+    def app_updates():
+        from PySide6.QtCore import Qt
+        from corefold import appspage, appupdates as au
+        sample = ("\r   - \r   \\ \rName              Id                Version  Available Source\n"
+                  "----------------------------------------------------------------\n"
+                  "Microsoft Edge    Microsoft.Edge    118.0.1  119.0.2   winget\n"
+                  "A long app name…  Some.LongId…      1.0      2.0       winget\n"
+                  "2 upgrades available.\n")
+        got = au.parse(sample)
+        check([(u.name, u.id, u.version, u.available) for u in got] == [("Microsoft Edge", "Microsoft.Edge", "118.0.1",
+                                                                         "119.0.2")],
+              f"winget's table is read (a cut-off id is left out) ({got})")
+        if au.winget():
+            import threading
+            t0, box = time.time(), []
+            threading.Thread(target=lambda: box.append(_try(au.check)), daemon=True).start()
+            if wait(lambda: bool(box), 100):
+                real = box[0]
+                check(isinstance(real, list) and all(u.id and u.available for u in real),
+                      f"this PC's apps with a newer version, from winget in {time.time() - t0:.0f} s: "
+                      f"{[(u.id, u.version, u.available) for u in real][:8] if isinstance(real, list) else real!r}")
+            else:
+                print("note  winget took over 100 s (it may be setting itself up): not waited for", flush=True)
+        else:
+            print("note  no winget on this PC: only the table and the window are checked", flush=True)
+        check(w.apps_page.b_updates.isVisible(), "the Uninstaller has an Updates… button")
+        fake = [au.Update("Cf App One", "Cf.One", "1.0", "1.1"), au.Update("Cf App Two", "Cf.Two", "2.0", "3.0")]
+        real_check, real_update = au.check, au.update
+        au.check = lambda: list(fake)
+        au.update = lambda u: (u.id == "Cf.One", "" if u.id == "Cf.One" else "Installer failed with exit code: 1603")
+        try:
+            d = appspage.UpdatesDialog(w.windowIcon())
+            d.show()
+            check(wait(lambda: not d.busy, 10) and d.tree.topLevelItemCount() == 2, "the updates are listed, ticked")
+            d.update_ticked()
+            check(wait(lambda: not d.busy, 10), "updating finishes")
+            states = [d.tree.topLevelItem(i).text(3) for i in range(2)]
+            check(states == ["Updated", "Couldn't update"] and "1603" in d.tree.topLevelItem(1).toolTip(3)
+                  and d.changed, f"each one says how it went ({states}, {d.status.text()!r})")
+            check(d.b_update.isEnabled(), "the one that failed can be tried again")
+            d.close()
+        finally:
+            au.check, au.update = real_check, real_update
+    step("app updates", app_updates)
 
     def space_copies():
         from PySide6.QtWidgets import QMenu
