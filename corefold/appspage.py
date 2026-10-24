@@ -312,6 +312,7 @@ class AppsPage(QWidget):
             h.setSectionResizeMode(col, QHeaderView.ResizeToContents)
         self.tree.itemSelectionChanged.connect(self._selection)
         self.tree.itemDoubleClicked.connect(lambda *_: self.uninstall_selected())
+        self.tree.setMinimumHeight(60)  # (a small window: the list gives way, not the words above it)
         lay.addWidget(self.tree, 1)
 
         self.status = _label(tr("Loading the list of apps…"), "muted")

@@ -189,7 +189,7 @@ def page(page_name: str, what: str, wait: float = 0.8):
 
 step("home", home)
 step("search", search)
-step("store", page("Store", "store"))
+step("store", page("Files", "store"))
 step("apps", page("Apps", "apps", 15.0))
 
 

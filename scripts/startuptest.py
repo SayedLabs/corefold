@@ -404,12 +404,12 @@ def page():
     w = c.window
     w.resize(1100, 740)
     settle(0.6)
-    check("Startup" not in w.nav_rows, "removed in the Store: not in the sidebar")
-    check("corefold.startuppage" not in sys.modules, "removed in the Store: its page isn't loaded at all")
+    check(not w.shows("Startup"), "switched off: not shown")
+    check("corefold.startuppage" not in sys.modules, "switched off: its page isn't loaded at all")
     c.set_tool("startup", True)
     settle(0.6)
     w = c.window
-    check("Startup" in w.nav_rows, "added from the Store: in the sidebar")
+    check(w.shows("Startup"), "switched on: shown in its section")
     w.resize(1100, 740)
     w.open_page("Startup")
     pg = w.startup_page
@@ -532,7 +532,7 @@ def page():
         w.grab().save(str(OUT / f"startup-{small[0]}-{LANG}-{LOOK}.png"))
     c.set_tool("startup", False)
     settle(0.5)
-    check("Startup" not in c.window.nav_rows, "removed again: gone from the sidebar")
+    check(not c.window.shows("Startup"), "switched off again: not shown")
     check(not errors, f"no errors behind any click ({len(errors)})")
 
 

@@ -12,7 +12,7 @@ from . import icons
 from .theme import mix
 
 ICON_ROLE = Qt.UserRole + 1     # the row's icon in icons.py
-BADGE_ROLE = Qt.UserRole + 2    # a small number on the row (tools you can add, on the Store)
+BADGE_ROLE = Qt.UserRole + 2    # a small number on the row
 COMPACT_WIDTH = 64              # the sidebar with icons only
 COMPACT_BELOW = 120             # narrower than this, rows show their icon only
 

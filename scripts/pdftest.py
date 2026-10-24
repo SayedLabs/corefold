@@ -278,12 +278,12 @@ def page():
     w = c.window
     w.resize(1100, 740)
     settle(0.6)
-    check("PDF" not in w.nav_rows, "removed in the Store: not in the sidebar")
-    check("corefold.pdfpage" not in sys.modules, "removed in the Store: its page isn't loaded")
+    check(not w.shows("PDF"), "switched off: not shown")
+    check("corefold.pdfpage" not in sys.modules, "switched off: its page isn't loaded")
     c.set_tool("pdf", True)
     settle(0.6)
     w = c.window
-    check("PDF" in w.nav_rows, "added from the Store: in the sidebar")
+    check(w.shows("PDF"), "switched on: shown in its section")
     w.resize(1100, 740)
     w.open_page("PDF")
     settle(0.6)
@@ -474,7 +474,7 @@ def page():
         w.grab().save(str(OUT / f"pdf-start-{small[0]}-{LANG}-{LOOK}.png"))
     c.set_tool("pdf", False)
     settle(0.5)
-    check("PDF" not in c.window.nav_rows, "removed again: gone from the sidebar")
+    check(not c.window.shows("PDF"), "switched off again: not shown")
     check(not errors, f"no errors behind any click ({len(errors)})")
     QDialog.exec = real_exec
 

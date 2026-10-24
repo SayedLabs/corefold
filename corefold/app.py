@@ -383,7 +383,7 @@ class Controller(QObject):
         except AttributeError:
             pass
 
-        if not self.settings.first_run:  # (once main() has put tools that are new in this version in the Store)
+        if not self.settings.first_run:  # (once main() has switched off tools that are new in this version)
             QTimer.singleShot(0, self._background_tools)
 
     def _build_tray_menu(self):
@@ -454,7 +454,7 @@ class Controller(QObject):
         new._placed = True
         new.open_page(page)
         self._window = new
-        # the same place on the page (adding a tool from the Store doesn't jump back to the top)
+        # the same place on the page (switching a tool on or off doesn't jump back to the top)
         bar = getattr(old.stack.currentWidget(), "verticalScrollBar", None)
         scrolled = bar().value() if bar is not None and page == old.current_page() else 0
         if not shown:
@@ -830,10 +830,10 @@ class Controller(QObject):
         if name:
             self.open_browser(Path(name))
 
-    # ---- the Store: the tools this person uses
+    # ---- the tools this person uses (switched on and off in their sections)
 
     def set_tool(self, tool_id: str, on: bool):
-        """Adds or removes a tool (from the Store): the window is made again with or without it."""
+        """Switches a tool on or off (on its section's page): the window follows right away."""
         s = self.settings
         off = set(s.tools_off)
         if on:
@@ -846,7 +846,7 @@ class Controller(QObject):
         self.apply_tools()
         w = self._window
         if w is not None:
-            self.rebuild_window("Store", committed=w.committed, pending_startup=w.pending_startup)
+            w.tools_changed()
         QTimer.singleShot(400, lambda: self._tool_added_tip(tool_id) if on else None)  # (after the window is drawn)
 
     def _tool_added_tip(self, tool_id: str):
@@ -874,7 +874,7 @@ class Controller(QObject):
         self.watch_downloads(self.settings.watch_downloads)
         runner = getattr(self, "scan_runner", None)
         if runner is not None and not all_tools.is_on(self.settings, "scan"):
-            runner.stop()  # (removed in the Store: its scan stops too, and nothing of it is kept)
+            runner.stop()  # (switched off: its scan stops too, and nothing of it is kept)
             self.scan_runner = None
         self.update_shell_menu(500)
         self.sync_archive_opening()
@@ -2163,7 +2163,7 @@ class Controller(QObject):
 
 PAGE_NAMES = ("Home", "Converter", "Apps", "Archives", "Viewer", "Player", "Clipboard", "Space", "Capture", "Cloud",
               "PDF", "Organizer", "Startup", "Scan", "Unlock", "Awake", "Colors", "Store", "PlayerSettings",
-              "Soon",
+              "Soon", "Files", "Media", "Computer", "QuickTools",
               "General", "Look", "ConvOptions", "WheelLook", "Formats", "AppsSettings", "ArchiveSettings",
               "ViewerSettings", "ClipboardSettings", "CaptureSettings", "History", "Updates", "About", "Shortcuts")
 OUTPUT_EXT = {"image:pdf": ".pdf", "image:scan": ".pdf", "pdf:merge": ".pdf", "image:video": ".mp4",
@@ -2419,12 +2419,13 @@ def main() -> int:
         if (not message or message.startswith(b"show")) and "--background" not in argv:  # (a plain start is "show")
             QTimer.singleShot(500, controller.first_start)  # which tools, then the tour
     else:
-        offered = all_tools.offer_new_tools(s)  # tools new in this version wait in the Store
+        offered = all_tools.offer_new_tools(s)  # tools new in this version wait, switched off, in their section
         if offered:
             controller.apply_tools()
             names = ", ".join(tr(tool.name) for tool in offered)
             QTimer.singleShot(2500, lambda: controller.toast.notify(
-                tr("New tools in the Store"), tr("{names}. Add the ones you want from Corefold's Store.", names=names),
+                tr("New tools in Corefold"), tr("{names}. Switch on the ones you want, each in its section.",
+                                                names=names),
                 linger_ms=9000))
         if not s.tour_done and (not message or message.startswith(b"show")) and "--background" not in argv:
             QTimer.singleShot(700, controller.show_tour)

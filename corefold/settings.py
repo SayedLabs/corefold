@@ -137,7 +137,7 @@ NOT_EDITED = {"enabled", "first_run", "last_version", "menu_signature", "window_
               "last_action", "tour_done", "watermark", "fit_mb", "open_archives", "recent_archives",
               "tools_off", "known_tools", "open_images", "open_emails", "viewer_info", "viewer_strip", "recent_views",
               "archive_preview",
-              "clip_paused", "open_media", "player_volume", "nav_order", "nav_width", "nav_compact",
+              "clip_paused", "open_media", "player_volume", "nav_order", "section_order", "nav_width", "nav_compact",
               "quick_button_pos", "quick_told", "remember_password",
               "unlock_menu_signature",
               "awake_mode", "awake_minutes", "awake_until", "awake_screen", "shutdown_at", "shutdown_planned",
@@ -212,7 +212,7 @@ class Settings:
     menu_style: str = "windows"    # "windows" (a normal submenu) or "wheel"
     menu_signature: str = ""       # what was last written to the right-click menu
     unlock_menu_signature: str = ""  # Corefold Unlock's "What's using this?" entry, the same way
-    # the Store: tools removed by this person, and the tools they've been offered (others are "New")
+    # tools switched off by this person, and the tools they've been offered (others are "New")
     tools_off: list = field(default_factory=list)
     known_tools: list = field(default_factory=list)
     open_archives: bool = True     # archives open in Corefold with a double-click ("Open with")
@@ -319,7 +319,8 @@ class Settings:
     last_page: str = "Home"
     window_text: str = "normal"
     sidebar_icons: bool = True
-    nav_order: list = field(default_factory=list)   # the tools in the sidebar, in the order they were dragged
+    nav_order: list = field(default_factory=list)   # the tools inside their section, in the order they were put in
+    section_order: list = field(default_factory=list)   # the sections in the sidebar, in the order they were dragged
     nav_width: int = 232
     nav_compact: bool = False      # the sidebar shows icons only
     # "Do it again": the last thing you did (tool key, its choices; never a password)
@@ -389,6 +390,7 @@ class Settings:
         s.recent_views = [t for t in s.recent_views if isinstance(t, str)][:RECENT_ARCHIVES]
         s.known_tools = [t for t in s.known_tools if isinstance(t, str)]
         s.nav_order = [t for t in s.nav_order if isinstance(t, str)]
+        s.section_order = [t for t in s.section_order if isinstance(t, str)]
         s.nav_width = min(340, max(190, s.nav_width))
         gone = ("record", "record_gif")  # (recording the screen was taken out of Capture in 1.8.1)
         s.quick_menu_items = [t for t in s.quick_menu_items if isinstance(t, str) and t not in gone][:40]
@@ -404,7 +406,7 @@ class Settings:
         if s.ontop_key != "off" and (not hotkey_ok(s.ontop_key)
                                      or s.ontop_key in (s.quick_menu_key, s.quick_wheel_key)):
             s.ontop_key = "off"
-        if not s.known_tools and not s.first_run:  # from before the Store: the tools they had
+        if not s.known_tools and not s.first_run:  # from before tools could be switched off: the tools they had
             from .tools import ORIGINAL
             s.known_tools = list(ORIGINAL)
         if not isinstance(s.last_action.get("key"), str) or not isinstance(s.last_action.get("params", {}), dict):

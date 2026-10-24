@@ -91,7 +91,7 @@ QPushButton#tab { background: transparent; border: none; border-bottom: 2px soli
                   color: $muted; padding: 6px 12px 7px 12px; min-width: 0; font-weight: 600; }
 QPushButton#tab:hover { color: $text; }
 QPushButton#tab:checked { color: $text; border-bottom: 2px solid $accent; }
-QPushButton#subtab { background: transparent; border: 1px solid transparent; border-radius: 15px; color: $muted;
+QPushButton#subtab { background: transparent; border: 1px solid transparent; border-radius: 12px; color: $muted;
                      padding: 4px 14px; min-width: 0; font-weight: 600; }
 QPushButton#subtab:hover { color: $text; background: $hover; }
 QPushButton#subtab:checked { color: $text; background: $surface; border-color: $line_strong; }

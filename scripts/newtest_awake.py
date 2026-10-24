@@ -253,7 +253,7 @@ def main_checks():
         check(holds("SYSTEM"), "(on again before removing the tool)")
         c.set_tool("awake", False)
         settle(0.5)
-        check(c.awake is None, "removed in the Store: Awake isn't running")
+        check(c.awake is None, "switched off: Awake isn't running")
         check(keep_menu not in c.menu.actions(), "... the tray menu has no Keep awake")
         check(not holds("SYSTEM"), "... and the PC can sleep again")
         c.set_tool("awake", True)

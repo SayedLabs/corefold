@@ -1,5 +1,6 @@
-"""Clicks through the main window like a person would, on a real Windows PC: adds every tool from the
-Store with its own button, opens every page from the sidebar, goes in and out of every part of a page,
+"""Clicks through the main window like a person would, on a real Windows PC: switches every tool on with
+its own switch in its section, opens every section from the sidebar and every tool from its section's
+strip and cards, goes in and out of every part of a page,
 and checks what's really on the screen (not only what Qt thinks it drew), so a blank or white window,
 a page that can't be left, or an error behind a click shows up here.
 
@@ -196,6 +197,14 @@ def buttons(root, text):
 
 
 def nav_click(w, name):
+    """A sidebar row; a tool is reached the way a person does: its section's row, then its tab."""
+    if name not in w.nav_rows:
+        from corefold.window import NAV_OWNER
+        nav_click(w, NAV_OWNER[name])
+        tab = w.strip_tabs.get(name)
+        if check(tab is not None and tab.isVisible(), f"the {NAV_OWNER[name]} strip has a tab for {name}"):
+            click(tab)
+        return
     row = w.nav_rows.index(name)
     item = w.nav.item(row)
     w.nav.scrollToItem(item)
@@ -206,59 +215,61 @@ def nav_click(w, name):
     settle(0.5)
 
 
-# ---------------------------------------------------------------------------- the Store
+def switch_cards(w, sec_page):
+    from corefold.window import ToolSwitchCard
+    return {card.tool.id: card for card in page_widget(w, sec_page).findChildren(ToolSwitchCard)}
+
+
+# ---------------------------------------------------------------------------- switching tools on
 
 def store_add():
-    """Every tool added with its own Add button, the way a person does it."""
-    c.show_window("Store")
+    """Every tool switched on with its own switch on its section's page, the way a person does it, then
+    opened from its card there."""
+    c.show_window("Home")
     c.window.resize(1100, 720)
     settle(0.6)
     screen_shot("store-before")
     for tool in all_tools.ready():
         if all_tools.is_on(c.settings, tool.id):
             continue
+        sec = all_tools.SECTION_OF[tool.id]
         w = c.window
-        if w.current_page() != "Store":
-            nav_click(w, "Store")
-        store = page_widget(w, "Store")
-        add = None
-        for b in buttons(store, tr("Add")):
-            labels = [lab.text() for lab in b.parentWidget().findChildren(QWidgetLabel)]
-            if tr(tool.name) in labels:
-                add = b
-                break
-        if not check(add is not None, f"the Store has an Add button for {tool.id}"):
+        if w.current_page() != sec.page:
+            nav_click(w, sec.page)
+        card = switch_cards(w, sec.page).get(tool.id)
+        if not check(card is not None and not card.switch.isChecked(), f"{sec.page} has a switch for {tool.id}, off"):
             continue
         old = c.window
         old.raise_()
         old.activateWindow()
+        area = card.parent()  # (the page scrolls to it, as a person would)
+        while area is not None and not hasattr(area, "ensureWidgetVisible"):
+            area = area.parent()
+        if area is not None:
+            area.ensureWidgetVisible(card)
         settle(0.1)
-        QTest.mouseClick(add, Qt.LeftButton, Qt.NoModifier, add.rect().center())
+        QTest.mouseClick(card.switch, Qt.LeftButton, Qt.NoModifier, card.switch.rect().center())
         geometry = old.geometry()
         flash = flash_after(geometry)
         if c.theme.dark:
-            check(flash < 0.3, f"adding {tool.id} doesn't flash a white window (whitest moment {flash:.2f})")
+            check(flash < 0.3, f"switching on {tool.id} doesn't flash a white window (whitest moment {flash:.2f})")
         settle(1.0)
         w = c.window
-        check(all_tools.is_on(c.settings, tool.id), f"{tool.id} is added")
-        check(w.isVisible(), f"after adding {tool.id} the window is still open")
-        check(not work.alive(old) or not old.isVisible() or old is w, f"after adding {tool.id} only one window is open")
-        check(tool.page in w.nav_rows, f"{tool.id} is in the sidebar")
-        page_ok(w, "Store", f"adding {tool.id}")
+        check(all_tools.is_on(c.settings, tool.id), f"{tool.id} is switched on")
+        check(w.isVisible(), f"after switching on {tool.id} the window is still open")
+        check(not work.alive(old) or not old.isVisible() or old is w, f"after switching on {tool.id} only one "
+                                                                       f"window is open")
+        check(w.shows(tool.page), f"{tool.id} is in its section")
+        page_ok(w, sec.page, f"switching on {tool.id}")
         real = (w.screen() or QGuiApplication.primaryScreen()).grabWindow(
             0, w.geometry().x(), w.geometry().y(), w.width(), w.height()).toImage()
         if c.theme.dark:
-            check(white_share(real) < 0.3, f"after adding {tool.id} the window isn't white ({white_share(real):.2f})")
-        # its Open button in the Store
-        for b in buttons(page_widget(w, "Store"), tr("Open")):
-            labels = [lab.text() for lab in b.parentWidget().findChildren(QWidgetLabel)]
-            if tr(tool.name) in labels:
-                click(b)
-                page_ok(w, tool.page, f"open {tool.id} from the Store")
-                break
-        else:
-            check(False, f"the Store has an Open button for {tool.id}")
-
+            check(white_share(real) < 0.3, f"after switching on {tool.id} the window isn't white "
+                                           f"({white_share(real):.2f})")
+        card = switch_cards(w, sec.page).get(tool.id)
+        if check(card is not None and card.switch.isChecked(), f"{tool.id}'s card shows it on"):
+            click(card)
+            page_ok(w, tool.page, f"open {tool.id} from its card")
 
 
 # ---------------------------------------------------------------------------- every page
@@ -267,7 +278,7 @@ def every_page():
     """Every row in the sidebar opens its page, and every page can be left again by the sidebar."""
     w = c.window
     w.show()
-    names = [n for n in w.nav_rows if n]
+    names = [n for n in w.nav_rows if n] + [t.page for t in w.tools_on]  # (the tools through their section)
     for name in names:
         nav_click(w, name)
         page_ok(w, name, f"sidebar {name}")
@@ -302,11 +313,27 @@ def every_page():
         settle(0.3)
         check(w.current_page() == want, f"Alt + Left goes back to {want} ({w.current_page()})")
     nav_click(w, "Home")
-    # the Home page's tool cards
-    for page_name, card in list(w.tool_cards.items()):
+    # the Home page's sections, and their tools' buttons
+    for page_name, card in list(w.section_cards.items()):
         nav_click(w, "Home")
         click(card)
         check(w.current_page() == page_name, f"the {page_name} card on Home opens it ({w.current_page()})")
+        nav_click(w, "Home")
+        for b, _icon in card.chips[:2]:
+            click(b)
+            check(w.current_page() != "Home" and w.shows(w.current_page()),
+                  f"a tool's button on the {page_name} card opens it ({w.current_page()})")
+            nav_click(w, "Home")
+    # a tool from its section's strip, then Back: the section again
+    first = next((t for t in w.tools_on), None)
+    if first is not None:
+        sec = all_tools.SECTION_OF[first.id]
+        nav_click(w, first.page)
+        check(w.current_page() == first.page, f"{first.page} opens from the {sec.page} strip ({w.current_page()})")
+        QTest.keyClick(w, Qt.Key_Left, Qt.AltModifier)
+        settle(0.3)
+        check(w.current_page() == sec.page, f"Alt + Left from {first.page} goes back to {sec.page} "
+                                            f"({w.current_page()})")
 
 
 # ---------------------------------------------------------------------------- Space

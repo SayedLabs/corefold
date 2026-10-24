@@ -18,8 +18,8 @@ STEPS = [
                                    "the original, which is never changed. Let go in the middle to cancel."),
     ("cursor_click", "Or right-click it", "Right-click any file or folder and choose Corefold. On Windows 11 it's under \"Show "
                                 "more options\"."),
-    ("broom", "Clean up apps too", "The Apps page uninstalls programs and then removes what they leave behind, with "
-                                "a backup you can put back."),
+    ("apps", "Everything in four sections", "Files, Images & screen, Computer and Quick tools: open one to see its "
+                                            "tools. Switch on only the ones you use, so Corefold stays light."),
     ("paint_brush", "Make it yours", "Change the colours, the wheel's shape and size, the sounds and which options show up "
                             "in Settings. Each tool has its own tab there."),
 ]

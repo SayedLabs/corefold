@@ -1,6 +1,7 @@
 """Every Corefold tool in one list: what it's called, which page and settings it has, and whether
-it's ready. The sidebar, the Home page, the Settings tabs and the Store are all made from this list,
-so a new tool is added here once (and nothing of a tool someone removed is loaded at all).
+it's ready; and the few sections they're grouped in. The sidebar, the Home page, the sections' pages
+and the Settings tabs are all made from these lists, so a new tool is added here once (and nothing of a
+tool someone switched off is loaded at all).
 
 Texts are English and shown through tr()."""
 from __future__ import annotations
@@ -17,7 +18,7 @@ class ToolInfo:
     name: str               # "Corefold Converter"
     nav: str                # its name in the sidebar ("Converter")
     line: str               # one line about it
-    features: tuple = ()    # what it does (for the Store and the "Coming soon" page)
+    features: tuple = ()    # what it does (for the "Coming soon" page)
     settings: str = ""      # its first Settings page, if it has settings
     settings_pages: tuple = ()  # all its Settings pages (shown as small tabs if more than one)
     ready: bool = True      # False: still being made ("Coming soon")
@@ -232,9 +233,39 @@ TOOLS: list[ToolInfo] = [
               "Pick which microphone apps use"),
              ready=False),
 ]
+@dataclass(frozen=True)
+class Section:
+    """A part of Corefold in the sidebar, with its tools inside (so the sidebar stays short)."""
+    id: str
+    page: str               # its page in the window ("Files")
+    name: str               # "Files"
+    icon: str               # its sidebar icon in icondata.py
+    product: str            # the tile its page shows (icons.py)
+    line: str               # one line about it
+    tools: tuple            # its tools' ids, ready ones and ones on the way, in their first order
+
+
+SECTIONS: list[Section] = [
+    Section("files", "Files", "Files", "document_multiple", "files",
+            "Convert, sort, pack and fix your files.",
+            ("converter", "pdf", "archive", "organizer", "unlock", "cloud", "rename", "shredder", "backup")),
+    Section("media", "Media", "Images & screen", "image_multiple", "media",
+            "Screenshots, pictures, videos and colours.",
+            ("capture", "viewer", "player", "colors", "ruler", "fonts")),
+    Section("computer", "Computer", "Computer", "desktop", "computer",
+            "Keep your PC clean, fast and safe.",
+            ("space", "uninstaller", "startup", "scan", "hash", "network", "battery", "drivers", "system")),
+    Section("quick", "QuickTools", "Quick tools", "flash", "quick",
+            "Small helpers you open with one press, from any app.",
+            ("clipboard", "awake", "snippets", "notes", "focus", "layouts", "sound")),
+]
+SECTION_BY_PAGE = {sec.page: sec for sec in SECTIONS}
+SECTION_OF = {tool_id: sec for sec in SECTIONS for tool_id in sec.tools}  # tool id -> its section
+
 BY_ID = {t.id: t for t in TOOLS}
 BY_PAGE = {t.page: t for t in TOOLS}
-# the tools people had before the Store (1.7): an update keeps them, newer ones are offered in the Store
+# the tools people had before tools could be switched off (1.7): an update keeps them, newer ones wait,
+# switched off, in their section
 ORIGINAL = ("converter", "uninstaller", "archive")
 
 
@@ -246,13 +277,33 @@ def coming() -> list[ToolInfo]:
     return [t for t in TOOLS if not t.ready]
 
 
-def enabled(settings) -> list[ToolInfo]:
-    """The tools this person uses (ready, and not removed in the Store), in the order they dragged
-    them into in the sidebar (tools they never moved keep their place at the end)."""
-    off = set(getattr(settings, "tools_off", []) or [])
+def sections(settings) -> list[Section]:
+    """The sections in the order this person dragged them into in the sidebar."""
+    order = {sec_id: i for i, sec_id in enumerate(getattr(settings, "section_order", []) or [])}
+    return sorted(SECTIONS, key=lambda sec: order.get(sec.id, len(order) + SECTIONS.index(sec)))
+
+
+def in_order(settings, tools: list[ToolInfo]) -> list[ToolInfo]:
+    """Tools by their section (in the sidebar's order), and inside it in the order this person put them
+    in (tools they never moved keep their first place)."""
+    secs = {sec.id: i for i, sec in enumerate(sections(settings))}
     order = {tool_id: i for i, tool_id in enumerate(getattr(settings, "nav_order", []) or [])}
-    on = [t for t in TOOLS if t.ready and t.id not in off]
-    return sorted(on, key=lambda t: order.get(t.id, len(order) + TOOLS.index(t)))
+
+    def key(t):
+        sec = SECTION_OF[t.id]
+        return secs[sec.id], order.get(t.id, len(order) + sec.tools.index(t.id))
+    return sorted(tools, key=key)
+
+
+def enabled(settings) -> list[ToolInfo]:
+    """The tools this person uses (ready, and not switched off), section by section."""
+    off = set(getattr(settings, "tools_off", []) or [])
+    return in_order(settings, [t for t in TOOLS if t.ready and t.id not in off])
+
+
+def in_section(settings, sec: Section) -> list[ToolInfo]:
+    """A section's ready tools (on or off), in this person's order."""
+    return in_order(settings, [BY_ID[tool_id] for tool_id in sec.tools if BY_ID[tool_id].ready])
 
 
 def is_on(settings, tool_id: str) -> bool:
@@ -261,13 +312,13 @@ def is_on(settings, tool_id: str) -> bool:
 
 
 def new_tools(settings) -> list[ToolInfo]:
-    """Ready tools this person hasn't been offered yet (shown as New in the Store)."""
+    """Ready tools this person hasn't been offered yet (shown as New in their section)."""
     known = set(getattr(settings, "known_tools", []) or [])
     return [t for t in TOOLS if t.ready and t.id not in known]
 
 
 def offer_new_tools(settings) -> list[ToolInfo]:
-    """After an update: tools that weren't there before are put in the Store, not switched on, so
+    """After an update: tools that weren't there before wait in their section, switched off, so
     Corefold only does what this person chose. Returns the ones that are new."""
     fresh = new_tools(settings)
     if fresh:

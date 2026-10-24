@@ -41,6 +41,7 @@ from PySide6.QtGui import QIcon  # noqa: E402
 
 qapp = QApplication(sys.argv)
 from corefold import app as A  # noqa: E402
+from corefold import tools as all_tools  # noqa: E402
 
 c = A.Controller(qapp, QIcon(str(ROOT / "assets" / "icon.png")))
 problems = []
@@ -514,15 +515,21 @@ def player_tool():
 
 
 def store():
-    c.show_window("Store")
+    """The sections' pages, and a tool switched off and on again."""
+    c.show_window("Files")
     w = c.window
     w.resize(1100, 720)
     settle(0.5)
     w.grab().save(str(OUT / "store.png"))
+    for sec in all_tools.SECTIONS[1:]:
+        w.open_page(sec.page)
+        settle(0.3)
+        check(w.current_page() == sec.page, f"the {sec.id} section opens")
+        w.grab().save(str(OUT / f"section-{sec.id}.png"))
     c.set_tool("viewer", False)
-    check("Viewer" not in c.window.nav_rows, "removing the Viewer")
+    check(not c.window.shows("Viewer"), "removing the Viewer")
     c.set_tool("viewer", True)
-    check("Viewer" in c.window.nav_rows, "adding it back")
+    check(c.window.shows("Viewer"), "adding it back")
     c.window.open_page("Viewer")
     settle(0.5)
     c.window.grab().save(str(OUT / "viewer-page.png"))

@@ -26,8 +26,8 @@ MAX_BYTES = 4_000_000         # a settings file is a few KB: anything this big i
 MAX_TARGET = 2000             # a quick link's target (a program, file, folder or site) longer than this is dropped
 # not "settings" a person edits, but their choices all the same: they go in the file too. (Window
 # size and place, recent files, "Do it again" and other things the app only remembers stay out.)
-ALSO_KEPT = ("tools_off", "known_tools", "nav_order", "nav_compact", "watermark", "fit_mb", "open_archives",
-             "open_images", "open_emails", "open_media", "viewer_info", "player_volume")
+ALSO_KEPT = ("tools_off", "known_tools", "nav_order", "section_order", "nav_compact", "watermark", "fit_mb",
+             "open_archives", "open_images", "open_emails", "open_media", "viewer_info", "player_volume")
 RECOVERED: Path | None = None  # the copy used at start because settings.json was missing or damaged
 
 

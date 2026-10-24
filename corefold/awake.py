@@ -113,7 +113,7 @@ def _parse(text: str) -> datetime | None:
 
 class AwakeTool(QObject):
     """Corefold Awake while it's in use: staying awake, the tray's "Keep awake" menu, and the shutdown
-    timer. Made by the Controller (self.c.awake) and stopped when the tool is removed in the Store."""
+    timer. Made by the Controller (self.c.awake) and stopped when the tool is switched off."""
 
     changed = Signal()
 
