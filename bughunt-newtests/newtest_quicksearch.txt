@@ -1,0 +1,115 @@
+ok    'vsc' fits Visual Studio Code (initials)
+ok    'psi' fits PowerShell ISE (capitals count as words)
+ok    'notepad' is Notepad
+ok    'calc' starts Calculator
+ok    'code' starts one of its words
+ok    'zzq' fits nothing
+ok    Notepad comes before Notepad++ (['Notepad', 'Notepad++'])
+ok    a shortcut can run as administrator, a Store app can't
+ok    words with signs are quoted for the index ("cfq-12" report)
+ok    files whose names fit come first
+ok    Everything's answer is read ([Found(path='C:\\Docs\\a.txt', name='a.txt', folder=False), Found(path='D:\\Pics', name='Pics', folder=True)])
+ok    …and a broken one is nothing
+ok    the Start menu has apps (138, 0 ms)
+ok    …without the Uninstall shortcuts
+ok    Windows' Apps folder is read (175 items, 78 ms)
+      e.g. Firefox [308046B0AF4A39CB], Firefox Private Browsing [308046B0AF4A39CB;PrivateBrowsingAUMID], Anaconda Prompt [anaconda.CmdExe.Miniconda.base], Anaconda PowerShell Prompt [anaconda.PowerShell.Miniconda.base], Blend for Visual Studio [Blend.86cffae3], Python 3.11 Manuals (64-bit) [C:\hostedtoolcache\windows\Python\3.11.9\x64\Doc\html\index.html]
+      165 apps in all, 27 through the Apps folder
+ok    Notepad is one of them
+ok    the Start menu's shortcuts are read (87 of them point at files)
+ok    Documents is there (C:\Users\runneradmin\Documents)
+skip  index not available: Windows' search index isn't on this PC (the Recent items are used instead)
+ok    a shortcut to a file was made for the test
+ok    …and Corefold reads where it points (C:\Users\runneradmin\Documents\cfqs78833.txt)
+ok    a shortcut to a folder was made for the test
+ok    …and Corefold reads where it points (C:\Users\runneradmin\Documents)
+ok    Windows made a Recent item for it (cfqs78833.lnk)
+ok    the Recent items find it by name (['C:\\Users\\runneradmin\\Documents\\cfqs78833.txt'])
+      Everything is not running
+ok    …and asking it gives nothing (no waiting)
+ok    all of it together finds the file (from recent)
+ok    …and not Windows' own Recent shortcut for it
+---- en dark (files from recent)
+ok    quick access is running
+ok    the shortcut opens the menu
+ok    the apps are listed when it opens (144)
+ok    typing its name finds the new file (recent, 219 ms after the last key, the first search)
+ok    …with its folder on the row (C:\Users\runneradmin\Documents)
+ok    …and its own icon
+ok    Esc clears what was typed
+      type to first file row: 156 ms (aim: under 500 ms)
+ok    part of its name finds it too, 156 ms after the last key (under the 500 ms aimed for)
+ok    the row says Shift + Enter shows it in its folder
+ok    Shift + Enter puts the menu away
+ok    …and File Explorer shows it, selected (['C:\\Users\\runneradmin\\Documents\\cfqs78833.txt'])
+ok    …closed again
+ok    the menu opens for an app
+ok    'notepad': Notepad is the first row (Notepad)
+ok    …with its own icon
+ok    …and says Ctrl + Enter runs it as administrator
+ok    Enter starts Notepad
+ok    …closed again
+ok    the menu opens for Calculator
+ok    'calc': Calculator is the first row (Calculator)
+ok    (a Notepad window to switch to)
+ok    the open windows are read, with their program (2)
+ok    the menu opens to switch windows
+ok    typing part of its title finds it, with its program (['CfSwitchCheck.txt - Notepad', 'Search the web for “\u2068CfSwitch\u2069”'])
+ok    …with the program's icon
+ok    …and says Enter switches to it
+ok    Enter puts the menu away
+ok    …and Notepad is in front, no longer minimised
+ok    the menu opens to be closed while it looks
+ok    Esc puts it away while it's looking
+ok    …and what came back afterwards was dropped
+ok    …and it opens again as it was
+ok    closed straight after a search began: nothing breaks
+ok    the menu opens for '?'
+ok    a leading '?' only searches the web (['web'])
+ok    with “Find files and apps as I type” off, none are found
+ok    Settings → Quick access has “Find files and apps as I type”, on
+ok    …switching it off is kept
+ok    …and on again
+(en dark) 0 problem(s)
+
+---- ar light (files from recent)
+ok    quick access is running
+ok    the shortcut opens the menu
+ok    the apps are listed when it opens (144)
+ok    typing its name finds the new file (recent, 203 ms after the last key, the first search)
+ok    …with its folder on the row (C:\Users\runneradmin\Documents)
+ok    …and its own icon
+ok    Esc clears what was typed
+      type to first file row: 157 ms (aim: under 500 ms)
+ok    part of its name finds it too, 157 ms after the last key (under the 500 ms aimed for)
+ok    the menu opens for an app
+ok    'notepad': Notepad is the first row (Notepad)
+ok    …with its own icon
+ok    …and says Ctrl + Enter runs it as administrator
+ok    the menu opens for Calculator
+ok    'calc': Calculator is the first row (Calculator)
+ok    (a Notepad window to switch to)
+ok    the open windows are read, with their program (2)
+ok    the menu opens to switch windows
+ok    typing part of its title finds it, with its program (['CfSwitchCheck.txt - Notepad', 'ابحث في الويب عن «\u2068CfSwitch\u2069»'])
+ok    …with the program's icon
+ok    …and says Enter switches to it
+ok    Enter puts the menu away
+ok    …and Notepad is in front, no longer minimised
+ok    the menu opens to be closed while it looks
+ok    Esc puts it away while it's looking
+ok    …and what came back afterwards was dropped
+ok    …and it opens again as it was
+ok    closed straight after a search began: nothing breaks
+ok    the menu opens for '?'
+ok    a leading '?' only searches the web (['web'])
+ok    with “Find files and apps as I type” off, none are found
+ok    Settings → Quick access has “Find files and apps as I type”, on
+ok    …switching it off is kept
+ok    …and on again
+(ar light) 0 problem(s)
+
+skip  Everything started but hadn't read the drives in time: it wasn't asked
+ok    the test's file is removed
+ok    …and its Recent item
+newtest_quicksearch: 0 problem(s)
