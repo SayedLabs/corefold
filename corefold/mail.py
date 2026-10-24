@@ -7,6 +7,7 @@ parts is checked, and nothing in an email can make this code loop forever or rea
 """
 from __future__ import annotations
 
+import codecs
 import datetime as dt
 import re
 import struct
@@ -137,7 +138,10 @@ def _part_text(part) -> str:
         return part.get_content()
     except Exception:
         raw = part.get_payload(decode=True) or b""
-        return raw.decode(part.get_content_charset() or "utf-8", "replace")
+        try:
+            return raw.decode(part.get_content_charset() or "utf-8", "replace")
+        except LookupError:  # a character set Python doesn't know ("charset=x-unknown")
+            return raw.decode("utf-8", "replace")
 
 
 def _clean_name(name: str) -> str:
@@ -512,6 +516,10 @@ def rtf_body(rtf: bytes) -> tuple[str, str]:
     found = re.search(rb"\\ansicpg(\d+)", rtf[:2000])
     if found:
         cp = CODEPAGES.get(int(found.group(1)), f"cp{int(found.group(1))}")
+        try:
+            codecs.lookup(cp)
+        except LookupError:  # a code page Python doesn't know
+            cp = "cp1252"
     out: list[str] = []
     pending = bytearray()  # \'xx bytes waiting to be decoded together (multi-byte code pages)
 
