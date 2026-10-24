@@ -912,6 +912,7 @@ class SpacePage(QWidget):
         self.items = QTreeWidget()
         self.items.setObjectName("history")
         self.items.setHeaderLabels([tr("Name"), tr("Size")])
+        self.items.headerItem().setTextAlignment(1, Qt.AlignRight | Qt.AlignVCenter)
         self.items.setRootIsDecorated(False)
         self.items.setUniformRowHeights(True)
         self.items.setItemDelegateForColumn(0, ShareDelegate(self.c.theme, self.items))
@@ -1464,11 +1465,15 @@ class SpacePage(QWidget):
             row.check.toggled.connect(self._junk_total)
             self.junk_rows.addWidget(row)
             self.junk_checks.append((row.check, j))
-        self.clean_total.setText(human_size(sum(j.size for j in self.junk if not j.busy)))
         self._junk_total()
 
     def _junk_total(self, *_):
         total = sum(j.size for cb, j in self.junk_checks if cb.isChecked())
+        found = sum(j.size for j in self.junk if not j.busy)
+        # (the big number is what the button frees, so the two never disagree)
+        self.clean_total.setText(human_size(total))
+        self.clean_head.setText(tr("Can be freed") if total >= found else
+                                tr("Ticked below (all found: {size})", size=human_size(found)))
         self.clean_btn.setEnabled(total > 0 and self.job is None)
         self.clean_btn.setText(tr("Clean up {size}", size=human_size(total)) if total else tr("Clean up"))
 

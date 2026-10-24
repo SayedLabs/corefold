@@ -350,7 +350,7 @@ def _write_note(hive: str, key: str, value: str, note: bytes):
 
 def _write_note_as_admin(hive: str, key: str, value: str, note: bytes) -> bool:
     """reg.exe, started as administrator (Windows asks). False if it was refused or failed."""
-    if '"' in value or value.endswith("\\"):
+    if not plain_name(value) or '"' in value or value.endswith("\\"):
         return False  # (a name reg.exe can't be given safely)
     from .uninstall import shell_run, wait_process
     reg = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "reg.exe"
@@ -414,8 +414,16 @@ def _reg_key(hive: str, key: str, view: int) -> str:
     return ("HKEY_CURRENT_USER" if hive == "HKCU" else "HKEY_LOCAL_MACHINE") + "\\" + key
 
 
+def plain_name(value: str) -> bool:
+    """A value's name that can go into a .reg file or reg.exe's command as it is. A name can hold a line
+    break, and in the .reg file run as administrator that would start a line of its own (a value of
+    the attacker's choosing, written for the whole PC)."""
+    return bool(value) and not any(ord(ch) < 32 or ch == "\x7f" for ch in value)
+
+
 def _reg_text(lines: list[tuple[str, str]]) -> str:
-    """A .reg file that deletes these (key, value) pairs."""
+    """A .reg file that deletes these (key, value) pairs (names that aren't plain are left out)."""
+    lines = [(k, v) for k, v in lines if plain_name(v)]
     out = ["Windows Registry Editor Version 5.00", ""]
     for key in dict.fromkeys(k for k, _ in lines):
         out.append(f"[{key}]")

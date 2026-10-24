@@ -23,11 +23,6 @@ class ToolInfo:
     ready: bool = True      # False: still being made ("Coming soon")
 
 
-def _cloud_ready() -> bool:
-    from .cloudkeys import any_set
-    return any_set()
-
-
 TOOLS: list[ToolInfo] = [
     ToolInfo("converter", "Converter", "converter", "arrow_swap", "Corefold Converter", "Converter",
              "Convert, shrink and edit pictures, videos, music, PDFs and documents with one drag.",
@@ -67,11 +62,11 @@ TOOLS: list[ToolInfo] = [
               "Speed, A–B loop, frame by frame, screenshots and clips"),
              settings="PlayerSettings", settings_pages=("PlayerSettings",)),
     ToolInfo("capture", "Capture", "capture", "screenshot", "Corefold Capture", "Capture",
-             "Take a picture or a video of your screen, mark it up and share it in seconds.",
+             "Take a picture of your screen, mark it up and share it in seconds.",
              ("Pick an area, a window or the whole screen with one shortcut",
               "Draw arrows, boxes and text, and blur anything private",
-              "Copy the text you see in any picture or screen",
-              "Record your screen as a video, with your microphone if you want",
+              "Pick just the words you want in a screenshot and copy them",
+              "Pin a screenshot on top while you work, or take one with a timer",
               "Everything stays on your PC: nothing is uploaded"),
              settings="CaptureSettings", settings_pages=("CaptureSettings",)),
     ToolInfo("space", "Space", "space", "data_pie", "Corefold Space", "Space",
@@ -91,13 +86,12 @@ TOOLS: list[ToolInfo] = [
               "Stays on your PC, and skips passwords from password managers"),
              settings="ClipboardSettings", settings_pages=("ClipboardSettings",)),
     ToolInfo("cloud", "Cloud", "cloud", "cloud", "Corefold Cloud", "Cloud",
-             "All your cloud storage in one window: OneDrive and Dropbox, with Google Drive to come.",
-             ("See OneDrive and Dropbox side by side, without switching accounts",
-              "Drag files from one cloud to another",
+             "All your cloud storage in one window: OneDrive, Dropbox, Google Drive and iCloud.",
+             ("Finds the OneDrive, Dropbox, Google Drive and iCloud folders on your PC by itself",
+              "Drag files and folders from one cloud to another",
               "Several accounts of the same service at once",
               "Search across all of them",
-              "Sign in on Microsoft's and Dropbox's own page: your passwords never reach Corefold"),
-             ready=_cloud_ready()),
+              "Nothing to sign in to: the services' own apps keep everything in sync")),
     ToolInfo("startup", "Startup", "startup", "rocket", "Corefold Startup", "Startup",
              "See what starts with Windows and switch off what slows it down.",
              ("Every program that starts with Windows, in one list",
@@ -128,11 +122,12 @@ TOOLS: list[ToolInfo] = [
               "See every new name first, and undo it all with one click"),
              ready=False),
     ToolInfo("colors", "Colors", "colors", "color", "Corefold Colors", "Colors",
-             "Pick any colour on your screen and copy it as HEX, RGB or HSL.",
+             "Pick any colour on your screen and copy it as HEX, RGB, HSL, HSV or CMYK.",
              ("Pick a colour anywhere with one shortcut",
               "A magnifier shows every pixel, so you get exactly the one you want",
               "Copy it in the format you need",
-              "Your last 24 colours, ready to copy again")),
+              "Your last 24 colours, ready to copy again",
+              "Darker and lighter shades of every colour, one click away")),
     ToolInfo("ruler", "Ruler", "ruler", "ruler", "Corefold Ruler", "Ruler",
              "Measure anything on your screen in pixels.",
              ("Measure the distance between two things",

@@ -81,19 +81,28 @@
 
   <main class="doc">
     <h1>Privacy</h1>
-    <p>Last changed: October 23, 2026</p>
+    <p>Last changed: October 24, 2026</p>
     <p>Corefold is a free Windows app made by Atomic Works. In short: <b>your files stay on your PC, there are no
       Corefold accounts, no ads and no tracking, and we have no server that could collect anything.</b> Corefold only
-      goes online by itself to check for its own updates. If you choose to use Corefold Cloud, it talks straight to your
-      own OneDrive or Dropbox, and to nobody else.</p>
+      goes online by itself to check for its own updates. If you choose to use Corefold Cloud, it works with the cloud
+      folders already on your PC, or talks straight to your own OneDrive or Dropbox if you sign in, and to nobody
+      else.</p>
 
     <h2>Your files</h2>
     <p>Everything Corefold does to your files (converting, shrinking, removing backgrounds, reading text, opening
       archives and emails, taking screenshots, uninstalling apps) happens on your own PC. Nothing is uploaded, to us
       or to anyone else, unless you upload it yourself with Corefold Cloud.</p>
 
-    <h2 id="cloud">Corefold Cloud (OneDrive and Dropbox)</h2>
-    <p>Cloud shows your OneDrive and Dropbox in one window. It's optional, and nothing happens until you add an account.</p>
+    <h2 id="cloud">Corefold Cloud (OneDrive, Dropbox, Google Drive and iCloud)</h2>
+    <p>Cloud shows your clouds in one window. It's optional, and it works in two ways.</p>
+    <p><b>Folders on your PC.</b> Cloud finds the OneDrive, Dropbox, Google Drive and iCloud folders that those
+      companies' own apps keep on your PC. It finds them by reading what those apps write on your PC (OneDrive's
+      settings in the Windows registry, Dropbox's <code>info.json</code>, Google Drive's drive). For these folders
+      Corefold doesn't go online at all: it opens, copies, renames and deletes files in them on your PC, and the
+      company's own app sends the changes to its service, as it does for anything you save there. Deleted files go
+      to the Recycle Bin. Nothing about these folders is kept by Corefold.</p>
+    <p><b>Signing in online (OneDrive and Dropbox),</b> when your copy of Corefold offers it. Nothing happens until
+      you sign in to an account.</p>
     <ul>
       <li><b>Signing in happens on Microsoft's or Dropbox's own page,</b> in your web browser. Corefold never sees your
         password. While you sign in, Corefold listens on a local address on your own PC (<code>http://localhost</code>)
@@ -108,7 +117,8 @@
         anyone else. Copying from one cloud to another goes through your PC too.</li>
       <li><b>Files you open</b> from Cloud are downloaded to a temporary folder on your PC so the right app can open
         them. Changes stay on your PC until you upload the file again.</li>
-      <li><b>Sign out</b> deletes Corefold's key for that account from your PC. To also take back the permission on
+      <li><b>Sign out</b> deletes Corefold's key for that account from your PC, and for Dropbox also asks Dropbox to
+        cancel it. To also take back the permission on
         the service's side, use
         <a href="https://account.live.com/consent/Manage" rel="noopener">your Microsoft account's app permissions</a>
         (work or school accounts: <a href="https://myapps.microsoft.com" rel="noopener">My Apps</a>) or
@@ -126,7 +136,7 @@
           <td>GitHub, which hosts Corefold's releases (<a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener">GitHub's privacy statement</a>)</td></tr>
       <tr><td>Downloading an update, when you choose to or turn on automatic updates</td>
           <td>A download of the installer.</td><td>GitHub</td></tr>
-      <tr><td>Using Corefold Cloud, only after you add an account</td>
+      <tr><td>Using Corefold Cloud, only after you sign in to an account (folders on your PC send nothing)</td>
           <td>Your sign-in, the files and folders you open, upload, download, rename, delete or search for, and the
             searches you type.</td>
           <td>Microsoft (OneDrive) or Dropbox, whichever you signed in to</td></tr>

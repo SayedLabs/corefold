@@ -37,8 +37,6 @@ class Action:
 ACTIONS: dict[str, Action] = {a.id: a for a in (
     Action("screenshot", "Take a screenshot", "screenshot", "capture"),
     Action("screenshot_later", "Screenshot with a timer", "timer", "capture"),
-    Action("record", "Start or stop recording", "record", "capture"),
-    Action("record_gif", "Record a GIF", "filmstrip_image", "capture"),
     Action("pin", "Pin what's copied to the screen", "pin", "capture"),
     Action("clipboard", "Clipboard history", "clipboard", "clipboard"),
     Action("paste", "Convert what's copied", "arrow_swap", "converter"),
@@ -171,8 +169,11 @@ def open_target(target: str) -> bool:
 
 
 def _windows(cmd: list[str]):
+    """One of Windows' own programs, by its full path (never one of the same name in the current folder)."""
     if os.name != "nt":
         return
+    from .core import system_tool
+    cmd = [system_tool(cmd[0]), *cmd[1:]]
     try:
         subprocess.Popen(cmd, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), close_fds=True)
     except OSError:
@@ -326,7 +327,7 @@ class QuickAccess(QObject):
         if action_id in CONFIRM and not confirmed:
             QTimer.singleShot(0, lambda: self.ask(action_id))
             return
-        delay = 180 if action_id in ("screenshot", "screenshot_later", "record", "record_gif") else 0  # (not in the picture)
+        delay = 180 if action_id in ("screenshot", "screenshot_later") else 0  # (not in the picture)
         if action_id in ("sleep", "hibernate", "restart", "shutdown", "signout"):
             delay = 400  # (the menu is gone before the screen goes)
         QTimer.singleShot(delay, lambda: self._run(action_id))
@@ -354,8 +355,6 @@ class QuickAccess(QObject):
         actions: dict[str, Callable[[], object]] = {
             "screenshot": lambda: c.capture and c.capture.screenshot(),
             "screenshot_later": lambda: c.capture and c.capture.screenshot_later(),
-            "record": lambda: c.capture and c.capture.toggle_recording(),
-            "record_gif": lambda: c.capture and c.capture.record_gif(),
             "pin": lambda: c.capture and c.capture.pin_last(),
             "clipboard": lambda: c.show_clipboard(),
             "paste": c.paste,

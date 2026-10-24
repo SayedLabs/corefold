@@ -377,7 +377,6 @@ def window(lang: str, look: str, taken: bool):
         print("      shown:", texts)
         check(states["clip_shortcut"] == "working" and texts["clip_shortcut"][1] == tr("Working"),
               "the clipboard's shortcut: Working")
-        check(states["cap_record_shortcut"] == "working", "recording's shortcut: Working")
         check(states["quick_menu_key"] == "working" and states["quick_wheel_key"] == "working",
               "the quick menu's and wheel's shortcuts: Working")
         check(states["shortcut"] == "working" and texts["shortcut"][0] == tr("Shift"),

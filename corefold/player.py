@@ -16,6 +16,18 @@ from typing import TYPE_CHECKING
 
 os.environ.setdefault("QT_MEDIA_BACKEND", "ffmpeg")  # (before Qt's player is loaded)
 
+
+def local_only(on: bool = True):
+    """A file on the PC is played without going online: a file can say it's made of parts on the internet
+    (a playlist), and fetching them would tell that site you opened it. Qt's FFmpeg already refuses
+    that today; this keeps it so whatever FFmpeg does next. Qt's player reads it each time it opens
+    something; a link pasted on purpose may go online."""
+    if on:
+        os.environ["QT_FFMPEG_PROTOCOL_WHITELIST"] = "file"
+    else:
+        os.environ.pop("QT_FFMPEG_PROTOCOL_WHITELIST", None)
+
+
 from PySide6.QtCore import QEvent, QSize, Qt, QTimer, QUrl, Signal  # noqa: E402
 from PySide6.QtGui import QCursor, QGuiApplication, QImage, QKeySequence, QPixmap, QShortcut  # noqa: E402
 from PySide6.QtWidgets import QFileDialog, QFrame, QHBoxLayout, QLabel, QMenu, QPushButton, QSizePolicy, QSlider, \
@@ -517,6 +529,7 @@ class PlayerWindow(QWidget):
         log.info("player opened a %s file", path.suffix.lower())
         self.link = ""
         self._load_chapters(path)
+        local_only()
         self.player.setSource(QUrl.fromLocalFile(str(path)))
         self.player.play()
         if not audio_only:
@@ -546,6 +559,7 @@ class PlayerWindow(QWidget):
         self.title.setToolTip(url)
         self.screen_stack.setCurrentWidget(self.video)
         log.info("player opened a link")
+        local_only(False)
         self.player.setSource(QUrl(url))
         self.player.play()
         self._buttons()
@@ -1145,6 +1159,22 @@ class PlayerWindow(QWidget):
     def showEvent(self, e):
         super().showEvent(e)
         set_title_bar_dark(self, True)
+
+    def changeEvent(self, e):
+        """Settings › Player: a video pauses while the window is minimised, and goes on when it's back."""
+        super().changeEvent(e)
+        if e.type() != QEvent.WindowStateChange or not getattr(self.c.settings, "player_pause_minimized", False):
+            return
+        from PySide6.QtMultimedia import QMediaPlayer
+        if self.isMinimized():
+            video = self.screen_stack.currentWidget() is self.video  # (music goes on playing)
+            if video and self.player.playbackState() == QMediaPlayer.PlayingState:
+                self.player.pause()
+                self._paused_minimized = True
+        elif getattr(self, "_paused_minimized", False):
+            self._paused_minimized = False
+            if self.player.playbackState() == QMediaPlayer.PausedState:
+                self.player.play()
 
     def closeEvent(self, e):
         self._remember()

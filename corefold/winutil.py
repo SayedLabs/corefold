@@ -70,7 +70,8 @@ def registry_prefers_dark() -> bool:
 
 def reveal_in_explorer(path: Path):
     if path.exists():
-        subprocess.Popen(f'explorer /select,"{path}"')
+        from .core import system_tool  # (Windows' own explorer.exe, never one of that name elsewhere)
+        subprocess.Popen(f'"{system_tool("explorer.exe")}" /select,"{path}"')
 
 
 def play_sound(path: Path | None):
@@ -190,3 +191,19 @@ def user_busy() -> bool:
         return state.value in (2, 3, 4)
     except Exception:
         return False
+
+
+class _LASTINPUTINFO(ctypes.Structure):
+    _fields_ = [("cbSize", ctypes.c_uint), ("dwTime", ctypes.c_uint32)]
+
+
+def idle_ms() -> int:
+    """How long since the last key press or mouse move anywhere on the PC, in milliseconds (very long
+    if Windows can't say)."""
+    try:
+        info = _LASTINPUTINFO(ctypes.sizeof(_LASTINPUTINFO), 0)
+        if not user32.GetLastInputInfo(ctypes.byref(info)):
+            return 1 << 30
+        return int((ctypes.windll.kernel32.GetTickCount() - info.dwTime) & 0xFFFFFFFF)
+    except Exception:
+        return 1 << 30

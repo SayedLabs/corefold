@@ -8,11 +8,10 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QEvent, QObject, QPoint, QSize, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import (QColor, QDesktopServices, QFont, QGuiApplication, QIcon, QKeySequence, QPainter, QPixmap,
                            QShortcut)
-from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QColorDialog, QComboBox, QFileDialog, QFrame,
-                               QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMenu,
-                               QMessageBox, QPushButton,
-                               QScrollArea, QSizePolicy, QSlider, QSpinBox, QStackedWidget, QSystemTrayIcon, QVBoxLayout,
-                               QWidget)
+from PySide6.QtWidgets import (QAbstractItemView, QApplication, QButtonGroup, QCheckBox, QColorDialog, QComboBox,
+                               QFileDialog, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
+                               QListWidgetItem, QMenu, QMessageBox, QPushButton, QScrollArea, QSizePolicy, QSlider,
+                               QSpinBox, QStackedWidget, QSystemTrayIcon, QVBoxLayout, QWidget)
 
 from . import UPDATE_REPO, __version__, i18n, icons, winutil
 from . import tools as all_tools
@@ -26,7 +25,7 @@ from .settings import (ACCENTS, APP_NAME, DEFAULT_ACCENT, APPEARANCES, HOVER_STY
                        WHEEL_POSITIONS, WHEEL_SIZE_NAMES, WHEEL_STYLES, WINDOW_TEXT, installed_uninstaller,
                        ARCHIVE_KEYS, BACKUP_DAYS, CONVERTER_KEYS, EXTRACT_MODES, FORMAT_KEYS, GENERAL_KEYS,
                        SLIDESHOW_SECONDS, VIEWER_KEYS, VIEWER_WHEEL, CLIP_DAYS, CLIP_MAX, CLIP_SHORTCUTS, CLIPBOARD_KEYS,
-                       CAP_AFTER, CAP_DELAY, CAP_FPS, CAP_RECORD_SHORTCUTS, CAP_SHORTCUTS, CAPTURE_KEYS, PLAYER_KEYS, PLAYER_SKIP,
+                       CAP_AFTER, CAP_DELAY, CAP_SHORTCUTS, CAPTURE_KEYS, PLAYER_KEYS, PLAYER_SKIP,
                        PLAYER_WHEEL,
                        LOOK_KEYS, UNINSTALL_DEPTHS, UNINSTALLER_KEYS, UNUSED_MONTHS, WHEEL_KEYS, editable_keys, set_startup,
                        startup_enabled)
@@ -66,6 +65,34 @@ PAGE_ICONS = {"Home": "home", "General": "settings", "Look": "paint_brush", "Qui
               "Formats": "puzzle_piece",
               "History": "history", "Updates": "arrow_sync", "About": "info", "Store": "apps",
               **{tool.page: tool.icon for tool in all_tools.TOOLS}}
+# pages that are only words and settings: when out of sight they make way before a new look (and are made
+# again, quickly, when they're opened)
+REMADE_PAGES = {*SETTINGS_PAGES, "History", "Updates", "About"}
+# the words Ctrl + K finds on each Settings page, kept for pages that aren't made yet (per version and language)
+SETTING_WORDS = LOG_DIR / "setting-words.json"
+
+
+def _setting_words() -> dict[str, list[str]]:
+    import json
+    try:
+        data = json.loads(SETTING_WORDS.read_text("utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(data, dict) or data.get("version") != __version__ or data.get("language") != i18n.language():
+        return {}
+    pages = data.get("pages")
+    return {k: [t for t in v if isinstance(t, str)] for k, v in pages.items() if isinstance(v, list)} \
+        if isinstance(pages, dict) else {}
+
+
+def _keep_setting_words(words: dict[str, list[str]]):
+    import json
+    try:
+        SETTING_WORDS.parent.mkdir(parents=True, exist_ok=True)
+        SETTING_WORDS.write_text(json.dumps({"version": __version__, "language": i18n.language(), "pages": words},
+                                            ensure_ascii=False), "utf-8")
+    except OSError:
+        pass
 
 
 COMPACT_NAV = 60   # the sidebar's width with icons only
@@ -510,8 +537,8 @@ class MainWindow(QWidget):
         self._stat_glyphs: list[tuple[QLabel, str]] = []  # (icons on the History page's figures)
         self._gears: list[QPushButton] = []  # small "+" marks in the accent colour (recoloured with the theme)
         self._builders = builders
-        # pages that are rarely opened are only built the first time they are (a faster, lighter window)
-        # (the Converter's page and every Settings page are always made: other parts of the window use them)
+        # pages are only built the first time they're opened (a faster, lighter window that restyles
+        # quicker); the Converter's page is always made, as other parts of the window use it
         self.clip_page = None
         self.space_page = None
         self.cloud_page = None
@@ -522,18 +549,19 @@ class MainWindow(QWidget):
         self.unlock_page = None
         self.awake_page = None
         self.colors_page = None
-        self._unbuilt = {"Apps", "Store", "Viewer", "Clipboard", "Space", "Capture", "Cloud", "Player", "PDF", "Organizer", "Startup", "Scan", "Unlock", "Awake", "Colors", *SOON, *[tool.page for tool in all_tools.TOOLS
-                                                    if tool.page not in on_pages and tool.page != "Converter"]}
+        self._unbuilt = {"Apps", "Store", "Viewer", "Clipboard", "Space", "Capture", "Cloud", "Player", "PDF",
+                         "Organizer", "Startup", "Scan", "Unlock", "Awake", "Colors", "Archives", "History",
+                         "Updates", "About", *SETTINGS_PAGES, *SOON,
+                         *[tool.page for tool in all_tools.TOOLS if tool.page not in on_pages and tool.page != "Converter"]}
         for name in PAGES:
-            built = QWidget() if name in self._unbuilt else builders[name]()
-            if name in SETTINGS_PAGES:  # the "Settings" heading and the tabs above say what this is
-                built.widget().layout().itemAt(0).widget().hide()
-            self.stack.addWidget(built)
+            self.stack.addWidget(QWidget() if name in self._unbuilt else builders[name]())
         self._opening = None  # a page without a sidebar row of its own, while it's being opened
         self.nav.currentRowChanged.connect(self._page_changed)
         self.nav.itemClicked.connect(self._row_clicked)
         last = self.c.settings.last_page
         self.open_page(last if last in PAGES else "Home")
+        self._learning = None
+        QTimer.singleShot(4000, self, self._learn_setting_words)
 
         footer = QHBoxLayout()
         footer.setSpacing(8)
@@ -669,6 +697,9 @@ class MainWindow(QWidget):
             for w in (root or self).findChildren(cls):
                 w.setFocusPolicy(Qt.StrongFocus)
                 w.installEventFilter(self._wheel_guard)
+        for view in (root or self).findChildren(QAbstractItemView):  # (lists glide, not jump a row at a time)
+            view.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+            view.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
         mark_rows(root or self)  # (hairlines between settings rows that follow each other)
         keep_wrapped_text(root or self)
 
@@ -859,10 +890,104 @@ class MainWindow(QWidget):
         stand_in = self.stack.widget(i)
         # (a tool that isn't ready only shows what it will do, even if parts of it are already written)
         built = self._builders[name]() if name in self._builders and name not in SOON else self._soon(name)
+        if name in SETTINGS_PAGES:  # the "Settings" heading and the tabs above say what this is
+            built.widget().layout().itemAt(0).widget().hide()
         self.stack.insertWidget(i, built)
         self.stack.removeWidget(stand_in)
         stand_in.deleteLater()
         self._no_accidental_scrolling(built)
+        self._fill_built(name)
+
+    def drop_hidden_pages(self, names=REMADE_PAGES):
+        """Pages out of sight that are quick to make again go (made again when they're opened), so a
+        new look restyles only what's in use instead of every page ever opened."""
+        from shiboken6 import delete
+        here = self.current_page()
+        dropped = False
+        for name in PAGES:
+            if name not in names or name == here or not self.built(name):
+                continue
+            i = PAGES.index(name)
+            page_widget = self.stack.widget(i)
+            self.stack.insertWidget(i, QWidget())
+            self.stack.removeWidget(page_widget)
+            delete(page_widget)  # (now, not later: the restyle that follows would still go through it)
+            self._unbuilt.add(name)
+            dropped = True
+        if not dropped:
+            return
+        self._dots = [d for d in self._dots if _alive(d)]
+        self._gears = [g for g in self._gears if _alive(g)]
+        self._stat_glyphs = [(g, n) for g, n in self._stat_glyphs if _alive(g)]
+        if not self.built("Quick"):
+            self.quick_notes = None
+        if not self.built("About"):
+            self.link_buttons = []
+        if not self.built("Formats"):
+            self._formats_pending = []
+
+    def _learn_setting_words(self):
+        """Once per version and language, soon after the window opens: the words on settings pages not
+        made yet are read one page at a time (made, read, let go), so Ctrl + K never waits for them."""
+        if getattr(self, "_learning", None) is not None:
+            return
+        words = _setting_words()
+        todo = [name for _, _, pages in self.settings_tab_list for name in pages
+                if not self.built(name) and name not in words]
+        if todo:
+            self._learning = (words, todo)
+            QTimer.singleShot(0, self, self._learn_next)
+
+    def _learn_next(self):
+        words, todo = self._learning
+        if not self.isVisible() or winutil.idle_ms() < 1500:  # (only while nobody's typing or moving the mouse)
+            QTimer.singleShot(1000, self, self._learn_next)
+            return
+        while todo and self.built(todo[0]):
+            todo.pop(0)
+        if not todo:
+            self._learning = None
+            known = _setting_words()
+            known.update(words)
+            _keep_setting_words(known)
+            return
+        name = todo.pop(0)
+        self._build_page(name)
+        words[name] = [text for text, _ in self._settings_on(name)]
+        self.drop_hidden_pages({name})
+        QTimer.singleShot(80, self, self._learn_next)
+
+    def built(self, name: str) -> bool:
+        """The page is made (pages wait until they're first opened)."""
+        return name not in self._unbuilt
+
+    def _fill_built(self, name: str):
+        """A page made late shows what the window shows elsewhere (filled in while it was waiting)."""
+        t = self.c.theme
+        if name == "General":
+            dpr = self.devicePixelRatioF()
+            for lab, icon in zip(self.vol_icons, ("speaker_0", "speaker_2")):
+                lab.setPixmap(icons.pixmap(icon, 18, t.muted, dpr))
+            self.show_language()
+        elif name == "Look":
+            self.swatches.apply_theme(t)
+        elif name == "WheelLook":
+            self.preview.theme = t
+        elif name == "History":
+            dpr = self.devicePixelRatioF()
+            for glyph, icon in self._stat_glyphs:
+                glyph.setPixmap(icons.pixmap(icon, 22, t.accent, dpr))
+        elif name == "Updates":
+            self.refresh_updates()
+        elif name == "About":
+            for b, icon in getattr(self, "link_buttons", []):
+                b.setIcon(icons.icon(icon, t.on_accent if b.objectName() == "primary" else t.text))
+        elif name == "CaptureSettings":
+            self.refresh_capture_note()
+        elif name == "ClipboardSettings":
+            self.refresh_clipboard_note()
+        if name in ("General", "ConvOptions", "Look", "WheelLook"):
+            self.sync()
 
     def _row_clicked(self, item):
         """The lit row clicked again (from a page that shares it): go to the row's own page."""
@@ -915,8 +1040,6 @@ class MainWindow(QWidget):
             self.refresh_captures()
         elif name == "Player":
             self.refresh_watching()
-        elif name == "CaptureSettings":
-            self._find_microphones()
         elif name == "Shortcuts":
             self.shortcuts_page.refresh()
 
@@ -1163,8 +1286,9 @@ class MainWindow(QWidget):
 
     def show_language(self):
         """The language button and the Language list show the language in use."""
-        self.lang_btn.setText(" " + i18n.LANGUAGES.get(i18n.language(), "English"))  # (a little room after the globe)
-        if hasattr(self, "language"):
+        if hasattr(self, "lang_btn"):  # (not yet while the window is made with General open: it's made after)
+            self.lang_btn.setText(" " + i18n.LANGUAGES.get(i18n.language(), "English"))  # (room after the globe)
+        if self.built("General") and hasattr(self, "language"):
             self.language.blockSignals(True)
             self.language.setCurrentIndex(max(0, self.language.findData(self.c.settings.language)))
             self.language.blockSignals(False)
@@ -1222,7 +1346,7 @@ class MainWindow(QWidget):
         s = self.c.settings
         unsaved = self.is_dirty()
         s.appearance = "light" if self.c.theme.dark else "dark"
-        seg = getattr(self, "appearance_seg", None)
+        seg = getattr(self, "appearance_seg", None) if self.built("Look") else None
         if seg is not None:
             for i, k in enumerate(seg.keys):
                 seg.group.button(i).setChecked(k == s.appearance)
@@ -1260,9 +1384,6 @@ class MainWindow(QWidget):
             commands.append(Command(tr("Screenshot with a timer"), actions, ic("timer"),
                                     lambda: QTimer.singleShot(250, self.c.capture.screenshot_later),
                                     keywords="capture delay wait countdown"))
-            commands.append(Command(tr("Record a GIF"), actions, ic("filmstrip_image"),
-                                    lambda: QTimer.singleShot(250, self.c.capture.record_gif),
-                                    keywords="capture animation record"))
             commands.append(Command(tr("Pin what's copied to the screen"), actions, ic("pin"),
                                     self.c.capture.pin_last, keywords="capture pin float on top"))
         if self.c.clip is not None:
@@ -1292,29 +1413,56 @@ class MainWindow(QWidget):
                 tab_of[page_name] = tr(text)
             commands.append(Command(tr(text), in_settings, ic("settings"), lambda f=first: self.open_page(f)))
         sep = " ‹ " if i18n.is_rtl() else " › "
-        seen = set()
         setting_icon = ic("text_description")
+        # (pages are made when first opened: the words on the ones not made yet were kept from before,
+        # and a page never seen in this version and language is made now, once)
+        words = _setting_words()
+        for page_name in tab_of:
+            if not self.built(page_name) and page_name not in words:
+                self._build_page(page_name)
+        known = dict(words)
         for page_name, tab in tab_of.items():
-            i = PAGES.index(page_name)
-            w = self.stack.widget(i)
-            if w is None or page_name in self._unbuilt:
-                continue
             where = in_settings + sep + tab
             if page_name in SETTINGS_SUBTABS:
                 where += sep + tr(SETTINGS_SUBTABS[page_name])
-            for widget in w.findChildren(QWidget):
-                text = ""
-                if isinstance(widget, QCheckBox):
-                    text = widget.text()
-                elif isinstance(widget, QLabel) and widget.objectName() in ("", "h2") and not widget.pixmap():
-                    text = widget.text()
-                text = text.replace("&", "").strip().rstrip(":")
-                if not text or len(text) > 90 or "<" in text or (page_name, text) in seen:
-                    continue
-                seen.add((page_name, text))
-                commands.append(Command(text, where, setting_icon,
-                                        lambda n=page_name, wd=widget: self._show_setting(n, wd), listed=False))
+            if self.built(page_name):
+                found = self._settings_on(page_name)
+                words[page_name] = [text for text, _ in found]
+                for text, widget in found:
+                    commands.append(Command(text, where, setting_icon,
+                                            lambda n=page_name, wd=widget: self._show_setting(n, wd), listed=False))
+            else:
+                for text in words.get(page_name, []):
+                    commands.append(Command(text, where, setting_icon,
+                                            lambda n=page_name, tx=text: self._show_setting_named(n, tx), listed=False))
+        if words != known:
+            _keep_setting_words(words)
         return commands
+
+    def _settings_on(self, page_name: str) -> list[tuple[str, QWidget]]:
+        """The settings on a page Ctrl + K can find, by the words next to them."""
+        if page_name == "Formats":
+            self._fill_formats_later(all_now=True)
+        w = self.stack.widget(PAGES.index(page_name))
+        found, seen = [], set()
+        for widget in w.findChildren(QWidget):
+            text = ""
+            if isinstance(widget, QCheckBox):
+                text = widget.text()
+            elif isinstance(widget, QLabel) and widget.objectName() in ("", "h2") and not widget.pixmap():
+                text = widget.text()
+            text = text.replace("&", "").strip().rstrip(":")
+            if not text or len(text) > 90 or "<" in text or text in seen:
+                continue
+            seen.add(text)
+            found.append((text, widget))
+        return found
+
+    def _show_setting_named(self, page_name: str, text: str):
+        self.open_page(page_name)
+        widget = dict(self._settings_on(page_name)).get(text) if self.built(page_name) else None
+        if widget is not None:
+            self._show_setting(page_name, widget)
 
     def _show_setting(self, page_name: str, widget: QWidget):
         """Opens the page with this setting, scrolls to it and makes it glow for a moment."""
@@ -2200,6 +2348,9 @@ class MainWindow(QWidget):
         self.viewer_confirm_delete = checkbox(tr("Ask before sending a picture to the Recycle Bin"),
                                               s.viewer_confirm_delete, self._viewer_setting_changed)
         bl.addWidget(self.viewer_confirm_delete)
+        self.viewer_loop = checkbox(tr("After the last picture in a folder, start again from the first"),
+                                    s.viewer_loop, self._viewer_setting_changed)
+        bl.addWidget(self.viewer_loop)
         lay.addWidget(box)
         box, bl = card()
         bl.addWidget(label(tr("Double-click to open"), "h2"))
@@ -2226,6 +2377,7 @@ class MainWindow(QWidget):
         s.slideshow_seconds = self.slideshow_seconds.currentData()
         s.peek_key = self.peek_key.currentData()
         s.viewer_confirm_delete = self.viewer_confirm_delete.isChecked()
+        s.viewer_loop = self.viewer_loop.isChecked()
         self.c.settings_changed()
 
     def _default_for_viewer(self):
@@ -2276,7 +2428,7 @@ class MainWindow(QWidget):
         from .colorspage import ColorsPage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
         header = tool_header("colors", tr("Corefold Colors"),
-                             tr("Pick any colour on your screen and copy it as HEX, RGB or HSL."), dark, dpr)
+                             tr("Pick any colour on your screen and copy it as HEX, RGB, HSL, HSV or CMYK."), dark, dpr)
         self.colors_page = ColorsPage(self.c, header)
         return self.colors_page
 
@@ -2424,7 +2576,9 @@ class MainWindow(QWidget):
                                     self._player_setting_changed)
         self.player_subtitles = checkbox(tr("Turn on a video's own subtitles"), s.player_subtitles,
                                          self._player_setting_changed)
-        for cb in (self.player_resume, self.player_next, self.player_subtitles):
+        self.player_pause_minimized = checkbox(tr("Pause a video while the window is minimised (music keeps playing)"),
+                                               s.player_pause_minimized, self._player_setting_changed)
+        for cb in (self.player_resume, self.player_next, self.player_subtitles, self.player_pause_minimized):
             bl.addWidget(cb)
         lay.addWidget(box)
         box, bl = card()
@@ -2450,6 +2604,7 @@ class MainWindow(QWidget):
         s.player_resume = self.player_resume.isChecked()
         s.player_next = self.player_next.isChecked()
         s.player_subtitles = self.player_subtitles.isChecked()
+        s.player_pause_minimized = self.player_pause_minimized.isChecked()
         self.c.settings_changed()
 
     def _default_for_player(self):
@@ -2459,27 +2614,28 @@ class MainWindow(QWidget):
         assoc.open_default_apps()
 
     def _cloud(self) -> QWidget:
-        """Corefold Cloud: OneDrive and Dropbox side by side."""
+        """Corefold Cloud: OneDrive, Dropbox, Google Drive and iCloud side by side."""
         from .cloudpage import CloudPage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
         header = tool_header("cloud", tr("Corefold Cloud"),
-                             tr("Your OneDrive and Dropbox in one window. Drag files between them."), dark, dpr)
+                             tr("Your OneDrive, Dropbox, Google Drive and iCloud in one window. Drag files between them."), dark, dpr)
         self.cloud_page = CloudPage(self.c, header)
         return self.cloud_page
 
     def _capture(self) -> QWidget:
-        """Corefold Capture: screenshots and recordings."""
+        """Corefold Capture: screenshots."""
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
         w, lay = page(tr("Corefold Capture"))
         lay.itemAt(0).widget().hide()
         lay.addLayout(tool_header("capture", tr("Corefold Capture"),
-                                  tr("Take a picture or a video of your screen, mark it up and share it in seconds."),
+                                  tr("Take a picture of your screen, mark it up and share it in seconds."),
                                   dark, dpr, self.tool_settings_button("Capture")))
         box, bl = card()
         row = QHBoxLayout()
         row.setSpacing(10)
         row.addWidget(button(tr("Take a screenshot"), "primary", lambda: self.c.capture and self.c.capture.screenshot()))
-        row.addWidget(button(tr("Record the screen"), None, lambda: self.c.capture and self.c.capture.record()))
+        row.addWidget(button(tr("Screenshot with a timer"), None,
+                             lambda: self.c.capture and self.c.capture.screenshot_later()))
         row.addStretch()
         bl.addLayout(row)
         self.capture_keys = label("", "muted", wrap=True)
@@ -2500,7 +2656,8 @@ class MainWindow(QWidget):
         for text in (tr("Drag over an area, click a window, or press Enter for the whole screen."),
                      tr("Every screenshot is copied straight away: paste it anywhere with Ctrl+V."),
                      tr("Blur hides passwords and names for good: the picture saved has no way back to them."),
-                     tr("Recordings are saved as MP4 videos in Videos\\Captures. Nothing is uploaded.")):
+                     tr("In the editor, Select text picks just the words you want, to copy them."),
+                     tr("Screenshots stay on your PC: nothing is uploaded. Pick their folder in Capture's settings.")):
             r = QHBoxLayout()
             r.setSpacing(10)
             r.addWidget(self._accent_dot(), 0, Qt.AlignTop)
@@ -2519,8 +2676,6 @@ class MainWindow(QWidget):
         bits = []
         if s.cap_shortcut != "off":
             bits.append(tr("Screenshot: {key}", key=SHORTCUT_NAMES.get(s.cap_shortcut, "")))
-        if s.cap_record_shortcut != "off":
-            bits.append(tr("Start or stop recording: {key}", key=SHORTCUT_NAMES.get(s.cap_record_shortcut, "")))
         self.capture_keys.setText("   ·   ".join(bits) or tr("Pick shortcuts in Settings to capture from any app."))
         lay = self.captures_lay
         while lay.count():
@@ -2541,12 +2696,16 @@ class MainWindow(QWidget):
                                 if v else self.c.open_viewer(p))
             lay.addWidget(row)
         if not files:
-            lay.addWidget(label(tr("Your screenshots and recordings show up here."), "muted", wrap=True))
+            lay.addWidget(label(tr("Your screenshots show up here."), "muted", wrap=True))
 
     def _open_capture_folder(self):
         from .capture import screenshots_folder
         folder = screenshots_folder()
-        folder.mkdir(parents=True, exist_ok=True)
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            self.c.tell(tr("Couldn't open the folder"), str(folder))
+            return
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder)))
 
     def _capture_settings(self) -> QWidget:
@@ -2561,123 +2720,92 @@ class MainWindow(QWidget):
         for key, text in CAP_SHORTCUTS.items():
             self.cap_shortcut.addItem(tr(text) if key == "off" else text, key)
         self.cap_shortcut.setCurrentIndex(max(0, self.cap_shortcut.findData(s.cap_shortcut)))
-        self.cap_record_shortcut = Dropdown()
-        for key, text in CAP_RECORD_SHORTCUTS.items():
-            self.cap_record_shortcut.addItem(tr(text) if key == "off" else text, key)
-        self.cap_record_shortcut.setCurrentIndex(max(0, self.cap_record_shortcut.findData(s.cap_record_shortcut)))
         self.cap_after = Dropdown()
         for key, text in CAP_AFTER.items():
             self.cap_after.addItem(tr(text), key)
         self.cap_after.setCurrentIndex(max(0, self.cap_after.findData(s.cap_after)))
         grid.addWidget(label(tr("Take a screenshot with")), 0, 0)
         grid.addWidget(self.cap_shortcut, 0, 1)
-        grid.addWidget(label(tr("Start or stop recording with")), 1, 0)
-        grid.addWidget(self.cap_record_shortcut, 1, 1)
-        grid.addWidget(label(tr("After a screenshot")), 2, 0)
-        grid.addWidget(self.cap_after, 2, 1)
+        grid.addWidget(label(tr("After a screenshot")), 1, 0)
+        grid.addWidget(self.cap_after, 1, 1)
         self.cap_delay = Dropdown()
         for key, text in CAP_DELAY.items():
             self.cap_delay.addItem(tr(text), key)
         self.cap_delay.setCurrentIndex(max(0, self.cap_delay.findData(s.cap_delay)))
-        grid.addWidget(label(tr("A screenshot with a timer waits")), 3, 0)
-        grid.addWidget(self.cap_delay, 3, 1)
+        grid.addWidget(label(tr("A screenshot with a timer waits")), 2, 0)
+        grid.addWidget(self.cap_delay, 2, 1)
         grid.setColumnStretch(2, 1)
         bl.addLayout(grid)
-        self.cap_key_note = label(tr("Another app already uses one of these shortcuts. Pick another one."), "warning",
-                                  wrap=True)
+        self.cap_key_note = label(tr("Another app already uses this shortcut. Pick another one."), "warning", wrap=True)
         bl.addWidget(self.cap_key_note)
         self.refresh_capture_note()
-        self.cap_save = checkbox(tr("Also save every screenshot in Pictures\\Screenshots"), s.cap_save,
-                                 self._cap_setting_changed)
-        bl.addWidget(self.cap_save)
         bl.addWidget(label(tr("Print Screen on its own may open Windows' Snipping Tool: Windows lets you turn that off "
                               "in Settings, Accessibility, Keyboard."), "muted", wrap=True))
         lay.addWidget(box)
         box, bl = card()
-        bl.addWidget(label(tr("Recording"), "h2"))
-        grid = QGridLayout()
-        grid.setHorizontalSpacing(16)
-        grid.setVerticalSpacing(12)
-        self.cap_fps = Dropdown()
-        for key, text in CAP_FPS.items():
-            self.cap_fps.addItem(tr(text), key)
-        self.cap_fps.setCurrentIndex(max(0, self.cap_fps.findData(s.cap_fps)))
-        self.cap_mic = Dropdown()
-        self.cap_mic.addItem(tr("No sound"), "")
-        if s.cap_mic:
-            self.cap_mic.addItem(s.cap_mic, s.cap_mic)
-            self.cap_mic.setCurrentIndex(1)
-        self._mics_found = False
-        grid.addWidget(label(tr("Smoothness")), 0, 0)
-        grid.addWidget(self.cap_fps, 0, 1)
-        grid.addWidget(label(tr("Microphone")), 1, 0)
-        grid.addWidget(self.cap_mic, 1, 1)
-        grid.setColumnStretch(2, 1)
-        bl.addLayout(grid)
-        self.cap_pc_sound = checkbox(tr("Record the PC's sound too (videos, games, calls)"), s.cap_pc_sound,
-                                     self._cap_setting_changed)
-        self.cap_cursor = checkbox(tr("Show the mouse pointer in recordings"), s.cap_cursor, self._cap_setting_changed)
-        self.cap_countdown = checkbox(tr("Count down 3, 2, 1 before recording starts"), s.cap_countdown,
-                                      self._cap_setting_changed)
-        bl.addWidget(self.cap_pc_sound)
-        bl.addWidget(self.cap_cursor)
-        bl.addWidget(self.cap_countdown)
+        bl.addWidget(label(tr("Saving"), "h2"))
+        self.cap_save = checkbox(tr("Also save every screenshot"), s.cap_save, self._cap_setting_changed)
+        bl.addWidget(self.cap_save)
+        bl.addSpacing(4)
+        bl.addWidget(label(tr("Screenshots are saved in")))
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        self.cap_folder_label = label("", "muted")
+        self.cap_folder_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.cap_folder_label.setMinimumWidth(60)
+        self.cap_folder_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)  # (shortened, never wider)
+        row.addWidget(self.cap_folder_label, 1)
+        row.addWidget(button(tr("Open"), on_click=self._open_capture_folder))
+        row.addWidget(button(tr("Change…"), on_click=self._pick_cap_folder))
+        self.cap_folder_reset = button(tr("Use the usual folder"), "flat", lambda: self._set_cap_folder(""))
+        row.addWidget(self.cap_folder_reset)
+        bl.addLayout(row)
+        self._show_cap_folder()
         lay.addWidget(box)
-        for combo in (self.cap_shortcut, self.cap_record_shortcut, self.cap_after, self.cap_delay, self.cap_fps,
-                      self.cap_mic):
+        for combo in (self.cap_shortcut, self.cap_after, self.cap_delay):
             combo.currentIndexChanged.connect(self._cap_setting_changed)
         lay.addLayout(_reset_row(lambda: self.reset_to_defaults(CAPTURE_KEYS)))
         lay.addStretch()
         return w
 
-    def _find_microphones(self):
-        """Asks FFmpeg which microphones there are (only when the page is opened: it takes a moment)."""
-        if self._mics_found or not hasattr(self, "cap_mic"):
+    def _show_cap_folder(self):
+        from .capture import screenshots_folder
+        if not _alive(getattr(self, "cap_folder_label", None)):
             return
-        self._mics_found = True
-        import threading
+        folder = str(screenshots_folder())
+        self.cap_folder_label.setText(short_name(folder, 50))
+        self.cap_folder_label.setToolTip(folder)
+        self.cap_folder_reset.setVisible(bool(self.c.settings.cap_folder))
 
-        from .capture import microphones
-        holder = {}
+    def _pick_cap_folder(self):
+        from .capture import screenshots_folder
+        d = QFileDialog.getExistingDirectory(self, tr("Save screenshots in"), str(screenshots_folder()))
+        if d:
+            self._set_cap_folder(d)
 
-        def work():
-            holder["mics"] = microphones()
-        t = threading.Thread(target=work, daemon=True)
-        t.start()
-
-        def fill():
-            if t.is_alive():
-                QTimer.singleShot(200, fill)
-                return
-            if not _alive(self.cap_mic):
-                return
-            current = self.c.settings.cap_mic
-            self.cap_mic.blockSignals(True)
-            for mic in holder.get("mics", []):
-                if self.cap_mic.findData(mic) < 0:
-                    self.cap_mic.addItem(mic, mic)
-            self.cap_mic.setCurrentIndex(max(0, self.cap_mic.findData(current)))
-            self.cap_mic.blockSignals(False)
-        QTimer.singleShot(200, fill)
+    def _set_cap_folder(self, folder: str):
+        """A folder picked for screenshots ("" = back to Pictures\\Screenshots)."""
+        from .capture import default_screenshots_folder
+        usual = str(default_screenshots_folder())
+        if folder and os.path.normcase(os.path.normpath(folder)) == os.path.normcase(os.path.normpath(usual)):
+            folder = ""
+        self.c.settings.cap_folder = os.path.normpath(folder) if folder else ""
+        self._show_cap_folder()
+        self.c.settings_changed()
+        self.refresh_captures()
 
     def _cap_setting_changed(self, *_):
         s = self.c.settings
         s.cap_shortcut = self.cap_shortcut.currentData()
-        s.cap_record_shortcut = self.cap_record_shortcut.currentData()
         s.cap_after = self.cap_after.currentData()
         s.cap_delay = self.cap_delay.currentData()
         s.cap_save = self.cap_save.isChecked()
-        s.cap_fps = self.cap_fps.currentData()
-        s.cap_mic = self.cap_mic.currentData() or ""
-        s.cap_pc_sound = self.cap_pc_sound.isChecked()
-        s.cap_cursor = self.cap_cursor.isChecked()
-        s.cap_countdown = self.cap_countdown.isChecked()
         self.c.settings_changed()
 
     def refresh_capture_note(self):
-        if hasattr(self, "cap_key_note"):
+        if self.built("CaptureSettings") and hasattr(self, "cap_key_note"):
             cap = self.c.capture
-            bad = cap is not None and not (cap.shot_key.ok and cap.rec_key.ok)
+            bad = cap is not None and not cap.shot_key.ok
             self.cap_key_note.setVisible(bool(bad))
 
     def _quick_settings(self) -> QWidget:
@@ -2763,7 +2891,7 @@ class MainWindow(QWidget):
         self.c.settings_changed()
 
     def refresh_clipboard_note(self):
-        if hasattr(self, "clip_key_note"):
+        if self.built("ClipboardSettings") and hasattr(self, "clip_key_note"):
             self.clip_key_note.setVisible(bool(self.c.clip is not None and not self.c.clip.hotkey.ok))
 
     def _clear_clipboard(self):
@@ -2797,6 +2925,15 @@ class MainWindow(QWidget):
         self.extract_nested = checkbox(tr("Also unpack archives found inside (ticked to begin with)"),
                                        s.extract_nested, self._tool_setting_changed)
         bl.addWidget(self.extract_nested)
+        bl.addWidget(label(tr("Once it's extracted"), "h2"))
+        self.extract_reveal = checkbox(tr("Open the folder with what came out"), s.extract_reveal,
+                                       self._tool_setting_changed)
+        self.extract_recycle = checkbox(tr("Send the archive to the Recycle Bin (all its parts too)"),
+                                        s.extract_recycle, self._tool_setting_changed)
+        bl.addWidget(self.extract_reveal)
+        bl.addWidget(self.extract_recycle)
+        bl.addWidget(label(tr("Only when everything came out without a problem. Extracting a few items from the "
+                              "Archive window never removes the archive."), "muted", wrap=True))
         lay.addWidget(box)
         box, bl = card()
         bl.addWidget(label(tr("Double-click to open"), "h2"))
@@ -2836,13 +2973,17 @@ class MainWindow(QWidget):
     def _tool_setting_changed(self, *_):
         """A setting on the Uninstaller or Archive tab."""
         s = self.c.settings
-        s.unused_months = self.unused_months.currentData()
-        s.backup_days = self.backup_days.currentData()
-        s.restore_point = self.restore_point.isChecked()
-        s.uninstall_depth = self.uninstall_depth.currentData()
-        s.extract_mode = self.extract_mode.currentData()
-        s.extract_nested = self.extract_nested.isChecked()
-        s.remember_archives = self.remember_archives.isChecked()
+        if self.built("AppsSettings"):
+            s.unused_months = self.unused_months.currentData()
+            s.backup_days = self.backup_days.currentData()
+            s.restore_point = self.restore_point.isChecked()
+            s.uninstall_depth = self.uninstall_depth.currentData()
+        if self.built("ArchiveSettings"):
+            s.extract_mode = self.extract_mode.currentData()
+            s.extract_nested = self.extract_nested.isChecked()
+            s.extract_reveal = self.extract_reveal.isChecked()
+            s.extract_recycle = self.extract_recycle.isChecked()
+            s.remember_archives = self.remember_archives.isChecked()
         self.c.settings_changed()
 
     def _formats(self) -> QWidget:
@@ -2857,7 +2998,8 @@ class MainWindow(QWidget):
         self.format_search.setClearButtonEnabled(True)
         self.format_search.textChanged.connect(self._filter_formats)
         lay.addWidget(self.format_search)
-        for kind in catalog():
+        self._formats_pending: list[str] = []
+        for i, kind in enumerate(catalog()):
             lay.addWidget(label(tr(CATEGORY_NAMES[kind]), "h2"))
             box, _ = card()
             grid = QGridLayout()
@@ -2865,8 +3007,12 @@ class MainWindow(QWidget):
             grid.setVerticalSpacing(6)
             box.layout().addLayout(grid)
             self.format_grids[kind] = grid
-            self._fill_format_grid(kind)
+            if i == 0:
+                self._fill_format_grid(kind)
+            else:  # (the page shows at once; the rest of its ~400 rows follow in small steps)
+                self._formats_pending.append(kind)
             lay.addWidget(box)
+        QTimer.singleShot(15, w, self._fill_formats_later)
         row = QHBoxLayout()
         row.addWidget(button(tr("Show everything again"), on_click=self._show_all_tools))
         row.addWidget(button(tr("Reset the order"), on_click=self._reset_order))
@@ -3050,18 +3196,15 @@ class MainWindow(QWidget):
             tr("The new file appears in your Corefold folder.")
         self.step_labels[2].setText(tr("Drop the file on a format (or click it).") + " " + where + " "
                                     + tr("Let go in the middle to cancel."))
-        self.power.setText(tr("Corefold is on") if s.enabled else tr("Paused. Click to turn on"))
-        self.folder_label.setText(short_name(s.output_folder, 60))
-        self.folder_label.setToolTip(s.output_folder)
-        self.folder_row.setVisible(s.save_mode == "folder")
-        self.accent_name.setText(tr("Your colour") if s.accent == "custom" else tr(ACCENTS[s.accent][0]))
-        self.legend.setText(tr("Colours: blue = convert · purple = edit · green = make smaller · pink = read · "
-                               "amber = archive") if s.slice_colors == "group" else "")
-        self.legend.setVisible(s.slice_colors == "group")
-        self.menu_style.setEnabled(s.context_menu)
-        self.menu_hint.setText(tr("Right-click a photo → Corefold → Convert to PNG, Resize…, Remove the background… "
-                                  "(like 7-Zip's menu).") if s.menu_style == "windows" else
-                               tr("Right-click → Convert with Corefold opens the wheel of options."))
+        self.power.setText(tr("Converter is on") if s.enabled else tr("Paused. Click to turn on"))
+        if self.built("Look"):
+            self.accent_name.setText(tr("Your colour") if s.accent == "custom" else tr(ACCENTS[s.accent][0]))
+        if self.built("WheelLook"):
+            self.legend.setText(tr("Colours: blue = convert · purple = edit · green = make smaller · pink = read · "
+                                   "amber = archive") if s.slice_colors == "group" else "")
+            self.legend.setVisible(s.slice_colors == "group")
+        if self.built("ConvOptions"):
+            self._refresh_conv_options()
         st = self.c.history.stats
         self.home_stats.setText(tr("So far: {count} files converted · {size} saved", count=locale().toString(st.files),
                                    size=human_size(st.bytes_saved)) if st.files else "")
@@ -3079,17 +3222,35 @@ class MainWindow(QWidget):
         self.refresh_again()
         self.update_save_bar()
 
+    def _refresh_conv_options(self):
+        s = self.c.settings
+        self.folder_label.setText(short_name(s.output_folder, 60))
+        self.folder_label.setToolTip(s.output_folder)
+        self.folder_row.setVisible(s.save_mode == "folder")
+        self.menu_style.setEnabled(s.context_menu)
+        self.menu_hint.setText(tr("Right-click a photo → Corefold → Convert to PNG, Resize…, Remove the background… "
+                                  "(like 7-Zip's menu).") if s.menu_style == "windows" else
+                               tr("Right-click → Convert with Corefold opens the wheel of options."))
+
     def refresh_again(self):
         text = self.c.again_text()
         self.again_btn.setText("↻  " + text if text else "")
         self.again_btn.setVisible(bool(text))
 
     def refresh_memory(self):
+        if not self.built("About"):
+            return
         used = memory_use()
         self.memory.setText(tr("Memory in use right now: {size}", size=human_size(used)) if used else "")
         self.memory.setVisible(bool(used))
 
     def refresh_history(self):
+        if self.built("History"):
+            self._fill_history()
+        self._fill_recent()
+        self.refresh()
+
+    def _fill_history(self):
         st = self.c.history.stats
         loc = locale()
         self.stat_files.setText(loc.toString(st.files))
@@ -3115,10 +3276,8 @@ class MainWindow(QWidget):
         empty = not self.c.history.items
         self.history_list.setVisible(not empty)
         self.history_empty.setVisible(empty)
-        self._fill_recent()
         self._filter_history()
         self._history_buttons()
-        self.refresh()
 
     def _history_selected(self) -> list[Path]:
         item = self.history_list.currentItem()
@@ -3178,19 +3337,23 @@ class MainWindow(QWidget):
         self.update_save_bar()
 
     def _general_changed(self, *_):
+        """A setting on Settings → General or on the Converter's Options (each page only once it's made)."""
         s = self.c.settings
-        s.shortcut = self.shortcut.currentData()
-        s.save_mode = self.save_mode.currentData()
-        s.jpg_quality = self.quality.value()
-        s.show_unavailable = bool(self.unavailable.currentData())
-        s.ask_names = self.ask_names.isChecked()
-        s.show_progress = self.show_progress.isChecked()
-        s.reveal_after = self.reveal.isChecked()
-        s.sound_problems = self.problem_sound.isChecked()
-        s.sound_tick = self.tick.isChecked()
-        s.video_gpu = self.video_gpu.isChecked()
-        changed = s.pack_on_every_wheel != self.pack_everywhere.isChecked()
-        s.pack_on_every_wheel = self.pack_everywhere.isChecked()
+        changed = False
+        if self.built("General"):
+            s.show_progress = self.show_progress.isChecked()
+            s.sound_problems = self.problem_sound.isChecked()
+        if self.built("ConvOptions"):
+            s.shortcut = self.shortcut.currentData()
+            s.save_mode = self.save_mode.currentData()
+            s.jpg_quality = self.quality.value()
+            s.show_unavailable = bool(self.unavailable.currentData())
+            s.ask_names = self.ask_names.isChecked()
+            s.reveal_after = self.reveal.isChecked()
+            s.sound_tick = self.tick.isChecked()
+            s.video_gpu = self.video_gpu.isChecked()
+            changed = s.pack_on_every_wheel != self.pack_everywhere.isChecked()
+            s.pack_on_every_wheel = self.pack_everywhere.isChecked()
         self.c.settings_changed(menu=changed)
         if changed:
             self.panel.refresh()
@@ -3242,7 +3405,8 @@ class MainWindow(QWidget):
             self.refresh_nav()
         elif key == "wheel_opacity":
             self.c.apply_theme(wheel_only=True)  # dragging the slider stays smooth: the window's look doesn't change
-        self.preview.update()
+        if self.built("WheelLook"):
+            self.preview.update()
 
     def _tool_toggled(self, key: str, on: bool):
         hidden = set(self.c.settings.hidden_tools)
@@ -3280,6 +3444,16 @@ class MainWindow(QWidget):
         order = {k: i for i, k in enumerate(self.c.settings.tool_order.get(kind, []))}
         default = {t.key: i for i, t in enumerate(tools)}
         return sorted(tools, key=lambda t: order.get(t.key, len(order) + default[t.key]))
+
+    def _fill_formats_later(self, all_now: bool = False):
+        while self._formats_pending:
+            kind = self._formats_pending.pop(0)
+            if kind in self.format_grids:
+                self._fill_format_grid(kind)
+            if not all_now:
+                if self._formats_pending:
+                    QTimer.singleShot(15, self.stack, self._fill_formats_later)
+                return
 
     def _fill_format_grid(self, kind: str):
         from .panel import clear_layout
@@ -3371,6 +3545,8 @@ class MainWindow(QWidget):
         self.refresh_updates()
 
     def refresh_updates(self):
+        if not self.built("Updates"):
+            return
         c = self.c
         current = __version__
         info = c.update_info
@@ -3421,13 +3597,16 @@ class MainWindow(QWidget):
         dpr = self.devicePixelRatioF()
         for glyph, name in self._stat_glyphs:
             glyph.setPixmap(icons.pixmap(name, 22, t.accent, dpr))
-        for lab, name in zip(self.vol_icons, ("speaker_0", "speaker_2")):
-            lab.setPixmap(icons.pixmap(name, 18, t.muted, dpr))
+        if self.built("General"):
+            for lab, name in zip(self.vol_icons, ("speaker_0", "speaker_2")):
+                lab.setPixmap(icons.pixmap(name, 18, t.muted, dpr))
         for b, name in getattr(self, "link_buttons", []):
             b.setIcon(icons.icon(name, t.on_accent if b.objectName() == "primary" else t.text))
-        self.swatches.apply_theme(t)
-        self.preview.theme = t
-        self.preview.update()
+        if self.built("Look"):
+            self.swatches.apply_theme(t)
+        if self.built("WheelLook"):
+            self.preview.theme = t
+            self.preview.update()
         for dot in self._dots:
             dot.setPixmap(icons.pixmap("add", 16, t.accent, dpr))
         for gear in self._gears:
@@ -3453,10 +3632,12 @@ class MainWindow(QWidget):
 
     def sync(self):
         """Pick up changes made from the tray menu or outside the app."""
-        startup = startup_enabled() if self.pending_startup is None else self.pending_startup
-        for widget, value in ((self.power, self.c.settings.enabled), (self.startup, startup),
-                              (self.context, self.c.settings.context_menu),
-                              (self.downloads, self.c.settings.watch_downloads)):
+        pairs = [(self.power, self.c.settings.enabled)]
+        if self.built("General"):
+            pairs.append((self.startup, startup_enabled() if self.pending_startup is None else self.pending_startup))
+        if self.built("ConvOptions"):
+            pairs += [(self.context, self.c.settings.context_menu), (self.downloads, self.c.settings.watch_downloads)]
+        for widget, value in pairs:
             widget.blockSignals(True)
             widget.setChecked(value)
             widget.blockSignals(False)

@@ -1,4 +1,5 @@
-"""Corefold Cloud: OneDrive and Dropbox in one window (Google Drive later).
+"""Corefold Cloud: OneDrive and Dropbox in one window, online (this file) or through the folders their own
+apps keep on this PC (cloudlocal.py, which never goes online).
 
 Signing in happens on Microsoft's and Dropbox's own pages, in your browser: Corefold never sees a
 password. What it gets back is a key that only lets it reach your files; it's kept on this PC,
@@ -39,7 +40,14 @@ SMALL = 4 * 1024 * 1024        # smaller files go up in one request
 # (the apps Corefold signs in as: see cloudkeys.py)
 DROPBOX_PORT = 53682           # Dropbox needs the exact address registered: http://localhost:53682/
 
-SERVICES = {"onedrive": "OneDrive", "dropbox": "Dropbox"}
+SERVICES = {"onedrive": "OneDrive", "dropbox": "Dropbox", "gdrive": "Google Drive", "icloud": "iCloud Drive"}
+ONLINE = ("onedrive", "dropbox")   # the ones Corefold can sign in to by itself
+
+# where Corefold signs in and talks to each service (a test points these at a pretend service)
+MS_LOGIN = "https://login.microsoftonline.com/common/oauth2/v2.0"
+MS_SCOPE = "offline_access Files.ReadWrite User.Read"
+DROPBOX_AUTHORIZE = "https://www.dropbox.com/oauth2/authorize"
+DROPBOX_OAUTH = "https://api.dropboxapi.com/oauth2/token"
 
 
 class CloudError(Exception):
@@ -59,6 +67,7 @@ class Entry:
     size: int = 0
     modified: float = 0.0
     parent: str = ""
+    online: bool = False     # a file in a folder on this PC that is kept online only (opening it downloads it)
 
 
 @dataclass
@@ -74,12 +83,30 @@ class Account:
     extra: dict = field(default_factory=dict)
 
     @property
+    def local(self) -> str:
+        """The folder the service's own app keeps on this PC, for an account found there (never saved)."""
+        return self.extra.get("local", "") if isinstance(self.extra, dict) else ""
+
+    @property
     def key(self) -> str:
+        if self.local:
+            return "local:" + os.path.normcase(self.local)
         return f"{self.service}:{self.email.lower()}"
 
     @property
     def title(self) -> str:
-        return f"{SERVICES.get(self.service, self.service)} · {self.email}"
+        name = SERVICES.get(self.service, self.service)
+        return name if self.who in ("", name) else f"{name} · {self.who}"
+
+    @property
+    def who(self) -> str:
+        """The email, or for a folder on this PC whose email isn't known, the folder's name."""
+        if self.email or not self.local:
+            return self.email
+        p = Path(self.local)
+        if not p.name:  # (a whole drive, like Google Drive's G:)
+            return p.drive or str(p)
+        return f"{p.name} ({p.drive})" if p.parent == p.parent.parent and p.drive else p.name
 
 
 # ----------------------------------------------------------------------------- keeping the keys safe
@@ -141,7 +168,7 @@ def load_accounts() -> list[Account]:
 def save_accounts(accounts: list[Account]):
     with _lock:
         FOLDER.mkdir(parents=True, exist_ok=True)
-        data = json.dumps([a.__dict__ for a in accounts]).encode("utf-8")
+        data = json.dumps([a.__dict__ for a in accounts if not a.local]).encode("utf-8")
         tmp = ACCOUNTS_FILE.with_suffix(".tmp")
         tmp.write_bytes(protect(data))
         os.replace(tmp, ACCOUNTS_FILE)
@@ -161,8 +188,31 @@ def remember_account(acc: Account):
 
 # ----------------------------------------------------------------------------- the internet
 
+AGAIN = (429, 500, 502, 503, 504)   # worth one more try after a short wait
+
+
 def _request(method: str, url: str, token: str = "", data=None, headers: dict | None = None,
-             timeout: float = TIMEOUT, raw: bool = False):
+             timeout: float = TIMEOUT, raw: bool = False, tries: int = 0):
+    """One request. Reading (GET) is tried up to 3 times when the service is busy or the connection drops;
+    other requests only when tries says so (sending a piece of an upload again is safe, making a folder twice
+    isn't)."""
+    tries = tries or (3 if method == "GET" else 1)
+    for attempt in range(tries):
+        try:
+            return _request_once(method, url, token, data, headers, timeout, raw)
+        except _Again as e:
+            if attempt == tries - 1:
+                raise e.error from None
+            time.sleep(min(e.wait or 1.5 * (attempt + 1), 10))
+
+
+class _Again(Exception):
+    def __init__(self, error: CloudError, wait: float = 0):
+        super().__init__(str(error))
+        self.error, self.wait = error, wait
+
+
+def _request_once(method, url, token, data, headers, timeout, raw):
     h = dict(headers or {})
     body = data
     if isinstance(data, (dict, list)):
@@ -183,9 +233,16 @@ def _request(method: str, url: str, token: str = "", data=None, headers: dict | 
             pass
         if e.code == 401:
             raise SignInNeeded(detail or "signed out") from e
-        raise CloudError(_explain(e.code, detail)) from e
+        error = CloudError(_explain(e.code, detail))
+        if e.code in AGAIN:
+            try:
+                wait = float(e.headers.get("Retry-After", 0) or 0)
+            except (TypeError, ValueError):
+                wait = 0
+            raise _Again(error, wait) from e
+        raise error from e
     except (urllib.error.URLError, socket.timeout, TimeoutError, ConnectionError) as e:
-        raise CloudError("no internet connection, or the service didn't answer") from e
+        raise _Again(CloudError("no internet connection, or the service didn't answer")) from e
     if raw:
         return resp
     with resp:
@@ -213,10 +270,18 @@ def _explain(code: int, detail: str) -> str:
         pass
     if code == 507 or "insufficient_space" in detail or "quotaLimitReached" in detail:
         return "there's no space left in this account"
-    if code == 404 or "not_found" in detail:
+    if code == 404 or "not_found" in detail or "itemNotFound" in detail:
         return "it isn't there any more"
-    if code == 429:
+    if code == 429 or "too_many" in detail:
         return "the service asks to wait a moment, try again soon"
+    if code == 409 or "nameAlreadyExists" in detail or "/conflict" in detail:
+        return "something with that name is already there"
+    if "malformed_path" in detail or "disallowed_name" in detail or "invalidRequest" in detail and "name" in detail:
+        return "that name isn't allowed"
+    if code == 403 or "accessDenied" in detail or "no_write_permission" in detail:
+        return "this account doesn't allow that"
+    if code >= 500:
+        return "the service is having trouble right now, try again soon"
     return f"{code}: {text}".strip()
 
 
@@ -238,11 +303,15 @@ class _Catch(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             return
         self.server.answer = {k: v[0] for k, v in q.items()}
+        from html import escape
+
+        from .i18n import is_rtl, tr
+        title = tr("You're signed in") if "code" in q else tr("Signing in was cancelled")
         page = ("<!doctype html><meta charset=utf-8><title>Corefold</title>"
-                "<body style='font-family:Segoe UI,sans-serif;background:#111;color:#eee;display:grid;"
-                "place-items:center;height:90vh'><div style='text-align:center'><h2>"
-                + ("You're signed in" if "code" in q else "Signing in was cancelled")
-                + "</h2><p>You can close this tab and go back to Corefold.</p></div>").encode("utf-8")
+                f"<body dir='{'rtl' if is_rtl() else 'ltr'}' style='font-family:Segoe UI,Tahoma,sans-serif;"
+                "background:#111;color:#eee;display:grid;place-items:center;height:90vh'>"
+                f"<div style='text-align:center'><h2>{escape(title)}</h2>"
+                f"<p>{escape(tr('You can close this tab and go back to Corefold.'))}</p></div>").encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(page)))
@@ -282,12 +351,12 @@ def sign_in(service: str, open_page, cancel: threading.Event | None = None, wait
     verifier, challenge = _pkce()
     state = secrets.token_urlsafe(16)
     if service == "onedrive":
-        url = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?" + urllib.parse.urlencode({
+        url = f"{MS_LOGIN}/authorize?" + urllib.parse.urlencode({
             "client_id": ONEDRIVE_CLIENT_ID, "response_type": "code", "redirect_uri": redirect,
-            "scope": "offline_access Files.ReadWrite User.Read", "code_challenge": challenge,
+            "scope": MS_SCOPE, "code_challenge": challenge,
             "code_challenge_method": "S256", "state": state, "prompt": "select_account"})
     else:
-        url = "https://www.dropbox.com/oauth2/authorize?" + urllib.parse.urlencode({
+        url = f"{DROPBOX_AUTHORIZE}?" + urllib.parse.urlencode({
             "client_id": DROPBOX_APP_KEY, "response_type": "code", "redirect_uri": redirect,
             "code_challenge": challenge, "code_challenge_method": "S256", "state": state,
             "token_access_type": "offline", "force_reapprove": "false"})
@@ -308,14 +377,14 @@ def sign_in(service: str, open_page, cancel: threading.Event | None = None, wait
     if "code" not in answer:
         raise CloudError("signing in was cancelled")
     if service == "onedrive":
-        tok = _request("POST", "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+        tok = _request("POST", f"{MS_LOGIN}/token",
                        data=urllib.parse.urlencode({
                            "client_id": ONEDRIVE_CLIENT_ID, "grant_type": "authorization_code",
                            "code": answer["code"], "redirect_uri": redirect, "code_verifier": verifier,
-                           "scope": "offline_access Files.ReadWrite User.Read"}),
+                           "scope": MS_SCOPE}),
                        headers={"Content-Type": "application/x-www-form-urlencoded"})
     else:
-        tok = _request("POST", "https://api.dropboxapi.com/oauth2/token",
+        tok = _request("POST", DROPBOX_OAUTH,
                        data=urllib.parse.urlencode({
                            "client_id": DROPBOX_APP_KEY, "grant_type": "authorization_code",
                            "code": answer["code"], "redirect_uri": redirect, "code_verifier": verifier}),
@@ -369,7 +438,10 @@ class Client:
     def new_folder(self, name: str, folder: Entry | None) -> Entry: ...
     def rename(self, entry: Entry, name: str) -> Entry: ...
     def delete(self, entry: Entry): ...
-    def search(self, text: str) -> list[Entry]: ...
+    def search(self, text: str, cancel=None) -> list[Entry]: ...
+
+    def sign_out(self):
+        """Tells the service to cancel Corefold's key too, where it can be asked to (best effort)."""
 
 
 def _iso(text: str) -> float:
@@ -389,9 +461,14 @@ HOSTS = {"onedrive": "https://onedrive.live.com/", "dropbox": "https://www.dropb
 def local_name(name: str) -> str:
     """A cloud file's name made safe to save on this PC. Names come from the service, and a shared folder
     can hold names Windows would read as a path ("..\\..\\Startup\\x.bat", "C:\\x"): those must never
-    leave the folder they're saved in."""
+    leave the folder they're saved in. Writing-direction marks go too: "invoice\u202egpj.exe" would show
+    as "invoiceexe.jpg"."""
     from .core import safe_name
-    return safe_name(name.replace("\\", "/").rsplit("/", 1)[-1]) or "file"
+    name = "".join(c for c in name if not ("\u202a" <= c <= "\u202e" or "\u2066" <= c <= "\u2069"))
+    name = name.replace("\\", "/").rsplit("/", 1)[-1]
+    rest = safe_name(name)
+    dots = len(name) - len(name.lstrip(" ."))  # (".gitignore" keeps its dot; "..", on its own, isn't a name)
+    return ("." if dots and rest else "") + rest or "file"
 
 
 def _stream_to(resp, target: Path, size: int, progress, cancel, host: str = ""):
@@ -424,10 +501,9 @@ class OneDrive(Client):
     SELECT = "$select=id,name,size,lastModifiedDateTime,folder,file,parentReference"
 
     def _refresh(self) -> dict:
-        return _request("POST", "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+        return _request("POST", f"{MS_LOGIN}/token",
                         data=urllib.parse.urlencode({"client_id": ONEDRIVE_CLIENT_ID, "grant_type": "refresh_token",
-                                                     "refresh_token": self.acc.refresh,
-                                                     "scope": "offline_access Files.ReadWrite User.Read"}),
+                                                     "refresh_token": self.acc.refresh, "scope": MS_SCOPE}),
                         headers={"Content-Type": "application/x-www-form-urlencoded"})
 
     def fill_profile(self):
@@ -458,7 +534,7 @@ class OneDrive(Client):
         return out
 
     def download(self, entry, target, progress=None, cancel=None):
-        resp = _request("GET", f"{self.API}/me/drive/items/{entry.id}/content", self.token(), raw=True, timeout=120)
+        resp = self.call("GET", f"{self.API}/me/drive/items/{entry.id}/content", raw=True, timeout=120)
         _stream_to(resp, target, entry.size, progress, cancel, HOSTS["onedrive"])
 
     def upload(self, src, folder, progress=None, cancel=None):
@@ -486,7 +562,7 @@ class OneDrive(Client):
                     raise CloudError("cancelled")
                 piece = f.read(CHUNK)
                 end = done + len(piece) - 1
-                d = _request("PUT", url, data=piece, timeout=180, headers={
+                d = _request("PUT", url, data=piece, timeout=180, tries=3, headers={
                     "Content-Length": str(len(piece)), "Content-Range": f"bytes {done}-{end}/{size}"})
                 done = end + 1
                 if progress is not None:
@@ -505,7 +581,7 @@ class OneDrive(Client):
     def delete(self, entry):
         self.call("DELETE", f"{self.API}/me/drive/items/{entry.id}")
 
-    def search(self, text):
+    def search(self, text, cancel=None):
         q = urllib.parse.quote(text.replace("'", "''"))
         page = self.call("GET", f"{self.API}/me/drive/root/search(q='{q}')?{self.SELECT}&$top=200")
         return [self._entry(d) for d in page.get("value", [])]
@@ -516,7 +592,7 @@ class Dropbox(Client):
     CONTENT = "https://content.dropboxapi.com/2"
 
     def _refresh(self) -> dict:
-        return _request("POST", "https://api.dropboxapi.com/oauth2/token",
+        return _request("POST", DROPBOX_OAUTH,
                         data=urllib.parse.urlencode({"client_id": DROPBOX_APP_KEY, "grant_type": "refresh_token",
                                                      "refresh_token": self.acc.refresh}),
                         headers={"Content-Type": "application/x-www-form-urlencoded"})
@@ -543,16 +619,16 @@ class Dropbox(Client):
 
     def list(self, folder):
         page = self.call("POST", f"{self.API}/files/list_folder",
-                         data={"path": folder.id if folder is not None else "", "limit": 2000})
+                         data={"path": folder.id if folder is not None else "", "limit": 2000}, tries=3)
         out = [self._entry(d) for d in page.get("entries", [])]
         while page.get("has_more"):
-            page = self.call("POST", f"{self.API}/files/list_folder/continue", data={"cursor": page["cursor"]})
+            page = self.call("POST", f"{self.API}/files/list_folder/continue", data={"cursor": page["cursor"]}, tries=3)
             out += [self._entry(d) for d in page.get("entries", [])]
         return [e for e in out if e.name]
 
     def download(self, entry, target, progress=None, cancel=None):
-        resp = _request("POST", f"{self.CONTENT}/files/download", self.token(), raw=True, timeout=120,
-                        headers={"Dropbox-API-Arg": json.dumps({"path": entry.id}, ensure_ascii=True)})
+        resp = self.call("POST", f"{self.CONTENT}/files/download", raw=True, timeout=120, tries=3,
+                         headers={"Dropbox-API-Arg": json.dumps({"path": entry.id}, ensure_ascii=True)})
         _stream_to(resp, target, entry.size, progress, cancel, HOSTS["dropbox"])
 
     def upload(self, src, folder, progress=None, cancel=None):
@@ -608,8 +684,14 @@ class Dropbox(Client):
     def delete(self, entry):
         self.call("POST", f"{self.API}/files/delete_v2", data={"path": entry.id})
 
-    def search(self, text):
-        d = self.call("POST", f"{self.API}/files/search_v2", data={"query": text, "options": {"max_results": 200}})
+    def sign_out(self):
+        try:
+            _request("POST", f"{self.API}/auth/token/revoke", self.token(), timeout=10)
+        except CloudError:
+            pass
+
+    def search(self, text, cancel=None):
+        d = self.call("POST", f"{self.API}/files/search_v2", data={"query": text, "options": {"max_results": 200}}, tries=3)
         out = []
         for m in d.get("matches", []):
             meta = (m.get("metadata") or {}).get("metadata") or {}
@@ -619,8 +701,44 @@ class Dropbox(Client):
 
 
 def client(acc: Account) -> Client:
+    if acc.local:
+        from .cloudlocal import Local
+        return Local(acc)
     return OneDrive(acc) if acc.service == "onedrive" else Dropbox(acc)
 
 
+# ----------------------------------------------------------------------------- whole folders
+
+def download_tree(c: Client, entry: Entry, folder: Path, progress=None, cancel=None) -> int:
+    """Saves a file, or a folder with everything in it, into folder (next to what's there: nothing is
+    replaced). Returns how many files were saved."""
+    from .core import unique_path
+    if cancel is not None and cancel.is_set():
+        raise CloudError("cancelled")
+    target = unique_path(folder / local_name(entry.name))
+    if not entry.folder:
+        c.download(entry, target, None if progress is None else lambda d, t: progress((entry.name, d, t)), cancel)
+        return 1
+    target.mkdir(parents=True)
+    return sum(download_tree(c, e, target, progress, cancel) for e in c.list(entry))
+
+
+def upload_tree(c: Client, src: Path, folder: Entry | None, progress=None, cancel=None) -> int:
+    """Uploads a file, or a folder with everything in it, into folder. Returns how many files went up."""
+    if cancel is not None and cancel.is_set():
+        raise CloudError("cancelled")
+    if not src.is_dir():
+        c.upload(src, folder, None if progress is None else lambda d, t: progress((src.name, d, t)), cancel)
+        return 1
+    made = c.new_folder(src.name, folder)
+    try:
+        inside = sorted(src.iterdir(), key=lambda p: p.name.lower())
+    except OSError:
+        inside = []
+    from .core import is_link  # (a junction too, not only a link: it leads out of the folder, or round in a circle)
+    return sum(upload_tree(c, p, made, progress, cancel) for p in inside if not is_link(p))
+
+
 def available(service: str) -> bool:
+    """Corefold can sign in to this service by itself (its app id is in cloudkeys.py)."""
     return bool(ONEDRIVE_CLIENT_ID if service == "onedrive" else DROPBOX_APP_KEY if service == "dropbox" else "")

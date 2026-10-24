@@ -38,6 +38,7 @@ add isn't loaded at all, so Corefold stays light.
 | **Viewer** | Flip through a folder of pictures with the arrow keys and fix them on the spot. Select any file in File Explorer and press Ctrl + Space for a quick look. Opens Outlook emails without Outlook. |
 | **Player** | Plays every video and song, smooth in 4K, with subtitles, a mini player and a Continue watching list. |
 | **File Organizer** | Sorts a messy Downloads or Desktop into clear folders with one click. See where every file will go first, and undo it all. |
+| **Cloud** | Your OneDrive, Dropbox, Google Drive and iCloud in one window, found by themselves. Search them all and drag files and folders from one to another. |
 
 **Your PC**
 
@@ -54,11 +55,11 @@ add isn't loaded at all, so Corefold stays light.
 
 | | |
 |---|---|
-| **Capture** | A picture or a video of your screen in one shortcut. Mark it up, blur what's private, copy the text in it. |
+| **Capture** | A picture of your screen in one shortcut. Mark it up, blur what's private, and pick just the words you want to copy. |
 | **Clipboard** | Everything you copy, kept and easy to find again: press Win + Alt + V in any app. |
 | **Colors** | Pick any colour on your screen with a magnifier and copy it as HEX, RGB or HSL. |
 
-Coming soon: **Cloud** (OneDrive and Dropbox in one window), and more in the Store's *Coming soon* list.
+More is on the way in the Store's *Coming soon* list.
 
 ## The Converter wheel
 <p align="center">

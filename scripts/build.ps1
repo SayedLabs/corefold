@@ -102,7 +102,7 @@ VSVersionInfo(
 
 # ---- FFmpeg (bundled so users don't install anything)
 $FfDir = "vendor\ffmpeg"
-# Corefold's own smaller FFmpeg (~40 MB instead of ~190 MB: only the parts Corefold uses), made by
+# Corefold's own smaller FFmpeg (~55 MB instead of ~190 MB: only the parts Corefold uses), made by
 # .github\workflows\ffmpeg-lean.yml and kept on this repository's "ffmpeg-lean" branch.
 if (-not (Test-Path "$FfDir\FFMPEG-BUILD.sh")) {
     $LeanRef = "refs/remotes/origin/ffmpeg-lean"
@@ -271,7 +271,7 @@ if (Test-Path "dist\Corefold") { Remove-Item "dist\Corefold" -Recurse -Force }
 & $VPy -m PyInstaller --noconfirm --clean --windowed --name Corefold `
     --icon assets\icon.ico --version-file version_info.txt `
     --add-data "assets\icon.png;assets" --add-data "assets\sounds;assets\sounds" @ModelArgs `
-    --collect-submodules corefold --collect-all pi_heif --collect-all zxingcpp --collect-all pypdfium2 --collect-binaries onnxruntime --collect-all winrt --collect-all soundcard --collect-submodules zstandard `
+    --collect-submodules corefold --collect-all pi_heif --collect-all zxingcpp --collect-all pypdfium2 --collect-binaries onnxruntime --collect-all winrt --collect-submodules zstandard `
     --exclude-module tkinter --exclude-module PySide6.QtQml --exclude-module PySide6.QtQuick `
     main.py
 if ($LASTEXITCODE) { throw "PyInstaller failed" }

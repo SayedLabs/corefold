@@ -23,6 +23,7 @@ OLD_CONFIG_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / LEGACY_NAME
 OLD_LOG_DIR = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / LEGACY_NAME
 OLD_OUTPUT_FOLDER = str(Path.home() / "Downloads" / LEGACY_NAME)
 log = logging.getLogger("corefold")
+ACTIVE = None  # the running app's settings (for helpers that aren't handed them, like Capture's folders)
 
 
 def migrate_old_name() -> bool:
@@ -102,14 +103,11 @@ CLIP_MAX = {100: "100", 500: "500", 1000: "1000", 5000: "5000"}
 CLIP_DAYS = {1: "a day", 7: "a week", 30: "a month", 365: "a year", 0: "Never"}
 CAP_SHORTCUTS = {"ctrl+printscreen": "Ctrl + Print Screen", "printscreen": "Print Screen",
                  "win+shift+a": "Win + Shift + A", "off": "No shortcut"}
-CAP_RECORD_SHORTCUTS = {"ctrl+shift+printscreen": "Ctrl + Shift + Print Screen", "win+shift+r": "Win + Shift + R",
-                        "off": "No shortcut"}
 CAP_AFTER = {"edit": "Open it to mark it up", "copy": "Only copy it"}
 CAP_DELAY = {3: "3 seconds", 5: "5 seconds", 10: "10 seconds"}
-CAP_FPS = {30: "30 frames a second", 60: "60 frames a second (smoother, bigger files)"}
 VIEWER_SORTS = {"name": "Name", "newest": "Newest first", "oldest": "Oldest first", "biggest": "Biggest first"}
 COLORS_SHORTCUTS = {"win+shift+c": "Win + Shift + C", "win+alt+c": "Win + Alt + C", "off": "No shortcut"}
-COLORS_FORMATS = {"hex": "HEX", "rgb": "RGB", "hsl": "HSL"}
+COLORS_FORMATS = {"hex": "HEX", "rgb": "RGB", "hsl": "HSL", "hsv": "HSV", "cmyk": "CMYK"}
 PLAYER_SKIP = {5: "5 seconds", 10: "10 seconds", 30: "30 seconds"}
 PLAYER_WHEEL = {"volume": "Changes the volume", "seek": "Goes back and forward"}
 PEEK_KEYS = {"ctrl+space": "Ctrl + Space", "ctrl+shift+space": "Ctrl + Shift + Space", "off": "No shortcut"}
@@ -122,8 +120,8 @@ CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_styl
            "backup_days": BACKUP_DAYS, "uninstall_depth": UNINSTALL_DEPTHS, "extract_mode": EXTRACT_MODES,
            "viewer_wheel": VIEWER_WHEEL, "viewer_sort": VIEWER_SORTS,
            "slideshow_seconds": SLIDESHOW_SECONDS, "clip_shortcut": CLIP_SHORTCUTS, "clip_max": CLIP_MAX,
-           "clip_days": CLIP_DAYS, "cap_shortcut": CAP_SHORTCUTS, "cap_record_shortcut": CAP_RECORD_SHORTCUTS,
-           "cap_after": CAP_AFTER, "cap_fps": CAP_FPS, "cap_delay": CAP_DELAY, "player_skip": PLAYER_SKIP,
+           "clip_days": CLIP_DAYS, "cap_shortcut": CAP_SHORTCUTS,
+           "cap_after": CAP_AFTER, "cap_delay": CAP_DELAY, "player_skip": PLAYER_SKIP,
            "player_wheel": PLAYER_WHEEL,
            "quick_search_engine": QUICK_SEARCH_ENGINES,
            "colors_shortcut": COLORS_SHORTCUTS, "colors_format": COLORS_FORMATS,
@@ -156,18 +154,18 @@ WHEEL_KEYS = ("wheel_size", "wheel_style", "wheel_opacity", "label_style", "hove
               "wheel_position", "per_page", "wheel_numbers")
 FORMAT_KEYS = ("hidden_tools", "favorites", "tool_order")
 UNINSTALLER_KEYS = ("unused_months", "backup_days", "restore_point", "uninstall_depth")
-ARCHIVE_KEYS = ("extract_mode", "extract_nested", "remember_archives")
-VIEWER_KEYS = ("viewer_wheel", "viewer_confirm_delete", "slideshow_seconds", "viewer_sort", "peek_key")
+ARCHIVE_KEYS = ("extract_mode", "extract_nested", "remember_archives", "extract_reveal", "extract_recycle")
+VIEWER_KEYS = ("viewer_wheel", "viewer_confirm_delete", "slideshow_seconds", "viewer_sort", "peek_key", "viewer_loop")
 CLIPBOARD_KEYS = ("clip_shortcut", "clip_paste", "clip_max", "clip_days", "clip_images", "clip_ignore")
-PLAYER_KEYS = ("player_resume", "player_skip", "player_wheel", "player_next", "player_subtitles")
-CAPTURE_KEYS = ("cap_shortcut", "cap_record_shortcut", "cap_after", "cap_delay", "cap_save", "cap_fps", "cap_mic",
-                "cap_pc_sound", "cap_cursor", "cap_countdown")
+PLAYER_KEYS = ("player_resume", "player_skip", "player_wheel", "player_next", "player_subtitles",
+               "player_pause_minimized")
+CAPTURE_KEYS = ("cap_shortcut", "cap_after", "cap_delay", "cap_save", "cap_folder")
 UPDATE_KEYS = ("check_updates", "auto_update")
 QUICK_KEYS = ("quick_menu", "quick_menu_key", "quick_menu_items", "quick_wheel", "quick_wheel_key",
               "quick_wheel_items", "quick_button", "quick_links", "quick_search_engine", "ontop_key",
               "quick_find")
 # what's on the quick menu and the wheel to begin with (see quick.py)
-QUICK_MENU_ITEMS = ["screenshot", "record", "clipboard", "paste", "again", "archive", "explorer", "taskmgr"]
+QUICK_MENU_ITEMS = ["screenshot", "screenshot_later", "clipboard", "paste", "again", "archive", "explorer", "taskmgr"]
 QUICK_WHEEL_ITEMS = ["screenshot", "clipboard", "paste", "again", "tool:space", "explorer", "settings", "quickmenu"]
 
 
@@ -222,12 +220,15 @@ class Settings:
     extract_mode: str = "smart"    # "Extract here": "smart" (no folder inside a folder) or "folder"
     extract_nested: bool = False   # also unpack archives found inside
     remember_archives: bool = True  # list the archives opened lately on the Archive page
+    extract_reveal: bool = False   # open the folder once an archive is extracted
+    extract_recycle: bool = False  # then send the archive (and its parts) to the Recycle Bin
     # the Viewer
     open_images: bool = True       # pictures and email files open in Corefold ("Open with")
     open_emails: bool = True
     viewer_wheel: str = "zoom"     # the mouse wheel zooms, or goes to the next picture
     viewer_confirm_delete: bool = True
     viewer_sort: str = "name"      # the order of a folder's pictures: name, newest, oldest, biggest
+    viewer_loop: bool = False      # after the last picture comes the first one again (and back)
     slideshow_seconds: int = 4
     peek_key: str = "ctrl+space"   # Quick look at the file selected in File Explorer (only taken while it's in front)
     viewer_info: bool = False      # the details panel is open
@@ -250,21 +251,17 @@ class Settings:
     player_wheel: str = "volume"   # the mouse wheel over the video: volume or seeking
     player_next: bool = True       # play the next file in the folder when one ends
     player_subtitles: bool = True  # turn on a video's own subtitles
+    player_pause_minimized: bool = False  # pause while the window is minimised (and go on when it's back)
     player_volume: int = 80
     # Capture
     cap_shortcut: str = "ctrl+printscreen"          # a screenshot
-    cap_record_shortcut: str = "ctrl+shift+printscreen"  # start or stop recording
     cap_after: str = "edit"        # after a screenshot: open the editor, or only copy it
-    cap_save: bool = True          # also save every screenshot in Pictures\Screenshots
+    cap_save: bool = True          # also save every screenshot (in cap_folder)
+    cap_folder: str = ""           # where screenshots are saved ("" = Pictures\Screenshots)
     cap_delay: int = 5             # seconds "Screenshot with a timer" waits
-    cap_fps: int = 30
-    cap_mic: str = ""              # the microphone recorded with the screen ("" = none)
-    cap_pc_sound: bool = True      # what the PC plays (videos, games, calls) is recorded too
-    cap_cursor: bool = True        # the mouse shows in recordings
-    cap_countdown: bool = True     # 3, 2, 1 before recording starts
     # Colors
     colors_shortcut: str = "win+shift+c"  # pick a colour from any app
-    colors_format: str = "hex"     # copied as "hex", "rgb" or "hsl"
+    colors_format: str = "hex"     # copied as "hex", "rgb", "hsl", "hsv" or "cmyk"
     colors_history: list = field(default_factory=list)  # colours picked lately ("#RRGGBB", newest first)
     # Quick access: a menu and a wheel that open from any app
     quick_menu: bool = True
@@ -393,8 +390,9 @@ class Settings:
         s.known_tools = [t for t in s.known_tools if isinstance(t, str)]
         s.nav_order = [t for t in s.nav_order if isinstance(t, str)]
         s.nav_width = min(340, max(190, s.nav_width))
-        s.quick_menu_items = [t for t in s.quick_menu_items if isinstance(t, str)][:40]
-        s.quick_wheel_items = [t for t in s.quick_wheel_items if isinstance(t, str)][:12]
+        gone = ("record", "record_gif")  # (recording the screen was taken out of Capture in 1.8.1)
+        s.quick_menu_items = [t for t in s.quick_menu_items if isinstance(t, str) and t not in gone][:40]
+        s.quick_wheel_items = [t for t in s.quick_wheel_items if isinstance(t, str) and t not in gone][:12]
         s.quick_links = [{"id": str(x.get("id", "")), "name": str(x.get("name", "")), "target": str(x["target"])}
                          for x in s.quick_links if isinstance(x, dict) and isinstance(x.get("target"), str)
                          and x.get("id")][:24]

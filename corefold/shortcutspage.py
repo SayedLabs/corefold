@@ -36,8 +36,6 @@ GLOBAL = [
            live="clip.hotkey"),
     Global("Take a screenshot", "cap_shortcut", "CaptureSettings", "cap_shortcut", tool="capture",
            live="capture.shot_key"),
-    Global("Start or stop recording the screen", "cap_record_shortcut", "CaptureSettings", "cap_record_shortcut",
-           tool="capture", live="capture.rec_key"),
     Global("Quick look at the file selected in File Explorer", "peek_key", "ViewerSettings", "peek_key", tool="viewer",
            live="peek"),
     Global("Open the quick menu", "quick_menu_key", "Quick", "quick_menu_rec", live="quick.menu_key",
@@ -233,8 +231,7 @@ class ShortcutsPage:
             box.setVisible(not tool or all_tools.is_on(self.c.settings, tool))
 
     def change(self, entry: Global):
-        widget = getattr(self.win, entry.widget, None)
+        self.win.open_page(entry.page)  # (a page is made the first time it's opened)
+        widget = getattr(self.win, entry.widget, None) if entry.widget else None
         if widget is not None:
             self.win._show_setting(entry.page, widget)
-        else:
-            self.win.open_page(entry.page)

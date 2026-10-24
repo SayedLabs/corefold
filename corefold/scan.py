@@ -28,6 +28,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from . import trust
+from .core import system_tool
 
 log = logging.getLogger("corefold")
 
@@ -200,7 +201,7 @@ def find_mpcmdrun() -> str:
 def powershell(script: str, timeout: float = 60) -> str:
     env = dict(os.environ)
     env.pop("PSModulePath", None)  # (one set by PowerShell 7 makes Windows PowerShell load the wrong modules)
-    r = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+    r = subprocess.run([system_tool("powershell.exe"), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
                         "-Command", "[Console]::OutputEncoding = [Text.Encoding]::UTF8; " + script],
                        capture_output=True, timeout=timeout, creationflags=NO_WINDOW, env=env)
     return r.stdout.decode("utf-8", "replace").strip()
@@ -1080,6 +1081,14 @@ def ignore(finding_key: str):
     keys = load_ignored()
     keys.add(finding_key)
     _write(_config(IGNORED_FILE), sorted(keys))
+
+
+def forget_ignored():
+    """ "Show the hidden ones again": every "Don't show this again" is forgotten."""
+    try:
+        _config(IGNORED_FILE).unlink(missing_ok=True)
+    except OSError:
+        log.warning("couldn't forget the hidden scan findings")
 
 
 def finding_key(d: dict) -> str:

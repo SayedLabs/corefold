@@ -5,9 +5,10 @@ import time
 if sys.platform != "win32":
     sys.exit("Corefold only runs on Windows.")
 
-# The elevated helper used by the Apps page (removing leftovers in Program Files, restore points) and by
-# Space (Windows' own leftovers).
-if any(a in ("--cleanup", "--restore", "--restore-point", "--space-clean") for a in sys.argv[1:]):
+# The elevated helper used by the Apps page (removing leftovers in Program Files, restore points), by
+# Space (Windows' own leftovers) and by Unlock (deleting a file when the PC restarts).
+if any(a in ("--cleanup", "--restore", "--restore-point", "--space-clean", "--delete-at-restart")
+       for a in sys.argv[1:]):
     from corefold.uninstall import helper_main  # noqa: E402
     sys.exit(helper_main(sys.argv[1:]))
 
@@ -19,6 +20,8 @@ if "--bg-worker" in sys.argv[1:]:
 # Fast path first: if Corefold is already running, hand it this request and quit before loading
 # the heavy parts (Qt). This keeps right-clicking many files quick and light.
 from corefold import ipc  # noqa: E402
+
+ipc.leave_start_folder(sys.argv)
 
 if ipc.forward(sys.argv[1:]):
     sys.exit(0)

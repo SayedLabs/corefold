@@ -1,17 +1,15 @@
 PySide6-Essentials>=6.7,<7
 # Corefold Player (Qt's player, with an LGPL build of FFmpeg)
 PySide6-Addons>=6.7,<7
-Pillow>=11.2
+Pillow>=13.0  # (older ones have known holes with booby-trapped pictures)
 pi-heif>=0.20
-pypdf>=5.0
+pypdf>=6.21.2  # (older ones can be made to hang or fill the memory by a booby-trapped PDF)
 # locking and unlocking PDFs with a password (AES-256)
-cryptography>=42
+cryptography>=50.0
 pypdfium2>=4.30
 zxing-cpp>=2.2
 numpy>=1.26
 onnxruntime>=1.18
-# Capture: recording the PC's own sound (Windows' loopback)
-soundcard>=0.4.3; sys_platform == "win32"
 # "Copy text" (reads text in pictures with Windows' built-in OCR)
 winrt-runtime>=2.0; sys_platform == "win32"
 winrt-Windows.Foundation>=2.0; sys_platform == "win32"

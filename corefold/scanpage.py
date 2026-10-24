@@ -518,6 +518,9 @@ class ScanPage(QWidget):
         foot.setSpacing(8)
         self.last_line = _label("", "muted", wrap=True)
         foot.addWidget(self.last_line, 1)
+        self.unhide_btn = _button("", "", self._unhide)
+        foot.addWidget(self.unhide_btn)
+        self._show_hidden_count()
         self.quarantine_btn = _button(tr("Defender's quarantine…"), "", self.show_quarantine)
         foot.addWidget(self.quarantine_btn)
         lay.addLayout(foot)
@@ -610,7 +613,8 @@ class ScanPage(QWidget):
             os.startfile(SECURITY_LINK)
         except (OSError, AttributeError):
             try:
-                subprocess.Popen(["explorer.exe", SECURITY_LINK])
+                from .core import system_tool
+                subprocess.Popen([system_tool("explorer.exe"), SECURITY_LINK])
             except OSError:
                 log.warning("couldn't open Windows Security")
 
@@ -781,6 +785,7 @@ class ScanPage(QWidget):
         self.finding_rows = [r for r in self.finding_rows if r is not row]
         row.hide()
         row.deleteLater()
+        self._show_hidden_count()
         for w in (self.findings_head, self.findings_note, self.findings):
             w.setVisible(bool(self.finding_rows))
         if self.result is not None:
@@ -800,6 +805,19 @@ class ScanPage(QWidget):
         else:
             what = tr("no threats found")
         self.last_line.setText(tr("Last scan: {kind}, {when}, {what}", kind=kind, when=time_ago(when), what=what))
+
+    def _show_hidden_count(self):
+        """A way back for every "Don't show this again"."""
+        n = len(scan.load_ignored())
+        self.unhide_btn.setEnabled(True)
+        self.unhide_btn.setText(tr("Show the hidden ones again ({count})", count=n))
+        self.unhide_btn.setToolTip(tr("What you chose not to see again shows up in the next scan."))
+        self.unhide_btn.setVisible(n > 0)
+
+    def _unhide(self):
+        scan.forget_ignored()
+        self.unhide_btn.setText(tr("They show up in the next scan"))
+        self.unhide_btn.setEnabled(False)
 
     # ---- Defender's quarantine
 

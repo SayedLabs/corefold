@@ -12,7 +12,6 @@ the PC.
 Only loaded once the menu is used with "Find files and apps as I type" on."""
 from __future__ import annotations
 
-import asyncio
 import logging
 import ntpath
 import os
@@ -349,7 +348,8 @@ def launch(app: App, admin: bool = False) -> bool:
         return False
     try:
         if app.shell:
-            subprocess.Popen(["explorer.exe", "shell:AppsFolder\\" + app.target], close_fds=True)
+            from .core import system_tool
+            subprocess.Popen([system_tool("explorer.exe"), "shell:AppsFolder\\" + app.target], close_fds=True)
         elif admin and app.admin:
             os.startfile(app.target, "runas")  # type: ignore[attr-defined]
         else:
@@ -664,6 +664,7 @@ _indexed_at = 0.0
 
 async def _index_query(text: str, folders: list[str], limit: int) -> list[Found] | None:
     global _indexed_at
+    import asyncio
     from winrt.windows.storage import StorageFolder, StorageItemTypes
     from winrt.windows.storage.search import FolderDepth, IndexedState, IndexerOption, QueryOptions
     if time.monotonic() - _indexed_at > APPS_FRESH_S:
@@ -718,6 +719,7 @@ def index_query(text: str, limit: int = MAX_FILES) -> list[Found] | None:
             folders.append(p)
     if not folders:
         return None
+    import asyncio  # (only here, on the search's own thread: loading it takes a moment)
     try:
         return asyncio.run(_index_query(text, folders, limit))
     except Exception:
@@ -983,7 +985,8 @@ def open_found(f: Found, reveal: bool = False) -> bool:
         return False
     if reveal:
         if IS_WIN:
-            subprocess.Popen(f'explorer /select,"{f.path}"')
+            from .core import system_tool
+            subprocess.Popen(f'"{system_tool("explorer.exe")}" /select,"{f.path}"')
         return True
     from .quick import open_target
     return open_target(f.path)
