@@ -2027,6 +2027,7 @@ STRINGS: dict[str, str] = {
     "Pictures to PDF…": "Resimlerden PDF'ye…",
     "What do you want to do?": "Ne yapmak istiyorsunuz?",
     "Your PDFs are never changed: every result is a new file next to the original.": "PDF'leriniz asla değiştirilmez: her sonuç, orijinalin yanında yeni bir dosyadır.",
+    "Copy the path (Ctrl+Shift+C)": "Yolu kopyala (Ctrl+Shift+C)",
     "Microsoft Store app": "Microsoft Store uygulaması",
     "Set by your organisation": "Kuruluşunuz tarafından ayarlandı",
     "Copy the path": "Yolu kopyala",

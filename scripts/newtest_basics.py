@@ -255,6 +255,31 @@ def main():
         check(v.current().name == "a.png", "going round: after the last comes the first")
         v.go(-1)
         check(v.current().name == "c.png", "…and before the first comes the last")
+
+        from PySide6.QtCore import QEvent, QPointF, Qt
+        from PySide6.QtGui import QMouseEvent
+        from PySide6.QtTest import QTest
+
+        def press(button, where=None, kind=QEvent.MouseButtonPress, held=None):
+            where = where or QPointF(v.view.width() / 2, v.view.height() / 2)
+            ev = QMouseEvent(kind, where, v.view.mapToGlobal(where), button,
+                             held if held is not None else button, Qt.NoModifier)
+            qapp.sendEvent(v.view, ev)
+        press(Qt.ForwardButton)
+        check(v.current().name == "a.png", f"the mouse's forward button goes to the next picture ({v.current().name})")
+        press(Qt.BackButton)
+        check(v.current().name == "c.png", "…and its back button to the one before")
+        v.copy_path()
+        check(qapp.clipboard().text() == str(v.current()), "Ctrl+Shift+C copies the picture's path")
+        dragged = []
+        v.drag_out = lambda: dragged.append(v.current())
+        v.view.fit_view()
+        mid = QPointF(v.view.width() / 2, v.view.height() / 2)
+        press(Qt.LeftButton, mid)
+        press(Qt.NoButton, mid + QPointF(40, 0), QEvent.MouseMove, Qt.LeftButton)
+        press(Qt.LeftButton, mid + QPointF(40, 0), QEvent.MouseButtonRelease, Qt.NoButton)
+        check(dragged == [v.current()], f"dragging the picture takes its file out of the window ({dragged})")
+        QTest.qWait(50)
         v.close()
     step("the Viewer going round", viewer_loop)
 

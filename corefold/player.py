@@ -1099,6 +1099,9 @@ class PlayerWindow(QWidget):
         if t == QEvent.MouseButtonPress and e.button() == Qt.LeftButton:
             self.click_timer.start()  # (a double click cancels it: full screen instead of pausing)
             return True
+        if t == QEvent.MouseButtonPress and e.button() in (Qt.BackButton, Qt.ForwardButton):
+            self.go(-1 if e.button() == Qt.BackButton else 1)  # (the mouse's side buttons: as in mpv)
+            return True
         if t == QEvent.MouseButtonDblClick and e.button() == Qt.LeftButton:
             self.click_timer.stop()
             self.toggle_full()
