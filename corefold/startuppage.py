@@ -341,7 +341,19 @@ class StartupPage(QWidget):
     def _filter(self, key: str):
         self.kind = key
         self.filter_buttons[key].setChecked(True)
+        self._regroup()
         self.filter()
+
+    def _regroup(self):
+        """Rows switched since the list was read move to their part now (not while being switched, so
+        nothing jumps from under the mouse)."""
+        if all(row.section == section_of(row.entry) for row in self.rows):
+            return
+        for row in self.rows:
+            self.groups[row.section].lay.removeWidget(row)
+            row.section = section_of(row.entry)
+        for row in self.rows:  # (in the list's order: by name)
+            self.groups[row.section].add(row)
 
     def filter(self):
         text = self.search.text()
