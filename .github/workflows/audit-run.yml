@@ -1,0 +1,25 @@
+# Temporary (delete before merge): runs this branch's checks on Windows on every push.
+name: Audit run
+
+on:
+  push:
+    branches: [claude/project-thread-81oap4]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: 7-Zip password from stdin
+        shell: pwsh
+        run: |
+          & "$env:ProgramFiles\7-Zip\7z.exe" | Select-Object -First 2
+          python scripts/probe7z.py
