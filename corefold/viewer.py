@@ -772,7 +772,7 @@ class ViewerWindow(QWidget):
         self._adjust_timer.timeout.connect(self._adjust_preview)
 
         # the strip of small pictures along the bottom
-        self.strip = QListWidget()
+        self.strip = QListWidget(self)  # (shown before it's laid out: with no parent it flashed as a window)
         self.strip.setObjectName("viewerStrip")
         self.strip.setViewMode(QListView.IconMode)
         self.strip.setFlow(QListView.LeftToRight)
@@ -795,7 +795,7 @@ class ViewerWindow(QWidget):
         self.strip.setVisible(bool(getattr(s, "viewer_strip", True)))
 
         # details
-        self.info = QFrame()
+        self.info = QFrame(self)
         self.info.setObjectName("card")
         self.info.setFixedWidth(270)
         self.info_lay = QVBoxLayout(self.info)

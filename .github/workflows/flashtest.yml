@@ -12,6 +12,7 @@ on:
       - requirements.txt
       - scripts/flashwatch.py
       - scripts/newtest_flash.py
+      - scripts/flashscan.py
       - scripts/exetest.py
       - scripts/build.ps1
       - .github/workflows/flashtest.yml
@@ -64,9 +65,12 @@ jobs:
         shell: pwsh
         run: |
           $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
+          python scripts/flashscan.py
+          $scan = $LASTEXITCODE
           python scripts/newtest_flash.py out/flash *> out/newtest_flash-run.txt
           Get-Content out/flash/newtest_flash.txt
           if (-not (Select-String -Quiet -Path out/flash/newtest_flash.txt -Pattern "^newtest_flash: 0 problem")) { exit 1 }
+          exit $scan
 
       - name: The built Corefold.exe
         if: matrix.how == 'exe'
