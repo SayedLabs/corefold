@@ -2459,11 +2459,11 @@ class MainWindow(QWidget):
         assoc.open_default_apps()
 
     def _cloud(self) -> QWidget:
-        """Corefold Cloud: OneDrive and Dropbox side by side."""
+        """Corefold Cloud: OneDrive, Dropbox, Google Drive and iCloud side by side."""
         from .cloudpage import CloudPage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
         header = tool_header("cloud", tr("Corefold Cloud"),
-                             tr("Your OneDrive and Dropbox in one window. Drag files between them."), dark, dpr)
+                             tr("Your OneDrive, Dropbox, Google Drive and iCloud in one window. Drag files between them."), dark, dpr)
         self.cloud_page = CloudPage(self.c, header)
         return self.cloud_page
 
