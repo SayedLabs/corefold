@@ -1,0 +1,63 @@
+7-Zip: C:\ProgramData\Chocolatey\bin\7z.exe
+ok    zip: saved back in the same place, nothing added ['Reports/report-0.txt', 'Reports/report-1.txt', 'Reports/report-2.txt', 'notes.txt']
+ok    zip: the new version is inside
+ok    7z: saved back in the same place, nothing added ['Reports/report-0.txt', 'Reports/report-1.txt', 'Reports/report-2.txt', 'notes.txt']
+ok    7z: the new version is inside
+ok    cut-off ZIP rescued ['a.txt', 'dir/b.txt'] (Rescued 2 files)
+ok    damaged file left out ['a.txt', 'dir/'] (Rescued 1 files � 1 damaged files couldn't be saved)
+ok    damaged 7z: nothing could be read, said so (nothing in this archive could be rescued)
+ok    archives inside unpacked (Also unpacked 2 archives that were inside)
+ok    files taken out for dragging
+ok    a folder taken out for dragging (ZIP without folder entries)
+ok    the copies made for dragging are removed afterwards
+ok    dragged-out files keep the internet warning
+ok    archives: Corefold is under Open with
+ok    �and taken out again
+ok    �with nothing left behind
+ok    quick on/off of opening media files: no registry errors ([])
+ok    �and the last choice (on) is the one that stays
+ok    �and taken out again
+ok    Windows menu for photos has 24 entries
+ok    Convert to PNG starts the right job ['--run', 'image:png', 'C:\\Photos\\a b.jpg']
+ok    "All options�" opens the window
+ok    folders have an entry (windows)
+ok    the wheel entry opens the wheel
+ok    folders have an entry (wheel)
+ok    removing the menu leaves nothing
+FAIL  every tool: RuntimeError: FFmpeg is missing. Reinstall Corefold to fix audio and video conversion.
+ok    a junction is seen as a link
+ok    when apps were last used can be read (1 entries)
+ok    the pretend app is listed (its uninstaller is missing)
+ok    its folders are found
+ok    a junction is never offered
+ok    its registry key is found
+ok    its startup entry is found
+ok    everything offered passes the safety checks
+ok    refused: C:\Windows\System32\drivers
+ok    refused: C:\Windows\System32\kernel32.dll
+ok    refused: C:\Users\runneradmin\Documents
+ok    refused: C:\Users\RUNNER~1\AppData\Local\Temp\corefold-selftest-c1lrlim7\local\CfTestAppCache
+ok    refused: HKLM\SYSTEM\CurrentControlSet\Services
+ok    refused: HKCU\Software\Microsoft\Windows
+ok    removed without problems []
+ok    its folders are gone (into the backup)
+ok    the junction's target is untouched
+ok    its registry key is gone
+ok    undo puts the files back
+ok    undo puts the registry key back
+ok    undo puts the startup entry back
+ok    list the archive
+ok    extract everything
+ok    a ../ name stays inside
+ok    extracted files keep the download mark
+ok    extract one file
+ok    take one file out to open it
+ok    a name outside the folder is refused
+ok    test the archive
+ok    make a 7z with a password
+ok    a locked 7z asks for the password
+ok    open it with the password
+ok    remove one file from a ZIP
+ok    add a file with [ ] in its name
+FAIL  video: RuntimeError: FFmpeg is missing. Reinstall Corefold to fix audio and video conversion.
+selftest: 2 problem(s)
