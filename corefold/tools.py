@@ -102,7 +102,7 @@ TOOLS: list[ToolInfo] = [
              "See what starts with Windows and switch off what slows it down.",
              ("Every program that starts with Windows, in one list",
               "Switch one off with a click, and back on just as easily",
-              "Works the same way as Task Manager: nothing is ever deleted",
+              "Switching off works the same way as Task Manager: nothing is deleted",
               "Spot programs that added themselves since you last looked"),),
     ToolInfo("scan", "Scan", "scan", "shield", "Corefold Scan", "Virus scan",
              "Check your PC for malware with Microsoft Defender, plus Corefold's own checks for tricks viruses use.",

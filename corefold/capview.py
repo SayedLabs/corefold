@@ -2,13 +2,14 @@
 blur, crop), and the bar that shows while the screen is being recorded."""
 from __future__ import annotations
 
+import logging
 import math
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QPointF, QRect, QRectF, QSize, Qt, Signal
+from PySide6.QtCore import QObject, QPointF, QRect, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QGuiApplication, QImage, QKeySequence, QPainter, QPainterPath, QPen, \
-    QPolygonF, QShortcut
+    QPolygonF, QShortcut, QTransform
 from PySide6.QtWidgets import QButtonGroup, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QMenu, \
     QPushButton, QVBoxLayout, QWidget
 
@@ -21,7 +22,9 @@ from .winutil import reveal_in_explorer, set_title_bar_dark
 if TYPE_CHECKING:
     from .app import Controller
 
-TOOLS = [("arrow", "Arrow"), ("box", "Box"), ("marker", "Marker"), ("pen", "Pen"), ("text", "Text"),
+log = logging.getLogger("corefold")
+
+TOOLS = [("select", "Select text"), ("arrow", "Arrow"), ("box", "Box"), ("marker", "Marker"), ("pen", "Pen"), ("text", "Text"),
          ("step", "Steps"), ("blur", "Blur"), ("crop", "Crop")]
 COLORS = ["#e5484d", "#f5a524", "#30a46c", "#0090ff", "#111111", "#ffffff"]
 
@@ -113,9 +116,174 @@ def draw_shape(p: QPainter, s: Shape, base: QImage | None = None):
         p.drawText(box, Qt.TextWordWrap, s.text)
 
 
+class TextLayer:
+    """The words Windows read in the picture, to pick with the mouse like text in a document: drag over
+    them (across lines too), double-click one word, triple-click a line. Right to left in Arabic."""
+
+    def __init__(self, lines: list):
+        self.lines = [ln for ln in lines if ln.words]
+        self.words: list[tuple[int, object]] = []  # (line, word), in reading order
+        self.first: list[int] = []                 # where each line starts in self.words
+        self.to_pic: list[QTransform] = []         # level text -> the picture (for turned text)
+        self.to_level: list[QTransform] = []
+        self.bands: list[QRectF] = []              # each line's box, level
+        for n, ln in enumerate(self.lines):
+            self.first.append(len(self.words))
+            self.words.extend((n, w) for w in ln.words)
+            t = QTransform()
+            if abs(ln.angle) > 0.05:
+                t.translate(ln.cx, ln.cy)
+                t.rotate(ln.angle)
+                t.translate(-ln.cx, -ln.cy)
+            self.to_pic.append(t)
+            self.to_level.append(t.inverted()[0])
+            band = QRectF()
+            for w in ln.words:
+                band = band.united(QRectF(w.x, w.y, w.w, w.h))
+            self.bands.append(band)
+        self.anchor: int | None = None
+        self.focus: int | None = None
+        self._holes: QPainterPath | None = None
+
+    def __bool__(self) -> bool:
+        return bool(self.words)
+
+    # ---- which words
+    def word_at(self, pt: QPointF, near_only: bool = False) -> int | None:
+        """The word under (or nearest to) a point in the picture. near_only: None unless it's on or
+        right next to a word."""
+        best, best_d = None, None
+        for n, band in enumerate(self.bands):
+            q = self.to_level[n].map(pt)
+            dy = max(band.top() - q.y(), 0.0, q.y() - band.bottom())
+            dx = max(band.left() - q.x(), 0.0, q.x() - band.right())
+            d = (dy, dx)
+            if best_d is None or d < best_d:
+                best, best_d = n, d
+        if best is None:
+            return None
+        h = self.bands[best].height() or 1.0
+        if near_only and (best_d[0] > h * 0.35 or best_d[1] > h * 0.8):
+            return None
+        q = self.to_level[best].map(pt)
+        ln = self.lines[best]
+        pick, pick_d = 0, None
+        for i, w in enumerate(ln.words):
+            d = max(w.x - q.x(), 0.0, q.x() - (w.x + w.w))
+            if pick_d is None or d < pick_d:
+                pick, pick_d = i, d
+        if near_only and pick_d > h * 0.8:
+            return None
+        return self.first[best] + pick
+
+    def picked(self) -> tuple[int, int] | None:
+        if self.anchor is None or self.focus is None:
+            return None
+        return min(self.anchor, self.focus), max(self.anchor, self.focus)
+
+    def pick(self, a: int | None, b: int | None = None):
+        self.anchor, self.focus = a, (a if b is None else b)
+
+    def pick_all(self):
+        self.pick(0, len(self.words) - 1)
+
+    def pick_line(self, index: int):
+        n = self.words[index][0]
+        self.pick(self.first[n], self.first[n] + len(self.lines[n].words) - 1)
+
+    def text(self, span: tuple[int, int] | None = None) -> str:
+        """The picked words (or all of them), a line of text for each line in the picture."""
+        from .extras import join_words
+        a, b = span or (0, len(self.words) - 1)
+        rows: list[list] = []
+        last = None
+        for n, w in self.words[a:b + 1]:
+            if n != last:
+                rows.append([])
+                last = n
+            rows[-1].append(w)
+        return "\n".join(join_words(r) for r in rows)
+
+    # ---- drawing
+    @staticmethod
+    def _pad(r: QRectF) -> QRectF:
+        h = r.height()
+        return r.adjusted(-h * 0.14, -h * 0.16, h * 0.14, h * 0.16)
+
+    def holes(self) -> QPainterPath:
+        """Where the words are (lit up while the rest of the picture is a little darker)."""
+        if self._holes is None:
+            path = QPainterPath()
+            for n, ln in enumerate(self.lines):
+                for r in self._spans(n, ln.words):
+                    box = QPainterPath()
+                    r = self._pad(r)
+                    box.addRoundedRect(r, r.height() * 0.2, r.height() * 0.2)
+                    path.addPath(self.to_pic[n].map(box))
+            self._holes = path.simplified()
+        return self._holes
+
+    @staticmethod
+    def _spans(n: int, words: list, picked=None) -> list[QRectF]:
+        """Words next to each other (in the picture, left to right) as one box: gaps between them
+        are filled when both sides are picked (or, for the lit-up area, when the gap is small)."""
+        geo = sorted(range(len(words)), key=lambda i: words[i].x)
+        spans: list[QRectF] = []
+        prev = None
+        for i in geo:
+            w = words[i]
+            if picked is not None and i not in picked:
+                prev = None
+                continue
+            r = QRectF(w.x, w.y, w.w, w.h)
+            if spans and prev is not None and (picked is not None or r.left() - spans[-1].right() < w.h * 0.9):
+                spans[-1] = spans[-1].united(r)
+            else:
+                spans.append(r)
+            prev = i
+        return spans
+
+    def picked_boxes(self) -> list[tuple[int, QRectF]]:
+        span = self.picked()
+        if span is None:
+            return []
+        out = []
+        for n, ln in enumerate(self.lines):
+            lo, hi = max(span[0], self.first[n]), min(span[1], self.first[n] + len(ln.words) - 1)
+            if lo > hi:
+                continue
+            chosen = {i - self.first[n] for i in range(lo, hi + 1)}
+            out.extend((n, self._pad(r)) for r in self._spans(n, ln.words, chosen))
+        return out
+
+    def picked_bounds(self) -> QRectF:
+        box = QRectF()
+        for n, r in self.picked_boxes():
+            box = box.united(self.to_pic[n].mapRect(r))
+        return box
+
+    def paint(self, p: QPainter, size: QRectF, accent: QColor, scale: float):
+        dim = QPainterPath()
+        dim.addRect(size)
+        p.fillPath(dim.subtracted(self.holes()), QColor(0, 0, 0, 56))
+        fill = QColor(accent)
+        fill.setAlpha(105)
+        p.setPen(Qt.NoPen)
+        p.setBrush(fill)
+        base = p.transform()
+        for n, r in self.picked_boxes():
+            p.setTransform(self.to_pic[n] * base)
+            radius = min(r.height() * 0.22, 6 / max(scale, 0.01))
+            p.drawRoundedRect(r, radius, radius)
+        p.setTransform(base)
+
+
 class Canvas(QWidget):
-    """The picture, fitted to the window, with the marks on top."""
+    """The picture, fitted to the window, with the marks on top. With "Select text", the words in it
+    can be picked and copied."""
     changed = Signal()
+    picked = Signal()       # the picked words changed
+    wants_text = Signal()   # "Select text" is on and the words haven't been read yet
 
     def __init__(self, image: QImage):
         super().__init__()
@@ -128,6 +296,11 @@ class Canvas(QWidget):
         self.pen_width = 4.0
         self.current: Shape | None = None
         self.crop_rect: QRectF | None = None
+        self.text: TextLayer | None = None  # the words read in the picture as it is now
+        self.accent = QColor("#3cc7b2")
+        self._clicks = (0.0, -1, 0)  # when the last click was, on which word, how many in a row
+        self._picking = False
+        self.changed.connect(self._forget_text)
         self.setMouseTracking(True)
         self.setCursor(Qt.CrossCursor)
         self.setMinimumSize(360, 240)
@@ -145,6 +318,75 @@ class Canvas(QWidget):
         s, off = self._scale()
         return QPointF((pos.x() - off.x()) / s, (pos.y() - off.y()) / s)
 
+    def to_widget(self, r: QRectF) -> QRectF:
+        s, off = self._scale()
+        return QRectF(off.x() + r.x() * s, off.y() + r.y() * s, r.width() * s, r.height() * s)
+
+    # ---- the words in the picture
+    def selecting(self) -> bool:
+        return self.tool == "select"
+
+    def set_text(self, layer: "TextLayer | None"):
+        self.text = layer
+        self.picked.emit()
+        self.update()
+
+    def _forget_text(self):  # (the picture changed: the words are read again when needed)
+        if self.text is not None:
+            self.set_text(None)
+
+    def picked_text(self) -> str:
+        span = self.text.picked() if self.text else None
+        return self.text.text(span) if span else ""
+
+    def pick_all(self):
+        if self.text:
+            self.text.pick_all()
+            self.picked.emit()
+            self.update()
+
+    def unpick(self) -> bool:
+        if self.text and self.text.picked():
+            self.text.pick(None)
+            self.picked.emit()
+            self.update()
+            return True
+        return False
+
+    def _press_select(self, e):
+        if not self.text:
+            self.wants_text.emit()
+            return
+        pt = self.to_image(e.position())
+        at = self.text.word_at(pt, near_only=True)
+        if at is None:
+            self.unpick()
+            return
+        import time
+        last, word, n = self._clicks
+        now = time.monotonic()
+        quick = now - last < QGuiApplication.styleHints().mouseDoubleClickInterval() / 1000
+        n = n + 1 if quick and (word == at or n >= 2 and self.text.words[word][0] == self.text.words[at][0]) else 1
+        self._clicks = (now, at, n)
+        if n == 2:
+            self.text.pick(at)
+        elif n >= 3:
+            self.text.pick_line(at)
+        else:
+            if e.modifiers() & Qt.ShiftModifier and self.text.picked():
+                self.text.focus = at
+            else:
+                self.text.pick(at)
+            self._picking = True
+        self.picked.emit()
+        self.update()
+
+    def mouseDoubleClickEvent(self, e):
+        if self.selecting() and e.button() == Qt.LeftButton:
+            self._press_select(e)  # (Qt sends the second click of a double-click here)
+        else:
+            super().mouseDoubleClickEvent(e)
+
     def paintEvent(self, e):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
@@ -159,6 +401,8 @@ class Canvas(QWidget):
         p.setClipRect(QRectF(0, 0, self.base.width(), self.base.height()))
         for shape in self.shapes + ([self.current] if self.current else []):
             draw_shape(p, shape, self.base)
+        if self.selecting() and self.text:
+            self.text.paint(p, QRectF(0, 0, self.base.width(), self.base.height()), self.accent, s)
         if self.crop_rect is not None:
             path = QPainterPath()
             path.addRect(QRectF(0, 0, self.base.width(), self.base.height()))
@@ -171,6 +415,9 @@ class Canvas(QWidget):
 
     def mousePressEvent(self, e):
         if e.button() != Qt.LeftButton:
+            return
+        if self.selecting():
+            self._press_select(e)
             return
         pt = self.to_image(e.position())
         if self.tool == "text":
@@ -190,6 +437,16 @@ class Canvas(QWidget):
 
     def mouseMoveEvent(self, e):
         pt = self.to_image(e.position())
+        if self.selecting():
+            if self._picking and e.buttons() & Qt.LeftButton and self.text:
+                at = self.text.word_at(pt)
+                if at is not None and at != self.text.focus:
+                    self.text.focus = at
+                    self.picked.emit()
+                    self.update()
+            on_word = bool(self.text) and self.text.word_at(pt, near_only=True) is not None
+            self.setCursor(Qt.IBeamCursor if on_word or self._picking else Qt.ArrowCursor)
+            return
         if self.crop_rect is not None and e.buttons() & Qt.LeftButton:
             self.crop_rect = QRectF(self.crop_rect.topLeft(), pt)
             self.update()
@@ -202,6 +459,11 @@ class Canvas(QWidget):
 
     def mouseReleaseEvent(self, e):
         if e.button() != Qt.LeftButton:
+            return
+        if self.selecting():
+            if self._picking:
+                self._picking = False
+                self.picked.emit()
             return
         if self.crop_rect is not None:
             r = self.crop_rect.normalized().toRect().intersected(self.base.rect())
@@ -289,10 +551,18 @@ class CaptureEditor(QWidget):
         self.setWindowTitle(f"{tr('Screenshot')} - {APP_NAME}")
         self.canvas = Canvas(image)
         self.canvas.changed.connect(self._changed)
+        self.canvas.picked.connect(self._picked)
+        self.canvas.wants_text.connect(self.read_words)
+        self.reading = False
+        self._copy_after = False  # "Copy text" was pressed before the words were read
+        self.pill = TextPill(self.canvas)
+        self.pill.copy.connect(self.copy_text)
+        self.pill.all.connect(self.canvas.pick_all)
         bar = QHBoxLayout()
         bar.setContentsMargins(12, 8, 12, 8)
         bar.setSpacing(4)
         self.tools = QButtonGroup(self)
+        self.tool_buttons: dict[str, QPushButton] = {}
         for key, text in TOOLS:
             b = QPushButton(tr(text))
             b.setObjectName("subtab")
@@ -302,7 +572,11 @@ class CaptureEditor(QWidget):
             b.clicked.connect(lambda _=False, k=key: self._tool(k))
             b.setMinimumWidth(b.fontMetrics().horizontalAdvance(b.text()) + 30)
             self.tools.addButton(b)
+            self.tool_buttons[key] = b
             bar.addWidget(b)
+            if key == "select":
+                b.setToolTip(tr("Pick words in the picture to copy, like text in a document"))
+                bar.addSpacing(8)
         bar.addSpacing(8)
         self.swatches = QButtonGroup(self)
         for color in COLORS:
@@ -326,7 +600,7 @@ class CaptureEditor(QWidget):
         actions.setSpacing(6)
         self.b_text = QPushButton(tr("Copy text"))
         self.b_text.setCursor(Qt.PointingHandCursor)
-        self.b_text.setToolTip(tr("Reads the words in the picture and copies them"))
+        self.b_text.setToolTip(tr("Copies the words you picked, or all the words in the picture"))
         self.b_text.clicked.connect(self.copy_text)
         actions.addWidget(self.b_text)
         pin = QPushButton(tr("Pin"))
@@ -369,7 +643,7 @@ class CaptureEditor(QWidget):
         lay.addLayout(foot)
         for keys, fn in (("Ctrl+Z", self.canvas.undo), ("Ctrl+Y", self.canvas.redo), ("Ctrl+Shift+Z", self.canvas.redo),
                          ("Ctrl+C", self.copy), ("Ctrl+S", self.save), ("Ctrl+Shift+S", self.save_as),
-                         ("P", self.pin), ("Esc", self.close)):
+                         ("Ctrl+A", self.pick_all), ("P", self.pin), ("Esc", self._esc)):
             QShortcut(QKeySequence(keys), self).activated.connect(fn)
         self._size_to(image)
         self._update_status()
@@ -394,7 +668,34 @@ class CaptureEditor(QWidget):
 
     def _tool(self, key: str):
         self.canvas.tool = key
-        self.canvas.setCursor(Qt.IBeamCursor if key == "text" else Qt.CrossCursor)
+        self.canvas.setCursor(Qt.IBeamCursor if key == "text" else Qt.ArrowCursor if key == "select" else
+                              Qt.CrossCursor)
+        b = self.tool_buttons.get(key)
+        if b is not None and not b.isChecked():
+            b.setChecked(True)
+        if key == "select" and self.canvas.text is None:
+            self.read_words()
+        self._picked()
+        self.canvas.update()
+
+    def _esc(self):
+        if not self.canvas.unpick():
+            self.close()
+
+    def pick_all(self):
+        if not self.canvas.selecting():
+            self._tool("select")
+        self.canvas.pick_all()
+
+    def _picked(self):
+        """The picked words changed: the small Copy button goes next to them."""
+        cv = self.canvas
+        span = cv.text.picked() if cv.selecting() and cv.text else None
+        if span is None or cv._picking:
+            self.pill.hide()
+        else:
+            self.pill.show_by(cv.to_widget(cv.text.picked_bounds()))
+        self._update_status()
 
     def _color(self, color: str):
         self.canvas.color = QColor(color)
@@ -407,12 +708,26 @@ class CaptureEditor(QWidget):
     def _update_status(self):
         img = self.canvas.base
         bits = [f"{img.width()} × {img.height()}"]
+        if self.canvas.selecting():
+            if self.reading:
+                bits.append(tr("Reading the text…"))
+            elif self.canvas.text is not None and not self.canvas.text:
+                bits.append(tr("No text found in the picture"))
+            elif self.canvas.text:
+                span = self.canvas.text.picked()
+                bits.append(tr("Words picked: {count}", count=span[1] - span[0] + 1) if span else
+                            tr("Drag over the words you want · double-click: one word · Ctrl+A: all"))
+            self.status.setText("   ·   ".join(bits))
+            return
         if self.saved is not None:
             bits.append(tr("Saved as {name}", name=self.saved.name) if not self.dirty else
                         tr("Changes not saved yet"))
         self.status.setText("   ·   ".join(bits))
 
     def copy(self):
+        if self.canvas.picked_text():
+            self.copy_text()
+            return
         QGuiApplication.clipboard().setImage(self.canvas.result())
         self.c.toast.notify(tr("Copied"), tr("Paste the picture anywhere with Ctrl+V."), linger_ms=3500)
 
@@ -467,28 +782,138 @@ class CaptureEditor(QWidget):
         self.c.open_viewer(self.saved)
 
     def copy_text(self):
-        """Windows' own text reading, like the Converter's "Copy the text"."""
-        import tempfile
-        from .converters import catalog
-        tool = next((t for kind in catalog().values() for t in kind if t.key.endswith(":ocr")), None)
-        if tool is None:
+        """Copies the picked words; with none picked, all the words (and turns on "Select text", to pick
+        only some next time)."""
+        cv = self.canvas
+        if not cv.selecting():
+            self._tool("select")
+        if cv.text is None:
+            self._copy_after = True
+            self.read_words()
+            return
+        text = cv.picked_text() or cv.text.text()
+        if not text.strip():
+            self.c.toast.notify(tr("No text found in the picture"), "", linger_ms=3000)
+            return
+        QGuiApplication.clipboard().setText(text)
+        import re
+        preview = re.sub(r"\s+", " ", text).strip()
+        preview = preview if len(preview) <= 70 else preview[:67] + "..."
+        self.c.toast.notify(tr("Copied"), preview, linger_ms=3500)
+
+    def read_words(self):
+        """Reads the words in the picture with Windows' own OCR, away from the window's thread."""
+        from .extras import ocr_available
+        if self.reading:
+            return
+        if not ocr_available():
+            self._copy_after = False
             self.c.tell(tr("Can't read text here"), tr("Reading text needs Windows 10 or 11"))
             return
-        folder = Path(tempfile.mkdtemp(prefix="corefold-capture-"))
-        png = folder / "screenshot.png"
-        self.canvas.result().save(str(png), "PNG")
-        self.c.start_job(tool, [png])
+        self.reading = True
+        self._update_status()
+        image = self.canvas.result()
+        reader = self._reader = _Reader(self)
+        reader.done.connect(lambda lines, error, img=image: self._words_read(img, lines, error))
+        reader.start(image)
+
+    def _words_read(self, image: QImage, lines, error: str):
+        self.reading = False
+        if error:
+            self._copy_after = False
+            self._update_status()
+            self.c.tell(tr("Can't read text here"), error)
+            return
+        if image.size() != self.canvas.base.size() or self.canvas.text is not None:
+            if self.canvas.text is None and self.canvas.selecting():
+                self.read_words()  # (cropped meanwhile: read the new picture)
+            return
+        self.canvas.set_text(TextLayer(lines or []))
+        if self._copy_after:
+            self._copy_after = False
+            self.copy_text()
+        self._update_status()
 
     def apply_theme(self, theme):
         set_title_bar_dark(self, theme.dark)
+        self.canvas.accent = QColor(theme.accent)
         for b in (self.b_undo, self.b_redo):
             b.setIcon(icons.icon(b.property("icon_name"), theme.text))
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._picked()
 
     def closeEvent(self, e):
         if self.dirty and self.saved is not None:
             from .capture import write_later
             write_later(self.canvas.result(), self.saved)  # (marks made after saving are kept in the file)
         super().closeEvent(e)
+
+
+class TextPill(QFrame):
+    """The small Copy · Select all bar next to the picked words."""
+    copy = Signal()
+    all = Signal()
+
+    def __init__(self, parent: QWidget):
+        super().__init__(parent)
+        self.setObjectName("toast")
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(4, 4, 4, 4)
+        lay.setSpacing(2)
+        for text, sig in ((tr("Copy"), self.copy), (tr("Select all"), self.all)):
+            b = QPushButton(text)
+            b.setObjectName("small")
+            b.setCursor(Qt.PointingHandCursor)
+            b.clicked.connect(lambda _=False, s=sig: s.emit())
+            lay.addWidget(b)
+        self.hide()
+
+    def show_by(self, words: QRectF):
+        """Above the picked words (below them when there's no room), inside the picture's area."""
+        self.adjustSize()
+        area = self.parentWidget().rect()
+        x = round(words.center().x() - self.width() / 2)
+        y = round(words.top() - self.height() - 8)
+        if y < 4:
+            y = round(words.bottom() + 8)
+        if y + self.height() > area.height() - 4:
+            y = max(4, round(words.top()) + 4)
+        self.move(max(4, min(x, area.width() - self.width() - 4)), y)
+        self.show()
+        self.raise_()
+
+
+class _Reader(QObject):
+    """Reads the words in a picture on a thread of its own."""
+    done = Signal(object, str)
+
+    def start(self, image: QImage):
+        import threading
+
+        def work():
+            lines, error = None, ""
+            try:
+                from PIL import Image
+                from PySide6.QtCore import QBuffer, QByteArray, QIODevice
+                data = QByteArray()
+                buf = QBuffer(data)
+                buf.open(QIODevice.WriteOnly)
+                image.save(buf, "PNG")
+                buf.close()
+                import io
+
+                from .extras import read_lines
+                lines = read_lines(Image.open(io.BytesIO(bytes(data))))
+            except Exception as e:  # (no OCR language, an old Windows...)
+                log.warning("reading the text failed", exc_info=True)
+                error = str(e) or type(e).__name__
+            try:
+                self.done.emit(lines, error)
+            except RuntimeError:  # the editor was closed meanwhile
+                pass
+        threading.Thread(target=work, daemon=True, name="corefold-read-text").start()
 
 
 # ----------------------------------------------------------------------------- pinned pictures

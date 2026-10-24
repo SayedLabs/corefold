@@ -40,7 +40,8 @@ errors = []
 SYSTEM32 = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32"
 NOTEPAD = SYSTEM32 / "notepad.exe"
 GONE = TMP / "gone" / "NotThereAnyMore.exe"
-TEST = ["CfStartupTest", "CfStartupGone", "CfStartupLater", "CfStartupHost", "CfStartupWide", "CfStartupWide32"]
+TEST = ["CfStartupTest", "CfStartupGone", "CfStartupLater", "CfStartupHost", "CfStartupWide", "CfStartupWide32",
+        "CfStartupLeft", "CfStartupAway", 'Cf"Startup\\Odd', "CfStartupWideLeft", "CfStartupWideLeft32"]
 HKLM_64 = winreg.KEY_WOW64_64KEY
 HKLM_32 = winreg.KEY_WOW64_32KEY
 
@@ -119,6 +120,9 @@ def make_shortcut(link: Path, target: Path):
     subprocess.run(["powershell", "-NoProfile", "-Command", script], check=True, capture_output=True)
 
 
+AWAY_DRIVE = next(f"{d}:" for d in "QRSTUVWXYZ" if not os.path.isdir(f"{d}:\\"))
+
+
 def find(entries, value, where=None):
     return next((e for e in entries if e.value == value and (where is None or e.where == where)), None)
 
@@ -133,6 +137,7 @@ print(f"admin: {startup.is_admin()}, 64-bit Windows: {startup._is_64bit()}, "
 def listing():
     put(winreg.HKEY_CURRENT_USER, startup.RUN, "CfStartupTest", f'"{NOTEPAD}" /startup')
     put(winreg.HKEY_CURRENT_USER, startup.RUN, "CfStartupGone", f'"{GONE}" --tray')
+    put(winreg.HKEY_CURRENT_USER, startup.RUN, "CfStartupAway", f'"{AWAY_DRIVE}\\Tools\\Away.exe"')
     put(winreg.HKEY_CURRENT_USER, startup.RUN, "CfStartupHost", "rundll32.exe shell32.dll,Control_RunDLL",
         winreg.REG_EXPAND_SZ)
     folder = startup.folders()["User-Folder"]
@@ -153,6 +158,9 @@ def listing():
         check("microsoft" in e.publisher.lower(), f"its publisher is read from the file ({e.publisher!r})")
     g = find(entries, "CfStartupGone")
     check(g is not None and g.missing, "an entry whose program is gone is listed and marked")
+    away = find(entries, "CfStartupAway")
+    check(away is not None and not away.missing,
+          f"a program on a drive that isn't plugged in ({AWAY_DRIVE}) isn't called gone (it may come back)")
     h = find(entries, "CfStartupHost")
     check(h is not None and h.name == "CfStartupHost" and not h.publisher and not h.missing
           and h.exe.lower().endswith(r"system32\rundll32.exe"),
@@ -282,6 +290,69 @@ def own_entry():
     check(not st.startup_enabled(), "and off")
 
 
+def leftovers():
+    """Lines whose program was removed: listed apart, and removed only when asked, with a copy kept."""
+    put(winreg.HKEY_CURRENT_USER, startup.RUN, "CfStartupLeft", f'"{GONE}" /left')
+    put(winreg.HKEY_CURRENT_USER, startup.APPROVED + r"\Run", "CfStartupLeft", startup.off_note(time.time() - 9e6),
+        winreg.REG_BINARY)
+    gone_target = TMP / "gone-soon" / "LeftBehind.exe"
+    gone_target.parent.mkdir(parents=True, exist_ok=True)
+    gone_target.write_bytes(b"MZ")
+    folder = startup.folders()["User-Folder"]
+    make_shortcut(folder / "CfStartupLeft.lnk", gone_target)
+    gone_target.unlink()
+    entries = startup.list_entries()
+    mine = [e for e in startup.leftovers(entries) if e.value.startswith("CfStartup")]
+    names = sorted(e.value for e in mine)
+    check(names == ["CfStartupGone", "CfStartupLeft", "CfStartupLeft.lnk"],
+          f"the made-up leftovers are found, and only them ({names})")
+    check(all(not e.own for e in startup.leftovers(entries)), "Corefold's own line is never a leftover")
+    test_run = get(winreg.HKEY_CURRENT_USER, startup.RUN, "CfStartupTest")
+    left = [e for e in mine if e.value != "CfStartupGone"]
+    removed = startup.remove_leftovers(left)
+    check(sorted(e.value for e in removed) == ["CfStartupLeft", "CfStartupLeft.lnk"], "both are removed")
+    check(get(winreg.HKEY_CURRENT_USER, startup.RUN, "CfStartupLeft") is None, "the line is gone from the Run key")
+    check(get(winreg.HKEY_CURRENT_USER, startup.APPROVED + r"\Run", "CfStartupLeft") is None, "and its on/off note too")
+    check(not (folder / "CfStartupLeft.lnk").exists(), "the shortcut is gone from the Startup folder (to the Recycle Bin)")
+    check(get(winreg.HKEY_CURRENT_USER, startup.RUN, "CfStartupGone") is not None,
+          "a leftover that wasn't asked about is left alone")
+    check(get(winreg.HKEY_CURRENT_USER, startup.RUN, "CfStartupTest") == test_run, "a working program is left alone")
+    import json
+    try:
+        kept = json.loads((st.CONFIG_DIR / startup.REMOVED_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        kept = []
+    copy = next((k for k in kept if k.get("value") == "CfStartupLeft"), None)
+    check(copy is not None and str(GONE) in copy["command"] and copy["note"].startswith("03"),
+          "a copy of the line and its note was kept first")
+    # a program that comes back in the meantime isn't removed
+    put(winreg.HKEY_CURRENT_USER, startup.RUN, "CfStartupLeft", f'"{NOTEPAD}"')
+    e = find(startup.list_entries(), "CfStartupLeft")
+    e.missing, e.exe = True, str(NOTEPAD)
+    check(not startup.remove_leftovers([e]) and get(winreg.HKEY_CURRENT_USER, startup.RUN, "CfStartupLeft"),
+          "a line whose program is there again isn't removed")
+    drop(winreg.HKEY_CURRENT_USER, startup.RUN, "CfStartupLeft")
+    # the way it's done without permission: one .reg file, imported by reg.exe as administrator
+    odd = 'Cf"Startup\\Odd'
+    put(winreg.HKEY_CURRENT_USER, startup.RUN, odd, f'"{GONE}"')
+    key = startup._reg_key("HKCU", startup.RUN, 0)
+    ok = startup._delete_as_admin([(key, odd)])
+    check(ok and get(winreg.HKEY_CURRENT_USER, startup.RUN, odd) is None,
+          "through Windows' administrator prompt (reg import), even a name with \" and \\ in it")
+    if startup.is_admin():
+        put(winreg.HKEY_LOCAL_MACHINE, startup.RUN, "CfStartupWideLeft", f'"{GONE}"', view=HKLM_64)
+        put(winreg.HKEY_LOCAL_MACHINE, startup.RUN, "CfStartupWideLeft32", f'"{GONE}"', view=HKLM_32)
+        ok = startup._delete_as_admin([(startup._reg_key("HKLM", startup.RUN, 64), "CfStartupWideLeft"),
+                                       (startup._reg_key("HKLM", startup.RUN, 32), "CfStartupWideLeft32")])
+        check(ok and get(winreg.HKEY_LOCAL_MACHINE, startup.RUN, "CfStartupWideLeft", HKLM_64) is None
+              and get(winreg.HKEY_LOCAL_MACHINE, startup.RUN, "CfStartupWideLeft32", HKLM_32) is None,
+              "PC-wide leftovers (64 and 32-bit) are removed with one prompt")
+        put(winreg.HKEY_LOCAL_MACHINE, startup.RUN, "CfStartupWideLeft", f'"{GONE}"', view=HKLM_64)
+        w = find(startup.list_entries(), "CfStartupWideLeft", "HKLM-Run")
+        check(w is not None and w.missing and [x.value for x in startup.remove_leftovers([w])] == ["CfStartupWideLeft"],
+              "and through remove_leftovers itself")
+
+
 # ----------------------------------------------------------------------------- the page, clicked like a person
 
 def page():
@@ -366,6 +437,7 @@ def page():
           f"\"Switched off\" shows only the ones that are off ({len(shown)})")
     w.grab().save(str(OUT / f"startup-off-{LANG}-{LOOK}.png"))
     QTest.mouseClick(pg.filter_buttons[""], Qt.LeftButton)
+    settle(0.4)  # (the parts are laid out again, as before a person's next click)
     QTest.mouseClick(row.switch, Qt.LeftButton, Qt.NoModifier, row.switch.rect().center())
     check(until(lambda: row.switch.isEnabled() and not pg.busy, 15), "clicking it again: done")
     note = get(winreg.HKEY_CURRENT_USER, startup.APPROVED + r"\Run", "CfStartupTest")
@@ -392,6 +464,9 @@ def page():
           "it's marked New, and the New filter is there")
     gone = next((r for r in pg.rows if r.entry.value == "CfStartupGone"), None)
     check(gone is not None and gone.entry.missing, "the one whose program is gone says so")
+    check(gone is not None and gone.parent() is pg.groups["gone"] and not pg.heads["gone"].isHidden()
+          and pg.clean_btn.isVisible(), "it's in its own part, \"Left behind by removed programs\", with Remove")
+    check(row_in(pg, "CfStartupTest", "on"), "a working program is in the part that starts with Windows")
     row = next((r for r in pg.rows if r.entry.value == "CfStartupTest"), None)  # (the list was made again)
     check(row is not None and row.switch.isChecked(), "after Look again, the made-up program is still on")
     if row is None:
@@ -424,6 +499,31 @@ def page():
     check(until(lambda: not pg.loading, 15), "back on the page: read again")
     later = next((r for r in pg.rows if r.entry.value == "CfStartupLater"), None)
     check(later is not None and later.entry.new, "what was New this time is still New")
+    # the leftovers part, then removing them (only the made-up ones: the runner's own stay)
+    w.resize(1100, 740)
+    # one switched off long ago (as on a friend's PC): it's in "Switched off", with its date
+    put(winreg.HKEY_CURRENT_USER, startup.APPROVED + r"\Run", "CfStartupHost", startup.off_note(time.time() - 3e7),
+        winreg.REG_BINARY)
+    QTest.mouseClick(pg.refresh_btn, Qt.LeftButton)
+    check(until(lambda: not pg.loading and row_in(pg, "CfStartupHost", "off"), 15),
+          "one switched off long ago is in the \"Switched off\" part")
+    gone = next((r for r in pg.rows if r.entry.value == "CfStartupGone"), None)
+    settle(0.3)
+    if gone is not None:
+        pg.scroll.ensureWidgetVisible(gone)
+        settle(0.4)
+        w.grab().save(str(OUT / f"startup-leftovers-{LANG}-{LOOK}.png"))
+    real_left = startup.leftovers
+    startup.leftovers = lambda es: [e for e in real_left(es) if e.value.startswith("CfStartup")]
+    try:
+        pg.remove_leftovers(ask=False)
+        check(until(lambda: not pg.busy and not pg.loading
+                    and not any(r.entry.value == "CfStartupGone" for r in pg.rows), 20),
+              "Remove leftovers: the made-up leftover is gone from the list")
+        check(get(winreg.HKEY_CURRENT_USER, startup.RUN, "CfStartupGone") is None, "and from Windows")
+        check(pg.problem.isHidden(), "no problem shown")
+    finally:
+        startup.leftovers = real_left
     for small in ((760, 520), (1500, 900)):
         w.resize(*small)
         settle(0.4)
@@ -436,13 +536,24 @@ def page():
     check(not errors, f"no errors behind any click ({len(errors)})")
 
 
+def row_in(pg, value, part):
+    r = next((r for r in pg.rows if r.entry.value == value), None)
+    return r is not None and r.parent() is pg.groups[part]
+
+
 def tidy():
     for name in TEST:
         drop(winreg.HKEY_CURRENT_USER, startup.RUN, name)
         drop(winreg.HKEY_CURRENT_USER, startup.APPROVED + r"\Run", name)
     drop(winreg.HKEY_CURRENT_USER, startup.APPROVED + r"\StartupFolder", "CfStartupNotes.lnk")
+    for link in ("CfStartupNotes.lnk", "CfStartupLeft.lnk"):
+        try:
+            (startup.folders()["User-Folder"] / link).unlink()
+        except OSError:
+            pass
     if startup.is_admin():
-        for name, view in (("CfStartupWide", HKLM_64), ("CfStartupWide32", HKLM_32)):
+        for name, view in (("CfStartupWide", HKLM_64), ("CfStartupWide32", HKLM_32), ("CfStartupWideLeft", HKLM_64),
+                           ("CfStartupWideLeft32", HKLM_32)):
             drop(winreg.HKEY_LOCAL_MACHINE, startup.RUN, name, view)
         drop(winreg.HKEY_LOCAL_MACHINE, startup.APPROVED + r"\Run", "CfStartupWide", HKLM_64)
         drop(winreg.HKEY_LOCAL_MACHINE, startup.APPROVED + r"\Run32", "CfStartupWide32", HKLM_64)
@@ -452,7 +563,7 @@ def tidy():
 
 
 for name, fn in (("listing", listing), ("switching", switching), ("whole PC", whole_pc), ("new", new_since),
-                 ("own entry", own_entry), ("page", page)):
+                 ("own entry", own_entry), ("leftovers", leftovers), ("page", page)):
     step(name, fn)
 step("tidy", tidy)
 (OUT / f"startuptest-{LANG}.txt").write_text("\n".join(problems) or "none", "utf-8")

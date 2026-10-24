@@ -138,6 +138,7 @@ def table_texts() -> dict[str, str]:
     from corefold import startuppage
     add([text for _, text in startuppage.FILTERS], "startuppage.FILTERS")
     add(startuppage.WHERE.values(), "startuppage.WHERE")
+    add([t for _, title, about in startuppage.SECTIONS for t in (title, about)], "startuppage.SECTIONS")
     from corefold import scanpage
     for name in ("PLACES", "STATUS", "SEVERITY", "SKIPPED", "KINDS"):
         add(getattr(scanpage, name).values(), "scanpage." + name)
