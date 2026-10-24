@@ -73,8 +73,8 @@ versions than that have to download Corefold by hand once.
 main.py                        entry point
 corefold/app.py                tray icon, Shift-drag detection, jobs, startup
 corefold/window.py             the Corefold window: top bar, sidebar, every page and the Settings list
-corefold/tools.py              every tool in one list (sidebar, Home, Settings tabs and the Store are made from it)
-corefold/store.py              the Store: add or remove tools, and Coming soon
+corefold/tools.py              every tool in one list, and the four sections they're in (sidebar, Home, sections, Settings)
+corefold/store.py              the first-start question: which tools to switch on
 corefold/navbar.py             the sidebar (drag to reorder, icons only)
 corefold/atomic/               Atomic, the design system: colours, spacing, motion, shared widgets, Ctrl + K search
 corefold/quick.py              the quick menu and quick wheel (quickmenu.py, quickwheel.py, quickpage.py)

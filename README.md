@@ -25,41 +25,48 @@
 </p>
 
 ## What's inside
-Corefold is a set of tools you pick from the **Store**. Add only the ones you want: a tool you don't
-add isn't loaded at all, so Corefold stays light.
+Corefold's tools are in four sections: **Files**, **Images & screen**, **Computer** and **Quick tools**.
+Switch on only the tools you want, each in its section: a tool that's switched off isn't loaded at all, so
+Corefold stays light.
 
-**Files and media**
+**Files**
 
 | | |
 |---|---|
 | **Converter** | Hold Shift while dragging a file, and a wheel of formats appears at your cursor. Drop it on one and it's converted: pictures, videos, music, PDFs and Office files. |
-| **Archive** | Opens ZIP, RAR, 7z, ISO and more with a double-click. Drag files out, change a file inside and save it back, rescue damaged archives. |
 | **PDF** | Merge, split and arrange PDFs by dragging page pictures, shrink them, turn pictures into a PDF, and lock them with a password. |
-| **Viewer** | Flip through a folder of pictures with the arrow keys and fix them on the spot. Select any file in File Explorer and press Ctrl + Space for a quick look. Opens Outlook emails without Outlook. |
-| **Player** | Plays every video and song, smooth in 4K, with subtitles, a mini player and a Continue watching list. |
+| **Archive** | Opens ZIP, RAR, 7z, ISO and more with a double-click. Drag files out, change a file inside and save it back, rescue damaged archives. |
 | **File Organizer** | Sorts a messy Downloads or Desktop into clear folders with one click. See where every file will go first, and undo it all. |
+| **Unlock** | Finds out which program is holding a file you can't delete or move, and asks it to let go. |
 | **Cloud** | Your OneDrive, Dropbox, Google Drive and iCloud in one window, found by themselves. Search them all and drag files and folders from one to another. |
 
-**Your PC**
-
-| | |
-|---|---|
-| **Uninstaller** | Removes programs and everything they leave behind (folders, shortcuts, registry entries), with a backup you can put back. |
-| **Startup** | Everything that starts with Windows in one list. Switch off what slows it down, and back on just as easily. |
-| **Space** | A clear map of what's filling your disk, duplicate files, and safe junk to clean up. |
-| **Virus scan** | Checks your PC with Microsoft Defender, plus Corefold's own checks for tricks viruses use. Fully offline. |
-| **Unlock** | Finds out which program is holding a file you can't delete or move, and asks it to let go. |
-| **Awake** | Keeps your PC from going to sleep for as long as you choose, or turns it off at a time you pick. |
-
-**Screen and clipboard**
+**Images & screen**
 
 | | |
 |---|---|
 | **Capture** | A picture of your screen in one shortcut. Mark it up, blur what's private, and pick just the words you want to copy. |
-| **Clipboard** | Everything you copy, kept and easy to find again: press Win + Alt + V in any app. |
+| **Viewer** | Flip through a folder of pictures with the arrow keys and fix them on the spot. Select any file in File Explorer and press Ctrl + Space for a quick look. Opens Outlook emails without Outlook. |
+| **Player** | Plays every video and song, smooth in 4K, with subtitles, a mini player and a Continue watching list. |
 | **Colors** | Pick any colour on your screen with a magnifier and copy it as HEX, RGB or HSL. |
 
-More is on the way in the Store's *Coming soon* list.
+**Computer**
+
+| | |
+|---|---|
+| **Space** | A clear map of what's filling your disk, duplicate files, and safe junk to clean up. |
+| **Uninstaller** | Removes programs and everything they leave behind (folders, shortcuts, registry entries), with a backup you can put back. |
+| **Startup** | Everything that starts with Windows in one list. Switch off what slows it down, and back on just as easily. |
+| **Virus scan** | Checks your PC with Microsoft Defender, plus Corefold's own checks for tricks viruses use. Fully offline. |
+
+**Quick tools**
+
+| | |
+|---|---|
+| **Clipboard** | Everything you copy, kept and easy to find again: press Win + Alt + V in any app. |
+| **Awake** | Keeps your PC from going to sleep for as long as you choose, or turns it off at a time you pick. |
+| **Quick menu** | Your favourite actions and tools a shortcut away, in any app, as a menu or a wheel. |
+
+More is on the way: each section lists the tools coming to it.
 
 ## The Converter wheel
 <p align="center">
@@ -135,7 +142,7 @@ go. Choose what's on each one, add your own apps, folders and websites, and chan
 </picture></td>
     <td width="50%"><picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/store-en-dark.png">
-  <img src="docs/screenshots/store-en-light.png" alt="The Store: add and remove tools">
+  <img src="docs/screenshots/store-en-light.png" alt="A section: its tools, each with a switch">
 </picture></td>
   </tr>
   <tr>
