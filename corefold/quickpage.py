@@ -244,6 +244,7 @@ def build(win) -> QWidget:
             out[s.clip_shortcut] = tr("the clipboard")
         if c.capture is not None:
             out[s.cap_shortcut] = tr("screenshots")
+            out[s.cap_text_shortcut] = tr("copying text from the screen")
         out.pop("off", None)
         out.pop("", None)
         return out

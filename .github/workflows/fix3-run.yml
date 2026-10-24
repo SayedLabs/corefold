@@ -44,6 +44,8 @@ jobs:
           python scripts/pdfedittest.py out/pdfedittest-ar ar light *> out/pdfedittest-ar.txt
           python scripts/captexttest.py out/captext en dark *> out/captexttest-en.txt
           python scripts/captexttest.py out/captext-ar ar light *> out/captexttest-ar.txt
+          python scripts/capmarkstest.py out/capmarks en dark *> out/capmarkstest-en.txt
+          python scripts/capmarkstest.py out/capmarks-ar ar light *> out/capmarkstest-ar.txt
           python scripts/capfoldertest.py out/capfolder en dark *> out/capfoldertest-en.txt
           python scripts/newtest_cloud.py out/cloud *> out/newtest_cloud.txt
           Add-WindowsCapability -Online -Name "Language.OCR~~~ar-SA~0.0.1.0" *> out/arabic-ocr.txt
@@ -86,6 +88,7 @@ jobs:
           & $fr C:\ft\pdfedittest.py out/f-pdfedittest en dark *> out/f-pdfedittest-en.txt
           & $fr C:\ft\pdfedittest.py out/f-pdfedittest-ar ar light *> out/f-pdfedittest-ar.txt
           & $fr C:\ft\captexttest.py out/f-captext en dark *> out/f-captexttest-en.txt
+          & $fr C:\ft\capmarkstest.py out/f-capmarks en dark *> out/f-capmarkstest-en.txt
           & $fr C:\ft\capfoldertest.py out/f-capfolder en dark *> out/f-capfoldertest-en.txt
           & $fr C:\ft\newtest_cloud.py out/f-cloud *> out/f-newtest_cloud.txt
           python -m pip install --quiet pywinauto

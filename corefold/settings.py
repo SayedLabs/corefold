@@ -103,6 +103,8 @@ CLIP_MAX = {100: "100", 500: "500", 1000: "1000", 5000: "5000"}
 CLIP_DAYS = {1: "a day", 7: "a week", 30: "a month", 365: "a year", 0: "Never"}
 CAP_SHORTCUTS = {"ctrl+printscreen": "Ctrl + Print Screen", "printscreen": "Print Screen",
                  "win+shift+a": "Win + Shift + A", "off": "No shortcut"}
+CAP_TEXT_SHORTCUTS = {"win+shift+t": "Win + Shift + T", "ctrl+shift+printscreen": "Ctrl + Shift + Print Screen",
+                      "off": "No shortcut"}
 CAP_AFTER = {"edit": "Open it to mark it up", "copy": "Only copy it"}
 CAP_DELAY = {3: "3 seconds", 5: "5 seconds", 10: "10 seconds"}
 VIEWER_SORTS = {"name": "Name", "newest": "Newest first", "oldest": "Oldest first", "biggest": "Biggest first"}
@@ -120,7 +122,7 @@ CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_styl
            "backup_days": BACKUP_DAYS, "uninstall_depth": UNINSTALL_DEPTHS, "extract_mode": EXTRACT_MODES,
            "viewer_wheel": VIEWER_WHEEL, "viewer_sort": VIEWER_SORTS,
            "slideshow_seconds": SLIDESHOW_SECONDS, "clip_shortcut": CLIP_SHORTCUTS, "clip_max": CLIP_MAX,
-           "clip_days": CLIP_DAYS, "cap_shortcut": CAP_SHORTCUTS,
+           "clip_days": CLIP_DAYS, "cap_shortcut": CAP_SHORTCUTS, "cap_text_shortcut": CAP_TEXT_SHORTCUTS,
            "cap_after": CAP_AFTER, "cap_delay": CAP_DELAY, "player_skip": PLAYER_SKIP,
            "player_wheel": PLAYER_WHEEL,
            "quick_search_engine": QUICK_SEARCH_ENGINES,
@@ -159,7 +161,7 @@ VIEWER_KEYS = ("viewer_wheel", "viewer_confirm_delete", "slideshow_seconds", "vi
 CLIPBOARD_KEYS = ("clip_shortcut", "clip_paste", "clip_max", "clip_days", "clip_images", "clip_ignore")
 PLAYER_KEYS = ("player_resume", "player_skip", "player_wheel", "player_next", "player_subtitles",
                "player_pause_minimized")
-CAPTURE_KEYS = ("cap_shortcut", "cap_after", "cap_delay", "cap_save", "cap_folder")
+CAPTURE_KEYS = ("cap_shortcut", "cap_text_shortcut", "cap_after", "cap_delay", "cap_save", "cap_folder")
 UPDATE_KEYS = ("check_updates", "auto_update")
 QUICK_KEYS = ("quick_menu", "quick_menu_key", "quick_menu_items", "quick_wheel", "quick_wheel_key",
               "quick_wheel_items", "quick_button", "quick_links", "quick_search_engine", "ontop_key",
@@ -258,6 +260,7 @@ class Settings:
     player_volume: int = 80
     # Capture
     cap_shortcut: str = "ctrl+printscreen"          # a screenshot
+    cap_text_shortcut: str = "win+shift+t"          # copy the text in a part of the screen
     cap_after: str = "edit"        # after a screenshot: open the editor, or only copy it
     cap_save: bool = True          # also save every screenshot (in cap_folder)
     cap_folder: str = ""           # where screenshots are saved ("" = Pictures\Screenshots)
