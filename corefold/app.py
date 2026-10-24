@@ -341,6 +341,7 @@ class Controller(QObject):
         self.tidy_timer.setSingleShot(True)
         self.tidy_timer.timeout.connect(self._tidy_when_free)
         self._tidy_waits = 0
+        self._light_waits = 0
         self.light_tidy_timer = QTimer(self)  # soon after a job: hand back the memory it used
         self.light_tidy_timer.setSingleShot(True)
         self.light_tidy_timer.timeout.connect(self.light_tidy)
@@ -609,6 +610,13 @@ class Controller(QObject):
         (the background remover stays ready a little longer, in case more pictures follow)."""
         if self.cancels:
             return
+        # (handing memory back stops everything for a moment, up to a quarter of a second: not while
+        # someone's using one of Corefold's windows, but as soon as they've stopped for a few seconds)
+        if QApplication.activeWindow() is not None and winutil.idle_ms() < 3000 and self._light_waits < 40:
+            self._light_waits += 1
+            self.light_tidy_timer.start(3000)
+            return
+        self._light_waits = 0
         gc.collect()
         winutil.trim_memory()
 
