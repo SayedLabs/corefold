@@ -1,0 +1,125 @@
+ok    Corefold.exe opens its window on Files
+D:\a\corefold\corefold\scripts\exetest.py:78: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+  white = sum(1 for v in small.getdata() if v > 245) / 4000
+note  store: 0.00 white, mean 24
+ok    the Files section isn't white
+ok    the sidebar has Images & screen
+ok    a switch for viewer in Images & screen
+D:\a\corefold\corefold\scripts\exetest.py:117: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+  worst = max(worst, sum(1 for v in img.convert("L").resize((80, 50)).getdata() if v > 245) / 4000)
+ok    switching on viewer doesn't flash a white window (whitest moment 0.00)
+ok    after switching on viewer the window is there
+note  added-viewer: 0.00 white, mean 23
+ok    after switching on viewer the window isn't white
+ok    viewer has a tab in Images & screen
+note  open-viewer: 0.00 white, mean 25
+ok    viewer's page isn't white
+ok    the sidebar has Images & screen
+ok    a switch for player in Images & screen
+ok    switching on player doesn't flash a white window (whitest moment 0.00)
+ok    after switching on player the window is there
+note  added-player: 0.00 white, mean 24
+ok    after switching on player the window isn't white
+ok    player has a tab in Images & screen
+note  open-player: 0.00 white, mean 25
+ok    player's page isn't white
+ok    the sidebar has Images & screen
+ok    a switch for capture in Images & screen
+ok    switching on capture doesn't flash a white window (whitest moment 0.00)
+ok    after switching on capture the window is there
+note  added-capture: 0.00 white, mean 24
+ok    after switching on capture the window isn't white
+ok    capture has a tab in Images & screen
+note  open-capture: 0.00 white, mean 25
+ok    capture's page isn't white
+ok    the sidebar has Computer
+ok    a switch for space in Computer
+ok    switching on space doesn't flash a white window (whitest moment 0.00)
+ok    after switching on space the window is there
+note  added-space: 0.00 white, mean 24
+ok    after switching on space the window isn't white
+ok    space has a tab in Computer
+note  open-space: 0.00 white, mean 23
+ok    space's page isn't white
+ok    the sidebar has Quick tools
+ok    a switch for clipboard in Quick tools
+ok    switching on clipboard doesn't flash a white window (whitest moment 0.00)
+ok    after switching on clipboard the window is there
+note  added-clipboard: 0.00 white, mean 25
+ok    after switching on clipboard the window isn't white
+ok    clipboard has a tab in Quick tools
+note  open-clipboard: 0.00 white, mean 23
+ok    clipboard's page isn't white
+ok    the sidebar has Files
+ok    a switch for cloud in Files
+ok    switching on cloud doesn't flash a white window (whitest moment 0.00)
+ok    after switching on cloud the window is there
+note  added-cloud: 0.00 white, mean 24
+ok    after switching on cloud the window isn't white
+ok    cloud has a tab in Files
+note  open-cloud: 0.00 white, mean 23
+ok    cloud's page isn't white
+ok    the sidebar has Computer
+ok    a switch for startup in Computer
+ok    switching on startup doesn't flash a white window (whitest moment 0.00)
+ok    after switching on startup the window is there
+note  added-startup: 0.00 white, mean 24
+ok    after switching on startup the window isn't white
+ok    startup has a tab in Computer
+note  open-startup: 0.00 white, mean 24
+ok    startup's page isn't white
+ok    the sidebar has Computer
+ok    a switch for scan in Computer
+ok    switching on scan doesn't flash a white window (whitest moment 0.00)
+ok    after switching on scan the window is there
+note  added-scan: 0.00 white, mean 24
+ok    after switching on scan the window isn't white
+ok    scan has a tab in Computer
+note  open-scan: 0.00 white, mean 24
+ok    scan's page isn't white
+ok    the sidebar has Files
+ok    a switch for pdf in Files
+ok    switching on pdf doesn't flash a white window (whitest moment 0.00)
+ok    after switching on pdf the window is there
+note  added-pdf: 0.00 white, mean 25
+ok    after switching on pdf the window isn't white
+ok    pdf has a tab in Files
+note  open-pdf: 0.00 white, mean 26
+ok    pdf's page isn't white
+ok    the sidebar has Images & screen
+ok    a switch for colors in Images & screen
+ok    switching on colors doesn't flash a white window (whitest moment 0.00)
+ok    after switching on colors the window is there
+note  added-colors: 0.00 white, mean 25
+ok    after switching on colors the window isn't white
+ok    colors has a tab in Images & screen
+note  open-colors: 0.00 white, mean 24
+ok    colors's page isn't white
+ok    the sidebar has Quick tools
+ok    a switch for awake in Quick tools
+ok    switching on awake doesn't flash a white window (whitest moment 0.00)
+ok    after switching on awake the window is there
+note  added-awake: 0.00 white, mean 25
+ok    after switching on awake the window isn't white
+ok    awake has a tab in Quick tools
+note  open-awake: 0.00 white, mean 25
+ok    awake's page isn't white
+ok    the sidebar has Files
+ok    a switch for unlock in Files
+ok    switching on unlock doesn't flash a white window (whitest moment 0.00)
+ok    after switching on unlock the window is there
+note  added-unlock: 0.00 white, mean 25
+ok    after switching on unlock the window isn't white
+ok    unlock has a tab in Files
+note  open-unlock: 0.00 white, mean 24
+ok    unlock's page isn't white
+ok    the sidebar has Files
+ok    a switch for organizer in Files
+ok    switching on organizer doesn't flash a white window (whitest moment 0.00)
+ok    after switching on organizer the window is there
+note  added-organizer: 0.00 white, mean 25
+ok    after switching on organizer the window isn't white
+ok    organizer has a tab in Files
+note  open-organizer: 0.00 white, mean 23
+ok    organizer's page isn't white
+exetest: 0 problem(s)
