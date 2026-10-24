@@ -1,0 +1,126 @@
+# TEMPORARY (delete before merge): Capture, Cloud and PDF tried from source and inside a packed build.
+name: fix3-run
+on:
+  push:
+    branches: [claude/project-thread-7o3nx7]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  try:
+    runs-on: windows-latest
+    timeout-minutes: 80
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [source, frozen, use]
+    name: ${{ matrix.part }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Setup
+        shell: pwsh
+        run: |
+          python -m pip install --quiet -r requirements.txt
+          New-Item -ItemType Directory -Force out | Out-Null
+          python scripts/screenres.py 1920 1080 *>> out/screen.txt
+          git fetch -q --depth 1 origin +refs/heads/ffmpeg-lean:refs/remotes/origin/ffmpeg-lean
+          git archive --format=zip -o ffmpeg-lean.zip refs/remotes/origin/ffmpeg-lean
+          Expand-Archive ffmpeg-lean.zip vendor\ffmpeg -Force
+          Remove-Item ffmpeg-lean.zip
+      - name: Source tests
+        if: matrix.part == 'source'
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
+          python scripts/pdftest.py out/pdftest en dark *> out/pdftest-en.txt
+          python scripts/pdftest.py out/pdftest-ar ar light *> out/pdftest-ar.txt
+          python scripts/pdfedittest.py out/pdfedittest en dark *> out/pdfedittest-en.txt
+          python scripts/pdfedittest.py out/pdfedittest-ar ar light *> out/pdfedittest-ar.txt
+          python scripts/captexttest.py out/captext en dark *> out/captexttest-en.txt
+          python scripts/captexttest.py out/captext-ar ar light *> out/captexttest-ar.txt
+          python scripts/capfoldertest.py out/capfolder en dark *> out/capfoldertest-en.txt
+          python scripts/newtest_cloud.py out/cloud *> out/newtest_cloud.txt
+      - name: Real use timing
+        if: matrix.part == 'use'
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          choco install ffmpeg -y --no-progress | Out-Null
+          $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
+          python scripts/usetest.py out/usetest --lang en --look dark *> out/usetest.txt
+      - name: Packed build tests
+        if: matrix.part == 'frozen'
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          ./scripts/build.ps1 -Version 0.0.${{ github.run_number }}-fix3 *> out/build.txt
+          $py = ".venv\Scripts\python.exe"
+          & $py -m PyInstaller --noconfirm --console --name frozenrun --distpath frozen --workpath build-frozen `
+            --collect-submodules corefold --collect-all pi_heif --collect-all zxingcpp --collect-all pypdfium2 --collect-binaries onnxruntime --collect-all winrt --collect-submodules zstandard `
+            --exclude-module tkinter --exclude-module PySide6.QtQml --exclude-module PySide6.QtQuick `
+            --hidden-import PySide6.QtTest --hidden-import http.server --hidden-import corefold.app `
+            scripts/frozenrun.py *> out/frozen-build.txt
+          $Qt = "frozen\frozenrun\_internal\PySide6"
+          foreach ($f in @("Qt6Quick.dll", "Qt6Qml.dll", "Qt6QmlModels.dll", "Qt6QmlMeta.dll", "Qt6QmlWorkerScript.dll",
+                           "Qt6VirtualKeyboard.dll", "Qt6OpenGL.dll", "plugins\platforminputcontexts",
+                           "plugins\platforms\qdirect2d.dll", "plugins\tls\qopensslbackend.dll",
+                           "..\libcrypto-3-x64.dll", "..\libssl-3-x64.dll")) {
+              if (Test-Path "$Qt\$f") { Remove-Item "$Qt\$f" -Recurse -Force }
+          }
+          Get-ChildItem "frozen\frozenrun" -Recurse -Filter "opengl32sw.dll" | Remove-Item -Force
+          Copy-Item dist\Corefold\ffmpeg frozen\frozenrun\ffmpeg -Recurse
+          if (Test-Path dist\Corefold\7zip) { Copy-Item dist\Corefold\7zip frozen\frozenrun\7zip -Recurse }
+          New-Item -ItemType Directory -Force C:\ft | Out-Null
+          Copy-Item scripts\*.py C:\ft\
+          $fr = "frozen\frozenrun\frozenrun.exe"
+          & $fr C:\ft\pdftest.py out/f-pdftest en dark *> out/f-pdftest-en.txt
+          & $fr C:\ft\pdfedittest.py out/f-pdfedittest en dark *> out/f-pdfedittest-en.txt
+          & $fr C:\ft\pdfedittest.py out/f-pdfedittest-ar ar light *> out/f-pdfedittest-ar.txt
+          & $fr C:\ft\captexttest.py out/f-captext en dark *> out/f-captexttest-en.txt
+          & $fr C:\ft\capfoldertest.py out/f-capfolder en dark *> out/f-capfoldertest-en.txt
+          & $fr C:\ft\newtest_cloud.py out/f-cloud *> out/f-newtest_cloud.txt
+          python -m pip install --quiet pywinauto
+          $exe = Get-ChildItem -Recurse dist -Filter Corefold.exe | Select-Object -First 1
+          python scripts/exetest.py $exe.FullName out/exetest *> out/exetest.txt
+          Copy-Item "$env:LOCALAPPDATA\Corefold\*.log" out\ -ErrorAction SilentlyContinue
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: fix3-${{ matrix.part }}
+          path: out/
+  results:
+    needs: try
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          path: results
+      - name: Save
+        env:
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd results
+          {
+            echo "fix3 run of $SHA"
+            for d in */; do
+              echo "== ${d%/}"
+              grep -rhaE "^[a-z_]+test[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem" "$d" 2>/dev/null | head -20
+              grep -rhaE "^(FAIL|ERROR|SLOW) |Traceback|Error:" "$d" 2>/dev/null | sort | uniq -c | sort -rn | head -60
+            done
+          } > summary.txt
+          cat summary.txt
+          git init -q -b fix3-results
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "fix3 run of $SHA"
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${REPO}.git" fix3-results
