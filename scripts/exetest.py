@@ -1,5 +1,5 @@
 """Clicks through a built Corefold.exe from the outside, with the real mouse, the way a person does:
-adds every tool from the Store and opens it, and saves a picture of the whole screen after each click.
+switches every tool on in its section and opens it, and saves a picture of the whole screen after each click.
 
 Run: python scripts/exetest.py <Corefold.exe> <folder>   (needs pywinauto and Pillow)
 Prints one line per check and "exetest: N problem(s)"."""
@@ -76,52 +76,47 @@ def click(ctrl):
     mouse.click(coords=((r.left + r.right) // 2, (r.top + r.bottom) // 2))
 
 
-proc = subprocess.Popen([str(EXE), "--page", "Store"])
+proc = subprocess.Popen([str(EXE), "--page", "Files"])
 try:
     win = window()
-    if check(win is not None, "Corefold.exe opens its window on the Store"):
+    if check(win is not None, "Corefold.exe opens its window on Files"):
         win.set_focus()
-        win.maximize()  # (every Add button on the screen at once, the way most people keep it)
-        check(shot("store", win) < 0.3, "the Store isn't white")
+        win.maximize()  # (every switch on the screen at once, the way most people keep it)
+        check(shot("store", win) < 0.3, "the Files section isn't white")
         for tool in all_tools.ready():
             if tool.id in all_tools.ORIGINAL:
                 continue
             win = window()
-            store = win
-            cards = [c for c in store.descendants(control_type="Text") if c.window_text() == tool.name]
-            add = None
-            if cards:
-                parent = cards[0].parent()
-                while parent is not None and add is None:
-                    found = [b for b in parent.descendants(control_type="Button") if b.window_text() == "Add"]
-                    add = found[0] if found else None
-                    parent = parent.parent() if add is None else parent
-            if not check(add is not None, f"an Add button for {tool.id}"):
+            sec = all_tools.SECTION_OF[tool.id]
+            row = [t for t in win.descendants(control_type="ListItem") if t.window_text() == sec.name]
+            if not check(bool(row), f"the sidebar has {sec.name}"):
                 continue
-            r, wr = add.rectangle(), win.rectangle()
+            click(row[0])
+            time.sleep(0.8)
+            switch = [b for b in win.descendants(control_type="CheckBox") if b.window_text() == tool.nav]
+            if not check(bool(switch), f"a switch for {tool.id} in {sec.name}"):
+                continue
+            r, wr = switch[0].rectangle(), win.rectangle()
             if wr.top < (r.top + r.bottom) // 2 < wr.bottom - 10:
-                click(add)
+                click(switch[0])
             else:
-                add.invoke()  # (below the bottom of the window)
+                switch[0].toggle()  # (below the bottom of the window)
             worst = 0.0
             end = time.time() + 1.0
             while time.time() < end:  # the moments right after the click
                 img = ImageGrab.grab(bbox=(wr.left, wr.top, wr.right, wr.bottom), all_screens=True)
                 worst = max(worst, sum(1 for v in img.convert("L").resize((80, 50)).getdata() if v > 245) / 4000)
-            check(worst < 0.3, f"adding {tool.id} doesn't flash a white window (whitest moment {worst:.2f})")
+            check(worst < 0.3, f"switching on {tool.id} doesn't flash a white window (whitest moment {worst:.2f})")
+            time.sleep(0.6)
             win = window()
-            check(win is not None, f"after adding {tool.id} the window is there")
+            check(win is not None, f"after switching on {tool.id} the window is there")
             if win is None:
                 break
-            check(shot(f"added-{tool.id}", win) < 0.3, f"after adding {tool.id} the window isn't white")
-            nav = [t for t in win.descendants(control_type="ListItem") if t.window_text() == tool.nav]
-            if check(bool(nav), f"{tool.id} is in the sidebar"):
-                click(nav[0])
+            check(shot(f"added-{tool.id}", win) < 0.3, f"after switching on {tool.id} the window isn't white")
+            tab = [b for b in win.descendants(control_type="Button") if b.window_text() == tool.nav]
+            if check(bool(tab), f"{tool.id} has a tab in {sec.name}"):
+                click(tab[0])
                 check(shot(f"open-{tool.id}", win) < 0.3, f"{tool.id}'s page isn't white")
-                store_row = [t for t in win.descendants(control_type="ListItem") if t.window_text() == "Store"]
-                if store_row:
-                    click(store_row[0])
-                    time.sleep(0.8)
 finally:
     log = Path(os.environ["LOCALAPPDATA"]) / "Corefold" / "corefold.log"
     if log.exists():

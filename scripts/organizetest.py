@@ -388,12 +388,12 @@ def page():
     w = c.window
     w.resize(1100, 740)
     settle(0.6)
-    check("Organizer" not in w.nav_rows, "removed in the Store: not in the sidebar")
-    check("corefold.organizerpage" not in sys.modules, "removed in the Store: its page isn't loaded at all")
+    check(not w.shows("Organizer"), "switched off: not shown")
+    check("corefold.organizerpage" not in sys.modules, "switched off: its page isn't loaded at all")
     c.set_tool("organizer", True)
     settle(0.6)
     w = c.window
-    check("Organizer" in w.nav_rows, "added from the Store: in the sidebar")
+    check(w.shows("Organizer"), "switched on: shown in its section")
     from corefold import organizerpage as OP
     OP.known_folder = lambda key: {"downloads": MESS, "desktop": TMP / "Desktop"}.get(key)
     w.resize(1100, 740)
@@ -474,7 +474,7 @@ def page():
           "coming back to the page: a new download is in the plan")
     c.set_tool("organizer", False)
     settle(0.5)
-    check("Organizer" not in c.window.nav_rows, "removed again: gone from the sidebar")
+    check(not c.window.shows("Organizer"), "switched off again: not shown")
     check(not errors, f"no errors behind any click ({len(errors)})")
 
 

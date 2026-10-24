@@ -126,6 +126,15 @@ QLabel#newPill { background: $accent; color: $on_accent; border-radius: 9px; fon
 QFrame#toolCard { background: $panel; border: 1px solid $border; border-radius: 14px; }
 QFrame#toolCard:hover { border-color: $accent_line; background: $tool_hover; }
 QFrame#toolCard:focus { border-color: $accent; }
+QFrame#toolCard[off="true"] { background: transparent; border-style: dashed; }
+QFrame#toolCard[off="true"]:hover { border-color: $line_strong; background: transparent; }
+QPushButton#chipButton { background: $raised; border: 1px solid $border; border-radius: 10px; padding: 3px 11px;
+                         min-width: 0; font-weight: 600; }
+QPushButton#chipButton:hover { border-color: $accent_line; background: $tool_hover; }
+QPushButton#stripTab { background: transparent; border: 1px solid transparent; border-radius: 12px; color: $muted;
+                       padding: 5px 13px; min-width: 0; font-weight: 600; }
+QPushButton#stripTab:hover { color: $text; background: $hover; }
+QPushButton#stripTab:checked { color: $text; background: $raised; border-color: $line_strong; }
 QLabel#cardTitle { font-family: $font_display; font-size: 11pt; font-weight: 600; }
 QLabel#cardStat { color: $accent_text; font-size: 8.5pt; font-weight: 600; }
 QLabel#heroStat { font-family: $font_display; font-size: 17pt; font-weight: 700; }

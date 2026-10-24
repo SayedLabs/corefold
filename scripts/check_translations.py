@@ -67,6 +67,8 @@ def table_texts() -> dict[str, str]:
     from corefold import tools as all_tools
     for tool in all_tools.TOOLS:
         add([tool.name, tool.nav, tool.line, *tool.features], "tools.TOOLS")
+    for sec in all_tools.SECTIONS:
+        add([sec.name, sec.line], "tools.SECTIONS")
     add([converters.PASSWORD_ERROR], "PASSWORD_ERROR")
     add([v[0] for v in moretools.CROP_RATIOS.values()], "CROP_RATIOS")
     add(moretools.STICKERS_IMAGE.values(), "STICKERS_IMAGE")

@@ -92,6 +92,15 @@ _TILE_BODY = "M20 10H33V31H54V44A10 10 0 0 1 44 54H20A10 10 0 0 1 10 44V20A10 10
 _TILE_FOLD = "M37.5 10.6L53.4 26.5A1.6 1.6 0 0 1 52.3 29.2H38.6A1.6 1.6 0 0 1 37 27.6V11.7A1.6 1.6 0 0 1 37.5 10.6Z"
 _TILE_GLYPHS = {  # drawn on the old 4..60 grid, moved into the 10..54 body by _GLYPH_FIT
     "corefold": '<circle cx="31" cy="38" r="8.5"/>',
+    # the sections: Files (pages on pages), Images & screen (a picture), Computer (a screen), Quick tools (a bolt)
+    "files": '<g fill="none" stroke-width="3.8" stroke-linejoin="round" stroke-linecap="round">'
+             '<rect x="19" y="31" width="18" height="22" rx="3"/><path d="M26 26.5h14a3 3 0 0 1 3 3V46"/></g>',
+    "media": '<g fill="none" stroke-width="3.8" stroke-linejoin="round" stroke-linecap="round">'
+             '<rect x="17.5" y="29" width="28" height="23" rx="3.5"/><path d="M19.5 48.5 27 41l6 6 4-4 7 7"/></g>'
+             '<circle cx="37.5" cy="35.5" r="2.9"/>',
+    "computer": '<g fill="none" stroke-width="3.8" stroke-linejoin="round" stroke-linecap="round">'
+                '<rect x="17" y="28" width="29" height="19.5" rx="3"/><path d="M31.5 47.5v5M25 53.5h13"/></g>',
+    "quick": '<path d="M35 25.5 21.5 42.5h9.5l-3 12.5L42 37.5h-9.5l2.5-12z"/>',
     # the Converter: one thing in, another out (two arrows turning around each other)
     "converter": '<g fill="none" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round">'
                  '<path d="M17 36.5H40.5M34.5 30.5 40.5 36.5 34.5 42.5"/>'
@@ -159,6 +168,8 @@ PRODUCT_COLORS = {  # (light end, deep end) of each product's gradient
     "drivers": ("#d4c4a8", "#7a5f34"), "awake": ("#f2cfa0", "#9c6420"), "snippets": ("#c8b5ff", "#6a3fd0"),
     "backup": ("#9fe3dc", "#16867a"), "notes": ("#fff2a0", "#c8a400"), "system": ("#b9d3e8", "#3d6a8f"),
     "unlock": ("#ffc6a0", "#c9661c"), "organizer": ("#a6e3ff", "#2a7cc4"), "sound": ("#ffb8d4", "#bf3f74"),
+    "files": ("#a9d2ff", "#2c6fd6"), "media": ("#ffb9a0", "#d1452f"), "computer": ("#d2b8ff", "#7440cf"),
+    "quick": ("#ffe28e", "#c38800"),
 }
 
 

@@ -423,7 +423,7 @@ def start():
         if took > 0.4:
             slow.append(f"{name} {took:.2f} s")
         say(f"{'ok  ' if took <= 0.4 else 'SLOW'}  {took:7.2f} s  open the {name} page")
-        grab(c.window, f"page-{name}") if name in ("Store", "General", "Converter", "Archive", "Space",
+        grab(c.window, f"page-{name}") if name in ("Files", "General", "Converter", "Archive", "Space",
                                                     "Quick", "Clipboard", "Capture", "Player", "Viewer", "Apps") else None
     check(not slow, f"every page opens in under 0.4 s ({len(names)} pages; slow: {', '.join(slow) or 'none'})")
     for p in slow:
@@ -438,7 +438,7 @@ def start():
         check(with_icon > 0, f"the Uninstaller's list shows the apps' icons ({with_icon} of "
                              f"{ap.tree.topLevelItemCount()})")
     c.window.open_page("Space")
-    c.window.open_page("Store")
+    c.window.open_page("Files")
     settle(0.2)
     QTest.mouseClick(c.window.windowHandle(), Qt.MouseButton.BackButton, Qt.KeyboardModifier.NoModifier,
                      c.window.stack.geometry().center())  # (through the window, the way a real click comes)
@@ -810,11 +810,12 @@ def store():
     w = c.window
     for t in all_tools.ready():
         # (the window is made again without the tool: about a second on GitHub's PCs)
-        timed(f"Store: remove {t.id}", lambda i=t.id: (c.set_tool(i, False), qapp.processEvents()), 1.5,
+        timed(f"switch off {t.id}", lambda i=t.id: (c.set_tool(i, False), qapp.processEvents()), 1.5,
               profile="store-remove" if t.id == "viewer" else "")
-        timed(f"Store: add {t.id} back", lambda i=t.id: (c.set_tool(i, True), qapp.processEvents()), 1.5)
+        timed(f"switch {t.id} back on", lambda i=t.id: (c.set_tool(i, True), qapp.processEvents()), 1.5)
     w = c.window
-    w.open_page("Store")
+    for sec in all_tools.SECTIONS:
+        timed(f"open the {sec.id} section", lambda n=sec.page: (w.open_page(n), qapp.processEvents()), 0.4)
     grab(w, "store")
 
 

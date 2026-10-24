@@ -49,7 +49,7 @@ ACTIONS: dict[str, Action] = {a.id: a for a in (
     Action("lock", "Lock the PC", "lock_closed"),
     Action("home", "Open Corefold", "home"),
     Action("settings", "Settings", "settings"),
-    Action("store", "Store", "apps"),
+    Action("store", "All tools", "apps"),  # (its id is from when this was the Store)
     Action("updates", "Check for updates", "arrow_download"),
     Action("quickmenu", "Quick menu", "layout"),
     Action("ontop", "Keep a window on top", "pin"),
@@ -366,7 +366,7 @@ class QuickAccess(QObject):
             "lock": _lock,
             "home": c.show_window,
             "settings": lambda: c.show_window("General"),
-            "store": lambda: c.show_window("Store"),
+            "store": lambda: c.show_window("Home"),
             "updates": lambda: c.check_updates(manual=True),
             "quickmenu": self.toggle_menu,
             "ontop": lambda: self.toggle_on_top(self.front),

@@ -241,8 +241,8 @@ def apply_size(w):
 
 
 def every_page_name(w) -> list[str]:
-    """The pages a person can reach: the sidebar's, the settings pages of the tools in use, and the
-    Coming soon pages from the Store."""
+    """The pages a person can reach: the sidebar's, the tools in use and the Coming soon pages (in their
+    sections), and the settings pages of the tools in use."""
     names = []
     for name in W.PAGES:
         owner = W.NAV_OWNER.get(name, name)
@@ -544,9 +544,9 @@ def store_cycles():
             settle(0.3)
             w = c.window
             tool = all_tools.BY_ID[tid] if hasattr(all_tools, "BY_ID") else next(t for t in all_tools.TOOLS if t.id == tid)
-            check(tool.page not in w.nav_rows, f"round {round_ + 1}: removing {tid} takes it out of the sidebar")
-            check(w.current_page() in ("Store",) or w.isVisible(), f"round {round_ + 1}: after removing {tid} the "
-                                                                    f"window is still open ({w.current_page()})")
+            check(not w.shows(tool.page), f"round {round_ + 1}: switching off {tid} takes it out of its section")
+            check(w.isVisible(), f"round {round_ + 1}: after switching off {tid} the window is still open "
+                                 f"({w.current_page()})")
             if tid == "clipboard":
                 check(c.clip is None, "a removed Clipboard stops watching what's copied")
             if tid == "capture":
@@ -558,7 +558,8 @@ def store_cycles():
         c.show_window("Home")
         settle(0.3)
         looks_ok(c.window, f"Home with no tools, round {round_ + 1}")
-        page_opens(c.window, "Store", f"the Store with no tools, round {round_ + 1}")
+        for sec in all_tools.SECTIONS:
+            page_opens(c.window, sec.page, f"the {sec.id} section with no tools, round {round_ + 1}")
         for tid in reversed(ids):
             c.set_tool(tid, True)
             settle(0.3)
@@ -622,7 +623,7 @@ def reopen():
     from PySide6.QtGui import QPixmapCache
     seen, widgets = [], []
     for n in range(40):
-        c.show_window(["Home", "Store", "General", "Converter"][n % 4])
+        c.show_window(["Home", "Files", "General", "Converter"][n % 4])
         settle(0.4)
         c.window.close()
         settle(0.2)

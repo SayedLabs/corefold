@@ -1,7 +1,7 @@
 """Corefold PDF's page: what you can do with PDFs, as cards, and a board of page pictures where
 pages from one or more PDFs are put in order, turned, deleted and saved as a new PDF.
 
-Nothing here is loaded unless Corefold PDF is added in the Store and its page is opened."""
+Nothing here is loaded unless Corefold PDF is switched on (in Files) and its page is opened."""
 from __future__ import annotations
 
 import logging

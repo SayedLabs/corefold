@@ -581,15 +581,15 @@ def page():
     w = c.window
     w.resize(1100, 760)
     settle(0.6)
-    check("Scan" not in w.nav_rows, "removed in the Store: not in the sidebar")
-    check("corefold.scanpage" not in sys.modules, "removed in the Store: its page isn't loaded at all")
+    check(not w.shows("Scan"), "switched off: not shown")
+    check("corefold.scanpage" not in sys.modules, "switched off: its page isn't loaded at all")
     c.handle_message("scan\n" + str(WORK))
     settle(1.2)
-    check(getattr(c, "scan_runner", None) is None, "removed in the Store: a right-click scan request does nothing")
+    check(getattr(c, "scan_runner", None) is None, "switched off: a right-click scan request does nothing")
     c.set_tool("scan", True)
     settle(0.6)
     w = c.window
-    check("Scan" in w.nav_rows, "added from the Store: in the sidebar")
+    check(w.shows("Scan"), "switched on: shown in its section")
     w.resize(1100, 760)
     w.open_page("Scan")
     pg = w.scan_page
@@ -715,7 +715,7 @@ def page():
     check(until(mpcmdrun_running, 20), "a scan is running")
     c.set_tool("scan", False)
     settle(1)
-    check("Scan" not in c.window.nav_rows, "removed again: gone from the sidebar")
+    check(not c.window.shows("Scan"), "switched off again: not shown")
     check(until(lambda: not our_mpcmdrun_left(), 30), "and its scan stopped with it")
     check(not errors, f"no errors behind any click ({len(errors)})")
 
