@@ -133,7 +133,7 @@ CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_styl
 HELD: dict | None = None
 RECENT_ARCHIVES = 8
 # not settings a person edits: what the app remembers by itself
-NOT_EDITED = {"enabled", "first_run", "last_version", "menu_signature", "window_geometry", "last_page",
+NOT_EDITED = {"enabled", "first_run", "last_version", "update_told", "menu_signature", "window_geometry", "last_page",
               "last_action", "tour_done", "watermark", "fit_mb", "open_archives", "recent_archives",
               "tools_off", "known_tools", "open_images", "open_emails", "viewer_info", "viewer_strip", "recent_views",
               "archive_preview",
@@ -200,6 +200,7 @@ class Settings:
     check_updates: bool = True
     auto_update: bool = False
     last_version: str = ""
+    update_told: str = ""          # the new version last told about, and the day ("1.9.0 2026-10-24")
     ask_names: bool = False        # ask for a new name when converting several files
     sound: str = "corefold"
     volume: int = 45

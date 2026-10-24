@@ -161,6 +161,8 @@ STRINGS: dict[str, str] = {
     "One click to update. Your settings are kept.": "نقرة واحدة للتحديث. ستبقى إعداداتك كما هي.",
     "Get it": "احصل عليه",
     "Update now": "التحديث الآن",
+    "Update to Corefold {version}": "حدّث إلى كورفولد {version}",
+    "Get Corefold {version}": "نزّل كورفولد {version}",
     "You're up to date": "لديك أحدث إصدار",
     "Corefold {version} is the newest version.": "كورفولد {version} هو أحدث إصدار.",
     "Downloading Corefold {version}": "جارٍ تنزيل كورفولد {version}",
