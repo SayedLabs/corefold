@@ -22,7 +22,7 @@ from PySide6.QtGui import (QBrush, QColor, QFontDatabase, QFontMetricsF, QIcon, 
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QColorDialog, QFileDialog, QFrame, QGraphicsItem,
                                QGraphicsObject, QGraphicsScene, QGraphicsTextItem, QGraphicsView, QHBoxLayout,
                                QLabel, QLineEdit, QListView, QListWidget, QListWidgetItem, QMenu, QMessageBox,
-                               QPlainTextEdit, QPushButton, QSpinBox,
+                               QPlainTextEdit, QPushButton, QSizePolicy, QSpinBox,
                                QStyleOptionGraphicsItem, QStyle, QVBoxLayout, QWidget)
 
 from . import icons, pdfedit, pdftools, work
@@ -1397,6 +1397,7 @@ class PdfEditor(QWidget):
         foot = QHBoxLayout()
         self.where = QLabel()
         self.where.setObjectName("muted")
+        self.where.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)  # (never cut short by the hint)
         foot.addWidget(self.where)
         self.hint = QLabel()
         self.hint.setObjectName("muted")
