@@ -141,9 +141,18 @@ def _part_text(part) -> str:
 
 
 def _clean_name(name: str) -> str:
-    """A safe file name: no folders, no characters Windows refuses, never empty."""
-    name = re.sub(r'[\x00-\x1f<>:"/\\|?*]', "_", name.replace("\\", "/").rsplit("/", 1)[-1]).strip(" .")
-    return name[:180] or "attachment"
+    """A safe file name: no folders, no characters Windows refuses, never empty. Right-to-left marks are taken
+    out ("invoice\u202egpj.exe" would show as "invoiceexe.jpg"), names Windows keeps for itself (CON, NUL…)
+    get a "_" in front, and a very long name is shortened before its ending (".pdf" stays)."""
+    from .core import WINDOWS_RESERVED
+    name = re.sub(r"[\u200e\u200f\u202a-\u202e\u2066-\u2069]", "", name.replace("\\", "/").rsplit("/", 1)[-1])
+    name = re.sub(r'[\x00-\x1f<>:"/\\|?*]', "_", name).strip(" .")
+    if len(name) > 180:
+        stem, dot, ext = name.rpartition(".")
+        name = (stem[:180 - len(ext) - 1] + "." + ext) if dot and len(ext) <= 16 else name[:180]
+    if name.split(".")[0].strip().upper() in WINDOWS_RESERVED:
+        name = "_" + name
+    return name or "attachment"
 
 
 # ----------------------------------------------------------------------------- Compound File (.msg)
