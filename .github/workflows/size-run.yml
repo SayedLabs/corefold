@@ -70,6 +70,7 @@ jobs:
         shell: pwsh
         continue-on-error: true
         run: |
+          choco install ffmpeg -y --no-progress | Out-Null   # only to make test files (usetest)
           $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
           $py = ".venv\Scripts\python.exe"
           & vendor\ffmpeg\ffmpeg.exe -hide_banner -version *> out/ffmpeg-version.txt

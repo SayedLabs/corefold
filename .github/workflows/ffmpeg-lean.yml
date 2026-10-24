@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       commit:
-        description: "FFmpeg commit to build (empty: the newest)"
+        description: "FFmpeg version to build (a tag of the same release as the image below, like n9.0.2)"
         required: false
 
 permissions:
@@ -27,12 +27,12 @@ jobs:
         env:
           COMMIT: ${{ inputs.commit }}
         run: |
-          IMAGE=ghcr.io/btbn/ffmpeg-builds/win64-gpl-shared:latest
+          IMAGE=ghcr.io/btbn/ffmpeg-builds/win64-gpl-shared-9.0:latest   # BtbN's libraries for FFmpeg 9.0
           docker pull -q "$IMAGE"
           # the build scripts (and so the library versions) that made this image
           SCRIPTS=$(git ls-remote https://github.com/BtbN/FFmpeg-Builds refs/tags/latest | cut -f1)
-          # empty: FFmpeg's newest code, as BtbN builds it every day with this image
-          echo "FFmpeg ${COMMIT:-master}, scripts $SCRIPTS"
+          COMMIT=${COMMIT:-n9.0.2}
+          echo "FFmpeg $COMMIT, scripts $SCRIPTS"
           mkdir -p out
           docker run --rm -v "$PWD:/work" "$IMAGE" bash /work/scripts/ffmpeg-lean.sh "$COMMIT" /work/out/bin
           sudo chown -R "$(id -u):$(id -g)" out
