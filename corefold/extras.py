@@ -205,42 +205,238 @@ def check_ocr(files: list[Path]) -> str | None:
     return None if ocr_available() else tr("Reading text needs Windows 10 or 11")
 
 
-async def _windows_ocr(path: str) -> str:
-    from winrt.windows.graphics.imaging import BitmapDecoder
+class OcrWord:
+    """One word Windows read: its text and its box in the picture's own pixels (x, y, w, h), measured
+    as if the text were level (`OcrLine.angle` turns it back)."""
+    __slots__ = ("text", "x", "y", "w", "h", "side")
+
+    def __init__(self, text: str, x: float, y: float, w: float, h: float):
+        self.text, self.x, self.y, self.w, self.h = text, x, y, w, h
+        self.side = _strong_side(text)
+
+
+class OcrLine:
+    """A line of words in reading order (right to left for Arabic), and how much the text is turned
+    (clockwise degrees around cx, cy) in the picture."""
+    __slots__ = ("words", "rtl", "angle", "cx", "cy")
+
+    def __init__(self, words: list[OcrWord], angle: float = 0.0, cx: float = 0.0, cy: float = 0.0):
+        self.words, self.rtl = reading_order(words)
+        self.angle, self.cx, self.cy = angle, cx, cy
+
+    @property
+    def text(self) -> str:
+        return join_words(self.words)
+
+
+def _strong_side(text: str) -> str:
+    """"r" for a word in Arabic or Hebrew letters, "l" for one in Latin (and most other) letters, ""
+    for numbers and signs, which take the direction of the words around them."""
+    import unicodedata
+    for ch in text:
+        kind = unicodedata.bidirectional(ch)
+        if kind in ("R", "AL"):
+            return "r"
+        if kind == "L":
+            return "l"
+    return ""
+
+
+def reading_order(words: list[OcrWord]) -> tuple[list[OcrWord], bool]:
+    """Puts a line's words in the order they're read, from where they are in the picture: left to right,
+    or right to left when most words are Arabic or Hebrew. English words inside an Arabic line (and
+    the other way round) are read in their own direction. (Windows' own order isn't trusted for this.)"""
+    rtl = sum(w.side == "r" for w in words) > sum(w.side == "l" for w in words)
+    out = sorted(words, key=lambda w: w.x + w.w / 2, reverse=rtl)
+    other = "l" if rtl else "r"
+    i = 0
+    while i < len(out):
+        if out[i].side != other:
+            i += 1
+            continue
+        j = i  # the run goes on over numbers and signs only while another such word follows
+        k = i + 1
+        while k < len(out) and out[k].side in (other, ""):
+            if out[k].side == other:
+                j = k
+            k += 1
+        out[i:j + 1] = out[i:j + 1][::-1]
+        i = j + 1
+    return out, rtl
+
+
+def _no_space(a: str, b: str) -> bool:
+    """Chinese and Japanese are written without spaces between words."""
+    import unicodedata
+    return bool(a and b) and all(unicodedata.east_asian_width(ch) in ("W", "F") for ch in (a[-1], b[0]))
+
+
+def join_words(words: list[OcrWord]) -> str:
+    text = ""
+    for w in words:
+        text += w.text if not text or _no_space(text, w.text) else " " + w.text
+    return text
+
+
+def lines_text(lines: list[OcrLine]) -> str:
+    return "\n".join(line.text for line in lines if line.words)
+
+
+RTL_OCR = ("ar", "fa", "ur", "he")  # languages Windows reads right to left
+
+
+def _rtl_tag(tag: str) -> bool:
+    return tag.split("-")[0].lower() in RTL_OCR
+
+
+def _engines():
+    """Windows' reader for the PC's language, and, when one is installed, a reader for the other way of
+    writing too (Arabic next to English): each reads only its own letters well."""
     from winrt.windows.media.ocr import OcrEngine
-    from winrt.windows.storage import FileAccessMode, StorageFile
     engine = OcrEngine.try_create_from_user_profile_languages()
     if engine is None:
         raise RuntimeError(tr("Windows has no text-reading language installed (Settings → Time & language)"))
-    file = await StorageFile.get_file_from_path_async(path)
-    stream = await file.open_async(FileAccessMode.READ)
-    decoder = await BitmapDecoder.create_async(stream)
-    bitmap = await decoder.get_software_bitmap_async()
-    result = await engine.recognize_async(bitmap)
-    return "\n".join(line.text for line in result.lines)
+    engines = [(engine, False)]
+    try:
+        first = _rtl_tag(engine.recognizer_language.language_tag)
+        engines = [(engine, first)]
+        for lang in OcrEngine.available_recognizer_languages:
+            if _rtl_tag(lang.language_tag) != first:
+                other = OcrEngine.try_create_from_language(lang)
+                if other is not None:
+                    engines.append((other, not first))
+                break
+    except Exception:
+        log.debug("no second text-reading language", exc_info=True)
+    return engines
 
 
-def read_text(src: Path, ctx: Ctx) -> Result:
+async def _windows_ocr(paths: list[str]) -> list:
+    """For each picture, what each reader found: [(reads right to left, angle, lines of words)]."""
+    from winrt.windows.graphics.imaging import BitmapDecoder
+    from winrt.windows.storage import FileAccessMode, StorageFile
+    engines = _engines()
+    results = []
+    for path in paths:
+        file = await StorageFile.get_file_from_path_async(path)
+        stream = await file.open_async(FileAccessMode.READ)
+        decoder = await BitmapDecoder.create_async(stream)
+        bitmap = await decoder.get_software_bitmap_async()
+        reads = []
+        for engine, rtl in engines:
+            result = await engine.recognize_async(bitmap)
+            angle = result.text_angle
+            try:
+                angle = float(angle.value if hasattr(angle, "value") else angle or 0.0)
+            except (TypeError, ValueError):
+                angle = 0.0
+            lines = []
+            for line in result.lines:
+                words = []
+                for word in line.words:
+                    r = word.bounding_rect
+                    words.append((word.text, r.x, r.y, r.width, r.height))
+                lines.append(words)
+            reads.append((rtl, angle, lines))
+        results.append(reads)
+    return results
+
+
+def _box(line: OcrLine) -> tuple[float, float, float, float]:
+    return (min(w.x for w in line.words), min(w.y for w in line.words),
+            max(w.x + w.w for w in line.words), max(w.y + w.h for w in line.words))
+
+
+def _overlap(a: OcrLine, b: OcrLine) -> bool:
+    ax, ay, ax2, ay2 = _box(a)
+    bx, by, bx2, by2 = _box(b)
+    w, h = min(ax2, bx2) - max(ax, bx), min(ay2, by2) - max(ay, by)
+    if w <= 0 or h <= 0:
+        return False
+    return w * h > 0.3 * min((ax2 - ax) * (ay2 - ay), (bx2 - bx) * (by2 - by))
+
+
+def merge_reads(reads: list[tuple[bool, list[OcrLine]]]) -> list[OcrLine]:
+    """Two readers' lines (one for Arabic letters, one for English ones) made into one page: an Arabic
+    line from the Arabic reader wins over whatever the other made of it, everything else comes from the
+    English reader, and what only one of them saw is kept."""
+    if len(reads) < 2:
+        return reads[0][1] if reads else []
+    rtl_lines = [ln for rtl, lines in reads if rtl for ln in lines]
+    ltr_lines = [ln for rtl, lines in reads if not rtl for ln in lines]
+    out = [ln for ln in rtl_lines if ln.rtl]
+    for ln in ltr_lines + [ln for ln in rtl_lines if not ln.rtl]:
+        if not any(_overlap(ln, kept) for kept in out):
+            out.append(ln)
+    out.sort(key=lambda ln: (_box(ln)[1] + _box(ln)[3]) / 2)
+    return out
+
+
+def ocr_pieces(width: int, height: int, limit: int) -> tuple[float, list[tuple[int, int]]]:
+    """How much bigger to make a picture for reading (small text reads better bigger), and the strips
+    (top, bottom in the bigger picture's pixels) to read when it's taller than Windows can read at once."""
+    longest = max(width, height, 1)
+    f = min(3.0, max(1.0, 1200 / longest, min(2.0, 1800 / longest)))
+    f = min(f, limit / max(width, 1))  # (too wide: smaller, there's no reading in pieces side by side)
+    h = round(height * f)
+    if h <= limit:
+        return f, [(0, h)]
+    step = int(limit * 0.8)  # the strips overlap, so a line cut by one is whole in the next
+    strips = []
+    top = 0
+    while True:
+        bottom = min(h, top + limit)
+        strips.append((top, bottom))
+        if bottom >= h:
+            return f, strips
+        top += step
+
+
+def read_lines(im) -> list[OcrLine]:
+    """Reads the text in a picture (Pillow) with Windows' own OCR: lines of words with where each one is.
+    Takes a moment, so not on the window's thread."""
     from PIL import Image
-    im = flatten(load_image(src))
-    longest = max(im.size)
-    if longest < 1200:  # small screenshots read better a bit bigger
-        f = 1200 / longest
-        im = im.resize((int(im.width * f), int(im.height * f)), Image.LANCZOS)
+    im = flatten(im)
     try:
         from winrt.windows.media.ocr import OcrEngine
         limit = int(OcrEngine.max_image_dimension)
     except Exception:
         limit = 10000
-    if max(im.size) > limit:
-        im.thumbnail((limit, limit), Image.LANCZOS)
-    ctx.progress(0.2)
+    f, strips = ocr_pieces(im.width, im.height, limit)
+    big = im.resize((max(1, round(im.width * f)), max(1, round(im.height * f))), Image.LANCZOS) if f != 1 else im
     with tempfile.TemporaryDirectory(prefix="corefold-", ignore_cleanup_errors=True) as tmp:
-        png = Path(tmp) / "page.png"
-        im.save(png)
+        paths = []
+        for n, (top, bottom) in enumerate(strips):
+            png = Path(tmp) / f"part{n}.png"
+            (big if len(strips) == 1 else big.crop((0, top, big.width, bottom))).save(png)
+            paths.append(str(png.resolve()))
         import asyncio  # (only here: loading it takes a moment)
-        text = asyncio.run(_windows_ocr(str(png.resolve())))
-    text = text.strip()
+        results = asyncio.run(_windows_ocr(paths))
+    out: list[OcrLine] = []
+    for n, ((top, bottom), reads) in enumerate(zip(strips, results)):
+        # a line in the overlap belongs to the strip it's further inside of
+        keep_from = 0 if n == 0 else (top + strips[n - 1][1]) / 2 - top
+        keep_to = bottom - top if n == len(strips) - 1 else (strips[n + 1][0] + bottom) / 2 - top
+        found = []
+        for rtl, angle, lines in reads:
+            kept = []
+            for words in lines:
+                if not words:
+                    continue
+                mid = sum(y + h / 2 for _, _, y, _, h in words) / len(words)
+                if not keep_from <= mid < keep_to:
+                    continue
+                ws = [OcrWord(t, x / f, (y + top) / f, w / f, h / f) for t, x, y, w, h in words if t.strip()]
+                if ws:
+                    kept.append(OcrLine(ws, angle, big.width / 2 / f, (top + bottom) / 2 / f))
+            found.append((rtl, kept))
+        out.extend(merge_reads(found))
+    return out
+
+
+def read_text(src: Path, ctx: Ctx) -> Result:
+    ctx.progress(0.2)
+    text = lines_text(read_lines(load_image(src))).strip()
     if not text:
         return Result(note=tr("No text found in {name}", name=src.name))
     lines = text.count("\n") + 1
