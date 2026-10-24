@@ -52,6 +52,12 @@ MORE = [("pdf:numbers", "Page numbers", "Number every page", "text_t"),
         ("pdf:fit", "Fit a size limit", "Make it small enough for an email or a form", "target"),
         ("pdf:text", "Copy the text", "Pull all the text out into a .txt file", "document_text"),
         ("pdf:images", "Save the pictures inside", "Every picture in the PDF, as it is", "filmstrip_image")]
+# how the cards are grouped on the page (the first group is shown big, on top)
+GROUPS = [("", ("edit", "merge")),
+          ("Pages", ("organize", "split", "extract")),
+          ("Add to it", ("pdf:sign", "pdf:numbers", "pdf:watermark")),
+          ("Smaller or safer", ("compress", "pdf:fit", "lock", "unlock")),
+          ("Turn it into something else", ("topictures", "pictures", "pdf:text", "pdf:images"))]
 TIPS = {"merge": "Drag the pages into the order you want, then press Merge and save.",
         "organize": "Drag pages to move them. Select some to turn or delete them. Double-click a page to see it big.",
         "extract": "Select the pages you want (or type them in the box), then Save selected pages."}
@@ -75,44 +81,47 @@ def is_picture(p: Path) -> bool:
     return p.is_file() and norm(p.suffix) in IMAGE_EXT
 
 
-def _tile(icon_name: str, accent: QColor, dpr: float) -> QPixmap:
+def _tile(icon_name: str, accent: QColor, dpr: float, size: int = 36) -> QPixmap:
     """A card's icon on its soft rounded square, drawn once (a style sheet on every card was slow to set)."""
-    pm = QPixmap(round(36 * dpr), round(36 * dpr))
+    pm = QPixmap(round(size * dpr), round(size * dpr))
     pm.setDevicePixelRatio(dpr)
     pm.fill(Qt.transparent)
     p = QPainter(pm)
     p.setRenderHint(QPainter.Antialiasing)
     p.setPen(Qt.NoPen)
     p.setBrush(tokens.alpha(accent, 40))
-    p.drawRoundedRect(0, 0, 36, 36, 10, 10)
-    p.drawPixmap(8, 8, icons.pixmap(icon_name, 20, accent, dpr))
+    p.drawRoundedRect(0, 0, size, size, size * 0.28, size * 0.28)
+    glyph = round(size * 0.55)
+    p.drawPixmap((size - glyph) // 2, (size - glyph) // 2, icons.pixmap(icon_name, glyph, accent, dpr))
     p.end()
     return pm
 
 class ActionCard(QFrame):
     """One thing Corefold PDF does: click it (or Enter) to start."""
 
-    def __init__(self, key: str, title: str, line: str, icon_name: str, on_click):
+    def __init__(self, key: str, title: str, line: str, icon_name: str, on_click, big: bool = False):
         super().__init__()
         self.key = key
         self.setObjectName("toolCard")
+        self.setProperty("featured", "true" if big else "false")
         self.setCursor(Qt.PointingHandCursor)
         self.setFocusPolicy(Qt.StrongFocus)
         self.setAccessibleName(title)
         self.on_click = on_click
         t = tokens.current()
         lay = QHBoxLayout(self)
-        lay.setContentsMargins(14, 12, 14, 12)
-        lay.setSpacing(12)
+        lay.setContentsMargins(18, 16, 18, 16) if big else lay.setContentsMargins(14, 12, 14, 12)
+        lay.setSpacing(14 if big else 12)
         tile = QLabel()
-        tile.setFixedSize(36, 36)
+        size = 48 if big else 36
+        tile.setFixedSize(size, size)
         tile.setAlignment(Qt.AlignCenter)
         tile.setObjectName("pdfCardIcon")
-        tile.setPixmap(_tile(icon_name, t.accent, self.devicePixelRatioF()))
+        tile.setPixmap(_tile(icon_name, t.accent, self.devicePixelRatioF(), size))
         lay.addWidget(tile, 0, Qt.AlignTop)
         words = QVBoxLayout()
-        words.setSpacing(2)
-        self.title = _label(title, "cardTitle")
+        words.setSpacing(3 if big else 2)
+        self.title = _label(title, "bigCardTitle" if big else "cardTitle")
         words.addWidget(self.title)
         sub = _label(line, "muted", wrap=True)
         sub.setMinimumWidth(1)
@@ -216,36 +225,40 @@ class PdfPage(QWidget):
         self.stack.addWidget(QWidget())  # (the board is made the first time PDFs are opened)
         self._board_made = False
         self.editor = None                        # (made when a PDF is first opened to edit)
+        self._edit_from = 0
         lay.addWidget(self.stack, 1)
 
     # ---- the cards
 
     def _start(self) -> QWidget:
-        from .panel import DropZone
         inner = QWidget()
         inner.setObjectName("scrollContent")
         v = QVBoxLayout(inner)
         v.setContentsMargins(0, 0, 0, 0)
-        v.setSpacing(14)
-        self.drop = DropZone(None, None, title=tr("Drop PDFs here to see their pages"),
-                             sub=tr("Or drop pictures to make a PDF from them. Everything stays on your PC."),
-                             hot_title=tr("Let go"),
-                             buttons=[(tr("Open PDFs…"), lambda: self.start("organize"), "primary"),
-                                      (tr("Pictures to PDF…"), lambda: self.start("pictures"))])
-        self.drop.dropped.connect(self.add_files)
-        v.addWidget(self.drop)
-        v.addWidget(_label(tr("What do you want to do?"), "h2"))
-        self.grid = ResponsiveGrid(min_width=250, spacing=10, max_columns=3)
+        v.setSpacing(8)
+        # Every card, in groups: editing and merging first and big, then pages, adding to a PDF, making it
+        # smaller or safer, and turning it into something else. (The Converter's own PDF tools are cards here
+        # too, so its catalog, which imports every converter, almost half a second, is only made when one is
+        # clicked.)
+        known = {key: (title, line, icon_name) for key, title, line, icon_name in ACTIONS + MORE}
         self.cards: dict[str, ActionCard] = {}
-        for key, title, line, icon_name in ACTIONS:
-            self.cards[key] = self.grid.add(ActionCard(key, tr(title), tr(line), icon_name,
-                                                       lambda k=key: self.start(k)))
-        # The converter's own PDF tools: always there, so the catalog (which imports every converter,
-        # almost half a second) is only made once one of them is clicked.
-        for key, title, line, icon_name in MORE:
-            self.cards[key] = self.grid.add(ActionCard(key, tr(title), tr(line), icon_name,
-                                                       lambda k=key: self.start(k)))
-        v.addWidget(self.grid)
+        self.grids: list[ResponsiveGrid] = []
+        for n, (name, keys) in enumerate(GROUPS):
+            if name:
+                v.addSpacing(8)
+                v.addWidget(_label(tr(name), "pdfGroup"))
+            grid = ResponsiveGrid(min_width=320 if n == 0 else 230, spacing=10, max_columns=2 if n == 0 else 4)
+            for key in keys:
+                title, line, icon_name = known[key]
+                self.cards[key] = grid.add(ActionCard(key, tr(title), tr(line), icon_name,
+                                                      lambda k=key: self.start(k), big=n == 0))
+            self.grids.append(grid)
+            v.addWidget(grid)
+            if n == 0:
+                hint = _label(tr("Or drop PDFs or pictures anywhere on this page."), "subtle", wrap=True)
+                v.addWidget(hint)
+        self.grid = self.grids[0]
+        v.addSpacing(8)
         row = QHBoxLayout()
         self.where = _label("", "subtle", wrap=True)
         self._show_where()
@@ -346,6 +359,13 @@ class PdfPage(QWidget):
 
     # ---- the editor
 
+    def edit_picked(self):
+        """The board's Edit content: the PDF of the page picked (or the only, or first, PDF on the board)."""
+        items = self.board.selectedItems() if hasattr(self, "board") else []
+        index = items[0].data(FILE) if items else 0
+        if self.files and isinstance(index, int) and 0 <= index < len(self.files):
+            self.open_editor(self.files[index])
+
     def open_editor(self, src: Path):
         """Opens one PDF in the editor (its password is asked for first, if it has one)."""
         if not is_pdf(src):
@@ -376,8 +396,10 @@ class PdfPage(QWidget):
         if self.editor is None:
             from .pdfeditor import PdfEditor
             self.editor = PdfEditor(self)
-            self.editor.closed.connect(lambda: self.stack.setCurrentIndex(0))
+            self.editor.closed.connect(lambda: self.stack.setCurrentIndex(self._edit_from))
             self.stack.addWidget(self.editor)
+        if self.stack.currentWidget() is not self.editor:  # (closing it goes back there: the cards or the board)
+            self._edit_from = self.stack.currentIndex()
         self.stack.setCurrentWidget(self.editor)
         self.editor.open(src, password)
         self.editor.view.setFocus()
@@ -413,6 +435,13 @@ class PdfPage(QWidget):
             b.clicked.connect(fn)
             bar.addWidget(b)
             self.tool_btns[key] = b
+        self.edit_btn = QPushButton(tr("Edit content"))
+        self.edit_btn.setIcon(icons.icon("text_edit_style", muted))
+        self.edit_btn.setCursor(Qt.PointingHandCursor)
+        self.edit_btn.setToolTip(tr("Type text, change words, add pictures, highlight, draw, sign and fill in forms"))
+        self.edit_btn.clicked.connect(self.edit_picked)
+        bar.addWidget(self.edit_btn)
+        bar.addSpacing(4)
         undo = QPushButton(tr("Undo"))
         undo.setObjectName("flat")
         undo.setToolTip(tr("Undo (Ctrl + Z)"))

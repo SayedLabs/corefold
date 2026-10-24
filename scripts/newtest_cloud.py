@@ -863,6 +863,41 @@ def page_part():
         check(until(lambda: "to-upload" in names(), 5), "and listed")
     step("uploads", uploads)
 
+    def adding():
+        page._fill_add_menu()
+        texts = [a.text() for a in page.add_menu.actions()]
+        check(page.add_btn.isVisible() and any("…" in t for t in texts),
+              f"Add a cloud is always there, with adding a folder ({texts})")
+        check(until(lambda: all(a.extra.get("measured") for a in page.accounts), 15),
+              "every account's space is looked at")
+        od_acc = page.accounts[0]
+        check(cloudpage.space_text(od_acc) != "" and od_acc.used > 0, f"a folder says how much it uses "
+                                                                      f"({cloudpage.space_text(od_acc)})")
+        online = page.accounts[-1]
+        uses = cloudpage.tr("Uses {size}", size=cloudpage.human_size(online.used))
+        check(cloudpage.space_text(online) != uses and online.total > online.used,
+              f"an online account says how much is free ({cloudpage.space_text(online)})")
+        extra = TMP / "home" / "Synced stuff"
+        make_files(extra, "extra")
+        from unittest import mock as _m
+        with _m.patch.object(cloudpage.QFileDialog, "getExistingDirectory", return_value=str(extra)):
+            page.pick_folder()
+        added = [a for a in page.accounts if a.local and Path(a.local) == extra]
+        check(len(added) == 1 and added[0].extra.get("added") and page.account is added[0],
+              f"a folder can be added by hand, and is opened ({page.status.text()})")
+        check(until(lambda: "notes.txt" in names(), 5), f"its files are shown ({names()})")
+        page.look_for_folders()
+        check(until(lambda: not page.looking and any(a.local and Path(a.local) == extra for a in page.accounts), 10),
+              "it's still there after looking again")
+        until(lambda: False, 0.3)
+        shot = f"cloud-added-{LANG}-{LOOK}.png"
+        check(w.grab().save(str(OUT / shot)), f"picture saved: {shot}")
+        page.remove_folder(added[0])
+        check(not any(a.local and Path(a.local) == extra for a in page.accounts) and extra.exists(),
+              "Remove from the list takes it off (its files stay)")
+        page.account_list.setCurrentRow(0)
+    step("adding a folder", adding)
+
     def other_accounts():
         online = page.accounts[-1]
         local_dbx = page.accounts[1]

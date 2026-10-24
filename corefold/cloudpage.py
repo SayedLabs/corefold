@@ -12,11 +12,11 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QMimeData, Qt, QUrl
-from PySide6.QtGui import QDesktopServices, QDrag, QKeySequence, QShortcut
+from PySide6.QtCore import QMimeData, QRect, QRectF, QSize, Qt, QUrl
+from PySide6.QtGui import QColor, QDesktopServices, QDrag, QFont, QFontMetrics, QKeySequence, QPainter, QShortcut
 from PySide6.QtWidgets import QAbstractItemView, QFileDialog, QHBoxLayout, QHeaderView, QInputDialog, QLabel, \
-    QLineEdit, QListWidget, QListWidgetItem, QMenu, QMessageBox, QProgressBar, QPushButton, QTreeWidget, \
-    QTreeWidgetItem, QVBoxLayout, QWidget
+    QLineEdit, QListWidget, QListWidgetItem, QMenu, QMessageBox, QProgressBar, QPushButton, QStyle, \
+    QStyledItemDelegate, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
 from . import UPDATE_REPO, cloud, icons, work
 from .core import human_size, short_name
@@ -28,6 +28,11 @@ if TYPE_CHECKING:
     from .app import Controller
 
 DRAG_MIME = "application/x-corefold-cloud"
+# where each service's own app is downloaded from (for "Add a cloud" when it isn't on this PC)
+GET_APP = {"onedrive": "https://www.microsoft.com/microsoft-365/onedrive/download",
+           "dropbox": "https://www.dropbox.com/install",
+           "gdrive": "https://www.google.com/drive/download/",
+           "icloud": "https://apps.microsoft.com/detail/9pktq5699m62"}
 ACCOUNT = Qt.UserRole + 1          # (the account a search result belongs to)
 TEMP_PREFIX = "corefold-cloud-"
 
@@ -85,6 +90,97 @@ def clean_old_temp(days: float = 2):
                     continue
     except OSError:
         pass
+
+
+def service_name(acc: cloud.Account) -> str:
+    """OneDrive, Dropbox…, or for a folder added by hand that isn't any service's, the folder's name."""
+    return cloud.SERVICES.get(acc.service) or acc.who
+
+
+def space_text(acc: cloud.Account) -> str:
+    """"3.2 GB free of 15 GB", "Uses 12 GB" (a folder: how much is left is only known online), or ""."""
+    if acc.total:
+        return tr("{free} free of {total}", free=human_size(max(0, acc.total - acc.used)), total=human_size(acc.total))
+    if acc.used or acc.extra.get("measured"):
+        return tr("Uses {size}", size=human_size(acc.used))
+    return ""
+
+
+class AccountRows(QStyledItemDelegate):
+    """An account in the list: its service, whose it is, and its space (with a bar when the total is known)."""
+
+    def __init__(self, page: "CloudPage"):
+        super().__init__(page)
+        self.page = page
+
+    def sizeHint(self, option, index):
+        small = QFont(option.font)
+        small.setPointSizeF(max(7.0, option.font.pointSizeF() - 1))
+        bold = QFont(option.font)
+        bold.setWeight(QFont.DemiBold)
+        return QSize(100, 16 + QFontMetrics(bold).height() + 2 * QFontMetrics(small).height() + 3 + 10)
+
+    def paint(self, p: QPainter, opt, index):
+        acc = index.data(Qt.UserRole)
+        if acc is None:
+            return
+        t = self.page.c.theme
+        p.save()
+        p.setRenderHint(QPainter.Antialiasing)
+        rtl = opt.direction == Qt.RightToLeft
+        r = opt.rect.adjusted(2, 2, -2, -2)
+        if opt.state & QStyle.State_Selected:
+            soft = QColor(t.accent)
+            soft.setAlpha(46 if t.dark else 34)
+            p.setPen(Qt.NoPen)
+            p.setBrush(soft)
+            p.drawRoundedRect(r, 8, 8)
+        elif opt.state & QStyle.State_MouseOver:
+            p.setPen(Qt.NoPen)
+            p.setBrush(t.hover or t.field)
+            p.drawRoundedRect(r, 8, 8)
+        icon = index.data(Qt.DecorationRole)
+        s = 20
+        x = r.right() - 10 - s if rtl else r.left() + 10
+        if icon is not None:
+            icon.paint(p, QRect(x, r.top() + 10, s, s))
+        text = r.adjusted(10, 8, -10, -8)
+        text = text.adjusted(0, 0, -(s + 8), 0) if rtl else text.adjusted(s + 8, 0, 0, 0)
+        align = (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignVCenter
+        f = QFont(opt.font)
+        f.setWeight(QFont.DemiBold)
+        p.setFont(f)
+        p.setPen(t.text)
+        line = QFontMetrics(f).height()
+        p.drawText(QRect(text.left(), text.top(), text.width(), line), align,
+                   QFontMetrics(f).elidedText(service_name(acc), Qt.ElideRight, text.width()))
+        small = QFont(opt.font)
+        small.setPointSizeF(max(7.0, opt.font.pointSizeF() - 1))
+        p.setFont(small)
+        p.setPen(t.muted)
+        fm = QFontMetrics(small)
+        under = index.data(Qt.UserRole + 2) or ""
+        p.drawText(QRect(text.left(), text.top() + line + 1, text.width(), fm.height()), align,
+                   fm.elidedText(under, Qt.ElideRight, text.width()))
+        said = space_text(acc)
+        top = text.top() + line + fm.height() + 3
+        if said:
+            p.setPen(t.muted)
+            p.drawText(QRect(text.left(), top, text.width(), fm.height()), align,
+                       fm.elidedText(said, Qt.ElideRight, text.width()))
+        if acc.total:  # (how full it is)
+            bar = QRectF(text.left(), top + fm.height() + 4, text.width(), 4)
+            p.setPen(Qt.NoPen)
+            p.setBrush(t.border)
+            p.drawRoundedRect(bar, 2, 2)
+            share = min(1.0, acc.used / acc.total)
+            full = QRectF(bar)
+            full.setWidth(max(4.0, bar.width() * share))
+            if rtl:
+                full.moveRight(bar.right())
+            p.setBrush(t.danger if share > 0.9 and t.danger else t.accent)
+            p.drawRoundedRect(full, 2, 2)
+        p.restore()
 
 
 class Files(QTreeWidget):
@@ -238,17 +334,18 @@ class CloudPage(QWidget):
         self.account_list.setContextMenuPolicy(Qt.CustomContextMenu)
         self.account_list.customContextMenuRequested.connect(self._account_menu)
         side.addWidget(self.account_list, 1)
-        self.add_btn = QPushButton(tr("Sign in to an account"))
+        self.account_list.setItemDelegate(AccountRows(self))
+        self.account_list.setMouseTracking(True)
+        self.add_btn = QPushButton(tr("Add a cloud"))
         self.add_btn.setObjectName("primary")
         self.add_btn.setCursor(Qt.PointingHandCursor)
-        menu = QMenu(self.add_btn)
-        round_menu(menu)
-        for key in cloud.ONLINE:
-            if cloud.available(key):
-                menu.addAction(cloud.SERVICES[key], lambda k=key: self.sign_in(k))
-        self.add_btn.setMenu(menu)
-        self.add_btn.setVisible(not menu.isEmpty())
+        self.add_menu = QMenu(self.add_btn)
+        round_menu(self.add_menu)
+        self.add_menu.aboutToShow.connect(self._fill_add_menu)
+        self.add_btn.setMenu(self.add_menu)
+        self.add_btn.setMinimumWidth(self.add_btn.sizeHint().width() + 18)  # (room for the menu's arrow)
         side.addWidget(self.add_btn)
+        self.space_job = None
         self.again_btn = self._button(tr("Look again"), self.look_for_folders)
         self.again_btn.setToolTip(tr("Look again for cloud folders on this PC"))
         side.addWidget(self.again_btn)
@@ -369,6 +466,7 @@ class CloudPage(QWidget):
             first = self.found is None  # (the first time: the list starts at the top, with what was found)
             self.found = [] if isinstance(result, Exception) else result
             self.load_accounts(None if first or self.account is None else self.account.key)
+            self.measure()
         self.finder = work.run(go, lambda _: None, done, name="corefold-cloud-find")
 
     def load_accounts(self, pick: str | None = None):
@@ -382,13 +480,14 @@ class CloudPage(QWidget):
             self.space.setText("")
             if self.found is None:
                 self.empty.setText(tr("Looking for your clouds on this PC…"))
-            elif self.add_btn.isVisible():
+            elif any(cloud.available(k) for k in cloud.ONLINE):
                 self.empty.setText(tr("No cloud folders on this PC yet. Install OneDrive, Dropbox, Google Drive or "
                                       "iCloud and its files show up here, or sign in to OneDrive or Dropbox: you "
                                       "sign in on their own page, so your password never reaches Corefold."))
             else:
                 self.empty.setText(tr("No cloud folders on this PC yet. Install OneDrive, Dropbox, Google Drive or "
-                                      "iCloud and sign in to it, and its files show up here."))
+                                      "iCloud and sign in to it, and its files show up here. Is your cloud's folder "
+                                      "somewhere else? Add it with Add a cloud."))
             self._buttons()
             return
         keys = [a.key for a in self.accounts]
@@ -409,12 +508,18 @@ class CloudPage(QWidget):
             # (a folder on this PC: its email when the app says it, else "On this PC", or its folder's name when
             # one service has several)
             under = acc.email or (acc.who if acc.local and local.count(acc.service) > 1 else tr("On this PC"))
-            it = QListWidgetItem(here if acc.local else online,
-                                 f"{cloud.SERVICES.get(acc.service, acc.service)}\n{ltr(short_name(under, 34))}")
+            if acc.service not in cloud.SERVICES:  # (a folder added by hand: its name is the title, its place under it)
+                under = acc.local
+            it = QListWidgetItem(here if acc.local else online, f"{service_name(acc)}\n{ltr(short_name(under, 34))}")
             it.setData(Qt.UserRole, acc)
+            it.setData(Qt.UserRole + 2, ltr(short_name(under, 40)))
             if acc.local:
-                tip = tr("On this PC: {folder}. The {service} app keeps it in sync.", folder=ltr(acc.local),
-                         service=cloud.SERVICES.get(acc.service, ""))
+                tip = (tr("On this PC: {folder}. The {service} app keeps it in sync.", folder=ltr(acc.local),
+                          service=cloud.SERVICES[acc.service]) if acc.service in cloud.SERVICES else
+                       tr("On this PC: {folder}.", folder=ltr(acc.local)))
+                if not acc.total and cloud.available(acc.service):
+                    tip += "\n" + tr("Sign in to {service} to see how much space is left.",
+                                     service=cloud.SERVICES[acc.service])
             else:
                 tip = acc.name
                 if acc.total:
@@ -441,11 +546,8 @@ class CloudPage(QWidget):
         acc = self.account
         if acc is None:
             self.space.setText("")
-        elif acc.local:
-            self.space.setText("")  # (the account's tip says where the folder is and who keeps it in sync)
         else:
-            self.space.setText(tr("{used} of {total} used", used=human_size(acc.used), total=human_size(acc.total))
-                               if acc.total else "")
+            self.space.setText(space_text(acc))
 
     def _switch_to(self, acc: cloud.Account):
         """Shows this account in the list (a search result from another account was opened)."""
@@ -467,9 +569,94 @@ class CloudPage(QWidget):
         round_menu(menu)
         if acc.local:
             menu.addAction(tr("Open in File Explorer"), lambda: self._explore(Path(acc.local)))
+            if acc.extra.get("added"):
+                menu.addAction(tr("Remove from the list"), lambda: self.remove_folder(acc))
         else:
             menu.addAction(tr("Sign out"), lambda: self.sign_out(acc))
         menu.exec(self.account_list.viewport().mapToGlobal(pos))
+
+    def _fill_add_menu(self):
+        """Sign in online (when this copy can), add any folder, or get a cloud's app that isn't on this PC."""
+        menu = self.add_menu
+        menu.clear()
+        for key in cloud.ONLINE:
+            if cloud.available(key):
+                menu.addAction(icons.icon("cloud", self.c.theme.muted), tr("Sign in to {service}",
+                               service=cloud.SERVICES[key]), lambda k=key: self.sign_in(k))
+        menu.addAction(icons.icon("folder", self.c.theme.muted), tr("A cloud folder on this PC…"), self.pick_folder)
+        here = {a.service for a in self.found or []} | {a.service for a in self.accounts if not a.local}
+        missing = [k for k in GET_APP if k not in here]
+        if missing:
+            menu.addSeparator()
+            get = menu.addMenu(tr("Get a cloud's app"))
+            round_menu(get)
+            for key in missing:
+                get.addAction(cloud.SERVICES[key], lambda k=key: QDesktopServices.openUrl(QUrl(GET_APP[k])))
+            menu.addAction(tr("Look again"), self.look_for_folders)
+
+    def pick_folder(self):
+        """Adds a folder Corefold didn't find by itself (a cloud app's folder somewhere else, a synced folder…)."""
+        start = str(Path(self.account.local)) if self.account is not None and self.account.local else str(Path.home())
+        folder = QFileDialog.getExistingDirectory(self, tr("Add a cloud folder"), start)
+        if not folder:
+            return
+        from . import cloudlocal
+        try:
+            acc = cloudlocal.add_folder(folder)
+        except (OSError, cloud.CloudError) as e:
+            self.status.setText(_ui_error(e))
+            return
+        self.found = [a for a in self.found or [] if a.key != acc.key] + [acc]
+        self.load_accounts(acc.key)
+        self.status.setText(tr("Added {name}.", name=ltr(acc.title)))
+        self.measure()
+
+    def remove_folder(self, acc: cloud.Account):
+        from . import cloudlocal
+        try:
+            cloudlocal.remove_folder(acc.local)
+        except OSError as e:
+            self.status.setText(_ui_error(e))
+            return
+        self.found = [a for a in self.found or [] if a.key != acc.key]
+        if self.account is not None and self.account.key == acc.key:
+            self.account = None
+        self.load_accounts()
+
+    def measure(self):
+        """Each account's space, off the window's thread: online ones ask their service, a folder on this PC adds up
+        its files (a whole drive, like Google Drive's, tells its own size)."""
+        if self.space_job is not None and self.space_job.is_alive():
+            return
+        accounts = list(self.accounts)
+
+        def go(progress):
+            from . import cloudlocal
+            for acc in accounts:
+                try:
+                    if acc.local:
+                        used, total = cloudlocal.space(acc)
+                    else:
+                        c = cloud.client(acc)
+                        c.fill_profile()
+                        cloud.remember_account(acc)
+                        used, total = acc.used, acc.total
+                except Exception:  # (no internet, signed out…: the space just isn't shown)
+                    continue
+                progress((acc.key, used, total))
+            return None
+
+        def got(what):
+            if not work.alive(self):
+                return
+            key, used, total = what
+            for acc in self.accounts + list(self.found or []):
+                if acc.key == key:
+                    acc.used, acc.total = used, total
+                    acc.extra["measured"] = True
+            self.account_list.viewport().update()
+            self._space_text()
+        self.space_job = work.run(go, got, lambda _: None, name="corefold-cloud-space")
 
     def sign_in(self, service: str):
         if self._working():
@@ -538,7 +725,7 @@ class CloudPage(QWidget):
         self.view += 1
         view = self.view
         self.view_cancel.set()
-        name = cloud.SERVICES.get(acc.service, "")
+        name = service_name(acc)
         self.where.setText(ltr(short_name(name + (folder.path if folder else ""), 80)))
         self.sign_again_btn.hide()
         opening = tr("Opening…")
@@ -586,7 +773,7 @@ class CloudPage(QWidget):
         for acc, e in sorted(found, key=lambda f: (not f[1].folder, f[1].name.lower())):
             name = ltr(e.name)
             if searching:
-                where = cloud.SERVICES.get(acc.service, "") + " · " + (e.path.rsplit("/", 1)[0] or "/")
+                where = service_name(acc) + " · " + (e.path.rsplit("/", 1)[0] or "/")
                 name = f"{name}   ·   {ltr(short_name(where, 60))}"
             it = QTreeWidgetItem([name, "" if e.folder else human_size(e.size),
                                   date_text(e.modified, True) if e.modified else ""])
@@ -857,8 +1044,9 @@ class CloudPage(QWidget):
         box.setWindowTitle(tr("Delete?"))
         what = ltr(entries[0].name) if len(entries) == 1 else tr("{count} items", count=len(entries))
         service = cloud.SERVICES.get(acc.service, "")
-        box.setText(tr("{what} goes to the Recycle Bin, and {service} keeps it in its deleted files for a while.",
-                       what=what, service=service) if acc.local else
+        box.setText((tr("{what} goes to the Recycle Bin, and {service} keeps it in its deleted files for a while.",
+                        what=what, service=service) if service else tr("{what} goes to the Recycle Bin.", what=what))
+                    if acc.local else
                     tr("{what} goes to the deleted files of {service}, where you can put it back for a while.",
                        what=what, service=service))
         yes = box.addButton(tr("Delete"), QMessageBox.DestructiveRole)

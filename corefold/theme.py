@@ -127,6 +127,18 @@ QFrame#toolCard { background: $panel; border: 1px solid $border; border-radius: 
 QFrame#toolCard:hover { border-color: $accent_line; background: $tool_hover; }
 QFrame#toolCard:focus { border-color: $accent; }
 QFrame#toolCard[off="true"] { background: transparent; border-style: dashed; }
+QFrame#toolCard[featured="true"] { border-color: $accent_line; background: $tool_hover; }
+QFrame#toolCard[featured="true"]:hover { border-color: $accent; }
+QLabel#bigCardTitle { font-family: $font_display; font-size: 13pt; font-weight: 700; }
+QPushButton#capTool { background: transparent; border: 1px solid transparent; border-radius: 9px; padding: 0 10px;
+                      min-width: 0; color: $text; font-weight: 600; }
+QPushButton#capTool:hover { background: $hover; }
+QPushButton#capTool:checked { background: $tool_hover; border-color: $accent_line; color: $accent_text; }
+QPushButton#capSwatch { border: 2px solid $line_strong; border-radius: 13px; padding: 0; min-width: 0; }
+QPushButton#capSwatch:hover { border-color: $muted; }
+QPushButton#capSwatch:checked { border: 3px solid $text; }
+QFrame#capBarLine { background: $line_strong; }
+QLabel#pdfGroup { color: $muted; font-size: 9pt; font-weight: 700; }
 QFrame#toolCard[off="true"]:hover { border-color: $line_strong; background: transparent; }
 QPushButton#chipButton { background: $raised; border: 1px solid $border; border-radius: 10px; padding: 3px 11px;
                          min-width: 0; font-weight: 600; }

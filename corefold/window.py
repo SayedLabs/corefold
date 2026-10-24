@@ -2674,7 +2674,7 @@ class MainWindow(QWidget):
         from .pdfpage import PdfPage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
         header = tool_header("pdf", tr("Corefold PDF"),
-                             tr("Merge, split and arrange PDFs, shrink them, and lock them with a password."),
+                             tr("Change what's in a PDF, merge, split and arrange its pages, shrink it and lock it."),
                              dark, dpr)
         self.pdf_page = PdfPage(self.c, header)
         return self.pdf_page

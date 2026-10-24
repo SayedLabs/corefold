@@ -46,6 +46,9 @@ jobs:
           python scripts/captexttest.py out/captext-ar ar light *> out/captexttest-ar.txt
           python scripts/capfoldertest.py out/capfolder en dark *> out/capfoldertest-en.txt
           python scripts/newtest_cloud.py out/cloud *> out/newtest_cloud.txt
+          Add-WindowsCapability -Online -Name "Language.OCR~~~ar-SA~0.0.1.0" *> out/arabic-ocr.txt
+          python scripts/captexttest.py out/captext-ar-ocr ar light *> out/captexttest-ar-ocr.txt
+          python scripts/captexttest.py out/captext-en-ocr en dark *> out/captexttest-en-ocr.txt
       - name: Real use timing
         if: matrix.part == 'use'
         shell: pwsh
