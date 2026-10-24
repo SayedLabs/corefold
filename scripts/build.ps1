@@ -159,7 +159,9 @@ if (-not (Test-Path "$FfDir\ffmpeg.exe") -or -not (Get-ChildItem $FfDir -Filter 
 # The exact FFmpeg commit is read from the bundled ffmpeg.exe; its source and the build scripts
 # that made it are attached to every release next to the installer.
 $FfVersionLine = (& "$FfDir\ffmpeg.exe" -hide_banner -version | Select-Object -First 1)
-$FfCommit = if ($FfVersionLine -match "-g([0-9a-f]{7,40})") { $Matches[1] } else { "" }
+$FfCommit = if ($FfVersionLine -match "-g([0-9a-f]{7,40})") { $Matches[1] }
+            elseif ($FfVersionLine -match "^ffmpeg version (n[0-9][0-9.]*)") { $Matches[1] }  # a release, like n9.0.2
+            else { "" }
 $ScriptsRef = if (Test-Path "$FfDir\BUILD-SCRIPTS-COMMIT.txt") { (Get-Content "$FfDir\BUILD-SCRIPTS-COMMIT.txt" -Raw).Trim() } else { "" }
 $SourceFiles = @()
 New-Item -ItemType Directory -Force "vendor\ffmpeg-source" | Out-Null
@@ -194,7 +196,7 @@ if (Test-Path "$FfDir\FFMPEG-BUILD.sh") {
 }
 @"
 FFmpeg in this folder: $FfVersionLine
-FFmpeg commit: $FfCommit
+FFmpeg commit or release: $FfCommit
 Built with the scripts at https://github.com/BtbN/FFmpeg-Builds (commit $ScriptsRef)$LeanNote
 
 FFmpeg is free software under the GNU GPL version 3 (see FFMPEG-LICENSE.txt). Its complete source

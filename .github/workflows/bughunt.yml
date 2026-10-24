@@ -167,6 +167,8 @@ jobs:
         continue-on-error: true
         run: |
           ./scripts/build.ps1 -Version 0.0.${{ github.run_number }}-bughunt *> out/build.txt
+          & .venv\Scripts\python.exe scripts/dllcheck.py dist\Corefold *> out/dllcheck.txt
+          & .venv\Scripts\python.exe scripts/sizereport.py dist\Corefold dist\release *> out/size.txt
           python -m pip install --quiet pywinauto
           $exe = Get-ChildItem -Recurse dist -Filter Corefold.exe | Select-Object -First 1
           python scripts/exetest.py $exe.FullName out/exetest *> out/exetest.txt
@@ -199,7 +201,7 @@ jobs:
             echo "Bug hunt of $SHA"
             for d in */; do
               echo "== ${d%/}"
-              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest|featuretest|pdftest|langtest)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused" "$d" 2>/dev/null | head -20
+              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest|featuretest|pdftest|langtest|dllcheck)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused|^App folder:|Corefold-Setup-" "$d" 2>/dev/null | head -20
               grep -rhaE "^(FAIL|ERROR|SLOW) " "$d" 2>/dev/null | sort | uniq -c | sort -rn | head -60
             done
           } > summary.txt
