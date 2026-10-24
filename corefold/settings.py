@@ -159,7 +159,8 @@ UNINSTALLER_KEYS = ("unused_months", "backup_days", "restore_point", "uninstall_
 ARCHIVE_KEYS = ("extract_mode", "extract_nested", "remember_archives", "extract_reveal", "extract_recycle")
 VIEWER_KEYS = ("viewer_wheel", "viewer_confirm_delete", "slideshow_seconds", "viewer_sort", "peek_key", "viewer_loop")
 CLIPBOARD_KEYS = ("clip_shortcut", "clip_paste", "clip_max", "clip_days", "clip_images", "clip_ignore")
-PLAYER_KEYS = ("player_resume", "player_skip", "player_wheel", "player_next", "player_subtitles")
+PLAYER_KEYS = ("player_resume", "player_skip", "player_wheel", "player_next", "player_subtitles",
+               "player_pause_minimized")
 CAPTURE_KEYS = ("cap_shortcut", "cap_record_shortcut", "cap_after", "cap_delay", "cap_save", "cap_fps", "cap_mic",
                 "cap_pc_sound", "cap_cursor", "cap_countdown")
 UPDATE_KEYS = ("check_updates", "auto_update")
@@ -253,6 +254,7 @@ class Settings:
     player_wheel: str = "volume"   # the mouse wheel over the video: volume or seeking
     player_next: bool = True       # play the next file in the folder when one ends
     player_subtitles: bool = True  # turn on a video's own subtitles
+    player_pause_minimized: bool = False  # pause while the window is minimised (and go on when it's back)
     player_volume: int = 80
     # Capture
     cap_shortcut: str = "ctrl+printscreen"          # a screenshot

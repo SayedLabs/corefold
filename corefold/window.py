@@ -2581,7 +2581,9 @@ class MainWindow(QWidget):
                                     self._player_setting_changed)
         self.player_subtitles = checkbox(tr("Turn on a video's own subtitles"), s.player_subtitles,
                                          self._player_setting_changed)
-        for cb in (self.player_resume, self.player_next, self.player_subtitles):
+        self.player_pause_minimized = checkbox(tr("Pause a video while the window is minimised (music keeps playing)"),
+                                               s.player_pause_minimized, self._player_setting_changed)
+        for cb in (self.player_resume, self.player_next, self.player_subtitles, self.player_pause_minimized):
             bl.addWidget(cb)
         lay.addWidget(box)
         box, bl = card()
@@ -2607,6 +2609,7 @@ class MainWindow(QWidget):
         s.player_resume = self.player_resume.isChecked()
         s.player_next = self.player_next.isChecked()
         s.player_subtitles = self.player_subtitles.isChecked()
+        s.player_pause_minimized = self.player_pause_minimized.isChecked()
         self.c.settings_changed()
 
     def _default_for_player(self):

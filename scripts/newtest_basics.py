@@ -160,6 +160,26 @@ def main():
         check("My results" not in page.where.text(), "…and next to the original when that's the choice")
     step("where PDF results go", pdf_where)
 
+    def scan_unhide():
+        from corefold import scan
+        from corefold.scanpage import ScanPage
+        scan.ignore("startup-hidden|C:\\nothing\\here.exe")
+        w.open_page("Scan")
+        qapp.processEvents()
+        page = w.findChildren(ScanPage)[0]
+        b = page.unhide_btn
+        check(b.isVisible() and "1" in b.text(), f"Scan offers to show what was hidden ({b.text()!r})")
+        b.click()
+        check(not scan.load_ignored() and not b.isEnabled(), "…and forgets every \"Don't show this again\"")
+    step("hidden scan findings", scan_unhide)
+
+    def player_setting():
+        w.open_page("PlayerSettings")
+        qapp.processEvents()
+        w.player_pause_minimized.setChecked(True)
+        check(c.settings.player_pause_minimized, "the Player keeps \"pause a video while minimised\"")
+    step("the Player setting", player_setting)
+
 
 step("the test", main)
 print(f"newtest_basics: {len(problems)} problem(s)")
