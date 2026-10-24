@@ -11,6 +11,7 @@ on:
       - corefold/uninstall.py
       - corefold/core.py
       - corefold/cloud.py
+      - corefold/cloudlocal.py
       - corefold/archives.py
       - corefold/ipc.py
       - corefold/startup.py

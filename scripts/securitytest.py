@@ -391,6 +391,41 @@ def videos_going_online():
     server.shutdown()
 
 
+def cloud_folders_with_junctions():
+    """A folder uploaded to the cloud, or a cloud folder on this PC, with a junction inside: what it points
+    at (another folder, or the folder itself: round in a circle) is never taken along."""
+    from corefold.cloudlocal import Local
+    outside = BASE / "cloud-outside"
+    outside.mkdir()
+    (outside / "private.txt").write_text("not for the cloud")
+    mine = BASE / "cloud-mine"
+    mine.mkdir()
+    (mine / "holiday.txt").write_text("fine")
+    junction(mine / "elsewhere", outside)
+    junction(mine / "round", mine)
+
+    class Fake:
+        def __init__(self):
+            self.sent = []
+
+        def new_folder(self, name, folder):
+            return cloud.Entry(name, True, name)
+
+        def upload(self, src, folder, progress=None, cancel=None):
+            self.sent.append(src.name)
+
+    fake = Fake()
+    cloud.upload_tree(fake, mine, None)
+    check(fake.sent == ["holiday.txt"], f"uploading a folder takes only its own files ({fake.sent})")
+    local = Local(cloud.Account("onedrive", "", extra={"local": str(mine)}))
+    names = sorted(e.name for e in local.list(None))
+    check(names == ["holiday.txt"], f"a cloud folder on this PC doesn't show its junctions ({names})")
+    got = BASE / "cloud-got"
+    got.mkdir()
+    n = cloud.download_tree(local, cloud.Entry("cloud-mine", True, str(mine)), got)
+    check(n == 1 and not (got / "cloud-mine" / "elsewhere").exists(), f"…nor copies what they point at ({n} file(s))")
+
+
 step("restore point description", restore_point_description)
 step("icacls and junctions", icacls_into_junctions)
 step("links on the way", links_on_the_way)
@@ -399,6 +434,7 @@ step("scheduled task names", task_names)
 step("Store package names", store_names)
 step("programs started by name", programs_by_name)
 step("cloud downloads", cloud_downloads)
+step("cloud folders with junctions", cloud_folders_with_junctions)
 step("started from a folder", started_in_downloads)
 step("programs in the code", programs_in_the_code)
 step("Startup's names", startup_names)

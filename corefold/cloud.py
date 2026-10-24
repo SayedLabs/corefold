@@ -735,7 +735,8 @@ def upload_tree(c: Client, src: Path, folder: Entry | None, progress=None, cance
         inside = sorted(src.iterdir(), key=lambda p: p.name.lower())
     except OSError:
         inside = []
-    return sum(upload_tree(c, p, made, progress, cancel) for p in inside if not p.is_symlink())
+    from .core import is_link  # (a junction too, not only a link: it leads out of the folder, or round in a circle)
+    return sum(upload_tree(c, p, made, progress, cancel) for p in inside if not is_link(p))
 
 
 def available(service: str) -> bool:
