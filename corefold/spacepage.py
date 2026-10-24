@@ -24,7 +24,7 @@ from .core import human_size, short_name
 from .i18n import ltr, tr
 from .theme import mix, round_menu
 from .timefmt import date_text, time_ago
-from .winutil import reveal_in_explorer
+from .winutil import properties, reveal_in_explorer
 
 log = logging.getLogger("corefold")
 
@@ -1287,6 +1287,8 @@ class SpacePage(QWidget):
         else:
             menu.addAction(tr("Open"), lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(path))))
         menu.addAction(tr("Show in folder"), lambda: reveal_in_explorer(path))
+        menu.addAction(tr("Copy the path"), lambda: QApplication.clipboard().setText(str(path)))
+        menu.addAction(tr("Properties"), lambda: properties(path))
         menu.addSeparator()
         program = self._program_at(path)
         if program is not None:
@@ -1567,11 +1569,22 @@ class SpacePage(QWidget):
         self.dupe_tree.header().setSectionResizeMode(2, QHeaderView.ResizeToContents)
         self.dupe_tree.itemChanged.connect(lambda *_: self._dupe_total())
         self.dupe_tree.itemDoubleClicked.connect(self._dupe_open)
+        self.dupe_tree.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.dupe_tree.customContextMenuRequested.connect(self._dupe_menu)
         lay.addWidget(self.dupe_tree, 1)
         self.dupe_tree.hide()
         row = QHBoxLayout()
         self.dupe_note = _label("", "muted", wrap=True)
         row.addWidget(self.dupe_note, 1)
+        self.dupe_pick = _button(tr("Tick…"), None, None)  # (which copy stays, for every file at once)
+        pick = QMenu(self.dupe_pick)
+        round_menu(pick)
+        pick.addAction(tr("Keep the oldest copy of each"), lambda: self._dupe_keep("oldest"))
+        pick.addAction(tr("Keep the newest copy of each"), lambda: self._dupe_keep("newest"))
+        pick.addAction(tr("Untick everything"), lambda: self._dupe_keep(None))
+        self.dupe_pick.setMenu(pick)
+        self.dupe_pick.hide()
+        row.addWidget(self.dupe_pick)
         self.dupe_remove = _button(tr("Remove the ticked copies"), "primary", self._remove_dupes)
         self.dupe_remove.hide()
         row.addWidget(self.dupe_remove)
@@ -1599,6 +1612,7 @@ class SpacePage(QWidget):
             self.dupe_where.setText(ltr(str(folders[0])))
         self.dupe_tree.clear()
         self.dupe_tree.hide()
+        self.dupe_pick.hide()
         self.dupe_remove.hide()
         self.dupe_bar.setRange(0, 0)
         self.dupe_bar.show()
@@ -1657,8 +1671,40 @@ class SpacePage(QWidget):
         self.dupe_tree.setUpdatesEnabled(True)
         self.dupe_tree.blockSignals(False)
         self.dupe_tree.show()
+        self.dupe_pick.show()
         self.dupe_remove.show()
         self._dupe_total()
+
+    def _dupe_keep(self, which: str | None, keep=None):
+        """Ticks every copy but one in each group: the oldest, the newest (each group's rows go oldest
+        first), or this one (keep: a row). which None: nothing is ticked."""
+        self.dupe_tree.blockSignals(True)
+        heads = [keep.parent()] if keep is not None else \
+            [self.dupe_tree.topLevelItem(i) for i in range(self.dupe_tree.topLevelItemCount())]
+        for head in heads:
+            n = head.childCount()
+            for j in range(n):
+                it = head.child(j)
+                stays = it is keep if keep is not None else (which is None or j == (0 if which == "oldest" else n - 1))
+                it.setCheckState(0, Qt.Unchecked if stays else Qt.Checked)
+        self.dupe_tree.blockSignals(False)
+        self._dupe_total()
+
+    def _dupe_menu(self, pos):
+        item = self.dupe_tree.itemAt(pos)
+        data = item.data(0, Qt.UserRole) if item is not None else None
+        if not data:
+            return
+        path = Path(data[0])
+        menu = QMenu(self)
+        round_menu(menu)
+        menu.addAction(tr("Keep this one (tick the other copies)"), lambda: self._dupe_keep(None, item))
+        menu.addSeparator()
+        menu.addAction(tr("Open"), lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(path))))
+        menu.addAction(tr("Show in folder"), lambda: reveal_in_explorer(path))
+        menu.addAction(tr("Copy the path"), lambda: QApplication.clipboard().setText(str(path)))
+        menu.exec(self.dupe_tree.viewport().mapToGlobal(pos))
+        menu.deleteLater()
 
     def _ticked(self) -> list[tuple[str, int]]:
         out = []

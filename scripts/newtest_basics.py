@@ -1,5 +1,5 @@
 """Checks the everyday settings each tool should have (as other apps do), on a real Windows PC:
-the Uninstaller's right-click menu and saving its list; after converting, keep the original's date and send the original to the Recycle Bin; after extracting, open the folder and send the archive (all its parts) to the Recycle Bin; the Viewer
+the Uninstaller's right-click menu and saving its list; which copies Space ticks; after converting, keep the original's date and send the original to the Recycle Bin; after extracting, open the folder and send the archive (all its parts) to the Recycle Bin; the Viewer
 going round a folder; the PDF page saying where new files go.
 
 Run from the repository's folder: python scripts/newtest_basics.py
@@ -118,6 +118,16 @@ def main():
         check(wait(lambda: (box / "k.txt").is_file()), "with both off, it's extracted…")
         wait(lambda: False, 1)
         check(z2.exists() and not revealed, "…and the archive stays, nothing opened")
+
+        from PySide6.QtWidgets import QFileDialog
+        elsewhere = TMP / "picked folder"
+        elsewhere.mkdir()
+        QFileDialog.getExistingDirectory = staticmethod(lambda *a, **k: str(elsewhere))
+        to = next((t for t in catalog(False)["archive"] if t.key == "archive:to"), None)
+        if check(to is not None, "archives have \"Extract to…\""):
+            c.tool_chosen(to, [z2])
+            check(wait(lambda: (elsewhere / "k.txt").is_file()), "\"Extract to…\" puts it in the folder picked")
+            check(not (box / "k (2).txt").exists(), "…and not next to the archive")
     step("after extracting", extract_settings)
 
     def convert_settings():
@@ -184,6 +194,44 @@ def main():
         check("Uninstall" in seen and any(t.startswith("Search the web") for t in seen) and "Copy the name" in seen,
               f"right-clicking an app offers Uninstall, a web search and copying its name ({seen})")
     step("the Uninstaller's list", uninstaller_list)
+
+    def space_copies():
+        from PySide6.QtWidgets import QMenu
+        from corefold import spacepage
+        box = TMP / "copies"
+        box.mkdir()
+        now = time.time()
+        for n, age in (("old.bin", 300), ("middle.bin", 200), ("new.bin", 100)):
+            (box / n).write_bytes(b"same bytes " * 12000)  # (Space only compares files over 100 KB)
+            os.utime(box / n, (now - age * 86400, now - age * 86400))
+        w.open_page("Space")
+        qapp.processEvents()
+        page = w.space_page
+        page.find_dupes([box])
+        if not check(wait(lambda: page.dupe_tree.topLevelItemCount() == 1, 60), "the three copies are found"):
+            return
+        head = page.dupe_tree.topLevelItem(0)
+        ticked = lambda: [Path(p).name for p, _ in page._ticked()]  # noqa: E731
+        check(sorted(ticked()) == ["middle.bin", "new.bin"], f"to begin with the oldest copy stays ({ticked()})")
+        page._dupe_keep("newest")
+        check(sorted(ticked()) == ["middle.bin", "old.bin"], f"\"Keep the newest copy of each\" ({ticked()})")
+        page._dupe_keep(None)
+        check(ticked() == [] and not page.dupe_remove.isEnabled(), "\"Untick everything\"")
+        page._dupe_keep(None, head.child(1))
+        check(sorted(ticked()) == ["new.bin", "old.bin"], f"\"Keep this one\" ticks the other copies ({ticked()})")
+        seen = []
+
+        class Menu(QMenu):
+            def exec(self, *_):
+                seen.extend(x.text() for x in self.actions() if x.text())
+        spacepage.QMenu, real = Menu, spacepage.QMenu
+        try:
+            page._dupe_menu(page.dupe_tree.visualItemRect(head.child(0)).center())
+        finally:
+            spacepage.QMenu = real
+        check(any(t.startswith("Keep this one") for t in seen) and "Copy the path" in seen,
+              f"right-clicking a copy offers to keep it ({seen})")
+    step("copies found by Space", space_copies)
 
     def viewer_loop():
         from PySide6.QtGui import QColor, QImage

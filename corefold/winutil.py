@@ -90,6 +90,14 @@ def print_file(path: Path) -> bool:
         return False
 
 
+def properties(path: Path) -> bool:
+    """File Explorer's Properties window for a file or folder (size on disk, dates, security…)."""
+    try:
+        return bool(ctypes.windll.shell32.SHObjectProperties(None, 0x2, str(path), None))  # SHOP_FILEPATH
+    except Exception:
+        return False
+
+
 def play_sound(path: Path | None):
     if not path:
         return
