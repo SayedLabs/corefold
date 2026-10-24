@@ -735,9 +735,12 @@ class CaptureEditor(QWidget):
         self.close()
 
     def _write(self, path: Path) -> bool:
-        path.parent.mkdir(parents=True, exist_ok=True)
         fmt = "JPG" if path.suffix.lower() in (".jpg", ".jpeg") else "PNG"
-        ok = self.canvas.result().save(str(path), fmt, 92 if fmt == "JPG" else -1)
+        try:  # (the screenshots folder can be on a drive that's gone)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            ok = self.canvas.result().save(str(path), fmt, 92 if fmt == "JPG" else -1)
+        except OSError:
+            ok = False
         if not ok:
             self.c.tell(tr("Couldn't save"), str(path))
         return ok

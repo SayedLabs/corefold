@@ -796,10 +796,13 @@ class PlayerWindow(QWidget):
             n += 1
         try:
             folder.mkdir(parents=True, exist_ok=True)
-            img.save(str(out), "PNG")
+            saved = img.save(str(out), "PNG")
         except OSError:
-            pass
+            saved = False
         QGuiApplication.clipboard().setImage(img)
+        if not saved:  # (the folder is on a drive that's gone, or can't be written to: it's still copied)
+            self.flash(tr("Copied") + " · " + tr("Couldn't save"), 3500)
+            return
         self.flash(tr("Saved and copied: {name}", name=out.name), 3500)
         self.last_shot = out
 
