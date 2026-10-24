@@ -1,0 +1,22 @@
+ok    the app's settings are the ones Capture reads
+ok    settings from 1.8.0 load; recording is gone from the quick menu and wheel (['screenshot', 'clipboard'])
+ok    …and the recording settings aren't kept
+ok    Capture is on and its shortcut works
+ok    Capture has no recording any more
+ok    screenshots go to the usual folder to begin with (C:\Users\runneradmin\Pictures\Screenshots)
+ok    the page shows where screenshots go
+ok    …with no “Use the usual folder” while it's the usual one
+ok    Change… picks the screenshots folder
+ok    the page shows the new folder, and “Use the usual folder”
+ok    a screenshot is saved in the picked folder (['Screenshot 2026-10-24 071903.png'])
+ok    the editor's Save uses it too
+ok    Open opens the screenshots folder ([WindowsPath('C:/Users/RUNNER~1/AppData/Local/Temp/corefold-capfoldertest-asqj6ajw/My shots/new')])
+ok    the Capture page lists the screenshots in it (2)
+ok    “Use the usual folder” goes back to Pictures\Screenshots
+ok    picking the usual folder by hand keeps it as “usual”
+ok    a picked folder waits for Save like other settings
+ok    Discard puts the folder back
+ok    after Save, the picked folder is remembered after a restart
+ok    Reset puts the usual folder back
+ok    no errors (0)
+capfoldertest: 0 problem(s)

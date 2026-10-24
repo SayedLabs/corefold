@@ -1,0 +1,28 @@
+
+errors:
+
+notes:
+round 1: 6 windows, 472 widgets, 128 MB, 45779 Python objects
+round 2: 6 windows, 472 widgets, 136 MB, 46703 Python objects
+round 3: 6 windows, 472 widgets, 136 MB, 46773 Python objects
+round 4: 6 windows, 472 widgets, 139 MB, 46528 Python objects
+round 5: 6 windows, 472 widgets, 140 MB, 46543 Python objects
+round 6: 6 windows, 472 widgets, 143 MB, 46898 Python objects
+round 7: 6 windows, 472 widgets, 147 MB, 46788 Python objects
+round 8: 6 windows, 472 widgets, 151 MB, 47366 Python objects
+round 9: 6 windows, 472 widgets, 152 MB, 47573 Python objects
+round 10: 6 windows, 472 widgets, 152 MB, 47717 Python objects
+grew 34 KB in 768 blocks at app.py:849 > app.py:451 > window.py:557 > window.py:1734 > window.py:232
+grew 34 KB in 768 blocks at app.py:451 > window.py:557 > window.py:1734 > window.py:246 > window.py:103
+grew 34 KB in 768 blocks at app.py:451 > window.py:557 > window.py:1734 > window.py:209 > window.py:103
+grew 28 KB in 576 blocks at app.py:849 > app.py:451 > window.py:557 > window.py:1734 > window.py:196
+grew 24 KB in 551 blocks at threading.py:1075 > threading.py:1012 > app.py:1165 > shellmenu.py:141 > shellmenu.py:107
+grew 23 KB in 470 blocks at sweeptest.py:214 > sweeptest.py:563 > app.py:849 > app.py:451 > window.py:557
+grew 19 KB in 251 blocks at sweeptest.py:563 > app.py:849 > app.py:451 > window.py:557 > window.py:1734
+grew 15 KB in 93 blocks at sweeptest.py:865 > sweeptest.py:214 > sweeptest.py:571 > sweeptest.py:509
+Python objects that grew: tuple +26197, QLabel +210, method +105, function +53, ToolCard +48, QPushButton +45, CField +44, getset_descriptor +16
+after the app tidies up: 147 MB; with the picture cache emptied too: 145 MB (picture cache limit 10 MB)
+after 10 opens: 124 MB, 15 widgets, 5 windows
+after 20 opens: 121 MB, 15 widgets, 5 windows
+after 30 opens: 120 MB, 15 widgets, 5 windows
+after 40 opens: 120 MB, 15 widgets, 5 windows

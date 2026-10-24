@@ -1,0 +1,28 @@
+
+errors:
+
+notes:
+round 1: 6 windows, 472 widgets, 113 MB, 46540 Python objects
+round 2: 6 windows, 472 widgets, 117 MB, 47072 Python objects
+round 3: 6 windows, 472 widgets, 123 MB, 46836 Python objects
+round 4: 6 windows, 472 widgets, 128 MB, 47171 Python objects
+round 5: 6 windows, 472 widgets, 131 MB, 46906 Python objects
+round 6: 6 windows, 472 widgets, 132 MB, 46951 Python objects
+round 7: 6 windows, 472 widgets, 137 MB, 48053 Python objects
+round 8: 6 windows, 472 widgets, 140 MB, 48078 Python objects
+round 9: 6 windows, 472 widgets, 141 MB, 48123 Python objects
+round 10: 6 windows, 472 widgets, 142 MB, 47988 Python objects
+grew 83 KB in 709 blocks at dataclasses.py:1329 > dataclasses.py:1339 > dataclasses.py:1373 > dataclasses.py:1373 > dataclasses.py:1339
+grew 64 KB in 1446 blocks at threading.py:1075 > threading.py:1012 > app.py:1165 > shellmenu.py:141 > shellmenu.py:107
+grew 49 KB in 789 blocks at dataclasses.py:1329 > dataclasses.py:1339 > dataclasses.py:1373 > dataclasses.py:1373 > dataclasses.py:1338
+grew 49 KB in 787 blocks at dataclasses.py:1339 > dataclasses.py:1373 > dataclasses.py:1373 > dataclasses.py:1340 > dataclasses.py:1293
+grew 23 KB in 208 blocks at threading.py:1012 > app.py:1165 > shellmenu.py:141 > shellmenu.py:107 > shellmenu.py:82
+grew 23 KB in 470 blocks at sweeptest.py:214 > sweeptest.py:563 > app.py:849 > app.py:451 > window.py:557
+grew 17 KB in 336 blocks at threading.py:1075 > threading.py:1012 > app.py:1165 > shellmenu.py:141 > shellmenu.py:114
+grew 15 KB in 93 blocks at sweeptest.py:865 > sweeptest.py:214 > sweeptest.py:571 > sweeptest.py:509
+Python objects that grew: tuple +25035, CField +44, getset_descriptor +16, StgDict +8, ReferenceType +8, list +6, PyCStructType +4, PyCPointerType +4
+after the app tidies up: 144 MB; with the picture cache emptied too: 129 MB (picture cache limit 10 MB)
+after 10 opens: 116 MB, 15 widgets, 5 windows
+after 20 opens: 109 MB, 15 widgets, 5 windows
+after 30 opens: 114 MB, 15 widgets, 5 windows
+after 40 opens: 109 MB, 15 widgets, 5 windows
