@@ -178,8 +178,38 @@ def _listfile(names: list[str]) -> Path:
     return Path(name)
 
 
-def _pw(password: str) -> str:
-    return f"-p{password}" if password else DUMMY_PASSWORD
+def _pw(password: str, making: bool = False):
+    """A password for 7-Zip. It never goes on 7-Zip's command line, where other programs, logs and security
+    tools can read every program's command line: _run7z leaves it out and types it in through 7-Zip's input
+    instead, as a person would when 7-Zip asks for it ("-p" with no password asks when making an archive;
+    opening one asks by itself when it needs one)."""
+    if not password:
+        return DUMMY_PASSWORD  # (not secret: it only stops 7-Zip from waiting for one)
+    return _Secret(password, making)
+
+
+class _Secret:
+    def __init__(self, password: str, making: bool):
+        self.password, self.making = password, making
+
+    def __repr__(self):  # (never in a log)
+        return "<password>"
+
+
+def _with_password(cmd: list) -> tuple[list[str], bytes | None]:
+    """The command as 7-Zip is started (no password in it), and what's typed in for 7-Zip to read."""
+    out, typed = [], None
+    for a in cmd:
+        if isinstance(a, _Secret):
+            if a.making:
+                out.append("-p")
+            # (twice: some 7-Zip versions ask again to be sure when making an archive; UTF-8, as -sccUTF-8 says)
+            typed = ((a.password + "\n") * 2).encode("utf-8")
+        else:
+            out.append(a)
+    if typed is not None and "-sccUTF-8" not in out:
+        out.insert(2, "-sccUTF-8")
+    return out, typed
 
 
 def _7z_error(output: str) -> Exception:
@@ -207,16 +237,16 @@ def _progress(buf: str) -> float | None:
     return int(found[-1]) / 100 if found else None
 
 
-def _run7z(args: list[str], ctx: Ctx | None = None, cwd: Path | None = None) -> tuple[int, str]:
+def _run7z(args: list, ctx: Ctx | None = None, cwd: Path | None = None) -> tuple[int, str]:
     exe = find_7z()
     if not exe:
         raise RuntimeError(tr("7-Zip is missing. Reinstall Corefold to fix archives"))
-    cmd = [exe, *args]
+    cmd, typed = _with_password([exe, *args])
     if ctx is None:
-        proc = subprocess.run(cmd, capture_output=True, stdin=subprocess.DEVNULL, cwd=str(cwd) if cwd else None,
+        proc = subprocess.run(cmd, capture_output=True, input=typed or b"", cwd=str(cwd) if cwd else None,
                               timeout=120, creationflags=NO_WINDOW)
         return proc.returncode, (proc.stdout + proc.stderr).decode("utf-8", "replace")
-    return run_with_progress(cmd, ctx, _progress, cwd=cwd)
+    return run_with_progress(cmd, ctx, _progress, cwd=cwd, typed=typed)
 
 
 # ----------------------------------------------------------------------------- listing
@@ -647,7 +677,7 @@ def pack_into(items: list[Path], out: Path, ctx: Ctx, fmt: str = "zip", level: s
         args = ["a", f"-t{fmt}", f"-mx={LEVELS.get(level, 5)}", "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-ssw", "-y",
                 "-spd"]
         if password:
-            args.append(f"-p{password}")
+            args.append(_pw(password, making=True))
             args.append("-mhe=on" if fmt == "7z" else "-mem=AES256")
         if split_mb and split_mb > 0:
             args.append(f"-v{int(split_mb * 1024)}k")
@@ -749,7 +779,7 @@ def add_files(src: Path, items: list[Path], ctx: Ctx) -> Result:
         try:
             args = ["a", str(src.resolve()), "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-scsUTF-8", "-ssw", "-y", "-spd"]
             if password:
-                args.append(f"-p{password}")
+                args.append(_pw(password, making=True))
             code, out = _run7z([*args, f"@{listfile}"], ctx, cwd=parent)
         finally:
             listfile.unlink(missing_ok=True)
@@ -811,9 +841,16 @@ def read_member(src: Path, member: str, password: str = "", limit: int = PREVIEW
     if exe:
         listfile = _listfile([member.replace("/", os.sep)])
         try:
-            proc = subprocess.Popen([exe, "e", "-so", "-sccUTF-8", "-scsUTF-8", "-spd", _pw(password), str(src),
-                                     f"@{listfile}"], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                    stdin=subprocess.DEVNULL, creationflags=NO_WINDOW)
+            cmd, typed = _with_password([exe, "e", "-so", "-sccUTF-8", "-scsUTF-8", "-spd", _pw(password), str(src),
+                                         f"@{listfile}"])
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                    stdin=subprocess.PIPE if typed else subprocess.DEVNULL, creationflags=NO_WINDOW)
+            if typed:
+                try:
+                    proc.stdin.write(typed)
+                    proc.stdin.close()
+                except OSError:
+                    pass
             if cancel is not None:  # (a big solid archive can take a while to reach the file)
                 def watch():
                     while proc.poll() is None:
@@ -928,7 +965,7 @@ def update_member(src: Path, member: str, new_file: Path, ctx: Ctx) -> Result:
         args = ["u", str(src.resolve()), UPDATE_ALL, "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-scsUTF-8", "-y", "-spd"]
         password = ctx.params.get("password", "")
         if password:
-            args.append(f"-p{password}")
+            args.append(_pw(password, making=True))
         code, out = _run7z([*args, f"@{listfile}"], ctx, cwd=stage)
     finally:
         if listfile:

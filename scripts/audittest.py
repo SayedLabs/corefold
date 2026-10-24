@@ -436,10 +436,95 @@ def recycle_for_good():
     check(space.recycle([target]) == 1 and not target.exists(), "with a Recycle Bin, it goes there without a question")
 
 
+# ----------------------------------------------------------------------------- archive passwords
+
+def _cmdlines_while(fn, name="7z.exe") -> tuple[list[str], object]:
+    """Runs fn while Windows is asked, again and again, for the command line of every running 7z.exe (what any
+    program on the PC can read)."""
+    ps = subprocess.Popen(["powershell", "-NoProfile", "-Command",
+                           "$end=(Get-Date).AddSeconds(40); while((Get-Date) -lt $end){ "
+                           f"Get-CimInstance Win32_Process -Filter \"Name='{name}'\" | "
+                           "ForEach-Object { 'CMD ' + $_.CommandLine }; "
+                           "if (Test-Path $env:CF_STOP) { break } }"],
+                          stdout=subprocess.PIPE, env=dict(os.environ, CF_STOP=str(TMP / "stop")))
+    time.sleep(2.5)  # (PowerShell starting)
+    try:
+        result = fn()
+    finally:
+        (TMP / "stop").write_text("")
+    out = ps.communicate(timeout=60)[0].decode("utf-8", "replace")
+    (TMP / "stop").unlink()
+    return [ln[4:] for ln in out.splitlines() if ln.startswith("CMD ")], result
+
+
+def archive_passwords():
+    from corefold import archives
+    from corefold.core import Ctx, Options
+    exe = archives.find_7z()
+    if not WINDOWS or not exe:
+        note("needs Windows and 7-Zip")
+        return
+    folder = fresh("passwords")
+    src = fresh("passwords-src")
+    (src / "secret.txt").write_text("the content", encoding="utf-8")
+    (src / "big.bin").write_bytes(os.urandom(64 * 2 ** 20))  # (takes a few seconds: long enough to be seen)
+    pw = "Sesame 42 كلمة"
+    # the old way: the password is right there in 7-Zip's command line
+    old = folder / "old.7z"
+    seen, _ = _cmdlines_while(lambda: subprocess.run([exe, "a", "-t7z", "-mx=9", f"-p{pw}", str(old),
+                                                      str(src / "big.bin")], capture_output=True))
+    note(f"the old way, 7-Zip's command line as other programs see it: {'shown' if any(pw in c for c in seen) else 'not caught'}")
+    # Corefold's way, for each kind of archive and each thing done with a password
+    for fmt, password in (("7z", pw), ("zip", "Pass word 1 ")):
+        out = folder / f"locked.{fmt}"
+        made, outs = _cmdlines_while(lambda: archives.pack_into([src / "secret.txt", src / "big.bin"], out,
+                                                                Ctx(Options()), fmt, "normal", password=password))
+        check(out.exists(), f"{fmt}: made with a password")
+        check(made and not any(password.strip() in c for c in made),
+              f"{fmt}: the password isn't in 7-Zip's command line ({len(made)} looks)")
+        check(archives.is_encrypted(out), f"{fmt}: it's really locked")
+        check(archives.password_works(out, password), f"{fmt}: the right password opens it")
+        check(not archives.password_works(out, password + "x"), f"{fmt}: a wrong one doesn't")
+        names = sorted(e.path for e in archives.list_entries(out, password))
+        check(names == ["big.bin", "secret.txt"], f"{fmt}: listed with the password ({names})")
+        check(archives.read_member(out, "secret.txt", password) == b"the content", f"{fmt}: a file read from it")
+        try:
+            archives.read_member(out, "secret.txt", "wrong")
+            check(False, f"{fmt}: a wrong password asks again")
+        except archives.NeedPassword:
+            check(True, f"{fmt}: a wrong password asks again")
+        except RuntimeError as e:
+            check(False, f"{fmt}: a wrong password asks again ({e})")
+        dest = fresh(f"passwords-out-{fmt}")
+        seen, res = _cmdlines_while(lambda: archives.extract(out, Ctx(Options(), params={
+            "password": password, "dest": str(dest)})))
+        check((dest / "locked" / "secret.txt").read_text(encoding="utf-8") == "the content",
+              f"{fmt}: extracted with the password")
+        check(not any(password.strip() in c for c in seen), f"{fmt}: and not on the command line then either")
+        try:
+            archives.extract(out, Ctx(Options(), params={"password": "nope", "dest": str(fresh("pw-wrong"))}))
+            check(False, f"{fmt}: extracting with a wrong password asks again")
+        except archives.NeedPassword:
+            check(True, f"{fmt}: extracting with a wrong password asks again")
+        check(archives.test_archive(out, Ctx(Options(), params={"password": password})) is not None,
+              f"{fmt}: tested with the password")
+        (src / "added.txt").write_text("added")
+        archives.add_files(out, [src / "added.txt"], Ctx(Options(), params={"password": password}))
+        (src / "secret.txt").write_text("edited", encoding="utf-8")
+        archives.update_member(out, "secret.txt", src / "secret.txt", Ctx(Options(), params={"password": password}))
+        (src / "secret.txt").write_text("the content", encoding="utf-8")
+        archives.delete_entries(out, ["big.bin"], Ctx(Options(), params={"password": password}))
+        names = sorted(e.path for e in archives.list_entries(out, password))
+        check(names == ["added.txt", "secret.txt"], f"{fmt}: added to, changed and taken from ({names})")
+        check(archives.read_member(out, "secret.txt", password) == b"edited", f"{fmt}: the change is in it")
+        check(archives.password_works(out, password), f"{fmt}: still locked with the same password")
+
+
 step("File Organizer: a crash part-way through a sort", organizer_crash)
 step("File Organizer: Undo checks it's the same file", organizer_identity)
 step("Cloud: downloads checked before they're kept", cloud_downloads)
 step("Damaged ZIPs and ZIP bombs", zip_bombs)
+step("Archive passwords stay off the command line", archive_passwords)
 step("Recycle Bin deletes that would be for good", recycle_for_good)
 
 print(f"audittest: {len(problems)} problem(s)", flush=True)
