@@ -567,7 +567,8 @@ def restore(item: Quarantined) -> bool:
 @dataclass
 class Finding:
     kind: str              # "disguised", "flipped", "broken", "untrusted", "startup", "startup-script",
-                           # "startup-hidden", "running", "hosts", "skipped"
+                           # "startup-hidden", "running", "hosts", "skipped", "replaced", "service",
+                           # "browser", "proxy", "defender-off"
     path: str              # the file (or for "hosts", the hosts file; for "skipped", what's skipped)
     level: str = "warn"    # "warn" (worth a look) or "info" (good to know)
     detail: dict = field(default_factory=dict)
@@ -723,6 +724,60 @@ class Checks:
             self.add(Finding("startup", target, "warn" if place in ("temp", "recycle", "downloads", "public")
                              or sig.state in (trust.BROKEN, trust.UNTRUSTED) else "info",
                              {**detail, "place": place, "sig": sig.state}))
+
+    def more_startup(self):
+        """The other places programs start from: policy Run keys, Winlogon, the old "load" line, cmd's
+        AutoRun, a "debugger" put in front of a program, and scheduled tasks."""
+        for where, name, command in other_start_places():
+            if self.cancel.is_set():
+                return
+            self.command(where, name, command)
+        for where, name, command, what in replaced_starts():
+            self.add(Finding("replaced", name, "warn", {"where": where, "command": command, "what": what,
+                                                       "name": name}))
+        try:
+            from .startup import task_entries
+            tasks = task_entries()
+        except Exception:
+            log.debug("couldn't read scheduled tasks", exc_info=True)
+            tasks = []
+        for t in tasks:
+            if self.cancel.is_set():
+                return
+            if t.exe:
+                self.command("Task", t.value, t.command)
+
+    def services(self):
+        """Services and drivers whose program sits in a place programs aren't installed to."""
+        for name, image in service_programs():
+            if self.cancel.is_set():
+                return
+            exe, _args = split_command(image)
+            if not exe or not os.path.isabs(exe):
+                continue
+            place = where_it_is(exe)
+            if not place or not os.path.isfile(exe):
+                continue
+            sig = self.signature(exe)
+            if sig.state in (trust.UNSIGNED, trust.BROKEN, trust.UNTRUSTED, trust.EXPIRED):
+                level = "warn" if place in ("temp", "downloads", "recycle", "public") or \
+                    sig.state in (trust.BROKEN, trust.UNTRUSTED) else "info"
+                self.add(Finding("service", exe, level, {"name": name, "command": image, "place": place,
+                                                         "sig": sig.state}))
+
+    def browsers(self):
+        """Settings forced on browsers the way adware does it: add-ons that can't be removed, a home page or
+        search engine set by a policy, and web traffic sent through a proxy."""
+        for browser, what, value in browser_policies():
+            self.add(Finding("browser", browser, "warn" if what == "extension" else "info",
+                             {"what": f"{what}|{value}", "type": what, "value": value, "name": browser}))
+        for what, value in proxy_settings():
+            self.add(Finding("proxy", what, "info", {"what": what, "value": value}))
+
+    def defender_policies(self):
+        """Policies that switch parts of Microsoft Defender off (malware sets them so it isn't found)."""
+        for name in defender_switched_off():
+            self.add(Finding("defender-off", name, "warn", {"what": name}))
 
     # ---- what's running now
 
@@ -882,6 +937,213 @@ def startup_commands() -> list[tuple[str, str, str]]:
     return unique
 
 
+def _reg_values(hive, path: str, view: int = 0) -> dict:
+    """A registry key's values ({} if it isn't there)."""
+    try:
+        import winreg
+    except ImportError:
+        return {}
+    out = {}
+    try:
+        with winreg.OpenKey(hive, path, 0, winreg.KEY_READ | view) as k:
+            i = 0
+            while True:
+                try:
+                    name, value, _ = winreg.EnumValue(k, i)
+                except OSError:
+                    break
+                out[name] = value
+                i += 1
+    except OSError:
+        pass
+    return out
+
+
+def _reg_subkeys(hive, path: str, view: int = 0) -> list[str]:
+    try:
+        import winreg
+    except ImportError:
+        return []
+    out = []
+    try:
+        with winreg.OpenKey(hive, path, 0, winreg.KEY_READ | view) as k:
+            i = 0
+            while True:
+                try:
+                    out.append(winreg.EnumKey(k, i))
+                except OSError:
+                    break
+                i += 1
+    except OSError:
+        pass
+    return out
+
+
+def other_start_places() -> list[tuple[str, str, str]]:
+    """(where, name, command) from the start places beyond the Run keys and Startup folders."""
+    try:
+        import winreg
+    except ImportError:
+        return []
+    out = []
+    pol = r"Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run"
+    for label, hive in (("HKCU", winreg.HKEY_CURRENT_USER), ("HKLM", winreg.HKEY_LOCAL_MACHINE)):
+        for name, value in _reg_values(hive, pol).items():
+            if isinstance(value, str) and value.strip():
+                out.append((label + " policy", name, value))
+        auto = _reg_values(hive, r"Software\Microsoft\Command Processor").get("AutoRun")
+        if isinstance(auto, str) and auto.strip():
+            out.append((label + " cmd", "AutoRun", auto))
+    old_lines = _reg_values(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows NT\CurrentVersion\Windows")
+    for name in ("Load", "Run"):
+        value = old_lines.get(name)
+        if isinstance(value, str) and value.strip():
+            out.append(("HKCU load", name, value))
+    return out
+
+
+WINLOGON = r"Software\Microsoft\Windows NT\CurrentVersion\Winlogon"
+IFEO = r"Software\Microsoft\Windows NT\CurrentVersion\Image File Execution Options"
+
+
+def _plain_winlogon(name: str, value: str) -> bool:
+    """Winlogon's Shell and Userinit as Windows sets them."""
+    v = os.path.basename(value.strip().rstrip(",").strip().strip('"')).lower()
+    if name == "Shell":
+        return v in ("explorer.exe", "explorer")
+    return value.strip().rstrip(",").strip().lower().endswith("userinit.exe") and "," not in value.strip().rstrip(",")
+
+
+def replaced_starts() -> list[tuple[str, str, str, str]]:
+    """(where, name, command, what) for what's set to run instead of, or before, a part of Windows: a
+    Shell or Userinit that isn't Windows' own, or a "debugger" in front of a program."""
+    try:
+        import winreg
+    except ImportError:
+        return []
+    out = []
+    for label, hive in (("HKLM", winreg.HKEY_LOCAL_MACHINE), ("HKCU", winreg.HKEY_CURRENT_USER)):
+        values = _reg_values(hive, WINLOGON)
+        for name in ("Shell", "Userinit"):
+            value = values.get(name)
+            if isinstance(value, str) and value.strip() and not _plain_winlogon(name, value):
+                out.append((label, name, value, "winlogon"))
+    for view in (0x0100, 0x0200):
+        for program in _reg_subkeys(winreg.HKEY_LOCAL_MACHINE, IFEO, view):
+            debugger = _reg_values(winreg.HKEY_LOCAL_MACHINE, IFEO + "\\" + program, view).get("Debugger")
+            if isinstance(debugger, str) and debugger.strip():
+                item = ("HKLM", program, debugger, "debugger")
+                if item not in out:
+                    out.append(item)
+    return out
+
+
+def service_programs() -> list[tuple[str, str]]:
+    """(service, program) for every service and driver Windows has, with its program's full path."""
+    try:
+        import winreg
+    except ImportError:
+        return []
+    base = r"SYSTEM\CurrentControlSet\Services"
+    system = _env("SystemRoot", r"C:\Windows")
+    out = []
+    for name in _reg_subkeys(winreg.HKEY_LOCAL_MACHINE, base):
+        values = _reg_values(winreg.HKEY_LOCAL_MACHINE, base + "\\" + name)
+        image = values.get("ImagePath")
+        if not isinstance(image, str) or not image.strip():
+            continue
+        image = image.strip()
+        low = image.lower()
+        if low.startswith("\\??\\"):
+            image = image[4:]
+        elif low.startswith("\\systemroot\\"):
+            image = str(system) + image[len("\\SystemRoot"):]
+        elif low.startswith("system32\\"):
+            image = str(system / image)
+        out.append((name, image))
+    return out
+
+
+BROWSER_POLICIES = (("Google Chrome", r"Software\Policies\Google\Chrome"),
+                    ("Microsoft Edge", r"Software\Policies\Microsoft\Edge"),
+                    ("Brave", r"Software\Policies\BraveSoftware\Brave"))
+FORCED = {"HomepageLocation": "home", "RestoreOnStartupURLs": "home", "NewTabPageLocation": "home",
+          "DefaultSearchProviderSearchURL": "search", "ProxyServer": "proxy", "ProxyPacUrl": "proxy"}
+
+
+def browser_policies() -> list[tuple[str, str, str]]:
+    """(browser, what, value): add-ons installed by force, and a home page, search engine or proxy set by a
+    policy (people rarely set these themselves outside a company)."""
+    try:
+        import winreg
+    except ImportError:
+        return []
+    out = []
+    for hive in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
+        for browser, key in BROWSER_POLICIES:
+            for value in _reg_values(hive, key + "\\ExtensionInstallForcelist").values():
+                if isinstance(value, str) and value.strip():
+                    out.append((browser, "extension", value.split(";")[0].strip()))
+            values = _reg_values(hive, key)
+            for name, what in FORCED.items():
+                value = values.get(name)
+                if isinstance(value, str) and value.strip():
+                    out.append((browser, what, value.strip()))
+            for value in _reg_values(hive, key + "\\RestoreOnStartupURLs").values():
+                if isinstance(value, str) and value.strip():
+                    out.append((browser, "home", value.strip()))
+    seen, unique = set(), []
+    for item in out:
+        if item not in seen:
+            seen.add(item)
+            unique.append(item)
+    return unique
+
+
+def proxy_settings() -> list[tuple[str, str]]:
+    """Windows' own proxy for this person: ("proxy", "host:port") and ("pac", address)."""
+    try:
+        import winreg
+    except ImportError:
+        return []
+    values = _reg_values(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Internet Settings")
+    out = []
+    if values.get("ProxyEnable") == 1 and isinstance(values.get("ProxyServer"), str) and values["ProxyServer"].strip():
+        out.append(("proxy", values["ProxyServer"].strip()))
+    pac = values.get("AutoConfigURL")
+    if isinstance(pac, str) and pac.strip():
+        out.append(("pac", pac.strip()))
+    return out
+
+
+DEFENDER_POLICY = r"Software\Policies\Microsoft\Windows Defender"
+DEFENDER_OFF = (("", "DisableAntiSpyware"), ("", "DisableAntiVirus"),
+                ("Real-Time Protection", "DisableRealtimeMonitoring"),
+                ("Real-Time Protection", "DisableBehaviorMonitoring"),
+                ("Real-Time Protection", "DisableOnAccessProtection"),
+                ("Real-Time Protection", "DisableScanOnRealtimeEnable"),
+                ("Real-Time Protection", "DisableIOAVProtection"),
+                ("Spynet", "SpynetReporting"))
+
+
+def defender_switched_off() -> list[str]:
+    """The names of policies that switch a part of Microsoft Defender off."""
+    try:
+        import winreg
+    except ImportError:
+        return []
+    out = []
+    for sub, name in DEFENDER_OFF:
+        values = _reg_values(winreg.HKEY_LOCAL_MACHINE, DEFENDER_POLICY + ("\\" + sub if sub else ""))
+        value = values.get(name)
+        if name == "SpynetReporting":
+            if value == 0:
+                out.append(name)
+        elif value == 1:
+            out.append(name)
+    return out
+
+
 def running_programs() -> list[str]:
     """The program file of every process this person can see."""
     if os.name != "nt":
@@ -924,7 +1186,8 @@ def corefold_checks(kind: str, paths: list[str], checks: Checks, defender: Defen
             elif os.path.isfile(p):
                 checks.file(p, origin=True)
         return
-    steps = [checks.startup, checks.running, checks.hosts]
+    steps = [checks.startup, checks.more_startup, checks.services, checks.browsers, checks.defender_policies,
+             checks.running, checks.hosts]
     for step in steps:
         if checks.cancel.is_set():
             return

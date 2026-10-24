@@ -84,6 +84,9 @@ def parse_release(data: dict, repo: str) -> UpdateInfo:
     tag = str(data.get("tag_name") or "")
     if not tag:
         raise UpdateError(tr("release has no version tag"))
+    if not re.fullmatch(r"[vV]?\d{1,4}(\.\d{1,6}){1,3}([-+][0-9A-Za-z.-]{1,32})?", tag):
+        # (it's shown in Corefold's messages and menus: only a plain version number like 1.10.0)
+        raise UpdateError(tr("unexpected answer from GitHub"))
     repo = current_repo(data, repo)
     installer = sums = None
     for asset in data.get("assets") or []:

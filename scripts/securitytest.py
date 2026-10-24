@@ -337,7 +337,7 @@ def videos_going_online():
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     os.environ.setdefault("QT_MEDIA_BACKEND", "ffmpeg")
     from PySide6.QtCore import QEventLoop, QTimer, QUrl
-    from PySide6.QtGui import QGuiApplication
+    from PySide6.QtWidgets import QApplication as QGuiApplication  # (widgets are made later on)
     from PySide6.QtMultimedia import QMediaPlayer
     app = QGuiApplication.instance() or QGuiApplication([])
     server = http.server.HTTPServer(("127.0.0.1", 0), _Count)
@@ -457,6 +457,72 @@ def delete_at_restart_junctions():
         check(not allowed(str(place)), f"{place} is refused")
 
 
+def pictures_from_elsewhere():
+    """An email, a drawing, a label or a tooltip naming a picture by a path (a shared folder's
+    \\\\server\\share\\x.png makes Windows sign in to that computer): the old way really opened it, Corefold's
+    way opens nothing. A local share of this PC (\\\\localhost\\C$) stands in for another computer."""
+    from PySide6.QtGui import QImage, QColor, QTextDocument
+    from PySide6.QtWidgets import QApplication, QLabel, QListWidgetItem, QTextBrowser
+    app = QApplication.instance() or QApplication([])
+    from corefold import mail, mailview, safetext, updater
+    probe = BASE / "probe.png"
+    img = QImage(200, 200, QImage.Format_RGB32)
+    img.fill(QColor("red"))
+    img.save(str(probe))
+    unc = "\\\\localhost\\" + str(probe).replace(":", "$", 1)
+    for where in (probe.as_uri(), unc):
+        page = f'<img src="{where}">'
+
+        class Old(QTextBrowser):   # what 1.9.0 did: None for anything not in the email
+            def loadResource(self, kind, url):
+                return None
+        old = Old()
+        old.setHtml(page)
+        old.resize(400, 400)
+        old.show()   # (a text view only loads its pictures once it's laid out on screen)
+        app.processEvents()
+        check(old.document().size().height() > 150, f"the old way really opened {where[:40]}… (proof of the problem)")
+        body = mailview.MailBody(mail.Message(html=page))
+        body.setHtml(mailview.safe_html(page))
+        body.resize(400, 400)
+        body.show()
+        app.processEvents()
+        check(body.document().size().height() < 50, f"an email's picture at {where[:40]}… isn't opened")
+        doc = safetext.offline_document()
+        doc.setHtml(page)
+        check(doc.size().height() < 50, "nor when the email is saved as PDF")
+        plain = QTextDocument()
+        plain.setHtml(page)
+        check(plain.size().height() > 150, "a plain text document really opens it (proof of the problem)")
+        old.close()
+        body.close()
+    safetext.guard()
+    label = QLabel(f'Hi <img src="{probe.as_uri()}">')
+    check(label.sizeHint().height() < 60, "a label with a name that looks like HTML shows it as text")
+    item = QListWidgetItem()
+    item.setToolTip(f'<img src="{unc}">')
+    check(item.toolTip().startswith("<p") and "&lt;img" in item.toolTip(), "so does a tooltip")
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="200" '
+           f'height="200"><image width="200" height="200" xlink:href="{unc}"/></svg>').encode()
+    clean = safetext.safe_svg(svg)
+    check(b"localhost" not in clean, "a drawing's picture on a shared folder is taken out")
+    entity = (b'<?xml version="1.0"?><!DOCTYPE svg [<!ENTITY p "' + unc.encode() + b'">]><svg xmlns="http://www.w3.org/'
+              b'2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><image xlink:href="&p;"/></svg>')
+    check(b"localhost" not in safetext.safe_svg(entity), "also when it hides behind an XML entity")
+    check(safetext.raster_picture(svg).isNull(), "a drawing given as a picture's bytes isn't drawn")
+    try:
+        updater.parse_release({"tag_name": "1.99.0<img src=x>", "assets": []}, "SayedLabs/corefold")
+        check(False, "an odd version from GitHub is refused")
+    except updater.UpdateError:
+        check(True, "an odd version from GitHub is refused")
+    try:
+        cloud._request_once("GET", "file:///C:/Windows/win.ini", "", None, None, 5, True)
+        check(False, "a cloud address that isn't https is refused")
+    except cloud.CloudError:
+        check(True, "a cloud address that isn't https is refused")
+    check(ipc.same_user(os.getpid()), "the pipe check knows this account's own process")
+
+
 step("restore point description", restore_point_description)
 step("icacls and junctions", icacls_into_junctions)
 step("links on the way", links_on_the_way)
@@ -472,6 +538,7 @@ step("programs in the code", programs_in_the_code)
 step("Startup's names", startup_names)
 step("booby-trapped pictures", booby_trapped_pictures)
 step("videos that go online", videos_going_online)
+step("pictures from elsewhere", pictures_from_elsewhere)
 
 shutil.rmtree(BASE, ignore_errors=True)
 shutil.rmtree(TMP, ignore_errors=True)
