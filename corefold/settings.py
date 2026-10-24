@@ -107,7 +107,8 @@ CAP_AFTER = {"edit": "Open it to mark it up", "copy": "Only copy it"}
 CAP_DELAY = {3: "3 seconds", 5: "5 seconds", 10: "10 seconds"}
 VIEWER_SORTS = {"name": "Name", "newest": "Newest first", "oldest": "Oldest first", "biggest": "Biggest first"}
 COLORS_SHORTCUTS = {"win+shift+c": "Win + Shift + C", "win+alt+c": "Win + Alt + C", "off": "No shortcut"}
-COLORS_FORMATS = {"hex": "HEX", "rgb": "RGB", "hsl": "HSL", "hsv": "HSV", "cmyk": "CMYK"}
+COLORS_FORMATS = {"hex": "HEX", "rgb": "RGB", "hsl": "HSL", "hsv": "HSV", "cmyk": "CMYK", "oklch": "OKLCH",
+                  "vec4": "VEC4"}
 PLAYER_SKIP = {5: "5 seconds", 10: "10 seconds", 30: "30 seconds"}
 PLAYER_WHEEL = {"volume": "Changes the volume", "seek": "Goes back and forward"}
 PEEK_KEYS = {"ctrl+space": "Ctrl + Space", "ctrl+shift+space": "Ctrl + Shift + Space", "off": "No shortcut"}
@@ -265,7 +266,7 @@ class Settings:
     cap_delay: int = 5             # seconds "Screenshot with a timer" waits
     # Colors
     colors_shortcut: str = "win+shift+c"  # pick a colour from any app
-    colors_format: str = "hex"     # copied as "hex", "rgb", "hsl", "hsv" or "cmyk"
+    colors_format: str = "hex"     # copied as "hex", "rgb", "hsl", "hsv", "cmyk", "oklch" or "vec4"
     colors_history: list = field(default_factory=list)  # colours picked lately ("#RRGGBB", newest first)
     # Quick access: a menu and a wheel that open from any app
     quick_menu: bool = True

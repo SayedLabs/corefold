@@ -1,14 +1,15 @@
 """Corefold Colors: pick any colour on the screen.
 
 A shortcut freezes every screen (like Capture does) and a round magnifier follows the mouse, with the
-pixel under it outlined and its HEX underneath. A click or Enter copies it as HEX, RGB, HSL, HSV or CMYK; the
-arrow keys move one pixel at a time; Esc or a right-click gives up. The picture is the screen's own
-pixels (not scaled), so the colour is exact on every monitor and at every scale."""
+pixel under it outlined and its HEX underneath. A click or Enter copies it as HEX, RGB, HSL, HSV, CMYK,
+OKLCH or VEC4; the arrow keys move one pixel at a time; Esc or a right-click gives up. The picture is
+the screen's own pixels (not scaled), so the colour is exact on every monitor and at every scale."""
 from __future__ import annotations
 
 import colorsys
 import ctypes
 import logging
+import math
 import os
 
 from PySide6.QtCore import QObject, QPoint, QPointF, QRect, QRectF, Qt, QTimer, Signal
@@ -60,7 +61,93 @@ def cmyk_text(hex_: str) -> str:
     return f"cmyk({round(cy * 100)}%, {round(ma * 100)}%, {round(ye * 100)}%, {round(k * 100)}%)"
 
 
+def _linear(v: float) -> float:
+    return v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
+
+
+def oklch_text(hex_: str) -> str:
+    """As CSS Color 4 writes it (what Tailwind and modern design tools use): lightness in percent,
+    chroma, and hue in degrees (none for greys)."""
+    c = QColor(hex_)
+    r, g, b = (_linear(x / 255) for x in (c.red(), c.green(), c.blue()))
+    lms = (0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b,
+           0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b,
+           0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b)
+    l_, m_, s_ = (x ** (1 / 3) for x in lms)
+    L = 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_
+    A = 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_
+    B = 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_
+    chroma = math.hypot(A, B)
+    if chroma < 0.0005:
+        return f"oklch({L * 100:.1f}% 0 none)"
+    hue = math.degrees(math.atan2(B, A)) % 360
+    return f"oklch({L * 100:.1f}% {chroma:.3f} {hue:.1f})"
+
+
+def vec4_text(hex_: str) -> str:
+    """0 to 1 for each channel, as shaders and game engines take it."""
+    c = QColor(hex_)
+    return f"vec4({c.red() / 255:.3f}, {c.green() / 255:.3f}, {c.blue() / 255:.3f}, 1.0)"
+
+
+def luminance(hex_: str) -> float:
+    """How bright it looks (WCAG's relative luminance, 0 to 1)."""
+    c = QColor(hex_)
+    r, g, b = (_linear(x / 255) for x in (c.red(), c.green(), c.blue()))
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def contrast(a: str, b: str) -> float:
+    """WCAG's contrast ratio between two colours (1 to 21)."""
+    la, lb = sorted((luminance(a), luminance(b)), reverse=True)
+    return (la + 0.05) / (lb + 0.05)
+
+
+def _number(text: str, scale: float) -> float:
+    text = text.strip()
+    if text.endswith("%"):
+        return float(text[:-1]) / 100 * scale
+    return float(text)
+
+
+def parse(text: str) -> str:
+    """A colour typed or pasted ("#1e90ff", "1E90FF", "#19f", "rgb(30, 144, 255)", "hsl(210 100% 56%)",
+    "dodgerblue"), as "#RRGGBB"; "" if it isn't one."""
+    t = text.strip().lower().rstrip(";")
+    try:
+        bare = t[1:] if t.startswith("#") else t
+        if len(bare) in (3, 4, 6, 8) and all(ch in "0123456789abcdef" for ch in bare):
+            if len(bare) in (3, 4):
+                bare = "".join(ch * 2 for ch in bare[:3])
+            return "#" + bare[:6].upper()
+        for name in ("rgba", "rgb", "hsla", "hsl"):
+            if t.startswith(name + "(") and t.endswith(")"):
+                parts = t[len(name) + 1:-1].replace(",", " ").replace("/", " ").split()
+                if len(parts) < 3:
+                    return ""
+                if name.startswith("rgb"):
+                    r, g, b = (round(_number(x, 255)) for x in parts[:3])
+                    if not all(0 <= v <= 255 for v in (r, g, b)):
+                        return ""
+                    return f"#{r:02X}{g:02X}{b:02X}"
+                h = float(parts[0].removesuffix("deg")) % 360 / 360
+                sat, light = (_number(x, 1) for x in parts[1:3])
+                if not (0 <= sat <= 1 and 0 <= light <= 1):
+                    return ""
+                r, g, b = colorsys.hls_to_rgb(h, light, sat)
+                return f"#{round(r * 255):02X}{round(g * 255):02X}{round(b * 255):02X}"
+    except ValueError:
+        return ""
+    if t.isalpha() and QColor.isValidColorName(t):
+        return hex_of(QColor(t))
+    return ""
+
+
 def as_text(hex_: str, fmt: str) -> str:
+    if fmt == "oklch":
+        return oklch_text(hex_)
+    if fmt == "vec4":
+        return vec4_text(hex_)
     if fmt == "rgb":
         return rgb_text(hex_)
     if fmt == "hsl":

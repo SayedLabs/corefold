@@ -123,7 +123,7 @@ TOOLS: list[ToolInfo] = [
               "See every new name first, and undo it all with one click"),
              ready=False),
     ToolInfo("colors", "Colors", "colors", "color", "Corefold Colors", "Colors",
-             "Pick any colour on your screen and copy it as HEX, RGB, HSL, HSV or CMYK.",
+             "Pick any colour on your screen and copy it as HEX, RGB, HSL, OKLCH and more.",
              ("Pick a colour anywhere with one shortcut",
               "A magnifier shows every pixel, so you get exactly the one you want",
               "Copy it in the format you need",

@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QMessageBox, QPushButton, \
+from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, \
     QScrollArea, QVBoxLayout, QWidget
 
 from . import colors
@@ -52,7 +52,7 @@ class ColorsPage(QScrollArea):
         grid = QGridLayout()
         grid.setHorizontalSpacing(16)
         grid.setVerticalSpacing(12)
-        self.format = Segmented([(k, v) for k, v in COLORS_FORMATS.items()], s.colors_format, per_row=5)
+        self.format = Segmented([(k, v) for k, v in COLORS_FORMATS.items()], s.colors_format, per_row=7)
         self.format.changed.connect(self._format_changed)
         self.shortcut = Dropdown()
         for key, text in COLORS_SHORTCUTS.items():
@@ -85,6 +85,18 @@ class ColorsPage(QScrollArea):
         bl.addWidget(self.grid_box)
         self.empty = label(tr("Colours you pick show up here."), "muted", wrap=True)
         bl.addWidget(self.empty)
+        # a colour of one's own: typed or pasted, in any of the usual ways
+        self.typed = QLineEdit()
+        self.typed.setPlaceholderText(tr("Add a colour: #1E90FF, rgb(30, 144, 255), hsl(…) or a name"))
+        self.typed.setClearButtonEnabled(True)
+        self.typed.setMaximumWidth(420)
+        self.typed.returnPressed.connect(self._add_typed)
+        self.typed.textChanged.connect(lambda _t: self.typed_note.hide())
+        bl.addWidget(self.typed)
+        self.typed_note = label(tr("That isn't a colour Corefold knows. Try #1E90FF or rgb(30, 144, 255)."),
+                                "warning", wrap=True)
+        self.typed_note.hide()
+        bl.addWidget(self.typed_note)
         self.detail = QWidget()
         outer = QVBoxLayout(self.detail)
         outer.setContentsMargins(0, 8, 0, 0)
@@ -109,8 +121,21 @@ class ColorsPage(QScrollArea):
             b = button(tr("Copy"), None, lambda _=False, f=fmt: self._copy(f))
             self.copy_buttons[fmt] = b
             rows.addWidget(b, i, 2)
+        n = len(COLORS_FORMATS)
+        # how readable text is on it (WCAG: 4.5:1 for text, 3:1 for large text)
+        rows.addWidget(label(tr("Text on it"), "muted"), n, 0)
+        samples = QHBoxLayout()
+        samples.setSpacing(8)
+        self.samples: dict[str, QLabel] = {}
+        for ink in ("#FFFFFF", "#000000"):
+            lab = QLabel()
+            lab.setContentsMargins(10, 4, 10, 4)
+            self.samples[ink] = lab
+            samples.addWidget(lab)
+        samples.addStretch()
+        rows.addLayout(samples, n, 1)
         self.remove_btn = button(tr("Remove"), "flat", self._remove)
-        rows.addWidget(self.remove_btn, len(COLORS_FORMATS), 2)
+        rows.addWidget(self.remove_btn, n + 1, 2)
         rows.setColumnStretch(1, 1)
         dl.addLayout(rows, 1)
         # darker and lighter versions of it (a click shows that one, ready to copy)
@@ -218,6 +243,15 @@ class ColorsPage(QScrollArea):
             value.setText(ltr(colors.as_text(hex_, fmt)))
         for b in self.copy_buttons.values():
             b.setText(tr("Copy"))
+        for ink, lab in self.samples.items():
+            ratio = colors.contrast(hex_, ink)
+            grade = "AAA" if ratio >= 7 else "AA" if ratio >= 4.5 else tr("Large text only") if ratio >= 3 \
+                else tr("Hard to read")
+            lab.setText(ltr(f"Aa  {ratio:.1f}:1") + "  ·  " + grade)
+            lab.setToolTip(tr("Contrast {ratio}:1 with {which} text. 4.5:1 is enough for text, 3:1 for large text.",
+                              ratio=f"{ratio:.1f}", which=tr("white") if ink == "#FFFFFF" else tr("black")))
+            lab.setStyleSheet(f"background: {hex_}; color: {ink}; border: 1px solid {t.border.name()};"
+                              f" border-radius: 6px; font-weight: 600;")
         seen = set()
         for b, shade in zip(self.shade_buttons, colors.shades(hex_)):
             b.setVisible(shade not in seen)  # (black and white have fewer)
@@ -227,6 +261,17 @@ class ColorsPage(QScrollArea):
             edge = f"3px solid {t.text.name()}" if shade == hex_.upper() else f"1px solid {t.border.name()}"
             b.setStyleSheet(f"QPushButton {{ background: {shade}; border: {edge}; border-radius: 6px; padding: 0;"
                             f" min-width: 0; }} QPushButton:hover {{ border: 2px solid {t.muted.name()}; }}")
+
+    def _add_typed(self):
+        hex_ = colors.parse(self.typed.text())
+        if not hex_:
+            self.typed_note.show()
+            return
+        self.typed.clear()
+        if self.c.colors is not None:
+            self.c.colors.remember(hex_)
+        self.refresh()
+        self.show_color(hex_)
 
     def _copy(self, fmt: str):
         if not self.selected:
