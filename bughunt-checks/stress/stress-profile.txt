@@ -1,0 +1,33 @@
+         3722545 function calls (3721874 primitive calls) in 1.383 seconds
+
+   Ordered by: internal time
+   List reduced from 188 to 25 due to restriction <25>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.365    0.365    0.900    0.900 D:\a\corefold\corefold\corefold\archives.py:223(_parse_slt)
+      2/1    0.247    0.123    0.000    0.000 {method 'read' of '_io.BufferedReader' objects}
+  1080000    0.216    0.000    0.368    0.000 D:\a\corefold\corefold\corefold\archives.py:232(<genexpr>)
+  1080002    0.199    0.000    0.199    0.000 {method 'split' of 'str' objects}
+   480006    0.059    0.000    0.059    0.000 {method 'get' of 'dict' objects}
+        1    0.048    0.048    0.190    0.190 D:\a\corefold\corefold\corefold\browser.py:362(set_entries)
+   120001    0.046    0.000    0.046    0.000 {method 'replace' of 'str' objects}
+    60000    0.038    0.000    0.091    0.000 D:\a\corefold\corefold\corefold\archives.py:827(is_archive_file_name)
+   180662    0.025    0.000    0.025    0.000 {method 'rpartition' of 'str' objects}
+        1    0.024    0.024    1.192    1.192 D:\a\corefold\corefold\corefold\archives.py:247(list_entries)
+    60000    0.018    0.000    0.031    0.000 D:\a\corefold\corefold\corefold\core.py:318(norm)
+    60001    0.015    0.000    0.106    0.000 D:\a\corefold\corefold\corefold\archives.py:824(<genexpr>)
+   120805    0.014    0.000    0.014    0.000 {method 'append' of 'list' objects}
+   120001    0.013    0.000    0.013    0.000 {method 'isdigit' of 'str' objects}
+    60000    0.012    0.000    0.012    0.000 <string>:2(__init__)
+60661/60000    0.008    0.000    0.009    0.000 D:\a\corefold\corefold\corefold\browser.py:374(ensure)
+    60000    0.006    0.000    0.006    0.000 {method 'strip' of 'str' objects}
+    60003    0.006    0.000    0.006    0.000 {method 'lower' of 'str' objects}
+    60000    0.006    0.000    0.006    0.000 {method 'rstrip' of 'str' objects}
+        1    0.005    0.005    0.111    0.111 {built-in method builtins.any}
+    60002    0.004    0.000    0.004    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\pathlib.py:437(__str__)
+        1    0.003    0.003    0.003    0.003 {method 'decode' of 'bytes' objects}
+        1    0.001    0.001    0.001    0.001 {built-in method _winapi.CreateProcess}
+        1    0.001    0.001    0.001    0.001 {built-in method _winapi.WaitForSingleObject}
+        1    0.001    0.001    1.383    1.383 D:\a\corefold\corefold\corefold\browser.py:480(reload)
+
+

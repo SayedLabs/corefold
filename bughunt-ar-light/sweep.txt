@@ -1,0 +1,1762 @@
+----- start
+ok    the window opens
+ok    every ready tool can be added
+ok    start: no errors behind the clicks (0)
+----- pages
+ok    page Home: the Home page opens (Home)
+ok    page Home: the Home page shows (748x608)
+ok    Home page at 1040x700: nothing cut off or sticking out
+ok    page Home: opens without errors
+ok    page History: the History page opens (History)
+ok    page History: the History page shows (748x608)
+ok    History page at 1040x700: nothing cut off or sticking out
+ok    page History: opens without errors
+ok    page Converter: the Converter page opens (Converter)
+ok    page Converter: the Converter page shows (748x608)
+ok    Converter page at 1040x700: nothing cut off or sticking out
+ok    page Converter: opens without errors
+ok    page Apps: the Apps page opens (Apps)
+ok    page Apps: the Apps page shows (748x608)
+ok    Apps page at 1040x700: nothing cut off or sticking out
+ok    page Apps: opens without errors
+ok    page Archives: the Archives page opens (Archives)
+ok    page Archives: the Archives page shows (748x608)
+ok    Archives page at 1040x700: nothing cut off or sticking out
+ok    page Archives: opens without errors
+ok    page Viewer: the Viewer page opens (Viewer)
+ok    page Viewer: the Viewer page shows (748x608)
+ok    Viewer page at 1040x700: nothing cut off or sticking out
+ok    page Viewer: opens without errors
+ok    page Player: the Player page opens (Player)
+ok    page Player: the Player page shows (748x608)
+ok    Player page at 1040x700: nothing cut off or sticking out
+ok    page Player: opens without errors
+ok    page Capture: the Capture page opens (Capture)
+ok    page Capture: the Capture page shows (748x608)
+ok    Capture page at 1040x700: nothing cut off or sticking out
+ok    page Capture: opens without errors
+ok    page Space: the Space page opens (Space)
+ok    page Space: the Space page shows (748x608)
+ok    Space page at 1040x700: nothing cut off or sticking out
+ok    page Space: opens without errors
+ok    page Clipboard: the Clipboard page opens (Clipboard)
+ok    page Clipboard: the Clipboard page shows (748x608)
+ok    Clipboard page at 1040x700: nothing cut off or sticking out
+ok    page Clipboard: opens without errors
+ok    page Cloud: the Cloud page opens (Cloud)
+ok    page Cloud: the Cloud page shows (748x608)
+ok    Cloud page at 1040x700: nothing cut off or sticking out
+ok    page Cloud: opens without errors
+ok    page Startup: the Startup page opens (Startup)
+ok    page Startup: the Startup page shows (748x608)
+ok    Startup page at 1040x700: nothing cut off or sticking out
+ok    page Startup: opens without errors
+ok    page Scan: the Scan page opens (Scan)
+ok    page Scan: the Scan page shows (748x608)
+ok    Scan page at 1040x700: nothing cut off or sticking out
+ok    page Scan: opens without errors
+ok    page PDF: the PDF page opens (PDF)
+ok    page PDF: the PDF page shows (748x608)
+ok    PDF page at 1040x700: nothing cut off or sticking out
+ok    page PDF: opens without errors
+ok    page Rename: the Rename page opens (Rename)
+ok    page Rename: the Rename page shows (748x608)
+ok    Rename page at 1040x700: nothing cut off or sticking out
+ok    page Rename: opens without errors
+ok    page Colors: the Colors page opens (Colors)
+ok    page Colors: the Colors page shows (748x608)
+ok    Colors page at 1040x700: nothing cut off or sticking out
+ok    page Colors: opens without errors
+ok    page Ruler: the Ruler page opens (Ruler)
+ok    page Ruler: the Ruler page shows (748x608)
+ok    Ruler page at 1040x700: nothing cut off or sticking out
+ok    page Ruler: opens without errors
+ok    page Check: the Check page opens (Check)
+ok    page Check: the Check page shows (748x608)
+ok    Check page at 1040x700: nothing cut off or sticking out
+ok    page Check: opens without errors
+ok    page Shredder: the Shredder page opens (Shredder)
+ok    page Shredder: the Shredder page shows (748x608)
+ok    Shredder page at 1040x700: nothing cut off or sticking out
+ok    page Shredder: opens without errors
+ok    page Fonts: the Fonts page opens (Fonts)
+ok    page Fonts: the Fonts page shows (748x608)
+ok    Fonts page at 1040x700: nothing cut off or sticking out
+ok    page Fonts: opens without errors
+ok    page Network: the Network page opens (Network)
+ok    page Network: the Network page shows (748x608)
+ok    Network page at 1040x700: nothing cut off or sticking out
+ok    page Network: opens without errors
+ok    page Battery: the Battery page opens (Battery)
+ok    page Battery: the Battery page shows (748x608)
+ok    Battery page at 1040x700: nothing cut off or sticking out
+ok    page Battery: opens without errors
+ok    page Focus: the Focus page opens (Focus)
+ok    page Focus: the Focus page shows (748x608)
+ok    Focus page at 1040x700: nothing cut off or sticking out
+ok    page Focus: opens without errors
+ok    page Layouts: the Layouts page opens (Layouts)
+ok    page Layouts: the Layouts page shows (748x608)
+ok    Layouts page at 1040x700: nothing cut off or sticking out
+ok    page Layouts: opens without errors
+ok    page Drivers: the Drivers page opens (Drivers)
+ok    page Drivers: the Drivers page shows (748x608)
+ok    Drivers page at 1040x700: nothing cut off or sticking out
+ok    page Drivers: opens without errors
+ok    page Awake: the Awake page opens (Awake)
+ok    page Awake: the Awake page shows (748x608)
+ok    Awake page at 1040x700: nothing cut off or sticking out
+ok    page Awake: opens without errors
+ok    page Snippets: the Snippets page opens (Snippets)
+ok    page Snippets: the Snippets page shows (748x608)
+ok    Snippets page at 1040x700: nothing cut off or sticking out
+ok    page Snippets: opens without errors
+ok    page Backup: the Backup page opens (Backup)
+ok    page Backup: the Backup page shows (748x608)
+ok    Backup page at 1040x700: nothing cut off or sticking out
+ok    page Backup: opens without errors
+ok    page Notes: the Notes page opens (Notes)
+ok    page Notes: the Notes page shows (748x608)
+ok    Notes page at 1040x700: nothing cut off or sticking out
+ok    page Notes: opens without errors
+ok    page System: the System page opens (System)
+ok    page System: the System page shows (748x608)
+ok    System page at 1040x700: nothing cut off or sticking out
+ok    page System: opens without errors
+ok    page Unlock: the Unlock page opens (Unlock)
+ok    page Unlock: the Unlock page shows (748x608)
+ok    Unlock page at 1040x700: nothing cut off or sticking out
+ok    page Unlock: opens without errors
+ok    page Organizer: the Organizer page opens (Organizer)
+ok    page Organizer: the Organizer page shows (748x608)
+ok    Organizer page at 1040x700: nothing cut off or sticking out
+ok    page Organizer: opens without errors
+ok    page Sound: the Sound page opens (Sound)
+ok    page Sound: the Sound page shows (748x608)
+ok    Sound page at 1040x700: nothing cut off or sticking out
+ok    page Sound: opens without errors
+ok    page Store: the Store page opens (Store)
+ok    page Store: the Store page shows (748x608)
+ok    Store page at 1040x700: nothing cut off or sticking out
+ok    page Store: opens without errors
+ok    page General: the General page opens (General)
+ok    page General: the General page shows (672x513)
+ok    General page at 1040x700: nothing cut off or sticking out
+ok    page General: opens without errors
+ok    page Look: the Look page opens (Look)
+ok    page Look: the Look page shows (672x513)
+ok    Look page at 1040x700: nothing cut off or sticking out
+ok    page Look: opens without errors
+ok    page Quick: the Quick page opens (Quick)
+ok    page Quick: the Quick page shows (672x513)
+ok    Quick page at 1040x700: nothing cut off or sticking out
+ok    page Quick: opens without errors
+ok    page Shortcuts: the Shortcuts page opens (Shortcuts)
+ok    page Shortcuts: the Shortcuts page shows (672x513)
+ok    Shortcuts page at 1040x700: nothing cut off or sticking out
+ok    page Shortcuts: opens without errors
+ok    page ConvOptions: the ConvOptions page opens (ConvOptions)
+ok    page ConvOptions: the ConvOptions page shows (672x476)
+ok    ConvOptions page at 1040x700: nothing cut off or sticking out
+ok    page ConvOptions: opens without errors
+ok    page WheelLook: the WheelLook page opens (WheelLook)
+ok    page WheelLook: the WheelLook page shows (672x476)
+ok    WheelLook page at 1040x700: nothing cut off or sticking out
+ok    page WheelLook: opens without errors
+ok    page Formats: the Formats page opens (Formats)
+ok    page Formats: the Formats page shows (672x476)
+ok    Formats page at 1040x700: nothing cut off or sticking out
+ok    page Formats: opens without errors
+ok    page AppsSettings: the AppsSettings page opens (AppsSettings)
+ok    page AppsSettings: the AppsSettings page shows (672x513)
+ok    AppsSettings page at 1040x700: nothing cut off or sticking out
+ok    page AppsSettings: opens without errors
+ok    page ArchiveSettings: the ArchiveSettings page opens (ArchiveSettings)
+ok    page ArchiveSettings: the ArchiveSettings page shows (672x513)
+ok    ArchiveSettings page at 1040x700: nothing cut off or sticking out
+ok    page ArchiveSettings: opens without errors
+ok    page ViewerSettings: the ViewerSettings page opens (ViewerSettings)
+ok    page ViewerSettings: the ViewerSettings page shows (672x513)
+ok    ViewerSettings page at 1040x700: nothing cut off or sticking out
+ok    page ViewerSettings: opens without errors
+ok    page PlayerSettings: the PlayerSettings page opens (PlayerSettings)
+ok    page PlayerSettings: the PlayerSettings page shows (672x513)
+ok    PlayerSettings page at 1040x700: nothing cut off or sticking out
+ok    page PlayerSettings: opens without errors
+ok    page CaptureSettings: the CaptureSettings page opens (CaptureSettings)
+ok    page CaptureSettings: the CaptureSettings page shows (672x513)
+ok    CaptureSettings page at 1040x700: nothing cut off or sticking out
+ok    page CaptureSettings: opens without errors
+ok    page ClipboardSettings: the ClipboardSettings page opens (ClipboardSettings)
+ok    page ClipboardSettings: the ClipboardSettings page shows (672x513)
+ok    ClipboardSettings page at 1040x700: nothing cut off or sticking out
+ok    page ClipboardSettings: opens without errors
+ok    page Updates: the Updates page opens (Updates)
+ok    page Updates: the Updates page shows (748x608)
+ok    Updates page at 1040x700: nothing cut off or sticking out
+ok    page Updates: opens without errors
+ok    page About: the About page opens (About)
+ok    page About: the About page shows (748x608)
+ok    About page at 1040x700: nothing cut off or sticking out
+ok    page About: opens without errors
+ok    Back many times lands on a page (ClipboardSettings)
+ok    pages: no errors behind the clicks (0)
+----- buttons
+ok    buttons on Home: the Home page opens (Home)
+ok    buttons on Home: the Home page shows (748x608)
+ok    back to Home after 'أضف أدوات': the Home page opens (Home)
+ok    back to Home after 'أضف أدوات': the Home page shows (748x608)
+ok    back to Home after 'افتح المتجر': the Home page opens (Home)
+ok    back to Home after 'افتح المتجر': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'toolCard': the Home page opens (Home)
+ok    back to Home after 'toolCard': the Home page shows (748x608)
+ok    back to Home after 'افتح المتجر': the Home page opens (Home)
+ok    back to Home after 'افتح المتجر': the Home page shows (748x608)
+ok    back to Home after 'شوف الكل': the Home page opens (Home)
+ok    back to Home after 'شوف الكل': the Home page shows (748x608)
+ok    Home: pressed 22 control(s)
+ok    buttons on History: the History page opens (History)
+ok    buttons on History: the History page shows (748x608)
+note  a dialog came up: QMessageBox 'مسح السجل': هل تريد مسح قائمة آخر التحويلات؟ لن يتم المساس بملفاتك.
+note  a dialog came up: QMessageBox 'تصفير الإحصائيات': هل تريد بدء عدّ الملفات المحوّلة والمساحة الموفّرة من الصفر؟
+ok    History: pressed 2 control(s)
+ok    buttons on Converter: the Converter page opens (Converter)
+ok    buttons on Converter: the Converter page shows (748x608)
+ok    back to Converter after 'الإعدادات': the Converter page opens (Converter)
+ok    back to Converter after 'الإعدادات': the Converter page shows (748x608)
+ok    Converter: pressed 4 control(s)
+ok    buttons on Apps: the Apps page opens (Apps)
+ok    buttons on Apps: the Apps page shows (748x608)
+ok    back to Apps after 'الإعدادات': the Apps page opens (Apps)
+ok    back to Apps after 'الإعدادات': the Apps page shows (748x608)
+note  a dialog came up: QMenu '': 
+ok    Apps: pressed 6 control(s)
+ok    buttons on Archives: the Archives page opens (Archives)
+ok    buttons on Archives: the Archives page shows (748x608)
+ok    back to Archives after 'الإعدادات': the Archives page opens (Archives)
+ok    back to Archives after 'الإعدادات': the Archives page shows (748x608)
+ok    Archives: pressed 3 control(s)
+ok    buttons on Viewer: the Viewer page opens (Viewer)
+ok    buttons on Viewer: the Viewer page shows (748x608)
+ok    back to Viewer after 'الإعدادات': the Viewer page opens (Viewer)
+ok    back to Viewer after 'الإعدادات': the Viewer page shows (748x608)
+ok    Viewer: pressed 3 control(s)
+ok    buttons on Player: the Player page opens (Player)
+ok    buttons on Player: the Player page shows (748x608)
+ok    back to Player after 'الإعدادات': the Player page opens (Player)
+ok    back to Player after 'الإعدادات': the Player page shows (748x608)
+ok    Player: pressed 2 control(s)
+ok    buttons on Capture: the Capture page opens (Capture)
+ok    buttons on Capture: the Capture page shows (748x608)
+ok    back to Capture after 'الإعدادات': the Capture page opens (Capture)
+ok    back to Capture after 'الإعدادات': the Capture page shows (748x608)
+ok    Capture: pressed 3 control(s)
+ok    buttons on Space: the Space page opens (Space)
+ok    buttons on Space: the Space page shows (748x608)
+ok    Space: pressed 7 control(s)
+ok    buttons on Clipboard: the Clipboard page opens (Clipboard)
+ok    buttons on Clipboard: the Clipboard page shows (748x608)
+ok    back to Clipboard after 'الإعدادات': the Clipboard page opens (Clipboard)
+ok    back to Clipboard after 'الإعدادات': the Clipboard page shows (748x608)
+note  a dialog came up: QDialog 'احفظ نص': 
+ok    Clipboard: pressed 9 control(s)
+ok    buttons on Cloud: the Cloud page opens (Cloud)
+ok    buttons on Cloud: the Cloud page shows (748x608)
+ok    Cloud: pressed 1 control(s)
+ok    buttons on Startup: the Startup page opens (Startup)
+ok    buttons on Startup: the Startup page shows (748x608)
+ok    Startup: pressed 4 control(s)
+ok    buttons on Scan: the Scan page opens (Scan)
+ok    buttons on Scan: the Scan page shows (748x608)
+note  a dialog came up: QuarantineDialog 'عزل Defender': 
+ok    Scan: pressed 3 control(s)
+ok    buttons on PDF: the PDF page opens (PDF)
+ok    buttons on PDF: the PDF page shows (748x608)
+ok    PDF: pressed 2 control(s)
+ok    buttons on Rename: the Rename page opens (Rename)
+ok    buttons on Rename: the Rename page shows (748x608)
+ok    Rename: pressed 0 control(s)
+ok    buttons on Colors: the Colors page opens (Colors)
+ok    buttons on Colors: the Colors page shows (748x608)
+ok    Colors: pressed 4 control(s)
+ok    buttons on Ruler: the Ruler page opens (Ruler)
+ok    buttons on Ruler: the Ruler page shows (748x608)
+ok    Ruler: pressed 0 control(s)
+ok    buttons on Check: the Check page opens (Check)
+ok    buttons on Check: the Check page shows (748x608)
+ok    Check: pressed 0 control(s)
+ok    buttons on Shredder: the Shredder page opens (Shredder)
+ok    buttons on Shredder: the Shredder page shows (748x608)
+ok    Shredder: pressed 0 control(s)
+ok    buttons on Fonts: the Fonts page opens (Fonts)
+ok    buttons on Fonts: the Fonts page shows (748x608)
+ok    Fonts: pressed 0 control(s)
+ok    buttons on Network: the Network page opens (Network)
+ok    buttons on Network: the Network page shows (748x608)
+ok    Network: pressed 0 control(s)
+ok    buttons on Battery: the Battery page opens (Battery)
+ok    buttons on Battery: the Battery page shows (748x608)
+ok    Battery: pressed 0 control(s)
+ok    buttons on Focus: the Focus page opens (Focus)
+ok    buttons on Focus: the Focus page shows (748x608)
+ok    Focus: pressed 0 control(s)
+ok    buttons on Layouts: the Layouts page opens (Layouts)
+ok    buttons on Layouts: the Layouts page shows (748x608)
+ok    Layouts: pressed 0 control(s)
+ok    buttons on Drivers: the Drivers page opens (Drivers)
+ok    buttons on Drivers: the Drivers page shows (748x608)
+ok    Drivers: pressed 0 control(s)
+ok    buttons on Awake: the Awake page opens (Awake)
+ok    buttons on Awake: the Awake page shows (748x608)
+note  a dialog came up: QMessageBox 'تطفي الجهاز الساعة \u202a\u20666:00 AM\u2069\u202c؟': ويندوز بيطفيه في هالوقت، حتى لو كورفولد مسكّر. البرامج اللي للحين مفتوحة تتسكّر بدون حفظ، فاحفظ شغلك قبلها. تقدر تلغيه م
+ok    Awake: pressed 8 control(s)
+ok    buttons on Snippets: the Snippets page opens (Snippets)
+ok    buttons on Snippets: the Snippets page shows (748x608)
+ok    Snippets: pressed 0 control(s)
+ok    buttons on Backup: the Backup page opens (Backup)
+ok    buttons on Backup: the Backup page shows (748x608)
+ok    Backup: pressed 0 control(s)
+ok    buttons on Notes: the Notes page opens (Notes)
+ok    buttons on Notes: the Notes page shows (748x608)
+ok    Notes: pressed 0 control(s)
+ok    buttons on System: the System page opens (System)
+ok    buttons on System: the System page shows (748x608)
+ok    System: pressed 0 control(s)
+ok    buttons on Unlock: the Unlock page opens (Unlock)
+ok    buttons on Unlock: the Unlock page shows (748x608)
+ok    Unlock: pressed 2 control(s)
+ok    buttons on Organizer: the Organizer page opens (Organizer)
+ok    buttons on Organizer: the Organizer page shows (748x608)
+ok    Organizer: pressed 5 control(s)
+ok    buttons on Sound: the Sound page opens (Sound)
+ok    buttons on Sound: the Sound page shows (748x608)
+ok    Sound: pressed 0 control(s)
+ok    buttons on Store: the Store page opens (Store)
+ok    buttons on Store: the Store page shows (748x608)
+ok    back to Store after 'فتح': the Store page opens (Store)
+ok    back to Store after 'فتح': the Store page shows (748x608)
+note  a dialog came up: QMessageBox 'حذف محوّل كورفولد؟': محوّل كورفولد بيختفي من القائمة الجانبية ويتوقف. إعداداته تنحفظ، فتقدر ترجعه أي وقت من المتجر.
+
+العجلة وقائمة كورفولد في
+ok    back to Store after 'فتح': the Store page opens (Store)
+ok    back to Store after 'فتح': the Store page shows (748x608)
+note  a dialog came up: QMessageBox 'حذف مزيل كورفولد؟': مزيل كورفولد بيختفي من القائمة الجانبية ويتوقف. إعداداته تنحفظ، فتقدر ترجعه أي وقت من المتجر.
+ok    back to Store after 'فتح': the Store page opens (Store)
+ok    back to Store after 'فتح': the Store page shows (748x608)
+note  a dialog came up: QMessageBox 'حذف أرشيف كورفولد؟': أرشيف كورفولد بيختفي من القائمة الجانبية ويتوقف. إعداداته تنحفظ، فتقدر ترجعه أي وقت من المتجر.
+
+الأرشيفات ما بتفتح في كو
+ok    back to Store after 'فتح': the Store page opens (Store)
+ok    back to Store after 'فتح': the Store page shows (748x608)
+note  a dialog came up: QMessageBox 'حذف عارض كورفولد؟': عارض كورفولد بيختفي من القائمة الجانبية ويتوقف. إعداداته تنحفظ، فتقدر ترجعه أي وقت من المتجر.
+ok    back to Store after 'فتح': the Store page opens (Store)
+ok    back to Store after 'فتح': the Store page shows (748x608)
+note  a dialog came up: QMessageBox 'حذف مشغّل كورفولد؟': مشغّل كورفولد بيختفي من القائمة الجانبية ويتوقف. إعداداته تنحفظ، فتقدر ترجعه أي وقت من المتجر.
+ok    back to Store after 'فتح': the Store page opens (Store)
+ok    back to Store after 'فتح': the Store page shows (748x608)
+note  a dialog came up: QMessageBox 'حذف لقطة كورفولد؟': لقطة كورفولد بيختفي من القائمة الجانبية ويتوقف. إعداداته تنحفظ، فتقدر ترجعه أي وقت من المتجر.
+ok    back to Store after 'فتح': the Store page opens (Store)
+ok    back to Store after 'فتح': the Store page shows (748x608)
+note  a dialog came up: QMessageBox 'حذف مساحة كورفولد؟': مساحة كورفولد بيختفي من القائمة الجانبية ويتوقف. إعداداته تنحفظ، فتقدر ترجعه أي وقت من المتجر.
+ok    back to Store after 'فتح': the Store page opens (Store)
+ok    back to Store after 'فتح': the Store page shows (748x608)
+note  a dialog came up: QMessageBox 'حذف حافظة كورفولد؟': حافظة كورفولد بيختفي من القائمة الجانبية ويتوقف. إعداداته تنحفظ، فتقدر ترجعه أي وقت من المتجر.
+ok    back to Store after 'فتح': the Store page opens (Store)
+ok    back to Store after 'فتح': the Store page shows (748x608)
+note  a dialog came up: QMessageBox 'حذف سحابة كورفولد؟': سحابة كورفولد بيختفي من القائمة الجانبية ويتوقف. إعداداته تنحفظ، فتقدر ترجعه أي وقت من المتجر.
+ok    back to Store after 'فتح': the Store page opens (Store)
+ok    back to Store after 'فتح': the Store page shows (748x608)
+note  a dialog came up: QMessageBox 'حذف بدء التشغيل من كورفولد؟': بدء التشغيل من كورفولد بيختفي من القائمة الجانبية ويتوقف. إعداداته تنحفظ، فتقدر ترجعه أي وقت من المتجر.
+ok    back to Store after 'فتح': the Store page opens (Store)
+ok    back to Store after 'فتح': the Store page shows (748x608)
+note  a dialog came up: QMessageBox 'حذف فحص كورفولد؟': فحص كورفولد بيختفي من القائمة الجانبية ويتوقف. إعداداته تنحفظ، فتقدر ترجعه أي وقت من المتجر.
+ok    back to Store after 'فتح': the Store page opens (Store)
+ok    back to Store after 'فتح': the Store page shows (748x608)
+note  a dialog came up: QMessageBox 'حذف \u200fPDF من كورفولد؟': ‏PDF من كورفولد بيختفي من القائمة الجانبية ويتوقف. إعداداته تنحفظ، فتقدر ترجعه أي وقت من المتجر.
+ok    back to Store after 'فتح': the Store page opens (Store)
+ok    back to Store after 'فتح': the Store page shows (748x608)
+note  a dialog came up: QMessageBox 'حذف الألوان من كورفولد؟': الألوان من كورفولد بيختفي من القائمة الجانبية ويتوقف. إعداداته تنحفظ، فتقدر ترجعه أي وقت من المتجر.
+ok    back to Store after 'فتح': the Store page opens (Store)
+ok    back to Store after 'فتح': the Store page shows (748x608)
+note  a dialog came up: QMessageBox 'حذف صاحي من كورفولد؟': صاحي من كورفولد بيختفي من القائمة الجانبية ويتوقف. إعداداته تنحفظ، فتقدر ترجعه أي وقت من المتجر.
+ok    back to Store after 'فتح': the Store page opens (Store)
+ok    back to Store after 'فتح': the Store page shows (748x608)
+note  a dialog came up: QMessageBox 'حذف فك القفل من كورفولد؟': فك القفل من كورفولد بيختفي من القائمة الجانبية ويتوقف. إعداداته تنحفظ، فتقدر ترجعه أي وقت من المتجر.
+ok    back to Store after 'فتح': the Store page opens (Store)
+ok    back to Store after 'فتح': the Store page shows (748x608)
+note  a dialog came up: QMessageBox 'حذف منظّم الملفات من كورفولد؟': منظّم الملفات من كورفولد بيختفي من القائمة الجانبية ويتوقف. إعداداته تنحفظ، فتقدر ترجعه أي وقت من المتجر.
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    back to Store after 'toolCard': the Store page opens (Store)
+ok    back to Store after 'toolCard': the Store page shows (748x608)
+ok    Store: pressed 48 control(s)
+ok    buttons on General: the General page opens (General)
+ok    buttons on General: the General page shows (672x513)
+note  General: pressing 'رجّع الإعدادات الافتراضية' took 3.8 s
+ok    General: pressed 12 control(s)
+ok    buttons on Look: the Look page opens (Look)
+ok    buttons on Look: the Look page shows (672x513)
+note  a dialog came up: QColorDialog 'اختر لونًا': 
+ok    Look: pressed 23 control(s)
+ok    buttons on Quick: the Quick page opens (Quick)
+ok    buttons on Quick: the Quick page shows (672x513)
+note  a dialog came up: QMenu '': 
+note  a dialog came up: QMenu '': 
+ok    back to Quick after 'غيّر الشكل…': the Quick page opens (Quick)
+ok    back to Quick after 'غيّر الشكل…': the Quick page shows (672x513)
+note  a dialog came up: LinkDialog 'أضف موقع': 
+ok    Quick: pressed 16 control(s)
+ok    buttons on Shortcuts: the Shortcuts page opens (Shortcuts)
+ok    buttons on Shortcuts: the Shortcuts page shows (672x513)
+ok    back to Shortcuts after 'تغيير': the Shortcuts page opens (Shortcuts)
+ok    back to Shortcuts after 'تغيير': the Shortcuts page shows (672x513)
+ok    back to Shortcuts after 'تغيير': the Shortcuts page opens (Shortcuts)
+ok    back to Shortcuts after 'تغيير': the Shortcuts page shows (672x513)
+ok    back to Shortcuts after 'تغيير': the Shortcuts page opens (Shortcuts)
+ok    back to Shortcuts after 'تغيير': the Shortcuts page shows (672x513)
+ok    back to Shortcuts after 'تغيير': the Shortcuts page opens (Shortcuts)
+ok    back to Shortcuts after 'تغيير': the Shortcuts page shows (672x513)
+ok    back to Shortcuts after 'تغيير': the Shortcuts page opens (Shortcuts)
+ok    back to Shortcuts after 'تغيير': the Shortcuts page shows (672x513)
+ok    back to Shortcuts after 'تغيير': the Shortcuts page opens (Shortcuts)
+ok    back to Shortcuts after 'تغيير': the Shortcuts page shows (672x513)
+ok    back to Shortcuts after 'تغيير': the Shortcuts page opens (Shortcuts)
+ok    back to Shortcuts after 'تغيير': the Shortcuts page shows (672x513)
+ok    back to Shortcuts after 'تغيير': the Shortcuts page opens (Shortcuts)
+ok    back to Shortcuts after 'تغيير': the Shortcuts page shows (672x513)
+ok    back to Shortcuts after 'تغيير': the Shortcuts page opens (Shortcuts)
+ok    back to Shortcuts after 'تغيير': the Shortcuts page shows (672x513)
+ok    Shortcuts: pressed 12 control(s)
+ok    buttons on ConvOptions: the ConvOptions page opens (ConvOptions)
+ok    buttons on ConvOptions: the ConvOptions page shows (672x476)
+ok    ConvOptions: pressed 13 control(s)
+ok    buttons on WheelLook: the WheelLook page opens (WheelLook)
+ok    buttons on WheelLook: the WheelLook page shows (672x476)
+ok    WheelLook: pressed 27 control(s)
+ok    buttons on Formats: the Formats page opens (Formats)
+ok    buttons on Formats: the Formats page shows (672x476)
+ok    Formats: pressed 151 control(s)
+ok    buttons on AppsSettings: the AppsSettings page opens (AppsSettings)
+ok    buttons on AppsSettings: the AppsSettings page shows (672x513)
+ok    AppsSettings: pressed 5 control(s)
+ok    buttons on ArchiveSettings: the ArchiveSettings page opens (ArchiveSettings)
+ok    buttons on ArchiveSettings: the ArchiveSettings page shows (672x513)
+ok    ArchiveSettings: pressed 7 control(s)
+ok    buttons on ViewerSettings: the ViewerSettings page opens (ViewerSettings)
+ok    buttons on ViewerSettings: the ViewerSettings page shows (672x513)
+ok    ViewerSettings: pressed 8 control(s)
+ok    buttons on PlayerSettings: the PlayerSettings page opens (PlayerSettings)
+ok    buttons on PlayerSettings: the PlayerSettings page shows (672x513)
+ok    PlayerSettings: pressed 8 control(s)
+ok    buttons on CaptureSettings: the CaptureSettings page opens (CaptureSettings)
+ok    buttons on CaptureSettings: the CaptureSettings page shows (672x513)
+ok    CaptureSettings: pressed 11 control(s)
+ok    buttons on ClipboardSettings: the ClipboardSettings page opens (ClipboardSettings)
+ok    buttons on ClipboardSettings: the ClipboardSettings page shows (672x513)
+note  a dialog came up: QMessageBox 'تمسح سجل الحافظة؟': كل المحفوظ ينمسح، إلا اللي ثبّته.
+ok    ClipboardSettings: pressed 7 control(s)
+ok    buttons on Updates: the Updates page opens (Updates)
+ok    buttons on Updates: the Updates page shows (748x608)
+ok    Updates: pressed 0 control(s)
+ok    buttons on About: the About page opens (About)
+ok    buttons on About: the About page shows (748x608)
+note  a dialog came up: Tour 'مرحبًا': 
+note  a dialog came up: QMessageBox 'الإبلاغ عن مشكلة': ينشئ كورفولد ملفًا مضغوطًا على سطح المكتب فيه:
+ok    About: pressed 4 control(s)
+note  442 presses in all; would have opened: 9 (file:///C:/Users/runneradmin/Pictures/Screenshots, program explorer /select,"C:\Users\runneradmin\Documents\Visual Studio 18\Templates\ProjectTemplates\JavaScript", startfile ('windowsdefender://threat',), program explorer /select,"C:\Users\runneradmin\Desktop", startfile ('ms-settings:defaultapps?registeredAppUser=Corefold',), startfile ('ms-settings:defaultapps?registeredAppUser=Corefold',), startfile ('ms-settings:defaultapps?registeredAppUser=Corefold',), file:///C:/Users/RUNNER~1/AppData/Local/Temp/corefold-sweep-_9h9ozbb/local/Corefold)
+ok    buttons: no errors behind the clicks (0)
+----- keyboard
+ok    Tab and Esc on Home work without an error
+ok    Tab and Esc on History work without an error
+ok    Tab and Esc on Converter work without an error
+ok    Tab and Esc on Apps work without an error
+ok    Tab and Esc on Archives work without an error
+ok    Tab and Esc on Viewer work without an error
+ok    Tab and Esc on Player work without an error
+ok    Tab and Esc on Capture work without an error
+ok    Tab and Esc on Space work without an error
+ok    Tab and Esc on Clipboard work without an error
+ok    Tab and Esc on Cloud work without an error
+ok    Tab and Esc on Startup work without an error
+ok    Tab and Esc on Scan work without an error
+ok    Tab and Esc on PDF work without an error
+ok    Tab and Esc on Rename work without an error
+ok    Tab and Esc on Colors work without an error
+ok    Tab and Esc on Ruler work without an error
+ok    Tab and Esc on Check work without an error
+ok    Tab and Esc on Shredder work without an error
+ok    Tab and Esc on Fonts work without an error
+ok    Tab and Esc on Network work without an error
+ok    Tab and Esc on Battery work without an error
+ok    Tab and Esc on Focus work without an error
+ok    Tab and Esc on Layouts work without an error
+ok    Tab and Esc on Drivers work without an error
+ok    Tab and Esc on Awake work without an error
+ok    Tab and Esc on Snippets work without an error
+ok    Tab and Esc on Backup work without an error
+ok    Tab and Esc on Notes work without an error
+ok    Tab and Esc on System work without an error
+ok    Tab and Esc on Unlock work without an error
+ok    Tab and Esc on Organizer work without an error
+ok    Tab and Esc on Sound work without an error
+ok    Tab and Esc on Store work without an error
+ok    Tab and Esc on General work without an error
+ok    Tab and Esc on Look work without an error
+ok    Tab and Esc on Quick work without an error
+ok    Tab and Esc on Shortcuts work without an error
+ok    Tab and Esc on ConvOptions work without an error
+ok    Tab and Esc on WheelLook work without an error
+ok    keyboard: no errors behind the clicks (0)
+----- tray
+ok    the tray's 'فتح كورفولد' works without an error
+ok    the tray's 'الإعدادات' works without an error
+ok    the tray's 'تحويل ما تم نسخه' works without an error
+ok    the tray's 'افتح أرشيفًا…' works without an error
+ok    the tray's 'سجل الحافظة' works without an error
+ok    the tray's 'التقط صورة للشاشة' works without an error
+ok    the tray's 'لقطة شاشة بمؤقت' works without an error
+ok    the tray's 'اختر لونًا' works without an error
+ok    the tray's 'القائمة السريعة' works without an error
+ok    the tray's 'كرّرها…' works without an error
+ok    the clipboard popup opens over another window
+ok    Esc closes the clipboard popup
+ok    after Esc you're back where you were typing (QLineEdit)
+ok    tray: no errors behind the clicks (0)
+----- search
+ok    Ctrl + K opens the search (for 'حوّل ملفات…'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran '')
+ok    the search closes after running 'حوّل ملفات…'
+ok    the search runs 'حوّل ملفات…' (أوامر) without an error
+ok    Ctrl + K opens the search (for 'التقط صورة للشاشة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'حوّل ملفات…')
+ok    the search closes after running 'التقط صورة للشاشة'
+ok    the search runs 'التقط صورة للشاشة' (أوامر) without an error
+ok    Ctrl + K opens the search (for 'لقطة شاشة بمؤقت'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'التقط صورة للشاشة')
+ok    the search closes after running 'لقطة شاشة بمؤقت'
+ok    the search runs 'لقطة شاشة بمؤقت' (أوامر) without an error
+ok    Ctrl + K opens the search (for 'سجّل GIF'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'لقطة شاشة بمؤقت')
+ok    the search closes after running 'سجّل GIF'
+ok    the search runs 'سجّل GIF' (أوامر) without an error
+ok    Ctrl + K opens the search (for 'ثبّت المنسوخ فوق الشاشة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'سجّل GIF')
+ok    the search closes after running 'ثبّت المنسوخ فوق الشاشة'
+ok    the search runs 'ثبّت المنسوخ فوق الشاشة' (أوامر) without an error
+ok    Ctrl + K opens the search (for 'اعرض سجل الحافظة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'ثبّت المنسوخ فوق الشاشة')
+ok    the search closes after running 'اعرض سجل الحافظة'
+ok    the search runs 'اعرض سجل الحافظة' (أوامر) without an error
+ok    Ctrl + K opens the search (for 'حوّل للوضع الداكن'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'اعرض سجل الحافظة')
+ok    the search closes after running 'حوّل للوضع الداكن'
+ok    the search runs 'حوّل للوضع الداكن' (أوامر) without an error
+ok    Ctrl + K opens the search (for 'اعرض الجولة مرة ثانية'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'حوّل للوضع الداكن')
+note  a dialog came up: Tour 'مرحبًا': 
+ok    the search closes after running 'اعرض الجولة مرة ثانية'
+ok    the search runs 'اعرض الجولة مرة ثانية' (أوامر) without an error
+ok    Ctrl + K opens the search (for 'الرئيسية'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'اعرض الجولة مرة ثانية')
+ok    the search closes after running 'الرئيسية'
+ok    the search runs 'الرئيسية' (انتقل إلى) without an error
+ok    Ctrl + K opens the search (for 'السجل'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الرئيسية')
+ok    the search closes after running 'السجل'
+ok    the search runs 'السجل' (انتقل إلى) without an error
+ok    Ctrl + K opens the search (for 'المحوّل'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'السجل')
+ok    the search closes after running 'المحوّل'
+ok    the search runs 'المحوّل' (انتقل إلى) without an error
+ok    Ctrl + K opens the search (for 'إزالة البرامج'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'المحوّل')
+ok    the search closes after running 'إزالة البرامج'
+ok    the search runs 'إزالة البرامج' (انتقل إلى) without an error
+ok    Ctrl + K opens the search (for 'الأرشيفات'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'إزالة البرامج')
+ok    the search closes after running 'الأرشيفات'
+ok    the search runs 'الأرشيفات' (انتقل إلى) without an error
+ok    Ctrl + K opens the search (for 'عارض الصور'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الأرشيفات')
+ok    the search closes after running 'عارض الصور'
+ok    the search runs 'عارض الصور' (انتقل إلى) without an error
+ok    Ctrl + K opens the search (for 'المشغّل'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'عارض الصور')
+ok    the search closes after running 'المشغّل'
+ok    the search runs 'المشغّل' (انتقل إلى) without an error
+ok    Ctrl + K opens the search (for 'الالتقاط'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'المشغّل')
+ok    the search closes after running 'الالتقاط'
+ok    the search runs 'الالتقاط' (انتقل إلى) without an error
+ok    Ctrl + K opens the search (for 'المساحة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الالتقاط')
+ok    the search closes after running 'المساحة'
+ok    the search runs 'المساحة' (انتقل إلى) without an error
+ok    Ctrl + K opens the search (for 'الحافظة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'المساحة')
+ok    the search closes after running 'الحافظة'
+ok    the search runs 'الحافظة' (انتقل إلى) without an error
+ok    Ctrl + K opens the search (for 'السحابة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الحافظة')
+ok    the search closes after running 'السحابة'
+ok    the search runs 'السحابة' (انتقل إلى) without an error
+ok    Ctrl + K opens the search (for 'بدء التشغيل'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'السحابة')
+ok    the search closes after running 'بدء التشغيل'
+ok    the search runs 'بدء التشغيل' (انتقل إلى) without an error
+ok    Ctrl + K opens the search (for 'فحص الفيروسات'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'بدء التشغيل')
+ok    the search closes after running 'فحص الفيروسات'
+ok    the search runs 'فحص الفيروسات' (انتقل إلى) without an error
+ok    Ctrl + K opens the search (for 'PDF'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'فحص الفيروسات')
+ok    the search closes after running 'PDF'
+ok    the search runs 'PDF' (انتقل إلى) without an error
+ok    Ctrl + K opens the search (for 'الألوان'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'PDF')
+ok    the search closes after running 'الألوان'
+ok    the search runs 'الألوان' (انتقل إلى) without an error
+ok    Ctrl + K opens the search (for 'صاحي'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الألوان')
+ok    the search closes after running 'صاحي'
+ok    the search runs 'صاحي' (انتقل إلى) without an error
+ok    Ctrl + K opens the search (for 'فتح القفل'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'صاحي')
+ok    the search closes after running 'فتح القفل'
+ok    the search runs 'فتح القفل' (انتقل إلى) without an error
+ok    Ctrl + K opens the search (for 'منظّم الملفات'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'فتح القفل')
+ok    the search closes after running 'منظّم الملفات'
+ok    the search runs 'منظّم الملفات' (انتقل إلى) without an error
+ok    Ctrl + K opens the search (for 'المتجر'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'منظّم الملفات')
+ok    the search closes after running 'المتجر'
+ok    the search runs 'المتجر' (انتقل إلى) without an error
+ok    Ctrl + K opens the search (for 'الإعدادات'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'المتجر')
+ok    the search closes after running 'الإعدادات'
+ok    the search runs 'الإعدادات' (انتقل إلى) without an error
+ok    Ctrl + K opens the search (for 'التحديثات'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الإعدادات')
+ok    the search closes after running 'التحديثات'
+ok    the search runs 'التحديثات' (انتقل إلى) without an error
+ok    Ctrl + K opens the search (for 'حول'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'التحديثات')
+ok    the search closes after running 'حول'
+ok    the search runs 'حول' (انتقل إلى) without an error
+ok    Ctrl + K opens the search (for 'إعادة التسمية من كورفولد'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'حول')
+ok    the search closes after running 'إعادة التسمية من كورفولد'
+ok    the search runs 'إعادة التسمية من كورفولد' (قريباً) without an error
+ok    Ctrl + K opens the search (for 'المسطرة من كورفولد'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'إعادة التسمية من كورفولد')
+ok    the search closes after running 'المسطرة من كورفولد'
+ok    the search runs 'المسطرة من كورفولد' (قريباً) without an error
+ok    Ctrl + K opens the search (for 'التحقق من كورفولد'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'المسطرة من كورفولد')
+ok    the search closes after running 'التحقق من كورفولد'
+ok    the search runs 'التحقق من كورفولد' (قريباً) without an error
+ok    Ctrl + K opens the search (for 'الحذف النهائي من كورفولد'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'التحقق من كورفولد')
+ok    the search closes after running 'الحذف النهائي من كورفولد'
+ok    the search runs 'الحذف النهائي من كورفولد' (قريباً) without an error
+ok    Ctrl + K opens the search (for 'الخطوط من كورفولد'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الحذف النهائي من كورفولد')
+ok    the search closes after running 'الخطوط من كورفولد'
+ok    the search runs 'الخطوط من كورفولد' (قريباً) without an error
+ok    Ctrl + K opens the search (for 'الشبكة من كورفولد'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الخطوط من كورفولد')
+ok    the search closes after running 'الشبكة من كورفولد'
+ok    the search runs 'الشبكة من كورفولد' (قريباً) without an error
+ok    Ctrl + K opens the search (for 'البطارية من كورفولد'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الشبكة من كورفولد')
+ok    the search closes after running 'البطارية من كورفولد'
+ok    the search runs 'البطارية من كورفولد' (قريباً) without an error
+ok    Ctrl + K opens the search (for 'التركيز من كورفولد'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'البطارية من كورفولد')
+ok    the search closes after running 'التركيز من كورفولد'
+ok    the search runs 'التركيز من كورفولد' (قريباً) without an error
+ok    Ctrl + K opens the search (for 'ترتيب النوافذ من كورفولد'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'التركيز من كورفولد')
+ok    the search closes after running 'ترتيب النوافذ من كورفولد'
+ok    the search runs 'ترتيب النوافذ من كورفولد' (قريباً) without an error
+ok    Ctrl + K opens the search (for 'التعريفات من كورفولد'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'ترتيب النوافذ من كورفولد')
+ok    the search closes after running 'التعريفات من كورفولد'
+ok    the search runs 'التعريفات من كورفولد' (قريباً) without an error
+ok    Ctrl + K opens the search (for 'النصوص السريعة من كورفولد'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'التعريفات من كورفولد')
+ok    the search closes after running 'النصوص السريعة من كورفولد'
+ok    the search runs 'النصوص السريعة من كورفولد' (قريباً) without an error
+ok    Ctrl + K opens the search (for 'النسخ الاحتياطي من كورفولد'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'النصوص السريعة من كورفولد')
+ok    the search closes after running 'النسخ الاحتياطي من كورفولد'
+ok    the search runs 'النسخ الاحتياطي من كورفولد' (قريباً) without an error
+ok    Ctrl + K opens the search (for 'الملاحظات من كورفولد'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'النسخ الاحتياطي من كورفولد')
+ok    the search closes after running 'الملاحظات من كورفولد'
+ok    the search runs 'الملاحظات من كورفولد' (قريباً) without an error
+ok    Ctrl + K opens the search (for 'النظام من كورفولد'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الملاحظات من كورفولد')
+ok    the search closes after running 'النظام من كورفولد'
+ok    the search runs 'النظام من كورفولد' (قريباً) without an error
+ok    Ctrl + K opens the search (for 'الصوت من كورفولد'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'النظام من كورفولد')
+ok    the search closes after running 'الصوت من كورفولد'
+ok    the search runs 'الصوت من كورفولد' (قريباً) without an error
+ok    Ctrl + K opens the search (for 'عام'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الصوت من كورفولد')
+ok    the search closes after running 'عام'
+ok    the search runs 'عام' (الإعدادات) without an error
+ok    Ctrl + K opens the search (for 'المظهر'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'عام')
+ok    the search closes after running 'المظهر'
+ok    the search runs 'المظهر' (الإعدادات) without an error
+ok    Ctrl + K opens the search (for 'الوصول السريع'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'المظهر')
+ok    the search closes after running 'الوصول السريع'
+ok    the search runs 'الوصول السريع' (الإعدادات) without an error
+ok    Ctrl + K opens the search (for 'الاختصارات'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الوصول السريع')
+ok    the search closes after running 'الاختصارات'
+ok    the search runs 'الاختصارات' (الإعدادات) without an error
+ok    Ctrl + K opens the search (for 'المحوّل'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الاختصارات')
+ok    the search closes after running 'المحوّل'
+ok    the search runs 'المحوّل' (الإعدادات) without an error
+ok    Ctrl + K opens the search (for 'إزالة البرامج'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'المحوّل')
+ok    the search closes after running 'إزالة البرامج'
+ok    the search runs 'إزالة البرامج' (الإعدادات) without an error
+ok    Ctrl + K opens the search (for 'الأرشيفات'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'إزالة البرامج')
+ok    the search closes after running 'الأرشيفات'
+ok    the search runs 'الأرشيفات' (الإعدادات) without an error
+ok    Ctrl + K opens the search (for 'عارض الصور'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الأرشيفات')
+ok    the search closes after running 'عارض الصور'
+ok    the search runs 'عارض الصور' (الإعدادات) without an error
+ok    Ctrl + K opens the search (for 'المشغّل'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'عارض الصور')
+ok    the search closes after running 'المشغّل'
+ok    the search runs 'المشغّل' (الإعدادات) without an error
+ok    Ctrl + K opens the search (for 'الالتقاط'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'المشغّل')
+ok    the search closes after running 'الالتقاط'
+ok    the search runs 'الالتقاط' (الإعدادات) without an error
+ok    Ctrl + K opens the search (for 'الحافظة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الالتقاط')
+ok    the search closes after running 'الحافظة'
+ok    the search runs 'الحافظة' (الإعدادات) without an error
+ok    Ctrl + K opens the search (for 'اللغة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الحافظة')
+ok    the search closes after running 'اللغة'
+ok    the search runs 'اللغة' (الإعدادات ‹ عام) without an error
+ok    Ctrl + K opens the search (for 'الصوت عند الانتهاء'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'اللغة')
+ok    the search closes after running 'الصوت عند الانتهاء'
+ok    the search runs 'الصوت عند الانتهاء' (الإعدادات ‹ عام) without an error
+ok    Ctrl + K opens the search (for 'مستوى الصوت'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الصوت عند الانتهاء')
+ok    the search closes after running 'مستوى الصوت'
+ok    the search runs 'مستوى الصوت' (الإعدادات ‹ عام) without an error
+ok    Ctrl + K opens the search (for 'تشغيل كورفولد مع بدء ويندوز'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'مستوى الصوت')
+ok    the search closes after running 'تشغيل كورفولد مع بدء ويندوز'
+ok    the search runs 'تشغيل كورفولد مع بدء ويندوز' (الإعدادات ‹ عام) without an error
+ok    Ctrl + K opens the search (for 'إظهار نافذة صغيرة أثناء التحويل وعند انت'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'تشغيل كورفولد مع بدء ويندوز')
+ok    the search closes after running 'إظهار نافذة صغيرة أثناء التحويل وعند انت'
+ok    the search runs 'إظهار نافذة صغيرة أثناء التحويل وعند انت' (الإعدادات ‹ عام) without an error
+ok    Ctrl + K opens the search (for 'تشغيل صوت هادئ عند حدوث مشكلة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'إظهار نافذة صغيرة أثناء التحويل وعند انتهائه')
+ok    the search closes after running 'تشغيل صوت هادئ عند حدوث مشكلة'
+ok    the search runs 'تشغيل صوت هادئ عند حدوث مشكلة' (الإعدادات ‹ عام) without an error
+ok    Ctrl + K opens the search (for 'الحفاظ على سرعة جهازي'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'تشغيل صوت هادئ عند حدوث مشكلة')
+ok    the search closes after running 'الحفاظ على سرعة جهازي'
+ok    the search runs 'الحفاظ على سرعة جهازي' (الإعدادات ‹ عام) without an error
+ok    Ctrl + K opens the search (for 'التحويل في الخلفية، لتبقى الألعاب والتطب'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الحفاظ على سرعة جهازي')
+ok    the search closes after running 'التحويل في الخلفية، لتبقى الألعاب والتطب'
+ok    the search runs 'التحويل في الخلفية، لتبقى الألعاب والتطب' (الإعدادات ‹ عام) without an error
+ok    Ctrl + K opens the search (for 'تحويل شيء واحد في كل مرة (والباقي ينتظر '; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'التحويل في الخلفية، لتبقى الألعاب والتطبيقات الأخرى أولًا دائمًا')
+ok    the search closes after running 'تحويل شيء واحد في كل مرة (والباقي ينتظر '
+ok    the search runs 'تحويل شيء واحد في كل مرة (والباقي ينتظر ' (الإعدادات ‹ عام) without an error
+ok    Ctrl + K opens the search (for 'إعداداتك في ملف'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'تحويل شيء واحد في كل مرة (والباقي ينتظر دوره)')
+ok    the search closes after running 'إعداداتك في ملف'
+ok    the search runs 'إعداداتك في ملف' (الإعدادات ‹ عام) without an error
+ok    Ctrl + K opens the search (for 'المظهر'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'إعداداتك في ملف')
+ok    the search closes after running 'المظهر'
+ok    the search runs 'المظهر' (الإعدادات ‹ المظهر) without an error
+ok    Ctrl + K opens the search (for 'اللون المميز'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'المظهر')
+ok    the search closes after running 'اللون المميز'
+ok    the search runs 'اللون المميز' (الإعدادات ‹ المظهر) without an error
+ok    Ctrl + K opens the search (for 'حجم النص في نوافذ كورفولد'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'اللون المميز')
+ok    the search closes after running 'حجم النص في نوافذ كورفولد'
+ok    the search runs 'حجم النص في نوافذ كورفولد' (الإعدادات ‹ المظهر) without an error
+ok    Ctrl + K opens the search (for 'الحركات'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'حجم النص في نوافذ كورفولد')
+ok    the search closes after running 'الحركات'
+ok    the search runs 'الحركات' (الإعدادات ‹ المظهر) without an error
+ok    Ctrl + K opens the search (for 'أيقونات في الشريط الجانبي'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الحركات')
+ok    the search closes after running 'أيقونات في الشريط الجانبي'
+ok    the search runs 'أيقونات في الشريط الجانبي' (الإعدادات ‹ المظهر) without an error
+ok    Ctrl + K opens the search (for 'مكان ظهور النوافذ المنبثقة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'أيقونات في الشريط الجانبي')
+ok    the search closes after running 'مكان ظهور النوافذ المنبثقة'
+ok    the search runs 'مكان ظهور النوافذ المنبثقة' (الإعدادات ‹ المظهر) without an error
+ok    Ctrl + K opens the search (for 'مدة بقاء النوافذ المنبثقة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'مكان ظهور النوافذ المنبثقة')
+ok    the search closes after running 'مدة بقاء النوافذ المنبثقة'
+ok    the search runs 'مدة بقاء النوافذ المنبثقة' (الإعدادات ‹ المظهر) without an error
+ok    Ctrl + K opens the search (for 'القائمة السريعة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'مدة بقاء النوافذ المنبثقة')
+ok    the search closes after running 'القائمة السريعة'
+ok    the search runs 'القائمة السريعة' (الإعدادات ‹ الوصول السريع) without an error
+ok    Ctrl + K opens the search (for 'افتح قائمة سريعة فوق الشاشة من أي برنامج'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'القائمة السريعة')
+ok    the search closes after running 'افتح قائمة سريعة فوق الشاشة من أي برنامج'
+ok    the search runs 'افتح قائمة سريعة فوق الشاشة من أي برنامج' (الإعدادات ‹ الوصول السريع) without an error
+ok    Ctrl + K opens the search (for 'اختصار'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'افتح قائمة سريعة فوق الشاشة من أي برنامج')
+ok    the search closes after running 'اختصار'
+ok    the search runs 'اختصار' (الإعدادات ‹ الوصول السريع) without an error
+ok    Ctrl + K opens the search (for 'الإجراءات السريعة في القائمة (أدواتك داي'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'اختصار')
+ok    the search closes after running 'الإجراءات السريعة في القائمة (أدواتك داي'
+ok    the search runs 'الإجراءات السريعة في القائمة (أدواتك داي' (الإعدادات ‹ الوصول السريع) without an error
+ok    Ctrl + K opens the search (for 'لقّ الملفات والبرامج وانا أكتب'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الإجراءات السريعة في القائمة (أدواتك دايم موجودة فيها)')
+ok    the search closes after running 'لقّ الملفات والبرامج وانا أكتب'
+ok    the search runs 'لقّ الملفات والبرامج وانا أكتب' (الإعدادات ‹ الوصول السريع) without an error
+ok    Ctrl + K opens the search (for 'ابحث في الويب باستخدام'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'لقّ الملفات والبرامج وانا أكتب')
+ok    the search closes after running 'ابحث في الويب باستخدام'
+ok    the search runs 'ابحث في الويب باستخدام' (الإعدادات ‹ الوصول السريع) without an error
+ok    Ctrl + K opens the search (for 'العجلة السريعة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'ابحث في الويب باستخدام')
+ok    the search closes after running 'العجلة السريعة'
+ok    the search runs 'العجلة السريعة' (الإعدادات ‹ الوصول السريع) without an error
+ok    Ctrl + K opens the search (for 'افتح عجلة سريعة حول الماوس من أي برنامج'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'العجلة السريعة')
+ok    the search closes after running 'افتح عجلة سريعة حول الماوس من أي برنامج'
+ok    the search runs 'افتح عجلة سريعة حول الماوس من أي برنامج' (الإعدادات ‹ الوصول السريع) without an error
+ok    Ctrl + K opens the search (for 'اعرض زر دائري صغير على الشاشة يفتح العجل'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'افتح عجلة سريعة حول الماوس من أي برنامج')
+ok    the search closes after running 'اعرض زر دائري صغير على الشاشة يفتح العجل'
+ok    the search runs 'اعرض زر دائري صغير على الشاشة يفتح العجل' (الإعدادات ‹ الوصول السريع) without an error
+ok    Ctrl + K opens the search (for 'على العجلة (لين 12)'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'اعرض زر دائري صغير على الشاشة يفتح العجلة')
+ok    the search closes after running 'على العجلة (لين 12)'
+ok    the search runs 'على العجلة (لين 12)' (الإعدادات ‹ الوصول السريع) without an error
+ok    Ctrl + K opens the search (for 'خلّ نافذة دايم فوق'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'على العجلة (لين 12)')
+ok    the search closes after running 'خلّ نافذة دايم فوق'
+ok    the search runs 'خلّ نافذة دايم فوق' (الإعدادات ‹ الوصول السريع) without an error
+ok    Ctrl + K opens the search (for 'استخدم اختصار لها'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'خلّ نافذة دايم فوق')
+ok    the search closes after running 'استخدم اختصار لها'
+ok    the search runs 'استخدم اختصار لها' (الإعدادات ‹ الوصول السريع) without an error
+ok    Ctrl + K opens the search (for 'اختصاراتك'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'استخدم اختصار لها')
+ok    the search closes after running 'اختصاراتك'
+ok    the search runs 'اختصاراتك' (الإعدادات ‹ الوصول السريع) without an error
+ok    Ctrl + K opens the search (for 'مفاتيح تعمل في أي برنامج'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'اختصاراتك')
+ok    the search closes after running 'مفاتيح تعمل في أي برنامج'
+ok    the search runs 'مفاتيح تعمل في أي برنامج' (الإعدادات ‹ الاختصارات) without an error
+ok    Ctrl + K opens the search (for 'في نافذة كورفولد'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'مفاتيح تعمل في أي برنامج')
+ok    the search closes after running 'في نافذة كورفولد'
+ok    the search runs 'في نافذة كورفولد' (الإعدادات ‹ الاختصارات) without an error
+ok    Ctrl + K opens the search (for 'في العارض'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'في نافذة كورفولد')
+ok    the search closes after running 'في العارض'
+ok    the search runs 'في العارض' (الإعدادات ‹ الاختصارات) without an error
+ok    Ctrl + K opens the search (for 'في المشغّل'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'في العارض')
+ok    the search closes after running 'في المشغّل'
+ok    the search runs 'في المشغّل' (الإعدادات ‹ الاختصارات) without an error
+ok    Ctrl + K opens the search (for 'المفتاح الذي تضغطه أثناء السحب'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'في المشغّل')
+ok    the search closes after running 'المفتاح الذي تضغطه أثناء السحب'
+ok    the search runs 'المفتاح الذي تضغطه أثناء السحب' (الإعدادات ‹ المحوّل ‹ الخيارات) without an error
+ok    Ctrl + K opens the search (for 'حفظ الملفات الجديدة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'المفتاح الذي تضغطه أثناء السحب')
+ok    the search closes after running 'حفظ الملفات الجديدة'
+ok    the search runs 'حفظ الملفات الجديدة' (الإعدادات ‹ المحوّل ‹ الخيارات) without an error
+ok    Ctrl + K opens the search (for 'جودة الصور'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'حفظ الملفات الجديدة')
+ok    the search closes after running 'جودة الصور'
+ok    the search runs 'جودة الصور' (الإعدادات ‹ المحوّل ‹ الخيارات) without an error
+ok    Ctrl + K opens the search (for 'الصيغ التي لا تناسب الملف'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'جودة الصور')
+ok    the search closes after running 'الصيغ التي لا تناسب الملف'
+ok    the search runs 'الصيغ التي لا تناسب الملف' (الإعدادات ‹ المحوّل ‹ الخيارات) without an error
+ok    Ctrl + K opens the search (for 'قائمة النقر بزر الماوس الأيمن'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الصيغ التي لا تناسب الملف')
+ok    the search closes after running 'قائمة النقر بزر الماوس الأيمن'
+ok    the search runs 'قائمة النقر بزر الماوس الأيمن' (الإعدادات ‹ المحوّل ‹ الخيارات) without an error
+ok    Ctrl + K opens the search (for 'إظهار كورفولد عند النقر بزر الماوس الأيم'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'قائمة النقر بزر الماوس الأيمن')
+ok    the search closes after running 'إظهار كورفولد عند النقر بزر الماوس الأيم'
+ok    the search runs 'إظهار كورفولد عند النقر بزر الماوس الأيم' (الإعدادات ‹ المحوّل ‹ الخيارات) without an error
+ok    Ctrl + K opens the search (for 'عند تحويل عدة ملفات، اسألني عن اسم جديد '; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'إظهار كورفولد عند النقر بزر الماوس الأيمن على ملف أو مجلد')
+ok    the search closes after running 'عند تحويل عدة ملفات، اسألني عن اسم جديد '
+ok    the search runs 'عند تحويل عدة ملفات، اسألني عن اسم جديد ' (الإعدادات ‹ المحوّل ‹ الخيارات) without an error
+ok    Ctrl + K opens the search (for 'فتح المجلد الذي فيه الملف الجديد بعد الت'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'عند تحويل عدة ملفات، اسألني عن اسم جديد (مثل رحلة-1، رحلة-2…)')
+ok    the search closes after running 'فتح المجلد الذي فيه الملف الجديد بعد الت'
+ok    the search runs 'فتح المجلد الذي فيه الملف الجديد بعد الت' (الإعدادات ‹ المحوّل ‹ الخيارات) without an error
+ok    Ctrl + K opens the search (for 'تشغيل نقرة خفيفة عند فتح العجلة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'فتح المجلد الذي فيه الملف الجديد بعد التحويل')
+ok    the search closes after running 'تشغيل نقرة خفيفة عند فتح العجلة'
+ok    the search runs 'تشغيل نقرة خفيفة عند فتح العجلة' (الإعدادات ‹ المحوّل ‹ الخيارات) without an error
+ok    Ctrl + K opens the search (for 'عند وصول صورة آيفون (HEIC) أو صورة WebP '; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'تشغيل نقرة خفيفة عند فتح العجلة')
+ok    the search closes after running 'عند وصول صورة آيفون (HEIC) أو صورة WebP '
+ok    the search runs 'عند وصول صورة آيفون (HEIC) أو صورة WebP ' (الإعدادات ‹ المحوّل ‹ الخيارات) without an error
+ok    Ctrl + K opens the search (for 'إظهار خيارات \u2066ZIP / 7z\u2069 في كل عجلة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'عند وصول صورة آيفون (HEIC) أو صورة WebP إلى التنزيلات، اعرض نسخة بصيغة JPG')
+ok    the search closes after running 'إظهار خيارات \u2066ZIP / 7z\u2069 في كل عجلة'
+ok    the search runs 'إظهار خيارات \u2066ZIP / 7z\u2069 في كل عجلة' (الإعدادات ‹ المحوّل ‹ الخيارات) without an error
+ok    Ctrl + K opens the search (for 'سوّ الفيديوهات بكرت الشاشة إذا موجود (أس'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'إظهار خيارات \u2066ZIP / 7z\u2069 في كل عجلة')
+ok    the search closes after running 'سوّ الفيديوهات بكرت الشاشة إذا موجود (أس'
+ok    the search runs 'سوّ الفيديوهات بكرت الشاشة إذا موجود (أس' (الإعدادات ‹ المحوّل ‹ الخيارات) without an error
+ok    Ctrl + K opens the search (for 'شكل العجلة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'سوّ الفيديوهات بكرت الشاشة إذا موجود (أسرع بكم مرة)')
+ok    the search closes after running 'شكل العجلة'
+ok    the search runs 'شكل العجلة' (الإعدادات ‹ المحوّل ‹ العجلة) without an error
+ok    Ctrl + K opens the search (for 'حجم العجلة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'شكل العجلة')
+ok    the search closes after running 'حجم العجلة'
+ok    the search runs 'حجم العجلة' (الإعدادات ‹ المحوّل ‹ العجلة) without an error
+ok    Ctrl + K opens the search (for 'تسميات الأجزاء'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'حجم العجلة')
+ok    the search closes after running 'تسميات الأجزاء'
+ok    the search runs 'تسميات الأجزاء' (الإعدادات ‹ المحوّل ‹ العجلة) without an error
+ok    Ctrl + K opens the search (for 'حجم النص'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'تسميات الأجزاء')
+ok    the search closes after running 'حجم النص'
+ok    the search runs 'حجم النص' (الإعدادات ‹ المحوّل ‹ العجلة) without an error
+ok    Ctrl + K opens the search (for 'عند الإشارة إلى جزء'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'حجم النص')
+ok    the search closes after running 'عند الإشارة إلى جزء'
+ok    the search runs 'عند الإشارة إلى جزء' (الإعدادات ‹ المحوّل ‹ العجلة) without an error
+ok    Ctrl + K opens the search (for 'ألوان الأجزاء'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'عند الإشارة إلى جزء')
+ok    the search closes after running 'ألوان الأجزاء'
+ok    the search runs 'ألوان الأجزاء' (الإعدادات ‹ المحوّل ‹ العجلة) without an error
+ok    Ctrl + K opens the search (for 'الخيارات في كل صفحة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'ألوان الأجزاء')
+ok    the search closes after running 'الخيارات في كل صفحة'
+ok    the search runs 'الخيارات في كل صفحة' (الإعدادات ‹ المحوّل ‹ العجلة) without an error
+ok    Ctrl + K opens the search (for 'مكان ظهور العجلة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الخيارات في كل صفحة')
+ok    the search closes after running 'مكان ظهور العجلة'
+ok    the search runs 'مكان ظهور العجلة' (الإعدادات ‹ المحوّل ‹ العجلة) without an error
+ok    Ctrl + K opens the search (for 'شفافية العجلة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'مكان ظهور العجلة')
+ok    the search closes after running 'شفافية العجلة'
+ok    the search runs 'شفافية العجلة' (الإعدادات ‹ المحوّل ‹ العجلة) without an error
+ok    Ctrl + K opens the search (for 'الصور'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'شفافية العجلة')
+ok    the search closes after running 'الصور'
+ok    the search runs 'الصور' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'PNG  ·  تحويل إلى PNG'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الصور')
+ok    the search closes after running 'PNG  ·  تحويل إلى PNG'
+ok    the search runs 'PNG  ·  تحويل إلى PNG' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'JPG  ·  تحويل إلى JPG'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'PNG  ·  تحويل إلى PNG')
+ok    the search closes after running 'JPG  ·  تحويل إلى JPG'
+ok    the search runs 'JPG  ·  تحويل إلى JPG' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'WEBP  ·  تحويل إلى WebP'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'JPG  ·  تحويل إلى JPG')
+ok    the search closes after running 'WEBP  ·  تحويل إلى WebP'
+ok    the search runs 'WEBP  ·  تحويل إلى WebP' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'PDF  ·  دمج في ملف PDF واحد'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'WEBP  ·  تحويل إلى WebP')
+ok    the search closes after running 'PDF  ·  دمج في ملف PDF واحد'
+ok    the search runs 'PDF  ·  دمج في ملف PDF واحد' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'تغيير الحجم  ·  تكبير أو تصغير الصورة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'PDF  ·  دمج في ملف PDF واحد')
+ok    the search closes after running 'تغيير الحجم  ·  تكبير أو تصغير الصورة'
+ok    the search runs 'تغيير الحجم  ·  تكبير أو تصغير الصورة' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'تدوير  ·  تدوير أو قلب'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'تغيير الحجم  ·  تكبير أو تصغير الصورة')
+ok    the search closes after running 'تدوير  ·  تدوير أو قلب'
+ok    the search runs 'تدوير  ·  تدوير أو قلب' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'اقتصاص  ·  اقتصاص الحواف'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'تدوير  ·  تدوير أو قلب')
+ok    the search closes after running 'اقتصاص  ·  اقتصاص الحواف'
+ok    the search runs 'اقتصاص  ·  اقتصاص الحواف' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'ملاءمة الحجم  ·  جعله ضمن حد معين للحجم '; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'اقتصاص  ·  اقتصاص الحواف')
+ok    the search closes after running 'ملاءمة الحجم  ·  جعله ضمن حد معين للحجم '
+ok    the search runs 'ملاءمة الحجم  ·  جعله ضمن حد معين للحجم ' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'إزالة الخلفية  ·  إزالة الخلفية'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'ملاءمة الحجم  ·  جعله ضمن حد معين للحجم (ديسكورد، البريد…)')
+ok    the search closes after running 'إزالة الخلفية  ·  إزالة الخلفية'
+ok    the search runs 'إزالة الخلفية  ·  إزالة الخلفية' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'نسخ النص  ·  نسخ النص الموجود في الصورة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'إزالة الخلفية  ·  إزالة الخلفية')
+ok    the search closes after running 'نسخ النص  ·  نسخ النص الموجود في الصورة'
+ok    the search runs 'نسخ النص  ·  نسخ النص الموجود في الصورة' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'صغير  ·  تصغير للمشاركة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'نسخ النص  ·  نسخ النص الموجود في الصورة')
+ok    the search closes after running 'صغير  ·  تصغير للمشاركة'
+ok    the search runs 'صغير  ·  تصغير للمشاركة' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'علامة مائية  ·  إضافة اسمك أو شعارك'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'صغير  ·  تصغير للمشاركة')
+ok    the search closes after running 'علامة مائية  ·  إضافة اسمك أو شعارك'
+ok    the search runs 'علامة مائية  ·  إضافة اسمك أو شعارك' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'مسح ضوئي  ·  تنظيف صور الأوراق وجمعها في'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'علامة مائية  ·  إضافة اسمك أو شعارك')
+ok    the search closes after running 'مسح ضوئي  ·  تنظيف صور الأوراق وجمعها في'
+ok    the search runs 'مسح ضوئي  ·  تنظيف صور الأوراق وجمعها في' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'فيديو  ·  تحويل الصور إلى فيديو عرض شرائ'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'مسح ضوئي  ·  تنظيف صور الأوراق وجمعها في PDF')
+ok    the search closes after running 'فيديو  ·  تحويل الصور إلى فيديو عرض شرائ'
+ok    the search runs 'فيديو  ·  تحويل الصور إلى فيديو عرض شرائ' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'ICO  ·  تحويل إلى أيقونة (ICO)'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'فيديو  ·  تحويل الصور إلى فيديو عرض شرائح')
+ok    the search closes after running 'ICO  ·  تحويل إلى أيقونة (ICO)'
+ok    the search runs 'ICO  ·  تحويل إلى أيقونة (ICO)' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'BMP  ·  تحويل إلى BMP'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'ICO  ·  تحويل إلى أيقونة (ICO)')
+ok    the search closes after running 'BMP  ·  تحويل إلى BMP'
+ok    the search runs 'BMP  ·  تحويل إلى BMP' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'AVIF  ·  تحويل إلى AVIF'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'BMP  ·  تحويل إلى BMP')
+ok    the search closes after running 'AVIF  ·  تحويل إلى AVIF'
+ok    the search runs 'AVIF  ·  تحويل إلى AVIF' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'QR  ·  قراءة رمز QR'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'AVIF  ·  تحويل إلى AVIF')
+ok    the search closes after running 'QR  ·  قراءة رمز QR'
+ok    the search runs 'QR  ·  قراءة رمز QR' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'تنظيف  ·  إزالة معلومات الموقع والكاميرا'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'QR  ·  قراءة رمز QR')
+ok    the search closes after running 'تنظيف  ·  إزالة معلومات الموقع والكاميرا'
+ok    the search runs 'تنظيف  ·  إزالة معلومات الموقع والكاميرا' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'ملصق  ·  صنع ملصق (واتساب، تيليجرام)'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'تنظيف  ·  إزالة معلومات الموقع والكاميرا')
+ok    the search closes after running 'ملصق  ·  صنع ملصق (واتساب، تيليجرام)'
+ok    the search runs 'ملصق  ·  صنع ملصق (واتساب، تيليجرام)' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'الصوت'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'ملصق  ·  صنع ملصق (واتساب، تيليجرام)')
+ok    the search closes after running 'الصوت'
+ok    the search runs 'الصوت' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'MP3  ·  تحويل إلى MP3'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الصوت')
+ok    the search closes after running 'MP3  ·  تحويل إلى MP3'
+ok    the search runs 'MP3  ·  تحويل إلى MP3' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'M4A  ·  تحويل إلى M4A'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'MP3  ·  تحويل إلى MP3')
+ok    the search closes after running 'M4A  ·  تحويل إلى M4A'
+ok    the search runs 'M4A  ·  تحويل إلى M4A' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'WAV  ·  تحويل إلى WAV'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'M4A  ·  تحويل إلى M4A')
+ok    the search closes after running 'WAV  ·  تحويل إلى WAV'
+ok    the search runs 'WAV  ·  تحويل إلى WAV' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'FLAC  ·  تحويل إلى FLAC'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'WAV  ·  تحويل إلى WAV')
+ok    the search closes after running 'FLAC  ·  تحويل إلى FLAC'
+ok    the search runs 'FLAC  ·  تحويل إلى FLAC' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'OGG  ·  تحويل إلى OGG'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'FLAC  ·  تحويل إلى FLAC')
+ok    the search closes after running 'OGG  ·  تحويل إلى OGG'
+ok    the search runs 'OGG  ·  تحويل إلى OGG' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'OPUS  ·  تحويل إلى Opus'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'OGG  ·  تحويل إلى OGG')
+ok    the search closes after running 'OPUS  ·  تحويل إلى Opus'
+ok    the search runs 'OPUS  ·  تحويل إلى Opus' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'AIFF  ·  تحويل إلى AIFF'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'OPUS  ·  تحويل إلى Opus')
+ok    the search closes after running 'AIFF  ·  تحويل إلى AIFF'
+ok    the search runs 'AIFF  ·  تحويل إلى AIFF' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'قص المدة  ·  قص البداية أو النهاية'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'AIFF  ·  تحويل إلى AIFF')
+ok    the search closes after running 'قص المدة  ·  قص البداية أو النهاية'
+ok    the search runs 'قص المدة  ·  قص البداية أو النهاية' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'ملاءمة الحجم  ·  جعله ضمن حد معين للحجم'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'قص المدة  ·  قص البداية أو النهاية')
+ok    the search closes after running 'ملاءمة الحجم  ·  جعله ضمن حد معين للحجم'
+ok    the search runs 'ملاءمة الحجم  ·  جعله ضمن حد معين للحجم' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'مستوى الصوت  ·  إصلاح مستوى الصوت (منخفض'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'ملاءمة الحجم  ·  جعله ضمن حد معين للحجم')
+ok    the search closes after running 'مستوى الصوت  ·  إصلاح مستوى الصوت (منخفض'
+ok    the search runs 'مستوى الصوت  ·  إصلاح مستوى الصوت (منخفض' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'السرعة  ·  تسريع أو إبطاء'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'مستوى الصوت  ·  إصلاح مستوى الصوت (منخفض جدًا أو مرتفع جدًا)')
+ok    the search closes after running 'السرعة  ·  تسريع أو إبطاء'
+ok    the search runs 'السرعة  ·  تسريع أو إبطاء' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'دمج  ·  ادمجها في ملف واحد، وحدة ورا الث'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'السرعة  ·  تسريع أو إبطاء')
+ok    the search closes after running 'دمج  ·  ادمجها في ملف واحد، وحدة ورا الث'
+ok    the search runs 'دمج  ·  ادمجها في ملف واحد، وحدة ورا الث' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'فيديو'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'دمج  ·  ادمجها في ملف واحد، وحدة ورا الثانية')
+ok    the search closes after running 'فيديو'
+ok    the search runs 'فيديو' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'MP4  ·  تحويل إلى MP4'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'فيديو')
+ok    the search closes after running 'MP4  ·  تحويل إلى MP4'
+ok    the search runs 'MP4  ·  تحويل إلى MP4' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'MOV  ·  تحويل إلى MOV'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'MP4  ·  تحويل إلى MP4')
+ok    the search closes after running 'MOV  ·  تحويل إلى MOV'
+ok    the search runs 'MOV  ·  تحويل إلى MOV' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'WEBM  ·  تحويل إلى WebM'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'MOV  ·  تحويل إلى MOV')
+ok    the search closes after running 'WEBM  ·  تحويل إلى WebM'
+ok    the search runs 'WEBM  ·  تحويل إلى WebM' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'MKV  ·  تحويل إلى MKV'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'WEBM  ·  تحويل إلى WebM')
+ok    the search closes after running 'MKV  ·  تحويل إلى MKV'
+ok    the search runs 'MKV  ·  تحويل إلى MKV' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'GIF  ·  تحويل إلى GIF'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'MKV  ·  تحويل إلى MKV')
+ok    the search closes after running 'GIF  ·  تحويل إلى GIF'
+ok    the search runs 'GIF  ·  تحويل إلى GIF' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'لقطات  ·  حفظ صور من الفيديو'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'GIF  ·  تحويل إلى GIF')
+ok    the search closes after running 'لقطات  ·  حفظ صور من الفيديو'
+ok    the search runs 'لقطات  ·  حفظ صور من الفيديو' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'MP3  ·  حفظ الصوت بصيغة MP3'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'لقطات  ·  حفظ صور من الفيديو')
+ok    the search closes after running 'MP3  ·  حفظ الصوت بصيغة MP3'
+ok    the search runs 'MP3  ·  حفظ الصوت بصيغة MP3' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'كتم  ·  إزالة الصوت'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'MP3  ·  حفظ الصوت بصيغة MP3')
+ok    the search closes after running 'كتم  ·  إزالة الصوت'
+ok    the search runs 'كتم  ·  إزالة الصوت' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'اقتصاص  ·  شيل الحواف السودا، أو خله مرب'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'كتم  ·  إزالة الصوت')
+ok    the search closes after running 'اقتصاص  ·  شيل الحواف السودا، أو خله مرب'
+ok    the search runs 'اقتصاص  ·  شيل الحواف السودا، أو خله مرب' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'الترجمة  ·  حط ملف ترجمة داخل الفيديو'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'اقتصاص  ·  شيل الحواف السودا، أو خله مربع أو طولي')
+ok    the search closes after running 'الترجمة  ·  حط ملف ترجمة داخل الفيديو'
+ok    the search runs 'الترجمة  ·  حط ملف ترجمة داخل الفيديو' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'SRT  ·  احفظ الترجمة اللي داخله كملف .sr'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الترجمة  ·  حط ملف ترجمة داخل الفيديو')
+ok    the search closes after running 'SRT  ·  احفظ الترجمة اللي داخله كملف .sr'
+ok    the search runs 'SRT  ·  احفظ الترجمة اللي داخله كملف .sr' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'الصوت…  ·  احفظ الصوت (M4A، WAV، FLAC…)'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'SRT  ·  احفظ الترجمة اللي داخله كملف .srt')
+ok    the search closes after running 'الصوت…  ·  احفظ الصوت (M4A، WAV، FLAC…)'
+ok    the search runs 'الصوت…  ·  احفظ الصوت (M4A، WAV، FLAC…)' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'دمج  ·  ادمجها في فيديو واحد، وحدة ورا ا'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الصوت…  ·  احفظ الصوت (M4A، WAV، FLAC…)')
+ok    the search closes after running 'دمج  ·  ادمجها في فيديو واحد، وحدة ورا ا'
+ok    the search runs 'دمج  ·  ادمجها في فيديو واحد، وحدة ورا ا' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'ملصق  ·  صنع ملصق أو GIF للمحادثات (واتس'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'دمج  ·  ادمجها في فيديو واحد، وحدة ورا الثانية')
+ok    the search closes after running 'ملصق  ·  صنع ملصق أو GIF للمحادثات (واتس'
+ok    the search runs 'ملصق  ·  صنع ملصق أو GIF للمحادثات (واتس' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'ملفات PDF'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'ملصق  ·  صنع ملصق أو GIF للمحادثات (واتساب، تيليجرام، ديسكورد)')
+ok    the search closes after running 'ملفات PDF'
+ok    the search runs 'ملفات PDF' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'دمج  ·  دمج في ملف PDF واحد'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'ملفات PDF')
+ok    the search closes after running 'دمج  ·  دمج في ملف PDF واحد'
+ok    the search runs 'دمج  ·  دمج في ملف PDF واحد' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'ضغط  ·  تصغير حجم الملف'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'دمج  ·  دمج في ملف PDF واحد')
+ok    the search closes after running 'ضغط  ·  تصغير حجم الملف'
+ok    the search runs 'ضغط  ·  تصغير حجم الملف' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'ملاءمة الحجم  ·  جعله ضمن حد معين للحجم '; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'ضغط  ·  تصغير حجم الملف')
+ok    the search closes after running 'ملاءمة الحجم  ·  جعله ضمن حد معين للحجم '
+ok    the search runs 'ملاءمة الحجم  ·  جعله ضمن حد معين للحجم ' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'تقسيم  ·  ملف PDF لكل صفحة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'ملاءمة الحجم  ·  جعله ضمن حد معين للحجم (البريد…)')
+ok    the search closes after running 'تقسيم  ·  ملف PDF لكل صفحة'
+ok    the search runs 'تقسيم  ·  ملف PDF لكل صفحة' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'PNG  ·  الصفحات إلى صور'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'تقسيم  ·  ملف PDF لكل صفحة')
+ok    the search closes after running 'PNG  ·  الصفحات إلى صور'
+ok    the search runs 'PNG  ·  الصفحات إلى صور' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'النص  ·  استخراج النص'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'PNG  ·  الصفحات إلى صور')
+ok    the search closes after running 'النص  ·  استخراج النص'
+ok    the search runs 'النص  ·  استخراج النص' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'الصفحات  ·  تدوير الصفحات أو حذفها أو إع'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'النص  ·  استخراج النص')
+ok    the search closes after running 'الصفحات  ·  تدوير الصفحات أو حذفها أو إع'
+ok    the search runs 'الصفحات  ·  تدوير الصفحات أو حذفها أو إع' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'الصور  ·  حفظ الصور التي بداخله'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الصفحات  ·  تدوير الصفحات أو حذفها أو إعادة ترتيبها')
+ok    the search closes after running 'الصور  ·  حفظ الصور التي بداخله'
+ok    the search runs 'الصور  ·  حفظ الصور التي بداخله' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'أرقام الصفحات  ·  رقّم كل الصفحات'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الصور  ·  حفظ الصور التي بداخله')
+ok    the search closes after running 'أرقام الصفحات  ·  رقّم كل الصفحات'
+ok    the search runs 'أرقام الصفحات  ·  رقّم كل الصفحات' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'علامة مائية  ·  أضف نصًا أو شعارًا إلى ك'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'أرقام الصفحات  ·  رقّم كل الصفحات')
+ok    the search closes after running 'علامة مائية  ·  أضف نصًا أو شعارًا إلى ك'
+ok    the search runs 'علامة مائية  ·  أضف نصًا أو شعارًا إلى ك' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'توقيع  ·  ضع توقيعك عليه'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'علامة مائية  ·  أضف نصًا أو شعارًا إلى كل صفحة')
+ok    the search closes after running 'توقيع  ·  ضع توقيعك عليه'
+ok    the search runs 'توقيع  ·  ضع توقيعك عليه' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'قفل  ·  حماية بكلمة مرور'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'توقيع  ·  ضع توقيعك عليه')
+ok    the search closes after running 'قفل  ·  حماية بكلمة مرور'
+ok    the search runs 'قفل  ·  حماية بكلمة مرور' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'فتح القفل  ·  إزالة كلمة المرور'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'قفل  ·  حماية بكلمة مرور')
+ok    the search closes after running 'فتح القفل  ·  إزالة كلمة المرور'
+ok    the search runs 'فتح القفل  ·  إزالة كلمة المرور' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'وورد وإكسل وباوربوينت'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'فتح القفل  ·  إزالة كلمة المرور')
+ok    the search closes after running 'وورد وإكسل وباوربوينت'
+ok    the search runs 'وورد وإكسل وباوربوينت' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'PDF  ·  تحويل إلى PDF'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'وورد وإكسل وباوربوينت')
+ok    the search closes after running 'PDF  ·  تحويل إلى PDF'
+ok    the search runs 'PDF  ·  تحويل إلى PDF' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'الأرشيفات (ZIP وRAR و7z…)'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'PDF  ·  تحويل إلى PDF')
+ok    the search closes after running 'الأرشيفات (ZIP وRAR و7z…)'
+ok    the search runs 'الأرشيفات (ZIP وRAR و7z…)' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'فك الضغط  ·  فك الضغط هنا'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الأرشيفات (ZIP وRAR و7z…)')
+ok    the search closes after running 'فك الضغط  ·  فك الضغط هنا'
+ok    the search runs 'فك الضغط  ·  فك الضغط هنا' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'إلى مجلد  ·  فك الضغط في مجلد خاص به'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'فك الضغط  ·  فك الضغط هنا')
+ok    the search closes after running 'إلى مجلد  ·  فك الضغط في مجلد خاص به'
+ok    the search runs 'إلى مجلد  ·  فك الضغط في مجلد خاص به' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'استعراض  ·  عرض المحتويات'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'إلى مجلد  ·  فك الضغط في مجلد خاص به')
+ok    the search closes after running 'استعراض  ·  عرض المحتويات'
+ok    the search runs 'استعراض  ·  عرض المحتويات' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'فحص  ·  التأكد من أنه غير تالف'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'استعراض  ·  عرض المحتويات')
+ok    the search closes after running 'فحص  ·  التأكد من أنه غير تالف'
+ok    the search runs 'فحص  ·  التأكد من أنه غير تالف' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'ZIP  ·  تحويل إلى ZIP'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'فحص  ·  التأكد من أنه غير تالف')
+ok    the search closes after running 'ZIP  ·  تحويل إلى ZIP'
+ok    the search runs 'ZIP  ·  تحويل إلى ZIP' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for '7z  ·  تحويل إلى 7z (أصغر)'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'ZIP  ·  تحويل إلى ZIP')
+ok    the search closes after running '7z  ·  تحويل إلى 7z (أصغر)'
+ok    the search runs '7z  ·  تحويل إلى 7z (أصغر)' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'إعادة تسمية  ·  إعادة تسمية الملفات (أرق'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran '7z  ·  تحويل إلى 7z (أصغر)')
+ok    the search closes after running 'إعادة تسمية  ·  إعادة تسمية الملفات (أرق'
+ok    the search runs 'إعادة تسمية  ·  إعادة تسمية الملفات (أرق' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'المجلدات'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'إعادة تسمية  ·  إعادة تسمية الملفات (أرقام، استبدال نص…)')
+ok    the search closes after running 'المجلدات'
+ok    the search runs 'المجلدات' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'JPG  ·  تحويل الصور التي بداخله إلى JPG'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'المجلدات')
+ok    the search closes after running 'JPG  ·  تحويل الصور التي بداخله إلى JPG'
+ok    the search runs 'JPG  ·  تحويل الصور التي بداخله إلى JPG' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'PNG  ·  تحويل الصور التي بداخله إلى PNG'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'JPG  ·  تحويل الصور التي بداخله إلى JPG')
+ok    the search closes after running 'PNG  ·  تحويل الصور التي بداخله إلى PNG'
+ok    the search runs 'PNG  ·  تحويل الصور التي بداخله إلى PNG' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'WebP  ·  تحويل الصور التي بداخله إلى Web'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'PNG  ·  تحويل الصور التي بداخله إلى PNG')
+ok    the search closes after running 'WebP  ·  تحويل الصور التي بداخله إلى Web'
+ok    the search runs 'WebP  ·  تحويل الصور التي بداخله إلى Web' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'صغير  ·  تصغير الصور التي بداخله للمشارك'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'WebP  ·  تحويل الصور التي بداخله إلى WebP')
+ok    the search closes after running 'صغير  ·  تصغير الصور التي بداخله للمشارك'
+ok    the search runs 'صغير  ·  تصغير الصور التي بداخله للمشارك' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'أي ملفات ومجلدات (أرشفة، إعادة تسمية)'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'صغير  ·  تصغير الصور التي بداخله للمشاركة')
+ok    the search closes after running 'أي ملفات ومجلدات (أرشفة، إعادة تسمية)'
+ok    the search runs 'أي ملفات ومجلدات (أرشفة، إعادة تسمية)' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'ZIP  ·  وضع في ملف ZIP'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'أي ملفات ومجلدات (أرشفة، إعادة تسمية)')
+ok    the search closes after running 'ZIP  ·  وضع في ملف ZIP'
+ok    the search runs 'ZIP  ·  وضع في ملف ZIP' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for '7z  ·  وضع في ملف 7z (أصغر من ZIP)'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'ZIP  ·  وضع في ملف ZIP')
+ok    the search closes after running '7z  ·  وضع في ملف 7z (أصغر من ZIP)'
+ok    the search runs '7z  ·  وضع في ملف 7z (أصغر من ZIP)' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'أرشيف…  ·  أرشيف بكلمة مرور أو مقسّم أو '; active window MainWindow, focus QLineEdit 'paletteSearch', last ran '7z  ·  وضع في ملف 7z (أصغر من ZIP)')
+ok    the search closes after running 'أرشيف…  ·  أرشيف بكلمة مرور أو مقسّم أو '
+ok    the search runs 'أرشيف…  ·  أرشيف بكلمة مرور أو مقسّم أو ' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'SHA-256  ·  انسخ بصمة الملف، عشان تتأكد '; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'أرشيف…  ·  أرشيف بكلمة مرور أو مقسّم أو بأقصى ضغط')
+ok    the search closes after running 'SHA-256  ·  انسخ بصمة الملف، عشان تتأكد '
+ok    the search runs 'SHA-256  ·  انسخ بصمة الملف، عشان تتأكد ' (الإعدادات ‹ المحوّل ‹ الصيغ) without an error
+ok    Ctrl + K opens the search (for 'اعتبر البرنامج غير مستخدم بعد'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'SHA-256  ·  انسخ بصمة الملف، عشان تتأكد من التنزيل')
+ok    the search closes after running 'اعتبر البرنامج غير مستخدم بعد'
+ok    the search runs 'اعتبر البرنامج غير مستخدم بعد' (الإعدادات ‹ إزالة البرامج) without an error
+ok    Ctrl + K opens the search (for 'احتفظ بنسخ البقايا المحذوفة لمدة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'اعتبر البرنامج غير مستخدم بعد')
+ok    the search closes after running 'احتفظ بنسخ البقايا المحذوفة لمدة'
+ok    the search runs 'احتفظ بنسخ البقايا المحذوفة لمدة' (الإعدادات ‹ إزالة البرامج) without an error
+ok    Ctrl + K opens the search (for 'درجة التنظيف'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'احتفظ بنسخ البقايا المحذوفة لمدة')
+ok    the search closes after running 'درجة التنظيف'
+ok    the search runs 'درجة التنظيف' (الإعدادات ‹ إزالة البرامج) without an error
+ok    Ctrl + K opens the search (for 'إنشاء نقطة استعادة للنظام قبل إلغاء التث'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'درجة التنظيف')
+ok    the search closes after running 'إنشاء نقطة استعادة للنظام قبل إلغاء التث'
+ok    the search runs 'إنشاء نقطة استعادة للنظام قبل إلغاء التث' (الإعدادات ‹ إزالة البرامج) without an error
+ok    Ctrl + K opens the search (for 'فك الضغط هنا'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'إنشاء نقطة استعادة للنظام قبل إلغاء التثبيت (محددة مسبقًا)')
+ok    the search closes after running 'فك الضغط هنا'
+ok    the search runs 'فك الضغط هنا' (الإعدادات ‹ الأرشيفات) without an error
+ok    Ctrl + K opens the search (for 'فك الأرشيفات اللي بداخله أيضًا (محددة مس'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'فك الضغط هنا')
+ok    the search closes after running 'فك الأرشيفات اللي بداخله أيضًا (محددة مس'
+ok    the search runs 'فك الأرشيفات اللي بداخله أيضًا (محددة مس' (الإعدادات ‹ الأرشيفات) without an error
+ok    Ctrl + K opens the search (for 'الفتح بنقرة مزدوجة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'فك الأرشيفات اللي بداخله أيضًا (محددة مسبقًا)')
+ok    the search closes after running 'الفتح بنقرة مزدوجة'
+ok    the search runs 'الفتح بنقرة مزدوجة' (الإعدادات ‹ الأرشيفات) without an error
+ok    Ctrl + K opens the search (for 'افتح الأرشيفات بكورفولد (يظهر في "فتح با'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الفتح بنقرة مزدوجة')
+ok    the search closes after running 'افتح الأرشيفات بكورفولد (يظهر في "فتح با'
+ok    the search runs 'افتح الأرشيفات بكورفولد (يظهر في "فتح با' (الإعدادات ‹ الأرشيفات) without an error
+ok    Ctrl + K opens the search (for 'اعرض الأرشيفات اللي أفتحها في صفحة الأرش'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'افتح الأرشيفات بكورفولد (يظهر في "فتح باستخدام")')
+ok    the search closes after running 'اعرض الأرشيفات اللي أفتحها في صفحة الأرش'
+ok    the search runs 'اعرض الأرشيفات اللي أفتحها في صفحة الأرش' (الإعدادات ‹ الأرشيفات) without an error
+ok    Ctrl + K opens the search (for 'كلمات السر'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'اعرض الأرشيفات اللي أفتحها في صفحة الأرشيف')
+ok    the search closes after running 'كلمات السر'
+ok    the search runs 'كلمات السر' (الإعدادات ‹ الأرشيفات) without an error
+ok    Ctrl + K opens the search (for 'عجلة الماوس'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'كلمات السر')
+ok    the search closes after running 'عجلة الماوس'
+ok    the search runs 'عجلة الماوس' (الإعدادات ‹ عارض الصور) without an error
+ok    Ctrl + K opens the search (for 'عرض الشرائح: كل صورة لمدة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'عجلة الماوس')
+ok    the search closes after running 'عرض الشرائح: كل صورة لمدة'
+ok    the search runs 'عرض الشرائح: كل صورة لمدة' (الإعدادات ‹ عارض الصور) without an error
+ok    Ctrl + K opens the search (for 'نظرة سريعة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'عرض الشرائح: كل صورة لمدة')
+ok    the search closes after running 'نظرة سريعة'
+ok    the search runs 'نظرة سريعة' (الإعدادات ‹ عارض الصور) without an error
+ok    Ctrl + K opens the search (for 'اسأل قبل إرسال صورة لسلة المحذوفات'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'نظرة سريعة')
+ok    the search closes after running 'اسأل قبل إرسال صورة لسلة المحذوفات'
+ok    the search runs 'اسأل قبل إرسال صورة لسلة المحذوفات' (الإعدادات ‹ عارض الصور) without an error
+ok    Ctrl + K opens the search (for 'الفتح بنقرة مزدوجة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'اسأل قبل إرسال صورة لسلة المحذوفات')
+ok    the search closes after running 'الفتح بنقرة مزدوجة'
+ok    the search runs 'الفتح بنقرة مزدوجة' (الإعدادات ‹ عارض الصور) without an error
+ok    Ctrl + K opens the search (for 'افتح الصور بكورفولد (يظهر في "فتح باستخد'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الفتح بنقرة مزدوجة')
+ok    the search closes after running 'افتح الصور بكورفولد (يظهر في "فتح باستخد'
+ok    the search runs 'افتح الصور بكورفولد (يظهر في "فتح باستخد' (الإعدادات ‹ عارض الصور) without an error
+ok    Ctrl + K opens the search (for 'افتح ملفات الإيميل (\u200e.msg و \u200e.eml) بكورف'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'افتح الصور بكورفولد (يظهر في "فتح باستخدام")')
+ok    the search closes after running 'افتح ملفات الإيميل (\u200e.msg و \u200e.eml) بكورف'
+ok    the search runs 'افتح ملفات الإيميل (\u200e.msg و \u200e.eml) بكورف' (الإعدادات ‹ عارض الصور) without an error
+ok    Ctrl + K opens the search (for 'الأسهم تقفز'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'افتح ملفات الإيميل (\u200e.msg و \u200e.eml) بكورفولد')
+ok    the search closes after running 'الأسهم تقفز'
+ok    the search runs 'الأسهم تقفز' (الإعدادات ‹ المشغّل) without an error
+ok    Ctrl + K opens the search (for 'عجلة الماوس فوق الفيديو'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الأسهم تقفز')
+ok    the search closes after running 'عجلة الماوس فوق الفيديو'
+ok    the search runs 'عجلة الماوس فوق الفيديو' (الإعدادات ‹ المشغّل) without an error
+ok    Ctrl + K opens the search (for 'كمّل من حيث وقفت'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'عجلة الماوس فوق الفيديو')
+ok    the search closes after running 'كمّل من حيث وقفت'
+ok    the search runs 'كمّل من حيث وقفت' (الإعدادات ‹ المشغّل) without an error
+ok    Ctrl + K opens the search (for 'لما يخلص ملف، شغّل اللي بعده في نفس المج'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'كمّل من حيث وقفت')
+ok    the search closes after running 'لما يخلص ملف، شغّل اللي بعده في نفس المج'
+ok    the search runs 'لما يخلص ملف، شغّل اللي بعده في نفس المج' (الإعدادات ‹ المشغّل) without an error
+ok    Ctrl + K opens the search (for 'شغّل الترجمة اللي داخل الفيديو'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'لما يخلص ملف، شغّل اللي بعده في نفس المجلد')
+ok    the search closes after running 'شغّل الترجمة اللي داخل الفيديو'
+ok    the search runs 'شغّل الترجمة اللي داخل الفيديو' (الإعدادات ‹ المشغّل) without an error
+ok    Ctrl + K opens the search (for 'الفتح بنقرة مزدوجة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'شغّل الترجمة اللي داخل الفيديو')
+ok    the search closes after running 'الفتح بنقرة مزدوجة'
+ok    the search runs 'الفتح بنقرة مزدوجة' (الإعدادات ‹ المشغّل) without an error
+ok    Ctrl + K opens the search (for 'افتح الفيديوهات والموسيقى بكورفولد (يظهر'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الفتح بنقرة مزدوجة')
+ok    the search closes after running 'افتح الفيديوهات والموسيقى بكورفولد (يظهر'
+ok    the search runs 'افتح الفيديوهات والموسيقى بكورفولد (يظهر' (الإعدادات ‹ المشغّل) without an error
+ok    Ctrl + K opens the search (for 'التقط صورة للشاشة بـ'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'افتح الفيديوهات والموسيقى بكورفولد (يظهر في "فتح باستخدام")')
+ok    the search closes after running 'التقط صورة للشاشة بـ'
+ok    the search runs 'التقط صورة للشاشة بـ' (الإعدادات ‹ الالتقاط) without an error
+ok    Ctrl + K opens the search (for 'ابدأ التسجيل أو أوقفه بـ'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'التقط صورة للشاشة بـ')
+ok    the search closes after running 'ابدأ التسجيل أو أوقفه بـ'
+ok    the search runs 'ابدأ التسجيل أو أوقفه بـ' (الإعدادات ‹ الالتقاط) without an error
+ok    Ctrl + K opens the search (for 'بعد لقطة الشاشة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'ابدأ التسجيل أو أوقفه بـ')
+ok    the search closes after running 'بعد لقطة الشاشة'
+ok    the search runs 'بعد لقطة الشاشة' (الإعدادات ‹ الالتقاط) without an error
+ok    Ctrl + K opens the search (for 'لقطة الشاشة بالمؤقت تنتظر'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'بعد لقطة الشاشة')
+ok    the search closes after running 'لقطة الشاشة بالمؤقت تنتظر'
+ok    the search runs 'لقطة الشاشة بالمؤقت تنتظر' (الإعدادات ‹ الالتقاط) without an error
+ok    Ctrl + K opens the search (for 'احفظ كل لقطة شاشة في Pictures\\Screenshot'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'لقطة الشاشة بالمؤقت تنتظر')
+ok    the search closes after running 'احفظ كل لقطة شاشة في Pictures\\Screenshot'
+ok    the search runs 'احفظ كل لقطة شاشة في Pictures\\Screenshot' (الإعدادات ‹ الالتقاط) without an error
+ok    Ctrl + K opens the search (for 'التسجيل'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'احفظ كل لقطة شاشة في Pictures\\Screenshots كمان')
+ok    the search closes after running 'التسجيل'
+ok    the search runs 'التسجيل' (الإعدادات ‹ الالتقاط) without an error
+ok    Ctrl + K opens the search (for 'النعومة'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'التسجيل')
+ok    the search closes after running 'النعومة'
+ok    the search runs 'النعومة' (الإعدادات ‹ الالتقاط) without an error
+ok    Ctrl + K opens the search (for 'المايكروفون'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'النعومة')
+ok    the search closes after running 'المايكروفون'
+ok    the search runs 'المايكروفون' (الإعدادات ‹ الالتقاط) without an error
+ok    Ctrl + K opens the search (for 'سجّل صوت الجهاز بعد (فيديوهات، ألعاب، مك'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'المايكروفون')
+ok    the search closes after running 'سجّل صوت الجهاز بعد (فيديوهات، ألعاب، مك'
+ok    the search runs 'سجّل صوت الجهاز بعد (فيديوهات، ألعاب، مك' (الإعدادات ‹ الالتقاط) without an error
+ok    Ctrl + K opens the search (for 'اعرض مؤشر الماوس في التسجيلات'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'سجّل صوت الجهاز بعد (فيديوهات، ألعاب، مكالمات)')
+ok    the search closes after running 'اعرض مؤشر الماوس في التسجيلات'
+ok    the search runs 'اعرض مؤشر الماوس في التسجيلات' (الإعدادات ‹ الالتقاط) without an error
+ok    Ctrl + K opens the search (for 'عدّ تنازلي 3، 2، 1 قبل ما يبدأ التسجيل'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'اعرض مؤشر الماوس في التسجيلات')
+ok    the search closes after running 'عدّ تنازلي 3، 2، 1 قبل ما يبدأ التسجيل'
+ok    the search runs 'عدّ تنازلي 3، 2، 1 قبل ما يبدأ التسجيل' (الإعدادات ‹ الالتقاط) without an error
+ok    Ctrl + K opens the search (for 'افتح الحافظة بـ'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'عدّ تنازلي 3، 2، 1 قبل ما يبدأ التسجيل')
+ok    the search closes after running 'افتح الحافظة بـ'
+ok    the search runs 'افتح الحافظة بـ' (الإعدادات ‹ الحافظة) without an error
+ok    Ctrl + K opens the search (for 'احفظ حتى'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'افتح الحافظة بـ')
+ok    the search closes after running 'احفظ حتى'
+ok    the search runs 'احفظ حتى' (الإعدادات ‹ الحافظة) without an error
+ok    Ctrl + K opens the search (for 'انسَ النسخ الأقدم من'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'احفظ حتى')
+ok    the search closes after running 'انسَ النسخ الأقدم من'
+ok    the search runs 'انسَ النسخ الأقدم من' (الإعدادات ‹ الحافظة) without an error
+ok    Ctrl + K opens the search (for 'الصق على طول لما تختار شيء (وإلا ينسخ بس'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'انسَ النسخ الأقدم من')
+ok    the search closes after running 'الصق على طول لما تختار شيء (وإلا ينسخ بس'
+ok    the search runs 'الصق على طول لما تختار شيء (وإلا ينسخ بس' (الإعدادات ‹ الحافظة) without an error
+ok    Ctrl + K opens the search (for 'احفظ الصور اللي تنسخها'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الصق على طول لما تختار شيء (وإلا ينسخ بس)')
+ok    the search closes after running 'احفظ الصور اللي تنسخها'
+ok    the search runs 'احفظ الصور اللي تنسخها' (الإعدادات ‹ الحافظة) without an error
+ok    Ctrl + K opens the search (for 'الخصوصية'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'احفظ الصور اللي تنسخها')
+ok    the search closes after running 'الخصوصية'
+ok    the search runs 'الخصوصية' (الإعدادات ‹ الحافظة) without an error
+ok    Ctrl + K opens the search (for 'لا تحتفظ أبدًا بالمنسوخ من هذي البرامج'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'الخصوصية')
+ok    the search closes after running 'لا تحتفظ أبدًا بالمنسوخ من هذي البرامج'
+ok    the search runs 'لا تحتفظ أبدًا بالمنسوخ من هذي البرامج' (الإعدادات ‹ الحافظة) without an error
+note  the search ran 236 of 236 things
+ok    search: no errors behind the clicks (0)
+----- quick
+ok    the quick menu opens (round 1, at 959,515)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 959,515
+ok    the quick wheel is on the screen at 959,515 (773,329 372x372)
+ok    the quick menu and wheel at 959,515: no errors
+ok    the quick menu opens (round 1, at 2,2)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 2,2
+ok    the quick wheel is on the screen at 2,2 (0,0 372x372)
+ok    the quick menu and wheel at 2,2: no errors
+ok    the quick menu opens (round 1, at 1917,2)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 1917,2
+ok    the quick wheel is on the screen at 1917,2 (1547,0 372x372)
+ok    the quick menu and wheel at 1917,2: no errors
+ok    the quick menu opens (round 1, at 2,1029)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 2,1029
+ok    the quick wheel is on the screen at 2,1029 (0,659 372x372)
+ok    the quick menu and wheel at 2,1029: no errors
+ok    the quick menu opens (round 1, at 1917,1029)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 1917,1029
+ok    the quick wheel is on the screen at 1917,1029 (1547,659 372x372)
+ok    the quick menu and wheel at 1917,1029: no errors
+ok    the quick menu opens (round 2, at 959,515)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 959,515
+ok    the quick wheel is on the screen at 959,515 (773,329 372x372)
+ok    the quick menu and wheel at 959,515: no errors
+ok    the quick menu opens (round 2, at 2,2)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 2,2
+ok    the quick wheel is on the screen at 2,2 (0,0 372x372)
+ok    the quick menu and wheel at 2,2: no errors
+ok    the quick menu opens (round 2, at 1917,2)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 1917,2
+ok    the quick wheel is on the screen at 1917,2 (1547,0 372x372)
+ok    the quick menu and wheel at 1917,2: no errors
+ok    the quick menu opens (round 2, at 2,1029)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 2,1029
+ok    the quick wheel is on the screen at 2,1029 (0,659 372x372)
+ok    the quick menu and wheel at 2,1029: no errors
+ok    the quick menu opens (round 2, at 1917,1029)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 1917,1029
+ok    the quick wheel is on the screen at 1917,1029 (1547,659 372x372)
+ok    the quick menu and wheel at 1917,1029: no errors
+ok    the quick menu opens (round 3, at 959,515)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 959,515
+ok    the quick wheel is on the screen at 959,515 (773,329 372x372)
+ok    the quick menu and wheel at 959,515: no errors
+ok    the quick menu opens (round 3, at 2,2)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 2,2
+ok    the quick wheel is on the screen at 2,2 (0,0 372x372)
+ok    the quick menu and wheel at 2,2: no errors
+ok    the quick menu opens (round 3, at 1917,2)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 1917,2
+ok    the quick wheel is on the screen at 1917,2 (1547,0 372x372)
+ok    the quick menu and wheel at 1917,2: no errors
+ok    the quick menu opens (round 3, at 2,1029)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 2,1029
+ok    the quick wheel is on the screen at 2,1029 (0,659 372x372)
+ok    the quick menu and wheel at 2,1029: no errors
+ok    the quick menu opens (round 3, at 1917,1029)
+ok    the quick menu is on the screen (0,0 1920x1080 on 1920x1080)
+ok    the quick menu closes with its shortcut again
+ok    the quick wheel opens at 1917,1029
+ok    the quick wheel is on the screen at 1917,1029 (1547,659 372x372)
+ok    the quick menu and wheel at 1917,1029: no errors
+ok    the floating button shows
+ok    the floating button goes away
+ok    the floating button shows
+ok    the floating button goes away
+ok    quick: no errors behind the clicks (0)
+----- sizes
+ok    Home page, smallest window (720x460): nothing cut off or sticking out
+ok    History page, smallest window (720x460): nothing cut off or sticking out
+ok    Converter page, smallest window (720x460): nothing cut off or sticking out
+ok    Apps page, smallest window (720x460): nothing cut off or sticking out
+ok    Archives page, smallest window (720x460): nothing cut off or sticking out
+ok    Viewer page, smallest window (720x460): nothing cut off or sticking out
+ok    Player page, smallest window (720x460): nothing cut off or sticking out
+ok    Capture page, smallest window (720x460): nothing cut off or sticking out
+ok    Space page, smallest window (720x460): nothing cut off or sticking out
+ok    Clipboard page, smallest window (720x460): nothing cut off or sticking out
+ok    Cloud page, smallest window (720x460): nothing cut off or sticking out
+ok    Startup page, smallest window (720x460): nothing cut off or sticking out
+ok    Scan page, smallest window (720x460): nothing cut off or sticking out
+ok    PDF page, smallest window (720x460): nothing cut off or sticking out
+ok    Rename page, smallest window (720x460): nothing cut off or sticking out
+ok    Colors page, smallest window (720x460): nothing cut off or sticking out
+ok    Ruler page, smallest window (720x460): nothing cut off or sticking out
+ok    Check page, smallest window (720x460): nothing cut off or sticking out
+ok    Shredder page, smallest window (720x460): nothing cut off or sticking out
+ok    Fonts page, smallest window (720x460): nothing cut off or sticking out
+ok    Network page, smallest window (720x460): nothing cut off or sticking out
+ok    Battery page, smallest window (720x460): nothing cut off or sticking out
+ok    Focus page, smallest window (720x460): nothing cut off or sticking out
+ok    Layouts page, smallest window (720x460): nothing cut off or sticking out
+ok    Drivers page, smallest window (720x460): nothing cut off or sticking out
+ok    Awake page, smallest window (720x460): nothing cut off or sticking out
+ok    Snippets page, smallest window (720x460): nothing cut off or sticking out
+ok    Backup page, smallest window (720x460): nothing cut off or sticking out
+ok    Notes page, smallest window (720x460): nothing cut off or sticking out
+ok    System page, smallest window (720x460): nothing cut off or sticking out
+ok    Unlock page, smallest window (720x460): nothing cut off or sticking out
+ok    Organizer page, smallest window (720x460): nothing cut off or sticking out
+ok    Sound page, smallest window (720x460): nothing cut off or sticking out
+ok    Store page, smallest window (720x460): nothing cut off or sticking out
+ok    General page, smallest window (720x460): nothing cut off or sticking out
+ok    Look page, smallest window (720x460): nothing cut off or sticking out
+ok    Quick page, smallest window (720x460): nothing cut off or sticking out
+ok    Shortcuts page, smallest window (720x460): nothing cut off or sticking out
+ok    ConvOptions page, smallest window (720x460): nothing cut off or sticking out
+ok    WheelLook page, smallest window (720x460): nothing cut off or sticking out
+ok    Formats page, smallest window (720x460): nothing cut off or sticking out
+ok    AppsSettings page, smallest window (720x460): nothing cut off or sticking out
+ok    ArchiveSettings page, smallest window (720x460): nothing cut off or sticking out
+ok    ViewerSettings page, smallest window (720x460): nothing cut off or sticking out
+ok    PlayerSettings page, smallest window (720x460): nothing cut off or sticking out
+ok    CaptureSettings page, smallest window (720x460): nothing cut off or sticking out
+ok    ClipboardSettings page, smallest window (720x460): nothing cut off or sticking out
+ok    Updates page, smallest window (720x460): nothing cut off or sticking out
+ok    About page, smallest window (720x460): nothing cut off or sticking out
+ok    Home page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    History page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Converter page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Apps page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Archives page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Viewer page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Player page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Capture page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Space page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Clipboard page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Cloud page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Startup page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Scan page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    PDF page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Rename page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Colors page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Ruler page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Check page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Shredder page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Fonts page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Network page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Battery page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Focus page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Layouts page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Drivers page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Awake page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Snippets page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Backup page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Notes page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    System page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Unlock page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Organizer page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Sound page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Store page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    General page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Look page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Quick page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Shortcuts page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    ConvOptions page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    WheelLook page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Formats page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    AppsSettings page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    ArchiveSettings page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    ViewerSettings page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    PlayerSettings page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    CaptureSettings page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    ClipboardSettings page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Updates page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    About page, 1366x768 window (1366x768): nothing cut off or sticking out
+ok    Home page, maximized window (1920x1009): nothing cut off or sticking out
+ok    History page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Converter page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Apps page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Archives page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Viewer page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Player page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Capture page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Space page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Clipboard page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Cloud page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Startup page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Scan page, maximized window (1920x1009): nothing cut off or sticking out
+ok    PDF page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Rename page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Colors page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Ruler page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Check page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Shredder page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Fonts page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Network page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Battery page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Focus page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Layouts page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Drivers page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Awake page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Snippets page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Backup page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Notes page, maximized window (1920x1009): nothing cut off or sticking out
+ok    System page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Unlock page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Organizer page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Sound page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Store page, maximized window (1920x1009): nothing cut off or sticking out
+ok    General page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Look page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Quick page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Shortcuts page, maximized window (1920x1009): nothing cut off or sticking out
+ok    ConvOptions page, maximized window (1920x1009): nothing cut off or sticking out
+ok    WheelLook page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Formats page, maximized window (1920x1009): nothing cut off or sticking out
+ok    AppsSettings page, maximized window (1920x1009): nothing cut off or sticking out
+ok    ArchiveSettings page, maximized window (1920x1009): nothing cut off or sticking out
+ok    ViewerSettings page, maximized window (1920x1009): nothing cut off or sticking out
+ok    PlayerSettings page, maximized window (1920x1009): nothing cut off or sticking out
+ok    CaptureSettings page, maximized window (1920x1009): nothing cut off or sticking out
+ok    ClipboardSettings page, maximized window (1920x1009): nothing cut off or sticking out
+ok    Updates page, maximized window (1920x1009): nothing cut off or sticking out
+ok    About page, maximized window (1920x1009): nothing cut off or sticking out
+ok    sizes: no errors behind the clicks (0)
+----- store
+ok    round 1: removing converter takes it out of the sidebar
+ok    round 1: after removing converter the window is still open (Store)
+ok    round 1: a removed converter page can't be opened
+ok    round 1: removing uninstaller takes it out of the sidebar
+ok    round 1: after removing uninstaller the window is still open (Store)
+ok    round 1: a removed uninstaller page can't be opened
+ok    round 1: removing archive takes it out of the sidebar
+ok    round 1: after removing archive the window is still open (Store)
+ok    round 1: a removed archive page can't be opened
+ok    round 1: removing viewer takes it out of the sidebar
+ok    round 1: after removing viewer the window is still open (Store)
+ok    round 1: a removed viewer page can't be opened
+ok    round 1: removing player takes it out of the sidebar
+ok    round 1: after removing player the window is still open (Store)
+ok    round 1: a removed player page can't be opened
+ok    round 1: removing capture takes it out of the sidebar
+ok    round 1: after removing capture the window is still open (Store)
+ok    a removed Capture lets go of its shortcuts
+ok    round 1: a removed capture page can't be opened
+ok    round 1: removing space takes it out of the sidebar
+ok    round 1: after removing space the window is still open (Store)
+ok    round 1: a removed space page can't be opened
+ok    round 1: removing clipboard takes it out of the sidebar
+ok    round 1: after removing clipboard the window is still open (Store)
+ok    a removed Clipboard stops watching what's copied
+ok    round 1: a removed clipboard page can't be opened
+ok    round 1: removing cloud takes it out of the sidebar
+ok    round 1: after removing cloud the window is still open (Store)
+ok    round 1: a removed cloud page can't be opened
+ok    round 1: removing startup takes it out of the sidebar
+ok    round 1: after removing startup the window is still open (Store)
+ok    round 1: a removed startup page can't be opened
+ok    round 1: removing scan takes it out of the sidebar
+ok    round 1: after removing scan the window is still open (Store)
+ok    round 1: a removed scan page can't be opened
+ok    round 1: removing pdf takes it out of the sidebar
+ok    round 1: after removing pdf the window is still open (Store)
+ok    round 1: a removed pdf page can't be opened
+ok    round 1: removing colors takes it out of the sidebar
+ok    round 1: after removing colors the window is still open (Store)
+ok    round 1: a removed colors page can't be opened
+ok    round 1: removing awake takes it out of the sidebar
+ok    round 1: after removing awake the window is still open (Store)
+ok    round 1: a removed awake page can't be opened
+ok    round 1: removing unlock takes it out of the sidebar
+ok    round 1: after removing unlock the window is still open (Store)
+ok    round 1: a removed unlock page can't be opened
+ok    round 1: removing organizer takes it out of the sidebar
+ok    round 1: after removing organizer the window is still open (Store)
+ok    round 1: a removed organizer page can't be opened
+ok    round 1: every tool can be removed
+ok    Home with no tools, round 1: nothing cut off or sticking out
+ok    the Store with no tools, round 1: the Store page opens (Store)
+ok    the Store with no tools, round 1: the Store page shows (748x608)
+ok    round 1: organizer can be added back
+ok    round 1: unlock can be added back
+ok    round 1: awake can be added back
+ok    round 1: colors can be added back
+ok    round 1: pdf can be added back
+ok    round 1: scan can be added back
+ok    round 1: startup can be added back
+ok    round 1: cloud can be added back
+ok    round 1: clipboard can be added back
+ok    round 1: space can be added back
+ok    round 1: capture can be added back
+ok    round 1: player can be added back
+ok    round 1: viewer can be added back
+ok    round 1: archive can be added back
+ok    round 1: uninstaller can be added back
+ok    round 1: converter can be added back
+note  round 1: 31 windows, 1631 widgets, 291 MB, 58616 Python objects
+ok    round 2: removing converter takes it out of the sidebar
+ok    round 2: after removing converter the window is still open (Store)
+ok    round 2: a removed converter page can't be opened
+ok    round 2: removing uninstaller takes it out of the sidebar
+ok    round 2: after removing uninstaller the window is still open (Store)
+ok    round 2: a removed uninstaller page can't be opened
+ok    round 2: removing archive takes it out of the sidebar
+ok    round 2: after removing archive the window is still open (Store)
+ok    round 2: a removed archive page can't be opened
+ok    round 2: removing viewer takes it out of the sidebar
+ok    round 2: after removing viewer the window is still open (Store)
+ok    round 2: a removed viewer page can't be opened
+ok    round 2: removing player takes it out of the sidebar
+ok    round 2: after removing player the window is still open (Store)
+ok    round 2: a removed player page can't be opened
+ok    round 2: removing capture takes it out of the sidebar
+ok    round 2: after removing capture the window is still open (Store)
+ok    a removed Capture lets go of its shortcuts
+ok    round 2: a removed capture page can't be opened
+ok    round 2: removing space takes it out of the sidebar
+ok    round 2: after removing space the window is still open (Store)
+ok    round 2: a removed space page can't be opened
+ok    round 2: removing clipboard takes it out of the sidebar
+ok    round 2: after removing clipboard the window is still open (Store)
+ok    a removed Clipboard stops watching what's copied
+ok    round 2: a removed clipboard page can't be opened
+ok    round 2: removing cloud takes it out of the sidebar
+ok    round 2: after removing cloud the window is still open (Store)
+ok    round 2: a removed cloud page can't be opened
+ok    round 2: removing startup takes it out of the sidebar
+ok    round 2: after removing startup the window is still open (Store)
+ok    round 2: a removed startup page can't be opened
+ok    round 2: removing scan takes it out of the sidebar
+ok    round 2: after removing scan the window is still open (Store)
+ok    round 2: a removed scan page can't be opened
+ok    round 2: removing pdf takes it out of the sidebar
+ok    round 2: after removing pdf the window is still open (Store)
+ok    round 2: a removed pdf page can't be opened
+ok    round 2: removing colors takes it out of the sidebar
+ok    round 2: after removing colors the window is still open (Store)
+ok    round 2: a removed colors page can't be opened
+ok    round 2: removing awake takes it out of the sidebar
+ok    round 2: after removing awake the window is still open (Store)
+ok    round 2: a removed awake page can't be opened
+ok    round 2: removing unlock takes it out of the sidebar
+ok    round 2: after removing unlock the window is still open (Store)
+ok    round 2: a removed unlock page can't be opened
+ok    round 2: removing organizer takes it out of the sidebar
+ok    round 2: after removing organizer the window is still open (Store)
+ok    round 2: a removed organizer page can't be opened
+ok    round 2: every tool can be removed
+ok    Home with no tools, round 2: nothing cut off or sticking out
+ok    the Store with no tools, round 2: the Store page opens (Store)
+ok    the Store with no tools, round 2: the Store page shows (748x608)
+ok    round 2: organizer can be added back
+ok    round 2: unlock can be added back
+ok    round 2: awake can be added back
+ok    round 2: colors can be added back
+ok    round 2: pdf can be added back
+ok    round 2: scan can be added back
+ok    round 2: startup can be added back
+ok    round 2: cloud can be added back
+ok    round 2: clipboard can be added back
+ok    round 2: space can be added back
+ok    round 2: capture can be added back
+ok    round 2: player can be added back
+ok    round 2: viewer can be added back
+ok    round 2: archive can be added back
+ok    round 2: uninstaller can be added back
+ok    round 2: converter can be added back
+note  round 2: 31 windows, 1631 widgets, 294 MB, 58651 Python objects
+ok    round 3: removing converter takes it out of the sidebar
+ok    round 3: after removing converter the window is still open (Store)
+ok    round 3: a removed converter page can't be opened
+ok    round 3: removing uninstaller takes it out of the sidebar
+ok    round 3: after removing uninstaller the window is still open (Store)
+ok    round 3: a removed uninstaller page can't be opened
+ok    round 3: removing archive takes it out of the sidebar
+ok    round 3: after removing archive the window is still open (Store)
+ok    round 3: a removed archive page can't be opened
+ok    round 3: removing viewer takes it out of the sidebar
+ok    round 3: after removing viewer the window is still open (Store)
+ok    round 3: a removed viewer page can't be opened
+ok    round 3: removing player takes it out of the sidebar
+ok    round 3: after removing player the window is still open (Store)
+ok    round 3: a removed player page can't be opened
+ok    round 3: removing capture takes it out of the sidebar
+ok    round 3: after removing capture the window is still open (Store)
+ok    a removed Capture lets go of its shortcuts
+ok    round 3: a removed capture page can't be opened
+ok    round 3: removing space takes it out of the sidebar
+ok    round 3: after removing space the window is still open (Store)
+ok    round 3: a removed space page can't be opened
+ok    round 3: removing clipboard takes it out of the sidebar
+ok    round 3: after removing clipboard the window is still open (Store)
+ok    a removed Clipboard stops watching what's copied
+ok    round 3: a removed clipboard page can't be opened
+ok    round 3: removing cloud takes it out of the sidebar
+ok    round 3: after removing cloud the window is still open (Store)
+ok    round 3: a removed cloud page can't be opened
+ok    round 3: removing startup takes it out of the sidebar
+ok    round 3: after removing startup the window is still open (Store)
+ok    round 3: a removed startup page can't be opened
+ok    round 3: removing scan takes it out of the sidebar
+ok    round 3: after removing scan the window is still open (Store)
+ok    round 3: a removed scan page can't be opened
+ok    round 3: removing pdf takes it out of the sidebar
+ok    round 3: after removing pdf the window is still open (Store)
+ok    round 3: a removed pdf page can't be opened
+ok    round 3: removing colors takes it out of the sidebar
+ok    round 3: after removing colors the window is still open (Store)
+ok    round 3: a removed colors page can't be opened
+ok    round 3: removing awake takes it out of the sidebar
+ok    round 3: after removing awake the window is still open (Store)
+ok    round 3: a removed awake page can't be opened
+ok    round 3: removing unlock takes it out of the sidebar
+ok    round 3: after removing unlock the window is still open (Store)
+ok    round 3: a removed unlock page can't be opened
+ok    round 3: removing organizer takes it out of the sidebar
+ok    round 3: after removing organizer the window is still open (Store)
+ok    round 3: a removed organizer page can't be opened
+ok    round 3: every tool can be removed
+ok    Home with no tools, round 3: nothing cut off or sticking out
+ok    the Store with no tools, round 3: the Store page opens (Store)
+ok    the Store with no tools, round 3: the Store page shows (748x608)
+ok    round 3: organizer can be added back
+ok    round 3: unlock can be added back
+ok    round 3: awake can be added back
+ok    round 3: colors can be added back
+ok    round 3: pdf can be added back
+ok    round 3: scan can be added back
+ok    round 3: startup can be added back
+ok    round 3: cloud can be added back
+ok    round 3: clipboard can be added back
+ok    round 3: space can be added back
+ok    round 3: capture can be added back
+ok    round 3: player can be added back
+ok    round 3: viewer can be added back
+ok    round 3: archive can be added back
+ok    round 3: uninstaller can be added back
+ok    round 3: converter can be added back
+note  round 3: 31 windows, 1631 widgets, 295 MB, 58686 Python objects
+ok    widgets don't pile up as tools come and go (1631 → 1631 → 1631)
+note  memory as tools come and go (291 → 294 → 295 MB, 1.7 MB a round)
+ok    store: no errors behind the clicks (0)
+----- reopen
+note  after 10 opens: 259 MB, 15 widgets, 5 windows
+note  after 20 opens: 260 MB, 15 widgets, 5 windows
+note  after 30 opens: 260 MB, 15 widgets, 5 windows
+note  after 40 opens: 260 MB, 15 widgets, 5 windows
+ok    nothing is left behind as the window is opened and closed (15 → 15 → 15 → 15 widgets)
+ok    memory doesn't climb as the window is opened and closed (259 → 260 → 260 → 260 MB, 44 KB an open)
+ok    reopen: no errors behind the clicks (0)
+ok    the log has no errors (0: [])
+sweeptest ar-light-1040x700: 0 problem(s)

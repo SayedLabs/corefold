@@ -1,0 +1,36 @@
+2026-10-24 05:01:07,559 INFO starting Corefold 0.0.51-bughunt
+2026-10-24 05:01:11,092 INFO the shortcut ctrl+win+t is used by another app
+2026-10-24 05:01:11,092 INFO running in the background: quick access
+2026-10-24 05:01:11,259 INFO right-click menu updated
+2026-10-24 05:01:12,728 INFO archive files open with Corefold
+2026-10-24 05:01:13,413 INFO running in the background: quick access, quick look
+2026-10-24 05:01:13,413 INFO tools in use: converter, uninstaller, archive, viewer
+2026-10-24 05:01:13,414 INFO image files open with Corefold
+2026-10-24 05:01:13,416 INFO email files open with Corefold
+2026-10-24 05:01:18,779 INFO running in the background: quick access, quick look
+2026-10-24 05:01:18,779 INFO tools in use: converter, uninstaller, archive, viewer, player
+2026-10-24 05:01:18,787 INFO media files open with Corefold
+2026-10-24 05:01:24,198 INFO running in the background: capture, quick access, quick look
+2026-10-24 05:01:24,198 INFO tools in use: converter, uninstaller, archive, viewer, player, capture
+2026-10-24 05:01:29,548 INFO running in the background: capture, quick access, quick look
+2026-10-24 05:01:29,548 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space
+2026-10-24 05:01:34,928 INFO running in the background: clipboard, capture, quick access, quick look
+2026-10-24 05:01:34,928 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space, clipboard
+2026-10-24 05:01:40,289 INFO running in the background: clipboard, capture, quick access, quick look
+2026-10-24 05:01:40,289 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space, clipboard, cloud
+2026-10-24 05:01:45,653 INFO running in the background: clipboard, capture, quick access, quick look
+2026-10-24 05:01:45,655 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space, clipboard, cloud, startup
+2026-10-24 05:01:51,132 INFO running in the background: clipboard, capture, quick access, quick look
+2026-10-24 05:01:51,132 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space, clipboard, cloud, startup, scan
+2026-10-24 05:01:51,959 INFO right-click menu updated
+2026-10-24 05:01:56,166 INFO tidied up memory
+2026-10-24 05:01:56,415 INFO running in the background: clipboard, capture, quick access, quick look
+2026-10-24 05:01:56,417 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space, clipboard, cloud, startup, scan, pdf
+2026-10-24 05:02:01,727 INFO running in the background: clipboard, capture, quick access, colors, quick look
+2026-10-24 05:02:01,727 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space, clipboard, cloud, startup, scan, pdf, colors
+2026-10-24 05:02:07,021 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-24 05:02:07,021 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space, clipboard, cloud, startup, scan, pdf, colors, awake
+2026-10-24 05:02:12,394 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-24 05:02:12,394 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space, clipboard, cloud, startup, scan, pdf, colors, awake, unlock
+2026-10-24 05:02:17,666 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-24 05:02:17,666 INFO tools in use: converter, uninstaller, archive, viewer, player, capture, space, clipboard, cloud, startup, scan, pdf, colors, awake, unlock, organizer

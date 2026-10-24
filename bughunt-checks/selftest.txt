@@ -1,0 +1,365 @@
+7-Zip: C:\Program Files\7-Zip\7z.exe
+ok    zip: saved back in the same place, nothing added ['Reports/report-0.txt', 'Reports/report-1.txt', 'Reports/report-2.txt', 'notes.txt']
+ok    zip: the new version is inside
+ok    7z: saved back in the same place, nothing added ['Reports/report-0.txt', 'Reports/report-1.txt', 'Reports/report-2.txt', 'notes.txt']
+ok    7z: the new version is inside
+ok    cut-off ZIP rescued ['a.txt', 'dir/b.txt'] (Rescued 2 files)
+ok    damaged file left out ['a.txt', 'dir/'] (Rescued 1 files � 1 damaged files couldn't be saved)
+ok    damaged 7z: nothing could be read, said so (nothing in this archive could be rescued)
+ok    archives inside unpacked (Also unpacked 2 archives that were inside)
+ok    files taken out for dragging
+ok    a folder taken out for dragging (ZIP without folder entries)
+ok    the copies made for dragging are removed afterwards
+ok    dragged-out files keep the internet warning
+ok    archives: Corefold is under Open with
+ok    �and taken out again
+ok    �with nothing left behind
+ok    quick on/off of opening media files: no registry errors ([])
+ok    �and the last choice (on) is the one that stays
+ok    �and taken out again
+ok    Windows menu for photos has 24 entries
+ok    Convert to PNG starts the right job ['--run', 'image:png', 'C:\\Photos\\a b.jpg']
+ok    "All options�" opens the window
+ok    folders have an entry (windows)
+ok    the wheel entry opens the wheel
+ok    folders have an entry (wheel)
+ok    removing the menu leaves nothing
+ok    image:png on photo.jpg
+ok    image:webp on photo.jpg
+ok    image:pdf on photo.jpg
+ok    image:resize on photo.jpg
+ok    image:rotate on photo.jpg
+ok    image:crop on photo.jpg
+ok    image:fit on photo.jpg
+ok    image:ocr on photo.jpg
+ok    image:small on photo.jpg
+ok    image:watermark on photo.jpg
+ok    image:scan on photo.jpg
+ok    image:ico on photo.jpg
+ok    image:bmp on photo.jpg
+ok    image:avif on photo.jpg
+ok    image:qr on photo.jpg
+ok    image:clean on photo.jpg
+ok    image:sticker on photo.jpg
+ok    pack:zip on photo.jpg
+ok    pack:7z on photo.jpg
+ok    pack:options on photo.jpg
+ok    files:rename on photo.jpg
+ok    files:hash on photo.jpg
+ok    image:jpg on logo.png
+ok    image:webp on logo.png
+ok    image:pdf on logo.png
+ok    image:resize on logo.png
+ok    image:rotate on logo.png
+ok    image:crop on logo.png
+ok    image:fit on logo.png
+ok    image:ocr on logo.png
+ok    image:small on logo.png
+ok    image:watermark on logo.png
+ok    image:scan on logo.png
+ok    image:ico on logo.png
+ok    image:bmp on logo.png
+ok    image:avif on logo.png
+ok    image:qr on logo.png
+ok    image:clean on logo.png
+ok    image:sticker on logo.png
+ok    pack:zip on logo.png
+ok    pack:7z on logo.png
+ok    pack:options on logo.png
+ok    files:rename on logo.png
+ok    files:hash on logo.png
+ok    image:png on pic.webp
+ok    image:jpg on pic.webp
+ok    image:pdf on pic.webp
+ok    image:resize on pic.webp
+ok    image:rotate on pic.webp
+ok    image:crop on pic.webp
+ok    image:fit on pic.webp
+ok    image:ocr on pic.webp
+ok    image:small on pic.webp
+ok    image:watermark on pic.webp
+ok    image:scan on pic.webp
+ok    image:ico on pic.webp
+ok    image:bmp on pic.webp
+ok    image:avif on pic.webp
+ok    image:qr on pic.webp
+ok    image:clean on pic.webp
+ok    image:sticker on pic.webp
+ok    pack:zip on pic.webp
+ok    pack:7z on pic.webp
+ok    pack:options on pic.webp
+ok    files:rename on pic.webp
+ok    files:hash on pic.webp
+ok    image:png on pic.bmp
+ok    image:jpg on pic.bmp
+ok    image:webp on pic.bmp
+ok    image:pdf on pic.bmp
+ok    image:resize on pic.bmp
+ok    image:rotate on pic.bmp
+ok    image:crop on pic.bmp
+ok    image:fit on pic.bmp
+ok    image:ocr on pic.bmp
+ok    image:small on pic.bmp
+ok    image:watermark on pic.bmp
+ok    image:scan on pic.bmp
+ok    image:ico on pic.bmp
+ok    image:avif on pic.bmp
+ok    image:qr on pic.bmp
+ok    image:clean on pic.bmp
+ok    image:sticker on pic.bmp
+ok    pack:zip on pic.bmp
+ok    pack:7z on pic.bmp
+ok    pack:options on pic.bmp
+ok    files:rename on pic.bmp
+ok    files:hash on pic.bmp
+ok    image:png on pic.tiff
+ok    image:jpg on pic.tiff
+ok    image:webp on pic.tiff
+ok    image:pdf on pic.tiff
+ok    image:resize on pic.tiff
+ok    image:rotate on pic.tiff
+ok    image:crop on pic.tiff
+ok    image:fit on pic.tiff
+ok    image:ocr on pic.tiff
+ok    image:small on pic.tiff
+ok    image:watermark on pic.tiff
+ok    image:scan on pic.tiff
+ok    image:ico on pic.tiff
+ok    image:bmp on pic.tiff
+ok    image:avif on pic.tiff
+ok    image:qr on pic.tiff
+ok    image:clean on pic.tiff
+ok    image:sticker on pic.tiff
+ok    pack:zip on pic.tiff
+ok    pack:7z on pic.tiff
+ok    pack:options on pic.tiff
+ok    files:rename on pic.tiff
+ok    files:hash on pic.tiff
+ok    image:png on anim.gif
+ok    image:jpg on anim.gif
+ok    image:webp on anim.gif
+ok    image:pdf on anim.gif
+ok    image:resize on anim.gif
+ok    image:rotate on anim.gif
+ok    image:crop on anim.gif
+ok    image:ocr on anim.gif
+ok    image:small on anim.gif
+ok    image:watermark on anim.gif
+ok    image:scan on anim.gif
+ok    image:ico on anim.gif
+ok    image:bmp on anim.gif
+ok    image:avif on anim.gif
+ok    image:qr on anim.gif
+ok    image:clean on anim.gif
+ok    image:sticker on anim.gif
+ok    pack:zip on anim.gif
+ok    pack:7z on anim.gif
+ok    pack:options on anim.gif
+ok    files:rename on anim.gif
+ok    files:hash on anim.gif
+ok    audio:mp3 on tone.wav
+ok    audio:m4a on tone.wav
+ok    audio:flac on tone.wav
+ok    audio:ogg on tone.wav
+ok    audio:opus on tone.wav
+ok    audio:aiff on tone.wav
+ok    audio:trim on tone.wav
+ok    audio:fit on tone.wav
+ok    audio:volume on tone.wav
+ok    audio:speed on tone.wav
+ok    pack:zip on tone.wav
+ok    pack:7z on tone.wav
+ok    pack:options on tone.wav
+ok    files:rename on tone.wav
+ok    files:hash on tone.wav
+ok    audio:m4a on tone.mp3
+ok    audio:wav on tone.mp3
+ok    audio:flac on tone.mp3
+ok    audio:ogg on tone.mp3
+ok    audio:opus on tone.mp3
+ok    audio:aiff on tone.mp3
+ok    audio:trim on tone.mp3
+ok    audio:fit on tone.mp3
+ok    audio:volume on tone.mp3
+ok    audio:speed on tone.mp3
+ok    pack:zip on tone.mp3
+ok    pack:7z on tone.mp3
+ok    pack:options on tone.mp3
+ok    files:rename on tone.mp3
+ok    files:hash on tone.mp3
+ok    video:mov on clip.mp4
+ok    video:webm on clip.mp4
+ok    video:mkv on clip.mp4
+ok    video:gif on clip.mp4
+ok    video:trim on clip.mp4
+ok    video:fit on clip.mp4
+ok    video:rotate on clip.mp4
+ok    video:small on clip.mp4
+ok    video:watermark on clip.mp4
+ok    video:frames on clip.mp4
+ok    video:mp3 on clip.mp4
+ok    video:mute on clip.mp4
+ok    video:volume on clip.mp4
+ok    video:speed on clip.mp4
+ok    video:crop on clip.mp4
+ok    video:subtitles on clip.mp4
+ok    video:sound on clip.mp4
+ok    video:sticker on clip.mp4
+ok    pack:zip on clip.mp4
+ok    pack:7z on clip.mp4
+ok    pack:options on clip.mp4
+ok    files:rename on clip.mp4
+ok    files:hash on clip.mp4
+ok    video:mp4 on silent.mov
+ok    video:webm on silent.mov
+ok    video:mkv on silent.mov
+ok    video:gif on silent.mov
+ok    video:trim on silent.mov
+ok    video:fit on silent.mov
+ok    video:rotate on silent.mov
+ok    video:small on silent.mov
+ok    video:watermark on silent.mov
+ok    video:frames on silent.mov
+ok    video:speed on silent.mov
+ok    video:crop on silent.mov
+ok    video:subtitles on silent.mov
+ok    video:sticker on silent.mov
+ok    pack:zip on silent.mov
+ok    pack:7z on silent.mov
+ok    pack:options on silent.mov
+ok    files:rename on silent.mov
+ok    files:hash on silent.mov
+ok    pdf:compress on a.pdf
+ok    pdf:fit on a.pdf
+ok    pdf:split on a.pdf
+ok    pdf:png on a.pdf
+ok    pdf:text on a.pdf
+ok    pdf:pages on a.pdf
+ok    pdf:images on a.pdf
+ok    pdf:numbers on a.pdf
+ok    pdf:watermark on a.pdf
+ok    pdf:sign on a.pdf
+ok    pdf:lock on a.pdf
+ok    pack:zip on a.pdf
+ok    pack:7z on a.pdf
+ok    pack:options on a.pdf
+ok    files:rename on a.pdf
+ok    files:hash on a.pdf
+ok    pdf:compress on scan.pdf
+ok    pdf:fit on scan.pdf
+ok    pdf:split on scan.pdf
+ok    pdf:png on scan.pdf
+ok    pdf:text on scan.pdf
+ok    pdf:pages on scan.pdf
+ok    pdf:images on scan.pdf
+ok    pdf:numbers on scan.pdf
+ok    pdf:watermark on scan.pdf
+ok    pdf:sign on scan.pdf
+ok    pdf:lock on scan.pdf
+ok    pack:zip on scan.pdf
+ok    pack:7z on scan.pdf
+ok    pack:options on scan.pdf
+ok    files:rename on scan.pdf
+ok    files:hash on scan.pdf
+ok    archive:extract on pack.zip
+ok    archive:folder on pack.zip
+ok    archive:test on pack.zip
+ok    archive:7z on pack.zip
+ok    files:rename on pack.zip
+ok    folder:jpg on folder-of-pictures
+ok    folder:png on folder-of-pictures
+ok    folder:webp on folder-of-pictures
+ok    folder:small on folder-of-pictures
+ok    pack:zip on folder-of-pictures
+ok    pack:7z on folder-of-pictures
+ok    pack:options on folder-of-pictures
+ok    files:rename on folder-of-pictures
+ok    image:png on photo.jpg, logo.png
+ok    image:jpg on photo.jpg, logo.png
+ok    image:webp on photo.jpg, logo.png
+ok    image:pdf on photo.jpg, logo.png
+ok    image:resize on photo.jpg, logo.png
+ok    image:rotate on photo.jpg, logo.png
+ok    image:crop on photo.jpg, logo.png
+ok    image:fit on photo.jpg, logo.png
+ok    image:ocr on photo.jpg, logo.png
+ok    image:small on photo.jpg, logo.png
+ok    image:watermark on photo.jpg, logo.png
+ok    image:scan on photo.jpg, logo.png
+ok    image:video on photo.jpg, logo.png
+ok    image:ico on photo.jpg, logo.png
+ok    image:bmp on photo.jpg, logo.png
+ok    image:avif on photo.jpg, logo.png
+ok    image:qr on photo.jpg, logo.png
+ok    image:clean on photo.jpg, logo.png
+ok    image:sticker on photo.jpg, logo.png
+ok    pack:zip on photo.jpg, logo.png
+ok    pack:7z on photo.jpg, logo.png
+ok    pack:options on photo.jpg, logo.png
+ok    files:rename on photo.jpg, logo.png
+ok    files:hash on photo.jpg, logo.png
+ok    pdf:merge on a.pdf, b.pdf
+ok    pdf:compress on a.pdf, b.pdf
+ok    pdf:fit on a.pdf, b.pdf
+ok    pdf:split on a.pdf, b.pdf
+ok    pdf:png on a.pdf, b.pdf
+ok    pdf:text on a.pdf, b.pdf
+ok    pdf:pages on a.pdf, b.pdf
+ok    pdf:images on a.pdf, b.pdf
+ok    pdf:numbers on a.pdf, b.pdf
+ok    pdf:watermark on a.pdf, b.pdf
+ok    pdf:sign on a.pdf, b.pdf
+ok    pdf:lock on a.pdf, b.pdf
+ok    pack:zip on a.pdf, b.pdf
+ok    pack:7z on a.pdf, b.pdf
+ok    pack:options on a.pdf, b.pdf
+ok    files:rename on a.pdf, b.pdf
+ok    files:hash on a.pdf, b.pdf
+ok    pack:zip on tone.wav, clip.mp4
+ok    pack:7z on tone.wav, clip.mp4
+ok    pack:options on tone.wav, clip.mp4
+ok    files:rename on tone.wav, clip.mp4
+ok    files:hash on tone.wav, clip.mp4
+ok    ran 296 options
+ok    a junction is seen as a link
+ok    when apps were last used can be read (1 entries)
+ok    the pretend app is listed (its uninstaller is missing)
+ok    its folders are found
+ok    a junction is never offered
+ok    its registry key is found
+ok    its startup entry is found
+ok    everything offered passes the safety checks
+ok    refused: C:\Windows\System32\drivers
+ok    refused: C:\Windows\System32\kernel32.dll
+ok    refused: C:\Users\runneradmin\Documents
+ok    refused: C:\Users\RUNNER~1\AppData\Local\Temp\corefold-selftest-10ssevep\local\CfTestAppCache
+ok    refused: HKLM\SYSTEM\CurrentControlSet\Services
+ok    refused: HKCU\Software\Microsoft\Windows
+ok    removed without problems []
+ok    its folders are gone (into the backup)
+ok    the junction's target is untouched
+ok    its registry key is gone
+ok    undo puts the files back
+ok    undo puts the registry key back
+ok    undo puts the startup entry back
+ok    list the archive
+ok    extract everything
+ok    a ../ name stays inside
+ok    extracted files keep the download mark
+ok    extract one file
+ok    take one file out to open it
+ok    a name outside the folder is refused
+ok    test the archive
+ok    make a 7z with a password
+ok    a locked 7z asks for the password
+ok    open it with the password
+ok    remove one file from a ZIP
+ok    add a file with [ ] in its name
+ok    read a video's length
+ok    convert a video
+ffmpeg failed for C:\Users\RUNNER~1\AppData\Local\Temp\corefold-selftest-10ssevep\playlist.mp4: [in#0 @ 000002a779c9c580] moov atom not found
+[in#0 @ 000002a779c9c340] Error opening input: Invalid data found when processing input
+Error opening input file C:\Users\RUNNER~1\AppData\Local\Temp\corefold-selftest-10ssevep\playlist.mp4.
+Error opening input files: Invalid data found when processing input
+ok    a playlist pretending to be a video isn't followed
+selftest: 0 problem(s)

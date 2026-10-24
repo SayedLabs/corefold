@@ -1,0 +1,23 @@
+{
+ "items": [
+  {
+   "when": 1792817920.7207959,
+   "tool": "png",
+   "inputs": [
+    "README.md"
+   ],
+   "outputs": [
+    "D:\\a\\corefold\\corefold\\old\\README.md"
+   ],
+   "errors": 0,
+   "input_count": 1,
+   "output_count": 1
+  }
+ ],
+ "stats": {
+  "files": 1,
+  "jobs": 1,
+  "bytes_saved": 0,
+  "since": 1792817913.0886536
+ }
+}
