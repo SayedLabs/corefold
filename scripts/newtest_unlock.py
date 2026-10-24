@@ -230,6 +230,59 @@ def core():
               "\"--unlock <file>\" from the right-click menu becomes an unlock message")
     step("the message from the menu", messages)
 
+    def at_restart():
+        """A held folder is handed to Windows to delete as the PC starts: what's inside first."""
+        box = TMP / "at-restart"
+        (box / "sub").mkdir(parents=True)
+        for f in (box / "a.txt", box / "sub" / "b.txt"):
+            f.write_text("Corefold Unlock test\n")
+        order = unlock.at_restart_order([str(box)])
+        want = [str(box / "a.txt"), str(box / "sub" / "b.txt"), str(box / "sub"), str(box)]
+        check(sorted(order) == sorted(want) and order[-1] == str(box)
+              and order.index(str(box / "sub" / "b.txt")) < order.index(str(box / "sub")),
+              f"the order empties each folder before the folder itself ({order})")
+        # a junction inside is only the junction: what it points at is never on the list
+        outside = TMP / "junction-target"
+        outside.mkdir()
+        (outside / "keep.txt").write_text("not to be deleted\n")
+        jbox = TMP / "with-junction"
+        jbox.mkdir()
+        subprocess.run(["cmd", "/c", "mklink", "/J", str(jbox / "j"), str(outside)], capture_output=True)
+        if check((jbox / "j").exists(), "a junction to another folder was made for the test"):
+            listed = unlock.at_restart_order([str(jbox)])
+            check(str(outside / "keep.txt") not in listed and str(jbox / "j" / "keep.txt") not in listed
+                  and str(jbox / "j") in listed, f"a junction inside is deleted as itself, never gone through ({listed})")
+            listed = unlock.at_restart_order([str(jbox / "j")])
+            check(listed == [str(jbox / "j")], f"a junction picked itself is only the junction ({listed})")
+            check(unlock.at_restart_allowed(str(jbox)) and not unlock.at_restart_allowed(str(jbox / "j" / "keep.txt")),
+                  "the administrator copy refuses anything reached through a junction")
+        windir = os.environ.get("SystemRoot", r"C:\Windows")
+        check(not unlock.at_restart_allowed(os.path.join(windir, "notepad.exe"))
+              and not unlock.at_restart_allowed(os.environ.get("ProgramFiles", r"C:\Program Files"))
+              and not unlock.at_restart_allowed("C:\\"), "…and Windows, Program Files and a drive")
+        if not unlock.is_admin():
+            print("note  not administrator here: Windows wouldn't take the request (the page asks first)", flush=True)
+            return
+        held_by = start("hold", box / "a.txt")
+        r = unlock.delete_at_restart([str(box)])
+        check(r == {"scheduled": 4, "failed": 0}, f"Windows takes all four to delete at the next start ({r})")
+        import winreg
+        pending = []
+        # Newer Windows may keep the list in a second value; and it may write the long folder names
+        # (RUNNER~1 becomes runneradmin), so only the test's own folder name is compared.
+        for value in ("PendingFileRenameOperations", "PendingFileRenameOperations2"):
+            try:
+                with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager") as k:
+                    pending += list(winreg.QueryValueEx(k, value)[0] or [])
+            except OSError:
+                pass
+        mine = (box.parent.name + "\\" + box.name).lower()
+        found = [x for x in pending if mine in str(x).lower()]
+        check(bool(found), "…and they're in Windows' list of what to delete at the next start"
+              f" ({len(found)} of {len(pending)} entries; last: {pending[-3:]})")
+        held_by.kill()
+    step("deleting at the next start", at_restart)
+
 
 # ----------------------------------------------------------------------------- the page, and the right-click entry
 

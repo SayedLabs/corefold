@@ -52,7 +52,7 @@ class ColorsPage(QScrollArea):
         grid = QGridLayout()
         grid.setHorizontalSpacing(16)
         grid.setVerticalSpacing(12)
-        self.format = Segmented([(k, v) for k, v in COLORS_FORMATS.items()], s.colors_format, per_row=3)
+        self.format = Segmented([(k, v) for k, v in COLORS_FORMATS.items()], s.colors_format, per_row=5)
         self.format.changed.connect(self._format_changed)
         self.shortcut = Dropdown()
         for key, text in COLORS_SHORTCUTS.items():
@@ -86,9 +86,12 @@ class ColorsPage(QScrollArea):
         self.empty = label(tr("Colours you pick show up here."), "muted", wrap=True)
         bl.addWidget(self.empty)
         self.detail = QWidget()
-        dl = QHBoxLayout(self.detail)
-        dl.setContentsMargins(0, 8, 0, 0)
+        outer = QVBoxLayout(self.detail)
+        outer.setContentsMargins(0, 8, 0, 0)
+        outer.setSpacing(14)
+        dl = QHBoxLayout()
         dl.setSpacing(18)
+        outer.addLayout(dl)
         self.big = QLabel()
         self.big.setFixedSize(112, 112)
         dl.addWidget(self.big, 0, Qt.AlignTop)
@@ -110,6 +113,21 @@ class ColorsPage(QScrollArea):
         rows.addWidget(self.remove_btn, len(COLORS_FORMATS), 2)
         rows.setColumnStretch(1, 1)
         dl.addLayout(rows, 1)
+        # darker and lighter versions of it (a click shows that one, ready to copy)
+        strip = QHBoxLayout()
+        strip.setSpacing(4)
+        strip.addWidget(label(tr("Shades"), "muted"))
+        strip.addSpacing(10)
+        self.shade_buttons: list[QPushButton] = []
+        for _ in range(len(colors.shades("#808080"))):
+            b = QPushButton()
+            b.setCursor(Qt.PointingHandCursor)
+            b.setFixedSize(30, 30)
+            b.clicked.connect(lambda _=False, b=b: self.show_color(b.toolTip()))
+            strip.addWidget(b)
+            self.shade_buttons.append(b)
+        strip.addStretch()
+        outer.addLayout(strip)
         bl.addWidget(self.detail)
         lay.addWidget(box)
         lay.addStretch()
@@ -200,6 +218,15 @@ class ColorsPage(QScrollArea):
             value.setText(ltr(colors.as_text(hex_, fmt)))
         for b in self.copy_buttons.values():
             b.setText(tr("Copy"))
+        seen = set()
+        for b, shade in zip(self.shade_buttons, colors.shades(hex_)):
+            b.setVisible(shade not in seen)  # (black and white have fewer)
+            seen.add(shade)
+            b.setToolTip(shade)
+            b.setAccessibleName(shade)
+            edge = f"3px solid {t.text.name()}" if shade == hex_.upper() else f"1px solid {t.border.name()}"
+            b.setStyleSheet(f"QPushButton {{ background: {shade}; border: {edge}; border-radius: 6px; padding: 0;"
+                            f" min-width: 0; }} QPushButton:hover {{ border: 2px solid {t.muted.name()}; }}")
 
     def _copy(self, fmt: str):
         if not self.selected:

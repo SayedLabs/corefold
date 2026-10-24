@@ -159,6 +159,16 @@ QTreeView::indicator:checked { background: $accent; border-color: $accent; image
 QTreeView::indicator:indeterminate { background: $accent_soft; border-color: $accent; }
 QHeaderView::section { background: $surface; color: $muted; border: none; border-bottom: 1px solid $border; padding: 7px 6px;
         font-weight: 600; font-size: ${caption_plus}pt; }
+QHeaderView::section:hover { color: $text; }
+/* the sort mark sits beside the column's name, small: ^ for A to Z, as in File Explorer */
+QHeaderView::down-arrow, QHeaderView::up-arrow { width: 9px; height: 9px; subcontrol-origin: padding;
+        subcontrol-position: center right; right: 6px; }
+QHeaderView::up-arrow { image: url($up); }
+QHeaderView::down-arrow { image: url($down); }
+QSplitter::handle { background: transparent; }
+QSplitter::handle:horizontal { width: 8px; }
+QSplitter::handle:vertical { height: 8px; }
+QSplitter::handle:hover { background: $border; }
 
 QScrollArea, QWidget#scrollContent { background: transparent; border: none; }
 QScrollBar:vertical { background: transparent; width: 10px; margin: 2px; border: none; }

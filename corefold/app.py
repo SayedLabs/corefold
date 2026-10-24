@@ -342,6 +342,7 @@ class Controller(QObject):
         self.tidy_timer.setSingleShot(True)
         self.tidy_timer.timeout.connect(self._tidy_when_free)
         self._tidy_waits = 0
+        self._light_waits = 0
         self.light_tidy_timer = QTimer(self)  # soon after a job: hand back the memory it used
         self.light_tidy_timer.setSingleShot(True)
         self.light_tidy_timer.timeout.connect(self.light_tidy)
@@ -610,6 +611,13 @@ class Controller(QObject):
         (the background remover stays ready a little longer, in case more pictures follow)."""
         if self.cancels:
             return
+        # (handing memory back stops everything for a moment, up to a quarter of a second: not while
+        # someone's using one of Corefold's windows, but as soon as they've stopped for a few seconds)
+        if QApplication.activeWindow() is not None and winutil.idle_ms() < 3000 and self._light_waits < 40:
+            self._light_waits += 1
+            self.light_tidy_timer.start(3000)
+            return
+        self._light_waits = 0
         gc.collect()
         winutil.trim_memory()
 
@@ -1437,12 +1445,14 @@ class Controller(QObject):
     def apply_theme(self, wheel_only: bool = False):
         self.theme = self._make_theme()
         if not wheel_only:
+            if self._window is not None:  # (restyling goes through every page made: the hidden ones go first)
+                self._window.drop_hidden_pages()
             # restyles every window: only when it changes, and drawn once at the end instead of widget by widget
             shown = [w for w in self.app.topLevelWidgets() if w.isVisible()]
             for w in shown:
                 w.setUpdatesEnabled(False)
             try:
-                self.app.setStyleSheet(self._css())
+                self._restyle(self._css())
             finally:
                 for w in shown:
                     if _alive(w):
@@ -1458,6 +1468,13 @@ class Controller(QObject):
             self.quick.apply_theme(self.theme)
         if self.peek is not None:
             self.peek.apply_theme(self.theme)
+
+    def _restyle(self, css: str):
+        """A new look for every widget. Going from one look straight to another costs Qt about three
+        times as long as going through none (each widget is undone and redone against both looks),
+        so it goes through none: no picture is drawn in between."""
+        self.app.setStyleSheet("")
+        self.app.setStyleSheet(css)
 
     def _color_menu_icons(self):
         for action, name in self.menu_icons:
@@ -1550,7 +1567,7 @@ class Controller(QObject):
         load_qt_translations(self.app, lang)
         css = self._css()
         if css != self.app.styleSheet():  # (only right-to-left changes it: restyling everything is slow)
-            self.app.setStyleSheet(css)
+            self._restyle(css)
         self._build_tray_menu()
         self._update_tooltip()
         self.toast.retranslate()
@@ -1733,6 +1750,10 @@ class Controller(QObject):
         if result.clipboard:
             QGuiApplication.clipboard().setText(result.clipboard)
         first = result.outputs[0] if result.outputs else None
+        # a whole archive came out without a problem: what Settings › Archives says happens next
+        extracted = bool(tool and tool.key in ("archive:extract", "archive:folder") and not cancelled and not errors
+                         and result.outputs and not job["params"].get("members"))
+        recycled = self._recycle_extracted(files) if extracted and self.settings.extract_recycle else 0
 
         if cancelled:
             title, detail, linger = tr("Cancelled"), tr("Nothing was saved for the unfinished file."), 3000
@@ -1755,6 +1776,9 @@ class Controller(QObject):
             linger = 4500
         else:
             title, detail, linger = tr("Nothing to do"), "", 3000
+        if recycled:
+            detail += "\n" + tr("The archive went to the Recycle Bin") if recycled == 1 else \
+                "\n" + tr("{count} files went to the Recycle Bin", count=recycled)
 
         extra_text, extra = "", None
         if result.undo and not cancelled:
@@ -1774,8 +1798,25 @@ class Controller(QObject):
             self.play_done_sound()
         elif errors and not cancelled:
             self.play_problem_sound()
-        if first and self.settings.reveal_after and not errors and not cancelled:
+        if first and (self.settings.reveal_after or (extracted and self.settings.extract_reveal)) \
+                and not errors and not cancelled:
             winutil.reveal_in_explorer(first)
+
+    def _recycle_extracted(self, archives: list[Path]) -> int:
+        """Sends the extracted archives, each with all its parts, to the Recycle Bin (closing the
+        Archive windows that show them). Returns how many files went."""
+        from . import archives as ar
+        from .space import recycle
+        kept = set()
+        for b in list(self.browsers):
+            if _alive(b) and b.src in archives and not b.close():  # (it asked about unsaved changes: Cancel)
+                kept.add(b.src)
+        parts = [p for a in archives if a not in kept for p in ar.archive_parts(Path(a))]
+        try:
+            return recycle(parts)
+        except Exception:
+            log.exception("couldn't send the extracted archives to the Recycle Bin")
+            return 0
 
     def first_start(self):
         """The very first start: which tools this person wants, then the short tour."""

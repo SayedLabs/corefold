@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QFileInfo, QObject, Qt, QTimer, Signal
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QDialog, QFileIconProvider, QHBoxLayout, QHeaderView,
                                QLabel, QLineEdit, QMenu, QMessageBox, QProgressBar, QPushButton, QStackedWidget,
                                QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
@@ -62,6 +62,7 @@ class _Signals(QObject):
     listed = Signal(object)         # list[App] or an Exception
     sized = Signal(object)          # App
     phase = Signal(str)             # what's still being worked out: "store", "sizes" or "" (nothing)
+    icon = Signal(str, object)      # an icon file (or folder) and its picture (a QImage), made on a thread
     state = Signal(str, object)     # what the uninstall dialog is doing
 
 
@@ -143,13 +144,56 @@ def emit(signal, value) -> bool:
         return False
 
 
-def _icon_for(app: un.App, provider: QFileIconProvider) -> QIcon | None:
+def _icon_path(app: un.App) -> str:
+    """The file (or folder) whose icon the app is shown with, or ""."""
     for path in (app.icon, os.path.join(app.location, "") if app.location else ""):
         if path and os.path.exists(path) and (os.path.isdir(path) or path.lower().endswith((".exe", ".ico", ".dll"))):
-            icon = provider.icon(QFileInfo(path))
-            if not icon.isNull():
-                return icon
-    return None
+            return path
+    return ""
+
+
+def _icon_image(path: str):
+    """A file's icon as Windows shows it, as a QImage: safe on a thread (Windows can take a while
+    to give some, and the list shouldn't stutter meanwhile)."""
+    import ctypes
+    from ctypes import byref, c_uint, c_void_p, c_wchar_p, wintypes
+    from .quicksearch import hicon_image
+
+    class SHFILEINFOW(ctypes.Structure):
+        _fields_ = [("hIcon", c_void_p), ("iIcon", ctypes.c_int), ("dwAttributes", wintypes.DWORD),
+                    ("szDisplayName", ctypes.c_wchar * 260), ("szTypeName", ctypes.c_wchar * 80)]
+    shell32, user32 = ctypes.windll.shell32, ctypes.windll.user32
+    shell32.SHGetFileInfoW.argtypes = [c_wchar_p, wintypes.DWORD, ctypes.POINTER(SHFILEINFOW), c_uint, c_uint]
+    shell32.SHGetFileInfoW.restype = ctypes.c_size_t
+    user32.DestroyIcon.argtypes = [c_void_p]
+    info = SHFILEINFOW()
+    if not shell32.SHGetFileInfoW(path, 0, byref(info), ctypes.sizeof(info), 0x100) or not info.hIcon:
+        return None  # SHGFI_ICON (large)
+    try:
+        return hicon_image(info.hIcon)
+    finally:
+        user32.DestroyIcon(info.hIcon)
+
+
+def _make_icons(paths: list[str], cancel: threading.Event, signal):
+    import ctypes
+    ctypes.windll.ole32.CoInitializeEx(None, 2)  # (the shell wants it on every thread it's asked from)
+    try:
+        for path in paths:
+            if cancel.is_set():
+                return
+            try:
+                image = _icon_image(path)
+            except Exception:
+                log.debug("no icon for %s", path, exc_info=True)
+                image = None
+            if image is not None:
+                try:
+                    signal.emit(path, image)
+                except RuntimeError:  # (the page is gone)
+                    return
+    finally:
+        ctypes.windll.ole32.CoUninitialize()
 
 
 # ----------------------------------------------------------------------------- the page
@@ -207,10 +251,15 @@ class AppsPage(QWidget):
         self.signals.listed.connect(self._listed)
         self.signals.sized.connect(self._sized)
         self.signals.phase.connect(self._phase)
+        self.signals.icon.connect(self._icon_made)
         self.phase = ""
         self.cancel = threading.Event()
         self.provider = QFileIconProvider()
-        self._icon_queue: list[QTreeWidgetItem] = []
+        self._icon_queue: list[QTreeWidgetItem] = []  # rows still without their icon
+        self._icon_paths: list[str] = []               # (off Windows: icon files still to make)
+        self._icons: dict[str, QIcon] = {}   # icon file -> its icon (made once, kept while the page is)
+        self._icon_items: dict[str, list[QTreeWidgetItem]] = {}  # icon file -> the rows waiting for it
+        self._icon_cancel = threading.Event()
         self._items: dict[str, QTreeWidgetItem] = {}
         self.icon_timer = QTimer(self)
         self.icon_timer.timeout.connect(self._load_icons)
@@ -409,22 +458,50 @@ class AppsPage(QWidget):
             self._icon_queue.append(item)
         self.tree.setSortingEnabled(True)
         self._filter()
-        self.icon_timer.start(15)
+        self._start_icons()
+
+    def _start_icons(self):
+        self._icon_cancel.set()
+        self._icon_cancel = threading.Event()
+        self._icon_items = {}
+        for item in self._icon_queue:
+            path = _icon_path(item.data(0, APP_ROLE))
+            if path in self._icons:
+                item.setIcon(0, self._icons[path])
+            elif path:
+                self._icon_items.setdefault(path, []).append(item)
+        self._icon_queue = []
+        wanted = list(self._icon_items)
+        if not wanted:
+            return
+        if sys.platform == "win32":
+            threading.Thread(target=_make_icons, args=(wanted, self._icon_cancel, self.signals.icon),
+                             daemon=True).start()
+        else:  # (off Windows, for tests: Qt's own icons, a few at a time)
+            self._icon_paths = wanted
+            self.icon_timer.start(15)
+
+    def _icon_made(self, path: str, image):
+        self._show_icon(path, QIcon(QPixmap.fromImage(image)))
+
+    def _show_icon(self, path: str, icon: QIcon):
+        self._icons[path] = icon
+        for item in self._icon_items.pop(path, []):
+            try:
+                item.setIcon(0, icon)
+            except RuntimeError:  # (the list was made again meanwhile)
+                pass
 
     def _load_icons(self):
-        """A few icons at a time (Windows can be slow to give some), so the list stays smooth."""
         end = time.monotonic() + 0.012
         while time.monotonic() < end:
-            if not self._icon_queue:
+            if not self._icon_paths:
                 self.icon_timer.stop()
                 return
-            item = self._icon_queue.pop(0)
-            try:
-                icon = _icon_for(item.data(0, APP_ROLE), self.provider)
-            except RuntimeError:
-                continue
-            if icon is not None:
-                item.setIcon(0, icon)
+            path = self._icon_paths.pop(0)
+            icon = self.provider.icon(QFileInfo(path))
+            if not icon.isNull():
+                self._show_icon(path, icon)
 
     def _sized(self, app):
         item = self._items.get(app.id)

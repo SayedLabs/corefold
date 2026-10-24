@@ -1083,5 +1083,13 @@ def ignore(finding_key: str):
     _write(_config(IGNORED_FILE), sorted(keys))
 
 
+def forget_ignored():
+    """ "Show the hidden ones again": every "Don't show this again" is forgotten."""
+    try:
+        _config(IGNORED_FILE).unlink(missing_ok=True)
+    except OSError:
+        log.warning("couldn't forget the hidden scan findings")
+
+
 def finding_key(d: dict) -> str:
     return Finding(d["kind"], d["path"], d.get("level", "warn"), d.get("detail", {})).key

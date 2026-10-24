@@ -20,7 +20,7 @@ concurrency:
 jobs:
   try:
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 70   # (the two full sweeps, every page, button and search entry, take 30-45 minutes)
     strategy:
       fail-fast: false
       matrix:
@@ -57,6 +57,7 @@ jobs:
           - name: use-ar-light
             use: "--lang ar --look light"
           - name: languages
+          - name: newtests
           - name: exe
     name: ${{ matrix.name }}
     steps:
@@ -94,7 +95,7 @@ jobs:
 
       - name: Every page and button
         if: matrix.sweep != ''
-        timeout-minutes: 30
+        timeout-minutes: 55
         shell: pwsh
         continue-on-error: true
         env:
@@ -163,6 +164,16 @@ jobs:
           python scripts/langtest.py out/langtest --start first --data startdata *> out/langtest-first.txt
           python scripts/langtest.py out/langtest --start again --data startdata *> out/langtest-again.txt
 
+      - name: The 1.8 tools' own tests (Awake, Colors, Unlock, quick menu and search, Quick look, empty folders, settings in a file)
+        if: matrix.name == 'newtests'
+        timeout-minutes: 40
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          foreach ($t in Get-ChildItem scripts -Filter "newtest_*.py") {
+            python $t.FullName *> "out/$($t.BaseName).txt"
+          }
+
       - name: The built Corefold.exe
         if: matrix.name == 'exe'
         timeout-minutes: 30
@@ -202,7 +213,7 @@ jobs:
             echo "Bug hunt of $SHA"
             for d in */; do
               echo "== ${d%/}"
-              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest|featuretest|pdftest|langtest|captexttest|capfoldertest)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused" "$d" 2>/dev/null | head -20
+              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest|featuretest|pdftest|langtest|captexttest|capfoldertest|newtest_[a-z]+)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused" "$d" 2>/dev/null | head -20
               grep -rhaE "^(FAIL|ERROR|SLOW) " "$d" 2>/dev/null | sort | uniq -c | sort -rn | head -60
             done
           } > summary.txt

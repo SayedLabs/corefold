@@ -191,3 +191,19 @@ def user_busy() -> bool:
         return state.value in (2, 3, 4)
     except Exception:
         return False
+
+
+class _LASTINPUTINFO(ctypes.Structure):
+    _fields_ = [("cbSize", ctypes.c_uint), ("dwTime", ctypes.c_uint32)]
+
+
+def idle_ms() -> int:
+    """How long since the last key press or mouse move anywhere on the PC, in milliseconds (very long
+    if Windows can't say)."""
+    try:
+        info = _LASTINPUTINFO(ctypes.sizeof(_LASTINPUTINFO), 0)
+        if not user32.GetLastInputInfo(ctypes.byref(info)):
+            return 1 << 30
+        return int((ctypes.windll.kernel32.GetTickCount() - info.dwTime) & 0xFFFFFFFF)
+    except Exception:
+        return 1 << 30

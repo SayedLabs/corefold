@@ -139,6 +139,7 @@ class UnlockPage(QWidget):
         self.busy = False
         self.queued: list[Path] = []       # asked for while busy (another "What's using this?")
         self.jobs: list = []               # (kept until their answer is in)
+        self.delete_failed = False         # deleting it didn't work: deleting it as the PC restarts is offered
         self.admin = unlock.is_admin()
         self._icons = QFileIconProvider()
         self._icon_cache: dict[str, QIcon | None] = {}
@@ -194,8 +195,11 @@ class UnlockPage(QWidget):
         self.close_all_btn = _button(tr("Close all"), "primary", self.close_all)
         self.delete_btn = _button(tr("Delete it"), "danger", self.delete)
         self.again_btn = _button(tr("Check again"), None, lambda: self.check(self.paths))
+        self.later_btn = _button(tr("Delete when the PC restarts"), None, self.delete_at_restart)
+        self.later_btn.setToolTip(tr("Windows deletes it as the PC starts, before any program can open it."))
         buttons.addWidget(self.close_all_btn)
         buttons.addWidget(self.delete_btn)
+        buttons.addWidget(self.later_btn)
         buttons.addStretch()
         buttons.addWidget(self.again_btn)
         rl.addLayout(buttons)
@@ -250,6 +254,7 @@ class UnlockPage(QWidget):
             return
         if paths != self.paths:
             keep_states = False
+            self.delete_failed = False
         self.paths = paths
         if not keep_states:
             self.states = {}
@@ -332,6 +337,9 @@ class UnlockPage(QWidget):
         can_delete = found is not None and not programs and exists
         self.delete_btn.setVisible(can_delete)
         self.bin_note.setVisible(can_delete)
+        # (what won't let go, even of a program that won't close: Windows deletes it as the PC starts)
+        stuck = any(self.states.get(p.pid) in ("stuck", "no_window") or not p.closable for p in programs)
+        self.later_btn.setVisible(found is not None and exists and (self.delete_failed or stuck))
         self.again_btn.setVisible(bool(self.paths))
         if self.busy:
             self._set_busy(True)
@@ -347,7 +355,7 @@ class UnlockPage(QWidget):
 
     def _set_busy(self, on: bool, text: str = ""):
         self.busy = on
-        for b in (self.close_all_btn, self.delete_btn, self.again_btn):
+        for b in (self.close_all_btn, self.delete_btn, self.again_btn, self.later_btn):
             b.setEnabled(not on)
         for row in self.rows:
             for b in (row.close_btn, row.force_btn):
@@ -466,13 +474,60 @@ class UnlockPage(QWidget):
         if isinstance(result, Exception) or left:
             if isinstance(result, Exception):
                 log.warning("couldn't delete %s: %s", self.paths, result)
+            self.delete_failed = True
             self._fill()
-            self._say(tr("Windows didn't let Corefold delete it. Something may have opened it again: check again."))
+            self._say(tr("Windows didn't let Corefold delete it. Something may have opened it again: check again, "
+                         "or have it deleted when the PC restarts."))
             return
         self._fill()
         self.status.setText(tr("Sent to the Recycle Bin. You can put it back from there."))
         self.status.show()
         self.again_btn.hide()
+
+    def delete_at_restart(self):
+        """Windows deletes it as the PC starts (as administrator, so Windows asks first). For good: it
+        doesn't go to the Recycle Bin."""
+        if self.busy or not self.paths:
+            return
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Warning)
+        box.setWindowTitle(tr("Delete it when the PC restarts?"))
+        box.setText(tr("Windows deletes it for good as the PC starts, before any program can open it. It doesn't "
+                       "go to the Recycle Bin. Windows asks for permission first."))
+        yes = box.addButton(tr("Delete when the PC restarts"), QMessageBox.DestructiveRole)
+        box.addButton(tr("Cancel"), QMessageBox.RejectRole)
+        box.exec()
+        if box.clickedButton() is not yes:
+            return
+        paths = list(self.paths)
+        self._set_busy(True, tr("Waiting for Windows' permission…"))
+        self._run(lambda _p: unlock.ask_delete_at_restart(paths), self._scheduled)
+
+    def _scheduled(self, result):
+        self.jobs = [j for j in self.jobs if j.is_alive()]
+        if not work.alive(self):
+            return
+        self._set_busy(False)
+        self._fill()
+        if result is None:
+            self._say(tr("Nothing was changed: Windows' permission wasn't given."))
+            return
+        if isinstance(result, Exception) or not isinstance(result, dict) or result.get("error") \
+                or not result.get("scheduled"):
+            if isinstance(result, dict) and result.get("error") == "too many":
+                self._say(tr("There are too many files in it to delete as the PC restarts."))
+            elif isinstance(result, dict) and result.get("refused"):
+                self._say(tr("Corefold doesn't delete Windows' or programs' own folders this way."))
+            else:
+                log.warning("couldn't ask for %s to be deleted at restart: %s", self.paths, result)
+                self._say(tr("Windows didn't take it. Try again, or restart the PC and delete it then."))
+            return
+        self._say("")
+        self.later_btn.hide()
+        self.delete_btn.hide()
+        self.bin_note.hide()
+        self.status.setText(tr("It will be deleted the next time the PC restarts."))
+        self.status.show()
 
     # ---- the rest of the window
 
