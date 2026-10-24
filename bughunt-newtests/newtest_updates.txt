@@ -1,0 +1,52 @@
+ok    [en] no update line in the tray menu before anything is found
+
+ok    [en] the new version is found (available)
+
+ok    [en] the corner message says so
+
+ok    [en] it remembers telling ('99.1.0 2026-10-24')
+
+ok    [en] tray menu line: 'Get Corefold 99.1.0'
+
+ok    [en] the tray line is at the top of the menu
+
+ok    [en] the tray tip says so
+
+ok    [en] a second check the same day says nothing again
+
+ok    [en] Windows notification when the corner is busy (['Corefold 99.1.0 is available'])
+
+ok    [en] Check now always says it
+
+ok    [en] the Home page has the new-version line
+
+ok    [en] Home line: 'Corefold 99.1.0 is available'
+
+ok    [en] the Updates row is marked ('New')
+
+ok    [en] the Updates page offers the update
+
+ok    [en] offline at the next check: the version found before still shows (available, True, True)
+
+ok    [en] the tray line survives the menu being remade
+
+ok    [en] up to date again
+
+ok    [en] the tray line goes
+
+ok    [en] the tray tip goes back
+
+ok    [en] the Home line goes
+
+ok    [en] the Updates row's mark goes
+
+ok    [en] with automatic checks off, nothing is checked or said
+
+newtest_updates en: 0 problem(s)
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\scripts\newtest_updates.py", line 33, in <module>
+    print(said.rstrip(), flush=True)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 244-247: character maps to <undefined>

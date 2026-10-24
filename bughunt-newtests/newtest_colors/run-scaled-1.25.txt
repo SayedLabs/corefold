@@ -1,0 +1,27 @@
+ok    Colors starts at 125%
+ok    the picker opens (hex, #1A2B3C) at 125%
+ok    a click picks and closes (hex, #1A2B3C) at 125%
+ok    the clipboard has '#1A2B3C' (got '#1A2B3C'; the magnifier showed #1A2B3C) at 125%
+ok    …and #1A2B3C is at the top of the colours picked at 125%
+ok    the picker opens (hex, #E5484D) at 125%
+ok    a click picks and closes (hex, #E5484D) at 125%
+ok    the clipboard has '#E5484D' (got '#E5484D'; the magnifier showed #E5484D) at 125%
+ok    …and #E5484D is at the top of the colours picked at 125%
+ok    a small note with the colour says it was copied at 125%
+ok    the picker opens (hex, #30A46C) at 125%
+ok    a click picks and closes (hex, #30A46C) at 125%
+ok    the clipboard has '#30A46C' (got '#30A46C'; the magnifier showed #30A46C) at 125%
+ok    …and #30A46C is at the top of the colours picked at 125%
+ok    the picker opens (hex, #7F3FBF) at 125%
+ok    a click picks and closes (hex, #7F3FBF) at 125%
+ok    the clipboard has '#7F3FBF' (got '#7F3FBF'; the magnifier showed #7F3FBF) at 125%
+ok    …and #7F3FBF is at the top of the colours picked at 125%
+ok    the picker opens (for the arrow keys) at 125%
+ok    the magnifier is on the exact pixel under the mouse (#7D1944 vs #7D1944) at 125%
+ok    → moves the mouse one pixel right ((951, 800)) at 125%
+ok    …and the magnifier shows that pixel at 125%
+ok    ↓ ↓ ← ↑ ends one pixel below where it began ((950, 801)) at 125%
+ok    Enter picks at 125%
+ok    …exactly that pixel's colour ('#7D4E61', wanted '#7D4E61') at 125%
+note  7 s in all at 125%
+newtest_colors: 0 problem(s) at 125%
