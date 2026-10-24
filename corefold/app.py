@@ -2494,6 +2494,8 @@ def main() -> int:
     first = Settings.load()
     lang = i18n.set_language(first.language)
     app = QApplication(sys.argv)
+    from .safetext import guard
+    guard()  # (labels and tooltips never load a picture a file name or an email points to)
     app.setApplicationName(APP_NAME)
     app.setQuitOnLastWindowClosed(False)
     app.setApplicationVersion(__version__)

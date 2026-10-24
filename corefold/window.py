@@ -2072,6 +2072,7 @@ class MainWindow(QWidget):
             num.setFixedSize(26, 26)
             num.setAlignment(Qt.AlignCenter)
             text = label(wrap=True)
+            text.setTextFormat(Qt.RichText)  # ("Hold <b>Shift</b>…")
             self.step_labels.append(text)
             grid.addWidget(num, i, 0, Qt.AlignTop)
             grid.addWidget(text, i, 1)
