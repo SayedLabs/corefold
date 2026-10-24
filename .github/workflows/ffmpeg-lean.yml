@@ -1,0 +1,57 @@
+# Builds the smaller FFmpeg that Corefold ships (see scripts/ffmpeg-lean.sh) and saves it to the
+# "ffmpeg-lean" branch, where scripts/build.ps1 takes it from. Run it by hand when FFmpeg should be
+# updated: Actions tab -> "Build Corefold's FFmpeg" -> Run workflow.
+name: Build Corefold's FFmpeg
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: "FFmpeg commit to build (empty: the one in BtbN's newest build)"
+        required: false
+
+permissions:
+  contents: write   # the build is saved to the "ffmpeg-lean" branch
+
+jobs:
+  ffmpeg:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build
+        env:
+          COMMIT: ${{ inputs.commit }}
+        run: |
+          IMAGE=ghcr.io/btbn/ffmpeg-builds/win64-gpl-shared:latest
+          docker pull -q "$IMAGE"
+          # the build scripts (and so the library versions) that made this image
+          SCRIPTS=$(git ls-remote https://github.com/BtbN/FFmpeg-Builds refs/tags/latest | cut -f1)
+          if [ -z "$COMMIT" ]; then
+            # the FFmpeg commit BtbN built with the same image, so every library fits it
+            NAME=$(curl -sfL https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/tags/latest | grep -o '"name": *"ffmpeg-N-[^"]*win64-gpl-shared.zip"' | head -1)
+            COMMIT=$(echo "$NAME" | sed -E 's/.*-g([0-9a-f]+)-win64.*/\1/')
+          fi
+          echo "FFmpeg $COMMIT, scripts $SCRIPTS"
+          test -n "$COMMIT"
+          mkdir -p out
+          docker run --rm -v "$PWD:/work" "$IMAGE" bash /work/scripts/ffmpeg-lean.sh "$COMMIT" /work/out/bin
+          echo "$SCRIPTS" > out/bin/BUILD-SCRIPTS-COMMIT.txt
+          docker image inspect --format '{{index .RepoDigests 0}}' "$IMAGE" > out/bin/BUILD-IMAGE.txt
+          ls -la out/bin
+          du -sh out/bin
+
+      - name: Save to the ffmpeg-lean branch
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          cd out/bin
+          sudo chown -R "$(id -u)" .
+          git init -q -b ffmpeg-lean
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Corefold's FFmpeg $(cat FFMPEG-VERSION.txt)"
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${REPO}.git" ffmpeg-lean
