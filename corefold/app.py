@@ -1725,10 +1725,13 @@ class Controller(QObject):
         self.recent_outputs = (self.recent_outputs + [str(p) for p in result.outputs])[-200:]
 
         after = job["after"]
-        if after == "open" and result.outputs and not errors:
+        if after in ("open", "open_with") and result.outputs and not errors:
             self.toast.hide()
             try:
-                os_open(result.outputs[0])
+                if after == "open_with":
+                    winutil.open_with(result.outputs[0])
+                else:
+                    os_open(result.outputs[0])
             except OSError as e:
                 self.toast.notify(tr("Couldn't open the file"), str(e))
             member = job["params"].get("member")
@@ -1754,6 +1757,11 @@ class Controller(QObject):
         extracted = bool(tool and tool.key in ("archive:extract", "archive:folder") and not cancelled and not errors
                          and result.outputs and not job["params"].get("members"))
         recycled = self._recycle_extracted(files) if extracted and self.settings.extract_recycle else 0
+        # converted to another format: the originals can go (Settings › Converter); each only when it came out
+        originals = 0
+        if tool and tool.target and not tool.key.startswith("archive:") and self.settings.convert_recycle \
+                and not cancelled and result.sources:
+            originals = self._recycle_converted(result.sources, result.outputs)
 
         if cancelled:
             title, detail, linger = tr("Cancelled"), tr("Nothing was saved for the unfinished file."), 3000
@@ -1779,6 +1787,9 @@ class Controller(QObject):
         if recycled:
             detail += "\n" + tr("The archive went to the Recycle Bin") if recycled == 1 else \
                 "\n" + tr("{count} files went to the Recycle Bin", count=recycled)
+        if originals:
+            detail += "\n" + (tr("The original went to the Recycle Bin") if originals == 1 else
+                              tr("{count} originals went to the Recycle Bin", count=originals))
 
         extra_text, extra = "", None
         if result.undo and not cancelled:
@@ -1816,6 +1827,20 @@ class Controller(QObject):
             return recycle(parts)
         except Exception:
             log.exception("couldn't send the extracted archives to the Recycle Bin")
+            return 0
+
+    def _recycle_converted(self, sources: list[Path], outputs: list[Path]) -> int:
+        """Sends the converted originals to the Recycle Bin (never one that is also a result, or whose
+        result isn't there). Returns how many went."""
+        from .space import recycle
+        made = {os.path.normcase(str(p)) for p in outputs if Path(p).exists()}
+        if not made:
+            return 0
+        go = [Path(p) for p in sources if os.path.normcase(str(p)) not in made and Path(p).is_file()]
+        try:
+            return recycle(go)
+        except Exception:
+            log.exception("couldn't send the converted originals to the Recycle Bin")
             return 0
 
     def first_start(self):

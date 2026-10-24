@@ -13,7 +13,6 @@ import hashlib
 import logging
 import os
 import re
-import sqlite3
 import threading
 import time
 from dataclasses import dataclass
@@ -24,6 +23,19 @@ from PySide6.QtGui import QGuiApplication, QImage, QPixmap
 
 from .hotkey import SHORTCUT_NAMES, SHORTCUTS, Hotkey
 from .settings import LOG_DIR
+
+
+class _LaterSqlite:
+    """sqlite3, loaded the first time it's used: by the history opening in the background, so its DLL
+    isn't read from disk while Corefold starts (that held the tray icon up for most of a second)."""
+
+    def __getattr__(self, name):
+        import sqlite3 as real
+        globals()["sqlite3"] = real
+        return getattr(real, name)
+
+
+sqlite3 = _LaterSqlite()
 
 log = logging.getLogger("corefold")
 

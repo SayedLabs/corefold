@@ -23,7 +23,7 @@ from .core import ALIASES, APP_NAME, IMAGE_EXT, human_size, norm, short_name
 from .i18n import ltr, tr
 from .settings import VIEWER_SORTS as SORTS
 from .theme import round_menu
-from .winutil import reveal_in_explorer, set_title_bar_dark
+from .winutil import open_with, print_file, reveal_in_explorer, set_title_bar_dark
 
 if TYPE_CHECKING:
     from .app import Controller
@@ -658,6 +658,8 @@ class ViewerWindow(QWidget):
         more.addAction(tr("Save as…"), self.save_as)
         more.addAction(tr("Copy the picture"), self.copy)
         more.addAction(tr("Show in folder"), lambda: reveal_in_explorer(self.current()))
+        more.addAction(tr("Open with…"), lambda: self._with_saved(open_with))
+        more.addAction(tr("Print…"), lambda: self._with_saved(print_file))
         more.addAction(tr("More options in the Converter…"), self.to_converter)
         more.addSeparator()
         more.addAction(tr("Rename… (F2)"), self.rename)
@@ -853,6 +855,12 @@ class ViewerWindow(QWidget):
         self.files = folder_files if any(os.path.normcase(str(f)) == key for f in folder_files) else [path]
         self.index = next((i for i, f in enumerate(self.files) if os.path.normcase(str(f)) == key), 0)
         self.show_current()
+
+    def _with_saved(self, action):
+        """Another app gets the picture as it is on disk: turns and crops not saved yet are asked about first."""
+        if self.files and self._leave_ok():
+            if not action(self.current()):
+                self.c.tell(tr("Windows couldn't do that"), short_name(self.current().name))
 
     def current(self) -> Path:
         return self.files[self.index] if self.files else Path()

@@ -74,6 +74,22 @@ def reveal_in_explorer(path: Path):
         subprocess.Popen(f'"{system_tool("explorer.exe")}" /select,"{path}"')
 
 
+def open_with(path: Path) -> bool:
+    """Windows' own "Open with" box for this file (pick any app, once or always)."""
+    try:
+        return ctypes.windll.shell32.ShellExecuteW(None, "openas", str(path), None, None, 1) > 32
+    except Exception:
+        return False
+
+
+def print_file(path: Path) -> bool:
+    """Prints it the way File Explorer's "Print" does (for pictures: Windows' print box, with sizes)."""
+    try:
+        return ctypes.windll.shell32.ShellExecuteW(None, "print", str(path), None, None, 1) > 32
+    except Exception:
+        return False
+
+
 def play_sound(path: Path | None):
     if not path:
         return

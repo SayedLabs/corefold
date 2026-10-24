@@ -26,7 +26,7 @@ from .i18n import tr
 from .core import (ALIASES, ALL_EXT, ARCHIVE_EXT, AUDIO_EXT, DOCUMENT_EXT, EXCEL_EXT, IMAGE_EXT,  # noqa: F401
                    NO_WINDOW, SLIDES_EXT, job_flags, TAR_SUFFIXES, VIDEO_EXT, WORD_EXT, Cancelled, Ctx, Options, Result,
                    Tool, _cached, app_dir, bundled, is_cached, is_cloud_only, category, fallback_folder, human_size,
-                   find_program, lower_this_thread, norm, os_open, pass_on_zone_mark, remove_file, system_tool,
+                   copy_dates, find_program, lower_this_thread, norm, os_open, pass_on_zone_mark, remove_file, system_tool,
                    safe_name, short_name, unique_path, writable)
 
 log = logging.getLogger("corefold")
@@ -1619,6 +1619,8 @@ def run_job(tool: Tool, files: list[Path], options: Options,
                 pass_on_zone_mark([item] if isinstance(item, Path) else item, r.outputs)
             except Exception:
                 log.debug("couldn't pass on the download mark", exc_info=True)
+            if options.keep_dates and tool.target and isinstance(item, Path):  # (after the mark: writing it is a change)
+                copy_dates(item, r.outputs)
             return r, None
         except Cancelled:
             ctx.discard()
@@ -1652,12 +1654,14 @@ def run_job(tool: Tool, files: list[Path], options: Options,
             outcomes.append((r, err))
             if r is None and err is None:  # cancelled
                 break
-    for r, err in outcomes:  # in the order the files were given
+    for item, (r, err) in zip(items, outcomes):  # in the order the files were given
         if r is not None:
             total.outputs += r.outputs
             total.clipboard = r.clipboard or total.clipboard
             total.note = r.note or total.note
             total.undo += r.undo
+            if r.outputs and isinstance(item, Path):
+                total.sources.append(item)
         elif err is not None:
             errors.append(err)
     return total, errors

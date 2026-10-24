@@ -312,6 +312,8 @@ class AppsPage(QWidget):
             h.setSectionResizeMode(col, QHeaderView.ResizeToContents)
         self.tree.itemSelectionChanged.connect(self._selection)
         self.tree.itemDoubleClicked.connect(lambda *_: self.uninstall_selected())
+        self.tree.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.tree.customContextMenuRequested.connect(self._menu)
         self.tree.setMinimumHeight(60)  # (a small window: the list gives way, not the words above it)
         lay.addWidget(self.tree, 1)
 
@@ -339,6 +341,7 @@ class AppsPage(QWidget):
         round_menu(more)
         more.addAction(tr("Browser extensions…"), self.show_extensions)
         more.addAction(tr("Backups…"), self.show_backups)
+        more.addAction(tr("Save the list…"), self.save_list)
         self.b_more.setMenu(more)
         row.addWidget(self.b_more)
         lay.addLayout(row)
@@ -554,6 +557,64 @@ class AppsPage(QWidget):
         apps = self._selected()
         if apps and apps[0].location and os.path.isdir(apps[0].location):
             os.startfile(apps[0].location)  # noqa: S606
+
+    def _menu(self, pos):
+        """Right-click on an app: what the buttons do, and finding out more about it."""
+        item = self.tree.itemAt(pos)
+        if item is None:
+            return
+        if not item.isSelected():
+            self.tree.setCurrentItem(item)
+        apps = self._selected()
+        if not apps:
+            return
+        from PySide6.QtGui import QGuiApplication
+        from .theme import round_menu
+        m = QMenu(self)
+        round_menu(m)
+        m.addAction(tr("Uninstall"), self.uninstall_selected)
+        leftovers = m.addAction(tr("Remove leftovers only"), lambda: self.uninstall_selected(forced=True))
+        leftovers.setEnabled(self.b_leftovers.isEnabled())
+        folder = m.addAction(tr("Open its folder"), self.open_folder)
+        folder.setEnabled(self.b_folder.isEnabled())
+        m.addSeparator()
+        if len(apps) == 1:
+            m.addAction(tr("Search the web for “{text}”", text=short_name(apps[0].name, 40)),
+                        lambda: self._search(apps[0]))
+        m.addAction(tr("Copy the name") if len(apps) == 1 else tr("Copy the names"),
+                    lambda: QGuiApplication.clipboard().setText("\n".join(a.name for a in apps)))
+        m.exec(self.tree.viewport().mapToGlobal(pos))
+        m.deleteLater()
+
+    def _search(self, app: un.App):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        from .quickfind import search_url
+        engine = self.c.settings.quick_search_engine if self.c is not None else "duckduckgo"
+        QDesktopServices.openUrl(QUrl(search_url(engine, f"{app.name} {app.publisher}")))
+
+    def save_list(self):
+        """Saves the apps shown (as they're sorted) to a file a spreadsheet opens: for a new PC, or for help."""
+        from PySide6.QtWidgets import QFileDialog
+        start = str(Path.home() / "Desktop" / (tr("Installed apps") + ".csv"))
+        path, _ = QFileDialog.getSaveFileName(self, tr("Save the list…"), start, tr("Spreadsheet (*.csv)"))
+        if not path:
+            return
+        import csv
+        rows = [[tr("Name"), tr("Publisher"), tr("Version"), tr("Size"), tr("Installed"), tr("Last used")]]
+        for i in range(self.tree.topLevelItemCount()):
+            it = self.tree.topLevelItem(i)
+            app = it.data(0, APP_ROLE)
+            if it.isHidden() or app is None:
+                continue
+            rows.append([app.name, app.publisher, app.version, it.text(2), it.text(3), it.text(4)])
+        try:
+            with open(path, "w", newline="", encoding="utf-8-sig") as f:  # (the mark lets Excel read Arabic)
+                csv.writer(f).writerows(rows)
+        except OSError as e:
+            QMessageBox.warning(self, tr("Save the list…"), tr("Couldn't save the list: {error}", error=str(e)))
+            return
+        self.status.setText(tr("Saved the list of {count} apps", count=len(rows) - 1))
 
     def uninstall_selected(self, forced: bool = False):
         apps = self._selected()

@@ -12,7 +12,6 @@ from __future__ import annotations
 import base64
 import ctypes
 import hashlib
-import http.server
 import json
 import logging
 import os
@@ -293,36 +292,39 @@ def _pkce() -> tuple[str, str]:
     return verifier, challenge
 
 
-class _Catch(http.server.BaseHTTPRequestHandler):
-    result: dict = {}
-
-    def do_GET(self):
-        q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-        if "code" not in q and "error" not in q:
-            self.send_response(404)
-            self.end_headers()
-            return
-        self.server.answer = {k: v[0] for k, v in q.items()}
-        from html import escape
-
-        from .i18n import is_rtl, tr
-        title = tr("You're signed in") if "code" in q else tr("Signing in was cancelled")
-        page = ("<!doctype html><meta charset=utf-8><title>Corefold</title>"
-                f"<body dir='{'rtl' if is_rtl() else 'ltr'}' style='font-family:Segoe UI,Tahoma,sans-serif;"
-                "background:#111;color:#eee;display:grid;place-items:center;height:90vh'>"
-                f"<div style='text-align:center'><h2>{escape(title)}</h2>"
-                f"<p>{escape(tr('You can close this tab and go back to Corefold.'))}</p></div>").encode("utf-8")
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Content-Length", str(len(page)))
-        self.end_headers()
-        self.wfile.write(page)
-
-    def log_message(self, *a):
-        pass
-
-
 def _listen(port: int = 0) -> http.server.HTTPServer:
+    """A tiny server on this PC that catches the service sending the person back after signing in.
+    (http.server is only loaded here: it costs the Cloud page half a second on Windows.)"""
+    import http.server
+
+    class _Catch(http.server.BaseHTTPRequestHandler):
+        result: dict = {}
+
+        def do_GET(self):
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            if "code" not in q and "error" not in q:
+                self.send_response(404)
+                self.end_headers()
+                return
+            self.server.answer = {k: v[0] for k, v in q.items()}
+            from html import escape
+
+            from .i18n import is_rtl, tr
+            title = tr("You're signed in") if "code" in q else tr("Signing in was cancelled")
+            page = ("<!doctype html><meta charset=utf-8><title>Corefold</title>"
+                    f"<body dir='{'rtl' if is_rtl() else 'ltr'}' style='font-family:Segoe UI,Tahoma,sans-serif;"
+                    "background:#111;color:#eee;display:grid;place-items:center;height:90vh'>"
+                    f"<div style='text-align:center'><h2>{escape(title)}</h2>"
+                    f"<p>{escape(tr('You can close this tab and go back to Corefold.'))}</p></div>").encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(page)))
+            self.end_headers()
+            self.wfile.write(page)
+
+        def log_message(self, *a):
+            pass
+
     server = http.server.HTTPServer(("127.0.0.1", port), _Catch)
     server.answer = None
     server.timeout = 1
