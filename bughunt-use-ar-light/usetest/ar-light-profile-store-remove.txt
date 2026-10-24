@@ -1,0 +1,91 @@
+         57785 function calls (57451 primitive calls) in 0.264 seconds
+
+   Ordered by: cumulative time
+   List reduced from 598 to 45 due to restriction <45>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.234    0.234 D:\a\corefold\corefold\corefold\app.py:443(rebuild_window)
+        2    0.000    0.000    0.062    0.031 D:\a\corefold\corefold\corefold\window.py:3646(open_page)
+        2    0.000    0.000    0.062    0.031 {method 'setCurrentRow' of 'PySide6.QtWidgets.QListWidget' objects}
+        2    0.000    0.000    0.062    0.031 D:\a\corefold\corefold\corefold\window.py:998(_page_changed)
+       30    0.004    0.000    0.044    0.001 D:\a\corefold\corefold\corefold\window.py:194(__init__)
+      132    0.036    0.000    0.037    0.000 {method 'addLayout' of 'PySide6.QtWidgets.QBoxLayout' objects}
+       58    0.008    0.000    0.035    0.001 D:\a\corefold\corefold\corefold\icons.py:165(product_tile)
+        1    0.000    0.000    0.031    0.031 D:\a\corefold\corefold\corefold\window.py:1510(_store)
+        1    0.000    0.000    0.030    0.030 D:\a\corefold\corefold\corefold\window.py:1671(_home)
+        1    0.024    0.024    0.024    0.024 {method 'insertWidget' of 'PySide6.QtWidgets.QStackedWidget' objects}
+       49    0.023    0.000    0.024    0.000 {method 'addWidget' of 'PySide6.QtWidgets.QStackedWidget' objects}
+        1    0.020    0.020    0.023    0.023 {method 'show' of 'PySide6.QtWidgets.QWidget' objects}
+        2    0.000    0.000    0.017    0.008 D:\a\corefold\corefold\corefold\window.py:1522(section)
+       16    0.002    0.000    0.015    0.001 D:\a\corefold\corefold\corefold\window.py:1585(_store_card)
+        2    0.000    0.000    0.014    0.007 D:\a\corefold\corefold\corefold\window.py:3247(refresh_history)
+      201    0.014    0.000    0.014    0.000 {method 'render' of 'PySide6.QtSvg.QSvgRenderer' objects}
+      755    0.001    0.000    0.012    0.000 D:\a\corefold\corefold\corefold\i18n.py:72(tr)
+        1    0.000    0.000    0.009    0.009 D:\a\corefold\corefold\corefold\assoc.py:172(_sync_pending)
+        3    0.000    0.000    0.009    0.003 D:\a\corefold\corefold\corefold\window.py:3187(refresh)
+        2    0.001    0.001    0.008    0.004 D:\a\corefold\corefold\corefold\window.py:1777(_fill_recent)
+      207    0.008    0.000    0.008    0.000 D:\a\corefold\corefold\corefold\window.py:102(label)
+        2    0.000    0.000    0.008    0.004 D:\a\corefold\corefold\corefold\assoc.py:57(is_current)
+      127    0.002    0.000    0.008    0.000 D:\a\corefold\corefold\corefold\icons.py:64(pixmap)
+       78    0.008    0.000    0.008    0.000 {method 'setVisible' of 'PySide6.QtWidgets.QWidget' objects}
+        2    0.000    0.000    0.008    0.004 D:\a\corefold\corefold\corefold\assoc.py:53(_command)
+      373    0.007    0.000    0.007    0.000 {method 'addWidget' of 'PySide6.QtWidgets.QBoxLayout' objects}
+        2    0.000    0.000    0.007    0.004 D:\a\corefold\corefold\corefold\settings.py:444(app_command)
+       13    0.000    0.000    0.007    0.001 D:\a\corefold\corefold\corefold\icons.py:76(icon)
+        1    0.000    0.000    0.007    0.007 D:\a\corefold\corefold\corefold\assoc.py:145(sync)
+        3    0.000    0.000    0.007    0.002 D:\a\corefold\corefold\corefold\window.py:3235(refresh_again)
+        3    0.000    0.000    0.007    0.002 D:\a\corefold\corefold\corefold\app.py:1897(again_text)
+      207    0.000    0.000    0.007    0.000 D:\a\corefold\corefold\corefold\app.py:2193(_all_tools)
+        1    0.000    0.000    0.006    0.006 D:\a\corefold\corefold\corefold\window.py:3585(apply_theme)
+        3    0.000    0.000    0.006    0.002 D:\a\corefold\corefold\corefold\converters.py:1295(catalog)
+      755    0.001    0.000    0.006    0.000 D:\a\corefold\corefold\corefold\i18n.py:90(_isolate_latin)
+      630    0.001    0.000    0.006    0.000 {built-in method builtins.any}
+      143    0.001    0.000    0.005    0.000 D:\a\corefold\corefold\corefold\icons.py:48(paint)
+        1    0.000    0.000    0.004    0.004 D:\a\corefold\corefold\corefold\window.py:1821(_converter)
+      755    0.002    0.000    0.004    0.000 D:\a\corefold\corefold\corefold\i18n.py:162(_rtl_start)
+    10771    0.003    0.000    0.004    0.000 D:\a\corefold\corefold\corefold\i18n.py:95(<genexpr>)
+        1    0.000    0.000    0.004    0.004 D:\a\corefold\corefold\corefold\navbar.py:192(paintEvent)
+       48    0.002    0.000    0.003    0.000 D:\a\corefold\corefold\corefold\window.py:110(button)
+        2    0.000    0.000    0.003    0.002 <frozen ntpath>:705(realpath)
+        1    0.000    0.000    0.003    0.003 {function NavList.paintEvent at 0x000002C4F72DB4C0}
+       17    0.001    0.000    0.003    0.000 D:\a\corefold\corefold\corefold\navbar.py:28(paint)
+
+
+         57785 function calls (57451 primitive calls) in 0.264 seconds
+
+   Ordered by: internal time
+   List reduced from 598 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+     43/2    0.050    0.001    0.000    0.000 {built-in method time.sleep}
+      132    0.036    0.000    0.037    0.000 {method 'addLayout' of 'PySide6.QtWidgets.QBoxLayout' objects}
+        1    0.024    0.024    0.024    0.024 {method 'insertWidget' of 'PySide6.QtWidgets.QStackedWidget' objects}
+       49    0.023    0.000    0.024    0.000 {method 'addWidget' of 'PySide6.QtWidgets.QStackedWidget' objects}
+        1    0.020    0.020    0.023    0.023 {method 'show' of 'PySide6.QtWidgets.QWidget' objects}
+      201    0.014    0.000    0.014    0.000 {method 'render' of 'PySide6.QtSvg.QSvgRenderer' objects}
+      207    0.008    0.000    0.008    0.000 D:\a\corefold\corefold\corefold\window.py:102(label)
+       58    0.008    0.000    0.035    0.001 D:\a\corefold\corefold\corefold\icons.py:165(product_tile)
+       78    0.008    0.000    0.008    0.000 {method 'setVisible' of 'PySide6.QtWidgets.QWidget' objects}
+      373    0.007    0.000    0.007    0.000 {method 'addWidget' of 'PySide6.QtWidgets.QBoxLayout' objects}
+       30    0.004    0.000    0.044    0.001 D:\a\corefold\corefold\corefold\window.py:194(__init__)
+    10771    0.003    0.000    0.004    0.000 D:\a\corefold\corefold\corefold\i18n.py:95(<genexpr>)
+      127    0.002    0.000    0.008    0.000 D:\a\corefold\corefold\corefold\icons.py:64(pixmap)
+        1    0.002    0.002    0.002    0.002 {built-in method processEvents}
+       48    0.002    0.000    0.003    0.000 D:\a\corefold\corefold\corefold\window.py:110(button)
+       16    0.002    0.000    0.015    0.001 D:\a\corefold\corefold\corefold\window.py:1585(_store_card)
+      755    0.002    0.000    0.004    0.000 D:\a\corefold\corefold\corefold\i18n.py:162(_rtl_start)
+        3    0.002    0.001    0.002    0.001 {method 'setWidget' of 'PySide6.QtWidgets.QScrollArea' objects}
+       24    0.002    0.000    0.002    0.000 {method 'heightForWidth' of 'PySide6.QtWidgets.QLabel' objects}
+       75    0.001    0.000    0.001    0.000 {method 'connect' of 'PySide6.QtCore.SignalInstance' objects}
+    10290    0.001    0.000    0.001    0.000 {method 'lower' of 'str' objects}
+      630    0.001    0.000    0.006    0.000 {built-in method builtins.any}
+        2    0.001    0.001    0.008    0.004 D:\a\corefold\corefold\corefold\window.py:1777(_fill_recent)
+      262    0.001    0.000    0.001    0.000 {method 'addWidget' of 'PySide6.QtWidgets.QGridLayout' objects}
+      755    0.001    0.000    0.012    0.000 D:\a\corefold\corefold\corefold\i18n.py:72(tr)
+        4    0.001    0.000    0.002    0.001 {built-in method nt._getfinalpathname}
+    70/64    0.001    0.000    0.001    0.000 {function NavList.event at 0x000002C4F72DBA60}
+      143    0.001    0.000    0.005    0.000 D:\a\corefold\corefold\corefold\icons.py:48(paint)
+       17    0.001    0.000    0.003    0.000 D:\a\corefold\corefold\corefold\navbar.py:28(paint)
+     3549    0.001    0.000    0.001    0.000 {method 'get' of 'dict' objects}
+
+
