@@ -2104,6 +2104,8 @@ STRINGS: dict[str, str] = {
     "Pictures to PDF…": "صور إلى PDF…",
     "What do you want to do?": "ماذا تريد أن تفعل؟",
     "Your PDFs are never changed: every result is a new file next to the original.": "لا تتغير ملفاتك أبدًا: كل نتيجة ملف جديد بجانب الأصلي.",
+    "Microsoft Store app": "تطبيق من متجر Microsoft",
+    "Set by your organisation": "تحدده جهة عملك",
     "Copy the path": "نسخ المسار",
     "Properties": "الخصائص",
     "Tick…": "تحديد…",

@@ -27,7 +27,7 @@ FILTERS = [("", "All"), ("on", "Switched on"), ("off", "Switched off"), ("new", 
 # where an entry comes from (English, shown through tr())
 WHERE = {"HKCU-Run": "Registry, this user", "HKLM-Run": "Registry, everyone",
          "HKLM-Run32": "Registry, everyone (32-bit)", "User-Folder": "Startup folder, this user",
-         "Common-Folder": "Startup folder, everyone"}
+         "Common-Folder": "Startup folder, everyone", "Store-App": "Microsoft Store app"}
 # the list in three parts, so what's old is clearly old: (key, heading, a line about it)
 SECTIONS = [("on", "Starting with Windows", ""),
             ("off", "Switched off",
@@ -84,6 +84,7 @@ class EntryRow(QWidget):
             tile.setPixmap(icons.pixmap("apps", 22, page.c.theme.muted, self.devicePixelRatioF()))
         self.switch = Switch()
         self.switch.setChecked(entry.on)
+        self.switch.setEnabled(not entry.locked)
         self.switch.setAccessibleName(entry.name)
         self.switch.toggled.connect(self._toggled)
         more = IconButton(tr("More"), 30)
@@ -104,7 +105,8 @@ class EntryRow(QWidget):
         pills.setContentsMargins(0, 4, 0, 0)
         pills.setSpacing(6)
         for shown, text, name in ((entry.new, tr("New"), "chip"),
-                                  (entry.admin and not page.admin, tr("Asks for permission"), "badge")):
+                                  (entry.admin and not page.admin, tr("Asks for permission"), "badge"),
+                                  (entry.locked, tr("Set by your organisation"), "badge")):
             if shown:
                 pills.addWidget(_label(text, name))
         if pills.count():  # (under the name and the line about it)
@@ -326,6 +328,13 @@ class StartupPage(QWidget):
 
     def _icon(self, e: startup.Entry) -> QIcon | None:
         """The program's own icon (kept, so looking again doesn't read every file's icon again)."""
+        logo = e.extra.get("icon", "")
+        if logo:  # (a Store app: its logo picture)
+            if logo not in self._icon_cache:
+                ic = QIcon(logo)
+                self._icon_cache[logo] = ic if not ic.isNull() else None
+            if self._icon_cache[logo] is not None:
+                return self._icon_cache[logo]
         for path in (e.exe, e.extra.get("file", "")):
             if not path:
                 continue

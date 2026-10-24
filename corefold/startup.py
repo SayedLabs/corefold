@@ -9,6 +9,11 @@ deleted, so switching it back on (here or in Task Manager) is always possible, a
 Entries for the whole PC (HKLM, everyone's Startup folder) need an administrator to change: Windows
 asks first (its usual prompt), and nothing changes if the answer is no.
 
+Apps from the Microsoft Store start with Windows another way: a "startup task" in the app's own
+description (its AppxManifest.xml), which Windows switches on or off with a number kept for this user
+under AppModel\\SystemAppData (2 is on, 1 is "switched off by the person"). That is what Task Manager
+changes too, so Store apps are switched the same way, and need no administrator.
+
 The one thing ever removed is a leftover: a line whose program was deleted from the PC, and only when
 the person asks (a copy of each one is kept in startup-removed.json first)."""
 from __future__ import annotations
@@ -26,6 +31,12 @@ from .core import APP_NAME
 log = logging.getLogger("corefold")
 
 RUN = r"Software\Microsoft\Windows\CurrentVersion\Run"
+_APPMODEL = r"Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel"
+STORE_PACKAGES = _APPMODEL + r"\Repository\Packages"   # this user's installed packages, with their folders
+STORE_STATES = _APPMODEL + r"\SystemAppData"           # <family>\<task id>: "State", a DWORD
+# a startup task's State: 0 off (as the app was made), 1 switched off by the person, 2 on, 3 off by the
+# organisation's rules, 4 on by those rules (the last two can't be changed here or in Task Manager)
+TASK_OFF, TASK_ON, TASK_BY_POLICY = 1, 2, (3, 4)
 APPROVED = r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved"
 SEEN_FILE = "startup-seen.json"
 REMOVED_FILE = "startup-removed.json"
@@ -58,7 +69,12 @@ class Entry:
     @property
     def admin(self) -> bool:
         """Belongs to the whole PC: an administrator has to change it."""
-        return not self.where.startswith(("HKCU", "User"))
+        return not self.where.startswith(("HKCU", "User", "Store"))
+
+    @property
+    def locked(self) -> bool:
+        """The organisation's rules decide (a Store app's task): it can't be switched here."""
+        return self.extra.get("state") in TASK_BY_POLICY
 
 
 # where each kind of entry lives, and where its on/off note goes:
@@ -272,8 +288,163 @@ def list_entries() -> list[Entry]:
             e = _make(where, p.name, command, exe, notes)
             e.extra["file"] = str(p)
             out.append(e)
+    try:
+        out += store_entries()
+    except Exception:
+        log.warning("couldn't read the Store apps' startup tasks", exc_info=True)
     out.sort(key=lambda e: (not e.own, e.name.lower()))
     return out
+
+
+# ----------------------------------------------------------------------------- Store apps
+
+def _subkeys(hive: str, path: str) -> list[str]:
+    w = _winreg()
+    out = []
+    try:
+        with w.OpenKey(_root(hive), path, 0, w.KEY_READ) as k:
+            i = 0
+            while True:
+                try:
+                    out.append(w.EnumKey(k, i))
+                except OSError:
+                    break
+                i += 1
+    except OSError:
+        pass
+    return out
+
+
+def family_of(full_name: str) -> str:
+    """ "Name_1.2.3.0_x64__8wekyb3d8bbwe" -> "Name_8wekyb3d8bbwe" (how Windows names an app's own data)."""
+    parts = full_name.split("_")
+    return f"{parts[0]}_{parts[-1]}" if len(parts) >= 5 else full_name
+
+
+def resolve_text(text: str, full_name: str = "", name: str = "") -> str:
+    """An app's name as written in its package: plain, "@{…}", or "ms-resource:…" (looked up in the app's
+    own resources, in the language Windows uses). "" when it can't be read."""
+    text = (text or "").strip()
+    if not text:
+        return ""
+    if text.lower().startswith("ms-resource:") and full_name:
+        rest = text[len("ms-resource:"):]
+        if rest.startswith("//"):
+            uri = "ms-resource:" + rest
+        elif rest.startswith("/"):
+            uri = f"ms-resource://{name}{rest}"
+        else:
+            uri = f"ms-resource://{name}/Resources/{rest}"
+        text = f"@{{{full_name}?{uri}}}"
+    if not text.startswith("@"):
+        return text
+    if os.name != "nt":
+        return ""
+    import ctypes
+    buf = ctypes.create_unicode_buffer(512)
+    try:
+        if ctypes.windll.shlwapi.SHLoadIndirectString(text, buf, len(buf), None) == 0:
+            return buf.value.strip()
+    except Exception:
+        pass
+    return ""
+
+
+def _startup_tasks(manifest: Path) -> tuple[list[dict], dict]:
+    """The startup tasks an app's AppxManifest.xml declares, and what it says about the app itself."""
+    try:
+        raw = manifest.read_bytes()
+    except OSError:
+        return [], {}
+    if b"startupTask" not in raw and b"StartupTask" not in raw:
+        return [], {}  # (most apps have none: they aren't even parsed)
+    import xml.etree.ElementTree as ET
+    try:
+        root = ET.fromstring(raw)
+    except ET.ParseError:
+        return [], {}
+
+    def local(tag: str) -> str:
+        return tag.rsplit("}", 1)[-1]
+    about = {}
+    for el in root:
+        if local(el.tag) == "Identity":
+            about["name"] = el.get("Name", "")
+        elif local(el.tag) == "Properties":
+            for prop in el:
+                if local(prop.tag) in ("DisplayName", "PublisherDisplayName", "Logo") and prop.text:
+                    about[local(prop.tag)] = prop.text.strip()
+    tasks = []
+    for ext in root.iter():
+        if local(ext.tag) != "Extension" or ext.get("Category", "").lower() != "windows.startuptask":
+            continue
+        for task in ext:
+            if local(task.tag) == "StartupTask" and task.get("TaskId"):
+                tasks.append({"id": task.get("TaskId"), "enabled": task.get("Enabled", "").lower() == "true",
+                              "name": task.get("DisplayName", ""), "exe": ext.get("Executable", "")})
+    return tasks, about
+
+
+def _logo(root: Path, logo: str) -> str:
+    """The app's logo file: Windows keeps it at several sizes ("StoreLogo.scale-100.png")."""
+    if not logo:
+        return ""
+    p = root / logo
+    if p.is_file():
+        return str(p)
+    try:
+        found = sorted(p.parent.glob(p.stem + ".*" + p.suffix))
+    except (OSError, ValueError):
+        return ""
+    return str(found[0]) if found else ""
+
+
+def store_entries() -> list[Entry]:
+    """The Store apps that can start with Windows, each on or off as Windows keeps it for this user."""
+    out, seen = [], set()
+    for full in sorted(_subkeys("HKCU", STORE_PACKAGES), reverse=True):  # (two versions of one app: the newer)
+        info = _values("HKCU", STORE_PACKAGES + "\\" + full, 0)
+        root = Path(str(info.get("PackageRootFolder") or ""))
+        if not str(root) or str(root) == ".":
+            continue
+        tasks, about = _startup_tasks(root / "AppxManifest.xml")
+        if not tasks:
+            continue
+        family = family_of(full)
+        name = about.get("name") or full.split("_")[0]
+        app_name = resolve_text(str(info.get("DisplayName") or ""), full, name) or \
+            resolve_text(about.get("DisplayName", ""), full, name) or name
+        publisher = resolve_text(about.get("PublisherDisplayName", ""), full, name)
+        logo = _logo(root, about.get("Logo", ""))
+        for t in tasks:
+            state = _values("HKCU", f"{STORE_STATES}\\{family}\\{t['id']}", 0).get("State")
+            state = state if isinstance(state, int) else None
+            on = state in (TASK_ON, 4) if state is not None else t["enabled"]
+            exe = str(root / t["exe"]) if t["exe"] else ""
+            label = resolve_text(t["name"], full, name)
+            if f"{family}|{t['id']}" in seen:
+                continue
+            seen.add(f"{family}|{t['id']}")
+            e = Entry(id=f"Store-App|{family}|{t['id']}", name=label or app_name, value=t["id"],
+                      command=exe or full, exe=exe, where="Store-App", on=on, publisher=publisher,
+                      extra={"family": family, "package": full, "state": state, "icon": logo})
+            out.append(e)
+    return out
+
+
+def _set_task(entry: Entry, on: bool) -> bool:
+    if entry.locked:
+        return False
+    w = _winreg()
+    key = f"{STORE_STATES}\\{entry.extra['family']}\\{entry.value}"
+    with w.CreateKeyEx(w.HKEY_CURRENT_USER, key, 0, w.KEY_QUERY_VALUE | w.KEY_SET_VALUE) as k:
+        w.SetValueEx(k, "State", 0, w.REG_DWORD, TASK_ON if on else TASK_OFF)
+    ok = _values("HKCU", key, 0).get("State") == (TASK_ON if on else TASK_OFF)
+    if ok:
+        entry.on = on
+        entry.extra["state"] = TASK_ON if on else TASK_OFF
+        entry.off_since = 0 if on else time.time()
+    return ok
 
 
 def _is_64bit() -> bool:
@@ -325,6 +496,8 @@ def set_on(entry: Entry, on: bool, ask_admin: bool = True) -> bool:
     """Switches an entry on or off the way Task Manager does. Only its note under StartupApproved
     changes; the entry itself is never touched. Returns True when the change is made. An entry for
     the whole PC asks Windows for an administrator first (False if that's refused)."""
+    if entry.where == "Store-App":
+        return _set_task(entry, on)
     note = ON_BYTES if on else off_note()
     hive, _, _, approved = PLACES[entry.where]
     try:

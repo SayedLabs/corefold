@@ -1,6 +1,7 @@
 """Corefold Startup, tried for real on a Windows PC: made-up programs are added to the places Windows
 starts things from, then listed, switched off and on (by code and by clicking the page), searched and
-filtered, and everything is checked against what Task Manager writes. Every other startup entry on the
+filtered, and everything is checked against what Task Manager writes. Store apps' startup tasks are
+tried with a made-up package. Every other startup entry on the
 PC must be exactly as it was at the end, and nothing is ever deleted.
 
 Run: python scripts/startuptest.py <folder> [en|ar|fr|es|tr] [dark|light]
@@ -541,6 +542,78 @@ def row_in(pg, value, part):
     return r is not None and r.parent() is pg.groups[part]
 
 
+def store_apps():
+    """Store apps start with Windows from a "startup task" in their package: made-up packages in a test key
+    are listed, switched off and on (the number Task Manager writes), and one the organisation decides
+    can't be switched. Then this PC's real Store apps are read the same way."""
+    real = startup.list_entries()
+    print(f"this PC's Store apps that can start with Windows: "
+          f"{[(e.name, e.on) for e in real if e.where == 'Store-App']}", flush=True)
+    saved = startup.STORE_PACKAGES, startup.STORE_STATES
+    startup.STORE_PACKAGES, startup.STORE_STATES = STORE_TEST + r"\Packages", STORE_TEST + r"\SystemAppData"
+    try:
+        root = TMP / "WindowsApps" / "CfStoreTest_1.0.0.0_x64__cf0test0id"
+        (root / "Assets").mkdir(parents=True)
+        (root / "Assets" / "StoreLogo.scale-100.png").write_bytes(
+            bytes.fromhex("89504e470d0a1a0a0000000d4948445200000001000000010806000000"
+                          "1f15c4890000000d49444154789c6360f8cfc0f01f0005000201e2213"
+                          "0bc0000000049454e44ae426082"))
+        (root / "AppxManifest.xml").write_text("""<?xml version="1.0" encoding="utf-8"?>
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+         xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5">
+  <Identity Name="CfStoreTest" Publisher="CN=Test" Version="1.0.0.0" ProcessorArchitecture="x64"/>
+  <Properties><DisplayName>Cf Store Test</DisplayName><PublisherDisplayName>Cf Test Maker</PublisherDisplayName>
+    <Logo>Assets\\StoreLogo.png</Logo></Properties>
+  <Applications><Application Id="App" Executable="CfStore.exe"><Extensions>
+    <uap5:Extension Category="windows.startupTask" Executable="CfStore.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap5:StartupTask TaskId="CfAutoStart" Enabled="true" DisplayName="Cf Store Helper"/></uap5:Extension>
+    <uap5:Extension Category="windows.startupTask" Executable="CfStore.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap5:StartupTask TaskId="CfAskFirst" Enabled="false"/></uap5:Extension>
+    <uap5:Extension Category="windows.startupTask" Executable="CfStore.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap5:StartupTask TaskId="CfByRules" Enabled="true"/></uap5:Extension>
+  </Extensions></Application></Applications>
+</Package>""", "utf-8")
+        key = startup.STORE_PACKAGES + "\\" + root.name
+        put(winreg.HKEY_CURRENT_USER, key, "PackageRootFolder", str(root))
+        put(winreg.HKEY_CURRENT_USER, key, "DisplayName", "Cf Store Test")
+        family = "CfStoreTest_cf0test0id"
+        check(startup.family_of(root.name) == family, f"a package's family name ({startup.family_of(root.name)})")
+        put(winreg.HKEY_CURRENT_USER, startup.STORE_STATES + rf"\{family}\CfByRules", "State", 3, winreg.REG_DWORD)
+        found = [e for e in startup.list_entries() if e.where == "Store-App"]
+        auto = find(found, "CfAutoStart")
+        ask = find(found, "CfAskFirst")
+        rules = find(found, "CfByRules")
+        if not check(auto and ask and rules, f"the Store app's three startup tasks are listed "
+                                             f"{[(e.name, e.value) for e in found]}"):
+            return
+        check(auto.on and not ask.on and not rules.on, "on as the app was made (Enabled), off when it asks first, "
+                                                       "and off when the organisation's rules say so")
+        check(auto.name == "Cf Store Helper" and ask.name == "Cf Store Test" and auto.publisher == "Cf Test Maker",
+              f"named as the task or the app says, with its maker ({auto.name}, {ask.name}, {auto.publisher})")
+        check(auto.extra.get("icon", "").endswith("StoreLogo.scale-100.png"), f"its logo ({auto.extra.get('icon')})")
+        check(not auto.admin and rules.locked and not auto.locked, "this user's own: no administrator, and the one "
+                                                                    "under rules can't be switched")
+        state = lambda task: get(winreg.HKEY_CURRENT_USER, startup.STORE_STATES + rf"\{family}\{task}", "State")  # noqa: E731
+        check(startup.set_on(auto, False) and not auto.on and state("CfAutoStart") == 1,
+              f"switched off the way Task Manager does it (State {state('CfAutoStart')})")
+        again = find([e for e in startup.list_entries() if e.where == "Store-App"], "CfAutoStart")
+        check(again is not None and not again.on, "…and it's still off when the list is read again")
+        check(startup.set_on(auto, True) and auto.on and state("CfAutoStart") == 2,
+              f"switched back on (State {state('CfAutoStart')})")
+        check(startup.set_on(ask, True) and state("CfAskFirst") == 2, "one that asks first can be switched on too")
+        check(not startup.set_on(rules, True) and state("CfByRules") == 3, "the organisation's choice is left alone")
+    finally:
+        startup.STORE_PACKAGES, startup.STORE_STATES = saved
+        try:
+            subprocess.run([str(SYSTEM32 / "reg.exe"), "delete", "HKCU\\" + STORE_TEST, "/f"], capture_output=True,
+                           timeout=30)
+        except (OSError, subprocess.SubprocessError):
+            pass
+
+
+STORE_TEST = r"Software\CorefoldStartupTest"
+
+
 def tidy():
     for name in TEST:
         drop(winreg.HKEY_CURRENT_USER, startup.RUN, name)
@@ -563,7 +636,7 @@ def tidy():
 
 
 for name, fn in (("listing", listing), ("switching", switching), ("whole PC", whole_pc), ("new", new_since),
-                 ("own entry", own_entry), ("leftovers", leftovers), ("page", page)):
+                 ("own entry", own_entry), ("leftovers", leftovers), ("Store apps", store_apps), ("page", page)):
     step(name, fn)
 step("tidy", tidy)
 (OUT / f"startuptest-{LANG}.txt").write_text("\n".join(problems) or "none", "utf-8")
