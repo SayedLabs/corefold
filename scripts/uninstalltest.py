@@ -376,4 +376,5 @@ clean_up()
 print(f"uninstalltest: {len(problems)} problem(s)", flush=True)
 import faulthandler  # noqa: E402
 faulthandler.disable()
-os._exit(1 if problems else 0)  # like uitest: skips Qt's tidy-up at exit, which can crash on the runner
+from testexit import finish  # (Qt can crash in Windows' tidy-up at exit, after every check passed)
+finish(1 if problems else 0)

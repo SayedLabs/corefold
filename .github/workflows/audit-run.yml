@@ -48,7 +48,9 @@ jobs:
           $env:PYTHONIOENCODING = "utf-8"
           git fetch -q origin main
           git worktree add -q ..\main origin/main
-          python .github/audit_run_tests.py
+          python .github/audit_run_tests.py; $code = $LASTEXITCODE
+          python .github/audit_appquit.py
+          exit $code
 
   installer:
     runs-on: windows-latest
