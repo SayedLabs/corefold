@@ -285,6 +285,68 @@ def startup():
                     pass
 
 
+def more_places():
+    """The start places beyond Run, a debugger in front of a program, services, browsers, the proxy and
+    Defender's policies: each test entry is noticed, then taken out again."""
+    temp = WORK / "more"
+    temp.mkdir(parents=True, exist_ok=True)
+    odd = unsigned_copy(Path(sys.executable), temp / "helper.exe")
+    hkcu, hklm = winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE
+    pol = r"Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run"
+    cmdp = r"Software\Microsoft\Command Processor"
+    ifeo = scan.IFEO + r"\cf-scantest-target.exe"
+    edge = r"Software\Policies\Microsoft\Edge\ExtensionInstallForcelist"
+    svc = r"SYSTEM\CurrentControlSet\Services\CfScanTestSvc"
+    made = []
+
+    def put(hive, key, name, value, kind=winreg.REG_SZ):
+        with winreg.CreateKeyEx(hive, key, 0, winreg.KEY_SET_VALUE | winreg.KEY_WOW64_64KEY) as k:
+            winreg.SetValueEx(k, name, 0, kind, value)
+        made.append((hive, key, name))
+    try:
+        put(hkcu, pol, "CfScanTestPolicy", f'"{odd}"')
+        auto_before = scan._reg_values(hkcu, cmdp).get("AutoRun")
+        if auto_before is None:
+            put(hkcu, cmdp, "AutoRun", f'"{odd}"')
+        put(hklm, ifeo, "Debugger", f'"{odd}"')
+        put(hkcu, edge, "1", "abcdefghijklmnopabcdefghijklmnop;https://example.invalid/update.xml")
+        put(hklm, svc, "ImagePath", f'"{odd}"', winreg.REG_EXPAND_SZ)
+        put(hklm, svc, "Type", 0x10, winreg.REG_DWORD)
+        ch = scan.Checks()
+        t = time.time()
+        for fn in (ch.more_startup, ch.services, ch.browsers, ch.defender_policies):
+            fn()
+        took = time.time() - t
+        note(f"more checks: {took:.1f} s, {[(f.kind, f.path, f.level) for f in ch.findings]}")
+        same = lambda f: os.path.normcase(f.path) == os.path.normcase(str(odd))  # noqa: E731
+        check(any(f.kind == "startup" and same(f) and f.detail.get("name") == "CfScanTestPolicy"
+                  for f in ch.findings), "a program started by the policy Run key is noticed")
+        if auto_before is None:
+            check(any(f.kind == "startup" and same(f) and f.detail.get("name") == "AutoRun" for f in ch.findings),
+                  "a program cmd.exe runs every time it opens (AutoRun) is noticed")
+        check(any(f.kind == "replaced" and f.path.lower() == "cf-scantest-target.exe" and f.level == "warn"
+                  for f in ch.findings), "a debugger put in front of a program is worth a look")
+        check(any(f.kind == "browser" and f.detail.get("type") == "extension" and f.level == "warn"
+                  for f in ch.findings), "an add-on forced into Edge is worth a look")
+        check(any(f.kind == "service" and same(f) and f.detail.get("name") == "CfScanTestSvc" for f in ch.findings),
+              "a service nobody signed, running from a temporary folder, is noticed")
+        check(not any(f.kind == "service" and "system32" in f.path.lower() for f in ch.findings),
+              "Windows' own services aren't")
+        check(took < 60, "these checks are quick enough")
+    finally:
+        for hive, key, name in reversed(made):
+            try:
+                with winreg.OpenKey(hive, key, 0, winreg.KEY_SET_VALUE | winreg.KEY_WOW64_64KEY) as k:
+                    winreg.DeleteValue(k, name)
+            except OSError:
+                pass
+        for hive, key in ((hklm, ifeo), (hklm, svc), (hkcu, edge)):
+            try:
+                winreg.DeleteKeyEx(hive, key, winreg.KEY_WOW64_64KEY, 0)
+            except OSError:
+                pass
+
+
 def running():
     folder = WORK / "running"
     folder.mkdir(parents=True, exist_ok=True)
@@ -728,7 +790,7 @@ def tidy():
 
 
 parts = [("state", state), ("signatures", signatures), ("names", names), ("hosts", hosts), ("startup", startup),
-         ("running", running), ("menu", menu), ("Defender scans", defender_scans), ("quarantine", quarantine),
+         ("more places", more_places), ("running", running), ("menu", menu), ("Defender scans", defender_scans), ("quarantine", quarantine),
          ("as administrator", as_admin), ("stopping", stopping)]
 if QUICK:
     parts.append(("quick scan", quick_scan))

@@ -18,6 +18,9 @@ on:
       - corefold/unlock.py
       - corefold/space.py
       - corefold/player.py
+      - corefold/safetext.py
+      - corefold/mailview.py
+      - corefold/updater.py
       - corefold/__init__.py
       - main.py
       - requirements.txt
