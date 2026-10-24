@@ -1,5 +1,5 @@
 """Checks the everyday settings each tool should have (as other apps do), on a real Windows PC:
-after converting, keep the original's date and send the original to the Recycle Bin; after extracting, open the folder and send the archive (all its parts) to the Recycle Bin; the Viewer
+the Uninstaller's right-click menu and saving its list; after converting, keep the original's date and send the original to the Recycle Bin; after extracting, open the folder and send the archive (all its parts) to the Recycle Bin; the Viewer
 going round a folder; the PDF page saying where new files go.
 
 Run from the repository's folder: python scripts/newtest_basics.py
@@ -154,6 +154,36 @@ def main():
         check(src2.exists() and (box / "keep.jpg").stat().st_mtime > old + 86400,
               "…the original stays, and the new file has today's date")
     step("after converting", convert_settings)
+
+    def uninstaller_list():
+        import csv
+        from PySide6.QtWidgets import QFileDialog, QMenu
+        w.open_page("Apps")
+        page = w.apps_page
+        page.ensure_loaded()
+        if not check(wait(lambda: page.loaded and page.tree.topLevelItemCount() > 0, 120), "the list of apps loads"):
+            return
+        out = TMP / "apps.csv"
+        QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (str(out), ""))
+        page.save_list()
+        rows = list(csv.reader(out.open(encoding="utf-8-sig"))) if out.is_file() else []
+        shown = sum(1 for i in range(page.tree.topLevelItemCount()) if not page.tree.topLevelItem(i).isHidden())
+        check(len(rows) == shown + 1 and rows[0][0] == "Name", f"\"Save the list…\" saves every app shown "
+                                                                 f"({len(rows) - 1} of {shown})")
+        seen = []
+
+        class Menu(QMenu):  # (shows nothing: only says what it would offer)
+            def exec(self, *_):
+                seen.extend(x.text() for x in self.actions() if x.text())
+        from corefold import appspage
+        appspage.QMenu, real = Menu, appspage.QMenu
+        try:
+            page._menu(page.tree.visualItemRect(page.tree.topLevelItem(0)).center())
+        finally:
+            appspage.QMenu = real
+        check("Uninstall" in seen and any(t.startswith("Search the web") for t in seen) and "Copy the name" in seen,
+              f"right-clicking an app offers Uninstall, a web search and copying its name ({seen})")
+    step("the Uninstaller's list", uninstaller_list)
 
     def viewer_loop():
         from PySide6.QtGui import QColor, QImage
