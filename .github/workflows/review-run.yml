@@ -1,4 +1,4 @@
-# TEMPORARY (review thread): every tool's own test on Windows, on each push to this branch. Removed before merging.
+# TEMPORARY (review thread): checks on Windows on each push to this branch. Removed before merging.
 name: Review run
 
 on:
@@ -21,14 +21,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: edge
-          - name: tools-en-dark
-            lang: en
-            look: dark
-          - name: tools-ar-light
-            lang: ar
-            look: light
-          - name: newtests
+          - name: use-en-dark-1
+          - name: use-en-dark-2
+          - name: scan-once
     name: ${{ matrix.name }}
     steps:
       - uses: actions/checkout@v7
@@ -43,45 +38,29 @@ jobs:
           python scripts/screenres.py 1920 1080 *>> out/screen.txt
           choco install ffmpeg -y --no-progress | Out-Null
 
-      - name: Awkward files, self-test, features
-        if: matrix.name == 'edge'
+      - name: Timed real use
+        if: startsWith(matrix.name, 'use-')
         shell: pwsh
         continue-on-error: true
         run: |
           $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
-          python scripts/edgetest.py *> out/edgetest.txt
-          python scripts/selftest.py *> out/selftest.txt
-          python scripts/featuretest.py *> out/featuretest.txt
-          python scripts/check_translations.py *> out/translations.txt
+          python scripts/usetest.py out/usetest --lang en --look dark *> out/usetest.txt
 
-      - name: Each tool's own test
-        if: matrix.lang != ''
-        shell: pwsh
-        continue-on-error: true
-        env:
-          L: ${{ matrix.lang }}
-          K: ${{ matrix.look }}
-        run: |
-          $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
-          foreach ($t in "organizetest", "startuptest", "captexttest", "pdftest", "quicktest", "scantest") {
-            python scripts/$t.py out/$t $env:L $env:K *> out/$t.txt
-          }
-
-      - name: Newer tools' tests
-        if: matrix.name == 'newtests'
+      - name: Scan, then organizer and startup like the bug hunt's tools job
+        if: matrix.name == 'scan-once'
         shell: pwsh
         continue-on-error: true
         run: |
-          $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
-          foreach ($t in Get-ChildItem scripts -Filter "newtest_*.py") {
-            python scripts/$($t.Name) *> "out/$($t.BaseName).txt"
+          foreach ($t in "organizetest", "startuptest") {
+            python scripts/$t.py out/$t en dark *> "out/$t-en.txt"
+            python scripts/$t.py out/$t ar light *> "out/$t-ar.txt"
           }
+          python scripts/scantest.py out/scantest ar light *> out/scantest.txt
 
       - name: Sum up
-        if: always()
         shell: pwsh
         run: |
           Get-ChildItem out -Filter *.txt | ForEach-Object {
             "== $($_.Name)"
-            Get-Content $_.FullName | Select-String -Pattern "problem|^FAIL|^ERROR|^SLOW|unused|Traceback" | Select-Object -First 40 | ForEach-Object { $_.Line }
+            Get-Content $_.FullName | Select-String -Pattern "problem|^FAIL|^ERROR|^SLOW|full screen|Traceback" | Select-Object -First 60 | ForEach-Object { $_.Line }
           }

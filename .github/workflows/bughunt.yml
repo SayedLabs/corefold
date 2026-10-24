@@ -100,10 +100,12 @@ jobs:
         continue-on-error: true
         run: |
           $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
-          foreach ($t in "organizetest", "startuptest", "scantest") {
+          foreach ($t in "organizetest", "startuptest") {
             python scripts/$t.py out/$t en dark *> "out/$t-en.txt"
             python scripts/$t.py out/$t ar light *> "out/$t-ar.txt"
           }
+          # once: it puts a test threat back from quarantine, and Windows then lets that one be on this PC
+          python scripts/scantest.py out/scantest ar light *> out/scantest.txt
           foreach ($t in Get-ChildItem scripts -Filter "newtest_*.py") {
             python scripts/$($t.Name) *> "out/$($t.BaseName).txt"
           }
