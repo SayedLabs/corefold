@@ -560,6 +560,8 @@ class MainWindow(QWidget):
         self.nav.itemClicked.connect(self._row_clicked)
         last = self.c.settings.last_page
         self.open_page(last if last in PAGES else "Home")
+        self._learning = None
+        QTimer.singleShot(4000, self, self._learn_setting_words)
 
         footer = QHBoxLayout()
         footer.setSpacing(8)
@@ -896,14 +898,14 @@ class MainWindow(QWidget):
         self._no_accidental_scrolling(built)
         self._fill_built(name)
 
-    def drop_hidden_pages(self):
+    def drop_hidden_pages(self, names=REMADE_PAGES):
         """Pages out of sight that are quick to make again go (made again when they're opened), so a
         new look restyles only what's in use instead of every page ever opened."""
         from shiboken6 import delete
         here = self.current_page()
         dropped = False
         for name in PAGES:
-            if name not in REMADE_PAGES or name == here or not self.built(name):
+            if name not in names or name == here or not self.built(name):
                 continue
             i = PAGES.index(name)
             page_widget = self.stack.widget(i)
@@ -921,6 +923,39 @@ class MainWindow(QWidget):
             self.quick_notes = None
         if not self.built("About"):
             self.link_buttons = []
+        if not self.built("Formats"):
+            self._formats_pending = []
+
+    def _learn_setting_words(self):
+        """Once per version and language, soon after the window opens: the words on settings pages not
+        made yet are read one page at a time (made, read, let go), so Ctrl + K never waits for them."""
+        if getattr(self, "_learning", None) is not None:
+            return
+        words = _setting_words()
+        todo = [name for _, _, pages in self.settings_tab_list for name in pages
+                if not self.built(name) and name not in words]
+        if todo:
+            self._learning = (words, todo)
+            QTimer.singleShot(0, self, self._learn_next)
+
+    def _learn_next(self):
+        words, todo = self._learning
+        if not self.isVisible() or winutil.idle_ms() < 1500:  # (only while nobody's typing or moving the mouse)
+            QTimer.singleShot(1000, self, self._learn_next)
+            return
+        while todo and self.built(todo[0]):
+            todo.pop(0)
+        if not todo:
+            self._learning = None
+            known = _setting_words()
+            known.update(words)
+            _keep_setting_words(known)
+            return
+        name = todo.pop(0)
+        self._build_page(name)
+        words[name] = [text for text, _ in self._settings_on(name)]
+        self.drop_hidden_pages({name})
+        QTimer.singleShot(80, self, self._learn_next)
 
     def built(self, name: str) -> bool:
         """The page is made (pages wait until they're first opened)."""
@@ -1253,7 +1288,8 @@ class MainWindow(QWidget):
 
     def show_language(self):
         """The language button and the Language list show the language in use."""
-        self.lang_btn.setText(" " + i18n.LANGUAGES.get(i18n.language(), "English"))  # (a little room after the globe)
+        if hasattr(self, "lang_btn"):  # (not yet while the window is made with General open: it's made after)
+            self.lang_btn.setText(" " + i18n.LANGUAGES.get(i18n.language(), "English"))  # (room after the globe)
         if self.built("General") and hasattr(self, "language"):
             self.language.blockSignals(True)
             self.language.setCurrentIndex(max(0, self.language.findData(self.c.settings.language)))
@@ -1410,6 +1446,8 @@ class MainWindow(QWidget):
 
     def _settings_on(self, page_name: str) -> list[tuple[str, QWidget]]:
         """The settings on a page Ctrl + K can find, by the words next to them."""
+        if page_name == "Formats":
+            self._fill_formats_later(all_now=True)
         w = self.stack.widget(PAGES.index(page_name))
         found, seen = [], set()
         for widget in w.findChildren(QWidget):
@@ -2974,7 +3012,8 @@ class MainWindow(QWidget):
         self.format_search.setClearButtonEnabled(True)
         self.format_search.textChanged.connect(self._filter_formats)
         lay.addWidget(self.format_search)
-        for kind in catalog():
+        self._formats_pending: list[str] = []
+        for i, kind in enumerate(catalog()):
             lay.addWidget(label(tr(CATEGORY_NAMES[kind]), "h2"))
             box, _ = card()
             grid = QGridLayout()
@@ -2982,8 +3021,12 @@ class MainWindow(QWidget):
             grid.setVerticalSpacing(6)
             box.layout().addLayout(grid)
             self.format_grids[kind] = grid
-            self._fill_format_grid(kind)
+            if i == 0:
+                self._fill_format_grid(kind)
+            else:  # (the page shows at once; the rest of its ~400 rows follow in small steps)
+                self._formats_pending.append(kind)
             lay.addWidget(box)
+        QTimer.singleShot(15, w, self._fill_formats_later)
         row = QHBoxLayout()
         row.addWidget(button(tr("Show everything again"), on_click=self._show_all_tools))
         row.addWidget(button(tr("Reset the order"), on_click=self._reset_order))
@@ -3415,6 +3458,16 @@ class MainWindow(QWidget):
         order = {k: i for i, k in enumerate(self.c.settings.tool_order.get(kind, []))}
         default = {t.key: i for i, t in enumerate(tools)}
         return sorted(tools, key=lambda t: order.get(t.key, len(order) + default[t.key]))
+
+    def _fill_formats_later(self, all_now: bool = False):
+        while self._formats_pending:
+            kind = self._formats_pending.pop(0)
+            if kind in self.format_grids:
+                self._fill_format_grid(kind)
+            if not all_now:
+                if self._formats_pending:
+                    QTimer.singleShot(15, self.stack, self._fill_formats_later)
+                return
 
     def _fill_format_grid(self, kind: str):
         from .panel import clear_layout
