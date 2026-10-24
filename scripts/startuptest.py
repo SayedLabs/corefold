@@ -437,6 +437,7 @@ def page():
           f"\"Switched off\" shows only the ones that are off ({len(shown)})")
     w.grab().save(str(OUT / f"startup-off-{LANG}-{LOOK}.png"))
     QTest.mouseClick(pg.filter_buttons[""], Qt.LeftButton)
+    settle(0.4)  # (the parts are laid out again, as before a person's next click)
     QTest.mouseClick(row.switch, Qt.LeftButton, Qt.NoModifier, row.switch.rect().center())
     check(until(lambda: row.switch.isEnabled() and not pg.busy, 15), "clicking it again: done")
     note = get(winreg.HKEY_CURRENT_USER, startup.APPROVED + r"\Run", "CfStartupTest")
