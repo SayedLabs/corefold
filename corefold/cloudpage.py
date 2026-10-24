@@ -271,7 +271,8 @@ class CloudPage(QWidget):
         self.search.setClearButtonEnabled(True)
         self.search.returnPressed.connect(self.search_all)
         self.search.textChanged.connect(lambda t: self.end_search() if not t and self.results is not None else None)
-        self.search.setMaximumWidth(260)
+        self.search.setMinimumWidth(210)
+        self.search.setMaximumWidth(280)
         self.explorer_btn = self._button(tr("Open in File Explorer"), self._open_in_explorer)
         self.explorer_btn.setObjectName("flat")
         top.addWidget(self.up_btn)
@@ -287,6 +288,7 @@ class CloudPage(QWidget):
         upload.addAction(tr("Files…"), self._pick_upload)
         upload.addAction(tr("A folder…"), self._pick_upload_folder)
         self.upload_btn.setMenu(upload)
+        self.upload_btn.setMinimumWidth(self.upload_btn.sizeHint().width() + 18)  # (room for the menu's arrow)
         self.folder_btn = self._button(tr("New folder"), self.new_folder)
         self.refresh_btn = self._button(tr("Refresh"), self.refresh)
         for b in (self.upload_btn, self.folder_btn, self.refresh_btn):

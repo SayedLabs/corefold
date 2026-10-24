@@ -95,7 +95,8 @@ class Account:
 
     @property
     def title(self) -> str:
-        return f"{SERVICES.get(self.service, self.service)} · {self.who}"
+        name = SERVICES.get(self.service, self.service)
+        return name if self.who in ("", name) else f"{name} · {self.who}"
 
     @property
     def who(self) -> str:

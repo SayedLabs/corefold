@@ -541,7 +541,9 @@ def core():
               f"both accounts are kept ({[a.key for a in saved]})")
         raw = cloud.ACCOUNTS_FILE.read_bytes()
         if os.name == "nt":
-            check(b"refresh" not in raw and b"-R" not in raw, "the keys are locked on disk (no readable key)")
+            plain = [a.refresh.encode() for a in accounts.values()] + [a.access.encode() for a in accounts.values()]
+            check(not any(k in raw for k in plain) and b"sam@" not in raw,
+                  "the keys are locked on disk (no readable key or email)")
             check(cloud.unprotect(raw).startswith(b"["), "and Windows unlocks them again")
     step("keys kept", kept)
 
