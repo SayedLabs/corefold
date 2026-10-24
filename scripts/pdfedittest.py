@@ -217,6 +217,8 @@ def reading():
     arabic = next(d for d in lay["lines"] if d["text"] == ARABIC)
     check(arabic["rtl"] and arabic["color"] == "#204080", "the Arabic line: right to left, its colour")
     check(pe.line_text([("b", 5, 10), ("a", 0, 5)], 10)[0] == "ab", "letters put in order by where they are")
+    check(pe.arabic_letters("للسید كتاب") == "للسيد كتاب" and pe.arabic_letters("علی") == "علی" and
+          pe.arabic_letters("پیدا") == "پیدا", "Arabic words read back with Arabic letters (Persian left as it is)")
     check(pe.clean_family("ABCDEF+TimesNewRomanPS-BoldMT") == ("Times New Roman", True, False), "font names cleaned")
     g = pe.Geo(90, 0, 0, 300, 500)
     check(g.width == 500 and all(abs(a - b) < 1e-6 for a, b in zip(g.to_display(*g.to_user(30, 40)), (30, 40))),

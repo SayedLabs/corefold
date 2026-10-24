@@ -189,7 +189,85 @@ def line_text(chars: list[tuple[str, float, float]], size: float) -> tuple[str, 
         else:
             out.append(made[i][0])
             i += 1
-    return " ".join(out), rtl
+    return arabic_letters(" ".join(out)), rtl
+
+
+# Letters that look the same at the start or middle of a word: some fonts (Arial on Windows) give the
+# Persian one when a PDF is read back, so Arabic words wouldn't be found. Arabic text gets the Arabic one.
+_SAME_JOINED = {"\u06cc": "\u064a", "\u06a9": "\u0643"}  # (Persian yeh, keheh → Arabic yeh, kaf)
+_PERSIAN = set("\u067e\u0686\u0698\u06af")  # (پ چ ژ گ: Persian text keeps its own letters)
+
+
+def arabic_letters(text: str) -> str:
+    if not any(ch in _SAME_JOINED for ch in text) or _PERSIAN.intersection(text):
+        return text
+    out = list(text)
+    for i, ch in enumerate(out[:-1]):
+        if ch in _SAME_JOINED and "\u0620" <= out[i + 1] <= "\u06ff":
+            out[i] = _SAME_JOINED[ch]
+    return "".join(out)
+
+
+def _arabic_unicode(data: bytes, typed: str) -> bytes:
+    """Qt's PDF says which letters its shapes are (so the words can be found and copied); for shapes two
+    letters share it may name the other one (Persian ی for Arabic ي). Names the letter that was typed."""
+    import io
+    import re
+    from pypdf import PdfReader, PdfWriter
+    swap = {}
+    for a, b in _SAME_JOINED.items():
+        if b in typed and a not in typed:
+            swap[a] = b
+        elif a in typed and b not in typed:
+            swap[b] = a
+    if not swap:
+        return data
+    hex_swap = {f"{ord(a):04X}": f"{ord(b):04X}" for a, b in swap.items()}
+
+    def fix_dest(m):
+        h = m.group(1).upper()
+        return "<" + "".join(hex_swap.get(h[k:k + 4], h[k:k + 4]) for k in range(0, len(h), 4)) + ">"
+
+    def fix(cmap: str) -> str:
+        lines, section = [], None
+        for line in cmap.splitlines():
+            if line.endswith("beginbfrange") or line.endswith("beginbfchar"):
+                section = line.split()[-1]
+            elif line in ("endbfrange", "endbfchar"):
+                section = None
+            elif section:
+                skip = 2 if section == "beginbfrange" else 1  # (the shapes' numbers come first)
+                n = [0]
+
+                def one(m):
+                    n[0] += 1
+                    return m.group(0) if n[0] <= skip else fix_dest(m)
+                if not (section == "beginbfrange" and "[" not in line and len(line.split()) == 3 and
+                        line.split()[0] != line.split()[1]):  # (a run of letters counted up: left alone)
+                    line = re.sub(r"<([0-9A-Fa-f]+)>", one, line)
+            lines.append(line)
+        return "\n".join(lines) + "\n"
+
+    reader = PdfReader(io.BytesIO(data))
+    writer = PdfWriter(clone_from=reader)
+    changed = False
+    for page in writer.pages:
+        fonts = page.get("/Resources", {}).get("/Font", {})
+        for ref in fonts.values():
+            tu = ref.get_object().get("/ToUnicode")
+            if tu is None:
+                continue
+            tu = tu.get_object()
+            old = tu.get_data().decode("latin-1")
+            new = fix(old)
+            if new != old:
+                tu.set_data(new.encode("latin-1"))
+                changed = True
+    if not changed:
+        return data
+    out = io.BytesIO()
+    writer.write(out)
+    return out.getvalue()
 
 
 def read_layout(doc, index: int) -> dict:
@@ -622,7 +700,8 @@ def _layer(pages: dict[int, list[dict]], sizes: dict[int, tuple[float, float]]) 
     finally:
         p.end()
     buf.close()
-    return bytes(data)
+    typed = "".join(d.get("text", "") for marks in pages.values() for d in marks if d.get("kind") == "text")
+    return _arabic_unicode(bytes(data), typed)
 
 
 def _highlights(writer, page, geo: Geo, marks: list[dict]):
@@ -724,7 +803,7 @@ def _field_picture(writer, w: float, h: float, field: dict, value: str):
     p.drawText(QRectF(2, 1, max(w - 4, 1), max(h - 2, 1)), int(flags), value)
     p.end()
     buf.close()
-    page = PdfReader(io.BytesIO(bytes(data))).pages[0]
+    page = PdfReader(io.BytesIO(_arabic_unicode(bytes(data), value))).pages[0]
     xo = DecodedStreamObject()
     xo.set_data(page.get_contents().get_data() if page.get_contents() is not None else b"")
     xo.update({NameObject("/Type"): NameObject("/XObject"), NameObject("/Subtype"): NameObject("/Form"),

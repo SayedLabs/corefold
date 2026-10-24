@@ -1285,14 +1285,19 @@ class PdfEditor(QWidget):
         foot.addWidget(self.hint, 1)
         v.addLayout(foot)
         self._filling = False
+        taken = set()  # (one shortcut per key: two on the same key (Windows' Redo is Ctrl + Y too) do nothing)
         for keys, fn in ((QKeySequence.Undo, self.undo), (QKeySequence.Redo, self.redo),
-                         (QKeySequence("Ctrl+Y"), self.redo), (QKeySequence.Save, self.save),
-                         (QKeySequence("Ctrl+V"), self.paste), (QKeySequence.ZoomIn, lambda: self.zoom_step(1)),
-                         (QKeySequence("Ctrl+="), lambda: self.zoom_step(1)),
-                         (QKeySequence.ZoomOut, lambda: self.zoom_step(-1)), (QKeySequence("Ctrl+0"), self.fit_width)):
-            sc = QShortcut(keys, self)
-            sc.setContext(Qt.WidgetWithChildrenShortcut)
-            sc.activated.connect(fn)
+                         ("Ctrl+Y", self.redo), (QKeySequence.Save, self.save),
+                         ("Ctrl+V", self.paste), (QKeySequence.ZoomIn, lambda: self.zoom_step(1)),
+                         ("Ctrl+=", lambda: self.zoom_step(1)),
+                         (QKeySequence.ZoomOut, lambda: self.zoom_step(-1)), ("Ctrl+0", self.fit_width)):
+            for seq in QKeySequence.keyBindings(keys) if not isinstance(keys, str) else [QKeySequence(keys)]:
+                if seq.isEmpty() or seq.toString() in taken:
+                    continue
+                taken.add(seq.toString())
+                sc = QShortcut(seq, self)
+                sc.setContext(Qt.WidgetWithChildrenShortcut)
+                sc.activated.connect(fn)
         self._fill_fonts()
         self._refresh()
 
