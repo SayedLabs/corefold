@@ -357,7 +357,10 @@ def system_tool(name: str) -> str:
     runs as administrator must only ever start Windows' real ones."""
     if os.name != "nt":
         return name
-    system32 = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32"
+    windows = Path(os.environ.get("SystemRoot", r"C:\Windows"))
+    system32 = windows / "System32"
+    if name.lower() == "explorer.exe":  # (the one program of Windows' own that isn't in System32)
+        return str(windows / name)
     if name.lower() == "powershell.exe":
         return str(system32 / "WindowsPowerShell" / "v1.0" / name)
     return str(system32 / name)

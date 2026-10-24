@@ -44,6 +44,8 @@ def hibernate_allowed() -> bool:
 
 
 def _start(cmd: list[str]):
+    from .core import system_tool
+    cmd = [system_tool(cmd[0]), *cmd[1:]]  # (Windows' own shutdown.exe, never one in the current folder)
     try:
         subprocess.Popen(cmd, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), close_fds=True)
     except OSError:

@@ -1,12 +1,13 @@
 # Corefold privacy policy
 
-Last changed: October 23, 2026. This is the same policy as the one on
+Last changed: October 24, 2026. This is the same policy as the one on
 [the website](https://sayedlabs.github.io/corefold/privacy.html).
 
 Corefold is a free Windows app made by Atomic Works. In short: **your files stay on your PC, there are
 no Corefold accounts, no ads and no tracking, and we have no server that could collect anything.**
 Corefold only goes online by itself to check for its own updates. If you choose to use Corefold Cloud,
-it talks straight to your own OneDrive or Dropbox, and to nobody else.
+it works with the cloud folders already on your PC, or talks straight to your own OneDrive or Dropbox if you
+sign in, and to nobody else.
 
 ## Your files
 
@@ -14,10 +15,19 @@ Everything Corefold does to your files (converting, shrinking, removing backgrou
 opening archives and emails, taking screenshots, uninstalling apps) happens on your own PC. Nothing is
 uploaded, to us or to anyone else, unless you upload it yourself with Corefold Cloud.
 
-## Corefold Cloud (OneDrive and Dropbox)
+## Corefold Cloud (OneDrive, Dropbox, Google Drive and iCloud)
 
-Cloud shows your OneDrive and Dropbox in one window. It's optional, and nothing happens until you add
-an account.
+Cloud shows your clouds in one window. It's optional, and it works in two ways.
+
+**Folders on your PC.** Cloud finds the OneDrive, Dropbox, Google Drive and iCloud folders that those
+companies' own apps keep on your PC. It finds them by reading what those apps write on your PC (OneDrive's
+settings in the Windows registry, Dropbox's `info.json`, Google Drive's drive). For these folders Corefold
+doesn't go online at all: it opens, copies, renames and deletes files in them on your PC, and the company's
+own app sends the changes to its service, as it does for anything you save there. Deleted files go to the
+Recycle Bin. Nothing about these folders is kept by Corefold.
+
+**Signing in online (OneDrive and Dropbox),** when your copy of Corefold offers it. Nothing happens until
+you sign in to an account.
 
 - **Signing in happens on Microsoft's or Dropbox's own page,** in your web browser. Corefold never sees
   your password. While you sign in, Corefold listens on a local address on your own PC
@@ -32,7 +42,8 @@ an account.
   anyone else. Copying from one cloud to another goes through your PC too.
 - **Files you open** from Cloud are downloaded to a temporary folder on your PC so the right app can open
   them. Changes stay on your PC until you upload the file again.
-- **Sign out** deletes Corefold's key for that account from your PC. To also take back the permission on
+- **Sign out** deletes Corefold's key for that account from your PC, and for Dropbox also asks Dropbox to
+  cancel it. To also take back the permission on
   the service's side, use [your Microsoft account's app permissions](https://account.live.com/consent/Manage)
   (work or school accounts: [My Apps](https://myapps.microsoft.com)) or
   [Dropbox's connected apps](https://www.dropbox.com/account/connected_apps).
@@ -47,7 +58,7 @@ Your files on OneDrive and Dropbox are covered by those companies' own policies:
 |---|---|---|
 | Checking for updates (a few times a day, can be turned off in *Updates*) | A request for the latest release, with the app's name and version. Like any web request, it carries your IP address. | GitHub, which hosts Corefold's releases ([GitHub's privacy statement](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement)) |
 | Downloading an update, when you choose to or turn on automatic updates | A download of the installer. | GitHub |
-| Using Corefold Cloud, only after you add an account | Your sign-in, the files and folders you open, upload, download, rename, delete or search for, and the searches you type. | Microsoft (OneDrive) or Dropbox, whichever you signed in to |
+| Using Corefold Cloud, only after you sign in to an account (folders on your PC send nothing) | Your sign-in, the files and folders you open, upload, download, rename, delete or search for, and the searches you type. | Microsoft (OneDrive) or Dropbox, whichever you signed in to |
 | When you click *Send feedback*, *Website*, *Privacy* or similar links | Your web browser opens that page. Anything you then write in a feedback form is public on GitHub. | GitHub |
 
 Corefold doesn't send usage statistics, crash reports or any information about your files, and it

@@ -15,6 +15,23 @@ SERVER_NAME = f"Corefold-{os.environ.get('USERNAME', 'user')}"
 PIPE_PATH = "\\\\.\\pipe\\" + SERVER_NAME
 
 
+def leave_start_folder(argv: list[str]):
+    """Started from a right-click, Corefold's current folder is the one the clicked file is in (often
+    Downloads). Windows looks in the current folder for programs started by name, and Pillow for
+    Ghostscript, so a "shutdown.exe" or "gswin64c.exe" lying there could run. Files named on the command
+    line get their full path first, then Corefold moves to the home folder."""
+    for i in range(1, len(argv)):
+        arg = argv[i]
+        if argv[i - 1] in ("--page", "--run"):
+            continue  # (a page's or a tool's name, not a file)
+        if not arg.startswith("--") and not os.path.isabs(arg) and os.path.exists(arg):
+            argv[i] = os.path.abspath(arg)
+    try:
+        os.chdir(os.path.expanduser("~"))
+    except OSError:
+        pass
+
+
 def message_for(argv: list[str]) -> bytes | None:
     """The message for the running app, or None if this start should open the app itself."""
     if "--restarted" in argv or "--remove-shell-menu" in argv:
