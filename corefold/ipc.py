@@ -79,10 +79,13 @@ def send(message: bytes, wait_s: float = 4.0) -> bool:
     k32.WaitNamedPipeW.argtypes = [wt.LPCWSTR, wt.DWORD]
     invalid = wt.HANDLE(-1).value
     generic_write, open_existing = 0x40000000, 3
+    # the running Corefold may only identify this process, never act as it (if another account on the PC
+    # made a pipe with this name first, it can't borrow this person's rights through it)
+    identify_only = 0x00100000 | 0x00010000   # SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION
     error_file_not_found, error_pipe_busy = 2, 231
     deadline = time.monotonic() + wait_s
     while True:
-        handle = k32.CreateFileW(PIPE_PATH, generic_write, 0, None, open_existing, 0, None)
+        handle = k32.CreateFileW(PIPE_PATH, generic_write, 0, None, open_existing, identify_only, None)
         if handle and handle != invalid:
             break
         err = ctypes.get_last_error()
@@ -95,11 +98,16 @@ def send(message: bytes, wait_s: float = 4.0) -> bool:
         else:
             time.sleep(0.05)
     try:
+        server = _server_pid(handle)
+        if not server or not same_user(server):
+            # (a pipe of this name made by someone else: the files clicked aren't told to it)
+            log_refused(server)
+            return False
         # This helper was started by a click in Explorer, so Windows lets it bring windows to the
-        # front. Pass that on: otherwise Corefold's window (e.g. "Resize…") could open behind
-        # Explorer, only blinking in the taskbar.
+        # front. Pass that on (to the running Corefold only): otherwise Corefold's window (e.g.
+        # "Resize…") could open behind Explorer, only blinking in the taskbar.
         try:
-            ctypes.windll.user32.AllowSetForegroundWindow(-1)  # ASFW_ANY
+            ctypes.windll.user32.AllowSetForegroundWindow(server)
         except Exception:
             pass
         written = wt.DWORD(0)
@@ -112,6 +120,81 @@ def send(message: bytes, wait_s: float = 4.0) -> bool:
         return True
     finally:
         k32.CloseHandle(handle)
+
+
+def _server_pid(handle) -> int:
+    import ctypes
+    from ctypes import wintypes as wt
+    pid = wt.ULONG(0)
+    try:
+        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        k32.GetNamedPipeServerProcessId.argtypes = [wt.HANDLE, ctypes.POINTER(wt.ULONG)]
+        if k32.GetNamedPipeServerProcessId(handle, ctypes.byref(pid)):
+            return int(pid.value)
+    except (OSError, AttributeError):
+        pass
+    return 0
+
+
+def _token_user(process) -> bytes | None:
+    """The account (its SID, as bytes) a process runs as, or None if it can't be read."""
+    import ctypes
+    from ctypes import wintypes as wt
+    adv = ctypes.WinDLL("advapi32", use_last_error=True)
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    adv.OpenProcessToken.argtypes = [wt.HANDLE, wt.DWORD, ctypes.POINTER(wt.HANDLE)]
+    adv.GetTokenInformation.argtypes = [wt.HANDLE, ctypes.c_int, ctypes.c_void_p, wt.DWORD,
+                                        ctypes.POINTER(wt.DWORD)]
+    adv.GetLengthSid.argtypes = [ctypes.c_void_p]
+    adv.GetLengthSid.restype = wt.DWORD
+    k32.CloseHandle.argtypes = [wt.HANDLE]
+    token = wt.HANDLE()
+    if not adv.OpenProcessToken(process, 0x0008, ctypes.byref(token)):  # TOKEN_QUERY
+        return None
+    try:
+        buf = ctypes.create_string_buffer(256)
+        size = wt.DWORD(0)
+        if not adv.GetTokenInformation(token, 1, buf, 256, ctypes.byref(size)):  # TokenUser
+            return None
+        sid = ctypes.c_void_p.from_buffer(buf).value   # TOKEN_USER starts with the SID's address
+        return ctypes.string_at(sid, adv.GetLengthSid(sid)) if sid else None
+    finally:
+        k32.CloseHandle(token)
+
+
+def same_user(pid: int) -> bool:
+    """The process runs as this Windows account. (When its account can't be read, the same Windows
+    session counts: another person's programs run in another session.)"""
+    import ctypes
+    from ctypes import wintypes as wt
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.OpenProcess.restype = wt.HANDLE
+    k32.OpenProcess.argtypes = [wt.DWORD, wt.BOOL, wt.DWORD]
+    k32.GetCurrentProcess.restype = wt.HANDLE
+    k32.CloseHandle.argtypes = [wt.HANDLE]
+    k32.ProcessIdToSessionId.argtypes = [wt.DWORD, ctypes.POINTER(wt.DWORD)]
+    mine = _token_user(k32.GetCurrentProcess())
+    h = k32.OpenProcess(0x1000, False, pid)   # PROCESS_QUERY_LIMITED_INFORMATION
+    if not h:
+        return False
+    try:
+        theirs = _token_user(h)
+    finally:
+        k32.CloseHandle(h)
+    if mine is not None and theirs is not None:
+        return mine == theirs
+    a, b = wt.DWORD(), wt.DWORD()
+    return bool(k32.ProcessIdToSessionId(os.getpid(), ctypes.byref(a)) and
+                k32.ProcessIdToSessionId(pid, ctypes.byref(b)) and a.value == b.value)
+
+
+def log_refused(pid: int):
+    try:
+        import logging
+        logging.getLogger("corefold").warning("the pipe %s belongs to another account (process %s): not used",
+                                              PIPE_PATH, pid)
+    except Exception:
+        pass
 
 
 def forward(argv: list[str]) -> bool:

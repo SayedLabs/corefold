@@ -82,7 +82,12 @@ def preview_of(name: str, data: bytes) -> tuple[str, object]:
             from PySide6.QtCore import QByteArray
             from PySide6.QtGui import QPainter
             from PySide6.QtSvg import QSvgRenderer
-            r = QSvgRenderer(QByteArray(data))
+
+            from .safetext import safe_svg
+            try:
+                r = QSvgRenderer(QByteArray(safe_svg(data)))
+            except (ValueError, EOFError, OSError):
+                r = QSvgRenderer()
             if r.isValid():
                 size = r.defaultSize()
                 size.scale(min(PREVIEW_PX, max(64, size.width() * 2)), min(PREVIEW_PX, max(64, size.height() * 2)),

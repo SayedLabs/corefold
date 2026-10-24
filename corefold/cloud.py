@@ -212,6 +212,10 @@ class _Again(Exception):
 
 
 def _request_once(method, url, token, data, headers, timeout, raw):
+    if not str(url).lower().startswith("https://"):
+        # (an address a service's answer gave, for a download say, could be file:// or plain http)
+        log.warning("cloud: refused an address that isn't https: %s", str(url)[:80])
+        raise CloudError("the service is having trouble right now, try again soon")
     h = dict(headers or {})
     body = data
     if isinstance(data, (dict, list)):

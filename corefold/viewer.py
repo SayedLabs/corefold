@@ -132,8 +132,14 @@ def _qimage_to_pil(image: QImage):
 
 def svg_picture(path: Path, longest: int = 2400) -> QImage:
     """A drawing (SVG) at a good size for the screen, on a see-through background."""
+    from PySide6.QtCore import QByteArray
     from PySide6.QtSvg import QSvgRenderer
-    r = QSvgRenderer(str(path))
+
+    from .safetext import safe_svg
+    try:  # (a picture it names outside itself, on a shared folder say, is never opened)
+        r = QSvgRenderer(QByteArray(safe_svg(path.read_bytes())))
+    except (OSError, ValueError, EOFError) as e:
+        raise RuntimeError(tr("this drawing can't be read")) from e
     if not r.isValid():
         raise RuntimeError(tr("this drawing can't be read"))
     size = r.defaultSize()
