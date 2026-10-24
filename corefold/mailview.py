@@ -11,14 +11,15 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QByteArray, QSizeF, Qt, QUrl
-from PySide6.QtGui import QDesktopServices, QImage, QTextDocument
+from PySide6.QtCore import QSizeF, Qt, QUrl
+from PySide6.QtGui import QDesktopServices, QTextDocument
 from PySide6.QtWidgets import (QFileDialog, QFrame, QHBoxLayout, QLabel, QMenu, QMessageBox, QPushButton,
                                QTextBrowser, QVBoxLayout, QWidget)
 
 from . import mail
 from .core import APP_NAME, human_size, short_name, unique_path
 from .i18n import ltr, tr
+from .safetext import blocked, offline_document, raster_picture
 from .theme import round_menu
 from .winutil import set_title_bar_dark
 
@@ -47,6 +48,17 @@ def drop_remote_pictures(text: str) -> tuple[str, int]:
     return _REMOTE_IMG.subn("", text)
 
 
+def _data_url(url: str) -> bytes:
+    """The bytes in a "data:image/png;base64,..." address (b"" if it can't be read)."""
+    import base64
+    from urllib.parse import unquote_to_bytes
+    head, _, body = url.partition(",")
+    try:
+        return base64.b64decode(body, validate=False) if head.lower().endswith(";base64") else unquote_to_bytes(body)
+    except ValueError:
+        return b""
+
+
 def plain_to_html(text: str) -> str:
     """A plain-text email shown with its links clickable."""
     escaped = html_lib.escape(text)
@@ -71,15 +83,18 @@ class MailBody(QTextBrowser):
         if scheme == "cid":
             att = self.by_cid.get(url.path() or url.toString()[4:])
             if att is not None and kind == QTextDocument.ImageResource:
-                img = QImage()
-                if img.loadFromData(QByteArray(att.data)):
+                img = raster_picture(att.data)
+                if not img.isNull():
                     return img
-            return None
-        if scheme == "data":
-            return super().loadResource(kind, url)
-        if scheme in ("http", "https") and kind == QTextDocument.ImageResource:
+        elif scheme == "data" and kind == QTextDocument.ImageResource:
+            img = raster_picture(_data_url(url.toString()))
+            if not img.isNull():
+                return img
+        elif scheme in ("http", "https") and kind == QTextDocument.ImageResource:
             self.blocked += 1
-        return None  # nothing from the internet or from this PC
+        # nothing from the internet or from this PC (a shared folder's picture would make Windows sign in
+        # to that computer), and no style: None isn't enough, Qt would then open the file itself
+        return blocked(kind)
 
 
 class MailWindow(QWidget):
@@ -253,7 +268,7 @@ class MailWindow(QWidget):
         name, _ = QFileDialog.getSaveFileName(self, tr("Save as PDF"), str(default), "PDF (*.pdf)")
         if not name:
             return
-        doc = QTextDocument()
+        doc = offline_document()   # (the email's own pictures are added below; nothing else is loaded)
         doc.setDefaultFont(self.body.font())
         rows = "".join(f"<tr><td style='color:#666;padding-right:10px'>{html_lib.escape(k)}</td>"
                        f"<td>{html_lib.escape(v)}</td></tr>"
@@ -265,8 +280,8 @@ class MailWindow(QWidget):
         body = self.body.toHtml()
         doc.setHtml(f"<h2>{html_lib.escape(self.m.subject)}</h2><table>{rows}</table>{att_line}<hr>{body}")
         for cid, att in self.body.by_cid.items():  # the email's own pictures
-            img = QImage()
-            if img.loadFromData(QByteArray(att.data)):
+            img = raster_picture(att.data)
+            if not img.isNull():
                 doc.addResource(QTextDocument.ImageResource, QUrl(f"cid:{cid}"), img)
         writer = QPdfWriter(name)
         writer.setPageSize(QPageSize(QPageSize.A4))

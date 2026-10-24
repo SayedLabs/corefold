@@ -279,13 +279,17 @@ if ($LASTEXITCODE) { throw "PyInstaller failed" }
 Get-ChildItem "dist\Corefold" -Recurse -Filter "opengl32sw.dll" | Remove-Item -Force
 # Parts of Qt that PyInstaller adds but Corefold never loads (~30 MB): QML and Qt Quick (pulled in
 # by the on-screen keyboard plugin), OpenGL, the Direct2D window plugin, the OpenSSL that Qt would
-# use for web downloads (Corefold's Qt only talks to itself; updates use Python's own SSL), and
+# use for web downloads (Corefold's Qt only talks to itself; updates use Python's own SSL), Qt's
+# reader that opens any picture that is really a drawing (SVG) whatever its name: a drawing can name a
+# picture on another computer, which makes Windows sign in there (Corefold draws SVGs itself, with
+# what they point to outside taken out: safetext.safe_svg), and
 # Qt's words in the languages Corefold doesn't speak. scripts\dllcheck.py checks nothing left
 # behind needs them.
 $Qt = "dist\Corefold\_internal\PySide6"
 foreach ($f in @("Qt6Quick.dll", "Qt6Qml.dll", "Qt6QmlModels.dll", "Qt6QmlMeta.dll", "Qt6QmlWorkerScript.dll",
                  "Qt6VirtualKeyboard.dll", "Qt6OpenGL.dll", "plugins\platforminputcontexts",
                  "plugins\platforms\qdirect2d.dll", "plugins\tls\qopensslbackend.dll",
+                 "plugins\imageformats\qsvg.dll",
                  "..\libcrypto-3-x64.dll", "..\libssl-3-x64.dll")) {
     if (Test-Path "$Qt\$f") { Remove-Item "$Qt\$f" -Recurse -Force }
 }

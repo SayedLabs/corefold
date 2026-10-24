@@ -104,6 +104,30 @@ def finding_text(f: dict) -> str:
     if kind == "hosts":
         return tr("Your hosts file sends {site} to {address} instead of the real site.", site=ltr(d.get("site", "")),
                   address=ltr(d.get("to", "")))
+    if kind == "replaced":
+        if d.get("what") == "debugger":
+            return tr("Whenever {name} starts, Windows runs this first: {command}", name=ltr(d.get("name", "")),
+                      command=ltr(d.get("command", "")))
+        return tr("Windows runs this when you sign in, instead of or next to its own: {command}",
+                  command=ltr(d.get("command", "")))
+    if kind == "service":
+        if d.get("sig") == "unsigned":
+            return tr("A service that runs from {place}, and nobody signed it.", place=place)
+        return tr("A service that runs from {place}, and its signature isn't valid.", place=place)
+    if kind == "browser":
+        what = d.get("type")
+        if what == "extension":
+            return tr("An add-on is forced into {name}, so it can't be removed there.", name=ltr(d.get("name", "")))
+        if what == "search":
+            return tr("{name}'s search engine is fixed by a policy.", name=ltr(d.get("name", "")))
+        if what == "proxy":
+            return tr("{name} is told to send what you browse through another computer.",
+                      name=ltr(d.get("name", "")))
+        return tr("{name}'s home page is fixed by a policy.", name=ltr(d.get("name", "")))
+    if kind == "proxy":
+        return tr("Windows sends what you browse through another computer. Fine if your work set it up.")
+    if kind == "defender-off":
+        return tr("A policy switches off part of Microsoft Defender. Malware does this so it isn't found.")
     if kind == "skipped":
         text = tr(SKIPPED.get(d.get("what", "path"), SKIPPED["path"]))
         if f.get("level") == "warn":
@@ -116,11 +140,23 @@ def finding_title(f: dict) -> str:
     kind, path = f["kind"], f["path"]
     if kind == "hosts":
         return tr("The hosts file")
+    if kind == "replaced":
+        return ltr(d_name(f))
+    if kind == "service":
+        return ltr(f.get("detail", {}).get("name", "") or os.path.basename(path))
+    if kind in ("browser", "proxy"):
+        return ltr(f.get("detail", {}).get("value", "") if kind == "proxy" else path)
+    if kind == "defender-off":
+        return "Microsoft Defender"
     if kind == "skipped":
         return ltr(path)
     if kind == "flipped":
         return ltr(scan.shown_name(os.path.basename(path)))
     return ltr(os.path.basename(path) or path)
+
+
+def d_name(f: dict) -> str:
+    return f.get("detail", {}).get("name", "") or f["path"]
 
 
 class ScanRunner(QObject):
@@ -278,9 +314,13 @@ class FindingRow(QWidget):
         more.clicked.connect(lambda: self._menu(more.mapToGlobal(more.rect().bottomLeft())))
         d = f.get("detail", {})
         lines = [finding_text(f)]
-        if f["kind"] == "startup-hidden":
+        if f["kind"] in ("startup-hidden", "service"):
             lines.append(ltr(d.get("command", "")))
-        elif f["kind"] != "skipped":
+        elif f["kind"] == "browser":
+            lines.append(ltr(d.get("value", "")))
+        elif f["kind"] == "defender-off":
+            lines.append(ltr(d.get("what", "")))
+        elif f["kind"] not in ("skipped", "replaced", "proxy"):
             lines.append(ltr(os.path.dirname(f["path"])))
         if d.get("from"):
             lines.append(tr("Downloaded from {site}", site=ltr(d["from"])))
