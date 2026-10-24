@@ -3,7 +3,7 @@ on this PC. Corefold only works with those folders here (it never goes online fo
 the changes up, as it does for anything saved there.
 
 Finding them reads what each app writes about itself: OneDrive's accounts in the registry, Dropbox's info.json,
-Google Drive's drive ("My Drive" on a drive called Google Drive) and the iCloudDrive folder."""
+Google Drive's drive (a drive called Google Drive) and the iCloudDrive folder."""
 from __future__ import annotations
 
 import contextlib
@@ -11,6 +11,7 @@ import errno
 import json
 import logging
 import os
+import stat
 import string
 import time
 from pathlib import Path
@@ -77,7 +78,7 @@ def _dropbox(add):
 
 
 def _drives() -> list[str]:
-    """The fixed drives (not network, CD or USB sticks, which could be slow or asleep)."""
+    """The drives that could be Google Drive's (fixed or network: not CDs or USB sticks)."""
     if os.name != "nt":
         return []
     import ctypes
@@ -86,7 +87,7 @@ def _drives() -> list[str]:
     out = []
     for i, letter in enumerate(string.ascii_uppercase):
         root = f"{letter}:\\"
-        if mask & (1 << i) and k32.GetDriveTypeW(root) == 3:
+        if mask & (1 << i) and k32.GetDriveTypeW(root) in (3, 4):
             out.append(root)
     return out
 
@@ -103,10 +104,10 @@ def _gdrive(add):
     base = _env("LOCALAPPDATA")
     if base is None or not (base / "Google" / "DriveFS").is_dir():
         return  # (Google Drive isn't installed: no drive is even looked at)
-    for root in _drives():
+    for root in _drives():  # (the whole drive: "My Drive" has a name in each language, and Shared drives is there too)
         try:
             if _label(root) == "Google Drive":
-                add("gdrive", Path(root) / "My Drive")
+                add("gdrive", Path(root))
         except OSError:
             continue
     add("gdrive", Path.home() / "My Drive")  # "Mirror files" keeps My Drive in your user folder
@@ -195,7 +196,7 @@ class Local(Client):
 
     def _entry(self, p: Path, st=None) -> Entry:
         st = st or p.stat()
-        folder = os.path.isdir(p)
+        folder = stat.S_ISDIR(st.st_mode)
         try:
             rel = "/" + p.relative_to(self.root).as_posix()
         except ValueError:

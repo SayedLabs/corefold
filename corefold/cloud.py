@@ -103,6 +103,8 @@ class Account:
         if self.email or not self.local:
             return self.email
         p = Path(self.local)
+        if not p.name:  # (a whole drive, like Google Drive's G:)
+            return p.drive or str(p)
         return f"{p.name} ({p.drive})" if p.parent == p.parent.parent and p.drive else p.name
 
 
