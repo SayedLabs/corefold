@@ -75,6 +75,20 @@ def is_picture(p: Path) -> bool:
     return p.is_file() and norm(p.suffix) in IMAGE_EXT
 
 
+def _tile(icon_name: str, accent: QColor, dpr: float) -> QPixmap:
+    """A card's icon on its soft rounded square, drawn once (a style sheet on every card was slow to set)."""
+    pm = QPixmap(round(36 * dpr), round(36 * dpr))
+    pm.setDevicePixelRatio(dpr)
+    pm.fill(Qt.transparent)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.Antialiasing)
+    p.setPen(Qt.NoPen)
+    p.setBrush(tokens.alpha(accent, 40))
+    p.drawRoundedRect(0, 0, 36, 36, 10, 10)
+    p.drawPixmap(8, 8, icons.pixmap(icon_name, 20, accent, dpr))
+    p.end()
+    return pm
+
 class ActionCard(QFrame):
     """One thing Corefold PDF does: click it (or Enter) to start."""
 
@@ -94,9 +108,7 @@ class ActionCard(QFrame):
         tile.setFixedSize(36, 36)
         tile.setAlignment(Qt.AlignCenter)
         tile.setObjectName("pdfCardIcon")
-        tile.setPixmap(icons.pixmap(icon_name, 20, t.accent, self.devicePixelRatioF()))
-        tile.setStyleSheet(f"QLabel#pdfCardIcon {{ background: {tokens.alpha(t.accent, 40).name(QColor.HexArgb)};"
-                           f" border-radius: 10px; }}")
+        tile.setPixmap(_tile(icon_name, t.accent, self.devicePixelRatioF()))
         lay.addWidget(tile, 0, Qt.AlignTop)
         words = QVBoxLayout()
         words.setSpacing(2)
