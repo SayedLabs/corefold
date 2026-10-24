@@ -6,11 +6,8 @@ from __future__ import annotations
 import json
 import logging
 import os
-import platform
 import re
-import struct
 import sys
-import zipfile
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
@@ -43,6 +40,7 @@ def mask(text: str, names: list[str] | None = None) -> str:
 
 def windows_text() -> str:
     """"Windows 11 Pro 23H2 (build 22631.4317), 64-bit"."""
+    import platform
     bits = "64-bit" if platform.machine().endswith("64") or os.environ.get("PROCESSOR_ARCHITEW6432") else "32-bit"
     if sys.platform != "win32":
         return f"{platform.system()} {platform.release()}, {bits}"
@@ -82,6 +80,8 @@ def screens_text() -> list[str]:
 
 
 def system_text(settings, screens: list[str] | None = None) -> str:
+    import platform
+    import struct
     from . import __version__, i18n
     from . import tools as all_tools
     from .settings import installed_uninstaller
@@ -135,6 +135,7 @@ def _free_name(folder: Path, stem: str, ext: str) -> Path:
 
 def make(settings, folder: Path | None = None, screens: list[str] | None = None) -> Path:
     """Makes "Corefold report <date>.zip". Raises OSError if it can't be written."""
+    import zipfile
     from .settings import LOG_DIR
     folder = folder or report_folder()
     target = _free_name(folder, f"Corefold report {datetime.now().strftime('%Y-%m-%d')}", ".zip")
