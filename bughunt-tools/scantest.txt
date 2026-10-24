@@ -1,0 +1,162 @@
+ok    Defender's command-line tool is found (C:\ProgramData\Microsoft\Windows Defender\Platform\4.18.26090.9-0\MpCmdRun.exe)
+      status: read=True enabled=True realtime=False mode='Normal' updated=2 days ago, others=[], skipped=[('path', 'C:\\'), ('path', 'D:\\')] (known True) in 2.5 s
+ok    Defender's status is read: it's on
+ok    when its list of threats was updated is known
+ok    reading the status is quick enough
+ok    a whole drive Defender skips is worth a look (2)
+      (state: 2.5 s)
+      notepad.exe: Signature(state='signed', signer='Microsoft Windows', catalog=True, code=0)
+ok    Windows' own notepad.exe is signed by Microsoft
+      cmd.exe: Signature(state='signed', signer='Microsoft Windows', catalog=True, code=0)
+ok    Windows' own cmd.exe is signed by Microsoft
+      kernel32.dll: Signature(state='signed', signer='Microsoft Windows', catalog=False, code=0)
+ok    Windows' own kernel32.dll is signed by Microsoft
+      python: Signature(state='signed', signer='Python Software Foundation', catalog=False, code=0)
+ok    a signed program is signed (Python Software Foundation)
+ok    and its signature is its own (not a catalog's)
+      unsigned copy: Signature(state='unsigned', signer='', catalog=False, code=2148204800)
+ok    the same program with its signature taken out: not signed
+      changed copy: Signature(state='broken', signer='Python Software Foundation', catalog=False, code=2148098064)
+ok    the same program changed after signing: broken signature
+ok    a text file isn't called signed
+ok    a missing file: can't tell
+ok    a signature check takes 3 ms
+ok    the downloaded-from note is read (Origin(zone=3, host='downloads.example.com', referrer='example.org'))
+ok    a file without the note has none
+      (signatures: 0.4 s)
+ok    'invoice.pdf.exe' pretends to be .pdf
+ok    'Photo.JPG.scr' pretends to be .jpg
+ok    'song.mp3   .exe' pretends to be .mp3
+ok    'report.docx.js' pretends to be .docx
+ok    'setup.exe' pretends to be nothing
+ok    'archive.tar.gz' pretends to be nothing
+ok    'My.Program.exe' pretends to be nothing
+ok    'notes.pdf.lnk' pretends to be nothing
+ok    'x.pdf' pretends to be nothing
+ok    'movie.mkv.bat' pretends to be .mkv
+ok    a name turned around is noticed
+ok    a normal name isn't
+      found in the folder: [('broken', 'tool.exe'), ('disguised', 'holiday.jpg.exe'), ('flipped', 'cv\u202efdp.exe')]
+ok    holiday.jpg.exe is noticed
+ok    the real photo isn't
+ok    the turned-around name is noticed
+ok    the program with a broken signature is noticed
+      (names: 0.0 s)
+ok    the hosts file sending Windows Update and PayPal elsewhere is noticed, ads blocking isn't ([('update.microsoft.com', '10.1.2.3'), ('www.paypal.com', '10.1.2.3')])
+ok    this PC's own hosts file is clean
+ok    skipping a whole drive, Downloads or .exe files is a lot; one project folder isn't
+      (hosts: 0.0 s)
+      startup checks: 0.0 s, 3 found
+ok    a hidden PowerShell command that starts with Windows is noticed
+ok    a script starting from a temporary folder is worth a look
+ok    a program nobody signed, starting from a temporary folder, is worth a look
+      other startup findings on this PC: []
+      (startup: 0.0 s)
+      running checks: 0.2 s, [('running', 'C:\\ProgramData\\GitHub\\HostedComputeAgent\\hosted-compute-agent', 'info'), ('running', 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\cf-scantest\\running\\helper.exe', 'warn'), ('running', 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\provjobd.exe563377281', 'warn')]
+ok    a program nobody signed, running from a temporary folder, is worth a look
+ok    looking at what's running is quick enough
+      (running: 1.8 s)
+ok    Scan with Corefold is on files, folders and drives
+ok    and not when Scan is removed
+ok    without the Converter, only Scan's entry
+ok    the entry asks the app to scan
+ok    written for *
+ok    written for Directory
+ok    written for Drive
+ok    taking the menu away takes Scan's entry too
+      (menu: 0.3 s)
+      Defender looks at threats after 2 s
+ok    Defender looks at the test folder once it's no longer told to skip it
+      custom scan: 18.4 s, code 0x2, problem '', threats [{'name': 'Virus:DOS/EICAR_Test_File', 'files': ['C:\\Users\\runneradmin\\AppData\\Local\\Temp\\cf-scantest\\threats\\parcel.zip->inside/eicar.com', 'C:\\Users\\runneradmin\\AppData\\Local\\Temp\\cf-scantest\\threats\\eicar.com', 'C:\\Users\\runneradmin\\AppData\\Local\\Temp\\cf-scantest\\threats\\parcel.zip'], 'status': 'quarantined', 'severity': 'severe', 'category': ''}], skipped []
+ok    Defender scanned the folder
+ok    it found the test threat (['Virus:DOS/EICAR_Test_File'])
+ok    the loose file is listed
+ok    and the one inside the ZIP too
+ok    Defender took the threat away
+ok    and says what it did (['quarantined'])
+ok    the clean file is still there
+ok    the last scan is remembered
+ok    a clean file: no threats
+      Defender skips skipped-by-defender after 2 s
+ok    Defender follows being told to skip a folder
+      skipped folder: threats [{'name': 'Virus:DOS/EICAR_Test_File', 'files': ['C:\\Users\\runneradmin\\AppData\\Local\\Temp\\cf-scantest\\skipped-by-defender\\eicar.com'], 'status': 'quarantined', 'severity': 'severe', 'category': ''}], skipped []
+ok    a threat where Defender is told not to look is still found
+      after the scan the file is gone
+ok    what the page says Defender did matches what happened to the file
+ok    looking without acting leaves the file where it is
+Defender's scan failed: 0x80070002 [Failed][0x80070002] The system cannot find the file specified.
+
+CmdTool: Failed with hr = 0x80070002. Check C:\Users\RUNNER~1\AppData\Local\Temp\MpCmdRun.log for more information
+ok    a file that isn't there: Defender says it couldn't (0x80070002)
+ok    a scan that finished but couldn't clean up isn't called a failed scan
+      (Defender scans: 42.3 s)
+      quarantine: [Quarantined(threat='Virus:DOS/EICAR_Test_File', path='C:\\Users\\runneradmin\\AppData\\Local\\Temp\\cf-scantest\\threats\\eicar.com', when='10/24/2026 2:23:40 PM (UTC)'), Quarantined(threat='Virus:DOS/EICAR_Test_File', path='C:\\Users\\runneradmin\\AppData\\Local\\Temp\\cf-scantest\\threats\\parcel.zip', when='10/24/2026 2:23:40 PM (UTC)'), Quarantined(threat='Virus:DOS/EICAR_Test_File', path='C:\\Users\\runneradmin\\AppData\\Local\\Temp\\cf-scantest\\skipped-by-defender\\eicar.com', when='10/24/2026 2:23:56 PM (UTC)')]
+      raw list: The following items are quarantined:
+
+ThreatName = Virus:DOS/EICAR_Test_File
+      file:C:\Users\runneradmin\AppData\Local\Temp\cf-scantest\threats\eicar.com quarantined at 10/24/2026 2:23:40 PM (UTC)
+      file:C:\Users\runneradmin\AppData\Local\Temp\cf-scantest\threats\parcel.zip quarantined at 10/24/2026 2:23:40 PM (UTC)
+      file:C:\Users\runneradmin\AppData\Local\Temp\cf-scantest\skipped-by-defender\eicar.com quarantined at 10/24/2026 2:23:56 PM (UTC)
+ok    the quarantine lists the test threat (3 items)
+ok    putting it back: Defender says done
+ok    the file is back where it was
+ok    and isn't in the quarantine any more
+      (quarantine: 2.2 s)
+ok    a file's path is never given to cmd.exe
+ok    an argument with a quote in it is refused
+ok    fixed words still bring back Defender's answer
+ok    and it's in the quarantine
+      restored as administrator: (0, '')
+ok    putting it back as administrator: Defender says done
+ok    the file is back
+ok    and the command hidden in its name didn't run []
+      (as administrator: 16.7 s)
+ok    a quick scan starts Defender
+ok    Stop: the scan stops (0.1 s)
+ok    and says it was stopped
+ok    and Defender isn't left scanning
+      Defender's own quick-scan end time after stopping: ''
+      (stopping: 7.1 s)
+ok    switched off: not shown
+ok    switched off: its page isn't loaded at all
+ok    switched off: a right-click scan request does nothing
+ok    switched on: shown in its section
+ok    the page opens
+ok    Defender's state comes up
+ok    and is shown: '\u200f\u2066Microsoft Defender\u2069 شغّال، بس الحماية في الوقت الحقيقي طافية'
+ok    a right-click scan starts
+ok    and the page shows it running
+ok    the scan buttons wait while it runs
+ok    the scan finishes
+ok    what it found is shown
+ok    the threat is listed (1)
+ok    the disguised program is listed
+ok    the photo isn't
+ok    the last scan is shown: 'آخر فحص: فحص اللي تختاره، الآن، التهديدات اللي انلقت: 1'
+ok    Don't show this again: it's gone
+ok    and the next scan leaves it out too
+ok    back on the page: what it found is still there
+ok    Quick scan: it starts
+ok    and Defender is scanning
+ok    Stop: it stops
+ok    and says so: 'انوقف الفحص'
+ok    Defender isn't left scanning
+ok    the quarantine is read: 'في العزل: 2'
+ok    and lists what's in it
+      Defender skips page-skipped after 2 s
+ok    a scan where Defender is told not to look finishes
+ok    the threat is shown as dealt with, as it is
+ok    a threat Defender left is shown as still there
+ok    Delete it…: the file is gone
+ok    and the row says so
+ok    at 760×540 every button is inside the window []
+ok    at 760×540 no button's words are cut []
+ok    at 1500×900 every button is inside the window []
+ok    at 1500×900 no button's words are cut []
+ok    a scan is running
+ok    switched off again: not shown
+ok    and its scan stopped with it
+ok    no errors behind any click (0)
+      (page: 48.3 s)
+      (tidy: 0.6 s)
+scantest: 0 problem(s)
