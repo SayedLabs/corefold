@@ -7,7 +7,10 @@ Manager does it: Windows keeps a note for each entry under "StartupApproved", an
 deleted, so switching it back on (here or in Task Manager) is always possible, and both always agree.
 
 Entries for the whole PC (HKLM, everyone's Startup folder) need an administrator to change: Windows
-asks first (its usual prompt), and nothing changes if the answer is no."""
+asks first (its usual prompt), and nothing changes if the answer is no.
+
+The one thing ever removed is a leftover: a line whose program was deleted from the PC, and only when
+the person asks (a copy of each one is kept in startup-removed.json first)."""
 from __future__ import annotations
 
 import json
@@ -25,6 +28,7 @@ log = logging.getLogger("corefold")
 RUN = r"Software\Microsoft\Windows\CurrentVersion\Run"
 APPROVED = r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved"
 SEEN_FILE = "startup-seen.json"
+REMOVED_FILE = "startup-removed.json"
 # (Windows' own note: an odd first byte is "switched off", then the time it was, as a FILETIME)
 ON_BYTES = bytes([2]) + bytes(11)
 EPOCH_AS_FILETIME = 116444736000000000
@@ -211,7 +215,7 @@ def _make(where: str, value: str, command: str, exe: str, notes: dict) -> Entry:
     e = Entry(id=f"{where}|{value}", name=value, value=value, command=command, exe=exe, where=where,
               on=not note_is_off(note), off_since=note_time(note) if note_is_off(note) else 0)
     if exe and os.path.isabs(exe):
-        e.missing = not os.path.exists(exe)
+        e.missing = is_gone(exe)
         name, e.publisher = _program_name(exe)
         if os.path.basename(exe).lower() in HOSTS:
             name = ""   # (and the publisher is the host's, so it's left out too)
@@ -221,6 +225,17 @@ def _make(where: str, value: str, command: str, exe: str, notes: dict) -> Entry:
     if where.endswith("Folder") and e.name == value:
         e.name = Path(value).stem
     return e
+
+
+def is_gone(exe: str) -> bool:
+    """The program really isn't on this PC: its drive is there but the file isn't. (A program on a
+    drive that isn't plugged in, or on another computer in the network, may well come back.)"""
+    if not exe or os.path.exists(exe):
+        return False
+    drive = os.path.splitdrive(exe)[0]
+    if not drive or drive.startswith(("\\\\", "//")):
+        return False
+    return os.path.isdir(drive + os.sep)
 
 
 def list_entries() -> list[Entry]:
@@ -355,3 +370,109 @@ def is_admin() -> bool:
         return bool(ctypes.windll.shell32.IsUserAnAdmin())
     except Exception:
         return False
+
+
+# ----------------------------------------------------------------------------- leftovers of removed programs
+
+def leftovers(entries: list[Entry]) -> list[Entry]:
+    """The lines whose program was removed from this PC (they can't run, and do nothing)."""
+    return [e for e in entries if e.missing and not e.own]
+
+
+def _keep_copy(gone: list[Entry]):
+    """A copy of each line before it's removed (where, name, what it ran, Windows' on/off note)."""
+    from .settings import CONFIG_DIR
+    path = CONFIG_DIR / REMOVED_FILE
+    try:
+        kept = json.loads(path.read_text(encoding="utf-8"))
+        kept = kept if isinstance(kept, list) else []
+    except (OSError, ValueError):
+        kept = []
+    for e in gone:
+        note = read_note(e)
+        kept.append({"where": e.where, "value": e.value, "command": e.command, "file": e.extra.get("file", ""),
+                     "note": note.hex() if isinstance(note, (bytes, bytearray)) else "", "removed": time.time()})
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(kept[-500:], indent=1), encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def _delete_value(hive: str, key: str, view: int, value: str):
+    w = _winreg()
+    try:
+        with w.OpenKey(_root(hive), key, 0, _access(view, write=True)) as k:
+            w.DeleteValue(k, value)
+    except FileNotFoundError:
+        pass
+
+
+def _reg_key(hive: str, key: str, view: int) -> str:
+    """The key's full name as a .reg file (read in the 64-bit view) spells it."""
+    if view == 32 and key.lower().startswith("software\\"):
+        key = "SOFTWARE\\WOW6432Node\\" + key[len("software\\"):]
+    return ("HKEY_CURRENT_USER" if hive == "HKCU" else "HKEY_LOCAL_MACHINE") + "\\" + key
+
+
+def _reg_text(lines: list[tuple[str, str]]) -> str:
+    """A .reg file that deletes these (key, value) pairs."""
+    out = ["Windows Registry Editor Version 5.00", ""]
+    for key in dict.fromkeys(k for k, _ in lines):
+        out.append(f"[{key}]")
+        for k, value in lines:
+            if k == key:
+                name = value.replace("\\", "\\\\").replace('"', '\\"')
+                out.append(f'"{name}"=-')
+        out.append("")
+    return "\r\n".join(out) + "\r\n"
+
+
+def _delete_as_admin(lines: list[tuple[str, str]]) -> bool:
+    """reg.exe imports a .reg file that deletes them, started as administrator (Windows asks once)."""
+    import tempfile
+    from .uninstall import shell_run, wait_process
+    fd, name = tempfile.mkstemp(prefix="corefold-startup-", suffix=".reg")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(_reg_text(lines).encode("utf-16"))   # (with its byte order mark, as reg.exe wants)
+        reg = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "reg.exe"
+        handle = shell_run(str(reg), f'import "{name}" /reg:64', admin=True, show=0)
+        if handle is None:
+            return False  # (the person said no)
+        code = wait_process(handle, timeout_s=30)
+        return code == 0 or (code is None and handle == 0)
+    finally:
+        try:
+            os.remove(name)
+        except OSError:
+            pass
+
+
+def remove_leftovers(entries: list[Entry]) -> list[Entry]:
+    """Removes the lines of programs that are gone from this PC, with Windows' on/off note for each. A
+    line in a Startup folder (a shortcut) goes to the Recycle Bin. Lines for the whole PC ask Windows
+    for an administrator once for all of them. Returns the ones that are really gone now."""
+    gone = [e for e in leftovers(entries) if is_gone(e.exe)]   # (looked at again, just before)
+    if not gone:
+        return []
+    _keep_copy(gone)
+    as_admin: list[tuple[str, str]] = []
+    for e in gone:
+        hive, key, view, approved = PLACES[e.where]
+        note_view = 64 if hive == "HKLM" else 0
+        try:
+            if e.where.endswith("Folder"):
+                from .uninstall import recycle
+                if not recycle(Path(e.extra.get("file", ""))):
+                    continue
+            else:
+                _delete_value(hive, key, view, e.value)
+            _delete_value(hive, approved, note_view, e.value)
+        except PermissionError:
+            if not e.where.endswith("Folder"):
+                as_admin.append((_reg_key(hive, key, view), e.value))
+            as_admin.append((_reg_key(hive, approved, note_view), e.value))
+    if as_admin:
+        _delete_as_admin(as_admin)
+    after = {x.id for x in list_entries()}
+    return [e for e in gone if e.id not in after]
