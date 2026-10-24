@@ -140,7 +140,8 @@ NOT_EDITED = {"enabled", "first_run", "last_version", "update_told", "menu_signa
               "clip_paused", "open_media", "player_volume", "nav_order", "section_order", "nav_width", "nav_compact",
               "quick_button_pos", "quick_told", "remember_password",
               "unlock_menu_signature",
-              "awake_mode", "awake_minutes", "awake_until", "awake_screen", "shutdown_at", "shutdown_planned",
+              "awake_mode", "awake_minutes", "awake_until", "awake_screen", "awake_apps", "awake_low_battery",
+              "shutdown_at", "shutdown_planned",
               "colors_shortcut", "colors_format", "colors_history",  # (Colors: chosen on its page, kept right away)
               }
 # the settings of each tab of the Settings page (each one has its own "Reset to defaults")
@@ -285,6 +286,8 @@ class Settings:
     awake_minutes: int = 60        # "for a while": how long, last chosen
     awake_until: str = ""          # "until a time": "HH:MM", last chosen
     awake_screen: bool = False     # keep the screen on too
+    awake_apps: list = field(default_factory=list)  # stay awake by itself while one of these programs is open
+    awake_low_battery: bool = True  # on battery, let the PC sleep again once it runs low
     shutdown_at: str = ""          # when Windows will turn the PC off (planned on the Awake page), ISO time
     shutdown_planned: str = ""     # when that was planned (a restart since has cleared it)
     # the Uninstaller
@@ -404,6 +407,7 @@ class Settings:
                          for x in s.quick_links if isinstance(x, dict) and isinstance(x.get("target"), str)
                          and x.get("id")][:24]
         s.quick_button_pos = [int(v) for v in s.quick_button_pos if type(v) is int][:2]
+        s.awake_apps = [a for a in s.awake_apps if isinstance(a, str) and a.strip()][:30]
         s.colors_history = [h.upper() for h in s.colors_history if isinstance(h, str) and len(h) == 7
                             and h[0] == "#" and all(ch in "0123456789abcdefABCDEF" for ch in h[1:])][:24]
         if s.quick_menu_key == s.quick_wheel_key and s.quick_menu_key != "off":

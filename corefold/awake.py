@@ -1,5 +1,6 @@
-"""Corefold Awake: keeps the PC from going to sleep (until it's switched off, for a while, or until a
-time), and turns the PC off later with Windows' own shutdown timer.
+"""Corefold Awake: keeps the PC from going to sleep (until it's switched off, for a while, until a
+time, or by itself while chosen programs are open), and turns the PC off later with Windows' own
+shutdown timer. On battery, it lets the PC sleep again once the battery runs low.
 
 Staying awake is one call to Windows (SetThreadExecutionState) on the window's thread: it holds until
 it's called again, and Windows drops it by itself when Corefold ends, so the PC can never be kept awake
@@ -34,6 +35,9 @@ MODES = ("on", "for", "until")   # until it's switched off, for a while, until a
 MAX_MINUTES = 24 * 60
 # the tray's "Keep awake" menu
 TRAY_CHOICES = [("off", "Off"), ("on", "Until I turn it off"), (60, "1 hour"), (120, "2 hours")]
+LOW_BATTERY = 15                  # percent left, on battery, below which it lets the PC sleep again
+WATCH_MS = 30_000                 # how often the programs and the battery are looked at (only when needed)
+MAX_PROGRAMS = 30
 SHUTDOWN_MAX = 315360000          # the longest wait shutdown.exe takes (10 years)
 ERROR_SHUTDOWN_IS_SCHEDULED = 1190
 ERROR_NO_SHUTDOWN_IN_PROGRESS = 1116
@@ -60,6 +64,105 @@ def run_shutdown(*args: str) -> tuple[int, str]:
         return -1, str(e)
     said = (r.stdout + r.stderr).decode("oem" if os.name == "nt" else "utf-8", errors="replace").strip()
     return r.returncode, said
+
+
+def battery() -> tuple[bool, int] | None:
+    """(plugged in, percent left), or None on a PC without a battery (or when Windows can't say)."""
+    if os.name != "nt":
+        return None
+    import ctypes
+
+    class POWER(ctypes.Structure):
+        _fields_ = [("ac", ctypes.c_ubyte), ("flag", ctypes.c_ubyte), ("percent", ctypes.c_ubyte),
+                    ("saver", ctypes.c_ubyte), ("left", ctypes.c_ulong), ("full", ctypes.c_ulong)]
+    p = POWER()
+    if not ctypes.windll.kernel32.GetSystemPowerStatus(ctypes.byref(p)):
+        return None
+    if p.flag & 128 or p.flag == 255 or p.percent > 100:  # (no battery, or not known)
+        return None
+    return p.ac == 1, int(p.percent)
+
+
+def battery_low(state: tuple[bool, int] | None = None) -> bool:
+    """On battery, with less than LOW_BATTERY percent left."""
+    state = battery() if state is None else state
+    return state is not None and not state[0] and state[1] < LOW_BATTERY
+
+
+def program_names() -> set[str]:
+    """The file names (lowercase) of the programs running now: one quick list from Windows."""
+    if os.name != "nt":
+        return set()
+    import ctypes
+    k = ctypes.WinDLL("kernel32")
+    k.CreateToolhelp32Snapshot.restype = ctypes.c_void_p
+    k.CreateToolhelp32Snapshot.argtypes = [ctypes.c_uint32, ctypes.c_uint32]
+    k.Process32FirstW.argtypes = k.Process32NextW.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    k.CloseHandle.argtypes = [ctypes.c_void_p]
+
+    class ENTRY(ctypes.Structure):
+        _fields_ = [("size", ctypes.c_uint32), ("usage", ctypes.c_uint32), ("pid", ctypes.c_uint32),
+                    ("heap", ctypes.c_size_t), ("module", ctypes.c_uint32), ("threads", ctypes.c_uint32),
+                    ("parent", ctypes.c_uint32), ("priority", ctypes.c_long), ("flags", ctypes.c_uint32),
+                    ("exe", ctypes.c_wchar * 260)]
+    snap = k.CreateToolhelp32Snapshot(0x2, 0)  # TH32CS_SNAPPROCESS
+    if not snap or snap == ctypes.c_void_p(-1).value:
+        return set()
+    names = set()
+    try:
+        e = ENTRY()
+        e.size = ctypes.sizeof(e)
+        ok = k.Process32FirstW(snap, ctypes.byref(e))
+        while ok:
+            names.add(e.exe.lower())
+            ok = k.Process32NextW(snap, ctypes.byref(e))
+    finally:
+        k.CloseHandle(snap)
+    return names
+
+
+def program_title(path: str) -> str:
+    """A program's own name ("OBS Studio"), else its file name."""
+    from .clipboard import app_name
+    return app_name(path) if os.path.isabs(path) else os.path.splitext(path)[0]
+
+
+# parts of Windows itself that have windows (never worth staying awake for)
+WINDOWS_PARTS = {"explorer.exe", "applicationframehost.exe", "textinputhost.exe", "shellexperiencehost.exe",
+                 "searchhost.exe", "searchapp.exe", "startmenuexperiencehost.exe", "systemsettings.exe",
+                 "lockapp.exe", "taskmgr.exe"}
+
+
+def window_programs() -> list[str]:
+    """The programs that have a window open now (their full paths, once each), to pick from."""
+    if os.name != "nt":
+        return []
+    import ctypes
+    import ctypes.wintypes as wt
+    from .clipboard import process_path
+    u = ctypes.windll.user32
+    pids: list[int] = []
+    PROC = ctypes.WINFUNCTYPE(wt.BOOL, wt.HWND, wt.LPARAM)
+
+    def each(hwnd, _):
+        if u.IsWindowVisible(hwnd) and u.GetWindowTextLengthW(hwnd) and not u.GetWindow(hwnd, 4):  # GW_OWNER
+            pid = wt.DWORD()
+            u.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+            pids.append(pid.value)
+        return True
+    try:
+        u.EnumWindows(PROC(each), 0)
+    except Exception:
+        return []
+    found: dict[str, str] = {}
+    for pid in dict.fromkeys(pids):
+        if pid == os.getpid():
+            continue
+        path = process_path(pid)
+        name = os.path.basename(path).lower()
+        if path and name not in WINDOWS_PARTS and name not in found:
+            found[name] = path
+    return list(found.values())
 
 
 def booted_at() -> datetime | None:
@@ -120,15 +223,24 @@ class AwakeTool(QObject):
     def __init__(self, controller: "Controller"):
         super().__init__()
         self.c = controller
-        self.mode = ""                     # "" (sleeps as usual), "on" (until switched off) or "until"
+        self.mode = ""                     # "" (sleeps as usual), "on" (until switched off), "until", or
+                                           # "app" (by itself, while one of the chosen programs is open)
         self.end: datetime | None = None   # when "until" ends
+        self.app = ""                      # "app": the program keeping it awake (its file name, lowercase)
+        self.waived: set[str] = set()      # chosen programs open when it was told to let the PC sleep (not
+                                           # again for them until they're closed)
+        self.low = False                   # on battery and running low: it doesn't keep the PC awake
         self.failed = False                # Windows didn't take it
         self.tray_minutes = None           # "1 hour" or "2 hours" picked in the tray menu
         self.timer = QTimer(self)
         self.timer.setSingleShot(True)
         self.timer.timeout.connect(self._tick)
+        self.watcher = QTimer(self)        # the chosen programs and the battery, only while that matters
+        self.watcher.setInterval(WATCH_MS)
+        self.watcher.timeout.connect(self.watch)
         self.menu = None
         self.add_tray_menu()
+        QTimer.singleShot(8000, self, self.watch)  # (a chosen program already open; not while Corefold starts)
 
     @property
     def on(self) -> bool:
@@ -140,8 +252,10 @@ class AwakeTool(QObject):
         """Stay awake until end (None: until it's switched off)."""
         self.mode, self.end = ("until", end) if end is not None else ("on", None)
         self.tray_minutes = None
+        self.app = ""
         self._apply()
         self._schedule()
+        self._rewatch()
         self._changed()
 
     def keep_for(self, minutes: int):
@@ -171,7 +285,9 @@ class AwakeTool(QObject):
     def let_sleep(self, ended: bool = False):
         """Back to sleeping as usual (ended: the time chosen is up, so say so)."""
         was_on = self.on
-        self.mode, self.end, self.tray_minutes = "", None, None
+        if was_on and not ended and self.c.settings.awake_apps:
+            self.waived = self._chosen() & program_names()
+        self.mode, self.end, self.tray_minutes, self.app = "", None, None, ""
         self.timer.stop()
         set_state(ES_CONTINUOUS)
         self.failed = False
@@ -179,7 +295,69 @@ class AwakeTool(QObject):
             log.info("awake: off%s", " (time's up)" if ended else "")
         if ended:
             self.c.say(tr("Corefold Awake"), tr("Your PC can go to sleep again as usual."))
+        self._rewatch()
         self._changed()
+
+    # ---- by itself: the chosen programs, and the battery
+
+    def programs(self) -> list[str]:
+        return list(self.c.settings.awake_apps)
+
+    def set_programs(self, paths: list[str]):
+        seen, kept = set(), []
+        for p in paths:
+            name = os.path.basename(p).lower()
+            if name and name not in seen:
+                seen.add(name)
+                kept.append(p)
+        self.c.settings.awake_apps = kept[:MAX_PROGRAMS]
+        self.c.settings_changed()
+        self.watch()
+
+    def _rewatch(self):
+        """Looks every WATCH_MS only while there's something to look for."""
+        needed = bool(self.c.settings.awake_apps) or (self.on and self.c.settings.awake_low_battery)
+        if needed and not self.watcher.isActive():
+            self.watcher.start()
+        elif not needed:
+            self.watcher.stop()
+
+    def watch(self, running: set[str] | None = None, power: tuple[bool, int] | None | bool = False):
+        """Stays awake while a chosen program is open (and lets go once it's closed), and lets the PC sleep
+        when the battery runs low. running and power are for trying it out; normally Windows is asked."""
+        s = self.c.settings
+        state = battery() if power is False else power
+        low = self.low = s.awake_low_battery and battery_low(state)
+        if low and self.on:
+            log.info("awake: the battery is low (%s%%), letting the PC sleep", state[1])
+            self.let_sleep(ended=False)
+            self.waived = set()
+            self.c.say(tr("Corefold Awake"), tr("The battery is low, so your PC can go to sleep again."))
+            return
+        wanted = self._chosen()
+        if wanted or self.mode == "app":
+            names = program_names() if running is None else {n.lower() for n in running}
+            open_now = sorted(wanted & names)
+            self.waived &= set(open_now)
+            if self.mode == "app" and self.app not in open_now:
+                log.info("awake: %s closed", self.app)
+                self.mode, self.app = "", ""
+                self.let_sleep()
+            elif not self.on and not self.low:
+                hit = next((n for n in open_now if n not in self.waived), "")
+                if hit:
+                    self.mode, self.end, self.app, self.tray_minutes = "app", None, hit, None
+                    log.info("awake: %s is open", hit)
+                    self._apply()
+                    self._changed()
+        self._rewatch()
+
+    def _chosen(self) -> set[str]:
+        return {os.path.basename(p).lower() for p in self.c.settings.awake_apps}
+
+    def app_title(self) -> str:
+        path = next((p for p in self.c.settings.awake_apps if os.path.basename(p).lower() == self.app), self.app)
+        return program_title(path)
 
     def set_screen(self, on: bool):
         """Keep the screen on too (or let it turn off), straight away if it's staying awake."""
@@ -222,6 +400,8 @@ class AwakeTool(QObject):
     def status(self) -> str:
         if not self.on:
             return tr("Your PC can sleep as usual")
+        if self.mode == "app":
+            return tr("Staying awake while {app} is open", app=self.app_title())
         if self.end is None:
             return tr("Staying awake until you turn it off")
         if is_tomorrow(self.end):
@@ -273,7 +453,8 @@ class AwakeTool(QObject):
 
     def _fill_tray_menu(self):
         self.state_action.setText(self.status())
-        current = "off" if not self.on else "on" if self.end is None else self.tray_minutes
+        current = "off" if not self.on else None if self.mode == "app" else "on" if self.end is None \
+            else self.tray_minutes
         self.group.setExclusive(False)   # (a time picked on the page has no tick here)
         for act in self.choice_actions:
             act.setChecked(act.data() == current)
@@ -341,10 +522,11 @@ class AwakeTool(QObject):
 
     def stop(self):
         self.timer.stop()
+        self.watcher.stop()
         if self.on:
             set_state(ES_CONTINUOUS)
             log.info("awake: off (stopped)")
-        self.mode, self.end = "", None
+        self.mode, self.end, self.app = "", None, ""
         self._remove_tray_menu()
 
     def _remove_tray_menu(self):
