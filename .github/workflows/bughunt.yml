@@ -146,7 +146,7 @@ jobs:
           python scripts/sweeptest.py out/sweep --keep updata --quick *> out/sweep.txt
           Copy-Item -Recurse updata/roaming out/upgrade-data -ErrorAction SilentlyContinue
 
-      - name: Corefold PDF, every tool and its page
+      - name: Corefold PDF, every tool and its page, and the page editor
         if: matrix.name == 'pdf'
         timeout-minutes: 20
         shell: pwsh
@@ -154,6 +154,8 @@ jobs:
         run: |
           python scripts/pdftest.py out/pdftest en dark *> out/pdftest-en.txt
           python scripts/pdftest.py out/pdftest ar light *> out/pdftest-ar.txt
+          python scripts/pdfedittest.py out/pdfedittest en dark *> out/pdfedittest-en.txt
+          python scripts/pdfedittest.py out/pdfedittest-ar ar light *> out/pdfedittest-ar.txt
 
       - name: Click through the window like a person
         if: matrix.name == 'navtest'
@@ -242,7 +244,7 @@ jobs:
             echo "Bug hunt of $SHA"
             for d in */; do
               echo "== ${d%/}"
-              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest|featuretest|pdftest|langtest|captexttest|capfoldertest|edgetest|organizetest|startuptest|scantest|newtest_[a-z]+|dllcheck)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused|^App folder:|Corefold-Setup-" "$d" 2>/dev/null | head -20
+              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest|featuretest|pdftest|pdfedittest|langtest|captexttest|capfoldertest|edgetest|organizetest|startuptest|scantest|newtest_[a-z]+|dllcheck)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused|^App folder:|Corefold-Setup-" "$d" 2>/dev/null | head -20
               grep -rhaE "^(FAIL|ERROR|SLOW) " "$d" 2>/dev/null | sort | uniq -c | sort -rn | head -60
             done
           } > summary.txt

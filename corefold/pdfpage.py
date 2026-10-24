@@ -33,7 +33,9 @@ FILE, PAGE, TURN = Qt.UserRole, Qt.UserRole + 1, Qt.UserRole + 2
 FILE_COLORS = ("#e5484d", "#3e8ef7", "#30a46c", "#f5a524", "#8e4ec6", "#12a594", "#d6409f", "#978365")
 # the cards: (what it does, title, the line under it, icon in icons.py). Some open the board, some ask
 # a question and make the new file straight away.
-ACTIONS = [("merge", "Merge PDFs", "Put several PDFs together in the order you want", "merge"),
+ACTIONS = [("edit", "Edit content", "Type text, change words, add pictures, highlight, draw, sign and fill in forms",
+            "text_edit_style"),
+           ("merge", "Merge PDFs", "Put several PDFs together in the order you want", "merge"),
            ("organize", "Arrange pages", "Move, turn and delete pages, and see them as you go", "grid"),
            ("split", "Split", "Cut a PDF into several, page by page or in parts", "split_vertical"),
            ("extract", "Take out pages", "Save the pages you pick as a new PDF", "document_multiple"),
@@ -201,6 +203,7 @@ class PdfPage(QWidget):
         self.stack.addWidget(self._start())
         self.stack.addWidget(QWidget())  # (the board is made the first time PDFs are opened)
         self._board_made = False
+        self.editor = None                        # (made when a PDF is first opened to edit)
         lay.addWidget(self.stack, 1)
 
     # ---- the cards
@@ -281,6 +284,9 @@ class PdfPage(QWidget):
         if key in ("merge", "organize", "extract"):
             self.open_board(files, key)
             return
+        if key == "edit":
+            self.open_editor(files[0])
+            return
         if key.startswith("pdf:"):
             tool = self._converter_tools().get(key)
             if tool is not None:
@@ -325,6 +331,44 @@ class PdfPage(QWidget):
         finally:
             dlg.deleteLater()
         self.c.start_job(pdftools.PICTURES, files, params)
+
+    # ---- the editor
+
+    def open_editor(self, src: Path):
+        """Opens one PDF in the editor (its password is asked for first, if it has one)."""
+        if not is_pdf(src):
+            return
+
+        def look(_progress):
+            return pdftools.lock_state(src), _count(src, self.passwords.get(str(src), ""))
+        self._run(look, lambda _: None, lambda result: self._edit(src, result), "corefold-pdf-look")
+
+    def _edit(self, src: Path, result):
+        if not work.alive(self):
+            return
+        password, count = self.passwords.get(str(src), ""), 0
+        if isinstance(result, Exception):
+            log.warning("couldn't read %s: %s", src, result)
+        else:
+            state, count = result
+            wrong = False
+            while state == "locked" and not count:
+                password = self.c.ask_password([src], wrong=wrong)
+                if password is None:
+                    return
+                count = _count(src, password)
+                wrong = not count
+        if not count:
+            self.c.tell(tr("Corefold PDF"), tr("{name} couldn't be read. It may be damaged.", name=short_name(src.name)))
+            return
+        if self.editor is None:
+            from .pdfeditor import PdfEditor
+            self.editor = PdfEditor(self)
+            self.editor.closed.connect(lambda: self.stack.setCurrentIndex(0))
+            self.stack.addWidget(self.editor)
+        self.stack.setCurrentWidget(self.editor)
+        self.editor.open(src, password)
+        self.editor.view.setFocus()
 
     # ---- the board
 
@@ -816,7 +860,9 @@ class PdfPage(QWidget):
         return True
 
     def go_back(self) -> bool:
-        """Back (Alt + Left, the mouse's back button, Esc): from the board to the cards first."""
+        """Back (Alt + Left, the mouse's back button, Esc): from the board or the editor to the cards first."""
+        if self.editor is not None and self.stack.currentWidget() is self.editor:
+            return self.editor.go_back()
         if self.stack.currentIndex() == 1:
             self.close_board()
             return True
