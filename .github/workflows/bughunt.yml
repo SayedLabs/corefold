@@ -88,6 +88,9 @@ jobs:
           python scripts/stress.py out/stress *> out/stress.txt
           python scripts/uitest.py out/uitest *> out/uitest.txt
           python scripts/featuretest.py *> out/featuretest.txt
+          python scripts/captexttest.py out/captext en dark *> out/captexttest.txt
+          python scripts/capfoldertest.py out/capfolder en dark *> out/capfoldertest-en.txt
+          python scripts/capfoldertest.py out/capfolder ar light *> out/capfoldertest-ar.txt
 
       - name: Every page and button
         if: matrix.sweep != ''
@@ -199,7 +202,7 @@ jobs:
             echo "Bug hunt of $SHA"
             for d in */; do
               echo "== ${d%/}"
-              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest|featuretest|pdftest|langtest)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused" "$d" 2>/dev/null | head -20
+              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest|featuretest|pdftest|langtest|captexttest|capfoldertest)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused" "$d" 2>/dev/null | head -20
               grep -rhaE "^(FAIL|ERROR|SLOW) " "$d" 2>/dev/null | sort | uniq -c | sort -rn | head -60
             done
           } > summary.txt

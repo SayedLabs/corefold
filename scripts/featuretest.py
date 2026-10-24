@@ -1,4 +1,4 @@
-"""Checks of what 1.7.7 added to the tools: Capture (the PC's sound, timer, pin, steps, GIF), Clipboard
+"""Checks of what 1.7.7 added to the tools: Capture (timer, pin, steps), Clipboard
 (edit, change, apps it ignores), Viewer (rename, move, flip, sort), Player (playlist, picture fit),
 Converter (crop video, subtitles, sound, join, SHA-256), Archive (remembered passwords) and Space
 (more caches).
@@ -214,13 +214,7 @@ def passwords():
 def capture():
     from corefold import capture as cap
     from corefold.capview import Canvas, PinnedPicture, Shape
-    exe = Path("ffmpeg")
-    plain = cap.record_command(exe, QRect(0, 0, 400, 300), TMP / "r.mp4", 30, "", True, "")
-    check("-c:a" not in plain, "recording without sound has no sound track")
-    pc = cap.record_command(exe, QRect(0, 0, 400, 300), TMP / "r.mp4", 30, "", True, r"\\.\pipe\x")
-    check(r"\\.\pipe\x" in pc and "-c:a" in pc and "amix" not in " ".join(pc), "the PC's sound is recorded")
-    both = cap.record_command(exe, QRect(0, 0, 400, 300), TMP / "r.mp4", 30, "Mic (USB)", True, r"\\.\pipe\x")
-    check("amix" in " ".join(both) and "[a]" in both, "the microphone and the PC's sound mixed in one track")
+    check(not hasattr(cap, "Recorder"), "Capture is screenshots only (recording comes back later on its own)")
     img = QImage(300, 200, QImage.Format_ARGB32_Premultiplied)
     img.fill(QColor("#ffffff"))
     canvas = Canvas(img)
@@ -268,43 +262,6 @@ def Qt_NoMod():
 def Qt_Phase():
     from PySide6.QtCore import Qt
     return Qt.NoScrollPhase
-
-
-def recording_pause():
-    if os.name != "nt":
-        print("(recording the screen needs Windows)")
-        return
-    from corefold.capture import Recorder
-    from corefold.converters import media_duration
-    out = TMP / "rec" / "paused.mp4"
-    rec = Recorder(QRect(0, 0, 320, 240), out, 15)
-    check(rec.start(), f"recording starts {rec.error}")
-    time.sleep(2.5)
-    check(rec.pause() and rec.paused and rec.running(), "pause")
-    time.sleep(2)
-    seconds = rec.seconds()
-    check(rec.resume() and not rec.paused, "carry on")
-    time.sleep(2.5)
-    ok = rec.stop()
-    check(ok and out.exists(), f"the parts are joined into one file {rec.error}")
-    check(not list(out.parent.glob("*.part*")), "…and the parts are gone")
-    if ok:
-        d = media_duration(out)
-        check(3.5 < d < 7.5, f"…without the paused time ({d:.1f} s, {seconds:.1f} s before the pause)")
-
-
-def loopback():
-    if os.name != "nt":
-        return
-    from corefold.loopback import Loopback, available
-    print("the PC's sound can be recorded here:", available())
-    lb = Loopback()
-    ok = lb.start()
-    if not ok:  # (GitHub's PCs have no sound card: it must fail cleanly)
-        check(bool(lb.error), f"no speakers: says why ({lb.error})")
-        return
-    lb.stop()
-    check(True, "the PC's sound starts and stops")
 
 
 # ----------------------------------------------------------------------------- Clipboard
@@ -905,7 +862,7 @@ if __name__ == "__main__" and len(sys.argv) > 1:
 else:
     step("videos", make_videos)
     for name, fn in (("video tools", video_tools), ("graphics card", graphics_card), ("fingerprint", fingerprint), ("passwords", passwords), ("tar formats", tar_formats), ("archive preview", archive_preview),
-                     ("capture", capture), ("recording pause", recording_pause), ("loopback", loopback),
+                     ("capture", capture),
                      ("clipboard", clipboard), ("clip list", clip_list), ("viewer", viewer),
                      ("space", space), ("space programs", space_programs), ("chapters", chapters), ("player", player),
                      ("saved texts", saved_texts), ("viewer strip", viewer_strip), ("viewer more", viewer_more), ("space kinds", space_kinds),

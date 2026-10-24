@@ -54,7 +54,7 @@ add isn't loaded at all, so Corefold stays light.
 
 | | |
 |---|---|
-| **Capture** | A picture or a video of your screen in one shortcut. Mark it up, blur what's private, copy the text in it. |
+| **Capture** | A picture of your screen in one shortcut. Mark it up, blur what's private, and pick just the words you want to copy. |
 | **Clipboard** | Everything you copy, kept and easy to find again: press Win + Alt + V in any app. |
 | **Colors** | Pick any colour on your screen with a magnifier and copy it as HEX, RGB or HSL. |
 
