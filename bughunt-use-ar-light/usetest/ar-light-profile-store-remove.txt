@@ -1,0 +1,91 @@
+         34952 function calls (34640 primitive calls) in 0.120 seconds
+
+   Ordered by: cumulative time
+   List reduced from 559 to 45 due to restriction <45>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.059    0.059 D:\a\corefold\corefold\corefold\window.py:988(tools_changed)
+        1    0.000    0.000    0.053    0.053 D:\a\corefold\corefold\corefold\window.py:962(_rebuild_home)
+        1    0.000    0.000    0.034    0.034 D:\a\corefold\corefold\corefold\window.py:970(_remake_page)
+       84    0.001    0.000    0.034    0.000 D:\a\corefold\corefold\corefold\atomic\widgets.py:388(heightForWidth)
+        2    0.001    0.001    0.032    0.016 {method 'insertWidget' of 'PySide6.QtWidgets.QStackedWidget' objects}
+        1    0.000    0.000    0.025    0.025 D:\a\corefold\corefold\corefold\assoc.py:172(_sync_pending)
+        1    0.000    0.000    0.024    0.024 D:\a\corefold\corefold\corefold\assoc.py:145(sync)
+        2    0.005    0.002    0.015    0.007 D:\a\corefold\corefold\corefold\assoc.py:57(is_current)
+        1    0.000    0.000    0.010    0.010 D:\a\corefold\corefold\corefold\window.py:3457(refresh_history)
+        1    0.000    0.000    0.009    0.009 D:\a\corefold\corefold\corefold\window.py:1920(_home)
+        2    0.000    0.000    0.009    0.004 D:\a\corefold\corefold\corefold\assoc.py:53(_command)
+        2    0.000    0.000    0.008    0.004 D:\a\corefold\corefold\corefold\settings.py:446(app_command)
+        2    0.000    0.000    0.008    0.004 D:\a\corefold\corefold\corefold\window.py:3402(refresh)
+      420    0.001    0.000    0.008    0.000 D:\a\corefold\corefold\corefold\i18n.py:72(tr)
+      8/2    0.001    0.000    0.007    0.003 D:\a\corefold\corefold\corefold\shellmenu.py:171(_delete_tree)
+        2    0.000    0.000    0.006    0.003 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\pathlib.py:852(exists)
+        2    0.000    0.000    0.006    0.003 D:\a\corefold\corefold\corefold\window.py:3445(refresh_again)
+        2    0.000    0.000    0.006    0.003 D:\a\corefold\corefold\corefold\app.py:1897(again_text)
+        1    0.001    0.001    0.006    0.006 D:\a\corefold\corefold\corefold\window.py:1992(_fill_recent)
+      138    0.000    0.000    0.006    0.000 D:\a\corefold\corefold\corefold\app.py:2193(_all_tools)
+        2    0.000    0.000    0.005    0.003 D:\a\corefold\corefold\corefold\converters.py:1295(catalog)
+       56    0.002    0.000    0.005    0.000 D:\a\corefold\corefold\corefold\icons.py:64(pixmap)
+        7    0.000    0.000    0.005    0.001 D:\a\corefold\corefold\corefold\icons.py:76(icon)
+  356/349    0.001    0.000    0.005    0.000 {built-in method builtins.any}
+       74    0.005    0.000    0.005    0.000 {method 'render' of 'PySide6.QtSvg.QSvgRenderer' objects}
+      420    0.000    0.000    0.004    0.000 D:\a\corefold\corefold\corefold\i18n.py:90(_isolate_latin)
+       84    0.002    0.000    0.004    0.000 D:\a\corefold\corefold\corefold\atomic\widgets.py:405(_place)
+        1    0.000    0.000    0.004    0.004 D:\a\corefold\corefold\corefold\window.py:1463(_sync_settings_head)
+       22    0.002    0.000    0.004    0.000 D:\a\corefold\corefold\corefold\window.py:116(button)
+        4    0.000    0.000    0.004    0.001 D:\a\corefold\corefold\corefold\window.py:366(__init__)
+        1    0.000    0.000    0.004    0.004 D:\a\corefold\corefold\corefold\window.py:1822(_sync_section_strip)
+       65    0.001    0.000    0.004    0.000 D:\a\corefold\corefold\corefold\icons.py:48(paint)
+        1    0.000    0.000    0.004    0.004 D:\a\corefold\corefold\corefold\navbar.py:192(paintEvent)
+        1    0.000    0.000    0.003    0.003 {function NavList.paintEvent at 0x0000026508A14540}
+       30    0.001    0.000    0.003    0.000 {built-in method winreg.DeleteValue}
+       11    0.001    0.000    0.003    0.000 D:\a\corefold\corefold\corefold\navbar.py:28(paint)
+       31    0.002    0.000    0.003    0.000 {built-in method winreg.OpenKey}
+        9    0.001    0.000    0.003    0.000 D:\a\corefold\corefold\corefold\icons.py:176(product_tile)
+      420    0.001    0.000    0.003    0.000 D:\a\corefold\corefold\corefold\i18n.py:162(_rtl_start)
+     5427    0.002    0.000    0.003    0.000 D:\a\corefold\corefold\corefold\i18n.py:95(<genexpr>)
+        1    0.000    0.000    0.002    0.002 D:\a\corefold\corefold\corefold\settings.py:416(save)
+        2    0.001    0.000    0.002    0.001 <frozen ntpath>:705(realpath)
+        2    0.001    0.000    0.002    0.001 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\pathlib.py:1228(resolve)
+        6    0.001    0.000    0.002    0.000 D:\a\corefold\corefold\corefold\clipview.py:81(paint)
+       35    0.002    0.000    0.002    0.000 D:\a\corefold\corefold\corefold\window.py:108(label)
+
+
+         34952 function calls (34640 primitive calls) in 0.120 seconds
+
+   Ordered by: internal time
+   List reduced from 559 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+     24/1    0.052    0.002    0.000    0.000 {built-in method time.sleep}
+        2    0.005    0.002    0.015    0.007 D:\a\corefold\corefold\corefold\assoc.py:57(is_current)
+       74    0.005    0.000    0.005    0.000 {method 'render' of 'PySide6.QtSvg.QSvgRenderer' objects}
+       84    0.002    0.000    0.004    0.000 D:\a\corefold\corefold\corefold\atomic\widgets.py:405(_place)
+       35    0.002    0.000    0.002    0.000 D:\a\corefold\corefold\corefold\window.py:108(label)
+       31    0.002    0.000    0.003    0.000 {built-in method winreg.OpenKey}
+     5427    0.002    0.000    0.003    0.000 D:\a\corefold\corefold\corefold\i18n.py:95(<genexpr>)
+        2    0.002    0.001    0.002    0.001 {built-in method shiboken6.Shiboken.delete}
+       22    0.002    0.000    0.004    0.000 D:\a\corefold\corefold\corefold\window.py:116(button)
+       56    0.002    0.000    0.005    0.000 D:\a\corefold\corefold\corefold\icons.py:64(pixmap)
+        9    0.001    0.000    0.003    0.000 D:\a\corefold\corefold\corefold\icons.py:176(product_tile)
+       60    0.001    0.000    0.001    0.000 {method 'addWidget' of 'PySide6.QtWidgets.QBoxLayout' objects}
+        2    0.001    0.001    0.032    0.016 {method 'insertWidget' of 'PySide6.QtWidgets.QStackedWidget' objects}
+       30    0.001    0.000    0.003    0.000 {built-in method winreg.DeleteValue}
+        6    0.001    0.000    0.002    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\pathlib.py:835(stat)
+       11    0.001    0.000    0.003    0.000 D:\a\corefold\corefold\corefold\navbar.py:28(paint)
+      420    0.001    0.000    0.003    0.000 D:\a\corefold\corefold\corefold\i18n.py:162(_rtl_start)
+        2    0.001    0.000    0.002    0.001 <frozen ntpath>:705(realpath)
+        2    0.001    0.000    0.002    0.001 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\pathlib.py:1228(resolve)
+     5158    0.001    0.000    0.001    0.000 {method 'lower' of 'str' objects}
+  356/349    0.001    0.000    0.005    0.000 {built-in method builtins.any}
+       23    0.001    0.000    0.001    0.000 {method 'addLayout' of 'PySide6.QtWidgets.QBoxLayout' objects}
+        1    0.001    0.001    0.006    0.006 D:\a\corefold\corefold\corefold\window.py:1992(_fill_recent)
+       42    0.001    0.000    0.001    0.000 {method 'minimumSize' of 'PySide6.QtWidgets.QWidgetItem' objects}
+       65    0.001    0.000    0.004    0.000 D:\a\corefold\corefold\corefold\icons.py:48(paint)
+        1    0.001    0.001    0.001    0.001 {built-in method processEvents}
+       23    0.001    0.000    0.001    0.000 {method 'drawText' of 'PySide6.QtGui.QPainter' objects}
+       22    0.001    0.000    0.001    0.000 {method 'connect' of 'PySide6.QtCore.SignalInstance' objects}
+      420    0.001    0.000    0.008    0.000 D:\a\corefold\corefold\corefold\i18n.py:72(tr)
+        6    0.001    0.000    0.002    0.000 D:\a\corefold\corefold\corefold\clipview.py:81(paint)
+
+
