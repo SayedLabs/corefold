@@ -35,8 +35,10 @@ jobs:
           echo "FFmpeg ${COMMIT:-master}, scripts $SCRIPTS"
           mkdir -p out
           docker run --rm -v "$PWD:/work" "$IMAGE" bash /work/scripts/ffmpeg-lean.sh "$COMMIT" /work/out/bin
+          sudo chown -R "$(id -u):$(id -g)" out
           echo "$SCRIPTS" > out/bin/BUILD-SCRIPTS-COMMIT.txt
           docker image inspect --format '{{index .RepoDigests 0}}' "$IMAGE" > out/bin/BUILD-IMAGE.txt
+          cat out/bin/FFMPEG-VERSION.txt
           ls -la out/bin
           du -sh out/bin
 
@@ -46,7 +48,6 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           cd out/bin
-          sudo chown -R "$(id -u)" .
           git init -q -b ffmpeg-lean
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

@@ -66,6 +66,7 @@ Source: "..\dist\Corefold\*"; DestDir: "{app}"; Flags: ignoreversion recursesubd
 [InstallDelete]
 ; clear out files from an older version before copying the new ones
 Type: filesandordirs; Name: "{app}\_internal"
+Type: filesandordirs; Name: "{app}\ffmpeg"
 ; shortcuts made by versions before 1.7.0
 Type: files; Name: "{autoprograms}\{#OldName}.lnk"
 Type: files; Name: "{autodesktop}\{#OldName}.lnk"
