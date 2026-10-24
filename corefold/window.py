@@ -867,10 +867,18 @@ class MainWindow(QWidget):
                 text = tr(NAV_LABELS.get(name, name))
                 item.setText(text)
                 item.setData(ICON_ROLE, PAGE_ICONS[name])
-                item.setToolTip(text if compact else "")
+                item.setToolTip(self._nav_tip(name, text, compact))
         self.menu_btn.setIcon(icons.icon("navigation", t.text))
         self.menu_btn.setToolTip(tr("Show the names") if compact else tr("Icons only"))
         self.nav.viewport().update()
+
+    def _nav_tip(self, name: str, text: str, compact: bool) -> str:
+        """A sidebar row's tooltip: a section's tools in use (and its name when only icons show)."""
+        sec = all_tools.SECTION_BY_PAGE.get(name)
+        tools = ", ".join(tr(t.nav) for t in self.tools_on if sec is not None and all_tools.SECTION_OF[t.id] is sec)
+        if compact:
+            return f"{text}: {tools}" if tools else text
+        return tools
 
     # ---- the sidebar: narrow or wide, and the tools in your order
 
@@ -905,7 +913,7 @@ class MainWindow(QWidget):
         for row in range(self.nav.count()):
             item = self.nav.item(row)
             if item.data(Qt.UserRole):
-                item.setToolTip(item.text() if compact else "")
+                item.setToolTip(self._nav_tip(item.data(Qt.UserRole), item.text(), compact))
         self.menu_btn.setToolTip(tr("Show the names") if compact else tr("Icons only"))
         if self._nav_anim is not None:
             self._nav_anim.stop()
@@ -1006,6 +1014,7 @@ class MainWindow(QWidget):
             elif self.built(name):
                 self._drop_page(name)
         self._rebuild_home()
+        self.refresh_nav()  # (the sections' tooltips list their tools)
         self._sync_settings_head(here)
         self.update_save_bar()
 
