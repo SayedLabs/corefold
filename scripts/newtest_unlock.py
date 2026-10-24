@@ -248,13 +248,19 @@ def core():
         r = unlock.delete_at_restart([str(box)])
         check(r == {"scheduled": 4, "failed": 0}, f"Windows takes all four to delete at the next start ({r})")
         import winreg
-        try:
-            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager") as k:
-                pending = winreg.QueryValueEx(k, "PendingFileRenameOperations")[0]
-        except OSError:
-            pending = []
-        check(any(str(box).lower() in str(x).lower() for x in pending),
-              "…and they're in Windows' list of what to delete at the next start")
+        pending = []
+        # Newer Windows may keep the list in a second value; and it may write the long folder names
+        # (RUNNER~1 becomes runneradmin), so only the test's own folder name is compared.
+        for value in ("PendingFileRenameOperations", "PendingFileRenameOperations2"):
+            try:
+                with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager") as k:
+                    pending += list(winreg.QueryValueEx(k, value)[0] or [])
+            except OSError:
+                pass
+        mine = (box.parent.name + "\\" + box.name).lower()
+        found = [x for x in pending if mine in str(x).lower()]
+        check(bool(found), "…and they're in Windows' list of what to delete at the next start"
+              f" ({len(found)} of {len(pending)} entries; last: {pending[-3:]})")
         held_by.kill()
     step("deleting at the next start", at_restart)
 

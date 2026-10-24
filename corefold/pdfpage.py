@@ -224,11 +224,11 @@ class PdfPage(QWidget):
         for key, title, line, icon_name in ACTIONS:
             self.cards[key] = self.grid.add(ActionCard(key, tr(title), tr(line), icon_name,
                                                        lambda k=key: self.start(k)))
-        tools = self._converter_tools()
+        # The converter's own PDF tools: always there, so the catalog (which imports every converter,
+        # almost half a second) is only made once one of them is clicked.
         for key, title, line, icon_name in MORE:
-            if key in tools:
-                self.cards[key] = self.grid.add(ActionCard(key, tr(title), tr(line), icon_name,
-                                                           lambda k=key: self.start(k)))
+            self.cards[key] = self.grid.add(ActionCard(key, tr(title), tr(line), icon_name,
+                                                       lambda k=key: self.start(k)))
         v.addWidget(self.grid)
         v.addWidget(_label(tr("Your PDFs are never changed: every result is a new file next to the original."),
                            "subtle", wrap=True))
