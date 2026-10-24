@@ -199,7 +199,8 @@ class PdfPage(QWidget):
         self.stack = QStackedWidget()
         self.stack.currentChanged.connect(self._shown)
         self.stack.addWidget(self._start())
-        self.stack.addWidget(self._board())
+        self.stack.addWidget(QWidget())  # (the board is made the first time PDFs are opened)
+        self._board_made = False
         lay.addWidget(self.stack, 1)
 
     # ---- the cards
@@ -230,8 +231,16 @@ class PdfPage(QWidget):
             self.cards[key] = self.grid.add(ActionCard(key, tr(title), tr(line), icon_name,
                                                        lambda k=key: self.start(k)))
         v.addWidget(self.grid)
-        v.addWidget(_label(tr("Your PDFs are never changed: every result is a new file next to the original."),
-                           "subtle", wrap=True))
+        row = QHBoxLayout()
+        self.where = _label("", "subtle", wrap=True)
+        self._show_where()
+        change = QPushButton(tr("Change where"))
+        change.setObjectName("small")
+        change.setCursor(Qt.PointingHandCursor)
+        change.clicked.connect(lambda: self.c.show_window("ConvOptions"))
+        row.addWidget(self.where, 1)
+        row.addWidget(change, 0, Qt.AlignTop)
+        v.addLayout(row)
         v.addStretch()
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -399,11 +408,34 @@ class PdfPage(QWidget):
             sc.activated.connect(fn)
         return box
 
+    def _show_where(self):
+        """Where the new files go: the Converter's choice (Settings › Converter), the same for every tool."""
+        s = self.c.settings
+        if getattr(s, "save_mode", "beside") == "folder":
+            self.where.setText(tr("Your PDFs are never changed: every result is a new file in {folder}.",
+                                  folder=s.output_folder))
+        else:
+            self.where.setText(tr("Your PDFs are never changed: every result is a new file next to the original."))
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        if hasattr(self, "where"):
+            self._show_where()
+
     def _shown(self, index: int):
         if self.banner is not None:  # (the board gets the room of the tool's banner)
             self.banner.setVisible(index == 0)
 
+    def _make_board(self):
+        if not self._board_made:
+            self._board_made = True
+            placeholder = self.stack.widget(1)
+            self.stack.insertWidget(1, self._board())
+            self.stack.removeWidget(placeholder)
+            placeholder.deleteLater()
+
     def open_board(self, files: list[Path], mode: str = "organize"):
+        self._make_board()
         self.mode = mode
         self.stack.setCurrentIndex(1)
         self.tip.setText(tr(TIPS.get(mode, TIPS["organize"])))
@@ -421,6 +453,7 @@ class PdfPage(QWidget):
             elif paths:
                 self.c.tell(tr("Corefold PDF"), tr("Those aren't PDFs."))
             return
+        self._make_board()
         if self.stack.currentIndex() == 0:
             self.mode = "merge" if len(pdfs) > 1 else "organize"
             self.stack.setCurrentIndex(1)
@@ -751,10 +784,12 @@ class PdfPage(QWidget):
     # ---- closing the board
 
     def unsaved(self) -> bool:
-        return self.board.count() > 0 and self.plan() != self.saved_state and \
+        return self._board_made and self.board.count() > 0 and self.plan() != self.saved_state and \
             not (len(self.files) == 1 and self.plan() == [(0, i, 0) for i in range(self.counts.get(0, 0))])
 
     def close_board(self, ask: bool = True) -> bool:
+        if not self._board_made:
+            return True
         if ask and self.unsaved():
             box = QMessageBox(QMessageBox.Question, tr("Close these PDFs?"),
                               tr("The new order of the pages isn't saved yet. Your PDFs themselves are fine."),

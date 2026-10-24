@@ -25,7 +25,7 @@ from .settings import (ACCENTS, APP_NAME, DEFAULT_ACCENT, APPEARANCES, HOVER_STY
                        WHEEL_POSITIONS, WHEEL_SIZE_NAMES, WHEEL_STYLES, WINDOW_TEXT, installed_uninstaller,
                        ARCHIVE_KEYS, BACKUP_DAYS, CONVERTER_KEYS, EXTRACT_MODES, FORMAT_KEYS, GENERAL_KEYS,
                        SLIDESHOW_SECONDS, VIEWER_KEYS, VIEWER_WHEEL, CLIP_DAYS, CLIP_MAX, CLIP_SHORTCUTS, CLIPBOARD_KEYS,
-                       CAP_AFTER, CAP_DELAY, CAP_FPS, CAP_RECORD_SHORTCUTS, CAP_SHORTCUTS, CAPTURE_KEYS, PLAYER_KEYS, PLAYER_SKIP,
+                       CAP_AFTER, CAP_DELAY, CAP_SHORTCUTS, CAPTURE_KEYS, PLAYER_KEYS, PLAYER_SKIP,
                        PLAYER_WHEEL,
                        LOOK_KEYS, UNINSTALL_DEPTHS, UNINSTALLER_KEYS, UNUSED_MONTHS, WHEEL_KEYS, editable_keys, set_startup,
                        startup_enabled)
@@ -1264,8 +1264,6 @@ class MainWindow(QWidget):
             self.refresh_captures()
         elif name == "Player":
             self.refresh_watching()
-        elif name == "CaptureSettings":
-            self._find_microphones()
         elif name == "Shortcuts":
             self.shortcuts_page.refresh()
 
@@ -1623,9 +1621,6 @@ class MainWindow(QWidget):
             commands.append(Command(tr("Screenshot with a timer"), actions, ic("timer"),
                                     lambda: QTimer.singleShot(250, self.c.capture.screenshot_later),
                                     keywords="capture delay wait countdown"))
-            commands.append(Command(tr("Record a GIF"), actions, ic("filmstrip_image"),
-                                    lambda: QTimer.singleShot(250, self.c.capture.record_gif),
-                                    keywords="capture animation record"))
             commands.append(Command(tr("Pin what's copied to the screen"), actions, ic("pin"),
                                     self.c.capture.pin_last, keywords="capture pin float on top"))
         if self.c.clip is not None:
@@ -2568,6 +2563,9 @@ class MainWindow(QWidget):
         self.viewer_confirm_delete = checkbox(tr("Ask before sending a picture to the Recycle Bin"),
                                               s.viewer_confirm_delete, self._viewer_setting_changed)
         bl.addWidget(self.viewer_confirm_delete)
+        self.viewer_loop = checkbox(tr("After the last picture in a folder, start again from the first"),
+                                    s.viewer_loop, self._viewer_setting_changed)
+        bl.addWidget(self.viewer_loop)
         lay.addWidget(box)
         box, bl = card()
         bl.addWidget(label(tr("Double-click to open"), "h2"))
@@ -2594,6 +2592,7 @@ class MainWindow(QWidget):
         s.slideshow_seconds = self.slideshow_seconds.currentData()
         s.peek_key = self.peek_key.currentData()
         s.viewer_confirm_delete = self.viewer_confirm_delete.isChecked()
+        s.viewer_loop = self.viewer_loop.isChecked()
         self.c.settings_changed()
 
     def _default_for_viewer(self):
@@ -2792,7 +2791,9 @@ class MainWindow(QWidget):
                                     self._player_setting_changed)
         self.player_subtitles = checkbox(tr("Turn on a video's own subtitles"), s.player_subtitles,
                                          self._player_setting_changed)
-        for cb in (self.player_resume, self.player_next, self.player_subtitles):
+        self.player_pause_minimized = checkbox(tr("Pause a video while the window is minimised (music keeps playing)"),
+                                               s.player_pause_minimized, self._player_setting_changed)
+        for cb in (self.player_resume, self.player_next, self.player_subtitles, self.player_pause_minimized):
             bl.addWidget(cb)
         lay.addWidget(box)
         box, bl = card()
@@ -2818,6 +2819,7 @@ class MainWindow(QWidget):
         s.player_resume = self.player_resume.isChecked()
         s.player_next = self.player_next.isChecked()
         s.player_subtitles = self.player_subtitles.isChecked()
+        s.player_pause_minimized = self.player_pause_minimized.isChecked()
         self.c.settings_changed()
 
     def _default_for_player(self):
@@ -2836,18 +2838,19 @@ class MainWindow(QWidget):
         return self.cloud_page
 
     def _capture(self) -> QWidget:
-        """Corefold Capture: screenshots and recordings."""
+        """Corefold Capture: screenshots."""
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
         w, lay = page(tr("Corefold Capture"))
         lay.itemAt(0).widget().hide()
         lay.addLayout(tool_header("capture", tr("Corefold Capture"),
-                                  tr("Take a picture or a video of your screen, mark it up and share it in seconds."),
+                                  tr("Take a picture of your screen, mark it up and share it in seconds."),
                                   dark, dpr, self.tool_settings_button("Capture")))
         box, bl = card()
         row = QHBoxLayout()
         row.setSpacing(10)
         row.addWidget(button(tr("Take a screenshot"), "primary", lambda: self.c.capture and self.c.capture.screenshot()))
-        row.addWidget(button(tr("Record the screen"), None, lambda: self.c.capture and self.c.capture.record()))
+        row.addWidget(button(tr("Screenshot with a timer"), None,
+                             lambda: self.c.capture and self.c.capture.screenshot_later()))
         row.addStretch()
         bl.addLayout(row)
         self.capture_keys = label("", "muted", wrap=True)
@@ -2868,7 +2871,8 @@ class MainWindow(QWidget):
         for text in (tr("Drag over an area, click a window, or press Enter for the whole screen."),
                      tr("Every screenshot is copied straight away: paste it anywhere with Ctrl+V."),
                      tr("Blur hides passwords and names for good: the picture saved has no way back to them."),
-                     tr("Recordings are saved as MP4 videos in Videos\\Captures. Nothing is uploaded.")):
+                     tr("In the editor, Select text picks just the words you want, to copy them."),
+                     tr("Screenshots stay on your PC: nothing is uploaded. Pick their folder in Capture's settings.")):
             r = QHBoxLayout()
             r.setSpacing(10)
             r.addWidget(self._accent_dot(), 0, Qt.AlignTop)
@@ -2887,8 +2891,6 @@ class MainWindow(QWidget):
         bits = []
         if s.cap_shortcut != "off":
             bits.append(tr("Screenshot: {key}", key=SHORTCUT_NAMES.get(s.cap_shortcut, "")))
-        if s.cap_record_shortcut != "off":
-            bits.append(tr("Start or stop recording: {key}", key=SHORTCUT_NAMES.get(s.cap_record_shortcut, "")))
         self.capture_keys.setText("   ·   ".join(bits) or tr("Pick shortcuts in Settings to capture from any app."))
         lay = self.captures_lay
         while lay.count():
@@ -2909,12 +2911,16 @@ class MainWindow(QWidget):
                                 if v else self.c.open_viewer(p))
             lay.addWidget(row)
         if not files:
-            lay.addWidget(label(tr("Your screenshots and recordings show up here."), "muted", wrap=True))
+            lay.addWidget(label(tr("Your screenshots show up here."), "muted", wrap=True))
 
     def _open_capture_folder(self):
         from .capture import screenshots_folder
         folder = screenshots_folder()
-        folder.mkdir(parents=True, exist_ok=True)
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            self.c.tell(tr("Couldn't open the folder"), str(folder))
+            return
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder)))
 
     def _capture_settings(self) -> QWidget:
@@ -2929,123 +2935,92 @@ class MainWindow(QWidget):
         for key, text in CAP_SHORTCUTS.items():
             self.cap_shortcut.addItem(tr(text) if key == "off" else text, key)
         self.cap_shortcut.setCurrentIndex(max(0, self.cap_shortcut.findData(s.cap_shortcut)))
-        self.cap_record_shortcut = Dropdown()
-        for key, text in CAP_RECORD_SHORTCUTS.items():
-            self.cap_record_shortcut.addItem(tr(text) if key == "off" else text, key)
-        self.cap_record_shortcut.setCurrentIndex(max(0, self.cap_record_shortcut.findData(s.cap_record_shortcut)))
         self.cap_after = Dropdown()
         for key, text in CAP_AFTER.items():
             self.cap_after.addItem(tr(text), key)
         self.cap_after.setCurrentIndex(max(0, self.cap_after.findData(s.cap_after)))
         grid.addWidget(label(tr("Take a screenshot with")), 0, 0)
         grid.addWidget(self.cap_shortcut, 0, 1)
-        grid.addWidget(label(tr("Start or stop recording with")), 1, 0)
-        grid.addWidget(self.cap_record_shortcut, 1, 1)
-        grid.addWidget(label(tr("After a screenshot")), 2, 0)
-        grid.addWidget(self.cap_after, 2, 1)
+        grid.addWidget(label(tr("After a screenshot")), 1, 0)
+        grid.addWidget(self.cap_after, 1, 1)
         self.cap_delay = Dropdown()
         for key, text in CAP_DELAY.items():
             self.cap_delay.addItem(tr(text), key)
         self.cap_delay.setCurrentIndex(max(0, self.cap_delay.findData(s.cap_delay)))
-        grid.addWidget(label(tr("A screenshot with a timer waits")), 3, 0)
-        grid.addWidget(self.cap_delay, 3, 1)
+        grid.addWidget(label(tr("A screenshot with a timer waits")), 2, 0)
+        grid.addWidget(self.cap_delay, 2, 1)
         grid.setColumnStretch(2, 1)
         bl.addLayout(grid)
-        self.cap_key_note = label(tr("Another app already uses one of these shortcuts. Pick another one."), "warning",
-                                  wrap=True)
+        self.cap_key_note = label(tr("Another app already uses this shortcut. Pick another one."), "warning", wrap=True)
         bl.addWidget(self.cap_key_note)
         self.refresh_capture_note()
-        self.cap_save = checkbox(tr("Also save every screenshot in Pictures\\Screenshots"), s.cap_save,
-                                 self._cap_setting_changed)
-        bl.addWidget(self.cap_save)
         bl.addWidget(label(tr("Print Screen on its own may open Windows' Snipping Tool: Windows lets you turn that off "
                               "in Settings, Accessibility, Keyboard."), "muted", wrap=True))
         lay.addWidget(box)
         box, bl = card()
-        bl.addWidget(label(tr("Recording"), "h2"))
-        grid = QGridLayout()
-        grid.setHorizontalSpacing(16)
-        grid.setVerticalSpacing(12)
-        self.cap_fps = Dropdown()
-        for key, text in CAP_FPS.items():
-            self.cap_fps.addItem(tr(text), key)
-        self.cap_fps.setCurrentIndex(max(0, self.cap_fps.findData(s.cap_fps)))
-        self.cap_mic = Dropdown()
-        self.cap_mic.addItem(tr("No sound"), "")
-        if s.cap_mic:
-            self.cap_mic.addItem(s.cap_mic, s.cap_mic)
-            self.cap_mic.setCurrentIndex(1)
-        self._mics_found = False
-        grid.addWidget(label(tr("Smoothness")), 0, 0)
-        grid.addWidget(self.cap_fps, 0, 1)
-        grid.addWidget(label(tr("Microphone")), 1, 0)
-        grid.addWidget(self.cap_mic, 1, 1)
-        grid.setColumnStretch(2, 1)
-        bl.addLayout(grid)
-        self.cap_pc_sound = checkbox(tr("Record the PC's sound too (videos, games, calls)"), s.cap_pc_sound,
-                                     self._cap_setting_changed)
-        self.cap_cursor = checkbox(tr("Show the mouse pointer in recordings"), s.cap_cursor, self._cap_setting_changed)
-        self.cap_countdown = checkbox(tr("Count down 3, 2, 1 before recording starts"), s.cap_countdown,
-                                      self._cap_setting_changed)
-        bl.addWidget(self.cap_pc_sound)
-        bl.addWidget(self.cap_cursor)
-        bl.addWidget(self.cap_countdown)
+        bl.addWidget(label(tr("Saving"), "h2"))
+        self.cap_save = checkbox(tr("Also save every screenshot"), s.cap_save, self._cap_setting_changed)
+        bl.addWidget(self.cap_save)
+        bl.addSpacing(4)
+        bl.addWidget(label(tr("Screenshots are saved in")))
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        self.cap_folder_label = label("", "muted")
+        self.cap_folder_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.cap_folder_label.setMinimumWidth(60)
+        self.cap_folder_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)  # (shortened, never wider)
+        row.addWidget(self.cap_folder_label, 1)
+        row.addWidget(button(tr("Open"), on_click=self._open_capture_folder))
+        row.addWidget(button(tr("Change…"), on_click=self._pick_cap_folder))
+        self.cap_folder_reset = button(tr("Use the usual folder"), "flat", lambda: self._set_cap_folder(""))
+        row.addWidget(self.cap_folder_reset)
+        bl.addLayout(row)
+        self._show_cap_folder()
         lay.addWidget(box)
-        for combo in (self.cap_shortcut, self.cap_record_shortcut, self.cap_after, self.cap_delay, self.cap_fps,
-                      self.cap_mic):
+        for combo in (self.cap_shortcut, self.cap_after, self.cap_delay):
             combo.currentIndexChanged.connect(self._cap_setting_changed)
         lay.addLayout(_reset_row(lambda: self.reset_to_defaults(CAPTURE_KEYS)))
         lay.addStretch()
         return w
 
-    def _find_microphones(self):
-        """Asks FFmpeg which microphones there are (only when the page is opened: it takes a moment)."""
-        if self._mics_found or not hasattr(self, "cap_mic"):
+    def _show_cap_folder(self):
+        from .capture import screenshots_folder
+        if not _alive(getattr(self, "cap_folder_label", None)):
             return
-        self._mics_found = True
-        import threading
+        folder = str(screenshots_folder())
+        self.cap_folder_label.setText(short_name(folder, 50))
+        self.cap_folder_label.setToolTip(folder)
+        self.cap_folder_reset.setVisible(bool(self.c.settings.cap_folder))
 
-        from .capture import microphones
-        holder = {}
+    def _pick_cap_folder(self):
+        from .capture import screenshots_folder
+        d = QFileDialog.getExistingDirectory(self, tr("Save screenshots in"), str(screenshots_folder()))
+        if d:
+            self._set_cap_folder(d)
 
-        def work():
-            holder["mics"] = microphones()
-        t = threading.Thread(target=work, daemon=True)
-        t.start()
-
-        def fill():
-            if t.is_alive():
-                QTimer.singleShot(200, fill)
-                return
-            if not _alive(self.cap_mic):
-                return
-            current = self.c.settings.cap_mic
-            self.cap_mic.blockSignals(True)
-            for mic in holder.get("mics", []):
-                if self.cap_mic.findData(mic) < 0:
-                    self.cap_mic.addItem(mic, mic)
-            self.cap_mic.setCurrentIndex(max(0, self.cap_mic.findData(current)))
-            self.cap_mic.blockSignals(False)
-        QTimer.singleShot(200, fill)
+    def _set_cap_folder(self, folder: str):
+        """A folder picked for screenshots ("" = back to Pictures\\Screenshots)."""
+        from .capture import default_screenshots_folder
+        usual = str(default_screenshots_folder())
+        if folder and os.path.normcase(os.path.normpath(folder)) == os.path.normcase(os.path.normpath(usual)):
+            folder = ""
+        self.c.settings.cap_folder = os.path.normpath(folder) if folder else ""
+        self._show_cap_folder()
+        self.c.settings_changed()
+        self.refresh_captures()
 
     def _cap_setting_changed(self, *_):
         s = self.c.settings
         s.cap_shortcut = self.cap_shortcut.currentData()
-        s.cap_record_shortcut = self.cap_record_shortcut.currentData()
         s.cap_after = self.cap_after.currentData()
         s.cap_delay = self.cap_delay.currentData()
         s.cap_save = self.cap_save.isChecked()
-        s.cap_fps = self.cap_fps.currentData()
-        s.cap_mic = self.cap_mic.currentData() or ""
-        s.cap_pc_sound = self.cap_pc_sound.isChecked()
-        s.cap_cursor = self.cap_cursor.isChecked()
-        s.cap_countdown = self.cap_countdown.isChecked()
         self.c.settings_changed()
 
     def refresh_capture_note(self):
         if self.built("CaptureSettings") and hasattr(self, "cap_key_note"):
             cap = self.c.capture
-            bad = cap is not None and not (cap.shot_key.ok and cap.rec_key.ok)
+            bad = cap is not None and not cap.shot_key.ok
             self.cap_key_note.setVisible(bool(bad))
 
     def _quick_settings(self) -> QWidget:
@@ -3165,6 +3140,15 @@ class MainWindow(QWidget):
         self.extract_nested = checkbox(tr("Also unpack archives found inside (ticked to begin with)"),
                                        s.extract_nested, self._tool_setting_changed)
         bl.addWidget(self.extract_nested)
+        bl.addWidget(label(tr("Once it's extracted"), "h2"))
+        self.extract_reveal = checkbox(tr("Open the folder with what came out"), s.extract_reveal,
+                                       self._tool_setting_changed)
+        self.extract_recycle = checkbox(tr("Send the archive to the Recycle Bin (all its parts too)"),
+                                        s.extract_recycle, self._tool_setting_changed)
+        bl.addWidget(self.extract_reveal)
+        bl.addWidget(self.extract_recycle)
+        bl.addWidget(label(tr("Only when everything came out without a problem. Extracting a few items from the "
+                              "Archive window never removes the archive."), "muted", wrap=True))
         lay.addWidget(box)
         box, bl = card()
         bl.addWidget(label(tr("Double-click to open"), "h2"))
@@ -3212,6 +3196,8 @@ class MainWindow(QWidget):
         if self.built("ArchiveSettings"):
             s.extract_mode = self.extract_mode.currentData()
             s.extract_nested = self.extract_nested.isChecked()
+            s.extract_reveal = self.extract_reveal.isChecked()
+            s.extract_recycle = self.extract_recycle.isChecked()
             s.remember_archives = self.remember_archives.isChecked()
         self.c.settings_changed()
 

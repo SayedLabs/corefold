@@ -369,7 +369,7 @@ def capture_tool():
     check(cap is not None, "Capture is running")
     if cap is None:
         return
-    check(cap.shot_key.ok and cap.rec_key.ok, "its shortcuts (Ctrl + Print Screen, Ctrl + Shift + Print Screen) work")
+    check(cap.shot_key.ok, "its shortcut (Ctrl + Print Screen) works")
     # picking an area: the frozen screen comes up, Esc gives up
     cap.screenshot()
     check(until(lambda: cap.picker is not None and cap.picker.snips, 3), "a screenshot freezes the screen")
@@ -411,28 +411,12 @@ def capture_tool():
     check(until(lambda: not ed.dirty and ed.saved.exists(), 5), "Save")
     ed.close()
     settle(0.2)
-    # recording a few seconds
-    c.settings.cap_countdown = False
-    from corefold.capture import Recorder, new_name, videos_folder
-    rec = Recorder(QRect(0, 0, 640, 360), new_name(videos_folder(), ".mp4", "Recording"))
-    check(rec.start(), f"recording starts {rec.error}")
-    t0 = time.time()
-    while time.time() - t0 < 3:
-        qapp.processEvents()
-        time.sleep(0.05)
-    ok = rec.stop()
-    size = rec.out.stat().st_size if rec.out.exists() else 0
-    check(ok and size > 5000, f"a 3-second recording is saved ({size} bytes) {rec.error}")
     c.show_window("Capture")
     settle(0.5)
     c.window.grab().save(str(OUT / "capture-page.png"))
     c.window.open_page("CaptureSettings")
     settle(0.8)
     c.window.grab().save(str(OUT / "capture-settings.png"))
-    try:
-        rec.out.unlink()
-    except OSError:
-        pass
 
 
 def player_tool():

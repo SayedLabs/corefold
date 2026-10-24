@@ -516,6 +516,8 @@ class UnlockPage(QWidget):
                 or not result.get("scheduled"):
             if isinstance(result, dict) and result.get("error") == "too many":
                 self._say(tr("There are too many files in it to delete as the PC restarts."))
+            elif isinstance(result, dict) and result.get("refused"):
+                self._say(tr("Corefold doesn't delete Windows' or programs' own folders this way."))
             else:
                 log.warning("couldn't ask for %s to be deleted at restart: %s", self.paths, result)
                 self._say(tr("Windows didn't take it. Try again, or restart the PC and delete it then."))

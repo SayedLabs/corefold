@@ -10,8 +10,6 @@ pypdfium2>=4.30
 zxing-cpp>=2.2
 numpy>=1.26
 onnxruntime>=1.18
-# Capture: recording the PC's own sound (Windows' loopback)
-soundcard>=0.4.3; sys_platform == "win32"
 # "Copy text" (reads text in pictures with Windows' built-in OCR)
 winrt-runtime>=2.0; sys_platform == "win32"
 winrt-Windows.Foundation>=2.0; sys_platform == "win32"

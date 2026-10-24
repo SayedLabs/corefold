@@ -36,8 +36,6 @@ GLOBAL = [
            live="clip.hotkey"),
     Global("Take a screenshot", "cap_shortcut", "CaptureSettings", "cap_shortcut", tool="capture",
            live="capture.shot_key"),
-    Global("Start or stop recording the screen", "cap_record_shortcut", "CaptureSettings", "cap_record_shortcut",
-           tool="capture", live="capture.rec_key"),
     Global("Quick look at the file selected in File Explorer", "peek_key", "ViewerSettings", "peek_key", tool="viewer",
            live="peek"),
     Global("Open the quick menu", "quick_menu_key", "Quick", "quick_menu_rec", live="quick.menu_key",

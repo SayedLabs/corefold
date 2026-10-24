@@ -860,7 +860,7 @@ class ViewerWindow(QWidget):
         if not self.files or not self._leave_ok():
             return
         new = self.index + step
-        if wrap:
+        if wrap or getattr(self.c.settings, "viewer_loop", False):
             new %= len(self.files)
         if 0 <= new < len(self.files):
             self.index = new
@@ -1175,8 +1175,9 @@ class ViewerWindow(QWidget):
     def _buttons(self):
         self.b_save.setVisible(bool(self.edits))
         many = len(self.files) > 1
-        self.b_prev.setEnabled(many and self.index > 0)
-        self.b_next.setEnabled(many and self.index < len(self.files) - 1)
+        loop = getattr(self.c.settings, "viewer_loop", False)
+        self.b_prev.setEnabled(many and (loop or self.index > 0))
+        self.b_next.setEnabled(many and (loop or self.index < len(self.files) - 1))
         self.b_show.setEnabled(many)
 
     def _leave_ok(self) -> bool:
