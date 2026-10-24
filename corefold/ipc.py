@@ -23,7 +23,7 @@ def message_for(argv: list[str]) -> bytes | None:
     def after(flag: str) -> list[str]:
         if flag not in argv:
             return []
-        return [a for a in argv[argv.index(flag) + 1:] if not a.startswith("--")]
+        return [_unquoted(a) for a in argv[argv.index(flag) + 1:] if not a.startswith("--")]
 
     if "--run" in argv:
         rest = after("--run")
@@ -40,6 +40,12 @@ def message_for(argv: list[str]) -> bytes | None:
         return b""  # already running: nothing to do
     page = after("--page")
     return ("show\n" + page[0]).encode("utf-8") if page else b"show"
+
+
+def _unquoted(arg: str) -> str:
+    """A right-clicked drive comes as "C:\\" (in quotes) and Windows reads the backslash before the closing
+    quote as "keep this quote", so the path arrives as C:" (a place that doesn't exist). Put it back."""
+    return arg[:-1] + "\\" if arg.endswith('"') else arg
 
 
 def send(message: bytes, wait_s: float = 4.0) -> bool:

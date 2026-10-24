@@ -129,10 +129,13 @@ _reserve_lock = threading.Lock()
 
 
 def unique_path(p: Path) -> Path:
+    """p, or "name (2).ext", "name (3).ext"… when that's taken. A folder in the way gets the number at the
+    end of its whole name ("Photos v2.0 (2)", not "Photos v2 (2).0")."""
     with _reserve_lock:
         cand, n = p, 2
+        whole = p.is_dir()
         while cand.exists() or os.path.normcase(str(cand)) in _reserved:
-            cand = p.with_name(f"{p.stem} ({n}){p.suffix}")
+            cand = p.with_name(f"{p.name} ({n})" if whole else f"{p.stem} ({n}){p.suffix}")
             n += 1
         if len(_reserved) > 5000:
             _reserved.clear()
