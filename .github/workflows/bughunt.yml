@@ -20,7 +20,7 @@ concurrency:
 jobs:
   try:
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 70   # (the two full sweeps, every page, button and search entry, take 30-45 minutes)
     strategy:
       fail-fast: false
       matrix:
@@ -91,7 +91,7 @@ jobs:
 
       - name: Every page and button
         if: matrix.sweep != ''
-        timeout-minutes: 30
+        timeout-minutes: 55
         shell: pwsh
         continue-on-error: true
         env:
