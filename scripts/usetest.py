@@ -851,6 +851,14 @@ def idle():
         if alive(top) and top.isVisible() and top.isWindow() and type(top).__name__ != "Toast":
             top.hide()
     settle(8)
+    # clean-ups still waiting from earlier steps (a popup closed a minute ago is let go of, then memory goes
+    # back to Windows) happen now, once, so the 15 s below measure Corefold doing nothing
+    for timer, run in ((c.free_popups_timer, c._free_popups), (c.light_tidy_timer, c.light_tidy),
+                       (c.tidy_timer, c.tidy_up)):
+        if timer.isActive():
+            timer.stop()
+            run()
+    settle(2)
     import ctypes
     from ctypes import wintypes as wt
     k = ctypes.windll.kernel32
