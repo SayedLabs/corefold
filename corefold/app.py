@@ -1725,10 +1725,13 @@ class Controller(QObject):
         self.recent_outputs = (self.recent_outputs + [str(p) for p in result.outputs])[-200:]
 
         after = job["after"]
-        if after == "open" and result.outputs and not errors:
+        if after in ("open", "open_with") and result.outputs and not errors:
             self.toast.hide()
             try:
-                os_open(result.outputs[0])
+                if after == "open_with":
+                    winutil.open_with(result.outputs[0])
+                else:
+                    os_open(result.outputs[0])
             except OSError as e:
                 self.toast.notify(tr("Couldn't open the file"), str(e))
             member = job["params"].get("member")

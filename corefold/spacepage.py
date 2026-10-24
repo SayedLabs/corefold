@@ -1634,6 +1634,8 @@ class SpacePage(QWidget):
             self.dupe_note.setText(tr("No duplicates found."))
             return
         self.dupe_tree.blockSignals(True)
+        self.dupe_tree.setUpdatesEnabled(False)  # (all the rows go in at once, drawn once)
+        heads = []
         for group in groups[:500]:
             size = group[0][1]
             files = sorted(group, key=lambda g: g[2])  # the oldest first: it's kept
@@ -1642,7 +1644,7 @@ class SpacePage(QWidget):
             f = head.font(0)
             f.setWeight(QFont.Weight.DemiBold)
             head.setFont(0, f)
-            self.dupe_tree.addTopLevelItem(head)
+            heads.append(head)
             for i, (path, s, mtime) in enumerate(files):
                 it = QTreeWidgetItem([ltr(path), date_text(mtime, True), ""])
                 it.setData(0, Qt.UserRole, (path, s))
@@ -1650,7 +1652,9 @@ class SpacePage(QWidget):
                 it.setCheckState(0, Qt.Unchecked if i == 0 else Qt.Checked)
                 it.setToolTip(0, path)
                 head.addChild(it)
-            head.setExpanded(True)
+        self.dupe_tree.addTopLevelItems(heads)
+        self.dupe_tree.expandAll()
+        self.dupe_tree.setUpdatesEnabled(True)
         self.dupe_tree.blockSignals(False)
         self.dupe_tree.show()
         self.dupe_remove.show()

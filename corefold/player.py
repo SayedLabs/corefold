@@ -422,6 +422,7 @@ class PlayerWindow(QWidget):
         more.addSeparator()
         more.addAction(tr("Save the A–B part as a clip…"), self.save_clip)
         more.addAction(tr("Show in folder"), self._reveal)
+        more.addAction(tr("Open with…"), self._open_with)
         self.b_more.setMenu(more)
         row2 = QHBoxLayout()
         row2.setSpacing(4)
@@ -1151,6 +1152,14 @@ class PlayerWindow(QWidget):
     def _reveal(self):
         from .winutil import reveal_in_explorer
         reveal_in_explorer(self.current())
+
+    def _open_with(self):
+        """Windows' "Open with" box, for when another player does something this one doesn't."""
+        from .winutil import open_with
+        path = self.current()
+        if path.is_file():
+            self.player.pause()
+            open_with(path)
 
     # ---- looks and closing
 

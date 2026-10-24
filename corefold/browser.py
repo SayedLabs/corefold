@@ -662,6 +662,7 @@ class ArchiveBrowser(QWidget):
         round_menu(menu)
         if item is not None and not item.data(0, DIR_ROLE):
             menu.addAction(tr("Open"), lambda: self._open(item))
+            menu.addAction(tr("Open with…"), lambda: self._open(item, "open_with"))
         if self.tree.selectedItems():
             menu.addAction(tr("Extract selected to…"), self._extract_to)
             if ar.can_edit(self.src):
@@ -672,12 +673,12 @@ class ArchiveBrowser(QWidget):
         menu.exec(self.tree.viewport().mapToGlobal(pos))
         menu.deleteLater()
 
-    def _open(self, item):
+    def _open(self, item, after: str = "open"):
         if not item or item.data(0, DIR_ROLE):
             return
         member = item.data(0, PATH_ROLE)
         self._run("archive:open", tr("Open"), lambda items, ctx: ar.extract_for_opening(self.src, member, ctx),
-                  after="open", params={"member": member})
+                  after=after, params={"member": member})
 
     def _test(self):
         self._run("archive:test", tr("Test"), lambda items, ctx: ar.test_archive(self.src, ctx))
