@@ -19,8 +19,9 @@ os.environ.setdefault("QT_MEDIA_BACKEND", "ffmpeg")  # (before Qt's player is lo
 
 def local_only(on: bool = True):
     """A file on the PC is played without going online: a file can say it's made of parts on the internet
-    (a playlist dressed up as a video), and opening it would tell that site you did. Qt's player reads
-    this each time it opens something; a link pasted on purpose may go online."""
+    (a playlist), and fetching them would tell that site you opened it. Qt's FFmpeg already refuses
+    that today; this keeps it so whatever FFmpeg does next. Qt's player reads it each time it opens
+    something; a link pasted on purpose may go online."""
     if on:
         os.environ["QT_FFMPEG_PROTOCOL_WHITELIST"] = "file"
     else:

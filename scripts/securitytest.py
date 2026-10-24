@@ -330,8 +330,8 @@ class _Count(http.server.BaseHTTPRequestHandler):
 
 
 def videos_going_online():
-    """A "video" that is really a playlist of parts on the internet: Qt's player would fetch them (and so
-    tell that site the file was opened). Played from the PC, Corefold's player stays offline."""
+    """A "video" that is really a playlist of parts on the internet: a player that fetched them would tell
+    that site the file was opened. Played from the PC, Corefold's player stays offline."""
     import threading
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     os.environ.setdefault("QT_MEDIA_BACKEND", "ffmpeg")
@@ -371,7 +371,7 @@ def videos_going_online():
     _Count.hits = 0
     play(named)
     note(f"the old way: a playlist called .m3u8 asked the internet for its parts {_Count.hits} time(s)")
-    check(_Count.hits > 0, "the old way went online with a playlist file (proof of the problem)")
+    # (on GitHub's runner Qt's FFmpeg stayed offline by itself both times; the whitelist is a second lock)
     corefold_player.local_only()
     for f in (fake, named):
         _Count.hits = 0
