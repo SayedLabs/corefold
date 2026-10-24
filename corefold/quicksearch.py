@@ -57,6 +57,13 @@ class Found:
     folder: bool = False
 
 
+@dataclass(frozen=True)
+class Window:
+    hwnd: int
+    title: str
+    exe: str = ""    # the program it belongs to (its full path, for its icon and name)
+
+
 # ---------------------------------------------------------------------------- matching
 
 _WORDS = re.compile(r"[\s\-_.()&,+/\\\[\]]+")
@@ -120,6 +127,99 @@ def match_apps(apps: list[App], query: str, limit: int = MAX_APPS) -> list[tuple
     found = [x for x in found if x[0]]
     found.sort(key=lambda x: (-x[0], len(x[2].name), x[1]))
     return [(s, a) for s, _, a in found[:limit]]
+
+
+def match_windows(windows: list[Window], query: str, limit: int = MAX_APPS) -> list[tuple[int, Window]]:
+    """The open windows whose title or program fits what's typed (best first, then front to back)."""
+    found = []
+    for i, w in enumerate(windows):
+        program = os.path.splitext(ntpath.basename(w.exe))[0]
+        score = max(file_score(query, w.title), app_score(query, program) if program else 0)
+        if score >= 50:
+            found.append((score, i, w))
+    found.sort(key=lambda x: (-x[0], x[1]))
+    return [(s, w) for s, _, w in found[:limit]]
+
+
+# ---------------------------------------------------------------------------- open windows (as Alt + Tab)
+
+def _user32():
+    import ctypes
+    import ctypes.wintypes as wt
+    u = ctypes.WinDLL("user32")   # (its own copy: the argument types set here don't touch anyone else's)
+    H = wt.HWND
+    for fn, args, res in (("IsWindowVisible", (H,), wt.BOOL), ("IsIconic", (H,), wt.BOOL),
+                          ("IsWindow", (H,), wt.BOOL), ("GetWindow", (H, wt.UINT), H),
+                          ("GetWindowTextLengthW", (H,), ctypes.c_int),
+                          ("GetWindowTextW", (H, wt.LPWSTR, ctypes.c_int), ctypes.c_int),
+                          ("GetWindowLongPtrW", (H, ctypes.c_int), ctypes.c_ssize_t),
+                          ("GetWindowThreadProcessId", (H, ctypes.POINTER(wt.DWORD)), wt.DWORD),
+                          ("ShowWindow", (H, ctypes.c_int), wt.BOOL), ("SetForegroundWindow", (H,), wt.BOOL),
+                          ("GetForegroundWindow", (), H)):
+        f = getattr(u, fn)
+        f.argtypes, f.restype = args, res
+    return u
+
+
+def open_windows() -> list[Window]:
+    """The windows Alt + Tab shows, front to back (not Corefold's own, not hidden or on another desktop)."""
+    if not IS_WIN:
+        return []
+    import ctypes
+    import ctypes.wintypes as wt
+    try:
+        from .clipboard import process_path
+        u = _user32()
+        dwm = ctypes.WinDLL("dwmapi")
+        me = os.getpid()
+        found: list[Window] = []
+        exes: dict[int, str] = {}
+
+        def each(hwnd, _):
+            if not u.IsWindowVisible(hwnd) or u.GetWindow(hwnd, 4):  # (GW_OWNER: a dialog of another window)
+                return True
+            ex = u.GetWindowLongPtrW(hwnd, -20)  # GWL_EXSTYLE
+            if ex & 0x80 and not ex & 0x40000:   # a tool window, unless it asks to be on the taskbar
+                return True
+            cloaked = ctypes.c_int(0)
+            dwm.DwmGetWindowAttribute(wt.HWND(hwnd), 14, ctypes.byref(cloaked), 4)  # DWMWA_CLOAKED
+            if cloaked.value:
+                return True
+            n = u.GetWindowTextLengthW(hwnd)
+            if n <= 0:
+                return True
+            buf = ctypes.create_unicode_buffer(n + 1)
+            u.GetWindowTextW(hwnd, buf, n + 1)
+            pid = wt.DWORD()
+            u.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+            if pid.value == me or not buf.value.strip():
+                return True
+            if pid.value not in exes:
+                exes[pid.value] = process_path(pid.value)
+            found.append(Window(int(hwnd), buf.value.strip(), exes[pid.value]))
+            return len(found) < 200
+        u.EnumWindows(ctypes.WINFUNCTYPE(wt.BOOL, wt.HWND, wt.LPARAM)(each), 0)
+        return found
+    except Exception:
+        log.debug("couldn't list the open windows", exc_info=True)
+        return []
+
+
+def switch_to(w: Window) -> bool:
+    """Brings that window to the front (restored if it was minimised). False if it's been closed."""
+    if not IS_WIN:
+        return False
+    try:
+        u = _user32()
+        if not u.IsWindow(w.hwnd):
+            return False
+        if u.IsIconic(w.hwnd):
+            u.ShowWindow(w.hwnd, 9)  # SW_RESTORE
+        u.SetForegroundWindow(w.hwnd)
+        return True
+    except Exception:
+        log.debug("couldn't switch to a window", exc_info=True)
+        return False
 
 
 # ---------------------------------------------------------------------------- Windows' folders
