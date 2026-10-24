@@ -233,8 +233,7 @@ class ShortcutsPage:
             box.setVisible(not tool or all_tools.is_on(self.c.settings, tool))
 
     def change(self, entry: Global):
-        widget = getattr(self.win, entry.widget, None)
+        self.win.open_page(entry.page)  # (a page is made the first time it's opened)
+        widget = getattr(self.win, entry.widget, None) if entry.widget else None
         if widget is not None:
             self.win._show_setting(entry.page, widget)
-        else:
-            self.win.open_page(entry.page)

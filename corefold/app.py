@@ -1436,6 +1436,8 @@ class Controller(QObject):
     def apply_theme(self, wheel_only: bool = False):
         self.theme = self._make_theme()
         if not wheel_only:
+            if self._window is not None:  # (restyling goes through every page made: the hidden ones go first)
+                self._window.drop_hidden_pages()
             # restyles every window: only when it changes, and drawn once at the end instead of widget by widget
             shown = [w for w in self.app.topLevelWidgets() if w.isVisible()]
             for w in shown:
