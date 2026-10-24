@@ -262,7 +262,6 @@ STRINGS: dict[str, str] = {
     "Delete backup": "Supprimer la sauvegarde",
     "Delete this backup for good? It can't be put back after that.": "Supprimer définitivement cette sauvegarde ? Elle ne pourra plus être remise ensuite.",
     "Some files in the backup couldn't be deleted.": "Certains fichiers de la sauvegarde n'ont pas pu être supprimés.",
-    "not an archive Corefold can open": "ce n'est pas une archive que Corefold sait ouvrir",
     "the archive is damaged or incomplete": "l'archive est endommagée ou incomplète",
     "a part of this split archive is missing": "une partie de cette archive découpée manque",
     "the disk is full": "le disque est plein",

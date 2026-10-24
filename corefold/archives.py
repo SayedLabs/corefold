@@ -186,10 +186,11 @@ def _7z_error(output: str) -> Exception:
     low = output.lower()
     if "wrong password" in low or "can not open encrypted archive" in low or "cannot open encrypted" in low:
         return NeedPassword()
-    if "can not open the file as archive" in low or "cannot open the file as archive" in low:
-        return RuntimeError(tr("not an archive Corefold can open"))
-    if "crc failed" in low or "data error" in low or "unexpected end of archive" in low:
+    if "crc failed" in low or "data error" in low or "unexpected end of archive" in low or "headers error" in low:
         return RuntimeError(tr("the archive is damaged or incomplete"))
+    # ("Cannot open the file as [zip] archive" when the name says ZIP but what's inside isn't one)
+    if re.search(r"can ?not open (the )?file as (\[[^\]]*\] )?archive|can't open as archive|is not archive", low):
+        return RuntimeError(tr("the archive is damaged or isn't a real archive"))
     if "missing volume" in low:
         return RuntimeError(tr("a part of this split archive is missing"))
     if "there is not enough space" in low or "disk full" in low:

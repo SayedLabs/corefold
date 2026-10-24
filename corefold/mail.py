@@ -7,6 +7,7 @@ parts is checked, and nothing in an email can make this code loop forever or rea
 """
 from __future__ import annotations
 
+import codecs
 import datetime as dt
 import re
 import struct
@@ -137,13 +138,25 @@ def _part_text(part) -> str:
         return part.get_content()
     except Exception:
         raw = part.get_payload(decode=True) or b""
-        return raw.decode(part.get_content_charset() or "utf-8", "replace")
+        try:
+            return raw.decode(part.get_content_charset() or "utf-8", "replace")
+        except LookupError:  # a character set Python doesn't know ("charset=x-unknown")
+            return raw.decode("utf-8", "replace")
 
 
 def _clean_name(name: str) -> str:
-    """A safe file name: no folders, no characters Windows refuses, never empty."""
-    name = re.sub(r'[\x00-\x1f<>:"/\\|?*]', "_", name.replace("\\", "/").rsplit("/", 1)[-1]).strip(" .")
-    return name[:180] or "attachment"
+    """A safe file name: no folders, no characters Windows refuses, never empty. Right-to-left marks are taken
+    out ("invoice\u202egpj.exe" would show as "invoiceexe.jpg"), names Windows keeps for itself (CON, NUL…)
+    get a "_" in front, and a very long name is shortened before its ending (".pdf" stays)."""
+    from .core import WINDOWS_RESERVED
+    name = re.sub(r"[\u200e\u200f\u202a-\u202e\u2066-\u2069]", "", name.replace("\\", "/").rsplit("/", 1)[-1])
+    name = re.sub(r'[\x00-\x1f<>:"/\\|?*]', "_", name).strip(" .")
+    if len(name) > 180:
+        stem, dot, ext = name.rpartition(".")
+        name = (stem[:180 - len(ext) - 1] + "." + ext) if dot and len(ext) <= 16 else name[:180]
+    if name.split(".")[0].strip().upper() in WINDOWS_RESERVED:
+        name = "_" + name
+    return name or "attachment"
 
 
 # ----------------------------------------------------------------------------- Compound File (.msg)
@@ -503,6 +516,10 @@ def rtf_body(rtf: bytes) -> tuple[str, str]:
     found = re.search(rb"\\ansicpg(\d+)", rtf[:2000])
     if found:
         cp = CODEPAGES.get(int(found.group(1)), f"cp{int(found.group(1))}")
+        try:
+            codecs.lookup(cp)
+        except LookupError:  # a code page Python doesn't know
+            cp = "cp1252"
     out: list[str] = []
     pending = bytearray()  # \'xx bytes waiting to be decoded together (multi-byte code pages)
 
