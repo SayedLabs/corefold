@@ -1,0 +1,205 @@
+ok    sum '12*(3+4)' = 84 (84)
+ok    sum '2^10' = 1024 (1024)
+ok    sum '15% of 80' = 12 (12)
+ok    sum 'sqrt(2)' = 1.41421356237 (1.41421356237)
+ok    sum '0.1+0.2' = 0.3 (0.3)
+ok    sum '١٢*٧' = 84 (84)
+ok    sum '٣٫٥ * 2' = 7 (7)
+ok    sum '3,5*2' = 7 (7)
+ok    sum '1,000 + 1' = 1001 (1001)
+ok    sum '80 + 15%' = 92 (92)
+ok    sum '10/4' = 2.5 (2.5)
+ok    sum '۲^۳' = 8 (8)
+ok    sum '(1+2)*3' = 9 (9)
+ok    sum '√16' = 4 (4)
+ok    sum '3x4' = 12 (12)
+ok    '1/0' isn't a sum (or can't be worked out)
+ok    '2**99999' isn't a sum (or can't be worked out)
+ok    '9**9999' isn't a sum (or can't be worked out)
+ok    'hello' isn't a sum (or can't be worked out)
+ok    '7' isn't a sum (or can't be worked out)
+ok    '-5' isn't a sum (or can't be worked out)
+ok    'e' isn't a sum (or can't be worked out)
+ok    "__import__('os')" isn't a sum (or can't be worked out)
+ok    '(1+' isn't a sum (or can't be worked out)
+ok    '1+*2' isn't a sum (or can't be worked out)
+ok    '().__class__' isn't a sum (or can't be worked out)
+ok    'x*2' isn't a sum (or can't be worked out)
+ok    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' isn't a sum (or can't be worked out)
+ok    'round(5,-999999999)' is refused quickly (None, 0.1 ms)
+ok    'round(5; -999999999)' is refused quickly (None, 0.1 ms)
+ok    'round(5; 999999999)' is refused quickly (None, 0.1 ms)
+ok    'round(2.5; 1.5)' is refused quickly (None, 0.0 ms)
+ok    'round(1,2,3)' is refused quickly (None, 0.1 ms)
+ok    '9**9**9' is refused quickly (None, 0.1 ms)
+ok    '2**10000*2**10000' is refused quickly (None, 0.1 ms)
+ok    'floor(1e308)*floor(1e308)' is refused quickly (None, 0.1 ms)
+ok    '10**400' is refused quickly (None, 0.1 ms)
+ok    '(10**400)**2' is refused quickly (None, 0.1 ms)
+ok    'exp(1e9)' is refused quickly (None, 0.0 ms)
+ok    'ceil(1e308)**2' is refused quickly (None, 0.1 ms)
+ok    'sqrt(4, 9)' is refused quickly (None, 0.1 ms)
+ok    'max(9**9999, 1)' is refused quickly (None, 0.1 ms)
+ok    'round(3.14159, 2)' = 3.14
+ok    'round(1234, -2)' = 1200
+ok    '(10**300)%7' = 1
+ok    '10 km to mi' is 6.21371 (6.21371)
+ok    '5 ft in cm' is 152.4 (152.4)
+ok    '100 f to c' is 37.7778 (37.7778)
+ok    '-40 c = f' is -40 (-40)
+ok    '0 c to k' is 273.15 (273.15)
+ok    '3.5 GB in MB' is 3584 (3584)
+ok    '60 mph to km/h' is 96.5606 (96.5606)
+ok    '2 l to cups' is 8.45351 (8.45351)
+ok    '1 day in hours' is 24 (24)
+ok    '1 acre in m2' is 4046.86 (4046.86)
+ok    '10 kg → lb' is 22.0462 (22.0462)
+ok    '١٠ km to mi' is 6.21371 (6.21371)
+ok    '5 in in cm' is 12.7 (12.7)
+ok    '90 min to h' is 1.5 (1.5)
+ok    '8 bits to bytes' is 1 (1)
+ok    '10 km to kg' isn't a conversion
+ok    '10 km' isn't a conversion
+ok    'km to mi' isn't a conversion
+ok    '10 parsecs to mi' isn't a conversion
+ok    the answer says which it is
+ok    'display' finds the Display settings page
+ok    'wifi' finds Wi-Fi
+ok    'wallpaper' finds Background
+ok    nothing matches 'zzz'
+ok    in Arabic 'العرض' finds Display
+ok    …and English still works in Arabic
+ok    'إلى' works as 'to' in Arabic
+ok    the translated 'to' works (French 'en')
+ok    the web search address
+ok    …with the chosen engine
+---- en dark
+ok    quick access is running
+ok    the shortcut opens the menu, with the keyboard
+ok    typing a sum ('12*7')
+ok    …the first row is its answer, 84 (84)
+ok    …and it's the one picked
+ok    …with the web search as the last row
+ok    Enter copies 84 ('84')
+ok    …says so on the row
+ok    …and then puts the menu away
+ok    the menu opens again
+ok    12*(3+4) is 84
+ok    Esc clears what was typed
+ok    Arabic digits work (١٢*٧ = 84)
+ok    1/0 has no answer row (and nothing breaks)
+ok    the menu opens for a unit
+ok    typing a unit with spaces ('10 km to mi')
+ok    …the first row converts it
+ok    Enter copies the number ('6.21371')
+ok    the menu opens for Windows' settings
+ok    'display': the first row is the Display settings page (ms-settings:display)
+ok    'so' finds Sound
+ok    anything else: the last row searches the web
+ok    …nothing was opened, and Esc closes the menu
+ok    Hibernate is only offered when it's switched on (False)
+ok    sleep can go on the menu and the wheel
+ok    restart can go on the menu and the wheel
+ok    shutdown can go on the menu and the wheel
+ok    signout can go on the menu and the wheel
+ok    recycle can go on the menu and the wheel
+ok    ontop can go on the menu and the wheel
+ok    the Recycle Bin can be looked at (3 items, 372 bytes)
+ok    the menu opens for Restart
+ok    'restart' finds Restart
+ok    Enter on it asks first: a confirm row
+ok    a second press straight after it asked doesn't count ([])
+ok    Esc goes back (it didn't restart)
+ok    …and nothing ran
+ok    Restart is there again
+ok    a second Enter on the confirm row does it (['restart'])
+ok    picked on the wheel, it's asked about in the menu too
+ok    …and Esc cancels it
+ok    Notepad opened
+ok    …and it's in front
+ok    …not on top to begin with
+ok    Ctrl + Win + T is taken on this PC: Settings → Shortcuts says another app is using it (and nothing else nags about it)
+ok    the keep-on-top shortcut works (ctrl+alt+shift+t)
+ok    Ctrl + Alt + Shift + T keeps Notepad on top (WS_EX_TOPMOST)
+ok    …with a coloured border round it for a moment
+ok    …which is gone a second later
+ok    pressing it again puts it back to normal
+ok    the menu opens over Notepad
+ok    …and knows Notepad was in front
+ok    'on top' finds Keep a window on top
+ok    …and picking it keeps Notepad on top
+ok    …and back again
+ok    Corefold's own windows are never the one kept on top
+ok    …nor the desktop
+ok    the Quick access tab has the keep-on-top shortcut
+ok    …and a choice of search engine
+ok    picking Google is kept
+ok    no Windows command was left to run ([])
+(en dark) 0 problem(s)
+
+---- ar light
+ok    quick access is running
+ok    the shortcut opens the menu, with the keyboard
+ok    typing a sum ('12*7')
+ok    …the first row is its answer, 84 (84)
+ok    …and it's the one picked
+ok    …with the web search as the last row
+ok    Enter copies 84 ('84')
+ok    …says so on the row
+ok    …and then puts the menu away
+ok    the menu opens again
+ok    12*(3+4) is 84
+ok    Esc clears what was typed
+ok    Arabic digits work (١٢*٧ = 84)
+ok    1/0 has no answer row (and nothing breaks)
+ok    the menu opens for a unit
+ok    typing a unit with spaces ('10 km to mi')
+ok    …the first row converts it
+ok    Enter copies the number ('6.21371')
+ok    the menu opens for Windows' settings
+ok    'display': the first row is the Display settings page (ms-settings:display)
+ok    'so' finds Sound
+ok    in Arabic, 'العرض' finds Display
+ok    anything else: the last row searches the web
+ok    …nothing was opened, and Esc closes the menu
+ok    Hibernate is only offered when it's switched on (False)
+ok    sleep can go on the menu and the wheel
+ok    restart can go on the menu and the wheel
+ok    shutdown can go on the menu and the wheel
+ok    signout can go on the menu and the wheel
+ok    recycle can go on the menu and the wheel
+ok    ontop can go on the menu and the wheel
+ok    the Recycle Bin can be looked at (3 items, 372 bytes)
+ok    the menu opens for Restart
+ok    'restart' finds Restart
+ok    Enter on it asks first: a confirm row
+ok    a second press straight after it asked doesn't count ([])
+ok    Esc goes back (it didn't restart)
+ok    …and nothing ran
+ok    Restart is there again
+ok    a second Enter on the confirm row does it (['restart'])
+ok    picked on the wheel, it's asked about in the menu too
+ok    …and Esc cancels it
+ok    Notepad opened
+ok    …and it's in front
+ok    …not on top to begin with
+ok    Ctrl + Win + T is taken on this PC: Settings → Shortcuts says another app is using it (and nothing else nags about it)
+ok    the keep-on-top shortcut works (ctrl+alt+shift+t)
+ok    Ctrl + Alt + Shift + T keeps Notepad on top (WS_EX_TOPMOST)
+ok    …with a coloured border round it for a moment
+ok    …which is gone a second later
+ok    pressing it again puts it back to normal
+ok    the menu opens over Notepad
+ok    …and knows Notepad was in front
+ok    'on top' finds Keep a window on top
+ok    …and picking it keeps Notepad on top
+ok    …and back again
+ok    Corefold's own windows are never the one kept on top
+ok    …nor the desktop
+ok    the Quick access tab has the keep-on-top shortcut
+ok    …and a choice of search engine
+ok    picking Google is kept
+ok    no Windows command was left to run ([])
+(ar light) 0 problem(s)
+
+newtest_quick: 0 problem(s)

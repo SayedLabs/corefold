@@ -1,0 +1,91 @@
+ok    [en] no update line in the tray menu before anything is found
+
+ok    [en] the new version is found (available)
+
+ok    [en] the corner message says so
+
+ok    [en] it remembers telling ('99.1.0 2026-10-24')
+
+ok    [en] tray menu line: 'Get Corefold 99.1.0'
+
+ok    [en] the tray line is at the top of the menu
+
+ok    [en] the tray tip says so
+
+ok    [en] a second check the same day says nothing again
+
+ok    [en] Windows notification when the corner is busy (['Corefold 99.1.0 is available'])
+
+ok    [en] Check now always says it
+
+ok    [en] the Home page has the new-version line
+
+ok    [en] Home line: 'Corefold 99.1.0 is available'
+
+ok    [en] the Updates row is marked ('New')
+
+ok    [en] the Updates page offers the update
+
+ok    [en] offline at the next check: the version found before still shows (available, True, True)
+
+ok    [en] the tray line survives the menu being remade
+
+ok    [en] up to date again
+
+ok    [en] the tray line goes
+
+ok    [en] the tray tip goes back
+
+ok    [en] the Home line goes
+
+ok    [en] the Updates row's mark goes
+
+ok    [en] with automatic checks off, nothing is checked or said
+
+newtest_updates en: 0 problem(s)
+ok    [ar] no update line in the tray menu before anything is found
+
+ok    [ar] the new version is found (available)
+
+ok    [ar] the corner message says so
+
+ok    [ar] it remembers telling ('99.1.0 2026-10-24')
+
+ok    [ar] tray menu line: 'نزّل كورفولد 99.1.0'
+
+ok    [ar] the tray line is at the top of the menu
+
+ok    [ar] the tray tip says so
+
+ok    [ar] a second check the same day says nothing again
+
+ok    [ar] Windows notification when the corner is busy (['كورفولد 99.1.0 متوفر'])
+
+ok    [ar] Check now always says it
+
+ok    [ar] the Home page has the new-version line
+
+ok    [ar] Home line: 'كورفولد 99.1.0 متوفر'
+
+ok    [ar] the Updates row is marked ('جديد')
+
+ok    [ar] the Updates page offers the update
+
+ok    [ar] offline at the next check: the version found before still shows (available, True, True)
+
+ok    [ar] the tray line survives the menu being remade
+
+ok    [ar] up to date again
+
+ok    [ar] the tray line goes
+
+ok    [ar] the tray tip goes back
+
+ok    [ar] the Home line goes
+
+ok    [ar] the Updates row's mark goes
+
+ok    [ar] with automatic checks off, nothing is checked or said
+
+newtest_updates ar: 0 problem(s)
+newtest_updates: 0 problem(s)
