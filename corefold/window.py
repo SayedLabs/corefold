@@ -2243,6 +2243,10 @@ class MainWindow(QWidget):
                                      "vacation-2…)"), s.ask_names, self._general_changed)
         self.reveal = checkbox(tr("Open the folder with the new file after converting"), s.reveal_after,
                                self._general_changed)
+        self.keep_dates = checkbox(tr("Give the new file the original's \"Date modified\""), s.keep_dates,
+                                   self._general_changed)
+        self.convert_recycle = checkbox(tr("Send the original to the Recycle Bin once it's converted"),
+                                        s.convert_recycle, self._general_changed)
         self.tick = checkbox(tr("Play a tiny tick when the wheel opens"), s.sound_tick, self._general_changed)
         self.downloads = checkbox(tr("When an iPhone photo (HEIC) or WebP picture lands in Downloads, offer a "
                                      "JPG copy"), s.watch_downloads, self.c.set_watch_downloads)
@@ -2250,7 +2254,8 @@ class MainWindow(QWidget):
                                         self._general_changed)
         self.video_gpu = checkbox(tr("Make videos with the graphics card when there is one (several times faster)"),
                                   s.video_gpu, self._general_changed)
-        for cb in (self.ask_names, self.reveal, self.tick, self.downloads, self.pack_everywhere, self.video_gpu):
+        for cb in (self.ask_names, self.reveal, self.keep_dates, self.convert_recycle, self.tick, self.downloads,
+                   self.pack_everywhere, self.video_gpu):
             cl.addWidget(cb)
         lay.addWidget(checks)
         lay.addLayout(_reset_row(lambda: self.reset_to_defaults(CONVERTER_KEYS)))
@@ -3560,6 +3565,8 @@ class MainWindow(QWidget):
             s.show_unavailable = bool(self.unavailable.currentData())
             s.ask_names = self.ask_names.isChecked()
             s.reveal_after = self.reveal.isChecked()
+            s.keep_dates = self.keep_dates.isChecked()
+            s.convert_recycle = self.convert_recycle.isChecked()
             s.sound_tick = self.tick.isChecked()
             s.video_gpu = self.video_gpu.isChecked()
             changed = s.pack_on_every_wheel != self.pack_everywhere.isChecked()

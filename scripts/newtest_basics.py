@@ -1,5 +1,5 @@
 """Checks the everyday settings each tool should have (as other apps do), on a real Windows PC:
-after extracting, open the folder and send the archive (all its parts) to the Recycle Bin; the Viewer
+after converting, keep the original's date and send the original to the Recycle Bin; after extracting, open the folder and send the archive (all its parts) to the Recycle Bin; the Viewer
 going round a folder; the PDF page saying where new files go.
 
 Run from the repository's folder: python scripts/newtest_basics.py
@@ -119,6 +119,41 @@ def main():
         wait(lambda: False, 1)
         check(z2.exists() and not revealed, "…and the archive stays, nothing opened")
     step("after extracting", extract_settings)
+
+    def convert_settings():
+        from PySide6.QtGui import QColor, QImage
+        w.open_page("ConvOptions")
+        qapp.processEvents()
+        w.keep_dates.setChecked(True)
+        w.convert_recycle.setChecked(True)
+        check(c.settings.keep_dates and c.settings.convert_recycle, "the two Converter settings are kept")
+        box = TMP / "convert"
+        box.mkdir()
+        src = box / "holiday.png"
+        img = QImage(60, 40, QImage.Format_RGB32)
+        img.fill(QColor("#a53"))
+        img.save(str(src))
+        old = time.time() - 3 * 365 * 86400
+        os.utime(src, (old, old))
+        tool = next(t for t in catalog(False)["image"] if t.key == "image:jpg")
+        c.start_job(tool, [src], {})
+        made = box / "holiday.jpg"
+        check(wait(lambda: not src.exists()), "the original goes to the Recycle Bin once it's converted")
+        check(made.is_file(), "…after the new file is there")
+        check(made.is_file() and abs(made.stat().st_mtime - old) < 3,
+              "the new file has the original's \"Date modified\"")
+
+        w.keep_dates.setChecked(False)
+        w.convert_recycle.setChecked(False)
+        src2 = box / "keep.png"
+        img.save(str(src2))
+        os.utime(src2, (old, old))
+        c.start_job(tool, [src2], {})
+        check(wait(lambda: (box / "keep.jpg").is_file()), "with both off, it's converted…")
+        wait(lambda: False, 1)
+        check(src2.exists() and (box / "keep.jpg").stat().st_mtime > old + 86400,
+              "…the original stays, and the new file has today's date")
+    step("after converting", convert_settings)
 
     def viewer_loop():
         from PySide6.QtGui import QColor, QImage

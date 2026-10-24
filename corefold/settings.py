@@ -148,8 +148,8 @@ GENERAL_KEYS = ("language", "sound", "volume", "sound_problems", "show_progress"
 LOOK_KEYS = ("appearance", "accent", "custom_color", "animations", "toast_corner", "toast_time", "window_text",
              "sidebar_icons")
 CONVERTER_KEYS = ("shortcut", "save_mode", "output_folder", "jpg_quality", "show_unavailable", "context_menu",
-                  "menu_style", "ask_names", "reveal_after", "sound_tick", "watch_downloads", "pack_on_every_wheel",
-                  "video_gpu")
+                  "menu_style", "ask_names", "reveal_after", "keep_dates", "convert_recycle", "sound_tick",
+                  "watch_downloads", "pack_on_every_wheel", "video_gpu")
 WHEEL_KEYS = ("wheel_size", "wheel_style", "wheel_opacity", "label_style", "hover_style", "slice_colors", "text_size",
               "wheel_position", "per_page", "wheel_numbers")
 FORMAT_KEYS = ("hidden_tools", "favorites", "tool_order")
@@ -192,6 +192,8 @@ class Settings:
     jpg_quality: int = 90
     video_gpu: bool = True         # videos are made with the graphics card when there is one (falls back by itself)
     reveal_after: bool = False
+    keep_dates: bool = False       # a converted file gets the original's "Date modified"
+    convert_recycle: bool = False  # the original goes to the Recycle Bin once it's converted
     show_progress: bool = True
     enabled: bool = True
     first_run: bool = True
@@ -429,7 +431,8 @@ class Settings:
     def options(self, rename_base: str = "", rename_start: int = 1) -> Options:
         folder = Path(self.output_folder) if self.save_mode == "folder" else None
         return Options(output_folder=folder, jpg_quality=self.jpg_quality,
-                       rename_base=rename_base, rename_start=rename_start, gpu=bool(self.video_gpu))
+                       rename_base=rename_base, rename_start=rename_start, gpu=bool(self.video_gpu),
+                       keep_dates=bool(self.keep_dates))
 
     @property
     def shortcut_label(self) -> str:

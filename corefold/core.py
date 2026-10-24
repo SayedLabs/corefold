@@ -60,6 +60,7 @@ class Options:
     rename_base: str = ""              # "" = keep original names
     rename_start: int = 1
     gpu: bool = False                  # videos made with the graphics card when it can (much faster)
+    keep_dates: bool = False           # a converted file gets the original's "Date modified"
 
 
 @dataclass
@@ -69,6 +70,7 @@ class Result:
     note: str = ""
     locked: list = field(default_factory=list)  # items that need a (different) password
     undo: list = field(default_factory=list)    # (new, old) names, for "Undo" after renaming
+    sources: list = field(default_factory=list)  # the files that were made into something (run_job fills it)
 
 
 @dataclass
@@ -503,6 +505,21 @@ def mark_from_internet(path: Path, url: str = ""):
             fh.write(text)
     except OSError:
         pass
+
+
+def copy_dates(src: Path, outputs):
+    """The new files get the original's "Date modified" (and last opened), so they sort where it did.
+    Folders made from it are left as they are."""
+    try:
+        st = src.stat()
+    except OSError:
+        return
+    for out in outputs:
+        try:
+            if Path(out).is_file():
+                os.utime(out, ns=(st.st_atime_ns, st.st_mtime_ns))
+        except OSError:
+            pass
 
 
 def pass_on_zone_mark(sources, outputs, limit: int = 20000):
