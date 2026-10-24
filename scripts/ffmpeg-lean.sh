@@ -4,7 +4,7 @@
 # about 150 MB smaller. Runs inside BtbN's build image, which has every library already built:
 #
 #   docker run --rm -v "$PWD:/work" ghcr.io/btbn/ffmpeg-builds/win64-gpl-shared:latest \
-#       bash /work/scripts/ffmpeg-lean.sh <ffmpeg commit> /work/out
+#       bash /work/scripts/ffmpeg-lean.sh [ffmpeg commit] /work/out
 #
 # Kept: everything FFmpeg does by itself (it reads nearly every video, song and picture, and writes
 # many of them), plus the outside libraries Corefold uses: x264 and the graphics cards' H.264
@@ -13,7 +13,7 @@
 # Left out: the other outside libraries (x265, AV1/VVC encoders, network protocols, Vulkan and
 # OpenCL filters, ...) and ffplay.
 set -xe
-COMMIT="$1"
+COMMIT="${1:-master}"
 OUT="${2:-/work/out}"
 
 cd /tmp
@@ -21,6 +21,7 @@ rm -rf ffmpeg prefix
 git clone --filter=blob:none https://github.com/FFmpeg/FFmpeg.git ffmpeg
 cd ffmpeg
 git checkout -q "$COMMIT"
+git log -1 --format="FFmpeg %H (%ci)"
 
 ./configure --prefix=/tmp/prefix --pkg-config-flags="--static" $FFBUILD_TARGET_FLAGS \
     --enable-gpl --enable-version3 --disable-debug --enable-shared --disable-static \

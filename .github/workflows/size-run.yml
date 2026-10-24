@@ -40,6 +40,13 @@ jobs:
           & .venv\Scripts\python.exe scripts/sizereport.py dist\Corefold dist\release *> out/size.txt
           Get-Content out/size.txt -TotalCount 80
 
+      - name: Every DLL is there
+        if: always()
+        shell: pwsh
+        run: |
+          & .venv\Scripts\python.exe scripts/dllcheck.py dist\Corefold *> out/dllcheck.txt
+          Get-Content out/dllcheck.txt
+
       - name: The built Corefold.exe
         timeout-minutes: 30
         shell: pwsh
@@ -49,6 +56,29 @@ jobs:
           $exe = Get-ChildItem -Recurse dist -Filter Corefold.exe | Select-Object -First 1
           & .venv\Scripts\python.exe scripts/exetest.py $exe.FullName out/exetest *> out/exetest.txt
           Get-Content out/exetest.txt -Tail 40
+
+      - name: The built app end to end (player, background remover, memory)
+        timeout-minutes: 30
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          ./scripts/measure.ps1 out/measure.md *> out/measure-log.txt
+          Get-Content out/measure.md -Tail 40
+
+      - name: Every tool from source, with the bundled FFmpeg (vendor\ffmpeg)
+        timeout-minutes: 45
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
+          $py = ".venv\Scripts\python.exe"
+          & vendor\ffmpeg\ffmpeg.exe -hide_banner -version *> out/ffmpeg-version.txt
+          & vendor\ffmpeg\ffmpeg.exe -hide_banner -encoders *> out/ffmpeg-encoders.txt
+          & $py scripts/selftest.py *> out/selftest.txt
+          & $py scripts/featuretest.py *> out/featuretest.txt
+          & $py scripts/stress.py out/stress *> out/stress.txt
+          & $py scripts/usetest.py out/usetest *> out/usetest.txt
+          foreach ($f in "selftest", "featuretest", "stress", "usetest") { Write-Host "== $f"; Get-Content "out/$f.txt" -Tail 5 }
 
       - name: Save to the size-results branch
         if: always()

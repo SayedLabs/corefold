@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       commit:
-        description: "FFmpeg commit to build (empty: the one in BtbN's newest build)"
+        description: "FFmpeg commit to build (empty: the newest)"
         required: false
 
 permissions:
@@ -31,13 +31,8 @@ jobs:
           docker pull -q "$IMAGE"
           # the build scripts (and so the library versions) that made this image
           SCRIPTS=$(git ls-remote https://github.com/BtbN/FFmpeg-Builds refs/tags/latest | cut -f1)
-          if [ -z "$COMMIT" ]; then
-            # the FFmpeg commit BtbN built with the same image, so every library fits it
-            NAME=$(curl -sfL https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/tags/latest | grep -o '"name": *"ffmpeg-N-[^"]*win64-gpl-shared.zip"' | head -1)
-            COMMIT=$(echo "$NAME" | sed -E 's/.*-g([0-9a-f]+)-win64.*/\1/')
-          fi
-          echo "FFmpeg $COMMIT, scripts $SCRIPTS"
-          test -n "$COMMIT"
+          # empty: FFmpeg's newest code, as BtbN builds it every day with this image
+          echo "FFmpeg ${COMMIT:-master}, scripts $SCRIPTS"
           mkdir -p out
           docker run --rm -v "$PWD:/work" "$IMAGE" bash /work/scripts/ffmpeg-lean.sh "$COMMIT" /work/out/bin
           echo "$SCRIPTS" > out/bin/BUILD-SCRIPTS-COMMIT.txt
