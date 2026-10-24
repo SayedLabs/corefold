@@ -86,6 +86,11 @@ def click(ctrl):
 
 
 proc = subprocess.Popen([str(EXE), "--page", "Files"])
+watch = None
+if os.name == "nt":  # every window Corefold.exe (and what it starts) shows: none may only flash
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from flashwatch import FlashWatch
+    watch = FlashWatch(proc.pid).start()
 try:
     win = window()
     if check(win is not None, "Corefold.exe opens its window on Files"):
@@ -129,6 +134,15 @@ try:
             if check(bool(tab), f"{tool.id} has a tab in {sec.name}"):
                 click(tab[0])
                 check(shot(f"open-{tool.id}", win) < 0.3, f"{tool.id}'s page isn't white")
+    if watch is not None:
+        time.sleep(5)
+        watch.stop()
+        for line in watch.notes():
+            print("note  shown: " + line, flush=True)
+        flashes = watch.problems()
+        for line in flashes:
+            check(False, line)
+        check(not flashes, f"Corefold.exe flashed no window ({len(watch.events)} shown)")
 finally:
     log = Path(os.environ["LOCALAPPDATA"]) / "Corefold" / "corefold.log"
     if log.exists():

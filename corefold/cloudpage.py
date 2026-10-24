@@ -238,7 +238,7 @@ class CloudPage(QWidget):
         self.account_list.setContextMenuPolicy(Qt.CustomContextMenu)
         self.account_list.customContextMenuRequested.connect(self._account_menu)
         side.addWidget(self.account_list, 1)
-        self.add_btn = QPushButton(tr("Sign in to an account"))
+        self.add_btn = QPushButton(tr("Sign in to an account"), self)  # (shown before it's laid out)
         self.add_btn.setObjectName("primary")
         self.add_btn.setCursor(Qt.PointingHandCursor)
         menu = QMenu(self.add_btn)
