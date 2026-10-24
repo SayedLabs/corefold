@@ -102,8 +102,27 @@ VSVersionInfo(
 
 # ---- FFmpeg (bundled so users don't install anything)
 $FfDir = "vendor\ffmpeg"
-# The "shared" build: ffmpeg.exe and ffprobe.exe use the same DLLs instead of each carrying a full
-# copy, which makes Corefold about 150 MB smaller on disk.
+# Corefold's own smaller FFmpeg (~55 MB instead of ~190 MB: only the parts Corefold uses), made by
+# .github\workflows\ffmpeg-lean.yml and kept on this repository's "ffmpeg-lean" branch.
+if (-not (Test-Path "$FfDir\FFMPEG-BUILD.sh")) {
+    $LeanRef = "refs/remotes/origin/ffmpeg-lean"
+    # (through cmd, so a missing branch or git is just a no; PowerShell 5 stops on git's message)
+    cmd /c "git fetch -q --depth 1 origin +refs/heads/ffmpeg-lean:$LeanRef 2>nul"
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "== Using Corefold's FFmpeg ($(git log -1 --format=%s $LeanRef))"
+        $zip = Join-Path $env:TEMP "corefold-ffmpeg-lean.zip"
+        git archive --format=zip -o $zip $LeanRef
+        if ($LASTEXITCODE) { throw "Couldn't unpack Corefold's FFmpeg" }
+        if (Test-Path $FfDir) { Remove-Item $FfDir -Recurse -Force }
+        Expand-Archive $zip $FfDir -Force
+        Remove-Item $zip -Force
+    } else {
+        $global:LASTEXITCODE = 0
+        Write-Host "== Corefold's FFmpeg isn't here (no ffmpeg-lean branch); using BtbN's full build" -ForegroundColor Yellow
+    }
+}
+# Otherwise BtbN's "shared" build: ffmpeg.exe and ffprobe.exe use the same DLLs instead of each
+# carrying a full copy, which makes Corefold about 150 MB smaller on disk than the plain build.
 if (-not (Test-Path "$FfDir\ffmpeg.exe") -or -not (Get-ChildItem $FfDir -Filter "avcodec*.dll" -ErrorAction SilentlyContinue)) {
     Write-Host "== Downloading FFmpeg"
     if (Test-Path $FfDir) { Remove-Item $FfDir -Recurse -Force }
@@ -140,7 +159,9 @@ if (-not (Test-Path "$FfDir\ffmpeg.exe") -or -not (Get-ChildItem $FfDir -Filter 
 # The exact FFmpeg commit is read from the bundled ffmpeg.exe; its source and the build scripts
 # that made it are attached to every release next to the installer.
 $FfVersionLine = (& "$FfDir\ffmpeg.exe" -hide_banner -version | Select-Object -First 1)
-$FfCommit = if ($FfVersionLine -match "-g([0-9a-f]{7,40})") { $Matches[1] } else { "" }
+$FfCommit = if ($FfVersionLine -match "-g([0-9a-f]{7,40})") { $Matches[1] }
+            elseif ($FfVersionLine -match "^ffmpeg version (n[0-9][0-9.]*)") { $Matches[1] }  # a release, like n9.0.2
+            else { "" }
 $ScriptsRef = if (Test-Path "$FfDir\BUILD-SCRIPTS-COMMIT.txt") { (Get-Content "$FfDir\BUILD-SCRIPTS-COMMIT.txt" -Raw).Trim() } else { "" }
 $SourceFiles = @()
 New-Item -ItemType Directory -Force "vendor\ffmpeg-source" | Out-Null
@@ -162,17 +183,25 @@ if ($ScriptsRef) {
     }
     if (Test-Path $out) { $SourceFiles += $out }
 }
-if ($SourceFiles.Count -lt 2) {
+if ($SourceFiles.Count -lt 2) {  # the source and the build scripts
     Write-Warning "Couldn't get FFmpeg's source code or build scripts. Don't publish this build until they are attached to the release (see THIRD_PARTY_NOTICES.md)."
+}
+$LeanNote = ""
+if (Test-Path "$FfDir\FFMPEG-BUILD.sh") {
+    # Corefold's own build: the script that chose its parts goes with the source too
+    $out = "vendor\ffmpeg-source\ffmpeg-source-corefold-build.sh"
+    Copy-Item "$FfDir\FFMPEG-BUILD.sh" $out -Force
+    $SourceFiles += $out
+    $LeanNote = "`r`nConfigured by FFMPEG-BUILD.sh in this folder (Corefold's own script), which picks the parts`r`nCorefold uses, inside the build image those scripts make."
 }
 @"
 FFmpeg in this folder: $FfVersionLine
-FFmpeg commit: $FfCommit
-Built with the scripts at https://github.com/BtbN/FFmpeg-Builds (commit $ScriptsRef)
+FFmpeg commit or release: $FfCommit
+Built with the scripts at https://github.com/BtbN/FFmpeg-Builds (commit $ScriptsRef)$LeanNote
 
 FFmpeg is free software under the GNU GPL version 3 (see FFMPEG-LICENSE.txt). Its complete source
 code, and the scripts used to build it with the libraries it includes, are attached to the same
-Corefold release you downloaded, as ffmpeg-source-*.tar.gz. If you can't get them there, ask
+Corefold release you downloaded, as ffmpeg-source-*. If you can't get them there, ask
 Atomic Works through the Corefold website and we'll send you a copy; this offer is valid for
 three years after we last ship this version.
 "@ | Set-Content -Encoding utf8 "$FfDir\SOURCE.txt"
@@ -248,6 +277,20 @@ if (Test-Path "dist\Corefold") { Remove-Item "dist\Corefold" -Recurse -Force }
 if ($LASTEXITCODE) { throw "PyInstaller failed" }
 # Not needed by Corefold (software OpenGL fallback, ~20 MB)
 Get-ChildItem "dist\Corefold" -Recurse -Filter "opengl32sw.dll" | Remove-Item -Force
+# Parts of Qt that PyInstaller adds but Corefold never loads (~30 MB): QML and Qt Quick (pulled in
+# by the on-screen keyboard plugin), OpenGL, the Direct2D window plugin, the OpenSSL that Qt would
+# use for web downloads (Corefold's Qt only talks to itself; updates use Python's own SSL), and
+# Qt's words in the languages Corefold doesn't speak. scripts\dllcheck.py checks nothing left
+# behind needs them.
+$Qt = "dist\Corefold\_internal\PySide6"
+foreach ($f in @("Qt6Quick.dll", "Qt6Qml.dll", "Qt6QmlModels.dll", "Qt6QmlMeta.dll", "Qt6QmlWorkerScript.dll",
+                 "Qt6VirtualKeyboard.dll", "Qt6OpenGL.dll", "plugins\platforminputcontexts",
+                 "plugins\platforms\qdirect2d.dll", "plugins\tls\qopensslbackend.dll",
+                 "..\libcrypto-3-x64.dll", "..\libssl-3-x64.dll")) {
+    if (Test-Path "$Qt\$f") { Remove-Item "$Qt\$f" -Recurse -Force }
+}
+Get-ChildItem "$Qt\translations" -Filter "*.qm" -ErrorAction SilentlyContinue |
+    Where-Object { $_.BaseName -notmatch "^qt(base)?_(ar|es|fr|tr)$" } | Remove-Item -Force
 Copy-Item $FfDir "dist\Corefold\ffmpeg" -Recurse
 if (Test-Path "$SzDir\7z.exe") { Copy-Item $SzDir "dist\Corefold\7zip" -Recurse }
 Copy-Item LICENSE, THIRD_PARTY_NOTICES.md "dist\Corefold\"

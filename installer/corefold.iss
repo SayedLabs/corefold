@@ -47,7 +47,8 @@ UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}
 OutputDir=..\dist\release
 OutputBaseFilename=Corefold-Setup-{#AppVersion}
-Compression=lzma2/max
+; the strongest LZMA2 setting (a bigger dictionary finds more repeats across the many DLLs)
+Compression=lzma2/ultra64
 SolidCompression=yes
 ; We close a running Corefold ourselves (see [Code]), so skip Windows' "files in use" page.
 CloseApplications=no
@@ -66,6 +67,7 @@ Source: "..\dist\Corefold\*"; DestDir: "{app}"; Flags: ignoreversion recursesubd
 [InstallDelete]
 ; clear out files from an older version before copying the new ones
 Type: filesandordirs; Name: "{app}\_internal"
+Type: filesandordirs; Name: "{app}\ffmpeg"
 ; shortcuts made by versions before 1.7.0
 Type: files; Name: "{autoprograms}\{#OldName}.lnk"
 Type: files; Name: "{autodesktop}\{#OldName}.lnk"
