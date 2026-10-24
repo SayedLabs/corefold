@@ -1,7 +1,7 @@
 """Corefold Colors: pick any colour on the screen.
 
 A shortcut freezes every screen (like Capture does) and a round magnifier follows the mouse, with the
-pixel under it outlined and its HEX underneath. A click or Enter copies it as HEX, RGB or HSL; the
+pixel under it outlined and its HEX underneath. A click or Enter copies it as HEX, RGB, HSL, HSV or CMYK; the
 arrow keys move one pixel at a time; Esc or a right-click gives up. The picture is the screen's own
 pixels (not scaled), so the colour is exact on every monitor and at every scale."""
 from __future__ import annotations
@@ -42,12 +42,48 @@ def hsl_text(hex_: str) -> str:
     return f"hsl({round(h * 360) % 360}, {round(s * 100)}%, {round(l * 100)}%)"
 
 
+def hsv_text(hex_: str) -> str:
+    """Hue in degrees, saturation and value (brightness) in percent, as Photoshop and Figma's HSB show it."""
+    c = QColor(hex_)
+    h, s, v = colorsys.rgb_to_hsv(c.red() / 255, c.green() / 255, c.blue() / 255)
+    return f"hsv({round(h * 360) % 360}, {round(s * 100)}%, {round(v * 100)}%)"
+
+
+def cmyk_text(hex_: str) -> str:
+    """The plain conversion (no printer profile), in percent: a starting point for print."""
+    c = QColor(hex_)
+    r, g, b = c.red() / 255, c.green() / 255, c.blue() / 255
+    k = 1 - max(r, g, b)
+    if k >= 1:
+        return "cmyk(0%, 0%, 0%, 100%)"
+    cy, ma, ye = ((1 - x - k) / (1 - k) for x in (r, g, b))
+    return f"cmyk({round(cy * 100)}%, {round(ma * 100)}%, {round(ye * 100)}%, {round(k * 100)}%)"
+
+
 def as_text(hex_: str, fmt: str) -> str:
     if fmt == "rgb":
         return rgb_text(hex_)
     if fmt == "hsl":
         return hsl_text(hex_)
+    if fmt == "hsv":
+        return hsv_text(hex_)
+    if fmt == "cmyk":
+        return cmyk_text(hex_)
     return hex_.upper()
+
+
+def shades(hex_: str, steps: int = 4) -> list[str]:
+    """Darker shades, the colour, then lighter tints (same hue and saturation, as in design tools)."""
+    c = QColor(hex_)
+    h, l, s = colorsys.rgb_to_hls(c.red() / 255, c.green() / 255, c.blue() / 255)
+    out = []
+    for i in range(-steps, steps + 1):
+        to = 0.0 if i < 0 else 1.0
+        light = l + (to - l) * abs(i) / (steps + 1)
+        r, g, b = colorsys.hls_to_rgb(h, light, s)
+        out.append(f"#{round(r * 255):02X}{round(g * 255):02X}{round(b * 255):02X}")
+    out[steps] = hex_.upper()
+    return out
 
 
 def remembered(history: list, hex_: str) -> list:

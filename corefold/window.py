@@ -2391,7 +2391,7 @@ class MainWindow(QWidget):
         from .colorspage import ColorsPage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
         header = tool_header("colors", tr("Corefold Colors"),
-                             tr("Pick any colour on your screen and copy it as HEX, RGB or HSL."), dark, dpr)
+                             tr("Pick any colour on your screen and copy it as HEX, RGB, HSL, HSV or CMYK."), dark, dpr)
         self.colors_page = ColorsPage(self.c, header)
         return self.colors_page
 
