@@ -85,9 +85,9 @@ s.save()
 
 watch = FlashWatch().start()
 
-from PySide6.QtCore import Qt, QTimer  # noqa: E402
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer  # noqa: E402
 from PySide6.QtGui import QIcon, QImage  # noqa: E402
-from PySide6.QtWidgets import QApplication  # noqa: E402
+from PySide6.QtWidgets import QApplication, QWidget  # noqa: E402
 
 qapp = QApplication(sys.argv)
 qapp.setQuitOnLastWindowClosed(False)
@@ -97,6 +97,36 @@ from corefold import app as A  # noqa: E402
 
 A.setup_logging()
 errors = []
+
+
+class ShowSpy(QObject):
+    """Qt's side of it: which widget each top-level window was, and what in the code showed it (so a
+    window that flashed can be traced to the line that showed it)."""
+
+    def __init__(self):
+        super().__init__()
+        self.open = {}
+        self.quick = []  # (widget's class and size, ms it stayed, where it was shown from)
+
+    def eventFilter(self, obj, ev):
+        t = ev.type()
+        if t in (QEvent.Show, QEvent.Hide) and isinstance(obj, QWidget) and obj.isWindow():
+            key = id(obj)
+            if t == QEvent.Show:
+                stack = [f"{Path(f.filename).name}:{f.lineno} {f.name}" for f in traceback.extract_stack()[:-1]
+                         if "corefold" in f.filename.replace("\\", "/")]
+                self.open[key] = (time.monotonic(), f"{type(obj).__module__}.{type(obj).__name__} "
+                                  f"{obj.width()}x{obj.height()} '{obj.windowTitle()}' parent "
+                                  f"{type(obj.parent()).__name__ if obj.parent() else None}", stack[-6:])
+            elif key in self.open:
+                at, what, stack = self.open.pop(key)
+                if time.monotonic() - at < 0.6:
+                    self.quick.append((what, (time.monotonic() - at) * 1000, stack, watch.label))
+        return False
+
+
+spy = ShowSpy()
+qapp.installEventFilter(spy)
 
 
 def _hook(t, e, tb):
@@ -182,6 +212,24 @@ def every_page():
     settle(1)
 
 
+def switching_tools():
+    """Switching tools off and on in their section, the way a person does (the window follows)."""
+    w = c.window
+    for tool in [t for t in all_tools.ready() if t.id not in all_tools.ORIGINAL][:6]:
+        sec = all_tools.SECTION_OF[tool.id]
+        w.open_page(sec.page)
+        settle(0.8)
+        doing(f"switching {tool.id} off in {sec.page}")
+        c.set_tool(tool.id, False)
+        settle(1.2)
+        doing(f"switching {tool.id} on in {sec.page}")
+        c.set_tool(tool.id, True)
+        settle(1.5)
+        w = c.window
+    w.open_page("Home")
+    settle(1)
+
+
 def tool_windows():
     doing("the Viewer")
     c.open_viewer(picture)
@@ -248,13 +296,15 @@ def hide_and_wait():
     settle(20)
 
 
-for name, fn in (("every page", every_page), ("tool windows", tool_windows), ("jobs", jobs),
+for name, fn in (("every page", every_page), ("switching tools", switching_tools), ("tool windows", tool_windows), ("jobs", jobs),
                  ("idle", hide_and_wait)):
     part(name, fn)
 
 watch.stop()
 for line in watch.notes():
     LOG.write("seen  " + line + "\n")
+for what, ms, stack, label in spy.quick:
+    say(f"note  Qt showed and hid {what} within {ms:.0f} ms (while: {label}), shown from: " + " < ".join(reversed(stack)))
 flashes = watch.problems()
 for line in flashes:
     check(False, line)
