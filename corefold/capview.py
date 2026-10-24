@@ -230,16 +230,14 @@ class TextLayer:
         self.anchor = self.focus = None
 
     def pick_box(self, box: QRectF, add: bool = False):
-        """The words inside a box drawn on the picture (most of the word inside it)."""
+        """The words inside a box drawn on the picture (each word whose middle is in it)."""
         if not add:
             self.kept = set()
         self.anchor = self.focus = None
         box = box.normalized()
         inside = set()
         for i, (n, w) in enumerate(self.words):
-            r = self.to_pic[n].mapRect(QRectF(w.x, w.y, w.w, w.h))
-            common = r.intersected(box)
-            if not common.isEmpty() and common.width() * common.height() >= 0.4 * r.width() * r.height():
+            if box.contains(self.to_pic[n].map(QPointF(w.x + w.w / 2, w.y + w.h / 2))):  # (its middle is in it)
                 inside.add(i)
         self.chosen = self.kept | inside
 

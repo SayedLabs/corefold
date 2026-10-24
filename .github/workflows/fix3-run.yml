@@ -67,7 +67,7 @@ jobs:
           & $py -m PyInstaller --noconfirm --console --name frozenrun --distpath frozen --workpath build-frozen `
             --collect-submodules corefold --collect-all pi_heif --collect-all zxingcpp --collect-all pypdfium2 --collect-binaries onnxruntime --collect-all winrt --collect-submodules zstandard `
             --exclude-module tkinter --exclude-module PySide6.QtQml --exclude-module PySide6.QtQuick `
-            --hidden-import PySide6.QtTest --hidden-import http.server --hidden-import corefold.app `
+            --hidden-import PySide6.QtTest --hidden-import http.server --hidden-import unittest.mock --hidden-import corefold.app `
             scripts/frozenrun.py *> out/frozen-build.txt
           $Qt = "frozen\frozenrun\_internal\PySide6"
           foreach ($f in @("Qt6Quick.dll", "Qt6Qml.dll", "Qt6QmlModels.dll", "Qt6QmlMeta.dll", "Qt6QmlWorkerScript.dll",
