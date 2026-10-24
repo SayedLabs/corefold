@@ -501,6 +501,13 @@ def page():
     check(later is not None and later.entry.new, "what was New this time is still New")
     # the leftovers part, then removing them (only the made-up ones: the runner's own stay)
     w.resize(1100, 740)
+    # one switched off long ago (as on a friend's PC): it's in "Switched off", with its date
+    put(winreg.HKEY_CURRENT_USER, startup.APPROVED + r"\Run", "CfStartupHost", startup.off_note(time.time() - 3e7),
+        winreg.REG_BINARY)
+    QTest.mouseClick(pg.refresh_btn, Qt.LeftButton)
+    check(until(lambda: not pg.loading and row_in(pg, "CfStartupHost", "off"), 15),
+          "one switched off long ago is in the \"Switched off\" part")
+    gone = next((r for r in pg.rows if r.entry.value == "CfStartupGone"), None)
     settle(0.3)
     if gone is not None:
         pg.scroll.ensureWidgetVisible(gone)
