@@ -1,0 +1,87 @@
+# TEMPORARY (review thread): every tool's own test on Windows, on each push to this branch. Removed before merging.
+name: Review run
+
+on:
+  push:
+    branches: [claude/project-thread-bjheix]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: review-run-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  try:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: edge
+          - name: tools-en-dark
+            lang: en
+            look: dark
+          - name: tools-ar-light
+            lang: ar
+            look: light
+          - name: newtests
+    name: ${{ matrix.name }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install
+        shell: pwsh
+        run: |
+          python -m pip install --quiet -r requirements.txt
+          New-Item -ItemType Directory -Force out | Out-Null
+          python scripts/screenres.py 1920 1080 *>> out/screen.txt
+          choco install ffmpeg -y --no-progress | Out-Null
+
+      - name: Awkward files, self-test, features
+        if: matrix.name == 'edge'
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
+          python scripts/edgetest.py *> out/edgetest.txt
+          python scripts/selftest.py *> out/selftest.txt
+          python scripts/featuretest.py *> out/featuretest.txt
+          python scripts/check_translations.py *> out/translations.txt
+
+      - name: Each tool's own test
+        if: matrix.lang != ''
+        shell: pwsh
+        continue-on-error: true
+        env:
+          L: ${{ matrix.lang }}
+          K: ${{ matrix.look }}
+        run: |
+          $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
+          foreach ($t in "organizetest", "startuptest", "captexttest", "pdftest", "quicktest", "scantest") {
+            python scripts/$t.py out/$t $env:L $env:K *> out/$t.txt
+          }
+
+      - name: Newer tools' tests
+        if: matrix.name == 'newtests'
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
+          foreach ($t in Get-ChildItem scripts -Filter "newtest_*.py") {
+            python scripts/$($t.Name) *> "out/$($t.BaseName).txt"
+          }
+
+      - name: Sum up
+        if: always()
+        shell: pwsh
+        run: |
+          Get-ChildItem out -Filter *.txt | ForEach-Object {
+            "== $($_.Name)"
+            Get-Content $_.FullName | Select-String -Pattern "problem|^FAIL|^ERROR|^SLOW|unused|Traceback" | Select-Object -First 40 | ForEach-Object { $_.Line }
+          }
