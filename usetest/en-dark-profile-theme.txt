@@ -1,0 +1,91 @@
+         121735 function calls (121064 primitive calls) in 1.448 seconds
+
+   Ordered by: cumulative time
+   List reduced from 335 to 45 due to restriction <45>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+      2/1    0.000    0.000    1.447    1.447 D:\a\corefold\corefold\scripts\usetest.py:444(<lambda>)
+      2/1    0.000    0.000    1.445    1.445 D:\a\corefold\corefold\corefold\window.py:1220(toggle_dark)
+        1    0.021    0.021    1.440    1.440 D:\a\corefold\corefold\corefold\app.py:1436(apply_theme)
+     2622    0.030    0.000    0.064    0.000 D:\a\corefold\corefold\corefold\atomic\widgets.py:579(sizeHint)
+        1    0.038    0.038    0.053    0.053 D:\a\corefold\corefold\scripts\usetest.py:150(_where)
+      547    0.010    0.000    0.039    0.000 D:\a\corefold\corefold\corefold\icons.py:64(pixmap)
+       42    0.002    0.000    0.037    0.001 D:\a\corefold\corefold\corefold\icons.py:76(icon)
+     2753    0.030    0.000    0.030    0.000 {method 'horizontalAdvance' of 'PySide6.QtGui.QFontMetrics' objects}
+        1    0.027    0.027    0.029    0.029 {method 'setStyleSheet' of 'PySide6.QtWidgets.QApplication' objects}
+        1    0.000    0.000    0.028    0.028 D:\a\corefold\corefold\corefold\window.py:3409(apply_theme)
+      547    0.004    0.000    0.026    0.000 D:\a\corefold\corefold\corefold\icons.py:48(paint)
+    10754    0.007    0.000    0.021    0.000 D:\a\corefold\corefold\corefold\atomic\widgets.py:228(eventFilter)
+     1898    0.002    0.000    0.020    0.000 D:\a\corefold\corefold\corefold\atomic\widgets.py:79(heightForWidth)
+        1    0.000    0.000    0.018    0.018 D:\a\corefold\corefold\corefold\app.py:1461(_color_menu_icons)
+      547    0.017    0.000    0.017    0.000 {method 'render' of 'PySide6.QtSvg.QSvgRenderer' objects}
+     1898    0.008    0.000    0.016    0.000 D:\a\corefold\corefold\corefold\atomic\widgets.py:54(_text_height)
+    12104    0.007    0.000    0.016    0.000 {method 'type' of 'PySide6.QtCore.QEvent' objects}
+        1    0.000    0.000    0.011    0.011 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\traceback.py:221(extract_stack)
+        1    0.000    0.000    0.011    0.011 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\traceback.py:377(extract)
+        1    0.000    0.000    0.011    0.011 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\traceback.py:399(_extract_from_extended_frame_gen)
+        5    0.000    0.000    0.011    0.002 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py:52(checkcache)
+    12276    0.005    0.000    0.009    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\enum.py:720(__call__)
+      159    0.002    0.000    0.007    0.000 D:\a\corefold\corefold\corefold\atomic\widgets.py:83(sizeHint)
+        1    0.000    0.000    0.007    0.007 D:\a\corefold\corefold\corefold\spacepage.py:1713(apply_theme)
+        1    0.000    0.000    0.007    0.007 D:\a\corefold\corefold\corefold\spacepage.py:975(_paint_backs)
+     1898    0.006    0.000    0.006    0.000 {method 'key' of 'PySide6.QtGui.QFont' objects}
+        9    0.005    0.001    0.006    0.001 {built-in method nt.stat}
+      146    0.001    0.000    0.006    0.000 D:\a\corefold\corefold\corefold\atomic\widgets.py:388(heightForWidth)
+      146    0.003    0.000    0.005    0.000 D:\a\corefold\corefold\corefold\atomic\widgets.py:405(_place)
+    207/4    1.177    0.006    0.005    0.001 {built-in method time.sleep}
+      547    0.004    0.000    0.005    0.000 D:\a\corefold\corefold\corefold\icons.py:35(_renderer)
+     5364    0.004    0.000    0.004    0.000 {method 'data' of 'PySide6.QtCore.QModelIndex' objects}
+     1305    0.001    0.000    0.004    0.000 D:\a\corefold\corefold\corefold\window.py:265(eventFilter)
+    12276    0.003    0.000    0.003    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\enum.py:1128(__new__)
+        1    0.000    0.000    0.003    0.003 D:\a\corefold\corefold\corefold\window.py:621(save_changes)
+     6217    0.003    0.000    0.003    0.000 {method 'text' of 'PySide6.QtWidgets.QAbstractButton' objects}
+        3    0.000    0.000    0.003    0.001 D:\a\corefold\corefold\corefold\window.py:604(update_save_bar)
+        1    0.000    0.000    0.002    0.002 D:\a\corefold\corefold\corefold\app.py:1473(settings_changed)
+     1984    0.001    0.000    0.002    0.000 D:\a\corefold\corefold\corefold\atomic\widgets.py:76(hasHeightForWidth)
+        1    0.000    0.000    0.002    0.002 D:\a\corefold\corefold\corefold\window.py:3041(refresh)
+        1    0.000    0.000    0.002    0.002 D:\a\corefold\corefold\corefold\settings.py:416(save)
+       35    0.000    0.000    0.002    0.000 D:\a\corefold\corefold\corefold\navbar.py:296(event)
+       35    0.001    0.000    0.002    0.000 {function NavList.event at 0x0000028B95FD9E40}
+       26    0.000    0.000    0.002    0.000 D:\a\corefold\corefold\corefold\atomic\widgets.py:398(minimumSize)
+     6136    0.001    0.000    0.001    0.000 {built-in method builtins.max}
+
+
+         121735 function calls (121064 primitive calls) in 1.448 seconds
+
+   Ordered by: internal time
+   List reduced from 335 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+    207/4    1.177    0.006    0.005    0.001 {built-in method time.sleep}
+        1    0.038    0.038    0.053    0.053 D:\a\corefold\corefold\scripts\usetest.py:150(_where)
+     2753    0.030    0.000    0.030    0.000 {method 'horizontalAdvance' of 'PySide6.QtGui.QFontMetrics' objects}
+     2622    0.030    0.000    0.064    0.000 D:\a\corefold\corefold\corefold\atomic\widgets.py:579(sizeHint)
+        1    0.027    0.027    0.029    0.029 {method 'setStyleSheet' of 'PySide6.QtWidgets.QApplication' objects}
+        1    0.021    0.021    1.440    1.440 D:\a\corefold\corefold\corefold\app.py:1436(apply_theme)
+      547    0.017    0.000    0.017    0.000 {method 'render' of 'PySide6.QtSvg.QSvgRenderer' objects}
+      547    0.010    0.000    0.039    0.000 D:\a\corefold\corefold\corefold\icons.py:64(pixmap)
+     1898    0.008    0.000    0.016    0.000 D:\a\corefold\corefold\corefold\atomic\widgets.py:54(_text_height)
+    12104    0.007    0.000    0.016    0.000 {method 'type' of 'PySide6.QtCore.QEvent' objects}
+    10754    0.007    0.000    0.021    0.000 D:\a\corefold\corefold\corefold\atomic\widgets.py:228(eventFilter)
+     1898    0.006    0.000    0.006    0.000 {method 'key' of 'PySide6.QtGui.QFont' objects}
+    12276    0.005    0.000    0.009    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\enum.py:720(__call__)
+        9    0.005    0.001    0.006    0.001 {built-in method nt.stat}
+     5364    0.004    0.000    0.004    0.000 {method 'data' of 'PySide6.QtCore.QModelIndex' objects}
+      547    0.004    0.000    0.005    0.000 D:\a\corefold\corefold\corefold\icons.py:35(_renderer)
+      547    0.004    0.000    0.026    0.000 D:\a\corefold\corefold\corefold\icons.py:48(paint)
+    12276    0.003    0.000    0.003    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\enum.py:1128(__new__)
+      146    0.003    0.000    0.005    0.000 D:\a\corefold\corefold\corefold\atomic\widgets.py:405(_place)
+     6217    0.003    0.000    0.003    0.000 {method 'text' of 'PySide6.QtWidgets.QAbstractButton' objects}
+     1898    0.002    0.000    0.020    0.000 D:\a\corefold\corefold\corefold\atomic\widgets.py:79(heightForWidth)
+       42    0.002    0.000    0.037    0.001 D:\a\corefold\corefold\corefold\icons.py:76(icon)
+      159    0.002    0.000    0.007    0.000 D:\a\corefold\corefold\corefold\atomic\widgets.py:83(sizeHint)
+     6136    0.001    0.000    0.001    0.000 {built-in method builtins.max}
+     1305    0.001    0.000    0.004    0.000 D:\a\corefold\corefold\corefold\window.py:265(eventFilter)
+     1984    0.001    0.000    0.002    0.000 D:\a\corefold\corefold\corefold\atomic\widgets.py:76(hasHeightForWidth)
+     2031    0.001    0.000    0.001    0.000 {method 'font' of 'PySide6.QtWidgets.QWidget' objects}
+      547    0.001    0.000    0.001    0.000 {method 'fill' of 'PySide6.QtGui.QPixmap' objects}
+       35    0.001    0.000    0.002    0.000 {function NavList.event at 0x0000028B95FD9E40}
+      102    0.001    0.000    0.001    0.000 {method 'minimumSize' of 'PySide6.QtWidgets.QWidgetItem' objects}
+
+

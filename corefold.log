@@ -1,0 +1,123 @@
+2026-10-24 06:14:27,255 INFO starting Corefold 0.0.9-size
+2026-10-24 06:14:27,285 INFO memory Qt started: 64.3 MB working set, 35.6 MB private, 358 modules
+2026-10-24 06:14:27,289 INFO memory look applied: 65.0 MB working set, 35.6 MB private, 358 modules
+2026-10-24 06:14:27,320 INFO memory tray icon shown: 72.8 MB working set, 41.1 MB private, 358 modules
+2026-10-24 06:14:27,322 INFO memory in the tray: 73.4 MB working set, 41.4 MB private, 359 modules new: corefold
+2026-10-24 06:14:27,340 INFO the shortcut ctrl+win+t is used by another app
+2026-10-24 06:14:27,342 INFO memory quick access on: 75.7 MB working set, 43.8 MB private, 370 modules new: _sqlite3 _uuid colorsys corefold sqlite3 uuid
+2026-10-24 06:14:27,346 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-24 06:14:27,354 INFO memory background tools started: 76.1 MB working set, 44.1 MB private, 373 modules new: corefold
+2026-10-24 06:14:30,518 INFO right-click menu updated
+2026-10-24 06:14:32,359 INFO memory quick menu tip shown: 121.7 MB working set, 62.5 MB private, 379 modules new: corefold
+2026-10-24 06:15:07,334 INFO memory before the first tidy: 122.2 MB working set, 62.5 MB private, 379 modules
+2026-10-24 06:15:12,346 INFO tidied up memory
+2026-10-24 06:15:12,348 INFO memory tidied: 3.3 MB working set, 62.5 MB private, 379 modules
+2026-10-24 06:18:43,681 INFO memory before the window: 11.2 MB working set, 62.3 MB private, 379 modules
+2026-10-24 06:18:44,035 INFO memory page Home: 69.0 MB working set, 95.3 MB private, 387 modules new: corefold
+2026-10-24 06:18:44,336 INFO memory window built: 79.3 MB working set, 98.4 MB private, 387 modules
+2026-10-24 06:18:44,336 INFO memory page Home: 79.3 MB working set, 98.4 MB private, 387 modules
+2026-10-24 06:18:46,538 INFO memory page Home, 2.5 s later: 90.6 MB working set, 102.6 MB private, 387 modules
+2026-10-24 06:18:46,875 INFO memory page Home, 2.5 s later: 90.6 MB working set, 102.6 MB private, 387 modules
+2026-10-24 06:19:07,976 INFO memory page Converter: 90.9 MB working set, 102.6 MB private, 387 modules
+2026-10-24 06:19:10,479 INFO memory page Converter, 2.5 s later: 92.1 MB working set, 103.3 MB private, 387 modules
+2026-10-24 06:19:11,264 INFO memory page Apps: 95.6 MB working set, 105.3 MB private, 388 modules new: corefold
+2026-10-24 06:19:13,762 INFO memory page Apps, 2.5 s later: 111.8 MB working set, 108.4 MB private, 389 modules new: encodings
+2026-10-24 06:19:46,516 INFO memory page History: 112.5 MB working set, 108.2 MB private, 389 modules
+2026-10-24 06:19:49,009 INFO memory page History, 2.5 s later: 112.5 MB working set, 108.2 MB private, 389 modules
+2026-10-24 06:19:49,762 INFO memory page Look: 112.5 MB working set, 108.2 MB private, 389 modules
+2026-10-24 06:19:52,268 INFO memory page Look, 2.5 s later: 112.6 MB working set, 108.2 MB private, 389 modules
+2026-10-24 06:19:53,076 INFO memory page PDF: 115.7 MB working set, 110.9 MB private, 392 modules new: corefold
+2026-10-24 06:19:55,640 INFO memory page PDF, 2.5 s later: 115.9 MB working set, 111.1 MB private, 392 modules
+2026-10-24 06:19:57,285 INFO memory page Organizer: 117.9 MB working set, 112.8 MB private, 394 modules new: corefold
+2026-10-24 06:19:59,789 INFO memory page Organizer, 2.5 s later: 118.1 MB working set, 112.9 MB private, 394 modules
+2026-10-24 06:20:01,540 INFO memory page Startup: 119.4 MB working set, 115.1 MB private, 396 modules new: corefold
+2026-10-24 06:20:04,042 INFO memory page Startup, 2.5 s later: 120.8 MB working set, 116.1 MB private, 396 modules
+2026-10-24 06:20:05,802 INFO memory page Scan: 122.7 MB working set, 117.5 MB private, 399 modules new: corefold
+2026-10-24 06:20:08,303 INFO memory page Scan, 2.5 s later: 123.0 MB working set, 117.7 MB private, 399 modules
+2026-10-24 06:21:41,840 INFO tidied up memory
+2026-10-24 06:21:41,840 INFO memory tidied: 3.6 MB working set, 93.0 MB private, 399 modules
+2026-10-24 06:22:45,156 INFO quick menu: 165 apps listed in 172 ms
+2026-10-24 06:23:50,205 INFO tidied up memory
+2026-10-24 06:23:50,205 INFO memory tidied: 3.6 MB working set, 96.8 MB private, 440 modules new: _asyncio _contextvars _overlapped asyncio concurrent contextvars corefold
+2026-10-24 06:25:17,043 INFO job 1: image:webp on 1 item(s)
+2026-10-24 06:26:05,432 INFO tidied up memory
+2026-10-24 06:26:05,434 INFO memory tidied: 3.7 MB working set, 100.4 MB private, 476 modules new: PIL _decimal _pi_heif decimal fractions pi_heif
+2026-10-24 06:26:26,367 INFO job 2: image:cutout on 1 item(s)
+2026-10-24 06:26:27,001 INFO background remover helper started
+2026-10-24 06:27:12,840 INFO tidied up memory
+2026-10-24 06:27:12,842 INFO memory tidied: 3.6 MB working set, 101.8 MB private, 481 modules new: _multiprocessing corefold hmac multiprocessing secrets
+2026-10-24 06:27:30,828 INFO job 3: video:mp3 on 1 item(s)
+2026-10-24 06:27:34,066 INFO job 4: video:gif on 1 item(s)
+2026-10-24 06:28:23,559 INFO tidied up memory
+2026-10-24 06:28:23,560 INFO memory tidied: 3.6 MB working set, 101.8 MB private, 481 modules
+2026-10-24 06:28:36,432 INFO memory before the window: 8.9 MB working set, 101.8 MB private, 481 modules
+2026-10-24 06:28:36,771 INFO memory page Scan: 64.2 MB working set, 115.5 MB private, 481 modules
+2026-10-24 06:28:37,190 INFO memory window built: 78.0 MB working set, 118.5 MB private, 483 modules new: html
+2026-10-24 06:28:37,196 INFO memory page Home: 78.3 MB working set, 118.7 MB private, 483 modules
+2026-10-24 06:28:38,723 INFO memory page Apps: 91.6 MB working set, 123.7 MB private, 483 modules
+2026-10-24 06:28:39,269 INFO memory page Scan, 2.5 s later: 96.9 MB working set, 123.9 MB private, 483 modules
+2026-10-24 06:28:39,694 INFO memory page Home, 2.5 s later: 97.1 MB working set, 123.7 MB private, 483 modules
+2026-10-24 06:28:41,228 INFO memory page Apps, 2.5 s later: 97.1 MB working set, 123.7 MB private, 483 modules
+2026-10-24 06:28:44,687 INFO job 5: image:jpg on 1 item(s)
+2026-10-24 06:28:47,308 INFO memory page Home: 98.1 MB working set, 124.2 MB private, 485 modules new: PIL
+2026-10-24 06:28:49,626 INFO memory page Apps: 28.1 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:28:49,796 INFO memory page Home, 2.5 s later: 46.0 MB working set, 126.2 MB private, 485 modules
+2026-10-24 06:28:52,186 INFO memory page Apps, 2.5 s later: 44.6 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:28:55,602 INFO job 6: image:jpg on 1 item(s)
+2026-10-24 06:28:58,231 INFO memory page Home: 51.3 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:29:00,516 INFO memory page Apps: 28.2 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:29:00,718 INFO memory page Home, 2.5 s later: 44.7 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:29:03,014 INFO memory page Apps, 2.5 s later: 44.9 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:29:06,476 INFO job 7: image:jpg on 1 item(s)
+2026-10-24 06:29:09,085 INFO memory page Home: 51.5 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:29:11,363 INFO memory page Apps: 28.2 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:29:11,582 INFO memory page Home, 2.5 s later: 45.5 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:29:13,892 INFO memory page Apps, 2.5 s later: 45.6 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:29:17,307 INFO job 8: image:jpg on 1 item(s)
+2026-10-24 06:29:19,928 INFO memory page Home: 51.9 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:29:22,214 INFO memory page Apps: 28.3 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:29:22,427 INFO memory page Home, 2.5 s later: 44.7 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:29:24,744 INFO memory page Apps, 2.5 s later: 44.8 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:29:28,183 INFO job 9: image:jpg on 1 item(s)
+2026-10-24 06:29:30,799 INFO memory page Home: 51.3 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:29:33,101 INFO memory page Apps: 28.2 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:29:33,299 INFO memory page Home, 2.5 s later: 44.7 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:29:35,597 INFO memory page Apps, 2.5 s later: 44.8 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:29:39,062 INFO job 10: image:jpg on 1 item(s)
+2026-10-24 06:29:41,637 INFO memory page Home: 51.4 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:29:43,935 INFO memory page Apps: 28.3 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:29:44,124 INFO memory page Home, 2.5 s later: 46.3 MB working set, 126.2 MB private, 485 modules
+2026-10-24 06:29:46,426 INFO memory page Apps, 2.5 s later: 44.9 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:29:49,882 INFO job 11: image:jpg on 1 item(s)
+2026-10-24 06:29:52,486 INFO memory page Home: 51.5 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:29:54,769 INFO memory page Apps: 28.2 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:29:54,987 INFO memory page Home, 2.5 s later: 44.7 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:29:57,273 INFO memory page Apps, 2.5 s later: 44.8 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:30:00,741 INFO job 12: image:jpg on 1 item(s)
+2026-10-24 06:30:03,116 INFO memory page Home: 51.2 MB working set, 124.6 MB private, 485 modules
+2026-10-24 06:30:05,402 INFO memory page Apps: 28.4 MB working set, 124.5 MB private, 485 modules
+2026-10-24 06:30:05,616 INFO memory page Home, 2.5 s later: 44.8 MB working set, 124.5 MB private, 485 modules
+2026-10-24 06:30:07,921 INFO memory page Apps, 2.5 s later: 45.0 MB working set, 124.5 MB private, 485 modules
+2026-10-24 06:30:11,350 INFO job 13: image:jpg on 1 item(s)
+2026-10-24 06:30:13,951 INFO memory page Home: 51.3 MB working set, 124.5 MB private, 485 modules
+2026-10-24 06:30:16,254 INFO memory page Apps: 28.3 MB working set, 124.5 MB private, 485 modules
+2026-10-24 06:30:16,441 INFO memory page Home, 2.5 s later: 44.8 MB working set, 124.5 MB private, 485 modules
+2026-10-24 06:30:18,772 INFO memory page Apps, 2.5 s later: 44.8 MB working set, 124.5 MB private, 485 modules
+2026-10-24 06:30:22,237 INFO job 14: image:jpg on 1 item(s)
+2026-10-24 06:31:07,602 INFO tidied up memory
+2026-10-24 06:31:07,604 INFO memory tidied: 3.6 MB working set, 124.3 MB private, 485 modules
+2026-10-24 06:31:52,303 INFO tidied up memory
+2026-10-24 06:31:52,304 INFO memory tidied: 3.6 MB working set, 104.5 MB private, 485 modules
+2026-10-24 06:33:20,019 INFO archive window opened (30 items)
+2026-10-24 06:33:25,375 INFO player opened a .mp4 file
+2026-10-24 06:33:25,725 INFO player is playing (video True, sound True)
+2026-10-24 06:33:38,659 INFO starting Corefold 0.0.9-size
+2026-10-24 06:33:38,688 INFO memory Qt started: 64.1 MB working set, 35.5 MB private, 358 modules
+2026-10-24 06:33:38,690 INFO memory look applied: 64.2 MB working set, 35.5 MB private, 358 modules
+2026-10-24 06:33:38,724 INFO memory tray icon shown: 72.8 MB working set, 41.1 MB private, 358 modules
+2026-10-24 06:33:38,726 INFO memory in the tray: 73.2 MB working set, 41.5 MB private, 359 modules new: corefold
+2026-10-24 06:33:38,744 INFO the shortcut ctrl+win+t is used by another app
+2026-10-24 06:33:38,744 INFO memory quick access on: 75.3 MB working set, 43.5 MB private, 370 modules new: _sqlite3 _uuid colorsys corefold sqlite3 uuid
+2026-10-24 06:33:38,747 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-24 06:33:38,747 INFO memory background tools started: 75.7 MB working set, 43.6 MB private, 373 modules new: corefold
+2026-10-24 06:33:38,990 INFO archive window opened (30 items)
