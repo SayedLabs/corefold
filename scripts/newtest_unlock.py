@@ -230,6 +230,34 @@ def core():
               "\"--unlock <file>\" from the right-click menu becomes an unlock message")
     step("the message from the menu", messages)
 
+    def at_restart():
+        """A held folder is handed to Windows to delete as the PC starts: what's inside first."""
+        box = TMP / "at-restart"
+        (box / "sub").mkdir(parents=True)
+        for f in (box / "a.txt", box / "sub" / "b.txt"):
+            f.write_text("Corefold Unlock test\n")
+        order = unlock.at_restart_order([str(box)])
+        want = [str(box / "a.txt"), str(box / "sub" / "b.txt"), str(box / "sub"), str(box)]
+        check(sorted(order) == sorted(want) and order[-1] == str(box)
+              and order.index(str(box / "sub" / "b.txt")) < order.index(str(box / "sub")),
+              f"the order empties each folder before the folder itself ({order})")
+        if not unlock.is_admin():
+            print("note  not administrator here: Windows wouldn't take the request (the page asks first)", flush=True)
+            return
+        held_by = start("hold", box / "a.txt")
+        r = unlock.delete_at_restart([str(box)])
+        check(r == {"scheduled": 4, "failed": 0}, f"Windows takes all four to delete at the next start ({r})")
+        import winreg
+        try:
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager") as k:
+                pending = winreg.QueryValueEx(k, "PendingFileRenameOperations")[0]
+        except OSError:
+            pending = []
+        check(any(str(box).lower() in str(x).lower() for x in pending),
+              "…and they're in Windows' list of what to delete at the next start")
+        held_by.kill()
+    step("deleting at the next start", at_restart)
+
 
 # ----------------------------------------------------------------------------- the page, and the right-click entry
 

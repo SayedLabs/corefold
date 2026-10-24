@@ -405,3 +405,53 @@ def _explorer_running() -> bool:
         return 1
     u.EnumWindows(_ENUM_PROC(each), None)
     return bool(found)
+
+
+# ----------------------------------------------------------------------------- deleting at the next start
+
+MOVEFILE_DELAY_UNTIL_REBOOT = 0x4
+MAX_AT_RESTART = 20000     # files and folders Windows is asked to delete at the next start
+
+
+def at_restart_order(paths: list[str]) -> list[str]:
+    """Everything to delete, innermost first: Windows deletes them in this order as the PC starts,
+    and a folder only goes once it's empty."""
+    order: list[str] = []
+    for p in paths:
+        if os.path.isdir(p) and not os.path.islink(p):
+            for root, dirs, files in os.walk(p, topdown=False):  # (a folder's own folders came first)
+                order += [os.path.join(root, f) for f in files]
+                order += [os.path.join(root, d) for d in dirs]
+                if len(order) > MAX_AT_RESTART:
+                    return order
+        order.append(p)
+    return order
+
+
+def delete_at_restart(paths: list[str]) -> dict:
+    """Asks Windows to delete these when the PC next starts, before any program can open them (as
+    administrator: Windows only takes this from one). Returns how many it took."""
+    order = at_restart_order(paths)
+    if len(order) > MAX_AT_RESTART:
+        return {"error": "too many"}
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.MoveFileExW.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32]
+    k32.MoveFileExW.restype = ctypes.c_int
+    done = failed = 0
+    for p in order:
+        if k32.MoveFileExW(p, None, MOVEFILE_DELAY_UNTIL_REBOOT):
+            done += 1
+        else:
+            failed += 1
+            log.warning("Windows won't delete %s at the next start (error %s)", p, ctypes.get_last_error())
+    return {"scheduled": done, "failed": failed}
+
+
+def ask_delete_at_restart(paths: list[Path]) -> dict | None:
+    """Runs delete_at_restart in Corefold as administrator (Windows asks first). None if the person said no."""
+    from .uninstall import run_elevated
+    if getattr(sys, "frozen", False):
+        command = [sys.executable]
+    else:
+        command = [sys.executable, str(Path(__file__).resolve().parent.parent / "main.py")]
+    return run_elevated(command, "delete-at-restart", {"paths": [str(p) for p in paths]})
