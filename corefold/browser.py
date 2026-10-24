@@ -238,6 +238,7 @@ class ArchiveBrowser(QWidget):
         for col in (1, 2):  # (sizes line up on the right, under their headings)
             self.tree.headerItem().setTextAlignment(col, Qt.AlignRight | Qt.AlignVCenter)
         self.tree.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.tree.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.tree.setUniformRowHeights(True)
         # sorted by Corefold (in Python, before the rows go in): Qt's own sorting would be slow for
         # 100,000 files. Clicking a column heading sorts by it.

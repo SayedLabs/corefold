@@ -8,11 +8,10 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QEvent, QObject, QPoint, QSize, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import (QColor, QDesktopServices, QFont, QGuiApplication, QIcon, QKeySequence, QPainter, QPixmap,
                            QShortcut)
-from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QColorDialog, QComboBox, QFileDialog, QFrame,
-                               QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMenu,
-                               QMessageBox, QPushButton,
-                               QScrollArea, QSizePolicy, QSlider, QSpinBox, QStackedWidget, QSystemTrayIcon, QVBoxLayout,
-                               QWidget)
+from PySide6.QtWidgets import (QAbstractItemView, QApplication, QButtonGroup, QCheckBox, QColorDialog, QComboBox,
+                               QFileDialog, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
+                               QListWidgetItem, QMenu, QMessageBox, QPushButton, QScrollArea, QSizePolicy, QSlider,
+                               QSpinBox, QStackedWidget, QSystemTrayIcon, QVBoxLayout, QWidget)
 
 from . import UPDATE_REPO, __version__, i18n, icons, winutil
 from . import tools as all_tools
@@ -696,6 +695,9 @@ class MainWindow(QWidget):
             for w in (root or self).findChildren(cls):
                 w.setFocusPolicy(Qt.StrongFocus)
                 w.installEventFilter(self._wheel_guard)
+        for view in (root or self).findChildren(QAbstractItemView):  # (lists glide, not jump a row at a time)
+            view.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+            view.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
         mark_rows(root or self)  # (hairlines between settings rows that follow each other)
         keep_wrapped_text(root or self)
 
