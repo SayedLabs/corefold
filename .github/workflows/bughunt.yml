@@ -57,6 +57,7 @@ jobs:
           - name: use-ar-light
             use: "--lang ar --look light"
           - name: languages
+          - name: tools
           - name: exe
     name: ${{ matrix.name }}
     steps:
@@ -92,6 +93,20 @@ jobs:
           python scripts/capfoldertest.py out/capfolder en dark *> out/capfoldertest-en.txt
           python scripts/capfoldertest.py out/capfolder ar light *> out/capfoldertest-ar.txt
           python scripts/edgetest.py *> out/edgetest.txt
+
+      - name: Each tool's own test (File Organizer, Startup, Scan, and the newer tools' tests)
+        if: matrix.name == 'tools'
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
+          foreach ($t in "organizetest", "startuptest", "scantest") {
+            python scripts/$t.py out/$t en dark *> "out/$t-en.txt"
+            python scripts/$t.py out/$t ar light *> "out/$t-ar.txt"
+          }
+          foreach ($t in Get-ChildItem scripts -Filter "newtest_*.py") {
+            python scripts/$($t.Name) *> "out/$($t.BaseName).txt"
+          }
 
       - name: Every page and button
         if: matrix.sweep != ''
@@ -203,7 +218,7 @@ jobs:
             echo "Bug hunt of $SHA"
             for d in */; do
               echo "== ${d%/}"
-              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest|featuretest|pdftest|langtest|captexttest|capfoldertest|edgetest)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused" "$d" 2>/dev/null | head -20
+              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest|featuretest|pdftest|langtest|captexttest|capfoldertest|edgetest|organizetest|startuptest|scantest|newtest_[a-z]+)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused" "$d" 2>/dev/null | head -20
               grep -rhaE "^(FAIL|ERROR|SLOW) " "$d" 2>/dev/null | sort | uniq -c | sort -rn | head -60
             done
           } > summary.txt
