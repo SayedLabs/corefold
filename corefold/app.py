@@ -1443,7 +1443,7 @@ class Controller(QObject):
             for w in shown:
                 w.setUpdatesEnabled(False)
             try:
-                self.app.setStyleSheet(self._css())
+                self._restyle(self._css())
             finally:
                 for w in shown:
                     if _alive(w):
@@ -1459,6 +1459,13 @@ class Controller(QObject):
             self.quick.apply_theme(self.theme)
         if self.peek is not None:
             self.peek.apply_theme(self.theme)
+
+    def _restyle(self, css: str):
+        """A new look for every widget. Going from one look straight to another costs Qt about three
+        times as long as going through none (each widget is undone and redone against both looks),
+        so it goes through none: no picture is drawn in between."""
+        self.app.setStyleSheet("")
+        self.app.setStyleSheet(css)
 
     def _color_menu_icons(self):
         for action, name in self.menu_icons:
@@ -1551,7 +1558,7 @@ class Controller(QObject):
         load_qt_translations(self.app, lang)
         css = self._css()
         if css != self.app.styleSheet():  # (only right-to-left changes it: restyling everything is slow)
-            self.app.setStyleSheet(css)
+            self._restyle(css)
         self._build_tray_menu()
         self._update_tooltip()
         self.toast.retranslate()
