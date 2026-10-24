@@ -549,7 +549,7 @@ def page():
                 row._menu(None, row.mapToGlobal(row.rect().center()))
             finally:
                 startuppage.QMenu = real_menu
-            check(("Start it a minute after sign-in", True) in seen,
+            check((i18n.tr("Start it a minute after sign-in"), True) in seen,
                   f"its menu offers to start it a minute later {seen}")
             pg.start_later(row, True)
             check(until(lambda: not pg.busy, 15), "putting it off: done")
