@@ -113,7 +113,9 @@ try:
             if win is None:
                 break
             check(shot(f"added-{tool.id}", win) < 0.3, f"after switching on {tool.id} the window isn't white")
-            tab = [b for b in win.descendants(control_type="Button") if b.window_text() == tool.nav]
+            wr = win.rectangle()  # (its tab, in the strip at the top: not its switch or its name on the card)
+            tab = [b for b in win.descendants() if b.window_text() == tool.nav and b.rectangle().top < wr.top + 150
+                   and b.element_info.control_type not in ("ListItem", "Text")]
             if check(bool(tab), f"{tool.id} has a tab in {sec.name}"):
                 click(tab[0])
                 check(shot(f"open-{tool.id}", win) < 0.3, f"{tool.id}'s page isn't white")

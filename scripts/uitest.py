@@ -41,6 +41,7 @@ from PySide6.QtGui import QIcon  # noqa: E402
 
 qapp = QApplication(sys.argv)
 from corefold import app as A  # noqa: E402
+from corefold import tools as all_tools  # noqa: E402
 
 c = A.Controller(qapp, QIcon(str(ROOT / "assets" / "icon.png")))
 problems = []

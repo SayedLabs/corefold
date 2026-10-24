@@ -1071,6 +1071,8 @@ class MainWindow(QWidget):
     def eventFilter(self, obj, event):
         if obj is getattr(self, "canvas", None) and event.type() == QEvent.Type.Resize:
             self._fit_settings_side(event.size().width())
+            if self.section_strip.isVisible():
+                self._fit_strip()
         return False
 
     def _fit_settings_side(self, canvas_width: int):
@@ -1850,10 +1852,33 @@ class MainWindow(QWidget):
                 self.strip_tabs[tool.page] = b
             for b in self.strip_tabs.values():
                 b.setCheckable(True)
+                b.setProperty("words", b.text())
+                b.setAccessibleName(b.text())
                 self.strip_row.addWidget(b)
             self.strip_row.addStretch()
         for page_name, b in self.strip_tabs.items():
             b.setChecked(page_name == name)
+        self._fit_strip()
+
+    def _fit_strip(self):
+        """A strip wider than the page shows the other tools as icons only (named when pointed at)."""
+        if not self.strip_tabs or not hasattr(self, "canvas"):
+            return
+        m = self.canvas.layout().contentsMargins()
+        room = self.canvas.width() - m.left() - m.right() - 10
+        tabs = list(self.strip_tabs.values())
+        for b in tabs:
+            b.setText(b.property("words"))
+            b.setToolTip("")
+        spacing = self.strip_row.spacing()
+        need = sum(b.sizeHint().width() + spacing for b in tabs)
+        for b in sorted(tabs[1:], key=lambda b: b.isChecked()):  # (the page you're on keeps its name longest)
+            if need <= room:
+                break
+            before = b.sizeHint().width()
+            b.setText("")
+            b.setToolTip(b.property("words"))
+            need -= before - b.sizeHint().width()
 
     def _remove_tool(self, tool) -> bool:
         """Asks first, then switches the tool off (True if it was)."""
