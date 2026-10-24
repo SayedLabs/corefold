@@ -224,7 +224,10 @@ def started_in_downloads():
     try:
         hostname = subprocess.run([system_tool("hostname.exe")], capture_output=True, text=True).stdout.strip()
         r = subprocess.run(["reg.exe", "/?"], capture_output=True, text=True)
-        check(r.stdout.strip() == hostname, "the old way: started in Downloads, a planted reg.exe ran (proof of the problem)")
+        # (Windows only skips the current folder when NoDefaultCurrentDirectoryInExePath is set, as it
+        # may be on this runner; on most PCs it isn't)
+        note(f"the old way: started in Downloads, a planted reg.exe ran: {r.stdout.strip() == hostname} "
+             f"(NoDefaultCurrentDirectoryInExePath={os.environ.get('NoDefaultCurrentDirectoryInExePath')!r})")
         argv = ["Corefold.exe", "--view", "photo.jpg", "--page", "photo.jpg"]
         ipc.leave_start_folder(argv)
         check(Path(os.getcwd()).resolve() != folder.resolve(), "Corefold leaves the folder it was started in")
@@ -339,9 +342,12 @@ def videos_going_online():
     server = http.server.HTTPServer(("127.0.0.1", 0), _Count)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     port = server.server_address[1]
-    fake = TMP / "holiday.mp4"
-    fake.write_text("#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXTINF:2,\n"
-                    f"http://127.0.0.1:{port}/part0.ts\n#EXTINF:2,\nhttp://127.0.0.1:{port}/part1.ts\n#EXT-X-ENDLIST\n")
+    playlist = ("#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXTINF:2,\n"
+                f"http://127.0.0.1:{port}/part0.ts\n#EXTINF:2,\nhttp://127.0.0.1:{port}/part1.ts\n#EXT-X-ENDLIST\n")
+    fake = TMP / "holiday.mp4"      # (FFmpeg itself won't take a playlist called .mp4)
+    fake.write_text(playlist)
+    named = TMP / "holiday.m3u8"    # (one called what it is, opened with Corefold's player)
+    named.write_text(playlist)
 
     def play(path: Path, seconds: float = 6.0):
         player = QMediaPlayer()
@@ -361,12 +367,16 @@ def videos_going_online():
     os.environ.pop("QT_FFMPEG_PROTOCOL_WHITELIST", None)
     _Count.hits = 0
     play(fake)
-    note(f"the old way: the fake video asked the internet for its parts {_Count.hits} time(s)")
-    check(_Count.hits > 0, "the old way went online (proof of the problem)")
-    corefold_player.local_only()
+    note(f"the old way: a playlist called .mp4 asked the internet for its parts {_Count.hits} time(s)")
     _Count.hits = 0
-    play(fake)
-    check(_Count.hits == 0, f"Corefold's player stays offline with it ({_Count.hits} asks)")
+    play(named)
+    note(f"the old way: a playlist called .m3u8 asked the internet for its parts {_Count.hits} time(s)")
+    check(_Count.hits > 0, "the old way went online with a playlist file (proof of the problem)")
+    corefold_player.local_only()
+    for f in (fake, named):
+        _Count.hits = 0
+        play(f)
+        check(_Count.hits == 0, f"Corefold's player stays offline with {f.name} ({_Count.hits} asks)")
     ffmpeg = find_program("ffmpeg")
     if ffmpeg:
         real = TMP / "real.mp4"
