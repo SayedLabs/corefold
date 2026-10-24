@@ -383,7 +383,7 @@ def capture_tool():
     if ed is None:
         return
     check(ed.canvas.base.width() >= 400, f"the picture is the area picked ({ed.canvas.base.width()} px)")
-    check(ed.saved is not None and ed.saved.exists(), "…saved in Pictures\\Screenshots")
+    check(ed.saved is not None and until(lambda: ed.saved.exists(), 5), "…saved in Pictures\\Screenshots")
     check(not QGuiApplication.clipboard().image().isNull(), "…and copied")
     from corefold.capview import Shape
     cv = ed.canvas
@@ -406,7 +406,8 @@ def capture_tool():
     check(len(cv.shapes) == 4, "undo a mark")
     cv.redo()
     check(len(cv.shapes) == 5, "redo")
-    check(ed.save() and ed.saved.exists(), "Save")
+    ed.save()  # (written on a thread: the editor carries on meanwhile)
+    check(until(lambda: not ed.dirty and ed.saved.exists(), 5), "Save")
     ed.close()
     settle(0.2)
     # recording a few seconds

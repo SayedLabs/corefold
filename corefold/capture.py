@@ -11,6 +11,7 @@ import logging
 import os
 import re
 import subprocess
+import threading
 import time
 from pathlib import Path
 
@@ -52,10 +53,47 @@ def new_name(folder: Path, ext: str, prefix: str = "Screenshot") -> Path:
     stamp = time.strftime("%Y-%m-%d %H%M%S")
     p = folder / f"{prefix} {stamp}{ext}"
     n = 2
-    while p.exists():
+    while p.exists() or p in _writing:
         p = folder / f"{prefix} {stamp} ({n}){ext}"
         n += 1
     return p
+
+
+class _Written(QObject):
+    done = Signal(object, bool, object)   # (the file, whether it was saved, what to call next or None)
+
+
+_writing: set[Path] = set()   # pictures being saved right now (their names are taken)
+_written: _Written | None = None
+
+
+def write_later(image, path: Path, then=None):
+    """Saves a picture on a thread (a big PNG takes half a second, and the screen shouldn't wait),
+    then calls then(ok) back here."""
+    global _written
+    if _written is None:
+        _written = _Written()
+        _written.done.connect(_after_writing, Qt.ConnectionType.QueuedConnection)
+    _writing.add(path)
+    fmt = "JPG" if path.suffix.lower() in (".jpg", ".jpeg") else "PNG"
+    signal = _written.done
+
+    def work():
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            ok = image.save(str(path), fmt, 92 if fmt == "JPG" else -1)
+        except OSError:
+            ok = False
+        if not ok:
+            log.warning("couldn't save %s", path)
+        signal.emit(path, ok, then)
+    threading.Thread(target=work, daemon=True, name="corefold-save-picture").start()
+
+
+def _after_writing(path: Path, ok: bool, then):
+    _writing.discard(path)
+    if then is not None:
+        then(ok)
 
 
 # ----------------------------------------------------------------------------- windows on screen
@@ -583,18 +621,15 @@ class CaptureTool(QObject):
         saved = None
         if self.settings.cap_save:
             saved = new_name(screenshots_folder(), ".png")
-            try:
-                saved.parent.mkdir(parents=True, exist_ok=True)
-                if not img.save(str(saved), "PNG"):
-                    saved = None
-            except OSError:
-                saved = None
+            write_later(img.copy(), saved, self._shot_saved)
         if self.settings.cap_after == "edit":
             self.edit(img, saved)
         else:
             self.c.toast.notify(tr("Screenshot copied"), tr("Paste it anywhere with Ctrl+V.") if saved is None else
                                 tr("Paste it anywhere with Ctrl+V. Saved as {name}.", name=saved.name),
                                 tr("Mark it up"), lambda i=img, p=saved: self.edit(i, p), linger_ms=6000)
+
+    def _shot_saved(self, ok: bool):
         w = self.c.window_if_open()
         if w is not None and hasattr(w, "refresh_captures"):
             w.refresh_captures()
@@ -728,7 +763,6 @@ class CaptureTool(QObject):
         if wait:
             self._recorded(rec, rec.stop())
             return
-        import threading
 
         from PySide6.QtCore import QObject as _Q, Signal as _S
 
@@ -757,7 +791,6 @@ class CaptureTool(QObject):
     def _make_gif(self, mp4: Path):
         """Turns a GIF recording (an MP4 in a temporary folder) into the GIF, next to the other recordings."""
         import shutil
-        import threading
 
         from PySide6.QtCore import QObject as _Q, Signal as _S
 

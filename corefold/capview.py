@@ -281,6 +281,7 @@ class CaptureEditor(QWidget):
         self.c = controller
         self.saved = saved
         self.dirty = False
+        self._edits = 0   # marks made so far (a save that finishes after more marks leaves it unsaved)
         self.setObjectName("window")
         self.setAttribute(Qt.WA_StyledBackground)
         self.setAttribute(Qt.WA_DeleteOnClose)
@@ -340,7 +341,7 @@ class CaptureEditor(QWidget):
         self.b_save = QPushButton(tr("Save"))
         self.b_save.setObjectName("primary")
         self.b_save.setCursor(Qt.PointingHandCursor)
-        self.b_save.clicked.connect(self.save)
+        self.b_save.clicked.connect(lambda: self.save())
         actions.addWidget(self.b_save)
         more = QPushButton(tr("More"))
         more.setCursor(Qt.PointingHandCursor)
@@ -400,6 +401,7 @@ class CaptureEditor(QWidget):
 
     def _changed(self):
         self.dirty = True
+        self._edits += 1
         self._update_status()
 
     def _update_status(self):
@@ -419,46 +421,49 @@ class CaptureEditor(QWidget):
         pin_picture(self.c, self.canvas.result(), self.geometry().center())
         self.close()
 
-    def _write(self, path: Path) -> bool:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        fmt = "JPG" if path.suffix.lower() in (".jpg", ".jpeg") else "PNG"
-        ok = self.canvas.result().save(str(path), fmt, 92 if fmt == "JPG" else -1)
-        if not ok:
-            self.c.tell(tr("Couldn't save"), str(path))
-        return ok
+    def _write(self, path: Path, then=None, toast: bool = False):
+        """Saved on a thread (the editor doesn't stop while a big PNG is written); then() once it's there."""
+        from .capture import write_later
+        edits = self._edits
+        c = self.c
 
-    def save(self) -> bool:
+        def done(ok: bool):
+            if not ok:
+                c.tell(tr("Couldn't save"), str(path))
+                return
+            if toast:
+                c.toast.notify(tr("Saved"), path.name, tr("Show in folder"), lambda p=path: reveal_in_explorer(p),
+                               linger_ms=4000)
+            if not _alive(self):
+                return
+            self.saved = path
+            self.dirty = self._edits != edits
+            self._update_status()
+            if then is not None:
+                then()
+        write_later(self.canvas.result(), path, done)
+
+    def save(self, then=None):
         from .capture import new_name, screenshots_folder
-        path = self.saved or new_name(screenshots_folder(), ".png")
-        if not self._write(path):
-            return False
-        self.saved = path
-        self.dirty = False
-        self._update_status()
-        self.c.toast.notify(tr("Saved"), path.name, tr("Show in folder"), lambda p=path: reveal_in_explorer(p),
-                            linger_ms=4000)
-        return True
+        self._write(self.saved or new_name(screenshots_folder(), ".png"), then, toast=True)
 
     def save_as(self):
         from .capture import new_name, screenshots_folder
         start = self.saved or new_name(screenshots_folder(), ".png")
         name, _ = QFileDialog.getSaveFileName(self, tr("Save as"), str(start), "PNG (*.png);;JPG (*.jpg)")
         if name:
-            path = Path(name)
-            if self._write(path):
-                self.saved = path
-                self.dirty = False
-                self._update_status()
+            self._write(Path(name))
 
     def _reveal(self):
-        if self.saved is None and not self.save():
+        if self.saved is None:
+            self.save(lambda: reveal_in_explorer(self.saved))
             return
         reveal_in_explorer(self.saved)
 
     def _viewer(self):
         if self.saved is None or self.dirty:
-            if not self.save():
-                return
+            self.save(lambda: self.c.open_viewer(self.saved))
+            return
         self.c.open_viewer(self.saved)
 
     def copy_text(self):
@@ -481,7 +486,8 @@ class CaptureEditor(QWidget):
 
     def closeEvent(self, e):
         if self.dirty and self.saved is not None:
-            self._write(self.saved)  # (marks made after saving are kept in the file)
+            from .capture import write_later
+            write_later(self.canvas.result(), self.saved)  # (marks made after saving are kept in the file)
         super().closeEvent(e)
 
 
