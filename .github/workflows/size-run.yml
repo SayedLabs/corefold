@@ -5,6 +5,7 @@ name: Size run
 on:
   push:
     branches: [claude/project-thread-0fzic9]
+    paths-ignore: [scripts/ffmpeg-lean.sh, .github/workflows/ffmpeg-lean.yml]
   workflow_dispatch:
 
 permissions:

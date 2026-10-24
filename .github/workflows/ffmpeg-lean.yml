@@ -4,6 +4,9 @@
 name: Build Corefold's FFmpeg
 
 on:
+  push:  # TEMPORARY: only while this branch is being made (delete before merging)
+    branches: [claude/project-thread-0fzic9]
+    paths: [scripts/ffmpeg-lean.sh, .github/workflows/ffmpeg-lean.yml]
   workflow_dispatch:
     inputs:
       commit:
