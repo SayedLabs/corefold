@@ -1,6 +1,9 @@
-"""Checks the everyday settings each tool should have (as other apps do), on a real Windows PC:
-the Uninstaller's right-click menu and saving its list; which copies Space ticks; after converting, keep the original's date and send the original to the Recycle Bin; after extracting, open the folder and send the archive (all its parts) to the Recycle Bin; the Viewer
-going round a folder; the PDF page saying where new files go.
+"""Checks the everyday things each tool should do (as other apps do), on a real Windows PC:
+- the Uninstaller's right-click menu and saving its list; which copies Space ticks;
+- after converting: keep the original's date, send the original to the Recycle Bin;
+- after extracting: open the folder, send the archive (all its parts) to the Recycle Bin; Extract to…;
+- the Viewer going round a folder, its mouse side buttons, copying the path and dragging a picture out;
+- the PDF page saying where new files go; Scan's hidden findings; a Player setting.
 
 Run from the repository's folder: python scripts/newtest_basics.py
 Everything happens in a temporary folder (the user's real settings are left alone). Prints one line
