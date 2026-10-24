@@ -291,6 +291,7 @@ def more_places():
     temp = WORK / "more"
     temp.mkdir(parents=True, exist_ok=True)
     odd = unsigned_copy(Path(sys.executable), temp / "helper.exe")
+    odd2 = unsigned_copy(Path(sys.executable), temp / "cmdhelper.exe")   # (the same program twice is shown once)
     hkcu, hklm = winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE
     pol = r"Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run"
     cmdp = r"Software\Microsoft\Command Processor"
@@ -307,7 +308,7 @@ def more_places():
         put(hkcu, pol, "CfScanTestPolicy", f'"{odd}"')
         auto_before = scan._reg_values(hkcu, cmdp).get("AutoRun")
         if auto_before is None:
-            put(hkcu, cmdp, "AutoRun", f'"{odd}"')
+            put(hkcu, cmdp, "AutoRun", f'"{odd2}"')
         put(hklm, ifeo, "Debugger", f'"{odd}"')
         put(hkcu, edge, "1", "abcdefghijklmnopabcdefghijklmnop;https://example.invalid/update.xml")
         put(hklm, svc, "ImagePath", f'"{odd}"', winreg.REG_EXPAND_SZ)
@@ -322,7 +323,8 @@ def more_places():
         check(any(f.kind == "startup" and same(f) and f.detail.get("name") == "CfScanTestPolicy"
                   for f in ch.findings), "a program started by the policy Run key is noticed")
         if auto_before is None:
-            check(any(f.kind == "startup" and same(f) and f.detail.get("name") == "AutoRun" for f in ch.findings),
+            check(any(f.kind == "startup" and os.path.normcase(f.path) == os.path.normcase(str(odd2)) and
+                      f.detail.get("name") == "AutoRun" for f in ch.findings),
                   "a program cmd.exe runs every time it opens (AutoRun) is noticed")
         check(any(f.kind == "replaced" and f.path.lower() == "cf-scantest-target.exe" and f.level == "warn"
                   for f in ch.findings), "a debugger put in front of a program is worth a look")
