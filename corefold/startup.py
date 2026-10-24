@@ -592,6 +592,47 @@ def read_note(entry: Entry):
     return _values(hive, approved, 64 if hive == "HKLM" else 0).get(entry.value)
 
 
+# ----------------------------------------------------------------------------- started later (by Corefold)
+
+LATER_AFTER_S = 60   # after signing in (Corefold starting with Windows), before the first one is started
+LATER_GAP_S = 5      # between one and the next
+
+
+def can_start_later(e: Entry) -> bool:
+    """A program Windows starts from Run or a Startup folder (not Corefold itself, not one that's gone)."""
+    return e.where in PLACES and not e.own and not e.missing and bool(e.command or e.extra.get("file"))
+
+
+def later_item(e: Entry) -> dict:
+    """What Corefold keeps to start it later (as in settings.startup_later)."""
+    return {"id": e.id, "name": e.name, "command": e.command, "file": str(e.extra.get("file") or "")}
+
+
+def start_now(item: dict) -> bool:
+    """Starts one program put off for later, the way Windows would have started it."""
+    if os.name != "nt":
+        return False
+    import subprocess
+    try:
+        link = item.get("file") or ""
+        if link:
+            if not os.path.exists(link):
+                return False
+            os.startfile(link)
+            return True
+        exe, args = split_command(os.path.expandvars(item.get("command") or ""))
+        exe = _full_path(exe)
+        if not exe or not os.path.isfile(exe):
+            return False
+        subprocess.Popen(f'"{exe}" {args}'.strip(), cwd=os.path.dirname(exe), close_fds=True,
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         creationflags=0x00000008 | 0x00000200)  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+        return True
+    except (OSError, ValueError):
+        log.warning("couldn't start %s", item.get("name"), exc_info=True)
+        return False
+
+
 def set_on(entry: Entry, on: bool, ask_admin: bool = True) -> bool:
     """Switches an entry on or off the way Task Manager does. Only its note under StartupApproved
     changes; the entry itself is never touched. Returns True when the change is made. An entry for

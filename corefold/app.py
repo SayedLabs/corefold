@@ -926,6 +926,17 @@ class Controller(QObject):
             log.info("running in the background: %s", ", ".join(running))
             winutil.log_memory("background tools started")
 
+    def start_later(self, items: list | None = None):
+        """Starts the programs put off until a minute after sign-in (Corefold Startup), one by one."""
+        from . import startup
+        items = list(self.settings.startup_later) if items is None else items
+        if not items:
+            return
+        ok = startup.start_now(items[0])
+        log.info("started later: %s%s", items[0].get("name"), "" if ok else " (couldn't)")
+        if len(items) > 1:
+            QTimer.singleShot(startup.LATER_GAP_S * 1000, lambda: self.start_later(items[1:]))
+
     def keep_tidy(self):
         """File Organizer's "keep this folder tidy by itself": a look every hour, a sort once a day."""
         on = bool(self.settings.organize_auto_folder) and all_tools.is_on(self.settings, "organizer")
@@ -2585,6 +2596,9 @@ def main() -> int:
         if not s.tour_done and (not message or message.startswith(b"show")) and "--background" not in argv:
             QTimer.singleShot(700, controller.show_tour)
     s.save()
+    if "--background" in argv and s.startup_later:  # (started with Windows: the programs put off come next)
+        from .startup import LATER_AFTER_S
+        QTimer.singleShot(LATER_AFTER_S * 1000, controller.start_later)
     threading.Thread(target=_prune_backups, args=(s.backup_days,), daemon=True).start()
     QTimer.singleShot(IDLE_TIDY_MS, controller.tidy_up)
     QTimer.singleShot(IDLE_TIDY_MS - 5000, lambda: winutil.log_memory("before the first tidy"))

@@ -32,6 +32,9 @@ WHERE = {"HKCU-Run": "Registry, this user", "HKLM-Run": "Registry, everyone",
          "Task": "Scheduled task"}
 # the list in three parts, so what's old is clearly old: (key, heading, a line about it)
 SECTIONS = [("on", "Starting with Windows", ""),
+            ("later", "Started a minute after you sign in",
+             "Corefold starts these itself, a minute after you sign in, so your PC is ready to use sooner. Windows "
+             "skips them, and Corefold has to start with Windows for this."),
             ("off", "Switched off",
              "Windows keeps these so they can be switched back on. Some may have been switched off a long time "
              "ago, by you, by Task Manager or by the program itself."),
@@ -43,7 +46,14 @@ SECTIONS = [("on", "Starting with Windows", ""),
 def section_of(e: startup.Entry) -> str:
     if e.missing and not e.own:
         return "gone"
+    if e.extra.get("later"):
+        return "later"
     return "on" if e.on else "off"
+
+
+def starts(e: startup.Entry) -> bool:
+    """It starts when the person signs in: by Windows, or a minute later by Corefold."""
+    return e.on or bool(e.extra.get("later"))
 
 
 def describe(e: startup.Entry) -> str:
@@ -54,7 +64,7 @@ def describe(e: startup.Entry) -> str:
     elif e.publisher:
         bits.append(ltr(e.publisher))
     bits.append(tr(WHERE.get(e.where, e.where)))
-    if not e.on and e.off_since:
+    if not e.on and e.off_since and not e.extra.get("later"):
         bits.append(tr("Off since {date}", date=date_text(e.off_since, long=True)))
     return _para("  ·  ".join(bits))
 
@@ -65,7 +75,7 @@ def _para(text: str) -> str:
 
 
 def matches(e: startup.Entry, text: str, show: str) -> bool:
-    if show == "on" and not e.on or show == "off" and e.on or show == "new" and not e.new:
+    if show == "on" and not starts(e) or show == "off" and starts(e) or show == "new" and not e.new:
         return False
     text = text.strip().lower()
     return not text or any(text in s.lower() for s in (e.name, e.value, e.publisher, e.command))
@@ -85,7 +95,7 @@ class EntryRow(QWidget):
         else:
             tile.setPixmap(icons.pixmap("apps", 22, page.c.theme.muted, self.devicePixelRatioF()))
         self.switch = Switch()
-        self.switch.setChecked(entry.on)
+        self.switch.setChecked(starts(entry))
         self.switch.setEnabled(not entry.locked)
         self.switch.setAccessibleName(entry.name)
         self.switch.toggled.connect(self._toggled)
@@ -140,6 +150,17 @@ class EntryRow(QWidget):
         go.triggered.connect(lambda: reveal_in_explorer(Path(place)))
         copy = m.addAction(icons.icon("copy", self.page.c.theme.muted), tr("Copy what it runs"))
         copy.triggered.connect(lambda: QGuiApplication.clipboard().setText(e.command))
+        if e.extra.get("later"):
+            m.addAction(icons.icon("arrow_undo", self.page.c.theme.muted), tr("Start it with Windows again"),
+                        lambda: self.page.start_later(self, False))
+        elif startup.can_start_later(e) and e.on:
+            from .settings import startup_enabled
+            ready = startup_enabled()
+            act = m.addAction(icons.icon("timer", self.page.c.theme.muted),
+                              tr("Start it a minute after sign-in") if ready else
+                              tr("Start it a minute after sign-in (Corefold has to start with Windows)"),
+                              lambda: self.page.start_later(self, True))
+            act.setEnabled(ready)
         props = m.addAction(tr("Properties"))
         props.setEnabled(bool(e.exe and os.path.isfile(e.exe)))
         props.triggered.connect(lambda: properties(Path(e.exe)))
@@ -307,6 +328,7 @@ class StartupPage(QWidget):
             self.entries = []
             self._say(tr("Corefold couldn't read what starts with Windows."))
         else:
+            self._mark_later(result)
             for e in result:
                 if e.id in self.new_ids:
                     e.new = True
@@ -321,7 +343,8 @@ class StartupPage(QWidget):
             if same:  # (nothing changed: the rows stay, without a flicker)
                 for row, e in zip(self.rows, result):
                     row.entry = e
-                self._show_state()
+                self._regroup()  # (one switched since is put in its part now)
+                self.filter()
                 return
         self._fill()
 
@@ -405,11 +428,73 @@ class StartupPage(QWidget):
             self.empty.setText(tr("Nothing matches."))
         self.empty.setVisible((self.loading and not self.rows) or not shown)
         self.scroll.setVisible(shown > 0)
-        on = sum(1 for e in self.entries if e.on)
+        on = sum(1 for e in self.entries if starts(e))
         off = len(self.entries) - on
         self.count.setText(tr("Starting with Windows: {count}", count=on) +
                            ("  ·  " + tr("Switched off: {count}", count=off) if off else ""))
         self.count.setVisible(bool(self.entries))
+
+    # ---- started a minute later, by Corefold
+
+    def _mark_later(self, entries: list[startup.Entry]):
+        """Marks the ones Corefold starts later, and forgets any switched back on elsewhere (Task Manager)
+        or gone, so nothing is ever started twice."""
+        s = self.c.settings
+        kept = {d["id"]: d for d in s.startup_later}
+        now = []
+        for e in entries:
+            d = kept.get(e.id)
+            if d is None:
+                continue
+            if e.on or not startup.can_start_later(e):
+                continue
+            e.extra["later"] = True
+            now.append(startup.later_item(e))
+        if now != s.startup_later:
+            s.startup_later = now
+            self.c.settings_changed()
+
+    def start_later(self, row: EntryRow, later: bool):
+        """Puts a program off until a minute after sign-in (switched off in Windows, started by Corefold),
+        or gives it back to Windows."""
+        e = row.entry
+        if self.busy:
+            return
+        row.switch.setEnabled(False)
+        self.busy += 1
+        self.refresh_btn.setEnabled(False)
+        job = work.run(lambda _p: startup.set_on(e, not later), lambda _: None,
+                       lambda result, r=row: self._later_done(r, later, result), name="corefold-startup-later")
+        self.switching.append(job)
+
+    def _later_done(self, row: EntryRow, later: bool, result):
+        self.busy -= 1
+        self.switching = [j for j in self.switching if j.is_alive()]
+        if not work.alive(self):
+            return
+        self.refresh_btn.setEnabled(not self.busy and not self.loading)
+        if not work.alive(row):
+            return
+        row.switch.setEnabled(True)
+        e = row.entry
+        if result is not True:
+            if isinstance(result, Exception):
+                log.warning("couldn't put %s off: %s", e.value, result)
+            self._say(tr("Windows didn't allow that change, so {name} is as it was.", name=ltr(e.name)))
+            return
+        s = self.c.settings
+        s.startup_later = [d for d in s.startup_later if d["id"] != e.id]
+        if later:
+            e.extra["later"] = True
+            s.startup_later.append(startup.later_item(e))
+        else:
+            e.extra.pop("later", None)
+        self.c.settings_changed()
+        self.problem.hide()
+        row.set_checked_quietly(True)
+        row.refresh_text()
+        self._regroup()
+        self.filter()
 
     # ---- switching on and off
 
@@ -417,6 +502,15 @@ class StartupPage(QWidget):
         """A switch was flipped: change it (off the window's thread, as Windows may ask for permission
         first), and put the switch back if it didn't work."""
         e = row.entry
+        if e.extra.get("later"):  # (already off in Windows: Corefold just doesn't start it any more)
+            if not on:
+                e.extra.pop("later", None)
+                s = self.c.settings
+                s.startup_later = [d for d in s.startup_later if d["id"] != e.id]
+                self.c.settings_changed()
+                row.refresh_text()
+                self._show_state()
+            return
         row.switch.setEnabled(False)
         self.busy += 1
         self.refresh_btn.setEnabled(False)

@@ -1381,8 +1381,8 @@ class UpdatesDialog(QDialog):
             return
         self._busy(False)
         if isinstance(result, FileNotFoundError):
-            self.status.setText(tr("Windows' package manager (winget) isn't on this PC. It comes with “App Installer” "
-                                   "from the Microsoft Store."))
+            self.status.setText(tr("Windows' package manager (winget) isn't on this PC. It comes with "
+                                   "“App Installer” from the Microsoft Store."))
             self.b_store.show()
             return
         if isinstance(result, Exception):

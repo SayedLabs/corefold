@@ -42,7 +42,8 @@ SYSTEM32 = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32"
 NOTEPAD = SYSTEM32 / "notepad.exe"
 GONE = TMP / "gone" / "NotThereAnyMore.exe"
 TEST = ["CfStartupTest", "CfStartupGone", "CfStartupLater", "CfStartupHost", "CfStartupWide", "CfStartupWide32",
-        "CfStartupLeft", "CfStartupAway", 'Cf"Startup\\Odd', "CfStartupWideLeft", "CfStartupWideLeft32"]
+        "CfStartupLeft", "CfStartupAway", 'Cf"Startup\\Odd', "CfStartupWideLeft", "CfStartupWideLeft32",
+        "CfStartupDelay"]
 HKLM_64 = winreg.KEY_WOW64_64KEY
 HKLM_32 = winreg.KEY_WOW64_32KEY
 
@@ -525,6 +526,61 @@ def page():
         check(pg.problem.isHidden(), "no problem shown")
     finally:
         startup.leftovers = real_left
+    # put off until a minute after sign-in: Windows skips it, Corefold starts it
+    import corefold.settings as cs
+    from corefold import startuppage
+    real_enabled = cs.startup_enabled
+    cs.startup_enabled = lambda: True  # (as if Corefold started with Windows)
+    proof = TMP / "later-proof.txt"
+    put(winreg.HKEY_CURRENT_USER, startup.RUN, "CfStartupDelay", f'"{SYSTEM32 / "cmd.exe"}" /c echo later> "{proof}"')
+    try:
+        QTest.mouseClick(pg.refresh_btn, Qt.LeftButton)
+        check(until(lambda: not pg.loading and any(r.entry.value == "CfStartupDelay" for r in pg.rows), 15),
+              "(one to put off is listed)")
+        row = next((r for r in pg.rows if r.entry.value == "CfStartupDelay"), None)
+        if row is not None:
+            seen = []
+
+            class Menu(startuppage.QMenu):  # (shows nothing: only says what it would offer)
+                def exec(self, *_):
+                    seen.extend((x.text(), x.isEnabled()) for x in self.actions() if x.text())
+            real_menu, startuppage.QMenu = startuppage.QMenu, Menu
+            try:
+                row._menu(None, row.mapToGlobal(row.rect().center()))
+            finally:
+                startuppage.QMenu = real_menu
+            check(("Start it a minute after sign-in", True) in seen,
+                  f"its menu offers to start it a minute later {seen}")
+            pg.start_later(row, True)
+            check(until(lambda: not pg.busy, 15), "putting it off: done")
+            note = get(winreg.HKEY_CURRENT_USER, startup.APPROVED + r"\Run", "CfStartupDelay")
+            check(isinstance(note, bytes) and note[0] == 3 and row.switch.isChecked()
+                  and row_in(pg, "CfStartupDelay", "later")
+                  and any(d["id"] == row.entry.id for d in c.settings.startup_later),
+                  "Windows skips it now, and it's in \"Started a minute after you sign in\", switched on")
+            QTest.mouseClick(pg.refresh_btn, Qt.LeftButton)
+            check(until(lambda: not pg.loading, 15) and row_in(pg, "CfStartupDelay", "later"),
+                  "…still there when read again")
+            pg.scroll.ensureWidgetVisible(next(r for r in pg.rows if r.entry.value == "CfStartupDelay"))
+            settle(0.4)
+            w.grab().save(str(OUT / f"startup-later-{LANG}-{LOOK}.png"))
+            c.start_later()
+            check(until(proof.exists, 15), "Corefold starts it, with what it was given to run")
+            # switched back on in Task Manager: Corefold forgets it (it would start twice)
+            put(winreg.HKEY_CURRENT_USER, startup.APPROVED + r"\Run", "CfStartupDelay", startup.ON_BYTES,
+                winreg.REG_BINARY)
+            QTest.mouseClick(pg.refresh_btn, Qt.LeftButton)
+            check(until(lambda: not pg.loading, 15) and row_in(pg, "CfStartupDelay", "on")
+                  and not c.settings.startup_later, "switched back on elsewhere: Corefold doesn't start it any more")
+            row = next(r for r in pg.rows if r.entry.value == "CfStartupDelay")
+            pg.start_later(row, True)
+            until(lambda: not pg.busy, 15)
+            pg.start_later(row, False)
+            check(until(lambda: not pg.busy, 15) and row.entry.on and not c.settings.startup_later
+                  and get(winreg.HKEY_CURRENT_USER, startup.APPROVED + r"\Run", "CfStartupDelay") == startup.ON_BYTES,
+                  "\"Start it with Windows again\" gives it back to Windows")
+    finally:
+        cs.startup_enabled = real_enabled
     for small in ((760, 520), (1500, 900)):
         w.resize(*small)
         settle(0.4)
