@@ -1760,8 +1760,8 @@ class Controller(QObject):
             QGuiApplication.clipboard().setText(result.clipboard)
         first = result.outputs[0] if result.outputs else None
         # a whole archive came out without a problem: what Settings › Archives says happens next
-        extracted = bool(tool and tool.key in ("archive:extract", "archive:folder", "archive:to") and not cancelled and not errors
-                         and result.outputs and not job["params"].get("members"))
+        extracted = bool(tool and tool.key in ("archive:extract", "archive:folder", "archive:to") and not cancelled
+                         and not errors and result.outputs and not job["params"].get("members"))
         recycled = self._recycle_extracted(files) if extracted and self.settings.extract_recycle else 0
         # converted to another format: the originals can go (Settings › Converter); each only when it came out
         originals = 0
