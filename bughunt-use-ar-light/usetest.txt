@@ -1,0 +1,386 @@
+note  versions: PySide6-Essentials 6.12.0, Pillow 13.0.0, pypdfium2 5.14.0, pypdf 6.21.2
+note  the first text on this PC (Windows reading its fonts): 3.3 s
+note  no HEIC test file ('HEIF')
+note  test files made in 84 s
+----- start
+ok       0.07 s  (limit 4 s)  Corefold starts (tray icon ready)
+ok       1.74 s  (limit 2.5 s)  the window opens the first time   · window froze 1.65 s
+ok       0.23 s  (limit 1 s)  the window opens again (closed, then opened from the tray)
+ok       0.00 s  open the Home page
+ok       0.02 s  open the History page
+ok       0.02 s  open the Converter page
+ok       0.15 s  open the Apps page
+ok       0.03 s  open the Archives page
+ok       0.05 s  open the Viewer page
+ok       0.08 s  open the Player page
+ok       0.03 s  open the Capture page
+ok       0.12 s  open the Space page
+ok       0.35 s  open the Clipboard page
+ok       0.03 s  open the Cloud page
+ok       0.07 s  open the Startup page
+ok       0.28 s  open the Scan page
+ok       0.21 s  open the PDF page
+ok       0.03 s  open the Rename page
+ok       0.04 s  open the Colors page
+ok       0.03 s  open the Ruler page
+ok       0.02 s  open the Check page
+ok       0.02 s  open the Shredder page
+ok       0.02 s  open the Fonts page
+ok       0.02 s  open the Network page
+ok       0.02 s  open the Battery page
+ok       0.02 s  open the Focus page
+ok       0.03 s  open the Layouts page
+ok       0.04 s  open the Drivers page
+ok       0.07 s  open the Awake page
+ok       0.02 s  open the Snippets page
+ok       0.02 s  open the Backup page
+ok       0.02 s  open the Notes page
+ok       0.02 s  open the System page
+ok       0.07 s  open the Unlock page
+ok       0.07 s  open the Organizer page
+ok       0.03 s  open the Sound page
+ok       0.14 s  open the Store page
+ok       0.03 s  open the General page
+ok       0.01 s  open the Look page
+ok       0.02 s  open the Quick page
+ok       0.01 s  open the Shortcuts page
+ok       0.01 s  open the ConvOptions page
+ok       0.00 s  open the WheelLook page
+ok       0.03 s  open the Formats page
+ok       0.01 s  open the AppsSettings page
+ok       0.01 s  open the ArchiveSettings page
+ok       0.02 s  open the ViewerSettings page
+ok       0.01 s  open the PlayerSettings page
+ok       0.01 s  open the CaptureSettings page
+ok       0.01 s  open the ClipboardSettings page
+ok       0.02 s  open the Updates page
+ok       0.02 s  open the About page
+ok    every page opens in under 0.4 s (49 pages; slow: none)
+ok    the mouse's back button goes back a page (Space)
+SLOW     2.29 s  (limit 2.0 s)  switch dark/light   · window froze 2.32 s
+SLOW     2.32 s  (limit 2.0 s)  switch it back   · window froze 2.38 s
+ok    start: no errors behind the clicks (0)
+----- search
+ok       0.09 s  (limit 0.4 s)  Ctrl + K opens the search
+ok       0.03 s  (limit 0.15 s)  typing 'c' in the search
+ok       0.02 s  (limit 0.15 s)  typing 'co' in the search
+ok       0.01 s  (limit 0.15 s)  typing 'con' in the search
+ok       0.01 s  (limit 0.15 s)  typing 'conv' in the search
+ok       0.01 s  (limit 0.15 s)  typing 'convert' in the search
+ok       0.01 s  (limit 0.15 s)  typing 'dark' in the search
+ok       0.01 s  (limit 0.15 s)  typing 'space' in the search
+ok       0.00 s  (limit 0.15 s)  typing 'zzzz' in the search
+ok    search: no errors behind the clicks (0)
+----- quick
+ok    the quick menu is running
+SLOW     0.36 s  (limit 0.35 s)  the quick menu opens   · window froze 0.30 s
+ok       0.17 s  (limit 0.3 s)  …and closes
+ok       0.02 s  (limit 0.2 s)  the quick menu again (2)
+ok       0.03 s  (limit 0.2 s)  the quick menu again (3)
+ok       0.02 s  (limit 0.2 s)  the quick menu again (4)
+ok       0.03 s  (limit 0.2 s)  the quick menu again (5)
+ok       0.02 s  (limit 0.2 s)  the quick menu again (6)
+ok       0.04 s  (limit 0.35 s)  the quick wheel opens
+ok    quick: no errors behind the clicks (0)
+----- space
+ok    the Space page opens
+ok      63.72 s  (limit 400 s)  look through C:\Windows (hundreds of thousands of files)
+note  the scan in the page: 64 s, this app used 42% of one core, the whole PC was 14% busy (4 cores)
+note  the scan on its own: 11 s, this app used 183% of one core, the whole PC was 49% busy (4 cores)
+note  the same again, on its own (the disk remembers part of it now): 170,731 files, 41,245 folders in 10.8 s (15,789 a second)
+note  170,731 files in 63.5 s
+ok       0.08 s  (limit 0.4 s)  open the biggest folder in the map
+ok       0.07 s  (limit 0.4 s)  back up
+ok       0.14 s  (limit 0.5 s)  make the window bigger (the map is drawn again)
+ok       0.17 s  (limit 30 s)  look for junk
+ok       1.18 s  (limit 20 s)  look for copies in a folder of 1,530 files + 800 pictures
+note  looking for copies: 1 s, this app used 291% of one core, the whole PC was 74% busy (4 cores)
+ok    space: no errors behind the clicks (0)
+----- converter
+ok       0.06 s  (limit 0.8 s)  drop 20 phone photos on the window (options show)
+ok       0.01 s  (limit 0.3 s)  work out the wheel for 20 photos
+ok       0.17 s  (limit 1.0 s)  work out the wheel for a 1080p video
+ok       0.04 s  (limit 0.35 s)  the wheel opens for 20 photos
+ok       6.32 s  (limit 40 s)  20 phone photos → PNG
+ok    …20 file(s) made
+ok      26.99 s  (limit 30 s)  20 phone photos → WebP
+ok    …20 file(s) made
+ok       2.13 s  (limit 25 s)  20 phone photos → smaller
+ok    …20 file(s) made
+ok       0.11 s  (limit 30 s)  20 phone photos → one PDF
+ok    …1 file(s) made
+ok       1.02 s  (limit 6 s)  48 MP picture → JPG
+ok    …1 file(s) made
+ok      29.90 s  (limit 120 s)  90 s 1080p video → smaller
+ok    …1 file(s) made
+ok       0.52 s  (limit 15 s)  90 s 1080p video → MP3
+ok    …1 file(s) made
+ok      18.00 s  (limit 90 s)  90 s 1080p video → GIF
+ok    …1 file(s) made
+ok      51.73 s  (limit 150 s)  4K HEVC film → MP4
+ok    …1 file(s) made
+ok       5.91 s  (limit 30 s)  phone .mov → MP4
+ok    …1 file(s) made
+ok       1.71 s  (limit 15 s)  4 min WAV → MP3
+ok    …1 file(s) made
+ok       0.98 s  (limit 15 s)  FLAC → MP3
+ok    …1 file(s) made
+ok       3.41 s  (limit 40 s)  40-page PDF → pictures
+ok    …1 file(s) made
+ok       2.32 s  (limit 40 s)  40-page PDF → smaller
+ok    …1 file(s) made
+ok       1.09 s  (limit 20 s)  folder of 1,530 files → ZIP
+ok    …1 file(s) made
+ok       5.39 s  (limit 40 s)  folder of 1,530 files → 7z
+ok    …1 file(s) made
+ok       0.80 s  (limit 3 s)  stop a long conversion (Cancel)
+ok    …nothing is left running
+ok    converter: no errors behind the clicks (0)
+----- archive
+ok       0.96 s  (limit 4 s)  open a ZIP with 20,000 files (window shows)
+ok       0.12 s  (limit 0.6 s)  search in it
+ok       0.26 s  (limit 3 s)  open one file inside
+ok       0.31 s  (limit 25 s)  Extract to… (all 20,000 files)
+ok       0.24 s  (limit 3 s)  open a 7z (1,530 files)
+ok    archive: no errors behind the clicks (0)
+----- viewer
+ok       0.17 s  (limit 1.2 s)  open a 12 MP phone photo in the Viewer
+ok       1.04 s  (limit 3 s)  open a 48 MP PNG in the Viewer
+ok       0.02 s  (limit 2 s)  open a 48 MP JPG in the Viewer
+ok       0.27 s  (limit 1.2 s)  open a WebP in the Viewer
+ok       0.02 s  (limit 1.5 s)  open a TIFF in the Viewer
+ok       0.03 s  (limit 1.2 s)  open a animated GIF in the Viewer
+ok       0.00 s  (limit 0.15 s)  zoom in (1)
+ok       0.00 s  (limit 0.15 s)  zoom in (2)
+ok       0.00 s  (limit 0.15 s)  zoom in (3)
+ok       0.00 s  (limit 0.15 s)  zoom in (4)
+ok       0.00 s  (limit 0.15 s)  zoom in (5)
+ok       0.00 s  (limit 0.15 s)  zoom in (6)
+ok       0.00 s  (limit 0.15 s)  zoom back to fit
+ok       0.14 s  (limit 1.5 s)  turn a 48 MP picture
+ok       0.09 s  (limit 1.5 s)  open a picture in a folder of 800
+ok    …all 800 are in the list (800)
+ok       1.44 s  (limit 2.5 s)  hold → for 30 pictures (keeps up, no freeze)
+ok       0.02 s  (limit 1 s)  Home → first picture
+ok       0.05 s  (limit 0.8 s)  full screen
+ok       0.03 s  (limit 0.8 s)  leave full screen
+ok       0.00 s  (limit 0.5 s)  details panel
+ok    viewer: no errors behind the clicks (0)
+----- player
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'C:/Users/RUNNER~1/AppData/Local/Temp/corefold-use-0jd206ly/files/Trip 1080p.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf63.1.102
+  Duration: 00:01:30.00, start: 0.000000, bitrate: 5450 kb/s
+  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 1920x1080 [SAR 1:1 DAR 16:9], 5372 kb/s, 30 fps, 30 tbr, 15360 tbn (default)
+    Metadata:
+      handler_name    : VideoHandler
+      encoder         : Lavc63.1.102 libx264
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, mono, fltp, 69 kb/s (default)
+    Metadata:
+      handler_name    : SoundHandler
+[av1_mf @ 000001F50BD8B500] could not find any MFT for the given media type
+[av1_mf @ 000001F50BD8B500] could not create MFT
+[h264_mf @ 000001F50BD8B500] MFT name: 'H264 Encoder MFT'
+[hevc_mf @ 000001F50BD8B500] could not find any MFT for the given media type
+[hevc_mf @ 000001F50BD8B500] could not create MFT
+[AVHWFramesContext @ 000001F5061B87C0] Could not create the surfaces
+[AVHWFramesContext @ 000001F5061B87C0] Error creating an internal frame pool
+[h264 @ 000001F50BD87D80] Failed setup for format dxva2_vld: hwaccel initialisation returned error.
+ok       0.64 s  (limit 3 s)  play a 90 s 1080p MP4   · window froze 0.27 s
+Input #0, matroska,webm, from 'C:/Users/RUNNER~1/AppData/Local/Temp/corefold-use-0jd206ly/files/Film 4K HEVC.mkv':
+  Metadata:
+    ENCODER         : Lavf63.1.102
+  Duration: 00:00:20.02, start: 0.000000, bitrate: 13313 kb/s
+  Stream #0:0: Video: hevc (Main), yuv420p(tv, progressive), 3840x2160 [SAR 1:1 DAR 16:9], 30 fps, 30 tbr, 1k tbn
+    Metadata:
+      ENCODER         : Lavc63.1.102 libx265
+      DURATION        : 00:00:20.000000000
+  Stream #0:1: Audio: aac (LC), 44100 Hz, mono, fltp
+    Metadata:
+      ENCODER         : Lavc63.1.102 aac
+      DURATION        : 00:00:20.023000000
+[AVHWFramesContext @ 000001F511CD3C40] Could not create the surfaces
+[AVHWFramesContext @ 000001F511CD3C40] Error creating an internal frame pool
+[hevc @ 000001F50BD8AD80] Failed setup for format dxva2_vld: hwaccel initialisation returned error.
+ok       0.31 s  (limit 4 s)  play a 4K HEVC MKV
+Input #0, matroska,webm, from 'C:/Users/RUNNER~1/AppData/Local/Temp/corefold-use-0jd206ly/files/Clip.webm':
+  Metadata:
+    ENCODER         : Lavf63.1.102
+  Duration: 00:00:15.01, start: 0.000000, bitrate: 1108 kb/s
+  Stream #0:0: Video: vp9 (Profile 0), yuv420p(tv, progressive), 1280x720, SAR 1:1 DAR 16:9, 30 fps, 30 tbr, 1k tbn
+    Metadata:
+      ENCODER         : Lavc63.1.102 libvpx-vp9
+      DURATION        : 00:00:15.000000000
+  Stream #0:1: Audio: opus, 48000 Hz, mono, fltp
+    Metadata:
+      ENCODER         : Lavc63.1.102 libopus
+      DURATION        : 00:00:15.008000000
+[AVHWFramesContext @ 000001F511CD4CC0] Could not create the surfaces
+[AVHWFramesContext @ 000001F511CD4CC0] Error creating an internal frame pool
+[vp9 @ 000001F50BD87D80] Failed setup for format dxva2_vld: hwaccel initialisation returned error.
+ok       0.31 s  (limit 3 s)  play a VP9 WebM
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'C:/Users/RUNNER~1/AppData/Local/Temp/corefold-use-0jd206ly/files/Phone video.mov':
+  Metadata:
+    major_brand     : qt  
+    minor_version   : 512
+    compatible_brands: qt  
+    encoder         : Lavf63.1.102
+  Duration: 00:00:10.00, start: 0.000000, bitrate: 12838 kb/s
+  Stream #0:0[0x1]: Video: h264 (Constrained Baseline) (avc1 / 0x31637661), yuv420p(progressive), 1280x720 [SAR 1:1 DAR 16:9], 12835 kb/s, 60 fps, 60 tbr, 15360 tbn (default)
+    Metadata:
+      handler_name    : VideoHandler
+      vendor_id       : FFMP
+      encoder         : Lavc63.1.102 libx264
+[AVHWFramesContext @ 000001F511CD3640] Could not create the surfaces
+[AVHWFramesContext @ 000001F511CD3640] Error creating an internal frame pool
+[h264 @ 000001F50BD8B880] Failed setup for format dxva2_vld: hwaccel initialisation returned error.
+ok       0.31 s  (limit 3 s)  play a 60 fps phone MOV
+Input #0, mp3, from 'C:/Users/RUNNER~1/AppData/Local/Temp/corefold-use-0jd206ly/files/Song.mp3':
+  Metadata:
+    encoder         : Lavf63.1.102
+  Duration: 00:03:20.00, start: 0.025057, bitrate: 192 kb/s
+  Stream #0:0: Audio: mp3 (mp3float), 44100 Hz, mono, fltp, 192 kb/s, start 0.025057
+ok       0.27 s  (limit 2 s)  play a MP3 song
+Input #0, flac, from 'C:/Users/RUNNER~1/AppData/Local/Temp/corefold-use-0jd206ly/files/Song.flac':
+  Metadata:
+    encoder         : Lavf63.1.102
+  Duration: 00:03:00.00, start: 0.000000, bitrate: 123 kb/s
+  Stream #0:0: Audio: flac, 44100 Hz, mono, s16
+ok       0.27 s  (limit 2 s)  play a FLAC song
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'C:/Users/RUNNER~1/AppData/Local/Temp/corefold-use-0jd206ly/files/Trip 1080p.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf63.1.102
+  Duration: 00:01:30.00, start: 0.000000, bitrate: 5450 kb/s
+  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 1920x1080 [SAR 1:1 DAR 16:9], 5372 kb/s, 30 fps, 30 tbr, 15360 tbn (default)
+    Metadata:
+      handler_name    : VideoHandler
+      encoder         : Lavc63.1.102 libx264
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, mono, fltp, 69 kb/s (default)
+    Metadata:
+      handler_name    : SoundHandler
+[AVHWFramesContext @ 000001F5061B8AC0] Could not create the surfaces
+[AVHWFramesContext @ 000001F5061B8AC0] Error creating an internal frame pool
+[h264 @ 000001F50BD88140] Failed setup for format dxva2_vld: hwaccel initialisation returned error.
+ok       0.02 s  (limit 0.8 s)  jump to 60 s
+ok       0.02 s  (limit 0.8 s)  jump to 10 s
+ok       0.02 s  (limit 0.8 s)  jump to 80 s
+ok       0.02 s  (limit 0.8 s)  jump to 30 s
+ok       0.02 s  (limit 0.8 s)  jump to 45 s
+ok       0.65 s  (limit 1.5 s)  click along the bar 10 times quickly
+ok       0.02 s  (limit 0.3 s)  pause
+ok       0.02 s  (limit 0.5 s)  play
+ok       0.04 s  (limit 0.8 s)  full screen
+ok       0.05 s  (limit 0.8 s)  leave full screen
+ok       0.03 s  (limit 0.8 s)  mini player
+ok       0.02 s  (limit 3 s)  next file in the folder
+ok    player: no errors behind the clicks (0)
+----- capture
+ok    Capture is running
+ok       0.32 s  (limit 0.6 s)  screenshot: the screen freezes for picking
+ok       0.36 s  (limit 1.2 s)  pick an area: the editor opens   · window froze 0.35 s
+ok       0.33 s  (limit 1.0 s)  Save in the editor   · window froze 0.57 s
+ok    capture: no errors behind the clicks (0)
+----- clipboard
+ok    the Clipboard is running
+ok    every copy is kept (75 of 75, 25.6 s)
+ok    copying doesn't hold the app up (longest 0.00 s)
+ok       0.03 s  (limit 0.5 s)  open the clipboard list with 300+ copies
+ok       0.00 s  (limit 0.2 s)  search the clipboard: 'c'
+ok       0.00 s  (limit 0.2 s)  search the clipboard: 'co'
+ok       0.00 s  (limit 0.2 s)  search the clipboard: 'number 2'
+ok       0.00 s  (limit 0.2 s)  search the clipboard: 'zzzz'
+ok       0.00 s  (limit 0.2 s)  search the clipboard: ''
+ok       0.02 s  (limit 0.6 s)  the Clipboard page with 300+ copies
+ok    clipboard: no errors behind the clicks (0)
+----- store
+ok       1.31 s  (limit 1.5 s)  Store: remove converter   · window froze 1.27 s
+ok       1.28 s  (limit 1.5 s)  Store: add converter back   · window froze 1.24 s
+SLOW     2.04 s  (limit 1.5 s)  Store: remove uninstaller   · window froze 1.65 s
+ok       1.48 s  (limit 1.5 s)  Store: add uninstaller back   · window froze 1.56 s
+ok       1.49 s  (limit 1.5 s)  Store: remove archive   · window froze 1.44 s
+SLOW     1.68 s  (limit 1.5 s)  Store: add archive back   · window froze 1.54 s
+SLOW     1.64 s  (limit 1.5 s)  Store: remove viewer   · window froze 1.57 s
+ok       1.27 s  (limit 1.5 s)  Store: add viewer back   · window froze 1.34 s
+ok       1.26 s  (limit 1.5 s)  Store: remove player   · window froze 1.32 s
+ok       1.25 s  (limit 1.5 s)  Store: add player back   · window froze 1.32 s
+ok       1.21 s  (limit 1.5 s)  Store: remove capture   · window froze 1.28 s
+ok       1.27 s  (limit 1.5 s)  Store: add capture back   · window froze 1.23 s
+ok       1.33 s  (limit 1.5 s)  Store: remove space   · window froze 1.40 s
+ok       1.42 s  (limit 1.5 s)  Store: add space back   · window froze 1.41 s
+ok       1.43 s  (limit 1.5 s)  Store: remove clipboard   · window froze 1.50 s
+ok       1.29 s  (limit 1.5 s)  Store: add clipboard back   · window froze 1.37 s
+ok       1.47 s  (limit 1.5 s)  Store: remove startup   · window froze 1.41 s
+ok       1.30 s  (limit 1.5 s)  Store: add startup back   · window froze 1.38 s
+ok       1.46 s  (limit 1.5 s)  Store: remove scan   · window froze 1.40 s
+SLOW     1.64 s  (limit 1.5 s)  Store: add scan back   · window froze 1.75 s
+SLOW     1.57 s  (limit 1.5 s)  Store: remove pdf   · window froze 1.52 s
+SLOW     1.95 s  (limit 1.5 s)  Store: add pdf back   · window froze 1.96 s
+SLOW     2.07 s  (limit 1.5 s)  Store: remove colors   · window froze 2.01 s
+ok       1.43 s  (limit 1.5 s)  Store: add colors back   · window froze 1.53 s
+ok       1.39 s  (limit 1.5 s)  Store: remove awake   · window froze 1.47 s
+SLOW     1.57 s  (limit 1.5 s)  Store: add awake back   · window froze 1.51 s
+SLOW     1.53 s  (limit 1.5 s)  Store: remove unlock   · window froze 1.47 s
+SLOW     1.51 s  (limit 1.5 s)  Store: add unlock back   · window froze 1.59 s
+SLOW     1.62 s  (limit 1.5 s)  Store: remove organizer   · window froze 1.62 s
+SLOW     1.56 s  (limit 1.5 s)  Store: add organizer back   · window froze 1.51 s
+ok    store: no errors behind the clicks (0)
+----- idle
+note  idle, processor time by thread in 15 s: MainThread 0.22 s, Thread-2 (_held_watch) 0.02 s, Thread-1 (_watch) 0.02 s, corefold-peek 0.00 s, corefold-key 0.00 s (all Python threads 0.25 s of 0.25 s)
+note  idle, timers on the window's thread in 5 s: QTimer ×63
+FAIL  idle in the tray: 1.67% of one processor core
+note  memory after using everything and leaving it idle: 12 MB in use, 357 MB private
+ok    idle: no errors behind the clicks (0)
+
+freezes (the window didn't answer for more than 0.25 s):
+   2.38 s  switch it back  ·  widgets.py:228 eventFilter < app.py:1445 apply_theme < window.py:1228 toggle_dark
+   2.32 s  switch dark/light  ·  widgets.py:76 hasHeightForWidth < app.py:1445 apply_theme < window.py:1228 toggle_dark
+   2.01 s  Store: remove colors  ·  widgets.py:635 __init__ < window.py:1727 _general < window.py:528 __init__ < app.py:450 rebuild_window
+   1.96 s  Store: add pdf back  ·  window.py:157 tool_header < window.py:1675 _converter < window.py:528 __init__ < app.py:450 rebuild_window
+   1.75 s  Store: add scan back  ·  widgets.py:385 hasHeightForWidth < window.py:531 __init__ < app.py:450 rebuild_window < app.py:841 set_tool
+   1.65 s  the window opens the first time  ·  window.py:1342 tool_settings_button < window.py:1678 _converter < window.py:528 __init__ < app.py:437 window
+   1.65 s  Store: remove uninstaller  ·  widgets.py:64 _text_height < widgets.py:81 heightForWidth < widgets.py:88 sizeHint < window.py:531 __init__
+   1.62 s  Store: remove organizer  ·  window.py:2864 _history < window.py:528 __init__ < app.py:450 rebuild_window < app.py:841 set_tool
+   1.59 s  Store: add unlock back  ·  window.py:1768 _general < window.py:528 __init__ < app.py:450 rebuild_window < app.py:841 set_tool
+   1.57 s  Store: remove viewer  ·  quickpage.py:343 build < window.py:2653 _quick_settings < window.py:528 __init__ < app.py:450 rebuild_window
+   1.56 s  Store: add uninstaller back  ·  window.py:531 __init__ < app.py:450 rebuild_window < app.py:841 set_tool
+   1.54 s  Store: add archive back  ·  quickpage.py:288 build < window.py:2653 _quick_settings < window.py:528 __init__ < app.py:450 rebuild_window
+   1.53 s  Store: add colors back  ·  window.py:118 page < window.py:1720 _general < window.py:528 __init__ < app.py:450 rebuild_window
+   1.52 s  Store: remove pdf  ·  window.py:118 page < shortcutspage.py:154 __init__ < window.py:2658 _shortcuts < window.py:528 __init__
+   1.51 s  Store: add awake back  ·  widgets.py:86 sizeHint < window.py:531 __init__ < app.py:450 rebuild_window < app.py:841 set_tool
+   1.51 s  Store: add organizer back  ·  widgets.py:67 _measure_text_height < widgets.py:63 _text_height < widgets.py:81 heightForWidth < window.py:531 __init__
+   1.50 s  Store: remove clipboard  ·  widgets.py:385 hasHeightForWidth < window.py:531 __init__ < app.py:450 rebuild_window < app.py:841 set_tool
+   1.47 s  Store: remove awake  ·  widgets.py:57 _text_height < widgets.py:81 heightForWidth < window.py:531 __init__ < app.py:450 rebuild_window
+   1.47 s  Store: remove unlock  ·  window.py:1911 _look < window.py:528 __init__ < app.py:450 rebuild_window < app.py:841 set_tool
+   1.44 s  Store: remove archive  ·  widgets.py:68 _measure_text_height < widgets.py:63 _text_height < widgets.py:81 heightForWidth < window.py:531 __init__
+   1.41 s  Store: remove startup  ·  widgets.py:68 _measure_text_height < widgets.py:63 _text_height < widgets.py:81 heightForWidth < window.py:531 __init__
+   1.41 s  Store: add space back  ·  window.py:118 page < window.py:1720 _general < window.py:528 __init__ < app.py:450 rebuild_window
+   1.40 s  Store: remove space  ·  widgets.py:67 _measure_text_height < widgets.py:63 _text_height < widgets.py:81 heightForWidth < window.py:531 __init__
+   1.40 s  Store: remove scan  ·  window.py:531 __init__ < app.py:450 rebuild_window < app.py:841 set_tool
+   1.38 s  Store: add startup back  ·  widgets.py:67 _measure_text_height < widgets.py:63 _text_height < widgets.py:81 heightForWidth < window.py:531 __init__
+   1.37 s  Store: add clipboard back  ·  window.py:118 page < window.py:1895 _look < window.py:528 __init__ < app.py:450 rebuild_window
+   1.34 s  Store: add viewer back  ·  icons.py:54 paint < icons.py:71 pixmap < icons.py:82 icon < quickpage.py:131 fill
+   1.32 s  Store: remove player  ·  quickpage.py:320 build < window.py:2653 _quick_settings < window.py:528 __init__ < app.py:450 rebuild_window
+   1.32 s  Store: add player back  ·  quickpage.py:313 build < window.py:2653 _quick_settings < window.py:528 __init__ < app.py:450 rebuild_window
+   1.28 s  Store: remove capture  ·  quickpage.py:321 build < window.py:2653 _quick_settings < window.py:528 __init__ < app.py:450 rebuild_window
+   1.27 s  Store: remove converter  ·  window.py:528 __init__ < app.py:450 rebuild_window < app.py:841 set_tool
+   1.24 s  Store: add converter back  ·  widgets.py:57 _text_height < widgets.py:81 heightForWidth < widgets.py:88 sizeHint < window.py:531 __init__
+   1.23 s  Store: add capture back  ·  widgets.py:67 _measure_text_height < widgets.py:63 _text_height < widgets.py:81 heightForWidth < window.py:531 __init__
+   0.57 s  Save in the editor  ·  capview.py:740 _write < capview.py:748 save
+   0.45 s  Store: remove uninstaller  ·  usetest.py:794 <lambda> < usetest.py:239 timed < usetest.py:794 store < usetest.py:297 step
+   0.40 s  open the Clipboard page  ·  clipboard.py:171 db < clipboard.py:230 items < clipview.py:707 refresh < clipview.py:681 __init__
+   0.36 s  open the PDF page  ·  pdfpage.py:239 _start < pdfpage.py:201 __init__ < window.py:2285 _pdf < window.py:861 _build_page
+   0.35 s  pick an area: the editor opens  ·  capture.py:365 _picked < capture.py:278 <lambda>
+   0.30 s  the quick menu opens  ·  quicksearch.py:15 <module> < quickmenu.py:240 _finder < quickmenu.py:121 open < quick.py:270 toggle_menu
+   0.27 s  play a 90 s 1080p MP4  ·  usetest.py:205 wait_ms < usetest.py:211 until < usetest.py:240 timed < usetest.py:651 player
+
+Python held up (no thread could run for more than 0.3 s):
+   3.25 s    ·  Thread-1 (_watch): usetest.py:133 _watch < threading.py:1012 run < threading.py:1075 _bootstrap_inner < threading.py:1032 _bootstrap | MainThread: usetest.py:927 <module>
+   0.51 s  leave full screen  ·  corefold-peek: peekshell.py:523 _loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | Thread-1 (_watch): usetest.py:133 _watch < threading.py:1012 run < threading.py:1075 _bootstrap_inner < threading.py:1032 _bootstrap | MainThread: usetest.py:267 grab < usetest.py:632 viewer < usetest.py:297 step < usetest.py:935 <module>
+ok    the log has no errors (0: [])
+usetest ar-light: 49 problem(s)

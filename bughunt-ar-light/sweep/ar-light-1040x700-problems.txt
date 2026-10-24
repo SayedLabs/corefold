@@ -1,0 +1,15 @@
+
+errors:
+
+notes:
+Formats: pressing 'علامة مائية  ·  إضافة اسمك أو شعارك' took 3.9 s
+433 presses in all; would have opened: 10 (file:///C:/Users/runneradmin/Pictures/Screenshots, program "C:\Windows\explorer.exe" /select,"C:\Users\runneradmin\Documents\Visual Studio 18\Code Snippets\Visual Web Developer", startfile ('windowsdefender://threat',), program "C:\Windows\explorer.exe" /select,"C:\Users\runneradmin\Desktop", startfile ('ms-settings:defaultapps?registeredAppUser=Corefold',), startfile ('ms-settings:defaultapps?registeredAppUser=Corefold',), startfile ('ms-settings:defaultapps?registeredAppUser=Corefold',), file:///C:/Users/runneradmin/Pictures/Screenshots)
+the search ran 230 of 230 things
+round 1: 28 windows, 1592 widgets, 313 MB, 58035 Python objects
+round 2: 28 windows, 1592 widgets, 302 MB, 58050 Python objects
+round 3: 28 windows, 1592 widgets, 304 MB, 58085 Python objects
+memory as tools come and go (313 → 302 → 304 MB, 1.7 MB a round)
+after 10 opens: 270 MB, 15 widgets, 5 windows
+after 20 opens: 249 MB, 15 widgets, 5 windows
+after 30 opens: 249 MB, 15 widgets, 5 windows
+after 40 opens: 249 MB, 15 widgets, 5 windows

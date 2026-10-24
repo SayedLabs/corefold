@@ -1,0 +1,13 @@
+ok       0.78 s  (limit 120 s)  make a ZIP with 60,000 files (test setup)
+ok       0.46 s  (limit 8 s)  list it (7-Zip)
+ok       0.18 s  (limit 3 s)  build the archive window
+ok       0.02 s  (limit 3 s)  show it
+ok       0.00 s  (limit 4 s)  sort by size (clicking the heading)
+ok       0.00 s  (limit 4 s)  sort by name again
+ok       0.01 s  (limit 2 s)  search for one name
+ok       0.00 s  (limit 2 s)  clear the search
+ok       0.04 s  (limit 2 s)  work out the selected files (all)
+ok       0.67 s  (limit 15 s)  take out a folder of 1,000 files for dragging
+ok       0.51 s  (limit 5 s)  reload after a change
+ok       0.45 s  (limit 5 s)  drop 3,000 photos on the Converter (options shown)
+ok       0.29 s  (limit 3 s)  work out the wheel for 3,000 photos

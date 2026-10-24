@@ -1,0 +1,104 @@
+ok    Corefold.exe opens its window on the Store
+D:\a\corefold\corefold\scripts\exetest.py:69: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+  white = sum(1 for v in small.getdata() if v > 245) / 4000
+note  store: 0.00 white, mean 26
+ok    the Store isn't white
+ok    an Add button for viewer
+D:\a\corefold\corefold\scripts\exetest.py:110: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+  worst = max(worst, sum(1 for v in img.convert("L").resize((80, 50)).getdata() if v > 245) / 4000)
+ok    adding viewer doesn't flash a white window (whitest moment 0.00)
+ok    after adding viewer the window is there
+note  added-viewer: 0.00 white, mean 25
+ok    after adding viewer the window isn't white
+ok    viewer is in the sidebar
+note  open-viewer: 0.00 white, mean 25
+ok    viewer's page isn't white
+ok    an Add button for player
+ok    adding player doesn't flash a white window (whitest moment 0.00)
+ok    after adding player the window is there
+note  added-player: 0.00 white, mean 26
+ok    after adding player the window isn't white
+ok    player is in the sidebar
+note  open-player: 0.00 white, mean 25
+ok    player's page isn't white
+ok    an Add button for capture
+ok    adding capture doesn't flash a white window (whitest moment 0.00)
+ok    after adding capture the window is there
+note  added-capture: 0.00 white, mean 26
+ok    after adding capture the window isn't white
+ok    capture is in the sidebar
+note  open-capture: 0.00 white, mean 25
+ok    capture's page isn't white
+ok    an Add button for space
+ok    adding space doesn't flash a white window (whitest moment 0.00)
+ok    after adding space the window is there
+note  added-space: 0.00 white, mean 25
+ok    after adding space the window isn't white
+ok    space is in the sidebar
+note  open-space: 0.00 white, mean 23
+ok    space's page isn't white
+ok    an Add button for clipboard
+ok    adding clipboard doesn't flash a white window (whitest moment 0.00)
+ok    after adding clipboard the window is there
+note  added-clipboard: 0.00 white, mean 26
+ok    after adding clipboard the window isn't white
+ok    clipboard is in the sidebar
+note  open-clipboard: 0.00 white, mean 23
+ok    clipboard's page isn't white
+ok    an Add button for startup
+ok    adding startup doesn't flash a white window (whitest moment 0.00)
+ok    after adding startup the window is there
+note  added-startup: 0.00 white, mean 26
+ok    after adding startup the window isn't white
+ok    startup is in the sidebar
+note  open-startup: 0.00 white, mean 24
+ok    startup's page isn't white
+ok    an Add button for scan
+ok    adding scan doesn't flash a white window (whitest moment 0.00)
+ok    after adding scan the window is there
+note  added-scan: 0.00 white, mean 24
+ok    after adding scan the window isn't white
+ok    scan is in the sidebar
+note  open-scan: 0.00 white, mean 24
+ok    scan's page isn't white
+ok    an Add button for pdf
+ok    adding pdf doesn't flash a white window (whitest moment 0.00)
+ok    after adding pdf the window is there
+note  added-pdf: 0.00 white, mean 25
+ok    after adding pdf the window isn't white
+ok    pdf is in the sidebar
+note  open-pdf: 0.00 white, mean 26
+ok    pdf's page isn't white
+ok    an Add button for colors
+ok    adding colors doesn't flash a white window (whitest moment 0.00)
+ok    after adding colors the window is there
+note  added-colors: 0.00 white, mean 26
+ok    after adding colors the window isn't white
+ok    colors is in the sidebar
+note  open-colors: 0.00 white, mean 24
+ok    colors's page isn't white
+ok    an Add button for awake
+ok    adding awake doesn't flash a white window (whitest moment 0.00)
+ok    after adding awake the window is there
+note  added-awake: 0.00 white, mean 26
+ok    after adding awake the window isn't white
+ok    awake is in the sidebar
+note  open-awake: 0.00 white, mean 26
+ok    awake's page isn't white
+ok    an Add button for unlock
+ok    adding unlock doesn't flash a white window (whitest moment 0.00)
+ok    after adding unlock the window is there
+note  added-unlock: 0.00 white, mean 26
+ok    after adding unlock the window isn't white
+ok    unlock is in the sidebar
+note  open-unlock: 0.00 white, mean 24
+ok    unlock's page isn't white
+ok    an Add button for organizer
+ok    adding organizer doesn't flash a white window (whitest moment 0.00)
+ok    after adding organizer the window is there
+note  added-organizer: 0.00 white, mean 26
+ok    after adding organizer the window isn't white
+ok    organizer is in the sidebar
+note  open-organizer: 0.00 white, mean 24
+ok    organizer's page isn't white
+exetest: 0 problem(s)
