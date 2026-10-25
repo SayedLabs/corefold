@@ -36,6 +36,7 @@ MARGIN = 24          # (px) between a sheet and its window's edges, at least
 SHADOW = 18          # how far a sheet's or a panel's shadow reaches
 _provider: Callable[[], QWidget | None] | None = None   # the main window, shown (when nothing else is on screen)
 _layers: list["_Layer"] = []                            # the sheets open now, oldest first
+_menus: list["_MenuLayer"] = []                         # the menus and lists open now (waiting for a pick)
 
 
 def _alive(w) -> bool:
@@ -479,6 +480,42 @@ def show(dlg: QDialog) -> QDialog:
 
 def open_sheets(host: QWidget | None = None) -> list[_Layer]:
     return [la for la in _layers if host is None or la.host is host]
+
+
+def waiting() -> QWidget | None:
+    """What's waiting for an answer now, newest first: an open menu or list, else the dialog in the newest
+    sheet (a question is an _Alert). What the test scripts answer, as activeModalWidget() was."""
+    for m in reversed(_menus):
+        if _alive(m) and m.loop is not None:
+            return m
+    for layer in reversed(_layers):
+        if _alive(layer) and not layer.closing and layer.dlg is not None and _alive(layer.dlg):
+            return layer.dlg
+    return None
+
+
+def dismiss(w: QWidget, accept: bool = False) -> str:
+    """Answers what waiting() gave as a person would: a menu closes with nothing picked; a question gets its
+    Cancel-like button (with accept, its default one); a dialog is accepted or rejected. Says what it was."""
+    if isinstance(w, _MenuLayer):
+        w.picked(None)
+        return "a menu or list"
+    if isinstance(w, _Alert):
+        said = f"{w.windowTitle()}: {w.box.text()}"
+        buttons = list(w.mine)
+        want = next((b for b in buttons if w.mine[b].isDefault()), None) if accept else w.escape
+        want = want or (buttons[0] if buttons else None)
+        if want is not None:
+            w._press(want)
+        else:
+            w.done(0)
+        return said
+    said = w.windowTitle()
+    if isinstance(w, QDialog):
+        w.accept() if accept else w.reject()
+    else:
+        w.close()
+    return said
 
 
 def _bring_forward(host: QWidget):
@@ -1130,7 +1167,9 @@ def pick(anchor: QWidget | QPoint, rows: list[Row], min_width: int = 0, owner: Q
     panel.come_in()
     loop = QEventLoop()
     layer.loop = loop
+    _menus.append(layer)
     loop.exec()
+    _menus.remove(layer)
     result = layer.result
     layer.loop = None
     layer.leave()

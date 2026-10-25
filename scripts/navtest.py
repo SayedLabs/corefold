@@ -76,6 +76,13 @@ dialogs = []
 
 def _close_dialogs():
     from PySide6.QtWidgets import QMessageBox
+    from corefold import sheet
+    top = sheet.waiting()  # (questions, dialogs and menus show inside the window now)
+    if top is not None:
+        said = sheet.dismiss(top)
+        dialogs.append(said)
+        print(f"note  a dialog came up: {said}", flush=True)
+        return
     box = qapp.activeModalWidget()
     if box is not None:
         text = box.text() if isinstance(box, QMessageBox) else ""

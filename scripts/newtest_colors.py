@@ -442,8 +442,9 @@ def page():
     w.grab().save(str(OUT / "page-typed-en-dark.png"))
 
     def answer():
-        box = qapp.activeModalWidget()
-        if isinstance(box, QMessageBox):
+        from corefold import sheet
+        box = sheet.waiting() or qapp.activeModalWidget()  # (the question shows inside the window: a sheet)
+        if isinstance(box, (QMessageBox, sheet._Alert)):
             for b in box.findChildren(QPushButton):
                 if b.text().replace("&", "") == "Clear":
                     b.click()

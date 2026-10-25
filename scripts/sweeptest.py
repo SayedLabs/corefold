@@ -158,6 +158,13 @@ ACCEPT = {"on": False}
 
 def _close_dialogs():
     """A message or dialog that came up: noted and closed (or accepted, for the first-start questions)."""
+    from corefold import sheet
+    top = sheet.waiting()  # (questions, dialogs and menus show inside the window now)
+    if top is not None:
+        said = sheet.dismiss(top, accept=ACCEPT["on"])
+        dialogs.append(said)
+        print(f"note  a dialog came up: {type(top).__name__} {said[:120]}", flush=True)
+        return
     for top in (qapp.activeModalWidget(), qapp.activePopupWidget()):
         if top is None:
             continue
