@@ -1217,6 +1217,12 @@ class CloudPage(QWidget):
             for a in others:
                 sub.addAction(self._ic("hard_drive" if a.local else "cloud"), ltr(a.title),
                               lambda a=a: self.copy_to(acc, picked, a, None))
+            if not fixed:
+                sub = menu.addMenu(self._ic("cut"), tr("Move to"))
+                round_menu(sub)
+                for a in others:
+                    sub.addAction(self._ic("hard_drive" if a.local else "cloud"), ltr(a.title),
+                                  lambda a=a: self.copy_to(acc, picked, a, None, move=True))
         if not fixed:
             if one is not None:
                 menu.addAction(self._ic("rename"), tr("Rename…") + "\tF2", lambda: self.rename(acc, one))
@@ -1539,31 +1545,45 @@ class CloudPage(QWidget):
             return tr("Deleted.")
         self._run(go, what=tr("Delete {what}", what=what))
 
-    def copy_to(self, source: cloud.Account, entries: list, target: cloud.Account, into: cloud.Entry | None):
-        """Copies files and folders from one account to another (into a folder there, or its top). Online ones go
-        through a temporary folder on this PC; folders on this PC are copied straight from where they are."""
+    def copy_to(self, source: cloud.Account, entries: list, target: cloud.Account, into: cloud.Entry | None,
+                move: bool = False):
+        """Copies files and folders from one account to another (into a folder there, or its top), one file at a
+        time through this PC; folders on this PC are copied straight from where they are. move: each one that got
+        there whole is then deleted from where it was (into that account's deleted files, or the Recycle Bin)."""
         if not entries or source.key == target.key:
             return
+        if move:
+            entries = [e for e in entries if e.kind not in ("virtual", "drive")]
+            if not entries:
+                return
 
         def go(progress, cancel):
             src, dst = cloud.client(source), cloud.client(target)
-            count = 0
+            count = moved = 0
             for e in entries:
+                left_out = len(src.skipped)
                 if source.local:
                     count += cloud.upload_tree(dst, Path(e.id), into, progress, cancel)
-                    continue
-                folder = Path(tempfile.mkdtemp(prefix=TEMP_PREFIX))
-                try:
-                    cloud.download_tree(src, e, folder, progress, cancel)
-                    for p in folder.iterdir():
-                        count += cloud.upload_tree(dst, p, into, progress, cancel)
-                finally:
-                    shutil.rmtree(folder, ignore_errors=True)
-            said = tr("Copied 1 file to {name}.", name=ltr(target.title)) if count == 1 else \
-                tr("Copied {count} files to {name}.", count=count, name=ltr(target.title))
+                else:
+                    count += cloud.copy_tree(src, e, dst, into, progress, cancel)
+                if move and len(src.skipped) == left_out:  # (all of it got there: only then is it taken away)
+                    if cancel.is_set():
+                        raise cloud.CloudError("cancelled")
+                    src.delete(e)
+                    moved += 1
+            if move:
+                said = tr("Moved 1 file to {name}.", name=ltr(target.title)) if count == 1 else \
+                    tr("Moved {count} files to {name}.", count=count, name=ltr(target.title))
+                if moved < len(entries):
+                    said += " " + tr("What couldn't be copied whole stays where it was.")
+            else:
+                said = tr("Copied 1 file to {name}.", name=ltr(target.title)) if count == 1 else \
+                    tr("Copied {count} files to {name}.", count=count, name=ltr(target.title))
             return said + _left_out(src)
-        self._run(go, refresh=self.account is not None and self.account.key == target.key,
-                  what=tr("Copy {what} to {name}", what=self._what(entries), name=ltr(target.title)))
+        here = self.account is not None and self.account.key in (target.key, source.key if move else "")
+        self._run(go, refresh=here,
+                  what=(tr("Move {what} to {name}", what=self._what(entries), name=ltr(target.title)) if move else
+                        tr("Copy {what} to {name}", what=self._what(entries), name=ltr(target.title))))
 
     @staticmethod
     def _what(entries: list) -> str:

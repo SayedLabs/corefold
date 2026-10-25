@@ -2825,4 +2825,9 @@ STRINGS: dict[str, str] = {
     "Corefold doesn't move Windows' or programs' own folders this way.": "Corefold, Windows'un veya programların kendi klasörlerini bu şekilde taşımaz.",
     'It will be moved the next time the PC restarts.': 'Bilgisayar bir dahaki yeniden başlatmada taşınacak.',
     "Windows didn't take it. Try again, or restart the PC and move it then.": 'Windows kabul etmedi. Yeniden deneyin ya da bilgisayarı yeniden başlatıp sonra taşıyın.',
+    'Move to': 'Şuraya taşı',
+    'Moved 1 file to {name}.': '1 dosya {name} hesabına taşındı.',
+    'Moved {count} files to {name}.': '{count} dosya {name} hesabına taşındı.',
+    "What couldn't be copied whole stays where it was.": 'Tamamı kopyalanamayanlar yerinde kalır.',
+    'Move {what} to {name}': '{what} → {name} taşı',
 }
