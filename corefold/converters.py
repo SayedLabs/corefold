@@ -1229,14 +1229,20 @@ def document_to_pdf(src: Path, ctx: Ctx) -> Result:
     out = ctx.out_path(src, ctx.stem(src) + ".pdf")
     prog = office_app_for(src)
     if prog:
-        env = dict(os.environ, CF_IN=str(src.resolve()), CF_OUT=str(out.resolve()))
+        # (Office writes into a folder of its own first: after a Cancel, what it still makes goes with it)
+        tmp = Path(tempfile.mkdtemp(prefix="corefold-office-"))
+        made = tmp / "document.pdf"
+        env = dict(os.environ, CF_IN=str(src.resolve()), CF_OUT=str(made))
         ps = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
-        proc = subprocess.run([str(ps), "-NoProfile", "-NonInteractive", "-Command", OFFICE_SCRIPTS[prog]],
-                              capture_output=True, text=True, env=env, timeout=600, stdin=subprocess.DEVNULL,
-                              creationflags=job_flags())
-        if proc.returncode or not out.exists():
-            log.error("office export failed: %s", proc.stderr[-2000:])
-            raise RuntimeError(tr("Office couldn't turn this file into a PDF"))
+        code, err = _run_office([str(ps), "-NoProfile", "-NonInteractive", "-Command", OFFICE_SCRIPTS[prog]],
+                                env, tmp, ctx)
+        try:
+            if code or not made.exists():
+                log.error("office export failed: %s", err[-2000:])
+                raise RuntimeError(tr("Office couldn't turn this file into a PDF"))
+            shutil.move(str(made), out)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
         return Result([out])
     soffice = find_libreoffice()
     if not soffice:
@@ -1252,6 +1258,40 @@ def document_to_pdf(src: Path, ctx: Ctx) -> Result:
             raise RuntimeError(tr("LibreOffice couldn't turn this file into a PDF"))
         shutil.move(str(made), out)
     return Result([out])
+
+
+def _run_office(cmd: list[str], env: dict, tmp: Path, ctx: Ctx, timeout: float = 600) -> tuple[int, str]:
+    """Runs the PowerShell that has Office make the PDF. Cancel stops the waiting at once, but not Office:
+    Office runs on its own (Windows starts it, not this PowerShell), so ending the PowerShell would leave
+    it hidden in the background with the file still open in it. The script is left to finish (Office
+    closes the file and quits as usual), and its folder (tmp, with the PDF it made) is deleted then."""
+    err = tempfile.TemporaryFile()
+    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=err, stdin=subprocess.DEVNULL, env=env,
+                            creationflags=job_flags())
+    deadline = time.monotonic() + timeout
+    while proc.poll() is None:
+        if ctx.cancelled or time.monotonic() > deadline:
+            threading.Thread(target=_after_office, args=(proc, err, tmp, deadline), daemon=True,
+                             name="office-cancelled").start()
+            if ctx.cancelled:
+                raise Cancelled()
+            raise RuntimeError(tr("took too long and was stopped"))
+        time.sleep(0.2)
+    err.seek(0)
+    text = err.read().decode("utf-8", "replace")
+    err.close()
+    return proc.returncode, text
+
+
+def _after_office(proc, err, tmp: Path, deadline: float):
+    """After a Cancel: waits for Office to finish (a while longer at most), then deletes what it made."""
+    try:
+        proc.wait(max(60.0, deadline - time.monotonic()))
+    except subprocess.TimeoutExpired:
+        _kill_tree(proc)  # (stuck for good: only then is the PowerShell ended)
+    finally:
+        err.close()
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def _run_stoppable(cmd: list[str], ctx: Ctx, timeout: float) -> tuple[int, str]:

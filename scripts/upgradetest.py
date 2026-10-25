@@ -128,6 +128,13 @@ def log_text() -> str:
         return ""
 
 
+def log_since(start: int) -> str:
+    """What the log gained since it was start long (all of it when it was started afresh meanwhile: it's
+    kept to 512 KB, then begun again)."""
+    text = log_text()
+    return text[start:] if len(text) >= start else text
+
+
 def lnk_target(lnk: Path) -> str:
     return ps("(New-Object -ComObject WScript.Shell).CreateShortcut($env:CF_L).TargetPath", CF_L=str(lnk))
 
@@ -210,13 +217,14 @@ def after_update_checks(case: str, folder: Path, before: dict, kept_files: set[s
     check(installed_dir() is not None and installed_dir().resolve() == folder.resolve(),
           f"{case}: still in {folder} (found {installed_dir()})")
     check(wait_for(lambda: pids(exe), 60), f"{case}: Corefold started again after the update")
-    started = log_text()[start:] if LOG.exists() else ""
-    check(wait_for(lambda: f"starting Corefold {NEW}" in log_text()[start:], 30),
+    check(wait_for(lambda: f"starting Corefold {NEW}" in log_since(start), 30),
           f"{case}: the new version is the one running")
+    check(not (folder / "_next").exists() and not (folder / "_previous").exists(),
+          f"{case}: nothing of the update is left in the folder (_next, _previous)")
     check(app_id(START_MENU) == APP_ID, f"{case}: the Start menu shortcut has Corefold's app id")
     check(same_file(lnk_target(START_MENU), exe), f"{case}: the Start menu shortcut opens {exe}")
     time.sleep(6)  # (the tools in use have started by now)
-    started = log_text()[start:]
+    started = log_since(start)
     check("updated from " in started and f"to {NEW}" in started, f"{case}: Corefold knows it was updated")
     if (Path(__file__).resolve().parent.parent / "assets" / "release-notes" / f"{NEW}.md").exists():
         check("(what's new waits)" in started, f"{case}: What's new waits for the window to open")
@@ -311,14 +319,14 @@ if OLD_SETUPS:
         start = LOG.stat().st_size if LOG.exists() else 0
         inner = APP_DIR / "_internal"
         note(f"after the cut: _internal {'has ' + str(sum(1 for _ in inner.rglob('*'))) + ' files' if inner.is_dir() else 'missing'}"
-             f", left by the cut: {', '.join(sorted(q.name for q in APP_DIR.glob('is-*'))) or 'nothing'}")
+             f", left by the cut: {', '.join(sorted(q.name for q in [*APP_DIR.glob('is-*'), *APP_DIR.glob('_next')])) or 'nothing'}")
         started = subprocess.Popen([str(exe), "--background"], stderr=subprocess.PIPE)
-        ok = wait_for(lambda: pids(exe), 60) and wait_for(lambda: "starting Corefold" in log_text()[start:], 30)
+        ok = wait_for(lambda: pids(exe), 60) and wait_for(lambda: "starting Corefold" in log_since(start), 30)
         if not ok:
             ended = started.poll()
             err = started.stderr.read().decode("utf-8", "replace")[-600:] if ended is not None else ""
             note(f"after the cut Corefold {'ended with ' + str(ended) if ended is not None else 'is still running'}"
-                 f"; log: {log_text()[start:][-400:]!r}; errors: {err!r}")
+                 f"; log: {log_since(start)[-400:]!r}; errors: {err!r}")
         check(ok, "cut off: Corefold still starts")
     code = run(SETUP, "/SILENT", "/SP-", name="cut-again")
     check(code == 0 and installed_version() == NEW, "cut off: updating again goes through")

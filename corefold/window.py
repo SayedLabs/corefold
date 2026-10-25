@@ -1857,16 +1857,22 @@ class MainWindow(QWidget):
         with nothing to switch on or start."""
         from .atomic.widgets import ResponsiveGrid
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
+
+        def wrapped(text: str, name: str | None = None) -> QLabel:
+            # (2 px either side for letters that reach past their measured width, as Arabic can on Windows)
+            words = label(text, name, wrap=True)
+            words.setContentsMargins(2, 0, 2, 0)
+            return words
         w, lay = page(tr(sec.name))
         lay.itemAt(0).widget().hide()  # shown in the heading with the tile instead
         lay.addLayout(tool_header(sec.product, tr(sec.name), tr(sec.line), dark, dpr, pill=tr("Coming back soon")))
         note, nl = card(4)
         nl.addWidget(label(tr("These tools are being made better"), "h2", wrap=True))
-        nl.addWidget(label(tr("For now Corefold puts its effort into the Files tools, so each one works really "
+        nl.addWidget(wrapped(tr("For now Corefold puts its effort into the Files tools, so each one works really "
                               "well. The tools here are resting while we improve them, and they come back in a "
-                              "future update."), "muted", wrap=True))
-        nl.addWidget(label(tr("Nothing was removed: your settings and what these tools kept for you stay on your "
-                              "PC, ready for when they're back."), "muted", wrap=True))
+                              "future update."), "muted"))
+        nl.addWidget(wrapped(tr("Nothing was removed: your settings and what these tools kept for you stay on your "
+                              "PC, ready for when they're back."), "muted"))
         lay.addWidget(note)
         grid = ResponsiveGrid(300, 12, 2)
         for tool in all_tools.in_section(self.c.settings, sec):
@@ -1880,15 +1886,16 @@ class MainWindow(QWidget):
             words = QVBoxLayout()
             words.setSpacing(2)
             words.addWidget(label(tr(tool.nav), "cardTitle"))
-            words.addWidget(label(tr(tool.line), "muted", wrap=True))
+            words.addWidget(wrapped(tr(tool.line), "muted"))
             top.addLayout(words, 1)
             bl.addLayout(top)
             for text in tool.features[:3]:
                 row = QHBoxLayout()
                 row.setSpacing(10)
                 row.addWidget(self._accent_dot(), 0, Qt.AlignTop)
-                row.addWidget(label(tr(text), wrap=True), 1)
+                row.addWidget(wrapped(tr(text)), 1)
                 bl.addLayout(row)
+            bl.addStretch(1)  # (a card beside a taller one keeps its rows together at the top)
             grid.add(box)
         lay.addWidget(grid)
         later = [all_tools.BY_ID[tool_id] for tool_id in sec.tools if not all_tools.BY_ID[tool_id].ready]

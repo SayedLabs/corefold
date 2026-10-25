@@ -63,12 +63,15 @@ Name: "desktopicon"; Description: "Put a Corefold icon on my desktop"
 Name: "startup"; Description: "Start Corefold when Windows starts (recommended)"
 
 [Files]
-Source: "..\dist\Corefold\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Copied next to the Corefold that's there, which keeps working until every file is in; then the two are swapped
+; in a moment (SwapInNewFiles in [Code]). An update cut off half-way (power cut, Setup ended) leaves the older
+; Corefold whole, never a mix of the two that can't start.
+Source: "..\dist\Corefold\*"; DestDir: "{app}\_next"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [InstallDelete]
-; clear out files from an older version before copying the new ones
-Type: filesandordirs; Name: "{app}\_internal"
-Type: filesandordirs; Name: "{app}\ffmpeg"
+; what an earlier update cut off half-way left
+Type: filesandordirs; Name: "{app}\_next"
+Type: filesandordirs; Name: "{app}\_previous"
 ; shortcuts made by versions before 1.7.0
 Type: files; Name: "{autoprograms}\{#OldName}.lnk"
 Type: files; Name: "{autodesktop}\{#OldName}.lnk"
@@ -80,6 +83,13 @@ Type: files; Name: "{autodesktop}\{#OldName}.lnk"
 Type: filesandordirs; Name: "{app}\_internal"
 Type: filesandordirs; Name: "{app}\ffmpeg"
 Type: filesandordirs; Name: "{app}\7zip"
+Type: filesandordirs; Name: "{app}\_next"
+Type: filesandordirs; Name: "{app}\_previous"
+; (the files are copied in under _next, so the uninstaller's own list names them there)
+Type: files; Name: "{app}\{#AppExe}"
+Type: files; Name: "{app}\LICENSE"
+Type: files; Name: "{app}\THIRD_PARTY_NOTICES.md"
+Type: files; Name: "{app}\COMPONENT-VERSIONS.txt"
 ; (Setup's own working file, left in the folder when an update was cut off: never anyone else's)
 Type: files; Name: "{app}\is-*.tmp"
 Type: dirifempty; Name: "{app}"
@@ -262,7 +272,8 @@ var
 begin
   Result := True;
   Dir := ExpandConstant('{app}');
-  if FileExists(Dir + '\{#AppExe}') or FileExists(Dir + '\{#OldExe}') then
+  if FileExists(Dir + '\{#AppExe}') or FileExists(Dir + '\{#OldExe}') or DirExists(Dir + '\_internal') or
+     DirExists(Dir + '\_next') then  { (the last two: an update of it was cut off) }
     Exit;
   if FindFirst(Dir + '\*', FindRec) then
   begin
@@ -315,10 +326,119 @@ begin
     DelTree(OldDir, True, True, True);
 end;
 
+{ A rename, tried again for a few seconds (antivirus can hold a file it's just looked at). }
+function MoveWithRetry(FromPath, ToPath: String; Tries: Integer): Boolean;
+var
+  I: Integer;
+begin
+  Result := True;
+  for I := 1 to Tries do
+  begin
+    if RenameFile(FromPath, ToPath) then
+      Exit;
+    Sleep(250);
+  end;
+  Result := False;
+end;
+
+{ One new file into its place: moved, or copied when something (antivirus) still holds it. }
+procedure PutFile(FromPath, ToPath: String);
+begin
+  if FileExists(ToPath) then
+    DeleteFile(ToPath);
+  if not MoveWithRetry(FromPath, ToPath, 20) then
+    if not FileCopy(FromPath, ToPath, False) then
+      Log('Could not put in place: ' + ToPath);
+end;
+
+{ A new folder into its place file by file (when it can't be moved whole: a file in it is still held). }
+procedure PutTree(FromDir, ToDir: String);
+var
+  FindRec: TFindRec;
+begin
+  ForceDirectories(ToDir);
+  if FindFirst(FromDir + '\*', FindRec) then
+  begin
+    try
+      repeat
+        if (FindRec.Name <> '.') and (FindRec.Name <> '..') then
+        begin
+          if FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY <> 0 then
+            PutTree(FromDir + '\' + FindRec.Name, ToDir + '\' + FindRec.Name)
+          else
+            PutFile(FromDir + '\' + FindRec.Name, ToDir + '\' + FindRec.Name);
+        end;
+      until not FindNext(FindRec);
+    finally
+      FindClose(FindRec);
+    end;
+  end;
+end;
+
+{ The new files, all copied in under _next, take the place of the old ones: each old one is moved aside into
+  _previous (or deleted, if it can't be), then the new one is moved into its place. These are renames on the
+  same disk, over in a moment, so an update cut off before this point leaves the older Corefold whole.
+  Corefold.exe goes last. }
+procedure SwapInNewFiles();
+var
+  App, NextDir, PrevDir, Name: String;
+  FindRec: TFindRec;
+  Names: TArrayOfString;
+  Count, I: Integer;
+begin
+  App := ExpandConstant('{app}');
+  NextDir := App + '\_next';
+  PrevDir := App + '\_previous';
+  if not DirExists(NextDir) then
+    Exit;
+  Count := 0;
+  if FindFirst(NextDir + '\*', FindRec) then
+  begin
+    try
+      repeat
+        if (FindRec.Name <> '.') and (FindRec.Name <> '..') and (CompareText(FindRec.Name, '{#AppExe}') <> 0) then
+        begin
+          SetArrayLength(Names, Count + 1);
+          Names[Count] := FindRec.Name;
+          Count := Count + 1;
+        end;
+      until not FindNext(FindRec);
+    finally
+      FindClose(FindRec);
+    end;
+  end;
+  SetArrayLength(Names, Count + 1);
+  Names[Count] := '{#AppExe}';
+  Count := Count + 1;
+  if DirExists(PrevDir) then
+    DelTree(PrevDir, True, True, True);
+  ForceDirectories(PrevDir);
+  for I := 0 to Count - 1 do
+  begin
+    Name := Names[I];
+    if DirExists(NextDir + '\' + Name) then
+    begin
+      if DirExists(App + '\' + Name) and not MoveWithRetry(App + '\' + Name, PrevDir + '\' + Name, 8) then
+        DelTree(App + '\' + Name, True, True, True);
+      if not RenameFile(NextDir + '\' + Name, App + '\' + Name) then
+        PutTree(NextDir + '\' + Name, App + '\' + Name);
+    end
+    else if FileExists(NextDir + '\' + Name) then
+    begin
+      if FileExists(App + '\' + Name) and not MoveWithRetry(App + '\' + Name, PrevDir + '\' + Name, 8) then
+        DeleteFile(App + '\' + Name);
+      PutFile(NextDir + '\' + Name, App + '\' + Name);
+    end;
+  end;
+  DelTree(PrevDir, True, True, True);
+  DelTree(NextDir, True, True, True);
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
   begin
+    SwapInNewFiles();
     RemoveOldVersion();
     { an update started by hand with "Start Corefold when Windows starts" unticked: it doesn't }
     if Upgrading and (not WizardSilent()) and (not WizardIsTaskSelected('startup')) then
