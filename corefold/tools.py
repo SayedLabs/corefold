@@ -6,6 +6,8 @@ tool someone switched off is loaded at all).
 Texts are English and shown through tr()."""
 from __future__ import annotations
 
+import os
+import sys
 from dataclasses import dataclass
 
 
@@ -264,6 +266,10 @@ SECTIONS: list[Section] = [
 # fewer tools done really well. To bring a section back, take its id out of here: nothing else changes, and
 # each of its tools comes back switched on or off the way this person had it.
 PAUSED_SECTIONS: frozenset[str] = frozenset({"media", "computer", "quick"})
+if os.environ.get("COREFOLD_WAKE_RESTING") == "1" and not getattr(sys, "frozen", False):
+    # (the Bug hunt's checks, run from the source only, keep trying the resting tools' kept code; a built
+    # Corefold.exe never looks at this)
+    PAUSED_SECTIONS = frozenset()
 
 # what a tool is right now (state())
 AVAILABLE = "available"   # ready, in a section that's in use

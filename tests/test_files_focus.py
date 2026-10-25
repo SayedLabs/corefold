@@ -165,3 +165,19 @@ def test_a_planned_shutdown_is_cancelled_once_and_said(controller, monkeypatch):
     assert calls == [("/a",)] and c.settings.shutdown_at == "" and c.settings.shutdown_planned == ""
     c._rest_paused_tools()
     assert calls == [("/a",)]
+
+
+def test_only_the_checks_from_source_can_wake_the_resting_tools(monkeypatch):
+    import importlib
+    import sys
+
+    from corefold import tools
+    monkeypatch.setenv("COREFOLD_WAKE_RESTING", "1")
+    monkeypatch.setattr(sys, "frozen", True, raising=False)  # (a built Corefold.exe)
+    try:
+        assert importlib.reload(tools).PAUSED_SECTIONS == {"media", "computer", "quick"}
+        monkeypatch.delattr(sys, "frozen")
+        assert importlib.reload(tools).PAUSED_SECTIONS == frozenset()
+    finally:
+        monkeypatch.delenv("COREFOLD_WAKE_RESTING")
+        importlib.reload(tools)

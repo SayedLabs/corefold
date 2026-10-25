@@ -17,6 +17,7 @@ OUT.mkdir(parents=True, exist_ok=True)
 TMP = Path(tempfile.mkdtemp(prefix="corefold-exetest-"))
 os.environ["APPDATA"] = str(TMP / "roaming")
 os.environ["LOCALAPPDATA"] = str(TMP / "local")
+os.environ.pop("COREFOLD_WAKE_RESTING", None)  # (the built app ignores it: its sections rest as they ship)
 sys.path.insert(0, str(ROOT))
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")

@@ -13,6 +13,11 @@ on:
 permissions:
   contents: write   # the results are saved to the "bughunt-results" branch
 
+env:
+  # The checks run from the source try every tool, the resting ones too (their code is kept and must keep
+  # working for when they come back); the built Corefold.exe ignores this and is checked as it ships.
+  COREFOLD_WAKE_RESTING: "1"
+
 concurrency:
   group: bughunt-${{ github.ref }}
   cancel-in-progress: false   # three people push to next: each push is tried, newest waiting runs replace older ones
