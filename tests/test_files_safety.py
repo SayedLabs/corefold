@@ -133,9 +133,16 @@ def test_restart_managers_critical_kind_is_never_closed(monkeypatch):
 
 
 def test_cloud_offers_no_online_sign_in_it_cant_do(monkeypatch):
+    monkeypatch.setattr(cloud, "GOOGLE_CLIENT_SECRET", "")  # (Google needs both its id and its secret)
     monkeypatch.setattr(cloud, "ONEDRIVE_CLIENT_ID", "")
     monkeypatch.setattr(cloud, "DROPBOX_APP_KEY", "")
     assert not any(cloud.available(k) for k in cloud.ONLINE)
+
+
+def test_google_drive_sign_in_comes_built_in():
+    from corefold import cloudkeys
+    assert cloudkeys.GOOGLE_CLIENT_ID.endswith(".apps.googleusercontent.com")
+    assert cloudkeys.GOOGLE_CLIENT_SECRET
 
 
 def test_a_sound_never_holds_the_window_up(monkeypatch):

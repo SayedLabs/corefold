@@ -2695,7 +2695,7 @@ STRINGS: dict[str, str] = {
     '{count} left out: they only open on the website ({names}).': '{count} öğe dışarıda kaldı: yalnızca web sitesinde açılıyorlar ({names}).',
     'Opened {name} in the browser.': '{name} tarayıcıda açıldı.',
     'Open on the website': 'Web sitesinde aç',
-    "Add a cloud to see its files here: sign in to {names} with nothing else to install, as many accounts as you like. You sign in on the service's own page, so your password never reaches Corefold. Cloud folders that OneDrive, Dropbox, Google Drive or iCloud keep on this PC show up by themselves too.": "Dosyalarını burada görmek için bir bulut ekleyin: başka hiçbir şey kurmadan, istediğiniz kadar hesapla {names} hesabında oturum açın. Oturumu hizmetin kendi sayfasında açarsınız, böylece parolanız Corefold'a hiç ulaşmaz. OneDrive, Dropbox, Google Drive veya iCloud'un bu bilgisayarda tuttuğu bulut klasörleri de kendiliğinden görünür.",
+    "Sign in to {names} right here, with nothing to install and as many accounts as you like. Your password stays on the service's own page. Cloud folders on this PC show up by themselves too.": 'Hiçbir şey kurmadan, istediğiniz kadar hesapla {names} hesabında buradan oturum açın. Parolanız hizmetin kendi sayfasında kalır. Bu bilgisayardaki bulut klasörleri de kendiliğinden görünür.',
     'Sign in to {service} online too': '{service} hesabında çevrimiçi de oturum aç',
     "Google can't turn something this big into a file. Download it from the Google Drive website.": 'Google bu kadar büyük bir şeyi dosyaya dönüştüremiyor. Google Drive web sitesinden indirin.',
     'Open {service} in the browser': '{service} hizmetini tarayıcıda aç',
