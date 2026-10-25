@@ -12,7 +12,7 @@ from .i18n import tr
 
 
 class ToolPicker(QDialog):
-    """Every ready tool, ticked, under its section's name; the ones left unticked stay switched off (they can
+    """Every available tool, ticked, under its section's name; the ones left unticked stay switched off (they can
     be switched on any time in their section)."""
 
     def __init__(self, icon: QIcon, dark: bool, chosen: set[str] | None = None):
@@ -35,7 +35,8 @@ class ToolPicker(QDialog):
         dpr = self.devicePixelRatioF()
         self.boxes: dict[str, QCheckBox] = {}
         for sec in all_tools.SECTIONS:  # each section's tools under its name, two to a row (it fits a small screen)
-            tools = [all_tools.BY_ID[tool_id] for tool_id in sec.tools if all_tools.BY_ID[tool_id].ready]
+            tools = [all_tools.BY_ID[tool_id] for tool_id in sec.tools  # (a section resting for now: none)
+                     if all_tools.state(tool_id) == all_tools.AVAILABLE]
             if not tools:
                 continue
             head = QLabel(tr(sec.name))

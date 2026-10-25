@@ -6,6 +6,8 @@ tool someone switched off is loaded at all).
 Texts are English and shown through tr()."""
 from __future__ import annotations
 
+import os
+import sys
 from dataclasses import dataclass
 
 
@@ -259,6 +261,21 @@ SECTIONS: list[Section] = [
             "Small helpers you open with one press, from any app.",
             ("clipboard", "awake", "snippets", "notes", "focus", "layouts", "sound")),
 ]
+# Sections resting for now: their tools are kept whole (code, settings, history, everything they saved), but
+# nothing of them runs and their pages show what's coming back instead, while Corefold puts its effort into
+# fewer tools done really well. To bring a section back, take its id out of here: nothing else changes, and
+# each of its tools comes back switched on or off the way this person had it.
+PAUSED_SECTIONS: frozenset[str] = frozenset({"media", "computer", "quick"})
+if os.environ.get("COREFOLD_WAKE_RESTING") == "1" and not getattr(sys, "frozen", False):
+    # (the Bug hunt's checks, run from the source only, keep trying the resting tools' kept code; a built
+    # Corefold.exe never looks at this)
+    PAUSED_SECTIONS = frozenset()
+
+# what a tool is right now (state())
+AVAILABLE = "available"   # ready, in a section that's in use
+PAUSED = "paused"         # ready, but its section is resting for now ("Coming back soon")
+PLANNED = "planned"       # still being made ("Coming soon")
+
 SECTION_BY_PAGE = {sec.page: sec for sec in SECTIONS}
 SECTION_OF = {tool_id: sec for sec in SECTIONS for tool_id in sec.tools}  # tool id -> its section
 
@@ -270,7 +287,31 @@ ORIGINAL = ("converter", "uninstaller", "archive")
 
 
 def ready() -> list[ToolInfo]:
+    """Every tool that's made, also the ones resting for now (see available())."""
     return [t for t in TOOLS if t.ready]
+
+
+def section_paused(sec: Section | str) -> bool:
+    """A section resting for now (its tools are kept, but nothing of them runs)."""
+    return (sec if isinstance(sec, str) else sec.id) in PAUSED_SECTIONS
+
+
+def state(tool_id: str) -> str:
+    """AVAILABLE, PAUSED or PLANNED (an unknown id counts as planned: nothing of it runs)."""
+    t = BY_ID.get(tool_id)
+    if t is None or not t.ready:
+        return PLANNED
+    return PAUSED if section_paused(SECTION_OF[tool_id]) else AVAILABLE
+
+
+def available() -> list[ToolInfo]:
+    """The tools that can be used in this version: made, and not in a section that's resting."""
+    return [t for t in TOOLS if state(t.id) == AVAILABLE]
+
+
+def paused() -> list[ToolInfo]:
+    """Tools that are made but resting for now, with their section."""
+    return [t for t in TOOLS if state(t.id) == PAUSED]
 
 
 def coming() -> list[ToolInfo]:
@@ -296,9 +337,9 @@ def in_order(settings, tools: list[ToolInfo]) -> list[ToolInfo]:
 
 
 def enabled(settings) -> list[ToolInfo]:
-    """The tools this person uses (ready, and not switched off), section by section."""
+    """The tools this person uses (available, and not switched off), section by section."""
     off = set(getattr(settings, "tools_off", []) or [])
-    return in_order(settings, [t for t in TOOLS if t.ready and t.id not in off])
+    return in_order(settings, [t for t in available() if t.id not in off])
 
 
 def in_section(settings, sec: Section) -> list[ToolInfo]:
@@ -307,14 +348,16 @@ def in_section(settings, sec: Section) -> list[ToolInfo]:
 
 
 def is_on(settings, tool_id: str) -> bool:
-    t = BY_ID.get(tool_id)
-    return bool(t and t.ready and tool_id not in set(getattr(settings, "tools_off", []) or []))
+    """The one question everything asks before a tool does anything (its page, shortcuts, menus, work in the
+    background): False for a tool switched off, resting for now, or still being made."""
+    return state(tool_id) == AVAILABLE and tool_id not in set(getattr(settings, "tools_off", []) or [])
 
 
 def new_tools(settings) -> list[ToolInfo]:
-    """Ready tools this person hasn't been offered yet (shown as New in their section)."""
+    """Available tools this person hasn't been offered yet (shown as New in their section). A tool resting for
+    now waits: it's offered when its section is back."""
     known = set(getattr(settings, "known_tools", []) or [])
-    return [t for t in TOOLS if t.ready and t.id not in known]
+    return [t for t in available() if t.id not in known]
 
 
 def offer_new_tools(settings) -> list[ToolInfo]:

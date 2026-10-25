@@ -17,6 +17,7 @@ OUT.mkdir(parents=True, exist_ok=True)
 TMP = Path(tempfile.mkdtemp(prefix="corefold-exetest-"))
 os.environ["APPDATA"] = str(TMP / "roaming")
 os.environ["LOCALAPPDATA"] = str(TMP / "local")
+os.environ.pop("COREFOLD_WAKE_RESTING", None)  # (the built app ignores it: its sections rest as they ship)
 sys.path.insert(0, str(ROOT))
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -97,6 +98,7 @@ try:
         win.set_focus()
         win.maximize()  # (every switch on the screen at once, the way most people keep it)
         check(shot("store", win) < 0.3, "the Files section isn't white")
+        rested = set()
         for tool in all_tools.ready():
             if tool.id in all_tools.ORIGINAL:
                 continue
@@ -108,6 +110,14 @@ try:
             click(row[0])
             time.sleep(0.8)
             switch = [b for b in win.descendants(control_type="CheckBox") if b.window_text() == tool.nav]
+            if all_tools.state(tool.id) != all_tools.AVAILABLE:  # (its section rests: shown, never switched on)
+                check(not switch, f"{tool.id} can't be switched on while {sec.name} rests")
+                if sec.name not in rested:
+                    rested.add(sec.name)
+                    soon = [t for t in win.descendants() if t.window_text() == "Coming back soon"]
+                    check(bool(soon), f"{sec.name} says its tools are coming back soon")
+                    check(shot(f"resting-{sec.id}", win) < 0.3, f"{sec.name}'s resting page isn't white")
+                continue
             if not check(bool(switch), f"a switch for {tool.id} in {sec.name}"):
                 continue
             r, wr = switch[0].rectangle(), win.rectangle()
