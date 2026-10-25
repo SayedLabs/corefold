@@ -1,0 +1,7 @@
+# The developer tools: checks and tests, never shipped with the app.
+# Install with: pip install -r requirements-dev.txt
+-r requirements.txt
+ruff==0.17.2
+pytest==9.1.1
+pytest-qt==4.5.0
+pip-audit==2.10.1
