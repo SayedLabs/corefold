@@ -425,7 +425,7 @@ def rename_conflicts(pairs: list[tuple[Path, Path]]) -> list[Path]:
     """New names that are already taken by another file (or used twice)."""
     olds = {os.path.normcase(str(o)) for o, _ in pairs}
     seen, bad = set(), []
-    for old, new in pairs:
+    for _old, new in pairs:
         key = os.path.normcase(str(new))
         if key in seen or (new.exists() and key not in olds):
             bad.append(new)

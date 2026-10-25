@@ -85,7 +85,7 @@ timed("work out the selected files (all)", b._selected_paths, 2)
 b.tree.clearSelection()
 b._fill("project")
 module = next(b.tree.topLevelItem(0).child(i) for i in range(b.tree.topLevelItem(0).childCount())
-              if b.tree.topLevelItem(0).child(i).text(0).strip("‪‬") == "module-07")
+              if b.tree.topLevelItem(0).child(i).text(0).strip("\u202a\u202c") == "module-07")
 module.setSelected(True)
 members = b._selected_paths()
 folder = timed(f"take out a folder of {len([m for m in members if m.endswith('.txt')]):,} files for dragging",

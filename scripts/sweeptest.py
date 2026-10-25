@@ -68,7 +68,7 @@ from PySide6.QtGui import QDesktopServices, QGuiApplication, QIcon  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import (QAbstractButton, QAbstractScrollArea, QApplication, QCheckBox,  # noqa: E402
                                QComboBox, QDialog, QFileDialog, QLabel, QMenu, QMessageBox, QPushButton,
-                               QRadioButton, QSlider, QToolButton, QWidget)
+                               QRadioButton, QSlider, QWidget)
 
 from corefold import i18n  # noqa: E402
 i18n.set_language(ARGS.lang)

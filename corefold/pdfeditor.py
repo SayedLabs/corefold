@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject, QPoint, QPointF, QRectF, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import (QBrush, QColor, QFontDatabase, QFontMetricsF, QIcon, QImage, QKeySequence, QPainter,
+from PySide6.QtGui import (QColor, QFontDatabase, QFontMetricsF, QIcon, QImage, QKeySequence, QPainter,
                            QPainterPath, QPen, QPixmap, QShortcut, QTextCursor, QTransform)
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QColorDialog, QFileDialog, QFrame, QGraphicsItem,
                                QGraphicsObject, QGraphicsScene, QGraphicsTextItem, QGraphicsView, QHBoxLayout,
@@ -2127,7 +2127,7 @@ class PdfEditor(QWidget):
             return
         self.end_text_edits()
         done, count = set(), 0
-        for page, obj, _at in list(self.matches):
+        for _page, obj, _at in list(self.matches):
             if id(obj) in done:
                 continue
             done.add(id(obj))

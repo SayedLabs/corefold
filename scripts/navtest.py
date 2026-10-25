@@ -46,7 +46,6 @@ from PySide6.QtCore import Qt, QTimer  # noqa: E402
 from PySide6.QtGui import QGuiApplication, QIcon  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QPushButton  # noqa: E402
-from PySide6.QtWidgets import QLabel as QWidgetLabel  # noqa: E402
 
 from corefold import i18n  # noqa: E402
 i18n.set_language(LANG)

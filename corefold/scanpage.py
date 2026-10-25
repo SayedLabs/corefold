@@ -44,7 +44,7 @@ SECURITY_LINK = "windowsdefender://threat"
 
 def _para(text: str) -> str:
     """In Arabic, a line that starts with a Latin name still reads (and lines up) right to left."""
-    return "‏" + text if text and i18n.is_rtl() else text
+    return "\u200f" + text if text and i18n.is_rtl() else text
 
 
 def _label(text: str = "", name: str | None = None, wrap: bool = False) -> QLabel:

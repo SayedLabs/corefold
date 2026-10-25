@@ -27,7 +27,7 @@ if os.name != "nt":  # (a quick try on Linux: Windows' parts are pretend ones)
     for name in ("winreg", "winsound"):
         sys.modules[name] = mock.MagicMock()
 
-from PySide6.QtCore import QPointF, QRect, Qt  # noqa: E402
+from PySide6.QtCore import QPointF, Qt  # noqa: E402
 from PySide6.QtGui import QColor, QIcon, QImage  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 

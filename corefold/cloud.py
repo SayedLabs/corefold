@@ -24,9 +24,13 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .cloudkeys import DROPBOX_APP_KEY, ONEDRIVE_CLIENT_ID
 from .settings import LOG_DIR
+
+if TYPE_CHECKING:
+    import http.server
 
 log = logging.getLogger("corefold")
 

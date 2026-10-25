@@ -29,7 +29,7 @@ except (AttributeError, ValueError):
 import faulthandler  # noqa: E402
 faulthandler.dump_traceback_later(900, exit=True)  # stuck somewhere: say where, and stop
 
-from PySide6.QtCore import QMarginsF, QPointF, QRectF, QSizeF, Qt  # noqa: E402
+from PySide6.QtCore import QMarginsF, QPointF, QRectF, Qt  # noqa: E402
 from PySide6.QtGui import QColor, QFont, QImage, QPageLayout, QPageSize, QPainter, QPdfWriter  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
@@ -412,7 +412,7 @@ def editor():
     s.known_tools = sorted(t.id for t in all_tools.ready())
     s.reveal_after = False
     s.save()
-    from PySide6.QtCore import QEvent, QTimer
+    from PySide6.QtCore import QEvent
     from PySide6.QtGui import QIcon, QMouseEvent
     from PySide6.QtTest import QTest
     from PySide6.QtWidgets import QDialog, QFileDialog, QMessageBox

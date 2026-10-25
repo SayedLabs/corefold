@@ -194,7 +194,7 @@ def plan_and_sort():
         left.on = False
         r = org.sort(p)
         check(r.moved == len(EXPECT) - 1 and not r.failed, f"sorted {r.moved} of {len(EXPECT) - 1}, failed {r.failed}")
-        for name, kind in EXPECT.items():
+        for name, _kind in EXPECT.items():
             if name == "budget.xlsx":
                 continue
             item = next(i for i in p.items if i.path.name == name)
@@ -302,7 +302,7 @@ def languages():
     p = org.plan(f, known=True)
     check(p.folders["pictures"].name == "Pictures", f"in Arabic, the Pictures folder made in English is used "
                                                     f"({p.folders['pictures'].name})")
-    check(p.folders["music"].name == "الموسيقى" and "‏" not in p.folders["music"].name,
+    check(p.folders["music"].name == "الموسيقى" and "\u200f" not in p.folders["music"].name,
           f"a new folder gets its Arabic name, with no invisible marks in it ({p.folders['music'].name!r})")
     org.sort(p)
     check((f / "Pictures" / "two.png").is_file() and (f / "الموسيقى" / "two.mp3").is_file(), "and they're sorted there")

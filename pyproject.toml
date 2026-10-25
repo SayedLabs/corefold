@@ -17,6 +17,8 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "corefold/lang_*.py" = ["PLE2502"]  # (Arabic text needs its right-to-left marks)
+# the checks set up sys.path before importing, and their helpers run right away inside the loop
+"scripts/*" = ["E402", "B023"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

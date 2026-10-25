@@ -48,7 +48,7 @@ st.CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     "items": [], "stats": {"files": 1284, "jobs": 312, "bytes_saved": 7_340_032_000, "since": time.time() - 86400 * 60}}),
     "utf-8")
 
-from PySide6.QtCore import QPoint, QPointF, QRect, Qt  # noqa: E402
+from PySide6.QtCore import QPointF, QRect, Qt  # noqa: E402
 from PySide6.QtGui import QColor, QGuiApplication, QIcon, QLinearGradient, QPainter, QPixmap, QRadialGradient  # noqa: E402
 from PySide6.QtWidgets import QApplication, QWidget  # noqa: E402
 

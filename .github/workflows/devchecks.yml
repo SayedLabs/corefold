@@ -1,7 +1,7 @@
 # The developer tools on a real Windows PC: Ruff looks for mistakes in the code and pytest (with
-# pytest-qt) clicks the design system's widgets. Ruff only reports for now (its findings show on the
-# run's page and next to the lines in a pull request); the tests must pass. Known holes in the
-# packages are looked for by the Security checks (security.yml), not here.
+# pytest-qt) clicks the design system's widgets. Both must pass; Ruff's findings also show next to
+# the lines in a pull request. Known holes in the packages are looked for by the Security checks
+# (security.yml), not here.
 name: Developer checks
 
 on:
@@ -32,15 +32,11 @@ jobs:
         shell: pwsh
         run: python -m pip install --quiet -r requirements-dev.txt
 
-      - name: Ruff (reports only)
+      - name: Ruff
         shell: pwsh
         run: |
           python -m ruff --version
-          python -m ruff check --output-format github --exit-zero .
-          "## Ruff" | Out-File -Append $env:GITHUB_STEP_SUMMARY
-          '```' | Out-File -Append $env:GITHUB_STEP_SUMMARY
-          python -m ruff check --statistics --exit-zero . | Out-File -Append $env:GITHUB_STEP_SUMMARY
-          '```' | Out-File -Append $env:GITHUB_STEP_SUMMARY
+          python -m ruff check --output-format github .
 
       - name: Tests (pytest-qt)
         if: always()
