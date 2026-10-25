@@ -2371,7 +2371,7 @@ class MainWindow(QWidget):
         self.quality.valueChanged.connect(self._general_changed)
         q_row = QHBoxLayout()
         q_row.addWidget(self.quality)
-        q_row.addWidget(label(tr("for JPG and WebP. Higher = better quality, bigger file."), "muted"), 1)
+        q_row.addWidget(label(tr("for JPG and WebP. Higher = better quality, bigger file."), "muted", wrap=True), 1)
 
         self.video_quality = Dropdown()
         for key, text in VIDEO_QUALITIES.items():

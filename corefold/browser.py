@@ -222,7 +222,9 @@ class ArchiveBrowser(QWidget):
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.setWindowTitle(f"{src.name} - {APP_NAME}")
         self.setWindowIcon(icon)
-        self.resize(820, 560)
+        screen = QGuiApplication.primaryScreen()
+        room = screen.availableGeometry() if screen else None  # (roomy enough for long names, never off a small screen)
+        self.resize(min(960, room.width() - 40) if room else 960, min(600, room.height() - 40) if room else 600)
         self.icons = QFileIconProvider()
         self._lock_icon = None  # made the first time a locked file shows up
 
@@ -257,6 +259,7 @@ class ArchiveBrowser(QWidget):
         self.tree.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.tree.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.tree.setUniformRowHeights(True)
+        self.tree.setTextElideMode(Qt.ElideMiddle)  # (a long name keeps its end: report-20…-final.pdf)
         # sorted by Corefold (in Python, before the rows go in): Qt's own sorting would be slow for
         # 100,000 files. Clicking a column heading sorts by it.
         self.tree.sort_state = (0, True)
@@ -266,6 +269,12 @@ class ArchiveBrowser(QWidget):
         header.setSortIndicator(0, Qt.AscendingOrder)
         header.sectionClicked.connect(self._sort_by)
         self.tree.header().setSectionResizeMode(0, QHeaderView.Stretch)
+        # the other columns just as wide as what's in them, so the names get the room (measured once: sizing
+        # them to their rows would read every row of a folder of 100,000 files)
+        fm = self.tree.fontMetrics()
+        sizes = max(fm.horizontalAdvance(human_size(n)) for n in (1000, 999 * 1024 ** 2 + 943718))
+        for col, wide in ((1, sizes), (2, sizes), (3, fm.horizontalAdvance("2026-10-25 08:12"))):
+            header.resizeSection(col, max(wide, fm.horizontalAdvance(self.tree.headerItem().text(col))) + 26)
         self.tree.itemDoubleClicked.connect(lambda item, _col: self._open(item))
         self.tree.itemSelectionChanged.connect(self._buttons)
         self.tree.itemExpanded.connect(self._expanded)
@@ -346,7 +355,7 @@ class ArchiveBrowser(QWidget):
         self.split.addWidget(self.preview)
         self.split.setStretchFactor(0, 3)
         self.split.setStretchFactor(1, 2)
-        self.split.setSizes([480, 320])
+        self.split.setSizes([640, 280])
         lay.addWidget(self.split, 1)
         self._preview_asked = 0
         self._preview_stop = None  # stops the preview being read (another file was picked)
