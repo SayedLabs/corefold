@@ -22,9 +22,16 @@ AppName={#AppName}
 AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
 AppPublisher={#Publisher}
+AppCopyright={#Publisher}
+; Setup's own file details (right-click > Properties > Details), the same as Corefold.exe's
 VersionInfoVersion={#NumericVersion}
 VersionInfoCompany={#Publisher}
+VersionInfoCopyright={#Publisher}
+VersionInfoDescription={#AppName} Setup
+VersionInfoOriginalFileName=Corefold-Setup-{#AppVersion}.exe
 VersionInfoProductName={#AppName}
+VersionInfoProductTextVersion={#AppVersion}
+VersionInfoTextVersion={#AppVersion}
 DefaultDirName={autopf}\{#AppName}
 ; An update goes into the folder Corefold is already in (also one picked with /DIR), so its shortcuts, taskbar
 ; pin and start-up entry keep pointing at the same Corefold.exe. Only the old name's folder isn't kept: that
