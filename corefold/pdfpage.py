@@ -10,17 +10,18 @@ import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QSize, Qt, QTimer
-from PySide6.QtGui import QColor, QIcon, QImage, QKeySequence, QPainter, QPixmap, QShortcut, QTransform
+from PySide6.QtCore import QRectF, QSize, Qt, QTimer
+from PySide6.QtGui import QColor, QIcon, QImage, QKeySequence, QPainter, QPen, QPixmap, QShortcut, QTransform
 from PySide6.QtWidgets import (QAbstractItemView, QFileDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QListView,
                                QListWidget, QListWidgetItem, QMenu, QMessageBox, QPushButton, QScrollArea,
-                               QStackedWidget, QVBoxLayout, QWidget)
+                               QStackedWidget, QStyle, QStyledItemDelegate, QStyleOptionViewItem, QVBoxLayout,
+                               QWidget)
 
 from . import icons, pdftools, work
 from .atomic import tokens
 from .atomic.widgets import FlowLayout, IconButton, ResponsiveGrid
 from .core import IMAGE_EXT, norm, short_name
-from .i18n import tr
+from .i18n import ltr, tr
 from .theme import round_menu
 
 if TYPE_CHECKING:
@@ -145,6 +146,48 @@ class ActionCard(QFrame):
             super().keyPressEvent(e)
 
 
+class PageLook(QStyledItemDelegate):
+    """A page on the board looks like a sheet of paper: a fine edge and a soft shadow around it (a white page on
+    the light board was only its number)."""
+
+    def paint(self, p: QPainter, opt, index):
+        t = tokens.current()
+        picked = bool(opt.state & QStyle.StateFlag.State_Selected)
+        plain = QStyleOptionViewItem(opt)
+        if picked:  # (a picked page keeps its own colours, with a ring round it, instead of being tinted blue)
+            plain.state &= ~QStyle.StateFlag.State_Selected
+            p.save()
+            p.setRenderHint(QPainter.Antialiasing)
+            p.setPen(Qt.NoPen)
+            p.setBrush(t.accent_soft)
+            p.drawRoundedRect(QRectF(opt.rect).adjusted(2, 2, -2, -2), 10, 10)
+            p.restore()
+        super().paint(p, plain, index)
+        o = QStyleOptionViewItem(plain)
+        self.initStyleOption(o, index)
+        if o.icon.isNull():
+            return
+        widget = o.widget
+        style = widget.style() if widget is not None else None
+        if style is None:
+            return
+        box = style.subElementRect(QStyle.SubElement.SE_ItemViewItemDecoration, o, widget)
+        size = o.icon.actualSize(o.decorationSize)
+        sheet = QStyle.alignedRect(o.direction, o.decorationAlignment, size, box)
+        p.save()
+        p.setRenderHint(QPainter.Antialiasing)
+        r = QRectF(sheet).adjusted(-0.5, -0.5, 0.5, 0.5)
+        for grow, a in ((1.5, 26 if t.dark else 22), (3.0, 12 if t.dark else 9)):  # the shadow, fading out
+            p.setPen(QPen(QColor(0, 0, 0, a), 1.5))
+            p.drawRoundedRect(r.adjusted(-grow + 0.5, -grow + 1.5, grow - 0.5, grow + 0.5), 2 + grow, 2 + grow)
+        p.setPen(QPen(tokens.alpha(t.text, 40 if t.dark else 34), 1))
+        p.drawRoundedRect(r, 2, 2)
+        if picked:
+            p.setPen(QPen(t.accent, 2))
+            p.drawRoundedRect(r.adjusted(-3, -3, 3, 3), 5, 5)
+        p.restore()
+
+
 class Board(QListWidget):
     """The page pictures. Dragging one moves it; files dropped from outside are added."""
 
@@ -167,6 +210,7 @@ class Board(QListWidget):
         self.setUniformItemSizes(True)
         self.setWordWrap(True)
         self.setTextElideMode(Qt.ElideMiddle)
+        self.setItemDelegate(PageLook(self))
 
     def keyPressEvent(self, e):
         if e.matches(QKeySequence.Undo):
@@ -845,6 +889,8 @@ class PdfPage(QWidget):
             text = ""
         else:
             text = tr("{count} pages", count=n)
+            if len(self.files) == 1:  # (which PDF this is: the tool's banner, with its name, is hidden on the board)
+                text = f"{ltr(short_name(self.files[0].name, 48))}  ·  {text}"
             if chosen:
                 text += "  ·  " + tr("{count} selected", count=chosen)
             if len(self.files) > 1:

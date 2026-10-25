@@ -18,8 +18,8 @@ STEPS = [
                                    "the original, which is never changed. Let go in the middle to cancel."),
     ("cursor_click", "Or right-click it", "Right-click any file or folder and choose Corefold. On Windows 11 it's under \"Show "
                                 "more options\"."),
-    ("apps", "Everything in four sections", "Files, Images & screen, Computer and Quick tools: open one to see its "
-                                            "tools. Switch on only the ones you use, so Corefold stays light."),
+    ("apps", "Every tool in the sidebar", "Open a section on the left to see its tools and what each one does. "
+                                          "Switch on only the ones you use, so Corefold stays light."),
     ("paint_brush", "Make it yours", "Change the colours, the wheel's shape and size, the sounds and which options show up "
                             "in Settings. Each tool has its own tab there."),
 ]

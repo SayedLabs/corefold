@@ -177,10 +177,10 @@ class MailWindow(QWidget):
         if d is None:
             return ""
         try:
-            from .timefmt import locale
+            from .timefmt import latin_digits, locale
             from PySide6.QtCore import QDateTime
             stamp = QDateTime.fromSecsSinceEpoch(int(d.timestamp()))
-            return locale().toString(stamp, "d MMMM yyyy, HH:mm")
+            return latin_digits(locale().toString(stamp, "d MMMM yyyy, HH:mm"))
         except Exception:
             return d.strftime("%Y-%m-%d %H:%M")
 

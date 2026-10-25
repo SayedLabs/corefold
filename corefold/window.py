@@ -32,7 +32,7 @@ from .settings import (ACCENTS, APP_NAME, DEFAULT_ACCENT, APPEARANCES, HOVER_STY
                        startup_enabled)
 from .atomic.widgets import Dropdown, Switch, keep_wrapped_text, mark_rows
 from .theme import Theme, round_menu
-from .timefmt import date_text, locale, time_ago  # noqa: F401 (used by other pages)
+from .timefmt import date_text, locale, number, time_ago  # noqa: F401 (used by other pages)
 from .navbar import BADGE_ROLE, ICON_ROLE
 from .wheel import WheelPreview
 from .winutil import memory_use, reveal_in_explorer, set_title_bar_dark
@@ -2201,6 +2201,7 @@ class MainWindow(QWidget):
 
     def _converter(self) -> QWidget:
         w, lay = page(tr("Corefold Converter"))
+        self.converter_scroll = w
         lay.itemAt(0).widget().hide()  # shown in the heading with the tile instead
         self.power = button("", "power")
         self.power.setCheckable(True)
@@ -3245,7 +3246,7 @@ class MainWindow(QWidget):
         self.clip_plain_key.setCurrentIndex(max(0, self.clip_plain_key.findData(s.clip_plain_key)))
         self.clip_max = Dropdown()
         for n in CLIP_MAX:
-            self.clip_max.addItem(tr("{count} items", count=locale().toString(n)), n)
+            self.clip_max.addItem(tr("{count} items", count=number(n)), n)
         self.clip_max.setCurrentIndex(max(0, self.clip_max.findData(s.clip_max)))
         self.clip_days = Dropdown()
         for key, text in CLIP_DAYS.items():
@@ -3639,12 +3640,12 @@ class MainWindow(QWidget):
         if self.built("ConvOptions"):
             self._refresh_conv_options()
         st = self.c.history.stats
-        self.home_stats.setText(tr("So far: {count} files converted · {size} saved", count=locale().toString(st.files),
+        self.home_stats.setText(tr("So far: {count} files converted · {size} saved", count=number(st.files),
                                    size=human_size(st.bytes_saved)) if st.files else "")
         self.home_stats.setVisible(bool(st.files))
-        self.hero_figures["files"].setText(locale().toString(st.files))
-        self.hero_figures["saved"].setText(human_size(st.bytes_saved) if st.bytes_saved else "0")
-        self.hero_figures["tools"].setText(locale().toString(len(self.tools_on)))
+        self.hero_figures["files"].setText(number(st.files))
+        self.hero_figures["saved"].setText(human_size(st.bytes_saved) if st.bytes_saved else number(0))
+        self.hero_figures["tools"].setText(number(len(self.tools_on)))
         self.hello.setText(_greeting())
         self.power.setToolTip(tr("Turns the wheel and the right-click menu on or off."))
         self.refresh_again()
@@ -3680,10 +3681,9 @@ class MainWindow(QWidget):
 
     def _fill_history(self):
         st = self.c.history.stats
-        loc = locale()
-        self.stat_files.setText(loc.toString(st.files))
+        self.stat_files.setText(number(st.files))
         self.stat_saved.setText(human_size(st.bytes_saved))
-        self.stat_jobs.setText(loc.toString(st.jobs))
+        self.stat_jobs.setText(number(st.jobs))
         self.stat_since.setText(tr("Since {date}", date=date_text(st.since, long=True)))
         self.history_list.clear()
         for e in self.c.history.items:
@@ -3957,6 +3957,26 @@ class MainWindow(QWidget):
     def show_files(self, files):
         self.open_page("Converter")
         self.panel.set_files(files)
+        if self.panel.isVisible():  # (what can be done with them is below the steps: glide down to it)
+            QTimer.singleShot(0, self, self._show_panel)
+
+    def _show_panel(self):
+        scroll, panel = getattr(self, "converter_scroll", None), self.panel
+        if scroll is None or not _alive(panel) or not panel.isVisible():
+            return
+        scroll.widget().layout().activate()
+        bar = scroll.verticalScrollBar()
+        top = panel.mapTo(scroll.widget(), QPoint(0, 0)).y() - 12
+        # (the file's card at the top, or as far as the page goes; nothing moves if it's in view already)
+        seen = bar.value() <= top and top + min(panel.height(), 220) <= bar.value() + scroll.viewport().height()
+        end = max(0, min(top, bar.maximum()))
+        if seen or end == bar.value():
+            return
+        from .atomic import motion, tokens
+        if not tokens.animations:
+            bar.setValue(end)
+            return
+        motion.glide(bar, bar.value(), end, lambda v: bar.setValue(round(v)), 260)
 
     def keyPressEvent(self, e):
         from PySide6.QtGui import QKeySequence
