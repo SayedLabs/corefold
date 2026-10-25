@@ -42,6 +42,7 @@ from pypdf.generic import (ArrayObject, DictionaryObject, FloatObject, NameObjec
                            StreamObject, TextStringObject)
 
 from corefold import pdfedit as pe  # noqa: E402
+from corefold import sheet  # noqa: E402
 from corefold.core import Ctx, Options  # noqa: E402
 
 problems = []
@@ -744,6 +745,7 @@ def editor():
     # a form
     asked = {}
     real_box = QMessageBox.exec
+    real_sheet_box = sheet._run_box  # (questions show as sheets inside the window now)
 
     def box_exec(box):
         asked["text"] = box.text()
@@ -754,6 +756,7 @@ def editor():
                 return 0
         return 0
     QMessageBox.exec = box_exec
+    sheet._run_box = box_exec
     tool("text")
     click(page0, 300, 760)
     QTest.keyClicks(view, "unsaved")
@@ -764,6 +767,7 @@ def editor():
     settle(0.2)
     check(bool(asked) and pg.stack.currentWidget() is ed, "closing with changes asks first (Cancel: stays)")
     QMessageBox.exec = real_box
+    sheet._run_box = real_sheet_box
     ed.close_editor(ask=False)
     settle(0.2)
     check(pg.stack.currentIndex() == 0 and (pg.banner or w.one_head).isVisible(), "closing goes back to the cards")

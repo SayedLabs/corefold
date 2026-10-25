@@ -33,6 +33,7 @@ from pypdf import PdfReader  # noqa: E402
 
 from corefold import pdftools as pt  # noqa: E402
 from corefold import settings as st  # noqa: E402
+from corefold import sheet  # noqa: E402
 from corefold import tools as all_tools  # noqa: E402
 from corefold.archives import NeedPassword  # noqa: E402
 from corefold.core import Ctx, Options  # noqa: E402
@@ -425,6 +426,7 @@ def page():
     # closing with changes not saved asks first
     asked = {}
     real_box = QMessageBox.exec
+    real_sheet_box = sheet._run_box  # (questions show as sheets inside the window now)
 
     def box_exec(box):
         asked["text"] = box.text()
@@ -436,6 +438,7 @@ def page():
                 return 0
         return 0
     QMessageBox.exec = box_exec
+    sheet._run_box = box_exec
     try:
         QTest.mouseClick(pg.close_btn, Qt.LeftButton)
         settle(0.2)
@@ -443,6 +446,7 @@ def page():
                                                             f"({bool(asked)}, {pg.stack.currentIndex()})")
     finally:
         QMessageBox.exec = real_box
+        sheet._run_box = real_sheet_box
     for size in ((760, 520), (1500, 900)):
         w.resize(*size)
         settle(0.4)
