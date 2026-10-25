@@ -2203,11 +2203,33 @@ def run_elevated(command: list[str], kind: str, payload: dict, cancel: threading
         result.unlink(missing_ok=True)
 
 
+def _let_questions_show():
+    """The administrator copy is started hidden (show=0), and Windows applies that to the first window a
+    program shows: that would be a question of Windows' own the person can't see or answer (the Recycle
+    Bin is too small, or the drive has none: "delete for good?"), and the helper, and the page waiting
+    for it, would wait for ever. A tiny window of no size shown first takes that hiding on itself."""
+    try:
+        u = ctypes.windll.user32
+        u.CreateWindowExW.restype = ctypes.c_void_p
+        u.CreateWindowExW.argtypes = [ctypes.c_uint32, ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32,
+                                      ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+                                      ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
+        # (WS_POPUP, WS_EX_TOOLWINDOW: no frame, no taskbar button, nothing to see even for a moment)
+        h = u.CreateWindowExW(0x80, "STATIC", "", 0x80000000, -32000, -32000, 0, 0, None, None, None, None)
+        if h:
+            u.ShowWindow(ctypes.c_void_p(h), 1)  # (SW_SHOWNORMAL: the call Windows turns into the hidden one)
+            u.DestroyWindow(ctypes.c_void_p(h))
+    except Exception:
+        log.debug("couldn't make the helper's questions visible", exc_info=True)
+
+
+HELPER_KINDS = ("--cleanup", "--restore", "--restore-point", "--space-clean", "--delete-at-restart", "--startup-clean")
+
+
 def helper_main(argv: list[str]) -> int:
     """What the elevated copy does: --cleanup plan.json, --restore plan.json, --restore-point plan.json,
-    --space-clean plan.json or --delete-at-restart plan.json."""
-    kind = next((a[2:] for a in argv if a in ("--cleanup", "--restore", "--restore-point", "--space-clean",
-                                               "--delete-at-restart")), "")
+    --space-clean plan.json, --delete-at-restart plan.json or --startup-clean plan.json."""
+    kind = next((a[2:] for a in argv if a in HELPER_KINDS), "")
     try:
         plan = Path(argv[argv.index("--" + kind) + 1])
         payload = json.loads(plan.read_text("utf-8"))
@@ -2218,10 +2240,11 @@ def helper_main(argv: list[str]) -> int:
     # account at the admin prompt, this copy runs as that account, with other folders.
     folder = str(payload.get("folder", "")) if isinstance(payload, dict) else ""
     home = plan.resolve().parent.parent  # ...\Corefold
-    needs_folder = kind not in ("restore-point", "space-clean", "delete-at-restart")
+    needs_folder = kind not in ("restore-point", "space-clean", "delete-at-restart", "startup-clean")
     if plan.resolve().parent.name.lower() != "helper" or home.name.lower() not in ("corefold", LEGACY_NAME.lower()) or \
             (needs_folder and not (folder and _inside(str(Path(folder).resolve()), str(home / BACKUP_DIR.name)))):
         return 2
+    _let_questions_show()
     try:
         if kind == "cleanup":
             out = remove(items_from(payload["items"]), Path(payload["folder"]), payload.get("apps"), admin=True,
@@ -2237,6 +2260,9 @@ def helper_main(argv: list[str]) -> int:
             allowed = [p for p in paths if at_restart_allowed(p)]
             out = delete_at_restart(allowed) if allowed else {"scheduled": 0, "failed": 0}
             out["refused"] = len(paths) - len(allowed)
+        elif kind == "startup-clean":  # the Startup page: shortcuts in everyone's Startup folder
+            from .startup import clean_common_as_admin
+            out = clean_common_as_admin(payload)
         elif kind == "restore":
             r = restore(Path(payload["folder"]), admin=True)
             out = {"done": r["done"], "failed": r["failed"]}

@@ -710,15 +710,28 @@ class ArchiveBrowser(QWidget):
                                                              "shows the progress.", size=human_size(total)))
             return
         QGuiApplication.setOverrideCursor(Qt.WaitCursor)
-        try:
-            folder = ar.extract_for_drag(self.src, members, self.password)
-        except Exception as e:
-            QGuiApplication.restoreOverrideCursor()
+        # (taken out on a thread of its own: up to 256 MB can take a while, and the window, drawn on this one,
+        # must not turn white and "Not responding" meanwhile; clicks and keys wait until it's done)
+        from PySide6.QtCore import QEventLoop
+        from . import work
+        loop, got = QEventLoop(), {}
+
+        def done(result):
+            got["result"] = result
+            loop.quit()
+        job = work.run(lambda _p: ar.extract_for_drag(self.src, members, self.password), lambda _: None, done,
+                       name="corefold-drag-out")
+        if "result" not in got:
+            loop.exec(QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents)
+        del job
+        QGuiApplication.restoreOverrideCursor()
+        folder = got.get("result")
+        if isinstance(folder, Exception) or folder is None:
+            e = folder
             why = tr("wrong or missing password") if isinstance(e, ar.NeedPassword) else \
-                str(e) or tr("the archive is damaged or incomplete")
+                str(e or "") or tr("the archive is damaged or incomplete")
             QMessageBox.warning(self, tr("Couldn't take the files out"), why)
             return
-        QGuiApplication.restoreOverrideCursor()
         urls = []
         for p in tops:
             path = folder / p.replace("/", os.sep)

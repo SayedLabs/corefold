@@ -6,9 +6,10 @@ if sys.platform != "win32":
     sys.exit("Corefold only runs on Windows.")
 
 # The elevated helper used by the Apps page (removing leftovers in Program Files, restore points), by
-# Space (Windows' own leftovers) and by Unlock (deleting a file when the PC restarts).
-if any(a in ("--cleanup", "--restore", "--restore-point", "--space-clean", "--delete-at-restart")
-       for a in sys.argv[1:]):
+# Space (Windows' own leftovers), by Unlock (deleting a file when the PC restarts) and by Startup
+# (leftovers in everyone's Startup folder).
+if any(a in ("--cleanup", "--restore", "--restore-point", "--space-clean", "--delete-at-restart",
+             "--startup-clean") for a in sys.argv[1:]):
     from corefold.uninstall import helper_main  # noqa: E402
     sys.exit(helper_main(sys.argv[1:]))
 
