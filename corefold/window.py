@@ -1282,6 +1282,9 @@ class MainWindow(QWidget):
             name = self._opening
         went = getattr(self, "_went", None)
         before = self.current_page()
+        board = getattr(self, "home_board", None)
+        if before == "Home" and name != "Home" and board is not None and board.editing:
+            board.set_editing(False)
         if went is not None and not self._going_back and before != name:
             went.append(before)
             del went[:-30]
@@ -1687,6 +1690,8 @@ class MainWindow(QWidget):
                                     keywords="update version"))
         commands.append(Command(tr("Show the tour again"), actions, ic("sparkle"), self.c.show_tour,
                                 keywords="help start tips"))
+        commands.append(Command(tr("Add a widget"), actions, ic("add"), self._home_add_widget,
+                                keywords=tr("Widgets") + " " + tr("Customize") + " widget home"))
         # pages: the sidebar's, and each tool in use (straight to it, whatever its section)
         for name in [n for n in self.nav_rows if n] + [tool.page for tool in self.tools_on]:
             sec = all_tools.SECTION_BY_PAGE.get(name)
@@ -2093,6 +2098,21 @@ class MainWindow(QWidget):
         hl.addLayout(quick)
         lay.addWidget(hero)
 
+        # the widgets: what this person put on their Home page, in the sizes and places they chose
+        from .homewidgets import Board
+        head = QHBoxLayout()
+        head.addWidget(label(tr("Widgets"), "title"))
+        head.addStretch()
+        self.home_again = button(tr("Start again"), "flat", self._home_start_again)
+        self.home_again.hide()
+        head.addWidget(self.home_again)
+        self.home_edit = button(tr("Customize"), "flat", lambda: self.home_board.set_editing(not self.home_board.editing))
+        head.addWidget(self.home_edit)
+        lay.addLayout(head)
+        self.home_board = Board(self)
+        self.home_board.editing_changed.connect(self._home_editing)
+        lay.addWidget(self.home_board)
+
         lay.addWidget(label(tr("Your tools"), "title"))
         grid = ResponsiveGrid(300, 12, 2)
         self.section_cards = {}
@@ -2117,6 +2137,23 @@ class MainWindow(QWidget):
         lay.addWidget(recent)
         lay.addStretch()
         return w
+
+    def _home_editing(self, on: bool):
+        """The Home page is being changed (or that's done)."""
+        self.home_edit.setText(tr("Done") if on else tr("Customize"))
+        self.home_edit.setObjectName("primary" if on else "flat")
+        self.home_edit.style().unpolish(self.home_edit)
+        self.home_edit.style().polish(self.home_edit)
+        self.home_again.setVisible(on)
+
+    def _home_add_widget(self):
+        self.open_page("Home")
+        QTimer.singleShot(0, lambda: self.home_board.open_gallery() if _alive(self.home_board) else None)
+
+    def _home_start_again(self):
+        if self._confirm(tr("Start again"), tr("Put back the widgets Corefold starts with? The ones you added or "
+                                               "changed go."), tr("Start again")):
+            self.home_board.start_again()
 
     def _fill_recent(self):
         """The last few things Corefold did, on the Home page."""
@@ -4019,6 +4056,8 @@ class MainWindow(QWidget):
         for b, name in self.quick_buttons:
             b.setIcon(icons.icon(name, t.accent if not t.dark else t.text))
         self._color_chips(t)
+        if hasattr(self, "home_board"):
+            self.home_board.apply_theme(t)
         self.settings_list.viewport().update()
         self.strip_section = None  # (made again: its icons follow the text colour)
         self._sync_section_strip(self.current_page())
@@ -4102,6 +4141,10 @@ class MainWindow(QWidget):
         page opened before it."""
         here = self.stack.currentWidget()
         if callable(getattr(here, "go_back", None)) and here.go_back():
+            return True
+        board = getattr(self, "home_board", None)
+        if board is not None and board.editing and self.current_page() == "Home":  # (changing the Home page: done)
+            board.set_editing(False)
             return True
         while self._went:
             name = self._went.pop()

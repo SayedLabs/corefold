@@ -409,6 +409,8 @@ def _controls(page) -> list:
             text = wid.text() if hasattr(wid, "text") and callable(wid.text) else ""
             if isinstance(wid, QAbstractButton) and _skipped(text):
                 continue
+            if wid.objectName() == "widgetShortcut":  # (a Home shortcut opens a folder or a website outside Corefold)
+                continue
             out.append(wid)
     return out
 
