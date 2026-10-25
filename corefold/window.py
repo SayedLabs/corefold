@@ -1325,6 +1325,8 @@ class MainWindow(QWidget):
         if went is not None and not self._going_back and before != name:
             went.append(before)
             del went[:-30]
+        # (the features list comes or goes first, so the page is made and laid out once, at its own width)
+        self._sync_feature_side(name)
         self._build_page(name)
         self.stack.setCurrentIndex(PAGES.index(name))
         self._sync_settings_head(name)
