@@ -2253,13 +2253,20 @@ def helper_main(argv: list[str]) -> int:
             from .space import ADMIN_KEYS, clean_as_admin
             keys = [k for k in payload.get("keys", []) if k in ADMIN_KEYS]
             out = {"freed": clean_as_admin(keys)}
-        elif kind == "delete-at-restart":  # Corefold Unlock: what nothing would let go of
-            from .unlock import at_restart_allowed, delete_at_restart
+        elif kind == "delete-at-restart":  # Corefold Unlock: what nothing would let go of (deleted, or moved)
+            from .unlock import at_restart_allowed, delete_at_restart, move_at_restart, move_at_restart_problem
             paths = [str(p) for p in payload.get("paths", []) if isinstance(p, str) and os.path.isabs(p)
                      and os.path.lexists(p)]
-            allowed = [p for p in paths if at_restart_allowed(p)]
-            out = delete_at_restart(allowed) if allowed else {"scheduled": 0, "failed": 0}
-            out["refused"] = len(paths) - len(allowed)
+            moves = [(a, b) for a, b in (m for m in payload.get("moves", []) if isinstance(m, list) and len(m) == 2)
+                     if isinstance(a, str) and isinstance(b, str)]
+            if moves:
+                allowed_moves = [(a, b) for a, b in moves if not move_at_restart_problem(a, b)]
+                out = move_at_restart(allowed_moves) if allowed_moves else {"scheduled": 0, "failed": 0}
+                out["refused"] = len(moves) - len(allowed_moves)
+            else:
+                allowed = [p for p in paths if at_restart_allowed(p)]
+                out = delete_at_restart(allowed) if allowed else {"scheduled": 0, "failed": 0}
+                out["refused"] = len(paths) - len(allowed)
         elif kind == "startup-clean":  # the Startup page: shortcuts in everyone's Startup folder
             from .startup import clean_common_as_admin
             out = clean_common_as_admin(payload)

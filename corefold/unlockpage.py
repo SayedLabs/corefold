@@ -9,13 +9,14 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QFileInfo, QSize, Qt
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QFileDialog, QFileIconProvider, QFrame, QHBoxLayout, QInputDialog, QLabel, \
+from PySide6.QtWidgets import QFileDialog, QFileIconProvider, QFrame, QHBoxLayout, QInputDialog, QLabel, QMenu, \
     QMessageBox, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from . import i18n, icons, unlock, work
 from .atomic.widgets import Group, SettingRow
 from .i18n import ltr, tr
 from .panel import DropZone
+from .theme import round_menu
 
 if TYPE_CHECKING:
     from .app import Controller
@@ -140,6 +141,7 @@ class UnlockPage(QWidget):
         self.queued: list[Path] = []       # asked for while busy (another "What's using this?")
         self.jobs: list = []               # (kept until their answer is in)
         self.delete_failed = False         # deleting it didn't work: deleting it as the PC restarts is offered
+        self.pending: tuple | None = None  # what to do once the programs let go ("Close and delete" …)
         self.admin = unlock.is_admin()
         self._icons = QFileIconProvider()
         self._icon_cache: dict[str, QIcon | None] = {}
@@ -199,11 +201,33 @@ class UnlockPage(QWidget):
         self.rename_btn = _button(tr("Rename…"), None, self.rename)
         self.later_btn = _button(tr("Delete when the PC restarts"), None, self.delete_at_restart)
         self.later_btn.setToolTip(tr("Windows deletes it as the PC starts, before any program can open it."))
+        # one click for the whole thing (as IObit Unlocker does): close what has it open, then do it
+        self.then_btn = _button(tr("Close and…"), None)
+        then_menu = QMenu(self.then_btn)
+        round_menu(then_menu)
+        then_menu.addAction(tr("Close and delete it"), lambda: self.close_then("delete"))
+        then_menu.addAction(tr("Close and move it…"), lambda: self.close_then("move"))
+        self.then_rename = then_menu.addAction(tr("Close and rename it…"), lambda: self.close_then("rename"))
+        self.then_btn.setMenu(then_menu)
+        self.copy_btn = _button(tr("Copy to…"), None, self.copy_to)
+        self.copy_btn.setToolTip(tr("Most programs let a file be read while they have it open, so it can be "
+                                    "copied without closing them."))
+        self.later_more_btn = _button(tr("When the PC restarts…"), None)
+        later_menu = QMenu(self.later_more_btn)
+        round_menu(later_menu)
+        later_menu.addAction(tr("Move it there then…"), lambda: self.move_at_restart("move"))
+        self.later_rename = later_menu.addAction(tr("Rename it then…"), lambda: self.move_at_restart("rename"))
+        self.later_more_btn.setMenu(later_menu)
+        self.later_more_btn.setToolTip(tr("Windows moves or renames it as the PC starts, before any program can "
+                                          "open it. Only on the same drive."))
         buttons.addWidget(self.close_all_btn)
+        buttons.addWidget(self.then_btn)
         buttons.addWidget(self.delete_btn)
         buttons.addWidget(self.move_btn)
         buttons.addWidget(self.rename_btn)
+        buttons.addWidget(self.copy_btn)
         buttons.addWidget(self.later_btn)
+        buttons.addWidget(self.later_more_btn)
         buttons.addStretch()
         buttons.addWidget(self.again_btn)
         rl.addLayout(buttons)
@@ -259,6 +283,7 @@ class UnlockPage(QWidget):
         if paths != self.paths:
             keep_states = False
             self.delete_failed = False
+            self.pending = None
         self.paths = paths
         if not keep_states:
             self.states = {}
@@ -286,6 +311,8 @@ class UnlockPage(QWidget):
         live = {p.pid for p in result.programs}
         self.states = {pid: s for pid, s in self.states.items() if pid in live}
         self._fill()
+        if self.pending and self._then():
+            return
         self._next()
 
     def _next(self):
@@ -342,6 +369,9 @@ class UnlockPage(QWidget):
         idle = [p for p in programs if p.closable and not self.states.get(p.pid)]
         self.close_all_btn.setVisible(len(idle) > 1)
         exists = any(os.path.lexists(p) for p in self.paths)
+        self.then_btn.setVisible(bool(idle) and exists)
+        self.then_rename.setVisible(len(self.paths) == 1)
+        self.copy_btn.setVisible(found is not None and exists)
         can_delete = found is not None and not programs and exists
         self.delete_btn.setVisible(can_delete)
         self.move_btn.setVisible(can_delete)
@@ -350,6 +380,8 @@ class UnlockPage(QWidget):
         # (what won't let go, even of a program that won't close: Windows deletes it as the PC starts)
         stuck = any(self.states.get(p.pid) in ("stuck", "no_window") or not p.closable for p in programs)
         self.later_btn.setVisible(found is not None and exists and (self.delete_failed or stuck))
+        self.later_more_btn.setVisible(self.later_btn.isVisibleTo(self.result))
+        self.later_rename.setVisible(len(self.paths) == 1)
         self.again_btn.setVisible(bool(self.paths))
         if self.busy:
             self._set_busy(True)
@@ -366,7 +398,7 @@ class UnlockPage(QWidget):
     def _set_busy(self, on: bool, text: str = ""):
         self.busy = on
         for b in (self.close_all_btn, self.delete_btn, self.move_btn, self.rename_btn, self.again_btn,
-                  self.later_btn):
+                  self.later_btn, self.then_btn, self.copy_btn, self.later_more_btn):
             b.setEnabled(not on)
         for row in self.rows:
             for b in (row.close_btn, row.force_btn):
@@ -499,17 +531,94 @@ class UnlockPage(QWidget):
 
     # ---- moving and renaming, now that nothing has it open (as IObit Unlocker does)
 
+    def _pick_folder(self, title: str) -> str:
+        return QFileDialog.getExistingDirectory(self, title, str(self.paths[0].parent))
+
+    def _move_problem(self, dest_dir: Path) -> str:
+        taken = [p.name for p in self.paths if (dest_dir / p.name).exists() or (dest_dir / p.name) == p]
+        return tr("There's already something called {name} there.", name=ltr(taken[0])) if taken else ""
+
+    def _ask_name(self) -> str | None:
+        """The new name typed (checked), or None."""
+        old = self.paths[0]
+        new_name, ok = QInputDialog.getText(self, tr("Rename…"), tr("New name:"), text=old.name)
+        if not ok:
+            return None
+        new_name = new_name.strip().rstrip(". ")
+        if not new_name or new_name == old.name:
+            return None
+        problem = self._name_problem(new_name)
+        if problem:
+            self._say(problem)
+            return None
+        return new_name
+
+    def _name_problem(self, new_name: str) -> str:
+        if any(ch in new_name for ch in '\\/:*?"<>|'):
+            return tr("A name can't have any of these in it: {chars}", chars='\\ / : * ? " < > |')
+        old = self.paths[0]
+        target = old.with_name(new_name)
+        if target.exists() and os.path.normcase(str(target)) != os.path.normcase(str(old)):
+            return tr("There's already something called {name} there.", name=ltr(new_name))
+        return ""
+
+    def close_then(self, action: str):
+        """Close the programs that have it open, then delete, move or rename it in the same go. What's
+        asked (where to, the new name) is asked first; if a program won't let go, the page says what's left."""
+        if self.busy or not self.paths or not self.found:
+            return
+        arg = None
+        if action == "move":
+            dest = self._pick_folder(tr("Move to…"))
+            if not dest:
+                return
+            problem = self._move_problem(Path(dest))
+            if problem:
+                self._say(problem)
+                return
+            arg = dest
+        elif action == "rename":
+            if len(self.paths) != 1:
+                return
+            arg = self._ask_name()
+            if arg is None:
+                return
+        self._say("")
+        self.pending = (action, arg)
+        self.close([p for p in self.found.programs if p.closable and not self.states.get(p.pid)])
+
+    def _then(self) -> bool:
+        """After closing: the delete, move or rename asked for, if nothing has it open now. True if started."""
+        action, arg = self.pending
+        found = self.found
+        if found is None:
+            self.pending = None
+            return False
+        if found.programs:
+            names = ", ".join(ltr(p.name) for p in found.programs[:3])
+            self._say(tr("{names} still has it open. Force it to close, or have Windows do it when the PC restarts.",
+                         names=names))
+            return False
+        self.pending = None
+        if action == "delete":
+            self.delete()
+        elif action == "move":
+            self.move(arg)
+        else:
+            self.rename(arg)
+        return True
+
     def move(self, dest: str | None = None):
         if self.busy or not self.paths:
             return
         if dest is None:
-            dest = QFileDialog.getExistingDirectory(self, tr("Move to…"), str(self.paths[0].parent))
+            dest = self._pick_folder(tr("Move to…"))
         if not dest:
             return
         dest_dir = Path(dest)
-        taken = [p.name for p in self.paths if (dest_dir / p.name).exists() or (dest_dir / p.name) == p]
-        if taken:
-            self._say(tr("There's already something called {name} there.", name=ltr(taken[0])))
+        problem = self._move_problem(dest_dir)
+        if problem:
+            self._say(problem)
             return
         paths = list(self.paths)
         self._set_busy(True, tr("Moving it…"))
@@ -529,19 +638,17 @@ class UnlockPage(QWidget):
             return
         old = self.paths[0]
         if new_name is None:
-            new_name, ok = QInputDialog.getText(self, tr("Rename…"), tr("New name:"), text=old.name)
-            if not ok:
+            new_name = self._ask_name()
+            if new_name is None:
                 return
         new_name = new_name.strip().rstrip(". ")
         if not new_name or new_name == old.name:
             return
-        if any(ch in new_name for ch in '\\/:*?"<>|'):
-            self._say(tr("A name can't have any of these in it: {chars}", chars='\\ / : * ? " < > |'))
+        problem = self._name_problem(new_name)
+        if problem:
+            self._say(problem)
             return
         target = old.with_name(new_name)
-        if target.exists() and os.path.normcase(str(target)) != os.path.normcase(str(old)):
-            self._say(tr("There's already something called {name} there.", name=ltr(new_name)))
-            return
         self._set_busy(True, tr("Renaming it…"))
 
         def go(_p):
@@ -567,6 +674,106 @@ class UnlockPage(QWidget):
         self.status.setText(said)
         self.status.show()
         self._next()
+
+    # ---- copying (reading is allowed even while most programs have it open)
+
+    def copy_to(self, dest: str | None = None):
+        if self.busy or not self.paths:
+            return
+        if dest is None:
+            dest = QFileDialog.getExistingDirectory(self, tr("Copy to…"), str(self.paths[0].parent))
+        if not dest:
+            return
+        dest_dir = Path(dest)
+        problem = self._move_problem(dest_dir)
+        if problem:
+            self._say(problem)
+            return
+        paths = list(self.paths)
+        self._set_busy(True, tr("Copying it…"))
+
+        def go(_p):
+            import shutil
+            made = []
+            for p in paths:
+                target = dest_dir / p.name
+                if p.is_dir() and not p.is_symlink():
+                    shutil.copytree(p, target, symlinks=True)
+                else:
+                    shutil.copy2(p, target, follow_symlinks=False)
+                made.append(target)
+            return made
+        self._run(go, lambda result: self._copied(result, dest_dir))
+
+    def _copied(self, result, dest_dir: Path):
+        self.jobs = [j for j in self.jobs if j.is_alive()]
+        if not work.alive(self):
+            return
+        self._set_busy(False)
+        self._fill()
+        if isinstance(result, Exception):
+            log.warning("couldn't copy %s: %s", self.paths, result)
+            locked = isinstance(result, OSError) and getattr(result, "winerror", 0) in (32, 33)
+            self._say(tr("A program has it open and won't let it be read. Close it first, then copy it.") if locked
+                      else tr("Windows didn't let Corefold copy it: {error}", error=result))
+        else:
+            self._say("")
+            self.status.setText(tr("Copied to {folder}.", folder=ltr(str(dest_dir))))
+            self.status.show()
+        self._next()
+
+    # ---- when the PC restarts
+
+    def move_at_restart(self, action: str):
+        """Windows moves or renames it as the PC starts (as administrator, so Windows asks first)."""
+        if self.busy or not self.paths:
+            return
+        if action == "rename":
+            if len(self.paths) != 1:
+                return
+            name = self._ask_name()
+            if name is None:
+                return
+            moves = [(self.paths[0], self.paths[0].with_name(name))]
+        else:
+            dest = self._pick_folder(tr("Move it there then…"))
+            if not dest:
+                return
+            problem = self._move_problem(Path(dest))
+            if problem:
+                self._say(problem)
+                return
+            moves = [(p, Path(dest) / p.name) for p in self.paths]
+        problems = {unlock.move_at_restart_problem(str(a), str(b)) for a, b in moves} - {""}
+        if "drive" in problems:
+            self._say(tr("Windows can only do this on the same drive. Pick a folder on the same drive."))
+            return
+        if problems:
+            self._say(tr("Corefold doesn't move Windows' or programs' own folders this way."))
+            return
+        self._set_busy(True, tr("Waiting for Windows' permission…"))
+        self._run(lambda _p: unlock.ask_move_at_restart(moves), self._move_scheduled)
+
+    def _move_scheduled(self, result):
+        self.jobs = [j for j in self.jobs if j.is_alive()]
+        if not work.alive(self):
+            return
+        self._set_busy(False)
+        self._fill()
+        try:
+            if result is None:
+                self._say(tr("Nothing was changed: Windows' permission wasn't given."))
+            elif isinstance(result, dict) and result.get("scheduled") and not result.get("error"):
+                self._say("")
+                self.later_btn.hide()
+                self.later_more_btn.hide()
+                self.status.setText(tr("It will be moved the next time the PC restarts."))
+                self.status.show()
+            else:
+                log.warning("couldn't ask for %s to be moved at restart: %s", self.paths, result)
+                self._say(tr("Windows didn't take it. Try again, or restart the PC and move it then."))
+        finally:
+            self._next()
 
     def delete_at_restart(self):
         """Windows deletes it as the PC starts (as administrator, so Windows asks first). For good: it
