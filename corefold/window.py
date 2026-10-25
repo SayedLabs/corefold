@@ -928,12 +928,13 @@ class MainWindow(QWidget):
             w.setVisible(not compact)
 
     def _fade_in(self, i: int):
-        """A page that's opened fades in (quickly), so moving between pages feels smooth."""
+        """A page that's opened fades in while it rises the last few pixels into place (quickly), so moving
+        between pages feels smooth."""
         w = self.stack.widget(i)
         if w is None or not (self.c.settings.animations and self.isVisible()) or PAGES[i] == "Player":
             return  # (the Player's video draws itself: it's left alone)
         from .atomic import motion
-        motion.fade_in(w, 170)
+        motion.rise_in(w, 8, 220)
 
     def _compact_now(self) -> bool:
         return self.c.settings.nav_compact or getattr(self, "_auto_compact", False)

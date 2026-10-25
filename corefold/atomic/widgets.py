@@ -14,7 +14,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QEasingCurve, QEvent, QObject, QPointF, QRect, QRectF, QSize, Qt, QVariantAnimation
-from PySide6.QtGui import QFont, QFontMetrics, QIcon, QPainter, QPainterPath, QPen
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QIcon, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxLayout, QLayout, QLabel, QListView,
                                QPushButton, QSizePolicy, QStyle, QStyledItemDelegate, QVBoxLayout, QWidget)
 
@@ -180,7 +180,7 @@ class Switch(QCheckBox):
         travel = TRACK_W - 6 - 14
         x0 = track.left() + 3 + 7
         cx = x0 + travel * (1 - on if rtl else on)
-        knob = mix(t.muted, t.on_accent, on)
+        knob = mix(t.muted, QColor("#ffffff"), on)  # (white when on, whatever the accent, like iOS)
         if not enabled:
             knob = mix(knob, t.surface, 0.5)
         p.setPen(Qt.NoPen)

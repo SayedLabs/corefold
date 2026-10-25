@@ -77,8 +77,8 @@ QPushButton#danger:hover { border-color: $danger; background: $danger_soft; }
 QPushButton#ghost { background: transparent; border: 1px solid transparent; }
 QPushButton#ghost:hover { background: $hover; }
 QPushButton#ghost:pressed { background: $pressed; }
-QPushButton#flat { background: transparent; border: none; color: $accent_text; padding: 3px 6px; font-weight: 600; }
-QPushButton#flat:hover { color: $text; }
+QPushButton#flat { background: transparent; border: none; color: $text; padding: 3px 6px; font-weight: 600; }
+QPushButton#flat:hover { color: $accent_text; }
 QPushButton#flat:disabled { color: $subtle; font-weight: 600; }
 QPushButton#danger:disabled { color: $subtle; }
 QPushButton#small { padding: 2px 8px; min-width: 0; background: transparent; border: 1px solid transparent;

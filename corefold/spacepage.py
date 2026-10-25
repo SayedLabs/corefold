@@ -687,9 +687,9 @@ class DriveCard(QPushButton):
         track = mix(t.panel, t.text, 0.1 if t.dark else 0.08)
         if self.fill is None:
             p.setPen(Qt.NoPen)
-            p.setBrush(mix(t.panel, t.accent, 0.18 if t.dark else 0.12))
+            p.setBrush(mix(t.panel, t.text, 0.08))
             p.drawEllipse(ring.adjusted(3, 3, -3, -3))
-            icons.paint(p, ring.adjusted(17, 17, -17, -17), "folder_search", t.accent)
+            icons.paint(p, ring.adjusted(17, 17, -17, -17), "folder_search", t.text)
         else:
             color = _fill_color(t, self.fill)
             _ring(p, ring.adjusted(3, 3, -3, -3), self.fill, color, track, 6)
@@ -1856,10 +1856,10 @@ class IconTile(QWidget):
         p.setRenderHint(QPainter.Antialiasing)
         r = QRectF(self.rect())
         p.setPen(Qt.NoPen)
-        p.setBrush(mix(t.surface, t.accent, 0.2 if t.dark else 0.13))
+        p.setBrush(mix(t.surface, t.text, 0.08))
         p.drawRoundedRect(r, r.width() * 0.28, r.width() * 0.28)
         pad = r.width() * 0.26
-        icons.paint(p, r.adjusted(pad, pad, -pad, -pad), self.icon, t.accent)
+        icons.paint(p, r.adjusted(pad, pad, -pad, -pad), self.icon, t.text)
         p.end()
 
 
