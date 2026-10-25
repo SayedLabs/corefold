@@ -46,3 +46,25 @@ def test_a_copy_can_be_stopped(tmp_path):
     except cloud.CloudError:
         pass
     assert not (b / "x" / "f.txt").exists()
+
+
+def test_select_all_takes_in_the_rows_still_to_come(qtbot):
+    """Select all in a huge folder stays quick: the rows still to come are selected as they arrive."""
+    from PySide6.QtWidgets import QTreeWidgetItem, QWidget
+    from corefold import cloudpage
+    page = QWidget()
+    qtbot.addWidget(page)
+    page._round, page._later = 1, [str(i) for i in range(5, 12)]
+    page._add_rows = lambda part: page.files.addTopLevelItems([QTreeWidgetItem([p]) for p in part])
+    page.finish_rows = lambda: cloudpage.CloudPage.finish_rows(page)
+    page._more_rows = lambda r, c=3: cloudpage.CloudPage._more_rows(page, r, c)
+    page.files = cloudpage.Files(page)
+    page._add_rows([str(i) for i in range(5)])
+    page.files.selectAll()
+    assert page.files.all_picked and len(page.files.selectedItems()) == 5
+    page._more_rows(1)
+    assert len(page.files.selectedItems()) == 8  # (the new rows came in selected)
+    page.files.topLevelItem(0).setSelected(False)  # (changed by hand: what comes later isn't picked)
+    assert not page.files.all_picked
+    page._more_rows(1)
+    assert len(page.files.selectedItems()) == 7

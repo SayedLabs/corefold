@@ -376,6 +376,26 @@ class Files(QTreeWidget):
         self.header().setSectionsClickable(True)
         self.header().sectionClicked.connect(self._sort_by)
         self.headerItem().setToolTip(0, tr("Click a column's name to sort by it"))
+        # Select all in a folder of thousands: the rows still to come are selected as they come (making all
+        # 20,000 at once held the window up for a second), until the selection is changed by hand
+        self.all_picked = False
+        self._picking = False
+        self.itemSelectionChanged.connect(self._selection_changed)
+
+    def _selection_changed(self):
+        if not self._picking:
+            self.all_picked = False
+
+    def pick_rows(self, first: int, last: int):
+        """Selects rows first..last (ones just added, while everything is selected) in one go."""
+        from PySide6.QtCore import QItemSelection, QItemSelectionModel
+        model = self.model()
+        self._picking = True
+        try:
+            self.selectionModel().select(QItemSelection(model.index(first, 0), model.index(last, 0)),
+                                         QItemSelectionModel.Select | QItemSelectionModel.Rows)
+        finally:
+            self._picking = False
 
     def _sort_by(self, col: int):
         old, down = self.sort_state
@@ -392,11 +412,17 @@ class Files(QTreeWidget):
         self.page.resort()
 
     def selectAll(self):
-        self.page.finish_rows()  # (every file, not just the rows already shown)
-        super().selectAll()
+        self._picking = True
+        try:
+            super().selectAll()
+        finally:
+            self._picking = False
+        self.all_picked = bool(self.page._later)  # (every file, not just the rows already shown)
 
     def picked(self) -> tuple[cloud.Account | None, list]:
         """The selected items of one account (the first one picked, when a search found things in several)."""
+        if self.all_picked:  # (something is done with all of them: the rows still to come are made now)
+            self.page.finish_rows()
         acc, out = None, []
         for it in self.selectedItems():
             e, a = it.data(0, Qt.UserRole), it.data(0, ACCOUNT) or self.page.account
@@ -1026,6 +1052,7 @@ class CloudPage(QWidget):
         self.shown = found
         self._round += 1
         self._later = list(found[FIRST_ROWS:])
+        self.files.all_picked = False
         self.files.clear()
         self._add_rows(found[:FIRST_ROWS])
         if self._later:
@@ -1071,7 +1098,12 @@ class CloudPage(QWidget):
         if not work.alive(self) or round_ != self._round:  # (another folder is shown now)
             return
         part, self._later = self._later[:count], self._later[count:]
+        first = self.files.topLevelItemCount()
         self._add_rows(part)
+        if self.files.all_picked and part:
+            self.files.pick_rows(first, first + len(part) - 1)
+        if not self._later:
+            self.files.all_picked = False
         if self._later:
             QTimer.singleShot(0, lambda: self._more_rows(round_))
 
