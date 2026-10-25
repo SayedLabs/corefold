@@ -7,9 +7,12 @@ on:
 permissions:
   contents: read
 
+env:
+  COREFOLD_WAKE_RESTING: "1"
+
 concurrency:
   group: heavy-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   run:
