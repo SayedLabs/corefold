@@ -354,6 +354,13 @@ class Files(QTreeWidget):
         self.header().setSortIndicator(col, Qt.DescendingOrder if down else Qt.AscendingOrder)
         self.page.resort()
 
+    def sortByColumn(self, col: int, order):
+        """(the same sort as a click on the heading)"""
+        down = order == Qt.DescendingOrder
+        self.sort_state = (col, down)
+        self.header().setSortIndicator(col, order)
+        self.page.resort()
+
     def selectAll(self):
         self.page.finish_rows()  # (every file, not just the rows already shown)
         super().selectAll()
