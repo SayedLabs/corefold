@@ -3956,7 +3956,12 @@ class MainWindow(QWidget):
 
     def show_files(self, files):
         self.open_page("Converter")
+        was_shown = self.panel.isVisible()
         self.panel.set_files(files)
+        if self.panel.isVisible() and not was_shown and self.isVisible():  # (what can be done shows up gently)
+            from .atomic import motion, tokens
+            if tokens.animations:
+                motion.fade_in(self.panel, 180)
         if self.panel.isVisible():  # (what can be done with them is below the steps: glide down to it)
             QTimer.singleShot(0, self, self._show_panel)
 

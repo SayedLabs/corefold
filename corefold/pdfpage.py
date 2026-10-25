@@ -135,7 +135,20 @@ class ActionCard(QFrame):
         for w in (tile, self.title, sub):
             w.setAttribute(Qt.WA_TransparentForMouseEvents)
 
+    def _down(self, down: bool):
+        """Pressed in a little while the button is held, like a real button."""
+        if (self.property("down") == "true") != down:
+            self.setProperty("down", "true" if down else "false")
+            self.style().unpolish(self)
+            self.style().polish(self)
+
+    def mousePressEvent(self, e):
+        if e.button() == Qt.LeftButton:
+            self._down(True)
+        super().mousePressEvent(e)
+
     def mouseReleaseEvent(self, e):
+        self._down(False)
         if e.button() == Qt.LeftButton and self.rect().contains(e.position().toPoint()):
             self.on_click()
 
