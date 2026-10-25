@@ -1,0 +1,95 @@
+Bug hunt of 374e2ddb80a711ae117cd8ebe8fa3c1f9837eda4
+== bughunt-ar-dark-200
+sweeptest ar-dark-max-x2: 0 problem(s)
+== bughunt-ar-light
+sweeptest ar-light-1040x700: 0 problem(s)
+== bughunt-checks
+uitest: 0 problem(s)
+ok    big files unused for a year ([(3145728, 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\corefold-featuretest-zihddos3\\drive\\Old\\backup.zip', 1729896295.5859401)])
+featuretest: 0 problem(s)
+stress: 0 problem(s)
+edgetest: 0 problem(s)
+stress: 0 problem(s)
+audittest: 0 problem(s)
+[ar] 2817 texts, 0 problem(s), 0 unused
+[fr] 2817 texts, 0 problem(s), 0 unused
+[es] 2817 texts, 0 problem(s), 0 unused
+[tr] 2817 texts, 0 problem(s), 0 unused
+capfoldertest: 0 problem(s)
+capfoldertest: 0 problem(s)
+selftest: 0 problem(s)
+== bughunt-en-dark
+ok    Ctrl + K opens the search (for 'Count a program as unused after'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Open videos and music with Corefold (it shows up under "Open with")')
+ok    the search closes after running 'Count a program as unused after'
+ok    the search runs 'Count a program as unused after' (Settings › Uninstaller) without an error
+ok    Ctrl + K opens the search (for 'Keep backups of removed leftovers for'; active window MainWindow, focus QLineEdit 'paletteSearch', last ran 'Count a program as unused after')
+sweeptest en-dark-1040x700: 0 problem(s)
+== bughunt-es-light-max-150
+sweeptest es-light-max-x1.5: 0 problem(s)
+== bughunt-exe
+exetest: 0 problem(s)
+dllcheck: 0 problem(s) in 171 files
+   Corefold-Setup-0.0.144-bughunt.exe
+App folder:    303.2 MB in 434 files
+    98.1 MB  Corefold-Setup-0.0.144-bughunt.exe
+== bughunt-first-run
+sweeptest en-light-1040x700-first: 0 problem(s)
+== bughunt-fr-dark-small
+sweeptest fr-dark-min: 0 problem(s)
+== bughunt-languages
+langtest-again: 0 problem(s)
+langtest: 0 problem(s)
+langtest: 0 problem(s)
+langtest-first: 0 problem(s)
+== bughunt-leak-200
+sweeptest ar-light-1040x700-x2: 0 problem(s)
+== bughunt-leak
+sweeptest en-dark-1040x700: 0 problem(s)
+== bughunt-navtest
+quicktest: 0 problem(s)
+navtest: 0 problem(s)
+quicktest: 0 problem(s)
+navtest: 0 problem(s)
+== bughunt-newtests
+newtest_emptyfolders page: 0 problem(s)
+newtest_emptyfolders page: 0 problem(s)
+newtest_emptyfolders: 0 problem(s)
+newtest_cloud page: 0 problem(s)
+newtest_cloud page: 0 problem(s)
+newtest_cloud: 0 problem(s)
+newtest_basics: 0 problem(s)
+newtest_colors: 0 problem(s)
+newtest_colors: 0 problem(s)
+newtest_colors: 0 problem(s) at 150%
+newtest_colors: 0 problem(s) at 200%
+newtest_colors: 0 problem(s) at 125%
+newtest_peek: 0 problem(s)
+newtest_colors: 0 problem(s) at 125%
+newtest_colors: 0 problem(s) at 150%
+newtest_colors: 0 problem(s) at 200%
+newtest_colors: 0 problem(s)
+newtest_colors: 0 problem(s)
+newtest_colors: 0 problem(s)
+newtest_flash: 0 problem(s)
+== bughunt-pdf
+pdfedittest: 0 problem(s)
+pdftest: 0 problem(s)
+pdfedittest: 0 problem(s)
+pdftest: 0 problem(s)
+== bughunt-tools
+organizetest: 0 problem(s)
+startuptest: 0 problem(s)
+scantest: 0 problem(s)
+organizetest: 0 problem(s)
+startuptest: 0 problem(s)
+== bughunt-tr-dark-small-125
+sweeptest tr-dark-min-x1.25: 0 problem(s)
+== bughunt-upgrade
+  "unused_months": 3,
+sweeptest en-dark-1040x700-upgrade: 0 problem(s)
+== bughunt-use-ar-light
+usetest ar-light: 0 problem(s)
+== bughunt-use-en-dark
+usetest en-dark: 0 problem(s)
+== bughunt-use-heavy
+usetest en-dark-heavy: 0 problem(s)
