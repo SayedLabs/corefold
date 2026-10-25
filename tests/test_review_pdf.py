@@ -123,6 +123,9 @@ def test_pages_of_a_locked_pdf_stay_locked(tmp_path):
     res = pdftools.split(locked, _ctx(tmp_path, password="pw"))
     parts = sorted(res.outputs[0].iterdir())
     assert parts and all(PdfReader(p).is_encrypted for p in parts)
+    res = pdftools.save_arranged([locked, plain], _ctx(tmp_path, pages=[(0, 0, 0), (1, 0, 0)], how="one",
+                                                         name="both", passwords={str(locked): "pw"}))
+    assert not PdfReader(res.outputs[0]).is_encrypted  # (merged with other files: it opens, as before)
 
 
 def test_pictures_to_pdf_keeps_a_png_exactly(tmp_path):
