@@ -1,0 +1,20 @@
+........................................................................ [ 35%]
+....................s................................................... [ 70%]
+.............................................................            [100%]
+============================== warnings summary ===============================
+tests/test_review_converter.py::test_compress_leaves_black_and_white_scans_alone
+tests/test_review_converter.py::test_fit_pdf_never_hands_back_a_bigger_file
+tests/test_review_converter.py::test_fit_pdf_never_hands_back_a_bigger_file
+  D:\a\corefold\corefold\corefold\converters.py:1194: DeprecationWarning: remove_identicals is deprecated and will be removed in pypdf 7.0.0. Use remove_duplicates instead.
+    writer.compress_identical_objects(remove_identicals=True, remove_orphans=True)
+
+tests/test_review_converter.py::test_compress_leaves_black_and_white_scans_alone
+tests/test_review_converter.py::test_fit_pdf_never_hands_back_a_bigger_file
+tests/test_review_converter.py::test_fit_pdf_never_hands_back_a_bigger_file
+  D:\a\corefold\corefold\corefold\converters.py:1194: DeprecationWarning: remove_orphans is deprecated and will be removed in pypdf 7.0.0. Use remove_unreferenced instead.
+    writer.compress_identical_objects(remove_identicals=True, remove_orphans=True)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+SKIPPED [1] tests\test_review_converter.py:114: no FFmpeg here
+204 passed, 1 skipped, 6 warnings in 17.05s
