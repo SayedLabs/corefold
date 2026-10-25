@@ -524,7 +524,7 @@ def store():
     for sec in all_tools.SECTIONS[1:]:
         w.open_page(sec.page)
         settle(0.3)
-        check(w.current_page() == sec.page, f"the {sec.id} section opens")
+        check(w.current_page() == w._direct_page(sec.page), f"the {sec.id} section opens")  # (Cloud: the tool itself)
         w.grab().save(str(OUT / f"section-{sec.id}.png"))
     c.set_tool("viewer", False)
     check(not c.window.shows("Viewer"), "removing the Viewer")
