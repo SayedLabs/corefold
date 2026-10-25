@@ -2770,7 +2770,7 @@ STRINGS: dict[str, str] = {
     '{count} left out: they only open on the website ({names}).': '{count} ما انضافوا: ينفتحون بس في الموقع ({names}).',
     'Opened {name} in the browser.': 'انفتح {name} في المتصفح.',
     'Open on the website': 'افتح في الموقع',
-    "Add a cloud to see its files here: sign in to {names} with nothing else to install, as many accounts as you like. You sign in on the service's own page, so your password never reaches Corefold. Cloud folders that OneDrive, Dropbox, Google Drive or iCloud keep on this PC show up by themselves too.": 'أضف سحابة عشان تشوف ملفاتها هنا: سجّل دخول {names} بدون ما تثبّت أي شي ثاني، وبكثر ما تبي من الحسابات. تسجّل الدخول في صفحة الخدمة نفسها، فكلمة المرور ما توصل Corefold أبد. ومجلدات السحابة اللي يحفظها OneDrive أو Dropbox أو Google Drive أو iCloud في هذا الجهاز تطلع هنا بروحها بعد.',
+    "Sign in to {names} right here, with nothing to install and as many accounts as you like. Your password stays on the service's own page. Cloud folders on this PC show up by themselves too.": 'سجّل دخول {names} من هنا بدون ما تثبّت شي، وبكثر ما تبي من الحسابات. كلمة المرور تكتبها في صفحة الخدمة نفسها بس. ومجلدات السحابة اللي في هذا الجهاز تطلع هنا بروحها بعد.',
     'Sign in to {service} online too': 'سجّل دخول {service} أونلاين بعد',
     "Google can't turn something this big into a file. Download it from the Google Drive website.": 'Google ما يقدر يحوّل شي بهالكبر لملف. نزّله من موقع Google Drive.',
     'Open {service} in the browser': 'افتح {service} في المتصفح',

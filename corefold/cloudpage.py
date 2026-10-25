@@ -742,7 +742,7 @@ class CloudPage(QWidget):
             col.addWidget(privacy, 0, Qt.AlignHCenter)
         across = QHBoxLayout()
         across.addStretch(1)
-        across.addWidget(middle, 4)
+        across.addWidget(middle, 8)  # (wide enough on the smallest window for the text to fit)
         across.addStretch(1)
         outer.addLayout(across)
         outer.addStretch(3)
@@ -797,11 +797,9 @@ class CloudPage(QWidget):
             elif any(cloud.available(k) for k in cloud.ONLINE):
                 names = " · ".join(cloud.SERVICES[k] for k in cloud.ONLINE if cloud.available(k))
                 self.welcome_title.setText(tr("Add your first cloud"))
-                self.welcome_text.setText(tr("Add a cloud to see its files here: sign in to {names} with nothing else to "
-                                      "install, as many accounts as you like. You sign in on the service's own page, "
-                                      "so your password never reaches Corefold. Cloud folders that OneDrive, Dropbox, "
-                                      "Google Drive or iCloud keep on this PC show up by themselves too.",
-                                      names=names))
+                self.welcome_text.setText(tr("Sign in to {names} right here, with nothing to install and as many accounts as "
+                                             "you like. Your password stays on the service's own page. Cloud folders on "
+                                             "this PC show up by themselves too.", names=names))
             else:
                 self.welcome_title.setText(tr("No clouds on this PC yet"))
                 self.welcome_text.setText(tr("Install OneDrive, Dropbox, Google Drive or iCloud and sign in to it, and "
