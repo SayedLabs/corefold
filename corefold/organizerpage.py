@@ -130,6 +130,17 @@ class FolderCard(QPushButton):
         p.end()
 
 
+class _KindItem(QTreeWidgetItem):
+    """A kind's line in the list. Its own box being ticked comes through setData (a click, the keyboard),
+    while Qt only redraws it when one of its files changes, so the two can be told apart."""
+    on_ticked = None
+
+    def setData(self, column, role, value):
+        super().setData(column, role, value)
+        if column == 0 and role == Qt.CheckStateRole and self.on_ticked is not None:
+            self.on_ticked(self)
+
+
 class OrganizerPage(QWidget):
     """Corefold File Organizer in the window."""
 
@@ -389,7 +400,8 @@ class OrganizerPage(QWidget):
         t = self.c.theme
         if p is not None and not p.refused:
             for kind, items in p.by_kind().items():
-                head = QTreeWidgetItem(self.tree)
+                head = _KindItem(self.tree)
+                head.on_ticked = self._kind_ticked
                 head.setData(0, Qt.UserRole, kind)
                 head.setIcon(0, icons.icon(KIND_GLYPHS.get(kind, "folder"), t.accent))
                 head.setFlags(head.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsAutoTristate)
@@ -471,17 +483,21 @@ class OrganizerPage(QWidget):
             self._filling = True
             self._head_text(it)
             self._filling = False
-            # (kept for next time only when the kind itself was ticked: Qt also says so of it when its last file
-            # is unticked, and leaving one file out this time mustn't leave the whole kind out of every tidy)
-            if it.checkState(0) != Qt.PartiallyChecked and self.tree.currentItem() is it:
-                off = organizer.kinds_off()
-                kind = it.data(0, Qt.UserRole)
-                if it.checkState(0) == Qt.Unchecked:
-                    off.add(kind)
-                else:
-                    off.discard(kind)
-                organizer.set_off(off)
         self._show_state()
+
+    def _kind_ticked(self, it: QTreeWidgetItem):
+        """The kind's own box was ticked or unticked (not Qt updating it for its files): kept for next time.
+        (Qt also unticks a kind when its last file is unticked, and leaving one file out this time mustn't
+        leave the whole kind out of every tidy.)"""
+        if self._filling or it.checkState(0) == Qt.PartiallyChecked:
+            return
+        off = organizer.kinds_off()
+        kind = it.data(0, Qt.UserRole)
+        if it.checkState(0) == Qt.Unchecked:
+            off.add(kind)
+        else:
+            off.discard(kind)
+        organizer.set_off(off)
 
     def _show_file(self, it: QTreeWidgetItem, _column: int):
         item = it.data(0, FILE_ROLE)
