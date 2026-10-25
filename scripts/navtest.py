@@ -274,7 +274,7 @@ def store_add():
         check(not work.alive(old) or not old.isVisible() or old is w, f"after switching on {tool.id} only one "
                                                                        f"window is open")
         check(w.shows(tool.page), f"{tool.id} is in its section")
-        page_ok(w, sec.page, f"switching on {tool.id}")
+        page_ok(w, w._direct_page(sec.page), f"switching on {tool.id}")  # (Cloud on its own: the tool itself)
         real = (w.screen() or QGuiApplication.primaryScreen()).grabWindow(
             0, w.geometry().x(), w.geometry().y(), w.width(), w.height()).toImage()
         if c.theme.dark:
@@ -336,7 +336,8 @@ def every_page():
     for page_name, card in list(w.section_cards.items()):
         nav_click(w, "Home")
         click(card)
-        check(w.current_page() == page_name, f"the {page_name} card on Home opens it ({w.current_page()})")
+        check(w.current_page() == w._direct_page(page_name), f"the {page_name} card on Home opens it "
+                                                             f"({w.current_page()})")
         nav_click(w, "Home")
         for b, _icon in card.chips[:2]:
             click(b)
