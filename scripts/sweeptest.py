@@ -253,6 +253,8 @@ def every_page_name(w) -> list[str]:
             settings_of = [t for t in all_tools.TOOLS if name in t.settings_pages]
             if settings_of and not all_tools.is_on(c.settings, settings_of[0].id):
                 continue
+            if hasattr(w, "_direct_page") and w._direct_page(name) != name:  # (its row opens its one tool)
+                continue
             names.append(name)
     if ARGS.pages:
         names = [n for n in names if n in ARGS.pages.split(",")]

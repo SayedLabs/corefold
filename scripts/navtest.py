@@ -299,6 +299,7 @@ def every_page():
     names = [n for n in w.nav_rows if n] + [t.page for t in w.tools_on]  # (the tools through their section)
     for name in names:
         nav_click(w, name)
+        name = w._direct_page(name)  # (a row of one tool on its own, like Cloud, opens the tool)
         page_ok(w, name, f"sidebar {name}")
         # its Settings button, then back
         tool = all_tools.BY_PAGE.get(name)
