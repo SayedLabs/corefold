@@ -175,6 +175,23 @@ def booted_at() -> datetime | None:
     return datetime.now() - timedelta(milliseconds=f())
 
 
+def shut_down_at() -> datetime | None:
+    """When Windows was last shut down. With Fast Startup on, "Shut down" only puts Windows to sleep in a
+    file, so the time since it started (booted_at) goes on from before; Windows still writes this down
+    then, and a planned shutdown doesn't outlive either."""
+    if os.name != "nt":
+        return None
+    try:
+        import struct
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Windows") as k:
+            raw, _kind = winreg.QueryValueEx(k, "ShutdownTime")
+        ticks = struct.unpack("<Q", bytes(raw)[:8])[0]  # (a FILETIME: 100 ns steps since 1601, UTC)
+        return datetime.fromtimestamp(ticks / 10_000_000 - 11_644_473_600) if ticks else None
+    except (OSError, ValueError, TypeError, struct.error, OverflowError):
+        return None
+
+
 def time_text(when: datetime) -> str:
     """A time of day the way Windows shows it (like the clock on the taskbar)."""
     return ltr(QLocale.system().toString(QTime(when.hour, when.minute), QLocale.FormatType.ShortFormat))
@@ -480,8 +497,9 @@ class AwakeTool(QObject):
             if s.shutdown_at or s.shutdown_planned:
                 self._forget_shutdown()
             return None
-        boot = booted_at()
-        if at <= datetime.now() or (planned is not None and boot is not None and boot > planned):
+        boot, off = booted_at(), shut_down_at()
+        if at <= datetime.now() or (planned is not None and ((boot is not None and boot > planned) or
+                                                             (off is not None and off > planned))):
             self._forget_shutdown()
             return None
         return at
