@@ -109,8 +109,8 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "Open Corefold now"; Flags: nowait postinstall skipifsilent
-; after an automatic (silent) update, start Corefold again in the tray
-Filename: "{app}\{#AppExe}"; Parameters: "--background"; Flags: nowait; Check: WizardSilent
+; (after an automatic (silent) update Corefold is started again in the tray from [Code], once the new files are in
+; place: a [Run] entry without postinstall runs before that)
 
 [Code]
 const
@@ -435,10 +435,14 @@ begin
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ResultCode: Integer;
 begin
   if CurStep = ssPostInstall then
   begin
     SwapInNewFiles();
+    if WizardSilent() then  { an automatic update: Corefold back in the tray }
+      Exec(ExpandConstant('{app}\{#AppExe}'), '--background', '', SW_SHOWNORMAL, ewNoWait, ResultCode);
     RemoveOldVersion();
     { an update started by hand with "Start Corefold when Windows starts" unticked: it doesn't }
     if Upgrading and (not WizardSilent()) and (not WizardIsTaskSelected('startup')) then
