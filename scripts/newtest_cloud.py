@@ -140,6 +140,11 @@ class Fake:
         self.uploads = {}
         self.cancelled_uploads = 0
         self.revoked = 0
+        self.who = {}              # Microsoft key -> email (several Microsoft accounts at once)
+        self.next_who = "sam@example.com"
+        self.ms_drop_piece = 0     # upload pieces whose answer never comes back
+        self.ms_spoil = 0          # uploads whose bytes arrive changed
+        self.ms_kind = "personal"
         server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), self.handler())
         server.daemon_threads = True
         self.server = server
@@ -245,9 +250,15 @@ class Fake:
                     if challenge is None or proof != challenge or cid != q.get("client_id") or \
                             redirect != q.get("redirect_uri"):
                         return self.send(400, {"error": "invalid_grant", "error_description": "bad code"})
-                    return self.send(200, fake.token("ms"))
-                if fake.refresh.pop(q.get("refresh_token"), None) == "ms":
-                    return self.send(200, fake.token("ms"))
+                    tok = fake.token("ms")
+                    fake.who[tok["access_token"]] = fake.who[tok["refresh_token"]] = fake.next_who
+                    return self.send(200, tok)
+                old = q.get("refresh_token")
+                if fake.refresh.pop(old, None) == "ms":
+                    tok = fake.token("ms")
+                    email = fake.who.get(old, "sam@example.com")
+                    fake.who[tok["access_token"]] = fake.who[tok["refresh_token"]] = email
+                    return self.send(200, tok)
                 self.send(400, {"error": "invalid_grant", "error_description": "refresh token revoked"})
 
             def item(self, i):
@@ -259,7 +270,22 @@ class Fake:
                        "parentReference": {"id": parent or "", "path": "/drive/root:" + s.path(parent)
                                            if parent else ""}}
                 out["folder" if d["folder"] else "file"] = {}
+                if not d["folder"]:
+                    from corefold.cloud import QuickXorHash
+                    h = QuickXorHash()
+                    h.update(d["data"])
+                    out["file"] = {"hashes": {"quickXorHash": h.digest()}}
+                if d.get("package"):
+                    out.pop("file")
+                    out["package"] = {"type": "oneNote"}
                 return out
+
+            @staticmethod
+            def spoiled(data):
+                if fake.ms_spoil and data:
+                    fake.ms_spoil -= 1
+                    return data[:-1] + bytes([data[-1] ^ 1])
+                return data
 
             def graph(self, method, data):
                 if not self.authed("ms"):
@@ -269,9 +295,11 @@ class Fake:
                 p = urllib.parse.unquote(u.path)[len("/graph/v1.0"):]
                 q = dict(urllib.parse.parse_qsl(u.query))
                 if p == "/me":
-                    return self.send(200, {"displayName": "Sam Tester", "mail": "sam@example.com"})
+                    email = fake.who.get(self.headers["Authorization"][7:], "sam@example.com")
+                    return self.send(200, {"displayName": "Sam Tester", "mail": email})
                 if p == "/me/drive":
-                    return self.send(200, {"quota": {"used": 1500000, "total": 5000000000}})
+                    return self.send(200, {"quota": {"used": 1500000, "total": 5000000000},
+                                           "driveType": fake.ms_kind})
                 if p.startswith("/me/drive/root/search(q='"):
                     text = p[len("/me/drive/root/search(q='"):-2].replace("''", "'").lower()
                     return self.send(200, {"value": [self.item(i) for i, d in s.items.items()
@@ -287,7 +315,7 @@ class Fake:
                 if rest.startswith(":/"):  # (by name inside a folder)
                     name, _, what = rest[2:].partition(":/")
                     if what == "content" and method == "PUT":
-                        i = s.add(pid, name, data=data)
+                        i = s.add(pid, name, data=self.spoiled(data))
                         return self.send(201, self.item(i))
                     if what == "createUploadSession":
                         sid = f"s{len(fake.uploads) + 1}"
@@ -325,18 +353,28 @@ class Fake:
                 up = fake.uploads.get(sid)
                 if "Authorization" in self.headers:  # (Microsoft says: never send the key here)
                     return self.send(400, {"error": {"code": "invalidRequest", "message": "no auth here"}})
+                if up is None:
+                    return self.send(404, {"error": {"code": "itemNotFound", "message": "no such upload"}})
                 if method == "DELETE":
                     fake.cancelled_uploads += 1
                     fake.uploads.pop(sid, None)
                     return self.send(204)
+                if method == "GET":  # (how far it got)
+                    return self.send(200, {"nextExpectedRanges": [f"{len(up['data'])}-"]})
                 start, end_total = self.headers["Content-Range"][6:].split("-")
                 end, total = end_total.split("/")
                 if int(start) != len(up["data"]) or int(end) - int(start) + 1 != len(data):
                     return self.send(416, {"error": {"code": "invalidRange", "message": "wrong piece"}})
                 up["data"] += data
+                if fake.ms_drop_piece and len(up["data"]) < int(total):
+                    fake.ms_drop_piece -= 1
+                    self.close_connection = True
+                    self.connection.close()
+                    return
                 if len(up["data"]) < int(total):
                     return self.send(202, {"nextExpectedRanges": [f"{len(up['data'])}-"]})
-                i = fake.ms.add(up["parent"], up["name"], data=up["data"])
+                fake.uploads.pop(sid, None)
+                i = fake.ms.add(up["parent"], up["name"], data=self.spoiled(up["data"]))
                 return self.send(201, self.item(i))
 
             # -- Dropbox
@@ -464,9 +502,11 @@ def point_at(fake, cloud):
     cloud.Dropbox.CONTENT = fake.base + "/dbx/content/2"
 
 
-def browser(fake, how="yes"):
-    """Plays the browser: checks the sign-in address, then sends the person back like the service would."""
+def browser(fake, how="yes", who="sam@example.com"):
+    """Plays the browser: checks the sign-in address, then sends the person back like the service would (as who,
+    for Microsoft)."""
     def open_page(url):
+        fake.next_who = who
         q = dict(urllib.parse.parse_qsl(urllib.parse.urlparse(url).query))
         check(q.get("code_challenge_method") == "S256" and len(q.get("code_challenge", "")) >= 43,
               "sign-in asks with a PKCE challenge (no secret)")
@@ -839,6 +879,64 @@ def same_tree(a: Path, b: Path) -> bool:
         return {p.relative_to(root).as_posix(): p.read_bytes() for p in root.rglob("*") if p.is_file()}
     return files(a) == files(b)
 
+
+def microsoft(cloud, fake, accounts):
+    """OneDrive: two Microsoft accounts at once, and the ways an upload could quietly not arrive whole."""
+    def two():
+        acc = cloud.sign_in("onedrive", browser(fake, who="work@example.com"), wait_s=20)
+        kept = sorted(a.key for a in cloud.load_accounts() if a.service == "onedrive")
+        check(acc.email == "work@example.com" and kept == ["onedrive:sam@example.com", "onedrive:work@example.com"],
+              f"two Microsoft accounts are kept at once ({kept})")
+        check(acc.extra.get("personal") is True, "a personal OneDrive is known as one")
+        accounts["onedrive-work"] = acc
+    step("OneDrive: two accounts", two)
+    acc = accounts.get("onedrive-work")
+    if acc is None:
+        return
+    c = cloud.client(acc)
+
+    def uploads():
+        big = TMP / "ms-big.bin"
+        big.write_bytes(os.urandom(300 * 1024))
+        fake.ms_drop_piece = 2
+        e = c.upload(big, None)
+        stored = fake.ms.items.get(e.id)
+        check(stored is not None and stored["data"] == big.read_bytes(),
+              f"a big upload whose answers get lost still arrives whole ({len(stored['data']) if stored else 0})")
+        small = TMP / "ms-small.txt"
+        small.write_text("exactly this")
+        fake.ms_spoil = 1
+        try:
+            c.upload(small, None)
+            check(False, "a spoiled OneDrive upload should fail")
+        except cloud.CloudError as err:
+            check(str(err) == cloud.NOT_SENT_WHOLE, f"a OneDrive upload that arrives changed is caught ({err})")
+        check(fake.ms.file_named("ms-small.txt") is None, "and the spoiled copy is taken away")
+        fake.ms_spoil = 1
+        try:
+            c.upload(big, None)
+            check(False, "a spoiled big OneDrive upload should fail")
+        except cloud.CloudError as err:
+            check(str(err) == cloud.NOT_SENT_WHOLE, f"a big one that arrives changed too ({err})")
+        acc.extra["personal"] = False  # (work or school: SharePoint changes Office files as they arrive)
+        fake.ms_spoil = 1
+        e = c.upload(small, None)
+        check(e.name.startswith("ms-small"), "a work or school OneDrive isn't held to the bytes sent")
+        acc.extra["personal"] = True
+    step("OneDrive: uploads", uploads)
+
+    def notebook():
+        i = fake.ms.add("root", "Class notes", data=b"")
+        fake.ms.items[i]["package"] = True
+        e = next(x for x in c.list(None) if x.name == "Class notes")
+        check(e.kind == "web" and not e.folder, "a OneNote notebook is known as one that opens on the website")
+        box = TMP / "ms-notebook"
+        box.mkdir()
+        c.skipped.clear()
+        n = cloud.download_tree(c, e, box)
+        check(n == 0 and c.skipped == ["Class notes"] and not any(box.iterdir()),
+              "downloading it is said, not a broken file")
+    step("OneDrive: OneNote notebooks", notebook)
 
 def google(cloud):
     """Google Drive online: two Google accounts at once, everything a file manager does, and the ways files could be
@@ -1324,6 +1422,7 @@ def core():
         cloud.upload_tree(cloud.client(here), tmp / "Photos", None)
         check((dbx / "Photos (2)" / "2024" / "beach.jpg").exists(), "and from an online account to a folder here")
     step("from one cloud to another", across)
+    microsoft(cloud, fake, accounts)
     fake.server.shutdown()
     google(cloud)
 

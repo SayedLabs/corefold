@@ -742,19 +742,47 @@ class OneDrive(Client):
         self.acc.email = me.get("mail") or me.get("userPrincipalName") or "OneDrive"
         self.acc.name = me.get("displayName", "")
         try:
-            drive = self.call("GET", f"{self.API}/me/drive?$select=quota")
+            drive = self.call("GET", f"{self.API}/me/drive?$select=quota,driveType")
             q = drive.get("quota", {})
             self.acc.used, self.acc.total = int(q.get("used", 0)), int(q.get("total", 0))
+            self.acc.extra["personal"] = drive.get("driveType") == "personal"
         except CloudError:
             pass
 
     def _entry(self, d: dict) -> Entry:
         parent = d.get("parentReference", {}) or {}
         qx = ((d.get("file") or {}).get("hashes") or {}).get("quickXorHash", "")
+        # (a OneNote notebook is a "package": it has no file of its own to download, it opens on the website)
+        kind = "web" if "package" in d and "folder" not in d else ""
         return Entry(d.get("name", ""), "folder" in d, d.get("id", ""), (parent.get("path", "") or "")
                      .split("root:", 1)[-1] + "/" + d.get("name", ""), int(d.get("size", 0) or 0),
                      _iso(d.get("lastModifiedDateTime", "")), parent.get("id", ""),
-                     hash="quickxor:" + qx if qx else "", web=d.get("webUrl", ""))
+                     hash="quickxor:" + qx if qx else "", web=d.get("webUrl", ""), kind=kind)
+
+    def _arrived(self, d: dict, size: int, sent) -> Entry:
+        """The uploaded file, once it's known to be all there. Only a personal OneDrive is held to the bytes sent:
+        a work or school one (SharePoint) changes Office files on purpose as they arrive."""
+        e = self._entry(d)
+        if not self.acc.extra.get("personal") or (e.size == size and _same_as_sent(e.hash, sent)):
+            return e
+        log.warning("cloud upload doesn't match what was sent (onedrive: %d of %d bytes)", e.size, size)
+        try:
+            self.delete(e)  # (to OneDrive's recycle bin: the file on this PC is untouched)
+        except CloudError:
+            pass
+        raise CloudError(NOT_SENT_WHOLE)
+
+    def _where_upload_is(self, url: str) -> int:
+        """How much of an upload session OneDrive has: where the next piece starts (-1: the session is gone)."""
+        try:
+            d = _request("GET", url, tries=3)
+        except CloudError:
+            return -1
+        ranges = d.get("nextExpectedRanges") or []
+        try:
+            return int(str(ranges[0]).split("-")[0]) if ranges else -1
+        except ValueError:
+            return -1
 
     def list(self, folder):
         where = f"items/{folder.id}" if folder is not None else "root"
@@ -767,6 +795,8 @@ class OneDrive(Client):
         return out
 
     def download(self, entry, target, progress=None, cancel=None):
+        if entry.kind == "web":
+            raise CloudError(WEB_ONLY)
         resp = self.call("GET", f"{self.API}/me/drive/items/{entry.id}/content", raw=True, timeout=120)
         _stream_to(resp, target, entry.size, progress, cancel, HOSTS["onedrive"], entry.hash)
 
@@ -774,35 +804,59 @@ class OneDrive(Client):
         parent = f"items/{folder.id}" if folder is not None else "root"
         name = urllib.parse.quote(src.name)
         size = src.stat().st_size
+        sent = QuickXorHash()
         if size <= SMALL:
+            data = src.read_bytes()
+            sent.update(data)
             d = self.call("PUT", f"{self.API}/me/drive/{parent}:/{name}:/content?@microsoft.graph.conflictBehavior=rename",
-                          data=src.read_bytes(), headers={"Content-Type": "application/octet-stream"}, timeout=120)
+                          data=data, headers={"Content-Type": "application/octet-stream"}, timeout=120)
             if progress is not None:
                 progress(size, size)
-            return self._entry(d)
+            return self._arrived(d, size, sent)
         session = self.call("POST", f"{self.API}/me/drive/{parent}:/{name}:/createUploadSession",
                             data={"item": {"@microsoft.graph.conflictBehavior": "rename"}})
         url = session["uploadUrl"]
-        done = 0
+        done = hashed = stuck = 0
         d: dict = {}
         with open(src, "rb") as f:
-            while done < size:
+            while not d.get("id"):
                 if cancel is not None and cancel.is_set():
                     try:
                         _request("DELETE", url)
                     except CloudError:
                         pass
                     raise CloudError("cancelled")
-                piece = f.read(CHUNK)
+                f.seek(done)
+                piece = f.read(min(CHUNK, size - done))
                 if not piece:  # (it got shorter while it was sent: another app is changing it)
                     raise CloudError("it's open in another app, or Windows didn't allow it")
+                if done + len(piece) > hashed:  # (each byte counted once, also when a piece goes again)
+                    sent.update(piece[max(0, hashed - done):])
+                    hashed = done + len(piece)
                 end = done + len(piece) - 1
-                d = _request("PUT", url, data=piece, timeout=180, tries=3, headers={
-                    "Content-Length": str(len(piece)), "Content-Range": f"bytes {done}-{end}/{size}"})
-                done = end + 1
+                try:
+                    d = _request("PUT", url, data=piece, timeout=180, headers={
+                        "Content-Length": str(len(piece)), "Content-Range": f"bytes {done}-{end}/{size}"})
+                    was, done = done, end + 1
+                    if not d.get("id"):
+                        nxt = (d.get("nextExpectedRanges") or [""])[0]
+                        if str(nxt).split("-")[0].isdigit():
+                            done = int(str(nxt).split("-")[0])
+                except SignInNeeded:
+                    raise
+                except CloudError:
+                    # (cut off, or OneDrive was busy: it says which piece it wants next; a session it ended
+                    # once the last piece arrived means the file is there, and is looked for by its name)
+                    was, done = done, self._where_upload_is(url)
+                    if done < 0:
+                        raise
+                    d = {}
+                stuck = stuck + 1 if done <= was else 0
+                if stuck >= 4 or (done >= size and not d.get("id")):
+                    raise CloudError(NOT_SENT_WHOLE)
                 if progress is not None:
-                    progress(done, size)
-        return self._entry(d) if d.get("id") else Entry(src.name, False, "", size=size)
+                    progress(min(done, size), size)
+        return self._arrived(d, size, sent)
 
     def new_folder(self, name, folder):
         parent = f"items/{folder.id}" if folder is not None else "root"
