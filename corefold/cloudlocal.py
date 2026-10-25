@@ -276,12 +276,13 @@ def _skipped(d: os.DirEntry) -> bool:
     name = d.name
     if name.startswith((".", "~$")) or name.lower() in SKIP or name.endswith(".corefold-part"):
         return True
-    if is_link(d.path):  # (a link or junction leads out of the cloud folder, or round in a circle)
-        return True
     try:
-        return bool(getattr(d.stat(follow_symlinks=False), "st_file_attributes", 0) & HIDDEN)
+        st = d.stat(follow_symlinks=False)  # (from the listing itself: no asking the disk again for each of 20,000)
     except OSError:
         return True
+    if is_link(d.path, st):  # (a link or junction leads out of the cloud folder, or round in a circle)
+        return True
+    return bool(getattr(st, "st_file_attributes", 0) & HIDDEN)
 
 
 class Local(Client):
@@ -298,27 +299,36 @@ class Local(Client):
         pass
 
     def _entry(self, p: Path, st=None) -> Entry:
-        st = st or p.stat()
-        folder = stat.S_ISDIR(st.st_mode)
+        return self._made(p.name, str(p), st or p.stat(), self._rel(p), str(p.parent))
+
+    def _rel(self, p: Path) -> str:
         try:
             rel = "/" + p.relative_to(self.root).as_posix()
         except ValueError:
             rel = "/" + p.name
+        return "/" if rel == "/." else rel
+
+    @staticmethod
+    def _made(name: str, path: str, st, rel: str, parent: str) -> Entry:
+        folder = stat.S_ISDIR(st.st_mode)
         attrs = getattr(st, "st_file_attributes", 0)
-        return Entry(p.name, folder, str(p), "/" if rel == "/." else rel, 0 if folder else st.st_size, st.st_mtime,
-                     str(p.parent), online=bool(attrs & ONLINE_ONLY))
+        return Entry(name, folder, path, rel, 0 if folder else st.st_size, st.st_mtime, parent,
+                     online=bool(attrs & ONLINE_ONLY))
 
     def _where(self, folder: Entry | None) -> Path:
         return Path(folder.id) if folder is not None else self.root
 
     def list(self, folder):
         out = []
-        with _plain_errors(), os.scandir(self._where(folder)) as it:
+        where = self._where(folder)
+        # (worked out once for the folder, not for each of its 20,000 files: that took most of the time)
+        base, parent = self._rel(where).rstrip("/"), str(where)
+        with _plain_errors(), os.scandir(where) as it:
             for d in it:
                 if _skipped(d):
                     continue
                 try:
-                    out.append(self._entry(Path(d.path), d.stat()))
+                    out.append(self._made(d.name, d.path, d.stat(), f"{base}/{d.name}", parent))
                 except OSError:
                     continue
         return out

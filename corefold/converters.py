@@ -124,7 +124,7 @@ def flatten(im):
         bg = Image.new("RGB", im.size, "white")
         bg.paste(im, mask=im.getchannel("A"))
         return bg
-    return im.convert("RGB")
+    return im if im.mode == "RGB" else im.convert("RGB")  # (convert copies even when it's RGB already: 600 MB for 200 MP)
 
 
 def rgb_or_rgba(im):
@@ -145,7 +145,9 @@ def save_image(im, out: Path, ext: str, ctx: Ctx, keep_metadata: bool = True):
         im.info = {k: v for k, v in im.info.items() if k != "icc_profile"}  # Pillow would copy it anyway
     big = im.width * im.height > BIG_PICTURE
     if ext == ".jpg":  # progressive takes three times as long on a big photo for a file only 5% smaller
-        im.save(out, quality=ctx.options.jpg_quality, optimize=True, progressive=not big, **meta)
+        # (that pass keeps the whole picture's packed form in memory: 600 MB more for 200 MP, and many times longer, for a file about 7% smaller)
+        im.save(out, quality=ctx.options.jpg_quality, optimize=im.width * im.height <= HUGE_PICTURE,
+                progressive=not big, **meta)
     elif ext == ".webp":
         if max(im.size) > WEBP_MAX:
             raise RuntimeError(tr("too big for WebP (it can't be wider or taller than 16,383 pixels)"))
@@ -172,6 +174,7 @@ def save_image(im, out: Path, ext: str, ctx: Ctx, keep_metadata: bool = True):
 
 
 BIG_PICTURE = 8_000_000  # pixels: a phone photo is 12 million
+HUGE_PICTURE = 50_000_000  # a JPG this big is saved without the second pass that packs it a little smaller
 WEBP_MAX = 16383  # the largest width or height a WebP picture can have
 
 

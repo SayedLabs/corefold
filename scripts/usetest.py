@@ -1292,11 +1292,15 @@ def h_converter():
     from corefold import converters as cv
     timed("Converter: work out the wheel for 400 photos", lambda: cv.pick(photos), 0.5)
     mem.start()
-    run("Converter: 400 phone photos → WebP", photos, ("image:webp",), 400, expect=400)
+    # (only the processor's speed counts here: WebP takes 1.5 s for each of these grainy 12 MP photos on one core,
+    # and the PCs the tests run on have two real cores)
+    before = _times()
+    run("Converter: 400 phone photos → WebP", photos, ("image:webp",), 700, expect=400)
+    _say_times("400 photos → WebP", before)
     mem.say("400 photos at once", 1500)
     mem.start()
     run("Converter: 200 MP picture → JPG", [H / "Gigapixel 200 MP.png"], ("image:jpg",), 90)
-    mem.say("a 200 MP picture", 2500)
+    mem.say("a 200 MP picture", 1600)  # (the picture itself is 600 MB)
     run("Converter: 1 GB video → MP3", [H / "Wedding 1 GB.mp4"], ("video:mp3",), 120)
     t = _tool_for([H / "Wedding 1 GB.mp4"], "video:small")
     if t is not None:
@@ -1402,6 +1406,24 @@ with setup():
 watch.paused = 0
 
 
+def _quiet(what, most_s=120):
+    """Waits (up to most_s) for the PC to be quiet first: after 200,000 files are made, Windows' virus checker
+    reads them for minutes, and the times after it would measure that, not Corefold."""
+    if os.name != "nt":
+        return
+    start, first, others = time.perf_counter(), None, 0.0
+    while True:
+        before = _times()
+        settle(1)
+        mine, busy, total, _t = (x - y for x, y in zip(_times(), before))
+        others = max(0.0, busy - mine) / max(total, 0.01) * 100
+        first = others if first is None else first
+        if others < 20 or time.perf_counter() - start > most_s:
+            break
+    say(f"note  before {what}: other programs kept the PC {first:.0f}% busy; waited {time.perf_counter() - start:.0f} s"
+        f" (then {others:.0f}%)")
+
+
 def start_light():
     global c
     c = timed("Corefold starts (tray icon ready)", lambda: A.Controller(qapp, QIcon(str(ROOT / "assets" / "icon.png"))),
@@ -1421,6 +1443,8 @@ else:
              ("clipboard", clipboard), ("store", store), ("idle", idle))
     step("start", start)
 for name, fn in STEPS:
+    if ARGS.heavy and (not ARGS.only or name in ARGS.only.split(",")):
+        _quiet(name)
     step(name, fn)
     for top in qapp.topLevelWidgets():  # nothing a step left open gets in the next one's way
         if alive(top) and top.isVisible() and top.isWindow() and type(top).__name__ not in ("MainWindow", "Toast"):

@@ -429,7 +429,7 @@ def at_restart_order(paths: list[str]) -> list[str]:
         for e in entries:
             if len(order) > MAX_AT_RESTART:
                 return
-            if not is_link(e.path) and e.is_dir(follow_symlinks=False):
+            if e.is_dir(follow_symlinks=False) and not is_link(e.path):
                 walk(e.path)  # (its own folders and files come first)
             order.append(e.path)
 
