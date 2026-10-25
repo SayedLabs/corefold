@@ -1,0 +1,92 @@
+== File Organizer: a crash part-way through a sort
+ok      the sort was stopped dead after 150 files (exit 9)
+ok      150 files were moved before it stopped
+ok      after the crash, Undo knows every move (150 of 150)
+ok      Undo put all 150 back (loose files: 300)
+ok      the folder it made is gone again
+ok      the journal was cleared
+== File Organizer: Undo checks it's the same file
+ok      sorted 2 files
+ok      Undo left the different file where it is
+ok      and didn't move it to the old photo's place
+ok      counted as changed (changed 1, back 1)
+ok      the untouched file still went back
+ok      same size and time but another file: left alone
+ok      an older version's sort is still undone
+== Cloud: downloads checked before they're kept
+ok      a whole download that matches is kept (ok)
+cloud download cut off: 150000 of 300000 bytes (sent as 300000)
+ok      a download cut off half-way isn't kept (the download was cut off; try again)
+cloud download cut off: 150000 of 300000 bytes (sent as 150000)
+ok      fewer bytes than the file's size: not kept (the download was cut off; try again)
+cloud download doesn't match the service's check (quickxor)
+ok      changed on the way: not kept (the downloaded file isn't the same as the one in the account; try again)
+cloud download doesn't match the service's check (dropbox)
+ok      Dropbox's check catches it too (the downloaded file isn't the same as the one in the account; try again)
+ok      no half files left behind
+ok      OneDrive's quickXorHash matches Microsoft's values
+ok      Dropbox's content_hash matches Dropbox's values
+== Damaged ZIPs and ZIP bombs
+note    bomb: 3057 KB that unpack to 3 GB
+ok      the bomb is stopped (good 0, damaged 1, stopped True)
+ok      nothing of it is left on the disk (0 bytes)
+ok      stopped quickly (0.3 s)
+ok      memory stayed small (peak grew 0 MB)
+ok      a piece bigger than its header says isn't kept
+ok      a damaged but honest ZIP is still rescued (2 good, 0 damaged)
+note    Repair said: this archive unpacks to far more than its size or the free space allows, so rescuing it was stopped
+ok      Repair of the bomb ends with a message
+ok      and leaves nothing behind
+ok      7-Zip was stopped before the disk filled up (the disk is nearly full, so unpacking was stopped before it filled it)
+ok      and the half-unpacked files are gone
+== Archive passwords stay off the command line
+note    the old way, 7-Zip's command line as other programs see it: shown
+ok      7z: made with a password
+ok      7z: the password isn't in 7-Zip's command line (19 looks)
+ok      7z: it's really locked
+ok      7z: the right password opens it
+ok      7z: a wrong one doesn't
+ok      7z: listed with the password (['big.bin', 'secret.txt'])
+ok      7z: a file read from it
+ok      7z: a wrong password asks again
+ok      7z: extracted with the password
+ok      7z: and not on the command line then either
+ok      7z: extracting with a wrong password asks again
+ok      7z: tested with the password
+ok      7z: added to, changed and taken from (['added.txt', 'secret.txt'])
+ok      7z: the change is in it
+ok      7z: still locked with the same password
+ok      zip: made with a password
+ok      zip: the password isn't in 7-Zip's command line (17 looks)
+ok      zip: it's really locked
+ok      zip: the right password opens it
+ok      zip: a wrong one doesn't
+ok      zip: listed with the password (['big.bin', 'secret.txt'])
+ok      zip: a file read from it
+ok      zip: a wrong password asks again
+ok      zip: extracted with the password
+ok      zip: and not on the command line then either
+ok      zip: extracting with a wrong password asks again
+ok      zip: tested with the password
+ok      zip: added to, changed and taken from (['added.txt', 'secret.txt'])
+ok      zip: the change is in it
+ok      zip: still locked with the same password
+== Clipboard: deleted copies are wiped
+note    the old way, deleted copy still in the file: True
+ok      an older history: copies deleted before are wiped when it's opened
+ok      a copy is kept (it's in the file)
+ok      deleted: it's gone from the file and its log
+ok      forgotten after 30 days: gone from the file
+ok      Clear: nothing of it left in the file
+ok      an old damaged history (with copies in it) is removed
+== Recycle Bin deletes that would be for good
+ok      the drive's volume {bc7f279c-06e3-4eb3-9fd6-2498aafe64b5}
+note    the old way: deleted for good, nothing was asked (the problem)
+ok      Space: Windows asks before deleting it for good
+ok      Space: saying no keeps the file
+ok      Space: and it isn't counted as gone (0)
+ok      the rest of the app: Windows asks before deleting it for good
+ok      the rest of the app: saying no keeps the file
+ok      the rest of the app: and it isn't counted as gone (False)
+ok      with a Recycle Bin, it goes there without a question
+audittest: 0 problem(s)

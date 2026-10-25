@@ -1,0 +1,191 @@
+ok    Colors starts when it's in use
+ok    its shortcut (Win + Shift + C) is registered
+ok    …so another app can't take it while Colors has it
+ok    the tray menu has "Pick a colour"
+ok    Win + Shift + C opens the picker on every screen
+ok    the magnifier shows the colour under the mouse (#1A2B3C)
+ok    Esc closes the picker
+ok    …and leaves the clipboard alone
+ok    …and nothing is added to the colours picked
+ok    the picker opens (hex, #1A2B3C)
+ok    a click picks and closes (hex, #1A2B3C)
+ok    the clipboard has '#1A2B3C' (got '#1A2B3C'; the magnifier showed #1A2B3C)
+ok    …and #1A2B3C is at the top of the colours picked
+ok    the picker opens (hex, #E5484D)
+ok    a click picks and closes (hex, #E5484D)
+ok    the clipboard has '#E5484D' (got '#E5484D'; the magnifier showed #E5484D)
+ok    …and #E5484D is at the top of the colours picked
+ok    a small note with the colour says it was copied
+ok    the picker opens (hex, #30A46C)
+ok    a click picks and closes (hex, #30A46C)
+ok    the clipboard has '#30A46C' (got '#30A46C'; the magnifier showed #30A46C)
+ok    …and #30A46C is at the top of the colours picked
+ok    the picker opens (hex, #7F3FBF)
+ok    a click picks and closes (hex, #7F3FBF)
+ok    the clipboard has '#7F3FBF' (got '#7F3FBF'; the magnifier showed #7F3FBF)
+ok    …and #7F3FBF is at the top of the colours picked
+ok    the picker opens (rgb, #1A2B3C)
+ok    a click picks and closes (rgb, #1A2B3C)
+ok    the clipboard has 'rgb(26, 43, 60)' (got 'rgb(26, 43, 60)'; the magnifier showed #1A2B3C)
+ok    …and #1A2B3C is at the top of the colours picked
+ok    the picker opens (rgb, #E5484D)
+ok    a click picks and closes (rgb, #E5484D)
+ok    the clipboard has 'rgb(229, 72, 77)' (got 'rgb(229, 72, 77)'; the magnifier showed #E5484D)
+ok    …and #E5484D is at the top of the colours picked
+ok    the picker opens (rgb, #30A46C)
+ok    a click picks and closes (rgb, #30A46C)
+ok    the clipboard has 'rgb(48, 164, 108)' (got 'rgb(48, 164, 108)'; the magnifier showed #30A46C)
+ok    …and #30A46C is at the top of the colours picked
+ok    the picker opens (rgb, #7F3FBF)
+ok    a click picks and closes (rgb, #7F3FBF)
+ok    the clipboard has 'rgb(127, 63, 191)' (got 'rgb(127, 63, 191)'; the magnifier showed #7F3FBF)
+ok    …and #7F3FBF is at the top of the colours picked
+ok    the picker opens (hsl, #1A2B3C)
+ok    a click picks and closes (hsl, #1A2B3C)
+ok    the clipboard has 'hsl(210, 40%, 17%)' (got 'hsl(210, 40%, 17%)'; the magnifier showed #1A2B3C)
+ok    …and #1A2B3C is at the top of the colours picked
+ok    the picker opens (hsl, #E5484D)
+ok    a click picks and closes (hsl, #E5484D)
+ok    the clipboard has 'hsl(358, 75%, 59%)' (got 'hsl(358, 75%, 59%)'; the magnifier showed #E5484D)
+ok    …and #E5484D is at the top of the colours picked
+ok    the picker opens (hsl, #30A46C)
+ok    a click picks and closes (hsl, #30A46C)
+ok    the clipboard has 'hsl(151, 55%, 42%)' (got 'hsl(151, 55%, 42%)'; the magnifier showed #30A46C)
+ok    …and #30A46C is at the top of the colours picked
+ok    the picker opens (hsl, #7F3FBF)
+ok    a click picks and closes (hsl, #7F3FBF)
+ok    the clipboard has 'hsl(270, 50%, 50%)' (got 'hsl(270, 50%, 50%)'; the magnifier showed #7F3FBF)
+ok    …and #7F3FBF is at the top of the colours picked
+ok    the picker opens (for a right-click)
+ok    a right-click closes the picker
+ok    …without copying or keeping anything
+ok    the picker opens (for the arrow keys)
+ok    the magnifier is on the exact pixel under the mouse (#7D1944 vs #7D1944)
+ok    → moves the mouse one pixel right ((951, 800))
+ok    …and the magnifier shows that pixel
+ok    ↓ ↓ ← ↑ ends one pixel below where it began ((950, 801))
+ok    Enter picks
+ok    …exactly that pixel's colour ('#7D4E61', wanted '#7D4E61')
+ok    the colours picked keep the last 24 (24)
+ok    …newest first
+ok    …and the same colour twice in a row is kept once
+ok    …and they're saved
+ok    picking colours doesn't ask to save the settings
+ok    the Colors page opens
+ok    it shows every colour picked (14)
+ok    its HSL Copy button copies 'hsl(206, 100%, 50%)'
+ok    …and says so
+ok    Remove takes one colour off
+ok    something that isn't a colour is refused
+ok    rgb(30, 144, 255) typed: added and shown (['#1E90FF', '#3CC7B2'])
+ok    OKLCH copied as CSS writes it ('oklch(65.2% 0.190 253.2)')
+ok    VEC4 copied ('vec4(0.118, 0.565, 1.000, 1.0)')
+ok    how readable text is on it: ['Aa  3.2:1  ·  Large text only', 'Aa  6.5:1  ·  AA']
+ok    hsl(), short HEX and names too (['#000080', '#FFFFFF', '#FF0000'])
+ok    Clear all (after asking) forgets them all
+ok    a shortcut another app has is noticed
+ok    …and going back to Win + Shift + C fixes it
+ok    "Pick a colour" hides the window, then opens the picker
+ok    …and the window comes back after
+ok    removing Colors in the Store stops it
+ok    …takes "Pick a colour" off the tray menu
+ok    …and lets go of Win + Shift + C
+ok    adding it back takes the shortcut again
+note  the first run's own checks took 22 s
+ok    Colors starts at 125%
+ok    the picker opens (hex, #1A2B3C) at 125%
+ok    a click picks and closes (hex, #1A2B3C) at 125%
+ok    the clipboard has '#1A2B3C' (got '#1A2B3C'; the magnifier showed #1A2B3C) at 125%
+ok    …and #1A2B3C is at the top of the colours picked at 125%
+ok    the picker opens (hex, #E5484D) at 125%
+ok    a click picks and closes (hex, #E5484D) at 125%
+ok    the clipboard has '#E5484D' (got '#E5484D'; the magnifier showed #E5484D) at 125%
+ok    …and #E5484D is at the top of the colours picked at 125%
+ok    a small note with the colour says it was copied at 125%
+ok    the picker opens (hex, #30A46C) at 125%
+ok    a click picks and closes (hex, #30A46C) at 125%
+ok    the clipboard has '#30A46C' (got '#30A46C'; the magnifier showed #30A46C) at 125%
+ok    …and #30A46C is at the top of the colours picked at 125%
+ok    the picker opens (hex, #7F3FBF) at 125%
+ok    a click picks and closes (hex, #7F3FBF) at 125%
+ok    the clipboard has '#7F3FBF' (got '#7F3FBF'; the magnifier showed #7F3FBF) at 125%
+ok    …and #7F3FBF is at the top of the colours picked at 125%
+ok    the picker opens (for the arrow keys) at 125%
+ok    the magnifier is on the exact pixel under the mouse (#7D1944 vs #7D1944) at 125%
+ok    → moves the mouse one pixel right ((951, 800)) at 125%
+ok    …and the magnifier shows that pixel at 125%
+ok    ↓ ↓ ← ↑ ends one pixel below where it began ((950, 801)) at 125%
+ok    Enter picks at 125%
+ok    …exactly that pixel's colour ('#7D4E61', wanted '#7D4E61') at 125%
+note  7 s in all at 125%
+newtest_colors: 0 problem(s) at 125%
+note  the run --scaled at 1.25 took 7 s
+ok    Colors starts at 150%
+ok    the picker opens (hex, #1A2B3C) at 150%
+ok    a click picks and closes (hex, #1A2B3C) at 150%
+ok    the clipboard has '#1A2B3C' (got '#1A2B3C'; the magnifier showed #1A2B3C) at 150%
+ok    …and #1A2B3C is at the top of the colours picked at 150%
+ok    the picker opens (hex, #E5484D) at 150%
+ok    a click picks and closes (hex, #E5484D) at 150%
+ok    the clipboard has '#E5484D' (got '#E5484D'; the magnifier showed #E5484D) at 150%
+ok    …and #E5484D is at the top of the colours picked at 150%
+ok    a small note with the colour says it was copied at 150%
+ok    the picker opens (hex, #30A46C) at 150%
+ok    a click picks and closes (hex, #30A46C) at 150%
+ok    the clipboard has '#30A46C' (got '#30A46C'; the magnifier showed #30A46C) at 150%
+ok    …and #30A46C is at the top of the colours picked at 150%
+ok    the picker opens (hex, #7F3FBF) at 150%
+ok    a click picks and closes (hex, #7F3FBF) at 150%
+ok    the clipboard has '#7F3FBF' (got '#7F3FBF'; the magnifier showed #7F3FBF) at 150%
+ok    …and #7F3FBF is at the top of the colours picked at 150%
+ok    the picker opens (for the arrow keys) at 150%
+ok    the magnifier is on the exact pixel under the mouse (#7D1944 vs #7D1944) at 150%
+ok    → moves the mouse one pixel right ((951, 800)) at 150%
+ok    …and the magnifier shows that pixel at 150%
+ok    ↓ ↓ ← ↑ ends one pixel below where it began ((950, 801)) at 150%
+ok    Enter picks at 150%
+ok    …exactly that pixel's colour ('#7D4E61', wanted '#7D4E61') at 150%
+note  7 s in all at 150%
+newtest_colors: 0 problem(s) at 150%
+note  the run --scaled at 1.5 took 7 s
+ok    Colors starts at 200%
+ok    the picker opens (hex, #1A2B3C) at 200%
+ok    a click picks and closes (hex, #1A2B3C) at 200%
+ok    the clipboard has '#1A2B3C' (got '#1A2B3C'; the magnifier showed #1A2B3C) at 200%
+ok    …and #1A2B3C is at the top of the colours picked at 200%
+ok    the picker opens (hex, #E5484D) at 200%
+ok    a click picks and closes (hex, #E5484D) at 200%
+ok    the clipboard has '#E5484D' (got '#E5484D'; the magnifier showed #E5484D) at 200%
+ok    …and #E5484D is at the top of the colours picked at 200%
+ok    a small note with the colour says it was copied at 200%
+ok    the picker opens (hex, #30A46C) at 200%
+ok    a click picks and closes (hex, #30A46C) at 200%
+ok    the clipboard has '#30A46C' (got '#30A46C'; the magnifier showed #30A46C) at 200%
+ok    …and #30A46C is at the top of the colours picked at 200%
+ok    the picker opens (hex, #7F3FBF) at 200%
+ok    a click picks and closes (hex, #7F3FBF) at 200%
+ok    the clipboard has '#7F3FBF' (got '#7F3FBF'; the magnifier showed #7F3FBF) at 200%
+ok    …and #7F3FBF is at the top of the colours picked at 200%
+ok    the picker opens (for the arrow keys) at 200%
+ok    the magnifier is on the exact pixel under the mouse (#7D1944 vs #7D1944) at 200%
+ok    → moves the mouse one pixel right ((951, 800)) at 200%
+ok    …and the magnifier shows that pixel at 200%
+ok    ↓ ↓ ← ↑ ends one pixel below where it began ((950, 801)) at 200%
+ok    Enter picks at 200%
+ok    …exactly that pixel's colour ('#7D4E61', wanted '#7D4E61') at 200%
+note  7 s in all at 200%
+newtest_colors: 0 problem(s) at 200%
+note  the run --scaled at 2 took 7 s
+ok    with Colors removed, none of it is loaded
+ok    …no shortcut and nothing in the tray menu
+ok    …and Win + Shift + C stays free
+note  2 s in all
+newtest_colors: 0 problem(s)
+note  the run --removed at 1 took 2 s
+ok    the Colors page opens in Arabic, light
+ok    …right to left, with every colour
+note  2 s in all
+newtest_colors: 0 problem(s)
+note  the run --arabic at 1 took 3 s
+note  47 s in all
+newtest_colors: 0 problem(s)
