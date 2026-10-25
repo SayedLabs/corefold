@@ -605,16 +605,28 @@ class StartupPage(QWidget):
         self.clean_btn.setEnabled(False)
         # (the job is kept until its answer is in: an answer whose job was thrown away never arrives)
         job = work.run(lambda _p: startup.set_on(e, on), lambda _: None,
-                       lambda result, r=row, want=on: self._switched(r, want, result), name="corefold-startup-switch", busy=True)
+                       lambda result, r=row, want=on: self._switched(r, want, result, e),
+                       name="corefold-startup-switch", busy=True)
         self.switching.append(job)
 
-    def _switched(self, row: EntryRow, want: bool, result):
+    def _switched(self, row: EntryRow, want: bool, result, entry: startup.Entry | None = None):
         self.busy -= 1
         self.switching = [j for j in self.switching if j.is_alive()]
         if not work.alive(self):
             return
         self.refresh_btn.setEnabled(not self.busy and not self.loading)
         self.clean_btn.setEnabled(not self.busy)
+        if result is True and entry is not None:
+            # (the list may have been read again while it was being switched: that copy holds the state from before)
+            for other in self.entries:
+                if other is not entry and other.id == entry.id:
+                    other.on, other.off_since = entry.on, entry.off_since
+                    if "state" in entry.extra:
+                        other.extra["state"] = entry.extra["state"]
+            for r in self.rows:
+                if r is not row and r.entry.id == entry.id:
+                    r.set_checked_quietly(starts(r.entry))
+                    r.refresh_text()
         if not work.alive(row):
             return
         row.switch.setEnabled(True)

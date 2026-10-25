@@ -243,7 +243,9 @@ def type_name(path: Path) -> str:
                 _fields_ = [("hIcon", ctypes.c_void_p), ("iIcon", ctypes.c_int), ("dwAttributes", wt.DWORD),
                             ("szDisplayName", ctypes.c_wchar * 260), ("szTypeName", ctypes.c_wchar * 80)]
             info = SHFILEINFOW()
-            if ctypes.windll.shell32.SHGetFileInfoW(str(path), 0, ctypes.byref(info), ctypes.sizeof(info), 0x400):
+            # (its own copy of shell32: another part of the app sets this function's argument types for its
+            # own SHFILEINFOW, which would turn this call down)
+            if ctypes.WinDLL("shell32").SHGetFileInfoW(str(path), 0, ctypes.byref(info), ctypes.sizeof(info), 0x400):
                 return info.szTypeName
         except Exception:
             pass
@@ -683,9 +685,20 @@ class PeekWindow(QWidget):
         path = self.current()
         if path is None or path.suffix.lower() not in (".gif", ".webp"):
             return
+        from PySide6.QtCore import QBuffer
         from PySide6.QtGui import QMovie
         pic = self.content
-        movie = QMovie(str(path), parent=pic)
+        movie = QMovie(pic)
+        try:  # (played from memory, so the file isn't held open: Explorer can still delete or rename it)
+            data = path.read_bytes() if path.stat().st_size <= 64 * 1024 * 1024 else None
+        except OSError:
+            data = None
+        if data is None:
+            movie.setFileName(str(path))
+        else:
+            buf = QBuffer(movie)
+            buf.setData(data)
+            movie.setDevice(buf)
         if not movie.isValid() or movie.frameCount() == 1:
             movie.deleteLater()
             return

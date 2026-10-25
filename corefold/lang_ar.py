@@ -2731,4 +2731,11 @@ STRINGS: dict[str, str] = {
     "{name}'s home page is fixed by a policy.": 'الصفحة الرئيسية في {name} مثبّتة بسياسة.',
     'Windows sends what you browse through another computer. Fine if your work set it up.': 'ويندوز يمرّر تصفحك عن طريق كمبيوتر ثاني. عادي لو جهة شغلك هي اللي ضبطته.',
     "A policy switches off part of Microsoft Defender. Malware does this so it isn't found.": 'فيه سياسة تطفّي جزء من Microsoft Defender. البرامج الخبيثة تسوي كذا عشان محد يلقاها.',
+    'this email file is too big to open': 'ملف الإيميل هذا كبير مرة وما ينفتح',
+    'this email file is damaged': 'ملف الإيميل هذا خربان',
+    'not an Outlook email file': 'هذا مو ملف إيميل Outlook',
+    'this Outlook file is damaged': 'ملف Outlook هذا خربان',
+    "Your hosts file blocks {site}, so it can't be reached from this PC.": 'ملف hosts عندك يحجب {site}، فما ينفتح من هالجهاز.',
+    'picking a colour': 'اختيار لون',
+    'Empty: each video gets the subtitle file next to it': 'اتركه فاضي: كل فيديو ياخذ ملف الترجمة اللي جنبه',
 }

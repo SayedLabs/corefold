@@ -759,6 +759,11 @@ class SpacePage(QWidget):
         self.scan: space.Scan | None = None
         self.here: space.Folder | None = None
         self.cancel = threading.Event()
+        # the running job's stop, set when the page goes (tool switched off, window made again): a whole
+        # drive's look or the duplicates' reading would otherwise go on to the end for nothing
+        self._live = [self.cancel]
+        self.destroyed.connect(lambda *_a, live=self._live: live[0].set())
+        self._recycling = None    # (the Recycle Bin job of the map, kept while it runs)
         self.job = None
         self.junk: list[space.Junk] = []
         self.dupes: list = []
@@ -801,6 +806,15 @@ class SpacePage(QWidget):
         lay.addWidget(self.sections, 1)
         self.section = "map"
         self._paint_backs()
+
+    def _new_cancel(self) -> threading.Event:
+        self.cancel = self._live[0] = threading.Event()
+        return self.cancel
+
+    def _junk_if_waiting(self):
+        """Clean up was opened while another job ran: what can go is looked for now."""
+        if self.section == "clean" and not self.junk and self.job is None:
+            self.find_junk()
 
     def show_section(self, key: str):
         self.section = key
@@ -997,7 +1011,7 @@ class SpacePage(QWidget):
             self.root = root
             self._show_map(kept[0], kept[1])
             return
-        self.cancel = threading.Event()
+        self._new_cancel()
         self.root = root
         self.drives_box.hide()
         self.map_box.hide()
@@ -1027,6 +1041,7 @@ class SpacePage(QWidget):
         if not _alive(self):
             return
         self.job = None
+        self._junk_if_waiting()
         self.busy_box.hide()
         if getattr(self, "_leaving", False):
             self._leaving = False
@@ -1134,6 +1149,8 @@ class SpacePage(QWidget):
             self.open_folder(self.here.parent)
 
     def _rescan(self):
+        if self.job is not None:  # (another job runs: the map stays as it is, rather than go blank)
+            return
         root = self.scan.root.path if self.scan else None
         self.scan = self.here = None
         self.treemap.show_folder(None)
@@ -1329,15 +1346,27 @@ class SpacePage(QWidget):
 
     def _remove(self, path: Path, folder):
         size = folder.size if folder is not None else _size(path)
+        if self._recycling is not None:  # (one at a time)
+            return
         if not _confirm(self, tr("Move to the Recycle Bin?"),
                         tr("{name} ({size}) goes to the Recycle Bin, where you can put it back. The space is freed "
                            "when the Recycle Bin is emptied.", name=ltr(path.name), size=human_size(size)),
                         tr("Move to the Recycle Bin")):
             return
-        if not space.recycle([path]):
-            self.c.tell(tr("Couldn't move it"), tr("{name} is in use or Windows doesn't allow it.", name=ltr(path.name)))
-            return
-        self._forget(path, folder, size)
+        scan = self.scan
+
+        def done(gone):
+            if not _alive(self):
+                return
+            self._recycling = None
+            if isinstance(gone, Exception) or not gone:
+                self.c.tell(tr("Couldn't move it"), tr("{name} is in use or Windows doesn't allow it.",
+                                                        name=ltr(path.name)))
+                return
+            if self.scan is scan:  # (the same map is still open)
+                self._forget(path, folder, size)
+        # (a big folder takes a while to go: the window keeps answering meanwhile)
+        self._recycling = _work(lambda _p: space.recycle([path]), lambda _: None, done, busy=True)
 
     def _forget(self, path: Path, folder, size: int):
         """Takes it out of the map without looking through the drive again."""
@@ -1358,6 +1387,7 @@ class SpacePage(QWidget):
         def gone(b):
             return Path(b[1]) == path or str(b[1]).startswith(str(path) + os.sep)
         self.scan.biggest = [b for b in self.scan.biggest if not gone(b)]
+        self.scan.old = [b for b in self.scan.old if not gone(b)]
         self.scan.biggest_kind = {k: [b for b in v if not gone(b)] for k, v in self.scan.biggest_kind.items()}
         self.open_folder(self.here if self.here is not folder else (parent or self.scan.root))
 
@@ -1447,7 +1477,7 @@ class SpacePage(QWidget):
             downloads = downloads_folder()
         except Exception:
             pass
-        cancel = self.cancel = threading.Event()
+        cancel = self._new_cancel()
         self.job = _work(lambda progress: space.find_junk(downloads, cancel), lambda _: None, self._junk_found)
 
     def _junk_found(self, result):
@@ -1495,7 +1525,7 @@ class SpacePage(QWidget):
             return
         self.clean_btn.setEnabled(False)
         self.clean_note.setText(tr("Cleaning up…"))
-        cancel = self.cancel = threading.Event()
+        cancel = self._new_cancel()
 
         def work(progress):
             freed = sum(space.clean(j, cancel) for j in chosen if not j.admin)
@@ -1620,7 +1650,7 @@ class SpacePage(QWidget):
         self.dupe_bar.show()
         self.dupe_btn.setEnabled(False)
         self.dupe_note.setText(tr("Looking through your files…"))
-        cancel = self.cancel = threading.Event()
+        cancel = self._new_cancel()
         self.job = _work(lambda progress: space.find_duplicates(folders, cancel=cancel,
                                                                 progress=lambda *a: progress(a)),
                          self._dupe_progress, self._dupes_found)
@@ -1640,6 +1670,7 @@ class SpacePage(QWidget):
         if not _alive(self):
             return
         self.job = None
+        self._junk_if_waiting()
         self.dupe_bar.hide()
         self.dupe_btn.setEnabled(True)
         if isinstance(groups, Exception):
@@ -1754,13 +1785,45 @@ class SpacePage(QWidget):
                         tr("{count} copies ({size}) go to the Recycle Bin, where you can put them back.",
                            count=len(ticked), size=human_size(total)), tr("Move to the Recycle Bin")):
             return
-        gone = space.recycle([Path(p) for p, _ in ticked])
+        groups = self._ticked_groups()
+        dupes = self.dupes
+        self.dupe_remove.setEnabled(False)
+
+        def work(_progress):
+            # (only copies whose kept copy is still there and unchanged go; checked now, not when found)
+            paths = space.copies_to_remove(groups)
+            gone = space.recycle([Path(p) for p in paths]) if paths else 0
+            # what's still there of each file (copies removed meanwhile in File Explorer go from the list too)
+            return gone, [g for g in ([f for f in grp if os.path.lexists(f[0])] for grp in dupes) if len(g) > 1]
+        # (many files take a while to go: the window keeps answering meanwhile)
+        self.job = _work(work, lambda _: None, self._dupes_removed, busy=True)
+
+    def _ticked_groups(self) -> list[tuple[list, list]]:
+        """For each file with a copy ticked: (the ticked copies, the others), each as (path, size, modified)."""
+        when = {path: mtime for group in self.dupes for path, _size, mtime in group}
+        out = []
+        for i in range(self.dupe_tree.topLevelItemCount()):
+            head = self.dupe_tree.topLevelItem(i)
+            ticked, kept = [], []
+            for j in range(head.childCount()):
+                it = head.child(j)
+                path, size = it.data(0, Qt.UserRole)
+                (ticked if it.checkState(0) == Qt.Checked else kept).append((path, size, when.get(path, 0.0)))
+            if ticked:
+                out.append((ticked, kept))
+        return out
+
+    def _dupes_removed(self, result):
+        if not _alive(self):
+            return
+        self.job = None
+        if isinstance(result, Exception):
+            self.dupe_note.setText(str(result))
+            self.dupe_remove.setEnabled(True)
+            return
+        gone, self.dupes = result
         self.forget_maps()
         self.c.say(tr("Copies removed"), tr("{count} copies went to the Recycle Bin.", count=gone), done=True)
-        left = {os.path.normcase(p) for p, _ in ticked if os.path.lexists(p)}
-        removed = {os.path.normcase(p) for p, _ in ticked} - left
-        self.dupes = [g for g in ([f for f in grp if os.path.normcase(f[0]) not in removed] for grp in self.dupes)
-                      if len(g) > 1]
         self.dupe_tree.clear()
         self._dupes_found(self.dupes)
 

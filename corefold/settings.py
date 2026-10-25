@@ -9,6 +9,7 @@ import logging
 import os
 import shutil
 import sys
+import time
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
@@ -137,6 +138,9 @@ CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_styl
 # Settings kept on disk while the window has changes that weren't saved yet (see window.py): the
 # window shows them straight away, but they only stay if "Save" is pressed.
 HELD: dict | None = None
+# settings.json was there but couldn't be read at start: what's in use is a copy or the defaults, which must
+# never be written over the person's own settings (they're read again at the next start)
+UNREADABLE = False
 RECENT_ARCHIVES = 8
 # not settings a person edits: what the app remembers by itself
 NOT_EDITED = {"enabled", "first_run", "last_version", "update_told", "menu_signature", "window_geometry", "last_page",
@@ -348,23 +352,36 @@ class Settings:
 
     @classmethod
     def load(cls) -> "Settings":
+        global UNREADABLE
         path = CONFIG_DIR / "settings.json"
-        broken = False
-        try:
-            data = json.loads(path.read_text("utf-8"))
-        except FileNotFoundError:
-            data = None
-        except OSError:
-            log.exception("couldn't read the settings")
-            data = None
-        except ValueError:
-            data, broken = None, True
+        broken = unreadable = False
+        data = None
+        for attempt in range(5):  # (a virus scanner or a backup program may hold the file for a moment)
+            try:
+                data = json.loads(path.read_text("utf-8"))
+            except FileNotFoundError:
+                pass
+            except OSError:
+                if attempt < 4:
+                    time.sleep(0.2)
+                    continue
+                log.exception("couldn't read the settings")
+                unreadable = True
+            except ValueError:
+                broken = True
+            break
+        UNREADABLE = unreadable
         if not isinstance(data, dict):
             # missing or damaged: the newest copy made before an update, if there is one
             from .settings_backup import recover
             data = recover(path, broken or data is not None)
             if data is None:
-                return cls()
+                s = cls()
+                if unreadable:  # (it's there, just not readable now: not a first start, keep the tools as they are)
+                    from .tools import ready
+                    s.first_run = False
+                    s.known_tools = [t.id for t in ready()]
+                return s
         return cls.from_data(data)
 
     @classmethod
@@ -436,6 +453,9 @@ class Settings:
         return s
 
     def save(self):
+        if UNREADABLE:
+            log.warning("settings not saved: settings.json couldn't be read at start")
+            return
         try:
             CONFIG_DIR.mkdir(parents=True, exist_ok=True)
             target = CONFIG_DIR / "settings.json"

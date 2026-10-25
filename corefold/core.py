@@ -8,6 +8,8 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
+import weakref
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
@@ -126,23 +128,43 @@ def writable(folder: Path) -> bool:
     return ok
 
 
-_reserved: set[str] = set()   # names handed out but maybe not written yet (two jobs at once)
+# names handed out but maybe not written yet (two jobs at once) -> until when they stay taken. Never for good:
+# a file deleted since (or a job that was cancelled) must not push the next one to "name (2)" for days
+_reserved: dict[str, float] = {}
 _reserve_lock = threading.Lock()
+HOLD_S = 120  # (a name handed out outside a job, like a Save box's suggestion)
+_IN_JOB = float("inf")  # (a job's names: until its Ctx is gone, see Ctx.out_path)
 
 
 def unique_path(p: Path) -> Path:
     """p, or "name (2).ext", "name (3).ext"… when that's taken. A folder in the way gets the number at the
     end of its whole name ("Photos v2.0 (2)", not "Photos v2 (2).0")."""
     with _reserve_lock:
+        now = time.monotonic()
         cand, n = p, 2
         whole = p.is_dir()
-        while cand.exists() or os.path.normcase(str(cand)) in _reserved:
+        while cand.exists() or _reserved.get(os.path.normcase(str(cand)), 0.0) > now:
             cand = p.with_name(f"{p.name} ({n})" if whole else f"{p.stem} ({n}){p.suffix}")
             n += 1
         if len(_reserved) > 5000:
-            _reserved.clear()
-        _reserved.add(os.path.normcase(str(cand)))
+            for key in [k for k, until in _reserved.items() if until <= now]:
+                del _reserved[key]
+        _reserved[os.path.normcase(str(cand))] = now + HOLD_S
         return cand
+
+
+def _hold_for(owner, p: Path):
+    """Keeps p's name taken while owner (a job's Ctx) is alive, then lets it go."""
+    key = os.path.normcase(str(p))
+    with _reserve_lock:
+        _reserved[key] = _IN_JOB
+    weakref.finalize(owner, _let_go, key)
+
+
+def _let_go(key: str):
+    with _reserve_lock:
+        if _reserved.get(key) == _IN_JOB:
+            del _reserved[key]
 
 
 def remove_file(p: Path):
@@ -280,6 +302,7 @@ class Ctx:
         folder = self.folder_for(src)
         folder.mkdir(parents=True, exist_ok=True)
         p = unique_path(folder / name)
+        _hold_for(self, p)  # (until this job is over: then a file deleted since is free to be made again)
         self.made.append(p)
         return p
 
@@ -301,6 +324,19 @@ class Ctx:
             except OSError:
                 pass
         self.made.clear()
+
+
+def legacy_text(raw: bytes) -> str:
+    """Text saved in an old Windows code page (subtitles often are): Arabic (Windows-1256), Turkish
+    (Windows-1254) or Western (Windows-1252). Every byte means something in each of them, so trying them
+    in turn always "works" with the first: the letters themselves decide. Arabic text is nearly all
+    high bytes; Spanish or French only has an accented letter here and there between plain ones (and
+    Turkish is taken to be what a PC set to Turkish saves)."""
+    high = sum(1 for b in raw if b >= 0x80)
+    letters = sum(1 for b in raw if 0x41 <= b <= 0x5A or 0x61 <= b <= 0x7A)
+    if high and high > 0.3 * (high + letters):
+        return raw.decode("cp1256", "replace")
+    return raw.decode("cp1254" if i18n.language() == "tr" else "cp1252", "replace")
 
 
 # ----------------------------------------------------------------------------- file types
@@ -419,11 +455,13 @@ def _cached(kind: str, path: Path, fn):
         key = (kind, str(path), st.st_mtime_ns, st.st_size)
     except OSError:
         return fn()
-    if key not in _cache:
+    value = _cache.get(key, _MISSING)
+    if value is _MISSING:
         if len(_cache) > 500:
             _cache.clear()
-        _cache[key] = fn()
-    return _cache[key]
+        value = fn()
+        _cache[key] = value  # (returned from here: another thread may clear the cache in between)
+    return value
 
 
 def run_with_progress(cmd: list[str], ctx: Ctx, parse: Callable[[str], float | None],

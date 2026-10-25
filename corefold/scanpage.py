@@ -102,6 +102,9 @@ def finding_text(f: dict) -> str:
             return tr("Running right now from {place}, and nobody signed it.", place=place)
         return tr("Running right now from {place}, and its signature isn't valid.", place=place)
     if kind == "hosts":
+        if d.get("blocked"):
+            return tr("Your hosts file blocks {site}, so it can't be reached from this PC.",
+                      site=ltr(d.get("site", "")))
         return tr("Your hosts file sends {site} to {address} instead of the real site.", site=ltr(d.get("site", "")),
                   address=ltr(d.get("to", "")))
     if kind == "replaced":

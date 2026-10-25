@@ -147,6 +147,7 @@ class TrimDialog(Base):
         super().__init__(tr("Trim"), short_name(src.name), icon, dark)
         self.src = src
         self.video = category(src) == "video"
+        self.known = media_duration(src) > 0  # (unknown: the sliders mean nothing, see params())
         self.duration = max(0.1, media_duration(src))
 
         self.start_s = QSlider(Qt.Horizontal)
@@ -274,6 +275,8 @@ class TrimDialog(Base):
 
     def params(self):
         start, end = self._values()
+        if not self.known:  # (FFmpeg couldn't tell how long it is: never a 0.1-second file by mistake)
+            return {"start": 0.0, "end": 0.0}
         return {"start": start, "end": end}
 
 
@@ -651,7 +654,7 @@ class PackDialog(Base):
             self.ok.setEnabled(True)
             return
         p1, p2 = self.password.text(), self.password2.text()
-        if p1 and p1 != p2:
+        if (p1 or p2) and p1 != p2:  # (typed only in the second box: not a password yet either)
             self.warn.setText(tr("The two passwords don't match yet."))
             self.ok.setEnabled(False)
             return

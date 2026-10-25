@@ -4,6 +4,7 @@ upload (or drop files and folders in), make folders, rename, delete, search ever
 another by dragging."""
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -83,14 +84,46 @@ def _ui_error(e) -> str:
     return tr("Something went wrong: {text}", text=ltr(text))
 
 
+OPENED_NOTE = ".corefold-opened"  # (in each such folder: the file's size and date right after it came down)
+
+
+def _untouched(folder: str) -> bool | None:
+    """The file opened from an online account is still exactly as it came down (None: not known)."""
+    try:
+        with open(os.path.join(folder, OPENED_NOTE), encoding="utf-8") as fh:
+            kept = json.load(fh)
+        st = os.stat(os.path.join(folder, kept["name"]))
+        return st.st_size == kept["size"] and st.st_mtime_ns == kept["mtime"]
+    except FileNotFoundError:
+        return False if os.path.exists(os.path.join(folder, OPENED_NOTE)) else None
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
+def note_opened(target: Path):
+    try:
+        st = target.stat()
+        (target.parent / OPENED_NOTE).write_text(
+            json.dumps({"name": target.name, "size": st.st_size, "mtime": st.st_mtime_ns}), encoding="utf-8")
+    except OSError:
+        pass
+
+
 def clean_old_temp(days: float = 2):
-    """Files opened from an online account are downloaded to a temporary folder; old ones are cleared away."""
+    """Files opened from an online account are downloaded to a temporary folder; old ones are cleared away.
+    One that was changed is kept: "changes to it stay on this PC until you upload it again"."""
     old = time.time() - days * 86400
     try:
         with os.scandir(tempfile.gettempdir()) as it:
             for d in it:
                 try:
-                    if d.name.startswith(TEMP_PREFIX) and d.is_dir() and d.stat().st_mtime < old:
+                    if not (d.name.startswith(TEMP_PREFIX) and d.is_dir() and d.stat().st_mtime < old):
+                        continue
+                    untouched = _untouched(d.path)
+                    if untouched is None:  # (opened before the note was kept: only when nothing changed in a month)
+                        newest = max((e.stat().st_mtime for e in os.scandir(d.path)), default=0)
+                        untouched = newest < time.time() - 30 * 86400
+                    if untouched:
                         shutil.rmtree(d.path, ignore_errors=True)
                 except OSError:
                     continue
@@ -759,7 +792,7 @@ class CloudPage(QWidget):
                     else:
                         c = cloud.client(acc)
                         c.fill_profile()
-                        cloud.remember_account(acc)
+                        cloud.update_account(acc)  # (one signed out meanwhile isn't brought back)
                         used, total = acc.used, acc.total
                 except Exception:  # (no internet, signed out…: the space just isn't shown)
                     continue
@@ -805,15 +838,17 @@ class CloudPage(QWidget):
         self._busy(False)
         if isinstance(result, Exception):
             self.status.setText(_ui_error(result))
-            return
-        self.sign_again_btn.hide()
-        self.status.setText(tr("Signed in as {name}.", name=ltr(result.email)))
-        self.account = None
-        self.load_accounts(result.key)
-        win = self.window()  # (back from the browser)
-        win.showNormal() if win.isMinimized() else None
-        win.raise_()
-        win.activateWindow()
+        else:
+            self.sign_again_btn.hide()
+            self.status.setText(tr("Signed in as {name}.", name=ltr(result.email)))
+            self.account = None
+            self.load_accounts(result.key)
+            win = self.window()  # (back from the browser)
+            win.showNormal() if win.isMinimized() else None
+            win.raise_()
+            win.activateWindow()
+        if self.queue:  # (what was asked for while signing in waited its turn)
+            self._run(self.queue.pop(0))
 
     def sign_out(self, acc: cloud.Account):
         box = QMessageBox(self)
@@ -1246,6 +1281,7 @@ class CloudPage(QWidget):
             folder = Path(tempfile.mkdtemp(prefix=TEMP_PREFIX))
             target = folder / cloud.local_name(e.name)
             cloud.client(acc).download(e, target, lambda d, t: progress((e.name, d, t)), cancel)
+            note_opened(target)
             os_open(target)
             return tr("Opened {name}. Changes to it stay on this PC until you upload it again.", name=ltr(e.name))
         self._run(go, refresh=False, what=tr("Open {name}", name=ltr(e.name)))

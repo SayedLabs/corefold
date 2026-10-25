@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QEvent, QSize, Qt, Signal
 from PySide6.QtWidgets import (QAbstractItemView, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
                                QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QMenu, QPushButton, QVBoxLayout,
                                QWidget)
@@ -58,6 +58,12 @@ class KeyRecorder(QPushButton):
         self._show()
         if self.on_end:
             self.on_end()
+
+    def event(self, e):
+        if self.recording and e.type() == QEvent.Type.ShortcutOverride:
+            e.accept()  # (the keys are being recorded: the window's own shortcuts, like Ctrl + K, wait)
+            return True
+        return super().event(e)
 
     def focusOutEvent(self, e):
         self.stop()
@@ -124,10 +130,12 @@ class ItemList(QWidget):
 
     def fill(self, ids: list[str]):
         self.list.clear()
-        for i in ids:
+        self.hidden: list[tuple[int, str]] = []  # (place, id) of the ones not shown, put back when saved
+        for n, i in enumerate(ids):
             e = quick.entry(self.settings, i)
-            if e is None:
-                continue  # (its tool was removed, or the link deleted: kept in the settings, not shown)
+            if e is None:  # (its tool was switched off, or the link deleted: kept in the settings, not shown)
+                self.hidden.append((n, i))
+                continue
             item = QListWidgetItem(icons.icon(e.icon, self.theme.text), e.label)
             item.setData(Qt.UserRole, i)
             self.list.addItem(item)
@@ -136,9 +144,18 @@ class ItemList(QWidget):
     def ids(self) -> list[str]:
         return [self.list.item(r).data(Qt.UserRole) for r in range(self.list.count())]
 
+    def saved_ids(self) -> list[str]:
+        """What's kept in the settings: the list as shown, with the ones not shown back in their places
+        (a tool switched off for a while finds its actions where they were), as long as there's room."""
+        out = self.ids()
+        for n, i in self.hidden:
+            if len(out) < self.limit and i not in out:
+                out.insert(min(n, len(out)), i)
+        return out
+
     def _emit(self):
         self._buttons()
-        self.changed.emit(self.ids())
+        self.changed.emit(self.saved_ids())
 
     def _buttons(self):
         row = self.list.currentRow() if self.list.selectedItems() else -1
@@ -231,31 +248,39 @@ def build(win) -> QWidget:
         if c.quick is not None:
             c.quick.apply_settings()
 
-    def others(but: str) -> dict[str, str]:
-        """Corefold's other shortcuts, so two never get the same keys."""
+    def others(but: str) -> dict:
+        """Corefold's other shortcuts, so two never get the same keys. (Compared by the keys themselves:
+        "win+alt+v" in a list and "alt+win+v" recorded are the same shortcut.)"""
         out = {}
+
+        def add(combo: str, what: str):
+            keys = hotkey.parse(combo) if combo else None
+            if keys:
+                out[keys] = what
         if s.quick_menu and but != "menu":
-            out[hotkey.normalize(s.quick_menu_key)] = tr("the quick menu")
+            add(s.quick_menu_key, tr("the quick menu"))
         if s.quick_wheel and but != "wheel":
-            out[hotkey.normalize(s.quick_wheel_key)] = tr("the quick wheel")
+            add(s.quick_wheel_key, tr("the quick wheel"))
         if but != "ontop":
-            out[hotkey.normalize(s.ontop_key)] = tr("keeping a window on top")
+            add(s.ontop_key, tr("keeping a window on top"))
         if c.clip is not None:
-            out[s.clip_shortcut] = tr("the clipboard")
-            out[s.clip_plain_key] = tr("pasting as plain text")
+            add(s.clip_shortcut, tr("the clipboard"))
+            add(s.clip_plain_key, tr("pasting as plain text"))
         if c.capture is not None:
-            out[s.cap_shortcut] = tr("screenshots")
-            out[s.cap_text_shortcut] = tr("copying text from the screen")
-        out.pop("off", None)
-        out.pop("", None)
+            add(s.cap_shortcut, tr("screenshots"))
+            add(s.cap_text_shortcut, tr("copying text from the screen"))
+        if getattr(c, "colors", None) is not None:
+            add(s.colors_shortcut, tr("picking a colour"))
+        if getattr(c, "peek", None) is not None:
+            add(s.peek_key, tr("Quick look"))
         return out
 
     def recorded(which: str, combo: str, rec: KeyRecorder, note):
         combo = hotkey.normalize(combo)
         why = hotkey.problem(combo) if combo else hotkey.PROBLEMS["bad"]
-        if not why and combo in others(which):
-            note.setText(tr("Corefold already uses {key} for {what}.", key=hotkey.display(combo),
-                            what=others(which)[combo]))
+        taken = others(which).get(hotkey.parse(combo)) if combo else None
+        if not why and taken:
+            note.setText(tr("Corefold already uses {key} for {what}.", key=hotkey.display(combo), what=taken))
             note.setVisible(True)
             return
         if why:
@@ -416,6 +441,9 @@ def build(win) -> QWidget:
             name, target = dlg.name.text(), dlg.target.text()
         if not target.strip():
             return
+        if website and "://" not in target:  # ("youtube.com" opens as a site, not as a file of that name)
+            target = "https://" + target.strip()
+            name = name or target.split("://", 1)[1].split("/")[0]
         link = quick.new_link(name or Path(target).stem or target, target)
         s.quick_links = s.quick_links + [link]
         new_id = f"link:{link['id']}"
@@ -484,7 +512,7 @@ def build(win) -> QWidget:
     def ontop_toggled(on: bool):
         from .settings import Settings
         key = Settings().ontop_key
-        s.ontop_key = key if on and key not in others("ontop") else "off"
+        s.ontop_key = key if on and hotkey.parse(key) not in others("ontop") else "off"
         ontop_rec.set_combo(s.ontop_key if s.ontop_key != "off" else "")
         ontop_rec.setEnabled(on)
         c.settings_changed()

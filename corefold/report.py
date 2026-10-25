@@ -32,10 +32,10 @@ def user_names() -> list[str]:
 
 def mask(text: str, names: list[str] | None = None) -> str:
     """The Windows user name hidden: C:\\Users\\Sam -> C:\\Users\\<you> (and "Sam" anywhere else)."""
-    text = _USERS.sub(lambda m: m.group(0) if m.group(2).lower() in _NOT_A_PERSON else m.group(1) + YOU, text)
+    # the whole names first: "C:\Users\John Smith" would otherwise lose only "John" to the folder rule below
     for name in user_names() if names is None else names:
         text = re.sub(r"(?i)(?<![0-9a-z])" + re.escape(name) + r"(?![0-9a-z])", YOU, text)
-    return text
+    return _USERS.sub(lambda m: m.group(0) if m.group(2).lower() in _NOT_A_PERSON else m.group(1) + YOU, text)
 
 
 def windows_text() -> str:

@@ -143,6 +143,13 @@ def match_windows(windows: list[Window], query: str, limit: int = MAX_APPS) -> l
 
 # ---------------------------------------------------------------------------- open windows (as Alt + Tab)
 
+def _lib(name: str):
+    """A private copy of a Windows library: the argument types set on it here never change the ones the
+    rest of Corefold uses (ctypes.windll's functions are shared, and another type there breaks their calls)."""
+    import ctypes
+    return ctypes.WinDLL(name)
+
+
 def _user32():
     import ctypes
     import ctypes.wintypes as wt
@@ -260,7 +267,7 @@ def known_folder(name: str) -> str:
         try:
             import ctypes
             out = ctypes.c_void_p()
-            shell32 = ctypes.windll.shell32
+            shell32 = _lib("shell32")
             shell32.SHGetKnownFolderPath.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.c_void_p,
                                                      ctypes.POINTER(ctypes.c_void_p)]
             g = _guid(_FOLDERS[name])
@@ -268,7 +275,7 @@ def known_folder(name: str) -> str:
                 try:
                     return ctypes.wstring_at(out.value)
                 finally:
-                    ctypes.windll.ole32.CoTaskMemFree(out)
+                    _lib("ole32").CoTaskMemFree(out)
         except Exception:
             log.debug("no known folder %s", name, exc_info=True)
     env, rest = _FALLBACK.get(name, ("USERPROFILE", name.capitalize()))
@@ -311,7 +318,7 @@ def apps_folder() -> list[tuple[str, str]]:
         return []
     import ctypes
     from ctypes import POINTER, byref, c_uint, c_ulong, c_void_p, c_wchar_p
-    ole32, shell32, shlwapi = ctypes.windll.ole32, ctypes.windll.shell32, ctypes.windll.shlwapi
+    ole32, shell32, shlwapi = _lib("ole32"), _lib("shell32"), _lib("shlwapi")
 
     class _U(ctypes.Union):
         _fields_ = [("pOleStr", c_void_p), ("uOffset", c_uint), ("cStr", ctypes.c_char * 260)]
@@ -507,7 +514,7 @@ def _shell_icon(parsing: str):
     class SHFILEINFOW(ctypes.Structure):
         _fields_ = [("hIcon", c_void_p), ("iIcon", ctypes.c_int), ("dwAttributes", wintypes.DWORD),
                     ("szDisplayName", ctypes.c_wchar * 260), ("szTypeName", ctypes.c_wchar * 80)]
-    shell32, ole32, user32 = ctypes.windll.shell32, ctypes.windll.ole32, ctypes.windll.user32
+    shell32, ole32, user32 = _lib("shell32"), _lib("ole32"), _lib("user32")
     shell32.SHParseDisplayName.argtypes = [c_wchar_p, c_void_p, POINTER(c_void_p), c_ulong, c_void_p]
     shell32.SHGetFileInfoW.argtypes = [c_void_p, wintypes.DWORD, POINTER(SHFILEINFOW), c_uint, c_uint]
     shell32.SHGetFileInfoW.restype = ctypes.c_size_t
@@ -553,7 +560,7 @@ def hicon_image(hicon):
                     ("biSizeImage", wintypes.DWORD), ("biXPelsPerMeter", ctypes.c_long),
                     ("biYPelsPerMeter", ctypes.c_long), ("biClrUsed", wintypes.DWORD),
                     ("biClrImportant", wintypes.DWORD)]
-    user32, gdi32 = ctypes.windll.user32, ctypes.windll.gdi32
+    user32, gdi32 = _lib("user32"), _lib("gdi32")
     user32.GetIconInfo.argtypes = [c_void_p, ctypes.POINTER(ICONINFO)]
     user32.GetDC.argtypes, user32.GetDC.restype = [c_void_p], c_void_p
     user32.ReleaseDC.argtypes = [c_void_p, c_void_p]
@@ -604,7 +611,7 @@ def everything_window() -> int:
         return 0
     try:
         import ctypes
-        u = ctypes.windll.user32
+        u = _lib("user32")
         u.FindWindowW.restype = ctypes.c_void_p
         for cls in EVERYTHING_WINDOWS:
             h = u.FindWindowW(cls, None)
@@ -623,7 +630,7 @@ def everything_ready(hwnd: int = 0) -> bool:
     try:
         import ctypes
         from ctypes import POINTER, byref, c_size_t, c_uint, c_void_p
-        u = ctypes.windll.user32
+        u = _lib("user32")
         u.SendMessageTimeoutW.argtypes = [c_void_p, c_uint, c_size_t, c_void_p, c_uint, c_uint, POINTER(c_size_t)]
         u.SendMessageTimeoutW.restype = ctypes.c_ssize_t
         result = c_size_t()
@@ -673,7 +680,7 @@ def everything_query(text: str, limit: int = 40, timeout: float = 1.0, stale=lam
         return None  # (not there, or still loading: Windows' index is asked instead)
     import ctypes
     from ctypes import POINTER, byref, c_size_t, c_ssize_t, c_uint, c_void_p, c_wchar_p, wintypes
-    u, k = ctypes.windll.user32, ctypes.windll.kernel32
+    u, k = _lib("user32"), _lib("kernel32")
 
     class COPYDATASTRUCT(ctypes.Structure):
         _fields_ = [("dwData", c_size_t), ("cbData", wintypes.DWORD), ("lpData", c_void_p)]

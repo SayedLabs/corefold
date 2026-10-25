@@ -460,6 +460,9 @@ class Controller(QObject):
         old = self._window
         if old is None:
             return
+        if not self.pdf_work_ok(old):  # (the new window starts with an empty PDF page: Cancel keeps this one)
+            old.setUpdatesEnabled(True)  # (a language change turned drawing off for the swap)
+            return
         from .window import MainWindow
         geometry, shown = old.saveGeometry(), old.isVisible()
         new = MainWindow(self, self.icon, **keep)
@@ -507,6 +510,7 @@ class Controller(QObject):
             return
         self._window = None
         w.deleteLater()
+        settings_mod.HELD = None  # (nothing waits for Save without its window: later saves keep every change)
         self.tidy_timer.start(2000)
 
     def popup_closed(self):
@@ -547,7 +551,8 @@ class Controller(QObject):
             w.repaint()
             QTimer.singleShot(60, lambda: w.setWindowOpacity(1.0) if _alive(w) else None)
         w.show()
-        w.showNormal()
+        if w.isMinimized():  # (back from the taskbar; a maximised window stays maximised)
+            w.setWindowState(w.windowState() & ~Qt.WindowMinimized)
         w.raise_()
         w.activateWindow()
 
@@ -732,18 +737,22 @@ class Controller(QObject):
                 self._offer_jpg(path)
                 break
 
-    def _offer_jpg(self, path: Path, tries: int = 0):
+    def _offer_jpg(self, path: Path, tries: int = 0, waits: int = 0):
         # wait until the browser has finished writing the file
         try:
             st = path.stat()
         except OSError:
             return
-        if tries < 10 and (st.st_size == 0 or time.time() - st.st_mtime < 1.5):
-            QTimer.singleShot(1000, lambda: self._offer_jpg(path, tries + 1))
+        # (Firefox makes the file empty at once and fills a ".part" beside it: a slow download takes a while)
+        writing = st.st_size == 0 or path.with_name(path.name + ".part").exists()
+        if (writing and tries < 300) or (tries < 10 and time.time() - st.st_mtime < 1.5):
+            QTimer.singleShot(1000 if tries < 10 else 3000, lambda: self._offer_jpg(path, tries + 1))
+            return
+        if writing:  # (never finished: nothing to convert)
             return
         if winutil.user_busy():  # a game or presentation is full screen: ask later (for up to 10 minutes)
-            if tries < 30:
-                QTimer.singleShot(20_000, lambda: self._offer_jpg(path, max(tries, 10) + 1))
+            if waits < 30:
+                QTimer.singleShot(20_000, lambda: self._offer_jpg(path, max(tries, 10), waits + 1))
             return
         from .converters import catalog
         tool = next(t for t in catalog()["image"] if t.key == "image:jpg")
@@ -756,13 +765,23 @@ class Controller(QObject):
     def ask_password(self, files: list[Path], wrong: bool = False) -> str | None:
         """The archive's password: one remembered earlier that opens it, or what the person types."""
         from . import passwords
-        if not wrong and files and files[0].suffix.lower() != ".pdf":
-            try:
-                found = passwords.find(files[0])
-            except Exception:
-                found = None
-                log.debug("remembered passwords couldn't be tried", exc_info=True)
-            if found:
+        if not wrong and files and files[0].suffix.lower() != ".pdf" and passwords.load():
+            # each try reads the archive with 7-Zip (a big one, 30 passwords: a long while), so it's done off the
+            # window's thread, which goes on answering meanwhile
+            from PySide6.QtCore import QEventLoop
+            loop, got = QEventLoop(), {}
+
+            def tried(result):
+                got["found"] = result
+                loop.quit()
+            job = page_work.run(lambda _p: passwords.find(files[0]), lambda _: None, tried, name="corefold-passwords")
+            if "found" not in got:
+                loop.exec()
+            del job
+            found = got.get("found")
+            if isinstance(found, Exception):
+                log.debug("remembered passwords couldn't be tried: %s", found)
+            if isinstance(found, str) and found:
                 log.info("a remembered password opened the archive")
                 return found
         answer = dialogs.ask("password", files, self.icon, self.theme.dark, wrong=wrong,
@@ -964,9 +983,14 @@ class Controller(QObject):
         if not now and time.time() - s.organize_auto_last < 23 * 3600:
             return
 
+        from PySide6.QtCore import QStandardPaths
+        desktop = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DesktopLocation)
+        known = any(place and os.path.normcase(os.path.normpath(str(place))) == os.path.normcase(os.path.normpath(folder))
+                    for place in (downloads_folder(), desktop))  # (as the page allowed it: see organizer.refused)
+
         def go(_progress):
             from . import organizer
-            return organizer.auto_sort(Path(folder))
+            return organizer.auto_sort(Path(folder), known=known)
         self._tidy_job = work.run(go, lambda _: None, lambda r, f=folder: self._tidied(f, r), name="corefold-tidy",
                                   busy=True)
 
@@ -1137,6 +1161,8 @@ class Controller(QObject):
             return
         from .clipboard import foreground_window
         target = 0 if from_tray else foreground_window()
+        if self.clip.popup is not None and self.clip.popup.isVisible():
+            target = self.clip.popup.target  # (pressed again while it's open: still pasted where you were)
         if self.clip.popup is None:
             from .clipview import QuickPaste
             self.clip.popup = QuickPaste(self, self.clip)
@@ -1625,6 +1651,16 @@ class Controller(QObject):
         if menu:
             self.update_shell_menu()
 
+    def keep_now(self, key: str, value):
+        """A setting chosen outside Settings (the Viewer's sort menu, the quick button's own menu): kept
+        straight away, never held back with the window's changes that wait for Save."""
+        setattr(self.settings, key, value)
+        if settings_mod.HELD is not None:
+            settings_mod.HELD[key] = copy.deepcopy(value)
+        if self._window is not None:
+            self._window.committed[key] = copy.deepcopy(value)
+        self.settings_changed()
+
     def set_enabled(self, on: bool):
         self.settings.enabled = on
         self.act_pause.blockSignals(True)
@@ -1676,7 +1712,9 @@ class Controller(QObject):
 
     def restart(self, page: str = "General"):
         """Starts a fresh copy of Corefold."""
-        if self.cancels or self.uninstall_busy:
+        if not self.unsaved_work_ok():  # (Cancel: the settings are saved, the next start uses them)
+            return
+        if self.busy_with_files():  # (a sort or a move stopped half-way would leave files half-done)
             self.toast.notify(tr("Restart later"), tr("Corefold restarts when the conversion is done."),
                               linger_ms=4000)
             QTimer.singleShot(2000, lambda: self.restart(page))
@@ -1690,6 +1728,8 @@ class Controller(QObject):
         except OSError:
             log.exception("could not restart")
             winutil.create_mutex()
+            if self.server:
+                self.server.listen(ipc.SERVER_NAME)  # (right-clicked files reach this copy again)
             return
         self.quit()
 
@@ -1748,10 +1788,14 @@ class Controller(QObject):
         self.start_job(tool, files, params, rename)
 
     def start_job(self, tool: Tool, files: list[Path], params: dict | None = None, rename: dict | None = None,
-                  after: str | None = None, carry: dict | None = None):
+                  after: str | None = None, carry: dict | None = None, then=None):
+        """then(ok) is called once the job is over: ok when it finished, made something and nothing failed (the
+        PDF editor counts its changes as saved only then)."""
         if self.quit_pending:
             self.toast.notify(tr("Corefold is closing for an update"), tr("Try again in a moment, when it's back."),
                               linger_ms=4000)
+            if then is not None:
+                then(False)
             return
         self.tidy_timer.stop()
         job_id = next(self.ids)
@@ -1763,7 +1807,7 @@ class Controller(QObject):
         what = short_name(files[0].name) if len(files) == 1 else tr("{count} items", count=len(files))
         self.jobs[job_id] = {"tool": tool, "files": files, "bytes_in": sum(size_of(f) for f in files),
                              "params": params, "rename": rename or {}, "after": after, "quick": quick,
-                             "what": what, "carry": carry or {"outputs": [], "errors": []}}
+                             "what": what, "carry": carry or {"outputs": [], "errors": []}, "then": then}
         if self.settings.show_progress:
             self.toast.start(job_id, tool.description,
                              tr("{what} · waiting for the one before it", what=what) if waiting else what)
@@ -1822,8 +1866,14 @@ class Controller(QObject):
                         "errors": carry["errors"] + [e for e in errors if password_error not in e],
                         "files": carry.get("files") or files, "bytes_in": carry.get("bytes_in") or job["bytes_in"]}
                 self.start_job(tool, retry or files, dict(job["params"], password=password), job["rename"],
-                               job["after"], carry=keep)
+                               job["after"], carry=keep, then=job.get("then"))
                 return
+        then = job.get("then")
+        if then is not None:
+            try:
+                then(not cancelled and not errors and bool(result.outputs or carry["outputs"]))
+            except RuntimeError:  # (the window that asked has been closed meanwhile)
+                pass
         if carry["outputs"] or carry["errors"]:  # put together with the tries before this one
             result.outputs = carry["outputs"] + result.outputs
             errors = carry["errors"] + errors
@@ -2265,28 +2315,84 @@ class Controller(QObject):
 
     # ---- quitting / removing
 
-    def ask_quit(self):
-        """Quit, but check first if a conversion would be stopped half-way."""
+    def _tell_busy(self) -> bool:
+        """True (and says so) while files are being moved or changed: stopped now, they'd be left half-done."""
         if self.uninstall_busy:  # moving an app's leftovers into its backup: never stop half-way
             self.toast.notify(tr("Corefold is busy"), tr("It's removing an app's leftovers. Quit when that's done."),
                               linger_ms=5000)
-            return
+            return True
         if page_work.busy():  # sorting, putting back or changing files: never stop half-way
             self.toast.notify(tr("Corefold is busy"), tr("It's sorting or changing files. Quit when that's done."),
                               linger_ms=5000)
+            return True
+        return False
+
+    def ask_quit(self):
+        """Quit, but check first if a conversion would be stopped half-way."""
+        if self._tell_busy():
             return
-        if self.cancels:
-            box = QMessageBox(QMessageBox.Question, tr("Quit Corefold?"),
-                              tr("A conversion is still running. Quitting stops it, and the unfinished file isn't "
-                                 "saved."), parent=self.window_if_open())
-            yes = box.addButton(tr("Quit"), QMessageBox.DestructiveRole)
-            box.addButton(tr("Keep converting"), QMessageBox.RejectRole)
-            box.exec()
-            chosen = box.clickedButton() is yes
-            box.deleteLater()
-            if not chosen:
-                return
+        if self.cancels and not self._stop_conversions_ok():
+            return
+        before = set(self.cancels)
+        if not self.unsaved_work_ok():
+            return
+        if set(self.cancels) - before and not self._stop_conversions_ok():  # (saving a PDF's changes started one)
+            return
         self.quit()
+
+    def _stop_conversions_ok(self) -> bool:
+        box = QMessageBox(QMessageBox.Question, tr("Quit Corefold?"),
+                          tr("A conversion is still running. Quitting stops it, and the unfinished file isn't "
+                             "saved."), parent=self.window_if_open())
+        yes = box.addButton(tr("Quit"), QMessageBox.DestructiveRole)
+        box.addButton(tr("Keep converting"), QMessageBox.RejectRole)
+        box.exec()
+        chosen = box.clickedButton() is yes
+        box.deleteLater()
+        return chosen
+
+    def unsaved_work_ok(self) -> bool:
+        """Before quitting or restarting, while nothing has been stopped yet: unsaved work in Corefold's windows
+        is asked about (settings not saved yet, a PDF's changes, a picture's edits…). False: Cancel was chosen,
+        and Corefold goes on as before."""
+        w = self._window
+        if w is not None and _alive(w):
+            if w.is_dirty():
+                box = QMessageBox(QMessageBox.Question, tr("Save your changes?"),
+                                  tr("You changed some settings. Keep them?"), parent=w if w.isVisible() else None)
+                save = box.addButton(tr("Save"), QMessageBox.AcceptRole)
+                skip = box.addButton(tr("Don't save"), QMessageBox.DestructiveRole)
+                box.addButton(tr("Cancel"), QMessageBox.RejectRole)
+                box.exec()
+                chosen = box.clickedButton()
+                box.deleteLater()
+                if chosen is save:
+                    w.save_changes()
+                elif chosen is not skip:  # ("Don't save": the file on disk still has the saved ones, see HELD)
+                    return False
+            if not self.pdf_work_ok(w):
+                return False
+        # the other windows ask in their own way (a picture's edits, a file changed inside an archive…)
+        for top in QApplication.topLevelWidgets():
+            if top is w or not _alive(top) or not top.isVisible() or top.windowType() == Qt.Popup:
+                continue
+            if not top.close() and _alive(top) and top.isVisible():
+                return False
+        return True
+
+    def pdf_work_ok(self, w) -> bool:
+        """The PDF page's unsaved work (the editor's changes, a new order of pages) is asked about before its
+        window goes (quitting, or the window made again). False: Cancel was chosen."""
+        page = getattr(w, "pdf_page", None)
+        if page is None or not _alive(page):
+            return True
+        editor = getattr(page, "editor", None)
+        if editor is not None and _alive(editor) and editor.unsaved() and not editor.close_editor(ask=True):
+            return False
+        unsaved = getattr(page, "unsaved", None)
+        if callable(unsaved) and unsaved() and not page.close_board(ask=True):
+            return False
+        return True
 
     def end_session(self, *_):
         """Windows is signing out or shutting down: save, and let every window close."""
@@ -2296,8 +2402,11 @@ class Controller(QObject):
         self.cancel_all()
 
     def quit(self, cleanup: bool = False):
+        """Ends Corefold without asking anything (the installer waits for it): unsaved work is asked about
+        before this (unsaved_work_ok)."""
         if self._window is not None and self._window.isVisible():
             self._window._remember_place()
+        self.session_ending = True  # (the main window's closeEvent lets it go at once, no "Save your changes?")
         if self.save_timer.isActive():
             self.save_timer.stop()
             self.settings.save()
@@ -2335,11 +2444,19 @@ class Controller(QObject):
         if cleanup:
             remove_user_data()
         winutil.release_mutex()
+        # Qt asks every window still shown to close, and one that says no (unsaved edits) would turn the quit
+        # down after everything above was stopped, leaving Corefold running without its tray icon: hidden
+        # windows aren't asked
+        for top in QApplication.topLevelWidgets():
+            if _alive(top) and top.isVisible():
+                top.hide()
         self.app.quit()
 
     def uninstall(self):
         unins = installed_uninstaller()
         if not unins:
+            return
+        if self._tell_busy() or not self.unsaved_work_ok():  # (asked before it starts, not once it's running)
             return
         winutil.release_mutex()
         try:
@@ -2364,7 +2481,7 @@ class Controller(QObject):
         box.exec()
         chosen = box.clickedButton() is yes
         box.deleteLater()
-        if chosen:
+        if chosen and not self._tell_busy() and self.unsaved_work_ok():
             self.quit(cleanup=True)
 
 
@@ -2623,10 +2740,17 @@ def main() -> int:
     if fresh:
         s.first_run = False
         s.known_tools = sorted({tool.id for tool in all_tools.ready()})  # (offered now, in the first-start question)
-        if not message or not message.startswith(b"show"):
-            controller.show_window("Home")
-        if (not message or message.startswith(b"show")) and "--background" not in argv:  # (a plain start is "show")
-            QTimer.singleShot(500, controller.first_start)  # which tools, then the tour
+        if "--background" in argv:
+            # (started in the tray, e.g. by a silent install: every tool stays on, as when the question is
+            # closed, and their shortcuts work now, not only after the next start)
+            QTimer.singleShot(0, controller.apply_tools)
+        else:
+            if not message or not message.startswith(b"show"):
+                controller.show_window("Home")
+            if not message or message.startswith(b"show"):  # (a plain start is "show")
+                QTimer.singleShot(500, controller.first_start)  # which tools, then the tour
+            else:  # (opened with a file: no question in its way, and the tools in the tray start now)
+                QTimer.singleShot(0, controller.apply_tools)
     else:
         offered = all_tools.offer_new_tools(s)  # tools new in this version wait, switched off, in their section
         if offered:

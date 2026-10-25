@@ -471,7 +471,9 @@ class OrganizerPage(QWidget):
             self._filling = True
             self._head_text(it)
             self._filling = False
-            if it.checkState(0) != Qt.PartiallyChecked:
+            # (kept for next time only when the kind itself was ticked: Qt also says so of it when its last file
+            # is unticked, and leaving one file out this time mustn't leave the whole kind out of every tidy)
+            if it.checkState(0) != Qt.PartiallyChecked and self.tree.currentItem() is it:
                 off = organizer.kinds_off()
                 kind = it.data(0, Qt.UserRole)
                 if it.checkState(0) == Qt.Unchecked:
@@ -560,9 +562,16 @@ class OrganizerPage(QWidget):
 
     # ---- sorting and undoing (off the window's thread)
 
+    def _tidying(self) -> bool:
+        """The daily tidy (or its Undo) is running: a sort or Undo now would wait, then work on what it changed."""
+        if getattr(self.c, "_tidy_job", None) is None and getattr(self.c, "_untidy_job", None) is None:
+            return False
+        self._say(tr("Wait for what's going on to finish first."))
+        return True
+
     def sort(self):
         p = self.plan
-        if p is None or self.busy or not p.moving():
+        if p is None or self.busy or not p.moving() or self._tidying():
             return
         self.busy = True
         self.note.hide()
@@ -602,7 +611,7 @@ class OrganizerPage(QWidget):
         self.load()
 
     def undo(self):
-        if self.busy or organizer.last_sort() is None:
+        if self.busy or organizer.last_sort() is None or self._tidying():
             return
         self.busy = True
         self.note.hide()

@@ -409,9 +409,9 @@ def drives() -> list[Drive]:
 
 # ----------------------------------------------------------------------------- what can't be removed
 
-def _env_path(name: str, default: str = "") -> Path | None:
+def _env_path(name: str, default: str = "", *more: str) -> Path | None:
     v = os.environ.get(name, default)
-    return Path(v) if v else None
+    return Path(v, *more) if v else None
 
 
 def protected(path: Path) -> bool:
@@ -423,8 +423,11 @@ def protected(path: Path) -> bool:
     keep = [_env_path("SystemRoot", r"C:\Windows"), _env_path("ProgramFiles"), _env_path("ProgramFiles(x86)"),
             _env_path("ProgramData"), _env_path("ProgramW6432")]
     home = Path.home()
-    exact = [home, home.parent, _env_path("APPDATA"), _env_path("LOCALAPPDATA"),
-             Path(os.environ.get("SystemDrive", "C:") + os.sep + "Users")]
+    users = Path(os.environ.get("SystemDrive", "C:") + os.sep + "Users")
+    # (AppData itself, LocalLow and the per-user Programs folder hold every app's settings and programs)
+    exact = [home, home.parent, _env_path("APPDATA"), _env_path("LOCALAPPDATA"), users, home / "AppData",
+             home / "AppData" / "LocalLow", _env_path("LOCALAPPDATA", "", "Programs"), _env_path("PUBLIC"),
+             users / "Public", users / "Default"]
     for k in keep:
         if k is not None:
             kp = os.path.normcase(os.path.abspath(str(k)))
@@ -481,28 +484,36 @@ class Junk:
 
 
 def _tree_size(path: Path, limit_s: float = 20.0) -> tuple[int, int]:
+    return _tree_info(path, limit_s)[:2]
+
+
+def _tree_info(path: Path, limit_s: float = 20.0) -> tuple[int, int, float, bool]:
+    """(bytes, files, when anything inside last changed, whether all of it was looked at in time)."""
     size = count = 0
+    newest = 0.0
     started = time.monotonic()
     stack = [str(path)]
     while stack:
         if time.monotonic() - started > limit_s:
-            break
+            return size, count, newest, False
         here = stack.pop()
         try:
             with os.scandir(here) as it:
                 for e in it:
                     try:
+                        st = e.stat(follow_symlinks=False)
+                        newest = max(newest, st.st_mtime)
                         if e.is_dir(follow_symlinks=False):
                             if not _skip_dir(e):
                                 stack.append(e.path)
                         else:
-                            size += e.stat(follow_symlinks=False).st_size
+                            size += st.st_size
                             count += 1
                     except OSError:
                         pass
         except OSError:
             pass
-    return size, count
+    return size, count, newest, True
 
 
 def _size_of(p: Path) -> tuple[int, int]:
@@ -564,6 +575,23 @@ INSTALLER_EXT = {".exe", ".msi", ".msix", ".msixbundle", ".appx", ".appxbundle"}
 OLD_DAYS = 30
 
 
+def temp_folder() -> Path | None:
+    """The temporary folder, only when it really is one. TEMP set to a drive, the profile or some other
+    folder of the person's (or not set at all) would offer everything in it as junk, deleted for good."""
+    value = os.environ.get("TEMP") or os.environ.get("TMP") or ""
+    if not value:
+        return None
+    p = Path(os.path.abspath(value))
+    def temp_named(name: str) -> bool:
+        return "temp" in name.lower() or "tmp" in name.lower()
+    named = temp_named(p.name) or (p.name.isdigit() and temp_named(p.parent.name))  # ("Temp\\2": a session's)
+    home = os.path.normcase(os.path.abspath(str(Path.home())))
+    here = os.path.normcase(str(p))
+    if not named or protected(p) or home == here or home.startswith(here.rstrip("\\/") + os.sep) or not p.is_dir():
+        return None
+    return p
+
+
 def find_junk(downloads: Path | None = None, cancel: threading.Event | None = None) -> list[Junk]:
     """What can go: temporary files, the Recycle Bin, browsers' caches, crash reports and old installers."""
     now = time.time()
@@ -572,8 +600,8 @@ def find_junk(downloads: Path | None = None, cancel: threading.Event | None = No
     local = _env_path("LOCALAPPDATA")
 
     temp = Junk("temp", "Temporary files", "Left behind by programs and installers. Only ones older than a day.")
-    tmp_dir = Path(os.environ.get("TEMP") or os.environ.get("TMP") or "")
-    if tmp_dir and tmp_dir.is_dir():
+    tmp_dir = temp_folder()
+    if tmp_dir is not None:
         try:
             entries = list(os.scandir(tmp_dir))
         except OSError:
@@ -585,7 +613,20 @@ def find_junk(downloads: Path | None = None, cancel: threading.Event | None = No
             except OSError:
                 continue
             p = Path(e.path)
-            size, count = _size_of(p)
+            try:
+                is_dir = e.is_dir(follow_symlinks=False)
+                if protected(p) or e.is_symlink() or (is_dir and _skip_dir(e)):
+                    continue  # (a link or junction: what it leads to isn't the temp folder's)
+            except OSError:
+                continue
+            if is_dir:
+                # a folder counts by what's newest inside it (a program still running keeps its working
+                # folder for days, and changes the files in it, not the folder); all of it, or it stays
+                size, count, newest, whole = _tree_info(p, 10.0)
+                if not whole or now - newest < 86400:
+                    continue
+            else:
+                size, count = _size_of(p)
             temp.paths.append(p)
             temp.size += size
             temp.count += count
@@ -944,6 +985,51 @@ def _hash(path: str, first_only: bool) -> bytes | None:
     return h.digest()
 
 
+def _file_id(path: str) -> tuple[int, int] | None:
+    """Which file this is on its drive (the same for every hard link to it), or None if Windows won't say."""
+    try:
+        st = os.stat(path)  # (os.scandir leaves these out on Windows)
+    except OSError:
+        return None
+    return (st.st_dev, st.st_ino) if st.st_ino else None
+
+
+def _distinct(files: list, pool=None) -> list:
+    """(path, modified) pairs, with only one name kept for a file that has several (hard links)."""
+    ids = list(pool.map(lambda f: _file_id(f[0]), files)) if pool is not None else [_file_id(f[0]) for f in files]
+    seen, out = set(), []
+    for f, fid in zip(files, ids):
+        if fid is not None and fid in seen:
+            continue
+        seen.add(fid)
+        out.append(f)
+    return out
+
+
+def still_same(path: str, size: int, mtime: float) -> bool:
+    """The file is there and unchanged since the duplicates were found (same size, same time)."""
+    try:
+        st = os.stat(path)
+    except OSError:
+        return False
+    return st.st_size == size and abs(st.st_mtime - mtime) < 2
+
+
+def copies_to_remove(groups: list[tuple[list, list]]) -> list[str]:
+    """What may really go: for each file, (the ticked copies, the copies kept), each as (path, size,
+    modified). A copy goes only when one kept copy is still there, unchanged and a file of its own (not
+    another name of the one going), and the copy itself hasn't changed since; otherwise none of that file
+    goes (it was moved, deleted or edited meanwhile)."""
+    out = []
+    for ticked, kept in groups:
+        if not ticked or not all(still_same(*t) for t in ticked):
+            continue
+        going = {_file_id(p) for p, _s, _m in ticked} - {None}
+        if any(still_same(*k) and (_file_id(k[0]) is None or _file_id(k[0]) not in going) for k in kept):
+            out += [p for p, _s, _m in ticked]
+    return out
+
+
 def find_duplicates(folders: list[Path], min_size: int = 100 * 1024, cancel: threading.Event | None = None,
                     progress=None) -> list[list[tuple[str, int, float]]]:
     """Files that are exactly the same, as groups of (path, size, modified), the most space wasted first.
@@ -991,6 +1077,11 @@ def find_duplicates(folders: list[Path], min_size: int = 100 * 1024, cancel: thr
         for size, files in sorted(candidates, key=lambda c: c[0] * (len(c[1]) - 1), reverse=True):
             if cancel is not None and cancel.is_set():
                 return []
+            # (two names of one file, a hard link, aren't two copies: removing one frees nothing)
+            files = _distinct(files, pool)
+            if len(files) < 2:
+                done += 1
+                continue
             whole = size <= WHOLE_UP_TO
             first: dict[bytes, list] = {}
             for (path, mtime), d in zip(files, pool.map(lambda f: _hash(f[0], not whole), files)):  # noqa: B023

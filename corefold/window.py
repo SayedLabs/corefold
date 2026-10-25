@@ -960,6 +960,14 @@ class MainWindow(QWidget):
         self.nav_rows = [self.nav.item(r).data(Qt.UserRole) for r in range(self.nav.count())]
         self.sections = all_tools.sections(self.c.settings)
         self.tools_on = all_tools.enabled(self.c.settings)
+        # (the Settings list groups the tools by section, in the sidebar's order too)
+        self.settings_tab_list = BASE_SETTINGS_TABS + [(tool.settings, tool.nav, list(tool.settings_pages))
+                                                       for tool in self.tools_on if tool.settings]
+        self._fill_settings_list()
+        self._settings_narrow = None
+        if hasattr(self, "canvas"):
+            self._fit_settings_side(self.canvas.width())
+        self._sync_settings_head(self.current_page())
         self._rebuild_home()
 
     def _rebuild_home(self):
@@ -969,6 +977,13 @@ class MainWindow(QWidget):
         t = self.c.theme
         for b, name in self.quick_buttons:
             b.setIcon(icons.icon(name, t.accent if not t.dark else t.text))
+        self._color_chips(t)
+
+    def _color_chips(self, t: Theme):
+        """The tools' icons on the Home page's section cards (muted, like the section strip's)."""
+        for card_ in getattr(self, "section_cards", {}).values():
+            for b, name in card_.chips:
+                b.setIcon(icons.icon(name, t.muted))
 
     def _remake_page(self, name: str):
         """Makes a page again in its place (at the same scroll), now."""
@@ -1583,17 +1598,14 @@ class MainWindow(QWidget):
 
     def toggle_dark(self):
         """The sun/moon button: light or dark right away (and kept, without pressing Save)."""
-        s = self.c.settings
-        unsaved = self.is_dirty()
-        s.appearance = "light" if self.c.theme.dark else "dark"
+        appearance = "light" if self.c.theme.dark else "dark"
         seg = getattr(self, "appearance_seg", None) if self.built("Look") else None
         if seg is not None:
             for i, k in enumerate(seg.keys):
-                seg.group.button(i).setChecked(k == s.appearance)
-        self.c.settings_changed()
+                seg.group.button(i).setChecked(k == appearance)
+        # (kept straight away, even while other changes wait for Save: Discard doesn't undo it)
+        self.c.keep_now("appearance", appearance)
         self.c.apply_theme()
-        if not unsaved:  # nothing else waiting for Save: this is kept straight away
-            self.save_changes()
         self.update_save_bar()
 
     # ---- the command palette (Ctrl + K): pages, settings and actions, found by typing
@@ -3780,7 +3792,7 @@ class MainWindow(QWidget):
 
     def keyPressEvent(self, e):
         from PySide6.QtGui import QKeySequence
-        if e.matches(QKeySequence.StandardKey.Paste):
+        if e.matches(QKeySequence.StandardKey.Paste) and self._converter_on():
             self.c.paste()
             return
         if e.key() == Qt.Key.Key_Escape:  # Esc steps back inside a page (Space), else closes the window
@@ -3865,6 +3877,7 @@ class MainWindow(QWidget):
         self.lang_btn.setIcon(icons.icon("globe", t.text))
         for b, name in self.quick_buttons:
             b.setIcon(icons.icon(name, t.accent if not t.dark else t.text))
+        self._color_chips(t)
         self.settings_list.viewport().update()
         self.strip_section = None  # (made again: its icons follow the text colour)
         self._sync_section_strip(self.current_page())
@@ -3885,8 +3898,13 @@ class MainWindow(QWidget):
             dot.setPixmap(icons.pixmap("add", 16, t.accent, dpr))
         for gear in self._gears:
             gear.setIcon(icons.icon("settings", t.text))
-        self.refresh_archives()
-        self.refresh_views()
+        # (their rows look at each file on disk, which can hang on a network drive that's gone: only the
+        # page in sight now; the other is made again when it's opened)
+        here = self.current_page()
+        if here == "Archives":
+            self.refresh_archives()
+        elif here == "Viewer":
+            self.refresh_views()
         if self.clip_page is not None:
             self.clip_page.apply_theme(t)
         if self.space_page is not None:
@@ -3993,8 +4011,13 @@ class MainWindow(QWidget):
 
     # ---- drop files anywhere on the window
 
+    def _converter_on(self) -> bool:
+        """Files dropped on the window or pasted go to the Converter: only while it's in use (switched off,
+        they'd land on its hidden page)."""
+        return all_tools.BY_ID["converter"] in self.tools_on
+
     def dragEnterEvent(self, e):
-        if any(u.isLocalFile() for u in e.mimeData().urls()):
+        if self._converter_on() and any(u.isLocalFile() for u in e.mimeData().urls()):
             e.acceptProposedAction()
 
     def dropEvent(self, e):

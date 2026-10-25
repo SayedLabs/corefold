@@ -453,6 +453,7 @@ class Canvas(QWidget):
 
     def set_text(self, layer: "TextLayer | None"):
         self.text = layer
+        self._clicks = (0.0, -1, 0)  # (a word number from the words read before would point past the new ones)
         self.picked.emit()
         self.update()
 
@@ -479,7 +480,7 @@ class Canvas(QWidget):
         return False
 
     def _press_select(self, e):
-        if not self.text:
+        if self.text is None:  # (a picture already read and found with no words isn't read again on every click)
             self.wants_text.emit()
             return
         pt = self.to_image(e.position())
@@ -777,6 +778,7 @@ class Canvas(QWidget):
         """Keeps how the picture and its marks are now, for Undo."""
         self.history.append(self._snap())
         del self.history[:-100]  # (the last hundred changes)
+        self.undone.clear()  # (a new change after Undo: Redo would bring back the old marks over it)
 
     def _add(self, shape: Shape):
         self._record()
@@ -1083,11 +1085,13 @@ class CaptureEditor(QWidget):
             self.copy_text()
             return
         QGuiApplication.clipboard().setImage(self.canvas.result())
+        self._taken = self._edits  # (the marks went with it: closing needn't ask to save them)
         self.c.toast.notify(tr("Copied"), tr("Paste the picture anywhere with Ctrl+V."), linger_ms=3500)
 
     def pin(self):
         """The picture (with its marks) in a small window that stays on top; the editor closes."""
         pin_picture(self.c, self.canvas.result(), self.geometry().center())
+        self._taken = self._edits
         self.close()
 
     def _write(self, path: Path, then=None, toast: bool = False):
@@ -1181,7 +1185,7 @@ class CaptureEditor(QWidget):
             self._update_status()
             self.c.tell(tr("Can't read text here"), error)
             return
-        if image.size() != self.canvas.base.size() or self.canvas.text is not None:
+        if image != self.canvas.for_reading() or self.canvas.text is not None:  # (cropped or blurred meanwhile)
             if self.canvas.text is None and self.canvas.selecting():
                 self.read_words()  # (cropped meanwhile: read the new picture)
             return
@@ -1227,6 +1231,24 @@ class CaptureEditor(QWidget):
         if self.dirty and self.saved is not None:
             from .capture import write_later
             write_later(self.canvas.result(), self.saved)  # (marks made after saving are kept in the file)
+        elif self.dirty and self.saved is None and getattr(self, "_taken", -1) != self._edits:
+            # never saved anywhere (saving screenshots is off, or it came from a pinned picture): closing
+            # would lose the marks without a word
+            box = QMessageBox(QMessageBox.Question, tr("Save the changes?"), tr("Save the changes?"), parent=self)
+            save = box.addButton(tr("Save"), QMessageBox.AcceptRole)
+            skip = box.addButton(tr("Don't save"), QMessageBox.DestructiveRole)
+            box.addButton(tr("Cancel"), QMessageBox.RejectRole)
+            box.exec()
+            chosen = box.clickedButton()
+            box.deleteLater()
+            if chosen is save:
+                e.ignore()
+                self.save(self.close)
+                return
+            if chosen is not skip:
+                e.ignore()
+                return
+            self.dirty = False
         super().closeEvent(e)
 
 

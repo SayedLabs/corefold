@@ -2654,4 +2654,11 @@ STRINGS: dict[str, str] = {
     "{name}'s home page is fixed by a policy.": "La page d'accueil de {name} est imposée par une stratégie.",
     'Windows sends what you browse through another computer. Fine if your work set it up.': "Windows fait passer votre navigation par un autre ordinateur. C'est normal si votre travail l'a configuré.",
     "A policy switches off part of Microsoft Defender. Malware does this so it isn't found.": 'Une stratégie désactive une partie de Microsoft Defender. Les logiciels malveillants le font pour ne pas être trouvés.',
+    'this email file is too big to open': 'ce fichier e-mail est trop gros pour être ouvert',
+    'this email file is damaged': 'ce fichier e-mail est endommagé',
+    'not an Outlook email file': "ce n'est pas un fichier e-mail Outlook",
+    'this Outlook file is damaged': 'ce fichier Outlook est endommagé',
+    "Your hosts file blocks {site}, so it can't be reached from this PC.": 'Votre fichier hosts bloque {site} : on ne peut pas l’ouvrir depuis ce PC.',
+    'picking a colour': 'choisir une couleur',
+    'Empty: each video gets the subtitle file next to it': "Vide : chaque vidéo prend le fichier de sous-titres à côté d'elle",
 }

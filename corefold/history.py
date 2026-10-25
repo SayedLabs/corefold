@@ -8,6 +8,7 @@ import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from .core import category
 from .settings import CONFIG_DIR
 
 log = logging.getLogger("corefold")
@@ -50,16 +51,37 @@ class History:
         self.load()
 
     def load(self):
+        self.unreadable = False
         try:
             data = json.loads(self.path.read_text("utf-8"))
+        except FileNotFoundError:
+            return
+        except OSError:  # (there but held by another program: never written over with an empty history)
+            log.warning("couldn't read the history", exc_info=True)
+            self.unreadable = True
+            return
+        except ValueError:
+            return
+        try:
             fields = set(Entry.__dataclass_fields__)
             self.items = [Entry(**{k: v for k, v in e.items() if k in fields}) for e in data.get("items", [])
                           if isinstance(e, dict)][:MAX_ITEMS]
             self.stats = Stats(**data.get("stats", {}))
-        except (OSError, ValueError, TypeError):
+        except (OSError, ValueError, TypeError, AttributeError):
             pass
 
     def save(self):
+        if self.unreadable:  # (read again first: this run's entries go on top of what the file has)
+            mine, stats = self.items, self.stats
+            self.items, self.stats = [], Stats()
+            self.load()
+            if self.unreadable:
+                self.items, self.stats = mine, stats
+                return
+            self.items = (mine + self.items)[:MAX_ITEMS]
+            self.stats.files += stats.files
+            self.stats.jobs += stats.jobs
+            self.stats.bytes_saved += stats.bytes_saved
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             data = {"items": [asdict(e) for e in self.items], "stats": asdict(self.stats)}
@@ -80,15 +102,22 @@ class History:
         self.stats.files += done
         self.stats.jobs += 1
         bytes_out = sum(size_of(p) for p in outputs)
-        # only files count: extracting an archive makes a folder, which isn't "space saved"
-        if outputs and all(p.is_file() for p in outputs) and bytes_out < bytes_in:
+        # only files count: extracting an archive makes a folder, which isn't "space saved". And only when every
+        # file came out as the same kind of file (a smaller photo, a smaller PDF): a song taken out of a 2 GB
+        # video, or a job where some files failed, isn't space saved either
+        if outputs and not errors and all(p.is_file() for p in outputs) and bytes_out < bytes_in \
+                and {category(p) for p in outputs} <= {category(p) for p in inputs}:
             self.stats.bytes_saved += bytes_in - bytes_out
         self.save()
 
     def clear(self):
+        if self.unreadable:
+            self.save()  # (what the file has comes back first, so it's cleared too)
         self.items.clear()
         self.save()
 
     def reset_stats(self):
+        if self.unreadable:
+            self.save()
         self.stats = Stats()
         self.save()

@@ -2654,4 +2654,11 @@ STRINGS: dict[str, str] = {
     "{name}'s home page is fixed by a policy.": '{name} ana sayfası bir ilkeyle sabitlenmiş.',
     'Windows sends what you browse through another computer. Fine if your work set it up.': 'Windows gezindiklerinizi başka bir bilgisayar üzerinden gönderiyor. İş yeriniz ayarladıysa sorun yok.',
     "A policy switches off part of Microsoft Defender. Malware does this so it isn't found.": "Bir ilke Microsoft Defender'ın bir bölümünü kapatıyor. Kötü amaçlı yazılımlar bulunmamak için bunu yapar.",
+    'this email file is too big to open': 'bu e-posta dosyası açılamayacak kadar büyük',
+    'this email file is damaged': 'bu e-posta dosyası bozuk',
+    'not an Outlook email file': 'bu bir Outlook e-posta dosyası değil',
+    'this Outlook file is damaged': 'bu Outlook dosyası bozuk',
+    "Your hosts file blocks {site}, so it can't be reached from this PC.": 'hosts dosyanız {site} adresini engelliyor, bu yüzden bu bilgisayardan açılamıyor.',
+    'picking a colour': 'renk seçme',
+    'Empty: each video gets the subtitle file next to it': 'Boş bırakın: her video yanındaki altyazı dosyasını alır',
 }

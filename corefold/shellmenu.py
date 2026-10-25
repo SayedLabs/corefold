@@ -136,7 +136,8 @@ def plan(settings, command) -> list[Verb]:
         root = rf"{FILE_ROOT}\{ext}"
         kind = category(Path("x" + ext))
         if style == "windows":
-            key = norm(ext) if kind in ("image", "audio", "video", "archive") else kind
+            # (documents too: whether Word, Excel, PowerPoint or LibreOffice is there depends on the extension)
+            key = norm(ext) if kind in ("image", "audio", "video", "archive", "document") else kind
             if key not in cache:
                 cache[key] = items_for(ext, settings)
             verbs.append(Verb(root, "Corefold", APP_NAME, items=cache[key]))

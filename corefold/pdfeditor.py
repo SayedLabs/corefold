@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QColorDialog, QFileDialo
 from . import icons, pdfedit, pdftools, work
 from .atomic import tokens
 from .atomic.widgets import Dropdown, FlowLayout, IconButton
-from .core import IMAGE_EXT, short_name
+from .core import IMAGE_EXT, norm, short_name
 from .i18n import tr
 from .theme import round_menu
 
@@ -165,6 +165,8 @@ class Renderer:
                         with pdftools.PDFIUM:
                             layout = pdfedit.read_layout(doc, job[1])
                         self.sig.layout.emit(job[1], layout)
+                except pdfium.PdfiumError:  # (a RuntimeError too: one page PDFium can't read isn't a closed editor)
+                    log.debug("page %s couldn't be drawn or read", job[1] + 1, exc_info=True)
                 except RuntimeError:
                     return  # (the editor was closed)
                 except Exception:
@@ -1096,10 +1098,12 @@ class EditorView(QGraphicsView):
                 fn()
                 return
         steps = {Qt.Key_Left: (-1, 0), Qt.Key_Right: (1, 0), Qt.Key_Up: (0, -1), Qt.Key_Down: (0, 1)}
-        if e.key() in steps and ed.selected_items():
+        # (the PDF's own pieces are moved by dragging them: the arrows would move only their box)
+        movable = [i for i in ed.selected_items() if not isinstance(i, OldPiece)]
+        if e.key() in steps and movable:
             dx, dy = steps[e.key()]
             far = 10 if e.modifiers() & Qt.ShiftModifier else 1
-            for item in ed.selected_items():
+            for item in movable:
                 page = item.parentItem()
                 d = page.mapFromScene(QPointF(dx * far, dy * far)) - page.mapFromScene(QPointF(0, 0)) \
                     if page is not None else QPointF(dx * far, dy * far)
@@ -1158,6 +1162,7 @@ class PdfEditor(QWidget):
         self.future: list[dict] = []
         self.current: dict = {"items": [], "removed": [], "fields": {}}
         self.saved: dict | None = None
+        self._saving: dict | None = None  # (what a save that's still running will have saved)
         self.order: list[int] = []          # the pages in the order shown (a deleted one isn't in it)
         self.turns: dict[int, int] = {}     # pages turned: degrees clockwise
         self.position: dict[int, int] = {}  # where each page is in the order
@@ -1176,6 +1181,7 @@ class PdfEditor(QWidget):
         self.kept: set = set()              # every added thing on the pages
         self.field_menu = None              # (a form's list, while it's open)
         self.temp = None
+        self.move_pics: dict[tuple, QPixmap] = {}  # (page, pieces) -> the picture of a moved piece (for undo)
         self.style = {"text": {"font": "Arial", "size": 12.0, "color": "#000000", "bold": False, "italic": False},
                       "highlight": {"color": PENS[0]}, "underline": {"color": "#d32f2f"},
                       "strike": {"color": "#d32f2f"}, "draw": {"color": "#1f3a93", "width": 2.5},
@@ -1448,7 +1454,8 @@ class PdfEditor(QWidget):
         self.fields, self.field_list, self.field_items, self.removed = {}, [], [], []
         self.history, self.future = [], []
         self.current = {"items": [], "removed": [], "fields": {}}
-        self.saved = None
+        self.saved = self._saving = None
+        self.move_pics = {}
         self.src, self.password = src, password
         self.name.setText(short_name(src.name, 60))
         self.name.setToolTip(str(src))
@@ -1513,8 +1520,10 @@ class PdfEditor(QWidget):
             chosen = box.clickedButton()
             box.deleteLater()
             if chosen is save:
-                self.save()
-            elif chosen is not close:
+                # (closed once the new PDF is really there: if saving fails, the changes are still here)
+                self.save(then_close=True)
+                return False
+            if chosen is not close:
                 return False
         self.close_renderer()
         self.pages, self.offsets, self.thumbs, self.field_items = [], [], [], []
@@ -1523,7 +1532,8 @@ class PdfEditor(QWidget):
         self.thumb_list.clear()
         self.scene.clear()
         self.kept.clear()
-        self.src = None
+        self.move_pics = {}
+        self.src, self.saved, self._saving = None, None, None  # (nothing left unsaved once it's closed)
         self.closed.emit()
         return True
 
@@ -2321,7 +2331,7 @@ class PdfEditor(QWidget):
             self.hint.setText(hint)
             self.undo_btn.setEnabled(bool(self.history))
             self.redo_btn.setEnabled(bool(self.future))
-            self.save_btn.setEnabled(self.saved is not None and self.current != self.saved)
+            self.save_btn.setEnabled(self.saved is not None and self.current != self.saved and self._saving is None)
         finally:
             self._filling = False
 
@@ -2368,6 +2378,11 @@ class PdfEditor(QWidget):
         if kind == "text":
             item = TextMark(self, page, d)
         elif kind in ("image", "cover", "move"):
+            key = (page.index, tuple(d.get("objs") or ()))
+            if kind == "move" and pixmap is not None:
+                self.move_pics[key] = pixmap
+            elif kind == "move":  # (made again by undo or redo: the piece's picture, kept when it was moved)
+                pixmap = self.move_pics.get(key)
             item = BoxMark(self, page, d, pixmap)
         elif kind in ("rect", "ellipse", "line", "arrow"):
             item = ShapeMark(self, page, d)
@@ -2499,7 +2514,7 @@ class PdfEditor(QWidget):
         self.view.setFocus()
 
     def pick_picture(self):
-        kinds = " ".join(f"*{ext}" for ext in sorted(IMAGE_EXT | {".jpeg", ".jfif"}))
+        kinds = " ".join(f"*{ext}" for ext in sorted(IMAGE_EXT | {".jpeg", ".jfif", ".tif", ".heif"}))
         name, _ = QFileDialog.getOpenFileName(self, tr("Pick a picture"), str(Path.home()),
                                               f"{tr('Pictures')} ({kinds})")
         if name:
@@ -2519,6 +2534,17 @@ class PdfEditor(QWidget):
         if img.isNull():
             self.c.tell(tr("Corefold PDF"), tr("That picture couldn't be read."))
             return
+        from PySide6.QtGui import QImageIOHandler, QImageReader
+        reader = QImageReader(str(path))
+        if reader.transformation() != QImageIOHandler.Transformation.TransformationNone:
+            # (a phone photo kept on its side, with a note to turn it: Qt doesn't turn it, so an upright copy
+            # is used, on the page and in the saved PDF)
+            reader.setAutoTransform(True)
+            upright = reader.read()
+            if not upright.isNull():
+                path = self._temp_file(".png")
+                upright.save(str(path))
+                img = upright
         # its size as it would be printed (pictures without a size: 96 dpi)
         dpm = img.dotsPerMeterX() or 3780
         w = img.width() / (dpm * 0.0254) * 72
@@ -2564,7 +2590,7 @@ class PdfEditor(QWidget):
         if mime.hasUrls():
             for u in mime.urls():
                 p = Path(u.toLocalFile())
-                if p.suffix.lower() in IMAGE_EXT:
+                if norm(p.suffix) in IMAGE_EXT:  # (.jpeg, .tif… are their usual names here)
                     self.add_picture(p)
                     return
         if mime.hasText() and mime.text().strip():
@@ -2746,12 +2772,14 @@ class PdfEditor(QWidget):
 
     # ---- saving
 
-    def save(self):
+    def save(self, then_close: bool = False):
         self.end_text_edits()
-        if self.src is None or self.saved is None:
+        if self.src is None or self.saved is None or self._saving is not None:
             return
         state = self.model()
         if state == self.saved:
+            if then_close:
+                self.close_editor(ask=False)
             return
         edits = [d for d in state["items"] if not (d.get("kind") == "text" and not d.get("text", "").strip()
                                                     and not d.get("replaces"))]
@@ -2761,9 +2789,23 @@ class PdfEditor(QWidget):
             params["order"] = state["order"]
         if state["turns"]:
             params["turns"] = state["turns"]
-        self.c.start_job(pdfedit.EDIT, [self.src], params)
-        self.saved = state
-        self._refresh()
+        src = self.src
+        self._saving = state
+        self.save_btn.setEnabled(False)
+
+        def done(ok: bool):
+            # (the changes count as saved only once the new PDF was really written: a save that failed, was
+            # stopped or had no room leaves them unsaved, Save still on and closing still asks)
+            if not work.alive(self):
+                return
+            self._saving = None
+            if ok and self.src == src:
+                self.saved = state
+                if then_close:
+                    self.close_editor(ask=False)
+                    return
+            self._refresh()
+        self.c.start_job(pdfedit.EDIT, [src], params, then=done)
 
 
 # ----------------------------------------------------------------------------- small windows

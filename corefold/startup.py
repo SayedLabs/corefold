@@ -232,6 +232,17 @@ def _full_path(exe: str) -> str:
     return exe
 
 
+def _as_32bit(exe: str) -> str:
+    """A 32-bit program's "System32" is really SysWOW64 (Windows sends it there), so a line in Run32 that
+    names System32 is looked for there too; otherwise a working program would look removed."""
+    system = os.environ.get("SystemRoot", r"C:\Windows")
+    inside = os.path.join(system, "System32") + os.sep
+    if not exe or os.path.exists(exe) or not os.path.normcase(exe).startswith(os.path.normcase(inside)):
+        return exe
+    wow = os.path.join(system, "SysWOW64", exe[len(inside):])
+    return wow if os.path.exists(wow) else exe
+
+
 def _make(where: str, value: str, command: str, exe: str, notes: dict) -> Entry:
     note = notes.get(value)
     e = Entry(id=f"{where}|{value}", name=value, value=value, command=command, exe=exe, where=where,
@@ -272,7 +283,8 @@ def list_entries() -> list[Entry]:
         for value, command in _values(hive, key, view).items():
             if not value or not isinstance(command, str) or not command.strip():
                 continue  # (the default value, or not a command)
-            e = _make(where, value, command, _full_path(split_command(command)[0]), notes)
+            exe = _full_path(split_command(command)[0])
+            e = _make(where, value, command, _as_32bit(exe) if where == "HKLM-Run32" else exe, notes)
             e.own = where == "HKCU-Run" and value == APP_NAME
             out.append(e)
     for where, folder in folders().items():
@@ -614,6 +626,18 @@ def start_now(item: dict) -> bool:
         return False
     import subprocess
     try:
+        # (looked at again now: switched back on since (Task Manager), Windows starts it itself and it would
+        # run twice; its line gone, its program was removed; and an update may have changed what it runs)
+        where, _, value = str(item.get("id") or "").partition("|")
+        if where in PLACES:
+            hive, key, view, approved = PLACES[where]
+            if not note_is_off(_values(hive, approved, 64 if hive == "HKLM" else 0).get(value)):
+                return False
+            if key:
+                now = _values(hive, key, view).get(value)
+                if not isinstance(now, str) or not now.strip():
+                    return False
+                item = {**item, "command": now}
         link = item.get("file") or ""
         if link:
             if not os.path.exists(link):
@@ -774,8 +798,10 @@ def _delete_as_admin(lines: list[tuple[str, str]]) -> bool:
 
 def remove_leftovers(entries: list[Entry]) -> list[Entry]:
     """Removes the lines of programs that are gone from this PC, with Windows' on/off note for each. A
-    line in a Startup folder (a shortcut) goes to the Recycle Bin. Lines for the whole PC ask Windows
-    for an administrator once for all of them. Returns the ones that are really gone now."""
+    line in a Startup folder (a shortcut) goes to the Recycle Bin. Lines for the whole PC in the registry
+    ask Windows for an administrator once for all of them; a shortcut in everyone's Startup folder can only
+    go when Corefold itself runs as administrator (it's left as it was otherwise, and counted as not
+    removed). Returns the ones that are really gone now."""
     gone = [e for e in leftovers(entries) if is_gone(e.exe)]   # (looked at again, just before)
     if not gone:
         return []

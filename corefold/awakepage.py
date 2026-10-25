@@ -516,7 +516,9 @@ class AwakePage(QScrollArea):
         chosen = box.clickedButton() is yes
         box.deleteLater()
         if chosen:
-            self.plan(at)
+            # (worked out again: the question may have stayed open past that time, and a time that's gone
+            # would turn the PC off straight away; "at a time" then means the next one, shown on the page)
+            self.plan(self.shutdown_time())
 
     def plan(self, at: datetime, ask_to_replace: bool = True) -> int:
         tool = self.tool

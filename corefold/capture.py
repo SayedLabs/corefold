@@ -130,7 +130,8 @@ def visible_windows(skip: set[int] | None = None) -> list[QRect]:
                 return True
         if r.right - r.left < 40 or r.bottom - r.top < 30:
             return True
-        a, b = _native_to_logical(r.left, r.top), _native_to_logical(r.right, r.bottom)
+        # (a RECT's right and bottom are just outside the window: a maximised one's would be off its screen)
+        a, b = _native_to_logical(r.left, r.top), _native_to_logical(r.right - 1, r.bottom - 1)
         found.append(QRect(a, b).normalized())
         return True
     try:
@@ -261,7 +262,8 @@ class Snip(QWidget):
     def selection(self) -> QRect | None:
         if self.start is None or self.end is None:
             return None
-        r = QRect(self.start, self.end).normalized()
+        # (the mouse keeps moving past the screen's edge while held: what's outside isn't in this picture)
+        r = QRect(self.start, self.end).normalized().intersected(self.rect())
         return r if r.width() > 3 and r.height() > 3 else None
 
     def paintEvent(self, e):
