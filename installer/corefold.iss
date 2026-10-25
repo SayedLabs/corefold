@@ -327,12 +327,12 @@ begin
 end;
 
 { A rename, tried again for a few seconds (antivirus can hold a file it's just looked at). }
-function MoveWithRetry(FromPath, ToPath: String): Boolean;
+function MoveWithRetry(FromPath, ToPath: String; Tries: Integer): Boolean;
 var
-  Tries: Integer;
+  I: Integer;
 begin
   Result := True;
-  for Tries := 1 to 40 do
+  for I := 1 to Tries do
   begin
     if RenameFile(FromPath, ToPath) then
       Exit;
@@ -341,17 +341,50 @@ begin
   Result := False;
 end;
 
-{ The new files, all copied in under _next, take the place of the old ones: each of the old ones is moved
-  aside into _previous, then the new one into its place. These are renames on the same disk, done in a
-  moment. If one can't be moved, everything goes back as it was, so the older Corefold stays whole (and says
-  the update didn't finish the next time it starts). }
+{ One new file into its place: moved, or copied when something (antivirus) still holds it. }
+procedure PutFile(FromPath, ToPath: String);
+begin
+  if FileExists(ToPath) then
+    DeleteFile(ToPath);
+  if not MoveWithRetry(FromPath, ToPath, 20) then
+    if not FileCopy(FromPath, ToPath, False) then
+      Log('Could not put in place: ' + ToPath);
+end;
+
+{ A new folder into its place file by file (when it can't be moved whole: a file in it is still held). }
+procedure PutTree(FromDir, ToDir: String);
+var
+  FindRec: TFindRec;
+begin
+  ForceDirectories(ToDir);
+  if FindFirst(FromDir + '\*', FindRec) then
+  begin
+    try
+      repeat
+        if (FindRec.Name <> '.') and (FindRec.Name <> '..') then
+        begin
+          if FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY <> 0 then
+            PutTree(FromDir + '\' + FindRec.Name, ToDir + '\' + FindRec.Name)
+          else
+            PutFile(FromDir + '\' + FindRec.Name, ToDir + '\' + FindRec.Name);
+        end;
+      until not FindNext(FindRec);
+    finally
+      FindClose(FindRec);
+    end;
+  end;
+end;
+
+{ The new files, all copied in under _next, take the place of the old ones: each old one is moved aside into
+  _previous (or deleted, if it can't be), then the new one is moved into its place. These are renames on the
+  same disk, over in a moment, so an update cut off before this point leaves the older Corefold whole.
+  Corefold.exe goes last. }
 procedure SwapInNewFiles();
 var
-  App, NextDir, PrevDir: String;
+  App, NextDir, PrevDir, Name: String;
   FindRec: TFindRec;
   Names: TArrayOfString;
   Count, I: Integer;
-  Failed: Boolean;
 begin
   App := ExpandConstant('{app}');
   NextDir := App + '\_next';
@@ -363,7 +396,7 @@ begin
   begin
     try
       repeat
-        if (FindRec.Name <> '.') and (FindRec.Name <> '..') then
+        if (FindRec.Name <> '.') and (FindRec.Name <> '..') and (CompareText(FindRec.Name, '{#AppExe}') <> 0) then
         begin
           SetArrayLength(Names, Count + 1);
           Names[Count] := FindRec.Name;
@@ -374,36 +407,28 @@ begin
       FindClose(FindRec);
     end;
   end;
+  SetArrayLength(Names, Count + 1);
+  Names[Count] := '{#AppExe}';
+  Count := Count + 1;
   if DirExists(PrevDir) then
     DelTree(PrevDir, True, True, True);
   ForceDirectories(PrevDir);
-  Failed := False;
-  I := 0;
-  while (I < Count) and not Failed do
+  for I := 0 to Count - 1 do
   begin
-    if (FileExists(App + '\' + Names[I]) or DirExists(App + '\' + Names[I])) and
-       not MoveWithRetry(App + '\' + Names[I], PrevDir + '\' + Names[I]) then
-      Failed := True
-    else if not MoveWithRetry(NextDir + '\' + Names[I], App + '\' + Names[I]) then
+    Name := Names[I];
+    if DirExists(NextDir + '\' + Name) then
     begin
-      RenameFile(PrevDir + '\' + Names[I], App + '\' + Names[I]);
-      Failed := True;
+      if DirExists(App + '\' + Name) and not MoveWithRetry(App + '\' + Name, PrevDir + '\' + Name, 8) then
+        DelTree(App + '\' + Name, True, True, True);
+      if not RenameFile(NextDir + '\' + Name, App + '\' + Name) then
+        PutTree(NextDir + '\' + Name, App + '\' + Name);
     end
-    else
-      I := I + 1;
-  end;
-  if Failed then
-  begin
-    Log('Could not put the new files in place (' + Names[I] + '): the older version is kept');
-    while I > 0 do
+    else if FileExists(NextDir + '\' + Name) then
     begin
-      I := I - 1;
-      RenameFile(App + '\' + Names[I], NextDir + '\' + Names[I]);
-      RenameFile(PrevDir + '\' + Names[I], App + '\' + Names[I]);
+      if FileExists(App + '\' + Name) and not MoveWithRetry(App + '\' + Name, PrevDir + '\' + Name, 8) then
+        DeleteFile(App + '\' + Name);
+      PutFile(NextDir + '\' + Name, App + '\' + Name);
     end;
-    if not WizardSilent() then
-      MsgBox('Corefold could not be updated: some of its files are in use. Your Corefold is as it was; ' +
-             'close what is using its folder, then install again.', mbError, MB_OK);
   end;
   DelTree(PrevDir, True, True, True);
   DelTree(NextDir, True, True, True);
