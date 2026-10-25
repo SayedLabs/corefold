@@ -24,8 +24,8 @@ from .settings import (ACCENTS, APP_NAME, DEFAULT_ACCENT, APPEARANCES, HOVER_STY
                        SHORTCUT_LABELS, SLICE_COLORS, SOUNDS, TEXT_SIZE_NAMES, TOAST_CORNERS, TOAST_TIMES,
                        WHEEL_POSITIONS, WHEEL_SIZE_NAMES, WHEEL_STYLES, WINDOW_TEXT, installed_uninstaller,
                        ARCHIVE_KEYS, BACKUP_DAYS, CONVERTER_KEYS, EXTRACT_MODES, FORMAT_KEYS, GENERAL_KEYS,
-                       SLIDESHOW_SECONDS, VIEWER_KEYS, VIEWER_WHEEL, CLIP_DAYS, CLIP_MAX, CLIP_SHORTCUTS,
-                       CLIP_PLAIN_SHORTCUTS, CLIPBOARD_KEYS,
+                       SLIDESHOW_SECONDS, VIDEO_QUALITIES, VIDEO_SIZES, VIEWER_KEYS, VIEWER_WHEEL, CLIP_DAYS, CLIP_MAX,
+                       CLIP_SHORTCUTS, CLIP_PLAIN_SHORTCUTS, CLIPBOARD_KEYS,
                        CAP_AFTER, CAP_DELAY, CAP_SHORTCUTS, CAP_TEXT_SHORTCUTS, CAPTURE_KEYS, PLAYER_KEYS, PLAYER_SKIP,
                        PLAYER_WHEEL,
                        LOOK_KEYS, UNINSTALL_DEPTHS, UNINSTALLER_KEYS, UNUSED_MONTHS, WHEEL_KEYS, editable_keys, set_startup,
@@ -2371,7 +2371,20 @@ class MainWindow(QWidget):
         self.quality.valueChanged.connect(self._general_changed)
         q_row = QHBoxLayout()
         q_row.addWidget(self.quality)
-        q_row.addWidget(label(tr("for JPG and WebP. Higher = better quality, bigger file."), "muted"), 1)
+        q_row.addWidget(label(tr("for JPG and WebP. Higher = better quality, bigger file."), "muted", wrap=True), 1)
+
+        self.video_quality = Dropdown()
+        for key, text in VIDEO_QUALITIES.items():
+            self.video_quality.addItem(tr(text), key)
+        self.video_quality.setCurrentIndex(max(0, self.video_quality.findData(s.video_quality)))
+        self.video_quality.currentIndexChanged.connect(self._general_changed)
+        self.video_size = Dropdown()
+        for key, text in VIDEO_SIZES.items():
+            self.video_size.addItem(tr(text), key)
+        self.video_size.setCurrentIndex(max(0, self.video_size.findData(s.video_size)))
+        self.video_size.currentIndexChanged.connect(self._general_changed)
+        self.video_size.setToolTip(tr("Bigger videos are made smaller to this, keeping their shape. Smaller ones "
+                                      "stay as they are."))
 
         self.unavailable = Dropdown()
         self.unavailable.addItem(tr("Show them dimmed (with the reason)"), True)
@@ -2380,8 +2393,8 @@ class MainWindow(QWidget):
         self.unavailable.currentIndexChanged.connect(self._general_changed)
 
         rows = ((tr("Key to hold while dragging"), self.shortcut), (tr("Save new files"), self.save_mode),
-                ("", self.folder_row), (tr("Image quality"), q_row), (tr("Formats that don't fit a file"),
-                                                                      self.unavailable))
+                ("", self.folder_row), (tr("Image quality"), q_row), (tr("Video quality"), self.video_quality),
+                (tr("Video size"), self.video_size), (tr("Formats that don't fit a file"), self.unavailable))
         for r, (text, widget) in enumerate(rows):
             if text:
                 grid.addWidget(label(text), r, 0)
@@ -3769,6 +3782,8 @@ class MainWindow(QWidget):
             s.convert_recycle = self.convert_recycle.isChecked()
             s.sound_tick = self.tick.isChecked()
             s.video_gpu = self.video_gpu.isChecked()
+            s.video_quality = self.video_quality.currentData()
+            s.video_size = self.video_size.currentData()
             changed = s.pack_on_every_wheel != self.pack_everywhere.isChecked()
             s.pack_on_every_wheel = self.pack_everywhere.isChecked()
         self.c.settings_changed(menu=changed)

@@ -222,7 +222,9 @@ class ArchiveBrowser(QWidget):
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.setWindowTitle(f"{src.name} - {APP_NAME}")
         self.setWindowIcon(icon)
-        self.resize(820, 560)
+        screen = QGuiApplication.primaryScreen()
+        room = screen.availableGeometry() if screen else None  # (roomy enough for long names, never off a small screen)
+        self.resize(min(960, room.width() - 40) if room else 960, min(600, room.height() - 40) if room else 600)
         self.icons = QFileIconProvider()
         self._lock_icon = None  # made the first time a locked file shows up
 
@@ -257,6 +259,7 @@ class ArchiveBrowser(QWidget):
         self.tree.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.tree.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.tree.setUniformRowHeights(True)
+        self.tree.setTextElideMode(Qt.ElideMiddle)  # (a long name keeps its end: report-20…-final.pdf)
         # sorted by Corefold (in Python, before the rows go in): Qt's own sorting would be slow for
         # 100,000 files. Clicking a column heading sorts by it.
         self.tree.sort_state = (0, True)
@@ -266,6 +269,12 @@ class ArchiveBrowser(QWidget):
         header.setSortIndicator(0, Qt.AscendingOrder)
         header.sectionClicked.connect(self._sort_by)
         self.tree.header().setSectionResizeMode(0, QHeaderView.Stretch)
+        # the other columns just as wide as what's in them, so the names get the room (measured once: sizing
+        # them to their rows would read every row of a folder of 100,000 files)
+        fm = self.tree.fontMetrics()
+        sizes = max(fm.horizontalAdvance(human_size(n)) for n in (1000, 999 * 1024 ** 2 + 943718))
+        for col, wide in ((1, sizes), (2, sizes), (3, fm.horizontalAdvance("2026-10-25 08:12"))):
+            header.resizeSection(col, max(wide, fm.horizontalAdvance(self.tree.headerItem().text(col))) + 26)
         self.tree.itemDoubleClicked.connect(lambda item, _col: self._open(item))
         self.tree.itemSelectionChanged.connect(self._buttons)
         self.tree.itemExpanded.connect(self._expanded)
@@ -310,6 +319,9 @@ class ArchiveBrowser(QWidget):
         self.a_preview.triggered.connect(self.set_preview)
         more.addAction(tr("Select all"), self.tree.selectAll)
         more.addAction(tr("Show in folder"), lambda: reveal_in_explorer(self.src))
+        if ar.has_legacy_names(src):  # an old ZIP whose names don't say how they're written
+            more.addSeparator()
+            more.addMenu(self._names_menu(more))
         self.b_more.setMenu(more)
         self.nested = QCheckBox(tr("Also unpack archives inside"))
         self.nested.setToolTip(tr("Archives found inside are unpacked too, each into its own folder."))
@@ -343,7 +355,7 @@ class ArchiveBrowser(QWidget):
         self.split.addWidget(self.preview)
         self.split.setStretchFactor(0, 3)
         self.split.setStretchFactor(1, 2)
-        self.split.setSizes([480, 320])
+        self.split.setSizes([640, 280])
         lay.addWidget(self.split, 1)
         self._preview_asked = 0
         self._preview_stop = None  # stops the preview being read (another file was picked)
@@ -376,6 +388,43 @@ class ArchiveBrowser(QWidget):
         self.check_timer.setSingleShot(True)
         self.check_timer.timeout.connect(self._check_changes)
         self.set_entries(entries)
+
+    # ---- names of an old ZIP
+
+    def _names_menu(self, parent: QMenu) -> QMenu:
+        """File names: worked out by Corefold, or one the person picks if they still look wrong."""
+        from PySide6.QtGui import QActionGroup
+        menu = QMenu(tr("File names"), parent)
+        round_menu(menu)
+        menu.setToolTipsVisible(True)
+        group = QActionGroup(menu)
+        choices = ((tr("Arabic (DOS, 720)"), 720), (tr("Arabic (Windows, 1256)"), 1256), (tr("Arabic (864)"), 864),
+                   ("UTF-8", ar.UTF8_CP), (tr("As this PC reads them"), 0))
+        label = {cp: name for name, cp in choices}.get(ar.found_zip_codepage(self.src))
+        auto = menu.addAction(tr("Worked out by Corefold ({name})", name=label) if label
+                              else tr("Worked out by Corefold"))
+        auto.setToolTip(tr("Old ZIP files don't say which letters their names use. If they look wrong, pick "
+                           "another one here."))
+        auto.setData(None)
+        menu.addSeparator()
+        actions = [auto]
+        for name, cp in choices:
+            act = menu.addAction(name)
+            act.setData(cp)
+            actions.append(act)
+        chosen = ar.picked_zip_codepage(self.src)
+        for act in actions:
+            act.setCheckable(True)
+            act.setChecked(act.data() == chosen)
+            group.addAction(act)
+            act.triggered.connect(lambda _on=False, a=act: self._pick_names(a.data()))
+        return menu
+
+    def _pick_names(self, cp):
+        if cp == ar.picked_zip_codepage(self.src):
+            return
+        ar.set_zip_codepage(self.src, cp)
+        self.reload()
 
     # ---- contents
 
@@ -988,6 +1037,7 @@ class ArchiveBrowser(QWidget):
                 self._save_back()
         if self._preview_stop is not None:
             self._preview_stop.set()
+        ar.set_zip_codepage(self.src, None)  # (the pick lasts while it's open)
         super().closeEvent(e)
 
     def dropEvent(self, e):

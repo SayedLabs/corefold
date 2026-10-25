@@ -1344,6 +1344,43 @@ def upload_tree(c: Client, src: Path, folder: Entry | None, progress=None, cance
                if not is_link(p) and _key(p) not in made)
 
 
+def copy_tree(src: Client, entry: Entry, dst: Client, into: Entry | None, progress=None, cancel=None,
+              _made: set | None = None, _temp: Path | None = None) -> int:
+    """Copies a file, or a folder with everything in it, from one account into a folder of another. Files go
+    one at a time through a temporary copy on this PC that's deleted as soon as it's up (both ends checked to
+    match, as for any download and upload), so only room for the biggest single file is ever needed here, never
+    for the whole folder. Returns how many files were copied."""
+    import shutil
+    import tempfile
+    if _temp is None:
+        temp = Path(tempfile.mkdtemp(prefix="corefold-cloud-copy-"))
+        try:
+            return copy_tree(src, entry, dst, into, progress, cancel, _made, temp)
+        finally:
+            shutil.rmtree(temp, ignore_errors=True)
+    if cancel is not None and cancel.is_set():
+        raise CloudError("cancelled")
+    if not entry.folder:
+        if entry.kind == "web":  # (a Google Form, a Site…: there's no file to copy)
+            src.skipped.append(entry.name)
+            return 0
+        local = _temp / file_name(entry)  # (the name it gets in the other account)
+        try:
+            src.download(entry, local, None if progress is None else lambda d, t: progress((entry.name, d / 2, t)),
+                         cancel)
+            dst.upload(local, into, None if progress is None else
+                       lambda d, t: progress((entry.name, (t + d) / 2, t)), cancel)
+        finally:
+            local.unlink(missing_ok=True)
+        return 1
+    made = set() if _made is None else _made
+    made.add("id:" + entry.id)
+    inside = [e for e in src.list(entry) if "id:" + e.id not in made]  # (read first: see download_tree)
+    new = dst.new_folder(local_name(entry.name), into)
+    made.add("id:" + new.id)
+    return sum(copy_tree(src, e, dst, new, progress, cancel, made, _temp) for e in inside)
+
+
 def available(service: str) -> bool:
     """Corefold can sign in to this service by itself (its app id is in cloudkeys.py)."""
     return bool({"gdrive": GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET, "onedrive": ONEDRIVE_CLIENT_ID,

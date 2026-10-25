@@ -136,3 +136,25 @@ def test_cloud_offers_no_online_sign_in_it_cant_do(monkeypatch):
     monkeypatch.setattr(cloud, "ONEDRIVE_CLIENT_ID", "")
     monkeypatch.setattr(cloud, "DROPBOX_APP_KEY", "")
     assert not any(cloud.available(k) for k in cloud.ONLINE)
+
+
+def test_a_sound_never_holds_the_window_up(monkeypatch):
+    import sys
+    import threading
+    import time
+    from corefold import winutil
+    started, release = threading.Event(), threading.Event()
+
+    class SlowSound:  # (Windows waking a sleeping sound device first)
+        SND_FILENAME = SND_ASYNC = SND_NODEFAULT = 0
+
+        @staticmethod
+        def PlaySound(*a):
+            started.set()
+            release.wait(5)
+    monkeypatch.setitem(sys.modules, "winsound", SlowSound)
+    t0 = time.perf_counter()
+    winutil.play_sound(Path("done.wav"))
+    assert time.perf_counter() - t0 < 0.2
+    assert started.wait(2)  # (it is played, just not on the window's thread)
+    release.set()

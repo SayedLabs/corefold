@@ -62,6 +62,9 @@ QPushButton:pressed { background: $pressed; border-bottom-color: $line_strong; }
 QPushButton:checked { background: $accent_soft; color: $text; border-color: $accent; }
 QPushButton:disabled { color: $subtle; border-color: $border; background: transparent; }
 QPushButton:focus { outline: none; }
+/* a button with a menu: the arrow on its trailing side (Qt's own one lands outside the button in Arabic) */
+QPushButton::menu-indicator { image: url($down); width: 10px; height: 10px; subcontrol-origin: padding;
+        subcontrol-position: center right; right: 7px; }
 QPushButton#primary { background: $accent; color: $on_accent; border: 1px solid $accent; border-bottom-color: $accent_edge;
                       font-weight: 600; }
 QPushButton#primary:hover { background: $accent_hover; border-color: $accent_hover; }

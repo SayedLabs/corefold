@@ -41,6 +41,8 @@ ACTIONS = [("edit", "Edit content", "Type text, change words, add pictures, high
            ("split", "Split", "Cut a PDF into several, page by page or in parts", "split_vertical"),
            ("extract", "Take out pages", "Save the pages you pick as a new PDF", "document_multiple"),
            ("compress", "Compress", "Make a big PDF small enough to send", "arrow_minimize"),
+           ("searchable", "Make searchable", "Read the words on scanned pages, so you can search and copy them",
+            "scan_text"),
            ("pictures", "Pictures to PDF", "Photos and scans into one PDF, on A4 or Letter if you want",
             "image_multiple"),
            ("topictures", "PDF to pictures", "Every page, or the ones you pick, as PNG or JPG", "image"),
@@ -56,7 +58,7 @@ MORE = [("pdf:numbers", "Page numbers", "Number every page", "text_t"),
 # how the cards are grouped on the page (the first group is shown big, on top)
 GROUPS = [("", ("edit", "merge")),
           ("Pages", ("organize", "split", "extract")),
-          ("Add to it", ("pdf:sign", "pdf:numbers", "pdf:watermark")),
+          ("Add to it", ("searchable", "pdf:sign", "pdf:numbers", "pdf:watermark")),
           ("Smaller or safer", ("compress", "pdf:fit", "lock", "unlock")),
           ("Turn it into something else", ("topictures", "pictures", "pdf:text", "pdf:images"))]
 TIPS = {"merge": "Drag the pages into the order you want, then press Merge and save.",
@@ -309,7 +311,8 @@ class PdfPage(QWidget):
             if names:
                 self.pictures_to_pdf([Path(n) for n in names])
             return
-        several = key in ("merge", "organize", "compress", "topictures", "lock", "unlock") or key.startswith("pdf:")
+        several = key in ("merge", "organize", "compress", "searchable", "topictures", "lock", "unlock") or \
+            key.startswith("pdf:")
         title = tr("Pick the PDFs") if several else tr("Pick a PDF")
         if several:
             names, _ = QFileDialog.getOpenFileNames(self, title, str(Path.home()), PDF_FILTER)
@@ -334,7 +337,14 @@ class PdfPage(QWidget):
             if tool is not None:
                 self.c.tool_chosen(tool, files)
             return
+        if key == "searchable":
+            from . import pdfocr
+            why = pdfocr.check(files)
+            if why:
+                self.c.tell(tr("Make searchable"), why)
+                return
         asks = {"split": (pd.SplitDialog, pdftools.SPLIT), "compress": (pd.CompressDialog, pdftools.COMPRESS),
+                "searchable": (pd.SearchableDialog, _searchable_tool()),
                 "topictures": (pd.ToPicturesDialog, pdftools.TO_PICTURES), "lock": (pd.PdfLockDialog, pdftools.LOCK),
                 "unlock": (None, pdftools.UNLOCK)}
         dialog, tool = asks[key]
@@ -996,6 +1006,11 @@ class PdfPage(QWidget):
 
 
 # ----------------------------------------------------------------------------- off the window's thread
+
+def _searchable_tool():
+    from .pdfocr import SEARCHABLE
+    return SEARCHABLE
+
 
 def _count(src: Path, password: str) -> int:
     """Its number of pages, or 0 when it can't be opened (damaged, or the password is missing)."""

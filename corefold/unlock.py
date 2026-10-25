@@ -472,6 +472,47 @@ def delete_at_restart(paths: list[str]) -> dict:
     return {"scheduled": done, "failed": failed}
 
 
+def move_at_restart_problem(src: str, dst: str) -> str:
+    """Why Windows can't move src to dst as the PC starts ("" when it can): it only moves on the same
+    drive, never over something already there, and never Windows' or programs' own folders."""
+    from .space import protected
+    if not (os.path.isabs(src) and os.path.isabs(dst)) or not os.path.lexists(src):
+        return "missing"
+    if os.path.normcase(os.path.splitdrive(src)[0]) != os.path.normcase(os.path.splitdrive(dst)[0]):
+        return "drive"
+    if os.path.lexists(dst):
+        return "taken"
+    parent = os.path.dirname(dst)
+    if not os.path.isdir(parent) or protected(Path(dst)) or not at_restart_allowed(src):
+        return "refused"
+    return ""
+
+
+def move_at_restart(moves: list[tuple[str, str]]) -> dict:
+    """Asks Windows to move or rename these as the PC next starts (as administrator, like deleting)."""
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.MoveFileExW.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32]
+    k32.MoveFileExW.restype = ctypes.c_int
+    done = failed = 0
+    for src, dst in moves:
+        if k32.MoveFileExW(src, dst, MOVEFILE_DELAY_UNTIL_REBOOT):
+            done += 1
+        else:
+            failed += 1
+            log.warning("Windows won't move %s at the next start (error %s)", src, ctypes.get_last_error())
+    return {"scheduled": done, "failed": failed}
+
+
+def ask_move_at_restart(moves: list[tuple[Path, Path]]) -> dict | None:
+    """Runs move_at_restart in Corefold as administrator (Windows asks first). None if the person said no."""
+    from .uninstall import run_elevated
+    if getattr(sys, "frozen", False):
+        command = [sys.executable]
+    else:
+        command = [sys.executable, str(Path(__file__).resolve().parent.parent / "main.py")]
+    return run_elevated(command, "delete-at-restart", {"paths": [], "moves": [[str(a), str(b)] for a, b in moves]})
+
+
 def ask_delete_at_restart(paths: list[Path]) -> dict | None:
     """Runs delete_at_restart in Corefold as administrator (Windows asks first). None if the person said no."""
     from .uninstall import run_elevated

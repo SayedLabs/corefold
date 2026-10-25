@@ -91,6 +91,24 @@ class CompressDialog(Base):
         return {"level": _chosen(self.group, "normal")}
 
 
+class SearchableDialog(Base):
+    """Make searchable: what happens, and whether pages made searchable before are read again."""
+
+    def __init__(self, files, icon, dark):
+        super().__init__(tr("Make searchable"), describe(files), icon, dark)
+        self.lay.addWidget(_note(tr("Corefold reads the words on scanned pages with Windows' own reader, Arabic too, "
+                                    "and puts them under the picture as hidden text, right where they are. You can "
+                                    "then search, select and copy them. The pages look exactly as before.")))
+        self.redo = QCheckBox(tr("Read pages made searchable before again"))
+        self.redo.setToolTip(tr("Their old hidden text is taken out first, so nothing is there twice."))
+        self.lay.addWidget(self.redo)
+        self.lay.addWidget(_note(tr("Pages with their own text are left as they are. Saved as a new file.")))
+        self.buttons(tr("Make searchable"))
+
+    def params(self):
+        return {"redo": self.redo.isChecked()}
+
+
 class PicturesDialog(Base):
     """Pictures to PDF: the page size, the margin, and the new file's name."""
 

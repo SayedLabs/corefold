@@ -428,12 +428,13 @@ def merge_reads(reads: list[tuple[bool, list[OcrLine]]]) -> list[OcrLine]:
     return out
 
 
-def ocr_pieces(width: int, height: int, limit: int) -> tuple[float, list[tuple[int, int]]]:
+def ocr_pieces(width: int, height: int, limit: int, enlarge: bool = True) -> tuple[float, list[tuple[int, int]]]:
     """How much bigger to make a picture for reading (small text reads better bigger), and the strips
-    (top, bottom in the bigger picture's pixels) to read when it's taller than Windows can read at once."""
+    (top, bottom in the bigger picture's pixels) to read when it's taller than Windows can read at once.
+    enlarge=False: a page drawn big enough already (a scanned PDF page), read at its own size."""
     longest = max(width, height, 1)
     # (screen text is small: Windows reads it much better twice as big, and a little bigger still for big screens)
-    f = min(3.0, max(2.0 if longest <= 2600 else 1.5, 1200 / longest))
+    f = min(3.0, max(2.0 if longest <= 2600 else 1.5, 1200 / longest)) if enlarge else 1.0
     f = min(f, limit / max(width, 1))  # (too wide: smaller, there's no reading in pieces side by side)
     h = round(height * f)
     if h <= limit:
@@ -466,7 +467,7 @@ def _for_reading(im):
     return grey.convert("RGB")
 
 
-def read_lines(im) -> list[OcrLine]:
+def read_lines(im, enlarge: bool = True) -> list[OcrLine]:
     """Reads the text in a picture (Pillow) with Windows' own OCR: lines of words with where each one is.
     Takes a moment, so not on the window's thread."""
     from PIL import Image
@@ -476,7 +477,7 @@ def read_lines(im) -> list[OcrLine]:
         limit = int(OcrEngine.max_image_dimension)
     except Exception:
         limit = 10000
-    f, strips = ocr_pieces(im.width, im.height, limit)
+    f, strips = ocr_pieces(im.width, im.height, limit, enlarge)
     big = im.resize((max(1, round(im.width * f)), max(1, round(im.height * f))), Image.LANCZOS) if f != 1 else im
     with tempfile.TemporaryDirectory(prefix="corefold-", ignore_cleanup_errors=True) as tmp:
         paths = []

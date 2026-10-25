@@ -268,6 +268,187 @@ def _run7z(args: list, ctx: Ctx | None = None, cwd: Path | None = None) -> tuple
     return run_with_progress(cmd, ctx, _progress, cwd=cwd, typed=typed)
 
 
+# ----------------------------------------------------------------------------- ZIP name code pages
+
+# A ZIP made before UTF-8 (Windows' own "Compressed folder", old WinZip and WinRAR) keeps its names in the
+# code page of the PC that made it, without saying which. Unpacked on a PC with another one, Arabic names
+# come out as rubbish. So Corefold reads the raw names and works out which code page reads them best.
+# Arabic ones are mostly 720 (Arabic DOS, what Windows itself writes), some 1256 (Arabic Windows) or 864.
+UTF8_CP = 65001
+CODEPAGES = (720, 1256, 864)          # tried, with the PC's own two, for names that aren't UTF-8
+_SAMPLE_NAMES = 3000                  # raw names read to decide (from the start of the table of contents)
+_chosen_cp: dict[str, int] = {}       # archive -> code page the person picked while it's open
+
+
+def _pc_codepages() -> list[int]:
+    if os.name != "nt":
+        return []
+    try:
+        import ctypes
+        k32 = ctypes.windll.kernel32
+        return [int(k32.GetOEMCP()), int(k32.GetACP())]
+    except Exception:
+        return []
+
+
+def _legacy_zip_names(src: Path, limit: int = _SAMPLE_NAMES) -> list[bytes]:
+    """The raw names in a ZIP's table of contents that aren't marked UTF-8 and aren't plain ASCII
+    (only the first `limit` items are read, so even a ZIP of 200,000 files is quick)."""
+    import struct
+    try:
+        size = src.stat().st_size
+        with open(src, "rb") as fh:
+            tail_len = min(size, 65536 + 22)
+            fh.seek(size - tail_len)
+            tail = fh.read(tail_len)
+            at = tail.rfind(b"PK\x05\x06")
+            if at < 0 or len(tail) - at < 22:
+                return []
+            cd_size, cd_offset = struct.unpack_from("<II", tail, at + 12)
+            end = size - tail_len + at  # where the table of contents ends
+            if (cd_size == 0xFFFFFFFF or cd_offset == 0xFFFFFFFF) and at >= 20 \
+                    and tail[at - 20:at - 16] == b"PK\x06\x07":  # ZIP64: its own end record says
+                z64 = struct.unpack_from("<Q", tail, at - 12)[0]
+                fh.seek(z64)
+                rec = fh.read(56)
+                if rec[:4] != b"PK\x06\x06" or len(rec) < 56:
+                    return []
+                cd_size = struct.unpack_from("<Q", rec, 40)[0]
+                end = z64
+            start = end - cd_size  # (counted from the end: right even with something stuck in front)
+            if start < 0:
+                return []
+            fh.seek(start)
+            data = fh.read(min(cd_size, 8 << 20))
+    except (OSError, struct.error, ValueError):
+        return []
+    names, pos = [], 0
+    while len(names) < limit and pos + 46 <= len(data) and data[pos:pos + 4] == b"PK\x01\x02":
+        flag = struct.unpack_from("<H", data, pos + 8)[0]
+        n_len, x_len, c_len = struct.unpack_from("<HHH", data, pos + 28)
+        raw = data[pos + 46:pos + 46 + n_len]
+        extra = data[pos + 46 + n_len:pos + 46 + n_len + x_len]
+        pos += 46 + n_len + x_len + c_len
+        if flag & 0x800 or raw.isascii():
+            continue
+        if _has_unicode_path(extra):  # (a UTF-8 copy of the name rides along: 7-Zip uses that one)
+            continue
+        names.append(raw)
+    return names
+
+
+def _has_unicode_path(extra: bytes) -> bool:
+    import struct
+    pos = 0
+    while pos + 4 <= len(extra):
+        tag, n = struct.unpack_from("<HH", extra, pos)
+        if tag == 0x7075:
+            return True
+        pos += 4 + n
+    return False
+
+
+def _cp_score(names: list[bytes], cp: int) -> float | None:
+    """How well code page cp reads these names: letters of one script score, symbols, box lines and
+    letters of a second script count against it. None: it can't read them at all."""
+    import unicodedata
+    enc = "utf-8" if cp == UTF8_CP else f"cp{cp}"
+    score, scripts = 0.0, {}
+    for raw in names:
+        try:
+            text = unicodedata.normalize("NFKC", raw.decode(enc))
+        except (UnicodeDecodeError, LookupError):
+            return None
+        for ch in text:
+            if ch.isascii():
+                continue
+            if ch.isalpha():
+                try:
+                    script = unicodedata.name(ch).split(" ", 1)[0]
+                except ValueError:
+                    script = "?"
+                scripts[script] = scripts.get(script, 0) + 1
+            elif unicodedata.category(ch)[0] in "MN":  # (Arabic marks and digits)
+                score += 0.5
+            else:
+                score -= 3
+    if scripts:
+        main = max(scripts.values())
+        score += main - 2 * (sum(scripts.values()) - main)
+    return score
+
+
+def detect_zip_codepage(src: Path) -> int | None:
+    """The code page an old ZIP's names are in (UTF8_CP for UTF-8 without the mark), or None when every
+    name already says it's UTF-8 or is plain ASCII."""
+    names = _legacy_zip_names(src)
+    if not names:
+        return None
+    if _cp_score(names, UTF8_CP) is not None:  # (rubbish almost never reads as UTF-8 by chance)
+        return UTF8_CP
+    pc = _pc_codepages()
+    order = list(dict.fromkeys([*pc[:1], *CODEPAGES, *pc[1:]]))  # ties go to the PC's own DOS one
+    best, best_score = None, None
+    for cp in order:
+        got = _cp_score(names, cp)
+        if got is not None and (best_score is None or got > best_score):
+            best, best_score = cp, got
+    return best
+
+
+def _key(src: Path) -> str:
+    return os.path.normcase(os.path.abspath(src))
+
+
+def is_zip(src: Path) -> bool:
+    return src.suffix.lower() in (".zip", ".zipx") and not is_tar(src)
+
+
+def zip_codepage(src: Path) -> int | None:
+    """The code page used for this ZIP's names: the one picked in the archive window, else the one
+    worked out (None: nothing to do)."""
+    if not is_zip(src):
+        return None
+    chosen = picked_zip_codepage(src)
+    if chosen is not None:
+        return chosen or None  # (0: "as the PC reads it")
+    return found_zip_codepage(src)
+
+
+def found_zip_codepage(src: Path) -> int | None:
+    return _cached("codepage", src, lambda: detect_zip_codepage(src))
+
+
+def picked_zip_codepage(src: Path) -> int | None:
+    return _chosen_cp.get(_key(src))
+
+
+def set_zip_codepage(src: Path, cp: int | None):
+    """Picked in the archive window. None goes back to working it out; 0 reads names as the PC does."""
+    if cp is None:
+        _chosen_cp.pop(_key(src), None)
+    else:
+        _chosen_cp[_key(src)] = cp
+
+
+def has_legacy_names(src: Path) -> bool:
+    return is_zip(src) and _cached("legacy-names", src, lambda: bool(_legacy_zip_names(src, 1)))
+
+
+def _cp(src: Path) -> list[str]:
+    """7-Zip's switch for the names' code page, if this ZIP needs one."""
+    cp = zip_codepage(src)
+    return [f"-mcp={cp}"] if cp else []
+
+
+def _open_zip(src: Path) -> zipfile.ZipFile:
+    """Python's own ZIP reader (no 7-Zip), reading the names in the right code page."""
+    cp = zip_codepage(src)
+    if cp:
+        return zipfile.ZipFile(src, metadata_encoding="utf-8" if cp == UTF8_CP else f"cp{cp}")
+    return zipfile.ZipFile(src)
+
+
 # ----------------------------------------------------------------------------- listing
 
 def _parse_slt(out: str) -> list[Entry]:
@@ -311,7 +492,7 @@ def list_entries(src: Path, password: str = "") -> list[Entry]:
             raise RuntimeError(tr("the archive is damaged or incomplete")) from e
         return [Entry(_zst_inner_name(src), max(0, size), src.stat().st_size, _tar_time(src.stat().st_mtime))]
     if find_7z():
-        code, out = _run7z(["l", "-slt", "-sccUTF-8", _pw(password), str(src)])
+        code, out = _run7z(["l", "-slt", "-sccUTF-8", *_cp(src), _pw(password), str(src)])
         if code not in (0, 1):
             raise _7z_error(out)
         entries = _parse_slt(out)
@@ -319,7 +500,7 @@ def list_entries(src: Path, password: str = "") -> list[Entry]:
         return [e for e in entries if e.path != str(src).replace("\\", "/")]
     if src.suffix.lower() == ".zip":
         try:
-            with zipfile.ZipFile(src) as zf:
+            with _open_zip(src) as zf:
                 return [Entry(i.filename.rstrip("/"), i.file_size, i.compress_size,
                               "%04d-%02d-%02d %02d:%02d" % i.date_time[:5], i.is_dir(), bool(i.flag_bits & 1))
                         for i in zf.infolist()]
@@ -363,12 +544,12 @@ def password_works(src: Path, password: str) -> bool:
     if find_7z():
         listfile = _listfile([smallest.path])
         try:
-            code, _ = _run7z(["t", str(src), "-sccUTF-8", "-scsUTF-8", _pw(password), f"@{listfile}"])
+            code, _ = _run7z(["t", str(src), "-sccUTF-8", "-scsUTF-8", *_cp(src), _pw(password), f"@{listfile}"])
         finally:
             listfile.unlink(missing_ok=True)
         return code == 0
     try:
-        with zipfile.ZipFile(src) as zf:
+        with _open_zip(src) as zf:
             zf.setpassword(password.encode())
             with zf.open(smallest.path) as f:
                 while f.read(1 << 20):
@@ -464,7 +645,7 @@ def _extract_into(src: Path, target: Path, ctx: Ctx, password: str, members: lis
         # -snz: files from a downloaded archive keep its "from the internet" mark (Windows then still
         # warns before running them); -spd: names are names, not wildcards
         args = ["x", str(src), f"-o{target}", "-y", "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-snz", "-spd",
-                _pw(password)]
+                *_cp(src), _pw(password)]
         listfile = None
         if members:
             listfile = _listfile([m.replace("/", os.sep) for m in members])
@@ -479,7 +660,7 @@ def _extract_into(src: Path, target: Path, ctx: Ctx, password: str, members: lis
             raise _7z_error(out)
         return
     wanted = set(members or [])
-    with zipfile.ZipFile(src) as zf:
+    with _open_zip(src) as zf:
         infos = [i for i in zf.infolist() if not wanted or i.filename.rstrip("/") in wanted]
         for i, info in enumerate(infos):
             ctx.check()
@@ -634,11 +815,11 @@ def test_archive(src: Path, ctx: Ctx) -> Result:
             raise RuntimeError(tr("the archive is damaged or incomplete")) from e
         return Result(note=tr("No problems found in {name}", name=src.name))
     if find_7z():
-        code, out = _run7z(["t", str(src), "-bsp1", "-bse1", "-sccUTF-8", _pw(password)], ctx)
+        code, out = _run7z(["t", str(src), "-bsp1", "-bse1", "-sccUTF-8", *_cp(src), _pw(password)], ctx)
         if code not in (0, 1):
             raise _7z_error(out)
         return Result(note=tr("No problems found in {name}", name=src.name))
-    with zipfile.ZipFile(src) as zf:
+    with _open_zip(src) as zf:
         if password:
             zf.setpassword(password.encode())
         try:
@@ -722,6 +903,8 @@ def pack_into(items: list[Path], out: Path, ctx: Ctx, fmt: str = "zip", level: s
     if find_7z():
         args = ["a", f"-t{fmt}", f"-mx={LEVELS.get(level, 5)}", "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-ssw", "-y",
                 "-spd"]
+        if fmt == "zip":  # (names always marked UTF-8: they read right on every PC and in every program)
+            args.append("-mcu=on")
         if password:
             args.append(_pw(password, making=True))
             args.append("-mhe=on" if fmt == "7z" else "-mem=AES256")
@@ -836,7 +1019,8 @@ def add_files(src: Path, items: list[Path], ctx: Ctx) -> Result:
         group = [p for p in items if p.parent.resolve() == parent]
         listfile = _listfile([p.name for p in group])
         try:
-            args = ["a", str(src.resolve()), "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-scsUTF-8", "-ssw", "-y", "-spd"]
+            args = ["a", str(src.resolve()), "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-scsUTF-8", "-ssw", "-y", "-spd",
+                    *_cp(src)]
             if password:
                 args.append(_pw(password, making=True))
             code, out = _run7z([*args, f"@{listfile}"], ctx, cwd=parent)
@@ -852,7 +1036,7 @@ def delete_entries(src: Path, members: list[str], ctx: Ctx) -> Result:
         raise RuntimeError(tr("only ZIP and 7z archives can be changed"))
     listfile = _listfile([m.replace("/", os.sep) for m in members])
     try:
-        code, out = _run7z(["d", str(src), "-bsp1", "-bse1", "-sccUTF-8", "-scsUTF-8", "-y", "-spd",
+        code, out = _run7z(["d", str(src), "-bsp1", "-bse1", "-sccUTF-8", "-scsUTF-8", "-y", "-spd", *_cp(src),
                             _pw(ctx.params.get("password", "")), f"@{listfile}"], ctx)
     finally:
         listfile.unlink(missing_ok=True)
@@ -900,7 +1084,7 @@ def read_member(src: Path, member: str, password: str = "", limit: int = PREVIEW
     if exe:
         listfile = _listfile([member.replace("/", os.sep)])
         try:
-            cmd, typed = _with_password([exe, "e", "-so", "-sccUTF-8", "-scsUTF-8", "-spd", _pw(password), str(src),
+            cmd, typed = _with_password([exe, "e", "-so", "-sccUTF-8", "-scsUTF-8", "-spd", *_cp(src), _pw(password), str(src),
                                          f"@{listfile}"])
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                     stdin=subprocess.PIPE if typed else subprocess.DEVNULL, creationflags=NO_WINDOW)
@@ -930,7 +1114,7 @@ def read_member(src: Path, member: str, password: str = "", limit: int = PREVIEW
         if not data and proc.returncode not in (0, 1):  # (nothing read: 7-Zip had finished by itself)
             raise _7z_error(err.decode("utf-8", "replace"))
         return data
-    with zipfile.ZipFile(src) as zf:
+    with _open_zip(src) as zf:
         try:
             with zf.open(member, pwd=password.encode() if password else None) as f:
                 return f.read(limit)
@@ -1021,7 +1205,8 @@ def update_member(src: Path, member: str, new_file: Path, ctx: Ctx) -> Result:
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(new_file, dest)
         listfile = _listfile([rel])
-        args = ["u", str(src.resolve()), UPDATE_ALL, "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-scsUTF-8", "-y", "-spd"]
+        args = ["u", str(src.resolve()), UPDATE_ALL, "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-scsUTF-8", "-y", "-spd",
+                *_cp(src)]
         password = ctx.params.get("password", "")
         if password:
             args.append(_pw(password, making=True))
@@ -1199,7 +1384,7 @@ def repair_archive(src: Path, ctx: Ctx) -> Result:
         if find_7z():
             with _SpaceGuard(ctx, stage, _rescue_budget(src.stat().st_size, stage)) as guarded:
                 code, out = _run7z(["x", str(src), f"-o{stage}", "-y", "-bsp1", "-bse1", "-bb0", "-sccUTF-8",
-                                    "-snz", "-spd", _pw(password)], guarded)
+                                    "-snz", "-spd", *_cp(src), _pw(password)], guarded)
             if code not in (0, 1):
                 err = _7z_error(out)
                 if isinstance(err, NeedPassword):

@@ -64,6 +64,8 @@ class Options:
     rename_start: int = 1
     gpu: bool = False                  # videos made with the graphics card when it can (much faster)
     keep_dates: bool = False           # a converted file gets the original's "Date modified"
+    video_crf: int = 20                # how good the Converter's videos are (x264's scale: lower = better)
+    video_max: int = 0                 # their shorter side at most (0 = as it is); never made bigger
 
 
 @dataclass

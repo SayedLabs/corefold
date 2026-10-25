@@ -376,6 +376,26 @@ class Files(QTreeWidget):
         self.header().setSectionsClickable(True)
         self.header().sectionClicked.connect(self._sort_by)
         self.headerItem().setToolTip(0, tr("Click a column's name to sort by it"))
+        # Select all in a folder of thousands: the rows still to come are selected as they come (making all
+        # 20,000 at once held the window up for a second), until the selection is changed by hand
+        self.all_picked = False
+        self._picking = False
+        self.itemSelectionChanged.connect(self._selection_changed)
+
+    def _selection_changed(self):
+        if not self._picking:
+            self.all_picked = False
+
+    def pick_rows(self, first: int, last: int):
+        """Selects rows first..last (ones just added, while everything is selected) in one go."""
+        from PySide6.QtCore import QItemSelection, QItemSelectionModel
+        model = self.model()
+        self._picking = True
+        try:
+            self.selectionModel().select(QItemSelection(model.index(first, 0), model.index(last, 0)),
+                                         QItemSelectionModel.Select | QItemSelectionModel.Rows)
+        finally:
+            self._picking = False
 
     def _sort_by(self, col: int):
         old, down = self.sort_state
@@ -392,11 +412,17 @@ class Files(QTreeWidget):
         self.page.resort()
 
     def selectAll(self):
-        self.page.finish_rows()  # (every file, not just the rows already shown)
-        super().selectAll()
+        self._picking = True
+        try:
+            super().selectAll()
+        finally:
+            self._picking = False
+        self.all_picked = bool(self.page._later)  # (every file, not just the rows already shown)
 
     def picked(self) -> tuple[cloud.Account | None, list]:
         """The selected items of one account (the first one picked, when a search found things in several)."""
+        if self.all_picked:  # (something is done with all of them: the rows still to come are made now)
+            self.page.finish_rows()
         acc, out = None, []
         for it in self.selectedItems():
             e, a = it.data(0, Qt.UserRole), it.data(0, ACCOUNT) or self.page.account
@@ -1026,6 +1052,7 @@ class CloudPage(QWidget):
         self.shown = found
         self._round += 1
         self._later = list(found[FIRST_ROWS:])
+        self.files.all_picked = False
         self.files.clear()
         self._add_rows(found[:FIRST_ROWS])
         if self._later:
@@ -1071,7 +1098,12 @@ class CloudPage(QWidget):
         if not work.alive(self) or round_ != self._round:  # (another folder is shown now)
             return
         part, self._later = self._later[:count], self._later[count:]
+        first = self.files.topLevelItemCount()
         self._add_rows(part)
+        if self.files.all_picked and part:
+            self.files.pick_rows(first, first + len(part) - 1)
+        if not self._later:
+            self.files.all_picked = False
         if self._later:
             QTimer.singleShot(0, lambda: self._more_rows(round_))
 
@@ -1217,6 +1249,12 @@ class CloudPage(QWidget):
             for a in others:
                 sub.addAction(self._ic("hard_drive" if a.local else "cloud"), ltr(a.title),
                               lambda a=a: self.copy_to(acc, picked, a, None))
+            if not fixed:
+                sub = menu.addMenu(self._ic("cut"), tr("Move to"))
+                round_menu(sub)
+                for a in others:
+                    sub.addAction(self._ic("hard_drive" if a.local else "cloud"), ltr(a.title),
+                                  lambda a=a: self.copy_to(acc, picked, a, None, move=True))
         if not fixed:
             if one is not None:
                 menu.addAction(self._ic("rename"), tr("Rename…") + "\tF2", lambda: self.rename(acc, one))
@@ -1539,31 +1577,45 @@ class CloudPage(QWidget):
             return tr("Deleted.")
         self._run(go, what=tr("Delete {what}", what=what))
 
-    def copy_to(self, source: cloud.Account, entries: list, target: cloud.Account, into: cloud.Entry | None):
-        """Copies files and folders from one account to another (into a folder there, or its top). Online ones go
-        through a temporary folder on this PC; folders on this PC are copied straight from where they are."""
+    def copy_to(self, source: cloud.Account, entries: list, target: cloud.Account, into: cloud.Entry | None,
+                move: bool = False):
+        """Copies files and folders from one account to another (into a folder there, or its top), one file at a
+        time through this PC; folders on this PC are copied straight from where they are. move: each one that got
+        there whole is then deleted from where it was (into that account's deleted files, or the Recycle Bin)."""
         if not entries or source.key == target.key:
             return
+        if move:
+            entries = [e for e in entries if e.kind not in ("virtual", "drive")]
+            if not entries:
+                return
 
         def go(progress, cancel):
             src, dst = cloud.client(source), cloud.client(target)
-            count = 0
+            count = moved = 0
             for e in entries:
+                left_out = len(src.skipped)
                 if source.local:
                     count += cloud.upload_tree(dst, Path(e.id), into, progress, cancel)
-                    continue
-                folder = Path(tempfile.mkdtemp(prefix=TEMP_PREFIX))
-                try:
-                    cloud.download_tree(src, e, folder, progress, cancel)
-                    for p in folder.iterdir():
-                        count += cloud.upload_tree(dst, p, into, progress, cancel)
-                finally:
-                    shutil.rmtree(folder, ignore_errors=True)
-            said = tr("Copied 1 file to {name}.", name=ltr(target.title)) if count == 1 else \
-                tr("Copied {count} files to {name}.", count=count, name=ltr(target.title))
+                else:
+                    count += cloud.copy_tree(src, e, dst, into, progress, cancel)
+                if move and len(src.skipped) == left_out:  # (all of it got there: only then is it taken away)
+                    if cancel.is_set():
+                        raise cloud.CloudError("cancelled")
+                    src.delete(e)
+                    moved += 1
+            if move:
+                said = tr("Moved 1 file to {name}.", name=ltr(target.title)) if count == 1 else \
+                    tr("Moved {count} files to {name}.", count=count, name=ltr(target.title))
+                if moved < len(entries):
+                    said += " " + tr("What couldn't be copied whole stays where it was.")
+            else:
+                said = tr("Copied 1 file to {name}.", name=ltr(target.title)) if count == 1 else \
+                    tr("Copied {count} files to {name}.", count=count, name=ltr(target.title))
             return said + _left_out(src)
-        self._run(go, refresh=self.account is not None and self.account.key == target.key,
-                  what=tr("Copy {what} to {name}", what=self._what(entries), name=ltr(target.title)))
+        here = self.account is not None and self.account.key in (target.key, source.key if move else "")
+        self._run(go, refresh=here,
+                  what=(tr("Move {what} to {name}", what=self._what(entries), name=ltr(target.title)) if move else
+                        tr("Copy {what} to {name}", what=self._what(entries), name=ltr(target.title))))
 
     @staticmethod
     def _what(entries: list) -> str:

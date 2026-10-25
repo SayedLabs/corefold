@@ -4,6 +4,7 @@ from __future__ import annotations
 import ctypes
 import ctypes.wintypes as wt
 import subprocess
+import threading
 from pathlib import Path
 
 user32 = ctypes.windll.user32
@@ -99,13 +100,18 @@ def properties(path: Path) -> bool:
 
 
 def play_sound(path: Path | None):
+    """Plays it without holding the window up: even "async", Windows can take seconds to wake the sound
+    device first (one that was asleep, Bluetooth headphones), so it's asked for on a thread of its own."""
     if not path:
         return
-    try:
-        import winsound
-        winsound.PlaySound(str(path), winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
-    except Exception:
-        pass
+
+    def play():
+        try:
+            import winsound
+            winsound.PlaySound(str(path), winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
+        except Exception:
+            pass
+    threading.Thread(target=play, name="corefold-sound", daemon=True).start()
 
 
 def any_button_down() -> bool:
