@@ -1,0 +1,14 @@
+
+errors:
+
+notes:
+435 presses in all; would have opened: 9 (file:///C:/Users/runneradmin/Pictures/Screenshots, startfile ('windowsdefender://threat',), program "C:\Windows\explorer.exe" /select,"C:\Users\runneradmin\Desktop", startfile ('ms-settings:defaultapps?registeredAppUser=Corefold',), startfile ('ms-settings:defaultapps?registeredAppUser=Corefold',), startfile ('ms-settings:defaultapps?registeredAppUser=Corefold',), file:///C:/Users/runneradmin/Pictures/Screenshots, file:///C:/Users/RUNNER~1/AppData/Local/Temp/corefold-sweep-d6r52gei/local/Corefold)
+the search ran 243 of 243 things
+round 1: 13 windows, 959 widgets, 286 MB, 60320 Python objects
+round 2: 11 windows, 957 widgets, 277 MB, 61233 Python objects
+round 3: 11 windows, 957 widgets, 276 MB, 60673 Python objects
+memory as tools come and go (286 → 277 → 276 MB, -1.0 MB a round)
+after 10 opens: 226 MB, 15 widgets, 5 windows
+after 20 opens: 215 MB, 15 widgets, 5 windows
+after 30 opens: 217 MB, 15 widgets, 5 windows
+after 40 opens: 217 MB, 15 widgets, 5 windows

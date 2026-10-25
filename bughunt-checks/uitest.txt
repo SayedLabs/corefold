@@ -1,0 +1,13 @@
+ok    a picture opens in the Viewer
+ok    …and shows up
+ok    …as 2 of 3 (2 of 3)
+ok    next picture fast (0.01 s)
+ok    → goes to the next one
+ok    turned right on screen
+ok    …the white half is on top (#ffffff)
+ok    Save shows up after a change
+ok    Save works
+ok    the file is turned the same way (600, 900) (255, 255, 255)
+ok    square crop
+ok    details panel
+ok    Delete sends it to the Recycle Bin

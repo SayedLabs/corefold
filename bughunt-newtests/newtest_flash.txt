@@ -1,0 +1,84 @@
+note  starting in the background
+note  every page
+note  opening the Home page
+note  opening the History page
+note  opening the Files page
+note  opening the Media page
+note  opening the Computer page
+note  opening the QuickTools page
+note  opening the Converter page
+note  opening the Apps page
+note  opening the Archives page
+note  opening the Viewer page
+note  opening the Player page
+note  opening the Capture page
+note  opening the Space page
+note  opening the Clipboard page
+note  opening the Cloud page
+note  opening the Startup page
+note  opening the Scan page
+note  opening the PDF page
+note  opening the Rename page
+note  opening the Colors page
+note  opening the Ruler page
+note  opening the Check page
+note  opening the Shredder page
+note  opening the Fonts page
+note  opening the Network page
+note  opening the Battery page
+note  opening the Focus page
+note  opening the Layouts page
+note  opening the Drivers page
+note  opening the Awake page
+note  opening the Snippets page
+note  opening the Backup page
+note  opening the Notes page
+note  opening the System page
+note  opening the Unlock page
+note  opening the Organizer page
+note  opening the Sound page
+note  opening the General page
+note  opening the Look page
+note  opening the Quick page
+note  opening the Shortcuts page
+note  opening the ConvOptions page
+note  opening the WheelLook page
+note  opening the Formats page
+note  opening the AppsSettings page
+note  opening the ArchiveSettings page
+note  opening the ViewerSettings page
+note  opening the PlayerSettings page
+note  opening the CaptureSettings page
+note  opening the ClipboardSettings page
+note  opening the Updates page
+note  opening the About page
+note  switching tools
+note  switching viewer off in Media
+note  switching viewer on in Media
+note  switching player off in Media
+note  switching player on in Media
+note  switching capture off in Media
+note  switching capture on in Media
+note  switching space off in Computer
+note  switching space on in Computer
+note  switching clipboard off in QuickTools
+note  switching clipboard on in QuickTools
+note  switching cloud off in Files
+note  switching cloud on in Files
+note  tool windows
+note  the Viewer
+note  an archive window
+note  the clipboard popup
+note  the quick menu
+note  the quick wheel
+note  the drag wheel
+note  a message in the corner
+note  jobs
+ok    a picture has something to be turned into
+note  a conversion (image:jpg)
+note  extracting an archive (archive:extract)
+note  idle
+note  the window closed, idle in the tray
+ok    no window flashed (11 windows shown in 182 s)
+ok    no errors behind the steps (0)
+newtest_flash: 0 problem(s)
