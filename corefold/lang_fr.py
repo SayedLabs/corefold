@@ -817,6 +817,7 @@ STRINGS: dict[str, str] = {
     "Rescue files": "Sauver les fichiers",
     "Rescue files from {name}": "Sauver les fichiers de {name}",
     "Also unpacked {count} archives that were inside": "{count} archives qui étaient à l'intérieur ont aussi été extraites",
+    "Show older versions ({count})": "Voir les versions précédentes ({count})",
     "Left out {count} links that pointed elsewhere": "{count} liens qui pointaient ailleurs ont été laissés de côté",
     "the archive holds a link that couldn't be taken out": "l'archive contient un lien qui n'a pas pu être retiré",
     "couldn't put that file back into the archive": "impossible de remettre ce fichier dans l'archive",

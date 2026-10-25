@@ -75,6 +75,9 @@ def open_release_page(notes: Notes):
         QDesktopServices.openUrl(QUrl(url))
 
 
+FIRST_SHOWN = 5  # versions listed before "Show older versions"
+
+
 class VersionHistory(QWidget):
     """Every version's notes kept with Corefold (newest first), each one opened with a click; works without
     the internet. The installed version's are open to begin with. Its rows are made just after it's first
@@ -102,8 +105,30 @@ class VersionHistory(QWidget):
         lay = self.layout()
         # (one style for every row, set once: a style of its own on each row made the page slow to open)
         self.setStyleSheet('QPushButton[historyRow="true"] { text-align: %s; }' % ("right" if i18n.is_rtl() else "left"))
-        for n, notes in enumerate(releasenotes.heads()):  # (each version's changes are read when it's opened)
-            if n:
+        heads = releasenotes.heads()  # (each version's changes are read when it's opened)
+        first = next((i for i, h in enumerate(heads) if h.version == self.current), 0) + 1
+        self._rest = heads[max(FIRST_SHOWN, first):]  # (older versions: shown when asked, the page opens quicker)
+        self._add(heads[:max(FIRST_SHOWN, first)])
+        if self._rest:
+            self.more = QPushButton(tr("Show older versions ({count})", count=len(self._rest)))
+            self.more.setObjectName("flat")
+            self.more.setCursor(Qt.PointingHandCursor)
+            self.more.clicked.connect(self.show_older)
+            lay.addWidget(self.more, 0, Qt.AlignLeading)
+        for i, (notes, _, _) in enumerate(self.rows):
+            if notes.version == self.current:
+                self.show_notes(i, True)
+
+    def show_older(self):
+        rest, self._rest = self._rest, []
+        if rest:
+            self.more.hide()
+            self._add(rest)
+
+    def _add(self, heads: list[Notes]):
+        lay = self.layout()
+        for notes in heads:
+            if self.rows:
                 line = QFrame()
                 line.setObjectName("line")
                 lay.addWidget(line)
@@ -130,9 +155,6 @@ class VersionHistory(QWidget):
             toggle.clicked.connect(lambda _=False, i=len(self.rows) - 1: self.show_notes(i))
             body._open = False
             self._name(len(self.rows) - 1)
-        for i, (notes, _, _) in enumerate(self.rows):
-            if notes.version == self.current:
-                self.show_notes(i, True)
 
     def _name(self, i: int):
         notes, toggle, body = self.rows[i]
@@ -156,6 +178,7 @@ class VersionHistory(QWidget):
 
     def versions(self) -> list[str]:
         self._make()
+        self.show_older()
         return [notes.version for notes, _, _ in self.rows]
 
 
