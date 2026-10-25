@@ -133,13 +133,14 @@ class FeatureSide(QFrame):
             row.set_narrow(self.narrow)
         self.more = None
         if off:  # (the tool's page is where they're switched on)
-            self.more = QPushButton(tr("{count} more you can switch on", count=off))
+            # (made inside the list: a button without a parent is shown as a window of its own for a moment)
+            self.more = QPushButton(tr("{count} more you can switch on", count=off), self.inner)
             self.more.setObjectName("flat")
             self.more.setCursor(Qt.PointingHandCursor)
             self.more.clicked.connect(lambda: self.opened.emit(sec.page))
-            self.more.setVisible(not self.narrow)
             self.list.addSpacing(4)
             self.list.addWidget(self.more, 0, Qt.AlignLeading)
+            self.more.setVisible(not self.narrow)
         self.list.addStretch()
 
     def set_current(self, page: str):

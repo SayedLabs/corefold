@@ -122,3 +122,21 @@ def test_a_files_page_says_only_the_features_name(window):
     w.open_page("PDF")
     titles = [lab.text() for lab in w.stack.currentWidget().findChildren(QLabel) if lab.objectName() == "h1"]
     assert titles[:1] == ["PDF"]
+
+
+def test_the_pdf_editor_gets_the_room(window, tmp_path, qtbot):
+    from pypdf import PdfWriter
+    w = window
+    doc = tmp_path / "two.pdf"
+    wr = PdfWriter()
+    wr.add_blank_page(300, 400)
+    wr.add_blank_page(300, 400)
+    wr.write(str(doc))
+    w.open_page("PDF")
+    before = w.feature_side.narrow  # (icons only already if the test screen is small)
+    w.pdf_page.open_editor(doc)  # (it looks at the PDF first, in the background)
+    qtbot.waitUntil(lambda: w.pdf_page.editor is not None and w.pdf_page.stack.currentWidget() is w.pdf_page.editor,
+                    timeout=10000)
+    assert w.feature_side.narrow  # (icons only while editing: the editor's own list of pages has room)
+    w.pdf_page.editor.close_editor(ask=False)
+    assert w.feature_side.narrow == before

@@ -964,7 +964,7 @@ class MainWindow(QWidget):
     def toggle_nav(self):
         self.set_nav_compact(not self._compact_now())
 
-    def set_nav_compact(self, compact: bool, remember: bool = True):
+    def set_nav_compact(self, compact: bool, remember: bool = True, animate: bool = True):
         """Icons only (narrow) or icons and names, sliding between the two."""
         if remember:
             self.c.settings.nav_compact = compact
@@ -979,7 +979,7 @@ class MainWindow(QWidget):
         self.menu_btn.setToolTip(tr("Show the names") if compact else tr("Icons only"))
         if self._nav_anim is not None:
             self._nav_anim.stop()
-        if not (self.c.settings.animations and self.isVisible()):
+        if not (animate and self.c.settings.animations and self.isVisible()):
             self._apply_nav_width(target)
             return
         from PySide6.QtCore import QEasingCurve, QVariantAnimation
@@ -1142,21 +1142,23 @@ class MainWindow(QWidget):
             return
         self._fit_nav()
 
-    def _fit_nav(self):
+    def _fit_nav(self, animate: bool = True):
         """Icons only in the sidebar while the window is narrow, or while a tool's features list needs the
-        room (names again when there's enough). Only on a change, so the menu button still opens it."""
+        room (names again when there's enough). Only on a change, so the menu button still opens it. With a
+        page that comes with the list or goes without it: at once, together with the page (not sliding after
+        it, with the page laid out twice)."""
         narrow = self.width() < 860 or (self.feature_side.isVisibleTo(self) and self.width() < 1180)
         if narrow != self._narrow:
             self._narrow = narrow
             self._auto_compact = narrow
-            self.set_nav_compact(narrow, remember=False)
+            self.set_nav_compact(narrow, remember=False, animate=animate)
 
     def eventFilter(self, obj, event):
         if obj is getattr(self, "canvas", None) and event.type() == QEvent.Type.Resize:
             self._fit_settings_side(event.size().width())
             if self.section_strip.isVisible():
                 self._fit_strip()
-            self.feature_side.set_narrow(event.size().width() < 760)
+            self._fit_feature_side()
         return False
 
     def _fit_settings_side(self, canvas_width: int):
@@ -1989,11 +1991,20 @@ class MainWindow(QWidget):
             self.feature_side.show_section(sec, on, off, t.accent, t.dark, self.devicePixelRatioF())
         if show:
             self.feature_side.set_current(name)
+            self._fit_feature_side()  # (the page beside it may want more room, or less)
         if show != self.feature_side.isVisibleTo(self):
             self.feature_side.setVisible(show)
             if hasattr(self, "canvas"):
-                self.feature_side.set_narrow(self.canvas.width() < 760)
-                self._fit_nav()
+                self._fit_nav(animate=False)
+
+    def _fit_feature_side(self):
+        """The features list shows icons only when there's no room for its words and the page beside it, and
+        while a page needs all the room it can get (the PDF editor, with its own list of pages)."""
+        if not hasattr(self, "canvas"):
+            return
+        pdf = self.pdf_page if self.current_page() == "PDF" else None
+        editing = pdf is not None and pdf.editor is not None and pdf.stack.currentWidget() is pdf.editor
+        self.feature_side.set_narrow(self.canvas.width() < 760 or editing)
 
     def _tool_title(self, tool_id: str) -> str:
         """A tool's name on its page: only its own name when it's a feature of one tool ("PDF")."""
@@ -2909,6 +2920,7 @@ class MainWindow(QWidget):
                              tr("Change what's in a PDF, merge, split and arrange its pages, shrink it and lock it."),
                              dark, dpr)
         self.pdf_page = PdfPage(self.c, header)
+        self.pdf_page.stack.currentChanged.connect(lambda _i: self._fit_feature_side())  # (the editor wants room)
         return self.pdf_page
 
     def _organizer(self) -> QWidget:
