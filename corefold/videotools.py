@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .converters import (_AAC, _H264, _PICK, AUDIO_ARGS, LOCAL_ONLY, Ctx, Result, find_tool, media_duration, norm,
                          probe, run_ffmpeg, tr)
-from .core import NO_WINDOW
+from .core import NO_WINDOW, _cached, legacy_text
 
 log = logging.getLogger("corefold")
 
@@ -101,12 +101,10 @@ def subtitle_text(path: Path) -> str:
     raw = path.read_bytes()
     if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
         return raw.decode("utf-16", "replace")
-    for enc in ("utf-8-sig", "cp1256", "cp1252"):
-        try:
-            return raw.decode(enc)
-        except UnicodeDecodeError:
-            continue
-    return raw.decode("latin-1")
+    try:
+        return raw.decode("utf-8-sig")
+    except UnicodeDecodeError:  # (cp1256 accepts any bytes, so the letters decide: see legacy_text)
+        return legacy_text(raw)
 
 
 def add_subtitles(src: Path, ctx: Ctx) -> Result:
@@ -138,15 +136,18 @@ def add_subtitles(src: Path, ctx: Ctx) -> Result:
 
 
 def subtitle_tracks(src: Path) -> list[str]:
-    """The codecs of the subtitles inside a video ("subrip", "ass", "hdmv_pgs_subtitle" …)."""
-    try:
-        out = subprocess.run([find_tool("ffprobe"), "-v", "error", "-select_streams", "s", "-show_entries",
-                              "stream=codec_name", "-of", "csv=p=0", *LOCAL_ONLY, str(src)],
-                             capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=20,
-                             stdin=subprocess.DEVNULL, creationflags=NO_WINDOW).stdout
-    except (OSError, subprocess.SubprocessError, RuntimeError):
-        return []
-    return [line.strip() for line in out.splitlines() if line.strip()]
+    """The codecs of the subtitles inside a video ("subrip", "ass", "hdmv_pgs_subtitle" …). Remembered until
+    the file changes: the wheel asks every time it opens over a video."""
+    def work():
+        try:
+            out = subprocess.run([find_tool("ffprobe"), "-v", "error", "-select_streams", "s", "-show_entries",
+                                  "stream=codec_name", "-of", "csv=p=0", *LOCAL_ONLY, str(src)],
+                                 capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=20,
+                                 stdin=subprocess.DEVNULL, creationflags=NO_WINDOW).stdout
+        except (OSError, subprocess.SubprocessError, RuntimeError):
+            return []
+        return [line.strip() for line in out.splitlines() if line.strip()]
+    return list(_cached("subs", src, work))
 
 
 PICTURE_SUBS = ("hdmv_pgs_subtitle", "dvd_subtitle", "dvb_subtitle", "xsub")

@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QDialog, QFileDialog, QHBoxLayout, QHeaderView, QL
 
 from . import emptyfolders, work
 from .i18n import ltr, tr
-from .timefmt import date_text
+from .timefmt import date_text, locale
 from .winutil import reveal_in_explorer, set_title_bar_dark
 
 
@@ -33,6 +33,11 @@ def _button(text: str, name: str | None = None, on_click=None) -> QPushButton:
     return b
 
 
+def _n(count: int) -> str:
+    """A number written the way the language in use writes it (like the rest of the window)."""
+    return locale().toString(int(count))
+
+
 def inside_text(item: emptyfolders.EmptyFolder) -> str:
     """What's in it: nothing, empty folders, or only files Windows leaves by itself."""
     names = ", ".join(item.leftovers)
@@ -40,7 +45,7 @@ def inside_text(item: emptyfolders.EmptyFolder) -> str:
         return tr("Only {names}", names=ltr(names)) if names else tr("Nothing")
     if item.inside == 1:
         return tr("1 empty folder and {names}", names=ltr(names)) if names else tr("1 empty folder")
-    count = f"{item.inside:,}"
+    count = _n(item.inside)
     return tr("{count} empty folders and {names}", count=count, names=ltr(names)) if names \
         else tr("{count} empty folders", count=count)
 
@@ -187,7 +192,7 @@ class EmptyFoldersDialog(QDialog):
 
     def _progress(self, args):
         if work.alive(self):
-            self._status(tr("Looking at folders… {count}", count=f"{args[0]:,}"))
+            self._status(tr("Looking at folders… {count}", count=_n(args[0])))
 
     def stop(self):
         self.cancel.set()
@@ -200,14 +205,15 @@ class EmptyFoldersDialog(QDialog):
             return
         self.job = None
         if isinstance(found, Exception):
-            self._status(str(found))
+            self._status(tr("Couldn't read it: {error}", error=str(found)))
             self._idle()
             return
         self.found = found
         self._fill()
         self._idle()
 
-    def _fill(self):
+    def _fill(self, unticked: set[int] = frozenset()):
+        """The list (unticked: id()s of folders the person unticked, which stay unticked)."""
         found = self.found
         self.tree.blockSignals(True)
         self.tree.clear()
@@ -215,7 +221,7 @@ class EmptyFoldersDialog(QDialog):
             it = QTreeWidgetItem([ltr(emptyfolders.shown_path(item)), inside_text(item),
                                   date_text(item.created, True)])
             it.setFlags(it.flags() | Qt.ItemIsUserCheckable)
-            it.setCheckState(0, Qt.Checked)
+            it.setCheckState(0, Qt.Unchecked if id(item) in unticked else Qt.Checked)
             it.setToolTip(0, item.path)
             it.setData(0, Qt.UserRole, item)
             self.tree.addTopLevelItem(it)
@@ -226,7 +232,7 @@ class EmptyFoldersDialog(QDialog):
             notes.append(tr("Stopped before the end. These are the empty folders found so far."))
         if found.capped:
             notes.append(tr("Stopped after {count} folders. Choose a smaller folder to look through the rest.",
-                            count=f"{emptyfolders.MAX_FOLDERS:,}"))
+                            count=_n(emptyfolders.MAX_FOLDERS)))
         if found.refused:
             notes.append(tr("Corefold doesn't look for empty folders inside Windows, programs' folders or AppData."))
         if any(i.leftovers for i in found.items):
@@ -236,7 +242,7 @@ class EmptyFoldersDialog(QDialog):
             notes.append(tr("1 empty folder made in the last day was left out: an app may be about to use it."))
         elif found.new_left:
             notes.append(tr("{count} empty folders made in the last day were left out: an app may be about to use "
-                            "them.", count=f"{found.new_left:,}"))
+                            "them.", count=_n(found.new_left)))
         self.notes.setText("\n".join(notes))
         self._ticked_changed()
 
@@ -261,8 +267,8 @@ class EmptyFoldersDialog(QDialog):
         elif total == 1:
             self.count.setText(tr("1 empty folder found"))
         else:
-            self.count.setText(tr("{count} empty folders found, {ticked} ticked", count=f"{total:,}",
-                                  ticked=f"{ticked:,}"))
+            self.count.setText(tr("{count} empty folders found, {ticked} ticked", count=_n(total),
+                                  ticked=_n(ticked)))
 
     def _show(self, it):
         if it is not None and it.data(0, Qt.UserRole) is not None:
@@ -286,24 +292,26 @@ class EmptyFoldersDialog(QDialog):
             return
         self.job = None
         if isinstance(gone, Exception):
-            self._status(str(gone))
+            self._status(tr("Windows couldn't remove it: {error}", error=str(gone)))
             self._idle()
             return
         went = {id(g) for g in gone}
+        # (the folders left out on purpose stay unticked: one more click mustn't send them away too)
+        unticked = {id(i) for i in self.found.items} - {id(i) for i in chosen}
         self.found.items = [i for i in self.found.items if id(i) not in went]
-        self._fill()
+        self._fill(unticked)
         self._idle()
         if gone:
             forget = getattr(self.page, "forget_maps", None)
             if forget is not None:
                 forget()  # (the maps kept are out of date)
             title = tr("1 empty folder removed") if len(gone) == 1 else \
-                tr("{count} empty folders removed", count=f"{len(gone):,}")
+                tr("{count} empty folders removed", count=_n(len(gone)))
             self.c.say(title, tr("They're in the Recycle Bin, if you need them back."), done=True)
         left = len(chosen) - len(gone)
         if left:
             self._status(tr("{count} couldn't be removed: something was put in them, or they're in use.",
-                                   count=f"{left:,}"))
+                                   count=_n(left)))
         elif gone:
             self._status(tr("They're in the Recycle Bin, if you need them back."))
 

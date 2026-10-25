@@ -80,9 +80,9 @@ def link_icon(target: str) -> str:
         return "rocket"
     if t.endswith(("\\", "/")) or (os.name == "nt" and len(t) <= 3 and t[1:2] == ":"):
         return "folder"
-    try:
+    try:  # (not on a network share: one that's offline holds the menu up for seconds at every key typed)
         p = Path(target)
-        if p.is_dir():
+        if not t.startswith(("\\\\", "//")) and p.is_dir():
             return "folder"
     except (OSError, ValueError):
         pass

@@ -38,7 +38,7 @@ def describe(item: Item) -> str:
     if item.kind == "image" and item.width:
         bits.append(f"{item.width} × {item.height}")
     elif item.kind == "files":
-        n = len(item.files)
+        n = item.size or len(item.files)  # (a list holds only the start of a long one)
         bits.append(tr("1 file") if n == 1 else tr("{count} files", count=n))
     if item.app:
         bits.append(ltr(item.app))
@@ -53,7 +53,7 @@ class Rows(QStyledItemDelegate):
     def __init__(self, clip: "Clipboard", theme, parent=None, tall: int = 56):
         super().__init__(parent)
         self.clip, self.theme, self.tall = clip, theme, tall
-        self.thumbs: dict[int, QPixmap] = {}
+        self.thumbs: dict[str, QPixmap] = {}   # by picture file (an id is given again after the newest goes)
         self.signs: dict[tuple, QPixmap] = {}
         self.numbers = False   # the first nine rows show their number (Ctrl + that number pastes it)
 
@@ -61,7 +61,7 @@ class Rows(QStyledItemDelegate):
         return QSize(100, self.tall)
 
     def _thumb(self, item: Item) -> QPixmap | None:
-        pm = self.thumbs.get(item.id)
+        pm = self.thumbs.get(item.image)
         if pm is None:
             path = self.clip.history.thumb_path(item)
             if not path.exists():
@@ -69,7 +69,7 @@ class Rows(QStyledItemDelegate):
             pm = QPixmap(str(path))
             if len(self.thumbs) > 300:
                 self.thumbs.clear()
-            self.thumbs[item.id] = pm
+            self.thumbs[item.image] = pm
         return None if pm.isNull() else pm
 
     def _sign(self, name: str, color: QColor, size: int, dpr: float) -> QPixmap:
@@ -502,7 +502,7 @@ class QuickPaste(QWidget):
         self.hide()
         if not self.clip.paste(item, self.target, plain):
             self.c.tell(tr("Couldn't paste"), tr("This picture isn't there any more."))
-        elif not (self.target and self.c.settings.clip_paste):
+        elif not self.clip.pasted:
             self.c.say(tr("Copied"), tr("Paste it anywhere with Ctrl+V."))
 
     def hideEvent(self, e):

@@ -59,6 +59,8 @@ LOCAL_HOSTS = {"localhost", "localhost.localdomain", "local", "broadcasthost", "
 # how deep to look in each place, and how much at most (so a huge Downloads folder doesn't take forever)
 MAX_FILES = 400_000
 MAX_SIGNATURES = 3_000
+# a file's attributes when it's only in the cloud: offline, recall on open, recall on data access
+ONLINE_ONLY = 0x1000 | 0x40000 | 0x400000
 
 
 def _env(name: str, default: str = "") -> Path:
@@ -341,12 +343,14 @@ STATUS_IDS = {2: "removed", 3: "quarantined", 4: "removed", 5: "allowed", 6: "bl
               104: "failed", 107: "failed"}
 SEVERITY_IDS = {1: "low", 2: "moderate", 4: "high", 5: "severe"}
 
+# (the date is made in brackets first: [datetime]'1970-01-01'.AddSeconds() would call AddSeconds on the text,
+# fail, and let every detection ever through; oldest first, so the newest note on a threat has the last word)
 DETECTIONS_SCRIPT = r"""
-$since = [datetime]'1970-01-01'.AddSeconds(%d)
+$since = ([datetime]::new(1970, 1, 1, 0, 0, 0, [DateTimeKind]::Utc)).AddSeconds(%d)
 $names = @{}; $sev = @{}; $cat = @{}
 Get-MpThreat -ErrorAction SilentlyContinue | ForEach-Object { $names["$($_.ThreatID)"] = $_.ThreatName; $sev["$($_.ThreatID)"] = [int]$_.SeverityID; $cat["$($_.ThreatID)"] = [int]$_.CategoryID }
 @(Get-MpThreatDetection -ErrorAction SilentlyContinue | Where-Object { $_.InitialDetectionTime.ToUniversalTime() -ge $since -or $_.LastThreatStatusChangeTime.ToUniversalTime() -ge $since } |
-  ForEach-Object { @{ id = "$($_.ThreatID)"; name = $names["$($_.ThreatID)"]; sev = $sev["$($_.ThreatID)"]; cat = $cat["$($_.ThreatID)"];
+  Sort-Object { $_.LastThreatStatusChangeTime } | ForEach-Object { @{ id = "$($_.ThreatID)"; name = $names["$($_.ThreatID)"]; sev = $sev["$($_.ThreatID)"]; cat = $cat["$($_.ThreatID)"];
     st = [int]$_.ThreatStatusID; ok = [bool]$_.ActionSuccess; res = @($_.Resources) } }) | ConvertTo-Json -Compress -Depth 4
 """
 
@@ -430,12 +434,12 @@ def run_defender(kind: str, paths: list[str], cancel: threading.Event, exe: str 
         while proc.poll() is None:
             if cancel.is_set():
                 proc.kill()
-                if kind != CUSTOM:
-                    try:
-                        subprocess.run([exe, "-Scan", "-Cancel"], capture_output=True, timeout=30,
-                                       creationflags=NO_WINDOW)
-                    except (OSError, subprocess.SubprocessError):
-                        pass
+                # (Defender's service does the scanning: killing MpCmdRun alone can leave it going)
+                try:
+                    subprocess.run([exe, "-Scan", "-Cancel"], capture_output=True, timeout=30,
+                                   creationflags=NO_WINDOW)
+                except (OSError, subprocess.SubprocessError):
+                    pass
                 raise Stopped()
             time.sleep(0.2)
         reader.join(5)
@@ -665,11 +669,16 @@ class Checks:
                         if self.cancel.is_set():
                             return
                         try:
-                            if entry.is_symlink():
+                            # (a junction leads elsewhere, maybe back up the tree or to another drive)
+                            if entry.is_symlink() or getattr(entry, "is_junction", lambda: False)():
                                 continue
                             if entry.is_dir(follow_symlinks=False):
                                 if level < depth:
                                     stack.append((entry.path, level + 1))
+                                continue
+                            # (a file that's only in the cloud (OneDrive) would be downloaded to check it)
+                            attrs = getattr(entry.stat(follow_symlinks=False), "st_file_attributes", 0)
+                            if attrs & ONLINE_ONLY:
                                 continue
                         except OSError:
                             continue
@@ -804,7 +813,10 @@ class Checks:
     def hosts(self):
         path = hosts_path()
         for site, address in hosts_redirects(path):
-            self.add(Finding("hosts", str(path), "warn", {"site": site, "to": address, "what": site}))
+            # (sent nowhere, 0.0.0.0 or this PC, is blocking it: blockers and parental controls do that)
+            blocked = blocks(address)
+            self.add(Finding("hosts", str(path), "info" if blocked else "warn",
+                             {"site": site, "to": address, "what": site, "blocked": blocked}))
 
     # ---- what Defender is told to skip
 
@@ -832,6 +844,12 @@ def broad_exclusion(kind: str, value: str) -> bool:
 
 def hosts_path() -> Path:
     return _env("SystemRoot", r"C:\Windows") / "System32" / "drivers" / "etc" / "hosts"
+
+
+def blocks(address: str) -> bool:
+    """A hosts file address that sends a site nowhere (0.0.0.0, this PC) rather than somewhere else."""
+    a = address.strip().lower()
+    return a in ("0.0.0.0", "::", "::1", "0:0:0:0:0:0:0:0", "0:0:0:0:0:0:0:1") or a.startswith("127.")
 
 
 def hosts_redirects(path: Path) -> list[tuple[str, str]]:

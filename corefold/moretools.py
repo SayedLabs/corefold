@@ -10,9 +10,9 @@ import re
 import uuid
 from pathlib import Path
 
-from .converters import (AUDIO_ARGS, Ctx, Result, category, is_animated, is_multipage, keep_format, load_image,
-                         media_duration, norm, pdf_lock_state, probe, rgb_or_rgba, run_ffmpeg, safe_name, save_animated,
-                         save_image, save_pages, tr)
+from .converters import (AUDIO_ARGS, Ctx, Result, category, colour_profile, flatten, is_animated, is_multipage,
+                         keep_format, load_image, media_duration, norm, pdf_lock_state, probe, rgb_or_rgba, run_ffmpeg,
+                         safe_name, save_animated, save_image, save_pages, tr, unique_path)
 
 log = logging.getLogger("corefold")
 MB = 1024 * 1024
@@ -266,9 +266,16 @@ def mute_video(src: Path, ctx: Ctx) -> Result:
     try:
         run_ffmpeg(src, out, copy, ctx)
     except RuntimeError:  # an old kind of video that can't simply be copied into this file type
-        run_ffmpeg(src, out, ["-map", "0:V:0", "-an", "-sn", "-dn", "-c:v", "libx264", "-crf", "20",
-                              "-pix_fmt", "yuv420p", "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2"], ctx)
+        run_ffmpeg(src, out, ["-map", "0:V:0", "-an", "-sn", "-dn", *_video_again(ext)], ctx)
     return Result([out])
+
+
+def _video_again(ext: str) -> list[str]:
+    """Making the picture again, in a codec this file type can hold (WebM can't hold H.264)."""
+    if ext == ".webm":
+        return ["-c:v", "libvpx-vp9", "-crf", "32", "-b:v", "0", "-row-mt", "1", "-deadline", "good", "-cpu-used",
+                "4", "-pix_fmt", "yuv420p"]
+    return ["-c:v", "libx264", "-crf", "20", "-pix_fmt", "yuv420p", "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2"]
 
 
 SPEEDS = [0.25, 0.5, 0.75, 1.25, 1.5, 2.0, 3.0, 4.0]
@@ -327,8 +334,11 @@ def fix_volume(src: Path, ctx: Ctx) -> Result:
     ext = _same_container(src)
     out = ctx.out_path(src, f"{ctx.stem(src)} (volume fixed){ext}")
     audio = ["-c:a", "libopus", "-b:a", "128k"] if ext == ".webm" else ["-c:a", "aac", "-b:a", "192k"]
-    run_ffmpeg(src, out, ["-map", "0:V:0", "-map", "0:a:0", "-sn", "-dn", "-c:v", "copy", "-af", LOUDNORM,
-                          "-ar", "48000"] + audio, ctx)
+    sound = ["-af", LOUDNORM, "-ar", "48000"] + audio
+    try:
+        run_ffmpeg(src, out, ["-map", "0:V:0", "-map", "0:a:0", "-sn", "-dn", "-c:v", "copy"] + sound, ctx)
+    except RuntimeError:  # (a WMV's picture can't simply be copied into an MP4: it's made again, as Mute does)
+        run_ffmpeg(src, out, ["-map", "0:V:0", "-map", "0:a:0", "-sn", "-dn", *_video_again(ext)] + sound, ctx)
     return Result([out])
 
 
@@ -364,14 +374,15 @@ def convert_folder(src: Path, ctx: Ctx, fmt: str = "jpg") -> Result:
     for i, pic in enumerate(pictures):
         ctx.check()
         rel = pic.relative_to(src).with_suffix(ext)
-        target = outdir / rel
+        # ("a.png" and "a.jpg" side by side would both become "a.jpg": the second must not replace the first)
+        target = unique_path(outdir / rel)
         target.parent.mkdir(parents=True, exist_ok=True)
         try:
             im = load_image(pic)
             if fmt == "small":
-                im = im.convert("RGB")
-                im.thumbnail((1920, 1920), Image.LANCZOS)
-                im.save(target, quality=80, optimize=True, progressive=True)
+                small = flatten(im)  # (see-through parts white, like the "Small" tool, not black)
+                small.thumbnail((1920, 1920), Image.LANCZOS)
+                small.save(target, quality=80, optimize=True, progressive=True, **colour_profile(im, "RGB"))
             else:
                 save_image(im, target, ext, ctx)
         except Exception:
@@ -434,7 +445,8 @@ def rename_conflicts(pairs: list[tuple[Path, Path]]) -> list[Path]:
 
 
 def rename_files(files: list[Path], ctx: Ctx) -> Result:
-    pairs = [(o, n) for o, n in new_names(files, ctx.params) if o != n]
+    # (compared as text: Windows paths are equal whatever the case, so "photo" → "Photo" would be dropped)
+    pairs = [(o, n) for o, n in new_names(files, ctx.params) if str(o) != str(n)]
     if not pairs:
         return Result(note=tr("The names stay the same"))
     if rename_conflicts(pairs):

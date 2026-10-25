@@ -185,16 +185,19 @@ def parse_subtitles(text: str, ext: str) -> list[tuple[int, int, str]]:
 
 
 def read_subtitles(path: Path) -> list[tuple[int, int, str]]:
+    from .core import legacy_text
     raw = path.read_bytes()
-    for enc in ("utf-8-sig", "utf-16", "cp1256", "cp1252", "latin-1"):
+    if raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        text = raw.decode("utf-16", "replace")
+    else:
         try:
-            text = raw.decode(enc)
-            if enc == "utf-16" and raw[:2] not in (b"\xff\xfe", b"\xfe\xff"):
-                continue
-            return parse_subtitles(text, path.suffix.lower())
-        except (UnicodeDecodeError, ValueError):
-            continue
-    return []
+            text = raw.decode("utf-8-sig")
+        except UnicodeDecodeError:  # an old Windows code page (cp1256 accepts any bytes, so it can't be "tried")
+            text = legacy_text(raw)
+    try:
+        return parse_subtitles(text, path.suffix.lower())
+    except ValueError:
+        return []
 
 
 class Subtitles:
@@ -506,8 +509,9 @@ class PlayerWindow(QWidget):
 
     # ---- opening
 
-    def open(self, path: Path, keep_list: bool = False):
-        self._remember()
+    def open(self, path: Path, keep_list: bool = False, remember: bool = True):
+        if remember:
+            self._remember()
         path = Path(path)
         if not keep_list or path not in self.files:
             self.files = media_in(path.parent) or [path]
@@ -1145,8 +1149,9 @@ class PlayerWindow(QWidget):
         subs = [p for p in paths if p.suffix.lower() in SUB_EXT]
         media = [p for p in paths if is_media(p)]
         if len(media) > 1:  # several files: they're the playlist, in the order they were picked
+            self._remember()  # (before the list changes: else the film playing is kept under the new one's name)
             self.files, self.index = media, 0
-            self.open(media[0], keep_list=True)
+            self.open(media[0], keep_list=True, remember=False)
         elif media:
             self.open(media[0])
         if subs:

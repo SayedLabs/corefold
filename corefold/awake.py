@@ -492,7 +492,9 @@ class AwakeTool(QObject):
         if self.planned_shutdown() is not None or replace:
             run_shutdown("/a")
             self._forget_shutdown()
-        seconds = max(1, min(SHUTDOWN_MAX, math.ceil((at - datetime.now()).total_seconds())))
+        # (never sooner than a minute: a time that went by while a question was open mustn't turn the PC off
+        # at once, closing programs without saving)
+        seconds = max(60, min(SHUTDOWN_MAX, math.ceil((at - datetime.now()).total_seconds())))
         code, said = run_shutdown("/s", "/t", str(seconds))
         log.info("shutdown in %d s: code %d %s", seconds, code, said)
         if code == 0:

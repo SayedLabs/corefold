@@ -286,7 +286,11 @@ class UnlockPage(QWidget):
         live = {p.pid for p in result.programs}
         self.states = {pid: s for pid, s in self.states.items() if pid in live}
         self._fill()
-        if self.queued:
+        self._next()
+
+    def _next(self):
+        """Another "What's using this?" came while busy: its turn now."""
+        if self.queued and not self.busy:
             paths, self.queued = self.queued, []
             self.check(paths)
 
@@ -485,11 +489,13 @@ class UnlockPage(QWidget):
             self._fill()
             self._say(tr("Windows didn't let Corefold delete it. Something may have opened it again: check again, "
                          "or have it deleted when the PC restarts."))
+            self._next()
             return
         self._fill()
         self.status.setText(tr("Sent to the Recycle Bin. You can put it back from there."))
         self.status.show()
         self.again_btn.hide()
+        self._next()
 
     # ---- moving and renaming, now that nothing has it open (as IObit Unlocker does)
 
@@ -552,6 +558,7 @@ class UnlockPage(QWidget):
             log.warning("couldn't move or rename %s: %s", self.paths, result)
             self._fill()
             self._say(tr("Windows didn't let Corefold do it. Something may have opened it again: check again."))
+            self._next()
             return
         self.paths = list(result)
         self._show_path()
@@ -559,6 +566,7 @@ class UnlockPage(QWidget):
         self._fill()
         self.status.setText(said)
         self.status.show()
+        self._next()
 
     def delete_at_restart(self):
         """Windows deletes it as the PC starts (as administrator, so Windows asks first). For good: it
@@ -585,6 +593,12 @@ class UnlockPage(QWidget):
             return
         self._set_busy(False)
         self._fill()
+        try:
+            self._said_scheduled(result)
+        finally:
+            self._next()
+
+    def _said_scheduled(self, result):
         if result is None:
             self._say(tr("Nothing was changed: Windows' permission wasn't given."))
             return

@@ -130,6 +130,17 @@ class FolderCard(QPushButton):
         p.end()
 
 
+class _KindItem(QTreeWidgetItem):
+    """A kind's line in the list. Its own box being ticked comes through setData (a click, the keyboard),
+    while Qt only redraws it when one of its files changes, so the two can be told apart."""
+    on_ticked = None
+
+    def setData(self, column, role, value):
+        super().setData(column, role, value)
+        if column == 0 and role == Qt.CheckStateRole and self.on_ticked is not None:
+            self.on_ticked(self)
+
+
 class OrganizerPage(QWidget):
     """Corefold File Organizer in the window."""
 
@@ -389,7 +400,8 @@ class OrganizerPage(QWidget):
         t = self.c.theme
         if p is not None and not p.refused:
             for kind, items in p.by_kind().items():
-                head = QTreeWidgetItem(self.tree)
+                head = _KindItem(self.tree)
+                head.on_ticked = self._kind_ticked
                 head.setData(0, Qt.UserRole, kind)
                 head.setIcon(0, icons.icon(KIND_GLYPHS.get(kind, "folder"), t.accent))
                 head.setFlags(head.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsAutoTristate)
@@ -471,15 +483,21 @@ class OrganizerPage(QWidget):
             self._filling = True
             self._head_text(it)
             self._filling = False
-            if it.checkState(0) != Qt.PartiallyChecked:
-                off = organizer.kinds_off()
-                kind = it.data(0, Qt.UserRole)
-                if it.checkState(0) == Qt.Unchecked:
-                    off.add(kind)
-                else:
-                    off.discard(kind)
-                organizer.set_off(off)
         self._show_state()
+
+    def _kind_ticked(self, it: QTreeWidgetItem):
+        """The kind's own box was ticked or unticked (not Qt updating it for its files): kept for next time.
+        (Qt also unticks a kind when its last file is unticked, and leaving one file out this time mustn't
+        leave the whole kind out of every tidy.)"""
+        if self._filling or it.checkState(0) == Qt.PartiallyChecked:
+            return
+        off = organizer.kinds_off()
+        kind = it.data(0, Qt.UserRole)
+        if it.checkState(0) == Qt.Unchecked:
+            off.add(kind)
+        else:
+            off.discard(kind)
+        organizer.set_off(off)
 
     def _show_file(self, it: QTreeWidgetItem, _column: int):
         item = it.data(0, FILE_ROLE)
@@ -560,9 +578,16 @@ class OrganizerPage(QWidget):
 
     # ---- sorting and undoing (off the window's thread)
 
+    def _tidying(self) -> bool:
+        """The daily tidy (or its Undo) is running: a sort or Undo now would wait, then work on what it changed."""
+        if getattr(self.c, "_tidy_job", None) is None and getattr(self.c, "_untidy_job", None) is None:
+            return False
+        self._say(tr("Wait for what's going on to finish first."))
+        return True
+
     def sort(self):
         p = self.plan
-        if p is None or self.busy or not p.moving():
+        if p is None or self.busy or not p.moving() or self._tidying():
             return
         self.busy = True
         self.note.hide()
@@ -602,7 +627,7 @@ class OrganizerPage(QWidget):
         self.load()
 
     def undo(self):
-        if self.busy or organizer.last_sort() is None:
+        if self.busy or organizer.last_sort() is None or self._tidying():
             return
         self.busy = True
         self.note.hide()

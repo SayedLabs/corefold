@@ -15,7 +15,7 @@ import os
 import re
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Qt, Signal
@@ -158,7 +158,9 @@ class Item:
 _COLUMNS = ("id", "kind", "text", "html", "image", "width", "height", "digest", "pinned", "created", "used", "app",
             "size")
 PREVIEW = 2000  # characters of a text a list holds (a copied 4 MB log file isn't held 300 times)
-_LIGHT = tuple(f"substr(text, 1, {PREVIEW})" if c == "text" else "''" if c == "html" else c for c in _COLUMNS)
+# (a list's html only says whether there is formatting, for "Paste as plain text": get() has the real one)
+_LIGHT = tuple(f"substr(text, 1, {PREVIEW})" if c == "text" else "CASE WHEN html <> '' THEN '1' ELSE '' END"
+               if c == "html" else c for c in _COLUMNS)
 
 
 def _row(r) -> Item:
@@ -297,7 +299,8 @@ class History:
         sql += " ORDER BY pinned DESC, used DESC LIMIT ?"
         rows = [_row(r) for r in self.db.execute(sql, args + [limit])]
         for item in rows:
-            item.partial = item.kind in ("text", "link") and len(item.text) < item.size
+            item.partial = (item.kind in ("text", "link") and len(item.text) < item.size) \
+                or (item.kind == "files" and len(item.text) >= PREVIEW)  # (a long list of files: cut too)
         return rows
 
     def get(self, item_id: int) -> Item | None:
@@ -458,7 +461,9 @@ def clipboard_app() -> str:
         import ctypes.wintypes as wt
         u = ctypes.windll.user32
         u.GetClipboardOwner.restype = wt.HWND
-        hwnd = u.GetClipboardOwner()
+        # (some apps copy without an owner window: then it's the app in front, so a program kept out of the
+        # history in Settings still is)
+        hwnd = u.GetClipboardOwner() or foreground_window()
         if not hwnd:
             return ""
         pid = wt.DWORD()
@@ -623,6 +628,7 @@ class Clipboard(QObject):
         self._own: int | None = None  # the clipboard's change number after Corefold copied something itself
         self._own_digest = ""
         self._last_trim = 0.0
+        self.pasted = False           # the last paste() pressed Ctrl+V (not only copied)
         self.cb = QGuiApplication.clipboard()
         self.timer = QTimer(self)
         self.timer.setSingleShot(True)
@@ -744,11 +750,12 @@ class Clipboard(QObject):
 
     def copy(self, item: Item, plain: bool = False) -> bool:
         """Puts it back on the clipboard (and at the top of the history)."""
-        if item.id and (item.partial or item.kind in ("text", "link")):
+        if item.id and (item.partial or item.kind in ("text", "link", "files")):  # (lists hold only their start)
             try:
-                item = self.history.get(item.id) or item
+                full = self.history.get(item.id)
             except sqlite3.Error:
-                pass
+                full = None
+            item = full or replace(item, html="")  # (a list's html only says there is some: never pasted)
         md = self.mime_for(item, plain)
         if md is None:
             return False
@@ -788,11 +795,14 @@ class Clipboard(QObject):
 
     def paste(self, item: Item, hwnd: int, plain: bool = False) -> bool:
         """Copies it and pastes it into the window that was in front (when that's turned on)."""
+        self.pasted = False
         if not self.copy(item, plain):
             return False
         if not (self.settings.clip_paste and hwnd):
             return True
-        focus_window(hwnd)
+        if not focus_window(hwnd):  # (that window was closed: Ctrl+V would land in whatever is in front now)
+            return True
+        self.pasted = True
         self._press_paste_soon(60)
         return True
 
@@ -801,7 +811,10 @@ class Clipboard(QObject):
         copied without its fonts, colours, sizes or links. What isn't text (files, a picture) is pasted
         as it is."""
         md = self.cb.mimeData()
-        if md is not None and md.hasText() and not md.hasUrls() and set(md.formats()) - {"text/plain"}:
+        # (a password manager's copy is pasted as it is: copying it again here would drop its "don't keep"
+        # marks, and Windows' own clipboard history would then keep the password)
+        if md is not None and md.hasText() and not md.hasUrls() and set(md.formats()) - {"text/plain"} \
+                and not is_private(md):
             text = md.text()
             if text:
                 self.cb.setText(text)

@@ -192,6 +192,14 @@ def remember_account(acc: Account):
         save_accounts(accounts)
 
 
+def update_account(acc: Account):
+    """Keeps an account's new key or details, only if it's still kept (one signed out meanwhile stays out)."""
+    with _lock:
+        accounts = load_accounts()
+        if any(a.key == acc.key for a in accounts):
+            save_accounts([acc if a.key == acc.key else a for a in accounts])
+
+
 # ----------------------------------------------------------------------------- the internet
 
 AGAIN = (429, 500, 502, 503, 504)   # worth one more try after a short wait
@@ -201,21 +209,23 @@ def _request(method: str, url: str, token: str = "", data=None, headers: dict | 
              timeout: float = TIMEOUT, raw: bool = False, tries: int = 0):
     """One request. Reading (GET) is tried up to 3 times when the service is busy or the connection drops;
     other requests only when tries says so (sending a piece of an upload again is safe, making a folder twice
-    isn't)."""
+    isn't). "Too many requests" is tried again whatever it was: the service didn't do it."""
     tries = tries or (3 if method == "GET" else 1)
-    for attempt in range(tries):
+    attempt = 0
+    while True:
         try:
             return _request_once(method, url, token, data, headers, timeout, raw)
         except _Again as e:
-            if attempt == tries - 1:
+            attempt += 1
+            if attempt >= max(tries, 3 if e.busy else 1):
                 raise e.error from None
-            time.sleep(min(e.wait or 1.5 * (attempt + 1), 10))
+            time.sleep(min(e.wait or 1.5 * attempt, 30))
 
 
 class _Again(Exception):
-    def __init__(self, error: CloudError, wait: float = 0):
+    def __init__(self, error: CloudError, wait: float = 0, busy: bool = False):
         super().__init__(str(error))
-        self.error, self.wait = error, wait
+        self.error, self.wait, self.busy = error, wait, busy  # (busy: 429, nothing was done)
 
 
 def _request_once(method, url, token, data, headers, timeout, raw):
@@ -251,7 +261,7 @@ def _request_once(method, url, token, data, headers, timeout, raw):
                 wait = float(e.headers.get("Retry-After", 0) or 0)
             except (TypeError, ValueError):
                 wait = 0
-            raise _Again(error, wait) from e
+            raise _Again(error, wait, e.code == 429) from e
         raise error from e
     except (urllib.error.URLError, socket.timeout, TimeoutError, ConnectionError) as e:
         raise _Again(CloudError("no internet connection, or the service didn't answer")) from e
@@ -312,6 +322,7 @@ def _listen(port: int = 0) -> http.server.HTTPServer:
 
     class _Catch(http.server.BaseHTTPRequestHandler):
         result: dict = {}
+        timeout = 5  # (a connection that never asks anything, like a browser's spare one, mustn't hold up the wait)
 
         def do_GET(self):
             q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
@@ -427,12 +438,18 @@ class Client:
             raise SignInNeeded("signed out")
         try:
             tok = self._refresh()
+        except SignInNeeded:
+            raise
         except CloudError as e:
-            raise SignInNeeded(str(e)) from e
+            # (only the service saying no to the key means signed out: no internet, or a busy service, doesn't)
+            cause = e.__cause__
+            if isinstance(cause, urllib.error.HTTPError) and cause.code in (400, 401):
+                raise SignInNeeded(str(e)) from e
+            raise
         acc.access = tok["access_token"]
         acc.refresh = tok.get("refresh_token") or acc.refresh
         acc.expires = time.time() + float(tok.get("expires_in", 3600)) - 60
-        remember_account(acc)
+        update_account(acc)
         return acc.access
 
     def _refresh(self) -> dict:
@@ -668,6 +685,8 @@ class OneDrive(Client):
                         pass
                     raise CloudError("cancelled")
                 piece = f.read(CHUNK)
+                if not piece:  # (it got shorter while it was sent: another app is changing it)
+                    raise CloudError("it's open in another app, or Windows didn't allow it")
                 end = done + len(piece) - 1
                 d = _request("PUT", url, data=piece, timeout=180, tries=3, headers={
                     "Content-Length": str(len(piece)), "Content-Range": f"bytes {done}-{end}/{size}"})
@@ -763,6 +782,8 @@ class Dropbox(Client):
                 if cancel is not None and cancel.is_set():
                     raise CloudError("cancelled")
                 piece = f.read(CHUNK)
+                if not piece:  # (it got shorter while it was sent: asking for more would never end)
+                    raise CloudError("it's open in another app, or Windows didn't allow it")
                 last = done + len(piece) >= size
                 if last:
                     d = self.call("POST", f"{self.CONTENT}/files/upload_session/finish", data=piece, timeout=180,
@@ -794,7 +815,12 @@ class Dropbox(Client):
 
     def sign_out(self):
         try:
-            _request("POST", f"{self.API}/auth/token/revoke", self.token(), timeout=10)
+            acc = self.acc
+            # (a fresh key is asked for but never kept: the account is being forgotten as this runs)
+            token = acc.access if acc.access and time.time() < acc.expires else \
+                (self._refresh().get("access_token", "") if acc.refresh else "")
+            if token:
+                _request("POST", f"{self.API}/auth/token/revoke", token, timeout=10)
         except CloudError:
             pass
 
@@ -817,7 +843,11 @@ def client(acc: Account) -> Client:
 
 # ----------------------------------------------------------------------------- whole folders
 
-def download_tree(c: Client, entry: Entry, folder: Path, progress=None, cancel=None) -> int:
+def _key(p) -> str:
+    return os.path.normcase(os.path.normpath(str(p)))
+
+
+def download_tree(c: Client, entry: Entry, folder: Path, progress=None, cancel=None, _made: set | None = None) -> int:
     """Saves a file, or a folder with everything in it, into folder (next to what's there: nothing is
     replaced). Returns how many files were saved."""
     from .core import unique_path
@@ -827,24 +857,33 @@ def download_tree(c: Client, entry: Entry, folder: Path, progress=None, cancel=N
     if not entry.folder:
         c.download(entry, target, None if progress is None else lambda d, t: progress((entry.name, d, t)), cancel)
         return 1
+    # what's in it is read before the new folder is made, and new folders are never gone into: a folder of
+    # this PC saved into itself would otherwise be copied into its copy, over and over until it crashed
+    made = set() if _made is None else _made
+    inside = [e for e in c.list(entry) if _key(e.id) not in made]
     target.mkdir(parents=True)
-    return sum(download_tree(c, e, target, progress, cancel) for e in c.list(entry))
+    made.add(_key(target))
+    return sum(download_tree(c, e, target, progress, cancel, made) for e in inside)
 
 
-def upload_tree(c: Client, src: Path, folder: Entry | None, progress=None, cancel=None) -> int:
+def upload_tree(c: Client, src: Path, folder: Entry | None, progress=None, cancel=None,
+                _made: set | None = None) -> int:
     """Uploads a file, or a folder with everything in it, into folder. Returns how many files went up."""
     if cancel is not None and cancel.is_set():
         raise CloudError("cancelled")
     if not src.is_dir():
         c.upload(src, folder, None if progress is None else lambda d, t: progress((src.name, d, t)), cancel)
         return 1
-    made = c.new_folder(src.name, folder)
-    try:
+    made = set() if _made is None else _made
+    try:  # (read before the new folder is made: see download_tree)
         inside = sorted(src.iterdir(), key=lambda p: p.name.lower())
     except OSError:
         inside = []
+    new = c.new_folder(src.name, folder)
+    made.add(_key(new.id))  # (for a folder on this PC its id is its path)
     from .core import is_link  # (a junction too, not only a link: it leads out of the folder, or round in a circle)
-    return sum(upload_tree(c, p, made, progress, cancel) for p in inside if not is_link(p))
+    return sum(upload_tree(c, p, new, progress, cancel, made) for p in inside
+               if not is_link(p) and _key(p) not in made)
 
 
 def available(service: str) -> bool:

@@ -14,7 +14,8 @@ import tempfile
 from functools import lru_cache
 from pathlib import Path
 
-from .converters import (AUDIO_ARGS, Ctx, Result, category, flatten, has_alpha, is_animated, is_multipage, keep_format,
+from .converters import (AUDIO_ARGS, Ctx, Result, category, colour_profile, flatten, has_alpha, is_animated,
+                         is_multipage, keep_format,
                          load_image, media_duration, probe, rgb_or_rgba, run_ffmpeg, save_image,
                          save_animated, save_pages, write_compressed_pdf, write_pages_pdf)
 from .core import human_size, safe_name
@@ -107,13 +108,15 @@ def _fit_image(src: Path, ctx: Ctx, mb: float, target: int) -> Result:
     im = load_image(src)
     alpha = has_alpha(im)
     ext, fmt = (".webp", "WEBP") if alpha else (".jpg", "JPEG")
+    profile = colour_profile(im, "RGBA" if alpha else "RGB")
     im = rgb_or_rgba(im) if alpha else flatten(im)
     if alpha and max(im.size) > 16383:  # WebP's size limit; shrinking is the point here anyway
         im.thumbnail((16383, 16383))
 
     def encode(img, q) -> bytes:
         buf = io.BytesIO()
-        img.save(buf, fmt, quality=q, **({"optimize": True, "progressive": True} if fmt == "JPEG" else {"method": 4}))
+        img.save(buf, fmt, quality=q, **({"optimize": True, "progressive": True} if fmt == "JPEG" else {"method": 4}),
+                 **profile)
         return buf.getvalue()
 
     best = None
@@ -150,6 +153,9 @@ def _fit_pdf(src: Path, ctx: Ctx, mb: float, target: int) -> Result:
         if size <= target or (last is not None and size >= last * 0.98):
             break  # small enough, or squeezing harder doesn't help (a PDF with little or no pictures)
         last = size
+    if out.stat().st_size >= src.stat().st_size:  # (never hand back a "smaller" copy that is bigger)
+        out.unlink(missing_ok=True)
+        return Result(note=tr("{name} is already as small as it gets", name=src.name))
     return _fit_result(src, out, mb, target)
 
 
@@ -684,7 +690,8 @@ def video_frames(src: Path, ctx: Ctx) -> Result:
         vf = ["-map", "0:V:0", "-vf", f"fps=1/{secs:g}"]
     outdir = ctx.out_dir(src, f"{ctx.stem(src)} frames")
     try:
-        run_ffmpeg(src, outdir / "frame %05d.png", vf, ctx)
+        # (FFmpeg reads every "%" in the whole path as a number to fill in: "50% off" must be "50%% off")
+        run_ffmpeg(src, Path(str(outdir).replace("%", "%%")) / "frame %05d.png", vf, ctx)
     except BaseException:
         shutil.rmtree(outdir, ignore_errors=True)
         raise

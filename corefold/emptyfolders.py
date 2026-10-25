@@ -3,8 +3,11 @@
 Careful by design: nothing inside Windows, programs' folders or AppData is looked at, hidden and system
 folders and links (junctions) are left alone, and a folder that holds anything left alone isn't offered
 either (removing it would take that with it). Your own folders (Documents, …) and the folder you picked
-are never offered themselves, even when they're empty. Folders made in the last day are left out: an app
-may be about to put something in them. What goes, goes to the Recycle Bin."""
+are never offered themselves, even when they're empty, and neither are Windows' other own folders (Camera
+Roll, Saved Pictures, the Public ones, …) or any folder Windows has customised (its desktop.ini). Outside
+your own folders, nothing in a folder that holds a program (.exe, .dll) is offered: programs expect their
+folders to be there. Folders made in the last day are left out: an app may be about to put something in
+them. What goes, goes to the Recycle Bin."""
 from __future__ import annotations
 
 import ctypes
@@ -21,7 +24,30 @@ PROGRESS_EVERY = 500         # folders between progress reports
 LEFTOVERS = {"desktop.ini", "thumbs.db", ".ds_store"}
 USER_FOLDERS = ("Desktop", "Documents", "Downloads", "Pictures", "Music", "Videos")
 
-_HIDDEN, _SYSTEM, _REPARSE = 0x2, 0x4, 0x400
+_READONLY, _HIDDEN, _SYSTEM, _REPARSE = 0x1, 0x2, 0x4, 0x400
+# a folder whose files aren't all here (only in the cloud): what's in it can't be known from a look
+_NOT_HERE = 0x1000 | 0x40000            # offline, recall on open
+PROGRAM_FILES = {".exe", ".dll"}         # a folder holding these belongs to a program
+# Windows' other own folders: never offered, even when they hold nothing (apps and libraries point at them)
+_SPECIAL_IDS = (
+    "{AB5FB87B-7CE2-4F83-915D-550846C9537B}",   # Camera Roll
+    "{3B193882-D3AD-4EAB-965A-69829D1FB59F}",   # Saved Pictures
+    "{B7BEDE81-DF94-4682-A7D8-57A52620B86F}",   # Screenshots
+    "{DE92C1C7-837F-4F69-A3BB-86E631204A23}",   # Playlists
+    "{56784854-C6CB-462B-8169-88E350ACB882}",   # Contacts
+    "{1777F761-68AD-4D8A-87BD-30B759FA33DD}",   # Favorites
+    "{BFB9D5E0-C6A9-404C-B2B2-AE6DB6AF4968}",   # Links
+    "{4C5C32FF-BB9D-43B0-B5B4-2D72E54EAAA4}",   # Saved Games
+    "{7D1D3A04-DEBB-4115-95CF-2F29DA2920DA}",   # Searches
+    "{31C0DD25-9439-4F12-BF41-7FF4EDA38722}",   # 3D Objects
+    "{DFDF76A2-C82A-4D63-906A-5644AC457385}",   # Public
+    "{C4AA340D-F20F-4863-AFEF-F87EF2E6BA25}",   # Public Desktop
+    "{ED4824AF-DCE4-45A8-81E2-FC7965083634}",   # Public Documents
+    "{3D644C9B-1FB8-4F30-9B45-F670235F79C0}",   # Public Downloads
+    "{3214FAB5-9757-4298-BB61-92A9DEAA44FF}",   # Public Music
+    "{B6EBFB86-6907-413C-9AF7-4FC2ABF07CC5}",   # Public Pictures
+    "{2400183A-6185-49FB-A2D8-4A392A602BA3}",   # Public Videos
+)
 _SKIP_NAMES = {"$recycle.bin", "system volume information", "appdata", "$windows.~bt", "$windows.~ws",
                "$sysreset", "config.msi"}
 # known folders (shell32's SHGetKnownFolderPath), so a moved Documents (into OneDrive, to D:) is found
@@ -59,22 +85,35 @@ def _key(path) -> str:
     return os.path.normcase(os.path.abspath(str(path)))
 
 
+class _GUID(ctypes.Structure):
+    _fields_ = [("a", ctypes.c_ulong), ("b", ctypes.c_ushort), ("c", ctypes.c_ushort), ("d", ctypes.c_ubyte * 8)]
+
+
 def _known_folder(name: str) -> Path | None:
+    """Where a known folder is, by its name in _KNOWN_IDS or its id ("{…}"); None if it has no place."""
     if os.name != "nt":
         return None
     try:
-        class GUID(ctypes.Structure):
-            _fields_ = [("a", ctypes.c_ulong), ("b", ctypes.c_ushort), ("c", ctypes.c_ushort), ("d", ctypes.c_ubyte * 8)]
-        guid = GUID()
-        if ctypes.windll.ole32.CLSIDFromString(ctypes.c_wchar_p(_KNOWN_IDS[name]), ctypes.byref(guid)) != 0:
+        # (own copies of the functions, with their own prototypes: ctypes.windll's are shared with other modules,
+        # which may set other argtypes on them)
+        ole32, shell32 = ctypes.WinDLL("ole32"), ctypes.WinDLL("shell32")
+        ole32.CLSIDFromString.argtypes = [ctypes.c_wchar_p, ctypes.POINTER(_GUID)]
+        ole32.CLSIDFromString.restype = ctypes.c_long
+        ole32.CoTaskMemFree.argtypes = [ctypes.c_void_p]
+        ole32.CoTaskMemFree.restype = None
+        shell32.SHGetKnownFolderPath.argtypes = [ctypes.POINTER(_GUID), ctypes.c_uint32, ctypes.c_void_p,
+                                                 ctypes.POINTER(ctypes.c_void_p)]
+        shell32.SHGetKnownFolderPath.restype = ctypes.c_long
+        guid = _GUID()
+        if ole32.CLSIDFromString(_KNOWN_IDS.get(name, name), ctypes.byref(guid)) != 0:
             return None
-        out = ctypes.c_wchar_p()
-        if ctypes.windll.shell32.SHGetKnownFolderPath(ctypes.byref(guid), 0, None, ctypes.byref(out)) != 0:
-            return None
+        out = ctypes.c_void_p()
+        hr = shell32.SHGetKnownFolderPath(ctypes.byref(guid), 0, None, ctypes.byref(out))
         try:
-            return Path(out.value) if out.value else None
+            text = ctypes.wstring_at(out.value) if hr == 0 and out.value else ""
+            return Path(text) if text else None
         finally:
-            ctypes.windll.ole32.CoTaskMemFree(out)
+            ole32.CoTaskMemFree(out)   # (freed even when it failed, as Windows asks)
     except Exception:
         return None
 
@@ -98,6 +137,11 @@ def user_folders() -> list[Path]:
             seen.add(_key(p))
             unique.append(p)
     return unique
+
+
+def special_folders() -> list[Path]:
+    """Windows' other own folders (Camera Roll, Saved Pictures, the Public ones, …) where they are."""
+    return [p for p in (_known_folder(i) for i in _SPECIAL_IDS) if p is not None]
 
 
 def _off_limits() -> list[str]:
@@ -133,8 +177,8 @@ def _left_alone(entry: os.DirEntry, st, places: list[str]) -> bool:
         return True
     if os.name != "nt":
         return entry.name.startswith(".") or entry.is_symlink()
-    attrs = getattr(st, "st_file_attributes", 0)
-    if attrs & (_HIDDEN | _SYSTEM):
+    attrs = _attrs(st)
+    if attrs & (_HIDDEN | _SYSTEM | _NOT_HERE):
         return True
     if attrs & _REPARSE:
         # junctions, links and anything else that leads elsewhere; only cloud folders (OneDrive's files
@@ -145,10 +189,22 @@ def _left_alone(entry: os.DirEntry, st, places: list[str]) -> bool:
     return _under(_key(entry.path), places)
 
 
+def _attrs(st) -> int:
+    """A file's or folder's Windows attributes (0 elsewhere)."""
+    return getattr(st, "st_file_attributes", 0)
+
+
+def _customised(attrs: int, leftovers) -> bool:
+    """A folder Windows has customised: a desktop.ini, which it only reads in a read-only or system folder
+    (its own folders' names and icons, Camera Roll, …). Removing it would take that away."""
+    return bool(attrs & (_READONLY | _SYSTEM)) and any(n.lower() == "desktop.ini" for n in leftovers or ())
+
+
 def _look(path: str, places: list[str]):
-    """One folder: (its sub-folders as (path, created), whether it holds something that stays (a file,
-    or a folder left alone), the leftover files in it). None if it can't be read."""
-    subs, holds, leftovers = [], False, []
+    """One folder: (its sub-folders as (path, created, attributes), whether it holds something that stays
+    (a file, or a folder left alone), the leftover files in it, whether it holds a program's files). None
+    if it can't be read."""
+    subs, holds, leftovers, program = [], False, [], False
     try:
         with os.scandir(path) as it:
             for e in it:
@@ -163,14 +219,15 @@ def _look(path: str, places: list[str]):
                         leftovers.append(e.name)
                     else:
                         holds = True  # (any file, even a link or one only in the cloud)
+                        program = program or os.path.splitext(e.name)[1].lower() in PROGRAM_FILES
                     continue
                 if _left_alone(e, st, places):
                     holds = True
                     continue
-                subs.append((e.path, _created(st)))
+                subs.append((e.path, _created(st), _attrs(st)))
     except OSError:
         return None
-    return subs, holds, leftovers
+    return subs, holds, leftovers, program
 
 
 def find(roots: list[Path], cancel: threading.Event | None = None, progress=None,
@@ -184,7 +241,8 @@ def find(roots: list[Path], cancel: threading.Event | None = None, progress=None
     now = time.time()
     result = Found()
     places = _off_limits()
-    kept = {_key(p) for p in (user_folders() if keep is None else keep)}
+    yours = [_key(p) for p in (user_folders() if keep is None else keep)]
+    kept = set(yours) | {_key(p) for p in (special_folders() if keep is None else ())}
     kept.add(_key(Path.home()))
     # roots: the ones that can be looked in, and none inside another (it would be looked at twice)
     chosen: list[Path] = []
@@ -207,6 +265,8 @@ def find(roots: list[Path], cancel: threading.Event | None = None, progress=None
         holds: list[bool] = [False]
         looked: list[bool] = [False]
         leftovers: list = [None]
+        attrs: list[int] = [0]
+        program: list[bool] = [False]   # it, or a folder it's in, holds a program's files
         stack = [0]
         while stack:
             if cancel is not None and cancel.is_set():
@@ -221,11 +281,12 @@ def find(roots: list[Path], cancel: threading.Event | None = None, progress=None
                 holds[i] = True  # (can't be read: not known to be empty)
                 looked[i] = True
                 continue
-            subs, holding, left = seen
-            holds[i] = holding
+            subs, holding, left, programs = seen
+            holds[i] = holding or _customised(attrs[i], left)
             leftovers[i] = left or None
             looked[i] = True
-            for sub, made in subs:
+            program[i] = program[i] or programs
+            for sub, made, sub_attrs in subs:
                 if len(paths) >= limit:
                     result.capped = True
                     holds[i] = True  # (not all of it was looked at)
@@ -236,6 +297,8 @@ def find(roots: list[Path], cancel: threading.Event | None = None, progress=None
                 holds.append(False)
                 looked.append(False)
                 leftovers.append(None)
+                attrs.append(sub_attrs)
+                program.append(program[i])
                 stack.append(len(paths) - 1)
         n = len(paths)
         inside = [0] * n
@@ -264,6 +327,8 @@ def find(roots: list[Path], cancel: threading.Event | None = None, progress=None
         for i in range(1, n):
             p = parent[i]
             if state[i] == "empty" and state[p] != "empty":
+                if program[p] and not _under(_key(paths[i]), yours):
+                    continue  # (a program's folder, outside your own folders: it may expect this one there)
                 left = set(leftovers[i] or ()) | (names[i] or set())
                 result.items.append(EmptyFolder(paths[i], str(root), created[i], inside[i],
                                                 tuple(sorted(left, key=str.lower))))
@@ -295,13 +360,18 @@ def shown_path(item: EmptyFolder) -> str:
 def still_empty(path, places: list[str] | None = None) -> bool:
     """Looks again just before removing: still nothing inside that would be lost."""
     places = _off_limits() if places is None else places
-    stack, count = [str(path)], 0
+    try:
+        top = _attrs(os.stat(path))
+    except OSError:
+        return False
+    stack, count = [(str(path), top)], 0
     while stack:
-        seen = _look(stack.pop(), places)
+        here, attrs = stack.pop()
+        seen = _look(here, places)
         count += 1
-        if seen is None or seen[1] or count > 10_000:
+        if seen is None or seen[1] or count > 10_000 or _customised(attrs, seen[2]):
             return False
-        stack += [s for s, _ in seen[0]]
+        stack += [(sub, sub_attrs) for sub, _made, sub_attrs in seen[0]]
     return True
 
 

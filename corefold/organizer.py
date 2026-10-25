@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import stat
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -354,8 +355,16 @@ def _sort_files(p: Plan, todo: list[Item], journal: "_Journal", moves: list, use
             progress((n, len(todo)))
 
 
+_one_at_a_time = threading.Lock()  # (the daily tidy and a sort or Undo from the page share one journal and one record)
+
+
 def sort(p: Plan, progress=None) -> Result:
     """Moves what the plan says (each file is checked again just before). Kept so it can be undone."""
+    with _one_at_a_time:
+        return _sort(p, progress)
+
+
+def _sort(p: Plan, progress=None) -> Result:
     res = Result()
     todo = p.moving()
     if p.refused or not todo:
@@ -403,10 +412,11 @@ def sort(p: Plan, progress=None) -> Result:
     return res
 
 
-def auto_sort(folder: Path, days: float = 1.0) -> Result:
+def auto_sort(folder: Path, days: float = 1.0, known: bool = False) -> Result:
     """"Keep this folder tidy by itself": a sort of the files that arrived at least `days` ago (one just
-    downloaded or saved is likely still being used, so it waits for the next day). Undone like any sort."""
-    p = plan(folder)
+    downloaded or saved is likely still being used, so it waits for the next day). Undone like any sort.
+    known: it's Downloads or the Desktop (allowed even with a program's files lying in it, as on the page)."""
+    p = plan(folder, known=known)
     if p.refused:
         return Result()
     cutoff = time.time() - days * 86400
@@ -440,6 +450,11 @@ class UndoResult:
 
 def undo(progress=None) -> UndoResult:
     """Puts every file of the last sort back where it was, and removes the folders it made (if empty)."""
+    with _one_at_a_time:
+        return _undo(progress)
+
+
+def _undo(progress=None) -> UndoResult:
     res = UndoResult()
     state = _load()
     last = state.get("last")

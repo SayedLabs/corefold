@@ -23,6 +23,8 @@ def load() -> list[str]:
         data = json.loads(unprotect(FILE.read_bytes()).decode("utf-8") or "[]")
     except (OSError, ValueError):
         return []
+    if not isinstance(data, list):
+        return []
     return [p for p in data if isinstance(p, str) and p][:MAX]
 
 

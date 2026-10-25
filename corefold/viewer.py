@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject, QPoint, QPointF, QRectF, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import (QColor, QGuiApplication, QIcon, QImage, QKeySequence, QPainter, QPen, QPixmap, QShortcut,
+from PySide6.QtGui import (QBrush, QColor, QGuiApplication, QIcon, QImage, QKeySequence, QPainter, QPen, QPixmap, QShortcut,
                            QTransform)
 from PySide6.QtWidgets import (QApplication, QFileDialog, QFrame, QHBoxLayout, QLabel, QListView, QListWidget,
                                QListWidgetItem, QMenu, QMessageBox, QPushButton, QSlider, QVBoxLayout, QWidget)
@@ -301,6 +301,7 @@ def _adjusted_pil(im, value):
     mode = im.mode
     work = im.convert("RGBA" if "A" in mode or mode == "P" else "RGB")
     out = Image.fromarray(adjust_array(np.asarray(work), *value), work.mode)
+    out.info = dict(im.info)  # (Save keeps the photo's details: date taken, camera, colour profile)
     return out
 
 
@@ -423,6 +424,20 @@ class PictureView(QWidget):
 
     # ---- drawing
 
+    def _checker(self) -> QPixmap:
+        """The 20 x 20 tile of the soft checkerboard behind see-through pictures."""
+        if getattr(self, "_checker_tile", None) is None or self._checker_dark != self.dark:
+            size = 10
+            light, dark = (QColor("#2a2b2e"), QColor("#202124")) if self.dark else (QColor("#ffffff"), QColor("#e4e4e4"))
+            tile = QPixmap(2 * size, 2 * size)
+            tile.fill(dark)
+            q = QPainter(tile)
+            q.fillRect(size, 0, size, size, light)
+            q.fillRect(0, size, size, size, light)
+            q.end()
+            self._checker_tile, self._checker_dark = tile, self.dark
+        return self._checker_tile
+
     def paintEvent(self, _):
         p = QPainter(self)
         p.fillRect(self.rect(), QColor("#0b0b0c") if self.dark else QColor("#ececec"))
@@ -431,14 +446,9 @@ class PictureView(QWidget):
             return
         r = self.target()
         if self.image.hasAlphaChannel():  # a soft checkerboard behind see-through pictures
-            p.save()
-            p.setClipRect(r)
-            size = 10
-            light, dark = (QColor("#2a2b2e"), QColor("#202124")) if self.dark else (QColor("#ffffff"), QColor("#e4e4e4"))
-            for yy in range(int(r.top()) // size, int(r.bottom()) // size + 1):
-                for xx in range(int(r.left()) // size, int(r.right()) // size + 1):
-                    p.fillRect(xx * size, yy * size, size, size, light if (xx + yy) % 2 else dark)
-            p.restore()
+            # (one fill with a tiled brush, only over the part on screen: square by square, a zoomed-in
+            # picture took millions of calls and froze the window)
+            p.fillRect(r.intersected(QRectF(self.rect())), QBrush(self._checker()))
         p.setRenderHint(QPainter.SmoothPixmapTransform, self.scale() < 2)
         p.drawPixmap(r, self.pixmap, QRectF(self.pixmap.rect()))
         if self.crop is not None:
@@ -939,8 +949,20 @@ class ViewerWindow(QWidget):
             self.view.movie = None
         if path.suffix.lower() not in (".gif", ".webp"):
             return
+        from PySide6.QtCore import QBuffer
         from PySide6.QtGui import QMovie
-        movie = QMovie(str(path))
+        movie = QMovie()
+        try:  # played from memory: reading the file all the time would hold it open, and then Delete,
+            # Rename and Move to… couldn't touch the picture on screen
+            data = path.read_bytes() if path.stat().st_size <= 64 * 1024 * 1024 else None
+        except OSError:
+            data = None
+        if data is None:
+            movie.setFileName(str(path))
+        else:
+            buf = QBuffer(movie)
+            buf.setData(data)
+            movie.setDevice(buf)
         if movie.isValid() and movie.frameCount() != 1:
             movie.frameChanged.connect(lambda _n: self.view.set_image(movie.currentImage(), keep_view=True))
             self.view.movie = movie
@@ -1026,14 +1048,14 @@ class ViewerWindow(QWidget):
         self._buttons()
 
     def set_sort(self, key: str):
-        self.c.settings.viewer_sort = key
-        self.c.settings_changed()
+        self.c.keep_now("viewer_sort", key)  # (kept now, never held back with Settings' unsaved changes)
         if self.files:
             self.open(self.current())
 
     def rename(self):
         """F2: a new name for the picture (the extension stays)."""
         from PySide6.QtWidgets import QInputDialog
+        self.slideshow.stop()  # (it would move to another picture while the question is open)
         src = self.current()
         if not src.name or not src.exists() or not self._leave_ok():
             return
@@ -1060,6 +1082,7 @@ class ViewerWindow(QWidget):
     def to_folder(self, move: bool):
         """Moves (or copies) the picture to another folder: handy for sorting a pile of photos."""
         import shutil
+        self.slideshow.stop()
         src = self.current()
         if not src.name or not src.exists() or not self._leave_ok():
             return
@@ -1141,7 +1164,7 @@ class ViewerWindow(QWidget):
             return
         other = self._compared()
         if other is None:  # the last picture: compare it with the one before
-            if self.index > 0:
+            if self.index > 0 and self._leave_ok():
                 self.index -= 1
                 self.show_current()
             else:
@@ -1298,6 +1321,7 @@ class ViewerWindow(QWidget):
         return True
 
     def delete(self):
+        self.slideshow.stop()
         path = self.current()
         if not path.name or not path.exists():
             return

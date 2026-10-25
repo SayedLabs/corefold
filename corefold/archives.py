@@ -69,6 +69,25 @@ def _tar_name(name: str) -> str:
     return name.lstrip("/")
 
 
+_NOT_ON_WINDOWS = re.compile(r'[<>:"|?*\\\x00-\x1f]')
+
+
+def windows_safe_name(name: str) -> str:
+    """A name from a Linux or Mac TAR that Windows can save: characters it refuses become "_" and an ending
+    dot or space goes (like 7-Zip does). Before, one such name stopped the whole extraction."""
+    return "/".join(part if part in ("", ".", "..") else _NOT_ON_WINDOWS.sub("_", part).rstrip(" .") or "_"
+                    for part in name.split("/"))
+
+
+def _tar_filter(member: tarfile.TarInfo, path: str) -> tarfile.TarInfo | None:
+    member = tarfile.data_filter(member, path)  # (nothing outside the folder, no odd links or devices)
+    if member is not None and os.name == "nt":
+        name = windows_safe_name(member.name)
+        if name != member.name:
+            member = member.replace(name=name, deep=False)
+    return member
+
+
 def is_tar(p: Path) -> bool:
     return p.name.lower().endswith(TAR_SUFFIXES)
 
@@ -432,7 +451,7 @@ def _extract_into(src: Path, target: Path, ctx: Ctx, password: str, members: lis
             for m in tf:  # (start to end, the only way a .tar.zst can be read)
                 ctx.check()
                 if not wanted or _tar_name(m.name) in wanted:
-                    tf.extract(m, target, filter="data")
+                    tf.extract(m, target, filter=_tar_filter)
                 ctx.progress(opened.progress())
         pass_on_zone_mark([src], [target])
         return
@@ -669,7 +688,9 @@ def pack_into(items: list[Path], out: Path, ctx: Ctx, fmt: str = "zip", level: s
         parent = Path(os.path.commonpath([str(p.parent.resolve()) for p in items]))
     except ValueError as e:  # different drives
         raise RuntimeError(tr("pick files that are on the same drive")) from e
-    rel = [os.path.relpath(p.resolve(), parent) for p in items]
+    # (the item's own name in its folder: resolving the item itself would follow a shortcut folder (junction)
+    # to wherever it points, even another drive)
+    rel = [os.path.relpath(p.parent.resolve() / p.name, parent) for p in items]
     if fmt in TAR_FORMATS:  # (no password or parts: TAR has neither)
         _pack_tar(items, rel, out, ctx, fmt, level)
         return [out]
@@ -682,13 +703,16 @@ def pack_into(items: list[Path], out: Path, ctx: Ctx, fmt: str = "zip", level: s
         if split_mb and split_mb > 0:
             args.append(f"-v{int(split_mb * 1024)}k")
         listfile = _listfile(rel)
+        # numbered parts already there (an older split archive of the same name) are never removed or listed
+        before = set(_parts_of(out))
 
         def remove_made():
             # remove only what this run made: the archive and its numbered parts (.001, .002 …),
             # never other files that just start with the same name
             remove_file(out)
-            for part in out.parent.glob(glob_escape(out.name) + ".[0-9][0-9][0-9]"):
-                remove_file(part)
+            for part in _parts_of(out):
+                if part not in before:
+                    remove_file(part)
         try:
             code, output = _run7z([*args, "-scsUTF-8", str(out), f"@{listfile}"], ctx, cwd=parent)
         except Cancelled:  # stopped halfway: no half-made archive is left behind
@@ -700,7 +724,7 @@ def pack_into(items: list[Path], out: Path, ctx: Ctx, fmt: str = "zip", level: s
             remove_made()
             raise _7z_error(output)
         if split_mb:
-            return sorted(out.parent.glob(glob_escape(out.name) + ".[0-9][0-9][0-9]"))
+            return sorted(p for p in _parts_of(out) if p not in before)
         return [out]
     # no 7-Zip: plain ZIP through Python
     if fmt != "zip" or password or split_mb:
@@ -728,10 +752,20 @@ def glob_escape(name: str) -> str:
     return re.sub(r"([\[\]*?])", r"[\1]", name)
 
 
+def _parts_of(out: Path) -> list[Path]:
+    """The numbered parts of a split archive: name.zip.001, name.zip.002 …"""
+    return list(out.parent.glob(glob_escape(out.name) + ".[0-9][0-9][0-9]"))
+
+
 def pack(items: list[Path], ctx: Ctx, fmt: str | None = None) -> Result:
     p = ctx.params
     fmt = fmt or p.get("format", "zip")
-    out = ctx.out_path(items[0], f"{_pack_name(items, ctx)}.{fmt}")
+    name = _pack_name(items, ctx)
+    out = ctx.out_path(items[0], f"{name}.{fmt}")
+    n = 2
+    while _parts_of(out):  # (the parts of an older split archive with this name: a new name, never mixed in)
+        out = ctx.out_path(items[0], f"{name} ({n}).{fmt}")
+        n += 1
     outs = pack_into(items, out, ctx, fmt, p.get("level", "normal"), p.get("password", ""),
                      float(p.get("split_mb") or 0))
     note = ""

@@ -85,12 +85,27 @@ def open_reader(src: Path, password: str = ""):
     return reader
 
 
+def open_pdfium(src: Path, password: str = ""):
+    """The PDF in PDFium, ready to draw what's typed in its form too (PDFium leaves a form's boxes out of
+    its pictures unless it's told about the form first). Call with PDFIUM held."""
+    import pypdfium2 as pdfium
+    doc = pdfium.PdfDocument(str(src), password=password or None)
+    try:
+        doc.init_forms()
+    except Exception:
+        log.debug("the form of %s couldn't be read", src, exc_info=True)
+    return doc
+
+
 def page_count(src: Path, password: str = "") -> int:
     return len(open_reader(src, password).pages)
 
 
-def write(writer, out: Path) -> Path:
-    """Writes to a .part file first: a full disk or a cancel never leaves half a PDF behind."""
+def write(writer, out: Path, password: str = "") -> Path:
+    """Writes to a .part file first: a full disk or a cancel never leaves half a PDF behind. With a password
+    (the original had one), the new copy is locked with it too."""
+    if password:
+        writer.encrypt(user_password=password, owner_password=password, algorithm="AES-256")
     tmp = out.with_name(out.name + ".part")
     try:
         with open(tmp, "wb") as fh:
@@ -114,18 +129,41 @@ def _keep_details(writer, reader):
 def _pages_writer(readers: list, pages: list[tuple[int, int, int]], ctx: Ctx | None = None, span=(0.0, 0.9)):
     """A new PDF of these pages: (which file, which page in it, extra turn in degrees)."""
     from pypdf import PdfWriter
-    writer = PdfWriter()
-    n = max(1, len(pages))
-    for k, (fi, pi, turn) in enumerate(pages):
-        if ctx is not None:
-            ctx.check()
+    from pypdf.generic import ArrayObject, NameObject, NumberObject
+    for fi, pi, _ in pages:
         if not 0 <= fi < len(readers) or not 0 <= pi < len(readers[fi].pages):
             raise RuntimeError(tr("the PDF changed since its pages were shown. Open it again"))
-        page = writer.add_page(readers[fi].pages[pi])
-        if turn % 360:
-            page.rotate(turn % 360)
-        if ctx is not None:
-            ctx.progress(span[0] + (span[1] - span[0]) * (k + 1) / n)
+    writer = PdfWriter()
+    if len(set((fi, pi) for fi, pi, _ in pages)) < len(pages):  # (the same page twice: one at a time)
+        for fi, pi, turn in pages:
+            page = writer.add_page(readers[fi].pages[pi])
+            if turn % 360:
+                page.rotate(turn % 360)
+    else:
+        # each PDF's pages go in together (so its form, its bookmarks and the links between its pages come
+        # along), then they're put in the order asked for
+        at: dict[tuple[int, int], int] = {}
+        files = list(dict.fromkeys(fi for fi, _, _ in pages))
+        for k, fi in enumerate(files):
+            if ctx is not None:
+                ctx.check()
+            wanted = [pi for f, pi, _ in pages if f == fi]
+            first = len(writer.pages)
+            writer.append(readers[fi], pages=wanted)
+            at.update({(fi, pi): first + j for j, pi in enumerate(wanted)})
+            if ctx is not None:
+                ctx.progress(span[0] + (span[1] - span[0]) * (k + 1) / len(files))
+        added = list(writer.pages)
+        ordered = []
+        for fi, pi, turn in pages:
+            page = added[at[(fi, pi)]]
+            if turn % 360:
+                page.rotate(turn % 360)
+            ordered.append(page.indirect_reference)
+        root = writer._root_object["/Pages"]
+        root[NameObject("/Kids")] = ArrayObject(ordered)
+        root[NameObject("/Count")] = NumberObject(len(ordered))
+        writer.flattened_pages = None  # (pypdf's own list of the pages: made again when it's needed)
     if readers:
         _keep_details(writer, readers[0])
     return writer
@@ -146,16 +184,20 @@ def save_arranged(files: list[Path], ctx: Ctx) -> Result:
     how = ctx.params.get("how", "one")
     first = files[pages[0][0]]
     name = safe_name(ctx.params.get("name", "")) or ctx.stem(first)
+    # (a locked PDF's own pages stay locked with its password; merged with other files they come out
+    # open, as before)
+    used = {fi for fi, _, _ in pages}
+    password = passwords.get(str(files[next(iter(used))]), "") if len(used) == 1 else ""
     if how == "one":
         out = ctx.out_path(first, name + ".pdf")
-        write(_pages_writer(readers, pages, ctx), out)
+        write(_pages_writer(readers, pages, ctx), out, password)
         return Result([out])
     if how == "each":
         outdir = ctx.out_dir(first, f"{name} pages")
         width = len(str(len(pages)))
         for k, page in enumerate(pages):
             ctx.check()
-            write(_pages_writer(readers, [page]), outdir / f"{name} {k + 1:0{width}}.pdf")
+            write(_pages_writer(readers, [page]), outdir / f"{name} {k + 1:0{width}}.pdf", password)
             ctx.progress((k + 1) / len(pages))
         return Result([outdir])
     if how == "images":
@@ -191,7 +233,8 @@ def split(src: Path, ctx: Ctx) -> Result:
         ctx.check()
         label = f"p{part[0] + 1:0{width}}" if len(part) == 1 else \
             f"p{part[0] + 1:0{width}}-{part[-1] + 1:0{width}}"
-        write(_pages_writer([reader], [(0, i, 0) for i in part]), outdir / f"{stem} {label}.pdf")
+        write(_pages_writer([reader], [(0, i, 0) for i in part]), outdir / f"{stem} {label}.pdf",
+              ctx.params.get("password", ""))
         ctx.progress((k + 1) / len(parts))
     return Result([outdir], note=tr("Split into {count} PDFs", count=len(parts)))
 
@@ -201,7 +244,7 @@ def extract(src: Path, ctx: Ctx) -> Result:
     reader = open_reader(src, ctx.params.get("password", ""))
     pages = [i for part in parse_ranges(ctx.params.get("ranges", ""), len(reader.pages)) for i in part]
     out = ctx.out_path(src, f"{ctx.stem(src)} (pages {ranges_text(pages)}).pdf".replace(", ", ","))
-    write(_pages_writer([reader], [(0, i, 0) for i in pages], ctx), out)
+    write(_pages_writer([reader], [(0, i, 0) for i in pages], ctx), out, ctx.params.get("password", ""))
     return Result([out])
 
 
@@ -214,7 +257,7 @@ def remove_pages(src: Path, ctx: Ctx) -> Result:
     if not keep:
         raise RuntimeError(tr("A PDF needs at least one page."))
     out = ctx.out_path(src, f"{ctx.stem(src)} (edited).pdf")
-    write(_pages_writer([reader], [(0, i, 0) for i in keep], ctx), out)
+    write(_pages_writer([reader], [(0, i, 0) for i in keep], ctx), out, ctx.params.get("password", ""))
     return Result([out], note=tr("Took out {count} pages", count=len(gone)))
 
 
@@ -226,6 +269,9 @@ def compress(src: Path, ctx: Ctx) -> Result:
     reader = open_reader(src, ctx.params.get("password", ""))
     out = ctx.out_path(src, f"{ctx.stem(src)} (compressed).pdf")
     write_compressed_pdf(src, out, ctx, quality=quality, max_dim=longest, reader=reader)
+    if ctx.params.get("password"):  # (a locked PDF's smaller copy is locked too)
+        from pypdf import PdfReader, PdfWriter
+        write(PdfWriter(clone_from=PdfReader(str(out))), out, ctx.params["password"])
     before, after = src.stat().st_size, out.stat().st_size
     if after >= before * 0.97:
         out.unlink(missing_ok=True)
@@ -235,26 +281,56 @@ def compress(src: Path, ctx: Ctx) -> Result:
 
 # ----------------------------------------------------------------------------- pictures to PDF
 
-def _picture_page(im, writer, size, margin: float):
+def _jpeg_source(f: Path) -> tuple[bool, bytes | None, bool]:
+    """(is it a JPG photo, its own bytes when they can go into the PDF as they are, is it grey)"""
+    from PIL import Image
+    try:
+        with Image.open(f) as im:
+            if im.format != "JPEG":
+                return False, None, False
+            plain = im.mode in ("RGB", "L") and (im.getexif().get(0x0112, 1) or 1) == 1
+            return True, (f.read_bytes() if plain else None), im.mode == "L"
+    except Exception:
+        return False, None, False
+
+
+def _picture_page(im, writer, size, margin: float, jpeg: bytes | None = None, photo: bool = False,
+                  grey: bool = False):
     """One picture as a page: on a page of its own size, or fitted (never stretched) on A4 / Letter,
-    turned to landscape when the picture is wider than tall."""
-    from pypdf import PdfReader, Transformation
-    buf = io.BytesIO()
-    im.save(buf, "PDF", resolution=150)
-    buf.seek(0)
-    pic = PdfReader(buf).pages[0]
+    turned to landscape when the picture is wider than tall. A JPG photo goes in as it is (turned by the
+    phone: once more, at high quality); other pictures are kept exactly, never made into a JPG."""
+    import zlib
+    from pypdf.generic import ContentStream, DictionaryObject, NameObject, NumberObject, StreamObject
+    pic = StreamObject()
+    if jpeg is None and photo:
+        buf = io.BytesIO()
+        im.convert("RGB").save(buf, "JPEG", quality=95)
+        jpeg, grey = buf.getvalue(), False
+    if jpeg is not None:
+        pic._data, space, kind = jpeg, "/DeviceGray" if grey else "/DeviceRGB", "/DCTDecode"
+    else:
+        im = im if im.mode in ("RGB", "L") else im.convert("RGB")
+        pic._data, space, kind = zlib.compress(im.tobytes(), 6), "/DeviceGray" if im.mode == "L" else "/DeviceRGB", \
+            "/FlateDecode"
+    pic.update({NameObject("/Type"): NameObject("/XObject"), NameObject("/Subtype"): NameObject("/Image"),
+                NameObject("/Width"): NumberObject(im.width), NameObject("/Height"): NumberObject(im.height),
+                NameObject("/ColorSpace"): NameObject(space), NameObject("/BitsPerComponent"): NumberObject(8),
+                NameObject("/Filter"): NameObject(kind)})
+    iw, ih = im.width * 72 / 150, im.height * 72 / 150  # (150 dpi, as before)
     if size is None:
-        writer.add_page(pic)
-        return
-    pw, ph = size
-    iw, ih = float(pic.mediabox.width), float(pic.mediabox.height)
-    if iw > ih:
-        pw, ph = ph, pw
-    room_w, room_h = pw - 2 * margin, ph - 2 * margin
-    scale = min(room_w / iw, room_h / ih)
+        pw, ph, scale, margin = iw, ih, 1.0, 0
+    else:
+        pw, ph = size
+        if iw > ih:
+            pw, ph = ph, pw
+        scale = min((pw - 2 * margin) / iw, (ph - 2 * margin) / ih)
     page = writer.add_blank_page(pw, ph)
     x, y = (pw - iw * scale) / 2, (ph - ih * scale) / 2
-    page.merge_transformed_page(pic, Transformation().scale(scale).translate(x, y))
+    page[NameObject("/Resources")] = DictionaryObject({NameObject("/XObject"): DictionaryObject(
+        {NameObject("/Im0"): writer._add_object(pic)})})
+    stream = ContentStream(None, writer)
+    stream.set_data(f"q {iw * scale:.4f} 0 0 {ih * scale:.4f} {x:.4f} {y:.4f} cm /Im0 Do Q".encode("ascii"))
+    page.replace_contents(stream)
 
 
 def pictures_to_pdf(files: list[Path], ctx: Ctx) -> Result:
@@ -268,8 +344,9 @@ def pictures_to_pdf(files: list[Path], ctx: Ctx) -> Result:
     writer = PdfWriter()
     for i, f in enumerate(files):
         ctx.check()
+        photo, jpeg, grey = _jpeg_source(f)
         for im in _all_pages(f):  # (a multi-page TIFF gives all its pages)
-            _picture_page(im, writer, size, margin)
+            _picture_page(im, writer, size, margin, jpeg, photo, grey)
             im.close()
         ctx.progress((i + 1) / (len(files) + 1))
     write(writer, out)
@@ -280,7 +357,6 @@ def pictures_to_pdf(files: list[Path], ctx: Ctx) -> Result:
 
 def _render(files: list[Path], pages: list[tuple[int, int, int]], passwords: dict, ctx: Ctx, name: str,
             fmt: str, dpi: int) -> Result:
-    import pypdfium2 as pdfium
     docs = {}
     first = files[pages[0][0]]
     ext = ".jpg" if fmt == "jpg" else ".png"
@@ -296,7 +372,7 @@ def _render(files: list[Path], pages: list[tuple[int, int, int]], passwords: dic
             ctx.check()
             with PDFIUM:
                 if fi not in docs:
-                    docs[fi] = pdfium.PdfDocument(str(files[fi]), password=passwords.get(str(files[fi])) or None)
+                    docs[fi] = open_pdfium(files[fi], passwords.get(str(files[fi])) or "")
                 page = docs[fi][pi]
                 try:
                     im = page.render(scale=dpi / 72, rotation=turn % 360).to_pil()

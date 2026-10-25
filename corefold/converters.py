@@ -194,10 +194,32 @@ def keep_format(src: Path) -> str:
 
 
 def convert_image(src: Path, ctx: Ctx, ext: str) -> Result:
+    if is_animated(src) and ext in (".webp", ".png"):  # (both can move: before, only the first frame was kept)
+        out = ctx.out_path(src, ctx.stem(src) + ext)
+        save_animated(src, out, lambda frame: frame)
+        return Result([out])
+    if is_multipage(src) and ext != ".ico":  # every page of a scan or fax, one file each (before, only page 1)
+        return Result(_convert_pages(src, ctx, ext))
     im = load_image(src)
     out = ctx.out_path(src, ctx.stem(src) + ext)
     save_image(im, out, ext, ctx)
     return Result([out])
+
+
+def _convert_pages(src: Path, ctx: Ctx, ext: str) -> list[Path]:
+    from PIL import Image, ImageSequence
+    setup_pillow()
+    outs = []
+    with Image.open(src) as im:
+        n = getattr(im, "n_frames", 1)
+        width = len(str(n))
+        for i, page in enumerate(ImageSequence.Iterator(im)):
+            ctx.check()
+            out = ctx.out_path(src, f"{ctx.stem(src)} p{i + 1:0{width}}{ext}")
+            save_image(page.copy(), out, ext, ctx)
+            outs.append(out)
+            ctx.progress((i + 1) / n)
+    return outs
 
 
 def write_pages_pdf(pages, out: Path, resolution: int):
@@ -330,11 +352,18 @@ def images_to_pdf(files: list[Path], ctx: Ctx) -> Result:
 def image_small(src: Path, ctx: Ctx) -> Result:
     """Shrink for sharing: max 1920 px, JPG quality 80."""
     from PIL import Image
-    im = flatten(load_image(src, fit=1920))
+    loaded = load_image(src, fit=1920)
+    im = flatten(loaded)
     im.thumbnail((1920, 1920), Image.LANCZOS)
     out = ctx.out_path(src, f"{ctx.stem(src)} (small).jpg")
-    im.save(out, quality=80, optimize=True, progressive=True)
+    im.save(out, quality=80, optimize=True, progressive=True, **colour_profile(loaded, "RGB"))
     return Result([out])
+
+
+def colour_profile(im, final_mode: str) -> dict:
+    """Only the colour profile (no photo details), when it fits: without it iPhone photos look dull."""
+    icc = _metadata(im, ".png", final_mode).get("icc_profile")
+    return {"icc_profile": icc} if icc else {}
 
 
 RESIZE_PRESETS = {  # key: (label, kind, value)
@@ -378,6 +407,9 @@ def save_animated(src: Path, out: Path, change):
     if out.suffix.lower() == ".gif":
         frames[0].save(out, "GIF", save_all=True, append_images=frames[1:], duration=durations, loop=loop,
                        disposal=2, optimize=False)
+    elif out.suffix.lower() == ".png":  # (an animated PNG: browsers and chat apps play it)
+        frames[0].save(out, "PNG", save_all=True, append_images=frames[1:], duration=durations, loop=loop,
+                       disposal=1)
     else:
         frames[0].save(out, "WEBP", save_all=True, append_images=frames[1:], duration=durations, loop=loop,
                        quality=90)
@@ -499,8 +531,10 @@ def strip_metadata(src: Path, ctx: Ctx) -> Result:
     clean = Image.frombytes(im.mode, im.size, im.tobytes())  # pixels only: no EXIF, GPS, camera info
     if ext in (".jpg", ".bmp"):
         clean = flatten(clean)
+    # (the colour profile says nothing about the person, and without it colours change)
+    keep = colour_profile(im, clean.mode) if ext in (".jpg", ".png", ".webp", ".tiff") else {}
     out = ctx.out_path(src, f"{ctx.stem(src)} (clean){ext}")
-    clean.save(out, **({"quality": 95} if ext == ".jpg" else {}))
+    clean.save(out, **({"quality": 95} if ext == ".jpg" else {}), **keep)
     return Result([out])
 
 
@@ -1100,6 +1134,8 @@ def write_compressed_pdf(src: Path, out: Path, ctx: Ctx, quality: int = 65, max_
                         continue
                     if pil.mode in ("RGBA", "LA", "PA", "P") or "transparency" in pil.info:
                         continue  # see-through pictures would get a white box around them
+                    if pil.mode == "1":  # (black-and-white scans: their own packing is far smaller than a JPG)
+                        continue
                     if max(pil.size) > max_dim:
                         pil.thumbnail((max_dim, max_dim), Image.LANCZOS)
                     if pil.mode not in ("RGB", "L"):
@@ -1459,8 +1495,13 @@ class Pick:
     pending: bool = False   # some checks still need to read the file (see warm_up)
 
 
-def _slow_kind(f: Path) -> str:
-    return "pdfstate" if category(f) == "pdf" else "probe"
+def _slow_ready(f: Path) -> bool:
+    """What the slow checks need for this file is known already (so they can run on the window's thread)."""
+    kind = category(f)
+    if kind == "pdf":
+        return is_cached("pdfstate", f)
+    # (a video's subtitle check runs FFprobe too: it must never run on the window's thread)
+    return is_cached("probe", f) and (kind != "video" or is_cached("subs", f))
 
 
 def warm_up(files: list[Path]):
@@ -1471,6 +1512,9 @@ def warm_up(files: list[Path]):
         try:
             if category(f) in ("video", "audio"):
                 probe(f)
+                if category(f) == "video":
+                    from .videotools import subtitle_tracks
+                    subtitle_tracks(f)
             elif category(f) == "pdf":
                 check_pdf_locked([f])
         except Exception:
@@ -1505,7 +1549,7 @@ def pick(paths: list[Path], hidden=frozenset(), favorites=(), show_unavailable: 
         if t.slow_check and is_cloud_only(files[0]):
             result.slots.append(Slot(t, None))  # not on this PC yet: assume it works rather than download it
             continue
-        if quick and t.slow_check and not is_cached(_slow_kind(files[0]), files[0]):
+        if quick and t.slow_check and not _slow_ready(files[0]):
             result.pending = True  # assume it works for now; warm_up() + a second pick() will tell
             result.slots.append(Slot(t, None))
             continue

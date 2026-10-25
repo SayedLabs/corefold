@@ -28,10 +28,11 @@ def _reader(src: Path, ctx: Ctx):
 
 
 def _upright(page):
-    """The page's box, with a turned page's turn moved into its drawing (so "bottom" is the bottom)."""
+    """The page's box as it's shown (its CropBox: a cut-off edge isn't shown), with a turned page's turn
+    moved into its drawing (so "bottom" is the bottom)."""
     if page.rotation % 360:
         page.transfer_rotation_to_content()
-    box = page.mediabox
+    box = page.cropbox
     return float(box.left), float(box.bottom), float(box.width), float(box.height)
 
 
@@ -39,8 +40,8 @@ def _stamp(page, writer, content: bytes, resources: dict):
     """Draws content (PDF drawing commands) on top of the page."""
     from pypdf import PageObject
     from pypdf.generic import ContentStream, DictionaryObject, NameObject
-    x0, y0, w, h = float(page.mediabox.left), float(page.mediabox.bottom), float(page.mediabox.width), \
-        float(page.mediabox.height)
+    x0, y0, w, h = float(page.cropbox.left), float(page.cropbox.bottom), float(page.cropbox.width), \
+        float(page.cropbox.height)
     over = PageObject.create_blank_page(writer, width=w, height=h)
     over.mediabox.lower_left = (x0, y0)
     over.mediabox.upper_right = (x0 + w, y0 + h)

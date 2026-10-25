@@ -854,9 +854,12 @@ class PdfPage(QWidget):
                 params.update(dlg.params())
             finally:
                 dlg.deleteLater()
-        self.c.start_job(pdftools.ARRANGED, list(self.files), params)
-        if not only_selected:
-            self.saved_state = self.plan()
+        plan = self.plan()
+
+        def done(ok: bool):  # (the new order counts as saved only once the PDF is really written)
+            if ok and not only_selected and work.alive(self):
+                self.saved_state = plan
+        self.c.start_job(pdftools.ARRANGED, list(self.files), params, then=done)
 
     def _name(self, pages, only_selected: bool) -> str:
         first = self.files[pages[0][0]]
@@ -868,14 +871,28 @@ class PdfPage(QWidget):
 
     # ---- closing the board
 
-    def unsaved(self) -> bool:
+    def board_unsaved(self) -> bool:
         return self._board_made and self.board.count() > 0 and self.plan() != self.saved_state and \
             not (len(self.files) == 1 and self.plan() == [(0, i, 0) for i in range(self.counts.get(0, 0))])
+
+    def unsaved(self) -> bool:
+        """Work that isn't saved yet: a new order of pages on the board, or changes in the editor (asked
+        before Corefold quits or remakes its window)."""
+        editing = self.editor is not None and self.editor.src is not None and self.editor.unsaved()
+        return editing or self.board_unsaved()
+
+    def close_renderer(self):
+        """Lets go of the PDFs (when the page goes away): the editor's drawing thread and the page pictures
+        being made stop, and the files aren't kept open."""
+        for stop in self.stops:
+            stop.set()
+        if self.editor is not None:
+            self.editor.close_renderer()
 
     def close_board(self, ask: bool = True) -> bool:
         if not self._board_made:
             return True
-        if ask and self.unsaved():
+        if ask and self.board_unsaved():
             box = QMessageBox(QMessageBox.Question, tr("Close these PDFs?"),
                               tr("The new order of the pages isn't saved yet. Your PDFs themselves are fine."),
                               parent=self)
@@ -919,6 +936,12 @@ class PdfPage(QWidget):
         paths = [Path(u.toLocalFile()) for u in e.mimeData().urls() if u.isLocalFile()]
         if paths:
             e.acceptProposedAction()
+            if self.editor is not None and self.stack.currentWidget() is self.editor:
+                # (dropped on the editor: a picture goes on the page; PDFs aren't put on the hidden board)
+                pictures = [p for p in paths if is_picture(p)]
+                if pictures:
+                    self.editor.add_picture(pictures[0])
+                return
             self.add_files(paths)
 
     def keyPressEvent(self, e):
@@ -947,9 +970,8 @@ def _count(src: Path, password: str) -> int:
 
 def _thumbnails(src: Path, password: str, stop: threading.Event, progress, size: int):
     """Small pictures of every page, one at a time."""
-    import pypdfium2 as pdfium
     with pdftools.PDFIUM:
-        doc = pdfium.PdfDocument(str(src), password=password or None)
+        doc = pdftools.open_pdfium(src, password)  # (with what's typed in its form)
         count = len(doc)
     try:
         for i in range(count):
@@ -971,9 +993,8 @@ def _thumbnails(src: Path, password: str, stop: threading.Event, progress, size:
 
 def _render_big(src: Path, password: str, index: int, turn: int, dpr: float) -> QPixmap | None:
     try:
-        import pypdfium2 as pdfium
         with pdftools.PDFIUM:
-            doc = pdfium.PdfDocument(str(src), password=password or None)
+            doc = pdftools.open_pdfium(src, password)
             try:
                 page = doc[index]
                 w, h = page.get_size()

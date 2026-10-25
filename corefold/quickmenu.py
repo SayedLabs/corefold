@@ -335,6 +335,9 @@ class QuickMenu(QWidget):
                     continue
                 seen.add(path)
                 p = Path(path)
+                if path.startswith(("\\\\", "//")):  # (a network share isn't asked: offline, it holds the menu up)
+                    out.append(quick.Entry(f"file:{path}", p.name, "document" if p.suffix else "folder", path))
+                    continue
                 try:
                     if not p.exists():
                         continue

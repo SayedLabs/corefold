@@ -81,10 +81,21 @@ def number_text(x: float, digits: int = 12) -> str:
 
 _BINOPS = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul, ast.Div: operator.truediv,
            ast.FloorDiv: operator.floordiv, ast.Mod: operator.mod, ast.Pow: pow}
+def _degrees(fn):
+    """sin, cos and tan in degrees, without float noise: cos(90) is 0, and tan(90) has no answer."""
+    def f(x):
+        v = fn(math.radians(x))
+        if abs(v) < 1e-12:
+            return 0.0
+        if abs(v) > 1e12:  # (tan(90): what's left of pi/2 in a float, not a real number)
+            raise ValueError
+        return v
+    return f
+
+
 _FUNCS = {"sqrt": math.sqrt, "abs": abs, "round": round, "floor": math.floor, "ceil": math.ceil,
-          "sin": lambda x: math.sin(math.radians(x)), "cos": lambda x: math.cos(math.radians(x)),
-          "tan": lambda x: math.tan(math.radians(x)), "log": math.log10, "ln": math.log, "exp": math.exp,
-          "min": min, "max": max}
+          "sin": _degrees(math.sin), "cos": _degrees(math.cos), "tan": _degrees(math.tan),
+          "log": math.log10, "ln": math.log, "exp": math.exp, "min": min, "max": max}
 _NAMES = {"pi": math.pi, "e": math.e}
 MAX_EXPONENT = 10_000
 MAX_INT_DIGITS = 400
@@ -137,6 +148,27 @@ _ADD_PERCENT = re.compile(r"^(.+?)\s*([+-])\s*(\d+(?:\.\d+)?)\s*%\s*$")
 _PERCENT = re.compile(r"(\d+(?:\.\d+)?)\s*%")
 _ROOT = re.compile(r"√\s*(\d+(?:\.\d+)?)")
 _TIMES_X = re.compile(r"(?<=[\d)])\s*[xX]\s*(?=[\d(])")
+_MULTI_ARGS = re.compile(r"\b(round|min|max)\s*\(([^()]*)\)", re.I)
+
+
+def _arg_commas(s: str) -> str:
+    """In round(2.567,1) or max(1,2) a comma parts the numbers (it isn't a decimal comma: round(2.567,1)
+    used to be read as round(2567.1)). With ";" in there, commas stay decimal commas ("min(1,5; 2)");
+    with ", " only those part them ("max(1,000, 5)")."""
+    def fix(m):
+        args = m.group(2)
+        if ";" not in args:
+            args = args.replace(", ", ";") if ", " in args else args.replace(",", ";")
+        return f"{m.group(1)}({args})"
+    return _MULTI_ARGS.sub(fix, s)
+
+
+def _add_percents(s: str) -> str:
+    """80 + 15% is 92, like on a calculator, and 100 + 10% + 10% is 121 (each one on what's before it)."""
+    m = _ADD_PERCENT.match(s)
+    if not m:
+        return s
+    return f"({_add_percents(m.group(1))})*(1{m.group(2)}{m.group(3)}/100)"
 
 
 def calculate(text: str) -> Answer | None:
@@ -144,15 +176,13 @@ def calculate(text: str) -> Answer | None:
     raw = text.strip()
     if not raw or len(raw) > 120:
         return None
-    s = plain_numbers(raw).replace(";", ",").replace("^", "**").lower()
+    s = plain_numbers(_arg_commas(raw.translate(_DIGITS))).replace(";", ",").replace("^", "**").lower()
     if not re.search(r"\d", s):
         return None
     s = _ROOT.sub(r"sqrt(\1)", s)
     s = _TIMES_X.sub("*", s)
     s = _PERCENT_OF.sub(r"(\1/100)*", s)
-    m = _ADD_PERCENT.match(s)
-    if m:  # 80 + 15% is 92, like on a calculator
-        s = f"({m.group(1)})*(1{m.group(2)}{m.group(3)}/100)"
+    s = _add_percents(s)
     s = _PERCENT.sub(r"(\1/100)", s)
     s = s.replace("mod", "%")
     try:

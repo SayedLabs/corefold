@@ -122,6 +122,7 @@ class MailWindow(QWidget):
             if not value:
                 continue
             row = QLabel(f"<span style='opacity:.65'>{html_lib.escape(name)}:</span> {html_lib.escape(ltr(value))}")
+            row.setTextFormat(Qt.RichText)  # (labels show plain text unless asked; both parts are escaped above)
             row.setObjectName("muted")
             row.setWordWrap(True)
             row.setTextInteractionFlags(Qt.TextSelectableByMouse)
@@ -245,19 +246,33 @@ class MailWindow(QWidget):
     def save_attachment(self, a: mail.Attachment):
         name, _ = QFileDialog.getSaveFileName(self, tr("Save attachment"), str(self.path.parent / a.name))
         if name:
-            Path(name).write_bytes(a.data)
+            try:
+                Path(name).write_bytes(a.data)
+            except OSError:  # (a read-only folder, a full disk)
+                self._save_failed()
+                return
             _mark_from_internet(Path(name))
+
+    def _save_failed(self):
+        QMessageBox.warning(self, tr("Couldn't save"), tr("Couldn't save the file. Try another folder."))
 
     def save_all(self, atts: list[mail.Attachment]):
         folder = QFileDialog.getExistingDirectory(self, tr("Save all attachments to"), str(self.path.parent))
         if not folder:
             return
-        saved = []
+        saved, failed = [], 0
         for a in atts:
             out = unique_path(Path(folder) / a.name)
-            out.write_bytes(a.data)
+            try:
+                out.write_bytes(a.data)
+            except OSError:  # (one that can't be written doesn't stop the others)
+                failed += 1
+                continue
             _mark_from_internet(out)
             saved.append(out)
+        if failed and not saved:
+            self._save_failed()
+            return
         self.c.toast.notify(tr("Saved"), tr("{count} attachments saved", count=len(saved)), linger_ms=3000)
 
     # ---- saving the email
@@ -294,7 +309,10 @@ class MailWindow(QWidget):
         default = unique_path(self.path.with_suffix(".eml"))
         name, _ = QFileDialog.getSaveFileName(self, tr("Save as .eml"), str(default), "Email (*.eml)")
         if name:
-            Path(name).write_bytes(mail.to_eml(self.m))
+            try:
+                Path(name).write_bytes(mail.to_eml(self.m))
+            except OSError:
+                self._save_failed()
 
     def show_headers(self):
         box = QMessageBox(QMessageBox.NoIcon, tr("Technical details"), "", parent=self)

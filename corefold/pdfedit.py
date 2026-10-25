@@ -525,13 +525,18 @@ def read_fields(reader) -> list[dict]:
                     field.update(kind="radio" if radio else "check", on=on,
                                  value=str(value) if value is not None else "/Off")
                 elif kind == "/Ch":
-                    opts = []
+                    opts, exports = [], []
                     for o in _inherited(w, "/Opt") or []:
                         o = o.get_object() if hasattr(o, "get_object") else o
-                        opts.append(str(o[1] if isinstance(o, list) and len(o) > 1 else o))
+                        pair = isinstance(o, list) and len(o) > 1
+                        opts.append(str(o[1] if pair else o))
+                        exports.append(str(o[0] if pair else o))
                     if isinstance(value, list):
                         value = value[0] if value else ""
-                    field.update(kind="choice", options=opts, value=str(value) if value is not None else "")
+                    value = str(value) if value is not None else ""
+                    if value in exports:  # (the form keeps a choice's own value: the words shown are its name)
+                        value = opts[exports.index(value)]
+                    field.update(kind="choice", options=opts, exports=exports, value=value)
                 else:
                     continue
                 out.append(field)
@@ -688,8 +693,10 @@ def _layer(pages: dict[int, list[dict]], sizes: dict[int, tuple[float, float]]) 
 
     def size_page(i):
         w, h = sizes[i]
-        writer.setPageLayout(QPageLayout(QPageSize(QSizeF(w, h), QPageSize.Point), QPageLayout.Portrait,
-                                         QMarginsF(0, 0, 0, 0)))
+        # (ExactMatch: a page a little off A4 or Letter isn't given that size instead. Qt still rounds to whole
+        # points: save_edits makes up for the difference)
+        writer.setPageLayout(QPageLayout(QPageSize(QSizeF(w, h), QPageSize.Point, "", QPageSize.ExactMatch),
+                                         QPageLayout.Portrait, QMarginsF(0, 0, 0, 0)))
     order = list(pages)
     size_page(order[0])
     p = QPainter(writer)
@@ -902,19 +909,23 @@ def _drop_lost_fields(reader):
         form[NameObject("/Fields")] = ArrayObject(f for f in fields.get_object() if keep(f))
 
 
-def _field_picture(writer, w: float, h: float, field: dict, value: str):
-    """A text box's look with its new value, made by Qt (Arabic is joined, every PDF app shows it)."""
+def _field_picture(writer, w: float, h: float, field: dict, value: str, turn: int = 0):
+    """A text box's look with its new value, made by Qt (Arabic is joined, every PDF app shows it). turn: the
+    box's own turn on the page (its /MK /R, counterclockwise)."""
     from pypdf import PdfReader
     from pypdf.generic import ArrayObject, DecodedStreamObject, FloatObject, NameObject
     from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QMarginsF, QRectF, QSizeF, Qt
     from PySide6.QtGui import QColor, QPageLayout, QPageSize, QPainter, QPdfWriter
+    turn = turn % 360
+    if turn in (90, 270):  # (a box turned on its side: the words run along its long side)
+        w, h = h, w
     data = QByteArray()
     buf = QBuffer(data)
     buf.open(QIODevice.WriteOnly)
     pw = QPdfWriter(buf)
     pw.setResolution(72)
-    pw.setPageLayout(QPageLayout(QPageSize(QSizeF(max(w, 1), max(h, 1)), QPageSize.Point), QPageLayout.Portrait,
-                                 QMarginsF(0, 0, 0, 0)))
+    pw.setPageLayout(QPageLayout(QPageSize(QSizeF(max(w, 1), max(h, 1)), QPageSize.Point, "", QPageSize.ExactMatch),
+                                 QPageLayout.Portrait, QMarginsF(0, 0, 0, 0)))
     p = QPainter(pw)
     size = field.get("size") or min(12.0, max(6.0, h * 0.66))
     f = font_for({"font": "Arial", "size": size})
@@ -935,6 +946,9 @@ def _field_picture(writer, w: float, h: float, field: dict, value: str):
     xo.update({NameObject("/Type"): NameObject("/XObject"), NameObject("/Subtype"): NameObject("/Form"),
                NameObject("/BBox"): ArrayObject([FloatObject(0), FloatObject(0), FloatObject(w), FloatObject(h)]),
                NameObject("/Resources"): page["/Resources"].clone(writer)})
+    if turn in (90, 180, 270):
+        cos, sin = {90: (0, 1), 180: (-1, 0), 270: (0, -1)}[turn]
+        xo[NameObject("/Matrix")] = ArrayObject([FloatObject(v) for v in (cos, sin, -sin, cos, 0, 0)])
     return writer._add_object(xo)
 
 
@@ -955,9 +969,17 @@ def _fill(writer, values: dict, fields: list[dict]):
             field, value = kinds[name], values[name]
             holder = w if "/T" in w else (w["/Parent"].get_object() if "/Parent" in w else w)
             if field["kind"] in ("text", "choice"):
-                holder[NameObject("/V")] = TextStringObject(str(value))
+                stored = str(value)
+                if field["kind"] == "choice" and stored in field.get("options", []):
+                    stored = field.get("exports", field["options"])[field["options"].index(stored)]
+                holder[NameObject("/V")] = TextStringObject(stored)
                 l, b, r, t = (float(v) for v in w["/Rect"])
-                pic = _field_picture(writer, abs(r - l), abs(t - b), field, str(value))
+                try:  # (a box on a turned page is turned too, so its words show upright)
+                    mk = w.get("/MK")
+                    turn = int(mk.get_object().get("/R", 0)) if mk is not None else 0
+                except (TypeError, ValueError, AttributeError):
+                    turn = 0
+                pic = _field_picture(writer, abs(r - l), abs(t - b), field, str(value), turn)
                 w[NameObject("/AP")] = DictionaryObject({NameObject("/N"): pic})
             elif field["kind"] in ("check", "radio"):
                 state = str(value) if value and value != "/Off" else "/Off"
@@ -972,13 +994,35 @@ def _fill(writer, values: dict, fields: list[dict]):
 _INHERITED = ("/Resources", "/MediaBox", "/CropBox", "/Rotate")
 
 
-def _arrange(writer, order: list[int] | None, turns: dict[int, int]):
-    """Turns pages, and keeps only the pages in order, in that order (the editor's list of pages)."""
+def _forget_pages(writer, gone: set[int]):
+    """Bookmarks, links and form boxes that still point at a deleted page point nowhere now, so the page (and
+    what's on it) isn't kept in the new copy."""
+    from pypdf.generic import ArrayObject, DictionaryObject, IndirectObject, NullObject
+    seen: set[int] = set()
+    todo = [writer._root_object]
+    while todo:
+        obj = todo.pop()
+        for key, value in list(obj.items() if isinstance(obj, DictionaryObject) else enumerate(obj)):
+            if isinstance(value, IndirectObject):
+                if value.idnum in gone:
+                    obj[key] = NullObject()
+                    continue
+                if value.idnum in seen:
+                    continue
+                seen.add(value.idnum)
+                value = value.get_object()
+            if isinstance(value, (DictionaryObject, ArrayObject)):
+                todo.append(value)
+
+
+def _arrange(writer, order: list[int] | None, turns: dict[int, int]) -> set[int]:
+    """Turns pages, and keeps only the pages in order, in that order (the editor's list of pages). Gives the
+    deleted pages (their object numbers)."""
     from pypdf.generic import ArrayObject, NameObject, NumberObject
     pages = list(writer.pages)
     moved = order is not None and order != list(range(len(pages)))
     if not moved and not turns:
-        return
+        return set()
     for page in pages:  # (what a page took from the page groups it's in, it keeps itself)
         for key in _INHERITED:
             if key in page:
@@ -994,7 +1038,7 @@ def _arrange(writer, order: list[int] | None, turns: dict[int, int]):
         if 0 <= i < len(pages):
             pages[i].rotate(degrees % 360)
     if not moved:
-        return
+        return set()
     keep = [pages[i] for i in order if 0 <= i < len(pages)]
     if not keep:
         raise RuntimeError(tr("a PDF needs at least one page"))
@@ -1004,6 +1048,11 @@ def _arrange(writer, order: list[int] | None, turns: dict[int, int]):
     root[NameObject("/Kids")] = ArrayObject([p.indirect_reference for p in keep])
     root[NameObject("/Count")] = NumberObject(len(keep))
     writer.flattened_pages = None  # (pypdf's own list of the pages: made again when it's needed)
+    kept = {p.indirect_reference.idnum for p in keep}
+    gone = {p.indirect_reference.idnum for p in pages if p.indirect_reference.idnum not in kept}
+    if gone:
+        _forget_pages(writer, gone)
+    return gone
 
 
 def save_edits(src: Path, ctx: Ctx) -> Result:
@@ -1063,7 +1112,10 @@ def save_edits(src: Path, ctx: Ctx) -> Result:
         geos = {i: pypdf_geo(pages[i]) for i in drawn}
         layer = PdfReader(io.BytesIO(_layer(drawn, {i: (g.width, g.height) for i, g in geos.items()})))
         for n, i in enumerate(drawn):
-            pages[i].merge_transformed_page(layer.pages[n], Transformation(geos[i].ctm()))
+            # (the layer's page is a whole number of points tall: its top is lined up with the page's top)
+            a, b, c, d, e, f = geos[i].ctm()
+            dy = geos[i].height - float(layer.pages[n].mediabox.height)
+            pages[i].merge_transformed_page(layer.pages[n], Transformation((a, b, c, d, e + c * dy, f + d * dy)))
             ctx.progress(0.4 + 0.4 * (n + 1) / len(drawn))
     # 3. notes and the form
     for d in edits:
@@ -1077,7 +1129,14 @@ def save_edits(src: Path, ctx: Ctx) -> Result:
         note = Text(rect=(l, b, r, t), text=str(d["text"]), open=False)
         writer.add_annotation(page_number=i, annotation=note)
     _fill(writer, values, fields)
-    _arrange(writer, order, turns)
+    if _arrange(writer, order, turns):
+        # (pypdf writes every part it was given: copied again, only what the pages still use is kept, so a
+        # deleted page is really gone from the file, with its form boxes)
+        buf = io.BytesIO()
+        writer.write(buf)
+        again = PdfReader(buf)
+        _drop_lost_fields(again)
+        writer = PdfWriter(clone_from=again)
     if password:
         writer.encrypt(user_password=password, owner_password=password, algorithm="AES-256")
     ctx.progress(0.9)

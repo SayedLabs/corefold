@@ -14,6 +14,8 @@ import struct
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .i18n import tr
+
 MAX_FILE = 300 << 20       # emails bigger than this aren't opened
 MAX_PART = 200 << 20       # no single part is read past this
 
@@ -57,7 +59,7 @@ class Message:
 def read(path: Path) -> Message:
     size = path.stat().st_size
     if size > MAX_FILE:
-        raise MailError("this email file is too big to open")
+        raise MailError(tr("this email file is too big to open"))
     data = path.read_bytes()
     try:
         if data[:8] == CFB_MAGIC:
@@ -66,7 +68,7 @@ def read(path: Path) -> Message:
     except MailError:
         raise
     except (struct.error, IndexError, ValueError, UnicodeError, OverflowError, MemoryError, RecursionError) as e:
-        raise MailError("this email file is damaged") from e
+        raise MailError(tr("this email file is damaged")) from e
 
 
 # ----------------------------------------------------------------------------- .eml
@@ -181,11 +183,11 @@ class CompoundFile:
 
     def __init__(self, data: bytes):
         if len(data) < 512 or data[:8] != CFB_MAGIC:
-            raise MailError("not an Outlook email file")
+            raise MailError(tr("not an Outlook email file"))
         self.data = data
         (sector_shift, mini_shift) = struct.unpack_from("<HH", data, 0x1E)
         if sector_shift not in (9, 12) or mini_shift != 6:
-            raise MailError("this Outlook file is damaged")
+            raise MailError(tr("this Outlook file is damaged"))
         self.ss = 1 << sector_shift
         self.mss = 1 << mini_shift
         (n_fat, first_dir) = struct.unpack_from("<II", data, 0x2C)
@@ -205,7 +207,7 @@ class CompoundFile:
         fat: list[int] = []
         for s in fat_sectors:
             if s >= self.n_sectors:
-                raise MailError("this Outlook file is damaged")
+                raise MailError(tr("this Outlook file is damaged"))
             fat.extend(struct.unpack(f"<{self.ss // 4}I", self._sector(s)))
         self.fat = fat
         dir_bytes = self._chain(first_dir, self.fat, self._sector)
@@ -222,7 +224,7 @@ class CompoundFile:
                 size &= 0xFFFFFFFF  # version 3 files only use the low half
             self.entries.append(_Entry(name, kind, left, right, child, start, size))
         if not self.entries or self.entries[0].kind != 5:
-            raise MailError("this Outlook file is damaged")
+            raise MailError(tr("this Outlook file is damaged"))
         root = self.entries[0]
         self.ministream = self._chain(root.start, self.fat, self._sector, root.size) if root.size else b""
         self.minifat: list[int] = []
@@ -596,5 +598,6 @@ def rtf_body(rtf: bytes) -> tuple[str, str]:
             flush()
             out.append(text.replace(b"\r", b"").replace(b"\n", b"").decode(cp, "replace"))
     flush()
-    body = "".join(out)
+    # (an emoji comes as two \uN halves: joined into one character, or saving the email as .eml fails)
+    body = "".join(out).encode("utf-16", "surrogatepass").decode("utf-16", "replace")
     return ("html", body) if from_html else ("text", body.strip())

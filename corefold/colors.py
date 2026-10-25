@@ -403,6 +403,8 @@ class Picker(QObject):
         self.hint_on: Loupe | None = None
 
     def start(self):
+        if self.answered:  # (stopped while it waited to start: nothing may cover the screens now)
+            return
         shots = [(s, s.grabWindow(0)) for s in QGuiApplication.screens()]
         for screen, shot in shots:
             if shot.isNull():

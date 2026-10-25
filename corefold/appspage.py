@@ -681,8 +681,8 @@ def _is_self(app: un.App) -> bool:
     if app.name.lower().startswith(("corefold", LEGACY_NAME.lower())):
         return True
     if getattr(sys, "frozen", False) and app.location:
-        return os.path.normcase(os.path.dirname(sys.executable)).startswith(
-            os.path.normcase(app.location.rstrip("\\/")))
+        # (Corefold's folder or one that holds it: not any folder whose name only starts the same, "...\\Core")
+        return un._inside(os.path.dirname(sys.executable), app.location)
     return False
 
 
@@ -1033,7 +1033,7 @@ class UninstallDialog(QDialog):
         depth = self.depth.currentData() or "normal"
         settings = getattr(self.c, "settings", None)
         if settings is not None and getattr(settings, "uninstall_depth", None) != depth:
-            settings.uninstall_depth = depth
+            self.c.keep_now("uninstall_depth", depth)  # (kept now, never held back with Settings' unsaved changes)
             settings.save()
         if self.removed_apps:
             self._show_leftovers(self.removed_apps, self.leftovers)
@@ -1148,7 +1148,9 @@ class UninstallDialog(QDialog):
         folder, result = data
         self.backup = folder if folder is not None and any(d.get("stored") for d in result["done"]) else None
         self.changed = True
-        done, failed = len(result["done"]), len(result["failed"])
+        # (a folder taken in two goes, partly, then the rest as administrator, is one leftover)
+        done = len({(d.get("kind"), str(d.get("path", "")).lower(), d.get("value")) for d in result["done"]})
+        failed = len(result["failed"])
         detail = tr("{size} freed. Everything is kept as a backup for {days} days: undo it here or from "
                     "\"Backups…\" on the Apps page.", size=human_size(result["freed"]), days=_backup_days(self.c))
         later = sum(int(d.get("on_restart") or 0) for d in result["done"])
@@ -1169,9 +1171,24 @@ class UninstallDialog(QDialog):
         self.stack.setCurrentIndex(3)
 
     def undo(self):
-        if self.backup is None:
+        if self.backup is None or getattr(self, "_undoing", None) is not None:
             return
-        result = restore_backup(self.backup)
+        from . import work
+        backup = self.backup
+        self.undo_btn.setEnabled(False)
+        # (off the window's thread: putting a big folder back, or waiting for the administrator copy, takes a while)
+        self._undoing = work.run(lambda _p: restore_backup(backup), lambda _: None, self._undone, busy=True)
+
+    def _undone(self, result):
+        from . import work
+        if not work.alive(self):
+            return
+        self._undoing = None
+        self.undo_btn.setEnabled(True)
+        if isinstance(result, Exception):
+            log.warning("putting back %s failed", self.backup, exc_info=result)
+            self.done_detail.setText(str(result))
+            return
         if result["failed"]:
             self.done_detail.setText(tr("{count} items couldn't be put back.", count=len(result["failed"])))
         else:
@@ -1236,6 +1253,7 @@ class BackupsDialog(QDialog):
         self.setWindowIcon(icon)
         self.setWindowTitle(tr("Backups"))
         self.setMinimumSize(560, 380)
+        self._job = None  # (putting back or deleting, off the window's thread)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(22, 20, 22, 18)
         lay.addWidget(_label(tr("Backups"), "h2"))
@@ -1280,33 +1298,54 @@ class BackupsDialog(QDialog):
         return items[0].data(0, APP_ROLE) if items else None
 
     def _selection(self):
-        has = self._folder() is not None
+        has = self._folder() is not None and self._job is None
         self.b_restore.setEnabled(has)
         self.b_delete.setEnabled(has)
 
+    def _run(self, fn, done):
+        """fn() off the window's thread (a backup can be big, and putting it back may wait for the
+        administrator copy), then done(its result) here."""
+        from . import work
+
+        def finished(result):
+            if not work.alive(self):
+                return
+            self._job = None
+            if isinstance(result, Exception):
+                log.warning("backup job failed", exc_info=result)
+                QMessageBox.warning(self, tr("Backups"), str(result))
+            else:
+                done(result)
+            self.fill()
+        self._job = work.run(lambda _p: fn(), lambda _: None, finished, busy=True)
+        self._selection()
+
     def restore(self):
         folder = self._folder()
-        if folder is None:
+        if folder is None or self._job is not None:
             return
-        result = restore_backup(folder)
         self.changed = True
-        if result["failed"]:
-            QMessageBox.warning(self, tr("Backups"), tr("{count} items couldn't be put back.",
-                                                        count=len(result["failed"])))
-        elif result.get("recycled"):
-            QMessageBox.information(self, tr("Backups"), _recycled_text(result["recycled"]))
-        self.fill()
+
+        def done(result):
+            if result["failed"]:
+                QMessageBox.warning(self, tr("Backups"), tr("{count} items couldn't be put back.",
+                                                            count=len(result["failed"])))
+            elif result.get("recycled"):
+                QMessageBox.information(self, tr("Backups"), _recycled_text(result["recycled"]))
+        self._run(lambda: restore_backup(folder), done)
 
     def delete(self):
         folder = self._folder()
-        if folder is None:
+        if folder is None or self._job is not None:
             return
         if QMessageBox.question(self, tr("Backups"), tr("Delete this backup for good? It can't be put back after "
                                                        "that.")) != QMessageBox.Yes:
             return
-        if not un.delete_backup(folder):
-            QMessageBox.warning(self, tr("Backups"), tr("Some files in the backup couldn't be deleted."))
-        self.fill()
+
+        def done(ok):
+            if not ok:
+                QMessageBox.warning(self, tr("Backups"), tr("Some files in the backup couldn't be deleted."))
+        self._run(lambda: un.delete_backup(folder), done)
 
 
 class UpdatesDialog(QDialog):

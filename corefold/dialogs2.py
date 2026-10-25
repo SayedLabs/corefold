@@ -194,7 +194,8 @@ class RenameFilesDialog(Base):
         lines = [f"{short_name(o.name, 30)}  →  {short_name(n.name, 30)}" for o, n in pairs[:4]]
         if len(pairs) > 4:
             lines.append("…")
-        bad = rename_conflicts([(o, n) for o, n in pairs if o != n])
+        # (compared as text: Windows paths are equal whatever their capitals, so "IMG" → "img" counts too)
+        bad = rename_conflicts([(o, n) for o, n in pairs if str(o) != str(n)])
         if bad:
             lines.append(tr("Some new names are already used by other files."))
         self.preview.setText("\n".join(lines))
@@ -224,6 +225,9 @@ class CropArea(QWidget):
 
     def set_image(self, pm: QPixmap, size: tuple[int, int]):
         self.pixmap, self.size_px = pm, size
+        if self.ratio:  # (a shape picked before the picture was read is fitted to its real size now)
+            self.box = self._fit_ratio(self.box, self.ratio)
+            self.changed.emit()
         self.update()
 
     def image_rect(self) -> QRectF:
@@ -454,9 +458,14 @@ class SubtitlesDialog(Base):
         row = QHBoxLayout()
         self.path = QLineEdit()
         self.path.setPlaceholderText(tr("A subtitle file (.srt, .ass, .vtt)"))
-        found = subtitles_next_to(files[0])
+        # (several videos: a file typed here goes into all of them, so the first one's own subtitles aren't
+        # filled in; left empty, each video gets the subtitle file next to it)
+        self.own = len(files) > 1 and all(subtitles_next_to(f) is not None for f in files)
+        found = subtitles_next_to(files[0]) if len(files) == 1 else None
         if found is not None:
             self.path.setText(str(found))
+        if self.own:
+            self.path.setPlaceholderText(tr("Empty: each video gets the subtitle file next to it"))
         pick = QPushButton(tr("Choose…"))
         pick.clicked.connect(self._pick)
         row.addWidget(self.path, 1)
@@ -471,8 +480,8 @@ class SubtitlesDialog(Base):
         self.lay.addWidget(self.burn)
         self.lay.addWidget(self.track)
         self.buttons(tr("Put them in"))
-        self.ok.setEnabled(bool(self.path.text()))
-        self.path.textChanged.connect(lambda t: self.ok.setEnabled(bool(t.strip())))
+        self.ok.setEnabled(bool(self.path.text()) or self.own)
+        self.path.textChanged.connect(lambda t: self.ok.setEnabled(bool(t.strip()) or self.own))
 
     def _pick(self):
         from PySide6.QtWidgets import QFileDialog
@@ -644,7 +653,9 @@ class SignDialog(Base):
     def params(self):
         import tempfile
         from pathlib import Path
-        out = Path(tempfile.mkdtemp(prefix="corefold-sign-")) / "signature.png"
+        # (a working folder named like Corefold's others, so it's cleaned up after a day: a signature is
+        # never left behind in the temp folder, even when "Remember" is off)
+        out = Path(tempfile.mkdtemp(prefix="corefold-")) / "signature.png"
         self.pad.save(out)
         try:
             if self.remember.isChecked():

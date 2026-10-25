@@ -121,8 +121,15 @@ NOT_WINDOWS = {"Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd", 
                "ForegroundStaging", "MultitaskingViewFrame"}
 
 
+_u32 = None
+
+
 def _user32():
-    u = ctypes.windll.user32
+    global _u32
+    if _u32 is not None:
+        return _u32
+    # (a private copy: the argument types set here never change ctypes.windll's, which other parts use)
+    u = ctypes.WinDLL("user32")
     vp = ctypes.c_void_p
     u.GetForegroundWindow.restype = vp
     u.GetAncestor.argtypes, u.GetAncestor.restype = [vp, ctypes.c_uint], vp
@@ -134,6 +141,7 @@ def _user32():
     u.GetWindowLongW.argtypes = [vp, ctypes.c_int]
     u.SetWindowPos.argtypes = [vp, vp, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_uint]
     u.GetWindowRect.argtypes = [vp, ctypes.c_void_p]
+    _u32 = u
     return u
 
 

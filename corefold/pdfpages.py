@@ -27,32 +27,39 @@ class _Rendered(QObject):
 
 def render_thumbnails(src: Path, signals: _Rendered, stop: threading.Event, size: int = THUMB):
     """Draws small pictures of every page, one by one, in the background."""
+    import pypdfium2 as pdfium
+
+    from .pdftools import PDFIUM, open_pdfium
     try:
-        import pypdfium2 as pdfium
-        pdf = pdfium.PdfDocument(str(src))
+        with PDFIUM:  # (PDFium can't do two things at once: a PDF job may be using it)
+            pdf = open_pdfium(src)  # (with what's typed in its form)
+            n = len(pdf)
     except Exception:
         log.debug("couldn't open %s for thumbnails", src, exc_info=True)
         signals.count.emit(0)
         return
     try:
-        n = len(pdf)
         signals.count.emit(n)
         for i in range(n):
             if stop.is_set():
                 return
             try:
-                page = pdf[i]
-                w, h = page.get_size()
-                scale = size / max(w, h, 1)
-                im = page.render(scale=scale).to_pil().convert("RGBA")
-                page.close()
+                with PDFIUM:
+                    page = pdf[i]
+                    w, h = page.get_size()
+                    scale = size / max(w, h, 1)
+                    im = page.render(scale=scale).to_pil().convert("RGBA")
+                    page.close()
                 signals.page.emit(i, (im.tobytes("raw", "RGBA"), im.width, im.height))
+            except pdfium.PdfiumError:  # (a RuntimeError too: one page that can't be drawn isn't a closed window)
+                log.debug("couldn't draw page %s", i + 1, exc_info=True)
             except RuntimeError:
                 return  # the window was closed
             except Exception:
                 log.debug("couldn't draw page %s", i + 1, exc_info=True)
     finally:
-        pdf.close()
+        with PDFIUM:
+            pdf.close()
 
 
 class PagesDialog(Base):

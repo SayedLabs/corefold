@@ -313,7 +313,8 @@ def downloaded_from(path: str) -> Origin | None:
             raw = f.read(8192)
     except OSError:
         return None
-    text = raw.decode("utf-16") if raw[:2] in (b"\xff\xfe", b"\xfe\xff") else raw.decode("utf-8", "replace")
+    # ("replace": a note with a broken byte, which anything can write there, must not stop a whole scan)
+    text = raw.decode("utf-16", "replace") if raw[:2] in (b"\xff\xfe", b"\xfe\xff") else raw.decode("utf-8", "replace")
     out = Origin()
     for line in text.splitlines():
         key, _, value = line.partition("=")
