@@ -309,10 +309,17 @@ if OLD_SETUPS:
     check(exe.exists() and installed_version() in (ver, NEW), "cut off: a whole Corefold is still installed")
     if exe.exists():
         start = LOG.stat().st_size if LOG.exists() else 0
-        subprocess.Popen([str(exe), "--background"])
-        check(wait_for(lambda: pids(exe), 60) and
-              wait_for(lambda: "starting Corefold" in log_text()[start:], 30),
-              "cut off: Corefold still starts")
+        inner = APP_DIR / "_internal"
+        note(f"after the cut: _internal {'has ' + str(sum(1 for _ in inner.rglob('*'))) + ' files' if inner.is_dir() else 'missing'}"
+             f", left by the cut: {', '.join(sorted(q.name for q in APP_DIR.glob('is-*'))) or 'nothing'}")
+        started = subprocess.Popen([str(exe), "--background"], stderr=subprocess.PIPE)
+        ok = wait_for(lambda: pids(exe), 60) and wait_for(lambda: "starting Corefold" in log_text()[start:], 30)
+        if not ok:
+            ended = started.poll()
+            err = started.stderr.read().decode("utf-8", "replace")[-600:] if ended is not None else ""
+            note(f"after the cut Corefold {'ended with ' + str(ended) if ended is not None else 'is still running'}"
+                 f"; log: {log_text()[start:][-400:]!r}; errors: {err!r}")
+        check(ok, "cut off: Corefold still starts")
     code = run(SETUP, "/SILENT", "/SP-", name="cut-again")
     check(code == 0 and installed_version() == NEW, "cut off: updating again goes through")
     remove_corefold()
