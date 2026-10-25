@@ -616,7 +616,7 @@ class _Mark(QWidget):
 
     def paintEvent(self, _e):
         t = tokens.current()
-        color = {QMessageBox.Warning: t.warning, QMessageBox.Critical: t.danger}.get(self.kind, t.accent)
+        color = {QMessageBox.Warning: t.warning, QMessageBox.Critical: t.danger}.get(self.kind, t.muted)
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         soft = QColor(color)
@@ -716,7 +716,7 @@ class Row:
     sep: bool = False
     key: str = ""                   # a keyboard shortcut, shown on the trailing side
     value: object = None            # what picking it gives
-    picked: bool = False            # the one chosen now (a dropdown's): an accent mark, in bold
+    picked: bool = False            # the one chosen now (a dropdown's): a soft grey row, in bold
     tip: str = ""
     kids: list = field(default_factory=list)
 
@@ -836,12 +836,8 @@ class _Panel(QWidget):
             hot = i == self.hot and r.enabled
             if hot or r.picked:
                 p.setPen(Qt.NoPen)
-                p.setBrush(t.hover if hot else t.accent_soft)
+                p.setBrush(t.hover if hot else t.select)
                 p.drawRoundedRect(rf, RADIUS["sm"], RADIUS["sm"])
-            if r.picked:
-                mark = QRectF(rf.right() - 4 if self.rtl else rf.left() + 1, rf.center().y() - 7, 3, 14)
-                p.setBrush(t.accent)
-                p.drawRoundedRect(mark, 1.5, 1.5)
             x = rf.adjusted(12, 0, -12, 0)
             color = t.text if r.enabled else t.subtle
             if r.checked is not None:
