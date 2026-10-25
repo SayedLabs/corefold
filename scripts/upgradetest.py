@@ -48,6 +48,7 @@ RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 APP_ID = "AtomicWorks.Corefold"
 TMP = Path(tempfile.gettempdir()) / f"corefold-upgradetest-{uuid.uuid4().hex[:8]}"  # (its own, never one there)
 TMP.mkdir()
+CUSTOM: list[Path] = []  # (folders this check picked with /DIR)
 POWERSHELL = str(Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0"
                  / "powershell.exe")
 import winreg  # noqa: E402
@@ -146,6 +147,13 @@ def remove_corefold():
         subprocess.run([str(unins), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"], timeout=300)
         break
     wait_for(lambda: installed_version() is None, 30)
+    if folder:  # (the uninstaller runs on from a copy of itself: wait for it to finish with the folder)
+        wait_for(lambda: not any(folder.glob("unins*.*")), 60)
+        time.sleep(2)
+        left = sorted(str(p.relative_to(folder)) for p in folder.rglob("*")) if folder.is_dir() else []
+        check(not left, f"removing Corefold leaves nothing of its own in {folder} ({', '.join(left[:8]) or 'gone'})")
+        if left and folder.resolve() in (APP_DIR.resolve(), *(c.resolve() for c in CUSTOM)):
+            subprocess.run(["cmd", "/c", "rmdir", "/s", "/q", str(folder)], capture_output=True)  # (to go on)
     for p in (CONFIG, LOG.parent):
         subprocess.run(["cmd", "/c", "rmdir", "/s", "/q", str(p)], capture_output=True)
     for lnk in (DESKTOP, START_MENU):
@@ -255,6 +263,7 @@ for n, old in enumerate(OLD_SETUPS):
 if OLD_SETUPS:
     old = OLD_SETUPS[-1]
     custom = TMP / "My apps" / "Corefold here"
+    CUSTOM.append(custom)
     code = run(old, "/VERYSILENT", "/TASKS=", f"/DIR={custom}", name="custom-install")
     check(code == 0 and (custom / "Corefold.exe").exists(), f"custom folder: installed into {custom}")
     stop_all()
