@@ -29,6 +29,7 @@ SPACING = 12
 WIDE_FROM = 700  # the board's width from which it has four columns (two below it)
 MIME = "application/x-corefold-widget"
 KEEP_LOOKS = 120  # seconds a look-up (files waiting, clouds found, drives) is kept before it's done again
+LOOK_AFTER_MS = 1500  # a look-up starts once the Home page has been on screen this long (not while passing by)
 
 # the PDF widget's buttons, in the order they're shown (the same names as on the PDF page)
 PDF_ACTIONS = (("edit", "Edit content", "text_edit_style"), ("merge", "Merge PDFs", "merge"),
@@ -440,6 +441,11 @@ class Board(QWidget):
         el.addWidget(_label(tr("Put what you use most here: shortcuts and your tools' quick actions, in the sizes "
                                "you like."), "muted", wrap=True), 1)
         el.addWidget(_button(tr("Add a widget"), "primary", self.open_gallery), 0, Qt.AlignVCenter)
+        self.waiting: list[tuple] = []  # (look-ups for the widgets, started once the Home page stays on screen)
+        self.look_timer = QTimer(self)
+        self.look_timer.setSingleShot(True)
+        self.look_timer.setInterval(LOOK_AFTER_MS)
+        self.look_timer.timeout.connect(self._start_looks)
         self.fill()
 
     @property
@@ -456,6 +462,7 @@ class Board(QWidget):
 
     def fill(self):
         """Makes the widgets (again), as they're saved now."""
+        self.waiting = []  # (what the old ones waited for)
         for f in self.frames:
             self.grid.removeWidget(f)
             f.hide()
@@ -503,6 +510,33 @@ class Board(QWidget):
     def resizeEvent(self, e):
         super().resizeEvent(e)
         self._place()
+
+    def look(self, key: str, fn, then):
+        """What a widget looks up: what was found lately right away, or looked up once the Home page has stayed
+        on screen a moment (its own thread then never slows a page opened right after the Home page)."""
+        kept = _looks.get(key)
+        if kept is not None and time.monotonic() - kept[0] < KEEP_LOOKS:
+            then(kept[1])
+            return
+        self.waiting.append((key, fn, then))
+        if self.isVisible():
+            self.look_timer.start()
+
+    def _start_looks(self):
+        if not self.isVisible():
+            return
+        waiting, self.waiting = self.waiting, []
+        for key, fn, then in waiting:
+            _look(key, fn, then)
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        if self.waiting:
+            self.look_timer.start()
+
+    def hideEvent(self, e):
+        super().hideEvent(e)
+        self.look_timer.stop()
 
     def column_width(self) -> int:
         cols = self.cols or homelist.COLUMNS
@@ -841,7 +875,7 @@ class Board(QWidget):
                     holder.addStretch()
                 else:
                     self._drop_hint(holder, tr("Drop an archive to open it, or files to pack them."))
-            _look("archives:" + "|".join(names), there, show)
+            self.look("archives:" + "|".join(names), there, show)
         buttons = QHBoxLayout()
         buttons.setSpacing(8)
         buttons.addWidget(self._action(tr("Open an archive…") if size != "small" else tr("Open…"), "folder_open",
@@ -911,7 +945,7 @@ class Board(QWidget):
                 return
             for k, line in lines.items():
                 line.setText(to_sort_text((result or {}).get(k, 0)) if result is not None else "")
-        _look("organizer:" + "|".join(str(p) for p in places.values()), count, show)
+        self.look("organizer:" + "|".join(str(p) for p in places.values()), count, show)
 
     # Unlock
 
@@ -985,7 +1019,7 @@ class Board(QWidget):
                 holder.addWidget(row)
             if not found:
                 holder.addWidget(_label(tr("No cloud folders on this PC yet."), "subtle", wrap=True))
-        _look("cloud", find, show)
+        self.look("cloud", find, show)
 
     # shortcuts
 
@@ -1183,7 +1217,7 @@ class Board(QWidget):
                 if free < total * 0.1:
                     bar.setObjectName("low")
                 holder.addWidget(bar)
-        _look("disk", drives, show)
+        self.look("disk", drives, show)
         f.mouseReleaseEvent = lambda e: self._open("Space") if e.button() == Qt.LeftButton else None
 
 

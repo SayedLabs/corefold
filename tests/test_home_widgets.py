@@ -109,6 +109,25 @@ def test_the_home_page_makes_only_the_widgets_of_tools_in_use(window):
     assert board.add_tile.parent() is board and board.empty.parent() is board  # (freed with the window)
 
 
+def test_widgets_look_things_up_only_once_the_home_page_stays(window, qtbot, monkeypatch):
+    from corefold import homewidgets
+    board = window.home_board
+    started = []
+    monkeypatch.setattr(homewidgets, "_look", lambda key, fn, then: started.append(key))
+    monkeypatch.setattr(homewidgets, "LOOK_AFTER_MS", 50)
+    board.look_timer.setInterval(50)
+    board.fill()
+    assert board.waiting and not started  # (the window isn't on screen yet)
+    window.show()
+    window.open_page("Home")
+    window.open_page("PDF")  # (only passing by: nothing is looked up)
+    qtbot.wait(150)
+    assert not started
+    window.open_page("Home")
+    qtbot.waitUntil(lambda: bool(started), timeout=2000)
+    assert not board.waiting
+
+
 def test_widgets_are_added_moved_resized_and_removed(window, qtbot):
     board = window.home_board
     s = window.c.settings
