@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QMimeData, QRect, QRectF, QSize, Qt, QUrl
+from PySide6.QtCore import QMimeData, QRect, QRectF, QSize, Qt, QTimer, QUrl
 from PySide6.QtGui import QColor, QDesktopServices, QDrag, QFont, QFontMetrics, QKeySequence, QPainter, QShortcut
 from PySide6.QtWidgets import QAbstractItemView, QFileDialog, QHBoxLayout, QHeaderView, QInputDialog, QLabel, \
     QLineEdit, QListWidget, QListWidgetItem, QMenu, QMessageBox, QProgressBar, QPushButton, QStyle, \
@@ -227,23 +227,29 @@ def _natural(text: str) -> list:
     return [(0, int(p), "") if p.isdigit() else (1, 0, p) for p in re.split(r"(\d+)", text.casefold()) if p]
 
 
+FIRST_ROWS = 1500  # a folder with more than this shows these at once, and the rest a moment later
+MORE_ROWS = 1500
+
+
+def _sort_key(e, col: int):
+    """What a file is sorted by (folders first is done apart: it holds whichever way round the rest goes)."""
+    if col == 1:
+        return (0 if e.folder else e.size, _natural(e.name))
+    if col == 2:
+        return (e.modified or 0, _natural(e.name))
+    return _natural(e.name)
+
+
+def _sorted(found: list, col: int, down: bool) -> list:
+    """found ([(account, entry)]) in the order the list shows, sorted in Python with each key made once.
+    (Qt's own sort asked Python about each comparison: 20,000 files froze the window for seconds.)"""
+    out = sorted(found, key=lambda ae: _sort_key(ae[1], col), reverse=down)
+    out.sort(key=lambda ae: not ae[1].folder)
+    return out
+
+
 class Row(QTreeWidgetItem):
     """A file or folder in the list. Sorts by the column clicked; folders always come first."""
-
-    def __lt__(self, other):
-        tw = self.treeWidget()
-        a, b = self.data(0, Qt.UserRole), other.data(0, Qt.UserRole)
-        if tw is None or a is None or b is None:
-            return super().__lt__(other)
-        down = tw.header().sortIndicatorOrder() == Qt.DescendingOrder
-        if a.folder != b.folder:
-            return a.folder != down
-        col = tw.sortColumn()
-        ka = (a.size if col == 1 else a.modified or 0) if col in (1, 2) else 0
-        kb = (b.size if col == 1 else b.modified or 0) if col in (1, 2) else 0
-        if ka != kb:
-            return ka < kb
-        return _natural(a.name) < _natural(b.name)
 
 
 class Crumbs(QWidget):
@@ -334,11 +340,30 @@ class Files(QTreeWidget):
         self.setAcceptDrops(True)
         self.setDragEnabled(True)
         self.setDragDropMode(QAbstractItemView.DragDrop)
-        self.setSortingEnabled(True)
-        self.sortByColumn(0, Qt.AscendingOrder)
+        self.sort_state = (0, False)  # (column, the other way round): sorted by Corefold, see _sorted
+        self.header().setSortIndicator(0, Qt.AscendingOrder)
         self.header().setSortIndicatorShown(True)
         self.header().setSectionsClickable(True)
+        self.header().sectionClicked.connect(self._sort_by)
         self.headerItem().setToolTip(0, tr("Click a column's name to sort by it"))
+
+    def _sort_by(self, col: int):
+        old, down = self.sort_state
+        down = not down if col == old else False
+        self.sort_state = (col, down)
+        self.header().setSortIndicator(col, Qt.DescendingOrder if down else Qt.AscendingOrder)
+        self.page.resort()
+
+    def sortByColumn(self, col: int, order):
+        """(the same sort as a click on the heading)"""
+        down = order == Qt.DescendingOrder
+        self.sort_state = (col, down)
+        self.header().setSortIndicator(col, order)
+        self.page.resort()
+
+    def selectAll(self):
+        self.page.finish_rows()  # (every file, not just the rows already shown)
+        super().selectAll()
 
     def picked(self) -> tuple[cloud.Account | None, list]:
         """The selected items of one account (the first one picked, when a search found things in several)."""
@@ -447,6 +472,8 @@ class CloudPage(QWidget):
         self.trail: list[cloud.Entry] = []   # the folders opened, from the top
         self.results: list | None = None      # what a search found, [(account, entry)], while it's shown
         self.shown: list = []                 # what the list shows, [(account, entry)]
+        self._later: list = []                # (the rest of a folder of thousands, shown a moment later)
+        self._round = 0
         self.dragging = None
         self.job = None                       # the transfer (or change) going on; others wait in the queue
         self.current: Transfer | None = None
@@ -918,36 +945,72 @@ class CloudPage(QWidget):
 
     def _show(self, found: list):
         """found: [(account, entry)]."""
+        col, down = self.files.sort_state
+        found = _sorted(found, col, down)
         self.shown = found
+        self._round += 1
+        self._later = list(found[FIRST_ROWS:])
         self.files.clear()
+        self._add_rows(found[:FIRST_ROWS])
+        if self._later:
+            QTimer.singleShot(0, lambda r=self._round: self._more_rows(r))
+        nothing = not found
+        self.files.setVisible(not nothing)
+        self.empty.setVisible(nothing)
+        if nothing and self.results is not None:
+            self.empty.setText(tr("Nothing found."))
+        elif nothing and self.account is not None:
+            self.empty.setText(tr("This folder is empty. Drop files here to upload them."))
+        self._buttons()
+
+    def _add_rows(self, part: list):
         theme = self.c.theme
         folder_icon, file_icon = icons.icon("folder", theme.muted), icons.icon("document", theme.muted)
         online_icon = icons.icon("cloud", theme.muted)
         searching = self.results is not None
-        self.files.setSortingEnabled(False)  # (sorted once, after they're all in)
-        for acc, e in found:
+        right = Qt.AlignRight | Qt.AlignVCenter
+        rows = []
+        for acc, e in part:
             name = ltr(e.name)
             if searching:
                 where = service_name(acc) + " · " + (e.path.rsplit("/", 1)[0] or "/")
                 name = f"{name}   ·   {ltr(short_name(where, 60))}"
             it = Row([name, "" if e.folder else human_size(e.size),
-                                  date_text(e.modified, True) if e.modified else ""])
+                      date_text(e.modified, True) if e.modified else ""])
             it.setIcon(0, folder_icon if e.folder else online_icon if e.online else file_icon)
             if e.online:
                 it.setToolTip(0, tr("Kept online only. Opening it downloads it first."))
             it.setData(0, Qt.UserRole, e)
             it.setData(0, ACCOUNT, acc)
-            it.setTextAlignment(1, Qt.AlignRight | Qt.AlignVCenter)
-            self.files.addTopLevelItem(it)
-        self.files.setSortingEnabled(True)
-        nothing = not found
-        self.files.setVisible(not nothing)
-        self.empty.setVisible(nothing)
-        if nothing and searching:
-            self.empty.setText(tr("Nothing found."))
-        elif nothing and self.account is not None:
-            self.empty.setText(tr("This folder is empty. Drop files here to upload them."))
-        self._buttons()
+            it.setTextAlignment(1, right)
+            rows.append(it)
+        self.files.addTopLevelItems(rows)
+
+    def _more_rows(self, round_: int, count: int = MORE_ROWS):
+        if not work.alive(self) or round_ != self._round:  # (another folder is shown now)
+            return
+        part, self._later = self._later[:count], self._later[count:]
+        self._add_rows(part)
+        if self._later:
+            QTimer.singleShot(0, lambda: self._more_rows(round_))
+
+    def finish_rows(self):
+        if self._later:
+            self._more_rows(self._round, len(self._later))
+
+    def resort(self):
+        """A column heading was clicked: the same files, in the new order (what was selected stays selected)."""
+        def key(it):
+            e, acc = it.data(0, Qt.UserRole), it.data(0, ACCOUNT)
+            return (getattr(acc, "key", ""), getattr(e, "id", None))
+        chosen = {key(it) for it in self.files.selectedItems()}
+        self._show(self.shown)
+        if chosen:
+            self.finish_rows()
+            for i in range(self.files.topLevelItemCount()):
+                it = self.files.topLevelItem(i)
+                if key(it) in chosen:
+                    it.setSelected(True)
 
     def _buttons(self):
         have = self.account is not None

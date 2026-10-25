@@ -463,6 +463,7 @@ def _undo(progress=None) -> UndoResult:
     left = []
     moves = last.get("moves", [])
     taken: set[str] = set()
+    saved = time.monotonic()
     for n, move in enumerate(reversed(moves), 1):
         src, dst = move[0], move[1]
         if not os.path.lexists(dst):
@@ -487,9 +488,12 @@ def _undo(progress=None) -> UndoResult:
             if back != Path(src):
                 res.renamed -= 1
         if n % 200 == 0:
-            # (a crash part-way: what's still to do, and what stayed, can be undone again)
-            last["moves"] = moves[:len(moves) - n] + list(reversed(left))
-            _save(state)
+            # (a crash part-way: what's still to do, and what stayed, can be undone again. Written down once
+            # a second, not every 200 files: each time is the whole list, and 50,000 files made that minutes)
+            if time.monotonic() - saved > 1:
+                last["moves"] = moves[:len(moves) - n] + list(reversed(left))
+                _save(state)
+                saved = time.monotonic()
             if progress:
                 progress((n, len(moves)))
     made = []

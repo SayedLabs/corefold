@@ -284,6 +284,7 @@ STRINGS: dict[str, str] = {
     "Removed {count} items from {name}": "{name} arşivinden {count} öğe kaldırıldı",
     "couldn't take that file out of the archive": "bu dosya arşivden çıkarılamadı",
     "Search inside the archive": "Arşivin içinde ara",
+    "Many files match: type more of the name to find the one you want.": "Çok sayıda dosya eşleşiyor: aradığınızı bulmak için adın daha fazlasını yazın.",
     "Packed": "Sıkıştırılmış",
     "Modified": "Değiştirilme",
     "Open": "Aç",

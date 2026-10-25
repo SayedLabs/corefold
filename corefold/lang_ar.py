@@ -209,6 +209,7 @@ STRINGS: dict[str, str] = {
     "This changes the archive and can't be undone.": "سيؤدي هذا إلى تغيير الأرشيف ولا يمكن التراجع عنه.",
     "Remove from {name}": "إزالة من {name}",
     "Search inside the archive": "ابحث داخل الأرشيف",
+    "Many files match: type more of the name to find the one you want.": "ملفات كثيرة تطابق: اكتب جزءاً أكبر من الاسم لتجد ما تريد.",
     "Name": "الاسم",
     "Size": "الحجم",
     "Packed": "بعد الضغط",

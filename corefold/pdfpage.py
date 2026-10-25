@@ -4,6 +4,7 @@ pages from one or more PDFs are put in order, turned, deleted and saved as a new
 Nothing here is loaded unless Corefold PDF is switched on (in Files) and its page is opened."""
 from __future__ import annotations
 
+import collections
 import logging
 import threading
 from pathlib import Path
@@ -209,11 +210,27 @@ class PdfPage(QWidget):
         self.reading = False
         self.jobs: list = []                      # (kept until their answer is in)
         self.stops: list[threading.Event] = []
+        # files whose small pictures are still to be drawn, (board round, file, PDF, password): drawn by one job,
+        # one file after the other, once every file dropped is read (40 jobs at once, each waiting for the PDF
+        # library in turn, kept the next files from even being counted: 40 PDFs took half a minute to show)
+        self.thumb_queue: collections.deque = collections.deque()
+        self.thumbing = False
+        self.board_round = 0
         self.undo_stack: list[list[tuple[int, int, int]]] = []
         self.state: list[tuple[int, int, int]] = []
         self.saved_state: list[tuple[int, int, int]] | None = None
         self.mode = "organize"
         self.restoring = False
+        # (with thousands of pages, both are done once for many changes: a selection of 4,000 pages
+        # cleared, or 4,000 small pictures arriving, each looked through every page, and froze the window)
+        self.refresh_timer = QTimer(self)
+        self.refresh_timer.setSingleShot(True)
+        self.refresh_timer.timeout.connect(self._refresh)
+        self.fresh: set[tuple[int, int]] = set()  # small pictures that came, not drawn on the board yet
+        self.thumb_timer = QTimer(self)
+        self.thumb_timer.setSingleShot(True)
+        self.thumb_timer.setInterval(80)
+        self.thumb_timer.timeout.connect(self._draw_fresh)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 10, 0)
         lay.setSpacing(12)
@@ -607,15 +624,31 @@ class PdfPage(QWidget):
                 it = self.board.item(k)
                 it.setText(self._item_text(it.data(FILE), it.data(PAGE), True))
         self._add_legend(fi)
-        stop = threading.Event()
-        self.stops.append(stop)
-        password = self.passwords.get(str(src), "")
-        dpr = self.devicePixelRatioF()
-        self._run(lambda progress: _thumbnails(src, password, stop, progress, round(THUMB * dpr)),
-                  lambda data, f=fi: self._thumb(f, data), lambda _r: None, "corefold-pdf-thumbs")
+        self.thumb_queue.append((self.board_round, fi, src, self.passwords.get(str(src), "")))
         self.reading = False
         self._changed(added=True)
         self._next()
+        self._draw_queued()
+
+    def _draw_queued(self):
+        """Starts the job that draws the small pictures, once the files dropped are all read."""
+        if self.thumbing or self.pending or self.reading or not self.thumb_queue:
+            return
+        self.thumbing = True
+        stop = threading.Event()
+        self.stops.append(stop)
+        queue, size = self.thumb_queue, round(THUMB * self.devicePixelRatioF())
+
+        def go(progress):
+            while queue and not stop.is_set():
+                round_, fi, src, password = queue.popleft()
+                _thumbnails(src, password, stop, lambda data, r=round_, f=fi: progress((r, f, data)), size)
+
+        def done(_r):
+            self.thumbing = False
+            self._draw_queued()  # (files added while it finished)
+        self._run(go, lambda got: self._thumb(got[1], got[2]) if got[0] == self.board_round else None, done,
+                  "corefold-pdf-thumbs")
 
     def _run(self, fn, on_progress, on_done, name: str):
         """work.run, with the job kept until its answer is in (a job let go of sooner loses the pictures
@@ -664,9 +697,17 @@ class PdfPage(QWidget):
         pm = QPixmap.fromImage(QImage(raw, w, h, 4 * w, QImage.Format.Format_RGBA8888).copy())
         pm.setDevicePixelRatio(self.devicePixelRatioF())
         self.pixmaps[(fi, pi)] = pm
+        self.fresh.add((fi, pi))
+        if not self.thumb_timer.isActive():
+            self.thumb_timer.start()
+
+    def _draw_fresh(self):
+        fresh, self.fresh = self.fresh, set()
+        if not fresh or not work.alive(self):
+            return
         for k in range(self.board.count()):
             item = self.board.item(k)
-            if item.data(FILE) == fi and item.data(PAGE) == pi:
+            if (item.data(FILE), item.data(PAGE)) in fresh:
                 self._draw(item)
 
     def _draw(self, item: QListWidgetItem):
@@ -676,7 +717,8 @@ class PdfPage(QWidget):
             return
         turn = item.data(TURN) % 360
         if turn:
-            pm = pm.transformed(QTransform().rotate(turn), Qt.SmoothTransformation)
+            # (a quarter turn moves pixels without changing them: the smooth way only cost time, 4,000 pages 1.5 s)
+            pm = pm.transformed(QTransform().rotate(turn), Qt.FastTransformation)
         if len(self.files) > 1:  # a stripe in the file's colour along the bottom
             pm = QPixmap(pm)
             p = QPainter(pm)
@@ -774,7 +816,7 @@ class PdfPage(QWidget):
         self._refresh()
 
     def _selection(self):
-        self._refresh()
+        self.refresh_timer.start()
 
     def _refresh(self):
         n = self.board.count()
@@ -906,6 +948,8 @@ class PdfPage(QWidget):
         for stop in self.stops:
             stop.set()
         self.stops, self.pending, self.reading = [], [], False
+        self.thumb_queue.clear()
+        self.board_round += 1
         self.files, self.passwords, self.counts, self.pixmaps = [], {}, {}, {}
         self.undo_stack, self.state, self.saved_state = [], [], None
         self.board.clear()
