@@ -284,6 +284,7 @@ STRINGS: dict[str, str] = {
     "Removed {count} items from {name}": "{count} elementos quitados de {name}",
     "couldn't take that file out of the archive": "no se pudo sacar ese archivo del archivo comprimido",
     "Search inside the archive": "Buscar dentro del archivo",
+    "Many files match: type more of the name to find the one you want.": "Coinciden muchos archivos: escribe más del nombre para encontrar el que buscas.",
     "Packed": "Comprimido",
     "Modified": "Modificado",
     "Open": "Abrir",

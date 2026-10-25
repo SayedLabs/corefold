@@ -56,6 +56,8 @@ jobs:
             use: "--lang en --look dark"
           - name: use-ar-light
             use: "--lang ar --look light"
+          - name: use-heavy
+            use: "--heavy --lang en --look dark"
           - name: languages
           - name: tools
           - name: newtests
@@ -180,7 +182,7 @@ jobs:
 
       - name: Every tool with real-size files, timed (freezes listed with where they come from)
         if: matrix.use != ''
-        timeout-minutes: 45
+        timeout-minutes: 60
         shell: pwsh
         id: check7
         continue-on-error: true

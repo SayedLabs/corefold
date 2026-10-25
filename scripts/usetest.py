@@ -2,8 +2,11 @@
 1080p video, a 4K film, a big archive, a whole drive), on a real Windows PC: how long each thing takes, and
 whether the window ever stops answering while it works (a freeze a person would notice).
 
-Run: python scripts/usetest.py <folder> [--lang en|ar|fr|es|tr] [--look dark|light] [--only a,b]
+Run: python scripts/usetest.py <folder> [--lang en|ar|fr|es|tr] [--look dark|light] [--only a,b] [--heavy]
 Prints one line per check ("ok", "SLOW" or "FAIL", with the time it took) and "usetest: N problem(s)".
+--heavy: the Files tools only, with far more than most people have (30,000 loose downloads, an archive of
+200,000 files and one over 4 GB, a PDF of 2,000 pages, 400 photos at once, a 200 MP picture, a 1 GB video, a
+cloud folder of 20,000 pictures): how long, how much memory, any freeze, and that no file is lost or changed.
 Every freeze is listed with what the app was doing at that moment (in <folder>/usetest-<tag>.txt), and
 pictures of each tool are saved in the folder."""
 import argparse
@@ -23,10 +26,11 @@ ap.add_argument("out", nargs="?", default="usetest")
 ap.add_argument("--lang", default="en")
 ap.add_argument("--look", default="dark")
 ap.add_argument("--only", default="")
+ap.add_argument("--heavy", action="store_true")
 ARGS = ap.parse_args()
 OUT = Path(ARGS.out).resolve()
 OUT.mkdir(parents=True, exist_ok=True)
-TAG = f"{ARGS.lang}-{ARGS.look}"
+TAG = f"{ARGS.lang}-{ARGS.look}" + ("-heavy" if ARGS.heavy else "")
 TMP = Path(tempfile.mkdtemp(prefix="corefold-use-"))
 os.environ["APPDATA"] = str(TMP / "roaming")
 os.environ["LOCALAPPDATA"] = str(TMP / "local")
@@ -930,6 +934,453 @@ def idle():
         f"{pmc.PrivateUsage / 2**20:.0f} MB private")
 
 
+
+# ---------------------------------------------------------------------------- heavy use of the Files tools
+
+H = TMP / "heavy"
+
+
+class Memory:
+    """How much memory Corefold takes while a step runs (looked at ten times a second, on its own thread)."""
+
+    def __init__(self):
+        self.peak = 0
+        self.ok = os.name == "nt"
+        if self.ok:
+            import ctypes
+            from ctypes import wintypes as wt
+
+            class PMC(ctypes.Structure):
+                _fields_ = [("cb", wt.DWORD), ("PageFaultCount", wt.DWORD)] + [(n, ctypes.c_size_t) for n in (
+                    "PeakWorkingSetSize", "WorkingSetSize", "QuotaPeakPagedPoolUsage", "QuotaPagedPoolUsage",
+                    "QuotaPeakNonPagedPoolUsage", "QuotaNonPagedPoolUsage", "PagefileUsage", "PeakPagefileUsage",
+                    "PrivateUsage")]
+            self.pmc = PMC()
+            self.pmc.cb = ctypes.sizeof(PMC)
+            k = ctypes.windll.kernel32
+            k.GetCurrentProcess.restype = wt.HANDLE
+            ctypes.windll.psapi.GetProcessMemoryInfo.argtypes = [wt.HANDLE, ctypes.c_void_p, wt.DWORD]
+            self.h, self.get, self.ctypes = k.GetCurrentProcess(), ctypes.windll.psapi.GetProcessMemoryInfo, ctypes
+            threading.Thread(target=self._look, daemon=True).start()
+
+    def now(self) -> int:
+        if not self.ok:
+            return 0
+        self.get(self.h, self.ctypes.byref(self.pmc), self.pmc.cb)
+        return self.pmc.PrivateUsage
+
+    def _look(self):
+        while True:
+            self.peak = max(self.peak, self.now())
+            time.sleep(0.1)
+
+    def start(self):
+        self.peak = self.now()
+
+    def say(self, what: str, limit_mb: int | None = None):
+        if not self.ok:
+            return
+        mb = self.peak / 2**20
+        say(f"note  memory while {what}: at most {mb:.0f} MB")
+        if limit_mb and mb > limit_mb:
+            check(False, f"memory while {what}: {mb:.0f} MB (more than {limit_mb} MB)")
+
+
+mem = Memory()
+
+
+class Holder:
+    """A program that has a file open the way Word does (others may read it, nobody may move it)."""
+
+    def __init__(self, path: Path):
+        self.h = None
+        if os.name == "nt":
+            import ctypes
+            from ctypes import wintypes
+            k = ctypes.WinDLL("kernel32", use_last_error=True)
+            k.CreateFileW.restype = wintypes.HANDLE
+            k.CreateFileW.argtypes = (wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p,
+                                      wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE)
+            self.k = k
+            self.h = k.CreateFileW(str(path), 0x80000000 | 0x40000000, 1 | 2, None, 3, 0, None)
+
+    def close(self):
+        if self.h is not None:
+            self.k.CloseHandle(self.h)
+            self.h = None
+
+
+def _fingerprint(folder: Path) -> dict[str, int]:
+    """Every file under folder (relative path, lower case) -> its size and first bytes."""
+    import zlib
+    out = {}
+    for p in folder.rglob("*"):
+        if p.is_file():
+            with open(p, "rb") as fh:
+                out[str(p.relative_to(folder)).lower()] = zlib.crc32(fh.read(64)) ^ p.stat().st_size
+    return out
+
+
+def _wait_job(start, limit, what):
+    """start() begins a job on the controller: waits for its end, timed. (result, errors, cancelled) or None."""
+    done = {}
+
+    def finished(job_id, result, errs, cancelled):
+        done["r"] = (result, errs, cancelled)
+    c.signals.finished.connect(finished)
+    try:
+        timed(what, start, limit, wait=lambda: "r" in done, wait_s=max(limit * 3, 120))
+    finally:
+        c.signals.finished.disconnect(finished)
+    return done.get("r")
+
+
+def make_heavy_files():
+    from PIL import Image, ImageDraw
+    H.mkdir()
+    exts = [".jpg", ".png", ".pdf", ".docx", ".mp3", ".mp4", ".zip", ".txt", ".xlsx", ".mkv", ".ttf", ".psd"]
+    dl = H / "Downloads"
+    dl.mkdir()
+    for i in range(30000):  # (each file's contents its own, so a mix-up shows)
+        (dl / f"file {i:05}{exts[i % len(exts)]}").write_bytes(f"{i} {exts[i % len(exts)]}".encode() * (1 + i % 7))
+    # archives: 200,000 files in folders, 100,000 in one folder, and one file over 4 GB
+    import zipfile
+    with zipfile.ZipFile(H / "node_modules 200000 files.zip", "w", zipfile.ZIP_STORED) as z:
+        for i in range(200000):
+            z.writestr(f"node_modules/pkg-{i // 400:03}/lib/file-{i}.js", f"module {i}\n")
+    with zipfile.ZipFile(H / "Scans 100000 in one folder.zip", "w", zipfile.ZIP_STORED) as z:
+        for i in range(100000):
+            z.writestr(f"scan-{i}.txt", f"scan {i}\n")
+    chunk = bytes(range(256)) * 4096  # 1 MB, a pattern (so the unpacked file can be checked)
+    with zipfile.ZipFile(H / "Backup over 4 GB.zip", "w", zipfile.ZIP_DEFLATED, compresslevel=1) as z:
+        with z.open("disk image.img", "w", force_zip64=True) as fh:
+            for _ in range(4400):
+                fh.write(chunk)
+        z.writestr("readme.txt", "backup")
+    # PDFs: one of 2,000 pages (each a scanned-looking picture), and 40 of 50 pages to merge
+    from pypdf import PdfReader, PdfWriter
+    page = Image.new("RGB", (1240, 1754), "white")
+    d = ImageDraw.Draw(page)
+    for y in range(100, 1700, 36):
+        d.text((90, y), "The quick brown fox jumps over the lazy dog. 0123456789 " * 3, fill=(20, 20, 20))
+    page.save(H / "one page.pdf", resolution=150)
+    one = PdfReader(H / "one page.pdf").pages[0]
+    w = PdfWriter()
+    for _ in range(2000):
+        w.add_page(one)
+    with open(H / "Book 2000 pages.pdf", "wb") as fh:
+        w.write(fh)
+    (H / "Chapters").mkdir()
+    for k in range(40):
+        w = PdfWriter()
+        for _ in range(50):
+            w.add_page(one)
+        with open(H / "Chapters" / f"chapter {k + 1:02}.pdf", "wb") as fh:
+            w.write(fh)
+    # 400 phone photos (12 MP), a 200 MP picture, a 1 GB video
+    photos = H / "Camera"
+    photos.mkdir()
+    shot = Image.effect_noise((1008, 756), 60).convert("RGB").resize((4032, 3024))
+    shot.save(photos / "IMG_0000.jpg", quality=92)
+    data = (photos / "IMG_0000.jpg").read_bytes()
+    for i in range(1, 400):
+        (photos / f"IMG_{i:04}.jpg").write_bytes(data)
+    Image.linear_gradient("L").resize((16000, 12500)).convert("RGB").save(H / "Gigapixel 200 MP.png", compress_level=1)
+    ffmpeg("-f", "lavfi", "-i", "testsrc2=s=1920x1080:d=40:r=30", "-f", "lavfi", "-i", "sine=f=440:d=40",
+           "-c:v", "libx264", "-preset", "ultrafast", "-b:v", "60M", "-pix_fmt", "yuv420p", "-c:a", "aac",
+           H / "part.mp4")
+    ffmpeg("-stream_loop", "3", "-i", H / "part.mp4", "-c", "copy", H / "Wedding 1 GB.mp4")
+    (H / "part.mp4").unlink()
+    # a cloud folder on this PC: 20,000 pictures in one folder, and a project of 3,000 files to copy
+    od = H / "OneDrive"
+    (od / "Camera Roll").mkdir(parents=True)
+    for i in range(20000):
+        (od / "Camera Roll" / f"IMG_{i:05}.jpg").write_bytes(b"\xff\xd8" + i.to_bytes(4, "little") * (1 + i % 50))
+    for i in range(3000):
+        part = od / "Project" / f"part-{i // 300:02}"
+        part.mkdir(parents=True, exist_ok=True)
+        (part / f"file-{i:04}.bin").write_bytes(os.urandom(200 + i % 5000))
+    (H / "Dropbox").mkdir()
+    # a folder of 20,000 files with one a program has open
+    big = H / "Shared folder"
+    big.mkdir()
+    for i in range(20000):
+        (big / f"doc {i:05}.txt").write_bytes(b"x")
+
+
+def h_organizer():
+    from PySide6.QtCore import Qt as _Qt
+    from corefold import organizer as org
+    from corefold import organizerpage as OP
+    dl = H / "Downloads"
+    held = Holder(dl / "file 00003.docx")
+    with setup():
+        before = _fingerprint(dl)
+    OP.known_folder = lambda key: {"downloads": dl, "desktop": H / "Desktop"}.get(key)
+    w = c.window
+    mem.start()
+    timed("Organizer: open the page", lambda: w.open_page("Organizer"), 0.6)
+    pg = w.organizer_page
+    timed("Organizer: 30,000 loose files planned and listed", lambda: None, 30,
+          wait=lambda: not pg.loading and pg.plan is not None and pg.plan.folder == dl, wait_s=180)
+    if pg.plan is None:
+        return
+    settle(1)  # (the rest of the list comes in meanwhile)
+    grab(w, "heavy-organizer")
+    moving = len(pg.plan.moving())
+    check(moving == 30000 - 1, f"Organizer: {moving} of 30,000 to sort (the one a program has open stays)")
+    head = pg.tree.topLevelItem(0)
+    kind = len(pg.plan.by_kind().get(head.data(0, _Qt.UserRole), []))
+    timed(f"Organizer: untick a kind of {kind:,} files", lambda: (head.setCheckState(0, _Qt.Unchecked),
+                                                                  qapp.processEvents()), 0.5)
+    check(len(pg.plan.moving()) == moving - kind, f"…they're left out ({len(pg.plan.moving())} to sort)")
+    timed("Organizer: tick it again", lambda: (head.setCheckState(0, _Qt.Checked), qapp.processEvents()), 0.5)
+    timed("Organizer: sort 29,999 files", pg.sort, 90, wait=lambda: not pg.busy and not pg.loading, wait_s=400)
+    with setup():
+        loose = [p for p in dl.iterdir() if p.is_file()]
+        check([p.name for p in loose] == ["file 00003.docx"], f"Organizer: only the open file is still loose "
+                                                              f"({len(loose)})")
+        last = org.last_sort()
+        check(last is not None and len(last["moves"]) == moving, "…and every move can be undone")
+    timed("Organizer: undo 29,999 files", pg.undo, 90, wait=lambda: not pg.busy and not pg.loading, wait_s=400)
+    held.close()
+    with setup():
+        after = _fingerprint(dl)
+        check(after == before, f"Organizer: after Undo every file is back, unchanged ({len(after)} of {len(before)}; "
+                               f"missing {len(set(before) - set(after))}, changed "
+                               f"{sum(1 for k in before if k in after and after[k] != before[k])})")
+        check(not [p for p in dl.iterdir() if p.is_dir()], "…and the folders it made are gone")
+    mem.say("sorting 30,000 files", 900)
+
+
+def _browser_for(path: Path, limit: float):
+    timed(f"Archive: open {path.name}", lambda: c.open_browser(path), limit,
+          wait=lambda: any(alive(b) and b.isVisible() and b.src == path for b in c.browsers), wait_s=300)
+    return next((b for b in c.browsers if alive(b) and b.src == path), None)
+
+
+def h_archive():
+    from corefold.browser import ArchiveBrowser  # noqa: F401  (loaded before the clock starts)
+    mem.start()
+    nm = H / "node_modules 200000 files.zip"
+    b = _browser_for(nm, 12)
+    if b is None:
+        return
+    b.resize(1000, 650)
+    for text in ("file-199999", "f", "fi", "file", "js", "zzz"):
+        timed(f"Archive: search {text!r} in 200,000 files", lambda t=text: (b.search.setText(t), settle(0.3)), 1.2)
+    grab(b, "heavy-archive-search")
+    timed("Archive: clear the search", lambda: (b.search.setText(""), settle(0.3)), 1.2)
+    timed("Archive: sort by size", lambda: b._sort_by(1), 1.0)
+    timed("Archive: sort by name again", lambda: b._sort_by(0), 1.0)
+    timed("Archive: select all", b.tree.selectAll, 1.0)
+    b.tree.clearSelection()
+    dest = H / "unpacked node_modules"
+    dest.mkdir()
+    QFileDialog.getExistingDirectory = staticmethod(lambda *a, **k: str(dest))
+    timed("Archive: Extract to… (200,000 files)", b._extract_to, 300,
+          wait=lambda: not c.jobs, wait_s=900)
+    with setup():
+        got = sum(1 for _ in dest.rglob("*.js"))
+        check(got == 200000, f"…all 200,000 files are there ({got})")
+        shutil_rm(dest)
+    dest.mkdir()
+    b._extract_to()
+    settle(2)
+    timed("Archive: stop extracting part-way (Cancel)", c.cancel_all, 4, wait=lambda: not c.jobs)
+    QFileDialog.getExistingDirectory = staticmethod(lambda *a, **k: "")
+    with setup():
+        shutil_rm(dest)
+    b.close()
+    settle(0.5)
+    flat = H / "Scans 100000 in one folder.zip"
+    b = _browser_for(flat, 10)
+    if b is not None:
+        timed("Archive: scroll to the end of 100,000 rows", lambda: (b.tree.scrollToBottom(), settle(0.2)), 0.6)
+        timed("Archive: search 'scan-99999'", lambda: (b.search.setText("scan-99999"), settle(0.3)), 1.2)
+        settle(4)  # (the rest of the rows come in meanwhile)
+        found = [b.tree.topLevelItem(i) for i in range(b.tree.topLevelItemCount())
+                 if not b.tree.topLevelItem(i).isHidden()]
+        from corefold.browser import PATH_ROLE
+        check([i.data(0, PATH_ROLE) for i in found] == ["scan-99999.txt"],
+              f"…it's found, alone ({len(found)} shown)")
+        b.search.setText("")
+        settle(0.4)
+        timed("Archive: sort 100,000 files by size", lambda: b._sort_by(1), 1.5)
+        timed("Archive: select all 100,000", b.tree.selectAll, 2.5)
+        check(len(b._selected_paths()) == 100000, f"…every one is selected ({len(b._selected_paths())})")
+        b.close()
+        settle(0.5)
+    big = H / "Backup over 4 GB.zip"
+    b = _browser_for(big, 4)
+    if b is not None:
+        dest = H / "unpacked backup"
+        dest.mkdir()
+        QFileDialog.getExistingDirectory = staticmethod(lambda *a, **k: str(dest))
+        timed("Archive: extract a 4.3 GB file", b._extract_to, 240, wait=lambda: not c.jobs, wait_s=900)
+        QFileDialog.getExistingDirectory = staticmethod(lambda *a, **k: "")
+        with setup():
+            img = dest / "disk image.img"
+            ok = img.is_file() and img.stat().st_size == 4400 << 20
+            if ok:
+                chunk = bytes(range(256)) * 4096
+                with open(img, "rb") as fh:
+                    for at in (0, 2100 << 20, 4399 << 20):  # (the start, the middle and the end, past 4 GB)
+                        fh.seek(at)
+                        ok = ok and fh.read(1 << 20) == chunk
+            check(ok, f"…it's whole and unchanged ({img.stat().st_size if img.exists() else 0} bytes)")
+            shutil_rm(dest)
+        b.close()
+    mem.say("the big archives", 1500)
+
+
+def shutil_rm(p: Path):
+    import shutil
+    shutil.rmtree(p, ignore_errors=True)
+
+
+def h_pdf():
+    from pypdf import PdfReader
+    w = c.window
+    mem.start()
+    w.open_page("PDF")
+    pg = w.pdf_page
+    book = H / "Book 2000 pages.pdf"
+    timed("PDF: open a 2,000-page PDF on the board", lambda: pg.open_board([book]), 2,
+          wait=lambda: not pg.reading and not pg.pending and pg.board.count() == 2000, wait_s=60)
+    timed("PDF: every page's small picture drawn", lambda: None, 150,
+          wait=lambda: len(pg.pixmaps) >= 2000 and not pg.jobs, wait_s=600)
+    grab(w, "heavy-pdf")
+    timed("PDF: scroll to the end", lambda: (pg.board.scrollToBottom(), settle(0.2)), 0.6)
+    timed("PDF: select all 2,000 pages", lambda: (pg.board.selectAll(), qapp.processEvents()), 0.5)
+    timed("PDF: turn 2,000 pages", lambda: (pg.turn(90), qapp.processEvents()), 1.5)
+    timed("PDF: undo", lambda: (pg.undo(), qapp.processEvents()), 1.0)
+    pg.board.clearSelection()
+    for r in range(0, 2000, 2):
+        pg.board.item(r).setSelected(True)
+    timed("PDF: delete 1,000 pages", lambda: (pg.remove(), qapp.processEvents()), 1.0)
+    check(pg.board.count() == 1000, f"…1,000 are left ({pg.board.count()})")
+    r = _wait_job(lambda: pg.save("one"), 120, "PDF: save the 1,000 pages as a new PDF")
+    if r:
+        outs = [p for p in r[0].outputs if Path(p).suffix == ".pdf"]
+        check(len(outs) == 1 and len(PdfReader(outs[0]).pages) == 1000 and not r[1],
+              f"…it has 1,000 pages ({[len(PdfReader(p).pages) for p in outs]}, errors {r[1][:2]})")
+    pg.close_board(ask=False)
+    settle(0.5)
+    chapters = sorted((H / "Chapters").iterdir())
+    timed("PDF: 40 PDFs of 50 pages on the board", lambda: pg.open_board(chapters, "merge"), 2,
+          wait=lambda: not pg.reading and not pg.pending and pg.board.count() == 2000, wait_s=120)
+    timed("PDF: every page's small picture drawn (40 files)", lambda: None, 150,
+          wait=lambda: len(pg.pixmaps) >= 2000 and not pg.jobs, wait_s=600)
+    r = _wait_job(lambda: pg.save("one"), 120, "PDF: merge 40 PDFs into one")
+    if r:
+        outs = [p for p in r[0].outputs if Path(p).suffix == ".pdf"]
+        check(len(outs) == 1 and len(PdfReader(outs[0]).pages) == 2000 and not r[1],
+              f"…it has 2,000 pages ({[len(PdfReader(p).pages) for p in outs]}, errors {r[1][:2]})")
+    pg.close_board(ask=False)
+    mem.say("2,000-page PDFs on the board", 1200)
+    mem.start()
+    run("PDF: make the 2,000-page PDF smaller", [book], ("pdf:compress",), 240)
+    mem.say("making a 2,000-page PDF smaller", 1500)
+
+
+def h_converter():
+    photos = sorted((H / "Camera").iterdir())
+    w = c.window
+    w.open_page("Converter")
+    timed("Converter: drop 400 photos on the window", lambda: w.show_files(photos), 1.0)
+    from corefold import converters as cv
+    timed("Converter: work out the wheel for 400 photos", lambda: cv.pick(photos), 0.5)
+    mem.start()
+    run("Converter: 400 phone photos → WebP", photos, ("image:webp",), 400, expect=400)
+    mem.say("400 photos at once", 1500)
+    mem.start()
+    run("Converter: 200 MP picture → JPG", [H / "Gigapixel 200 MP.png"], ("image:jpg",), 90)
+    mem.say("a 200 MP picture", 2500)
+    run("Converter: 1 GB video → MP3", [H / "Wedding 1 GB.mp4"], ("video:mp3",), 120)
+    t = _tool_for([H / "Wedding 1 GB.mp4"], "video:small")
+    if t is not None:
+        done = {}
+        before = set((TMP / "Converted").rglob("*")) if (TMP / "Converted").exists() else set()
+        c.signals.finished.connect(lambda *a: done.setdefault("r", a))
+        c.start_job(t, [H / "Wedding 1 GB.mp4"], {})
+        settle(5)
+        timed("Converter: stop making a 1 GB video smaller (Cancel)", c.cancel_all, 5, wait=lambda: "r" in done)
+        settle(1)
+        left = set((TMP / "Converted").rglob("*")) - before if (TMP / "Converted").exists() else set()
+        check(not [p for p in left if p.is_file()], f"…no half-made video is left behind ({[p.name for p in left]})")
+    run("Converter: folder of 30,000 files → ZIP", [H / "Downloads"], ("pack:zip",), 180)
+
+
+def h_cloud():
+    import hashlib
+    from PySide6.QtCore import Qt as _Qt
+    from corefold import cloud, cloudlocal
+    with setup():
+        cloudlocal.add_folder(H / "OneDrive")
+        cloudlocal.add_folder(H / "Dropbox")
+    w = c.window
+    mem.start()
+    timed("Cloud: open the page", lambda: c.show_window("Cloud"), 1.0,
+          wait=lambda: getattr(w, "cloud_page", None) is not None and w.cloud_page.found is not None, wait_s=60)
+    page = w.cloud_page
+    until(lambda: len(page.accounts) >= 2, 30)
+    accs = {Path(a.local).name: a for a in page.accounts if a.local}
+    if not check({"OneDrive", "Dropbox"} <= set(accs), f"Cloud: both folders are there ({list(accs)})"):
+        return
+    page.account_list.setCurrentRow(next(i for i, a in enumerate(page.accounts) if a is accs["OneDrive"]))
+    until(lambda: page.files.topLevelItemCount() >= 2, 20)
+
+    def names():
+        return [page.files.topLevelItem(i).data(0, _Qt.UserRole).name for i in range(page.files.topLevelItemCount())]
+    item = next((page.files.topLevelItem(i) for i in range(page.files.topLevelItemCount())
+                 if page.files.topLevelItem(i).data(0, _Qt.UserRole).name == "Camera Roll"), None)
+    if item is None:
+        check(False, f"Cloud: the Camera Roll folder is shown ({names()})")
+        return
+    timed("Cloud: open a folder of 20,000 pictures", lambda: page._double_click(item, 0), 4,
+          wait=lambda: page.files.topLevelItemCount() >= 20000, wait_s=120)
+    grab(w, "heavy-cloud")
+    timed("Cloud: sort them by size", lambda: page.files._sort_by(1), 0.8)
+    first = page.files.topLevelItem(0).data(0, _Qt.UserRole)
+    check(first is not None and first.size == min(e.size for _a, e in page.shown),
+          f"…smallest first ({first.size if first else None})")
+    timed("Cloud: and by name again", lambda: page.files._sort_by(0), 0.8)
+    timed("Cloud: select all 20,000", page.files.selectAll, 1.0)
+    check(len(page.files.picked()[1]) == 20000, f"…every one ({len(page.files.picked()[1])})")
+    page.files.clearSelection()
+    timed("Cloud: back up", w.go_back, 0.8, wait=lambda: page.files.topLevelItemCount() < 100)
+    project = [e for e in cloud.client(accs["OneDrive"]).list(None) if e.name == "Project"]
+    timed("Cloud: copy a project of 3,000 files to another cloud folder",
+          lambda: (page.copy_to(accs["OneDrive"], project, accs["Dropbox"], None), settle(0.3)), 120,
+          wait=lambda: not page._working(), wait_s=400)
+    with setup():
+        def sums(root):
+            return {str(p.relative_to(root)): hashlib.md5(p.read_bytes()).hexdigest() for p in root.rglob("*")
+                    if p.is_file()}
+        a, b = sums(H / "OneDrive" / "Project"), sums(H / "Dropbox" / "Project")
+        check(a == b and len(a) == 3000, f"…every file arrived, unchanged ({len(b)} of {len(a)})")
+    mem.say("a cloud folder of 20,000 pictures", 900)
+
+
+def h_unlock():
+    from corefold import unlock, work
+    big = H / "Shared folder"
+    held = Holder(big / "doc 00010.txt")
+    out = {}
+    timed("Unlock: who has a file open in a folder of 20,000", lambda: work.run(
+        lambda _p: unlock.find([big]), lambda _: None, lambda r: out.setdefault("r", r)), 60,
+        wait=lambda: "r" in out, wait_s=300)
+    r = out.get("r")
+    if isinstance(r, Exception):
+        check(False, f"Unlock: {r}")
+    elif r is not None:
+        me = [p for p in r.programs if p.pid == os.getpid()]
+        check(bool(me) or os.name != "nt", f"…this program is found holding it ({[p.name for p in r.programs]}, "
+                                            f"{r.files} files asked about, capped: {r.capped})")
+    held.close()
+
+
 from importlib.metadata import version as _version  # noqa: E402
 say("note  versions: " + ", ".join(f"{n} {_version(n)}" for n in ("PySide6-Essentials", "Pillow", "pypdfium2", "pypdf")))
 with setup():
@@ -946,14 +1397,30 @@ with setup():
             QFontMetrics(_f).horizontalAdvance("Corefold مرحبا ✓ → 123")
     say(f"note  the first text on this PC (Windows reading its fonts): {time.perf_counter() - t0:.1f} s")
     t0 = time.perf_counter()
-    make_files()
+    make_heavy_files() if ARGS.heavy else make_files()
     say(f"note  test files made in {time.perf_counter() - t0:.0f} s")
 watch.paused = 0
 
-step("start", start)
-for name, fn in (("search", search), ("quick", quick), ("space", space), ("converter", converter), ("archive", archive),
-                 ("viewer", viewer), ("player", player), ("capture", capture),
-                 ("clipboard", clipboard), ("store", store), ("idle", idle)):
+
+def start_light():
+    global c
+    c = timed("Corefold starts (tray icon ready)", lambda: A.Controller(qapp, QIcon(str(ROOT / "assets" / "icon.png"))),
+              4)
+    settle(1)
+    timed("the window opens", lambda: (c.show_window("Home"), c.window)[1], 2.5, wait=lambda: c.window.isVisible())
+    c.window.resize(1100, 720)
+
+
+if ARGS.heavy:
+    STEPS = (("organizer", h_organizer), ("archive", h_archive), ("pdf", h_pdf), ("converter", h_converter),
+             ("cloud", h_cloud), ("unlock", h_unlock), ("idle", idle))
+    step("start", start_light)
+else:
+    STEPS = (("search", search), ("quick", quick), ("space", space), ("converter", converter), ("archive", archive),
+             ("viewer", viewer), ("player", player), ("capture", capture),
+             ("clipboard", clipboard), ("store", store), ("idle", idle))
+    step("start", start)
+for name, fn in STEPS:
     step(name, fn)
     for top in qapp.topLevelWidgets():  # nothing a step left open gets in the next one's way
         if alive(top) and top.isVisible() and top.isWindow() and type(top).__name__ not in ("MainWindow", "Toast"):

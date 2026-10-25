@@ -1662,7 +1662,33 @@ def _parallel(tool: Tool, items: list) -> int:
             workers = min(workers, 2)
     except OSError:
         pass
+    if workers > 1:  # (a small file can still be a huge picture: 3 of 250 MP each at once is 3 GB of memory)
+        most = _most_pixels(items)
+        if most > 150_000_000:
+            workers = 1
+        elif most > 50_000_000:
+            workers = min(workers, 2)
     return workers
+
+
+def _most_pixels(items: list, look_at: int = 400) -> int:
+    """The most pixels of the bigger files' pictures (from their headers: nothing is decoded)."""
+    setup_pillow()
+    from PIL import Image
+    try:
+        big = sorted(items, key=lambda p: p.stat().st_size, reverse=True)[:look_at]
+    except OSError:
+        return 0
+    most = 0
+    for p in big:
+        try:
+            if p.stat().st_size < 2 << 20 and most:
+                break
+            with Image.open(p) as im:
+                most = max(most, im.width * im.height)
+        except Exception:
+            continue
+    return most
 
 
 def run_job(tool: Tool, files: list[Path], options: Options,
@@ -1679,14 +1705,16 @@ def run_job(tool: Tool, files: list[Path], options: Options,
     n = len(items)
     workers = _parallel(tool, items)
     parts = [0.0] * n  # how far each file is (several are worked on at once)
+    so_far = [0.0]     # their sum (kept, not added up again each time: 100,000 files made that billions of steps)
     lock = threading.Lock()
     started = [0]
 
     def part(i, f):
         with lock:
+            so_far[0] += f - parts[i]
             parts[i] = f
-            done = sum(parts)
-        progress(done / n)
+            done = so_far[0]
+        progress(min(done / n, 1.0))
 
     def one(i, item):
         """(result, None), (None, error text) or (None, None) when it was cancelled."""

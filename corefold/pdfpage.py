@@ -214,6 +214,16 @@ class PdfPage(QWidget):
         self.saved_state: list[tuple[int, int, int]] | None = None
         self.mode = "organize"
         self.restoring = False
+        # (with thousands of pages, both are done once for many changes: a selection of 4,000 pages
+        # cleared, or 4,000 small pictures arriving, each looked through every page, and froze the window)
+        self.refresh_timer = QTimer(self)
+        self.refresh_timer.setSingleShot(True)
+        self.refresh_timer.timeout.connect(self._refresh)
+        self.fresh: set[tuple[int, int]] = set()  # small pictures that came, not drawn on the board yet
+        self.thumb_timer = QTimer(self)
+        self.thumb_timer.setSingleShot(True)
+        self.thumb_timer.setInterval(80)
+        self.thumb_timer.timeout.connect(self._draw_fresh)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 10, 0)
         lay.setSpacing(12)
@@ -664,9 +674,17 @@ class PdfPage(QWidget):
         pm = QPixmap.fromImage(QImage(raw, w, h, 4 * w, QImage.Format.Format_RGBA8888).copy())
         pm.setDevicePixelRatio(self.devicePixelRatioF())
         self.pixmaps[(fi, pi)] = pm
+        self.fresh.add((fi, pi))
+        if not self.thumb_timer.isActive():
+            self.thumb_timer.start()
+
+    def _draw_fresh(self):
+        fresh, self.fresh = self.fresh, set()
+        if not fresh or not work.alive(self):
+            return
         for k in range(self.board.count()):
             item = self.board.item(k)
-            if item.data(FILE) == fi and item.data(PAGE) == pi:
+            if (item.data(FILE), item.data(PAGE)) in fresh:
                 self._draw(item)
 
     def _draw(self, item: QListWidgetItem):
@@ -676,7 +694,8 @@ class PdfPage(QWidget):
             return
         turn = item.data(TURN) % 360
         if turn:
-            pm = pm.transformed(QTransform().rotate(turn), Qt.SmoothTransformation)
+            # (a quarter turn moves pixels without changing them: the smooth way only cost time, 4,000 pages 1.5 s)
+            pm = pm.transformed(QTransform().rotate(turn), Qt.FastTransformation)
         if len(self.files) > 1:  # a stripe in the file's colour along the bottom
             pm = QPixmap(pm)
             p = QPainter(pm)
@@ -774,7 +793,7 @@ class PdfPage(QWidget):
         self._refresh()
 
     def _selection(self):
-        self._refresh()
+        self.refresh_timer.start()
 
     def _refresh(self):
         n = self.board.count()
