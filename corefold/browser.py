@@ -310,6 +310,9 @@ class ArchiveBrowser(QWidget):
         self.a_preview.triggered.connect(self.set_preview)
         more.addAction(tr("Select all"), self.tree.selectAll)
         more.addAction(tr("Show in folder"), lambda: reveal_in_explorer(self.src))
+        if ar.has_legacy_names(src):  # an old ZIP whose names don't say how they're written
+            more.addSeparator()
+            more.addMenu(self._names_menu(more))
         self.b_more.setMenu(more)
         self.nested = QCheckBox(tr("Also unpack archives inside"))
         self.nested.setToolTip(tr("Archives found inside are unpacked too, each into its own folder."))
@@ -376,6 +379,43 @@ class ArchiveBrowser(QWidget):
         self.check_timer.setSingleShot(True)
         self.check_timer.timeout.connect(self._check_changes)
         self.set_entries(entries)
+
+    # ---- names of an old ZIP
+
+    def _names_menu(self, parent: QMenu) -> QMenu:
+        """File names: worked out by Corefold, or one the person picks if they still look wrong."""
+        from PySide6.QtGui import QActionGroup
+        menu = QMenu(tr("File names"), parent)
+        round_menu(menu)
+        menu.setToolTipsVisible(True)
+        group = QActionGroup(menu)
+        choices = ((tr("Arabic (DOS, 720)"), 720), (tr("Arabic (Windows, 1256)"), 1256), (tr("Arabic (864)"), 864),
+                   ("UTF-8", ar.UTF8_CP), (tr("As this PC reads them"), 0))
+        label = {cp: name for name, cp in choices}.get(ar.found_zip_codepage(self.src))
+        auto = menu.addAction(tr("Worked out by Corefold ({name})", name=label) if label
+                              else tr("Worked out by Corefold"))
+        auto.setToolTip(tr("Old ZIP files don't say which letters their names use. If they look wrong, pick "
+                           "another one here."))
+        auto.setData(None)
+        menu.addSeparator()
+        actions = [auto]
+        for name, cp in choices:
+            act = menu.addAction(name)
+            act.setData(cp)
+            actions.append(act)
+        chosen = ar.picked_zip_codepage(self.src)
+        for act in actions:
+            act.setCheckable(True)
+            act.setChecked(act.data() == chosen)
+            group.addAction(act)
+            act.triggered.connect(lambda _on=False, a=act: self._pick_names(a.data()))
+        return menu
+
+    def _pick_names(self, cp):
+        if cp == ar.picked_zip_codepage(self.src):
+            return
+        ar.set_zip_codepage(self.src, cp)
+        self.reload()
 
     # ---- contents
 
@@ -988,6 +1028,7 @@ class ArchiveBrowser(QWidget):
                 self._save_back()
         if self._preview_stop is not None:
             self._preview_stop.set()
+        ar.set_zip_codepage(self.src, None)  # (the pick lasts while it's open)
         super().closeEvent(e)
 
     def dropEvent(self, e):

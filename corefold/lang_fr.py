@@ -2773,4 +2773,12 @@ STRINGS: dict[str, str] = {
     'Customize': 'Personnaliser',
     'Put back the widgets Corefold starts with? The ones you added or changed go.': 'Remettre les widgets de départ de Corefold ? Ceux que vous avez ajoutés ou modifiés disparaissent.',
     'Drop files here': 'Déposez des fichiers ici',
+    'File names': 'Noms des fichiers',
+    'Arabic (DOS, 720)': 'Arabe (DOS, 720)',
+    'Arabic (Windows, 1256)': 'Arabe (Windows, 1256)',
+    'Arabic (864)': 'Arabe (864)',
+    'As this PC reads them': 'Comme ce PC les lit',
+    'Worked out by Corefold ({name})': 'Trouvés par Corefold ({name})',
+    'Worked out by Corefold': 'Trouvés par Corefold',
+    "Old ZIP files don't say which letters their names use. If they look wrong, pick another one here.": "Les anciens fichiers ZIP n'indiquent pas l'alphabet de leurs noms. S'ils s'affichent mal, choisissez-en un autre ici.",
 }
