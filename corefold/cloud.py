@@ -720,7 +720,7 @@ def _stream_to(resp, target: Path, size: int, progress, cancel, host: str = "", 
         if hasher is not None and want and hasher.digest() != want:
             log.warning("cloud download doesn't match the service's check (%s)", check.partition(":")[0])
             raise CloudError(NOT_THE_SAME)
-        os.replace(tmp, target)
+        os.rename(tmp, target)  # (never over something that took the name meanwhile)
         mark_from_internet(target, host)
     finally:
         if tmp.exists():

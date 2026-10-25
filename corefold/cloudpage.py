@@ -115,6 +115,8 @@ def _untouched(folder: str) -> bool | None:
         with open(os.path.join(folder, OPENED_NOTE), encoding="utf-8") as fh:
             kept = json.load(fh)
         st = os.stat(os.path.join(folder, kept["name"]))
+        if set(os.listdir(folder)) - {kept["name"], OPENED_NOTE}:  # (saved as something else next to it)
+            return False
         return st.st_size == kept["size"] and st.st_mtime_ns == kept["mtime"]
     except FileNotFoundError:
         return False if os.path.exists(os.path.join(folder, OPENED_NOTE)) else None
