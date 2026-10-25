@@ -1,0 +1,305 @@
+ok    sign-in asks with a PKCE challenge (no secret)
+ok    answer comes back to this PC (http://localhost:61553/)
+ok    the browser shows a page saying it can be closed
+ok    onedrive: signed in as sam@example.com
+ok    onedrive: space used is known (1500000 of 5000000000)
+ok    sign-in asks with a PKCE challenge (no secret)
+ok    answer comes back to this PC (http://localhost:53682/)
+ok    the browser shows a page saying it can be closed
+ok    dropbox: signed in as sam@dropbox.test
+ok    dropbox: space used is known (2500000 of 2000000000)
+ok    both accounts are kept (['onedrive:sam@example.com', 'dropbox:sam@dropbox.test'])
+ok    the keys are locked on disk (no readable key or email)
+ok    and Windows unlocks them again
+ok    sign-in asks with a PKCE challenge (no secret)
+ok    answer comes back to this PC (http://localhost:61565/)
+ok    the browser shows a page saying it can be closed
+ok    sign-in no: signing in was cancelled
+ok    sign-in asks with a PKCE challenge (no secret)
+ok    answer comes back to this PC (http://localhost:61568/)
+ok    the browser shows a page saying it can be closed
+ok    sign-in wrong: the answer from the sign-in page didn't match; try again
+ok    sign-in asks with a PKCE challenge (no secret)
+ok    answer comes back to this PC (http://localhost:53682/)
+ok    Cancel stops waiting for the browser (cancelled)
+ok    onedrive: a new account is empty
+ok    onedrive: a whole folder goes up (7 files)
+ok    onedrive: a big file shows progress in pieces
+ok    onedrive: listed in pages, all there (['.dropbox', 'Photos', 'big.bin', 'desktop.ini', 'empty.txt', 'notes.txt', 'onedrive report.docx'])
+ok    onedrive: sizes come back (307200)
+ok    onedrive: the folder comes back the same (7)
+ok    onedrive: a downloaded file has Windows' "from the internet" mark
+ok    onedrive: the same name again is kept beside it
+ok    onedrive: a new folder
+ok    onedrive: renamed
+ok    onedrive: a name already there: something with that name is already there
+ok    onedrive: deleted
+ok    onedrive: search finds it (['beach.jpg'])
+ok    onedrive: a folder deleted elsewhere: it isn't there any more
+ok    dropbox: a new account is empty
+ok    dropbox: a whole folder goes up (7 files)
+ok    dropbox: a big file shows progress in pieces
+ok    dropbox: listed in pages, all there (['.dropbox', 'Photos', 'big.bin', 'desktop.ini', 'dropbox report.docx', 'empty.txt', 'notes.txt'])
+ok    dropbox: sizes come back (307200)
+ok    dropbox: the folder comes back the same (7)
+ok    dropbox: a downloaded file has Windows' "from the internet" mark
+ok    dropbox: the same name again is kept beside it
+ok    dropbox: a new folder
+ok    dropbox: renamed
+ok    dropbox: a name already there: something with that name is already there
+ok    dropbox: deleted
+ok    dropbox: search finds it (['beach.jpg'])
+ok    dropbox: a folder deleted elsewhere: it isn't there any more
+ok    onedrive: a key that ran out early is renewed by itself
+ok    onedrive: and the new one is kept
+ok    onedrive: one that ran out on time too
+ok    dropbox: a key that ran out early is renewed by itself
+ok    dropbox: and the new one is kept
+ok    dropbox: one that ran out on time too
+ok    a key taken back on the service asks to sign in again
+ok    a busy service is asked again and answers
+ok    a full account says so: there's no space left in this account
+ok    still busy says so: the service asks to wait a moment, try again soon
+ok    dropbox: Cancel stops a big upload (cancelled)
+ok    no internet says so: no internet connection, or the service didn't answer
+ok    the key is never sent to download or upload addresses ([])
+ok    a cloud file named '..\\..\\Startup\\x.bat' is saved as 'x.bat'
+ok    a cloud file named 'C:\\x.bat' is saved as 'x.bat'
+ok    a cloud file named '../../x' is saved as 'x'
+ok    a cloud file named 'CON' is saved as '_CON'
+ok    a cloud file named 'a<b>.txt' is saved as 'a_b_.txt'
+ok    a cloud file named '' is saved as 'file'
+ok    signing out of Dropbox takes back the key there too
+ok    and Corefold forgets it
+ok    all four folders are found (['dropbox', 'gdrive', 'icloud', 'onedrive'])
+ok    they're folders on this PC
+ok    they're never saved with the signed-in accounts
+ok    the same folder twice is listed once
+ok    hidden files are left out (['OneDrive report.docx', 'Photos', 'notes.txt'])
+ok    a folder goes in (5 files)
+ok    the same name again is kept beside it (notes (2).txt)
+ok    a new folder (/Work)
+ok    the name 'a/b' isn't allowed
+ok    the name 'x:y' isn't allowed
+ok    the name 'CON' isn't allowed
+ok    the name 'end.' isn't allowed
+ok    the name '' isn't allowed
+ok    renamed
+ok    a name already there: something with that name is already there
+ok    deleted (to the Recycle Bin)
+ok    search, any case (['/Photos/2024/beach.jpg', '/up-local/Photos/2024/beach.jpg'])
+ok    a folder can be saved somewhere else
+ok    Cancel leaves no half file
+ok    a folder on this PC goes to an online account
+ok    and from an online account to a folder here
+ok    sign-in asks with a PKCE challenge (no secret)
+ok    answer comes back to this PC (http://localhost:61742/)
+ok    the browser shows a page saying it can be closed
+ok    two Microsoft accounts are kept at once (['onedrive:sam@example.com', 'onedrive:work@example.com'])
+ok    a personal OneDrive is known as one
+ok    a big upload whose answers get lost still arrives whole (307200)
+cloud upload doesn't match what was sent (onedrive: 12 of 12 bytes)
+ok    a OneDrive upload that arrives changed is caught (the upload didn't arrive whole, so it was taken away again; try again)
+ok    and the spoiled copy is taken away
+cloud upload doesn't match what was sent (onedrive: 307200 of 307200 bytes)
+ok    a big one that arrives changed too (the upload didn't arrive whole, so it was taken away again; try again)
+ok    a work or school OneDrive isn't held to the bytes sent
+ok    a OneNote notebook is known as one that opens on the website
+ok    downloading it is said, not a broken file
+ok    Google: sign-in asks with a PKCE challenge
+ok    Google: the answer comes back to this PC (http://127.0.0.1:62640/)
+ok    Google asks which account each time, and for a key that lasts
+ok    the sign-in page address carries no secret
+ok    Google: signed in as sam@gmail.com
+ok    Google: space is known (3221225472 of 16106127360)
+ok    Google: sign-in asks with a PKCE challenge
+ok    Google: the answer comes back to this PC (http://127.0.0.1:62644/)
+ok    Google asks which account each time, and for a key that lasts
+ok    the sign-in page address carries no secret
+ok    Google: signed in as work.sam@gmail.com
+ok    Google: space is known (3221225472 of 16106127360)
+ok    two Google accounts are kept at once (['gdrive:sam@gmail.com', 'gdrive:work.sam@gmail.com'])
+ok    Google: sign-in asks with a PKCE challenge
+ok    Google: the answer comes back to this PC (http://127.0.0.1:62648/)
+ok    Google asks which account each time, and for a key that lasts
+ok    the sign-in page address carries no secret
+ok    signing in to the same one again doesn't add it twice
+ok    Google: sign-in asks with a PKCE challenge
+ok    Google: the answer comes back to this PC (http://127.0.0.1:62652/)
+ok    Google asks which account each time, and for a key that lasts
+ok    the sign-in page address carries no secret
+ok    Google: unticking the files box says so (Corefold wasn't allowed to see your files; sign in again and leave that box ticked)
+ok    and isn't kept
+ok    Google: a new account is empty, with Shared with me (['Shared with me'])
+ok    Google: each account shows only its own files
+ok    Google: a whole folder goes up (7 files)
+ok    Google: a big file shows progress in pieces
+ok    Google: listed in pages (['.dropbox', 'Photos', 'big.bin', 'desktop.ini', 'empty.txt', 'gdrive report.docx', 'notes.txt'])
+ok    Google: the folder comes back the same (7)
+ok    Google: the same name again is kept beside it, never two of one name (['.dropbox', 'Photos', 'big.bin', 'desktop.ini', 'empty.txt', 'gdrive report.docx', 'notes (1).txt', 'notes.txt'])
+ok    Google: a new folder with a name that's there (Photos (1))
+ok    Google: renamed
+ok    Google: a name already there: something with that name is already there
+ok    Google: deleting moves it to Google Drive's bin (not deleted for good)
+ok    Google: search finds it (['beach.jpg'])
+ok    Google: a ' in a search is fine
+ok    Google: a folder deleted elsewhere: it isn't there any more
+ok    Google: a downloaded file has Windows' "from the internet" mark
+ok    Google Docs are known ([('Budget', 'export:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:.xlsx'), ('Survey', 'web'), ('photo.jpg', ''), ('Back to the top', ''), ('Precious shortcut', '')])
+ok    a shortcut to a folder shows as that folder
+ok    a folder with a shortcut to itself is saved once, not round and round (3: ['Budget.xlsx', 'Precious shortcut', 'photo.jpg'])
+ok    a Google Sheet is saved as an Excel file
+ok    a Google Form is left out, and said (['Survey'])
+ok    deleting a shortcut takes only the shortcut, never the file it leads to
+ok    renaming a shortcut doesn't rename the folder it leads to
+ok    Shared with me shows what's shared
+ok    Shared with me can't be deleted
+ok    Shared with me can't be renamed
+ok    Shared with me can't be uploaded into
+ok    Shared drives show when there are any
+ok    with each shared drive
+ok    a file goes into a shared drive
+ok    a big upload where short piece still arrives whole (921600 of 921600)
+ok    a big upload where drop piece still arrives whole (921600 of 921600)
+cloud upload doesn't match what was sent (gdrive: 12 of 12 bytes)
+ok    an upload that arrives changed is caught (the upload didn't arrive whole, so it was taken away again; try again)
+ok    and the spoiled copy is put in the bin
+ok    Google: Cancel stops a big upload (cancelled)
+ok    a full Google account says so (there's no space left in this account)
+ok    Google's "too many requests" is asked again and answers
+ok    a Google Sheet too big to turn into a file says so (Google can't turn something this big into a file; download it from the Google Drive website)
+ok    the key is never sent to Google's upload addresses
+ok    Google: a key that ran out is renewed (with the app's secret)
+ok    Google: signing out takes the key back at Google too, and Corefold forgets it
+ok    the other Google account stays
+ok    Google: sign-in asks with a PKCE challenge
+ok    Google: the answer comes back to this PC (http://127.0.0.1:62771/)
+ok    Google asks which account each time, and for a key that lasts
+ok    the sign-in page address carries no secret
+cloud: the accounts file couldn't be read; it was put aside
+ok    an accounts file that can't be read is put aside, never written over
+---- the page in en (dark)
+ok    Corefold Cloud is ready (no longer Coming soon) and in use
+ok    the Cloud page opens
+ok    it finds the four folders on this PC, and the signed-in account (5)
+ok    folders on this PC first, then online accounts (['onedrive', 'dropbox', 'gdrive', 'icloud', 'onedrive'])
+ok    OneDrive's folder is shown (['OneDrive report.docx', 'Photos', 'notes.txt'])
+ok    without Windows' hidden files
+ok    a folder on this PC can be opened in File Explorer; online accounts can be signed in to
+ok    picture saved: cloud-en-dark.png
+ok    a folder opens (['2024'])
+ok    Back goes up again
+ok    a folder in a folder opens
+ok    the path at the top has a button for each folder (['OneDrive', 'Photos', '2024'])
+ok    clicking the cloud's name goes to its top
+ok    sorting by size, biggest first, folders first (['Photos', 'OneDrive report.docx', 'notes.txt'])
+ok    sorting by name, Z to A
+ok    Preview shows the picked file in Quick look
+ok    a second upload waits its turn
+ok    both finish
+ok    both are in the list of transfers, done (['done', 'done'])
+ok    the list of transfers opens
+ok    picture saved: cloud-transfers-en-dark.png
+ok    the finished ones can be cleared
+ok    they're in the folder (Uploaded 1 file.)
+ok    and listed
+ok    Add a cloud is always there, with adding a folder (['Sign in to Google Drive', 'Add another OneDrive account', 'Sign in to Dropbox', '', 'A cloud folder on this PC…', 'Look again'])
+ok    every account's space is looked at
+ok    a folder says how much it uses (Uses 7.8 KB)
+ok    an online account says how much is free (4.7 GB free of 4.7 GB)
+ok    a folder can be added by hand, and is opened (Added Synced stuff.)
+ok    its files are shown (['Photos', 'extra report.docx', 'notes.txt'])
+ok    it's still there after looking again
+ok    picture saved: cloud-added-en-dark.png
+ok    Remove from the list takes it off (its files stay)
+ok    copying to an online account finishes (Copy Photos to OneDrive · sam@example.com)
+ok    the folder is in the pretend OneDrive
+ok    the online account is shown (['Online notes.txt', 'Photos', 'Shared'])
+ok    with its space (4.7 GB free of 4.7 GB)
+ok    an online file goes to a folder on this PC
+ok    picture saved: cloud-online-en-dark.png
+ok    search looks in every cloud (6 found)
+ok    in all of them (['dropbox', 'gdrive', 'icloud', 'onedrive'])
+ok    picture saved: cloud-search-en-dark.png
+ok    Back leaves the search
+ok    a taken back key offers Sign in again (Signed out of this account. Sign in again to see its files.)
+ok    said in en: That name isn't allowed. Names can't use these: < > : " / \ | ? *
+ok    said in en: It's open in another app, or Windows didn't allow it.
+ok    said in en: There's no space left in this account.
+ok    two Google accounts are listed at once (['sam@gmail.com', 'work.sam@gmail.com'])
+ok    Add a cloud offers another Google account (['Add another Google Drive account', 'Add another OneDrive account', 'Sign in to Dropbox', '', 'A cloud folder on this PC…', 'Look again'])
+ok    a Google account's files (['Report', 'Shared with me', 'Survey', 'Trips', 'a.txt'])
+ok    with Shared with me
+ok    picture saved: cloud-google-en-dark.png
+ok    a Google Doc opens in the browser, nothing is downloaded (['https://drive.google.com/file/d/g3/view'])
+ok    a file's menu has its keys (['Open\tEnter', 'Preview\tSpace', 'Open on the website', 'Download…', 'Copy to', 'Move to', 'Rename…\tF2', 'Delete\tDel'])
+ok    Shared with me can't be deleted or renamed (['Open\tEnter', 'Download…', 'Copy to'])
+ok    an online account's menu (['Open Google Drive in the browser', 'Refresh', 'Sign in again', 'Sign out'])
+ok    the Delete key on Shared with me does nothing
+ok    nothing can be uploaded into Shared with me
+ok    the other Google account shows its own files (['Shared with me', 'Work plan.txt'])
+newtest_cloud page: 0 problem(s)
+ok    the en page part ran to its end (exit 0)
+---- the page in ar (light)
+ok    Corefold Cloud is ready (no longer Coming soon) and in use
+ok    the Cloud page opens
+ok    it finds the four folders on this PC, and the signed-in account (5)
+ok    folders on this PC first, then online accounts (['onedrive', 'dropbox', 'gdrive', 'icloud', 'onedrive'])
+ok    OneDrive's folder is shown (['OneDrive report.docx', 'Photos', 'notes.txt'])
+ok    without Windows' hidden files
+ok    a folder on this PC can be opened in File Explorer; online accounts can be signed in to
+ok    picture saved: cloud-ar-light.png
+ok    a folder opens (['2024'])
+ok    Back goes up again
+ok    a folder in a folder opens
+ok    the path at the top has a button for each folder (['\u202aOneDrive\u202c', '\u202aPhotos\u202c', '\u202a2024\u202c'])
+ok    clicking the cloud's name goes to its top
+ok    sorting by size, biggest first, folders first (['Photos', 'OneDrive report.docx', 'notes.txt'])
+ok    sorting by name, Z to A
+ok    Preview shows the picked file in Quick look
+ok    a second upload waits its turn
+ok    both finish
+ok    both are in the list of transfers, done (['done', 'done'])
+ok    the list of transfers opens
+ok    picture saved: cloud-transfers-ar-light.png
+ok    the finished ones can be cleared
+ok    they're in the folder (انرفع ملف واحد.)
+ok    and listed
+ok    Add a cloud is always there, with adding a folder (['سجّل دخول \u2066Google Drive\u2069', 'أضف حساب OneDrive ثاني', 'سجّل دخول Dropbox', '', 'مجلد سحابة على هالجهاز…', 'افحص من جديد'])
+ok    every account's space is looked at
+ok    a folder says how much it uses (ياخذ ‪⁦7.8 KB⁩‬)
+ok    an online account says how much is free (‏‪⁦4.7 GB⁩‬ فاضية من ‪⁦4.7 GB⁩‬)
+ok    a folder can be added by hand, and is opened (انضاف ‪⁦Synced stuff⁩‬.)
+ok    its files are shown (['Photos', 'extra report.docx', 'notes.txt'])
+ok    it's still there after looking again
+ok    picture saved: cloud-added-ar-light.png
+ok    Remove from the list takes it off (its files stay)
+ok    copying to an online account finishes (نسخ ‪Photos‬ إلى ‪OneDrive · sam@example.com‬)
+ok    the folder is in the pretend OneDrive
+ok    the online account is shown (['Online notes.txt', 'Photos', 'Shared'])
+ok    with its space (‏‪⁦4.7 GB⁩‬ فاضية من ‪⁦4.7 GB⁩‬)
+ok    an online file goes to a folder on this PC
+ok    picture saved: cloud-online-ar-light.png
+ok    search looks in every cloud (6 found)
+ok    in all of them (['dropbox', 'gdrive', 'icloud', 'onedrive'])
+ok    picture saved: cloud-search-ar-light.png
+ok    Back leaves the search
+ok    a taken back key offers Sign in again (انتهت جلستك في هذا الحساب. سجّل دخولك من جديد عشان تشوف ملفاته.)
+ok    said in ar: هذا الاسم مو مسموح. الأسماء ما تقبل هذي: < > : " / \ | ? *
+ok    said in ar: مفتوح في برنامج ثاني، أو ويندوز ما سمح.
+ok    said in ar: ما بقى مساحة في هذا الحساب.
+ok    two Google accounts are listed at once (['sam@gmail.com', 'work.sam@gmail.com'])
+ok    Add a cloud offers another Google account (['أضف حساب \u2066Google Drive\u2069 ثاني', 'أضف حساب OneDrive ثاني', 'سجّل دخول Dropbox', '', 'مجلد سحابة على هالجهاز…', 'افحص من جديد'])
+ok    a Google account's files (['Report', 'Survey', 'Trips', 'a.txt', 'تمت مشاركته معي'])
+ok    with Shared with me
+ok    picture saved: cloud-google-ar-light.png
+ok    a Google Doc opens in the browser, nothing is downloaded (['https://drive.google.com/file/d/g3/view'])
+ok    a file's menu has its keys (['فتح\tEnter', 'معاينة\tSpace', 'افتح في الموقع', 'تنزيل…', 'انسخ إلى', 'نقل إلى', 'إعادة تسمية…\tF2', 'حذف\tDel'])
+ok    Shared with me can't be deleted or renamed (['فتح\tEnter', 'تنزيل…', 'انسخ إلى'])
+ok    an online account's menu (['افتح \u2066Google Drive\u2069 في المتصفح', 'تحديث', 'سجّل دخول من جديد', 'تسجيل الخروج'])
+ok    the Delete key on Shared with me does nothing
+ok    nothing can be uploaded into Shared with me
+ok    the other Google account shows its own files (['Work plan.txt', 'تمت مشاركته معي'])
+newtest_cloud page: 0 problem(s)
+ok    the ar page part ran to its end (exit 0)
+newtest_cloud: 0 problem(s)

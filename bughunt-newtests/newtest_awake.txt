@@ -1,0 +1,124 @@
+this process: python.exe
+ok    Awake is running while the tool is in use
+ok    the tray menu has Keep awake
+ok    powercfg /requests can be read (DISPLAY, SYSTEM, AWAYMODE, EXECUTION, PERFBOOST, ACTIVELOCKSCREEN)
+ok    nothing is asked of Windows before it's switched on
+ok    Until I turn it off: on, with no end
+ok    on: powercfg lists a SYSTEM request from this process
+ok    on, screen may turn off: no DISPLAY request
+ok    the tray's tooltip says it's staying awake ('Corefold: hold Shift while dragging a file\nStaying awake until you turn it off')
+ok    Keep the screen on too: a DISPLAY request as well
+ok    ... and still the SYSTEM one
+ok    screen option off again: the DISPLAY request is gone
+ok    off: no request from this process any more
+ok    the tooltip no longer mentions it
+ok    for 2 seconds: on, with an end
+ok    for 2 seconds: the SYSTEM request is there
+ok    the 2 seconds end by themselves
+ok    ... and the request is cleared
+ok    ... and a message says so
+ok    until a time: ends at 09:40
+ok    a time already past means tomorrow (2026-10-26 09:05:00)
+ok    tray: 1 hour (3600 s left)
+ok    tray: 1 hour is ticked (['1 hour'])
+ok    tray: until I turn it off (['Until I turn it off'])
+ok    tray: off (['Off'])
+ok    tray: off clears the request
+ok    toggle: on for the 30 minutes chosen last (1800 s left)
+ok    toggle: off again
+ok    shutdown in an hour: planned (code 0)
+ok    ... and remembered (2026-10-25T10:10:25)
+ok    ... on disk, for after a restart
+ok    planning again replaces our own (code 0)
+ok    cancelled (code 0)
+ok    ... and forgotten
+ok    Windows has no shutdown planned any more (shutdown /a again: 1116 'Unable to abort the system shutdown because no shutdown was in progress.(1116)')
+ok    (a shutdown planned outside Corefold: 0 '')
+ok    another one planned already: Windows says so (1190)
+ok    ... and nothing is remembered
+ok    replace=True replaces it (code 0)
+ok    cancelled again (code 0)
+(shutdown /a at the end: 1116 'Unable to abort the system shutdown because no shutdown was in progress.(1116)')
+ok    nothing is left planned
+ok    a time that's past is forgotten
+ok    one planned before Windows last started (at 09:06) is forgotten
+programs with a window open: ['WindowsTerminal.exe']
+ok    the programs running now are read (53)
+ok    Notepad chosen, not open: it looks every 30 seconds, and the PC can sleep
+ok    (Notepad started)
+ok    Notepad open: staying awake by itself (Staying awake while Notepad is open)
+ok    it says which program
+ok    Let it sleep while Notepad is open: it stays off
+ok    on battery with 9% left: it doesn't start
+ok    plugged in: it does
+ok    the battery runs low: it lets the PC sleep
+ok    charged again: back on for Notepad
+ok    Notepad closed: the PC can sleep again
+ok    nothing chosen: it doesn't look any more
+ok    (on again before removing the tool)
+ok    switched off: Awake isn't running
+ok    ... the tray menu has no Keep awake
+ok    ... and the PC can sleep again
+ok    added again: back in the tray
+ok    (on again before quitting)
+ok    quitting Corefold lets the PC sleep again
+ok    [en] Awake is running
+
+ok    [en] the page is built and shown
+
+ok    [en] off to begin with: Your PC can sleep as usual
+
+ok    [en] the time box reads its own text back (6:35 PM)
+
+ok    [en] For a while, 2 hours: kept
+
+ok    [en] Keep awake: on for 2 hours (7200 s left)
+
+ok    [en] the page says so: Staying awake until 11:10 AM
+
+ok    [en] and Windows has the request
+
+ok    [en] Keep the screen on too: switched on
+
+ok    [en] a planned shutdown shows Cancel
+
+ok    [en] Until a time and At a time show their time boxes
+
+ok    [en] a program added on the page is listed
+
+ok    [en] ...and removed
+
+ok    [en] Let it sleep: off, and the request is gone
+
+newtest_awake page en: 0 problem(s)
+ok    [ar] Awake is running
+
+ok    [ar] the page is built and shown
+
+ok    [ar] off to begin with: جهازك ينام مثل العادة
+
+ok    [ar] the time box reads its own text back (6:35 PM)
+
+ok    [ar] For a while, 2 hours: kept
+
+ok    [ar] Keep awake: on for 2 hours (7200 s left)
+
+ok    [ar] the page says so: صاحي لين الساعة ‪⁦11:10 AM⁩‬
+
+ok    [ar] and Windows has the request
+
+ok    [ar] Keep the screen on too: switched on
+
+ok    [ar] a planned shutdown shows Cancel
+
+ok    [ar] Until a time and At a time show their time boxes
+
+ok    [ar] a program added on the page is listed
+
+ok    [ar] ...and removed
+
+ok    [ar] Let it sleep: off, and the request is gone
+
+newtest_awake page ar: 0 problem(s)
+ok    pictures saved in out/newtest_awake: awake-itself-ar-light.png, awake-itself-en-dark.png, awake-off-ar-light.png, awake-off-en-dark.png, awake-on-ar-light.png, awake-on-en-dark.png, awake-small-ar-light.png, awake-small-en-dark.png
+newtest_awake: 0 problem(s)

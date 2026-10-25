@@ -1,0 +1,48 @@
+ok    an Arabic line is read right to left
+ok    English words inside Arabic keep their own order (لي ثم قال Hello World)
+ok    numbers in an Arabic line (رقم 123 456)
+ok    an English line is read left to right
+ok    Japanese words are joined without spaces
+ok    lines are joined with line breaks
+ok    with two readers, each line comes from the one that reads its letters (['Hello', 'مرحبا', 'وداعا'])
+ok    a small picture is read bigger (3.00x)
+ok    a very tall picture is read in overlapping strips (4)
+note  Windows read: Meeting notes for Monday | Send the invoice to Sara before noon | J->iJl ps.4. El-o-i>l | J-g-bJl Corefold J! a-I-Jl | Order number 48213 ships today
+ok    reading the words took 0.66 s
+ok    every English line is read whole
+note  this PC has no Arabic text reading
+ok    every word read is where it is in the picture (0 off)
+ok    the Select text button is in the bar
+ok    Select text is on
+ok    the words are read when Select text is turned on
+ok    lines found: 5
+ok    dragging over three words picks just them ('the invoice to')
+ok    a small Copy button shows next to them
+ok    Copy puts only those words on the clipboard
+ok    dragging right to left over them picks the same
+ok    dragging across two lines ('for Monday\nSend the invoice')
+note  no Arabic words were read on this PC: the Arabic part is left out
+ok    double-click picks one word ('48213')
+ok    triple-click picks the whole line ('Order number 48213 ships today')
+ok    Ctrl+C copies the picked words
+ok    Ctrl+A picks all the words
+ok    Esc lets go of the words (and keeps the editor open)
+ok    a box picks only the words inside it, not whole lines ('notes\ninvoice')
+ok    Ctrl+click adds a word ('notes\ninvoice Sara')
+ok    Ctrl+click on it again takes it away ('notes\ninvoice')
+ok    …any picked word ('invoice')
+ok    a click away from the words picks nothing
+ok    Copy text with nothing picked copies all the text
+ok    an arrow is drawn (and the words are read again next time)
+ok    after a crop the words are read again
+ok    …only what's left in the picture
+ok    …and they can be picked
+Timeout (0:10:00)!
+Thread 0x00001908 (most recent call first):
+  File "D:\a\corefold\corefold\corefold\capview.py", line 1241 in closeEvent
+  File "D:\a\corefold\corefold\scripts\captexttest.py", line 392 in english_more
+  File "D:\a\corefold\corefold\scripts\captexttest.py", line 300 in editor
+  File "D:\a\corefold\corefold\scripts\captexttest.py", line 420 in <lambda>
+  File "D:\a\corefold\corefold\scripts\captexttest.py", line 61 in step
+  File "D:\a\corefold\corefold\scripts\captexttest.py", line 420 in main
+  File "D:\a\corefold\corefold\scripts\captexttest.py", line 428 in <module>
