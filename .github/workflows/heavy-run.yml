@@ -77,7 +77,7 @@ jobs:
           python scripts/selftest.py *> out/selftest.txt
           python scripts/edgetest.py *> out/edgetest.txt
           python -m pip install --quiet -r requirements-dev.txt
-          python -m pytest -q tests *> out/pytest.txt
+          Remove-Item Env:COREFOLD_WAKE_RESTING; python -m pytest -q tests *> out/pytest.txt  # (as Developer checks runs them)
       - name: Results
         if: always()
         shell: pwsh
