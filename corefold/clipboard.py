@@ -44,6 +44,7 @@ KINDS = ("text", "link", "image", "files")
 MAX_TEXT = 4 * 2**20       # characters: a bigger copy (a whole log file) isn't kept
 MAX_HTML = 4 * 2**20       # (its formatting is dropped above this; the text is still kept)
 MAX_PIXELS = 64_000_000    # a bigger picture isn't kept
+MAX_PICTURES = 2**30       # bytes: kept pictures (not pinned ones) above this, the oldest are forgotten
 THUMB = 160                # px: the longest side of a picture's small preview
 SETTLE_MS = 120            # apps often put several things on the clipboard in a row: read the last
 TRIM_EVERY_S = 60
@@ -355,6 +356,15 @@ class History:
         if max_items > 0:
             n += self._forget("pinned = 0 AND id NOT IN (SELECT id FROM items WHERE pinned = 0"
                               " ORDER BY used DESC LIMIT ?)", (max_items,))
+        # (500 big screenshots or photos would otherwise fill gigabytes: newest first, until the total is reached)
+        total, over = 0, []
+        for item_id, size in self.db.execute("SELECT id, size FROM items WHERE pinned = 0 AND kind = 'image'"
+                                             " ORDER BY used DESC"):
+            total += size or 0
+            if total > MAX_PICTURES:
+                over.append(item_id)
+        if over:
+            n += self._forget(f"id IN ({','.join('?' * len(over))})", over)
         return n
 
     def _forget_damaged(self, days: int):
