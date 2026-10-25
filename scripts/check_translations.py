@@ -54,7 +54,7 @@ def table_texts() -> dict[str, str]:
     for name in ("SHORTCUT_LABELS", "WHEEL_SIZE_NAMES", "WHEEL_STYLES", "LABEL_STYLES", "HOVER_STYLES",
                  "SLICE_COLORS", "TEXT_SIZE_NAMES", "WHEEL_POSITIONS", "APPEARANCES", "MENU_STYLES",
                  "TOAST_CORNERS", "TOAST_TIMES", "WINDOW_TEXT", "UNUSED_MONTHS", "BACKUP_DAYS", "UNINSTALL_DEPTHS", "EXTRACT_MODES",
-                 "VIEWER_WHEEL", "SLIDESHOW_SECONDS"):
+                 "VIEWER_WHEEL", "SLIDESHOW_SECONDS", "VIDEO_QUALITIES", "VIDEO_SIZES"):
         add(getattr(settings, name).values(), name)
     add(sounds.DONE_SOUNDS.values(), "DONE_SOUNDS")
     add([i18n.LANGUAGES["system"]], "LANGUAGES")

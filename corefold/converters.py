@@ -917,8 +917,49 @@ def ffmpeg_convert(src: Path, ctx: Ctx, ext: str, args: list[str], suffix: str =
         # MKV can't store "this video is turned": a phone video filmed upright would play sideways
         # if just copied, so it's re-encoded the right way up instead.
         args = _EVEN + _H264 + ["-crf", "20"] + _AAC
+    if ext in (".mp4", ".mov", ".webm", ".mkv") and not suffix:
+        args = tuned_video(src, ext, args, ctx.options)
     run_ffmpeg(src, out, args, ctx)
     return Result([out])
+
+
+def smaller_size(width: int, height: int, most: int) -> tuple[int, int] | None:
+    """The new width and height (even numbers, the same shape) when the video's shorter side is over
+    `most`, else None: a video is made smaller, never bigger."""
+    short = min(width, height)
+    if not most or not width or not height or short <= most:
+        return None
+    f = most / short
+    return max(2, round(width * f / 2) * 2), max(2, round(height * f / 2) * 2)
+
+
+_WEBM_CRF = {18: 28, 20: 32, 24: 36, 28: 40}  # (VP9's scale for the same four qualities)
+
+
+def tuned_video(src: Path, ext: str, args: list[str], options) -> list[str]:
+    """The Converter's video settings (Settings → Converter): its quality, and a size it's made smaller to."""
+    crf = int(getattr(options, "video_crf", 20) or 20)
+    most = int(getattr(options, "video_max", 0) or 0)
+    new = None
+    if most:
+        info = probe(src)
+        new = smaller_size(info.get("width") or 0, info.get("height") or 0, most)
+    args = list(args)
+    if ext == ".mkv" and "copy" in args:
+        if new is None:
+            return args  # (copied as it is: nothing to make smaller)
+        args = _PICK + _H264 + ["-crf", str(crf)] + _AAC  # (too big: made again, smaller)
+    if "-crf" in args:
+        i = args.index("-crf") + 1
+        args[i] = str(_WEBM_CRF.get(crf, 32) if ext == ".webm" else crf)
+    if new is not None:
+        scale = f"scale={new[0]}:{new[1]}:flags=lanczos"
+        if "-vf" in args:
+            args[args.index("-vf") + 1] = scale  # (instead of the padding to even sizes: these are even)
+        else:
+            at = args.index("-sn") if "-sn" in args else len(args)
+            args[at:at] = ["-vf", scale]
+    return args
 
 
 AUDIO_ARGS = {

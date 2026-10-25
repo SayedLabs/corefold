@@ -98,6 +98,12 @@ UNINSTALL_DEPTHS = {"safe": "Safe", "normal": "Normal", "deep": "Deep"}  # the s
 VIEWER_WHEEL = {"zoom": "Zooms in and out", "browse": "Goes to the next or previous picture"}
 SLIDESHOW_SECONDS = {2: "2 seconds", 4: "4 seconds", 8: "8 seconds"}
 EXTRACT_MODES = {"smart": "Smart: no folder inside a folder", "folder": "Always into a new folder"}
+# videos the Converter makes: how good (x264's CRF) and how big at most (the shorter side, never made bigger)
+VIDEO_QUALITIES = {"high": "High (bigger file)", "balanced": "Balanced", "smaller": "Smaller file",
+                   "smallest": "Smallest file"}
+VIDEO_CRF = {"high": 18, "balanced": 20, "smaller": 24, "smallest": 28}
+VIDEO_SIZES = {"original": "Same as the video", "2160": "Up to 4K (2160p)", "1080": "Up to Full HD (1080p)",
+               "720": "Up to HD (720p)", "480": "Up to 480p"}
 CLIP_SHORTCUTS = {"win+alt+v": "Win + Alt + V", "ctrl+shift+v": "Ctrl + Shift + V", "ctrl+alt+v": "Ctrl + Alt + V",
                   "ctrl+`": "Ctrl + `", "off": "No shortcut"}
 CLIP_PLAIN_SHORTCUTS = {"ctrl+alt+win+v": "Ctrl + Alt + Win + V", "ctrl+alt+shift+v": "Ctrl + Alt + Shift + V",
@@ -161,7 +167,7 @@ LOOK_KEYS = ("appearance", "accent", "custom_color", "animations", "toast_corner
              "sidebar_icons")
 CONVERTER_KEYS = ("shortcut", "save_mode", "output_folder", "jpg_quality", "show_unavailable", "context_menu",
                   "menu_style", "ask_names", "reveal_after", "keep_dates", "convert_recycle", "sound_tick",
-                  "watch_downloads", "pack_on_every_wheel", "video_gpu")
+                  "watch_downloads", "pack_on_every_wheel", "video_gpu", "video_quality", "video_size")
 WHEEL_KEYS = ("wheel_size", "wheel_style", "wheel_opacity", "label_style", "hover_style", "slice_colors", "text_size",
               "wheel_position", "per_page", "wheel_numbers")
 FORMAT_KEYS = ("hidden_tools", "favorites", "tool_order")
@@ -209,6 +215,8 @@ class Settings:
     output_folder: str = str(Path.home() / "Downloads" / "Corefold")
     jpg_quality: int = 90
     video_gpu: bool = True         # videos are made with the graphics card when there is one (falls back by itself)
+    video_quality: str = "balanced"  # VIDEO_QUALITIES
+    video_size: str = "original"     # VIDEO_SIZES: made smaller if bigger than this, never bigger
     reveal_after: bool = False
     keep_dates: bool = False       # a converted file gets the original's "Date modified"
     convert_recycle: bool = False  # the original goes to the Recycle Bin once it's converted
@@ -422,6 +430,10 @@ class Settings:
         s.per_page = min(16, max(6, s.per_page))
         s.player_volume = min(100, max(0, s.player_volume))
         s.jpg_quality = min(100, max(50, s.jpg_quality))
+        if s.video_quality not in VIDEO_QUALITIES:
+            s.video_quality = defaults.video_quality
+        if s.video_size not in VIDEO_SIZES:
+            s.video_size = defaults.video_size
         s.fit_mb = min(4000.0, max(0.1, s.fit_mb))
         wm = dict(defaults.watermark)
         wm.update({k: v for k, v in s.watermark.items() if k in wm and type(v) is type(wm[k])})
@@ -483,7 +495,8 @@ class Settings:
         folder = Path(self.output_folder) if self.save_mode == "folder" else None
         return Options(output_folder=folder, jpg_quality=self.jpg_quality,
                        rename_base=rename_base, rename_start=rename_start, gpu=bool(self.video_gpu),
-                       keep_dates=bool(self.keep_dates))
+                       keep_dates=bool(self.keep_dates), video_crf=VIDEO_CRF.get(self.video_quality, 20),
+                       video_max=int(self.video_size) if self.video_size.isdigit() else 0)
 
     @property
     def shortcut_label(self) -> str:
