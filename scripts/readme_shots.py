@@ -21,8 +21,10 @@ OUT.mkdir(parents=True, exist_ok=True)
 TMP = Path(tempfile.mkdtemp(prefix="corefold-readme-"))
 os.environ["APPDATA"] = str(TMP / "roaming")
 os.environ["LOCALAPPDATA"] = str(TMP / "local")
-HOME = TMP / "home"  # (a made-up user folder: the Cloud page finds the pretend cloud folders in it)
-HOME.mkdir()
+# a made-up user folder (the Cloud page finds the pretend cloud folders in it); on GitHub's throwaway PC it gets a
+# short, friendly path, because the File Organizer shows it
+HOME = Path(os.environ.get("SystemDrive", "C:") + "\\", "Users", "Sam") if os.environ.get("CI") == "true" else TMP / "home"
+HOME.mkdir(parents=True, exist_ok=True)
 os.environ["USERPROFILE"] = os.environ["HOME"] = str(HOME)
 for _name in ("OneDrive", "OneDriveConsumer", "OneDriveCommercial"):
     os.environ.pop(_name, None)
@@ -72,9 +74,27 @@ make_pdf(FILES / "Invoice.pdf", "Invoice", ["#c2410c", "#b45309", "#c2410c"])
 import zipfile  # noqa: E402
 
 ARCHIVE = FILES / "Holiday photos.zip"
+
+
+def photo(top: str, bottom: str) -> bytes:  # (a real picture, so the archive window can show it)
+    import io
+    im = Image.new("RGB", (900, 600))
+    d = ImageDraw.Draw(im)
+    t, b = Image.new("RGB", (1, 1), top).getpixel((0, 0)), Image.new("RGB", (1, 1), bottom).getpixel((0, 0))
+    for y in range(600):
+        f = y / 599
+        d.line((0, y, 900, y), fill=tuple(round(t[i] + (b[i] - t[i]) * f) for i in range(3)))
+    d.ellipse((600, 90, 760, 250), fill="#ffe8a3")
+    d.polygon([(0, 600), (0, 430), (260, 330), (520, 440), (900, 360), (900, 600)], fill="#1f4d4a")
+    out = io.BytesIO()
+    im.save(out, "JPEG", quality=85)
+    return out.getvalue()
+
+
 with zipfile.ZipFile(ARCHIVE, "w") as z:
-    for n in ("Beach.jpg", "Old town.jpg", "Sunset.jpg", "Dinner.jpg"):
-        z.writestr(f"Holiday photos/{n}", os.urandom(40_000))
+    for n, top, bottom in (("Beach.jpg", "#3aa7d8", "#f4d6a0"), ("Old town.jpg", "#6c8fb8", "#e0b98a"),
+                           ("Sunset.jpg", "#2b1f5c", "#f08a4b"), ("Dinner.jpg", "#3b2a4f", "#c76a5a")):
+        z.writestr(f"Holiday photos/{n}", photo(top, bottom))
     z.writestr("Holiday photos/Videos/Boat trip.mp4", os.urandom(90_000))
     z.writestr("Holiday photos/Plan.docx", os.urandom(12_000))
     z.writestr("Holiday photos/Tickets.pdf", os.urandom(20_000))
@@ -86,14 +106,14 @@ for n in ("IMG_2041.JPG", "Screenshot 2026-10-21 101533.png", "holiday.heic", "c
           "photos.zip", "Cairo.ttf", "CV.docx"):
     (MESS / n).parent.mkdir(parents=True, exist_ok=True)
     (MESS / n).write_bytes(os.urandom(2000))
-(HOME / "Desktop").mkdir()
+(HOME / "Desktop").mkdir(exist_ok=True)
 (HOME / "Desktop" / "todo.txt").write_text("milk")
 
 
 def cloud_folder(root: Path, label: str):
     (root / "Photos" / "2026").mkdir(parents=True, exist_ok=True)
     (root / "Photos" / "2026" / "beach.jpg").write_bytes(os.urandom(3000))
-    (root / "Documents").mkdir()
+    (root / "Documents").mkdir(exist_ok=True)
     (root / f"{label} report.docx").write_bytes(os.urandom(5000))
     (root / "notes.txt").write_text("hello from " + label)
 
@@ -276,8 +296,12 @@ def archive_window():  # what's inside an archive, in its own window
     while not [b for b in c.browsers if b.isVisible()] and time.time() < end:
         settle(0.3)
     b = next(b for b in c.browsers if b.isVisible())
-    b.resize(980, 620)
-    grab(b, "archive-window", 1.0)
+    b.resize(1040, 640)
+    settle(0.5)
+    b.tree.setColumnWidth(0, 230)
+    for item in b.tree.findItems("Sunset.jpg", Qt.MatchExactly | Qt.MatchRecursive):
+        b.tree.setCurrentItem(item)
+    grab(b, "archive-window", 1.5)
     b.close()
     settle(0.3)
 
