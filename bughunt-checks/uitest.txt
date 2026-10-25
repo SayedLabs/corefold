@@ -1,0 +1,151 @@
+ok    a picture opens in the Viewer
+ok    …and shows up
+ok    …as 2 of 3 (2 of 3)
+ok    next picture fast (0.00 s)
+ok    → goes to the next one
+ok    turned right on screen
+ok    …the white half is on top (#ffffff)
+ok    Save shows up after a change
+ok    Save works
+ok    the file is turned the same way (600, 900) (255, 255, 255)
+ok    square crop
+ok    details panel
+ok    Delete sends it to the Recycle Bin
+ok    an email opens in its window
+ok    the email shows, without its script
+ok    pictures from the internet are blocked
+ok    one attachment (the logo is part of the email)
+ok    Save as PDF (11587 bytes)
+ok    the Clipboard is running
+ok    its shortcut (Win + Alt + V) works
+ok    a copied text is kept
+ok    …as text
+ok    …with the app it came from (Python)
+ok    a password marked private isn't kept
+ok    a copied picture is kept
+ok    …with its small preview
+ok    copied files are kept
+ok    a copied link is a link
+ok    the same copy isn't kept twice, it moves to the top
+ok    picking one pastes it where you were typing ('https://example.com/report')
+ok    …and it's on the clipboard
+ok    …without being kept again
+ok    Win + Alt + V opens the clipboard
+ok    the popup lists the copies (4)
+ok    searching in the popup
+ok    the Clipboard page lists the copies
+ok    changing the shortcut
+ok    removing the Clipboard stops it
+ok    adding it back keeps the history
+ok    the Space page opens
+ok    looking through a folder (0.04 s)
+ok    every file counted (66)
+ok    the map has boxes (59)
+ok    the drives (C:\, D:\)
+ok    a big folder, 6 at a time: 29,833 files in 15.0 s (1,989 files a second, stopped after 15 s)
+ok    a big folder, 1 at a time: 60,112 files in 15.0 s (3,999 files a second, stopped after 15 s)
+ok    looking for junk
+ok    temporary files found (['temp', 'bin', 'winupdate'])
+ok    looking for duplicates
+ok    the copied photo is found (1)
+ok    Capture is running
+ok    its shortcut (Ctrl + Print Screen) works
+ok    a screenshot freezes the screen
+ok    picking an area opens the editor
+ok    the picture is the area picked (401 px)
+ok    …saved in Pictures\Screenshots
+ok    …and copied
+ok    the marks are drawn into the picture
+ok    crop
+ok    undo the crop
+ok    undo a mark
+ok    redo
+ok    Save
+ok    a video opens in the Player
+Input #0, matroska,webm, from 'C:/Users/RUNNER~1/AppData/Local/Temp/corefold-uitest-tjh_ifov/Shows/Episode 1.mkv':
+  Metadata:
+    ENCODER         : Lavf63.1.102
+  Duration: 00:01:00.02, start: 0.000000, bitrate: 7531 kb/s
+  Stream #0:0: Video: h264 (Constrained Baseline), yuv420p(tv, progressive), 1280x720 [SAR 1:1 DAR 16:9], 30 fps, 30 tbr, 1k tbn
+    Metadata:
+      ENCODER         : Lavc63.1.102 libx264
+      DURATION        : 00:01:00.000000000
+  Stream #0:1: Audio: aac (LC), 44100 Hz, mono, fltp
+    Metadata:
+      ENCODER         : Lavc63.1.102 aac
+      DURATION        : 00:01:00.023000000
+  Stream #0:2(eng): Subtitle: subrip (srt)
+    Metadata:
+      ENCODER         : Lavc63.1.102 srt
+      DURATION        : 00:00:07.000000000
+[av1_mf @ 0000024289CC66C0] could not find any MFT for the given media type
+[av1_mf @ 0000024289CC66C0] could not create MFT
+[h264_mf @ 0000024289CC7940] MFT name: 'H264 Encoder MFT'
+[hevc_mf @ 0000024289CC6A80] could not find any MFT for the given media type
+[hevc_mf @ 0000024289CC6A80] could not create MFT
+[AVHWFramesContext @ 0000024289B71040] Could not create the surfaces
+[AVHWFramesContext @ 0000024289B71040] Error creating an internal frame pool
+[h264 @ 0000024289CC7CC0] Failed setup for format dxva2_vld: hwaccel initialisation returned error.
+ok    …and plays (1.0 s, )
+ok    its length (60023 ms)
+ok    picture and sound (video True, sound True)
+ok    its own subtitles (1)
+ok    jumping (4000 ms)
+ok    speed
+ok    saving a frame (Episode 1 0.04.png)
+ok    a subtitle file
+ok    shifting subtitles
+ok    A-B loop (2043 ms)
+ok    one picture forward (2043 -> 2076)
+ok    the mini player
+ok    full screen
+ok    Continue watching
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'C:/Users/RUNNER~1/AppData/Local/Temp/corefold-uitest-tjh_ifov/Shows/Episode 2.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf63.1.102
+  Duration: 00:00:03.00, start: 0.000000, bitrate: 1765 kb/s
+  Stream #0:0[0x1](und): Video: h264 (Constrained Baseline) (avc1 / 0x31637661), yuv420p(progressive), 640x360 [SAR 1:1 DAR 16:9], 1761 kb/s, 25 fps, 25 tbr, 12800 tbn (default)
+    Metadata:
+      handler_name    : VideoHandler
+      encoder         : Lavc63.1.102 libx264
+[AVHWFramesContext @ 000002428FAB6A80] Could not create the surfaces
+[AVHWFramesContext @ 000002428FAB6A80] Error creating an internal frame pool
+[h264 @ 0000024289CC8800] Failed setup for format dxva2_vld: hwaccel initialisation returned error.
+ok    the next file
+Input #0, matroska,webm, from 'C:/Users/RUNNER~1/AppData/Local/Temp/corefold-uitest-tjh_ifov/Shows/Episode 1.mkv':
+  Metadata:
+    ENCODER         : Lavf63.1.102
+  Duration: 00:01:00.02, start: 0.000000, bitrate: 7531 kb/s
+  Stream #0:0: Video: h264 (Constrained Baseline), yuv420p(tv, progressive), 1280x720 [SAR 1:1 DAR 16:9], 30 fps, 30 tbr, 1k tbn
+    Metadata:
+      ENCODER         : Lavc63.1.102 libx264
+      DURATION        : 00:01:00.000000000
+  Stream #0:1: Audio: aac (LC), 44100 Hz, mono, fltp
+    Metadata:
+      ENCODER         : Lavc63.1.102 aac
+      DURATION        : 00:01:00.023000000
+  Stream #0:2(eng): Subtitle: subrip (srt)
+    Metadata:
+      ENCODER         : Lavc63.1.102 srt
+      DURATION        : 00:00:07.000000000
+ok    picks up where it left off (30000 ms)
+ok    …and says so, with Start over (Picking up where you left off (0:30).)
+[AVHWFramesContext @ 000002428FBD2C40] Could not create the surfaces
+[AVHWFramesContext @ 000002428FBD2C40] Error creating an internal frame pool
+[h264 @ 0000024289CC5BC0] Failed setup for format dxva2_vld: hwaccel initialisation returned error.
+Input #0, mp3, from 'C:/Users/RUNNER~1/AppData/Local/Temp/corefold-uitest-tjh_ifov/Shows/Song.mp3':
+  Metadata:
+    title           : A song
+    encoder         : Lavf63.1.102
+  Duration: 00:00:04.00, start: 0.025057, bitrate: 65 kb/s
+  Stream #0:0: Audio: mp3 (mp3float), 44100 Hz, mono, fltp, 64 kb/s, start 0.025057
+ok    a song plays, with its picture
+ok    the media section opens
+ok    the computer section opens
+ok    the quick section opens
+ok    removing the Viewer
+ok    adding it back
+uitest: 0 problem(s)

@@ -1,0 +1,4 @@
+ok    the Colors page opens in Arabic, light
+ok    …right to left, with every colour
+note  2 s in all
+newtest_colors: 0 problem(s)
