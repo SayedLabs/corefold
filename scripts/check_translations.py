@@ -66,7 +66,7 @@ def table_texts() -> dict[str, str]:
     add(window.NAV_LABELS.values(), "NAV_LABELS")
     from corefold import tools as all_tools
     for tool in all_tools.TOOLS:
-        add([tool.name, tool.nav, tool.line, *tool.features, *([tool.short] if tool.short else [])], "tools.TOOLS")
+        add([tool.name, tool.nav, tool.line, *tool.features, *([tool.short] if tool.short else []), *([tool.use] if tool.use else [])], "tools.TOOLS")
     for sec in all_tools.SECTIONS:
         add([sec.name, sec.line, *([sec.one_tool] if sec.one_tool else [])], "tools.SECTIONS")
     from corefold import homelist, homewidgets

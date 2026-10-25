@@ -2832,7 +2832,7 @@ STRINGS: dict[str, str] = {
     'Add your first cloud': 'Añade tu primera nube',
     'No clouds on this PC yet': 'Aún no hay nubes en este PC',
     "Install OneDrive, Dropbox, Google Drive or iCloud and sign in to it, and its files show up here. Is your cloud's folder somewhere else? Add it with Add a cloud.": 'Instala OneDrive, Dropbox, Google Drive o iCloud e inicia sesión, y sus archivos aparecerán aquí. ¿La carpeta de tu nube está en otro sitio? Añádela con Añadir una nube.',
-    # ------------------------------------------------------------------ Corefold Files: one tool, its features
+    # ------------------------------------------------------------------ Corefold Files: one tool, its uses
     "Corefold Files": "Corefold Files",
     "Change a file into another format": "Cambia un archivo a otro formato",
     "Edit, merge, split and lock PDFs": "Edita, une, divide y bloquea PDF",
@@ -2840,4 +2840,11 @@ STRINGS: dict[str, str] = {
     "Tidy a messy folder in one click": "Ordena una carpeta desordenada con un clic",
     "See what's holding a file, and free it": "Mira qué está usando un archivo y libéralo",
     "All your cloud storage in one place": "Todo tu almacenamiento en la nube en un solo lugar",
+    'Tidy up': 'Ordenar',
+    'Drop any file and see everything you can do with it.': 'Suelta un archivo y mira todo lo que puedes hacer con él.',
+    'Drop any file or folder here': 'Suelta aquí cualquier archivo o carpeta',
+    '{name} shows what you can do with it: convert it, shrink it, merge it, pack it, unlock it…': '{name} te muestra lo que puedes hacer con él: convertirlo, reducirlo, unirlo, comprimirlo, desbloquearlo…',
+    'Or pick what you want to do': 'O elige lo que quieres hacer',
+    'Pick what you want to do': 'Elige lo que quieres hacer',
+    'Choose what {name} can do': 'Elegir lo que puede hacer {name}',
 }

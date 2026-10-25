@@ -196,15 +196,15 @@ def buttons(root, text):
 
 
 def nav_click(w, name):
-    """A sidebar row; a tool is reached the way a person does: its section's row, then its row in the
-    features list beside the pages (a section that's one tool, like Corefold Files) or its tab."""
+    """A sidebar row; a tool is reached the way a person does: its section's row, then its tab in the bar of
+    uses on the heading (a section that's one tool, like Corefold Files) or in the strip."""
     if name not in w.nav_rows:
         from corefold.window import NAV_OWNER
         nav_click(w, NAV_OWNER[name])
-        if w.feature_side.isVisible():
-            row = w.feature_side.rows.get(name)
-            if check(row is not None and row.isVisible(), f"the {NAV_OWNER[name]} features list has {name}"):
-                click(row)
+        if w.one_head.isVisible():
+            tab = w.one_head.tabs.get(name)
+            if check(tab is not None and tab.isVisible(), f"the {NAV_OWNER[name]} bar of uses has {name}"):
+                click(tab)
             return
         tab = w.strip_tabs.get(name)
         if check(tab is not None and tab.isVisible(), f"the {NAV_OWNER[name]} strip has a tab for {name}"):
@@ -222,7 +222,14 @@ def nav_click(w, name):
 
 def switch_cards(w, sec_page):
     from corefold.window import ToolSwitchCard
-    return {card.tool.id: card for card in page_widget(w, sec_page).findChildren(ToolSwitchCard)}
+    cards = {card.tool.id: card for card in page_widget(w, sec_page).findChildren(ToolSwitchCard)}
+    sec = all_tools.SECTION_BY_PAGE[sec_page]
+    if not cards and sec.one_tool and w.current_page() == sec_page:  # (one tool: ⚙ on its heading shows them)
+        if check(w.one_head.gear is not None and w.one_head.gear.isVisible(), f"{sec_page}'s heading has Settings"):
+            click(w.one_head.gear)
+            settle(0.3)
+            cards = {card.tool.id: card for card in page_widget(w, sec_page).findChildren(ToolSwitchCard)}
+    return cards
 
 
 # ---------------------------------------------------------------------------- switching tools on
@@ -290,7 +297,7 @@ def every_page():
         # its Settings button, then back
         tool = all_tools.BY_PAGE.get(name)
         if tool is not None and tool.settings:
-            gear = buttons(page_widget(w, name), tr("Settings"))
+            gear = buttons(w.one_head if w.one_head.isVisible() else page_widget(w, name), tr("Settings"))
             if check(bool(gear), f"{name} has a Settings button"):
                 click(gear[0])
                 check(w.current_page() == tool.settings, f"{name}'s Settings button opens {tool.settings} "
@@ -329,7 +336,7 @@ def every_page():
             check(w.current_page() != "Home" and w.shows(w.current_page()),
                   f"a tool's button on the {page_name} card opens it ({w.current_page()})")
             nav_click(w, "Home")
-    # a tool from its section's features list (or strip), then Back: the section again
+    # a tool from its section's bar of uses (or strip), then Back: the section again
     first = next((t for t in w.tools_on), None)
     if first is not None:
         sec = all_tools.SECTION_OF[first.id]

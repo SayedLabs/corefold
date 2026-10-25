@@ -1,6 +1,6 @@
-"""Corefold Files is one tool: its features down the side of its pages, each with a few words under its name.
-The one picked opens beside them, a feature switched off isn't listed (or loaded), and nothing of a feature is
-made before it's opened."""
+"""Corefold Files is one tool: one heading over all its pages (its name, a line about the use that's open,
+and a bar of its uses), and a start page to drop any file on or pick a use, each with what it's for. A use
+switched off has no tab (nor is it loaded), and nothing of a use is made before it's opened."""
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
@@ -39,81 +39,104 @@ def window(qtbot):
     delete(c)
 
 
-def test_every_files_tool_has_a_few_words_for_the_list():
+def test_every_files_use_has_a_name_and_a_few_words():
     sec = all_tools.SECTION_BY_PAGE["Files"]
     assert sec.one_tool == "Corefold Files"
     for tool_id in sec.tools:
         tool = all_tools.BY_ID[tool_id]
         if tool.ready:
+            assert tool.use and len(tool.use) <= 12, tool.id
             assert tool.short and len(tool.short) <= 40, tool.id
 
 
-def test_the_files_pages_list_the_features_beside_them(window):
+def test_one_heading_over_the_files_pages(window):
+    from corefold.onetool import UseCard
     w = window
     w.open_page("Files")
-    side = w.feature_side
-    assert side.isVisible() and not w.section_strip.isVisible()
-    assert list(side.rows) == ["Files", *FEATURES]
-    assert side.rows["Files"].property("current")
+    head = w.one_head
+    assert head.isVisible() and not w.section_strip.isVisible()
+    assert list(head.tabs) == ["Files", *FEATURES]
+    assert head.tabs["Files"].isChecked()
+    cards = w.stack.currentWidget().findChildren(UseCard)
+    assert [c.tool.page for c in cards] == FEATURES
     for name in FEATURES[1:]:  # (the Converter's page is always made: other parts of the window use it)
-        assert not w.built(name), name  # (nothing of a feature is made before it's opened)
-    side.rows["PDF"].picked.emit("PDF")
+        assert not w.built(name), name  # (nothing of a use is made before it's opened)
+    head.tabs["PDF"].click()
     assert w.current_page() == "PDF" and w.built("PDF")
-    assert side.rows["PDF"].property("current") and not side.rows["Files"].property("current")
+    assert head.tabs["PDF"].isChecked() and not head.tabs["Files"].isChecked()
+    assert head.line.text() == all_tools.BY_ID["pdf"].short
     assert not w.built("Cloud")
+    cards[-1].open_use()
+    assert w.current_page() == "Cloud"
 
 
-def test_the_list_goes_with_the_files_pages(window):
+def test_a_use_has_no_heading_of_its_own(window):
+    from corefold.atomic.widgets import GlowPanel
+    from PySide6.QtWidgets import QLabel
+    w = window
+    for name in FEATURES:
+        w.open_page(name)
+        page = w.stack.currentWidget()
+        assert not [g for g in page.findChildren(GlowPanel) if g.isVisible()], name
+        assert not [lab for lab in page.findChildren(QLabel) if lab.objectName() == "h1" and lab.isVisible()], name
+
+
+def test_the_heading_goes_with_the_files_pages(window):
     w = window
     w.open_page("Archives")
-    assert w.feature_side.isVisible()
+    assert w.one_head.isVisible()
     for name in ("Home", "History", "General", "Media"):
         w.open_page(name)
-        assert not w.feature_side.isVisible(), name
+        assert not w.one_head.isVisible(), name
     w.open_page("Cloud")
-    assert w.feature_side.isVisible() and w.feature_side.rows["Cloud"].property("current")
+    assert w.one_head.isVisible() and w.one_head.tabs["Cloud"].isChecked()
 
 
-def test_a_row_opens_with_the_keyboard(window, qtbot):
+def test_a_card_opens_with_the_keyboard(window, qtbot):
+    from corefold.onetool import UseCard
     w = window
     w.open_page("Files")
-    row = w.feature_side.rows["Unlock"]
-    row.setFocus()
-    qtbot.keyClick(row, Qt.Key_Return)
+    card = next(c for c in w.stack.currentWidget().findChildren(UseCard) if c.tool.page == "Unlock")
+    card.setFocus()
+    qtbot.keyClick(card, Qt.Key_Return)
     assert w.current_page() == "Unlock"
 
 
-def test_a_feature_switched_off_leaves_the_list(window):
+def test_settings_on_the_heading(window, qtbot):
+    from corefold.window import ToolSwitchCard
+    w = window
+    w.open_page("Converter")
+    w.one_head.gear.click()
+    assert w.current_page() == all_tools.BY_ID["converter"].settings  # (the open use's own settings)
+    w.open_page("Unlock")
+    assert not w.one_head.gear.isVisible()  # (it has none)
+    w.open_page("Files")
+    w.one_head.gear.click()  # (the start page: which uses are switched on)
+    qtbot.waitUntil(lambda: bool(w.stack.currentWidget().findChildren(ToolSwitchCard)), timeout=2000)
+    w.open_page("PDF")
+    w.open_page("Files")
+    qtbot.waitUntil(lambda: not w.stack.currentWidget().findChildren(ToolSwitchCard), timeout=2000)
+
+
+def test_a_use_switched_off_leaves_the_bar(window):
     w = window
     w.open_page("Organizer")
     w.c.set_tool("organizer", False)
     assert w.current_page() == "Files"
-    assert "Organizer" not in w.feature_side.rows and w.feature_side.more is not None
-    w.feature_side.more.click()
-    assert w.current_page() == "Files"
+    assert "Organizer" not in w.one_head.tabs
     w.c.set_tool("organizer", True)
     w.open_page("PDF")
-    assert "Organizer" in w.feature_side.rows and w.feature_side.more is None
+    assert "Organizer" in w.one_head.tabs
 
 
-def test_the_sidebar_makes_room_for_the_list(window):
-    w = window
-    w.open_page("Home")
-    assert not w._nav_tight(1040) and w._nav_tight(800)
-    w.open_page("Files")  # (icons only, so the features and the page beside them have room)
-    assert w._nav_tight(1040) and not w._nav_tight(1400)
-    assert w._compact_now() == w._nav_tight(w.width())
-    w.open_page("Home")
-    assert not w._nav_tight(1040)
-    assert w._compact_now() == w._nav_tight(w.width())
-
-
-def test_a_files_page_says_only_the_features_name(window):
-    from PySide6.QtWidgets import QLabel
+def test_the_bar_fits_a_narrow_window(window):
     w = window
     w.open_page("PDF")
-    titles = [lab.text() for lab in w.stack.currentWidget().findChildren(QLabel) if lab.objectName() == "h1"]
-    assert titles[:1] == ["PDF"]
+    w.one_head.fit(360)
+    named = [b for b in w.one_head.tabs.values() if b.text()]
+    assert named == [w.one_head.tabs["PDF"]]  # (the use that's open keeps its name)
+    w.one_head.fit(2000)
+    assert all(b.text() for b in w.one_head.tabs.values())
 
 
 def test_the_pdf_editor_gets_the_room(window, tmp_path, qtbot):
@@ -125,10 +148,10 @@ def test_the_pdf_editor_gets_the_room(window, tmp_path, qtbot):
     wr.add_blank_page(300, 400)
     wr.write(str(doc))
     w.open_page("PDF")
-    before = w.feature_side.narrow  # (icons only already if the test screen is small)
+    assert w.one_head.isVisible()
     w.pdf_page.open_editor(doc)  # (it looks at the PDF first, in the background)
     qtbot.waitUntil(lambda: w.pdf_page.editor is not None and w.pdf_page.stack.currentWidget() is w.pdf_page.editor,
                     timeout=10000)
-    assert w.feature_side.narrow  # (icons only while editing: the editor's own list of pages has room)
+    assert not w.one_head.isVisible()  # (the editor has its own bar and list of pages)
     w.pdf_page.editor.close_editor(ask=False)
-    assert w.feature_side.narrow == before
+    assert w.one_head.isVisible()

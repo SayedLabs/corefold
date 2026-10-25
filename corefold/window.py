@@ -737,7 +737,7 @@ class MainWindow(QWidget):
         self._wheel_guard = None
         self._settings_head()  # (made before the pages: opening one shows or hides it)
         self._section_strip()
-        self._feature_side()
+        self._one_head()
         self._dots: list[QLabel] = []
         self._stat_glyphs: list[tuple[QLabel, str]] = []  # (icons on the History page's figures)
         self._gears: list[QPushButton] = []  # small "+" marks in the accent colour (recoloured with the theme)
@@ -791,9 +791,9 @@ class MainWindow(QWidget):
         body.setSpacing(24)
         self._body = body
         body.addWidget(self.settings_side)
-        body.addWidget(self.feature_side)
         column = QVBoxLayout()
         column.setSpacing(12)
+        column.addWidget(self.one_head)
         column.addWidget(self.section_strip)
         column.addWidget(self.settings_head)
         column.addWidget(self.stack, 1)
@@ -1087,7 +1087,7 @@ class MainWindow(QWidget):
         self._dots = [d for d in self._dots if _alive(d)]
         self._gears = [g for g in self._gears if _alive(g)]
         self.strip_section = None
-        self.feature_side.section = None
+        self.one_head.section = None
         for name in SECTION_PAGES:  # (made again with the switches as they are now when they're opened)
             if name == here:
                 self._remake_page(name)
@@ -1145,10 +1145,8 @@ class MainWindow(QWidget):
         self._fit_nav()
 
     def _fit_nav(self, animate: bool = True):
-        """Icons only in the sidebar while the window is narrow, or while a tool's features list needs the
-        room (names again when there's enough). Only on a change, so the menu button still opens it. With a
-        page that comes with the list or goes without it: at once, together with the page (not sliding after
-        it, with the page laid out twice)."""
+        """Icons only in the sidebar while the window is narrow (names again when there's enough). Only on a
+        change, so the menu button still opens it."""
         narrow = self._nav_tight(self.width())
         if narrow != self._narrow:
             self._narrow = narrow
@@ -1156,15 +1154,15 @@ class MainWindow(QWidget):
             self.set_nav_compact(narrow, remember=False, animate=animate)
 
     def _nav_tight(self, width: int) -> bool:
-        """No room for the sidebar's names at this window width (with a tool's features list, if it shows)."""
-        return width < 860 or (self.feature_side.isVisibleTo(self) and width < 1180)
+        """No room for the sidebar's names at this window width."""
+        return width < 860
 
     def eventFilter(self, obj, event):
         if obj is getattr(self, "canvas", None) and event.type() == QEvent.Type.Resize:
             self._fit_settings_side(event.size().width())
             if self.section_strip.isVisible():
                 self._fit_strip()
-            self._fit_feature_side()
+            self._fit_one_head()
         return False
 
     def _fit_settings_side(self, canvas_width: int):
@@ -1325,8 +1323,8 @@ class MainWindow(QWidget):
         if went is not None and not self._going_back and before != name:
             went.append(before)
             del went[:-30]
-        # (the features list comes or goes first, so the page is made and laid out once, at its own width)
-        self._sync_feature_side(name)
+        # (the heading comes or goes first, so the page is made and laid out once, at its own height)
+        self._sync_one_head(name)
         self._build_page(name)
         self.stack.setCurrentIndex(PAGES.index(name))
         self._sync_settings_head(name)
@@ -1366,12 +1364,10 @@ class MainWindow(QWidget):
 
     def _archives(self) -> QWidget:
         """Corefold Archive: open archives, make new ones, and the ones opened lately."""
-        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
         w, lay = page(tr("Corefold Archive"))
         lay.itemAt(0).widget().hide()
-        lay.addLayout(tool_header("archive", self._tool_title("archive"),
-                                  tr("Open, extract and make archives: ZIP, RAR, 7z, TAR, ISO and more."), dark, dpr,
-                                  self.tool_settings_button("Archives")))
+        lay.addLayout(self._use_header("archive", tr("Open, extract and make archives: ZIP, RAR, 7z, TAR, ISO and "
+                                                     "more."), gear=True))
         self.archive_drop = DropZone(None, None, title=tr("Drop an archive to open it"),
                                      sub=tr("Or drop files and folders to pack them into a ZIP or 7z."),
                                      hot_title=tr("Let go"),
@@ -1558,7 +1554,7 @@ class MainWindow(QWidget):
     _syncing_settings = False
 
     def _sync_settings_head(self, name: str):
-        self._sync_feature_side(name)
+        self._sync_one_head(name)
         self._sync_section_strip(name)
         on = name in SETTINGS_PAGES
         self.settings_head.setVisible(on)
@@ -1828,6 +1824,21 @@ class MainWindow(QWidget):
     def open_tool_settings(self, tool_page: str):
         self.open_page(TOOL_SETTINGS.get(tool_page, "General"))
 
+    def _use_header(self, tool_id: str, intro: str, *more: QWidget, gear: bool = False) -> QHBoxLayout:
+        """The top of a tool's page. A use of a section that's one tool has no heading of its own (the tool's
+        heading is over all its pages, with ⚙ in it): only what else goes there (like the on/off switch)."""
+        tool = all_tools.BY_ID[tool_id]
+        if all_tools.SECTION_OF[tool_id].one_tool:
+            row = QHBoxLayout()
+            row.setContentsMargins(0, 0, 0, 0)
+            if more:
+                row.addStretch()
+                for w in more:
+                    row.addWidget(w)
+            return row
+        extra = self.tool_settings_button(tool.page, *more) if gear else (more[0] if more else None)
+        return tool_header(tool.product, tr(tool.name), intro, self.c.theme.dark, self.devicePixelRatioF(), extra)
+
     def tool_settings_button(self, tool_page: str, *more: QWidget) -> QWidget:
         """The ⚙ button at the top of a tool's page (next to anything else that goes there)."""
         box = QWidget()
@@ -1853,24 +1864,22 @@ class MainWindow(QWidget):
     def _section(self, sec) -> QWidget:
         """A section's page: its tools, each with a switch (a tool that's off isn't loaded at all), and
         the ones on the way."""
-        from .atomic.widgets import FlowLayout, ResponsiveGrid
+        from .atomic.widgets import ResponsiveGrid
         if all_tools.section_paused(sec):
             return self._resting_section(sec)
+        if sec.one_tool:
+            return self._one_tool_start(sec)
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
         w, lay = page(tr(sec.name))
         lay.itemAt(0).widget().hide()  # shown in the heading with the tile instead
-        lay.addLayout(tool_header(sec.product, tr(sec.one_tool or sec.name), tr(sec.line), dark, dpr))
+        lay.addLayout(tool_header(sec.product, tr(sec.name), tr(sec.line), dark, dpr))
         on = {tool.id for tool in self.tools_on}
         fresh = {tool.id for tool in all_tools.new_tools(self.c.settings)}
         tools = all_tools.in_section(self.c.settings, sec)
-        # (one tool: each feature on a row of its own, with what it does)
-        grid = ResponsiveGrid(560 if sec.one_tool else 250, 12, 2 if sec.one_tool else 3)
-        accent = self.c.theme.accent if sec.one_tool else None
+        grid = ResponsiveGrid(250, 12, 3)
         for tool in [t for t in tools if t.id in on] + [t for t in tools if t.id not in on]:
             grid.add(ToolSwitchCard(tool, tool.id in on, lambda n=tool.page: self.open_page(n), self._tool_switched,
-                                    dark, dpr, fresh=tool.id in fresh, accent=accent))
-        if sec.one_tool:
-            keep_wrapped_text(grid)
+                                    dark, dpr, fresh=tool.id in fresh))
         if sec.id == "quick":  # the quick menu and wheel are part of Corefold itself: their settings, here too
             grid.add(ToolCard("quick", tr("Quick menu and wheel"),
                               tr("Your favourite actions and tools a shortcut away, in any app."),
@@ -1878,6 +1887,13 @@ class MainWindow(QWidget):
         lay.addWidget(grid)
         lay.addWidget(label(tr("Switch off what you don't use: it isn't loaded at all, so Corefold stays light. "
                                "Its settings are kept for when you switch it back on."), "subtle", wrap=True))
+        self._coming(sec, lay)
+        lay.addStretch()
+        return w
+
+    def _coming(self, sec, lay):
+        """The section's tools on the way, as chips under its page."""
+        from .atomic.widgets import FlowLayout
         coming = [all_tools.BY_ID[tool_id] for tool_id in sec.tools if not all_tools.BY_ID[tool_id].ready]
         if coming:
             head = QHBoxLayout()
@@ -1893,6 +1909,55 @@ class MainWindow(QWidget):
             holder = QWidget()
             holder.setLayout(chips)
             lay.addWidget(holder)
+
+    def _one_tool_start(self, sec) -> QWidget:
+        """The start page of a section that's one tool (under its heading): drop any file to see everything
+        that can be done with it, or pick a use, each with what it's for. ⚙ on the heading turns this into
+        the list of uses with their switches (a use switched off isn't loaded at all)."""
+        from .atomic.widgets import ResponsiveGrid
+        from .onetool import UseCard
+        t, dpr = self.c.theme, self.devicePixelRatioF()
+        w, lay = page(tr(sec.one_tool))
+        lay.itemAt(0).widget().hide()  # (the tool's heading is over the page)
+        on = {tool.id for tool in self.tools_on}
+        tools = all_tools.in_section(self.c.settings, sec)
+        w.setProperty("choosing", getattr(self, "_choosing_uses", False))
+        if w.property("choosing"):
+            head = QHBoxLayout()
+            head.setSpacing(8)
+            head.addWidget(label(tr("Choose what {name} can do", name=tr(sec.one_tool)), "title", wrap=True), 1)
+            head.addWidget(button(tr("Done"), "primary", self._one_head_settings), 0, Qt.AlignVCenter)
+            lay.addLayout(head)
+            lay.addWidget(label(tr("Switch off what you don't use: it isn't loaded at all, so Corefold stays light. "
+                                   "Its settings are kept for when you switch it back on."), "subtle", wrap=True))
+            fresh = {tool.id for tool in all_tools.new_tools(self.c.settings)}
+            grid = ResponsiveGrid(560, 12, 2)
+            for tool in [x for x in tools if x.id in on] + [x for x in tools if x.id not in on]:
+                grid.add(ToolSwitchCard(tool, tool.id in on, lambda n=tool.page: self.open_page(n),
+                                        self._tool_switched, t.dark, dpr, fresh=tool.id in fresh, accent=t.accent))
+        else:
+            dropping = "converter" in on  # (what can be done with a file is the Converter's)
+            if dropping:
+                drop = DropZone(self._choose_files, self.c.paste, title=tr("Drop any file or folder here"),
+                                sub=tr("{name} shows what you can do with it: convert it, shrink it, merge it, pack "
+                                       "it, unlock it…", name=tr(sec.one_tool)))
+                drop.dropped.connect(self.show_files)
+                lay.addWidget(drop)
+            lay.addWidget(label(tr("Or pick what you want to do") if dropping else tr("Pick what you want to do"),
+                                "title"))
+            grid = ResponsiveGrid(300, 10, 2)
+            for tool in [x for x in tools if x.id in on]:
+                grid.add(UseCard(tool, lambda n=tool.page: self.open_page(n), t, dpr))
+            off = len(tools) - len([x for x in tools if x.id in on])
+            if off:
+                more = button(tr("{count} more you can switch on", count=off), "flat", self._one_head_settings)
+                lay.addWidget(grid)
+                lay.addWidget(more, 0, Qt.AlignLeading)
+                grid = None
+        if grid is not None:
+            lay.addWidget(grid)
+        keep_wrapped_text(w.widget() if isinstance(w, QScrollArea) else w)
+        self._coming(sec, lay)
         lay.addStretch()
         return w
 
@@ -1978,46 +2043,70 @@ class MainWindow(QWidget):
         self.section_strip = strip
         return strip
 
-    def _feature_side(self) -> QWidget:
-        """Beside the pages of a section that's one tool (Corefold Files): its features, each with a few words
-        under its name."""
-        from .featureside import FeatureSide
-        self.feature_side = FeatureSide()
-        self.feature_side.opened.connect(self.open_page)
-        return self.feature_side
+    def _one_head(self) -> QWidget:
+        """Over the pages of a section that's one tool (Corefold Files): one heading for all of them, with a
+        bar of its uses."""
+        from .onetool import OneToolHead
+        self.one_head = OneToolHead()
+        self.one_head.opened.connect(self.open_page)
+        self.one_head.settings.connect(self._one_head_settings)
+        return self.one_head
 
-    def _sync_feature_side(self, name: str):
-        """Shows the features of the tool this page is part of (made again only when the tool changes)."""
-        if not hasattr(self, "feature_side"):
-            return
+    def _one_tool_of(self, name: str):
+        """The section that's one tool this page is part of (None for any other page)."""
         sec = all_tools.SECTION_BY_PAGE.get(NAV_OWNER.get(name, name))
-        show = sec is not None and bool(sec.one_tool) and not all_tools.section_paused(sec)
-        if show and sec is not self.feature_side.section:
-            on = [t for t in self.tools_on if all_tools.SECTION_OF[t.id] is sec]
-            off = len(all_tools.in_section(self.c.settings, sec)) - len(on)
-            t = self.c.theme
-            self.feature_side.show_section(sec, on, off, t.accent, t.dark, self.devicePixelRatioF())
-        if show:
-            self.feature_side.set_current(name)
-            self._fit_feature_side()  # (the page beside it may want more room, or less)
-        if show != self.feature_side.isVisibleTo(self):
-            self.feature_side.setVisible(show)
-            if hasattr(self, "canvas"):
-                self._fit_nav(animate=False)
+        return sec if sec is not None and sec.one_tool and not all_tools.section_paused(sec) else None
 
-    def _fit_feature_side(self):
-        """The features list shows icons only when there's no room for its words and the page beside it, and
-        while a page needs all the room it can get (the PDF editor, with its own list of pages)."""
-        if not hasattr(self, "canvas"):
+    def _sync_one_head(self, name: str):
+        """Shows the heading of the tool this page is part of (made again only when the tool changes), with
+        the use that's open lit."""
+        if not hasattr(self, "one_head"):
             return
-        pdf = self.pdf_page if self.current_page() == "PDF" else None
-        editing = pdf is not None and pdf.editor is not None and pdf.stack.currentWidget() is pdf.editor
-        self.feature_side.set_narrow(self.canvas.width() < 760 or editing)
+        sec = self._one_tool_of(name)
+        head = self.one_head
+        choosing = getattr(self, "_choosing_uses", False)
+        if choosing and name not in SECTION_PAGES:  # (the switches were left)
+            self._choosing_uses = choosing = False
+        if sec is not None and name == sec.page and self.built(name) and self.current_page() != name \
+                and self.stack.widget(PAGES.index(name)).property("choosing") != choosing:
+            self._drop_page(name)  # (made again as it is now, as it's opened)
+        if sec is not None:
+            if sec is not head.section:
+                uses = [t for t in self.tools_on if all_tools.SECTION_OF[t.id] is sec]
+                head.show_section(sec, uses, self.c.theme, self.devicePixelRatioF())
+            tool = all_tools.BY_PAGE.get(name)
+            if tool is None:
+                line = tr("Drop any file and see everything you can do with it.") \
+                    if any(t.id == "converter" for t in self.tools_on) else tr(sec.line)
+            else:
+                line = tr(tool.short or tool.line)  # (a few words: the heading keeps its height from use to use)
+            head.set_current(name, line, tool is None or name in TOOL_SETTINGS)
+        self._fit_one_head()
 
-    def _tool_title(self, tool_id: str) -> str:
-        """A tool's name on its page: only its own name when it's a feature of one tool ("PDF")."""
-        tool = all_tools.BY_ID[tool_id]
-        return tr(tool.nav) if all_tools.SECTION_OF[tool_id].one_tool else tr(tool.name)
+    def _fit_one_head(self):
+        """The heading shows on the tool's pages, but not while a page needs all the room it can get (the PDF
+        editor, with its own bar and list of pages); its bar shows icons only when there's no room for names."""
+        if not hasattr(self, "one_head") or not hasattr(self, "canvas"):
+            return
+        name = self.current_page()
+        pdf = getattr(self, "pdf_page", None) if name == "PDF" else None
+        editing = pdf is not None and pdf.editor is not None and pdf.stack.currentWidget() is pdf.editor
+        show = self._one_tool_of(name) is not None and not editing
+        if show != self.one_head.isVisibleTo(self):
+            self.one_head.setVisible(show)
+        if show:
+            m = self.canvas.layout().contentsMargins()
+            self.one_head.fit(self.canvas.width() - m.left() - m.right())
+
+    def _one_head_settings(self):
+        """⚙ on the heading: the open use's settings, or (on the start page) which uses are switched on."""
+        name = self.current_page()
+        if name in TOOL_SETTINGS:
+            self.open_tool_settings(name)
+        elif name in SECTION_PAGES:
+            self._choosing_uses = not getattr(self, "_choosing_uses", False)
+            # (later, not inside the click: the button pressed may be on the page made again)
+            QTimer.singleShot(0, self, lambda: self._remake_page(name) if self.current_page() == name else None)
 
     def _sync_section_strip(self, name: str):
         """Shows the strip of the section this page is in (made again only when the section changes)."""
@@ -2294,10 +2383,8 @@ class MainWindow(QWidget):
         self.power.setCheckable(True)
         self.power.setChecked(self.c.settings.enabled)
         self.power.toggled.connect(self.c.set_enabled)
-        lay.addLayout(tool_header("converter", self._tool_title("converter"),
-                                  tr("Convert, shrink and edit pictures, videos, music, PDFs and documents with one "
-                                     "drag."), self.c.theme.dark, self.devicePixelRatioF(),
-                                  self.tool_settings_button("Converter", self.power)))
+        lay.addLayout(self._use_header("converter", tr("Convert, shrink and edit pictures, videos, music, PDFs and "
+                                                       "documents with one drag."), self.power, gear=True))
         steps, sl = card()
         grid = QGridLayout()
         grid.setHorizontalSpacing(14)
@@ -2896,9 +2983,7 @@ class MainWindow(QWidget):
     def _unlock(self) -> QWidget:
         """Corefold Unlock: which programs are using a file, and closing them."""
         from .unlockpage import UnlockPage
-        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("unlock", self._tool_title("unlock"),
-                             tr("Find out which program is holding a file you can't delete or move."), dark, dpr)
+        header = self._use_header("unlock", tr("Find out which program is holding a file you can't delete or move."))
         self.unlock_page = UnlockPage(self.c, header)
         return self.unlock_page
 
@@ -2923,20 +3008,17 @@ class MainWindow(QWidget):
     def _pdf(self) -> QWidget:
         """Corefold PDF: merge, split, arrange, shrink and lock PDFs."""
         from .pdfpage import PdfPage
-        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("pdf", self._tool_title("pdf"),
-                             tr("Change what's in a PDF, merge, split and arrange its pages, shrink it and lock it."),
-                             dark, dpr)
+        header = self._use_header("pdf", tr("Change what's in a PDF, merge, split and arrange its pages, shrink it "
+                                            "and lock it."))
         self.pdf_page = PdfPage(self.c, header)
-        self.pdf_page.stack.currentChanged.connect(lambda _i: self._fit_feature_side())  # (the editor wants room)
+        self.pdf_page.stack.currentChanged.connect(lambda _i: self._fit_one_head())  # (the editor wants room)
         return self.pdf_page
 
     def _organizer(self) -> QWidget:
         """Corefold File Organizer: sorts a messy folder into a folder for each kind of file."""
         from .organizerpage import OrganizerPage
-        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("organizer", self._tool_title("organizer"),
-                             tr("Sort a messy Downloads or Desktop into clear folders with one click."), dark, dpr)
+        header = self._use_header("organizer", tr("Sort a messy Downloads or Desktop into clear folders with one "
+                                                  "click."))
         self.organizer_page = OrganizerPage(self.c, header)
         return self.organizer_page
 
@@ -3105,9 +3187,8 @@ class MainWindow(QWidget):
     def _cloud(self) -> QWidget:
         """Corefold Cloud: OneDrive, Dropbox, Google Drive and iCloud side by side."""
         from .cloudpage import CloudPage
-        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("cloud", self._tool_title("cloud"),
-                             tr("Your OneDrive, Dropbox, Google Drive and iCloud in one window. Drag files between them."), dark, dpr)
+        header = self._use_header("cloud", tr("Your OneDrive, Dropbox, Google Drive and iCloud in one window. Drag "
+                                              "files between them."))
         self.cloud_page = CloudPage(self.c, header)
         return self.cloud_page
 
@@ -4188,8 +4269,8 @@ class MainWindow(QWidget):
             self.home_board.apply_theme(t)
         self.settings_list.viewport().update()
         self.strip_section = None  # (made again: its icons follow the text colour)
-        self.feature_side.section = None
-        self._sync_feature_side(self.current_page())
+        self.one_head.section = None
+        self._sync_one_head(self.current_page())
         self._sync_section_strip(self.current_page())
         dpr = self.devicePixelRatioF()
         for glyph, name in self._stat_glyphs:
