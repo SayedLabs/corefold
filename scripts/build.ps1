@@ -101,6 +101,10 @@ VSVersionInfo(
 "@ | Set-Content -Encoding utf8 "version_info.txt"
 
 # ---- FFmpeg (bundled so users don't install anything)
+# Qt's player brings its own FFmpeg too (PySide6\av*.dll, ~20 MB). The two can't be one: this one is
+# GPL (x264 and more, for converting) and must stay a separate program, never loaded into Corefold;
+# Qt's lacks the Converter's encoders (x264, LAME, libopus...). Without Qt's, the player and Quick
+# look would fall back to Windows' own player, which can't play WebM, OGG or Opus on many PCs.
 $FfDir = "vendor\ffmpeg"
 # Corefold's own smaller FFmpeg (~55 MB instead of ~190 MB: only the parts Corefold uses), made by
 # .github\workflows\ffmpeg-lean.yml and kept on this repository's "ffmpeg-lean" branch.
@@ -279,16 +283,18 @@ if ($LASTEXITCODE) { throw "PyInstaller failed" }
 # Not needed by Corefold (software OpenGL fallback, ~20 MB)
 Get-ChildItem "dist\Corefold" -Recurse -Filter "opengl32sw.dll" | Remove-Item -Force
 # Parts of Qt that PyInstaller adds but Corefold never loads (~30 MB): QML and Qt Quick (pulled in
-# by the on-screen keyboard plugin), OpenGL, the Direct2D window plugin, the OpenSSL that Qt would
-# use for web downloads (Corefold's Qt only talks to itself; updates use Python's own SSL), Qt's
-# reader that opens any picture that is really a drawing (SVG) whatever its name: a drawing can name a
-# picture on another computer, which makes Windows sign in there (Corefold draws SVGs itself, with
-# what they point to outside taken out: safetext.safe_svg), and
+# by the on-screen keyboard plugin; the player's Qt Quick part too, the player uses widgets), OpenGL,
+# the Direct2D window plugin, the OpenSSL that Qt would use for web downloads (Corefold's Qt only
+# talks to itself; updates use Python's own SSL), Qt's reader that opens any picture that is really
+# a drawing (SVG) whatever its name: a drawing can name a picture on another computer, which makes
+# Windows sign in there (Corefold draws SVGs itself, with what they point to outside taken out:
+# safetext.safe_svg), and
 # Qt's words in the languages Corefold doesn't speak. scripts\dllcheck.py checks nothing left
 # behind needs them.
 $Qt = "dist\Corefold\_internal\PySide6"
 foreach ($f in @("Qt6Quick.dll", "Qt6Qml.dll", "Qt6QmlModels.dll", "Qt6QmlMeta.dll", "Qt6QmlWorkerScript.dll",
-                 "Qt6VirtualKeyboard.dll", "Qt6OpenGL.dll", "plugins\platforminputcontexts",
+                 "Qt6VirtualKeyboard.dll", "Qt6OpenGL.dll", "Qt6MultimediaQuick.dll", "qml",
+                 "plugins\platforminputcontexts",
                  "plugins\platforms\qdirect2d.dll", "plugins\tls\qopensslbackend.dll",
                  "plugins\imageformats\qsvg.dll",
                  "..\libcrypto-3-x64.dll", "..\libssl-3-x64.dll")) {
