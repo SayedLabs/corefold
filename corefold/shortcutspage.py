@@ -26,6 +26,7 @@ class Global:
     live: str = ""       # the running shortcut, from the controller ("clip.hotkey"); its .ok says if it works
     switch: str = ""     # a settings field that switches it on and off
     names: str = ""      # a table in settings.py naming its values, if it isn't a hotkey.py shortcut
+    section: str = ""    # the section it's part of, when it isn't a tool's (tools.PAUSED_SECTIONS)
 
 
 # shortcuts that work in any app
@@ -43,10 +44,10 @@ GLOBAL = [
     Global("Quick look at the file selected in File Explorer", "peek_key", "ViewerSettings", "peek_key", tool="viewer",
            live="peek"),
     Global("Open the quick menu", "quick_menu_key", "Quick", "quick_menu_rec", live="quick.menu_key",
-           switch="quick_menu"),
+           switch="quick_menu", section="quick"),
     Global("Open the quick wheel", "quick_wheel_key", "Quick", "quick_wheel_rec", live="quick.wheel_key",
-           switch="quick_wheel"),
-    Global("Keep a window on top", "ontop_key", "Quick", "quick_ontop_rec", live="quick.ontop_key"),
+           switch="quick_wheel", section="quick"),
+    Global("Keep a window on top", "ontop_key", "Quick", "quick_ontop_rec", live="quick.ontop_key", section="quick"),
     Global("Pick a colour", "colors_shortcut", "Colors", "", tool="colors", live="colors.key"),
 ]
 
@@ -84,7 +85,8 @@ WINDOW_KEYS = [
     ]),
 ]
 
-STATES = {"working": "Working", "off": "Turned off", "taken": "Another app is using it", "unused": "Not in use"}
+STATES = {"working": "Working", "off": "Turned off", "taken": "Another app is using it", "unused": "Not in use",
+          "resting": "Coming back soon"}
 
 
 def running(c, path: str):
@@ -98,8 +100,12 @@ def running(c, path: str):
 
 
 def state(c, entry: Global) -> str:
-    """"working", "off", "taken" (another app registered the keys first) or "unused" (its tool isn't in use)."""
+    """"working", "off", "taken" (another app registered the keys first), "unused" (its tool isn't in use) or
+    "resting" (its tool or section is resting for now)."""
     s = c.settings
+    if (entry.section and all_tools.section_paused(entry.section)) or \
+            (entry.tool and all_tools.state(entry.tool) == all_tools.PAUSED):
+        return "resting"
     if entry.tool and not all_tools.is_on(s, entry.tool):
         return "unused"
     if entry.switch and not getattr(s, entry.switch, False):
@@ -224,13 +230,13 @@ class ShortcutsPage:
         for entry, keys, status, change in self.rows:
             st = state(self.c, entry)
             set_keys(keys, keys_text(self.c, entry))
-            keys.setVisible(st != "unused")
+            keys.setVisible(st not in ("unused", "resting"))
             status.setText(tr(STATES[st]))
             status.setObjectName("unsaved" if st == "taken" else "muted")
             status.setToolTip(tr("Pick other keys, or close the app that uses these.") if st == "taken" else "")
             status.style().unpolish(status)
             status.style().polish(status)
-            change.setVisible(st != "unused")
+            change.setVisible(st not in ("unused", "resting"))
         for tool, box, _, _ in self.sections:
             box.setVisible(not tool or all_tools.is_on(self.c.settings, tool))
 

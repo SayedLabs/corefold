@@ -545,6 +545,9 @@ class Controller(QObject):
             w.panel.refresh()  # files on the Home page may have been moved or deleted meanwhile
         if page_name:
             w.open_page(page_name)
+        if getattr(self, "whats_new_waiting", False):  # (the first time the window opens after an update)
+            self.whats_new_waiting = False
+            QTimer.singleShot(500, self.show_whats_new)
         if not w.isVisible():  # (drawn before it's seen, so it never shows up white first)
             w.setWindowOpacity(0.0)
             w.show()
@@ -870,6 +873,8 @@ class Controller(QObject):
 
     def set_tool(self, tool_id: str, on: bool):
         """Switches a tool on or off (on its section's page): the window follows right away."""
+        if all_tools.state(tool_id) != all_tools.AVAILABLE:  # (resting or still being made: kept as it is)
+            return
         s = self.settings
         off = set(s.tools_off)
         if on:
@@ -932,6 +937,7 @@ class Controller(QObject):
         self.act_quick.setVisible(self.quick is not None and self.settings.quick_menu)
 
     def _background_tools(self):
+        self._rest_paused_tools()
         self._clipboard_tool()
         self._capture_tool()
         self._colors_tool()
@@ -946,6 +952,32 @@ class Controller(QObject):
         if running:
             log.info("running in the background: %s", ", ".join(running))
             winutil.log_memory("background tools started")
+
+    def _rest_paused_tools(self):
+        """Tools resting for now (tools.PAUSED_SECTIONS) don't run, but one thing of theirs would go on without
+        them: a shutdown planned in Awake is Windows' own timer, and nothing would be left to see or cancel it.
+        So it's cancelled, once, and said. (Programs put off by Corefold Startup still start a minute after
+        sign-in: they were taken out of Windows' own list, so without that they'd never start.)"""
+        s = self.settings
+        if all_tools.state("awake") != all_tools.PAUSED or not s.shutdown_at or sys.platform != "win32":
+            return
+        from datetime import datetime
+        try:
+            planned = datetime.fromisoformat(s.shutdown_at) > datetime.now()
+        except ValueError:
+            planned = False
+        if planned:
+            from .awake import ERROR_NO_SHUTDOWN_IN_PROGRESS, run_shutdown
+            code, said = run_shutdown("/a")
+            log.info("awake is resting: its planned shutdown cancelled: code %d %s", code, said)
+            if code not in (0, ERROR_NO_SHUTDOWN_IN_PROGRESS):
+                return  # (still planned: tried again next time)
+            QTimer.singleShot(3000, lambda: self.toast.notify(
+                tr("Planned shutdown cancelled"),
+                tr("Corefold Awake is resting while it's being made better, so the shutdown it planned won't "
+                   "happen. Your PC stays on."), linger_ms=12000))
+        s.shutdown_at = s.shutdown_planned = ""
+        s.save()
 
     def start_later(self, items: list | None = None):
         """Starts the programs put off until a minute after sign-in (Corefold Startup), one by one."""
@@ -1103,7 +1135,7 @@ class Controller(QObject):
         "Keep a window on top" shortcut lives there too, so it keeps quick access running (only its
         shortcuts, nothing is built) even with the menu and the wheel switched off."""
         s = self.settings
-        on = s.quick_menu or s.quick_wheel or s.ontop_key != "off"
+        on = (s.quick_menu or s.quick_wheel or s.ontop_key != "off") and not all_tools.section_paused("quick")
         if on and self.quick is None:
             from .quick import QuickAccess
             try:
@@ -1487,7 +1519,7 @@ class Controller(QObject):
     def open_viewer(self, path: Path):
         """Opens a picture (with the rest of its folder) or an email file in Corefold Viewer."""
         from .viewer import is_picture
-        if not path.is_file():
+        if not path.is_file() or not self._tool_here("viewer"):
             return
         self.viewers = [v for v in self.viewers if _alive(v)]
         if path.suffix.lower() in (".eml", ".msg"):
@@ -1519,9 +1551,22 @@ class Controller(QObject):
         win.raise_()
         win.activateWindow()
 
+    def _tool_here(self, tool_id: str) -> bool:
+        """A tool asked for from outside its own page (a file opened with it, another part of Corefold): True if
+        it's in use. If it's resting for now, that's said (once in a while) instead."""
+        if all_tools.is_on(self.settings, tool_id):
+            return True
+        tool = all_tools.BY_ID[tool_id]
+        log.info("%s asked for, but it's %s", tool_id, all_tools.state(tool_id))
+        if all_tools.state(tool_id) == all_tools.PAUSED and time.time() - getattr(self, "_rest_told", 0) > 30:
+            self._rest_told = time.time()
+            self.toast.notify(tr(tool.name), tr("Resting for now while it's being made better. It comes back in a "
+                                                "future update, with your settings kept."), linger_ms=7000)
+        return False
+
     def open_player(self, path: Path):
         """Plays a video or song (with the rest of its folder) in Corefold Player."""
-        if not path.is_file():
+        if not path.is_file() or not self._tool_here("player"):
             return
         self.players = [p for p in getattr(self, "players", []) if _alive(p)]
         for p in self.players:  # one window: a new file plays in it
@@ -2006,10 +2051,11 @@ class Controller(QObject):
         from .store import ask_tools
         picked = ask_tools(self.icon, self.theme.dark)
         s = self.settings
-        ready = {tool.id for tool in all_tools.ready()}
+        # (tools resting for now weren't offered: they're offered, switched off, when their section is back)
+        ready = {tool.id for tool in all_tools.available()}
         s.known_tools = sorted(set(s.known_tools) | ready)
         if picked is not None:
-            s.tools_off = sorted(ready - picked)
+            s.tools_off = sorted((set(s.tools_off) | ready) - picked)
         s.save()
         self.apply_tools()
         if self._window is not None:
@@ -2293,6 +2339,9 @@ class Controller(QObject):
         self.toast.finish(UPDATE_JOB_ID, tr("Installing the update…"), tr("Corefold will be back in a moment."),
                           None, 5000)
         winutil.release_mutex()
+        if self.update_info is not None:  # (checked at the next start: did it really update?)
+            self.settings.update_to = self.update_info.version
+            self.settings.save()
         try:
             updater.run_installer(Path(path))
         except OSError:
@@ -2301,6 +2350,59 @@ class Controller(QObject):
             self._update_failed(tr("couldn't start the installer"))
             return
         QTimer.singleShot(600, self.quit)
+
+    def updated_from(self, old: str):
+        """The first start after an update: said in a toast, and "What's new" is shown once, the first time the
+        window opens (now, or later from the tray)."""
+        from .releasenotes import kept
+        notes = kept(__version__, i18n.language())
+        fresh = notes is not None and self.settings.notes_shown != __version__
+        self.whats_new_waiting = fresh
+        log.info("updated from %s to %s%s", old, __version__, " (what's new waits)" if fresh else "")
+        QTimer.singleShot(1500, lambda: self.toast.notify(
+            tr("Corefold was updated"),
+            tr("You're now on version {version}. Your settings were kept.", version=__version__),
+            tr("What's new") if fresh else None, self.show_whats_new if fresh else None, linger_ms=9000))
+
+    def show_whats_new(self):
+        """The "What's new in Corefold <version>" window, over the main window (once per version)."""
+        from .notesview import WhatsNew
+        from .releasenotes import kept
+        self.whats_new_waiting = False
+        notes = kept(__version__, i18n.language())
+        if notes is None:
+            return
+        self.settings.notes_shown = __version__
+        self.save_timer.start(400)
+        w = self.window
+        if not w.isVisible():
+            self.show_window()
+        old = getattr(self, "whats_new", None)
+        if old is not None and _alive(old):
+            old.raise_()
+            return
+        dlg = WhatsNew(notes, self.theme.accent, w)
+        dlg.setAttribute(Qt.WA_DeleteOnClose)
+        self.whats_new = dlg
+        dlg.show()
+
+    def check_update_finished(self):
+        """An update was started last time: if this isn't the version it went to, it didn't finish (the old
+        version is still here, whole). Said once, with a way to try again."""
+        s = self.settings
+        wanted, s.update_to = s.update_to, ""
+        if not wanted or __version__ == "dev":
+            return
+        if updater.is_newer(wanted, __version__):
+            log.warning("the update to %s didn't finish: still %s", wanted, __version__)
+            QTimer.singleShot(2500, lambda: self.toast.notify(
+                tr("The update didn't finish"),
+                tr("Corefold {version} wasn't installed, so you still have {current}. Nothing was lost.",
+                   version=wanted, current=__version__),
+                tr("Try again"), lambda: (self.show_window("Updates"), self.check_updates(manual=True)),
+                linger_ms=15000))
+        else:
+            log.info("the update to %s finished (now %s)", wanted, __version__)
 
     def _update_failed(self, msg: str):
         self.update_state = "available" if self.update_info else "error"
@@ -2675,6 +2777,8 @@ def main() -> int:
     load_qt_translations(app, lang)
 
     controller = Controller(app, icon)
+    log.info("tools in use: %s; resting for now: %s", ", ".join(t.id for t in all_tools.enabled(controller.settings))
+             or "none", ", ".join(t.id for t in all_tools.paused()) or "none")
     app.commitDataRequest.connect(controller.end_session)
     from . import settings_backup
     if settings_backup.RECOVERED is not None:  # settings.json was lost or damaged: a copy was used
@@ -2719,9 +2823,8 @@ def main() -> int:
             tr("A new name and a new look. Your settings, history and backups were kept."),
             linger_ms=9000))
     elif s.last_version and s.last_version != __version__ and __version__ != "dev":
-        QTimer.singleShot(1500, lambda: controller.toast.notify(
-            tr("Corefold was updated"),
-            tr("You're now on version {version}. Your settings were kept.", version=__version__), linger_ms=6000))
+        controller.updated_from(s.last_version)
+    controller.check_update_finished()
     s.last_version = __version__
 
     # what this start was asked to do (the same messages a helper process would send)
@@ -2739,7 +2842,8 @@ def main() -> int:
     fresh = s.first_run
     if fresh:
         s.first_run = False
-        s.known_tools = sorted({tool.id for tool in all_tools.ready()})  # (offered now, in the first-start question)
+        s.notes_shown = __version__  # (a new install: its "What's new" isn't news)
+        s.known_tools = sorted({tool.id for tool in all_tools.available()})  # (offered now, in the first-start question)
         if "--background" in argv:
             # (started in the tray, e.g. by a silent install: every tool stays on, as when the question is
             # closed, and their shortcuts work now, not only after the next start)

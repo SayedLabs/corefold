@@ -29,9 +29,10 @@ os.environ["LOCALAPPDATA"] = str(TMP / "local")
 os.environ["APPDATA"] = str(TMP / "roaming")
 WINDOWS = os.name == "nt"
 # folders to sort: not in the temp folder (it's inside AppData, which the Organizer never sorts)
-BASE = Path(os.environ.get("SystemDrive", "C:") + "\\") / "corefold-audittest" if WINDOWS else TMP / "files"
-shutil.rmtree(BASE, ignore_errors=True)
-BASE.mkdir(parents=True)
+# (a name of its own each run, made new: a folder that was already there is never used, let alone deleted)
+BASE = Path(tempfile.mkdtemp(prefix="corefold-audittest-", dir=os.environ.get("SystemDrive", "C:") + "\\")) \
+    if WINDOWS else TMP / "files"
+BASE.mkdir(parents=True, exist_ok=True)
 
 problems = []
 

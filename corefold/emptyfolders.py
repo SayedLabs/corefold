@@ -311,7 +311,7 @@ def find(roots: list[Path], cancel: threading.Event | None = None, progress=None
             fixed = i == 0 or _key(paths[i]) in kept or _is_drive_top(paths[i])
             if not looked[i] or holds[i] or fixed:
                 state[i] = "holds"
-            elif young[i] or now - created[i] < new_seconds:
+            elif young[i] or (new_seconds > 0 and now - created[i] < new_seconds):  # (0: any age, whatever the clock)
                 state[i] = "young"
             p = parent[i]
             if p < 0:

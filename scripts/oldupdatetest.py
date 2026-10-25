@@ -25,6 +25,10 @@ import winreg
 import zlib
 from pathlib import Path
 
+if os.environ.get("CI") != "true" and os.environ.get("COREFOLD_THROWAWAY_PC") != "1":
+    sys.exit("oldupdatetest: only on a throwaway Windows PC (GitHub Actions, or a virtual machine with "
+             "COREFOLD_THROWAWAY_PC=1): it installs older versions and deletes Corefold's settings for this Windows user")
+
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from corefold import updater as new_updater  # noqa: E402

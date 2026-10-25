@@ -42,6 +42,8 @@ class UpdateInfo:
     installer_url: str | None
     installer_size: int
     sums_url: str | None
+    published: str = ""     # the day it was published ("2026-10-24")
+    notes: str = ""         # what's new, as written on its release page (shown as plain text only)
 
 
 def parse_version(text: str) -> tuple[int, ...]:
@@ -98,7 +100,11 @@ def parse_release(data: dict, repo: str) -> UpdateInfo:
             installer = asset
         elif name == SUMS_NAME:
             sums = asset
-    page = str(data.get("html_url") or f"https://github.com/{repo}/releases/latest")
+    page = str(data.get("html_url") or "")
+    if not page.startswith(f"https://github.com/{repo}/releases/"):  # (only ever the official release page)
+        page = f"https://github.com/{repo}/releases/latest"
+    published = str(data.get("published_at") or "")[:10]
+    from .releasenotes import MAX_TEXT
     return UpdateInfo(
         version=tag.lstrip("vV"),
         page_url=page,
@@ -106,6 +112,8 @@ def parse_release(data: dict, repo: str) -> UpdateInfo:
         installer_url=installer["browser_download_url"] if installer else None,
         installer_size=int(installer.get("size") or 0) if installer else 0,
         sums_url=sums["browser_download_url"] if sums else None,
+        published=published if re.fullmatch(r"\d{4}-\d{2}-\d{2}", published) else "",
+        notes=str(data.get("body") or "")[:MAX_TEXT],
     )
 
 

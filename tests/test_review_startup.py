@@ -70,3 +70,13 @@ def test_a_32bit_line_naming_system32_is_found_in_syswow64(tmp_path, monkeypatch
     gone = str(windows / "System32" / "nothing.exe")
     assert startup._as_32bit(gone) == gone
     assert startup.is_gone(startup._as_32bit(asked)) is False
+
+
+def test_no_age_limit_means_any_age_even_a_moment_ahead_of_the_clock(tmp_path, monkeypatch):
+    """new_seconds=0: a folder whose creation time is a moment ahead of the clock (Windows keeps file times
+    and the clock apart) is offered too, instead of counting as made just now."""
+    import time
+    _open_everywhere(monkeypatch)
+    monkeypatch.setattr(emptyfolders, "_created", lambda _st: time.time() + 5)
+    (tmp_path / "Old").mkdir()
+    assert _offered(tmp_path, keep=[]) == ["Old"]
