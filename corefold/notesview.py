@@ -100,7 +100,9 @@ class VersionHistory(QWidget):
             return
         self._made = True
         lay = self.layout()
-        for n, notes in enumerate(releasenotes.history(i18n.language())):
+        # (one style for every row, set once: a style of its own on each row made the page slow to open)
+        self.setStyleSheet('QPushButton[historyRow="true"] { text-align: %s; }' % ("right" if i18n.is_rtl() else "left"))
+        for n, notes in enumerate(releasenotes.heads()):  # (each version's changes are read when it's opened)
             if n:
                 line = QFrame()
                 line.setObjectName("line")
@@ -111,7 +113,7 @@ class VersionHistory(QWidget):
             toggle.setObjectName("flat")
             toggle.setCursor(Qt.PointingHandCursor)
             toggle.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-            toggle.setStyleSheet("text-align: left;" if not i18n.is_rtl() else "text-align: right;")
+            toggle.setProperty("historyRow", True)
             head.addWidget(toggle, 1)
             page = QPushButton(tr("Release page"))
             page.setObjectName("flat")
@@ -146,7 +148,8 @@ class VersionHistory(QWidget):
         notes, _, body = self.rows[i]
         shown = not body._open if shown is None else shown
         if shown and body.layout().count() == 0:  # (made the first time it's opened)
-            body.layout().addWidget(NotesBlock(notes, self.accent, body))
+            full = releasenotes.kept(notes.version, i18n.language()) or notes
+            body.layout().addWidget(NotesBlock(full, self.accent, body))
         body._open = shown
         body.setVisible(shown)
         self._name(i)
