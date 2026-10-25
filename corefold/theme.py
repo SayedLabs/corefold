@@ -153,6 +153,12 @@ QPushButton#stripTab { background: transparent; border: 1px solid transparent; b
 QPushButton#stripTab:hover { color: $text; background: $hover; }
 QPushButton#stripTab:checked { color: $text; background: $raised; border-color: $line_strong; }
 QLabel#cardTitle { font-family: $font_display; font-size: 11pt; font-weight: 600; }
+QFrame#featureRow { background: transparent; border: 1px solid transparent; border-radius: 12px; }
+QFrame#featureRow:hover { background: $hover; }
+QFrame#featureRow:focus { border-color: $line_strong; }
+QFrame#featureRow[current="true"] { background: $tool_hover; border-color: $accent_line; }
+QLabel#featureName { font-family: $font_display; font-size: 10.5pt; font-weight: 600; }
+QScrollArea#featureScroll, QWidget#featureInner { background: transparent; }
 QLabel#cardStat { color: $accent_text; font-size: 8.5pt; font-weight: 600; }
 QLabel#heroStat { font-family: $font_display; font-size: 17pt; font-weight: 700; }
 QFrame#homeWidget { background: $panel; border: 1px solid $border; border-radius: 14px; }

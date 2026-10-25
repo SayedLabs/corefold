@@ -302,8 +302,12 @@ class ToolSwitchCard(QFrame):
     """A tool on its section's page: click it to open it, and its switch turns it on or off (a tool that's
     off isn't loaded at all)."""
 
-    def __init__(self, tool, on: bool, open_tool, switched, dark: bool, dpr: float, fresh: bool = False):
+    def __init__(self, tool, on: bool, open_tool, switched, dark: bool, dpr: float, fresh: bool = False,
+                 accent: QColor | None = None):
         super().__init__()
+        # (with an accent colour it's a feature of one tool: its icon in that colour, and what it does in a
+        # few lines under its name)
+        feature = accent is not None
         self.setObjectName("toolCard")
         self.tool = tool
         self.on = on
@@ -317,7 +321,7 @@ class ToolSwitchCard(QFrame):
         top = QHBoxLayout()
         top.setSpacing(8)
         tile = QLabel()
-        pm = icons.product_tile(tool.product, 40, dark, dpr)
+        pm = icons.soft_tile(tool.icon, 40, accent, dpr) if feature else icons.product_tile(tool.product, 40, dark, dpr)
         if not on:  # (faded: it's there, but not in use)
             faded = QPixmap(pm.size())
             faded.setDevicePixelRatio(pm.devicePixelRatio())
@@ -330,16 +334,24 @@ class ToolSwitchCard(QFrame):
         tile.setPixmap(pm)
         tile.setFixedSize(42, 42)
         tile.setAttribute(Qt.WA_TransparentForMouseEvents)
-        top.addWidget(tile)
-        top.addStretch()
+        top.addWidget(tile, 0, Qt.AlignTop)
+        if not feature:
+            top.addStretch()
         self.switch = Switch()
         self.switch.setChecked(on)
         self.switch.setToolTip(tr("Switch off") if on else tr("Switch on"))
         self.switch.setAccessibleName(tr(tool.nav))
         self.switch.toggled.connect(lambda now: switched(self, now))
+        words = lay
+        if feature:  # (one row: the icon, its name and what it does, then the switch)
+            top.setSpacing(14)
+            words = QVBoxLayout()
+            words.setSpacing(4)
+            top.addLayout(words, 1)
         top.addWidget(self.switch, 0, Qt.AlignTop)
         lay.addLayout(top)
-        lay.addSpacing(4)
+        if not feature:
+            lay.addSpacing(4)
         name = QHBoxLayout()
         name.setSpacing(8)
         self.title = label(tr(tool.nav), "cardTitle")
@@ -350,11 +362,19 @@ class ToolSwitchCard(QFrame):
             pill.setFixedHeight(18)
             name.addWidget(pill, 0, Qt.AlignVCenter)
         name.addStretch()
-        lay.addLayout(name)
+        words.addLayout(name)
         line = label(tr(tool.line), "muted", wrap=True)
         line.setMinimumWidth(1)
         line.setAttribute(Qt.WA_TransparentForMouseEvents)
-        lay.addWidget(line)
+        words.addWidget(line)
+        if feature:
+            what = label("<br>".join("•&nbsp; " + _html(tr(text)) for text in tool.features[:3]), "subtle", wrap=True)
+            what.setTextFormat(Qt.RichText)
+            what.setMinimumWidth(1)
+            what.setAttribute(Qt.WA_TransparentForMouseEvents)
+            words.addSpacing(2)
+            words.addWidget(what)
+            words.addStretch()
         lay.addStretch()
         self.state = label(tr("Open") + (" ←" if i18n.is_rtl() else " →") if on else
                            tr("Off. It isn't loaded, so it uses nothing."), "cardStat" if on else "subtle")
@@ -715,6 +735,7 @@ class MainWindow(QWidget):
         self._wheel_guard = None
         self._settings_head()  # (made before the pages: opening one shows or hides it)
         self._section_strip()
+        self._feature_side()
         self._dots: list[QLabel] = []
         self._stat_glyphs: list[tuple[QLabel, str]] = []  # (icons on the History page's figures)
         self._gears: list[QPushButton] = []  # small "+" marks in the accent colour (recoloured with the theme)
@@ -768,6 +789,7 @@ class MainWindow(QWidget):
         body.setSpacing(24)
         self._body = body
         body.addWidget(self.settings_side)
+        body.addWidget(self.feature_side)
         column = QVBoxLayout()
         column.setSpacing(12)
         column.addWidget(self.section_strip)
@@ -1063,6 +1085,7 @@ class MainWindow(QWidget):
         self._dots = [d for d in self._dots if _alive(d)]
         self._gears = [g for g in self._gears if _alive(g)]
         self.strip_section = None
+        self.feature_side.section = None
         for name in SECTION_PAGES:  # (made again with the switches as they are now when they're opened)
             if name == here:
                 self._remake_page(name)
@@ -1117,7 +1140,12 @@ class MainWindow(QWidget):
         super().resizeEvent(e)
         if not hasattr(self, "sidebar"):
             return
-        narrow = self.width() < 860
+        self._fit_nav()
+
+    def _fit_nav(self):
+        """Icons only in the sidebar while the window is narrow, or while a tool's features list needs the
+        room (names again when there's enough). Only on a change, so the menu button still opens it."""
+        narrow = self.width() < 860 or (self.feature_side.isVisibleTo(self) and self.width() < 1180)
         if narrow != self._narrow:
             self._narrow = narrow
             self._auto_compact = narrow
@@ -1128,6 +1156,7 @@ class MainWindow(QWidget):
             self._fit_settings_side(event.size().width())
             if self.section_strip.isVisible():
                 self._fit_strip()
+            self.feature_side.set_narrow(event.size().width() < 760)
         return False
 
     def _fit_settings_side(self, canvas_width: int):
@@ -1330,7 +1359,7 @@ class MainWindow(QWidget):
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
         w, lay = page(tr("Corefold Archive"))
         lay.itemAt(0).widget().hide()
-        lay.addLayout(tool_header("archive", tr("Corefold Archive"),
+        lay.addLayout(tool_header("archive", self._tool_title("archive"),
                                   tr("Open, extract and make archives: ZIP, RAR, 7z, TAR, ISO and more."), dark, dpr,
                                   self.tool_settings_button("Archives")))
         self.archive_drop = DropZone(None, None, title=tr("Drop an archive to open it"),
@@ -1519,6 +1548,7 @@ class MainWindow(QWidget):
     _syncing_settings = False
 
     def _sync_settings_head(self, name: str):
+        self._sync_feature_side(name)
         self._sync_section_strip(name)
         on = name in SETTINGS_PAGES
         self.settings_head.setVisible(on)
@@ -1819,14 +1849,18 @@ class MainWindow(QWidget):
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
         w, lay = page(tr(sec.name))
         lay.itemAt(0).widget().hide()  # shown in the heading with the tile instead
-        lay.addLayout(tool_header(sec.product, tr(sec.name), tr(sec.line), dark, dpr))
+        lay.addLayout(tool_header(sec.product, tr(sec.one_tool or sec.name), tr(sec.line), dark, dpr))
         on = {tool.id for tool in self.tools_on}
         fresh = {tool.id for tool in all_tools.new_tools(self.c.settings)}
         tools = all_tools.in_section(self.c.settings, sec)
-        grid = ResponsiveGrid(250, 12, 3)
+        # (one tool: each feature on a row of its own, with what it does)
+        grid = ResponsiveGrid(560 if sec.one_tool else 250, 12, 2 if sec.one_tool else 3)
+        accent = self.c.theme.accent if sec.one_tool else None
         for tool in [t for t in tools if t.id in on] + [t for t in tools if t.id not in on]:
             grid.add(ToolSwitchCard(tool, tool.id in on, lambda n=tool.page: self.open_page(n), self._tool_switched,
-                                    dark, dpr, fresh=tool.id in fresh))
+                                    dark, dpr, fresh=tool.id in fresh, accent=accent))
+        if sec.one_tool:
+            keep_wrapped_text(grid)
         if sec.id == "quick":  # the quick menu and wheel are part of Corefold itself: their settings, here too
             grid.add(ToolCard("quick", tr("Quick menu and wheel"),
                               tr("Your favourite actions and tools a shortcut away, in any app."),
@@ -1934,11 +1968,45 @@ class MainWindow(QWidget):
         self.section_strip = strip
         return strip
 
+    def _feature_side(self) -> QWidget:
+        """Beside the pages of a section that's one tool (Corefold Files): its features, each with a few words
+        under its name."""
+        from .featureside import FeatureSide
+        self.feature_side = FeatureSide()
+        self.feature_side.opened.connect(self.open_page)
+        return self.feature_side
+
+    def _sync_feature_side(self, name: str):
+        """Shows the features of the tool this page is part of (made again only when the tool changes)."""
+        if not hasattr(self, "feature_side"):
+            return
+        sec = all_tools.SECTION_BY_PAGE.get(NAV_OWNER.get(name, name))
+        show = sec is not None and bool(sec.one_tool) and not all_tools.section_paused(sec)
+        if show and sec is not self.feature_side.section:
+            on = [t for t in self.tools_on if all_tools.SECTION_OF[t.id] is sec]
+            off = len(all_tools.in_section(self.c.settings, sec)) - len(on)
+            t = self.c.theme
+            self.feature_side.show_section(sec, on, off, t.accent, t.dark, self.devicePixelRatioF())
+        if show:
+            self.feature_side.set_current(name)
+        if show != self.feature_side.isVisibleTo(self):
+            self.feature_side.setVisible(show)
+            if hasattr(self, "canvas"):
+                self.feature_side.set_narrow(self.canvas.width() < 760)
+                self._fit_nav()
+
+    def _tool_title(self, tool_id: str) -> str:
+        """A tool's name on its page: only its own name when it's a feature of one tool ("PDF")."""
+        tool = all_tools.BY_ID[tool_id]
+        return tr(tool.nav) if all_tools.SECTION_OF[tool_id].one_tool else tr(tool.name)
+
     def _sync_section_strip(self, name: str):
         """Shows the strip of the section this page is in (made again only when the section changes)."""
         if not hasattr(self, "section_strip"):
             return
         sec = all_tools.SECTION_BY_PAGE.get(NAV_OWNER.get(name, name))
+        if sec is not None and sec.one_tool and not all_tools.section_paused(sec):
+            sec = None  # (its features are listed on the side instead)
         self.section_strip.setVisible(sec is not None)
         if sec is None:
             return
@@ -2206,7 +2274,7 @@ class MainWindow(QWidget):
         self.power.setCheckable(True)
         self.power.setChecked(self.c.settings.enabled)
         self.power.toggled.connect(self.c.set_enabled)
-        lay.addLayout(tool_header("converter", tr("Corefold Converter"),
+        lay.addLayout(tool_header("converter", self._tool_title("converter"),
                                   tr("Convert, shrink and edit pictures, videos, music, PDFs and documents with one "
                                      "drag."), self.c.theme.dark, self.devicePixelRatioF(),
                                   self.tool_settings_button("Converter", self.power)))
@@ -2809,7 +2877,7 @@ class MainWindow(QWidget):
         """Corefold Unlock: which programs are using a file, and closing them."""
         from .unlockpage import UnlockPage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("unlock", tr("Corefold Unlock"),
+        header = tool_header("unlock", self._tool_title("unlock"),
                              tr("Find out which program is holding a file you can't delete or move."), dark, dpr)
         self.unlock_page = UnlockPage(self.c, header)
         return self.unlock_page
@@ -2836,7 +2904,7 @@ class MainWindow(QWidget):
         """Corefold PDF: merge, split, arrange, shrink and lock PDFs."""
         from .pdfpage import PdfPage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("pdf", tr("Corefold PDF"),
+        header = tool_header("pdf", self._tool_title("pdf"),
                              tr("Change what's in a PDF, merge, split and arrange its pages, shrink it and lock it."),
                              dark, dpr)
         self.pdf_page = PdfPage(self.c, header)
@@ -2846,7 +2914,7 @@ class MainWindow(QWidget):
         """Corefold File Organizer: sorts a messy folder into a folder for each kind of file."""
         from .organizerpage import OrganizerPage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("organizer", tr("Corefold File Organizer"),
+        header = tool_header("organizer", self._tool_title("organizer"),
                              tr("Sort a messy Downloads or Desktop into clear folders with one click."), dark, dpr)
         self.organizer_page = OrganizerPage(self.c, header)
         return self.organizer_page
@@ -3017,7 +3085,7 @@ class MainWindow(QWidget):
         """Corefold Cloud: OneDrive, Dropbox, Google Drive and iCloud side by side."""
         from .cloudpage import CloudPage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("cloud", tr("Corefold Cloud"),
+        header = tool_header("cloud", self._tool_title("cloud"),
                              tr("Your OneDrive, Dropbox, Google Drive and iCloud in one window. Drag files between them."), dark, dpr)
         self.cloud_page = CloudPage(self.c, header)
         return self.cloud_page
@@ -4075,6 +4143,8 @@ class MainWindow(QWidget):
             self.home_board.apply_theme(t)
         self.settings_list.viewport().update()
         self.strip_section = None  # (made again: its icons follow the text colour)
+        self.feature_side.section = None
+        self._sync_feature_side(self.current_page())
         self._sync_section_strip(self.current_page())
         dpr = self.devicePixelRatioF()
         for glyph, name in self._stat_glyphs:

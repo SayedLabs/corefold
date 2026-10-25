@@ -196,10 +196,16 @@ def buttons(root, text):
 
 
 def nav_click(w, name):
-    """A sidebar row; a tool is reached the way a person does: its section's row, then its tab."""
+    """A sidebar row; a tool is reached the way a person does: its section's row, then its row in the
+    features list beside the pages (a section that's one tool, like Corefold Files) or its tab."""
     if name not in w.nav_rows:
         from corefold.window import NAV_OWNER
         nav_click(w, NAV_OWNER[name])
+        if w.feature_side.isVisible():
+            row = w.feature_side.rows.get(name)
+            if check(row is not None and row.isVisible(), f"the {NAV_OWNER[name]} features list has {name}"):
+                click(row)
+            return
         tab = w.strip_tabs.get(name)
         if check(tab is not None and tab.isVisible(), f"the {NAV_OWNER[name]} strip has a tab for {name}"):
             click(tab)
@@ -323,12 +329,12 @@ def every_page():
             check(w.current_page() != "Home" and w.shows(w.current_page()),
                   f"a tool's button on the {page_name} card opens it ({w.current_page()})")
             nav_click(w, "Home")
-    # a tool from its section's strip, then Back: the section again
+    # a tool from its section's features list (or strip), then Back: the section again
     first = next((t for t in w.tools_on), None)
     if first is not None:
         sec = all_tools.SECTION_OF[first.id]
         nav_click(w, first.page)
-        check(w.current_page() == first.page, f"{first.page} opens from the {sec.page} strip ({w.current_page()})")
+        check(w.current_page() == first.page, f"{first.page} opens from the {sec.page} list ({w.current_page()})")
         QTest.keyClick(w, Qt.Key_Left, Qt.AltModifier)
         settle(0.3)
         check(w.current_page() == sec.page, f"Alt + Left from {first.page} goes back to {sec.page} "

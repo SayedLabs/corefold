@@ -2907,4 +2907,12 @@ STRINGS: dict[str, str] = {
     'Moved {count} files to {name}.': 'نقلنا {count} ملفات إلى {name}.',
     "What couldn't be copied whole stays where it was.": 'وما لم يُنسخ كاملاً بقي في مكانه.',
     'Move {what} to {name}': 'نقل {what} إلى {name}',
+    # ------------------------------------------------------------------ Corefold Files: one tool, its features
+    "Corefold Files": "ملفات كورفولد",
+    "Change a file into another format": "حوّل أي ملف إلى صيغة أخرى",
+    "Edit, merge, split and lock PDFs": "عدّل ملفات PDF وادمجها وقسّمها واقفلها",
+    "Open and make ZIP, RAR and 7z files": "افتح واصنع ملفات ZIP و RAR و 7z",
+    "Tidy a messy folder in one click": "رتّب مجلد فوضوي بضغطة وحدة",
+    "See what's holding a file, and free it": "اعرف أي برنامج ماسك الملف وفكّه",
+    "All your cloud storage in one place": "كل تخزينك السحابي في مكان واحد",
 }

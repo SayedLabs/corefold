@@ -138,9 +138,13 @@ try:
                 break
             check(shot(f"added-{tool.id}", win) < 0.3, f"after switching on {tool.id} the window isn't white")
             win = window() or win  # (the window may have been made again meanwhile)
-            wr = win.rectangle()  # (its tab, in the strip at the top: not its switch or its name on the card)
-            tab = [b for b in win.descendants() if b.window_text() == tool.nav and b.rectangle().top < wr.top + 150
-                   and b.element_info.control_type not in ("ListItem", "Text")]
+            wr = win.rectangle()
+            if sec.one_tool:  # (its row in the features list beside the page: not its switch or its card's name)
+                tab = [b for b in win.descendants() if b.window_text() == tool.nav
+                       and b.element_info.control_type not in ("ListItem", "Text", "CheckBox", "Button")]
+            else:  # (its tab, in the strip at the top: not its switch or its name on the card)
+                tab = [b for b in win.descendants() if b.window_text() == tool.nav and b.rectangle().top < wr.top + 150
+                       and b.element_info.control_type not in ("ListItem", "Text")]
             if check(bool(tab), f"{tool.id} has a tab in {sec.name}"):
                 click(tab[0])
                 check(shot(f"open-{tool.id}", win) < 0.3, f"{tool.id}'s page isn't white")
