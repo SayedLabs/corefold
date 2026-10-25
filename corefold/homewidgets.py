@@ -227,6 +227,11 @@ class EditCover(QWidget):
     """Over a widget while the Home page is being changed: its own buttons can't be pressed by mistake, it can
     be dragged to another place, and it has buttons to change its size and take it off."""
 
+    def _sizes(self):
+        menu = self.frame.size_menu()
+        menu.exec(self.size_btn.mapToGlobal(QPoint(0, self.size_btn.height())))
+        menu.deleteLater()
+
     def __init__(self, frame: "WidgetFrame"):
         super().__init__(frame)
         self.frame = frame
@@ -249,8 +254,7 @@ class EditCover(QWidget):
         self.size_btn.setToolTip(tr("Size"))
         self.size_btn.setAccessibleName(tr("Size"))
         self.size_btn.setCursor(Qt.PointingHandCursor)
-        self.size_btn.clicked.connect(lambda: frame.size_menu().exec(
-            self.size_btn.mapToGlobal(QPoint(0, self.size_btn.height()))))
+        self.size_btn.clicked.connect(self._sizes)
         self.size_btn.setVisible(len(frame.kind.sizes) > 1)
         self.remove_btn = QPushButton()
         self.remove_btn.setObjectName("iconButton")
@@ -362,6 +366,7 @@ class WidgetFrame(QFrame):
         menu.addSeparator()
         menu.addAction(tr("Change the Home page…"), lambda: self.board.set_editing(True))
         menu.exec(e.globalPos())
+        menu.deleteLater()
 
     # files dropped on it (only on the ones that do something with files)
 
@@ -401,7 +406,7 @@ class AddTile(QPushButton):
     """The last place on the board while it's being changed: adds a widget."""
 
     def __init__(self, board: "Board"):
-        super().__init__("  " + tr("Add a widget"))
+        super().__init__("  " + tr("Add a widget"), board)
         self.setObjectName("addWidget")
         self.setCursor(Qt.PointingHandCursor)
         self.setIcon(icons.icon("add", board.c.theme.accent))
@@ -427,7 +432,8 @@ class Board(QWidget):
         self.grid.setContentsMargins(0, 0, 0, 0)
         self.grid.setSpacing(SPACING)
         self.add_tile = AddTile(self)
-        self.empty = QFrame()
+        self.add_tile.hide()
+        self.empty = QFrame(self)  # (both are the board's, even while they're not on it)
         self.empty.setObjectName("homeWidget")
         el = QHBoxLayout(self.empty)
         el.setContentsMargins(18, 14, 18, 14)
@@ -450,11 +456,10 @@ class Board(QWidget):
 
     def fill(self):
         """Makes the widgets (again), as they're saved now."""
-        from shiboken6 import delete
         for f in self.frames:
             self.grid.removeWidget(f)
             f.hide()
-            delete(f)
+            f.deleteLater()  # (not at once: a menu or a drag of that widget may be what's changing the board)
         self.frames = []
         for e in self.shown():
             try:
@@ -1111,6 +1116,7 @@ class Board(QWidget):
         menu.addAction(tr("Open"), lambda: self.open_target(target))
         menu.addAction(tr("Remove"), drop)
         menu.exec(b.mapToGlobal(QPoint(0, b.height())))
+        menu.deleteLater()
 
     # the tools resting for now (their widgets come back with them)
 

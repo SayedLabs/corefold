@@ -106,6 +106,7 @@ def test_the_home_page_makes_only_the_widgets_of_tools_in_use(window):
     assert kinds == [k for k, _ in homelist.DEFAULT]  # (Capture and Space rest: none of theirs is made)
     assert len(window.c.settings.home_widgets) == len(homelist.DEFAULT) + 3  # (but they're kept)
     assert not any(t.isActive() for t in board.findChildren(QTimer))  # (nothing keeps running)
+    assert board.add_tile.parent() is board and board.empty.parent() is board  # (freed with the window)
 
 
 def test_widgets_are_added_moved_resized_and_removed(window, qtbot):
