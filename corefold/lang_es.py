@@ -2695,7 +2695,7 @@ STRINGS: dict[str, str] = {
     '{count} left out: they only open on the website ({names}).': '{count} omitidos: solo se abren en el sitio web ({names}).',
     'Opened {name} in the browser.': '{name} abierto en el navegador.',
     'Open on the website': 'Abrir en el sitio web',
-    "Add a cloud to see its files here: sign in to {names} with nothing else to install, as many accounts as you like. You sign in on the service's own page, so your password never reaches Corefold. Cloud folders that OneDrive, Dropbox, Google Drive or iCloud keep on this PC show up by themselves too.": 'Añade una nube para ver sus archivos aquí: inicia sesión en {names} sin instalar nada más, con todas las cuentas que quieras. Inicias sesión en la propia página del servicio, así que tu contraseña nunca llega a Corefold. Las carpetas en la nube que OneDrive, Dropbox, Google Drive o iCloud guardan en este PC también aparecen solas.',
+    "Sign in to {names} right here, with nothing to install and as many accounts as you like. Your password stays on the service's own page. Cloud folders on this PC show up by themselves too.": 'Inicia sesión en {names} desde aquí, sin instalar nada y con todas las cuentas que quieras. Tu contraseña se queda en la propia página del servicio. Las carpetas en la nube de este PC también aparecen solas.',
     'Sign in to {service} online too': 'Iniciar sesión también en {service} en línea',
     "Google can't turn something this big into a file. Download it from the Google Drive website.": 'Google no puede convertir algo tan grande en un archivo. Descárgalo desde el sitio web de Google Drive.',
     'Open {service} in the browser': 'Abrir {service} en el navegador',
