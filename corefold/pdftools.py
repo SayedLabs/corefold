@@ -184,8 +184,10 @@ def save_arranged(files: list[Path], ctx: Ctx) -> Result:
     how = ctx.params.get("how", "one")
     first = files[pages[0][0]]
     name = safe_name(ctx.params.get("name", "")) or ctx.stem(first)
-    # (pages from a locked PDF stay locked: with its password, the first one's when they had different ones)
-    password = next((passwords.get(str(files[fi]), "") for fi, _, _ in pages if passwords.get(str(files[fi]))), "")
+    # (a locked PDF's own pages stay locked with its password; merged with other files they come out
+    # open, as before)
+    used = {fi for fi, _, _ in pages}
+    password = passwords.get(str(files[next(iter(used))]), "") if len(used) == 1 else ""
     if how == "one":
         out = ctx.out_path(first, name + ".pdf")
         write(_pages_writer(readers, pages, ctx), out, password)
@@ -195,8 +197,7 @@ def save_arranged(files: list[Path], ctx: Ctx) -> Result:
         width = len(str(len(pages)))
         for k, page in enumerate(pages):
             ctx.check()
-            write(_pages_writer(readers, [page]), outdir / f"{name} {k + 1:0{width}}.pdf",
-                  passwords.get(str(files[page[0]]), ""))
+            write(_pages_writer(readers, [page]), outdir / f"{name} {k + 1:0{width}}.pdf", password)
             ctx.progress((k + 1) / len(pages))
         return Result([outdir])
     if how == "images":
