@@ -69,6 +69,13 @@ def table_texts() -> dict[str, str]:
         add([tool.name, tool.nav, tool.line, *tool.features], "tools.TOOLS")
     for sec in all_tools.SECTIONS:
         add([sec.name, sec.line], "tools.SECTIONS")
+    from corefold import homelist, homewidgets
+    for kind in homelist.KINDS.values():
+        add([kind.name, kind.line], "homelist.KINDS")
+    add(homelist.SIZE_NAMES.values(), "homelist.SIZE_NAMES")
+    add([text for _, text, _ in homewidgets.PDF_ACTIONS], "homewidgets.PDF_ACTIONS")
+    add(homewidgets.KNOWN_FOLDERS.values(), "homewidgets.KNOWN_FOLDERS")
+    add(homewidgets.APP_PAGES.values(), "homewidgets.APP_PAGES")
     add([converters.PASSWORD_ERROR], "PASSWORD_ERROR")
     add([v[0] for v in moretools.CROP_RATIOS.values()], "CROP_RATIOS")
     add(moretools.STICKERS_IMAGE.values(), "STICKERS_IMAGE")

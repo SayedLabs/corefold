@@ -155,6 +155,24 @@ QPushButton#stripTab:checked { color: $text; background: $raised; border-color: 
 QLabel#cardTitle { font-family: $font_display; font-size: 11pt; font-weight: 600; }
 QLabel#cardStat { color: $accent_text; font-size: 8.5pt; font-weight: 600; }
 QLabel#heroStat { font-family: $font_display; font-size: 17pt; font-weight: 700; }
+QFrame#homeWidget { background: $panel; border: 1px solid $border; border-radius: 14px; }
+QFrame#homeWidget[hot="true"] { border: 1px solid $accent; background: $accent_soft; }
+QPushButton#widgetAction { background: $raised; border: 1px solid $border; border-radius: 9px; padding: 6px 10px;
+                           min-width: 0; font-weight: 600; text-align: $lead_side; }
+QPushButton#widgetAction:hover { border-color: $accent_line; background: $tool_hover; }
+QPushButton#widgetRow { background: transparent; border: 1px solid transparent; border-radius: 7px; padding: 3px 6px;
+                        min-width: 0; text-align: $lead_side; }
+QPushButton#widgetRow:hover { background: $hover; }
+QPushButton#widgetFolder, QPushButton#widgetShortcut { background: $raised; border: 1px solid $border;
+                        border-radius: 10px; padding: 0; min-width: 0; text-align: $lead_side; }
+QPushButton#widgetShortcut { background: transparent; border-color: transparent; }
+QPushButton#widgetFolder:hover, QPushButton#widgetShortcut:hover { border-color: $accent_line; background: $tool_hover; }
+QPushButton#addWidget { background: transparent; border: 1px dashed $line_strong; border-radius: 14px;
+                        color: $accent_text; font-weight: 600; }
+QPushButton#addWidget:hover { border-color: $accent; background: $accent_soft; }
+QFrame#editBar { background: $raised; border: 1px solid $line_strong; border-radius: 10px; }
+QFrame#galleryStage { background: $stage; border: 1px solid $border; border-radius: 14px; }
+QLabel#strong { font-weight: 600; }
 QFrame#dropzone { border: 1px dashed $line_strong; border-radius: 14px; background: $panel; }
 QFrame#dropzone:hover { border-color: $accent; }
 QFrame#dropzone[hot="true"] { border: 1px solid $accent; background: $accent_soft; }
@@ -226,7 +244,7 @@ def stylesheet(t: Theme, scale: float = 1.0) -> str:
         accent_text=(p.accent if p.dark else p.accent.darker(108)).name(),
         tool_hover=mix(p.surface, p.accent, 0.05 if p.dark else 0.035).name(),
         nav_hover=mix(p.backdrop, p.text, 0.06).name(), nav_press=mix(p.backdrop, p.text, 0.1).name(),
-        lead_side=lead, font_display=tokens.FONT_DISPLAY,
+        lead_side=lead, font_display=tokens.FONT_DISPLAY, stage=p.canvas.name(),
     )
     return qss.scaled(base + own, scale)
 
