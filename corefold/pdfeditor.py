@@ -19,13 +19,13 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QObject, QPoint, QPointF, QRectF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import (QColor, QFontDatabase, QFontMetricsF, QIcon, QImage, QKeySequence, QPainter,
                            QPainterPath, QPen, QPixmap, QShortcut, QTextCursor, QTransform)
-from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QColorDialog, QFileDialog, QFrame, QGraphicsItem,
+from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFileDialog, QFrame, QGraphicsItem,
                                QGraphicsObject, QGraphicsScene, QGraphicsTextItem, QGraphicsView, QHBoxLayout,
                                QLabel, QLineEdit, QListView, QListWidget, QListWidgetItem, QMenu, QMessageBox,
                                QPlainTextEdit, QPushButton, QSizePolicy, QSpinBox,
                                QStyleOptionGraphicsItem, QStyle, QVBoxLayout, QWidget)
 
-from . import icons, pdfedit, pdftools, work
+from . import icons, pdfedit, pdftools, sheet, work
 from .atomic import tokens
 from .atomic.widgets import Dropdown, FlowLayout, IconButton
 from .core import IMAGE_EXT, norm, short_name
@@ -1516,7 +1516,7 @@ class PdfEditor(QWidget):
             save = box.addButton(tr("Save as a new PDF"), QMessageBox.AcceptRole)
             close = box.addButton(tr("Close without saving"), QMessageBox.DestructiveRole)
             box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-            box.exec()
+            sheet.run(box)
             chosen = box.clickedButton()
             box.deleteLater()
             if chosen is save:
@@ -1908,7 +1908,7 @@ class PdfEditor(QWidget):
         gone = menu.addAction(tr("Delete the page") if len(pages) == 1 else
                               tr("Delete {count} pages", count=len(pages)), lambda: self.delete_pages(pages))
         gone.setEnabled(len(pages) < len(self.order))
-        menu.exec(self.thumb_list.viewport().mapToGlobal(pos))
+        sheet.menu(menu, self.thumb_list.viewport().mapToGlobal(pos))
 
     # ---- find and replace
 
@@ -2366,7 +2366,7 @@ class PdfEditor(QWidget):
         items = self.selected_items()
         now = items[0].d.get("color") if items and hasattr(items[0], "d") else \
             (self.style.get(key, {}).get("color") if key else "#000000")
-        color = QColorDialog.getColor(QColor(now or "#000000"), self, tr("More colours…").rstrip("…"))
+        color = sheet.get_color(QColor(now or "#000000"), self, tr("More colours…").rstrip("…"))
         if color.isValid():
             self.set_style(color=color.name())
 
@@ -2478,7 +2478,7 @@ class PdfEditor(QWidget):
     def edit_note(self, item: NoteMark) -> bool:
         dlg = NoteDialog(item.d.get("text", ""), self.c.icon, self.c.theme.dark)
         try:
-            if not dlg.exec():
+            if not sheet.run(dlg):
                 return False
             text = dlg.text()
         finally:
@@ -2557,7 +2557,7 @@ class PdfEditor(QWidget):
         from .settings import CONFIG_DIR
         dlg = SignPadDialog(CONFIG_DIR / "signature.png", self.c.icon, self.c.theme.dark)
         try:
-            if not dlg.exec():
+            if not sheet.run(dlg):
                 return
             out = self._temp_file(".png")
             dlg.save_to(out)

@@ -1,4 +1,4 @@
-"""Small windows that ask for a choice before converting: resize, rotate, trim, fit size,
+"""What asks for a choice before converting (shown as a sheet inside Corefold's window): resize, rotate, trim, fit size,
 watermark, frames, slideshow, archive options, passwords and new names."""
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QDialog, QDoubleSpinBox,
                                QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QRadioButton, QSlider,
                                QSpinBox, QVBoxLayout)
 
+from . import sheet
 from .atomic.widgets import Dropdown
 from .converters import RESIZE_PRESETS, ROTATIONS, category, load_image, media_duration, norm, video_frame
 from .core import human_size, quick_size, safe_name, short_name
@@ -717,6 +718,6 @@ def ask(kind: str, files: list[Path], icon: QIcon, dark: bool, **extra) -> dict 
         register(DIALOGS)
     dlg = DIALOGS[kind](files, icon, dark, **extra)
     try:
-        return dlg.params() if dlg.exec() else None  # 1 = accepted, 0 = cancelled
+        return dlg.params() if sheet.run(dlg) else None  # 1 = accepted, 0 = cancelled
     finally:
         dlg.deleteLater()  # free the window (and any preview pictures) straight away

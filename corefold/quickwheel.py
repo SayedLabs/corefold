@@ -17,7 +17,7 @@ from PySide6.QtCore import QPoint, QPointF, QRect, Qt, QTimer, QVariantAnimation
 from PySide6.QtGui import QColor, QCursor, QGuiApplication, QPainter, QPen
 from PySide6.QtWidgets import QMenu, QWidget
 
-from . import icons, quick, winutil
+from . import icons, quick, sheet, winutil
 from .i18n import tr
 from .settings import WHEEL_SIZES
 from .wheel import CENTER, POP, Item, Look, ease_out_back, inner_radius, paint_wheel
@@ -376,7 +376,7 @@ class FloatingButton(QWidget):
         m = QMenu(self)
         m.addAction(tr("Quick access settings"), lambda: self.qa.c.show_window("Quick"))
         m.addAction(tr("Hide this button"), self._hide_button)
-        m.exec(at)
+        sheet.menu(m, at)
         m.deleteLater()  # (not one more menu kept for every right-click)
 
     def _hide_button(self):

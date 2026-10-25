@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QDialog, QDialogButtonBox, QFi
                                QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QMenu, QPushButton, QVBoxLayout,
                                QWidget)
 
-from . import hotkey, icons, quick
+from . import hotkey, icons, quick, sheet
 from .atomic.widgets import Dropdown
 from .i18n import tr
 from .settings import QUICK_KEYS, QUICK_SEARCH_ENGINES
@@ -174,7 +174,7 @@ class ItemList(QWidget):
         if m.isEmpty():
             act = m.addAction(tr("Everything is already on it"))
             act.setEnabled(False)
-        m.exec(self.add_btn.mapToGlobal(self.add_btn.rect().bottomLeft()))
+        sheet.menu(m, self.add_btn)
 
     def _add(self, action_id: str):
         if self.list.count() >= self.limit:
@@ -436,7 +436,7 @@ def build(win) -> QWidget:
     def add_link(name: str, target: str, ask: bool, website: bool = False):
         if ask:
             dlg = LinkDialog(win, name, target, website)
-            if not dlg.exec():
+            if not sheet.run(dlg):
                 return
             name, target = dlg.name.text(), dlg.target.text()
         if not target.strip():

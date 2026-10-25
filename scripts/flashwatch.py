@@ -245,6 +245,22 @@ class FlashWatch:
                            f"{w.describe()} -> {w.moved[2][0]},{w.moved[2][1]}{where}")
         return out
 
+    def own_windows(self, since: float, besides: set[int]) -> list[str]:
+        """Every window of the app itself shown since then other than those (hwnds), however small or quick:
+        while everything is meant to show inside Corefold's window, there should be none at all. (Menus,
+        tips and the picture under a dragged thing count too, unlike in problems().)"""
+        with self.lock:
+            events = [w for w in self.events if w.at >= since and w.mine == "app" and w.hwnd not in besides]
+        system = ("IME", "MSCTFIME", "CicMarshalWnd", "OleMainThreadWndClass", "PseudoConsoleWindow")
+        out = []
+        for w in events:
+            if any(part in w.cls for part in system):
+                continue
+            life = f"{(w.gone_at - w.at) * 1000:.0f} ms" if w.gone_at is not None else "still open"
+            where = f" (while: {w.label})" if getattr(w, "label", "") else ""
+            out.append(f"a window of its own ({life}): {w.describe()}{where}")
+        return out
+
     def notes(self) -> list[str]:
         """Every window that was shown, with how long it stayed (for the log)."""
         with self.lock:

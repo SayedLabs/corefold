@@ -86,7 +86,7 @@ s.save()
 watch = FlashWatch().start()
 
 from PySide6.QtCore import QEvent, QObject, Qt, QTimer  # noqa: E402
-from PySide6.QtGui import QIcon, QImage  # noqa: E402
+from PySide6.QtGui import QCursor, QIcon, QImage  # noqa: E402
 from PySide6.QtWidgets import QApplication, QWidget  # noqa: E402
 
 qapp = QApplication(sys.argv)
@@ -170,10 +170,16 @@ def part(name, fn):
 # a message box that comes up (it would wait for a click) is closed after a while, not at once: a
 # window that's closed within a moment of showing is what this test is looking for
 def _close_dialogs():
+    from corefold import sheet
     box = qapp.activeModalWidget()
     if box is not None:
         say(f"note  a dialog came up: {box.windowTitle()}")
         box.reject()
+    for layer in sheet.open_sheets():  # (questions show inside the window now, as sheets)
+        if layer.dlg is not None and time.monotonic() - getattr(layer, "seen_at", time.monotonic()) > 2:
+            say(f"note  a sheet came up: {layer.dlg.windowTitle()}")
+            layer.dlg.reject()
+        layer.seen_at = getattr(layer, "seen_at", time.monotonic())
 
 
 _closer = QTimer()
@@ -288,6 +294,103 @@ def jobs():
         settle(8)
 
 
+# ---- the real mouse, for what only a person's hand does (picking a widget up, a right-click, pointing)
+MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP = 0x2, 0x4, 0x8, 0x10
+
+
+def mouse_to(x: int, y: int, steps: int = 1, wait: float = 0.0):
+    start = QCursor.pos()
+    for i in range(1, steps + 1):
+        ctypes.windll.user32.SetCursorPos(int(start.x() + (x - start.x()) * i / steps),
+                                          int(start.y() + (y - start.y()) * i / steps))
+        settle(wait)
+
+
+def mouse(flag: int):
+    ctypes.windll.user32.mouse_event(flag, 0, 0, 0, 0)
+
+
+def inside_the_window():
+    """Everything that used to open a little window of its own, done by hand in the window: none may open
+    one now, not even for a moment (a question, a dialog, a menu, a dropdown's list, a tip, a widget picked
+    up and moved on the Home page, the corner message while the window is in use)."""
+    from corefold import sheet
+    from corefold import tools as all_tools
+    from corefold.atomic.widgets import Dropdown
+    c.show_window("Home")
+    w = c.window
+    w.raise_()
+    w.activateWindow()
+    settle(1.5)
+    t0 = time.monotonic()
+    mine = {int(w.winId())}
+    board = w.home_board
+
+    doing("changing the Home page and moving a widget by hand")
+    board.set_editing(True)
+    settle(0.8)
+    first, second = board.frames[0], board.frames[1]
+    a = first.mapToGlobal(first.rect().center())
+    b = second.mapToGlobal(second.rect().center())
+    mouse_to(a.x(), a.y(), 1, 0.2)
+    mouse(MOUSEEVENTF_LEFTDOWN)
+    settle(0.1)
+    mouse_to(b.x(), b.y() + 20, 25, 0.02)
+    settle(0.4)
+    mouse(MOUSEEVENTF_LEFTUP)
+    settle(0.8)
+    check(board.lifted is None, "a widget picked up by hand is put down again")
+    doing("a widget's right-click menu")
+    p = board.frames[0].mapToGlobal(board.frames[0].rect().center())
+    QTimer.singleShot(900, lambda: [la.picked(None) for la in w.findChildren(sheet._MenuLayer)])
+    mouse_to(p.x(), p.y(), 1, 0.1)
+    board.set_editing(False)
+    settle(0.5)
+    mouse(MOUSEEVENTF_RIGHTDOWN)
+    mouse(MOUSEEVENTF_RIGHTUP)
+    settle(1.5)
+    doing("pointing at a button (its tip)")
+    q = w.lang_btn.mapToGlobal(w.lang_btn.rect().center())
+    mouse_to(q.x(), q.y(), 6, 0.05)
+    settle(1.8)
+    doing("a question")
+    QTimer.singleShot(1200, lambda: [la.dlg.reject() for la in sheet.open_sheets()])
+    w._remove_tool(all_tools.BY_ID["organizer"])
+    settle(0.8)
+    doing("adding a widget (the gallery)")
+    QTimer.singleShot(1200, lambda: [la.dlg.reject() for la in sheet.open_sheets()])
+    board.open_gallery()
+    settle(0.8)
+    doing("a dropdown's list")
+    w.open_page("General")
+    settle(1.2)
+    boxes = [d for d in w.findChildren(Dropdown) if d.isVisible()]
+    if boxes:
+        r = boxes[0].mapToGlobal(boxes[0].rect().center())
+        QTimer.singleShot(1200, lambda: [la.picked(None) for la in w.findChildren(sheet._MenuLayer)])
+        mouse_to(r.x(), r.y(), 4, 0.05)
+        mouse(MOUSEEVENTF_LEFTDOWN)
+        mouse(MOUSEEVENTF_LEFTUP)
+        settle(1.8)
+    doing("a message while the window is in use")
+    w.open_page("Home")
+    c.say("In the window", "a message inside Corefold's window")
+    settle(2)
+    c.toast.hide()
+    doing("a dialog asked from the tray (it opens the window, inside it)")
+    w.hide()
+    settle(0.8)
+    from corefold import dialogs
+    QTimer.singleShot(1500, lambda: [la.dlg.reject() for la in sheet.open_sheets()])
+    dialogs.ask("resize", [picture], c.icon, c.theme.dark)
+    settle(1)
+    mine.add(int(c.window.winId()))
+    extra = watch.own_windows(t0, mine)
+    for line in extra:
+        check(False, line)
+    check(not extra, "nothing opened a window of its own: it all showed inside Corefold's window")
+
+
 def hide_and_wait():
     doing("the window closed, idle in the tray")
     w = c.window_if_open()
@@ -296,7 +399,8 @@ def hide_and_wait():
     settle(20)
 
 
-for name, fn in (("every page", every_page), ("switching tools", switching_tools), ("tool windows", tool_windows), ("jobs", jobs),
+for name, fn in (("every page", every_page), ("inside the window", inside_the_window),
+                 ("switching tools", switching_tools), ("tool windows", tool_windows), ("jobs", jobs),
                  ("idle", hide_and_wait)):
     part(name, fn)
 

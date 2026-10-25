@@ -21,7 +21,7 @@ from PySide6.QtWidgets import QAbstractItemView, QFileDialog, QHBoxLayout, QHead
     QLineEdit, QListWidget, QListWidgetItem, QMenu, QMessageBox, QProgressBar, QPushButton, QStyle, \
     QStyledItemDelegate, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
-from . import UPDATE_REPO, cloud, icons, work
+from . import UPDATE_REPO, cloud, icons, sheet, work
 from .atomic.widgets import IconButton
 from .core import human_size, short_name
 from .i18n import ltr, tr
@@ -881,7 +881,7 @@ class CloudPage(QWidget):
         it = self.account_list.itemAt(pos)
         if it is None or it.data(Qt.UserRole) is None:
             return
-        self.account_menu(it.data(Qt.UserRole)).exec(self.account_list.viewport().mapToGlobal(pos))
+        sheet.menu(self.account_menu(it.data(Qt.UserRole)), self.account_list.viewport().mapToGlobal(pos))
 
     def account_menu(self, acc: cloud.Account) -> QMenu:
         """What can be done with an account (its right-click menu)."""
@@ -1052,7 +1052,7 @@ class CloudPage(QWidget):
         box.setText(tr("Corefold forgets its key to {name}. Your files stay where they are.", name=ltr(acc.title)))
         yes = box.addButton(tr("Sign out"), QMessageBox.AcceptRole)
         box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-        box.exec()
+        sheet.run(box)
         if box.clickedButton() is not yes:
             return
         threading.Thread(target=cloud.client(acc).sign_out, daemon=True, name="corefold-cloud-signout").start()
@@ -1294,7 +1294,7 @@ class CloudPage(QWidget):
     def _file_menu(self, pos):
         acc, picked = self.files.picked()
         if picked:
-            self.file_menu(acc, picked).exec(self.files.viewport().mapToGlobal(pos))
+            sheet.menu(self.file_menu(acc, picked), self.files.viewport().mapToGlobal(pos))
 
     def file_menu(self, acc: cloud.Account, picked: list) -> QMenu:
         """What can be done with the picked files and folders (their right-click menu)."""
@@ -1420,7 +1420,7 @@ class CloudPage(QWidget):
         if any(x.state in ("done", "failed", "cancelled") for x in self.transfers):
             menu.addAction(tr("Clear the finished ones"), self._clear_finished)
         if not menu.isEmpty():
-            menu.exec(self.transfer_list.viewport().mapToGlobal(pos))
+            sheet.menu(menu, self.transfer_list.viewport().mapToGlobal(pos))
 
     def _drop_waiting(self, t: Transfer):
         if t in self.queue:
@@ -1637,7 +1637,7 @@ class CloudPage(QWidget):
                        what=what, service=service))
         yes = box.addButton(tr("Delete"), QMessageBox.DestructiveRole)
         box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-        box.exec()
+        sheet.run(box)
         if box.clickedButton() is not yes:
             return
 

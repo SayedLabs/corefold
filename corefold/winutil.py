@@ -52,6 +52,8 @@ def window_class_under_cursor() -> str:
 
 
 def set_title_bar_dark(widget, dark: bool):
+    if not widget.isWindow():  # (a dialog shown in a sheet inside the window has no title bar: asking for its
+        return                 # handle would give it a native window of its own)
     try:
         value = ctypes.c_int(1 if dark else 0)
         ctypes.windll.dwmapi.DwmSetWindowAttribute(int(widget.winId()), 20, ctypes.byref(value), 4)

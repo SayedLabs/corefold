@@ -1,10 +1,12 @@
-"""Small popup in the bottom corner showing progress and results."""
+"""Small popup in the bottom corner showing progress and results: inside Corefold's window while you're
+using it (it rises from the window's bottom corner), in the screen's corner while Corefold is in the tray."""
 from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import QEvent, Qt, QTimer, Signal
 from PySide6.QtGui import QCursor, QGuiApplication, QIcon
+from shiboken6 import isValid
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QProgressBar, QPushButton, QVBoxLayout, QWidget
 
 from .core import os_open
@@ -12,12 +14,15 @@ from .i18n import tr
 from .winutil import reveal_in_explorer
 
 
+ON_SCREEN = Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool | Qt.WindowDoesNotAcceptFocus
+
+
 class Toast(QWidget):
     cancel_requested = Signal(int)
 
-    def __init__(self, icon: QIcon):
-        super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool
-                         | Qt.WindowDoesNotAcceptFocus)
+    def __init__(self, icon: QIcon, window_for=None):
+        super().__init__(None, ON_SCREEN)
+        self.window_for = window_for  # () -> Corefold's window if it's made (the toast shows inside it then)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.setFixedWidth(370)
@@ -94,9 +99,61 @@ class Toast(QWidget):
         """The language was changed: the words that stay on the toast."""
         self.open_btn.setText(tr("Open"))
 
+    def _home(self):
+        """Corefold's window when it's the one you're using: the message shows inside it then."""
+        w = self.window_for() if self.window_for is not None else None
+        if w is not None and isValid(w) and w.isVisible() and not w.isMinimized() and w.isActiveWindow():
+            return w
+        return None
+
+    def _settle_in(self) -> QWidget | None:
+        """Moves the toast into the window, or out to the screen's corner, while it's hidden."""
+        host = self._home()
+        here = self.parentWidget()
+        if not self.isVisible() and host is not here:
+            if here is not None:
+                here.removeEventFilter(self)
+            self.setParent(host, Qt.Widget if host is not None else ON_SCREEN)
+            if host is not None:
+                host.installEventFilter(self)
+        return self.parentWidget()
+
+    def eventFilter(self, obj, e):
+        if obj is self.parentWidget():
+            if e.type() == QEvent.Type.Resize and self.isVisible():
+                self._corner_of(obj)
+            elif e.type() == QEvent.Type.Hide and not obj.isVisible():  # (the window went: so does the toast,
+                obj.removeEventFilter(self)                                # which is the app's, not the window's)
+                self.hide()
+                self.setParent(None, ON_SCREEN)
+        return False
+
+    def _corner_of(self, host: QWidget):
+        rtl = self.layoutDirection() == Qt.RightToLeft
+        corner = self.corner if self.corner in ("bottom-right", "bottom-left", "top-right", "top-left") else \
+            ("bottom-left" if rtl else "bottom-right")
+        x = 20 if corner.endswith("left") else host.width() - self.width() - 20
+        y = 20 if corner.startswith("top") else host.height() - self.height() - 20
+        self.move(x, y)
+
+    def _show(self):
+        came = not self.isVisible()
+        self.show()
+        host = self.parentWidget()
+        if host is not None:
+            self.raise_()
+            from .atomic import motion, tokens
+            if came and tokens.animations:
+                motion.rise_in(self, 14, tokens.MOTION["normal"])
+
     def _place(self):
-        """A corner of the screen you're working on (by default bottom right, bottom left in Arabic)."""
+        """A corner of the screen you're working on (by default bottom right, bottom left in Arabic), or of
+        Corefold's window while you're in it."""
+        host = self._settle_in()
         self.adjustSize()
+        if host is not None:
+            self._corner_of(host)
+            return
         screen = QGuiApplication.screenAt(QCursor.pos()) or QGuiApplication.primaryScreen()
         g = screen.availableGeometry()
         corner = self.corner
@@ -146,7 +203,7 @@ class Toast(QWidget):
         self._show_buttons(tr("Cancel"))
         self.hide_timer.stop()
         self._place()
-        self.show()
+        self._show()
 
     def set_detail(self, job_id: int, text: str):
         if job_id == self.job_id and self.running:
@@ -172,7 +229,7 @@ class Toast(QWidget):
         self._show_buttons(tr("Show in folder") if reveal is not None else "", reveal if can_open else None)
         self._set_extra(extra_text, extra)
         self._place()
-        self.show()
+        self._show()
         self._linger(linger_ms + (3000 if extra else 0))
         return True
 
@@ -189,7 +246,7 @@ class Toast(QWidget):
         self._show_buttons(action_text if (action_text and action) else "")
         self._set_extra()
         self._place()
-        self.show()
+        self._show()
         self._linger(linger_ms)
         return True
 

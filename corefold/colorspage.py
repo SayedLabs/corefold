@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, \
     QScrollArea, QVBoxLayout, QWidget
 
-from . import colors
+from . import colors, sheet
 from .atomic.widgets import Dropdown
 from .i18n import ltr, tr
 from .settings import COLORS_FORMATS, COLORS_SHORTCUTS
@@ -295,7 +295,7 @@ class ColorsPage(QScrollArea):
         box.setText(tr("The colours you picked are forgotten. This can't be undone."))
         yes = box.addButton(tr("Clear"), QMessageBox.DestructiveRole)
         box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-        box.exec()
+        sheet.run(box)
         if box.clickedButton() is yes:
             self.c.colors.clear()
 
