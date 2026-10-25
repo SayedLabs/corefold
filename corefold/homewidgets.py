@@ -11,13 +11,15 @@ import os
 import time
 from pathlib import Path
 
-from PySide6.QtCore import QMimeData, QPoint, QSize, QStandardPaths, Qt, QTimer, Signal
-from PySide6.QtGui import QDrag, QPainter, QPen
-from PySide6.QtWidgets import (QButtonGroup, QDialog, QFileDialog, QFrame, QGridLayout, QHBoxLayout, QLabel,
-                               QLineEdit, QListWidget, QListWidgetItem, QMenu, QProgressBar, QPushButton,
-                               QSizePolicy, QVBoxLayout, QWidget)
+from PySide6.QtCore import QEasingCurve, QPoint, QRect, QRectF, QSize, QStandardPaths, Qt, QTimer, \
+    QVariantAnimation, Signal
+from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtWidgets import (QButtonGroup, QDialog, QFileDialog, QFrame, QGraphicsDropShadowEffect,
+                               QGraphicsOpacityEffect, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
+                               QListWidgetItem, QMenu, QProgressBar, QPushButton, QScrollArea, QSizePolicy,
+                               QVBoxLayout, QWidget)
 
-from . import homelist, icons, work
+from . import homelist, icons, sheet, work
 from . import tools as all_tools
 from .atomic import tokens
 from .core import human_size, short_name
@@ -27,7 +29,7 @@ from .timefmt import number
 UNIT_H = 148     # one row of the grid
 SPACING = 12
 WIDE_FROM = 700  # the board's width from which it has four columns (two below it)
-MIME = "application/x-corefold-widget"
+GLIDE_MS = 240   # widgets gliding to their new places (after a move, a new size, one added or taken off)
 KEEP_LOOKS = 120  # seconds a look-up (files waiting, clouds found, drives) is kept before it's done again
 LOOK_AFTER_MS = 1500  # a look-up starts once the Home page has been on screen this long (not while passing by)
 
@@ -230,7 +232,7 @@ class EditCover(QWidget):
 
     def _sizes(self):
         menu = self.frame.size_menu()
-        menu.exec(self.size_btn.mapToGlobal(QPoint(0, self.size_btn.height())))
+        sheet.menu(menu, self.size_btn)
         menu.deleteLater()
 
     def __init__(self, frame: "WidgetFrame"):
@@ -242,14 +244,14 @@ class EditCover(QWidget):
         outer = QHBoxLayout(self)
         outer.setContentsMargins(8, 8, 8, 8)
         outer.addStretch()
-        box = QFrame()
-        box.setObjectName("editBar")
+        box = QFrame(self)  # (each part has its owner from the start: shown before it's laid out, a part
+        box.setObjectName("editBar")  # without one is a little window of its own for a moment)
         bar = QHBoxLayout(box)
         bar.setContentsMargins(3, 3, 3, 3)
         bar.setSpacing(2)
         outer.addWidget(box, 0, Qt.AlignTop)
         t = frame.board.c.theme
-        self.size_btn = QPushButton()
+        self.size_btn = QPushButton(parent=box)
         self.size_btn.setObjectName("iconButton")
         self.size_btn.setIcon(icons.icon("resize_image", t.text))
         self.size_btn.setToolTip(tr("Size"))
@@ -257,7 +259,7 @@ class EditCover(QWidget):
         self.size_btn.setCursor(Qt.PointingHandCursor)
         self.size_btn.clicked.connect(self._sizes)
         self.size_btn.setVisible(len(frame.kind.sizes) > 1)
-        self.remove_btn = QPushButton()
+        self.remove_btn = QPushButton(parent=box)
         self.remove_btn.setObjectName("iconButton")
         self.remove_btn.setIcon(icons.icon("delete", t.danger))
         self.remove_btn.setToolTip(tr("Remove"))
@@ -270,39 +272,48 @@ class EditCover(QWidget):
 
     def paintEvent(self, _e):
         t = tokens.current()
+        level = self.frame.board.edit_level
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
-        r = self.rect().adjusted(1, 1, -1, -1)
-        p.setBrush(tokens.alpha(t.canvas, 150))
-        p.setPen(QPen(t.accent, 1.5, Qt.DashLine))
+        p.setOpacity(level)
+        r = QRectF(self.rect()).adjusted(1, 1, -1, -1)
+        lifted = self.frame.board.lifted is self.frame
+        p.setBrush(tokens.alpha(t.canvas, 60 if lifted else 150))
+        p.setPen(QPen(t.accent, 1.5, Qt.SolidLine if lifted else Qt.DashLine))
         p.drawRoundedRect(r, 14, 14)
         p.end()
+
+    # moving it: it's picked up and follows the pointer inside the board, the others make room (no
+    # drag-and-drop window: nothing of it ever shows outside Corefold's window)
 
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton:
             self.press = e.position().toPoint()
+            self.setCursor(Qt.ClosedHandCursor)
 
     def mouseMoveEvent(self, e):
-        if self.press is None or (e.position().toPoint() - self.press).manhattanLength() < 8:
+        board = self.frame.board
+        at = self.mapTo(board, e.position().toPoint())
+        if board.lifted is self.frame:
+            board.drag_to(at)
             return
-        self.press = None
-        drag = QDrag(self)
-        data = QMimeData()
-        data.setData(MIME, self.frame.entry["id"].encode())
-        drag.setMimeData(data)
-        drag.setPixmap(self.frame.grab().scaledToWidth(min(self.frame.width(), 260), Qt.SmoothTransformation))
-        drag.setHotSpot(QPoint(20, 20))
-        drag.exec(Qt.MoveAction)
+        if self.press is None or (e.position().toPoint() - self.press).manhattanLength() < 6:
+            return
+        board.lift(self.frame, self.mapTo(board, self.press))
+        board.drag_to(at)
 
     def mouseReleaseEvent(self, _e):
         self.press = None
+        self.setCursor(Qt.OpenHandCursor)
+        if self.frame.board.lifted is self.frame:
+            self.frame.board.put_down()
 
 
 class WidgetFrame(QFrame):
     """One widget on the Home page: its box, and what's in it (made by Board.make_content)."""
 
     def __init__(self, board: "Board", entry: dict, preview: bool = False):
-        super().__init__()
+        super().__init__(board)  # (the board's from the start, so it's never a window even for a moment)
         self.setObjectName("homeWidget")
         self.setMinimumWidth(1)
         self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
@@ -366,7 +377,7 @@ class WidgetFrame(QFrame):
         menu.addAction(tr("Remove"), lambda: self.board.remove(self.entry["id"]))
         menu.addSeparator()
         menu.addAction(tr("Change the Home page…"), lambda: self.board.set_editing(True))
-        menu.exec(e.globalPos())
+        sheet.menu(menu, e.globalPos())
         menu.deleteLater()
 
     # files dropped on it (only on the ones that do something with files)
@@ -403,6 +414,27 @@ class WidgetFrame(QFrame):
         self.style().polish(self)
 
 
+def _fade(w: QWidget, coming: bool, then=None):
+    """w fades in (coming) or out, then then()."""
+    effect = QGraphicsOpacityEffect(w)
+    effect.setOpacity(0.0 if coming else 1.0)
+    w.setGraphicsEffect(effect)
+    anim = QVariantAnimation(w)
+    anim.setDuration(tokens.MOTION["normal"] if coming else tokens.MOTION["fast"])
+    anim.setStartValue(0.0 if coming else 1.0)
+    anim.setEndValue(1.0 if coming else 0.0)
+    anim.setEasingCurve(QEasingCurve.OutCubic)
+    anim.valueChanged.connect(lambda v: work.alive(effect) and effect.setOpacity(v))
+
+    def done():
+        if work.alive(w):
+            w.setGraphicsEffect(None)
+        if then is not None:
+            then()
+    anim.finished.connect(done)
+    anim.start(QVariantAnimation.DeleteWhenStopped)
+
+
 class AddTile(QPushButton):
     """The last place on the board while it's being changed: adds a widget."""
 
@@ -428,10 +460,16 @@ class Board(QWidget):
         self.editing = False
         self.frames: list[WidgetFrame] = []
         self.cols = 0
-        self.setAcceptDrops(True)
-        self.grid = QGridLayout(self)
-        self.grid.setContentsMargins(0, 0, 0, 0)
-        self.grid.setSpacing(SPACING)
+        self.edit_level = 0.0   # 0..1: how far the "changing the Home page" look has come in
+        self.lifted: WidgetFrame | None = None   # the widget being moved, under the pointer
+        self.grab_at = QPoint()                  # where on it it was picked up
+        self.drag_at = QPoint()                  # where the pointer is (on the board)
+        self.slot = QRect()                      # where it goes if it's let go now
+        self.glides: list[QVariantAnimation] = []
+        self.scroller = QTimer(self)             # (only while a widget is held near the page's top or bottom)
+        self.scroller.setInterval(16)
+        self.scroller.timeout.connect(self._scroll_step)
+        # (no layout: the board places its widgets itself, so they can glide between places)
         self.add_tile = AddTile(self)
         self.add_tile.hide()
         self.empty = QFrame(self)  # (both are the board's, even while they're not on it)
@@ -463,53 +501,48 @@ class Board(QWidget):
     def fill(self):
         """Makes the widgets (again), as they're saved now."""
         self.waiting = []  # (what the old ones waited for)
+        self.lifted = None
+        self.scroller.stop()
         for f in self.frames:
-            self.grid.removeWidget(f)
             f.hide()
-            f.deleteLater()  # (not at once: a menu or a drag of that widget may be what's changing the board)
-        self.frames = []
-        for e in self.shown():
-            try:
-                f = WidgetFrame(self, e)
-            except Exception:  # (one widget that can't be made never takes the Home page with it)
-                import logging
-                logging.getLogger("corefold").exception("home widget %s", e.get("kind"))
-                continue
-            f.set_editing(self.editing)
-            self.frames.append(f)
+            f.deleteLater()  # (not at once: a menu of that widget may be what's changing the board)
+        self.frames = [f for f in (self._make(e) for e in self.shown()) if f is not None]
         self._place(force=True)
 
-    def _place(self, force: bool = False):
+    def _place(self, force: bool = False, glide: bool = False):
+        """Puts each widget in its place, in a grid of four columns (two in a narrow window); with glide, the
+        ones already on the page glide there from where they are."""
         width = self.width() if self.width() > 50 else 900
         cols = homelist.COLUMNS if width >= WIDE_FROM else homelist.NARROW_COLUMNS
-        if cols == self.cols and not force:
+        if self.lifted is not None and not force:  # (while one is held, the others are placed as it moves)
             return
         self.cols = cols
-        for i in reversed(range(self.grid.count())):
-            self.grid.takeAt(i)
-        sizes = [f.size_name for f in self.frames]
-        extra = []
-        if self.editing:
-            sizes.append("small")
-            extra.append(self.add_tile)
-        places = homelist.pack(sizes, cols)
-        for f, (row, col, w, h) in zip(self.frames + extra, places):
-            f.setFixedHeight(h * UNIT_H + (h - 1) * SPACING)
-            self.grid.addWidget(f, row, col, h, w)
+        items = self.frames + ([self.add_tile] if self.editing else [])
+        plan = self._plan(items, width)
+        moves = []
+        for f, r in zip(items, plan):
+            if glide and f.isVisible() and f.geometry() != r:
+                moves.append((f, f.geometry(), r))
+            else:
+                f.setGeometry(r)
             f.show()
-        self.add_tile.setVisible(self.editing)
         if not self.editing:
             self.add_tile.hide()
         show_empty = not self.frames and not self.editing
+        bottom = max((r.bottom() + 1 for r in plan), default=0)
         if show_empty:
-            self.grid.addWidget(self.empty, 0, 0, 1, cols)
+            h = max(self.empty.sizeHint().height(), self.empty.heightForWidth(width))
+            self.empty.setGeometry(0, 0, width, h)
+            bottom = h
         self.empty.setVisible(show_empty)
-        for c in range(homelist.COLUMNS):
-            self.grid.setColumnStretch(c, 1 if c < cols else 0)
+        if self.height() != bottom:
+            self.setFixedHeight(bottom)
+        self._glide(moves)
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
-        self._place()
+        if e.size().width() != e.oldSize().width():
+            self._place(force=self.lifted is None)
 
     def look(self, key: str, fn, then):
         """What a widget looks up: what was found lately right away, or looked up once the Home page has stayed
@@ -545,40 +578,99 @@ class Board(QWidget):
     def set_editing(self, on: bool):
         if on == self.editing:
             return
+        if not on and self.lifted is not None:
+            self.put_down()
         self.editing = on
+        self.edit_level = 0.0 if on else 1.0
         for f in self.frames:
             f.set_editing(on)
-        self._place(force=True)
+        self._place(force=True, glide=True)
         self.editing_changed.emit(on)
+
+        def level(v):
+            self.edit_level = v if on else 1.0 - v
+            for f in self.frames:
+                if f.cover is not None:
+                    f.cover.update()
+        if tokens.animations and self.isVisible():
+            self._run(level, tokens.MOTION["normal"])
+        else:
+            level(1.0)
 
     def apply_theme(self, _theme=None):
         self.add_tile.setIcon(icons.icon("add", self.c.theme.accent))
         self.fill()
 
-    # ---- changes (each is saved right away: the Home page isn't a setting that waits for Save)
+    # ---- changes (each is saved right away: the Home page isn't a setting that waits for Save). Only the widget
+    # that changed is made again; the others keep what they show and glide to their new places.
 
     def _save(self):
         self.c.settings.home_widgets = homelist.clean(self.saved)
         self.c.settings_changed()
 
+    def _frame(self, widget_id: str) -> WidgetFrame | None:
+        return next((f for f in self.frames if f.entry.get("id") == widget_id), None)
+
+    def _make(self, entry: dict) -> WidgetFrame | None:
+        try:
+            f = WidgetFrame(self, entry)
+        except Exception:  # (one widget that can't be made never takes the Home page with it)
+            import logging
+            logging.getLogger("corefold").exception("home widget %s", entry.get("kind"))
+            return None
+        f.set_editing(self.editing)
+        return f
+
+    def _settle(self, came: WidgetFrame | None = None):
+        """The widgets in the saved order again, gliding there from where they are (came: new, fades in)."""
+        by_id = {f.entry.get("id"): f for f in self.frames}
+        self.frames = [by_id[e["id"]] for e in self.shown() if e.get("id") in by_id]
+        self._place(force=True, glide=True)
+        if came is not None and tokens.animations and self.isVisible():
+            _fade(came, True)
+
     def add(self, kind: str, size: str = "", **extra) -> dict:
         entry = homelist.make(kind, size, **extra)
         self.saved.append(entry)
         self._save()
-        self.fill()
+        f = self._make(entry) if any(e.get("id") == entry["id"] for e in self.shown()) else None
+        if f is not None:
+            self.frames.append(f)
+        self._settle(f)
         return entry
 
     def remove(self, widget_id: str):
         self.c.settings.home_widgets = [e for e in self.saved if e.get("id") != widget_id]
         self._save()
-        self.fill()
+        f = self._frame(widget_id)
+        if f is None:
+            return
+        self.frames.remove(f)
+        if tokens.animations and self.isVisible() and f.isVisible():  # (it fades where it was, the rest close up)
+            f.raise_()
+            _fade(f, False, f.deleteLater)
+        else:
+            f.hide()
+            f.deleteLater()
+        self._settle()
 
     def resize_widget(self, widget_id: str, size: str):
         for e in self.saved:
             if e.get("id") == widget_id:
                 e["size"] = size
         self._save()
-        self.fill()
+        old = self._frame(widget_id)
+        entry = next((e for e in self.saved if e.get("id") == widget_id), None)
+        if old is None or entry is None:
+            return
+        new = self._make(entry)  # (a new size can show more or less: made again, this one only)
+        if new is None:
+            return
+        new.setGeometry(old.geometry())
+        self.frames[self.frames.index(old)] = new
+        old.hide()
+        old.deleteLater()  # (not at once: its own menu may be what's changing it)
+        self._settle(new)
 
     def move(self, widget_id: str, before_id: str | None):
         """Puts a widget just before another one (None: at the end)."""
@@ -590,7 +682,7 @@ class Board(QWidget):
         rest.insert(at, moving)
         self.c.settings.home_widgets = rest
         self._save()
-        self.fill()
+        self._settle()
 
     def move_by(self, widget_id: str, step: int):
         """One place earlier or later among the widgets that are shown (hidden ones keep their places)."""
@@ -612,54 +704,184 @@ class Board(QWidget):
         self._save()
         self.fill()
 
-    # ---- dragging a widget to another place
+    # ---- gliding: each widget from where it was to its new place
 
-    def dragEnterEvent(self, e):
-        if e.mimeData().hasFormat(MIME):
-            e.setDropAction(Qt.MoveAction)
-            e.accept()
-        else:
-            e.ignore()
+    def _run(self, on_value, duration: int, then=None) -> QVariantAnimation:
+        anim = QVariantAnimation(self)
+        anim.setDuration(duration)
+        anim.setStartValue(0.0)
+        anim.setEndValue(1.0)
+        anim.setEasingCurve(QEasingCurve.OutCubic)
+        anim.valueChanged.connect(on_value)
+        if then is not None:
+            anim.finished.connect(then)
+        anim.start(QVariantAnimation.DeleteWhenStopped)
+        return anim
 
-    def dragMoveEvent(self, e):
-        if e.mimeData().hasFormat(MIME):
-            e.setDropAction(Qt.MoveAction)
-            e.accept()
-
-    def dropEvent(self, e):
-        if not e.mimeData().hasFormat(MIME):
+    def _glide(self, moves: list[tuple]):
+        """moves: (widget, from, to) rectangles. Any glide still running ends where it was going first."""
+        for anim in self.glides:
+            if work.alive(anim):
+                anim.stop()  # (they stay where they've got to, and glide on from there)
+        self.glides = []
+        moves = [(w_, a, b) for w_, a, b in moves if a != b]
+        if not moves:
             return
-        widget_id = bytes(e.mimeData().data(MIME)).decode()
-        e.setDropAction(Qt.MoveAction)
-        e.accept()
-        pos = e.position().toPoint()
-        target = self.drop_target(pos)
-        QTimer.singleShot(0, lambda: self.move(widget_id, target))
+        if not tokens.animations or not self.isVisible():
+            for w_, _a, b in moves:
+                w_.setGeometry(b)
+            return
+        for w_, a, _b in moves:
+            w_.setGeometry(a)
 
-    def drop_target(self, pos: QPoint) -> str | None:
-        """The widget a drop at pos goes before: the one under it (in its first half), or the next one."""
-        for i, f in enumerate(self.frames):
-            g = f.geometry()
-            if g.contains(pos):
-                rtl = self.layoutDirection() == Qt.RightToLeft
-                first_half = pos.x() > g.center().x() if rtl else pos.x() < g.center().x()
-                if first_half:
-                    return f.entry["id"]
-                return self.frames[i + 1].entry["id"] if i + 1 < len(self.frames) else None
-        below = [f for f in self.frames if f.geometry().top() > pos.y()]
-        return below[0].entry["id"] if below else None
+        def step(v):
+            for w_, a, b in moves:
+                if work.alive(w_):
+                    w_.setGeometry(QRect(round(a.x() + (b.x() - a.x()) * v), round(a.y() + (b.y() - a.y()) * v),
+                                         round(a.width() + (b.width() - a.width()) * v),
+                                         round(a.height() + (b.height() - a.height()) * v)))
+        anim = self._run(step, GLIDE_MS)
+        self.glides.append(anim)
+
+    def _plan(self, frames: list, width: int = 0) -> list[QRect]:
+        """Where frames go, in this order (the add tile counts as a small one)."""
+        width = width or self.width()
+        cols = homelist.COLUMNS if width >= WIDE_FROM else homelist.NARROW_COLUMNS
+        unit = (width - SPACING * (cols - 1)) / cols
+        rtl = self.layoutDirection() == Qt.RightToLeft
+        out = []
+        sizes = [f.size_name if isinstance(f, WidgetFrame) else "small" for f in frames]
+        for row, col, w_, h in homelist.pack(sizes, cols):
+            x = col * (unit + SPACING)
+            wide = w_ * unit + (w_ - 1) * SPACING
+            if rtl:
+                x = width - x - wide
+            out.append(QRect(round(x), row * (UNIT_H + SPACING), round(wide), h * UNIT_H + (h - 1) * SPACING))
+        return out
+
+    # ---- moving a widget by hand: picked up, it follows the pointer and the others make room as it passes
+
+    def lift(self, f: WidgetFrame, at: QPoint):
+        self.lifted = f
+        self.grab_at = at - f.pos()
+        self.order = list(self.frames)
+        f.raise_()
+        shadow = QGraphicsDropShadowEffect(f)
+        shadow.setBlurRadius(34)
+        shadow.setOffset(0, 12)
+        shadow.setColor(QColor(0, 0, 0, 110 if self.c.theme.dark else 60))
+        f.setGraphicsEffect(shadow)
+        self.slot = f.geometry()
+        if f.cover is not None:
+            f.cover.update()
+        self.update()
+
+    def drag_to(self, at: QPoint):
+        f = self.lifted
+        if f is None:
+            return
+        self.drag_at = QPoint(at)
+        top_left = at - self.grab_at
+        top_left.setX(max(-20, min(top_left.x(), self.width() - f.width() + 20)))
+        top_left.setY(max(-20, min(top_left.y(), self.height() - f.height() + 20)))
+        f.move(top_left)
+        centre = QRect(top_left, f.size()).center()
+        others = [g for g in self.order if g is not f]
+        tail = [self.add_tile] if self.editing else []
+        best, best_d, best_plan = None, None, None
+        for i in range(len(others) + 1):  # (the place whose spot is nearest the widget's middle)
+            order = others[:i] + [f] + others[i:]
+            plan = self._plan(order + tail)
+            spot = plan[i]
+            d = (spot.center() - centre).manhattanLength()
+            if best_d is None or d < best_d:
+                best, best_d, best_plan = order, d, plan
+        if best != self.order:
+            self.order = best
+            self._glide([(g, g.geometry(), r) for g, r in zip(best + tail, best_plan) if g is not f])
+        self.slot = best_plan[best.index(f)]
+        self.update()
+        self._edge_scroll(at)
+
+    def put_down(self):
+        f = self.lifted
+        if f is None:
+            return
+        self.lifted = None
+        self.scroller.stop()
+        f.setGraphicsEffect(None)
+        order = [g.entry["id"] for g in self.order]
+        moved = set(order)  # (the ones on the page take their new order; hidden ones keep their places)
+        by_id = {e.get("id"): e for e in self.saved}
+        ids = iter(order)
+        self.c.settings.home_widgets = [by_id[next(ids)] if e.get("id") in moved else e for e in self.saved]
+        self._save()
+        by_id = {g.entry["id"]: g for g in self.frames}
+        self.frames = [by_id[i] for i in order if i in by_id]
+        self._place(force=True, glide=True)
+        if f.cover is not None:
+            f.cover.update()
+        self.update()
+
+    def _scroll_area(self) -> QScrollArea | None:
+        w_ = self.parentWidget()
+        while w_ is not None and not isinstance(w_, QScrollArea):
+            w_ = w_.parentWidget()
+        return w_
+
+    def _edge_y(self, area: QScrollArea, at: QPoint) -> int:
+        """How far down the page's visible part the pointer is (at: on the board)."""
+        return area.viewport().mapFrom(self, at).y()
+
+    def _edge_scroll(self, at: QPoint):
+        area = self._scroll_area()
+        if area is None:
+            return
+        y = self._edge_y(area, at)
+        near = y < 40 or y > area.viewport().height() - 40
+        if near and not self.scroller.isActive():
+            self.scroller.start()
+        elif not near:
+            self.scroller.stop()
+
+    def _scroll_step(self):
+        area = self._scroll_area()
+        if area is None or self.lifted is None:
+            self.scroller.stop()
+            return
+        y = self._edge_y(area, self.drag_at)
+        h = area.viewport().height()
+        step = -12 if y < 40 else 12 if y > h - 40 else 0
+        bar = area.verticalScrollBar()
+        before = bar.value()
+        bar.setValue(before + step)
+        if bar.value() == before:  # (at the top or the bottom already)
+            self.scroller.stop()
+            return
+        self.drag_to(self.drag_at + QPoint(0, bar.value() - before))  # (the pointer stays: the page moved under it)
+
+    def paintEvent(self, _e):
+        if self.lifted is None or self.slot.isNull():
+            return
+        t = tokens.current()  # (where the widget held goes when it's let go)
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setPen(QPen(tokens.alpha(t.accent, 150), 1.5, Qt.DashLine))
+        p.setBrush(tokens.alpha(t.accent, 22))
+        p.drawRoundedRect(QRectF(self.slot).adjusted(1, 1, -1, -1), 14, 14)
+        p.end()
 
     # ---- adding
 
     def open_gallery(self, kind: str = ""):
         g = Gallery(self, kind)
-        g.exec()
+        sheet.run(g)
         g.deleteLater()
 
     def ask_shortcut(self, target: str = "", name: str = "") -> tuple[str, str] | None:
         dlg = ShortcutDialog(self, target, name)
         try:
-            if dlg.exec():
+            if sheet.run(dlg):
                 return dlg.target(), dlg.name()
             return None
         finally:
@@ -1149,7 +1371,7 @@ class Board(QWidget):
         menu = QMenu(b)
         menu.addAction(tr("Open"), lambda: self.open_target(target))
         menu.addAction(tr("Remove"), drop)
-        menu.exec(b.mapToGlobal(QPoint(0, b.height())))
+        sheet.menu(menu, b)
         menu.deleteLater()
 
     # the tools resting for now (their widgets come back with them)

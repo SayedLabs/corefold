@@ -12,7 +12,7 @@ from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QFileDialog, QFileIconProvider, QFrame, QHBoxLayout, QInputDialog, QLabel, QMenu, \
     QMessageBox, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
-from . import i18n, icons, unlock, work
+from . import i18n, icons, sheet, unlock, work
 from .atomic.widgets import Group, SettingRow
 from .i18n import ltr, tr
 from .panel import DropZone
@@ -476,7 +476,7 @@ class UnlockPage(QWidget):
         box.setInformativeText(tr("Anything you haven't saved in it is lost."))
         ok = box.addButton(tr("Force close"), QMessageBox.DestructiveRole)
         box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-        box.exec()
+        sheet.run(box)
         chosen = box.clickedButton() is ok
         box.deleteLater()
         return chosen
@@ -787,7 +787,7 @@ class UnlockPage(QWidget):
                        "go to the Recycle Bin. Windows asks for permission first."))
         yes = box.addButton(tr("Delete when the PC restarts"), QMessageBox.DestructiveRole)
         box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-        box.exec()
+        sheet.run(box)
         if box.clickedButton() is not yes:
             return
         paths = list(self.paths)

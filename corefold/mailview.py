@@ -16,7 +16,7 @@ from PySide6.QtGui import QDesktopServices, QTextDocument
 from PySide6.QtWidgets import (QFileDialog, QFrame, QHBoxLayout, QLabel, QMenu, QMessageBox, QPushButton,
                                QTextBrowser, QVBoxLayout, QWidget)
 
-from . import mail
+from . import mail, sheet
 from .core import APP_NAME, human_size, short_name, unique_path
 from .i18n import ltr, tr
 from .safetext import blocked, offline_document, raster_picture
@@ -228,7 +228,7 @@ class MailWindow(QWidget):
                                  "expected this file.", name=a.name), parent=self)
             go = box.addButton(tr("Open anyway"), QMessageBox.DestructiveRole)
             box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-            box.exec()
+            sheet.run(box)
             chosen = box.clickedButton() is go
             box.deleteLater()
             if not chosen:
@@ -241,7 +241,7 @@ class MailWindow(QWidget):
         try:
             os_open(out)
         except OSError as e:
-            QMessageBox.warning(self, tr("Couldn't open the file"), str(e))
+            sheet.warning(self, tr("Couldn't open the file"), str(e))
 
     def save_attachment(self, a: mail.Attachment):
         name, _ = QFileDialog.getSaveFileName(self, tr("Save attachment"), str(self.path.parent / a.name))
@@ -254,7 +254,7 @@ class MailWindow(QWidget):
             _mark_from_internet(Path(name))
 
     def _save_failed(self):
-        QMessageBox.warning(self, tr("Couldn't save"), tr("Couldn't save the file. Try another folder."))
+        sheet.warning(self, tr("Couldn't save"), tr("Couldn't save the file. Try another folder."))
 
     def save_all(self, atts: list[mail.Attachment]):
         folder = QFileDialog.getExistingDirectory(self, tr("Save all attachments to"), str(self.path.parent))
@@ -318,7 +318,7 @@ class MailWindow(QWidget):
         box = QMessageBox(QMessageBox.NoIcon, tr("Technical details"), "", parent=self)
         box.setDetailedText(self.m.headers or tr("This email has no technical details."))
         box.setText(tr("The email's headers: where it came from and how it got to you."))
-        box.exec()
+        sheet.run(box)
         box.deleteLater()
 
     def _link(self, url: QUrl):
@@ -331,7 +331,7 @@ class MailWindow(QWidget):
                           tr("It goes to:") + "\n\n" + short_name(target, 300), parent=self)
         go = box.addButton(tr("Open"), QMessageBox.AcceptRole)
         box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-        box.exec()
+        sheet.run(box)
         chosen = box.clickedButton() is go
         box.deleteLater()
         if chosen:

@@ -235,6 +235,8 @@ STRINGS: dict[str, str] = {
     "Keep everything": "Tout garder",
     "Remove selected": "Supprimer la sélection",
     "Close": "Fermer",
+    "Show details": "Afficher les détails",
+    "Hide details": "Masquer les détails",
     "Before uninstalling {name}": "Avant de désinstaller {name}",
     "Making a restore point…": "Création d'un point de restauration…",
     "Uninstalling {name}…": "Désinstallation de {name}…",
