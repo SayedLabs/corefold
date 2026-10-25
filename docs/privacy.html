@@ -101,12 +101,14 @@
       Corefold doesn't go online at all: it opens, copies, renames and deletes files in them on your PC, and the
       company's own app sends the changes to its service, as it does for anything you save there. Deleted files go
       to the Recycle Bin. Nothing about these folders is kept by Corefold.</p>
-    <p><b>Signing in online (OneDrive and Dropbox),</b> when your copy of Corefold offers it. Nothing happens until
-      you sign in to an account.</p>
+    <p><b>Signing in online (Google Drive, OneDrive and Dropbox),</b> when your copy of Corefold offers it. Nothing
+      of theirs needs to be installed, and you can sign in to as many accounts as you like, several of the same
+      service too. Nothing happens until you sign in to an account.</p>
     <ul>
-      <li><b>Signing in happens on Microsoft's or Dropbox's own page,</b> in your web browser. Corefold never sees your
-        password. While you sign in, Corefold listens on a local address on your own PC (<code>http://localhost</code>)
-        to receive the answer; nothing outside your PC can reach it.</li>
+      <li><b>Signing in happens on Google's, Microsoft's or Dropbox's own page,</b> in your web browser. Corefold never
+        sees your password. While you sign in, Corefold listens on a local address on your own PC
+        (<code>http://localhost</code> or <code>http://127.0.0.1</code>) to receive the answer; nothing outside your PC
+        can reach it.</li>
       <li><b>What Corefold asks for:</b> permission to see, add, change and delete your files, to see your name, email
         address and how much space you use, and to stay signed in so you don't have to sign in every time.</li>
       <li><b>What Corefold keeps:</b> the key the service gives back (not your password), plus your name, email address
@@ -115,18 +117,29 @@
         can unlock them.</li>
       <li><b>Your files go straight between your PC and the service.</b> They don't pass through Atomic Works or
         anyone else. Copying from one cloud to another goes through your PC too.</li>
-      <li><b>Files you open</b> from Cloud are downloaded to a temporary folder on your PC so the right app can open
-        them. Changes stay on your PC until you upload the file again.</li>
-      <li><b>Sign out</b> deletes Corefold's key for that account from your PC, and for Dropbox also asks Dropbox to
-        cancel it. To also take back the permission on
+      <li><b>Files you open</b> from Cloud are downloaded to a folder on your PC
+        (<code>%LOCALAPPDATA%\Corefold\Opened cloud files</code>) so the right app can open them. Changes stay on your
+        PC until you upload the file again; a file you changed is never cleared away, also not when Corefold is
+        removed. Google Docs, Sheets and Slides open on Google's website instead.</li>
+      <li><b>Deleting</b> an online file moves it to the service's own bin or deleted files, where you can put it
+        back for a while. Corefold never deletes anything there for good.</li>
+      <li><b>Sign out</b> deletes Corefold's key for that account from your PC, and for Google and Dropbox also asks
+        them to cancel it. To also take back the permission on
         the service's side, use
+        <a href="https://myaccount.google.com/connections" rel="noopener">your Google account's connections</a>,
         <a href="https://account.live.com/consent/Manage" rel="noopener">your Microsoft account's app permissions</a>
         (work or school accounts: <a href="https://myapps.microsoft.com" rel="noopener">My Apps</a>) or
         <a href="https://www.dropbox.com/account/connected_apps" rel="noopener">Dropbox's connected apps</a>.</li>
     </ul>
-    <p>Your files on OneDrive and Dropbox are covered by those companies' own policies:
+    <p>Your files on Google Drive, OneDrive and Dropbox are covered by those companies' own policies:
+      <a href="https://policies.google.com/privacy" rel="noopener">Google's privacy policy</a>,
       <a href="https://privacy.microsoft.com/privacystatement" rel="noopener">Microsoft's privacy statement</a> and
       <a href="https://www.dropbox.com/privacy" rel="noopener">Dropbox's privacy policy</a>.</p>
+    <p>Corefold's use of information received from Google APIs adheres to the
+      <a href="https://developers.google.com/terms/api-services-user-data-policy" rel="noopener">Google API Services
+      User Data Policy</a>, including the Limited Use requirements: what Corefold gets from Google Drive is only used
+      to show and work with your files on your PC, it's never sent to Atomic Works or anyone else, and it's never
+      used for ads.</p>
 
     <h2>What goes over the internet</h2>
     <table>

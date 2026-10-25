@@ -40,6 +40,8 @@ for name in ("OneDrive", "OneDriveConsumer", "OneDriveCommercial"):
     os.environ.pop(name, None)
 os.environ["COREFOLD_ONEDRIVE_ID"] = "test-onedrive-app"
 os.environ["COREFOLD_DROPBOX_KEY"] = "test-dropbox-app"
+os.environ["COREFOLD_GOOGLE_ID"] = "test-google-app"
+os.environ["COREFOLD_GOOGLE_SECRET"] = "test-google-secret"
 os.environ["NO_PROXY"] = os.environ["no_proxy"] = "127.0.0.1,localhost"
 sys.path.insert(0, str(ROOT))
 try:
@@ -486,6 +488,326 @@ def browser(fake, how="yes"):
     return open_page
 
 
+# ----------------------------------------------------------------------------- a pretend Google Drive
+
+class GFake:
+    """Google Drive for several Google accounts at once: each has its own files. {id: {name, parents, mime, data,
+    modified, trashed, drive, target}}. A trashed file is kept (Google's bin), so it can be checked nothing was
+    deleted for good."""
+    FOLDER = "application/vnd.google-apps.folder"
+
+    def __init__(self):
+        self.files = {}           # email -> {id: item}
+        self.drives = {}          # email -> [(drive id, name)]
+        self.codes = {}           # code -> (challenge, client id, redirect, email)
+        self.access = {}          # token -> email
+        self.refresh = {}         # refresh token -> email
+        self.revoked = 0
+        self.sessions = {}
+        self.n = 0
+        self.page_size = 3        # (in pages of three, so following the next page is tried)
+        self.short_piece = 0      # resumable pieces that only half arrive (Google says how far it got)
+        self.drop_piece = 0       # resumable pieces whose answer never comes back
+        self.spoil_upload = 0     # uploads whose bytes arrive changed
+        self.fail = []            # [(path part, code, reason, times)]
+        self.no_scope = False     # the person unticked "see, edit and delete your files"
+        self.seen = []
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), self.handler())
+        server.daemon_threads = True
+        self.server = server
+        self.base = f"http://127.0.0.1:{server.server_address[1]}"
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+
+    def new_id(self):
+        self.n += 1
+        return f"g{self.n}"
+
+    def account(self, email):
+        if email not in self.files:
+            self.files[email] = {"root": {"name": "My Drive", "parents": [], "mime": self.FOLDER, "data": b"",
+                                          "modified": time.time(), "trashed": False, "drive": "", "target": None}}
+            self.drives[email] = []
+        return self.files[email]
+
+    def add(self, email, parent, name, data=b"", mime="application/octet-stream", drive="", target=None):
+        i = self.new_id()
+        self.account(email)[i] = {"name": name, "parents": [parent], "mime": mime, "data": data,
+                                  "modified": time.time(), "trashed": False, "drive": drive, "target": target}
+        return i
+
+    def named(self, email, name):
+        return [(i, d) for i, d in self.account(email).items() if d["name"] == name]
+
+    def token(self, email, refresh=True):
+        self.n += 1
+        a = f"gA{self.n}"
+        self.access[a] = email
+        out = {"access_token": a, "expires_in": 3599, "token_type": "Bearer",
+               "scope": "openid" if self.no_scope else "https://www.googleapis.com/auth/drive"}
+        if refresh:
+            r = f"gR{self.n}"
+            self.refresh[r] = email
+            out["refresh_token"] = r
+        return out
+
+    def handler(self):
+        fake = self
+
+        class H(http.server.BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
+
+            def log_message(self, *a):
+                pass
+
+            def body(self):
+                n = int(self.headers.get("Content-Length") or 0)
+                return self.rfile.read(n) if n else b""
+
+            def send(self, code, data=None, headers=None):
+                raw = b"" if data is None else data if isinstance(data, bytes) else json.dumps(data).encode()
+                self.send_response(code)
+                for k, v in (headers or {}).items():
+                    self.send_header(k, v)
+                if data is not None and not isinstance(data, bytes):
+                    self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
+
+            def error(self, code, reason, message=""):
+                self.send(code, {"error": {"code": code, "message": message or reason,
+                                           "errors": [{"reason": reason, "message": message or reason}]}})
+
+            def who(self):
+                auth = self.headers.get("Authorization", "")
+                email = fake.access.get(auth[7:]) if auth.startswith("Bearer ") else None
+                if email is None:
+                    self.error(401, "authError", "Invalid Credentials")
+                return email
+
+            def do_GET(self):
+                self.route("GET")
+
+            def do_POST(self):
+                self.route("POST")
+
+            def do_PUT(self):
+                self.route("PUT")
+
+            def do_PATCH(self):
+                self.route("PATCH")
+
+            def do_DELETE(self):
+                self.route("DELETE")
+
+            def route(self, method):
+                fake.seen.append((method, self.path, "Authorization" in self.headers))
+                data = self.body()
+                try:
+                    u = urllib.parse.urlparse(self.path)
+                    q = dict(urllib.parse.parse_qsl(u.query))
+                    for k, (part, code, reason, times) in enumerate(fake.fail):
+                        if part in self.path and times > 0:
+                            fake.fail[k] = (part, code, reason, times - 1)
+                            return self.error(code, reason)
+                    if u.path == "/g/token":
+                        return self.login(data)
+                    if u.path == "/g/revoke":
+                        token = dict(urllib.parse.parse_qsl(data.decode())).get("token")
+                        if fake.refresh.pop(token, None) is None:
+                            return self.send(400, {"error": "invalid_token"})
+                        fake.revoked += 1
+                        return self.send(200, {})
+                    if u.path.startswith("/g/session/"):
+                        return self.session(method, u.path.rsplit("/", 1)[1], data)
+                    email = self.who()
+                    if email is None:
+                        return
+                    files = fake.account(email)
+                    p = u.path
+                    if p == "/g/drive/v3/about":
+                        return self.send(200, {"user": {"displayName": email.split("@")[0].title(),
+                                                        "emailAddress": email},
+                                               "storageQuota": {"limit": "16106127360", "usage": "3221225472"}})
+                    if p == "/g/drive/v3/drives":
+                        return self.send(200, {"drives": [{"id": i, "name": n} for i, n in fake.drives[email]]})
+                    if p == "/g/drive/v3/files" and method == "GET":
+                        return self.listing(email, files, q)
+                    if p == "/g/drive/v3/files" and method == "POST":
+                        meta = json.loads(data)
+                        i = fake.add(email, meta["parents"][0], meta["name"], mime=meta.get("mimeType", ""),
+                                     drive=self.drive_of(files, meta["parents"][0]))
+                        return self.send(200, self.meta(files, i))
+                    m = re.match(r"/g/drive/v3/files/([^/]+)(/export)?$", p)
+                    if m:
+                        i = urllib.parse.unquote(m.group(1))
+                        if i not in files:
+                            return self.error(404, "notFound", f"File not found: {i}.")
+                        d = files[i]
+                        if m.group(2):
+                            raw = f"exported {d['name']} as {q.get('mimeType')}".encode()
+                            return self.send(200, raw, {"Content-Type": q.get("mimeType", "")})
+                        if method == "GET" and q.get("alt") == "media":
+                            if d["mime"].startswith("application/vnd.google-apps."):
+                                return self.error(403, "fileNotDownloadable", "Only files with binary content")
+                            return self.send(200, d["data"], {"Content-Type": "application/octet-stream"})
+                        if method == "PATCH":
+                            change = json.loads(data)
+                            if "name" in change:
+                                d["name"] = change["name"]
+                            if change.get("trashed"):
+                                d["trashed"] = True
+                            return self.send(200, self.meta(files, i))
+                    if p == "/g/upload/drive/v3/files" and method == "POST":
+                        if q.get("uploadType") == "multipart":
+                            bound = self.headers["Content-Type"].split("boundary=")[1]
+                            parts = data.split(b"--" + bound.encode())
+                            meta = json.loads(parts[1].split(b"\r\n\r\n", 1)[1].rsplit(b"\r\n", 1)[0])
+                            content = parts[2].split(b"\r\n\r\n", 1)[1][:-2]
+                            return self.created(email, files, meta, content)
+                        sid = f"s{len(fake.sessions) + 1}"
+                        fake.sessions[sid] = {"email": email, "meta": json.loads(data), "data": b"",
+                                              "size": int(self.headers["X-Upload-Content-Length"])}
+                        return self.send(200, {}, {"Location": f"{fake.base}/g/session/{sid}"})
+                    self.error(400, "badRequest", p)
+                except Exception:
+                    traceback.print_exc()
+                    self.error(500, "backendError")
+
+            def login(self, data):
+                q = dict(urllib.parse.parse_qsl(data.decode()))
+                if q.get("client_secret") != "test-google-secret" or q.get("client_id") != "test-google-app":
+                    return self.send(401, {"error": "invalid_client"})
+                if q.get("grant_type") == "authorization_code":
+                    challenge, cid, redirect, email = fake.codes.pop(q.get("code"), (None,) * 4)
+                    proof = base64.urlsafe_b64encode(hashlib.sha256(q.get("code_verifier", "").encode()).digest()) \
+                        .rstrip(b"=").decode()
+                    if challenge is None or proof != challenge or redirect != q.get("redirect_uri"):
+                        return self.send(400, {"error": "invalid_grant", "error_description": "Bad Request"})
+                    return self.send(200, fake.token(email))
+                email = fake.refresh.get(q.get("refresh_token"))
+                if email is None:
+                    return self.send(400, {"error": "invalid_grant", "error_description": "Token has been expired "
+                                                                                          "or revoked."})
+                return self.send(200, fake.token(email, refresh=False))  # (Google keeps the same refresh key)
+
+            @staticmethod
+            def drive_of(files, i):
+                return files[i]["drive"] if i in files else (i if i.startswith("drive") else "")
+
+            def meta(self, files, i):
+                d = files[i]
+                out = {"id": i, "name": d["name"], "mimeType": d["mime"], "parents": d["parents"],
+                       "modifiedTime": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime(d["modified"])),
+                       "webViewLink": f"https://drive.google.com/file/d/{i}/view"}
+                if d["drive"]:
+                    out["driveId"] = d["drive"]
+                if not d["mime"].startswith("application/vnd.google-apps."):
+                    out["size"] = str(len(d["data"]))
+                    out["md5Checksum"] = hashlib.md5(d["data"]).hexdigest()
+                if d["target"]:
+                    t = files[d["target"]]
+                    out["shortcutDetails"] = {"targetId": d["target"], "targetMimeType": t["mime"]}
+                return out
+
+            def listing(self, email, files, q):
+                text = q.get("q", "")
+                live = {i: d for i, d in files.items() if not d["trashed"] and i != "root"}
+                m = re.fullmatch(r"'(.+?)' in parents and (?:name='(.*)' and )?trashed=false", text)
+                if m:
+                    parent = m.group(1).replace("\\'", "'")
+                    known = parent in files and not files[parent]["trashed"] or \
+                        any(parent == d for d, _ in fake.drives[email])
+                    if not known:
+                        return self.error(404, "notFound", f"File not found: {parent}.")
+                    hits = [i for i, d in live.items() if parent in d["parents"] and
+                            (m.group(2) is None or d["name"] == m.group(2).replace("\\'", "'"))]
+                elif text == "sharedWithMe and trashed=false":
+                    hits = [i for i, d in live.items() if d["parents"] == ["shared"]]
+                else:
+                    m = re.fullmatch(r"name contains '(.*)' and trashed=false", text)
+                    if not m:
+                        return self.error(400, "invalid", "Invalid Value")
+                    want = m.group(1).replace("\\'", "'").lower()
+                    hits = [i for i, d in live.items() if want in d["name"].lower()]
+                start = int(q.get("pageToken", 0))
+                page = {"files": [self.meta(files, i) for i in hits[start:start + fake.page_size]]}
+                if start + fake.page_size < len(hits):
+                    page["nextPageToken"] = str(start + fake.page_size)
+                return self.send(200, page)
+
+            def created(self, email, files, meta, content):
+                if fake.spoil_upload:
+                    fake.spoil_upload -= 1
+                    content = content[:-1] + bytes([content[-1] ^ 1]) if content else b"x"
+                parent = meta["parents"][0]
+                i = fake.add(email, parent, meta["name"], data=content, drive=self.drive_of(files, parent))
+                return self.send(200, self.meta(files, i))
+
+            def session(self, method, sid, data):
+                up = fake.sessions.get(sid)
+                if up is None:
+                    return self.error(404, "notFound", "No such upload")
+                if "Authorization" in self.headers:  # (the upload's own address is all it needs)
+                    return self.error(400, "badRequest", "no auth here")
+                if method == "DELETE":
+                    fake.sessions.pop(sid)
+                    return self.send(499, {})
+                rng = self.headers["Content-Range"][6:]
+                span, total = rng.split("/")
+                if span != "*":
+                    a, b = (int(x) for x in span.split("-"))
+                    if a > len(up["data"]) or b - a + 1 != len(data):
+                        return self.error(400, "badRequest", "wrong piece")
+                    data = data[len(up["data"]) - a:]  # (what Google already has isn't kept twice)
+                    if fake.short_piece and len(data) > 1:
+                        fake.short_piece -= 1
+                        data = data[:len(data) // 2]
+                    up["data"] += data
+                    if fake.drop_piece:
+                        fake.drop_piece -= 1
+                        self.close_connection = True
+                        self.connection.close()
+                        return
+                if len(up["data"]) < up["size"]:
+                    head = {"Range": f"bytes=0-{len(up['data']) - 1}"} if up["data"] else {}
+                    return self.send(308, b"", head)
+                files = fake.account(up["email"])
+                return self.created(up["email"], files, up["meta"], up["data"])
+        return H
+
+
+def g_browser(fake, email, how="yes"):
+    """Plays the browser for Google: checks the sign-in address, and picks this account on Google's page."""
+    def open_page(url):
+        q = dict(urllib.parse.parse_qsl(urllib.parse.urlparse(url).query))
+        check(q.get("code_challenge_method") == "S256" and len(q.get("code_challenge", "")) >= 43,
+              "Google: sign-in asks with a PKCE challenge")
+        check(q.get("redirect_uri", "").startswith("http://127.0.0.1:"), f"Google: the answer comes back to this PC "
+                                                                         f"({q.get('redirect_uri')})")
+        check("select_account" in q.get("prompt", "") and q.get("access_type") == "offline",
+              "Google asks which account each time, and for a key that lasts")
+        check("client_secret" not in q, "the sign-in page address carries no secret")
+        code = f"gcode-{time.time()}"
+        fake.codes[code] = (q["code_challenge"], q["client_id"], q["redirect_uri"], email)
+        back = {"yes": {"code": code, "state": q["state"]}, "no": {"error": "access_denied", "state": q["state"]}}[how]
+
+        def go():
+            time.sleep(0.3)
+            with urllib.request.urlopen(q["redirect_uri"] + "?" + urllib.parse.urlencode(back), timeout=10) as r:
+                r.read()
+        threading.Thread(target=go, daemon=True).start()
+    return open_page
+
+
+def g_point_at(fake, cloud):
+    cloud.GOOGLE_AUTHORIZE = fake.base + "/g/authorize"
+    cloud.GOOGLE_TOKEN = fake.base + "/g/token"
+    cloud.GOOGLE_REVOKE = fake.base + "/g/revoke"
+    cloud.GoogleDrive.API = fake.base + "/g/drive/v3"
+    cloud.GoogleDrive.UPLOAD = fake.base + "/g/upload/drive/v3"
+
+
 # ----------------------------------------------------------------------------- folders like the services' apps leave
 
 def make_files(root: Path, label: str):
@@ -516,6 +838,236 @@ def same_tree(a: Path, b: Path) -> bool:
     def files(root):
         return {p.relative_to(root).as_posix(): p.read_bytes() for p in root.rglob("*") if p.is_file()}
     return files(a) == files(b)
+
+
+def google(cloud):
+    """Google Drive online: two Google accounts at once, everything a file manager does, and the ways files could be
+    lost (a shortcut that leads round in a circle, deleting through a shortcut, an upload cut off or spoiled)."""
+    g = GFake()
+    g_point_at(g, cloud)
+    accs = {}
+
+    def sign_in_two():
+        for email in ("sam@gmail.com", "work.sam@gmail.com"):
+            acc = cloud.sign_in("gdrive", g_browser(g, email), wait_s=20)
+            check(acc.email == email and acc.service == "gdrive", f"Google: signed in as {acc.email}")
+            check(acc.total == 16106127360 and acc.used == 3221225472, f"Google: space is known ({acc.used} of "
+                                                                       f"{acc.total})")
+            accs[email] = acc
+        kept = sorted(a.key for a in cloud.load_accounts() if a.service == "gdrive")
+        check(kept == ["gdrive:sam@gmail.com", "gdrive:work.sam@gmail.com"], f"two Google accounts are kept at once "
+                                                                             f"({kept})")
+        again = cloud.sign_in("gdrive", g_browser(g, "sam@gmail.com"), wait_s=20)
+        kept = [a.key for a in cloud.load_accounts() if a.service == "gdrive"]
+        check(len(kept) == 2 and again.refresh, "signing in to the same one again doesn't add it twice")
+        accs["sam@gmail.com"] = again
+        g.no_scope = True
+        try:
+            cloud.sign_in("gdrive", g_browser(g, "third@gmail.com"), wait_s=20)
+            check(False, "Google: signing in without leave to see the files should fail")
+        except cloud.CloudError as e:
+            check(str(e) == cloud.NO_FILES_ALLOWED, f"Google: unticking the files box says so ({e})")
+        g.no_scope = False
+        check(len([a for a in cloud.load_accounts() if a.service == "gdrive"]) == 2, "and isn't kept")
+    step("Google: two accounts", sign_in_two)
+    if len(accs) < 2:
+        return
+
+    def real(entries):
+        return [e for e in entries if e.kind != "virtual"]
+
+    def files():
+        acc = accs["sam@gmail.com"]
+        c = cloud.client(acc)
+        top = c.list(None)
+        check(real(top) == [] and [e.kind for e in top] == ["virtual"], f"Google: a new account is empty, with "
+                                                                         f"Shared with me ({[e.name for e in top]})")
+        other = cloud.client(accs["work.sam@gmail.com"])
+        g.add("work.sam@gmail.com", "root", "work only.txt", b"work")
+        check([e.name for e in real(other.list(None))] == ["work only.txt"] and real(c.list(None)) == [],
+              "Google: each account shows only its own files")
+        src = TMP / "up-gdrive"
+        make_files(src, "gdrive")
+        (src / "big.bin").write_bytes(os.urandom(700 * 1024))   # (resumable, in 256 KB pieces)
+        (src / "empty.txt").write_bytes(b"")
+        seen = []
+        n = cloud.upload_tree(c, src, None, lambda p: seen.append(p))
+        check(n == 7, f"Google: a whole folder goes up ({n} files)")
+        check(any(t == 700 * 1024 and 0 < d < t for _, d, t in seen), "Google: a big file shows progress in pieces")
+        folder = next(e for e in real(c.list(None)) if e.folder)
+        names = sorted(e.name for e in c.list(folder))
+        check({"Photos", "big.bin", "notes.txt", "empty.txt"} <= set(names), f"Google: listed in pages ({names})")
+        back = TMP / "down-gdrive"
+        back.mkdir()
+        n = cloud.download_tree(c, folder, back)
+        check(n == 7 and same_tree(src, back / folder.name), f"Google: the folder comes back the same ({n})")
+        again = cloud.upload_tree(c, src / "notes.txt", folder)
+        names2 = sorted(e.name for e in c.list(folder))
+        check(again == 1 and "notes (1).txt" in names2 and names2.count("notes.txt") == 1,
+              f"Google: the same name again is kept beside it, never two of one name ({names2})")
+        made = c.new_folder("Photos", folder)
+        check(made.folder and made.name == "Photos (1)", f"Google: a new folder with a name that's there ({made.name})")
+        r = c.rename(next(e for e in c.list(folder) if e.name == "notes (1).txt"), "renamed.txt")
+        check(r.name == "renamed.txt", "Google: renamed")
+        try:
+            c.rename(r, "notes.txt")
+            check(False, "Google: renaming onto another file should fail")
+        except cloud.CloudError as e:
+            check(str(e) == "something with that name is already there", f"Google: a name already there: {e}")
+        c.delete(r)
+        gone = g.named("sam@gmail.com", "renamed.txt")
+        check("renamed.txt" not in [e.name for e in c.list(folder)] and gone and gone[0][1]["trashed"],
+              "Google: deleting moves it to Google Drive's bin (not deleted for good)")
+        found = c.search("beach")
+        check([e.name for e in found] == ["beach.jpg"], f"Google: search finds it ({[e.name for e in found]})")
+        found = c.search("it's")
+        check(found == [], "Google: a ' in a search is fine")
+        try:
+            c.list(cloud.Entry("gone", True, "g999999"))
+            check(False, "Google: a deleted folder should fail")
+        except cloud.CloudError as e:
+            check(str(e) == "it isn't there any more", f"Google: a folder deleted elsewhere: {e}")
+        if os.name == "nt":
+            zone = back / folder.name / "notes.txt:Zone.Identifier"
+            check(zone.exists() and "drive.google.com" in zone.read_text(),
+                  "Google: a downloaded file has Windows' \"from the internet\" mark")
+    step("Google: files", files)
+
+    def googles_own():
+        email = "sam@gmail.com"
+        c = cloud.client(accs[email])
+        box = g.add(email, "root", "Mixed", mime=g.FOLDER)
+        g.add(email, box, "Budget", mime="application/vnd.google-apps.spreadsheet")
+        g.add(email, box, "Survey", mime="application/vnd.google-apps.form")
+        g.add(email, box, "photo.jpg", b"\xff\xd8 photo")
+        g.add(email, box, "Back to the top", mime="application/vnd.google-apps.shortcut", target=box)
+        keep = g.add(email, "root", "Precious.txt", b"must never be lost")
+        g.add(email, box, "Precious shortcut", mime="application/vnd.google-apps.shortcut", target=keep)
+        entry = next(e for e in c.list(None) if e.name == "Mixed")
+        inside = {e.name: e for e in c.list(entry)}
+        check(inside["Budget"].kind.endswith(".xlsx") and inside["Survey"].kind == "web",
+              f"Google Docs are known ({[(n, e.kind) for n, e in inside.items()]})")
+        check(inside["Back to the top"].folder and inside["Back to the top"].own,
+              "a shortcut to a folder shows as that folder")
+        back = TMP / "down-google-own"
+        back.mkdir()
+        c.skipped.clear()
+        t = time.monotonic()
+        n = cloud.download_tree(c, entry, back)
+        got = sorted(p.name for p in (back / "Mixed").iterdir())
+        check(time.monotonic() - t < 20 and "Budget.xlsx" in got and "photo.jpg" in got,
+              f"a folder with a shortcut to itself is saved once, not round and round ({n}: {got})")
+        check((back / "Mixed" / "Budget.xlsx").read_bytes().startswith(b"exported Budget"),
+              "a Google Sheet is saved as an Excel file")
+        check(c.skipped == ["Survey"], f"a Google Form is left out, and said ({c.skipped})")
+        c.delete(inside["Precious shortcut"])
+        check(not g.account(email)[keep]["trashed"] and any(d["trashed"] for _, d in g.named(email,
+                                                                                               "Precious shortcut")),
+              "deleting a shortcut takes only the shortcut, never the file it leads to")
+        c.rename(inside["Back to the top"], "Shortcut")
+        check(g.account(email)[box]["name"] == "Mixed", "renaming a shortcut doesn't rename the folder it leads to")
+        shared = next(e for e in c.list(None) if e.kind == "virtual")
+        g.add(email, "shared", "From a friend.pdf", b"%PDF-1.4 friend")
+        check([e.name for e in c.list(shared)] == ["From a friend.pdf"], "Shared with me shows what's shared")
+        for what, fn in (("deleted", lambda: c.delete(shared)), ("renamed", lambda: c.rename(shared, "x")),
+                         ("uploaded into", lambda: c.upload(TMP / "up-gdrive" / "notes.txt", shared))):
+            try:
+                fn()
+                check(False, f"Shared with me can't be {what}")
+            except cloud.CloudError:
+                check(True, f"Shared with me can't be {what}")
+        g.drives[email].append(("drive1", "Team"))
+        top = c.list(None)
+        check([e.name for e in top if e.kind == "virtual"] == ["Shared with me", "Shared drives"],
+              "Shared drives show when there are any")
+        drives = c.list(next(e for e in top if e.name == "Shared drives"))
+        check([(e.name, e.kind) for e in drives] == [("Team", "drive")], "with each shared drive")
+        up = c.upload(TMP / "up-gdrive" / "notes.txt", drives[0])
+        check(up.drive == "drive1" and [e.name for e in c.list(drives[0])] == ["notes.txt"],
+              "a file goes into a shared drive")
+    step("Google: its own kinds of files, shortcuts, shared", googles_own)
+
+    def uploads_that_go_wrong():
+        email = "work.sam@gmail.com"
+        c = cloud.client(accs[email])
+        big = TMP / "g-big.bin"
+        big.write_bytes(os.urandom(900 * 1024))
+        for what in ("short_piece", "drop_piece"):
+            setattr(g, what, 2)
+            e = c.upload(big, None)
+            stored = next(d for i, d in g.account(email).items() if i == e.id)
+            check(stored["data"] == big.read_bytes(), f"a big upload where {what.replace('_', ' ')} still arrives "
+                                                      f"whole ({len(stored['data'])} of {big.stat().st_size})")
+        g.spoil_upload = 1
+        small = TMP / "g-small.txt"
+        small.write_text("exactly this")
+        try:
+            c.upload(small, None)
+            check(False, "a spoiled upload should fail")
+        except cloud.CloudError as e:
+            check(str(e) == cloud.NOT_SENT_WHOLE, f"an upload that arrives changed is caught ({e})")
+        spoiled = g.named(email, "g-small.txt")
+        check(spoiled and all(d["trashed"] for _, d in spoiled), "and the spoiled copy is put in the bin")
+        stop = threading.Event()
+        try:
+            c.upload(big, None, lambda d, t: stop.set() if d else None, stop)
+            check(False, "Google: cancelling should stop the upload")
+        except cloud.CloudError as e:
+            check(str(e) == "cancelled", f"Google: Cancel stops a big upload ({e})")
+        g.fail.append(("/upload/drive/v3/files", 403, "storageQuotaExceeded", 1))
+        try:
+            c.upload(small, None)
+            check(False, "a full Google account should fail")
+        except cloud.CloudError as e:
+            check(str(e) == "there's no space left in this account", f"a full Google account says so ({e})")
+        g.fail.append(("/drive/v3/files?", 403, "userRateLimitExceeded", 1))
+        t = time.monotonic()
+        c.list(None)
+        check(time.monotonic() - t < 8, "Google's \"too many requests\" is asked again and answers")
+        g.fail.append(("/export", 403, "exportSizeLimitExceeded", 1))
+        sheet = g.add(email, "root", "Huge sheet", mime="application/vnd.google-apps.spreadsheet")
+        e = next(x for x in c.list(None) if x.id == sheet)
+        try:
+            c.download(e, TMP / "huge.xlsx")
+            check(False, "a too big Google Sheet should fail")
+        except cloud.CloudError as err:
+            check(str(err) == cloud.TOO_BIG_TO_EXPORT and not (TMP / "huge.xlsx").exists(),
+                  f"a Google Sheet too big to turn into a file says so ({err})")
+        leaked = [p for m, p, auth in g.seen if auth and p.startswith("/g/session/")]
+        check(not leaked, "the key is never sent to Google's upload addresses")
+    step("Google: uploads that go wrong", uploads_that_go_wrong)
+
+    def keys():
+        acc = accs["work.sam@gmail.com"]
+        c = cloud.client(acc)
+        old = acc.access
+        g.access.pop(old, None)
+        c.list(None)
+        check(acc.access != old and acc.refresh, "Google: a key that ran out is renewed (with the app's secret)")
+        before = g.revoked
+        c.sign_out()
+        cloud.forget_account(acc.key)
+        check(g.revoked == before + 1 and acc.key not in [a.key for a in cloud.load_accounts()],
+              "Google: signing out takes the key back at Google too, and Corefold forgets it")
+        check("gdrive:sam@gmail.com" in [a.key for a in cloud.load_accounts()], "the other Google account stays")
+        try:
+            cloud.client(acc).list(None)
+        except cloud.SignInNeeded:
+            check(True, "a taken back Google key asks to sign in again")
+    step("Google: keys", keys)
+
+    def unreadable_accounts_file():
+        good = cloud.ACCOUNTS_FILE.read_bytes()
+        cloud.ACCOUNTS_FILE.write_bytes(b"\x00garbage")
+        acc = cloud.sign_in("gdrive", g_browser(g, "new@gmail.com"), wait_s=20)
+        aside = list(cloud.FOLDER.glob("accounts-unreadable-*.dat"))
+        check(aside and aside[0].read_bytes() == b"\x00garbage" and [a.key for a in cloud.load_accounts()] ==
+              [acc.key], "an accounts file that can't be read is put aside, never written over")
+        for a in aside:
+            a.unlink()
+        cloud.ACCOUNTS_FILE.write_bytes(good)
+    step("Google: an unreadable accounts file", unreadable_accounts_file)
+    g.server.shutdown()
 
 
 # ----------------------------------------------------------------------------- the parts
@@ -773,6 +1325,7 @@ def core():
         check((dbx / "Photos (2)" / "2024" / "beach.jpg").exists(), "and from an online account to a folder here")
     step("from one cloud to another", across)
     fake.server.shutdown()
+    google(cloud)
 
 
 def page_part():
@@ -996,6 +1549,74 @@ def page_part():
             text = cloudpage._ui_error(cloud.CloudError(err))
             check(bool(text) and (LANG == "en" or text != err), f"said in {LANG}: {text}")
     step("words", words)
+
+    def google_page():
+        from unittest import mock as _m
+        g = GFake()
+        g_point_at(g, cloud)
+        for email in ("sam@gmail.com", "work.sam@gmail.com"):
+            a = cloud.Account("gdrive", email, email.split("@")[0].title())
+            tok = g.token(email)
+            a.access, a.refresh, a.expires = tok["access_token"], tok["refresh_token"], time.time() + 3000
+            a.used, a.total = 3221225472, 16106127360
+            cloud.remember_account(a)
+        g.page_size = 100
+        g.add("sam@gmail.com", "root", "Report", mime="application/vnd.google-apps.document")
+        g.add("sam@gmail.com", "root", "Survey", mime="application/vnd.google-apps.form")
+        g.add("sam@gmail.com", "root", "Trips", mime=g.FOLDER)
+        g.add("sam@gmail.com", "root", "a.txt", b"hello")
+        g.add("work.sam@gmail.com", "root", "Work plan.txt", b"plan")
+        page.load_accounts()
+        rows = [i for i, a in enumerate(page.accounts) if a.service == "gdrive" and not a.local]
+        check(len(rows) == 2 and len({page.accounts[i].email for i in rows}) == 2,
+              f"two Google accounts are listed at once ({[page.accounts[i].email for i in rows]})")
+        page._fill_add_menu()
+        texts = [x.text() for x in page.add_menu.actions()]
+        want = cloudpage.tr("Add another {service} account", service="Google Drive")
+        check(want in texts, f"Add a cloud offers another Google account ({texts})")
+        page.account_list.setCurrentRow(rows[0])
+        check(until(lambda: {"Report", "Trips", "a.txt"} <= set(names()), 8), f"a Google account's files ({names()})")
+        check(cloudpage.tr("Shared with me") in names(), "with Shared with me")
+        until(lambda: False, 0.4)
+        shot = f"cloud-google-{LANG}-{LOOK}.png"
+        check(w.grab().save(str(OUT / shot)), f"picture saved: {shot}")
+
+        def item(name):
+            return next(page.files.topLevelItem(i) for i in range(page.files.topLevelItemCount())
+                        if page.files.topLevelItem(i).data(0, Qt.UserRole).name == name)
+        opened = []
+        with _m.patch.object(cloudpage.QDesktopServices, "openUrl", lambda u: opened.append(u.toString())):
+            page._double_click(item("Report"), 0)
+            until(lambda: False, 0.3)
+        check(opened and "drive.google.com" in opened[0] and not page._working(),
+              f"a Google Doc opens in the browser, nothing is downloaded ({opened})")
+        acc = page.accounts[rows[0]]
+        menus = [[x.text() for x in m.actions() if not x.isSeparator()] for m in (
+            page.file_menu(acc, [item("a.txt").data(0, Qt.UserRole)]),
+            page.file_menu(acc, [item(cloudpage.tr("Shared with me")).data(0, Qt.UserRole)]),
+            page.account_menu(acc))]
+        delete = cloudpage.tr("Delete") + "\tDel"
+        check(len(menus) == 3 and delete in menus[0] and any("\tF2" in t for t in menus[0]),
+              f"a file's menu has its keys ({menus[0] if menus else ''})")
+        check(len(menus) > 1 and delete not in menus[1] and not any("\tF2" in t for t in menus[1]),
+              f"Shared with me can't be deleted or renamed ({menus[1] if len(menus) > 1 else ''})")
+        check(len(menus) > 2 and cloudpage.tr("Sign out") in menus[2] and
+              cloudpage.tr("Open {service} in the browser", service="Google Drive") in menus[2],
+              f"an online account's menu ({menus[2] if len(menus) > 2 else ''})")
+        asked = []
+        with _m.patch.object(cloudpage.QMessageBox, "exec", lambda self: asked.append(1)):
+            page.files.clearSelection()
+            item(cloudpage.tr("Shared with me")).setSelected(True)
+            page._with_picked(page.delete)
+        check(not asked, "the Delete key on Shared with me does nothing")
+        page._double_click(item(cloudpage.tr("Shared with me")), 0)
+        check(until(lambda: len(page.trail) == 1, 5) and not page.upload_btn.isEnabled() and
+              not page.folder_btn.isEnabled(), "nothing can be uploaded into Shared with me")
+        page.account_list.setCurrentRow(rows[1])
+        check(until(lambda: "Work plan.txt" in names(), 8) and "a.txt" not in names(),
+              f"the other Google account shows its own files ({names()})")
+        g.server.shutdown()
+    step("Google Drive on the page", google_page)
     fake.server.shutdown()
     c.quit()
 

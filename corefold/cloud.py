@@ -1,8 +1,8 @@
-"""Corefold Cloud: OneDrive and Dropbox in one window, online (this file) or through the folders their own
-apps keep on this PC (cloudlocal.py, which never goes online).
+"""Corefold Cloud: Google Drive, OneDrive and Dropbox in one window, online (this file: nothing of theirs needs
+to be installed) or through the folders their own apps keep on this PC (cloudlocal.py, which never goes online).
 
-Signing in happens on Microsoft's and Dropbox's own pages, in your browser: Corefold never sees a
-password. What it gets back is a key that only lets it reach your files; it's kept on this PC,
+Signing in happens on Google's, Microsoft's and Dropbox's own pages, in your browser: Corefold never sees a
+password. Any number of accounts can be signed in at once, several of the same service too. What it gets back is a key that only lets it reach your files; it's kept on this PC,
 locked with Windows' own encryption (only your Windows account can unlock it), and "Sign out"
 deletes it. Files go straight between this PC and the service: nothing passes through anyone else.
 
@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .cloudkeys import DROPBOX_APP_KEY, ONEDRIVE_CLIENT_ID
+from .cloudkeys import DROPBOX_APP_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, ONEDRIVE_CLIENT_ID
 from .settings import LOG_DIR
 
 if TYPE_CHECKING:
@@ -44,13 +44,17 @@ SMALL = 4 * 1024 * 1024        # smaller files go up in one request
 DROPBOX_PORT = 53682           # Dropbox needs the exact address registered: http://localhost:53682/
 
 SERVICES = {"onedrive": "OneDrive", "dropbox": "Dropbox", "gdrive": "Google Drive", "icloud": "iCloud Drive"}
-ONLINE = ("onedrive", "dropbox")   # the ones Corefold can sign in to by itself
+ONLINE = ("gdrive", "onedrive", "dropbox")   # the ones Corefold can sign in to by itself
 
 # where Corefold signs in and talks to each service (a test points these at a pretend service)
 MS_LOGIN = "https://login.microsoftonline.com/common/oauth2/v2.0"
 MS_SCOPE = "offline_access Files.ReadWrite User.Read"
 DROPBOX_AUTHORIZE = "https://www.dropbox.com/oauth2/authorize"
 DROPBOX_OAUTH = "https://api.dropboxapi.com/oauth2/token"
+GOOGLE_AUTHORIZE = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN = "https://oauth2.googleapis.com/token"
+GOOGLE_REVOKE = "https://oauth2.googleapis.com/revoke"
+GOOGLE_SCOPE = "https://www.googleapis.com/auth/drive"
 
 
 class CloudError(Exception):
@@ -71,7 +75,14 @@ class Entry:
     modified: float = 0.0
     parent: str = ""
     online: bool = False     # a file in a folder on this PC that is kept online only (opening it downloads it)
-    hash: str = ""           # the service's own check of the file's content ("quickxor:…" or "dropbox:…")
+    hash: str = ""           # the service's own check of the file's content ("quickxor:…", "dropbox:…", "md5:…")
+    kind: str = ""           # Google Drive: "export:<type>:<.ext>" (a Google Doc, saved as an Office file), "web"
+                             # (only opens on Google's site: a Form, a Site…), "virtual" (Shared with me, Shared
+                             # drives: not a real folder), "drive" (a shared drive's top)
+    own: str = ""            # a shortcut's own id (id is what it leads to): renaming or deleting it touches only
+                             # the shortcut, never the file it leads to
+    drive: str = ""          # Google Drive: the shared drive it's in
+    web: str = ""            # its page on the service's website
 
 
 @dataclass
@@ -155,20 +166,48 @@ def unprotect(data: bytes) -> bytes:
 _lock = threading.RLock()
 
 
+def _read() -> tuple[list[Account], bool]:
+    """The kept accounts, and whether the file could be read (missing counts as read: there are none yet)."""
+    try:
+        raw = ACCOUNTS_FILE.read_bytes()
+    except FileNotFoundError:
+        return [], True
+    except OSError:
+        return [], False
+    try:
+        data = json.loads(unprotect(raw).decode("utf-8"))
+    except (OSError, ValueError):
+        return [], False
+    out = []
+    for d in data if isinstance(data, list) else []:
+        try:
+            out.append(Account(**{k: v for k, v in d.items() if k in Account.__dataclass_fields__}))
+        except TypeError:
+            continue
+    return out, isinstance(data, list)
+
+
+def _keep_unreadable():
+    """The accounts file couldn't be read (Windows couldn't unlock it, or it's damaged): it's put aside before
+    anything new is written, so signing in to one more account never wipes the others for good."""
+    try:
+        if ACCOUNTS_FILE.exists():
+            os.replace(ACCOUNTS_FILE, ACCOUNTS_FILE.with_name(f"accounts-unreadable-{int(time.time())}.dat"))
+            log.warning("cloud: the accounts file couldn't be read; it was put aside")
+    except OSError:
+        pass
+
+
 def load_accounts() -> list[Account]:
     with _lock:
-        try:
-            raw = unprotect(ACCOUNTS_FILE.read_bytes())
-            data = json.loads(raw.decode("utf-8")) if raw else []
-        except (OSError, ValueError):
-            return []
-        out = []
-        for d in data if isinstance(data, list) else []:
-            try:
-                out.append(Account(**{k: v for k, v in d.items() if k in Account.__dataclass_fields__}))
-            except TypeError:
-                continue
-        return out
+        return _read()[0]
+
+
+def _load_for_change() -> list[Account]:
+    accounts, ok = _read()
+    if not ok:
+        _keep_unreadable()
+    return accounts
 
 
 def save_accounts(accounts: list[Account]):
@@ -182,12 +221,12 @@ def save_accounts(accounts: list[Account]):
 
 def forget_account(key: str):
     with _lock:
-        save_accounts([a for a in load_accounts() if a.key != key])
+        save_accounts([a for a in _load_for_change() if a.key != key])
 
 
 def remember_account(acc: Account):
     with _lock:
-        accounts = [a for a in load_accounts() if a.key != acc.key]
+        accounts = [a for a in _load_for_change() if a.key != acc.key]
         accounts.append(acc)
         save_accounts(accounts)
 
@@ -195,7 +234,9 @@ def remember_account(acc: Account):
 def update_account(acc: Account):
     """Keeps an account's new key or details, only if it's still kept (one signed out meanwhile stays out)."""
     with _lock:
-        accounts = load_accounts()
+        accounts, ok = _read()
+        if not ok:
+            return
         if any(a.key == acc.key for a in accounts):
             save_accounts([acc if a.key == acc.key else a for a in accounts])
 
@@ -203,18 +244,22 @@ def update_account(acc: Account):
 # ----------------------------------------------------------------------------- the internet
 
 AGAIN = (429, 500, 502, 503, 504)   # worth one more try after a short wait
+TOO_BIG_TO_EXPORT = "Google can't turn something this big into a file; download it from the Google Drive website"
+WEB_ONLY = "this one only opens on the service's website"
 
 
 def _request(method: str, url: str, token: str = "", data=None, headers: dict | None = None,
-             timeout: float = TIMEOUT, raw: bool = False, tries: int = 0):
+             timeout: float = TIMEOUT, raw: bool = False, tries: int = 0, accept: tuple = ()):
     """One request. Reading (GET) is tried up to 3 times when the service is busy or the connection drops;
     other requests only when tries says so (sending a piece of an upload again is safe, making a folder twice
-    isn't). "Too many requests" is tried again whatever it was: the service didn't do it."""
+    isn't). "Too many requests" is tried again whatever it was: the service didn't do it.
+    accept: answers that aren't a failure here (Google's 308 "send the next piece"), returned as
+    {"_status": code, "_range": what it has so far}."""
     tries = tries or (3 if method == "GET" else 1)
     attempt = 0
     while True:
         try:
-            return _request_once(method, url, token, data, headers, timeout, raw)
+            return _request_once(method, url, token, data, headers, timeout, raw, accept)
         except _Again as e:
             attempt += 1
             if attempt >= max(tries, 3 if e.busy else 1):
@@ -228,7 +273,7 @@ class _Again(Exception):
         self.error, self.wait, self.busy = error, wait, busy  # (busy: 429, nothing was done)
 
 
-def _request_once(method, url, token, data, headers, timeout, raw):
+def _request_once(method, url, token, data, headers, timeout, raw, accept=()):
     low = str(url).lower()
     if not low.startswith("https://") and not low.startswith(("http://127.0.0.1:", "http://localhost:")):
         # (an address a service's answer gave, for a download say, could be file:// or plain http; this PC's
@@ -248,6 +293,10 @@ def _request_once(method, url, token, data, headers, timeout, raw):
     try:
         resp = urllib.request.urlopen(req, timeout=timeout)
     except urllib.error.HTTPError as e:
+        if e.code in accept:
+            out = {"_status": e.code, "_range": e.headers.get("Range", "") if e.headers else ""}
+            e.close()
+            return out
         detail = ""
         try:
             detail = e.read().decode("utf-8", "replace")[:600]
@@ -256,6 +305,8 @@ def _request_once(method, url, token, data, headers, timeout, raw):
         if e.code == 401:
             raise SignInNeeded(detail or "signed out") from e
         error = CloudError(_explain(e.code, detail))
+        if e.code == 403 and "ateLimitExceeded" in detail:  # (Google says "too many" this way too)
+            raise _Again(error, 0, True) from e
         if e.code in AGAIN:
             try:
                 wait = float(e.headers.get("Retry-After", 0) or 0)
@@ -290,8 +341,13 @@ def _explain(code: int, detail: str) -> str:
             text = d["error_summary"]
     except ValueError:
         pass
-    if code == 507 or "insufficient_space" in detail or "quotaLimitReached" in detail:
+    if code == 507 or "insufficient_space" in detail or "quotaLimitReached" in detail or \
+            "storageQuotaExceeded" in detail or "teamDriveFileLimitExceeded" in detail:
         return "there's no space left in this account"
+    if "exportSizeLimitExceeded" in detail:
+        return TOO_BIG_TO_EXPORT
+    if "ateLimitExceeded" in detail:
+        return "the service asks to wait a moment, try again soon"
     if code == 404 or "not_found" in detail or "itemNotFound" in detail:
         return "it isn't there any more"
     if code == 429 or "too_many" in detail:
@@ -357,15 +413,13 @@ def _listen(port: int = 0) -> http.server.HTTPServer:
 
 def sign_in(service: str, open_page, cancel: threading.Event | None = None, wait_s: float = 300) -> Account:
     """Opens the service's own sign-in page (open_page(url) opens the browser) and waits for it to
-    send the person back. Returns the new account."""
-    if service == "onedrive":
-        if not ONEDRIVE_CLIENT_ID:
-            raise CloudError("OneDrive isn't set up in this copy of Corefold yet")
-        server = _listen(0)
-        redirect = f"http://localhost:{server.server_address[1]}/"
-    elif service == "dropbox":
-        if not DROPBOX_APP_KEY:
-            raise CloudError("Dropbox isn't set up in this copy of Corefold yet")
+    send the person back. Returns the new account. Google and Microsoft always ask which account: signing in
+    again adds another one (the same one again just gets a fresh key)."""
+    if not available(service):
+        if service not in ONLINE:
+            raise CloudError("unknown service")
+        raise CloudError(f"{SERVICES[service]} isn't set up in this copy of Corefold yet")
+    if service == "dropbox":
         try:
             server = _listen(DROPBOX_PORT)
         except OSError as e:
@@ -373,10 +427,19 @@ def sign_in(service: str, open_page, cancel: threading.Event | None = None, wait
                 from e
         redirect = f"http://localhost:{DROPBOX_PORT}/"
     else:
-        raise CloudError("unknown service")
+        server = _listen(0)
+        # (Google wants this PC's address written as numbers; Microsoft's registration says localhost)
+        host = "127.0.0.1" if service == "gdrive" else "localhost"
+        redirect = f"http://{host}:{server.server_address[1]}/"
     verifier, challenge = _pkce()
     state = secrets.token_urlsafe(16)
-    if service == "onedrive":
+    if service == "gdrive":
+        url = f"{GOOGLE_AUTHORIZE}?" + urllib.parse.urlencode({
+            "client_id": GOOGLE_CLIENT_ID, "response_type": "code", "redirect_uri": redirect,
+            "scope": GOOGLE_SCOPE, "code_challenge": challenge, "code_challenge_method": "S256", "state": state,
+            # (which account, every time, so another one can be added; "consent" so Google gives a key that lasts)
+            "access_type": "offline", "prompt": "select_account consent"})
+    elif service == "onedrive":
         url = f"{MS_LOGIN}/authorize?" + urllib.parse.urlencode({
             "client_id": ONEDRIVE_CLIENT_ID, "response_type": "code", "redirect_uri": redirect,
             "scope": MS_SCOPE, "code_challenge": challenge,
@@ -402,26 +465,34 @@ def sign_in(service: str, open_page, cancel: threading.Event | None = None, wait
         raise CloudError("the answer from the sign-in page didn't match; try again")
     if "code" not in answer:
         raise CloudError("signing in was cancelled")
-    if service == "onedrive":
-        tok = _request("POST", f"{MS_LOGIN}/token",
-                       data=urllib.parse.urlencode({
-                           "client_id": ONEDRIVE_CLIENT_ID, "grant_type": "authorization_code",
-                           "code": answer["code"], "redirect_uri": redirect, "code_verifier": verifier,
-                           "scope": MS_SCOPE}),
-                       headers={"Content-Type": "application/x-www-form-urlencoded"})
+    form = {"Content-Type": "application/x-www-form-urlencoded"}
+    asked = {"grant_type": "authorization_code", "code": answer["code"], "redirect_uri": redirect,
+             "code_verifier": verifier}
+    if service == "gdrive":
+        tok = _request("POST", GOOGLE_TOKEN, headers=form, data=urllib.parse.urlencode(
+            {**asked, "client_id": GOOGLE_CLIENT_ID, "client_secret": GOOGLE_CLIENT_SECRET}))
+        if GOOGLE_SCOPE not in str(tok.get("scope", GOOGLE_SCOPE)).split():
+            # (Google lets the person untick "see, edit and delete your files": without it nothing works)
+            raise CloudError(NO_FILES_ALLOWED)
+    elif service == "onedrive":
+        tok = _request("POST", f"{MS_LOGIN}/token", headers=form, data=urllib.parse.urlencode(
+            {**asked, "client_id": ONEDRIVE_CLIENT_ID, "scope": MS_SCOPE}))
     else:
-        tok = _request("POST", DROPBOX_OAUTH,
-                       data=urllib.parse.urlencode({
-                           "client_id": DROPBOX_APP_KEY, "grant_type": "authorization_code",
-                           "code": answer["code"], "redirect_uri": redirect, "code_verifier": verifier}),
-                       headers={"Content-Type": "application/x-www-form-urlencoded"})
+        tok = _request("POST", DROPBOX_OAUTH, headers=form, data=urllib.parse.urlencode(
+            {**asked, "client_id": DROPBOX_APP_KEY}))
     acc = Account(service, "", refresh=tok.get("refresh_token", ""), access=tok.get("access_token", ""),
                   expires=time.time() + float(tok.get("expires_in", 3600)) - 60)
     if not acc.access:
         raise CloudError("the service didn't let Corefold in")
     client(acc).fill_profile()
+    if not acc.refresh:  # (Google: an account signed in to before, whose key it didn't give again)
+        old = next((a for a in load_accounts() if a.key == acc.key), None)
+        acc.refresh = old.refresh if old is not None else ""
     remember_account(acc)
     return acc
+
+
+NO_FILES_ALLOWED = "Corefold wasn't allowed to see your files; sign in again and leave that box ticked"
 
 
 # ----------------------------------------------------------------------------- the services
@@ -429,6 +500,7 @@ def sign_in(service: str, open_page, cancel: threading.Event | None = None, wait
 class Client:
     def __init__(self, account: Account):
         self.acc = account
+        self.skipped: list[str] = []  # (what a whole folder's download left out: Google Forms, Sites… only open online)
 
     def token(self) -> str:
         acc = self.acc
@@ -487,7 +559,8 @@ def _iso(text: str) -> float:
 
 
 # where each service's files come from (written in the downloaded file's "from the internet" mark)
-HOSTS = {"onedrive": "https://onedrive.live.com/", "dropbox": "https://www.dropbox.com/"}
+HOSTS = {"onedrive": "https://onedrive.live.com/", "dropbox": "https://www.dropbox.com/",
+         "gdrive": "https://drive.google.com/"}
 
 
 def local_name(name: str) -> str:
@@ -567,7 +640,43 @@ def _checker(check: str):
         return QuickXorHash(), want
     if kind == "dropbox":
         return DropboxHash(), want.lower()
+    if kind == "md5":
+        return _Hex(hashlib.md5(usedforsecurity=False)), want.lower()
     return None, ""
+
+
+class _Hex:
+    """hashlib's hash, answering digest() in hex like the services' own checks."""
+
+    def __init__(self, h):
+        self.h = h
+
+    def update(self, data: bytes):
+        self.h.update(data)
+
+    def digest(self) -> str:
+        return self.h.hexdigest()
+
+
+def _same_as_sent(check: str, hasher) -> bool:
+    """An upload arrived whole: what the service says it got matches what was read (True when it doesn't say)."""
+    kind, _, want = check.partition(":")
+    if hasher is None or not want:
+        return True
+    return hasher.digest() == (want if kind == "quickxor" else want.lower())
+
+
+def file_name(entry: Entry) -> str:
+    """The name an online file is saved under on this PC (a Google Doc gets the Office file's ending)."""
+    name = entry.name
+    if entry.kind.startswith("export:"):
+        ext = entry.kind.rsplit(":", 1)[-1]
+        if not name.lower().endswith(ext):
+            name += ext
+    return local_name(name)
+
+
+NOT_SENT_WHOLE = "the upload didn't arrive whole, so it was taken away again; try again"
 
 
 CUT_OFF = "the download was cut off; try again"
@@ -620,7 +729,7 @@ def _stream_to(resp, target: Path, size: int, progress, cancel, host: str = "", 
 
 class OneDrive(Client):
     API = "https://graph.microsoft.com/v1.0"
-    SELECT = "$select=id,name,size,lastModifiedDateTime,folder,file,parentReference"
+    SELECT = "$select=id,name,size,lastModifiedDateTime,folder,file,parentReference,webUrl"
 
     def _refresh(self) -> dict:
         return _request("POST", f"{MS_LOGIN}/token",
@@ -645,7 +754,7 @@ class OneDrive(Client):
         return Entry(d.get("name", ""), "folder" in d, d.get("id", ""), (parent.get("path", "") or "")
                      .split("root:", 1)[-1] + "/" + d.get("name", ""), int(d.get("size", 0) or 0),
                      _iso(d.get("lastModifiedDateTime", "")), parent.get("id", ""),
-                     hash="quickxor:" + qx if qx else "")
+                     hash="quickxor:" + qx if qx else "", web=d.get("webUrl", ""))
 
     def list(self, folder):
         where = f"items/{folder.id}" if folder is not None else "root"
@@ -742,7 +851,8 @@ class Dropbox(Client):
         path = d.get("path_display", "")
         return Entry(d.get("name", ""), folder, d.get("path_lower", path.lower()), path, int(d.get("size", 0) or 0),
                      _iso(d.get("server_modified", "")), path.rsplit("/", 1)[0].lower(),
-                     hash="dropbox:" + d["content_hash"] if d.get("content_hash") else "")
+                     hash="dropbox:" + d["content_hash"] if d.get("content_hash") else "",
+                     web="https://www.dropbox.com/home" + urllib.parse.quote(path) if path else "")
 
     def list(self, folder):
         page = self.call("POST", f"{self.API}/files/list_folder",
@@ -763,15 +873,19 @@ class Dropbox(Client):
         dest = f"{base}/{src.name}"
         size = src.stat().st_size
         arg = {"path": dest, "mode": "add", "autorename": True}
+        sent = DropboxHash()  # (what was read, to check against what Dropbox says it got)
         if size <= SMALL:
-            d = self.call("POST", f"{self.CONTENT}/files/upload", data=src.read_bytes(), timeout=120,
+            data = src.read_bytes()
+            sent.update(data)
+            d = self.call("POST", f"{self.CONTENT}/files/upload", data=data, timeout=120,
                           headers={"Content-Type": "application/octet-stream",
                                    "Dropbox-API-Arg": json.dumps(arg, ensure_ascii=True)})
             if progress is not None:
                 progress(size, size)
-            return self._entry({**d, ".tag": "file"})
+            return self._arrived(self._entry({**d, ".tag": "file"}), sent)
         with open(src, "rb") as f:
             first = f.read(CHUNK)
+            sent.update(first)
             s = self.call("POST", f"{self.CONTENT}/files/upload_session/start", data=first, timeout=180,
                           headers={"Content-Type": "application/octet-stream",
                                    "Dropbox-API-Arg": json.dumps({"close": False})})
@@ -784,6 +898,7 @@ class Dropbox(Client):
                 piece = f.read(CHUNK)
                 if not piece:  # (it got shorter while it was sent: asking for more would never end)
                     raise CloudError("it's open in another app, or Windows didn't allow it")
+                sent.update(piece)
                 last = done + len(piece) >= size
                 if last:
                     d = self.call("POST", f"{self.CONTENT}/files/upload_session/finish", data=piece, timeout=180,
@@ -797,7 +912,17 @@ class Dropbox(Client):
                 done += len(piece)
                 if progress is not None:
                     progress(done, size)
-        return self._entry({**d, ".tag": "file"})
+        return self._arrived(self._entry({**d, ".tag": "file"}), sent)
+
+    def _arrived(self, e: Entry, sent) -> Entry:
+        if _same_as_sent(e.hash, sent):
+            return e
+        log.warning("cloud upload doesn't match what was sent (dropbox)")
+        try:
+            self.delete(e)  # (to Dropbox's deleted files: the file on this PC is untouched)
+        except CloudError:
+            pass
+        raise CloudError(NOT_SENT_WHOLE)
 
     def new_folder(self, name, folder):
         base = folder.id if folder is not None else ""
@@ -833,12 +958,286 @@ class Dropbox(Client):
                 out.append(self._entry(meta))
         return out
 
+class GoogleDrive(Client):
+    """Google Drive, online: My Drive, what's shared with you, and shared drives. Google lets a folder hold two
+    things with the same name; Corefold doesn't make that happen (a new name gets " (1)", like OneDrive and
+    Dropbox do), so nothing can be mistaken for something else. Deleting moves to Google Drive's bin, never for
+    good."""
+    API = "https://www.googleapis.com/drive/v3"
+    UPLOAD = "https://www.googleapis.com/upload/drive/v3"
+    FOLDER_TYPE = "application/vnd.google-apps.folder"
+    SHORTCUT = "application/vnd.google-apps.shortcut"
+    FIELDS = "id,name,mimeType,size,modifiedTime,parents,md5Checksum,driveId,shortcutDetails,webViewLink"
+    ALL = "supportsAllDrives=true&includeItemsFromAllDrives=true"
+    # Google's own files have no bytes to download: each is turned into the file its kind is usually kept as
+    EXPORT = {
+        "application/vnd.google-apps.document":
+            ("application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".docx"),
+        "application/vnd.google-apps.spreadsheet":
+            ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ".xlsx"),
+        "application/vnd.google-apps.presentation":
+            ("application/vnd.openxmlformats-officedocument.presentationml.presentation", ".pptx"),
+        "application/vnd.google-apps.drawing": ("image/png", ".png"),
+        "application/vnd.google-apps.script": ("application/vnd.google-apps.script+json", ".json"),
+        "application/vnd.google-apps.jam": ("application/pdf", ".pdf"),
+    }
+    SHARED_WITH_ME, SHARED_DRIVES = "sharedWithMe", "sharedDrives"
+
+    def __init__(self, account: Account):
+        super().__init__(account)
+        self._names: dict[str, set[str]] = {}  # (the names in a folder, while uploading many things into it)
+
+    def _refresh(self) -> dict:
+        return _request("POST", GOOGLE_TOKEN,
+                        data=urllib.parse.urlencode({"client_id": GOOGLE_CLIENT_ID,
+                                                     "client_secret": GOOGLE_CLIENT_SECRET,
+                                                     "grant_type": "refresh_token", "refresh_token": self.acc.refresh}),
+                        headers={"Content-Type": "application/x-www-form-urlencoded"})
+
+    def fill_profile(self):
+        me = self.call("GET", f"{self.API}/about?fields=user(displayName,emailAddress),storageQuota(limit,usage)")
+        user = me.get("user") or {}
+        self.acc.email = user.get("emailAddress") or self.acc.email or "Google Drive"
+        self.acc.name = user.get("displayName", "")
+        q = me.get("storageQuota") or {}
+        self.acc.used, self.acc.total = int(q.get("usage") or 0), int(q.get("limit") or 0)  # (no limit: unlimited)
+
+    @staticmethod
+    def _q(text: str) -> str:
+        """Text inside a search's quotes."""
+        return text.replace("\\", "\\\\").replace("'", "\\'")
+
+    def _entry(self, d: dict, drive: str = "") -> Entry:
+        kind_of = d.get("mimeType", "")
+        own = ""
+        target = d.get("id", "")
+        if kind_of == self.SHORTCUT:  # (it's shown as what it leads to, but only the shortcut is ever changed)
+            details = d.get("shortcutDetails") or {}
+            own, target = target, details.get("targetId", "")
+            kind_of = details.get("targetMimeType", "")
+        folder = kind_of == self.FOLDER_TYPE
+        kind = ""
+        if not folder and kind_of.startswith("application/vnd.google-apps."):
+            export = self.EXPORT.get(kind_of)
+            kind = f"export:{export[0]}:{export[1]}" if export else "web"
+        md5 = d.get("md5Checksum", "")
+        return Entry(d.get("name", ""), folder, target, "/" + d.get("name", ""), int(d.get("size") or 0),
+                     _iso(d.get("modifiedTime", "")), (d.get("parents") or [""])[0],
+                     hash="md5:" + md5 if md5 and not own else "", kind=kind, own=own,
+                     drive=d.get("driveId", "") or drive, web=d.get("webViewLink", ""))
+
+    def _files(self, q: str, drive: str = "", every: bool = True, extra: str = "") -> list[Entry]:
+        where = f"&corpora=drive&driveId={urllib.parse.quote(drive)}" if drive else ""
+        url = (f"{self.API}/files?q={urllib.parse.quote(q)}&fields=nextPageToken,files({self.FIELDS})"
+               f"&pageSize=1000&{self.ALL}{where}{extra}")
+        out, token = [], ""
+        while True:
+            page = self.call("GET", url + (f"&pageToken={urllib.parse.quote(token)}" if token else ""))
+            out += [self._entry(d, drive) for d in page.get("files", [])]
+            token = page.get("nextPageToken", "")
+            if not token or not every:
+                return out
+
+    def _drives(self) -> list[Entry]:
+        out, token = [], ""
+        while True:
+            page = self.call("GET", f"{self.API}/drives?pageSize=100&fields=nextPageToken,drives(id,name)"
+                             + (f"&pageToken={urllib.parse.quote(token)}" if token else ""))
+            out += [Entry(d.get("name", ""), True, d.get("id", ""), "/" + d.get("name", ""), kind="drive",
+                          drive=d.get("id", "")) for d in page.get("drives", [])]
+            token = page.get("nextPageToken", "")
+            if not token:
+                return out
+
+    def list(self, folder):
+        from .i18n import tr
+        if folder is None:
+            out = self._files("'root' in parents and trashed=false")
+            out.append(Entry(tr("Shared with me"), True, self.SHARED_WITH_ME, "/", kind="virtual"))
+            try:
+                if self._drives():
+                    out.append(Entry(tr("Shared drives"), True, self.SHARED_DRIVES, "/", kind="virtual"))
+            except CloudError:  # (a personal account may not be allowed to ask: there are none then)
+                pass
+            return out
+        if folder.id == self.SHARED_WITH_ME and folder.kind == "virtual":
+            return self._files("sharedWithMe and trashed=false")
+        if folder.id == self.SHARED_DRIVES and folder.kind == "virtual":
+            return self._drives()
+        return self._files(f"'{self._q(folder.id)}' in parents and trashed=false", folder.drive)
+
+    def _parent(self, folder: Entry | None) -> str:
+        if folder is not None and folder.kind == "virtual":
+            raise CloudError("this account doesn't allow that")
+        return folder.id if folder is not None else "root"
+
+    def _free_name(self, parent: str, name: str, drive: str = "") -> str:
+        """name, or "name (1).ext"… when something in that folder already has it."""
+        names = self._names.get(parent)
+        if names is None:
+            names = {e.name.casefold() for e in self._files(f"'{self._q(parent)}' in parents and trashed=false",
+                                                            drive)}
+            self._names[parent] = names
+        stem, dot, ext = name.rpartition(".")
+        if not stem:
+            stem, dot, ext = name, "", ""
+        cand, n = name, 1
+        while cand.casefold() in names:
+            cand = f"{stem} ({n}){dot}{ext}"
+            n += 1
+        names.add(cand.casefold())
+        return cand
+
+    def download(self, entry, target, progress=None, cancel=None):
+        if entry.kind == "web" or entry.kind == "virtual" or entry.kind == "drive":
+            raise CloudError(WEB_ONLY)
+        fid = urllib.parse.quote(entry.id)
+        if entry.kind.startswith("export:"):
+            mime = entry.kind.split(":")[1]
+            resp = self.call("GET", f"{self.API}/files/{fid}/export?mimeType={urllib.parse.quote(mime)}",
+                             raw=True, timeout=120)
+            _stream_to(resp, target, 0, progress, cancel, HOSTS["gdrive"])
+            return
+        resp = self.call("GET", f"{self.API}/files/{fid}?alt=media&supportsAllDrives=true", raw=True, timeout=120)
+        _stream_to(resp, target, entry.size, progress, cancel, HOSTS["gdrive"], entry.hash)
+
+    def upload(self, src, folder, progress=None, cancel=None):
+        parent = self._parent(folder)
+        drive = folder.drive if folder is not None else ""
+        size = src.stat().st_size
+        meta = {"name": self._free_name(parent, src.name, drive), "parents": [parent]}
+        sent = _Hex(hashlib.md5(usedforsecurity=False))
+        ask = f"&supportsAllDrives=true&fields={self.FIELDS}"
+        if size <= SMALL:
+            data = src.read_bytes()
+            sent.update(data)
+            bound = "corefold" + secrets.token_hex(12)
+            body = (f"--{bound}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n{json.dumps(meta)}\r\n"
+                    f"--{bound}\r\nContent-Type: application/octet-stream\r\n\r\n").encode("utf-8") + data + \
+                f"\r\n--{bound}--\r\n".encode("ascii")
+            d = self.call("POST", f"{self.UPLOAD}/files?uploadType=multipart{ask}", data=body, timeout=120,
+                          headers={"Content-Type": f"multipart/related; boundary={bound}"})
+            if progress is not None:
+                progress(size, size)
+            return self._arrived(self._entry(d), size, sent)
+        # bigger: a resumable upload, in pieces Google takes (multiples of 256 KB); a piece that doesn't get there
+        # is sent again from where Google says it got to
+        resp = self.call("POST", f"{self.UPLOAD}/files?uploadType=resumable{ask}", data=meta, raw=True,
+                         headers={"X-Upload-Content-Length": str(size),
+                                  "X-Upload-Content-Type": "application/octet-stream"})
+        with resp:
+            url = resp.headers.get("Location", "")
+        if not url:
+            raise CloudError("the service is having trouble right now, try again soon")
+        piece_size = max(256 * 1024, CHUNK // (256 * 1024) * 256 * 1024)
+        done = hashed = stuck = 0
+        d: dict = {}
+        with open(src, "rb") as f:
+            while not d.get("id"):
+                if cancel is not None and cancel.is_set():
+                    try:
+                        _request("DELETE", url, accept=(499,))
+                    except CloudError:
+                        pass
+                    raise CloudError("cancelled")
+                f.seek(done)
+                piece = f.read(min(piece_size, size - done))
+                if not piece and done < size:  # (it got shorter while it was sent: another app is changing it)
+                    raise CloudError("it's open in another app, or Windows didn't allow it")
+                if done + len(piece) > hashed:  # (each byte counted once, also when a piece goes again)
+                    sent.update(piece[max(0, hashed - done):])
+                    hashed = done + len(piece)
+                try:
+                    d = _request("PUT", url, data=piece, timeout=180, accept=(308,), headers={
+                        "Content-Length": str(len(piece)),
+                        "Content-Range": f"bytes {done}-{done + len(piece) - 1}/{size}" if piece else f"bytes */{size}"})
+                except SignInNeeded:
+                    raise
+                except CloudError:
+                    d = self._where_upload_is(url, size)  # (cut off, or Google was busy: ask how far it got)
+                if d.get("_status") == 308:
+                    was = done
+                    done = _range_end(d.get("_range", "")) + 1  # (the next piece starts where Google got to)
+                    stuck = stuck + 1 if done <= was else 0
+                    if stuck >= 4 or done > size:
+                        raise CloudError(NOT_SENT_WHOLE)
+                elif not d.get("id"):
+                    raise CloudError(NOT_SENT_WHOLE)
+                else:
+                    done = size
+                if progress is not None:
+                    progress(done, size)
+        return self._arrived(self._entry(d), size, sent)
+
+    def _where_upload_is(self, url: str, size: int) -> dict:
+        """How much of a resumable upload Google has (308 with what it has), or the file once it's all there."""
+        return _request("PUT", url, data=b"", accept=(308,), tries=3,
+                        headers={"Content-Length": "0", "Content-Range": f"bytes */{size}"})
+
+    def _arrived(self, e: Entry, size: int, sent) -> Entry:
+        if e.size == size and _same_as_sent(e.hash, sent):
+            return e
+        log.warning("cloud upload doesn't match what was sent (gdrive: %d of %d bytes)", e.size, size)
+        try:
+            self.delete(e)  # (to Google Drive's bin: the file on this PC is untouched)
+        except CloudError:
+            pass
+        raise CloudError(NOT_SENT_WHOLE)
+
+    def new_folder(self, name, folder):
+        parent = self._parent(folder)
+        meta = {"name": self._free_name(parent, name, folder.drive if folder is not None else ""),
+                "mimeType": self.FOLDER_TYPE, "parents": [parent]}
+        d = self.call("POST", f"{self.API}/files?supportsAllDrives=true&fields={self.FIELDS}", data=meta)
+        return self._entry(d)
+
+    def rename(self, entry, name):
+        if entry.kind in ("virtual", "drive"):
+            raise CloudError("this account doesn't allow that")
+        mine = entry.own or entry.id
+        if entry.parent:
+            there = self._files(f"'{self._q(entry.parent)}' in parents and name='{self._q(name)}' and trashed=false",
+                                entry.drive, every=False)
+            if any((e.own or e.id) != mine for e in there):
+                raise CloudError("something with that name is already there")
+        d = self.call("PATCH", f"{self.API}/files/{urllib.parse.quote(mine)}?supportsAllDrives=true"
+                      f"&fields={self.FIELDS}", data={"name": name})
+        return self._entry(d, entry.drive)
+
+    def delete(self, entry):
+        """To Google Drive's bin (Google keeps it there for 30 days), never deleted for good. A shortcut: only
+        the shortcut goes, never the file it leads to."""
+        if entry.kind in ("virtual", "drive"):
+            raise CloudError("this account doesn't allow that")
+        self.call("PATCH", f"{self.API}/files/{urllib.parse.quote(entry.own or entry.id)}?supportsAllDrives=true"
+                  "&fields=id,trashed", data={"trashed": True})
+
+    def search(self, text, cancel=None):
+        return self._files(f"name contains '{self._q(text)}' and trashed=false", every=False,
+                           extra="&corpora=allDrives")[:200]
+
+    def sign_out(self):
+        try:
+            if self.acc.refresh:  # (taking back the key that lasts takes back Corefold's permission for good)
+                _request("POST", GOOGLE_REVOKE, data=urllib.parse.urlencode({"token": self.acc.refresh}),
+                         headers={"Content-Type": "application/x-www-form-urlencoded"}, timeout=10)
+        except CloudError:
+            pass
+
+
+def _range_end(header: str) -> int:
+    """Google's "Range: bytes=0-1048575": the last byte it has (-1: none yet)."""
+    try:
+        return int(header.rsplit("-", 1)[1])
+    except (IndexError, ValueError):
+        return -1
+
 
 def client(acc: Account) -> Client:
     if acc.local:
         from .cloudlocal import Local
         return Local(acc)
-    return OneDrive(acc) if acc.service == "onedrive" else Dropbox(acc)
+    return {"onedrive": OneDrive, "gdrive": GoogleDrive}.get(acc.service, Dropbox)(acc)
 
 
 # ----------------------------------------------------------------------------- whole folders
@@ -853,14 +1252,19 @@ def download_tree(c: Client, entry: Entry, folder: Path, progress=None, cancel=N
     from .core import unique_path
     if cancel is not None and cancel.is_set():
         raise CloudError("cancelled")
-    target = unique_path(folder / local_name(entry.name))
+    if not entry.folder and entry.kind == "web":  # (a Google Form, a Site…: there's no file to save)
+        c.skipped.append(entry.name)
+        return 0
+    target = unique_path(folder / (file_name(entry) if not entry.folder else local_name(entry.name)))
     if not entry.folder:
         c.download(entry, target, None if progress is None else lambda d, t: progress((entry.name, d, t)), cancel)
         return 1
     # what's in it is read before the new folder is made, and new folders are never gone into: a folder of
-    # this PC saved into itself would otherwise be copied into its copy, over and over until it crashed
+    # this PC saved into itself would otherwise be copied into its copy, over and over until it crashed. An
+    # online folder is gone into once: a Google Drive shortcut to a folder it's in would lead round in a circle
     made = set() if _made is None else _made
-    inside = [e for e in c.list(entry) if _key(e.id) not in made]
+    made.add("id:" + entry.id)
+    inside = [e for e in c.list(entry) if _key(e.id) not in made and "id:" + e.id not in made]
     target.mkdir(parents=True)
     made.add(_key(target))
     return sum(download_tree(c, e, target, progress, cancel, made) for e in inside)
@@ -888,4 +1292,5 @@ def upload_tree(c: Client, src: Path, folder: Entry | None, progress=None, cance
 
 def available(service: str) -> bool:
     """Corefold can sign in to this service by itself (its app id is in cloudkeys.py)."""
-    return bool(ONEDRIVE_CLIENT_ID if service == "onedrive" else DROPBOX_APP_KEY if service == "dropbox" else "")
+    return bool({"gdrive": GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET, "onedrive": ONEDRIVE_CLIENT_ID,
+                 "dropbox": DROPBOX_APP_KEY}.get(service))

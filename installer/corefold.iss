@@ -335,8 +335,8 @@ begin
   Exec(ExpandConstant('{app}\{#AppExe}'), '--remove-shell-menu', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
-{ Deletes a folder's contents except one subfolder (kept when it has something in it). }
-procedure DelTreeExcept(Dir, Keep: String);
+{ Deletes a folder's contents except two subfolders (kept when they have something in them). }
+procedure DelTreeExcept(Dir, Keep, Keep2: String);
 var
   FindRec: TFindRec;
 begin
@@ -344,7 +344,8 @@ begin
   begin
     try
       repeat
-        if (FindRec.Name <> '.') and (FindRec.Name <> '..') and (CompareText(FindRec.Name, Keep) <> 0) then
+        if (FindRec.Name <> '.') and (FindRec.Name <> '..') and (CompareText(FindRec.Name, Keep) <> 0) and
+           (CompareText(FindRec.Name, Keep2) <> 0) then
         begin
           if FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY <> 0 then
             DelTree(Dir + '\' + FindRec.Name, True, True, True)
@@ -357,6 +358,7 @@ begin
     end;
   end;
   RemoveDir(Dir + '\' + Keep);  { only goes if it's empty }
+  RemoveDir(Dir + '\' + Keep2);
   RemoveDir(Dir);
 end;
 
@@ -371,15 +373,17 @@ begin
        (MsgBox('Also delete your Corefold settings and what it keeps for you?' + #13#10#13#10 +
                'That is: settings, the clipboard history (pinned copies too), saved archive passwords, ' +
                'your saved signature, cloud sign-ins and the File Organizer''s Undo. ' +
-               'Backups of apps removed with Corefold are kept either way.' + #13#10#13#10 +
+               'Backups of apps removed with Corefold, and files opened from Cloud, are kept either way.' +
+               #13#10#13#10 +
                'Choose No if you might install Corefold again and want to keep them.',
                mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES) then
     begin
       DelTree(ExpandConstant('{userappdata}\{#AppName}'), True, True, True);
       DelTree(ExpandConstant('{userappdata}\{#OldName}'), True, True, True);
-      { backups of apps removed with Corefold are the person's files: they stay }
-      DelTreeExcept(ExpandConstant('{localappdata}\{#AppName}'), 'Uninstall backups');
-      DelTreeExcept(ExpandConstant('{localappdata}\{#OldName}'), 'Uninstall backups');
+      { backups of apps removed with Corefold, and files opened from Cloud (maybe changed and not uploaded yet),
+        are the person's files: they stay }
+      DelTreeExcept(ExpandConstant('{localappdata}\{#AppName}'), 'Uninstall backups', 'Opened cloud files');
+      DelTreeExcept(ExpandConstant('{localappdata}\{#OldName}'), 'Uninstall backups', 'Opened cloud files');
     end;
   end;
 end;
