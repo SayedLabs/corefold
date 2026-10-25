@@ -1,0 +1,24 @@
+# Settings for the developer tools only (the app itself is run and built from requirements.txt,
+# run-from-source.bat and scripts/build.ps1). Install the tools with: pip install -r requirements-dev.txt
+
+[tool.ruff]
+target-version = "py312"
+extend-exclude = ["corefold/icondata.py"]  # (a table of icon shapes, no code)
+
+[tool.ruff.lint]
+# mistakes that break or hide things, not looks: pyflakes (F), Python errors (E4, E7, E9, PLE),
+# bugbear (B) and a few security tripwires (exec, eval, pickle, unsafe YAML, shell=True)
+select = ["E4", "E7", "E9", "F", "B", "PLE", "S102", "S301", "S307", "S506", "S602", "S605"]
+ignore = [
+    "E741",  # a variable called l: fine in colour maths (h, s, l)
+    "B008",  # a call in a default argument
+    "B905",  # zip() without strict=
+]
+
+[tool.ruff.lint.per-file-ignores]
+"corefold/lang_*.py" = ["PLE2502"]  # (Arabic text needs its right-to-left marks)
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+qt_api = "pyside6"
+addopts = "-ra"

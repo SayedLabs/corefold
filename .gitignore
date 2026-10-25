@@ -6,3 +6,5 @@ __pycache__/
 *.spec
 version_info.txt
 corefold/_version.py
+.pytest_cache/
+.ruff_cache/
