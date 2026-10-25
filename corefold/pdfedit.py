@@ -243,8 +243,8 @@ def _arabic_unicode(data: bytes, typed: str) -> bytes:
                 n = [0]
 
                 def one(m):
-                    n[0] += 1
-                    return m.group(0) if n[0] <= skip else fix_dest(m)
+                    n[0] += 1  # noqa: B023
+                    return m.group(0) if n[0] <= skip else fix_dest(m)  # noqa: B023
                 if not (section == "beginbfrange" and "[" not in line and len(line.split()) == 3 and
                         line.split()[0] != line.split()[1]):  # (a run of letters counted up: left alone)
                     line = re.sub(r"<([0-9A-Fa-f]+)>", one, line)
@@ -311,7 +311,7 @@ def read_layout(doc, index: int) -> dict:
             tp.close()
         lines = _lines(c, geo, chars, texts)
         marks = []
-        for ch, gen, obj, rect in chars:
+        for ch, gen, _obj, rect in chars:
             if rect is None or gen or ch in "\r\n":
                 continue
             x, y, w, h = geo.rect_to_display(*rect)
@@ -400,7 +400,7 @@ def _lines(c, geo: Geo, chars: list, texts: dict) -> list[dict]:
             else:
                 owner[obj] = i
     groups: dict[int, list] = {}
-    for i, run in enumerate(runs):
+    for i, _run in enumerate(runs):
         groups.setdefault(find(i), []).append(i)
     lines = []
     for members in groups.values():
@@ -1046,7 +1046,6 @@ def save_edits(src: Path, ctx: Ctx) -> Result:
     # 2. highlights, then everything drawn on top
     pages = writer.pages
     drawn: dict[int, list[dict]] = {}
-    sizes: dict[int, tuple[float, float]] = {}
     for d in edits:
         i = int(d.get("page", 0))
         if not 0 <= i < len(pages):

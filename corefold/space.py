@@ -335,7 +335,7 @@ def squarify(sizes: list[float], x: float, y: float, w: float, h: float) -> list
             s = sum(r)
             if s <= 0:
                 return float("inf")
-            return max(max(short * short * a / (s * s), (s * s) / (short * short * a)) if a > 0 else float("inf")
+            return max(max(short * short * a / (s * s), (s * s) / (short * short * a)) if a > 0 else float("inf")  # noqa: B023
                        for a in r)
         while i < len(areas) and worst(row + [areas[i]]) <= worst(row):
             row.append(areas[i])
@@ -993,7 +993,7 @@ def find_duplicates(folders: list[Path], min_size: int = 100 * 1024, cancel: thr
                 return []
             whole = size <= WHOLE_UP_TO
             first: dict[bytes, list] = {}
-            for (path, mtime), d in zip(files, pool.map(lambda f: _hash(f[0], not whole), files)):
+            for (path, mtime), d in zip(files, pool.map(lambda f: _hash(f[0], not whole), files)):  # noqa: B023
                 if d is not None:
                     first.setdefault(d, []).append((path, mtime))
             for same in first.values():

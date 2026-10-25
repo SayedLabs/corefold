@@ -151,7 +151,7 @@ def table_texts() -> dict[str, str]:
         add(getattr(scanpage, name).values(), "scanpage." + name)
     for _, title, text in tour.STEPS:
         add([title, text], "tour.STEPS")
-    from corefold import settings_backup, shortcutspage
+    from corefold import shortcutspage
     add([e.label for e in shortcutspage.GLOBAL], "shortcutspage.GLOBAL")
     for heading, _, keys in shortcutspage.WINDOW_KEYS:
         add([heading, *[k[1] for k in keys]], "shortcutspage.WINDOW_KEYS")

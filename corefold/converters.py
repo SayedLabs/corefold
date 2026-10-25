@@ -548,7 +548,7 @@ def _start_bg_worker(model: Path):
         except (FileNotFoundError, OSError):
             if time.monotonic() > deadline:
                 proc.kill()
-                raise RuntimeError("helper didn't answer")
+                raise RuntimeError("helper didn't answer") from None
             time.sleep(0.1)
 
 

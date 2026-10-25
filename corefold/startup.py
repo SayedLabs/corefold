@@ -647,7 +647,7 @@ def set_on(entry: Entry, on: bool, ask_admin: bool = True) -> bool:
         _write_note(hive, approved, entry.value, note)
     except PermissionError:
         if not ask_admin:
-            raise NeedsAdmin(entry.value)
+            raise NeedsAdmin(entry.value) from None
         if not _write_note_as_admin(hive, approved, entry.value, note):
             return False
     ok = note_is_off(read_note(entry)) != on

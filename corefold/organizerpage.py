@@ -60,7 +60,7 @@ def to_sort_text(n: int) -> str:
 
 def _para(text: str) -> str:
     """In Arabic, a line that starts with a Latin name still reads right to left."""
-    return "‏" + text if text and i18n.is_rtl() else text
+    return "\u200f" + text if text and i18n.is_rtl() else text
 
 
 class FolderCard(QPushButton):

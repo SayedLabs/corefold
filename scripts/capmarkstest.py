@@ -35,7 +35,7 @@ import faulthandler  # noqa: E402
 
 faulthandler.dump_traceback_later(600, exit=True)
 
-from PySide6.QtCore import QPoint, QPointF, QRectF, Qt  # noqa: E402
+from PySide6.QtCore import QPoint, QRectF, Qt  # noqa: E402
 from PySide6.QtGui import QColor, QIcon, QImage  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402

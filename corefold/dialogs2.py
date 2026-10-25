@@ -345,7 +345,7 @@ class CropDialog(Base):
         super().__init__(tr("Crop"), describe(files), icon, dark)
         self.area = CropArea()
         self.ratio = Dropdown()
-        for key, (text, value) in CROP_RATIOS.items():
+        for key, (text, _value) in CROP_RATIOS.items():
             self.ratio.addItem(tr(text), key)
         self.ratio.currentIndexChanged.connect(lambda _: self.area.set_ratio(CROP_RATIOS[self.ratio.currentData()][1]))
         self.info = QLabel()

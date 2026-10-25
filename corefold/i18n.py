@@ -185,7 +185,7 @@ def ltr(text: str) -> str:
     for ch in text:
         kind = unicodedata.bidirectional(ch)
         if kind == "L":
-            return f"‪{text}‬"
+            return f"\u202a{text}\u202c"
         if kind in ("R", "AL"):
             return text
-    return f"‪{text}‬"  # only numbers and signs: keep them as written too
+    return f"\u202a{text}\u202c"  # only numbers and signs: keep them as written too

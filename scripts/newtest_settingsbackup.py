@@ -400,7 +400,7 @@ def window(lang: str, look: str, taken: bool):
         settle(0.6)
         from PySide6.QtWidgets import QLabel, QPushButton
         area = w.stack.currentWidget()
-        marks = "‪‬"
+        marks = "\u202a\u202c"
         cut = [lab.text()[:40] for lab in area.widget().findChildren(QLabel) if lab.isVisible() and lab.text()
                and ((not lab.wordWrap() and lab.fontMetrics().horizontalAdvance(lab.text().strip(marks))
                      > lab.contentsRect().width() + 3)

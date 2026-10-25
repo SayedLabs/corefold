@@ -673,7 +673,7 @@ def player():
         return
     win.open(S / "Trip 1080p.mp4")
     until(lambda: win.player.position() > 200, 5)
-    for i, ms in enumerate((60000, 10000, 80000, 30000, 45000)):
+    for _i, ms in enumerate((60000, 10000, 80000, 30000, 45000)):
         timed(f"jump to {ms // 1000} s", lambda m=ms: win._seek_to(m), 0.8,
               wait=lambda m=ms: abs(win.player.position() - m) < 2500)
     timed("click along the bar 10 times quickly", lambda: [(win._seek_to(5000 * k), wait_ms(60)) for k in range(10)],

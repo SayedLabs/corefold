@@ -8,9 +8,7 @@ Runs on Windows (the parts that need 7-Zip or the Recycle Bin are left out elsew
 Prints one line per check, then "audittest: N problem(s)".
 """
 import base64
-import hashlib
 import http.server
-import io
 import json
 import os
 import shutil

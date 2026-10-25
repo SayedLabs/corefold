@@ -43,10 +43,10 @@ These run on one of GitHub's Windows PCs. Start them from the **Actions** tab â†
 ## Developer tools
 `pip install -r requirements-dev.txt` installs the app's packages plus the tools below (their settings
 are in `pyproject.toml`). None of them is shipped with the app. **Actions â†’ Developer checks** runs
-Ruff and the tests on a Windows PC after every push that changes Python code.
+Ruff and the tests on a Windows PC after every push that changes Python code; both must pass.
 - **Ruff** looks for mistakes, not looks: `ruff check .` (unused or missing names, repeated keys,
-  loop variables caught late, `eval`/`exec`/`shell=True`). It only reports for now; don't run
-  `ruff format`, it would rewrite the layout of every file.
+  loop variables caught late, `eval`/`exec`/`shell=True`). It must find nothing; `ruff check --fix .`
+  fixes the simple ones. Don't run `ruff format`, it would rewrite the layout of every file.
 - **pytest + pytest-qt** clicks widgets like a person: `pytest` runs what's in `tests/` (the older
   checks in `scripts/` stay as they are). On Linux, run it with `QT_QPA_PLATFORM=offscreen`.
 - **pip-audit** looks for known holes in the packages: `pip-audit -r requirements.txt`. The

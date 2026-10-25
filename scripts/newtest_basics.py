@@ -226,7 +226,6 @@ def main():
     step("the Uninstaller's list", uninstaller_list)
 
     def app_updates():
-        from PySide6.QtCore import Qt
         from corefold import appspage, appupdates as au
         sample = ("\r   - \r   \\ \rName              Id                Version  Available Source\n"
                   "----------------------------------------------------------------\n"
