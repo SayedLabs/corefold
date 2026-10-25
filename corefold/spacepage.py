@@ -15,9 +15,9 @@ from PySide6.QtCore import QPoint, QRectF, QSize, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QBrush, QColor, QDesktopServices, QFont, QFontMetrics, QPainter, QPen
 from PySide6.QtWidgets import QApplication, QButtonGroup, QCheckBox, QFileDialog, QFrame, QGridLayout, \
     QHBoxLayout, QHeaderView, QLabel, QMenu, QMessageBox, QProgressBar, QPushButton, QScrollArea, QSizePolicy, QStackedWidget, \
-    QStyledItemDelegate, QToolTip, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
+    QStyledItemDelegate, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
-from . import icons, space, work
+from . import icons, sheet, space, work
 from .atomic.tokens import alpha, on_color
 from .atomic.widgets import Dropdown, FlowLayout, GlowPanel, Group
 from .core import human_size, short_name
@@ -393,7 +393,7 @@ class Treemap(QWidget):
             where = ""
             if b.parent is not None and b.parent is not self.folder:
                 where = f"{b.parent.name}  ›  "
-            QToolTip.showText(e.globalPosition().toPoint(), f"{where}{b.name}\n{human_size(b.size)}", self)
+            sheet.tip_at(e.globalPosition().toPoint(), f"{where}{b.name}\n{human_size(b.size)}", self)
 
     def leaveEvent(self, e):
         self.hover = -1
@@ -484,8 +484,8 @@ class KindsBar(QWidget):
             self.hover = kind
             self.update()
         if kind:
-            QToolTip.showText(e.globalPosition().toPoint(), f"{tr(space.KINDS[kind])}  ·  {human_size(self.kinds[kind])}",
-                              self)
+            sheet.tip_at(e.globalPosition().toPoint(), f"{tr(space.KINDS[kind])}  ·  {human_size(self.kinds[kind])}",
+                         self)
 
     def leaveEvent(self, e):
         self.hover = ""
@@ -746,7 +746,7 @@ def _confirm(parent, title: str, text: str, yes: str) -> bool:
     box.setText(text)
     ok = box.addButton(yes, QMessageBox.DestructiveRole)
     box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-    box.exec()
+    sheet.run(box)
     return box.clickedButton() is ok
 
 
@@ -1315,7 +1315,7 @@ class SpacePage(QWidget):
         if space.protected(path) or program is not None:  # (a program's folder in the bin would break it)
             act.setEnabled(False)
             act.setText(tr("Windows needs this (remove programs with the Uninstaller)"))
-        menu.exec(pos)
+        sheet.menu(menu, pos)
 
     def _program_at(self, path: Path):
         """The installed program this folder belongs to (only while the Uninstaller is in use)."""
@@ -1336,7 +1336,7 @@ class SpacePage(QWidget):
         then takes its folder off the map."""
         from .appspage import UninstallDialog
         dlg = UninstallDialog(self.c, [program], self._apps or [program], False, self.window().windowIcon())
-        dlg.exec()
+        sheet.run(dlg)
         changed = dlg.changed
         dlg.deleteLater()
         self._apps = None  # (read again next time)
@@ -1736,7 +1736,7 @@ class SpacePage(QWidget):
         menu.addAction(tr("Open"), lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(path))))
         menu.addAction(tr("Show in folder"), lambda: reveal_in_explorer(path))
         menu.addAction(tr("Copy the path"), lambda: QApplication.clipboard().setText(str(path)))
-        menu.exec(self.dupe_tree.viewport().mapToGlobal(pos))
+        sheet.menu(menu, self.dupe_tree.viewport().mapToGlobal(pos))
         menu.deleteLater()
 
     def _ticked(self) -> list[tuple[str, int]]:
@@ -1777,8 +1777,8 @@ class SpacePage(QWidget):
         if not ticked or self.job is not None:
             return
         if self._all_ticked_groups():
-            QMessageBox.information(self, tr("Keep one copy"), tr("Every copy of a file is ticked. Untick the one "
-                                                                  "you want to keep."))
+            sheet.information(self, tr("Keep one copy"), tr("Every copy of a file is ticked. Untick the one "
+                                                            "you want to keep."))
             return
         total = sum(s for _, s in ticked)
         if not _confirm(self, tr("Remove these copies?"),

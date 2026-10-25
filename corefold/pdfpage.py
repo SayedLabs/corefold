@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QFileDialog, QFrame, QHBoxLayo
                                QStackedWidget, QStyle, QStyledItemDelegate, QStyleOptionViewItem, QVBoxLayout,
                                QWidget)
 
-from . import icons, pdftools, work
+from . import icons, pdftools, sheet, work
 from .atomic import tokens
 from .atomic.widgets import FlowLayout, IconButton, ResponsiveGrid
 from .core import IMAGE_EXT, norm, short_name
@@ -420,7 +420,7 @@ class PdfPage(QWidget):
         if dialog is not None:
             dlg = dialog(files, icon, dark)
             try:
-                if not dlg.exec():
+                if not sheet.run(dlg):
                     return
                 params = dlg.params()
             finally:
@@ -434,7 +434,7 @@ class PdfPage(QWidget):
             return
         dlg = PicturesDialog(files, self.c.icon, self.c.theme.dark)
         try:
-            if not dlg.exec():
+            if not sheet.run(dlg):
                 return
             params = dlg.params()
         finally:
@@ -930,7 +930,7 @@ class PdfPage(QWidget):
         dlg = PreviewDialog(tr("Corefold PDF"), self.c.icon, self.c.theme.dark, render, start, len(plan))
         self.preview_dialog = dlg
         try:
-            dlg.exec()
+            sheet.run(dlg)
         finally:
             self.preview_dialog = None
             dlg.deleteLater()
@@ -946,7 +946,7 @@ class PdfPage(QWidget):
                                 (tr("As pictures…"), "images", "image")):
             act = m.addAction(icons.icon(name, muted), text)
             act.triggered.connect(lambda _=False, h=how: self.save(h, only_selected=True))
-        m.exec(self.selected_btn.mapToGlobal(self.selected_btn.rect().topLeft()))
+        sheet.menu(m, self.selected_btn, above=True)
         m.deleteLater()
 
     def save(self, how: str, only_selected: bool = False):
@@ -960,7 +960,7 @@ class PdfPage(QWidget):
             from .pdfdialogs import ToPicturesDialog
             dlg = ToPicturesDialog([self.files[pages[0][0]]], self.c.icon, self.c.theme.dark, ranges=False)
             try:
-                if not dlg.exec():
+                if not sheet.run(dlg):
                     return
                 params.update(dlg.params())
             finally:
@@ -1009,7 +1009,7 @@ class PdfPage(QWidget):
                               parent=self)
             close = box.addButton(tr("Close"), QMessageBox.DestructiveRole)
             box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-            box.exec()
+            sheet.run(box)
             chosen = box.clickedButton()
             box.deleteLater()
             if chosen is not close:

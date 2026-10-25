@@ -13,7 +13,7 @@ from PySide6.QtGui import QColor, QFont, QFontMetricsF, QGuiApplication, QIcon, 
 from PySide6.QtWidgets import QButtonGroup, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QMenu, \
     QMessageBox, QPushButton, QVBoxLayout, QWidget
 
-from . import icons
+from . import icons, sheet
 from .core import APP_NAME
 from .i18n import tr
 from .theme import round_menu
@@ -1238,7 +1238,7 @@ class CaptureEditor(QWidget):
             save = box.addButton(tr("Save"), QMessageBox.AcceptRole)
             skip = box.addButton(tr("Don't save"), QMessageBox.DestructiveRole)
             box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-            box.exec()
+            sheet.run(box)
             chosen = box.clickedButton()
             box.deleteLater()
             if chosen is save:
@@ -1325,7 +1325,7 @@ def add_arabic(controller, parent, then=None) -> bool:
                    "downloaded from Microsoft, and Windows asks for administrator permission. Add it now?"))
     yes = box.addButton(tr("Add it"), QMessageBox.AcceptRole)
     box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-    box.exec()
+    sheet.run(box)
     if box.clickedButton() is not yes:
         return False
     from . import work
@@ -1479,7 +1479,7 @@ class PinnedPicture(QWidget):
             menu.addAction(tr("Actual size"), self.actual_size)
             menu.addSeparator()
             menu.addAction(tr("Close"), self.close)
-            menu.exec(e.globalPosition().toPoint())
+            sheet.menu(menu, e.globalPosition().toPoint())
 
     def mouseMoveEvent(self, e):
         if self._drag is not None and e.buttons() & Qt.LeftButton:
