@@ -513,6 +513,7 @@ def extract(src: Path, ctx: Ctx, mode: str = "smart") -> Result:
     try:
         _hide(staging)
         _extract_into(src, staging, ctx, password, members)
+        dropped = _drop_links(staging)
         items = sorted(staging.iterdir())
         if not items:
             raise RuntimeError(tr("the archive is empty"))
@@ -531,10 +532,34 @@ def extract(src: Path, ctx: Ctx, mode: str = "smart") -> Result:
             count = unpack_nested(created, ctx)
             if count:
                 note = tr("Also unpacked {count} archives that were inside", count=count)
+        if dropped:
+            note = (note + " · " if note else "") + tr("Left out {count} links that pointed elsewhere", count=dropped)
         return Result([result], note=note)
     finally:
         if staging is not None and staging.exists():
             shutil.rmtree(staging, ignore_errors=True)
+
+
+def _drop_links(folder: Path) -> int:
+    """Links that came out of an archive (a symbolic link or junction can point anywhere on the PC) are
+    taken out before anything is moved into place: only the link goes, never what it points at."""
+    from .core import is_link
+    dropped = 0
+    for root, dirs, files in os.walk(folder):  # (os.walk doesn't go into links)
+        for name in dirs + files:
+            path = Path(root) / name
+            if is_link(path):
+                try:
+                    try:
+                        os.unlink(path)
+                    except OSError:
+                        os.rmdir(path)  # (a junction: rmdir takes the link away, not the folder it points at)
+                    dropped += 1
+                except OSError:
+                    log.warning("couldn't take a link out of what was unpacked: %s", path)
+                    raise RuntimeError(tr("the archive holds a link that couldn't be taken out")) from None
+        dirs[:] = [d for d in dirs if not is_link(Path(root) / d)]
+    return dropped
 
 
 _STAGING = re.compile(r"^\.corefold-unpacking-[a-z0-9_]{8}$")

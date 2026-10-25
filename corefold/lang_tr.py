@@ -817,6 +817,8 @@ STRINGS: dict[str, str] = {
     "Rescue files": "Dosyaları kurtar",
     "Rescue files from {name}": "{name} içindeki dosyaları kurtar",
     "Also unpacked {count} archives that were inside": "İçindeki {count} arşiv de açıldı",
+    "Left out {count} links that pointed elsewhere": "Başka bir yeri gösteren {count} bağlantı dışarıda bırakıldı",
+    "the archive holds a link that couldn't be taken out": "arşivde çıkarılamayan bir bağlantı var",
     "couldn't put that file back into the archive": "dosya arşive geri konamadı",
     "Saved {name} back into {archive}": "{name}, {archive} içine geri kaydedildi",
     "nothing in this archive could be rescued": "bu arşivden hiçbir şey kurtarılamadı",

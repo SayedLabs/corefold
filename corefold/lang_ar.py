@@ -894,6 +894,8 @@ STRINGS: dict[str, str] = {
     "Rescue files": "إنقاذ الملفات",
     "Rescue files from {name}": "إنقاذ الملفات من {name}",
     "Also unpacked {count} archives that were inside": "وتم فك {count} أرشيف كانت بداخله",
+    "Left out {count} links that pointed elsewhere": "تم ترك {count} اختصار كان يشير إلى مكان آخر",
+    "the archive holds a link that couldn't be taken out": "في الأرشيف اختصار تعذّر إخراجه",
     "couldn't put that file back into the archive": "ما قدرنا نرجّع الملف داخل الأرشيف",
     "Saved {name} back into {archive}": "تم حفظ {name} داخل {archive}",
     "nothing in this archive could be rescued": "ما أمكن إنقاذ أي شيء من هذا الأرشيف",
