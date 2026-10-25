@@ -1,5 +1,6 @@
 """Corefold Cloud's page: your clouds side by side. OneDrive, Dropbox, Google Drive and iCloud folders kept on this
-PC by their own apps show up by themselves; OneDrive and Dropbox can also be signed in to online. Open, download,
+PC by their own apps show up by themselves; Google Drive, OneDrive and Dropbox can also be signed in to online, with
+nothing of theirs installed, and as many accounts as you like (several Google accounts at once too). Open, download,
 upload (or drop files and folders in), make folders, rename, delete, search everything, and copy from one cloud to
 another by dragging."""
 from __future__ import annotations
@@ -35,8 +36,14 @@ GET_APP = {"onedrive": "https://www.microsoft.com/microsoft-365/onedrive/downloa
            "dropbox": "https://www.dropbox.com/install",
            "gdrive": "https://www.google.com/drive/download/",
            "icloud": "https://apps.microsoft.com/detail/9pktq5699m62"}
+# each service's own website, for "Open in the browser"
+WEBSITE = {"gdrive": "https://drive.google.com/", "onedrive": "https://onedrive.live.com/",
+           "dropbox": "https://www.dropbox.com/home"}
 ACCOUNT = Qt.UserRole + 1          # (the account a search result belongs to)
 TEMP_PREFIX = "corefold-cloud-"
+# files opened from an online account are changed here: not in Windows' temporary folder, which Storage Sense and
+# Disk Cleanup empty by themselves (changes not uploaded yet would go with it); removing Corefold leaves it too
+OPENED = cloud.LOG_DIR / "Opened cloud files"
 PREVIEW_MAX = 300 * 1024 * 1024    # (an online file bigger than this isn't downloaded just to look at it)
 KEPT = 30                          # transfers kept in the list
 
@@ -70,11 +77,17 @@ def _ui_error(e) -> str:
         "the service didn't let Corefold in": tr("The service didn't let Corefold in. Try again."),
         "another program is using the port Dropbox signs in through; close it and try again":
             tr("Another program is using the port Dropbox signs in through. Close it and try again."),
-        "OneDrive isn't set up in this copy of Corefold yet": tr("Signing in to {name} isn't set up in this copy of "
-                                                                 "Corefold yet.", name="OneDrive"),
-        "Dropbox isn't set up in this copy of Corefold yet": tr("Signing in to {name} isn't set up in this copy of "
-                                                                "Corefold yet.", name="Dropbox"),
+        cloud.TOO_BIG_TO_EXPORT: tr("Google can't turn something this big into a file. Download it from the Google "
+                                    "Drive website."),
+        cloud.WEB_ONLY: tr("This one only opens on the service's website."),
+        cloud.NO_FILES_ALLOWED: tr("Corefold wasn't allowed to see your files. Sign in again and leave the box that "
+                                   "lets it see, edit and delete your files ticked."),
+        cloud.NOT_SENT_WHOLE: tr("The upload didn't arrive whole, so it was taken away again. Your file on this PC "
+                                 "is untouched. Try again."),
     }
+    for name in cloud.SERVICES.values():
+        known[f"{name} isn't set up in this copy of Corefold yet"] = tr(
+            "Signing in to {name} isn't set up in this copy of Corefold yet.", name=name)
     if isinstance(e, cloud.SignInNeeded):
         return tr("Signed out of this account. Sign in again to see its files.")
     if text in known:
@@ -82,6 +95,15 @@ def _ui_error(e) -> str:
     if isinstance(e, cloud.CloudError):
         return tr("The service said: {text}", text=ltr(text))
     return tr("Something went wrong: {text}", text=ltr(text))
+
+
+def _left_out(c: cloud.Client) -> str:
+    """What a download or copy left out because it only opens on the service's website (Google Forms, Sites…)."""
+    if not c.skipped:
+        return ""
+    return " " + tr("{count} left out: they only open on the website ({names}).", count=len(c.skipped),
+                    names=ltr(", ".join(short_name(n, 30) for n in c.skipped[:3]) +
+                              ("…" if len(c.skipped) > 3 else "")))
 
 
 OPENED_NOTE = ".corefold-opened"  # (in each such folder: the file's size and date right after it came down)
@@ -93,6 +115,8 @@ def _untouched(folder: str) -> bool | None:
         with open(os.path.join(folder, OPENED_NOTE), encoding="utf-8") as fh:
             kept = json.load(fh)
         st = os.stat(os.path.join(folder, kept["name"]))
+        if set(os.listdir(folder)) - {kept["name"], OPENED_NOTE}:  # (saved as something else next to it)
+            return False
         return st.st_size == kept["size"] and st.st_mtime_ns == kept["mtime"]
     except FileNotFoundError:
         return False if os.path.exists(os.path.join(folder, OPENED_NOTE)) else None
@@ -113,8 +137,13 @@ def clean_old_temp(days: float = 2):
     """Files opened from an online account are downloaded to a temporary folder; old ones are cleared away.
     One that was changed is kept: "changes to it stay on this PC until you upload it again"."""
     old = time.time() - days * 86400
+    for base in (tempfile.gettempdir(), str(OPENED)):
+        _clean_old(base, old)
+
+
+def _clean_old(base: str, old: float):
     try:
-        with os.scandir(tempfile.gettempdir()) as it:
+        with os.scandir(base) as it:
             for d in it:
                 try:
                     if not (d.name.startswith(TEMP_PREFIX) and d.is_dir() and d.stat().st_mtime < old):
@@ -245,6 +274,7 @@ def _sorted(found: list, col: int, down: bool) -> list:
     (Qt's own sort asked Python about each comparison: 20,000 files froze the window for seconds.)"""
     out = sorted(found, key=lambda ae: _sort_key(ae[1], col), reverse=down)
     out.sort(key=lambda ae: not ae[1].folder)
+    out.sort(key=lambda ae: ae[1].kind != "virtual")  # (Shared with me, Shared drives: always on top)
     return out
 
 
@@ -395,6 +425,9 @@ class Files(QTreeWidget):
     def _takes(self, md) -> bool:
         page = self.page
         if page.account is None or page.results is not None:
+            return False
+        here = page._here()
+        if here is not None and here.kind == "virtual":  # (Shared with me…: nothing can be put there)
             return False
         if md.hasFormat(DRAG_MIME):  # from another account: copied into this folder
             return page.dragging is not None and page.dragging[0].key != page.account.key
@@ -617,6 +650,15 @@ class CloudPage(QWidget):
     def _working(self) -> bool:
         return self.job is not None and self.job.is_alive()
 
+    def _ic(self, name: str, danger: bool = False):
+        """An icon in the theme's colours, drawn once (menus and lists open without drawing them again)."""
+        cache = self.__dict__.setdefault("_icons", {})
+        key = (name, danger)
+        if key not in cache:
+            t = self.c.theme
+            cache[key] = icons.icon(name, t.danger if danger and t.danger else t.muted)
+        return cache[key]
+
     def _button(self, text, fn) -> QPushButton:
         b = QPushButton(text)
         b.setCursor(Qt.PointingHandCursor)
@@ -661,9 +703,12 @@ class CloudPage(QWidget):
             if self.found is None:
                 self.empty.setText(tr("Looking for your clouds on this PC…"))
             elif any(cloud.available(k) for k in cloud.ONLINE):
-                self.empty.setText(tr("No cloud folders on this PC yet. Install OneDrive, Dropbox, Google Drive or "
-                                      "iCloud and its files show up here, or sign in to OneDrive or Dropbox: you "
-                                      "sign in on their own page, so your password never reaches Corefold."))
+                names = " · ".join(cloud.SERVICES[k] for k in cloud.ONLINE if cloud.available(k))
+                self.empty.setText(tr("Add a cloud to see its files here: sign in to {names} with nothing else to "
+                                      "install, as many accounts as you like. You sign in on the service's own page, "
+                                      "so your password never reaches Corefold. Cloud folders that OneDrive, Dropbox, "
+                                      "Google Drive or iCloud keep on this PC show up by themselves too.",
+                                      names=names))
             else:
                 self.empty.setText(tr("No cloud folders on this PC yet. Install OneDrive, Dropbox, Google Drive or "
                                       "iCloud and sign in to it, and its files show up here. Is your cloud's folder "
@@ -682,7 +727,7 @@ class CloudPage(QWidget):
         self.account_list.blockSignals(True)
         current = self.account.key if self.account else None
         self.account_list.clear()
-        online, here = icons.icon("cloud", self.c.theme.muted), icons.icon("hard_drive", self.c.theme.muted)
+        online, here = self._ic("cloud"), self._ic("hard_drive")
         local = [a.service for a in self.accounts if a.local]
         for acc in self.accounts:
             # (a folder on this PC: its email when the app says it, else "On this PC", or its folder's name when
@@ -744,35 +789,66 @@ class CloudPage(QWidget):
         it = self.account_list.itemAt(pos)
         if it is None or it.data(Qt.UserRole) is None:
             return
-        acc = it.data(Qt.UserRole)
+        self.account_menu(it.data(Qt.UserRole)).exec(self.account_list.viewport().mapToGlobal(pos))
+
+    def account_menu(self, acc: cloud.Account) -> QMenu:
+        """What can be done with an account (its right-click menu)."""
         menu = QMenu(self)
         round_menu(menu)
         if acc.local:
-            menu.addAction(tr("Open in File Explorer"), lambda: self._explore(Path(acc.local)))
+            menu.addAction(self._ic("folder_open"), tr("Open in File Explorer"), lambda: self._explore(Path(acc.local)))
+            signed = {a.service for a in self.accounts if not a.local}
+            if cloud.available(acc.service) and acc.service not in signed:
+                menu.addAction(self._ic("cloud"), tr("Sign in to {service} online too",
+                                                     service=cloud.SERVICES[acc.service]),
+                               lambda: self.sign_in(acc.service))
             if acc.extra.get("added"):
-                menu.addAction(tr("Remove from the list"), lambda: self.remove_folder(acc))
+                menu.addSeparator()
+                menu.addAction(self._ic("dismiss"), tr("Remove from the list"), lambda: self.remove_folder(acc))
         else:
-            menu.addAction(tr("Sign out"), lambda: self.sign_out(acc))
-        menu.exec(self.account_list.viewport().mapToGlobal(pos))
+            site = WEBSITE.get(acc.service)
+            if site:
+                menu.addAction(self._ic("globe"), tr("Open {service} in the browser",
+                                                     service=cloud.SERVICES[acc.service]),
+                               lambda: QDesktopServices.openUrl(QUrl(site)))
+            menu.addAction(self._ic("arrow_sync"), tr("Refresh"), lambda: self._refresh_account(acc))
+            menu.addAction(self._ic("lock_closed_key"), tr("Sign in again"), lambda: self.sign_in(acc.service))
+            menu.addSeparator()
+            menu.addAction(self._ic("sign_out", danger=True), tr("Sign out"), lambda: self.sign_out(acc))
+        return menu
+
+    def _refresh_account(self, acc: cloud.Account):
+        if self.account is not None and self.account.key == acc.key:
+            self.refresh()
+        self.measure()
 
     def _fill_add_menu(self):
-        """Sign in online (when this copy can), add any folder, or get a cloud's app that isn't on this PC."""
+        """Sign in online (nothing to install: as many accounts as you like, several of one service too), add any
+        folder, or get a cloud's app for one this copy can't sign in to."""
         menu = self.add_menu
         menu.clear()
+        signed = [a.service for a in self.accounts if not a.local]
         for key in cloud.ONLINE:
             if cloud.available(key):
-                menu.addAction(icons.icon("cloud", self.c.theme.muted), tr("Sign in to {service}",
-                               service=cloud.SERVICES[key]), lambda k=key: self.sign_in(k))
-        menu.addAction(icons.icon("folder", self.c.theme.muted), tr("A cloud folder on this PC…"), self.pick_folder)
-        here = {a.service for a in self.found or []} | {a.service for a in self.accounts if not a.local}
-        missing = [k for k in GET_APP if k not in here]
+                name = cloud.SERVICES[key]
+                text = tr("Add another {service} account", service=name) if key in signed else \
+                    tr("Sign in to {service}", service=name)
+                act = menu.addAction(self._ic("cloud"), text, lambda k=key: self.sign_in(k))
+                act.setToolTip(tr("On {service}'s own page, in your browser. Nothing to install.", service=name))
+        if not menu.isEmpty():
+            menu.addSeparator()
+        menu.addAction(self._ic("folder"), tr("A cloud folder on this PC…"), self.pick_folder)
+        menu.addAction(self._ic("arrow_clockwise"), tr("Look again"), self.look_for_folders)
+        # (an app is only offered for a cloud this copy can't sign in to, and that isn't on this PC already)
+        here = {a.service for a in self.found or []} | set(signed)
+        missing = [k for k in GET_APP if k not in here and not cloud.available(k)]
         if missing:
             menu.addSeparator()
-            get = menu.addMenu(tr("Get a cloud's app"))
+            get = menu.addMenu(self._ic("arrow_download"), tr("Get a cloud's app"))
             round_menu(get)
             for key in missing:
                 get.addAction(cloud.SERVICES[key], lambda k=key: QDesktopServices.openUrl(QUrl(GET_APP[k])))
-            menu.addAction(tr("Look again"), self.look_for_folders)
+        menu.setToolTipsVisible(True)
 
     def pick_folder(self):
         """Adds a folder Corefold didn't find by itself (a cloud app's folder somewhere else, a synced folder…)."""
@@ -964,9 +1040,8 @@ class CloudPage(QWidget):
         self._buttons()
 
     def _add_rows(self, part: list):
-        theme = self.c.theme
-        folder_icon, file_icon = icons.icon("folder", theme.muted), icons.icon("document", theme.muted)
-        online_icon = icons.icon("cloud", theme.muted)
+        folder_icon, file_icon, online_icon = self._ic("folder"), self._ic("document"), self._ic("cloud")
+        web_icon, shared_icon = self._ic("globe"), self._ic("link")
         searching = self.results is not None
         right = Qt.AlignRight | Qt.AlignVCenter
         rows = []
@@ -975,11 +1050,17 @@ class CloudPage(QWidget):
             if searching:
                 where = service_name(acc) + " · " + (e.path.rsplit("/", 1)[0] or "/")
                 name = f"{name}   ·   {ltr(short_name(where, 60))}"
-            it = Row([name, "" if e.folder else human_size(e.size),
+            it = Row([name, "" if e.folder or e.kind else human_size(e.size),
                       date_text(e.modified, True) if e.modified else ""])
-            it.setIcon(0, folder_icon if e.folder else online_icon if e.online else file_icon)
+            it.setIcon(0, shared_icon if e.kind in ("virtual", "drive") else folder_icon if e.folder else
+                       web_icon if e.kind else online_icon if e.online else file_icon)
             if e.online:
                 it.setToolTip(0, tr("Kept online only. Opening it downloads it first."))
+            elif e.kind == "web":
+                it.setToolTip(0, tr("Opens on the website. It has no file to download."))
+            elif e.kind:
+                it.setToolTip(0, tr("A Google file: it opens in the browser, and downloads as {kind}.",
+                                    kind=e.kind.rsplit(":", 1)[-1].lstrip(".").upper()))
             it.setData(0, Qt.UserRole, e)
             it.setData(0, ACCOUNT, acc)
             it.setTextAlignment(1, right)
@@ -1021,7 +1102,8 @@ class CloudPage(QWidget):
         self.again_btn.setVisible(not any_account or self.found == [])
         self.again_btn.setEnabled(not self.looking)
         self.explorer_btn.setVisible(have and bool(self.account.local))
-        browsing = have and self.results is None
+        here = self._here()
+        browsing = have and self.results is None and not (here is not None and here.kind == "virtual")
         for b in (self.upload_btn, self.folder_btn):
             b.setEnabled(browsing)
         self.refresh_btn.setEnabled(have)
@@ -1076,6 +1158,11 @@ class CloudPage(QWidget):
                 self.trail = []
             self.trail.append(e)
             self.open_here()
+        elif e.kind and e.web:  # (a Google Doc, Form…: it's opened where it's changed, so nothing is left behind)
+            QDesktopServices.openUrl(QUrl(e.web))
+            self.status.setText(tr("Opened {name} in the browser.", name=ltr(e.name)))
+        elif e.kind == "web":
+            self.status.setText(_ui_error(cloud.CloudError(cloud.WEB_ONLY)))
         else:
             self.open_file(acc, e)
 
@@ -1091,7 +1178,7 @@ class CloudPage(QWidget):
 
     def _rename_current(self):
         acc, picked = self.files.picked()
-        if len(picked) == 1:
+        if len(picked) == 1 and picked[0].kind not in ("virtual", "drive"):
             self.rename(acc, picked[0])
 
     def _with_picked(self, fn):
@@ -1101,29 +1188,41 @@ class CloudPage(QWidget):
 
     def _file_menu(self, pos):
         acc, picked = self.files.picked()
-        if not picked:
-            return
+        if picked:
+            self.file_menu(acc, picked).exec(self.files.viewport().mapToGlobal(pos))
+
+    def file_menu(self, acc: cloud.Account, picked: list) -> QMenu:
+        """What can be done with the picked files and folders (their right-click menu)."""
         menu = QMenu(self)
         round_menu(menu)
         one = picked[0] if len(picked) == 1 else None
+        fixed = any(e.kind in ("virtual", "drive") for e in picked)  # (Shared with me…: not a real folder)
         if one is not None:
-            menu.addAction(tr("Open"), lambda: self._open(acc, one))
-            if not one.folder:
-                menu.addAction(tr("Preview") + "\tSpace", lambda: self.preview(acc, one))
+            menu.addAction(self._ic("folder_open" if one.folder else "document"), tr("Open") + "\tEnter",
+                           lambda: self._open(acc, one))
+            if not one.folder and not one.kind:
+                menu.addAction(self._ic("search"), tr("Preview") + "\tSpace", lambda: self.preview(acc, one))
+            if one.web and not acc.local and one.kind != "web":
+                menu.addAction(self._ic("globe"), tr("Open on the website"),
+                               lambda: QDesktopServices.openUrl(QUrl(one.web)))
         if acc.local and one is not None:
-            menu.addAction(tr("Show in folder"), lambda: self._explore(Path(one.id), select=True))
-        menu.addAction(tr("Download…"), lambda: self.download(acc, picked))
+            menu.addAction(self._ic("folder_search"), tr("Show in folder"),
+                           lambda: self._explore(Path(one.id), select=True))
+        menu.addSeparator()
+        menu.addAction(self._ic("arrow_download"), tr("Download…"), lambda: self.download(acc, picked))
         others = [a for a in self.accounts if a.key != acc.key]
         if others:
-            sub = menu.addMenu(tr("Copy to"))
+            sub = menu.addMenu(self._ic("copy"), tr("Copy to"))
             round_menu(sub)
             for a in others:
-                sub.addAction(ltr(a.title), lambda a=a: self.copy_to(acc, picked, a, None))
-        if one is not None:
-            menu.addAction(tr("Rename…"), lambda: self.rename(acc, one))
-        menu.addSeparator()
-        menu.addAction(tr("Delete"), lambda: self.delete(acc, picked))
-        menu.exec(self.files.viewport().mapToGlobal(pos))
+                sub.addAction(self._ic("hard_drive" if a.local else "cloud"), ltr(a.title),
+                              lambda a=a: self.copy_to(acc, picked, a, None))
+        if not fixed:
+            if one is not None:
+                menu.addAction(self._ic("rename"), tr("Rename…") + "\tF2", lambda: self.rename(acc, one))
+            menu.addSeparator()
+            menu.addAction(self._ic("delete", danger=True), tr("Delete") + "\tDel", lambda: self.delete(acc, picked))
+        return menu
 
     def _explore(self, path: Path, select: bool = False):
         if select and os.name == "nt":
@@ -1142,7 +1241,7 @@ class CloudPage(QWidget):
 
     def preview_current(self):
         acc, e = self._item_of(self.files.currentItem())
-        if e is not None and not e.folder:
+        if e is not None and not e.folder and not e.kind:
             self.preview(acc, e)
 
     def preview(self, acc: cloud.Account, e: cloud.Entry):
@@ -1157,7 +1256,7 @@ class CloudPage(QWidget):
 
         def go(progress, cancel):
             folder = Path(tempfile.mkdtemp(prefix=TEMP_PREFIX))
-            target = folder / cloud.local_name(e.name)
+            target = folder / cloud.file_name(e)
             cloud.client(acc).download(e, target, lambda d, t: progress((e.name, d, t)), cancel)
             return target
         self._run(go, refresh=False, what=tr("Preview {name}", name=ltr(e.name)), then=lambda p: self._peek(p, [p]))
@@ -1341,8 +1440,9 @@ class CloudPage(QWidget):
             return
 
         def go(progress, cancel):
-            folder = Path(tempfile.mkdtemp(prefix=TEMP_PREFIX))
-            target = folder / cloud.local_name(e.name)
+            OPENED.mkdir(parents=True, exist_ok=True)
+            folder = Path(tempfile.mkdtemp(prefix=TEMP_PREFIX, dir=OPENED))
+            target = folder / cloud.file_name(e)
             cloud.client(acc).download(e, target, lambda d, t: progress((e.name, d, t)), cancel)
             note_opened(target)
             os_open(target)
@@ -1358,8 +1458,9 @@ class CloudPage(QWidget):
         def go(progress, cancel):
             c = cloud.client(acc)
             count = sum(cloud.download_tree(c, e, Path(folder), progress, cancel) for e in entries)
-            return tr("Downloaded 1 file to {folder}.", folder=ltr(folder)) if count == 1 else \
+            said = tr("Downloaded 1 file to {folder}.", folder=ltr(folder)) if count == 1 else \
                 tr("Downloaded {count} files to {folder}.", count=count, folder=ltr(folder))
+            return said + _left_out(c)
         self._run(go, refresh=False, what=tr("Download {what}", what=self._what(entries)))
 
     def _pick_upload(self):
@@ -1410,6 +1511,9 @@ class CloudPage(QWidget):
         self._run(go, what=tr("Rename {name}", name=ltr(e.name)))
 
     def delete(self, acc: cloud.Account, entries: list):
+        entries = [e for e in entries if e.kind not in ("virtual", "drive")]  # (Shared with me… can't be deleted)
+        if not entries:
+            return
         box = QMessageBox(self)
         box.setIcon(QMessageBox.Question)
         box.setWindowTitle(tr("Delete?"))
@@ -1455,8 +1559,9 @@ class CloudPage(QWidget):
                         count += cloud.upload_tree(dst, p, into, progress, cancel)
                 finally:
                     shutil.rmtree(folder, ignore_errors=True)
-            return tr("Copied 1 file to {name}.", name=ltr(target.title)) if count == 1 else \
+            said = tr("Copied 1 file to {name}.", name=ltr(target.title)) if count == 1 else \
                 tr("Copied {count} files to {name}.", count=count, name=ltr(target.title))
+            return said + _left_out(src)
         self._run(go, refresh=self.account is not None and self.account.key == target.key,
                   what=tr("Copy {what} to {name}", what=self._what(entries), name=ltr(target.title)))
 
@@ -1510,5 +1615,6 @@ class CloudPage(QWidget):
         self.lister = work.run(go, lambda _: None, done, name="corefold-cloud-search")
 
     def apply_theme(self, theme):
+        self.__dict__.pop("_icons", None)
         self._fill_accounts()
         self._show(self.shown)

@@ -162,3 +162,28 @@ def test_unlock_looks_at_what_was_asked_for_while_busy(qtbot, tmp_path):
     page._moved(OSError("in use"), "")
     assert asked == [[tmp_path / "next.txt"]] and page.queued == []
     page.deleteLater()
+
+
+def test_an_opened_cloud_file_saved_as_something_else_isnt_cleared_away(tmp_path, monkeypatch):
+    import os
+
+    from corefold import cloudpage
+    monkeypatch.setattr(cloudpage, "OPENED", tmp_path)
+    monkeypatch.setattr(cloudpage.tempfile, "gettempdir", lambda: str(tmp_path / "temp"))
+    folders = {}
+    for name in ("as it came", "changed", "saved as"):
+        folder = tmp_path / (cloudpage.TEMP_PREFIX + name.replace(" ", "-"))
+        folder.mkdir()
+        f = folder / "report.docx"
+        f.write_bytes(b"from the cloud")
+        cloudpage.note_opened(f)
+        folders[name] = folder
+    (folders["changed"] / "report.docx").write_bytes(b"from the cloud, and more")
+    (folders["saved as"] / "report v2.docx").write_bytes(b"a new one")
+    old = time.time() - 5 * 86400
+    for folder in folders.values():
+        os.utime(folder, (old, old))
+    cloudpage.clean_old_temp()
+    assert not folders["as it came"].exists()
+    assert folders["changed"].exists()
+    assert (folders["saved as"] / "report v2.docx").exists()
