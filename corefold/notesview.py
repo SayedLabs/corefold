@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (QDialog, QFrame, QHBoxLayout, QLabel, QPushButton
 from . import UPDATE_REPO, i18n, icons, releasenotes
 from .i18n import tr
 from .releasenotes import Notes
-from .timefmt import locale
+from .timefmt import latin_digits, locale
 
 # the repository whose release pages are linked (a copy built without one links to Corefold's own)
 REPO = UPDATE_REPO or "SayedLabs/corefold"
@@ -32,7 +32,7 @@ def when(notes: Notes) -> str:
         return ""
     from PySide6.QtCore import QDate
     day = QDate.fromString(notes.date, "yyyy-MM-dd")
-    return tr("Released {date}", date=locale().toString(day, "d MMMM yyyy")) if day.isValid() else ""
+    return tr("Released {date}", date=latin_digits(locale().toString(day, "d MMMM yyyy"))) if day.isValid() else ""
 
 
 class NotesBlock(QWidget):

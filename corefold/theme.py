@@ -129,6 +129,7 @@ QFrame#toolCard:focus { border-color: $accent; }
 QFrame#toolCard[off="true"] { background: transparent; border-style: dashed; }
 QFrame#toolCard[featured="true"] { border-color: $accent_line; background: $tool_hover; }
 QFrame#toolCard[featured="true"]:hover { border-color: $accent; }
+QFrame#toolCard[down="true"] { background: $accent_soft; border-color: $accent; }
 QLabel#bigCardTitle { font-family: $font_display; font-size: 13pt; font-weight: 700; }
 QPushButton#crumb, QPushButton#crumbHere { background: transparent; border: 1px solid transparent; border-radius: 7px;
   padding: 3px 7px; min-width: 0; font-size: 12pt; }

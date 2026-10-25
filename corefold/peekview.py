@@ -520,9 +520,10 @@ class PeekWindow(QWidget):
     def _facts(self, st, is_dir: bool) -> str:
         if st is None:
             return ""
-        from .timefmt import locale
+        from .timefmt import latin_digits, locale
         from PySide6.QtCore import QDateTime, QLocale
-        when = locale().toString(QDateTime.fromSecsSinceEpoch(int(st.st_mtime)), QLocale.FormatType.ShortFormat)
+        when = latin_digits(locale().toString(QDateTime.fromSecsSinceEpoch(int(st.st_mtime)),
+                                                  QLocale.FormatType.ShortFormat))
         return when if is_dir else f"{human_size(st.st_size)}  ·  {when}"
 
     def _corefold_opens(self, path: Path) -> bool:
@@ -560,13 +561,13 @@ class PeekWindow(QWidget):
         grid.setVerticalSpacing(6)
         rows = [(tr("Type"), type_name(path))]
         if st is not None:
-            from .timefmt import locale
+            from .timefmt import latin_digits, locale
             from PySide6.QtCore import QDateTime, QLocale
 
             def when(ts):
                 dt, loc = QDateTime.fromSecsSinceEpoch(int(ts)), locale()
-                return f"{loc.toString(dt.date(), QLocale.FormatType.LongFormat)}  " \
-                       f"{loc.toString(dt.time(), QLocale.FormatType.ShortFormat)}"
+                return latin_digits(f"{loc.toString(dt.date(), QLocale.FormatType.LongFormat)}  "
+                                    f"{loc.toString(dt.time(), QLocale.FormatType.ShortFormat)}")
             if not path.is_dir():
                 rows.append((tr("Size"), human_size(st.st_size)))
             rows.append((tr("Modified"), when(st.st_mtime)))
@@ -665,9 +666,9 @@ class PeekWindow(QWidget):
                               else tr("Couldn't show this file."))
         elif what == "folder" and self.folder_label is not None:
             files, folders, size, complete = result
-            from .timefmt import locale
-            text = tr("{files} files and {folders} folders, {size}", files=locale().toString(files),
-                      folders=locale().toString(folders), size=human_size(size))
+            from .timefmt import number
+            text = tr("{files} files and {folders} folders, {size}", files=number(files),
+                      folders=number(folders), size=human_size(size))
             self.folder_label.setText(text if complete else tr("At least {text}", text=text))
         elif what == "archive":
             rows, total, locked = result

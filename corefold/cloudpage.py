@@ -22,6 +22,7 @@ from PySide6.QtWidgets import QAbstractItemView, QFileDialog, QHBoxLayout, QHead
     QStyledItemDelegate, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
 from . import UPDATE_REPO, cloud, icons, work
+from .atomic.widgets import IconButton
 from .core import human_size, short_name
 from .i18n import ltr, tr
 from .theme import round_menu
@@ -553,7 +554,7 @@ class CloudPage(QWidget):
         side = QVBoxLayout()
         side.setSpacing(8)
         self.account_list = Accounts(self)
-        self.account_list.setFixedWidth(250)
+        self.account_list.setFixedWidth(230)
         self.account_list.currentItemChanged.connect(self._account_picked)
         self.account_list.setContextMenuPolicy(Qt.CustomContextMenu)
         self.account_list.customContextMenuRequested.connect(self._account_menu)
@@ -569,16 +570,16 @@ class CloudPage(QWidget):
         self.add_btn.setMenu(self.add_menu)
         self.add_btn.setMinimumWidth(self.add_btn.sizeHint().width() + 18)  # (room for the menu's arrow)
         side.addWidget(self.add_btn)
+        self.privacy_btn = None
         self.space_job = None
         self.again_btn = self._button(tr("Look again"), self.look_for_folders)
         self.again_btn.setToolTip(tr("Look again for cloud folders on this PC"))
         side.addWidget(self.again_btn)
         if UPDATE_REPO:  # what Cloud reaches and keeps, before signing in
-            owner, _, name = UPDATE_REPO.partition("/")
-            privacy = self._button(tr("Privacy"), lambda: QDesktopServices.openUrl(
-                QUrl(f"https://{owner}.github.io/{name}/privacy.html#cloud")))
+            privacy = self._button(tr("Privacy"), self._privacy)
             privacy.setObjectName("flat")
             side.addWidget(privacy, 0, Qt.AlignLeft)
+            self.privacy_btn = privacy
         side.addStretch()  # (takes the list's place while there are no accounts: the buttons stay on top)
         body.addLayout(side)
         main = QVBoxLayout()
@@ -592,10 +593,11 @@ class CloudPage(QWidget):
         self.search.setClearButtonEnabled(True)
         self.search.returnPressed.connect(self.search_all)
         self.search.textChanged.connect(lambda t: self.end_search() if not t and self.results is not None else None)
-        self.search.setMinimumWidth(210)
+        self.search.setMinimumWidth(160)
         self.search.setMaximumWidth(280)
-        self.explorer_btn = self._button(tr("Open in File Explorer"), self._open_in_explorer)
-        self.explorer_btn.setObjectName("flat")
+        self.explorer_btn = IconButton(tr("Open in File Explorer"))  # (its words left the folder's name no room)
+        self.explorer_btn.setIcon(self._ic("folder_open"))
+        self.explorer_btn.clicked.connect(self._open_in_explorer)
         top.addWidget(self.up_btn)
         top.addWidget(self.where, 1)
         top.addWidget(self.explorer_btn)
@@ -631,6 +633,7 @@ class CloudPage(QWidget):
         self.empty.setAlignment(Qt.AlignCenter)
         self.empty.setWordWrap(True)
         main.addWidget(self.empty, 1)
+        main.addWidget(self._welcome(), 1)
         self.transfers: list[Transfer] = []
         self.transfer_list = QListWidget()
         self.transfer_list.setObjectName("history")
@@ -691,6 +694,67 @@ class CloudPage(QWidget):
         b.clicked.connect(fn)
         return b
 
+    def _welcome(self) -> QWidget:
+        """No cloud yet: what Cloud does and how to add one, in the middle of the page (like the other tools'
+        start), instead of a lone line of small print."""
+        box = QWidget()
+        outer = QVBoxLayout(box)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.addStretch(2)
+        middle = QWidget()
+        middle.setMaximumWidth(560)
+        col = QVBoxLayout(middle)
+        col.setContentsMargins(0, 0, 0, 0)
+        col.setSpacing(8)
+        tile = QLabel()
+        tile.setPixmap(icons.product_tile("cloud", 64, self.c.theme.dark, self.devicePixelRatioF()))
+        tile.setAlignment(Qt.AlignCenter)
+        col.addWidget(tile)
+        col.addSpacing(6)
+        self.welcome_title = QLabel()
+        self.welcome_title.setObjectName("h2")
+        self.welcome_title.setAlignment(Qt.AlignCenter)
+        self.welcome_title.setWordWrap(True)
+        col.addWidget(self.welcome_title)
+        self.welcome_text = QLabel()
+        self.welcome_text.setObjectName("muted")
+        self.welcome_text.setAlignment(Qt.AlignCenter)
+        self.welcome_text.setWordWrap(True)
+        col.addWidget(self.welcome_text)
+        col.addSpacing(10)
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        row.addStretch()
+        self.welcome_add = QPushButton(tr("Add a cloud"))
+        self.welcome_add.setObjectName("primary")
+        self.welcome_add.setCursor(Qt.PointingHandCursor)
+        self.welcome_add.setMenu(self.add_menu)
+        self.welcome_add.setMinimumWidth(self.welcome_add.sizeHint().width() + 18)  # (room for the menu's arrow)
+        row.addWidget(self.welcome_add)
+        self.welcome_again = self._button(tr("Look again"), self.look_for_folders)
+        self.welcome_again.setToolTip(tr("Look again for cloud folders on this PC"))
+        row.addWidget(self.welcome_again)
+        row.addStretch()
+        col.addLayout(row)
+        if UPDATE_REPO:
+            privacy = self._button(tr("Privacy"), self._privacy)
+            privacy.setObjectName("flat")
+            col.addWidget(privacy, 0, Qt.AlignHCenter)
+        across = QHBoxLayout()
+        across.addStretch(1)
+        across.addWidget(middle, 4)
+        across.addStretch(1)
+        outer.addLayout(across)
+        outer.addStretch(3)
+        self.welcome = box
+        return box
+
+    @staticmethod
+    def _privacy():
+        """What Cloud reaches and keeps, before signing in."""
+        owner, _, name = UPDATE_REPO.partition("/")
+        QDesktopServices.openUrl(QUrl(f"https://{owner}.github.io/{name}/privacy.html#cloud"))
+
     # ---- accounts
 
     def look_for_folders(self):
@@ -726,19 +790,23 @@ class CloudPage(QWidget):
             self.results = None
             self._show([])
             self.space.setText("")
+            self.empty.hide()
             if self.found is None:
-                self.empty.setText(tr("Looking for your clouds on this PC…"))
+                self.welcome_title.setText(tr("Looking for your clouds on this PC…"))
+                self.welcome_text.setText("")
             elif any(cloud.available(k) for k in cloud.ONLINE):
                 names = " · ".join(cloud.SERVICES[k] for k in cloud.ONLINE if cloud.available(k))
-                self.empty.setText(tr("Add a cloud to see its files here: sign in to {names} with nothing else to "
+                self.welcome_title.setText(tr("Add your first cloud"))
+                self.welcome_text.setText(tr("Add a cloud to see its files here: sign in to {names} with nothing else to "
                                       "install, as many accounts as you like. You sign in on the service's own page, "
                                       "so your password never reaches Corefold. Cloud folders that OneDrive, Dropbox, "
                                       "Google Drive or iCloud keep on this PC show up by themselves too.",
                                       names=names))
             else:
-                self.empty.setText(tr("No cloud folders on this PC yet. Install OneDrive, Dropbox, Google Drive or "
-                                      "iCloud and sign in to it, and its files show up here. Is your cloud's folder "
-                                      "somewhere else? Add it with Add a cloud."))
+                self.welcome_title.setText(tr("No clouds on this PC yet"))
+                self.welcome_text.setText(tr("Install OneDrive, Dropbox, Google Drive or iCloud and sign in to it, and "
+                                             "its files show up here. Is your cloud's folder somewhere else? Add it "
+                                             "with Add a cloud."))
             self._buttons()
             return
         keys = [a.key for a in self.accounts]
@@ -1131,8 +1199,15 @@ class CloudPage(QWidget):
         for w in (self.account_list, self.up_btn, self.where, self.search, self.upload_btn,
                   self.folder_btn, self.refresh_btn, self.space):
             w.setVisible(any_account)  # nothing to browse yet: only the buttons and the note
-        self.again_btn.setVisible(not any_account or self.found == [])
+        self.welcome.setVisible(not any_account)  # (nothing yet: the big welcome in the middle has the buttons)
+        self.add_btn.setVisible(any_account)
+        if self.privacy_btn is not None:
+            self.privacy_btn.setVisible(any_account)
+        self.again_btn.setVisible(any_account and self.found == [])
         self.again_btn.setEnabled(not self.looking)
+        self.welcome_add.setEnabled(not self.looking or self.found is not None)
+        self.welcome_again.setEnabled(not self.looking)
+        self.welcome_text.setVisible(bool(self.welcome_text.text()))
         self.explorer_btn.setVisible(have and bool(self.account.local))
         here = self._here()
         browsing = have and self.results is None and not (here is not None and here.kind == "virtual")

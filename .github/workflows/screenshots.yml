@@ -64,6 +64,16 @@ jobs:
           python scripts/navtest.py shots/navtest en dark *>> shots/navtest-output.txt
           python scripts/navtest.py shots/navtest ar light *>> shots/navtest-output.txt
 
+      - name: Walk through like someone new (first start, Home, each Files tool, with files in them)
+        timeout-minutes: 15
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          foreach ($combo in @("en dark", "ar light")) {
+            $a = $combo -split " "
+            python scripts/newusertest.py shots/newuser $a[0] $a[1] *>> shots/newuser-output.txt
+          }
+
       - name: Take the pictures
         shell: pwsh
         continue-on-error: true

@@ -14,9 +14,26 @@ def locale() -> QLocale:
                     "tr": QLocale.Language.Turkish}.get(i18n.language(), QLocale.Language.English))
 
 
+_LATIN_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩٬٫", "0123456789,.")
+
+
+def latin_digits(text: str) -> str:
+    """Qt's Arabic writes "٢٥ أكتوبر ٢٠٢٦"; the rest of Corefold (sizes, counts, times) writes 0-9, so a date
+    in a row next to "29.3 KB" is written with the same digits."""
+    return text.translate(_LATIN_DIGITS) if i18n.language() == "ar" else text
+
+
+def number(n: int) -> str:
+    """A count, grouped the way the language writes it ("1,234", "1 234"). In Arabic with the same digits as the
+    sizes and counts beside it (Qt's Arabic writes "١٬٢٣٤", which looked broken next to "29.9 KB")."""
+    if i18n.language() == "ar":
+        return f"{int(n):,}"
+    return locale().toString(int(n))
+
+
 def date_text(ts: float, long: bool = False) -> str:
     when = QDateTime.fromSecsSinceEpoch(int(ts)).date()
-    return locale().toString(when, "d MMMM yyyy" if long else "d MMM")
+    return latin_digits(locale().toString(when, "d MMMM yyyy" if long else "d MMM"))
 
 
 def time_ago(ts: float) -> str:
