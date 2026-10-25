@@ -2,7 +2,7 @@
 history), and the "What's new" window shown once after an update. Every word is shown as plain text."""
 from __future__ import annotations
 
-from PySide6.QtCore import QSize, Qt, QUrl
+from PySide6.QtCore import QSize, Qt, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (QDialog, QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSizePolicy,
                                QVBoxLayout, QWidget)
@@ -77,7 +77,8 @@ def open_release_page(notes: Notes):
 
 class VersionHistory(QWidget):
     """Every version's notes kept with Corefold (newest first), each one opened with a click; works without
-    the internet. The installed version's are open to begin with."""
+    the internet. The installed version's are open to begin with. Its rows are made just after it's first
+    shown, so the Updates page opens as quickly as before."""
 
     def __init__(self, current: str, accent: str, parent: QWidget | None = None):
         super().__init__(parent)
@@ -87,6 +88,18 @@ class VersionHistory(QWidget):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(2)
         self.rows: list[tuple[Notes, QPushButton, QWidget]] = []
+        self._made = False
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if not self._made:
+            QTimer.singleShot(0, self, self._make)  # (with self: never after it was deleted)
+
+    def _make(self):
+        if self._made:
+            return
+        self._made = True
+        lay = self.layout()
         for n, notes in enumerate(releasenotes.history(i18n.language())):
             if n:
                 line = QFrame()
@@ -116,7 +129,7 @@ class VersionHistory(QWidget):
             body._open = False
             self._name(len(self.rows) - 1)
         for i, (notes, _, _) in enumerate(self.rows):
-            if notes.version == current:
+            if notes.version == self.current:
                 self.show_notes(i, True)
 
     def _name(self, i: int):
@@ -139,6 +152,7 @@ class VersionHistory(QWidget):
         self._name(i)
 
     def versions(self) -> list[str]:
+        self._make()
         return [notes.version for notes, _, _ in self.rows]
 
 
