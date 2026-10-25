@@ -274,6 +274,11 @@ def grab(w, name):
 
 
 def _close_dialogs():
+    from corefold import sheet
+    top = sheet.waiting()  # (questions, dialogs and menus show inside the window now)
+    if top is not None:
+        say(f"note  a dialog came up: {type(top).__name__} {sheet.dismiss(top)[:120]}")
+        return
     for top in (qapp.activeModalWidget(), qapp.activePopupWidget()):
         if top is None:
             continue

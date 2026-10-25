@@ -154,6 +154,11 @@ QPushButton#stripTab { background: transparent; border: 1px solid transparent; b
 QPushButton#stripTab:hover { color: $text; background: $hover; }
 QPushButton#stripTab:checked { color: $text; background: $raised; border-color: $line_strong; }
 QLabel#cardTitle { font-family: $font_display; font-size: 11pt; font-weight: 600; }
+QFrame#useBar { background: $stage; border: 1px solid $stage; border-radius: 14px; }
+QPushButton#useTab { background: transparent; border: 1px solid transparent; border-radius: 10px; color: $muted;
+                     padding: 5px 10px; min-width: 0; font-weight: 600; }
+QPushButton#useTab:hover { color: $text; background: $hover; }
+QPushButton#useTab:checked { color: $text; background: $select; border-color: $select; }
 QLabel#cardStat { color: $muted; font-size: 8.5pt; font-weight: 600; }
 QLabel#heroStat { font-family: $font_display; font-size: 17pt; font-weight: 700; }
 QFrame#homeWidget { background: $panel; border: 1px solid $panel; border-radius: 14px; }

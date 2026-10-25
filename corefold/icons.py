@@ -197,5 +197,23 @@ def product_tile(product: str, size: int, dark: bool = True, dpr: float = 1.0) -
     return pm
 
 
+def soft_tile(name: str, size: int, color: QColor, dpr: float = 1.0) -> QPixmap:
+    """An icon on a soft rounded square of its own colour (a feature in a list, in the quiet glyph colour)."""
+    pm = QPixmap(max(1, round(size * dpr)), max(1, round(size * dpr)))
+    pm.setDevicePixelRatio(dpr)
+    pm.fill(Qt.transparent)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.Antialiasing)
+    p.setPen(Qt.NoPen)
+    soft = QColor(color)
+    soft.setAlpha(40)
+    p.setBrush(soft)
+    p.drawRoundedRect(QRectF(0, 0, size, size), size * 0.28, size * 0.28)
+    glyph = round(size * 0.55)
+    p.drawPixmap((size - glyph) // 2, (size - glyph) // 2, pixmap(name, glyph, color, dpr))
+    p.end()
+    return pm
+
+
 ICON_SIZE = QSize(20, 20)
 SMALL = QSize(18, 18)

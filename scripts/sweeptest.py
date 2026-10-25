@@ -158,6 +158,13 @@ ACCEPT = {"on": False}
 
 def _close_dialogs():
     """A message or dialog that came up: noted and closed (or accepted, for the first-start questions)."""
+    from corefold import sheet
+    top = sheet.waiting()  # (questions, dialogs and menus show inside the window now)
+    if top is not None:
+        said = sheet.dismiss(top, accept=ACCEPT["on"])
+        dialogs.append(said)
+        print(f"note  a dialog came up: {type(top).__name__} {said[:120]}", flush=True)
+        return
     for top in (qapp.activeModalWidget(), qapp.activePopupWidget()):
         if top is None:
             continue
@@ -252,6 +259,8 @@ def every_page_name(w) -> list[str]:
                 continue
             settings_of = [t for t in all_tools.TOOLS if name in t.settings_pages]
             if settings_of and not all_tools.is_on(c.settings, settings_of[0].id):
+                continue
+            if hasattr(w, "_direct_page") and w._direct_page(name) != name:  # (its row opens its one tool)
                 continue
             names.append(name)
     if ARGS.pages:

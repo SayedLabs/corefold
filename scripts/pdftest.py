@@ -33,6 +33,7 @@ from pypdf import PdfReader  # noqa: E402
 
 from corefold import pdftools as pt  # noqa: E402
 from corefold import settings as st  # noqa: E402
+from corefold import sheet  # noqa: E402
 from corefold import tools as all_tools  # noqa: E402
 from corefold.archives import NeedPassword  # noqa: E402
 from corefold.core import Ctx, Options  # noqa: E402
@@ -345,7 +346,7 @@ def page():
     check(until(lambda: not pg.reading and not pg.pending and len(pg.pixmaps) >= 10, 30),
           f"merge: all 10 pages and their pictures come up ({len(pg.pixmaps)})")
     check(pg.board.count() == 10 and len(pg.files) == 3, "including the locked one (its password was asked)")
-    check(not pg.banner.isVisible(), "the board gets the banner's room")
+    check(not (pg.banner or w.one_head).isVisible(), "the board gets the banner's room")
     settle(0.4)
     w.grab().save(str(OUT / f"pdf-board-{LANG}-{LOOK}.png"))
     board = pg.board
@@ -425,6 +426,7 @@ def page():
     # closing with changes not saved asks first
     asked = {}
     real_box = QMessageBox.exec
+    real_sheet_box = sheet._run_box  # (questions show as sheets inside the window now)
 
     def box_exec(box):
         asked["text"] = box.text()
@@ -436,6 +438,7 @@ def page():
                 return 0
         return 0
     QMessageBox.exec = box_exec
+    sheet._run_box = box_exec
     try:
         QTest.mouseClick(pg.close_btn, Qt.LeftButton)
         settle(0.2)
@@ -443,6 +446,7 @@ def page():
                                                             f"({bool(asked)}, {pg.stack.currentIndex()})")
     finally:
         QMessageBox.exec = real_box
+        sheet._run_box = real_sheet_box
     for size in ((760, 520), (1500, 900)):
         w.resize(*size)
         settle(0.4)
@@ -455,7 +459,8 @@ def page():
     w.resize(1100, 740)
     pg.close_board(ask=False)
     settle(0.2)
-    check(pg.stack.currentIndex() == 0 and pg.banner.isVisible() and not pg.files, "closing goes back to the cards")
+    check(pg.stack.currentIndex() == 0 and (pg.banner or w.one_head).isVisible() and not pg.files,
+          "closing goes back to the cards")
     # pictures dropped anywhere on the page: asks, then makes a PDF
     answers["dialog"] = lambda dlg: True
     t0 = time.time() - 0.01
