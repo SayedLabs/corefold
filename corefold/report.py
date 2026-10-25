@@ -13,6 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote, urlencode
 
+from . import sheet
 from .i18n import tr
 
 log = logging.getLogger("corefold")
@@ -211,7 +212,7 @@ def report_problem(win, ask: bool = True) -> Path | None:
                    "your report.")]))
         yes = box.addButton(tr("Make the file"), QMessageBox.AcceptRole)
         box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-        box.exec()
+        sheet.run(box)
         go = box.clickedButton() is yes
         box.deleteLater()
         if not go:
@@ -220,8 +221,8 @@ def report_problem(win, ask: bool = True) -> Path | None:
         path = make(win.c.settings)
     except OSError as e:
         log.exception("couldn't make the problem report")
-        QMessageBox.warning(win, tr("Report a problem"), tr("Couldn't make the report: {error}",
-                                                            error=e.strerror or str(e)))
+        sheet.warning(win, tr("Report a problem"), tr("Couldn't make the report: {error}",
+                                                      error=e.strerror or str(e)))
         return None
     reveal_in_explorer(path)
     if UPDATE_REPO:

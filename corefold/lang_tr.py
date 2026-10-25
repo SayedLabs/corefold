@@ -235,6 +235,8 @@ STRINGS: dict[str, str] = {
     "Keep everything": "Hepsini tut",
     "Remove selected": "Seçilenleri kaldır",
     "Close": "Kapat",
+    "Show details": "Ayrıntıları göster",
+    "Hide details": "Ayrıntıları gizle",
     "Before uninstalling {name}": "{name} kaldırılmadan önce",
     "Making a restore point…": "Geri yükleme noktası oluşturuluyor…",
     "Uninstalling {name}…": "{name} kaldırılıyor…",

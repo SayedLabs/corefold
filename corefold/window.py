@@ -8,12 +8,12 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QEvent, QObject, QPoint, QSize, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import (QColor, QDesktopServices, QGuiApplication, QIcon, QKeySequence, QPainter, QPixmap,
                            QShortcut)
-from PySide6.QtWidgets import (QAbstractItemView, QApplication, QButtonGroup, QCheckBox, QColorDialog, QComboBox,
+from PySide6.QtWidgets import (QAbstractItemView, QApplication, QButtonGroup, QCheckBox, QComboBox,
                                QFileDialog, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
                                QListWidgetItem, QMenu, QMessageBox, QPushButton, QScrollArea, QSizePolicy, QSlider,
                                QSpinBox, QStackedWidget, QSystemTrayIcon, QVBoxLayout, QWidget)
 
-from . import UPDATE_REPO, __version__, i18n, icons, winutil
+from . import UPDATE_REPO, __version__, i18n, icons, sheet, winutil
 from . import tools as all_tools
 from . import settings as settings_mod
 from .converters import CATEGORY_NAMES, catalog, human_size
@@ -602,7 +602,7 @@ class Swatches(QWidget):
 
     def _clicked(self, key):
         if key == "custom":
-            c = QColorDialog.getColor(QColor(self.custom), self.window(), tr("Pick a colour"))
+            c = sheet.get_color(QColor(self.custom), self.window(), tr("Pick a colour"))
             if not c.isValid():  # cancelled: go back to the colour that was selected
                 self.buttons.get(self.value, self.buttons[DEFAULT_ACCENT]).setChecked(True)
                 return
@@ -1132,7 +1132,7 @@ class MainWindow(QWidget):
             menu.addAction(tr("Put the sections back in order"), self._reset_nav_order)
             menu.addSeparator()
         menu.addAction(tr("Show the names") if self._compact_now() else tr("Icons only"), self.toggle_nav)
-        menu.exec(pos)
+        sheet.menu(menu, pos)
 
     def _reset_nav_order(self):
         self.c.settings.section_order = []
@@ -2192,7 +2192,7 @@ class MainWindow(QWidget):
         box = QMessageBox(QMessageBox.Question, tr("Switch off {name}?", name=tr(tool.name)), text, parent=self)
         remove = box.addButton(tr("Switch off"), QMessageBox.DestructiveRole)
         box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-        box.exec()
+        sheet.run(box)
         chosen = box.clickedButton() is remove
         box.deleteLater()
         if chosen:
@@ -3503,7 +3503,7 @@ class MainWindow(QWidget):
         box.setText(tr("Everything kept is forgotten, except what you pinned."))
         yes = box.addButton(tr("Clear"), QMessageBox.DestructiveRole)
         box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-        box.exec()
+        sheet.run(box)
         if box.clickedButton() is yes:
             self.c.clip.clear()
 
@@ -3919,7 +3919,7 @@ class MainWindow(QWidget):
         box = QMessageBox(QMessageBox.Question, title, text, parent=self)
         ok = box.addButton(yes, QMessageBox.DestructiveRole)
         box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-        box.exec()
+        sheet.run(box)
         chosen = box.clickedButton() is ok
         box.deleteLater()
         return chosen
@@ -4447,7 +4447,7 @@ class MainWindow(QWidget):
             save = box.addButton(tr("Save"), QMessageBox.AcceptRole)
             drop = box.addButton(tr("Don't save"), QMessageBox.DestructiveRole)
             box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-            box.exec()
+            sheet.run(box)
             chosen = box.clickedButton()
             box.deleteLater()
             if chosen is save:

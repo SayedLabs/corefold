@@ -687,6 +687,8 @@ STRINGS: dict[str, str] = {
     "Keep everything": "الاحتفاظ بكل شيء",
     "Remove selected": "إزالة المحدد",
     "Close": "إغلاق",
+    "Show details": "إظهار التفاصيل",
+    "Hide details": "إخفاء التفاصيل",
     "Before uninstalling {name}": "قبل إلغاء تثبيت {name}",
     "Making a restore point…": "جارٍ إنشاء نقطة استعادة…",
     "Uninstalling {name}…": "جارٍ إلغاء تثبيت {name}…",

@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QFileDialog, QFileI
                                QSplitter, QStackedWidget, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from . import archives as ar
+from . import sheet
 from .core import APP_NAME, Cancelled, Tool, human_size, short_name
 from .i18n import ltr, tr
 from .theme import round_menu
@@ -826,7 +827,7 @@ class ArchiveBrowser(QWidget):
             menu.addSeparator()
         menu.addAction(tr("Extract here"), self._extract_here)
         menu.addAction(tr("Select all"), self.tree.selectAll)
-        menu.exec(self.tree.viewport().mapToGlobal(pos))
+        sheet.menu(menu, self.tree.viewport().mapToGlobal(pos))
         menu.deleteLater()
 
     def _open(self, item, after: str = "open"):
@@ -857,8 +858,8 @@ class ArchiveBrowser(QWidget):
         wanted = set(members)
         total = sum(e.size for e in self.entries if e.path.strip("/") in wanted)
         if total > DRAG_LIMIT:
-            QMessageBox.information(self, tr("Extract"), tr("That's a lot to drag ({size}). Use Extract instead: it "
-                                                             "shows the progress.", size=human_size(total)))
+            sheet.information(self, tr("Extract"), tr("That's a lot to drag ({size}). Use Extract instead: it "
+                                                       "shows the progress.", size=human_size(total)))
             return
         QGuiApplication.setOverrideCursor(Qt.WaitCursor)
         # (taken out on a thread of its own: up to 256 MB can take a while, and the window, drawn on this one,
@@ -881,7 +882,7 @@ class ArchiveBrowser(QWidget):
             e = folder
             why = tr("wrong or missing password") if isinstance(e, ar.NeedPassword) else \
                 str(e or "") or tr("the archive is damaged or incomplete")
-            QMessageBox.warning(self, tr("Couldn't take the files out"), why)
+            sheet.warning(self, tr("Couldn't take the files out"), why)
             return
         urls = []
         for p in tops:
@@ -1004,7 +1005,7 @@ class ArchiveBrowser(QWidget):
                           + "\n" + tr("This changes the archive and can't be undone."), parent=self)
         remove = box.addButton(tr("Remove"), QMessageBox.DestructiveRole)
         box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-        box.exec()
+        sheet.run(box)
         chosen = box.clickedButton() is remove
         box.deleteLater()
         if chosen:
@@ -1027,7 +1028,7 @@ class ArchiveBrowser(QWidget):
             save = box.addButton(tr("Save into the archive"), QMessageBox.AcceptRole)
             box.addButton(tr("Don't save"), QMessageBox.DestructiveRole)
             cancel = box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-            box.exec()
+            sheet.run(box)
             chosen = box.clickedButton()
             box.deleteLater()
             if chosen is cancel:

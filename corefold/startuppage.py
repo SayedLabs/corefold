@@ -14,7 +14,7 @@ from PySide6.QtGui import QGuiApplication, QIcon, QPixmap
 from PySide6.QtWidgets import QButtonGroup, QFileIconProvider, QFrame, QHBoxLayout, QLabel, QLineEdit, QMenu, \
     QMessageBox, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
-from . import i18n, icons, startup, work
+from . import i18n, icons, sheet, startup, work
 from .atomic.widgets import Group, IconButton, SettingRow, Switch
 from .core import short_name
 from .i18n import ltr, tr
@@ -214,7 +214,7 @@ class EntryRow(QWidget):
                     tr("Search the web for “{text}”", text=short_name(e.name, 40)), self._search)
         if pos is None and button is not None:
             pos = button.mapToGlobal(button.rect().bottomLeft())
-        m.exec(pos)
+        sheet.menu(m, pos)
         m.deleteLater()
 
 
@@ -657,7 +657,7 @@ class StartupPage(QWidget):
                               parent=self)
             yes = box.addButton(tr("Remove"), QMessageBox.DestructiveRole)
             box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-            box.exec()
+            sheet.run(box)
             chosen = box.clickedButton() is yes
             box.deleteLater()
             if not chosen:

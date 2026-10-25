@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QDialog, QFileIconP
                                QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from . import uninstall as un
+from . import sheet
 from .atomic.widgets import Dropdown
 from .core import LEGACY_NAME, human_size, short_name
 from .i18n import tr, ltr
@@ -586,7 +587,7 @@ class AppsPage(QWidget):
                         lambda: self._search(apps[0]))
         m.addAction(tr("Copy the name") if len(apps) == 1 else tr("Copy the names"),
                     lambda: QGuiApplication.clipboard().setText("\n".join(a.name for a in apps)))
-        m.exec(self.tree.viewport().mapToGlobal(pos))
+        sheet.menu(m, self.tree.viewport().mapToGlobal(pos))
         m.deleteLater()
 
     def _search(self, app: un.App):
@@ -615,7 +616,7 @@ class AppsPage(QWidget):
             with open(path, "w", newline="", encoding="utf-8-sig") as f:  # (the mark lets Excel read Arabic)
                 csv.writer(f).writerows(rows)
         except OSError as e:
-            QMessageBox.warning(self, tr("Save the list…"), tr("Couldn't save the list: {error}", error=str(e)))
+            sheet.warning(self, tr("Save the list…"), tr("Couldn't save the list: {error}", error=str(e)))
             return
         self.status.setText(tr("Saved the list of {count} apps", count=len(rows) - 1))
 
@@ -624,11 +625,11 @@ class AppsPage(QWidget):
         if not apps:
             return
         if any(_is_self(a) for a in apps):
-            QMessageBox.information(self, tr("Apps"), tr("To remove Corefold itself, use \"Uninstall Corefold\" on "
-                                                         "the About page."))
+            sheet.information(self, tr("Apps"), tr("To remove Corefold itself, use \"Uninstall Corefold\" on "
+                                                   "the About page."))
             return
         dlg = UninstallDialog(self.c, apps, self.apps, forced, self.window().windowIcon())
-        dlg.exec()
+        sheet.run(dlg)
         dlg.deleteLater()
         if dlg.changed:
             self.reload()
@@ -637,9 +638,9 @@ class AppsPage(QWidget):
         """A window was picked with "Drag onto a window": its program is picked in the list."""
         app = un.app_for_program(exe, self.apps) if exe else None
         if app is None:
-            QMessageBox.information(self, tr("Drag onto a window"),
-                                    tr("That window belongs to Windows itself or to a program that isn't installed "
-                                       "(it runs on its own).") if exe else tr("No window there."))
+            sheet.information(self, tr("Drag onto a window"),
+                              tr("That window belongs to Windows itself or to a program that isn't installed "
+                                 "(it runs on its own).") if exe else tr("No window there."))
             return
         if app.store and not self.store.isChecked():
             self.store.setChecked(True)
@@ -660,18 +661,18 @@ class AppsPage(QWidget):
         self.hunter.apply_theme(theme)
 
     def show_extensions(self):
-        ExtensionsDialog(self.window().windowIcon()).exec()
+        sheet.run(ExtensionsDialog(self.window().windowIcon()))
 
     def show_updates(self):
         dlg = UpdatesDialog(self.window().windowIcon())
-        dlg.exec()
+        sheet.run(dlg)
         dlg.deleteLater()
         if dlg.changed:
             self.reload()
 
     def show_backups(self):
         dlg = BackupsDialog(self.c, self.window().windowIcon())
-        dlg.exec()
+        sheet.run(dlg)
         dlg.deleteLater()
         if dlg.changed:
             self.reload()
@@ -1313,7 +1314,7 @@ class BackupsDialog(QDialog):
             self._job = None
             if isinstance(result, Exception):
                 log.warning("backup job failed", exc_info=result)
-                QMessageBox.warning(self, tr("Backups"), str(result))
+                sheet.warning(self, tr("Backups"), str(result))
             else:
                 done(result)
             self.fill()
@@ -1328,23 +1329,23 @@ class BackupsDialog(QDialog):
 
         def done(result):
             if result["failed"]:
-                QMessageBox.warning(self, tr("Backups"), tr("{count} items couldn't be put back.",
-                                                            count=len(result["failed"])))
+                sheet.warning(self, tr("Backups"), tr("{count} items couldn't be put back.",
+                                                      count=len(result["failed"])))
             elif result.get("recycled"):
-                QMessageBox.information(self, tr("Backups"), _recycled_text(result["recycled"]))
+                sheet.information(self, tr("Backups"), _recycled_text(result["recycled"]))
         self._run(lambda: restore_backup(folder), done)
 
     def delete(self):
         folder = self._folder()
         if folder is None or self._job is not None:
             return
-        if QMessageBox.question(self, tr("Backups"), tr("Delete this backup for good? It can't be put back after "
-                                                       "that.")) != QMessageBox.Yes:
+        if sheet.question(self, tr("Backups"), tr("Delete this backup for good? It can't be put back after "
+                                                 "that.")) != QMessageBox.Yes:
             return
 
         def done(ok):
             if not ok:
-                QMessageBox.warning(self, tr("Backups"), tr("Some files in the backup couldn't be deleted."))
+                sheet.warning(self, tr("Backups"), tr("Some files in the backup couldn't be deleted."))
         self._run(lambda: un.delete_backup(folder), done)
 
 

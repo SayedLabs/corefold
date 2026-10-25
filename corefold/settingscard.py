@@ -8,7 +8,7 @@ from pathlib import Path
 from PySide6.QtCore import QStandardPaths
 from PySide6.QtWidgets import QFileDialog, QHBoxLayout, QMessageBox, QWidget
 
-from . import settings_backup
+from . import settings_backup, sheet
 from .core import short_name
 from .i18n import tr
 
@@ -60,7 +60,7 @@ def save_file(win, path: Path | None = None) -> Path | None:
         settings_backup.export(win.c.settings, path, _startup_choice(win))
     except OSError:
         log.exception("couldn't save the settings file")
-        QMessageBox.warning(win, tr("Save my settings"), tr("Couldn't save the file. Try another folder."))
+        sheet.warning(win, tr("Save my settings"), tr("Couldn't save the file. Try another folder."))
         return None
     win.c.toast.notify(tr("Your settings are saved"), path.name, linger_ms=5000)
     return path
@@ -101,7 +101,7 @@ def bring_back(win, path: Path | None = None, ask: bool = True) -> bool:
         saved = settings_backup.read(path)
     except settings_backup.BadFile as e:
         if ask:
-            QMessageBox.warning(win, title, tr(str(e)))
+            sheet.warning(win, title, tr(str(e)))
         else:
             log.info("not a settings file: %s", e)
         return False
@@ -112,7 +112,7 @@ def bring_back(win, path: Path | None = None, ask: bool = True) -> bool:
         yes = box.addButton(tr("Bring them back"), QMessageBox.AcceptRole)
         box.addButton(tr("Cancel"), QMessageBox.RejectRole)
         box.setDefaultButton(yes)
-        box.exec()
+        sheet.run(box)
         go = box.clickedButton() is yes
         box.deleteLater()
         if not go:
