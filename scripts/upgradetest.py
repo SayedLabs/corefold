@@ -113,6 +113,21 @@ def app_id(lnk: Path) -> str:
               ".ExtendedProperty('System.AppUserModel.ID')", CF_L=str(lnk))
 
 
+def same_file(a, b) -> bool:
+    """(a short 8.3 name like RUNNER~1 and the long one are the same file)"""
+    try:
+        return bool(a) and os.path.samefile(a, b)
+    except OSError:
+        return False
+
+
+def log_text() -> str:
+    try:
+        return LOG.read_text("utf-8", errors="replace")
+    except OSError:  # (not made yet: Corefold makes it as it starts)
+        return ""
+
+
 def lnk_target(lnk: Path) -> str:
     return ps("(New-Object -ComObject WScript.Shell).CreateShortcut($env:CF_L).TargetPath", CF_L=str(lnk))
 
@@ -195,13 +210,13 @@ def after_update_checks(case: str, folder: Path, before: dict, kept_files: set[s
     check(installed_dir() is not None and installed_dir().resolve() == folder.resolve(),
           f"{case}: still in {folder} (found {installed_dir()})")
     check(wait_for(lambda: pids(exe), 60), f"{case}: Corefold started again after the update")
-    started = LOG.read_text("utf-8", errors="replace")[start:] if LOG.exists() else ""
-    check(wait_for(lambda: f"starting Corefold {NEW}" in LOG.read_text("utf-8", errors="replace")[start:], 30),
+    started = log_text()[start:] if LOG.exists() else ""
+    check(wait_for(lambda: f"starting Corefold {NEW}" in log_text()[start:], 30),
           f"{case}: the new version is the one running")
     check(app_id(START_MENU) == APP_ID, f"{case}: the Start menu shortcut has Corefold's app id")
-    check(lnk_target(START_MENU).lower() == str(exe).lower(), f"{case}: the Start menu shortcut opens {exe}")
+    check(same_file(lnk_target(START_MENU), exe), f"{case}: the Start menu shortcut opens {exe}")
     time.sleep(6)  # (the tools in use have started by now)
-    started = LOG.read_text("utf-8", errors="replace")[start:]
+    started = log_text()[start:]
     check("updated from " in started and f"to {NEW}" in started, f"{case}: Corefold knows it was updated")
     if (Path(__file__).resolve().parent.parent / "assets" / "release-notes" / f"{NEW}.md").exists():
         check("(what's new waits)" in started, f"{case}: What's new waits for the window to open")
@@ -296,7 +311,7 @@ if OLD_SETUPS:
         start = LOG.stat().st_size if LOG.exists() else 0
         subprocess.Popen([str(exe), "--background"])
         check(wait_for(lambda: pids(exe), 60) and
-              wait_for(lambda: "starting Corefold" in LOG.read_text("utf-8", errors="replace")[start:], 30),
+              wait_for(lambda: "starting Corefold" in log_text()[start:], 30),
               "cut off: Corefold still starts")
     code = run(SETUP, "/SILENT", "/SP-", name="cut-again")
     check(code == 0 and installed_version() == NEW, "cut off: updating again goes through")
