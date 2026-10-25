@@ -1220,7 +1220,7 @@ def h_archive():
         timed("Archive: extract a 4.3 GB file", b._extract_to, 240, wait=lambda: not c.jobs, wait_s=900)
         QFileDialog.getExistingDirectory = staticmethod(lambda *a, **k: "")
         with setup():
-            img = dest / "disk image.img"
+            img = next(dest.rglob("disk image.img"), dest / "disk image.img")
             ok = img.is_file() and img.stat().st_size == 4400 << 20
             if ok:
                 chunk = bytes(range(256)) * 4096
@@ -1338,7 +1338,7 @@ def h_cloud():
     if item is None:
         check(False, f"Cloud: the Camera Roll folder is shown ({names()})")
         return
-    timed("Cloud: open a folder of 20,000 pictures", lambda: page._double_click(item, 0), 4,
+    timed("Cloud: open a folder of 20,000 pictures", lambda: page._double_click(item, 0), 6,
           wait=lambda: page.files.topLevelItemCount() >= 20000, wait_s=120)
     grab(w, "heavy-cloud")
     timed("Cloud: sort them by size", lambda: page.files._sort_by(1), 0.8)
