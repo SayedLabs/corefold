@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QDialog, QFileDialog, QHBoxLayout, QHeaderView, QL
 
 from . import emptyfolders, work
 from .i18n import ltr, tr
-from .timefmt import date_text, locale
+from .timefmt import date_text, number
 from .winutil import reveal_in_explorer, set_title_bar_dark
 
 
@@ -35,7 +35,7 @@ def _button(text: str, name: str | None = None, on_click=None) -> QPushButton:
 
 def _n(count: int) -> str:
     """A number written the way the language in use writes it (like the rest of the window)."""
-    return locale().toString(int(count))
+    return number(int(count))
 
 
 def inside_text(item: emptyfolders.EmptyFolder) -> str:

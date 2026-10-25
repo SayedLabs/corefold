@@ -22,7 +22,7 @@ from . import tools as all_tools
 from .atomic import tokens
 from .core import human_size, short_name
 from .i18n import ltr, tr
-from .timefmt import locale
+from .timefmt import number
 
 UNIT_H = 148     # one row of the grid
 SPACING = 12
@@ -783,7 +783,7 @@ class Board(QWidget):
 
     def _w_stats(self, f, lay, size):
         st = self.c.history.stats
-        files = locale().toString(st.files)
+        files = number(st.files)
         saved = human_size(st.bytes_saved) if st.bytes_saved else "0"
         self._head(lay, "converter", tr("What Corefold did"))
         lay.addStretch()

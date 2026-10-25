@@ -56,12 +56,14 @@ QFrame#tabLine { background: $border; border: none; max-height: 1px; min-height:
 QFrame#toast { background: $raised; border: 1px solid $line_strong; border-radius: ${r_xl}px; }
 
 QPushButton { background: $field; border: 1px solid $line_strong; border-bottom-color: $line_bottom;
-              border-radius: ${r_md}px; padding: 7px 15px; }
+              border-radius: ${r_md}px; padding: 7px 15px; text-align: center; }
 QPushButton:hover { background: $hover; }
 QPushButton:pressed { background: $pressed; border-bottom-color: $line_strong; }
 QPushButton:checked { background: $accent_soft; color: $text; border-color: $accent; }
 QPushButton:disabled { color: $subtle; border-color: $border; background: transparent; }
 QPushButton:focus { outline: none; }
+/* ("text-align" makes Qt lay out an icon and its words itself, with a real gap between them: without it the
+   words touched the icon, and overlapped it in Arabic) */
 /* a button with a menu: the arrow on its trailing side (Qt's own one lands outside the button in Arabic) */
 QPushButton::menu-indicator { image: url($down); width: 10px; height: 10px; subcontrol-origin: padding;
         subcontrol-position: center right; right: 7px; }
@@ -77,6 +79,8 @@ QPushButton#ghost:hover { background: $hover; }
 QPushButton#ghost:pressed { background: $pressed; }
 QPushButton#flat { background: transparent; border: none; color: $accent_text; padding: 3px 6px; font-weight: 600; }
 QPushButton#flat:hover { color: $text; }
+QPushButton#flat:disabled { color: $subtle; font-weight: 600; }
+QPushButton#danger:disabled { color: $subtle; }
 QPushButton#small { padding: 2px 8px; min-width: 0; background: transparent; border: 1px solid transparent;
                     color: $muted; font-size: ${caption}pt; }
 QPushButton#small:hover { background: $hover; border-color: $line_strong; color: $text; }

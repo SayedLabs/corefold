@@ -77,6 +77,16 @@ def log_text() -> str:
 
 note(f"installer: {SETUP.name}")
 
+# 0. Setup's file details (Properties > Details) are filled in, like Corefold.exe's
+details = subprocess.run([POWERSHELL, "-NoProfile", "-Command",
+                          "$v = (Get-Item -LiteralPath $env:CF_P).VersionInfo; "
+                          "$v.CompanyName; $v.LegalCopyright; $v.OriginalFilename; $v.ProductVersion"],
+                         capture_output=True, text=True, env=dict(os.environ, CF_P=str(SETUP))).stdout.split("\n")
+details = [d.strip() for d in details] + [""] * 4
+check(details[0] == "Atomic Works" and details[1] == "Atomic Works", f"Setup names its company and copyright {details[:2]}")
+check(details[2] == SETUP.name, f"Setup has its original file name ({details[2]!r})")
+check(bool(details[3]) and details[3] in SETUP.name, f"Setup has its version ({details[3]!r})")
+
 # 1. a first install, the way people install it
 code, took = run_setup("/VERYSILENT", "/TASKS=", name="1-install")
 check(code == 0 and EXE.exists(), f"installed (exit {code}, {took:.0f} s)")
