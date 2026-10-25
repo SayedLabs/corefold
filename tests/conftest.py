@@ -19,5 +19,10 @@ os.environ["LOCALAPPDATA"] = str(_TMP / "local")
 if sys.platform != "win32":
     import ctypes
     ctypes.windll = mock.MagicMock()
-    sys.modules.setdefault("winreg", mock.MagicMock())
+    winreg = mock.MagicMock()
+    # (a registry key with no keys or values under it: a stand-in that "has" endless keys sent
+    # shellmenu._delete_tree down for ever, filling the memory)
+    winreg.EnumKey.side_effect = OSError
+    winreg.EnumValue.side_effect = OSError
+    sys.modules.setdefault("winreg", winreg)
     sys.modules.setdefault("winsound", mock.MagicMock())
