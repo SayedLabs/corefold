@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>Everyday tools for Windows, in one small app that waits in the tray.</b><br>
-  Convert any file with one drag, uninstall apps without the leftovers, open every archive, and more.<br>
+  Convert any file with one drag, arrange and edit PDFs, open every archive, tidy your Downloads, and more.<br>
   Everything happens on your PC; nothing is uploaded.
 </p>
 
@@ -25,48 +25,56 @@
 </p>
 
 ## What's inside
-Corefold's tools are in four sections: **Files**, **Images & screen**, **Computer** and **Quick tools**.
-Switch on only the tools you want, each in its section: a tool that's switched off isn't loaded at all, so
-Corefold stays light.
-
-**Files**
+This version puts everything into the **Files** tools, so each of them is as good as it can be.
 
 | | |
 |---|---|
 | **Converter** | Hold Shift while dragging a file, and a wheel of formats appears at your cursor. Drop it on one and it's converted: pictures, videos, music, PDFs and Office files. |
-| **PDF** | Merge, split and arrange PDFs by dragging page pictures, shrink them, turn pictures into a PDF, and lock them with a password. |
+| **PDF** | Change what's in a PDF, merge, split and arrange PDFs by dragging page pictures, shrink them, turn pictures into a PDF, and lock them with a password. |
 | **Archive** | Opens ZIP, RAR, 7z, ISO and more with a double-click. Drag files out, change a file inside and save it back, rescue damaged archives. |
 | **File Organizer** | Sorts a messy Downloads or Desktop into clear folders with one click. See where every file will go first, and undo it all. |
 | **Unlock** | Finds out which program is holding a file you can't delete or move, and asks it to let go. |
 | **Cloud** | Your OneDrive, Dropbox, Google Drive and iCloud in one window, found by themselves. Search them all and drag files and folders from one to another. |
 
-**Images & screen**
+Switch on only the tools you want: a tool that's switched off isn't loaded at all, so Corefold stays light.
 
-| | |
-|---|---|
-| **Capture** | A picture of your screen in one shortcut. Mark it up, blur what's private, and pick just the words you want to copy. |
-| **Viewer** | Flip through a folder of pictures with the arrow keys and fix them on the spot. Select any file in File Explorer and press Ctrl + Space for a quick look. Opens Outlook emails without Outlook. |
-| **Player** | Plays every video and song, smooth in 4K, with subtitles, a mini player and a Continue watching list. |
-| **Colors** | Pick any colour on your screen with a magnifier and copy it as HEX, RGB or HSL. |
+<table>
+  <tr>
+    <td width="50%"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/pdf-en-dark.png">
+  <img src="docs/screenshots/pdf-en-light.png" alt="PDF: two PDFs on the page board, ready to arrange">
+</picture></td>
+    <td width="50%"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/archive-window-en-dark.png">
+  <img src="docs/screenshots/archive-window-en-light.png" alt="Archive: what's inside a ZIP, in its own window">
+</picture></td>
+  </tr>
+  <tr>
+    <td width="50%"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/organizer-en-dark.png">
+  <img src="docs/screenshots/organizer-en-light.png" alt="File Organizer: where every file in Downloads will go">
+</picture></td>
+    <td width="50%"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/cloud-en-dark.png">
+  <img src="docs/screenshots/cloud-en-light.png" alt="Cloud: OneDrive, Dropbox, Google Drive and iCloud in one window">
+</picture></td>
+  </tr>
+</table>
 
-**Computer**
+### Coming back soon
+The other sections are resting for now while the Files tools get our full attention. Nothing of them
+runs, and whatever they kept for you (settings, history, backups) waits untouched until they're back.
 
-| | |
-|---|---|
-| **Space** | A clear map of what's filling your disk, duplicate files, and safe junk to clean up. |
-| **Uninstaller** | Removes programs and everything they leave behind (folders, shortcuts, registry entries), with a backup you can put back. |
-| **Startup** | Everything that starts with Windows in one list. Switch off what slows it down, and back on just as easily. |
-| **Virus scan** | Checks your PC with Microsoft Defender, plus Corefold's own checks for tricks viruses use. Fully offline. |
+- **Images & screen:** Capture, Viewer, Player, Colors
+- **Computer:** Space, Uninstaller, Startup, Virus scan
+- **Quick tools:** Clipboard, Awake, Quick menu and quick wheel
 
-**Quick tools**
-
-| | |
-|---|---|
-| **Clipboard** | Everything you copy, kept and easy to find again: press Win + Alt + V in any app. |
-| **Awake** | Keeps your PC from going to sleep for as long as you choose, or turns it off at a time you pick. |
-| **Quick menu** | Your favourite actions and tools a shortcut away, in any app, as a menu or a wheel. |
-
-More is on the way: each section lists the tools coming to it.
+<p align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/resting-en-dark.png">
+  <img src="docs/screenshots/resting-en-light.png" alt="A section that's resting: its tools are coming back soon" width="720">
+</picture>
+</p>
 
 ## The Converter wheel
 <p align="center">
@@ -113,26 +121,6 @@ right-click). *All options…* at the bottom opens Corefold with the file. Prefe
 what's copied* in the tray menu) to convert a copied picture or copied files.
 </details>
 
-## Quick menu and quick wheel
-<table>
-  <tr>
-    <td width="50%"><picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/quick-menu-en-dark.png">
-  <img src="docs/screenshots/quick-menu-en-light.png" alt="The quick menu over the desktop">
-</picture></td>
-    <td width="50%"><picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/quick-wheel-en-dark.png">
-  <img src="docs/screenshots/quick-wheel-en-light.png" alt="The quick wheel">
-</picture></td>
-  </tr>
-</table>
-
-Press **Ctrl + Alt + Space** anywhere and the **quick menu** opens over whatever you're doing: take a
-screenshot, open your clipboard history, convert what's copied, open File Explorer or Task Manager,
-or start typing to find any of them. Hold **Alt + `** for the **quick wheel**, point at a slice and let
-go. Choose what's on each one, add your own apps, folders and websites, and change the keys under
-*Settings → Quick access*.
-
 ## A window that gets out of your way
 <table>
   <tr>
@@ -142,17 +130,7 @@ go. Choose what's on each one, add your own apps, folders and websites, and chan
 </picture></td>
     <td width="50%"><picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/store-en-dark.png">
-  <img src="docs/screenshots/store-en-light.png" alt="A section: its tools, each with a switch">
-</picture></td>
-  </tr>
-  <tr>
-    <td width="50%"><picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/apps-en-dark.png">
-  <img src="docs/screenshots/apps-en-light.png" alt="The Uninstaller lists every app with its size">
-</picture></td>
-    <td width="50%"><picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/space-en-dark.png">
-  <img src="docs/screenshots/space-en-light.png" alt="Space shows what fills your disk">
+  <img src="docs/screenshots/store-en-light.png" alt="The Files section: its tools, each with a switch">
 </picture></td>
   </tr>
 </table>
@@ -180,8 +158,7 @@ Arabic the whole app is right-to-left.
 - **Light on your PC.** Corefold waits in the tray using almost no memory or power. Conversions run at
   low priority and one at a time (both can be changed under *General → Keep my PC fast*), and memory it
   doesn't need is handed back to Windows when it's idle.
-- **Careful with your files.** Originals are never changed, the Uninstaller keeps a backup for 30 days,
-  and Space sends what you remove to the Recycle Bin first.
+- **Careful with your files.** Originals are never changed, and the File Organizer can undo a whole sort.
 
 Read the full [privacy policy](PRIVACY.md).
 
@@ -215,7 +192,9 @@ Open Corefold from the desktop icon (or click the teal tray icon):
 Corefold updates itself, so you never have to download it again. It checks for a newer version a few
 seconds after starting and every few hours. When there's a newer version it shows
 **Update now**; one click downloads it, checks it isn't damaged, installs it and restarts Corefold
-with all settings kept. On the **Updates** page you can let it install updates by itself.
+with all settings kept, in the same folder, with your desktop icon and Start menu entry. Afterwards it
+shows what's new, and the **Updates** page has the version history: what every version changed. There
+you can also let it install updates by itself.
 
 ## Uninstalling
 Any of these works:

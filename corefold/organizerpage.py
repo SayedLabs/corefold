@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QRectF, QSize, QStandardPaths, Qt
+from PySide6.QtCore import QRectF, QSize, QStandardPaths, Qt, QTimer
 from PySide6.QtGui import QPainter, QPen
 from PySide6.QtWidgets import (QCheckBox, QFileDialog, QFrame, QHBoxLayout, QHeaderView, QLabel, QPushButton, QScrollArea,
                                QSizePolicy, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
@@ -134,10 +134,19 @@ class _KindItem(QTreeWidgetItem):
     """A kind's line in the list. Its own box being ticked comes through setData (a click, the keyboard),
     while Qt only redraws it when one of its files changes, so the two can be told apart."""
     on_ticked = None
+    page = None
 
     def setData(self, column, role, value):
-        super().setData(column, role, value)
-        if column == 0 and role == Qt.CheckStateRole and self.on_ticked is not None:
+        page = self.page
+        mine = column == 0 and role == Qt.CheckStateRole and page is not None and not page._filling
+        if mine:  # (Qt ticks every file of the kind now: done here once, not once for each of thousands)
+            page._filling = True
+        try:
+            super().setData(column, role, value)
+        finally:
+            if mine:
+                page._filling = False
+        if mine and self.on_ticked is not None:
             self.on_ticked(self)
 
 
@@ -156,6 +165,8 @@ class OrganizerPage(QWidget):
         self.busy = False
         self.loading = False
         self._filling = False
+        self._kinds: dict[str, list] = {}
+        self._fill_round = 0
         self.left_out: set[str] = set()   # files the person unticked (left out again next time)
         self.setAcceptDrops(True)
         outer = QVBoxLayout(self)
@@ -392,31 +403,33 @@ class OrganizerPage(QWidget):
                 self.cards[self.key].set_line(to_sort_text(n))
         self._fill()
 
+    FIRST_ROWS = 600   # rows made at once; the rest follow a few hundred at a time, so the window keeps answering
+    MORE_ROWS = 400
+
     def _fill(self):
         self._filling = True
+        self._fill_round += 1
         self.tree.setUpdatesEnabled(False)
         self.tree.clear()
         p = self.plan
         t = self.c.theme
+        self._kinds = {}
+        todo: list = []  # (group line, files still to show in it)
         if p is not None and not p.refused:
             for kind, items in p.by_kind().items():
                 head = _KindItem(self.tree)
                 head.on_ticked = self._kind_ticked
+                head.page = self
                 head.setData(0, Qt.UserRole, kind)
                 head.setIcon(0, icons.icon(KIND_GLYPHS.get(kind, "folder"), t.accent))
                 head.setFlags(head.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsAutoTristate)
                 head.setToolTip(0, str(p.folders[kind]))
-                for item in items:
-                    if os.path.normcase(str(item.path)) in self.left_out:
-                        item.on = False
-                    child = QTreeWidgetItem(head)
-                    child.setData(0, FILE_ROLE, item)
-                    child.setFlags(child.flags() | Qt.ItemIsUserCheckable)
-                    child.setText(0, _para(self._file_text(item)))
-                    child.setText(1, human_size(item.size))
-                    child.setTextAlignment(1, Qt.AlignRight | Qt.AlignVCenter)
-                    child.setToolTip(0, f"{item.path}\n→ {item.target}")
-                    child.setCheckState(0, Qt.Checked if item.on else Qt.Unchecked)
+                if self.left_out:
+                    for item in items:
+                        if os.path.normcase(str(item.path)) in self.left_out:
+                            item.on = False
+                self._kinds[kind] = items
+                todo.append((head, items))
                 self._head_text(head)
             staying = p.staying()
             if staying:
@@ -424,19 +437,53 @@ class OrganizerPage(QWidget):
                 head.setIcon(0, icons.icon("pin", t.muted))
                 head.setText(0, tr("Left where they are: {count}", count=len(staying)))
                 head.setForeground(0, t.muted)
-                for item in staying:
-                    child = QTreeWidgetItem(head)
-                    child.setText(0, _para(f"{ltr(item.path.name)}  ·  {tr(organizer.STAYS[item.why])}"))
-                    child.setText(1, human_size(item.size))
-                    child.setTextAlignment(1, Qt.AlignRight | Qt.AlignVCenter)
-                    child.setForeground(0, t.muted)
-                    child.setToolTip(0, str(item.path))
-                    child.setData(0, FILE_ROLE, item)
+                todo.append((head, staying))
+        self._add_rows(todo, self.FIRST_ROWS)
         if self.tree.topLevelItemCount() <= 3:
             self.tree.expandAll()
         self.tree.setUpdatesEnabled(True)
         self._filling = False
         self._show_state()
+        if todo:
+            QTimer.singleShot(0, lambda r=self._fill_round: self._more_rows(r, todo))
+
+    def _more_rows(self, round_: int, todo: list):
+        if not work.alive(self) or round_ != self._fill_round:  # (the list was made again meanwhile)
+            return
+        self._filling = True
+        self._add_rows(todo, self.MORE_ROWS)
+        self._filling = False
+        if todo:
+            QTimer.singleShot(0, lambda: self._more_rows(round_, todo))
+
+    def _add_rows(self, todo: list, count: int):
+        """Makes up to `count` more rows, from the front of todo (each group's files in order)."""
+        t = self.c.theme
+        right = Qt.AlignRight | Qt.AlignVCenter
+        while todo and count > 0:
+            head, items = todo[0]
+            start = head.childCount()
+            part = items[start:start + count]
+            rows = []
+            for item in part:
+                child = QTreeWidgetItem()
+                child.setData(0, FILE_ROLE, item)
+                child.setText(1, human_size(item.size))
+                child.setTextAlignment(1, right)
+                if item.kind:
+                    child.setFlags(child.flags() | Qt.ItemIsUserCheckable)
+                    child.setText(0, _para(self._file_text(item)))
+                    child.setToolTip(0, f"{item.path}\n→ {item.target}")
+                    child.setCheckState(0, Qt.Checked if item.on else Qt.Unchecked)
+                else:
+                    child.setText(0, _para(f"{ltr(item.path.name)}  ·  {tr(organizer.STAYS[item.why])}"))
+                    child.setForeground(0, t.muted)
+                    child.setToolTip(0, str(item.path))
+                rows.append(child)
+            head.addChildren(rows)
+            count -= len(part)
+            if head.childCount() >= len(items):
+                todo.pop(0)
 
     def _file_text(self, item: organizer.Item) -> str:
         if item.renamed:  # (a file with its name is already in that folder)
@@ -446,9 +493,10 @@ class OrganizerPage(QWidget):
 
     def _head_text(self, head: QTreeWidgetItem):
         kind = head.data(0, Qt.UserRole)
-        n = head.childCount()
-        on = sum(1 for i in range(n) if head.child(i).checkState(0) == Qt.Checked)
-        size = sum(head.child(i).data(0, FILE_ROLE).size for i in range(n))
+        items = self._kinds.get(kind, [])  # (all of them: the list may still be showing its first rows)
+        n = len(items)
+        on = sum(1 for i in items if i.on)
+        size = sum(i.size for i in items)
         name = self.plan.folders[kind].name if self.plan else organizer.folder_name(kind)
         if on == n:
             words = tr("{folder}: 1 file", folder=ltr(name)) if n == 1 else \
@@ -489,7 +537,22 @@ class OrganizerPage(QWidget):
         """The kind's own box was ticked or unticked (not Qt updating it for its files): kept for next time.
         (Qt also unticks a kind when its last file is unticked, and leaving one file out this time mustn't
         leave the whole kind out of every tidy.)"""
-        if self._filling or it.checkState(0) == Qt.PartiallyChecked:
+        if self._filling:
+            return
+        state = it.checkState(0)
+        if state != Qt.PartiallyChecked:  # (its files: Qt ticked the rows, with the page's own work held back)
+            for item in self._kinds.get(it.data(0, Qt.UserRole), []):
+                item.on = state == Qt.Checked
+                key = os.path.normcase(str(item.path))
+                if item.on:
+                    self.left_out.discard(key)
+                else:
+                    self.left_out.add(key)
+        self._filling = True
+        self._head_text(it)
+        self._filling = False
+        self._show_state()
+        if it.checkState(0) == Qt.PartiallyChecked:
             return
         off = organizer.kinds_off()
         kind = it.data(0, Qt.UserRole)
