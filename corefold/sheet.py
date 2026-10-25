@@ -174,7 +174,7 @@ class _Layer(QWidget):
 
     def wanted(self) -> QSize:
         d = self.dlg
-        if d is None:
+        if d is None or not _alive(d):  # (a dialog that deletes itself as it closes may be gone already)
             return QSize(420, 200)
         hint = self.fixed if self.fixed is not None else d.sizeHint()
         hint = hint.expandedTo(d.minimumSize()).expandedTo(d.minimumSizeHint())
@@ -207,7 +207,7 @@ class _Layer(QWidget):
 
     def refit(self):
         """The dialog changed what it needs (it showed or hid a part): the sheet glides to its new size."""
-        if self.closing or not self.isVisible():
+        if self.closing or not self.isVisible() or (self.dlg is not None and not _alive(self.dlg)):
             return
         start, end = self.card.geometry(), self.target_rect().translated(0, int(self.rise))
         if start == end:
