@@ -146,9 +146,10 @@ try:
             check(shot(f"added-{tool.id}", win) < 0.3, f"after switching on {tool.id} the window isn't white")
             win = window() or win  # (the window may have been made again meanwhile)
             wr = win.rectangle()
-            if sec.one_tool:  # (its tab in the bar of uses on the tool's heading: not its switch or its card's name)
-                tab = [b for b in win.descendants(control_type="Button") if b.window_text() == (tool.use or tool.nav)
-                       and b.rectangle().top < wr.top + 300]
+            if sec.one_tool:  # (its tab in the bar of uses on the tool's heading, above its switch and its card)
+                tab = sorted([b for b in win.descendants() if b.window_text() == (tool.use or tool.nav)
+                              and b.element_info.control_type not in ("ListItem", "Text")
+                              and b.rectangle().top < wr.top + 300], key=lambda b: b.rectangle().top)[:1]
             else:  # (its tab, in the strip at the top: not its switch or its name on the card)
                 tab = [b for b in win.descendants() if b.window_text() == tool.nav and b.rectangle().top < wr.top + 150
                        and b.element_info.control_type not in ("ListItem", "Text")]
