@@ -1097,6 +1097,8 @@ class MainWindow(QWidget):
         self.refresh_nav()  # (the sections' tooltips list their tools)
         self._sync_settings_head(here)
         self.update_save_bar()
+        if self._direct_page(here) != here:  # (one tool on its own, switched on on its page: the tool itself)
+            QTimer.singleShot(0, self, lambda: self.open_page(here) if self.current_page() == here else None)
 
     # a tool's page, and what the window keeps of it (let go of with the page)
     PAGE_PARTS = {"Apps": "apps_page", "Clipboard": "clip_page", "Space": "space_page", "Cloud": "cloud_page",
@@ -1315,6 +1317,7 @@ class MainWindow(QWidget):
             return
         if self._opening and NAV_OWNER.get(self._opening) == name:
             name = self._opening
+        name = self._direct_page(name)
         went = getattr(self, "_went", None)
         before = self.current_page()
         board = getattr(self, "home_board", None)
@@ -2057,6 +2060,16 @@ class MainWindow(QWidget):
         sec = all_tools.SECTION_BY_PAGE.get(NAV_OWNER.get(name, name))
         return sec if sec is not None and sec.one_tool and not all_tools.section_paused(sec) else None
 
+    def _direct_page(self, name: str) -> str:
+        """A section that's one tool on its own (Cloud) opens that tool's page; its own page (with the tool's
+        switch) only while the tool is switched off."""
+        sec = all_tools.SECTION_BY_PAGE.get(name)
+        if sec is not None and sec.direct:
+            tool = all_tools.BY_ID[sec.tools[0]]
+            if tool in self.tools_on:
+                return tool.page
+        return name
+
     def _sync_one_head(self, name: str):
         """Shows the heading of the tool this page is part of (made again only when the tool changes), with
         the use that's open lit."""
@@ -2114,8 +2127,8 @@ class MainWindow(QWidget):
         if not hasattr(self, "section_strip"):
             return
         sec = all_tools.SECTION_BY_PAGE.get(NAV_OWNER.get(name, name))
-        if sec is not None and sec.one_tool and not all_tools.section_paused(sec):
-            sec = None  # (its features are listed on the side instead)
+        if sec is not None and (sec.direct or (sec.one_tool and not all_tools.section_paused(sec))):
+            sec = None  # (one tool on its own, or its uses are on its heading instead)
         self.section_strip.setVisible(sec is not None)
         if sec is None:
             return

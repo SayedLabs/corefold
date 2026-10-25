@@ -146,6 +146,9 @@ try:
             check(shot(f"added-{tool.id}", win) < 0.3, f"after switching on {tool.id} the window isn't white")
             win = window() or win  # (the window may have been made again meanwhile)
             wr = win.rectangle()
+            if sec.direct:  # (one tool on its own, like Cloud: switched on, it opens; no tab)
+                check(shot(f"open-{tool.id}", win) < 0.3, f"{tool.id}'s page isn't white")
+                continue
             if sec.one_tool:  # (its tab in the bar of uses on the tool's heading, above its switch and its card)
                 tab = sorted([b for b in win.descendants() if b.window_text() == (tool.use or tool.nav)
                               and b.element_info.control_type not in ("ListItem", "Text")

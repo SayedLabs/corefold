@@ -201,6 +201,8 @@ def nav_click(w, name):
     if name not in w.nav_rows:
         from corefold.window import NAV_OWNER
         nav_click(w, NAV_OWNER[name])
+        if w.current_page() == name:  # (one tool on its own, like Cloud: its row opens it)
+            return
         if w.one_head.isVisible():
             tab = w.one_head.tabs.get(name)
             if check(tab is not None and tab.isVisible(), f"the {NAV_OWNER[name]} bar of uses has {name}"):
@@ -278,6 +280,10 @@ def store_add():
         if c.theme.dark:
             check(white_share(real) < 0.3, f"after switching on {tool.id} the window isn't white "
                                            f"({white_share(real):.2f})")
+        if sec.direct:  # (one tool on its own, like Cloud: switched on, it opens)
+            settle(0.3)
+            page_ok(w, tool.page, f"switching on {tool.id} opens it")
+            continue
         card = switch_cards(w, sec.page).get(tool.id)
         if check(card is not None and card.switch.isChecked(), f"{tool.id}'s card shows it on"):
             click(card)

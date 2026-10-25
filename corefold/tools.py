@@ -254,13 +254,17 @@ class Section:
     line: str               # one line about it
     tools: tuple            # its tools' ids, ready ones and ones on the way, in their first order
     one_tool: str = ""      # "Corefold Files": the section is shown as one tool, its tools as that tool's uses
+    direct: bool = False    # one tool on its own (Cloud): its sidebar row opens the tool's page, with all the room
 
 
 SECTIONS: list[Section] = [
     Section("files", "Files", "Files", "document_multiple", "files",
             "Convert, sort, pack and fix your files.",
-            ("converter", "pdf", "archive", "organizer", "unlock", "cloud", "rename", "shredder", "backup"),
+            ("converter", "pdf", "archive", "organizer", "unlock", "rename", "shredder", "backup"),
             one_tool="Corefold Files"),
+    Section("cloud", "Clouds", "Cloud", "cloud", "cloud",
+            "All your cloud storage in one window: OneDrive, Dropbox, Google Drive and iCloud.",
+            ("cloud",), direct=True),
     Section("media", "Media", "Images & screen", "image_multiple", "media",
             "Screenshots, pictures, videos and colours.",
             ("capture", "viewer", "player", "colors", "ruler", "fonts")),

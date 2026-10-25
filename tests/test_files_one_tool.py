@@ -8,7 +8,7 @@ from PySide6.QtGui import QIcon
 from corefold import settings as settings_mod
 from corefold import tools as all_tools
 
-FEATURES = ["Converter", "PDF", "Archives", "Organizer", "Unlock", "Cloud"]
+FEATURES = ["Converter", "PDF", "Archives", "Organizer", "Unlock"]
 
 
 @pytest.fixture
@@ -65,9 +65,9 @@ def test_one_heading_over_the_files_pages(window):
     assert w.current_page() == "PDF" and w.built("PDF")
     assert head.tabs["PDF"].isChecked() and not head.tabs["Files"].isChecked()
     assert head.line.text() == all_tools.BY_ID["pdf"].short
-    assert not w.built("Cloud")
+    assert not w.built("Unlock")
     cards[-1].open_use()
-    assert w.current_page() == "Cloud"
+    assert w.current_page() == "Unlock"
 
 
 def test_a_use_has_no_heading_of_its_own(window):
@@ -88,8 +88,21 @@ def test_the_heading_goes_with_the_files_pages(window):
     for name in ("Home", "History", "General", "Media"):
         w.open_page(name)
         assert not w.one_head.isVisible(), name
-    w.open_page("Cloud")
-    assert w.one_head.isVisible() and w.one_head.tabs["Cloud"].isChecked()
+    w.open_page("Unlock")
+    assert w.one_head.isVisible() and w.one_head.tabs["Unlock"].isChecked()
+
+
+def test_cloud_has_a_place_of_its_own(window, qtbot):
+    from corefold.window import NAV_OWNER
+    w = window
+    assert "Clouds" in w.nav_rows and NAV_OWNER["Cloud"] == "Clouds"
+    w.nav.setCurrentRow(w.nav_rows.index("Clouds"))  # (its row in the sidebar: the Cloud itself, with all the room)
+    assert w.current_page() == "Cloud"
+    assert not w.one_head.isVisible() and not w.section_strip.isVisible()
+    w.c.set_tool("cloud", False)
+    assert w.current_page() == "Clouds"  # (switched off: where it's switched on again)
+    w.c.set_tool("cloud", True)
+    qtbot.waitUntil(lambda: w.current_page() == "Cloud", timeout=2000)
 
 
 def test_a_card_opens_with_the_keyboard(window, qtbot):
