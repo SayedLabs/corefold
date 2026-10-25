@@ -796,17 +796,57 @@ def _delete_as_admin(lines: list[tuple[str, str]]) -> bool:
             pass
 
 
+def common_startup_file(path: str) -> bool:
+    """A file right inside everyone's Startup folder (not in a folder under it, not a folder, not a link
+    to somewhere else): the only kind of file the administrator copy takes away for the Startup page."""
+    try:
+        p = Path(path)
+        return p.is_file() and not p.is_symlink() and \
+            os.path.normcase(str(p.resolve().parent)) == os.path.normcase(str(folders()["Common-Folder"].resolve()))
+    except OSError:
+        return False
+
+
+def clean_common_as_admin(payload: dict) -> dict:
+    """What Corefold, run as administrator, does for remove_leftovers: everyone's Startup folder shortcuts
+    to the Recycle Bin, with their on/off notes. Only files that are right in that folder, and only notes
+    under Windows' StartupFolder key."""
+    from .uninstall import recycle
+    removed = 0
+    for name, file in payload.get("items", []):
+        if not isinstance(file, str) or not common_startup_file(file) or not recycle(Path(file)):
+            continue
+        removed += 1
+        if isinstance(name, str) and plain_name(name):
+            try:
+                _delete_value("HKLM", PLACES["Common-Folder"][3], 64, name)
+            except OSError:
+                pass
+    return {"removed": removed}
+
+
+def _clean_common(items: list[tuple[str, str]]):
+    """clean_common_as_admin in Corefold as administrator (Windows asks first)."""
+    import sys
+    from .uninstall import run_elevated
+    if getattr(sys, "frozen", False):
+        command = [sys.executable]
+    else:
+        command = [sys.executable, str(Path(__file__).resolve().parent.parent / "main.py")]
+    run_elevated(command, "startup-clean", {"items": items})
+
+
 def remove_leftovers(entries: list[Entry]) -> list[Entry]:
     """Removes the lines of programs that are gone from this PC, with Windows' on/off note for each. A
-    line in a Startup folder (a shortcut) goes to the Recycle Bin. Lines for the whole PC in the registry
-    ask Windows for an administrator once for all of them; a shortcut in everyone's Startup folder can only
-    go when Corefold itself runs as administrator (it's left as it was otherwise, and counted as not
-    removed). Returns the ones that are really gone now."""
+    line in a Startup folder (a shortcut) goes to the Recycle Bin. What belongs to the whole PC (lines in
+    the registry, shortcuts in everyone's Startup folder) asks Windows for an administrator once for all
+    of them. Returns the ones that are really gone now."""
     gone = [e for e in leftovers(entries) if is_gone(e.exe)]   # (looked at again, just before)
     if not gone:
         return []
     _keep_copy(gone)
     as_admin: list[tuple[str, str]] = []
+    common: list[tuple[str, str]] = []
     for e in gone:
         hive, key, view, approved = PLACES[e.where]
         note_view = 64 if hive == "HKLM" else 0
@@ -814,6 +854,8 @@ def remove_leftovers(entries: list[Entry]) -> list[Entry]:
             if e.where.endswith("Folder"):
                 from .uninstall import recycle
                 if not recycle(Path(e.extra.get("file", ""))):
+                    if e.where == "Common-Folder" and not is_admin():  # (only an administrator may)
+                        common.append((e.value, str(e.extra.get("file", ""))))
                     continue
             else:
                 _delete_value(hive, key, view, e.value)
@@ -824,5 +866,7 @@ def remove_leftovers(entries: list[Entry]) -> list[Entry]:
             as_admin.append((_reg_key(hive, approved, note_view), e.value))
     if as_admin:
         _delete_as_admin(as_admin)
+    if common:
+        _clean_common(common)
     after = {x.id for x in list_entries()}
     return [e for e in gone if e.id not in after]
