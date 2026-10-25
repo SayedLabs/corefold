@@ -80,6 +80,8 @@ Type: files; Name: "{autodesktop}\{#OldName}.lnk"
 Type: filesandordirs; Name: "{app}\_internal"
 Type: filesandordirs; Name: "{app}\ffmpeg"
 Type: filesandordirs; Name: "{app}\7zip"
+; (Setup's own working file, left in the folder when an update was cut off: never anyone else's)
+Type: files; Name: "{app}\is-*.tmp"
 Type: dirifempty; Name: "{app}"
 
 [Icons]

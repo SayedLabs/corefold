@@ -130,14 +130,33 @@ def kept(version: str, language: str = "en") -> Notes | None:
     return None
 
 
-def history(language: str = "en") -> list[Notes]:
-    """Every version's notes kept with the app, newest first."""
+def _versions() -> list[str]:
     try:
         names = {p.name.split(".md")[0] for p in folder().glob("*.md")}
     except OSError:
         return []
-    versions = sorted({n for n in names if _VERSION.match(n)}, key=version_key, reverse=True)
-    return [n for n in (kept(v, language) for v in versions) if n is not None]
+    return sorted({n for n in names if _VERSION.match(n)}, key=version_key, reverse=True)
+
+
+def history(language: str = "en") -> list[Notes]:
+    """Every version's notes kept with the app, newest first."""
+    return [n for n in (kept(v, language) for v in _versions()) if n is not None]
+
+
+def heads() -> list[Notes]:
+    """Every version kept with the app, newest first, with only its day and tag read (quick: for a list
+    whose changes are read when one is opened)."""
+    out = []
+    for version in _versions():
+        try:
+            with open(folder() / f"{version}.md", encoding="utf-8") as f:
+                top = "".join(f.readline() for _ in range(3))
+        except OSError:
+            continue
+        notes = parse(top, version)
+        notes.parts = []
+        out.append(notes)
+    return out
 
 
 def release_page(repo: str, notes: Notes) -> str:

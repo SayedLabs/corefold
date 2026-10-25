@@ -156,9 +156,14 @@ $mp4 = "$work\clip.mp4"
 Check (@(Get-ChildItem "dist\Corefold" -Recurse -Filter "ffmpegmediaplugin.dll").Count -ge 1) "the build has Qt's player (FFmpeg plugin)"
 Start-Process $exe -ArgumentList @("--play", "`"$mp4`"") -Wait
 Start-Sleep 6
-Check ((Count "player is playing") -ge 1) "a double-clicked video plays in Corefold Player"
-Check ((Count "player can't play") -eq 0) "…without errors"
-Snap "Playing a 720p video" 5
+$resting = (& $py -c "from corefold import tools; print(int('media' in tools.PAUSED_SECTIONS))") -eq "1"
+if ($resting) {  # (Images & screen rests for now: the Player must stay closed)
+    Check ((Count "player is playing") -eq 0) "a double-clicked video doesn't open the resting Player"
+} else {
+    Check ((Count "player is playing") -ge 1) "a double-clicked video plays in Corefold Player"
+    Check ((Count "player can't play") -eq 0) "…without errors"
+}
+Snap $(if ($resting) { "After a double-clicked video (Player resting)" } else { "Playing a 720p video" }) 5
 
 $p.Refresh()
 $peak = MB $p.PeakWorkingSet64

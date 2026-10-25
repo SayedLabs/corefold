@@ -18,6 +18,8 @@ def test_every_kept_version_has_its_date_and_words():
         assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", notes.date), notes.version
         assert not notes.empty(), notes.version
     assert releasenotes.kept("1.5.4").tag == "1.5.4"  # (that release's tag has no "v")
+    assert [(n.version, n.date, n.tag) for n in releasenotes.heads()] == \
+        [(n.version, n.date, n.tag) for n in history]  # (the quick list says the same)
     assert releasenotes.release_page("SayedLabs/corefold", releasenotes.kept("1.10.0")) == \
         "https://github.com/SayedLabs/corefold/releases/tag/v1.10.0"
 
