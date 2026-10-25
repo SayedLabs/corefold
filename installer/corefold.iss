@@ -373,8 +373,7 @@ begin
        (MsgBox('Also delete your Corefold settings and what it keeps for you?' + #13#10#13#10 +
                'That is: settings, the clipboard history (pinned copies too), saved archive passwords, ' +
                'your saved signature, cloud sign-ins and the File Organizer''s Undo. ' +
-               'Backups of apps removed with Corefold, and files opened from Cloud, are kept either way.' +
-               #13#10#13#10 +
+               'Backups of removed apps and files opened from Cloud are kept either way.' + #13#10#13#10 +
                'Choose No if you might install Corefold again and want to keep them.',
                mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES) then
     begin
