@@ -96,24 +96,16 @@ def test_a_feature_switched_off_leaves_the_list(window):
     assert "Organizer" in w.feature_side.rows and w.feature_side.more is None
 
 
-def test_the_sidebar_makes_room_for_the_list(window, monkeypatch):
-    from corefold.window import MainWindow
+def test_the_sidebar_makes_room_for_the_list(window):
     w = window
-    wide = {"px": 1040}  # (as wide as the window opens the first time; the test screen may be smaller)
-    monkeypatch.setattr(MainWindow, "width", lambda self: wide["px"])
     w.open_page("Home")
-    w._fit_nav()
-    assert not w._compact_now()
-    w.open_page("Files")
-    assert w._compact_now()  # (icons only, so the features and the page beside them have room)
+    assert not w._nav_tight(1040) and w._nav_tight(800)
+    w.open_page("Files")  # (icons only, so the features and the page beside them have room)
+    assert w._nav_tight(1040) and not w._nav_tight(1400)
+    assert w._compact_now() == w._nav_tight(w.width())
     w.open_page("Home")
-    assert not w._compact_now()
-    wide["px"] = 1400
-    w.open_page("PDF")
-    assert not w._compact_now()
-    wide["px"] = 800
-    w._fit_nav()
-    assert w._compact_now()
+    assert not w._nav_tight(1040)
+    assert w._compact_now() == w._nav_tight(w.width())
 
 
 def test_a_files_page_says_only_the_features_name(window):

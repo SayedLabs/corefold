@@ -1149,11 +1149,15 @@ class MainWindow(QWidget):
         room (names again when there's enough). Only on a change, so the menu button still opens it. With a
         page that comes with the list or goes without it: at once, together with the page (not sliding after
         it, with the page laid out twice)."""
-        narrow = self.width() < 860 or (self.feature_side.isVisibleTo(self) and self.width() < 1180)
+        narrow = self._nav_tight(self.width())
         if narrow != self._narrow:
             self._narrow = narrow
             self._auto_compact = narrow
             self.set_nav_compact(narrow, remember=False, animate=animate)
+
+    def _nav_tight(self, width: int) -> bool:
+        """No room for the sidebar's names at this window width (with a tool's features list, if it shows)."""
+        return width < 860 or (self.feature_side.isVisibleTo(self) and width < 1180)
 
     def eventFilter(self, obj, event):
         if obj is getattr(self, "canvas", None) and event.type() == QEvent.Type.Resize:
