@@ -196,6 +196,8 @@ QMenu::item:disabled { color: $subtle; }
 QMenu::separator { height: 1px; background: $border; margin: 5px 8px; }
 QToolTip { background: $raised; color: $text; border: 1px solid $line_strong; padding: 5px 9px; border-radius: ${r_sm}px; }
 QDialog, QMessageBox { background: $canvas; }
+/* sheets & popovers (corefold/sheet.py): a dialog shown inside the window lets its sheet's rounded card show */
+QDialog[sheet="true"], QMessageBox[sheet="true"] { background: transparent; }
 """)
 
 

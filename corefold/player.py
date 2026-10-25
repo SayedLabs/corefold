@@ -34,6 +34,7 @@ from PySide6.QtWidgets import QFileDialog, QFrame, QHBoxLayout, QLabel, QMenu, Q
     QStackedWidget, QVBoxLayout, QWidget  # noqa: E402
 
 from . import icons  # noqa: E402
+from . import sheet  # noqa: E402
 from .core import APP_NAME  # noqa: E402
 from .i18n import ltr, tr  # noqa: E402
 from .settings import LOG_DIR  # noqa: E402
@@ -862,7 +863,7 @@ class PlayerWindow(QWidget):
         if self.subs is not None:
             menu.addAction(tr("Show them earlier (G)"), lambda: self.shift_subs(-SUB_STEP_MS))
             menu.addAction(tr("Show them later (H)"), lambda: self.shift_subs(SUB_STEP_MS))
-        menu.exec(QCursor.pos())
+        sheet.menu(menu, QCursor.pos())
 
     def set_subtitle_track(self, i: int):
         self.subs = None
@@ -922,7 +923,7 @@ class PlayerWindow(QWidget):
             act = menu.addAction(self._track_name(meta, i), lambda i=i: self.player.setActiveAudioTrack(i))
             act.setCheckable(True)
             act.setChecked(i == self.player.activeAudioTrack())
-        menu.exec(QCursor.pos())
+        sheet.menu(menu, QCursor.pos())
 
     # ---- what the player says
 
@@ -1138,7 +1139,7 @@ class PlayerWindow(QWidget):
                 sub.addAction(f"{clock(ms)}  {title}", lambda m=ms: self._seek_to(m))
         menu.addAction(tr("Open a file…"), self.open_dialog)
         menu.addAction(tr("Play a link…"), self._ask_link)
-        menu.exec(QCursor.pos())
+        sheet.menu(menu, QCursor.pos())
 
     def dragEnterEvent(self, e):
         if e.mimeData().hasUrls():

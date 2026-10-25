@@ -9,7 +9,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QFileDialog, QHBoxLayout, QHeaderView, QLabel, QProgressBar, QPushButton, \
     QTreeWidget, QTreeWidgetItem, QVBoxLayout
 
-from . import emptyfolders, work
+from . import emptyfolders, sheet, work
 from .i18n import ltr, tr
 from .timefmt import date_text, number
 from .winutil import reveal_in_explorer, set_title_bar_dark
@@ -129,11 +129,10 @@ class EmptyFoldersDialog(QDialog):
         if dlg is None or not work.alive(dlg):
             dlg = EmptyFoldersDialog(page)
             page._empty_dialog = dlg
-            dlg.show()
+            sheet.show(dlg)
             dlg.start(None)
-        dlg.show()
-        dlg.raise_()
-        dlg.activateWindow()
+        elif not dlg.isVisible():
+            sheet.show(dlg)
         return dlg
 
     def showEvent(self, e):

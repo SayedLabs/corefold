@@ -6,7 +6,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QCheckBox, QDialog, QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
 
-from . import icons
+from . import icons, sheet
 from . import tools as all_tools
 from .i18n import tr
 
@@ -91,7 +91,7 @@ class ToolPicker(QDialog):
 def ask_tools(icon: QIcon, dark: bool) -> set[str] | None:
     """The tools picked on the first start (None: the window was closed, so everything stays on)."""
     dlg = ToolPicker(icon, dark)
-    ok = dlg.exec() == QDialog.Accepted
+    ok = sheet.run(dlg) == QDialog.Accepted
     picked = dlg.chosen() if ok else None
     dlg.deleteLater()
     return picked

@@ -29,7 +29,7 @@ from PySide6.QtGui import QCursor, QDesktopServices, QGuiApplication, QIcon, QPi
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon
 
-from . import UPDATE_REPO, __version__, i18n, icons, ipc, shellmenu, sounds, updater, winutil
+from . import UPDATE_REPO, __version__, i18n, icons, ipc, sheet, shellmenu, sounds, updater, winutil
 from . import work as page_work
 from . import tools as all_tools
 from . import settings as settings_mod
@@ -258,6 +258,7 @@ class Controller(QObject):
         app.setStyleSheet(self._css())
         winutil.log_memory("look applied")
         self._window = None
+        sheet.install(app, self._sheet_window)  # (questions, menus and tips show inside the window)
         self.told_about_tray = False
         self.session_ending = False
 
@@ -288,7 +289,7 @@ class Controller(QObject):
         self.watcher.released.connect(lambda: QTimer.singleShot(150, self._hide_drag_wheel))
 
         self.signals = JobSignals()
-        self.toast = Toast(icon)
+        self.toast = Toast(icon, self.window_if_open)
         self.signals.started.connect(self._job_started)
         self.signals.item.connect(self._job_item)
         self.signals.progress.connect(self.toast.set_progress)
@@ -496,6 +497,12 @@ class Controller(QObject):
                 old.hide()
                 old.deleteLater()
         QTimer.singleShot(60, swap)
+
+    def _sheet_window(self):
+        """Where a question goes that has no window of its own to show in (one from the tray, or from the
+        right-click menu in Explorer): Corefold's window, opened."""
+        self.show_window()
+        return self.window
 
     def window_if_open(self):
         """The window if it exists (and nothing is built just to update it)."""
@@ -1237,7 +1244,7 @@ class Controller(QObject):
         box.setWindowIcon(self.icon)
         rescue = box.addButton(tr("Rescue files"), QMessageBox.AcceptRole)
         box.addButton(tr("Close"), QMessageBox.RejectRole)
-        box.exec()
+        sheet.run(box)
         chosen = box.clickedButton() is rescue
         box.deleteLater()
         if chosen:
@@ -1424,7 +1431,7 @@ class Controller(QObject):
         from .appspage import UninstallDialog
         dlg = UninstallDialog(self, [program], apps, False, self.icon)
         dlg.setWindowFlag(Qt.WindowStaysOnTopHint)
-        dlg.exec()
+        sheet.run(dlg)
         dlg.deleteLater()
 
     def files_from_menu(self, paths: list[str], into: str = "wheel"):
@@ -2066,7 +2073,7 @@ class Controller(QObject):
     def show_tour(self):
         from .tour import Tour
         dlg = Tour(self.icon, self.settings.shortcut_label, self.theme.accent)
-        dlg.exec()
+        sheet.run(dlg)
         dlg.deleteLater()
         if not self.settings.tour_done:
             self.settings.tour_done = True
@@ -2378,13 +2385,12 @@ class Controller(QObject):
         if not w.isVisible():
             self.show_window()
         old = getattr(self, "whats_new", None)
-        if old is not None and _alive(old):
-            old.raise_()
+        if old is not None and _alive(old) and old.isVisible():
             return
         dlg = WhatsNew(notes, self.theme.accent, w)
-        dlg.setAttribute(Qt.WA_DeleteOnClose)
+        dlg.finished.connect(dlg.deleteLater)
         self.whats_new = dlg
-        dlg.show()
+        sheet.show(dlg)  # (a page that rises inside the window, as everything does)
 
     def check_update_finished(self):
         """An update was started last time: if this isn't the version it went to, it didn't finish (the old
@@ -2448,7 +2454,7 @@ class Controller(QObject):
                              "saved."), parent=self.window_if_open())
         yes = box.addButton(tr("Quit"), QMessageBox.DestructiveRole)
         box.addButton(tr("Keep converting"), QMessageBox.RejectRole)
-        box.exec()
+        sheet.run(box)
         chosen = box.clickedButton() is yes
         box.deleteLater()
         return chosen
@@ -2465,7 +2471,7 @@ class Controller(QObject):
                 save = box.addButton(tr("Save"), QMessageBox.AcceptRole)
                 skip = box.addButton(tr("Don't save"), QMessageBox.DestructiveRole)
                 box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-                box.exec()
+                sheet.run(box)
                 chosen = box.clickedButton()
                 box.deleteLater()
                 if chosen is save:
@@ -2566,9 +2572,9 @@ class Controller(QObject):
         except OSError:
             log.exception("could not start uninstaller")
             winutil.create_mutex()
-            QMessageBox.warning(self.window_if_open(), APP_NAME,
-                                tr("Couldn't start the uninstaller. You can uninstall Corefold from Windows "
-                                   "Settings → Apps → Installed apps."))
+            sheet.warning(self.window_if_open(), APP_NAME,
+                          tr("Couldn't start the uninstaller. You can uninstall Corefold from Windows "
+                             "Settings → Apps → Installed apps."))
             return
         self.quit()
 
@@ -2580,7 +2586,7 @@ class Controller(QObject):
                           parent=self.window_if_open())
         yes = box.addButton(tr("Remove"), QMessageBox.DestructiveRole)
         box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-        box.exec()
+        sheet.run(box)
         chosen = box.clickedButton() is yes
         box.deleteLater()
         if chosen and not self._tell_busy() and self.unsaved_work_ok():

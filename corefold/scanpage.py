@@ -14,7 +14,7 @@ from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QDialog, QFileDialog, QFrame, QHBoxLayout, QLabel, QMenu, QMessageBox, \
     QProgressBar, QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
 
-from . import i18n, icons, scan, work
+from . import i18n, icons, scan, sheet, work
 from .atomic import tokens
 from .atomic.widgets import Group, IconButton, ResponsiveGrid, SettingRow
 from .i18n import ltr, tr
@@ -355,7 +355,7 @@ class FindingRow(QWidget):
         m.addSeparator()
         hide = m.addAction(icons.icon("dismiss", t.muted), tr("Don't show this again"))
         hide.triggered.connect(lambda: self.page.ignore(self))
-        m.exec(pos)
+        sheet.menu(m, pos)
         m.deleteLater()
 
 
@@ -396,7 +396,7 @@ class ThreatRow(QWidget):
             m.addAction(icons.icon("delete", t.danger), tr("Delete it…"), lambda: self.page.delete_threat(self))
         copy = m.addAction(icons.icon("copy", t.muted), tr("Copy the threat's name"))
         copy.triggered.connect(lambda: QGuiApplication.clipboard().setText(self.threat.get("name", "")))
-        m.exec(pos)
+        sheet.menu(m, pos)
         m.deleteLater()
 
 
@@ -802,8 +802,8 @@ class ScanPage(QWidget):
         if not files:
             return
         names = "\n".join(ltr(f) for f in files[:5])
-        if QMessageBox.question(self, tr("Delete it"), tr("Delete this for good? It can't be put back.") + "\n\n" +
-                                names) != QMessageBox.Yes:
+        if sheet.question(self, tr("Delete it"), tr("Delete this for good? It can't be put back.") + "\n\n" +
+                          names) != QMessageBox.Yes:
             return
         failed = []
         for f in files:
@@ -813,8 +813,8 @@ class ScanPage(QWidget):
                 log.warning("couldn't delete %s: %s", f, e)
                 failed.append(f)
         if failed:
-            QMessageBox.warning(self, tr("Delete it"), tr("Windows didn't let Corefold delete it. Open Windows "
-                                                          "Security to remove it."))
+            sheet.warning(self, tr("Delete it"), tr("Windows didn't let Corefold delete it. Open Windows "
+                                                    "Security to remove it."))
             return
         row.threat["status"] = "deleted"
         if self.result is not None:
@@ -865,7 +865,7 @@ class ScanPage(QWidget):
     # ---- Defender's quarantine
 
     def show_quarantine(self):
-        QuarantineDialog(self).exec()
+        sheet.run(QuarantineDialog(self))
 
 
 class QuarantineDialog(QDialog):
@@ -942,7 +942,7 @@ class QuarantineDialog(QDialog):
         self.group.show()
 
     def put_back(self, item: scan.Quarantined):
-        answer = QMessageBox.question(
+        answer = sheet.question(
             self, tr("Put back"),
             tr("Put {name} back where it was? Microsoft Defender found {threat} in it. Only do this if you're sure "
                "it's harmless: Defender may lock it away again when it's opened.",
@@ -955,6 +955,6 @@ class QuarantineDialog(QDialog):
             if not work.alive(self):
                 return
             if ok is not True:
-                QMessageBox.warning(self, tr("Put back"), tr("Microsoft Defender didn't put it back."))
+                sheet.warning(self, tr("Put back"), tr("Microsoft Defender didn't put it back."))
             self.load()
         self.jobs.append(work.run(lambda _p: scan.restore(item), lambda _: None, done, name="corefold-restore"))

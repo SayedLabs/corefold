@@ -614,6 +614,10 @@ class Dropdown(QComboBox):
         box.setAttribute(Qt.WA_TranslucentBackground)
 
     def showPopup(self):
+        from .. import sheet
+        if sheet.host_for(self) is not None:  # (the list opens inside the window: no window of its own)
+            sheet.drop_list(self)
+            return
         super().showPopup()
         box = self.view().window()
         # opens right below the box, at least as wide as it (Qt's own spot can cover the box)

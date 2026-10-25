@@ -9,6 +9,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+# parts of a window, never windows themselves: one of these shown before it's placed is always a flash
+PARTS = {"QLabel", "QPushButton", "QToolButton", "QFrame", "QWidget", "QProgressBar", "QLineEdit", "QCheckBox",
+         "QRadioButton", "QSlider", "QSpinBox", "QDoubleSpinBox", "QComboBox", "Dropdown", "QListWidget",
+         "QTreeWidget", "QTextEdit", "QPlainTextEdit", "QScrollArea", "QStackedWidget", "IconButton", "Switch"}
 PLACES = (".addWidget", ".insertWidget", ".setWidget", ".addRow", ".insertRow", ".setParent", ".setCornerWidget",
           ".addTab", ".insertTab", ".setCellWidget", ".setItemWidget", ".addPermanentWidget", ".setTitleBarWidget")
 
@@ -25,6 +29,7 @@ def scan(path: Path) -> list[str]:
         if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         made = {}       # name -> line, for widgets made here with no parent
+        kind = {}       # name -> the class it was made from
         shown = {}      # name -> line where it was shown while it still had none
         placed = set()
         for n in calls_in_order(fn):
@@ -38,6 +43,7 @@ def scan(path: Path) -> list[str]:
                 placed.discard(name)
                 if not has_parent:
                     made[name] = n.lineno
+                    kind[name] = ast.unparse(call.func).split(".")[-1]
                 continue
             if not isinstance(n, ast.Call):
                 continue
@@ -59,6 +65,10 @@ def scan(path: Path) -> list[str]:
                 if (func.attr == "show" or (func.attr == "setVisible" and arg != "False")
                         or (func.attr == "setHidden" and arg != "True")):
                     shown[obj] = n.lineno
+        for name, line in shown.items():  # (shown, and put in its place only under another name, or never)
+            if name not in placed and kind.get(name) in PARTS:
+                found.append(f"{path.relative_to(ROOT)}:{line} {name} is shown while it has no parent (it's never "
+                             f"laid out as {name} here): it flashes as a window of its own")
     return found
 
 

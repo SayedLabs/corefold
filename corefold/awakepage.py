@@ -10,7 +10,7 @@ from PySide6.QtCore import QLocale, QTime, QTimer, Qt, Signal
 from PySide6.QtWidgets import (QButtonGroup, QFileDialog, QFrame, QHBoxLayout, QLabel, QMenu, QMessageBox,
                                QPushButton, QScrollArea, QSpinBox, QVBoxLayout, QWidget)
 
-from . import awake, icons
+from . import awake, icons, sheet
 from .atomic.widgets import FlowLayout, IconButton, Switch, keep_wrapped_text
 from .i18n import tr
 from .theme import round_menu
@@ -404,7 +404,7 @@ class AwakePage(QScrollArea):
             m.addAction(awake.program_title(path), lambda p=path: self.add_program(p))
         m.addSeparator()
         m.addAction(tr("Choose a program file…"), self._browse)
-        m.exec(self.add_app.mapToGlobal(self.add_app.rect().bottomLeft()))
+        sheet.menu(m, self.add_app)
         m.deleteLater()
 
     def _browse(self):
@@ -512,7 +512,7 @@ class AwakePage(QScrollArea):
                           parent=self.window())
         yes = box.addButton(tr("Plan it"), QMessageBox.AcceptRole)
         box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-        box.exec()
+        sheet.run(box)
         chosen = box.clickedButton() is yes
         box.deleteLater()
         if chosen:
@@ -529,7 +529,7 @@ class AwakePage(QScrollArea):
                               parent=self.window())
             yes = box.addButton(tr("Replace it"), QMessageBox.AcceptRole)
             box.addButton(tr("Keep that one"), QMessageBox.RejectRole)
-            box.exec()
+            sheet.run(box)
             chosen = box.clickedButton() is yes
             box.deleteLater()
             if not chosen:

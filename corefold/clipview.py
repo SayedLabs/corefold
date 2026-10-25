@@ -12,7 +12,7 @@ from PySide6.QtGui import QColor, QCursor, QDesktopServices, QFont, QFontMetrics
 from PySide6.QtWidgets import QAbstractItemView, QApplication, QButtonGroup, QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget, \
     QFileDialog, QListWidgetItem, QMenu, QMessageBox, QPushButton, QStyle, QStyledItemDelegate, QVBoxLayout, QWidget
 
-from . import i18n, icons
+from . import i18n, icons, sheet
 from .clipboard import CHANGES, HOTKEY_NAMES, Item, change_text, text_item
 from .i18n import ltr, tr
 from .theme import round_menu
@@ -274,7 +274,7 @@ class ClipList(QListWidget):
         menu.addAction(tr("Delete"), lambda: self.removed.emit(item))
         self.menu_open = True
         try:
-            menu.exec(self.viewport().mapToGlobal(pos))
+            sheet.menu(menu, self.viewport().mapToGlobal(pos))
         finally:
             self.menu_open = False
 
@@ -307,10 +307,10 @@ class ClipList(QListWidget):
         tool = next((t for kind in catalog().values() for t in kind if t.key.endswith(":ocr")), None)
         c = self.controller
         if tool is None or c is None:
-            QMessageBox.information(self, tr("Copy the text in it"), tr("Reading text needs Windows 10 or 11"))
+            sheet.information(self, tr("Copy the text in it"), tr("Reading text needs Windows 10 or 11"))
             return
         if not path.exists():
-            QMessageBox.information(self, tr("Copy the text in it"), tr("This picture isn't there any more."))
+            sheet.information(self, tr("Copy the text in it"), tr("This picture isn't there any more."))
             return
         import shutil
         import tempfile
@@ -332,7 +332,7 @@ class ClipList(QListWidget):
         try:
             shutil.copy2(path, Path(name))
         except OSError as e:
-            QMessageBox.warning(self, tr("Couldn't save"), str(e))
+            sheet.warning(self, tr("Couldn't save"), str(e))
 
 
 def _web(text: str) -> str:
@@ -597,7 +597,7 @@ def edit_text(parent, text: str, ok_text: str, title: str = "") -> str | None:
     lay.addWidget(buttons)
     QShortcut(QKeySequence("Ctrl+Return"), d).activated.connect(d.accept)
     box.setFocus()
-    return box.toPlainText() if d.exec() == QDialog.Accepted else None
+    return box.toPlainText() if sheet.run(d) == QDialog.Accepted else None
 
 
 def _bring_to_front(hwnd: int):
@@ -746,7 +746,7 @@ class ClipboardPage(QWidget):
         box.setText(tr("Everything kept is forgotten, except what you pinned."))
         yes = box.addButton(tr("Clear"), QMessageBox.DestructiveRole)
         box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-        box.exec()
+        sheet.run(box)
         if box.clickedButton() is yes:
             self.clip.clear()
 

@@ -18,7 +18,7 @@ from PySide6.QtGui import (QBrush, QColor, QGuiApplication, QIcon, QImage, QKeyS
 from PySide6.QtWidgets import (QApplication, QFileDialog, QFrame, QHBoxLayout, QLabel, QListView, QListWidget,
                                QListWidgetItem, QMenu, QMessageBox, QPushButton, QSlider, QVBoxLayout, QWidget)
 
-from . import i18n, icons
+from . import i18n, icons, sheet
 from .core import ALIASES, APP_NAME, IMAGE_EXT, human_size, norm, short_name
 from .i18n import ltr, tr
 from .settings import VIEWER_SORTS as SORTS
@@ -1066,12 +1066,12 @@ class ViewerWindow(QWidget):
         from .core import safe_name
         out = src.with_name(safe_name(name) + src.suffix)
         if out.exists() and os.path.normcase(str(out)) != os.path.normcase(str(src)):
-            QMessageBox.warning(self, tr("Couldn't rename"), tr("There's already a file called {name}.", name=out.name))
+            sheet.warning(self, tr("Couldn't rename"), tr("There's already a file called {name}.", name=out.name))
             return
         try:
             src.rename(out)
         except OSError as e:
-            QMessageBox.warning(self, tr("Couldn't rename"), str(e))
+            sheet.warning(self, tr("Couldn't rename"), str(e))
             return
         image = self.cache.pop(str(src), None)
         if image is not None:
@@ -1100,7 +1100,7 @@ class ViewerWindow(QWidget):
             else:
                 shutil.copy2(src, out)
         except OSError as e:
-            QMessageBox.warning(self, tr("Couldn't move it") if move else tr("Couldn't copy it"), str(e))
+            sheet.warning(self, tr("Couldn't move it") if move else tr("Couldn't copy it"), str(e))
             return
         if not move:
             self.c.toast.notify(tr("Copied"), out.name, linger_ms=2000)
@@ -1247,7 +1247,7 @@ class ViewerWindow(QWidget):
         save = box.addButton(tr("Save"), QMessageBox.AcceptRole)
         skip = box.addButton(tr("Don't save"), QMessageBox.DestructiveRole)
         box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-        box.exec()
+        sheet.run(box)
         chosen = box.clickedButton()
         box.deleteLater()
         if chosen is save:
@@ -1308,7 +1308,7 @@ class ViewerWindow(QWidget):
                 tmp.unlink(missing_ok=True)
             except (OSError, UnboundLocalError):
                 pass
-            QMessageBox.warning(self, tr("Couldn't save"), str(e))
+            sheet.warning(self, tr("Couldn't save"), str(e))
             return False
         self.edits = []
         self.cache.pop(str(out), None)
@@ -1331,7 +1331,7 @@ class ViewerWindow(QWidget):
                               parent=self)
             yes = box.addButton(tr("Delete"), QMessageBox.DestructiveRole)
             box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-            box.exec()
+            sheet.run(box)
             chosen = box.clickedButton() is yes
             box.deleteLater()
             if not chosen:
@@ -1342,8 +1342,8 @@ class ViewerWindow(QWidget):
         except Exception:
             ok = False
         if not ok:
-            QMessageBox.warning(self, tr("Couldn't delete"), tr("{name} couldn't be moved to the Recycle Bin.",
-                                                                name=path.name))
+            sheet.warning(self, tr("Couldn't delete"), tr("{name} couldn't be moved to the Recycle Bin.",
+                                                          name=path.name))
             return
         self.cache.pop(str(path), None)
         self.edits = []
@@ -1392,7 +1392,7 @@ class ViewerWindow(QWidget):
         except Exception:
             ok = False
         if not ok:
-            QMessageBox.warning(self, tr("Couldn't change the background"), path.name)
+            sheet.warning(self, tr("Couldn't change the background"), path.name)
 
     # ---- view
 
