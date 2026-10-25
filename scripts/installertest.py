@@ -37,6 +37,7 @@ def check(ok, what):
     print(("ok      " if ok else "PROBLEM ") + what, flush=True)
     if not ok:
         problems.append(what)
+    return ok
 
 
 def note(what):
@@ -79,7 +80,11 @@ note(f"installer: {SETUP.name}")
 # 1. a first install, the way people install it
 code, took = run_setup("/VERYSILENT", "/TASKS=", name="1-install")
 check(code == 0 and EXE.exists(), f"installed (exit {code}, {took:.0f} s)")
-check(wait_for(lambda: pids(EXE), 30), "Corefold started in the tray after installing")
+if not check(wait_for(lambda: pids(EXE), 30), "Corefold started in the tray after installing"):
+    setup_log = OUT / "1-install.log"
+    tail = setup_log.read_text("utf-8", errors="replace").splitlines()[-25:] if setup_log.exists() else []
+    note("Setup's log ends: " + " | ".join(tail))
+    note(f"in the folder: {sorted(q.name for q in EXE.parent.iterdir()) if EXE.parent.exists() else 'nothing'}")
 
 # 2. a different program that happens to be called Corefold.exe (another folder): never stopped
 decoy_dir = TMP / "someone else"
