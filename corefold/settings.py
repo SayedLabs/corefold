@@ -148,6 +148,7 @@ NOT_EDITED = {"enabled", "first_run", "last_version", "update_told", "notes_show
               "tools_off", "known_tools", "open_images", "open_emails", "viewer_info", "viewer_strip", "recent_views",
               "archive_preview",
               "clip_paused", "open_media", "player_volume", "nav_order", "section_order", "nav_width", "nav_compact",
+              "home_widgets",
               "quick_button_pos", "quick_told", "remember_password",
               "unlock_menu_signature",
               "awake_mode", "awake_minutes", "awake_until", "awake_screen", "awake_apps", "awake_low_battery",
@@ -179,6 +180,11 @@ QUICK_KEYS = ("quick_menu", "quick_menu_key", "quick_menu_items", "quick_wheel",
 # what's on the quick menu and the wheel to begin with (see quick.py)
 QUICK_MENU_ITEMS = ["screenshot", "screenshot_later", "clipboard", "paste", "again", "archive", "explorer", "taskmgr"]
 QUICK_WHEEL_ITEMS = ["screenshot", "clipboard", "paste", "again", "tool:space", "explorer", "settings", "quickmenu"]
+
+
+def _home_default() -> list:
+    from .homelist import default
+    return default()
 
 
 def hotkey_ok(combo: str) -> bool:
@@ -346,6 +352,7 @@ class Settings:
     sidebar_icons: bool = True
     nav_order: list = field(default_factory=list)   # the tools inside their section, in the order they were put in
     section_order: list = field(default_factory=list)   # the sections in the sidebar, in the order they were dragged
+    home_widgets: list = field(default_factory=lambda: _home_default())  # the Home page's widgets (homelist.py)
     nav_width: int = 232
     nav_compact: bool = False      # the sidebar shows icons only
     # "Do it again": the last thing you did (tool key, its choices; never a password)
@@ -429,6 +436,8 @@ class Settings:
         s.known_tools = [t for t in s.known_tools if isinstance(t, str)]
         s.nav_order = [t for t in s.nav_order if isinstance(t, str)]
         s.section_order = [t for t in s.section_order if isinstance(t, str)]
+        from .homelist import clean
+        s.home_widgets = clean(s.home_widgets)
         s.nav_width = min(340, max(190, s.nav_width))
         gone = ("record", "record_gif")  # (recording the screen was taken out of Capture in 1.8.1)
         s.quick_menu_items = [t for t in s.quick_menu_items if isinstance(t, str) and t not in gone][:40]
