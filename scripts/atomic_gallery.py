@@ -101,7 +101,7 @@ def main():
     app = QApplication(sys.argv)
     out = Path(sys.argv[1]) if len(sys.argv) > 1 else None
     for dark in (True, False):
-        pal = tokens.palette(dark, QColor("#3cc7b2" if dark else "#0a7768"))
+        pal = tokens.palette(dark, QColor("#3fb6a2" if dark else "#0f7a6c"))
         tokens.use(pal)
         app.setStyleSheet(qss.base(pal))
         w = gallery()

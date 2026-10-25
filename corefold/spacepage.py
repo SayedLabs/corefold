@@ -1414,7 +1414,7 @@ class SpacePage(QWidget):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(12)
         # how much can go, and the button that does it
-        hero = GlowPanel(rings=False)
+        hero = GlowPanel(rings=False, boxed=True)
         hl = QHBoxLayout(hero)
         hl.setContentsMargins(20, 16, 20, 16)
         hl.setSpacing(16)

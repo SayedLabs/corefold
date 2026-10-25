@@ -1,9 +1,14 @@
 """Design tokens: the few numbers and colours every screen is built from.
 
 Surfaces stack from the back of the window to the front:
-    backdrop (behind everything: the sidebar sits on it) → canvas (the page area, a big rounded sheet)
-    → surface (cards and groups) → raised (popups, menus, the command palette).
+    backdrop (the sidebar) → canvas (the page area, flat beside it) → surface (cards and groups, filled,
+    no edge) → raised (popups, menus, the command palette).
 Lines are hairlines (`border`) or, around things you can click, a little stronger (`line_strong`).
+
+The look is quiet: greys do the work and the accent colour is kept for what it means. It goes on the main
+button of a screen (`primary`), switches and ticks that are on, progress, the focus ring and a drop target.
+Everything else that's "picked" (the page you're on, a chosen option, a selected row) is a grey `select`
+fill, and decorative icons are `glyph` (ink), never the accent.
 """
 from __future__ import annotations
 
@@ -67,6 +72,11 @@ class Palette:
     success: QColor
     warning: QColor
     scrim: QColor         # dims the window behind a palette or dialog
+    select: QColor = None       # type: ignore[assignment]  # behind what's picked: the page you're on, a row
+    glyph: QColor = None        # type: ignore[assignment]  # decorative icons (feature tiles, list marks)
+    primary: QColor = None      # type: ignore[assignment]  # the main button of a screen
+    on_primary: QColor = None   # type: ignore[assignment]
+    primary_hover: QColor = None  # type: ignore[assignment]
 
 
 def mix(a: QColor, b: QColor, t: float) -> QColor:
@@ -89,31 +99,31 @@ def on_color(c: QColor) -> QColor:
 
 
 def palette(dark: bool, accent: QColor) -> Palette:
-    """The colours for one appearance and accent (cool graphite neutrals, so any accent sits well)."""
+    """The colours for one appearance and accent: soft neutral greys (close to Apple's), so any accent sits well
+    and shows only where it means something."""
+    a = QColor(accent)
     if dark:
-        canvas = QColor("#121317")
-        surface = QColor("#18191e")
+        surface = QColor("#1e1e21")
         p = Palette(
-            dark=True, accent=QColor(accent), on_accent=on_color(accent),
-            accent_soft=mix(surface, accent, 0.16), accent_hover=QColor(accent).lighter(112),
-            backdrop=QColor("#0b0c0f"), canvas=canvas, surface=surface, raised=QColor("#1d1e24"),
-            field=QColor("#1e1f25"), hover=QColor("#24252c"), pressed=QColor("#2a2b33"),
-            border=QColor("#25262d"), line_strong=QColor("#33343d"),
-            text=QColor("#f3f4f7"), muted=QColor("#9b9da8"), subtle=QColor("#6c6e79"),
-            danger=QColor("#ff6b78"), success=QColor("#4fd18b"), warning=QColor("#f2b44a"),
-            scrim=QColor(0, 0, 0, 150))
+            dark=True, accent=a, on_accent=on_color(a), accent_soft=mix(surface, a, 0.16),
+            accent_hover=a.lighter(110), backdrop=QColor("#19191b"), canvas=QColor("#131315"),
+            surface=surface, raised=QColor("#26262a"), field=QColor("#2a2a2e"), hover=QColor("#2a2a2f"),
+            pressed=QColor("#323237"), border=QColor("#26262a"), line_strong=QColor("#3a3a40"),
+            text=QColor("#f5f5f7"), muted=QColor("#a1a1a8"), subtle=QColor("#6e6e76"),
+            danger=QColor("#ff6961"), success=QColor("#32d74b"), warning=QColor("#ffb340"),
+            scrim=QColor(0, 0, 0, 150), select=QColor("#2e2e33"))
     else:
-        canvas = QColor("#f8f9fb")
-        surface = QColor("#ffffff")
+        surface = QColor("#f5f5f7")
         p = Palette(
-            dark=False, accent=QColor(accent), on_accent=on_color(accent),
-            accent_soft=mix(surface, accent, 0.11), accent_hover=QColor(accent).darker(112),
-            backdrop=QColor("#eceef2"), canvas=canvas, surface=surface, raised=QColor("#ffffff"),
-            field=QColor("#ffffff"), hover=QColor("#f0f1f4"), pressed=QColor("#e6e8ec"),
-            border=QColor("#e4e6eb"), line_strong=QColor("#d2d5dc"),
-            text=QColor("#121318"), muted=QColor("#5d606b"), subtle=QColor("#8e919b"),
-            danger=QColor("#c0263a"), success=QColor("#1d8a4e"), warning=QColor("#a86a00"),
-            scrim=QColor(20, 22, 28, 90))
+            dark=False, accent=a, on_accent=on_color(a), accent_soft=mix(QColor("#ffffff"), a, 0.10),
+            accent_hover=a.darker(110), backdrop=QColor("#ececef"), canvas=QColor("#ffffff"),
+            surface=surface, raised=QColor("#ffffff"), field=QColor("#ffffff"), hover=QColor("#ececf0"),
+            pressed=QColor("#e1e1e6"), border=QColor("#e6e6ea"), line_strong=QColor("#d2d2d7"),
+            text=QColor("#1d1d1f"), muted=QColor("#6e6e73"), subtle=QColor("#a1a1a6"),
+            danger=QColor("#d70015"), success=QColor("#248a3d"), warning=QColor("#b25000"),
+            scrim=QColor(20, 20, 24, 90), select=QColor("#dcdce1"))
+    p.glyph = p.text
+    p.primary, p.on_primary, p.primary_hover = p.accent, p.on_accent, p.accent_hover
     return p
 
 
@@ -132,5 +142,5 @@ def use(p: Palette, animate: bool = True) -> None:
 def current() -> Palette:
     global _current
     if _current is None:
-        _current = palette(True, QColor("#3cc7b2"))
+        _current = palette(True, QColor("#3fb6a2"))
     return _current

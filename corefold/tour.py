@@ -38,7 +38,7 @@ class Tour(QDialog):
             lay.setContentsMargins(10, 6, 10, 6)
             big = QLabel()
             dpr = self.devicePixelRatioF()
-            big.setPixmap(icons.pixmap(pic, 56, color or QColor("#0a7768"), dpr) if pic else icon.pixmap(64, 64))
+            big.setPixmap(icons.pixmap(pic, 56, color or QColor("#0f7a6c"), dpr) if pic else icon.pixmap(64, 64))
             big.setMinimumHeight(72)
             big.setAlignment(Qt.AlignCenter)
             t = QLabel(tr(title, key=key))

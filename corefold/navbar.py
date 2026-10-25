@@ -1,4 +1,4 @@
-"""The window's sidebar: rows drawn by hand (a sliding accent mark on the page you're on), the tools
+"""The window's sidebar: rows drawn by hand (a grey pill that slides to the page you're on), the tools
 in the order the person drags them into, and a narrow look with only icons.
 
 Rows hold the page name (or None for a heading); icons come from icons.py and follow the theme."""
@@ -56,8 +56,8 @@ class _Rows(QStyledItemDelegate):
         hovered = bool(option.state & QStyle.State_MouseOver) and nav.drag_row < 0
         lifted = row == nav.drag_row
         if lifted:  # being dragged: lifted off the list
-            p.setPen(QPen(t.accent, 1))
-            p.setBrush(t.panel)
+            p.setPen(QPen(t.line_strong, 1))
+            p.setBrush(t.tokens.raised)
             p.drawRoundedRect(r, 7, 7)
         elif hovered and not selected:  # (the page you're on has a pill that slides, see NavList.paintEvent)
             p.setPen(Qt.NoPen)
@@ -72,7 +72,7 @@ class _Rows(QStyledItemDelegate):
             x = r.right() - 12 - 20 if rtl else r.left() + 12
             icon_box = QRectF(x, r.center().y() - 10, 20, 20)
         if show_icon:
-            icons.paint(p, icon_box, name, t.accent if selected else ink)
+            icons.paint(p, icon_box, name, ink)
         badge = index.data(BADGE_ROLE)
         if not compact:
             lead = 12 + (30 if show_icon else 2)
@@ -96,7 +96,7 @@ class _Rows(QStyledItemDelegate):
                 bx = r.left() + 10 if rtl else r.right() - 10 - badge_w
                 pill = QRectF(bx, r.center().y() - h / 2, badge_w, h)
                 p.setPen(Qt.NoPen)
-                p.setBrush(mix(t.panel, t.accent, 0.22 if t.dark else 0.16))
+                p.setBrush(t.tokens.select if not selected else t.tokens.raised)
                 p.drawRoundedRect(pill, h / 2, h / 2)
                 p.setPen(t.text)
                 small = QFont(option.font)
@@ -142,7 +142,7 @@ class NavList(QListWidget):
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(lambda pos: self.menu.emit(self.indexAt(pos).row(),
                                                                            self.viewport().mapToGlobal(pos)))
-        # the accent mark slides from the row you were on to the one you picked
+        # the pill slides from the row you were on to the one you picked
         self._mark_y = None
         self._mark_anim = QVariantAnimation(self)
         self._mark_anim.setDuration(220)
@@ -202,12 +202,7 @@ class NavList(QListWidget):
                 pill = QRectF(2, self._mark_y - h / 2, self.viewport().width() - 4, h)
                 path = QPainterPath()
                 path.addRoundedRect(pill, 8, 8)
-                p.fillPath(path, mix(self.ground(), t.accent, 0.15 if t.dark else 0.11))
-                rtl = self.layoutDirection() == Qt.RightToLeft
-                x = pill.right() - 3 if rtl else pill.left()
-                bar = QPainterPath()
-                bar.addRoundedRect(QRectF(x, self._mark_y - 8, 3, 16), 1.5, 1.5)
-                p.fillPath(bar, t.accent)
+                p.fillPath(path, t.tokens.hover if self.on_canvas else t.tokens.select)
                 p.end()
         super().paintEvent(e)
 

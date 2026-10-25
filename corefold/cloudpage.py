@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QMimeData, QRect, QRectF, QSize, Qt, QTimer, QUrl
-from PySide6.QtGui import QColor, QDesktopServices, QDrag, QFont, QFontMetrics, QKeySequence, QPainter, QShortcut
+from PySide6.QtGui import QDesktopServices, QDrag, QFont, QFontMetrics, QKeySequence, QPainter, QShortcut
 from PySide6.QtWidgets import QAbstractItemView, QFileDialog, QHBoxLayout, QHeaderView, QInputDialog, QLabel, \
     QLineEdit, QListWidget, QListWidgetItem, QMenu, QMessageBox, QProgressBar, QPushButton, QStyle, \
     QStyledItemDelegate, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
@@ -199,8 +199,7 @@ class AccountRows(QStyledItemDelegate):
         rtl = opt.direction == Qt.RightToLeft
         r = opt.rect.adjusted(2, 2, -2, -2)
         if opt.state & QStyle.State_Selected:
-            soft = QColor(t.accent)
-            soft.setAlpha(46 if t.dark else 34)
+            soft = t.tokens.select
             p.setPen(Qt.NoPen)
             p.setBrush(soft)
             p.drawRoundedRect(r, 8, 8)

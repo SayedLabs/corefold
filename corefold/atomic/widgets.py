@@ -4,7 +4,7 @@
                  the other), and it is still a QCheckBox, so isChecked()/toggled work as usual
     SettingRow   an icon, a title, a line under it, and a control at the far side
     Group        a rounded box of rows with hairlines between them
-    GlowPanel    a box washed with the accent colour, for the top of a start page
+    GlowPanel    the top of a start page (no box unless boxed=True)
     IconButton   a square button with only an icon
     ChoiceCard   a big card to pick one of a few (a checkable button: a ring, a title, a note, a chip)
     Dropdown     a list to pick one thing from (a QComboBox whose open list matches the family:
@@ -14,7 +14,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QEasingCurve, QEvent, QObject, QPointF, QRect, QRectF, QSize, Qt, QVariantAnimation
-from PySide6.QtGui import QFont, QFontMetrics, QIcon, QLinearGradient, QPainter, QPainterPath, QPen, QRadialGradient
+from PySide6.QtGui import QFont, QFontMetrics, QIcon, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxLayout, QLayout, QLabel, QListView,
                                QPushButton, QSizePolicy, QStyle, QStyledItemDelegate, QVBoxLayout, QWidget)
 
@@ -317,44 +317,27 @@ class SettingRow(QWidget):
 
 
 class GlowPanel(QFrame):
-    """A rounded box with a soft wash of the accent colour, brightest in its top trailing corner."""
+    """The top of a page: its name, a line about it and its main actions, straight on the page (no box, no
+    colour wash; the tool's own tile carries its colour). boxed=True puts it on a plain card instead, for a
+    panel that holds a result (like Space's "can be freed")."""
 
-    def __init__(self, parent: QWidget | None = None, color=None, rings: bool = True):
+    def __init__(self, parent: QWidget | None = None, color=None, rings: bool = True, boxed: bool = False):
         super().__init__(parent)
         self.setObjectName("glow")
         self.setAttribute(Qt.WA_StyledBackground, False)
-        self.color = color    # a colour of its own (a tool's), instead of the accent
+        self.color = color    # (kept for callers: a tool's colour now shows in its tile only)
         self.rings = rings
+        self.boxed = boxed
 
     def paintEvent(self, _e):
+        if not self.boxed:
+            return
         t = tokens.current()
-        accent = self.color if self.color is not None else t.accent
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
-        r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
         path = QPainterPath()
-        path.addRoundedRect(r, RADIUS["xl"], RADIUS["xl"])
-        base = QLinearGradient(r.topLeft(), r.bottomRight())
-        base.setColorAt(0, mix(t.surface, accent, 0.20 if t.dark else 0.13))
-        base.setColorAt(0.55, mix(t.surface, accent, 0.06 if t.dark else 0.04))
-        base.setColorAt(1, t.surface)
-        p.fillPath(path, base)
-        rtl = self.layoutDirection() == Qt.RightToLeft
-        cx = r.left() + r.width() * (0.12 if rtl else 0.88)
-        glow = QRadialGradient(QPointF(cx, r.top() - r.height() * 0.15), max(r.width(), r.height()) * 0.55)
-        glow.setColorAt(0, alpha(accent, 70 if t.dark else 46))
-        glow.setColorAt(1, alpha(accent, 0))
-        p.fillPath(path, glow)
-        # faint rings, like a ripple, in the same corner
-        p.setClipPath(path)
-        p.setBrush(Qt.NoBrush)
-        for i, rad in enumerate((90, 150, 220, 300) if self.rings else ()):
-            p.setPen(QPen(alpha(accent, (34 if t.dark else 26) - i * 6), 1))
-            p.drawEllipse(QPointF(cx, r.top() + 10), rad, rad)
-        p.setClipping(False)
-        p.setPen(QPen(mix(t.border, accent, 0.25), 1))
-        p.setBrush(Qt.NoBrush)
-        p.drawPath(path)
+        path.addRoundedRect(QRectF(self.rect()), RADIUS["xl"], RADIUS["xl"])
+        p.fillPath(path, t.surface)
         p.end()
 
 
@@ -593,13 +576,8 @@ class _DropdownRow(QStyledItemDelegate):
         r = QRectF(option.rect).adjusted(4, 1, -4, -1)
         if under_mouse or picked:
             p.setPen(Qt.NoPen)
-            p.setBrush(t.hover if under_mouse else t.accent_soft)
+            p.setBrush(t.hover if under_mouse else t.select)
             p.drawRoundedRect(r, RADIUS["sm"], RADIUS["sm"])
-        if picked:  # a short accent mark on the leading side, like the sidebar's
-            mark = QRectF(r.right() - 4 if rtl else r.left() + 1, r.center().y() - 7, 3, 14)
-            p.setPen(Qt.NoPen)
-            p.setBrush(t.accent)
-            p.drawRoundedRect(mark, 1.5, 1.5)
         x = r.adjusted(14, 0, -14, 0)
         icon = index.data(Qt.DecorationRole)
         if isinstance(icon, QIcon) and not icon.isNull():
@@ -718,8 +696,8 @@ class ChoiceCard(QPushButton):
         on = self.isChecked()
         hover = self.underMouse()
         r = QRectF(self.rect()).adjusted(1, 1, -1, -1)
-        p.setPen(QPen(t.accent if on else (t.subtle if hover else t.line_strong), 2 if on else 1))
-        p.setBrush(t.accent_soft if on else (t.hover if hover else t.surface))
+        p.setPen(QPen(t.text if on else (t.subtle if hover else t.line_strong), 1.5 if on else 1))
+        p.setBrush(t.select if on else (t.hover if hover else t.surface))
         p.drawRoundedRect(r, RADIUS["lg"], RADIUS["lg"])
         if self.hasFocus() and self._keyboard_focus and not on:
             p.setPen(QPen(t.accent, 2))
@@ -742,7 +720,7 @@ class ChoiceCard(QPushButton):
             ch = QFontMetrics(small).height() + 6
             chip = QRectF(left if rtl else right - cw, cy - ch / 2, cw, ch)
             p.setPen(Qt.NoPen)
-            p.setBrush(alpha(t.accent, 40))
+            p.setBrush(t.hover if on else t.select)
             p.drawRoundedRect(chip, ch / 2, ch / 2)
             p.setFont(small)
             p.setPen(t.text)
