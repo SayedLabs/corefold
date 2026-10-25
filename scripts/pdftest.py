@@ -345,7 +345,7 @@ def page():
     check(until(lambda: not pg.reading and not pg.pending and len(pg.pixmaps) >= 10, 30),
           f"merge: all 10 pages and their pictures come up ({len(pg.pixmaps)})")
     check(pg.board.count() == 10 and len(pg.files) == 3, "including the locked one (its password was asked)")
-    check(not pg.banner.isVisible(), "the board gets the banner's room")
+    check(not (pg.banner or w.one_head).isVisible(), "the board gets the banner's room")
     settle(0.4)
     w.grab().save(str(OUT / f"pdf-board-{LANG}-{LOOK}.png"))
     board = pg.board
@@ -455,7 +455,8 @@ def page():
     w.resize(1100, 740)
     pg.close_board(ask=False)
     settle(0.2)
-    check(pg.stack.currentIndex() == 0 and pg.banner.isVisible() and not pg.files, "closing goes back to the cards")
+    check(pg.stack.currentIndex() == 0 and (pg.banner or w.one_head).isVisible() and not pg.files,
+          "closing goes back to the cards")
     # pictures dropped anywhere on the page: asks, then makes a PDF
     answers["dialog"] = lambda dlg: True
     t0 = time.time() - 0.01

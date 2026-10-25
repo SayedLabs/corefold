@@ -501,7 +501,7 @@ def editor():
         check(took < 4, f"a 30-page PDF opens quickly ({took:.2f} s)")
     check(sum(1 for p in ed.pages if p.pm is not None) <= 6, "only the pages in sight are drawn sharp "
           f"({sum(1 for p in ed.pages if p.pm is not None)})")
-    check(not pg.banner.isVisible(), "the editor gets the banner's room")
+    check(not (pg.banner or w.one_head).isVisible(), "the editor gets the banner's room")
     view = ed.view
     w.activateWindow()
     view.setFocus()
@@ -766,7 +766,7 @@ def editor():
     QMessageBox.exec = real_box
     ed.close_editor(ask=False)
     settle(0.2)
-    check(pg.stack.currentIndex() == 0 and pg.banner.isVisible(), "closing goes back to the cards")
+    check(pg.stack.currentIndex() == 0 and (pg.banner or w.one_head).isVisible(), "closing goes back to the cards")
 
     form = make_form(FILES / "form to fill.pdf")
     pg.open_editor(form)

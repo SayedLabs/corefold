@@ -2084,13 +2084,14 @@ class MainWindow(QWidget):
         self._fit_one_head()
 
     def _fit_one_head(self):
-        """The heading shows on the tool's pages, but not while a page needs all the room it can get (the PDF
-        editor, with its own bar and list of pages); its bar shows icons only when there's no room for names."""
+        """The heading shows on the tool's pages, but not while a page needs all the room it can get (PDF's
+        board of pages and its editor, with their own bars); its bar shows icons only when there's no room for
+        names."""
         if not hasattr(self, "one_head") or not hasattr(self, "canvas"):
             return
         name = self.current_page()
         pdf = getattr(self, "pdf_page", None) if name == "PDF" else None
-        editing = pdf is not None and pdf.editor is not None and pdf.stack.currentWidget() is pdf.editor
+        editing = pdf is not None and pdf.stack.currentIndex() != 0  # (not its cards: its board or its editor)
         show = self._one_tool_of(name) is not None and not editing
         if show != self.one_head.isVisibleTo(self):
             self.one_head.setVisible(show)
