@@ -15,6 +15,10 @@ import time
 import traceback
 from pathlib import Path
 
+if os.environ.get("CI") != "true" and os.environ.get("COREFOLD_THROWAWAY_PC") != "1":
+    sys.exit("uninstalltest: only on a throwaway Windows PC (GitHub Actions, or a virtual machine with "
+             "COREFOLD_THROWAWAY_PC=1): it installs and removes test programs, and their leftovers")
+
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 TMP = Path(tempfile.mkdtemp(prefix="corefold-uninstalltest-"))

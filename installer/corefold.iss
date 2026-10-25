@@ -26,9 +26,10 @@ VersionInfoVersion={#NumericVersion}
 VersionInfoCompany={#Publisher}
 VersionInfoProductName={#AppName}
 DefaultDirName={autopf}\{#AppName}
-; Always use the folder named after the app (an upgrade from the old name moves to the new folder;
-; the old one is removed after installing, see [Code]).
-UsePreviousAppDir=no
+; An update goes into the folder Corefold is already in (also one picked with /DIR), so its shortcuts, taskbar
+; pin and start-up entry keep pointing at the same Corefold.exe. Only the old name's folder isn't kept: that
+; upgrade moves to the new folder, and the old one is removed after installing (see InitializeWizard, [Code]).
+UsePreviousAppDir=yes
 DefaultGroupName={#AppName}
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
@@ -82,12 +83,17 @@ Type: filesandordirs; Name: "{app}\7zip"
 Type: dirifempty; Name: "{app}"
 
 [Icons]
-Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
+; The same app id Corefold gives itself (app.py APP_ID): Windows then sees the shortcut, a taskbar pin made
+; from it and the running Corefold as one app, so the taskbar button stays where it's pinned.
+Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "AtomicWorks.Corefold"
+; (an update leaves an icon that's there alone, so it keeps its place, and one deleted stays deleted)
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "AtomicWorks.Corefold"; \
+  Tasks: desktopicon; Check: MakeDesktopIcon
 
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; \
-  ValueName: "{#AppName}"; ValueData: """{app}\{#AppExe}"" --background"; Tasks: startup; Flags: uninsdeletevalue
+  ValueName: "{#AppName}"; ValueData: """{app}\{#AppExe}"" --background"; Tasks: startup; Check: WriteStartup; \
+  Flags: uninsdeletevalue
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "Open Corefold now"; Flags: nowait postinstall skipifsilent
@@ -102,6 +108,55 @@ const
 
 var
   OldStartedWithWindows: Boolean;
+  { Corefold was already installed: this is an update (the person's choices are kept as they are) }
+  Upgrading: Boolean;
+  { a desktop icon from before 1.7.0 was there (it's replaced by Corefold's) }
+  HadOldDesktopIcon: Boolean;
+
+const
+  UninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{D08578D1-4B3E-404B-B56C-3FDF83BAFAE2}_is1';
+
+function InitializeSetup(): Boolean;
+begin
+  Upgrading := RegValueExists(HKA, UninstallKey, 'UninstallString');
+  HadOldDesktopIcon := FileExists(ExpandConstant('{autodesktop}\{#OldName}.lnk'));
+  Result := True;
+end;
+
+{ An update from the old name moves to Corefold's own folder; any other update stays where Corefold is. }
+procedure InitializeWizard();
+begin
+  if CompareText(RemoveBackslashUnlessRoot(WizardForm.DirEdit.Text), ExpandConstant('{autopf}\{#OldName}')) = 0 then
+    WizardForm.DirEdit.Text := ExpandConstant('{autopf}\{#AppName}');
+end;
+
+{ On the options page of an update started by hand: ticked as things are now (not as they were first installed). }
+procedure CurPageChanged(CurPageID: Integer);
+var
+  Value: String;
+begin
+  if (CurPageID = wpSelectTasks) and Upgrading then
+  begin
+    WizardForm.TasksList.Checked[0] := FileExists(ExpandConstant('{autodesktop}\{#AppName}.lnk'));
+    WizardForm.TasksList.Checked[1] := RegQueryStringValue(HKEY_CURRENT_USER, RunKey, '{#AppName}', Value);
+  end;
+end;
+
+{ The desktop icon: made on a fresh install; on an update only when it's asked for on the options page (an
+  update started by hand) and isn't there yet, or to replace the old name's. An icon that's there is left
+  alone, so it keeps its place on the desktop. }
+function MakeDesktopIcon(): Boolean;
+begin
+  Result := (not Upgrading) or HadOldDesktopIcon or
+            ((not WizardSilent()) and not FileExists(ExpandConstant('{autodesktop}\{#AppName}.lnk')));
+end;
+
+{ Start with Windows: written on a fresh install, or when ticked on the options page of an update started by
+  hand. An automatic update never changes it, so "off" (in Corefold, Task Manager or Corefold Startup) stays off. }
+function WriteStartup(): Boolean;
+begin
+  Result := (not Upgrading) or not WizardSilent();
+end;
 
 function SetEnvironmentVariable(lpName, lpValue: String): BOOL;
   external 'SetEnvironmentVariableW@kernel32.dll stdcall';
@@ -261,7 +316,12 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
+  begin
     RemoveOldVersion();
+    { an update started by hand with "Start Corefold when Windows starts" unticked: it doesn't }
+    if Upgrading and (not WizardSilent()) and (not WizardIsTaskSelected('startup')) then
+      RegDeleteValue(HKEY_CURRENT_USER, RunKey, '{#AppName}');
+  end;
 end;
 
 function InitializeUninstall(): Boolean;

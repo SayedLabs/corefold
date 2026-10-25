@@ -15,6 +15,10 @@ import tempfile
 import time
 from pathlib import Path
 
+if os.environ.get("CI") != "true" and os.environ.get("COREFOLD_THROWAWAY_PC") != "1":
+    sys.exit("installertest: only on a throwaway Windows PC (GitHub Actions, or a virtual machine with "
+             "COREFOLD_THROWAWAY_PC=1): it installs and removes Corefold for this Windows user")
+
 RELEASE = Path(sys.argv[1]).resolve()
 OUT = Path(sys.argv[2]).resolve()
 OUT.mkdir(parents=True, exist_ok=True)

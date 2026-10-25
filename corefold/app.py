@@ -545,6 +545,9 @@ class Controller(QObject):
             w.panel.refresh()  # files on the Home page may have been moved or deleted meanwhile
         if page_name:
             w.open_page(page_name)
+        if getattr(self, "whats_new_waiting", False):  # (the first time the window opens after an update)
+            self.whats_new_waiting = False
+            QTimer.singleShot(500, self.show_whats_new)
         if not w.isVisible():  # (drawn before it's seen, so it never shows up white first)
             w.setWindowOpacity(0.0)
             w.show()
@@ -2336,6 +2339,9 @@ class Controller(QObject):
         self.toast.finish(UPDATE_JOB_ID, tr("Installing the update…"), tr("Corefold will be back in a moment."),
                           None, 5000)
         winutil.release_mutex()
+        if self.update_info is not None:  # (checked at the next start: did it really update?)
+            self.settings.update_to = self.update_info.version
+            self.settings.save()
         try:
             updater.run_installer(Path(path))
         except OSError:
@@ -2344,6 +2350,59 @@ class Controller(QObject):
             self._update_failed(tr("couldn't start the installer"))
             return
         QTimer.singleShot(600, self.quit)
+
+    def updated_from(self, old: str):
+        """The first start after an update: said in a toast, and "What's new" is shown once, the first time the
+        window opens (now, or later from the tray)."""
+        from .releasenotes import kept
+        notes = kept(__version__, i18n.language())
+        fresh = notes is not None and self.settings.notes_shown != __version__
+        self.whats_new_waiting = fresh
+        log.info("updated from %s to %s%s", old, __version__, " (what's new waits)" if fresh else "")
+        QTimer.singleShot(1500, lambda: self.toast.notify(
+            tr("Corefold was updated"),
+            tr("You're now on version {version}. Your settings were kept.", version=__version__),
+            tr("What's new") if fresh else None, self.show_whats_new if fresh else None, linger_ms=9000))
+
+    def show_whats_new(self):
+        """The "What's new in Corefold <version>" window, over the main window (once per version)."""
+        from .notesview import WhatsNew
+        from .releasenotes import kept
+        self.whats_new_waiting = False
+        notes = kept(__version__, i18n.language())
+        if notes is None:
+            return
+        self.settings.notes_shown = __version__
+        self.save_timer.start(400)
+        w = self.window
+        if not w.isVisible():
+            self.show_window()
+        old = getattr(self, "whats_new", None)
+        if old is not None and _alive(old):
+            old.raise_()
+            return
+        dlg = WhatsNew(notes, self.theme.accent, w)
+        dlg.setAttribute(Qt.WA_DeleteOnClose)
+        self.whats_new = dlg
+        dlg.show()
+
+    def check_update_finished(self):
+        """An update was started last time: if this isn't the version it went to, it didn't finish (the old
+        version is still here, whole). Said once, with a way to try again."""
+        s = self.settings
+        wanted, s.update_to = s.update_to, ""
+        if not wanted or __version__ == "dev":
+            return
+        if updater.is_newer(wanted, __version__):
+            log.warning("the update to %s didn't finish: still %s", wanted, __version__)
+            QTimer.singleShot(2500, lambda: self.toast.notify(
+                tr("The update didn't finish"),
+                tr("Corefold {version} wasn't installed, so you still have {current}. Nothing was lost.",
+                   version=wanted, current=__version__),
+                tr("Try again"), lambda: (self.show_window("Updates"), self.check_updates(manual=True)),
+                linger_ms=15000))
+        else:
+            log.info("the update to %s finished (now %s)", wanted, __version__)
 
     def _update_failed(self, msg: str):
         self.update_state = "available" if self.update_info else "error"
@@ -2718,6 +2777,8 @@ def main() -> int:
     load_qt_translations(app, lang)
 
     controller = Controller(app, icon)
+    log.info("tools in use: %s; resting for now: %s", ", ".join(t.id for t in all_tools.enabled(controller.settings))
+             or "none", ", ".join(t.id for t in all_tools.paused()) or "none")
     app.commitDataRequest.connect(controller.end_session)
     from . import settings_backup
     if settings_backup.RECOVERED is not None:  # settings.json was lost or damaged: a copy was used
@@ -2762,9 +2823,8 @@ def main() -> int:
             tr("A new name and a new look. Your settings, history and backups were kept."),
             linger_ms=9000))
     elif s.last_version and s.last_version != __version__ and __version__ != "dev":
-        QTimer.singleShot(1500, lambda: controller.toast.notify(
-            tr("Corefold was updated"),
-            tr("You're now on version {version}. Your settings were kept.", version=__version__), linger_ms=6000))
+        controller.updated_from(s.last_version)
+    controller.check_update_finished()
     s.last_version = __version__
 
     # what this start was asked to do (the same messages a helper process would send)
@@ -2782,6 +2842,7 @@ def main() -> int:
     fresh = s.first_run
     if fresh:
         s.first_run = False
+        s.notes_shown = __version__  # (a new install: its "What's new" isn't news)
         s.known_tools = sorted({tool.id for tool in all_tools.available()})  # (offered now, in the first-start question)
         if "--background" in argv:
             # (started in the tray, e.g. by a silent install: every tool stays on, as when the question is

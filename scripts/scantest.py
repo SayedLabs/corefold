@@ -52,7 +52,7 @@ SYSTEM32 = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32"
 EICAR = b"X5O!P%@AP[4\\PZX54(P^)7CC)7}$" + b"EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
 RUN = r"Software\Microsoft\Windows\CurrentVersion\Run"
 TEST_RUN = ["CfScanTestHidden", "CfScanTestScript", "CfScanTestOdd"]
-WORK = Path(os.environ.get("TEMP", str(TMP))) / "cf-scantest"
+WORK = Path(os.environ.get("TEMP", str(TMP))) / f"cf-scantest-{os.getpid()}-{int(time.time())}"  # (its own: never one there)
 EXCLUSIONS_BEFORE: list[str] = []
 
 

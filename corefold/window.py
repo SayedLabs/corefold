@@ -3442,12 +3442,21 @@ class MainWindow(QWidget):
         self.update_detail = label("", "muted", wrap=True)
         self.update_now = button(tr("Update now"), "primary", self.c.start_update)
         self.check_now = button(tr("Check now"), on_click=lambda: self.c.check_updates(manual=True))
+        self.update_page_btn = button(tr("Release page"), "flat",
+                                      lambda: self.c.update_info and QDesktopServices.openUrl(
+                                          QUrl(self.c.update_info.page_url)))
         row = QHBoxLayout()
         row.addWidget(self.update_now)
         row.addWidget(self.check_now)
         row.addStretch()
+        row.addWidget(self.update_page_btn)
         bl.addWidget(self.update_status)
         bl.addWidget(self.update_detail)
+        # a new version: what's in it, before it's installed
+        self.update_notes = QVBoxLayout()
+        self.update_notes.setContentsMargins(0, 4, 0, 4)
+        self.update_notes_for = None
+        bl.addLayout(self.update_notes)
         bl.addLayout(row)
         lay.addWidget(box)
 
@@ -3461,6 +3470,14 @@ class MainWindow(QWidget):
         ol.addWidget(label(tr("Updates come from the official Corefold release page, are checked for damage "
                               "before installing, and keep all your settings."), "muted", wrap=True))
         lay.addWidget(opts)
+
+        from .notesview import VersionHistory
+        hist, hl = card(8)
+        hl.addWidget(label(tr("Version history"), "h2"))
+        hl.addWidget(label(tr("What changed in each version, also without the internet."), "muted", wrap=True))
+        self.version_history = VersionHistory(__version__, self.c.theme.accent, hist)
+        hl.addWidget(self.version_history)
+        lay.addWidget(hist)
         lay.addStretch()
         return w
 
@@ -3939,6 +3956,10 @@ class MainWindow(QWidget):
         elif state == "available" and info:
             status = tr("Corefold {version} is available", version=info.version)
             detail = tr("You have {version}.", version=current)
+            if info.published:
+                from .notesview import when
+                from .releasenotes import Notes
+                detail += " " + when(Notes(info.version, info.published)) + "."
             if not c.can_self_install():
                 detail += " " + tr("This copy isn't installed, so the button opens the download page.")
         elif state == "uptodate":
@@ -3952,11 +3973,32 @@ class MainWindow(QWidget):
         self.update_status.setText(status)
         self.update_detail.setText(detail)
         self.update_detail.setVisible(bool(detail))
+        self._fill_update_notes(info if state in ("available", "downloading") else None)
         self.update_now.setVisible(state == "available" and info is not None)
         self.update_now.setText(tr("Update now") if c.can_self_install() else tr("Open download page"))
         self.check_now.setEnabled(c.updates_supported() and state not in ("checking", "downloading"))
         self.auto_check.setEnabled(c.updates_supported())
         self.auto_install.setEnabled(c.updates_supported() and c.can_self_install())
+
+    def _fill_update_notes(self, info):
+        """What's in the new version, from its release page, shown before it's installed (plain text)."""
+        key = (info.version, info.notes) if info is not None else None
+        if key == self.update_notes_for:
+            return
+        self.update_notes_for = key
+        while self.update_notes.count():
+            item = self.update_notes.takeAt(0)
+            if item.widget():
+                item.widget().hide()
+                item.widget().deleteLater()
+        self.update_page_btn.setVisible(info is not None)
+        if info is None:
+            return
+        from .notesview import NotesBlock
+        from .releasenotes import parse
+        self.update_notes.addWidget(label(tr("What's new in {version}", version=info.version), "cardTitle"))
+        self.update_notes.addWidget(NotesBlock(parse(info.notes, info.version, info.published), self.c.theme.accent,
+                                               limit=12))
 
     def apply_theme(self, t: Theme):
         self.refresh_nav()  # the icons follow the text colour

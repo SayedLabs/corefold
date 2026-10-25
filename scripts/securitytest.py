@@ -23,9 +23,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-BASE = Path(os.environ.get("SystemDrive", "C:") + "\\") / "corefold-securitytest"
-shutil.rmtree(BASE, ignore_errors=True)
-BASE.mkdir()
+# (a name of its own each run, made new: a folder that was already there is never used, let alone deleted)
+BASE = Path(tempfile.mkdtemp(prefix="corefold-securitytest-", dir=os.environ.get("SystemDrive", "C:") + "\\"))
 TMP = Path(tempfile.mkdtemp(prefix="corefold-securitytest-"))
 os.environ["LOCALAPPDATA"] = str(TMP / "local")
 os.environ["APPDATA"] = str(TMP / "roaming")

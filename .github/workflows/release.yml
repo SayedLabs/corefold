@@ -28,8 +28,14 @@ jobs:
       - name: Install what the checks need
         shell: pwsh
         run: |
-          python -m pip install --quiet -r requirements.txt
+          python -m pip install --quiet -r requirements-dev.txt
           choco install ffmpeg -y --no-progress | Out-Null
+
+      - name: What's new in this version is written (English and Arabic), and every kept version's notes read
+        shell: pwsh
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: python scripts/release_notes_check.py $env:TAG
 
       - name: Known holes in the packages
         shell: pwsh
@@ -72,6 +78,21 @@ jobs:
           python scripts/organizetest.py out/organizetest en dark; if ($LASTEXITCODE) { $failed += "organizetest" }
           if ($failed) { "FAILED: $failed"; exit 1 }
 
+      - name: Files tools, resting sections, What's new and updates (pytest)
+        if: always()
+        shell: pwsh
+        run: python -m pytest -q tests
+
+      - name: PDF and its editor
+        if: always()
+        shell: pwsh
+        run: |
+          $env:PYTHONIOENCODING = "utf-8"
+          $failed = @()
+          python scripts/pdftest.py out/pdftest en dark; if ($LASTEXITCODE) { $failed += "pdftest" }
+          python scripts/pdfedittest.py out/pdfedittest ar light; if ($LASTEXITCODE) { $failed += "pdfedittest" }
+          if ($failed) { "FAILED: $failed"; exit 1 }
+
   windows:
     needs: checks
     runs-on: windows-latest
@@ -102,6 +123,20 @@ jobs:
           choco install ffmpeg -y --no-progress | Out-Null
           $env:PYTHONIOENCODING = "utf-8"
           python scripts/installertest.py dist\release out\installer
+
+      - name: Updating keeps everything (from the real 1.9.0 and 1.10.0, a custom folder, shortcuts, a cut-off update)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $env:PYTHONIOENCODING = "utf-8"
+          New-Item -ItemType Directory -Force old | Out-Null
+          foreach ($v in "v1.9.0", "v1.10.0") {
+            gh release download $v -R $env:GITHUB_REPOSITORY -p "Corefold-Setup-*.exe" -D old --clobber
+            if ($LASTEXITCODE) { throw "couldn't download $v" }
+          }
+          $old = Get-ChildItem old -Filter "Corefold-Setup-*.exe" | Sort-Object { [version]($_.BaseName -replace "Corefold-Setup-", "") } | ForEach-Object { $_.FullName }
+          python scripts/upgradetest.py dist\release out\upgrade @old
 
       - name: Every file is what was built (SHA256SUMS)
         shell: pwsh
