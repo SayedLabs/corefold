@@ -89,8 +89,9 @@ class OneToolHead(QWidget):
             b.setAccessibleName(name)
             b.setAccessibleDescription(tip)
             b.clicked.connect(lambda _=False, p=page: self.opened.emit(p))
+            b.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)  # (room to spare is shared; never less than its name)
             group.addButton(b)
-            row.addWidget(b, 1)
+            row.addWidget(b)
             self.tabs[page] = b
             self._icons[page] = (icons.icon(icon, theme.muted), icons.icon(icon, theme.text))
         bv.addWidget(self.bar)
@@ -114,7 +115,7 @@ class OneToolHead(QWidget):
             b.setText(b.property("words"))
             b.setToolTip(b.property("tip"))
         spacing = self.bar.layout().spacing()
-        need = sum(b.sizeHint().width() + spacing for b in tabs) + 48  # (the banner's and the bar's edges)
+        need = sum(b.sizeHint().width() + spacing for b in tabs) + 52  # (the banner's and the bar's edges)
         for b in [b for b in tabs if not b.isChecked()]:  # (the use that's open keeps its name)
             if need <= room:
                 break
