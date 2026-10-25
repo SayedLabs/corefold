@@ -63,12 +63,15 @@ Name: "desktopicon"; Description: "Put a Corefold icon on my desktop"
 Name: "startup"; Description: "Start Corefold when Windows starts (recommended)"
 
 [Files]
-Source: "..\dist\Corefold\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Copied next to the Corefold that's there, which keeps working until every file is in; then the two are swapped
+; in a moment (SwapInNewFiles in [Code]). An update cut off half-way (power cut, Setup ended) leaves the older
+; Corefold whole, never a mix of the two that can't start.
+Source: "..\dist\Corefold\*"; DestDir: "{app}\_next"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [InstallDelete]
-; clear out files from an older version before copying the new ones
-Type: filesandordirs; Name: "{app}\_internal"
-Type: filesandordirs; Name: "{app}\ffmpeg"
+; what an earlier update cut off half-way left
+Type: filesandordirs; Name: "{app}\_next"
+Type: filesandordirs; Name: "{app}\_previous"
 ; shortcuts made by versions before 1.7.0
 Type: files; Name: "{autoprograms}\{#OldName}.lnk"
 Type: files; Name: "{autodesktop}\{#OldName}.lnk"
@@ -80,6 +83,13 @@ Type: files; Name: "{autodesktop}\{#OldName}.lnk"
 Type: filesandordirs; Name: "{app}\_internal"
 Type: filesandordirs; Name: "{app}\ffmpeg"
 Type: filesandordirs; Name: "{app}\7zip"
+Type: filesandordirs; Name: "{app}\_next"
+Type: filesandordirs; Name: "{app}\_previous"
+; (the files are copied in under _next, so the uninstaller's own list names them there)
+Type: files; Name: "{app}\{#AppExe}"
+Type: files; Name: "{app}\LICENSE"
+Type: files; Name: "{app}\THIRD_PARTY_NOTICES.md"
+Type: files; Name: "{app}\COMPONENT-VERSIONS.txt"
 ; (Setup's own working file, left in the folder when an update was cut off: never anyone else's)
 Type: files; Name: "{app}\is-*.tmp"
 Type: dirifempty; Name: "{app}"
@@ -262,7 +272,8 @@ var
 begin
   Result := True;
   Dir := ExpandConstant('{app}');
-  if FileExists(Dir + '\{#AppExe}') or FileExists(Dir + '\{#OldExe}') then
+  if FileExists(Dir + '\{#AppExe}') or FileExists(Dir + '\{#OldExe}') or DirExists(Dir + '\_internal') or
+     DirExists(Dir + '\_next') then  { (the last two: an update of it was cut off) }
     Exit;
   if FindFirst(Dir + '\*', FindRec) then
   begin
@@ -315,10 +326,94 @@ begin
     DelTree(OldDir, True, True, True);
 end;
 
+{ A rename, tried again for a few seconds (antivirus can hold a file it's just looked at). }
+function MoveWithRetry(FromPath, ToPath: String): Boolean;
+var
+  Tries: Integer;
+begin
+  Result := True;
+  for Tries := 1 to 40 do
+  begin
+    if RenameFile(FromPath, ToPath) then
+      Exit;
+    Sleep(250);
+  end;
+  Result := False;
+end;
+
+{ The new files, all copied in under _next, take the place of the old ones: each of the old ones is moved
+  aside into _previous, then the new one into its place. These are renames on the same disk, done in a
+  moment. If one can't be moved, everything goes back as it was, so the older Corefold stays whole (and says
+  the update didn't finish the next time it starts). }
+procedure SwapInNewFiles();
+var
+  App, NextDir, PrevDir: String;
+  FindRec: TFindRec;
+  Names: TArrayOfString;
+  Count, I: Integer;
+  Failed: Boolean;
+begin
+  App := ExpandConstant('{app}');
+  NextDir := App + '\_next';
+  PrevDir := App + '\_previous';
+  if not DirExists(NextDir) then
+    Exit;
+  Count := 0;
+  if FindFirst(NextDir + '\*', FindRec) then
+  begin
+    try
+      repeat
+        if (FindRec.Name <> '.') and (FindRec.Name <> '..') then
+        begin
+          SetArrayLength(Names, Count + 1);
+          Names[Count] := FindRec.Name;
+          Count := Count + 1;
+        end;
+      until not FindNext(FindRec);
+    finally
+      FindClose(FindRec);
+    end;
+  end;
+  if DirExists(PrevDir) then
+    DelTree(PrevDir, True, True, True);
+  ForceDirectories(PrevDir);
+  Failed := False;
+  I := 0;
+  while (I < Count) and not Failed do
+  begin
+    if (FileExists(App + '\' + Names[I]) or DirExists(App + '\' + Names[I])) and
+       not MoveWithRetry(App + '\' + Names[I], PrevDir + '\' + Names[I]) then
+      Failed := True
+    else if not MoveWithRetry(NextDir + '\' + Names[I], App + '\' + Names[I]) then
+    begin
+      RenameFile(PrevDir + '\' + Names[I], App + '\' + Names[I]);
+      Failed := True;
+    end
+    else
+      I := I + 1;
+  end;
+  if Failed then
+  begin
+    Log('Could not put the new files in place (' + Names[I] + '): the older version is kept');
+    while I > 0 do
+    begin
+      I := I - 1;
+      RenameFile(App + '\' + Names[I], NextDir + '\' + Names[I]);
+      RenameFile(PrevDir + '\' + Names[I], App + '\' + Names[I]);
+    end;
+    if not WizardSilent() then
+      MsgBox('Corefold could not be updated: some of its files are in use. Your Corefold is as it was; ' +
+             'close what is using its folder, then install again.', mbError, MB_OK);
+  end;
+  DelTree(PrevDir, True, True, True);
+  DelTree(NextDir, True, True, True);
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
   begin
+    SwapInNewFiles();
     RemoveOldVersion();
     { an update started by hand with "Start Corefold when Windows starts" unticked: it doesn't }
     if Upgrading and (not WizardSilent()) and (not WizardIsTaskSelected('startup')) then
