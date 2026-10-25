@@ -870,6 +870,8 @@ class Controller(QObject):
 
     def set_tool(self, tool_id: str, on: bool):
         """Switches a tool on or off (on its section's page): the window follows right away."""
+        if all_tools.state(tool_id) != all_tools.AVAILABLE:  # (resting or still being made: kept as it is)
+            return
         s = self.settings
         off = set(s.tools_off)
         if on:
@@ -932,6 +934,7 @@ class Controller(QObject):
         self.act_quick.setVisible(self.quick is not None and self.settings.quick_menu)
 
     def _background_tools(self):
+        self._rest_paused_tools()
         self._clipboard_tool()
         self._capture_tool()
         self._colors_tool()
@@ -946,6 +949,32 @@ class Controller(QObject):
         if running:
             log.info("running in the background: %s", ", ".join(running))
             winutil.log_memory("background tools started")
+
+    def _rest_paused_tools(self):
+        """Tools resting for now (tools.PAUSED_SECTIONS) don't run, but one thing of theirs would go on without
+        them: a shutdown planned in Awake is Windows' own timer, and nothing would be left to see or cancel it.
+        So it's cancelled, once, and said. (Programs put off by Corefold Startup still start a minute after
+        sign-in: they were taken out of Windows' own list, so without that they'd never start.)"""
+        s = self.settings
+        if all_tools.state("awake") != all_tools.PAUSED or not s.shutdown_at or sys.platform != "win32":
+            return
+        from datetime import datetime
+        try:
+            planned = datetime.fromisoformat(s.shutdown_at) > datetime.now()
+        except ValueError:
+            planned = False
+        if planned:
+            from .awake import ERROR_NO_SHUTDOWN_IN_PROGRESS, run_shutdown
+            code, said = run_shutdown("/a")
+            log.info("awake is resting: its planned shutdown cancelled: code %d %s", code, said)
+            if code not in (0, ERROR_NO_SHUTDOWN_IN_PROGRESS):
+                return  # (still planned: tried again next time)
+            QTimer.singleShot(3000, lambda: self.toast.notify(
+                tr("Planned shutdown cancelled"),
+                tr("Corefold Awake is resting while it's being made better, so the shutdown it planned won't "
+                   "happen. Your PC stays on."), linger_ms=12000))
+        s.shutdown_at = s.shutdown_planned = ""
+        s.save()
 
     def start_later(self, items: list | None = None):
         """Starts the programs put off until a minute after sign-in (Corefold Startup), one by one."""
@@ -1103,7 +1132,7 @@ class Controller(QObject):
         "Keep a window on top" shortcut lives there too, so it keeps quick access running (only its
         shortcuts, nothing is built) even with the menu and the wheel switched off."""
         s = self.settings
-        on = s.quick_menu or s.quick_wheel or s.ontop_key != "off"
+        on = (s.quick_menu or s.quick_wheel or s.ontop_key != "off") and not all_tools.section_paused("quick")
         if on and self.quick is None:
             from .quick import QuickAccess
             try:
@@ -1487,7 +1516,7 @@ class Controller(QObject):
     def open_viewer(self, path: Path):
         """Opens a picture (with the rest of its folder) or an email file in Corefold Viewer."""
         from .viewer import is_picture
-        if not path.is_file():
+        if not path.is_file() or not self._tool_here("viewer"):
             return
         self.viewers = [v for v in self.viewers if _alive(v)]
         if path.suffix.lower() in (".eml", ".msg"):
@@ -1519,9 +1548,22 @@ class Controller(QObject):
         win.raise_()
         win.activateWindow()
 
+    def _tool_here(self, tool_id: str) -> bool:
+        """A tool asked for from outside its own page (a file opened with it, another part of Corefold): True if
+        it's in use. If it's resting for now, that's said (once in a while) instead."""
+        if all_tools.is_on(self.settings, tool_id):
+            return True
+        tool = all_tools.BY_ID[tool_id]
+        log.info("%s asked for, but it's %s", tool_id, all_tools.state(tool_id))
+        if all_tools.state(tool_id) == all_tools.PAUSED and time.time() - getattr(self, "_rest_told", 0) > 30:
+            self._rest_told = time.time()
+            self.toast.notify(tr(tool.name), tr("Resting for now while it's being made better. It comes back in a "
+                                                "future update, with your settings kept."), linger_ms=7000)
+        return False
+
     def open_player(self, path: Path):
         """Plays a video or song (with the rest of its folder) in Corefold Player."""
-        if not path.is_file():
+        if not path.is_file() or not self._tool_here("player"):
             return
         self.players = [p for p in getattr(self, "players", []) if _alive(p)]
         for p in self.players:  # one window: a new file plays in it
@@ -2006,10 +2048,11 @@ class Controller(QObject):
         from .store import ask_tools
         picked = ask_tools(self.icon, self.theme.dark)
         s = self.settings
-        ready = {tool.id for tool in all_tools.ready()}
+        # (tools resting for now weren't offered: they're offered, switched off, when their section is back)
+        ready = {tool.id for tool in all_tools.available()}
         s.known_tools = sorted(set(s.known_tools) | ready)
         if picked is not None:
-            s.tools_off = sorted(ready - picked)
+            s.tools_off = sorted((set(s.tools_off) | ready) - picked)
         s.save()
         self.apply_tools()
         if self._window is not None:
@@ -2739,7 +2782,7 @@ def main() -> int:
     fresh = s.first_run
     if fresh:
         s.first_run = False
-        s.known_tools = sorted({tool.id for tool in all_tools.ready()})  # (offered now, in the first-start question)
+        s.known_tools = sorted({tool.id for tool in all_tools.available()})  # (offered now, in the first-start question)
         if "--background" in argv:
             # (started in the tray, e.g. by a silent install: every tool stays on, as when the question is
             # closed, and their shortcuts work now, not only after the next start)

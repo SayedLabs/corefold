@@ -56,6 +56,8 @@ NAV_LABELS = {"General": "Settings", **{tool.page: tool.nav for tool in all_tool
 # shows them as smaller tabs underneath.
 BASE_SETTINGS_TABS = [("General", "General", ["General"]), ("Look", "Appearance", ["Look"]),
                       ("Quick", "Quick access", ["Quick"]), ("Shortcuts", "Shortcuts", ["Shortcuts"])]
+# a Settings page that belongs to a section rather than a tool (it rests with the section)
+SECTION_SETTINGS = {"Quick": "quick"}
 SETTINGS_TABS = BASE_SETTINGS_TABS + [(tool.settings, tool.nav, list(tool.settings_pages))
                                       for tool in all_tools.TOOLS if tool.settings]
 SETTINGS_SUBTABS = {"ConvOptions": "Options", "WheelLook": "Wheel", "Formats": "Formats"}
@@ -64,6 +66,8 @@ TOOL_SETTINGS = {tool.page: tool.settings for tool in all_tools.TOOLS if tool.se
 # pages without a sidebar row of their own: the row that's lit (a tool lights its section)
 NAV_OWNER = {**{tool.page: all_tools.SECTION_OF[tool.id].page for tool in all_tools.TOOLS},
              **{name: "General" for name in SETTINGS_PAGES if name != "General"}}
+# a tool's own Settings pages -> the tool (a tool resting for now: its Settings pages rest too)
+SETTINGS_TOOL = {p: tool for tool in all_tools.TOOLS for p in tool.settings_pages}
 # pages from before the sections, still asked for by name (an old quick menu, the command line)
 OLD_PAGES = {"Store": "Home"}
 PAGE_ICONS = {"Home": "home", "General": "settings", "Look": "paint_brush", "Quick": "layout",  # icons.py
@@ -103,6 +107,24 @@ def _keep_setting_words(words: dict[str, list[str]]):
 
 
 COMPACT_NAV = 60   # the sidebar's width with icons only
+
+
+def _base_tabs() -> list:
+    """The Settings tabs for the whole app (the quick menu's rests with its section)."""
+    return [tab for tab in BASE_SETTINGS_TABS
+            if not (tab[0] in SECTION_SETTINGS and all_tools.section_paused(SECTION_SETTINGS[tab[0]]))]
+
+
+def page_rests(name: str) -> str | None:
+    """The section page to show instead when this page is resting for now (a tool's page or Settings page,
+    or a section's own Settings page), else None."""
+    tool = all_tools.BY_PAGE.get(name) or SETTINGS_TOOL.get(name)
+    if tool is not None and all_tools.state(tool.id) == all_tools.PAUSED:
+        return all_tools.SECTION_OF[tool.id].page
+    sec_id = SECTION_SETTINGS.get(name)
+    if sec_id and all_tools.section_paused(sec_id):
+        return next(sec.page for sec in all_tools.SECTIONS if sec.id == sec_id)
+    return None
 
 # ----------------------------------------------------------------------------- small building blocks
 
@@ -364,7 +386,7 @@ class ToolSwitchCard(QFrame):
 class SectionCard(QFrame):
     """A section on the Home page: its tile, what it's for, and its tools (each opens with a click)."""
 
-    def __init__(self, sec, tools: list, off: int, open_page, dark: bool, dpr: float):
+    def __init__(self, sec, tools: list, off: int, open_page, dark: bool, dpr: float, resting: bool = False):
         super().__init__()
         from .atomic.widgets import FlowLayout
         self.setObjectName("toolCard")
@@ -391,16 +413,26 @@ class SectionCard(QFrame):
         line.setAttribute(Qt.WA_TransparentForMouseEvents)
         words.addWidget(line)
         top.addLayout(words, 1)
+        if resting:
+            pill = label(tr("Coming back soon"), "soonPill")
+            pill.setAttribute(Qt.WA_TransparentForMouseEvents)
+            top.addWidget(pill, 0, Qt.AlignTop)
         lay.addLayout(top)
         chips = FlowLayout(spacing=6)
         self.chips: list[tuple[QPushButton, str]] = []
         for tool in tools:
             b = button(tr(tool.nav), "chipButton", lambda _=False, n=tool.page: open_page(n))
+            if resting:  # (named, not opened: the card opens what's coming back)
+                b.setEnabled(False)
             b.setIconSize(QSize(16, 16))
             self.chips.append((b, tool.icon))
             chips.addWidget(b)
         lay.addLayout(chips)
-        if not tools:
+        if resting:
+            soon = label(tr("Being made better. Back in a future update."), "subtle", wrap=True)
+            soon.setAttribute(Qt.WA_TransparentForMouseEvents)
+            lay.addWidget(soon)
+        elif not tools:
             lay.addWidget(label(tr("No tools switched on here yet."), "subtle"))
         if off:
             more = label(tr("{count} more you can switch on", count=off), "subtle")
@@ -621,8 +653,8 @@ class MainWindow(QWidget):
         on_pages = {tool.page for tool in self.tools_on}
         self.sections = all_tools.sections(self.c.settings)
         self.nav_entries = NAV[:2] + [sec.page for sec in self.sections] + NAV[2:]
-        self.settings_tab_list = BASE_SETTINGS_TABS + [(tool.settings, tool.nav, list(tool.settings_pages))
-                                                       for tool in self.tools_on if tool.settings]
+        self.settings_tab_list = _base_tabs() + [(tool.settings, tool.nav, list(tool.settings_pages))
+                                                for tool in self.tools_on if tool.settings]
         from .navbar import EdgeHandle, NavList
         self.nav = NavList(lambda: self.c.theme, self.c.settings.sidebar_icons, self.c.settings.animations)
         self.nav_rows: list[str | None] = []   # sidebar row -> page name (None for a heading)
@@ -871,6 +903,9 @@ class MainWindow(QWidget):
                 item.setToolTip(self._nav_tip(name, text, compact))
                 if name == "Updates":
                     item.setData(BADGE_ROLE, tr("New") if self.c.update_waiting() else None)
+                elif name in all_tools.SECTION_BY_PAGE:  # (a section resting for now says so)
+                    item.setData(BADGE_ROLE, tr("Soon") if all_tools.section_paused(all_tools.SECTION_BY_PAGE[name])
+                                 else None)
         self.menu_btn.setIcon(icons.icon("navigation", t.text))
         self.menu_btn.setToolTip(tr("Show the names") if compact else tr("Icons only"))
         self.nav.viewport().update()
@@ -879,6 +914,8 @@ class MainWindow(QWidget):
         """A sidebar row's tooltip: a section's tools in use (and its name when only icons show)."""
         sec = all_tools.SECTION_BY_PAGE.get(name)
         tools = ", ".join(tr(t.nav) for t in self.tools_on if sec is not None and all_tools.SECTION_OF[t.id] is sec)
+        if sec is not None and all_tools.section_paused(sec):
+            tools = tr("Coming back soon")
         if compact:
             return f"{text}: {tools}" if tools else text
         return tools
@@ -961,8 +998,8 @@ class MainWindow(QWidget):
         self.sections = all_tools.sections(self.c.settings)
         self.tools_on = all_tools.enabled(self.c.settings)
         # (the Settings list groups the tools by section, in the sidebar's order too)
-        self.settings_tab_list = BASE_SETTINGS_TABS + [(tool.settings, tool.nav, list(tool.settings_pages))
-                                                       for tool in self.tools_on if tool.settings]
+        self.settings_tab_list = _base_tabs() + [(tool.settings, tool.nav, list(tool.settings_pages))
+                                                for tool in self.tools_on if tool.settings]
         self._fill_settings_list()
         self._settings_narrow = None
         if hasattr(self, "canvas"):
@@ -1014,8 +1051,8 @@ class MainWindow(QWidget):
         if here in theirs:  # (switched off while it was open: to its section, or to Settings)
             self.open_page(NAV_OWNER.get(here, "General") if here not in SETTINGS_PAGES else "General")
             here = self.current_page()
-        self.settings_tab_list = BASE_SETTINGS_TABS + [(tool.settings, tool.nav, list(tool.settings_pages))
-                                                       for tool in self.tools_on if tool.settings]
+        self.settings_tab_list = _base_tabs() + [(tool.settings, tool.nav, list(tool.settings_pages))
+                                                for tool in self.tools_on if tool.settings]
         self._fill_settings_list()
         self._settings_narrow = None
         if hasattr(self, "canvas"):
@@ -1525,7 +1562,7 @@ class MainWindow(QWidget):
         self.top_actions.setSpacing(4)
         self.quick_btn = IconButton(tr("Quick menu"), parent=self)  # (shown below: never a window of its own)
         self.quick_btn.clicked.connect(lambda: self.c.quick and self.c.quick.toggle_menu())
-        self.quick_btn.setVisible(bool(self.c.settings.quick_menu))
+        self.quick_btn.setVisible(bool(self.c.settings.quick_menu) and not all_tools.section_paused("quick"))
         self.top_actions.addWidget(self.quick_btn)
         row.addLayout(self.top_actions)
         self.theme_btn = IconButton()
@@ -1657,7 +1694,10 @@ class MainWindow(QWidget):
                                     lambda n=name: self.open_page(n),
                                     keywords=" ".join(tr(t.nav) for t in self.tools_on
                                                       if sec is not None and all_tools.SECTION_OF[t.id] is sec)))
-        for tool in all_tools.ready():  # (switched off: to its section, where it can be switched on)
+        for tool in all_tools.paused():  # (resting for now: to its section, which says it's coming back)
+            commands.append(Command(tr(tool.nav), tr("Coming back soon"), ic(tool.icon),
+                                    lambda n=tool.page: self.open_page(n), keywords=tr(tool.line), listed=False))
+        for tool in all_tools.available():  # (switched off: to its section, where it can be switched on)
             if tool not in self.tools_on:
                 commands.append(Command(tr(tool.nav), tr("Switched off"), ic(tool.icon),
                                         lambda n=tool.page: self.open_page(n), keywords=tr(tool.line), listed=False))
@@ -1769,6 +1809,8 @@ class MainWindow(QWidget):
         """A section's page: its tools, each with a switch (a tool that's off isn't loaded at all), and
         the ones on the way."""
         from .atomic.widgets import FlowLayout, ResponsiveGrid
+        if all_tools.section_paused(sec):
+            return self._resting_section(sec)
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
         w, lay = page(tr(sec.name))
         lay.itemAt(0).widget().hide()  # shown in the heading with the tile instead
@@ -1802,6 +1844,52 @@ class MainWindow(QWidget):
             holder = QWidget()
             holder.setLayout(chips)
             lay.addWidget(holder)
+        lay.addStretch()
+        return w
+
+    def _resting_section(self, sec) -> QWidget:
+        """A section resting for now (tools.PAUSED_SECTIONS): what its tools do and that they're coming back,
+        with nothing to switch on or start."""
+        from .atomic.widgets import ResponsiveGrid
+        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
+        w, lay = page(tr(sec.name))
+        lay.itemAt(0).widget().hide()  # shown in the heading with the tile instead
+        lay.addLayout(tool_header(sec.product, tr(sec.name), tr(sec.line), dark, dpr, pill=tr("Coming back soon")))
+        note, nl = card(4)
+        nl.addWidget(label(tr("These tools are being made better"), "h2", wrap=True))
+        nl.addWidget(label(tr("For now Corefold puts its effort into the Files tools, so each one works really "
+                              "well. The tools here are resting while we improve them, and they come back in a "
+                              "future update."), "muted", wrap=True))
+        nl.addWidget(label(tr("Nothing was removed: your settings and what these tools kept for you stay on your "
+                              "PC, ready for when they're back."), "muted", wrap=True))
+        lay.addWidget(note)
+        grid = ResponsiveGrid(300, 12, 2)
+        for tool in all_tools.in_section(self.c.settings, sec):
+            box, bl = card(8)
+            top = QHBoxLayout()
+            top.setSpacing(12)
+            tile = QLabel()
+            tile.setPixmap(icons.product_tile(tool.product, 36, dark, dpr))
+            tile.setFixedSize(38, 38)
+            top.addWidget(tile, 0, Qt.AlignTop)
+            words = QVBoxLayout()
+            words.setSpacing(2)
+            words.addWidget(label(tr(tool.nav), "cardTitle"))
+            words.addWidget(label(tr(tool.line), "muted", wrap=True))
+            top.addLayout(words, 1)
+            bl.addLayout(top)
+            for text in tool.features[:3]:
+                row = QHBoxLayout()
+                row.setSpacing(10)
+                row.addWidget(self._accent_dot(), 0, Qt.AlignTop)
+                row.addWidget(label(tr(text), wrap=True), 1)
+                bl.addLayout(row)
+            grid.add(box)
+        lay.addWidget(grid)
+        later = [all_tools.BY_ID[tool_id] for tool_id in sec.tools if not all_tools.BY_ID[tool_id].ready]
+        if later:
+            lay.addWidget(label(tr("Also planned here: {names}.", names=", ".join(tr(t.nav) for t in later)),
+                                "subtle", wrap=True))
         lay.addStretch()
         return w
 
@@ -1851,7 +1939,8 @@ class MainWindow(QWidget):
                     item.widget().deleteLater()
             self.strip_tabs = {}
             t = self.c.theme
-            first = button(tr(sec.name), "stripTab", lambda _=False, n=sec.page: self.open_page(n))
+            first = button(tr(sec.name).replace("&", "&&"), "stripTab",  # ("Images & screen": not a shortcut key)
+                           lambda _=False, n=sec.page: self.open_page(n))
             first.setIcon(icons.icon(sec.icon, t.text))
             first.setIconSize(QSize(16, 16))
             self.strip_tabs[sec.page] = first
@@ -2002,8 +2091,11 @@ class MainWindow(QWidget):
         self.section_cards = {}
         for sec in self.sections:
             tools = all_tools.in_section(self.c.settings, sec)
-            card_ = SectionCard(sec, [t for t in tools if t.id in on], len([t for t in tools if t.id not in on]),
-                                self.open_page, dark, dpr)
+            if all_tools.section_paused(sec):  # (resting for now: what's in it, and that it's coming back)
+                card_ = SectionCard(sec, tools, 0, self.open_page, dark, dpr, resting=True)
+            else:
+                card_ = SectionCard(sec, [t for t in tools if t.id in on], len([t for t in tools if t.id not in on]),
+                                    self.open_page, dark, dpr)
             self.section_cards[sec.page] = card_
             grid.add(card_)
         lay.addWidget(grid)
@@ -3937,6 +4029,7 @@ class MainWindow(QWidget):
 
     def open_page(self, name: str):
         name = OLD_PAGES.get(name, name)
+        name = page_rests(name) or name  # (resting for now, however it was asked for: what's coming back)
         tool = all_tools.BY_PAGE.get(name)
         if tool is not None and tool.ready and tool not in self.tools_on:  # (switched off): its section,
             name = NAV_OWNER[name]                                          # where it can be switched on
@@ -3964,7 +4057,7 @@ class MainWindow(QWidget):
         while self._went:
             name = self._went.pop()
             tool = all_tools.BY_PAGE.get(name)
-            gone = tool is not None and tool.ready and tool not in self.tools_on  # (switched off since)
+            gone = (tool is not None and tool.ready and tool not in self.tools_on) or page_rests(name) is not None
             if NAV_OWNER.get(name, name) in self.nav_rows and name != self.current_page() and not gone:
                 self._going_back = True
                 try:

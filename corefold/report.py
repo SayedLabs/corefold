@@ -97,6 +97,7 @@ def system_text(settings, screens: list[str] | None = None) -> str:
         f"Language: {i18n.language()} (chosen: {settings.language}, Windows: {i18n.windows_language()})",
         "Screens: " + ("; ".join(screens_text() if screens is None else screens) or "?"),
         f"Tools in use: {tools}",
+        f"Resting for now: {', '.join(sorted(all_tools.PAUSED_SECTIONS)) or 'nothing'}",
         f"Quick menu: {'on' if settings.quick_menu else 'off'}, quick wheel: {'on' if settings.quick_wheel else 'off'}",
         f"Look: {settings.appearance}, text {settings.window_text}, "
         f"animations {'on' if settings.animations else 'off'}",
