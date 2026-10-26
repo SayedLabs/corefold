@@ -8,8 +8,8 @@ Slow steps are listed to look at; a problem (the check fails) is an error, a win
 for a second or more, or a lot of CPU doing nothing.
 
 Run: python scripts/smoothtest.py <folder> [en|ar] [dark|light]
-Writes <folder>/smoothtest.md (a table, worst first), prints "smoothtest: N problem(s), M slow step(s)" and
-ends with 1 when it found a problem."""
+Writes <folder>/smoothtest.md (a table, worst first) and <folder>/smoothtest-result.txt (the number of
+problems), prints "smoothtest: N problem(s), M slow step(s)" and ends with 1 when it found a problem."""
 import os
 import sys
 import tempfile
@@ -431,4 +431,5 @@ if errors:
 print(f"smoothtest: {len(problems)} problem(s), {len(slow)} slow step(s)", flush=True)
 for p in problems + slow:
     print(f"  {p}", flush=True)
+(OUT / "smoothtest-result.txt").write_text(f"{len(problems)}\n", encoding="ascii")  # (for the workflow)
 os._exit(1 if problems else 0)

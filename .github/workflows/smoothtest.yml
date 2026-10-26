@@ -50,13 +50,15 @@ jobs:
         shell: pwsh
         run: |
           python scripts/smoothtest.py out ${{ matrix.lang }} ${{ matrix.look }} *> out/smoothtest-run.txt
-          $code = $LASTEXITCODE  # (1 when it found a problem)
+          Write-Host "smoothtest ended with $LASTEXITCODE"
           Get-Content out/smoothtest-run.txt | Select-String -NotMatch "^ok "
           if (Test-Path out/smoothtest.md) {
             Get-Content out/smoothtest.md
             Get-Content out/smoothtest.md | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
           }
-          exit $code
+          $found = if (Test-Path out/smoothtest-result.txt) { [int](Get-Content out/smoothtest-result.txt) } else { 1 }
+          if ($found -ne 0) { exit 1 }
+          exit 0
 
       - uses: actions/upload-artifact@v7
         if: always()
