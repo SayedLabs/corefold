@@ -71,7 +71,7 @@ class PresetsCard(QFrame):
             row.setSpacing(8)
             glyph = QLabel()
             glyph.setPixmap(icons.pixmap({"video": "video", "audio": "music_note_2", "image": "image"}[p["kind"]], 18,
-                                         t.accent, self.devicePixelRatioF()))
+                                         t.text, self.devicePixelRatioF()))
             row.addWidget(glyph)
             words = QVBoxLayout()
             words.setSpacing(0)

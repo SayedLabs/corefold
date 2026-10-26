@@ -381,7 +381,7 @@ class UnlockPage(QWidget):
             self.path_text.setText("\n".join(shown))
         ic = self._icons.icon(QFileInfo(str(first))) if first.exists() else QIcon()
         if self._drive():
-            self.path_icon.setPixmap(icons.pixmap("usb_stick", 28, self.c.theme.accent, dpr))
+            self.path_icon.setPixmap(icons.pixmap("usb_stick", 28, self.c.theme.text, dpr))
         elif ic.isNull():
             self.path_icon.setPixmap(icons.pixmap("folder" if first.is_dir() else "document", 28,
                                                   self.c.theme.muted, dpr))
@@ -929,7 +929,7 @@ class UnlockPage(QWidget):
             tile = QLabel()
             tile.setFixedSize(28, 28)
             tile.setAlignment(Qt.AlignCenter)
-            tile.setPixmap(icons.pixmap("usb_stick", 22, t.accent, dpr))
+            tile.setPixmap(icons.pixmap("usb_stick", 22, t.text, dpr))
             controls = QWidget()
             h = QHBoxLayout(controls)
             h.setContentsMargins(0, 0, 0, 0)
