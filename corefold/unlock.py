@@ -11,6 +11,7 @@ from __future__ import annotations
 import ctypes
 import functools
 import logging
+import ntpath
 import os
 import stat
 import subprocess
@@ -30,6 +31,7 @@ CCH_RM_MAX_SVC_NAME = 63
 # RM_APP_TYPE
 RM_MAIN_WINDOW, RM_OTHER_WINDOW, RM_SERVICE, RM_EXPLORER, RM_CONSOLE, RM_CRITICAL = 1, 2, 3, 4, 5, 1000
 SYNCHRONIZE, QUERY_LIMITED, TERMINATE = 0x100000, 0x1000, 0x1
+QUERY_INFORMATION, VM_READ = 0x400, 0x10
 WM_CLOSE = 0x0010
 GW_OWNER = 4
 FILE_ATTRIBUTE_REPARSE_POINT = 0x400
@@ -82,7 +84,9 @@ def _dll(name: str):
                      ("Process32NextW", (H, P), I),
                      ("QueryFullProcessImageNameW", (H, U32, ctypes.c_wchar_p, P), I),
                      ("GetProcessTimes", (H, P, P, P, P), I), ("TerminateProcess", (H, U32), I),
-                     ("WaitForSingleObject", (H, U32), U32)),
+                     ("WaitForSingleObject", (H, U32), U32),
+                     ("ReadProcessMemory", (H, P, P, ctypes.c_size_t, P), I)),
+        "ntdll": (("NtQueryInformationProcess", (H, U32, P, U32, P), ctypes.c_long),),
         "user32": (("EnumWindows", (_ENUM_PROC, P), I), ("GetWindowThreadProcessId", (H, P), U32),
                    ("IsWindowVisible", (H,), I), ("GetWindow", (H, U32), H),
                    ("GetClassNameW", (H, ctypes.c_wchar_p, I), I), ("PostMessageW", (H, U32, P, P), I)),
@@ -256,17 +260,91 @@ def program_of(info: RM_PROCESS_INFO, names: dict[int, str] | None = None) -> Pr
     return p
 
 
+def _read(h, address: int, size: int) -> bytes | None:
+    buf = ctypes.create_string_buffer(size)
+    done = ctypes.c_size_t(0)
+    if not address or not _dll("kernel32").ReadProcessMemory(h, ctypes.c_void_p(address), buf, size,
+                                                             ctypes.byref(done)) or done.value != size:
+        return None
+    return buf.raw
+
+
+def current_folder(pid: int) -> str:
+    """The folder a program is "in" (a Command Prompt's folder, or where a program was started from),
+    or "". Windows doesn't count that as an open file, but it won't delete or rename the folder while a
+    program is in it. Read from the program's own memory, so only for programs run as the same user."""
+    if ctypes.sizeof(ctypes.c_void_p) != 8:
+        return ""
+    k, nt = _dll("kernel32"), _dll("ntdll")
+    h = k.OpenProcess(QUERY_INFORMATION | VM_READ, False, pid)
+    if not h:
+        return ""
+    try:
+        peb32 = ctypes.c_void_p(0)  # (a 32-bit program keeps its own copy, the one it changes)
+        if nt.NtQueryInformationProcess(h, 26, ctypes.byref(peb32), 8, None) == 0 and peb32.value:
+            params = _read(h, peb32.value + 0x10, 4)
+            text = params and _read(h, int.from_bytes(params, "little") + 0x24, 8)
+            if not text:
+                return ""
+            length, address = int.from_bytes(text[:2], "little"), int.from_bytes(text[4:8], "little")
+        else:
+            basic = ctypes.create_string_buffer(48)  # PROCESS_BASIC_INFORMATION
+            if nt.NtQueryInformationProcess(h, 0, basic, 48, None) != 0:
+                return ""
+            peb = int.from_bytes(basic.raw[8:16], "little")
+            params = _read(h, peb + 0x20, 8)
+            text = params and _read(h, int.from_bytes(params, "little") + 0x38, 16)
+            if not text:
+                return ""
+            length, address = int.from_bytes(text[:2], "little"), int.from_bytes(text[8:16], "little")
+        if not 0 < length <= 2 * 32767:
+            return ""
+        raw = _read(h, address, length)
+        return raw.decode("utf-16-le", "replace") if raw else ""
+    except (OSError, ValueError):
+        return ""
+    finally:
+        k.CloseHandle(h)
+
+
+def _inside(path: str, tops: tuple[str, ...]) -> bool:
+    p = ntpath.normcase(ntpath.normpath(path)).rstrip("\\") + "\\"
+    return p.startswith(tops)
+
+
+def in_folders(folders: list[str], names: dict[int, str], skip: set) -> list[Program]:
+    """Programs that are "in" these folders, or were started from a program file inside them: neither
+    is an open file, so Restart Manager doesn't see them, yet Windows won't delete the folder."""
+    tops = tuple(ntpath.normcase(ntpath.normpath(f)).rstrip("\\") + "\\" for f in folders)
+    out = []
+    for pid, file_name in names.items():
+        if pid in (0, 4) or pid in skip or file_name.lower() in CRITICAL:
+            continue
+        exe = _exe_of(pid)
+        here = current_folder(pid)
+        if not (exe and _inside(exe, tops)) and not (here and _inside(here, tops)):
+            continue
+        p = Program(pid=pid, name=ntpath.splitext(ntpath.basename(exe) or file_name)[0] or f"#{pid}", exe=exe,
+                    started=_started(pid), kind=RM_CONSOLE if not windows_of(pid) else RM_MAIN_WINDOW)
+        p.explorer = file_name.lower() == "explorer.exe"
+        p.own = pid == os.getpid()
+        p.blocked = not p.own and not _can_close(pid)
+        out.append(p)
+    return out
+
+
 def find(paths: list[Path]) -> Found:
-    """Which programs have these files (or anything in these folders) open."""
+    """Which programs have these files (or anything in these folders) open, or are working in these folders."""
     paths = [Path(p) for p in paths]
     files, capped = files_of(paths)
     result = Found(paths=paths, files=len(files), capped=capped)
     drives = [str(p) for p in paths if is_drive(p)]
-    if not files and not drives:
+    folders = [str(p) for p in paths if not is_drive(p) and p.is_dir()]
+    if not files and not drives and not folders:
         return result
     seen = set()
     infos = _rm_list(files) if files else []
-    names = process_names() if infos or drives else {}
+    names = process_names() if infos or drives or folders else {}
     for info in infos:
         pid = info.Process.dwProcessId
         if pid in seen:
@@ -277,6 +355,9 @@ def find(paths: list[Path]) -> Found:
         if prog.pid not in seen:
             seen.add(prog.pid)
             result.programs.append(prog)
+    for prog in in_folders(folders, names, seen) if folders else []:
+        seen.add(prog.pid)
+        result.programs.append(prog)
     result.programs.sort(key=lambda p: (not p.closable, p.name.lower(), p.pid))
     return result
 
