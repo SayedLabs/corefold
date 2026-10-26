@@ -1,5 +1,6 @@
 """Checks for fixes in Startup, Scan and Empty folders (the review after 1.10.0)."""
 import os
+import threading
 
 from corefold import emptyfolders, scan, scanpage, startup
 
@@ -80,3 +81,30 @@ def test_no_age_limit_means_any_age_even_a_moment_ahead_of_the_clock(tmp_path, m
     monkeypatch.setattr(emptyfolders, "_created", lambda _st: time.time() + 5)
     (tmp_path / "Old").mkdir()
     assert _offered(tmp_path, keep=[]) == ["Old"]
+
+
+def test_a_store_apps_logo_is_read_off_the_windows_thread(tmp_path, qapp):
+    """A Store app's logo is read with the other icons, on their thread, and made small (reading a big one
+    where the window runs held it up half a second)."""
+    from PySide6.QtGui import QColor, QImage
+
+    from corefold import startuppage
+    logo = tmp_path / "StoreLogo.scale-400.png"
+    big = QImage(200, 100, QImage.Format.Format_ARGB32)
+    big.fill(QColor("teal"))
+    big.save(str(logo))
+    e = startup.Entry(id="Store-App|x|App", name="App", value="App", command="", exe="", where="Store-App",
+                      extra={"icon": str(logo)})
+    assert startuppage._icon_paths(e)[0] == str(logo)
+    made = []
+
+    class Signal:
+        @staticmethod
+        def emit(key, image):
+            made.append((key, image))
+
+    startuppage._make_icons({"k": startuppage._icon_paths(e)}, threading.Event(), Signal) \
+        if os.name == "nt" else made.append(("k", startuppage._logo_image(str(logo))))
+    key, image = made[0]
+    assert key == "k" and image is not None and (image.width(), image.height()) == (64, 32)
+    assert startuppage._logo_image(str(tmp_path / "gone.png")) is None

@@ -1707,6 +1707,8 @@ def friendly_error(e: Exception) -> str:
         return tr("the PDF is damaged or isn't a real PDF")
     if disk_full(e):
         return tr("the disk is full")
+    if isinstance(e, OSError) and getattr(e, "winerror", None) in (206, 267):  # (past Windows' 260 letters)
+        return tr("the folder's path is too long for Windows")
     if isinstance(e, PermissionError):
         return tr("permission denied (is the file open in another app?)")
     if isinstance(e, FileNotFoundError):

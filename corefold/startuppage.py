@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QFileInfo, QObject, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QGuiApplication, QIcon, QPixmap
+from PySide6.QtGui import QGuiApplication, QIcon, QImage, QPixmap
 from PySide6.QtWidgets import QButtonGroup, QFileIconProvider, QFrame, QHBoxLayout, QLabel, QLineEdit, QMenu, \
     QMessageBox, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
@@ -78,8 +78,11 @@ def _para(text: str) -> str:
     return "\u200f" + text if text and i18n.is_rtl() else text
 
 
+LOGOS = (".png", ".jpg", ".jpeg")  # (a Store app's logo is a picture; the others' icons are in their files)
+
+
 def _icon_paths(e: startup.Entry) -> list[str]:
-    return [p for p in (e.exe, e.extra.get("file", "")) if p]
+    return [p for p in (e.extra.get("icon", ""), e.exe, e.extra.get("file", "")) if p]
 
 
 def _icon_key(e: startup.Entry) -> str:
@@ -110,7 +113,12 @@ def _make_icons(wanted: dict[str, list[str]], cancel: threading.Event, signal):
             image = None
             for path in paths:
                 try:
-                    image = _icon_image(path) if os.path.isfile(path) else None
+                    if not os.path.isfile(path):
+                        image = None
+                    elif path.lower().endswith(LOGOS):
+                        image = _logo_image(path)
+                    else:
+                        image = _icon_image(path)
                 except Exception:
                     log.debug("no icon for %s", path, exc_info=True)
                 if image is not None:
@@ -121,6 +129,16 @@ def _make_icons(wanted: dict[str, list[str]], cancel: threading.Event, signal):
                 return
     finally:
         ctypes.windll.ole32.CoUninitialize()
+
+
+def _logo_image(path: str):
+    """A Store app's logo, small (the file can be a big picture, and reading it once held the window up)."""
+    image = QImage(path)
+    if image.isNull():
+        return None
+    if max(image.width(), image.height()) > 64:
+        image = image.scaled(64, 64, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+    return image
 
 
 class EntryRow(QWidget):
@@ -443,17 +461,12 @@ class StartupPage(QWidget):
         self.filter()
 
     def _icon(self, e: startup.Entry) -> QIcon | None:
-        """The program's own icon (kept, so looking again doesn't read every file's icon again)."""
-        logo = e.extra.get("icon", "")
-        if logo:  # (a Store app: its logo picture)
-            if logo not in self._icon_cache:
-                ic = QIcon(logo)
-                self._icon_cache[logo] = ic if not ic.isNull() else None
-            if self._icon_cache[logo] is not None:
-                return self._icon_cache[logo]
+        """The program's own icon, or a Store app's logo (kept, so looking again doesn't read every file's icon
+        again)."""
         key = _icon_key(e)
         if key and key not in self._icon_cache and sys.platform != "win32":  # (Qt's own, for tests elsewhere)
-            ic = next((self._icons.icon(QFileInfo(p)) for p in _icon_paths(e) if os.path.isfile(p)), None)
+            ic = next((QIcon(p) if p.lower().endswith(LOGOS) else self._icons.icon(QFileInfo(p))
+                       for p in _icon_paths(e) if os.path.isfile(p)), None)
             self._icon_cache[key] = ic if ic is not None and not ic.isNull() else None
         return self._icon_cache.get(key)  # (on Windows the ones not read yet come from _start_icons)
 

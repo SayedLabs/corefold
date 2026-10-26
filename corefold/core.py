@@ -7,7 +7,6 @@ import re
 import stat
 import subprocess
 import sys
-import tempfile
 import threading
 import time
 import weakref
@@ -123,13 +122,27 @@ def writable(folder: Path) -> bool:
         return hit[1]
     try:
         folder.mkdir(parents=True, exist_ok=True)
-        with tempfile.TemporaryFile(dir=folder):
-            pass
+        os.rmdir(new_folder(folder, ".corefold-try-"))
         ok = True
     except OSError:
         ok = False
     _writable_cache[key] = (time.monotonic(), ok)
     return ok
+
+
+def new_folder(base: Path, prefix: str) -> Path:
+    """A new folder with a name nothing has (like tempfile.mkdtemp(dir=base)). Not mkdtemp itself: on
+    Windows it takes "access denied" for a name that's taken and tries again, two billion times, so a
+    folder that can't be written to (Program Files, another user's) made the job go on for ever."""
+    import secrets
+    for _ in range(100):
+        p = base / f"{prefix}{secrets.token_hex(5)}"
+        try:
+            p.mkdir()
+            return p
+        except FileExistsError:
+            continue
+    raise FileExistsError(f"no free name in {base}")
 
 
 # names handed out but maybe not written yet (two jobs at once) -> until when they stay taken. Never for good:

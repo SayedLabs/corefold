@@ -258,3 +258,45 @@ def test_a_tiff_that_cant_be_written_for_lack_of_room_says_the_disk_is_full(tmp_
     tool = next(t for t in cv.catalog()["image"] if t.key == "image:tiff")
     res, errors = cv.run_job(tool, [src], Options(output_folder=tmp_path / "out"))
     assert errors == ["photo.png: the disk is full"] and not res.outputs
+
+
+def test_saving_elsewhere_is_said(tmp_path, monkeypatch):
+    """When the folder a file was meant for can't be saved in, it goes to Downloads › Corefold, and the
+    message says so (looked for beside the original, it wouldn't be found)."""
+    from types import SimpleNamespace
+
+    from corefold import app, core
+    monkeypatch.setattr(core, "_downloads", tmp_path / "Downloads")
+    spare = core.fallback_folder()
+    src = tmp_path / "CD" / "photo.heic"
+    beside = SimpleNamespace(settings=SimpleNamespace(save_mode="beside", output_folder=str(spare)))
+    said = app.Controller._saved_elsewhere(beside, [src], [spare / "photo.jpg"])
+    assert said == "Downloads › Corefold"
+    assert app.Controller._saved_elsewhere(beside, [src], [src.parent / "photo.jpg"]) == ""
+    assert app.Controller._saved_elsewhere(beside, [spare / "a.png"], [spare / "a.jpg"]) == ""  # (it was there)
+    chosen = SimpleNamespace(settings=SimpleNamespace(save_mode="folder", output_folder=str(spare)))
+    assert app.Controller._saved_elsewhere(chosen, [src], [spare / "photo.jpg"]) == ""  # (the folder picked)
+    other = SimpleNamespace(settings=SimpleNamespace(save_mode="folder", output_folder=str(tmp_path / "Mine")))
+    assert app.Controller._saved_elsewhere(other, [src], [spare / "sub" / "photo.jpg"]) == "Downloads › Corefold"
+
+
+def test_packing_deep_inside_folders_keeps_only_the_names(tmp_path, monkeypatch):
+    """Past Windows' 260 letters 7-Zip can't be started inside the folder: it gets whole paths instead, and the
+    archive still holds just the names, as it would anywhere else."""
+    if not archives.find_7z():
+        pytest.skip("needs 7-Zip")
+    monkeypatch.setattr(archives, "_too_deep", lambda folder: True)
+    (tmp_path / "a.txt").write_text("a", "utf-8")
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "sub" / "b.txt").write_text("b", "utf-8")
+    out = tmp_path / "out" / "x.zip"
+    out.parent.mkdir()
+    archives.pack_into([tmp_path / "a.txt", tmp_path / "sub"], out, Ctx(Options()))
+    assert sorted(zipfile.ZipFile(out).namelist()) == ["a.txt", "sub/", "sub/b.txt"]
+
+
+def test_a_path_too_long_for_windows_is_said_plainly():
+    from corefold.converters import friendly_error
+    e = NotADirectoryError(267, "The directory name is invalid")
+    e.winerror = 267
+    assert "WinError" not in friendly_error(e) and "too long" in friendly_error(e)

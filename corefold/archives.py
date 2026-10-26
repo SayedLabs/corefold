@@ -20,7 +20,8 @@ from pathlib import Path
 
 from .i18n import tr
 from .core import ARCHIVE_EXT, NO_WINDOW, TAR_SUFFIXES, Cancelled, Ctx, Result, _cached, app_dir, bundled, \
-    find_program, is_link, human_size, norm, pass_on_zone_mark, remove_file, run_with_progress, safe_name, unique_path
+    find_program, is_link, human_size, new_folder, norm, pass_on_zone_mark, remove_file, run_with_progress, safe_name, \
+    unique_path
 
 log = logging.getLogger("corefold")
 DUMMY_PASSWORD = "-pcorefold-no-password"  # never let 7-Zip stop and ask for one
@@ -257,6 +258,8 @@ def _7z_error(output: str) -> Exception:
     low = output.lower()
     if "wrong password" in low or "can not open encrypted archive" in low or "cannot open encrypted" in low:
         return NeedPassword()
+    if "being used by another process" in low or "access is denied" in low:  # (not "damaged": it may be fine)
+        return PermissionError(tr("permission denied (is the file open in another app?)"))
     if "crc failed" in low or "data error" in low or "unexpected end of archive" in low or "headers error" in low:
         return RuntimeError(tr("the archive is damaged or incomplete"))
     # ("Cannot open the file as [zip] archive" when the name says ZIP but what's inside isn't one)
@@ -276,6 +279,11 @@ def _7z_error(output: str) -> Exception:
 def _progress(buf: str) -> float | None:
     found = PROGRESS_RE.findall(buf[-40:])
     return int(found[-1]) / 100 if found else None
+
+
+def _too_deep(folder: Path) -> bool:
+    """Windows can't start a program inside a folder whose path is past its old 260-letter limit."""
+    return os.name == "nt" and len(str(folder)) >= 240
 
 
 def _run7z(args: list, ctx: Ctx | None = None, cwd: Path | None = None) -> tuple[int, str]:
@@ -793,7 +801,7 @@ def extract(src: Path, ctx: Ctx, mode: str = "smart") -> Result:
     name = safe_name(ctx.options.rename_base) or safe_name(archive_stem(src)) or "Extracted"
 
     _tidy_old_staging(base)
-    staging = Path(tempfile.mkdtemp(prefix=".corefold-unpacking-", dir=base))
+    staging = new_folder(base, ".corefold-unpacking-")
     try:
         _hide(staging)
         _extract_into(src, staging, ctx, password, members)
@@ -1013,6 +1021,10 @@ def pack_into(items: list[Path], out: Path, ctx: Ctx, fmt: str = "zip", level: s
             args.append("-mhe=on" if fmt == "7z" else "-mem=AES256")
         if split_mb and split_mb > 0:
             args.append(f"-v{int(split_mb * 1024)}k")
+        cwd = parent
+        if _too_deep(parent) and not any(os.sep in r or "/" in r for r in rel):
+            # (Windows can't start 7-Zip inside it; given whole paths, 7-Zip still keeps only the names)
+            rel, cwd = [str(parent / r) for r in rel], None
         listfile = _listfile(rel)
         # numbered parts already there (an older split archive of the same name) are never removed or listed
         before = set(_parts_of(out))
@@ -1025,13 +1037,19 @@ def pack_into(items: list[Path], out: Path, ctx: Ctx, fmt: str = "zip", level: s
                 if part not in before:
                     remove_file(part)
         try:
-            code, output = _run7z([*args, "-scsUTF-8", str(out), f"@{listfile}"], ctx, cwd=parent)
+            code, output = _run7z([*args, "-scsUTF-8", str(out), f"@{listfile}"], ctx, cwd=cwd)
         except Cancelled:  # stopped halfway: no half-made archive is left behind
             remove_made()
             raise
         finally:
             listfile.unlink(missing_ok=True)
-        if code not in (0, 1):
+        if code == 1:  # (only a warning to 7-Zip: a file it couldn't read was left out of the archive)
+            remove_made()
+            low = output.lower()
+            if "cannot find" in low or "can not find" in low:
+                raise FileNotFoundError(tr("file not found"))
+            raise PermissionError(tr("permission denied (is the file open in another app?)"))
+        if code != 0:
             remove_made()
             raise _7z_error(output)
         if split_mb:
@@ -1120,13 +1138,14 @@ def add_files(src: Path, items: list[Path], ctx: Ctx) -> Result:
     password = ctx.params.get("password", "")
     for parent in {p.parent.resolve() for p in items}:
         group = [p for p in items if p.parent.resolve() == parent]
-        listfile = _listfile([p.name for p in group])
+        deep = _too_deep(parent)  # (as in pack_into)
+        listfile = _listfile([str(parent / p.name) if deep else p.name for p in group])
         try:
             args = ["a", str(src.resolve()), "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-scsUTF-8", "-ssw", "-y", "-spd",
                     *_cp(src)]
             if password:
                 args.append(_pw(password, making=True))
-            code, out = _run7z([*args, f"@{listfile}"], ctx, cwd=parent)
+            code, out = _run7z([*args, f"@{listfile}"], ctx, cwd=None if deep else parent)
         finally:
             listfile.unlink(missing_ok=True)
         if code not in (0, 1):
@@ -1480,7 +1499,7 @@ def repair_archive(src: Path, ctx: Ctx) -> Result:
     base = ctx.folder_for(src)  # next to it, or the folder chosen for results (a CD or a locked folder: elsewhere)
     base.mkdir(parents=True, exist_ok=True)
     _tidy_old_staging(base)
-    stage = Path(tempfile.mkdtemp(prefix=".corefold-unpacking-", dir=base))
+    stage = new_folder(base, ".corefold-unpacking-")
     try:
         _hide(stage)
         damaged = 0
