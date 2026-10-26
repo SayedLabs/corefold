@@ -406,12 +406,11 @@ def convert_folder(src: Path, ctx: Ctx, fmt: str = "jpg") -> Result:
             log.debug("couldn't save %s", pic, exc_info=True)
         ctx.progress((i + 1) / len(pictures))
     done = len(pictures) - failed - unsaved
-    note = tr("Converted {count} pictures", count=done)
-    if failed:
-        note += " · " + tr("{count} couldn't be read", count=failed)
-    if unsaved:
-        note += " · " + tr("{count} couldn't be saved", count=unsaved)
-    return Result([outdir], note=note)
+    why = ([tr("{count} couldn't be read", count=failed)] if failed else []) + \
+        ([tr("{count} couldn't be saved", count=unsaved)] if unsaved else [])
+    if not done:  # (an empty folder isn't a result: it goes, and this says why)
+        raise RuntimeError(" · ".join(why))
+    return Result([outdir], note=" · ".join([tr("Converted {count} pictures", count=done), *why]))
 
 
 # ----------------------------------------------------------------------------- renaming

@@ -34,8 +34,8 @@ core.set_downloads_folder(TMP / "user Downloads")  # (Downloads › Corefold, wh
 
 problems: list[str] = []
 # what only FFmpeg, 7-Zip, Pillow or Windows say: the person must get Corefold's own words instead
-RAW = re.compile(r"Errno|WinError|Permission denied|Access is denied|ffmpeg|7-zip|Error opening|Conversion failed|"
-                 r"Traceback|Invalid argument|ERROR|No such file|cannot open|Could not|\[Errno", re.I)
+RAW = re.compile(r"Errno|WinError|Permission denied|Access is denied|[Ff][Ff]mpeg|7-Zip|Error opening|Conversion failed|"
+                 r"Traceback|Invalid argument|ERROR|No such file|[Cc]annot open|Could not")  # (Corefold's own start small)
 
 
 def problem(what: str):

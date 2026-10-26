@@ -856,6 +856,9 @@ class Controller(QObject):
             if new:
                 self.open_browser(src, new)
             return
+        if isinstance(error, PermissionError):  # (another program holds it: nothing to rescue, it's fine)
+            self.toast.notify(tr("Couldn't open the archive"), f"{short_name(src.name)}: {error}")
+            return
         if error is not None:
             self.offer_repair(src, error)
             return
