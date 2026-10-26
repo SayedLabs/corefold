@@ -1,4 +1,4 @@
-# TEMPORARY probe (removed before merging): the heavy test's first window opening, six times, with and without the code compiled ahead.
+# TEMPORARY probe (removed before merging): the heavy test's first window opening, six times, with and without Corefold's and Qt's files read back into memory first.
 name: Probe first open
 
 on:
@@ -17,7 +17,7 @@ jobs:
       fail-fast: false
       matrix:
         n: [1, 2, 3, 4, 5, 6]
-        compiled: [no, yes]
+        warm: [no, yes]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -30,14 +30,11 @@ jobs:
           New-Item -ItemType Directory -Force out | Out-Null
           python scripts/screenres.py 1920 1080 *>> out/screen.txt
           choco install ffmpeg -y --no-progress | Out-Null
-      - name: Corefold's code compiled ahead, as in the built app
-        if: matrix.compiled == 'yes'
-        shell: pwsh
-        run: python -m compileall -q corefold
       - name: Heavy files, then the window opens
         shell: pwsh
         env:
           COREFOLD_WAKE_RESTING: "1"
+          USE_WARM: ${{ matrix.warm == 'yes' && '1' || '' }}
         run: |
           $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
           python scripts/usetest.py out/usetest --heavy --lang en --look dark --only start,idle *> out/usetest.txt

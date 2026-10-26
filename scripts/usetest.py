@@ -1443,6 +1443,22 @@ def _modules() -> set[str]:
     return found
 
 
+def _warm_program_files():
+    """Reads Corefold's and Qt's own files once, so Windows has them in memory again."""
+    import PySide6
+    t0, size = time.perf_counter(), 0
+    for top in (Path(PySide6.__file__).parent, ROOT / "corefold", ROOT / "assets"):
+        for f in top.rglob("*"):
+            try:
+                if f.is_file():
+                    with open(f, "rb") as fh:
+                        while chunk := fh.read(1 << 20):
+                            size += len(chunk)
+            except OSError:
+                pass
+    say(f"note  read Corefold's and Qt's files again ({size / 1e6:.0f} MB in {time.perf_counter() - t0:.1f} s)")
+
+
 def _quiet(what, most_s=120):
     """Waits (up to most_s) for the PC to be quiet first: after 200,000 files are made, Windows' virus checker
     reads them for minutes, and the times after it would measure that, not Corefold."""
@@ -1485,6 +1501,9 @@ if ARGS.heavy:
     STEPS = (("organizer", h_organizer), ("archive", h_archive), ("pdf", h_pdf), ("converter", h_converter),
              ("cloud", h_cloud), ("unlock", h_unlock), ("idle", idle))
     _quiet("start")  # (the window's first paint reads files too, and waited 1-2 s behind the virus checker)
+    if os.environ.get("USE_WARM"):
+        with setup():
+            _warm_program_files()
     step("start", start_light)
 else:
     STEPS = (("search", search), ("quick", quick), ("space", space), ("converter", converter), ("archive", archive),
