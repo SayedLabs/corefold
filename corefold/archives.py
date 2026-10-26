@@ -242,7 +242,7 @@ def _7z_error(output: str) -> Exception:
         return RuntimeError(tr("the archive is damaged or isn't a real archive"))
     if "missing volume" in low:
         return RuntimeError(tr("a part of this split archive is missing"))
-    if "there is not enough space" in low or "disk full" in low:
+    if "there is not enough space" in low or "disk full" in low or "no space left on device" in low:
         return RuntimeError(tr("the disk is full"))
     lines = [ln.strip() for ln in output.splitlines() if ln.strip() and not PROGRESS_RE.fullmatch(ln.strip())]
     for ln in reversed(lines):

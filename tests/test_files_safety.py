@@ -165,3 +165,79 @@ def test_a_sound_never_holds_the_window_up(monkeypatch):
     assert time.perf_counter() - t0 < 0.2
     assert started.wait(2)  # (it is played, just not on the window's thread)
     release.set()
+
+
+def _disk_full(*args, **kwargs):
+    raise OSError(28, "No space left on device")
+
+
+def _pictures(folder: Path, count: int) -> list[Path]:
+    from PIL import Image
+    folder.mkdir()
+    made = []
+    for i in range(count):
+        p = folder / f"p{i}.png"
+        Image.new("RGB", (40, 30), (i * 40, 90, 160)).save(p)
+        made.append(p)
+    return made
+
+
+def test_a_full_disk_stops_a_folder_conversion_and_leaves_nothing_half_done(tmp_path, monkeypatch):
+    from corefold import converters as cv, moretools
+    pics = _pictures(tmp_path / "holiday", 5)
+    before = {p: p.read_bytes() for p in pics}
+    real_save, saved = moretools.save_image, []
+
+    def save_then_fill(im, target, ext, ctx):
+        if len(saved) == 2:
+            Path(target).write_bytes(b"\xff\xd8 half a picture")  # (what a cut-off write leaves)
+            _disk_full()
+        real_save(im, target, ext, ctx)
+        saved.append(target)
+
+    monkeypatch.setattr(moretools, "save_image", save_then_fill)
+    tool = next(t for t in cv.catalog()["folder"] if t.key == "folder:jpg")
+    out = tmp_path / "out"
+    res, errors = cv.run_job(tool, [tmp_path / "holiday"], Options(output_folder=out))
+    assert errors and "the disk is full" in errors[0]  # (not "3 couldn't be read": they could)
+    assert not res.outputs and not any(out.rglob("*"))  # (no half-done folder, no half a picture)
+    assert {p: p.read_bytes() for p in pics} == before
+
+
+def test_a_folder_conversion_tells_unreadable_from_unsaved(tmp_path, monkeypatch):
+    from corefold import moretools
+    pics = _pictures(tmp_path / "mixed", 3)
+    pics[0].write_bytes(b"not a picture at all")
+    real_save = moretools.save_image
+
+    def refuse_one(im, target, ext, ctx):
+        if Path(target).stem == "p1":
+            Path(target).write_bytes(b"half")
+            raise PermissionError(13, "Access is denied")
+        real_save(im, target, ext, ctx)
+
+    monkeypatch.setattr(moretools, "save_image", refuse_one)
+    res = moretools.convert_folder(tmp_path / "mixed", _ctx(), "jpg")
+    made = sorted(p.name for p in res.outputs[0].rglob("*"))
+    assert made == ["p2.jpg"]  # (p1's half-written copy is gone)
+    assert "1 couldn't be read" in res.note and "1 couldn't be saved" in res.note
+
+
+def test_a_full_disk_never_says_a_pdf_has_no_pictures(tmp_path, monkeypatch):
+    from PIL import Image
+    from corefold import converters as cv
+    pages = [Image.new("RGB", (60, 80), (200, 30 * i, 40)) for i in range(3)]
+    pdf = tmp_path / "scan.pdf"
+    pages[0].save(pdf, save_all=True, append_images=pages[1:])
+    monkeypatch.setattr(Path, "write_bytes", _disk_full)  # (Pillow's pages are JPEGs: saved as they are)
+    tool = next(t for t in cv.catalog()["pdf"] if t.key == "pdf:images")
+    out = tmp_path / "out"
+    res, errors = cv.run_job(tool, [pdf], Options(output_folder=out))
+    assert errors and "the disk is full" in errors[0] and not res.note
+    assert not any(out.rglob("*"))
+
+
+@pytest.mark.parametrize("said", ["System ERROR:\nThere is not enough space on the disk.",
+                                  "System ERROR:\nerrno=28 : No space left on device"])
+def test_7zip_running_out_of_room_is_said_plainly(said):
+    assert str(archives._7z_error(said)) == "the disk is full"

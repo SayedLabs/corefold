@@ -775,6 +775,7 @@ STRINGS: dict[str, str] = {
     "drop a folder for this": "أفلت مجلدًا لهذا",
     "Converted {count} pictures": "تم تحويل {count} صور",
     "{count} couldn't be read": "تعذّرت قراءة {count}",
+    "{count} couldn't be saved": "تعذّر حفظ {count}",
     "The names stay the same": "تبقى الأسماء كما هي",
     "some new names are already used by other files": "بعض الأسماء الجديدة مستخدمة بالفعل لملفات أخرى",
     "Renamed {count} files": "تمت إعادة تسمية {count} ملفات",

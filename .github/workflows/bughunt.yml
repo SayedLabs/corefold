@@ -117,7 +117,7 @@ jobs:
           python scripts/edgetest.py *> out/edgetest.txt
           python scripts/audittest.py *> out/audittest.txt
 
-      - name: Each tool's own test (File Organizer, Startup, Scan)
+      - name: Each tool's own test (File Organizer, Startup, Scan, a full disk)
         if: matrix.name == 'tools'
         shell: pwsh
         id: check2
@@ -130,6 +130,13 @@ jobs:
           }
           # once: it puts a test threat back from quarantine, and Windows then lets that one be on this PC
           python scripts/scantest.py out/scantest ar light *> out/scantest.txt
+          # every Converter tool saving onto a full disk: a 16 MB one made for it (R:), never the PC's own
+          choco install ffmpeg -y --no-progress | Out-Null
+          $vhd = "$env:RUNNER_TEMP\full.vhdx"
+          "create vdisk file=`"$vhd`" maximum=16 type=fixed", "select vdisk file=`"$vhd`"", "attach vdisk",
+            "create partition primary", "format fs=ntfs quick label=FULL", "assign letter=R" | Set-Content dp.txt
+          diskpart /s dp.txt *> out/diskpart.txt
+          python scripts/fulldisktest.py R:\ *> out/fulldisktest.txt
 
       - name: Every page and button
         if: matrix.sweep != ''
@@ -276,7 +283,7 @@ jobs:
             echo "Bug hunt of $SHA"
             for d in */; do
               echo "== ${d%/}"
-              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest|featuretest|pdftest|pdfedittest|langtest|captexttest|capmarkstest|capfoldertest|edgetest|audittest|organizetest|startuptest|scantest|newtest_[a-z]+|dllcheck)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused|^App folder:|Corefold-Setup-" "$d" 2>/dev/null | head -20
+              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest|featuretest|pdftest|pdfedittest|langtest|captexttest|capmarkstest|capfoldertest|edgetest|fulldisktest|audittest|organizetest|startuptest|scantest|newtest_[a-z]+|dllcheck)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused|^App folder:|Corefold-Setup-" "$d" 2>/dev/null | head -20
               grep -rhaE "^(FAIL|ERROR|SLOW) " "$d" 2>/dev/null | sort | uniq -c | sort -rn | head -60
             done
           } > summary.txt
