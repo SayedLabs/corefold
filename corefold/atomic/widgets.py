@@ -172,7 +172,7 @@ class Switch(QCheckBox):
         fill = mix(off_fill, t.accent, on)
         if not enabled:
             fill = mix(fill, t.surface, 0.55)
-        edge = mix(t.subtle if self._hover else t.line_strong, t.accent, on)
+        edge = mix(t.faint if self._hover else t.line_strong, t.accent, on)
         p.setPen(QPen(edge if on < 1 else t.accent, 1))
         p.setBrush(fill)
         p.drawRoundedRect(track.adjusted(0.5, 0.5, -0.5, -0.5), TRACK_H / 2, TRACK_H / 2)
@@ -195,7 +195,7 @@ class Switch(QCheckBox):
             text_h = self._text_height(self.width())
             if text_h < self.height() - top * 2:
                 box.setTop(int((self.height() - text_h) / 2))
-            p.setPen(t.text if enabled else t.subtle)
+            p.setPen(t.text if enabled else t.faint)
             p.setFont(self.font())
             used = p.boundingRect(box, align, self.text())
             p.drawText(box, align, self.text())
@@ -203,7 +203,7 @@ class Switch(QCheckBox):
                 small = self.font()
                 small.setPointSizeF(max(7.0, small.pointSizeF() * 0.9))
                 p.setFont(small)
-                p.setPen(t.muted if enabled else t.subtle)
+                p.setPen(t.muted if enabled else t.faint)
                 p.drawText(box.adjusted(0, used.height() + 2, 0, 0), align, self.description)
         if self.hasFocus() and self.focusPolicy() != Qt.NoFocus and self._keyboard_focus:
             p.setPen(QPen(t.accent, 2))
@@ -504,7 +504,7 @@ class SearchButton(QPushButton):
         p.setRenderHint(QPainter.Antialiasing)
         hover = self.underMouse()
         r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
-        p.setPen(QPen(t.subtle if hover else t.line_strong, 1))
+        p.setPen(QPen(t.faint if hover else t.line_strong, 1))
         p.setBrush(t.hover if hover else t.field)
         p.drawRoundedRect(r, r.height() / 2, r.height() / 2)
         rtl = self.layoutDirection() == Qt.RightToLeft
@@ -588,7 +588,7 @@ class _DropdownRow(QStyledItemDelegate):
         if picked:
             font.setWeight(QFont.Weight.DemiBold)
         p.setFont(font)
-        p.setPen(t.text if enabled else t.subtle)
+        p.setPen(t.text if enabled else t.faint)
         text = QFontMetrics(font).elidedText(str(index.data(Qt.DisplayRole) or ""), Qt.ElideRight, int(x.width()))
         p.drawText(x, (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignVCenter | Qt.AlignAbsolute, text)
         p.restore()
@@ -700,7 +700,7 @@ class ChoiceCard(QPushButton):
         on = self.isChecked()
         hover = self.underMouse()
         r = QRectF(self.rect()).adjusted(1, 1, -1, -1)
-        p.setPen(QPen(t.text if on else (t.subtle if hover else t.line_strong), 1.5 if on else 1))
+        p.setPen(QPen(t.text if on else (t.faint if hover else t.line_strong), 1.5 if on else 1))
         p.setBrush(t.select if on else (t.hover if hover else t.surface))
         p.drawRoundedRect(r, RADIUS["lg"], RADIUS["lg"])
         if self.hasFocus() and self._keyboard_focus and not on:
