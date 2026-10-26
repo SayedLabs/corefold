@@ -24,7 +24,7 @@ from PySide6.QtWidgets import QWidget
 from . import icons, winutil
 from .converters import Pick, Slot, pick, warm_up
 from .core import APP_NAME
-from .i18n import tr
+from .i18n import is_rtl, tr
 from .settings import TEXT_SIZES, WHEEL_SIZES, Settings
 from .atomic.tokens import TEXT_FAMILY
 from .theme import Theme
@@ -444,7 +444,8 @@ def _draw_label(p: QPainter, pos: QPointF, item: Item, look: Look, font: QFont, 
                 color: QColor, active: bool, max_width: float = 102, icon_color: QColor | None = None):
     icon = item.icon or ICONS.get("more" if item.more else item.action, "")
     is_format = item.action in FORMAT_ACTIONS and not item.more
-    text = ("★ " if item.favorite and item.ok else "") + item.label
+    text = item.label
+    star = item.favorite and item.ok  # (a drawn star: Windows' UI font hasn't got ★, and looking for it froze the wheel)
     mode = look.labels
     if is_format and mode in ("icon", "both"):
         mode = "text"  # format names are clearer than any icon
@@ -454,8 +455,10 @@ def _draw_label(p: QPainter, pos: QPointF, item: Item, look: Look, font: QFont, 
         font.setPointSizeF(font.pointSizeF() * 1.08)
     fm = QFontMetrics(font)
     # long names (often longer in Arabic) go onto two lines before they're shortened with "…"
-    lines = _fit_lines(text, font, max_width, 2)
     lh = fm.height() - 1
+    star_px = round(lh * 0.7) if star else 0
+    gap = star_px + 3 if star else 0
+    lines = _fit_lines(text, font, max_width - gap, 2)
     if mode == "icon" and icon:
         icons.paint(p, QRectF(pos.x() - icon_px / 2, pos.y() - icon_px / 2, icon_px, icon_px), icon, icon_color or color)
         return
@@ -468,8 +471,15 @@ def _draw_label(p: QPainter, pos: QPointF, item: Item, look: Look, font: QFont, 
     else:
         y = pos.y() - lh * len(lines) / 2
     p.setPen(color)
-    for line in lines:
-        p.drawText(QRectF(pos.x() - max_width / 2 - 2, y, max_width + 4, lh + 1), Qt.AlignCenter, line)
+    for i, line in enumerate(lines):
+        if star and i == 0:  # the star leads the first line, and the two are centred together
+            half = fm.horizontalAdvance(line) / 2
+            shift = -gap / 2 if is_rtl() else gap / 2
+            x = pos.x() + shift + half + 3 if is_rtl() else pos.x() + shift - half - 3 - star_px
+            icons.paint(p, QRectF(x, y + (lh - star_px) / 2, star_px, star_px), "star_filled", color)
+            p.drawText(QRectF(pos.x() + shift - max_width / 2 - 2, y, max_width + 4, lh + 1), Qt.AlignCenter, line)
+        else:
+            p.drawText(QRectF(pos.x() - max_width / 2 - 2, y, max_width + 4, lh + 1), Qt.AlignCenter, line)
         y += lh
 
 

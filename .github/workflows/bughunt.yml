@@ -105,6 +105,7 @@ jobs:
           choco install ffmpeg -y --no-progress | Out-Null
           $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
           python scripts/check_translations.py *> out/translations.txt
+          python scripts/glyphcheck.py *> out/glyphcheck.txt
           python scripts/selftest.py *> out/selftest.txt
           foreach ($part in "kinds", "listing", "window", "leftovers") { python scripts/uninstalltest.py $part *>> out/uninstalltest.txt }
           python scripts/stress.py out/stress *> out/stress.txt
@@ -285,7 +286,7 @@ jobs:
             echo "Bug hunt of $SHA"
             for d in */; do
               echo "== ${d%/}"
-              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest|featuretest|pdftest|pdfedittest|langtest|captexttest|capmarkstest|capfoldertest|edgetest|fulldisktest|writefailtest|audittest|organizetest|startuptest|scantest|newtest_[a-z]+|dllcheck)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused|^App folder:|Corefold-Setup-" "$d" 2>/dev/null | head -20
+              grep -rhaE "^(glyphcheck|sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest|featuretest|pdftest|pdfedittest|langtest|captexttest|capmarkstest|capfoldertest|edgetest|fulldisktest|writefailtest|audittest|organizetest|startuptest|scantest|newtest_[a-z]+|dllcheck)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused|^App folder:|Corefold-Setup-" "$d" 2>/dev/null | head -20
               grep -rhaE "^(FAIL|ERROR|SLOW) " "$d" 2>/dev/null | sort | uniq -c | sort -rn | head -60
             done
           } > summary.txt

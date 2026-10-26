@@ -96,8 +96,8 @@ class PagesDialog(Base):
                         (self.delete, "delete")):
             b.setIcon(icons.icon(name, ink, faint))
             b.setIconSize(icons.SMALL)
-        self.up = QPushButton("◀  " + tr("Move back"))
-        self.down = QPushButton(tr("Move forward") + "  ▶")
+        self.up = QPushButton("◄  " + tr("Move back"))
+        self.down = QPushButton(tr("Move forward") + "  ►")
         self.left.clicked.connect(lambda: self.turn(-90))
         self.right.clicked.connect(lambda: self.turn(90))
         self.delete.clicked.connect(self.remove)

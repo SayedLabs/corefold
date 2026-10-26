@@ -73,6 +73,7 @@ SOURCE_WINDOW_CLASSES = {"CabinetWClass", "ExploreWClass", "Progman", "WorkerW"}
 DRAG_THRESHOLD_PX = 14
 UPDATE_JOB_ID = -1  # the update download shows in the same popup as conversions
 UPDATE_CHECK_EVERY_MS = 6 * 3600 * 1000
+UPDATE_RETRY_MS = (2, 10, 30, 60, 180)  # minutes: an automatic check that failed (offline) is tried again soon
 UPDATE_RETELL_MS = 30 * 60_000  # full screen when a new version was found: say it this much later
 LIGHT_TIDY_MS = 4_000          # memory a finished job used goes back this soon
 IDLE_TIDY_MS = 45_000          # hand memory back to Windows this long after the last job
@@ -330,6 +331,10 @@ class Controller(QObject):
         self.update_timer = QTimer(self)
         self.update_timer.timeout.connect(self.check_updates)
         self.update_timer.start(UPDATE_CHECK_EVERY_MS)
+        self.update_retry = QTimer(self)  # (started at login before the internet is up: not 6 hours later)
+        self.update_retry.setSingleShot(True)
+        self.update_retry.timeout.connect(self.check_updates)
+        self.update_retries = 0
         QTimer.singleShot(10_000, self.check_updates)
 
         self.save_timer = QTimer(self)
@@ -2301,9 +2306,15 @@ class Controller(QObject):
             self.update_state = "available" if self.update_info else "error"
             self.update_error = err
             log.info("update check: %s", err)
+            if self.settings.check_updates and not self.update_retry.isActive():
+                wait = UPDATE_RETRY_MS[min(self.update_retries, len(UPDATE_RETRY_MS) - 1)]
+                self.update_retries += 1
+                self.update_retry.start(wait * 60_000)
+                log.info("update check again in %d min", wait)
             if manual:
                 self.toast.notify(tr("Couldn't check for updates"), err)
         elif info:
+            self.update_retries = 0
             self.update_state, self.update_info = "available", info
             log.info("update available: %s", info.version)
             if self.settings.auto_update and self.can_self_install():
@@ -2319,6 +2330,7 @@ class Controller(QObject):
                 self.settings.update_told = ""
             self._tell_update()
         else:
+            self.update_retries = 0
             self.update_state, self.update_info = "uptodate", None
             if manual:
                 self.toast.notify(tr("You're up to date"),
@@ -2326,6 +2338,19 @@ class Controller(QObject):
                                   linger_ms=4000)
         self._refresh_updates_page()
         self._show_update_marks()
+
+    def update_options_changed(self, checks_were_on: bool, auto_was_on: bool):
+        """The Updates page's switches. Turned on, they act now: a version that's already waiting is installed
+        (or a check is made) instead of only at the next check, up to 6 hours later."""
+        s = self.settings
+        if not s.check_updates:
+            self.update_retry.stop()
+            return
+        if s.auto_update and not auto_was_on and self.update_waiting() and self.can_self_install():
+            log.info("installing updates by themselves was turned on: updating to %s", self.update_info.version)
+            self.start_update()
+        elif (s.auto_update and not auto_was_on) or not checks_were_on:
+            self.check_updates()
 
     def start_update(self):
         info = self.update_info

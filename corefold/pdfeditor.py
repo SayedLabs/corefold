@@ -799,7 +799,7 @@ class FieldItem(QGraphicsObject):
         p.drawText(rect.adjusted(2, 1, -2, -1), int(flags), shown)
         if kind == "choice":
             p.setPen(QColor("#555555"))
-            p.drawText(rect.adjusted(2, 0, -3, 0), int(Qt.AlignVCenter | Qt.AlignRight | Qt.AlignAbsolute), "▾")
+            p.drawText(rect.adjusted(2, 0, -3, 0), int(Qt.AlignVCenter | Qt.AlignRight | Qt.AlignAbsolute), "▼")
 
     def mousePressEvent(self, e):
         if e.button() != Qt.LeftButton:

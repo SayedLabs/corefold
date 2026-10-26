@@ -119,3 +119,21 @@ def test_the_updates_page_shows_whats_coming_and_the_history(controller):
     assert all(lab.textFormat() == lab.textFormat().PlainText
                for lab in w.stack.currentWidget().findChildren(QLabel) if lab.text() == "Bold fix")
     assert len(w.version_history.versions()) >= 19
+
+
+def test_the_history_rows_open_with_a_drawn_arrow_not_a_letter(controller):
+    # (Windows looked through its fonts for the ◂ letter the first time it was shown: the page held for seconds)
+    w = controller.window
+    w.open_page("Updates")
+    hist = w.version_history
+    hist.versions()
+    assert hist.rows
+    for i, (_, toggle, body) in enumerate(hist.rows):
+        assert not any(ch in toggle.text() for ch in "◂▸▾◀▶▼")
+        assert not toggle.icon().isNull()
+        before = toggle.icon().cacheKey()
+        hist.show_notes(i, not body._open)
+        assert not toggle.icon().isNull() and toggle.icon().cacheKey() != before
+        hist.show_notes(i, not body._open)
+    hist.apply_theme("#123456")
+    assert not hist.rows[0][1].icon().isNull()

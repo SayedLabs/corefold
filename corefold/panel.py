@@ -225,7 +225,7 @@ class FilePanel(QFrame):
         info.addWidget(self.name)
         info.addWidget(self.details)
         info.addWidget(self.summary)
-        clear = QPushButton(tr("✕ Clear"))
+        clear = QPushButton(tr("× Clear"))
         clear.setObjectName("flat")
         clear.setCursor(Qt.PointingHandCursor)
         clear.clicked.connect(self.clear)
@@ -359,9 +359,11 @@ class FilePanel(QFrame):
     def _button(self, slot, favorite: bool) -> QPushButton:
         action = action_of(slot.tool.key)
         icon = "" if action in FORMAT_ACTIONS else ICONS.get(action, "")
-        text = ("★ " if favorite else "") + slot.tool.label
-        b = QPushButton(text)
-        if icon:
+        b = QPushButton(slot.tool.label)
+        if favorite:  # (a drawn star: Windows' UI font hasn't got ★, and looking for it froze the window)
+            b.setIcon(icons.icon("star_filled", self.c.theme.tokens.warning, self.c.theme.muted))
+            b.setIconSize(icons.SMALL)
+        elif icon:
             b.setIcon(icons.icon(icon, self.c.theme.text, self.c.theme.muted))
             b.setIconSize(icons.SMALL)
         b.setObjectName("action")

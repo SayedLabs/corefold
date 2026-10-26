@@ -1134,6 +1134,7 @@ class Board(QWidget):
                 break
             b = QPushButton()
             b.setObjectName("widgetFolder")
+            b.setAccessibleName(tr("Tidy a folder") + ": " + tr(name))  # (its words are labels drawn inside it)
             b.setCursor(Qt.PointingHandCursor)
             b.clicked.connect(lambda _=False, k=key: self._organize(k))
             bl = QHBoxLayout(b)
@@ -1544,12 +1545,11 @@ class Gallery(QDialog):
             head.setFont(font)
             self.list.addItem(head)
             for k in kinds:
-                item = QListWidgetItem(icons.icon(k.icon, t.text, disabled=t.tokens.subtle), tr(k.name))
+                item = QListWidgetItem(icons.icon(k.icon, t.text, disabled=t.tokens.faint), tr(k.name))
                 item.setData(Qt.UserRole, k.id)
                 if k.id not in offered:
                     item.setFlags(Qt.NoItemFlags)
                     item.setToolTip(tr("On your Home page already"))
-                    item.setText(tr(k.name) + "  ✓")
                 self.list.addItem(item)
                 if k.id in offered and (first is None or k.id == kind):
                     first = item

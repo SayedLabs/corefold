@@ -187,3 +187,19 @@ def test_an_opened_cloud_file_saved_as_something_else_isnt_cleared_away(tmp_path
     assert not folders["as it came"].exists()
     assert folders["changed"].exists()
     assert (folders["saved as"] / "report v2.docx").exists()
+
+
+def test_an_accounts_sign_in_keys_never_show_when_it_is_written_out():
+    """An account put in a log line or a message by mistake shows who it is, never its sign-in keys."""
+    acc = cloud.Account("onedrive", "me@example.com", refresh="REFRESH-SECRET", access="ACCESS-SECRET")
+    for text in (repr(acc), str(acc), f"{acc}", "%s" % (acc,)):
+        assert "me@example.com" in text
+        assert "SECRET" not in text
+
+
+def test_a_refused_address_is_logged_without_the_key_it_carries(caplog):
+    """A plain-http download address is refused; the log names it without what follows '?' (a key can be there)."""
+    with caplog.at_level("WARNING", logger="corefold"), pytest.raises(cloud.CloudError):
+        cloud._request_once("GET", "http://files.example.com/a.zip?sig=KEY-SECRET", None, None, None, 5, True)
+    assert "files.example.com/a.zip" in caplog.text
+    assert "SECRET" not in caplog.text

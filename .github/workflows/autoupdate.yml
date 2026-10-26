@@ -1,0 +1,66 @@
+# A real copy updates itself: installs the release before the newest one from GitHub, turns on "Install
+# updates by themselves", starts it the way Windows does at sign-in, and checks that within a few minutes
+# it downloaded the newest release, installed it and is running again with its settings kept. Run it by
+# hand from the Actions tab after publishing (once the installer is attached).
+name: Automatic update
+on:
+  workflow_dispatch:
+    inputs:
+      from:
+        description: "Version to start from (empty: the release before the newest)"
+        required: false
+  push:
+    paths: [.github/workflows/autoupdate.yml]
+
+jobs:
+  autoupdate:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: An older copy updates itself
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FROM: ${{ inputs.from }}
+        shell: pwsh
+        run: |
+          $tags = gh release list -R $env:GITHUB_REPOSITORY --exclude-drafts --exclude-pre-releases --limit 5 --json tagName,isLatest | ConvertFrom-Json
+          $newest = ($tags | Where-Object isLatest)[0].tagName.TrimStart("v")
+          $from = if ($env:FROM) { $env:FROM.TrimStart("v") } else { ($tags | Where-Object { -not $_.isLatest })[0].tagName.TrimStart("v") }
+          "from $from to $newest"
+          gh release download "v$from" -R $env:GITHUB_REPOSITORY -p "Corefold-Setup-*.exe" -D old
+          $setup = (Get-ChildItem old -Filter "Corefold-Setup-*.exe")[0].FullName
+          # (only the installer: -Wait would also wait for the Corefold it starts)
+          (Start-Process $setup -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -PassThru).WaitForExit()
+          Start-Sleep 5
+          Get-Process Corefold -ErrorAction SilentlyContinue | Stop-Process -Force
+          Start-Sleep 3
+          $cfg = "$env:APPDATA\Corefold\settings.json"
+          $j = if (Test-Path $cfg) { Get-Content $cfg -Raw | ConvertFrom-Json } else { [pscustomobject]@{} }
+          foreach ($k in @{first_run=$false; tour_done=$true; check_updates=$true; auto_update=$true; language="ar"}.GetEnumerator()) {
+            $j | Add-Member -NotePropertyName $k.Key -NotePropertyValue $k.Value -Force }
+          New-Item -ItemType Directory -Force (Split-Path $cfg) | Out-Null
+          $j | ConvertTo-Json -Depth 20 | Set-Content $cfg -Encoding utf8
+          $exe = "$env:LOCALAPPDATA\Programs\Corefold\Corefold.exe"
+          $before = (Get-Item $exe).VersionInfo.ProductVersion
+          "installed: $before"
+          $t0 = Get-Date
+          Start-Process $exe -ArgumentList "--background"
+          $now = $before
+          while (((Get-Date) - $t0).TotalMinutes -lt 6) {
+            Start-Sleep 5
+            $now = (Get-Item $exe -ErrorAction SilentlyContinue).VersionInfo.ProductVersion
+            if ($now -like "$newest*" -and (Get-Process Corefold -ErrorAction SilentlyContinue)) { break }
+          }
+          $secs = [int]((Get-Date) - $t0).TotalSeconds
+          Start-Sleep 5
+          $log = Get-Content "$env:LOCALAPPDATA\Corefold\corefold.log" -ErrorAction SilentlyContinue
+          "----- Corefold's log"; $log
+          $after = Get-Content $cfg -Raw | ConvertFrom-Json
+          $problems = @()
+          if ($now -notlike "$newest*") { $problems += "still $now after $secs s (wanted $newest)" }
+          if (-not (Get-Process Corefold -ErrorAction SilentlyContinue)) { $problems += "Corefold isn't running after the update" }
+          if (-not ($log -match "updated from $([regex]::Escape($from)) to $([regex]::Escape($newest))")) { $problems += "the new version didn't say it was updated" }
+          if ($after.language -ne "ar" -or -not $after.auto_update) { $problems += "settings weren't kept" }
+          $summary = if ($problems) { "Automatic update $from -> ${newest}: " + ($problems -join "; ") } else { "Automatic update $from -> ${newest}: done in $secs s, running, settings kept" }
+          $summary; "### $summary" | Add-Content $env:GITHUB_STEP_SUMMARY
+          if ($problems) { exit 1 }
