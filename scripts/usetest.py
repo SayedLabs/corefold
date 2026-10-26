@@ -159,13 +159,16 @@ class Watch:
 
 
 def _where(frame) -> str:
+    """The last 4 of Corefold's calls on that stack. Read straight from the frames: traceback's way reads
+    the source files too, and done all through a freeze that held Python long enough to make it longer."""
     if frame is None:
         return "?"
-    st_ = traceback.extract_stack(frame)
-    mine = [f for f in st_ if "corefold" in f.filename.replace("\\", "/").split("/scripts/")[0]
-            and "/scripts/" not in f.filename.replace("\\", "/")]
-    pick = (mine or st_)[-4:]
-    return " < ".join(f"{Path(f.filename).name}:{f.lineno} {f.name}" for f in reversed(pick))
+    st_ = []  # (newest first)
+    while frame is not None:
+        st_.append((frame.f_code.co_filename.replace("\\", "/"), frame.f_lineno, frame.f_code.co_name))
+        frame = frame.f_back
+    mine = [f for f in st_ if "corefold" in f[0].split("/scripts/")[0] and "/scripts/" not in f[0]]
+    return " < ".join(f"{Path(name).name}:{line} {fn}" for name, line, fn in (mine or st_)[:4])
 
 
 watch = Watch()
