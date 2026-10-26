@@ -417,6 +417,7 @@ STRINGS: dict[str, str] = {
     "permission denied (is the file open in another app?)": "permiso denegado (¿está el archivo abierto en otra app?)",
     "file not found": "archivo no encontrado",
     "took too long and was stopped": "tardó demasiado y se detuvo",
+    "the folder's path is too long for Windows": "la ruta de la carpeta es demasiado larga para Windows",
     "{count} files": "{count} archivos",
     "Convert": "Convertir",
     "Custom width:": "Ancho personalizado:",

@@ -278,3 +278,25 @@ def test_saving_elsewhere_is_said(tmp_path, monkeypatch):
     assert app.Controller._saved_elsewhere(chosen, [src], [spare / "photo.jpg"]) == ""  # (the folder picked)
     other = SimpleNamespace(settings=SimpleNamespace(save_mode="folder", output_folder=str(tmp_path / "Mine")))
     assert app.Controller._saved_elsewhere(other, [src], [spare / "sub" / "photo.jpg"]) == "Downloads › Corefold"
+
+
+def test_packing_deep_inside_folders_keeps_only_the_names(tmp_path, monkeypatch):
+    """Past Windows' 260 letters 7-Zip can't be started inside the folder: it gets whole paths instead, and the
+    archive still holds just the names, as it would anywhere else."""
+    if not archives.find_7z():
+        pytest.skip("needs 7-Zip")
+    monkeypatch.setattr(archives, "_too_deep", lambda folder: True)
+    (tmp_path / "a.txt").write_text("a", "utf-8")
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "sub" / "b.txt").write_text("b", "utf-8")
+    out = tmp_path / "out" / "x.zip"
+    out.parent.mkdir()
+    archives.pack_into([tmp_path / "a.txt", tmp_path / "sub"], out, Ctx(Options()))
+    assert sorted(zipfile.ZipFile(out).namelist()) == ["a.txt", "sub/", "sub/b.txt"]
+
+
+def test_a_path_too_long_for_windows_is_said_plainly():
+    from corefold.converters import friendly_error
+    e = NotADirectoryError(267, "The directory name is invalid")
+    e.winerror = 267
+    assert "WinError" not in friendly_error(e) and "too long" in friendly_error(e)

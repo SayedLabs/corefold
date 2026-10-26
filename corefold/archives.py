@@ -281,6 +281,11 @@ def _progress(buf: str) -> float | None:
     return int(found[-1]) / 100 if found else None
 
 
+def _too_deep(folder: Path) -> bool:
+    """Windows can't start a program inside a folder whose path is past its old 260-letter limit."""
+    return os.name == "nt" and len(str(folder)) >= 240
+
+
 def _run7z(args: list, ctx: Ctx | None = None, cwd: Path | None = None) -> tuple[int, str]:
     exe = find_7z()
     if not exe:
@@ -1016,6 +1021,10 @@ def pack_into(items: list[Path], out: Path, ctx: Ctx, fmt: str = "zip", level: s
             args.append("-mhe=on" if fmt == "7z" else "-mem=AES256")
         if split_mb and split_mb > 0:
             args.append(f"-v{int(split_mb * 1024)}k")
+        cwd = parent
+        if _too_deep(parent) and not any(os.sep in r or "/" in r for r in rel):
+            # (Windows can't start 7-Zip inside it; given whole paths, 7-Zip still keeps only the names)
+            rel, cwd = [str(parent / r) for r in rel], None
         listfile = _listfile(rel)
         # numbered parts already there (an older split archive of the same name) are never removed or listed
         before = set(_parts_of(out))
@@ -1028,7 +1037,7 @@ def pack_into(items: list[Path], out: Path, ctx: Ctx, fmt: str = "zip", level: s
                 if part not in before:
                     remove_file(part)
         try:
-            code, output = _run7z([*args, "-scsUTF-8", str(out), f"@{listfile}"], ctx, cwd=parent)
+            code, output = _run7z([*args, "-scsUTF-8", str(out), f"@{listfile}"], ctx, cwd=cwd)
         except Cancelled:  # stopped halfway: no half-made archive is left behind
             remove_made()
             raise
@@ -1129,13 +1138,14 @@ def add_files(src: Path, items: list[Path], ctx: Ctx) -> Result:
     password = ctx.params.get("password", "")
     for parent in {p.parent.resolve() for p in items}:
         group = [p for p in items if p.parent.resolve() == parent]
-        listfile = _listfile([p.name for p in group])
+        deep = _too_deep(parent)  # (as in pack_into)
+        listfile = _listfile([str(parent / p.name) if deep else p.name for p in group])
         try:
             args = ["a", str(src.resolve()), "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-scsUTF-8", "-ssw", "-y", "-spd",
                     *_cp(src)]
             if password:
                 args.append(_pw(password, making=True))
-            code, out = _run7z([*args, f"@{listfile}"], ctx, cwd=parent)
+            code, out = _run7z([*args, f"@{listfile}"], ctx, cwd=None if deep else parent)
         finally:
             listfile.unlink(missing_ok=True)
         if code not in (0, 1):

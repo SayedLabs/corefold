@@ -296,6 +296,7 @@ STRINGS: dict[str, str] = {
     "permission denied (is the file open in another app?)": "تم رفض الإذن (هل الملف مفتوح في تطبيق آخر؟)",
     "file not found": "الملف غير موجود",
     "took too long and was stopped": "استغرق وقتًا طويلًا فتم إيقافه",
+    "the folder's path is too long for Windows": "مسار المجلد أطول مما يقبله ويندوز",
     "{count} files": "الملفات: {count}",
 
     # ------------------------------------------------------------------ small windows

@@ -31,5 +31,5 @@ jobs:
         shell: pwsh
         run: |
           $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
-          python scripts/writefailtest.py ${{ matrix.case }} 2>&1 | Select-Object -Last 120
+          python scripts/writefailtest.py ${{ matrix.case }} 2>&1 | Select-String -Pattern 'PROBLEM|problem\(s\)|tools tried|^note|organizer'
           exit 0
