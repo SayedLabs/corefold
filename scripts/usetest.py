@@ -429,26 +429,7 @@ def start():
     for name in names:
         t0 = time.perf_counter()
         watch.label = f"open the {name} page"
-        probe = os.environ.get("USE_PROBE") and name == "Updates"  # (probe: which part of opening it is slow)
-        if probe:
-            from corefold import notesview
-            made, spent = notesview.VersionHistory._make, {}
-
-            def timed_make(self, made=made, spent=spent):
-                t = time.perf_counter()
-                made(self)
-                spent["make"] = time.perf_counter() - t
-            notesview.VersionHistory._make = timed_make
         c.window.open_page(name)
-        if probe:
-            t1 = time.perf_counter()
-            parts = []
-            for _ in range(6):
-                t = time.perf_counter()
-                qapp.processEvents()
-                parts.append(round(time.perf_counter() - t, 3))
-            notesview.VersionHistory._make = made
-            say(f"probe  build {t1 - t0:.3f} s, then processEvents {parts}, rows made {spent.get('make', -1):.3f} s")
         qapp.processEvents()
         took = time.perf_counter() - t0
         watch.label = ""
