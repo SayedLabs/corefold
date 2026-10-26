@@ -197,7 +197,7 @@ def main():
 
     def uninstaller_list():
         import csv
-        from PySide6.QtWidgets import QFileDialog, QMenu
+        from PySide6.QtWidgets import QFileDialog
         w.open_page("Apps")
         page = w.apps_page
         page.ensure_loaded()
@@ -211,16 +211,13 @@ def main():
         check(len(rows) == shown + 1 and rows[0][0] == "Name", f"\"Save the list…\" saves every app shown "
                                                                  f"({len(rows) - 1} of {shown})")
         seen = []
-
-        class Menu(QMenu):  # (shows nothing: only says what it would offer)
-            def exec(self, *_):
-                seen.extend(x.text() for x in self.actions() if x.text())
-        from corefold import appspage
-        appspage.QMenu, real = Menu, appspage.QMenu
+        from corefold import sheet
+        real = sheet.menu  # (the menu shows inside the window and waits: here it only says what it would offer)
+        sheet.menu = lambda m, *a, **k: seen.extend(x.text() for x in m.actions() if x.text())
         try:
             page._menu(page.tree.visualItemRect(page.tree.topLevelItem(0)).center())
         finally:
-            appspage.QMenu = real
+            sheet.menu = real
         check("Uninstall" in seen and any(t.startswith("Search the web") for t in seen) and "Copy the name" in seen,
               f"right-clicking an app offers Uninstall, a web search and copying its name ({seen})")
     step("the Uninstaller's list", uninstaller_list)

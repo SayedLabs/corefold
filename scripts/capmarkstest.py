@@ -44,6 +44,25 @@ from corefold import i18n  # noqa: E402
 
 i18n.set_language(LANG)
 qapp = QApplication.instance() or QApplication(sys.argv)
+
+
+def _answer():  # (a question that comes up as a sheet, like "Save the changes?" on closing: Don't save)
+    from PySide6.QtWidgets import QMessageBox
+    from corefold import sheet
+    w = sheet.waiting()
+    if isinstance(w, sheet._Alert):
+        b = next((b for b in w.mine if w.box.buttonRole(b) == QMessageBox.DestructiveRole), None)
+        if b is not None:
+            w._press(b)
+            return
+    if w is not None:
+        sheet.dismiss(w)
+
+
+from PySide6.QtCore import QTimer  # noqa: E402
+_answerer = QTimer()
+_answerer.timeout.connect(_answer)
+_answerer.start(300)
 if i18n.is_rtl():
     qapp.setLayoutDirection(Qt.RightToLeft)
 problems = []
