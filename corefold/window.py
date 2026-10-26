@@ -79,7 +79,7 @@ PAGE_ICONS = {"Home": "home", "General": "settings", "Look": "paint_brush", "Qui
 # pages that are only words and settings: when out of sight they make way before a new look (and are made
 # again, quickly, when they're opened)
 # made a moment after the window opens (see _warm_next): slow to make, and opened often
-WARM_PAGES = ("PDF", "Clouds")
+WARM_PAGES = ("PDF",)
 REMADE_PAGES = {*SETTINGS_PAGES, *SECTION_PAGES, "History", "Updates", "About"}
 # the words Ctrl + K finds on each Settings page, kept for pages that aren't made yet (per version and language)
 SETTING_WORDS = LOG_DIR / "setting-words.json"
