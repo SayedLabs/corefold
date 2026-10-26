@@ -267,8 +267,6 @@ def main():
     step("app updates", app_updates)
 
     def space_copies():
-        from PySide6.QtWidgets import QMenu
-        from corefold import spacepage
         box = TMP / "copies"
         box.mkdir()
         now = time.time()
@@ -291,15 +289,13 @@ def main():
         page._dupe_keep(None, head.child(1))
         check(sorted(ticked()) == ["new.bin", "old.bin"], f"\"Keep this one\" ticks the other copies ({ticked()})")
         seen = []
-
-        class Menu(QMenu):
-            def exec(self, *_):
-                seen.extend(x.text() for x in self.actions() if x.text())
-        spacepage.QMenu, real = Menu, spacepage.QMenu
+        from corefold import sheet
+        real = sheet.menu  # (the menu shows inside the window and waits: here it only says what it would offer)
+        sheet.menu = lambda m, *a, **k: seen.extend(x.text() for x in m.actions() if x.text())
         try:
             page._dupe_menu(page.dupe_tree.visualItemRect(head.child(0)).center())
         finally:
-            spacepage.QMenu = real
+            sheet.menu = real
         check(any(t.startswith("Keep this one") for t in seen) and "Copy the path" in seen,
               f"right-clicking a copy offers to keep it ({seen})")
     step("copies found by Space", space_copies)
