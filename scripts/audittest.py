@@ -328,7 +328,7 @@ def zip_bombs():
               "and leaves nothing behind")
     finally:
         archives.RESCUE_MIN, archives.RESCUE_RATIO = old
-    # 5. extracting with 7-Zip stops before the disk is full (the last GB is kept free)
+    # 5. extracting with 7-Zip: refused when it can't fit, and stopped before the disk is full (the last GB is kept free)
     if WINDOWS and archives.find_7z():
         big = folder / "big.7z"
         src = fresh("bombs-src")
@@ -340,7 +340,16 @@ def zip_bombs():
         free = shutil.disk_usage(folder).free
         old_reserve = archives.RESCUE_RESERVE
         archives.RESCUE_RESERVE = free - 300 * 2 ** 20  # (as if only 300 MB more could be written)
+        declared = archives._declared_size
         try:
+            err = ""
+            try:  # what it says it holds doesn't fit: refused before anything is written
+                archives.extract(big, Ctx(Options(), params={"dest": str(fresh("bombs-dest"))}))
+            except RuntimeError as e:
+                err = str(e)
+            check("needs" in err, f"an archive too big for the disk is refused before unpacking ({err or 'not'})")
+            check(not list((BASE / "bombs-dest").iterdir()), "and nothing was written")
+            archives._declared_size = lambda *a: None  # (as if it didn't say, or said less than it holds)
             err = ""
             try:
                 archives.extract(big, Ctx(Options(), params={"dest": str(fresh("bombs-dest"))}))
@@ -350,6 +359,7 @@ def zip_bombs():
             check(not list((BASE / "bombs-dest").iterdir()), "and the half-unpacked files are gone")
         finally:
             archives.RESCUE_RESERVE = old_reserve
+            archives._declared_size = declared
     else:
         note("no 7-Zip here: the disk-full check of 7-Zip isn't tried")
 
