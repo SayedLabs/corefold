@@ -1,0 +1,42 @@
+name: autoupdate repro
+on:
+  push:
+    branches: [claude/project-thread-vpayeb]
+    paths: [.github/workflows/autoupdate-repro.yml]
+jobs:
+  repro:
+    runs-on: windows-latest
+    steps:
+      - name: Install real 1.14.0, turn on auto update, wait
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          gh release download v1.14.0 -R $env:GITHUB_REPOSITORY -p "Corefold-Setup-*.exe" -D old
+          $setup = (Get-ChildItem old -Filter "Corefold-Setup-*.exe")[0].FullName
+          Start-Process $setup -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -Wait
+          Start-Sleep 5
+          Get-Process Corefold -ErrorAction SilentlyContinue | Stop-Process -Force
+          Start-Sleep 3
+          $cfg = "$env:APPDATA\Corefold\settings.json"
+          "settings before:"; if (Test-Path $cfg) { Get-Content $cfg -Raw }
+          $j = if (Test-Path $cfg) { Get-Content $cfg -Raw | ConvertFrom-Json } else { [pscustomobject]@{} }
+          foreach ($k in @{first_run=$false; tour_done=$true; check_updates=$true; auto_update=$true}.GetEnumerator()) {
+            $j | Add-Member -NotePropertyName $k.Key -NotePropertyValue $k.Value -Force }
+          New-Item -ItemType Directory -Force (Split-Path $cfg) | Out-Null
+          $j | ConvertTo-Json -Depth 20 | Set-Content $cfg -Encoding utf8
+          $exe = "$env:LOCALAPPDATA\Programs\Corefold\Corefold.exe"
+          "version before: " + (Get-Item $exe).VersionInfo.ProductVersion
+          Start-Process $exe -ArgumentList "--background"
+          $end = (Get-Date).AddMinutes(8)
+          while ((Get-Date) -lt $end) {
+            Start-Sleep 15
+            $v = (Get-Item $exe -ErrorAction SilentlyContinue).VersionInfo.ProductVersion
+            $p = (Get-Process Corefold,Corefold-Setup* -ErrorAction SilentlyContinue | ForEach-Object { $_.ProcessName }) -join ","
+            "$(Get-Date -Format HH:mm:ss) exe=$v procs=$p"
+            if ($v -like "1.14.1*") { break }
+          }
+          "----- log"; Get-Content "$env:LOCALAPPDATA\Corefold\corefold.log" -ErrorAction SilentlyContinue
+          "----- settings after"; Get-Content $cfg -Raw
+          "----- temp"; Get-ChildItem "$env:TEMP\corefold-update" -ErrorAction SilentlyContinue
+          Get-ChildItem "$env:TEMP" -Filter "Setup Log*" -ErrorAction SilentlyContinue | ForEach-Object { "--- $_"; Get-Content $_.FullName -Tail 60 }
