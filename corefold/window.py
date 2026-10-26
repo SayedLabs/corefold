@@ -4218,9 +4218,11 @@ class MainWindow(QWidget):
         super().keyPressEvent(e)
 
     def _update_options_changed(self, *_):
+        checks_were_on, auto_was_on = self.c.settings.check_updates, self.c.settings.auto_update
         self.c.settings.check_updates = self.auto_check.isChecked()
         self.c.settings.auto_update = self.auto_install.isChecked()
         self.c.settings_changed()
+        self.c.update_options_changed(checks_were_on, auto_was_on)
         self.refresh_updates()
 
     def show_update_marks(self):
