@@ -437,6 +437,228 @@ def lock_state(src: Path) -> str:
     return pdf_lock_state(src)
 
 
+# ----------------------------------------------------------------------------- hidden information
+
+# what "Remove hidden info" can take out, in the order it's shown: (key, what it is, the line under it)
+HIDDEN = [("details", "Who made it and with what", "The author, the program, the dates and the keywords"),
+          ("notes", "Notes", "Sticky notes and replies, which only show when someone opens them"),
+          ("attachments", "Attached files", "Files carried inside the PDF"),
+          ("scripts", "Scripts and automatic actions", "Code that runs or opens things by itself when the PDF "
+                                                       "or a page opens"),
+          ("private", "Programs' private data", "What the program that made it kept for itself, and page "
+                                                "previews")]
+_NOTES = {"/Text", "/Popup", "/Sound"}
+_RISKY_ACTIONS = {"/JavaScript", "/Launch", "/ImportData", "/SubmitForm", "/ResetForm", "/Rendition"}
+_DETAIL_NAMES = ("/Title", "/Author", "/Subject", "/Keywords", "/Creator", "/Producer", "/CreationDate", "/ModDate")
+
+
+def _text(v) -> str:
+    try:
+        return str(v.get_object()).strip() if v is not None else ""
+    except Exception:
+        return ""
+
+
+def _risky(action) -> bool:
+    """An action that runs code, starts a program or sends something away (a web link is fine)."""
+    try:
+        action = action.get_object()
+        while action is not None:
+            if action.get("/S") in _RISKY_ACTIONS:
+                return True
+            nxt = action.get("/Next")
+            action = nxt.get_object() if nxt is not None else None
+            if isinstance(action, list):  # (several actions one after the other)
+                return any(_risky(a) for a in action)
+    except Exception:
+        return True  # (one that can't be read is taken out too)
+    return False
+
+
+def _annots(page) -> list:
+    try:
+        return [a.get_object() for a in (page.get("/Annots") or [])]
+    except Exception:
+        return []
+
+
+def _fields(root):
+    """Every form field, kids too (their own scripts work out sums and checks as you type)."""
+    seen, todo = set(), list((root.get("/AcroForm") or {}).get("/Fields") or []) if root.get("/AcroForm") else []
+    while todo:
+        ref = todo.pop()
+        key = getattr(ref, "idnum", None) or id(ref)
+        if key in seen:
+            continue
+        seen.add(key)
+        field = ref.get_object()
+        yield field
+        todo.extend(field.get("/Kids") or [])
+
+
+def _names(root) -> dict:
+    try:
+        return root["/Names"].get_object() if "/Names" in root else {}
+    except Exception:
+        return {}
+
+
+def _name_tree_count(tree) -> int:
+    """How many entries a name tree has (attached files, scripts)."""
+    count, todo, seen = 0, [tree], 0
+    while todo and seen < 10_000:
+        seen += 1
+        node = todo.pop().get_object()
+        count += len(node.get("/Names") or []) // 2
+        todo.extend(node.get("/Kids") or [])
+    return count
+
+
+def hidden_info(src: Path, password: str = "") -> dict:
+    """What a PDF carries that you can't see on its pages: {"title", "author", "details": [(name, value)],
+    "notes", "attachments", "scripts", "private"} (the last four are counts)."""
+    reader = open_reader(src, password)
+    root = reader.trailer["/Root"].get_object()
+    info = reader.trailer.get("/Info")
+    info = info.get_object() if info is not None else {}
+    details = [(k[1:], _text(info.get(k))) for k in _DETAIL_NAMES if _text(info.get(k))]
+    if "/Metadata" in root:
+        details.append(("XMP", tr("more details, written as XML")))
+    names = _names(root)
+    found = {"title": _text(info.get("/Title")), "author": _text(info.get("/Author")), "details": details,
+             "notes": 0, "attachments": 0, "scripts": 0, "private": 0}
+    if "/EmbeddedFiles" in names:
+        found["attachments"] += _name_tree_count(names["/EmbeddedFiles"])
+    if "/JavaScript" in names:
+        found["scripts"] += _name_tree_count(names["/JavaScript"])
+    if "/AA" in root or ("/OpenAction" in root and _is_action(root["/OpenAction"]) and _risky(root["/OpenAction"])):
+        found["scripts"] += 1
+    found["private"] += "/PieceInfo" in root
+    for page in reader.pages:
+        found["scripts"] += "/AA" in page
+        found["private"] += ("/PieceInfo" in page) + ("/Thumb" in page) + ("/Metadata" in page)
+        for a in _annots(page):
+            kind = a.get("/Subtype")
+            if kind in _NOTES:
+                found["notes"] += kind != "/Popup"  # (a note's pop-up is part of the note)
+            elif kind == "/FileAttachment":
+                found["attachments"] += 1
+            found["scripts"] += ("/AA" in a) + ("/A" in a and _risky(a["/A"]))
+    found["scripts"] += sum("/AA" in f for f in _fields(root))
+    return found
+
+
+def _is_action(v) -> bool:
+    try:
+        return "/S" in v.get_object()
+    except Exception:
+        return False
+
+
+def _drop_unreachable(writer):
+    """Leaves out every object nothing leads to any more from the PDF's start, so what was taken out isn't
+    still in the file, only unlinked (pypdf keeps whatever it copied)."""
+    from pypdf.generic import ArrayObject, DictionaryObject, IndirectObject
+    reach, todo = set(), [writer._root_object]
+    if writer._info is not None:
+        todo.append(writer._info)
+    for obj in todo:
+        ref = getattr(obj, "indirect_reference", None)
+        if ref is not None:
+            reach.add(ref.idnum)
+    while todo:
+        obj = todo.pop()
+        if isinstance(obj, IndirectObject):
+            if obj.idnum in reach:
+                continue
+            reach.add(obj.idnum)
+            try:
+                obj = obj.get_object()
+            except Exception:
+                continue
+        if isinstance(obj, DictionaryObject):
+            todo.extend(v for v in obj.values() if isinstance(v, (IndirectObject, DictionaryObject, ArrayObject)))
+        elif isinstance(obj, ArrayObject):
+            todo.extend(v for v in obj if isinstance(v, (IndirectObject, DictionaryObject, ArrayObject)))
+    for i in range(len(writer._objects)):
+        if i + 1 not in reach:
+            writer._objects[i] = None
+
+
+def remove_hidden(src: Path, ctx: Ctx) -> Result:
+    """A copy without what's picked in ctx.params["remove"] (keys of HIDDEN), with the title and author
+    typed (left empty: none). What's on the pages, links and form boxes stay as they are."""
+    from pypdf import PdfWriter
+    from pypdf.generic import ArrayObject, NameObject, create_string_object
+    password = ctx.params.get("password", "")
+    remove = set(ctx.params.get("remove") or [k for k, *_ in HIDDEN])
+    writer = PdfWriter(clone_from=open_reader(src, password))
+    root = writer._root_object
+    names = _names(root)
+    if "details" in remove:
+        writer.metadata = None
+        root.pop(NameObject("/Metadata"), None)
+    for key in ("title", "author"):
+        if key in ctx.params:  # (asked for: what's typed, or nothing)
+            value = (ctx.params[key] or "").strip()
+            name = NameObject("/" + key.capitalize())
+            if writer._info is None:
+                writer.metadata = {}
+            info = writer._info.get_object()
+            if value:
+                info[name] = create_string_object(value)
+            else:
+                info.pop(name, None)
+    if "attachments" in remove:
+        names.pop(NameObject("/EmbeddedFiles"), None)
+        root.pop(NameObject("/AF"), None)
+    if "scripts" in remove:
+        names.pop(NameObject("/JavaScript"), None)
+        root.pop(NameObject("/AA"), None)
+        if "/OpenAction" in root and _is_action(root["/OpenAction"]) and _risky(root["/OpenAction"]):
+            root.pop(NameObject("/OpenAction"), None)
+        for field in _fields(root):
+            field.pop(NameObject("/AA"), None)
+    if "private" in remove:
+        root.pop(NameObject("/PieceInfo"), None)
+    gone = set()
+    if "notes" in remove:
+        gone |= _NOTES
+    if "attachments" in remove:
+        gone.add("/FileAttachment")
+    for i, page in enumerate(writer.pages):
+        ctx.check()
+        if "scripts" in remove:
+            page.pop(NameObject("/AA"), None)
+        if "private" in remove:
+            for k in ("/PieceInfo", "/Thumb", "/Metadata"):
+                page.pop(NameObject(k), None)
+        if "/Annots" in page:
+            kept = ArrayObject()
+            for ref in page["/Annots"]:
+                a = ref.get_object()
+                if a.get("/Subtype") in gone:
+                    continue
+                if "scripts" in remove:
+                    a.pop(NameObject("/AA"), None)
+                    if "/A" in a and _risky(a["/A"]):
+                        a.pop(NameObject("/A"), None)
+                        if a.get("/Subtype") == "/Link" and "/Dest" not in a:
+                            continue  # (a link with nothing left to do)
+                kept.append(ref)
+            if kept:
+                page[NameObject("/Annots")] = kept
+            else:
+                page.pop(NameObject("/Annots"), None)
+        ctx.progress((i + 1) / (len(writer.pages) + 1))
+    if not names and "/Names" in root:
+        root.pop(NameObject("/Names"), None)
+    _drop_unreachable(writer)
+    out = ctx.out_path(src, f"{ctx.stem(src)} (cleaned).pdf")
+    write(writer, out, password)
+    return Result([out], note=tr("Saved as a new file without the hidden information"))
+
+
 # the tools on Corefold PDF's page (the Converter's wheel keeps its own, simpler ones)
 SPLIT = Tool("pdftool:split", tr("Split"), tr("Split a PDF"), split, password=True, renames=False)
 EXTRACT = Tool("pdftool:extract", tr("Take out pages"), tr("Save some pages as a new PDF"), extract, password=True,
@@ -449,4 +671,6 @@ PICTURES = Tool("pdftool:pictures", tr("Pictures to PDF"), tr("Make a PDF from p
 TO_PICTURES = Tool("pdftool:topictures", tr("PDF to pictures"), tr("Save pages as pictures"), to_pictures,
                    password=True, renames=False)
 LOCK = Tool("pdftool:lock", tr("Lock"), tr("Protect with a password"), lock, password=True, renames=False)
+CLEAN = Tool("pdftool:clean", tr("Remove hidden info"), tr("Remove hidden information"), remove_hidden,
+             password=True, renames=False)
 UNLOCK = Tool("pdftool:unlock", tr("Unlock"), tr("Remove the password"), unlock, password=True, renames=False)

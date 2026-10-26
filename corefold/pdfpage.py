@@ -48,7 +48,9 @@ ACTIONS = [("edit", "Edit content", "Type text, change words, add pictures, high
             "image_multiple"),
            ("topictures", "PDF to pictures", "Every page, or the ones you pick, as PNG or JPG", "image"),
            ("lock", "Lock", "Protect a PDF with a password", "lock_closed"),
-           ("unlock", "Unlock", "Remove the password from a PDF that's yours", "lock_open")]
+           ("unlock", "Unlock", "Remove the password from a PDF that's yours", "lock_open"),
+           ("clean", "Remove hidden info", "See and change its title and author, and take out who made it, notes, "
+            "attached files and scripts", "broom")]
 # the Converter's own PDF tools that are shown here too (when this Corefold has them)
 MORE = [("pdf:numbers", "Page numbers", "Number every page", "text_t"),
         ("pdf:watermark", "Watermark", "Add text or a logo to every page", "paint_brush"),
@@ -60,7 +62,7 @@ MORE = [("pdf:numbers", "Page numbers", "Number every page", "text_t"),
 GROUPS = [("", ("edit", "merge")),
           ("Pages", ("organize", "split", "extract")),
           ("Add to it", ("searchable", "pdf:sign", "pdf:numbers", "pdf:watermark")),
-          ("Smaller or safer", ("compress", "pdf:fit", "lock", "unlock")),
+          ("Smaller or safer", ("compress", "pdf:fit", "lock", "unlock", "clean")),
           ("Turn it into something else", ("topictures", "pictures", "pdf:text", "pdf:images"))]
 TIPS = {"merge": "Drag the pages into the order you want, then press Merge and save.",
         "organize": "Drag pages to move them. Select some to turn or delete them. Double-click a page to see it big.",
@@ -368,7 +370,7 @@ class PdfPage(QWidget):
             if names:
                 self.pictures_to_pdf([Path(n) for n in names])
             return
-        several = key in ("merge", "organize", "compress", "searchable", "topictures", "lock", "unlock") or \
+        several = key in ("merge", "organize", "compress", "searchable", "topictures", "lock", "unlock", "clean") or \
             key.startswith("pdf:")
         title = tr("Pick the PDFs") if several else tr("Pick a PDF")
         if several:
@@ -393,6 +395,9 @@ class PdfPage(QWidget):
             tool = self._converter_tools().get(key)
             if tool is not None:
                 self.c.tool_chosen(tool, files)
+            return
+        if key == "clean":
+            self._look_hidden(files)
             return
         if key == "searchable":
             from . import pdfocr
@@ -426,6 +431,34 @@ class PdfPage(QWidget):
             finally:
                 dlg.deleteLater()
         self.c.start_job(tool, files, params)
+
+    def _look_hidden(self, files: list[Path]):
+        """Remove hidden info: what's in them is looked at first (in the background), then shown."""
+        passwords = dict(self.passwords)
+
+        def look(_progress):
+            found = []
+            for f in files:
+                try:
+                    found.append(pdftools.hidden_info(f, passwords.get(str(f), "")))
+                except Exception:  # (locked, or damaged: its password is asked for when it's saved)
+                    log.debug("couldn't look inside %s", f, exc_info=True)
+                    found.append(None)
+            return found
+        self._run(look, lambda _: None, lambda found: self._clean(files, found), "corefold-pdf-hidden")
+
+    def _clean(self, files: list[Path], found):
+        from .pdfdialogs import CleanDialog
+        if isinstance(found, Exception):
+            found = [None] * len(files)
+        dlg = CleanDialog(files, self.c.icon, self.c.theme.dark, found)
+        try:
+            if not sheet.run(dlg):
+                return
+            params = dlg.params()
+        finally:
+            dlg.deleteLater()
+        self.c.start_job(pdftools.CLEAN, files, params)
 
     def pictures_to_pdf(self, files: list[Path]):
         from .pdfdialogs import PicturesDialog

@@ -1443,6 +1443,7 @@ def start_light():
 if ARGS.heavy:
     STEPS = (("organizer", h_organizer), ("archive", h_archive), ("pdf", h_pdf), ("converter", h_converter),
              ("cloud", h_cloud), ("unlock", h_unlock), ("idle", idle))
+    _quiet("start")  # (the window's first paint reads files too, and waited 1-2 s behind the virus checker)
     step("start", start_light)
 else:
     STEPS = (("search", search), ("quick", quick), ("space", space), ("converter", converter), ("archive", archive),

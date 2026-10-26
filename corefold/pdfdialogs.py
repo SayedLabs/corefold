@@ -5,13 +5,13 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
-                               QPushButton, QRadioButton, QSizePolicy, QSpinBox)
+                               QPushButton, QRadioButton, QSizePolicy, QSpinBox, QVBoxLayout)
 
 from .atomic.widgets import Dropdown
 from .dialogs import Base, describe
 from .dialogs2 import LockDialog
-from .i18n import tr
-from .pdftools import COMPRESS_LEVELS, DPIS, IMAGE_FORMATS, MARGINS, PAGE_SIZES, SPLIT_MODES
+from .i18n import is_rtl, ltr, tr
+from .pdftools import COMPRESS_LEVELS, DPIS, HIDDEN, IMAGE_FORMATS, MARGINS, PAGE_SIZES, SPLIT_MODES
 
 
 def _note(text: str) -> QLabel:
@@ -107,6 +107,69 @@ class SearchableDialog(Base):
 
     def params(self):
         return {"redo": self.redo.isChecked()}
+
+
+class CleanDialog(Base):
+    """Remove hidden info: what was found in the PDF(s), ticked to be taken out, and (for one PDF) its title
+    and author to keep or change. found: hidden_info() of each file, or None when it couldn't be looked in."""
+
+    def __init__(self, files, icon, dark, found: list):
+        super().__init__(tr("Remove hidden info"), describe(files), icon, dark)
+        known = [f for f in found if f]
+        self.title = self.author = None
+        if len(files) == 1 and known:
+            grid = QGridLayout()
+            grid.setHorizontalSpacing(12)
+            grid.setVerticalSpacing(8)
+            self.title, self.author = QLineEdit(known[0]["title"]), QLineEdit(known[0]["author"])
+            self.title.setPlaceholderText(tr("No title"))
+            self.author.setPlaceholderText(tr("No author"))
+            for r, (text, w) in enumerate(((tr("Title"), self.title), (tr("Author"), self.author))):
+                grid.addWidget(QLabel(text), r, 0)
+                grid.addWidget(w, r, 1)
+            grid.setColumnStretch(1, 1)
+            self.lay.addLayout(grid)
+        head = QLabel(tr("Take out"))
+        head.setObjectName("cardTitle")
+        self.lay.addWidget(head)
+        self.boxes = {}
+        complete = len(known) == len(found)  # (a locked PDF couldn't be looked in: everything stays ticked)
+        for key, text, line in HIDDEN:
+            count, what = self._found(key, known)
+            box = QCheckBox(tr(text) + (f"  ·  {count}" if count else ""))
+            box.setChecked(bool(count) or not complete)
+            box.setEnabled(bool(count) or not complete)
+            self.boxes[key] = box
+            item = QVBoxLayout()
+            item.setSpacing(0)
+            item.addWidget(box)
+            under = QHBoxLayout()  # (in under the box's tick, on whichever side it is)
+            under.addSpacing(26)
+            under.addWidget(_note(what or (tr(line) if count or not complete else tr("None found"))), 1)
+            item.addLayout(under)
+            self.lay.addLayout(item)
+        self.lay.addWidget(_note(tr("What's on the pages, web links and form boxes stay as they are.") + " " +
+                                 tr("Saved as a new file; your original stays as it is.")))
+        self.buttons(tr("Save a clean copy"))
+
+    @staticmethod
+    def _found(key: str, known: list) -> tuple[int, str]:
+        """How many of this kind were found, and (for who made it) what it says."""
+        if key != "details":
+            return sum(f[key] for f in known), ""
+        bits = []
+        for f in known:
+            for name, value in f["details"]:
+                if name != "Title" and value not in bits:
+                    bits.append(value)
+        text = "  ·  ".join(ltr(b[:60]) for b in bits[:4]) + ("  ·  …" if len(bits) > 4 else "")
+        return len(bits), ("\u200f" + text if is_rtl() else text)
+
+    def params(self):
+        out = {"remove": [k for k, box in self.boxes.items() if box.isChecked()]}
+        if self.title is not None:
+            out.update(title=self.title.text(), author=self.author.text())
+        return out
 
 
 class PicturesDialog(Base):
