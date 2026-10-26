@@ -1413,6 +1413,36 @@ with setup():
 watch.paused = 0
 
 
+def _disk_idle():
+    """How idle the disks were over one second (0-100), from Windows' own counter; None if it can't be read."""
+    try:
+        out = subprocess.run(["typeperf", r"\PhysicalDisk(_Total)\% Idle Time", "-si", "1", "-sc", "2"],
+                             capture_output=True, text=True, timeout=15).stdout
+        values = [line.rsplit(",", 1)[-1].strip().strip('"') for line in out.splitlines() if line.startswith('"')]
+        return max(0.0, min(100.0, float(values[-1])))
+    except (OSError, ValueError, IndexError, subprocess.SubprocessError):
+        return None
+
+
+def _modules() -> set[str]:
+    """The DLLs loaded in this process now."""
+    import ctypes
+    from ctypes import wintypes as wt
+    k, ps = ctypes.windll.kernel32, ctypes.windll.psapi
+    k.GetCurrentProcess.restype = wt.HANDLE
+    ps.EnumProcessModules.argtypes = [wt.HANDLE, ctypes.POINTER(wt.HMODULE), wt.DWORD, ctypes.POINTER(wt.DWORD)]
+    ps.GetModuleFileNameExW.argtypes = [wt.HANDLE, wt.HMODULE, wt.LPWSTR, wt.DWORD]
+    me, mods, need = k.GetCurrentProcess(), (wt.HMODULE * 4096)(), wt.DWORD()
+    if not ps.EnumProcessModules(me, mods, ctypes.sizeof(mods), ctypes.byref(need)):
+        return set()
+    name = ctypes.create_unicode_buffer(520)
+    found = set()
+    for m in mods[:need.value // ctypes.sizeof(wt.HMODULE)]:
+        if ps.GetModuleFileNameExW(me, m, name, 520):
+            found.add(Path(name.value).name.lower())
+    return found
+
+
 def _quiet(what, most_s=120):
     """Waits (up to most_s) for the PC to be quiet first: after 200,000 files are made, Windows' virus checker
     reads them for minutes, and the times after it would measure that, not Corefold."""
@@ -1436,7 +1466,14 @@ def start_light():
     c = timed("Corefold starts (tray icon ready)", lambda: A.Controller(qapp, QIcon(str(ROOT / "assets" / "icon.png"))),
               4)
     settle(1)
+    if os.name == "nt":
+        with setup():
+            say(f"note  the disks before the window opens: {_disk_idle()}% idle")
+            loaded = _modules()
     timed("the window opens", lambda: (c.show_window("Home"), c.window)[1], 2.5, wait=lambda: c.window.isVisible())
+    if os.name == "nt":
+        new_dlls = sorted(_modules() - loaded)
+        say(f"note  the window's first opening loaded {len(new_dlls)} DLLs: {', '.join(new_dlls)}")
     c.window.resize(1100, 720)
 
 

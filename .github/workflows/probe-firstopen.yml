@@ -1,0 +1,40 @@
+# TEMPORARY probe (removed before merging): the heavy test's first window opening, four times.
+name: Probe first open
+
+on:
+  push:
+    branches: [claude/project-thread-csm4ok]
+    paths: [.github/workflows/probe-firstopen.yml, scripts/usetest.py]
+
+permissions:
+  contents: read
+
+jobs:
+  try:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        n: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install
+        shell: pwsh
+        run: |
+          python -m pip install --quiet -r requirements.txt
+          New-Item -ItemType Directory -Force out | Out-Null
+          python scripts/screenres.py 1920 1080 *>> out/screen.txt
+          choco install ffmpeg -y --no-progress | Out-Null
+      - name: Heavy files, then the window opens
+        shell: pwsh
+        env:
+          COREFOLD_WAKE_RESTING: "1"
+        run: |
+          $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
+          python scripts/usetest.py out/usetest --heavy --lang en --look dark --only start,idle *> out/usetest.txt
+          Get-Content out/usetest.txt | Select-String -Pattern "note  |the window opens|problem" | ForEach-Object { $_.Line }
+          exit 0
