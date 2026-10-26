@@ -83,9 +83,10 @@ class VersionHistory(QWidget):
     the internet. The installed version's are open to begin with. Its rows are made just after it's first
     shown, so the Updates page opens as quickly as before."""
 
-    def __init__(self, current: str, accent: str, parent: QWidget | None = None):
+    def __init__(self, current: str, accent: str, parent: QWidget | None = None, text: str = "#888888"):
         super().__init__(parent)
         self.accent = accent
+        self.text = text  # (the arrows' colour)
         self.current = current
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
@@ -139,6 +140,7 @@ class VersionHistory(QWidget):
             toggle.setCursor(Qt.PointingHandCursor)
             toggle.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             toggle.setProperty("historyRow", True)
+            toggle.setIconSize(QSize(14, 14))
             head.addWidget(toggle, 1)
             page = QPushButton(tr("Release page"))
             page.setObjectName("flat")
@@ -162,8 +164,11 @@ class VersionHistory(QWidget):
         if notes.version == self.current:
             name += "  ·  " + tr("installed")
         date = when(notes)
-        arrow = "▾" if body._open else ("◂" if i18n.is_rtl() else "▸")
-        toggle.setText(f"{arrow}  {name}" + (f"  ·  {date}" if date else ""))
+        # (drawn, not a letter: Windows looked through its fonts for ◂ the first time it was shown, which
+        # held the Updates page for up to 3 seconds in Arabic)
+        arrow = "chevron_down" if body._open else ("chevron_left" if i18n.is_rtl() else "chevron_right")
+        toggle.setIcon(icons.icon(arrow, self.text))
+        toggle.setText(f" {name}" + (f"  ·  {date}" if date else ""))
         toggle.setAccessibleName(name)
 
     def show_notes(self, i: int, shown: bool | None = None):
@@ -175,6 +180,11 @@ class VersionHistory(QWidget):
         body._open = shown
         body.setVisible(shown)
         self._name(i)
+
+    def apply_theme(self, text: str):
+        self.text = text
+        for i in range(len(self.rows)):
+            self._name(i)
 
     def versions(self) -> list[str]:
         self._make()

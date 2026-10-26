@@ -6,6 +6,7 @@ Converter (crop video, subtitles, sound, join, SHA-256), Archive (remembered pas
 Prints one line per check and "featuretest: N problem(s)". Needs FFmpeg (and 7-Zip for the
 password part). Run: python scripts/featuretest.py
 Everything happens in a temporary folder."""
+import faulthandler
 import os
 import subprocess
 import sys
@@ -48,10 +49,14 @@ def ctx(**params):
 
 
 def step(name, fn):
+    # (a check that never ends shows every thread's place and stops, instead of eating the whole job)
+    faulthandler.dump_traceback_later(600, exit=True)
     try:
         fn()
     except Exception:
         check(False, f"{name}: {traceback.format_exc().splitlines()[-1]}")
+    finally:
+        faulthandler.cancel_dump_traceback_later()
 
 
 def ffmpeg(*args):

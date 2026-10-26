@@ -755,8 +755,9 @@ def _unpack(src: Path, target: Path, ctx: Ctx, password: str, members: list[str]
         return
     if find_7z():
         # -snz: files from a downloaded archive keep its "from the internet" mark (Windows then still
-        # warns before running them); -spd: names are names, not wildcards
-        args = ["x", str(src), f"-o{target}", "-y", "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-snz", "-spd",
+        # warns before running them); -spd: names are names, not wildcards; -aou: two files in it with the same
+        # name (or names only the case tells apart, one name to Windows) are both kept, the second as "name_1"
+        args = ["x", str(src), f"-o{target}", "-y", "-aou", "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-snz", "-spd",
                 *_cp(src), _pw(password)]
         listfile = None
         if members:
@@ -1505,7 +1506,7 @@ def repair_archive(src: Path, ctx: Ctx) -> Result:
         damaged = 0
         if find_7z():
             with _SpaceGuard(ctx, stage, _rescue_budget(src.stat().st_size, stage)) as guarded:
-                code, out = _run7z(["x", str(src), f"-o{stage}", "-y", "-bsp1", "-bse1", "-bb0", "-sccUTF-8",
+                code, out = _run7z(["x", str(src), f"-o{stage}", "-y", "-aou", "-bsp1", "-bse1", "-bb0", "-sccUTF-8",
                                     "-snz", "-spd", *_cp(src), _pw(password)], guarded)
             if code not in (0, 1):
                 err = _7z_error(out)

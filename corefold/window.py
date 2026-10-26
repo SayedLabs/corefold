@@ -3754,7 +3754,7 @@ class MainWindow(QWidget):
         hist, hl = card(8)
         hl.addWidget(label(tr("Version history"), "h2"))
         hl.addWidget(label(tr("What changed in each version, also without the internet."), "muted", wrap=True))
-        self.version_history = VersionHistory(__version__, self.c.theme.accent, hist)
+        self.version_history = VersionHistory(__version__, self.c.theme.accent, hist, self.c.theme.text)
         hl.addWidget(self.version_history)
         lay.addWidget(hist)
         lay.addStretch()
@@ -4342,6 +4342,8 @@ class MainWindow(QWidget):
             dot.setPixmap(icons.pixmap("add", 16, t.muted, dpr))
         for gear in self._gears:
             gear.setIcon(icons.icon("settings", t.text))
+        if self.built("Updates"):
+            self.version_history.apply_theme(t.text)
         # (their rows look at each file on disk, which can hang on a network drive that's gone: only the
         # page in sight now; the other is made again when it's opened)
         here = self.current_page()

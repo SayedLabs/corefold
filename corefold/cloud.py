@@ -90,8 +90,8 @@ class Account:
     service: str             # onedrive or dropbox
     email: str
     name: str = ""
-    refresh: str = ""
-    access: str = ""
+    refresh: str = field(default="", repr=False)  # (the sign-in keys never show in a log or a message)
+    access: str = field(default="", repr=False)
     expires: float = 0.0
     used: int = 0
     total: int = 0
@@ -278,7 +278,8 @@ def _request_once(method, url, token, data, headers, timeout, raw, accept=()):
     if not low.startswith("https://") and not low.startswith(("http://127.0.0.1:", "http://localhost:")):
         # (an address a service's answer gave, for a download say, could be file:// or plain http; this PC's
         # own address is let through for the tests' pretend services)
-        log.warning("cloud: refused an address that isn't https: %s", str(url)[:80])
+        # (without what follows '?': a download address can carry a key there)
+        log.warning("cloud: refused an address that isn't https: %s", str(url).split("?")[0][:80])
         raise CloudError("the service is having trouble right now, try again soon")
     h = dict(headers or {})
     body = data
