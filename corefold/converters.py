@@ -366,14 +366,29 @@ def images_to_pdf(files: list[Path], ctx: Ctx) -> Result:
 
 
 def image_small(src: Path, ctx: Ctx) -> Result:
-    """Shrink for sharing: max 1920 px, JPG quality 80."""
+    """Shrink for sharing: max 1920 px, JPG quality 80. A picture with see-through parts (a logo, a sticker)
+    stays a PNG: as a JPG they would turn white."""
     from PIL import Image
     loaded = load_image(src, fit=1920)
+    if see_through(loaded):
+        im = loaded.convert("RGBA")
+        im.thumbnail((1920, 1920), Image.LANCZOS)
+        out = ctx.out_path(src, f"{ctx.stem(src)} (small).png")
+        im.save(out, optimize=True, **colour_profile(loaded, "RGBA"))
+        return Result([out])
     im = flatten(loaded)
     im.thumbnail((1920, 1920), Image.LANCZOS)
     out = ctx.out_path(src, f"{ctx.stem(src)} (small).jpg")
     im.save(out, quality=80, optimize=True, progressive=True, **colour_profile(loaded, "RGB"))
     return Result([out])
+
+
+def see_through(im) -> bool:
+    """Some of the picture really is transparent (has_alpha is also true for an alpha channel that's all solid)."""
+    if not has_alpha(im):
+        return False
+    alpha = im.getchannel("A") if im.mode == "RGBA" else im.convert("RGBA").getchannel("A")
+    return alpha.getextrema()[0] < 255
 
 
 def colour_profile(im, final_mode: str) -> dict:
@@ -710,12 +725,12 @@ def probe(src: Path) -> dict:
     """Duration and which kinds of streams a media file has (cached)."""
     def work():
         info = {"duration": 0.0, "audio": False, "video": False, "width": 0, "height": 0, "rotation": 0,
-                "hdr": False}
+                "hdr": False, "subs": [], "cover": -1}
         try:
             out = subprocess.run(
                 [find_tool("ffprobe"), "-v", "error", "-show_entries",
-                 "format=duration:stream=codec_type,width,height,color_transfer:stream_disposition=attached_pic"
-                 ":stream_side_data=rotation",
+                 "format=duration:stream=codec_type,codec_name,width,height,color_transfer"
+                 ":stream_disposition=attached_pic:stream_side_data=rotation",
                  "-of", "json", *LOCAL_ONLY, str(src)],
                 capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=20,
                 stdin=subprocess.DEVNULL, creationflags=NO_WINDOW,
@@ -725,6 +740,11 @@ def probe(src: Path) -> dict:
             streams = data.get("streams", [])
             kinds = {s.get("codec_type") for s in streams}
             info["audio"], info["video"] = "audio" in kinds, "video" in kinds
+            info["subs"] = [s.get("codec_name") or "" for s in streams if s.get("codec_type") == "subtitle"]
+            pictures = [s for s in streams if s.get("codec_type") == "video"]
+            covers = [i for i, s in enumerate(pictures) if (s.get("disposition") or {}).get("attached_pic")]
+            if covers and len(covers) == len(pictures):  # (a song with its album cover, not a video)
+                info["cover"] = covers[0]
             for s in streams:
                 if (s.get("disposition") or {}).get("attached_pic"):
                     continue  # an album cover inside the file, not the video itself
@@ -939,8 +959,66 @@ def ffmpeg_convert(src: Path, ctx: Ctx, ext: str, args: list[str], suffix: str =
     if ext in AUDIO_ARGS and args == AUDIO_ARGS[ext] and quality != "balanced":  # (Settings → Converter)
         from .presets import audio_args
         args = audio_args(ext, quality)
+    whole = args
+    if ext in (".mp4", ".mov", ".webm", ".mkv") and not suffix:
+        whole = all_tracks(src, ext, args)
+    elif ext in AUDIO_ARGS:
+        whole = with_cover(src, ext, args)
+    if whole is not args:
+        try:
+            run_ffmpeg(src, out, whole, ctx)
+            return Result([out])
+        except Cancelled:
+            raise
+        except RuntimeError:  # (an unusual subtitle or cover: the file is still made, without it)
+            log.warning("%s: made again without the extra tracks", src.name, exc_info=True)
     run_ffmpeg(src, out, args, ctx)
     return Result([out])
+
+
+# Subtitles that are text (not pictures): MP4 and WebM can hold these, in their own kind.
+TEXT_SUBS = {"subrip", "srt", "ass", "ssa", "mov_text", "webvtt", "text"}
+MKV_SUBS = TEXT_SUBS | {"hdmv_pgs_subtitle", "dvd_subtitle"}
+_SUB_KIND = {".mp4": "mov_text", ".mov": "mov_text", ".webm": "webvtt"}
+
+
+def all_tracks(src: Path, ext: str, args: list[str]) -> list[str]:
+    """The same FFmpeg arguments, keeping every sound track (a film in two languages) and the subtitles
+    the new file can hold, instead of only the first sound track. Returns `args` itself when nothing changes."""
+    try:
+        subs = probe(src).get("subs") or []
+    except Exception:
+        subs = []
+    new = ["0:a?" if a == "0:a:0?" else a for a in args]
+    if ext == ".mkv":
+        keep = [(i, "srt" if c in ("mov_text", "text") else "copy") for i, c in enumerate(subs) if c in MKV_SUBS]
+    else:
+        keep = [(i, _SUB_KIND[ext]) for i, c in enumerate(subs) if c in TEXT_SUBS]
+    if keep:
+        new = [a for a in new if a != "-sn"]
+        for i, _ in keep:
+            new += ["-map", f"0:s:{i}"]
+        for j, (_, kind) in enumerate(keep):
+            new += [f"-c:s:{j}", kind]
+    return args if new == args else new
+
+
+def with_cover(src: Path, ext: str, args: list[str]) -> list[str]:
+    """The same FFmpeg arguments, keeping a song's album cover (MP3, M4A and FLAC can hold one). Returns
+    `args` itself when there's no cover to keep."""
+    if ext not in (".mp3", ".m4a", ".flac") or "-vn" not in args:
+        return args
+    try:
+        cover = probe(src).get("cover", -1)
+    except Exception:
+        cover = -1
+    if cover is None or cover < 0:
+        return args
+    new = [a for a in args if a != "-vn"]
+    new = ["-map", "0:a:0", "-map", f"0:v:{cover}", "-c:v", "copy", "-disposition:v:0", "attached_pic", *new]
+    if ext == ".mp3":
+        new += ["-id3v2_version", "3"]  # (the version Windows Explorer and every player show the cover of)
+    return new
 
 
 def smaller_size(width: int, height: int, most: int) -> tuple[int, int] | None:
@@ -1212,7 +1290,7 @@ def write_compressed_pdf(src: Path, out: Path, ctx: Ctx, quality: int = 65, max_
             log.debug("page %s images skipped", i, exc_info=True)
         page.compress_content_streams()
         ctx.progress(a + (b - a) * (i + 1) / n)
-    writer.compress_identical_objects(remove_identicals=True, remove_orphans=True)
+    writer.compress_identical_objects(remove_duplicates=True, remove_unreferenced=True)
     with open(out, "wb") as fh:
         writer.write(fh)
 

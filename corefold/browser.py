@@ -213,6 +213,13 @@ class ArchiveTree(QTreeWidget):
         self.browser.finish_rows()  # (Ctrl + A, too: every file, not just the rows already shown)
         super().selectAll()
 
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        # narrow: the Packed column steps aside so the names aren't cut short; it's back when there's room
+        widths = getattr(self, "widths", None)
+        if widths:
+            self.setColumnHidden(2, self.viewport().width() - sum(widths) < 220)
+
 
 class ArchiveBrowser(QWidget):
     def __init__(self, controller: "Controller", src: Path, password: str, entries: list[ar.Entry], icon: QIcon):
@@ -270,12 +277,15 @@ class ArchiveBrowser(QWidget):
         header.setSortIndicator(0, Qt.AscendingOrder)
         header.sectionClicked.connect(self._sort_by)
         self.tree.header().setSectionResizeMode(0, QHeaderView.Stretch)
+        header.setStretchLastSection(False)  # (all the room left goes to the names, not to Modified)
         # the other columns just as wide as what's in them, so the names get the room (measured once: sizing
         # them to their rows would read every row of a folder of 100,000 files)
         fm = self.tree.fontMetrics()
         sizes = max(fm.horizontalAdvance(human_size(n)) for n in (1000, 999 * 1024 ** 2 + 943718))
+        self.tree.widths = []
         for col, wide in ((1, sizes), (2, sizes), (3, fm.horizontalAdvance("2026-10-25 08:12"))):
-            header.resizeSection(col, max(wide, fm.horizontalAdvance(self.tree.headerItem().text(col))) + 26)
+            self.tree.widths.append(max(wide, fm.horizontalAdvance(self.tree.headerItem().text(col))) + 26)
+            header.resizeSection(col, self.tree.widths[-1])
         self.tree.itemDoubleClicked.connect(lambda item, _col: self._open(item))
         self.tree.itemSelectionChanged.connect(self._buttons)
         self.tree.itemExpanded.connect(self._expanded)
