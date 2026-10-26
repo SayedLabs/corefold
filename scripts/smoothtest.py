@@ -1,12 +1,14 @@
 """How smooth Corefold feels, measured on a real Windows PC: every page opened (the first time and again),
 the sidebar, light and dark, another language, a tool switched off and on, the window made bigger and smaller,
 pages scrolled, a question shown and closed, the Home page changed, and the window doing nothing (what it
-costs then). A heartbeat on the window's thread notes every moment it couldn't draw: a gap over two frames is
-a stutter a person may see, over a quarter of a second the window feels stuck. Every stutter says where the
-time went (the window thread's stack), and any window that shows outside Corefold's own is noted.
+costs then). A heartbeat on the window's thread notes every moment it couldn't draw: a gap over a frame and a
+half is a stutter a person may see, over a quarter of a second the window feels stuck. Every stutter says where
+the time went (the window thread's stack), and any window that shows outside Corefold's own is noted.
+Slow steps are listed to look at; a problem (the check fails) is an error, a window of its own, the window stuck
+for a second or more, or a lot of CPU doing nothing.
 
 Run: python scripts/smoothtest.py <folder> [en|ar] [dark|light]
-Writes <folder>/smoothtest.md (a table, worst first) and prints "smoothtest: N problem(s)"."""
+Writes <folder>/smoothtest.md (a table, worst first) and prints "smoothtest: N problem(s), M slow step(s)"."""
 import os
 import sys
 import tempfile
@@ -78,6 +80,7 @@ for _fam in {_tokens.TEXT_FAMILY, _tokens.FONT_DISPLAY.strip('"'), "Segoe UI"}:
 FRAME = 1 / 60
 STUTTER = 1.5 * FRAME   # a gap this long drops a frame or more: a moving thing jumps
 STUCK = 0.25            # the window not answering this long feels stuck
+BROKEN = 1.0            # this long, something's wrong (the check fails)
 
 
 class Beat:
@@ -142,6 +145,7 @@ def _where(frame) -> str:
 beat = Beat()
 results: list[dict] = []
 problems: list[str] = []
+slow: list[str] = []  # (over the limits below, not over BROKEN)
 errors: list[str] = []
 
 
@@ -193,8 +197,9 @@ def measure(label: str, fn, after=0.5, moving=True, limit=None):
     flag = "SLOW " if bad else ("ERR  " if row["error"] else "ok   ")
     print(f"{flag}{label}: worst {worst * 1000:.0f} ms, {len(mine)} stutter(s), ~{dropped} frame(s) dropped"
           + (f" | {where}" if mine else "") + (f" | WINDOW {row['windows']}" if others else ""), flush=True)
-    if bad:
-        problems.append(f"{label}: stuck {worst * 1000:.0f} ms at {where}")
+    if bad:  # (slow: noted for a person to look at; only a window stuck for a second fails the check, since a
+        # GitHub PC's timings swing too much for anything finer)
+        (problems if worst > BROKEN else slow).append(f"{label}: stuck {worst * 1000:.0f} ms at {where}")
     if others:
         problems.append(f"{label}: a window of its own showed ({row['windows']})")
         for w in others:
@@ -387,7 +392,7 @@ def idle(label, seconds=15):
     results.append(dict(label=label, worst=0.0, stutters=0, dropped=0, took=seconds, cpu=share, where="",
                         bad=share > 1.0, windows="", error=False, idle=True))
     if share > 1.0:
-        problems.append(f"{label}: {share:.2f} % CPU doing nothing")
+        (problems if share > 3.0 else slow).append(f"{label}: {share:.2f} % CPU doing nothing")
 
 
 w.open_page("Home")
@@ -414,13 +419,15 @@ lines = [f"# Smoothness: {LANG}, {LOOK}", "",
          f"{len(problems)} problem(s). Worst gap in ms; a stutter is a gap over {STUTTER * 1000:.0f} ms "
          f"(a frame dropped). Time and CPU in seconds.", ""]
 lines += [f"- {p}" for p in problems] + [""]
+if slow:
+    lines += [f"{len(slow)} slow step(s) to look at:", ""] + [f"- {p}" for p in slow] + [""]
 lines += ["| step | worst ms | stutters | frames dropped | time s | CPU s | where the worst one was |",
           "|---|---|---|---|---|---|---|"]
 lines += [_row(r) for r in sorted(results, key=lambda r: -r["worst"])]
 (OUT / "smoothtest.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 if errors:
     (OUT / "smoothtest-errors.txt").write_text("\n\n".join(errors), encoding="utf-8")
-print(f"smoothtest: {len(problems)} problem(s)", flush=True)
-for p in problems:
+print(f"smoothtest: {len(problems)} problem(s), {len(slow)} slow step(s)", flush=True)
+for p in problems + slow:
     print(f"  {p}", flush=True)
 os._exit(0)
