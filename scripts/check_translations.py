@@ -149,6 +149,7 @@ def table_texts() -> dict[str, str]:
     add([name for name, _ in organizer.KINDS.values()], "organizer.KINDS")
     add(organizer.STAYS.values(), "organizer.STAYS")
     add(organizer.REFUSED.values(), "organizer.REFUSED")
+    add(list(organizer.DATES.values()) + list(organizer.RULE_MATCHES.values()), "organizer tables")
     add([name for _, name, _ in organizerpage.PLACES], "organizerpage.PLACES")
     from corefold import startuppage
     add([text for _, text in startuppage.FILTERS], "startuppage.FILTERS")

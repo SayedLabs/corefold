@@ -9,13 +9,14 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QRectF, QSize, QStandardPaths, Qt, QTimer
 from PySide6.QtGui import QPainter, QPen
-from PySide6.QtWidgets import (QCheckBox, QFileDialog, QFrame, QHBoxLayout, QHeaderView, QLabel, QPushButton, QScrollArea,
-                               QSizePolicy, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QCheckBox, QFileDialog, QFrame, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QPushButton,
+                               QScrollArea, QSizePolicy, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from . import i18n, icons, organizer, work
 from .atomic.tokens import mix
-from .atomic.widgets import IconButton
+from .atomic.widgets import Dropdown, IconButton
 from .core import human_size, short_name
+from .dialogs import Base
 from .i18n import ltr, tr
 from .timefmt import time_ago
 from .winutil import reveal_in_explorer
@@ -28,6 +29,7 @@ log = logging.getLogger("corefold")
 # the folders on the cards: (key, English name shown through tr(), glyph)
 PLACES = [("downloads", "Downloads", "arrow_download"), ("desktop", "Desktop", "desktop"),
           ("other", "Another folder…", "folder_search")]
+RULE_GLYPH = "target_arrow"
 KIND_GLYPHS = {"pictures": "image", "videos": "video", "music": "music_note_2", "documents": "document_text",
                "archives": "folder_zip", "installers": "box", "fonts": "text_t"}
 FILE_ROLE = Qt.UserRole + 1
@@ -211,6 +213,28 @@ class OrganizerPage(QWidget):
         where.addWidget(self.refresh_btn)
         lay.addLayout(where)
 
+        how = QHBoxLayout()  # (how it's sorted: by date inside each folder, and the person's own rules)
+        how.setSpacing(8)
+        how.addWidget(_label(tr("Inside each folder"), "muted"))
+        self.dates = Dropdown()
+        for key, text in organizer.DATES.items():
+            self.dates.addItem(tr(text), key)
+        self.dates.setCurrentIndex(max(0, self.dates.findData(organizer.date_mode())))
+        self.dates.setToolTip(tr("Photos go by the day they were taken, other files by when they were last changed."))
+        self.dates.currentIndexChanged.connect(self._dates_changed)
+        how.addWidget(self.dates)
+        how.addStretch()
+        self.rules_btn = QPushButton()
+        self.rules_btn.setObjectName("ghost")
+        self.rules_btn.setIcon(icons.icon("wand", self.c.theme.text))
+        self.rules_btn.setCursor(Qt.PointingHandCursor)
+        self.rules_btn.setToolTip(tr("Your own rules come first, like \"a name with invoice in it goes into "
+                                     "Invoices\""))
+        self.rules_btn.clicked.connect(self.edit_rules)
+        how.addWidget(self.rules_btn)
+        lay.addLayout(how)
+        self._show_rules()
+
         self.note = QFrame()   # what the last sort or undo did
         self.note.setObjectName("card")
         nl = QHBoxLayout(self.note)
@@ -272,9 +296,9 @@ class OrganizerPage(QWidget):
                                  "go into their folders (you can undo it)"))
         self.auto.toggled.connect(self._auto_changed)
         foot.addWidget(self.auto)
-        foot.addWidget(_label(tr("Files are only moved into folders right next to them: nothing is deleted, "
-                                 "copied or replaced. Folders, shortcuts and files that are open stay where they "
-                                 "are."), "subtle", wrap=True))
+        foot.addWidget(_label(tr("Files are only moved into folders next to them, or your rules' folders: nothing "
+                                 "is deleted, copied or replaced. Folders, shortcuts and files that are open stay "
+                                 "where they are."), "subtle", wrap=True))
         outer.addLayout(foot)
         self.cards["downloads"].setChecked(True)
         self._show_last()
@@ -421,7 +445,8 @@ class OrganizerPage(QWidget):
                 head.on_ticked = self._kind_ticked
                 head.page = self
                 head.setData(0, Qt.UserRole, kind)
-                head.setIcon(0, icons.icon(KIND_GLYPHS.get(kind, "folder"), t.accent))
+                head.setIcon(0, icons.icon(RULE_GLYPH if kind.startswith("rule:") else KIND_GLYPHS.get(kind, "folder"),
+                                           t.accent))
                 head.setFlags(head.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsAutoTristate)
                 head.setToolTip(0, str(p.folders[kind]))
                 if self.left_out:
@@ -487,9 +512,17 @@ class OrganizerPage(QWidget):
 
     def _file_text(self, item: organizer.Item) -> str:
         if item.renamed:  # (a file with its name is already in that folder)
-            return tr("{name} → {new} (one with that name is already there)", name=ltr(item.path.name),
+            text = tr("{name} → {new} (one with that name is already there)", name=ltr(item.path.name),
                       new=ltr(item.target.name))
-        return ltr(item.path.name)
+        else:
+            text = ltr(item.path.name)
+        top = self.plan.folders.get(item.kind) if self.plan else None
+        if top is not None and item.target is not None and item.target.parent != top:
+            try:  # (into a year, or a month, inside the kind's folder)
+                text += "  ·  " + ltr(" / ".join(item.target.parent.relative_to(top).parts))
+            except ValueError:
+                pass
+        return text
 
     def _head_text(self, head: QTreeWidgetItem):
         kind = head.data(0, Qt.UserRole)
@@ -570,6 +603,28 @@ class OrganizerPage(QWidget):
     def _open_folder(self):
         if self.folder is not None and self.folder.is_dir():
             reveal_in_explorer(self.folder)
+
+    # ---- how it's sorted
+
+    def _dates_changed(self, _index: int):
+        organizer.set_date_mode(self.dates.currentData() or "")
+        self.load()
+
+    def _show_rules(self):
+        n = len(organizer.rules())
+        self.rules_btn.setText(tr("My rules") + (f"  ·  {n}" if n else ""))
+
+    def edit_rules(self):
+        from . import sheet
+        dlg = RulesDialog(self.c.icon, self.c.theme, organizer.rules())
+        try:
+            if not sheet.run(dlg):
+                return
+            organizer.set_rules(dlg.rules())
+        finally:
+            dlg.deleteLater()
+        self._show_rules()
+        self.load()
 
     # ---- what the page says
 
@@ -724,3 +779,118 @@ class OrganizerPage(QWidget):
         self._show_last()
         self._count_cards()
         self.load()
+
+
+class RulesDialog(Base):
+    """The person's own rules: "a name with … in it" or "a type of …" goes into a folder (a name, made inside
+    the folder being sorted, or a folder picked anywhere on the same drive). Checked first, top to bottom."""
+
+    def __init__(self, icon, theme, rules: list):
+        super().__init__(tr("My rules"), tr("A file goes into the first rule it fits. Files no rule fits are sorted "
+                                            "by kind, as before."), icon, theme.dark)
+        self.theme = theme
+        self.setMinimumWidth(620)
+        self.rows_box = QVBoxLayout()
+        self.rows_box.setSpacing(8)
+        self.lay.addLayout(self.rows_box)
+        self.rows: list[dict] = []
+        self.empty = _label(tr("No rules yet."), "muted")
+        self.lay.addWidget(self.empty)
+        self.warn = _label("", "warning", wrap=True)
+        self.warn.hide()
+        self.lay.addWidget(self.warn)
+        add = QPushButton(tr("Add a rule"))
+        add.setObjectName("ghost")
+        add.setIcon(icons.icon("add", theme.text))
+        add.setCursor(Qt.PointingHandCursor)
+        add.clicked.connect(lambda: self._add(None, focus=True))
+        line = QHBoxLayout()
+        line.addWidget(add)
+        line.addStretch()
+        self.lay.addLayout(line)
+        self.lay.addWidget(_label(tr("Examples: the name has \"invoice, receipt\" → Invoices. The type is "
+                                     "\"psd, ai, fig\" → Designs."), "subtle", wrap=True))
+        for rule in rules:
+            self._add(rule)
+        self.buttons(tr("Save"))
+        self._changed()
+
+    def _add(self, rule, focus: bool = False):
+        if len(self.rows) >= 30:
+            return
+        row = QHBoxLayout()
+        row.setSpacing(6)
+        match = Dropdown()
+        for key, text in organizer.RULE_MATCHES.items():
+            match.addItem(tr(text), key)
+        text, folder = QLineEdit(), QLineEdit()
+        text.setMinimumWidth(150)
+        folder.setPlaceholderText(tr("Folder name"))
+        arrow = QLabel("←" if i18n.is_rtl() else "→")
+        pick = IconButton(tr("Pick a folder"))
+        pick.setIcon(icons.icon("folder_open", self.theme.muted))
+        remove = IconButton(tr("Remove this rule"))
+        remove.setIcon(icons.icon("delete", self.theme.muted))
+        for w, stretch in ((match, 0), (text, 3), (arrow, 0), (folder, 2), (pick, 0), (remove, 0)):
+            row.addWidget(w, stretch)
+        entry = {"id": rule.id if rule else os.urandom(4).hex(), "row": row, "match": match, "text": text,
+                 "folder": folder}
+        if rule is not None:
+            match.setCurrentIndex(max(0, match.findData(rule.match)))
+            text.setText(rule.text)
+            folder.setText(rule.folder)
+        match.currentIndexChanged.connect(lambda _i, e=entry: self._hint(e))
+        text.textChanged.connect(self._changed)
+        folder.textChanged.connect(self._changed)
+        pick.clicked.connect(lambda _=False, e=entry: self._pick(e))
+        remove.clicked.connect(lambda _=False, e=entry: self._remove(e))
+        self.rows.append(entry)
+        self.rows_box.addLayout(row)
+        self._hint(entry)
+        self._changed()
+        if focus:
+            text.setFocus()
+
+    def _hint(self, entry: dict):
+        entry["text"].setPlaceholderText(tr("psd, ai, fig") if entry["match"].currentData() == "type"
+                                         else tr("invoice, receipt"))
+
+    def _pick(self, entry: dict):
+        chosen = QFileDialog.getExistingDirectory(self, tr("Pick a folder"), str(Path.home()))
+        if chosen:
+            entry["folder"].setText(os.path.normpath(chosen))
+
+    def _remove(self, entry: dict):
+        self.rows.remove(entry)
+        row = entry["row"]
+        while row.count():
+            w = row.takeAt(0).widget()
+            if w is not None:
+                w.deleteLater()
+        self.rows_box.removeItem(row)
+        row.deleteLater()
+        self._changed()
+
+    def _changed(self, *_):
+        self.empty.setVisible(not self.rows)
+        bad = False
+        for e in self.rows:
+            folder = e["folder"].text().strip()
+            wrong = bool(folder) and not organizer.safe_folder(folder)
+            e["folder"].setToolTip(folder)
+            if wrong and not bad:
+                self.warn.setText(tr("Corefold can't put files in \"{folder}\". Type a folder's name, or pick one.",
+                                     folder=ltr(folder)))
+            bad = bad or wrong
+        self.warn.setVisible(bad)
+        if hasattr(self, "ok"):
+            self.ok.setEnabled(not bad)
+
+    def rules(self) -> list:
+        out = []
+        for e in self.rows:
+            rule = organizer.Rule(e["id"], e["match"].currentData(), e["text"].text().strip(),
+                                  e["folder"].text().strip())
+            if rule.words() and organizer.safe_folder(rule.folder):
+                out.append(rule)
+        return out
