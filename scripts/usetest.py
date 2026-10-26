@@ -665,6 +665,13 @@ def player():
             ("VP9 WebM", S / "Clip.webm", 3), ("60 fps phone MOV", S / "Phone video.mov", 3),
             ("MP3 song", S / "Song.mp3", 2), ("FLAC song", S / "Song.flac", 2)]
     win = None
+    spy = None
+    if os.environ.get("USE_SPY"):  # (probe: where the window's thread is while the first video starts)
+        spy = subprocess.Popen(["py-spy", "record", "--native", "--threads", "--idle", "--format", "raw",
+                                "--rate", "50", "--duration", "12", "--pid", str(os.getpid()),
+                                "-o", str(OUT / f"{TAG}-spy-player.txt")],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(1.5)
     for label, path, limit in vids:
         def playing(p=path):
             ps = [x for x in getattr(c, "players", []) if alive(x)]
@@ -673,6 +680,9 @@ def player():
         timed(f"play a {label}", lambda p=path: c.open_player(p), limit, wait=playing,
               profile="player" if win is None else "")
         win = next((x for x in getattr(c, "players", []) if alive(x)), None)
+        if spy is not None:
+            spy.wait(30)
+            spy = None
         if win is not None and win.player.errorString():
             check(False, f"…{label}: {win.player.errorString()}")
         if win is not None and label == "4K HEVC MKV":
