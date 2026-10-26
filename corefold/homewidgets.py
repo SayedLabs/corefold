@@ -1134,6 +1134,7 @@ class Board(QWidget):
                 break
             b = QPushButton()
             b.setObjectName("widgetFolder")
+            b.setAccessibleName(tr("Tidy a folder") + ": " + tr(name))  # (its words are labels drawn inside it)
             b.setCursor(Qt.PointingHandCursor)
             b.clicked.connect(lambda _=False, k=key: self._organize(k))
             bl = QHBoxLayout(b)
