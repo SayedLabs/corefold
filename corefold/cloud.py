@@ -386,7 +386,14 @@ def _listen(port: int = 0) -> http.server.HTTPServer:
                 self.send_response(404)
                 self.end_headers()
                 return
-            self.server.answer = {k: v[0] for k, v in q.items()}
+            answer = {k: v[0] for k, v in q.items()}
+            if answer.get("state") != self.server.state:
+                # (not the sign-in page's answer: any web page open in the browser can send the person here, and
+                # must not end the sign-in, let alone hand Corefold a key of its own)
+                self.send_response(400)
+                self.end_headers()
+                return
+            self.server.answer = answer
             from html import escape
 
             from .i18n import is_rtl, tr
@@ -407,6 +414,7 @@ def _listen(port: int = 0) -> http.server.HTTPServer:
 
     server = http.server.HTTPServer(("127.0.0.1", port), _Catch)
     server.answer = None
+    server.state = None
     server.timeout = 1
     return server
 
@@ -433,6 +441,7 @@ def sign_in(service: str, open_page, cancel: threading.Event | None = None, wait
         redirect = f"http://{host}:{server.server_address[1]}/"
     verifier, challenge = _pkce()
     state = secrets.token_urlsafe(16)
+    server.state = state
     if service == "gdrive":
         url = f"{GOOGLE_AUTHORIZE}?" + urllib.parse.urlencode({
             "client_id": GOOGLE_CLIENT_ID, "response_type": "code", "redirect_uri": redirect,

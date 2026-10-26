@@ -39,7 +39,7 @@ def guard():
     _guarded = True
     from PySide6.QtCore import Qt
     from PySide6.QtGui import QAction, QStandardItem
-    from PySide6.QtWidgets import QLabel, QListWidgetItem, QTableWidgetItem, QTreeWidgetItem, QWidget
+    from PySide6.QtWidgets import QLabel, QListWidgetItem, QMessageBox, QTableWidgetItem, QTreeWidgetItem, QWidget
 
     label_init = QLabel.__init__
 
@@ -48,6 +48,15 @@ def guard():
         if self.textFormat() == Qt.AutoText:
             self.setTextFormat(Qt.PlainText)
     QLabel.__init__ = init
+
+    # a message box's text too (its label is made inside Qt, past the one above): a file's name in it stays a name
+    box_init = QMessageBox.__init__
+
+    def box(self, *args, **kwargs):
+        box_init(self, *args, **kwargs)
+        if self.textFormat() == Qt.AutoText:
+            self.setTextFormat(Qt.PlainText)
+    QMessageBox.__init__ = box
 
     for cls in (QWidget, QAction, QListWidgetItem, QTableWidgetItem, QStandardItem):
         original = cls.setToolTip

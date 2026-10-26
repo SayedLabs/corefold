@@ -557,14 +557,20 @@ class _Alert(QDialog):
         head.setObjectName("h2")
         head.setWordWrap(True)
         words.addWidget(head)
+        # (a message often holds outside text, a file's or a cloud file's name: it's only read as HTML when the
+        # code asked for that with setTextFormat(Qt.RichText), never because it looks like HTML; see safetext.py)
+        rich = box.textFormat() == Qt.RichText
         for part in (text, info):
             if part:
                 label = QLabel(part, self)
                 label.setWordWrap(True)
-                label.setTextFormat(box.textFormat() if part is text else Qt.AutoText)
+                label.setTextFormat(Qt.RichText if rich and part is text else Qt.PlainText)
                 label.setObjectName("muted")
-                label.setOpenExternalLinks(True)
-                label.setTextInteractionFlags(Qt.TextBrowserInteraction)
+                if rich and part is text:
+                    label.setOpenExternalLinks(True)
+                    label.setTextInteractionFlags(Qt.TextBrowserInteraction)
+                else:
+                    label.setTextInteractionFlags(Qt.TextSelectableByMouse)
                 words.addWidget(label)
         top.addLayout(words, 1)
         lay.addLayout(top)
