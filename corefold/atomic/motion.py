@@ -2,7 +2,8 @@
 animations are off, and none of them holds anything up (they run on the side)."""
 from __future__ import annotations
 
-from PySide6.QtCore import QEasingCurve, QPoint, QPropertyAnimation, QVariantAnimation
+from PySide6.QtCore import QEasingCurve, QPoint, QPropertyAnimation, Qt, QVariantAnimation
+from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import QGraphicsOpacityEffect, QWidget
 
 from .tokens import MOTION
@@ -56,3 +57,53 @@ def glide(owner, start: float, end: float, on_value, duration: int = MOTION["fas
     anim.valueChanged.connect(on_value)
     anim.start(QVariantAnimation.DeleteWhenStopped)
     return anim
+
+
+class _Cover(QWidget):
+    """A picture of how the window looked, laid over it while it changes underneath, then faded away."""
+
+    def __init__(self, host: QWidget, picture):
+        super().__init__(host)
+        self.picture = picture
+        self.opacity = 1.0
+        self.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.setGeometry(host.rect())
+        self.show()
+        self.raise_()
+
+    def set_opacity(self, v: float):
+        self.opacity = v
+        self.update()
+
+    def paintEvent(self, _e):
+        p = QPainter(self)
+        p.setOpacity(self.opacity)
+        p.drawPixmap(self.rect(), self.picture)
+        p.end()
+
+
+def fade_from(host: QWidget, picture, duration: int = MOTION["normal"]):
+    """The window shows `picture` (how it looked a moment ago) and lets it fade into how it looks now."""
+    cover = _Cover(host, picture)
+
+    def gone():
+        if _alive(cover):
+            cover.hide()
+            cover.deleteLater()
+    glide(cover, 1.0, 0.0, lambda v: _alive(cover) and cover.set_opacity(v), duration,
+          QEasingCurve.InOutQuad).finished.connect(gone)
+    return cover
+
+
+def cross_fade(host: QWidget | None, change, duration: int = MOTION["normal"], animate: bool = True):
+    """Does change() (a new look, a tool switched on: much is drawn again) with the window going softly from
+    how it looked to how it looks now, instead of all of it jumping at once."""
+    if host is None or not animate or not host.isVisible() or host.isMinimized():
+        change()
+        return
+    picture = host.grab()
+    try:
+        change()
+    finally:
+        if _alive(host) and host.isVisible():
+            fade_from(host, picture, duration)

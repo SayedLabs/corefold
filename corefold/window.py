@@ -957,6 +957,8 @@ class MainWindow(QWidget):
         w = self.stack.widget(i)
         if w is None or not (self.c.settings.animations and self.isVisible()) or PAGES[i] == "Player":
             return  # (the Player's video draws itself: it's left alone)
+        if getattr(self, "_still", False):  # (the whole window is fading over from how it looked)
+            return
         from .atomic import motion
         motion.rise_in(w, 8, 220)
 
@@ -1067,6 +1069,13 @@ class MainWindow(QWidget):
     def tools_changed(self):
         """A tool was switched on or off: the window follows right away, without being made again (the
         sidebar's sections stay as they are). Nothing of a tool switched off stays: its pages go."""
+        self._still = True  # (the page made again doesn't rise in on its own: the window fades over as one)
+        try:
+            self._tools_changed()
+        finally:
+            self._still = False
+
+    def _tools_changed(self):
         before = set(self.tools_on)
         self.tools_on = all_tools.enabled(self.c.settings)
         gone = before - set(self.tools_on)

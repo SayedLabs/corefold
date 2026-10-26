@@ -205,22 +205,16 @@ def _start():
     c.show_window("Home")
 
 
-beat.label = "start"
 t0 = time.perf_counter()
-_start()
+_start()  # (before the window shows, nothing can be seen stuck: only how long it takes counts)
 QTest.qWaitForWindowExposed(c.window, 10000)
 shown = time.perf_counter() - t0
-settle(2.0)  # (what starts a moment after the window opens: counts against "start")
-beat.label = ""
+print(f"note start: window shown after {shown:.2f} s", flush=True)
 w = c.window
+# the window fades in, and what waits for a moment after it opens runs: all of it while a person watches
+measure("the first 2 s after the window shows", lambda: None, after=2.0)
+results[-1]["took"] = shown
 w.activateWindow()
-start_gaps = [g for g in beat.gaps if g[0] == "start"]
-print(f"note start: window shown after {shown:.2f} s; {len(start_gaps)} stutter(s) in the first 2 s, worst "
-      f"{max((g for _, g, _ in start_gaps), default=0) * 1000:.0f} ms", flush=True)
-results.append(dict(label="start (window shown)", worst=max((g for _, g, _ in start_gaps), default=0.0),
-                    stutters=len(start_gaps), dropped=0, took=shown, cpu=time.process_time(),
-                    where=max(start_gaps, key=lambda x: x[1])[2] if start_gaps else "", bad=False, windows="",
-                    error=False))
 
 from corefold.window import PAGES  # noqa: E402
 
