@@ -24,7 +24,7 @@ from .settings import (ACCENTS, APP_NAME, DEFAULT_ACCENT, APPEARANCES, HOVER_STY
                        SHORTCUT_LABELS, SLICE_COLORS, SOUNDS, TEXT_SIZE_NAMES, TOAST_CORNERS, TOAST_TIMES,
                        WHEEL_POSITIONS, WHEEL_SIZE_NAMES, WHEEL_STYLES, WINDOW_TEXT, installed_uninstaller,
                        ARCHIVE_KEYS, BACKUP_DAYS, CONVERTER_KEYS, EXTRACT_MODES, FORMAT_KEYS, GENERAL_KEYS,
-                       SLIDESHOW_SECONDS, VIDEO_QUALITIES, VIDEO_SIZES, VIEWER_KEYS, VIEWER_WHEEL, CLIP_DAYS, CLIP_MAX,
+                       SLIDESHOW_SECONDS, VIDEO_QUALITIES, VIDEO_SIZES, AUDIO_QUALITIES, VIEWER_KEYS, VIEWER_WHEEL, CLIP_DAYS, CLIP_MAX,
                        CLIP_SHORTCUTS, CLIP_PLAIN_SHORTCUTS, CLIPBOARD_KEYS,
                        CAP_AFTER, CAP_DELAY, CAP_SHORTCUTS, CAP_TEXT_SHORTCUTS, CAPTURE_KEYS, PLAYER_KEYS, PLAYER_SKIP,
                        PLAYER_WHEEL,
@@ -877,6 +877,8 @@ class MainWindow(QWidget):
             setattr(s, k, copy.deepcopy(v))
         settings_mod.HELD = None
         self.pending_startup = None
+        from . import presets
+        presets.use(s.converter_presets)  # (the wheel and menu show the saved presets again)
         self.c.watch_downloads(s.watch_downloads)
         self.c.apply_theme()
         self.c.settings_changed(menu=True)
@@ -2574,6 +2576,12 @@ class MainWindow(QWidget):
         self.video_size.currentIndexChanged.connect(self._general_changed)
         self.video_size.setToolTip(tr("Bigger videos are made smaller to this, keeping their shape. Smaller ones "
                                       "stay as they are."))
+        self.audio_quality = Dropdown()
+        for key, text in AUDIO_QUALITIES.items():
+            self.audio_quality.addItem(tr(text), key)
+        self.audio_quality.setCurrentIndex(max(0, self.audio_quality.findData(s.audio_quality)))
+        self.audio_quality.currentIndexChanged.connect(self._general_changed)
+        self.audio_quality.setToolTip(tr("For MP3, M4A, OGG and Opus. WAV and FLAC always keep every detail."))
 
         self.unavailable = Dropdown()
         self.unavailable.addItem(tr("Show them dimmed (with the reason)"), True)
@@ -2583,7 +2591,8 @@ class MainWindow(QWidget):
 
         rows = ((tr("Key to hold while dragging"), self.shortcut), (tr("Save new files"), self.save_mode),
                 ("", self.folder_row), (tr("Image quality"), q_row), (tr("Video quality"), self.video_quality),
-                (tr("Video size"), self.video_size), (tr("Formats that don't fit a file"), self.unavailable))
+                (tr("Video size"), self.video_size), (tr("Sound quality"), self.audio_quality),
+                (tr("Formats that don't fit a file"), self.unavailable))
         for r, (text, widget) in enumerate(rows):
             if text:
                 grid.addWidget(label(text), r, 0)
@@ -2591,6 +2600,8 @@ class MainWindow(QWidget):
         grid.setColumnStretch(1, 1)
         bl.addLayout(grid)
         lay.addWidget(box)
+        from .presetspage import PresetsCard
+        lay.addWidget(PresetsCard(self.c, lambda: getattr(self, "panel", None) is not None and self.panel.refresh()))
 
         # right-click menu
         menu, ml = card()
@@ -3967,6 +3978,7 @@ class MainWindow(QWidget):
             s.video_gpu = self.video_gpu.isChecked()
             s.video_quality = self.video_quality.currentData()
             s.video_size = self.video_size.currentData()
+            s.audio_quality = self.audio_quality.currentData()
             changed = s.pack_on_every_wheel != self.pack_everywhere.isChecked()
             s.pack_on_every_wheel = self.pack_everywhere.isChecked()
         self.c.settings_changed(menu=changed)

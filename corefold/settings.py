@@ -102,6 +102,8 @@ EXTRACT_MODES = {"smart": "Smart: no folder inside a folder", "folder": "Always 
 VIDEO_QUALITIES = {"high": "High (bigger file)", "balanced": "Balanced", "smaller": "Smaller file",
                    "smallest": "Smallest file"}
 VIDEO_CRF = {"high": 18, "balanced": 20, "smaller": 24, "smallest": 28}
+AUDIO_QUALITIES = {"high": "High (bigger file)", "balanced": "Balanced", "smaller": "Smaller file",
+                   "smallest": "Smallest file"}
 VIDEO_SIZES = {"original": "Same as the video", "2160": "Up to 4K (2160p)", "1080": "Up to Full HD (1080p)",
                "720": "Up to HD (720p)", "480": "Up to 480p"}
 CLIP_SHORTCUTS = {"win+alt+v": "Win + Alt + V", "ctrl+shift+v": "Ctrl + Shift + V", "ctrl+alt+v": "Ctrl + Alt + V",
@@ -167,7 +169,8 @@ LOOK_KEYS = ("appearance", "accent", "custom_color", "animations", "toast_corner
              "sidebar_icons")
 CONVERTER_KEYS = ("shortcut", "save_mode", "output_folder", "jpg_quality", "show_unavailable", "context_menu",
                   "menu_style", "ask_names", "reveal_after", "keep_dates", "convert_recycle", "sound_tick",
-                  "watch_downloads", "pack_on_every_wheel", "video_gpu", "video_quality", "video_size")
+                  "watch_downloads", "pack_on_every_wheel", "video_gpu", "video_quality", "video_size",
+                  "audio_quality")  # (not the presets: "Reset to defaults" never deletes what the person made)
 WHEEL_KEYS = ("wheel_size", "wheel_style", "wheel_opacity", "label_style", "hover_style", "slice_colors", "text_size",
               "wheel_position", "per_page", "wheel_numbers")
 FORMAT_KEYS = ("hidden_tools", "favorites", "tool_order")
@@ -217,6 +220,8 @@ class Settings:
     video_gpu: bool = True         # videos are made with the graphics card when there is one (falls back by itself)
     video_quality: str = "balanced"  # VIDEO_QUALITIES
     video_size: str = "original"     # VIDEO_SIZES: made smaller if bigger than this, never bigger
+    audio_quality: str = "balanced"  # AUDIO_QUALITIES (MP3, M4A, OGG, Opus)
+    converter_presets: list = field(default_factory=list)  # the person's own conversions (presets.py)
     reveal_after: bool = False
     keep_dates: bool = False       # a converted file gets the original's "Date modified"
     convert_recycle: bool = False  # the original goes to the Recycle Bin once it's converted
@@ -434,6 +439,11 @@ class Settings:
             s.video_quality = defaults.video_quality
         if s.video_size not in VIDEO_SIZES:
             s.video_size = defaults.video_size
+        if s.audio_quality not in AUDIO_QUALITIES:
+            s.audio_quality = defaults.audio_quality
+        from . import presets
+        s.converter_presets = presets.clean(s.converter_presets)
+        presets.use(s.converter_presets)
         s.fit_mb = min(4000.0, max(0.1, s.fit_mb))
         wm = dict(defaults.watermark)
         wm.update({k: v for k, v in s.watermark.items() if k in wm and type(v) is type(wm[k])})
@@ -496,7 +506,8 @@ class Settings:
         return Options(output_folder=folder, jpg_quality=self.jpg_quality,
                        rename_base=rename_base, rename_start=rename_start, gpu=bool(self.video_gpu),
                        keep_dates=bool(self.keep_dates), video_crf=VIDEO_CRF.get(self.video_quality, 20),
-                       video_max=int(self.video_size) if self.video_size.isdigit() else 0)
+                       video_max=int(self.video_size) if self.video_size.isdigit() else 0,
+                       audio_quality=self.audio_quality)
 
     @property
     def shortcut_label(self) -> str:

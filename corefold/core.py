@@ -66,6 +66,7 @@ class Options:
     keep_dates: bool = False           # a converted file gets the original's "Date modified"
     video_crf: int = 20                # how good the Converter's videos are (x264's scale: lower = better)
     video_max: int = 0                 # their shorter side at most (0 = as it is); never made bigger
+    audio_quality: str = "balanced"    # sound files: presets.QUALITIES
 
 
 @dataclass

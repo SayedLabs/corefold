@@ -919,6 +919,10 @@ def ffmpeg_convert(src: Path, ctx: Ctx, ext: str, args: list[str], suffix: str =
         args = _EVEN + _H264 + ["-crf", "20"] + _AAC
     if ext in (".mp4", ".mov", ".webm", ".mkv") and not suffix:
         args = tuned_video(src, ext, args, ctx.options)
+    quality = getattr(ctx.options, "audio_quality", "balanced")
+    if ext in AUDIO_ARGS and args == AUDIO_ARGS[ext] and quality != "balanced":  # (Settings → Converter)
+        from .presets import audio_args
+        args = audio_args(ext, quality)
     run_ffmpeg(src, out, args, ctx)
     return Result([out])
 
@@ -1555,6 +1559,9 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
                Tool("archive:7z", "7z", tr("Turn into a 7z (smaller)"), partial(ar.convert_archive, fmt="7z"),
                     check=both(ar.check_needs_7z, is_ext(".7z")), password=True, target=".7z")]
     archive += [t for t in pack if t.key == "files:rename"]  # archives can be renamed too
+    from .presets import tools as preset_tools
+    for kind, mine in preset_tools().items():  # (the person's own presets, after the formats)
+        {"image": image, "audio": audio, "video": video}[kind].extend(mine)
     return {"image": image, "audio": audio, "video": video, "pdf": pdf, "document": document,
             "archive": archive, "folder": folder, "files": pack}
 
