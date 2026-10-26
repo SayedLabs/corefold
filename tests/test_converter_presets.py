@@ -79,44 +79,25 @@ def test_a_sound_preset(tmp_path, monkeypatch):
     assert out.name == "tone (Hi).mp3" and out.stat().st_size > 1000
 
 
-@pytest.fixture
-def controller(qtbot):
-    from PySide6.QtCore import QTimer
+def test_the_options_card_adds_a_ready_preset(qtbot):
+    from types import SimpleNamespace
+
     from PySide6.QtGui import QIcon
-    from shiboken6 import delete
-
-    from corefold import app as A
-    from corefold import settings as settings_mod
-    s = settings_mod.Settings.load()
-    s.first_run, s.tour_done, s.animations, s.converter_presets = False, True, False, []
-    s.save()
-    c = A.Controller(A.QApplication.instance(), QIcon())
-    c.apply_tools()
-    yield c
-    c.tray.hide()
-    for timer in c.findChildren(QTimer):
-        timer.stop()
-    if c._window is not None:
-        c._window.close()
-        delete(c._window)
-        c._window = None
-    c.settings.converter_presets = []
-    c.settings.save()
-
-
-def test_the_options_page_adds_a_ready_preset(controller, qtbot):
     from PySide6.QtWidgets import QPushButton
 
+    from corefold import theme
     from corefold.presetspage import PresetsCard
-    w = controller.window
-    w.open_page("ConvOptions")
-    card = w.findChild(PresetsCard)
-    assert card is not None
-    add = next(b for b in card.findChildren(QPushButton) if "WhatsApp" in b.text())
-    add.click()
-    assert [p["name"] for p in controller.settings.converter_presets] == ["WhatsApp"]
-    assert any(t.label == "WhatsApp" for t in converters.catalog()["video"])
-    assert w.is_dirty()  # (kept once Save is pressed, like every setting)
-    w.discard_changes(rebuild=False)
-    assert controller.settings.converter_presets == [] and not any(t.key.startswith("preset:")
-                                                                   for t in converters.catalog()["video"])
+    told = []
+    c = SimpleNamespace(theme=theme.build_theme("light", "core"), icon=QIcon(), settings=Settings(),
+                        settings_changed=lambda menu=False: told.append(menu))
+    card = PresetsCard(c)
+    qtbot.addWidget(card)
+    next(b for b in card.findChildren(QPushButton) if "WhatsApp" in b.text()).click()
+    assert [p["name"] for p in c.settings.converter_presets] == ["WhatsApp"] and told == [True]
+    assert any(t.label == "WhatsApp" for t in converters.catalog()["video"])  # (on the wheel straight away)
+    qtbot.waitUntil(lambda: not any("WhatsApp" in b.text() for b in card.findChildren(QPushButton)
+                                    if not b.isHidden() and b.objectName() == "ghost"))
+    remove = [b for b in card.findChildren(QPushButton) if b.accessibleName() == "Remove" and not b.isHidden()]
+    remove[0].click()
+    assert c.settings.converter_presets == [] and not any(t.key.startswith("preset:")
+                                                          for t in converters.catalog()["video"])
