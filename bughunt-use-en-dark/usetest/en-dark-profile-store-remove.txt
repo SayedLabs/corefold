@@ -1,0 +1,91 @@
+         41424 function calls (40887 primitive calls) in 0.212 seconds
+
+   Ordered by: cumulative time
+   List reduced from 661 to 45 due to restriction <45>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.162    0.162 D:\a\corefold\corefold\corefold\app.py:894(set_tool)
+        1    0.000    0.000    0.162    0.162 D:\a\corefold\corefold\corefold\atomic\motion.py:98(cross_fade)
+        1    0.000    0.000    0.158    0.158 D:\a\corefold\corefold\corefold\window.py:1125(tools_changed)
+        1    0.000    0.000    0.158    0.158 D:\a\corefold\corefold\corefold\window.py:1134(_tools_changed)
+        1    0.000    0.000    0.155    0.155 D:\a\corefold\corefold\corefold\window.py:1092(_rebuild_home)
+        1    0.000    0.000    0.142    0.142 D:\a\corefold\corefold\corefold\window.py:1107(_remake_page)
+        1    0.000    0.000    0.055    0.055 D:\a\corefold\corefold\corefold\window.py:2306(_home)
+      109    0.007    0.000    0.051    0.000 {method 'addWidget' of 'PySide6.QtWidgets.QBoxLayout' objects}
+        2    0.023    0.011    0.030    0.015 {method 'insertWidget' of 'PySide6.QtWidgets.QStackedWidget' objects}
+        1    0.000    0.000    0.029    0.029 D:\a\corefold\corefold\corefold\homewidgets.py:456(__init__)
+       31    0.007    0.000    0.022    0.001 {built-in method winreg.OpenKey}
+        9    0.000    0.000    0.020    0.002 D:\a\corefold\corefold\corefold\homewidgets.py:509(<genexpr>)
+        8    0.000    0.000    0.020    0.002 D:\a\corefold\corefold\corefold\homewidgets.py:614(_make)
+        8    0.001    0.000    0.019    0.002 D:\a\corefold\corefold\corefold\homewidgets.py:315(__init__)
+        8    0.000    0.000    0.018    0.002 D:\a\corefold\corefold\corefold\homewidgets.py:902(make_content)
+        4    0.003    0.001    0.014    0.003 D:\a\corefold\corefold\corefold\assoc.py:68(_registered)
+        5    0.002    0.000    0.012    0.002 D:\a\corefold\corefold\corefold\window.py:413(__init__)
+        1    0.000    0.000    0.012    0.012 D:\a\corefold\corefold\corefold\homewidgets.py:501(fill)
+     3683    0.003    0.000    0.011    0.000 D:\a\corefold\corefold\corefold\sheet.py:1404(eventFilter)
+        1    0.000    0.000    0.011    0.011 D:\a\corefold\corefold\corefold\window.py:3948(refresh_history)
+        2    0.000    0.000    0.010    0.005 D:\a\corefold\corefold\corefold\homewidgets.py:512(_place)
+        1    0.001    0.001    0.009    0.009 D:\a\corefold\corefold\corefold\window.py:2428(_fill_recent)
+        2    0.000    0.000    0.009    0.005 D:\a\corefold\corefold\corefold\assoc.py:57(is_current)
+       17    0.008    0.000    0.009    0.001 {method 'show' of 'PySide6.QtWidgets.QWidget' objects}
+        2    0.000    0.000    0.009    0.005 D:\a\corefold\corefold\corefold\navbar.py:192(paintEvent)
+        2    0.000    0.000    0.009    0.004 D:\a\corefold\corefold\corefold\assoc.py:53(_command)
+     3802    0.004    0.000    0.008    0.000 {method 'type' of 'PySide6.QtCore.QEvent' objects}
+       17    0.004    0.000    0.008    0.000 D:\a\corefold\corefold\corefold\icons.py:195(product_tile)
+       30    0.003    0.000    0.007    0.000 {built-in method winreg.DeleteValue}
+        7    0.000    0.000    0.007    0.001 D:\a\corefold\corefold\corefold\homewidgets.py:917(_head)
+      114    0.001    0.000    0.007    0.000 D:\a\corefold\corefold\corefold\atomic\widgets.py:371(heightForWidth)
+      120    0.005    0.000    0.007    0.000 D:\a\corefold\corefold\corefold\atomic\widgets.py:388(_place)
+       24    0.003    0.000    0.007    0.000 D:\a\corefold\corefold\corefold\navbar.py:28(paint)
+        2    0.000    0.000    0.007    0.003 D:\a\corefold\corefold\corefold\settings.py:524(app_command)
+       52    0.005    0.000    0.006    0.000 {method 'addLayout' of 'PySide6.QtWidgets.QBoxLayout' objects}
+     4250    0.003    0.000    0.005    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\enum.py:720(__call__)
+        1    0.003    0.003    0.005    0.005 {built-in method processEvents}
+       25    0.003    0.000    0.005    0.000 D:\a\corefold\corefold\corefold\window.py:141(button)
+        1    0.001    0.001    0.005    0.005 D:\a\corefold\corefold\corefold\homewidgets.py:1124(_w_organizer)
+       14    0.002    0.000    0.005    0.000 D:\a\corefold\corefold\corefold\clipview.py:81(paint)
+       40    0.004    0.000    0.004    0.000 {method 'render' of 'PySide6.QtSvg.QSvgRenderer' objects}
+        1    0.000    0.000    0.004    0.004 D:\a\corefold\corefold\corefold\assoc.py:172(_sync_pending)
+        1    0.000    0.000    0.004    0.004 D:\a\corefold\corefold\corefold\assoc.py:145(sync)
+        7    0.001    0.000    0.004    0.001 D:\a\corefold\corefold\corefold\homewidgets.py:905(_tile)
+       40    0.004    0.000    0.004    0.000 D:\a\corefold\corefold\corefold\window.py:133(label)
+
+
+         41424 function calls (40887 primitive calls) in 0.212 seconds
+
+   Ordered by: internal time
+   List reduced from 661 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+     41/1    0.053    0.001    0.000    0.000 {built-in method time.sleep}
+        2    0.023    0.011    0.030    0.015 {method 'insertWidget' of 'PySide6.QtWidgets.QStackedWidget' objects}
+       17    0.008    0.000    0.009    0.001 {method 'show' of 'PySide6.QtWidgets.QWidget' objects}
+      109    0.007    0.000    0.051    0.000 {method 'addWidget' of 'PySide6.QtWidgets.QBoxLayout' objects}
+       31    0.007    0.000    0.022    0.001 {built-in method winreg.OpenKey}
+       52    0.005    0.000    0.006    0.000 {method 'addLayout' of 'PySide6.QtWidgets.QBoxLayout' objects}
+      120    0.005    0.000    0.007    0.000 D:\a\corefold\corefold\corefold\atomic\widgets.py:388(_place)
+       40    0.004    0.000    0.004    0.000 {method 'render' of 'PySide6.QtSvg.QSvgRenderer' objects}
+       17    0.004    0.000    0.008    0.000 D:\a\corefold\corefold\corefold\icons.py:195(product_tile)
+     3802    0.004    0.000    0.008    0.000 {method 'type' of 'PySide6.QtCore.QEvent' objects}
+       40    0.004    0.000    0.004    0.000 D:\a\corefold\corefold\corefold\window.py:133(label)
+       30    0.003    0.000    0.007    0.000 {built-in method winreg.DeleteValue}
+        4    0.003    0.001    0.014    0.003 D:\a\corefold\corefold\corefold\assoc.py:68(_registered)
+       25    0.003    0.000    0.005    0.000 D:\a\corefold\corefold\corefold\window.py:141(button)
+     4250    0.003    0.000    0.005    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\enum.py:720(__call__)
+     3683    0.003    0.000    0.011    0.000 D:\a\corefold\corefold\corefold\sheet.py:1404(eventFilter)
+        1    0.003    0.003    0.005    0.005 {built-in method processEvents}
+       24    0.003    0.000    0.007    0.000 D:\a\corefold\corefold\corefold\navbar.py:28(paint)
+       56    0.002    0.000    0.002    0.000 {method 'drawText' of 'PySide6.QtGui.QPainter' objects}
+     4250    0.002    0.000    0.002    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\enum.py:1128(__new__)
+       69    0.002    0.000    0.002    0.000 {method 'elidedText' of 'PySide6.QtGui.QFontMetrics' objects}
+       14    0.002    0.000    0.005    0.000 D:\a\corefold\corefold\corefold\clipview.py:81(paint)
+        5    0.002    0.000    0.012    0.002 D:\a\corefold\corefold\corefold\window.py:413(__init__)
+       54    0.002    0.000    0.003    0.000 D:\a\corefold\corefold\corefold\atomic\widgets.py:381(minimumSize)
+        1    0.001    0.001    0.009    0.009 D:\a\corefold\corefold\corefold\window.py:2428(_fill_recent)
+       44    0.001    0.000    0.001    0.000 {method 'connect' of 'PySide6.QtCore.SignalInstance' objects}
+        5    0.001    0.000    0.001    0.000 {method 'setTextFormat' of 'PySide6.QtWidgets.QLabel' objects}
+       10    0.001    0.000    0.001    0.000 D:\a\corefold\corefold\corefold\homewidgets.py:108(__init__)
+        1    0.001    0.001    0.002    0.002 D:\a\corefold\corefold\corefold\window.py:169(page)
+        2    0.001    0.001    0.003    0.001 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\pathlib.py:852(exists)
+
+
