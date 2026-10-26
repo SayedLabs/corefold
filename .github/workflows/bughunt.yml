@@ -117,7 +117,7 @@ jobs:
           python scripts/edgetest.py *> out/edgetest.txt
           python scripts/audittest.py *> out/audittest.txt
 
-      - name: Each tool's own test (File Organizer, Startup, Scan, a full disk)
+      - name: Each tool's own test (File Organizer, Startup, Scan, a full disk, other write failures)
         if: matrix.name == 'tools'
         shell: pwsh
         id: check2
@@ -137,6 +137,8 @@ jobs:
             "create partition primary", "format fs=ntfs quick label=FULL", "assign letter=R" | Set-Content dp.txt
           diskpart /s dp.txt *> out/diskpart.txt
           python scripts/fulldisktest.py R:\ *> out/fulldisktest.txt
+          # and a folder it can't write to, a file another program holds, folders past 260 letters, Cancel
+          python scripts/writefailtest.py *> out/writefailtest.txt
 
       - name: Every page and button
         if: matrix.sweep != ''
@@ -283,7 +285,7 @@ jobs:
             echo "Bug hunt of $SHA"
             for d in */; do
               echo "== ${d%/}"
-              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest|featuretest|pdftest|pdfedittest|langtest|captexttest|capmarkstest|capfoldertest|edgetest|fulldisktest|audittest|organizetest|startuptest|scantest|newtest_[a-z]+|dllcheck)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused|^App folder:|Corefold-Setup-" "$d" 2>/dev/null | head -20
+              grep -rhaE "^(sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest|featuretest|pdftest|pdfedittest|langtest|captexttest|capmarkstest|capfoldertest|edgetest|fulldisktest|writefailtest|audittest|organizetest|startuptest|scantest|newtest_[a-z]+|dllcheck)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused|^App folder:|Corefold-Setup-" "$d" 2>/dev/null | head -20
               grep -rhaE "^(FAIL|ERROR|SLOW) " "$d" 2>/dev/null | sort | uniq -c | sort -rn | head -60
             done
           } > summary.txt
