@@ -184,13 +184,13 @@ def page(title: str, subtitle: str = "") -> tuple[QWidget, QVBoxLayout]:
 
 def tool_header(product: str, title: str, intro: str, dark: bool, dpr: float, extra: QWidget | None = None,
                 pill: str = "") -> QHBoxLayout:
-    """A tool's own heading, on a banner washed with the tool's colour: its tile, its name (and a pill like
+    """A tool's own heading, straight on the page: its tile (in the tool's colour), its name (and a pill like
     "Coming soon"), one line about it, and something on the far side (like the on/off switch)."""
     from .atomic.widgets import GlowPanel
     banner = GlowPanel(color=QColor(icons.PRODUCT_COLORS.get(product, ("#3cc7b2", "#0f8f7c"))[0 if dark else 1]),
                        rings=False)
     head = QHBoxLayout(banner)
-    head.setContentsMargins(20, 18, 20, 18)
+    head.setContentsMargins(0, 4, 0, 10)
     head.setSpacing(16)
     tile = QLabel()
     tile.setPixmap(icons.product_tile(product, 56, dark, dpr))
@@ -780,7 +780,7 @@ class MainWindow(QWidget):
         self.done_btn = button(tr("Done"), "primary", self.close)
         for b in (self.discard_btn, self.save_btn, self.done_btn):
             footer.addWidget(b)
-        # the pages sit on a big rounded sheet (the canvas) in front of the window's backdrop
+        # the pages sit on the canvas, flat beside the sidebar (a lighter or darker grey than it)
         self.canvas = QFrame()
         self.canvas.setObjectName("canvas")
         cl = QVBoxLayout(self.canvas)
@@ -803,12 +803,11 @@ class MainWindow(QWidget):
 
         self.canvas.installEventFilter(self)  # (the Settings list narrows to icons when space is short)
         root = QHBoxLayout(self)
-        root.setContentsMargins(0, 8, 0, 8)
+        root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
         root.addWidget(sidebar)
         root.addWidget(self.edge)
         root.addWidget(self.canvas, 1)
-        root.addSpacing(8)
 
         self.refresh()
         self.refresh_updates()
@@ -955,12 +954,13 @@ class MainWindow(QWidget):
             w.setVisible(not compact)
 
     def _fade_in(self, i: int):
-        """A page that's opened fades in (quickly), so moving between pages feels smooth."""
+        """A page that's opened fades in while it rises the last few pixels into place (quickly), so moving
+        between pages feels smooth."""
         w = self.stack.widget(i)
         if w is None or not (self.c.settings.animations and self.isVisible()) or PAGES[i] == "Player":
             return  # (the Player's video draws itself: it's left alone)
         from .atomic import motion
-        motion.fade_in(w, 170)
+        motion.rise_in(w, 8, 220)
 
     def _compact_now(self) -> bool:
         return self.c.settings.nav_compact or getattr(self, "_auto_compact", False)
@@ -1039,7 +1039,7 @@ class MainWindow(QWidget):
         self.refresh_history()
         t = self.c.theme
         for b, name in self.quick_buttons:
-            b.setIcon(icons.icon(name, t.accent if not t.dark else t.text))
+            b.setIcon(icons.icon(name, t.text))
         self._color_chips(t)
 
     def _color_chips(self, t: Theme):
@@ -1294,7 +1294,7 @@ class MainWindow(QWidget):
         elif name == "History":
             dpr = self.devicePixelRatioF()
             for glyph, icon in self._stat_glyphs:
-                glyph.setPixmap(icons.pixmap(icon, 22, t.accent, dpr))
+                glyph.setPixmap(icons.pixmap(icon, 22, t.muted, dpr))
         elif name == "Updates":
             self.refresh_updates()
         elif name == "About":
@@ -1861,7 +1861,7 @@ class MainWindow(QWidget):
 
     def _accent_dot(self) -> QLabel:
         dot = QLabel()
-        dot.setPixmap(icons.pixmap("add", 16, self.c.theme.accent, self.devicePixelRatioF()))
+        dot.setPixmap(icons.pixmap("add", 16, self.c.theme.muted, self.devicePixelRatioF()))
         dot.setFixedWidth(18)
         self._dots.append(dot)
         return dot
@@ -1939,7 +1939,7 @@ class MainWindow(QWidget):
             grid = ResponsiveGrid(560, 12, 2)
             for tool in [x for x in tools if x.id in on] + [x for x in tools if x.id not in on]:
                 grid.add(ToolSwitchCard(tool, tool.id in on, lambda n=tool.page: self.open_page(n),
-                                        self._tool_switched, t.dark, dpr, fresh=tool.id in fresh, accent=t.accent))
+                                        self._tool_switched, t.dark, dpr, fresh=tool.id in fresh, accent=t.tokens.glyph))
         else:
             dropping = "converter" in on  # (what can be done with a file is the Converter's)
             if dropping:
@@ -2251,7 +2251,7 @@ class MainWindow(QWidget):
 
         hero = GlowPanel()
         hl = QVBoxLayout(hero)
-        hl.setContentsMargins(28, 24, 28, 22)
+        hl.setContentsMargins(0, 6, 0, 8)
         hl.setSpacing(6)
         self.hello = label(_greeting(), "display")
         hl.addWidget(self.hello)
@@ -3738,7 +3738,7 @@ class MainWindow(QWidget):
         w, lay = page(tr("About"))
         hero = GlowPanel()
         top = QHBoxLayout(hero)
-        top.setContentsMargins(26, 24, 26, 22)
+        top.setContentsMargins(0, 6, 0, 8)
         top.setSpacing(20)
         logo = QLabel()
         logo.setPixmap(self.icon.pixmap(80, 80))
@@ -4289,7 +4289,7 @@ class MainWindow(QWidget):
         self.theme_btn.setToolTip(tr("Switch to light mode") if t.dark else tr("Switch to dark mode"))
         self.lang_btn.setIcon(icons.icon("globe", t.text))
         for b, name in self.quick_buttons:
-            b.setIcon(icons.icon(name, t.accent if not t.dark else t.text))
+            b.setIcon(icons.icon(name, t.text))
         self._color_chips(t)
         if hasattr(self, "home_board"):
             self.home_board.apply_theme(t)
@@ -4300,7 +4300,7 @@ class MainWindow(QWidget):
         self._sync_section_strip(self.current_page())
         dpr = self.devicePixelRatioF()
         for glyph, name in self._stat_glyphs:
-            glyph.setPixmap(icons.pixmap(name, 22, t.accent, dpr))
+            glyph.setPixmap(icons.pixmap(name, 22, t.muted, dpr))
         if self.built("General"):
             for lab, name in zip(self.vol_icons, ("speaker_0", "speaker_2")):
                 lab.setPixmap(icons.pixmap(name, 18, t.muted, dpr))
@@ -4312,7 +4312,7 @@ class MainWindow(QWidget):
             self.preview.theme = t
             self.preview.update()
         for dot in self._dots:
-            dot.setPixmap(icons.pixmap("add", 16, t.accent, dpr))
+            dot.setPixmap(icons.pixmap("add", 16, t.muted, dpr))
         for gear in self._gears:
             gear.setIcon(icons.icon("settings", t.text))
         # (their rows look at each file on disk, which can hang on a network drive that's gone: only the

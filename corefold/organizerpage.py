@@ -100,16 +100,16 @@ class FolderCard(QPushButton):
         hover = self.underMouse()
         on = self.isChecked()
         r = QRectF(self.rect()).adjusted(1, 1, -1, -1)
-        edge = t.accent if on or self.hasFocus() else (t.line_strong if hover else t.border) or t.border
-        p.setPen(QPen(edge, 2 if on else 1))
-        p.setBrush(mix(t.panel, t.accent, 0.08) if on else (t.hover if hover else t.panel))
+        edge = t.text if on else t.muted if self.hasFocus() else (t.line_strong if hover else t.panel) or t.border
+        p.setPen(QPen(edge, 1.5 if on else 1))
+        p.setBrush(t.tokens.select if on else (t.hover if hover else t.panel))
         p.drawRoundedRect(r, 12, 12)
         pad = 14
         tile = QRectF(r.right() - pad - 40 if rtl else r.left() + pad, r.center().y() - 20, 40, 40)
         p.setPen(Qt.NoPen)
-        p.setBrush(mix(t.panel, t.accent, 0.2 if t.dark else 0.13))
+        p.setBrush(mix(t.panel, t.text, 0.08))
         p.drawRoundedRect(tile, 10, 10)
-        icons.paint(p, tile.adjusted(10, 10, -10, -10), self.glyph, t.accent)
+        icons.paint(p, tile.adjusted(10, 10, -10, -10), self.glyph, t.text)
         x0 = tile.right() + 12 if not rtl else r.left() + pad
         x1 = r.right() - pad if not rtl else tile.left() - 12
         align = (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignVCenter
@@ -446,7 +446,7 @@ class OrganizerPage(QWidget):
                 head.page = self
                 head.setData(0, Qt.UserRole, kind)
                 head.setIcon(0, icons.icon(RULE_GLYPH if kind.startswith("rule:") else KIND_GLYPHS.get(kind, "folder"),
-                                           t.accent))
+                                           t.muted))
                 head.setFlags(head.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsAutoTristate)
                 head.setToolTip(0, str(p.folders[kind]))
                 if self.left_out:

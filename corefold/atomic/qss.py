@@ -7,7 +7,7 @@ Names (setObjectName) understood here:
     subtle      third-line text, hints          section    small heading between cards
     card        a rounded box                   group      a box of setting rows
     chip        a small rounded label           kbd        a key, like Ctrl + K
-    primary     the main button                 danger     a button that deletes or removes
+    primary     the main button (one a screen)  danger     a button that deletes or removes
     ghost       a button with no box            flat       a link-like button
     small       a small ghost button            iconButton a square button with an icon
     pillButton  a round-ended ghost button with an icon and a word or two (the language button)
@@ -28,7 +28,7 @@ from .tokens import FONT_DISPLAY, FONT_TEXT, RADIUS, TYPE, Palette, alpha, mix
 _BASE = Template("""
 * { font-family: $font_text; font-size: ${body}pt; color: $text; }
 QWidget#window { background: $backdrop; }
-QFrame#canvas { background: $canvas; border: 1px solid $border; border-radius: ${r_canvas}px; }
+QFrame#canvas { background: $canvas; border: none; border-radius: 0; }
 QWidget#topBar { background: transparent; }
 QLabel#display { font-family: $font_display; font-size: ${display}pt; font-weight: 600; }
 QLabel#h1 { font-family: $font_display; font-size: ${h1}pt; font-weight: 600; }
@@ -42,15 +42,15 @@ QLabel#version { color: $subtle; font-size: ${caption}pt; }
 QLabel#unsaved { color: $warning; font-weight: 600; }
 QLabel#warning { color: $text; background: $surface; border: 1px solid $line_strong; border-$lead_side: 3px solid $warning;
                  border-radius: ${r_md}px; padding: 9px 12px; }
-QLabel#chip { background: $accent_soft; color: $text; border-radius: 10px; padding: 2px 10px;
+QLabel#chip { background: $select; color: $text; border-radius: 10px; padding: 2px 10px;
               font-size: ${caption_plus}pt; font-weight: 600; }
 QLabel#kbd { background: $field; color: $muted; border: 1px solid $line_strong; border-bottom-width: 2px;
              border-radius: 5px; padding: 0 5px; font-size: ${caption}pt; font-weight: 600; }
 QLabel#badge { background: $hover; border: 1px solid $border; border-radius: ${r_md}px; padding: 2px 8px;
                font-size: ${caption}pt; }
-QLabel#step { background: $accent_soft; color: $accent; border-radius: 13px; font-weight: 700; }
+QLabel#step { background: $select; color: $text; border-radius: 13px; font-weight: 700; }
 QLabel#stat { font-family: $font_display; font-size: ${h1}pt; font-weight: 600; color: $text; }
-QFrame#card, QFrame#group { background: $surface; border: 1px solid $border; border-radius: ${r_lg}px; }
+QFrame#card, QFrame#group { background: $surface; border: 1px solid $surface; border-radius: ${r_lg}px; }
 QFrame#line { background: $border; max-height: 1px; min-height: 1px; border: none; }
 QFrame#tabLine { background: $border; border: none; max-height: 1px; min-height: 1px; }
 QFrame#toast { background: $raised; border: 1px solid $line_strong; border-radius: ${r_xl}px; }
@@ -59,7 +59,7 @@ QPushButton { background: $field; border: 1px solid $line_strong; border-bottom-
               border-radius: ${r_md}px; padding: 7px 15px; text-align: center; }
 QPushButton:hover { background: $hover; }
 QPushButton:pressed { background: $pressed; border-bottom-color: $line_strong; }
-QPushButton:checked { background: $accent_soft; color: $text; border-color: $accent; }
+QPushButton:checked { background: $select; color: $text; border-color: $line_strong; }
 QPushButton:disabled { color: $subtle; border-color: $border; background: transparent; }
 QPushButton:focus { outline: none; }
 /* ("text-align" makes Qt lay out an icon and its words itself, with a real gap between them: without it the
@@ -67,18 +67,18 @@ QPushButton:focus { outline: none; }
 /* a button with a menu: the arrow on its trailing side (Qt's own one lands outside the button in Arabic) */
 QPushButton::menu-indicator { image: url($down); width: 10px; height: 10px; subcontrol-origin: padding;
         subcontrol-position: center right; right: 7px; }
-QPushButton#primary { background: $accent; color: $on_accent; border: 1px solid $accent; border-bottom-color: $accent_edge;
+QPushButton#primary { background: $primary; color: $on_primary; border: 1px solid $primary; border-bottom-color: $primary_edge;
                       font-weight: 600; }
-QPushButton#primary:hover { background: $accent_hover; border-color: $accent_hover; }
-QPushButton#primary:pressed { background: $accent_edge; }
-QPushButton#primary:disabled { background: $accent_soft; border-color: $accent_soft; color: $muted; }
+QPushButton#primary:hover { background: $primary_hover; border-color: $primary_hover; }
+QPushButton#primary:pressed { background: $primary_edge; }
+QPushButton#primary:disabled { background: $select; border-color: $select; color: $subtle; }
 QPushButton#danger { color: $danger; }
 QPushButton#danger:hover { border-color: $danger; background: $danger_soft; }
 QPushButton#ghost { background: transparent; border: 1px solid transparent; }
 QPushButton#ghost:hover { background: $hover; }
 QPushButton#ghost:pressed { background: $pressed; }
-QPushButton#flat { background: transparent; border: none; color: $accent_text; padding: 3px 6px; font-weight: 600; }
-QPushButton#flat:hover { color: $text; }
+QPushButton#flat { background: transparent; border: none; color: $text; padding: 3px 6px; font-weight: 600; }
+QPushButton#flat:hover { color: $accent_text; }
 QPushButton#flat:disabled { color: $subtle; font-weight: 600; }
 QPushButton#danger:disabled { color: $subtle; }
 QPushButton#small { padding: 2px 8px; min-width: 0; background: transparent; border: 1px solid transparent;
@@ -97,7 +97,7 @@ QPushButton#pillButton:pressed { background: $pressed; }
 QPushButton#tab { background: transparent; border: none; border-bottom: 2px solid transparent; border-radius: 0;
                   color: $muted; padding: 6px 12px 7px 12px; min-width: 0; font-weight: 600; }
 QPushButton#tab:hover { color: $text; }
-QPushButton#tab:checked { color: $text; border-bottom: 2px solid $accent; }
+QPushButton#tab:checked { color: $text; border-bottom: 2px solid $text; }
 QPushButton#subtab { background: transparent; border: 1px solid transparent; border-radius: 12px; color: $muted;
                      padding: 4px 14px; min-width: 0; font-weight: 600; }
 QPushButton#subtab:hover { color: $text; background: $hover; }
@@ -113,8 +113,9 @@ QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit, QPlainTextEdit {
         padding: 5px 10px; min-height: 20px; selection-background-color: $accent; selection-color: $on_accent; }
 QTextEdit, QPlainTextEdit { padding: 6px; }
 QLineEdit:hover, QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover { background: $hover; }
-QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus, QTextEdit:focus, QPlainTextEdit:focus {
-        border-color: $line_strong; border-bottom: 2px solid $accent; background: $field; }
+QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QTextEdit:focus, QPlainTextEdit:focus {
+        border-color: $accent; background: $field; }
+QComboBox:focus { background: $field; }
 QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled { color: $subtle; background: transparent; }
 QLineEdit#searchBox { border-radius: 16px; padding: 6px 12px 6px 34px; background: $field; }
 QLineEdit#searchBox:focus { border: 1px solid $accent; }
@@ -159,11 +160,11 @@ QTreeView, QListView, QTableView { background: $surface; border: 1px solid $bord
         alternate-background-color: $canvas; }
 QTreeView::item, QListView::item { padding: 5px 2px; }
 QTreeView::item:hover, QListView::item:hover { background: $hover; }
-QTreeView::item:selected, QListView::item:selected { background: $accent_soft; color: $text; }
+QTreeView::item:selected, QListView::item:selected { background: $select; color: $text; }
 QTreeView::indicator { width: 16px; height: 16px; border-radius: 4px; border: 1px solid $line_strong; background: $field; }
 QTreeView::indicator:hover { border-color: $muted; }
 QTreeView::indicator:checked { background: $accent; border-color: $accent; image: url($check); }
-QTreeView::indicator:indeterminate { background: $accent_soft; border-color: $accent; }
+QTreeView::indicator:indeterminate { background: $select; border-color: $muted; }
 QHeaderView::section { background: $surface; color: $muted; border: none; border-bottom: 1px solid $border; padding: 7px 6px;
         font-weight: 600; font-size: ${caption_plus}pt; }
 QHeaderView::section:hover { color: $text; }
@@ -214,7 +215,8 @@ def base(p: Palette, rtl: bool = False, check: str = "", up: str = "", down: str
         border=p.border.name(), line_strong=p.line_strong.name(),
         line_bottom=(p.line_strong if p.dark else mix(p.line_strong, p.text, 0.12)).name(),
         accent=p.accent.name(), on_accent=p.on_accent.name(), accent_soft=p.accent_soft.name(),
-        accent_hover=p.accent_hover.name(), accent_edge=p.accent.darker(118 if not p.dark else 110).name(),
+        select=p.select.name(), primary=p.primary.name(), on_primary=p.on_primary.name(),
+        primary_hover=p.primary_hover.name(), primary_edge=p.primary.darker(118 if not p.dark else 110).name(),
         accent_text=(p.accent if p.dark else p.accent.darker(108)).name(),
         danger=p.danger.name(), danger_soft=mix(p.surface, p.danger, 0.1).name(), warning=p.warning.name(),
         knob=(p.text if p.dark else QColor("#ffffff")).name(), knob_ring=p.accent.name(),

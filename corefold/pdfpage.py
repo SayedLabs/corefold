@@ -87,7 +87,7 @@ def is_picture(p: Path) -> bool:
     return p.is_file() and norm(p.suffix) in IMAGE_EXT
 
 
-def _tile(icon_name: str, accent: QColor, dpr: float, size: int = 36) -> QPixmap:
+def _tile(icon_name: str, ink: QColor, dpr: float, size: int = 36) -> QPixmap:
     """A card's icon on its soft rounded square, drawn once (a style sheet on every card was slow to set)."""
     pm = QPixmap(round(size * dpr), round(size * dpr))
     pm.setDevicePixelRatio(dpr)
@@ -95,10 +95,10 @@ def _tile(icon_name: str, accent: QColor, dpr: float, size: int = 36) -> QPixmap
     p = QPainter(pm)
     p.setRenderHint(QPainter.Antialiasing)
     p.setPen(Qt.NoPen)
-    p.setBrush(tokens.alpha(accent, 40))
+    p.setBrush(tokens.alpha(ink, 20))
     p.drawRoundedRect(0, 0, size, size, size * 0.28, size * 0.28)
     glyph = round(size * 0.55)
-    p.drawPixmap((size - glyph) // 2, (size - glyph) // 2, icons.pixmap(icon_name, glyph, accent, dpr))
+    p.drawPixmap((size - glyph) // 2, (size - glyph) // 2, icons.pixmap(icon_name, glyph, ink, dpr))
     p.end()
     return pm
 
@@ -123,7 +123,7 @@ class ActionCard(QFrame):
         tile.setFixedSize(size, size)
         tile.setAlignment(Qt.AlignCenter)
         tile.setObjectName("pdfCardIcon")
-        tile.setPixmap(_tile(icon_name, t.accent, self.devicePixelRatioF(), size))
+        tile.setPixmap(_tile(icon_name, t.glyph, self.devicePixelRatioF(), size))
         lay.addWidget(tile, 0, Qt.AlignTop)
         words = QVBoxLayout()
         words.setSpacing(3 if big else 2)

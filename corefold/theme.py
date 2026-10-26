@@ -52,7 +52,7 @@ def system_is_dark() -> bool:
     return winutil.registry_prefers_dark()
 
 
-def build_theme(appearance: str, accent_key: str, custom_color: str = "#3cc7b2", opacity: int = 94) -> Theme:
+def build_theme(appearance: str, accent_key: str, custom_color: str = "#3fb6a2", opacity: int = 94) -> Theme:
     """Colours from the Atomic design system (atomic/tokens.py), plus the wheel's own."""
     dark = appearance == "dark" or (appearance == "system" and system_is_dark())
     if accent_key == "custom" and QColor(custom_color).isValid():
@@ -121,15 +121,15 @@ QListWidget#paletteList { background: transparent; border: none; padding: 0; }
 QListWidget#settingsNav { background: transparent; border: none; outline: none; }
 QLabel#soonPill { background: transparent; border: 1px solid $line_strong; border-radius: 9px; color: $muted;
                   font-size: 7pt; font-weight: 600; padding: 0 7px; }
-QLabel#newPill { background: $accent; color: $on_accent; border-radius: 9px; font-size: 7pt; font-weight: 700;
+QLabel#newPill { background: $select; color: $text; border-radius: 9px; font-size: 7pt; font-weight: 700;
                  padding: 0 7px; }
-QFrame#toolCard { background: $panel; border: 1px solid $border; border-radius: 14px; }
-QFrame#toolCard:hover { border-color: $accent_line; background: $tool_hover; }
-QFrame#toolCard:focus { border-color: $accent; }
+QFrame#toolCard { background: $panel; border: 1px solid $panel; border-radius: 14px; }
+QFrame#toolCard:hover { border-color: $edge_hover; background: $card_hover; }
+QFrame#toolCard:focus { border-color: $muted; }
 QFrame#toolCard[off="true"] { background: transparent; border-style: dashed; }
-QFrame#toolCard[featured="true"] { border-color: $accent_line; background: $tool_hover; }
-QFrame#toolCard[featured="true"]:hover { border-color: $accent; }
-QFrame#toolCard[down="true"] { background: $accent_soft; border-color: $accent; }
+QFrame#toolCard[featured="true"] { border-color: $edge_hover; background: $card_hover; }
+QFrame#toolCard[featured="true"]:hover { border-color: $line_strong; }
+QFrame#toolCard[down="true"] { background: $select; border-color: $select; }
 QLabel#bigCardTitle { font-family: $font_display; font-size: 13pt; font-weight: 700; }
 QPushButton#crumb, QPushButton#crumbHere { background: transparent; border: 1px solid transparent; border-radius: 7px;
   padding: 3px 7px; min-width: 0; font-size: 12pt; }
@@ -139,7 +139,7 @@ QPushButton#crumbHere { color: $text; font-weight: 600; }
 QPushButton#capTool { background: transparent; border: 1px solid transparent; border-radius: 9px; padding: 0 10px;
                       min-width: 0; color: $text; font-weight: 600; }
 QPushButton#capTool:hover { background: $hover; }
-QPushButton#capTool:checked { background: $tool_hover; border-color: $accent_line; color: $accent_text; }
+QPushButton#capTool:checked { background: $select; border-color: $select; color: $text; }
 QPushButton#capSwatch { border: 2px solid $line_strong; border-radius: 13px; padding: 0; min-width: 0; }
 QPushButton#capSwatch:hover { border-color: $muted; }
 QPushButton#capSwatch:checked { border: 3px solid $text; }
@@ -148,58 +148,58 @@ QLabel#pdfGroup { color: $muted; font-size: 9pt; font-weight: 700; }
 QFrame#toolCard[off="true"]:hover { border-color: $line_strong; background: transparent; }
 QPushButton#chipButton { background: $raised; border: 1px solid $border; border-radius: 10px; padding: 3px 11px;
                          min-width: 0; font-weight: 600; }
-QPushButton#chipButton:hover { border-color: $accent_line; background: $tool_hover; }
+QPushButton#chipButton:hover { border-color: $edge_hover; background: $card_hover; }
 QPushButton#stripTab { background: transparent; border: 1px solid transparent; border-radius: 12px; color: $muted;
                        padding: 5px 13px; min-width: 0; font-weight: 600; }
 QPushButton#stripTab:hover { color: $text; background: $hover; }
 QPushButton#stripTab:checked { color: $text; background: $raised; border-color: $line_strong; }
 QLabel#cardTitle { font-family: $font_display; font-size: 11pt; font-weight: 600; }
-QFrame#useBar { background: $stage; border: 1px solid $border; border-radius: 14px; }
+QFrame#useBar { background: $stage; border: 1px solid $stage; border-radius: 14px; }
 QPushButton#useTab { background: transparent; border: 1px solid transparent; border-radius: 10px; color: $muted;
                      padding: 5px 10px; min-width: 0; font-weight: 600; }
 QPushButton#useTab:hover { color: $text; background: $hover; }
-QPushButton#useTab:checked { color: $text; background: $raised; border-color: $line_strong; }
-QLabel#cardStat { color: $accent_text; font-size: 8.5pt; font-weight: 600; }
+QPushButton#useTab:checked { color: $text; background: $select; border-color: $select; }
+QLabel#cardStat { color: $muted; font-size: 8.5pt; font-weight: 600; }
 QLabel#heroStat { font-family: $font_display; font-size: 17pt; font-weight: 700; }
-QFrame#homeWidget { background: $panel; border: 1px solid $border; border-radius: 14px; }
+QFrame#homeWidget { background: $panel; border: 1px solid $panel; border-radius: 14px; }
 QFrame#homeWidget[hot="true"] { border: 1px solid $accent; background: $accent_soft; }
 QPushButton#widgetAction { background: $raised; border: 1px solid $border; border-radius: 9px; padding: 6px 10px;
                            min-width: 0; font-weight: 600; text-align: $lead_side; }
-QPushButton#widgetAction:hover { border-color: $accent_line; background: $tool_hover; }
+QPushButton#widgetAction:hover { border-color: $edge_hover; background: $card_hover; }
 QPushButton#widgetRow { background: transparent; border: 1px solid transparent; border-radius: 7px; padding: 3px 6px;
                         min-width: 0; text-align: $lead_side; }
 QPushButton#widgetRow:hover { background: $hover; }
 QPushButton#widgetFolder, QPushButton#widgetShortcut { background: $raised; border: 1px solid $border;
                         border-radius: 10px; padding: 0; min-width: 0; text-align: $lead_side; }
 QPushButton#widgetShortcut { background: transparent; border-color: transparent; }
-QPushButton#widgetFolder:hover, QPushButton#widgetShortcut:hover { border-color: $accent_line; background: $tool_hover; }
+QPushButton#widgetFolder:hover, QPushButton#widgetShortcut:hover { border-color: $edge_hover; background: $card_hover; }
 QPushButton#addWidget { background: transparent; border: 1px dashed $line_strong; border-radius: 14px;
-                        color: $accent_text; font-weight: 600; }
-QPushButton#addWidget:hover { border-color: $accent; background: $accent_soft; }
+                        color: $muted; font-weight: 600; }
+QPushButton#addWidget:hover { border-color: $line_strong; background: $hover; color: $text; }
 QFrame#editBar { background: $raised; border: 1px solid $line_strong; border-radius: 10px; }
 QFrame#galleryStage { background: $stage; border: 1px solid $border; border-radius: 14px; }
 QLabel#strong { font-weight: 600; }
-QFrame#dropzone { border: 1px dashed $line_strong; border-radius: 14px; background: $panel; }
-QFrame#dropzone:hover { border-color: $accent; }
+QFrame#dropzone { border: 1px dashed $line_strong; border-radius: 14px; background: $stage; }
+QFrame#dropzone:hover { border-color: $subtle; }
 QFrame#dropzone[hot="true"] { border: 1px solid $accent; background: $accent_soft; }
 QPushButton#action { padding: 7px 13px; border-radius: 8px; }
 QPushButton#action:hover { background: $hover; border-color: $line_strong; }
 QPushButton#action:disabled { color: $muted; background: transparent; border: 1px dashed $border; }
 QPushButton#quick { background: $panel; border: 1px solid $border; border-radius: 12px; padding: 10px 14px;
                     text-align: $lead_side; font-weight: 600; }
-QPushButton#quick:hover { background: $tool_hover; border-color: $accent_line; }
+QPushButton#quick:hover { background: $card_hover; border-color: $edge_hover; }
 QTreeWidget#history, QTreeWidget#apps, QListWidget#history { background: $panel; border: 1px solid $border;
         border-radius: 12px; outline: none; padding: 4px; }
 QTreeWidget#history::item, QTreeWidget#apps::item { padding: 6px 2px; }
 QListWidget#history::item { padding: 8px 10px; border-radius: 8px; }
 QTreeWidget#history::item:selected, QTreeWidget#apps::item:selected, QListWidget#history::item:selected {
-        background: $accent_soft; color: $text; }
+        background: $select; color: $text; }
 QPushButton#star { background: transparent; border: none; font-size: 13pt; padding: 0 4px; color: $muted; }
-QPushButton#star:checked { color: $accent; background: transparent; }
+QPushButton#star:checked { color: $warning; background: transparent; }
 QPushButton#power { padding: 8px 18px; font-weight: 600; border-radius: 17px; }
-QPushButton#power:checked { background: $accent_soft; border-color: $accent; color: $text; }
+QPushButton#power:checked { background: $select; border-color: $line_strong; color: $text; }
 QPushButton#driveCard { background: $panel; border: 1px solid $border; border-radius: 14px; padding: 0; text-align: left; }
-QPushButton#driveCard:hover { border-color: $accent_line; background: $tool_hover; }
+QPushButton#driveCard:hover { border-color: $edge_hover; background: $card_hover; }
 QProgressBar#low::chunk { background: $danger; }
 QWidget#playerWindow { background: #000000; }
 QFrame#playerBar, QWidget#playerNoteBox { background: #121314; }
@@ -209,7 +209,7 @@ QFrame#playerBar QPushButton#small, QWidget#playerNoteBox QPushButton { color: #
         border: 1px solid transparent; font-size: 9pt; }
 QFrame#playerBar QPushButton#small:hover, QWidget#playerNoteBox QPushButton:hover { background: #26282a;
         border-color: #3a3c3e; }
-QFrame#playerBar QPushButton#small:checked { background: #1f3330; border-color: $accent; }
+QFrame#playerBar QPushButton#small:checked { background: #2e2e33; border-color: #3a3a40; }
 QFrame#playerBar QPushButton#small:disabled { color: #55585a; }
 QFrame#playerBar QSlider::groove:horizontal { background: #3a3c3e; }
 QFrame#playerBar QSlider::handle:horizontal { background: #f2f2f2; border-color: #f2f2f2; }
@@ -220,12 +220,12 @@ QListWidget#playlist { background: #121314; color: #e8e8e8; border: none; border
         padding: 4px; }
 QListWidget#playlist::item { padding: 6px 8px; border-radius: 6px; }
 QListWidget#playlist::item:hover { background: #1d1f21; }
-QListWidget#playlist::item:selected { background: #1f3330; color: #ffffff; }
+QListWidget#playlist::item:selected { background: #2e2e33; color: #ffffff; }
 QListWidget#viewerStrip { background: $panel; border: none; border-top: 1px solid $border; outline: none;
         padding: 4px 8px; }
 QListWidget#viewerStrip::item { border-radius: 8px; padding: 2px; border: 2px solid transparent; }
 QListWidget#viewerStrip::item:hover { background: $hover; }
-QListWidget#viewerStrip::item:selected { background: transparent; border: 2px solid $accent; }
+QListWidget#viewerStrip::item:selected { background: transparent; border: 2px solid $text; }
 QFrame#clipPopup { background: $raised; border: 1px solid $line_strong; border-radius: 16px; }
 QListWidget#clips { background: transparent; border: none; outline: none; }
 QListWidget#clipsPage { background: $panel; border: 1px solid $border; border-radius: 12px; outline: none; padding: 4px; }
@@ -246,9 +246,8 @@ def stylesheet(t: Theme, scale: float = 1.0) -> str:
         border=p.border.name(), muted=p.muted.name(), subtle=p.subtle.name(), accent=p.accent.name(),
         on_accent=p.on_accent.name(), accent_soft=p.accent_soft.name(), danger=p.danger.name(),
         line_strong=p.line_strong.name(), hover=p.hover.name(),
-        accent_line=mix(p.line_strong, p.accent, 0.45).name(),
-        accent_text=(p.accent if p.dark else p.accent.darker(108)).name(),
-        tool_hover=mix(p.surface, p.accent, 0.05 if p.dark else 0.035).name(),
+        edge_hover=p.line_strong.name(), accent_text=(p.accent if p.dark else p.accent.darker(108)).name(),
+        card_hover=p.hover.name(), select=p.select.name(), warning=p.warning.name(),
         nav_hover=mix(p.backdrop, p.text, 0.06).name(), nav_press=mix(p.backdrop, p.text, 0.1).name(),
         lead_side=lead, font_display=tokens.FONT_DISPLAY, stage=p.canvas.name(),
     )

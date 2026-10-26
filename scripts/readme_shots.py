@@ -33,7 +33,7 @@ sys.path.insert(0, str(ROOT))
 import corefold  # noqa: E402
 
 if corefold.__version__ == "dev":  # (the sidebar shows it: "Version dev" looks unfinished in a picture)
-    corefold.__version__ = os.environ.get("COREFOLD_SHOW_VERSION", "1.11.0")
+    corefold.__version__ = os.environ.get("COREFOLD_SHOW_VERSION", "1.13.0")
 
 from PIL import Image, ImageDraw, ImageFilter  # noqa: E402
 
@@ -135,7 +135,7 @@ st.CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     "utf-8")
 
 from PySide6.QtCore import QPointF, QRect, Qt  # noqa: E402
-from PySide6.QtGui import QColor, QIcon, QLinearGradient, QPainter, QPixmap, QRadialGradient  # noqa: E402
+from PySide6.QtGui import QColor, QCursor, QIcon, QLinearGradient, QPainter, QPixmap, QRadialGradient  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from corefold import i18n  # noqa: E402
@@ -198,6 +198,7 @@ def framed(src: Path, dest: Path, radius: int = 14, margin: int = 36):
 
 
 def grab(widget, what: str, wait: float = 0.6):
+    QCursor.setPos(widget.screen().geometry().bottomRight())  # (the mouse would leave a card looking hovered)
     settle(wait)
     raw = RAW / f"{what}.png"
     widget.grab().save(str(raw))
@@ -208,18 +209,16 @@ def grab(widget, what: str, wait: float = 0.6):
 
 def paint_backdrop(p: QPainter, r: QRect):
     g = QLinearGradient(QPointF(r.topLeft()), QPointF(r.bottomRight()))
-    if DARK:
-        g.setColorAt(0, QColor("#0d1b1e"))
-        g.setColorAt(0.55, QColor("#12302f"))
-        g.setColorAt(1, QColor("#1b2140"))
+    if DARK:  # (the quiet look: soft greys, the accent only in the wheel itself)
+        g.setColorAt(0, QColor("#1e1e21"))
+        g.setColorAt(1, QColor("#131315"))
     else:
-        g.setColorAt(0, QColor("#dff3ef"))
-        g.setColorAt(0.55, QColor("#cfe6f3"))
-        g.setColorAt(1, QColor("#e6defa"))
+        g.setColorAt(0, QColor("#f5f5f7"))
+        g.setColorAt(1, QColor("#e4e4e9"))
     p.fillRect(r, g)
-    glow = QRadialGradient(QPointF(r.width() * 0.25, r.height() * 0.2), r.width() * 0.6)
-    glow.setColorAt(0, QColor(60, 199, 178, 70 if DARK else 90))
-    glow.setColorAt(1, QColor(60, 199, 178, 0))
+    glow = QRadialGradient(QPointF(r.width() * 0.5, r.height() * 0.5), r.width() * 0.5)
+    glow.setColorAt(0, QColor(63, 182, 162, 28 if DARK else 22))
+    glow.setColorAt(1, QColor(63, 182, 162, 0))
     p.fillRect(r, glow)
 
 

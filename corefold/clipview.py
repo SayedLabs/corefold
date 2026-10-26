@@ -89,8 +89,7 @@ class Rows(QStyledItemDelegate):
         r = opt.rect.adjusted(2, 1, -2, -1)
         if opt.state & QStyle.State_Selected:
             p.setPen(Qt.NoPen)
-            soft = QColor(t.accent)
-            soft.setAlpha(46 if t.dark else 34)
+            soft = t.tokens.select
             p.setBrush(soft)
             p.drawRoundedRect(r, 8, 8)
         elif opt.state & QStyle.State_MouseOver:

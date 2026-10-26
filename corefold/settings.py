@@ -63,7 +63,7 @@ def migrate_old_name() -> bool:
 # key: English label (shown through tr())
 SHORTCUT_LABELS = {"shift": "Shift", "ctrl+shift": "Ctrl + Shift", "alt": "Alt"}
 ACCENTS = {  # key: (name, colour on light, colour on dark) — from the Corefold design system
-    "core": ("Teal", "#0a7768", "#3cc7b2"),
+    "core": ("Teal", "#0f7a6c", "#3fb6a2"),
     "ocean": ("Ocean", "#2b5fd4", "#82a8ff"),
     "grape": ("Grape", "#6b4bd6", "#ac97ff"),
     "berry": ("Berry", "#c22f5c", "#ff7fa3"),
@@ -340,7 +340,7 @@ class Settings:
     # look
     appearance: str = "system"
     accent: str = DEFAULT_ACCENT
-    custom_color: str = "#0a7768"  # used when accent == "custom"
+    custom_color: str = "#0f7a6c"  # used when accent == "custom"
     wheel_size: str = "medium"
     wheel_style: str = "ring"
     wheel_opacity: int = 94
