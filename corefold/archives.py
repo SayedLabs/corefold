@@ -677,10 +677,12 @@ class _SpaceGuard:
 # too. What was unpacked so far is deleted (extract() unpacks into a hidden folder first).
 BOMB_RATIO = 1000            # unpacking to over a thousand times its size, more than fits: called a bomb
 _LIE_SLACK = 256 * 1024 ** 2  # what other programs may write meanwhile, before "more than it says" counts
+_CLUSTER, _ENTRY = 4096, 1024
 
 
 def _declared_size(src: Path, password: str, members: list[str] | None) -> int | None:
-    """What the archive says its files add up to, unpacked (None: not known without unpacking it all)."""
+    """About what the archive's files take on the disk, unpacked, by what it says they are (None: not known
+    without unpacking it all)."""
     if is_tar(src):  # (a .tar.gz or .tar.zst can only be listed by unpacking it)
         return None
     try:
@@ -692,7 +694,9 @@ def _declared_size(src: Path, password: str, members: list[str] | None) -> int |
     if members:
         wanted = [m.strip("/") for m in members]
         entries = [e for e in entries if any(e.path == w or e.path.startswith(w + "/") for w in wanted)]
-    return sum(e.size for e in entries if not e.is_dir)
+    # on the disk: each file takes whole clusters (4 KB), and every file and folder an entry of its own in
+    # the disk's table (1 KB): 200,000 small files of 100 bytes need some 1 GB, not 20 MB
+    return sum((0 if e.is_dir else -(-e.size // _CLUSTER) * _CLUSTER) + _ENTRY for e in entries)
 
 
 def check_room(src: Path, target: Path, declared: int | None):

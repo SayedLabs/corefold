@@ -347,7 +347,8 @@ def zip_bombs():
                 archives.extract(big, Ctx(Options(), params={"dest": str(fresh("bombs-dest"))}))
             except RuntimeError as e:
                 err = str(e)
-            check("needs" in err, f"an archive too big for the disk is refused before unpacking ({err or 'not'})")
+            check("needs" in err or "bomb" in err,
+                  f"an archive too big for the disk is refused before unpacking ({err or 'not'})")
             check(not list((BASE / "bombs-dest").iterdir()), "and nothing was written")
             archives._declared_size = lambda *a: None  # (as if it didn't say, or said less than it holds)
             err = ""
