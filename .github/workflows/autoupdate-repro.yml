@@ -6,6 +6,7 @@ on:
 jobs:
   repro:
     runs-on: windows-latest
+    timeout-minutes: 20
     steps:
       - name: Install real 1.14.0, turn on auto update, wait
         env:
@@ -14,7 +15,7 @@ jobs:
         run: |
           gh release download v1.14.0 -R $env:GITHUB_REPOSITORY -p "Corefold-Setup-*.exe" -D old
           $setup = (Get-ChildItem old -Filter "Corefold-Setup-*.exe")[0].FullName
-          Start-Process $setup -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -Wait
+          $sp = Start-Process $setup -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -PassThru; $sp.WaitForExit()
           Start-Sleep 5
           Get-Process Corefold -ErrorAction SilentlyContinue | Stop-Process -Force
           Start-Sleep 3
