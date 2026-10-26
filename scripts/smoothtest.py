@@ -110,7 +110,23 @@ class Beat:
             time.sleep(0.008)
             if time.perf_counter() - self.last > STUTTER * 0.8 and self._seen_at <= self.last:
                 self._seen_at = time.perf_counter()
-                self._where = _where(sys._current_frames().get(self.main))
+                frames = sys._current_frames()
+                where = _where(frames.get(self.main))
+                if "smoothtest.py" in where.split(" < ")[0]:  # (in Qt's own work, or waiting for Python's lock:
+                    names = {t.ident: t.name for t in threading.enumerate()}  # what the other threads were doing)
+                    busy = [f"{names.get(i, i)}: {_where(f)}" for i, f in frames.items()
+                            if i not in (self.main, threading.get_ident()) and _ours(f)]
+                    where += "".join(f" | {b}" for b in busy[:2])
+                self._where = where
+
+
+def _ours(frame) -> bool:
+    while frame is not None:
+        name = frame.f_code.co_filename.replace("\\", "/")
+        if "/corefold/" in name and "/scripts/" not in name:
+            return True
+        frame = frame.f_back
+    return False
 
 
 def _where(frame) -> str:
