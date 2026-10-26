@@ -427,15 +427,27 @@ def start():
             names.append(name)
     slow = []
     for name in names:
-        if os.environ.get("USE_SPY") and name == "Updates":  # (probe: where the window's thread is)
-            subprocess.Popen(["py-spy", "record", "--native", "--threads", "--idle", "--format", "raw",
-                                "--rate", "100", "--duration", "4", "--pid", str(os.getpid()),
-                                "-o", str(OUT / f"{TAG}-spy-updates.txt")],
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            time.sleep(1.5)
         t0 = time.perf_counter()
         watch.label = f"open the {name} page"
         c.window.open_page(name)
+        if os.environ.get("USE_PROBE") and name == "Updates":  # (probe: which part of opening it is slow)
+            from corefold import notesview
+            t1 = time.perf_counter()
+            made = notesview.VersionHistory._make
+            spent = {}
+
+            def timed_make(self, made=made, spent=spent):
+                t = time.perf_counter()
+                made(self)
+                spent["make"] = time.perf_counter() - t
+            notesview.VersionHistory._make = timed_make
+            parts = []
+            for _ in range(6):
+                t = time.perf_counter()
+                qapp.processEvents()
+                parts.append(round(time.perf_counter() - t, 3))
+            notesview.VersionHistory._make = made
+            say(f"probe  build {t1 - t0:.3f} s, then processEvents {parts}, rows made {spent.get('make', -1):.3f} s")
         qapp.processEvents()
         took = time.perf_counter() - t0
         watch.label = ""
