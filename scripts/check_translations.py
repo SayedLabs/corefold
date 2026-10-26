@@ -54,7 +54,7 @@ def table_texts() -> dict[str, str]:
     for name in ("SHORTCUT_LABELS", "WHEEL_SIZE_NAMES", "WHEEL_STYLES", "LABEL_STYLES", "HOVER_STYLES",
                  "SLICE_COLORS", "TEXT_SIZE_NAMES", "WHEEL_POSITIONS", "APPEARANCES", "MENU_STYLES",
                  "TOAST_CORNERS", "TOAST_TIMES", "WINDOW_TEXT", "UNUSED_MONTHS", "BACKUP_DAYS", "UNINSTALL_DEPTHS", "EXTRACT_MODES",
-                 "VIEWER_WHEEL", "SLIDESHOW_SECONDS", "VIDEO_QUALITIES", "VIDEO_SIZES"):
+                 "VIEWER_WHEEL", "SLIDESHOW_SECONDS", "VIDEO_QUALITIES", "VIDEO_SIZES", "AUDIO_QUALITIES"):
         add(getattr(settings, name).values(), name)
     add(sounds.DONE_SOUNDS.values(), "DONE_SOUNDS")
     add([i18n.LANGUAGES["system"]], "LANGUAGES")
@@ -140,6 +140,7 @@ def table_texts() -> dict[str, str]:
     add([v[0] for table in (pdftools.COMPRESS_LEVELS, pdftools.PAGE_SIZES, pdftools.MARGINS) for v in table.values()],
         "pdftools tables")
     add(list(pdftools.DPIS.values()) + list(pdftools.SPLIT_MODES.values()), "pdftools tables")
+    add([text for _, *texts in pdftools.HIDDEN for text in texts], "pdftools.HIDDEN")
     from corefold import pdfeditor
     add([text for table in (pdfeditor.TOOLS, pdfeditor.MARKS, pdfeditor.SHAPES) for _, text, _ in table],
         "pdfeditor tables")
@@ -148,6 +149,10 @@ def table_texts() -> dict[str, str]:
     add([name for name, _ in organizer.KINDS.values()], "organizer.KINDS")
     add(organizer.STAYS.values(), "organizer.STAYS")
     add(organizer.REFUSED.values(), "organizer.REFUSED")
+    from corefold import presets
+    add(list(presets.KINDS.values()) + list(presets.QUALITIES.values()) + list(presets.IMAGE_SIZES.values()) +
+        [r[0] for r in presets.READY if r[0] != "WhatsApp"], "presets tables")
+    add(list(organizer.DATES.values()) + list(organizer.RULE_MATCHES.values()), "organizer tables")
     add([name for _, name, _ in organizerpage.PLACES], "organizerpage.PLACES")
     from corefold import startuppage
     add([text for _, text in startuppage.FILTERS], "startuppage.FILTERS")

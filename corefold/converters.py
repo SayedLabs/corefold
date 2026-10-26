@@ -28,6 +28,7 @@ from .core import (ALIASES, ALL_EXT, ARCHIVE_EXT, AUDIO_EXT, DOCUMENT_EXT, EXCEL
                    Tool, _cached, app_dir, bundled, is_cached, is_cloud_only, category, fallback_folder, human_size,
                    copy_dates, disk_full, find_program, lower_this_thread, norm, os_open, pass_on_zone_mark, remove_file, system_tool,
                    safe_name, short_name, unique_path, writable)
+from .pictureformats import RAW_EXT
 
 log = logging.getLogger("corefold")
 
@@ -56,6 +57,8 @@ def setup_pillow():
         register_heif_opener()
     except ImportError:
         pass
+    from .pictureformats import register  # camera RAW files and drawings (SVG)
+    register()
     _heif_registered = True
 
 
@@ -157,8 +160,8 @@ def save_image(im, out: Path, ext: str, ctx: Ctx, keep_metadata: bool = True):
                 **{k: v for k, v in meta.items() if k in ("exif", "icc_profile")})
     elif ext == ".png":  # a big photo packs twice as fast at level 3, for a file a little bigger
         im.save(out, compress_level=3 if big else 6, **meta)
-    elif ext == ".tiff":
-        im.save(out, **meta)
+    elif ext == ".tiff":  # (packed without losing anything: a TIFF as it comes is as big as the photo's pixels)
+        im.save(out, compression="tiff_deflate", **meta)
     elif ext == ".ico":
         im = im.convert("RGBA")
         # an icon is at most 256 × 256: shrunk first, so a panorama doesn't need a square of its full width
@@ -193,11 +196,13 @@ def check_avif(files: list[Path]) -> str | None:
 def keep_format(src: Path) -> str:
     """Format to save an edited image in: the same as the original when Pillow can write it."""
     ext = norm(src.suffix)
+    if ext in RAW_EXT:  # (a camera's photo stays a photo)
+        return ".jpg"
     return ext if ext in (".png", ".jpg", ".webp", ".bmp", ".tiff", ".gif") else ".png"
 
 
 def convert_image(src: Path, ctx: Ctx, ext: str) -> Result:
-    if is_animated(src) and ext in (".webp", ".png"):  # (both can move: before, only the first frame was kept)
+    if is_animated(src) and ext in (".webp", ".png", ".gif"):  # (they can move: before, only the first frame was kept)
         out = ctx.out_path(src, ctx.stem(src) + ext)
         save_animated(src, out, lambda frame: frame)
         return Result([out])
@@ -922,6 +927,10 @@ def ffmpeg_convert(src: Path, ctx: Ctx, ext: str, args: list[str], suffix: str =
         args = _EVEN + _H264 + ["-crf", "20"] + _AAC
     if ext in (".mp4", ".mov", ".webm", ".mkv") and not suffix:
         args = tuned_video(src, ext, args, ctx.options)
+    quality = getattr(ctx.options, "audio_quality", "balanced")
+    if ext in AUDIO_ARGS and args == AUDIO_ARGS[ext] and quality != "balanced":  # (Settings → Converter)
+        from .presets import audio_args
+        args = audio_args(ext, quality)
     run_ffmpeg(src, out, args, ctx)
     return Result([out])
 
@@ -1461,7 +1470,7 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
               Tool("image:scan", tr("Scan"), tr("Clean up photos of paper into a PDF"), ex.scan_to_pdf, batch=True),
               Tool("image:video", tr("Video"), tr("Turn the pictures into a video slideshow"), ex.images_to_video,
                    batch=True, ask="slideshow", check=ex.check_several_images)]
-    image += [fmt("image", e, convert_image) for e in (".ico", ".bmp")]
+    image += [fmt("image", e, convert_image) for e in (".ico", ".bmp", ".tiff", ".gif")]
     image += [fmt("image", ".avif", convert_image, check=check_avif)]
     image += [Tool("image:qr", "QR", tr("Read QR code"), read_qr, renames=False),
               Tool("image:clean", tr("Clean"), tr("Remove location & camera info"), strip_metadata),
@@ -1559,6 +1568,9 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
                Tool("archive:7z", "7z", tr("Turn into a 7z (smaller)"), partial(ar.convert_archive, fmt="7z"),
                     check=both(ar.check_needs_7z, is_ext(".7z")), password=True, target=".7z")]
     archive += [t for t in pack if t.key == "files:rename"]  # archives can be renamed too
+    from .presets import tools as preset_tools
+    for kind, mine in preset_tools().items():  # (the person's own presets, after the formats)
+        {"image": image, "audio": audio, "video": video}[kind].extend(mine)
     return {"image": image, "audio": audio, "video": video, "pdf": pdf, "document": document,
             "archive": archive, "folder": folder, "files": pack}
 

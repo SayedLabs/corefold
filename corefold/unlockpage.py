@@ -7,12 +7,13 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QFileInfo, QSize, Qt
+from PySide6.QtCore import QFileInfo, QSize, Qt, QTimer
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QFileDialog, QFileIconProvider, QFrame, QHBoxLayout, QInputDialog, QLabel, QMenu, \
     QMessageBox, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from . import i18n, icons, sheet, unlock, work
+from .core import human_size
 from .atomic.widgets import Group, SettingRow
 from .i18n import ltr, tr
 from .panel import DropZone
@@ -73,6 +74,16 @@ def note_for(p: unlock.Program, state: str, admin: bool) -> str:
         return tr("It has no window to close, so it can only be forced to close. Anything not saved in it is "
                   "lost.")
     return ""
+
+
+def drive_name(d: unlock.Drive | str) -> str:
+    """"KINGSTON (E:)", or "USB drive (E:)"."""
+    root = d.root if isinstance(d, unlock.Drive) else str(d)
+    label = d.label if isinstance(d, unlock.Drive) else ""
+    letter = ltr(root[:2])
+    text = tr("{name} ({letter})", name=ltr(label), letter=letter) if label else \
+        tr("USB drive ({letter})", letter=letter)
+    return text + "\u200e" if i18n.is_rtl() else text  # (in Arabic the ")" stays after the letter)
 
 
 class ProgramRow(QWidget):
@@ -142,6 +153,10 @@ class UnlockPage(QWidget):
         self.jobs: list = []               # (kept until their answer is in)
         self.delete_failed = False         # deleting it didn't work: deleting it as the PC restarts is offered
         self.pending: tuple | None = None  # what to do once the programs let go ("Close and delete" …)
+        self.after_note = ""               # said once the next look is done (why ejecting didn't work)
+        self.drives: list[unlock.Drive] = []
+        self.drive_mask = -1               # the drive letters last seen (so the list is only made again on a change)
+        self.drive_job = None
         self.admin = unlock.is_admin()
         self._icons = QFileIconProvider()
         self._icon_cache: dict[str, QIcon | None] = {}
@@ -210,6 +225,10 @@ class UnlockPage(QWidget):
         self.then_rename = then_menu.addAction(tr("Close and rename it…"), lambda: self.close_then("rename"))
         self.then_btn.setMenu(then_menu)
         self.copy_btn = _button(tr("Copy to…"), None, self.copy_to)
+        # a USB drive: take it out safely once nothing uses it (or close them, then eject)
+        self.eject_btn = _button(tr("Eject"), "primary", lambda: self.eject(self.paths[0]))
+        self.eject_btn.setToolTip(tr("Windows makes sure everything is written to it, then it's safe to take out."))
+        self.close_eject_btn = _button(tr("Close all and eject"), "primary", lambda: self.close_then("eject"))
         self.copy_btn.setToolTip(tr("Most programs let a file be read while they have it open, so it can be "
                                     "copied without closing them."))
         self.later_more_btn = _button(tr("When the PC restarts…"), None)
@@ -220,6 +239,8 @@ class UnlockPage(QWidget):
         self.later_more_btn.setMenu(later_menu)
         self.later_more_btn.setToolTip(tr("Windows moves or renames it as the PC starts, before any program can "
                                           "open it. Only on the same drive."))
+        buttons.addWidget(self.close_eject_btn)
+        buttons.addWidget(self.eject_btn)
         buttons.addWidget(self.close_all_btn)
         buttons.addWidget(self.then_btn)
         buttons.addWidget(self.delete_btn)
@@ -235,6 +256,25 @@ class UnlockPage(QWidget):
         rl.addWidget(self.bin_note)
         lay.addWidget(self.result)
         self.result.hide()
+
+        self.drives_card = QFrame()
+        self.drives_card.setObjectName("card")
+        dl = QVBoxLayout(self.drives_card)
+        dl.setContentsMargins(18, 16, 18, 16)
+        dl.setSpacing(8)
+        dl.addWidget(_label(tr("USB drives"), "h2"))
+        dl.addWidget(_label(tr("Windows says \"This device is currently in use\"? See what's using the USB drive, "
+                               "close it, and take the drive out safely."), "muted"))
+        self.drives_none = _label(tr("No USB drive is plugged in."), "subtle")
+        dl.addWidget(self.drives_none)
+        self.drives_group = Group()
+        self.drives_group.hide()
+        dl.addWidget(self.drives_group)
+        self.drive_rows: list[QWidget] = []
+        lay.addWidget(self.drives_card)
+        self.drive_timer = QTimer(self)
+        self.drive_timer.setInterval(2000)
+        self.drive_timer.timeout.connect(self._look_for_drives)
 
         tips = QFrame()
         tips.setObjectName("card")
@@ -311,6 +351,9 @@ class UnlockPage(QWidget):
         live = {p.pid for p in result.programs}
         self.states = {pid: s for pid, s in self.states.items() if pid in live}
         self._fill()
+        if self.after_note:
+            self._say(self.after_note)
+            self.after_note = ""
         if self.pending and self._then():
             return
         self._next()
@@ -324,7 +367,10 @@ class UnlockPage(QWidget):
     def _show_path(self):
         dpr = self.devicePixelRatioF()
         first = self.paths[0]
-        if len(self.paths) == 1:
+        if len(self.paths) == 1 and unlock.is_drive(first):
+            self.path_name.setText(_para(drive_name(self._known(first))))
+            self.path_text.setText(_para(ltr(str(first))))
+        elif len(self.paths) == 1:
             self.path_name.setText(_para(ltr(first.name or str(first))))
             self.path_text.setText(_para(ltr(str(first))))
         else:
@@ -334,7 +380,9 @@ class UnlockPage(QWidget):
                 shown.append("…")
             self.path_text.setText("\n".join(shown))
         ic = self._icons.icon(QFileInfo(str(first))) if first.exists() else QIcon()
-        if ic.isNull():
+        if self._drive():
+            self.path_icon.setPixmap(icons.pixmap("usb_stick", 28, self.c.theme.text, dpr))
+        elif ic.isNull():
             self.path_icon.setPixmap(icons.pixmap("folder" if first.is_dir() else "document", 28,
                                                   self.c.theme.muted, dpr))
         else:
@@ -360,6 +408,8 @@ class UnlockPage(QWidget):
             self.status.setText(tr("Programs using it: {count}", count=len(programs)))
         elif self.paths and not any(os.path.lexists(p) for p in self.paths):
             self.status.setText(tr("It isn't there any more."))
+        elif self._drive():
+            self.status.setText(tr("Nothing is using it right now. You can eject it."))
         else:
             self.status.setText(tr("Nothing is using it right now. You can move or delete it."))
         self.status.setVisible(bool(self.status.text()))
@@ -383,8 +433,19 @@ class UnlockPage(QWidget):
         self.later_more_btn.setVisible(self.later_btn.isVisibleTo(self.result))
         self.later_rename.setVisible(len(self.paths) == 1)
         self.again_btn.setVisible(bool(self.paths))
+        drive = self._drive()
+        if drive:  # (a whole drive is never deleted, moved or renamed: it's ejected)
+            for b in (self.then_btn, self.copy_btn, self.delete_btn, self.move_btn, self.rename_btn, self.bin_note,
+                      self.later_btn, self.later_more_btn, self.close_all_btn):
+                b.hide()
+        self.eject_btn.setVisible(bool(drive) and found is not None and not programs and exists)
+        self.close_eject_btn.setVisible(bool(drive) and bool(idle) and exists)
         if self.busy:
             self._set_busy(True)
+
+    def _drive(self) -> str:
+        """The USB drive being looked at ("E:\\"), or ""."""
+        return str(self.paths[0]) if len(self.paths) == 1 and unlock.is_drive(self.paths[0]) else ""
 
     def _icon(self, exe: str) -> QIcon | None:
         """The program's own icon (kept, so checking again doesn't read the file again)."""
@@ -398,7 +459,8 @@ class UnlockPage(QWidget):
     def _set_busy(self, on: bool, text: str = ""):
         self.busy = on
         for b in (self.close_all_btn, self.delete_btn, self.move_btn, self.rename_btn, self.again_btn,
-                  self.later_btn, self.then_btn, self.copy_btn, self.later_more_btn):
+                  self.later_btn, self.then_btn, self.copy_btn, self.later_more_btn, self.eject_btn,
+                  self.close_eject_btn, *self._drive_buttons()):
             b.setEnabled(not on)
         for row in self.rows:
             for b in (row.close_btn, row.force_btn):
@@ -596,11 +658,17 @@ class UnlockPage(QWidget):
             return False
         if found.programs:
             names = ", ".join(ltr(p.name) for p in found.programs[:3])
-            self._say(tr("{names} still has it open. Force it to close, or have Windows do it when the PC restarts.",
-                         names=names))
+            if action == "eject":
+                self.pending = None
+                self._say(tr("{names} is using the USB drive. Close it, then eject the drive.", names=names))
+            else:
+                self._say(tr("{names} still has it open. Force it to close, or have Windows do it when the PC "
+                             "restarts.", names=names))
             return False
         self.pending = None
-        if action == "delete":
+        if action == "eject":
+            self.eject(self.paths[0])
+        elif action == "delete":
             self.delete()
         elif action == "move":
             self.move(arg)
@@ -826,9 +894,122 @@ class UnlockPage(QWidget):
         self.status.setText(tr("It will be deleted the next time the PC restarts."))
         self.status.show()
 
+    # ---- USB drives
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        self._look_for_drives()
+        self.drive_timer.start()
+
+    def hideEvent(self, e):
+        super().hideEvent(e)
+        self.drive_timer.stop()
+
+    def _look_for_drives(self, force: bool = False):
+        """Makes the list again when a drive was plugged in or taken out (off the window's thread: a
+        USB disk that's asleep can take a moment to answer)."""
+        mask = unlock.drive_letters()
+        if (mask == self.drive_mask and not force) or (self.drive_job is not None and self.drive_job.is_alive()):
+            return
+        self.drive_mask = mask
+        self.drive_job = work.run(lambda _p: unlock.usb_drives(), lambda _: None, self._drives_found,
+                                  name="corefold-usb")
+
+    def _drives_found(self, result):
+        if not work.alive(self):
+            return
+        self.drives = [] if isinstance(result, Exception) else result
+        for row in self.drive_rows:
+            row.hide()
+            row.deleteLater()
+        self.drive_rows = []
+        t = self.c.theme
+        dpr = self.devicePixelRatioF()
+        for d in self.drives:
+            tile = QLabel()
+            tile.setFixedSize(28, 28)
+            tile.setAlignment(Qt.AlignCenter)
+            tile.setPixmap(icons.pixmap("usb_stick", 22, t.text, dpr))
+            controls = QWidget()
+            h = QHBoxLayout(controls)
+            h.setContentsMargins(0, 0, 0, 0)
+            h.setSpacing(8)
+            look = _button(tr("What's using it?"), None, lambda _=False, r=d.root: self.check([Path(r)]))
+            out = _button(tr("Eject"), None, lambda _=False, r=d.root: self.eject_drive(r))
+            out.setIcon(icons.icon("eject", t.text))
+            out.setToolTip(tr("Closes nothing: if a program is using it, Corefold says which."))
+            h.addWidget(look)
+            h.addWidget(out)
+            row = SettingRow(_para(drive_name(d)), _para(tr("{free} free of {total}", free=human_size(d.free),
+                                                              total=human_size(d.total))), controls, tile)
+            row.buttons = (look, out)
+            self.drives_group.add(row)
+            self.drive_rows.append(row)
+        self.drives_group.setVisible(bool(self.drives))
+        self.drives_group.update()
+        self.drives_none.setVisible(not self.drives)
+        if self.busy:
+            self._set_busy(True)
+
+    def _known(self, root) -> unlock.Drive | str:
+        """The drive on the list (with its name), or just its letter."""
+        top = os.path.normcase(str(root)[:2])
+        return next((d for d in self.drives if os.path.normcase(d.root[:2]) == top), str(root))
+
+    def _drive_buttons(self) -> list:
+        return [b for row in getattr(self, "drive_rows", []) for b in getattr(row, "buttons", ())]
+
+    def eject_drive(self, root: str):
+        """Eject on the list: looks at what's using it first, and ejects it if nothing is."""
+        if self.busy:
+            return
+        self.check([Path(root)])
+        self.pending = ("eject", None)
+
+    def eject(self, root):
+        if self.busy:
+            return
+        root = str(root)
+        self._say("")
+        self._set_busy(True, tr("Ejecting it…"))
+        self._run(lambda _p: unlock.eject(root), lambda result, r=root: self._ejected(r, result))
+
+    def _ejected(self, root: str, result):
+        self.jobs = [j for j in self.jobs if j.is_alive()]
+        if not work.alive(self):
+            return
+        self._set_busy(False)
+        if isinstance(result, dict) and result.get("ok"):
+            known = self._known(root)
+            self.found = unlock.Found([Path(root)])
+            self._fill()
+            for b in (self.eject_btn, self.close_eject_btn, self.again_btn):
+                b.hide()
+            self.status.setText(tr("You can take out {name} now.", name=drive_name(known)))
+            self.status.show()
+            self._look_for_drives(force=True)
+            self._next()
+            return
+        why = result.get("why") if isinstance(result, dict) else ""
+        if isinstance(result, Exception):
+            log.warning("couldn't eject %s: %s", root, result)
+        if why == "busy":
+            # (something Corefold can't see from its files, like a command window opened in it: look again)
+            self.after_note = tr("Windows says the USB drive is still in use. Close the programs using it (and any "
+                                 "command window opened in it), then eject it again.")
+            self.check([Path(root)], keep_states=True)
+            return
+        self._fill()
+        self._say(tr("It isn't plugged in any more.") if why == "gone" else
+                  tr("Windows couldn't eject it. Try again, or use \"Eject\" in File Explorer."))
+        self._look_for_drives(force=True)
+        self._next()
+
     # ---- the rest of the window
 
     def apply_theme(self, _theme=None):
         if self.paths:
             self._show_path()
             self._fill()
+        if self.drives:
+            self._drives_found(self.drives)

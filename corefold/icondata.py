@@ -160,4 +160,8 @@ STROKES: dict[str, str] = {
     "sign_out": '<path d="M13.5 4.5H7.5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h6"/><path d="M10.5 12h10M17 8.5l3.5 3.5-3.5 3.5"/>',
     "calculator": '<rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M8.5 7.5h7"/>'
                   '<path d="M8.75 12h.01M12 12h.01M15.25 12h.01M8.75 15.5h.01M12 15.5h.01M15.25 15.5h.01"/>',
+    # Unlock's USB drives
+    "usb_stick": '<rect x="7" y="8.5" width="10" height="12.5" rx="2.2"/><path d="M8.75 8.5V3h6.5v5.5"/>'
+                 '<path d="M10.75 5.25h.01M13.25 5.25h.01"/>',
+    "eject": '<path d="M12 4.5 19 13H5Z"/><path d="M5.5 18.5h13"/>',
 }

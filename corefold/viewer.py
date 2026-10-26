@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (QApplication, QFileDialog, QFrame, QHBoxLayout, Q
 from . import i18n, icons, sheet
 from .core import ALIASES, APP_NAME, IMAGE_EXT, human_size, norm, short_name
 from .i18n import ltr, tr
+from .pictureformats import RAW_EXT
 from .settings import VIEWER_SORTS as SORTS
 from .theme import round_menu
 from .winutil import open_with, print_file, reveal_in_explorer, set_title_bar_dark
@@ -28,8 +29,6 @@ from .winutil import open_with, print_file, reveal_in_explorer, set_title_bar_da
 if TYPE_CHECKING:
     from .app import Controller
 
-RAW_EXT = {".cr2", ".cr3", ".nef", ".nrw", ".arw", ".srf", ".sr2", ".dng", ".orf", ".rw2", ".raf", ".srw", ".pef",
-           ".3fr", ".erf", ".kdc", ".mrw", ".x3f"}   # cameras' own files: their built-in full-size preview is shown
 PICTURE_EXT = IMAGE_EXT | {e for e, to in ALIASES.items() if to in IMAGE_EXT} | {".jpe", ".tga", ".psd", ".dib",
                                                                                   ".svg"} | RAW_EXT
 CACHE_BYTES = 600 << 20   # decoded pictures kept for quick flipping
@@ -86,75 +85,36 @@ def _qt_reads_tiff() -> bool:
 def raw_preview(path: Path):
     """The full-size JPEG a camera keeps inside its RAW file (every camera makes one for its own screen):
     the biggest one found, as a Pillow picture turned the right way up."""
-    import io
-
     from PIL import Image, ImageOps
-    data = path.read_bytes()
-    best, best_px, start = None, 0, 0
-    for _ in range(64):
-        i = data.find(b"\xff\xd8\xff", start)
-        if i < 0:
-            break
-        start = i + 3
-        try:  # (its start is enough to know its size: no copy of the whole file for each one)
-            im = Image.open(io.BytesIO(data[i:i + (1 << 20)]))
-            px = im.width * im.height
-        except Exception:
-            continue
-        if im.format == "JPEG" and px > best_px:
-            best, best_px = i, px
-    if best is None:
-        raise RuntimeError(tr("this camera file has no picture Corefold can show"))
-    im = Image.open(io.BytesIO(data[best:]))
-    im.load()
-    try:  # the turn is in the RAW file's own details more often than in the preview's
-        with Image.open(path) as raw:
-            turn = raw.getexif().get(0x0112, 1)
-        if turn and turn != 1 and im.getexif().get(0x0112, 1) in (0, 1):
-            exif = im.getexif()
-            exif[0x0112] = turn
-            im.info["exif"] = exif.tobytes()
-    except Exception:
-        pass
+
+    from .converters import setup_pillow
+    setup_pillow()
     try:
-        return ImageOps.exif_transpose(im)
-    except Exception:
-        return im
+        with Image.open(path) as im:
+            if im.format != "RAW":
+                raise OSError("not a camera file")
+            im.load()
+            try:
+                return ImageOps.exif_transpose(im)
+            except Exception:
+                return im.copy()
+    except (OSError, SyntaxError) as e:
+        raise RuntimeError(tr("this camera file has no picture Corefold can show")) from e
 
 
 def _qimage_to_pil(image: QImage):
-    from PIL import Image
-    img = image.convertToFormat(QImage.Format.Format_RGBA8888)
-    w, h = img.width(), img.height()
-    return Image.frombuffer("RGBA", (w, h), bytes(img.constBits())[: img.bytesPerLine() * h], "raw", "RGBA",
-                            img.bytesPerLine(), 1).copy()
+    from .pictureformats import qimage_to_pil
+    return qimage_to_pil(image)
 
 
 def svg_picture(path: Path, longest: int = 2400) -> QImage:
     """A drawing (SVG) at a good size for the screen, on a see-through background."""
-    from PySide6.QtCore import QByteArray
-    from PySide6.QtSvg import QSvgRenderer
-
-    from .safetext import safe_svg
-    try:  # (a picture it names outside itself, on a shared folder say, is never opened)
-        r = QSvgRenderer(QByteArray(safe_svg(path.read_bytes())))
-    except (OSError, ValueError, EOFError) as e:
+    from .pictureformats import svg_image
+    try:
+        data = path.read_bytes()
+    except OSError as e:
         raise RuntimeError(tr("this drawing can't be read")) from e
-    if not r.isValid():
-        raise RuntimeError(tr("this drawing can't be read"))
-    size = r.defaultSize()
-    if size.isEmpty():
-        size = QSize(1000, 1000)
-    side = max(size.width(), size.height())
-    if side < longest // 2 or side > longest * 2:  # small ones made sharp; huge ones (99999 px) not drawn at that size
-        size = size.scaled(longest, longest, Qt.KeepAspectRatio)
-    img = QImage(size, QImage.Format.Format_ARGB32_Premultiplied)
-    img.fill(Qt.transparent)
-    p = QPainter(img)
-    p.setRenderHint(QPainter.Antialiasing)
-    r.render(p)
-    p.end()
-    return img
+    return svg_image(data, longest)
 
 
 def load_picture(path: Path) -> QImage:

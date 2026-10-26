@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QMimeData, QRect, QRectF, QSize, Qt, QTimer, QUrl
-from PySide6.QtGui import QDesktopServices, QDrag, QFont, QFontMetrics, QKeySequence, QPainter, QShortcut
+from PySide6.QtGui import QDesktopServices, QDrag, QFont, QFontMetrics, QGuiApplication, QKeySequence, QPainter, QShortcut
 from PySide6.QtWidgets import QAbstractItemView, QFileDialog, QHBoxLayout, QHeaderView, QInputDialog, QLabel, \
     QLineEdit, QListWidget, QListWidgetItem, QMenu, QMessageBox, QProgressBar, QPushButton, QStyle, \
     QStyledItemDelegate, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
@@ -1328,6 +1328,8 @@ class CloudPage(QWidget):
             if one.web and not acc.local and one.kind != "web":
                 menu.addAction(self._ic("globe"), tr("Open on the website"),
                                lambda: QDesktopServices.openUrl(QUrl(one.web)))
+            if not acc.local and one.kind not in ("virtual", "drive"):
+                menu.addAction(self._ic("link"), tr("Copy a share link"), lambda: self.share_link(acc, one))
         if acc.local and one is not None:
             menu.addAction(self._ic("folder_search"), tr("Show in folder"),
                            lambda: self._explore(Path(one.id), select=True))
@@ -1638,6 +1640,30 @@ class CloudPage(QWidget):
             cloud.client(acc).rename(e, name)
             return tr("Renamed.")
         self._run(go, what=tr("Rename {name}", name=ltr(e.name)))
+
+    def share_link(self, acc: cloud.Account, e: cloud.Entry):
+        """Asks first (anyone the link reaches can see it), then copies the service's link."""
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Question)
+        box.setWindowTitle(tr("Copy a share link"))
+        box.setText(tr("Anyone you give the link to can see {name} and download it, without signing in. They "
+                       "can't change it.", name=ltr(e.name)))
+        yes = box.addButton(tr("Copy the link"), QMessageBox.AcceptRole)
+        box.addButton(tr("Cancel"), QMessageBox.RejectRole)
+        sheet.run(box)
+        if box.clickedButton() is not yes:
+            return
+
+        def go(progress, cancel):
+            link = cloud.client(acc).share_link(e)
+            if not link.startswith("https://"):
+                raise cloud.CloudError("the service is having trouble right now, try again soon")
+            return link
+
+        def copied(link):
+            QGuiApplication.clipboard().setText(link)
+            self.status.setText(tr("Link copied. Paste it wherever you want to share {name}.", name=ltr(e.name)))
+        self._run(go, refresh=False, what=tr("Share {name}", name=ltr(e.name)), then=copied)
 
     def delete(self, acc: cloud.Account, entries: list):
         entries = [e for e in entries if e.kind not in ("virtual", "drive")]  # (Shared with me… can't be deleted)

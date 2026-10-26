@@ -553,6 +553,10 @@ class Client:
     def delete(self, entry: Entry): ...
     def search(self, text: str, cancel=None) -> list[Entry]: ...
 
+    def share_link(self, entry: Entry) -> str:
+        """A link anyone who has it can open (only see, never change), made by the service."""
+        raise CloudError("this account doesn't allow that")
+
     def sign_out(self):
         """Tells the service to cancel Corefold's key too, where it can be asked to (best effort)."""
 
@@ -879,6 +883,16 @@ class OneDrive(Client):
     def delete(self, entry):
         self.call("DELETE", f"{self.API}/me/drive/items/{entry.id}")
 
+    def share_link(self, entry):
+        url = f"{self.API}/me/drive/items/{entry.id}/createLink"
+        try:
+            d = self.call("POST", url, data={"type": "view", "scope": "anonymous"})
+        except SignInNeeded:
+            raise
+        except CloudError:  # (a work or school account may only allow links for people in it)
+            d = self.call("POST", url, data={"type": "view"})
+        return str((d.get("link") or {}).get("webUrl", ""))
+
     def search(self, text, cancel=None):
         q = urllib.parse.quote(text.replace("'", "''"))
         page = self.call("GET", f"{self.API}/me/drive/root/search(q='{q}')?{self.SELECT}&$top=200")
@@ -1000,6 +1014,16 @@ class Dropbox(Client):
 
     def delete(self, entry):
         self.call("POST", f"{self.API}/files/delete_v2", data={"path": entry.id})
+
+    def share_link(self, entry):
+        """The link it already has, or a new one (Dropbox keeps one link for each file)."""
+        have = self.call("POST", f"{self.API}/sharing/list_shared_links", data={"path": entry.id, "direct_only": True})
+        for link in have.get("links", []):
+            if (link.get("link_permissions") or {}).get("resolved_visibility", {}).get(".tag", "public") == "public":
+                return str(link.get("url", ""))
+        d = self.call("POST", f"{self.API}/sharing/create_shared_link_with_settings",
+                      data={"path": entry.id, "settings": {"requested_visibility": "public", "access": "viewer"}})
+        return str(d.get("url", ""))
 
     def sign_out(self):
         try:
@@ -1274,6 +1298,16 @@ class GoogleDrive(Client):
             raise CloudError("this account doesn't allow that")
         self.call("PATCH", f"{self.API}/files/{urllib.parse.quote(entry.own or entry.id)}?supportsAllDrives=true"
                   "&fields=id,trashed", data={"trashed": True})
+
+    def share_link(self, entry):
+        """Anyone with the link can see it (it isn't listed or searchable). A shortcut shares what it leads to."""
+        if entry.kind in ("virtual", "drive"):
+            raise CloudError("this account doesn't allow that")
+        fid = urllib.parse.quote(entry.id)
+        self.call("POST", f"{self.API}/files/{fid}/permissions?supportsAllDrives=true&fields=id",
+                  data={"role": "reader", "type": "anyone", "allowFileDiscovery": False})
+        d = self.call("GET", f"{self.API}/files/{fid}?supportsAllDrives=true&fields=webViewLink")
+        return str(d.get("webViewLink") or entry.web)
 
     def search(self, text, cancel=None):
         return self._files(f"name contains '{self._q(text)}' and trashed=false", every=False,

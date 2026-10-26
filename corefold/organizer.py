@@ -1,5 +1,7 @@
 """Corefold File Organizer: sorts the loose files of a folder (Downloads, the Desktop, any folder) into a
-folder for each kind (Pictures, Documents, Videos…) inside it, with one click.
+folder for each kind (Pictures, Documents, Videos…) inside it, with one click. The person's own rules
+("a name with invoice in it goes into Invoices", "PSD and AI files go into Designs") come first, and each
+folder can be split by year, or by year and month (a photo by the day it was taken).
 
 Nothing is decided without the person seeing it first: plan() says where every file would go, and
 sort() only moves what the plan says. Files are only ever renamed into a folder next to them (never
@@ -47,7 +49,14 @@ STAYS = {
     "unknown": "A kind of file Corefold doesn't sort",
     "shortcut": "Shortcuts stay where they are",
     "sorted": "Already in its own folder",
+    "other_drive": "Its rule's folder is on another drive",
 }
+# inside each folder, by date: (key, English shown through tr())
+DATES = {"": "Nothing more", "year": "By year", "month": "By year and month"}
+# a rule matches by: (key, English shown through tr())
+RULE_MATCHES = {"name": "The name has", "type": "The type is"}
+PHOTO_DATES = {".jpg", ".jpeg", ".jfif", ".jpe", ".heic", ".heif", ".tif", ".tiff", ".webp", ".png", ".avif",
+               ".dng", ".cr2", ".nef", ".arw", ".orf", ".rw2"}  # (they may say when the photo was taken)
 PARTIAL = {".crdownload", ".part", ".partial", ".download", ".opdownload", ".tmp", ".!ut", ".!qb", ".aria2"}
 SHORTCUTS = {".lnk", ".url", ".website", ".appref-ms"}
 SKIP_NAMES = {"desktop.ini", "thumbs.db", ".ds_store", "ehthumbs.db"}
@@ -251,6 +260,134 @@ def _is_junction(p: Path) -> bool:
         return False
 
 
+# ----------------------------------------------------------------------------- the person's rules
+
+@dataclass
+class Rule:
+    id: str            # stable, so leaving its files out is remembered ("rule:<id>")
+    match: str         # a RULE_MATCHES key
+    text: str          # words (any of them, split by commas) or types ("psd, ai, fig")
+    folder: str        # a folder's name inside the sorted folder, or a whole path (on the same drive)
+
+    @property
+    def kind(self) -> str:
+        return "rule:" + self.id
+
+    def words(self) -> list[str]:
+        bits = [b.strip().casefold() for b in self.text.replace("،", ",").replace(";", ",").split(",")]
+        if self.match == "type":
+            return [b.lstrip("*").lstrip(".") for b in bits if b.lstrip("*").lstrip(".")]
+        return [b for b in bits if b]
+
+    def matches(self, name: str) -> bool:
+        words = self.words()
+        if self.match == "type":
+            return os.path.splitext(name)[1].lower().lstrip(".") in words
+        stem = os.path.splitext(name)[0].casefold()
+        return any(w in stem for w in words)
+
+    def name(self) -> str:
+        return os.path.basename(self.folder.rstrip("\\/")) or self.folder
+
+
+def rules() -> list[Rule]:
+    out = []
+    for r in _load().get("rules", []):
+        try:
+            rule = Rule(str(r["id"]), r.get("match", "name"), str(r.get("text", "")), str(r.get("folder", "")))
+        except (KeyError, TypeError):
+            continue
+        if rule.words() and safe_folder(rule.folder):
+            out.append(rule)
+    return out
+
+
+def set_rules(new: list[Rule]):
+    state = _load()
+    state["rules"] = [{"id": r.id, "match": r.match, "text": r.text, "folder": r.folder} for r in new]
+    _save(state)
+
+
+def safe_folder(text: str) -> bool:
+    """A rule's folder: a plain name (made inside the folder being sorted) or a whole path; never one that
+    climbs out with .. or names a drive's top."""
+    text = (text or "").strip()
+    if not text or any(part == ".." for part in text.replace("\\", "/").split("/")):
+        return False
+    if os.path.isabs(text) or (len(text) > 1 and text[1] == ":"):
+        p = _norm(text)
+        return os.path.dirname(p) != p and refused(Path(text), known=True) not in ("system", "drive", "home")
+    return not any(c in text for c in '<>:"|?*') and "/" not in text and "\\" not in text
+
+
+def date_mode() -> str:
+    mode = _load().get("dates", "")
+    return mode if mode in DATES else ""
+
+
+def set_date_mode(mode: str):
+    state = _load()
+    state["dates"] = mode if mode in DATES else ""
+    _save(state)
+
+
+def taken_on(path: Path, ext: str, mtime: float) -> float:
+    """When the file was made: a photo's own date when it has one (from the camera or phone), else when
+    the file was last changed. A cloud file that isn't on this PC isn't opened (that would download it)."""
+    if ext in PHOTO_DATES:
+        try:
+            attrs = getattr(os.stat(path), "st_file_attributes", 0)
+            if not attrs & 0x00441000:  # (offline / recall on open / recall on data access)
+                from PIL import Image
+                with Image.open(path) as im:
+                    exif = im.getexif()
+                    when = exif.get_ifd(0x8769).get(36867) or exif.get(306)
+                if when:
+                    import datetime
+                    return datetime.datetime.strptime(str(when).strip()[:19], "%Y:%m:%d %H:%M:%S").timestamp()
+        except Exception:
+            log.debug("no date taken in %s", path, exc_info=True)
+    return mtime
+
+
+def month_name(month: int) -> str:
+    """"10 October", in Corefold's language (the number first, so the folders line up in order)."""
+    try:
+        from PySide6.QtCore import QLocale
+        from . import i18n
+        name = QLocale(i18n.language()).standaloneMonthName(month, QLocale.FormatType.LongFormat)
+    except Exception:
+        name = ""
+    name = "".join(c for c in name if c.isprintable() and c not in '<>:"/\\|?*\u200e\u200f')
+    return f"{month:02d} {name}".strip()
+
+
+def _date_folder(base: Path, when: float, mode: str, made: dict) -> Path:
+    """base/2026, or base/2026/10 October (an existing "10 …" folder there is used, whatever its language)."""
+    t = time.localtime(when)
+    year = base / str(t.tm_year)
+    if mode != "month":
+        return year
+    key = (_norm(year), t.tm_mon)
+    if key not in made:
+        prefix, found = f"{t.tm_mon:02d}", None
+        try:
+            with os.scandir(year) as it:
+                for e in it:
+                    if e.is_dir(follow_symlinks=False) and (e.name == prefix or e.name.startswith(prefix + " ")):
+                        found = e.name
+                        break
+        except OSError:
+            pass
+        made[key] = year / (found or month_name(t.tm_mon))
+    return made[key]
+
+
+def _same_drive(a: Path, b: Path) -> bool:
+    return os.path.normcase(os.path.splitdrive(os.path.abspath(a))[0]) == \
+        os.path.normcase(os.path.splitdrive(os.path.abspath(b))[0])
+
+
 def plan(folder: Path, check_in_use: bool = True, known: bool = False) -> Plan:
     """Where every loose file in this folder would go. Changes nothing."""
     folder = Path(folder)
@@ -261,6 +398,9 @@ def plan(folder: Path, check_in_use: bool = True, known: bool = False) -> Plan:
     state = _load()
     remembered = state.get("folders", {}).get(_norm(folder), {})
     off = set(state.get("off", []))
+    my_rules = rules()
+    dates = date_mode()
+    months: dict = {}
     files, dirs = [], []
     with os.scandir(folder) as it:
         for e in it:
@@ -283,7 +423,8 @@ def plan(folder: Path, check_in_use: bool = True, known: bool = False) -> Plan:
             continue
         ext = os.path.splitext(e.name)[1].lower()
         item = Item(p, size)
-        kind = KIND_OF.get(ext, "")
+        rule = next((r for r in my_rules if r.matches(e.name)), None)
+        kind = rule.kind if rule else KIND_OF.get(ext, "")
         if ext in PARTIAL or any((e.name + s).casefold() in names for s in (".crdownload", ".part", ".partial",
                                                                             ".download", ".opdownload")):
             item.why = "downloading"
@@ -291,25 +432,49 @@ def plan(folder: Path, check_in_use: bool = True, known: bool = False) -> Plan:
             item.why = "shortcut"
         elif not kind:
             item.why = "unknown"
-        elif here in _known_names(kind):  # (sorting Pictures itself: its pictures stay)
+        elif rule is None and here in _known_names(kind):  # (sorting Pictures itself: its pictures stay)
             item.why = "sorted"
+        elif rule is not None and _norm(_rule_folder(folder, rule)) == _norm(folder):
+            item.why = "sorted"
+        elif rule is not None and not _same_drive(_rule_folder(folder, rule), folder):
+            item.why = "other_drive"  # (a move across drives is a copy and a delete: never done here)
         elif check_in_use and in_use(p):
             item.why = "in_use"
         if item.why:
             staying.append(item)
             continue
         if kind not in out.folders:
-            out.folders[kind], there = _kind_folder(folder, kind, dirs, remembered)
+            if rule is not None:
+                out.folders[kind] = _rule_folder(folder, rule)
+                there = out.folders[kind].is_dir()
+            else:
+                out.folders[kind], there = _kind_folder(folder, kind, dirs, remembered)
             if not there:
                 out.new_folders.add(kind)
         item.kind = kind
         item.on = kind not in off
-        item.target = _free_name(out.folders[kind], e.name, taken)
+        into = out.folders[kind]
+        if dates:
+            into = _date_folder(into, taken_on(p, ext, e.stat(follow_symlinks=False).st_mtime), dates, months)
+        item.target = _free_name(into, e.name, taken)
         moving.append(item)
-    order = list(KINDS)
+    order = [r.kind for r in my_rules] + list(KINDS)
     moving.sort(key=lambda i: order.index(i.kind))
     out.items = moving + staying
     return out
+
+
+def _rule_folder(folder: Path, rule: Rule) -> Path:
+    target = rule.folder.strip()
+    return Path(target) if os.path.isabs(target) or (len(target) > 1 and target[1] == ":") else folder / target
+
+
+def kind_name(kind: str) -> str:
+    """What a kind (or a rule) is called on the page."""
+    if kind.startswith("rule:"):
+        rule = next((r for r in rules() if r.kind == kind), None)
+        return rule.name() if rule else kind
+    return folder_name(kind)
 
 
 def loose_count(folder: Path, known: bool = False) -> int:
@@ -323,10 +488,13 @@ def loose_count(folder: Path, known: bool = False) -> int:
 # ----------------------------------------------------------------------------- sorting and undoing
 
 def _sort_files(p: Plan, todo: list[Item], journal: "_Journal", moves: list, used: set, taken: set, res: Result,
-                progress):
+                progress, made: list):
     for n, item in enumerate(todo, 1):
         src = item.path
-        folder = p.folders[item.kind]
+        folder = item.target.parent if item.target is not None else p.folders[item.kind]
+        if not _make(folder, journal, made):
+            res.failed.append((src, "error"))
+            continue
         try:
             st = os.lstat(src)
         except OSError:
@@ -358,6 +526,29 @@ def _sort_files(p: Plan, todo: list[Item], journal: "_Journal", moves: list, use
 _one_at_a_time = threading.Lock()  # (the daily tidy and a sort or Undo from the page share one journal and one record)
 
 
+def _make(folder: Path, journal: "_Journal", made: list) -> bool:
+    """The folder (and the ones it's in) made if they aren't there yet, each written down first: one made
+    just before a crash is still taken away. Only ever inside the sorted folder, or a rule's folder."""
+    if folder.is_dir():
+        return True
+    missing = []
+    f = folder
+    while not f.is_dir():
+        if os.path.lexists(f) or f.parent == f:
+            return False  # (a file has that name)
+        missing.append(f)
+        f = f.parent
+    for f in reversed(missing):
+        try:
+            journal.made(f)
+            f.mkdir()
+            made.append(str(f))
+        except OSError as e:
+            log.warning("couldn't make %s: %s", f, e)
+            return False
+    return True
+
+
 def sort(p: Plan, progress=None) -> Result:
     """Moves what the plan says (each file is checked again just before). Kept so it can be undone."""
     with _one_at_a_time:
@@ -378,20 +569,11 @@ def _sort(p: Plan, progress=None) -> Result:
     record = {"folder": str(p.folder), "time": time.time(), "moves": moves, "made": made}
     state["last"] = record
     journal = _Journal(record)
-    for kind in {i.kind for i in todo}:
-        f = p.folders[kind]
-        if not f.is_dir():
-            try:
-                journal.made(f)  # (written down first: a folder made just before a crash is still taken away)
-                f.mkdir()
-                made.append(str(f))
-            except OSError as e:
-                log.warning("couldn't make %s: %s", f, e)
     try:
-        _sort_files(p, todo, journal, moves, used, taken, res, progress)
+        _sort_files(p, todo, journal, moves, used, taken, res, progress, made)
     finally:
         journal.close()
-    for f in list(made):  # (a folder made for files that all stayed)
+    for f in reversed(list(made)):  # (a folder made for files that all stayed; the inner ones first)
         if not any(m[1].startswith(f + os.sep) for m in moves):
             try:
                 os.rmdir(f)
@@ -401,7 +583,8 @@ def _sort(p: Plan, progress=None) -> Result:
     res.folders = len(used)
     remembered = state.setdefault("folders", {}).setdefault(_norm(p.folder), {})
     for kind in used:
-        remembered[kind] = p.folders[kind].name
+        if not kind.startswith("rule:"):  # (a rule's folder is the rule's own)
+            remembered[kind] = p.folders[kind].name
     if not moves:  # nothing moved: the sort before this one can still be undone
         if before:
             state["last"] = before
@@ -497,12 +680,12 @@ def _undo(progress=None) -> UndoResult:
             if progress:
                 progress((n, len(moves)))
     made = []
-    for f in last.get("made", []):
+    for f in reversed(last.get("made", [])):  # (the inner ones first: 2026/10 before 2026, before Pictures)
         try:
             os.rmdir(f)  # (only if empty: anything put in it since stays, and so does the folder)
         except OSError:
             if os.path.isdir(f):
-                made.append(f)
+                made.insert(0, f)
     if left:
         last["moves"] = list(reversed(left))
         last["made"] = made
@@ -684,7 +867,7 @@ def _recover(state: dict) -> dict:
         state["last"] = {"folder": record.get("folder", ""), "time": record.get("time", 0), "moves": moves,
                          "made": [f for f in made if os.path.isdir(f)], "cut_short": True}
     else:
-        for f in made:  # (made just before the crash, nothing in it)
+        for f in reversed(made):  # (made just before the crash, nothing in it)
             try:
                 os.rmdir(f)
             except OSError:
