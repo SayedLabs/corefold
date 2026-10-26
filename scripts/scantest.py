@@ -477,9 +477,12 @@ def as_admin():
     folder = WORK / "odd-names"
     name = "eicar&md;cf-injected&.com"
     eicar(folder / name)
-    scan.scan(scan.CUSTOM, [str(folder)])
-    time.sleep(1)
+    found = scan.scan(scan.CUSTOM, [str(folder)])
+    end = time.monotonic() + 20  # (Defender takes the file away a moment after its scan says so)
+    while (folder / name).exists() and time.monotonic() < end:
+        time.sleep(0.5)
     if (folder / name).exists():
+        note(f"the scan said: {found}")
         check(False, "the oddly named threat is quarantined")
         return
     mine = [i for i in scan.quarantine(ask_admin=False) or [] if i.path.lower().endswith(name)]
