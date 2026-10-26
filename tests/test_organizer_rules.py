@@ -15,6 +15,7 @@ from corefold import organizer
 def own_state(tmp_path, monkeypatch):
     monkeypatch.setattr(organizer, "_state_path", lambda: tmp_path / "state" / "organizer.json")
     monkeypatch.setattr(organizer, "_journal_path", lambda: tmp_path / "state" / "organizer-journal.jsonl")
+    monkeypatch.setattr(organizer, "refused", lambda folder, known=False: "")  # (Windows' temp folder is in AppData)
 
 
 def _file(folder: Path, name: str, when: float | None = None) -> Path:
