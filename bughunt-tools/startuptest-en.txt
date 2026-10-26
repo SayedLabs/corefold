@@ -1,0 +1,124 @@
+admin: True, 64-bit Windows: True, 5 other startup entries and notes on this PC
+ok    the list is read in 2.76 s (13 entries)
+ok    a program in this user's Run key is listed
+ok    it's on, its program is there, no admin needed
+ok    its program is found (C:\Windows\System32\notepad.exe)
+ok    it's shown by the program's own name ('Notepad')
+ok    its publisher is read from the file ('Microsoft Corporation')
+ok    an entry whose program is gone is listed and marked
+ok    a program on a drive that isn't plugged in (Q:) isn't called gone (it may come back)
+ok    a program started through rundll32 keeps its own entry name ('CfStartupHost', C:\Windows\System32\rundll32.exe)
+ok    a shortcut in the Startup folder is listed
+ok    the shortcut's program is found (C:\Windows\System32\notepad.exe)
+ok    desktop.ini isn't listed
+ok    every entry is unique
+      on this PC: HKLM-Run      on  'AzureArcSetup' ('')
+      on this PC: Task          on  'Google Updater (x86)' ('Google LLC')
+      on this PC: Task          off 'MicrosoftEdgeUpdateBrowserReplacementTask' ('') [program gone]
+      on this PC: Task          off 'MicrosoftEdgeUpdateTaskMachineCore{15872B7E-BA8B-4749-922C-4AE5F68150CE}' ('') [program gone]
+      on this PC: Task          on  'primer' ('')
+      on this PC: Common-Folder on  'ServiceFabricLocalClusterManager' ('Microsoft')
+      on this PC: Store-App     off 'Terminal' ('Microsoft Corporation')
+      on this PC: HKLM-Run      on  'Windows Security notification icon' ('Microsoft Corporation')
+ok    switched off
+ok    the note is the one Task Manager writes (03000000f446a0f4e664dd01)
+ok    the note says when it was switched off
+ok    the entry itself is untouched (not deleted, not changed)
+ok    listed as off, with the date
+ok    switched back on
+ok    the note is Task Manager's "on"
+ok    the entry is still untouched
+ok    Task Manager's 02… note reads as on
+ok    Task Manager's 03… note reads as off
+ok    Task Manager's 06… note reads as on
+ok    Task Manager's 07… note reads as off
+ok    Task Manager's 01… note reads as off
+ok    a Startup folder shortcut switched off
+ok    its note is in StartupFolder, like Task Manager's
+ok    the shortcut itself is still there
+ok    and back on
+ok    a 64-bit entry for everyone is listed, as one that needs an administrator
+ok    a 32-bit entry for everyone is listed
+ok    the 64-bit one switched off
+ok    its note is under HKLM ...\StartupApproved\Run
+ok    and back on
+ok    the 32-bit one switched off
+ok    its note is under ...\StartupApproved\Run32
+ok    and back on
+ok    switching off through Windows' administrator prompt (reg.exe) writes the same note
+ok    and on again
+ok    a name that can't be passed to reg.exe safely is refused
+ok    no permission: it says it needs an administrator
+ok    and nothing changed
+ok    a program added since the last look is New (1)
+ok    and isn't New the time after
+ok    Corefold set to start with Windows
+ok    Corefold's own line is found
+ok    switched off on the Startup page (or in Task Manager): Settings says off too
+ok    switched on in Settings: really on again
+ok    and off
+ok    the made-up leftovers are found, and only them (['CfStartupGone', 'CfStartupLeft', 'CfStartupLeft.lnk'])
+ok    Corefold's own line is never a leftover
+ok    both are removed
+ok    the line is gone from the Run key
+ok    and its on/off note too
+ok    the shortcut is gone from the Startup folder (to the Recycle Bin)
+ok    a leftover that wasn't asked about is left alone
+ok    a working program is left alone
+ok    a copy of the line and its note was kept first
+ok    a line whose program is there again isn't removed
+ok    through Windows' administrator prompt (reg import), even a name with " and \ in it
+ok    PC-wide leftovers (64 and 32-bit) are removed with one prompt
+ok    and through remove_leftovers itself
+this PC's Store apps that can start with Windows: [('Terminal', False)]
+ok    a package's family name (CfStoreTest_cf0test0id)
+ok    the Store app's three startup tasks are listed [('Cf Store Helper', 'CfAutoStart'), ('Cf Store Test', 'CfAskFirst'), ('Cf Store Test', 'CfByRules')]
+this PC's scheduled tasks that start at sign-in: [('MicrosoftEdgeUpdateBrowserReplacementTask', '\\MicrosoftEdgeUpdateBrowserReplacementTask', False), ('MicrosoftEdgeUpdateTaskMachineCore{15872B7E-BA8B-4749-922C-4AE5F68150CE}', '\\MicrosoftEdgeUpdateTaskMachineCore{15872B7E-BA8B-4749-922C-4AE5F68150CE}', False), ('primer', '\\primer', True), ('Google Updater (x86)', '\\GoogleSystem\\GoogleUpdater\\GoogleUpdaterTaskSystem157.0.8089.0{20F6C957-DDAE-4CAA-B6AD-988E3F006B0E}', True)]
+ok    Windows' own tasks aren't listed
+ok    a test task was made ()
+ok    switched off: not shown
+ok    switched off: its page isn't loaded at all
+ok    switched on: shown in its section
+ok    the page opens
+ok    the list comes up (16 rows)
+ok    the made-up program is there, switched on
+ok    its program's icon comes (read off the window's thread)
+ok    its switch can be seen
+ok    clicking its switch: done
+ok    clicking its switch switched it off (the same note as Task Manager)
+ok    and deleted nothing
+ok    no problem shown
+ok    "Switched off" shows only the ones that are off (4)
+ok    clicking it again: done
+ok    and it's on again
+ok    searching finds only the made-up ones (8)
+ok    searching for nothing says so
+ok    Look again: the new one is listed
+ok    it's marked New, and the New filter is there
+ok    the one whose program is gone says so
+ok    it's in its own part, "Left behind by removed programs", with Remove
+ok    a working program is in the part that starts with Windows
+ok    after Look again, the made-up program is still on
+ok    a refused change: done
+ok    a refused change: the switch goes back on and the page says Windows didn't allow it
+ok    and nothing changed
+ok    back on the page: read again
+ok    what was New this time is still New
+ok    one switched off long ago is in the "Switched off" part
+ok    Remove leftovers: the made-up leftover is gone from the list
+ok    and from Windows
+ok    no problem shown
+ok    (one to put off is listed)
+ok    its menu offers to start it a minute later [('Show in folder', True), ('Copy what it runs', True), ('Start it a minute after sign-in', True), ('Properties', True), ('Search the web for “CfStartupDelay”', True)]
+ok    putting it off: done
+ok    Windows skips it now, and it's in "Started a minute after you sign in", switched on
+ok    …still there when read again
+ok    Corefold starts it, with what it was given to run
+ok    switched back on elsewhere: Corefold doesn't start it any more
+ok    "Start it with Windows again" gives it back to Windows
+ok    at 760×520 every switch is inside the window
+ok    at 1500×900 every switch is inside the window
+ok    switched off again: not shown
+ok    no errors behind any click (0)
+ok    every other startup entry and note on the PC is exactly as it was []
+startuptest: 0 problem(s)
