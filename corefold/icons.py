@@ -73,18 +73,37 @@ def pixmap(name: str, size: int, color: QColor | str, dpr: float = 1.0) -> QPixm
     return pm
 
 
+_icons: dict[tuple, QIcon] = {}
+
+
+def _ratios() -> tuple[float, ...]:
+    """The screens' sharpness (1 on most, 1.25 to 2 on high-DPI ones): an icon is drawn for those only."""
+    from PySide6.QtGui import QGuiApplication
+    found = {round(s.devicePixelRatio(), 2) for s in QGuiApplication.screens()} or {1.0}
+    return tuple(sorted(found))
+
+
 def icon(name: str, color: QColor | str, disabled: QColor | str | None = None,
          selected: QColor | str | None = None) -> QIcon:
-    """A QIcon (sharp at the usual sizes and on high-DPI screens) for buttons and lists."""
-    ic = QIcon()
-    for size in (16, 20, 24, 32):
-        for dpr in (1.0, 2.0):
-            ic.addPixmap(pixmap(name, size, color, dpr), QIcon.Mode.Normal)
-            if disabled is not None:
-                ic.addPixmap(pixmap(name, size, disabled, dpr), QIcon.Mode.Disabled)
-            if selected is not None:
-                ic.addPixmap(pixmap(name, size, selected, dpr), QIcon.Mode.Selected)
-    return ic
+    """A QIcon (sharp at the usual sizes and on high-DPI screens) for buttons and lists. The same icon in
+    the same colours is drawn once and shared (a new look or a page made again asks for many of them)."""
+    key = (name, QColor(color).name(QColor.HexArgb),
+           None if disabled is None else QColor(disabled).name(QColor.HexArgb),
+           None if selected is None else QColor(selected).name(QColor.HexArgb), _ratios())
+    ic = _icons.get(key)
+    if ic is None:
+        ic = QIcon()
+        for size in (16, 20, 24, 32):
+            for dpr in key[-1]:
+                ic.addPixmap(pixmap(name, size, color, dpr), QIcon.Mode.Normal)
+                if disabled is not None:
+                    ic.addPixmap(pixmap(name, size, disabled, dpr), QIcon.Mode.Disabled)
+                if selected is not None:
+                    ic.addPixmap(pixmap(name, size, selected, dpr), QIcon.Mode.Selected)
+        if len(_icons) > 300:  # (a few looks' worth; older ones are let go)
+            _icons.clear()
+        _icons[key] = ic
+    return QIcon(ic)  # (a copy that shares the pictures: changing it leaves the kept one as it is)
 
 
 # ---- the product tiles (the Corefold mark in each product's colours, on a near-black tile)

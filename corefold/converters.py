@@ -1118,7 +1118,8 @@ def pdf_to_png(src: Path, ctx: Ctx) -> Result:
         for i, target in enumerate(targets):
             ctx.check()
             page = pdf[i]
-            page.render(scale=150 / 72).to_pil().save(target)
+            from .core import render_scale
+            page.render(scale=render_scale(page.get_width(), page.get_height(), 150 / 72)).to_pil().save(target)
             page.close()
             ctx.progress((i + 1) / n)
     finally:

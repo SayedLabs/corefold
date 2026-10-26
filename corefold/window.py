@@ -78,6 +78,8 @@ PAGE_ICONS = {"Home": "home", "General": "settings", "Look": "paint_brush", "Qui
               **{sec.page: sec.icon for sec in all_tools.SECTIONS}}
 # pages that are only words and settings: when out of sight they make way before a new look (and are made
 # again, quickly, when they're opened)
+# made a moment after the window opens (see _warm_next): slow to make, and opened often
+WARM_PAGES = ("PDF",)
 REMADE_PAGES = {*SETTINGS_PAGES, *SECTION_PAGES, "History", "Updates", "About"}
 # the words Ctrl + K finds on each Settings page, kept for pages that aren't made yet (per version and language)
 SETTING_WORDS = LOG_DIR / "setting-words.json"
@@ -767,6 +769,8 @@ class MainWindow(QWidget):
         self.open_page(last if last in PAGES or last in OLD_PAGES else "Home")
         self._learning = None
         QTimer.singleShot(4000, self, self._learn_setting_words)
+        self._warming = [name for name in WARM_PAGES if self.shows(name)]
+        QTimer.singleShot(2500, self, self._warm_next)
 
         footer = QHBoxLayout()
         footer.setSpacing(8)
@@ -957,6 +961,8 @@ class MainWindow(QWidget):
         w = self.stack.widget(i)
         if w is None or not (self.c.settings.animations and self.isVisible()) or PAGES[i] == "Player":
             return  # (the Player's video draws itself: it's left alone)
+        if getattr(self, "_still", False):  # (the whole window is fading over from how it looked)
+            return
         from .atomic import motion
         motion.rise_in(w, 8, 220)
 
@@ -1067,6 +1073,13 @@ class MainWindow(QWidget):
     def tools_changed(self):
         """A tool was switched on or off: the window follows right away, without being made again (the
         sidebar's sections stay as they are). Nothing of a tool switched off stays: its pages go."""
+        self._still = True  # (the page made again doesn't rise in on its own: the window fades over as one)
+        try:
+            self._tools_changed()
+        finally:
+            self._still = False
+
+    def _tools_changed(self):
         before = set(self.tools_on)
         self.tools_on = all_tools.enabled(self.c.settings)
         gone = before - set(self.tools_on)
@@ -1241,6 +1254,20 @@ class MainWindow(QWidget):
             self.link_buttons = []
         if not self.built("Formats"):
             self._formats_pending = []
+
+    def _warm_next(self):
+        """The pages that take longest to make the first time (a tenth of a second or more: the click would
+        wait for it) are made a moment after the window opens, one at a time while nobody's typing or moving
+        the mouse, so the first time they're opened they're there at once."""
+        if not self._warming or not self.isVisible():
+            return
+        if winutil.idle_ms() < 1500:
+            QTimer.singleShot(1000, self, self._warm_next)
+            return
+        name = self._warming.pop(0)
+        if self.shows(name):
+            self._build_page(name)
+        QTimer.singleShot(300, self, self._warm_next)
 
     def _learn_setting_words(self):
         """Once per version and language, soon after the window opens: the words on settings pages not

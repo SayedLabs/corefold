@@ -3,8 +3,8 @@ shown safely) and then that Corefold's way is safe. Covers the helper that runs 
 restore point's description, links on the way, icacls going into junctions, backed-up registry files,
 scheduled task names, Startup's names), programs started by name (also: the folder Corefold was started
 in, and no program of Windows' own started by its name alone anywhere in the code), cloud downloads,
-Unlock's delete-at-restart, booby-trapped pictures (EPS through Ghostscript) and videos that would go
-online when played.
+Unlock's delete-at-restart, booby-trapped pictures (EPS through Ghostscript), videos that would go
+online when played, and names that look like HTML in labels, tooltips and questions.
 
 Run as administrator (GitHub's Windows runners are): python scripts/securitytest.py
 Prints one line per check, then "securitytest: N problem(s)".
@@ -520,6 +520,22 @@ def pictures_from_elsewhere():
     except cloud.CloudError:
         check(True, "a cloud address that isn't https is refused")
     check(ipc.same_user(os.getpid()), "the pipe check knows this account's own process")
+    # a question with a cloud file's name in it (an online name can hold < and >; one shared with you is anyone's)
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QMessageBox
+    from corefold import sheet
+    name = f'<img src="{probe.as_uri()}">x.txt'
+    old = QLabel(f"{name} goes to the Recycle Bin.")
+    old.setTextFormat(Qt.AutoText)   # (what 1.13.0's questions did)
+    check(old.sizeHint().height() > 150, "a question read as HTML really opens the picture (proof of the problem)")
+    box = QMessageBox(QMessageBox.Question, "Delete?", f"{name} goes to the Recycle Bin.")
+    box.setInformativeText(name)
+    check(box.textFormat() == Qt.PlainText, "a message box shows its words as text")
+    alert = sheet._Alert(box)
+    words = [w for w in alert.findChildren(QLabel) if name in w.text()]
+    check(len(words) == 2 and all(w.textFormat() == Qt.PlainText and w.sizeHint().height() < 120 for w in words),
+          "and so does the question in a sheet (nothing opened)")
+    alert.deleteLater()
 
 
 step("restore point description", restore_point_description)

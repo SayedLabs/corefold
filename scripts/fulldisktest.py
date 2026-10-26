@@ -80,6 +80,11 @@ def fingerprints(src: Path) -> dict:
     return {p: hashlib.sha256(p.read_bytes()).hexdigest() for p in src.rglob("*") if p.is_file()}
 
 
+def plain(error: str) -> bool:
+    """Does the message say, in the app's own words, that there's no room? (Not FFmpeg's or 7-Zip's.)"""
+    return "the disk is full" in error or ("needs" in error and "free" in error)  # (or Archive's check before it starts)
+
+
 def whole(f: Path) -> bool:
     """Is this made file complete? (Pictures must open to the last pixel.)"""
     if f.stat().st_size == 0:
@@ -135,7 +140,7 @@ def main():
                           and "system volume information" not in str(p).lower())
             line = f"{files[0].name} · {tool.key}: made {len(result.outputs)}, errors {errors[:1]}, on disk {left[:4]}"
             print(line, flush=True)
-            if any("disk is full" not in e for e in errors):
+            if any(not plain(e) for e in errors):
                 problem("not said in plain words: " + line)
             if (errors or not result.outputs) and left:
                 problem("left something behind: " + line)

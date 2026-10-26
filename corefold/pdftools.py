@@ -12,7 +12,7 @@ import re
 import threading
 from pathlib import Path
 
-from .core import Ctx, Result, Tool, safe_name
+from .core import Ctx, Result, Tool, render_scale, safe_name
 from .i18n import tr
 
 log = logging.getLogger("corefold")
@@ -375,7 +375,8 @@ def _render(files: list[Path], pages: list[tuple[int, int, int]], passwords: dic
                     docs[fi] = open_pdfium(files[fi], passwords.get(str(files[fi])) or "")
                 page = docs[fi][pi]
                 try:
-                    im = page.render(scale=dpi / 72, rotation=turn % 360).to_pil()
+                    im = page.render(scale=render_scale(page.get_width(), page.get_height(), dpi / 72),
+                                     rotation=turn % 360).to_pil()
                 finally:
                     page.close()
             if fmt == "jpg":

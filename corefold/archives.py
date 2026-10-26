@@ -20,7 +20,7 @@ from pathlib import Path
 
 from .i18n import tr
 from .core import ARCHIVE_EXT, NO_WINDOW, TAR_SUFFIXES, Cancelled, Ctx, Result, _cached, app_dir, bundled, \
-    find_program, is_link, norm, pass_on_zone_mark, remove_file, run_with_progress, safe_name, unique_path
+    find_program, is_link, human_size, norm, pass_on_zone_mark, remove_file, run_with_progress, safe_name, unique_path
 
 log = logging.getLogger("corefold")
 DUMMY_PASSWORD = "-pcorefold-no-password"  # never let 7-Zip stop and ask for one
@@ -101,21 +101,29 @@ class _open_tar:
     """A TAR file of any kind, .tar.zst too. Read it from start to end ("for m in tf"): a zstd one
     can't be read in any other order. .progress() is how far through the file the reading is."""
 
-    def __init__(self, src: Path):
+    def __init__(self, src: Path, check=None):
         self.src = src
         self.raw = None
         self.tf = None
+        self.check = check  # (called at each read, so even one huge file inside can be stopped part way)
+        self.file = None
 
     def __enter__(self) -> tarfile.TarFile:
         low = self.src.name.lower()
-        if low.endswith((".zst", ".tzst")):
-            import zstandard
-            self.raw = open(self.src, "rb")
-            stream = zstandard.ZstdDecompressor().stream_reader(self.raw)
-            self.tf = tarfile.open(fileobj=stream, mode="r|")
-        else:
-            self.tf = tarfile.open(self.src, "r:*")
-            self.raw = self.tf.fileobj
+        self.file = open(self.src, "rb")
+        fh = self.file if self.check is None else _Checked(self.file, self.check)
+        try:
+            if low.endswith((".zst", ".tzst")):
+                import zstandard
+                self.raw = self.file
+                stream = zstandard.ZstdDecompressor().stream_reader(fh)
+                self.tf = tarfile.open(fileobj=stream, mode="r|")
+            else:
+                self.tf = tarfile.open(fileobj=fh, mode="r:*")
+                self.raw = self.tf.fileobj
+        except BaseException:
+            self.file.close()
+            raise
         return self.tf
 
     def progress(self) -> float:
@@ -128,9 +136,23 @@ class _open_tar:
     def __exit__(self, *exc):
         if self.tf is not None:
             self.tf.close()
-        if self.raw is not None and self.src.name.lower().endswith((".zst", ".tzst")):
-            self.raw.close()
+        if self.file is not None:
+            self.file.close()
         return False
+
+
+class _Checked:
+    """A file that calls check() before each read (it raises Cancelled to stop)."""
+
+    def __init__(self, f, check):
+        self._f, self._check = f, check
+
+    def read(self, n=-1):
+        self._check()
+        return self._f.read(n)
+
+    def __getattr__(self, name):
+        return getattr(self._f, name)
 
 
 def _unzst(src: Path, out, ctx: Ctx | None = None):
@@ -475,7 +497,26 @@ def _parse_slt(out: str) -> list[Entry]:
     return entries
 
 
+_listed: dict = {}  # the last few lists, by (file, its size and time, password, code page): unpacking reads it again
+
+
 def list_entries(src: Path, password: str = "") -> list[Entry]:
+    try:
+        st = src.stat()
+        key = (str(src), st.st_size, st.st_mtime_ns, password, tuple(_cp(src)))
+    except OSError:
+        key = None
+    if key is not None and key in _listed:
+        return list(_listed[key])
+    entries = _list_entries(src, password)
+    if key is not None:
+        if len(_listed) >= 4:
+            _listed.pop(next(iter(_listed)))
+        _listed[key] = entries
+    return list(entries)
+
+
+def _list_entries(src: Path, password: str = "") -> list[Entry]:
     if is_tar(src):
         try:
             with _open_tar(src) as tf:
@@ -578,9 +619,11 @@ class _SpaceGuard:
     once it has written more than `budget` (a damaged archive being rescued). 7-Zip itself only stops when
     the disk is completely full, and Windows and other programs then fail too."""
 
-    def __init__(self, ctx: Ctx, folder: Path, budget: int | None = None):
+    EVERY = 0.25  # seconds between looks
+
+    def __init__(self, ctx: Ctx, folder: Path, budget: int | None = None, rescuing: bool = True):
         import threading
-        self.outer, self.folder, self.budget = ctx, folder, budget
+        self.outer, self.folder, self.budget, self.rescuing = ctx, folder, budget, rescuing
         self.inner = Ctx(ctx.options, ctx.progress, threading.Event(), ctx.params, ctx.index, ctx.total)
         self.tripped = ""
         self._stop = threading.Event()
@@ -594,7 +637,7 @@ class _SpaceGuard:
 
     def _watch(self):
         start = self._free()
-        while not self._stop.wait(0.25):
+        while not self._stop.wait(self.EVERY):
             if self.outer.cancelled:
                 self.inner.cancel_event.set()
                 return
@@ -617,17 +660,78 @@ class _SpaceGuard:
         self._stop.set()
         self._thread.join(2)
         if kind is not None and issubclass(kind, Cancelled) and self.tripped:
-            if self.tripped == "budget":
+            if self.tripped == "budget" and self.rescuing:
                 raise RuntimeError(tr("this archive unpacks to far more than its size or the free space allows, "
                                       "so rescuing it was stopped")) from None
+            if self.tripped == "budget":
+                raise RuntimeError(tr("this archive unpacked to far more than it says it holds (an archive bomb), "
+                                      "so unpacking was stopped")) from None
             raise RuntimeError(tr("the disk is nearly full, so unpacking was stopped before it filled it")) from None
         return False
 
 
+# An "archive bomb" is a small archive that unpacks to far more than the disk holds (a few KB to many GB or
+# more, sometimes archives inside archives). Before unpacking, what the archive says it holds is checked against
+# the free space (keeping the disk's last RESCUE_RESERVE free); while unpacking, the disk is watched, so an
+# archive that holds more than it says (or one whose size isn't known in advance, like a .tar.gz) is stopped
+# too. What was unpacked so far is deleted (extract() unpacks into a hidden folder first).
+BOMB_RATIO = 1000            # unpacking to over a thousand times its size, more than fits: called a bomb
+_LIE_SLACK = 256 * 1024 ** 2  # what other programs may write meanwhile, before "more than it says" counts
+_CLUSTER, _ENTRY = 4096, 1024
+
+
+def _declared_size(src: Path, password: str, members: list[str] | None) -> int | None:
+    """About what the archive's files take on the disk, unpacked, by what it says they are (None: not known
+    without unpacking it all)."""
+    if is_tar(src):  # (a .tar.gz or .tar.zst can only be listed by unpacking it)
+        return None
+    try:
+        entries = list_entries(src, password)
+    except Exception:  # (a locked list of names, a damaged archive: unpacking says what's wrong)
+        return None
+    if is_zst(src) and entries and entries[0].size <= 0:
+        return None
+    if members:
+        wanted = [m.strip("/") for m in members]
+        entries = [e for e in entries if any(e.path == w or e.path.startswith(w + "/") for w in wanted)]
+    # on the disk: each file takes whole clusters (4 KB), and every file and folder an entry of its own in
+    # the disk's table (1 KB): 200,000 small files of 100 bytes need some 1 GB, not 20 MB
+    return sum((0 if e.is_dir else -(-e.size // _CLUSTER) * _CLUSTER) + _ENTRY for e in entries)
+
+
+def check_room(src: Path, target: Path, declared: int | None):
+    """Refuses to start unpacking what can't fit on the disk (leaving its last RESCUE_RESERVE free)."""
+    if declared is None:
+        return
+    try:
+        free = shutil.disk_usage(target).free
+    except OSError:
+        return
+    if declared + RESCUE_RESERVE <= free:
+        return
+    try:
+        packed = max(1, src.stat().st_size)
+    except OSError:
+        packed = 1
+    if declared > BOMB_RATIO * packed:
+        raise RuntimeError(tr("this archive says it unpacks to {size} from just {packed}: that's an archive bomb, "
+                              "so it wasn't unpacked", size=human_size(declared), packed=human_size(packed)))
+    raise RuntimeError(tr("unpacking this needs {size}, and the disk only has {free} free",
+                          size=human_size(declared), free=human_size(max(0, free - RESCUE_RESERVE))))
+
+
 def _extract_into(src: Path, target: Path, ctx: Ctx, password: str, members: list[str] | None = None):
+    declared = _declared_size(src, password, members)
+    check_room(src, target, declared)
+    budget = None if declared is None else declared + max(_LIE_SLACK, declared // 10)
+    with _SpaceGuard(ctx, target, budget, rescuing=False) as guarded:
+        _unpack(src, target, guarded, password, members)
+
+
+def _unpack(src: Path, target: Path, ctx: Ctx, password: str, members: list[str] | None = None):
     if is_tar(src):
         wanted = set(members or [])
-        opened = _open_tar(src)
+        opened = _open_tar(src, ctx.check)
         with opened as tf:
             for m in tf:  # (start to end, the only way a .tar.zst can be read)
                 ctx.check()
@@ -651,8 +755,7 @@ def _extract_into(src: Path, target: Path, ctx: Ctx, password: str, members: lis
             listfile = _listfile([m.replace("/", os.sep) for m in members])
             args += ["-scsUTF-8", f"@{listfile}"]
         try:
-            with _SpaceGuard(ctx, target) as guarded:
-                code, out = _run7z(args, guarded)
+            code, out = _run7z(args, ctx)
         finally:
             if listfile:
                 listfile.unlink(missing_ok=True)
