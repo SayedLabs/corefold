@@ -34,8 +34,8 @@ from . import work as page_work
 from . import tools as all_tools
 from . import settings as settings_mod
 from .converters import PASSWORD_ERROR, Options, Result, Tool, pick, release_memory, run_job, warm_up
-from .core import (LEGACY_NAME, category, human_size, is_link, lower_this_thread, norm, os_open, set_background_priority,
-                   set_downloads_folder, short_name, system_tool, unique_path)
+from .core import (LEGACY_NAME, category, fallback_folder, human_size, is_link, lower_this_thread, norm, os_open,
+                   set_background_priority, set_downloads_folder, short_name, system_tool, unique_path)
 from .history import History, size_of
 from .i18n import tr
 from .settings import (APP_NAME, LOG_DIR, TOAST_TIME_SCALE, WINDOW_TEXT_PT, Settings, app_command, app_icon,
@@ -2009,6 +2009,9 @@ class Controller(QObject):
             linger = 4500
         else:
             title, detail, linger = tr("Nothing to do"), "", 3000
+        elsewhere = "" if cancelled else self._saved_elsewhere(files, result.outputs)
+        if elsewhere:  # (looked for beside the original, it wouldn't be found)
+            detail += "\n" + tr("The folder it was meant for can't be saved in, so it's in {folder}", folder=elsewhere)
         if recycled:
             detail += "\n" + tr("The archive went to the Recycle Bin") if recycled == 1 else \
                 "\n" + tr("{count} files went to the Recycle Bin", count=recycled)
@@ -2023,7 +2026,7 @@ class Controller(QObject):
         elif self._can_compare(files, result.outputs, errors, cancelled):
             before, after_file = files[0], result.outputs[0]
             extra_text, extra = tr("Compare"), lambda: self.compare(before, after_file)
-        important = bool(errors or result.note or result.undo)
+        important = bool(errors or result.note or result.undo or elsewhere)
         if self.settings.show_progress or important:
             shown = self.toast.finish(job_id, title, detail, first, linger, single=len(result.outputs) == 1,
                                       extra_text=extra_text, extra=extra)
@@ -2037,6 +2040,23 @@ class Controller(QObject):
         if first and (self.settings.reveal_after or (extracted and self.settings.extract_reveal)) \
                 and not errors and not cancelled:
             winutil.reveal_in_explorer(first)
+
+    def _saved_elsewhere(self, files: list, outputs: list) -> str:
+        """'Downloads › Corefold' when what was made went there because the folder it was meant for can't be
+        saved in (a CD, a read-only or protected folder); '' when everything is where it was meant to go."""
+        spare = os.path.normcase(str(fallback_folder()))
+        if self.settings.save_mode == "folder":
+            meant = [os.path.normcase(self.settings.output_folder)]
+        else:
+            meant = [os.path.normcase(str(Path(f).parent)) for f in files if isinstance(f, (str, Path))]
+
+        def inside(path: str, top: str) -> bool:
+            return path == top or path.startswith(top.rstrip(os.sep) + os.sep)
+        for o in outputs:
+            where = os.path.normcase(str(Path(o).parent))
+            if inside(where, spare) and not any(inside(where, m) for m in meant):
+                return f"{fallback_folder().parent.name} › {fallback_folder().name}"
+        return ""
 
     def _recycle_extracted(self, archives: list[Path]) -> int:
         """Sends the extracted archives, each with all its parts, to the Recycle Bin (closing the

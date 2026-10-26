@@ -1,7 +1,8 @@
 """Every Converter tool that needs no question (pictures, videos, sounds, PDF, archives, folders), when saving
 goes wrong in the other ways a real PC has, and the File Organizer when it can't move into a folder:
 
-  read-only   the folder it saves into can't be written to (its rights say no)
+  read-only   the folder it saves into can't be written to (its rights say no): what it makes goes to
+              Downloads › Corefold instead, whole, and nothing is left in the folder
   locked      the file it works on is held open by another program that lets nobody read it
   long        the files and the folder it saves into are deep inside folders, past Windows' old 260 letters
   cancel      Cancel is pressed soon after it starts
@@ -13,6 +14,7 @@ within a few seconds.
 
 Prints one line per tool, one line per problem and "writefailtest: N problem(s)". Needs FFmpeg and 7-Zip.
 Run: python scripts/writefailtest.py [read-only,locked,long,cancel]"""
+import faulthandler
 import os
 import re
 import shutil
@@ -25,7 +27,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from fulldisktest import TMP, Options, cv, fingerprints, make_files, whole  # noqa: E402 (sets up Qt and a clean profile)
 
+from corefold import core  # noqa: E402
 from corefold import organizer as org  # noqa: E402
+
+core.set_downloads_folder(TMP / "user Downloads")  # (Downloads › Corefold, where files go that can't go where meant)
 
 problems: list[str] = []
 # what only FFmpeg, 7-Zip, Pillow or Windows say: the person must get Corefold's own words instead
@@ -116,6 +121,17 @@ def judge(case: str, files: list[Path], tool, result, errors: list[str], out: Pa
     return now
 
 
+def run(case: str, files: list[Path], tool, out: Path, **kw):
+    """The tool's job; if it hasn't ended after 4 minutes, where every thread is gets printed and the test
+    stops (a job that never ends is a problem too, and this says which one and where)."""
+    print(f"  … {case} · {files[0].name} · {tool.key}", flush=True)
+    faulthandler.dump_traceback_later(240, exit=True)
+    try:
+        return cv.run_job(tool, files, Options(output_folder=out), **kw)
+    finally:
+        faulthandler.cancel_dump_traceback_later()
+
+
 def tools(inputs):
     for files in inputs:
         for slot in cv.tools_for(files)[1]:
@@ -143,10 +159,16 @@ def read_only(inputs, src):
         except OSError:
             pass
         n = 0
+        spare = core.fallback_folder()
         for files, tool in tools(inputs):
             before = set(out.rglob("*"))
-            result, errors = cv.run_job(tool, files, Options(output_folder=out))
-            originals = judge("read-only", files, tool, result, errors, out, before, originals, src, must_fail=True)
+            result, errors = run("read-only", files, tool, out)
+            originals = judge("read-only", files, tool, result, errors, out, before, originals, src)
+            for o in result.outputs:
+                if spare not in Path(o).parents:
+                    problem(f"read-only · {files[0].name} · {tool.key}: {o} isn't in Downloads › Corefold")
+            if left_in(out, before):
+                problem(f"read-only · {files[0].name} · {tool.key}: something got into the read-only folder")
             n += 1
         return n
     finally:
@@ -166,7 +188,7 @@ def locked(inputs, src):
         held = [p for f in files for p in ([f] if f.is_file() else sorted(f.rglob("*")))]
         before = set(out.rglob("*"))
         with Locked(held):
-            result, errors = cv.run_job(tool, files, Options(output_folder=out))
+            result, errors = run("locked", files, tool, out)
         originals = judge("locked", files, tool, result, errors, out, before, originals, src, must_fail=True)
         empty(out)
         n += 1
@@ -191,7 +213,7 @@ def long_paths():
     n = 0
     for files, tool in tools(inputs):
         before = set(out.rglob("*"))
-        result, errors = cv.run_job(tool, files, Options(output_folder=out))
+        result, errors = run("long", files, tool, out)
         originals = judge("long", files, tool, result, errors, out, before, originals, src)
         empty(out)
         n += 1
@@ -207,8 +229,7 @@ def cancel(inputs, src):
         before = set(out.rglob("*"))
         stop = threading.Event()
         got = {}
-        job = threading.Thread(target=lambda: got.update(r=cv.run_job(tool, files, Options(output_folder=out),
-                                                                      cancel=stop)), daemon=True)
+        job = threading.Thread(target=lambda: got.update(r=run("cancel", files, tool, out, cancel=stop)), daemon=True)
         job.start()
         time.sleep(0.15)
         stop.set()
@@ -217,7 +238,8 @@ def cancel(inputs, src):
         took = time.perf_counter() - t0
         if job.is_alive():
             problem(f"cancel · {files[0].name} · {tool.key}: still going a minute after Cancel")
-            job.join()
+            faulthandler.dump_traceback(all_threads=True)
+            break
         elif took > 8:
             problem(f"cancel · {files[0].name} · {tool.key}: took {took:.0f} s to stop after Cancel")
         result, errors = got["r"]

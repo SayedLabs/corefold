@@ -146,6 +146,7 @@ STRINGS: dict[str, str] = {
     "Couldn't open the file": "تعذّر فتح الملف",
     "Cancelled": "تم الإلغاء",
     "Nothing was saved for the unfinished file.": "لم يُحفظ شيء للملف غير المكتمل.",
+    "The folder it was meant for can't be saved in, so it's in {folder}": "لا يمكن الحفظ في المجلد المقصود، لذلك حُفظ في {folder}",
     "Couldn't convert": "تعذّر التحويل",
     "Some files couldn't be converted": "تعذّر تحويل بعض الملفات",
     "…and {count} more": "…وغيرها ({count})",
