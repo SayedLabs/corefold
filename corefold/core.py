@@ -346,7 +346,10 @@ def legacy_text(raw: bytes) -> str:
 # ----------------------------------------------------------------------------- file types
 
 ALIASES = {".jpeg": ".jpg", ".jfif": ".jpg", ".tif": ".tiff", ".aif": ".aiff", ".heif": ".heic"}
-IMAGE_EXT = {".png", ".jpg", ".webp", ".bmp", ".gif", ".tiff", ".heic", ".avif", ".ico"}
+# (and drawings and cameras' RAW files, read through their built-in full-size picture: pictureformats.py)
+IMAGE_EXT = {".png", ".jpg", ".webp", ".bmp", ".gif", ".tiff", ".heic", ".avif", ".ico", ".svg", ".cr2", ".cr3", ".nef",
+             ".nrw", ".arw", ".srf", ".sr2", ".dng", ".orf", ".rw2", ".raf", ".srw", ".pef", ".3fr", ".erf", ".kdc",
+             ".mrw", ".x3f"}
 AUDIO_EXT = {".mp3", ".m4a", ".wav", ".flac", ".ogg", ".opus", ".aiff", ".wma", ".aac"}
 VIDEO_EXT = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".wmv", ".m4v", ".flv", ".mpg", ".mpeg", ".3gp", ".ts"}
 WORD_EXT = {".doc", ".docx", ".rtf", ".odt"}
