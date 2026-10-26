@@ -442,7 +442,7 @@ class AddTile(QPushButton):
         super().__init__("  " + tr("Add a widget"), board)
         self.setObjectName("addWidget")
         self.setCursor(Qt.PointingHandCursor)
-        self.setIcon(icons.icon("add", board.c.theme.accent))
+        self.setIcon(icons.icon("add", board.c.theme.muted))
         self.setIconSize(QSize(20, 20))
         self.setMinimumWidth(1)
         self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
@@ -598,7 +598,7 @@ class Board(QWidget):
             level(1.0)
 
     def apply_theme(self, _theme=None):
-        self.add_tile.setIcon(icons.icon("add", self.c.theme.accent))
+        self.add_tile.setIcon(icons.icon("add", self.c.theme.muted))
         self.fill()
 
     # ---- changes (each is saved right away: the Home page isn't a setting that waits for Save). Only the widget
@@ -910,7 +910,7 @@ class Board(QWidget):
 
     def _glyph(self, name: str, size: int = 22, color=None) -> QLabel:
         g = QLabel()
-        g.setPixmap(icons.pixmap(name, size, color or self.c.theme.accent, self.devicePixelRatioF()))
+        g.setPixmap(icons.pixmap(name, size, color or self.c.theme.muted, self.devicePixelRatioF()))
         g.setFixedSize(size, size)
         return g
 
@@ -942,11 +942,10 @@ class Board(QWidget):
         bl.addStretch()
         lay.addWidget(box, 1)
 
-    def _action(self, text: str, icon_name: str, fn, primary: bool = False) -> QPushButton:
+    def _action(self, text: str, icon_name: str, fn) -> QPushButton:
         """A button in a widget: an icon and a few words."""
-        b = _button(text, "primary" if primary else "widgetAction", fn)
-        t = self.c.theme
-        b.setIcon(icons.icon(icon_name, t.on_accent if primary else t.accent if not t.dark else t.text))
+        b = _button(text, "widgetAction", fn)  # (calm: a widget is a shortcut, not the screen's main action)
+        b.setIcon(icons.icon(icon_name, self.c.theme.text))
         b.setIconSize(QSize(16, 16))
         b.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         b.setMinimumWidth(1)
@@ -971,7 +970,7 @@ class Board(QWidget):
                    "" if size == "small" else tr("Drop files here and pick what to make of them."))
         buttons = QHBoxLayout()
         buttons.setSpacing(8)
-        buttons.addWidget(self._action(tr("Choose files…"), "add", self.w._choose_files, primary=True))
+        buttons.addWidget(self._action(tr("Choose files…"), "add", self.w._choose_files))
         if size != "small":
             buttons.addWidget(self._action(tr("Paste (Ctrl + V)"), "clipboard_paste", self.c.paste))
         if wide:
@@ -1101,7 +1100,7 @@ class Board(QWidget):
         buttons = QHBoxLayout()
         buttons.setSpacing(8)
         buttons.addWidget(self._action(tr("Open an archive…") if size != "small" else tr("Open…"), "folder_open",
-                                       self.w._open_archive, primary=True))
+                                       self.w._open_archive))
         if size != "small":
             buttons.addWidget(self._action(tr("Make an archive…"), "folder_zip", self.w._make_archive))
         lay.addLayout(buttons)
@@ -1193,7 +1192,7 @@ class Board(QWidget):
         lay.addStretch()
         row = QHBoxLayout()
         row.setSpacing(8)
-        row.addWidget(self._action(tr("Pick a file…"), "document", self._unlock_pick, primary=True))
+        row.addWidget(self._action(tr("Pick a file…"), "document", self._unlock_pick))
         if size != "small":
             row.addWidget(self._action(tr("Pick a folder…"), "folder", lambda: self._unlock_pick(True)))
         lay.addLayout(row)
@@ -1214,8 +1213,7 @@ class Board(QWidget):
         holder.setSpacing(2)
         lay.addLayout(holder)
         lay.addStretch()
-        lay.addWidget(self._action(tr("Open Cloud"), "cloud", lambda: self._open("Cloud"),
-                                   primary=size == "small"), 0, Qt.AlignBottom)
+        lay.addWidget(self._action(tr("Open Cloud"), "cloud", lambda: self._open("Cloud")), 0, Qt.AlignBottom)
         rows = {"small": 0, "medium": 2, "large": 7}[size]
 
         def find():  # (with the services' names: the cloud's own modules are only loaded on this thread)
@@ -1301,7 +1299,7 @@ class Board(QWidget):
         head.addStretch()
         if not f.preview and len(f.entry.get("items", [])) < homelist.MAX_ITEMS:
             add = _button("", "iconButton", lambda: self._shortcut_add(f.entry["id"]))
-            add.setIcon(icons.icon("add", self.c.theme.accent))
+            add.setIcon(icons.icon("add", self.c.theme.muted))
             add.setFixedSize(28, 28)
             add.setToolTip(tr("Add a shortcut"))
             add.setAccessibleName(tr("Add a shortcut"))
@@ -1382,8 +1380,7 @@ class Board(QWidget):
         row = QHBoxLayout()
         row.setSpacing(8)
         row.addWidget(self._action(tr("Take a screenshot"), "screenshot",
-                                   lambda: self.c.capture and QTimer.singleShot(250, self.c.capture.screenshot),
-                                   primary=True))
+                                   lambda: self.c.capture and QTimer.singleShot(250, self.c.capture.screenshot)))
         if size != "small":
             row.addWidget(self._action(tr("Screenshot with a timer"), "timer",
                                        lambda: self.c.capture and self.c.capture.screenshot_later()))
@@ -1392,13 +1389,12 @@ class Board(QWidget):
     def _w_clipboard(self, f, lay, size):
         self._head(lay, "clipboard", tr("Clipboard history"))
         lay.addStretch()
-        lay.addWidget(self._action(tr("Open"), "clipboard", lambda: self.c.show_clipboard(), primary=True))
+        lay.addWidget(self._action(tr("Open"), "clipboard", lambda: self.c.show_clipboard()))
 
     def _w_color(self, f, lay, size):
         self._head(lay, "colors", tr("Pick a colour"))
         lay.addStretch()
-        lay.addWidget(self._action(tr("Pick"), "color", lambda: self.c.colors and self.c.colors.pick(),
-                                   primary=True))
+        lay.addWidget(self._action(tr("Pick"), "color", lambda: self.c.colors and self.c.colors.pick()))
 
     def _w_disk(self, f, lay, size):
         self._head(lay, "space", tr("Disk space"))

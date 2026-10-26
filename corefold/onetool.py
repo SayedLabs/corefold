@@ -141,7 +141,7 @@ class UseCard(QFrame):
         lay.setContentsMargins(14, 12, 14, 12)
         lay.setSpacing(12)
         tile = QLabel()
-        tile.setPixmap(icons.soft_tile(tool.icon, 36, theme.accent, dpr))
+        tile.setPixmap(icons.soft_tile(tool.icon, 36, theme.tokens.glyph, dpr))
         tile.setFixedSize(36, 36)
         lay.addWidget(tile, 0, Qt.AlignTop)
         words = QVBoxLayout()
