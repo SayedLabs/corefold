@@ -1,0 +1,818 @@
+----- start
+ok    the window opens
+ok    every ready tool can be added
+ok    start: no errors behind the clicks (0)
+----- store
+ok    round 1: switching off converter takes it out of its section
+ok    round 1: after switching off converter the window is still open (Home)
+ok    round 1: a removed converter page can't be opened
+ok    round 1: switching off uninstaller takes it out of its section
+ok    round 1: after switching off uninstaller the window is still open (Files)
+ok    round 1: a removed uninstaller page can't be opened
+ok    round 1: switching off archive takes it out of its section
+ok    round 1: after switching off archive the window is still open (Computer)
+ok    round 1: a removed archive page can't be opened
+ok    round 1: switching off viewer takes it out of its section
+ok    round 1: after switching off viewer the window is still open (Files)
+ok    round 1: a removed viewer page can't be opened
+ok    round 1: switching off player takes it out of its section
+ok    round 1: after switching off player the window is still open (Media)
+ok    round 1: a removed player page can't be opened
+ok    round 1: switching off capture takes it out of its section
+ok    round 1: after switching off capture the window is still open (Media)
+ok    a removed Capture lets go of its shortcuts
+ok    round 1: a removed capture page can't be opened
+ok    round 1: switching off space takes it out of its section
+ok    round 1: after switching off space the window is still open (Media)
+ok    round 1: a removed space page can't be opened
+ok    round 1: switching off clipboard takes it out of its section
+ok    round 1: after switching off clipboard the window is still open (Computer)
+ok    a removed Clipboard stops watching what's copied
+ok    round 1: a removed clipboard page can't be opened
+ok    round 1: switching off cloud takes it out of its section
+ok    round 1: after switching off cloud the window is still open (QuickTools)
+ok    round 1: a removed cloud page can't be opened
+ok    round 1: switching off startup takes it out of its section
+ok    round 1: after switching off startup the window is still open (Clouds)
+ok    round 1: a removed startup page can't be opened
+ok    round 1: switching off scan takes it out of its section
+ok    round 1: after switching off scan the window is still open (Computer)
+ok    round 1: a removed scan page can't be opened
+ok    round 1: switching off pdf takes it out of its section
+ok    round 1: after switching off pdf the window is still open (Computer)
+ok    round 1: a removed pdf page can't be opened
+ok    round 1: switching off colors takes it out of its section
+ok    round 1: after switching off colors the window is still open (Files)
+ok    round 1: a removed colors page can't be opened
+ok    round 1: switching off awake takes it out of its section
+ok    round 1: after switching off awake the window is still open (Media)
+ok    round 1: a removed awake page can't be opened
+ok    round 1: switching off unlock takes it out of its section
+ok    round 1: after switching off unlock the window is still open (QuickTools)
+ok    round 1: a removed unlock page can't be opened
+ok    round 1: switching off organizer takes it out of its section
+ok    round 1: after switching off organizer the window is still open (Files)
+ok    round 1: a removed organizer page can't be opened
+ok    round 1: every tool can be removed
+ok    Home with no tools, round 1: nothing cut off or sticking out
+ok    the files section with no tools, round 1: the Files page opens (Files)
+ok    the files section with no tools, round 1: the Files page shows (758x478)
+ok    the cloud section with no tools, round 1: the Clouds page opens (Clouds)
+ok    the cloud section with no tools, round 1: the Clouds page shows (758x626)
+ok    the media section with no tools, round 1: the Media page opens (Media)
+ok    the media section with no tools, round 1: the Media page shows (758x582)
+ok    the computer section with no tools, round 1: the Computer page opens (Computer)
+ok    the computer section with no tools, round 1: the Computer page shows (758x582)
+ok    the quick section with no tools, round 1: the QuickTools page opens (QuickTools)
+ok    the quick section with no tools, round 1: the QuickTools page shows (758x582)
+ok    round 1: organizer can be added back
+ok    round 1: unlock can be added back
+ok    round 1: awake can be added back
+ok    round 1: colors can be added back
+ok    round 1: pdf can be added back
+ok    round 1: scan can be added back
+ok    round 1: startup can be added back
+ok    round 1: cloud can be added back
+ok    round 1: clipboard can be added back
+ok    round 1: space can be added back
+ok    round 1: capture can be added back
+ok    round 1: player can be added back
+ok    round 1: viewer can be added back
+ok    round 1: archive can be added back
+ok    round 1: uninstaller can be added back
+ok    round 1: converter can be added back
+note  round 1: 5 windows, 308 widgets, 121 MB, 51689 Python objects
+ok    round 2: switching off converter takes it out of its section
+ok    round 2: after switching off converter the window is still open (QuickTools)
+ok    round 2: a removed converter page can't be opened
+ok    round 2: switching off uninstaller takes it out of its section
+ok    round 2: after switching off uninstaller the window is still open (Files)
+ok    round 2: a removed uninstaller page can't be opened
+ok    round 2: switching off archive takes it out of its section
+ok    round 2: after switching off archive the window is still open (Computer)
+ok    round 2: a removed archive page can't be opened
+ok    round 2: switching off viewer takes it out of its section
+ok    round 2: after switching off viewer the window is still open (Files)
+ok    round 2: a removed viewer page can't be opened
+ok    round 2: switching off player takes it out of its section
+ok    round 2: after switching off player the window is still open (Media)
+ok    round 2: a removed player page can't be opened
+ok    round 2: switching off capture takes it out of its section
+ok    round 2: after switching off capture the window is still open (Media)
+ok    a removed Capture lets go of its shortcuts
+ok    round 2: a removed capture page can't be opened
+ok    round 2: switching off space takes it out of its section
+ok    round 2: after switching off space the window is still open (Media)
+ok    round 2: a removed space page can't be opened
+ok    round 2: switching off clipboard takes it out of its section
+ok    round 2: after switching off clipboard the window is still open (Computer)
+ok    a removed Clipboard stops watching what's copied
+ok    round 2: a removed clipboard page can't be opened
+ok    round 2: switching off cloud takes it out of its section
+ok    round 2: after switching off cloud the window is still open (QuickTools)
+ok    round 2: a removed cloud page can't be opened
+ok    round 2: switching off startup takes it out of its section
+ok    round 2: after switching off startup the window is still open (Clouds)
+ok    round 2: a removed startup page can't be opened
+ok    round 2: switching off scan takes it out of its section
+ok    round 2: after switching off scan the window is still open (Computer)
+ok    round 2: a removed scan page can't be opened
+ok    round 2: switching off pdf takes it out of its section
+ok    round 2: after switching off pdf the window is still open (Computer)
+ok    round 2: a removed pdf page can't be opened
+ok    round 2: switching off colors takes it out of its section
+ok    round 2: after switching off colors the window is still open (Files)
+ok    round 2: a removed colors page can't be opened
+ok    round 2: switching off awake takes it out of its section
+ok    round 2: after switching off awake the window is still open (Media)
+ok    round 2: a removed awake page can't be opened
+ok    round 2: switching off unlock takes it out of its section
+ok    round 2: after switching off unlock the window is still open (QuickTools)
+ok    round 2: a removed unlock page can't be opened
+ok    round 2: switching off organizer takes it out of its section
+ok    round 2: after switching off organizer the window is still open (Files)
+ok    round 2: a removed organizer page can't be opened
+ok    round 2: every tool can be removed
+ok    Home with no tools, round 2: nothing cut off or sticking out
+ok    the files section with no tools, round 2: the Files page opens (Files)
+ok    the files section with no tools, round 2: the Files page shows (758x478)
+ok    the cloud section with no tools, round 2: the Clouds page opens (Clouds)
+ok    the cloud section with no tools, round 2: the Clouds page shows (758x626)
+ok    the media section with no tools, round 2: the Media page opens (Media)
+ok    the media section with no tools, round 2: the Media page shows (758x582)
+ok    the computer section with no tools, round 2: the Computer page opens (Computer)
+ok    the computer section with no tools, round 2: the Computer page shows (758x582)
+ok    the quick section with no tools, round 2: the QuickTools page opens (QuickTools)
+ok    the quick section with no tools, round 2: the QuickTools page shows (758x582)
+ok    round 2: organizer can be added back
+ok    round 2: unlock can be added back
+ok    round 2: awake can be added back
+ok    round 2: colors can be added back
+ok    round 2: pdf can be added back
+ok    round 2: scan can be added back
+ok    round 2: startup can be added back
+ok    round 2: cloud can be added back
+ok    round 2: clipboard can be added back
+ok    round 2: space can be added back
+ok    round 2: capture can be added back
+ok    round 2: player can be added back
+ok    round 2: viewer can be added back
+ok    round 2: archive can be added back
+ok    round 2: uninstaller can be added back
+ok    round 2: converter can be added back
+note  round 2: 5 windows, 308 widgets, 121 MB, 52224 Python objects
+ok    round 3: switching off converter takes it out of its section
+ok    round 3: after switching off converter the window is still open (QuickTools)
+ok    round 3: a removed converter page can't be opened
+ok    round 3: switching off uninstaller takes it out of its section
+ok    round 3: after switching off uninstaller the window is still open (Files)
+ok    round 3: a removed uninstaller page can't be opened
+ok    round 3: switching off archive takes it out of its section
+ok    round 3: after switching off archive the window is still open (Computer)
+ok    round 3: a removed archive page can't be opened
+ok    round 3: switching off viewer takes it out of its section
+ok    round 3: after switching off viewer the window is still open (Files)
+ok    round 3: a removed viewer page can't be opened
+ok    round 3: switching off player takes it out of its section
+ok    round 3: after switching off player the window is still open (Media)
+ok    round 3: a removed player page can't be opened
+ok    round 3: switching off capture takes it out of its section
+ok    round 3: after switching off capture the window is still open (Media)
+ok    a removed Capture lets go of its shortcuts
+ok    round 3: a removed capture page can't be opened
+ok    round 3: switching off space takes it out of its section
+ok    round 3: after switching off space the window is still open (Media)
+ok    round 3: a removed space page can't be opened
+ok    round 3: switching off clipboard takes it out of its section
+ok    round 3: after switching off clipboard the window is still open (Computer)
+ok    a removed Clipboard stops watching what's copied
+ok    round 3: a removed clipboard page can't be opened
+ok    round 3: switching off cloud takes it out of its section
+ok    round 3: after switching off cloud the window is still open (QuickTools)
+ok    round 3: a removed cloud page can't be opened
+ok    round 3: switching off startup takes it out of its section
+ok    round 3: after switching off startup the window is still open (Clouds)
+ok    round 3: a removed startup page can't be opened
+ok    round 3: switching off scan takes it out of its section
+ok    round 3: after switching off scan the window is still open (Computer)
+ok    round 3: a removed scan page can't be opened
+ok    round 3: switching off pdf takes it out of its section
+ok    round 3: after switching off pdf the window is still open (Computer)
+ok    round 3: a removed pdf page can't be opened
+ok    round 3: switching off colors takes it out of its section
+ok    round 3: after switching off colors the window is still open (Files)
+ok    round 3: a removed colors page can't be opened
+ok    round 3: switching off awake takes it out of its section
+ok    round 3: after switching off awake the window is still open (Media)
+ok    round 3: a removed awake page can't be opened
+ok    round 3: switching off unlock takes it out of its section
+ok    round 3: after switching off unlock the window is still open (QuickTools)
+ok    round 3: a removed unlock page can't be opened
+ok    round 3: switching off organizer takes it out of its section
+ok    round 3: after switching off organizer the window is still open (Files)
+ok    round 3: a removed organizer page can't be opened
+ok    round 3: every tool can be removed
+ok    Home with no tools, round 3: nothing cut off or sticking out
+ok    the files section with no tools, round 3: the Files page opens (Files)
+ok    the files section with no tools, round 3: the Files page shows (758x478)
+ok    the cloud section with no tools, round 3: the Clouds page opens (Clouds)
+ok    the cloud section with no tools, round 3: the Clouds page shows (758x626)
+ok    the media section with no tools, round 3: the Media page opens (Media)
+ok    the media section with no tools, round 3: the Media page shows (758x582)
+ok    the computer section with no tools, round 3: the Computer page opens (Computer)
+ok    the computer section with no tools, round 3: the Computer page shows (758x582)
+ok    the quick section with no tools, round 3: the QuickTools page opens (QuickTools)
+ok    the quick section with no tools, round 3: the QuickTools page shows (758x582)
+ok    round 3: organizer can be added back
+ok    round 3: unlock can be added back
+ok    round 3: awake can be added back
+ok    round 3: colors can be added back
+ok    round 3: pdf can be added back
+ok    round 3: scan can be added back
+ok    round 3: startup can be added back
+ok    round 3: cloud can be added back
+ok    round 3: clipboard can be added back
+ok    round 3: space can be added back
+ok    round 3: capture can be added back
+ok    round 3: player can be added back
+ok    round 3: viewer can be added back
+ok    round 3: archive can be added back
+ok    round 3: uninstaller can be added back
+ok    round 3: converter can be added back
+note  round 3: 5 windows, 308 widgets, 123 MB, 52233 Python objects
+ok    round 4: switching off converter takes it out of its section
+ok    round 4: after switching off converter the window is still open (QuickTools)
+ok    round 4: a removed converter page can't be opened
+ok    round 4: switching off uninstaller takes it out of its section
+ok    round 4: after switching off uninstaller the window is still open (Files)
+ok    round 4: a removed uninstaller page can't be opened
+ok    round 4: switching off archive takes it out of its section
+ok    round 4: after switching off archive the window is still open (Computer)
+ok    round 4: a removed archive page can't be opened
+ok    round 4: switching off viewer takes it out of its section
+ok    round 4: after switching off viewer the window is still open (Files)
+ok    round 4: a removed viewer page can't be opened
+ok    round 4: switching off player takes it out of its section
+ok    round 4: after switching off player the window is still open (Media)
+ok    round 4: a removed player page can't be opened
+ok    round 4: switching off capture takes it out of its section
+ok    round 4: after switching off capture the window is still open (Media)
+ok    a removed Capture lets go of its shortcuts
+ok    round 4: a removed capture page can't be opened
+ok    round 4: switching off space takes it out of its section
+ok    round 4: after switching off space the window is still open (Media)
+ok    round 4: a removed space page can't be opened
+ok    round 4: switching off clipboard takes it out of its section
+ok    round 4: after switching off clipboard the window is still open (Computer)
+ok    a removed Clipboard stops watching what's copied
+ok    round 4: a removed clipboard page can't be opened
+ok    round 4: switching off cloud takes it out of its section
+ok    round 4: after switching off cloud the window is still open (QuickTools)
+ok    round 4: a removed cloud page can't be opened
+ok    round 4: switching off startup takes it out of its section
+ok    round 4: after switching off startup the window is still open (Clouds)
+ok    round 4: a removed startup page can't be opened
+ok    round 4: switching off scan takes it out of its section
+ok    round 4: after switching off scan the window is still open (Computer)
+ok    round 4: a removed scan page can't be opened
+ok    round 4: switching off pdf takes it out of its section
+ok    round 4: after switching off pdf the window is still open (Computer)
+ok    round 4: a removed pdf page can't be opened
+ok    round 4: switching off colors takes it out of its section
+ok    round 4: after switching off colors the window is still open (Files)
+ok    round 4: a removed colors page can't be opened
+ok    round 4: switching off awake takes it out of its section
+ok    round 4: after switching off awake the window is still open (Media)
+ok    round 4: a removed awake page can't be opened
+ok    round 4: switching off unlock takes it out of its section
+ok    round 4: after switching off unlock the window is still open (QuickTools)
+ok    round 4: a removed unlock page can't be opened
+ok    round 4: switching off organizer takes it out of its section
+ok    round 4: after switching off organizer the window is still open (Files)
+ok    round 4: a removed organizer page can't be opened
+ok    round 4: every tool can be removed
+ok    Home with no tools, round 4: nothing cut off or sticking out
+ok    the files section with no tools, round 4: the Files page opens (Files)
+ok    the files section with no tools, round 4: the Files page shows (758x478)
+ok    the cloud section with no tools, round 4: the Clouds page opens (Clouds)
+ok    the cloud section with no tools, round 4: the Clouds page shows (758x626)
+ok    the media section with no tools, round 4: the Media page opens (Media)
+ok    the media section with no tools, round 4: the Media page shows (758x582)
+ok    the computer section with no tools, round 4: the Computer page opens (Computer)
+ok    the computer section with no tools, round 4: the Computer page shows (758x582)
+ok    the quick section with no tools, round 4: the QuickTools page opens (QuickTools)
+ok    the quick section with no tools, round 4: the QuickTools page shows (758x582)
+ok    round 4: organizer can be added back
+ok    round 4: unlock can be added back
+ok    round 4: awake can be added back
+ok    round 4: colors can be added back
+ok    round 4: pdf can be added back
+ok    round 4: scan can be added back
+ok    round 4: startup can be added back
+ok    round 4: cloud can be added back
+ok    round 4: clipboard can be added back
+ok    round 4: space can be added back
+ok    round 4: capture can be added back
+ok    round 4: player can be added back
+ok    round 4: viewer can be added back
+ok    round 4: archive can be added back
+ok    round 4: uninstaller can be added back
+ok    round 4: converter can be added back
+note  round 4: 5 windows, 308 widgets, 123 MB, 52310 Python objects
+ok    round 5: switching off converter takes it out of its section
+ok    round 5: after switching off converter the window is still open (QuickTools)
+ok    round 5: a removed converter page can't be opened
+ok    round 5: switching off uninstaller takes it out of its section
+ok    round 5: after switching off uninstaller the window is still open (Files)
+ok    round 5: a removed uninstaller page can't be opened
+ok    round 5: switching off archive takes it out of its section
+ok    round 5: after switching off archive the window is still open (Computer)
+ok    round 5: a removed archive page can't be opened
+ok    round 5: switching off viewer takes it out of its section
+ok    round 5: after switching off viewer the window is still open (Files)
+ok    round 5: a removed viewer page can't be opened
+ok    round 5: switching off player takes it out of its section
+ok    round 5: after switching off player the window is still open (Media)
+ok    round 5: a removed player page can't be opened
+ok    round 5: switching off capture takes it out of its section
+ok    round 5: after switching off capture the window is still open (Media)
+ok    a removed Capture lets go of its shortcuts
+ok    round 5: a removed capture page can't be opened
+ok    round 5: switching off space takes it out of its section
+ok    round 5: after switching off space the window is still open (Media)
+ok    round 5: a removed space page can't be opened
+ok    round 5: switching off clipboard takes it out of its section
+ok    round 5: after switching off clipboard the window is still open (Computer)
+ok    a removed Clipboard stops watching what's copied
+ok    round 5: a removed clipboard page can't be opened
+ok    round 5: switching off cloud takes it out of its section
+ok    round 5: after switching off cloud the window is still open (QuickTools)
+ok    round 5: a removed cloud page can't be opened
+ok    round 5: switching off startup takes it out of its section
+ok    round 5: after switching off startup the window is still open (Clouds)
+ok    round 5: a removed startup page can't be opened
+ok    round 5: switching off scan takes it out of its section
+ok    round 5: after switching off scan the window is still open (Computer)
+ok    round 5: a removed scan page can't be opened
+ok    round 5: switching off pdf takes it out of its section
+ok    round 5: after switching off pdf the window is still open (Computer)
+ok    round 5: a removed pdf page can't be opened
+ok    round 5: switching off colors takes it out of its section
+ok    round 5: after switching off colors the window is still open (Files)
+ok    round 5: a removed colors page can't be opened
+ok    round 5: switching off awake takes it out of its section
+ok    round 5: after switching off awake the window is still open (Media)
+ok    round 5: a removed awake page can't be opened
+ok    round 5: switching off unlock takes it out of its section
+ok    round 5: after switching off unlock the window is still open (QuickTools)
+ok    round 5: a removed unlock page can't be opened
+ok    round 5: switching off organizer takes it out of its section
+ok    round 5: after switching off organizer the window is still open (Files)
+ok    round 5: a removed organizer page can't be opened
+ok    round 5: every tool can be removed
+ok    Home with no tools, round 5: nothing cut off or sticking out
+ok    the files section with no tools, round 5: the Files page opens (Files)
+ok    the files section with no tools, round 5: the Files page shows (758x478)
+ok    the cloud section with no tools, round 5: the Clouds page opens (Clouds)
+ok    the cloud section with no tools, round 5: the Clouds page shows (758x626)
+ok    the media section with no tools, round 5: the Media page opens (Media)
+ok    the media section with no tools, round 5: the Media page shows (758x582)
+ok    the computer section with no tools, round 5: the Computer page opens (Computer)
+ok    the computer section with no tools, round 5: the Computer page shows (758x582)
+ok    the quick section with no tools, round 5: the QuickTools page opens (QuickTools)
+ok    the quick section with no tools, round 5: the QuickTools page shows (758x582)
+ok    round 5: organizer can be added back
+ok    round 5: unlock can be added back
+ok    round 5: awake can be added back
+ok    round 5: colors can be added back
+ok    round 5: pdf can be added back
+ok    round 5: scan can be added back
+ok    round 5: startup can be added back
+ok    round 5: cloud can be added back
+ok    round 5: clipboard can be added back
+ok    round 5: space can be added back
+ok    round 5: capture can be added back
+ok    round 5: player can be added back
+ok    round 5: viewer can be added back
+ok    round 5: archive can be added back
+ok    round 5: uninstaller can be added back
+ok    round 5: converter can be added back
+note  round 5: 5 windows, 308 widgets, 123 MB, 52289 Python objects
+ok    round 6: switching off converter takes it out of its section
+ok    round 6: after switching off converter the window is still open (QuickTools)
+ok    round 6: a removed converter page can't be opened
+ok    round 6: switching off uninstaller takes it out of its section
+ok    round 6: after switching off uninstaller the window is still open (Files)
+ok    round 6: a removed uninstaller page can't be opened
+ok    round 6: switching off archive takes it out of its section
+ok    round 6: after switching off archive the window is still open (Computer)
+ok    round 6: a removed archive page can't be opened
+ok    round 6: switching off viewer takes it out of its section
+ok    round 6: after switching off viewer the window is still open (Files)
+ok    round 6: a removed viewer page can't be opened
+ok    round 6: switching off player takes it out of its section
+ok    round 6: after switching off player the window is still open (Media)
+ok    round 6: a removed player page can't be opened
+ok    round 6: switching off capture takes it out of its section
+ok    round 6: after switching off capture the window is still open (Media)
+ok    a removed Capture lets go of its shortcuts
+ok    round 6: a removed capture page can't be opened
+ok    round 6: switching off space takes it out of its section
+ok    round 6: after switching off space the window is still open (Media)
+ok    round 6: a removed space page can't be opened
+ok    round 6: switching off clipboard takes it out of its section
+ok    round 6: after switching off clipboard the window is still open (Computer)
+ok    a removed Clipboard stops watching what's copied
+ok    round 6: a removed clipboard page can't be opened
+ok    round 6: switching off cloud takes it out of its section
+ok    round 6: after switching off cloud the window is still open (QuickTools)
+ok    round 6: a removed cloud page can't be opened
+ok    round 6: switching off startup takes it out of its section
+ok    round 6: after switching off startup the window is still open (Clouds)
+ok    round 6: a removed startup page can't be opened
+ok    round 6: switching off scan takes it out of its section
+ok    round 6: after switching off scan the window is still open (Computer)
+ok    round 6: a removed scan page can't be opened
+ok    round 6: switching off pdf takes it out of its section
+ok    round 6: after switching off pdf the window is still open (Computer)
+ok    round 6: a removed pdf page can't be opened
+ok    round 6: switching off colors takes it out of its section
+ok    round 6: after switching off colors the window is still open (Files)
+ok    round 6: a removed colors page can't be opened
+ok    round 6: switching off awake takes it out of its section
+ok    round 6: after switching off awake the window is still open (Media)
+ok    round 6: a removed awake page can't be opened
+ok    round 6: switching off unlock takes it out of its section
+ok    round 6: after switching off unlock the window is still open (QuickTools)
+ok    round 6: a removed unlock page can't be opened
+ok    round 6: switching off organizer takes it out of its section
+ok    round 6: after switching off organizer the window is still open (Files)
+ok    round 6: a removed organizer page can't be opened
+ok    round 6: every tool can be removed
+ok    Home with no tools, round 6: nothing cut off or sticking out
+ok    the files section with no tools, round 6: the Files page opens (Files)
+ok    the files section with no tools, round 6: the Files page shows (758x478)
+ok    the cloud section with no tools, round 6: the Clouds page opens (Clouds)
+ok    the cloud section with no tools, round 6: the Clouds page shows (758x626)
+ok    the media section with no tools, round 6: the Media page opens (Media)
+ok    the media section with no tools, round 6: the Media page shows (758x582)
+ok    the computer section with no tools, round 6: the Computer page opens (Computer)
+ok    the computer section with no tools, round 6: the Computer page shows (758x582)
+ok    the quick section with no tools, round 6: the QuickTools page opens (QuickTools)
+ok    the quick section with no tools, round 6: the QuickTools page shows (758x582)
+ok    round 6: organizer can be added back
+ok    round 6: unlock can be added back
+ok    round 6: awake can be added back
+ok    round 6: colors can be added back
+ok    round 6: pdf can be added back
+ok    round 6: scan can be added back
+ok    round 6: startup can be added back
+ok    round 6: cloud can be added back
+ok    round 6: clipboard can be added back
+ok    round 6: space can be added back
+ok    round 6: capture can be added back
+ok    round 6: player can be added back
+ok    round 6: viewer can be added back
+ok    round 6: archive can be added back
+ok    round 6: uninstaller can be added back
+ok    round 6: converter can be added back
+note  round 6: 5 windows, 308 widgets, 124 MB, 52102 Python objects
+ok    round 7: switching off converter takes it out of its section
+ok    round 7: after switching off converter the window is still open (QuickTools)
+ok    round 7: a removed converter page can't be opened
+ok    round 7: switching off uninstaller takes it out of its section
+ok    round 7: after switching off uninstaller the window is still open (Files)
+ok    round 7: a removed uninstaller page can't be opened
+ok    round 7: switching off archive takes it out of its section
+ok    round 7: after switching off archive the window is still open (Computer)
+ok    round 7: a removed archive page can't be opened
+ok    round 7: switching off viewer takes it out of its section
+ok    round 7: after switching off viewer the window is still open (Files)
+ok    round 7: a removed viewer page can't be opened
+ok    round 7: switching off player takes it out of its section
+ok    round 7: after switching off player the window is still open (Media)
+ok    round 7: a removed player page can't be opened
+ok    round 7: switching off capture takes it out of its section
+ok    round 7: after switching off capture the window is still open (Media)
+ok    a removed Capture lets go of its shortcuts
+ok    round 7: a removed capture page can't be opened
+ok    round 7: switching off space takes it out of its section
+ok    round 7: after switching off space the window is still open (Media)
+ok    round 7: a removed space page can't be opened
+ok    round 7: switching off clipboard takes it out of its section
+ok    round 7: after switching off clipboard the window is still open (Computer)
+ok    a removed Clipboard stops watching what's copied
+ok    round 7: a removed clipboard page can't be opened
+ok    round 7: switching off cloud takes it out of its section
+ok    round 7: after switching off cloud the window is still open (QuickTools)
+ok    round 7: a removed cloud page can't be opened
+ok    round 7: switching off startup takes it out of its section
+ok    round 7: after switching off startup the window is still open (Clouds)
+ok    round 7: a removed startup page can't be opened
+ok    round 7: switching off scan takes it out of its section
+ok    round 7: after switching off scan the window is still open (Computer)
+ok    round 7: a removed scan page can't be opened
+ok    round 7: switching off pdf takes it out of its section
+ok    round 7: after switching off pdf the window is still open (Computer)
+ok    round 7: a removed pdf page can't be opened
+ok    round 7: switching off colors takes it out of its section
+ok    round 7: after switching off colors the window is still open (Files)
+ok    round 7: a removed colors page can't be opened
+ok    round 7: switching off awake takes it out of its section
+ok    round 7: after switching off awake the window is still open (Media)
+ok    round 7: a removed awake page can't be opened
+ok    round 7: switching off unlock takes it out of its section
+ok    round 7: after switching off unlock the window is still open (QuickTools)
+ok    round 7: a removed unlock page can't be opened
+ok    round 7: switching off organizer takes it out of its section
+ok    round 7: after switching off organizer the window is still open (Files)
+ok    round 7: a removed organizer page can't be opened
+ok    round 7: every tool can be removed
+ok    Home with no tools, round 7: nothing cut off or sticking out
+ok    the files section with no tools, round 7: the Files page opens (Files)
+ok    the files section with no tools, round 7: the Files page shows (758x478)
+ok    the cloud section with no tools, round 7: the Clouds page opens (Clouds)
+ok    the cloud section with no tools, round 7: the Clouds page shows (758x626)
+ok    the media section with no tools, round 7: the Media page opens (Media)
+ok    the media section with no tools, round 7: the Media page shows (758x582)
+ok    the computer section with no tools, round 7: the Computer page opens (Computer)
+ok    the computer section with no tools, round 7: the Computer page shows (758x582)
+ok    the quick section with no tools, round 7: the QuickTools page opens (QuickTools)
+ok    the quick section with no tools, round 7: the QuickTools page shows (758x582)
+ok    round 7: organizer can be added back
+ok    round 7: unlock can be added back
+ok    round 7: awake can be added back
+ok    round 7: colors can be added back
+ok    round 7: pdf can be added back
+ok    round 7: scan can be added back
+ok    round 7: startup can be added back
+ok    round 7: cloud can be added back
+ok    round 7: clipboard can be added back
+ok    round 7: space can be added back
+ok    round 7: capture can be added back
+ok    round 7: player can be added back
+ok    round 7: viewer can be added back
+ok    round 7: archive can be added back
+ok    round 7: uninstaller can be added back
+ok    round 7: converter can be added back
+note  round 7: 5 windows, 308 widgets, 128 MB, 52435 Python objects
+ok    round 8: switching off converter takes it out of its section
+ok    round 8: after switching off converter the window is still open (QuickTools)
+ok    round 8: a removed converter page can't be opened
+ok    round 8: switching off uninstaller takes it out of its section
+ok    round 8: after switching off uninstaller the window is still open (Files)
+ok    round 8: a removed uninstaller page can't be opened
+ok    round 8: switching off archive takes it out of its section
+ok    round 8: after switching off archive the window is still open (Computer)
+ok    round 8: a removed archive page can't be opened
+ok    round 8: switching off viewer takes it out of its section
+ok    round 8: after switching off viewer the window is still open (Files)
+ok    round 8: a removed viewer page can't be opened
+ok    round 8: switching off player takes it out of its section
+ok    round 8: after switching off player the window is still open (Media)
+ok    round 8: a removed player page can't be opened
+ok    round 8: switching off capture takes it out of its section
+ok    round 8: after switching off capture the window is still open (Media)
+ok    a removed Capture lets go of its shortcuts
+ok    round 8: a removed capture page can't be opened
+ok    round 8: switching off space takes it out of its section
+ok    round 8: after switching off space the window is still open (Media)
+ok    round 8: a removed space page can't be opened
+ok    round 8: switching off clipboard takes it out of its section
+ok    round 8: after switching off clipboard the window is still open (Computer)
+ok    a removed Clipboard stops watching what's copied
+ok    round 8: a removed clipboard page can't be opened
+ok    round 8: switching off cloud takes it out of its section
+ok    round 8: after switching off cloud the window is still open (QuickTools)
+ok    round 8: a removed cloud page can't be opened
+ok    round 8: switching off startup takes it out of its section
+ok    round 8: after switching off startup the window is still open (Clouds)
+ok    round 8: a removed startup page can't be opened
+ok    round 8: switching off scan takes it out of its section
+ok    round 8: after switching off scan the window is still open (Computer)
+ok    round 8: a removed scan page can't be opened
+ok    round 8: switching off pdf takes it out of its section
+ok    round 8: after switching off pdf the window is still open (Computer)
+ok    round 8: a removed pdf page can't be opened
+ok    round 8: switching off colors takes it out of its section
+ok    round 8: after switching off colors the window is still open (Files)
+ok    round 8: a removed colors page can't be opened
+ok    round 8: switching off awake takes it out of its section
+ok    round 8: after switching off awake the window is still open (Media)
+ok    round 8: a removed awake page can't be opened
+ok    round 8: switching off unlock takes it out of its section
+ok    round 8: after switching off unlock the window is still open (QuickTools)
+ok    round 8: a removed unlock page can't be opened
+ok    round 8: switching off organizer takes it out of its section
+ok    round 8: after switching off organizer the window is still open (Files)
+ok    round 8: a removed organizer page can't be opened
+ok    round 8: every tool can be removed
+ok    Home with no tools, round 8: nothing cut off or sticking out
+ok    the files section with no tools, round 8: the Files page opens (Files)
+ok    the files section with no tools, round 8: the Files page shows (758x478)
+ok    the cloud section with no tools, round 8: the Clouds page opens (Clouds)
+ok    the cloud section with no tools, round 8: the Clouds page shows (758x626)
+ok    the media section with no tools, round 8: the Media page opens (Media)
+ok    the media section with no tools, round 8: the Media page shows (758x582)
+ok    the computer section with no tools, round 8: the Computer page opens (Computer)
+ok    the computer section with no tools, round 8: the Computer page shows (758x582)
+ok    the quick section with no tools, round 8: the QuickTools page opens (QuickTools)
+ok    the quick section with no tools, round 8: the QuickTools page shows (758x582)
+ok    round 8: organizer can be added back
+ok    round 8: unlock can be added back
+ok    round 8: awake can be added back
+ok    round 8: colors can be added back
+ok    round 8: pdf can be added back
+ok    round 8: scan can be added back
+ok    round 8: startup can be added back
+ok    round 8: cloud can be added back
+ok    round 8: clipboard can be added back
+ok    round 8: space can be added back
+ok    round 8: capture can be added back
+ok    round 8: player can be added back
+ok    round 8: viewer can be added back
+ok    round 8: archive can be added back
+ok    round 8: uninstaller can be added back
+ok    round 8: converter can be added back
+note  round 8: 5 windows, 308 widgets, 129 MB, 52008 Python objects
+ok    round 9: switching off converter takes it out of its section
+ok    round 9: after switching off converter the window is still open (QuickTools)
+ok    round 9: a removed converter page can't be opened
+ok    round 9: switching off uninstaller takes it out of its section
+ok    round 9: after switching off uninstaller the window is still open (Files)
+ok    round 9: a removed uninstaller page can't be opened
+ok    round 9: switching off archive takes it out of its section
+ok    round 9: after switching off archive the window is still open (Computer)
+ok    round 9: a removed archive page can't be opened
+ok    round 9: switching off viewer takes it out of its section
+ok    round 9: after switching off viewer the window is still open (Files)
+ok    round 9: a removed viewer page can't be opened
+ok    round 9: switching off player takes it out of its section
+ok    round 9: after switching off player the window is still open (Media)
+ok    round 9: a removed player page can't be opened
+ok    round 9: switching off capture takes it out of its section
+ok    round 9: after switching off capture the window is still open (Media)
+ok    a removed Capture lets go of its shortcuts
+ok    round 9: a removed capture page can't be opened
+ok    round 9: switching off space takes it out of its section
+ok    round 9: after switching off space the window is still open (Media)
+ok    round 9: a removed space page can't be opened
+ok    round 9: switching off clipboard takes it out of its section
+ok    round 9: after switching off clipboard the window is still open (Computer)
+ok    a removed Clipboard stops watching what's copied
+ok    round 9: a removed clipboard page can't be opened
+ok    round 9: switching off cloud takes it out of its section
+ok    round 9: after switching off cloud the window is still open (QuickTools)
+ok    round 9: a removed cloud page can't be opened
+ok    round 9: switching off startup takes it out of its section
+ok    round 9: after switching off startup the window is still open (Clouds)
+ok    round 9: a removed startup page can't be opened
+ok    round 9: switching off scan takes it out of its section
+ok    round 9: after switching off scan the window is still open (Computer)
+ok    round 9: a removed scan page can't be opened
+ok    round 9: switching off pdf takes it out of its section
+ok    round 9: after switching off pdf the window is still open (Computer)
+ok    round 9: a removed pdf page can't be opened
+ok    round 9: switching off colors takes it out of its section
+ok    round 9: after switching off colors the window is still open (Files)
+ok    round 9: a removed colors page can't be opened
+ok    round 9: switching off awake takes it out of its section
+ok    round 9: after switching off awake the window is still open (Media)
+ok    round 9: a removed awake page can't be opened
+ok    round 9: switching off unlock takes it out of its section
+ok    round 9: after switching off unlock the window is still open (QuickTools)
+ok    round 9: a removed unlock page can't be opened
+ok    round 9: switching off organizer takes it out of its section
+ok    round 9: after switching off organizer the window is still open (Files)
+ok    round 9: a removed organizer page can't be opened
+ok    round 9: every tool can be removed
+ok    Home with no tools, round 9: nothing cut off or sticking out
+ok    the files section with no tools, round 9: the Files page opens (Files)
+ok    the files section with no tools, round 9: the Files page shows (758x478)
+ok    the cloud section with no tools, round 9: the Clouds page opens (Clouds)
+ok    the cloud section with no tools, round 9: the Clouds page shows (758x626)
+ok    the media section with no tools, round 9: the Media page opens (Media)
+ok    the media section with no tools, round 9: the Media page shows (758x582)
+ok    the computer section with no tools, round 9: the Computer page opens (Computer)
+ok    the computer section with no tools, round 9: the Computer page shows (758x582)
+ok    the quick section with no tools, round 9: the QuickTools page opens (QuickTools)
+ok    the quick section with no tools, round 9: the QuickTools page shows (758x582)
+ok    round 9: organizer can be added back
+ok    round 9: unlock can be added back
+ok    round 9: awake can be added back
+ok    round 9: colors can be added back
+ok    round 9: pdf can be added back
+ok    round 9: scan can be added back
+ok    round 9: startup can be added back
+ok    round 9: cloud can be added back
+ok    round 9: clipboard can be added back
+ok    round 9: space can be added back
+ok    round 9: capture can be added back
+ok    round 9: player can be added back
+ok    round 9: viewer can be added back
+ok    round 9: archive can be added back
+ok    round 9: uninstaller can be added back
+ok    round 9: converter can be added back
+note  round 9: 5 windows, 308 widgets, 130 MB, 52288 Python objects
+ok    round 10: switching off converter takes it out of its section
+ok    round 10: after switching off converter the window is still open (QuickTools)
+ok    round 10: a removed converter page can't be opened
+ok    round 10: switching off uninstaller takes it out of its section
+ok    round 10: after switching off uninstaller the window is still open (Files)
+ok    round 10: a removed uninstaller page can't be opened
+ok    round 10: switching off archive takes it out of its section
+ok    round 10: after switching off archive the window is still open (Computer)
+ok    round 10: a removed archive page can't be opened
+ok    round 10: switching off viewer takes it out of its section
+ok    round 10: after switching off viewer the window is still open (Files)
+ok    round 10: a removed viewer page can't be opened
+ok    round 10: switching off player takes it out of its section
+ok    round 10: after switching off player the window is still open (Media)
+ok    round 10: a removed player page can't be opened
+ok    round 10: switching off capture takes it out of its section
+ok    round 10: after switching off capture the window is still open (Media)
+ok    a removed Capture lets go of its shortcuts
+ok    round 10: a removed capture page can't be opened
+ok    round 10: switching off space takes it out of its section
+ok    round 10: after switching off space the window is still open (Media)
+ok    round 10: a removed space page can't be opened
+ok    round 10: switching off clipboard takes it out of its section
+ok    round 10: after switching off clipboard the window is still open (Computer)
+ok    a removed Clipboard stops watching what's copied
+ok    round 10: a removed clipboard page can't be opened
+ok    round 10: switching off cloud takes it out of its section
+ok    round 10: after switching off cloud the window is still open (QuickTools)
+ok    round 10: a removed cloud page can't be opened
+ok    round 10: switching off startup takes it out of its section
+ok    round 10: after switching off startup the window is still open (Clouds)
+ok    round 10: a removed startup page can't be opened
+ok    round 10: switching off scan takes it out of its section
+ok    round 10: after switching off scan the window is still open (Computer)
+ok    round 10: a removed scan page can't be opened
+ok    round 10: switching off pdf takes it out of its section
+ok    round 10: after switching off pdf the window is still open (Computer)
+ok    round 10: a removed pdf page can't be opened
+ok    round 10: switching off colors takes it out of its section
+ok    round 10: after switching off colors the window is still open (Files)
+ok    round 10: a removed colors page can't be opened
+ok    round 10: switching off awake takes it out of its section
+ok    round 10: after switching off awake the window is still open (Media)
+ok    round 10: a removed awake page can't be opened
+ok    round 10: switching off unlock takes it out of its section
+ok    round 10: after switching off unlock the window is still open (QuickTools)
+ok    round 10: a removed unlock page can't be opened
+ok    round 10: switching off organizer takes it out of its section
+ok    round 10: after switching off organizer the window is still open (Files)
+ok    round 10: a removed organizer page can't be opened
+ok    round 10: every tool can be removed
+ok    Home with no tools, round 10: nothing cut off or sticking out
+ok    the files section with no tools, round 10: the Files page opens (Files)
+ok    the files section with no tools, round 10: the Files page shows (758x478)
+ok    the cloud section with no tools, round 10: the Clouds page opens (Clouds)
+ok    the cloud section with no tools, round 10: the Clouds page shows (758x626)
+ok    the media section with no tools, round 10: the Media page opens (Media)
+ok    the media section with no tools, round 10: the Media page shows (758x582)
+ok    the computer section with no tools, round 10: the Computer page opens (Computer)
+ok    the computer section with no tools, round 10: the Computer page shows (758x582)
+ok    the quick section with no tools, round 10: the QuickTools page opens (QuickTools)
+ok    the quick section with no tools, round 10: the QuickTools page shows (758x582)
+ok    round 10: organizer can be added back
+ok    round 10: unlock can be added back
+ok    round 10: awake can be added back
+ok    round 10: colors can be added back
+ok    round 10: pdf can be added back
+ok    round 10: scan can be added back
+ok    round 10: startup can be added back
+ok    round 10: cloud can be added back
+ok    round 10: clipboard can be added back
+ok    round 10: space can be added back
+ok    round 10: capture can be added back
+ok    round 10: player can be added back
+ok    round 10: viewer can be added back
+ok    round 10: archive can be added back
+ok    round 10: uninstaller can be added back
+ok    round 10: converter can be added back
+note  round 10: 5 windows, 308 widgets, 130 MB, 52101 Python objects
+note  grew 26 KB in 25 blocks at sweeptest.py:877 > sweeptest.py:221 > sweeptest.py:590 > sweeptest.py:543
+note  grew 15 KB in 93 blocks at sweeptest.py:877 > sweeptest.py:221 > sweeptest.py:583 > sweeptest.py:520
+note  grew 11 KB in 60 blocks at sweeptest.py:877 > sweeptest.py:221 > sweeptest.py:583 > sweeptest.py:530
+note  grew 10 KB in 240 blocks at window.py:1035 > window.py:1057 > window.py:2314 > window.py:446 > window.py:140
+note  grew 7 KB in 74 blocks at threading.py:1075 > threading.py:1012 > app.py:1325 > shellmenu.py:208 > shellmenu.py:191
+note  grew 6 KB in 116 blocks at window.py:1035 > window.py:1057 > window.py:2314 > window.py:446 > window.py:145
+note  grew 5 KB in 107 blocks at sweeptest.py:877 > sweeptest.py:221 > sweeptest.py:576 > sweeptest.py:205 > widgets.py:186
+note  grew 4 KB in 35 blocks at window.py:1035 > window.py:1057 > window.py:2314 > window.py:460 > i18n.py:77
+note  Python objects that grew: tuple +14826, CField +44, QWidget +24, list +23, getset_descriptor +16, QScrollBar +12, cell +9, ReferenceType +9
+note  after the app tidies up: 132 MB; with the picture cache emptied too: 128 MB (picture cache limit 10 MB)
+ok    widgets don't pile up as tools come and go (308 → 308 → 308 → 308 → 308 → 308 → 308 → 308 → 308 → 308)
+ok    no runaway memory as tools come and go (121 → 121 → 123 → 123 → 123 → 124 → 128 → 129 → 130 → 130 MB, 1.6 MB a round)
+ok    store: no errors behind the clicks (0)
+----- reopen
+note  after 10 opens: 112 MB, 15 widgets, 5 windows
+note  after 20 opens: 109 MB, 15 widgets, 5 windows
+note  after 30 opens: 110 MB, 15 widgets, 5 windows
+note  after 40 opens: 110 MB, 15 widgets, 5 windows
+ok    nothing is left behind as the window is opened and closed (15 → 15 → 15 → 15 widgets)
+ok    memory doesn't climb as the window is opened and closed (112 → 109 → 110 → 110 MB, 39 KB an open)
+ok    reopen: no errors behind the clicks (0)
+ok    the log has no errors (0: [])
+sweeptest ar-light-1040x700-x2: 0 problem(s)
