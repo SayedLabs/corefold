@@ -882,12 +882,12 @@ class _Panel(QWidget):
                 p.setBrush(t.hover if hot else t.select)
                 p.drawRoundedRect(rf, RADIUS["sm"], RADIUS["sm"])
             x = rf.adjusted(12, 0, -12, 0)
-            color = t.text if r.enabled else t.subtle
+            color = t.text if r.enabled else t.faint
             if r.checked is not None:
                 if r.checked:
                     cx = x.right() - 8 if self.rtl else x.left() + 8
                     cy = x.center().y()
-                    p.setPen(QPen(t.accent if r.enabled else t.subtle, 1.8, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+                    p.setPen(QPen(t.accent if r.enabled else t.faint, 1.8, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
                     p.drawPolyline([QPointF(cx - 5, cy), QPointF(cx - 1.5, cy + 3.5), QPointF(cx + 5, cy - 4)])
                 x = x.adjusted(0, 0, -22, 0) if self.rtl else x.adjusted(22, 0, 0, 0)
             if self.icons:

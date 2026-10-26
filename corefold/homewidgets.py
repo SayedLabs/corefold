@@ -1544,7 +1544,7 @@ class Gallery(QDialog):
             head.setFont(font)
             self.list.addItem(head)
             for k in kinds:
-                item = QListWidgetItem(icons.icon(k.icon, t.text, disabled=t.tokens.subtle), tr(k.name))
+                item = QListWidgetItem(icons.icon(k.icon, t.text, disabled=t.tokens.faint), tr(k.name))
                 item.setData(Qt.UserRole, k.id)
                 if k.id not in offered:
                     item.setFlags(Qt.NoItemFlags)

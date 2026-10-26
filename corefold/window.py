@@ -4308,7 +4308,7 @@ class MainWindow(QWidget):
 
     def apply_theme(self, t: Theme):
         self.refresh_nav()  # the icons follow the text colour
-        self.back_btn.setIcon(icons.icon("arrow_right" if i18n.is_rtl() else "arrow_left", t.text, disabled=t.tokens.subtle))
+        self.back_btn.setIcon(icons.icon("arrow_right" if i18n.is_rtl() else "arrow_left", t.text, disabled=t.tokens.faint))
         self.search_btn.glyph = icons.icon("search", t.muted)
         self.search_btn.update()
         self.theme_btn.setIcon(icons.icon("weather_sunny" if t.dark else "weather_moon", t.text))
