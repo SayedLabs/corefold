@@ -21,6 +21,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # (Arabic file names, into a file Windows would write in cp1252)
 TMP = Path(tempfile.mkdtemp(prefix="corefold-fulldisk-"))
 os.environ["APPDATA"] = str(TMP / "roaming")
 os.environ["LOCALAPPDATA"] = str(TMP / "local")
