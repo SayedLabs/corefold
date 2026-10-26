@@ -749,9 +749,10 @@ class Controller(QObject):
             return
         new = names - self.seen_downloads
         self.seen_downloads = names
+        made = {os.path.normcase(p) for p in self.recent_outputs}  # (once: an Undo can bring back 30,000 names)
         for name in sorted(new):
             path = self.downloads / name
-            if os.path.normcase(str(path)) in {os.path.normcase(p) for p in self.recent_outputs}:
+            if os.path.normcase(str(path)) in made:
                 continue  # made by Corefold itself
             if path.suffix.lower() in (".heic", ".heif", ".webp", ".avif") and path.is_file():
                 self._offer_jpg(path)
