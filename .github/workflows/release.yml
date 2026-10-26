@@ -134,11 +134,14 @@ jobs:
           New-Item -ItemType Directory -Force old | Out-Null
           # the versions people are on: older ones, and whichever release is newest on GitHub (not this one)
           $versions = @("v1.9.0", "v1.11.0", "v1.12.1", "v1.13.0")
-          $latest = gh release view -R $env:GITHUB_REPOSITORY --json tagName -q .tagName
-          if ($latest -and $latest -ne $env:TAG -and $versions -notcontains $latest) { $versions += $latest }
           foreach ($v in $versions) {
             gh release download $v -R $env:GITHUB_REPOSITORY -p "Corefold-Setup-*.exe" -D old --clobber
             if ($LASTEXITCODE) { throw "couldn't download $v" }
+          }
+          $latest = gh release view -R $env:GITHUB_REPOSITORY --json tagName -q .tagName
+          if ($latest -and $latest -ne $env:TAG -and $versions -notcontains $latest) {
+            gh release download $latest -R $env:GITHUB_REPOSITORY -p "Corefold-Setup-*.exe" -D old --clobber
+            if ($LASTEXITCODE) { "note: $latest has no installer yet (still being built), so it isn't tried" }
           }
           $old = Get-ChildItem old -Filter "Corefold-Setup-*.exe" | Sort-Object { [version]($_.BaseName -replace "Corefold-Setup-", "") } | ForEach-Object { $_.FullName }
           python scripts/upgradetest.py dist\release out\upgrade @old
