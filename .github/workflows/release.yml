@@ -124,14 +124,19 @@ jobs:
           $env:PYTHONIOENCODING = "utf-8"
           python scripts/installertest.py dist\release out\installer
 
-      - name: Updating keeps everything (from the real 1.9.0 and 1.10.0, a custom folder, shortcuts, a cut-off update)
+      - name: Updating keeps everything (from real older releases and the newest one people have, a custom folder, shortcuts, a cut-off update)
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
         run: |
           $env:PYTHONIOENCODING = "utf-8"
           New-Item -ItemType Directory -Force old | Out-Null
-          foreach ($v in "v1.9.0", "v1.10.0") {
+          # the versions people are on: older ones, and whichever release is newest on GitHub (not this one)
+          $versions = @("v1.9.0", "v1.11.0", "v1.12.1", "v1.13.0")
+          $latest = gh release view -R $env:GITHUB_REPOSITORY --json tagName -q .tagName
+          if ($latest -and $latest -ne $env:TAG -and $versions -notcontains $latest) { $versions += $latest }
+          foreach ($v in $versions) {
             gh release download $v -R $env:GITHUB_REPOSITORY -p "Corefold-Setup-*.exe" -D old --clobber
             if ($LASTEXITCODE) { throw "couldn't download $v" }
           }
