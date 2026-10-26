@@ -318,3 +318,20 @@ def test_two_files_with_one_name_in_an_archive_are_both_kept(tmp_path):
     out.mkdir()
     archives._unpack(src, out, Ctx(Options()), "")
     assert sorted(p.read_text("utf-8") for p in out.iterdir()) == ["first", "second", "third"]
+
+
+def test_names_windows_keeps_for_itself_are_still_unpacked(tmp_path):
+    """A ZIP made elsewhere can hold names Windows won't take (CON, NUL, a name ending in a dot or a
+    space): unpacking still gives every file back, under a name Windows takes."""
+    if not archives.find_7z():
+        pytest.skip("needs 7-Zip")
+    src = tmp_path / "odd.zip"
+    texts = {"CON.txt": "con", "nul": "nul", "dot.": "dot", "space ": "space", "dir./in.txt": "in"}
+    with zipfile.ZipFile(src, "w") as zf:
+        for name, text in texts.items():
+            zf.writestr(name, text)
+    out = tmp_path / "out"
+    out.mkdir()
+    archives._unpack(src, out, Ctx(Options()), "")
+    got = sorted(p.read_text("utf-8") for p in out.rglob("*") if p.is_file())
+    assert got == sorted(texts.values())
