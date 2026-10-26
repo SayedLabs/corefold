@@ -427,6 +427,12 @@ def start():
             names.append(name)
     slow = []
     for name in names:
+        if os.environ.get("USE_SPY") and name == "Updates":  # (probe: where the window's thread is)
+            spy = subprocess.Popen(["py-spy", "record", "--native", "--threads", "--idle", "--format", "raw",
+                                    "--rate", "100", "--duration", "4", "--pid", str(os.getpid()),
+                                    "-o", str(OUT / f"{TAG}-spy-updates.txt")],
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            time.sleep(1.5)
         t0 = time.perf_counter()
         watch.label = f"open the {name} page"
         c.window.open_page(name)
