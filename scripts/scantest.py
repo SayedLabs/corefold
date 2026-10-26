@@ -752,12 +752,13 @@ def page():
     check(still, "a threat Defender left is shown as still there")
     w.grab().save(str(OUT / f"scan-still-there-{LANG}-{LOOK}.png"))
     if still:
-        real = QMessageBox.question
-        QMessageBox.question = staticmethod(lambda *a, **k: QMessageBox.Yes)
+        from corefold import sheet
+        real = sheet.question  # (asked as a sheet inside the window)
+        sheet.question = lambda *a, **k: QMessageBox.Yes
         try:
             pg.delete_threat(still[0])
         finally:
-            QMessageBox.question = real
+            sheet.question = real
         settle(0.4)
         check(not left.exists(), "Delete it…: the file is gone")
         check(pg.threat_rows and pg.threat_rows[0].threat.get("status") == "deleted", "and the row says so")

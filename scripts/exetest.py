@@ -110,6 +110,13 @@ try:
             click(row[0])
             time.sleep(0.8)
             switch = [b for b in win.descendants(control_type="CheckBox") if b.window_text() == tool.nav]
+            if not switch and sec.one_tool and all_tools.state(tool.id) == all_tools.AVAILABLE:
+                # (one tool: its uses' switches show after ⚙ on its heading)
+                gear = [b for b in win.descendants(control_type="Button") if b.window_text() == "Settings"]
+                if check(bool(gear), f"{sec.name}'s heading has Settings"):
+                    click(gear[0])
+                    time.sleep(0.8)
+                    switch = [b for b in win.descendants(control_type="CheckBox") if b.window_text() == tool.nav]
             if all_tools.state(tool.id) != all_tools.AVAILABLE:  # (its section rests: shown, never switched on)
                 check(not switch, f"{tool.id} can't be switched on while {sec.name} rests")
                 if sec.name not in rested:
@@ -138,9 +145,17 @@ try:
                 break
             check(shot(f"added-{tool.id}", win) < 0.3, f"after switching on {tool.id} the window isn't white")
             win = window() or win  # (the window may have been made again meanwhile)
-            wr = win.rectangle()  # (its tab, in the strip at the top: not its switch or its name on the card)
-            tab = [b for b in win.descendants() if b.window_text() == tool.nav and b.rectangle().top < wr.top + 150
-                   and b.element_info.control_type not in ("ListItem", "Text")]
+            wr = win.rectangle()
+            if sec.direct:  # (one tool on its own, like Cloud: switched on, it opens; no tab)
+                check(shot(f"open-{tool.id}", win) < 0.3, f"{tool.id}'s page isn't white")
+                continue
+            if sec.one_tool:  # (its tab in the bar of uses on the tool's heading, above its switch and its card)
+                tab = sorted([b for b in win.descendants() if b.window_text() == (tool.use or tool.nav)
+                              and b.element_info.control_type not in ("ListItem", "Text")
+                              and b.rectangle().top < wr.top + 300], key=lambda b: b.rectangle().top)[:1]
+            else:  # (its tab, in the strip at the top: not its switch or its name on the card)
+                tab = [b for b in win.descendants() if b.window_text() == tool.nav and b.rectangle().top < wr.top + 150
+                       and b.element_info.control_type not in ("ListItem", "Text")]
             if check(bool(tab), f"{tool.id} has a tab in {sec.name}"):
                 click(tab[0])
                 check(shot(f"open-{tool.id}", win) < 0.3, f"{tool.id}'s page isn't white")

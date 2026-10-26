@@ -531,7 +531,6 @@ def page():
         startup.leftovers = real_left
     # put off until a minute after sign-in: Windows skips it, Corefold starts it
     import corefold.settings as cs
-    from corefold import startuppage
     real_enabled = cs.startup_enabled
     cs.startup_enabled = lambda: True  # (as if Corefold started with Windows)
     proof = TMP / "later-proof.txt"
@@ -543,15 +542,13 @@ def page():
         row = next((r for r in pg.rows if r.entry.value == "CfStartupDelay"), None)
         if row is not None:
             seen = []
-
-            class Menu(startuppage.QMenu):  # (shows nothing: only says what it would offer)
-                def exec(self, *_):
-                    seen.extend((x.text(), x.isEnabled()) for x in self.actions() if x.text())
-            real_menu, startuppage.QMenu = startuppage.QMenu, Menu
+            from corefold import sheet
+            real_menu = sheet.menu  # (the menu shows inside the window and waits: here it only says what it offers)
+            sheet.menu = lambda m, *a, **k: seen.extend((x.text(), x.isEnabled()) for x in m.actions() if x.text())
             try:
                 row._menu(None, row.mapToGlobal(row.rect().center()))
             finally:
-                startuppage.QMenu = real_menu
+                sheet.menu = real_menu
             check((i18n.tr("Start it a minute after sign-in"), True) in seen,
                   f"its menu offers to start it a minute later {seen}")
             pg.start_later(row, True)

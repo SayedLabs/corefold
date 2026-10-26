@@ -103,7 +103,8 @@ def first_start():
     def drive():
         app = QApplication.instance()
         # (what's showing, by kind: the test PC's windows aren't always the active ones)
-        top = app.activeModalWidget() or next((w for w in app.topLevelWidgets() if w.isVisible() and type(w).__name__
+        from corefold import sheet
+        top = sheet.waiting() or app.activeModalWidget() or next((w for w in app.topLevelWidgets() if w.isVisible() and type(w).__name__
                                                in ("ToolPicker", "Tour")), None)
         pickers = [w for w in app.topLevelWidgets() if isinstance(w, welcome.LanguagePicker) and w.isVisible()]
         if pickers:
@@ -191,7 +192,7 @@ s.known_tools = sorted(t.id for t in all_tools.ready())
 s.tools_off = []
 s.save()
 
-from PySide6.QtCore import Qt  # noqa: E402
+from PySide6.QtCore import QRect, Qt, QTimer  # noqa: E402
 from PySide6.QtGui import QGuiApplication, QIcon  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QComboBox, QMenu  # noqa: E402
@@ -421,33 +422,39 @@ def dropdowns(lang):
     all_boxes = w.findChildren(QComboBox)
     plain = [b.objectName() or type(b).__name__ for b in all_boxes if not isinstance(b, Dropdown)]
     check(not plain, f"{lang}: no plain lists left in the window ({plain[:5]})")
+    from corefold import sheet
     for n in range(min(2, len(boxes))):
         b = [x for x in c.window.stack.currentWidget().findChildren(QComboBox) if x.isVisible()][n]
-        b.showPopup()
-        settle(0.5)
-        box = b.view().window()
-        check(box.isVisible(), f"{lang}: the list opens")
-        check(box.testAttribute(Qt.WA_TranslucentBackground), f"{lang}: its corners are see-through")
-        geo, under = box.geometry(), b.mapToGlobal(b.rect().bottomLeft())
-        check(abs(geo.top() - under.y()) <= 12 or geo.bottom() <= b.mapToGlobal(b.rect().topLeft()).y(),
-              f"{lang}: it opens right below the box ({geo.top()} vs {under.y()})")
-        check(geo.width() >= b.width() - 2, f"{lang}: at least as wide as the box")
-        scr = (b.screen() or QGuiApplication.primaryScreen()).availableGeometry()
-        check(scr.contains(geo), f"{lang}: on the screen")
-        delegate = b.view().itemDelegate()
-        check(type(delegate).__name__ == "_DropdownRow", f"{lang}: drawn by the design system")
-        rows = [b.view().sizeHintForRow(r) for r in range(b.count())]
-        check(min(rows) >= 28, f"{lang}: rows are easy to click ({min(rows)} px)")
-        screen_shot(geo, f"dropdown-{lang}-{n}")
-        # the mouse over another row, then a click picks it
         old = b.currentIndex()
         r = (old + 1) % b.count()
-        rect = b.view().visualRect(b.model().index(r, 0))
-        QTest.mouseMove(b.view().viewport(), rect.center())
-        settle(0.2)
-        screen_shot(geo, f"dropdown-{lang}-{n}-hover")
-        QTest.mouseClick(b.view().viewport(), Qt.LeftButton, Qt.NoModifier, rect.center())
+
+        def look(b=b, n=n, r=r):  # (the list opens inside the window and waits for a pick)
+            layer = sheet.waiting()
+            if not check(isinstance(layer, sheet._MenuLayer) and layer.root is not None and layer.root.isVisible(),
+                         f"{lang}: the list opens"):
+                if layer is not None:
+                    sheet.dismiss(layer)
+                return
+            panel, host = layer.root, layer.host
+            check(host is c.window, f"{lang}: inside Corefold's window, not a window of its own")
+            geo = panel.geometry()
+            under = b.mapTo(host, b.rect().bottomLeft()).y()
+            check(abs(geo.top() - under) <= 12 or geo.bottom() <= b.mapTo(host, b.rect().topLeft()).y(),
+                  f"{lang}: it opens right below the box ({geo.top()} vs {under})")
+            check(geo.width() >= b.width() - 2, f"{lang}: at least as wide as the box")
+            check(host.rect().contains(geo), f"{lang}: inside the window")
+            check(panel.row_rect(0).height() >= 28, f"{lang}: rows are easy to click ({panel.row_rect(0).height()} px)")
+            screen_shot(QRect(host.mapToGlobal(geo.topLeft()), geo.size()), f"dropdown-{lang}-{n}")
+            # the mouse over another row, then a click picks it
+            at = panel.row_rect(r).center()
+            QTest.mouseMove(panel, at)
+            settle(0.2)
+            screen_shot(QRect(host.mapToGlobal(geo.topLeft()), geo.size()), f"dropdown-{lang}-{n}-hover")
+            QTest.mouseClick(panel, Qt.LeftButton, Qt.NoModifier, at)
+        QTimer.singleShot(500, look)
+        b.showPopup()
         settle(0.3)
+        check(sheet.waiting() is None, f"{lang}: the list closes after a pick")
         check(b.currentIndex() == r, f"{lang}: clicking a row picks it")
         b.setCurrentIndex(old)
         if c.window.is_dirty():

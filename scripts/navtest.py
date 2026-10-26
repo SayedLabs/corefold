@@ -76,6 +76,13 @@ dialogs = []
 
 def _close_dialogs():
     from PySide6.QtWidgets import QMessageBox
+    from corefold import sheet
+    top = sheet.waiting()  # (questions, dialogs and menus show inside the window now)
+    if top is not None:
+        said = sheet.dismiss(top)
+        dialogs.append(said)
+        print(f"note  a dialog came up: {said}", flush=True)
+        return
     box = qapp.activeModalWidget()
     if box is not None:
         text = box.text() if isinstance(box, QMessageBox) else ""
@@ -196,10 +203,18 @@ def buttons(root, text):
 
 
 def nav_click(w, name):
-    """A sidebar row; a tool is reached the way a person does: its section's row, then its tab."""
+    """A sidebar row; a tool is reached the way a person does: its section's row, then its tab in the bar of
+    uses on the heading (a section that's one tool, like Corefold Files) or in the strip."""
     if name not in w.nav_rows:
         from corefold.window import NAV_OWNER
         nav_click(w, NAV_OWNER[name])
+        if w.current_page() == name:  # (one tool on its own, like Cloud: its row opens it)
+            return
+        if w.one_head.isVisible():
+            tab = w.one_head.tabs.get(name)
+            if check(tab is not None and tab.isVisible(), f"the {NAV_OWNER[name]} bar of uses has {name}"):
+                click(tab)
+            return
         tab = w.strip_tabs.get(name)
         if check(tab is not None and tab.isVisible(), f"the {NAV_OWNER[name]} strip has a tab for {name}"):
             click(tab)
@@ -216,7 +231,14 @@ def nav_click(w, name):
 
 def switch_cards(w, sec_page):
     from corefold.window import ToolSwitchCard
-    return {card.tool.id: card for card in page_widget(w, sec_page).findChildren(ToolSwitchCard)}
+    cards = {card.tool.id: card for card in page_widget(w, sec_page).findChildren(ToolSwitchCard)}
+    sec = all_tools.SECTION_BY_PAGE[sec_page]
+    if not cards and sec.one_tool and w.current_page() == sec_page:  # (one tool: ⚙ on its heading shows them)
+        if check(w.one_head.gear is not None and w.one_head.gear.isVisible(), f"{sec_page}'s heading has Settings"):
+            click(w.one_head.gear)
+            settle(0.3)
+            cards = {card.tool.id: card for card in page_widget(w, sec_page).findChildren(ToolSwitchCard)}
+    return cards
 
 
 # ---------------------------------------------------------------------------- switching tools on
@@ -259,12 +281,16 @@ def store_add():
         check(not work.alive(old) or not old.isVisible() or old is w, f"after switching on {tool.id} only one "
                                                                        f"window is open")
         check(w.shows(tool.page), f"{tool.id} is in its section")
-        page_ok(w, sec.page, f"switching on {tool.id}")
+        page_ok(w, w._direct_page(sec.page), f"switching on {tool.id}")  # (Cloud on its own: the tool itself)
         real = (w.screen() or QGuiApplication.primaryScreen()).grabWindow(
             0, w.geometry().x(), w.geometry().y(), w.width(), w.height()).toImage()
         if c.theme.dark:
             check(white_share(real) < 0.3, f"after switching on {tool.id} the window isn't white "
                                            f"({white_share(real):.2f})")
+        if sec.direct:  # (one tool on its own, like Cloud: switched on, it opens)
+            settle(0.3)
+            page_ok(w, tool.page, f"switching on {tool.id} opens it")
+            continue
         card = switch_cards(w, sec.page).get(tool.id)
         if check(card is not None and card.switch.isChecked(), f"{tool.id}'s card shows it on"):
             click(card)
@@ -280,11 +306,12 @@ def every_page():
     names = [n for n in w.nav_rows if n] + [t.page for t in w.tools_on]  # (the tools through their section)
     for name in names:
         nav_click(w, name)
+        name = w._direct_page(name)  # (a row of one tool on its own, like Cloud, opens the tool)
         page_ok(w, name, f"sidebar {name}")
         # its Settings button, then back
         tool = all_tools.BY_PAGE.get(name)
         if tool is not None and tool.settings:
-            gear = buttons(page_widget(w, name), tr("Settings"))
+            gear = buttons(w.one_head if w.one_head.isVisible() else page_widget(w, name), tr("Settings"))
             if check(bool(gear), f"{name} has a Settings button"):
                 click(gear[0])
                 check(w.current_page() == tool.settings, f"{name}'s Settings button opens {tool.settings} "
@@ -316,19 +343,20 @@ def every_page():
     for page_name, card in list(w.section_cards.items()):
         nav_click(w, "Home")
         click(card)
-        check(w.current_page() == page_name, f"the {page_name} card on Home opens it ({w.current_page()})")
+        check(w.current_page() == w._direct_page(page_name), f"the {page_name} card on Home opens it "
+                                                             f"({w.current_page()})")
         nav_click(w, "Home")
         for b, _icon in card.chips[:2]:
             click(b)
             check(w.current_page() != "Home" and w.shows(w.current_page()),
                   f"a tool's button on the {page_name} card opens it ({w.current_page()})")
             nav_click(w, "Home")
-    # a tool from its section's strip, then Back: the section again
+    # a tool from its section's bar of uses (or strip), then Back: the section again
     first = next((t for t in w.tools_on), None)
     if first is not None:
         sec = all_tools.SECTION_OF[first.id]
         nav_click(w, first.page)
-        check(w.current_page() == first.page, f"{first.page} opens from the {sec.page} strip ({w.current_page()})")
+        check(w.current_page() == first.page, f"{first.page} opens from the {sec.page} list ({w.current_page()})")
         QTest.keyClick(w, Qt.Key_Left, Qt.AltModifier)
         settle(0.3)
         check(w.current_page() == sec.page, f"Alt + Left from {first.page} goes back to {sec.page} "

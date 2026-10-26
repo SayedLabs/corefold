@@ -24,6 +24,8 @@ class ToolInfo:
     settings: str = ""      # its first Settings page, if it has settings
     settings_pages: tuple = ()  # all its Settings pages (shown as small tabs if more than one)
     ready: bool = True      # False: still being made ("Coming soon")
+    short: str = ""         # a few words about it, as a use of a section that's one tool
+    use: str = ""           # its name in the bar of uses of a section that's one tool ("Convert")
 
 
 TOOLS: list[ToolInfo] = [
@@ -33,7 +35,8 @@ TOOLS: list[ToolInfo] = [
               "Resize, crop, compress, cut out the background, copy the text in a picture",
               "Trim videos, make GIFs and stickers, fix the volume",
               "Merge, split and lock PDFs; turn Office files into PDFs"),
-             settings="ConvOptions", settings_pages=("ConvOptions", "WheelLook", "Formats")),
+             settings="ConvOptions", settings_pages=("ConvOptions", "WheelLook", "Formats"),
+             short="Change a file into another format", use="Convert"),
     ToolInfo("uninstaller", "Apps", "cleaner", "broom", "Corefold Uninstaller", "Uninstaller",
              "Remove programs and everything they leave behind, with a backup you can put back.",
              ("Uninstall several programs in one go",
@@ -47,7 +50,8 @@ TOOLS: list[ToolInfo] = [
               "Drag files out of an archive into any folder",
               "Change a file inside an archive and save it back",
               "Rescue damaged archives, and unpack archives inside archives in one go"),
-             settings="ArchiveSettings", settings_pages=("ArchiveSettings",)),
+             settings="ArchiveSettings", settings_pages=("ArchiveSettings",),
+             short="Open and make ZIP, RAR and 7z files", use="Archive"),
     ToolInfo("viewer", "Viewer", "viewer", "image", "Corefold Viewer", "Viewer",
              "Flip through a folder of pictures fast, fix them on the spot, and open email files.",
              ("Arrow keys through a whole folder, instantly",
@@ -94,7 +98,8 @@ TOOLS: list[ToolInfo] = [
               "Drag files and folders from one cloud to another",
               "Several accounts of the same service at once",
               "Search across all of them",
-              "Nothing to sign in to: the services' own apps keep everything in sync")),
+              "Nothing to sign in to: the services' own apps keep everything in sync"),
+             short="All your cloud storage in one place", use="Cloud"),
     ToolInfo("startup", "Startup", "startup", "rocket", "Corefold Startup", "Startup",
              "See what starts with Windows and switch off what slows it down.",
              ("Every program that starts with Windows, in one list",
@@ -116,7 +121,8 @@ TOOLS: list[ToolInfo] = [
               "Make a big PDF small enough to send by email",
               "Pictures to PDF, and PDF pages to pictures",
               "Lock a PDF with a password, or unlock one that's yours",
-              "Everything happens on your PC: nothing is uploaded")),
+              "Everything happens on your PC: nothing is uploaded"),
+             short="Edit, merge, split and lock PDFs", use="PDF"),
     ToolInfo("rename", "Rename", "rename", "rename", "Corefold Rename", "Rename",
              "Rename hundreds of files at once, and see every new name before anything changes.",
              ("Add numbers, dates or words to many names at once",
@@ -220,14 +226,16 @@ TOOLS: list[ToolInfo] = [
              ("Right-click a file or folder and pick \"What's using this?\"",
               "Asks the program to close first, so it can save your work",
               "Never closes the parts of Windows your PC needs",
-              "Then delete or move the file")),
+              "Then delete or move the file"),
+             short="See what's holding a file, and free it", use="Unlock"),
     ToolInfo("organizer", "Organizer", "organizer", "folder", "Corefold File Organizer", "File Organizer",
              "Sort a messy Downloads or Desktop into clear folders with one click.",
              ("Pictures, documents, videos, music and installers each get their own folder",
               "See where every file will go before anything moves",
               "Changed your mind? Undo puts everything back",
               "No rules to write: it just works",
-              "Never touches folders, shortcuts or files that are open")),
+              "Never touches folders, shortcuts or files that are open"),
+             short="Tidy a messy folder in one click", use="Tidy up"),
     ToolInfo("sound", "Sound", "sound", "speaker_2", "Corefold Sound", "Sound",
              "Switch between speakers and headphones with a shortcut, and set each app's volume.",
              ("Change where sound plays with one shortcut",
@@ -245,12 +253,18 @@ class Section:
     product: str            # the tile its page shows (icons.py)
     line: str               # one line about it
     tools: tuple            # its tools' ids, ready ones and ones on the way, in their first order
+    one_tool: str = ""      # "Corefold Files": the section is shown as one tool, its tools as that tool's uses
+    direct: bool = False    # one tool on its own (Cloud): its sidebar row opens the tool's page, with all the room
 
 
 SECTIONS: list[Section] = [
     Section("files", "Files", "Files", "document_multiple", "files",
             "Convert, sort, pack and fix your files.",
-            ("converter", "pdf", "archive", "organizer", "unlock", "cloud", "rename", "shredder", "backup")),
+            ("converter", "pdf", "archive", "organizer", "unlock", "rename", "shredder", "backup"),
+            one_tool="Corefold Files"),
+    Section("cloud", "Clouds", "Cloud", "cloud", "cloud",
+            "All your cloud storage in one window: OneDrive, Dropbox, Google Drive and iCloud.",
+            ("cloud",), direct=True),
     Section("media", "Media", "Images & screen", "image_multiple", "media",
             "Screenshots, pictures, videos and colours.",
             ("capture", "viewer", "player", "colors", "ruler", "fonts")),

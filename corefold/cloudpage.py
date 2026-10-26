@@ -1119,7 +1119,7 @@ class CloudPage(QWidget):
         self._round += 1
         self._later = list(found[FIRST_ROWS:])
         self.files.all_picked = False
-        self.files.clear()
+        self._clear_rows()
         self._add_rows(found[:FIRST_ROWS])
         if self._later:
             QTimer.singleShot(0, lambda r=self._round: self._more_rows(r))
@@ -1131,6 +1131,25 @@ class CloudPage(QWidget):
         elif nothing and self.account is not None:
             self.empty.setText(tr("This folder is empty. Drop files here to upload them."))
         self._buttons()
+
+    def _clear_rows(self):
+        """Empties the list. A big one (a folder of 20,000 pictures) is taken out at once but let go of a
+        part at a time, so leaving it doesn't hold the window up."""
+        if self.files.topLevelItemCount() <= FIRST_ROWS:
+            self.files.clear()
+            return
+        self.files.clearSelection()
+        old = self.files.invisibleRootItem().takeChildren()
+        self._dropping = getattr(self, "_dropping", []) + old
+
+        def let_go():
+            if not work.alive(self) or not self._dropping:
+                return
+            del self._dropping[:MORE_ROWS]
+            if self._dropping:
+                QTimer.singleShot(0, let_go)
+        if len(self._dropping) == len(old):  # (none were waiting: start letting go)
+            QTimer.singleShot(0, let_go)
 
     def _add_rows(self, part: list):
         folder_icon, file_icon, online_icon = self._ic("folder"), self._ic("document"), self._ic("cloud")
