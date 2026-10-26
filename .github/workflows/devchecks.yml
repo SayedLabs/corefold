@@ -41,4 +41,7 @@ jobs:
       - name: Tests (pytest-qt)
         if: always()
         shell: pwsh
-        run: python -m pytest
+        run: |
+          # (Windows' 7-Zip, so the archive tests run here too; -rs names any test that was skipped)
+          $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
+          python -m pytest -rs

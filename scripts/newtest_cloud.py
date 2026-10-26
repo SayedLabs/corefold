@@ -11,6 +11,7 @@ import base64
 import hashlib
 import http.server
 import json
+import logging
 import os
 import re
 import shutil
@@ -52,6 +53,32 @@ import faulthandler  # noqa: E402
 faulthandler.dump_traceback_later(280, exit=True)  # stuck somewhere: say where, and stop
 
 problems = []
+ISSUED: set[str] = set()   # every sign-in key the pretend services gave out
+LOGGED: list[str] = []     # everything Corefold logged while the test ran
+
+
+class _Keep(logging.Handler):
+    def emit(self, record):
+        try:
+            LOGGED.append(logging.Formatter().format(record))
+        except Exception:
+            pass
+
+
+logging.getLogger().addHandler(_Keep(logging.DEBUG))
+logging.getLogger().setLevel(logging.DEBUG)
+
+
+def no_keys_logged():
+    """No sign-in key the services gave out is in Corefold's log (its own file, or anything it logged)."""
+    text = "\n".join(LOGGED)
+    for f in TMP.rglob("*.log*"):
+        try:
+            text += "\n" + f.read_text("utf-8", "replace")
+        except OSError:
+            pass
+    leaked = sorted(k for k in ISSUED if re.search(re.escape(k) + r"(?![0-9])", text))
+    check(not leaked, f"no sign-in key is ever written to the log ({len(ISSUED)} given out; in the log: {leaked[:3]})")
 
 
 def check(ok, what):
@@ -155,6 +182,7 @@ class Fake:
         self.n += 1
         a, r = f"{service}-A{self.n}", f"{service}-R{self.n}"
         self.access[a], self.refresh[r] = service, service
+        ISSUED.update((a, r))
         return {"access_token": a, "refresh_token": r, "expires_in": 3600, "token_type": "bearer"}
 
     def handler(self):
@@ -589,11 +617,13 @@ class GFake:
         self.n += 1
         a = f"gA{self.n}"
         self.access[a] = email
+        ISSUED.add(a)
         out = {"access_token": a, "expires_in": 3599, "token_type": "Bearer",
                "scope": "openid" if self.no_scope else "https://www.googleapis.com/auth/drive"}
         if refresh:
             r = f"gR{self.n}"
             self.refresh[r] = email
+            ISSUED.add(r)
             out["refresh_token"] = r
         return out
 
@@ -1749,6 +1779,7 @@ def main():
         step("core", core)
     else:
         step("the page", page_part)
+    no_keys_logged()
     cleanup()
     print(f"newtest_cloud{'' if PART == 'all' else ' ' + PART}: {len(problems)} problem(s)", flush=True)
     for p in problems:
