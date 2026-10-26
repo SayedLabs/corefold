@@ -241,3 +241,20 @@ def test_a_full_disk_never_says_a_pdf_has_no_pictures(tmp_path, monkeypatch):
                                   "System ERROR:\nerrno=28 : No space left on device"])
 def test_7zip_running_out_of_room_is_said_plainly(said):
     assert str(archives._7z_error(said)) == "the disk is full"
+
+
+def test_a_tiff_that_cant_be_written_for_lack_of_room_says_the_disk_is_full(tmp_path, monkeypatch):
+    import shutil
+    from PIL import Image
+    from corefold import converters as cv
+    src = tmp_path / "photo.png"
+    Image.new("RGB", (300, 200), (10, 120, 200)).save(src)
+
+    def libtiff_cant_write(*args, **kwargs):
+        raise OSError("encoder error -2 when writing image file")  # (all libtiff says on a full disk)
+
+    monkeypatch.setattr(Image.Image, "save", libtiff_cant_write)
+    monkeypatch.setattr(shutil, "disk_usage", lambda p: shutil._ntuple_diskusage(16 << 20, 16 << 20, 4096))
+    tool = next(t for t in cv.catalog()["image"] if t.key == "image:tiff")
+    res, errors = cv.run_job(tool, [src], Options(output_folder=tmp_path / "out"))
+    assert errors == ["photo.png: the disk is full"] and not res.outputs

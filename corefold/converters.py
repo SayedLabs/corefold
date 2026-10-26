@@ -161,7 +161,15 @@ def save_image(im, out: Path, ext: str, ctx: Ctx, keep_metadata: bool = True):
     elif ext == ".png":  # a big photo packs twice as fast at level 3, for a file a little bigger
         im.save(out, compress_level=3 if big else 6, **meta)
     elif ext == ".tiff":  # (packed without losing anything: a TIFF as it comes is as big as the photo's pixels)
-        im.save(out, compression="tiff_deflate", **meta)
+        try:
+            im.save(out, compression="tiff_deflate", **meta)
+        except OSError as e:
+            # libtiff says only "encoder error -2" when it can't write: on a disk without room for the
+            # picture's pixels, that's the disk being full
+            if not disk_full(e) and str(e).startswith("encoder error") and \
+                    shutil.disk_usage(out.parent).free < im.width * im.height * len(im.getbands()) + (1 << 20):
+                raise OSError(28, "No space left on device") from e
+            raise
     elif ext == ".ico":
         im = im.convert("RGBA")
         # an icon is at most 256 × 256: shrunk first, so a panorama doesn't need a square of its full width
