@@ -253,6 +253,17 @@ def is_cloud_only(path: Path) -> bool:
     return bool(attrs & (0x400000 | 0x40000))  # RECALL_ON_DATA_ACCESS / RECALL_ON_OPEN
 
 
+RENDER_MAX_PIXELS = 100_000_000  # a PDF page turned into a picture is never bigger than this (about 400 MB)
+
+
+def render_scale(width: float, height: float, scale: float) -> float:
+    """The scale a PDF page of width x height points is drawn at: as asked, unless the picture would be bigger
+    than RENDER_MAX_PIXELS. A PDF can say its page is 200 inches (or more) wide; drawn at 150 dpi, one such page
+    would need several GB of memory."""
+    area = max(1.0, width) * max(1.0, height) * scale * scale
+    return scale if area <= RENDER_MAX_PIXELS else scale * (RENDER_MAX_PIXELS / area) ** 0.5
+
+
 def human_size(n: float) -> str:
     """"9.8 MB". In Arabic the number and its unit stay in this order (marked as left-to-right),
     instead of coming out as "MB 9.8"."""
