@@ -2543,7 +2543,7 @@ class MainWindow(QWidget):
         snd_row = QHBoxLayout()
         snd_row.setSpacing(8)
         snd_row.addWidget(self.sound)
-        snd_row.addWidget(button(tr("▶ Play"), on_click=self.c.play_done_sound))
+        snd_row.addWidget(button(tr("► Play"), on_click=self.c.play_done_sound))
         snd_row.addStretch()
         self.volume = QSlider(Qt.Horizontal)
         self.volume.setRange(0, 100)
@@ -3676,7 +3676,7 @@ class MainWindow(QWidget):
         self.c.settings_changed()
 
     def _formats(self) -> QWidget:
-        w, lay = page(tr("Formats"), tr("Untick anything you don't use. ☆ pins an option to the top of its wheel, "
+        w, lay = page(tr("Formats"), tr("Untick anything you don't use. The star pins an option to the top of its wheel, "
                                         "and ▲ ▼ change the order. The right-click menu follows these choices too."))
         self.tool_checks: dict[str, QCheckBox] = {}
         self.tool_stars: dict[str, QPushButton] = {}
@@ -3935,7 +3935,7 @@ class MainWindow(QWidget):
 
     def refresh_again(self):
         text = self.c.again_text()
-        self.again_btn.setText("↻  " + text if text else "")
+        self.again_btn.setText(text)
         self.again_btn.setVisible(bool(text))
 
     def refresh_memory(self):
@@ -4129,7 +4129,7 @@ class MainWindow(QWidget):
         if on:
             favs.append(key)
         self.c.settings.favorites = favs
-        star.setText("★" if on else "☆")
+        self._star_look(star, on)
         self.c.settings_changed(menu=True)
         self.panel.refresh()
 
@@ -4160,6 +4160,12 @@ class MainWindow(QWidget):
                     QTimer.singleShot(15, self.stack, self._fill_formats_later)
                 return
 
+    def _star_look(self, star: QPushButton, on: bool):
+        # (drawn, not ★ ☆: Windows' UI font hasn't got them, and looking through every font for them froze the window)
+        t = self.c.theme
+        star.setIcon(icons.icon("star_filled" if on else "star", t.tokens.warning if on else t.muted))
+        star.setIconSize(QSize(16, 16))
+
     def _fill_format_grid(self, kind: str):
         from .panel import clear_layout
         grid = self.format_grids[kind]
@@ -4168,9 +4174,10 @@ class MainWindow(QWidget):
         favs = set(self.c.settings.favorites)
         tools = self.ordered_tools(kind)
         for i, t in enumerate(tools):
-            star = button("★" if t.key in favs else "☆", "star")
+            star = button("", "star")
             star.setCheckable(True)
             star.setChecked(t.key in favs)
+            self._star_look(star, t.key in favs)
             star.setToolTip(tr("Pin to the top of the wheel"))
             star.toggled.connect(lambda on, key=t.key, b=star: self._star_toggled(key, on, b))
             cb = checkbox(f"{t.label}  ·  {t.description}", t.key not in hidden,

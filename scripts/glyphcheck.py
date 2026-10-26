@@ -2,7 +2,8 @@
 
 A symbol the font lacks makes Windows look through every font on the PC the first time it's drawn: that
 held the Updates page for up to 3 seconds (the ◂ arrow, in Arabic). Draw such a mark as an icon instead
-(icons.py). This reads every string in corefold/ (the translations too, not docstrings) and asks the font.
+(icons.py). This reads every string in corefold/ (the translations too, not docstrings) and asks Segoe UI,
+which every Windows has and which Windows 11's Segoe UI Variable hands Arabic to.
 
     python scripts/glyphcheck.py      -> one line per missing symbol and "glyphcheck: N problem(s)"
 """
@@ -18,6 +19,8 @@ sys.path.insert(0, str(ROOT))
 
 from PySide6.QtGui import QFont, QFontInfo, QGuiApplication, QRawFont  # noqa: E402
 
+# (strings that are only compared or searched, never drawn)
+NOT_DRAWN = {("scan.py", 0x3000)}
 # (marks that steer the reading order or join letters: never drawn, so never looked for)
 UNDRAWN = {0x200B, 0x200C, 0x200D, 0x200E, 0x200F, 0x2060, 0xFEFF, *range(0x202A, 0x202F), *range(0x2066, 0x206A)}
 
@@ -38,27 +41,23 @@ def strings(path: Path):
 
 def main() -> int:
     QGuiApplication(sys.argv[:1])
-    from corefold.atomic import tokens
     fonts = []
-    for family in dict.fromkeys((tokens.TEXT_FAMILY, "Segoe UI")):
+    for family in ("Segoe UI",):
         f = QFont(family)
-        if QFontInfo(f).family().lower() == family.lower():  # (Segoe UI Variable is on Windows 11 only)
-            fonts.append((family, QRawFont.fromFont(f)))  # (the font itself: not the ones Qt falls back to)
+        if QFontInfo(f).family().lower() == family.lower():  # (the font itself, not one standing in for it)
+            fonts.append((family, QRawFont.fromFont(f)))  # (asks the font alone, not the ones Qt falls back to)
     if not fonts:
-        print("glyphcheck: neither UI font is on this PC (run it on Windows)")
+        print("glyphcheck: Segoe UI isn't on this PC (run it on Windows)")
         return 0
     print("fonts:", ", ".join(name for name, _ in fonts))
-    import os
-    for ch in os.environ.get("GLYPH_TRY", ""):  # (which stand-ins the fonts have)
-        print(f"try   U+{ord(ch):04X} {unicodedata.name(ch, '?')}: "
-              + ", ".join(f"{name} {'yes' if raw.supportsCharacter(ord(ch)) else 'NO'}" for name, raw in fonts))
     seen: dict[tuple[str, int], list[str]] = {}
     files = sorted((ROOT / "corefold").glob("*.py")) + sorted((ROOT / "corefold" / "atomic").glob("*.py"))
     for path in files:
         for line, text in strings(path):
             for ch in set(text):
                 cp = ord(ch)
-                if cp < 0x80 or cp in UNDRAWN or unicodedata.category(ch) in ("Cc", "Cf", "Zl", "Zp"):
+                if cp < 0x80 or cp in UNDRAWN or unicodedata.category(ch) in ("Cc", "Cf", "Zl", "Zp") \
+                        or (path.name, cp) in NOT_DRAWN:
                     continue
                 for name, raw in fonts:
                     if not raw.supportsCharacter(cp):

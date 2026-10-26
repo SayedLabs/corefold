@@ -106,7 +106,7 @@ class CompareView(QWidget):
         p.drawEllipse(QPointF(x_split, h / 2), 10, 10)
         p.setPen(QColor(40, 40, 40))
         p.setFont(QFont("Segoe UI", 9))
-        p.drawText(QRectF(x_split - 10, h / 2 - 10, 20, 20), Qt.AlignCenter, "⇆")
+        p.drawText(QRectF(x_split - 10, h / 2 - 10, 20, 20), Qt.AlignCenter, "↔")
         f = QFont("Segoe UI", 9)
         f.setWeight(QFont.Weight.DemiBold)
         p.setFont(f)

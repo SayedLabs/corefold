@@ -84,7 +84,7 @@ STRINGS: dict[str, str] = {
     "Rotate left 90°": "تدوير لليسار 90°",
     "Turn upside down (180°)": "قلب رأسًا على عقب (180°)",
     "Flip left ↔ right (mirror)": "قلب يمين ↔ يسار (مرآة)",
-    "Flip top ↕ bottom": "قلب أعلى ↕ أسفل",
+    "Flip top ↑↓ bottom": "قلب أعلى ↑↓ أسفل",
     "Alt": "Alt",
     "Ctrl + Shift": "Ctrl + Shift",
     "Shift": "Shift",
@@ -400,7 +400,7 @@ STRINGS: dict[str, str] = {
     "Choose files…": "اختيار ملفات…",
     "Paste (Ctrl + V)": "لصق (Ctrl + V)",
     "Let go to see the options": "أفلت لرؤية الخيارات",
-    "✕ Clear": "✕ مسح",
+    "× Clear": "× مسح",
     "Folder": "مجلد",
     "Files and folders": "ملفات ومجلدات",
     "this picture is too big to open": "هذه الصورة أكبر من أن تُفتح",
@@ -484,7 +484,7 @@ STRINGS: dict[str, str] = {
     "Always in one folder": "دائمًا في مجلد واحد",
     "Change…": "تغيير…",
     "for JPG and WebP. Higher = better quality, bigger file.": "لصيغتي JPG وWebP. أعلى = جودة أفضل وملف أكبر.",
-    "▶ Play": "▶ تشغيل",
+    "► Play": "► تشغيل",
     "Show them dimmed (with the reason)": "إظهارها باهتة (مع السبب)",
     "Hide them": "إخفاؤها",
     "Language": "اللغة",
@@ -532,8 +532,8 @@ STRINGS: dict[str, str] = {
     "Preview": "معاينة",
     "Dimmed = can't be used for that file": "باهت = لا يمكن استخدامه لهذا الملف",
     "Dots = pages (\"More\" shows the next one)": "النقاط = الصفحات (\"المزيد\" يعرض التالية)",
-    "Untick anything you don't use. ☆ pins an option to the top of its wheel, and ▲ ▼ change the order. The "
-    "right-click menu follows these choices too.": "ألغِ تحديد ما لا تستخدمه. ☆ يثبّت الخيار في أول عجلته، و▲ ▼ "
+    "Untick anything you don't use. The star pins an option to the top of its wheel, and ▲ ▼ change the order. The "
+    "right-click menu follows these choices too.": "ألغِ تحديد ما لا تستخدمه. النجمة تثبّت الخيار في أول عجلته، و▲ ▼ "
                                                    "يغيّران الترتيب. وقائمة النقر بزر الماوس الأيمن تتبع هذه "
                                                    "الاختيارات أيضًا.",
     "Show everything again": "إظهار كل شيء مجددًا",
@@ -865,7 +865,7 @@ STRINGS: dict[str, str] = {
     "You have unsaved changes": "عندك تغييرات ما انحفظت",
     "Discard": "تجاهل",
     "Save": "حفظ",
-    "Saved": "انحفظ ✓",
+    "Saved": "انحفظ",
     "All apps": "كل البرامج",
     "Not used for 3 months": "ما استخدمتها من 3 شهور",
     "Big (1 GB or more)": "الكبيرة (1 غيغا أو أكثر)",

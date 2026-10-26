@@ -65,7 +65,7 @@ class Toast(QWidget):
         self.action.setObjectName("primary")
         self.action.setCursor(Qt.PointingHandCursor)
         self.action.clicked.connect(self._on_action)
-        close = QPushButton("✕")
+        close = QPushButton("×")
         close.setObjectName("close")
         close.setCursor(Qt.PointingHandCursor)
         close.clicked.connect(self.hide)
