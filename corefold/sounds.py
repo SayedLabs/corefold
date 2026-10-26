@@ -5,6 +5,7 @@ from __future__ import annotations
 import array
 import logging
 import tempfile
+import threading
 import wave
 from pathlib import Path
 
@@ -42,7 +43,7 @@ def prepared(name: str, volume: int) -> Path | None:
         for i, s in enumerate(samples):
             samples[i] = int(s * gain)
         out.parent.mkdir(parents=True, exist_ok=True)
-        tmp = out.with_suffix(".part")
+        tmp = out.with_suffix(f".{threading.get_ident()}.part")  # (made on the sound's thread: two at once can't clash)
         with wave.open(str(tmp), "wb") as w:
             w.setparams(params)
             w.writeframes(samples.tobytes())

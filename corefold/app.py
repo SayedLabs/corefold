@@ -627,7 +627,8 @@ class Controller(QObject):
 
     def play_sound(self, name: str):
         if name and name != "off":
-            winutil.play_sound(sounds.prepared(name, self.settings.volume))
+            volume = self.settings.volume
+            winutil.play_sound(lambda: sounds.prepared(name, volume))
 
     def play_done_sound(self):
         self.play_sound(self.settings.sound)

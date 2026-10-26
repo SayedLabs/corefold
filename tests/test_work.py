@@ -63,3 +63,24 @@ def test_the_windows_thread_never_starts_the_jobs_thread(qtbot, monkeypatch):
     qtbot.waitUntil(lambda: page.answers[-1:] == [1], timeout=5000)
     job.join(5)
     assert starters == ["corefold-starter"]
+
+
+def test_background_work_is_started_by_the_starter_too(monkeypatch):
+    first = threading.Event()
+    work.background(first.set)  # (the starter is there from then on)
+    assert first.wait(5)
+    ran = threading.Event()
+    starters, names = [], []
+    real = threading.Thread.start
+
+    def start(self):
+        starters.append(threading.current_thread().name)
+        real(self)
+    monkeypatch.setattr(threading.Thread, "start", start)
+
+    def fn():
+        names.append(threading.current_thread().name)
+        ran.set()
+    work.background(fn, "corefold-test-sound")
+    assert ran.wait(5)
+    assert starters == ["corefold-starter"] and names == ["corefold-test-sound"]
