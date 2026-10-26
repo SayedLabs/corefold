@@ -28,12 +28,14 @@ jobs:
           python -m pip install --quiet -r requirements.txt py-spy
           New-Item -ItemType Directory -Force out | Out-Null
           python scripts/screenres.py 1920 1080 *>> out/screen.txt
+          choco install ffmpeg -y --no-progress | Out-Null
       - name: Open every page in Arabic
         shell: pwsh
         env:
           COREFOLD_WAKE_RESTING: "1"
           USE_SPY: "1"
         run: |
+          $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
           python scripts/usetest.py out/usetest --lang ar --look light --only start *> out/usetest.txt
           Get-Content out/usetest.txt | Select-String -Pattern "Updates page|problem|Traceback|Error" | ForEach-Object { $_.Line }
           $spy = Get-ChildItem out/usetest -Filter "*spy-updates.txt" | Select-Object -First 1
