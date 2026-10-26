@@ -1,0 +1,74 @@
+ok    a junction to an empty folder was made
+ok    with the age rule off: exactly ['empty', 'made now', 'nested', 'only ini', 'with file\\empty inside'] (['empty', 'made now', 'nested', 'only ini', 'with file\\empty inside'], 0.01 s, 13 folders)
+ok    the nested tree is one item with 4 folders inside (EmptyFolder(path='C:\\Users\\runneradmin\\corefold-emptytest-w02lh4kh\\core\\tree\\nested', root='C:\\Users\\runneradmin\\corefold-emptytest-w02lh4kh\\core\\tree', created=1792726765.1640608, inside=4, leftovers=()))
+ok    the folder with only desktop.ini counts as empty, and says so
+ok    its created date is the folder's
+ok    nothing left out, nothing cut short
+ok    with the age rule on: ['empty', 'nested', 'only ini', 'with file\\empty inside'] (['empty', 'nested', 'only ini', 'with file\\empty inside'])
+ok    and the folder made now is counted as left out (1)
+ok    junctions, hidden folders and the folders holding them aren't offered
+ok    the folder looked in isn't offered itself
+ok    an empty folder that is itself the one looked in isn't offered
+ok    a user folder (Documents) isn't offered even when it's empty
+ok    a folder inside AppData isn't looked in
+ok    Windows and Program Files are off limits
+ok    the folder limit stops it and says so
+ok    what's found before the limit is right
+ok    Stop stops it
+ok    4 went (4)
+ok    a folder that got a file since isn't removed
+ok    with file\empty inside is gone
+ok    nested is gone
+ok    empty is gone
+ok    only ini is gone
+ok    the Recycle Bin has 4 more items
+ok    they're in the Recycle Bin by their own paths (['empty', 'nested', 'only ini', 'with file\\empty inside'])
+ok    the folder with a file is untouched
+ok    the junction and where it leads are untouched
+ok    the hidden folder is untouched
+ok    the folder made now is untouched
+ok    the folder looked in is untouched
+your folders: ['C:\\Users\\runneradmin\\Desktop', 'C:\\Users\\runneradmin\\Documents', 'C:\\Users\\runneradmin\\Downloads', 'C:\\Users\\runneradmin\\Pictures', 'C:\\Users\\runneradmin\\Music', 'C:\\Users\\runneradmin\\Videos']
+ok    Documents is among your folders
+ok    none of your folders is offered itself (1 empty folders, 50 looked at, 0.0 s)
+ok    nothing in AppData
+---- the window in en (dark)
+ok    a junction to an empty folder was made
+ok    nothing of the empty folders window is loaded before it's asked for
+ok    the Space page opens
+ok    Space's Duplicates section has "Find empty folders…"
+ok    picture saved: space-dupes-en-dark.png
+ok    the window opens
+ok    looking through your folders finishes
+ok    looking through the test folder finishes
+ok    it lists exactly the empty folders (['empty', 'made now', 'nested', 'only ini', 'with file\\empty inside'])
+ok    all of them are ticked
+ok    Move to the Recycle Bin can be pressed
+ok    Show in folder can be pressed for the chosen one
+ok    picture saved: emptyfolders-en-dark.png
+ok    removing finishes
+ok    a message says how many, and where they are ([('4 empty folders removed', "They're in the Recycle Bin, if you need them back.")])
+ok    the unticked one stays, in the list and on the disk
+ok    picture saved: emptyfolders-en-dark-removed.png
+ok    what the test put in the Recycle Bin is gone again
+newtest_emptyfolders page: 0 problem(s)
+ok    the en window part ran to its end (exit 0)
+---- the window in ar (light)
+ok    a junction to an empty folder was made
+ok    nothing of the empty folders window is loaded before it's asked for
+ok    the Space page opens
+ok    Space's Duplicates section has "Find empty folders…"
+ok    picture saved: space-dupes-ar-light.png
+ok    the window opens
+ok    looking through your folders finishes
+ok    looking through the test folder finishes
+ok    it lists exactly the empty folders (['empty', 'made now', 'nested', 'only ini', 'with file\\empty inside'])
+ok    all of them are ticked
+ok    Move to the Recycle Bin can be pressed
+ok    Show in folder can be pressed for the chosen one
+ok    picture saved: emptyfolders-ar-light.png
+ok    what the test put in the Recycle Bin is gone again
+newtest_emptyfolders page: 0 problem(s)
+ok    the ar window part ran to its end (exit 0)
+ok    what the test put in the Recycle Bin is gone again
+newtest_emptyfolders: 0 problem(s)
