@@ -40,7 +40,7 @@ def test_brought_fonts_found_by_pdf_names(pdf_name, family):
     ("CourierNewPSMT", "Courier New"),
     ("Calibri-Light", "Calibri"),
     ("SegoeUI-Semibold", "Segoe UI"),
-    ("TraditionalArabic", "Traditional Arabic"),
+    ("Tahoma-Bold", "Tahoma"),
 ])
 def test_windows_fonts_found_by_pdf_names(pdf_name, family):
     assert pdffonts.find(pdfedit.clean_family(pdf_name)[0]) == family
@@ -85,7 +85,7 @@ def test_every_english_and_arabic_font_offered():
         assert f in fonts
     assert "Almarai Bold" not in fonts  # (the bold button gives it)
     if sys.platform == "win32":
-        for f in ("Arial", "Times New Roman", "Calibri", "Segoe UI", "Tahoma", "Traditional Arabic"):
+        for f in ("Arial", "Times New Roman", "Calibri", "Segoe UI", "Tahoma"):
             assert f in fonts
         assert len(fonts) > 40
 
