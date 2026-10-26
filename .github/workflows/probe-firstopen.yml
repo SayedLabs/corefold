@@ -1,4 +1,4 @@
-# TEMPORARY probe (removed before merging): the heavy test's first window opening, six times, with and without Corefold's and Qt's files read back into memory first.
+# TEMPORARY probe (removed before merging): the heavy test's first window opening, ten times, with and without Corefold's and Qt's files read back into memory first.
 name: Probe first open
 
 on:
@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        n: [1, 2, 3, 4, 5, 6]
+        n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         warm: [no, yes]
     steps:
       - uses: actions/checkout@v7
