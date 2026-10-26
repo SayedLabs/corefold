@@ -53,7 +53,7 @@ s.known_tools = sorted(t.id for t in all_tools.ready())
 s.tools_off = []  # every tool there is in use: the most the window ever has to do
 s.save()
 
-from PySide6.QtCore import QPoint, Qt, QTimer  # noqa: E402
+from PySide6.QtCore import QEventLoop, QPoint, Qt, QTimer  # noqa: E402
 from PySide6.QtGui import QIcon  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QAbstractScrollArea, QApplication  # noqa: E402
@@ -76,7 +76,7 @@ for _fam in {_tokens.TEXT_FAMILY, _tokens.FONT_DISPLAY.strip('"'), "Segoe UI"}:
         QFontMetrics(_f).horizontalAdvance("Corefold مرحبا ✓ → 123")
 
 FRAME = 1 / 60
-STUTTER = 2.5 * FRAME   # a gap this long drops at least two frames: a moving thing visibly jumps
+STUTTER = 1.5 * FRAME   # a gap this long drops a frame or more: a moving thing jumps
 STUCK = 0.25            # the window not answering this long feels stuck
 
 
@@ -368,10 +368,9 @@ def idle(label, seconds=15):
     settle(1.0)
     beat.timer.stop()  # (the test's own heartbeat isn't the app's work)
     cpu0, t0 = time.process_time(), time.perf_counter()
-    end = t0 + seconds
-    while time.perf_counter() < end:
-        qapp.processEvents()
-        time.sleep(0.05)
+    loop = QEventLoop()  # (Qt's own waiting, as in the app: a test loop's polling isn't counted)
+    QTimer.singleShot(int(seconds * 1000), loop.quit)
+    loop.exec()
     share = (time.process_time() - cpu0) / (time.perf_counter() - t0) * 100
     beat.timer.start()
     print(f"note {label}: {share:.2f} % of one CPU core", flush=True)
@@ -403,7 +402,7 @@ def _row(r):
 
 lines = [f"# Smoothness: {LANG}, {LOOK}", "",
          f"{len(problems)} problem(s). Worst gap in ms; a stutter is a gap over {STUTTER * 1000:.0f} ms "
-         f"(two frames). Time and CPU in seconds.", ""]
+         f"(a frame dropped). Time and CPU in seconds.", ""]
 lines += [f"- {p}" for p in problems] + [""]
 lines += ["| step | worst ms | stutters | frames dropped | time s | CPU s | where the worst one was |",
           "|---|---|---|---|---|---|---|"]
