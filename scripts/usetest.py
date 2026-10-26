@@ -1413,52 +1413,6 @@ with setup():
 watch.paused = 0
 
 
-def _disk_idle():
-    """How idle the disks were over one second (0-100), from Windows' own counter; None if it can't be read."""
-    try:
-        out = subprocess.run(["typeperf", r"\PhysicalDisk(_Total)\% Idle Time", "-si", "1", "-sc", "2"],
-                             capture_output=True, text=True, timeout=15).stdout
-        values = [line.rsplit(",", 1)[-1].strip().strip('"') for line in out.splitlines() if line.startswith('"')]
-        return max(0.0, min(100.0, float(values[-1])))
-    except (OSError, ValueError, IndexError, subprocess.SubprocessError):
-        return None
-
-
-def _modules() -> set[str]:
-    """The DLLs loaded in this process now."""
-    import ctypes
-    from ctypes import wintypes as wt
-    k, ps = ctypes.windll.kernel32, ctypes.windll.psapi
-    k.GetCurrentProcess.restype = wt.HANDLE
-    ps.EnumProcessModules.argtypes = [wt.HANDLE, ctypes.POINTER(wt.HMODULE), wt.DWORD, ctypes.POINTER(wt.DWORD)]
-    ps.GetModuleFileNameExW.argtypes = [wt.HANDLE, wt.HMODULE, wt.LPWSTR, wt.DWORD]
-    me, mods, need = k.GetCurrentProcess(), (wt.HMODULE * 4096)(), wt.DWORD()
-    if not ps.EnumProcessModules(me, mods, ctypes.sizeof(mods), ctypes.byref(need)):
-        return set()
-    name = ctypes.create_unicode_buffer(520)
-    found = set()
-    for m in mods[:need.value // ctypes.sizeof(wt.HMODULE)]:
-        if ps.GetModuleFileNameExW(me, m, name, 520):
-            found.add(Path(name.value).name.lower())
-    return found
-
-
-def _warm_program_files():
-    """Reads Corefold's and Qt's own files once, so Windows has them in memory again."""
-    import PySide6
-    t0, size = time.perf_counter(), 0
-    for top in (Path(PySide6.__file__).parent, ROOT / "corefold", ROOT / "assets"):
-        for f in top.rglob("*"):
-            try:
-                if f.is_file():
-                    with open(f, "rb") as fh:
-                        while chunk := fh.read(1 << 20):
-                            size += len(chunk)
-            except OSError:
-                pass
-    say(f"note  read Corefold's and Qt's files again ({size / 1e6:.0f} MB in {time.perf_counter() - t0:.1f} s)")
-
-
 def _quiet(what, most_s=120):
     """Waits (up to most_s) for the PC to be quiet first: after 200,000 files are made, Windows' virus checker
     reads them for minutes, and the times after it would measure that, not Corefold."""
@@ -1482,18 +1436,7 @@ def start_light():
     c = timed("Corefold starts (tray icon ready)", lambda: A.Controller(qapp, QIcon(str(ROOT / "assets" / "icon.png"))),
               4)
     settle(1)
-    if os.name == "nt":
-        with setup():
-            say(f"note  the disks before the window opens: {_disk_idle()}% idle")
-            loaded = _modules()
-            before = _times()
     timed("the window opens", lambda: (c.show_window("Home"), c.window)[1], 2.5, wait=lambda: c.window.isVisible())
-    if os.name == "nt":
-        mine, busy, total, took = (x - y for x, y in zip(_times(), before))
-        say(f"note  while the window opened ({took:.2f} s): this app used {mine:.2f} s of processor, the whole PC was"
-            f" {busy / max(total, 0.01) * 100:.0f}% busy")
-        new_dlls = sorted(_modules() - loaded)
-        say(f"note  the window's first opening loaded {len(new_dlls)} DLLs: {', '.join(new_dlls)}")
     c.window.resize(1100, 720)
 
 
@@ -1501,9 +1444,6 @@ if ARGS.heavy:
     STEPS = (("organizer", h_organizer), ("archive", h_archive), ("pdf", h_pdf), ("converter", h_converter),
              ("cloud", h_cloud), ("unlock", h_unlock), ("idle", idle))
     _quiet("start")  # (the window's first paint reads files too, and waited 1-2 s behind the virus checker)
-    if os.environ.get("USE_WARM"):
-        with setup():
-            _warm_program_files()
     step("start", start_light)
 else:
     STEPS = (("search", search), ("quick", quick), ("space", space), ("converter", converter), ("archive", archive),
