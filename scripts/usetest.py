@@ -1356,7 +1356,9 @@ def h_cloud():
           f"…smallest first ({first.size if first else None})")
     timed("Cloud: and by name again", lambda: page.files._sort_by(0), 0.8)
     timed("Cloud: select all 20,000", page.files.selectAll, 1.0)
-    check(len(page.files.picked()[1]) == 20000, f"…every one ({len(page.files.picked()[1])})")
+    with setup():  # (checking makes the rows still to come at once: the test's time, not a click's)
+        picked = len(page.files.picked()[1])
+    check(picked == 20000, f"…every one ({picked})")
     page.files.clearSelection()
     timed("Cloud: back up", w.go_back, 0.8, wait=lambda: page.files.topLevelItemCount() < 100)
     project = [e for e in cloud.client(accs["OneDrive"]).list(None) if e.name == "Project"]
