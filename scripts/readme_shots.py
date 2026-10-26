@@ -33,7 +33,7 @@ sys.path.insert(0, str(ROOT))
 import corefold  # noqa: E402
 
 if corefold.__version__ == "dev":  # (the sidebar shows it: "Version dev" looks unfinished in a picture)
-    corefold.__version__ = os.environ.get("COREFOLD_SHOW_VERSION", "1.11.0")
+    corefold.__version__ = os.environ.get("COREFOLD_SHOW_VERSION", "1.13.0")
 
 from PIL import Image, ImageDraw, ImageFilter  # noqa: E402
 
