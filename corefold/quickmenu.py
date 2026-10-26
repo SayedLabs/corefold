@@ -706,7 +706,7 @@ class QuickMenu(QWidget):
         p.setFont(base)
         if self.query:
             p.setPen(t.text)
-            shown = _isolate(self.query) + "▏"  # ("10 km to mi" keeps its order in Arabic too)
+            shown = _isolate(self.query) + "|"  # ("10 km to mi" keeps its order in Arabic too)
             p.drawText(text_rect, Qt.AlignVCenter | Qt.AlignLeading, shown)
         else:
             p.setPen(t.muted)

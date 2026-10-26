@@ -1550,7 +1550,6 @@ class Gallery(QDialog):
                 if k.id not in offered:
                     item.setFlags(Qt.NoItemFlags)
                     item.setToolTip(tr("On your Home page already"))
-                    item.setText(tr(k.name) + "  ✓")
                 self.list.addItem(item)
                 if k.id in offered and (first is None or k.id == kind):
                     first = item

@@ -509,7 +509,7 @@ ROTATIONS = {  # key: (button text, file name tag)
     "left": ("Rotate left 90°", "rotated"),
     "180": ("Turn upside down (180°)", "rotated"),
     "hflip": ("Flip left ↔ right (mirror)", "flipped"),
-    "vflip": ("Flip top ↕ bottom", "flipped"),
+    "vflip": ("Flip top ↑↓ bottom", "flipped"),
 }
 
 
