@@ -549,6 +549,56 @@ def _html(text: str) -> str:
     return html.escape(text, quote=False)
 
 
+def _name_by_row_labels(page: QWidget):
+    """A list, number box or slider in a settings row takes the words of the label at the start of its
+    row (or of the heading just above it) as its name, so a screen reader says what it changes (the label
+    only sits beside it)."""
+    import html
+    import re
+    from PySide6.QtWidgets import QAbstractSlider, QAbstractSpinBox
+
+    def controls(item):
+        if item is None:
+            return []
+        if item.widget() is not None:
+            w = item.widget()
+            if isinstance(w, (QComboBox, QAbstractSpinBox, QAbstractSlider, QLineEdit)):
+                return [w]
+            return [c for c in w.findChildren(QWidget) if isinstance(c, (QComboBox, QAbstractSpinBox, QAbstractSlider))]
+        if item.layout() is not None:
+            lay = item.layout()
+            return [c for i in range(lay.count()) for c in controls(lay.itemAt(i))]
+        return []
+
+    def words_of(lab: QLabel) -> str:
+        return html.unescape(re.sub(r"<[^>]+>", " ", lab.text())).replace("&", "").strip()
+
+    def name(items, words):
+        for c in (c for item in items for c in controls(item)):
+            if not c.accessibleName():
+                c.setAccessibleName(words)
+
+    from PySide6.QtWidgets import QBoxLayout
+    for box in page.findChildren(QBoxLayout):
+        heading = ""
+        for i in range(box.count()):
+            item = box.itemAt(i)
+            w = item.widget()
+            if isinstance(w, QLabel) and w.objectName() == "h2" and w.text().strip():
+                heading = words_of(w)
+            elif heading and (w is not None or item.layout() is not None):
+                name([item], heading)
+                heading = ""
+    for grid in page.findChildren(QGridLayout):
+        for row in range(grid.rowCount()):
+            head = grid.itemAtPosition(row, 0)
+            lab = head.widget() if head is not None else None
+            if not isinstance(lab, QLabel) or not lab.text().strip():
+                continue
+            name([grid.itemAtPosition(row, col) for col in range(1, grid.columnCount())
+                  if grid.itemAtPosition(row, col) is not head], words_of(lab))
+
+
 class Segmented(QWidget):
     changed = Signal(str)
 
@@ -1227,6 +1277,7 @@ class MainWindow(QWidget):
         self.stack.removeWidget(stand_in)
         stand_in.deleteLater()
         self._no_accidental_scrolling(built)
+        _name_by_row_labels(built)
         self._fill_built(name)
 
     def drop_hidden_pages(self, names=REMADE_PAGES):
@@ -4310,7 +4361,7 @@ class MainWindow(QWidget):
 
     def apply_theme(self, t: Theme):
         self.refresh_nav()  # the icons follow the text colour
-        self.back_btn.setIcon(icons.icon("arrow_right" if i18n.is_rtl() else "arrow_left", t.text, disabled=t.tokens.subtle))
+        self.back_btn.setIcon(icons.icon("arrow_right" if i18n.is_rtl() else "arrow_left", t.text, disabled=t.tokens.faint))
         self.search_btn.glyph = icons.icon("search", t.muted)
         self.search_btn.update()
         self.theme_btn.setIcon(icons.icon("weather_sunny" if t.dark else "weather_moon", t.text))

@@ -67,12 +67,13 @@ class Palette:
     line_strong: QColor   # edges of things you can click
     text: QColor
     muted: QColor         # second line of text
-    subtle: QColor        # third line, placeholders
+    subtle: QColor        # third line, placeholders (still easy to read: 4.5 to 1 on cards and the page)
     danger: QColor
     success: QColor
     warning: QColor
     scrim: QColor         # dims the window behind a palette or dialog
     select: QColor = None       # type: ignore[assignment]  # behind what's picked: the page you're on, a row
+    faint: QColor = None        # type: ignore[assignment]  # what can't be used now, and edges under the mouse
     glyph: QColor = None        # type: ignore[assignment]  # decorative icons (feature tiles, list marks)
     primary: QColor = None      # type: ignore[assignment]  # the main button of a screen
     on_primary: QColor = None   # type: ignore[assignment]
@@ -109,9 +110,9 @@ def palette(dark: bool, accent: QColor) -> Palette:
             accent_hover=a.lighter(110), backdrop=QColor("#19191b"), canvas=QColor("#131315"),
             surface=surface, raised=QColor("#26262a"), field=QColor("#2a2a2e"), hover=QColor("#2a2a2f"),
             pressed=QColor("#323237"), border=QColor("#26262a"), line_strong=QColor("#3a3a40"),
-            text=QColor("#f5f5f7"), muted=QColor("#a1a1a8"), subtle=QColor("#6e6e76"),
+            text=QColor("#f5f5f7"), muted=QColor("#a1a1a8"), subtle=QColor("#8e8e95"),
             danger=QColor("#ff6961"), success=QColor("#32d74b"), warning=QColor("#ffb340"),
-            scrim=QColor(0, 0, 0, 150), select=QColor("#2e2e33"))
+            scrim=QColor(0, 0, 0, 150), select=QColor("#2e2e33"), faint=QColor("#6e6e76"))
     else:
         surface = QColor("#f5f5f7")
         p = Palette(
@@ -119,9 +120,9 @@ def palette(dark: bool, accent: QColor) -> Palette:
             accent_hover=a.darker(110), backdrop=QColor("#ececef"), canvas=QColor("#ffffff"),
             surface=surface, raised=QColor("#ffffff"), field=QColor("#ffffff"), hover=QColor("#ececf0"),
             pressed=QColor("#e1e1e6"), border=QColor("#e6e6ea"), line_strong=QColor("#d2d2d7"),
-            text=QColor("#1d1d1f"), muted=QColor("#6e6e73"), subtle=QColor("#a1a1a6"),
-            danger=QColor("#d70015"), success=QColor("#248a3d"), warning=QColor("#b25000"),
-            scrim=QColor(20, 20, 24, 90), select=QColor("#dcdce1"))
+            text=QColor("#1d1d1f"), muted=QColor("#5e5e63"), subtle=QColor("#6e6e73"),
+            danger=QColor("#d70015"), success=QColor("#1e7b34"), warning=QColor("#b25000"),
+            scrim=QColor(20, 20, 24, 90), select=QColor("#dcdce1"), faint=QColor("#a1a1a6"))
     p.glyph = p.text
     p.primary, p.on_primary, p.primary_hover = p.accent, p.on_accent, p.accent_hover
     return p

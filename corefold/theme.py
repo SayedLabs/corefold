@@ -180,7 +180,7 @@ QFrame#editBar { background: $raised; border: 1px solid $line_strong; border-rad
 QFrame#galleryStage { background: $stage; border: 1px solid $border; border-radius: 14px; }
 QLabel#strong { font-weight: 600; }
 QFrame#dropzone { border: 1px dashed $line_strong; border-radius: 14px; background: $stage; }
-QFrame#dropzone:hover { border-color: $subtle; }
+QFrame#dropzone:hover { border-color: $faint; }
 QFrame#dropzone[hot="true"] { border: 1px solid $accent; background: $accent_soft; }
 QPushButton#action { padding: 7px 13px; border-radius: 8px; }
 QPushButton#action:hover { background: $hover; border-color: $line_strong; }
@@ -243,7 +243,7 @@ def stylesheet(t: Theme, scale: float = 1.0) -> str:
                     down=_chevron_image(p.muted, False))
     own = QSS.substitute(
         text=p.text.name(), panel=p.surface.name(), field=p.field.name(), raised=p.raised.name(),
-        border=p.border.name(), muted=p.muted.name(), subtle=p.subtle.name(), accent=p.accent.name(),
+        border=p.border.name(), muted=p.muted.name(), subtle=p.subtle.name(), faint=p.faint.name(), accent=p.accent.name(),
         on_accent=p.on_accent.name(), accent_soft=p.accent_soft.name(), danger=p.danger.name(),
         line_strong=p.line_strong.name(), hover=p.hover.name(),
         edge_hover=p.line_strong.name(), accent_text=(p.accent if p.dark else p.accent.darker(108)).name(),

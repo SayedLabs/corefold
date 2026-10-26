@@ -60,7 +60,7 @@ QPushButton { background: $field; border: 1px solid $line_strong; border-bottom-
 QPushButton:hover { background: $hover; }
 QPushButton:pressed { background: $pressed; border-bottom-color: $line_strong; }
 QPushButton:checked { background: $select; color: $text; border-color: $line_strong; }
-QPushButton:disabled { color: $subtle; border-color: $border; background: transparent; }
+QPushButton:disabled { color: $faint; border-color: $border; background: transparent; }
 QPushButton:focus { outline: none; }
 /* ("text-align" makes Qt lay out an icon and its words itself, with a real gap between them: without it the
    words touched the icon, and overlapped it in Arabic) */
@@ -71,7 +71,7 @@ QPushButton#primary { background: $primary; color: $on_primary; border: 1px soli
                       font-weight: 600; }
 QPushButton#primary:hover { background: $primary_hover; border-color: $primary_hover; }
 QPushButton#primary:pressed { background: $primary_edge; }
-QPushButton#primary:disabled { background: $select; border-color: $select; color: $subtle; }
+QPushButton#primary:disabled { background: $select; border-color: $select; color: $faint; }
 QPushButton#danger { color: $danger; }
 QPushButton#danger:hover { border-color: $danger; background: $danger_soft; }
 QPushButton#ghost { background: transparent; border: 1px solid transparent; }
@@ -79,8 +79,8 @@ QPushButton#ghost:hover { background: $hover; }
 QPushButton#ghost:pressed { background: $pressed; }
 QPushButton#flat { background: transparent; border: none; color: $text; padding: 3px 6px; font-weight: 600; }
 QPushButton#flat:hover { color: $accent_text; }
-QPushButton#flat:disabled { color: $subtle; font-weight: 600; }
-QPushButton#danger:disabled { color: $subtle; }
+QPushButton#flat:disabled { color: $faint; font-weight: 600; }
+QPushButton#danger:disabled { color: $faint; }
 QPushButton#small { padding: 2px 8px; min-width: 0; background: transparent; border: 1px solid transparent;
                     color: $muted; font-size: ${caption}pt; }
 QPushButton#small:hover { background: $hover; border-color: $line_strong; color: $text; }
@@ -116,7 +116,7 @@ QLineEdit:hover, QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover { backgro
 QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QTextEdit:focus, QPlainTextEdit:focus {
         border-color: $accent; background: $field; }
 QComboBox:focus { background: $field; }
-QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled { color: $subtle; background: transparent; }
+QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled { color: $faint; background: transparent; }
 QLineEdit#searchBox { border-radius: 16px; padding: 6px 12px 6px 34px; background: $field; }
 QLineEdit#searchBox:focus { border: 1px solid $accent; }
 QComboBox::drop-down { border: none; width: 28px; }
@@ -181,10 +181,10 @@ QSplitter::handle:hover { background: $border; }
 QScrollArea, QWidget#scrollContent { background: transparent; border: none; }
 QScrollBar:vertical { background: transparent; width: 10px; margin: 2px; border: none; }
 QScrollBar::handle:vertical { background: $line_strong; border-radius: 3px; min-height: 30px; margin: 0 2px; }
-QScrollBar::handle:vertical:hover { background: $subtle; margin: 0 1px; }
+QScrollBar::handle:vertical:hover { background: $faint; margin: 0 1px; }
 QScrollBar:horizontal { background: transparent; height: 10px; margin: 2px; border: none; }
 QScrollBar::handle:horizontal { background: $line_strong; border-radius: 3px; min-width: 30px; margin: 2px 0; }
-QScrollBar::handle:horizontal:hover { background: $subtle; }
+QScrollBar::handle:horizontal:hover { background: $faint; }
 QScrollBar::add-line, QScrollBar::sub-line { height: 0; width: 0; border: none; background: none; }
 QScrollBar::add-page, QScrollBar::sub-page { background: none; }
 
@@ -192,7 +192,7 @@ QMenu { background: $raised; border: 1px solid $line_strong; padding: 6px; }
 QMenu[round="true"] { border-radius: ${r_lg}px; }
 QMenu::item { padding: 7px 28px 7px 12px; border-radius: ${r_sm}px; }
 QMenu::item:selected { background: $hover; color: $text; }
-QMenu::item:disabled { color: $subtle; }
+QMenu::item:disabled { color: $faint; }
 QMenu::separator { height: 1px; background: $border; margin: 5px 8px; }
 QToolTip { background: $raised; color: $text; border: 1px solid $line_strong; padding: 5px 9px; border-radius: ${r_sm}px; }
 QDialog, QMessageBox { background: $canvas; }
@@ -208,7 +208,7 @@ def base(p: Palette, rtl: bool = False, check: str = "", up: str = "", down: str
         body=TYPE["body"], caption=TYPE["caption"], caption_plus=TYPE["caption"] + 0.5, subtitle=TYPE["subtitle"],
         title=TYPE["title"], h1=TYPE["h1"], display=TYPE["display"],
         r_sm=RADIUS["sm"], r_md=RADIUS["md"], r_lg=RADIUS["lg"], r_xl=RADIUS["xl"], r_canvas=RADIUS["canvas"],
-        text=p.text.name(), muted=p.muted.name(), subtle=p.subtle.name(),
+        text=p.text.name(), muted=p.muted.name(), subtle=p.subtle.name(), faint=p.faint.name(),
         backdrop=p.backdrop.name(), canvas=p.canvas.name(), surface=p.surface.name(), raised=p.raised.name(),
         field=p.field.name(), hover=p.hover.name(), pressed=p.pressed.name(),
         segmented=(p.backdrop if p.dark else p.pressed).name(),

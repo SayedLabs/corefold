@@ -729,7 +729,7 @@ class DriveCard(QPushButton):
             p.drawText(QRectF(x0, y, x1 - x0, rfm.height()), side | Qt.AlignVCenter,
                        rfm.elidedText(self.seen, Qt.ElideRight, int(x1 - x0)))
         arrow = QRectF(r.left() + pad if rtl else r.right() - pad - chevron, r.center().y() - chevron / 2, chevron, chevron)
-        icons.paint(p, arrow, "chevron_left" if rtl else "chevron_right", t.accent if hover else t.tokens.subtle)
+        icons.paint(p, arrow, "chevron_left" if rtl else "chevron_right", t.accent if hover else t.tokens.faint)
         p.end()
 
 
