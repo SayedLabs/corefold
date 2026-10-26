@@ -205,6 +205,20 @@ def settle(seconds=0.25):
         QTest.qWait(10)
 
 
+def steady(w, seconds=1.5):
+    """Waits until the page stops moving: a long page last laid out in a wider window grows its cards a
+    level at a time while its words wrap again (a few passes), and is judged once it's done."""
+    def shape():
+        return [wid.geometry().getRect() for wid in w.findChildren(QWidget) if wid.objectName() == "card" and wid.isVisible()]
+    end, before = time.time() + seconds, shape()
+    while time.time() < end:
+        settle(0.05)
+        now = shape()
+        if now == before:
+            return
+        before = now
+
+
 def until(cond, seconds=10):
     end = time.time() + seconds
     while time.time() < end:
@@ -862,6 +876,7 @@ def sizes():
         for name in every_page_name(w):
             w.open_page(name)
             settle(0.15)
+            steady(w)
             looks_ok(w, f"{name} page, {label_} window ({w.width()}x{w.height()})")
         grab(w, f"store-{label_}")
     apply_size(w)
