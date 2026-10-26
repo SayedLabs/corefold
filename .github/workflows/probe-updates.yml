@@ -39,4 +39,5 @@ jobs:
           python scripts/probe_glyphs.py ar
           python scripts/usetest.py out/usetest --lang ar --look light --only start *> out/usetest.txt
           Get-Content out/usetest.txt | Select-String -Pattern "Updates page|probe |problem|Traceback|Error" | ForEach-Object { $_.Line }
+          if (Select-String -Quiet -Path out/usetest.txt -Pattern "SLOW .*Updates page") { exit 1 }
           exit 0
