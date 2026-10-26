@@ -1,0 +1,249 @@
+2026-10-26 17:47:23,792 INFO the shortcut win+shift+t is used by another app
+2026-10-26 17:47:23,903 INFO the shortcut ctrl+win+t is used by another app
+2026-10-26 17:47:23,919 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-26 17:49:17,479 INFO awake: on
+2026-10-26 17:49:17,904 INFO awake: on
+2026-10-26 17:49:18,536 INFO awake: until 2026-10-26T18:49
+2026-10-26 17:49:19,174 INFO awake: until 2026-10-26T19:00
+2026-10-26 17:49:19,808 INFO awake: until 2026-10-26T19:00, screen too
+2026-10-26 17:49:20,019 INFO awake: until 2026-10-26T19:00
+2026-10-26 17:49:54,187 INFO right-click menu updated
+2026-10-26 17:50:05,022 INFO the shortcut ctrl+win+t is used by another app
+2026-10-26 17:50:05,234 INFO the shortcut ctrl+win+t is used by another app
+2026-10-26 17:50:06,083 INFO the shortcut ctrl+win+t is used by another app
+2026-10-26 17:50:08,286 INFO the shortcut ctrl+win+t is used by another app
+2026-10-26 17:50:08,508 INFO the shortcut ctrl+win+t is used by another app
+2026-10-26 17:50:09,342 INFO the shortcut ctrl+win+t is used by another app
+2026-10-26 17:50:09,342 INFO the shortcut ctrl+win+t is used by another app
+2026-10-26 17:50:09,570 INFO the shortcut ctrl+win+t is used by another app
+2026-10-26 17:50:11,486 INFO the shortcut ctrl+win+t is used by another app
+2026-10-26 17:50:12,331 INFO the shortcut ctrl+win+t is used by another app
+2026-10-26 17:54:04,755 INFO image files open with Corefold
+2026-10-26 17:54:05,045 INFO email files open with Corefold
+2026-10-26 17:54:05,785 INFO media files open with Corefold
+2026-10-26 17:54:06,217 INFO archive files open with Corefold
+2026-10-26 17:54:11,560 INFO image files open with Corefold
+2026-10-26 17:54:12,227 INFO email files open with Corefold
+2026-10-26 17:54:12,245 INFO tidied up memory
+2026-10-26 17:54:18,676 INFO media files open with Corefold
+2026-10-26 17:54:19,705 INFO the shortcut win+shift+t is used by another app
+2026-10-26 17:54:19,909 INFO the shortcut win+shift+t is used by another app
+2026-10-26 17:54:20,541 INFO the shortcut win+shift+t is used by another app
+2026-10-26 17:55:26,486 INFO quick menu: 144 apps listed in 203 ms
+2026-10-26 18:00:55,953 INFO the shortcut ctrl+win+t is used by another app
+2026-10-26 18:00:56,268 INFO the shortcut ctrl+win+t is used by another app
+2026-10-26 18:00:56,584 INFO the shortcut ctrl+win+t is used by another app
+2026-10-26 18:00:56,898 INFO the shortcut ctrl+win+t is used by another app
+2026-10-26 18:01:36,148 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-26 18:01:36,148 INFO tools in use: pdf, archive, organizer, unlock, cloud, capture, viewer, player, colors, space, uninstaller, startup, scan, clipboard, awake
+2026-10-26 18:01:36,667 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-26 18:01:36,667 INFO tools in use: pdf, archive, organizer, unlock, cloud, capture, viewer, player, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:01:37,234 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-26 18:01:37,234 INFO tools in use: pdf, organizer, unlock, cloud, capture, viewer, player, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:01:37,793 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-10-26 18:01:37,794 INFO tools in use: pdf, organizer, unlock, cloud, capture, player, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:01:38,356 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-10-26 18:01:38,356 INFO tools in use: pdf, organizer, unlock, cloud, capture, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:01:38,539 INFO tidied up memory
+2026-10-26 18:01:38,892 INFO running in the background: clipboard, quick access, awake, colors
+2026-10-26 18:01:38,892 INFO tools in use: pdf, organizer, unlock, cloud, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:01:39,449 INFO running in the background: clipboard, quick access, awake, colors
+2026-10-26 18:01:39,449 INFO tools in use: pdf, organizer, unlock, cloud, colors, startup, scan, clipboard, awake
+2026-10-26 18:01:39,550 INFO right-click menu updated
+2026-10-26 18:01:39,999 INFO running in the background: quick access, awake, colors
+2026-10-26 18:01:39,999 INFO tools in use: pdf, organizer, unlock, cloud, colors, startup, scan, awake
+2026-10-26 18:01:40,544 INFO running in the background: quick access, awake, colors
+2026-10-26 18:01:40,545 INFO tools in use: pdf, organizer, unlock, colors, startup, scan, awake
+2026-10-26 18:01:41,061 INFO running in the background: quick access, awake, colors
+2026-10-26 18:01:41,062 INFO tools in use: pdf, organizer, unlock, colors, scan, awake
+2026-10-26 18:01:41,574 INFO running in the background: quick access, awake, colors
+2026-10-26 18:01:41,574 INFO tools in use: pdf, organizer, unlock, colors, awake
+2026-10-26 18:01:42,080 INFO running in the background: quick access, awake, colors
+2026-10-26 18:01:42,081 INFO tools in use: organizer, unlock, colors, awake
+2026-10-26 18:01:42,597 INFO running in the background: quick access, awake
+2026-10-26 18:01:42,598 INFO tools in use: organizer, unlock, awake
+2026-10-26 18:01:43,114 INFO awake: off (stopped)
+2026-10-26 18:01:43,116 INFO running in the background: quick access
+2026-10-26 18:01:43,116 INFO tools in use: organizer, unlock
+2026-10-26 18:01:43,630 INFO running in the background: quick access
+2026-10-26 18:01:43,630 INFO tools in use: organizer
+2026-10-26 18:01:44,119 INFO running in the background: quick access
+2026-10-26 18:01:44,120 INFO tools in use: none
+2026-10-26 18:01:46,528 INFO running in the background: quick access
+2026-10-26 18:01:46,528 INFO tools in use: organizer
+2026-10-26 18:01:46,899 INFO running in the background: quick access
+2026-10-26 18:01:46,899 INFO tools in use: organizer, unlock
+2026-10-26 18:01:47,280 INFO running in the background: quick access, awake
+2026-10-26 18:01:47,281 INFO tools in use: organizer, unlock, awake
+2026-10-26 18:01:47,658 INFO running in the background: quick access, awake, colors
+2026-10-26 18:01:47,658 INFO tools in use: organizer, unlock, colors, awake
+2026-10-26 18:01:48,040 INFO running in the background: quick access, awake, colors
+2026-10-26 18:01:48,040 INFO tools in use: pdf, organizer, unlock, colors, awake
+2026-10-26 18:01:48,417 INFO running in the background: quick access, awake, colors
+2026-10-26 18:01:48,417 INFO tools in use: pdf, organizer, unlock, colors, scan, awake
+2026-10-26 18:01:48,800 INFO running in the background: quick access, awake, colors
+2026-10-26 18:01:48,800 INFO tools in use: pdf, organizer, unlock, colors, startup, scan, awake
+2026-10-26 18:01:49,192 INFO running in the background: quick access, awake, colors
+2026-10-26 18:01:49,192 INFO tools in use: pdf, organizer, unlock, cloud, colors, startup, scan, awake
+2026-10-26 18:01:49,590 INFO running in the background: clipboard, quick access, awake, colors
+2026-10-26 18:01:49,590 INFO tools in use: pdf, organizer, unlock, cloud, colors, startup, scan, clipboard, awake
+2026-10-26 18:01:49,985 INFO running in the background: clipboard, quick access, awake, colors
+2026-10-26 18:01:49,985 INFO tools in use: pdf, organizer, unlock, cloud, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:01:50,384 INFO the shortcut win+shift+t is used by another app
+2026-10-26 18:01:50,384 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-10-26 18:01:50,386 INFO tools in use: pdf, organizer, unlock, cloud, capture, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:01:50,782 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-10-26 18:01:50,782 INFO tools in use: pdf, organizer, unlock, cloud, capture, player, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:01:50,815 INFO media files open with Corefold
+2026-10-26 18:01:51,181 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-26 18:01:51,182 INFO tools in use: pdf, organizer, unlock, cloud, capture, viewer, player, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:01:51,204 INFO image files open with Corefold
+2026-10-26 18:01:51,217 INFO email files open with Corefold
+2026-10-26 18:01:51,582 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-26 18:01:51,582 INFO tools in use: pdf, archive, organizer, unlock, cloud, capture, viewer, player, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:01:51,607 INFO archive files open with Corefold
+2026-10-26 18:01:51,977 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-26 18:01:51,977 INFO tools in use: pdf, archive, organizer, unlock, cloud, capture, viewer, player, colors, space, uninstaller, startup, scan, clipboard, awake
+2026-10-26 18:01:52,379 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-26 18:01:52,379 INFO tools in use: converter, pdf, archive, organizer, unlock, cloud, capture, viewer, player, colors, space, uninstaller, startup, scan, clipboard, awake
+2026-10-26 18:01:54,332 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-26 18:01:54,333 INFO tools in use: pdf, archive, organizer, unlock, cloud, capture, viewer, player, colors, space, uninstaller, startup, scan, clipboard, awake
+2026-10-26 18:01:54,956 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-26 18:01:54,957 INFO tools in use: pdf, archive, organizer, unlock, cloud, capture, viewer, player, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:01:55,543 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-26 18:01:55,543 INFO tools in use: pdf, organizer, unlock, cloud, capture, viewer, player, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:01:56,123 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-10-26 18:01:56,123 INFO tools in use: pdf, organizer, unlock, cloud, capture, player, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:01:56,695 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-10-26 18:01:56,695 INFO tools in use: pdf, organizer, unlock, cloud, capture, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:01:57,252 INFO running in the background: clipboard, quick access, awake, colors
+2026-10-26 18:01:57,254 INFO tools in use: pdf, organizer, unlock, cloud, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:01:57,792 INFO running in the background: clipboard, quick access, awake, colors
+2026-10-26 18:01:57,792 INFO tools in use: pdf, organizer, unlock, cloud, colors, startup, scan, clipboard, awake
+2026-10-26 18:01:58,373 INFO running in the background: quick access, awake, colors
+2026-10-26 18:01:58,373 INFO tools in use: pdf, organizer, unlock, cloud, colors, startup, scan, awake
+2026-10-26 18:01:58,942 INFO running in the background: quick access, awake, colors
+2026-10-26 18:01:58,942 INFO tools in use: pdf, organizer, unlock, colors, startup, scan, awake
+2026-10-26 18:01:59,488 INFO running in the background: quick access, awake, colors
+2026-10-26 18:01:59,488 INFO tools in use: pdf, organizer, unlock, colors, scan, awake
+2026-10-26 18:02:00,032 INFO running in the background: quick access, awake, colors
+2026-10-26 18:02:00,033 INFO tools in use: pdf, organizer, unlock, colors, awake
+2026-10-26 18:02:00,570 INFO running in the background: quick access, awake, colors
+2026-10-26 18:02:00,570 INFO tools in use: organizer, unlock, colors, awake
+2026-10-26 18:02:01,124 INFO running in the background: quick access, awake
+2026-10-26 18:02:01,124 INFO tools in use: organizer, unlock, awake
+2026-10-26 18:02:01,662 INFO running in the background: quick access
+2026-10-26 18:02:01,663 INFO tools in use: organizer, unlock
+2026-10-26 18:02:02,216 INFO running in the background: quick access
+2026-10-26 18:02:02,216 INFO tools in use: organizer
+2026-10-26 18:02:02,759 INFO running in the background: quick access
+2026-10-26 18:02:02,759 INFO tools in use: none
+2026-10-26 18:02:04,563 INFO right-click menu updated
+2026-10-26 18:02:05,195 INFO running in the background: quick access
+2026-10-26 18:02:05,195 INFO tools in use: organizer
+2026-10-26 18:02:05,607 INFO running in the background: quick access
+2026-10-26 18:02:05,607 INFO tools in use: organizer, unlock
+2026-10-26 18:02:06,003 INFO running in the background: quick access, awake
+2026-10-26 18:02:06,003 INFO tools in use: organizer, unlock, awake
+2026-10-26 18:02:06,412 INFO running in the background: quick access, awake, colors
+2026-10-26 18:02:06,412 INFO tools in use: organizer, unlock, colors, awake
+2026-10-26 18:02:06,823 INFO running in the background: quick access, awake, colors
+2026-10-26 18:02:06,823 INFO tools in use: pdf, organizer, unlock, colors, awake
+2026-10-26 18:02:07,236 INFO running in the background: quick access, awake, colors
+2026-10-26 18:02:07,236 INFO tools in use: pdf, organizer, unlock, colors, scan, awake
+2026-10-26 18:02:07,640 INFO running in the background: quick access, awake, colors
+2026-10-26 18:02:07,640 INFO tools in use: pdf, organizer, unlock, colors, startup, scan, awake
+2026-10-26 18:02:08,047 INFO running in the background: quick access, awake, colors
+2026-10-26 18:02:08,047 INFO tools in use: pdf, organizer, unlock, cloud, colors, startup, scan, awake
+2026-10-26 18:02:08,469 INFO running in the background: clipboard, quick access, awake, colors
+2026-10-26 18:02:08,469 INFO tools in use: pdf, organizer, unlock, cloud, colors, startup, scan, clipboard, awake
+2026-10-26 18:02:08,857 INFO running in the background: clipboard, quick access, awake, colors
+2026-10-26 18:02:08,858 INFO tools in use: pdf, organizer, unlock, cloud, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:02:09,251 INFO the shortcut win+shift+t is used by another app
+2026-10-26 18:02:09,251 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-10-26 18:02:09,251 INFO tools in use: pdf, organizer, unlock, cloud, capture, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:02:09,646 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-10-26 18:02:09,647 INFO tools in use: pdf, organizer, unlock, cloud, capture, player, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:02:09,672 INFO media files open with Corefold
+2026-10-26 18:02:10,048 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-26 18:02:10,048 INFO tools in use: pdf, organizer, unlock, cloud, capture, viewer, player, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:02:10,074 INFO image files open with Corefold
+2026-10-26 18:02:10,084 INFO email files open with Corefold
+2026-10-26 18:02:10,450 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-26 18:02:10,450 INFO tools in use: pdf, archive, organizer, unlock, cloud, capture, viewer, player, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:02:10,482 INFO archive files open with Corefold
+2026-10-26 18:02:10,854 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-26 18:02:10,854 INFO tools in use: pdf, archive, organizer, unlock, cloud, capture, viewer, player, colors, space, uninstaller, startup, scan, clipboard, awake
+2026-10-26 18:02:11,255 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-26 18:02:11,255 INFO tools in use: converter, pdf, archive, organizer, unlock, cloud, capture, viewer, player, colors, space, uninstaller, startup, scan, clipboard, awake
+2026-10-26 18:02:13,207 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-26 18:02:13,208 INFO tools in use: pdf, archive, organizer, unlock, cloud, capture, viewer, player, colors, space, uninstaller, startup, scan, clipboard, awake
+2026-10-26 18:02:13,845 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-26 18:02:13,846 INFO tools in use: pdf, archive, organizer, unlock, cloud, capture, viewer, player, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:02:14,411 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-26 18:02:14,411 INFO tools in use: pdf, organizer, unlock, cloud, capture, viewer, player, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:02:14,989 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-10-26 18:02:14,990 INFO tools in use: pdf, organizer, unlock, cloud, capture, player, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:02:15,553 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-10-26 18:02:15,553 INFO tools in use: pdf, organizer, unlock, cloud, capture, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:02:16,101 INFO running in the background: clipboard, quick access, awake, colors
+2026-10-26 18:02:16,101 INFO tools in use: pdf, organizer, unlock, cloud, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:02:16,637 INFO running in the background: clipboard, quick access, awake, colors
+2026-10-26 18:02:16,639 INFO tools in use: pdf, organizer, unlock, cloud, colors, startup, scan, clipboard, awake
+2026-10-26 18:02:17,212 INFO running in the background: quick access, awake, colors
+2026-10-26 18:02:17,212 INFO tools in use: pdf, organizer, unlock, cloud, colors, startup, scan, awake
+2026-10-26 18:02:17,774 INFO running in the background: quick access, awake, colors
+2026-10-26 18:02:17,774 INFO tools in use: pdf, organizer, unlock, colors, startup, scan, awake
+2026-10-26 18:02:18,314 INFO running in the background: quick access, awake, colors
+2026-10-26 18:02:18,315 INFO tools in use: pdf, organizer, unlock, colors, scan, awake
+2026-10-26 18:02:18,863 INFO running in the background: quick access, awake, colors
+2026-10-26 18:02:18,863 INFO tools in use: pdf, organizer, unlock, colors, awake
+2026-10-26 18:02:19,401 INFO running in the background: quick access, awake, colors
+2026-10-26 18:02:19,401 INFO tools in use: organizer, unlock, colors, awake
+2026-10-26 18:02:19,952 INFO running in the background: quick access, awake
+2026-10-26 18:02:19,953 INFO tools in use: organizer, unlock, awake
+2026-10-26 18:02:20,484 INFO running in the background: quick access
+2026-10-26 18:02:20,484 INFO tools in use: organizer, unlock
+2026-10-26 18:02:21,027 INFO running in the background: quick access
+2026-10-26 18:02:21,028 INFO tools in use: organizer
+2026-10-26 18:02:21,553 INFO running in the background: quick access
+2026-10-26 18:02:21,554 INFO tools in use: none
+2026-10-26 18:02:21,616 INFO right-click menu updated
+2026-10-26 18:02:24,011 INFO running in the background: quick access
+2026-10-26 18:02:24,011 INFO tools in use: organizer
+2026-10-26 18:02:24,419 INFO running in the background: quick access
+2026-10-26 18:02:24,419 INFO tools in use: organizer, unlock
+2026-10-26 18:02:24,834 INFO running in the background: quick access, awake
+2026-10-26 18:02:24,834 INFO tools in use: organizer, unlock, awake
+2026-10-26 18:02:25,243 INFO running in the background: quick access, awake, colors
+2026-10-26 18:02:25,243 INFO tools in use: organizer, unlock, colors, awake
+2026-10-26 18:02:25,642 INFO running in the background: quick access, awake, colors
+2026-10-26 18:02:25,642 INFO tools in use: pdf, organizer, unlock, colors, awake
+2026-10-26 18:02:26,056 INFO running in the background: quick access, awake, colors
+2026-10-26 18:02:26,056 INFO tools in use: pdf, organizer, unlock, colors, scan, awake
+2026-10-26 18:02:26,468 INFO running in the background: quick access, awake, colors
+2026-10-26 18:02:26,468 INFO tools in use: pdf, organizer, unlock, colors, startup, scan, awake
+2026-10-26 18:02:26,892 INFO running in the background: quick access, awake, colors
+2026-10-26 18:02:26,892 INFO tools in use: pdf, organizer, unlock, cloud, colors, startup, scan, awake
+2026-10-26 18:02:27,298 INFO running in the background: clipboard, quick access, awake, colors
+2026-10-26 18:02:27,298 INFO tools in use: pdf, organizer, unlock, cloud, colors, startup, scan, clipboard, awake
+2026-10-26 18:02:27,692 INFO running in the background: clipboard, quick access, awake, colors
+2026-10-26 18:02:27,692 INFO tools in use: pdf, organizer, unlock, cloud, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:02:28,082 INFO the shortcut win+shift+t is used by another app
+2026-10-26 18:02:28,082 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-10-26 18:02:28,084 INFO tools in use: pdf, organizer, unlock, cloud, capture, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:02:28,476 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-10-26 18:02:28,476 INFO tools in use: pdf, organizer, unlock, cloud, capture, player, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:02:28,512 INFO media files open with Corefold
+2026-10-26 18:02:28,875 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-26 18:02:28,875 INFO tools in use: pdf, organizer, unlock, cloud, capture, viewer, player, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:02:28,899 INFO image files open with Corefold
+2026-10-26 18:02:28,911 INFO email files open with Corefold
+2026-10-26 18:02:29,299 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-26 18:02:29,299 INFO tools in use: pdf, archive, organizer, unlock, cloud, capture, viewer, player, colors, space, startup, scan, clipboard, awake
+2026-10-26 18:02:29,324 INFO archive files open with Corefold
+2026-10-26 18:02:29,706 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-26 18:02:29,706 INFO tools in use: pdf, archive, organizer, unlock, cloud, capture, viewer, player, colors, space, uninstaller, startup, scan, clipboard, awake
+2026-10-26 18:02:30,101 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-26 18:02:30,101 INFO tools in use: converter, pdf, archive, organizer, unlock, cloud, capture, viewer, player, colors, space, uninstaller, startup, scan, clipboard, awake
+2026-10-26 18:02:43,996 INFO right-click menu updated

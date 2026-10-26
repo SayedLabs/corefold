@@ -1,0 +1,9 @@
+2026-10-26 17:47:08,386 INFO starting Corefold 0.0.173-bughunt
+2026-10-26 17:47:08,519 INFO tools in use: converter, archive; resting for now: uninstaller, viewer, player, capture, space, clipboard, startup, scan, colors, awake
+2026-10-26 17:47:13,265 INFO right-click menu updated
+2026-10-26 17:47:13,530 INFO archive files open with Corefold
+2026-10-26 17:47:22,763 INFO tools in use: converter, archive, cloud
+2026-10-26 17:47:31,332 INFO tools in use: converter, pdf, archive, cloud
+2026-10-26 17:47:40,094 INFO tools in use: converter, pdf, archive, unlock, cloud
+2026-10-26 17:47:47,008 INFO tools in use: converter, pdf, archive, organizer, unlock, cloud
+2026-10-26 17:47:53,946 INFO tidied up memory

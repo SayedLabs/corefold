@@ -1,0 +1,5 @@
+ok    with Colors removed, none of it is loaded
+ok    …no shortcut and nothing in the tray menu
+ok    …and Win + Shift + C stays free
+note  2 s in all
+newtest_colors: 0 problem(s)
