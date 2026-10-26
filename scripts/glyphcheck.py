@@ -48,6 +48,10 @@ def main() -> int:
         print("glyphcheck: neither UI font is on this PC (run it on Windows)")
         return 0
     print("fonts:", ", ".join(name for name, _ in fonts))
+    import os
+    for ch in os.environ.get("GLYPH_TRY", ""):  # (which stand-ins the fonts have)
+        print(f"try   U+{ord(ch):04X} {unicodedata.name(ch, '?')}: "
+              + ", ".join(f"{name} {'yes' if raw.supportsCharacter(ord(ch)) else 'NO'}" for name, raw in fonts))
     seen: dict[tuple[str, int], list[str]] = {}
     files = sorted((ROOT / "corefold").glob("*.py")) + sorted((ROOT / "corefold" / "atomic").glob("*.py"))
     for path in files:
