@@ -11,10 +11,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/SayedLabs/corefold/releases/latest"><img src="https://img.shields.io/github/v/release/SayedLabs/corefold?label=download&color=0a7768" alt="Download the latest version"></a>
-  <a href="https://github.com/SayedLabs/corefold/releases"><img src="https://img.shields.io/github/downloads/SayedLabs/corefold/total?color=0a7768" alt="Downloads"></a>
-  <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0a7768" alt="Windows 10 and 11">
-  <img src="https://img.shields.io/badge/languages-5-0a7768" alt="5 languages">
+  <a href="https://github.com/SayedLabs/corefold/releases/latest"><img src="https://img.shields.io/github/v/release/SayedLabs/corefold?label=download&color=0f7a6c" alt="Download the latest version"></a>
+  <a href="https://github.com/SayedLabs/corefold/releases"><img src="https://img.shields.io/github/downloads/SayedLabs/corefold/total?color=0f7a6c" alt="Downloads"></a>
+  <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0f7a6c" alt="Windows 10 and 11">
+  <img src="https://img.shields.io/badge/languages-5-0f7a6c" alt="5 languages">
 </p>
 
 <p align="center">
@@ -25,18 +25,20 @@
 </p>
 
 ## What's inside
-This version puts everything into the **Files** tools, so each of them is as good as it can be.
+This version puts everything into **Corefold Files**: one tool with one heading and a bar of what you
+can use it for, so moving between its uses feels like one app, not several. Drop any file on its start
+page to see everything you can do with it.
 
 | | |
 |---|---|
-| **Converter** | Hold Shift while dragging a file, and a wheel of formats appears at your cursor. Drop it on one and it's converted: pictures, videos, music, PDFs and Office files. |
+| **Convert** | Hold Shift while dragging a file, and a wheel of formats appears at your cursor. Drop it on one and it's converted: pictures, videos, music, PDFs and Office files. |
 | **PDF** | Change what's in a PDF, merge, split and arrange PDFs by dragging page pictures, shrink them, turn pictures into a PDF, and lock them with a password. |
 | **Archive** | Opens ZIP, RAR, 7z, ISO and more with a double-click. Drag files out, change a file inside and save it back, rescue damaged archives. |
-| **File Organizer** | Sorts a messy Downloads or Desktop into clear folders with one click. See where every file will go first, and undo it all. |
+| **Tidy up** | Sorts a messy Downloads or Desktop into clear folders with one click. See where every file will go first, and undo it all. |
 | **Unlock** | Finds out which program is holding a file you can't delete or move, and asks it to let go. |
-| **Cloud** | Your OneDrive, Dropbox, Google Drive and iCloud in one window, found by themselves. Search them all and drag files and folders from one to another. |
+| **Cloud** | Has its own place in the sidebar: your OneDrive, Dropbox, Google Drive and iCloud in one window, found by themselves. Sign in to Google Drive right in Corefold, search every cloud at once and drag files from one to another. |
 
-Switch on only the tools you want: a tool that's switched off isn't loaded at all, so Corefold stays light.
+Switch off the uses you don't need (the ⚙ on the start page): a use that's switched off isn't loaded at all, so Corefold stays light.
 
 <table>
   <tr>
@@ -52,7 +54,7 @@ Switch on only the tools you want: a tool that's switched off isn't loaded at al
   <tr>
     <td width="50%"><picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/organizer-en-dark.png">
-  <img src="docs/screenshots/organizer-en-light.png" alt="File Organizer: where every file in Downloads will go">
+  <img src="docs/screenshots/organizer-en-light.png" alt="Tidy up: where every file in Downloads will go">
 </picture></td>
     <td width="50%"><picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/cloud-en-dark.png">
@@ -62,7 +64,7 @@ Switch on only the tools you want: a tool that's switched off isn't loaded at al
 </table>
 
 ### Coming back soon
-The other sections are resting for now while the Files tools get our full attention. Nothing of them
+The other sections are resting for now while Corefold Files gets our full attention. Nothing of them
 runs, and whatever they kept for you (settings, history, backups) waits untouched until they're back.
 
 - **Images & screen:** Capture, Viewer, Player, Colors
@@ -130,15 +132,17 @@ what's copied* in the tray menu) to convert a copied picture or copied files.
 </picture></td>
     <td width="50%"><picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/store-en-dark.png">
-  <img src="docs/screenshots/store-en-light.png" alt="The Files section: its tools, each with a switch">
+  <img src="docs/screenshots/store-en-light.png" alt="Corefold Files: drop a file, or pick what to use it for">
 </picture></td>
   </tr>
 </table>
 
 Press **Ctrl + K** to find any tool, page or setting by typing. Drag the sidebar to put your tools in
 your order, or shrink it to icons. Dark or light (or follow Windows), seven accent colours or your
-own, and your own text size. Every screen is built on **Atomic**, our design system, so all of it
-looks and moves the same way.
+own, and your own text size. The look is calm: soft greys, a flat window, and the accent colour only
+where it means something (the main button, switches, what you're dragging). Questions, menus and
+What's new open inside the window, never as extra windows. Every screen is built on **Atomic**, our
+design system, so all of it looks and moves the same way.
 
 ## In your language
 <table>
@@ -158,7 +162,7 @@ Arabic the whole app is right-to-left.
 - **Light on your PC.** Corefold waits in the tray using almost no memory or power. Conversions run at
   low priority and one at a time (both can be changed under *General → Keep my PC fast*), and memory it
   doesn't need is handed back to Windows when it's idle.
-- **Careful with your files.** Originals are never changed, and the File Organizer can undo a whole sort.
+- **Careful with your files.** Originals are never changed, and Tidy up can undo a whole sort.
 
 Read the full [privacy policy](PRIVACY.md).
 
