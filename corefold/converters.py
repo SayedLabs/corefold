@@ -26,7 +26,7 @@ from .i18n import tr
 from .core import (ALIASES, ALL_EXT, ARCHIVE_EXT, AUDIO_EXT, DOCUMENT_EXT, EXCEL_EXT, IMAGE_EXT,  # noqa: F401
                    NO_WINDOW, SLIDES_EXT, job_flags, TAR_SUFFIXES, VIDEO_EXT, WORD_EXT, Cancelled, Ctx, Options, Result,
                    Tool, _cached, app_dir, bundled, is_cached, is_cloud_only, category, fallback_folder, human_size,
-                   copy_dates, find_program, lower_this_thread, norm, os_open, pass_on_zone_mark, remove_file, system_tool,
+                   copy_dates, disk_full, find_program, lower_this_thread, norm, os_open, pass_on_zone_mark, remove_file, system_tool,
                    safe_name, short_name, unique_path, writable)
 from .pictureformats import RAW_EXT
 
@@ -161,7 +161,15 @@ def save_image(im, out: Path, ext: str, ctx: Ctx, keep_metadata: bool = True):
     elif ext == ".png":  # a big photo packs twice as fast at level 3, for a file a little bigger
         im.save(out, compress_level=3 if big else 6, **meta)
     elif ext == ".tiff":  # (packed without losing anything: a TIFF as it comes is as big as the photo's pixels)
-        im.save(out, compression="tiff_deflate", **meta)
+        try:
+            im.save(out, compression="tiff_deflate", **meta)
+        except OSError as e:
+            # libtiff says only "encoder error -2" when it can't write: on a disk without room for the
+            # picture's pixels, that's the disk being full
+            if not disk_full(e) and str(e).startswith("encoder error") and \
+                    shutil.disk_usage(out.parent).free < im.width * im.height * len(im.getbands()) + (1 << 20):
+                raise OSError(28, "No space left on device") from e
+            raise
     elif ext == ".ico":
         im = im.convert("RGBA")
         # an icon is at most 256 × 256: shrunk first, so a panorama doesn't need a square of its full width
@@ -907,11 +915,14 @@ def _run_ffmpeg(src: Path, out: Path, args: list[str], ctx: Ctx, pre: list[str] 
                                    else tr("nothing to convert in this file"))
             if any(s in text for s in DAMAGED_MEDIA):
                 raise RuntimeError(damaged)
+            if any(s in text for s in DISK_FULL):  # (FFmpeg's English "Error closing file: No space left on device")
+                raise RuntimeError(tr("the disk is full"))
             # FFmpeg's own wording, without its technical "[mp4 @ 0x1234]" prefix
             last = re.sub(r"^(\[[^\]]*\]\s*)+", "", lines[-1]).strip() if lines else ""
             raise RuntimeError(last or tr("FFmpeg could not convert this file"))
 
 
+DISK_FULL = ("No space left on device", "There is not enough space on the disk")
 DAMAGED_MEDIA = ("Invalid data found when processing input", "Error opening input", "End of file",
                  "moov atom not found", "Nothing was written into output file", "could not find codec parameters")
 
@@ -1694,7 +1705,7 @@ def friendly_error(e: Exception) -> str:
         return tr("this picture is too big to open")
     if name in ("PdfReadError", "PdfStreamError", "EmptyFileError", "PdfiumError", "FileTruncatedError"):
         return tr("the PDF is damaged or isn't a real PDF")
-    if isinstance(e, OSError) and (e.errno == 28 or getattr(e, "winerror", None) in (39, 112)):
+    if disk_full(e):
         return tr("the disk is full")
     if isinstance(e, PermissionError):
         return tr("permission denied (is the file open in another app?)")

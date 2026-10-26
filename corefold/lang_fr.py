@@ -530,6 +530,7 @@ STRINGS: dict[str, str] = {
     "drop a folder for this": "déposez un dossier pour cela",
     "Converted {count} pictures": "{count} images converties",
     "{count} couldn't be read": "{count} illisibles",
+    "{count} couldn't be saved": "{count} non enregistrées",
     "The names stay the same": "Les noms restent les mêmes",
     "some new names are already used by other files": "certains nouveaux noms sont déjà utilisés par d'autres fichiers",
     "Renamed {count} files": "{count} fichiers renommés",

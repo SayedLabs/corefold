@@ -13,6 +13,7 @@ from pathlib import Path
 from .converters import (AUDIO_ARGS, Ctx, Result, category, colour_profile, flatten, is_animated, is_multipage,
                          keep_format, load_image, media_duration, norm, pdf_lock_state, probe, rgb_or_rgba, run_ffmpeg,
                          safe_name, save_animated, save_image, save_pages, tr, unique_path)
+from .core import disk_full, remove_file
 
 log = logging.getLogger("corefold")
 MB = 1024 * 1024
@@ -81,12 +82,18 @@ def pdf_images(src: Path, ctx: Ctx) -> Result:
                 if outdir is None:
                     outdir = ctx.out_dir(src, f"{ctx.stem(src)} pictures")
                 target = outdir / f"page {i + 1:0{len(str(n))}} - {j + 1}{ext}"
-                if ext == ".png" and not name.suffix.lower() == ".png":
-                    img.image.save(target)
-                else:
-                    target.write_bytes(img.data)
+                try:
+                    if ext == ".png" and not name.suffix.lower() == ".png":
+                        img.image.save(target)
+                    else:
+                        target.write_bytes(img.data)
+                except BaseException:
+                    remove_file(target)  # (a picture cut short is never left looking like a whole one)
+                    raise
                 count += 1
-            except Exception:
+            except Exception as e:
+                if disk_full(e):  # (no use going on: and "No pictures" would be wrong)
+                    raise
                 log.debug("skipped a picture on page %s", i + 1, exc_info=True)
         ctx.progress((i + 1) / n)
     if not count:
@@ -370,7 +377,7 @@ def convert_folder(src: Path, ctx: Ctx, fmt: str = "jpg") -> Result:
     ext = FOLDER_FORMATS.get(fmt, ".jpg")
     tag = "small" if fmt == "small" else ext[1:].upper()
     outdir = ctx.out_dir(src, f"{src.name} ({tag})")
-    failed = 0
+    failed = unsaved = 0
     for i, pic in enumerate(pictures):
         ctx.check()
         rel = pic.relative_to(src).with_suffix(ext)
@@ -379,20 +386,31 @@ def convert_folder(src: Path, ctx: Ctx, fmt: str = "jpg") -> Result:
         target.parent.mkdir(parents=True, exist_ok=True)
         try:
             im = load_image(pic)
+        except Exception:
+            failed += 1
+            log.debug("couldn't read %s", pic, exc_info=True)
+            ctx.progress((i + 1) / len(pictures))
+            continue
+        try:
             if fmt == "small":
                 small = flatten(im)  # (see-through parts white, like the "Small" tool, not black)
                 small.thumbnail((1920, 1920), Image.LANCZOS)
                 small.save(target, quality=80, optimize=True, progressive=True, **colour_profile(im, "RGB"))
             else:
                 save_image(im, target, ext, ctx)
-        except Exception:
-            failed += 1
-            log.debug("couldn't convert %s", pic, exc_info=True)
+        except BaseException as e:
+            remove_file(target)  # (a picture cut short is never left looking like a whole one)
+            if disk_full(e) or not isinstance(e, Exception):  # (the rest can't be saved either: the job stops)
+                raise
+            unsaved += 1
+            log.debug("couldn't save %s", pic, exc_info=True)
         ctx.progress((i + 1) / len(pictures))
-    done = len(pictures) - failed
+    done = len(pictures) - failed - unsaved
     note = tr("Converted {count} pictures", count=done)
     if failed:
         note += " · " + tr("{count} couldn't be read", count=failed)
+    if unsaved:
+        note += " · " + tr("{count} couldn't be saved", count=unsaved)
     return Result([outdir], note=note)
 
 

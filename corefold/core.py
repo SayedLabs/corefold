@@ -171,6 +171,11 @@ def _let_go(key: str):
             del _reserved[key]
 
 
+def disk_full(e: BaseException) -> bool:
+    """Did this fail because the disk (or the user's share of it) is full?"""
+    return isinstance(e, OSError) and (e.errno == 28 or getattr(e, "winerror", None) in (39, 112))
+
+
 def remove_file(p: Path):
     """Deletes a half-made file. Right after a program is stopped Windows (or the virus scanner looking at the
     new file) can still hold it for a moment: then it's tried again in the background for a while, so stopping
