@@ -135,7 +135,7 @@ st.CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     "utf-8")
 
 from PySide6.QtCore import QPointF, QRect, Qt  # noqa: E402
-from PySide6.QtGui import QColor, QIcon, QLinearGradient, QPainter, QPixmap, QRadialGradient  # noqa: E402
+from PySide6.QtGui import QColor, QCursor, QIcon, QLinearGradient, QPainter, QPixmap, QRadialGradient  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from corefold import i18n  # noqa: E402
@@ -198,6 +198,7 @@ def framed(src: Path, dest: Path, radius: int = 14, margin: int = 36):
 
 
 def grab(widget, what: str, wait: float = 0.6):
+    QCursor.setPos(widget.screen().geometry().bottomRight())  # (the mouse would leave a card looking hovered)
     settle(wait)
     raw = RAW / f"{what}.png"
     widget.grab().save(str(raw))
