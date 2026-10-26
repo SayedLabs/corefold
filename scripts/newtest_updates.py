@@ -189,13 +189,62 @@ def window_marks():
     settle(0.2)
 
 
+def auto_on_now():
+    """A version is waiting and "Install updates by themselves" is turned on: it's installed now, not at the
+    next check up to 6 hours later. Turned off and on again while nothing waits: it checks at once."""
+    started = []
+    c.start_update = lambda: started.append(c.update_info.version)
+    c.can_self_install = lambda: True
+    w = c.window
+    w.open_page("Updates")
+    settle(0.3)
+    c.settings.auto_update = False
+    w.auto_install.blockSignals(True)
+    w.auto_install.setChecked(False)
+    w.auto_install.blockSignals(False)
+    w.auto_install.setChecked(True)
+    settle(0.2)
+    check(started == [NEW], f"turning on automatic install updates to the waiting version at once ({started})")
+    check(c.settings.auto_update, "the switch is saved")
+    started.clear()
+    w.auto_install.setChecked(False)
+    settle(0.1)
+    check(not started, "turning it off starts nothing")
+    checks = []
+    real_check = c.check_updates
+    c.check_updates = lambda manual=False: checks.append(manual)
+    c.update_info, c.update_state = None, "uptodate"
+    w.auto_install.setChecked(True)
+    settle(0.1)
+    check(checks == [False], f"turned on with nothing waiting: it checks at once ({checks})")
+    checks.clear()
+    w.auto_check.setChecked(False)
+    w.auto_check.setChecked(True)
+    settle(0.1)
+    check(checks == [False], f"automatic checks turned back on: it checks at once ({checks})")
+    c.check_updates = real_check
+    w.auto_install.setChecked(False)
+    del c.start_update, c.can_self_install
+    run_check()  # (the waiting version again, for the next steps)
+    w.open_page("Home")
+    settle(0.2)
+
+
 def offline_later():
     answer["err"] = "couldn't reach GitHub (are you online?)"
     run_check()
     check(c.update_state == "available" and c.act_update.isVisible() and c.window.update_banner.isVisible(),
           f"offline at the next check: the version found before still shows ({c.update_state}, "
           f"{c.act_update.isVisible()}, {c.window.update_banner.isVisible()})")
+    check(c.update_retry.isActive() and c.update_retry.remainingTime() <= A.UPDATE_RETRY_MS[0] * 60_000,
+          f"offline: it checks again in {A.UPDATE_RETRY_MS[0]} minutes, not 6 hours")
+    c.update_retry.stop()
+    run_check()
+    check(c.update_retry.remainingTime() > A.UPDATE_RETRY_MS[0] * 60_000, "still offline: it waits a bit longer")
     answer["err"] = ""
+    c.update_retry.stop()
+    run_check()
+    check(c.update_retries == 0 and not c.update_retry.isActive(), "back online: the waiting is reset")
 
 
 def language_change():
@@ -224,7 +273,7 @@ def switched_off():
 
 
 for name, fn in (("found", found), ("once a day", once_a_day), ("window", window_marks),
-                 ("offline", offline_later), ("language", language_change), ("gone", gone),
+                 ("auto on", auto_on_now), ("offline", offline_later), ("language", language_change), ("gone", gone),
                  ("off", switched_off)):
     step(name, fn)
 
