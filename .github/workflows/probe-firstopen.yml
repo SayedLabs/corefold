@@ -1,4 +1,4 @@
-# TEMPORARY probe (removed before merging): the heavy test's first window opening, four times.
+# TEMPORARY probe (removed before merging): the heavy test's first window opening, six times, with and without the code compiled ahead.
 name: Probe first open
 
 on:
@@ -16,7 +16,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        n: [1, 2, 3, 4]
+        n: [1, 2, 3, 4, 5, 6]
+        compiled: [no, yes]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -29,6 +30,10 @@ jobs:
           New-Item -ItemType Directory -Force out | Out-Null
           python scripts/screenres.py 1920 1080 *>> out/screen.txt
           choco install ffmpeg -y --no-progress | Out-Null
+      - name: Corefold's code compiled ahead, as in the built app
+        if: matrix.compiled == 'yes'
+        shell: pwsh
+        run: python -m compileall -q corefold
       - name: Heavy files, then the window opens
         shell: pwsh
         env:

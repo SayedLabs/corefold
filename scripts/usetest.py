@@ -1470,8 +1470,12 @@ def start_light():
         with setup():
             say(f"note  the disks before the window opens: {_disk_idle()}% idle")
             loaded = _modules()
+            before = _times()
     timed("the window opens", lambda: (c.show_window("Home"), c.window)[1], 2.5, wait=lambda: c.window.isVisible())
     if os.name == "nt":
+        mine, busy, total, took = (x - y for x, y in zip(_times(), before))
+        say(f"note  while the window opened ({took:.2f} s): this app used {mine:.2f} s of processor, the whole PC was"
+            f" {busy / max(total, 0.01) * 100:.0f}% busy")
         new_dlls = sorted(_modules() - loaded)
         say(f"note  the window's first opening loaded {len(new_dlls)} DLLs: {', '.join(new_dlls)}")
     c.window.resize(1100, 720)
