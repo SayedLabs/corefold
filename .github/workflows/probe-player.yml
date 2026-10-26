@@ -36,7 +36,7 @@ jobs:
           USE_SPY: "1"
         run: |
           $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
-          python scripts/usetest.py out/usetest --lang en --look dark --only viewer,player *> out/usetest.txt
+          python scripts/usetest.py out/usetest --lang en --look dark --only start,viewer,player *> out/usetest.txt
           Get-Content out/usetest.txt | Select-String -Pattern "play a |problem|held|froze" | ForEach-Object { $_.Line }
           $spy = Get-ChildItem out/usetest -Filter "*spy-player.txt" | Select-Object -First 1
           if ($spy) {
