@@ -554,7 +554,7 @@ STRINGS: dict[str, str] = {
     "Updates come from the official Corefold release page, are checked for damage before installing, and keep all "
     "your settings.": "تأتي التحديثات من صفحة إصدارات كورفولد الرسمية، ويتم التحقق من سلامتها قبل التثبيت، وتحتفظ "
                       "بكل إعداداتك.",
-    "Everyday tools for Windows: convert files, remove programs, open and make archives. Everything happens on your PC; nothing is uploaded.": "أدوات يومية لويندوز: حوّل الملفات، احذف البرامج، افتح الأرشيفات واصنعها. كل شيء يصير على جهازك؛ ولا يُرفع أي شيء.",
+    "Everyday tools for Windows: convert files, work on PDFs, open and make archives, and tidy up folders. Everything happens on your PC; nothing is uploaded.": "أدوات يومية لويندوز: حوّل الملفات، اشتغل على ملفات PDF، افتح الأرشيفات واصنعها، ورتّب المجلدات. كل شيء يصير على جهازك؛ ولا يُرفع أي شيء.",
     "Open log folder": "فتح مجلد السجلات",
     "Quit Corefold": "إغلاق كورفولد",
     "Help make Corefold better": "ساعد في تحسين كورفولد",
@@ -2167,7 +2167,8 @@ STRINGS: dict[str, str] = {
     "Stay awake while one of these programs is open": "خلّه صاحي ما دام واحد من هالبرامج مفتوح",
     "By itself": "تلقائياً",
     "Scheduled task": "مهمة مجدولة",
-    "Keep this folder tidy by itself: once a day, files that have been here a day go into their folders (you can undo it)": "رتّب هذا المجلد تلقائيًا: مرة في اليوم، الملفات اللي صار لها يوم هنا تروح لمجلداتها (وتقدر تتراجع)",
+    "Keep this folder tidy by itself": "رتّب هذا المجلد تلقائيًا",
+    "Once a day, files that have been here a day go into their folders (you can undo it).": "مرة في اليوم، الملفات اللي صار لها يوم هنا تروح لمجلداتها (وتقدر تتراجع).",
     "Tidied {folder}": "رُتّب {folder}",
     "1 file went into its folder.": "انتقل ملف واحد إلى مجلده.",
     "{count} files went into their folders.": "انتقل {count} ملف إلى مجلداتها.",

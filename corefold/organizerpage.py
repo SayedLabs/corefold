@@ -292,10 +292,12 @@ class OrganizerPage(QWidget):
         foot.setSpacing(8)
         foot.addLayout(bar)
         # (as Hazel, File Juggler and DropIt do: the folder stays tidy without opening Corefold)
-        self.auto = QCheckBox(tr("Keep this folder tidy by itself: once a day, files that have been here a day "
-                                 "go into their folders (you can undo it)"))
+        # (a check box can't wrap its text: the short name goes on it, the rest under it)
+        self.auto = QCheckBox(tr("Keep this folder tidy by itself"))
         self.auto.toggled.connect(self._auto_changed)
         foot.addWidget(self.auto)
+        foot.addWidget(_label(tr("Once a day, files that have been here a day go into their folders (you can undo "
+                                 "it)."), "subtle", wrap=True))
         foot.addWidget(_label(tr("Files are only moved into folders next to them, or your rules' folders: nothing "
                                  "is deleted, copied or replaced. Folders, shortcuts and files that are open stay "
                                  "where they are."), "subtle", wrap=True))

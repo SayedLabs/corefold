@@ -3828,8 +3828,8 @@ class MainWindow(QWidget):
         name_row.addWidget(label(tr("Version {version}", version=__version__), "chip"), 0, Qt.AlignVCenter)
         name_row.addStretch()
         text.addLayout(name_row)
-        text.addWidget(label(tr("Everyday tools for Windows: convert files, remove programs, open and make "
-                                "archives. Everything happens on your PC; nothing is uploaded."), "muted", wrap=True))
+        text.addWidget(label(tr("Everyday tools for Windows: convert files, work on PDFs, open and make "
+                                "archives, and tidy up folders. Everything happens on your PC; nothing is uploaded."), "muted", wrap=True))
         self.memory = label("", "subtle")
         text.addWidget(self.memory)
         text.addSpacing(8)
