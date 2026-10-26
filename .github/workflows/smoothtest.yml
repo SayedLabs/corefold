@@ -50,12 +50,13 @@ jobs:
         shell: pwsh
         run: |
           python scripts/smoothtest.py out ${{ matrix.lang }} ${{ matrix.look }} *> out/smoothtest-run.txt
+          $code = $LASTEXITCODE  # (1 when it found a problem)
           Get-Content out/smoothtest-run.txt | Select-String -NotMatch "^ok "
           if (Test-Path out/smoothtest.md) {
             Get-Content out/smoothtest.md
             Get-Content out/smoothtest.md | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
           }
-          if (-not (Select-String -Quiet -Path out/smoothtest-run.txt -Pattern "^smoothtest: 0 problem")) { exit 1 }
+          exit $code
 
       - uses: actions/upload-artifact@v7
         if: always()
