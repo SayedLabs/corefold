@@ -488,8 +488,13 @@ class Controller(QObject):
             _keep_scroll(new, scrolled)
         new.repaint()
 
+        picture, self._fade_from = getattr(self, "_fade_from", None), None
+
         def swap():
             if _alive(new):
+                if picture is not None:
+                    from .atomic import motion
+                    motion.fade_from(new, picture, atomic_tokens.MOTION["slow"])
                 new.setWindowOpacity(1.0)
                 new.raise_()
                 new.activateWindow()
@@ -894,7 +899,8 @@ class Controller(QObject):
         self.apply_tools()
         w = self._window
         if w is not None:
-            w.tools_changed()
+            from .atomic import motion  # (the pages made again come in softly, not all at once)
+            motion.cross_fade(w, w.tools_changed, animate=s.animations)
         QTimer.singleShot(400, lambda: self._tool_added_tip(tool_id) if on else None)  # (after the window is drawn)
 
     def _tool_added_tip(self, tool_id: str):
@@ -1619,6 +1625,13 @@ class Controller(QObject):
     # ---- settings
 
     def apply_theme(self, wheel_only: bool = False):
+        if wheel_only:
+            self._apply_theme(True)
+            return
+        from .atomic import motion  # (the window goes softly from the old look to the new one)
+        motion.cross_fade(self._window, self._apply_theme, animate=self.settings.animations)
+
+    def _apply_theme(self, wheel_only: bool = False):
         self.theme = self._make_theme()
         if not wheel_only:
             if self._window is not None:  # (restyling goes through every page made: the hidden ones go first)
@@ -1741,6 +1754,8 @@ class Controller(QObject):
         lang = i18n.set_language(choice)
         log.info("language changed to %s", lang)
         QApplication.setOverrideCursor(Qt.WaitCursor)
+        # (the new window starts out showing how the old one looked, and fades into the new words)
+        self._fade_from = w.grab() if w is not None and w.isVisible() and self.settings.animations else None
         try:
             self._show_language(lang, w)
         finally:
