@@ -517,10 +517,17 @@ def browser(fake, how="yes", who="sam@example.com"):
         code = f"code-{time.time()}"
         fake.codes[code] = (q["code_challenge"], q["client_id"], q["redirect_uri"])
         back = {"yes": {"code": code, "state": q["state"]}, "no": {"error": "access_denied", "state": q["state"]},
-                "wrong": {"code": code, "state": "someone-else"}}[how]
+                "wrong": {"error": "access_denied", "state": q["state"]}}[how]
 
         def go():
             time.sleep(0.3)
+            if how == "wrong":  # (another web page sends the person back first, with its own code: it's ignored)
+                stray = {"code": code, "state": "someone-else"}
+                try:
+                    urllib.request.urlopen(q["redirect_uri"] + "?" + urllib.parse.urlencode(stray), timeout=10)
+                    check(False, "an answer that isn't the sign-in page's is refused")
+                except urllib.error.HTTPError as e:
+                    check(e.code == 400, f"an answer that isn't the sign-in page's is refused ({e.code})")
             with urllib.request.urlopen(q["redirect_uri"] + "?" + urllib.parse.urlencode(back), timeout=10) as r:
                 page = r.read().decode("utf-8")
             check("Corefold" in page, "the browser shows a page saying it can be closed")
@@ -1198,8 +1205,8 @@ def core():
     step("keys kept", kept)
 
     def refused():
-        for how, want in (("no", "signing in was cancelled"), ("wrong", "the answer from the sign-in page didn't "
-                                                                            "match; try again")):
+        # ("wrong": a stray answer first doesn't end the wait; the real one after it still counts)
+        for how, want in (("no", "signing in was cancelled"), ("wrong", "signing in was cancelled")):
             try:
                 cloud.sign_in("onedrive", browser(fake, how), wait_s=20)
                 check(False, f"sign-in {how}: should fail")
