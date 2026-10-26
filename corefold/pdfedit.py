@@ -25,9 +25,6 @@ from .pdftools import PDFIUM, open_reader, write
 
 log = logging.getLogger("corefold")
 
-# the fonts offered for new text (those not on this PC are left out of the list)
-FONTS = ("Arial", "Calibri", "Segoe UI", "Times New Roman", "Georgia", "Cambria", "Courier New", "Tahoma",
-         "Verdana", "Sakkal Majalla", "Traditional Arabic")
 HIGHLIGHT_BLEND = 0.9   # a highlight's strength on the page (multiply, so text under it stays dark)
 PICTURE_DPI = 220       # added pictures are kept this sharp on the page (a big photo isn't put in whole)
 _RTL = ("R", "AL")
@@ -419,10 +416,16 @@ def _lines(c, geo: Geo, chars: list, texts: dict) -> list[dict]:
         t = max(info[k]["bounds"][3] for k in objs)
         o = info[main]
         font = o["font"] or ("Courier New" if o["fixed"] else "Times New Roman" if o["serif"] else "Arial")
-        lines.append({"objs": objs, "rect": [round(v, 2) for v in geo.rect_to_display(l, b, r, t)],
-                      "text": text, "rtl": rtl, "size": round(o["size"], 2), "font": font,
-                      "serif": o["serif"], "bold": o["bold"], "italic": o["italic"], "color": o["color"],
-                      "base": round(o["base"], 2)})
+        line = {"objs": objs, "rect": [round(v, 2) for v in geo.rect_to_display(l, b, r, t)],
+                "text": text, "rtl": rtl, "size": round(o["size"], 2), "font": font,
+                "serif": o["serif"], "fixed": o["fixed"], "bold": o["bold"], "italic": o["italic"],
+                "color": o["color"], "base": round(o["base"], 2)}
+        # Arabic and English on one line are often in two fonts: the font of each
+        for script, kinds in (("ar", _RTL), ("en", ("L",))):
+            used = [obj for ch, obj, _, _ in letters if unicodedata.bidirectional(ch) in kinds]
+            if used:
+                line["font_" + script] = info[max(set(used), key=used.count)]["font"]
+        lines.append(line)
     lines.sort(key=lambda d: (round(d["rect"][1]), d["rect"][0]))
     return lines
 
@@ -596,11 +599,37 @@ def text_document(d: dict, doc=None):
     cur = QTextCursor(doc)
     cur.select(QTextCursor.Document)
     cur.mergeCharFormat(fmt)
+    arabic_font(d, doc)
     # (as wide as its longest line: right-to-left lines then line up on the right)
     doc.setTextWidth(float(d["width"]) if d.get("width") else -1)
     if not d.get("width"):
         doc.setTextWidth(doc.idealWidth())
     return doc
+
+
+def arabic_font(d: dict, doc):
+    """A changed line whose Arabic words were in a font of their own (font_ar): they're kept in it."""
+    if not d.get("font_ar"):
+        return
+    from PySide6.QtGui import QColor, QTextCharFormat, QTextCursor
+    fmt = QTextCharFormat()
+    fmt.setFont(font_for(dict(d, font=d["font_ar"])))
+    fmt.setForeground(QColor(d.get("color", "#000000")))
+    text = doc.toPlainText()
+    cur = QTextCursor(doc)
+    i = 0
+    while i < len(text):
+        if unicodedata.bidirectional(text[i]) not in _RTL:
+            i += 1
+            continue
+        j = i
+        while j < len(text) and (unicodedata.bidirectional(text[j]) in _RTL or
+                                 unicodedata.bidirectional(text[j]) in ("NSM", "WS", "ON", "AN") and text[j] != "\n"):
+            j += 1
+        cur.setPosition(i)
+        cur.setPosition(j, QTextCursor.KeepAnchor)
+        cur.setCharFormat(fmt)
+        i = j
 
 
 def _arrow_head(p, x1, y1, x2, y2, width):
