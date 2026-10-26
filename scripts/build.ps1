@@ -275,7 +275,7 @@ if (Test-Path "dist\Corefold") { Remove-Item "dist\Corefold" -Recurse -Force }
 & $VPy -m PyInstaller --noconfirm --clean --windowed --name Corefold `
     --icon assets\icon.ico --version-file version_info.txt `
     --add-data "assets\icon.png;assets" --add-data "assets\sounds;assets\sounds" `
-    --add-data "assets\release-notes;assets\release-notes" @ModelArgs `
+    --add-data "assets\release-notes;assets\release-notes" --add-data "assets\fonts;assets\fonts" @ModelArgs `
     --collect-submodules corefold --collect-all pi_heif --collect-all zxingcpp --collect-all pypdfium2 --collect-binaries onnxruntime --collect-all winrt --collect-submodules zstandard `
     --exclude-module tkinter --exclude-module PySide6.QtQml --exclude-module PySide6.QtQuick `
     main.py

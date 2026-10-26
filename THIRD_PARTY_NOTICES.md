@@ -23,6 +23,7 @@ Corefold is listed in `COMPONENT-VERSIONS.txt` next to `Corefold.exe`.
 | NumPy | BSD-3 | https://numpy.org |
 | "silueta" background-removal model (U²-Net) | Apache 2.0 (U²-Net) · distributed by rembg (MIT) | https://github.com/xuebinqin/U-2-Net · https://github.com/danielgatis/rembg |
 | Fluent UI System Icons (the line icons in the app) | MIT, © Microsoft Corporation | https://github.com/microsoft/fluentui-system-icons |
+| Arabic and English fonts for the PDF editor (`assets\fonts`): Cairo, Tajawal, Almarai, IBM Plex Sans Arabic, El Messiri, Markazi Text, Roboto, Open Sans, Montserrat, Poppins (Cairo, El Messiri, Markazi Text, Roboto, Open Sans and Montserrat as regular and bold copies of their variable fonts) | SIL Open Font License 1.1 (each font's license is next to it) | https://fonts.google.com · https://github.com/notofonts |
 | Python | PSF License | https://www.python.org |
 
 ## Source code for the GPL and LGPL parts

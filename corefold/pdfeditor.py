@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject, QPoint, QPointF, QRectF, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import (QColor, QFontDatabase, QFontMetricsF, QIcon, QImage, QKeySequence, QPainter,
+from PySide6.QtGui import (QColor, QFontMetricsF, QIcon, QImage, QKeySequence, QPainter,
                            QPainterPath, QPen, QPixmap, QShortcut, QTextCursor, QTransform)
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFileDialog, QFrame, QGraphicsItem,
                                QGraphicsObject, QGraphicsScene, QGraphicsTextItem, QGraphicsView, QHBoxLayout,
@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFileDialog, QFrame, QGr
                                QPlainTextEdit, QPushButton, QSizePolicy, QSpinBox,
                                QStyleOptionGraphicsItem, QStyle, QVBoxLayout, QWidget)
 
-from . import icons, pdfedit, pdftools, sheet, work
+from . import icons, pdfedit, pdffonts, pdftools, sheet, work
 from .atomic import tokens
 from .atomic.widgets import Dropdown, FlowLayout, IconButton
 from .core import IMAGE_EXT, norm, short_name
@@ -539,7 +539,18 @@ class TextMark(QGraphicsTextItem):
         self.setPos(float(d["x"]), float(d["y"]))
         if d.get("rtl"):
             self.anchor = self.x() + self.boundingRect().width()
+        self._fonting = False
         self.document().contentsChanged.connect(self._grown)
+        self.document().contentsChanged.connect(self._arabic_font)
+
+    def _arabic_font(self):
+        """Arabic typed in a line whose Arabic words have a font of their own goes in that font."""
+        if self.d.get("font_ar") and not self._fonting:
+            self._fonting = True
+            try:
+                pdfedit.arabic_font(self.d, self.document())
+            finally:
+                self._fonting = False
 
     def restyle(self):
         pdfedit.text_document(self.d, self.document())
@@ -1431,8 +1442,7 @@ class PdfEditor(QWidget):
         self._refresh()
 
     def _fill_fonts(self):
-        have = set(QFontDatabase.families())
-        self.fonts = [f for f in pdfedit.FONTS if f in have] or sorted(have)[:12] or ["Arial"]
+        self.fonts = pdffonts.offered()
         self.font_box.clear()
         for f in self.fonts:
             self.font_box.addItem(f)
@@ -2351,6 +2361,8 @@ class PdfEditor(QWidget):
                 for k, val in change.items():
                     if k in keys and hasattr(item, "d"):
                         item.d[k] = val
+                if "font" in change and hasattr(item, "d"):
+                    item.d.pop("font_ar", None)  # (a font picked: for all of the words)
                 if isinstance(item, TextMark):
                     item.restyle()
                 else:
@@ -2431,11 +2443,11 @@ class PdfEditor(QWidget):
     def line_to_text(self, piece: OldPiece, text: str | None = None) -> "TextMark":
         """A line of the PDF's own text as a text box in its place (with other words, for Replace)."""
         page, d = piece.page, piece.d
-        family = d["font"]
-        if family not in set(QFontDatabase.families()):
-            family = "Times New Roman" if d.get("serif") else "Arial"
+        family, arabic = pdffonts.for_line(dict(d, text=d["text"] if text is None else text))
         size = float(d["size"])
         st = {"font": family, "size": size, "color": d["color"], "bold": d["bold"], "italic": d["italic"]}
+        if arabic:
+            st["font_ar"] = arabic  # (its Arabic words were in a font of their own)
         fm = QFontMetricsF(pdfedit.font_for(st), pdfedit.layout_device())
         x, y, w, h = d["rect"]
         top = d["base"] - fm.ascent() - pdfedit.TEXT_MARGIN if d.get("base") else y
