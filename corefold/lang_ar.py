@@ -2967,4 +2967,9 @@ STRINGS: dict[str, str] = {
     "psd, ai, fig": "psd, ai, fig",
     "invoice, receipt": "فاتورة، إيصال",
     "Corefold can't put files in \"{folder}\". Type a folder's name, or pick one.": "كورفولد ما يقدر يحط ملفات في «{folder}». اكتب اسم مجلد، أو اختار واحد.",
+    "Copy a share link": "انسخ رابط مشاركة",
+    "Anyone you give the link to can see {name} and download it, without signing in. They can't change it.": "أي أحد تعطيه الرابط يقدر يشوف {name} وينزّله بدون ما يسجل دخول، بس ما يقدر يغيّر فيه.",
+    "Copy the link": "انسخ الرابط",
+    "Link copied. Paste it wherever you want to share {name}.": "انتسخ الرابط. الصقه وين ما تبي تشارك {name}.",
+    "Share {name}": "مشاركة {name}",
 }

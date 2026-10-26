@@ -2890,4 +2890,9 @@ STRINGS: dict[str, str] = {
     "psd, ai, fig": "psd, ai, fig",
     "invoice, receipt": "fatura, makbuz",
     "Corefold can't put files in \"{folder}\". Type a folder's name, or pick one.": "Corefold \"{folder}\" içine dosya koyamaz. Bir klasör adı yazın ya da bir klasör seçin.",
+    "Copy a share link": "Paylaşım bağlantısını kopyala",
+    "Anyone you give the link to can see {name} and download it, without signing in. They can't change it.": "Bağlantıyı verdiğiniz herkes {name} dosyasını oturum açmadan görebilir ve indirebilir. Değiştiremez.",
+    "Copy the link": "Bağlantıyı kopyala",
+    "Link copied. Paste it wherever you want to share {name}.": "Bağlantı kopyalandı. {name} dosyasını paylaşmak istediğiniz yere yapıştırın.",
+    "Share {name}": "{name} paylaş",
 }
