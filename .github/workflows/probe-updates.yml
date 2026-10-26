@@ -34,8 +34,8 @@ jobs:
           COREFOLD_WAKE_RESTING: "1"
           USE_SPY: "1"
         run: |
-          python scripts/usetest.py out/usetest --lang ar --look light --only idle *> out/usetest.txt
-          Get-Content out/usetest.txt | Select-String -Pattern "Updates page" | ForEach-Object { $_.Line }
+          python scripts/usetest.py out/usetest --lang ar --look light --only start *> out/usetest.txt
+          Get-Content out/usetest.txt | Select-String -Pattern "Updates page|problem|Traceback|Error" | ForEach-Object { $_.Line }
           $spy = Get-ChildItem out/usetest -Filter "*spy-updates.txt" | Select-Object -First 1
           if ($spy) {
             python -c @"
