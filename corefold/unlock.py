@@ -261,17 +261,22 @@ def find(paths: list[Path]) -> Found:
     paths = [Path(p) for p in paths]
     files, capped = files_of(paths)
     result = Found(paths=paths, files=len(files), capped=capped)
-    if not files:
+    drives = [str(p) for p in paths if is_drive(p)]
+    if not files and not drives:
         return result
     seen = set()
-    infos = _rm_list(files)
-    names = process_names() if infos else {}
+    infos = _rm_list(files) if files else []
+    names = process_names() if infos or drives else {}
     for info in infos:
         pid = info.Process.dwProcessId
         if pid in seen:
             continue
         seen.add(pid)
         result.programs.append(program_of(info, names))
+    for prog in running_from(drives, names) if drives else []:
+        if prog.pid not in seen:
+            seen.add(prog.pid)
+            result.programs.append(prog)
     result.programs.sort(key=lambda p: (not p.closable, p.name.lower(), p.pid))
     return result
 
@@ -521,3 +526,258 @@ def ask_delete_at_restart(paths: list[Path]) -> dict | None:
     else:
         command = [sys.executable, str(Path(__file__).resolve().parent.parent / "main.py")]
     return run_elevated(command, "delete-at-restart", {"paths": [str(p) for p in paths]})
+
+
+# ----------------------------------------------------------------------------- USB drives
+
+DRIVE_REMOVABLE, DRIVE_FIXED = 2, 3
+BUS_USB = 7
+IOCTL_STORAGE_QUERY_PROPERTY = 0x2D1400
+IOCTL_STORAGE_GET_DEVICE_NUMBER = 0x2D1080
+FILE_SHARE_RW, OPEN_EXISTING = 0x3, 3
+INVALID_HANDLE = ctypes.c_void_p(-1).value
+GUID_DEVINTERFACE_DISK = "53f56307-b6bf-11d0-94f2-00a0c91efb8b"
+DEVPKEY_INSTANCE_ID = ("78c34fc8-104a-4aca-9ea4-524d52996e57", 256)
+EJECT_TRIES = 3
+
+
+class GUID(ctypes.Structure):
+    _fields_ = [("Data1", ctypes.c_uint32), ("Data2", ctypes.c_uint16), ("Data3", ctypes.c_uint16),
+                ("Data4", ctypes.c_uint8 * 8)]
+
+
+class DEVPROPKEY(ctypes.Structure):
+    _fields_ = [("fmtid", GUID), ("pid", ctypes.c_uint32)]
+
+
+class STORAGE_DEVICE_NUMBER(ctypes.Structure):
+    _fields_ = [("DeviceType", ctypes.c_uint32), ("DeviceNumber", ctypes.c_uint32),
+                ("PartitionNumber", ctypes.c_uint32)]
+
+
+def _guid(text: str) -> GUID:
+    import uuid
+    return GUID.from_buffer_copy(uuid.UUID(text).bytes_le)
+
+
+@functools.cache
+def _usb_dll(name: str):
+    """kernel32 and cfgmgr32 with what the USB drives need (kept apart from _dll's own copies)."""
+    lib = ctypes.WinDLL(name, use_last_error=True)
+    H, U32, P, I, W = ctypes.c_void_p, ctypes.c_uint32, ctypes.c_void_p, ctypes.c_int, ctypes.c_wchar_p
+    table = {
+        "kernel32": (("CreateFileW", (W, U32, U32, P, U32, U32, H), H), ("CloseHandle", (H,), I),
+                     ("DeviceIoControl", (H, U32, P, U32, P, U32, P, P), I),
+                     ("GetLogicalDrives", (), U32), ("GetDriveTypeW", (W,), U32),
+                     ("GetVolumeInformationW", (W, W, U32, P, P, P, W, U32), I)),
+        "cfgmgr32": (("CM_Get_Device_Interface_List_SizeW", (P, P, W, U32), U32),
+                     ("CM_Get_Device_Interface_ListW", (P, W, P, U32, U32), U32),
+                     ("CM_Get_Device_Interface_PropertyW", (W, P, P, P, P, U32), U32),
+                     ("CM_Locate_DevNodeW", (P, W, U32), U32), ("CM_Get_Parent", (P, U32, U32), U32),
+                     ("CM_Get_Device_IDW", (U32, W, U32, U32), U32),
+                     ("CM_Request_Device_EjectW", (U32, P, W, U32, U32), U32)),
+    }
+    for fn, args, res in table.get(name, ()):
+        getattr(lib, fn).argtypes, getattr(lib, fn).restype = args, res
+    return lib
+
+
+@dataclass
+class Drive:
+    """A USB drive (or a memory card) with a letter."""
+    root: str                  # "E:\\"
+    label: str = ""            # its own name ("KINGSTON"), or what it is ("SanDisk Ultra")
+    total: int = 0
+    free: int = 0
+
+
+def _open_device(path: str):
+    h = _usb_dll("kernel32").CreateFileW(path, 0, FILE_SHARE_RW, None, OPEN_EXISTING, 0, None)
+    return None if not h or h == INVALID_HANDLE else h
+
+
+def _ioctl(h, code: int, inp=None, out_size: int = 1024) -> bytes | None:
+    out = ctypes.create_string_buffer(out_size)
+    got = ctypes.c_uint32(0)
+    ok = _usb_dll("kernel32").DeviceIoControl(h, code, ctypes.byref(inp) if inp is not None else None,
+                                               ctypes.sizeof(inp) if inp is not None else 0, out, out_size,
+                                               ctypes.byref(got), None)
+    return out.raw[:got.value] if ok else None
+
+
+def _describe(root: str) -> tuple[int, str]:
+    """The drive's bus (USB is 7) and its product name, from the drive itself. (-1, "") if it won't say."""
+    import struct
+    h = _open_device("\\\\.\\" + root[:2])
+    if h is None:
+        return -1, ""
+    try:
+        query = (ctypes.c_uint32 * 3)(0, 0, 0)  # (StorageDeviceProperty, PropertyStandardQuery)
+        raw = _ioctl(h, IOCTL_STORAGE_QUERY_PROPERTY, query)
+    finally:
+        _usb_dll("kernel32").CloseHandle(h)
+    if not raw or len(raw) < 32:
+        return -1, ""
+    product_at, bus = struct.unpack_from("<I", raw, 16)[0], struct.unpack_from("<i", raw, 28)[0]
+    product = ""
+    if 0 < product_at < len(raw):
+        product = raw[product_at:].split(b"\0", 1)[0].decode("ascii", "replace").strip()
+    return bus, product
+
+
+def _system_drive() -> str:
+    return os.path.normcase(os.environ.get("SystemDrive", "C:")[:2])
+
+
+def drive_letters() -> int:
+    """Which drive letters there are now (quick: the page asks every few seconds)."""
+    return _usb_dll("kernel32").GetLogicalDrives() if sys.platform == "win32" else 0
+
+
+def usb_drives() -> list[Drive]:
+    """The USB drives and memory cards plugged in now (never the drive Windows is on)."""
+    if sys.platform != "win32":
+        return []
+    import shutil
+    k = _usb_dll("kernel32")
+    mask = k.GetLogicalDrives()
+    out = []
+    for i in range(26):
+        if not mask & (1 << i):
+            continue
+        root = f"{chr(65 + i)}:\\"
+        kind = k.GetDriveTypeW(root)
+        if kind not in (DRIVE_REMOVABLE, DRIVE_FIXED) or os.path.normcase(root[:2]) == _system_drive():
+            continue
+        bus, product = _describe(root)
+        if kind == DRIVE_FIXED and bus != BUS_USB:  # (a disk inside the PC)
+            continue
+        try:
+            u = shutil.disk_usage(root)
+        except OSError:
+            continue  # (a card reader with no card in it)
+        name = ctypes.create_unicode_buffer(261)
+        label = name.value if k.GetVolumeInformationW(root, name, 261, None, None, None, None, 0) else ""
+        out.append(Drive(root, label.strip() or product, u.total, u.free))
+    return out
+
+
+def is_drive(path) -> bool:
+    """A drive's own top ("E:\\"), not a folder on it."""
+    p = str(path)
+    return len(p) in (2, 3) and p[1] == ":" and p[0].isalpha() and (len(p) == 2 or p[2] in "\\/")
+
+
+def running_from(roots: list[str], names: dict[int, str] | None = None) -> list[Program]:
+    """Programs whose own program file is on these drives (a program run from a USB stick keeps it
+    busy even when it has no file open on it)."""
+    tops = tuple(os.path.normcase(r[:2]) + "\\" for r in roots)
+    out = []
+    for pid, file_name in (names if names is not None else process_names()).items():
+        if pid in (0, 4):
+            continue
+        exe = _exe_of(pid)
+        if not exe or not os.path.normcase(exe).startswith(tops):
+            continue
+        p = Program(pid=pid, name=os.path.splitext(os.path.basename(exe))[0] or file_name, exe=exe,
+                    started=_started(pid), kind=RM_MAIN_WINDOW)
+        p.own = pid == os.getpid()
+        p.blocked = not p.own and not _can_close(pid)
+        out.append(p)
+    return out
+
+
+def _started(pid: int) -> int:
+    k = _dll("kernel32")
+    h = k.OpenProcess(QUERY_LIMITED, False, pid)
+    if not h:
+        return 0
+    try:
+        times = [FILETIME() for _ in range(4)]
+        return _filetime(times[0]) if k.GetProcessTimes(h, *[ctypes.byref(t) for t in times]) else 0
+    finally:
+        k.CloseHandle(h)
+
+
+def _device_number(path: str) -> tuple[int, int] | None:
+    h = _open_device(path)
+    if h is None:
+        return None
+    try:
+        raw = _ioctl(h, IOCTL_STORAGE_GET_DEVICE_NUMBER, out_size=ctypes.sizeof(STORAGE_DEVICE_NUMBER))
+    finally:
+        _usb_dll("kernel32").CloseHandle(h)
+    if not raw or len(raw) < ctypes.sizeof(STORAGE_DEVICE_NUMBER):
+        return None
+    n = STORAGE_DEVICE_NUMBER.from_buffer_copy(raw)
+    return n.DeviceType, n.DeviceNumber
+
+
+def instance_of(interface: str) -> str:
+    """A disk's device id from its interface's path: Windows says it, or it's read from the path
+    ("\\\\?\\usbstor#disk&ven_x#123&0#{guid}" is USBSTOR\\DISK&VEN_X\\123&0)."""
+    try:
+        cm = _usb_dll("cfgmgr32")
+        key = DEVPROPKEY(_guid(DEVPKEY_INSTANCE_ID[0]), DEVPKEY_INSTANCE_ID[1])
+        kind, size = ctypes.c_uint32(0), ctypes.c_uint32(1024)
+        buf = ctypes.create_unicode_buffer(512)
+        if cm.CM_Get_Device_Interface_PropertyW(interface, ctypes.byref(key), ctypes.byref(kind), buf,
+                                                ctypes.byref(size), 0) == 0 and buf.value:
+            return buf.value
+    except (OSError, AttributeError):
+        pass
+    body = interface[4:] if interface.startswith(("\\\\?\\", "\\\\.\\")) else interface
+    if "#{" in body:
+        body = body[:body.rindex("#{")]
+    return body.replace("#", "\\").upper()
+
+
+def _disk_of(root: str) -> str:
+    """The device id of the disk the drive is on ("" if Windows won't say)."""
+    number = _device_number("\\\\.\\" + root[:2])
+    if number is None:
+        return ""
+    cm = _usb_dll("cfgmgr32")
+    guid = _guid(GUID_DEVINTERFACE_DISK)
+    size = ctypes.c_uint32(0)
+    if cm.CM_Get_Device_Interface_List_SizeW(ctypes.byref(size), ctypes.byref(guid), None, 0) or size.value < 2:
+        return ""
+    buf = ctypes.create_unicode_buffer(size.value)
+    if cm.CM_Get_Device_Interface_ListW(ctypes.byref(guid), None, buf, size.value, 0):
+        return ""
+    for interface in ctypes.wstring_at(ctypes.addressof(buf), size.value).split("\0"):
+        if interface and _device_number(interface) == number:
+            return instance_of(interface)
+    return ""
+
+
+def eject(root: str) -> dict:
+    """Asks Windows to safely remove the USB drive (what "Eject" in File Explorer does): it says no
+    while a program still uses it. {"ok": True}, or {"ok": False, "why": "busy"|"unknown"|"gone"}."""
+    if not os.path.exists(root):
+        return {"ok": False, "why": "gone"}
+    disk = _disk_of(root)
+    if not disk:
+        return {"ok": False, "why": "unknown"}
+    cm = _usb_dll("cfgmgr32")
+    node, parent = ctypes.c_uint32(0), ctypes.c_uint32(0)
+    if cm.CM_Locate_DevNodeW(ctypes.byref(node), disk, 0):
+        return {"ok": False, "why": "unknown"}
+    # (the USB device the disk is on is what comes out; a memory card in the PC's own reader only
+    # takes its card out, never the reader)
+    target = node.value
+    if cm.CM_Get_Parent(ctypes.byref(parent), node.value, 0) == 0:
+        pid = ctypes.create_unicode_buffer(512)
+        if cm.CM_Get_Device_IDW(parent.value, pid, 512, 0) == 0 and pid.value.upper().startswith("USB\\"):
+            target = parent.value
+    veto, name = ctypes.c_int(0), ctypes.create_unicode_buffer(261)
+    for _ in range(EJECT_TRIES):
+        veto.value = 0
+        # (given somewhere to say why, Windows shows none of its own messages)
+        rc = cm.CM_Request_Device_EjectW(target, ctypes.byref(veto), name, 261, 0)
+        if rc == 0 and veto.value == 0:
+            log.info("ejected %s (%s)", root, disk)
+            return {"ok": True}
+        log.info("eject %s: Windows said no (cr %s, veto %s %s)", root, rc, veto.value, name.value)
+        time.sleep(0.5)
+    return {"ok": False, "why": "busy" if veto.value else "unknown"}
