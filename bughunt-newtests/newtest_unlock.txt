@@ -1,0 +1,114 @@
+admin: True
+ok    the hold helper started (pid 3540) and has 2 file(s) open
+ok    the window helper started (pid 1272) and has 1 file(s) open
+ok    both helpers are found with their own pids ([1272, 3540]; want 3540 and 1272) in 0.09 s
+ok    pid 1272: name 'Python', program 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\python.exe'
+ok    pid 1272 can be closed (kind 5)
+ok    pid 3540: name 'Python', program 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\python.exe'
+ok    pid 3540 can be closed (kind 5)
+ok    only the window helper has doc.txt open ([1272])
+ok    a folder with a locked file deep inside is found ([3540])
+ok    the folder's files were asked about (1)
+ok    a folder's files stop at the limit and it says so (5)
+ok    under the limit, every file and no note
+ok    a junction inside the folder isn't followed
+ok    a file this program has open is "Corefold itself" and never closed
+ok    every program's name is known (141 running)
+ok    System (pid 4) is part of Windows: never offered, never closed
+ok    csrss.exe (pid 720) is part of Windows: never offered, never closed
+ok    wininit.exe (pid 844) is part of Windows: never offered, never closed
+ok    services.exe (pid 936) is part of Windows: never offered, never closed
+ok    lsass.exe (pid 964) is part of Windows: never offered, never closed
+ok    csrss.exe (pid 6788) is part of Windows: never offered, never closed
+ok    the System process isn't asked to close
+ok    the window helper's window is found
+ok    asking it to close works ({1272: 'closed'}, 0.1 s)
+ok    the window helper has ended
+ok    nothing has doc.txt open any more
+ok    the helper without a window can only be forced ({3540: 'no_window'})
+ok    it's still running after being asked
+ok    a program that only has the same id (not the same start time) is never closed
+ok    forcing it to close works
+ok    the helper without a window has ended
+ok    it's not running any more
+ok    afterwards nothing is found ([])
+ok    and the file can be deleted (to the Recycle Bin)
+ok    the file in the folder can be deleted too
+ok    "--unlock <file>" from the right-click menu becomes an unlock message
+ok    the order empties each folder before the folder itself (['C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\corefold-unlocktest-zo0ousho\\at-restart\\a.txt', 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\corefold-unlocktest-zo0ousho\\at-restart\\sub\\b.txt', 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\corefold-unlocktest-zo0ousho\\at-restart\\sub', 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\corefold-unlocktest-zo0ousho\\at-restart'])
+ok    a junction to another folder was made for the test
+ok    …and Windows, Program Files and a drive
+ok    the hold helper started (pid 7008) and has 1 file(s) open
+ok    Windows takes all four to delete at the next start ({'scheduled': 4, 'failed': 0})
+ok    …and they're in Windows' list of what to delete at the next start (4 of 8 entries; last: ['', '*1\\??\\C:\\Users\\runneradmin\\AppData\\Local\\Temp\\corefold-unlocktest-zo0ousho\\at-restart', ''])
+---- the page in en (dark)
+ok    Corefold Unlock is ready and in use
+ok    the hold helper started (pid 2940) and has 1 file(s) open
+ok    the window helper started (pid 2000) and has 1 file(s) open
+ok    "What's using this?" opens the Unlock page
+ok    the window shows it (Unlock)
+ok    the page has its answer
+ok    the page lists both programs ([2000, 2940])
+ok    picture saved: unlock-en-dark.png
+ok    the window helper's row has Close
+ok    closing finishes
+ok    the window helper was closed from the page
+ok    only the other one is listed now
+ok    the helper without a window has Close too
+ok    asking it to close finishes
+ok    it has no window, so now it offers Force close, with a warning
+ok    picture saved: unlock-en-dark-force.png
+ok    forcing finishes
+ok    the helper without a window was forced closed from the page
+ok    afterwards: nothing is using it, and Delete it is offered
+ok    it says so ('Nothing is using it right now. You can move or delete it.')
+ok    picture saved: unlock-en-dark-free.png
+ok    Move to… and Rename… are offered too
+ok    Rename… renames it, and the page follows it ('Renamed to Quarterly report 2.docx.')
+ok    a name Windows can't take is refused
+ok    Move to… moves it ('Moved to C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\corefold-unlocktest-kqphc2ut\\page\\moved.')
+ok    moving it where it already is is refused
+ok    Delete it sends it to the Recycle Bin
+ok    the right-click menu was written
+ok    Software\Classes\*: "What's using this?" is there ("C:\hostedtoolcache\windows\Python\3.12.10\x64\pythonw.exe" "D:\a\corefold\corefold\main.py" --unlock "%1")
+ok    Software\Classes\Directory: "What's using this?" is there ("C:\hostedtoolcache\windows\Python\3.12.10\x64\pythonw.exe" "D:\a\corefold\corefold\main.py" --unlock "%1")
+ok    the menu was written again
+ok    it stays when the Converter's right-click menu is switched off
+ok    removing the tool rewrites the menu
+ok    removing Unlock in the Store takes "What's using this?" away
+ok    and it's remembered as off
+ok    adding it back puts it back
+ok    uninstalling Corefold removes it too
+newtest_unlock page: 0 problem(s)
+ok    the en page part ran to its end (exit 0)
+---- the page in ar (light)
+ok    Corefold Unlock is ready and in use
+ok    the hold helper started (pid 6256) and has 1 file(s) open
+ok    the window helper started (pid 8392) and has 1 file(s) open
+ok    "What's using this?" opens the Unlock page
+ok    the window shows it (Unlock)
+ok    the page has its answer
+ok    the page lists both programs ([6256, 8392])
+ok    picture saved: unlock-ar-light.png
+ok    the window helper's row has Close
+ok    closing finishes
+ok    the window helper was closed from the page
+ok    only the other one is listed now
+ok    the helper without a window has Close too
+ok    asking it to close finishes
+ok    it has no window, so now it offers Force close, with a warning
+ok    picture saved: unlock-ar-light-force.png
+ok    forcing finishes
+ok    the helper without a window was forced closed from the page
+ok    afterwards: nothing is using it, and Delete it is offered
+ok    it says so ('ما في شي يستخدمه الحين. تقدر تنقله أو تحذفه.')
+ok    picture saved: unlock-ar-light-free.png
+ok    Move to… and Rename… are offered too
+ok    Rename… renames it, and the page follows it ('تغيّر الاسم إلى \u202a\u2066Quarterly report 2.docx\u2069\u202c.')
+ok    a name Windows can't take is refused
+ok    Move to… moves it ('انتقل إلى \u202aC:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\corefold-unlocktest-bafop1q8\\page\\moved\u202c.')
+ok    moving it where it already is is refused
+ok    Delete it sends it to the Recycle Bin
+newtest_unlock page: 0 problem(s)
+ok    the ar page part ran to its end (exit 0)
+newtest_unlock: 0 problem(s)

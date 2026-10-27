@@ -1,0 +1,76 @@
+ok    a split 7z is all its numbered parts (['a.7z.001', 'a.7z.002'])
+ok    a split RAR is all its parts (['b.part1.rar', 'b.part2.rar'])
+ok    a split ZIP is the .zip and its .z01 … (['c.z01', 'c.zip'])
+ok    a file that isn't split is only itself
+ok    the two Archive settings are kept
+ok    the archive goes to the Recycle Bin once it's extracted
+ok    …after everything came out
+ok    the folder with what came out is shown ([WindowsPath('C:/Users/RUNNER~1/AppData/Local/Temp/corefold-basicstest-4javuaxf/extract/photos')])
+Extract failed on broken.zip
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 1884, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\archives.py", line 808, in extract
+    _extract_into(src, staging, ctx, password, members)
+  File "D:\a\corefold\corefold\corefold\archives.py", line 736, in _extract_into
+    _unpack(src, target, guarded, password, members)
+  File "D:\a\corefold\corefold\corefold\archives.py", line 772, in _unpack
+    raise _7z_error(out)
+RuntimeError: the archive is damaged or isn't a real archive
+ok    an archive that couldn't be extracted stays where it is
+ok    …and no folder is opened
+ok    with both off, it's extracted…
+ok    …and the archive stays, nothing opened
+ok    archives have "Extract to…"
+ok    "Extract to…" puts it in the folder picked
+ok    …and not next to the archive
+ok    the two Converter settings are kept
+ok    the original goes to the Recycle Bin once it's converted
+ok    …after the new file is there
+ok    the new file has the original's "Date modified"
+ok    with both off, it's converted…
+ok    …the original stays, and the new file has today's date
+ok    the list of apps loads
+ok    "Save the list…" saves every app shown (59 of 59)
+ok    right-clicking an app offers Uninstall, a web search and copying its name (['Uninstall', 'Remove leftovers only', 'Open its folder', 'Search the web for “7-Zip 26.04 (x64)”', 'Copy the name'])
+ok    winget's table is read (a cut-off id is left out) ([Update(name='Microsoft Edge', id='Microsoft.Edge', version='118.0.1', available='119.0.2', source='winget')])
+note  no winget on this PC: only the table and the window are checked
+ok    the Uninstaller has an Updates… button
+ok    the updates are listed, ticked
+ok    updating finishes
+ok    each one says how it went (['Updated', "Couldn't update"], "Updated 1 app. 1 couldn't be updated: point at them to see why.")
+ok    the one that failed can be tried again
+ok    the three copies are found
+ok    to begin with the oldest copy stays (['middle.bin', 'new.bin'])
+ok    "Keep the newest copy of each" (['old.bin', 'middle.bin'])
+ok    "Untick everything"
+ok    "Keep this one" ticks the other copies (['old.bin', 'new.bin'])
+ok    right-clicking a copy offers to keep it (['Keep this one (tick the other copies)', 'Open', 'Show in folder', 'Copy the path'])
+ok    ticking "Keep this folder tidy by itself" keeps it, and Corefold looks at it every hour
+ok    the files that came days ago go into their folders
+ok    …and one that came today waits for tomorrow
+ok    the time it was tidied is kept (once a day)
+ok    Undo puts them back
+ok    not again on the same day
+ok    unticking stops it
+ok    (a folder Corefold may sort)
+ok    the Viewer opens
+ok    without going round, the last picture is the end
+ok    going round: after the last comes the first
+ok    …and before the first comes the last
+ok    the mouse's forward button goes to the next picture (a.png)
+ok    …and its back button to the one before
+ok    Ctrl+Shift+C copies the picture's path
+ok    dragging the picture takes its file out of the window ([WindowsPath('C:/Users/RUNNER~1/AppData/Local/Temp/corefold-basicstest-4javuaxf/pictures/c.png')])
+ok    the PDF page says the new files go to the chosen folder (Your PDFs are never changed: every result is a new file in C:\Users\RUNNER~1\AppData\Local\Temp\corefold-basicstest-4javuaxf\My results.)
+ok    …and next to the original when that's the choice
+ok    Scan offers to show what was hidden ('Show the hidden ones again (1)')
+ok    …and forgets every "Don't show this again"
+ok    the Player keeps "pause a video while minimised"
+ok    the Clipboard is running
+ok    "Paste as plain text" listens for Ctrl + Alt + Win + V (ok=True)
+ok    the shortcut pastes the copied words ('Bold words')
+ok    …without their bold or colour
+ok    …and what's copied is now the plain words
+newtest_basics: 0 problem(s)
