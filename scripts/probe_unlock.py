@@ -44,5 +44,8 @@ try:
 except OSError as e:
     print("rename with explorer window refused:", e)
 
+started = time.monotonic()
+print("handles on C:\\ took", round(time.monotonic() - started + 0, 2), len(unlock.holding(["C:\\"], set())),
+      "programs", round(time.monotonic() - started, 2), "s")
 print("too_wide C:", unlock.too_wide("C:\\"), "Windows", unlock.too_wide(os.environ["SystemRoot"]),
       "home", unlock.too_wide(Path.home()), "temp folder", unlock.too_wide(base))
