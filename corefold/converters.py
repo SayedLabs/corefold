@@ -490,6 +490,8 @@ def resize_image(src: Path, ctx: Ctx) -> Result:
     def size_for(w: int, h: int) -> tuple[int, int]:
         if kind == "custom":
             new_w = max(1, int(p.get("width", 1000)))
+            if not p.get("bigger") and new_w > w:  # ("Never make it bigger": a small picture would only blur)
+                new_w = w
             return new_w, max(1, round(h * new_w / w))
         if kind == "scale":
             return max(1, round(w * value)), max(1, round(h * value))

@@ -380,8 +380,10 @@ ALIASES = {".jpeg": ".jpg", ".jfif": ".jpg", ".tif": ".tiff", ".aif": ".aiff", "
 IMAGE_EXT = {".png", ".jpg", ".webp", ".bmp", ".gif", ".tiff", ".heic", ".avif", ".ico", ".svg", ".cr2", ".cr3", ".nef",
              ".nrw", ".arw", ".srf", ".sr2", ".dng", ".orf", ".rw2", ".raf", ".srw", ".pef", ".3fr", ".erf", ".kdc",
              ".mrw", ".x3f"}
-AUDIO_EXT = {".mp3", ".m4a", ".wav", ".flac", ".ogg", ".opus", ".aiff", ".wma", ".aac"}
-VIDEO_EXT = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".wmv", ".m4v", ".flv", ".mpg", ".mpeg", ".3gp", ".ts"}
+# (and old phones' voice messages (AMR), audiobooks (M4B), camcorders' videos (MTS, M2TS) and DVDs (VOB))
+AUDIO_EXT = {".mp3", ".m4a", ".wav", ".flac", ".ogg", ".opus", ".aiff", ".wma", ".aac", ".amr", ".m4b"}
+VIDEO_EXT = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".wmv", ".m4v", ".flv", ".mpg", ".mpeg", ".3gp", ".ts", ".mts",
+             ".m2ts", ".vob"}
 WORD_EXT = {".doc", ".docx", ".rtf", ".odt"}
 EXCEL_EXT = {".xls", ".xlsx", ".ods"}
 SLIDES_EXT = {".ppt", ".pptx", ".odp"}

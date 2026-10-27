@@ -2942,4 +2942,6 @@ STRINGS: dict[str, str] = {
     "More tools": "Autres outils",
     "One PDF": "Un seul PDF",
     "Put the PDFs and pictures into one PDF, in this order": "Réunir les PDF et les images en un seul PDF, dans cet ordre",
+    "Now {width} × {height} px": "Actuellement {width} × {height} px",
+    "Never make it bigger": "Ne jamais agrandir",
 }

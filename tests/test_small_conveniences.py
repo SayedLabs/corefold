@@ -97,3 +97,31 @@ def test_done_in_settings_goes_back(qtbot):
         w.close()
         delete(w)
         delete(c)
+
+
+def test_more_sound_and_video_kinds_are_known():
+    from pathlib import Path
+
+    from corefold.core import category
+    for name, kind in (("voice.amr", "audio"), ("book.m4b", "audio"), ("camcorder.mts", "video"),
+                       ("camcorder.m2ts", "video"), ("VTS_01_1.VOB", "video")):
+        assert category(Path(name)) == kind, name
+
+
+def test_resize_never_makes_a_picture_bigger(tmp_path):
+    Image.new("RGB", (400, 300)).save(tmp_path / "small.png")
+    resize = lambda **p: converters.resize_image(tmp_path / "small.png", Ctx(Options(), params={"preset": "custom", **p}))  # noqa: E731
+    with Image.open(resize(width=1200).outputs[0]) as im:
+        assert im.size == (400, 300)
+    with Image.open(resize(width=800, bigger=True).outputs[0]) as im:
+        assert im.size == (800, 600)
+
+
+def test_resize_shows_the_size_as_it_looks(tmp_path):
+    from corefold.dialogs import picture_size
+    im = Image.new("RGB", (400, 300))
+    exif = im.getexif()
+    exif[0x0112] = 6  # (a phone photo taken upright)
+    im.save(tmp_path / "upright.jpg", exif=exif)
+    assert picture_size(tmp_path / "upright.jpg") == (300, 400)
+    assert picture_size(tmp_path / "missing.jpg") is None
