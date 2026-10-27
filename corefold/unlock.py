@@ -743,6 +743,30 @@ def usb_drives() -> list[Drive]:
     return out
 
 
+def too_wide(path) -> bool:
+    """A whole drive that isn't a USB drive (C:\\), Windows' own folder or anything in it, or a folder that
+    holds every program or everyone's files (Program Files, Users, your own folder, AppData). Nearly every
+    program uses something in it, so "Close all" would close them all, and none of it can be deleted."""
+    p = os.path.normcase(os.path.abspath(str(path))).rstrip("\\/")
+    if is_drive(str(path)):
+        return os.path.normcase(str(path)[:2]) not in {os.path.normcase(d.root[:2]) for d in usb_drives()}
+    if not os.path.isdir(p):
+        return False
+    windows = os.environ.get("SystemRoot")
+    if windows and (p == _norm(windows) or p.startswith(_norm(windows) + os.sep)):
+        return True
+    home = Path.home()
+    tops = [os.environ.get(k) for k in ("ProgramFiles", "ProgramFiles(x86)", "ProgramW6432", "ProgramData", "APPDATA",
+                                         "LOCALAPPDATA", "PUBLIC")]
+    tops += [str(home), str(home.parent), str(home / "AppData"), str(home / "AppData" / "LocalLow"),
+             os.environ.get("SystemDrive", "C:") + os.sep + "Users"]
+    return any(t and p == _norm(t) for t in tops)
+
+
+def _norm(path: str) -> str:
+    return os.path.normcase(os.path.abspath(path)).rstrip("\\/")
+
+
 def is_drive(path) -> bool:
     """A drive's own top ("E:\\"), not a folder on it."""
     p = str(path)
@@ -762,8 +786,9 @@ def running_from(roots: list[str], names: dict[int, str] | None = None) -> list[
             continue
         p = Program(pid=pid, name=os.path.splitext(os.path.basename(exe))[0] or file_name, exe=exe,
                     started=_started(pid), kind=RM_MAIN_WINDOW)
+        p.critical = file_name.lower() in CRITICAL
         p.own = pid == os.getpid()
-        p.blocked = not p.own and not _can_close(pid)
+        p.blocked = not p.critical and not p.own and not _can_close(pid)
         out.append(p)
     return out
 
