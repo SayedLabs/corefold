@@ -359,6 +359,8 @@ def find(paths: list[Path]) -> Found:
         seen.add(prog.pid)
         result.programs.append(prog)
     for pid in holding(folders + drives, seen) if folders or drives else []:
+        if names.get(pid, "").lower() == "explorer.exe":
+            continue  # (a File Explorer window on the folder watches it, which never stops it being moved)
         seen.add(pid)
         result.programs.append(_program(pid, names))
     result.programs.sort(key=lambda p: (not p.closable, p.name.lower(), p.pid))
