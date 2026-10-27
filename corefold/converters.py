@@ -1409,6 +1409,9 @@ finally { $app.AutomationSecurity = $was; if ($app.Presentations.Count -eq 0) { 
 
 
 def document_to_pdf(src: Path, ctx: Ctx) -> Result:
+    from . import textpdf
+    if textpdf.is_text(src):  # (text, Markdown, web pages and tables: Corefold makes those itself)
+        return textpdf.text_to_pdf(src, ctx)
     out = ctx.out_path(src, ctx.stem(src) + ".pdf")
     prog = office_app_for(src)
     if prog:
@@ -1513,15 +1516,17 @@ def _kill_tree(proc):
 
 
 def check_office(files: list[Path]) -> str | None:
-    if office_app_for(files[0]) or _cached("lo", Path("soffice"), find_libreoffice):
-        return None
-    return tr("Needs Microsoft Office or LibreOffice")
+    from . import textpdf
+    office = [f for f in files if not textpdf.is_text(f)]
+    if office and not (office_app_for(office[0]) or _cached("lo", Path("soffice"), find_libreoffice)):
+        return tr("Needs Microsoft Office or LibreOffice")
+    return textpdf.check_size(files)
 
 
 # ----------------------------------------------------------------------------- what goes on the wheel
 
 CATEGORY_NAMES = {"image": "Images", "audio": "Audio", "video": "Video", "pdf": "PDFs",
-                  "document": "Word, Excel & PowerPoint", "archive": "Archives (ZIP, RAR, 7z…)",
+                  "document": "Documents (Word, Excel, text…)", "archive": "Archives (ZIP, RAR, 7z…)",
                   "folder": "Folders", "files": "Any files and folders (archive, rename)"}
 CATEGORY_ICONS = {"image": "image", "audio": "music_note_2", "video": "video", "pdf": "document_pdf",  # icons.py
                   "document": "document_text", "archive": "archive", "folder": "folder", "files": "box"}

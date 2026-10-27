@@ -13,7 +13,7 @@ STRINGS: dict[str, str] = {
     "Light": "Claro",
     "Audio": "Audio",
     "PDFs": "PDF",
-    "Word, Excel & PowerPoint": "Word, Excel y PowerPoint",
+    "Documents (Word, Excel, text…)": "Documentos (Word, Excel, texto…)",
     "Archives (ZIP, RAR, 7z…)": "Archivos comprimidos (ZIP, RAR, 7z…)",
     "Folders": "Carpetas",
     "Any files and folders (archive, rename)": "Cualquier archivo o carpeta (comprimir, renombrar)",
@@ -2944,4 +2944,5 @@ STRINGS: dict[str, str] = {
     "Put the PDFs and pictures into one PDF, in this order": "Juntar los PDF y las imágenes en un solo PDF, en este orden",
     "Now {width} × {height} px": "Ahora {width} × {height} px",
     "Never make it bigger": "No agrandar nunca",
+    "Too big to turn into a PDF": "Demasiado grande para convertirlo en PDF",
 }

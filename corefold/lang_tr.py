@@ -13,7 +13,7 @@ STRINGS: dict[str, str] = {
     "Light": "Açık",
     "Audio": "Ses",
     "PDFs": "PDF'ler",
-    "Word, Excel & PowerPoint": "Word, Excel ve PowerPoint",
+    "Documents (Word, Excel, text…)": "Belgeler (Word, Excel, metin…)",
     "Archives (ZIP, RAR, 7z…)": "Arşivler (ZIP, RAR, 7z…)",
     "Folders": "Klasörler",
     "Any files and folders (archive, rename)": "Tüm dosya ve klasörler (arşivle, yeniden adlandır)",
@@ -2944,4 +2944,5 @@ STRINGS: dict[str, str] = {
     "Put the PDFs and pictures into one PDF, in this order": "PDF'leri ve resimleri bu sırayla tek bir PDF'te birleştirin",
     "Now {width} × {height} px": "Şu an {width} × {height} px",
     "Never make it bigger": "Asla büyütme",
+    "Too big to turn into a PDF": "PDF'ye dönüştürmek için çok büyük",
 }

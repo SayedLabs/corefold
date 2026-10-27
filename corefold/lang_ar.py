@@ -18,7 +18,7 @@ STRINGS: dict[str, str] = {
     "Audio": "الصوت",
     "Video": "فيديو",
     "PDFs": "ملفات PDF",
-    "Word, Excel & PowerPoint": "وورد وإكسل وباوربوينت",
+    "Documents (Word, Excel, text…)": "مستندات (وورد، إكسل، نصوص…)",
     "Archives (ZIP, RAR, 7z…)": "الأرشيفات (ZIP وRAR و7z…)",
     "Corefold": "كورفولد",
     "Droplet": "قطرة",
@@ -3021,4 +3021,5 @@ STRINGS: dict[str, str] = {
     "Put the PDFs and pictures into one PDF, in this order": "حط ملفات PDF والصور في PDF واحد، بنفس هالترتيب",
     "Now {width} × {height} px": "الآن {width} × {height} بكسل",
     "Never make it bigger": "لا تكبّرها أبدًا",
+    "Too big to turn into a PDF": "كبير جدًا لتحويله إلى PDF",
 }
