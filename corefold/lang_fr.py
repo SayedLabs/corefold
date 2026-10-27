@@ -2942,4 +2942,7 @@ STRINGS: dict[str, str] = {
     "Ejecting it…": "Éjection…",
     "You can take out {name} now.": "Vous pouvez retirer {name} maintenant.",
     "Windows says the USB drive is still in use. Close the programs using it (and any command window opened in it), then eject it again.": "Windows dit que la clé USB est encore utilisée. Fermez les programmes qui l'utilisent (et toute fenêtre de commande ouverte dessus), puis éjectez-la à nouveau.",
+    "More tools": "Autres outils",
+    "One PDF": "Un seul PDF",
+    "Put the PDFs and pictures into one PDF, in this order": "Réunir les PDF et les images en un seul PDF, dans cet ordre",
 }
