@@ -815,10 +815,15 @@ def _take_out(src: Path, password: str, changes: dict[int, dict]) -> bytes:
                     if partly:
                         if alone is None:
                             alone = pdfium.PdfDocument(str(src), password=password or None)
+                        lettered = _letters_under(page, objs, covers)
                         for k in partly:
                             pic = _without_covered(alone, index, k, matrices, geo, change.get("covers", ()), objs[k])
                             if pic is not None:
                                 pictures[k] = pic
+                            elif k in lettered:
+                                # letters under the cover that don't show (a scan's hidden text, made searchable;
+                                # see-through or cut-off words): they'd still be found and copied, so they go
+                                gone.add(k)
                     for k in sorted(pictures, reverse=True):  # (from the top down: the places below stay put)
                         img = c.FPDFPageObj_NewImageObj(doc.raw)
                         bitmap, matrix = pictures[k]
@@ -857,6 +862,38 @@ def _take_out(src: Path, password: str, changes: dict[int, dict]) -> bytes:
             if alone is not None:
                 alone.close()
             doc.close()
+
+
+def _letters_under(page, objs: list, covers) -> set[int]:
+    """The page's pieces (their places in objs) with at least one letter under a cover, whether it shows or not.
+    covers: in the page's own points. Call with PDFIUM held."""
+    import pypdfium2.raw as c
+    where = {_addr(o): k for k, o in enumerate(objs) if o}
+    forms = [(k, _bounds(o)) for k, o in enumerate(objs) if o and c.FPDFPageObj_GetType(o) == c.FPDF_PAGEOBJ_FORM]
+    found: set[int] = set()
+    tp = c.FPDFText_LoadPage(page.raw)
+    if not tp:
+        return found
+    try:
+        l, r, b, t = (ctypes.c_double() for _ in range(4))
+        for i in range(max(0, c.FPDFText_CountChars(tp))):
+            if not c.FPDFText_GetCharBox(tp, i, l, r, b, t):
+                continue
+            box = (min(l.value, r.value), min(b.value, t.value), max(l.value, r.value), max(b.value, t.value))
+            if box[2] - box[0] <= 0 or box[3] - box[1] <= 0 or not any(_overlap(box, cv) > 0 for cv in covers):
+                continue
+            obj = c.FPDFText_GetTextObject(tp, i) if hasattr(c, "FPDFText_GetTextObject") else None
+            k = where.get(_addr(obj)) if obj else None
+            if k is not None:
+                found.add(k)
+            else:  # (a letter inside a group of pieces, or an older PDFium: the groups and texts around it)
+                found.update(n for n, fb in forms if _overlap(box, fb) > 0)
+                if obj is None:
+                    found.update(n for n, o in enumerate(objs) if o and c.FPDFPageObj_GetType(o) == c.FPDF_PAGEOBJ_TEXT
+                                 and _overlap(box, _bounds(o)) > 0)
+    finally:
+        c.FPDFText_ClosePage(tp)
+    return found
 
 
 def _without_covered(alone, index: int, k: int, matrices: dict, geo: "Geo", covers, obj):
@@ -936,6 +973,21 @@ def _drop_lost_fields(reader):
     fields = form.get("/Fields")
     if fields is not None:
         form[NameObject("/Fields")] = ArrayObject(f for f in fields.get_object() if keep(f))
+
+
+def _forget_old_looks(reader, covered: set[int]):
+    """A covered page's small picture of itself (/Thumb) and what the program that made it kept of the page
+    for itself (/PieceInfo: Illustrator keeps the whole page there) would still show what's under the cover:
+    they go, before the copy is made (the copy only takes what's still used)."""
+    from pypdf.generic import NameObject
+    for i in covered:
+        if 0 <= i < len(reader.pages):
+            page = reader.pages[i]
+            for one in (page, page.indirect_reference.get_object() if page.indirect_reference else None):
+                for key in ("/Thumb", "/PieceInfo"):  # (pypdf's page is a copy of the one in the file)
+                    if one is not None:
+                        one.pop(NameObject(key), None)
+    reader.trailer["/Root"].get_object().pop(NameObject("/PieceInfo"), None)
 
 
 def _field_picture(writer, w: float, h: float, field: dict, value: str, turn: int = 0):
@@ -1115,6 +1167,7 @@ def save_edits(src: Path, ctx: Ctx) -> Result:
         reader = PdfReader(io.BytesIO(_take_out(src, password, changes)))
         if any(ch.get("covers") for ch in changes.values()):
             _drop_lost_fields(reader)
+            _forget_old_looks(reader, {i for i, ch in changes.items() if ch.get("covers")})
     else:
         reader = open_reader(src, password)
     fields = read_fields(reader) if values else []

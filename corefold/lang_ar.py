@@ -2947,7 +2947,7 @@ STRINGS: dict[str, str] = {
     "Save a clean copy": "احفظ نسخة نظيفة",
     "See and change its title and author, and take out who made it, notes, attached files and scripts": "شوف عنوانه وكاتبه وغيّرهم، واحذف مين سواه والملاحظات والملفات المرفقة والسكربتات",
     "Who made it and with what": "مين سواه وبأي برنامج",
-    "The author, the program, the dates and the keywords": "الكاتب والبرنامج والتواريخ والكلمات المفتاحية",
+    "The author, the program, the dates, the keywords and where photos were taken": "الكاتب والبرنامج والتواريخ والكلمات المفتاحية ومكان التقاط الصور",
     "Sticky notes and replies, which only show when someone opens them": "الملاحظات اللاصقة والردود، اللي ما تبين إلا إذا أحد فتحها",
     "Attached files": "الملفات المرفقة",
     "Files carried inside the PDF": "ملفات محطوطة داخل الـ PDF",
