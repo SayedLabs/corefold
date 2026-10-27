@@ -1356,6 +1356,17 @@ class MainWindow(QWidget):
         if not self.isVisible() or winutil.idle_ms() < 1500:  # (only while nobody's typing or moving the mouse)
             QTimer.singleShot(1000, self, self._learn_next)
             return
+        made = getattr(self, "_learn_made", None)
+        if made is not None:  # (Formats, made last time: read once its rows are all in, a group at a time)
+            if self.built(made) and self._formats_pending:
+                QTimer.singleShot(80, self, self._learn_next)
+                return
+            self._learn_made = None
+            if self.built(made):
+                words[made] = [text for text, _ in self._settings_on(made)]
+                self.drop_hidden_pages({made})
+            QTimer.singleShot(80, self, self._learn_next)
+            return
         while todo and self.built(todo[0]):
             todo.pop(0)
         if not todo:
@@ -1366,6 +1377,10 @@ class MainWindow(QWidget):
             return
         name = todo.pop(0)
         self._build_page(name)
+        if name == "Formats":  # (its ~90 rows all at once stopped the window for up to 0.4 s: they follow in
+            self._learn_made = name  # small steps, as when it's opened, and it's read once they're in)
+            QTimer.singleShot(80, self, self._learn_next)
+            return
         words[name] = [text for text, _ in self._settings_on(name)]
         self.drop_hidden_pages({name})
         QTimer.singleShot(80, self, self._learn_next)
