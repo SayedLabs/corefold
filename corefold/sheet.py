@@ -14,6 +14,7 @@ the window behind a sheet out of reach. Native pickers (open, save, folder) stay
 from __future__ import annotations
 
 import logging
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -1535,6 +1536,22 @@ def _overridden(w: QWidget) -> bool:
 _guard: _Guard | None = None
 
 
+@contextmanager
+def quiet():
+    """The filter above steps aside while every widget is restyled: a new look sends each widget a dozen
+    events (13,000 for the window), none of them a click, a key or a tip, and each one was a call into
+    Python: about a fifth of a dark/light switch (0.74 s down to 0.61 s on Windows, three runs each)."""
+    app = QApplication.instance()
+    if _guard is None or app is None:
+        yield
+        return
+    app.removeEventFilter(_guard)
+    try:
+        yield
+    finally:
+        app.installEventFilter(_guard)
+
+
 def install(app: QApplication, provider: Callable[[], QWidget | None] | None = None):
     """Once, at the start: tips, button and text box menus in the window, and sheets kept on top."""
     global _guard
@@ -1546,4 +1563,4 @@ def install(app: QApplication, provider: Callable[[], QWidget | None] | None = N
 
 
 __all__ = ["install", "set_window_provider", "run", "show", "question", "warning", "information", "critical",
-           "get_color", "menu", "forget", "pick", "Row", "drop_list", "tip", "tip_at", "hide_tip", "open_sheets", "host_for"]
+           "get_color", "menu", "forget", "quiet", "pick", "Row", "drop_list", "tip", "tip_at", "hide_tip", "open_sheets", "host_for"]

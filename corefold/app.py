@@ -1672,8 +1672,9 @@ class Controller(QObject):
         """A new look for every widget. Going from one look straight to another costs Qt about three
         times as long as going through none (each widget is undone and redone against both looks),
         so it goes through none: no picture is drawn in between."""
-        self.app.setStyleSheet("")
-        self.app.setStyleSheet(css)
+        with sheet.quiet():
+            self.app.setStyleSheet("")
+            self.app.setStyleSheet(css)
 
     def _color_menu_icons(self):
         for action, name in self.menu_icons:
