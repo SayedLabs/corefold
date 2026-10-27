@@ -31,6 +31,7 @@ TMP = Path(tempfile.mkdtemp(prefix="corefold-newuser-"))
 os.environ["APPDATA"] = str(TMP / "roaming")
 os.environ["LOCALAPPDATA"] = str(TMP / "local")
 sys.path.insert(0, str(ROOT))
+os.environ.setdefault("COREFOLD_WAKE_ORGANIZER", "1")  # (File Organizer rests in a built Corefold: its kept code is tried here)
 
 import faulthandler  # noqa: E402
 
