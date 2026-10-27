@@ -297,6 +297,7 @@ def jpegs_to_pdf(photos: list[tuple[Path, int, int, int, bool]], out: Path, reso
     """JPG photos go into the PDF as they are: nothing is decoded and compressed again, so it's many times
     faster and the photos keep their quality. Phone rotation is applied on the page. The PDF is written
     here directly (a PDF of pictures is a short list of parts), so each photo is one plain file copy."""
+    from .pdftools import jpeg_without_details
     tmp = out.with_name(out.name + ".part")
     offsets: list[int] = []
     n = len(photos)
@@ -315,7 +316,7 @@ def jpegs_to_pdf(photos: list[tuple[Path, int, int, int, bool]], out: Path, reso
             part(f"<< /Type /Pages /Kids [{kids}] /Count {n} >>".encode("ascii"))
             for i, (f, w, h, turn, gray) in enumerate(photos):
                 ctx.check()
-                data = Path(f).read_bytes()
+                data = jpeg_without_details(Path(f).read_bytes())  # (no GPS place or phone details inside)
                 sw, sh = w * 72 / resolution, h * 72 / resolution
                 pw, ph = (sh, sw) if turn in (6, 8) else (sw, sh)
                 # where the photo goes on the page: a x b y c d (turned the way the phone held it)
@@ -1340,9 +1341,48 @@ def pdf_merge(files: list[Path], ctx: Ctx) -> Result:
     return Result([out])
 
 
+def pdf_and_pictures(files: list[Path], ctx: Ctx) -> Result:
+    """PDFs and pictures into one PDF, in the order they came: the pictures become pages in between."""
+    import io
+    from pypdf import PdfReader, PdfWriter
+    w = PdfWriter()
+    run: list[Path] = []
+
+    def pictures_in():
+        if not run:
+            return
+        with tempfile.TemporaryDirectory(prefix="corefold-", ignore_cleanup_errors=True) as tmp:
+            part = Path(tmp) / "pictures.pdf"
+            write_pages_pdf((page for f in run for page in _all_pages(f)), part, 150)
+            w.append(PdfReader(io.BytesIO(part.read_bytes())))  # (in memory: the folder can go at once)
+        run.clear()
+
+    for i, f in enumerate(files):
+        ctx.check()
+        if category(f) == "pdf":
+            pictures_in()
+            w.append(_open_reader(f))
+        else:
+            run.append(f)
+        ctx.progress((i + 1) / (len(files) + 1))
+    pictures_in()
+    name = safe_name(ctx.options.rename_base) or f"{files[0].stem} merged"
+    out = ctx.out_path(files[0], f"{name}.pdf")
+    with open(out, "wb") as fh:
+        w.write(fh)
+    return Result([out])
+
+
+def pdfs_and_pictures(files: list[Path]) -> bool:
+    """Some PDFs and some pictures, and nothing else: they can become one PDF."""
+    kinds = [category(f) for f in files]
+    return "pdf" in kinds and "image" in kinds and all(k in ("pdf", "image") for k in kinds)
+
+
 def write_compressed_pdf(src: Path, out: Path, ctx: Ctx, quality: int = 65, max_dim: int = 1800,
-                         progress_span: tuple[float, float] = (0.0, 0.9), reader=None):
-    """Shrinks big pictures inside the PDF and squeezes the rest. Text stays sharp."""
+                         progress_span: tuple[float, float] = (0.0, 0.9), reader=None, password: str = ""):
+    """Shrinks big pictures inside the PDF and squeezes the rest. Text stays sharp. With a password (the
+    original had one), the smaller copy is locked with it as it's written: it's never on the disk open."""
     from PIL import Image
     from pypdf import PdfWriter
     reader = reader or _open_reader(src)
@@ -1373,6 +1413,8 @@ def write_compressed_pdf(src: Path, out: Path, ctx: Ctx, quality: int = 65, max_
         page.compress_content_streams()
         ctx.progress(a + (b - a) * (i + 1) / n)
     writer.compress_identical_objects(remove_duplicates=True, remove_unreferenced=True)
+    if password:
+        writer.encrypt(user_password=password, owner_password=password, algorithm="AES-256")
     with open(out, "wb") as fh:
         writer.write(fh)
 
@@ -1603,7 +1645,9 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
                     partial(fn, ext=ext, **kw), check=both(already(ext), check), target=ext,
                     slow_check=check is not None)
 
-    pack = [Tool("pack:zip", "ZIP", tr("Put in a ZIP file"), partial(ar.pack, fmt="zip"), batch=True),
+    pack = [Tool("files:pdf", tr("One PDF"), tr("Put the PDFs and pictures into one PDF, in this order"),
+                 pdf_and_pictures, batch=True),
+            Tool("pack:zip", "ZIP", tr("Put in a ZIP file"), partial(ar.pack, fmt="zip"), batch=True),
             Tool("pack:7z", "7z", tr("Put in a 7z file (smaller than ZIP)"), partial(ar.pack, fmt="7z"), batch=True,
                  check=ar.check_needs_7z, static_check=True),
             Tool("pack:options", tr("Archive…"), tr("Archive with a password, split or max compression"), ar.pack,
@@ -1698,11 +1742,11 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
            Tool("pdf:images", tr("Pictures"), tr("Save the pictures inside"), mt.pdf_images, check=check_pdf_locked,
                 slow_check=True),
            Tool("pdf:numbers", tr("Page numbers"), tr("Number every page"), ps.page_numbers, ask="page_numbers",
-                check=check_pdf_locked, slow_check=True),
+                password=True),
            Tool("pdf:watermark", tr("Watermark"), tr("Add text or a logo to every page"), ps.watermark_pdf,
-                ask="watermark", check=check_pdf_locked, slow_check=True),
+                ask="watermark", password=True),
            Tool("pdf:sign", tr("Sign"), tr("Put your signature on it"), ps.sign_pdf, ask="sign",
-                check=check_pdf_locked, slow_check=True),
+                password=True),
            Tool("pdf:lock", tr("Lock"), tr("Protect with a password"), mt.pdf_lock, ask="lock",
                 check=mt.check_can_lock, slow_check=True),
            Tool("pdf:unlock", tr("Unlock"), tr("Remove the password"), mt.pdf_unlock, password=True,
@@ -1811,6 +1855,8 @@ def pick(paths: list[Path], hidden=frozenset(), favorites=(), show_unavailable: 
         tools += cat["files"]  # folders always get "ZIP" and "Rename" too
     result = Pick(files, [], kind)
     for t in tools:
+        if t.key == "files:pdf" and not (kind == "files" and pdfs_and_pictures(files)):
+            continue  # (only for PDFs dropped with pictures: anything else has its own way to a PDF)
         if t.key in hidden:
             result.hidden += 1
             continue

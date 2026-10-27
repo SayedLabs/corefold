@@ -109,7 +109,8 @@ def items_for(ext: str, settings) -> list[Item]:
     if add_pack:
         first = True
         for t in _ordered(cat["files"], "files", settings):
-            if t.key in hidden or not _usable_everywhere(t, ext or ".zip"):
+            # (One PDF is only for PDFs together with pictures, which a menu made per extension can't tell)
+            if t.key in hidden or t.key == "files:pdf" or not _usable_everywhere(t, ext or ".zip"):
                 continue
             items.append(Item(t.key, _text(t), separator=first and bool(items)))
             first = False

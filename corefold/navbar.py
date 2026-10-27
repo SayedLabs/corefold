@@ -78,20 +78,39 @@ class _Rows(QStyledItemDelegate):
             lead = 12 + (30 if show_icon else 2)
             trail = 12
             fm = QFontMetrics(option.font)
+            f = QFont(option.font)
+            if selected:
+                f.setWeight(QFont.Weight.DemiBold)
             badge_w = (fm.horizontalAdvance(str(badge)) + 14) if badge else 0
+            dot = False
             if badge:
                 trail += badge_w + 6
+                # a long name ("Images et écran"): the name whole and a dot, rather than "Images et éc…" and the
+                # word (it's in the row's tip). The rows with the same word all do the same, so they match.
+                bold = QFont(option.font)
+                bold.setWeight(QFont.Weight.DemiBold)
+                room = r.width() - lead - trail
+                model = index.model()
+                for i in range(model.rowCount()):
+                    other = model.index(i, 0)
+                    if other.data(BADGE_ROLE) == badge and \
+                            QFontMetrics(bold).horizontalAdvance(str(other.data(Qt.DisplayRole) or "")) > room:
+                        dot = True
+                        trail -= badge_w - 8
+                        break
             elif hovered and nav.can_drag(row):
                 trail += 18
             box = r.adjusted(trail, 0, -lead, 0) if rtl else r.adjusted(lead, 0, -trail, 0)
             p.setPen(ink)
-            f = QFont(option.font)
-            if selected:
-                f.setWeight(QFont.Weight.DemiBold)
             p.setFont(f)
             p.drawText(box, (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignVCenter | Qt.AlignAbsolute,
                        QFontMetrics(f).elidedText(text, Qt.ElideRight, int(box.width())))
-            if badge:
+            if dot:
+                p.setPen(Qt.NoPen)
+                p.setBrush(t.muted)
+                cx = r.left() + 14 if rtl else r.right() - 14
+                p.drawEllipse(QRectF(cx - 3.5, r.center().y() - 3.5, 7, 7))
+            elif badge:
                 h = fm.height() + 2
                 bx = r.left() + 10 if rtl else r.right() - 10 - badge_w
                 pill = QRectF(bx, r.center().y() - h / 2, badge_w, h)
