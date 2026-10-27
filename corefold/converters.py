@@ -370,6 +370,14 @@ def image_small(src: Path, ctx: Ctx) -> Result:
     """Shrink for sharing: max 1920 px, JPG quality 80. A picture with see-through parts (a logo, a sticker)
     stays a PNG: as a JPG they would turn white."""
     from PIL import Image
+    if is_animated(src):  # (an animated GIF or WebP stays animated, only smaller)
+        out = ctx.out_path(src, f"{ctx.stem(src)} (small){norm(src.suffix)}")
+
+        def shrink(frame):
+            frame.thumbnail((1920, 1920), Image.LANCZOS)
+            return frame
+        save_animated(src, out, shrink)
+        return Result([out])
     loaded = load_image(src, fit=1920)
     if see_through(loaded):
         im = loaded.convert("RGBA")
@@ -728,11 +736,11 @@ def probe(src: Path) -> dict:
     """Duration and which kinds of streams a media file has (cached)."""
     def work():
         info = {"duration": 0.0, "audio": False, "video": False, "width": 0, "height": 0, "rotation": 0,
-                "hdr": False, "subs": [], "cover": -1}
+                "hdr": False, "subs": [], "cover": -1, "vcodec": "", "pix_fmt": "", "acodecs": []}
         try:
             out = subprocess.run(
                 [find_tool("ffprobe"), "-v", "error", "-show_entries",
-                 "format=duration:stream=codec_type,codec_name,width,height,color_transfer"
+                 "format=duration:stream=codec_type,codec_name,width,height,pix_fmt,color_transfer"
                  ":stream_disposition=attached_pic:stream_side_data=rotation",
                  "-of", "json", *LOCAL_ONLY, str(src)],
                 capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=20,
@@ -744,6 +752,7 @@ def probe(src: Path) -> dict:
             kinds = {s.get("codec_type") for s in streams}
             info["audio"], info["video"] = "audio" in kinds, "video" in kinds
             info["subs"] = [s.get("codec_name") or "" for s in streams if s.get("codec_type") == "subtitle"]
+            info["acodecs"] = [s.get("codec_name") or "" for s in streams if s.get("codec_type") == "audio"]
             pictures = [s for s in streams if s.get("codec_type") == "video"]
             covers = [i for i, s in enumerate(pictures) if (s.get("disposition") or {}).get("attached_pic")]
             if covers and len(covers) == len(pictures):  # (a song with its album cover, not a video)
@@ -759,6 +768,7 @@ def probe(src: Path) -> dict:
                     info["width"], info["height"] = (h, w) if abs(rot) in (90, 270) else (w, h)
                     info["rotation"] = rot
                     info["hdr"] = s.get("color_transfer") in HDR_TRANSFERS
+                    info["vcodec"], info["pix_fmt"] = s.get("codec_name") or "", s.get("pix_fmt") or ""
                     break
         except (ValueError, OSError, subprocess.SubprocessError, RuntimeError):
             info["audio"] = info["video"] = True  # unknown: don't block anything
@@ -952,6 +962,15 @@ DAMAGED_MEDIA = ("Invalid data found when processing input", "Error opening inpu
 
 def ffmpeg_convert(src: Path, ctx: Ctx, ext: str, args: list[str], suffix: str = "") -> Result:
     out = ctx.out_path(src, f"{ctx.stem(src)}{suffix}{ext}")
+    if not suffix and can_copy(src, ext, ctx.options):
+        try:  # (an OBS recording in MKV becomes an MP4 in seconds, with not a pixel changed)
+            run_ffmpeg(src, out, all_tracks(src, ext, COPY_ARGS[ext]), ctx)
+            return Result([out])
+        except Cancelled:
+            raise
+        except RuntimeError:
+            out = _again(src, out, ctx)
+            log.warning("%s: couldn't be copied into %s as it is; making it again", src.name, ext, exc_info=True)
     if ext == ".mkv" and probe(src).get("rotation"):
         # MKV can't store "this video is turned": a phone video filmed upright would play sideways
         # if just copied, so it's re-encoded the right way up instead.
@@ -974,9 +993,48 @@ def ffmpeg_convert(src: Path, ctx: Ctx, ext: str, args: list[str], suffix: str =
         except Cancelled:
             raise
         except RuntimeError:  # (an unusual subtitle or cover: the file is still made, without it)
+            out = _again(src, out, ctx)
             log.warning("%s: made again without the extra tracks", src.name, exc_info=True)
     run_ffmpeg(src, out, args, ctx)
     return Result([out])
+
+
+def _again(src: Path, out: Path, ctx: Ctx) -> Path:
+    """Where to try again after a try that failed: the same name, unless the half-made file is still there
+    (Windows or a virus scanner can hold it for a moment, and it's deleted later: then it would take the new
+    file with it)."""
+    if src.exists() and media_duration(src) <= 0:  # (not a real video or song: a second try can't help)
+        raise RuntimeError(tr("the file is damaged or isn't really an audio or video file"))
+    return ctx.out_path(src, out.name) if out.exists() else out
+
+
+# Sources whose H.264 video can go into an MP4 or MOV as it is (their timestamps are reliable; an AVI's or a
+# TV recording's often aren't), and the sound that can go along as it is.
+COPY_FROM = (".mkv", ".mov", ".mp4", ".m4v", ".flv")
+COPY_SOUND = ("aac", "mp3")
+COPY_ARGS = {".mp4": ["-map", "0:V:0", "-map", "0:a:0?", "-sn", "-dn", "-c:v", "copy", "-c:a", "copy",
+                      "-movflags", "+faststart"],
+             ".mov": ["-map", "0:V:0", "-map", "0:a:0?", "-sn", "-dn", "-c:v", "copy", "-c:a", "copy"]}
+
+
+def can_copy(src: Path, ext: str, options) -> bool:
+    """The video can be put into the new file as it is, instead of being made again: many times faster and
+    nothing is lost. Only for an ordinary H.264 video (what plays everywhere) with AAC or MP3 sound, and only
+    when the Converter's settings don't ask for a smaller file (Settings → Converter)."""
+    if ext not in COPY_ARGS or norm(src.suffix) not in COPY_FROM or norm(src.suffix) == ext:
+        return False
+    if int(getattr(options, "video_crf", 20) or 20) > 20:
+        return False
+    try:
+        info = probe(src)
+    except Exception:
+        return False
+    if info.get("vcodec") != "h264" or info.get("pix_fmt") not in ("yuv420p", "yuvj420p") or info.get("hdr"):
+        return False
+    if not all(c in COPY_SOUND for c in info.get("acodecs") or []):
+        return False
+    most = int(getattr(options, "video_max", 0) or 0)
+    return smaller_size(info.get("width") or 0, info.get("height") or 0, most) is None
 
 
 # Subtitles that are text (not pictures): MP4 and WebM can hold these, in their own kind.
@@ -1024,6 +1082,23 @@ def with_cover(src: Path, ext: str, args: list[str]) -> list[str]:
     return new
 
 
+def run_sound(src: Path, out: Path, ext: str, args: list[str], ctx: Ctx, **kw) -> Path:
+    """run_ffmpeg for a sound file made from a song, keeping its album cover when the new kind of file can
+    hold one (made again without it if the cover is unusual). Returns where the file was made."""
+    whole = with_cover(src, ext, args)
+    if whole is not args:
+        try:
+            run_ffmpeg(src, out, whole, ctx, **kw)
+            return out
+        except Cancelled:
+            raise
+        except RuntimeError:
+            out = _again(src, out, ctx)
+            log.warning("%s: made again without the album cover", src.name, exc_info=True)
+    run_ffmpeg(src, out, args, ctx, **kw)
+    return out
+
+
 def smaller_size(width: int, height: int, most: int) -> tuple[int, int] | None:
     """The new width and height (even numbers, the same shape) when the video's shorter side is over
     `most`, else None: a video is made smaller, never bigger."""
@@ -1055,8 +1130,9 @@ def tuned_video(src: Path, ext: str, args: list[str], options) -> list[str]:
         args[i] = str(_WEBM_CRF.get(crf, 32) if ext == ".webm" else crf)
     if new is not None:
         scale = f"scale={new[0]}:{new[1]}:flags=lanczos"
-        if "-vf" in args:
-            args[args.index("-vf") + 1] = scale  # (instead of the padding to even sizes: these are even)
+        if "-vf" in args:  # (instead of the padding to even sizes: these are even)
+            i = args.index("-vf") + 1
+            args[i] = f"{DEINTERLACE},{scale}" if args[i].startswith(DEINTERLACE) else scale
         else:
             at = args.index("-sn") if "-sn" in args else len(args)
             args[at:at] = ["-vf", scale]
@@ -1076,7 +1152,10 @@ AUDIO_ARGS = {
 # can pick an album-cover picture inside the file as "the video" (the result is a still image),
 # and films with picture subtitles fail to convert to MP4.
 _PICK = ["-map", "0:V:0", "-map", "0:a:0?", "-sn", "-dn"]
-_EVEN = _PICK + ["-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2"]  # H.264 needs even width/height
+# Old camcorder, TV and DVD videos are interlaced (each picture is two half pictures): made into ordinary
+# pictures, or every moving edge looks combed. Only pictures marked interlaced are touched; the rest pass as they are.
+DEINTERLACE = "bwdif=mode=send_frame:deint=interlaced"
+_EVEN = _PICK + ["-vf", DEINTERLACE + ",pad=ceil(iw/2)*2:ceil(ih/2)*2"]  # H.264 needs even width/height
 _H264 = ["-c:v", "libx264", "-preset", "medium", "-pix_fmt", "yuv420p"]
 _AAC = ["-c:a", "aac", "-b:a", "160k"]
 VIDEO_ARGS = {
@@ -1092,7 +1171,7 @@ VIDEO_ARGS = {
                            "split[a][b];[a]palettegen[p];[b][p]paletteuse", "-loop", "0"],
 }
 # Fits inside 1280x1280 (works for portrait and landscape), smaller file for sharing.
-VIDEO_SMALL_ARGS = _PICK + ["-vf", "scale=w='min(1280,iw)':h='min(1280,ih)':force_original_aspect_ratio=decrease:"
+VIDEO_SMALL_ARGS = _PICK + ["-vf", DEINTERLACE + ",scale=w='min(1280,iw)':h='min(1280,ih)':force_original_aspect_ratio=decrease:"
                            "force_divisible_by=2"] + _H264 + ["-crf", "28", "-c:a", "aac", "-b:a", "96k",
                                                               "-movflags", "+faststart"]
 
@@ -1129,7 +1208,10 @@ def trim_media(src: Path, ctx: Ctx) -> Result:
         ext = ".mp4"
         args = _EVEN + _H264 + ["-crf", "20"] + _AAC + ["-movflags", "+faststart"]
     out = ctx.out_path(src, f"{ctx.stem(src)} (trimmed){ext}")
-    run_ffmpeg(src, out, args, ctx, pre=pre, duration=end - start)
+    if ext in AUDIO_ARGS:
+        out = run_sound(src, out, ext, args, ctx, pre=pre, duration=end - start)
+    else:
+        run_ffmpeg(src, out, args, ctx, pre=pre, duration=end - start)
     return Result([out])
 
 

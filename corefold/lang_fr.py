@@ -423,7 +423,6 @@ STRINGS: dict[str, str] = {
     "Custom width:": "Largeur personnalisée :",
     " px": " px",
     "The height changes to match, so nothing gets stretched. Your original stays as it is.": "La hauteur s'adapte, donc rien n'est étiré. Votre original reste tel quel.",
-    " s": " s",
     "Start": "Début",
     "End": "Fin",
     "Saved as a new MP4 file. Your original stays as it is.": "Enregistré dans un nouveau fichier MP4. Votre original reste tel quel.",
@@ -2956,4 +2955,6 @@ STRINGS: dict[str, str] = {
     "Now {width} × {height} px": "Actuellement {width} × {height} px",
     "Never make it bigger": "Ne jamais agrandir",
     "Too big to turn into a PDF": "Trop volumineux pour en faire un PDF",
+    "About {count} pictures.": "Environ {count} images.",
+    "Every frame: about 25 to 60 pictures for each second of video.": "Chaque image : environ 25 à 60 images par seconde de vidéo.",
 }

@@ -300,7 +300,6 @@ STRINGS: dict[str, str] = {
     "{count} files": "{count} ملف",
 
     # ------------------------------------------------------------------ small windows
-    " s": " ث",
     " px": " بكسل",
     " MB": " ميجابايت",
     " seconds": " ثانية",
@@ -3029,4 +3028,6 @@ STRINGS: dict[str, str] = {
     "Google files went as Office files, so the originals stay where they were.": "نُسخت ملفات Google كملفات أوفيس، لذا تبقى الأصلية في مكانها.",
     "A folder can't be moved into itself.": "لا يمكن نقل مجلد إلى داخل نفسه.",
     "Save the picked files and folders on this PC": "احفظ الملفات والمجلدات المحددة على هذا الجهاز",
+    "About {count} pictures.": "تقريبًا {count} صورة.",
+    "Every frame: about 25 to 60 pictures for each second of video.": "كل لقطة: تقريبًا من 25 إلى 60 صورة لكل ثانية من الفيديو.",
 }

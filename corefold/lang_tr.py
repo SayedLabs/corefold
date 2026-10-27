@@ -423,7 +423,6 @@ STRINGS: dict[str, str] = {
     "Custom width:": "Özel genişlik:",
     " px": " px",
     "The height changes to match, so nothing gets stretched. Your original stays as it is.": "Yükseklik buna göre değişir, böylece hiçbir şey esnemez. Orijinaliniz olduğu gibi kalır.",
-    " s": " sn",
     "Start": "Başlangıç",
     "End": "Bitiş",
     "Saved as a new MP4 file. Your original stays as it is.": "Yeni bir MP4 dosyası olarak kaydedilir. Orijinaliniz olduğu gibi kalır.",
@@ -2956,4 +2955,6 @@ STRINGS: dict[str, str] = {
     "Now {width} × {height} px": "Şu an {width} × {height} px",
     "Never make it bigger": "Asla büyütme",
     "Too big to turn into a PDF": "PDF'ye dönüştürmek için çok büyük",
+    "About {count} pictures.": "Yaklaşık {count} resim.",
+    "Every frame: about 25 to 60 pictures for each second of video.": "Her kare: videonun her saniyesi için yaklaşık 25 ila 60 resim.",
 }
