@@ -413,7 +413,19 @@ def _listen(port: int = 0) -> http.server.HTTPServer:
         def log_message(self, *a):
             pass
 
-    server = http.server.HTTPServer(("127.0.0.1", port), _Catch)
+    class _Only(http.server.HTTPServer):
+        # (Windows lets another program take over a port opened with "reuse the address", and be handed the
+        # sign-in's answer: there the port is kept for Corefold alone. Dropbox's fixed port is only kept from
+        # other Windows accounts, Windows' own way: kept for Corefold alone, it couldn't be opened again for a
+        # few minutes after a sign-in)
+        allow_reuse_address = os.name != "nt"
+
+        def server_bind(self):
+            if os.name == "nt" and not self.server_address[1] and hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+                self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+            super().server_bind()
+
+    server = _Only(("127.0.0.1", port), _Catch)
     server.answer = None
     server.state = None
     server.timeout = 1
@@ -511,6 +523,8 @@ class Client:
     def __init__(self, account: Account):
         self.acc = account
         self.skipped: list[str] = []  # (what a whole folder's download left out: Google Forms, Sites… only open online)
+        self.unread: list[str] = []   # (folders on this PC an upload left out: Windows didn't let them be read)
+        self.converted: list[str] = []  # (Google Docs… copied as Office files: not the same thing, so a move keeps them)
 
     def token(self) -> str:
         acc = self.acc
@@ -577,6 +591,9 @@ HOSTS = {"onedrive": "https://onedrive.live.com/", "dropbox": "https://www.dropb
          "gdrive": "https://drive.google.com/"}
 
 
+NAME_MAX = 120  # (core.safe_name's longest)
+
+
 def local_name(name: str) -> str:
     """A cloud file's name made safe to save on this PC. Names come from the service, and a shared folder
     can hold names Windows would read as a path ("..\\..\\Startup\\x.bat", "C:\\x"): those must never
@@ -585,6 +602,11 @@ def local_name(name: str) -> str:
     from .core import safe_name
     name = "".join(c for c in name if not ("\u202a" <= c <= "\u202e" or "\u2066" <= c <= "\u2069"))
     name = name.replace("\\", "/").rsplit("/", 1)[-1]
+    stem, dot, ext = name.rstrip(" .").rpartition(".")
+    if len(name) > NAME_MAX and dot and stem and 0 < len(ext) <= 16:
+        # (a long name is cut in its middle, never its ending: "photo_____.scr_____.jpg" cut at its 120th
+        # letter would be saved as a .scr, a program, while it's shown as a picture)
+        name = stem[:NAME_MAX - len(ext) - 1].rstrip(" .") + "." + ext
     rest = safe_name(name)
     dots = len(name) - len(name.lstrip(" ."))  # (".gitignore" keeps its dot; "..", on its own, isn't a name)
     return ("." if dots and rest else "") + rest or "file"
@@ -1109,10 +1131,12 @@ class GoogleDrive(Client):
             export = self.EXPORT.get(kind_of)
             kind = f"export:{export[0]}:{export[1]}" if export else "web"
         md5 = d.get("md5Checksum", "")
+        # (a shortcut's driveId is where the shortcut is, and what it leads to can be anywhere: no drive is
+        # assumed, and its folder is looked for in all of them)
         return Entry(d.get("name", ""), folder, target, "/" + d.get("name", ""), int(d.get("size") or 0),
                      _iso(d.get("modifiedTime", "")), (d.get("parents") or [""])[0],
                      hash="md5:" + md5 if md5 and not own else "", kind=kind, own=own,
-                     drive=d.get("driveId", "") or drive, web=d.get("webViewLink", ""))
+                     drive="" if own else d.get("driveId", "") or drive, web=d.get("webViewLink", ""))
 
     def _files(self, q: str, drive: str = "", every: bool = True, extra: str = "") -> list[Entry]:
         where = f"&corpora=drive&driveId={urllib.parse.quote(drive)}" if drive else ""
@@ -1152,7 +1176,8 @@ class GoogleDrive(Client):
             return self._files("sharedWithMe and trashed=false")
         if folder.id == self.SHARED_DRIVES and folder.kind == "virtual":
             return self._drives()
-        return self._files(f"'{self._q(folder.id)}' in parents and trashed=false", folder.drive)
+        return self._files(f"'{self._q(folder.id)}' in parents and trashed=false", folder.drive,
+                           extra="&corpora=allDrives" if folder.own and not folder.drive else "")
 
     def _parent(self, folder: Entry | None) -> str:
         if folder is not None and folder.kind == "virtual":
@@ -1379,8 +1404,9 @@ def upload_tree(c: Client, src: Path, folder: Entry | None, progress=None, cance
     made = set() if _made is None else _made
     try:  # (read before the new folder is made: see download_tree)
         inside = sorted(src.iterdir(), key=lambda p: p.name.lower())
-    except OSError:
-        inside = []
+    except OSError:  # (said when it's done; a move leaves it where it is)
+        c.unread.append(src.name)
+        return 0
     new = c.new_folder(src.name, folder)
     made.add(_key(new.id))  # (for a folder on this PC its id is its path)
     from .core import is_link  # (a junction too, not only a link: it leads out of the folder, or round in a circle)
@@ -1416,6 +1442,8 @@ def copy_tree(src: Client, entry: Entry, dst: Client, into: Entry | None, progre
                        lambda d, t: progress((entry.name, (t + d) / 2, t)), cancel)
         finally:
             local.unlink(missing_ok=True)
+        if entry.kind.startswith("export:"):
+            src.converted.append(entry.name)
         return 1
     made = set() if _made is None else _made
     made.add("id:" + entry.id)
@@ -1423,6 +1451,38 @@ def copy_tree(src: Client, entry: Entry, dst: Client, into: Entry | None, progre
     new = dst.new_folder(local_name(entry.name), into)
     made.add("id:" + new.id)
     return sum(copy_tree(src, e, dst, new, progress, cancel, made, _temp) for e in inside)
+
+
+INTO_ITSELF = "a folder can't be moved into itself"
+
+
+def _inside(path: str, folder: str) -> bool:
+    path, folder = _key(path), _key(folder)
+    return path == folder or path.startswith(folder.rstrip("\\/") + os.sep)
+
+
+def send(src: Client, entry: Entry, dst: Client, into: Entry | None, move: bool = False, progress=None,
+         cancel=None) -> tuple[int, bool]:
+    """Copies a file or folder from one account into another (a folder on this PC goes straight from where it is),
+    and for a move then deletes it where it was (to that account's deleted files, or the Recycle Bin), only when
+    all of it got there as it was: nothing left out, and no Google Doc that went as an Office file. Returns how
+    many files went across, and whether it was taken away."""
+    if move and src.acc.local and dst.acc.local and entry.folder:
+        # (one cloud folder can be inside another one added by hand: the copy would be inside what's deleted)
+        if _inside(into.id if into is not None else dst.acc.local, entry.id):
+            raise CloudError(INTO_ITSELF)
+    before = len(src.skipped) + len(src.converted) + len(dst.unread)
+    if src.acc.local:
+        count = upload_tree(dst, Path(entry.id), into, progress, cancel)
+    else:
+        count = copy_tree(src, entry, dst, into, progress, cancel)
+    whole = len(src.skipped) + len(src.converted) + len(dst.unread) == before
+    if not move or not whole:
+        return count, False
+    if cancel is not None and cancel.is_set():
+        raise CloudError("cancelled")
+    src.delete(entry)
+    return count, True
 
 
 def available(service: str) -> bool:
