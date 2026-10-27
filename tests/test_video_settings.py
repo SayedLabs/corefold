@@ -28,7 +28,7 @@ def test_quality_and_size_reach_ffmpeg(video):
     src = video(3840, 2160)
     args = converters.tuned_video(src, ".mp4", converters.VIDEO_ARGS[".mp4"], Options(video_crf=24, video_max=1080))
     assert args[args.index("-crf") + 1] == "24"
-    assert args[args.index("-vf") + 1].startswith("scale=1920:1080")
+    assert args[args.index("-vf") + 1] == f"{converters.DEINTERLACE},scale=1920:1080:flags=lanczos"
     gpu = converters.with_gpu(args, "h264_nvenc")
     assert "-cq" in gpu and gpu[gpu.index("-cq") + 1] == "26" and "-vf" in gpu
     webm = converters.tuned_video(src, ".webm", converters.VIDEO_ARGS[".webm"], Options(video_crf=18, video_max=720))

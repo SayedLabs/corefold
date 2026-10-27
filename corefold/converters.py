@@ -1127,8 +1127,9 @@ def tuned_video(src: Path, ext: str, args: list[str], options) -> list[str]:
         args[i] = str(_WEBM_CRF.get(crf, 32) if ext == ".webm" else crf)
     if new is not None:
         scale = f"scale={new[0]}:{new[1]}:flags=lanczos"
-        if "-vf" in args:
-            args[args.index("-vf") + 1] = scale  # (instead of the padding to even sizes: these are even)
+        if "-vf" in args:  # (instead of the padding to even sizes: these are even)
+            i = args.index("-vf") + 1
+            args[i] = f"{DEINTERLACE},{scale}" if args[i].startswith(DEINTERLACE) else scale
         else:
             at = args.index("-sn") if "-sn" in args else len(args)
             args[at:at] = ["-vf", scale]
@@ -1148,7 +1149,10 @@ AUDIO_ARGS = {
 # can pick an album-cover picture inside the file as "the video" (the result is a still image),
 # and films with picture subtitles fail to convert to MP4.
 _PICK = ["-map", "0:V:0", "-map", "0:a:0?", "-sn", "-dn"]
-_EVEN = _PICK + ["-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2"]  # H.264 needs even width/height
+# Old camcorder, TV and DVD videos are interlaced (each picture is two half pictures): made into ordinary
+# pictures, or every moving edge looks combed. Only pictures marked interlaced are touched; the rest pass as they are.
+DEINTERLACE = "bwdif=mode=send_frame:deint=interlaced"
+_EVEN = _PICK + ["-vf", DEINTERLACE + ",pad=ceil(iw/2)*2:ceil(ih/2)*2"]  # H.264 needs even width/height
 _H264 = ["-c:v", "libx264", "-preset", "medium", "-pix_fmt", "yuv420p"]
 _AAC = ["-c:a", "aac", "-b:a", "160k"]
 VIDEO_ARGS = {
@@ -1164,7 +1168,7 @@ VIDEO_ARGS = {
                            "split[a][b];[a]palettegen[p];[b][p]paletteuse", "-loop", "0"],
 }
 # Fits inside 1280x1280 (works for portrait and landscape), smaller file for sharing.
-VIDEO_SMALL_ARGS = _PICK + ["-vf", "scale=w='min(1280,iw)':h='min(1280,ih)':force_original_aspect_ratio=decrease:"
+VIDEO_SMALL_ARGS = _PICK + ["-vf", DEINTERLACE + ",scale=w='min(1280,iw)':h='min(1280,ih)':force_original_aspect_ratio=decrease:"
                            "force_divisible_by=2"] + _H264 + ["-crf", "28", "-c:a", "aac", "-b:a", "96k",
                                                               "-movflags", "+faststart"]
 

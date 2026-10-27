@@ -7,6 +7,7 @@ Run from the repo root: python scripts/newtest_converter.py
 Prints one line per check and "newtest_converter: N problem(s)"."""
 import faulthandler
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -109,6 +110,8 @@ def media():
     (SRC / "list.mp4").write_text("ffconcat version 1.0\nfile C:\\Windows\\win.ini\n")
     (SRC / "empty.mp4").write_bytes(b"")
     (SRC / "words.mp4").write_text("hello")
+    ok &= ff("-f", "lavfi", "-i", "testsrc2=s=720x576:r=50:d=2", "-vf", "tinterlace=interleave_top,setfield=tff",
+             "-c:v", "mpeg2video", "-flags", "+ilme+ildct", "-b:v", "5M", "-an", str(SRC / "camcorder.mpg"))
     frames = [Image.new("RGBA", (800, 600), (i * 40, 90, 200, 255)) for i in range(5)]
     frames[0].save(SRC / "moving.gif", save_all=True, append_images=frames[1:], duration=100, loop=0)
     pics = SRC / "Pictures"
@@ -147,6 +150,23 @@ def fast_copy():
     r, errs, _ = run("video:mp4", ["obs recording.mkv"], Options(output_folder=OUT, video_max=480))
     check(r.outputs and video_md5(r.outputs[0]) != video_md5(SRC / "obs recording.mkv"),
           "with a size limit smaller than the video it's made again")
+
+
+def interlaced():
+    tools()
+    r, errs, _ = run("video:mp4", ["camcorder.mpg"])
+    if not check(r.outputs and not errs, "an interlaced camcorder video becomes an MP4"):
+        return
+    res = subprocess.run([FF, "-hide_banner", "-i", str(r.outputs[0]), "-vf", "idet", "-f", "null", "-"],
+                         capture_output=True, text=True).stderr
+    # (the last count: idet says it twice, and the first one can be all zeros)
+    line = ([ln for ln in res.splitlines() if "Multi frame detection" in ln] or [""])[-1]
+    nums = {k.lower(): int(v) for k, v in re.findall(r"(TFF|BFF|Progressive):\s*(\d+)", line)}
+    check(nums and nums["progressive"] > 3 * (nums["tff"] + nums["bff"]),
+          f"with ordinary (not combed) pictures: {line.split('detection:')[-1].strip()}")
+    rate = subprocess.run([PROBE, "-v", "error", "-show_entries", "stream=r_frame_rate", "-of", "csv=p=0",
+                           str(r.outputs[0])], capture_output=True, text=True).stdout.strip()
+    check(rate == "25/1", f"at the same 25 pictures a second ({rate})")
 
 
 def album_cover():
@@ -209,7 +229,7 @@ def logic():
           "a PDF's Merge, Split, Lock and Unlock aren't listed under Archive")
 
 
-for part in (media, fast_copy, album_cover, preset_name, small, names_and_fakes, logic):
+for part in (media, fast_copy, interlaced, album_cover, preset_name, small, names_and_fakes, logic):
     try:
         clear_cache()
         part()
