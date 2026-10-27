@@ -68,9 +68,30 @@ def describe(files: list[Path]) -> str:
     return short_name(files[0].name) if len(files) == 1 else tr("{count} files", count=len(files))
 
 
+def picture_size(path: Path) -> tuple[int, int] | None:
+    """A picture's width and height as it's shown (a phone photo taken upright is taller than wide), read
+    from its header only, or None."""
+    try:
+        from PIL import Image
+
+        from .converters import setup_pillow
+        setup_pillow()
+        with Image.open(path) as im:
+            w, h = im.size
+            turned = im.getexif().get(0x0112) in (5, 6, 7, 8)
+        return (h, w) if turned else (w, h)
+    except Exception:
+        return None
+
+
 class ResizeDialog(Base):
     def __init__(self, files, icon, dark):
         super().__init__(tr("Resize"), describe(files), icon, dark)
+        size = picture_size(files[0]) if len(files) == 1 else None
+        if size:
+            now = QLabel(tr("Now {width} × {height} px", width=size[0], height=size[1]))
+            now.setObjectName("muted")
+            self.lay.addWidget(now)
         self.group = QButtonGroup(self)
         for key, (text, _, _) in RESIZE_PRESETS.items():
             rb = QRadioButton(tr(text))
@@ -84,13 +105,16 @@ class ResizeDialog(Base):
         self.group.addButton(self.custom)
         self.width = QSpinBox()
         self.width.setRange(16, 20000)
-        self.width.setValue(1200)
+        self.width.setValue(min(1200, size[0]) if size else 1200)
         self.width.setSuffix(tr(" px"))
         self.width.valueChanged.connect(lambda _: self.custom.setChecked(True))
         custom.addWidget(self.custom)
         custom.addWidget(self.width)
         custom.addStretch()
         self.lay.addLayout(custom)
+        self.smaller = QCheckBox(tr("Never make it bigger"))
+        self.smaller.setChecked(True)
+        self.lay.addWidget(self.smaller)
         note = QLabel(tr("The height changes to match, so nothing gets stretched. Your original stays as it is."))
         note.setObjectName("muted")
         note.setWordWrap(True)
@@ -99,7 +123,7 @@ class ResizeDialog(Base):
 
     def params(self):
         key = self.group.checkedButton().property("key")
-        return {"preset": key, "width": self.width.value()}
+        return {"preset": key, "width": self.width.value(), "bigger": not self.smaller.isChecked()}
 
 
 class RotateDialog(Base):

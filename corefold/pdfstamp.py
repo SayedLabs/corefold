@@ -77,19 +77,21 @@ def page_numbers(src: Path, ctx: Ctx) -> Result:
         place = "bc"
     style = ctx.params.get("style", "n")
     first = max(0, int(ctx.params.get("skip", 0) or 0))  # pages left without a number (a cover)
+    start = max(1, int(ctx.params.get("start", 1) or 1))  # the first page's number
     writer = PdfWriter(clone_from=_reader(src, ctx))
     font = writer._add_object(DictionaryObject({
         NameObject("/Type"): NameObject("/Font"), NameObject("/Subtype"): NameObject("/Type1"),
         NameObject("/BaseFont"): NameObject("/Helvetica"), NameObject("/Encoding"): NameObject("/WinAnsiEncoding")}))
     pages = writer.pages
     total = len(pages) - first
+    last = total + start - 1  # ("12 / 20" when a chapter of pages 12 to 20 starts at 12)
     for i, page in enumerate(pages):
         ctx.check()
         if i < first:
             continue
         x0, y0, w, h = _upright(page)
         size = max(7.0, min(14.0, min(w, h) / 55))
-        text = number_text(i - first + 1, total, style)
+        text = number_text(i - first + start, last, style)
         tw = _text_width(text, size)
         margin = max(18.0, min(w, h) * 0.04)
         x = {"l": margin, "c": (w - tw) / 2, "r": w - margin - tw}[place[1]]

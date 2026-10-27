@@ -16,8 +16,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QMimeData, QRect, QRectF, QSize, Qt, QTimer, QUrl
-from PySide6.QtGui import QDesktopServices, QDrag, QFont, QFontMetrics, QGuiApplication, QKeySequence, QPainter, QShortcut
-from PySide6.QtWidgets import QAbstractItemView, QFileDialog, QHBoxLayout, QHeaderView, QInputDialog, QLabel, \
+from PySide6.QtGui import QDesktopServices, QDrag, QFont, QFontMetrics, QGuiApplication, QIcon, QKeySequence, QPainter, \
+    QShortcut
+from PySide6.QtWidgets import QAbstractItemView, QFileDialog, QHBoxLayout, QHeaderView, QLabel, \
     QLineEdit, QListWidget, QListWidgetItem, QMenu, QMessageBox, QProgressBar, QPushButton, QStyle, \
     QStyledItemDelegate, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
@@ -81,6 +82,7 @@ def _ui_error(e) -> str:
         cloud.TOO_BIG_TO_EXPORT: tr("Google can't turn something this big into a file. Download it from the Google "
                                     "Drive website."),
         cloud.WEB_ONLY: tr("This one only opens on the service's website."),
+        cloud.INTO_ITSELF: tr("A folder can't be moved into itself."),
         cloud.NO_FILES_ALLOWED: tr("Corefold wasn't allowed to see your files. Sign in again and leave the box that "
                                    "lets it see, edit and delete your files ticked."),
         cloud.NOT_SENT_WHOLE: tr("The upload didn't arrive whole, so it was taken away again. Your file on this PC "
@@ -98,13 +100,33 @@ def _ui_error(e) -> str:
     return tr("Something went wrong: {text}", text=ltr(text))
 
 
+def _names(names: list[str]) -> str:
+    return ltr(", ".join(short_name(n, 30) for n in names[:3]) + ("…" if len(names) > 3 else ""))
+
+
 def _left_out(c: cloud.Client) -> str:
-    """What a download or copy left out because it only opens on the service's website (Google Forms, Sites…)."""
-    if not c.skipped:
-        return ""
-    return " " + tr("{count} left out: they only open on the website ({names}).", count=len(c.skipped),
-                    names=ltr(", ".join(short_name(n, 30) for n in c.skipped[:3]) +
-                              ("…" if len(c.skipped) > 3 else "")))
+    """What a download, upload or copy left out: what only opens on the service's website (Google Forms, Sites…),
+    and folders on this PC Windows didn't let Corefold read."""
+    said = ""
+    if c.skipped:
+        said += " " + tr("{count} left out: they only open on the website ({names}).", count=len(c.skipped),
+                         names=_names(c.skipped))
+    if c.unread:
+        said += " " + tr("{count} folders left out: Windows didn't let Corefold read them ({names}).",
+                         count=len(c.unread), names=_names(c.unread))
+    return said
+
+
+def _menu_text(text: str) -> str:
+    """A name on a button or in a menu, shown as it's written ("R&D" isn't "RD" with an underlined D)."""
+    return text.replace("&", "&&")
+
+
+def _open_web(url: str) -> bool:
+    """A file's page on the service's website, in the browser (only a web address: never a file or a program)."""
+    if not str(url).lower().startswith("https://"):
+        return False
+    return QDesktopServices.openUrl(QUrl(url))
 
 
 OPENED_NOTE = ".corefold-opened"  # (in each such folder: the file's size and date right after it came down)
@@ -327,7 +349,7 @@ class Crumbs(QWidget):
                 sep.setContentsMargins(2, 0, 2, 0)
                 self.lay.addWidget(sep)
             last = i == len(self.parts) - 1
-            b = QPushButton(ltr(short_name(name, 40)))
+            b = QPushButton(_menu_text(ltr(short_name(name, 40))))
             b.setObjectName("crumbHere" if last else "crumb")
             b.setToolTip(ltr(name) if len(name) > 40 else "")
             if i < 0:
@@ -597,13 +619,19 @@ class CloudPage(QWidget):
         self.explorer_btn = IconButton(tr("Open in File Explorer"))  # (its words left the folder's name no room)
         self.explorer_btn.setIcon(self._ic("folder_open"))
         self.explorer_btn.clicked.connect(self._open_in_explorer)
+        # (an icon: the row below then has room for Download in every language)
+        self.refresh_btn = IconButton(tr("Refresh") + " (F5)")
+        self.refresh_btn.setIcon(self._ic("arrow_clockwise"))
+        self.refresh_btn.clicked.connect(lambda: self.refresh())
         top.addWidget(self.up_btn)
         top.addWidget(self.where, 1)
         top.addWidget(self.explorer_btn)
+        top.addWidget(self.refresh_btn)
         top.addWidget(self.search)
         main.addLayout(top)
         acts = QHBoxLayout()
         acts.setSpacing(6)
+        self.acts = acts
         self.upload_btn = self._button(tr("Upload…"), lambda: None)
         upload = QMenu(self.upload_btn)
         round_menu(upload)
@@ -611,19 +639,28 @@ class CloudPage(QWidget):
         upload.addAction(tr("A folder…"), self._pick_upload_folder)
         self.upload_btn.setMenu(upload)
         self.upload_btn.setMinimumWidth(self.upload_btn.sizeHint().width() + 18)  # (room for the menu's arrow)
+        self.download_btn = self._button(tr("Download…"), lambda: self._with_picked(self.download))
+        self.download_btn.setToolTip(tr("Save the picked files and folders on this PC"))
         self.folder_btn = self._button(tr("New folder"), self.new_folder)
-        self.refresh_btn = self._button(tr("Refresh"), self.refresh)
         self.preview_btn = self._button(tr("Preview"), self.preview_current)
         self.preview_btn.setToolTip(tr("See what's in the picked file without opening it (Space)"))
-        for b in (self.upload_btn, self.folder_btn, self.refresh_btn, self.preview_btn):
+        for b in (self.upload_btn, self.download_btn, self.folder_btn, self.preview_btn):
             acts.addWidget(b)
         acts.addStretch()
         self.space = QLabel()
         self.space.setObjectName("muted")
         acts.addWidget(self.space)
+        # (on a narrow window they show only their icons, with their words in the tooltip, instead of being
+        # squeezed until their words are cut)
+        self.actions = [(b, b.text(), icon, b.toolTip(), b.minimumWidth()) for b, icon in (
+            (self.upload_btn, "arrow_upload"), (self.download_btn, "arrow_download"), (self.folder_btn, "folder"),
+            (self.preview_btn, "search"))]
+        self.compact, self._need = False, 0
+        self.up_words = (self.up_btn, self.up_btn.text(), "arrow_up", "", self.up_btn.minimumWidth())  # (too)
         main.addLayout(acts)
         self.files = Files(self)
         self.files.itemDoubleClicked.connect(self._double_click)
+        self.files.itemSelectionChanged.connect(self._picked_changed)
         self.files.setContextMenuPolicy(Qt.CustomContextMenu)
         self.files.customContextMenuRequested.connect(self._file_menu)
         main.addWidget(self.files, 1)
@@ -864,6 +901,7 @@ class CloudPage(QWidget):
             self.space.setText("")
         else:
             self.space.setText(space_text(acc))
+        QTimer.singleShot(0, self._fit_actions)  # (its words take room from the buttons')
 
     def _switch_to(self, acc: cloud.Account):
         """Shows this account in the list (a search result from another account was opened)."""
@@ -1212,9 +1250,10 @@ class CloudPage(QWidget):
     def _buttons(self):
         have = self.account is not None
         any_account = bool(self.accounts)
-        for w in (self.account_list, self.up_btn, self.where, self.search, self.upload_btn,
-                  self.folder_btn, self.refresh_btn, self.space):
+        for w in (self.account_list, self.up_btn, self.where, self.search, self.upload_btn, self.download_btn,
+                  self.folder_btn, self.refresh_btn):
             w.setVisible(any_account)  # nothing to browse yet: only the buttons and the note
+        self.space.setVisible(any_account and not self.compact)
         self.welcome.setVisible(not any_account)  # (nothing yet: the big welcome in the middle has the buttons)
         self.add_btn.setVisible(any_account)
         if self.privacy_btn is not None:
@@ -1233,6 +1272,40 @@ class CloudPage(QWidget):
         self.preview_btn.setVisible(any_account)
         self.preview_btn.setEnabled(have and bool(self.shown))
         self.up_btn.setEnabled(have and (bool(self.trail) or self.results is not None))
+        self._picked_changed()
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        QTimer.singleShot(0, self._fit_actions)
+
+    def _fit_actions(self, again: bool = False):
+        if not work.alive(self):
+            return
+        # (the page less the list of accounts and the gaps: what the layout says of a row inside a row isn't kept up)
+        room = self.width() - self.account_list.width() - 12 - self.layout().contentsMargins().right()
+        if room <= 0 or self.account_list.isHidden():
+            return
+        if not self.compact:
+            shown = [b for b, *_ in self.actions if not b.isHidden()]
+            self._need = sum(b.sizeHint().width() for b in shown) + self.acts.spacing() * len(shown) + \
+                (self.space.sizeHint().width() if self.space.text() else 0)
+        compact = self._need > room
+        if compact == self.compact:
+            return
+        self.compact = compact
+        self.space.setVisible(not compact)  # (each account's space is in the list of accounts too)
+        self.search.setMinimumWidth(120 if compact else 160)  # (room for where you are)
+        for b, text, icon, tip, least in (*self.actions, self.up_words):
+            b.setText("" if compact else text)
+            b.setIcon(self._ic(icon) if compact else QIcon())
+            b.setToolTip((text + ("\n" + tip if tip else "")) if compact else tip)
+            b.setAccessibleName(text)
+            b.setMinimumWidth(0 if compact else least)
+        if not compact and not again:  # (words back: still room for them? measured again with them shown)
+            QTimer.singleShot(0, lambda: self._fit_actions(True))
+
+    def _picked_changed(self):
+        self.download_btn.setEnabled(not self.files.isHidden() and self.files.selectionModel().hasSelection())
 
     def go_back(self) -> bool:
         """Back (Alt+Left, the mouse's back button, Backspace): out of a search, then up a folder."""
@@ -1282,7 +1355,7 @@ class CloudPage(QWidget):
             self.trail.append(e)
             self.open_here()
         elif e.kind and e.web:  # (a Google Doc, Form…: it's opened where it's changed, so nothing is left behind)
-            QDesktopServices.openUrl(QUrl(e.web))
+            _open_web(e.web)
             self.status.setText(tr("Opened {name} in the browser.", name=ltr(e.name)))
         elif e.kind == "web":
             self.status.setText(_ui_error(cloud.CloudError(cloud.WEB_ONLY)))
@@ -1327,7 +1400,7 @@ class CloudPage(QWidget):
                 menu.addAction(self._ic("search"), tr("Preview") + "\tSpace", lambda: self.preview(acc, one))
             if one.web and not acc.local and one.kind != "web":
                 menu.addAction(self._ic("globe"), tr("Open on the website"),
-                               lambda: QDesktopServices.openUrl(QUrl(one.web)))
+                               lambda: _open_web(one.web))
             if not acc.local and one.kind not in ("virtual", "drive"):
                 menu.addAction(self._ic("link"), tr("Copy a share link"), lambda: self.share_link(acc, one))
         if acc.local and one is not None:
@@ -1340,13 +1413,13 @@ class CloudPage(QWidget):
             sub = menu.addMenu(self._ic("copy"), tr("Copy to"))
             round_menu(sub)
             for a in others:
-                sub.addAction(self._ic("hard_drive" if a.local else "cloud"), ltr(a.title),
+                sub.addAction(self._ic("hard_drive" if a.local else "cloud"), _menu_text(ltr(a.title)),
                               lambda a=a: self.copy_to(acc, picked, a, None))
             if not fixed:
                 sub = menu.addMenu(self._ic("cut"), tr("Move to"))
                 round_menu(sub)
                 for a in others:
-                    sub.addAction(self._ic("hard_drive" if a.local else "cloud"), ltr(a.title),
+                    sub.addAction(self._ic("hard_drive" if a.local else "cloud"), _menu_text(ltr(a.title)),
                                   lambda a=a: self.copy_to(acc, picked, a, None, move=True))
         if not fixed:
             if one is not None:
@@ -1612,14 +1685,15 @@ class CloudPage(QWidget):
         def go(progress, cancel):
             c = cloud.client(acc)
             count = sum(cloud.upload_tree(c, p, folder, progress, cancel) for p in paths)
-            return tr("Uploaded 1 file.") if count == 1 else tr("Uploaded {count} files.", count=count)
+            said = tr("Uploaded 1 file.") if count == 1 else tr("Uploaded {count} files.", count=count)
+            return said + _left_out(c)
         what = ltr(paths[0].name) if len(paths) == 1 else tr("{count} items", count=len(paths))
         self._run(go, what=tr("Upload {what}", what=what))
 
     def new_folder(self):
         if self.account is None:
             return
-        name, ok = QInputDialog.getText(self, tr("New folder"), tr("Name:"))
+        name, ok = sheet.get_text(self, tr("New folder"), tr("Name:"))
         name = name.strip()
         if not ok or not name:
             return
@@ -1631,7 +1705,7 @@ class CloudPage(QWidget):
         self._run(go, what=tr("New folder {name}", name=ltr(name)))
 
     def rename(self, acc: cloud.Account, e: cloud.Entry):
-        name, ok = QInputDialog.getText(self, tr("Rename"), tr("New name:"), text=e.name)
+        name, ok = sheet.get_text(self, tr("Rename"), tr("New name:"), text=e.name)
         name = name.strip()
         if not ok or not name or name == e.name:
             return
@@ -1646,7 +1720,9 @@ class CloudPage(QWidget):
         box = QMessageBox(self)
         box.setIcon(QMessageBox.Question)
         box.setWindowTitle(tr("Copy a share link"))
-        box.setText(tr("Anyone you give the link to can see {name} and download it, without signing in. They "
+        box.setText(tr("Anyone you give the link to can see the folder {name} and everything in it, and download "
+                       "them, without signing in. They can't change them.", name=ltr(e.name)) if e.folder else
+                    tr("Anyone you give the link to can see {name} and download it, without signing in. They "
                        "can't change it.", name=ltr(e.name)))
         yes = box.addButton(tr("Copy the link"), QMessageBox.AcceptRole)
         box.addButton(tr("Cancel"), QMessageBox.RejectRole)
@@ -1709,26 +1785,21 @@ class CloudPage(QWidget):
         def go(progress, cancel):
             src, dst = cloud.client(source), cloud.client(target)
             count = moved = 0
-            for e in entries:
-                left_out = len(src.skipped)
-                if source.local:
-                    count += cloud.upload_tree(dst, Path(e.id), into, progress, cancel)
-                else:
-                    count += cloud.copy_tree(src, e, dst, into, progress, cancel)
-                if move and len(src.skipped) == left_out:  # (all of it got there: only then is it taken away)
-                    if cancel.is_set():
-                        raise cloud.CloudError("cancelled")
-                    src.delete(e)
-                    moved += 1
+            for e in entries:  # (each one is only taken away once all of it got there)
+                sent, gone = cloud.send(src, e, dst, into, move, progress, cancel)
+                count += sent
+                moved += gone
             if move:
                 said = tr("Moved 1 file to {name}.", name=ltr(target.title)) if count == 1 else \
                     tr("Moved {count} files to {name}.", count=count, name=ltr(target.title))
-                if moved < len(entries):
+                if src.converted:
+                    said += " " + tr("Google files went as Office files, so the originals stay where they were.")
+                elif moved < len(entries):
                     said += " " + tr("What couldn't be copied whole stays where it was.")
             else:
                 said = tr("Copied 1 file to {name}.", name=ltr(target.title)) if count == 1 else \
                     tr("Copied {count} files to {name}.", count=count, name=ltr(target.title))
-            return said + _left_out(src)
+            return said + _left_out(src) + _left_out(dst)
         here = self.account is not None and self.account.key in (target.key, source.key if move else "")
         self._run(go, refresh=here,
                   what=(tr("Move {what} to {name}", what=self._what(entries), name=ltr(target.title)) if move else
@@ -1785,5 +1856,10 @@ class CloudPage(QWidget):
 
     def apply_theme(self, theme):
         self.__dict__.pop("_icons", None)
+        self.explorer_btn.setIcon(self._ic("folder_open"))
+        self.refresh_btn.setIcon(self._ic("arrow_clockwise"))
+        if self.compact:
+            for b, _text, icon, *_ in (*self.actions, self.up_words):
+                b.setIcon(self._ic(icon))
         self._fill_accounts()
         self._show(self.shown)

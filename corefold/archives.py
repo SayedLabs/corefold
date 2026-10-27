@@ -1007,6 +1007,15 @@ def test_archive(src: Path, ctx: Ctx) -> Result:
 LEVELS = {"fast": 1, "normal": 5, "max": 9}
 # TAR files (for Linux and Mac), made by Corefold itself: their packing level for fast, normal and max
 TAR_FORMATS = {"tar.gz": (1, 6, 9), "tar.xz": (1, 6, 9), "tar.zst": (1, 6, 19)}
+# files that are packed already: squeezing them again takes time and saves next to nothing
+PACKED_ALREADY = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".avif", ".gif", ".mp4", ".mov", ".mkv",
+                  ".webm", ".m4v", ".mp3", ".m4a", ".aac", ".ogg", ".opus", ".flac", ".zip", ".7z", ".rar", ".gz",
+                  ".xz", ".zst", ".bz2", ".docx", ".xlsx", ".pptx", ".epub"}
+
+
+def packed_already(items: list[Path]) -> bool:
+    """Only files that are packed already (photos, videos, music, archives): they're stored as they are."""
+    return bool(items) and all(p.is_file() and p.suffix.lower() in PACKED_ALREADY for p in items)
 
 
 def _pack_tar(items: list[Path], rel: list[str], out: Path, ctx: Ctx, fmt: str, level: str):
@@ -1071,8 +1080,11 @@ def pack_into(items: list[Path], out: Path, ctx: Ctx, fmt: str = "zip", level: s
     if fmt in TAR_FORMATS:  # (no password or parts: TAR has neither)
         _pack_tar(items, rel, out, ctx, fmt, level)
         return [out]
+    # (as Bandizip does: photos and videos in a ZIP are just stored, many times faster and hardly bigger;
+    # "max" still squeezes everything)
+    mx = 0 if level == "normal" and packed_already(items) else LEVELS.get(level, 5)
     if find_7z():
-        args = ["a", f"-t{fmt}", f"-mx={LEVELS.get(level, 5)}", "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-ssw", "-y",
+        args = ["a", f"-t{fmt}", f"-mx={mx}", "-bsp1", "-bse1", "-bb0", "-sccUTF-8", "-ssw", "-y",
                 "-spd"]
         if fmt == "zip":  # (names always marked UTF-8: they read right on every PC and in every program)
             args.append("-mcu=on")
@@ -1126,7 +1138,8 @@ def pack_into(items: list[Path], out: Path, ctx: Ctx, fmt: str = "zip", level: s
         else:
             files.append((p, r))
     try:
-        with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=LEVELS.get(level, 5)) as zf:
+        how = zipfile.ZIP_STORED if mx == 0 else zipfile.ZIP_DEFLATED
+        with zipfile.ZipFile(out, "w", how, compresslevel=None if mx == 0 else mx) as zf:
             for i, (f, arc) in enumerate(files):
                 ctx.check()
                 zf.write(f, arc)
