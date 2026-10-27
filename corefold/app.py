@@ -2680,10 +2680,22 @@ OUTPUT_EXT = {"image:pdf": ".pdf", "image:scan": ".pdf", "pdf:merge": ".pdf", "i
               "pack:zip": ".zip", "pack:7z": ".7z"}  # what a tool makes, when it isn't Tool.target
 
 
+FULL_GC_EVERY_S = 60   # with a window in use, every object is looked through at most this often (it stops the
+_last_full = [0.0]      # window for up to half a second; the younger objects go each time, as before)
+
+
+def _full_collection_done(phase: str, info: dict):
+    if phase == "stop" and info.get("generation") == 2:
+        _last_full[0] = time.monotonic()
+
+
+gc.callbacks.append(_full_collection_done)  # (a full look elsewhere, like the tidy after a job, counts too)
+
+
 def collect_garbage():
     """What Python's own collector would have done by now (the same thresholds), on this thread."""
     young, middle, old = gc.get_count()
-    if old > 10:
+    if old > 10 and (QApplication.activeWindow() is None or time.monotonic() - _last_full[0] > FULL_GC_EVERY_S):
         gc.collect(2)
     elif middle > 10:
         gc.collect(1)
