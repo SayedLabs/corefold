@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QEvent, QObject, QPoint, QSize, Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import (QColor, QDesktopServices, QGuiApplication, QIcon, QKeySequence, QPainter, QPixmap,
-                           QShortcut)
+from PySide6.QtGui import (QColor, QDesktopServices, QFont, QFontMetrics, QGuiApplication, QIcon, QKeySequence,
+                           QPainter, QPixmap, QShortcut)
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QButtonGroup, QCheckBox, QComboBox,
                                QFileDialog, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
                                QListWidgetItem, QMenu, QMessageBox, QPushButton, QScrollArea, QSizePolicy, QSlider,
@@ -1237,16 +1237,32 @@ class MainWindow(QWidget):
         tight = canvas_width < 720  # the smallest windows: less room around the pages
         self.canvas.layout().setContentsMargins(*((16, 10, 10, 12) if tight else (28, 12, 16, 16)))
         self._body.setSpacing(12 if tight else 24)
-        narrow = canvas_width < 1000
+        # the names show from the window's first size (1040 wide), as in Windows' own Settings; only the
+        # smallest windows show icons alone
+        narrow = canvas_width < 760
         if narrow == getattr(self, "_settings_narrow", None):
             return
         self._settings_narrow = narrow
-        self.settings_side.setFixedWidth(52 if narrow else 212)
+        wide = self._settings_side_width()
+        self.settings_side.setFixedWidth(52 if narrow else wide)
         self.settings_side_title.setVisible(not narrow)
+        bold = QFont(self.settings_list.font())
+        bold.setWeight(QFont.Weight.DemiBold)
+        fm = QFontMetrics(bold)
         for row in range(self.settings_list.count()):
             item = self.settings_list.item(row)
-            item.setToolTip(item.text() if narrow else "")
+            cut = fm.horizontalAdvance(item.text()) > wide - 62  # (a long name is cut: its tip says it whole)
+            item.setToolTip(item.text() if narrow or cut else "")
         self.settings_list.viewport().update()
+
+    def _settings_side_width(self) -> int:
+        """Room for the longest name in the Settings list (with its icon), from 168 to 212 pixels."""
+        bold = QFont(self.settings_list.font())
+        bold.setWeight(QFont.Weight.DemiBold)
+        fm = QFontMetrics(bold)
+        longest = max((fm.horizontalAdvance(self.settings_list.item(r).text())
+                       for r in range(self.settings_list.count())), default=0)
+        return max(168, min(212, longest + 62))
 
     def shows(self, name: str) -> bool:
         """The page can be opened: a sidebar row, or a tool in use (in its section)."""
@@ -1573,7 +1589,7 @@ class MainWindow(QWidget):
                                                and self.open_page(item.data(Qt.UserRole)))
         self.settings_list.currentRowChanged.connect(self._settings_row_changed)
         sv.addWidget(self.settings_list, 1)
-        side.setFixedWidth(212)
+        side.setFixedWidth(168)
         side.hide()
         self.settings_side = side
 
