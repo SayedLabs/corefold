@@ -76,6 +76,7 @@ TEXT_EXT = {".txt", ".md", ".log", ".csv", ".tsv", ".json", ".xml", ".ini", ".cf
 TEXT_SHOWN = 256 << 10     # this much of a text file is shown
 SNIFF_MAX = 2 << 20        # a file with an unknown kind is looked at for text when it's this small
 PREVIEW_PX = 1600          # pictures are made this small (at most) for the preview
+PREVIEW_PIXELS = 64_000_000  # bigger pictures (a "picture bomb" of a few KB) are never decoded for it
 
 
 def preview_of(name: str, data: bytes) -> tuple[str, object]:
@@ -115,6 +116,10 @@ def preview_of(name: str, data: bytes) -> tuple[str, object]:
                 except Exception:
                     pass
                 with Image.open(io.BytesIO(data)) as im:
+                    if im.width * im.height > PREVIEW_PIXELS:  # (Qt refused it as too big: decoding it whole
+                        im.draft("RGB", (PREVIEW_PX, PREVIEW_PX))  # could take GBs; a JPEG can be read small)
+                        if im.width * im.height > PREVIEW_PIXELS:
+                            return "none", tr("This picture can't be shown.")
                     im = ImageOps.exif_transpose(im)
                     im.thumbnail((PREVIEW_PX, PREVIEW_PX))
                     im = im.convert("RGBA")

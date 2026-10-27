@@ -297,6 +297,7 @@ def jpegs_to_pdf(photos: list[tuple[Path, int, int, int, bool]], out: Path, reso
     """JPG photos go into the PDF as they are: nothing is decoded and compressed again, so it's many times
     faster and the photos keep their quality. Phone rotation is applied on the page. The PDF is written
     here directly (a PDF of pictures is a short list of parts), so each photo is one plain file copy."""
+    from .pdftools import jpeg_without_details
     tmp = out.with_name(out.name + ".part")
     offsets: list[int] = []
     n = len(photos)
@@ -315,7 +316,7 @@ def jpegs_to_pdf(photos: list[tuple[Path, int, int, int, bool]], out: Path, reso
             part(f"<< /Type /Pages /Kids [{kids}] /Count {n} >>".encode("ascii"))
             for i, (f, w, h, turn, gray) in enumerate(photos):
                 ctx.check()
-                data = Path(f).read_bytes()
+                data = jpeg_without_details(Path(f).read_bytes())  # (no GPS place or phone details inside)
                 sw, sh = w * 72 / resolution, h * 72 / resolution
                 pw, ph = (sh, sw) if turn in (6, 8) else (sw, sh)
                 # where the photo goes on the page: a x b y c d (turned the way the phone held it)
@@ -1299,8 +1300,9 @@ def pdfs_and_pictures(files: list[Path]) -> bool:
 
 
 def write_compressed_pdf(src: Path, out: Path, ctx: Ctx, quality: int = 65, max_dim: int = 1800,
-                         progress_span: tuple[float, float] = (0.0, 0.9), reader=None):
-    """Shrinks big pictures inside the PDF and squeezes the rest. Text stays sharp."""
+                         progress_span: tuple[float, float] = (0.0, 0.9), reader=None, password: str = ""):
+    """Shrinks big pictures inside the PDF and squeezes the rest. Text stays sharp. With a password (the
+    original had one), the smaller copy is locked with it as it's written: it's never on the disk open."""
     from PIL import Image
     from pypdf import PdfWriter
     reader = reader or _open_reader(src)
@@ -1331,6 +1333,8 @@ def write_compressed_pdf(src: Path, out: Path, ctx: Ctx, quality: int = 65, max_
         page.compress_content_streams()
         ctx.progress(a + (b - a) * (i + 1) / n)
     writer.compress_identical_objects(remove_duplicates=True, remove_unreferenced=True)
+    if password:
+        writer.encrypt(user_password=password, owner_password=password, algorithm="AES-256")
     with open(out, "wb") as fh:
         writer.write(fh)
 
@@ -1663,11 +1667,11 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
            Tool("pdf:images", tr("Pictures"), tr("Save the pictures inside"), mt.pdf_images, check=check_pdf_locked,
                 slow_check=True),
            Tool("pdf:numbers", tr("Page numbers"), tr("Number every page"), ps.page_numbers, ask="page_numbers",
-                check=check_pdf_locked, slow_check=True),
+                password=True),
            Tool("pdf:watermark", tr("Watermark"), tr("Add text or a logo to every page"), ps.watermark_pdf,
-                ask="watermark", check=check_pdf_locked, slow_check=True),
+                ask="watermark", password=True),
            Tool("pdf:sign", tr("Sign"), tr("Put your signature on it"), ps.sign_pdf, ask="sign",
-                check=check_pdf_locked, slow_check=True),
+                password=True),
            Tool("pdf:lock", tr("Lock"), tr("Protect with a password"), mt.pdf_lock, ask="lock",
                 check=mt.check_can_lock, slow_check=True),
            Tool("pdf:unlock", tr("Unlock"), tr("Remove the password"), mt.pdf_unlock, password=True,

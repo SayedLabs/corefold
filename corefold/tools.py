@@ -284,6 +284,16 @@ if os.environ.get("COREFOLD_WAKE_RESTING") == "1" and not getattr(sys, "frozen",
     # (the Bug hunt's checks, run from the source only, keep trying the resting tools' kept code; a built
     # Corefold.exe never looks at this)
     PAUSED_SECTIONS = frozenset()
+# Single tools resting for now inside a section that's in use, until they're checked again: kept whole like a
+# resting section's, but hidden from their section (no page, no Home widget, nothing in the background). To
+# bring one back, take its id out of here. File Organizer moves people's files, so it rests until it's been
+# checked again.
+PAUSED_TOOLS: frozenset[str] = frozenset({"organizer"})
+if not getattr(sys, "frozen", False) and (os.environ.get("COREFOLD_WAKE_RESTING") == "1"
+                                          or os.environ.get("COREFOLD_WAKE_ORGANIZER") == "1"):
+    # (the checks that try File Organizer's kept code, run from the source only; a built Corefold.exe never
+    # looks at this)
+    PAUSED_TOOLS = frozenset()
 
 # what a tool is right now (state())
 AVAILABLE = "available"   # ready, in a section that's in use
@@ -315,7 +325,7 @@ def state(tool_id: str) -> str:
     t = BY_ID.get(tool_id)
     if t is None or not t.ready:
         return PLANNED
-    return PAUSED if section_paused(SECTION_OF[tool_id]) else AVAILABLE
+    return PAUSED if tool_id in PAUSED_TOOLS or section_paused(SECTION_OF[tool_id]) else AVAILABLE
 
 
 def available() -> list[ToolInfo]:
@@ -357,8 +367,11 @@ def enabled(settings) -> list[ToolInfo]:
 
 
 def in_section(settings, sec: Section) -> list[ToolInfo]:
-    """A section's ready tools (on or off), in this person's order."""
-    return in_order(settings, [BY_ID[tool_id] for tool_id in sec.tools if BY_ID[tool_id].ready])
+    """A section's ready tools (on or off), in this person's order. A tool resting on its own (PAUSED_TOOLS) is
+    left out of a section that's in use, so there's no switch or card for it."""
+    resting = section_paused(sec)
+    return in_order(settings, [BY_ID[tool_id] for tool_id in sec.tools
+                               if BY_ID[tool_id].ready and (resting or tool_id not in PAUSED_TOOLS)])
 
 
 def is_on(settings, tool_id: str) -> bool:

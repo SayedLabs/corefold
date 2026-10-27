@@ -73,20 +73,49 @@ def _tar_name(name: str) -> str:
 _NOT_ON_WINDOWS = re.compile(r'[<>:"|?*\\\x00-\x1f]')
 
 
+# names Windows keeps for devices: "CON" or "aux.txt" opens the console or a port instead of a file
+_DEVICE_NAMES = re.compile(r"^(con|prn|aux|nul|com[0-9\u00b9\u00b2\u00b3]|lpt[0-9\u00b9\u00b2\u00b3])(\..*)?$", re.I)
+
+
+def _windows_part(part: str) -> str:
+    part = _NOT_ON_WINDOWS.sub("_", part).rstrip(" .") or "_"
+    return "_" + part if _DEVICE_NAMES.match(part) else part
+
+
 def windows_safe_name(name: str) -> str:
-    """A name from a Linux or Mac TAR that Windows can save: characters it refuses become "_" and an ending
-    dot or space goes (like 7-Zip does). Before, one such name stopped the whole extraction."""
-    return "/".join(part if part in ("", ".", "..") else _NOT_ON_WINDOWS.sub("_", part).rstrip(" .") or "_"
-                    for part in name.split("/"))
+    """A name from a Linux or Mac TAR that Windows can save: characters it refuses become "_", an ending
+    dot or space goes and a device's name ("CON", "aux.txt") gets a "_" in front (like 7-Zip does).
+    Before, one such name stopped the whole extraction."""
+    return "/".join(part if part in ("", ".", "..") else _windows_part(part) for part in name.split("/"))
 
 
-def _tar_filter(member: tarfile.TarInfo, path: str) -> tarfile.TarInfo | None:
-    member = tarfile.data_filter(member, path)  # (nothing outside the folder, no odd links or devices)
-    if member is not None and os.name == "nt":
-        name = windows_safe_name(member.name)
-        if name != member.name:
-            member = member.replace(name=name, deep=False)
-    return member
+class _TarFilter:
+    """What tarfile may unpack: nothing outside the folder, no links that lead out of it and no devices.
+    One such item is left out (and counted), never the whole archive refused: Linux TAR files often
+    hold a link to /usr/... that means nothing on Windows."""
+
+    def __init__(self, stream: bool = False):
+        self.left_out = 0
+        self.links = 0
+        self.stream = stream  # (read start to end: a .tar.zst)
+
+    def __call__(self, member: tarfile.TarInfo, path: str) -> tarfile.TarInfo | None:
+        try:
+            member = tarfile.data_filter(member, path)
+        except tarfile.FilterError:
+            self.left_out += 1
+            log.info("left an unsafe item out of a TAR file")
+            return None
+        if member is not None and member.issym() and self.stream and os.name == "nt":
+            # (Windows only lets an administrator make a link, and tarfile then copies what it points at,
+            # which needs going back in the file: a .tar.zst can't, and the whole unpacking stopped)
+            self.links += 1
+            return None
+        if member is not None and os.name == "nt":
+            name = windows_safe_name(member.name)
+            if name != member.name:
+                member = member.replace(name=name, deep=False)
+        return member
 
 
 def is_tar(p: Path) -> bool:
@@ -187,6 +216,11 @@ class _Nowhere:
 
 def _zst_inner_name(src: Path) -> str:
     return src.name[:-4] or "file"
+
+
+def _single_stream(p: Path) -> bool:
+    """One file packed on its own (.gz, .bz2, .xz, .lzma, .z), not a TAR of many."""
+    return p.suffix.lower() in (".gz", ".bz2", ".xz", ".lzma", ".z") and not is_tar(p)
 
 
 def is_extra_part(p: Path) -> bool:
@@ -546,7 +580,11 @@ def _list_entries(src: Path, password: str = "") -> list[Entry]:
             raise _7z_error(out)
         entries = _parse_slt(out)
         # 7-Zip also prints the archive itself as the first block when there's no "----------" marker
-        return [e for e in entries if e.path != str(src).replace("\\", "/")]
+        entries = [e for e in entries if e.path != str(src).replace("\\", "/")]
+        if not entries and _single_stream(src):  # (a .bz2 or .lzma: 7-Zip lists its one file with no name or size)
+            st = src.stat()
+            entries = [Entry(src.stem, 0, st.st_size, _tar_time(st.st_mtime))]
+        return entries
     if src.suffix.lower() == ".zip":
         try:
             with _open_zip(src) as zf:
@@ -629,9 +667,9 @@ class _SpaceGuard:
 
     EVERY = 0.25  # seconds between looks
 
-    def __init__(self, ctx: Ctx, folder: Path, budget: int | None = None, rescuing: bool = True):
+    def __init__(self, ctx: Ctx, folder: Path, budget: int | None = None, rescuing: bool = True, known: bool = True):
         import threading
-        self.outer, self.folder, self.budget, self.rescuing = ctx, folder, budget, rescuing
+        self.outer, self.folder, self.budget, self.rescuing, self.known = ctx, folder, budget, rescuing, known
         self.inner = Ctx(ctx.options, ctx.progress, threading.Event(), ctx.params, ctx.index, ctx.total)
         self.tripped = ""
         self._stop = threading.Event()
@@ -671,6 +709,9 @@ class _SpaceGuard:
             if self.tripped == "budget" and self.rescuing:
                 raise RuntimeError(tr("this archive unpacks to far more than its size or the free space allows, "
                                       "so rescuing it was stopped")) from None
+            if self.tripped == "budget" and not self.known:
+                raise RuntimeError(tr("this archive unpacks to over a thousand times its size (an archive bomb), "
+                                      "so unpacking was stopped")) from None
             if self.tripped == "budget":
                 raise RuntimeError(tr("this archive unpacked to far more than it says it holds (an archive bomb), "
                                       "so unpacking was stopped")) from None
@@ -685,6 +726,9 @@ class _SpaceGuard:
 # too. What was unpacked so far is deleted (extract() unpacks into a hidden folder first).
 BOMB_RATIO = 1000            # unpacking to over a thousand times its size, more than fits: called a bomb
 _LIE_SLACK = 256 * 1024 ** 2  # what other programs may write meanwhile, before "more than it says" counts
+# an archive that doesn't say how much it holds (.tar.gz, .bz2) may unpack to BOMB_RATIO times its size, and
+# at least this much (gzip itself can't pack more than about 1,000 to 1)
+_UNKNOWN_MIN = 4 * 1024 ** 3
 _CLUSTER, _ENTRY = 4096, 1024
 
 
@@ -697,8 +741,8 @@ def _declared_size(src: Path, password: str, members: list[str] | None) -> int |
         entries = list_entries(src, password)
     except Exception:  # (a locked list of names, a damaged archive: unpacking says what's wrong)
         return None
-    if is_zst(src) and entries and entries[0].size <= 0:
-        return None
+    if (is_zst(src) or _single_stream(src)) and len(entries) <= 1 and (not entries or entries[0].size <= 0):
+        return None  # (one packed file that doesn't say its size: a .bz2, or a .zst made as a stream)
     if members:
         wanted = [m.strip("/") for m in members]
         entries = [e for e in entries if any(e.path == w or e.path.startswith(w + "/") for w in wanted)]
@@ -728,31 +772,43 @@ def check_room(src: Path, target: Path, declared: int | None):
                           size=human_size(declared), free=human_size(max(0, free - RESCUE_RESERVE))))
 
 
-def _extract_into(src: Path, target: Path, ctx: Ctx, password: str, members: list[str] | None = None):
+def _extract_into(src: Path, target: Path, ctx: Ctx, password: str, members: list[str] | None = None) -> tuple[int, int]:
+    """Unpacks into target, watching the disk, and takes out any links that came out of it. Returns (links
+    taken out, unsafe items left out)."""
     declared = _declared_size(src, password, members)
     check_room(src, target, declared)
-    budget = None if declared is None else declared + max(_LIE_SLACK, declared // 10)
-    with _SpaceGuard(ctx, target, budget, rescuing=False) as guarded:
-        _unpack(src, target, guarded, password, members)
+    if declared is None:  # (a .tar.gz, a .bz2: only unpacking says how much they hold)
+        try:
+            packed = src.stat().st_size
+        except OSError:
+            packed = 0
+        budget, known = max(_UNKNOWN_MIN, BOMB_RATIO * packed), False
+    else:
+        budget, known = declared + max(_LIE_SLACK, declared // 10), True
+    with _SpaceGuard(ctx, target, budget, rescuing=False, known=known) as guarded:
+        unsafe, links = _unpack(src, target, guarded, password, members)
+    return _drop_links(target) + links, unsafe
 
 
-def _unpack(src: Path, target: Path, ctx: Ctx, password: str, members: list[str] | None = None):
+def _unpack(src: Path, target: Path, ctx: Ctx, password: str, members: list[str] | None = None) -> tuple[int, int]:
+    """Unpacks into target. Returns how many items were left out: unsafe ones, and links."""
     if is_tar(src):
         wanted = set(members or [])
+        keep = _TarFilter(stream=src.name.lower().endswith((".zst", ".tzst")))
         opened = _open_tar(src, ctx.check)
         with opened as tf:
             for m in tf:  # (start to end, the only way a .tar.zst can be read)
                 ctx.check()
                 if not wanted or _tar_name(m.name) in wanted:
-                    tf.extract(m, target, filter=_tar_filter)
+                    tf.extract(m, target, filter=keep)
                 ctx.progress(opened.progress())
         pass_on_zone_mark([src], [target])
-        return
+        return keep.left_out, keep.links
     if is_zst(src):
         with open(target / _zst_inner_name(src), "wb") as out:
             _unzst(src, out, ctx)
         pass_on_zone_mark([src], [target])
-        return
+        return 0, 0
     if find_7z():
         # -snz: files from a downloaded archive keep its "from the internet" mark (Windows then still
         # warns before running them); -spd: names are names, not wildcards; -aou: two files in it with the same
@@ -770,7 +826,7 @@ def _unpack(src: Path, target: Path, ctx: Ctx, password: str, members: list[str]
                 listfile.unlink(missing_ok=True)
         if code not in (0, 1):
             raise _7z_error(out)
-        return
+        return 0, 0
     wanted = set(members or [])
     with _open_zip(src) as zf:
         infos = [i for i in zf.infolist() if not wanted or i.filename.rstrip("/") in wanted]
@@ -784,6 +840,7 @@ def _unpack(src: Path, target: Path, ctx: Ctx, password: str, members: list[str]
                 raise
             ctx.progress((i + 1) / max(1, len(infos)))
     pass_on_zone_mark([src], [target])
+    return 0, 0
 
 
 def extract(src: Path, ctx: Ctx, mode: str = "smart") -> Result:
@@ -805,8 +862,7 @@ def extract(src: Path, ctx: Ctx, mode: str = "smart") -> Result:
     staging = new_folder(base, ".corefold-unpacking-")
     try:
         _hide(staging)
-        _extract_into(src, staging, ctx, password, members)
-        dropped = _drop_links(staging)
+        dropped, unsafe = _extract_into(src, staging, ctx, password, members)
         items = sorted(staging.iterdir())
         if not items:
             raise RuntimeError(tr("the archive is empty"))
@@ -827,6 +883,9 @@ def extract(src: Path, ctx: Ctx, mode: str = "smart") -> Result:
                 note = tr("Also unpacked {count} archives that were inside", count=count)
         if dropped:
             note = (note + " · " if note else "") + tr("Left out {count} links that pointed elsewhere", count=dropped)
+        if unsafe:
+            note = (note + " · " if note else "") + tr("Left out {count} items that would have gone outside the "
+                                                       "folder", count=unsafe)
         return Result([result], note=note)
     finally:
         if staging is not None and staging.exists():
@@ -1123,7 +1182,7 @@ def convert_archive(src: Path, ctx: Ctx, fmt: str) -> Result:
     """Re-packs an archive as ZIP or 7z (e.g. RAR → ZIP)."""
     with tempfile.TemporaryDirectory(prefix="corefold-", ignore_cleanup_errors=True) as tmp:
         inner = Ctx(ctx.options, lambda f: ctx.progress(0.5 * f), ctx.cancel_event, {"password": ctx.params.get("password", "")})
-        _extract_into(src, Path(tmp), inner, ctx.params.get("password", ""))
+        _extract_into(src, Path(tmp), inner, ctx.params.get("password", ""))  # (links taken out: never packed)
         items = sorted(Path(tmp).iterdir())
         if not items:
             raise RuntimeError(tr("the archive is empty"))
@@ -1535,6 +1594,7 @@ def repair_archive(src: Path, ctx: Ctx) -> Result:
                             damaged += 1
                     except OSError:
                         pass
+        _drop_links(stage)  # (a link would pack whatever it points at into the new ZIP)
         rescued = [p for p in stage.rglob("*") if p.is_file()]
         stopped = False
         if not rescued and src.suffix.lower() in (".zip", ".zipx"):  # read it piece by piece instead
