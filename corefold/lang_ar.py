@@ -3016,4 +3016,9 @@ STRINGS: dict[str, str] = {
     "Ejecting it…": "قاعد يخرجها…",
     "You can take out {name} now.": "تقدر تشيل {name} الحين.",
     "Windows says the USB drive is still in use. Close the programs using it (and any command window opened in it), then eject it again.": "ويندوز يقول إن الفلاشة لسا مستخدمة. سكّر البرامج اللي تستخدمها (وأي نافذة أوامر مفتوحة فيها)، وبعدين أخرجها مرة ثانية.",
+    "{count} folders left out: Windows didn't let Corefold read them ({names}).": "{count} مجلد ما انضافوا: ويندوز ما خلّى Corefold يقراهم ({names}).",
+    "Anyone you give the link to can see the folder {name} and everything in it, and download them, without signing in. They can't change them.": "أي أحد تعطيه الرابط يقدر يشوف المجلد {name} وكل اللي فيه وينزّلهم بدون ما يسجل دخول، بس ما يقدر يغيّر فيهم.",
+    "Google files went as Office files, so the originals stay where they were.": "ملفات Google انتقلت كملفات Office، عشان كذا الأصلية بقت في مكانها.",
+    "A folder can't be moved into itself.": "ما ينفع تنقل مجلد لداخل نفسه.",
+    "Save the picked files and folders on this PC": "احفظ الملفات والمجلدات المحددة على هالجهاز",
 }

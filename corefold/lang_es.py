@@ -2939,4 +2939,9 @@ STRINGS: dict[str, str] = {
     "Ejecting it…": "Expulsándola…",
     "You can take out {name} now.": "Ya puedes quitar {name}.",
     "Windows says the USB drive is still in use. Close the programs using it (and any command window opened in it), then eject it again.": "Windows dice que la unidad USB sigue en uso. Cierra los programas que la usan (y cualquier ventana de comandos abierta en ella) y vuelve a expulsarla.",
+    "{count} folders left out: Windows didn't let Corefold read them ({names}).": "{count} carpetas omitidas: Windows no dejó que Corefold las leyera ({names}).",
+    "Anyone you give the link to can see the folder {name} and everything in it, and download them, without signing in. They can't change them.": "Cualquiera a quien le des el enlace puede ver la carpeta {name} y todo lo que contiene, y descargarlo, sin iniciar sesión. No puede cambiarlo.",
+    "Google files went as Office files, so the originals stay where they were.": "Los archivos de Google se copiaron como archivos de Office, así que los originales se quedan donde estaban.",
+    "A folder can't be moved into itself.": "Una carpeta no se puede mover dentro de sí misma.",
+    "Save the picked files and folders on this PC": "Guardar los archivos y carpetas elegidos en este PC",
 }

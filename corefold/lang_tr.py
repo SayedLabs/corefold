@@ -2939,4 +2939,9 @@ STRINGS: dict[str, str] = {
     "Ejecting it…": "Çıkarılıyor…",
     "You can take out {name} now.": "{name} artık çıkarılabilir.",
     "Windows says the USB drive is still in use. Close the programs using it (and any command window opened in it), then eject it again.": "Windows USB sürücünün hâlâ kullanımda olduğunu söylüyor. Onu kullanan programları (ve içinde açık komut pencerelerini) kapatın, sonra yeniden çıkarın.",
+    "{count} folders left out: Windows didn't let Corefold read them ({names}).": "{count} klasör dışarıda kaldı: Windows, Corefold'un bunları okumasına izin vermedi ({names}).",
+    "Anyone you give the link to can see the folder {name} and everything in it, and download them, without signing in. They can't change them.": "Bağlantıyı verdiğiniz herkes {name} klasörünü ve içindeki her şeyi oturum açmadan görebilir ve indirebilir. Değiştiremez.",
+    "Google files went as Office files, so the originals stay where they were.": "Google dosyaları Office dosyası olarak gitti, bu yüzden asılları yerinde kaldı.",
+    "A folder can't be moved into itself.": "Bir klasör kendi içine taşınamaz.",
+    "Save the picked files and folders on this PC": "Seçili dosya ve klasörleri bu bilgisayara kaydet",
 }
