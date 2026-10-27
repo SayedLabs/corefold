@@ -12,7 +12,7 @@ from pathlib import Path
 
 from .converters import (AUDIO_ARGS, Ctx, Result, category, colour_profile, flatten, is_animated, is_multipage,
                          keep_format, load_image, media_duration, norm, pdf_lock_state, probe, rgb_or_rgba, run_ffmpeg,
-                         safe_name, save_animated, save_image, save_pages, tr, unique_path)
+                         run_sound, safe_name, save_animated, save_image, save_pages, see_through, tr, unique_path)
 from .core import disk_full, remove_file
 
 log = logging.getLogger("corefold")
@@ -311,7 +311,7 @@ def change_speed(src: Path, ctx: Ctx) -> Result:
     if category(src) == "audio":
         ext = norm(src.suffix) if norm(src.suffix) in AUDIO_ARGS else ".mp3"
         out = ctx.out_path(src, f"{ctx.stem(src)} ({tag}){ext}")
-        run_ffmpeg(src, out, ["-vn", "-af", atempo_chain(speed)] + AUDIO_ARGS[ext][1:], ctx, duration=dur)
+        out = run_sound(src, out, ext, ["-vn", "-af", atempo_chain(speed)] + AUDIO_ARGS[ext][1:], ctx, duration=dur)
         return Result([out])
     out = ctx.out_path(src, f"{ctx.stem(src)} ({tag}).mp4")
     args = ["-map", "0:V:0", "-sn", "-dn", "-vf", f"setpts=PTS/{speed},pad=ceil(iw/2)*2:ceil(ih/2)*2",
@@ -334,8 +334,7 @@ def fix_volume(src: Path, ctx: Ctx) -> Result:
         out = ctx.out_path(src, f"{ctx.stem(src)} (volume fixed){ext}")
         # loudnorm works at a very high sample rate inside; "-ar 48000" brings it back to a normal one
         args = ["-vn", "-af", LOUDNORM, "-ar", "48000"] + AUDIO_ARGS[ext][1:]
-        run_ffmpeg(src, out, args, ctx)
-        return Result([out])
+        return Result([run_sound(src, out, ext, args, ctx)])
     if not probe(src)["audio"]:
         raise RuntimeError(tr("this file has no audio track"))
     ext = _same_container(src)
@@ -392,8 +391,13 @@ def convert_folder(src: Path, ctx: Ctx, fmt: str = "jpg") -> Result:
             ctx.progress((i + 1) / len(pictures))
             continue
         try:
-            if fmt == "small":
-                small = flatten(im)  # (see-through parts white, like the "Small" tool, not black)
+            if fmt == "small" and see_through(im):  # (a logo or sticker stays a PNG, like the "Small" tool)
+                target = unique_path(target.with_suffix(".png"))
+                small = im.convert("RGBA")
+                small.thumbnail((1920, 1920), Image.LANCZOS)
+                small.save(target, optimize=True, **colour_profile(im, "RGBA"))
+            elif fmt == "small":
+                small = flatten(im)
                 small.thumbnail((1920, 1920), Image.LANCZOS)
                 small.save(target, quality=80, optimize=True, progressive=True, **colour_profile(im, "RGB"))
             else:

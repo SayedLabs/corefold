@@ -300,7 +300,6 @@ STRINGS: dict[str, str] = {
     "{count} files": "الملفات: {count}",
 
     # ------------------------------------------------------------------ small windows
-    " s": " ث",
     " px": " بكسل",
     " MB": " ميجابايت",
     " seconds": " ثانية",
@@ -3016,4 +3015,6 @@ STRINGS: dict[str, str] = {
     "Ejecting it…": "قاعد يخرجها…",
     "You can take out {name} now.": "تقدر تشيل {name} الحين.",
     "Windows says the USB drive is still in use. Close the programs using it (and any command window opened in it), then eject it again.": "ويندوز يقول إن الفلاشة لسا مستخدمة. سكّر البرامج اللي تستخدمها (وأي نافذة أوامر مفتوحة فيها)، وبعدين أخرجها مرة ثانية.",
+    "About {count} pictures.": "تقريبًا {count} صورة.",
+    "Every frame: about 25 to 60 pictures for each second of video.": "كل لقطة: تقريبًا من 25 إلى 60 صورة لكل ثانية من الفيديو.",
 }

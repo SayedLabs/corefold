@@ -65,7 +65,8 @@ def test_folder_conversion_keeps_files_with_the_same_name(tmp_path):
     Image.new("RGBA", (20, 20), (0, 0, 0, 0)).save(folder / "clear.png")
     outdir = moretools.convert_folder(folder, ctx(), fmt="small").outputs[0]
     assert len(list(outdir.glob("a*.jpg"))) == 2
-    assert Image.open(outdir / "clear.jpg").convert("RGB").getpixel((5, 5)) == (255, 255, 255)
+    # (a see-through picture stays a see-through PNG, like the Small tool makes it)
+    assert not (outdir / "clear.jpg").exists() and Image.open(outdir / "clear.png").getpixel((5, 5))[3] == 0
 
 
 def test_outlook_emoji_is_one_character_and_saves_as_eml():

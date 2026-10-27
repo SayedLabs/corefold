@@ -55,11 +55,11 @@ GROUPS = {  # action -> group, for "colour by kind of action"
     **{a: "convert" for a in FORMAT_ACTIONS},
     **{a: "edit" for a in ("resize", "rotate", "trim", "watermark", "cutout", "clean", "frames", "video", "scan",
                            "crop", "sticker", "mute", "volume", "speed", "pages", "rename", "subtitles", "join",
-                           "numbers", "sign")},
+                           "numbers", "sign", "merge", "split", "lock", "unlock")},  # (a PDF's own: not under Archive)
     **{a: "shrink" for a in ("fit", "small", "compress")},
-    **{a: "archive" for a in ("zip", "7z", "options", "extract", "folder", "browse", "test", "merge", "split")},
-    **{a: "read" for a in ("ocr", "qr", "images", "srt", "hash", "sound")},
-    **{a: "archive" for a in ("lock", "unlock")},
+    **{a: "archive" for a in ("zip", "7z", "options", "extract", "folder", "browse", "test")},
+    **{a: "read" for a in ("ocr", "qr", "images", "srt", "hash")},
+    "sound": "convert",  # (the sound as M4A, WAV…: next to MP3)
 }
 GROUP_COLORS = {"convert": "#3b82f6", "edit": "#a855f7", "shrink": "#22c55e", "archive": "#f59e0b",
                 "read": "#ec4899", "more": "#94a3b8"}

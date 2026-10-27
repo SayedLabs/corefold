@@ -136,6 +136,50 @@ def fmt_time(t: float) -> str:
     return f"{h}:{m:02d}:{s:04.1f}" if h else f"{m}:{s:04.1f}"
 
 
+def parse_time(text: str) -> float | None:
+    """"1:02:03.5", "2:03.5" or "75.5" (seconds) as seconds, or None."""
+    parts = text.strip().replace(",", ".").split(":")
+    if not 1 <= len(parts) <= 3 or not all(parts):
+        return None
+    try:
+        nums = [float(x) for x in parts]
+    except ValueError:
+        return None
+    if any(n < 0 for n in nums) or any(n >= 60 or n != int(n) for n in nums[1:-1]) or \
+            (len(nums) > 1 and nums[-1] >= 60):
+        return None
+    total = 0.0
+    for n in nums:
+        total = total * 60 + n
+    return total
+
+
+class TimeBox(QDoubleSpinBox):
+    """A time in the video as a clock shows it (1:02:03.5), not as thousands of seconds; typed the same way
+    (or as plain seconds)."""
+
+    def __init__(self):
+        super().__init__()
+        self.setDecimals(1)
+        self.setSingleStep(0.5)
+        self.setLayoutDirection(Qt.LeftToRight)  # (a time reads the same in Arabic)
+
+    def textFromValue(self, value: float) -> str:
+        return fmt_time(value)
+
+    def valueFromText(self, text: str) -> float:
+        t = parse_time(text)
+        return self.value() if t is None else t
+
+    def validate(self, text: str, pos: int):
+        from PySide6.QtGui import QValidator
+        t = parse_time(text)
+        if t is not None and self.minimum() <= t <= self.maximum():
+            return QValidator.Acceptable, text, pos
+        ok = all(c.isdigit() or c in ":.," for c in text)
+        return (QValidator.Intermediate if ok else QValidator.Invalid), text, pos
+
+
 class _Frames(QObject):
     ready = Signal(int, int, object)  # which end, request number, PNG bytes
 
@@ -157,13 +201,10 @@ class TrimDialog(Base):
             s.setRange(0, self.STEPS)
             s.setCursor(Qt.PointingHandCursor)
         self.end_s.setValue(self.STEPS)
-        self.start_n = QDoubleSpinBox()
-        self.end_n = QDoubleSpinBox()
+        self.start_n = TimeBox()
+        self.end_n = TimeBox()
         for n in (self.start_n, self.end_n):
             n.setRange(0, self.duration)
-            n.setDecimals(1)
-            n.setSingleStep(0.5)
-            n.setSuffix(tr(" s"))
         self.end_n.setValue(self.duration)
 
         self.thumbs = [QLabel(), QLabel()]
@@ -553,7 +594,26 @@ class FramesDialog(Base):
         note = QLabel(tr("Saved as PNG pictures in a new folder."))
         note.setObjectName("muted")
         self.lay.addWidget(note)
+        self.estimate = QLabel()
+        self.estimate.setObjectName("muted")
+        self.lay.addWidget(self.estimate)
+        self.dur = dur
+        for rb in (self.every, self.count_rb, self.all):
+            rb.toggled.connect(self._estimate)
+        self.secs.valueChanged.connect(self._estimate)
+        self.count.valueChanged.connect(self._estimate)
         self.buttons(tr("Save pictures"))
+        self._estimate()
+
+    def _estimate(self, *_):
+        """How many pictures that makes, before they fill a folder (every frame of a film is tens of thousands)."""
+        if self.all.isChecked() or self.dur <= 0:
+            text = tr("Every frame: about 25 to 60 pictures for each second of video.") if self.all.isChecked() else ""
+        else:
+            n = self.count.value() if self.count_rb.isChecked() else max(1, int(self.dur / self.secs.value()) + 1)
+            text = tr("About {count} pictures.", count=n)
+        self.estimate.setText(text)
+        self.estimate.setVisible(bool(text))
 
     def params(self):
         if self.all.isChecked():

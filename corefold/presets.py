@@ -10,7 +10,7 @@ import os
 from functools import partial
 from pathlib import Path
 
-from .core import Ctx, Result, Tool
+from .core import Ctx, Result, Tool, safe_name
 from .i18n import tr
 
 MAX = 12
@@ -106,11 +106,13 @@ def audio_args(ext: str, quality: str) -> list[str]:
 def run(src: Path, ctx: Ctx, preset: dict) -> Result:
     from . import converters as cv
     from .settings import VIDEO_CRF
-    ext, kind, name = preset["format"], preset["kind"], preset["name"]
+    ext, kind = preset["format"], preset["kind"]
+    # (a name like "Phone: small" or "A/B" can't be part of a file name as it is: ":" would hide the new file
+    # inside another one on Windows, "/" would point into a folder that isn't there)
+    name = safe_name(preset["name"]) or "preset"
     out = ctx.out_path(src, f"{ctx.stem(src)} ({name}){ext}")
     if kind == "audio":
-        cv.run_ffmpeg(src, out, audio_args(ext, preset["quality"]), ctx)
-        return Result([out])
+        return Result([cv.run_sound(src, out, ext, audio_args(ext, preset["quality"]), ctx)])
     size = preset["size"]
     if kind == "video":
         options = dataclasses.replace(ctx.options, video_crf=VIDEO_CRF.get(preset["quality"], 20),

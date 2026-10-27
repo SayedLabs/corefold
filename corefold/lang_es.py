@@ -423,7 +423,6 @@ STRINGS: dict[str, str] = {
     "Custom width:": "Ancho personalizado:",
     " px": " px",
     "The height changes to match, so nothing gets stretched. Your original stays as it is.": "La altura se ajusta para que nada se estire. Tu original no cambia.",
-    " s": " s",
     "Start": "Inicio",
     "End": "Final",
     "Saved as a new MP4 file. Your original stays as it is.": "Se guarda como un archivo MP4 nuevo. Tu original no cambia.",
@@ -2939,4 +2938,6 @@ STRINGS: dict[str, str] = {
     "Ejecting it…": "Expulsándola…",
     "You can take out {name} now.": "Ya puedes quitar {name}.",
     "Windows says the USB drive is still in use. Close the programs using it (and any command window opened in it), then eject it again.": "Windows dice que la unidad USB sigue en uso. Cierra los programas que la usan (y cualquier ventana de comandos abierta en ella) y vuelve a expulsarla.",
+    "About {count} pictures.": "Unas {count} imágenes.",
+    "Every frame: about 25 to 60 pictures for each second of video.": "Cada fotograma: unas 25 a 60 imágenes por cada segundo de vídeo.",
 }

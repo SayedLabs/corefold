@@ -423,7 +423,6 @@ STRINGS: dict[str, str] = {
     "Custom width:": "Özel genişlik:",
     " px": " px",
     "The height changes to match, so nothing gets stretched. Your original stays as it is.": "Yükseklik buna göre değişir, böylece hiçbir şey esnemez. Orijinaliniz olduğu gibi kalır.",
-    " s": " sn",
     "Start": "Başlangıç",
     "End": "Bitiş",
     "Saved as a new MP4 file. Your original stays as it is.": "Yeni bir MP4 dosyası olarak kaydedilir. Orijinaliniz olduğu gibi kalır.",
@@ -2939,4 +2938,6 @@ STRINGS: dict[str, str] = {
     "Ejecting it…": "Çıkarılıyor…",
     "You can take out {name} now.": "{name} artık çıkarılabilir.",
     "Windows says the USB drive is still in use. Close the programs using it (and any command window opened in it), then eject it again.": "Windows USB sürücünün hâlâ kullanımda olduğunu söylüyor. Onu kullanan programları (ve içinde açık komut pencerelerini) kapatın, sonra yeniden çıkarın.",
+    "About {count} pictures.": "Yaklaşık {count} resim.",
+    "Every frame: about 25 to 60 pictures for each second of video.": "Her kare: videonun her saniyesi için yaklaşık 25 ila 60 resim.",
 }
