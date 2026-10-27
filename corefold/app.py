@@ -661,7 +661,9 @@ class Controller(QObject):
             self.light_tidy_timer.start(3000)
             return
         self._light_waits = 0
-        gc.collect()
+        # (with a window in use, only the younger objects are looked through: going through every object takes
+        # up to half a second, and the full look comes once the window isn't in use: see _tidy_when_free)
+        gc.collect(1 if QApplication.activeWindow() is not None else 2)
         winutil.trim_memory()
 
     def _tidy_when_free(self):
