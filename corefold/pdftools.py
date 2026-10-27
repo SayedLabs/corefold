@@ -268,10 +268,9 @@ def compress(src: Path, ctx: Ctx) -> Result:
     _, quality, longest = COMPRESS_LEVELS.get(ctx.params.get("level", "normal"), COMPRESS_LEVELS["normal"])
     reader = open_reader(src, ctx.params.get("password", ""))
     out = ctx.out_path(src, f"{ctx.stem(src)} (compressed).pdf")
-    write_compressed_pdf(src, out, ctx, quality=quality, max_dim=longest, reader=reader)
-    if ctx.params.get("password"):  # (a locked PDF's smaller copy is locked too)
-        from pypdf import PdfReader, PdfWriter
-        write(PdfWriter(clone_from=PdfReader(str(out))), out, ctx.params["password"])
+    # (a locked PDF's smaller copy is locked too)
+    write_compressed_pdf(src, out, ctx, quality=quality, max_dim=longest, reader=reader,
+                         password=ctx.params.get("password", ""))
     before, after = src.stat().st_size, out.stat().st_size
     if after >= before * 0.97:
         out.unlink(missing_ok=True)
@@ -281,6 +280,60 @@ def compress(src: Path, ctx: Ctx) -> Result:
 
 # ----------------------------------------------------------------------------- pictures to PDF
 
+# what a JPG carries besides the picture that's kept in a PDF: JFIF (its sharpness), its colour profile and
+# Adobe's colour note (without them the colours come out wrong). The rest (the camera's details: where it
+# was taken, the phone, the date, a second picture) never goes into a PDF.
+_JPEG_KEEP = {0xE0, 0xEE}
+
+
+def jpeg_without_details(data: bytes) -> bytes:
+    """The JPG without its camera details (EXIF with the GPS place, XMP, IPTC, notes): the picture's own
+    bytes aren't touched. Anything that doesn't look like a JPG comes back as it was."""
+    if data[:2] != b"\xff\xd8":
+        return data
+    out, i, n = [b"\xff\xd8"], 2, len(data)
+    while i + 4 <= n:
+        if data[i] != 0xFF:
+            return data
+        marker = data[i + 1]
+        if marker == 0xFF:  # (fill bytes before a marker)
+            i += 1
+            continue
+        if marker == 0xDA or not (0xC0 <= marker <= 0xFE):  # the picture itself starts: all the rest is kept
+            out.append(data[i:])
+            return b"".join(out)
+        size = int.from_bytes(data[i + 2:i + 4], "big")
+        if size < 2 or i + 2 + size > n:
+            return data
+        part = data[i:i + 2 + size]
+        icc = marker == 0xE2 and part[4:16] == b"ICC_PROFILE\0"
+        if not (0xE1 <= marker <= 0xEF or marker == 0xFE) or marker in _JPEG_KEEP or icc:
+            out.append(part)
+        i += 2 + size
+    return data
+
+
+def _strip_photo_details(writer) -> int:
+    """The JPG pictures inside the PDF lose their camera details (see jpeg_without_details). Gives how many."""
+    from pypdf.generic import StreamObject
+    count = 0
+    for obj in writer._objects:
+        try:
+            kind = obj.get("/Filter") if isinstance(obj, StreamObject) else None
+            if isinstance(kind, list) and len(kind) == 1:
+                kind = kind[0]
+            if obj.get("/Subtype") != "/Image" or kind != "/DCTDecode":
+                continue
+            data = obj._data
+            plain = jpeg_without_details(data)
+            if len(plain) < len(data):
+                obj._data = plain
+                count += 1
+        except Exception:
+            log.debug("kept one picture's details", exc_info=True)
+    return count
+
+
 def _jpeg_source(f: Path) -> tuple[bool, bytes | None, bool]:
     """(is it a JPG photo, its own bytes when they can go into the PDF as they are, is it grey)"""
     from PIL import Image
@@ -289,7 +342,7 @@ def _jpeg_source(f: Path) -> tuple[bool, bytes | None, bool]:
             if im.format != "JPEG":
                 return False, None, False
             plain = im.mode in ("RGB", "L") and (im.getexif().get(0x0112, 1) or 1) == 1
-            return True, (f.read_bytes() if plain else None), im.mode == "L"
+            return True, (jpeg_without_details(f.read_bytes()) if plain else None), im.mode == "L"
     except Exception:
         return False, None, False
 
@@ -440,7 +493,8 @@ def lock_state(src: Path) -> str:
 # ----------------------------------------------------------------------------- hidden information
 
 # what "Remove hidden info" can take out, in the order it's shown: (key, what it is, the line under it)
-HIDDEN = [("details", "Who made it and with what", "The author, the program, the dates and the keywords"),
+HIDDEN = [("details", "Who made it and with what",
+           "The author, the program, the dates, the keywords and where photos were taken"),
           ("notes", "Notes", "Sticky notes and replies, which only show when someone opens them"),
           ("attachments", "Attached files", "Files carried inside the PDF"),
           ("scripts", "Scripts and automatic actions", "Code that runs or opens things by itself when the PDF "
@@ -449,6 +503,8 @@ HIDDEN = [("details", "Who made it and with what", "The author, the program, the
                                                 "previews")]
 _NOTES = {"/Text", "/Popup", "/Sound"}
 _RISKY_ACTIONS = {"/JavaScript", "/Launch", "/ImportData", "/SubmitForm", "/ResetForm", "/Rendition"}
+_OPENS_FILES = {"/GoToR", "/GoToE", "/URI", "/Thread", "/Sound", "/Movie", "/Hide", "/Named", "/SetOCGState",
+                "/Trans", "/GoTo3DView", "/RichMediaExecute"}
 _DETAIL_NAMES = ("/Title", "/Author", "/Subject", "/Keywords", "/Creator", "/Producer", "/CreationDate", "/ModDate")
 
 
@@ -459,20 +515,76 @@ def _text(v) -> str:
         return ""
 
 
-def _risky(action) -> bool:
-    """An action that runs code, starts a program or sends something away (a web link is fine)."""
+def _risky(action, risky=_RISKY_ACTIONS) -> bool:
+    """An action that runs code, starts a program or sends something away (a web link is fine). Its chain of
+    next actions is followed once (a booby-trapped PDF whose action leads back to itself kept this busy for
+    ever)."""
     try:
-        action = action.get_object()
-        while action is not None:
-            if action.get("/S") in _RISKY_ACTIONS:
+        todo, seen = [action], set()
+        while todo and len(seen) < 1000:
+            ref = todo.pop()
+            key = getattr(ref, "idnum", None) or id(ref)
+            if key in seen:
+                continue
+            seen.add(key)
+            action = ref.get_object()
+            if isinstance(action, list):  # (several actions one after the other)
+                todo.extend(action)
+                continue
+            if action is None or not hasattr(action, "get"):
+                continue
+            if action.get("/S") in risky:
                 return True
             nxt = action.get("/Next")
-            action = nxt.get_object() if nxt is not None else None
-            if isinstance(action, list):  # (several actions one after the other)
-                return any(_risky(a) for a in action)
+            if nxt is not None:
+                todo.append(nxt)
+        return bool(todo)  # (a chain too long to follow is taken out too)
     except Exception:
         return True  # (one that can't be read is taken out too)
-    return False
+
+
+def _risky_by_itself(action) -> bool:
+    """An action that happens with nobody clicking (when the PDF opens): anything but going to one of its
+    own pages, so it can't open another file or a share on the network either (which can give away who you
+    are on Windows)."""
+    return _risky(action, _RISKY_ACTIONS | _OPENS_FILES)
+
+
+def _outlines(root):
+    """Every bookmark (and the ones under it)."""
+    try:
+        first = root["/Outlines"].get_object().get("/First") if "/Outlines" in root else None
+    except Exception:
+        return
+    todo, seen = [first] if first is not None else [], set()
+    while todo and len(seen) < 100_000:
+        ref = todo.pop()
+        key = getattr(ref, "idnum", None) or id(ref)
+        if key in seen:
+            continue
+        seen.add(key)
+        try:
+            item = ref.get_object()
+        except Exception:
+            continue
+        if not hasattr(item, "get"):
+            continue
+        yield item
+        todo.extend(x for x in (item.get("/Next"), item.get("/First")) if x is not None)
+
+
+def _xfa_scripts(root) -> bool:
+    """An XFA form (Adobe's other kind of form) with scripts in it."""
+    try:
+        xfa = root["/AcroForm"].get_object().get("/XFA") if "/AcroForm" in root else None
+        if xfa is None:
+            return False
+        xfa = xfa.get_object()
+        parts = [xfa.get_data()] if hasattr(xfa, "get_data") else \
+            [x.get_object().get_data() for x in list(xfa)[1::2] if hasattr(x.get_object(), "get_data")]
+        return any(b"<script" in part.lower() for part in parts)
+    except Exception:
+        return True  # (one that can't be read is taken out too)
 
 
 def _annots(page) -> list:
@@ -531,8 +643,11 @@ def hidden_info(src: Path, password: str = "") -> dict:
         found["attachments"] += _name_tree_count(names["/EmbeddedFiles"])
     if "/JavaScript" in names:
         found["scripts"] += _name_tree_count(names["/JavaScript"])
-    if "/AA" in root or ("/OpenAction" in root and _is_action(root["/OpenAction"]) and _risky(root["/OpenAction"])):
+    if "/AA" in root or ("/OpenAction" in root and _is_action(root["/OpenAction"]) and
+                         _risky_by_itself(root["/OpenAction"])):
         found["scripts"] += 1
+    found["scripts"] += _xfa_scripts(root)
+    found["scripts"] += sum("/A" in b and _risky(b["/A"]) for b in _outlines(root))
     found["private"] += "/PieceInfo" in root
     for page in reader.pages:
         found["scripts"] += "/AA" in page
@@ -598,6 +713,7 @@ def remove_hidden(src: Path, ctx: Ctx) -> Result:
     if "details" in remove:
         writer.metadata = None
         root.pop(NameObject("/Metadata"), None)
+        _strip_photo_details(writer)  # (photos put in a PDF often still say where they were taken)
     for key in ("title", "author"):
         if key in ctx.params:  # (asked for: what's typed, or nothing)
             value = (ctx.params[key] or "").strip()
@@ -615,10 +731,15 @@ def remove_hidden(src: Path, ctx: Ctx) -> Result:
     if "scripts" in remove:
         names.pop(NameObject("/JavaScript"), None)
         root.pop(NameObject("/AA"), None)
-        if "/OpenAction" in root and _is_action(root["/OpenAction"]) and _risky(root["/OpenAction"]):
+        if "/OpenAction" in root and _is_action(root["/OpenAction"]) and _risky_by_itself(root["/OpenAction"]):
             root.pop(NameObject("/OpenAction"), None)
         for field in _fields(root):
             field.pop(NameObject("/AA"), None)
+        if _xfa_scripts(root):  # (the form's ordinary boxes stay: every PDF app but Adobe's uses those)
+            root["/AcroForm"].get_object().pop(NameObject("/XFA"), None)
+        for bookmark in _outlines(root):  # (the bookmark stays, without what it ran)
+            if "/A" in bookmark and _risky(bookmark["/A"]):
+                bookmark.pop(NameObject("/A"), None)
     if "private" in remove:
         root.pop(NameObject("/PieceInfo"), None)
     gone = set()

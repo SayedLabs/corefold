@@ -747,6 +747,19 @@ def get_color(initial: QColor, parent: QWidget | None, title: str = "") -> QColo
     return color
 
 
+def get_text(parent: QWidget | None, title: str, label: str, text: str = "") -> tuple[str, bool]:
+    """Like QInputDialog.getText, in a sheet: (what was typed, True if OK was pressed)."""
+    from PySide6.QtWidgets import QInputDialog
+    dlg = QInputDialog(parent)
+    dlg.setWindowTitle(title)
+    dlg.setLabelText(label)
+    dlg.setTextValue(text)
+    ok = run(dlg) == QDialog.Accepted
+    typed = dlg.textValue()
+    dlg.deleteLater()
+    return typed, ok
+
+
 # ---- menus and lists: a small panel by what was clicked
 
 

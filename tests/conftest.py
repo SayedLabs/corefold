@@ -15,6 +15,9 @@ sys.path.insert(0, str(ROOT))
 _TMP = Path(tempfile.mkdtemp(prefix="corefold-pytest-"))
 os.environ["APPDATA"] = str(_TMP / "roaming")
 os.environ["LOCALAPPDATA"] = str(_TMP / "local")
+# File Organizer rests in a built Corefold (tools.PAUSED_TOOLS); the tests keep trying its kept code, and
+# tests/test_organizer_resting.py checks it stays hidden while it rests
+os.environ["COREFOLD_WAKE_ORGANIZER"] = "1"
 
 if sys.platform != "win32":
     import ctypes

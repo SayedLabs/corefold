@@ -680,7 +680,7 @@ def reopen():
 
 def tray():
     """Every entry in the tray menu (but Quit and updates) does something without an error."""
-    skip = {tr("Quit"), tr("Check for updates"), tr("Pause")}
+    skip = {tr("Quit"), tr("Check for updates"), tr("Pause the Converter")}
     for act in list(c.menu.actions()):
         if not act.isVisible() or act.isSeparator() or act.menu() is not None or act.text() in skip:
             continue

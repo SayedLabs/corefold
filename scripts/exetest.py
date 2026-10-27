@@ -18,6 +18,7 @@ TMP = Path(tempfile.mkdtemp(prefix="corefold-exetest-"))
 os.environ["APPDATA"] = str(TMP / "roaming")
 os.environ["LOCALAPPDATA"] = str(TMP / "local")
 os.environ.pop("COREFOLD_WAKE_RESTING", None)  # (the built app ignores it: its sections rest as they ship)
+os.environ.pop("COREFOLD_WAKE_ORGANIZER", None)
 sys.path.insert(0, str(ROOT))
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -117,6 +118,12 @@ try:
                     click(gear[0])
                     time.sleep(0.8)
                     switch = [b for b in win.descendants(control_type="CheckBox") if b.window_text() == tool.nav]
+            if tool.id in all_tools.PAUSED_TOOLS and not all_tools.section_paused(sec):
+                # (resting on its own in a section that's in use: no switch, no tab, nothing to open)
+                check(not switch, f"{tool.id} rests: no switch for it in {sec.name}")
+                tab = [b for b in win.descendants(control_type="Button") if b.window_text() in (tool.nav, tool.use)]
+                check(not tab, f"{tool.id} rests: no tab or card for it in {sec.name}")
+                continue
             if all_tools.state(tool.id) != all_tools.AVAILABLE:  # (its section rests: shown, never switched on)
                 check(not switch, f"{tool.id} can't be switched on while {sec.name} rests")
                 if sec.name not in rested:
