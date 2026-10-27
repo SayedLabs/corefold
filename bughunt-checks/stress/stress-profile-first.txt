@@ -1,0 +1,38 @@
+         1025330 function calls (946422 primitive calls) in 0.374 seconds
+
+   Ordered by: cumulative time
+   List reduced from 184 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.112    0.112 D:\a\corefold\corefold\corefold\archives.py:464(has_legacy_names)
+        1    0.000    0.000    0.112    0.112 D:\a\corefold\corefold\corefold\core.py:491(_cached)
+        1    0.064    0.064    0.112    0.112 D:\a\corefold\corefold\corefold\archives.py:465(<lambda>)
+       10    0.042    0.004    0.072    0.007 {method 'execute' of 'sqlite3.Connection' objects}
+60000/20876    0.021    0.000    0.051    0.000 D:\a\corefold\corefold\corefold\archives.py:1313(<genexpr>)
+59999/20876    0.051    0.000    0.044    0.000 D:\a\corefold\corefold\corefold\archives.py:1316(is_archive_file_name)
+    60000    0.025    0.000    0.043    0.000 D:\a\corefold\corefold\corefold\core.py:399(norm)
+   180665    0.034    0.000    0.034    0.000 {method 'rpartition' of 'str' objects}
+   120001    0.019    0.000    0.019    0.000 {built-in method _struct.unpack_from}
+        2    0.013    0.006    0.013    0.006 {method 'icon' of 'PySide6.QtWidgets.QFileIconProvider' objects}
+   120009    0.012    0.000    0.012    0.000 {built-in method builtins.len}
+        1    0.008    0.008    0.012    0.012 D:\a\corefold\corefold\corefold\archives.py:324(_legacy_zip_names)
+60661/60000    0.011    0.000    0.011    0.000 D:\a\corefold\corefold\corefold\browser.py:457(ensure)
+    60019    0.010    0.000    0.010    0.000 {method 'get' of 'dict' objects}
+    60672    0.009    0.000    0.009    0.000 {method 'append' of 'list' objects}
+    60005    0.009    0.000    0.009    0.000 {method 'lower' of 'str' objects}
+    60000    0.008    0.000    0.008    0.000 {method 'rstrip' of 'str' objects}
+    60000    0.008    0.000    0.008    0.000 {method 'strip' of 'str' objects}
+    60000    0.008    0.000    0.008    0.000 {method 'isascii' of 'bytes' objects}
+        2    0.004    0.002    0.006    0.003 {method 'fetchone' of 'sqlite3.Cursor' objects}
+       16    0.003    0.000    0.003    0.000 {method 'addWidget' of 'PySide6.QtWidgets.QBoxLayout' objects}
+        2    0.003    0.001    0.003    0.002 {method 'addWidget' of 'PySide6.QtWidgets.QSplitter' objects}
+        1    0.001    0.001    0.002    0.002 D:\a\corefold\corefold\corefold\browser.py:143(__init__)
+        2    0.002    0.001    0.002    0.001 {method 'read' of '_io.BufferedReader' objects}
+        1    0.001    0.001    0.002    0.002 D:\a\corefold\corefold\corefold\browser.py:205(__init__)
+        6    0.001    0.000    0.001    0.000 D:\a\corefold\corefold\corefold\browser.py:305(btn)
+      700    0.000    0.000    0.001    0.000 D:\a\corefold\corefold\corefold\sheet.py:1413(eventFilter)
+      700    0.000    0.000    0.001    0.000 {method 'type' of 'PySide6.QtCore.QEvent' objects}
+        1    0.001    0.001    0.001    0.001 {method 'setClearButtonEnabled' of 'PySide6.QtWidgets.QLineEdit' objects}
+       20    0.001    0.000    0.001    0.000 {method 'connect' of 'PySide6.QtCore.SignalInstance' objects}
+
+
