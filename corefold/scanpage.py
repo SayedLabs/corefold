@@ -356,7 +356,7 @@ class FindingRow(QWidget):
         hide = m.addAction(icons.icon("dismiss", t.muted), tr("Don't show this again"))
         hide.triggered.connect(lambda: self.page.ignore(self))
         sheet.menu(m, pos)
-        m.deleteLater()
+        sheet.forget(m)
 
 
 class ThreatRow(QWidget):
@@ -397,7 +397,7 @@ class ThreatRow(QWidget):
         copy = m.addAction(icons.icon("copy", t.muted), tr("Copy the threat's name"))
         copy.triggered.connect(lambda: QGuiApplication.clipboard().setText(self.threat.get("name", "")))
         sheet.menu(m, pos)
-        m.deleteLater()
+        sheet.forget(m)
 
 
 class OptionCard(QFrame):

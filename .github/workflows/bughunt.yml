@@ -205,6 +205,10 @@ jobs:
           USE: ${{ matrix.use }}
         run: |
           choco install ffmpeg -y --no-progress | Out-Null
+          if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {  # (once it failed, and the test files couldn't be made)
+            "FFmpeg didn't install; trying once more"
+            choco install ffmpeg -y --no-progress | Out-Null
+          }
           $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
           python scripts/usetest.py out/usetest @($env:USE -split " ") *> out/usetest.txt
 

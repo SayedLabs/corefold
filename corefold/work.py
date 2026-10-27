@@ -1,6 +1,7 @@
 """Running slow things (the disk, the internet) off the window's thread, with their answer back on it."""
 from __future__ import annotations
 
+import queue
 import threading
 
 from PySide6.QtCore import QObject, Signal
@@ -23,7 +24,33 @@ def busy() -> bool:
         return bool(_busy)
 
 
-def run(fn, on_progress, on_done, name: str = "corefold-work", busy: bool = False) -> threading.Thread:
+class Job:
+    """A job handed to run(): alive until its answer has gone to the window (like the thread it runs on)."""
+
+    def __init__(self, name: str, sig: _Signals):
+        self.name = name
+        self.sig = sig  # (kept alive while it runs)
+        self._over = threading.Event()
+
+    def is_alive(self) -> bool:
+        return not self._over.is_set()
+
+    def join(self, timeout: float | None = None):
+        self._over.wait(timeout)
+
+
+_starts: "queue.SimpleQueue[threading.Thread]" = queue.SimpleQueue()
+_starter: threading.Thread | None = None
+
+
+def _start_them():
+    # Starting a thread waits for Windows, which lets one thread start or end at a time: right after a job
+    # that moved 30,000 files ended, a start held the window up to 3 s. This thread does the waiting instead.
+    while True:
+        _starts.get().start()
+
+
+def run(fn, on_progress, on_done, name: str = "corefold-work", busy: bool = False) -> Job:
     """Runs fn(progress) on its own thread. on_progress gets what progress() is given, and on_done
     what fn returns (or the exception it raised), both on the window's thread. busy: it changes files
     (see busy())."""
@@ -34,6 +61,7 @@ def run(fn, on_progress, on_done, name: str = "corefold-work", busy: bool = Fals
     if busy:
         with _lock:
             _busy.add(job)
+    handle = Job(name, sig)
 
     def go():
         try:
@@ -43,11 +71,26 @@ def run(fn, on_progress, on_done, name: str = "corefold-work", busy: bool = Fals
         finally:
             with _lock:
                 _busy.discard(job)
-        sig.done.emit(result)
-    t = threading.Thread(target=go, daemon=True, name=name)
-    t.sig = sig  # (kept alive while it runs)
-    t.start()
-    return t
+        try:
+            sig.done.emit(result)
+        finally:
+            handle._over.set()
+    _start(threading.Thread(target=go, daemon=True, name=name))
+    return handle
+
+
+def background(fn, name: str = "corefold-work"):
+    """Runs fn() on a thread of its own, started the same way (nothing comes back to the window)."""
+    _start(threading.Thread(target=fn, daemon=True, name=name))
+
+
+def _start(thread: threading.Thread):
+    global _starter
+    _starts.put(thread)
+    with _lock:
+        if _starter is None:  # (the first one starts the starter, once)
+            _starter = threading.Thread(target=_start_them, daemon=True, name="corefold-starter")
+            _starter.start()
 
 
 def alive(widget) -> bool:

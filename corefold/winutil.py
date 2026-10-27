@@ -4,7 +4,6 @@ from __future__ import annotations
 import ctypes
 import ctypes.wintypes as wt
 import subprocess
-import threading
 from pathlib import Path
 
 user32 = ctypes.windll.user32
@@ -101,19 +100,25 @@ def properties(path: Path) -> bool:
         return False
 
 
-def play_sound(path: Path | None):
+def play_sound(path):
     """Plays it without holding the window up: even "async", Windows can take seconds to wake the sound
-    device first (one that was asleep, Bluetooth headphones), so it's asked for on a thread of its own."""
+    device first (one that was asleep, Bluetooth headphones), so it's asked for on a thread of its own.
+    path can be a function that makes the file, run on that thread too: making the quieter copy writes
+    to the disk, and right after 30,000 files were sorted that write held the window 2.5 s."""
     if not path:
         return
 
     def play():
         try:
+            made = path() if callable(path) else path
+            if not made:
+                return
             import winsound
-            winsound.PlaySound(str(path), winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
+            winsound.PlaySound(str(made), winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
         except Exception:
             pass
-    threading.Thread(target=play, name="corefold-sound", daemon=True).start()
+    from . import work
+    work.background(play, "corefold-sound")
 
 
 def any_button_down() -> bool:

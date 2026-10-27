@@ -133,32 +133,42 @@ class Watch:
 
     def _watch(self):
         stuck_since, where, label = None, "", ""
+        seen: dict[str, int] = {}  # where the window's thread was, sampled all through the freeze
         while True:
             time.sleep(0.02)
             gap = time.perf_counter() - self.beat
             if stuck_since is None:
                 if gap > FREEZE and not self.paused and self.label:
                     stuck_since, label = self.beat, self.label
-                    frame = sys._current_frames().get(self.main)
-                    where = _where(frame)
+                    where = _where(sys._current_frames().get(self.main))
+                    seen = {where: 1}
             elif gap < FREEZE:  # answering again
                 took = self.beat - stuck_since if self.beat > stuck_since else gap
                 took = max(took, 0)
+                most, n = max(seen.items(), key=lambda kv: kv[1])
+                if most != where:  # (the first look can catch only where it began)
+                    where += f"  ·  mostly ({n} of {sum(seen.values())} looks): {most}"
                 self.stalls.append((label, took, where))
                 self.worst[label] = max(self.worst.get(label, 0), took)
                 stuck_since = None
             elif self.paused:
                 stuck_since = None
+            else:
+                here = _where(sys._current_frames().get(self.main))
+                seen[here] = seen.get(here, 0) + 1
 
 
 def _where(frame) -> str:
+    """The last 4 of Corefold's calls on that stack. Read straight from the frames: traceback's way reads
+    the source files too, and done all through a freeze that held Python long enough to make it longer."""
     if frame is None:
         return "?"
-    st_ = traceback.extract_stack(frame)
-    mine = [f for f in st_ if "corefold" in f.filename.replace("\\", "/").split("/scripts/")[0]
-            and "/scripts/" not in f.filename.replace("\\", "/")]
-    pick = (mine or st_)[-4:]
-    return " < ".join(f"{Path(f.filename).name}:{f.lineno} {f.name}" for f in reversed(pick))
+    st_ = []  # (newest first)
+    while frame is not None:
+        st_.append((frame.f_code.co_filename.replace("\\", "/"), frame.f_lineno, frame.f_code.co_name))
+        frame = frame.f_back
+    mine = [f for f in st_ if "corefold" in f[0].split("/scripts/")[0] and "/scripts/" not in f[0]]
+    return " < ".join(f"{Path(name).name}:{line} {fn}" for name, line, fn in (mine or st_)[:4])
 
 
 watch = Watch()

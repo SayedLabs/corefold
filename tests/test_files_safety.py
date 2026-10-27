@@ -165,6 +165,15 @@ def test_a_sound_never_holds_the_window_up(monkeypatch):
     assert time.perf_counter() - t0 < 0.2
     assert started.wait(2)  # (it is played, just not on the window's thread)
     release.set()
+    started.clear()
+
+    def slow_copy():  # (the quieter copy written while the disk is busy)
+        time.sleep(1)
+        return Path("done.wav")
+    t0 = time.perf_counter()
+    winutil.play_sound(slow_copy)
+    assert time.perf_counter() - t0 < 0.2
+    assert started.wait(5)
 
 
 def _disk_full(*args, **kwargs):
