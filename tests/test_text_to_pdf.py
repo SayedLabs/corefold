@@ -37,7 +37,8 @@ def test_plain_text_and_arabic(qapp, tmp_path):
     (tmp_path / "notes.txt").write_text("Shopping list\nمرحبا بالعالم\n" + "line\n" * 200, encoding="utf-8")
     pages = _text(_pdf(tmp_path / "notes.txt"))
     words = pages[0].replace("\r\n", "")  # (Qt writes no spaces into the page's text, and splits a line here and there)
-    assert len(pages) >= 2 and "Shoppinglist" in words and "مرحبا" in words
+    arabic = "مرحبا" in words or "مرحبا"[::-1] in words  # (written in the order it's seen, on Windows)
+    assert len(pages) >= 2 and "Shoppinglist" in words and arabic
 
 
 def test_markdown_and_a_web_page_with_its_picture(qapp, tmp_path):
