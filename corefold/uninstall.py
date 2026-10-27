@@ -834,6 +834,30 @@ def processes() -> list[tuple[int, int, str]]:
     return out
 
 
+def stop_programs_at(paths) -> int:
+    """Stops the running programs started from exactly these files (full paths); another program with the
+    same name somewhere else is never touched. How many were stopped."""
+    wanted = {os.path.normcase(os.path.abspath(p)) for p in paths}
+    names = {os.path.basename(p) for p in wanted}
+    k = _dll("kernel32")
+    stopped = 0
+    for pid, _parent, name in processes():
+        if name.lower() not in names:
+            continue
+        h = k.OpenProcess(QUERY_LIMITED | TERMINATE, False, pid)
+        if not h:
+            continue
+        try:
+            buf = ctypes.create_unicode_buffer(1024)
+            size = ctypes.c_uint32(len(buf))
+            if (k.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(size))
+                    and os.path.normcase(buf.value) in wanted and k.TerminateProcess(h, 1)):
+                stopped += 1
+        finally:
+            k.CloseHandle(h)
+    return stopped
+
+
 # programs an uninstaller may start that aren't part of it (a "sorry to see you go" page...)
 NOT_PART = {"explorer.exe", "msedge.exe", "chrome.exe", "firefox.exe", "iexplore.exe", "opera.exe", "brave.exe",
             "vivaldi.exe", "conhost.exe", "werfault.exe", "openwith.exe"}
