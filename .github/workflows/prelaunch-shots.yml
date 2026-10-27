@@ -31,6 +31,7 @@ jobs:
         shell: pwsh
         continue-on-error: true
         run: |
+          New-Item -ItemType Directory -Force shots | Out-Null
           foreach ($combo in @("en dark", "fr dark", "es light", "tr dark", "ar light")) {
             $a = $combo -split " "
             python scripts/shellshots.py before shots/before $a[0] $a[1] *>> shots/log.txt
@@ -42,6 +43,7 @@ jobs:
           path: shots/
 
   setup:
+    if: false  # (pictures of Setup already taken)
     runs-on: windows-latest
     timeout-minutes: 40
     steps:
@@ -71,7 +73,7 @@ jobs:
           path: shots/
 
   save:
-    needs: [window, setup]
+    needs: [window]
     if: always()
     runs-on: ubuntu-latest
     steps:
