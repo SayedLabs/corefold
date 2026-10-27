@@ -1540,7 +1540,7 @@ _guard: _Guard | None = None
 def quiet():
     """The filter above steps aside while every widget is restyled: a new look sends each widget a dozen
     events (13,000 for the window), none of them a click, a key or a tip, and each one was a call into
-    Python, about half the time a dark/light switch took."""
+    Python: about a fifth of a dark/light switch (0.74 s down to 0.61 s on Windows, three runs each)."""
     app = QApplication.instance()
     if _guard is None or app is None:
         yield
