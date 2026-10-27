@@ -102,6 +102,7 @@ class OneToolHead(QWidget):
         for name, b in self.tabs.items():
             b.setChecked(name == page)
             b.setIcon(self._icons[name][1 if name == page else 0])
+            b.setFocusPolicy(Qt.StrongFocus if name == page else Qt.ClickFocus)  # (Tab reaches the use that's open; arrows go along the bar)
         if self.line is not None:
             self.line.setText(line)
             self.gear.setVisible(gear)
