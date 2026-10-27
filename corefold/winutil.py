@@ -198,16 +198,13 @@ def log_memory(where: str):
                                        ws / 2**20, private / 2**20, len(mods), (" new: " + " ".join(new)) if new else "")
 
 
-def trim_memory(background: bool = False):
-    """Gives memory Corefold isn't using back to Windows (it comes back by itself when needed).
-    background: the slow part (handing the pages back, up to half a second with a window open) runs on a
-    thread of its own, so the window keeps answering meanwhile."""
+def trim_memory():
+    """Gives memory Corefold isn't using back to Windows (it comes back by itself when needed)."""
     try:
         k32 = ctypes.windll.kernel32
         k32.GetCurrentProcess.restype = wt.HANDLE
         k32.SetProcessWorkingSetSize.argtypes = [wt.HANDLE, ctypes.c_size_t, ctypes.c_size_t]
-        # free blocks left in the heaps (by the window, after it was freed) go back first (here: a heap made
-        # for one thread only must not be compacted from another)
+        # free blocks left in the heaps (by the window, after it was freed) go back first
         k32.GetProcessHeaps.restype = wt.DWORD
         k32.GetProcessHeaps.argtypes = [wt.DWORD, ctypes.POINTER(wt.HANDLE)]
         k32.HeapCompact.restype = ctypes.c_size_t
@@ -215,19 +212,9 @@ def trim_memory(background: bool = False):
         heaps = (wt.HANDLE * 256)()
         for h in heaps[:min(k32.GetProcessHeaps(256, heaps), 256)]:
             k32.HeapCompact(h, 0)
+        k32.SetProcessWorkingSetSize(k32.GetCurrentProcess(), ctypes.c_size_t(-1), ctypes.c_size_t(-1))
     except Exception:
-        return
-
-    def hand_back():
-        try:
-            k32.SetProcessWorkingSetSize(k32.GetCurrentProcess(), ctypes.c_size_t(-1), ctypes.c_size_t(-1))
-        except Exception:
-            pass
-    if background:
-        from . import work
-        work.background(hand_back, name="corefold-trim")
-    else:
-        hand_back()
+        pass
 
 
 def user_busy() -> bool:

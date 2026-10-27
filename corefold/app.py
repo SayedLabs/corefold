@@ -664,7 +664,7 @@ class Controller(QObject):
         # (with a window in use, only the younger objects are looked through: going through every object takes
         # up to half a second, and the full look comes once the window isn't in use: see _tidy_when_free)
         gc.collect(1 if QApplication.activeWindow() is not None else 2)
-        winutil.trim_memory(background=True)
+        winutil.trim_memory()
 
     def _tidy_when_free(self):
         """Looking through every object takes up to half a second with a big Space map kept: not while
@@ -685,7 +685,7 @@ class Controller(QObject):
         if self._window is None and not self.browsers and not self.viewers:
             icons.forget()
         release_memory()  # also forgets cached file facts and collects garbage
-        winutil.trim_memory(background=True)
+        winutil.trim_memory()
         log.info("tidied up memory")
         winutil.log_memory("tidied")
 
