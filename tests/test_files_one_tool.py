@@ -196,3 +196,47 @@ def test_arrows_go_along_the_bar_of_uses(window, qtbot):
     assert QApplication.focusWidget() is w.one_head.tabs["PDF"] and w.current_page() == "PDF"
     qtbot.keyClick(QApplication.focusWidget(), Qt.Key_Left)
     assert QApplication.focusWidget() is w.one_head.tabs["Converter"] and w.current_page() == "Converter"
+
+
+def test_window_made_with_a_files_page_open_has_the_same_tab_order(qtbot):
+    """The window can be made with a Files page open (the page last open): the heading is made before the
+    top bar then, and Tab still goes from the top bar to the heading and then into the page."""
+    from PySide6.QtWidgets import QApplication
+
+    from corefold import app as A
+    s = settings_mod.Settings.load()
+    s.first_run = False
+    s.tour_done = True
+    s.animations = False
+    s.tools_off = []
+    s.last_page = "Converter"
+    s.save()
+    c = A.Controller(A.QApplication.instance(), QIcon())
+    c.apply_tools()
+    w = c.window
+    w.resize(1040, 700)
+    w.show()
+    qtbot.waitExposed(w)
+    w.activateWindow()
+    qtbot.waitUntil(lambda: QApplication.activeWindow() is w)
+    try:
+        assert w.current_page() == "Converter"
+        w.lang_btn.setFocus()
+        qtbot.keyClick(w.lang_btn, Qt.Key_Tab)
+        assert QApplication.focusWidget() is w.one_head.gear
+        qtbot.keyClick(w.one_head.gear, Qt.Key_Tab)
+        assert QApplication.focusWidget() is w.one_head.tabs["Converter"]
+        qtbot.keyClick(w.one_head.tabs["Converter"], Qt.Key_Tab)
+        assert w.stack.currentWidget().isAncestorOf(QApplication.focusWidget())
+    finally:
+        from PySide6.QtCore import QTimer
+        from shiboken6 import delete
+        s.last_page = "Home"
+        s.save()
+        c.tray.hide()
+        for timer in c.findChildren(QTimer):
+            timer.stop()
+        if c._window is not None:
+            c._window.close()
+            delete(c._window)
+        delete(c)

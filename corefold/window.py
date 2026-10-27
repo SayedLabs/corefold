@@ -862,6 +862,7 @@ class MainWindow(QWidget):
         root.addWidget(sidebar)
         root.addWidget(self.edge)
         root.addWidget(self.canvas, 1)
+        self._one_head_tab_order()
 
         self.refresh()
         self.refresh_updates()
@@ -2151,6 +2152,17 @@ class MainWindow(QWidget):
         self.one_head.settings.connect(self._one_head_settings)
         return self.one_head
 
+    def _one_head_tab_order(self):
+        """Tab reaches the heading right after the top bar, before the page under it (a page made before the
+        heading, like the Converter's, would otherwise come first and the heading only at the end)."""
+        head = getattr(self, "one_head", None)
+        after = getattr(self, "lang_btn", None)
+        if head is None or head.gear is None or after is None or head.window() is not self:
+            return  # (the window is still being made with a Files page open: done again once it's whole)
+        for b in [head.gear, *head.tabs.values()]:
+            QWidget.setTabOrder(after, b)
+            after = b
+
     def _one_tool_of(self, name: str):
         """The section that's one tool this page is part of (None for any other page)."""
         sec = all_tools.SECTION_BY_PAGE.get(NAV_OWNER.get(name, name))
@@ -2183,12 +2195,7 @@ class MainWindow(QWidget):
             if sec is not head.section:
                 uses = [t for t in self.tools_on if all_tools.SECTION_OF[t.id] is sec]
                 head.show_section(sec, uses, self.c.theme, self.devicePixelRatioF())
-                # Tab reaches the heading right after the top bar, before the page under it (a page made before
-                # the heading, like the Converter's, would otherwise come first and the heading only at the end)
-                after = self.lang_btn
-                for b in [head.gear, *head.tabs.values()]:
-                    QWidget.setTabOrder(after, b)
-                    after = b
+                self._one_head_tab_order()
             tool = all_tools.BY_PAGE.get(name)
             if tool is None:
                 line = tr("Drop any file and see everything you can do with it.") \
