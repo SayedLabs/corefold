@@ -1,0 +1,92 @@
+# TEMPORARY (pre-launch look, removed before merging): pictures of the window around the tools before (main) and
+# after (this branch), and of Setup in each language. Saved to the "prelaunch-shots" branch.
+name: Pre-launch shots
+
+on:
+  push:
+    branches: [claude/project-thread-9iirh6]
+    paths: [".github/workflows/prelaunch-shots.yml", "scripts/shellshots.py", "scripts/setupshots.py", "corefold/**", "installer/**"]
+
+permissions:
+  contents: write
+
+jobs:
+  window:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install
+        shell: pwsh
+        run: |
+          python -m pip install --quiet -r requirements.txt
+          python scripts/screenres.py 1920 1080
+          git worktree add before origin/main
+      - name: Pictures
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          foreach ($combo in @("en dark", "fr dark", "es light", "tr dark", "ar light")) {
+            $a = $combo -split " "
+            python scripts/shellshots.py before shots/before $a[0] $a[1] *>> shots/log.txt
+            python scripts/shellshots.py . shots/after $a[0] $a[1] *>> shots/log.txt
+          }
+      - uses: actions/upload-artifact@v7
+        with:
+          name: window
+          path: shots/
+
+  setup:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Build
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force shots | Out-Null
+          ./scripts/build.ps1 -Version 0.0.${{ github.run_number }}-shots *> shots/build.txt
+          Get-Content shots/build.txt -Tail 30
+      - name: Pictures of Setup
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          python -m pip install --quiet pywinauto pillow
+          python scripts/screenres.py 1920 1080
+          $setup = Get-ChildItem dist\release -Filter Corefold-Setup-*.exe | Select-Object -First 1
+          foreach ($l in "ar", "fr", "es", "tr", "en") { python scripts/setupshots.py $setup.FullName shots/setup $l *>> shots/setup-log.txt }
+          Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup 6\Languages", "$env:ProgramFiles\Inno Setup 6\Languages" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name | Out-File shots/inno-languages.txt
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: setup
+          path: shots/
+
+  save:
+    needs: [window, setup]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          path: results
+      - name: Save to the prelaunch-shots branch
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          cd results
+          git init -q -b prelaunch-shots
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Pre-launch shots of $GITHUB_SHA"
+          git push -q -f "https://x-access-token:$TOKEN@github.com/$REPO.git" prelaunch-shots
