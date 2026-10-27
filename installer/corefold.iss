@@ -282,22 +282,41 @@ begin
     Result := ResultCode;
 end;
 
-{ Stops the Corefold installed here at once (only when it didn't close by itself, or PowerShell can't run). }
+{ Stops the Corefold installed here at once (only when it didn't close by itself). Never by name alone: a
+  portable Corefold elsewhere keeps running. If PowerShell can't run, the files it holds are asked about later. }
 procedure StopApp();
 var
   ResultCode: Integer;
 begin
-  if not RunPowerShell(
-      '$ErrorActionPreference = ''SilentlyContinue''; ' +
-      'Get-Process -Name Corefold | Where-Object { $_.Path -eq $env:CF_APP } | Stop-Process -Force; ' +
-      'Start-Sleep -Milliseconds 300', ResultCode) then
-    Exec(ExpandConstant('{sys}\taskkill.exe'), '/f /im {#AppExe}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  RunPowerShell(
+    '$ErrorActionPreference = ''SilentlyContinue''; ' +
+    'Get-Process -Name Corefold | Where-Object { $_.Path -eq $env:CF_APP } | Stop-Process -Force; ' +
+    'Start-Sleep -Milliseconds 300', ResultCode);
+end;
+
+{ The same app under its name before 1.7.0 (it can't be asked: those versions don't know how), only from its
+  old folder or this one: another program that happens to be called Satsuma.exe is never touched. }
+procedure StopOldApp();
+var
+  ResultCode: Integer;
+  OldInstalled, OldHere: String;
+begin
+  OldInstalled := ExpandConstant('{autopf}\{#OldName}\{#OldExe}');
+  OldHere := ExpandConstant('{app}\{#OldExe}');
+  if not FileExists(OldInstalled) and not FileExists(OldHere) then
+    Exit;
+  SetEnvironmentVariable('CF_OLD_INSTALLED', OldInstalled);
+  SetEnvironmentVariable('CF_OLD_HERE', OldHere);
+  RunPowerShell(
+    '$ErrorActionPreference = ''SilentlyContinue''; ' +
+    'Get-Process -Name {#OldName} | Where-Object { ($_.Path -eq $env:CF_OLD_INSTALLED) -or ($_.Path -eq $env:CF_OLD_HERE) } | Stop-Process -Force; ' +
+    'Start-Sleep -Milliseconds 300', ResultCode);
 end;
 
 { True when Corefold isn't running any more (it closed, or the person chose to stop it). }
 function CloseRunningApp(Silent: Boolean): Boolean;
 var
-  ResultCode, Answer: Integer;
+  Answer: Integer;
 begin
   Result := True;
   while True do
@@ -325,9 +344,7 @@ begin
         end;
     end;
   end;
-  { the same app under its name before 1.7.0 (it can't be asked: those versions don't know how) }
-  Exec(ExpandConstant('{sys}\taskkill.exe'), '/f /im {#OldExe}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  Sleep(300);
+  StopOldApp();
 end;
 
 { An installation folder chosen on the command line (/DIR=) that already holds other things: Corefold would

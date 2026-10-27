@@ -35,7 +35,7 @@ from . import tools as all_tools
 from . import settings as settings_mod
 from .converters import PASSWORD_ERROR, Options, Result, Tool, pick, release_memory, run_job, warm_up
 from .core import (LEGACY_NAME, category, fallback_folder, human_size, is_link, lower_this_thread, norm, os_open,
-                   set_background_priority, set_downloads_folder, short_name, system_tool, unique_path)
+                   set_background_priority, set_downloads_folder, short_name, unique_path)
 from .history import History, size_of
 from .i18n import tr
 from .settings import (APP_NAME, LOG_DIR, TOAST_TIME_SCALE, WINDOW_TEXT_PT, Settings, app_command, app_icon,
@@ -2754,16 +2754,25 @@ def refresh_startup_entry():
 
 
 def stop_old_copy():
-    """A copy from before 1.7.0 (the old name) may be running, e.g. next to a portable Corefold.
-    It would open a second wheel and keep writing to the old settings, so it's closed first.
+    """A copy from before 1.7.0 (the old name) may be running from its old folder, or next to a portable
+    Corefold. It would open a second wheel and keep writing to the old settings, so it's closed first.
+    Only those copies: another program that happens to have the old name is never touched.
     (The installer does the same; this covers the portable version.)"""
     if sys.platform != "win32" or not getattr(sys, "frozen", False):
         return
+    exe = f"{LEGACY_NAME}.exe"
+    places = [Path(sys.executable).with_name(exe)]
+    for root in (Path(os.environ.get("LOCALAPPDATA", ""), "Programs"), Path(os.environ.get("ProgramFiles", ""))):
+        if root.anchor:
+            places.append(root / LEGACY_NAME / exe)
+    places = [p for p in places if p.is_file()]
+    if not places:
+        return
     try:
-        subprocess.run([system_tool("taskkill.exe"), "/f", "/im", f"{LEGACY_NAME}.exe"], capture_output=True, timeout=10,
-                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-    except (OSError, subprocess.SubprocessError):
-        pass
+        from .uninstall import stop_programs_at
+        stop_programs_at(places)
+    except Exception:
+        log.debug("could not stop the old copy", exc_info=True)
 
 
 def _keep_scroll(window, value: int):
