@@ -2183,6 +2183,12 @@ class MainWindow(QWidget):
             if sec is not head.section:
                 uses = [t for t in self.tools_on if all_tools.SECTION_OF[t.id] is sec]
                 head.show_section(sec, uses, self.c.theme, self.devicePixelRatioF())
+                # Tab reaches the heading right after the top bar, before the page under it (a page made before
+                # the heading, like the Converter's, would otherwise come first and the heading only at the end)
+                after = self.lang_btn
+                for b in [head.gear, *head.tabs.values()]:
+                    QWidget.setTabOrder(after, b)
+                    after = b
             tool = all_tools.BY_PAGE.get(name)
             if tool is None:
                 line = tr("Drop any file and see everything you can do with it.") \

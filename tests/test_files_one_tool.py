@@ -168,3 +168,31 @@ def test_the_pdf_editor_gets_the_room(window, tmp_path, qtbot):
     assert not w.one_head.isVisible()  # (the editor has its own bar and list of pages)
     w.pdf_page.editor.close_editor(ask=False)
     assert w.one_head.isVisible()
+
+
+def test_tab_goes_from_the_top_bar_to_the_heading_then_the_page(window, qtbot):
+    from PySide6.QtWidgets import QApplication
+    w = window
+    for name in ("Converter", "PDF", "Files"):  # (the Converter's page is made before the heading; the others after)
+        w.open_page(name)
+        w.lang_btn.setFocus()
+        qtbot.keyClick(w.lang_btn, Qt.Key_Tab)
+        if w.one_head.gear.isVisible():  # (PDF has no settings of its own)
+            assert QApplication.focusWidget() is w.one_head.gear, name
+            qtbot.keyClick(w.one_head.gear, Qt.Key_Tab)
+        assert QApplication.focusWidget() is w.one_head.tabs[name], name  # (the use that's open, not the first)
+        qtbot.keyClick(w.one_head.tabs[name], Qt.Key_Tab)
+        assert w.stack.currentWidget().isAncestorOf(QApplication.focusWidget()), name
+        qtbot.keyClick(QApplication.focusWidget(), Qt.Key_Backtab, Qt.ShiftModifier)
+        assert QApplication.focusWidget() is w.one_head.tabs[name], name
+
+
+def test_arrows_go_along_the_bar_of_uses(window, qtbot):
+    from PySide6.QtWidgets import QApplication
+    w = window
+    w.open_page("Converter")
+    w.one_head.tabs["Converter"].setFocus()
+    qtbot.keyClick(QApplication.focusWidget(), Qt.Key_Right)
+    assert QApplication.focusWidget() is w.one_head.tabs["PDF"] and w.current_page() == "PDF"
+    qtbot.keyClick(QApplication.focusWidget(), Qt.Key_Left)
+    assert QApplication.focusWidget() is w.one_head.tabs["Converter"] and w.current_page() == "Converter"
