@@ -3024,4 +3024,9 @@ STRINGS: dict[str, str] = {
     "Now {width} × {height} px": "الحجم الحالي {width} × {height} بكسل",
     "Never make it bigger": "عدم تكبير الصورة أبدًا",
     "Too big to turn into a PDF": "الملف أكبر من أن يُحوَّل إلى PDF",
+    "{count} folders left out: Windows didn't let Corefold read them ({names}).": "تم تجاهل {count} من المجلدات: لم يسمح ويندوز لكورفولد بقراءتها ({names}).",
+    "Anyone you give the link to can see the folder {name} and everything in it, and download them, without signing in. They can't change them.": "يمكن لأي شخص تعطيه الرابط رؤية المجلد {name} وكل ما فيه وتنزيله دون تسجيل الدخول، لكن لا يمكنه تغييره.",
+    "Google files went as Office files, so the originals stay where they were.": "نُسخت ملفات Google كملفات أوفيس، لذا تبقى الأصلية في مكانها.",
+    "A folder can't be moved into itself.": "لا يمكن نقل مجلد إلى داخل نفسه.",
+    "Save the picked files and folders on this PC": "احفظ الملفات والمجلدات المحددة على هذا الجهاز",
 }
