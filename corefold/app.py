@@ -662,7 +662,7 @@ class Controller(QObject):
             return
         self._light_waits = 0
         gc.collect()
-        winutil.trim_memory()
+        winutil.trim_memory(background=True)
 
     def _tidy_when_free(self):
         """Looking through every object takes up to half a second with a big Space map kept: not while
@@ -683,7 +683,7 @@ class Controller(QObject):
         if self._window is None and not self.browsers and not self.viewers:
             icons.forget()
         release_memory()  # also forgets cached file facts and collects garbage
-        winutil.trim_memory()
+        winutil.trim_memory(background=True)
         log.info("tidied up memory")
         winutil.log_memory("tidied")
 
