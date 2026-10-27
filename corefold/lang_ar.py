@@ -3012,4 +3012,7 @@ STRINGS: dict[str, str] = {
     "Ejecting it…": "جارٍ الإخراج…",
     "You can take out {name} now.": "يمكنك نزع {name} الآن.",
     "Windows says the USB drive is still in use. Close the programs using it (and any command window opened in it), then eject it again.": "يقول ويندوز إن ذاكرة USB ما زالت قيد الاستخدام. أغلق البرامج التي تستخدمها (وأي نافذة أوامر مفتوحة فيها)، ثم أخرجها مرة أخرى.",
+    "More tools": "أدوات أخرى",
+    "One PDF": "ملف PDF واحد",
+    "Put the PDFs and pictures into one PDF, in this order": "جمع ملفات PDF والصور في ملف PDF واحد بهذا الترتيب",
 }
