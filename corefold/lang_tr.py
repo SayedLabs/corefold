@@ -2939,4 +2939,7 @@ STRINGS: dict[str, str] = {
     "Ejecting it…": "Çıkarılıyor…",
     "You can take out {name} now.": "{name} artık çıkarılabilir.",
     "Windows says the USB drive is still in use. Close the programs using it (and any command window opened in it), then eject it again.": "Windows USB sürücünün hâlâ kullanımda olduğunu söylüyor. Onu kullanan programları (ve içinde açık komut pencerelerini) kapatın, sonra yeniden çıkarın.",
+    "More tools": "Diğer araçlar",
+    "One PDF": "Tek PDF",
+    "Put the PDFs and pictures into one PDF, in this order": "PDF'leri ve resimleri bu sırayla tek bir PDF'te birleştirin",
 }

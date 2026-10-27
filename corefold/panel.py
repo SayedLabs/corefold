@@ -25,6 +25,11 @@ if TYPE_CHECKING:
     from .app import Controller
 
 GROUP_ORDER = ["convert", "edit", "shrink", "read", "archive"]
+# what Corefold PDF's own page does with dropped PDFs (the Converter's PDF buttons are in the groups above):
+# key on that page, label, icon; the first three are for one PDF only
+PDF_USES = [("edit", "Edit content", "text_edit_style"), ("organize", "Arrange pages", "grid"),
+            ("extract", "Take out pages", "document_multiple"), ("searchable", "Make searchable", "scan_text"),
+            ("clean", "Remove hidden info", "broom")]
 
 
 class FlowLayout(QLayout):
@@ -285,7 +290,8 @@ class FilePanel(QFrame):
                 tr(CATEGORY_NAMES.get(pk.kind, "Images")).split(" (")[0]
             self.name.setText(tr("{count} items", count=len(pk.files)))
             self.details.setText(tr("{kind} · {size} in total", kind=kind_name, size=size_text))
-        bits = [tr("Things you can do: {count}", count=sum(1 for sl in pk.slots if sl.ok))]
+        uses = self._other_uses(pk.files)
+        bits = [tr("Things you can do: {count}", count=sum(1 for sl in pk.slots if sl.ok) + len(uses))]
         if pk.dimmed:
             bits.append(tr("{count} don't fit (greyed out, point at one to see why)", count=pk.dimmed))
         if pk.hidden:
@@ -311,7 +317,16 @@ class FilePanel(QFrame):
             for slot in slots:
                 flow.addWidget(self._button(slot, slot.tool.key in favs))
             self.groups.addWidget(holder)
-        if not pk.slots:
+        if uses:
+            title = QLabel(tr("More tools").upper())
+            title.setObjectName("section")
+            self.groups.addWidget(title)
+            holder = QWidget()
+            flow = FlowLayout(holder)
+            for label, icon, run in uses:
+                flow.addWidget(self._use_button(label, icon, run))
+            self.groups.addWidget(holder)
+        if not pk.slots and not uses:
             msg = QLabel(tr("Nothing to do with these files. Check Settings → Converter → Formats if you hid some options."))
             msg.setObjectName("muted")
             msg.setWordWrap(True)
@@ -355,6 +370,41 @@ class FilePanel(QFrame):
         self.thumb.setText("")
         self.thumb.setStyleSheet("")
         self.thumb.setPixmap(icons.pixmap(name, 44, self.c.theme.muted, self.devicePixelRatioF()))
+
+    def _other_uses(self, files: list[Path]) -> list[tuple]:
+        """The Files tool's other uses that fit these files: (label, icon, what it does). A use that's
+        switched off or resting isn't offered."""
+        from . import tools as all_tools
+        s = self.c.settings
+        uses = []
+        if files and all(p.is_file() and p.suffix.lower() == ".pdf" for p in files) and all_tools.is_on(s, "pdf"):
+            for key, label, icon in PDF_USES[3 if len(files) > 1 else 0:]:
+                uses.append((tr(label), icon, lambda k=key: self._open_use("PDF", k)))
+        if files and all_tools.is_on(s, "unlock"):
+            uses.append((tr("What's using this?"), "lock_open", lambda: self._open_use("Unlock")))
+        return uses
+
+    def _open_use(self, page: str, key: str = ""):
+        files = list(self.files)
+        self.c.show_window(page)
+        here = getattr(self.c.window, {"PDF": "pdf_page", "Unlock": "unlock_page"}[page], None)
+        if here is None or not files:
+            return
+        if page == "PDF":
+            here.run(key, files)
+        else:
+            here.check(files)
+
+    def _use_button(self, label: str, icon: str, run) -> QPushButton:
+        b = QPushButton(label)
+        b.setIcon(icons.icon(icon, self.c.theme.text, self.c.theme.muted))
+        b.setIconSize(icons.SMALL)
+        b.setObjectName("action")
+        b.setCursor(Qt.PointingHandCursor)
+        b.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        b.setMinimumWidth(92)
+        b.clicked.connect(lambda _=False: run())
+        return b
 
     def _button(self, slot, favorite: bool) -> QPushButton:
         action = action_of(slot.tool.key)
