@@ -1,0 +1,31 @@
+ok    every tool is in the bar (11)
+ok    every tool has its picture
+ok    the colours and three sizes are there
+ok    the bar fits the window (974 px)
+ok    an arrow is drawn, and stays picked
+ok    a box is drawn
+ok    clicking the arrow picks it (picked 0)
+ok    dragging moves it (151,150 → 351,250)
+ok    pulling its tip moves only the tip
+ok    inside a box a new mark can still be drawn
+ok    Undo takes the new mark back
+ok    clicking the box's line picks it (picked 1)
+ok    pulling a corner makes it bigger (300 × 200)
+ok    a colour and size change the picked mark
+ok    …and not the others
+ok    the arrow keys nudge it (Shift: 10 at a time)
+ok    Undo takes the moves back one by one
+ok    Redo puts one back
+ok    Delete removes the picked mark
+ok    …and Undo brings it back
+ok    Esc lets go of the mark (the editor stays open)
+ok    a text is put on the picture
+ok    double-clicking a text changes its words ('Hello there')
+ok    the picture has the green box where it was moved (#30a46c)
+ok    …and nothing where it was before
+ok    Capture has the copy-text shortcut
+ok    the read text is copied, with a note ('Hello there')
+ok    no text: it says so
+ok    a real picture is read and copied ('Corefold copies this text')
+ok    no errors (0)
+capmarkstest: 0 problem(s)

@@ -1,0 +1,143 @@
+note  versions: PySide6-Essentials 6.12.0, Pillow 13.0.0, pypdfium2 5.14.0, pypdf 6.21.2
+note  the first text on this PC (Windows reading its fonts): 2.6 s
+note  test files made in 50 s
+note  before start: other programs kept the PC 2% busy; waited 1 s (then 2%)
+----- start
+ok       0.07 s  (limit 4 s)  Corefold starts (tray icon ready)
+ok       0.32 s  (limit 2.5 s)  the window opens   · window froze 0.28 s
+ok    start: no errors behind the clicks (0)
+note  before organizer: other programs kept the PC 2% busy; waited 1 s (then 2%)
+----- organizer
+ok       0.05 s  (limit 0.6 s)  Organizer: open the page
+ok       6.25 s  (limit 30 s)  Organizer: 30,000 loose files planned and listed   · window froze 0.36 s
+ok    Organizer: 29999 of 30,000 to sort (the one a program has open stays)
+ok       0.08 s  (limit 0.5 s)  Organizer: untick a kind of 7,500 files
+ok    …they're left out (22499 to sort)
+ok       0.07 s  (limit 0.5 s)  Organizer: tick it again
+ok      30.25 s  (limit 90 s)  Organizer: sort 29,999 files
+ok    Organizer: only the open file is still loose (1)
+ok    …and every move can be undone
+ok      25.91 s  (limit 90 s)  Organizer: undo 29,999 files   · window froze 0.48 s
+ok    Organizer: after Undo every file is back, unchanged (30000 of 30000; missing 0, changed 0)
+ok    …and the folders it made are gone
+note  memory while sorting 30,000 files: at most 348 MB
+ok    organizer: no errors behind the clicks (0)
+note  before archive: other programs kept the PC 3% busy; waited 1 s (then 3%)
+----- archive
+ok       1.91 s  (limit 12 s)  Archive: open node_modules 200000 files.zip   · window froze 0.53 s
+ok       0.30 s  (limit 1.2 s)  Archive: search 'file-199999' in 200,000 files
+ok       0.32 s  (limit 1.2 s)  Archive: search 'f' in 200,000 files
+ok       0.30 s  (limit 1.2 s)  Archive: search 'fi' in 200,000 files
+ok       0.31 s  (limit 1.2 s)  Archive: search 'file' in 200,000 files
+ok       0.30 s  (limit 1.2 s)  Archive: search 'js' in 200,000 files
+ok       0.30 s  (limit 1.2 s)  Archive: search 'zzz' in 200,000 files
+ok       0.31 s  (limit 1.2 s)  Archive: clear the search
+ok       0.01 s  (limit 1.0 s)  Archive: sort by size
+ok       0.00 s  (limit 1.0 s)  Archive: sort by name again
+ok       0.00 s  (limit 1.0 s)  Archive: select all
+ok      94.43 s  (limit 300 s)  Archive: Extract to… (200,000 files)
+ok    …all 200,000 files are there (200000)
+ok       0.78 s  (limit 4 s)  Archive: stop extracting part-way (Cancel)
+ok       0.97 s  (limit 10 s)  Archive: open Scans 100000 in one folder.zip
+ok       0.24 s  (limit 0.6 s)  Archive: scroll to the end of 100,000 rows
+ok       0.31 s  (limit 1.2 s)  Archive: search 'scan-99999'
+ok    …it's found, alone (1 shown)
+ok       0.21 s  (limit 1.5 s)  Archive: sort 100,000 files by size
+ok       0.14 s  (limit 2.5 s)  Archive: select all 100,000
+ok    …every one is selected (100000)
+ok       0.07 s  (limit 4 s)  Archive: open Backup over 4 GB.zip
+ok       4.29 s  (limit 240 s)  Archive: extract a 4.3 GB file
+ok    …it's whole and unchanged (4613734400 bytes)
+note  memory while the big archives: at most 598 MB
+ok    archive: no errors behind the clicks (0)
+note  before pdf: other programs kept the PC 0% busy; waited 1 s (then 0%)
+----- pdf
+ok       0.15 s  (limit 2 s)  PDF: open a 2,000-page PDF on the board
+ok      15.10 s  (limit 150 s)  PDF: every page's small picture drawn   · window froze 0.42 s
+ok       0.21 s  (limit 0.6 s)  PDF: scroll to the end
+ok       0.01 s  (limit 0.5 s)  PDF: select all 2,000 pages
+ok       0.12 s  (limit 1.5 s)  PDF: turn 2,000 pages
+ok       0.07 s  (limit 1.0 s)  PDF: undo
+ok       0.03 s  (limit 1.0 s)  PDF: delete 1,000 pages
+ok    …1,000 are left (1000)
+ok       0.20 s  (limit 120 s)  PDF: save the 1,000 pages as a new PDF
+ok    …it has 1,000 pages ([1000], errors [])
+ok       0.64 s  (limit 2 s)  PDF: 40 PDFs of 50 pages on the board
+ok      15.40 s  (limit 150 s)  PDF: every page's small picture drawn (40 files)   · window froze 0.43 s
+ok       0.30 s  (limit 120 s)  PDF: merge 40 PDFs into one
+ok    …it has 2,000 pages ([2000], errors [])
+note  memory while 2,000-page PDFs on the board: at most 699 MB
+ok      89.34 s  (limit 240 s)  PDF: make the 2,000-page PDF smaller
+ok    …1 file(s) made
+note  memory while making a 2,000-page PDF smaller: at most 485 MB
+ok    pdf: no errors behind the clicks (0)
+note  before converter: other programs kept the PC 2% busy; waited 1 s (then 2%)
+----- converter
+ok       0.07 s  (limit 1.0 s)  Converter: drop 400 photos on the window
+ok       0.04 s  (limit 0.5 s)  Converter: work out the wheel for 400 photos
+ok     378.29 s  (limit 700 s)  Converter: 400 phone photos → WebP
+ok    …400 file(s) made
+note  400 photos → WebP: 378 s, this app used 296% of one core, the whole PC was 80% busy (4 cores)
+note  memory while 400 photos at once: at most 979 MB
+ok       0.52 s  (limit 90 s)  Converter: 200 MP picture → JPG
+ok    …1 file(s) made
+note  memory while a 200 MP picture: at most 1181 MB
+ok       0.41 s  (limit 120 s)  Converter: 1 GB video → MP3
+ok    …1 file(s) made
+ok       0.37 s  (limit 5 s)  Converter: stop making a 1 GB video smaller (Cancel)
+ok    …no half-made video is left behind ([])
+ok       1.11 s  (limit 180 s)  Converter: folder of 30,000 files → ZIP
+ok    …1 file(s) made
+ok    converter: no errors behind the clicks (0)
+note  before cloud: other programs kept the PC 2% busy; waited 1 s (then 2%)
+----- cloud
+ok       0.10 s  (limit 1.0 s)  Cloud: open the page
+ok    Cloud: both folders are there (['OneDrive', 'Dropbox'])
+ok       1.20 s  (limit 6 s)  Cloud: open a folder of 20,000 pictures
+ok       0.12 s  (limit 0.8 s)  Cloud: sort them by size
+ok    …smallest first (6)
+ok       0.10 s  (limit 0.8 s)  Cloud: and by name again
+ok       0.00 s  (limit 1.0 s)  Cloud: select all 20,000
+ok    …every one (20000)
+ok       0.63 s  (limit 0.8 s)  Cloud: back up   · window froze 0.59 s
+ok       6.45 s  (limit 120 s)  Cloud: copy a project of 3,000 files to another cloud folder
+ok    …every file arrived, unchanged (3000 of 3000)
+note  memory while a cloud folder of 20,000 pictures: at most 463 MB
+ok    cloud: no errors behind the clicks (0)
+note  before unlock: other programs kept the PC 1% busy; waited 1 s (then 1%)
+----- unlock
+ok       0.55 s  (limit 60 s)  Unlock: who has a file open in a folder of 20,000
+ok    …this program is found holding it (['Python'], 5000 files asked about, capped: True)
+ok    unlock: no errors behind the clicks (0)
+note  before idle: other programs kept the PC 1% busy; waited 1 s (then 1%)
+----- idle
+note  idle, processor time by thread in 15 s: Thread-2 (_held_watch) 0.02 s, MainThread 0.02 s, corefold-starter 0.00 s, corefold-peek 0.00 s, corefold-key 0.00 s, Thread-3 (_look) 0.00 s (all Python threads 0.03 s of 0.03 s)
+note  idle, timers on the window's thread in 5 s: QTimer ×62, QObject ×1
+ok    idle in the tray: 0.21% of one processor core
+note  memory after using everything and leaving it idle: 15 MB in use, 465 MB private
+ok    idle: no errors behind the clicks (0)
+
+freezes (the window didn't answer for more than 0.25 s):
+   0.59 s  Cloud: back up  ·  app.py:664 light_tidy  ·  mostly (2 of 3 looks): winutil.py:215 trim_memory < app.py:665 light_tidy
+   0.53 s  Archive: open node_modules 200000 files.zip  ·  usetest.py:220 wait_ms < usetest.py:226 until < usetest.py:255 timed < usetest.py:1173 _browser_for
+   0.48 s  Archive: search 'scan-99999'  ·  browser.py:705 visit < browser.py:710 _filter < browser.py:262 <lambda>
+   0.48 s  Organizer: undo 29,999 files  ·  app.py:2679 collect_garbage
+   0.43 s  PDF: every page's small picture drawn (40 files)  ·  app.py:664 light_tidy  ·  mostly (2 of 3 looks): winutil.py:215 trim_memory < app.py:665 light_tidy
+   0.42 s  PDF: every page's small picture drawn  ·  app.py:664 light_tidy  ·  mostly (2 of 3 looks): winutil.py:215 trim_memory < app.py:665 light_tidy
+   0.36 s  Organizer: 30,000 loose files planned and listed  ·  usetest.py:220 wait_ms < usetest.py:226 until < usetest.py:255 timed < usetest.py:1140 h_organizer
+   0.28 s  the window opens  ·  sheet.py:1426 eventFilter < app.py:570 show_window
+   0.27 s  Organizer: 30,000 loose files planned and listed  ·  usetest.py:220 wait_ms < usetest.py:226 until < usetest.py:255 timed < usetest.py:1140 h_organizer
+
+Python held up (no thread could run for more than 0.3 s):
+   2.52 s    ·  Thread-3 (_look): usetest.py:991 _look < threading.py:1012 run < threading.py:1075 _bootstrap_inner < threading.py:1032 _bootstrap | Thread-1 (_watch): usetest.py:139 _watch < threading.py:1012 run < threading.py:1075 _bootstrap_inner < threading.py:1032 _bootstrap | MainThread: usetest.py:1419 <module>
+   0.59 s    ·  corefold-starter: work.py:50 _start_them | corefold-peek: peekshell.py:523 _loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | Thread-3 (_look): usetest.py:986 now < usetest.py:991 _look < threading.py:1012 run < threading.py:1075 _bootstrap_inner | Thread-1 (_watch): usetest.py:139 _watch < threading.py:1012 run < threading.py:1075 _bootstrap_inner < threading.py:1032 _bootstrap | MainThread: app.py:2677 collect_garbage
+   0.54 s  Cloud: back up  ·  corefold-starter: work.py:50 _start_them | corefold-peek: peekshell.py:523 _loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | Thread-3 (_look): usetest.py:986 now < usetest.py:991 _look < threading.py:1012 run < threading.py:1075 _bootstrap_inner | Thread-1 (_watch): usetest.py:139 _watch < threading.py:1012 run < threading.py:1075 _bootstrap_inner < threading.py:1032 _bootstrap | MainThread: app.py:665 light_tidy
+   0.50 s    ·  corefold-starter: work.py:50 _start_them | corefold-peek: peekshell.py:523 _loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | Thread-3 (_look): usetest.py:986 now < usetest.py:991 _look < threading.py:1012 run < threading.py:1075 _bootstrap_inner | Thread-1 (_watch): usetest.py:139 _watch < threading.py:1012 run < threading.py:1075 _bootstrap_inner < threading.py:1032 _bootstrap | MainThread: app.py:664 light_tidy
+   0.46 s  Organizer: undo 29,999 files  ·  corefold-organizer-plan: organizer.py:199 in_use < organizer.py:441 plan < organizerpage.py:407 <lambda> < work.py:68 go | corefold-starter: work.py:50 _start_them | corefold-peek: peekshell.py:523 _loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | Thread-3 (_look): usetest.py:991 _look < threading.py:1012 run < threading.py:1075 _bootstrap_inner < threading.py:1032 _bootstrap | Thread-1 (_watch): usetest.py:139 _watch < threading.py:1012 run < threading.py:1075 _bootstrap_inner < threading.py:1032 _bootstrap | MainThread: usetest.py:220 wait_ms < usetest.py:226 until < usetest.py:255 timed < usetest.py:1161 h_organizer
+   0.40 s    ·  corefold-starter: work.py:50 _start_them | corefold-peek: peekshell.py:523 _loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | Thread-3 (_look): usetest.py:986 now < usetest.py:991 _look < threading.py:1012 run < threading.py:1075 _bootstrap_inner | Thread-1 (_watch): usetest.py:139 _watch < threading.py:1012 run < threading.py:1075 _bootstrap_inner < threading.py:1032 _bootstrap | MainThread: converters.py:699 release_memory < app.py:686 tidy_up
+   0.37 s  PDF: every page's small picture drawn (40 files)  ·  corefold-pdf-thumbs: pdfpage.py:1135 _thumbnails < pdfpage.py:745 go < work.py:68 go | corefold-starter: work.py:50 _start_them | corefold-peek: peekshell.py:523 _loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | Thread-3 (_look): usetest.py:991 _look < threading.py:1012 run < threading.py:1075 _bootstrap_inner < threading.py:1032 _bootstrap | Thread-1 (_watch): usetest.py:139 _watch < threading.py:1012 run < threading.py:1075 _bootstrap_inner < threading.py:1032 _bootstrap | MainThread: app.py:664 light_tidy
+   0.36 s  PDF: every page's small picture drawn  ·  corefold-pdf-thumbs: pdfpage.py:1135 _thumbnails < pdfpage.py:745 go < work.py:68 go | corefold-starter: work.py:50 _start_them | corefold-peek: peekshell.py:523 _loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | Thread-3 (_look): usetest.py:986 now < usetest.py:991 _look < threading.py:1012 run < threading.py:1075 _bootstrap_inner | Thread-1 (_watch): usetest.py:139 _watch < threading.py:1012 run < threading.py:1075 _bootstrap_inner < threading.py:1032 _bootstrap | MainThread: app.py:664 light_tidy
+   0.36 s    ·  corefold-starter: work.py:50 _start_them | corefold-peek: peekshell.py:523 _loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | Thread-3 (_look): usetest.py:991 _look < threading.py:1012 run < threading.py:1075 _bootstrap_inner < threading.py:1032 _bootstrap | Thread-1 (_watch): usetest.py:139 _watch < threading.py:1012 run < threading.py:1075 _bootstrap_inner < threading.py:1032 _bootstrap | MainThread: app.py:2679 collect_garbage
+   0.35 s  Organizer: 30,000 loose files planned and listed  ·  corefold-organizer-plan: organizer.py:195 in_use < organizer.py:441 plan < organizerpage.py:407 <lambda> < work.py:68 go | corefold-starter: work.py:50 _start_them | corefold-peek: peekshell.py:523 _loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | corefold-key: hotkey.py:224 loop | Thread-3 (_look): usetest.py:991 _look < threading.py:1012 run < threading.py:1075 _bootstrap_inner < threading.py:1032 _bootstrap | Thread-1 (_watch): usetest.py:139 _watch < threading.py:1012 run < threading.py:1075 _bootstrap_inner < threading.py:1032 _bootstrap | MainThread: app.py:2679 collect_garbage
+ok    the log has no errors (0: [])
+usetest en-dark-heavy: 0 problem(s)

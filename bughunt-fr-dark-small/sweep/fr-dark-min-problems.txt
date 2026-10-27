@@ -1,0 +1,12 @@
+
+errors:
+
+notes:
+round 1: 9 windows, 1033 widgets, 152 MB, 61917 Python objects
+round 2: 9 windows, 1033 widgets, 154 MB, 62389 Python objects
+round 3: 9 windows, 1033 widgets, 155 MB, 62032 Python objects
+memory as tools come and go (152 → 154 → 155 MB, 1.3 MB a round)
+after 10 opens: 137 MB, 15 widgets, 5 windows
+after 20 opens: 132 MB, 15 widgets, 5 windows
+after 30 opens: 132 MB, 15 widgets, 5 windows
+after 40 opens: 133 MB, 15 widgets, 5 windows
