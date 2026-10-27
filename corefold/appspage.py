@@ -588,7 +588,7 @@ class AppsPage(QWidget):
         m.addAction(tr("Copy the name") if len(apps) == 1 else tr("Copy the names"),
                     lambda: QGuiApplication.clipboard().setText("\n".join(a.name for a in apps)))
         sheet.menu(m, self.tree.viewport().mapToGlobal(pos))
-        m.deleteLater()
+        sheet.forget(m)
 
     def _search(self, app: un.App):
         from PySide6.QtCore import QUrl

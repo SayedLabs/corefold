@@ -233,7 +233,7 @@ class EntryRow(QWidget):
         if pos is None and button is not None:
             pos = button.mapToGlobal(button.rect().bottomLeft())
         sheet.menu(m, pos)
-        m.deleteLater()
+        sheet.forget(m)
 
 
     def _search(self):

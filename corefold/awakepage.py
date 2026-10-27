@@ -405,7 +405,7 @@ class AwakePage(QScrollArea):
         m.addSeparator()
         m.addAction(tr("Choose a program file…"), self._browse)
         sheet.menu(m, self.add_app)
-        m.deleteLater()
+        sheet.forget(m)
 
     def _browse(self):
         start = os.environ.get("ProgramFiles", "")

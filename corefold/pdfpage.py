@@ -980,7 +980,7 @@ class PdfPage(QWidget):
             act = m.addAction(icons.icon(name, muted), text)
             act.triggered.connect(lambda _=False, h=how: self.save(h, only_selected=True))
         sheet.menu(m, self.selected_btn, above=True)
-        m.deleteLater()
+        sheet.forget(m)
 
     def save(self, how: str, only_selected: bool = False):
         chosen = self.selected() if only_selected else self.items()

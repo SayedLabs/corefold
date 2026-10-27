@@ -1178,6 +1178,12 @@ def pick(anchor: QWidget | QPoint, rows: list[Row], min_width: int = 0, owner: Q
     return result
 
 
+def forget(m: QMenu):
+    """m.deleteLater(), unless the menu already went with what it belonged to."""
+    if _alive(m):
+        m.deleteLater()
+
+
 def _clean(text: str) -> str:
     return text.replace("&&", "\0").replace("&", "").replace("\0", "&").split("\t")[0]
 
@@ -1215,6 +1221,8 @@ def menu(m: QMenu, at: QPoint | QWidget | None = None, owner: QWidget | None = N
     owner = owner or m.parentWidget()
     row = pick(at, rows_of(m), owner=owner if isinstance(at, QPoint) else None,
                min_width=at.width() if isinstance(at, QWidget) else 0, above=above)
+    if not _alive(m):  # (what it belonged to went while it was open: a list filled again under it)
+        return None
     m.aboutToHide.emit()
     if row is None or row.value is None:
         return None
@@ -1538,4 +1546,4 @@ def install(app: QApplication, provider: Callable[[], QWidget | None] | None = N
 
 
 __all__ = ["install", "set_window_provider", "run", "show", "question", "warning", "information", "critical",
-           "get_color", "menu", "pick", "Row", "drop_list", "tip", "tip_at", "hide_tip", "open_sheets", "host_for"]
+           "get_color", "menu", "forget", "pick", "Row", "drop_list", "tip", "tip_at", "hide_tip", "open_sheets", "host_for"]

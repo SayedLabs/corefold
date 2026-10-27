@@ -377,7 +377,7 @@ class FloatingButton(QWidget):
         m.addAction(tr("Quick access settings"), lambda: self.qa.c.show_window("Quick"))
         m.addAction(tr("Hide this button"), self._hide_button)
         sheet.menu(m, at)
-        m.deleteLater()  # (not one more menu kept for every right-click)
+        sheet.forget(m)  # (not one more menu kept for every right-click)
 
     def _hide_button(self):
         self.qa.c.keep_now("quick_button", False)  # (kept now, never held back with Settings' unsaved changes)
