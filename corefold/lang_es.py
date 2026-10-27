@@ -2867,7 +2867,7 @@ STRINGS: dict[str, str] = {
     "Save a clean copy": "Guardar una copia limpia",
     "See and change its title and author, and take out who made it, notes, attached files and scripts": "Ver y cambiar su título y autor, y quitar quién lo hizo, las notas, los archivos adjuntos y los scripts",
     "Who made it and with what": "Quién lo hizo y con qué",
-    "The author, the program, the dates and the keywords": "El autor, el programa, las fechas y las palabras clave",
+    "The author, the program, the dates, the keywords and where photos were taken": "El autor, el programa, las fechas, las palabras clave y dónde se hicieron las fotos",
     "Sticky notes and replies, which only show when someone opens them": "Las notas adhesivas y las respuestas, que solo se ven si alguien las abre",
     "Attached files": "Archivos adjuntos",
     "Files carried inside the PDF": "Archivos que van dentro del PDF",

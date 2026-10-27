@@ -2867,7 +2867,7 @@ STRINGS: dict[str, str] = {
     "Save a clean copy": "Temiz bir kopya kaydet",
     "See and change its title and author, and take out who made it, notes, attached files and scripts": "Başlığını ve yazarını görün ve değiştirin; kimin yaptığını, notları, ekli dosyaları ve betikleri kaldırın",
     "Who made it and with what": "Kim, neyle yaptı",
-    "The author, the program, the dates and the keywords": "Yazar, program, tarihler ve anahtar sözcükler",
+    "The author, the program, the dates, the keywords and where photos were taken": "Yazar, program, tarihler, anahtar sözcükler ve fotoğrafların çekildiği yer",
     "Sticky notes and replies, which only show when someone opens them": "Yalnızca biri açınca görünen yapışkan notlar ve yanıtlar",
     "Attached files": "Ekli dosyalar",
     "Files carried inside the PDF": "PDF'in içinde taşınan dosyalar",
