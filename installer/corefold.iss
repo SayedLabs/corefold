@@ -79,8 +79,8 @@ Name: "tr"; MessagesFile: "compiler:Languages\Turkish.isl"
 en.SelectTasksLabel2=Choose your options, then click Install.
 en.FinishedLabel=Corefold is installed. Hold Shift and drag any file in File Explorer, or right-click a file and choose Corefold.
 #if FileExists(AddBackslash(CompilerPath) + "Languages\Arabic.isl")
-ar.SelectTasksLabel2=اختر اللي تبيه، وبعدين اضغط «تثبيت».
-ar.FinishedLabel=تم تثبيت كورفولد. اضغط Shift واسحب أي ملف في مستكشف الملفات، أو اضغط على الملف بالزر الأيمن واختر Corefold.
+ar.SelectTasksLabel2=اختر ما تريد، ثم انقر «تثبيت».
+ar.FinishedLabel=تم تثبيت كورفولد. اضغط مع الاستمرار على Shift واسحب أي ملف في مستكشف الملفات، أو انقر بزر الماوس الأيمن على ملف واختر Corefold.
 #endif
 fr.SelectTasksLabel2=Choisissez vos options, puis cliquez sur Installer.
 fr.FinishedLabel=Corefold est installé. Maintenez Maj et faites glisser un fichier dans l'Explorateur de fichiers, ou faites un clic droit sur un fichier et choisissez Corefold.
@@ -98,13 +98,13 @@ en.FolderNotEmpty=The folder %1 already has other files in it. Install Corefold 
 en.StillBusy=Corefold is still busy. Install again when it's done.
 en.DeleteData=Also delete your Corefold settings and what it keeps for you?%n%nThat is: settings, the clipboard history (pinned copies too), saved archive passwords, your saved signature, cloud sign-ins and the File Organizer's Undo. Backups of removed apps and files opened from Cloud are kept either way.%n%nChoose No if you might install Corefold again and want to keep them.
 #if FileExists(AddBackslash(CompilerPath) + "Languages\Arabic.isl")
-ar.DesktopIcon=حط أيقونة كورفولد على سطح المكتب
-ar.StartWithWindows=تشغيل كورفولد مع بدء ويندوز (ننصح فيه)
-ar.OpenNow=افتح كورفولد الحين
-ar.StillWorking=كورفولد لسا يخلّص شغلة (تحويل، أو ترتيب ملفات، أو إزالة برنامج).%n%nإعادة المحاولة: انتظر لين يخلّص.%nتجاهل: سكّر كورفولد الحين (اللي يسويه يوقف في نصه).%nإحباط: وقّف التثبيت.
-ar.FolderNotEmpty=المجلد %1 فيه ملفات ثانية. ثبّت كورفولد في مجلد فاضي (أو شيل /DIR عشان يستخدم مجلده المعتاد).
-ar.StillBusy=كورفولد لسا مشغول. ثبّته مرة ثانية لما يخلّص.
-ar.DeleteData=تبي تحذف بعد إعدادات كورفولد واللي يحفظه لك؟%n%nيعني: الإعدادات، وسجل الحافظة (حتى المثبّت فيه)، وكلمات سر الأرشيفات المحفوظة، وتوقيعك المحفوظ، وتسجيلات الدخول للسحابة، والتراجع في منظّم الملفات. النسخ الاحتياطية للبرامج المحذوفة والملفات المفتوحة من السحابة تنحفظ في كل الأحوال.%n%nاختر «لا» إذا يمكن تثبّت كورفولد مرة ثانية وتبي تحتفظ فيها.
+ar.DesktopIcon=إضافة أيقونة كورفولد إلى سطح المكتب
+ar.StartWithWindows=تشغيل كورفولد مع بدء ويندوز (مستحسن)
+ar.OpenNow=فتح كورفولد الآن
+ar.StillWorking=ما زال كورفولد يُنهي عملًا ما (تحويلًا، أو ترتيب ملفات، أو إزالة برنامج).%n%nإعادة المحاولة: الانتظار حتى ينتهي.%nتجاهل: إغلاق كورفولد الآن (يتوقف ما يفعله في منتصفه).%nإحباط: إيقاف التثبيت.
+ar.FolderNotEmpty=المجلد %1 يحتوي على ملفات أخرى. ثبّت كورفولد في مجلد فارغ (أو احذف /DIR ليستخدم مجلده المعتاد).
+ar.StillBusy=ما زال كورفولد مشغولًا. أعد التثبيت عندما ينتهي.
+ar.DeleteData=هل تريد أيضًا حذف إعدادات كورفولد وما يحفظه لك؟%n%nأي: الإعدادات، وسجل الحافظة (بما فيه العناصر المثبّتة)، وكلمات مرور الأرشيفات المحفوظة، وتوقيعك المحفوظ، وتسجيلات الدخول إلى السحابة، والتراجع في منظّم الملفات. أما النسخ الاحتياطية للبرامج المُزالة والملفات المفتوحة من السحابة فتبقى في كل الأحوال.%n%nاختر «لا» إذا كنت قد تثبّت كورفولد مرة أخرى وتريد الاحتفاظ بها.
 #endif
 fr.DesktopIcon=Mettre une icône Corefold sur mon bureau
 fr.StartWithWindows=Démarrer Corefold au démarrage de Windows (recommandé)
