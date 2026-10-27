@@ -491,6 +491,8 @@ def resize_image(src: Path, ctx: Ctx) -> Result:
     def size_for(w: int, h: int) -> tuple[int, int]:
         if kind == "custom":
             new_w = max(1, int(p.get("width", 1000)))
+            if not p.get("bigger") and new_w > w:  # ("Never make it bigger": a small picture would only blur)
+                new_w = w
             return new_w, max(1, round(h * new_w / w))
         if kind == "scale":
             return max(1, round(w * value)), max(1, round(h * value))
@@ -1239,7 +1241,7 @@ def pdf_to_text(src: Path, ctx: Ctx) -> Result:
         pdf.close()
     if not any(part.strip() for part in parts):  # only pictures of pages: an empty .txt would help nobody
         return Result(note=tr("{name} has no text to take out. It's probably a scan (pictures of pages).",
-                              name=src.name))
+                              name=src.name), scans=[src])
     out = ctx.out_path(src, ctx.stem(src) + ".txt")
     out.write_text("\n\n".join(parts), encoding="utf-8")
     return Result([out])
@@ -1411,6 +1413,9 @@ finally { $app.AutomationSecurity = $was; if ($app.Presentations.Count -eq 0) { 
 
 
 def document_to_pdf(src: Path, ctx: Ctx) -> Result:
+    from . import textpdf
+    if textpdf.is_text(src):  # (text, Markdown, web pages and tables: Corefold makes those itself)
+        return textpdf.text_to_pdf(src, ctx)
     out = ctx.out_path(src, ctx.stem(src) + ".pdf")
     prog = office_app_for(src)
     if prog:
@@ -1515,15 +1520,17 @@ def _kill_tree(proc):
 
 
 def check_office(files: list[Path]) -> str | None:
-    if office_app_for(files[0]) or _cached("lo", Path("soffice"), find_libreoffice):
-        return None
-    return tr("Needs Microsoft Office or LibreOffice")
+    from . import textpdf
+    office = [f for f in files if not textpdf.is_text(f)]
+    if office and not (office_app_for(office[0]) or _cached("lo", Path("soffice"), find_libreoffice)):
+        return tr("Needs Microsoft Office or LibreOffice")
+    return textpdf.check_size(files)
 
 
 # ----------------------------------------------------------------------------- what goes on the wheel
 
 CATEGORY_NAMES = {"image": "Images", "audio": "Audio", "video": "Video", "pdf": "PDFs",
-                  "document": "Word, Excel & PowerPoint", "archive": "Archives (ZIP, RAR, 7z…)",
+                  "document": "Documents (Word, Excel, text…)", "archive": "Archives (ZIP, RAR, 7z…)",
                   "folder": "Folders", "files": "Any files and folders (archive, rename)"}
 CATEGORY_ICONS = {"image": "image", "audio": "music_note_2", "video": "video", "pdf": "document_pdf",  # icons.py
                   "document": "document_text", "archive": "archive", "folder": "folder", "files": "box"}
@@ -1969,6 +1976,7 @@ def run_job(tool: Tool, files: list[Path], options: Options,
             total.clipboard = r.clipboard or total.clipboard
             total.note = r.note or total.note
             total.undo += r.undo
+            total.scans += r.scans
             if r.outputs and isinstance(item, Path):
                 total.sources.append(item)
         elif err is not None:

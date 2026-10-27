@@ -831,7 +831,7 @@ class MainWindow(QWidget):
         footer.addStretch()
         self.discard_btn = button(tr("Discard"), None, self.discard_changes)
         self.save_btn = button(tr("Save"), "primary", self.save_changes)
-        self.done_btn = button(tr("Done"), "primary", self.close)
+        self.done_btn = button(tr("Done"), "primary", self.settings_done)
         for b in (self.discard_btn, self.save_btn, self.done_btn):
             footer.addWidget(b)
         # the pages sit on the canvas, flat beside the sidebar (a lighter or darker grey than it)
@@ -4477,6 +4477,11 @@ class MainWindow(QWidget):
                 self.nav.setCurrentRow(row)
         finally:
             self._opening = None
+
+    def settings_done(self):
+        """Done in Settings: back to the page that was open before (the window stays open)."""
+        if not self.go_back():
+            self.open_page("Home")
 
     def go_back(self) -> bool:
         """Back: first inside the page (a page with steps of its own, like a folder in Space), then to the

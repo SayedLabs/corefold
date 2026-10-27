@@ -2037,6 +2037,9 @@ class Controller(QObject):
         elif self._can_compare(files, result.outputs, errors, cancelled):
             before, after_file = files[0], result.outputs[0]
             extra_text, extra = tr("Compare"), lambda: self.compare(before, after_file)
+        elif result.scans and not cancelled and all_tools.is_on(self.settings, "pdf"):
+            scans = list(result.scans)  # (no text to copy: reading the words on the pages is one click away)
+            extra_text, extra = tr("Make searchable"), lambda: self.make_searchable(scans)
         important = bool(errors or result.note or result.undo or elsewhere)
         if self.settings.show_progress or important:
             shown = self.toast.finish(job_id, title, detail, first, linger, single=len(result.outputs) == 1,
@@ -2051,6 +2054,13 @@ class Controller(QObject):
         if first and (self.settings.reveal_after or (extracted and self.settings.extract_reveal)) \
                 and not errors and not cancelled:
             winutil.reveal_in_explorer(first)
+
+    def make_searchable(self, files: list[Path]):
+        """Corefold PDF's Make searchable for these PDFs (offered when there was no text to copy)."""
+        self.show_window("PDF")
+        page = getattr(self.window, "pdf_page", None)
+        if page is not None:
+            page.run("searchable", [Path(f) for f in files if Path(f).exists()])
 
     def _saved_elsewhere(self, files: list, outputs: list) -> str:
         """'Downloads › Corefold' when what was made went there because the folder it was meant for can't be

@@ -76,6 +76,7 @@ class Result:
     locked: list = field(default_factory=list)  # items that need a (different) password
     undo: list = field(default_factory=list)    # (new, old) names, for "Undo" after renaming
     sources: list = field(default_factory=list)  # the files that were made into something (run_job fills it)
+    scans: list = field(default_factory=list)    # PDFs found to be scans, with no text (offered Make searchable)
 
 
 @dataclass
@@ -379,17 +380,20 @@ ALIASES = {".jpeg": ".jpg", ".jfif": ".jpg", ".tif": ".tiff", ".aif": ".aiff", "
 IMAGE_EXT = {".png", ".jpg", ".webp", ".bmp", ".gif", ".tiff", ".heic", ".avif", ".ico", ".svg", ".cr2", ".cr3", ".nef",
              ".nrw", ".arw", ".srf", ".sr2", ".dng", ".orf", ".rw2", ".raf", ".srw", ".pef", ".3fr", ".erf", ".kdc",
              ".mrw", ".x3f"}
-AUDIO_EXT = {".mp3", ".m4a", ".wav", ".flac", ".ogg", ".opus", ".aiff", ".wma", ".aac"}
-VIDEO_EXT = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".wmv", ".m4v", ".flv", ".mpg", ".mpeg", ".3gp", ".ts"}
+# (and old phones' voice messages (AMR), audiobooks (M4B), camcorders' videos (MTS, M2TS) and DVDs (VOB))
+AUDIO_EXT = {".mp3", ".m4a", ".wav", ".flac", ".ogg", ".opus", ".aiff", ".wma", ".aac", ".amr", ".m4b"}
+VIDEO_EXT = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".wmv", ".m4v", ".flv", ".mpg", ".mpeg", ".3gp", ".ts", ".mts",
+             ".m2ts", ".vob"}
 WORD_EXT = {".doc", ".docx", ".rtf", ".odt"}
 EXCEL_EXT = {".xls", ".xlsx", ".ods"}
 SLIDES_EXT = {".ppt", ".pptx", ".odp"}
 DOCUMENT_EXT = WORD_EXT | EXCEL_EXT | SLIDES_EXT
+TEXT_EXT = {".txt", ".md", ".markdown", ".html", ".htm", ".csv"}  # (documents too, made into PDFs without Office)
 TAR_SUFFIXES = (".tar", ".tar.gz", ".tgz", ".tar.bz2", ".tbz2", ".tbz", ".tar.xz", ".txz", ".tar.zst", ".tzst")
 ARCHIVE_EXT = {".zip", ".rar", ".7z", ".tar", ".gz", ".tgz", ".bz2", ".tbz2", ".tbz", ".xz", ".txz", ".iso",
                ".cab", ".wim", ".lzh", ".lha", ".arj", ".z", ".lzma", ".zipx", ".001", ".cpio", ".rpm", ".deb", ".zst",
                ".tzst"}
-ALL_EXT = IMAGE_EXT | AUDIO_EXT | VIDEO_EXT | DOCUMENT_EXT | ARCHIVE_EXT | {".pdf"} | set(ALIASES)
+ALL_EXT = IMAGE_EXT | AUDIO_EXT | VIDEO_EXT | DOCUMENT_EXT | TEXT_EXT | ARCHIVE_EXT | {".pdf"} | set(ALIASES)
 
 
 def norm(ext: str) -> str:
@@ -409,7 +413,7 @@ def category(p: Path) -> str:
         return "video"
     if e == ".pdf":
         return "pdf"
-    if e in DOCUMENT_EXT:
+    if e in DOCUMENT_EXT or e in TEXT_EXT:
         return "document"
     if e in ARCHIVE_EXT or re.search(r"\.part0*1\.rar$", p.name, re.I):
         return "archive"
