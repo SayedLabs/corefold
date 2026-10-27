@@ -27,6 +27,7 @@ TMP = Path(tempfile.mkdtemp(prefix="corefold-flashtest-"))
 os.environ["APPDATA"] = str(TMP / "roaming")
 os.environ["LOCALAPPDATA"] = str(TMP / "local")
 sys.path.insert(0, str(ROOT))
+os.environ.setdefault("COREFOLD_WAKE_ORGANIZER", "1")  # (File Organizer rests in a built Corefold: its kept code is tried here)
 sys.path.insert(0, str(ROOT / "scripts"))
 LOG = open(OUT / "newtest_flash.txt", "w", encoding="utf-8")
 
