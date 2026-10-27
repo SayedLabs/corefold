@@ -3016,4 +3016,7 @@ STRINGS: dict[str, str] = {
     "Ejecting it…": "قاعد يخرجها…",
     "You can take out {name} now.": "تقدر تشيل {name} الحين.",
     "Windows says the USB drive is still in use. Close the programs using it (and any command window opened in it), then eject it again.": "ويندوز يقول إن الفلاشة لسا مستخدمة. سكّر البرامج اللي تستخدمها (وأي نافذة أوامر مفتوحة فيها)، وبعدين أخرجها مرة ثانية.",
+    "Pause the Converter": "إيقاف المحوّل مؤقتًا",
+    "The keys of the tools resting for now come back with them.": "اختصارات الأدوات الموقوفة مؤقتًا بترجع معها.",
+    "It also saves files to a folder on another computer:": "وبيحفظ الملفات في مجلد على جهاز ثاني:",
 }

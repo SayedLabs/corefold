@@ -424,7 +424,7 @@ class Controller(QObject):
         self.recent_menu = menu.addMenu(tr("Recent files"))
         self.menu_icons += [(self.act_again, "arrow_sync"), (self.recent_menu.menuAction(), "history")]
         self.recent_menu.aboutToShow.connect(self._fill_recent)
-        self.act_pause = menu.addAction(tr("Pause"))
+        self.act_pause = menu.addAction(tr("Pause the Converter"))
         self.act_pause.setCheckable(True)
         self.act_pause.setChecked(not self.settings.enabled)
         self.act_pause.toggled.connect(lambda paused: self.set_enabled(not paused))

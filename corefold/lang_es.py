@@ -2939,4 +2939,7 @@ STRINGS: dict[str, str] = {
     "Ejecting it…": "Expulsándola…",
     "You can take out {name} now.": "Ya puedes quitar {name}.",
     "Windows says the USB drive is still in use. Close the programs using it (and any command window opened in it), then eject it again.": "Windows dice que la unidad USB sigue en uso. Cierra los programas que la usan (y cualquier ventana de comandos abierta en ella) y vuelve a expulsarla.",
+    "Pause the Converter": "Pausar el conversor",
+    "The keys of the tools resting for now come back with them.": "Los atajos de las herramientas en pausa volverán con ellas.",
+    "It also saves files to a folder on another computer:": "También guarda los archivos en una carpeta de otro equipo:",
 }
