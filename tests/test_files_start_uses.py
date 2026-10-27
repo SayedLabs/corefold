@@ -108,3 +108,10 @@ def test_a_use_switched_off_isnt_offered(panel, files):
     c.window.show_files([files / "letter.pdf"])
     texts = _buttons(c)
     assert "What's using this?" not in texts and "Edit content" not in texts
+
+
+def test_one_pdf_isnt_in_the_right_click_menu():
+    from corefold import shellmenu
+    s = settings_mod.Settings()
+    for ext in ("*", "", ".pdf", ".jpg"):
+        assert "files:pdf" not in [i.key for i in shellmenu.items_for(ext, s)], ext
