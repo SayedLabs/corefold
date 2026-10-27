@@ -22,8 +22,11 @@ YOU = "<you>"
 # C:\Users\<name>\… in every way it gets written (\, \\ in JSON, /)
 _USERS = re.compile(r"(?i)(\b[a-z]:(?:\\\\|\\|/)+users(?:\\\\|\\|/)+)([^\\/\"'\s:*?<>|]+)")
 _NOT_A_PERSON = {"public", "default", "default user", "all users", YOU}
-# what's left out of the copied settings: the names of files opened lately
-_PRIVATE = ("recent_archives", "recent_views", "last_action")
+# what's left out of the copied settings: the names of files opened lately, and what only says something about the
+# person (their own links and sites, the words of their watermark, the programs they keep out of the clipboard,
+# colours they picked)
+_PRIVATE = ("recent_archives", "recent_views", "last_action", "quick_links", "watermark", "clip_ignore",
+            "colors_history")
 
 
 def user_names() -> list[str]:

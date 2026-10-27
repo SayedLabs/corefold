@@ -166,11 +166,11 @@ class ShortcutsPage:
         box, bl = card()
         bl.addWidget(_wrapping(label(tr("Keys that work in any app"), "h2")))
         self.rows = []
-        for r, entry in enumerate(GLOBAL):
-            if r:
-                line = QFrame()
-                line.setObjectName("line")
-                bl.addWidget(line)
+        self.lines = []
+        for entry in GLOBAL:
+            line = QFrame()
+            line.setObjectName("line")
+            bl.addWidget(line)
             line_box = QWidget()
             row = QHBoxLayout(line_box)
             row.setContentsMargins(0, 0, 0, 0)
@@ -187,6 +187,12 @@ class ShortcutsPage:
             row.addWidget(change, 0, Qt.AlignVCenter)
             bl.addWidget(line_box)
             self.rows.append((entry, keys, status, change))
+            self.lines.append((line, line_box))
+        # (the keys of tools resting for now aren't listed one by one: they'd fill the card with keys that do
+        # nothing yet)
+        self.resting_note = _wrapping(label(tr("The keys of the tools resting for now come back with them."),
+                                            "muted"))
+        bl.addWidget(self.resting_note)
         lay.addWidget(box)
 
         self.sections = []
@@ -237,6 +243,15 @@ class ShortcutsPage:
             status.style().unpolish(status)
             status.style().polish(status)
             change.setVisible(st not in ("unused", "resting"))
+        first = True
+        resting = False
+        for (entry, *_), (line, line_box) in zip(self.rows, self.lines):
+            shown = state(self.c, entry) != "resting"
+            resting = resting or not shown
+            line_box.setVisible(shown)
+            line.setVisible(shown and not first)
+            first = first and not shown
+        self.resting_note.setVisible(resting)
         for tool, box, _, _ in self.sections:
             box.setVisible(not tool or all_tools.is_on(self.c.settings, tool))
 

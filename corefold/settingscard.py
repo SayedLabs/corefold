@@ -89,6 +89,20 @@ def links_note(saved: settings_backup.Saved, shown: int = 6) -> str:
         "\n".join(lines)
 
 
+def folders_note(saved: settings_backup.Saved) -> str:
+    """Folders on another computer (\\\\server\\share) the file would save new files to: someone else's settings file
+    could send every converted file there, so the person sees them before agreeing."""
+    found = []
+    for key in ("output_folder", "cap_folder", "organize_auto_folder"):
+        value = saved.settings.get(key)
+        if isinstance(value, str) and value.strip()[:2] in ("\\\\", "//") and value not in found:
+            found.append(value)
+    if not found:
+        return ""
+    return "\n\n" + tr("It also saves files to a folder on another computer:") + "\n" + \
+        "\n".join(f"•  {short_name(f, 70)}" for f in found)
+
+
 def bring_back(win, path: Path | None = None, ask: bool = True) -> bool:
     """Reads a settings file, says what it is, and (once the person agrees) uses it and restarts Corefold."""
     title = tr("Bring back settings")
@@ -108,7 +122,8 @@ def bring_back(win, path: Path | None = None, ask: bool = True) -> bool:
     if ask:
         box = QMessageBox(QMessageBox.Question, title, describe(saved), parent=win)
         box.setInformativeText(tr("Your current settings are replaced with these, and Corefold restarts to use them. "
-                                  "Your history, clipboard and window size stay as they are.") + links_note(saved))
+                                  "Your history, clipboard and window size stay as they are.") + links_note(saved)
+                               + folders_note(saved))
         yes = box.addButton(tr("Bring them back"), QMessageBox.AcceptRole)
         box.addButton(tr("Cancel"), QMessageBox.RejectRole)
         box.setDefaultButton(yes)
