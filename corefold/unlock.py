@@ -358,8 +358,166 @@ def find(paths: list[Path]) -> Found:
     for prog in in_folders(folders, names, seen) if folders else []:
         seen.add(prog.pid)
         result.programs.append(prog)
+    for pid in holding(folders + drives, seen) if folders or drives else []:
+        if names.get(pid, "").lower() == "explorer.exe":
+            continue  # (a File Explorer window on the folder watches it, which never stops it being moved)
+        seen.add(pid)
+        result.programs.append(_program(pid, names))
     result.programs.sort(key=lambda p: (not p.closable, p.name.lower(), p.pid))
     return result
+
+
+# ----------------------------------------------------------------------------- open handles
+
+# Restart Manager only knows files: a program that has a FOLDER open (one watching it for changes, a backup or
+# sync tool, a program's own open-folder handle) keeps Windows from renaming or deleting it, yet isn't listed.
+# So for folders and drives Corefold also goes through the open handles of the programs it may look into
+# (the same user's, as PowerToys File Locksmith does), and asks each file handle where it points.
+SYSTEM_EXTENDED_HANDLE_INFORMATION = 64
+STATUS_INFO_LENGTH_MISMATCH = 0xC0000004
+PROCESS_DUP_HANDLE = 0x40
+DUPLICATE_SAME_ACCESS = 2
+FILE_TYPE_DISK = 1
+HANDLES_WAIT_S = 8.0       # a handle that won't say where it points can't hold up the page for long
+
+
+class _HandleEntry(ctypes.Structure):
+    _fields_ = [("Object", ctypes.c_void_p), ("UniqueProcessId", ctypes.c_size_t),
+                ("HandleValue", ctypes.c_size_t), ("GrantedAccess", ctypes.c_uint32),
+                ("CreatorBackTraceIndex", ctypes.c_uint16), ("ObjectTypeIndex", ctypes.c_uint16),
+                ("HandleAttributes", ctypes.c_uint32), ("Reserved", ctypes.c_uint32)]
+
+
+@functools.cache
+def _handle_dll(name: str):
+    """kernel32 and ntdll with what reading other programs' handles needs (apart from _dll's copies)."""
+    lib = ctypes.WinDLL(name, use_last_error=True)
+    H, U32, P, I = ctypes.c_void_p, ctypes.c_uint32, ctypes.c_void_p, ctypes.c_int
+    table = {
+        "kernel32": (("OpenProcess", (U32, I, U32), H), ("CloseHandle", (H,), I), ("GetCurrentProcess", (), H),
+                     ("DuplicateHandle", (H, H, H, P, U32, I, U32), I), ("GetFileType", (H,), U32),
+                     ("GetFinalPathNameByHandleW", (H, ctypes.c_wchar_p, U32, U32), U32),
+                     ("CreateFileW", (ctypes.c_wchar_p, U32, U32, P, U32, U32, H), H)),
+        "ntdll": (("NtQuerySystemInformation", (U32, P, U32, P), ctypes.c_long),),
+    }
+    for fn, args, res in table.get(name, ()):
+        getattr(lib, fn).argtypes, getattr(lib, fn).restype = args, res
+    return lib
+
+
+def _all_handles() -> list[_HandleEntry]:
+    nt = _handle_dll("ntdll")
+    size = 1 << 22
+    for _ in range(8):
+        buf = ctypes.create_string_buffer(size)
+        needed = ctypes.c_uint32(0)
+        rc = nt.NtQuerySystemInformation(SYSTEM_EXTENDED_HANDLE_INFORMATION, buf, size, ctypes.byref(needed))
+        if rc & 0xFFFFFFFF == STATUS_INFO_LENGTH_MISMATCH:
+            size = max(size * 2, needed.value + (1 << 20))
+            continue
+        if rc:
+            return []
+        count = ctypes.c_size_t.from_buffer(buf).value
+        start = 2 * ctypes.sizeof(ctypes.c_size_t)
+        count = min(count, (size - start) // ctypes.sizeof(_HandleEntry))
+        return list((_HandleEntry * count).from_buffer(buf, start))
+    return []
+
+
+def _file_type_index(handles: list[_HandleEntry], own_handle: int) -> int | None:
+    me = os.getpid()
+    for h in handles:
+        if h.UniqueProcessId == me and h.HandleValue == own_handle:
+            return h.ObjectTypeIndex
+    return None
+
+
+def _final_path(k, handle) -> str:
+    buf = ctypes.create_unicode_buffer(1024)
+    n = k.GetFinalPathNameByHandleW(handle, buf, 1024, 0)
+    if not 0 < n < 1024:
+        return ""
+    path = buf.value
+    if path.startswith("\\\\?\\UNC\\"):
+        return "\\\\" + path[8:]
+    return path[4:] if path.startswith("\\\\?\\") else path
+
+
+def _holding(tops: tuple[str, ...], skip: set) -> set[int]:
+    k = _handle_dll("kernel32")
+    me = os.getpid()
+    # (one handle of Corefold's own to a file says which number Windows gives the "file" kind on this PC)
+    own = k.CreateFileW(sys.executable, 0x80000000, 0x7, None, OPEN_EXISTING, 0, None)
+    if not own or own == INVALID_HANDLE:
+        return set()
+    try:
+        handles = _all_handles()
+        kind = _file_type_index(handles, own)
+    finally:
+        k.CloseHandle(own)
+    if kind is None:
+        return set()
+    here = k.GetCurrentProcess()
+    found: set[int] = set()
+    opened: dict[int, int | None] = {}
+    try:
+        for h in handles:
+            pid = h.UniqueProcessId
+            if h.ObjectTypeIndex != kind or pid in (0, 4, me) or pid in skip or pid in found:
+                continue
+            if pid not in opened:
+                opened[pid] = k.OpenProcess(PROCESS_DUP_HANDLE, False, pid) or None
+            proc = opened[pid]
+            if proc is None:
+                continue
+            dup = ctypes.c_void_p()
+            if not k.DuplicateHandle(proc, h.HandleValue, here, ctypes.byref(dup), 0, False, DUPLICATE_SAME_ACCESS):
+                continue
+            try:
+                # (only files and folders on a disk: asking a pipe where it points can wait for ever)
+                if k.GetFileType(dup) == FILE_TYPE_DISK and _inside(_final_path(k, dup), tops):
+                    found.add(pid)
+            finally:
+                k.CloseHandle(dup)
+    finally:
+        for proc in opened.values():
+            if proc:
+                k.CloseHandle(proc)
+    return found
+
+
+def holding(folders: list[str], skip: set) -> set[int]:
+    """The programs (run as this user) that have something in these folders or drives open, the folder
+    itself too. Empty if Windows won't say, or takes too long."""
+    if sys.platform != "win32" or not folders:
+        return set()
+    import threading
+    # (Windows says where a handle points with long names and links followed: C:\\Users\\RUNNER~1 is
+    # C:\\Users\\runneradmin to it)
+    tops = tuple(ntpath.normcase(os.path.realpath(f)).rstrip("\\") + "\\" for f in folders)
+    got: list[set[int]] = []
+
+    def work():
+        try:
+            got.append(_holding(tops, set(skip)))
+        except Exception:
+            log.warning("couldn't read which programs have the folder open", exc_info=True)
+    t = threading.Thread(target=work, daemon=True, name="corefold-unlock-handles")
+    t.start()
+    t.join(HANDLES_WAIT_S)
+    return got[0] if got else set()
+
+
+def _program(pid: int, names: dict[int, str]) -> Program:
+    exe = _exe_of(pid)
+    file_name = ntpath.basename(exe) if exe else names.get(pid, "")
+    p = Program(pid=pid, name=ntpath.splitext(file_name)[0] or f"#{pid}", exe=exe, started=_started(pid),
+                kind=RM_MAIN_WINDOW if windows_of(pid) else RM_CONSOLE)
+    p.critical = file_name.lower() in CRITICAL
+    p.explorer = file_name.lower() == "explorer.exe"
+    p.own = pid == os.getpid()
+    p.blocked = not p.critical and not p.own and not _can_close(pid)
+    return p
 
 
 # ----------------------------------------------------------------------------- closing
@@ -743,6 +901,30 @@ def usb_drives() -> list[Drive]:
     return out
 
 
+def too_wide(path) -> bool:
+    """A whole drive that isn't a USB drive (C:\\), Windows' own folder or anything in it, or a folder that
+    holds every program or everyone's files (Program Files, Users, your own folder, AppData). Nearly every
+    program uses something in it, so "Close all" would close them all, and none of it can be deleted."""
+    p = os.path.normcase(os.path.abspath(str(path))).rstrip("\\/")
+    if is_drive(str(path)):
+        return os.path.normcase(str(path)[:2]) not in {os.path.normcase(d.root[:2]) for d in usb_drives()}
+    if not os.path.isdir(p):
+        return False
+    windows = os.environ.get("SystemRoot")
+    if windows and (p == _norm(windows) or p.startswith(_norm(windows) + os.sep)):
+        return True
+    home = Path.home()
+    tops = [os.environ.get(k) for k in ("ProgramFiles", "ProgramFiles(x86)", "ProgramW6432", "ProgramData", "APPDATA",
+                                         "LOCALAPPDATA", "PUBLIC")]
+    tops += [str(home), str(home.parent), str(home / "AppData"), str(home / "AppData" / "LocalLow"),
+             os.environ.get("SystemDrive", "C:") + os.sep + "Users"]
+    return any(t and p == _norm(t) for t in tops)
+
+
+def _norm(path: str) -> str:
+    return os.path.normcase(os.path.abspath(path)).rstrip("\\/")
+
+
 def is_drive(path) -> bool:
     """A drive's own top ("E:\\"), not a folder on it."""
     p = str(path)
@@ -762,8 +944,9 @@ def running_from(roots: list[str], names: dict[int, str] | None = None) -> list[
             continue
         p = Program(pid=pid, name=os.path.splitext(os.path.basename(exe))[0] or file_name, exe=exe,
                     started=_started(pid), kind=RM_MAIN_WINDOW)
+        p.critical = file_name.lower() in CRITICAL
         p.own = pid == os.getpid()
-        p.blocked = not p.own and not _can_close(pid)
+        p.blocked = not p.critical and not p.own and not _can_close(pid)
         out.append(p)
     return out
 

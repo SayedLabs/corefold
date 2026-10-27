@@ -825,6 +825,9 @@ STRINGS: dict[str, str] = {
     "Also unpacked {count} archives that were inside": "También se extrajeron {count} archivos comprimidos que había dentro",
     "Show older versions ({count})": "Ver versiones anteriores ({count})",
     "Left out {count} links that pointed elsewhere": "Se omitieron {count} enlaces que apuntaban a otro sitio",
+    'this archive unpacks to over a thousand times its size (an archive bomb), so unpacking was stopped': 'este archivo se descomprime a más de mil veces su tamaño (una bomba de archivo), así que se detuvo la descompresión',
+    'Left out {count} items that would have gone outside the folder': 'Se omitieron {count} elementos que habrían quedado fuera de la carpeta',
+    "That's a whole drive or one of Windows' own folders: nearly every program uses something in it, so Corefold won't close them. Pick the file or folder inside it that you need.": 'Es una unidad entera o una de las carpetas de Windows: casi todos los programas usan algo en ella, así que Corefold no los cerrará. Elige el archivo o la carpeta de dentro que necesitas.',
     "the archive holds a link that couldn't be taken out": "el archivo comprimido tiene un enlace que no se pudo quitar",
     "couldn't put that file back into the archive": "no se pudo volver a meter ese archivo en el archivo comprimido",
     "Saved {name} back into {archive}": "{name} se guardó de nuevo en {archive}",
@@ -2944,4 +2947,7 @@ STRINGS: dict[str, str] = {
     "Google files went as Office files, so the originals stay where they were.": "Los archivos de Google se copiaron como archivos de Office, así que los originales se quedan donde estaban.",
     "A folder can't be moved into itself.": "Una carpeta no se puede mover dentro de sí misma.",
     "Save the picked files and folders on this PC": "Guardar los archivos y carpetas elegidos en este PC",
+    "More tools": "Más herramientas",
+    "One PDF": "Un solo PDF",
+    "Put the PDFs and pictures into one PDF, in this order": "Juntar los PDF y las imágenes en un solo PDF, en este orden",
 }

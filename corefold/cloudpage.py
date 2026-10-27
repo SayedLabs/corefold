@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QMimeData, QRect, QRectF, QSize, Qt, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices, QDrag, QFont, QFontMetrics, QGuiApplication, QIcon, QKeySequence, QPainter, \
     QShortcut
-from PySide6.QtWidgets import QAbstractItemView, QFileDialog, QHBoxLayout, QHeaderView, QInputDialog, QLabel, \
+from PySide6.QtWidgets import QAbstractItemView, QFileDialog, QHBoxLayout, QHeaderView, QLabel, \
     QLineEdit, QListWidget, QListWidgetItem, QMenu, QMessageBox, QProgressBar, QPushButton, QStyle, \
     QStyledItemDelegate, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
@@ -1693,7 +1693,7 @@ class CloudPage(QWidget):
     def new_folder(self):
         if self.account is None:
             return
-        name, ok = QInputDialog.getText(self, tr("New folder"), tr("Name:"))
+        name, ok = sheet.get_text(self, tr("New folder"), tr("Name:"))
         name = name.strip()
         if not ok or not name:
             return
@@ -1705,7 +1705,7 @@ class CloudPage(QWidget):
         self._run(go, what=tr("New folder {name}", name=ltr(name)))
 
     def rename(self, acc: cloud.Account, e: cloud.Entry):
-        name, ok = QInputDialog.getText(self, tr("Rename"), tr("New name:"), text=e.name)
+        name, ok = sheet.get_text(self, tr("Rename"), tr("New name:"), text=e.name)
         name = name.strip()
         if not ok or not name or name == e.name:
             return

@@ -184,3 +184,18 @@ def test_on_a_narrow_window_the_buttons_show_their_icons_not_cut_words(qtbot, tm
     page.resize(1400, 600)
     qtbot.waitUntil(lambda: not page.compact, timeout=2000)
     assert page.download_btn.text() == page.actions[1][1]
+
+
+def test_new_folder_and_rename_ask_inside_the_window(qtbot, tmp_path, monkeypatch):
+    from corefold import cloudlocal, cloudpage
+    monkeypatch.setattr(cloud, "ACCOUNTS_FILE", tmp_path / "accounts.dat")
+    monkeypatch.setattr(cloudlocal, "find", lambda: [])
+    asked = []
+    monkeypatch.setattr(cloudpage.sheet, "get_text", lambda parent, title, label, text="": asked.append(title) or ("", False))
+    page = cloudpage.CloudPage(types.SimpleNamespace(theme=theme.build_theme("light", "core")), QHBoxLayout())
+    qtbot.addWidget(page)
+    acc = cloud.Account("folder", "", extra={"local": str(tmp_path)})
+    page.accounts, page.account = [acc], acc
+    page.new_folder()
+    page.rename(acc, cloud.Entry("a.txt", False, str(tmp_path / "a.txt")))
+    assert asked == ["New folder", "Rename"]

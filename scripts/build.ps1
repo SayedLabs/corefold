@@ -212,10 +212,11 @@ three years after we last ship this version.
 
 
 # ---- 7-Zip (archives: ZIP, RAR, 7z, ISO ...). Uses an installed 7-Zip, or installs one.
-# 25.00 or newer only: older ones can be tricked by a booby-trapped archive into writing outside
-# the folder (CVE-2025-11001/11002) or dropping the "downloaded from the internet" mark.
+# 26.05 or newer only: older ones can be tricked by a booby-trapped archive into writing outside the
+# folder (CVE-2025-11001/11002/55188), running code (CVE-2026-14266, XZ) or dropping the "downloaded from
+# the internet" mark (CVE-2026-58052); 26.04 and 26.05 fixed more holes.
 $SzDir = "vendor\7zip"
-$Sz7Min = [version]"25.0"
+$Sz7Min = [version]"26.5"
 function Get-7ZipVersion($exe) {
     try { return [version](((Get-Item $exe).VersionInfo.ProductVersion -split "[^0-9.]")[0]) } catch { return [version]"0.0" }
 }
@@ -239,6 +240,13 @@ if (-not (Test-Path "$SzDir\7z.exe")) {
         }
         if (-not (Find-7Zip) -and (Get-Command choco -ErrorAction SilentlyContinue)) {
             choco upgrade 7zip -y --no-progress | Out-Null
+        }
+        if (-not (Find-7Zip)) {  # (winget and choco can be a few days behind: 7-Zip's own installer)
+            $name = "7z{0}{1:D2}-x64.exe" -f $Sz7Min.Major, $Sz7Min.Minor
+            $setup = Join-Path $env:TEMP $name
+            Invoke-WebRequest "https://www.7-zip.org/a/$name" -OutFile $setup
+            Start-Process $setup -ArgumentList "/S" -Wait
+            Remove-Item $setup -Force -ErrorAction SilentlyContinue
         }
         $found = Find-7Zip
     }
