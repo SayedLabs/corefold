@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QFileInfo, QSize, Qt, QTimer
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QFileDialog, QFileIconProvider, QFrame, QHBoxLayout, QInputDialog, QLabel, QMenu, \
+from PySide6.QtWidgets import QFileDialog, QFileIconProvider, QFrame, QHBoxLayout, QLabel, QMenu, \
     QMessageBox, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from . import i18n, icons, sheet, unlock, work
@@ -329,6 +329,13 @@ class UnlockPage(QWidget):
             self.states = {}
         self._show_path()
         self.problem.hide()
+        if any(unlock.too_wide(p) for p in paths):  # (C:\, Windows, Program Files: every program uses them)
+            self.found = None
+            self._fill()
+            self._say(tr("That's a whole drive or one of Windows' own folders: nearly every program uses something "
+                         "in it, so Corefold won't close them. Pick the file or folder inside it that you need."))
+            self._next()
+            return
         self._set_busy(True, tr("Looking for programs that are using it…"))
         self._run(lambda _p: unlock.find(paths), self._found)
 
@@ -603,7 +610,7 @@ class UnlockPage(QWidget):
     def _ask_name(self) -> str | None:
         """The new name typed (checked), or None."""
         old = self.paths[0]
-        new_name, ok = QInputDialog.getText(self, tr("Rename…"), tr("New name:"), text=old.name)
+        new_name, ok = sheet.get_text(self, tr("Rename…"), tr("New name:"), text=old.name)
         if not ok:
             return None
         new_name = new_name.strip().rstrip(". ")

@@ -29,6 +29,7 @@ os.environ["USERPROFILE"] = os.environ["HOME"] = str(HOME)
 for _name in ("OneDrive", "OneDriveConsumer", "OneDriveCommercial"):
     os.environ.pop(_name, None)
 sys.path.insert(0, str(ROOT))
+os.environ.setdefault("COREFOLD_WAKE_ORGANIZER", "1")  # (File Organizer rests in a built Corefold: its kept code is tried here)
 
 import corefold  # noqa: E402
 
