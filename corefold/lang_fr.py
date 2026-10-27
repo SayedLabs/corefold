@@ -2870,7 +2870,7 @@ STRINGS: dict[str, str] = {
     "Save a clean copy": "Enregistrer une copie propre",
     "See and change its title and author, and take out who made it, notes, attached files and scripts": "Voir et changer son titre et son auteur, et retirer qui l'a fait, les notes, les fichiers joints et les scripts",
     "Who made it and with what": "Qui l'a fait et avec quoi",
-    "The author, the program, the dates and the keywords": "L'auteur, le programme, les dates et les mots-clés",
+    "The author, the program, the dates, the keywords and where photos were taken": "L'auteur, le programme, les dates, les mots-clés et le lieu des photos",
     "Sticky notes and replies, which only show when someone opens them": "Les notes et les réponses, qui ne s'affichent que si on les ouvre",
     "Attached files": "Fichiers joints",
     "Files carried inside the PDF": "Des fichiers transportés dans le PDF",

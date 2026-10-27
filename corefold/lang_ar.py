@@ -2943,7 +2943,7 @@ STRINGS: dict[str, str] = {
     "Save a clean copy": "حفظ نسخة نظيفة",
     "See and change its title and author, and take out who made it, notes, attached files and scripts": "اعرض عنوانه ومؤلفه وغيّرهما، وأزل معلومات المُنشئ والملاحظات والملفات المرفقة والسكربتات",
     "Who made it and with what": "من أنشأه وبأي برنامج",
-    "The author, the program, the dates and the keywords": "المؤلف والبرنامج والتواريخ والكلمات المفتاحية",
+    "The author, the program, the dates, the keywords and where photos were taken": "المؤلف والبرنامج والتواريخ والكلمات المفتاحية ومكان التقاط الصور",
     "Sticky notes and replies, which only show when someone opens them": "الملاحظات اللاصقة والردود، التي لا تظهر إلا عند فتحها",
     "Attached files": "الملفات المرفقة",
     "Files carried inside the PDF": "ملفات مضمّنة داخل ملف PDF",
