@@ -1,4 +1,4 @@
-; Corefold installer (Inno Setup 6). Built by scripts\build.ps1.
+﻿; Corefold installer (Inno Setup 6). Built by scripts\build.ps1.
 ; Installs for the current user only: no admin prompt, one page, two clicks.
 
 #ifndef AppVersion
@@ -60,14 +60,77 @@ Compression=lzma2/ultra64
 SolidCompression=yes
 ; We close a running Corefold ourselves (see [Code]), so skip Windows' "files in use" page.
 CloseApplications=no
+; Setup speaks the language Windows is in (English when it's none of Corefold's), without asking first
+ShowLanguageDialog=no
+LanguageDetectionMethod=uilanguage
+
+[Languages]
+; (the same five languages as Corefold; an older Inno Setup without Arabic leaves it out: Arabic Windows then
+; gets English, as before)
+Name: "en"; MessagesFile: "compiler:Default.isl"
+#if FileExists(AddBackslash(CompilerPath) + "Languages\Arabic.isl")
+Name: "ar"; MessagesFile: "compiler:Languages\Arabic.isl"
+#endif
+Name: "fr"; MessagesFile: "compiler:Languages\French.isl"
+Name: "es"; MessagesFile: "compiler:Languages\Spanish.isl"
+Name: "tr"; MessagesFile: "compiler:Languages\Turkish.isl"
 
 [Messages]
-SelectTasksLabel2=Choose your options, then click Install.
-FinishedLabel=Corefold is installed. Hold Shift and drag any file in File Explorer, or right-click a file and choose Corefold.
+en.SelectTasksLabel2=Choose your options, then click Install.
+en.FinishedLabel=Corefold is installed. Hold Shift and drag any file in File Explorer, or right-click a file and choose Corefold.
+#if FileExists(AddBackslash(CompilerPath) + "Languages\Arabic.isl")
+ar.SelectTasksLabel2=اختر ما تريد، ثم انقر «تثبيت».
+ar.FinishedLabel=تم تثبيت كورفولد. اضغط مع الاستمرار على Shift واسحب أي ملف في مستكشف الملفات، أو انقر بزر الماوس الأيمن على ملف واختر Corefold.
+#endif
+fr.SelectTasksLabel2=Choisissez vos options, puis cliquez sur Installer.
+fr.FinishedLabel=Corefold est installé. Maintenez Maj et faites glisser un fichier dans l'Explorateur de fichiers, ou faites un clic droit sur un fichier et choisissez Corefold.
+es.SelectTasksLabel2=Elige tus opciones y haz clic en Instalar.
+es.FinishedLabel=Corefold está instalado. Mantén pulsada Mayús y arrastra cualquier archivo en el Explorador de archivos, o haz clic derecho en un archivo y elige Corefold.
+tr.SelectTasksLabel2=Seçeneklerinizi belirleyin, ardından Kur'a tıklayın.
+tr.FinishedLabel=Corefold yüklendi. Dosya Gezgini'nde Shift'e basılı tutup herhangi bir dosyayı sürükleyin veya bir dosyaya sağ tıklayıp Corefold'u seçin.
+
+[CustomMessages]
+en.DesktopIcon=Put a Corefold icon on my desktop
+en.StartWithWindows=Start Corefold when Windows starts (recommended)
+en.OpenNow=Open Corefold now
+en.StillWorking=Corefold is still finishing something (a conversion, sorting files, or an app's uninstall).%n%nRetry: wait for it to finish.%nIgnore: close Corefold now (what it is doing is stopped half-way).%nAbort: stop.
+en.FolderNotEmpty=The folder %1 already has other files in it. Install Corefold into an empty folder (or leave out /DIR to use its usual folder).
+en.StillBusy=Corefold is still busy. Install again when it's done.
+en.DeleteData=Also delete your Corefold settings and what it keeps for you?%n%nThat is: settings, the clipboard history (pinned copies too), saved archive passwords, your saved signature, cloud sign-ins and the File Organizer's Undo. Backups of removed apps and files opened from Cloud are kept either way.%n%nChoose No if you might install Corefold again and want to keep them.
+#if FileExists(AddBackslash(CompilerPath) + "Languages\Arabic.isl")
+ar.DesktopIcon=إضافة أيقونة كورفولد إلى سطح المكتب
+ar.StartWithWindows=تشغيل كورفولد مع بدء ويندوز (مستحسن)
+ar.OpenNow=فتح كورفولد الآن
+ar.StillWorking=ما زال كورفولد يُنهي عملًا ما (تحويلًا، أو ترتيب ملفات، أو إزالة برنامج).%n%nإعادة المحاولة: الانتظار حتى ينتهي.%nتجاهل: إغلاق كورفولد الآن (يتوقف ما يفعله في منتصفه).%nإحباط: إيقاف التثبيت.
+ar.FolderNotEmpty=المجلد %1 يحتوي على ملفات أخرى. ثبّت كورفولد في مجلد فارغ (أو احذف /DIR ليستخدم مجلده المعتاد).
+ar.StillBusy=ما زال كورفولد مشغولًا. أعد التثبيت عندما ينتهي.
+ar.DeleteData=هل تريد أيضًا حذف إعدادات كورفولد وما يحفظه لك؟%n%nأي: الإعدادات، وسجل الحافظة (بما فيه العناصر المثبّتة)، وكلمات مرور الأرشيفات المحفوظة، وتوقيعك المحفوظ، وتسجيلات الدخول إلى السحابة، والتراجع في منظّم الملفات. أما النسخ الاحتياطية للبرامج المُزالة والملفات المفتوحة من السحابة فتبقى في كل الأحوال.%n%nاختر «لا» إذا كنت قد تثبّت كورفولد مرة أخرى وتريد الاحتفاظ بها.
+#endif
+fr.DesktopIcon=Mettre une icône Corefold sur mon bureau
+fr.StartWithWindows=Démarrer Corefold au démarrage de Windows (recommandé)
+fr.OpenNow=Ouvrir Corefold maintenant
+fr.StillWorking=Corefold termine encore quelque chose (une conversion, un rangement de fichiers ou la désinstallation d'une appli).%n%nRéessayer : attendre qu'il ait fini.%nIgnorer : fermer Corefold maintenant (ce qu'il fait s'arrête en cours de route).%nAbandonner : arrêter.
+fr.FolderNotEmpty=Le dossier %1 contient déjà d'autres fichiers. Installez Corefold dans un dossier vide (ou retirez /DIR pour utiliser son dossier habituel).
+fr.StillBusy=Corefold est encore occupé. Relancez l'installation quand il aura fini.
+fr.DeleteData=Supprimer aussi vos réglages Corefold et ce qu'il garde pour vous ?%n%nC'est-à-dire : les réglages, l'historique du presse-papiers (y compris les éléments épinglés), les mots de passe d'archives enregistrés, votre signature enregistrée, les connexions au cloud et l'annulation du rangement de fichiers. Les sauvegardes des applis supprimées et les fichiers ouverts depuis le cloud sont gardés dans tous les cas.%n%nChoisissez Non si vous pensez réinstaller Corefold et voulez les garder.
+es.DesktopIcon=Poner un icono de Corefold en mi escritorio
+es.StartWithWindows=Iniciar Corefold al iniciar Windows (recomendado)
+es.OpenNow=Abrir Corefold ahora
+es.StillWorking=Corefold todavía está terminando algo (una conversión, ordenando archivos o desinstalando una app).%n%nReintentar: esperar a que termine.%nOmitir: cerrar Corefold ahora (lo que está haciendo se detiene a medias).%nAnular: parar.
+es.FolderNotEmpty=La carpeta %1 ya tiene otros archivos. Instala Corefold en una carpeta vacía (o quita /DIR para usar su carpeta habitual).
+es.StillBusy=Corefold todavía está ocupado. Vuelve a instalar cuando termine.
+es.DeleteData=¿Borrar también tus ajustes de Corefold y lo que guarda para ti?%n%nEs decir: los ajustes, el historial del portapapeles (también lo fijado), las contraseñas de archivos comprimidos guardadas, tu firma guardada, las sesiones de la nube y el Deshacer del organizador de archivos. Las copias de seguridad de las apps quitadas y los archivos abiertos desde la nube se guardan en cualquier caso.%n%nElige No si quizá vuelvas a instalar Corefold y quieres conservarlos.
+tr.DesktopIcon=Masaüstüme bir Corefold simgesi koy
+tr.StartWithWindows=Windows başlarken Corefold'u başlat (önerilir)
+tr.OpenNow=Corefold'u şimdi aç
+tr.StillWorking=Corefold hâlâ bir işi bitiriyor (bir dönüştürme, dosya düzenleme ya da bir uygulamanın kaldırılması).%n%nYeniden Dene: bitmesini bekle.%nYoksay: Corefold'u şimdi kapat (yaptığı iş yarıda kalır).%nDurdur: kurulumu durdur.
+tr.FolderNotEmpty=%1 klasöründe zaten başka dosyalar var. Corefold'u boş bir klasöre yükleyin (ya da her zamanki klasörünü kullanmak için /DIR'i kaldırın).
+tr.StillBusy=Corefold hâlâ meşgul. İşi bitince yeniden yükleyin.
+tr.DeleteData=Corefold ayarlarınızı ve sizin için sakladıklarını da silelim mi?%n%nYani: ayarlar, pano geçmişi (sabitlenenler de), kayıtlı arşiv parolaları, kayıtlı imzanız, bulut oturumları ve Dosya Düzenleyici'nin Geri Al'ı. Kaldırılan uygulamaların yedekleri ve buluttan açılan dosyalar her durumda saklanır.%n%nCorefold'u yeniden yükleyebilir ve bunları tutmak isterseniz Hayır'ı seçin.
 
 [Tasks]
-Name: "desktopicon"; Description: "Put a Corefold icon on my desktop"
-Name: "startup"; Description: "Start Corefold when Windows starts (recommended)"
+Name: "desktopicon"; Description: "{cm:DesktopIcon}"
+Name: "startup"; Description: "{cm:StartWithWindows}"
 
 [Files]
 ; Copied next to the Corefold that's there, which keeps working until every file is in; then the two are swapped
@@ -115,7 +178,7 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
   Flags: uninsdeletevalue
 
 [Run]
-Filename: "{app}\{#AppExe}"; Description: "Open Corefold now"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#AppExe}"; Description: "{cm:OpenNow}"; Flags: nowait postinstall skipifsilent
 ; (after an automatic (silent) update Corefold is started again in the tray from [Code], once the new files are in
 ; place: a [Run] entry without postinstall runs before that)
 
@@ -249,10 +312,7 @@ begin
       StopApp();
       Break;
     end;
-    case MsgBox('Corefold is still finishing something (a conversion, sorting files, or an app''s uninstall).' + #13#10#13#10 +
-                'Retry: wait for it to finish.' + #13#10 +
-                'Ignore: close Corefold now (what it is doing is stopped half-way).' + #13#10 +
-                'Abort: stop.', mbError, MB_ABORTRETRYIGNORE) of
+    case MsgBox(CustomMessage('StillWorking'), mbError, MB_ABORTRETRYIGNORE) of
       IDIGNORE:
         begin
           StopApp();
@@ -305,13 +365,12 @@ begin
   Result := '';
   if not FolderIsSafe() then
   begin
-    Result := 'The folder ' + ExpandConstant('{app}') + ' already has other files in it. ' +
-              'Install Corefold into an empty folder (or leave out /DIR to use its usual folder).';
+    Result := FmtMessage(CustomMessage('FolderNotEmpty'), [ExpandConstant('{app}')]);
     Exit;
   end;
   if not CloseRunningApp(WizardSilent()) then
   begin
-    Result := 'Corefold is still busy. Install again when it''s done.';
+    Result := CustomMessage('StillBusy');
     Exit;
   end;
   { the old version started with Windows: Corefold keeps doing that }
@@ -503,12 +562,7 @@ begin
     RegDeleteValue(HKEY_CURRENT_USER, RunKey, '{#AppName}');
     RegDeleteValue(HKEY_CURRENT_USER, RunKey, '{#OldName}');
     if (not UninstallSilent) and
-       (MsgBox('Also delete your Corefold settings and what it keeps for you?' + #13#10#13#10 +
-               'That is: settings, the clipboard history (pinned copies too), saved archive passwords, ' +
-               'your saved signature, cloud sign-ins and the File Organizer''s Undo. ' +
-               'Backups of removed apps and files opened from Cloud are kept either way.' + #13#10#13#10 +
-               'Choose No if you might install Corefold again and want to keep them.',
-               mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES) then
+       (MsgBox(CustomMessage('DeleteData'), mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES) then
     begin
       DelTree(ExpandConstant('{userappdata}\{#AppName}'), True, True, True);
       DelTree(ExpandConstant('{userappdata}\{#OldName}'), True, True, True);

@@ -20,11 +20,9 @@ _WIDTHS = {**dict.fromkeys("0123456789", 556), " ": 278, "/": 278}
 
 
 def _reader(src: Path, ctx: Ctx):
-    from pypdf import PdfReader
-    reader = PdfReader(str(src))
-    if reader.is_encrypted and not reader.decrypt(ctx.params.get("password", "") or ""):
-        raise RuntimeError(tr("this PDF is password-protected"))
-    return reader
+    """The PDF, unlocked with its password (the app asks for it when it's missing or wrong)."""
+    from .pdftools import open_reader
+    return open_reader(src, ctx.params.get("password", "") or "")
 
 
 def _upright(page):
@@ -56,10 +54,9 @@ def _stamp(page, writer, content: bytes, resources: dict):
 
 
 def _save(writer, src: Path, ctx: Ctx, suffix: str) -> Path:
-    out = ctx.out_path(src, f"{ctx.stem(src)} ({suffix}).pdf")
-    with open(out, "wb") as fh:
-        writer.write(fh)
-    return out
+    """A locked PDF's new copy is locked with the same password (it used to come out open)."""
+    from .pdftools import write
+    return write(writer, ctx.out_path(src, f"{ctx.stem(src)} ({suffix}).pdf"), ctx.params.get("password", "") or "")
 
 
 # ----------------------------------------------------------------------------- page numbers
