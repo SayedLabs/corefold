@@ -511,6 +511,11 @@ class PageNumbersDialog(Base):
         grid.addWidget(self.place, 0, 1)
         grid.addWidget(QLabel(tr("Style")), 1, 0)
         grid.addWidget(self.style, 1, 1)
+        self.first = QSpinBox()  # (a chapter on its own, or a PDF that goes after another)
+        self.first.setRange(1, 99999)
+        self.first.setAccessibleName(tr("Start at"))
+        grid.addWidget(QLabel(tr("Start at")), 2, 0)
+        grid.addWidget(self.first, 2, 1)
         self.lay.addLayout(grid)
         self.skip = QCheckBox(tr("No number on the first page (a cover)"))
         self.lay.addWidget(self.skip)
@@ -522,7 +527,7 @@ class PageNumbersDialog(Base):
 
     def params(self):
         return {"place": self.place.currentData(), "style": self.style.currentData(),
-                "skip": 1 if self.skip.isChecked() else 0}
+                "skip": 1 if self.skip.isChecked() else 0, "start": self.first.value()}
 
 
 class SignaturePad(QWidget):

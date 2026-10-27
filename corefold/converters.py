@@ -1238,7 +1238,7 @@ def pdf_to_text(src: Path, ctx: Ctx) -> Result:
         pdf.close()
     if not any(part.strip() for part in parts):  # only pictures of pages: an empty .txt would help nobody
         return Result(note=tr("{name} has no text to take out. It's probably a scan (pictures of pages).",
-                              name=src.name))
+                              name=src.name), scans=[src])
     out = ctx.out_path(src, ctx.stem(src) + ".txt")
     out.write_text("\n\n".join(parts), encoding="utf-8")
     return Result([out])
@@ -1965,6 +1965,7 @@ def run_job(tool: Tool, files: list[Path], options: Options,
             total.clipboard = r.clipboard or total.clipboard
             total.note = r.note or total.note
             total.undo += r.undo
+            total.scans += r.scans
             if r.outputs and isinstance(item, Path):
                 total.sources.append(item)
         elif err is not None:

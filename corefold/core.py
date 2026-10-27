@@ -76,6 +76,7 @@ class Result:
     locked: list = field(default_factory=list)  # items that need a (different) password
     undo: list = field(default_factory=list)    # (new, old) names, for "Undo" after renaming
     sources: list = field(default_factory=list)  # the files that were made into something (run_job fills it)
+    scans: list = field(default_factory=list)    # PDFs found to be scans, with no text (offered Make searchable)
 
 
 @dataclass
