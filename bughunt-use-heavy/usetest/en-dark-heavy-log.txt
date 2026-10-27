@@ -1,0 +1,19 @@
+2026-10-27 03:42:39,980 INFO the shortcut win+shift+t is used by another app
+2026-10-27 03:42:40,508 INFO the shortcut ctrl+win+t is used by another app
+2026-10-27 03:42:40,528 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-10-27 03:44:28,118 INFO archive window opened (200000 items)
+2026-10-27 03:44:30,927 INFO job 1: archive:extract on 1 item(s)
+2026-10-27 03:47:23,623 INFO job 2: archive:extract on 1 item(s)
+2026-10-27 03:47:28,074 INFO archive window opened (100000 items)
+2026-10-27 03:47:35,515 INFO archive window opened (2 items)
+2026-10-27 03:47:35,583 INFO job 3: archive:extract on 1 item(s)
+2026-10-27 03:48:13,103 INFO job 4: pdftool:arranged on 1 item(s)
+2026-10-27 03:48:42,413 INFO job 5: pdftool:arranged on 40 item(s)
+2026-10-27 03:48:43,287 INFO job 6: pdf:compress on 1 item(s)
+2026-10-27 03:51:04,754 INFO job 7: image:webp on 400 item(s)
+2026-10-27 03:59:19,606 INFO job 8: image:jpg on 1 item(s)
+2026-10-27 03:59:20,500 INFO job 9: video:mp3 on 1 item(s)
+2026-10-27 03:59:21,112 INFO job 10: video:small on 1 item(s)
+2026-10-27 03:59:21,299 INFO graphics card video encoder: none
+2026-10-27 03:59:27,554 INFO job 11: pack:zip on 1 item(s)
+2026-10-27 03:59:54,364 INFO tidied up memory

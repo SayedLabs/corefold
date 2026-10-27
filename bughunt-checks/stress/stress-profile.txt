@@ -1,0 +1,33 @@
+         722089 function calls (721428 primitive calls) in 0.191 seconds
+
+   Ordered by: internal time
+   List reduced from 79 to 25 due to restriction <25>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.047    0.047    0.191    0.191 D:\a\corefold\corefold\corefold\browser.py:442(set_entries)
+    60000    0.039    0.000    0.092    0.000 D:\a\corefold\corefold\corefold\archives.py:1303(is_archive_file_name)
+   180663    0.025    0.000    0.025    0.000 {method 'rpartition' of 'str' objects}
+    60000    0.019    0.000    0.032    0.000 D:\a\corefold\corefold\corefold\core.py:395(norm)
+    60001    0.015    0.000    0.108    0.000 D:\a\corefold\corefold\corefold\archives.py:1300(<genexpr>)
+60661/60000    0.009    0.000    0.009    0.000 D:\a\corefold\corefold\corefold\browser.py:457(ensure)
+    60006    0.007    0.000    0.007    0.000 {method 'get' of 'dict' objects}
+    60661    0.007    0.000    0.007    0.000 {method 'append' of 'list' objects}
+    60000    0.007    0.000    0.007    0.000 {method 'rstrip' of 'str' objects}
+    60000    0.007    0.000    0.007    0.000 {method 'strip' of 'str' objects}
+    60003    0.006    0.000    0.006    0.000 {method 'lower' of 'str' objects}
+        1    0.005    0.005    0.113    0.113 {built-in method builtins.any}
+        1    0.000    0.000    0.001    0.001 D:\a\corefold\corefold\corefold\archives.py:511(list_entries)
+        3    0.000    0.000    0.000    0.000 {built-in method nt.stat}
+        1    0.000    0.000    0.000    0.000 D:\a\corefold\corefold\corefold\browser.py:524(_row)
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
+        1    0.000    0.000    0.000    0.000 {method 'clear' of 'PySide6.QtWidgets.QTreeWidget' objects}
+        1    0.000    0.000    0.000    0.000 {method 'addTopLevelItems' of 'PySide6.QtWidgets.QTreeWidget' objects}
+        2    0.000    0.000    0.000    0.000 {method 'setUpdatesEnabled' of 'PySide6.QtWidgets.QWidget' objects}
+        1    0.000    0.000    0.000    0.000 {method 'setIcon' of 'PySide6.QtWidgets.QTreeWidgetItem' objects}
+        1    0.000    0.000    0.000    0.000 D:\a\corefold\corefold\corefold\browser.py:719(_buttons)
+        1    0.000    0.000    0.000    0.000 D:\a\corefold\corefold\corefold\browser.py:502(_rows_for)
+        2    0.000    0.000    0.000    0.000 {method 'setData' of 'PySide6.QtWidgets.QTreeWidgetItem' objects}
+        1    0.000    0.000    0.191    0.191 D:\a\corefold\corefold\corefold\browser.py:642(reload)
+        1    0.000    0.000    0.000    0.000 D:\a\corefold\corefold\corefold\browser.py:48(_natural)
+
+
