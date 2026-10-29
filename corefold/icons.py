@@ -192,8 +192,15 @@ PRODUCT_COLORS = {  # (light end, deep end) of each product's gradient
 }
 
 
+_tiles: dict = {}  # drawn tiles, by (product, size, screen scale): Home draws the same few again on every rebuild
+
+
 def product_tile(product: str, size: int, dark: bool = True, dpr: float = 1.0) -> QPixmap:
     """The app-icon look: the mark in a gradient on a near-black tile (the same in light and dark)."""
+    key = (product, size, round(dpr, 3))
+    kept = _tiles.get(key)
+    if kept is not None:
+        return QPixmap(kept)  # (shared until someone paints on it)
     light, deep = PRODUCT_COLORS.get(product, PRODUCT_COLORS["corefold"])
     svg_text = (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><defs>'
@@ -213,7 +220,10 @@ def product_tile(product: str, size: int, dark: bool = True, dpr: float = 1.0) -
     p.setRenderHint(QPainter.Antialiasing)
     QSvgRenderer(QByteArray(svg_text.encode("ascii"))).render(p, QRectF(0, 0, size, size))
     p.end()
-    return pm
+    if len(_tiles) > 200:
+        _tiles.clear()
+    _tiles[key] = pm
+    return QPixmap(pm)
 
 
 def soft_tile(name: str, size: int, color: QColor, dpr: float = 1.0) -> QPixmap:
