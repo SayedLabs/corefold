@@ -46,3 +46,22 @@ def test_a_closed_window_is_let_go_of(qtbot):
     assert gone() is None  # (what it showed went with it)
     other.close()
     qtbot.waitUntil(lambda: not keeper.browsers, timeout=2000)
+
+
+def test_the_lists_kept_for_unpacking_stay_small(tmp_path, monkeypatch):
+    from corefold import archives as ar
+    monkeypatch.setattr(ar, "_listed", {})
+    sizes = {"big.zip": 200_000, "flat.zip": 100_000, "small.zip": 10, "tiny.zip": 5}
+    monkeypatch.setattr(ar, "_list_entries", lambda src, pw="": [ar.Entry(str(i)) for i in range(sizes[src.name])])
+    for name in sizes:
+        (tmp_path / name).write_bytes(b"x")
+    ar.list_entries(tmp_path / "big.zip")
+    assert sum(map(len, ar._listed.values())) == 200_000  # (the newest is kept, however big: unpacking it reads it)
+    ar.list_entries(tmp_path / "flat.zip")
+    assert [k[0] for k in ar._listed] == [str(tmp_path / "flat.zip")]
+    ar.list_entries(tmp_path / "small.zip")
+    ar.list_entries(tmp_path / "tiny.zip")
+    assert [k[0] for k in ar._listed] == [str(tmp_path / "small.zip"), str(tmp_path / "tiny.zip")]
+    ar.forget_list(tmp_path / "small.zip")  # (its window closed)
+    assert [k[0] for k in ar._listed] == [str(tmp_path / "tiny.zip")]
+    assert len(ar.list_entries(tmp_path / "tiny.zip")) == 5

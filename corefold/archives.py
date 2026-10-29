@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
+import threading
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -540,6 +541,8 @@ def _parse_slt(out: str) -> list[Entry]:
 
 
 _listed: dict = {}  # the last few lists, by (file, its size and time, password, code page): unpacking reads it again
+LISTED_ROWS = 50_000  # more than this only for the newest list (300,000 kept rows made Python's full look take 0.5 s)
+_listed_lock = threading.Lock()  # (listed in the background, forgotten when a window closes)
 
 
 def list_entries(src: Path, password: str = "") -> list[Entry]:
@@ -548,14 +551,24 @@ def list_entries(src: Path, password: str = "") -> list[Entry]:
         key = (str(src), st.st_size, st.st_mtime_ns, password, tuple(_cp(src)))
     except OSError:
         key = None
-    if key is not None and key in _listed:
-        return list(_listed[key])
+    with _listed_lock:
+        kept = _listed.get(key) if key is not None else None
+    if kept is not None:
+        return list(kept)
     entries = _list_entries(src, password)
     if key is not None:
-        if len(_listed) >= 4:
-            _listed.pop(next(iter(_listed)))
-        _listed[key] = entries
+        with _listed_lock:
+            _listed[key] = entries
+            while len(_listed) > 1 and (len(_listed) > 4 or sum(map(len, _listed.values())) > LISTED_ROWS):
+                _listed.pop(next(iter(_listed)))
     return list(entries)
+
+
+def forget_list(src: Path):
+    """Its window closed: the list isn't kept for unpacking it later."""
+    with _listed_lock:
+        for key in [k for k in _listed if k[0] == str(src)]:
+            del _listed[key]
 
 
 def _list_entries(src: Path, password: str = "") -> list[Entry]:
