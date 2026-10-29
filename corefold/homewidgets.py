@@ -462,6 +462,7 @@ class Board(QWidget):
         self.editing = False
         self.frames: list[WidgetFrame] = []
         self.coming: list[dict] = []  # widgets still to be made (a window that's opening shows the first ones)
+        self.made_for = None  # the theme they were made in
         self.cols = 0
         self.edit_level = 0.0   # 0..1: how far the "changing the Home page" look has come in
         self.lifted: WidgetFrame | None = None   # the widget being moved, under the pointer
@@ -511,6 +512,7 @@ class Board(QWidget):
         for f in self.frames:
             f.hide()
             f.deleteLater()  # (not at once: a menu of that widget may be what's changing the board)
+        self.made_for = self.c.theme
         entries = self.shown()
         now = entries if self.isVisible() else entries[:FIRST_WIDGETS]
         self.coming = entries[len(now):]
@@ -624,6 +626,8 @@ class Board(QWidget):
 
     def apply_theme(self, _theme=None):
         self.add_tile.setIcon(icons.icon("add", self.c.theme.muted))
+        if self.c.theme is self.made_for and not self.isVisible():
+            return  # (a window being made: they were just made in these colours)
         self.fill()
 
     # ---- changes (each is saved right away: the Home page isn't a setting that waits for Save). Only the widget

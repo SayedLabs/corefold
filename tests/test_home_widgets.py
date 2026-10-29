@@ -100,8 +100,9 @@ def window(qtbot, monkeypatch):
     delete(c)
 
 
-def test_the_home_page_makes_only_the_widgets_of_tools_in_use(window):
+def test_the_home_page_makes_only_the_widgets_of_tools_in_use(window, qtbot):
     board = window.home_board
+    qtbot.waitUntil(lambda: not board.coming, timeout=2000)  # (the last ones come right after the first)
     kinds = [f.kind.id for f in board.frames]
     assert kinds == [k for k, _ in homelist.DEFAULT]  # (Capture and Space rest: none of theirs is made)
     assert len(window.c.settings.home_widgets) == len(homelist.DEFAULT) + 3  # (but they're kept)
@@ -185,6 +186,9 @@ def test_the_gallery_offers_no_widget_of_a_resting_tool(window, qtbot):
 def test_a_window_thats_opening_makes_the_first_widgets_and_the_rest_once_it_shows(window, qtbot):
     board = window.home_board
     board.fill()  # (the window isn't on screen: each widget made then would hold it while it opens)
+    first = list(board.frames)
+    window.apply_theme(window.c.theme)  # (the window's own colours, set as it's made: not made a second time)
+    assert board.frames == first
     assert len(board.frames) == 4 and len(board.coming) == len(homelist.DEFAULT) - 4
     height = board.height()
     qtbot.waitUntil(lambda: not board.coming, timeout=2000)
