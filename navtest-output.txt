@@ -1,0 +1,326 @@
+FAIL  Computer has a switch for uninstaller, off
+FAIL  Media has a switch for viewer, off
+FAIL  Media has a switch for player, off
+FAIL  Media has a switch for capture, off
+FAIL  Computer has a switch for space, off
+FAIL  QuickTools has a switch for clipboard, off
+ok    Clouds has a switch for cloud, off
+ok    switching on cloud doesn't flash a white window (whitest moment 0.01)
+ok    cloud is switched on
+ok    after switching on cloud the window is still open
+ok    after switching on cloud only one window is open
+ok    cloud is in its section
+ok    switching on cloud: the Cloud page is open (Cloud)
+ok    switching on cloud: the Cloud page was built
+ok    switching on cloud: the Cloud page is showing (746x646)
+ok    switching on cloud: the screen shows the Cloud page as drawn (difference 0.06)
+ok    after switching on cloud the window isn't white (0.01)
+ok    switching on cloud opens it: the Cloud page is open (Cloud)
+ok    switching on cloud opens it: the Cloud page was built
+ok    switching on cloud opens it: the Cloud page is showing (746x646)
+ok    switching on cloud opens it: the screen shows the Cloud page as drawn (difference 0.06)
+FAIL  Computer has a switch for startup, off
+FAIL  Computer has a switch for scan, off
+ok    Files's heading has Settings
+ok    Files has a switch for pdf, off
+ok    switching on pdf doesn't flash a white window (whitest moment 0.01)
+ok    pdf is switched on
+ok    after switching on pdf the window is still open
+ok    after switching on pdf only one window is open
+ok    pdf is in its section
+ok    switching on pdf: the Files page is open (Files)
+ok    switching on pdf: the Files page was built
+ok    switching on pdf: the Files page is showing (746x500)
+ok    switching on pdf: the screen shows the Files page as drawn (difference 0.06)
+ok    after switching on pdf the window isn't white (0.01)
+ok    pdf's card shows it on
+ok    open pdf from its card: the PDF page is open (PDF)
+ok    open pdf from its card: the PDF page was built
+ok    open pdf from its card: the PDF page is showing (746x500)
+ok    open pdf from its card: the screen shows the PDF page as drawn (difference 0.06)
+FAIL  Media has a switch for colors, off
+FAIL  QuickTools has a switch for awake, off
+ok    Files's heading has Settings
+ok    Files has a switch for unlock, off
+ok    switching on unlock doesn't flash a white window (whitest moment 0.01)
+ok    unlock is switched on
+ok    after switching on unlock the window is still open
+ok    after switching on unlock only one window is open
+ok    unlock is in its section
+ok    switching on unlock: the Files page is open (Files)
+ok    switching on unlock: the Files page was built
+ok    switching on unlock: the Files page is showing (746x500)
+ok    switching on unlock: the screen shows the Files page as drawn (difference 0.06)
+ok    after switching on unlock the window isn't white (0.01)
+ok    unlock's card shows it on
+ok    open unlock from its card: the Unlock page is open (Unlock)
+ok    open unlock from its card: the Unlock page was built
+ok    open unlock from its card: the Unlock page is showing (746x500)
+ok    open unlock from its card: the screen shows the Unlock page as drawn (difference 0.06)
+ok    Files's heading has Settings
+FAIL  Files has a switch for organizer, off
+ok    store: no errors behind the clicks (0)
+ok    sidebar Home: the Home page is open (Home)
+ok    sidebar Home: the Home page was built
+ok    sidebar Home: the Home page is showing (746x646)
+ok    sidebar Home: the screen shows the Home page as drawn (difference 0.06)
+ok    sidebar Files: the Files page is open (Files)
+ok    sidebar Files: the Files page was built
+ok    sidebar Files: the Files page is showing (746x500)
+ok    sidebar Files: the screen shows the Files page as drawn (difference 0.06)
+ok    sidebar Cloud: the Cloud page is open (Cloud)
+ok    sidebar Cloud: the Cloud page was built
+ok    sidebar Cloud: the Cloud page is showing (746x646)
+ok    sidebar Cloud: the screen shows the Cloud page as drawn (difference 0.06)
+ok    sidebar Media: the Media page is open (Media)
+ok    sidebar Media: the Media page was built
+ok    sidebar Media: the Media page is showing (746x603)
+ok    sidebar Media: the screen shows the Media page as drawn (difference 0.06)
+ok    sidebar Computer: the Computer page is open (Computer)
+ok    sidebar Computer: the Computer page was built
+ok    sidebar Computer: the Computer page is showing (746x603)
+ok    sidebar Computer: the screen shows the Computer page as drawn (difference 0.06)
+ok    sidebar QuickTools: the QuickTools page is open (QuickTools)
+ok    sidebar QuickTools: the QuickTools page was built
+ok    sidebar QuickTools: the QuickTools page is showing (746x603)
+ok    sidebar QuickTools: the screen shows the QuickTools page as drawn (difference 0.06)
+ok    sidebar History: the History page is open (History)
+ok    sidebar History: the History page was built
+ok    sidebar History: the History page is showing (746x646)
+ok    sidebar History: the screen shows the History page as drawn (difference 0.06)
+ok    sidebar General: the General page is open (General)
+ok    sidebar General: the General page was built
+ok    sidebar General: the General page is showing (554x551)
+ok    sidebar General: the screen shows the General page as drawn (difference 0.06)
+ok    sidebar Updates: the Updates page is open (Updates)
+ok    sidebar Updates: the Updates page was built
+ok    sidebar Updates: the Updates page is showing (746x646)
+ok    sidebar Updates: the screen shows the Updates page as drawn (difference 0.06)
+ok    sidebar About: the About page is open (About)
+ok    sidebar About: the About page was built
+ok    sidebar About: the About page is showing (746x646)
+ok    sidebar About: the screen shows the About page as drawn (difference 0.06)
+ok    the Files bar of uses has Converter
+ok    sidebar Converter: the Converter page is open (Converter)
+ok    sidebar Converter: the Converter page was built
+ok    sidebar Converter: the Converter page is showing (746x500)
+ok    sidebar Converter: the screen shows the Converter page as drawn (difference 0.06)
+ok    Converter has a Settings button
+ok    Converter's Settings button opens ConvOptions (ConvOptions)
+ok    the Files bar of uses has Converter
+ok    back to Converter from its settings (Converter)
+ok    the Files bar of uses has PDF
+ok    sidebar PDF: the PDF page is open (PDF)
+ok    sidebar PDF: the PDF page was built
+ok    sidebar PDF: the PDF page is showing (746x500)
+ok    sidebar PDF: the screen shows the PDF page as drawn (difference 0.06)
+ok    the Files bar of uses has Archives
+ok    sidebar Archives: the Archives page is open (Archives)
+ok    sidebar Archives: the Archives page was built
+ok    sidebar Archives: the Archives page is showing (746x500)
+ok    sidebar Archives: the screen shows the Archives page as drawn (difference 0.06)
+ok    Archives has a Settings button
+ok    Archives's Settings button opens ArchiveSettings (ArchiveSettings)
+ok    the Files bar of uses has Archives
+ok    back to Archives from its settings (Archives)
+ok    the Files bar of uses has Unlock
+ok    sidebar Unlock: the Unlock page is open (Unlock)
+ok    sidebar Unlock: the Unlock page was built
+ok    sidebar Unlock: the Unlock page is showing (746x500)
+ok    sidebar Unlock: the screen shows the Unlock page as drawn (difference 0.06)
+ok    sidebar Cloud: the Cloud page is open (Cloud)
+ok    sidebar Cloud: the Cloud page was built
+ok    sidebar Cloud: the Cloud page is showing (746x646)
+ok    sidebar Cloud: the screen shows the Cloud page as drawn (difference 0.06)
+ok    the General settings tab (General)
+ok    the Look settings tab (Look)
+ok    the Shortcuts settings tab (Shortcuts)
+ok    the ConvOptions settings tab (ConvOptions)
+ok    the ArchiveSettings settings tab (ArchiveSettings)
+ok    the ConvOptions settings sub-tab (ConvOptions)
+ok    the WheelLook settings sub-tab (WheelLook)
+ok    the Formats settings sub-tab (Formats)
+ok    Alt + Left goes back to History (History)
+ok    Alt + Left goes back to Home (Home)
+ok    the Files card on Home opens it (Files)
+ok    a tool's button on the Files card opens it (Converter)
+ok    a tool's button on the Files card opens it (PDF)
+ok    the Clouds card on Home opens it (Cloud)
+ok    a tool's button on the Clouds card opens it (Cloud)
+ok    the Media card on Home opens it (Media)
+FAIL  a tool's button on the Media card opens it (Home)
+FAIL  a tool's button on the Media card opens it (Home)
+ok    the Computer card on Home opens it (Computer)
+FAIL  a tool's button on the Computer card opens it (Home)
+FAIL  a tool's button on the Computer card opens it (Home)
+ok    the QuickTools card on Home opens it (QuickTools)
+FAIL  a tool's button on the QuickTools card opens it (Home)
+FAIL  a tool's button on the QuickTools card opens it (Home)
+ok    the Files bar of uses has Converter
+ok    Converter opens from the Files list (Converter)
+ok    Alt + Left from Converter goes back to Files (Files)
+ok    pages: no errors behind the clicks (0)
+FAIL  the Computer strip has a tab for Space
+FAIL  the Space page
+ok    space: no errors behind the clicks (0)
+navtest: 19 problem(s)
+FAIL  Computer has a switch for uninstaller, off
+FAIL  Media has a switch for viewer, off
+FAIL  Media has a switch for player, off
+FAIL  Media has a switch for capture, off
+FAIL  Computer has a switch for space, off
+FAIL  QuickTools has a switch for clipboard, off
+ok    Clouds has a switch for cloud, off
+ok    cloud is switched on
+ok    after switching on cloud the window is still open
+ok    after switching on cloud only one window is open
+ok    cloud is in its section
+ok    switching on cloud: the Cloud page is open (Cloud)
+ok    switching on cloud: the Cloud page was built
+ok    switching on cloud: the Cloud page is showing (746x646)
+ok    switching on cloud: the screen shows the Cloud page as drawn (difference 0.03)
+ok    switching on cloud opens it: the Cloud page is open (Cloud)
+ok    switching on cloud opens it: the Cloud page was built
+ok    switching on cloud opens it: the Cloud page is showing (746x646)
+ok    switching on cloud opens it: the screen shows the Cloud page as drawn (difference 0.03)
+FAIL  Computer has a switch for startup, off
+FAIL  Computer has a switch for scan, off
+ok    Files's heading has Settings
+ok    Files has a switch for pdf, off
+ok    pdf is switched on
+ok    after switching on pdf the window is still open
+ok    after switching on pdf only one window is open
+ok    pdf is in its section
+ok    switching on pdf: the Files page is open (Files)
+ok    switching on pdf: the Files page was built
+ok    switching on pdf: the Files page is showing (746x500)
+ok    switching on pdf: the screen shows the Files page as drawn (difference 0.03)
+ok    pdf's card shows it on
+ok    open pdf from its card: the PDF page is open (PDF)
+ok    open pdf from its card: the PDF page was built
+ok    open pdf from its card: the PDF page is showing (746x500)
+ok    open pdf from its card: the screen shows the PDF page as drawn (difference 0.03)
+FAIL  Media has a switch for colors, off
+FAIL  QuickTools has a switch for awake, off
+ok    Files's heading has Settings
+ok    Files has a switch for unlock, off
+ok    unlock is switched on
+ok    after switching on unlock the window is still open
+ok    after switching on unlock only one window is open
+ok    unlock is in its section
+ok    switching on unlock: the Files page is open (Files)
+ok    switching on unlock: the Files page was built
+ok    switching on unlock: the Files page is showing (746x500)
+ok    switching on unlock: the screen shows the Files page as drawn (difference 0.03)
+ok    unlock's card shows it on
+ok    open unlock from its card: the Unlock page is open (Unlock)
+ok    open unlock from its card: the Unlock page was built
+ok    open unlock from its card: the Unlock page is showing (746x500)
+ok    open unlock from its card: the screen shows the Unlock page as drawn (difference 0.03)
+ok    Files's heading has Settings
+FAIL  Files has a switch for organizer, off
+ok    store: no errors behind the clicks (0)
+ok    sidebar Home: the Home page is open (Home)
+ok    sidebar Home: the Home page was built
+ok    sidebar Home: the Home page is showing (746x646)
+ok    sidebar Home: the screen shows the Home page as drawn (difference 0.03)
+ok    sidebar Files: the Files page is open (Files)
+ok    sidebar Files: the Files page was built
+ok    sidebar Files: the Files page is showing (746x500)
+ok    sidebar Files: the screen shows the Files page as drawn (difference 0.03)
+ok    sidebar Cloud: the Cloud page is open (Cloud)
+ok    sidebar Cloud: the Cloud page was built
+ok    sidebar Cloud: the Cloud page is showing (746x646)
+ok    sidebar Cloud: the screen shows the Cloud page as drawn (difference 0.03)
+ok    sidebar Media: the Media page is open (Media)
+ok    sidebar Media: the Media page was built
+ok    sidebar Media: the Media page is showing (746x603)
+ok    sidebar Media: the screen shows the Media page as drawn (difference 0.03)
+ok    sidebar Computer: the Computer page is open (Computer)
+ok    sidebar Computer: the Computer page was built
+ok    sidebar Computer: the Computer page is showing (746x603)
+ok    sidebar Computer: the screen shows the Computer page as drawn (difference 0.03)
+ok    sidebar QuickTools: the QuickTools page is open (QuickTools)
+ok    sidebar QuickTools: the QuickTools page was built
+ok    sidebar QuickTools: the QuickTools page is showing (746x603)
+ok    sidebar QuickTools: the screen shows the QuickTools page as drawn (difference 0.03)
+ok    sidebar History: the History page is open (History)
+ok    sidebar History: the History page was built
+ok    sidebar History: the History page is showing (746x646)
+ok    sidebar History: the screen shows the History page as drawn (difference 0.03)
+ok    sidebar General: the General page is open (General)
+ok    sidebar General: the General page was built
+ok    sidebar General: the General page is showing (554x551)
+ok    sidebar General: the screen shows the General page as drawn (difference 0.03)
+ok    sidebar Updates: the Updates page is open (Updates)
+ok    sidebar Updates: the Updates page was built
+ok    sidebar Updates: the Updates page is showing (746x646)
+ok    sidebar Updates: the screen shows the Updates page as drawn (difference 0.04)
+ok    sidebar About: the About page is open (About)
+ok    sidebar About: the About page was built
+ok    sidebar About: the About page is showing (746x646)
+ok    sidebar About: the screen shows the About page as drawn (difference 0.03)
+ok    the Files bar of uses has Converter
+ok    sidebar Converter: the Converter page is open (Converter)
+ok    sidebar Converter: the Converter page was built
+ok    sidebar Converter: the Converter page is showing (746x500)
+ok    sidebar Converter: the screen shows the Converter page as drawn (difference 0.03)
+ok    Converter has a Settings button
+ok    Converter's Settings button opens ConvOptions (ConvOptions)
+ok    the Files bar of uses has Converter
+ok    back to Converter from its settings (Converter)
+ok    the Files bar of uses has PDF
+ok    sidebar PDF: the PDF page is open (PDF)
+ok    sidebar PDF: the PDF page was built
+ok    sidebar PDF: the PDF page is showing (746x500)
+ok    sidebar PDF: the screen shows the PDF page as drawn (difference 0.03)
+ok    the Files bar of uses has Archives
+ok    sidebar Archives: the Archives page is open (Archives)
+ok    sidebar Archives: the Archives page was built
+ok    sidebar Archives: the Archives page is showing (746x500)
+ok    sidebar Archives: the screen shows the Archives page as drawn (difference 0.03)
+ok    Archives has a Settings button
+ok    Archives's Settings button opens ArchiveSettings (ArchiveSettings)
+ok    the Files bar of uses has Archives
+ok    back to Archives from its settings (Archives)
+ok    the Files bar of uses has Unlock
+ok    sidebar Unlock: the Unlock page is open (Unlock)
+ok    sidebar Unlock: the Unlock page was built
+ok    sidebar Unlock: the Unlock page is showing (746x500)
+ok    sidebar Unlock: the screen shows the Unlock page as drawn (difference 0.03)
+ok    sidebar Cloud: the Cloud page is open (Cloud)
+ok    sidebar Cloud: the Cloud page was built
+ok    sidebar Cloud: the Cloud page is showing (746x646)
+ok    sidebar Cloud: the screen shows the Cloud page as drawn (difference 0.03)
+ok    the General settings tab (General)
+ok    the Look settings tab (Look)
+ok    the Shortcuts settings tab (Shortcuts)
+ok    the ConvOptions settings tab (ConvOptions)
+ok    the ArchiveSettings settings tab (ArchiveSettings)
+ok    the ConvOptions settings sub-tab (ConvOptions)
+ok    the WheelLook settings sub-tab (WheelLook)
+ok    the Formats settings sub-tab (Formats)
+ok    Alt + Left goes back to History (History)
+ok    Alt + Left goes back to Home (Home)
+ok    the Files card on Home opens it (Files)
+ok    a tool's button on the Files card opens it (Converter)
+ok    a tool's button on the Files card opens it (PDF)
+ok    the Clouds card on Home opens it (Cloud)
+ok    a tool's button on the Clouds card opens it (Cloud)
+ok    the Media card on Home opens it (Media)
+FAIL  a tool's button on the Media card opens it (Home)
+FAIL  a tool's button on the Media card opens it (Home)
+ok    the Computer card on Home opens it (Computer)
+FAIL  a tool's button on the Computer card opens it (Home)
+FAIL  a tool's button on the Computer card opens it (Home)
+ok    the QuickTools card on Home opens it (QuickTools)
+FAIL  a tool's button on the QuickTools card opens it (Home)
+FAIL  a tool's button on the QuickTools card opens it (Home)
+ok    the Files bar of uses has Converter
+ok    Converter opens from the Files list (Converter)
+ok    Alt + Left from Converter goes back to Files (Files)
+ok    pages: no errors behind the clicks (0)
+FAIL  the Computer strip has a tab for Space
+FAIL  the Space page
+ok    space: no errors behind the clicks (0)
+navtest: 19 problem(s)

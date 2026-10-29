@@ -1,0 +1,8 @@
+viewer: IndexError: list index out of range
+email: IndexError: list index out of range
+the Clipboard is running
+the Space page opens
+space: AttributeError: 'NoneType' object has no attribute 'start_scan'
+Capture is running
+a video opens in the Player
+adding it back
