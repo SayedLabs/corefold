@@ -1,0 +1,179 @@
+--- Thread-1 (_watch)
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  usetest.py:140 _watch
+--- Thread-2 (_held_watch)
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  usetest.py:186 _held_watch
+--- Thread-3 (_look)
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  usetest.py:1060 _look
+--- corefold-key
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  hotkey.py:224 loop
+--- corefold-key
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  hotkey.py:224 loop
+--- corefold-key
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  hotkey.py:224 loop
+--- corefold-key
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  hotkey.py:224 loop
+--- corefold-key
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  hotkey.py:224 loop
+--- corefold-key
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  hotkey.py:224 loop
+--- corefold-peek
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  peekshell.py:523 _loop
+--- corefold-starter
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  work.py:50 _start_them
+--- Thread-14
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1433 run
+  usetest.py:937 _stacks
+--- corefold-work
+  work.py:68 go
+  spacepage.py:1025 work
+  space.py:173 scan
+  _base.py:305 wait
+  threading.py:655 wait
+  threading.py:359 wait
+--- corefold-scan_0
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  thread.py:93 _worker
+  thread.py:59 run
+  space.py:124 _list_dir
+--- corefold-scan_1
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  thread.py:93 _worker
+  thread.py:59 run
+  space.py:125 _list_dir
+--- corefold-scan_2
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  thread.py:93 _worker
+  thread.py:59 run
+  space.py:124 _list_dir
+--- corefold-scan_3
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  thread.py:93 _worker
+  thread.py:59 run
+  space.py:124 _list_dir
+--- corefold-scan_4
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  thread.py:93 _worker
+  thread.py:59 run
+  space.py:124 _list_dir
+--- corefold-scan_5
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  thread.py:93 _worker
+  thread.py:59 run
+  space.py:125 _list_dir
+--- corefold-scan_6
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  thread.py:93 _worker
+  thread.py:59 run
+  space.py:125 _list_dir
+--- corefold-scan_7
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  thread.py:93 _worker
+  thread.py:59 run
+  space.py:125 _list_dir
+--- corefold-scan_8
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  thread.py:93 _worker
+  thread.py:59 run
+  space.py:125 _list_dir
+--- corefold-scan_9
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  thread.py:93 _worker
+  thread.py:59 run
+  space.py:125 _list_dir
+--- corefold-scan_10
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  thread.py:93 _worker
+  thread.py:59 run
+  space.py:125 _list_dir
+--- corefold-scan_11
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  thread.py:93 _worker
+  thread.py:59 run
+  space.py:125 _list_dir
+--- corefold-scan_12
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  thread.py:93 _worker
+  thread.py:59 run
+  space.py:125 _list_dir
+--- corefold-scan_13
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  thread.py:93 _worker
+  thread.py:59 run
+  space.py:124 _list_dir
+--- corefold-scan_14
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  thread.py:93 _worker
+  thread.py:59 run
+  space.py:125 _list_dir
+--- corefold-scan_15
+  threading.py:1032 _bootstrap
+  threading.py:1075 _bootstrap_inner
+  threading.py:1012 run
+  thread.py:93 _worker
+  thread.py:59 run
+  space.py:125 _list_dir
