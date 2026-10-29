@@ -822,6 +822,16 @@ class Controller(QObject):
             passwords.add(answer["password"])
         return answer["password"]
 
+    def _let_go_when_closed(self, win):
+        """A closed Archive or picture window is let go of at once, not when the next one opens: what it
+        showed (300,000 entries of a big archive) stayed in memory, and every full look of Python's collector
+        went through it (0.45 s with the window in use)."""
+        win.destroyed.connect(lambda *_: QTimer.singleShot(0, self, self._forget_closed))
+
+    def _forget_closed(self):
+        self.browsers = [b for b in self.browsers if _alive(b)]
+        self.viewers = [v for v in self.viewers if _alive(v)]
+
     def open_browser(self, src: Path, password: str = ""):
         """Reads what's in the archive in the background (big archives take a moment), then opens
         the archive window."""
@@ -883,6 +893,7 @@ class Controller(QObject):
         win = ArchiveBrowser(self, src, password, entries, self.icon, contents)
         log.info("archive window opened (%d items)", len(entries))
         self.browsers = [b for b in self.browsers if _alive(b)] + [win]
+        self._let_go_when_closed(win)
         self.remember_archive(src)
         win.show()
         win.raise_()
@@ -1576,6 +1587,7 @@ class Controller(QObject):
             self.tell(tr("Can't open this here"), short_name(path.name))
             return
         self.viewers.append(win)
+        self._let_go_when_closed(win)
         self.remember_view(path)
         win.show()
         win.raise_()
