@@ -137,7 +137,7 @@ class UpdateSignals(QObject):
 class BackgroundSignals(QObject):
     menu_written = Signal(str, str)    # signatures of what's now in the right-click menu (the Converter's, Unlock's)
     menu_files_ready = Signal(object)  # [(tool key, files)] read and ready to run
-    archive_listed = Signal(object)    # (archive, password, entries or None, error or None)
+    archive_listed = Signal(object)    # (archive, password, entries or None, their Contents or None, error or None)
 
 
 # ----------------------------------------------------------------------------- key-drag detector
@@ -832,15 +832,17 @@ class Controller(QObject):
         if key in self.listing:
             return
         self.listing.add(key)
+        from .browser import Contents  # (loaded here, not on the thread)
 
         def work():
-            entries, error = None, None
+            entries, contents, error = None, None, None
             try:
                 entries = archives.list_entries(src, password)
+                contents = Contents(entries)  # (what's in which folder, worked out here, not on the window)
             except Exception as e:
                 error = e
             try:
-                self.bg.archive_listed.emit((src, password, entries, error))
+                self.bg.archive_listed.emit((src, password, entries, contents, error))
             except RuntimeError:
                 pass
         threading.Thread(target=work, daemon=True).start()
@@ -854,7 +856,7 @@ class Controller(QObject):
 
     def _archive_listed(self, payload):
         from .browser import ArchiveBrowser
-        src, password, entries, error = payload
+        src, password, entries, contents, error = payload
         self.listing.discard(str(src).lower())
         if getattr(self, "_opening_toast", None):
             if self.toast.isVisible() and not self.toast.running and self.toast.title.text() == self._opening_toast:
@@ -871,11 +873,11 @@ class Controller(QObject):
         if error is not None:
             self.offer_repair(src, error)
             return
-        if not password and any(e.encrypted for e in entries):
+        if not password and contents.locked:
             password = self.ask_password([src])
             if password is None:
                 return
-        win = ArchiveBrowser(self, src, password, entries, self.icon)
+        win = ArchiveBrowser(self, src, password, entries, self.icon, contents)
         log.info("archive window opened (%d items)", len(entries))
         self.browsers = [b for b in self.browsers if _alive(b)] + [win]
         self.remember_archive(src)
