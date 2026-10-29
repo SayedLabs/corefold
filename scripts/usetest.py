@@ -211,10 +211,54 @@ def _full_look(phase: str, info: dict):
         took = time.perf_counter() - _full_start[0]
         full_looks.append((watch.label, took, _full_start[1], info.get("collected", 0)))
         if took > 0.3 and not kept_kinds:
-            from collections import Counter
-            kinds = Counter(f"{type(o).__module__}.{type(o).__qualname__}" for o in gc.get_objects())
-            kept_kinds.append(watch.label)
-            kept_kinds.extend(f"{n:>9,}  {kind}" for kind, n in kinds.most_common(25))
+            watch.beat = time.perf_counter()  # (the collector's own stop is measured up to here)
+            with setup():  # (looking through everything takes as long again: not the app's time)
+                from collections import Counter
+                kinds = Counter(f"{type(o).__module__}.{type(o).__qualname__}" for o in gc.get_objects())
+                kept_kinds.append(watch.label)
+                kept_kinds.extend(f"{n:>9,}  {kind}" for kind, n in kinds.most_common(25))
+                many = [k for k, n in kinds.items() if n >= 10_000 and k.startswith("corefold.")]
+                del kinds
+                kept_kinds.extend(_holders(many))
+
+
+def _describe(o) -> str:
+    if isinstance(o, (list, tuple, set)):
+        return f"{type(o).__name__} of {len(o):,}"
+    if isinstance(o, dict):
+        keys = ", ".join(str(k)[:40] for k in list(o)[:4])
+        return f"dict of {len(o):,} ({keys})"
+    return f"{type(o).__module__}.{type(o).__qualname__}"
+
+
+def _holders(kinds: list[str], depth: int = 5) -> list[str]:
+    """What keeps one object of each of these kinds alive, holder by holder (300,000 archive entries were
+    left after their windows closed: a list cache held them)."""
+    import types
+    names, samples = [], []
+    objects = gc.get_objects()
+    for o in objects:
+        k = f"{type(o).__module__}.{type(o).__qualname__}"
+        if k in kinds and k not in names:
+            names.append(k)
+            samples.append(o)
+    del objects, o
+    lines, mine = [], {id(names), id(samples)}
+    for i, kind in enumerate(names):
+        chain, at, seen = [], samples[i], {id(samples[i])}
+        for _ in range(depth):
+            up = gc.get_referrers(at)
+            mine.add(id(up))
+            up = [h for h in up if id(h) not in mine and id(h) not in seen and not isinstance(h, types.FrameType)]
+            mine.add(id(up))
+            if not up:
+                chain.append("(nothing more found)")
+                break
+            at = max(up, key=lambda h: isinstance(h, dict))  # (a dict says whose it is)
+            seen.add(id(at))
+            chain.append(_describe(at) + (f" (+{len(up) - 1} more)" if len(up) > 1 else ""))
+        lines.append(f"  a {kind} is held by: " + " < ".join(chain))
+    return lines
 
 
 gc.callbacks.append(_full_look)
