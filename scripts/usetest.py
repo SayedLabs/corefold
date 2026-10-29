@@ -197,6 +197,7 @@ threading.Thread(target=_held_watch, daemon=True).start()
 
 full_looks: list[tuple[str, float, int, int]] = []  # (step, seconds, objects looked through, freed)
 _full_start = [0.0, 0]
+kept_kinds: list[str] = []  # what the objects left after the first long full look are (once)
 
 
 def _full_look(phase: str, info: dict):
@@ -207,8 +208,13 @@ def _full_look(phase: str, info: dict):
     if phase == "start":
         _full_start[:] = [time.perf_counter(), len(gc.get_objects())]
     elif _full_start[0]:
-        full_looks.append((watch.label, time.perf_counter() - _full_start[0], _full_start[1],
-                           info.get("collected", 0)))
+        took = time.perf_counter() - _full_start[0]
+        full_looks.append((watch.label, took, _full_start[1], info.get("collected", 0)))
+        if took > 0.3 and not kept_kinds:
+            from collections import Counter
+            kinds = Counter(f"{type(o).__module__}.{type(o).__qualname__}" for o in gc.get_objects())
+            kept_kinds.append(watch.label)
+            kept_kinds.extend(f"{n:>9,}  {kind}" for kind, n in kinds.most_common(25))
 
 
 gc.callbacks.append(_full_look)
@@ -1501,6 +1507,10 @@ say("full looks of Python's collector over 0.1 s (objects looked through, freed)
 for label, took, objects, freed in sorted(full_looks, key=lambda x: -x[1])[:20]:
     if took > 0.1:
         say(f"  {took:5.2f} s  {label}  ·  {objects:,} objects, {freed:,} freed")
+if kept_kinds:
+    say(f"what was left after the first long one ({kept_kinds[0]}):")
+    for line in kept_kinds[1:]:
+        say(f"  {line}")
 log_file = st.LOG_DIR / "corefold.log"
 if log_file.exists():
     text = log_file.read_text("utf-8", "replace")
