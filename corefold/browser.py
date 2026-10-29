@@ -7,7 +7,8 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QFileSystemWatcher, QItemSelectionModel, QMimeData, QObject, Qt, QTimer, QUrl, Signal
+from PySide6.QtCore import (QFileSystemWatcher, QItemSelectionModel, QMimeData, QModelIndex, QObject, Qt, QTimer, QUrl,
+                            Signal)
 from PySide6.QtGui import QDrag, QGuiApplication, QIcon, QImage, QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QFileDialog, QFileIconProvider, QFrame, QHBoxLayout,
                                QHeaderView, QLabel, QLineEdit, QMenu, QMessageBox, QPlainTextEdit, QPushButton,
@@ -526,6 +527,7 @@ class ArchiveBrowser(QWidget):
         self._later: list = []                    # (folder, rows still to make in it), a big folder's rest
         self._round = getattr(self, "_round", 0) + 1
         self._looking = None                      # a search still going through the rows (see _filter)
+        self._looked_for = ""
         self._many = False                        # the last search matched more than SEARCH_FILLS
         files, size = contents.count, contents.size
         self.tree.addTopLevelItems(self._rows_for(""))
@@ -603,13 +605,16 @@ class ArchiveBrowser(QWidget):
             folder, keyed = self._later[0]
             part, rest = keyed[:count], keyed[count:]
             rows = [self._row(k, spec, col) for k, spec in part]
-            if text:  # (searching meanwhile: only what matches shows)
-                for r in rows:
-                    r.setHidden(text not in r.text(0).lower())
             if folder == "":
+                parent, first = QModelIndex(), self.tree.topLevelItemCount()
                 self.tree.addTopLevelItems(rows)
             else:
+                parent, first = self.tree.indexFromItem(self._items[folder]), self._items[folder].childCount()
                 self._items[folder].addChildren(rows)
+            if text:  # (searching meanwhile: only what matches shows; by place, as in _look)
+                for n, r in enumerate(rows):
+                    if text not in r.text(0).lower():
+                        self.tree.setRowHidden(first + n, parent, True)
             count -= len(part)
             if rest:
                 self._later[0] = (folder, rest)
@@ -650,8 +655,10 @@ class ArchiveBrowser(QWidget):
                 if self.search.text().strip():
                     self._filter(self.search.text())
                 return
-            self._end_looking()  # (a search going through the rows finishes first: they're about to move)
+            self._looking = None  # (a search going through the rows stops: they move, and it starts again)
             self._resort(col, ascending)
+            if self._looked_for:
+                self._filter(self._looked_for)
         finally:
             QGuiApplication.restoreOverrideCursor()
 
@@ -732,47 +739,51 @@ class ArchiveBrowser(QWidget):
             self.info.setText(self._info_text + (" · " + tr("Many files match: type more of the name to find the one "
                                                             "you want.") if many else ""))
 
+        self._looked_for = text
         self._looking = self._look(text)
         self._look_on(self._looking)
 
     def _look(self, text: str):
         """Shows only the rows that match (with the folders they're in), going through the rows a part at a
-        time: 100,000 rows in one go held the window 0.4 s."""
+        time: 100,000 rows in one go held the window 0.4 s. Rows are hidden by their place in the folder:
+        Qt finds an item's place by walking the folder from its end the first time it's asked, which made a
+        first search of 100,000 rows take seconds."""
+        tree, model = self.tree, self.tree.model()
         seen = 0
 
-        def visit(item: QTreeWidgetItem, inside_match: bool = False):
+        def visit(item: QTreeWidgetItem, row: int, parent: QModelIndex, inside_match: bool = False):
             # a folder that matches shows everything in it
             nonlocal seen
             match = not text or inside_match or text in item.text(0).lower()
             child_match = False
-            for i in range(item.childCount()):
-                child_match = (yield from visit(item.child(i), match and bool(text))) or child_match
+            count = item.childCount()
+            if count:
+                here = model.index(row, 0, parent)
+                for i in range(count):
+                    child_match = (yield from visit(item.child(i), i, here, match and bool(text))) or child_match
+                if text and child_match:
+                    tree.setExpanded(here, True)
             show = match or child_match
-            item.setHidden(not show)
-            if text and child_match:
-                item.setExpanded(True)
+            if tree.isRowHidden(row, parent) == show:  # (only the rows that change)
+                tree.setRowHidden(row, parent, not show)
             seen += 1
             if seen % LOOK_STEP == 0:
                 yield
             return show
-        i = 0
-        while i < self.tree.topLevelItemCount():  # (rows of a big folder may come in meanwhile)
-            yield from visit(self.tree.topLevelItem(i))
+        top, i = QModelIndex(), 0
+        while i < tree.topLevelItemCount():  # (rows of a big folder may come in meanwhile)
+            yield from visit(tree.topLevelItem(i), i, top)
             i += 1
 
-    def _look_on(self, looking, budget_s: float = 0.02):
-        if looking is not self._looking:  # (a new search, or the archive was read again)
+    def _look_on(self, looking):
+        if looking is not self._looking:  # (a new search, or the archive was read again or sorted)
             return
-        end = time.perf_counter() + budget_s
+        end = time.perf_counter() + 0.02
         for _ in looking:
             if time.perf_counter() > end:
                 QTimer.singleShot(0, self, lambda: self._look_on(looking))
                 return
         self._looking = None
-
-    def _end_looking(self):
-        if self._looking is not None:
-            self._look_on(self._looking, float("inf"))
 
     def _selected_paths(self) -> list[str]:
         """Selected files, plus everything inside selected folders."""
