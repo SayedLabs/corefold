@@ -83,6 +83,21 @@ WARM_PAGES = ("PDF",)
 REMADE_PAGES = {*SETTINGS_PAGES, *SECTION_PAGES, "History", "Updates", "About"}
 # the words Ctrl + K finds on each Settings page, kept for pages that aren't made yet (per version and language)
 SETTING_WORDS = LOG_DIR / "setting-words.json"
+_CATALOG_MODULES = ("archives", "extras", "moretools", "pdfstamp", "videotools")  # (what catalog() loads)
+_catalog_tried: list = []  # (set once the thread is done, loaded or not: Formats isn't waited for twice)
+
+
+def _catalog_loaded() -> bool:
+    return bool(_catalog_tried)
+
+
+def _load_catalog():
+    import importlib
+    try:
+        for m in _CATALOG_MODULES:
+            importlib.import_module(f"{__package__}.{m}")
+    finally:
+        _catalog_tried.append(True)
 
 
 def _setting_words() -> dict[str, list[str]]:
@@ -1374,6 +1389,13 @@ class MainWindow(QWidget):
             known = _setting_words()
             known.update(words)
             _keep_setting_words(known)
+            return
+        if todo[0] == "Formats" and not _catalog_loaded():  # (its tools' modules load on a thread of their own
+            if not getattr(self, "_catalog_loading", False):  # first: loading them here stopped the window 0.3 s)
+                from . import work
+                self._catalog_loading = True
+                work.background(_load_catalog, "corefold-learn")
+            QTimer.singleShot(300, self, self._learn_next)
             return
         name = todo.pop(0)
         self._build_page(name)

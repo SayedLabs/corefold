@@ -14,6 +14,7 @@ def test_formats_rows_are_made_a_group_at_a_time_while_its_words_are_learned(win
     with mock.patch.object(W.winutil, "idle_ms", return_value=60_000), \
             mock.patch.object(W, "_keep_setting_words", side_effect=kept.update), \
             mock.patch.object(W, "_setting_words", return_value={}):
+        W._load_catalog()
         w._learning = ({}, ["Formats"])
         w._learn_next()
         assert w.built("Formats")
@@ -22,3 +23,23 @@ def test_formats_rows_are_made_a_group_at_a_time_while_its_words_are_learned(win
     last = catalog()["files"][-1]
     assert any(last.label in text for text in kept["Formats"])  # (the last group was in when it was read)
     assert not w.built("Formats")  # (let go again)
+
+
+def test_formats_tools_load_on_a_thread_of_their_own_first(window, qtbot):  # noqa: F811
+    """Loading the modules of Formats' tools stopped the window 0.3 s (on a slow drive): it's done on a thread."""
+    import threading
+
+    from corefold import window as W
+    w = window
+    loaded_on = []
+    with mock.patch.object(W.winutil, "idle_ms", return_value=60_000), \
+            mock.patch.object(W, "_keep_setting_words"), mock.patch.object(W, "_setting_words", return_value={}), \
+            mock.patch.object(W, "_catalog_tried", []), \
+            mock.patch.object(W, "_load_catalog", side_effect=lambda: (loaded_on.append(threading.current_thread()),
+                                                                       W._catalog_tried.append(True))):
+        w._catalog_loading = False
+        w._learning = ({}, ["Formats"])
+        w._learn_next()
+        assert not w.built("Formats")  # (not on the window's thread, not yet)
+        qtbot.waitUntil(lambda: w._learning is None, timeout=10_000)
+    assert loaded_on and loaded_on[0] is not threading.main_thread()
