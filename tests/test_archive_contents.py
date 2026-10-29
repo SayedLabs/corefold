@@ -86,3 +86,19 @@ def test_rows_that_come_in_during_a_search_show_only_if_they_match(make, qtbot):
     b._filter(b.search.text())
     qtbot.waitUntil(lambda: not b._later and b._looking is None and not b.search_timer.isActive(), timeout=10_000)
     assert sorted(_shown(b)) == sorted(f"scan-{i}.txt" for i in [59, *range(590, 600), *range(5900, 6000)])
+
+
+def test_select_all_takes_the_rows_a_cleared_search_hasnt_shown_again_yet(make, qtbot):
+    """Ctrl + A while a cleared search was still showing the rows again: the rows still hidden were left out
+    (79,500 of 100,000 selected, and "Extract selected" would have left the rest out)."""
+    from corefold import browser as B
+    b = make([ar.Entry(f"scan-{i}.txt", 1) for i in range(6000)])
+    b.finish_rows()
+    b._filter("scan-5999")
+    qtbot.waitUntil(lambda: b._looking is None, timeout=10_000)
+    clock = iter(range(10 ** 9))
+    with mock.patch.object(B.time, "perf_counter", side_effect=lambda: next(clock)):
+        b._filter("")
+        assert b._looking is not None and len(_shown(b)) < 6000  # (part way through)
+        b.tree.selectAll()
+    assert len(b._selected_paths()) == 6000 and len(_shown(b)) == 6000

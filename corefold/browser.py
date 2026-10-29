@@ -283,6 +283,7 @@ class ArchiveTree(QTreeWidget):
 
     def selectAll(self):
         self.browser.finish_rows()  # (Ctrl + A, too: every file, not just the rows already shown)
+        self.browser.finish_look()
         super().selectAll()
 
     def resizeEvent(self, e):
@@ -629,6 +630,15 @@ class ArchiveBrowser(QWidget):
         """Every row of the folders opened so far (before sorting or selecting all)."""
         if self._later:
             self._more_rows(self._round, 1 << 62)
+
+    def finish_look(self):
+        """A search still going through the rows ends now (before selecting all: rows it hasn't shown again
+        yet would be left out). What was typed a moment ago is looked for first."""
+        if self.search_timer.isActive():
+            self._filter(self.search.text())
+        looking, self._looking = self._looking, None
+        for _ in looking or ():
+            pass
 
     def _fill(self, folder: str):
         """Makes the rows of a folder the first time it's needed."""
