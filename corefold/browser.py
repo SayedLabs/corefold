@@ -3,10 +3,12 @@ from __future__ import annotations
 
 import os
 import re
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QFileSystemWatcher, QItemSelectionModel, QMimeData, QObject, Qt, QTimer, QUrl, Signal
+from PySide6.QtCore import (QFileSystemWatcher, QItemSelectionModel, QMimeData, QModelIndex, QObject, Qt, QTimer, QUrl,
+                            Signal)
 from PySide6.QtGui import QDrag, QGuiApplication, QIcon, QImage, QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QFileDialog, QFileIconProvider, QFrame, QHBoxLayout,
                                QHeaderView, QLabel, QLineEdit, QMenu, QMessageBox, QPlainTextEdit, QPushButton,
@@ -28,6 +30,7 @@ EAGER_LIMIT = 3000  # archives with more items than this fill their folders in o
 FIRST_ROWS = 1500  # a folder with more files than this shows these at once, and the rest a moment later
 MORE_ROWS = 1500
 SEARCH_FILLS = 2000  # a search opens the folders of this many matches at most (one letter can match 200,000)
+LOOK_STEP = 250  # rows a search goes through before it looks at the clock
 DRAG_LIMIT = 256 << 20  # bigger than this (unpacked): use Extract, which shows progress and can be cancelled
 DRAG_KEEP_MS = 5 * 60_000  # the temporary copies made for a drag are removed this long after the drop
 
@@ -49,6 +52,70 @@ def _natural(text: str) -> list:
     """Sort key where "report-2" comes before "report-10", like in File Explorer."""
     parts = _DIGITS.split(text.lower())
     return [(0, int(x), "") if x.isdigit() else (1, 0, x) for x in parts]
+
+
+class Contents:
+    """What's in an archive, folder by folder. For a big archive it's worked out in the background, with
+    the listing (100,000 files in one folder held the window 0.33 s when it was done on opening)."""
+
+    def __init__(self, entries: list[ar.Entry]):
+        self.entries = entries
+        self.dirs: dict[str, list] = {"": []}    # folder -> the folders in it
+        self.files: dict[str, list] = {"": []}   # folder -> (path, entry) of the files in it
+        self.dir_time: dict[str, str] = {}
+        self.count = self.size = 0
+        self.locked = False                      # a file in it is locked with a password
+        dirs, files = self.dirs, self.files
+
+        def ensure(path: str):
+            if path in dirs:
+                return
+            parent = path.rpartition("/")[0]
+            ensure(parent)
+            dirs[path] = []
+            files[path] = []
+            dirs[parent].append(path)
+
+        for e in entries:
+            path = e.path.strip("/")
+            if not path:
+                continue
+            if e.is_dir:
+                ensure(path)
+                if e.modified:
+                    self.dir_time[path] = e.modified[:16]
+                continue
+            parent = path.rpartition("/")[0]
+            ensure(parent)
+            files[parent].append((path, e))
+            self.count += 1
+            self.size += e.size
+            self.locked = self.locked or e.encrypted
+        self.nested = ar.holds_archives(entries)
+        self.top = keyed_rows(self, "", 0, True)  # (the first folder in the usual order, ready to show)
+
+    def keyed(self, folder: str, col: int, ascending: bool) -> list:
+        if folder == "" and (col, ascending) == (0, True) and self.top is not None:
+            return self.top
+        return keyed_rows(self, folder, col, ascending)
+
+
+def keyed_rows(contents: Contents, folder: str, col: int, ascending: bool) -> list:
+    """The rows inside a folder as (sort key, (is_dir, path, entry)), in that order (folders first)."""
+    specs = [(True, path, None) for path in contents.dirs[folder]] + \
+        [(False, p, e) for p, e in contents.files[folder]]
+    if col == 0:
+        keyed = [(_natural(spec[1].rpartition("/")[2]), spec) for spec in specs]
+    elif col == 3:
+        dir_time = contents.dir_time
+        keyed = [(dir_time.get(path, "") if is_dir else e.modified[:16], (is_dir, path, e))
+                 for is_dir, path, e in specs]
+    else:
+        keyed = [(0 if is_dir else (e.size if col == 1 else e.packed), (is_dir, path, e))
+                 for is_dir, path, e in specs]
+    keyed.sort(key=lambda k: k[0], reverse=not ascending)
+    keyed.sort(key=lambda k: not k[1][0])  # folders first (the sort keeps the order above)
+    return keyed
 
 
 class Row(QTreeWidgetItem):
@@ -201,7 +268,7 @@ class _Previewed(QObject):
 
 class _Listed(QObject):
     """Carries a fresh listing from the background back to the window."""
-    done = Signal(object)  # (entries or None, error or None)
+    done = Signal(object)  # (entries or None, their Contents or None, error or None)
 
 
 class ArchiveTree(QTreeWidget):
@@ -227,7 +294,8 @@ class ArchiveTree(QTreeWidget):
 
 
 class ArchiveBrowser(QWidget):
-    def __init__(self, controller: "Controller", src: Path, password: str, entries: list[ar.Entry], icon: QIcon):
+    def __init__(self, controller: "Controller", src: Path, password: str, entries: list[ar.Entry], icon: QIcon,
+                 contents: Contents | None = None):
         super().__init__()
         self.c, self.src, self.password = controller, src, password
         self.setObjectName("window")
@@ -403,7 +471,7 @@ class ArchiveBrowser(QWidget):
         self.check_timer = QTimer(self)
         self.check_timer.setSingleShot(True)
         self.check_timer.timeout.connect(self._check_changes)
-        self.set_entries(entries)
+        self.set_entries(entries, contents)
 
     # ---- names of an old ZIP
 
@@ -444,45 +512,24 @@ class ArchiveBrowser(QWidget):
 
     # ---- contents
 
-    def set_entries(self, entries: list[ar.Entry]):
+    def set_entries(self, entries: list[ar.Entry], contents: Contents | None = None):
         """Shows what's in the archive. Folders of a big archive are only filled in when they're
         opened (or searched), so even 100,000 files show up at once."""
         self.entries = entries
+        if contents is None or contents.entries is not entries:
+            contents = Contents(entries)
+        self.contents = contents
         self.tree.setUpdatesEnabled(False)
         self.tree.clear()
-        self._dirs: dict[str, list] = {"": []}    # folder -> the folders in it
-        self._files: dict[str, list] = {"": []}   # folder -> (path, entry) of the files in it
-        self._dir_time: dict[str, str] = {}
+        self._dirs, self._files, self._dir_time = contents.dirs, contents.files, contents.dir_time
         self._items: dict[str, Row] = {}          # folder -> its row, once made
         self._filled: set[str] = set()
         self._later: list = []                    # (folder, rows still to make in it), a big folder's rest
         self._round = getattr(self, "_round", 0) + 1
+        self._looking = None                      # a search still going through the rows (see _filter)
+        self._looked_for = ""
         self._many = False                        # the last search matched more than SEARCH_FILLS
-
-        def ensure(path: str):
-            if path in self._dirs:
-                return
-            parent = path.rpartition("/")[0]
-            ensure(parent)
-            self._dirs[path] = []
-            self._files[path] = []
-            self._dirs[parent].append(path)
-
-        files = size = 0
-        for e in entries:
-            path = e.path.strip("/")
-            if not path:
-                continue
-            if e.is_dir:
-                ensure(path)
-                if e.modified:
-                    self._dir_time[path] = e.modified[:16]
-                continue
-            parent = path.rpartition("/")[0]
-            ensure(parent)
-            self._files[parent].append((path, e))
-            files += 1
-            size += e.size
+        files, size = contents.count, contents.size
         self.tree.addTopLevelItems(self._rows_for(""))
         self._filled.add("")
         if len(entries) <= EAGER_LIMIT:  # small: everything at once
@@ -501,24 +548,14 @@ class ArchiveBrowser(QWidget):
             text += " · " + tr("{percent}% smaller packed", percent=100 - round(packed * 100 / size))
         self._info_text = text + " · " + tr("Drag files out to any folder")
         self.info.setText(self._info_text)
-        self.nested.setVisible(ar.holds_archives(entries))
+        self.nested.setVisible(contents.nested)
         self._buttons()
 
     def _rows_for(self, folder: str) -> list:
         """The rows inside a folder, in the current order (folders first). A folder with thousands of files
         gets its first rows now and the rest a few at a time, so the window keeps answering."""
         col, ascending = self.tree.sort_state
-        specs = [(True, path, None) for path in self._dirs[folder]] + [(False, p, e) for p, e in self._files[folder]]
-        if col == 0:
-            keyed = [(_natural(spec[1].rpartition("/")[2]), spec) for spec in specs]
-        elif col == 3:
-            keyed = [(self._dir_time.get(path, "") if is_dir else e.modified[:16], (is_dir, path, e))
-                     for is_dir, path, e in specs]
-        else:
-            keyed = [(0 if is_dir else (e.size if col == 1 else e.packed), (is_dir, path, e))
-                     for is_dir, path, e in specs]
-        keyed.sort(key=lambda k: k[0], reverse=not ascending)
-        keyed.sort(key=lambda k: not k[1][0])  # folders first (the sort keeps the order above)
+        keyed = self.contents.keyed(folder, col, ascending)
         if len(keyed) > FIRST_ROWS:
             self._later.append((folder, keyed[FIRST_ROWS:]))
             if len(self._later) == 1:
@@ -568,13 +605,16 @@ class ArchiveBrowser(QWidget):
             folder, keyed = self._later[0]
             part, rest = keyed[:count], keyed[count:]
             rows = [self._row(k, spec, col) for k, spec in part]
-            if text:  # (searching meanwhile: only what matches shows)
-                for r in rows:
-                    r.setHidden(text not in r.text(0).lower())
             if folder == "":
+                parent, first = QModelIndex(), self.tree.topLevelItemCount()
                 self.tree.addTopLevelItems(rows)
             else:
+                parent, first = self.tree.indexFromItem(self._items[folder]), self._items[folder].childCount()
                 self._items[folder].addChildren(rows)
+            if text:  # (searching meanwhile: only what matches shows; by place, as in _look)
+                for n, r in enumerate(rows):
+                    if text not in r.text(0).lower():
+                        self.tree.setRowHidden(first + n, parent, True)
             count -= len(part)
             if rest:
                 self._later[0] = (folder, rest)
@@ -611,11 +651,14 @@ class ArchiveBrowser(QWidget):
         QGuiApplication.setOverrideCursor(Qt.WaitCursor)
         try:
             if self._later:  # (a big folder is still showing its rows: shown again, in the new order)
-                self.set_entries(self.entries)
+                self.set_entries(self.entries, self.contents)
                 if self.search.text().strip():
                     self._filter(self.search.text())
                 return
+            self._looking = None  # (a search going through the rows stops: they move, and it starts again)
             self._resort(col, ascending)
+            if self._looked_for:
+                self._filter(self._looked_for)
         finally:
             QGuiApplication.restoreOverrideCursor()
 
@@ -660,23 +703,24 @@ class ArchiveBrowser(QWidget):
         lister, src, password = self._lister, self.src, self.password
 
         def work():
-            entries, error = None, None
+            entries, contents, error = None, None, None
             try:
                 entries = ar.list_entries(src, password)
+                contents = Contents(entries)
             except Exception as e:
                 error = e
             try:
-                lister.done.emit((entries, error))
+                lister.done.emit((entries, contents, error))
             except RuntimeError:  # the window was closed meanwhile
                 pass
         threading.Thread(target=work, daemon=True).start()
 
     def _listed(self, payload):
-        entries, error = payload
+        entries, contents, error = payload
         if error is not None:
             self.info.setText(tr("Couldn't read the archive: {error}", error=error))
         else:
-            self.set_entries(entries)
+            self.set_entries(entries, contents)
 
     def _filter(self, text: str):
         self.search_timer.stop()
@@ -695,19 +739,51 @@ class ArchiveBrowser(QWidget):
             self.info.setText(self._info_text + (" · " + tr("Many files match: type more of the name to find the one "
                                                             "you want.") if many else ""))
 
-        def visit(item: QTreeWidgetItem, inside_match: bool = False) -> bool:
+        self._looked_for = text
+        self._looking = self._look(text)
+        self._look_on(self._looking)
+
+    def _look(self, text: str):
+        """Shows only the rows that match (with the folders they're in), going through the rows a part at a
+        time: 100,000 rows in one go held the window 0.4 s. Rows are hidden by their place in the folder:
+        Qt finds an item's place by walking the folder from its end the first time it's asked, which made a
+        first search of 100,000 rows take seconds."""
+        tree, model = self.tree, self.tree.model()
+        seen = 0
+
+        def visit(item: QTreeWidgetItem, row: int, parent: QModelIndex, inside_match: bool = False):
             # a folder that matches shows everything in it
+            nonlocal seen
             match = not text or inside_match or text in item.text(0).lower()
             child_match = False
-            for i in range(item.childCount()):
-                child_match = visit(item.child(i), match and bool(text)) or child_match
+            count = item.childCount()
+            if count:
+                here = model.index(row, 0, parent)
+                for i in range(count):
+                    child_match = (yield from visit(item.child(i), i, here, match and bool(text))) or child_match
+                if text and child_match:
+                    tree.setExpanded(here, True)
             show = match or child_match
-            item.setHidden(not show)
-            if text and child_match:
-                item.setExpanded(True)
+            if tree.isRowHidden(row, parent) == show:  # (only the rows that change)
+                tree.setRowHidden(row, parent, not show)
+            seen += 1
+            if seen % LOOK_STEP == 0:
+                yield
             return show
-        for i in range(self.tree.topLevelItemCount()):
-            visit(self.tree.topLevelItem(i))
+        top, i = QModelIndex(), 0
+        while i < tree.topLevelItemCount():  # (rows of a big folder may come in meanwhile)
+            yield from visit(tree.topLevelItem(i), i, top)
+            i += 1
+
+    def _look_on(self, looking):
+        if looking is not self._looking:  # (a new search, or the archive was read again or sorted)
+            return
+        end = time.perf_counter() + 0.02
+        for _ in looking:
+            if time.perf_counter() > end:
+                QTimer.singleShot(0, self, lambda: self._look_on(looking))
+                return
+        self._looking = None
 
     def _selected_paths(self) -> list[str]:
         """Selected files, plus everything inside selected folders."""
