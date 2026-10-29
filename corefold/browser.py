@@ -1130,6 +1130,7 @@ class ArchiveBrowser(QWidget):
         if self._preview_stop is not None:
             self._preview_stop.set()
         ar.set_zip_codepage(self.src, None)  # (the pick lasts while it's open)
+        ar.forget_list(self.src)
         super().closeEvent(e)
 
     def dropEvent(self, e):
