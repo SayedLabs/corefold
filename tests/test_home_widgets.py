@@ -180,3 +180,21 @@ def test_the_gallery_offers_no_widget_of_a_resting_tool(window, qtbot):
                 g.list.setCurrentItem(item)
                 g._show(size)
                 assert g.preview is not None and g.preview.kind is k
+
+
+def test_a_window_thats_opening_makes_the_first_widgets_and_the_rest_once_it_shows(window, qtbot):
+    board = window.home_board
+    board.fill()  # (the window isn't on screen: each widget made then would hold it while it opens)
+    assert len(board.frames) == 4 and len(board.coming) == len(homelist.DEFAULT) - 4
+    height = board.height()
+    qtbot.waitUntil(lambda: not board.coming, timeout=2000)
+    assert [f.kind.id for f in board.frames] == [k for k, _ in homelist.DEFAULT]
+    assert board.height() == height  # (the page kept their places: nothing below it jumps)
+
+    board.fill()
+    board.set_editing(True)  # (changing the page: every widget is there first)
+    assert not board.coming and len(board.frames) == len(homelist.DEFAULT)
+    board.set_editing(False)
+    board.c.settings.home_widgets = []
+    board.fill()
+    assert not board.frames and not board.coming and board.empty.isVisibleTo(board)

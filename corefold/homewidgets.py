@@ -32,6 +32,8 @@ WIDE_FROM = 700  # the board's width from which it has four columns (two below i
 GLIDE_MS = 240   # widgets gliding to their new places (after a move, a new size, one added or taken off)
 KEEP_LOOKS = 120  # seconds a look-up (files waiting, clouds found, drives) is kept before it's done again
 LOOK_AFTER_MS = 1500  # a look-up starts once the Home page has been on screen this long (not while passing by)
+FIRST_WIDGETS = 4    # widgets made with a window that's opening; the rest come a few at a time once it shows
+MORE_WIDGETS = 2
 
 # the PDF widget's buttons, in the order they're shown (the same names as on the PDF page)
 PDF_ACTIONS = (("edit", "Edit content", "text_edit_style"), ("merge", "Merge PDFs", "merge"),
@@ -459,6 +461,7 @@ class Board(QWidget):
         self.c = window.c
         self.editing = False
         self.frames: list[WidgetFrame] = []
+        self.coming: list[dict] = []  # widgets still to be made (a window that's opening shows the first ones)
         self.cols = 0
         self.edit_level = 0.0   # 0..1: how far the "changing the Home page" look has come in
         self.lifted: WidgetFrame | None = None   # the widget being moved, under the pointer
@@ -499,15 +502,36 @@ class Board(QWidget):
         return out
 
     def fill(self):
-        """Makes the widgets (again), as they're saved now."""
+        """Makes the widgets (again), as they're saved now. While the window is being made, only the first
+        few: each one's look is worked out as it's made, and all of them held a window that was opening for
+        about 0.2 s; the rest follow a few at a time once it's on screen."""
         self.waiting = []  # (what the old ones waited for)
         self.lifted = None
         self.scroller.stop()
         for f in self.frames:
             f.hide()
             f.deleteLater()  # (not at once: a menu of that widget may be what's changing the board)
-        self.frames = [f for f in (self._make(e) for e in self.shown()) if f is not None]
+        entries = self.shown()
+        now = entries if self.isVisible() else entries[:FIRST_WIDGETS]
+        self.coming = entries[len(now):]
+        self.frames = [f for f in (self._make(e) for e in now) if f is not None]
         self._place(force=True)
+        if self.coming:
+            QTimer.singleShot(0, self, self._make_more)
+
+    def _make_more(self, count: int = MORE_WIDGETS):
+        part, self.coming = self.coming[:count], self.coming[count:]
+        if not part:
+            return
+        self.frames += [f for f in (self._make(e) for e in part) if f is not None]
+        self._place(force=True)
+        if self.coming:
+            QTimer.singleShot(0, self, self._make_more)
+
+    def all_made(self):
+        """Every widget made (before anything changes them)."""
+        if self.coming:
+            self._make_more(len(self.coming))
 
     def _place(self, force: bool = False, glide: bool = False):
         """Puts each widget in its place, in a grid of four columns (two in a narrow window); with glide, the
@@ -518,7 +542,7 @@ class Board(QWidget):
             return
         self.cols = cols
         items = self.frames + ([self.add_tile] if self.editing else [])
-        plan = self._plan(items, width)
+        plan = self._plan(items + self.coming, width)  # (the ones still coming have their places kept)
         moves = []
         for f, r in zip(items, plan):
             if glide and f.isVisible() and f.geometry() != r:
@@ -528,7 +552,7 @@ class Board(QWidget):
             f.show()
         if not self.editing:
             self.add_tile.hide()
-        show_empty = not self.frames and not self.editing
+        show_empty = not self.frames and not self.coming and not self.editing
         bottom = max((r.bottom() + 1 for r in plan), default=0)
         if show_empty:
             h = max(self.empty.sizeHint().height(), self.empty.heightForWidth(width))
@@ -578,6 +602,7 @@ class Board(QWidget):
     def set_editing(self, on: bool):
         if on == self.editing:
             return
+        self.all_made()
         if not on and self.lifted is not None:
             self.put_down()
         self.editing = on
@@ -609,6 +634,7 @@ class Board(QWidget):
         self.c.settings_changed()
 
     def _frame(self, widget_id: str) -> WidgetFrame | None:
+        self.all_made()
         return next((f for f in self.frames if f.entry.get("id") == widget_id), None)
 
     def _make(self, entry: dict) -> WidgetFrame | None:
@@ -623,6 +649,7 @@ class Board(QWidget):
 
     def _settle(self, came: WidgetFrame | None = None):
         """The widgets in the saved order again, gliding there from where they are (came: new, fades in)."""
+        self.all_made()
         by_id = {f.entry.get("id"): f for f in self.frames}
         self.frames = [by_id[e["id"]] for e in self.shown() if e.get("id") in by_id]
         self._place(force=True, glide=True)
@@ -630,6 +657,7 @@ class Board(QWidget):
             _fade(came, True)
 
     def add(self, kind: str, size: str = "", **extra) -> dict:
+        self.all_made()
         entry = homelist.make(kind, size, **extra)
         self.saved.append(entry)
         self._save()
@@ -750,7 +778,8 @@ class Board(QWidget):
         unit = (width - SPACING * (cols - 1)) / cols
         rtl = self.layoutDirection() == Qt.RightToLeft
         out = []
-        sizes = [f.size_name if isinstance(f, WidgetFrame) else "small" for f in frames]
+        sizes = [f.size_name if isinstance(f, WidgetFrame) else f["size"] if isinstance(f, dict) else "small"
+                 for f in frames]
         for row, col, w_, h in homelist.pack(sizes, cols):
             x = col * (unit + SPACING)
             wide = w_ * unit + (w_ - 1) * SPACING
@@ -762,6 +791,7 @@ class Board(QWidget):
     # ---- moving a widget by hand: picked up, it follows the pointer and the others make room as it passes
 
     def lift(self, f: WidgetFrame, at: QPoint):
+        self.all_made()
         self.lifted = f
         self.grab_at = at - f.pos()
         self.order = list(self.frames)
