@@ -10,6 +10,7 @@ cloud folder of 20,000 pictures): how long, how much memory, any freeze, and tha
 Every freeze is listed with what the app was doing at that moment (in <folder>/usetest-<tag>.txt), and
 pictures of each tool are saved in the folder."""
 import argparse
+import gc
 import os
 import subprocess
 import sys
@@ -193,6 +194,30 @@ def _held_watch():
 
 
 threading.Thread(target=_held_watch, daemon=True).start()
+
+full_looks: list[tuple[str, float, int, int]] = []  # (step, seconds, objects looked through, freed)
+_full_start = [0.0, 0]
+kept_kinds: list[str] = []  # what the objects left after the first long full look are (once)
+
+
+def _full_look(phase: str, info: dict):
+    """Every full look of Python's collector: how long it took and how many objects it went through (a full
+    look stopped the window 0.4-0.5 s after big PDF jobs, with far fewer objects than that would take here)."""
+    if info.get("generation") != 2:
+        return
+    if phase == "start":
+        _full_start[:] = [time.perf_counter(), len(gc.get_objects())]
+    elif _full_start[0]:
+        took = time.perf_counter() - _full_start[0]
+        full_looks.append((watch.label, took, _full_start[1], info.get("collected", 0)))
+        if took > 0.3 and not kept_kinds:
+            from collections import Counter
+            kinds = Counter(f"{type(o).__module__}.{type(o).__qualname__}" for o in gc.get_objects())
+            kept_kinds.append(watch.label)
+            kept_kinds.extend(f"{n:>9,}  {kind}" for kind, n in kinds.most_common(25))
+
+
+gc.callbacks.append(_full_look)
 
 
 @contextmanager
@@ -1477,6 +1502,15 @@ say("")
 say("Python held up (no thread could run for more than 0.3 s):")
 for label, took, where in sorted(held, key=lambda x: -x[1])[:30]:
     say(f"  {took:5.2f} s  {label}  ·  {where[:900]}")
+say("")
+say("full looks of Python's collector over 0.1 s (objects looked through, freed):")
+for label, took, objects, freed in sorted(full_looks, key=lambda x: -x[1])[:20]:
+    if took > 0.1:
+        say(f"  {took:5.2f} s  {label}  ·  {objects:,} objects, {freed:,} freed")
+if kept_kinds:
+    say(f"what was left after the first long one ({kept_kinds[0]}):")
+    for line in kept_kinds[1:]:
+        say(f"  {line}")
 log_file = st.LOG_DIR / "corefold.log"
 if log_file.exists():
     text = log_file.read_text("utf-8", "replace")
