@@ -211,13 +211,15 @@ def _full_look(phase: str, info: dict):
         took = time.perf_counter() - _full_start[0]
         full_looks.append((watch.label, took, _full_start[1], info.get("collected", 0)))
         if took > 0.3 and not kept_kinds:
-            from collections import Counter
-            kinds = Counter(f"{type(o).__module__}.{type(o).__qualname__}" for o in gc.get_objects())
-            kept_kinds.append(watch.label)
-            kept_kinds.extend(f"{n:>9,}  {kind}" for kind, n in kinds.most_common(25))
-            many = [k for k, n in kinds.items() if n >= 10_000 and k.startswith("corefold.")]
-            del kinds
-            kept_kinds.extend(_holders(many))
+            watch.beat = time.perf_counter()  # (the collector's own stop is measured up to here)
+            with setup():  # (looking through everything takes as long again: not the app's time)
+                from collections import Counter
+                kinds = Counter(f"{type(o).__module__}.{type(o).__qualname__}" for o in gc.get_objects())
+                kept_kinds.append(watch.label)
+                kept_kinds.extend(f"{n:>9,}  {kind}" for kind, n in kinds.most_common(25))
+                many = [k for k, n in kinds.items() if n >= 10_000 and k.startswith("corefold.")]
+                del kinds
+                kept_kinds.extend(_holders(many))
 
 
 def _describe(o) -> str:
