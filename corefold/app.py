@@ -101,10 +101,11 @@ class JobSignals(QObject):
 
 class Job(QRunnable):
     def __init__(self, job_id: int, tool: Tool, files: list[Path], options: Options,
-                 signals: JobSignals, cancel: threading.Event, params: dict):
+                 signals: JobSignals, cancel: threading.Event, params: dict, job: dict | None = None):
         super().__init__()
         self.job_id, self.tool, self.files, self.options = job_id, tool, files, options
         self.signals, self.cancel, self.params = signals, cancel, params
+        self.job = job if job is not None else {}  # (what's found out here for the window: the files' sizes)
         self._last = -1.0
 
     def _progress(self, frac: float):
@@ -118,6 +119,8 @@ class Job(QRunnable):
         if self.cancel.is_set():  # cancelled while waiting in line
             self.signals.finished.emit(self.job_id, Result(), [], True)
             return
+        # (here, not as the job starts: a drive that's slow to answer, or a file being scanned, held the window)
+        self.job["bytes_in"] = sum(size_of(f) for f in self.files)
         try:
             result, errors = run_job(self.tool, self.files, self.options, self._progress, self.cancel,
                                      self.params, lambda i, n, name: self.signals.item.emit(self.job_id, i, n, name))
@@ -1887,7 +1890,7 @@ class Controller(QObject):
         self.cancels[job_id] = cancel
         params = params or {}
         what = short_name(files[0].name) if len(files) == 1 else tr("{count} items", count=len(files))
-        self.jobs[job_id] = {"tool": tool, "files": files, "bytes_in": sum(size_of(f) for f in files),
+        self.jobs[job_id] = {"tool": tool, "files": files, "bytes_in": 0,
                              "params": params, "rename": rename or {}, "after": after, "quick": quick,
                              "what": what, "carry": carry or {"outputs": [], "errors": []}, "then": then}
         if self.settings.show_progress:
@@ -1896,7 +1899,7 @@ class Controller(QObject):
         options = self.settings.options(rename.get("rename_base", "") if rename else "",
                                         rename.get("rename_start", 1) if rename else 1)
         (self.quick_pool if quick else self.pool).start(Job(job_id, tool, files, options, self.signals, cancel,
-                                                            params))
+                                                            params, self.jobs[job_id]))
         self._update_tooltip()
         log.info("job %s: %s on %d item(s)", job_id, tool.key, len(files))
 
