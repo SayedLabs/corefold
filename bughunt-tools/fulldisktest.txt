@@ -1,0 +1,862 @@
+PNG failed on \u0635\u0648\u0631\u0629 photo.jpg
+Traceback (most recent call last):
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 669, in _save
+    fh = fp.fileno()
+         ^^^^^^^^^
+AttributeError: '_idat' object has no attribute 'fileno'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 221, in convert_image
+    save_image(im, out, ext, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 162, in save_image
+    im.save(out, compress_level=3 if big else 6, **meta)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\Image.py", line 2712, in save
+    save_handler(self, fp, filename)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\PngImagePlugin.py", line 1560, in _save
+    ImageFile._save(
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 673, in _save
+    _encode_tile(im, fp, tile, bufsize, None, exc)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 700, in _encode_tile
+    fp.write(data)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\PngImagePlugin.py", line 1165, in write
+    self.chunk(self.fp, b"IDAT", data)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\PngImagePlugin.py", line 1152, in putchunk
+    fp.write(byte_data)
+OSError: [Errno 28] No space left on device
+صورة photo.jpg · image:png: made 0, errors ['صورة photo.jpg: the disk is full'], on disk []
+WEBP failed on \u0635\u0648\u0631\u0629 photo.jpg
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 221, in convert_image
+    save_image(im, out, ext, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 157, in save_image
+    im.save(out, quality=ctx.options.jpg_quality, method=4, **meta)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\Image.py", line 2712, in save
+    save_handler(self, fp, filename)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\WebPImagePlugin.py", line 344, in _save
+    fp.write(data)
+OSError: [Errno 28] No space left on device
+صورة photo.jpg · image:webp: made 0, errors ['صورة photo.jpg: the disk is full'], on disk []
+PDF failed on \u0635\u0648\u0631\u0629 photo.jpg
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 356, in images_to_pdf
+    jpegs_to_pdf(photos, out, 150, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 330, in jpegs_to_pdf
+    part(f"<< /Type /XObject /Subtype /Image /Width {w} /Height {h} /BitsPerComponent 8 "
+  File "D:\a\corefold\corefold\corefold\converters.py", line 312, in part
+    fh.write(b"\nstream\n" + stream + b"\nendstream")
+OSError: [Errno 28] No space left on device
+صورة photo.jpg · image:pdf: made 0, errors ['صورة photo.jpg: the disk is full'], on disk []
+صورة photo.jpg · image:ocr: made 0, errors [], on disk []
+Small failed on \u0635\u0648\u0631\u0629 photo.jpg
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 391, in image_small
+    im.save(out, quality=80, optimize=True, progressive=True, **colour_profile(loaded, "RGB"))
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\Image.py", line 2712, in save
+    save_handler(self, fp, filename)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\JpegImagePlugin.py", line 871, in _save
+    ImageFile._save(
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 671, in _save
+    _encode_tile(im, fp, tile, bufsize, fh)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 706, in _encode_tile
+    errcode = encoder.encode_to_file(fh, bufsize)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 28] No space left on device
+صورة photo.jpg · image:small: made 0, errors ['صورة photo.jpg: the disk is full'], on disk []
+Scan failed on \u0635\u0648\u0631\u0629 photo.jpg
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\extras.py", line 749, in scan_to_pdf
+    write_pages_pdf(pages(), out, 200)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 256, in write_pages_pdf
+    writer.write(fh)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\pypdf\_writer.py", line 1441, in write
+    self.write_stream(stream)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\pypdf\_writer.py", line 1412, in write_stream
+    object_positions, free_objects = self._write_pdf_structure(stream)
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\pypdf\_writer.py", line 1559, in _write_pdf_structure
+    obj.write_to_stream(stream)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\pypdf\generic\_data_structures.py", line 1149, in write_to_stream
+    stream.write(self._data)
+OSError: [Errno 28] No space left on device
+صورة photo.jpg · image:scan: made 0, errors ['صورة photo.jpg: the disk is full'], on disk []
+صورة photo.jpg · image:ico: made 1, errors [], on disk ['صورة photo.ico']
+BMP failed on \u0635\u0648\u0631\u0629 photo.jpg
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 221, in convert_image
+    save_image(im, out, ext, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 184, in save_image
+    im.save(out)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\Image.py", line 2712, in save
+    save_handler(self, fp, filename)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\BmpImagePlugin.py", line 502, in _save
+    ImageFile._save(
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 671, in _save
+    _encode_tile(im, fp, tile, bufsize, fh)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 706, in _encode_tile
+    errcode = encoder.encode_to_file(fh, bufsize)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 28] No space left on device
+صورة photo.jpg · image:bmp: made 0, errors ['صورة photo.jpg: the disk is full'], on disk []
+TIFFAppendToStrip: Write error at scanline 40.
+TIFF failed on \u0635\u0648\u0631\u0629 photo.jpg
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 165, in save_image
+    im.save(out, compression="tiff_deflate", **meta)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\Image.py", line 2712, in save
+    save_handler(self, fp, filename)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\TiffImagePlugin.py", line 2054, in _save
+    raise OSError(msg)
+OSError: encoder error -2 when writing image file
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 221, in convert_image
+    save_image(im, out, ext, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 171, in save_image
+    raise OSError(28, "No space left on device") from e
+OSError: [Errno 28] No space left on device
+صورة photo.jpg · image:tiff: made 0, errors ['صورة photo.jpg: the disk is full'], on disk []
+GIF failed on \u0635\u0648\u0631\u0629 photo.jpg
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 221, in convert_image
+    save_image(im, out, ext, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 184, in save_image
+    im.save(out)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\Image.py", line 2712, in save
+    save_handler(self, fp, filename)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\GifImagePlugin.py", line 792, in _save
+    _write_single_frame(im, fp, palette)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\GifImagePlugin.py", line 637, in _write_single_frame
+    ImageFile._save(
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 671, in _save
+    _encode_tile(im, fp, tile, bufsize, fh)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 706, in _encode_tile
+    errcode = encoder.encode_to_file(fh, bufsize)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 28] No space left on device
+صورة photo.jpg · image:gif: made 0, errors ['صورة photo.jpg: the disk is full'], on disk []
+AVIF failed on \u0635\u0648\u0631\u0629 photo.jpg
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 221, in convert_image
+    save_image(im, out, ext, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 159, in save_image
+    im.save(out, quality=max(50, ctx.options.jpg_quality - 15), speed=6,
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\Image.py", line 2712, in save
+    save_handler(self, fp, filename)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\AvifImagePlugin.py", line 291, in _save
+    fp.write(data)
+OSError: [Errno 28] No space left on device
+صورة photo.jpg · image:avif: made 0, errors ['صورة photo.jpg: the disk is full'], on disk []
+صورة photo.jpg · image:qr: made 0, errors [], on disk []
+Clean failed on \u0635\u0648\u0631\u0629 photo.jpg
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 579, in strip_metadata
+    clean.save(out, **({"quality": 95} if ext == ".jpg" else {}), **keep)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\Image.py", line 2712, in save
+    save_handler(self, fp, filename)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\JpegImagePlugin.py", line 871, in _save
+    ImageFile._save(
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 671, in _save
+    _encode_tile(im, fp, tile, bufsize, fh)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 706, in _encode_tile
+    errcode = encoder.encode_to_file(fh, bufsize)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 28] No space left on device
+صورة photo.jpg · image:clean: made 0, errors ['صورة photo.jpg: the disk is full'], on disk []
+ZIP failed on \u0635\u0648\u0631\u0629 photo.jpg
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\archives.py", line 1184, in pack
+    outs = pack_into(items, out, ctx, fmt, p.get("level", "normal"), p.get("password", ""),
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\archives.py", line 1139, in pack_into
+    raise _7z_error(output)
+RuntimeError: the disk is full
+صورة photo.jpg · pack:zip: made 0, errors ['صورة photo.jpg: the disk is full'], on disk []
+7z failed on \u0635\u0648\u0631\u0629 photo.jpg
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\archives.py", line 1184, in pack
+    outs = pack_into(items, out, ctx, fmt, p.get("level", "normal"), p.get("password", ""),
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\archives.py", line 1139, in pack_into
+    raise _7z_error(output)
+RuntimeError: the disk is full
+صورة photo.jpg · pack:7z: made 0, errors ['صورة photo.jpg: the disk is full'], on disk []
+صورة photo.jpg · files:hash: made 0, errors [], on disk []
+JPG failed on pic.png
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 221, in convert_image
+    save_image(im, out, ext, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 152, in save_image
+    im.save(out, quality=ctx.options.jpg_quality, optimize=im.width * im.height <= HUGE_PICTURE,
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\Image.py", line 2712, in save
+    save_handler(self, fp, filename)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\JpegImagePlugin.py", line 871, in _save
+    ImageFile._save(
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 671, in _save
+    _encode_tile(im, fp, tile, bufsize, fh)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 706, in _encode_tile
+    errcode = encoder.encode_to_file(fh, bufsize)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 28] No space left on device
+pic.png · image:jpg: made 0, errors ['pic.png: the disk is full'], on disk []
+WEBP failed on pic.png
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 221, in convert_image
+    save_image(im, out, ext, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 157, in save_image
+    im.save(out, quality=ctx.options.jpg_quality, method=4, **meta)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\Image.py", line 2712, in save
+    save_handler(self, fp, filename)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\WebPImagePlugin.py", line 344, in _save
+    fp.write(data)
+OSError: [Errno 28] No space left on device
+pic.png · image:webp: made 0, errors ['pic.png: the disk is full'], on disk []
+PDF failed on pic.png
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 365, in images_to_pdf
+    write_pages_pdf(pages(), out, 150)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 256, in write_pages_pdf
+    writer.write(fh)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\pypdf\_writer.py", line 1441, in write
+    self.write_stream(stream)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\pypdf\_writer.py", line 1412, in write_stream
+    object_positions, free_objects = self._write_pdf_structure(stream)
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\pypdf\_writer.py", line 1559, in _write_pdf_structure
+    obj.write_to_stream(stream)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\pypdf\generic\_data_structures.py", line 1149, in write_to_stream
+    stream.write(self._data)
+OSError: [Errno 28] No space left on device
+pic.png · image:pdf: made 0, errors ['pic.png: the disk is full'], on disk []
+pic.png · image:ocr: made 0, errors [], on disk []
+Small failed on pic.png
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 391, in image_small
+    im.save(out, quality=80, optimize=True, progressive=True, **colour_profile(loaded, "RGB"))
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\Image.py", line 2712, in save
+    save_handler(self, fp, filename)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\JpegImagePlugin.py", line 871, in _save
+    ImageFile._save(
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 671, in _save
+    _encode_tile(im, fp, tile, bufsize, fh)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 706, in _encode_tile
+    errcode = encoder.encode_to_file(fh, bufsize)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 28] No space left on device
+pic.png · image:small: made 0, errors ['pic.png: the disk is full'], on disk []
+Scan failed on pic.png
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\extras.py", line 749, in scan_to_pdf
+    write_pages_pdf(pages(), out, 200)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 256, in write_pages_pdf
+    writer.write(fh)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\pypdf\_writer.py", line 1441, in write
+    self.write_stream(stream)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\pypdf\_writer.py", line 1412, in write_stream
+    object_positions, free_objects = self._write_pdf_structure(stream)
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\pypdf\_writer.py", line 1559, in _write_pdf_structure
+    obj.write_to_stream(stream)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\pypdf\generic\_data_structures.py", line 1149, in write_to_stream
+    stream.write(self._data)
+OSError: [Errno 28] No space left on device
+pic.png · image:scan: made 0, errors ['pic.png: the disk is full'], on disk []
+pic.png · image:ico: made 1, errors [], on disk ['pic.ico']
+BMP failed on pic.png
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 221, in convert_image
+    save_image(im, out, ext, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 184, in save_image
+    im.save(out)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\Image.py", line 2712, in save
+    save_handler(self, fp, filename)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\BmpImagePlugin.py", line 502, in _save
+    ImageFile._save(
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 671, in _save
+    _encode_tile(im, fp, tile, bufsize, fh)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 706, in _encode_tile
+    errcode = encoder.encode_to_file(fh, bufsize)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 28] No space left on device
+pic.png · image:bmp: made 0, errors ['pic.png: the disk is full'], on disk []
+TIFFAppendToStrip: Write error at scanline 108.
+TIFF failed on pic.png
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 165, in save_image
+    im.save(out, compression="tiff_deflate", **meta)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\Image.py", line 2712, in save
+    save_handler(self, fp, filename)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\TiffImagePlugin.py", line 2054, in _save
+    raise OSError(msg)
+OSError: encoder error -2 when writing image file
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 221, in convert_image
+    save_image(im, out, ext, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 171, in save_image
+    raise OSError(28, "No space left on device") from e
+OSError: [Errno 28] No space left on device
+pic.png · image:tiff: made 0, errors ['pic.png: the disk is full'], on disk []
+GIF failed on pic.png
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 221, in convert_image
+    save_image(im, out, ext, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 184, in save_image
+    im.save(out)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\Image.py", line 2712, in save
+    save_handler(self, fp, filename)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\GifImagePlugin.py", line 792, in _save
+    _write_single_frame(im, fp, palette)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\GifImagePlugin.py", line 637, in _write_single_frame
+    ImageFile._save(
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 671, in _save
+    _encode_tile(im, fp, tile, bufsize, fh)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 706, in _encode_tile
+    errcode = encoder.encode_to_file(fh, bufsize)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 28] No space left on device
+pic.png · image:gif: made 0, errors ['pic.png: the disk is full'], on disk []
+AVIF failed on pic.png
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 221, in convert_image
+    save_image(im, out, ext, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 159, in save_image
+    im.save(out, quality=max(50, ctx.options.jpg_quality - 15), speed=6,
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\Image.py", line 2712, in save
+    save_handler(self, fp, filename)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\AvifImagePlugin.py", line 291, in _save
+    fp.write(data)
+OSError: [Errno 28] No space left on device
+pic.png · image:avif: made 0, errors ['pic.png: the disk is full'], on disk []
+pic.png · image:qr: made 0, errors [], on disk []
+Clean failed on pic.png
+Traceback (most recent call last):
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 669, in _save
+    fh = fp.fileno()
+         ^^^^^^^^^
+AttributeError: '_idat' object has no attribute 'fileno'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 579, in strip_metadata
+    clean.save(out, **({"quality": 95} if ext == ".jpg" else {}), **keep)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\Image.py", line 2712, in save
+    save_handler(self, fp, filename)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\PngImagePlugin.py", line 1560, in _save
+    ImageFile._save(
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 673, in _save
+    _encode_tile(im, fp, tile, bufsize, None, exc)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 700, in _encode_tile
+    fp.write(data)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\PngImagePlugin.py", line 1165, in write
+    self.chunk(self.fp, b"IDAT", data)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\PngImagePlugin.py", line 1152, in putchunk
+    fp.write(byte_data)
+OSError: [Errno 28] No space left on device
+pic.png · image:clean: made 0, errors ['pic.png: the disk is full'], on disk []
+ZIP failed on pic.png
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\archives.py", line 1184, in pack
+    outs = pack_into(items, out, ctx, fmt, p.get("level", "normal"), p.get("password", ""),
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\archives.py", line 1139, in pack_into
+    raise _7z_error(output)
+RuntimeError: the disk is full
+pic.png · pack:zip: made 0, errors ['pic.png: the disk is full'], on disk []
+7z failed on pic.png
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\archives.py", line 1184, in pack
+    outs = pack_into(items, out, ctx, fmt, p.get("level", "normal"), p.get("password", ""),
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\archives.py", line 1139, in pack_into
+    raise _7z_error(output)
+RuntimeError: the disk is full
+pic.png · pack:7z: made 0, errors ['pic.png: the disk is full'], on disk []
+pic.png · files:hash: made 0, errors [], on disk []
+clip.mp4 · video:mov: made 1, errors [], on disk ['clip.mov']
+clip.mp4 · video:webm: made 1, errors [], on disk ['clip.webm']
+clip.mp4 · video:mkv: made 1, errors [], on disk ['clip.mkv']
+ffmpeg failed for C:\Users\RUNNER~1\AppData\Local\Temp\corefold-fulldisk-j63a2658\originals\clip.mp4: [vost#0:0/gif @ 000002114e604000] Error submitting a packet to the muxer: No space left on device
+    Last message repeated 1 times
+[out#0/gif @ 000002114cb8fac0] Error muxing a packet
+[out#0/gif @ 000002114cb8fac0] Task finished with error code: -28 (No space left on device)
+[out#0/gif @ 000002114cb8fac0] Terminating thread with return code -28 (No space left on device)
+[out#0/gif @ 000002114cb8fac0] Error writing trailer: No space left on device
+[out#0/gif @ 000002114cb8fac0] Error closing file: No space left on device
+GIF failed on clip.mp4
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 998, in ffmpeg_convert
+    run_ffmpeg(src, out, args, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 904, in run_ffmpeg
+    return _run_ffmpeg(src, out, args, ctx, pre, duration, more_inputs, cwd)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 952, in _run_ffmpeg
+    raise RuntimeError(tr("the disk is full"))
+RuntimeError: the disk is full
+clip.mp4 · video:gif: made 0, errors ['clip.mp4: the disk is full'], on disk []
+clip.mp4 · video:small: made 1, errors [], on disk ['clip (small).mp4']
+clip.mp4 · video:mp3: made 1, errors [], on disk ['clip.mp3']
+clip.mp4 · video:mute: made 1, errors [], on disk ['clip (no sound).mp4']
+clip.mp4 · video:volume: made 1, errors [], on disk ['clip (volume fixed).mp4']
+clip.mp4 · pack:zip: made 1, errors [], on disk ['clip.zip']
+clip.mp4 · pack:7z: made 1, errors [], on disk ['clip.7z']
+clip.mp4 · files:hash: made 0, errors [], on disk []
+song.wav · audio:mp3: made 1, errors [], on disk ['song.mp3']
+ffmpeg failed for C:\Users\RUNNER~1\AppData\Local\Temp\corefold-fulldisk-j63a2658\originals\song.wav: [aost#0:0/aac @ 000002b405ade4c0] Error submitting a packet to the muxer: No space left on device
+    Last message repeated 1 times
+[out#0/ipod @ 000002b405a3e7c0] Error muxing a packet
+[out#0/ipod @ 000002b405a3e7c0] Task finished with error code: -28 (No space left on device)
+[out#0/ipod @ 000002b405a3e7c0] Terminating thread with return code -28 (No space left on device)
+[out#0/ipod @ 000002b405a3e7c0] Error writing trailer: No space left on device
+[out#0/ipod @ 000002b405a3e7c0] Error closing file: No space left on device
+M4A failed on song.wav
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 998, in ffmpeg_convert
+    run_ffmpeg(src, out, args, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 904, in run_ffmpeg
+    return _run_ffmpeg(src, out, args, ctx, pre, duration, more_inputs, cwd)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 952, in _run_ffmpeg
+    raise RuntimeError(tr("the disk is full"))
+RuntimeError: the disk is full
+song.wav · audio:m4a: made 0, errors ['song.wav: the disk is full'], on disk []
+ffmpeg failed for C:\Users\RUNNER~1\AppData\Local\Temp\corefold-fulldisk-j63a2658\originals\song.wav: [out#0/flac @ 000001ddd654f040] Error writing trailer: No space left on device
+[out#0/flac @ 000001ddd654f040] Error closing file: No space left on device
+FLAC failed on song.wav
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 998, in ffmpeg_convert
+    run_ffmpeg(src, out, args, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 904, in run_ffmpeg
+    return _run_ffmpeg(src, out, args, ctx, pre, duration, more_inputs, cwd)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 952, in _run_ffmpeg
+    raise RuntimeError(tr("the disk is full"))
+RuntimeError: the disk is full
+song.wav · audio:flac: made 0, errors ['song.wav: the disk is full'], on disk []
+song.wav · audio:ogg: made 1, errors [], on disk ['song.ogg']
+ffmpeg failed for C:\Users\RUNNER~1\AppData\Local\Temp\corefold-fulldisk-j63a2658\originals\song.wav: [aost#0:0/libopus @ 00000250b7275ec0] Error submitting a packet to the muxer: No space left on device
+    Last message repeated 1 times
+[out#0/opus @ 00000250b7253a40] Error muxing a packet
+[out#0/opus @ 00000250b7253a40] Task finished with error code: -28 (No space left on device)
+[out#0/opus @ 00000250b7253a40] Terminating thread with return code -28 (No space left on device)
+[out#0/opus @ 00000250b7253a40] Error writing trailer: No space left on device
+[out#0/opus @ 00000250b7253a40] Error closing file: No space left on device
+OPUS failed on song.wav
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 998, in ffmpeg_convert
+    run_ffmpeg(src, out, args, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 904, in run_ffmpeg
+    return _run_ffmpeg(src, out, args, ctx, pre, duration, more_inputs, cwd)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 952, in _run_ffmpeg
+    raise RuntimeError(tr("the disk is full"))
+RuntimeError: the disk is full
+song.wav · audio:opus: made 0, errors ['song.wav: the disk is full'], on disk []
+ffmpeg failed for C:\Users\RUNNER~1\AppData\Local\Temp\corefold-fulldisk-j63a2658\originals\song.wav: [aost#0:0/pcm_s16be @ 0000015c8b909f40] Error submitting a packet to the muxer: No space left on device
+    Last message repeated 1 times
+[out#0/aiff @ 0000015c8b8b0f40] Error muxing a packet
+[out#0/aiff @ 0000015c8b8b0f40] Task finished with error code: -28 (No space left on device)
+[out#0/aiff @ 0000015c8b8b0f40] Terminating thread with return code -28 (No space left on device)
+[out#0/aiff @ 0000015c8b8b0f40] Error writing trailer: No space left on device
+[out#0/aiff @ 0000015c8b8b0f40] Error closing file: No space left on device
+AIFF failed on song.wav
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 998, in ffmpeg_convert
+    run_ffmpeg(src, out, args, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 904, in run_ffmpeg
+    return _run_ffmpeg(src, out, args, ctx, pre, duration, more_inputs, cwd)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 952, in _run_ffmpeg
+    raise RuntimeError(tr("the disk is full"))
+RuntimeError: the disk is full
+song.wav · audio:aiff: made 0, errors ['song.wav: the disk is full'], on disk []
+ffmpeg failed for C:\Users\RUNNER~1\AppData\Local\Temp\corefold-fulldisk-j63a2658\originals\song.wav: [aost#0:0/pcm_s16le @ 0000020ec1a87040] Error submitting a packet to the muxer: No space left on device
+    Last message repeated 1 times
+[out#0/wav @ 0000020ec1a50f00] Error muxing a packet
+[out#0/wav @ 0000020ec1a50f00] Task finished with error code: -28 (No space left on device)
+[out#0/wav @ 0000020ec1a50f00] Terminating thread with return code -28 (No space left on device)
+[out#0/wav @ 0000020ec1a50f00] Error writing trailer: No space left on device
+[out#0/wav @ 0000020ec1a50f00] Error closing file: No space left on device
+Volume failed on song.wav
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\moretools.py", line 337, in fix_volume
+    return Result([run_sound(src, out, ext, args, ctx)])
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 1098, in run_sound
+    run_ffmpeg(src, out, args, ctx, **kw)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 904, in run_ffmpeg
+    return _run_ffmpeg(src, out, args, ctx, pre, duration, more_inputs, cwd)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 952, in _run_ffmpeg
+    raise RuntimeError(tr("the disk is full"))
+RuntimeError: the disk is full
+song.wav · audio:volume: made 0, errors ['song.wav: the disk is full'], on disk []
+song.wav · pack:zip: made 1, errors [], on disk ['song.zip']
+song.wav · pack:7z: made 1, errors [], on disk ['song.7z']
+song.wav · files:hash: made 0, errors [], on disk []
+Compress failed on doc.pdf
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 1426, in pdf_compress
+    write_compressed_pdf(src, out, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 1421, in write_compressed_pdf
+    writer.write(fh)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\pypdf\_writer.py", line 1441, in write
+    self.write_stream(stream)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\pypdf\_writer.py", line 1412, in write_stream
+    object_positions, free_objects = self._write_pdf_structure(stream)
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\pypdf\_writer.py", line 1559, in _write_pdf_structure
+    obj.write_to_stream(stream)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\pypdf\generic\_data_structures.py", line 1149, in write_to_stream
+    stream.write(self._data)
+OSError: [Errno 28] No space left on device
+doc.pdf · pdf:compress: made 0, errors ['doc.pdf: the disk is full'], on disk []
+Split failed on doc.pdf
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 1280, in pdf_split
+    w.write(fh)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\pypdf\_writer.py", line 1441, in write
+    self.write_stream(stream)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\pypdf\_writer.py", line 1412, in write_stream
+    object_positions, free_objects = self._write_pdf_structure(stream)
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\pypdf\_writer.py", line 1559, in _write_pdf_structure
+    obj.write_to_stream(stream)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\pypdf\generic\_data_structures.py", line 1149, in write_to_stream
+    stream.write(self._data)
+OSError: [Errno 28] No space left on device
+doc.pdf · pdf:split: made 0, errors ['doc.pdf: the disk is full'], on disk []
+PNG failed on doc.pdf
+Traceback (most recent call last):
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 669, in _save
+    fh = fp.fileno()
+         ^^^^^^^^^
+AttributeError: '_idat' object has no attribute 'fileno'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 1302, in pdf_to_png
+    page.render(scale=render_scale(page.get_width(), page.get_height(), 150 / 72)).to_pil().save(target)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\Image.py", line 2712, in save
+    save_handler(self, fp, filename)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\PngImagePlugin.py", line 1560, in _save
+    ImageFile._save(
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 673, in _save
+    _encode_tile(im, fp, tile, bufsize, None, exc)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 700, in _encode_tile
+    fp.write(data)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\PngImagePlugin.py", line 1165, in write
+    self.chunk(self.fp, b"IDAT", data)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\PngImagePlugin.py", line 1152, in putchunk
+    fp.write(byte_data)
+OSError: [Errno 28] No space left on device
+doc.pdf · pdf:png: made 0, errors ['doc.pdf: the disk is full'], on disk []
+doc.pdf · pdf:text: made 0, errors [], on disk []
+Pictures failed on doc.pdf
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\moretools.py", line 89, in pdf_images
+    target.write_bytes(img.data)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\pathlib.py", line 1037, in write_bytes
+    return f.write(view)
+           ^^^^^^^^^^^^^
+OSError: [Errno 28] No space left on device
+doc.pdf · pdf:images: made 0, errors ['doc.pdf: the disk is full'], on disk []
+ZIP failed on doc.pdf
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\archives.py", line 1184, in pack
+    outs = pack_into(items, out, ctx, fmt, p.get("level", "normal"), p.get("password", ""),
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\archives.py", line 1139, in pack_into
+    raise _7z_error(output)
+RuntimeError: the disk is full
+doc.pdf · pack:zip: made 0, errors ['doc.pdf: the disk is full'], on disk []
+7z failed on doc.pdf
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\archives.py", line 1184, in pack
+    outs = pack_into(items, out, ctx, fmt, p.get("level", "normal"), p.get("password", ""),
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\archives.py", line 1139, in pack_into
+    raise _7z_error(output)
+RuntimeError: the disk is full
+doc.pdf · pack:7z: made 0, errors ['doc.pdf: the disk is full'], on disk []
+doc.pdf · files:hash: made 0, errors [], on disk []
+JPG failed on folder
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\moretools.py", line 404, in convert_folder
+    save_image(im, target, ext, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 152, in save_image
+    im.save(out, quality=ctx.options.jpg_quality, optimize=im.width * im.height <= HUGE_PICTURE,
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\Image.py", line 2712, in save
+    save_handler(self, fp, filename)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\JpegImagePlugin.py", line 871, in _save
+    ImageFile._save(
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 671, in _save
+    _encode_tile(im, fp, tile, bufsize, fh)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 706, in _encode_tile
+    errcode = encoder.encode_to_file(fh, bufsize)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 28] No space left on device
+folder · folder:jpg: made 0, errors ['folder: the disk is full'], on disk []
+PNG failed on folder
+Traceback (most recent call last):
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 669, in _save
+    fh = fp.fileno()
+         ^^^^^^^^^
+AttributeError: '_idat' object has no attribute 'fileno'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\moretools.py", line 404, in convert_folder
+    save_image(im, target, ext, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 162, in save_image
+    im.save(out, compress_level=3 if big else 6, **meta)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\Image.py", line 2712, in save
+    save_handler(self, fp, filename)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\PngImagePlugin.py", line 1560, in _save
+    ImageFile._save(
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 673, in _save
+    _encode_tile(im, fp, tile, bufsize, None, exc)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 700, in _encode_tile
+    fp.write(data)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\PngImagePlugin.py", line 1165, in write
+    self.chunk(self.fp, b"IDAT", data)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\PngImagePlugin.py", line 1152, in putchunk
+    fp.write(byte_data)
+OSError: [Errno 28] No space left on device
+folder · folder:png: made 0, errors ['folder: the disk is full'], on disk []
+WebP failed on folder
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\moretools.py", line 404, in convert_folder
+    save_image(im, target, ext, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 157, in save_image
+    im.save(out, quality=ctx.options.jpg_quality, method=4, **meta)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\Image.py", line 2712, in save
+    save_handler(self, fp, filename)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\WebPImagePlugin.py", line 344, in _save
+    fp.write(data)
+OSError: [Errno 28] No space left on device
+folder · folder:webp: made 0, errors ['folder: the disk is full'], on disk []
+Small failed on folder
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\moretools.py", line 402, in convert_folder
+    small.save(target, quality=80, optimize=True, progressive=True, **colour_profile(im, "RGB"))
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\Image.py", line 2712, in save
+    save_handler(self, fp, filename)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\JpegImagePlugin.py", line 871, in _save
+    ImageFile._save(
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 671, in _save
+    _encode_tile(im, fp, tile, bufsize, fh)
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\ImageFile.py", line 706, in _encode_tile
+    errcode = encoder.encode_to_file(fh, bufsize)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 28] No space left on device
+folder · folder:small: made 0, errors ['folder: the disk is full'], on disk []
+ZIP failed on folder
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\archives.py", line 1184, in pack
+    outs = pack_into(items, out, ctx, fmt, p.get("level", "normal"), p.get("password", ""),
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\archives.py", line 1139, in pack_into
+    raise _7z_error(output)
+RuntimeError: the disk is full
+folder · pack:zip: made 0, errors ['folder: the disk is full'], on disk []
+folder · pack:7z: made 1, errors [], on disk ['folder.7z']
+Extract failed on pack.zip
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\archives.py", line 878, in extract
+    dropped, unsafe = _extract_into(src, staging, ctx, password, members)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\archives.py", line 792, in _extract_into
+    check_room(src, target, declared)
+  File "D:\a\corefold\corefold\corefold\archives.py", line 784, in check_room
+    raise RuntimeError(tr("unpacking this needs {size}, and the disk only has {free} free",
+RuntimeError: unpacking this needs 2.9 MB, and the disk only has 0 bytes free
+pack.zip · archive:extract: made 0, errors ['pack.zip: unpacking this needs 2.9 MB, and the disk only has 0 bytes free'], on disk []
+To folder failed on pack.zip
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\archives.py", line 878, in extract
+    dropped, unsafe = _extract_into(src, staging, ctx, password, members)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\archives.py", line 792, in _extract_into
+    check_room(src, target, declared)
+  File "D:\a\corefold\corefold\corefold\archives.py", line 784, in check_room
+    raise RuntimeError(tr("unpacking this needs {size}, and the disk only has {free} free",
+RuntimeError: unpacking this needs 2.9 MB, and the disk only has 0 bytes free
+pack.zip · archive:folder: made 0, errors ['pack.zip: unpacking this needs 2.9 MB, and the disk only has 0 bytes free'], on disk []
+pack.zip · archive:test: made 0, errors [], on disk []
+7z failed on pack.zip
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\archives.py", line 1206, in convert_archive
+    outs = pack_into(items, out, packer, fmt, "normal", password=password)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\archives.py", line 1139, in pack_into
+    raise _7z_error(output)
+RuntimeError: the disk is full
+pack.zip · archive:7z: made 0, errors ['pack.zip: the disk is full'], on disk []
+ZIP failed on big.bin
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\archives.py", line 1184, in pack
+    outs = pack_into(items, out, ctx, fmt, p.get("level", "normal"), p.get("password", ""),
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\archives.py", line 1139, in pack_into
+    raise _7z_error(output)
+RuntimeError: the disk is full
+big.bin · pack:zip: made 0, errors ['big.bin: the disk is full'], on disk []
+7z failed on big.bin
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\archives.py", line 1184, in pack
+    outs = pack_into(items, out, ctx, fmt, p.get("level", "normal"), p.get("password", ""),
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\archives.py", line 1139, in pack_into
+    raise _7z_error(output)
+RuntimeError: the disk is full
+big.bin · pack:7z: made 0, errors ['big.bin: the disk is full'], on disk []
+big.bin · files:hash: made 0, errors [], on disk []
+74 tools tried on a full disk
+fulldisktest: 0 problem(s)

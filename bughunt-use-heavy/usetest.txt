@@ -1,0 +1,163 @@
+note  versions: PySide6-Essentials 6.12.0, Pillow 13.0.0, pypdfium2 5.14.0, pypdf 6.21.4
+note  the first text on this PC (Windows reading its fonts): 4.5 s
+note  test files made in 99 s
+note  before start: other programs kept the PC 2% busy; waited 1 s (then 2%)
+----- start
+ok       0.09 s  (limit 4 s)  Corefold starts (tray icon ready)
+ok       0.51 s  (limit 2.5 s)  the window opens   · window froze 0.43 s
+ok    start: no errors behind the clicks (0)
+note  before organizer: other programs kept the PC 1% busy; waited 1 s (then 1%)
+----- organizer
+ok       0.11 s  (limit 0.6 s)  Organizer: open the page
+ok      16.99 s  (limit 30 s)  Organizer: 30,000 loose files planned and listed
+ok    Organizer: 29999 of 30,000 to sort (the one a program has open stays)
+ok       0.10 s  (limit 0.5 s)  Organizer: untick a kind of 7,500 files
+ok    …they're left out (22499 to sort)
+ok       0.09 s  (limit 0.5 s)  Organizer: tick it again
+ok      59.63 s  (limit 90 s)  Organizer: sort 29,999 files
+ok    Organizer: only the open file is still loose (1)
+ok    …and every move can be undone
+ok      58.03 s  (limit 90 s)  Organizer: undo 29,999 files   · window froze 0.29 s
+ok    Organizer: after Undo every file is back, unchanged (30000 of 30000; missing 0, changed 0)
+ok    …and the folders it made are gone
+note  memory while sorting 30,000 files: at most 323 MB
+ok    organizer: no errors behind the clicks (0)
+note  before archive: other programs kept the PC 1% busy; waited 1 s (then 1%)
+----- archive
+ok       3.30 s  (limit 12 s)  Archive: open node_modules 200000 files.zip
+ok       0.31 s  (limit 1.2 s)  Archive: search 'file-199999' in 200,000 files
+ok       0.34 s  (limit 1.2 s)  Archive: search 'f' in 200,000 files
+ok       0.31 s  (limit 1.2 s)  Archive: search 'fi' in 200,000 files
+ok       0.31 s  (limit 1.2 s)  Archive: search 'file' in 200,000 files
+ok       0.31 s  (limit 1.2 s)  Archive: search 'js' in 200,000 files
+ok       0.30 s  (limit 1.2 s)  Archive: search 'zzz' in 200,000 files
+ok       0.31 s  (limit 1.2 s)  Archive: clear the search
+ok       0.00 s  (limit 1.0 s)  Archive: sort by size
+ok       0.00 s  (limit 1.0 s)  Archive: sort by name again
+ok       0.00 s  (limit 1.0 s)  Archive: select all
+ok     249.92 s  (limit 300 s)  Archive: Extract to… (200,000 files)
+ok    …all 200,000 files are there (200000)
+ok       0.51 s  (limit 4 s)  Archive: stop extracting part-way (Cancel)
+ok       1.65 s  (limit 10 s)  Archive: open Scans 100000 in one folder.zip
+ok       0.22 s  (limit 0.6 s)  Archive: scroll to the end of 100,000 rows
+ok       0.35 s  (limit 1.2 s)  Archive: search 'scan-99999'
+ok    …it's found, alone (1 shown)
+ok       0.23 s  (limit 1.5 s)  Archive: sort 100,000 files by size   · window froze 0.28 s
+ok       0.14 s  (limit 2.5 s)  Archive: select all 100,000
+ok    …every one is selected (100000)
+ok       0.10 s  (limit 4 s)  Archive: open Backup over 4 GB.zip
+ok      33.65 s  (limit 240 s)  Archive: extract a 4.3 GB file
+ok    …it's whole and unchanged (4613734400 bytes)
+note  memory while the big archives: at most 608 MB
+ok    archive: no errors behind the clicks (0)
+note  before pdf: other programs kept the PC 1% busy; waited 1 s (then 1%)
+----- pdf
+ok       0.26 s  (limit 2 s)  PDF: open a 2,000-page PDF on the board
+ok      23.50 s  (limit 150 s)  PDF: every page's small picture drawn
+ok       0.21 s  (limit 0.6 s)  PDF: scroll to the end
+ok       0.02 s  (limit 0.5 s)  PDF: select all 2,000 pages
+ok       0.21 s  (limit 1.5 s)  PDF: turn 2,000 pages
+ok       0.14 s  (limit 1.0 s)  PDF: undo
+ok       0.05 s  (limit 1.0 s)  PDF: delete 1,000 pages
+ok    …1,000 are left (1000)
+ok       0.41 s  (limit 120 s)  PDF: save the 1,000 pages as a new PDF
+ok    …it has 1,000 pages ([1000], errors [])
+ok       1.06 s  (limit 2 s)  PDF: 40 PDFs of 50 pages on the board
+ok      24.27 s  (limit 150 s)  PDF: every page's small picture drawn (40 files)   · window froze 0.38 s
+ok       0.59 s  (limit 120 s)  PDF: merge 40 PDFs into one
+ok    …it has 2,000 pages ([2000], errors [])
+note  memory while 2,000-page PDFs on the board: at most 675 MB
+ok     128.12 s  (limit 240 s)  PDF: make the 2,000-page PDF smaller   · window froze 0.30 s
+ok    …1 file(s) made
+note  memory while making a 2,000-page PDF smaller: at most 442 MB
+ok    pdf: no errors behind the clicks (0)
+note  before converter: other programs kept the PC 1% busy; waited 1 s (then 1%)
+----- converter
+ok       0.15 s  (limit 1.0 s)  Converter: drop 400 photos on the window
+ok       0.10 s  (limit 0.5 s)  Converter: work out the wheel for 400 photos
+ok     568.51 s  (limit 700 s)  Converter: 400 phone photos → WebP
+ok    …400 file(s) made
+note  400 photos → WebP: 569 s, this app used 300% of one core, the whole PC was 76% busy (4 cores)
+note  memory while 400 photos at once: at most 932 MB
+ok       0.77 s  (limit 90 s)  Converter: 200 MP picture → JPG
+ok    …1 file(s) made
+note  memory while a 200 MP picture: at most 1136 MB
+ok       0.75 s  (limit 120 s)  Converter: 1 GB video → MP3
+ok    …1 file(s) made
+ok       0.43 s  (limit 5 s)  Converter: stop making a 1 GB video smaller (Cancel)
+ok    …no half-made video is left behind ([])
+ok       2.98 s  (limit 180 s)  Converter: folder of 30,000 files → ZIP
+ok    …1 file(s) made
+ok    converter: no errors behind the clicks (0)
+note  before cloud: other programs kept the PC 5% busy; waited 1 s (then 5%)
+----- cloud
+ok       0.13 s  (limit 1.0 s)  Cloud: open the page
+ok    Cloud: both folders are there (['OneDrive', 'Dropbox'])
+ok       2.53 s  (limit 6 s)  Cloud: open a folder of 20,000 pictures
+ok       0.22 s  (limit 0.8 s)  Cloud: sort them by size   · window froze 0.27 s
+ok    …smallest first (6)
+ok       0.17 s  (limit 0.8 s)  Cloud: and by name again   · window froze 0.28 s
+ok       0.00 s  (limit 1.0 s)  Cloud: select all 20,000
+ok    …every one (20000)
+ok       0.04 s  (limit 0.8 s)  Cloud: back up
+ok       8.80 s  (limit 120 s)  Cloud: copy a project of 3,000 files to another cloud folder
+ok    …every file arrived, unchanged (3000 of 3000)
+note  memory while a cloud folder of 20,000 pictures: at most 429 MB
+ok    cloud: no errors behind the clicks (0)
+note  before unlock: other programs kept the PC 1% busy; waited 1 s (then 1%)
+----- unlock
+ok       1.04 s  (limit 60 s)  Unlock: who has a file open in a folder of 20,000
+ok    …this program is found holding it (['Python'], 5000 files asked about, capped: True)
+ok    unlock: no errors behind the clicks (0)
+note  before idle: other programs kept the PC 0% busy; waited 1 s (then 0%)
+----- idle
+note  idle, processor time by thread in 15 s: Thread-2 (_held_watch) 0.05 s, Thread-1 (_watch) 0.02 s, corefold-starter 0.00 s, corefold-peek 0.00 s, corefold-key 0.00 s, Thread-3 (_look) 0.00 s (all Python threads 0.06 s of 0.06 s)
+note  idle, timers on the window's thread in 5 s: QTimer ×61, QObject ×1
+ok    idle in the tray: 0.42% of one processor core
+note  memory after using everything and leaving it idle: 16 MB in use, 434 MB private
+ok    idle: no errors behind the clicks (0)
+
+freezes (the window didn't answer for more than 0.25 s):
+   0.43 s  the window opens  ·  sheet.py:1426 eventFilter < window.py:855 __init__ < app.py:461 window < app.py:561 show_window
+   0.38 s  PDF: every page's small picture drawn (40 files)  ·  app.py:2716 collect_garbage
+   0.30 s  PDF: make the 2,000-page PDF smaller  ·  usetest.py:289 wait_ms < usetest.py:295 until < usetest.py:324 timed < usetest.py:607 run
+   0.29 s  Organizer: undo 29,999 files  ·  app.py:2704 _full_collection_done < app.py:2718 collect_garbage
+   0.28 s  Archive: sort 100,000 files by size  ·  browser.py:689 _resort < browser.py:669 _sort_by
+   0.28 s  Cloud: and by name again  ·  timefmt.py:36 date_text < cloudpage.py:1203 _add_rows < cloudpage.py:1160 _show < cloudpage.py:1242 resort
+   0.27 s  Cloud: sort them by size  ·  usetest.py:288 wait_ms < usetest.py:331 timed < usetest.py:1433 h_cloud < usetest.py:386 step
+
+Python held up (no thread could run for more than 0.3 s):
+   4.41 s    ·  Thread-3 (_look): usetest.py:1060 _look < threading.py:1012 run < threading.py:1075 _bootstrap_inner < threading.py:1032 _bootstrap | Thread-1 (_watch): usetest.py:140 _watch < threading.py:1012 run < threading.py:1075 _bootstrap_inner < threading.py:1032 _bootstrap | MainThread: usetest.py:1488 <module>
+
+full looks of Python's collector over 0.1 s (objects looked through, freed):
+   0.38 s  PDF: every page's small picture drawn (40 files)  ·  825,239 objects, 507,087 freed
+   0.32 s    ·  485,178 objects, 100,452 freed
+what was left after the first long one (PDF: every page's small picture drawn (40 files)):
+    122,839  builtins.list
+     60,104  pathlib.WindowsPath
+     30,001  PySide6.QtWidgets.QTreeWidgetItem
+     30,000  corefold.organizer.Item
+     10,147  builtins.function
+      9,681  builtins.tuple
+      9,681  builtins.method_descriptor
+      8,675  builtins.dict
+      3,972  builtins.builtin_function_or_method
+      3,481  builtins.wrapper_descriptor
+      3,289  weakref.ReferenceType
+      2,064  builtins.getset_descriptor
+      2,027  PySide6.QtWidgets.QListWidgetItem
+      1,385  builtins.type
+      1,266  builtins.cell
+      1,204  builtins.staticmethod
+        613  builtins.member_descriptor
+        503  ctypes.CDLL.__init__.<locals>._FuncPtr
+        492  enum.EnumType
+        478  builtins.property
+        477  dataclasses.Field
+        473  builtins.module
+        471  Shiboken.ObjectType
+        469  PySide6.QtCore.Qt.Key
+        439  _frozen_importlib.ModuleSpec
+    a corefold.organizer.Item is held by: list of 30,000 (+1 more) < corefold.organizer.Plan < dict of 36 (windowTitleChanged, windowIconChanged, windowIconTextChanged, customContextMenuRequested) < corefold.organizerpage.OrganizerPage < dict of 191 (windowTitleChanged, windowIconChanged, windowIconTextChanged, customContextMenuRequested) (+15 more)
+ok    the log has no errors (0: [])
+usetest en-dark-heavy: 0 problem(s)

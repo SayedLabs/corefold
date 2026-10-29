@@ -1,0 +1,168 @@
+FFmpeg: D:\a\corefold\corefold\vendor\ffmpeg\ffmpeg.exe
+ok    test files made with Corefold's FFmpeg
+      video:mp4 ['obs recording.mkv'] -> ['obs recording.mp4'] [] (0.1 s)
+ok    an OBS recording (MKV, H.264 + AAC) becomes an MP4
+ok    its picture is copied as it is, not made again (0.1 s)
+ok    its sound and subtitles come along (['video:h264', 'audio:aac', 'subtitle:mov_text'])
+      video:mp4 ['phone.mov'] -> ['phone.mp4'] [] (0.1 s)
+ok    an iPhone-style MOV is copied too
+      video:mp4 ['opus sound.mkv'] -> ['opus sound.mp4'] [] (1.1 s)
+ok    Opus sound (MP4 players can't all play it) means the video is made again, with AAC
+      video:mp4 ['old.avi'] -> ['old.mp4'] [] (1.2 s)
+ok    an AVI is made again (its times can be off)
+      video:mp4 ['ten bit.mkv'] -> ['ten bit.mp4'] [] (1.2 s)
+ok    a 10-bit video is made again as 8-bit (TVs and phones can't play 10-bit H.264)
+      video:mp4 ['obs recording.mkv'] -> ['obs recording (2).mp4'] [] (0.6 s)
+ok    with 'smaller file' in Settings it's made again, smaller
+      video:mp4 ['obs recording.mkv'] -> ['obs recording (3).mp4'] [] (0.5 s)
+ok    with a size limit smaller than the video it's made again
+      video:mp4 ['camcorder.mpg'] -> ['camcorder.mp4'] [] (0.4 s)
+ok    an interlaced camcorder video becomes an MP4
+ok    with ordinary (not combed) pictures: TFF:     4 BFF:     0 Progressive:    46 Undetermined:     0
+ok    at the same 25 pictures a second (25/1)
+      audio:trim ['song.mp3'] -> ['song (trimmed).mp3'] [] (0.1 s)
+ok    audio:trim: the song keeps its album cover
+      audio:speed ['song.mp3'] -> ['song (1.5x).mp3'] [] (0.0 s)
+ok    audio:speed: the song keeps its album cover
+      audio:volume ['song.mp3'] -> ['song (volume fixed).mp3'] [] (0.2 s)
+ok    audio:volume: the song keeps its album cover
+      preset:ab12 ['song.mp3'] -> ['song (Phone_ small_v2).m4a'] [] (0.1 s)
+ok    a preset called 'Phone: small/v2' makes a normal, visible file (['song (Phone_ small_v2).m4a'] [])
+      preset:cd34 ['phone.mov'] -> ['phone (_CON).mp4'] [] (1.1 s)
+ok    a preset called 'CON' still works ([])
+      image:small ['moving.gif'] -> ['moving (small).gif'] [] (0.1 s)
+ok    Small on an animated GIF makes a GIF
+ok    and it still moves (all 5 frames)
+      folder:small ['C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\corefold-convtest-suyt_smf\\src\\Pictures'] -> ['Pictures (small)'] [] (0.1 s)
+ok    folder Small keeps the see-through logo a PNG (['logo.png', 'photo.jpg'])
+      video:mp3 ['-start.mp4'] -> ['-start.mp3'] [] (0.1 s)
+ok    MP3 from '-start.mp4'
+      video:mp3 ["a'b%c;[x],y=z.mp4"] -> ["a'b%c;[x],y=z.mp3"] [] (0.1 s)
+ok    MP3 from "a'b%c;[x],y=z.mp4"
+      video:mp3 ['فيديو عربي.mp4'] -> ['فيديو عربي.mp3'] [] (0.1 s)
+ok    MP3 from 'فيديو عربي.mp4'
+      video:subtitles ["a'b%c;[x],y=z.mp4"] -> ["a'b%c;[x],y=z (subtitles).mp4"] [] (0.2 s)
+ok    subtitles drawn into a video with ' % ; [ ] , = in its name
+      video:frames ["a'b%c;[x],y=z.mp4"] -> ["a'b%c;[x],y=z frames"] [] (0.1 s)
+ok    3 pictures from that video
+ffmpeg failed for C:\Users\RUNNER~1\AppData\Local\Temp\corefold-convtest-suyt_smf\src\playlist.mp4: [in#0 @ 000002103fa5ae00] moov atom not found
+[in#0 @ 000002103fa53ac0] Error opening input: Invalid data found when processing input
+Error opening input file C:\Users\RUNNER~1\AppData\Local\Temp\corefold-convtest-suyt_smf\src\playlist.mp4.
+Error opening input files: Invalid data found when processing input
+MP4 failed on playlist.mp4
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 991, in ffmpeg_convert
+    run_ffmpeg(src, out, whole, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 904, in run_ffmpeg
+    return _run_ffmpeg(src, out, args, ctx, pre, duration, more_inputs, cwd)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 945, in _run_ffmpeg
+    raise RuntimeError(damaged)
+RuntimeError: the file is damaged or isn't really an audio or video file
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 996, in ffmpeg_convert
+    out = _again(src, out, ctx)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 1007, in _again
+    raise RuntimeError(tr("the file is damaged or isn't really an audio or video file"))
+RuntimeError: the file is damaged or isn't really an audio or video file
+      video:mp4 ['playlist.mp4'] -> [] ["playlist.mp4: the file is damaged or isn't really an audio or video file"] (0.1 s)
+ok    playlist.mp4 is turned away with a message, nothing made (["playlist.mp4: the file is damaged or isn't really an audio or video file"])
+ffmpeg failed for C:\Users\RUNNER~1\AppData\Local\Temp\corefold-convtest-suyt_smf\src\list.mp4: [in#0 @ 0000022eb7898dc0] Unsafe file name 'C:Windowswin.ini'
+[in#0 @ 0000022eb789f100] Error opening input: Operation not permitted
+Error opening input file C:\Users\RUNNER~1\AppData\Local\Temp\corefold-convtest-suyt_smf\src\list.mp4.
+Error opening input files: Operation not permitted
+MP4 failed on list.mp4
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 991, in ffmpeg_convert
+    run_ffmpeg(src, out, whole, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 904, in run_ffmpeg
+    return _run_ffmpeg(src, out, args, ctx, pre, duration, more_inputs, cwd)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 945, in _run_ffmpeg
+    raise RuntimeError(damaged)
+RuntimeError: the file is damaged or isn't really an audio or video file
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 996, in ffmpeg_convert
+    out = _again(src, out, ctx)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 1007, in _again
+    raise RuntimeError(tr("the file is damaged or isn't really an audio or video file"))
+RuntimeError: the file is damaged or isn't really an audio or video file
+      video:mp4 ['list.mp4'] -> [] ["list.mp4: the file is damaged or isn't really an audio or video file"] (0.0 s)
+ok    list.mp4 is turned away with a message, nothing made (["list.mp4: the file is damaged or isn't really an audio or video file"])
+ffmpeg failed for C:\Users\RUNNER~1\AppData\Local\Temp\corefold-convtest-suyt_smf\src\empty.mp4: [in#0 @ 00000205f5aab740] moov atom not found
+[in#0 @ 00000205f5aa3ac0] Error opening input: Invalid data found when processing input
+Error opening input file C:\Users\RUNNER~1\AppData\Local\Temp\corefold-convtest-suyt_smf\src\empty.mp4.
+Error opening input files: Invalid data found when processing input
+MP4 failed on empty.mp4
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 991, in ffmpeg_convert
+    run_ffmpeg(src, out, whole, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 904, in run_ffmpeg
+    return _run_ffmpeg(src, out, args, ctx, pre, duration, more_inputs, cwd)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 945, in _run_ffmpeg
+    raise RuntimeError(damaged)
+RuntimeError: the file is damaged or isn't really an audio or video file
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 996, in ffmpeg_convert
+    out = _again(src, out, ctx)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 1007, in _again
+    raise RuntimeError(tr("the file is damaged or isn't really an audio or video file"))
+RuntimeError: the file is damaged or isn't really an audio or video file
+      video:mp4 ['empty.mp4'] -> [] ["empty.mp4: the file is damaged or isn't really an audio or video file"] (0.1 s)
+ok    empty.mp4 is turned away with a message, nothing made (["empty.mp4: the file is damaged or isn't really an audio or video file"])
+ffmpeg failed for C:\Users\RUNNER~1\AppData\Local\Temp\corefold-convtest-suyt_smf\src\words.mp4: [in#0 @ 00000268fb118840] moov atom not found
+[in#0 @ 00000268fb0b3ac0] Error opening input: Invalid data found when processing input
+Error opening input file C:\Users\RUNNER~1\AppData\Local\Temp\corefold-convtest-suyt_smf\src\words.mp4.
+Error opening input files: Invalid data found when processing input
+MP4 failed on words.mp4
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 991, in ffmpeg_convert
+    run_ffmpeg(src, out, whole, ctx)
+  File "D:\a\corefold\corefold\corefold\converters.py", line 904, in run_ffmpeg
+    return _run_ffmpeg(src, out, args, ctx, pre, duration, more_inputs, cwd)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 945, in _run_ffmpeg
+    raise RuntimeError(damaged)
+RuntimeError: the file is damaged or isn't really an audio or video file
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\corefold\converters.py", line 2015, in one
+    r = tool.run(item, ctx)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 996, in ffmpeg_convert
+    out = _again(src, out, ctx)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\corefold\corefold\corefold\converters.py", line 1007, in _again
+    raise RuntimeError(tr("the file is damaged or isn't really an audio or video file"))
+RuntimeError: the file is damaged or isn't really an audio or video file
+      video:mp4 ['words.mp4'] -> [] ["words.mp4: the file is damaged or isn't really an audio or video file"] (0.0 s)
+ok    words.mp4 is turned away with a message, nothing made (["words.mp4: the file is damaged or isn't really an audio or video file"])
+ok    no half-made files left behind ([])
+ok    Trim's times can be typed as 1:02:03.5, 2:03.5 or seconds
+ok    and nonsense isn't taken
+ok    a PDF's Merge, Split, Lock and Unlock aren't listed under Archive
+newtest_converter: 0 problem(s)
