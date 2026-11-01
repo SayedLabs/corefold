@@ -457,9 +457,22 @@ def delete_at_restart_junctions():
 
 
 def _owner(path: Path) -> str:
-    return subprocess.run([system_tool("powershell.exe"), "-NoProfile", "-NonInteractive", "-Command",
-                           "(Get-Acl -LiteralPath $env:CF_P).Owner"], capture_output=True, text=True,
-                          env=dict(os.environ, CF_P=str(path)), timeout=60).stdout.strip()
+    r = subprocess.run([system_tool("powershell.exe"), "-NoProfile", "-NonInteractive", "-Command",
+                        "[IO.File]::GetAccessControl($env:CF_P, 'Owner').GetOwner([Security.Principal.NTAccount]).Value"],
+                       capture_output=True, text=True, env=dict(os.environ, CF_P=str(path)), timeout=60)
+    if not r.stdout.strip():
+        note(f"couldn't read the owner of {path.name}: {r.stderr.strip()[-300:]}")
+    return r.stdout.strip()
+
+
+def _left(folder: Path) -> list[str]:
+    out = []
+    for root, dirs, files in os.walk(folder):
+        for name in dirs + files:
+            full = os.path.join(root, name)
+            out.append(os.path.relpath(full, folder) + (" (link)" if is_link(full) else ""))
+        dirs[:] = [d for d in dirs if not is_link(os.path.join(root, d))]
+    return out
 
 
 def previous_windows_links():
@@ -467,7 +480,9 @@ def previous_windows_links():
     ("Documents and Settings" to C:\\Users, "All Users" to C:\\ProgramData), and takeown /R and icacls /T
     went through them: everyone's files would change hands. And any account can make C:\\Windows.old,
     also as a junction to somewhere only administrators may change."""
+    import logging
     from corefold import space as sp
+    logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="log     %(message)s")
     icacls = system_tool("icacls.exe")
     victim = BASE / "today"
     victim.mkdir()
@@ -530,6 +545,8 @@ def previous_windows_links():
         except PermissionError:
             note("the locked folder can't be looked into as administrator")
         sp.clean_as_admin(["winold"])
+        if old.exists():
+            note(f"left in it: {_left(old)[:20]}")
         check(not old.exists(), "the previous Windows is removed")
         check(untouched() and (victim / "big.bin").exists(),
               "…and what its links led to keeps its owner, permissions and files")

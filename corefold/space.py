@@ -899,6 +899,7 @@ def _drop_links_inside(top: Path, run=None, limit_s: float = 900.0) -> bool:
                 entries = list(it)
         except PermissionError:
             if run is None or locked >= LOCKED_LIMIT:
+                log.warning("couldn't look into %s", here)
                 clean = False
                 continue
             locked += 1
@@ -908,9 +909,11 @@ def _drop_links_inside(top: Path, run=None, limit_s: float = 900.0) -> bool:
                 with os.scandir(here) as it:
                     entries = list(it)
             except OSError:
+                log.warning("couldn't look into %s, even taken over", here)
                 clean = False
                 continue
         except OSError:
+            log.warning("couldn't look into %s", here, exc_info=True)
             clean = False
             continue
         for e in entries:
@@ -925,11 +928,13 @@ def _drop_links_inside(top: Path, run=None, limit_s: float = 900.0) -> bool:
                         try:
                             os.unlink(e.path)
                         except OSError:
+                            log.warning("couldn't remove the link %s", e.path, exc_info=True)
                             clean = False
                     continue
                 if e.is_dir(follow_symlinks=False):
                     stack.append(e.path)
             except OSError:
+                log.warning("couldn't tell what %s is", e.path, exc_info=True)
                 clean = False
     return clean
 
