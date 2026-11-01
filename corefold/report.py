@@ -224,8 +224,9 @@ def report_problem(win, ask: bool = True) -> Path | None:
         path = make(win.c.settings)
     except OSError as e:
         log.exception("couldn't make the problem report")
+        from .converters import friendly_error
         sheet.warning(win, tr("Report a problem"), tr("Couldn't make the report: {error}",
-                                                      error=e.strerror or str(e)))
+                                                      error=friendly_error(e)))
         return None
     reveal_in_explorer(path)
     if UPDATE_REPO:
