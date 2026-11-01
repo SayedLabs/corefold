@@ -1284,10 +1284,12 @@ def pdf_split(src: Path, ctx: Ctx) -> Result:
 
 def pdf_to_png(src: Path, ctx: Ctx) -> Result:
     import pypdfium2 as pdfium
-    pdf = pdfium.PdfDocument(str(src))
+    from .pdftools import PDFIUM  # (PDFium can't do two things at once: the PDF window may be drawing)
+    with PDFIUM:
+        pdf = pdfium.PdfDocument(str(src))
+        n = len(pdf)
     stem = ctx.stem(src)
     try:
-        n = len(pdf)
         if n == 1:
             out = ctx.out_path(src, stem + ".png")
             targets = [out]
@@ -1297,30 +1299,38 @@ def pdf_to_png(src: Path, ctx: Ctx) -> Result:
             targets = [out / f"{stem} p{i + 1:0{width}}.png" for i in range(n)]
         for i, target in enumerate(targets):
             ctx.check()
-            page = pdf[i]
             from .core import render_scale
-            page.render(scale=render_scale(page.get_width(), page.get_height(), 150 / 72)).to_pil().save(target)
-            page.close()
+            with PDFIUM:  # (a page at a time: a preview asked for meanwhile isn't kept waiting)
+                page = pdf[i]
+                im = page.render(scale=render_scale(page.get_width(), page.get_height(), 150 / 72)).to_pil()
+                page.close()
+            im.save(target)
             ctx.progress((i + 1) / n)
     finally:
-        pdf.close()
+        with PDFIUM:
+            pdf.close()
     return Result([out])
 
 
 def pdf_to_text(src: Path, ctx: Ctx) -> Result:
     import pypdfium2 as pdfium
-    pdf = pdfium.PdfDocument(str(src))
+    from .pdftools import PDFIUM
+    with PDFIUM:
+        pdf = pdfium.PdfDocument(str(src))
+        n = len(pdf)
     parts = []
     try:
-        for i in range(len(pdf)):
+        for i in range(n):
             ctx.check()
-            page = pdf[i]
-            tp = page.get_textpage()
-            parts.append(tp.get_text_bounded())
-            tp.close()
-            page.close()
+            with PDFIUM:
+                page = pdf[i]
+                tp = page.get_textpage()
+                parts.append(tp.get_text_bounded())
+                tp.close()
+                page.close()
     finally:
-        pdf.close()
+        with PDFIUM:
+            pdf.close()
     if not any(part.strip() for part in parts):  # only pictures of pages: an empty .txt would help nobody
         return Result(note=tr("{name} has no text to take out. It's probably a scan (pictures of pages).",
                               name=src.name), scans=[src])
