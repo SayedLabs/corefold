@@ -123,7 +123,9 @@ class DropZone(QFrame):
             w.setAlignment(Qt.AlignCenter)
         row = QHBoxLayout()
         row.addStretch()
-        for text, fn, *style in buttons or ((tr("Choose files…"), on_choose), (tr("Paste (Ctrl + V)"), on_paste)):
+        # (the first way in is the page's main step, in the accent colour, like every page's own main button)
+        for text, fn, *style in buttons or ((tr("Choose files…"), on_choose, "primary"),
+                                            (tr("Paste (Ctrl + V)"), on_paste)):
             b = QPushButton(text)
             if style:
                 b.setObjectName(style[0])
@@ -300,11 +302,24 @@ class FilePanel(QFrame):
             bits.append(tr("Other parts of a split archive open with the first part"))
         self.summary.setText(" · ".join(bits))
 
-        # buttons, grouped
+        # buttons, grouped (the few most likely ones first, bigger)
         favs = set(s.favorites)
         by_group: dict[str, list] = {}
         for slot in pk.slots:
             by_group.setdefault(GROUPS.get(action_of(slot.tool.key), "convert"), []).append(slot)
+        top = suggested(pk.slots, by_group, favs)
+        if top:
+            title = QLabel(tr("Suggested").upper())
+            title.setObjectName("section")
+            self.groups.addWidget(title)
+            holder = QWidget()
+            flow = FlowLayout(holder)
+            for slot in top:
+                b = self._button(slot, slot.tool.key in favs)
+                b.setObjectName("suggested")
+                b.setMinimumWidth(140)
+                flow.addWidget(b)
+            self.groups.addWidget(holder)
         for group in GROUP_ORDER:
             slots = by_group.get(group)
             if not slots:
@@ -425,6 +440,23 @@ class FilePanel(QFrame):
             b.clicked.connect(lambda _=False, t=slot.tool: self.c.tool_chosen(t, list(self.files)))
         b.setMinimumWidth(92)
         return b
+
+
+def suggested(slots: list, by_group: dict[str, list], favorites: set) -> list:
+    """The few things most likely wanted with these files, shown first and bigger: the favourites, then the
+    first of each kind (to another format, smaller, changed…) in the order they're listed. None when there
+    are only a handful of buttons anyway."""
+    ok = [sl for sl in slots if sl.ok]
+    if len(ok) <= 6:
+        return []
+    top = [sl for sl in ok if sl.tool.key in favorites][:3]
+    for group in ("convert", "shrink", "edit", "archive", "read"):
+        if len(top) >= 3:
+            break
+        first = next((sl for sl in by_group.get(group, []) if sl.ok and sl not in top), None)
+        if first is not None:
+            top.append(first)
+    return top
 
 
 def choose_files(parent) -> list[Path]:

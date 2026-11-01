@@ -185,6 +185,9 @@ QFrame#dropzone[hot="true"] { border: 1px solid $accent; background: $accent_sof
 QPushButton#action { padding: 7px 13px; border-radius: 8px; }
 QPushButton#action:hover { background: $hover; border-color: $line_strong; }
 QPushButton#action:disabled { color: $muted; background: transparent; border: 1px dashed $border; }
+QPushButton#suggested { padding: 11px 18px; border-radius: 10px; font-weight: 600; background: $accent_soft;
+                        border: 1px solid $accent_soft; }
+QPushButton#suggested:hover { border-color: $accent; }
 QPushButton#quick { background: $panel; border: 1px solid $border; border-radius: 12px; padding: 10px 14px;
                     text-align: $lead_side; font-weight: 600; }
 QPushButton#quick:hover { background: $card_hover; border-color: $edge_hover; }

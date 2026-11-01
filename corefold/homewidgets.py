@@ -1222,7 +1222,8 @@ class Board(QWidget):
 
     def _w_unlock(self, f, lay, size):
         f.drops = self._unlock_check
-        self._head(lay, "unlock", tr("What's using this?"),
+        # (a short name in a small widget, on one line; the longer question in a bigger one)
+        self._head(lay, "unlock", tr("Unlock") if size == "small" else tr("What's using this?"),
                    tr("Drop a file or folder you can't delete or move.") if size != "small" else "")
         lay.addStretch()
         row = QHBoxLayout()
