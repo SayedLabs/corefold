@@ -1874,8 +1874,9 @@ def _move(src: Path, dest: Path):
 def _move_files(src: Path, dest: Path, overwrite: bool = False) -> list[str]:
     """Moves a folder file by file (for when some of its files are in use and it can't move as a whole),
     then removes the folders left empty. Returns the files that couldn't be moved."""
-    left = []
+    left, walked = [], []
     for root, folders, files in os.walk(src):
+        walked.append(root)
         rel = os.path.relpath(root, src)
         for f in files:
             a, b = os.path.join(root, f), os.path.join(dest, rel, f)
@@ -1888,7 +1889,9 @@ def _move_files(src: Path, dest: Path, overwrite: bool = False) -> list[str]:
             except OSError:
                 left.append(a)
         folders[:] = [d for d in folders if not is_link(os.path.join(root, d))]
-    for root, _folders, _files in sorted(os.walk(src), key=lambda t: -len(t[0])):
+    # only the real folders walked above, deepest first: a second os.walk would go into junctions (Windows
+    # doesn't count them as links there), remove the empty folders where they point, then the junction itself
+    for root in reversed(walked):
         try:
             os.rmdir(root)
         except OSError:

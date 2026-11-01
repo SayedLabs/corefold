@@ -720,6 +720,7 @@ def move_at_restart_problem(src: str, dst: str) -> str:
     """Why Windows can't move src to dst as the PC starts ("" when it can): it only moves on the same
     drive, never over something already there, and never Windows' or programs' own folders."""
     from .space import protected
+    from .uninstall import through_link
     if not (os.path.isabs(src) and os.path.isabs(dst)) or not os.path.lexists(src):
         return "missing"
     if os.path.normcase(os.path.splitdrive(src)[0]) != os.path.normcase(os.path.splitdrive(dst)[0]):
@@ -727,7 +728,9 @@ def move_at_restart_problem(src: str, dst: str) -> str:
     if os.path.lexists(dst):
         return "taken"
     parent = os.path.dirname(dst)
-    if not os.path.isdir(parent) or protected(Path(dst)) or not at_restart_allowed(src):
+    # (Windows moves it as the PC starts, with full rights: a link on the way to dst, which another account
+    # could have made, would take it into a folder only administrators may change)
+    if not os.path.isdir(parent) or through_link(dst) or protected(Path(dst)) or not at_restart_allowed(src):
         return "refused"
     return ""
 
