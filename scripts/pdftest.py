@@ -318,6 +318,8 @@ def page():
     check(sorted(colors_of(p) for p in made) == [[0, 1], [2, 3], [4]], f"Split card: every 2 pages ({len(made)} files)")
     made = card("compress", [LOCKED], lambda dlg: True)
     check(answers.get("seen") == "CompressDialog", "Compress card: asks how much")
+    card("trim", [A], lambda dlg: dlg.same.isChecked())
+    check(answers.get("seen") == "TrimDialog", "Trim edges card: asks how much room is left")
     def lock_abc(dlg):
         dlg.p1.setText("abc")
         dlg.p2.setText("abc")

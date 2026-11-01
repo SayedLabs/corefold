@@ -51,6 +51,7 @@ ACTIONS = [("edit", "Edit content", "Type text, change words, add pictures, high
            ("unlock", "Unlock", "Remove the password from a PDF that's yours", "lock_open"),
            ("pagesize", "Page size", "Make every page A4, Letter or another size, what's on it fitted inside",
             "page_size"),
+           ("trim", "Trim edges", "Cut away the empty white edges around what's on every page", "crop"),
            ("flatten", "Flatten", "Make what's filled in on a form, and notes and stamps, part of the page, so "
             "nobody can change them", "layers"),
            ("repair", "Repair", "Rebuild a damaged PDF that won't open or shows errors", "wrench"),
@@ -65,7 +66,7 @@ MORE = [("pdf:numbers", "Page numbers", "Number every page", "text_t"),
         ("pdf:images", "Save the pictures inside", "Every picture in the PDF, as it is", "filmstrip_image")]
 # how the cards are grouped on the page (the first group is shown big, on top)
 GROUPS = [("", ("edit", "merge")),
-          ("Pages", ("organize", "split", "extract", "pagesize")),
+          ("Pages", ("organize", "split", "extract", "pagesize", "trim")),
           ("Add to it", ("searchable", "pdf:sign", "pdf:numbers", "pdf:watermark")),
           ("Smaller or safer", ("compress", "pdf:fit", "lock", "unlock", "clean", "flatten", "repair")),
           ("Turn it into something else", ("topictures", "pictures", "pdf:text", "pdf:images"))]
@@ -429,7 +430,7 @@ class PdfPage(QWidget):
                 self.pictures_to_pdf([Path(n) for n in names])
             return
         several = key in ("merge", "organize", "compress", "searchable", "topictures", "lock", "unlock", "clean",
-                          "pagesize", "flatten", "repair") or \
+                          "pagesize", "trim", "flatten", "repair") or \
             key.startswith("pdf:")
         title = tr("Pick the PDFs") if several else tr("Pick a PDF")
         if several:
@@ -468,7 +469,7 @@ class PdfPage(QWidget):
                 "searchable": (pd.SearchableDialog, _searchable_tool()),
                 "topictures": (pd.ToPicturesDialog, pdftools.TO_PICTURES), "lock": (pd.PdfLockDialog, pdftools.LOCK),
                 "unlock": (None, pdftools.UNLOCK), "pagesize": (pd.PageSizeDialog, pdftools.PAGE_SIZE),
-                "flatten": (None, pdftools.FLATTEN), "repair": (None, pdftools.REPAIR)}
+                "trim": (pd.TrimDialog, pdftools.TRIM), "flatten": (None, pdftools.FLATTEN), "repair": (None, pdftools.REPAIR)}
         dialog, tool = asks[key]
         if key == "lock":
             already = [f for f in files if pdftools.lock_state(f) == "locked"]

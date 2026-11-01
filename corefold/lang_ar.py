@@ -3135,4 +3135,13 @@ STRINGS: dict[str, str] = {
     "A3": "A3",
     "A5": "A5",
     "Legal": "Legal",
+    'Trim edges': 'قص الحواف',
+    "Cut away the empty white edges around what's on every page": 'يقص الحواف البيضاء الفارغة حول محتوى كل صفحة',
+    'Cut away the empty edges': 'قص الحواف الفارغة',
+    '{name} has no empty edges to trim': 'لا توجد في {name} حواف فارغة لقصها',
+    'Trimmed the edges of {count} pages': 'قُصت حواف {count} صفحة',
+    'Room left around it': 'المسافة المتروكة حوله',
+    'Cut every page the same, so they all still match': 'قص كل الصفحات بالطريقة نفسها لتبقى متطابقة',
+    "Pages of the same size are cut around what's on all of them together.": 'الصفحات التي لها المقاس نفسه تُقص حول محتواها كلها معًا.',
+    "What's cut away is only hidden, not taken out of the file: to remove something for good, cover it in Edit content. Saved as a new file.": 'ما يُقص يُخفى فقط ولا يُحذف من الملف. لحذف شيء نهائيًا، غطِّه في «تعديل المحتوى». يُحفظ في ملف جديد.',
 }

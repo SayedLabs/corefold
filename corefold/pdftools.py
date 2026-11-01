@@ -934,6 +934,87 @@ def page_size(src: Path, ctx: Ctx) -> Result:
     return Result([out], note=tr("Every page is now {size}", size=tr(name)))
 
 
+def _ink_box(page, raw, ctypes):
+    """Where something is drawn on a PDFium page (x0, y0, x1, y1 in the PDF's own points), or None for an
+    empty page. Specks of a scan (a dot or two on their own) don't count."""
+    from PIL import ImageFilter
+    w, h = page.get_size()
+    scale = min(1.0, 1800 / max(w, h, 1))
+    img = page.render(scale=scale, grayscale=True, may_draw_forms=True).to_pil().convert("L")
+    ink = img.point(lambda v: 255 if v < 235 else 0).filter(ImageFilter.MedianFilter(3))
+    box = ink.getbbox()
+    if not box:
+        return None
+    px0, py0, px1, py1 = box
+    xs, ys = [], []
+    for dx, dy in ((px0, py0), (px1, py0), (px0, py1), (px1, py1)):
+        x, y = ctypes.c_double(), ctypes.c_double()
+        raw.FPDF_DeviceToPage(page.raw, 0, 0, img.width, img.height, 0, dx, dy, ctypes.byref(x), ctypes.byref(y))
+        xs.append(x.value)
+        ys.append(y.value)
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def trim(src: Path, ctx: Ctx) -> Result:
+    """The empty white edges around what's on every page cut away (a scan's wide borders, a slide's empty
+    room), with a little room left. "same": every page of a size cut the same, so they all still match.
+    What's cut away is only hidden (the PDF's own way of showing part of a page), not taken out."""
+    import ctypes
+
+    import pypdfium2.raw as raw
+    from pypdf import PdfWriter
+    from pypdf.generic import RectangleObject
+    password = ctx.params.get("password", "")
+    room = float(MARGINS.get(ctx.params.get("margin", "small"), MARGINS["small"])[1])
+    same = bool(ctx.params.get("same", True))
+    reader = open_reader(src, password)
+    n = len(reader.pages)
+    boxes: list = []
+    with PDFIUM:
+        doc = open_pdfium(src, password)
+        try:
+            for i in range(n):
+                ctx.check()
+                page = doc[i]
+                try:
+                    boxes.append(_ink_box(page, raw, ctypes))
+                finally:
+                    page.close()
+                ctx.progress(0.9 * (i + 1) / n)
+        finally:
+            doc.close()
+    writer = PdfWriter(clone_from=reader)
+    if same:  # (pages of the same size and turn: one box around what's on all of them)
+        groups: dict = {}
+        for i, page in enumerate(writer.pages):
+            if boxes[i]:
+                c = page.cropbox
+                key = (round(float(c.left)), round(float(c.bottom)), round(float(c.width)),
+                       round(float(c.height)), page.rotation % 360)
+                g = groups.setdefault(key, list(boxes[i]))
+                g[:] = [min(g[0], boxes[i][0]), min(g[1], boxes[i][1]), max(g[2], boxes[i][2]),
+                        max(g[3], boxes[i][3])]
+                boxes[i] = g
+    done = 0
+    for i, page in enumerate(writer.pages):
+        if not boxes[i]:
+            continue
+        c = page.cropbox
+        cx0, cy0, cx1, cy1 = float(c.left), float(c.bottom), float(c.right), float(c.top)
+        x0, y0, x1, y1 = (max(cx0, boxes[i][0] - room), max(cy0, boxes[i][1] - room),
+                          min(cx1, boxes[i][2] + room), min(cy1, boxes[i][3] + room))
+        if x1 - x0 < 8 or y1 - y0 < 8 or (x1 - x0) * (y1 - y0) > 0.98 * (cx1 - cx0) * (cy1 - cy0):
+            continue  # (nothing worth cutting)
+        page.cropbox = RectangleObject([round(x0, 2), round(y0, 2), round(x1, 2), round(y1, 2)])
+        done += 1
+    if not done:
+        return Result([], note=tr("{name} has no empty edges to trim", name=src.name))
+    out = ctx.out_path(src, f"{ctx.stem(src)} (trimmed).pdf")
+    write(writer, out, password)
+    ctx.progress(1.0)
+    return Result([out], note=tr("Trimmed the edges of {count} pages", count=done))
+
+
 # the tools on Corefold PDF's page (the Converter's wheel keeps its own, simpler ones)
 SPLIT = Tool("pdftool:split", tr("Split"), tr("Split a PDF"), split, password=True, renames=False)
 EXTRACT = Tool("pdftool:extract", tr("Take out pages"), tr("Save some pages as a new PDF"), extract, password=True,
@@ -954,3 +1035,4 @@ FLATTEN = Tool("pdftool:flatten", tr("Flatten"), tr("Make forms and notes part o
 REPAIR = Tool("pdftool:repair", tr("Repair"), tr("Rebuild a damaged PDF"), repair, password=True, renames=False)
 PAGE_SIZE = Tool("pdftool:pagesize", tr("Page size"), tr("Make every page the same size"), page_size,
                  password=True, renames=False)
+TRIM = Tool("pdftool:trim", tr("Trim edges"), tr("Cut away the empty edges"), trim, password=True, renames=False)

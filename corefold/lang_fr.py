@@ -3062,4 +3062,13 @@ STRINGS: dict[str, str] = {
     "A3": "A3",
     "A5": "A5",
     "Legal": "Legal US",
+    'Trim edges': 'Rogner les bords',
+    "Cut away the empty white edges around what's on every page": 'Coupe les bords blancs vides autour du contenu de chaque page',
+    'Cut away the empty edges': 'Couper les bords vides',
+    '{name} has no empty edges to trim': "{name} n'a pas de bords vides à rogner",
+    'Trimmed the edges of {count} pages': 'Bords rognés sur {count} pages',
+    'Room left around it': 'Espace laissé autour',
+    'Cut every page the same, so they all still match': "Couper toutes les pages de la même façon pour qu'elles restent identiques",
+    "Pages of the same size are cut around what's on all of them together.": 'Les pages de même taille sont coupées autour du contenu de toutes à la fois.',
+    "What's cut away is only hidden, not taken out of the file: to remove something for good, cover it in Edit content. Saved as a new file.": 'Ce qui est coupé est seulement masqué, pas retiré du fichier : pour supprimer quelque chose définitivement, couvrez-le dans Modifier le contenu. Enregistré dans un nouveau fichier.',
 }

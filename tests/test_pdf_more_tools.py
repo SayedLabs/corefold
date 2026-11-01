@@ -1,5 +1,6 @@
 """Corefold PDF's new tools: Flatten (a filled-in form, notes and stamps made part of the page), Repair (a
-damaged PDF written again whole) and Page size (every page made A4, Letter…, what's on it fitted inside)."""
+damaged PDF written again whole), Page size (every page made A4, Letter…, what's on it fitted inside) and Trim
+edges (the empty white edges around what's on the pages cut away)."""
 import threading
 from pathlib import Path
 
@@ -149,6 +150,52 @@ def test_page_size_keeps_a_margin_and_a_turned_page(tmp_path):
     page = PdfReader(str(out)).pages[0]
     assert page.rotation % 360 == 0
     assert (round(float(page.mediabox.width)), round(float(page.mediabox.height))) == (612, 792)
+
+
+def _boxed(path: Path, pages) -> Path:
+    """Pages with a black box drawn at (x, y, w, h) on each (or nothing, for None)."""
+    w = PdfWriter()
+    for spot in pages:
+        page = w.add_blank_page(600, 800)
+        if spot:
+            x, y, bw, bh = spot
+            stream = StreamObject()
+            stream._data = f"0 g {x} {y} {bw} {bh} re f".encode()
+            page[NameObject("/Contents")] = w._add_object(stream)
+    w.write(str(path))
+    return path
+
+
+def test_trim_cuts_the_empty_edges_with_a_little_room(tmp_path):
+    src = _boxed(tmp_path / "scan.pdf", [(100, 200, 300, 400), None])
+    result = pdftools.trim(src, _ctx(tmp_path, margin="small", same=False))
+    out = result.outputs[0]
+    assert out.name == "scan (trimmed).pdf" and "1" in result.note
+    a, b = PdfReader(str(out)).pages
+    box = [float(v) for v in a.cropbox]
+    assert box == pytest.approx([100 - 18, 200 - 18, 400 + 18, 600 + 18], abs=2.5)
+    assert [float(v) for v in b.cropbox] == [0, 0, 600, 800]  # (an empty page is left as it is)
+    assert [float(v) for v in a.mediabox] == [0, 0, 600, 800]  # (only hidden: nothing taken out)
+
+
+def test_trim_cuts_every_page_the_same_and_keeps_a_turned_page_right(tmp_path):
+    src = _boxed(tmp_path / "two.pdf", [(100, 100, 100, 100), (300, 500, 100, 100)])
+    out = pdftools.trim(src, _ctx(tmp_path, margin="none", same=True)).outputs[0]
+    a, b = PdfReader(str(out)).pages
+    assert [float(v) for v in a.cropbox] == pytest.approx([100, 100, 400, 600], abs=2.5)
+    assert [float(v) for v in b.cropbox] == pytest.approx([float(v) for v in a.cropbox])
+    w = PdfWriter(clone_from=PdfReader(str(_boxed(tmp_path / "t.pdf", [(100, 200, 300, 400)]))))
+    w.pages[0].rotate(90)
+    turned = tmp_path / "turned.pdf"
+    w.write(str(turned))
+    page = PdfReader(str(pdftools.trim(turned, _ctx(tmp_path, margin="none")).outputs[0])).pages[0]
+    assert [float(v) for v in page.cropbox] == pytest.approx([100, 200, 400, 600], abs=2.5)
+
+
+def test_trim_says_when_theres_nothing_to_cut(tmp_path):
+    src = _boxed(tmp_path / "full.pdf", [(0, 0, 600, 800), None])
+    result = pdftools.trim(src, _ctx(tmp_path))
+    assert not result.outputs and "no empty edges" in result.note
 
 
 @pytest.fixture

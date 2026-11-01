@@ -115,6 +115,30 @@ class PageSizeDialog(Base):
         return {"size": self.size.currentData(), "margin": self.margin.currentData()}
 
 
+class TrimDialog(Base):
+    """Trim edges: how much room is left around what's on each page, and whether every page is cut the same."""
+
+    def __init__(self, files, icon, dark):
+        super().__init__(tr("Trim edges"), describe(files), icon, dark)
+        self.margin = _combo(MARGINS, "small")
+        self.margin.setAccessibleName(tr("Room left around it"))
+        row = QGridLayout()
+        row.setHorizontalSpacing(12)
+        row.addWidget(QLabel(tr("Room left around it")), 0, 0)
+        row.addWidget(self.margin, 0, 1)
+        self.lay.addLayout(row)
+        self.same = QCheckBox(tr("Cut every page the same, so they all still match"))
+        self.same.setChecked(True)
+        self.same.setToolTip(tr("Pages of the same size are cut around what's on all of them together."))
+        self.lay.addWidget(self.same)
+        self.lay.addWidget(_note(tr("What's cut away is only hidden, not taken out of the file: to remove "
+                                    "something for good, cover it in Edit content. Saved as a new file.")))
+        self.buttons(tr("Trim edges"))
+
+    def params(self):
+        return {"margin": self.margin.currentData(), "same": self.same.isChecked()}
+
+
 class SearchableDialog(Base):
     """Make searchable: what happens, and whether pages made searchable before are read again."""
 

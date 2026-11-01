@@ -3062,4 +3062,13 @@ STRINGS: dict[str, str] = {
     "A3": "A3",
     "A5": "A5",
     "Legal": "Legal",
+    'Trim edges': 'Kenarları kırp',
+    "Cut away the empty white edges around what's on every page": 'Her sayfadaki içeriğin çevresindeki boş beyaz kenarları keser',
+    'Cut away the empty edges': 'Boş kenarları kes',
+    '{name} has no empty edges to trim': '{name} içinde kırpılacak boş kenar yok',
+    'Trimmed the edges of {count} pages': '{count} sayfanın kenarları kırpıldı',
+    'Room left around it': 'Çevresinde kalan boşluk',
+    'Cut every page the same, so they all still match': 'Tüm sayfaları aynı şekilde kes, hepsi birbirine uysun',
+    "Pages of the same size are cut around what's on all of them together.": 'Aynı boyuttaki sayfalar, hepsinin içeriğini birlikte kapsayacak şekilde kesilir.',
+    "What's cut away is only hidden, not taken out of the file: to remove something for good, cover it in Edit content. Saved as a new file.": "Kesilen kısım yalnızca gizlenir, dosyadan çıkarılmaz: bir şeyi kalıcı olarak silmek için İçeriği düzenle'de üstünü örtün. Yeni bir dosya olarak kaydedilir.",
 }
