@@ -975,11 +975,15 @@ def program_of(pid: int) -> str:
     if not h:
         return ""
     try:
-        buf = ctypes.create_unicode_buffer(1024)
-        size = ctypes.c_uint32(1024)
-        return buf.value if k.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(size)) else ""
+        return _program_of_handle(h)
     finally:
         k.CloseHandle(h)
+
+
+def _program_of_handle(h) -> str:
+    buf = ctypes.create_unicode_buffer(1024)
+    size = ctypes.c_uint32(1024)
+    return buf.value if _dll("kernel32").QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(size)) else ""
 
 
 def programs_in(folders: list[str]) -> list[tuple[int, str]]:
@@ -998,16 +1002,26 @@ def programs_in(folders: list[str]) -> list[tuple[int, str]]:
     return out
 
 
-def close_programs(pids: list[int]) -> list[int]:
-    """Ends these processes. Returns the ones still running (they run as administrator, or won't end)."""
+def close_programs(programs) -> list[int]:
+    """Ends these processes: (process id, program file) pairs as programs_in gives them, or bare ids.
+    With its program file, a process is ended only while it still runs that file: once a program ends,
+    Windows can give its id to another one, which is never touched. Returns the ones still running (they
+    run as administrator, or won't end)."""
     k = _dll("kernel32")
-    handles = {}
-    for pid in pids:
-        h = k.OpenProcess(SYNCHRONIZE | TERMINATE, False, pid)
-        if h:
-            handles[pid] = h
-            k.TerminateProcess(h, 1)
-    still = [pid for pid in pids if pid not in handles]
+    handles, pids, gone = {}, [], set()
+    for entry in programs:
+        pid, exe = entry if isinstance(entry, tuple) else (entry, None)
+        pids.append(pid)
+        h = k.OpenProcess(SYNCHRONIZE | TERMINATE | QUERY_LIMITED, False, pid)
+        if not h:
+            continue
+        if exe and os.path.normcase(_program_of_handle(h)) != os.path.normcase(exe):
+            k.CloseHandle(h)  # it ended, and its id now belongs to another program
+            gone.add(pid)
+            continue
+        handles[pid] = h
+        k.TerminateProcess(h, 1)
+    still = [pid for pid in pids if pid not in handles and pid not in gone]
     for pid, h in handles.items():
         if k.WaitForSingleObject(h, 3000) != 0:
             still.append(pid)
@@ -2315,7 +2329,7 @@ def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, a
     running from the folders (they keep their files in use). manifest: see _manifest."""
     if close_running:
         try:
-            close_programs([pid for pid, _ in programs_in([i.path for i in items if i.kind == "folder"])])
+            close_programs(programs_in([i.path for i in items if i.kind == "folder"]))
         except Exception:
             log.debug("couldn't close the programs still running", exc_info=True)
     data = _manifest(folder, manifest)
