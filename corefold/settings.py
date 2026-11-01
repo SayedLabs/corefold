@@ -586,7 +586,14 @@ def remove_old_startup_entry() -> bool:
 def set_startup(on: bool):
     import winreg
     try:
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as k:
+        if on:  # (a new Windows account may not have the Run key yet: it's made)
+            key = winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE)
+        else:
+            try:
+                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE)
+            except FileNotFoundError:
+                return  # (no Run key: nothing starts with Windows, so there's nothing to take off)
+        with key as k:
             if on:
                 winreg.SetValueEx(k, APP_NAME, 0, winreg.REG_SZ, launch_command())
                 _clear_off_note()
