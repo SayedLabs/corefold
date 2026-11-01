@@ -1368,7 +1368,9 @@ class SpacePage(QWidget):
         def done(rows):
             self._saving = None
             if isinstance(rows, Exception):
-                sheet.warning(self, tr("Save the list…"), tr("Couldn't save the list: {error}", error=str(rows)))
+                from .converters import friendly_error
+                sheet.warning(self, tr("Save the list…"), tr("Couldn't save the list: {error}",
+                                                                  error=friendly_error(rows)))
                 return
             self.c.toast.notify(tr("Saved"), short_name(out.name), tr("Show in folder"),
                                 lambda: reveal_in_explorer(out))

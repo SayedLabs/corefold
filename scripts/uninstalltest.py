@@ -338,10 +338,22 @@ def leftovers():
     held.close()
     r = un.restore(folder)
     check(len(r["failed"]) == 1, "putting back without administrator leaves the folder Windows deletes from at restart")
-    more = un.restore(folder, admin=True)  # what the admin copy does (appspage.restore_backup)
+    # what the admin copy does (appspage.restore_backup, run_elevated)
+    more = un.restore(folder, admin=True, files=un.stored_digests(folder))
     r = {"done": r["done"] + more["done"], "failed": more["failed"]}
     print(f"  put back {r['done']}, failed {[f.get('path') for f in r['failed']]}")
     check(in_use not in at_restart(), "…and putting it back as administrator takes that deletion back")
+    private = un._private_dir()
+    acl = subprocess.run(["icacls", str(private)], capture_output=True, text=True).stdout
+    print("  " + " | ".join(line.strip() for line in acl.splitlines() if line.strip()))
+    check(private.parent == un.windows_folder() / "Temp" and "Users" not in acl and "Authenticated" not in acl
+          and "Administrators" in acl, "the helper's private copies are in a folder only administrators can change")
+    scratch = Path(tempfile.mkdtemp(prefix="corefold-check-"))
+    reg = scratch / "check.reg"
+    reg.write_bytes(b"Windows Registry Editor Version 5.00\r\n")
+    copy = un._checked_copy(scratch, "check.reg", {"check.reg": un._digest(reg.read_bytes())}, private)
+    check(copy.parent == private and copy.read_bytes() == reg.read_bytes(), "…and a checked file is copied there")
+    un.shutil.rmtree(private, ignore_errors=True)
     check(not r["failed"], "everything is put back")
     check((inst / "bin" / "part0.dat").exists() and (roam / name / "settings.ini").exists() and vendor.exists(),
           "the folders are back (the one with a file in use too)")

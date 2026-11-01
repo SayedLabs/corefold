@@ -332,7 +332,8 @@ class ClipList(QListWidget):
         try:
             shutil.copy2(path, Path(name))
         except OSError as e:
-            sheet.warning(self, tr("Couldn't save"), str(e))
+            from .converters import friendly_error
+            sheet.warning(self, tr("Couldn't save"), friendly_error(e))
 
 
 def _web(text: str) -> str:

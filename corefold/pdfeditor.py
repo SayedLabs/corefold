@@ -2165,9 +2165,12 @@ class PdfEditor(QWidget):
     def _side_shown(self):
         """The list of pages and the options: as their buttons say, unless the window is too narrow for them
         (the pages go first)."""
-        self.side.setVisible(self.pages_btn.isChecked() and self.width() >= 820)
-        # (on a narrow window the options come only when there's something to set)
-        wide = self.width() >= 860 or (getattr(self, "insp_needed", True) and self.width() >= 560)
+        pages = self.pages_btn.isChecked() and self.width() >= 720
+        self.side.setVisible(pages)
+        # (on a narrow window the options come only when there's something to set, and only when the page
+        # itself keeps at least 320 px beside the list of pages)
+        room = self.width() - (self.side.sizeHint().width() if pages else 0)
+        wide = self.width() >= 860 or (getattr(self, "insp_needed", True) and room >= 560)
         self.inspector.setVisible(self.options_btn.isChecked() and wide)
         QTimer.singleShot(0, self._want_thumbs)
 
