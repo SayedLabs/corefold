@@ -21,6 +21,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import uuid
@@ -2490,10 +2491,60 @@ def backup_size(folder: Path) -> int:
     return folder_size(folder / "files", limit_s=2)
 
 
-def restore(folder: Path, admin: bool = False, manifest: str | None = None) -> dict:
+READ_BY_TOOLS = ("key", "value", "service", "task")  # put back by reg.exe or schtasks, from a file in the backup
+
+
+def stored_digests(folder: Path) -> dict[str, str]:
+    """The fingerprints of the backup's .reg and .xml files, which the administrator helper hands to reg.exe
+    and schtasks, so it can tell if one changed after the prompt."""
+    out = {}
+    for item in _manifest(folder).get("items", []):
+        stored = item.get("stored")
+        if item.get("kind") in READ_BY_TOOLS and isinstance(stored, str) and stored:
+            try:
+                out[stored] = _digest((folder / stored).read_bytes())
+            except OSError:
+                pass
+    return out
+
+
+def _private_dir() -> Path:
+    """A new folder only administrators (and Windows) can change, in Windows' own Temp folder."""
+    folder = Path(tempfile.mkdtemp(prefix="corefold-", dir=windows_folder() / "Temp"))
+    # (no rights from Temp: other accounts may add files there)
+    if not _run_ok("icacls.exe", str(folder), "/inheritance:r", "/grant:r", "*S-1-5-32-544:(OI)(CI)F",
+                   "*S-1-5-18:(OI)(CI)F"):
+        shutil.rmtree(folder, ignore_errors=True)
+        raise PermissionError("couldn't make a private folder")
+    return folder
+
+
+def _checked_copy(folder: Path, stored: str, files: dict, private: Path) -> Path:
+    """A backup's .reg or .xml file as it was before the administrator prompt (files: stored_digests), copied
+    where only administrators can change it. reg.exe and schtasks read that copy: the backup folder is the
+    user's, so anything running as them could swap the file between the check and the read."""
+    data = (folder / stored).read_bytes()
+    if not isinstance(files.get(stored), str) or _digest(data) != files[stored]:
+        raise PermissionError(stored + " changed after the administrator prompt")
+    copy = private / (uuid.uuid4().hex + Path(stored).suffix)
+    with open(copy, "xb") as f:
+        f.write(data)
+    return copy
+
+
+def restore(folder: Path, admin: bool = False, manifest: str | None = None, files: dict | None = None) -> dict:
     """Puts everything in a backup back where it was. Returns {"done": n, "failed": [items]}.
-    manifest: see _manifest."""
+    manifest: see _manifest. files: see _checked_copy (the administrator helper)."""
     data = _manifest(folder, manifest)
+    private = _private_dir() if files is not None else None
+    try:
+        return _restore(folder, data, admin, files, private)
+    finally:
+        if private is not None:
+            shutil.rmtree(private, ignore_errors=True)
+
+
+def _restore(folder: Path, data: dict, admin: bool, files: dict | None, private: Path | None) -> dict:
     left, done, recycled = [], 0, 0
     for item in data.get("items", []):
         if item.get("stored") == "recycle":
@@ -2529,9 +2580,13 @@ def restore(folder: Path, admin: bool = False, manifest: str | None = None) -> d
                 else:
                     _move(stored, target)
             elif item["kind"] == "task":
+                if files is not None:
+                    stored = _checked_copy(folder, item["stored"], files, private)
                 if not _run_ok("schtasks.exe", "/Create", "/TN", item["path"], "/XML", str(stored), "/F"):
                     raise PermissionError("couldn't put back the task " + item["path"])
             else:
+                if files is not None:
+                    stored = _checked_copy(folder, item["stored"], files, private)
                 if not _reg_file_ok(stored, item):
                     raise PermissionError("unexpected keys in " + str(stored))
                 if not _reg_exe("import", str(stored), *_view_flag(int(item.get("view") or 0))):
@@ -2570,6 +2625,8 @@ def run_elevated(command: list[str], kind: str, payload: dict, cancel: threading
     plan = work / f"{kind}-{uuid.uuid4().hex[:8]}.json"
     if "folder" in payload:  # the backup's list as it is now, so the helper can tell if it changes
         payload = dict(payload, manifest=manifest_digest(Path(payload["folder"])))
+        if kind == "restore":  # and the files it hands to reg.exe and schtasks
+            payload["files"] = stored_digests(Path(payload["folder"]))
     data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     plan.write_bytes(data)
     result = plan.with_suffix(".result.json")
@@ -2636,9 +2693,11 @@ def helper_main(argv: list[str]) -> int:
     home = plan.resolve().parent.parent  # ...\Corefold
     needs_folder = kind not in ("restore-point", "space-clean", "delete-at-restart", "startup-clean")
     manifest = payload.get("manifest") if isinstance(payload, dict) else None
+    files = payload.get("files") if isinstance(payload, dict) else None
     if plan.resolve().parent.name.lower() != "helper" or home.name.lower() not in ("corefold", LEGACY_NAME.lower()) or \
             (needs_folder and not (folder and _inside(str(Path(folder).resolve()), str(home / BACKUP_DIR.name))
-                                   and isinstance(manifest, str))):
+                                   and isinstance(manifest, str))) or \
+            (kind == "restore" and not isinstance(files, dict)):
         return 2
     _let_questions_show()
     try:
@@ -2667,7 +2726,7 @@ def helper_main(argv: list[str]) -> int:
             from .startup import clean_common_as_admin
             out = clean_common_as_admin(payload)
         elif kind == "restore":
-            r = restore(Path(payload["folder"]), admin=True, manifest=manifest)
+            r = restore(Path(payload["folder"]), admin=True, manifest=manifest, files=files)
             out = {"done": r["done"], "failed": r["failed"]}
         else:
             # (an app's name is in it: it goes in through env, so no quote in a name can end the string)
