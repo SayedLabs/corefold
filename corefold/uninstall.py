@@ -887,6 +887,7 @@ class Processes:
         first = k.GetProcessId(handle)
         self.handles = {first: handle}   # id: handle (kept open, so the id can't be reused meanwhile)
         self.ended: dict[int, int] = {}  # id: exit code, in the order they ended
+        self.started = {first: started_at(handle)}  # id: when it started
         self.first = first
 
     def refresh(self):
@@ -895,8 +896,18 @@ class Processes:
             if parent in self.handles and pid not in self.handles and name.lower() not in NOT_PART:
                 h = k.OpenProcess(SYNCHRONIZE | QUERY_LIMITED | TERMINATE, False, pid) or \
                     k.OpenProcess(SYNCHRONIZE | QUERY_LIMITED, False, pid)
-                if h:
-                    self.handles[pid] = h
+                if not h:
+                    continue
+                born = started_at(h)
+                if born and born < self.started.get(parent, 0):
+                    # Windows gives an ended process's id out again, and a program keeps the id of the one
+                    # that started it: one started before this parent was started by an earlier process
+                    # with the same id. It isn't part of the uninstaller, so it's never waited for, shown
+                    # or stopped.
+                    k.CloseHandle(h)
+                    continue
+                self.handles[pid] = h
+                self.started[pid] = born
         for pid, h in self.handles.items():
             if pid not in self.ended and k.WaitForSingleObject(h, 0) == 0:
                 code = ctypes.c_uint32()
@@ -947,6 +958,14 @@ class Processes:
         for h in self.handles.values():
             k.CloseHandle(h)
         self.handles = {}
+
+
+def started_at(handle) -> int:
+    """When a process started, in Windows' 100-nanosecond steps (0 if Windows won't say)."""
+    times = [ctypes.c_uint64() for _ in range(4)]
+    if _dll("kernel32").GetProcessTimes(handle, *(ctypes.byref(t) for t in times)):
+        return times[0].value
+    return 0
 
 
 def program_of(pid: int) -> str:

@@ -247,7 +247,8 @@ class MailWindow(QWidget):
         try:
             os_open(out)
         except OSError as e:
-            sheet.warning(self, tr("Couldn't open the file"), str(e))
+            from .converters import friendly_error
+            sheet.warning(self, tr("Couldn't open the file"), friendly_error(e))
 
     def save_attachment(self, a: mail.Attachment):
         name, _ = QFileDialog.getSaveFileName(self, tr("Save attachment"), str(self.path.parent / a.name))

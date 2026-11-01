@@ -127,7 +127,8 @@ class Job(QRunnable):
                                      self.params, lambda i, n, name: self.signals.item.emit(self.job_id, i, n, name))
         except Exception as e:
             log.exception("job crashed")
-            result, errors = Result(), [str(e)]
+            from .converters import friendly_error
+            result, errors = Result(), [friendly_error(e)]
         self.signals.finished.emit(self.job_id, result, errors, self.cancel.is_set())
 
 
@@ -1587,7 +1588,8 @@ class Controller(QObject):
             try:
                 win = MailWindow(self, path, self.icon)
             except (mail.MailError, OSError) as e:
-                self.tell(tr("Couldn't open the email"), f"{short_name(path.name)}: {e}")
+                from .converters import friendly_error
+                self.tell(tr("Couldn't open the email"), f"{short_name(path.name)}: {friendly_error(e)}")
                 return
         elif is_picture(path):
             for v in self.viewers:  # a picture window is open already: show it there
@@ -2006,7 +2008,8 @@ class Controller(QObject):
                 else:
                     os_open(result.outputs[0])
             except OSError as e:
-                self.toast.notify(tr("Couldn't open the file"), str(e))
+                from .converters import friendly_error
+                self.toast.notify(tr("Couldn't open the file"), friendly_error(e))
             member = job["params"].get("member")
             for b in self.browsers:  # it watches the file, to offer saving changes back into the archive
                 if member and _alive(b) and files and b.src == files[0]:

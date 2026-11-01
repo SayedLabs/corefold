@@ -1373,6 +1373,21 @@ def _key(p) -> str:
     return os.path.normcase(os.path.normpath(str(p)))
 
 
+def _pc_words(fn):
+    """What goes wrong on this PC's own disk while a whole file or folder is saved, sent or copied (a folder it
+    can't make, a file another program holds, a full disk) is said in Corefold Cloud's words, as for a folder
+    of this PC's own: never Windows' "[WinError 5] Access is denied: 'C:\\…'"."""
+    import functools
+
+    @functools.wraps(fn)
+    def run(*args, **kwargs):
+        from .cloudlocal import _plain_errors
+        with _plain_errors():
+            return fn(*args, **kwargs)
+    return run
+
+
+@_pc_words
 def download_tree(c: Client, entry: Entry, folder: Path, progress=None, cancel=None, _made: set | None = None) -> int:
     """Saves a file, or a folder with everything in it, into folder (next to what's there: nothing is
     replaced). Returns how many files were saved."""
@@ -1397,6 +1412,7 @@ def download_tree(c: Client, entry: Entry, folder: Path, progress=None, cancel=N
     return sum(download_tree(c, e, target, progress, cancel, made) for e in inside)
 
 
+@_pc_words
 def upload_tree(c: Client, src: Path, folder: Entry | None, progress=None, cancel=None,
                 _made: set | None = None) -> int:
     """Uploads a file, or a folder with everything in it, into folder. Returns how many files went up."""
@@ -1418,6 +1434,7 @@ def upload_tree(c: Client, src: Path, folder: Entry | None, progress=None, cance
                if not is_link(p) and _key(p) not in made)
 
 
+@_pc_words
 def copy_tree(src: Client, entry: Entry, dst: Client, into: Entry | None, progress=None, cancel=None,
               _made: set | None = None, _temp: Path | None = None) -> int:
     """Copies a file, or a folder with everything in it, from one account into a folder of another. Files go
@@ -1465,6 +1482,7 @@ def _inside(path: str, folder: str) -> bool:
     return path == folder or path.startswith(folder.rstrip("\\/") + os.sep)
 
 
+@_pc_words
 def send(src: Client, entry: Entry, dst: Client, into: Entry | None, move: bool = False, progress=None,
          cancel=None) -> tuple[int, bool]:
     """Copies a file or folder from one account into another (a folder on this PC goes straight from where it is),

@@ -39,6 +39,16 @@ except (AttributeError, ValueError):
 RELEASE = Path(sys.argv[1]).resolve()
 OUT = Path(sys.argv[2]).resolve()
 OLD_SETUPS = [Path(p).resolve() for p in sys.argv[3:]]
+
+
+def _version_of(setup: Path) -> tuple[int, ...]:
+    m = re.match(r"Corefold-Setup-(\d+)\.(\d+)\.(\d+)", setup.name)
+    return tuple(int(x) for x in m.groups()) if m else (0,)
+
+
+# (up to 1.15 Corefold installed for one user alone; from 1.16.0 for the whole PC, in Program Files)
+USER_SETUPS = [p for p in OLD_SETUPS if _version_of(p) < (1, 16, 0)]
+PC_SETUPS = [p for p in OLD_SETUPS if _version_of(p) >= (1, 16, 0)]
 OUT.mkdir(parents=True, exist_ok=True)
 SETUP = sorted(RELEASE.glob("Corefold-Setup-*.exe"))[-1]
 NEW = re.match(r"Corefold-Setup-(.+)\.exe$", SETUP.name).group(1)
@@ -297,7 +307,7 @@ def moved_over_checks(case: str, old_dir: Path, deleted: bool):
 
 
 # ---- each older release (installed for one user alone), updated the way Corefold's own updater does it
-for n, old in enumerate(OLD_SETUPS):
+for n, old in enumerate(USER_SETUPS):
     ver = re.match(r"Corefold-Setup-(.+)\.exe$", old.name).group(1)
     case = f"from {ver}"
     keep_icon = n % 2 == 1      # (one case keeps the desktop icon, the other deletes it)
@@ -341,9 +351,39 @@ for n, old in enumerate(OLD_SETUPS):
         check(run_now is None, f"{case}: starting with Windows stays off ({run_now})")
     remove_corefold()
 
+# ---- each older release that already installs for the whole PC, updated in its place
+for old in PC_SETUPS:
+    ver = re.match(r"Corefold-Setup-(.+)\.exe$", old.name).group(1)
+    case = f"from {ver}"
+    exe = APP_DIR / "Corefold.exe"
+    code = run(old, "/VERYSILENT", "/TASKS=desktopicon,startup", name=f"{ver}-install")
+    check(code == 0 and installed_version() == ver and same_file(installed_dir(), APP_DIR),
+          f"{case}: {ver} installed for the whole PC")
+    stop_all()
+    before = seed(exe)
+    kept_files = files_of(CONFIG)
+    set_startup(True, exe)
+    icon = PUBLIC_DESKTOP if PUBLIC_DESKTOP.exists() else DESKTOP
+    icon_time = icon.stat().st_mtime_ns if icon.exists() else None
+    subprocess.Popen([str(exe), "--background"])  # (running, as it is when it updates)
+    wait_for(lambda: pids(exe), 30)
+    time.sleep(3)
+    start = LOG.stat().st_size if LOG.exists() else 0
+    code = run(SETUP, "/SILENT", "/SP-", name=f"{ver}-update")
+    check(code == 0, f"{case}: the update installed")
+    check("the installer asked Corefold to close" in log_since(start), f"{case}: the old copy was asked to close")
+    after_update_checks(case, APP_DIR, before, kept_files, start)
+    check(user_version() is None, f"{case}: nothing installed for this user alone")
+    check(icon_time is not None and icon.exists() and icon.stat().st_mtime_ns == icon_time,
+          f"{case}: the desktop icon was left alone ({icon})")
+    run_now = reg(RUN_KEY, "Corefold")
+    check(run_now is not None and str(exe).lower() in run_now.lower(),
+          f"{case}: starting with Windows stays on ({run_now})")
+    remove_corefold()
+
 # ---- a folder picked with /DIR the old way: Corefold moves to Program Files, the folder is left alone
-if OLD_SETUPS:
-    old = OLD_SETUPS[-1]
+if USER_SETUPS:
+    old = USER_SETUPS[-1]
     custom = TMP / "My apps" / "Corefold here"
     CUSTOM.append(custom)
     code = run(old, "/VERYSILENT", "/TASKS=", f"/DIR={custom}", name="custom-install")
@@ -359,8 +399,8 @@ if OLD_SETUPS:
     remove_corefold()
 
 # ---- an update cut off half-way: the older Corefold still works, and updating again goes through
-if OLD_SETUPS:
-    old = OLD_SETUPS[-1]
+if USER_SETUPS:
+    old = USER_SETUPS[-1]
     ver = re.match(r"Corefold-Setup-(.+)\.exe$", old.name).group(1)
     run(old, "/VERYSILENT", "/TASKS=", name="cut-install")
     stop_all()

@@ -640,7 +640,9 @@ class AppsPage(QWidget):
             with open(path, "w", newline="", encoding="utf-8-sig") as f:  # (the mark lets Excel read Arabic)
                 csv.writer(f).writerows(rows)
         except OSError as e:
-            sheet.warning(self, tr("Save the list…"), tr("Couldn't save the list: {error}", error=str(e)))
+            from .converters import friendly_error
+            sheet.warning(self, tr("Save the list…"), tr("Couldn't save the list: {error}",
+                                                              error=friendly_error(e)))
             return
         self.status.setText(tr("Saved the list of {count} apps", count=len(rows) - 1))
 
@@ -1589,7 +1591,8 @@ class UpdatesDialog(QDialog):
                 try:
                     ok, said = appupdates.update(u)
                 except Exception as e:
-                    ok, said = False, str(e)
+                    from .converters import friendly_error
+                    ok, said = False, friendly_error(e)
                 progress(("done", i, u, ok, said))
                 done.append(ok)
             return done

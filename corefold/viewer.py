@@ -1031,7 +1031,8 @@ class ViewerWindow(QWidget):
         try:
             src.rename(out)
         except OSError as e:
-            sheet.warning(self, tr("Couldn't rename"), str(e))
+            from .converters import friendly_error
+            sheet.warning(self, tr("Couldn't rename"), friendly_error(e))
             return
         image = self.cache.pop(str(src), None)
         if image is not None:
@@ -1060,7 +1061,8 @@ class ViewerWindow(QWidget):
             else:
                 shutil.copy2(src, out)
         except OSError as e:
-            sheet.warning(self, tr("Couldn't move it") if move else tr("Couldn't copy it"), str(e))
+            from .converters import friendly_error
+            sheet.warning(self, tr("Couldn't move it") if move else tr("Couldn't copy it"), friendly_error(e))
             return
         if not move:
             self.c.toast.notify(tr("Copied"), out.name, linger_ms=2000)
@@ -1268,7 +1270,8 @@ class ViewerWindow(QWidget):
                 tmp.unlink(missing_ok=True)
             except (OSError, UnboundLocalError):
                 pass
-            sheet.warning(self, tr("Couldn't save"), str(e))
+            from .converters import friendly_error
+            sheet.warning(self, tr("Couldn't save"), friendly_error(e))
             return False
         self.edits = []
         self.cache.pop(str(out), None)
