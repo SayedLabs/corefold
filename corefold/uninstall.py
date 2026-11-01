@@ -1892,12 +1892,30 @@ def remove_on_restart(paths: list[str]) -> list[str]:
     taken, parents = [], set()
     for path in paths:
         if k32.MoveFileExW(path, None, 4):  # MOVEFILE_DELAY_UNTIL_REBOOT
-            taken.append(path)
+            taken.append(long_name(path))
             parents.add(os.path.dirname(path))
     for folder in sorted(parents, key=len, reverse=True):
         if k32.MoveFileExW(folder, None, 4):  # Windows only removes it if it's empty by then
-            taken.append(folder)
+            taken.append(long_name(folder))
     return taken
+
+
+def long_name(path: str) -> str:
+    """The path with any short 8.3 names spelled out ("RUNNER~1" -> "runneradmin"), as Windows writes it in
+    its list of what to do at restart. Only the part that exists can be spelled out; the rest stays."""
+    if sys.platform != "win32" or "~" not in path:
+        return path
+    get = ctypes.windll.kernel32.GetLongPathNameW
+    head, rest = os.path.normpath(path), []
+    while head:
+        buf = ctypes.create_unicode_buffer(32768)
+        if get(head, buf, len(buf)):
+            return os.path.join(buf.value, *reversed(rest))
+        head, tail = os.path.split(head)
+        if not tail:
+            break
+        rest.append(tail)
+    return path
 
 
 SESSION_MANAGER = r"SYSTEM\CurrentControlSet\Control\Session Manager"
@@ -1953,7 +1971,7 @@ def cancel_on_restart(paths: list[str]) -> int:
             return 0
         if kind != winreg.REG_MULTI_SZ:
             return 0
-        kept, dropped = drop_pending(entries, paths)
+        kept, dropped = drop_pending(entries, [long_name(p) for p in paths])
         if dropped:
             if kept:
                 winreg.SetValueEx(k, "PendingFileRenameOperations", 0, winreg.REG_MULTI_SZ, kept)
@@ -2255,7 +2273,7 @@ def restore(folder: Path, admin: bool = False, manifest: str | None = None) -> d
             if pending:
                 # first, so what stayed behind in use isn't deleted at the next restart after all. Only
                 # what's inside the folder put back: the list itself is in the user's own folder
-                cancel_on_restart([p for p in pending if _inside(p, item["path"])])
+                cancel_on_restart([p for p in pending if _inside(long_name(p), long_name(item["path"]))])
                 del item["pending"]
                 if not item.get("stored"):  # nothing could be moved then: taking that back was all
                     done += 1

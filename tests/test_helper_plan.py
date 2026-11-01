@@ -2,6 +2,7 @@
 restart, and the helper stops when its plan or the backup's list changed after the administrator prompt."""
 import json
 import re
+import sys
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
@@ -189,3 +190,21 @@ def test_a_plan_without_its_fingerprint_is_refused(tmp_path, monkeypatch):
     monkeypatch.setattr(un, "restore", lambda *a, **k: pytest.fail("acted on a plan it couldn't check"))
     assert un.helper_main(["--restore", str(plan)]) == 2
     assert un.helper_main(["--restore", str(plan), "--plan-sha256", "0" * 64]) == 2
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="short 8.3 names are a Windows thing")
+def test_short_names_are_spelled_out_as_windows_writes_them(tmp_path):
+    import ctypes
+    folder = tmp_path / "a rather long folder name"
+    folder.mkdir()
+    (folder / "in use.txt").write_text("x")
+    buf = ctypes.create_unicode_buffer(32768)
+    ctypes.windll.kernel32.GetShortPathNameW(str(folder), buf, len(buf))
+    if "~" not in buf.value:
+        pytest.skip("this drive makes no short names")
+    short = buf.value
+    assert un._pending_name(un.long_name(short + r"\in use.txt")) == un._pending_name(str(folder / "in use.txt"))
+    assert un.long_name(short + r"\gone\x.dll") == str(folder / "gone" / "x.dll")  # (only what exists is spelled out)
+    kept, dropped = un.drop_pending(["*1\\??\\" + str(folder / "in use.txt"), ""],
+                                    [un.long_name(short + r"\in use.txt")])
+    assert dropped == 1 and kept == []

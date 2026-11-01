@@ -324,7 +324,8 @@ def leftovers():
     more = un.remove(un.items_from(res["failed"]), folder, [name], admin=True)  # what the admin copy does
     later = sum(int(d.get("on_restart") or 0) for d in more["done"])
     check(later == 1, f"the file still in use is left for Windows to remove at restart ({later})")
-    in_use = un._pending_name(str(roam / name / "in use.txt"))
+    # (Windows writes the long name: the runner's TEMP is "RUNNER~1", which never matched before)
+    in_use = un._pending_name(un.long_name(str(roam / name / "in use.txt")))
 
     def at_restart() -> list[str]:
         try:
@@ -334,19 +335,6 @@ def leftovers():
             return []
         return [un._pending_name(e) for e in entries[::2]]
     check(in_use in at_restart(), "…in Windows' list of deletions at restart")
-    if in_use not in at_restart():  # TEMP diagnostics
-        import winreg as _w
-        with _w.OpenKey(_w.HKEY_LOCAL_MACHINE, un.SESSION_MANAGER) as k:
-            i = 0
-            while True:
-                try:
-                    n, v, t = _w.EnumValue(k, i)
-                except OSError:
-                    break
-                if "Pending" in n:
-                    print("  DIAG", n, t, len(v) if isinstance(v, list) else v, [e for e in (v or []) if "in use" in e or name in e][:6])
-                i += 1
-        print("  DIAG want", repr(in_use), repr(more["done"]))
     held.close()
     r = un.restore(folder)
     check(len(r["failed"]) == 1, "putting back without administrator leaves the folder Windows deletes from at restart")
