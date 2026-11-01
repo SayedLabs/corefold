@@ -2445,13 +2445,41 @@ class Controller(QObject):
             self.settings.update_to = self.update_info.version
             self.settings.save()
         try:
-            updater.run_installer(Path(path))
+            installer = updater.run_installer(Path(path))
         except OSError:
             log.exception("could not start installer")
             winutil.create_mutex()
             self._update_failed(tr("couldn't start the installer"))
             return
-        QTimer.singleShot(600, self.quit)
+        # Corefold stays until the installer (once Windows gave it permission) asks it to close; if the installer
+        # ends first, nothing was installed: Corefold keeps running and the update waits
+        self._installer = installer
+        self._installer_timer = QTimer(self)
+        self._installer_timer.timeout.connect(self._watch_installer)
+        self._installer_timer.start(1000)
+
+    def _watch_installer(self):
+        installer = getattr(self, "_installer", None)
+        if installer is None or self.quit_pending:
+            self._installer_timer.stop()
+            return
+        code = installer.poll()
+        if code is None:
+            return
+        self._installer_timer.stop()
+        self._installer = None
+        log.info("the installer ended (code %s) without asking Corefold to close", code)
+        winutil.create_mutex()
+        self.settings.update_to = ""
+        self.settings.save()
+        if code in updater.NOT_ALLOWED:
+            self.update_state = "available" if self.update_info else "error"
+            self.toast.finish(UPDATE_JOB_ID, tr("Update cancelled"),
+                              tr("Nothing was changed: Windows' permission wasn't given."), None, 6000)
+            self._refresh_updates_page()
+            self._show_update_marks()
+        else:
+            self._update_failed(tr("couldn't start the installer"))
 
     def updated_from(self, old: str):
         """The first start after an update: said in a toast, and "What's new" is shown once, the first time the
@@ -2663,7 +2691,19 @@ class Controller(QObject):
             return
         winutil.release_mutex()
         try:
-            subprocess.Popen([str(unins)])
+            # (installed for the whole PC: Windows asks for permission; answered No, Corefold just stays)
+            from .uninstall import shell_start
+            handle, error = shell_start(str(unins), admin=True)
+            if handle:
+                import ctypes
+                ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(handle))
+            if handle is None and error == 1223:  # (the answer No at Windows' prompt)
+                winutil.create_mutex()
+                self.toast.notify(APP_NAME, tr("Nothing was changed: Windows' permission wasn't given."),
+                                  linger_ms=5000)
+                return
+            if handle is None:
+                raise OSError(error, "the uninstaller didn't start")
         except OSError:
             log.exception("could not start uninstaller")
             winutil.create_mutex()
