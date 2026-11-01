@@ -183,6 +183,22 @@ def _rtl_start(text: str) -> str:
     return text
 
 
+def isolate(text: str) -> str:
+    """A figure like "934.4 GB" put in an Arabic sentence: kept in a box of its own, so the numbers and
+    Latin letters around it don't pull it out of its place."""
+    return f"\u2068{text}\u2069" if text and is_rtl() else text
+
+
+def join(bits, sep: str = " · ") -> str:
+    """Bits of a status line ("280 apps · 263 GB · 15 not used for 3 months"), each kept in its own box in
+    Arabic: otherwise a number at the start of one bit joins the Latin letters at the end of the one before
+    it ("934.4 GB · 15") and the line comes out in the wrong order."""
+    bits = [b for b in bits if b]
+    if not is_rtl():
+        return sep.join(bits)
+    return "\u200f" + sep.join(f"\u2068{b}\u2069" for b in bits)
+
+
 def ltr(text: str) -> str:
     """A Latin name (an app, a file, a company) shown in Arabic: kept in its own reading order, so
     "7-Zip 26.04 (x64)" doesn't come out as "Zip 26.04 (x64)-7"."""

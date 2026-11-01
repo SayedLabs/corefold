@@ -2560,19 +2560,8 @@ class Controller(QObject):
         and Corefold goes on as before."""
         w = self._window
         if w is not None and _alive(w):
-            if w.is_dirty():
-                box = QMessageBox(QMessageBox.Question, tr("Save your changes?"),
-                                  tr("You changed some settings. Keep them?"), parent=w if w.isVisible() else None)
-                save = box.addButton(tr("Save"), QMessageBox.AcceptRole)
-                skip = box.addButton(tr("Don't save"), QMessageBox.DestructiveRole)
-                box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-                sheet.run(box)
-                chosen = box.clickedButton()
-                box.deleteLater()
-                if chosen is save:
-                    w.save_changes()
-                elif chosen is not skip:  # ("Don't save": the file on disk still has the saved ones, see HELD)
-                    return False
+            if w.is_dirty():  # (changed a moment ago: settings are kept as they're changed)
+                w.save_changes()
             if not self.pdf_work_ok(w):
                 return False
         # the other windows ask in their own way (a picture's edits, a file changed inside an archive…)

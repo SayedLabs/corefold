@@ -192,19 +192,13 @@ def main():
     answer["folder"] = str(default_screenshots_folder())
     click(win, tr("Change…"))
     check(c.settings.cap_folder == "", "picking the usual folder by hand keeps it as “usual”")
-    # Discard, Save, Reset
+    # kept as it's picked (no Save button), then Reset
     answer["folder"] = str(pics)
     click(win, tr("Change…"))
-    check(win.save_btn.isVisible(), "a picked folder waits for Save like other settings")
-    win.discard_changes()
-    settle(0.6)
-    win = c._window
-    check(c.settings.cap_folder == "" and win.cap_folder_label.toolTip() == str(default_screenshots_folder()),
-          "Discard puts the folder back")
-    click(win, tr("Change…"))
-    win.save_changes()
+    check(not win.save_btn.isVisible(), "no Save button: a picked folder is kept like other settings")
+    settle(1.0)
     again = st.Settings.load()
-    check(again.cap_folder == os.path.normpath(str(pics)), "after Save, the picked folder is remembered after a restart")
+    check(again.cap_folder == os.path.normpath(str(pics)), "the picked folder is remembered after a restart")
     win.reset_to_defaults(st.CAPTURE_KEYS)
     settle(0.6)
     check(c.settings.cap_folder == "", "Reset puts the usual folder back")
