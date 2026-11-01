@@ -391,6 +391,7 @@ def pages():
     for name in every_page_name(w):
         before = len(errors)
         if page_opens(w, name, f"page {name}"):
+            steady(w)   # (a long page's cards may still be growing while its words wrap, on a slow PC)
             looks_ok(w, f"{name} page at {w.width()}x{w.height()}")
             grab(w, name.lower())
         check(len(errors) == before, f"page {name}: opens without errors")
