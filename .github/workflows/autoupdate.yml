@@ -46,7 +46,11 @@ jobs:
             $j | Add-Member -NotePropertyName $k.Key -NotePropertyValue $k.Value -Force }
           New-Item -ItemType Directory -Force (Split-Path $cfg) | Out-Null
           $j | ConvertTo-Json -Depth 20 | Set-Content $cfg -Encoding utf8
+          # (installed for one user, the old way, or for the whole PC; the update moves it to Program Files)
           $exe = "$env:LOCALAPPDATA\Programs\Corefold\Corefold.exe"
+          if (-not (Test-Path $exe)) { $exe = "$env:ProgramFiles\Corefold\Corefold.exe" }
+          # (after the update: Program Files once the newest release installs for the whole PC, else the same place)
+          $places = @("$env:ProgramFiles\Corefold\Corefold.exe", $exe)
           $before = (Get-Item $exe).VersionInfo.ProductVersion
           "installed: $before"
           $t0 = Get-Date
@@ -54,7 +58,9 @@ jobs:
           $now = $before
           while (((Get-Date) - $t0).TotalMinutes -lt 6) {
             Start-Sleep 5
-            $now = (Get-Item $exe -ErrorAction SilentlyContinue).VersionInfo.ProductVersion
+            $now = ($places | ForEach-Object { (Get-Item $_ -ErrorAction SilentlyContinue).VersionInfo.ProductVersion } |
+                    Where-Object { $_ -like "$newest*" } | Select-Object -First 1)
+            if (-not $now) { $now = (Get-Item $exe -ErrorAction SilentlyContinue).VersionInfo.ProductVersion }
             if ($now -like "$newest*" -and (Get-Process Corefold -ErrorAction SilentlyContinue)) { break }
           }
           $secs = [int]((Get-Date) - $t0).TotalSeconds

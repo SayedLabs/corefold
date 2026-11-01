@@ -78,6 +78,7 @@ UPDATE_RETELL_MS = 30 * 60_000  # full screen when a new version was found: say 
 LIGHT_TIDY_MS = 4_000          # memory a finished job used goes back this soon
 IDLE_TIDY_MS = 45_000          # hand memory back to Windows this long after the last job
 FREE_WINDOW_AFTER_MS = 90_000  # free the main window this long after it's closed
+OPENING_NOTED = 0.25           # opening the window this slow is written in the log, in parts
 FREE_POPUPS_AFTER_MS = 60_000  # ... and the quick menu, quick wheel and clipboard popup after they close
 MENU_WRITE_DELAY_MS = 1500     # wait for more changes before rewriting the right-click menu
 MENU_BATCH_MS = 700            # right-clicked files arrive one process at a time; collect them
@@ -246,6 +247,17 @@ class Inbox(QObject):
 
 
 # ----------------------------------------------------------------------------- controller
+
+
+def _log_opening(new: bool, w, started: float, built: float, filled: float, shown: float):
+    """How long opening the window took, in parts, when it was long enough to be felt (to find what to speed up)."""
+    drawn = time.perf_counter()
+    if drawn - started < OPENING_NOTED:
+        return
+    parts = [f"{part} {took:.2f}" for part, took in (getattr(w, "made_in", None) or []) if took >= 0.01] if new else []
+    log.info("window opened in %.2f s: %s %.2f%s, brought up to date %.2f, shown %.2f, drawn %.2f",
+             drawn - started, "made" if new else "kept", built - started,
+             f" ({', '.join(parts)})" if parts else "", filled - built, shown - filled, drawn - shown)
 
 class Controller(QObject):
     def __init__(self, app: QApplication, icon: QIcon):
@@ -558,7 +570,10 @@ class Controller(QObject):
 
     def show_window(self, page_name: str | None = None):
         self.free_window_timer.stop()
+        started = time.perf_counter()
+        new = self._window is None
         w = self.window
+        built = time.perf_counter()
         w.sync()
         w.refresh_history()  # conversions may have finished while the window was hidden
         if w.panel.paths and not w.isVisible():
@@ -570,9 +585,12 @@ class Controller(QObject):
             QTimer.singleShot(500, self.show_whats_new)
         if not w.isVisible():  # (drawn before it's seen, so it never shows up white first)
             w.setWindowOpacity(0.0)
+            filled = time.perf_counter()
             w.show()
+            shown = time.perf_counter()
             w.repaint()
             QTimer.singleShot(60, lambda: w.setWindowOpacity(1.0) if _alive(w) else None)
+            _log_opening(new, w, started, built, filled, shown)
         w.show()
         if w.isMinimized():  # (back from the taskbar; a maximised window stays maximised)
             w.setWindowState(w.windowState() & ~Qt.WindowMinimized)
@@ -2445,13 +2463,41 @@ class Controller(QObject):
             self.settings.update_to = self.update_info.version
             self.settings.save()
         try:
-            updater.run_installer(Path(path))
+            installer = updater.run_installer(Path(path))
         except OSError:
             log.exception("could not start installer")
             winutil.create_mutex()
             self._update_failed(tr("couldn't start the installer"))
             return
-        QTimer.singleShot(600, self.quit)
+        # Corefold stays until the installer (once Windows gave it permission) asks it to close; if the installer
+        # ends first, nothing was installed: Corefold keeps running and the update waits
+        self._installer = installer
+        self._installer_timer = QTimer(self)
+        self._installer_timer.timeout.connect(self._watch_installer)
+        self._installer_timer.start(1000)
+
+    def _watch_installer(self):
+        installer = getattr(self, "_installer", None)
+        if installer is None or self.quit_pending:
+            self._installer_timer.stop()
+            return
+        code = installer.poll()
+        if code is None:
+            return
+        self._installer_timer.stop()
+        self._installer = None
+        log.info("the installer ended (code %s) without asking Corefold to close", code)
+        winutil.create_mutex()
+        self.settings.update_to = ""
+        self.settings.save()
+        if code in updater.NOT_ALLOWED:
+            self.update_state = "available" if self.update_info else "error"
+            self.toast.finish(UPDATE_JOB_ID, tr("Update cancelled"),
+                              tr("Nothing was changed: Windows' permission wasn't given."), None, 6000)
+            self._refresh_updates_page()
+            self._show_update_marks()
+        else:
+            self._update_failed(tr("couldn't start the installer"))
 
     def updated_from(self, old: str):
         """The first start after an update: said in a toast, and "What's new" is shown once, the first time the
@@ -2652,7 +2698,19 @@ class Controller(QObject):
             return
         winutil.release_mutex()
         try:
-            subprocess.Popen([str(unins)])
+            # (installed for the whole PC: Windows asks for permission; answered No, Corefold just stays)
+            from .uninstall import shell_start
+            handle, error = shell_start(str(unins), admin=True)
+            if handle:
+                import ctypes
+                ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(handle))
+            if handle is None and error == 1223:  # (the answer No at Windows' prompt)
+                winutil.create_mutex()
+                self.toast.notify(APP_NAME, tr("Nothing was changed: Windows' permission wasn't given."),
+                                  linger_ms=5000)
+                return
+            if handle is None:
+                raise OSError(error, "the uninstaller didn't start")
         except OSError:
             log.exception("could not start uninstaller")
             winutil.create_mutex()
@@ -2955,6 +3013,7 @@ def main() -> int:
         s.first_run = False
         s.notes_shown = __version__  # (a new install: its "What's new" isn't news)
         s.known_tools = sorted({tool.id for tool in all_tools.available()})  # (offered now, in the first-start question)
+        s.back_on = list(all_tools.BACK_ON)  # (offered in the question too: nothing to switch on later)
         if "--background" in argv:
             # (started in the tray, e.g. by a silent install: every tool stays on, as when the question is
             # closed, and their shortcuts work now, not only after the next start)
@@ -2967,7 +3026,16 @@ def main() -> int:
             else:  # (opened with a file: no question in its way, and the tools in the tray start now)
                 QTimer.singleShot(0, controller.apply_tools)
     else:
+        back = all_tools.switch_back_on(s)  # (Space and the Uninstaller: on for everyone, once)
         offered = all_tools.offer_new_tools(s)  # tools new in this version wait, switched off, in their section
+        if back:
+            if not offered:
+                controller.apply_tools()
+            back_names = ", ".join(tr(tool.name) for tool in back)
+            QTimer.singleShot(2500 if not offered else 12000, lambda: controller.toast.notify(
+                tr("Back in Corefold"), tr("On again: {names}. You can switch them off in their section.",
+                                           names=back_names),
+                linger_ms=9000))
         if offered:
             controller.apply_tools()
             names = ", ".join(tr(tool.name) for tool in offered)

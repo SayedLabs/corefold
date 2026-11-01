@@ -63,12 +63,18 @@ Switch off the uses you don't need (the ⚙ on the start page): a use that's swi
   </tr>
 </table>
 
+### Computer
+| | |
+|---|---|
+| **Space** | See what's filling each drive as a map, and free up space safely: temporary files, caches and old installers. Anything you remove from the map goes to the Recycle Bin. |
+| **Uninstaller** | Remove programs, then clean up the folders, shortcuts and registry entries they leave behind. Everything removed is kept as a backup, so you can put it back. |
+
 ### Coming back soon
-The other sections are resting for now while Corefold Files gets our full attention. Nothing of them
+The other tools are resting for now while Corefold Files gets our full attention. Nothing of them
 runs, and whatever they kept for you (settings, history, backups) waits untouched until they're back.
 
 - **Images & screen:** Capture, Viewer, Player, Colors
-- **Computer:** Space, Uninstaller, Startup, Virus scan
+- **Computer:** Startup, Virus scan
 - **Quick tools:** Clipboard, Awake, Quick menu and quick wheel
 
 <p align="center">
@@ -169,8 +175,10 @@ Read the full [privacy policy](PRIVACY.md).
 ## Installing
 [**Download Corefold-Setup.exe**](https://github.com/SayedLabs/corefold/releases/latest), run it, keep
 the two boxes ticked and click **Install**. That's it: a desktop icon, a Start menu entry, and Corefold
-starts with Windows. No admin rights or Python needed. Installing a newer version on top upgrades it
-and keeps your settings.
+starts with Windows. No Python needed. Corefold installs for the whole PC (in Program Files), so Windows
+asks for permission when it installs and at each update: say **Yes**. If you say No, nothing changes and
+the update waits. Installing a newer version on top upgrades it and keeps your settings; a copy installed
+by an older version (for one user only) is moved over by itself.
 
 Windows may say *"Windows protected your PC"* the first time, because the app isn't signed yet:
 click **More info → Run anyway**.

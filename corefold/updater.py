@@ -224,9 +224,15 @@ def clean_old_installers(keep_days: float = 1.0):
         pass
 
 
-def run_installer(path: Path):
-    """Starts the installer in silent mode. It closes Corefold, upgrades it and starts it again."""
+# How the installer ends when it didn't get to install (Windows' permission wasn't given, or it was cancelled)
+NOT_ALLOWED = {1, 2, 1223}
+
+
+def run_installer(path: Path) -> subprocess.Popen:
+    """Starts the installer in silent mode. Corefold is installed for the whole PC (in Program Files), so the
+    installer asks Windows for permission itself (that way it can start Corefold again afterwards as the person,
+    never with administrator rights). Once it has it, it asks Corefold to close, upgrades it and starts it again.
+    The installer is returned: if it ends while Corefold still runs, nothing was installed."""
     from . import __version__, settings_backup
     settings_backup.keep_copy(__version__)  # the settings as they were, in case the new version loses them
-    subprocess.Popen([str(path), "/SILENT", "/SP-", "/SUPPRESSMSGBOXES", "/NORESTART"],
-                     close_fds=True)
+    return subprocess.Popen([str(path), "/SILENT", "/SP-", "/SUPPRESSMSGBOXES", "/NORESTART"], close_fds=True)

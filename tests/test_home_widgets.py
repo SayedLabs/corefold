@@ -40,20 +40,23 @@ def test_what_is_saved_is_made_safe():
 
 def test_widgets_of_resting_or_switched_off_tools_are_left_out():
     s = settings_mod.Settings()
-    saved = [homelist.make("screenshot"), homelist.make("pdf"), homelist.make("disk"),
+    saved = [homelist.make("screenshot"), homelist.make("pdf"), homelist.make("clipboard"),
              homelist.make("shortcut", target="x"), {"id": "z", "kind": "unknown", "size": "small"}]
     assert {e["kind"] for e in homelist.shown(s, saved, all_tools.is_on)} == {"pdf", "shortcut"}
     s.tools_off = ["pdf"]
     assert {e["kind"] for e in homelist.shown(s, saved, all_tools.is_on)} == {"shortcut"}
     offered = {k.id for k in homelist.offered(s, saved, all_tools.is_on)}
-    assert not offered & {"screenshot", "disk", "clipboard", "color", "pdf"}  # (resting, or switched off)
-    assert {"shortcut", "shortcuts", "convert"} <= offered  # (shortcuts can be there more than once)
+    assert not offered & {"screenshot", "clipboard", "color", "pdf"}  # (resting, or switched off)
+    assert {"shortcut", "shortcuts", "convert", "disk"} <= offered  # (Space is back: its widget is offered)
+    s.tools_off = ["space"]
+    assert "disk" not in {k.id for k in homelist.offered(s, saved, all_tools.is_on)}
 
 
 def test_a_shortcut_cant_open_a_resting_tool():
     from corefold.homewidgets import target_ok
     s = settings_mod.Settings()
-    assert not target_ok(s, "page:Capture") and not target_ok(s, "page:Space")
+    assert not target_ok(s, "page:Capture") and not target_ok(s, "page:Startup") and not target_ok(s, "page:Scan")
+    assert target_ok(s, "page:Space") and target_ok(s, "page:Apps")  # (Computer is back with these two)
     assert target_ok(s, "page:PDF") and target_ok(s, "page:History") and target_ok(s, "C:/Users")
     s.tools_off = ["pdf"]
     assert not target_ok(s, "page:PDF")
@@ -83,7 +86,7 @@ def window(qtbot, monkeypatch):
     s.tour_done = True
     s.animations = False
     s.tools_off = []
-    s.home_widgets = homelist.default() + [homelist.make("screenshot"), homelist.make("disk"),
+    s.home_widgets = homelist.default() + [homelist.make("screenshot"), homelist.make("clipboard"),
                                            homelist.make("shortcut", target="page:Capture")]
     s.save()
     c = A.Controller(A.QApplication.instance(), QIcon())
@@ -104,7 +107,7 @@ def test_the_home_page_makes_only_the_widgets_of_tools_in_use(window, qtbot):
     board = window.home_board
     qtbot.waitUntil(lambda: not board.coming, timeout=2000)  # (the last ones come right after the first)
     kinds = [f.kind.id for f in board.frames]
-    assert kinds == [k for k, _ in homelist.DEFAULT]  # (Capture and Space rest: none of theirs is made)
+    assert kinds == [k for k, _ in homelist.DEFAULT]  # (Capture and the Clipboard rest: none of theirs is made)
     assert len(window.c.settings.home_widgets) == len(homelist.DEFAULT) + 3  # (but they're kept)
     assert not any(t.isActive() for t in board.findChildren(QTimer))  # (nothing keeps running)
     assert board.add_tile.parent() is board and board.empty.parent() is board  # (freed with the window)
@@ -172,7 +175,8 @@ def test_the_gallery_offers_no_widget_of_a_resting_tool(window, qtbot):
     qtbot.addWidget(g)
     kinds = {g.list.item(i).data(0x0100) for i in range(g.list.count())} - {None}
     assert {"convert", "pdf", "archive", "organizer", "unlock", "cloud", "shortcut", "shortcuts"} <= kinds
-    assert not kinds & {"screenshot", "disk", "clipboard", "color"}
+    assert not kinds & {"screenshot", "clipboard", "color"}
+    assert "disk" in kinds  # (Space is back)
     for size in ("small", "medium", "large", "wide"):  # (each size of each kind can be seen)
         for i in range(g.list.count()):
             item = g.list.item(i)

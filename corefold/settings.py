@@ -153,7 +153,7 @@ RECENT_ARCHIVES = 8
 # not settings a person edits: what the app remembers by itself
 NOT_EDITED = {"enabled", "first_run", "last_version", "update_told", "notes_shown", "update_to", "menu_signature", "window_geometry", "last_page",
               "last_action", "tour_done", "watermark", "fit_mb", "open_archives", "recent_archives",
-              "tools_off", "known_tools", "open_images", "open_emails", "viewer_info", "viewer_strip", "recent_views",
+              "tools_off", "known_tools", "back_on", "open_images", "open_emails", "viewer_info", "viewer_strip", "recent_views",
               "archive_preview",
               "clip_paused", "open_media", "player_volume", "nav_order", "section_order", "nav_width", "nav_compact",
               "home_widgets",
@@ -251,6 +251,7 @@ class Settings:
     # tools switched off by this person, and the tools they've been offered (others are "New")
     tools_off: list = field(default_factory=list)
     known_tools: list = field(default_factory=list)
+    back_on: list = field(default_factory=list)  # tools already switched on once when they came back (tools.BACK_ON)
     open_archives: bool = True     # archives open in Corefold with a double-click ("Open with")
     recent_archives: list = field(default_factory=list)  # archives opened lately (newest first)
     extract_mode: str = "smart"    # "Extract here": "smart" (no folder inside a folder) or "folder"
@@ -456,6 +457,7 @@ class Settings:
         s.tools_off = [t for t in s.tools_off if isinstance(t, str)]
         s.recent_views = [t for t in s.recent_views if isinstance(t, str)][:RECENT_ARCHIVES]
         s.known_tools = [t for t in s.known_tools if isinstance(t, str)]
+        s.back_on = [t for t in s.back_on if isinstance(t, str)]
         s.nav_order = [t for t in s.nav_order if isinstance(t, str)]
         s.section_order = [t for t in s.section_order if isinstance(t, str)]
         from .homelist import clean
@@ -586,22 +588,16 @@ def remove_old_startup_entry() -> bool:
 def set_startup(on: bool):
     import winreg
     try:
-        if on:  # (a new Windows account may not have the Run key yet: it's made)
-            key = winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE)
+        if on:  # (an account that never had anything start with Windows may have no Run key yet: it's made)
+            with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as k:
+                winreg.SetValueEx(k, APP_NAME, 0, winreg.REG_SZ, launch_command())
+            _clear_off_note()
         else:
             try:
-                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE)
-            except FileNotFoundError:
-                return  # (no Run key: nothing starts with Windows, so there's nothing to take off)
-        with key as k:
-            if on:
-                winreg.SetValueEx(k, APP_NAME, 0, winreg.REG_SZ, launch_command())
-                _clear_off_note()
-            else:
-                try:
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as k:
                     winreg.DeleteValue(k, APP_NAME)
-                except FileNotFoundError:
-                    pass
+            except FileNotFoundError:  # (no Run key or no entry: nothing starts with Windows already)
+                pass
     except OSError:
         log.exception("could not change startup setting")
 
@@ -612,8 +608,34 @@ def installed_uninstaller() -> Path | None:
     """The installer's uninstall program, or None for the portable / from-source version."""
     if not getattr(sys, "frozen", False):
         return None
-    found = sorted(Path(sys.executable).resolve().parent.glob("unins*.exe"))
-    return found[0] if found else None
+    here = Path(sys.executable).resolve().parent
+    registered = _registered_uninstaller()  # (the one Windows' list of apps runs)
+    if registered is not None and registered.parent == here and registered.is_file():
+        return registered
+    # (an update cut off half-way can leave an unins000.exe of its own; Setup then writes unins001.exe: the
+    # newest one that has its uninstall data is the real one)
+    found = [p for p in sorted(here.glob("unins*.exe")) if p.with_suffix(".dat").is_file()]
+    return found[-1] if found else None
+
+
+def _registered_uninstaller() -> Path | None:
+    if os.name != "nt":
+        return None
+    import winreg
+    key = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\{D08578D1-4B3E-404B-B56C-3FDF83BAFAE2}_is1"
+    for root in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
+        try:
+            with winreg.OpenKey(root, key, 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as k:
+                value = str(winreg.QueryValueEx(k, "UninstallString")[0]).strip()
+        except OSError:
+            continue
+        path = value[1:].split('"', 1)[0] if value.startswith('"') else value.split(" ", 1)[0]
+        if path:
+            try:
+                return Path(path).resolve()
+            except OSError:
+                continue
+    return None
 
 
 def remove_user_data():

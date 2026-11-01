@@ -279,7 +279,7 @@ SECTIONS: list[Section] = [
 # nothing of them runs and their pages show what's coming back instead, while Corefold puts its effort into
 # fewer tools done really well. To bring a section back, take its id out of here: nothing else changes, and
 # each of its tools comes back switched on or off the way this person had it.
-PAUSED_SECTIONS: frozenset[str] = frozenset({"media", "computer", "quick"})
+PAUSED_SECTIONS: frozenset[str] = frozenset({"media", "quick"})
 if os.environ.get("COREFOLD_WAKE_RESTING") == "1" and not getattr(sys, "frozen", False):
     # (the Bug hunt's checks, run from the source only, keep trying the resting tools' kept code; a built
     # Corefold.exe never looks at this)
@@ -287,13 +287,15 @@ if os.environ.get("COREFOLD_WAKE_RESTING") == "1" and not getattr(sys, "frozen",
 # Single tools resting for now inside a section that's in use, until they're checked again: kept whole like a
 # resting section's, but hidden from their section (no page, no Home widget, nothing in the background). To
 # bring one back, take its id out of here. File Organizer moves people's files, so it rests until it's been
-# checked again.
-PAUSED_TOOLS: frozenset[str] = frozenset({"organizer"})
-if not getattr(sys, "frozen", False) and (os.environ.get("COREFOLD_WAKE_RESTING") == "1"
-                                          or os.environ.get("COREFOLD_WAKE_ORGANIZER") == "1"):
-    # (the checks that try File Organizer's kept code, run from the source only; a built Corefold.exe never
+# checked again. Computer is back with Space and the Uninstaller only: Startup and Scan rest a while longer.
+PAUSED_TOOLS: frozenset[str] = frozenset({"organizer", "startup", "scan"})
+if not getattr(sys, "frozen", False):
+    # (the checks that try the resting tools' kept code, run from the source only; a built Corefold.exe never
     # looks at this)
-    PAUSED_TOOLS = frozenset()
+    if os.environ.get("COREFOLD_WAKE_RESTING") == "1":
+        PAUSED_TOOLS = frozenset()
+    elif os.environ.get("COREFOLD_WAKE_ORGANIZER") == "1":
+        PAUSED_TOOLS = PAUSED_TOOLS - {"organizer"}
 
 # what a tool is right now (state())
 AVAILABLE = "available"   # ready, in a section that's in use
@@ -385,6 +387,27 @@ def new_tools(settings) -> list[ToolInfo]:
     now waits: it's offered when its section is back."""
     known = set(getattr(settings, "known_tools", []) or [])
     return [t for t in available() if t.id not in known]
+
+
+# tools switched on for everyone when they came back from resting (1.16: Space and the Uninstaller), once: also for
+# someone who had them switched off or never had them. They can be switched off again in their section.
+BACK_ON = ("space", "uninstaller")
+
+
+def switch_back_on(settings) -> list[ToolInfo]:
+    """Once, for each tool in BACK_ON that's in use now: switched on, and not offered again as New. Returns the
+    ones that were off and are on now (for a short notice)."""
+    done = set(getattr(settings, "back_on", []) or [])
+    todo = [t for t in BACK_ON if t not in done and state(t) == AVAILABLE]
+    if not todo:
+        return []
+    off = set(settings.tools_off)
+    known = set(settings.known_tools)
+    turned = [BY_ID[t] for t in todo if t in off or t not in known]
+    settings.tools_off = sorted(off - set(todo))
+    settings.known_tools = sorted(known | set(todo))
+    settings.back_on = sorted(done | set(todo))
+    return turned
 
 
 def offer_new_tools(settings) -> list[ToolInfo]:

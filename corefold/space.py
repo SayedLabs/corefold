@@ -499,8 +499,17 @@ def protected(path: Path) -> bool:
     for e in exact:
         if e is not None and p == os.path.normcase(os.path.abspath(str(e))):
             return True
+    if own_windows_folder(path):  # (any account's, not only this one's)
+        return True
     name = os.path.basename(p)
     return name in ("pagefile.sys", "hiberfil.sys", "swapfile.sys", "$recycle.bin", "system volume information")
+
+
+def own_windows_folder(path: Path) -> bool:
+    """An account's own folder that Windows keeps (Desktop, Documents, Downloads, Pictures, AppData...), of
+    any account: in the Recycle Bin it would leave Windows without it. What's inside can go, not the folder."""
+    from .uninstall import _profile_place
+    return _profile_place(os.path.normcase(os.path.abspath(str(path))))
 
 
 def recycle(paths: list[Path]) -> int:
@@ -1116,10 +1125,15 @@ def clean(junk: Junk, cancel: threading.Event | None = None) -> int:
         before = sum(_size_of(p)[0] for p in junk.paths)
         recycle(junk.paths)
         return max(0, before - sum(_size_of(p)[0] for p in junk.paths if os.path.lexists(p)))
+    if junk.key.startswith(("browser:", "app:")) and junk.key.split(":", 1)[1] in running_programs():
+        return 0  # (started since it was found: its cache is in use now, and stays)
+    now = time.time()
     freed = 0
     for p in junk.paths:
         if cancel is not None and cancel.is_set():
             break
+        if junk.key == "temp" and not _still_old(p, now):
+            continue  # (used again since it was found, or no longer a plain file or folder: it stays)
         if junk.key.startswith(("browser:", "app:", "gpu")):  # the folder stays (empty), only what's inside goes
             try:
                 children = list(p.iterdir())
@@ -1136,6 +1150,23 @@ def clean(junk: Junk, cancel: threading.Event | None = None) -> int:
         elif p.is_dir():  # some files inside were in use: the rest went
             freed += max(0, size - _size_of(p)[0])
     return freed
+
+
+def _still_old(p: Path, now: float) -> bool:
+    """A temporary file or folder found earlier is still one to remove: there, not a link or junction, and
+    nothing in it changed in the last day (the page may have stayed open a long time since)."""
+    try:
+        st = os.lstat(p)
+    except OSError:
+        return False
+    if stat.S_ISLNK(st.st_mode) or getattr(st, "st_file_attributes", 0) & _REPARSE:
+        return False
+    if now - st.st_mtime < 86400:
+        return False
+    if stat.S_ISDIR(st.st_mode):
+        _size, _count, newest, whole = _tree_info(p, 10.0)
+        return whole and now - newest >= 86400
+    return True
 
 
 # ----------------------------------------------------------------------------- duplicates
