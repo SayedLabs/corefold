@@ -186,15 +186,25 @@ def remove_corefold():
     stop_all()
     for where, version in ((installed_dir, installed_version), (user_dir, user_version)):
         folder = where()
-        for unins in sorted(folder.glob("unins*.exe")) if folder and folder.is_dir() else []:
-            subprocess.run([str(unins), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"], timeout=300)
-            break
+        removal_log = OUT / f"remove-{uuid.uuid4().hex[:6]}.log"
+        found = sorted(folder.glob("unins*.exe")) if folder and folder.is_dir() else []
+        code = None
+        if found:
+            code = subprocess.run([str(found[0]), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART",
+                                   f"/LOG={removal_log}"], timeout=300).returncode
         wait_for(lambda: version() is None, 30)
         if folder:  # (the uninstaller runs on from a copy of itself: wait for it to finish with the folder)
             wait_for(lambda: not any(folder.glob("unins*.*")), 60)
             time.sleep(2)
             left = sorted(str(p.relative_to(folder)) for p in folder.rglob("*")) if folder.is_dir() else []
-            check(not left, f"removing Corefold leaves nothing of its own in {folder} ({', '.join(left[:8]) or 'gone'})")
+            if not check(not left, f"removing Corefold leaves nothing of its own in {folder} "
+                                   f"({', '.join(left[:8]) or 'gone'})"):
+                note(f"uninstallers there: {[q.name for q in found]}, exit {code}, still listed: {version()}")
+                try:
+                    tail = removal_log.read_text("utf-8", errors="replace").splitlines()[-20:]
+                except OSError:
+                    tail = ["(no log)"]
+                note("its log ends: " + " | ".join(tail))
     for folder in (APP_DIR, USER_DIR, *CUSTOM):  # (to go on whatever was left)
         if folder.exists():
             subprocess.run(["cmd", "/c", "rmdir", "/s", "/q", str(folder)], capture_output=True)
@@ -306,7 +316,8 @@ for n, old in enumerate(OLD_SETUPS):
     start = LOG.stat().st_size if LOG.exists() else 0
     code = run(SETUP, "/SILENT", "/SP-", name=f"{ver}-update")  # (Corefold's updater adds the same switches)
     check(code == 0, f"{case}: the update installed")
-    check("the installer asked Corefold to close" in log_since(start), f"{case}: the old copy was asked to close")
+    if re.match(r"1\.9\.", ver) is None:  # (versions before 1.10 can't be asked: they're stopped)
+        check("the installer asked Corefold to close" in log_since(start), f"{case}: the old copy was asked to close")
     after_update_checks(case, APP_DIR, before, kept_files, start)
     moved_over_checks(case, USER_DIR, deleted=True)
     if keep_icon:
