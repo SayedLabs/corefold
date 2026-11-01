@@ -880,6 +880,20 @@ def _previous_windows_by_windows(system32: Path, run) -> bool:
     return True
 
 
+def _remove_link(path: str) -> bool:
+    """Removes a link or junction (only the link). False if Windows says no."""
+    try:
+        os.rmdir(path)  # (a junction or a folder link)
+        return True
+    except OSError:
+        pass
+    try:
+        os.unlink(path)  # (a file link)
+        return True
+    except OSError:
+        return False
+
+
 LOCKED_LIMIT = 5000  # folders the administrator copy may take over one by one to look inside
 
 
@@ -921,15 +935,14 @@ def _drop_links_inside(top: Path, run=None, limit_s: float = 900.0) -> bool:
                 st = e.stat(follow_symlinks=False)
                 if is_link(e.path, st) or (getattr(st, "st_file_attributes", 0) & _REPARSE and
                                            getattr(st, "st_reparse_tag", 0) in (_JUNCTION, _SYMLINK)):
-                    try:
-                        os.rmdir(e.path) if e.is_dir(follow_symlinks=False) or stat.S_ISDIR(st.st_mode) \
-                            else os.unlink(e.path)
-                    except OSError:
-                        try:
-                            os.unlink(e.path)
-                        except OSError:
-                            log.warning("couldn't remove the link %s", e.path, exc_info=True)
-                            clean = False
+                    if not _remove_link(e.path) and run is not None:
+                        # (one even an administrator may not remove: the link itself is taken over first,
+                        # /L: never what it leads to)
+                        run("icacls", e.path, "/setowner", "*S-1-5-32-544", "/C", "/L", "/Q", timeout=60)
+                        run("icacls", e.path, "/grant", "*S-1-5-32-544:F", "/C", "/L", "/Q", timeout=60)
+                    if os.path.lexists(e.path) and not _remove_link(e.path):
+                        log.warning("couldn't remove the link %s", e.path)
+                        clean = False
                     continue
                 if e.is_dir(follow_symlinks=False):
                     stack.append(e.path)

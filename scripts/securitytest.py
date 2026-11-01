@@ -491,19 +491,23 @@ def previous_windows_links():
     with open(victim / "big.bin", "wb") as fh:
         fh.truncate(60 << 20)  # (Windows.old is only taken over when there's more than 50 MB of it)
 
+    me = f"{os.environ.get('USERDOMAIN', '')}\\{os.environ['USERNAME']}".lstrip("\\")
+
     def lock_victim():
         for p in (mine, victim / "big.bin"):
             subprocess.run([system_tool("takeown.exe"), "/F", str(p), "/A"], capture_output=True)
             subprocess.run([icacls, str(p), "/inheritance:r", "/grant:r", "*S-1-5-18:F", "*S-1-1-0:R"],
                            capture_output=True, check=True)
-            subprocess.run([icacls, str(p), "/setowner", "*S-1-5-18"], capture_output=True, check=True)
+            # (owned by this account, not by the administrators: a takeover by them shows)
+            subprocess.run([icacls, str(p), "/setowner", me], capture_output=True, check=True)
 
     def untouched() -> bool:
         a = acl(mine)
         return mine.exists() and "Administrators" not in a and "S-1-5-32-544" not in a and \
-            "SYSTEM" in _owner(mine).upper()
+            _owner(mine).lower().endswith("\\" + os.environ["USERNAME"].lower())
     lock_victim()
-    check(untouched(), "the file in today's folders starts owned by SYSTEM, no administrators in its permissions")
+    check(untouched(), f"the file in today's folders starts owned by {me}, no administrators in its permissions "
+                       f"({_owner(mine)})")
     # the old way, on a copy of the layout (not in C:\\)
     copy = BASE / "old-way"
     copy.mkdir()
