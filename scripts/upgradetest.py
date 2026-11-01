@@ -393,7 +393,8 @@ if OLD_SETUPS:
     code = run(SETUP, "/SILENT", "/SP-", name="cut-again")
     check(code == 0 and installed_version() == NEW and user_version() is None, "cut off: updating again goes through")
     stale = sorted(q.name for q in APP_DIR.glob("unins*.*"))
-    check(len(stale) == 2, f"cut off: only the uninstaller in the list of apps is kept ({', '.join(stale)})")
+    check(len({Path(q).stem.lower() for q in stale}) == 1,
+          f"cut off: only the uninstaller in the list of apps is kept ({', '.join(stale)})")
     remove_corefold()
 
 # ---- a fresh install (for the whole PC), then an update of it, the way Corefold's updater runs it
