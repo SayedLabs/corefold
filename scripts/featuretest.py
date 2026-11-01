@@ -495,12 +495,15 @@ def space_more():
     helper.mkdir(parents=True)
     plan = helper / "space-clean-test.json"
     plan.write_text(json.dumps({"keys": ["evil", str(root)]}), "utf-8")
-    check(un.helper_main(["--space-clean", str(plan)]) == 0, "the administrator copy takes a Space plan")
+    check(un.helper_main(["--space-clean", str(plan)]) == 2, "the administrator copy wants the plan's fingerprint")
+    check(un.helper_main(["--space-clean", str(plan), "--plan-sha256", un._digest(plan.read_bytes())]) == 0,
+          "…and takes a Space plan with it")
     answer = json.loads(plan.with_suffix(".result.json").read_text("utf-8"))
     check(answer == {"freed": 0} and (root / "Games").exists(), "…and cleans nothing it wasn't made to")
     stray = TMP / "plan.json"
     stray.write_text(json.dumps({"keys": ["winold"]}), "utf-8")
-    check(un.helper_main(["--space-clean", str(stray)]) == 2, "…nor a plan from anywhere else")
+    check(un.helper_main(["--space-clean", str(stray), "--plan-sha256", un._digest(stray.read_bytes())]) == 2,
+          "…nor a plan from anywhere else")
 
 
 def space():

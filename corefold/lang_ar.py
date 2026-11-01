@@ -3089,4 +3089,12 @@ STRINGS: dict[str, str] = {
     "That isn't a web address or a page of this PDF.": "هذا ليس عنوان ويب ولا صفحة من هذا الملف.",
     "Covered {count}": "تمت تغطية {count} نتيجة",
     "Covered {count}. What's under the covers is taken out when the PDF is saved.": "تمت تغطية {count} نتيجة. ما تحت التغطية يُزال عند حفظ الملف.",
+    "Save the map as a spreadsheet: every folder of 1 MB or more, and its biggest files": "احفظ الخريطة كجدول بيانات: كل مجلد حجمه 1 ميجابايت أو أكثر، وأكبر ملفاته",
+    "File types": "أنواع الملفات",
+    "No extension": "بلا امتداد",
+    "What takes the room, by file type (.mp4, .iso…). Double-click a type to see its biggest files.": "ما الذي يشغل المساحة، حسب نوع الملف (.mp4 و.iso…). انقر نقرًا مزدوجًا على نوع لترى أكبر ملفاته.",
+    "Path": "المسار",
+    "Size in bytes": "الحجم بالبايت",
+    "Share of the folder above (%)": "النسبة من المجلد الأعلى (%)",
+    "Double-click to see its biggest files": "انقر نقرًا مزدوجًا لترى أكبر ملفاته",
 }

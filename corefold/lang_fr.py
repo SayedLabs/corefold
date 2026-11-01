@@ -3016,4 +3016,12 @@ STRINGS: dict[str, str] = {
     "That isn't a web address or a page of this PDF.": "Ce n'est ni une adresse web ni une page de ce PDF.",
     "Covered {count}": "{count} masqués",
     "Covered {count}. What's under the covers is taken out when the PDF is saved.": "{count} masqués. Ce qui est sous les masques est retiré à l'enregistrement du PDF.",
+    "Save the map as a spreadsheet: every folder of 1 MB or more, and its biggest files": "Enregistrer la carte en tableur : chaque dossier de 1 Mo ou plus, et ses plus gros fichiers",
+    "File types": "Types de fichiers",
+    "No extension": "Sans extension",
+    "What takes the room, by file type (.mp4, .iso…). Double-click a type to see its biggest files.": "Ce qui prend la place, par type de fichier (.mp4, .iso…). Double-cliquez sur un type pour voir ses plus gros fichiers.",
+    "Path": "Chemin",
+    "Size in bytes": "Taille en octets",
+    "Share of the folder above (%)": "Part du dossier parent (%)",
+    "Double-click to see its biggest files": "Double-cliquez pour voir ses plus gros fichiers",
 }

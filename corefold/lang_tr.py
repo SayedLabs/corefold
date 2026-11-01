@@ -3016,4 +3016,12 @@ STRINGS: dict[str, str] = {
     "That isn't a web address or a page of this PDF.": "Bu bir web adresi ya da bu PDF'nin bir sayfası değil.",
     "Covered {count}": "{count} yer örtüldü",
     "Covered {count}. What's under the covers is taken out when the PDF is saved.": "{count} yer örtüldü. Örtülerin altındakiler PDF kaydedildiğinde çıkarılır.",
+    "Save the map as a spreadsheet: every folder of 1 MB or more, and its biggest files": "Haritayı tablo olarak kaydet: 1 MB veya daha büyük her klasör ve en büyük dosyaları",
+    "File types": "Dosya türleri",
+    "No extension": "Uzantısız",
+    "What takes the room, by file type (.mp4, .iso…). Double-click a type to see its biggest files.": "Yeri ne kaplıyor, dosya türüne göre (.mp4, .iso…). En büyük dosyalarını görmek için bir türe çift tıklayın.",
+    "Path": "Yol",
+    "Size in bytes": "Bayt olarak boyut",
+    "Share of the folder above (%)": "Üst klasördeki payı (%)",
+    "Double-click to see its biggest files": "En büyük dosyalarını görmek için çift tıklayın",
 }
