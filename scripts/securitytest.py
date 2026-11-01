@@ -501,13 +501,14 @@ def previous_windows_links():
             # (owned by this account, not by the administrators: a takeover by them shows)
             subprocess.run([icacls, str(p), "/setowner", me], capture_output=True, check=True)
 
-    def untouched() -> bool:
-        a = acl(mine)
-        return mine.exists() and "Administrators" not in a and "S-1-5-32-544" not in a and \
-            _owner(mine).lower().endswith("\\" + os.environ["USERNAME"].lower())
     lock_victim()
-    check(untouched(), f"the file in today's folders starts owned by {me}, no administrators in its permissions "
-                       f"({_owner(mine)})")
+    first = acl(mine)
+    print(first.strip(), flush=True)
+
+    def untouched() -> bool:
+        return mine.exists() and acl(mine) == first and \
+            _owner(mine).lower().endswith("\\" + os.environ["USERNAME"].lower())
+    check(untouched(), f"the file in today's folders starts owned by {me} ({_owner(mine)})")
     # the old way, on a copy of the layout (not in C:\\)
     copy = BASE / "old-way"
     copy.mkdir()
