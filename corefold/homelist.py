@@ -58,8 +58,10 @@ KINDS: dict[str, Kind] = {k.id: k for k in (
     Kind("color", "colors", "Pick a colour", "Pick any colour on your screen.", "color", ("small",)),
 )}
 # what a new Home starts with (and what "Start again" puts back)
-DEFAULT = (("convert", "medium"), ("pdf", "medium"), ("organizer", "medium"), ("archive", "small"),
-           ("unlock", "small"), ("cloud", "medium"), ("stats", "small"), ("shortcut", "small"))
+# (rows that fill up: two medium, then a medium and two small, then two medium, and Tidy a folder last: resting
+# for now, it leaves no gap in the middle when it isn't shown)
+DEFAULT = (("convert", "medium"), ("pdf", "medium"), ("cloud", "medium"), ("archive", "small"), ("unlock", "small"),
+           ("stats", "medium"), ("shortcut", "medium"), ("organizer", "medium"))
 # the default shortcut: the Downloads folder (filled in when it's made, wherever Downloads really is)
 DOWNLOADS = "known:downloads"
 

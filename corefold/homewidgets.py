@@ -16,8 +16,8 @@ from PySide6.QtCore import QEasingCurve, QPoint, QRect, QRectF, QSize, QStandard
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import (QButtonGroup, QDialog, QFileDialog, QFrame, QGraphicsDropShadowEffect,
                                QGraphicsOpacityEffect, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
-                               QListWidgetItem, QMenu, QProgressBar, QPushButton, QScrollArea, QSizePolicy,
-                               QVBoxLayout, QWidget)
+                               QListWidgetItem, QMenu, QProgressBar, QPushButton, QScrollArea, QSizePolicy, QStyle,
+                               QStyleOptionButton, QVBoxLayout, QWidget)
 
 from . import homelist, icons, sheet, work
 from . import tools as all_tools
@@ -111,6 +111,22 @@ class FitButton(QPushButton):
         super().__init__(text)
         self.full = text
         self.setMinimumWidth(1)
+
+    def sizeHint(self):
+        """The size its whole words need, whatever it shows now: shortened words asking for less room got it
+        less room, then shorter words still, then more room again, for ever (the Home page kept a processor
+        core busy while it sat there)."""
+        if not self.full or self.text() == self.full:
+            return super().sizeHint()
+        opt = QStyleOptionButton()
+        self.initStyleOption(opt)
+        opt.text = self.full
+        fm = self.fontMetrics()
+        w, h = fm.horizontalAdvance(self.full), fm.height()
+        if not self.icon().isNull():
+            w += self.iconSize().width() + 4
+            h = max(h, self.iconSize().height())
+        return self.style().sizeFromContents(QStyle.CT_PushButton, opt, QSize(w, h), self)
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
@@ -1222,7 +1238,8 @@ class Board(QWidget):
 
     def _w_unlock(self, f, lay, size):
         f.drops = self._unlock_check
-        self._head(lay, "unlock", tr("What's using this?"),
+        # (a short name in a small widget, on one line; the longer question in a bigger one)
+        self._head(lay, "unlock", tr("Unlock") if size == "small" else tr("What's using this?"),
                    tr("Drop a file or folder you can't delete or move.") if size != "small" else "")
         lay.addStretch()
         row = QHBoxLayout()

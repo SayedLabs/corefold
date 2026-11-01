@@ -273,3 +273,45 @@ def test_changes_count_as_saved_only_once_the_save_worked(editor):
     ed.save()
     jobs[1](True)
     assert not editor.unsaved()
+
+
+def test_a_part_typed_twice_gets_its_own_file(tmp_path):
+    src = _pdf(tmp_path / "doc.pdf", pages=4)
+    res = pdftools.split(src, _ctx(tmp_path, mode="ranges", ranges="2, 2, 1-3, 1-3"))
+    parts = sorted(p.name for p in res.outputs[0].iterdir())
+    assert len(parts) == 4  # (each part kept: none replaced another one with the same name)
+    assert "doc p2.pdf" in parts and "doc p2 (2).pdf" in parts
+    assert "doc p1-3.pdf" in parts and "doc p1-3 (2).pdf" in parts
+
+
+class _Watched:
+    """A stand-in for the PDFium lock that says whether it was held while PDFium was used."""
+    def __init__(self):
+        self.depth = 0
+        self.unlocked_calls = 0
+
+    def __enter__(self):
+        self.depth += 1
+
+    def __exit__(self, *exc):
+        self.depth -= 1
+
+
+@pytest.mark.parametrize("tool", ["pdf_to_png", "pdf_to_text"])
+def test_converter_takes_turns_with_pdfium(tmp_path, monkeypatch, tool):
+    import pypdfium2 as pdfium
+    from corefold import converters
+    lock = _Watched()
+    monkeypatch.setattr(pdftools, "PDFIUM", lock)
+    real_render, real_text = pdfium.PdfPage.render, pdfium.PdfPage.get_textpage
+
+    def checked(real):
+        def call(self, *a, **kw):
+            if not lock.depth:
+                lock.unlocked_calls += 1
+            return real(self, *a, **kw)
+        return call
+    monkeypatch.setattr(pdfium.PdfPage, "render", checked(real_render))
+    monkeypatch.setattr(pdfium.PdfPage, "get_textpage", checked(real_text))
+    res = getattr(converters, tool)(_pdf(tmp_path / "doc.pdf", pages=2), _ctx(tmp_path))
+    assert res.outputs and lock.unlocked_calls == 0  # (PDFium only used while the shared lock was held)

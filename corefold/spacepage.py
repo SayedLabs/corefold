@@ -39,6 +39,7 @@ SECTIONS = [("map", "Disk map"), ("clean", "Clean up"), ("dupes", "Duplicates")]
 SECTION_ICONS = {"map": "data_pie", "clean": "broom", "dupes": "copy"}
 JUNK_ICONS = {"temp": "timer", "bin": "delete", "browser": "globe", "thumbs": "image_multiple", "gpu": "top_speed",
               "dumps": "stethoscope", "installers": "box", "winupdate": "arrow_download", "winold": "history",
+              "delivery": "arrow_sync",
               "app": "apps"}
 DUPE_FOLDERS = ("Desktop", "Documents", "Downloads", "Pictures", "Videos", "Music")
 KEEP_MAPS = 2             # drives (or folders) whose map is kept, so opening one again is instant
@@ -783,14 +784,15 @@ class SpacePage(QWidget):
         tabs = QHBoxLayout()
         tabs.setSpacing(6)
         strip = QFrame()
-        strip.setObjectName("segmented")
+        strip.setObjectName("useBar")  # (the same bar as Corefold Files' uses)
         sl = QHBoxLayout(strip)
-        sl.setContentsMargins(3, 3, 3, 3)
+        sl.setContentsMargins(4, 4, 4, 4)
         sl.setSpacing(2)
         self.section_buttons = QButtonGroup(self)
         for key, text in SECTIONS:
             b = QPushButton(" " + tr(text))  # (a little room after the icon)
-            b.setObjectName("segment")
+            b.setObjectName("useTab")
+            b.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             b.setCheckable(True)
             b.setCursor(Qt.PointingHandCursor)
             b.setChecked(key == "map")
@@ -798,8 +800,7 @@ class SpacePage(QWidget):
             b.clicked.connect(lambda _=False, k=key: self.show_section(k))
             self.section_buttons.addButton(b)
             sl.addWidget(b)
-        tabs.addWidget(strip)
-        tabs.addStretch()
+        tabs.addWidget(strip, 1)
         lay.addLayout(tabs)
         self.sections = QStackedWidget()
         self.sections.addWidget(self._map_section())

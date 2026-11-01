@@ -809,7 +809,8 @@ def find_junk(downloads: Path | None = None, cancel: threading.Event | None = No
 
 # Windows' own leftovers, which only an administrator can remove. The administrator copy of Corefold
 # is only told which of these keys to clean; the folders come from here, never from the request.
-ADMIN_KEYS = ("winupdate", "winold")
+ADMIN_KEYS = ("winupdate", "winold", "delivery")
+DELIVERY_MIN = 50 << 20  # update copies kept for other PCs: offered from this size
 
 
 def _windows_dir() -> Path:
@@ -824,7 +825,22 @@ def admin_path(key: str) -> Path | None:
         return windows / "SoftwareDistribution" / "Download"
     if key == "winold":
         return Path(windows.drive + "\\") / "Windows.old"
+    if key == "delivery":  # (only the Delivery Optimization service and administrators can look inside)
+        return windows / "ServiceProfiles" / "NetworkService" / "AppData" / "Local" / "Microsoft" / "Windows" / \
+            "DeliveryOptimization" / "Cache"
     return None
+
+
+def delivery_size() -> int:
+    """How much Windows keeps of updates and Store apps to share with other PCs (Delivery Optimization),
+    as Windows itself says (its folder is closed to everyone but administrators). 0 when it can't say."""
+    import subprocess
+    from .uninstall import powershell
+    try:
+        out = powershell("(Get-DeliveryOptimizationPerfSnap -ErrorAction Stop).CacheSizeBytes", timeout=30)
+        return max(0, int(out.splitlines()[-1].strip())) if out else 0
+    except (OSError, ValueError, IndexError, subprocess.SubprocessError):
+        return 0
 
 
 def _admin_junk(cancel: threading.Event | None = None) -> list[Junk]:
@@ -844,6 +860,13 @@ def _admin_junk(cancel: threading.Event | None = None) -> list[Junk]:
         rows.append(Junk("winold", "The previous Windows", "Kept after a big Windows update, to go back to it. Once "
                          "it's removed, going back isn't possible. Windows asks for an administrator.",
                          [old], size, count, ticked=False, admin=True))
+    if not (cancel is not None and cancel.is_set()):
+        size = delivery_size()
+        if size >= DELIVERY_MIN:
+            rows.append(Junk("delivery", "Update copies for other PCs", "Windows keeps updates and Store apps it "
+                             "downloaded, to hand them to other PCs. Windows removes them its own way, and downloads "
+                             "again any it needs. Windows asks for an administrator.",
+                             [admin_path("delivery")], size, 0, ticked=False, admin=True))
     return rows
 
 
@@ -882,6 +905,13 @@ def clean_as_admin(keys: list[str]) -> int:
             finally:
                 run("net", "start", "bits", timeout=120)
                 run("net", "start", "wuauserv", timeout=120)
+        elif key == "delivery":
+            # the Delivery Optimization service owns these files: it's asked to let them go, never bypassed
+            from .uninstall import powershell
+            try:
+                powershell("Delete-DeliveryOptimizationCache -Force -ErrorAction Stop", timeout=600)
+            except (OSError, subprocess.SubprocessError):
+                log.warning("Delivery Optimization's clean-up failed", exc_info=True)
         elif key == "winold":
             # Windows' own Disk Cleanup removes it the way Windows means it to ("Previous Windows
             # installation(s)"); what it leaves (or everything, without Disk Cleanup) goes the hard way
