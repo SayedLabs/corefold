@@ -25,6 +25,10 @@ COMPRESS_LEVELS = {"light": ("A little (best quality)", 82, 2600),
 PAGE_SIZES = {"picture": ("Same as the picture", None), "a4": ("A4", (595.28, 841.89)),
               "letter": ("Letter", (612.0, 792.0))}
 MARGINS = {"none": ("No margin", 0), "small": ("Small margin", 18), "big": ("Big margin", 42)}
+# "Page size": the size every page is made (width, height in points, portrait; a page that's wider than it is
+# tall is made landscape)
+PAGE_FORMATS = {"a4": ("A4", (595.28, 841.89)), "letter": ("Letter", (612.0, 792.0)),
+                "a3": ("A3", (841.89, 1190.55)), "a5": ("A5", (419.53, 595.28)), "legal": ("Legal", (612.0, 1008.0))}
 IMAGE_FORMATS = {"png": "PNG", "jpg": "JPG"}
 DPIS = {100: "Screen (100 dpi)", 150: "Good (150 dpi)", 300: "Print (300 dpi)"}
 SPLIT_MODES = {"each": "One PDF per page", "every": "Every few pages", "ranges": "The parts I type"}
@@ -786,6 +790,150 @@ def remove_hidden(src: Path, ctx: Ctx) -> Result:
     return Result([out], note=tr("Saved as a new file without the hidden information"))
 
 
+# ----------------------------------------------------------------------------- flatten, repair, page size
+
+def _relocked(tmp: Path, out: Path, password: str, original=None, no_form: bool = False):
+    """A PDF PDFium saved (always without its password) written again with pypdf: locked again with the
+    original's password, with its title and author, through a .part file."""
+    from pypdf import PdfReader, PdfWriter
+    try:
+        writer = PdfWriter(clone_from=PdfReader(str(tmp)))
+        if no_form:  # (its fields are part of the pages now: no form left for a reader to offer to fill in)
+            writer._root_object.pop("/AcroForm", None)
+        if original is not None:
+            _keep_details(writer, original)
+        write(writer, out, password)
+    finally:
+        tmp.unlink(missing_ok=True)
+    return out
+
+
+def flatten(src: Path, ctx: Ctx) -> Result:
+    """What's filled in on a form, and notes, stamps, highlights and drawings, made part of the page: it
+    looks the same everywhere and can't be changed or taken off any more (before sending a filled-in form)."""
+    import pypdfium2.raw as raw
+    password = ctx.params.get("password", "")
+    reader = open_reader(src, password)
+    out = ctx.out_path(src, f"{ctx.stem(src)} (flattened).pdf")
+    tmp = out.with_name(out.name + ".pdfium.part")
+    done = 0
+    with PDFIUM:
+        doc = open_pdfium(src, password)
+        try:
+            n = len(doc)
+            for i in range(n):
+                ctx.check()
+                page = doc[i]
+                try:
+                    # (pypdfium2 wants a form for its flatten; a PDF without one can still have notes and stamps)
+                    if raw.FPDFPage_Flatten(page.raw, raw.FLAT_NORMALDISPLAY) == raw.FLATTEN_SUCCESS:
+                        done += 1
+                finally:
+                    page.close()
+                ctx.progress(0.8 * (i + 1) / n)
+            if not done:
+                return Result(note=tr("{name} has nothing to flatten: no form, notes or stamps", name=src.name))
+            doc.save(str(tmp), flags=raw.FPDF_REMOVE_SECURITY)
+        finally:
+            doc.close()
+    _relocked(tmp, out, password, reader, no_form=True)
+    return Result([out], note=tr("Flattened {count} pages", count=done))
+
+
+def repair(src: Path, ctx: Ctx) -> Result:
+    """A damaged PDF (cut off when it was downloaded, or saved wrong by a program) read the forgiving way and
+    written again whole, with a new table of where everything is."""
+    from pypdf import PdfReader, PdfWriter
+    password = ctx.params.get("password", "")
+    out = ctx.out_path(src, f"{ctx.stem(src)} (repaired).pdf")
+    tmp = out.with_name(out.name + ".pdfium.part")
+    pages = 0
+    try:
+        import pypdfium2.raw as raw
+        with PDFIUM:
+            doc = open_pdfium(src, password)
+            try:
+                pages = len(doc)
+                doc.save(str(tmp), flags=raw.FPDF_REMOVE_SECURITY)
+            finally:
+                doc.close()
+        ctx.progress(0.6)
+        _relocked(tmp, out, password)
+    except Exception as e:
+        tmp.unlink(missing_ok=True)
+        if type(e).__name__ == "NeedPassword":
+            raise
+        log.debug("PDFium couldn't repair %s, trying pypdf", src, exc_info=True)
+        try:
+            reader = PdfReader(str(src), strict=False)
+        except Exception:
+            raise RuntimeError(tr("nothing could be saved from {name}: it's too damaged", name=src.name)) from e
+        if reader.is_encrypted and not reader.decrypt(password or ""):
+            from .archives import NeedPassword
+            raise NeedPassword() from None
+        writer = PdfWriter()
+        for page in reader.pages:
+            ctx.check()
+            try:
+                writer.add_page(page)
+            except Exception:
+                log.debug("a page of %s couldn't be saved", src, exc_info=True)
+        pages = len(writer.pages)
+        if not pages:
+            raise RuntimeError(tr("nothing could be saved from {name}: it's too damaged", name=src.name)) from e
+        _keep_details(writer, reader)
+        write(writer, out, password)
+    return Result([out], note=tr("{count} pages saved in a repaired copy", count=pages))
+
+
+def page_size(src: Path, ctx: Ctx) -> Result:
+    """Every page made the same size (A4, Letter…): what's on it made bigger or smaller to fit inside, in the
+    middle, keeping its shape. A page wider than it is tall becomes a landscape page. Links and notes go
+    along with what they're on."""
+    from pypdf import PdfWriter, Transformation
+    from pypdf.generic import ArrayObject, FloatObject, NameObject, RectangleObject
+    password = ctx.params.get("password", "")
+    key = ctx.params.get("size", "a4")
+    name, (tw, th) = PAGE_FORMATS.get(key, PAGE_FORMATS["a4"])
+    margin = float(MARGINS.get(ctx.params.get("margin", "none"), MARGINS["none"])[1])
+    reader = open_reader(src, password)
+    writer = PdfWriter(clone_from=reader)
+    n = len(writer.pages)
+    for i, page in enumerate(writer.pages):
+        ctx.check()
+        if page.rotation % 360:
+            page.transfer_rotation_to_content()
+        box = page.cropbox
+        x0, y0, w, h = float(box.left), float(box.bottom), float(box.width), float(box.height)
+        if w <= 0 or h <= 0:
+            continue
+        W, H = (th, tw) if w > h else (tw, th)
+        scale = min((W - 2 * margin) / w, (H - 2 * margin) / h)
+        dx, dy = (W - w * scale) / 2 - x0 * scale, (H - h * scale) / 2 - y0 * scale
+        page.add_transformation(Transformation().scale(scale, scale).translate(dx, dy))
+        for k in ("/CropBox", "/TrimBox", "/BleedBox", "/ArtBox"):
+            page.pop(NameObject(k), None)
+        page.mediabox = RectangleObject([0, 0, W, H])
+
+        def moved(values, scale=scale, dx=dx, dy=dy):
+            return ArrayObject(FloatObject(round(float(v) * scale + (dx if j % 2 == 0 else dy), 3))
+                               for j, v in enumerate(values))
+        for ref in page.get("/Annots") or []:
+            try:
+                annot = ref.get_object()
+                for k in ("/Rect", "/QuadPoints", "/Vertices", "/L"):
+                    if k in annot:
+                        annot[NameObject(k)] = moved(annot[k])
+                if "/InkList" in annot:
+                    annot[NameObject("/InkList")] = ArrayObject(moved(stroke) for stroke in annot["/InkList"])
+            except Exception:
+                log.debug("a note on page %d couldn't be moved", i + 1, exc_info=True)
+        ctx.progress((i + 1) / n)
+    out = ctx.out_path(src, f"{ctx.stem(src)} ({name}).pdf")
+    write(writer, out, password)
+    return Result([out], note=tr("Every page is now {size}", size=tr(name)))
+
+
 # the tools on Corefold PDF's page (the Converter's wheel keeps its own, simpler ones)
 SPLIT = Tool("pdftool:split", tr("Split"), tr("Split a PDF"), split, password=True, renames=False)
 EXTRACT = Tool("pdftool:extract", tr("Take out pages"), tr("Save some pages as a new PDF"), extract, password=True,
@@ -801,3 +949,8 @@ LOCK = Tool("pdftool:lock", tr("Lock"), tr("Protect with a password"), lock, pas
 CLEAN = Tool("pdftool:clean", tr("Remove hidden info"), tr("Remove hidden information"), remove_hidden,
              password=True, renames=False)
 UNLOCK = Tool("pdftool:unlock", tr("Unlock"), tr("Remove the password"), unlock, password=True, renames=False)
+FLATTEN = Tool("pdftool:flatten", tr("Flatten"), tr("Make forms and notes part of the page"), flatten, password=True,
+               renames=False)
+REPAIR = Tool("pdftool:repair", tr("Repair"), tr("Rebuild a damaged PDF"), repair, password=True, renames=False)
+PAGE_SIZE = Tool("pdftool:pagesize", tr("Page size"), tr("Make every page the same size"), page_size,
+                 password=True, renames=False)

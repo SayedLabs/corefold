@@ -49,6 +49,11 @@ ACTIONS = [("edit", "Edit content", "Type text, change words, add pictures, high
            ("topictures", "PDF to pictures", "Every page, or the ones you pick, as PNG or JPG", "image"),
            ("lock", "Lock", "Protect a PDF with a password", "lock_closed"),
            ("unlock", "Unlock", "Remove the password from a PDF that's yours", "lock_open"),
+           ("pagesize", "Page size", "Make every page A4, Letter or another size, what's on it fitted inside",
+            "page_size"),
+           ("flatten", "Flatten", "Make what's filled in on a form, and notes and stamps, part of the page, so "
+            "nobody can change them", "layers"),
+           ("repair", "Repair", "Rebuild a damaged PDF that won't open or shows errors", "wrench"),
            ("clean", "Remove hidden info", "See and change its title and author, and take out who made it, notes, "
             "attached files and scripts", "broom")]
 # the Converter's own PDF tools that are shown here too (when this Corefold has them)
@@ -60,9 +65,9 @@ MORE = [("pdf:numbers", "Page numbers", "Number every page", "text_t"),
         ("pdf:images", "Save the pictures inside", "Every picture in the PDF, as it is", "filmstrip_image")]
 # how the cards are grouped on the page (the first group is shown big, on top)
 GROUPS = [("", ("edit", "merge")),
-          ("Pages", ("organize", "split", "extract")),
+          ("Pages", ("organize", "split", "extract", "pagesize")),
           ("Add to it", ("searchable", "pdf:sign", "pdf:numbers", "pdf:watermark")),
-          ("Smaller or safer", ("compress", "pdf:fit", "lock", "unlock", "clean")),
+          ("Smaller or safer", ("compress", "pdf:fit", "lock", "unlock", "clean", "flatten", "repair")),
           ("Turn it into something else", ("topictures", "pictures", "pdf:text", "pdf:images"))]
 TIPS = {"merge": "Drag the pages into the order you want, then press Merge and save.",
         "organize": "Drag pages to move them. Select some to turn or delete them. Double-click a page to see it big.",
@@ -423,7 +428,8 @@ class PdfPage(QWidget):
             if names:
                 self.pictures_to_pdf([Path(n) for n in names])
             return
-        several = key in ("merge", "organize", "compress", "searchable", "topictures", "lock", "unlock", "clean") or \
+        several = key in ("merge", "organize", "compress", "searchable", "topictures", "lock", "unlock", "clean",
+                          "pagesize", "flatten", "repair") or \
             key.startswith("pdf:")
         title = tr("Pick the PDFs") if several else tr("Pick a PDF")
         if several:
@@ -461,7 +467,8 @@ class PdfPage(QWidget):
         asks = {"split": (pd.SplitDialog, pdftools.SPLIT), "compress": (pd.CompressDialog, pdftools.COMPRESS),
                 "searchable": (pd.SearchableDialog, _searchable_tool()),
                 "topictures": (pd.ToPicturesDialog, pdftools.TO_PICTURES), "lock": (pd.PdfLockDialog, pdftools.LOCK),
-                "unlock": (None, pdftools.UNLOCK)}
+                "unlock": (None, pdftools.UNLOCK), "pagesize": (pd.PageSizeDialog, pdftools.PAGE_SIZE),
+                "flatten": (None, pdftools.FLATTEN), "repair": (None, pdftools.REPAIR)}
         dialog, tool = asks[key]
         if key == "lock":
             already = [f for f in files if pdftools.lock_state(f) == "locked"]
@@ -603,6 +610,17 @@ class PdfPage(QWidget):
                 ("delete", tr("Delete"), tr("Delete (Del)"), "delete", self.remove),
                 ("view", tr("See it big"), tr("See it big"), "zoom_in", self.preview)):
             self.tool_btns[key] = bar.tool(words, name, text_color, fn, tip)
+        order = bar.tool(tr("Order"), "arrow_sort", text_color, lambda: None,
+                         tr("Reverse the pages, or mix the pages of two PDFs"))
+        menu = QMenu(order)
+        round_menu(menu)
+        menu.addAction(tr("Reverse the order"), self.reverse)
+        self.mix_acts = [menu.addAction(tr("Mix two PDFs: a page from each in turn"), lambda: self.mix(False)),
+                         menu.addAction(tr("Mix two-sided scans: the backs in reverse"), lambda: self.mix(True))]
+        menu.aboutToShow.connect(self._order_menu)
+        order.setMenu(menu)
+        order.setPopupMode(QToolButton.InstantPopup)
+        self.tool_btns["order"] = order
         bar.gap()
         self.edit_btn = bar.tool(tr("Edit content"), "text_edit_style", text_color, self.edit_picked,
                                  tr("Type text, change words, add pictures, highlight, draw, sign and fill in forms"))
@@ -895,6 +913,49 @@ class PdfPage(QWidget):
             item.setData(TURN, (item.data(TURN) + degrees) % 360)
             self._draw(item)
         self._changed()
+
+    def _order_menu(self):
+        two = len({i.data(FILE) for i in self.items()}) == 2
+        for act in self.mix_acts:
+            act.setEnabled(two)
+            act.setToolTip("" if two else tr("Open two PDFs to mix their pages"))
+
+    def _put_in_order(self, items: list[QListWidgetItem]):
+        """The board's pages in this order (the same pages, moved), then the change to undo."""
+        chosen = set(map(id, self.selected()))
+        for item in items:
+            self.board.takeItem(self.board.row(item))
+        for item in items:
+            self.board.addItem(item)
+            item.setSelected(id(item) in chosen)
+        self._changed()
+
+    def reverse(self):
+        """The last page first. With some pages selected, just those swap places among themselves."""
+        items, chosen = self.items(), self.selected()
+        if len(chosen) > 1:
+            rows = [self.board.row(i) for i in chosen]
+            for row, item in zip(rows, reversed(chosen)):
+                items[row] = item
+        else:
+            items.reverse()
+        self._put_in_order(items)
+
+    def mix(self, backs_reversed: bool):
+        """Two PDFs' pages, a page from each in turn: the fronts and the backs of a two-sided paper scanned as
+        two PDFs (the backs often come out last page first: backs_reversed) become one PDF in reading order."""
+        items = self.items()
+        files = list(dict.fromkeys(i.data(FILE) for i in items))
+        if len(files) != 2:
+            return
+        a = [i for i in items if i.data(FILE) == files[0]]
+        b = [i for i in items if i.data(FILE) == files[1]]
+        if backs_reversed:
+            b.reverse()
+        mixed = []
+        for k in range(max(len(a), len(b))):
+            mixed += a[k:k + 1] + b[k:k + 1]
+        self._put_in_order(mixed)
 
     def duplicate(self):
         """A copy of each selected page, right after it; the copies are then the ones selected."""

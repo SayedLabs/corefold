@@ -11,7 +11,7 @@ from .atomic.widgets import Dropdown
 from .dialogs import Base, describe
 from .dialogs2 import LockDialog
 from .i18n import is_rtl, ltr, tr
-from .pdftools import COMPRESS_LEVELS, DPIS, HIDDEN, IMAGE_FORMATS, MARGINS, PAGE_SIZES, SPLIT_MODES
+from .pdftools import COMPRESS_LEVELS, DPIS, HIDDEN, IMAGE_FORMATS, MARGINS, PAGE_FORMATS, PAGE_SIZES, SPLIT_MODES
 
 
 def _note(text: str) -> QLabel:
@@ -89,6 +89,30 @@ class CompressDialog(Base):
 
     def params(self):
         return {"level": _chosen(self.group, "normal")}
+
+
+class PageSizeDialog(Base):
+    """Page size: which size every page is made, and how much room is left around what's on it."""
+
+    def __init__(self, files, icon, dark):
+        super().__init__(tr("Page size"), describe(files), icon, dark)
+        self.size = _combo(PAGE_FORMATS, "a4")
+        self.size.setAccessibleName(tr("Page size"))
+        self.margin = _combo(MARGINS, "none")
+        self.margin.setAccessibleName(tr("Margin"))
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(12)
+        grid.addWidget(QLabel(tr("Size")), 0, 0)
+        grid.addWidget(self.size, 0, 1)
+        grid.addWidget(QLabel(tr("Margin")), 1, 0)
+        grid.addWidget(self.margin, 1, 1)
+        self.lay.addLayout(grid)
+        self.lay.addWidget(_note(tr("What's on each page is made bigger or smaller to fit, in the middle, keeping "
+                                    "its shape. Wide pages are made landscape. Saved as a new file.")))
+        self.buttons(tr("Make them this size"))
+
+    def params(self):
+        return {"size": self.size.currentData(), "margin": self.margin.currentData()}
 
 
 class SearchableDialog(Base):
