@@ -46,3 +46,29 @@ def test_a_child_whose_start_time_is_unknown_is_still_followed(monkeypatch):
     procs = un.Processes(1000)
     procs.refresh()
     assert sorted(procs.alive()) == [10, 40]
+
+
+class FakeCloser(FakeKernel):
+    def __init__(self, running):
+        self.running = running  # pid: program file
+        self.closed, self.ended = [], []
+
+    def QueryFullProcessImageNameW(self, h, flags, buf, size):
+        buf.value = self.running.get(h // 100, "")
+        return 1
+
+    def TerminateProcess(self, h, code):
+        self.ended.append(h // 100)
+        return 1
+
+    def WaitForSingleObject(self, h, ms):
+        return 0  # ended
+
+
+def test_closing_programs_skips_an_id_now_used_by_another_program(monkeypatch):
+    # 50 still runs the app's program; 60 ended after the list was made, and Windows gave its id to Word
+    k = FakeCloser({50: r"C:\Apps\Old\old.exe", 60: r"C:\Office\WINWORD.EXE"})
+    monkeypatch.setattr(un, "_dll", lambda name: k)
+    still = un.close_programs([(50, r"C:\Apps\Old\old.exe"), (60, r"C:\Apps\Old\helper.exe")])
+    assert k.ended == [50]
+    assert still == []
