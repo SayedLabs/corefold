@@ -605,8 +605,34 @@ def installed_uninstaller() -> Path | None:
     """The installer's uninstall program, or None for the portable / from-source version."""
     if not getattr(sys, "frozen", False):
         return None
-    found = sorted(Path(sys.executable).resolve().parent.glob("unins*.exe"))
-    return found[0] if found else None
+    here = Path(sys.executable).resolve().parent
+    registered = _registered_uninstaller()  # (the one Windows' list of apps runs)
+    if registered is not None and registered.parent == here and registered.is_file():
+        return registered
+    # (an update cut off half-way can leave an unins000.exe of its own; Setup then writes unins001.exe: the
+    # newest one that has its uninstall data is the real one)
+    found = [p for p in sorted(here.glob("unins*.exe")) if p.with_suffix(".dat").is_file()]
+    return found[-1] if found else None
+
+
+def _registered_uninstaller() -> Path | None:
+    if os.name != "nt":
+        return None
+    import winreg
+    key = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\{D08578D1-4B3E-404B-B56C-3FDF83BAFAE2}_is1"
+    for root in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
+        try:
+            with winreg.OpenKey(root, key, 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as k:
+                value = str(winreg.QueryValueEx(k, "UninstallString")[0]).strip()
+        except OSError:
+            continue
+        path = value[1:].split('"', 1)[0] if value.startswith('"') else value.split(" ", 1)[0]
+        if path:
+            try:
+                return Path(path).resolve()
+            except OSError:
+                continue
+    return None
 
 
 def remove_user_data():

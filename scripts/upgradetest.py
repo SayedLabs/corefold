@@ -184,10 +184,13 @@ def remove_corefold():
     """Takes Corefold off this (throwaway) PC, with its settings, so the next case starts clean (installed for
     the whole PC, and a copy installed the old way for this user alone)."""
     stop_all()
-    for where, version in ((installed_dir, installed_version), (user_dir, user_version)):
+    for where, version, root in ((installed_dir, installed_version, winreg.HKEY_LOCAL_MACHINE),
+                                 (user_dir, user_version, winreg.HKEY_CURRENT_USER)):
         folder = where()
         removal_log = OUT / f"remove-{uuid.uuid4().hex[:6]}.log"
-        found = sorted(folder.glob("unins*.exe")) if folder and folder.is_dir() else []
+        # (the one Windows' list of apps runs: an update cut off half-way can leave a stale unins000.exe)
+        registered = (reg(UNINSTALL_KEY, "UninstallString", root) or "").strip().strip('"')
+        found = [Path(registered)] if registered and Path(registered).is_file() else []
         code = None
         if found:
             code = subprocess.run([str(found[0]), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART",
