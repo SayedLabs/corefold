@@ -693,10 +693,39 @@ begin
   Log('Moved over from the copy for this user alone; its folder is gone: ' + IntToStr(Ord(not DirExists(Dir))));
 end;
 
+{ An update cut off half-way (power cut, Setup ended) can leave an uninstaller of its own (unins000.exe/.dat):
+  the next update then writes unins001. Only the one in Windows' list of apps is kept, so removing Corefold
+  later leaves nothing behind. }
+procedure RemoveStaleUninstallers();
+var
+  App, Current: String;
+  FindRec: TFindRec;
+begin
+  App := ExpandConstant('{app}');
+  Current := ChangeFileExt(ExtractFileName(ExpandConstant('{uninstallexe}')), '');
+  if FindFirst(App + '\unins???.*', FindRec) then
+  begin
+    try
+      repeat
+        if (FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY = 0) and
+           (CompareText(ChangeFileExt(FindRec.Name, ''), Current) <> 0) then
+        begin
+          Log('Removing an uninstaller left by an update cut off half-way: ' + FindRec.Name);
+          DeleteFile(App + '\' + FindRec.Name);
+        end;
+      until not FindNext(FindRec);
+    finally
+      FindClose(FindRec);
+    end;
+  end;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   ResultCode: Integer;
 begin
+  if CurStep = ssDone then
+    RemoveStaleUninstallers();
   if CurStep = ssPostInstall then
   begin
     SwapInNewFiles();
