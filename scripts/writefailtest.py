@@ -337,6 +337,9 @@ def cloud_local(cases: list[str]):
             fn()
         except cloud.CloudError as e:
             return str(e)
+        except Exception as e:  # (Python's or Windows' own error reached the page: said as it is, not Corefold's)
+            problem(f"cloud · not caught as Corefold's own words: {type(e).__name__}: {e}")
+            return str(e)
         return None
 
     if "read-only" in cases:
