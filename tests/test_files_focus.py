@@ -54,18 +54,26 @@ def test_resting_tools_are_never_offered_as_new_meanwhile():
     assert s.tools_off == [] and s.known_tools == sorted(IN_USE)
 
 
-def test_space_and_the_uninstaller_come_back_as_each_person_had_them():
-    """Someone who had them before they rested gets them back as they were; someone who never had them
-    (installed while they rested) finds them waiting, switched off, in Computer."""
+def test_space_and_the_uninstaller_come_back_on_for_everyone_once():
+    """They're switched on for everyone when they come back (also for someone who had them off or never had
+    them), once: switched off again afterwards, they stay off, and they're never offered as New."""
     s = settings_mod.Settings()
     s.known_tools = sorted(FILES | {"space", "uninstaller", "startup"})
-    s.tools_off = ["space"]
+    s.tools_off = ["space", "converter"]
+    assert [t.id for t in all_tools.switch_back_on(s)] == ["space"]
     assert all_tools.offer_new_tools(s) == []
-    assert all_tools.is_on(s, "uninstaller") and not all_tools.is_on(s, "space")
+    assert all_tools.is_on(s, "space") and all_tools.is_on(s, "uninstaller")
+    assert not all_tools.is_on(s, "converter")  # (only these two)
+    s.tools_off = sorted(set(s.tools_off) | {"space"})  # (switched off again by this person)
+    assert all_tools.switch_back_on(s) == [] and not all_tools.is_on(s, "space")
     fresh = settings_mod.Settings()
-    fresh.known_tools = sorted(FILES)
-    assert {t.id for t in all_tools.offer_new_tools(fresh)} == COMPUTER
-    assert not all_tools.is_on(fresh, "space") and not all_tools.is_on(fresh, "uninstaller")
+    fresh.known_tools = sorted(FILES)  # (installed while they rested)
+    assert {t.id for t in all_tools.switch_back_on(fresh)} == COMPUTER
+    assert all_tools.offer_new_tools(fresh) == []
+    assert all_tools.is_on(fresh, "space") and all_tools.is_on(fresh, "uninstaller")
+    assert not all_tools.is_on(fresh, "startup") and not all_tools.is_on(fresh, "scan")
+    saved = settings_mod.Settings.from_data({"back_on": fresh.back_on, "known_tools": fresh.known_tools})
+    assert saved.back_on == ["space", "uninstaller"]
 
 
 def test_a_section_brought_back_comes_back_as_each_person_had_it(monkeypatch, nothing_resting_alone):

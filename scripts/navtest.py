@@ -40,6 +40,7 @@ s.language = LANG
 s.appearance = LOOK
 s.known_tools = sorted(t.id for t in all_tools.ready())
 s.tools_off = sorted(t.id for t in all_tools.ready() if t.id not in all_tools.ORIGINAL)  # like a first start
+s.back_on = list(all_tools.BACK_ON)  # (already switched on once: the start leaves the tools as set here)
 s.save()
 
 from PySide6.QtCore import Qt, QTimer  # noqa: E402
