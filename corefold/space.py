@@ -443,17 +443,13 @@ def protected(path: Path) -> bool:
     for e in exact:
         if e is not None and p == os.path.normcase(os.path.abspath(str(e))):
             return True
-    for v in ("OneDrive", "OneDriveConsumer", "OneDriveCommercial"):  # (the cloud folder itself: all of it would go)
-        e = _env_path(v)
-        if e is not None and p == os.path.normcase(os.path.abspath(str(e))):
-            return True
-    if windows_folder(path):
+    if own_windows_folder(path):  # (any account's, not only this one's)
         return True
     name = os.path.basename(p)
     return name in ("pagefile.sys", "hiberfil.sys", "swapfile.sys", "$recycle.bin", "system volume information")
 
 
-def windows_folder(path: Path) -> bool:
+def own_windows_folder(path: Path) -> bool:
     """An account's own folder that Windows keeps (Desktop, Documents, Downloads, Pictures, AppData...), of
     any account: in the Recycle Bin it would leave Windows without it. What's inside can go, not the folder."""
     from .uninstall import _profile_place

@@ -22,11 +22,11 @@ def test_an_accounts_own_folders_stay_but_what_is_inside_can_go():
     for parts in (("sam",), ("sam", "Desktop"), ("sam", "Documents"), ("sam", "Downloads"), ("sam", "OneDrive"),
                   ("sam", "AppData", "Roaming"), ("sam", "AppData", "Local", "Programs")):
         assert space.protected(_profile(*parts)), parts
-        assert space.windows_folder(_profile(*parts)), parts
+        assert space.own_windows_folder(_profile(*parts)), parts
     for parts in (("sam", "Documents", "Old projects"), ("sam", "Downloads", "setup.exe"), ("sam", "big.iso"),
                   ("sam", "Videos", "Holiday")):
         assert not space.protected(_profile(*parts)), parts
-        assert not space.windows_folder(_profile(*parts)), parts
+        assert not space.own_windows_folder(_profile(*parts)), parts
 
 
 def test_the_onedrive_folder_itself_stays(tmp_path, monkeypatch):

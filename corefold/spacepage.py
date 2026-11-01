@@ -1314,7 +1314,7 @@ class SpacePage(QWidget):
         act = menu.addAction(tr("Move to the Recycle Bin…"), lambda: self._remove(path, folder))
         if space.protected(path) or program is not None:  # (a program's folder in the bin would break it)
             act.setEnabled(False)
-            act.setText(tr("Windows keeps this folder (what's inside it can go)") if space.windows_folder(path)
+            act.setText(tr("Windows keeps this folder (what's inside it can go)") if space.own_windows_folder(path)
                         else tr("Windows needs this (remove programs with the Uninstaller)"))
         sheet.menu(menu, pos)
 
