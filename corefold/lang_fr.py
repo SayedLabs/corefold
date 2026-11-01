@@ -2452,6 +2452,8 @@ STRINGS: dict[str, str] = {
     'Images & screen': 'Images et écran',
     'Computer': 'Ordinateur',
     'Quick tools': 'Outils rapides',
+    'Back in Corefold': 'De retour dans Corefold',
+    'On again: {names}. You can switch them off in their section.': 'Réactivés : {names}. Vous pouvez les désactiver dans leur section.',
     'New tools in Corefold': 'Nouveaux outils dans Corefold',
     '{names}. Switch on the ones you want, each in its section.': '{names}. Activez ceux que vous voulez, chacun dans sa section.',
     'All tools': 'Tous les outils',

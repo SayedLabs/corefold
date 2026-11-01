@@ -389,6 +389,27 @@ def new_tools(settings) -> list[ToolInfo]:
     return [t for t in available() if t.id not in known]
 
 
+# tools switched on for everyone when they came back from resting (1.16: Space and the Uninstaller), once: also for
+# someone who had them switched off or never had them. They can be switched off again in their section.
+BACK_ON = ("space", "uninstaller")
+
+
+def switch_back_on(settings) -> list[ToolInfo]:
+    """Once, for each tool in BACK_ON that's in use now: switched on, and not offered again as New. Returns the
+    ones that were off and are on now (for a short notice)."""
+    done = set(getattr(settings, "back_on", []) or [])
+    todo = [t for t in BACK_ON if t not in done and state(t) == AVAILABLE]
+    if not todo:
+        return []
+    off = set(settings.tools_off)
+    known = set(settings.known_tools)
+    turned = [BY_ID[t] for t in todo if t in off or t not in known]
+    settings.tools_off = sorted(off - set(todo))
+    settings.known_tools = sorted(known | set(todo))
+    settings.back_on = sorted(done | set(todo))
+    return turned
+
+
 def offer_new_tools(settings) -> list[ToolInfo]:
     """After an update: tools that weren't there before wait in their section, switched off, so
     Corefold only does what this person chose. Returns the ones that are new."""

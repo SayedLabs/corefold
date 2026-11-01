@@ -153,7 +153,7 @@ RECENT_ARCHIVES = 8
 # not settings a person edits: what the app remembers by itself
 NOT_EDITED = {"enabled", "first_run", "last_version", "update_told", "notes_shown", "update_to", "menu_signature", "window_geometry", "last_page",
               "last_action", "tour_done", "watermark", "fit_mb", "open_archives", "recent_archives",
-              "tools_off", "known_tools", "open_images", "open_emails", "viewer_info", "viewer_strip", "recent_views",
+              "tools_off", "known_tools", "back_on", "open_images", "open_emails", "viewer_info", "viewer_strip", "recent_views",
               "archive_preview",
               "clip_paused", "open_media", "player_volume", "nav_order", "section_order", "nav_width", "nav_compact",
               "home_widgets",
@@ -251,6 +251,7 @@ class Settings:
     # tools switched off by this person, and the tools they've been offered (others are "New")
     tools_off: list = field(default_factory=list)
     known_tools: list = field(default_factory=list)
+    back_on: list = field(default_factory=list)  # tools already switched on once when they came back (tools.BACK_ON)
     open_archives: bool = True     # archives open in Corefold with a double-click ("Open with")
     recent_archives: list = field(default_factory=list)  # archives opened lately (newest first)
     extract_mode: str = "smart"    # "Extract here": "smart" (no folder inside a folder) or "folder"
@@ -456,6 +457,7 @@ class Settings:
         s.tools_off = [t for t in s.tools_off if isinstance(t, str)]
         s.recent_views = [t for t in s.recent_views if isinstance(t, str)][:RECENT_ARCHIVES]
         s.known_tools = [t for t in s.known_tools if isinstance(t, str)]
+        s.back_on = [t for t in s.back_on if isinstance(t, str)]
         s.nav_order = [t for t in s.nav_order if isinstance(t, str)]
         s.section_order = [t for t in s.section_order if isinstance(t, str)]
         from .homelist import clean
