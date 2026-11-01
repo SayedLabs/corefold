@@ -177,25 +177,29 @@ def load_picture(path: Path, box: QSize) -> QImage:
 
 def render_pdf(path: Path, width: int, emit, stop: threading.Event):
     import pypdfium2 as pdfium
+    from .pdftools import PDFIUM  # (PDFium can't do two things at once: a PDF job may be using it)
     try:
-        pdf = pdfium.PdfDocument(str(path))
+        with PDFIUM:
+            pdf = pdfium.PdfDocument(str(path))
+            n = len(pdf)
     except Exception as e:
         emit("pdf_error", "password" if "password" in str(e).lower() else "broken")
         return
     try:
-        n = len(pdf)
         emit("pdf_count", n)
         for i in range(min(n, PDF_PAGES)):
             if stop.is_set():
                 return
-            page = pdf[i]
-            w, _h = page.get_size()
-            im = page.render(scale=width / max(w, 1)).to_pil().convert("RGB")
-            page.close()
+            with PDFIUM:  # (a page at a time)
+                page = pdf[i]
+                w, _h = page.get_size()
+                im = page.render(scale=width / max(w, 1)).to_pil().convert("RGB")
+                page.close()
             emit("pdf_page", QImage(im.tobytes("raw", "RGB"), im.width, im.height, 3 * im.width,
                                     QImage.Format_RGB888).copy())
     finally:
-        pdf.close()
+        with PDFIUM:
+            pdf.close()
 
 
 class _Bridge(QObject):

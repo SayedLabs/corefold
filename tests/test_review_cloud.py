@@ -203,3 +203,20 @@ def test_a_refused_address_is_logged_without_the_key_it_carries(caplog):
         cloud._request_once("GET", "http://files.example.com/a.zip?sig=KEY-SECRET", None, None, None, 5, True)
     assert "files.example.com/a.zip" in caplog.text
     assert "SECRET" not in caplog.text
+
+
+def test_a_moment_of_the_accounts_file_being_held_keeps_every_account(accounts_file, monkeypatch):
+    first = cloud.Account("onedrive", "a@example.com", refresh="r1")
+    cloud.remember_account(first)
+    real, held = cloud.Path.read_bytes, [2]  # (a virus scanner holds it for the first two tries)
+
+    def read_bytes(self):
+        if self == cloud.ACCOUNTS_FILE and held[0]:
+            held[0] -= 1
+            raise PermissionError(32, "being used by another process")
+        return real(self)
+    monkeypatch.setattr(cloud.Path, "read_bytes", read_bytes)
+    monkeypatch.setattr(cloud.time, "sleep", lambda _s: None)
+    cloud.remember_account(cloud.Account("dropbox", "b@example.com", refresh="r2"))
+    assert sorted(a.email for a in cloud.load_accounts()) == ["a@example.com", "b@example.com"]
+    assert not list(accounts_file.glob("accounts-unreadable-*"))  # (nothing put aside: it wasn't damaged)
