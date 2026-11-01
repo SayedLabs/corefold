@@ -83,7 +83,7 @@ def test_a_cleanup_writes_down_what_windows_deletes_at_restart(tmp_path, monkeyp
     monkeypatch.setattr(un, "_safe_folder", lambda path: True)
     monkeypatch.setattr(un, "_move", lambda a, b: (_ for _ in ()).throw(PermissionError("in use")))
     monkeypatch.setattr(un, "_move_files", lambda a, b: [str(src / "acme.dll")])
-    monkeypatch.setattr(un, "remove_on_restart", lambda paths: list(paths) + [str(src)])
+    monkeypatch.setattr(un, "remove_on_restart", lambda paths: (list(paths), [str(src)]))
     folder = tmp_path / "backup"
     folder.mkdir()
     item = un.Leftover(kind="folder", path=str(src), reason="install", level=3)

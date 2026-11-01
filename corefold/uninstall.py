@@ -1884,20 +1884,20 @@ def _move_files(src: Path, dest: Path, overwrite: bool = False) -> list[str]:
     return left
 
 
-def remove_on_restart(paths: list[str]) -> list[str]:
+def remove_on_restart(paths: list[str]) -> tuple[list[str], list[str]]:
     """Asks Windows to delete these files (and then their folders, once empty) when the PC restarts.
-    Needs administrator. Returns what Windows took (the files, then their folders): undoing the clean-up
-    takes back exactly those (cancel_on_restart)."""
+    Needs administrator. Returns the files and the folders Windows took: undoing the clean-up takes back
+    exactly those (cancel_on_restart)."""
     k32 = _dll("kernel32")
-    taken, parents = [], set()
+    files, folders, parents = [], [], set()
     for path in paths:
         if k32.MoveFileExW(path, None, 4):  # MOVEFILE_DELAY_UNTIL_REBOOT
-            taken.append(long_name(path))
+            files.append(long_name(path))
             parents.add(os.path.dirname(path))
     for folder in sorted(parents, key=len, reverse=True):
         if k32.MoveFileExW(folder, None, 4):  # Windows only removes it if it's empty by then
-            taken.append(long_name(folder))
-    return taken
+            folders.append(long_name(folder))
+    return files, folders
 
 
 def long_name(path: str) -> str:
@@ -2114,8 +2114,8 @@ def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, a
                     left = _move_files(src, dest)
                     if left and admin:  # still in use: Windows removes them when the PC restarts
                         record["left"] = len(left)
-                        record["pending"] = remove_on_restart(left)
-                        record["on_restart"] = len(set(record["pending"]) & set(left))
+                        files, folders = remove_on_restart(left)
+                        record["pending"], record["on_restart"] = files + folders, len(files)
                     # (the folders are made before each file is moved, so they're there even when no file
                     # could be: then nothing was taken, and only those empty folders go)
                     if not any(files for _r, _d, files in os.walk(dest)):  # nothing could be moved
