@@ -2957,4 +2957,12 @@ STRINGS: dict[str, str] = {
     "Too big to turn into a PDF": "PDF'ye dönüştürmek için çok büyük",
     "About {count} pictures.": "Yaklaşık {count} resim.",
     "Every frame: about 25 to 60 pictures for each second of video.": "Her kare: videonun her saniyesi için yaklaşık 25 ila 60 resim.",
+    "Save the map as a spreadsheet: every folder of 1 MB or more, and its biggest files": "Haritayı tablo olarak kaydet: 1 MB veya daha büyük her klasör ve en büyük dosyaları",
+    "File types": "Dosya türleri",
+    "No extension": "Uzantısız",
+    "What takes the room, by file type (.mp4, .iso…). Double-click a type to see its biggest files.": "Yeri ne kaplıyor, dosya türüne göre (.mp4, .iso…). En büyük dosyalarını görmek için bir türe çift tıklayın.",
+    "Path": "Yol",
+    "Size in bytes": "Bayt olarak boyut",
+    "Share of the folder above (%)": "Üst klasördeki payı (%)",
+    "Double-click to see its biggest files": "En büyük dosyalarını görmek için çift tıklayın",
 }
