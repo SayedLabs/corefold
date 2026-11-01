@@ -25,6 +25,8 @@ TOP_FILES = 48         # files remembered per folder (the rest are added up as "
 TOP_OVERALL = 100      # the biggest files of the whole drive
 TOP_KIND = 60          # the biggest files of each kind (videos, pictures…)
 TOP_OLD = 100          # the biggest files nobody has opened or changed for a year
+TOP_TYPE = 10          # the biggest files of each file type (.mp4, .iso…)
+KEEP_TYPES = 300       # file types kept after a look, biggest first (the rest are tiny)
 OLD_AFTER_DAYS = 365
 PROGRESS_EVERY = 2000  # entries between progress reports
 
@@ -49,6 +51,13 @@ KIND_OF = {f".{ext}": kind for kind, exts in _KIND_EXT.items() for ext in exts.s
 
 def kind_of(name: str) -> str:
     return KIND_OF.get(os.path.splitext(name)[1].lower(), "other")
+
+
+def type_of(name: str) -> str:
+    """A file's type, as its extension in lower case (".mp4"); "" when it has none, or when what follows
+    the last dot isn't one ("backup.2024-05-01", "Report v2.final copy")."""
+    ext = os.path.splitext(name)[1].lower()
+    return ext if 1 < len(ext) <= 12 and ext[1:].isalnum() else ""
 
 
 class Folder:
@@ -88,6 +97,8 @@ class Scan:
     kinds: dict = field(default_factory=dict)     # kind -> bytes
     biggest_kind: dict = field(default_factory=dict)  # kind -> (size, path) of its biggest files, biggest first
     old: list = field(default_factory=list)       # (size, path, last used) of big files untouched for a year
+    types: dict = field(default_factory=dict)     # file type (".mp4", "" for none) -> (bytes, files), biggest first
+    biggest_type: dict = field(default_factory=dict)  # file type -> (size, path) of its biggest files, biggest first
     grew: list = field(default_factory=list)      # (bytes more, path) since the last look, from remember()
     since: float = 0.0                            # when that last look was
     files: int = 0
@@ -152,6 +163,7 @@ def scan(root: Path, cancel: threading.Event | None = None, progress=None, worke
     biggest: list[tuple[int, str]] = []
     kinds = dict.fromkeys(KINDS, 0)
     by_kind: dict[str, list] = {k: [] for k in KINDS}
+    types: dict[str, list] = {}  # file type -> [bytes, files, its biggest files as a heap]
     old: list = []
     old_before = time.time() - OLD_AFTER_DAYS * 86400
     total = 0
@@ -208,6 +220,16 @@ def scan(root: Path, cancel: threading.Event | None = None, progress=None, worke
                         heapq.heappush(of_kind, (size, os.path.join(path, name)))
                     elif size > of_kind[0][0]:
                         heapq.heapreplace(of_kind, (size, os.path.join(path, name)))
+                    ext = type_of(name)
+                    of_type = types.get(ext)
+                    if of_type is None:
+                        of_type = types[ext] = [0, 0, []]
+                    of_type[0] += size
+                    of_type[1] += 1
+                    if len(of_type[2]) < TOP_TYPE:
+                        heapq.heappush(of_type[2], (size, os.path.join(path, name)))
+                    elif size > of_type[2][0][0]:
+                        heapq.heapreplace(of_type[2], (size, os.path.join(path, name)))
                     if len(heap) < TOP_FILES:
                         heapq.heappush(heap, (size, name))
                     elif size > heap[0][0]:
@@ -242,8 +264,42 @@ def scan(root: Path, cancel: threading.Event | None = None, progress=None, worke
     result.kinds = kinds
     result.biggest_kind = {k: sorted(v, reverse=True) for k, v in by_kind.items()}
     result.old = sorted(old, reverse=True)
+    kept = sorted(types.items(), key=lambda kv: kv[1][0], reverse=True)[:KEEP_TYPES]
+    result.types = {ext: (v[0], v[1]) for ext, v in kept}
+    result.biggest_type = {ext: sorted(v[2], reverse=True) for ext, v in kept}
     result.seconds = time.monotonic() - started
     return result
+
+
+# ----------------------------------------------------------------------------- the map as a spreadsheet
+
+def save_csv(result: Scan, out: Path, header: list[str], folder_word: str, file_word: str, size_text,
+             min_size: int = 1 << 20) -> int:
+    """Writes the map to a file a spreadsheet opens: every folder of at least min_size and the files it
+    remembers of that size, in the map's order (each folder followed by what's in it, biggest first).
+    header names the columns: path, what it is, bytes, size (size_text(bytes)), files, folders, share of
+    the folder above. The number of rows written."""
+    import csv
+    rows = 0
+    with open(out, "w", newline="", encoding="utf-8-sig") as f:  # (the mark lets Excel read Arabic)
+        w = csv.writer(f)
+        w.writerow(header)
+        todo = [(result.root, 0)]
+        while todo:
+            folder, above = todo.pop()
+            share = f"{folder.size * 100 / above:.1f}" if above else ""
+            w.writerow([str(folder.path), folder_word, folder.size, size_text(folder.size), folder.files,
+                        folder.folders, share])
+            rows += 1
+            base = folder.path
+            for size, name in folder.big:
+                if size < min_size:
+                    break
+                w.writerow([str(base / name), file_word, size, size_text(size), "", "",
+                            f"{size * 100 / folder.size:.1f}" if folder.size else ""])
+                rows += 1
+            todo.extend((c, folder.size) for c in reversed(folder.children) if c.size >= min_size)
+    return rows
 
 
 # ----------------------------------------------------------------------------- what grew since last time

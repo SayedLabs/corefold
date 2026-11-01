@@ -2957,4 +2957,12 @@ STRINGS: dict[str, str] = {
     "Too big to turn into a PDF": "Trop volumineux pour en faire un PDF",
     "About {count} pictures.": "Environ {count} images.",
     "Every frame: about 25 to 60 pictures for each second of video.": "Chaque image : environ 25 à 60 images par seconde de vidéo.",
+    "Save the map as a spreadsheet: every folder of 1 MB or more, and its biggest files": "Enregistrer la carte en tableur : chaque dossier de 1 Mo ou plus, et ses plus gros fichiers",
+    "File types": "Types de fichiers",
+    "No extension": "Sans extension",
+    "What takes the room, by file type (.mp4, .iso…). Double-click a type to see its biggest files.": "Ce qui prend la place, par type de fichier (.mp4, .iso…). Double-cliquez sur un type pour voir ses plus gros fichiers.",
+    "Path": "Chemin",
+    "Size in bytes": "Taille en octets",
+    "Share of the folder above (%)": "Part du dossier parent (%)",
+    "Double-click to see its biggest files": "Double-cliquez pour voir ses plus gros fichiers",
 }

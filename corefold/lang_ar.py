@@ -3030,4 +3030,12 @@ STRINGS: dict[str, str] = {
     "Save the picked files and folders on this PC": "احفظ الملفات والمجلدات المحددة على هذا الجهاز",
     "About {count} pictures.": "تقريبًا {count} صورة.",
     "Every frame: about 25 to 60 pictures for each second of video.": "كل لقطة: تقريبًا من 25 إلى 60 صورة لكل ثانية من الفيديو.",
+    "Save the map as a spreadsheet: every folder of 1 MB or more, and its biggest files": "احفظ الخريطة كجدول بيانات: كل مجلد حجمه 1 ميجابايت أو أكثر، وأكبر ملفاته",
+    "File types": "أنواع الملفات",
+    "No extension": "بلا امتداد",
+    "What takes the room, by file type (.mp4, .iso…). Double-click a type to see its biggest files.": "ما الذي يشغل المساحة، حسب نوع الملف (.mp4 و.iso…). انقر نقرًا مزدوجًا على نوع لترى أكبر ملفاته.",
+    "Path": "المسار",
+    "Size in bytes": "الحجم بالبايت",
+    "Share of the folder above (%)": "النسبة من المجلد الأعلى (%)",
+    "Double-click to see its biggest files": "انقر نقرًا مزدوجًا لترى أكبر ملفاته",
 }
