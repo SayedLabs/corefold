@@ -1,0 +1,28 @@
+
+errors:
+
+notes:
+round 1: 5 windows, 312 widgets, 95 MB, 52334 Python objects
+round 2: 5 windows, 312 widgets, 96 MB, 54278 Python objects
+round 3: 5 windows, 312 widgets, 97 MB, 53082 Python objects
+round 4: 5 windows, 312 widgets, 100 MB, 53413 Python objects
+round 5: 5 windows, 312 widgets, 100 MB, 53170 Python objects
+round 6: 5 windows, 312 widgets, 101 MB, 53254 Python objects
+round 7: 5 windows, 312 widgets, 105 MB, 53542 Python objects
+round 8: 5 windows, 312 widgets, 107 MB, 54722 Python objects
+round 9: 5 windows, 312 widgets, 107 MB, 53562 Python objects
+round 10: 5 windows, 312 widgets, 109 MB, 54810 Python objects
+grew 107 KB in 2484 blocks at threading.py:1075 > threading.py:1012 > app.py:1375 > shellmenu.py:143 > shellmenu.py:107
+grew 43 KB in 774 blocks at threading.py:1075 > threading.py:1012 > app.py:1375 > shellmenu.py:143 > shellmenu.py:115
+grew 42 KB in 378 blocks at threading.py:1012 > app.py:1375 > shellmenu.py:143 > shellmenu.py:107 > shellmenu.py:82
+grew 26 KB in 26 blocks at sweeptest.py:893 > sweeptest.py:235 > sweeptest.py:605 > sweeptest.py:558
+grew 16 KB in 94 blocks at sweeptest.py:893 > sweeptest.py:235 > sweeptest.py:598 > sweeptest.py:535
+grew 14 KB in 205 blocks at threading.py:1032 > threading.py:1075 > threading.py:1012 > app.py:1375 > shellmenu.py:144
+grew 13 KB in 225 blocks at threading.py:1075 > threading.py:1012 > app.py:1375 > shellmenu.py:143 > shellmenu.py:117
+grew 11 KB in 60 blocks at sweeptest.py:893 > sweeptest.py:235 > sweeptest.py:598 > sweeptest.py:545
+Python objects that grew: tuple +20175, Item +319, CField +44, QWidget +24, Verb +23, getset_descriptor +16, QScrollBar +12, list +9
+after the app tidies up: 112 MB; with the picture cache emptied too: 108 MB (picture cache limit 10 MB)
+after 10 opens: 104 MB, 15 widgets, 5 windows
+after 20 opens: 105 MB, 15 widgets, 5 windows
+after 30 opens: 105 MB, 15 widgets, 5 windows
+after 40 opens: 104 MB, 15 widgets, 5 windows
