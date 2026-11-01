@@ -45,6 +45,7 @@ KEEP_MAPS = 2             # drives (or folders) whose map is kept, so opening on
 FORGET_AFTER = 20 * 60    # seconds: maps not looked at for this long are let go (a big drive's map is big)
 SHARE = Qt.UserRole + 1   # a list row's share of the biggest row (its little bar)
 TINT = Qt.UserRole + 2    # …and the bar's colour
+TYPE = Qt.UserRole + 3    # a "File types" row's type (".mp4", "" for files with none)
 
 
 _work = work.run
@@ -764,6 +765,7 @@ class SpacePage(QWidget):
         self._live = [self.cancel]
         self.destroyed.connect(lambda *_a, live=self._live: live[0].set())
         self._recycling = None    # (the Recycle Bin job of the map, kept while it runs)
+        self._saving = None       # (the job writing the map to a spreadsheet, kept while it runs)
         self.job = None
         self.junk: list[space.Junk] = []
         self.dupes: list = []
@@ -781,14 +783,15 @@ class SpacePage(QWidget):
         tabs = QHBoxLayout()
         tabs.setSpacing(6)
         strip = QFrame()
-        strip.setObjectName("segmented")
+        strip.setObjectName("useBar")  # (the same bar as Corefold Files' uses)
         sl = QHBoxLayout(strip)
-        sl.setContentsMargins(3, 3, 3, 3)
+        sl.setContentsMargins(4, 4, 4, 4)
         sl.setSpacing(2)
         self.section_buttons = QButtonGroup(self)
         for key, text in SECTIONS:
             b = QPushButton(" " + tr(text))  # (a little room after the icon)
-            b.setObjectName("segment")
+            b.setObjectName("useTab")
+            b.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             b.setCheckable(True)
             b.setCursor(Qt.PointingHandCursor)
             b.setChecked(key == "map")
@@ -796,8 +799,7 @@ class SpacePage(QWidget):
             b.clicked.connect(lambda _=False, k=key: self.show_section(k))
             self.section_buttons.addButton(b)
             sl.addWidget(b)
-        tabs.addWidget(strip)
-        tabs.addStretch()
+        tabs.addWidget(strip, 1)
         lay.addLayout(tabs)
         self.sections = QStackedWidget()
         self.sections.addWidget(self._map_section())
@@ -899,9 +901,14 @@ class SpacePage(QWidget):
         self.again_btn = _button(tr("Look again"), "ghost", self._rescan)
         self.again_btn.setToolTip(tr("Look through it again, to see what changed since"))
         self.drives_btn = _button(tr("Other drives"), "ghost", self._back_to_drives)
-        self._icon_buttons = [(self.again_btn, "arrow_clockwise"), (self.drives_btn, "hard_drive")]
+        self.save_btn = _button("", "ghost", self._save_list)
+        self.save_btn.setToolTip(tr("Save the map as a spreadsheet: every folder of 1 MB or more, and its biggest files"))
+        self.save_btn.setAccessibleName(tr("Save the list…"))
+        self._icon_buttons = [(self.again_btn, "arrow_clockwise"), (self.drives_btn, "hard_drive"),
+                              (self.save_btn, "arrow_download")]
         nav.addWidget(self.back_btn)
         nav.addWidget(self.where, 1)
+        nav.addWidget(self.save_btn)
         nav.addWidget(self.again_btn)
         nav.addWidget(self.drives_btn)
         ml.addLayout(nav)
@@ -918,7 +925,8 @@ class SpacePage(QWidget):
         side.setSpacing(8)
         self.list_mode = "here"
         self.big_kind = ""             # the biggest files of one kind only ("video"…), from the kinds below
-        self.modes = ["here", "big", "old", "grew"]
+        self.big_type: str | None = None  # …or of one file type only (".iso"), from "File types"
+        self.modes = ["here", "big", "types", "old", "grew"]
         self.mode_box = Dropdown()
         self.mode_box.setAccessibleName(tr("Show"))
         self.mode_box.currentIndexChanged.connect(self._mode_picked)
@@ -1112,9 +1120,19 @@ class SpacePage(QWidget):
 
     def _show_kind(self, kind: str):
         """The biggest videos (or pictures, music…) of the whole scan; clicked again, all kinds."""
-        same = self.list_mode == "big" and self.big_kind == kind
+        same = self.list_mode == "big" and self.big_kind == kind and self.big_type is None
         self.big_kind = "" if same else kind
+        self.big_type = None
         self._list_mode("big")
+
+    def _show_type(self, ext: str):
+        """The biggest files of one file type (".iso") of the whole scan."""
+        self.big_kind, self.big_type = "", ext
+        self._list_mode("big")
+
+    @staticmethod
+    def _type_name(ext: str) -> str:
+        return ltr(ext) if ext else tr("No extension")
 
     def _summary(self):
         s, f = self.scan, self.here
@@ -1203,17 +1221,22 @@ class SpacePage(QWidget):
         """What the list beside the map shows: this folder, the biggest files (of one kind), the ones
         unused for a year, what grew since the last look."""
         names = {"here": tr("In this folder"),
-                 "big": tr("Biggest files") if not self.big_kind else
-                 tr("Biggest: {kind}", kind=tr(space.KINDS[self.big_kind])),
+                 "big": tr("Biggest files") if not self.big_kind and self.big_type is None else
+                 tr("Biggest: {kind}", kind=tr(space.KINDS[self.big_kind]) if self.big_kind else
+                    self._type_name(self.big_type)),
+                 "types": tr("File types"),
                  "old": tr("Unused for a year")}
         since = self.scan.since if self.scan is not None else 0
         if since:
             names["grew"] = tr("Grew since {date}", date=time.strftime("%Y-%m-%d", time.localtime(since)))
-        self.modes = [m for m in ("here", "big", "old", "grew") if m in names]
+        self.modes = [m for m in ("here", "big", "types", "old", "grew") if m in names]
         self.mode_box.blockSignals(True)
         self.mode_box.clear()
         for m in self.modes:
             self.mode_box.addItem(names[m])
+        self.mode_box.setItemData(self.modes.index("types"), tr("What takes the room, by file type (.mp4, .iso…). "
+                                                                "Double-click a type to see its biggest files."),
+                                  Qt.ToolTipRole)
         self.mode_box.setItemData(self.modes.index("old"), tr("Big files nobody has opened or changed for over a year"),
                                   Qt.ToolTipRole)
         self.mode_box.setCurrentIndex(self.modes.index(self.list_mode) if self.list_mode in self.modes else 0)
@@ -1223,12 +1246,12 @@ class SpacePage(QWidget):
         if 0 <= i < len(self.modes):
             mode = self.modes[i]
             if mode == "big":
-                self.big_kind = ""
+                self.big_kind, self.big_type = "", None
             self._list_mode(mode)
 
     def _list_mode(self, mode: str):
         if mode != "big":
-            self.big_kind = ""
+            self.big_kind, self.big_type = "", None
         self.list_mode = mode
         self._fill_modes()
         self._fill_list()
@@ -1240,9 +1263,15 @@ class SpacePage(QWidget):
             return
         rows = []
         if self.list_mode == "big":
-            biggest = self.scan.biggest_kind.get(self.big_kind, []) if self.big_kind else self.scan.biggest
+            if self.big_type is not None:
+                biggest = self.scan.biggest_type.get(self.big_type, [])
+            else:
+                biggest = self.scan.biggest_kind.get(self.big_kind, []) if self.big_kind else self.scan.biggest
             for size, path in biggest:
                 rows.append((ltr(short_name(Path(path).name, 60)), size, Path(path), None, path))
+        elif self.list_mode == "types":
+            self._fill_types()
+            return
         elif self.list_mode == "old":
             for size, path, used in self.scan.old:
                 when = time.strftime("%Y-%m-%d", time.localtime(used))
@@ -1281,7 +1310,25 @@ class SpacePage(QWidget):
                 it.setToolTip(0, tip)
             self.items.addTopLevelItem(it)
 
+    def _fill_types(self):
+        """Every file type of the scan, biggest first: how much room it takes and in how many files."""
+        types = self.scan.types
+        top = max((size for size, _ in types.values()), default=0) or 1
+        for ext, (size, count) in types.items():
+            files = tr("1 file") if count == 1 else tr("{count} files", count=f"{count:,}")
+            it = QTreeWidgetItem([f"{self._type_name(ext)}   ·   {files}", human_size(size)])
+            it.setTextAlignment(1, Qt.AlignRight | Qt.AlignVCenter)
+            it.setData(0, TYPE, ext)
+            it.setData(0, SHARE, size / top)
+            it.setData(0, TINT, QColor(KIND_COLORS[space.kind_of("x" + ext)]))
+            it.setToolTip(0, tr("Double-click to see its biggest files"))
+            self.items.addTopLevelItem(it)
+
     def _list_open(self, item):
+        ext = item.data(0, TYPE)
+        if ext is not None:
+            self._show_type(ext)
+            return
         path, folder = item.data(0, Qt.UserRole) or (None, None)
         if folder is not None:
             self.open_folder(folder)
@@ -1295,6 +1342,37 @@ class SpacePage(QWidget):
         path, folder = item.data(0, Qt.UserRole) or (None, None)
         if path is not None:
             self._menu(path, folder, self.items.viewport().mapToGlobal(pos))
+
+    def _save_list(self):
+        """Saves the map to a file a spreadsheet opens (TreeSize and WizTree do the same): to keep, to
+        compare later, or to send to someone helping."""
+        result = self.scan
+        if result is None or self._saving is not None:
+            return
+        root = result.root.path
+        name = root.name or root.drive.rstrip(":\\") or "drive"
+        start = str(Path.home() / "Desktop" / f"{tr('Disk map')} {name}.csv")
+        path, _ = QFileDialog.getSaveFileName(self, tr("Save the list…"), start, tr("Spreadsheet (*.csv)"))
+        if not path:
+            return
+        header = [tr("Path"), tr("Type"), tr("Size in bytes"), tr("Size"), tr("Files"), tr("Folders"),
+                  tr("Share of the folder above (%)")]
+        folder_word, file_word = tr("Folder"), tr("File")
+        out = Path(path)
+
+        def go(_progress):
+            return space.save_csv(result, out, header, folder_word, file_word,
+                                  lambda n: human_size(n).strip("\u202a\u202c"))
+
+        def done(rows):
+            self._saving = None
+            if isinstance(rows, Exception):
+                sheet.warning(self, tr("Save the list…"), tr("Couldn't save the list: {error}", error=str(rows)))
+                return
+            self.c.toast.notify(tr("Saved"), short_name(out.name), tr("Show in folder"),
+                                lambda: reveal_in_explorer(out))
+
+        self._saving = _work(go, lambda _: None, done)
 
     def _menu(self, path: Path, folder, pos: QPoint):
         menu = QMenu(self)

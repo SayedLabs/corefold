@@ -461,13 +461,15 @@ def _preview_base(src: Path):
             base = Image.open(io.BytesIO(data)).convert("RGBA") if data else None
         elif src.suffix.lower() == ".pdf":
             import pypdfium2 as pdfium
-            pdf = pdfium.PdfDocument(str(src))
-            try:
-                page = pdf[0]
-                base = page.render(scale=640 / max(page.get_width(), page.get_height(), 1)).to_pil().convert("RGBA")
-                page.close()
-            finally:
-                pdf.close()
+            from .pdftools import PDFIUM  # (PDFium can't do two things at once: a PDF job may be using it)
+            with PDFIUM:
+                pdf = pdfium.PdfDocument(str(src))
+                try:
+                    page = pdf[0]
+                    base = page.render(scale=640 / max(page.get_width(), page.get_height(), 1)).to_pil().convert("RGBA")
+                    page.close()
+                finally:
+                    pdf.close()
         else:
             base = load_image(src).convert("RGBA")
             base.thumbnail((640, 640))

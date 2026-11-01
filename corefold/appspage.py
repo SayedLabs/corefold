@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QDialog, QFileIconP
                                QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from . import uninstall as un
-from . import sheet
+from . import i18n, sheet
 from .atomic.widgets import Dropdown
 from .core import LEGACY_NAME, human_size, short_name
 from .i18n import tr, ltr
@@ -127,6 +127,16 @@ def _shown(app: un.App, show: str, months: int = 3) -> bool:
     if show == "extras":
         return un.is_windows_extra(app)
     return True
+
+
+def _installed(date: str) -> str:
+    """When an app was installed ("2026-01-29"), written the way the person's Windows writes dates."""
+    if not date:
+        return ""
+    from PySide6.QtCore import QDate
+    from .timefmt import latin_digits, locale
+    day = QDate.fromString(date, "yyyy-MM-dd")
+    return latin_digits(locale().toString(day, "d MMM yyyy")) if day.isValid() else date
 
 
 def _when(ts: float) -> str:
@@ -313,7 +323,10 @@ class AppsPage(QWidget):
         h = self.tree.header()
         h.setStretchLastSection(False)
         h.setSectionResizeMode(0, QHeaderView.Stretch)
-        for col in (1, 2, 3, 4):
+        # (the publisher gets a set width, so a long one doesn't squeeze the names: it's cut short with …)
+        h.setSectionResizeMode(1, QHeaderView.Interactive)
+        h.resizeSection(1, 170)
+        for col in (2, 3, 4):
             h.setSectionResizeMode(col, QHeaderView.ResizeToContents)
         self.tree.itemSelectionChanged.connect(self._selection)
         self.tree.itemDoubleClicked.connect(lambda *_: self.uninstall_selected())
@@ -441,7 +454,9 @@ class AppsPage(QWidget):
         self._items = {}
         for app in apps:
             item = SortItem([ltr(app.name), ltr(app.publisher), human_size(app.size) if app.size else "",
-                             app.date, _when(app.last_used)])
+                             _installed(app.date), _when(app.last_used)])
+            if not _icon_path(app):  # (no icon of its own: a plain one, so its name lines up with the others)
+                item.setIcon(0, self._plain_icon())
             item.setData(0, APP_ROLE, app)
             item.setData(2, SORT_ROLE, app.size)
             item.setData(3, SORT_ROLE, app.date or "0")
@@ -490,6 +505,13 @@ class AppsPage(QWidget):
             self._icon_paths = wanted
             self.icon_timer.start(15)
 
+    def _plain_icon(self) -> QIcon:
+        if getattr(self, "_plain", None) is None:
+            from . import icons
+            theme = self.c.theme if self.c is not None else None
+            self._plain = icons.icon("apps", theme.muted if theme is not None else "#888888")
+        return self._plain
+
     def _icon_made(self, path: str, image):
         self._show_icon(path, QIcon(QPixmap.fromImage(image)))
 
@@ -536,16 +558,16 @@ class AppsPage(QWidget):
         shown = [self.tree.topLevelItem(i).data(0, APP_ROLE) for i in range(self.tree.topLevelItemCount())
                  if not self.tree.topLevelItem(i).isHidden()]
         total = sum(a.size for a in shown)
-        text = tr("{count} apps · {size}", count=len(shown), size=human_size(total))
+        bits = [tr("{count} apps · {size}", count=len(shown), size=i18n.isolate(human_size(total)))]
         months = _months(self.c)
         unused = sum(1 for a in self.apps if _shown(a, "unused", months) and (not a.store or self.store.isChecked()))
         if unused and (self.show_only.currentData() or "all") == "all":
-            text += " · " + tr(UNUSED[months][1], count=unused)
+            bits.append(tr(UNUSED[months][1], count=unused))
         if self.phase == "store":
-            text += " · " + tr("Loading Store apps…")
+            bits.append(tr("Loading Store apps…"))
         elif self.phase == "sizes":
-            text += " · " + tr("Working out sizes…")
-        self.status.setText(text if self.loaded else tr("Loading the list of apps…"))
+            bits.append(tr("Working out sizes…"))
+        self.status.setText(i18n.join(bits) if self.loaded else tr("Loading the list of apps…"))
 
     def _selected(self) -> list[un.App]:
         return [i.data(0, APP_ROLE) for i in self.tree.selectedItems()]

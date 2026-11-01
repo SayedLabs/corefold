@@ -388,22 +388,19 @@ for code in ["ar", "fr", "es", "tr", "system", "en", "ar", "en"]:
     w.grab().save(str(OUT / f"{TAG}-switch-{code}.png"))
 check(alive_windows() <= before + 1, f"old windows are let go ({alive_windows()} window(s))")
 
-# ---- 3. Settings > General > Language, then Save: also straight away
+# ---- 3. Settings > General > Language: kept as it's picked (no Save button), also straight away
 
 w = c.window
 w.open_page("General")
 settle(0.5)
 i = w.language.findData("fr")
 w.language.setCurrentIndex(i)
-settle(0.2)
-check(i18n.language() == "en", "the Language list waits for Save")
-check(w.save_btn.isVisible(), "Save shows")
-QTest.mouseClick(w.save_btn, Qt.LeftButton, Qt.NoModifier, w.save_btn.rect().center())
+check(not w.save_btn.isVisible(), "no Save button: settings are kept as they're changed")
 end = time.time() + 15
 while time.time() < end and i18n.language() != "fr":
     settle(0.05)
 settle(0.6)
-check(i18n.language() == "fr", "Save puts Corefold in French straight away")
+check(i18n.language() == "fr", "picking French puts Corefold in French straight away")
 check(not restarted, "... with no restart")
 check(c.window.current_page() == "General" and not c.window.is_dirty(), "... still on General, nothing left to save")
 note("back to English")

@@ -3,6 +3,7 @@ password never goes on a command line or into a log, Undo never writes over a fi
 a part of Windows, and Cloud never offers an online sign-in it can't do."""
 import io
 import os
+import sys
 import tarfile
 import zipfile
 from pathlib import Path
@@ -344,3 +345,22 @@ def test_names_windows_keeps_for_itself_are_still_unpacked(tmp_path):
     archives._unpack(src, out, Ctx(Options()), "")
     got = sorted(p.read_text("utf-8") for p in out.rglob("*") if p.is_file())
     assert got == sorted(texts.values())
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="junctions are a Windows thing")
+def test_moving_files_one_by_one_never_goes_into_a_junction(tmp_path):
+    import _winapi
+    from corefold import uninstall
+    target = tmp_path / "D-data" / "Saves"
+    (target / "empty-sub").mkdir(parents=True)
+    (target / "save1.dat").write_text("progress")
+    src, dest = tmp_path / "Game", tmp_path / "backup"
+    (src / "bin").mkdir(parents=True)
+    (src / "bin" / "game.exe").write_text("x")
+    _winapi.CreateJunction(str(target), str(src / "Saves"))
+    assert uninstall._move_files(src, dest) == []
+    assert (dest / "bin" / "game.exe").exists()
+    assert (target / "empty-sub").is_dir()  # (the folder it points at keeps even its empty folders)
+    assert os.path.lexists(src / "Saves")  # (and the junction isn't dropped on the way: it's left where it was)
+    assert (target / "save1.dat").read_text() == "progress"
+
