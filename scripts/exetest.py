@@ -121,7 +121,8 @@ try:
             if tool.id in all_tools.PAUSED_TOOLS and not all_tools.section_paused(sec):
                 # (resting on its own in a section that's in use: no switch, no tab, nothing to open)
                 check(not switch, f"{tool.id} rests: no switch for it in {sec.name}")
-                tab = [b for b in win.descendants(control_type="Button") if b.window_text() in (tool.nav, tool.use)]
+                names = {n for n in (tool.nav, tool.use) if n}  # (a tool with no use name: not every unnamed button)
+                tab = [b for b in win.descendants(control_type="Button") if b.window_text() in names]
                 check(not tab, f"{tool.id} rests: no tab or card for it in {sec.name}")
                 continue
             if all_tools.state(tool.id) != all_tools.AVAILABLE:  # (its section rests: shown, never switched on)
