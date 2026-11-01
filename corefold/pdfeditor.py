@@ -16,14 +16,14 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QObject, QPoint, QPointF, QRectF, QSize, Qt, QTimer, Signal
+from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, QRectF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import (QColor, QFontMetricsF, QIcon, QImage, QKeySequence, QPainter,
                            QPainterPath, QPen, QPixmap, QShortcut, QTextCursor, QTransform)
-from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFileDialog, QFrame, QGraphicsItem,
-                               QGraphicsObject, QGraphicsScene, QGraphicsTextItem, QGraphicsView, QHBoxLayout,
-                               QLabel, QLineEdit, QListView, QListWidget, QListWidgetItem, QMenu, QMessageBox,
-                               QPlainTextEdit, QPushButton, QSizePolicy, QSpinBox,
-                               QStyleOptionGraphicsItem, QStyle, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QFileDialog, QFrame, QGraphicsItem,
+                               QGraphicsObject, QGraphicsScene, QGraphicsTextItem, QGraphicsView, QGridLayout,
+                               QHBoxLayout, QLabel, QLineEdit, QListView, QListWidget, QListWidgetItem, QMenu,
+                               QMessageBox, QPlainTextEdit, QPushButton, QScrollArea, QSizePolicy, QSlider, QSpinBox,
+                               QStyleOptionGraphicsItem, QStyle, QToolButton, QVBoxLayout, QWidget)
 
 from . import icons, pdfedit, pdffonts, pdftools, sheet, work
 from .atomic import tokens
@@ -42,11 +42,12 @@ MAX_PIXELS = 22_000_000  # the biggest picture of one page kept (a page zoomed f
 KEEP_NEAR = 2            # pages kept sharp around the ones in sight
 THUMBS = 60              # small pictures kept of pages scrolled past (so they're never blank when back)
 ZOOMS = (0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 4.0)
-# the tools: (key, words on the button, icon). Some have kinds, picked in the bar under them.
+# the tools: (key, words on the button, icon). Some have kinds, picked in the panel at the side.
 TOOLS = [("select", "Select", "cursor"), ("edit", "Edit text", "text_edit_style"), ("text", "Add text", "textbox"),
          ("image", "Picture", "image_add"), ("sign", "Sign", "signature"), ("mark", "Highlight", "highlight"),
-         ("draw", "Draw", "pen"), ("shape", "Shapes", "shapes"), ("cover", "Cover", "eraser"),
-         ("note", "Note", "note")]
+         ("draw", "Draw", "pen"), ("shape", "Shapes", "shapes"), ("note", "Note", "note"), ("link", "Link", "link"),
+         ("cover", "Cover", "redact")]
+TOOL_GROUPS = (("select",), ("edit", "text", "image", "sign"), ("mark", "draw", "shape", "note", "link"), ("cover",))
 MARKS = [("highlight", "Highlight", "highlight"), ("underline", "Underline", "text_underline"),
          ("strike", "Cross out", "text_strikethrough")]
 SHAPES = [("rect", "Rectangle", "rectangle_landscape"), ("ellipse", "Circle", "circle"),
@@ -54,16 +55,43 @@ SHAPES = [("rect", "Rectangle", "rectangle_landscape"), ("ellipse", "Circle", "c
 MARK_KEYS = {k for k, _, _ in MARKS}
 SHAPE_KEYS = {k for k, _, _ in SHAPES}
 HINTS = {"select": "Click something to select it and drag it to move it. Double-click text to change it.",
-         "edit": "Click a line of the PDF's own text to change it. Lines that can be changed have a box around them.",
-         "text": "Click where the text should go, then type.",
+         "edit": "Click a paragraph or a line of the PDF's own text to change it. What can be changed has a box "
+                 "around it.",
+         "text": "Click where the text should go, then type. Drag the square at its corner to make it wrap.",
          "highlight": "Drag across words to highlight them.",
          "underline": "Drag across words to underline them.",
          "strike": "Drag across words to cross them out.",
          "draw": "Draw with the mouse or a pen.",
          "shape": "Drag to draw the shape.",
          "cover": "Drag over what should be hidden. What's under it is taken out of the file, not just hidden.",
-         "note": "Click where the note should go."}
+         "note": "Click where the note should go.",
+         "link": "Drag over the words or the place that should open the link, then type where it goes."}
+# what the panel at the side is called for each thing (selected, or the tool's)
+TITLES = {"select": "Select", "edit": "Edit text", "text": "Text", "image": "Picture", "move": "Moved part",
+          "cover": "Cover", "shape": "Shape", "draw": "Drawing", "highlight": "Highlight", "underline": "Underline",
+          "strike": "Cross out", "note": "Note", "link": "Link", "line": "The PDF's own text",
+          "picture": "The PDF's own picture"}
+ALIGN_KEYS = [("left", "Align left", "align_left"), ("center", "Centre", "align_center"),
+              ("right", "Align right", "align_right"), ("justify", "Justify", "align_justify")]
+# line spacing: (words, from one line to the next in text sizes; None: the font's own)
+SPACINGS = [("Tight", 1.0), ("Single", None), ("1.5 lines", 1.75), ("Double", 2.3)]
 WIDTHS = {"Thin": 1.0, "Medium": 2.5, "Thick": 5.0}
+FILLS = ["", "#ffffff", "#000000", "#ffe066", "#f8bbd0", "#bbdefb", "#c8e6c9"]
+# what can be changed in the panel, for each kind of thing
+STYLE_KEYS = {"text": ("font", "size", "color", "bold", "italic", "underline", "align", "spacing", "opacity"),
+              "draw": ("color", "width", "opacity"), "shape": ("color", "width", "fill", "opacity"),
+              "image": ("opacity",)}
+OPACITY_KINDS = {"text", "draw", "shape", "image"}
+SELECTED_HINTS = {"text": "Double-click to change the words. Drag the square at its corner to make the lines wrap.",
+                  "line": "Double-click to change these words, or drag them somewhere else.",
+                  "picture": "Drag it to move it. Delete takes it out of the file.",
+                  "image": "Drag the square at its corner to make it bigger or smaller.",
+                  "link": "Drag the square at its corner to make the link's place bigger or smaller.",
+                  "cover": "What's under it is taken out of the file when it's saved."}
+INSPECTOR_WIDTH = 240
+ITEMS_MIME = "application/x-corefold-pdf-items"  # (what's added on the pages, copied)
+COPYABLE = {"text", "image", "cover", "rect", "ellipse", "line", "arrow", "ink", "highlight", "underline", "strike",
+            "note", "link"}
 INK = ["#000000", "#1f3a93", "#d32f2f", "#2e7d32", "#f57c00", "#7b1fa2", "#ffffff"]
 PENS = ["#ffd400", "#7cf27c", "#ff8ad8", "#7ec8ff", "#ffb35c"]
 FIELD_TINT = QColor(70, 130, 255, 38)
@@ -197,6 +225,7 @@ class PageItem(QGraphicsItem):
         self.layout: dict | None = None
         self.asked_layout = False
         self.pieces: list[OldPiece] = []
+        self.blank = False                     # a blank page added in the editor (nothing of the PDF's on it)
         self.setZValue(0)
 
     def boundingRect(self) -> QRectF:
@@ -251,7 +280,10 @@ class Handle(QGraphicsItem):
         parent.resize_to(parent.mapFromScene(e.scenePos()))
 
     def mouseReleaseEvent(self, e):
-        self.parentItem().editor.commit()
+        parent = self.parentItem()
+        if hasattr(parent, "resized"):
+            parent.resized()
+        parent.editor.commit()
 
 
 def _selection_pen() -> QPen:
@@ -271,6 +303,12 @@ class Mark(QGraphicsObject):
                       QGraphicsItem.ItemSendsGeometryChanges)
         self.setZValue(2)
         self.setAcceptHoverEvents(True)
+        self.setOpacity(_opacity(self.d))
+
+    def restyle(self):
+        self.setOpacity(_opacity(self.d))
+        self.prepareGeometryChange()
+        self.update()
 
     def itemChange(self, change, value):
         if change == QGraphicsItem.ItemPositionChange and self.page is not None:
@@ -321,7 +359,18 @@ class BoxMark(Mark):
 
     def paint(self, p, option, widget=None):
         rect = QRectF(0, 0, self.w, self.h)
-        if self.kind == "cover":
+        if self.kind == "link":
+            accent = tokens.current().accent
+            p.fillRect(rect, tokens.alpha(accent, 34))
+            pen = QPen(accent if self.d.get("url") or self.d.get("target") is not None else QColor("#d32f2f"),
+                       1, Qt.DashLine)
+            pen.setCosmetic(True)
+            p.setPen(pen)
+            p.drawRect(rect)
+            side = min(12.0, self.h - 2, self.w - 2)
+            if side > 5:
+                icons.paint(p, QRectF(2, 2, side, side), "link", accent)
+        elif self.kind == "cover":
             p.fillRect(rect, QColor(self.d.get("color", "#ffffff")))
             if self.d.get("color", "#ffffff").lower() == "#ffffff" and not self.isSelected():
                 pen = QPen(QColor(0, 0, 0, 30), 1, Qt.DotLine)
@@ -330,7 +379,16 @@ class BoxMark(Mark):
                 p.drawRect(rect)
         elif self.pixmap is not None:
             p.setRenderHint(QPainter.SmoothPixmapTransform, True)
-            p.drawPixmap(rect, self.pixmap, QRectF(self.pixmap.rect()))
+            turn = int(self.d.get("turn", 0)) % 360
+            if turn:
+                p.save()
+                p.translate(rect.center())
+                p.rotate(turn)
+                w, h = (rect.height(), rect.width()) if turn in (90, 270) else (rect.width(), rect.height())
+                p.drawPixmap(QRectF(-w / 2, -h / 2, w, h), self.pixmap, QRectF(self.pixmap.rect()))
+                p.restore()
+            else:
+                p.drawPixmap(rect, self.pixmap, QRectF(self.pixmap.rect()))
         self._outline(p)
 
     def resize_to(self, pt: QPointF):
@@ -382,7 +440,9 @@ class ShapeMark(Mark):
         return path
 
     def paint(self, p, option, widget=None):
-        pdfedit.draw_mark(p, dict(self.d, points=[self.a.x(), self.a.y(), self.b.x(), self.b.y()]))
+        d = dict(self.d, points=[self.a.x(), self.a.y(), self.b.x(), self.b.y()])
+        d.pop("opacity", None)  # (the whole item is see-through already)
+        pdfedit.draw_mark(p, d)
         if self.isSelected():
             p.setPen(_selection_pen())
             p.setBrush(Qt.NoBrush)
@@ -540,8 +600,11 @@ class TextMark(QGraphicsTextItem):
         if d.get("rtl"):
             self.anchor = self.x() + self.boundingRect().width()
         self._fonting = False
+        self.handle = Handle(self)
+        self.handle.setCursor(Qt.SizeHorCursor)
         self.document().contentsChanged.connect(self._grown)
         self.document().contentsChanged.connect(self._arabic_font)
+        self._grown()
 
     def _arabic_font(self):
         """Arabic typed in a line whose Arabic words have a font of their own goes in that font."""
@@ -556,14 +619,33 @@ class TextMark(QGraphicsTextItem):
         pdfedit.text_document(self.d, self.document())
         self.setDefaultTextColor(QColor(self.d.get("color", "#000000")))
         self.setFont(pdfedit.font_for(self.d))
+        self.setOpacity(_opacity(self.d))
         self._grown()
 
     def _grown(self):
         doc = self.document()
-        doc.setTextWidth(-1)
-        doc.setTextWidth(max(4.0, doc.idealWidth()))
+        if self.d.get("width"):  # (a box of its own width: the words wrap in it, like a paragraph's)
+            doc.setTextWidth(float(self.d["width"]))
+        else:
+            doc.setTextWidth(-1)
+            doc.setTextWidth(max(4.0, doc.idealWidth()))
         if self.anchor is not None:
             self.setX(self.anchor - self.boundingRect().width())
+        handle = getattr(self, "handle", None)
+        if handle is not None:
+            r = self.boundingRect()
+            handle.setPos(r.right(), r.bottom())
+
+    def resize_to(self, pt: QPointF):
+        """The square at the corner was dragged: the box is that wide, and the words wrap in it."""
+        if self.anchor is not None:  # (right-to-left text kept its right edge: it now has a width of its own)
+            self.anchor = None
+            self.d.setdefault("align", "right")
+        self.d["width"] = round(max(24.0, pt.x()), 2)
+        self.restyle()
+
+    def resized(self):
+        self.editor.selection_changed()
 
     def text(self) -> str:
         return self.document().toPlainText()
@@ -605,7 +687,13 @@ class TextMark(QGraphicsTextItem):
         super().focusOutEvent(e)
         # (a menu opening, or another window coming to the front, doesn't stop the typing)
         if e.reason() not in (Qt.PopupFocusReason, Qt.ActiveWindowFocusReason):
-            QTimer.singleShot(0, self.end_edit)
+            QTimer.singleShot(0, self._maybe_end)
+
+    def _maybe_end(self):
+        # (the options at the side, or the list of fonts, being used for the words being typed: still typing)
+        if self.editor.keeps_typing(QApplication.focusWidget()):
+            return
+        self.end_edit()
 
     def keyPressEvent(self, e):
         if e.key() == Qt.Key_Escape:
@@ -631,6 +719,7 @@ class TextMark(QGraphicsTextItem):
                 self.editor.dragging_items:
             self.anchor = self.x() + self.boundingRect().width()
         if change == QGraphicsItem.ItemSelectedHasChanged:
+            self.handle.setVisible(bool(value))
             self.editor.selection_changed()
         return super().itemChange(change, value)
 
@@ -675,24 +764,27 @@ class OldPiece(QGraphicsObject):
 
     def paint(self, p, option, widget=None):
         tool = self.editor.tool
+        hot = self.hover or self.editor.para_hot(self)
         if self.isSelected():
             p.setPen(_selection_pen())
-        elif self.hover or (tool == "edit" and self.kind == "line"):
-            pen = QPen(tokens.alpha(tokens.current().accent, 230 if self.hover else 110), 1,
-                       Qt.SolidLine if self.hover else Qt.DashLine)
+        elif hot or (tool == "edit" and self.kind == "line"):
+            pen = QPen(tokens.alpha(tokens.current().accent, 230 if hot else 110), 1,
+                       Qt.SolidLine if hot else Qt.DashLine)
             pen.setCosmetic(True)
             p.setPen(pen)
         else:
             return
-        p.setBrush(tokens.alpha(tokens.current().accent, 26) if self.hover else Qt.NoBrush)
+        p.setBrush(tokens.alpha(tokens.current().accent, 26) if hot else Qt.NoBrush)
         p.drawRect(self.rect.adjusted(-1, -1, 1, 1))
 
     def hoverEnterEvent(self, e):
         self.hover = True
+        self.editor.hover_piece(self, True)
         self.update()
 
     def hoverLeaveEvent(self, e):
         self.hover = False
+        self.editor.hover_piece(self, False)
         self.update()
 
     def mousePressEvent(self, e):
@@ -1035,13 +1127,15 @@ class EditorView(QGraphicsView):
                                                  "color": ed.style[tool]["color"]}, commit=False)
             else:
                 item.set_rects(rects)
-        elif tool == "cover":
+        elif tool in ("cover", "link"):
             r = QRectF(self.drag["start"], pt).normalized()
             if item is not None:
                 ed.drop_item(item, commit=False)
-            self.drag["item"] = ed.add_item({"kind": "cover", "page": page.index, "x": r.x(), "y": r.y(),
-                                             "w": max(r.width(), 1), "h": max(r.height(), 1),
-                                             "color": ed.style["cover"]["color"]}, commit=False)
+            d = {"kind": tool, "page": page.index, "x": r.x(), "y": r.y(), "w": max(r.width(), 1),
+                 "h": max(r.height(), 1)}
+            if tool == "cover":
+                d["color"] = ed.style["cover"]["color"]
+            self.drag["item"] = ed.add_item(d, commit=False)
         elif tool in ("rect", "ellipse", "line", "arrow"):
             if item is None:
                 st = ed.style["shape"]
@@ -1071,16 +1165,19 @@ class EditorView(QGraphicsView):
         if drag["tool"] in ("highlight", "underline", "strike") and not item.rects:
             ed.drop_item(item)
             return
-        if drag["tool"] in ("rect", "ellipse", "line", "arrow", "cover"):
-            r = item.boundingRect()
-            if drag["tool"] == "cover" and (item.w < 3 or item.h < 3):
+        if drag["tool"] in ("rect", "ellipse", "line", "arrow", "cover", "link"):
+            if drag["tool"] in ("cover", "link") and (item.w < 3 or item.h < 3):
                 ed.drop_item(item)
                 return
-            if drag["tool"] != "cover" and (item.a - item.b).manhattanLength() < 3:
+            if drag["tool"] not in ("cover", "link") and (item.a - item.b).manhattanLength() < 3:
                 ed.drop_item(item)
                 return
-            del r
         ed.commit()
+        if drag["tool"] == "link":  # (where it goes is typed next, at the side)
+            ed.scene.clearSelection()
+            item.setSelected(True)
+            ed.inspector.setVisible(True)
+            ed.link_box.setFocus()
 
     def mouseDoubleClickEvent(self, e):
         if self.editor.active_tool() in ("select", "edit", "text"):
@@ -1102,6 +1199,11 @@ class EditorView(QGraphicsView):
         ed = self.editor
         if e.key() in (Qt.Key_Delete, Qt.Key_Backspace):
             ed.delete_selected()
+            return
+        if e.matches(QKeySequence.Copy) and ed.copy_selected():
+            return
+        if e.keyCombination().toCombined() == QKeySequence("Ctrl+D")[0].toCombined():
+            ed.duplicate_selected()
             return
         for keys, fn in ((QKeySequence.Undo, ed.undo), (QKeySequence.Redo, ed.redo), (QKeySequence("Ctrl+Y"), ed.redo)):
             if e.matches(keys) if isinstance(keys, QKeySequence.StandardKey) else \
@@ -1136,6 +1238,205 @@ class EditorView(QGraphicsView):
         self.editor.view_resized()
 
 
+# ----------------------------------------------------------------------------- picking a font
+
+class FontPanel(QFrame):
+    """The list of fonts, opened under the font button inside the window: a box to search, then the font the
+    PDF used, the ones used lately, the Arabic ones and all of them, each name written in its own font."""
+
+    def __init__(self, picker: "FontPicker", host: QWidget):
+        super().__init__(host)
+        self.picker = picker
+        self.setObjectName("pdfFontPanel")
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        v = QVBoxLayout(self)
+        v.setContentsMargins(8, 8, 8, 8)
+        v.setSpacing(6)
+        self.search = QLineEdit()
+        self.search.setPlaceholderText(tr("Find a font"))
+        self.search.setClearButtonEnabled(True)
+        self.search.textChanged.connect(self._fill)
+        self.search.installEventFilter(self)
+        v.addWidget(self.search)
+        self.list = QListWidget()
+        self.list.setObjectName("pdfFontList")
+        self.list.setVerticalScrollMode(QListWidget.ScrollPerPixel)
+        self.list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # (a long name is cut, not scrolled)
+        self.list.setTextElideMode(Qt.ElideRight)
+        self.list.setUniformItemSizes(False)
+        self.list.itemClicked.connect(self._picked)
+        self.list.itemActivated.connect(self._picked)
+        v.addWidget(self.list, 1)
+        self.hide()
+
+    def open_under(self, button: QWidget):
+        self._fill("")
+        self.search.blockSignals(True)
+        self.search.clear()
+        self.search.blockSignals(False)
+        host = self.parentWidget()
+        w = max(button.width() + 60, 280)
+        h = min(420, max(220, host.height() - 40))
+        at = button.mapTo(host, QPoint(0, button.height() + 4))
+        x = at.x() + button.width() - w if self.layoutDirection() == Qt.RightToLeft else at.x()
+        x = max(6, min(x, host.width() - w - 6))
+        y = at.y()
+        if y + h > host.height() - 6:  # (no room below: above the button)
+            y = max(6, button.mapTo(host, QPoint(0, 0)).y() - h - 4)
+        self.setGeometry(x, y, w, h)
+        self.show()
+        self.raise_()
+        self.search.setFocus(Qt.PopupFocusReason)
+        QApplication.instance().installEventFilter(self)
+        cur = self.picker.family
+        for n in range(self.list.count()):
+            it = self.list.item(n)
+            if it.data(Qt.UserRole) == cur:
+                self.list.setCurrentItem(it)
+                self.list.scrollToItem(it, QListWidget.PositionAtCenter)
+                break
+
+    def close_panel(self):
+        QApplication.instance().removeEventFilter(self)
+        self.hide()
+
+    def eventFilter(self, obj, e):
+        t = e.type()
+        if t == QEvent.MouseButtonPress and self.isVisible():
+            w = obj if isinstance(obj, QWidget) else None
+            if w is not None and not (w is self or self.isAncestorOf(w)) and w is not self.picker:
+                self.close_panel()
+        elif t == QEvent.KeyPress and obj is self.search:
+            if e.key() == Qt.Key_Escape:
+                self.close_panel()
+                self.picker.setFocus()
+                return True
+            if e.key() in (Qt.Key_Down, Qt.Key_Up):
+                step = 1 if e.key() == Qt.Key_Down else -1
+                n = self.list.currentRow()
+                while True:
+                    n += step
+                    if not 0 <= n < self.list.count():
+                        break
+                    it = self.list.item(n)
+                    if it.flags() & Qt.ItemIsSelectable:
+                        self.list.setCurrentItem(it)
+                        break
+                return True
+            if e.key() in (Qt.Key_Return, Qt.Key_Enter):
+                it = self.list.currentItem()
+                if it is None or not it.flags() & Qt.ItemIsSelectable:
+                    it = next((self.list.item(n) for n in range(self.list.count())
+                               if self.list.item(n).flags() & Qt.ItemIsSelectable), None)
+                if it is not None:
+                    self._picked(it)
+                return True
+        return False
+
+    def _fill(self, query: str):
+        from PySide6.QtGui import QFont, QFontDatabase
+        query = query.strip().casefold()
+        self.list.clear()
+        fonts = self.picker.fonts()
+        arabic = set(QFontDatabase.families(QFontDatabase.Arabic))
+        sections = []
+        if self.picker.matched:
+            sections.append((tr("The PDF's font"), [self.picker.matched]))
+        if self.picker.recent:
+            sections.append((tr("Used lately"), [f for f in self.picker.recent if f in fonts]))
+        sections.append((tr("Arabic"), [f for f in fonts if f in arabic]))
+        sections.append((tr("All fonts"), fonts))
+        for title, names in sections:
+            names = [f for f in names if not query or query in f.casefold()]
+            if not names:
+                continue
+            head = QListWidgetItem(title)
+            head.setFlags(Qt.NoItemFlags)
+            f = QFont(self.font())
+            f.setBold(True)
+            f.setPointSizeF(max(7.0, f.pointSizeF() - 1))
+            head.setFont(f)
+            head.setForeground(self.picker.muted)
+            self.list.addItem(head)
+            for fam in names:
+                text = fam + ("   أبجد هوز" if fam in arabic and fam not in self.picker.symbol else "")
+                it = QListWidgetItem(text)
+                it.setData(Qt.UserRole, fam)
+                it.setToolTip(fam)
+                face = QFont(fam)
+                face.setPointSizeF(11)
+                if fam not in self.picker.symbol:  # (a font of signs only: its name in the list's font)
+                    it.setFont(face)
+                self.list.addItem(it)
+
+    def _picked(self, it: QListWidgetItem):
+        fam = it.data(Qt.UserRole)
+        if not fam:
+            return
+        self.close_panel()
+        self.picker.choose(fam)
+
+
+class FontPicker(QPushButton):
+    """The font button: shows the font's name in that font, and opens the list of fonts under it."""
+    chosen = Signal(str)
+
+    def __init__(self, editor: "PdfEditor"):
+        super().__init__()
+        self.editor = editor
+        self.setObjectName("pdfFont")
+        self.setCursor(Qt.PointingHandCursor)
+        self.setToolTip(tr("Font"))
+        self.setAccessibleName(tr("Font"))
+        self.family = ""
+        self.matched = ""       # the font a line of the PDF is shown in (first in the list)
+        self.recent: list[str] = []
+        self.symbol: set = set()
+        self.muted = QColor(editor.c.theme.muted)
+        self.panel: FontPanel | None = None
+        self.clicked.connect(self.open_list)
+
+    def paintEvent(self, e):
+        super().paintEvent(e)
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        side = 14
+        x = 8 if self.layoutDirection() == Qt.RightToLeft else self.width() - side - 8
+        icons.paint(p, QRectF(x, (self.height() - side) / 2, side, side), "chevron_down", self.muted)
+        p.end()
+
+    def fonts(self) -> list[str]:
+        return self.editor.fonts
+
+    def set_family(self, fam: str):
+        from PySide6.QtGui import QFont
+        self.family = fam
+        f = QFont(fam)
+        f.setPointSizeF(max(8.0, self.font().pointSizeF()))
+        if fam in self.symbol:
+            f = QFont(self.font())
+        self.setFont(f)
+        self.setText(fam)
+
+    def open_list(self):
+        host = sheet.host_for(self) or self.window()
+        if self.panel is None or self.panel.parentWidget() is not host:
+            self.panel = FontPanel(self, host)
+        if self.panel.isVisible():
+            self.panel.close_panel()
+            return
+        self.panel.open_under(self)
+
+    def choose(self, fam: str):
+        self.recent = ([fam] + [f for f in self.recent if f != fam])[:6]
+        self.set_family(fam)
+        self.chosen.emit(fam)
+        typing = self.editor.typing()
+        if typing is not None:
+            self.editor.view.setFocus()  # (back to the words being typed)
+            typing.setFocus(Qt.OtherFocusReason)
+
+
 # ----------------------------------------------------------------------------- the editor
 
 def _swatch(color: str, size: int = 18) -> QPixmap:
@@ -1149,6 +1450,56 @@ def _swatch(color: str, size: int = 18) -> QPixmap:
     p.drawEllipse(QRectF(1.5, 1.5, size - 3, size - 3))
     p.end()
     return pm
+
+
+def _no_fill(size: int = 18) -> QPixmap:
+    """The swatch for "no fill": an empty circle crossed out."""
+    pm = QPixmap(size * 2, size * 2)
+    pm.setDevicePixelRatio(2)
+    pm.fill(Qt.transparent)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.Antialiasing)
+    p.setPen(QPen(QColor(0, 0, 0, 70), 1))
+    p.setBrush(QColor("#ffffff"))
+    p.drawEllipse(QRectF(1.5, 1.5, size - 3, size - 3))
+    p.setPen(QPen(QColor("#d32f2f"), 1.6))
+    p.drawLine(QPointF(4, size - 4), QPointF(size - 4, 4))
+    p.end()
+    return pm
+
+
+def _words_rect(d: dict, at: int, n: int) -> QRectF | None:
+    """Where letters at..at+n of a line of the PDF's own text are, from where its words are (inside a word,
+    each letter is taken as the same width)."""
+    import unicodedata
+    text = d.get("text", "")
+    x, y, w, h = d["rect"]
+    left = right = None
+    for start, end, x0, x1 in d.get("words") or ():
+        a, b = max(at, start), min(at + n, end)
+        if a >= b:
+            continue
+        each = (x1 - x0) / max(1, end - start)
+        word = text[start:end]
+        rtl = sum(unicodedata.bidirectional(ch) in ("R", "AL") for ch in word) > len(word) / 2
+        if rtl:
+            l, r = x1 - (b - start) * each, x1 - (a - start) * each
+        else:
+            l, r = x0 + (a - start) * each, x0 + (b - start) * each
+        left = l if left is None else min(left, l)
+        right = r if right is None else max(right, r)
+    if left is None:
+        return None
+    return QRectF(left, y, max(1.0, right - left), h)
+
+
+def _opacity(d: dict) -> float:
+    if d.get("kind") in ("highlight", "cover"):
+        return 1.0
+    try:
+        return min(1.0, max(0.05, float(d.get("opacity", 1.0) or 1.0)))
+    except (TypeError, ValueError):
+        return 1.0
 
 
 class PdfEditor(QWidget):
@@ -1193,10 +1544,15 @@ class PdfEditor(QWidget):
         self.field_menu = None              # (a form's list, while it's open)
         self.temp = None
         self.move_pics: dict[tuple, QPixmap] = {}  # (page, pieces) -> the picture of a moved piece (for undo)
-        self.style = {"text": {"font": "Arial", "size": 12.0, "color": "#000000", "bold": False, "italic": False},
+        self.style = {"text": {"font": "Arial", "size": 12.0, "color": "#000000", "bold": False, "italic": False,
+                               "underline": False},
                       "highlight": {"color": PENS[0]}, "underline": {"color": "#d32f2f"},
                       "strike": {"color": "#d32f2f"}, "draw": {"color": "#1f3a93", "width": 2.5},
-                      "shape": {"color": "#d32f2f", "width": 2.5}, "cover": {"color": "#ffffff"}}
+                      "shape": {"color": "#d32f2f", "width": 2.5}, "cover": {"color": "#ffffff"},
+                      "image": {"opacity": 1.0}}
+        self.doc_pages = 0                  # the PDF's own pages (blank pages added come after them)
+        self.hot_para: tuple | None = None  # (page, paragraph) under the mouse, with Edit text
+        self.copied_at = 0                  # (pasting the same things again puts them a little further on)
         self.scene = QGraphicsScene(self)
         self.scene.selectionChanged.connect(self.selection_changed)
         self.visible_timer = QTimer(self)
@@ -1212,52 +1568,39 @@ class PdfEditor(QWidget):
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(8)
         muted = self.c.theme.muted
+        text_color = self.c.theme.text
+        faded = tokens.alpha(QColor(muted), 90)
+        # the top: the PDF's name, undo and redo, find, close and save
         top = QHBoxLayout()
         top.setSpacing(6)
-        self.back_btn = IconButton(tr("Close the editor"))
-        self.back_btn.setIcon(icons.icon("arrow_right" if self.layoutDirection() == Qt.RightToLeft else "arrow_left",
-                                         muted))
-        self.back_btn.clicked.connect(lambda: self.close_editor())
-        top.addWidget(self.back_btn)
+        doc_icon = QLabel()
+        doc_icon.setPixmap(icons.pixmap("document_pdf", 20, muted, self.devicePixelRatioF()))
+        top.addWidget(doc_icon)
         self.name = QLabel()
         self.name.setObjectName("cardTitle")
         self.name.setMinimumWidth(40)
-        top.addWidget(self.name, 1)
+        top.addWidget(self.name)
+        self.count_label = QLabel()
+        self.count_label.setObjectName("muted")
+        top.addWidget(self.count_label, 1)
         self.undo_btn = IconButton(tr("Undo (Ctrl + Z)"))
-        self.undo_btn.setIcon(icons.icon("arrow_undo", muted, tokens.alpha(QColor(muted), 90)))
+        self.undo_btn.setIcon(icons.icon("arrow_undo", muted, faded))
         self.undo_btn.clicked.connect(self.undo)
         self.redo_btn = IconButton(tr("Redo (Ctrl + Y)"))
-        self.redo_btn.setIcon(icons.icon("arrow_redo", muted, tokens.alpha(QColor(muted), 90)))
+        self.redo_btn.setIcon(icons.icon("arrow_redo", muted, faded))
         self.redo_btn.clicked.connect(self.redo)
         top.addWidget(self.undo_btn)
         top.addWidget(self.redo_btn)
-        top.addSpacing(6)
         self.find_btn = IconButton(tr("Find and replace (Ctrl + F)"))
         self.find_btn.setIcon(icons.icon("search", muted))
         self.find_btn.clicked.connect(lambda: self.show_find())
-        self.pages_btn = IconButton(tr("The pages: turn, delete and move them"))
-        self.pages_btn.setIcon(icons.icon("document_multiple", muted))
-        self.pages_btn.setCheckable(True)
-        self.pages_btn.setChecked(True)
-        self.pages_btn.clicked.connect(lambda _on: self._side_shown())
         top.addWidget(self.find_btn)
-        top.addWidget(self.pages_btn)
         top.addSpacing(6)
-        out_btn = IconButton(tr("Zoom out (Ctrl + -)"))
-        out_btn.setIcon(icons.icon("zoom_out", muted))
-        out_btn.clicked.connect(lambda: self.zoom_step(-1))
-        self.zoom_btn = QPushButton("100%")
-        self.zoom_btn.setObjectName("flat")
-        self.zoom_btn.setCursor(Qt.PointingHandCursor)
-        self.zoom_btn.setToolTip(tr("Fit the width (Ctrl + 0)"))
-        self.zoom_btn.setMinimumWidth(52)
-        self.zoom_btn.clicked.connect(self.fit_width)
-        in_btn = IconButton(tr("Zoom in (Ctrl + +)"))
-        in_btn.setIcon(icons.icon("zoom_in", muted))
-        in_btn.clicked.connect(lambda: self.zoom_step(1))
-        for b in (out_btn, self.zoom_btn, in_btn):
-            top.addWidget(b)
-        top.addSpacing(6)
+        self.back_btn = QPushButton(tr("Close"))
+        self.back_btn.setToolTip(tr("Close the editor"))
+        self.back_btn.setCursor(Qt.PointingHandCursor)
+        self.back_btn.clicked.connect(lambda: self.close_editor())
+        top.addWidget(self.back_btn)
         self.save_btn = QPushButton(tr("Save as a new PDF"))
         self.save_btn.setObjectName("primary")
         self.save_btn.setCursor(Qt.PointingHandCursor)
@@ -1266,123 +1609,63 @@ class PdfEditor(QWidget):
         top.addWidget(self.save_btn)
         v.addLayout(top)
 
-        # the tools
-        tools_box = QWidget()
-        flow = FlowLayout(tools_box, 6)
-        strip = QFrame()
-        strip.setObjectName("segmented")
-        sl = QHBoxLayout(strip)
-        sl.setContentsMargins(3, 3, 3, 3)
-        sl.setSpacing(2)
+        # the tools, in groups, each with its name under its picture
+        self.toolbar = QFrame()
+        self.toolbar.setObjectName("pdfToolbar")
+        tl = QHBoxLayout(self.toolbar)
+        tl.setContentsMargins(4, 4, 4, 4)
+        tl.setSpacing(2)
         self.tool_group = QButtonGroup(self)
         self.tools_short = False
-        self.tool_group.buttonToggled.connect(lambda *_: self.tools_short and self._tool_names())
-        self.tool_btns: dict[str, QPushButton] = {}
-        text_color = self.c.theme.text
-        for key, words, icon_name in TOOLS:
-            b = QPushButton(" " + tr(words))
-            b.setToolTip(tr(words))
-            b.setObjectName("segment")
-            b.setCheckable(True)
-            b.setCursor(Qt.PointingHandCursor)
-            b.setIcon(icons.icon(icon_name, text_color))
-            b.setIconSize(QSize(16, 16))
-            b.clicked.connect(lambda _=False, k=key: self.set_tool(k))
-            self.tool_group.addButton(b)
-            self.tool_btns[key] = b
-            sl.addWidget(b)
+        self.tool_btns: dict[str, QToolButton] = {}
+        self.tool_seps: list[QFrame] = []
+        words = {k: w for k, w, _ in TOOLS}
+        icon_of = {k: i for k, _, i in TOOLS}
+        for n, group in enumerate(TOOL_GROUPS):
+            if n:
+                sep = QFrame()
+                sep.setObjectName("pdfToolSep")
+                sep.setFixedWidth(1)
+                tl.addWidget(sep)
+                self.tool_seps.append(sep)
+            for key in group:
+                b = QToolButton()
+                b.setObjectName("pdfTool")
+                b.setText(tr(words[key]))
+                b.setToolTip(tr(words[key]))
+                b.setAccessibleName(tr(words[key]))
+                b.setCheckable(True)
+                b.setAutoRaise(True)
+                b.setCursor(Qt.PointingHandCursor)
+                b.setIcon(icons.icon(icon_of[key], text_color))
+                b.setIconSize(QSize(20, 20))
+                b.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+                b.clicked.connect(lambda _=False, k=key: self.set_tool(k))
+                self.tool_group.addButton(b)
+                self.tool_btns[key] = b
+                tl.addWidget(b)
+        tl.addStretch()
         self.tool_btns["select"].setChecked(True)
-        self.tools_wide = strip.sizeHint().width()
-        flow.addWidget(strip)
-        v.addWidget(tools_box)
-
-        # what the tool (or what's selected) looks like
-        self.props = QWidget()
-        self.props.setObjectName("pdfEditProps")
-        pl = FlowLayout(self.props, 6)
-        self.kind_strip = QFrame()
-        self.kind_strip.setObjectName("segmented")
-        kl = QHBoxLayout(self.kind_strip)
-        kl.setContentsMargins(3, 3, 3, 3)
-        kl.setSpacing(2)
-        self.kind_group = QButtonGroup(self)
-        self.kind_btns: dict[str, QPushButton] = {}
-        for key, words, icon_name in MARKS + SHAPES:
-            b = QPushButton(" " + tr(words))
-            b.setToolTip(tr(words))
-            b.setObjectName("segment")
-            b.setCheckable(True)
-            b.setCursor(Qt.PointingHandCursor)
-            b.setIcon(icons.icon(icon_name, text_color))
-            b.setIconSize(QSize(16, 16))
-            b.clicked.connect(lambda _=False, k=key: self.set_kind(k))
-            self.kind_group.addButton(b)
-            self.kind_btns[key] = b
-            kl.addWidget(b)
-        pl.addWidget(self.kind_strip)
-        self.font_box = Dropdown()
-        self.font_box.setToolTip(tr("Font"))
-        self.font_box.setMinimumWidth(150)
-        self.font_box.activated.connect(lambda _i: self.set_style(font=self.font_box.currentText()))
-        pl.addWidget(self.font_box)
-        self.size_box = QSpinBox()
-        self.size_box.setRange(4, 144)
-        self.size_box.setToolTip(tr("Text size"))
-        self.size_box.setSuffix(" pt")
-        self.size_box.valueChanged.connect(lambda n: None if self._filling else self.set_style(size=float(n)))
-        pl.addWidget(self.size_box)
-        self.bold_btn = IconButton(tr("Bold"))
-        self.bold_btn.setIcon(icons.icon("text_bold", text_color))
-        self.bold_btn.setCheckable(True)
-        self.bold_btn.clicked.connect(lambda on: self.set_style(bold=bool(on)))
-        self.italic_btn = IconButton(tr("Italic"))
-        self.italic_btn.setIcon(icons.icon("text_italic", text_color))
-        self.italic_btn.setCheckable(True)
-        self.italic_btn.clicked.connect(lambda on: self.set_style(italic=bool(on)))
-        pl.addWidget(self.bold_btn)
-        pl.addWidget(self.italic_btn)
-        self.width_box = Dropdown()
-        self.width_box.setToolTip(tr("Line width"))
-        for words, w in WIDTHS.items():
-            self.width_box.addItem(tr(words), w)
-        self.width_box.activated.connect(lambda _i: self.set_style(width=float(self.width_box.currentData())))
-        pl.addWidget(self.width_box)
-        self.colors = QWidget()
-        cl = QHBoxLayout(self.colors)
-        cl.setContentsMargins(0, 0, 0, 0)
-        cl.setSpacing(2)
-        self.color_btns: list[IconButton] = []
-        for _ in range(7):
-            b = IconButton("", 28)
-            b.setIconSize(QSize(18, 18))
-            b.setCheckable(True)
-            b.clicked.connect(lambda _=False, b=b: self.set_style(color=b.property("color")))
-            self.color_btns.append(b)
-            cl.addWidget(b)
-        more = IconButton(tr("More colours…"), 28)
-        more.setIcon(icons.icon("color", text_color))
-        more.clicked.connect(self._pick_color)
-        cl.addWidget(more)
-        pl.addWidget(self.colors)
-        self.delete_btn = QPushButton(tr("Delete"))
-        self.delete_btn.setIcon(icons.icon("delete", text_color))
-        self.delete_btn.setCursor(Qt.PointingHandCursor)
-        self.delete_btn.setToolTip(tr("Delete (Del)"))
-        self.delete_btn.clicked.connect(self.delete_selected)
-        pl.addWidget(self.delete_btn)
-        v.addWidget(self.props)
+        self.tools_wide = self.toolbar.sizeHint().width()
+        v.addWidget(self.toolbar)
 
         self._build_find(v)
         body = QHBoxLayout()
         body.setSpacing(8)
+        # the pages, small, at the side
         self.side = QWidget()
         self.side.setObjectName("pdfPagesSide")
         sl = QVBoxLayout(self.side)
         sl.setContentsMargins(0, 0, 0, 0)
         sl.setSpacing(4)
         self.thumb_list = PagesList(self)
-        self.thumb_list.setObjectName("history")
+        self.thumb_list.setObjectName("pdfThumbs")
+        self.thumb_list.setViewMode(QListView.IconMode)
+        self.thumb_list.setFlow(QListView.TopToBottom)
+        self.thumb_list.setWrapping(False)
+        self.thumb_list.setResizeMode(QListView.Adjust)
         self.thumb_list.setIconSize(THUMB)
+        self.thumb_list.setGridSize(QSize(THUMB.width() + 28, THUMB.height() + 34))
         self.thumb_list.setSpacing(2)
         self.thumb_list.setSelectionMode(QListWidget.ExtendedSelection)
         self.thumb_list.setDragDropMode(QListWidget.InternalMove)
@@ -1394,15 +1677,16 @@ class PdfEditor(QWidget):
         self.thumb_list.itemClicked.connect(lambda it: self.go_to_page(it.data(Qt.UserRole)))
         self.thumb_list.model().rowsMoved.connect(lambda *_: QTimer.singleShot(0, self._pages_dragged))
         self.thumb_list.verticalScrollBar().valueChanged.connect(lambda _v: self._want_thumbs())
-        self.thumb_list.setFixedWidth(THUMB.width() + 78)
+        self.thumb_list.setFixedWidth(THUMB.width() + 48)
         sl.addWidget(self.thumb_list, 1)
         acts = QHBoxLayout()
-        acts.setSpacing(2)
-        for icon_name, words, fn in (("arrow_rotate_counterclockwise", "Turn left", lambda: self.turn_pages(-90)),
-                                     ("arrow_rotate_clockwise", "Turn right", lambda: self.turn_pages(90)),
-                                     ("delete", "Delete the page", self.delete_pages)):
-            b = IconButton(tr(words))
-            b.setIcon(icons.icon(icon_name, muted, tokens.alpha(QColor(muted), 90)))
+        acts.setSpacing(0)
+        for icon_name, words_, fn in (("arrow_rotate_counterclockwise", tr("Turn left"), lambda: self.turn_pages(-90)),
+                                      ("arrow_rotate_clockwise", tr("Turn right"), lambda: self.turn_pages(90)),
+                                      ("page_add", tr("Add a blank page after it"), lambda: self.add_blank_page()),
+                                      ("delete", tr("Delete the page"), self.delete_pages)):
+            b = IconButton(words_, 30)
+            b.setIcon(icons.icon(icon_name, muted, faded))
             b.clicked.connect(fn)
             acts.addWidget(b)
         acts.addStretch()
@@ -1410,16 +1694,50 @@ class PdfEditor(QWidget):
         body.addWidget(self.side)
         self.view = EditorView(self)
         body.addWidget(self.view, 1)
+        body.addWidget(self._build_inspector())
         v.addLayout(body, 1)
+        # the foot: where you are, what just happened, the pages list, the zoom
         foot = QHBoxLayout()
+        foot.setSpacing(4)
         self.where = QLabel()
         self.where.setObjectName("muted")
-        self.where.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)  # (never cut short by the hint)
+        self.where.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)  # (never cut short by the note)
         foot.addWidget(self.where)
-        self.hint = QLabel()
-        self.hint.setObjectName("muted")
-        self.hint.setWordWrap(True)
-        foot.addWidget(self.hint, 1)
+        self.note = QLabel()
+        self.note.setObjectName("muted")
+        self.note_timer = QTimer(self)
+        self.note_timer.setSingleShot(True)
+        self.note_timer.setInterval(6000)
+        self.note_timer.timeout.connect(self.note.clear)
+        foot.addSpacing(10)
+        foot.addWidget(self.note, 1)
+        self.pages_btn = IconButton(tr("The pages: turn, delete and move them"), 30)
+        self.pages_btn.setIcon(icons.icon("document_multiple", muted))
+        self.pages_btn.setCheckable(True)
+        self.pages_btn.setChecked(True)
+        self.pages_btn.clicked.connect(lambda _on: self._side_shown())
+        self.options_btn = IconButton(tr("The options at the side"), 30)
+        self.options_btn.setIcon(icons.icon("settings", muted))
+        self.options_btn.setCheckable(True)
+        self.options_btn.setChecked(True)
+        self.options_btn.clicked.connect(lambda _on: self._side_shown())
+        foot.addWidget(self.pages_btn)
+        foot.addWidget(self.options_btn)
+        foot.addSpacing(6)
+        out_btn = IconButton(tr("Zoom out (Ctrl + -)"), 30)
+        out_btn.setIcon(icons.icon("zoom_out", muted))
+        out_btn.clicked.connect(lambda: self.zoom_step(-1))
+        self.zoom_btn = QPushButton("100%")
+        self.zoom_btn.setObjectName("flat")
+        self.zoom_btn.setCursor(Qt.PointingHandCursor)
+        self.zoom_btn.setToolTip(tr("Fit the width (Ctrl + 0)"))
+        self.zoom_btn.setMinimumWidth(52)
+        self.zoom_btn.clicked.connect(self.fit_width)
+        in_btn = IconButton(tr("Zoom in (Ctrl + +)"), 30)
+        in_btn.setIcon(icons.icon("zoom_in", muted))
+        in_btn.clicked.connect(lambda: self.zoom_step(1))
+        for b in (out_btn, self.zoom_btn, in_btn):
+            foot.addWidget(b)
         v.addLayout(foot)
         self._filling = False
         taken = set()  # (one shortcut per key: two on the same key (Windows' Redo is Ctrl + Y too) do nothing)
@@ -1441,13 +1759,262 @@ class PdfEditor(QWidget):
         self._fill_fonts()
         self._refresh()
 
+    def _section(self, title: str | None) -> tuple[QWidget, QVBoxLayout]:
+        box = QWidget()
+        lay = QVBoxLayout(box)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(6)
+        if title:
+            head = QLabel(title)
+            head.setObjectName("pdfGroup")
+            lay.addWidget(head)
+        self.insp_layout.addWidget(box)
+        return box, lay
+
+    def _choice(self, words: str, icon_name: str, tip: str = "") -> QPushButton:
+        b = QPushButton(" " + words if words else "")
+        b.setObjectName("pdfChoice")
+        b.setCheckable(True)
+        b.setCursor(Qt.PointingHandCursor)
+        b.setIcon(icons.icon(icon_name, self.c.theme.text))
+        b.setIconSize(QSize(16, 16))
+        b.setToolTip(tip or words)
+        b.setAccessibleName(tip or words)
+        return b
+
+    def _build_inspector(self) -> QWidget:
+        """The options at the side: what the tool or the selected thing looks like, in sections with names."""
+        text_color = self.c.theme.text
+        self.inspector = QScrollArea()
+        self.inspector.setObjectName("pdfInspector")
+        self.inspector.setWidgetResizable(True)
+        self.inspector.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.inspector.setFixedWidth(INSPECTOR_WIDTH)
+        inner = QWidget()
+        inner.setObjectName("pdfInspectorInside")
+        self.insp_layout = QVBoxLayout(inner)
+        self.insp_layout.setContentsMargins(14, 14, 14, 14)
+        self.insp_layout.setSpacing(16)
+        self.inspector.setWidget(inner)
+
+        head, hl = self._section(None)
+        hl.setSpacing(4)
+        self.insp_title = QLabel()
+        self.insp_title.setObjectName("cardTitle")
+        self.insp_title.setWordWrap(True)
+        self.hint = QLabel()
+        self.hint.setObjectName("muted")
+        self.hint.setWordWrap(True)
+        hl.addWidget(self.insp_title)
+        hl.addWidget(self.hint)
+        self.head_box = head
+
+        # the kind of highlight or shape
+        self.kind_box, kl = self._section(tr("Kind"))
+        grid = QGridLayout()
+        grid.setSpacing(4)
+        self.kind_group = QButtonGroup(self)
+        self.kind_btns: dict[str, QPushButton] = {}
+        for n, (key, words, icon_name) in enumerate(MARKS + SHAPES):
+            b = self._choice(tr(words), icon_name)
+            b.clicked.connect(lambda _=False, k=key: self.set_kind(k))
+            self.kind_group.addButton(b)
+            self.kind_btns[key] = b
+            m = n if n < len(MARKS) else n - len(MARKS)
+            grid.addWidget(b, m // 2, m % 2)
+        kl.addLayout(grid)
+        self.kind_strip = self.kind_box
+
+        # how to change the PDF's own text
+        self.para_box, pl = self._section(tr("Change"))
+        self.para_check = QCheckBox(tr("Whole paragraphs"))
+        self.para_check.setChecked(True)
+        self.para_check.setToolTip(tr("The lines of a paragraph are changed together, and the words flow from "
+                                      "line to line as you type. Off: one line at a time."))
+        self.para_check.toggled.connect(self._paras_toggled)
+        pl.addWidget(self.para_check)
+        para_note = QLabel(tr("Off: one line at a time."))
+        para_note.setObjectName("muted")
+        para_note.setWordWrap(True)
+        pl.addWidget(para_note)
+
+        # the font
+        self.font_section, fl = self._section(tr("Font"))
+        self.font_box = FontPicker(self)
+        self.font_box.chosen.connect(lambda fam: self.set_style(font=fam))
+        fl.addWidget(self.font_box)
+        self.font_note = QLabel()
+        self.font_note.setObjectName("muted")
+        self.font_note.setWordWrap(True)
+        fl.addWidget(self.font_note)
+        row = QHBoxLayout()
+        row.setSpacing(2)
+        self.size_box = QSpinBox()
+        self.size_box.setRange(4, 144)
+        self.size_box.setToolTip(tr("Text size"))
+        self.size_box.setAccessibleName(tr("Text size"))
+        self.size_box.setSuffix(" pt")
+        self.size_box.valueChanged.connect(lambda n: None if self._filling else self.set_style(size=float(n)))
+        row.addWidget(self.size_box, 1)
+        self.bold_btn = IconButton(tr("Bold"), 30)
+        self.bold_btn.setIcon(icons.icon("text_bold", text_color))
+        self.bold_btn.setCheckable(True)
+        self.bold_btn.clicked.connect(lambda on: self.set_style(bold=bool(on)))
+        self.italic_btn = IconButton(tr("Italic"), 30)
+        self.italic_btn.setIcon(icons.icon("text_italic", text_color))
+        self.italic_btn.setCheckable(True)
+        self.italic_btn.clicked.connect(lambda on: self.set_style(italic=bool(on)))
+        self.underline_btn = IconButton(tr("Underline"), 30)
+        self.underline_btn.setIcon(icons.icon("text_underline", text_color))
+        self.underline_btn.setCheckable(True)
+        self.underline_btn.clicked.connect(lambda on: self.set_style(underline=bool(on)))
+        for b in (self.bold_btn, self.italic_btn, self.underline_btn):
+            row.addWidget(b)
+        fl.addLayout(row)
+
+        # the lines of the text: lined up how, how far apart
+        self.align_section, al = self._section(tr("Paragraph"))
+        arow = QHBoxLayout()
+        arow.setSpacing(2)
+        self.align_group = QButtonGroup(self)
+        self.align_btns: dict[str, IconButton] = {}
+        for key, words, icon_name in ALIGN_KEYS:
+            b = IconButton(tr(words), 30)
+            b.setIcon(icons.icon(icon_name, text_color))
+            b.setCheckable(True)
+            b.clicked.connect(lambda _=False, k=key: self.set_style(align=k))
+            self.align_group.addButton(b)
+            self.align_btns[key] = b
+            arow.addWidget(b)
+        arow.addStretch()
+        al.addLayout(arow)
+        srow = QHBoxLayout()
+        srow.setSpacing(6)
+        sp_icon = QLabel()
+        sp_icon.setPixmap(icons.pixmap("line_spacing", 18, self.c.theme.muted, self.devicePixelRatioF()))
+        sp_icon.setToolTip(tr("Line spacing"))
+        srow.addWidget(sp_icon)
+        self.spacing_box = Dropdown()
+        self.spacing_box.setToolTip(tr("Line spacing"))
+        self.spacing_box.setAccessibleName(tr("Line spacing"))
+        self.spacing_box.activated.connect(lambda _i: self.set_style(spacing=self.spacing_box.currentData()))
+        srow.addWidget(self.spacing_box, 1)
+        al.addLayout(srow)
+
+        # the colour
+        self.color_section, cl0 = self._section(tr("Colour"))
+        self.colors = QWidget()
+        cl = FlowLayout(self.colors, 4)
+        self.color_btns: list[IconButton] = []
+        for _ in range(7):
+            b = IconButton("", 28)
+            b.setIconSize(QSize(18, 18))
+            b.setCheckable(True)
+            b.clicked.connect(lambda _=False, b=b: self.set_style(color=b.property("color")))
+            self.color_btns.append(b)
+            cl.addWidget(b)
+        more = IconButton(tr("More colours…"), 28)
+        more.setIcon(icons.icon("color", text_color))
+        more.clicked.connect(self._pick_color)
+        cl.addWidget(more)
+        cl0.addWidget(self.colors)
+
+        # the inside of a rectangle or circle
+        self.fill_section, fil = self._section(tr("Fill"))
+        self.fills = QWidget()
+        fl2 = FlowLayout(self.fills, 4)
+        self.fill_btns: list[IconButton] = []
+        for _ in range(len(FILLS)):
+            b = IconButton("", 28)
+            b.setIconSize(QSize(18, 18))
+            b.setCheckable(True)
+            b.clicked.connect(lambda _=False, b=b: self.set_style(fill=b.property("color") or None))
+            self.fill_btns.append(b)
+            fl2.addWidget(b)
+        fil.addWidget(self.fills)
+
+        # how thick the lines are
+        self.width_section, wl = self._section(tr("Line width"))
+        self.width_box = Dropdown()
+        self.width_box.setToolTip(tr("Line width"))
+        self.width_box.setAccessibleName(tr("Line width"))
+        for words, w in WIDTHS.items():
+            self.width_box.addItem(tr(words), w)
+        self.width_box.activated.connect(lambda _i: self.set_style(width=float(self.width_box.currentData())))
+        wl.addWidget(self.width_box)
+
+        # see-through
+        self.opacity_section, ol = self._section(tr("Opacity"))
+        orow = QHBoxLayout()
+        self.opacity_slider = QSlider(Qt.Horizontal)
+        self.opacity_slider.setRange(10, 100)
+        self.opacity_slider.setSingleStep(5)
+        self.opacity_slider.setPageStep(10)
+        self.opacity_slider.setAccessibleName(tr("Opacity"))
+        self.opacity_label = QLabel("100%")
+        self.opacity_label.setObjectName("muted")
+        self.opacity_label.setMinimumWidth(40)
+        self.opacity_slider.valueChanged.connect(self._opacity_moved)
+        self.opacity_slider.sliderReleased.connect(lambda: self.commit())
+        orow.addWidget(self.opacity_slider, 1)
+        orow.addWidget(self.opacity_label)
+        ol.addLayout(orow)
+
+        # where a link goes
+        self.link_section, ll = self._section(tr("Opens"))
+        self.link_box = QLineEdit()
+        self.link_box.setPlaceholderText(tr("A web address or a page number"))
+        self.link_box.setAccessibleName(tr("A web address or a page number"))
+        self.link_box.editingFinished.connect(self._link_typed)
+        ll.addWidget(self.link_box)
+        self.link_note = QLabel()
+        self.link_note.setObjectName("muted")
+        self.link_note.setWordWrap(True)
+        ll.addWidget(self.link_note)
+
+        # a picture: put another in its place, turn it, keep a copy
+        self.picture_section, pil = self._section(tr("Picture"))
+        self.replace_pic_btn = QPushButton(tr("Replace…"))
+        self.replace_pic_btn.setIcon(icons.icon("image_add", text_color))
+        self.replace_pic_btn.clicked.connect(self.replace_picture)
+        self.turn_pic_btn = QPushButton(tr("Turn"))
+        self.turn_pic_btn.setIcon(icons.icon("arrow_rotate_clockwise", text_color))
+        self.turn_pic_btn.clicked.connect(self.turn_picture)
+        self.save_pic_btn = QPushButton(tr("Save the picture…"))
+        self.save_pic_btn.setIcon(icons.icon("arrow_download", text_color))
+        self.save_pic_btn.clicked.connect(self.save_picture)
+        for b in (self.replace_pic_btn, self.turn_pic_btn, self.save_pic_btn):
+            b.setCursor(Qt.PointingHandCursor)
+            b.setObjectName("pdfAction")
+            pil.addWidget(b)
+
+        # the selected things: copy them, delete them
+        self.actions_section, acl = self._section(None)
+        self.duplicate_btn = QPushButton(tr("Duplicate"))
+        self.duplicate_btn.setIcon(icons.icon("copy", text_color))
+        self.duplicate_btn.setToolTip(tr("Duplicate (Ctrl + D)"))
+        self.duplicate_btn.clicked.connect(self.duplicate_selected)
+        self.delete_btn = QPushButton(tr("Delete"))
+        self.delete_btn.setIcon(icons.icon("delete", text_color))
+        self.delete_btn.setToolTip(tr("Delete (Del)"))
+        self.delete_btn.clicked.connect(self.delete_selected)
+        for b in (self.duplicate_btn, self.delete_btn):
+            b.setCursor(Qt.PointingHandCursor)
+            b.setObjectName("pdfAction")
+            acl.addWidget(b)
+        self.insp_layout.addStretch(1)
+        self.props = self.inspector
+        return self.inspector
+
     def _fill_fonts(self):
+        from PySide6.QtGui import QFontDatabase
         self.fonts = pdffonts.offered()
-        self.font_box.clear()
-        for f in self.fonts:
-            self.font_box.addItem(f)
+        self.font_box.symbol = {f for f in self.fonts
+                                if QFontDatabase.Symbol in QFontDatabase.writingSystems(f) and
+                                QFontDatabase.Latin not in QFontDatabase.writingSystems(f)}
         if self.style["text"]["font"] not in self.fonts:
             self.style["text"]["font"] = self.fonts[0]
+        self.font_box.set_family(self.style["text"]["font"])
 
     # ---- opening and closing
 
@@ -1467,6 +2034,8 @@ class PdfEditor(QWidget):
         self.saved = self._saving = None
         self.move_pics = {}
         self.src, self.password = src, password
+        self.doc_pages = 0
+        self.count_label.setText("")
         self.name.setText(short_name(src.name, 60))
         self.name.setToolTip(str(src))
         self.where.setText(tr("Opening…"))
@@ -1488,6 +2057,8 @@ class PdfEditor(QWidget):
             self.close_editor(ask=False)
             return
         sizes, fields = result
+        self.doc_pages = len(sizes)
+        self.count_label.setText("·  " + (tr("1 page") if len(sizes) == 1 else tr("{count} pages", count=len(sizes))))
         for i, (w, h) in enumerate(sizes):
             page = PageItem(i, w, h)
             self.scene.addItem(page)
@@ -1552,7 +2123,7 @@ class PdfEditor(QWidget):
         if self.find_bar.isVisible():
             self.hide_find()
             return True
-        if self.scene.focusItem() is not None:
+        if self.scene.focusItem() is not None or self.typing() is not None:
             self.end_text_edits()
             self.scene.setFocusItem(None)
             return True
@@ -1592,22 +2163,26 @@ class PdfEditor(QWidget):
         self._where()
 
     def _side_shown(self):
-        """The list of pages: as the button says, unless the window is too narrow for it."""
-        self.side.setVisible(self.pages_btn.isChecked() and self.width() >= 720)
+        """The list of pages and the options: as their buttons say, unless the window is too narrow for them
+        (the pages go first)."""
+        self.side.setVisible(self.pages_btn.isChecked() and self.width() >= 820)
+        # (on a narrow window the options come only when there's something to set)
+        wide = self.width() >= 860 or (getattr(self, "insp_needed", True) and self.width() >= 560)
+        self.inspector.setVisible(self.options_btn.isChecked() and wide)
         QTimer.singleShot(0, self._want_thumbs)
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
         self._side_shown()
-        short = self.tools_wide > self.width() - 8  # (no room for all the tools' names: just the chosen one's)
+        short = self.tools_wide > self.width() - 8  # (no room for the tools' names: just their pictures)
         if short != self.tools_short:
             self.tools_short = short
             self._tool_names()
 
     def _tool_names(self):
-        for key, words, _ in TOOLS:
-            b = self.tool_btns[key]
-            b.setText(" " + tr(words) if not self.tools_short or b.isChecked() else "")
+        style = Qt.ToolButtonIconOnly if self.tools_short else Qt.ToolButtonTextUnderIcon
+        for b in self.tool_btns.values():
+            b.setToolButtonStyle(style)
 
     def view_resized(self):
         if self.fit and self.pages:
@@ -1637,9 +2212,9 @@ class PdfEditor(QWidget):
         for d in self.model_items():
             if d.get("page") != index:
                 continue
-            if d.get("kind") == "text":
+            if d.get("replaces"):  # (a changed line or paragraph, a picture put in another's place)
                 out.update(d.get("replaces") or ())
-            elif d.get("kind") == "move":
+            if d.get("kind") == "move":
                 out.update(d.get("objs") or ())
         for d in self.removed:
             if d["page"] == index:
@@ -1667,10 +2242,10 @@ class PdfEditor(QWidget):
             page = self.pages[i]
             s = min(scale, math.sqrt(MAX_PIXELS / max(1.0, page.w * page.h)))
             key = (round(s, 3), self.hidden(i))
-            if page.pm_key != key:
+            if page.pm_key != key and not page.blank:
                 wishes.append((i, key[0], key[1]))
         self.renderer.want(wishes)
-        self.renderer.want_layout([i for i in sight if not self.pages[i].asked_layout])
+        self.renderer.want_layout([i for i in sight if not self.pages[i].asked_layout and not self.pages[i].blank])
         for i in sight:
             self.pages[i].asked_layout = True
         for page in self.pages:
@@ -1700,8 +2275,10 @@ class PdfEditor(QWidget):
             return
         page = self.pages[i]
         page.layout = layout
-        for d in layout.get("lines", []):
-            page.pieces.append(OldPiece(self, page, "line", d))
+        for k, d in enumerate(layout.get("lines", [])):
+            piece = OldPiece(self, page, "line", d)
+            piece.k = k
+            page.pieces.append(piece)
         for d in layout.get("images", []):
             page.pieces.append(OldPiece(self, page, "image", d))
         for piece in page.pieces:
@@ -1814,7 +2391,7 @@ class PdfEditor(QWidget):
         wishes = []
         for n in range(max(0, first - 6), min(len(self.order), last + 7)):
             i = self.order[n]
-            if i not in self.thumb_imgs:
+            if i not in self.thumb_imgs and not self.pages[i].blank:
                 page = self.pages[i]
                 wishes.append((i, min(THUMB.width() / page.w, THUMB.height() / page.h) * dpr))
         self.renderer.want_thumbs(wishes)
@@ -1869,7 +2446,7 @@ class PdfEditor(QWidget):
         self._place_pages()
         self._fill_thumbs()
         self.commit()
-        self.hint.setText(tr("Deleted. Undo (Ctrl + Z) brings it back."))
+        self._say(tr("Deleted. Undo (Ctrl + Z) brings it back."))
 
     def move_pages(self, step: int, pages: list[int] | None = None):
         """Earlier (-1) or later (+1) by one place."""
@@ -1915,6 +2492,8 @@ class PdfEditor(QWidget):
         down = menu.addAction(tr("Move down"), lambda: self.move_pages(1, pages))
         down.setEnabled(self.position.get(pages[-1], 0) < len(self.order) - 1)
         menu.addSeparator()
+        menu.addAction(tr("Add a blank page after it"), lambda: self.add_blank_page(pages[-1]))
+        menu.addSeparator()
         gone = menu.addAction(tr("Delete the page") if len(pages) == 1 else
                               tr("Delete {count} pages", count=len(pages)), lambda: self.delete_pages(pages))
         gone.setEnabled(len(pages) < len(self.order))
@@ -1958,11 +2537,17 @@ class PdfEditor(QWidget):
         self.replace_all_btn = QPushButton(tr("Replace all"))
         self.replace_all_btn.setCursor(Qt.PointingHandCursor)
         self.replace_all_btn.clicked.connect(self.replace_all)
+        self.cover_all_btn = QPushButton(tr("Cover all"))
+        self.cover_all_btn.setIcon(icons.icon("redact", self.c.theme.text))
+        self.cover_all_btn.setCursor(Qt.PointingHandCursor)
+        self.cover_all_btn.setToolTip(tr("Cover every place these words are: they're taken out of the file when "
+                                         "it's saved"))
+        self.cover_all_btn.clicked.connect(self.cover_matches)
         close = IconButton(tr("Close (Esc)"))
         close.setIcon(icons.icon("dismiss", muted))
         close.clicked.connect(self.hide_find)
         for w in (self.find_box, prev_btn, next_btn, self.found_label, self.case_box, self.replace_box,
-                  self.replace_btn, self.replace_all_btn, close):
+                  self.replace_btn, self.replace_all_btn, self.cover_all_btn, close):
             fl.addWidget(w)
         self.find_bar.hide()
         v.addWidget(self.find_bar)
@@ -1974,7 +2559,7 @@ class PdfEditor(QWidget):
         self.find_bar.show()
         # every page's words are needed (read one by one, in the background)
         if self.renderer is not None:
-            need = [i for i in self.order if not self.pages[i].asked_layout]
+            need = [i for i in self.order if not self.pages[i].asked_layout and not self.pages[i].blank]
             self.renderer.want_layout(need)
             for i in need:
                 self.pages[i].asked_layout = True
@@ -2035,6 +2620,10 @@ class PdfEditor(QWidget):
     def _match_rect(self, page, obj, at: int) -> QRectF:
         """Where the words are on the page (each letter taken as the same width: close enough to show)."""
         n = len(self.find_box.text())
+        if isinstance(obj, OldPiece) and obj.d.get("words"):
+            exact = _words_rect(obj.d, at, n)
+            if exact is not None:
+                return exact
         if isinstance(obj, OldPiece):
             text = obj.d.get("text", "")
             x, y, w, h = obj.d["rect"]
@@ -2084,6 +2673,8 @@ class PdfEditor(QWidget):
         self.replace_btn.setEnabled(bool(self.matches))
         self.replace_all_btn.setEnabled(bool(self.matches) and not reading)
         self.replace_all_btn.setToolTip(tr("Reading the pages…") if reading else "")
+        self.cover_all_btn.setEnabled(bool(self.matches) and not reading and
+                                      any(isinstance(m[1], OldPiece) for m in self.matches))
 
     def next_match(self, step: int):
         if not self.find_bar.isVisible():
@@ -2219,7 +2810,7 @@ class PdfEditor(QWidget):
         drag = QGraphicsView.RubberBandDrag if key == "select" else QGraphicsView.NoDrag
         self.view.setDragMode(drag)
         cursor = {"text": Qt.IBeamCursor, "draw": Qt.CrossCursor, "shape": Qt.CrossCursor, "cover": Qt.CrossCursor,
-                  "note": Qt.PointingHandCursor, "mark": Qt.IBeamCursor}.get(key)
+                  "note": Qt.PointingHandCursor, "mark": Qt.IBeamCursor, "link": Qt.CrossCursor}.get(key)
         if cursor is None:
             self.view.viewport().unsetCursor()
         else:
@@ -2248,7 +2839,7 @@ class PdfEditor(QWidget):
         self._refresh()
 
     def style_key(self) -> str | None:
-        """Which look the bar shows: the selected thing's, else the tool's."""
+        """Which look the panel shows: the selected thing's, else the tool's."""
         items = self.selected_items()
         if items:
             kinds = {self._kind_of(i) for i in items}
@@ -2267,6 +2858,8 @@ class PdfEditor(QWidget):
             return "shape"
         if kind == "ink":
             return "draw"
+        if isinstance(item, OldPiece):
+            return "line" if kind == "line" else "picture"
         return kind
 
     def selected_items(self) -> list:
@@ -2280,42 +2873,94 @@ class PdfEditor(QWidget):
         if not self._filling:
             self._refresh()
 
+    def _look_of(self, key: str | None, items: list) -> dict | None:
+        """The look the panel shows: the first selected thing's (or the text being typed), else the tool's."""
+        focus = self.typing()
+        if focus is not None and not items:
+            return focus.d
+        if items and hasattr(items[0], "d") and not isinstance(items[0], OldPiece):
+            return items[0].d
+        return self.style.get(key) if key else None
+
     def _refresh(self):
         """Shows what fits the tool or what's selected."""
         self._filling = True
         try:
-            key = self.style_key()
-            tool = self.tool
             items = self.selected_items()
-            st = self.style.get(key) if key else None
-            if items and key in ("text",) and isinstance(items[0], TextMark):
-                st = items[0].d
-            elif items and key and isinstance(items[0], Mark):
-                st = items[0].d
-            self.kind_strip.setVisible(tool in ("mark", "shape") and not items)
+            focus = self.typing()
+            typing = focus is not None
+            key = "text" if typing and not items else self.style_key()
+            tool = self.tool
+            st = self._look_of(key, items)
+            # the name at the top and what to do
+            if items:
+                title = TITLES.get(key or "", "") if key else ""
+                if not title:
+                    title = tr("{count} things", count=len(items))
+                elif len(items) > 1:
+                    title = tr(title) + f"  ·  {len(items)}"
+                else:
+                    title = tr(title)
+            elif typing:
+                title = tr(TITLES["line"] if focus.d.get("replaces") else TITLES["text"])
+            else:
+                t = self.active_tool()
+                title = tr({"mark": "Highlight", "shape": "Shape"}.get(t, TITLES.get(t, "")) or "")
+                if tool == "mark":
+                    title = tr(TITLES.get(self.mark_kind, "Highlight"))
+                elif tool == "shape":
+                    title = tr(TITLES["shape"])
+            self.insp_title.setText(title)
+            show = {}
+            show["kind"] = tool in ("mark", "shape") and not items
             for k, b in self.kind_btns.items():
                 b.setVisible((tool == "mark" and k in MARK_KEYS) or (tool == "shape" and k in SHAPE_KEYS))
                 b.setChecked(k in (self.mark_kind, self.shape_kind))
+            show["para"] = tool == "edit" and not items and not typing
             text_on = key == "text" and st is not None
-            for w in (self.font_box, self.size_box, self.bold_btn, self.italic_btn):
-                w.setVisible(text_on)
+            show["font"] = show["align"] = text_on
             if text_on:
                 font = st.get("font", "Arial")
-                if self.font_box.findText(font) < 0:
-                    self.font_box.addItem(font)
-                self.font_box.setCurrentText(font)
+                self.font_box.matched = st.get("matched", "") if st.get("pdf_font") else ""
+                self.font_box.set_family(font)
+                pdf_font = st.get("pdf_font")
+                if pdf_font and pdffonts.key(pdf_font) == pdffonts.key(st.get("matched", "")):
+                    self.font_note.setText(tr("The PDF's own font: {name}.", name=pdf_font))
+                elif pdf_font:
+                    self.font_note.setText(tr("The PDF used {name}, which isn't on this PC: {font} looks the "
+                                              "closest.", name=pdf_font, font=st.get("matched") or font))
+                else:
+                    self.font_note.setText("")
+                self.font_note.setVisible(bool(self.font_note.text()))
                 self.size_box.setValue(round(float(st.get("size", 12))))
                 self.bold_btn.setChecked(bool(st.get("bold")))
                 self.italic_btn.setChecked(bool(st.get("italic")))
-            width_on = key in ("draw", "shape") and st is not None
-            self.width_box.setVisible(width_on)
-            if width_on:
+                self.underline_btn.setChecked(bool(st.get("underline")))
+                align = st.get("align") or ""
+                self.align_group.setExclusive(False)
+                for k, b in self.align_btns.items():
+                    b.setChecked(k == align)
+                self.align_group.setExclusive(True)
+                self._fill_spacings(st.get("spacing"))
+            show["width"] = key in ("draw", "shape") and st is not None
+            if show["width"]:
                 w = float(st.get("width", 2.5))
                 best = min(range(self.width_box.count()), key=lambda k: abs(self.width_box.itemData(k) - w))
                 self.width_box.setCurrentIndex(best)
-            colors_on = st is not None and "color" in st and key != "move"
-            self.colors.setVisible(colors_on)
-            if colors_on:
+            shape_kind = items[0].kind if items and key == "shape" else self.shape_kind
+            show["fill"] = key == "shape" and st is not None and shape_kind in ("rect", "ellipse")
+            if show["fill"]:
+                for b, color in zip(self.fill_btns, FILLS):
+                    if b.property("filled") is None:
+                        b.setIcon(_swatch(color) if color else _no_fill())
+                        b.setToolTip(color or tr("No fill"))
+                        b.setAccessibleName(color or tr("No fill"))
+                        b.setProperty("color", color or "")
+                        b.setProperty("filled", True)
+                    b.setChecked(QColor(color or "#00000000") == QColor(st.get("fill") or "#00000000")
+                                 if color else not st.get("fill"))
+            show["color"] = st is not None and "color" in st and key not in ("move", "image", "link")
+            if show["color"]:
                 palette = PENS if key == "highlight" else INK
                 for b, color in zip(self.color_btns, palette + [None] * 7):
                     b.setVisible(color is not None)
@@ -2324,54 +2969,108 @@ class PdfEditor(QWidget):
                     if b.property("color") != color:
                         b.setIcon(_swatch(color))
                         b.setToolTip(color)
+                        b.setAccessibleName(color)
                         b.setProperty("color", color)
                     b.setChecked(QColor(color) == QColor(st.get("color", "")))
-            self.delete_btn.setVisible(bool(items))
-            self.props.setVisible(any(w.isVisibleTo(self.props) for w in (
-                self.kind_strip, self.font_box, self.width_box, self.colors, self.delete_btn)))
+            show["opacity"] = st is not None and key in OPACITY_KINDS
+            if show["opacity"]:
+                op = round(100 * float(st.get("opacity", 1.0) or 1.0))
+                self.opacity_slider.setValue(op)
+                self.opacity_label.setText(f"{op}%")
+            link = items[0] if len(items) == 1 and getattr(items[0], "kind", "") == "link" else None
+            show["link"] = link is not None
+            if link is not None and not self.link_box.hasFocus():
+                self.link_box.setText(self._link_text(link.d))
+                self._link_said(link.d)
+            pic = items[0] if len(items) == 1 and key in ("image", "picture", "move") else None
+            show["picture"] = pic is not None
+            if pic is not None:
+                self.replace_pic_btn.setVisible(key in ("image", "picture"))
+                self.turn_pic_btn.setVisible(key == "image")
+                self.save_pic_btn.setVisible(key == "picture")
+            show["actions"] = bool(items)
+            self.duplicate_btn.setVisible(any(not isinstance(i, OldPiece) and getattr(i, "kind", "") != "move"
+                                              for i in items))
+            for name, box in (("kind", self.kind_box), ("para", self.para_box), ("font", self.font_section),
+                              ("align", self.align_section), ("color", self.color_section),
+                              ("fill", self.fill_section), ("width", self.width_section),
+                              ("opacity", self.opacity_section), ("link", self.link_section),
+                              ("picture", self.picture_section), ("actions", self.actions_section)):
+                box.setVisible(bool(show.get(name)))
+            needed = any(show.values())
+            if needed != getattr(self, "insp_needed", None):
+                self.insp_needed = needed
+                self._side_shown()
             hint = HINTS.get(self.active_tool() if tool in ("mark", "shape") else tool, "")
+            if items:
+                hint = SELECTED_HINTS.get(key or "", "")
             if tool == "edit" and self.pages and not any(p.pieces for p in self.pages if p.layout) and \
-                    any(p.layout for p in self.pages):
+                    any(p.layout for p in self.pages if not p.blank):
                 hint = tr("The text on these pages can't be changed directly (it may be a scan). "
                           "Use Cover, then Add text over it.")
-            elif self.field_items and tool in ("select", "text", "edit"):
+            elif self.field_items and tool in ("select", "text", "edit") and not items:
                 hint = tr("This PDF has a form: click its boxes to fill them in.") + "  " + tr(hint)
             else:
-                hint = tr(hint)
+                hint = tr(hint) if hint else ""
             self.hint.setText(hint)
+            self.hint.setVisible(bool(hint))
             self.undo_btn.setEnabled(bool(self.history))
             self.redo_btn.setEnabled(bool(self.future))
             self.save_btn.setEnabled(self.saved is not None and self.current != self.saved and self._saving is None)
         finally:
             self._filling = False
 
-    def set_style(self, **change):
-        """The bar was used: the selected things change, and new ones will look like that."""
+    def _fill_spacings(self, now):
+        self.spacing_box.clear()
+        found = False
+        for words, value in SPACINGS:
+            self.spacing_box.addItem(tr(words), value)
+            if (value is None and not now) or (value is not None and now and abs(float(now) - value) < 0.01):
+                self.spacing_box.setCurrentIndex(self.spacing_box.count() - 1)
+                found = True
+        if not found:
+            self.spacing_box.addItem(tr("As in the PDF ({number})", number=f"{float(now):.2f}"), float(now))
+            self.spacing_box.setCurrentIndex(self.spacing_box.count() - 1)
+
+    def _opacity_moved(self, value: int):
+        self.opacity_label.setText(f"{value}%")
         if self._filling:
             return
-        items = self.selected_items()
-        focus = self.scene.focusItem()
-        if isinstance(focus, TextMark) and focus not in items:
+        self.set_style(opacity=round(value / 100, 2), commit=not self.opacity_slider.isSliderDown())
+
+    def set_style(self, commit: bool = True, **change):
+        """The panel was used: the selected things change, and new ones will look like that."""
+        if self._filling:
+            return
+        items = [i for i in self.selected_items() if not isinstance(i, OldPiece)]
+        focus = self.typing()
+        if focus is not None and focus not in items:
             items.append(focus)
         if items:
             for item in items:
                 kind = self._kind_of(item)
-                keys = {"text": ("font", "size", "color", "bold", "italic"), "draw": ("color", "width"),
-                        "shape": ("color", "width")}.get(kind, ("color",))
+                keys = STYLE_KEYS.get(kind, ("color",))
                 for k, val in change.items():
                     if k in keys and hasattr(item, "d"):
-                        item.d[k] = val
+                        if val is None and k in ("spacing", "fill", "align"):
+                            item.d.pop(k, None)
+                        else:
+                            item.d[k] = val
                 if "font" in change and hasattr(item, "d"):
                     item.d.pop("font_ar", None)  # (a font picked: for all of the words)
                 if isinstance(item, TextMark):
                     item.restyle()
                 else:
-                    item.update()
-            self.commit()
+                    item.restyle() if hasattr(item, "restyle") else item.update()
+            if commit:
+                self.commit()
         key = self.style_key() if not items else self._kind_of(items[0])
         if key in self.style:
-            self.style[key].update({k: v for k, v in change.items()})
-        self._refresh()
+            self.style[key].update({k: v for k, v in change.items() if k in STYLE_KEYS.get(key, ("color",))})
+        if "font" in change:
+            self.font_box.recent = ([change["font"]] + [f for f in self.font_box.recent if f != change["font"]])[:6]
+        if commit:
+            self._refresh()
 
     def _pick_color(self):
         key = self.style_key()
@@ -2389,7 +3088,7 @@ class PdfEditor(QWidget):
         kind = d["kind"]
         if kind == "text":
             item = TextMark(self, page, d)
-        elif kind in ("image", "cover", "move"):
+        elif kind in ("image", "cover", "move", "link"):
             key = (page.index, tuple(d.get("objs") or ()))
             if kind == "move" and pixmap is not None:
                 self.move_pics[key] = pixmap
@@ -2432,7 +3131,13 @@ class PdfEditor(QWidget):
         item.start_edit()
 
     def edit_line(self, piece: OldPiece, at: QPointF | None = None):
-        """A line of the PDF's own text becomes a text box with its words, ready to change."""
+        """A line of the PDF's own text becomes a text box with its words, ready to change (the whole
+        paragraph it's in, when paragraphs are changed whole)."""
+        pieces = self._para_pieces(piece)
+        if len(pieces) > 1:
+            self.edit_para(pieces, at)
+            self.set_tool_quiet("select") if self.tool not in ("edit", "text") else None
+            return
         item = self.line_to_text(piece)
         self._ask_pages()
         self.scene.clearSelection()
@@ -2445,7 +3150,8 @@ class PdfEditor(QWidget):
         page, d = piece.page, piece.d
         family, arabic = pdffonts.for_line(dict(d, text=d["text"] if text is None else text))
         size = float(d["size"])
-        st = {"font": family, "size": size, "color": d["color"], "bold": d["bold"], "italic": d["italic"]}
+        st = {"font": family, "size": size, "color": d["color"], "bold": d["bold"], "italic": d["italic"],
+              "pdf_font": d.get("font", ""), "matched": family}
         if arabic:
             st["font_ar"] = arabic  # (its Arabic words were in a font of their own)
         fm = QFontMetricsF(pdfedit.font_for(st), pdfedit.layout_device())
@@ -2533,6 +3239,21 @@ class PdfEditor(QWidget):
             self.add_picture(Path(name))
 
     def add_picture(self, path: Path, signature: bool = False):
+        path = self._readable_picture(path)
+        if path is None:
+            return
+        img = QImage(str(path))
+        # its size as it would be printed (pictures without a size: 96 dpi)
+        dpm = img.dotsPerMeterX() or 3780
+        w = img.width() / (dpm * 0.0254) * 72
+        h = img.height() / (dpm * 0.0254) * 72
+        if signature:
+            w, h = 160.0, 160.0 * img.height() / max(1, img.width())
+        self._place_box({"kind": "image", "path": str(path)}, w, h)
+
+    def _readable_picture(self, path: Path) -> Path | None:
+        """The picture as a file Qt reads, upright (a copy, for kinds Qt doesn't read or a phone photo
+        kept on its side), or None (and the user is told) when it can't be read."""
         img = QImage(str(path))
         if img.isNull() and path.is_file():  # (HEIC, WebP… that Qt doesn't read: through Pillow)
             try:
@@ -2545,7 +3266,7 @@ class PdfEditor(QWidget):
                 log.debug("couldn't read %s", path, exc_info=True)
         if img.isNull():
             self.c.tell(tr("Corefold PDF"), tr("That picture couldn't be read."))
-            return
+            return None
         from PySide6.QtGui import QImageIOHandler, QImageReader
         reader = QImageReader(str(path))
         if reader.transformation() != QImageIOHandler.Transformation.TransformationNone:
@@ -2556,14 +3277,7 @@ class PdfEditor(QWidget):
             if not upright.isNull():
                 path = self._temp_file(".png")
                 upright.save(str(path))
-                img = upright
-        # its size as it would be printed (pictures without a size: 96 dpi)
-        dpm = img.dotsPerMeterX() or 3780
-        w = img.width() / (dpm * 0.0254) * 72
-        h = img.height() / (dpm * 0.0254) * 72
-        if signature:
-            w, h = 160.0, 160.0 * img.height() / max(1, img.width())
-        self._place_box({"kind": "image", "path": str(path)}, w, h)
+        return path
 
     def sign(self):
         from .settings import CONFIG_DIR
@@ -2591,6 +3305,8 @@ class PdfEditor(QWidget):
             return
         mime = QApplication.clipboard().mimeData()
         if mime is None or not self.pages:
+            return
+        if mime.hasFormat(ITEMS_MIME) and self._paste_items(mime):
             return
         if mime.hasImage():
             img = QImage(mime.imageData())
@@ -2661,6 +3377,340 @@ class PdfEditor(QWidget):
                     continue
             rects.append([x, y, w, h])
         return [[round(v, 2) for v in r] for r in rects]
+
+    # ---- paragraphs of the PDF's own text
+
+    def typing(self) -> "TextMark | None":
+        """The text box being typed in (while the options at the side are used too), or None."""
+        for item in list(self.kept):
+            if isinstance(item, TextMark) and work.alive(item) and item.editing():
+                return item
+        return None
+
+    def keeps_typing(self, w: QWidget | None) -> bool:
+        """Whether focus going to w (the options at the side, the list of fonts) leaves the typing as it is."""
+        if w is None:
+            return False
+        panel = self.font_box.panel
+        return self.inspector.isAncestorOf(w) or (panel is not None and (w is panel or panel.isAncestorOf(w)))
+
+    def para_of(self, piece: "OldPiece") -> dict | None:
+        """The paragraph a line of the PDF's own text is in (when whole paragraphs are changed), or None."""
+        if piece.kind != "line" or not self.para_check.isChecked():
+            return None
+        n = piece.d.get("para")
+        paras = (piece.page.layout or {}).get("paras") or []
+        if n is None or not 0 <= n < len(paras):
+            return None
+        return paras[n]
+
+    def para_hot(self, piece: "OldPiece") -> bool:
+        return self.tool == "edit" and self.hot_para is not None and \
+            self.hot_para == (piece.page.index, piece.d.get("para")) and piece.kind == "line"
+
+    def hover_piece(self, piece: "OldPiece", on: bool):
+        if self.tool != "edit" or self.para_of(piece) is None:
+            return
+        self.hot_para = (piece.page.index, piece.d.get("para")) if on else None
+        for other in piece.page.pieces:
+            if other.d.get("para") == piece.d.get("para"):
+                other.update()
+
+    def _paras_toggled(self, _on: bool):
+        self.hot_para = None
+        for page in self.pages:
+            for piece in page.pieces:
+                piece.update()
+
+    def _para_pieces(self, piece: "OldPiece") -> list["OldPiece"]:
+        para = self.para_of(piece)
+        if para is None:
+            return [piece]
+        by_k = {getattr(p, "k", -1): p for p in piece.page.pieces if p.kind == "line"}
+        pieces = [by_k[k] for k in para["lines"] if k in by_k]
+        if len(pieces) < 2 or any(not p.isVisible() for p in pieces):
+            return [piece]  # (a line of it was changed on its own already: just this line)
+        return pieces
+
+    def edit_para(self, pieces: list["OldPiece"], at: QPointF | None = None) -> "TextMark":
+        """A paragraph of the PDF's own text becomes one text box as wide as it, with its words: they flow
+        from line to line again as they're changed, lined up and spaced as they were."""
+        page, first = pieces[0].page, pieces[0].d
+        para = self.para_of(pieces[0])
+        text = ""
+        for p in pieces:
+            words = p.d["text"].strip()
+            if text and not text.endswith("-"):
+                text += " "
+            text += words
+        family, arabic = pdffonts.for_line(dict(first, text=text))
+        size = float(first["size"])
+        st = {"font": family, "size": size, "color": first["color"], "bold": first["bold"],
+              "italic": first["italic"], "pdf_font": first.get("font", ""), "matched": family,
+              "align": para["align"], "spacing": para["spacing"]}
+        if arabic:
+            st["font_ar"] = arabic
+        fm = QFontMetricsF(pdfedit.font_for(st), pdfedit.layout_device())
+        x, y, w, h = para["rect"]
+        top = first["base"] - fm.ascent() - pdfedit.TEXT_MARGIN if first.get("base") else y
+        objs = sorted({k for p in pieces for k in p.objs})
+        item = self.add_item(dict(st, kind="text", page=page.index, text=text, was=text, x=x - pdfedit.TEXT_MARGIN,
+                                  y=top, width=round(w + 2 * pdfedit.TEXT_MARGIN + 1, 2), replaces=objs),
+                             commit=False)
+        for p in pieces:
+            p.setVisible(False)
+        self._ask_pages()
+        self.scene.clearSelection()
+        item.setSelected(True)
+        item.start_edit(at)
+        return item
+
+    # ---- pages added
+
+    def add_blank_page(self, after: int | None = None):
+        """A blank page after the page picked (or the one in sight), as big as it."""
+        if not self.pages:
+            return
+        if after is None:
+            picked = self.picked_pages()
+            after = picked[-1] if picked else self.order[-1]
+        self.end_text_edits()
+        w, h = self._shown_size(after)
+        page = PageItem(len(self.pages), w, h)
+        page.blank = True
+        page.layout = {"size": (w, h), "lines": [], "paras": [], "images": [], "chars": []}
+        page.asked_layout = True
+        self.scene.addItem(page)
+        self.pages.append(page)
+        n = self.order.index(after) + 1 if after in self.order else len(self.order)
+        self.order.insert(n, page.index)
+        self._place_pages()
+        self._fill_thumbs()
+        self.commit()
+        self.go_to_page(page.index)
+        self._say(tr("A blank page was added after page {number}.", number=n))
+
+    # ---- pictures
+
+    def _one_selected(self):
+        items = self.selected_items()
+        return items[0] if len(items) == 1 else None
+
+    def replace_picture(self):
+        """Another picture in the place of the selected one (the PDF's own picture is taken out of the file)."""
+        item = self._one_selected()
+        if item is None:
+            return
+        kinds = " ".join(f"*{ext}" for ext in sorted(IMAGE_EXT | {".jpeg", ".jfif", ".tif", ".heif"}))
+        name, _ = QFileDialog.getOpenFileName(self, tr("Pick a picture"), str(Path.home()),
+                                              f"{tr('Pictures')} ({kinds})")
+        if not name:
+            return
+        path = self._readable_picture(Path(name))
+        if path is None:
+            return
+        if isinstance(item, OldPiece):
+            page = item.page
+            x, y = item.pos().x(), item.pos().y()
+            w, h = item.rect.width(), item.rect.height()
+            d = {"kind": "image", "path": str(path), "page": page.index, "x": round(x, 2), "y": round(y, 2),
+                 "w": round(w, 2), "h": round(h, 2), "replaces": list(item.objs)}
+            item.setSelected(False)
+            new = self.add_item(d)
+            self._pieces_shown(page)
+            self._ask_pages()
+        else:
+            d = item.data()
+            d["path"] = str(path)
+            d.pop("turn", None)
+            self.drop_item(item, commit=False)
+            new = self.add_item(d)
+        self.scene.clearSelection()
+        new.setSelected(True)
+
+    def turn_picture(self):
+        item = self._one_selected()
+        if not isinstance(item, BoxMark) or item.kind != "image":
+            return
+        c = item.pos() + QPointF(item.w / 2, item.h / 2)
+        item.prepareGeometryChange()
+        item.d["turn"] = (int(item.d.get("turn", 0)) + 90) % 360
+        item.w, item.h = item.h, item.w
+        item.ratio = item.w / item.h if item.h else 1
+        item.handle.setPos(item.w, item.h)
+        item.setPos(c - QPointF(item.w / 2, item.h / 2))
+        item.update()
+        self.commit()
+
+    def save_picture(self):
+        """A copy of the PDF's own picture, as a file."""
+        item = self._one_selected()
+        if not isinstance(item, OldPiece) or item.kind != "image" or self.src is None:
+            return
+        name, _ = QFileDialog.getSaveFileName(self, tr("Save the picture…").rstrip("…"),
+                                              str(self.src.with_name(f"{self.src.stem} picture.png")), "PNG (*.png)")
+        if not name:
+            return
+        try:
+            pdfedit.save_picture(self.src, self.password, item.page.index, item.objs[0], Path(name))
+        except Exception:
+            log.debug("couldn't save the picture", exc_info=True)
+            self.c.tell(tr("Corefold PDF"), tr("That picture couldn't be saved."))
+            return
+        self._say(tr("Saved {name}", name=short_name(Path(name).name)))
+
+    # ---- copies of what was added
+
+    def _copyable(self) -> list[dict]:
+        out = []
+        for item in self.selected_items():
+            if isinstance(item, OldPiece) or getattr(item, "kind", "") == "move":
+                continue
+            d = item.data()
+            for k in ("replaces", "was", "pdf_font", "matched"):
+                d.pop(k, None)
+            out.append(d)
+        return out
+
+    @staticmethod
+    def _moved(d: dict, dx: float, dy: float, page: int | None = None) -> dict:
+        d = dict(d)
+        if page is not None:
+            d["page"] = page
+        for k, step in (("x", dx), ("y", dy)):
+            if k in d:
+                d[k] = round(float(d[k]) + step, 2)
+        if "points" in d:
+            x1, y1, x2, y2 = d["points"]
+            d["points"] = [x1 + dx, y1 + dy, x2 + dx, y2 + dy]
+        if "strokes" in d:
+            d["strokes"] = [[[x + dx, y + dy] for x, y in s] for s in d["strokes"]]
+        if "rects" in d:
+            d["rects"] = [[x + dx, y + dy, w, h] for x, y, w, h in d["rects"]]
+        return d
+
+    def _add_copies(self, ds: list[dict], dx: float, dy: float, page: int | None = None):
+        self.end_text_edits()
+        made = []
+        for d in ds:
+            if not 0 <= int(page if page is not None else d.get("page", -1)) < len(self.pages):
+                continue
+            made.append(self.add_item(self._moved(d, dx, dy, page), commit=False))
+        if not made:
+            return
+        self.commit()
+        self.scene.clearSelection()
+        for item in made:
+            item.setSelected(True)
+        self.set_tool_quiet("select")
+        self.view.setFocus()
+
+    def duplicate_selected(self):
+        ds = self._copyable()
+        if ds:
+            self._add_copies(ds, 12, 12)
+
+    def copy_selected(self) -> bool:
+        import json
+        from PySide6.QtCore import QMimeData
+        ds = self._copyable()
+        if not ds:
+            return False
+        mime = QMimeData()
+        mime.setData(ITEMS_MIME, json.dumps(ds).encode("utf-8"))
+        words = "\n".join(d.get("text", "") for d in ds if d.get("kind") == "text").strip()
+        if words:
+            mime.setText(words)
+        QApplication.clipboard().setMimeData(mime)
+        self.copied_at = 0
+        self._say(tr("Copied. Ctrl + V puts a copy on the page in sight."))
+        return True
+
+    def _paste_items(self, mime) -> bool:
+        import json
+        try:
+            ds = json.loads(bytes(mime.data(ITEMS_MIME)).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            return False
+        if not isinstance(ds, list) or not ds:
+            return False
+        sight = self._in_sight()
+        if not sight:
+            return False
+        r = self.view.mapToScene(self.view.viewport().rect()).boundingRect()
+        page = max(sight, key=lambda i: QRectF(self.pages[i].sceneBoundingRect()).intersected(r).height())
+        self.copied_at += 1
+        same = all(int(d.get("page", -1)) == page for d in ds)
+        step = 20 * self.copied_at if same else 0
+        self._add_copies([d for d in ds if isinstance(d, dict) and d.get("kind") in COPYABLE], step, step, page)
+        return True
+
+    # ---- links
+
+    def _link_text(self, d: dict) -> str:
+        if d.get("target") is not None and d["target"] in self.position:
+            return str(self.position[d["target"]] + 1)
+        return str(d.get("url", ""))
+
+    def _link_said(self, d: dict):
+        if d.get("target") is not None:
+            text = tr("Goes to page {number} of this PDF.", number=self.position.get(d["target"], 0) + 1) \
+                if d["target"] in self.position else tr("That page was deleted.")
+        elif d.get("url"):
+            text = tr("Opens {address}", address=pdfedit.web_address(d["url"]))
+        else:
+            text = tr("Type a web address, like example.com, or the number of a page in this PDF.")
+        self.link_note.setText(text)
+
+    def _link_typed(self):
+        item = self._one_selected()
+        if not isinstance(item, BoxMark) or item.kind != "link":
+            return
+        text = self.link_box.text().strip()
+        d = dict(item.d)
+        d.pop("url", None)
+        d.pop("target", None)
+        if text.isdigit() and 1 <= int(text) <= len(self.order):
+            d["target"] = self.order[int(text) - 1]
+        elif text and pdfedit.web_address(text):
+            d["url"] = text
+        elif text:
+            self.link_note.setText(tr("That isn't a web address or a page of this PDF."))
+            return
+        if d != item.d:
+            item.d = d
+            item.setToolTip(self._link_text(d))
+            item.update()
+            self.commit()
+        self._link_said(item.d)
+
+    # ---- covering every place the words are found
+
+    def cover_matches(self):
+        """Every place what's typed in Find is on the pages gets a cover: those words are taken out of the
+        file when it's saved (like a name or a number that mustn't be sent)."""
+        if not self.matches or self._reading():
+            return
+        self.end_text_edits()
+        color = self.style["cover"]["color"]
+        count = 0
+        for page, obj, at in list(self.matches):
+            if not isinstance(obj, OldPiece):
+                continue  # (words typed here: change them instead)
+            r = self._match_rect(page, obj, at).adjusted(-0.6, -0.6, 0.6, 0.6)
+            self.add_item({"kind": "cover", "page": page.index, "x": round(r.x(), 2), "y": round(r.y(), 2),
+                           "w": round(r.width(), 2), "h": round(r.height(), 2), "color": color}, commit=False)
+            count += 1
+        if not count:
+            return
+        self.commit()
+        self.found_label.setText(tr("Covered {count}", count=count))
+        self._say(tr("Covered {count}. What's under the covers is taken out when the PDF is saved.", count=count))
+
+    def _say(self, text: str):
+        """A short note at the bottom (what just happened), gone after a few seconds."""
+        self.note.setText(text)
+        self.note_timer.start()
 
     # ---- deleting
 
@@ -2801,6 +3851,9 @@ class PdfEditor(QWidget):
             params["order"] = state["order"]
         if state["turns"]:
             params["turns"] = state["turns"]
+        blanks = [[round(p.w, 2), round(p.h, 2)] for p in self.pages[self.doc_pages:] if p.blank]
+        if blanks:
+            params["blanks"] = blanks
         src = self.src
         self._saving = state
         self.save_btn.setEnabled(False)

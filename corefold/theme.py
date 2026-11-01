@@ -145,6 +145,32 @@ QPushButton#capSwatch:hover { border-color: $muted; }
 QPushButton#capSwatch:checked { border: 3px solid $text; }
 QFrame#capBarLine { background: $line_strong; }
 QLabel#pdfGroup { color: $muted; font-size: 9pt; font-weight: 700; }
+/* (the PDF editor's own: Qt turns text-align and padding around by itself in a right-to-left window) */
+QFrame#pdfToolbar { background: $panel; border: 1px solid $border; border-radius: 12px; }
+QFrame#pdfToolSep { background: $border; margin: 6px 3px; }
+QToolButton#pdfTool { background: transparent; border: 1px solid transparent; border-radius: 9px; color: $text;
+                      padding: 4px 7px; font-size: 8.5pt; min-width: 44px; }
+QToolButton#pdfTool:hover { background: $hover; }
+QToolButton#pdfTool:checked { background: $select; border-color: $select; font-weight: 600; }
+QScrollArea#pdfInspector { background: $panel; border: 1px solid $border; border-radius: 12px; }
+QWidget#pdfInspectorInside { background: transparent; }
+QPushButton#pdfChoice { background: transparent; border: 1px solid $border; border-radius: 8px; padding: 5px 8px;
+                        min-width: 0; text-align: left; }
+QPushButton#pdfChoice:hover { background: $hover; }
+QPushButton#pdfChoice:checked { background: $select; border-color: $line_strong; font-weight: 600; }
+QPushButton#pdfAction { text-align: left; padding: 6px 10px; }
+QPushButton#pdfFont { background: $field; border: 1px solid $line_strong; border-radius: 8px; padding: 6px 28px 6px 10px;
+                      text-align: left; min-height: 20px; }
+QPushButton#pdfFont:hover { border-color: $muted; }
+QFrame#pdfFontPanel { background: $raised; border: 1px solid $line_strong; border-radius: 12px; }
+QListWidget#pdfFontList { background: transparent; border: none; outline: none; }
+QListWidget#pdfFontList::item { padding: 5px 8px; border-radius: 6px; }
+QListWidget#pdfFontList::item:hover { background: $hover; }
+QListWidget#pdfFontList::item:selected { background: $select; color: $text; }
+QListWidget#pdfThumbs { background: $panel; border: 1px solid $border; border-radius: 12px; outline: none; padding: 4px; }
+QListWidget#pdfThumbs::item { border-radius: 8px; padding: 4px; color: $muted; }
+QListWidget#pdfThumbs::item:hover { background: $hover; }
+QListWidget#pdfThumbs::item:selected { background: $select; color: $text; }
 QFrame#toolCard[off="true"]:hover { border-color: $line_strong; background: transparent; }
 QPushButton#chipButton { background: $raised; border: 1px solid $border; border-radius: 10px; padding: 3px 11px;
                          min-width: 0; font-weight: 600; }
