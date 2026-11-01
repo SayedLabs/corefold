@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -684,6 +685,8 @@ class MainWindow(QWidget):
     def __init__(self, controller: "Controller", icon: QIcon, committed: dict | None = None,
                  pending_startup: bool | None = None):
         super().__init__()
+        self.made_in: list[tuple[str, float]] = []  # (how long each part of the window took to make)
+        self._made_since = time.perf_counter()
         self.c = controller
         # the settings as last saved (what "Discard" goes back to), and a start-with-Windows choice
         # that isn't saved yet
@@ -768,6 +771,7 @@ class MainWindow(QWidget):
         self._auto_compact = False   # icons only because the window is narrow (not the person's choice)
         self._apply_nav_width(COMPACT_NAV if self.c.settings.nav_compact else self.c.settings.nav_width)
 
+        self._made("sidebar")
         self.stack = QStackedWidget()
         self.stack.currentChanged.connect(self._fade_in)
         builders = {"Home": self._home, "Converter": self._converter, "History": self._history, "Apps": self._apps,
@@ -810,13 +814,20 @@ class MainWindow(QWidget):
                          "Organizer", "Startup", "Scan", "Unlock", "Awake", "Colors", "Archives", "History",
                          "Updates", "About", *SETTINGS_PAGES, *SOON,
                          *[tool.page for tool in all_tools.TOOLS if tool.page not in on_pages and tool.page != "Converter"]}
+        self._made("heads")
         for name in PAGES:
-            self.stack.addWidget(QWidget() if name in self._unbuilt else builders[name]())
+            if name in self._unbuilt:
+                self.stack.addWidget(QWidget())
+            else:
+                self.stack.addWidget(builders[name]())
+                self._made(name)
+        self._made("empty pages")
         self._opening = None  # a page without a sidebar row of its own, while it's being opened
         self.nav.currentRowChanged.connect(self._page_changed)
         self.nav.itemClicked.connect(self._row_clicked)
         last = self.c.settings.last_page
         self.open_page(last if last in PAGES or last in OLD_PAGES else "Home")
+        self._made("page opened")
         self._learning = None
         QTimer.singleShot(4000, self, self._learn_setting_words)
         self._warming = [name for name in WARM_PAGES if self.shows(name)]
@@ -863,17 +874,24 @@ class MainWindow(QWidget):
         root.addWidget(self.edge)
         root.addWidget(self.canvas, 1)
         self._one_head_tab_order()
+        self._made("laid out")
 
         self.refresh()
         self.refresh_updates()
         self.refresh_history()
         self._no_accidental_scrolling()
         self.update_save_bar()
+        self._made("filled")
         self._went: list[str] = []  # pages opened before this one (Back, Alt + Left, the mouse's back button)
         self._going_back = False
         QShortcut(QKeySequence(QKeySequence.StandardKey.Back), self, self.go_back)
         QShortcut(QKeySequence("Ctrl+K"), self, self.open_palette)
         self._back_button = _BackButton(self)
+
+    def _made(self, part: str):
+        now = time.perf_counter()
+        self.made_in.append((part, now - self._made_since))
+        self._made_since = now
 
     # ---- saving settings on purpose
 
