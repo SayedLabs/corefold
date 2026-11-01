@@ -373,6 +373,18 @@ def page():
     QTest.keyClick(board, Qt.Key_Z, Qt.ControlModifier)
     settle(0.2)
     check(pg.plan()[1] == (0, 1, 0), "Ctrl + Z undoes the turn")
+    board.clearSelection()
+    click_page(2)
+    QTest.mouseClick(pg.tool_btns["copy"], Qt.LeftButton)
+    settle(0.2)
+    check(board.count() == 11 and pg.plan()[2] == pg.plan()[3] == (0, 2, 0)
+          and [board.row(i) for i in board.selectedItems()] == [3], "Duplicate puts a copy right after the page")
+    QTest.keyClick(board, Qt.Key_Z, Qt.ControlModifier)
+    settle(0.2)
+    check(board.count() == 10, "Ctrl + Z takes the copy away")
+    check(all(b.toolButtonStyle() == (Qt.ToolButtonIconOnly if pg.board_tools.short
+                                      else Qt.ToolButtonTextUnderIcon) for b in pg.tool_btns.values()),
+          "the board's tools show their names when there's room, only pictures when not")
     pg.pick.clear()
     QTest.keyClicks(pg.pick, "9-10, 1")
     QTest.keyClick(pg.pick, Qt.Key_Return)

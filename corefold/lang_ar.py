@@ -3097,4 +3097,6 @@ STRINGS: dict[str, str] = {
     "Size in bytes": "الحجم بالبايت",
     "Share of the folder above (%)": "النسبة من المجلد الأعلى (%)",
     "Double-click to see its biggest files": "انقر نقرًا مزدوجًا لترى أكبر ملفاته",
+    "Turn left (Ctrl + L)": "تدوير لليسار (Ctrl + L)",
+    "Turn right (Ctrl + R)": "تدوير لليمين (Ctrl + R)",
 }

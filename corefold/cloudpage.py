@@ -1273,6 +1273,7 @@ class CloudPage(QWidget):
         self.preview_btn.setEnabled(have and bool(self.shown))
         self.up_btn.setEnabled(have and (bool(self.trail) or self.results is not None))
         self._picked_changed()
+        QTimer.singleShot(0, self._fit_actions)  # (the buttons just shown, or the space's words: room for them all?)
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
@@ -1287,8 +1288,9 @@ class CloudPage(QWidget):
             return
         if not self.compact:
             shown = [b for b, *_ in self.actions if not b.isHidden()]
-            self._need = sum(b.sizeHint().width() for b in shown) + self.acts.spacing() * len(shown) + \
-                (self.space.sizeHint().width() if self.space.text() else 0)
+            # (a button with a menu is wider than its words: room for its arrow; and a little to spare)
+            self._need = sum(max(b.sizeHint().width(), b.minimumWidth()) for b in shown) + \
+                self.acts.spacing() * len(shown) + (self.space.sizeHint().width() if self.space.text() else 0) + 16
         compact = self._need > room
         if compact == self.compact:
             return
