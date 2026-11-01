@@ -39,6 +39,7 @@ SECTIONS = [("map", "Disk map"), ("clean", "Clean up"), ("dupes", "Duplicates")]
 SECTION_ICONS = {"map": "data_pie", "clean": "broom", "dupes": "copy"}
 JUNK_ICONS = {"temp": "timer", "bin": "delete", "browser": "globe", "thumbs": "image_multiple", "gpu": "top_speed",
               "dumps": "stethoscope", "installers": "box", "winupdate": "arrow_download", "winold": "history",
+              "delivery": "arrow_sync",
               "app": "apps"}
 DUPE_FOLDERS = ("Desktop", "Documents", "Downloads", "Pictures", "Videos", "Music")
 KEEP_MAPS = 2             # drives (or folders) whose map is kept, so opening one again is instant
