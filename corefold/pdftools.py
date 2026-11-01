@@ -886,12 +886,35 @@ def repair(src: Path, ctx: Ctx) -> Result:
     return Result([out], note=tr("{count} pages saved in a repaired copy", count=pages))
 
 
+def _turn_looks(annot, angle: int, done: set):
+    """A note's ready-made looks (its /AP streams) turned the way its page was shown turned, so it looks the
+    same once the page itself is turned for real (each look once, even when notes share one)."""
+    from pypdf import Transformation
+    from pypdf.generic import ArrayObject, FloatObject, NameObject, StreamObject
+    looks = annot.get("/AP")
+    if looks is None:
+        return
+    looks = looks.get_object()
+    for kind in ("/N", "/D", "/R"):
+        if kind not in looks:
+            continue
+        one = looks[kind].get_object()
+        streams = [one] if isinstance(one, StreamObject) else [v.get_object() for v in one.values()]
+        for stream in streams:
+            if not isinstance(stream, StreamObject) or id(stream) in done:
+                continue
+            done.add(id(stream))
+            old = [float(v) for v in stream.get("/Matrix", [1, 0, 0, 1, 0, 0])]
+            ctm = Transformation(tuple(old)).rotate(-angle).ctm
+            stream[NameObject("/Matrix")] = ArrayObject(FloatObject(round(v, 6)) for v in ctm)
+
+
 def page_size(src: Path, ctx: Ctx) -> Result:
     """Every page made the same size (A4, Letter…): what's on it made bigger or smaller to fit inside, in the
     middle, keeping its shape. A page wider than it is tall becomes a landscape page. Links and notes go
     along with what they're on."""
     from pypdf import PdfWriter, Transformation
-    from pypdf.generic import ArrayObject, FloatObject, NameObject, RectangleObject
+    from pypdf.generic import ArrayObject, FloatObject, NameObject, RectangleObject, StreamObject
     password = ctx.params.get("password", "")
     key = ctx.params.get("size", "a4")
     name, (tw, th) = PAGE_FORMATS.get(key, PAGE_FORMATS["a4"])
@@ -901,31 +924,58 @@ def page_size(src: Path, ctx: Ctx) -> Result:
     n = len(writer.pages)
     for i, page in enumerate(writer.pages):
         ctx.check()
-        if page.rotation % 360:
-            page.transfer_rotation_to_content()
+        angle, turn = page.rotation % 360, None
+        if angle:  # (a turned page is turned for real: what's on it, and its links and notes with it)
+            mb = RectangleObject(page.mediabox)
+            turn = Transformation().translate(-float(mb.left + mb.width / 2),
+                                              -float(mb.bottom + mb.height / 2)).rotate(-angle)
+            ends = [turn.apply_on(p) for p in (mb.lower_left, mb.upper_right)]
+            turn = turn.translate(-min(e[0] for e in ends), -min(e[1] for e in ends))
         box = page.cropbox
-        x0, y0, w, h = float(box.left), float(box.bottom), float(box.width), float(box.height)
-        if w <= 0 or h <= 0:
+        ox0, oy0, ow, oh = float(box.left), float(box.bottom), float(box.width), float(box.height)
+        if ow <= 0 or oh <= 0:
             continue
+        ends = [(ox0, oy0), (ox0 + ow, oy0 + oh)]
+        if turn is not None:
+            ends = [turn.apply_on(e) for e in ends]
+        x0, y0 = min(e[0] for e in ends), min(e[1] for e in ends)
+        w, h = abs(ends[1][0] - ends[0][0]), abs(ends[1][1] - ends[0][1])
         W, H = (th, tw) if w > h else (tw, th)
         scale = min((W - 2 * margin) / w, (H - 2 * margin) / h)
         dx, dy = (W - w * scale) / 2 - x0 * scale, (H - h * scale) / 2 - y0 * scale
-        page.add_transformation(Transformation().scale(scale, scale).translate(dx, dy))
+        # (what was outside the page's visible box stays hidden, such as a print PDF's crop marks and bleed, or
+        # the edges Trim edges hid: everything on the page is drawn through that box)
+        contents = page.get_contents()
+        clipped = StreamObject()
+        clipped.set_data(f"q {ox0:.3f} {oy0:.3f} {ow:.3f} {oh:.3f} re W n\n".encode()
+                         + (contents.get_data() if contents is not None else b"") + b"\nQ")
+        page.replace_contents(clipped.flate_encode())
+        whole = (Transformation(turn.ctm) if turn is not None else Transformation()).scale(scale, scale) \
+            .translate(dx, dy)
+        page.add_transformation(whole)
+        if angle:
+            page.rotation = 0
         for k in ("/CropBox", "/TrimBox", "/BleedBox", "/ArtBox"):
             page.pop(NameObject(k), None)
         page.mediabox = RectangleObject([0, 0, W, H])
 
-        def moved(values, scale=scale, dx=dx, dy=dy):
-            return ArrayObject(FloatObject(round(float(v) * scale + (dx if j % 2 == 0 else dy), 3))
-                               for j, v in enumerate(values))
+        def moved(values, rect=False, whole=whole):
+            spots = [whole.apply_on((float(values[j]), float(values[j + 1]))) for j in range(0, len(values) - 1, 2)]
+            if rect:  # (a box: its corners again lowest first, as a turn can swap them)
+                xs, ys = [s[0] for s in spots], [s[1] for s in spots]
+                spots = [(min(xs), min(ys)), (max(xs), max(ys))]
+            return ArrayObject(FloatObject(round(v, 3)) for spot in spots for v in spot)
+        turned_looks: set = set()
         for ref in page.get("/Annots") or []:
             try:
                 annot = ref.get_object()
                 for k in ("/Rect", "/QuadPoints", "/Vertices", "/L"):
                     if k in annot:
-                        annot[NameObject(k)] = moved(annot[k])
+                        annot[NameObject(k)] = moved(annot[k], rect=k == "/Rect")
                 if "/InkList" in annot:
                     annot[NameObject("/InkList")] = ArrayObject(moved(stroke) for stroke in annot["/InkList"])
+                if angle and not int(annot.get("/F", 0)) & 16:  # (how a note looks turns with the page too)
+                    _turn_looks(annot, angle, turned_looks)
             except Exception:
                 log.debug("a note on page %d couldn't be moved", i + 1, exc_info=True)
         ctx.progress((i + 1) / n)

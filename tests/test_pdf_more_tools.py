@@ -8,8 +8,8 @@ import pypdfium2 as pdfium
 import pytest
 from pypdf import PdfReader, PdfWriter
 from pypdf.annotations import FreeText, Link
-from pypdf.generic import (ArrayObject, DictionaryObject, FloatObject, NameObject, NumberObject, StreamObject,
-                           TextStringObject)
+from pypdf.generic import (ArrayObject, DictionaryObject, FloatObject, NameObject, NumberObject, RectangleObject,
+                           StreamObject, TextStringObject)
 
 from corefold import pdftools
 from corefold import settings as settings_mod
@@ -150,6 +150,71 @@ def test_page_size_keeps_a_margin_and_a_turned_page(tmp_path):
     page = PdfReader(str(out)).pages[0]
     assert page.rotation % 360 == 0
     assert (round(float(page.mediabox.width)), round(float(page.mediabox.height))) == (612, 792)
+
+
+def test_page_size_keeps_what_was_outside_the_page_hidden(tmp_path):
+    """A print PDF's crop marks (or what Trim edges hid) sit outside the page's visible box: when the page is
+    made A4 they must not show up in the room left around it."""
+    w = PdfWriter()
+    page = w.add_blank_page(700, 700)
+    stream = StreamObject()
+    stream._data = b"0 g 0 0 40 700 re f 300 300 50 50 re f"  # (a mark outside the box, and a square inside)
+    page[NameObject("/Contents")] = w._add_object(stream)
+    page.cropbox = RectangleObject([50, 100, 650, 600])
+    src = tmp_path / "print.pdf"
+    w.write(str(src))
+    out = pdftools.page_size(src, _ctx(tmp_path, size="a4")).outputs[0]
+    doc = pdfium.PdfDocument(str(out))
+    try:
+        img = doc[0].render(scale=1).to_pil().convert("L")
+    finally:
+        doc.close()
+    assert img.size[0] > img.size[1]  # (wide: landscape A4, with room left and right)
+    assert img.crop((0, 0, 60, img.height)).getextrema()[0] > 128  # (the mark stays hidden)
+    assert img.getextrema()[0] < 128  # (the square inside is still there)
+
+
+def test_page_size_turns_a_turned_pages_links_and_notes_with_it(tmp_path):
+    """A page shown turned (its /Rotate) is turned for real: a link still covers the same spot, and a note looks
+    just as it did, in the same place."""
+    w = PdfWriter()
+    page = w.add_blank_page(400, 300)
+    page.rotate(90)  # (shown upright: 300 wide, 400 tall)
+    stream = StreamObject()
+    stream._data = b"0 g 0 0 60 60 re f"
+    page[NameObject("/Contents")] = w._add_object(stream)
+    look = StreamObject()
+    look._data = b"0 g 0 0 30 80 re f"  # (a tall bar at the left of a wide note)
+    look.update({NameObject("/Type"): NameObject("/XObject"), NameObject("/Subtype"): NameObject("/Form"),
+                 NameObject("/BBox"): ArrayObject([FloatObject(v) for v in (0, 0, 120, 80)])})
+    note = w._add_object(DictionaryObject({
+        NameObject("/Type"): NameObject("/Annot"), NameObject("/Subtype"): NameObject("/Square"),
+        NameObject("/Rect"): ArrayObject([FloatObject(v) for v in (200, 150, 320, 230)]),
+        NameObject("/F"): NumberObject(4), NameObject("/AP"): DictionaryObject({NameObject("/N"): w._add_object(look)})}))
+    page[NameObject("/Annots")] = ArrayObject([note])
+    w.add_annotation(0, Link(rect=(0, 0, 100, 300), url="https://example.com"))  # (the top quarter, as shown)
+    src = tmp_path / "turned.pdf"
+    w.write(str(src))
+    out = pdftools.page_size(src, _ctx(tmp_path, size="letter")).outputs[0]
+    page = PdfReader(str(out)).pages[0]
+    link = [a.get_object() for a in page["/Annots"] if a.get_object()["/Subtype"] == "/Link"][0]
+    scale = min(612 / 300, 792 / 400)
+    left = (612 - 300 * scale) / 2
+    assert [round(float(v)) for v in link["/Rect"]] == [round(left), round(792 - 100 * scale), round(612 - left), 792]
+
+    def dark(path, crop=None):
+        doc = pdfium.PdfDocument(str(path))
+        try:
+            img = doc[0].render(scale=1).to_pil().convert("L")
+        finally:
+            doc.close()
+        if crop:
+            img = img.crop(crop).resize((300, 400))
+        return [v < 128 for v in img.tobytes()]
+    before = dark(src)
+    after = dark(out, (round(left), 0, round(612 - left), 792))
+    assert sum(before) == 60 * 60 + 30 * 80
+    assert sum(a != b for a, b in zip(before, after)) < 100  # (the page and its note look as they did)
 
 
 def _boxed(path: Path, pages) -> Path:
