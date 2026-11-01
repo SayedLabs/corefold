@@ -132,6 +132,8 @@ def _run_through_helper(monkeypatch, home, change=None):
     monkeypatch.setattr(un, "BACKUP_DIR", home / un.BACKUP_DIR.name)
     monkeypatch.setattr(un, "_let_questions_show", lambda: None)
     monkeypatch.setattr(un, "wait_process", lambda handle, cancel=None: 0)
+    private = home.parent / "private"  # (Windows' own Temp, made administrators-only, in Corefold)
+    monkeypatch.setattr(un, "_private_dir", lambda: (private.mkdir(), private)[1])
     codes = []
 
     def shell_run(exe, args, admin=False, show=1, cwd=None):
@@ -148,10 +150,10 @@ def test_the_helper_acts_on_the_plan_written_before_the_prompt(tmp_path, monkeyp
     home, folder = _helper_home(tmp_path)
     codes = _run_through_helper(monkeypatch, home)
     calls = []
-    monkeypatch.setattr(un, "restore", lambda f, admin=False, manifest=None: calls.append((f, manifest)) or
-                        {"done": 1, "failed": []})
+    monkeypatch.setattr(un, "restore", lambda f, admin=False, manifest=None, files=None:
+                        calls.append((f, manifest, files)) or {"done": 1, "failed": []})
     assert un.run_elevated(["Corefold.exe"], "restore", {"folder": str(folder)}) == {"done": 1, "failed": []}
-    assert codes == [0] and calls == [(folder, un.manifest_digest(folder))]
+    assert codes == [0] and calls == [(folder, un.manifest_digest(folder), {})]
     assert not list((home / "helper").iterdir())
 
 
@@ -183,13 +185,65 @@ def test_the_helper_stops_when_the_backups_list_changed_after_the_prompt(tmp_pat
     assert codes == [0] and "changed" in out["error"] and not imported
 
 
+def _backup_with_task_and_key(folder):
+    (folder / "tasks").mkdir()
+    (folder / "registry").mkdir()
+    (folder / "tasks" / "t.xml").write_bytes(b"<Task><Exec>acme.exe</Exec></Task>")
+    (folder / "registry" / "k.reg").write_bytes(b"Windows Registry Editor Version 5.00\r\n"
+                                                b"[HKEY_CURRENT_USER\\Software\\Acme]")
+    (folder / "backup.json").write_text(json.dumps({"apps": ["Acme"], "items": [
+        {"kind": "task", "path": "\\Acme Update", "stored": "tasks/t.xml"},
+        {"kind": "key", "path": r"HKCU\Software\Acme", "stored": "registry/k.reg"}]}), "utf-8")
+
+
+def _tools_watched(monkeypatch):
+    """What schtasks and reg.exe would be handed: (which, the file, its bytes at that moment)."""
+    seen = []
+    monkeypatch.setattr(un, "item_allowed", lambda item: True)
+    monkeypatch.setattr(un, "_run_ok", lambda *a, **k: seen.append(("schtasks", a[5], Path(a[5]).read_bytes()))
+                        or True)
+    monkeypatch.setattr(un, "_reg_file_ok", lambda path, item: seen.append(("check", str(path), path.read_bytes()))
+                        or True)
+    monkeypatch.setattr(un, "_reg_exe", lambda *a, **k: seen.append(("reg", a[1], Path(a[1]).read_bytes())) or True)
+    return seen
+
+
+def test_the_helper_hands_the_tools_checked_copies_of_the_backups_files(tmp_path, monkeypatch):
+    home, folder = _helper_home(tmp_path)
+    _backup_with_task_and_key(folder)
+    task, key = (folder / "tasks" / "t.xml").read_bytes(), (folder / "registry" / "k.reg").read_bytes()
+    seen = _tools_watched(monkeypatch)
+    codes = _run_through_helper(monkeypatch, home)
+    assert un.run_elevated(["Corefold.exe"], "restore", {"folder": str(folder)}) == {"done": 2, "failed": []}
+    private = str(tmp_path / "private")
+    assert codes == [0] and [(w, b) for w, _p, b in seen] == [("schtasks", task), ("check", key), ("reg", key)]
+    assert all(p.startswith(private) for _w, p, _b in seen)  # (never the user's own file)
+    assert seen[1][1] == seen[2][1]  # (what was checked is what's imported)
+    assert not (tmp_path / "private").exists()  # (the copies go once it's done)
+
+
+def test_the_helper_stops_when_a_backups_file_changed_after_the_prompt(tmp_path, monkeypatch):
+    home, folder = _helper_home(tmp_path)
+    _backup_with_task_and_key(folder)
+    seen = _tools_watched(monkeypatch)
+
+    def swap(_plan):
+        (folder / "tasks" / "t.xml").write_bytes(b"<Task><Exec>cmd.exe /c evil</Exec></Task>")
+    codes = _run_through_helper(monkeypatch, home, swap)
+    out = un.run_elevated(["Corefold.exe"], "restore", {"folder": str(folder)})
+    assert codes == [0] and out["done"] == 1 and [f["path"] for f in out["failed"]] == ["\\Acme Update"]
+    assert [w for w, _p, _b in seen] == ["check", "reg"]  # (the key, untouched, still goes back; the task doesn't)
+
+
 def test_a_plan_without_its_fingerprint_is_refused(tmp_path, monkeypatch):
     home, folder = _helper_home(tmp_path)
     plan = home / "helper" / "restore-1.json"
-    plan.write_text(json.dumps({"folder": str(folder), "manifest": un.manifest_digest(folder)}), "utf-8")
+    plan.write_text(json.dumps({"folder": str(folder), "manifest": un.manifest_digest(folder), "files": {}}), "utf-8")
     monkeypatch.setattr(un, "restore", lambda *a, **k: pytest.fail("acted on a plan it couldn't check"))
     assert un.helper_main(["--restore", str(plan)]) == 2
     assert un.helper_main(["--restore", str(plan), "--plan-sha256", "0" * 64]) == 2
+    plan.write_text(json.dumps({"folder": str(folder), "manifest": un.manifest_digest(folder)}), "utf-8")
+    assert un.helper_main(["--restore", str(plan), "--plan-sha256", un._digest(plan.read_bytes())]) == 2  # (no files)
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="short 8.3 names are a Windows thing")
