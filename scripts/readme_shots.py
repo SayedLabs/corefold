@@ -315,7 +315,7 @@ step("archive-window", archive_window)
 step("organizer", organizer)
 step("unlock", page("Unlock", "unlock"))
 step("cloud", cloud)
-step("resting", page("Computer", "resting"))  # a section resting for now: what's coming back
+step("resting", page("Media", "resting"))  # a section resting for now: what's coming back
 step("look", page("Look", "look"))
 w.hide()
 settle(0.3)

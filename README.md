@@ -63,12 +63,18 @@ Switch off the uses you don't need (the ⚙ on the start page): a use that's swi
   </tr>
 </table>
 
+### Computer
+| | |
+|---|---|
+| **Space** | See what's filling each drive as a map, and free up space safely: temporary files, caches and old installers. Anything you remove from the map goes to the Recycle Bin. |
+| **Uninstaller** | Remove programs, then clean up the folders, shortcuts and registry entries they leave behind. Everything removed is kept as a backup, so you can put it back. |
+
 ### Coming back soon
-The other sections are resting for now while Corefold Files gets our full attention. Nothing of them
+The other tools are resting for now while Corefold Files gets our full attention. Nothing of them
 runs, and whatever they kept for you (settings, history, backups) waits untouched until they're back.
 
 - **Images & screen:** Capture, Viewer, Player, Colors
-- **Computer:** Space, Uninstaller, Startup, Virus scan
+- **Computer:** Startup, Virus scan
 - **Quick tools:** Clipboard, Awake, Quick menu and quick wheel
 
 <p align="center">

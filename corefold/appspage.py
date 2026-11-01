@@ -278,6 +278,7 @@ class AppsPage(QWidget):
 
         top = QHBoxLayout()
         self.show_only = Dropdown()
+        self.show_only.setAccessibleName(tr("Which apps to show"))
         for key, text in SHOW.items():
             self.show_only.addItem(tr(UNUSED[_months(controller)][0] if key == "unused" else text), key)
         self.show_only.currentIndexChanged.connect(self._filter)
