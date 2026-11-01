@@ -1,7 +1,8 @@
 # A real copy updates itself: installs the release before the newest one from GitHub, turns on "Install
 # updates by themselves", starts it the way Windows does at sign-in, and checks that within a few minutes
-# it downloaded the newest release, installed it and is running again with its settings kept. Run it by
-# hand from the Actions tab after publishing (once the installer is attached).
+# it downloaded the newest release, installed it and is running again with its settings kept. It runs by
+# itself once "Build Corefold" has attached the installer to a published release, or by hand from the
+# Actions tab. (Not on the release's tag push: the installer isn't attached yet then, so it always failed.)
 name: Automatic update
 on:
   workflow_dispatch:
@@ -9,11 +10,16 @@ on:
       from:
         description: "Version to start from (empty: the release before the newest)"
         required: false
+  workflow_run:
+    workflows: [Build Corefold]
+    types: [completed]
   push:
+    branches: ["**"]
     paths: [.github/workflows/autoupdate.yml]
 
 jobs:
   autoupdate:
+    if: github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'release')
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
