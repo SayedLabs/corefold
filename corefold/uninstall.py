@@ -26,7 +26,7 @@ import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from .core import LEGACY_NAME, is_link, system_tool  # noqa: F401 (is_link is used here and by the selftest)
+from .core import LEGACY_NAME, is_link, system_tool, windows_folder  # noqa: F401 (is_link is used here and by the selftest)
 
 log = logging.getLogger(__name__)
 
@@ -538,11 +538,22 @@ def split_command(cmd: str) -> tuple[str, str]:
     return parts[0], parts[1] if len(parts) > 1 else ""
 
 
+def _windows_own(exe: str) -> str:
+    """ "MsiExec.exe" (most uninstall entries name it like that) -> its full path in System32. A program
+    given by its name alone would be looked for in the current folder too, and Corefold's own."""
+    if not exe or os.path.dirname(exe) or os.name != "nt":
+        return exe
+    name = exe if os.path.splitext(exe)[1] else exe + ".exe"
+    full = system_tool(name)
+    return full if os.path.isfile(full) else exe
+
+
 def uninstall_command(app: App, quiet: bool = False) -> tuple[str, str]:
     if app.msi and (not app.uninstall or "msiexec" in app.uninstall.lower()):
-        return "msiexec.exe", f"/x {app.msi}" + (" /qb" if quiet else "")
+        return _windows_own("msiexec.exe"), f"/x {app.msi}" + (" /qb" if quiet else "")
     cmd = app.quiet if (quiet and app.quiet) else app.uninstall
     exe, args = split_command(cmd)
+    exe = _windows_own(exe)
     if os.path.basename(exe).lower() == "msiexec.exe":  # "/I{code}" opens the "change" screen; /X removes
         args = re.sub(r"(?i)/i\s*(\{)", r"/x \1", args)
     return exe, args
@@ -1086,6 +1097,7 @@ def _protected_paths() -> frozenset[str]:
                                              "ProgramW6432", "ProgramData", "APPDATA", "LOCALAPPDATA",
                                              "USERPROFILE", "PUBLIC", "SystemDrive", "CommonProgramFiles",
                                              "CommonProgramFiles(x86)", "CommonProgramW6432", "TEMP", "TMP")}
+    paths.add(str(windows_folder()))
     paths |= {str(r) for r in search_roots()} | {str(r) for r in shortcut_roots()}
     # Corefold's own folders (its settings, these backups, and the app itself)
     for name in ("Corefold", LEGACY_NAME):
@@ -1110,7 +1122,7 @@ def _safe_folder(path: str) -> bool:
     protected = _protected_paths()
     if p in protected or any(q.startswith(p + os.sep) for q in protected):
         return False  # a protected place, or a folder that holds one (like a whole drive or C:\\Users)
-    windir = os.path.normcase(os.environ.get("SystemRoot", "c:\\windows"))
+    windir = os.path.normcase(str(windows_folder()))
     if p == windir or p.startswith(windir + os.sep):
         return False
     if any(norm(part) in ("windowsapps", "system32", "syswow64", "winsxs") for part in Path(p).parts):
@@ -1580,7 +1592,7 @@ def _service_program(name: str) -> str:
 
 def _windows_program(path: str) -> bool:
     """Part of Windows (or not a real path): never touched."""
-    windir = os.environ.get("SystemRoot", r"C:\Windows")
+    windir = str(windows_folder())
     p = os.path.normcase(path)
     return not os.path.isabs(path) or _inside(path, windir) or p.endswith(("svchost.exe", "dllhost.exe")) or \
         p.startswith(("\\systemroot", "system32"))
@@ -1697,7 +1709,7 @@ def _path_ok(path: str, kind: str) -> bool:
     if not path or not os.path.isabs(path):
         return False
     p = os.path.normcase(os.path.normpath(path)).rstrip("\\/")
-    windir = os.path.normcase(os.environ.get("SystemRoot", "c:\\windows"))
+    windir = os.path.normcase(str(windows_folder()))
     if p == windir or p.startswith(windir + os.sep):
         return False
     if any(norm(part) in ("windowsapps", "system32", "syswow64", "winsxs") for part in Path(p).parts):

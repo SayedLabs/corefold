@@ -1505,7 +1505,7 @@ def document_to_pdf(src: Path, ctx: Ctx) -> Result:
         tmp = Path(tempfile.mkdtemp(prefix="corefold-office-"))
         made = tmp / "document.pdf"
         env = dict(os.environ, CF_IN=str(src.resolve()), CF_OUT=str(made))
-        ps = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+        ps = system_tool("powershell.exe")
         code, err = _run_office([str(ps), "-NoProfile", "-NonInteractive", "-Command", OFFICE_SCRIPTS[prog]],
                                 env, tmp, ctx)
         try:

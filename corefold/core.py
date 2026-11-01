@@ -429,13 +429,28 @@ def app_dir() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
+def windows_folder() -> Path:
+    """Where Windows is, asked of Windows itself. Not from %SystemRoot%: a program running as the person can
+    change that for their account (HKCU\\Environment), and the copy Corefold starts as administrator gets it
+    too, so it would start that program's "reg.exe" as administrator."""
+    if os.name == "nt":
+        try:
+            import ctypes
+            buf = ctypes.create_unicode_buffer(260)
+            if 0 < ctypes.windll.kernel32.GetSystemWindowsDirectoryW(buf, 260) < 260:
+                return Path(buf.value)
+        except (AttributeError, OSError):
+            pass
+    return Path(os.environ.get("SystemRoot") or r"C:\Windows")
+
+
 def system_tool(name: str) -> str:
     """The full path of one of Windows' own programs (reg.exe, sc.exe, powershell.exe...). Never just the
     name: Windows would look in Corefold's own folder and the current folder first, and the helper that
     runs as administrator must only ever start Windows' real ones."""
     if os.name != "nt":
         return name
-    windows = Path(os.environ.get("SystemRoot", r"C:\Windows"))
+    windows = windows_folder()
     system32 = windows / "System32"
     if name.lower() == "explorer.exe":  # (the one program of Windows' own that isn't in System32)
         return str(windows / name)

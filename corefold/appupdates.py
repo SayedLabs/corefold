@@ -25,7 +25,7 @@ CHECK_TIMEOUT_S = 240
 UPDATE_TIMEOUT_S = 1800
 STORE_PAGE = "ms-windows-store://pdp/?productid=9NBLGGH4NNS1"   # App Installer, which has winget
 _ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
-_ID = re.compile(r"^[^\s…]+$")
+_ID = re.compile(r"^[^\s…\-][^\s…]*$")  # (never starting with "-": winget would take it for an option)
 
 
 @dataclass(frozen=True)
