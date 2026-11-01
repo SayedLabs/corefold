@@ -11,7 +11,7 @@ from .atomic.widgets import Dropdown
 from .dialogs import Base, describe
 from .dialogs2 import LockDialog
 from .i18n import is_rtl, ltr, tr
-from .pdftools import COMPRESS_LEVELS, DPIS, HIDDEN, IMAGE_FORMATS, MARGINS, PAGE_SIZES, SPLIT_MODES
+from .pdftools import COMPRESS_LEVELS, DPIS, HIDDEN, IMAGE_FORMATS, MARGINS, PAGE_FORMATS, PAGE_SIZES, SPLIT_MODES
 
 
 def _note(text: str) -> QLabel:
@@ -89,6 +89,54 @@ class CompressDialog(Base):
 
     def params(self):
         return {"level": _chosen(self.group, "normal")}
+
+
+class PageSizeDialog(Base):
+    """Page size: which size every page is made, and how much room is left around what's on it."""
+
+    def __init__(self, files, icon, dark):
+        super().__init__(tr("Page size"), describe(files), icon, dark)
+        self.size = _combo(PAGE_FORMATS, "a4")
+        self.size.setAccessibleName(tr("Page size"))
+        self.margin = _combo(MARGINS, "none")
+        self.margin.setAccessibleName(tr("Margin"))
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(12)
+        grid.addWidget(QLabel(tr("Size")), 0, 0)
+        grid.addWidget(self.size, 0, 1)
+        grid.addWidget(QLabel(tr("Margin")), 1, 0)
+        grid.addWidget(self.margin, 1, 1)
+        self.lay.addLayout(grid)
+        self.lay.addWidget(_note(tr("What's on each page is made bigger or smaller to fit, in the middle, keeping "
+                                    "its shape. Wide pages are made landscape. Saved as a new file.")))
+        self.buttons(tr("Make them this size"))
+
+    def params(self):
+        return {"size": self.size.currentData(), "margin": self.margin.currentData()}
+
+
+class TrimDialog(Base):
+    """Trim edges: how much room is left around what's on each page, and whether every page is cut the same."""
+
+    def __init__(self, files, icon, dark):
+        super().__init__(tr("Trim edges"), describe(files), icon, dark)
+        self.margin = _combo(MARGINS, "small")
+        self.margin.setAccessibleName(tr("Room left around it"))
+        row = QGridLayout()
+        row.setHorizontalSpacing(12)
+        row.addWidget(QLabel(tr("Room left around it")), 0, 0)
+        row.addWidget(self.margin, 0, 1)
+        self.lay.addLayout(row)
+        self.same = QCheckBox(tr("Cut every page the same, so they all still match"))
+        self.same.setChecked(True)
+        self.same.setToolTip(tr("Pages of the same size are cut around what's on all of them together."))
+        self.lay.addWidget(self.same)
+        self.lay.addWidget(_note(tr("What's cut away is only hidden, not taken out of the file: to remove "
+                                    "something for good, cover it in Edit content. Saved as a new file.")))
+        self.buttons(tr("Trim edges"))
+
+    def params(self):
+        return {"margin": self.margin.currentData(), "same": self.same.isChecked()}
 
 
 class SearchableDialog(Base):

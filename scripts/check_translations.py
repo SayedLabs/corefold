@@ -140,7 +140,7 @@ def table_texts() -> dict[str, str]:
     add([text for card in pdfpage.ACTIONS + pdfpage.MORE for text in card[1:3]], "pdfpage.ACTIONS")
     add([name for name, _keys in pdfpage.GROUPS if name], "pdfpage.GROUPS")
     add(pdfpage.TIPS.values(), "pdfpage.TIPS")
-    add([v[0] for table in (pdftools.COMPRESS_LEVELS, pdftools.PAGE_SIZES, pdftools.MARGINS) for v in table.values()],
+    add([v[0] for table in (pdftools.COMPRESS_LEVELS, pdftools.PAGE_SIZES, pdftools.PAGE_FORMATS, pdftools.MARGINS) for v in table.values()],
         "pdftools tables")
     add(list(pdftools.DPIS.values()) + list(pdftools.SPLIT_MODES.values()), "pdftools tables")
     add([text for _, *texts in pdftools.HIDDEN for text in texts], "pdftools.HIDDEN")
