@@ -78,6 +78,7 @@ UPDATE_RETELL_MS = 30 * 60_000  # full screen when a new version was found: say 
 LIGHT_TIDY_MS = 4_000          # memory a finished job used goes back this soon
 IDLE_TIDY_MS = 45_000          # hand memory back to Windows this long after the last job
 FREE_WINDOW_AFTER_MS = 90_000  # free the main window this long after it's closed
+OPENING_NOTED = 0.25           # opening the window this slow is written in the log, in parts
 FREE_POPUPS_AFTER_MS = 60_000  # ... and the quick menu, quick wheel and clipboard popup after they close
 MENU_WRITE_DELAY_MS = 1500     # wait for more changes before rewriting the right-click menu
 MENU_BATCH_MS = 700            # right-clicked files arrive one process at a time; collect them
@@ -246,6 +247,17 @@ class Inbox(QObject):
 
 
 # ----------------------------------------------------------------------------- controller
+
+
+def _log_opening(new: bool, w, started: float, built: float, filled: float, shown: float):
+    """How long opening the window took, in parts, when it was long enough to be felt (to find what to speed up)."""
+    drawn = time.perf_counter()
+    if drawn - started < OPENING_NOTED:
+        return
+    parts = [f"{part} {took:.2f}" for part, took in (getattr(w, "made_in", None) or []) if took >= 0.01] if new else []
+    log.info("window opened in %.2f s: %s %.2f%s, brought up to date %.2f, shown %.2f, drawn %.2f",
+             drawn - started, "made" if new else "kept", built - started,
+             f" ({', '.join(parts)})" if parts else "", filled - built, shown - filled, drawn - shown)
 
 class Controller(QObject):
     def __init__(self, app: QApplication, icon: QIcon):
@@ -558,7 +570,10 @@ class Controller(QObject):
 
     def show_window(self, page_name: str | None = None):
         self.free_window_timer.stop()
+        started = time.perf_counter()
+        new = self._window is None
         w = self.window
+        built = time.perf_counter()
         w.sync()
         w.refresh_history()  # conversions may have finished while the window was hidden
         if w.panel.paths and not w.isVisible():
@@ -570,9 +585,12 @@ class Controller(QObject):
             QTimer.singleShot(500, self.show_whats_new)
         if not w.isVisible():  # (drawn before it's seen, so it never shows up white first)
             w.setWindowOpacity(0.0)
+            filled = time.perf_counter()
             w.show()
+            shown = time.perf_counter()
             w.repaint()
             QTimer.singleShot(60, lambda: w.setWindowOpacity(1.0) if _alive(w) else None)
+            _log_opening(new, w, started, built, filled, shown)
         w.show()
         if w.isMinimized():  # (back from the taskbar; a maximised window stays maximised)
             w.setWindowState(w.windowState() & ~Qt.WindowMinimized)
