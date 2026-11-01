@@ -2525,6 +2525,8 @@ STRINGS: dict[str, str] = {
     'Images & screen': 'الصور والشاشة',
     'Computer': 'الجهاز',
     'Quick tools': 'الأدوات السريعة',
+    'Back in Corefold': 'عادت إلى كورفولد',
+    'On again: {names}. You can switch them off in their section.': 'تعمل من جديد: {names}. يمكنك إيقافها من قسمها.',
     'New tools in Corefold': 'أدوات جديدة في كورفولد',
     '{names}. Switch on the ones you want, each in its section.': "{names}. شغّل ما تريده منها، كلٌّ في قسمه.",
     'All tools': 'كل الأدوات',

@@ -38,6 +38,7 @@ s.check_updates = False
 s.appearance = "dark"
 s.known_tools = sorted(t.id for t in all_tools.ready())
 s.tools_off = sorted(t.id for t in all_tools.ready() if t.id not in all_tools.ORIGINAL)
+s.back_on = list(all_tools.BACK_ON)  # (already switched on once: the start leaves the tools as set here)
 s.save()
 problems = []
 shot_no = [0]

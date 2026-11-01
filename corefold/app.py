@@ -3013,6 +3013,7 @@ def main() -> int:
         s.first_run = False
         s.notes_shown = __version__  # (a new install: its "What's new" isn't news)
         s.known_tools = sorted({tool.id for tool in all_tools.available()})  # (offered now, in the first-start question)
+        s.back_on = list(all_tools.BACK_ON)  # (offered in the question too: nothing to switch on later)
         if "--background" in argv:
             # (started in the tray, e.g. by a silent install: every tool stays on, as when the question is
             # closed, and their shortcuts work now, not only after the next start)
@@ -3025,7 +3026,16 @@ def main() -> int:
             else:  # (opened with a file: no question in its way, and the tools in the tray start now)
                 QTimer.singleShot(0, controller.apply_tools)
     else:
+        back = all_tools.switch_back_on(s)  # (Space and the Uninstaller: on for everyone, once)
         offered = all_tools.offer_new_tools(s)  # tools new in this version wait, switched off, in their section
+        if back:
+            if not offered:
+                controller.apply_tools()
+            back_names = ", ".join(tr(tool.name) for tool in back)
+            QTimer.singleShot(2500 if not offered else 12000, lambda: controller.toast.notify(
+                tr("Back in Corefold"), tr("On again: {names}. You can switch them off in their section.",
+                                           names=back_names),
+                linger_ms=9000))
         if offered:
             controller.apply_tools()
             names = ", ".join(tr(tool.name) for tool in offered)

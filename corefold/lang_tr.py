@@ -2452,6 +2452,8 @@ STRINGS: dict[str, str] = {
     'Images & screen': 'Görüntü ve ekran',
     'Computer': 'Bilgisayar',
     'Quick tools': 'Hızlı araçlar',
+    'Back in Corefold': "Corefold'a geri döndü",
+    'On again: {names}. You can switch them off in their section.': 'Yeniden açık: {names}. Bunları kendi bölümlerinde kapatabilirsiniz.',
     'New tools in Corefold': "Corefold'da yeni araçlar",
     '{names}. Switch on the ones you want, each in its section.': '{names}. İstediklerinizi her biri kendi bölümünde açın.',
     'All tools': 'Tüm araçlar',
