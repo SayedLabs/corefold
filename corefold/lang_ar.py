@@ -3097,6 +3097,8 @@ STRINGS: dict[str, str] = {
     "Size in bytes": "الحجم بالبايت",
     "Share of the folder above (%)": "النسبة من المجلد الأعلى (%)",
     "Double-click to see its biggest files": "انقر نقرًا مزدوجًا لترى أكبر ملفاته",
+    "Turn left (Ctrl + L)": "تدوير لليسار (Ctrl + L)",
+    "Turn right (Ctrl + R)": "تدوير لليمين (Ctrl + R)",
     "Update copies for other PCs": "نسخ التحديثات للأجهزة الأخرى",
     "Windows keeps updates and Store apps it downloaded, to hand them to other PCs. Windows removes them its own way, and downloads again any it needs. Windows asks for an administrator.": "يحتفظ ويندوز بالتحديثات وتطبيقات المتجر التي نزّلها ليعطيها لأجهزة أخرى. يحذفها ويندوز بطريقته، ويعيد تنزيل ما يحتاجه منها. يطلب ويندوز صلاحية المسؤول.",
     "Program folders no installed app uses": "مجلدات برامج لا يستخدمها أي تطبيق مثبّت",

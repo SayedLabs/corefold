@@ -3024,6 +3024,8 @@ STRINGS: dict[str, str] = {
     "Size in bytes": "Bayt olarak boyut",
     "Share of the folder above (%)": "Üst klasördeki payı (%)",
     "Double-click to see its biggest files": "En büyük dosyalarını görmek için çift tıklayın",
+    "Turn left (Ctrl + L)": "Sola döndür (Ctrl + L)",
+    "Turn right (Ctrl + R)": "Sağa döndür (Ctrl + R)",
     "Update copies for other PCs": "Diğer bilgisayarlar için güncelleme kopyaları",
     "Windows keeps updates and Store apps it downloaded, to hand them to other PCs. Windows removes them its own way, and downloads again any it needs. Windows asks for an administrator.": "Windows indirdiği güncellemeleri ve Store uygulamalarını başka bilgisayarlara vermek için saklar. Windows bunları kendi yöntemiyle kaldırır ve gerekenleri yeniden indirir. Windows yönetici izni ister.",
     "Program folders no installed app uses": "Hiçbir yüklü uygulamanın kullanmadığı program klasörleri",

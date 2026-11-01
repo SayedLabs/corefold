@@ -3024,6 +3024,8 @@ STRINGS: dict[str, str] = {
     "Size in bytes": "Tamaño en bytes",
     "Share of the folder above (%)": "Parte de la carpeta superior (%)",
     "Double-click to see its biggest files": "Haz doble clic para ver sus archivos más grandes",
+    "Turn left (Ctrl + L)": "Girar a la izquierda (Ctrl + L)",
+    "Turn right (Ctrl + R)": "Girar a la derecha (Ctrl + R)",
     "Update copies for other PCs": "Copias de actualizaciones para otros PC",
     "Windows keeps updates and Store apps it downloaded, to hand them to other PCs. Windows removes them its own way, and downloads again any it needs. Windows asks for an administrator.": "Windows guarda las actualizaciones y apps de la Store que descargó, para pasarlas a otros PC. Windows las quita a su manera y vuelve a descargar las que necesite. Windows pide un administrador.",
     "Program folders no installed app uses": "Carpetas de programas que ninguna app instalada usa",

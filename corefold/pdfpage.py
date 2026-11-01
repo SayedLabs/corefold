@@ -14,8 +14,8 @@ from PySide6.QtCore import QRectF, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QIcon, QImage, QKeySequence, QPainter, QPen, QPixmap, QShortcut, QTransform
 from PySide6.QtWidgets import (QAbstractItemView, QFileDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QListView,
                                QListWidget, QListWidgetItem, QMenu, QMessageBox, QPushButton, QScrollArea,
-                               QStackedWidget, QStyle, QStyledItemDelegate, QStyleOptionViewItem, QVBoxLayout,
-                               QWidget)
+                               QStackedWidget, QStyle, QStyledItemDelegate, QStyleOptionViewItem, QToolButton,
+                               QVBoxLayout, QWidget)
 
 from . import icons, pdftools, sheet, work
 from .atomic import tokens
@@ -254,6 +254,59 @@ class Board(QListWidget):
             self.pdf.add_files(paths)
             return
         super().dropEvent(e)
+
+
+class ToolStrip(QFrame):
+    """A row of tools in groups, each with its name under its picture; just the pictures when there's no
+    room for the names (the same look as the page editor's tools)."""
+
+    def __init__(self):
+        super().__init__()
+        self.setObjectName("pdfToolbar")
+        self.row = QHBoxLayout(self)
+        self.row.setContentsMargins(4, 4, 4, 4)
+        self.row.setSpacing(2)
+        self.tools: list[QToolButton] = []
+        self.wide = 0
+        self.short = False
+
+    def add(self, w: QWidget):
+        self.row.addWidget(w)
+
+    def tool(self, words: str, icon: str, color: str, fn, tip: str = "") -> QToolButton:
+        b = QToolButton()
+        b.setObjectName("pdfTool")
+        b.setText(words)
+        b.setToolTip(tip or words)
+        b.setAccessibleName(words)
+        b.setAutoRaise(True)
+        b.setCursor(Qt.PointingHandCursor)
+        b.setIcon(icons.icon(icon, color, tokens.alpha(QColor(color), 90)))
+        b.setIconSize(QSize(20, 20))
+        b.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+        b.clicked.connect(lambda _=False: fn())
+        self.row.addWidget(b)
+        self.tools.append(b)
+        return b
+
+    def gap(self):
+        sep = QFrame()
+        sep.setObjectName("pdfToolSep")
+        sep.setFixedWidth(1)
+        self.row.addWidget(sep)
+
+    def done(self):
+        self.row.addStretch()
+        self.wide = self.sizeHint().width()
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        short = self.wide > self.width()
+        if short != self.short:
+            self.short = short
+            style = Qt.ToolButtonIconOnly if short else Qt.ToolButtonTextUnderIcon
+            for b in self.tools:
+                b.setToolButtonStyle(style)
 
 
 class PdfPage(QWidget):
@@ -529,59 +582,53 @@ class PdfPage(QWidget):
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(10)
         muted = self.c.theme.muted
-        bar = QHBoxLayout()
-        bar.setSpacing(6)
+        text_color = self.c.theme.text
+        # the tools, in groups, each with its name under its picture (like the editor's); only the pictures
+        # when the window is narrow
+        bar = self.board_tools = ToolStrip()
         self.close_btn = IconButton(tr("Close these PDFs"))
         self.close_btn.setIcon(icons.icon("arrow_right" if self.layoutDirection() == Qt.RightToLeft
                                           else "arrow_left", muted))
         self.close_btn.clicked.connect(lambda: self.close_board())
-        bar.addWidget(self.close_btn)
-        self.add_btn = QPushButton(tr("Add PDFs…"))
-        self.add_btn.setIcon(icons.icon("add", muted))
-        self.add_btn.setCursor(Qt.PointingHandCursor)
-        self.add_btn.clicked.connect(self._choose_more)
-        bar.addWidget(self.add_btn)
-        bar.addSpacing(8)
-        self.tool_btns: dict[str, IconButton] = {}
-        for key, tip, name, fn in (("left", tr("Turn left"), "arrow_rotate_counterclockwise", lambda: self.turn(-90)),
-                                   ("right", tr("Turn right"), "arrow_rotate_clockwise", lambda: self.turn(90)),
-                                   ("delete", tr("Delete (Del)"), "delete", self.remove),
-                                   ("view", tr("See it big"), "zoom_in", self.preview)):
-            b = IconButton(tip)
-            b.setIcon(icons.icon(name, muted, tokens.alpha(QColor(muted), 90)))
-            b.clicked.connect(fn)
-            bar.addWidget(b)
-            self.tool_btns[key] = b
-        self.edit_btn = QPushButton(tr("Edit content"))
-        self.edit_btn.setIcon(icons.icon("text_edit_style", muted))
-        self.edit_btn.setCursor(Qt.PointingHandCursor)
-        self.edit_btn.setToolTip(tr("Type text, change words, add pictures, highlight, draw, sign and fill in forms"))
-        self.edit_btn.clicked.connect(self.edit_picked)
-        bar.addWidget(self.edit_btn)
-        bar.addSpacing(4)
-        undo = QPushButton(tr("Undo"))
-        undo.setObjectName("flat")
-        undo.setToolTip(tr("Undo (Ctrl + Z)"))
-        undo.setCursor(Qt.PointingHandCursor)
-        undo.clicked.connect(self.undo)
-        bar.addWidget(undo)
-        self.tool_btns["undo"] = undo
-        bar.addStretch()
+        bar.add(self.close_btn)
+        self.add_btn = bar.tool(tr("Add PDFs…"), "add", text_color, self._choose_more)
+        bar.gap()
+        self.tool_btns: dict[str, QToolButton] = {}
+        for key, words, tip, name, fn in (
+                ("left", tr("Turn left"), tr("Turn left (Ctrl + L)"), "arrow_rotate_counterclockwise",
+                 lambda: self.turn(-90)),
+                ("right", tr("Turn right"), tr("Turn right (Ctrl + R)"), "arrow_rotate_clockwise",
+                 lambda: self.turn(90)),
+                ("copy", tr("Duplicate"), tr("Duplicate (Ctrl + D)"), "copy", self.duplicate),
+                ("delete", tr("Delete"), tr("Delete (Del)"), "delete", self.remove),
+                ("view", tr("See it big"), tr("See it big"), "zoom_in", self.preview)):
+            self.tool_btns[key] = bar.tool(words, name, text_color, fn, tip)
+        bar.gap()
+        self.edit_btn = bar.tool(tr("Edit content"), "text_edit_style", text_color, self.edit_picked,
+                                 tr("Type text, change words, add pictures, highlight, draw, sign and fill in forms"))
+        bar.gap()
+        self.tool_btns["undo"] = bar.tool(tr("Undo"), "arrow_undo", text_color, self.undo, tr("Undo (Ctrl + Z)"))
+        bar.done()
+        v.addWidget(bar)
+        # what the board is for, then choosing pages by number
+        row = QHBoxLayout()
+        row.setSpacing(6)
+        self.tip = _label("", "muted", wrap=True)
+        row.addWidget(self.tip, 1)
         self.pick = QLineEdit()
         self.pick.setObjectName("pdfPick")
         self.pick.setPlaceholderText(tr("Select pages: 1-3, 8"))
         self.pick.setClearButtonEnabled(True)
+        self.pick.setMinimumWidth(150)
         self.pick.setMaximumWidth(220)
         self.pick.returnPressed.connect(self.select_typed)
-        bar.addWidget(self.pick)
+        row.addWidget(self.pick)
         all_btn = QPushButton(tr("Select all"))
         all_btn.setObjectName("flat")
         all_btn.setCursor(Qt.PointingHandCursor)
         all_btn.clicked.connect(lambda: (self.board.selectAll(), self.board.setFocus()))
-        bar.addWidget(all_btn)
-        v.addLayout(bar)
-        self.tip = _label("", "muted", wrap=True)
-        v.addWidget(self.tip)
+        row.addWidget(all_btn)
+        v.addLayout(row)
         self.legend_box = QWidget()
         self.legend = FlowLayout(self.legend_box, 8)
         v.addWidget(self.legend_box)
@@ -604,7 +651,8 @@ class PdfPage(QWidget):
         foot.addWidget(self.save_btn)
         v.addLayout(foot)
         for keys, fn in ((QKeySequence("Ctrl+L"), lambda: self.turn(-90)),
-                         (QKeySequence("Ctrl+R"), lambda: self.turn(90))):
+                         (QKeySequence("Ctrl+R"), lambda: self.turn(90)),
+                         (QKeySequence("Ctrl+D"), self.duplicate)):
             sc = QShortcut(keys, box)
             sc.setContext(Qt.WidgetWithChildrenShortcut)
             sc.activated.connect(fn)
@@ -848,6 +896,28 @@ class PdfPage(QWidget):
             self._draw(item)
         self._changed()
 
+    def duplicate(self):
+        """A copy of each selected page, right after it; the copies are then the ones selected."""
+        chosen = self.selected()
+        if not chosen:
+            return
+        many = len(self.files) > 1
+        copies = []
+        for item in reversed(chosen):  # (from the end: the rows before stay where they are)
+            fi, pi = item.data(FILE), item.data(PAGE)
+            copy = QListWidgetItem(item.icon(), self._item_text(fi, pi, many))
+            for role in (FILE, PAGE, TURN):
+                copy.setData(role, item.data(role))
+            copy.setTextAlignment(item.textAlignment())
+            copy.setToolTip(item.toolTip())
+            self.board.insertItem(self.board.row(item) + 1, copy)
+            copies.append(copy)
+        self.board.clearSelection()
+        for copy in copies:
+            copy.setSelected(True)
+        self.board.scrollToItem(copies[0])
+        self._changed()
+
     def remove(self):
         rows = sorted(self.board.row(i) for i in self.board.selectedItems())
         if not rows:
@@ -921,7 +991,7 @@ class PdfPage(QWidget):
     def _refresh(self):
         n = self.board.count()
         chosen = len(self.board.selectedItems())
-        for key in ("left", "right", "delete"):
+        for key in ("left", "right", "copy", "delete"):
             self.tool_btns[key].setEnabled(chosen > 0)
         self.tool_btns["view"].setEnabled(n > 0)
         self.tool_btns["undo"].setEnabled(bool(self.undo_stack))
