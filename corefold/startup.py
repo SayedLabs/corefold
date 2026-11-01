@@ -222,7 +222,8 @@ def _full_path(exe: str) -> str:
     """ "rundll32.exe" -> its place in System32 (programs Windows finds by name)."""
     if not exe or os.path.isabs(exe):
         return exe
-    system = Path(os.environ.get("SystemRoot", r"C:\Windows"))
+    from .core import windows_folder
+    system = windows_folder()
     for folder in (system / "System32", system):
         candidate = folder / exe
         if candidate.suffix == "":
@@ -693,7 +694,8 @@ def _write_note_as_admin(hive: str, key: str, value: str, note: bytes) -> bool:
     if not plain_name(value) or '"' in value or value.endswith("\\"):
         return False  # (a name reg.exe can't be given safely)
     from .uninstall import shell_run, wait_process
-    reg = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "reg.exe"
+    from .core import system_tool
+    reg = system_tool("reg.exe")
     args = f'add "{hive}\\{key}" /v "{value}" /t REG_BINARY /d {note.hex()} /f /reg:64'
     handle = shell_run(str(reg), args, admin=True, show=0)
     if handle is None:
@@ -783,7 +785,8 @@ def _delete_as_admin(lines: list[tuple[str, str]]) -> bool:
     try:
         with os.fdopen(fd, "wb") as f:
             f.write(_reg_text(lines).encode("utf-16"))   # (with its byte order mark, as reg.exe wants)
-        reg = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "reg.exe"
+        from .core import system_tool
+        reg = system_tool("reg.exe")
         handle = shell_run(str(reg), f'import "{name}" /reg:64', admin=True, show=0)
         if handle is None:
             return False  # (the person said no)

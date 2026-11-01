@@ -503,7 +503,8 @@ def _admin_command(exe: str, args: list[str], out: str) -> tuple[str, str] | Non
     if any('"' in a or any(ord(ch) < 32 for ch in a) or a.endswith("\\") for a in args):
         return None
     if all(_FIXED_ARG.fullmatch(a) for a in args) and '"' not in out and "%" not in out:
-        cmd = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "cmd.exe")
+        from .core import system_tool
+        cmd = system_tool("cmd.exe")
         return cmd, f'/c ""{exe}" {" ".join(args)} > "{out}" 2>&1"'
     return exe, " ".join(f'"{a}"' for a in args)
 

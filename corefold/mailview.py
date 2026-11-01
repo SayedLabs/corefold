@@ -29,7 +29,13 @@ if TYPE_CHECKING:
 # attachments that can run something when opened: Corefold asks first
 RISKY = {".exe", ".msi", ".bat", ".cmd", ".com", ".scr", ".pif", ".js", ".jse", ".vbs", ".vbe", ".wsf", ".wsh",
          ".ps1", ".hta", ".lnk", ".jar", ".reg", ".cpl", ".msc", ".dll", ".iso", ".img", ".vhd", ".vhdx",
-         ".docm", ".xlsm", ".pptm", ".appx", ".msix", ".appinstaller", ".url", ".chm", ".scf"}
+         ".docm", ".xlsm", ".pptm", ".appx", ".msix", ".appinstaller", ".url", ".chm", ".scf",
+         # (also used to slip past mail filters: OneNote pages with buttons, Office add-ins, shortcuts to
+         # Windows settings or searches, installer patches, remote desktop files, scripts of every kind)
+         ".one", ".onepkg", ".xll", ".xlam", ".ppam", ".dotm", ".xltm", ".potm", ".iqy", ".slk", ".settingcontent-ms",
+         ".library-ms", ".search-ms", ".searchconnector-ms", ".appref-ms", ".application", ".msp", ".mst", ".msh",
+         ".msixbundle", ".appxbundle", ".diagcab", ".rdp", ".website", ".inf", ".sct", ".wsc", ".psm1", ".psd1",
+         ".ps1xml", ".vb", ".ws", ".py", ".pyw", ".gadget", ".ocx", ".sys", ".cab", ".hlp", ".mht", ".mhtml"}
 
 
 def safe_html(text: str) -> str:

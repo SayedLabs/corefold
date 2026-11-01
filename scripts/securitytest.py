@@ -456,6 +456,94 @@ def delete_at_restart_junctions():
         check(not allowed(str(place)), f"{place} is refused")
 
 
+def _owner(path: Path) -> str:
+    return subprocess.run([system_tool("powershell.exe"), "-NoProfile", "-NonInteractive", "-Command",
+                           "(Get-Acl -LiteralPath $env:CF_P).Owner"], capture_output=True, text=True,
+                          env=dict(os.environ, CF_P=str(path)), timeout=60).stdout.strip()
+
+
+def previous_windows_links():
+    """Space's "The previous Windows" runs as administrator. Its old profiles hold links to today's folders
+    ("Documents and Settings" to C:\\Users, "All Users" to C:\\ProgramData), and takeown /R and icacls /T
+    went through them: everyone's files would change hands. And any account can make C:\\Windows.old,
+    also as a junction to somewhere only administrators may change."""
+    from corefold import space as sp
+    icacls = system_tool("icacls.exe")
+    victim = BASE / "today"
+    victim.mkdir()
+    mine = victim / "mine.txt"
+    mine.write_text("someone's own file")
+    with open(victim / "big.bin", "wb") as fh:
+        fh.truncate(60 << 20)  # (Windows.old is only taken over when there's more than 50 MB of it)
+
+    def lock_victim():
+        for p in (mine, victim / "big.bin"):
+            subprocess.run([system_tool("takeown.exe"), "/F", str(p), "/A"], capture_output=True)
+            subprocess.run([icacls, str(p), "/inheritance:r", "/grant:r", "*S-1-5-18:F", "*S-1-1-0:R"],
+                           capture_output=True, check=True)
+            subprocess.run([icacls, str(p), "/setowner", "*S-1-5-18"], capture_output=True, check=True)
+
+    def untouched() -> bool:
+        a = acl(mine)
+        return mine.exists() and "Administrators" not in a and "S-1-5-32-544" not in a and \
+            "SYSTEM" in _owner(mine).upper()
+    lock_victim()
+    check(untouched(), "the file in today's folders starts owned by SYSTEM, no administrators in its permissions")
+    # the old way, on a copy of the layout (not in C:\\)
+    copy = BASE / "old-way"
+    copy.mkdir()
+    junction(copy / "Documents and Settings", victim)
+    subprocess.run([system_tool("takeown.exe"), "/F", str(copy), "/R", "/A", "/D", "Y"], capture_output=True)
+    subprocess.run([icacls, str(copy), "/grant", "*S-1-5-32-544:F", "/T", "/C", "/L", "/Q"], capture_output=True)
+    note(f"old way: what the link leads to changed: {not untouched()} ({_owner(mine)})")
+    os.rmdir(copy / "Documents and Settings")
+    lock_victim()
+
+    old = sp.admin_path("winold")
+    if old.exists():
+        note(f"{old} is on this PC: left alone, the rest of this check is skipped")
+        return
+    real_disk_cleanup = sp._previous_windows_by_windows
+    sp._previous_windows_by_windows = lambda *a: False  # (Windows' own Disk Cleanup isn't part of this)
+    try:
+        # 1. C:\\Windows.old made as a junction
+        junction(old, victim)
+        sp.clean_as_admin(["winold"])
+        check(untouched() and (victim / "big.bin").exists(),
+              "a C:\\Windows.old that is a junction is left alone, and so is what it leads to")
+        os.rmdir(old)
+        # 2. a real one, with links inside: plain, in a folder administrators can't look into, a folder link
+        old.mkdir()
+        with open(old / "old.bin", "wb") as fh:
+            fh.truncate(60 << 20)
+        junction(old / "Documents and Settings", victim)
+        locked = old / "Users" / "Old"
+        locked.mkdir(parents=True)
+        junction(locked / "Application Data", victim)
+        subprocess.run(["cmd", "/c", "mklink", "/D", str(old / "folder link"), str(victim)], capture_output=True)
+        subprocess.run([icacls, str(locked), "/inheritance:r", "/grant:r", "*S-1-5-18:F"], capture_output=True,
+                       check=True)
+        subprocess.run([icacls, str(locked), "/setowner", "*S-1-5-18"], capture_output=True)
+        try:
+            os.listdir(locked)
+            note("the locked folder could still be looked into")
+        except PermissionError:
+            note("the locked folder can't be looked into as administrator")
+        sp.clean_as_admin(["winold"])
+        check(not old.exists(), "the previous Windows is removed")
+        check(untouched() and (victim / "big.bin").exists(),
+              "…and what its links led to keeps its owner, permissions and files")
+    finally:
+        sp._previous_windows_by_windows = real_disk_cleanup
+        if os.path.lexists(old):
+            if is_link(old):
+                os.rmdir(old)
+            else:
+                subprocess.run([system_tool("takeown.exe"), "/F", str(old), "/R", "/A", "/D", "Y", "/SKIPSL"],
+                               capture_output=True)
+                subprocess.run(["cmd", "/c", "rd", "/s", "/q", str(old)], capture_output=True)
+
+
 def pictures_from_elsewhere():
     """An email, a drawing, a label or a tooltip naming a picture by a path (a shared folder's
     \\\\server\\share\\x.png makes Windows sign in to that computer): the old way really opened it, Corefold's
@@ -548,6 +636,7 @@ step("programs started by name", programs_by_name)
 step("cloud downloads", cloud_downloads)
 step("cloud folders with junctions", cloud_folders_with_junctions)
 step("delete at restart and junctions", delete_at_restart_junctions)
+step("previous Windows and links", previous_windows_links)
 step("started from a folder", started_in_downloads)
 step("programs in the code", programs_in_the_code)
 step("Startup's names", startup_names)
