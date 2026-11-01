@@ -2957,4 +2957,6 @@ STRINGS: dict[str, str] = {
     "Too big to turn into a PDF": "Demasiado grande para convertirlo en PDF",
     "About {count} pictures.": "Unas {count} imágenes.",
     "Every frame: about 25 to 60 pictures for each second of video.": "Cada fotograma: unas 25 a 60 imágenes por cada segundo de vídeo.",
+    "Update copies for other PCs": "Copias de actualizaciones para otros PC",
+    "Windows keeps updates and Store apps it downloaded, to hand them to other PCs. Windows removes them its own way, and downloads again any it needs. Windows asks for an administrator.": "Windows guarda las actualizaciones y apps de la Store que descargó, para pasarlas a otros PC. Windows las quita a su manera y vuelve a descargar las que necesite. Windows pide un administrador.",
 }

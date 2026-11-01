@@ -3030,4 +3030,6 @@ STRINGS: dict[str, str] = {
     "Save the picked files and folders on this PC": "احفظ الملفات والمجلدات المحددة على هذا الجهاز",
     "About {count} pictures.": "تقريبًا {count} صورة.",
     "Every frame: about 25 to 60 pictures for each second of video.": "كل لقطة: تقريبًا من 25 إلى 60 صورة لكل ثانية من الفيديو.",
+    "Update copies for other PCs": "نسخ التحديثات للأجهزة الأخرى",
+    "Windows keeps updates and Store apps it downloaded, to hand them to other PCs. Windows removes them its own way, and downloads again any it needs. Windows asks for an administrator.": "يحتفظ ويندوز بالتحديثات وتطبيقات المتجر التي نزّلها ليعطيها لأجهزة أخرى. يحذفها ويندوز بطريقته، ويعيد تنزيل ما يحتاجه منها. يطلب ويندوز صلاحية المسؤول.",
 }
