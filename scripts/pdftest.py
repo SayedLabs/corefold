@@ -318,6 +318,8 @@ def page():
     check(sorted(colors_of(p) for p in made) == [[0, 1], [2, 3], [4]], f"Split card: every 2 pages ({len(made)} files)")
     made = card("compress", [LOCKED], lambda dlg: True)
     check(answers.get("seen") == "CompressDialog", "Compress card: asks how much")
+    card("trim", [A], lambda dlg: dlg.same.isChecked())
+    check(answers.get("seen") == "TrimDialog", "Trim edges card: asks how much room is left")
     def lock_abc(dlg):
         dlg.p1.setText("abc")
         dlg.p2.setText("abc")
@@ -382,6 +384,15 @@ def page():
     QTest.keyClick(board, Qt.Key_Z, Qt.ControlModifier)
     settle(0.2)
     check(board.count() == 10, "Ctrl + Z takes the copy away")
+    before = pg.plan()
+    pg.reverse()
+    settle(0.1)
+    check(pg.plan() == before[::-1], "Reverse the order: the last page first")
+    pg.undo()
+    settle(0.1)
+    check(pg.plan() == before, "and Undo puts them back")
+    pg._order_menu()
+    check(not any(a.isEnabled() for a in pg.mix_acts), "Mix needs two PDFs (three are open)")
     check(all(b.toolButtonStyle() == (Qt.ToolButtonIconOnly if pg.board_tools.short
                                       else Qt.ToolButtonTextUnderIcon) for b in pg.tool_btns.values()),
           "the board's tools show their names when there's room, only pictures when not")

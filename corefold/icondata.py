@@ -156,6 +156,10 @@ STROKES: dict[str, str] = {
     "line_spacing": '<path d="M11 6.5h9M11 12h9M11 17.5h9"/><path d="M6 4.5v15M3.8 6.7 6 4.5l2.2 2.2M3.8 17.3 6 19.5l2.2-2.2"/>',
     "redact": '<rect x="3.5" y="6" width="17" height="12" rx="2"/><path d="M8 18l7.3-12M12.6 18l7.1-11.6M3.6 14.6 8.9 6"/>',
     "page_add": '<path d="M13 3.5H7.5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V9Z"/><path d="M13 3.5V9h5.5M12 11.5v6M9 14.5h6"/>',
+    "layers": '<path d="m12 3.5 8.5 4.5-8.5 4.5L3.5 8Z"/><path d="m3.5 12 8.5 4.5 8.5-4.5M3.5 16l8.5 4.5 8.5-4.5"/>',
+    "wrench": '<path d="M14.7 4.2a4.6 4.6 0 0 0 5.1 5.1l-.6.6a4.6 4.6 0 0 1-5 1l-7.4 7.4a2 2 0 0 1-2.9-2.9l7.4-7.4a4.6 4.6 0 0 1 1-5Z"/>',
+    "page_size": '<rect x="5.5" y="3.5" width="13" height="17" rx="2"/><path d="M9 8h6M9 16h6M12 8v8M10.5 9.5 12 8l1.5 1.5M10.5 14.5 12 16l1.5-1.5"/>',
+    "arrow_sort": '<path d="M7 4v16M4 7l3-3 3 3M17 20V4M14 17l3 3 3-3"/>',
     "opacity": '<circle cx="12" cy="12" r="8"/><path d="M12 4v16M12 8.5l4.6-3M12 13l7.2-4.6M12 17.5l7-4.4"/>',
     "weather_moon": '<path d="M19.5 14.6A8 8 0 0 1 9.4 4.5a8 8 0 1 0 10.1 10.1Z"/>',
     "weather_sunny": '<circle cx="12" cy="12" r="4"/><path d="M12 2.8v1.9M12 19.3v1.9M2.8 12h1.9M19.3 12h1.9'

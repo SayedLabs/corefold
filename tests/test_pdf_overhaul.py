@@ -183,3 +183,45 @@ def test_save_picture(para_pdf, tmp_path):
     assert im.size == (80, 60) and im.convert("RGB").getpixel((40, 30))[0] > 200
     with pytest.raises(RuntimeError):
         pdfedit.save_picture(para_pdf, "", 0, 0, tmp_path / "not.png")
+
+
+def test_an_arabic_paragraph_is_found_lined_up_right_and_saved_that_way(qapp, tmp_path):
+    from PySide6.QtCore import QMarginsF, Qt
+    from PySide6.QtGui import QFont, QPageLayout, QPageSize, QPainter, QPdfWriter, QTextDocument, QTextOption
+    src = tmp_path / "arabic.pdf"
+    w = QPdfWriter(str(src))
+    w.setResolution(72)
+    w.setPageLayout(QPageLayout(QPageSize(QPageSize.A4), QPageLayout.Portrait, QMarginsF(0, 0, 0, 0)))
+    p = QPainter(w)
+    doc = QTextDocument()
+    f = QFont(SANS)
+    f.setPixelSize(14)
+    doc.setDefaultFont(f)
+    o = QTextOption()
+    o.setTextDirection(Qt.RightToLeft)
+    o.setAlignment(Qt.AlignRight | Qt.AlignAbsolute)
+    doc.setDefaultTextOption(o)
+    doc.setPlainText("هذه فقرة عربية طويلة نكتبها لنختبر كيف يجد المحرر الفقرات العربية التي تلتف على عدة أسطر "
+                     "في الصفحة ونرى هل تبقى محاذاتها إلى اليمين كما هي بعد التعديل والحفظ")
+    doc.setTextWidth(320)
+    p.translate(200, 100)
+    doc.drawContents(p)
+    p.end()
+    lay = _layout(src)
+    assert len(lay["paras"]) == 1
+    para = lay["paras"][0]
+    assert len(para["lines"]) >= 3 and para["align"] == "right"
+    x, y, width, h = para["rect"]
+    objs = sorted({o for k in para["lines"] for o in lay["lines"][k]["objs"]})
+    edits = [{"kind": "text", "page": 0, "font": SANS, "size": 14, "color": "#000000", "x": x - 1, "y": y - 2,
+              "width": width + 2, "align": "right", "spacing": para["spacing"], "replaces": objs,
+              "text": "فقرة جديدة قصيرة في سطرين تقريبًا لأننا نكتب كلمات كثيرة بعض الشيء هنا كي تلتف"}]
+    out = pdfedit.save_edits(src, _ctx(tmp_path, edits=edits)).outputs[0]
+    new = _layout(out)
+    lines = [d for d in new["lines"] if d["rect"][1] < y + h + 20]
+    assert len(lines) >= 2 and all(d.get("rtl") for d in lines)
+    rights = [d["rect"][0] + d["rect"][2] for d in lines]
+    assert max(rights) - min(rights) < 3  # (every line ends at the same right edge)
+    assert abs(max(rights) - (x + width)) < 4
+    text = " ".join(d["text"] for d in lines)
+    assert "فقرة جديدة" in text and "هذه فقرة" not in text
