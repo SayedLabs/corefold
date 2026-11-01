@@ -103,6 +103,40 @@ def make_doc(name: str, pages: int = 2) -> Path:
     return out
 
 
+def make_para_doc(out: Path) -> Path:
+    """Two wrapped paragraphs (one justified), a line with a code in it twice, and a picture."""
+    from PySide6.QtGui import QTextDocument, QTextOption
+    w = QPdfWriter(str(out))
+    w.setResolution(72)
+    w.setPageLayout(QPageLayout(QPageSize(QPageSize.A4), QPageLayout.Portrait, QMarginsF(0, 0, 0, 0)))
+    p = QPainter(w)
+    f = QFont(SANS)
+    f.setPixelSize(14)
+    p.setFont(f)
+    p.setPen(QColor("black"))
+    p.drawText(60, 70, "Code: SECRET-42 (keep it)")
+    for k, align in enumerate((Qt.AlignJustify, Qt.AlignLeft)):
+        doc = QTextDocument()
+        doc.setDefaultFont(f)
+        doc.setTextWidth(320)
+        opt = QTextOption()
+        opt.setAlignment(align)
+        opt.setWrapMode(QTextOption.WordWrap)
+        doc.setDefaultTextOption(opt)
+        doc.setPlainText("The quick brown fox jumps over the lazy dog while the small cat watches from the warm "
+                         "window and the birds sing in the old tall tree near the river.")
+        p.save()
+        p.translate(60, 110 + k * 270)
+        doc.drawContents(p)
+        p.restore()
+    p.drawText(60, 540, "Again: SECRET-42")
+    img = QImage(80, 60, QImage.Format_RGB32)
+    img.fill(QColor("orange"))
+    p.drawImage(QRectF(60, 580, 80, 60), img)
+    p.end()
+    return out
+
+
 def make_form(path: Path):
     """A form with a text box, a tick box, two round choices and a list."""
     w = PdfWriter()
@@ -886,6 +920,211 @@ def editor():
               f"saved with the pages in their new order ({[g[0].splitlines()[0] for g in got]})")
         check([g[1] for g in got] == [0, 0, 90], f"…the turned one turned ({[g[1] for g in got]})")
         check(all("999 SAR" in g[0] and "500 SAR" not in g[0] for g in got), "…and the replaced words in all")
+    else:
+        check(False, "a new PDF is made")
+    ed.close_editor(ask=False)
+
+    # the new parts: whole paragraphs, the options at the side, fonts, links, blank pages, copies, pictures,
+    # covering every place some words are
+    paras = make_para_doc(FILES / "paragraphs.pdf")
+    pg.open_editor(paras)
+    check(until(lambda: ed.src == paras and ed.pages and ed.pages[0].pm is not None and
+                ed.pages[0].layout is not None, 15), "a PDF with paragraphs opens")
+    pp = ed.pages[0]
+    view.ensureVisible(pp.mapRectToScene(QRectF(0, 0, pp.w, 300)), 0, 0)
+    settle(0.2)
+    lay = pp.layout or {}
+    check(len(lay.get("paras", [])) >= 2, f"its paragraphs are found ({len(lay.get('paras', []))})")
+    tool("edit")
+    check(ed.para_box.isVisible() and ed.para_check.isChecked(), "Edit text: whole paragraphs, said at the side")
+    first_para = (lay.get("paras") or [{"lines": [0]}])[0]
+    line0 = next(p for p in pp.pieces if p.kind == "line" and getattr(p, "k", -1) == first_para["lines"][0])
+    c0 = line0.pos() + line0.rect.center()
+    click(pp, c0.x(), c0.y())
+    settle(0.1)
+    boxes = [i for i in pp.childItems() if isinstance(i, E.TextMark) and i.d.get("replaces")]
+    para_objs = sorted({k for p in pp.pieces if p.kind == "line" and getattr(p, "k", -1) in first_para["lines"]
+                        for k in p.objs})
+    check(len(boxes) == 1 and boxes[0].d.get("width") and sorted(boxes[0].d["replaces"]) == para_objs and
+          boxes[0].text().startswith("The quick brown fox") and boxes[0].text().endswith("river."),
+          "clicking a paragraph opens all of its words in one box as wide as it")
+    if boxes:
+        h0 = boxes[0].boundingRect().height()
+        QTest.keyClick(view, Qt.Key_End, Qt.ControlModifier)
+        QTest.keyClicks(view, " Then everyone went home happy after a very long and pleasant day together.")
+        settle(0.1)
+        check(boxes[0].boundingRect().height() > h0 + 8 and abs(boxes[0].d["width"] - first_para["rect"][2]) < 4,
+              "typing more makes the words flow onto new lines, in the same width")
+        check(ed.font_section.isVisible() and ed.align_section.isVisible(), "the font and paragraph options show")
+        check(boxes[0].d.get("align") == first_para.get("align") and boxes[0].d.get("spacing"),
+              f"lined up and spaced as it was ({boxes[0].d.get('align')}, {boxes[0].d.get('spacing')})")
+        QTest.mouseClick(ed.align_btns["center"], Qt.LeftButton)
+        settle(0.05)
+        check(boxes[0].d.get("align") == "center", "Centre")
+        dbl = next(k for k in range(ed.spacing_box.count()) if ed.spacing_box.itemData(k) == 2.3)
+        ed.spacing_box.setCurrentIndex(dbl)
+        ed.spacing_box.activated.emit(dbl)
+        settle(0.05)
+        check(boxes[0].d.get("spacing") == 2.3, "Double line spacing")
+        w.grab().save(str(OUT / f"editor-paragraph-{LANG}-{LOOK}.png"))
+        # the list of fonts
+        ed.font_box.click()
+        settle(0.2)
+        panel = ed.font_box.panel
+        check(panel is not None and panel.isVisible() and panel.parentWidget() is not None and
+              not panel.isWindow(), "the list of fonts opens inside the window")
+        if panel is not None:
+            heads = [panel.list.item(n).text() for n in range(panel.list.count())
+                     if not panel.list.item(n).flags() & Qt.ItemIsSelectable]
+            check(i18n.tr("The PDF's font") in heads and i18n.tr("All fonts") in heads, f"in groups ({heads})")
+            w.grab().save(str(OUT / f"editor-fonts-{LANG}-{LOOK}.png"))
+            want = next((f for f in ed.fonts if f.lower().startswith("rob")), ed.fonts[-1])
+            panel.search.setText(want[:4])
+            settle(0.1)
+            names = [panel.list.item(n).data(Qt.UserRole) for n in range(panel.list.count())
+                     if panel.list.item(n).data(Qt.UserRole)]
+            check(names and all(want[:4].lower() in n.lower() for n in names), "searching the fonts")
+            QTest.keyClick(panel.search, Qt.Key_Return)
+            settle(0.1)
+            check(not panel.isVisible() and boxes[0].d.get("font") == names[0], f"picking one ({boxes[0].d.get('font')})")
+        QTest.keyClick(view, Qt.Key_Escape)
+        settle(0.2)
+    # one line at a time
+    ed.para_check.setChecked(False)
+    second = (lay.get("paras") or [{}, {"lines": [0]}])[1]
+    line1 = next(p for p in pp.pieces if p.kind == "line" and getattr(p, "k", -1) == second["lines"][0])
+    c1 = line1.pos() + line1.rect.center()
+    click(pp, c1.x(), c1.y())
+    settle(0.1)
+    one = [i for i in pp.childItems() if isinstance(i, E.TextMark) and i.d.get("replaces") == list(line1.objs)]
+    check(len(one) == 1 and not one[0].d.get("width"), "Whole paragraphs off: one line at a time "
+          f"({[(i.d.get('replaces'), i.d.get('width')) for i in pp.childItems() if isinstance(i, E.TextMark)]}, "
+          f"{line1.objs}, {line1.isVisible()})")
+    QTest.keyClick(view, Qt.Key_Escape)
+    ed.para_check.setChecked(True)
+    settle(0.1)
+
+    # see-through text
+    tool("text")
+    click(pp, 60, 760)
+    QTest.keyClicks(view, "Faded words")
+    ed.opacity_slider.setValue(50)
+    QTest.keyClick(view, Qt.Key_Escape)
+    settle(0.1)
+    faded = [d for d in items("text") if d["text"] == "Faded words"]
+    check(faded and faded[0].get("opacity") == 0.5, f"Opacity ({faded[0].get('opacity') if faded else None})")
+
+    # a blank page
+    ed.add_blank_page(0)
+    settle(0.2)
+    blank = ed.pages[-1]
+    check(blank.blank and ed.order[1] == blank.index and ed.thumb_list.count() == len(ed.order),
+          "a blank page after the first")
+    ed.go_to_page(blank.index)
+    settle(0.3)
+    tool("text")
+    click(blank, 80, 120)
+    QTest.keyClicks(view, "Written on the new page")
+    QTest.keyClick(view, Qt.Key_Escape)
+    settle(0.1)
+    view.ensureVisible(pp.mapRectToScene(QRectF(0, 600, pp.w, 200)), 0, 0)
+    settle(0.2)
+
+    # links
+    tool("link")
+    drag(pp, (60, 690), (200, 705))
+    settle(0.1)
+    links = [i for i in ed.selected_items() if getattr(i, "kind", "") == "link"]
+    check(len(links) == 1 and ed.link_section.isVisible() and ed.link_box.hasFocus(),
+          "Link: drag a place, then type where it goes")
+    ed.link_box.setText("example.com/help")
+    ed.link_box.editingFinished.emit()
+    check(links and links[0].d.get("url") == "example.com/help", "a web address")
+    tool("link")
+    drag(pp, (60, 720), (200, 735))
+    settle(0.1)
+    ed.link_box.setText("2")
+    ed.link_box.editingFinished.emit()
+    page_links = [d for d in items("link") if d.get("target") is not None]
+    check(len(page_links) == 1 and page_links[0]["target"] == ed.order[1],
+          f"a link to page 2 ({items('link')}, {ed.order})")
+    ed.link_box.setText("not a place")
+    ed.link_box.editingFinished.emit()
+    check(i18n.tr("That isn't a web address or a page of this PDF.") == ed.link_note.text(), "nonsense is refused")
+    view.setFocus()
+
+    # copies
+    tool("shape")
+    QTest.mouseClick(ed.kind_btns["rect"], Qt.LeftButton)
+    drag(pp, (380, 620), (480, 680))
+    ed.set_tool("select")
+    rect_items = [i for i in pp.childItems() if isinstance(i, E.ShapeMark)]
+    if rect_items:
+        ed.scene.clearSelection()
+        rect_items[0].setSelected(True)
+        check(ed.fill_section.isVisible(), "a rectangle can be filled")
+        yellow = next(b for b in ed.fill_btns if b.property("color") == "#ffe066")
+        QTest.mouseClick(yellow, Qt.LeftButton)
+        check(items("rect")[0].get("fill") == "#ffe066", "filled")
+        view.setFocus()
+        QTest.keyClick(view, Qt.Key_D, Qt.ControlModifier)
+        settle(0.05)
+        check(len(items("rect")) == 2, "Ctrl + D: a copy, a little further on")
+        QTest.keyClick(view, Qt.Key_C, Qt.ControlModifier)
+        QTest.keyClick(view, Qt.Key_V, Qt.ControlModifier)
+        settle(0.05)
+        check(len(items("rect")) == 3, "Ctrl + C, Ctrl + V")
+
+    # pictures: the PDF's own one replaced and kept as a file; an added one turned
+    own_pic = next((p for p in pp.pieces if p.kind == "image"), None)
+    check(own_pic is not None, "the PDF's picture can be picked")
+    if own_pic is not None:
+        ed.scene.clearSelection()
+        own_pic.setSelected(True)
+        settle(0.05)
+        check(ed.picture_section.isVisible() and ed.save_pic_btn.isVisible(), "a picture's buttons show")
+        kept_as = FILES / "kept picture.png"
+        QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (str(kept_as), ""))
+        ed.save_picture()
+        check(kept_as.is_file() and QImage(str(kept_as)).width() == 80, "Save the picture: a copy as a file")
+        picked["files"] = [PIC]
+        ed.replace_picture()
+        settle(0.1)
+        swapped = [d for d in items("image") if d.get("replaces") == list(own_pic.objs)]
+        check(len(swapped) == 1 and not own_pic.isVisible(),
+              f"Replace: another picture in its place ({items('image')}, {own_pic.objs}, {own_pic.isVisible()})")
+        sel = ed.selected_items()
+        if sel:
+            w0, h0 = sel[0].w, sel[0].h
+            ed.turn_picture()
+            check(sel[0].d.get("turn") == 90 and abs(sel[0].w - h0) < 0.1 and abs(sel[0].h - w0) < 0.1, "Turn")
+
+    # covering every place
+    ed.show_find()
+    ed.find_box.setText("SECRET-42")
+    check(until(lambda: ed._reading() == 0 and len(ed.matches) == 2, 15), f"found twice ({len(ed.matches)})")
+    QTest.mouseClick(ed.cover_all_btn, Qt.LeftButton)
+    check(len(items("cover")) == 2, "Cover all: a cover on each")
+    ed.hide_find()
+    w.grab().save(str(OUT / f"editor-overhaul-{LANG}-{LOOK}.png"))
+    t0 = time.time() - 0.01
+    ed.save()
+    check(until(lambda: not c.jobs, 60), "saved")
+    settle(0.3)
+    made = outputs_since(t0)
+    if made:
+        r_ = PdfReader(str(made[0]))
+        words = text_of(made[0])
+        check(len(r_.pages) == 2 and "Written on the new page" in text_of(made[0], 1), "…with the blank page, written on")
+        check("SECRET-42" not in words and "Code:" in words, "…the covered words gone, the rest of the line kept")
+        check("everyone went home happy" in words and "old tall tree" in words.replace("\r\n", " "),
+              "…the paragraph with its new words")
+        annots = [a.get_object() for a in r_.pages[0].get("/Annots") or []]
+        uris = [a["/A"].get("/URI") for a in annots if a.get("/Subtype") == "/Link" and "/A" in a]
+        dests = [a.get("/Dest") for a in annots if a.get("/Subtype") == "/Link" and "/Dest" in a]
+        check(uris == ["https://example.com/help"], f"…the web link ({uris})")
+        check(len(dests) == 1 and dests[0][0].get_object() == r_.pages[1].get_object(), "…the link to page 2")
+        picture_of(made[0], scale=1.5).save(str(OUT / f"saved-overhaul-{LANG}-{LOOK}.png"))
     else:
         check(False, "a new PDF is made")
     ed.close_editor(ask=False)

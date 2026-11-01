@@ -145,6 +145,8 @@ def table_texts() -> dict[str, str]:
     add([text for table in (pdfeditor.TOOLS, pdfeditor.MARKS, pdfeditor.SHAPES) for _, text, _ in table],
         "pdfeditor tables")
     add(list(pdfeditor.HINTS.values()) + list(pdfeditor.WIDTHS), "pdfeditor tables")
+    add(list(pdfeditor.TITLES.values()) + list(pdfeditor.SELECTED_HINTS.values()) +
+        [text for _, text, _ in pdfeditor.ALIGN_KEYS] + [text for text, _ in pdfeditor.SPACINGS], "pdfeditor tables")
     from corefold import organizer, organizerpage
     add([name for name, _ in organizer.KINDS.values()], "organizer.KINDS")
     add(organizer.STAYS.values(), "organizer.STAYS")
