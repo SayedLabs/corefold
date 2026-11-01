@@ -334,6 +334,19 @@ def leftovers():
             return []
         return [un._pending_name(e) for e in entries[::2]]
     check(in_use in at_restart(), "…in Windows' list of deletions at restart")
+    if in_use not in at_restart():  # TEMP diagnostics
+        import winreg as _w
+        with _w.OpenKey(_w.HKEY_LOCAL_MACHINE, un.SESSION_MANAGER) as k:
+            i = 0
+            while True:
+                try:
+                    n, v, t = _w.EnumValue(k, i)
+                except OSError:
+                    break
+                if "Pending" in n:
+                    print("  DIAG", n, t, len(v) if isinstance(v, list) else v, [e for e in (v or []) if "in use" in e or name in e][:6])
+                i += 1
+        print("  DIAG want", repr(in_use), repr(more["done"]))
     held.close()
     r = un.restore(folder)
     check(len(r["failed"]) == 1, "putting back without administrator leaves the folder Windows deletes from at restart")
