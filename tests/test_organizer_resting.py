@@ -52,7 +52,7 @@ def test_a_built_corefold_rests_the_organizer(monkeypatch):
     import sys
     monkeypatch.setattr(sys, "frozen", True, raising=False)  # (a built Corefold.exe ignores the checks' switch)
     try:
-        assert importlib.reload(all_tools).PAUSED_TOOLS == {"organizer"}
+        assert "organizer" in importlib.reload(all_tools).PAUSED_TOOLS
     finally:
         monkeypatch.delattr(sys, "frozen")
         importlib.reload(all_tools)

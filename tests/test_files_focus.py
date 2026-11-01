@@ -1,5 +1,6 @@
-"""The sections resting for now (tools.PAUSED_SECTIONS): nothing of their tools runs or opens, nothing of them
-is deleted, and taking a section out of the list brings its tools back the way each person had them."""
+"""The sections resting for now (tools.PAUSED_SECTIONS), and the tools resting on their own in a section that's
+back (tools.PAUSED_TOOLS: Startup and Scan in Computer): nothing of them runs or opens, nothing of them is
+deleted, and taking them out of the list brings them back the way each person had them."""
 import importlib
 from pathlib import Path
 from unittest import mock
@@ -13,16 +14,28 @@ from corefold import tools as all_tools
 
 ROOT = Path(__file__).resolve().parent.parent
 FILES = {"converter", "pdf", "archive", "organizer", "unlock", "cloud"}
-RESTING = {"capture", "viewer", "player", "colors", "space", "uninstaller", "startup", "scan", "clipboard", "awake"}
+COMPUTER = {"space", "uninstaller"}  # (Computer is back with these two)
+IN_USE = FILES | COMPUTER
+RESTING = {"capture", "viewer", "player", "colors", "startup", "scan", "clipboard", "awake"}
 
 
-def test_only_the_files_tools_are_available():
-    assert {t.id for t in all_tools.available()} == FILES
+@pytest.fixture
+def nothing_resting_alone(monkeypatch):
+    """No tool resting on its own (only whole sections), as once Startup and Scan are back too."""
+    monkeypatch.setattr(all_tools, "PAUSED_TOOLS", frozenset())
+
+
+def test_only_the_files_and_two_computer_tools_are_available():
+    assert {t.id for t in all_tools.available()} == IN_USE
     assert {t.id for t in all_tools.paused()} == RESTING
     for tool_id in ("rename", "shredder", "backup", "ruler", "notes"):  # (still being made: never switched on)
         assert all_tools.state(tool_id) == all_tools.PLANNED
     assert all_tools.state("no-such-tool") == all_tools.PLANNED
-    assert {t.id for t in all_tools.ready()} == FILES | RESTING  # (still made: only resting)
+    assert {t.id for t in all_tools.ready()} == IN_USE | RESTING  # (still made: only resting)
+    assert not all_tools.section_paused("computer")
+    assert {"startup", "scan"} <= all_tools.PAUSED_TOOLS  # (resting on their own, inside Computer)
+    computer = all_tools.SECTION_BY_PAGE["Computer"]
+    assert {t.id for t in all_tools.in_section(settings_mod.Settings(), computer)} == COMPUTER
 
 
 def test_resting_tools_are_off_without_touching_the_settings():
@@ -30,29 +43,51 @@ def test_resting_tools_are_off_without_touching_the_settings():
     s.tools_off = ["pdf", "space"]
     before = list(s.tools_off)
     assert not any(all_tools.is_on(s, t) for t in RESTING)
-    assert {t.id for t in all_tools.enabled(s)} == FILES - {"pdf"}
+    assert {t.id for t in all_tools.enabled(s)} == IN_USE - {"pdf", "space"}
     assert s.tools_off == before
 
 
 def test_resting_tools_are_never_offered_as_new_meanwhile():
     s = settings_mod.Settings()
-    s.known_tools = sorted(FILES)
+    s.known_tools = sorted(IN_USE)
     assert all_tools.offer_new_tools(s) == []
-    assert s.tools_off == [] and s.known_tools == sorted(FILES)
+    assert s.tools_off == [] and s.known_tools == sorted(IN_USE)
 
 
-def test_a_section_brought_back_comes_back_as_each_person_had_it(monkeypatch):
+def test_space_and_the_uninstaller_come_back_on_for_everyone_once():
+    """They're switched on for everyone when they come back (also for someone who had them off or never had
+    them), once: switched off again afterwards, they stay off, and they're never offered as New."""
+    s = settings_mod.Settings()
+    s.known_tools = sorted(FILES | {"space", "uninstaller", "startup"})
+    s.tools_off = ["space", "converter"]
+    assert [t.id for t in all_tools.switch_back_on(s)] == ["space"]
+    assert all_tools.offer_new_tools(s) == []
+    assert all_tools.is_on(s, "space") and all_tools.is_on(s, "uninstaller")
+    assert not all_tools.is_on(s, "converter")  # (only these two)
+    s.tools_off = sorted(set(s.tools_off) | {"space"})  # (switched off again by this person)
+    assert all_tools.switch_back_on(s) == [] and not all_tools.is_on(s, "space")
+    fresh = settings_mod.Settings()
+    fresh.known_tools = sorted(FILES)  # (installed while they rested)
+    assert {t.id for t in all_tools.switch_back_on(fresh)} == COMPUTER
+    assert all_tools.offer_new_tools(fresh) == []
+    assert all_tools.is_on(fresh, "space") and all_tools.is_on(fresh, "uninstaller")
+    assert not all_tools.is_on(fresh, "startup") and not all_tools.is_on(fresh, "scan")
+    saved = settings_mod.Settings.from_data({"back_on": fresh.back_on, "known_tools": fresh.known_tools})
+    assert saved.back_on == ["space", "uninstaller"]
+
+
+def test_a_section_brought_back_comes_back_as_each_person_had_it(monkeypatch, nothing_resting_alone):
     s = settings_mod.Settings()
     s.tools_off = ["capture"]  # (Capture was switched off, the Clipboard on)
-    s.known_tools = sorted(FILES | RESTING)
+    s.known_tools = sorted(IN_USE | RESTING)
     monkeypatch.setattr(all_tools, "PAUSED_SECTIONS", frozenset())
     assert all_tools.is_on(s, "clipboard") and not all_tools.is_on(s, "capture")
     assert all_tools.offer_new_tools(s) == []
 
 
-def test_a_fresh_install_meets_resting_tools_switched_off_when_they_come_back(monkeypatch):
+def test_a_fresh_install_meets_resting_tools_switched_off_when_they_come_back(monkeypatch, nothing_resting_alone):
     s = settings_mod.Settings()
-    s.known_tools = sorted(t.id for t in all_tools.available())  # (what the first start offers now)
+    s.known_tools = sorted(IN_USE)  # (what the first start offers now)
     monkeypatch.setattr(all_tools, "PAUSED_SECTIONS", frozenset())
     offered = {t.id for t in all_tools.offer_new_tools(s)}
     assert offered == RESTING
@@ -76,7 +111,8 @@ def test_the_right_click_menu_has_nothing_of_resting_tools():
     verbs = shellmenu.plan(s, lambda *args: "corefold.exe " + " ".join(args))
     keys = {v.name for v in verbs}
     assert verbs  # (the Converter's own entries are still there)
-    assert "CorefoldScan" not in keys and "CorefoldUninstall" not in keys
+    assert "CorefoldScan" not in keys  # (Scan rests)
+    assert "CorefoldUninstall" in keys  # (the Uninstaller is back: "Uninstall" on a program's shortcut)
 
 
 def test_their_shortcuts_say_coming_back_soon():
@@ -123,13 +159,13 @@ def test_no_background_work_of_resting_tools(controller):
 
 def test_resting_pages_open_their_section_whatever_asks(controller):
     w = controller.window
-    for name, shown in (("Capture", "Media"), ("CaptureSettings", "Media"), ("Space", "Computer"),
-                        ("Apps", "Computer"), ("Clipboard", "QuickTools"), ("Quick", "QuickTools"),
+    for name, shown in (("Capture", "Media"), ("CaptureSettings", "Media"), ("Startup", "Computer"),
+                        ("Scan", "Computer"), ("Clipboard", "QuickTools"), ("Quick", "QuickTools"),
                         ("ViewerSettings", "Media")):
         w.open_page(name)
         assert w.current_page() == shown, name
     for name in ("Converter", "PDF", "Archives", "Organizer", "Unlock", "Cloud", "Updates", "About", "History",
-                 "General"):
+                 "General", "Space", "Apps", "AppsSettings"):
         w.open_page(name)
         assert w.current_page() == name, name
     tabs = {tab[0] for tab in w.settings_tab_list}
@@ -175,9 +211,11 @@ def test_only_the_checks_from_source_can_wake_the_resting_tools(monkeypatch):
     monkeypatch.setenv("COREFOLD_WAKE_RESTING", "1")
     monkeypatch.setattr(sys, "frozen", True, raising=False)  # (a built Corefold.exe)
     try:
-        assert importlib.reload(tools).PAUSED_SECTIONS == {"media", "computer", "quick"}
+        assert importlib.reload(tools).PAUSED_SECTIONS == {"media", "quick"}
+        assert tools.PAUSED_TOOLS == {"organizer", "startup", "scan"}
         monkeypatch.delattr(sys, "frozen")
         assert importlib.reload(tools).PAUSED_SECTIONS == frozenset()
+        assert tools.PAUSED_TOOLS == frozenset()
     finally:
         monkeypatch.delenv("COREFOLD_WAKE_RESTING")
         importlib.reload(tools)

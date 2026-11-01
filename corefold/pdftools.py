@@ -229,10 +229,16 @@ def split(src: Path, ctx: Ctx) -> Result:
     stem = ctx.stem(src)
     outdir = ctx.out_dir(src, f"{stem} split")
     width = len(str(n))
+    used: set[str] = set()
     for k, part in enumerate(parts):
         ctx.check()
         label = f"p{part[0] + 1:0{width}}" if len(part) == 1 else \
             f"p{part[0] + 1:0{width}}-{part[-1] + 1:0{width}}"
+        # the same part typed twice ("2, 2") gets its own file instead of replacing the first one
+        base, copy = label, 2
+        while label.casefold() in used:
+            label, copy = f"{base} ({copy})", copy + 1
+        used.add(label.casefold())
         write(_pages_writer([reader], [(0, i, 0) for i in part]), outdir / f"{stem} {label}.pdf",
               ctx.params.get("password", ""))
         ctx.progress((k + 1) / len(parts))

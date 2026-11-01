@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -192,24 +193,24 @@ def tool_header(product: str, title: str, intro: str, dark: bool, dpr: float, ex
     banner = GlowPanel(color=QColor(icons.PRODUCT_COLORS.get(product, ("#3cc7b2", "#0f8f7c"))[0 if dark else 1]),
                        rings=False)
     head = QHBoxLayout(banner)
-    head.setContentsMargins(0, 4, 0, 10)
-    head.setSpacing(16)
+    head.setContentsMargins(0, 0, 0, 4)
+    head.setSpacing(12)
     tile = QLabel()
-    tile.setPixmap(icons.product_tile(product, 56, dark, dpr))
-    tile.setFixedSize(58, 58)
+    tile.setPixmap(icons.product_tile(product, 36, dark, dpr))
+    tile.setFixedSize(38, 38)
     head.addWidget(tile, 0, Qt.AlignTop)
     words = QVBoxLayout()
-    words.setSpacing(3)
+    words.setSpacing(0)
     top = QHBoxLayout()
     top.setSpacing(10)
-    top.addWidget(label(title, "h1"))
+    top.addWidget(label(title, "title"))
     if pill:
         p = label(pill, "soonPill")
         p.setFixedHeight(20)
         top.addWidget(p, 0, Qt.AlignVCenter)
     top.addStretch()
     words.addLayout(top)
-    words.addWidget(label(intro, "muted", wrap=True))
+    words.addWidget(label(intro, "subtle", wrap=True))
     head.addLayout(words, 1)
     if extra is not None:
         head.addWidget(extra, 0, Qt.AlignVCenter)
@@ -684,6 +685,8 @@ class MainWindow(QWidget):
     def __init__(self, controller: "Controller", icon: QIcon, committed: dict | None = None,
                  pending_startup: bool | None = None):
         super().__init__()
+        self.made_in: list[tuple[str, float]] = []  # (how long each part of the window took to make)
+        self._made_since = time.perf_counter()
         self.c = controller
         # the settings as last saved (what "Discard" goes back to), and a start-with-Windows choice
         # that isn't saved yet
@@ -768,6 +771,7 @@ class MainWindow(QWidget):
         self._auto_compact = False   # icons only because the window is narrow (not the person's choice)
         self._apply_nav_width(COMPACT_NAV if self.c.settings.nav_compact else self.c.settings.nav_width)
 
+        self._made("sidebar")
         self.stack = QStackedWidget()
         self.stack.currentChanged.connect(self._fade_in)
         builders = {"Home": self._home, "Converter": self._converter, "History": self._history, "Apps": self._apps,
@@ -810,13 +814,20 @@ class MainWindow(QWidget):
                          "Organizer", "Startup", "Scan", "Unlock", "Awake", "Colors", "Archives", "History",
                          "Updates", "About", *SETTINGS_PAGES, *SOON,
                          *[tool.page for tool in all_tools.TOOLS if tool.page not in on_pages and tool.page != "Converter"]}
+        self._made("heads")
         for name in PAGES:
-            self.stack.addWidget(QWidget() if name in self._unbuilt else builders[name]())
+            if name in self._unbuilt:
+                self.stack.addWidget(QWidget())
+            else:
+                self.stack.addWidget(builders[name]())
+                self._made(name)
+        self._made("empty pages")
         self._opening = None  # a page without a sidebar row of its own, while it's being opened
         self.nav.currentRowChanged.connect(self._page_changed)
         self.nav.itemClicked.connect(self._row_clicked)
         last = self.c.settings.last_page
         self.open_page(last if last in PAGES or last in OLD_PAGES else "Home")
+        self._made("page opened")
         self._learning = None
         QTimer.singleShot(4000, self, self._learn_setting_words)
         self._warming = [name for name in WARM_PAGES if self.shows(name)]
@@ -863,17 +874,24 @@ class MainWindow(QWidget):
         root.addWidget(self.edge)
         root.addWidget(self.canvas, 1)
         self._one_head_tab_order()
+        self._made("laid out")
 
         self.refresh()
         self.refresh_updates()
         self.refresh_history()
         self._no_accidental_scrolling()
         self.update_save_bar()
+        self._made("filled")
         self._went: list[str] = []  # pages opened before this one (Back, Alt + Left, the mouse's back button)
         self._going_back = False
         QShortcut(QKeySequence(QKeySequence.StandardKey.Back), self, self.go_back)
         QShortcut(QKeySequence("Ctrl+K"), self, self.open_palette)
         self._back_button = _BackButton(self)
+
+    def _made(self, part: str):
+        now = time.perf_counter()
+        self.made_in.append((part, now - self._made_since))
+        self._made_since = now
 
     # ---- saving settings on purpose
 
@@ -891,21 +909,23 @@ class MainWindow(QWidget):
         return self._current_settings() != self.committed
 
     def update_save_bar(self):
-        """Shows Save and Discard while settings were changed but not saved yet."""
+        """Settings are kept as soon as they're changed, like Windows' own Settings: a change is saved a
+        moment later (a few in a row, like typing in a box, are saved together), with no Save button."""
         import copy
         if not hasattr(self, "save_btn"):
             return
         dirty = self.is_dirty()
         settings_mod.HELD = copy.deepcopy(self.committed) if dirty else None
-        self.unsaved.setVisible(dirty)
-        self.discard_btn.setVisible(dirty)
-        self.save_btn.setVisible(dirty)
-        self.done_btn.setObjectName("" if dirty else "primary")
-        self.done_btn.style().unpolish(self.done_btn)
-        self.done_btn.style().polish(self.done_btn)
-        on_settings = self.current_page() in SETTINGS_PAGES
-        self.saved_hint.setVisible(not dirty and on_settings)
-        self.done_btn.setVisible(on_settings or dirty)
+        for w in (self.unsaved, self.discard_btn, self.save_btn, self.done_btn, self.saved_hint):
+            w.hide()
+        if dirty and not getattr(self, "_saving_soon", False):
+            self._saving_soon = True
+            QTimer.singleShot(400, self, self._save_soon)
+
+    def _save_soon(self):
+        self._saving_soon = False
+        if self.is_dirty():
+            self.save_changes()
 
     def save_changes(self):
         old_language = self.committed.get("language")
@@ -2380,7 +2400,10 @@ class MainWindow(QWidget):
         hl.addWidget(label(tr("Your everyday tools in one place. Drop files anywhere in this window, or press "
                               "Ctrl + K to find any page, setting or action."), "muted", wrap=True))
         hl.addSpacing(10)
-        figures = QHBoxLayout()
+        # (what Corefold did so far: shown once there's something to count, not three noughts on a new PC)
+        self.hero_figures_box = QWidget()
+        figures = QHBoxLayout(self.hero_figures_box)
+        figures.setContentsMargins(0, 0, 0, 8)
         figures.setSpacing(28)
         self.hero_figures: dict[str, QLabel] = {}
         for key, text in (("files", tr("files converted")), ("saved", tr("space saved")),
@@ -2393,8 +2416,7 @@ class MainWindow(QWidget):
             figures.addLayout(box)
             self.hero_figures[key] = value
         figures.addStretch()
-        hl.addLayout(figures)
-        hl.addSpacing(8)
+        hl.addWidget(self.hero_figures_box)
         quick = FlowLayout(spacing=8)
         self.quick_buttons = []
         on = {tool.id for tool in self.tools_on}
@@ -3794,10 +3816,29 @@ class MainWindow(QWidget):
         self.history_list.itemDoubleClicked.connect(lambda _: self._history_open())
         self.history_list.currentRowChanged.connect(lambda _: self._history_buttons())
         lay.addWidget(self.history_list, 1)
-        self.history_empty = label(tr("Nothing yet. Converted files will show up here."), "muted")
-        # takes the free space while the list is hidden, so the page doesn't spread out
-        lay.addWidget(self.history_empty, 1, Qt.AlignTop)
-        btns = QHBoxLayout()
+        # nothing converted yet: a few words and the way to start, in the middle of the free space (the
+        # buttons for the list wait until there's a list)
+        self.history_empty = QWidget()
+        el = QVBoxLayout(self.history_empty)
+        el.setContentsMargins(0, 24, 0, 24)
+        el.setSpacing(6)
+        el.addStretch()
+        self.history_empty_glyph = QLabel()
+        self.history_empty_glyph.setPixmap(icons.pixmap("history", 40, self.c.theme.muted, self.devicePixelRatioF()))
+        el.addWidget(self.history_empty_glyph, 0, Qt.AlignHCenter)
+        el.addSpacing(4)
+        el.addWidget(label(tr("Nothing converted yet"), "h2"), 0, Qt.AlignHCenter)
+        hint = label(tr("Files you convert show up here, so you can open them again later."), "muted", wrap=True)
+        hint.setAlignment(Qt.AlignCenter)
+        el.addWidget(hint)
+        if any(t.id == "converter" for t in self.tools_on):
+            el.addSpacing(8)
+            el.addWidget(button(tr("Convert files…"), "primary", self._choose_files), 0, Qt.AlignHCenter)
+        el.addStretch(2)
+        lay.addWidget(self.history_empty, 1)
+        self.history_buttons = QWidget()
+        btns = QHBoxLayout(self.history_buttons)
+        btns.setContentsMargins(0, 0, 0, 0)
         self.h_open = button(tr("Open"), on_click=self._history_open)
         self.h_show = button(tr("Show in folder"), on_click=self._history_show)
         btns.addWidget(self.h_open)
@@ -3805,7 +3846,7 @@ class MainWindow(QWidget):
         btns.addStretch()
         btns.addWidget(button(tr("Clear history"), on_click=self._history_clear))
         btns.addWidget(button(tr("Reset stats"), on_click=self._stats_reset))
-        lay.addLayout(btns)
+        lay.addWidget(self.history_buttons)
         return w
 
     def _updates(self) -> QWidget:
@@ -3962,6 +4003,7 @@ class MainWindow(QWidget):
         self.hero_figures["files"].setText(number(st.files))
         self.hero_figures["saved"].setText(human_size(st.bytes_saved) if st.bytes_saved else number(0))
         self.hero_figures["tools"].setText(number(len(self.tools_on)))
+        self.hero_figures_box.setVisible(st.files > 0)
         self.hello.setText(_greeting())
         self.power.setToolTip(tr("Turns the wheel and the right-click menu on or off."))
         self.refresh_again()
@@ -3998,7 +4040,7 @@ class MainWindow(QWidget):
     def _fill_history(self):
         st = self.c.history.stats
         self.stat_files.setText(number(st.files))
-        self.stat_saved.setText(human_size(st.bytes_saved))
+        self.stat_saved.setText(human_size(st.bytes_saved) if st.bytes_saved else number(0))
         self.stat_jobs.setText(number(st.jobs))
         self.stat_since.setText(tr("Since {date}", date=date_text(st.since, long=True)))
         self.history_list.clear()
@@ -4020,6 +4062,9 @@ class MainWindow(QWidget):
         empty = not self.c.history.items
         self.history_list.setVisible(not empty)
         self.history_empty.setVisible(empty)
+        self.history_search.setVisible(not empty)
+        self.history_buttons.setVisible(not empty or st.files > 0)  # (Reset stats, while there are some)
+        self.stat_since.setVisible(st.files > 0)
         self._filter_history()
         self._history_buttons()
 
@@ -4591,28 +4636,8 @@ class MainWindow(QWidget):
         if self.c.session_ending:  # Windows is shutting down: never hold it up
             e.accept()
             return
-        if self.is_dirty():
-            box = QMessageBox(QMessageBox.Question, tr("Save your changes?"),
-                              tr("You changed some settings. Keep them?"), parent=self)
-            save = box.addButton(tr("Save"), QMessageBox.AcceptRole)
-            drop = box.addButton(tr("Don't save"), QMessageBox.DestructiveRole)
-            box.addButton(tr("Cancel"), QMessageBox.RejectRole)
-            sheet.run(box)
-            chosen = box.clickedButton()
-            box.deleteLater()
-            if chosen is save:
-                self.save_changes()
-            elif chosen is drop:
-                self.discard_changes(rebuild=False)
-                self._remember_place()
-                e.ignore()
-                self.hide()
-                self.c.rebuild_window(self.current_page())  # the next opening shows the saved settings
-                self.c.window_closed()
-                return
-            else:
-                e.ignore()
-                return
+        if self.is_dirty():  # (changed a moment ago, not saved yet: settings are kept as they're changed)
+            self.save_changes()
         self._remember_place()
         e.ignore()
         self.hide()

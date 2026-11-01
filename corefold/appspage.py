@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QDialog, QFileIconP
                                QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from . import uninstall as un
-from . import sheet
+from . import i18n, sheet
 from .atomic.widgets import Dropdown
 from .core import LEGACY_NAME, human_size, short_name
 from .i18n import tr, ltr
@@ -127,6 +127,16 @@ def _shown(app: un.App, show: str, months: int = 3) -> bool:
     if show == "extras":
         return un.is_windows_extra(app)
     return True
+
+
+def _installed(date: str) -> str:
+    """When an app was installed ("2026-01-29"), written the way the person's Windows writes dates."""
+    if not date:
+        return ""
+    from PySide6.QtCore import QDate
+    from .timefmt import latin_digits, locale
+    day = QDate.fromString(date, "yyyy-MM-dd")
+    return latin_digits(locale().toString(day, "d MMM yyyy")) if day.isValid() else date
 
 
 def _when(ts: float) -> str:
@@ -278,6 +288,7 @@ class AppsPage(QWidget):
 
         top = QHBoxLayout()
         self.show_only = Dropdown()
+        self.show_only.setAccessibleName(tr("Which apps to show"))
         for key, text in SHOW.items():
             self.show_only.addItem(tr(UNUSED[_months(controller)][0] if key == "unused" else text), key)
         self.show_only.currentIndexChanged.connect(self._filter)
@@ -312,7 +323,10 @@ class AppsPage(QWidget):
         h = self.tree.header()
         h.setStretchLastSection(False)
         h.setSectionResizeMode(0, QHeaderView.Stretch)
-        for col in (1, 2, 3, 4):
+        # (the publisher gets a set width, so a long one doesn't squeeze the names: it's cut short with …)
+        h.setSectionResizeMode(1, QHeaderView.Interactive)
+        h.resizeSection(1, 170)
+        for col in (2, 3, 4):
             h.setSectionResizeMode(col, QHeaderView.ResizeToContents)
         self.tree.itemSelectionChanged.connect(self._selection)
         self.tree.itemDoubleClicked.connect(lambda *_: self.uninstall_selected())
@@ -344,6 +358,7 @@ class AppsPage(QWidget):
         from .theme import round_menu
         round_menu(more)
         more.addAction(tr("Browser extensions…"), self.show_extensions)
+        more.addAction(tr("Folders of apps that are gone…"), self.show_orphans)
         more.addAction(tr("Backups…"), self.show_backups)
         more.addAction(tr("Save the list…"), self.save_list)
         self.b_more.setMenu(more)
@@ -440,7 +455,9 @@ class AppsPage(QWidget):
         self._items = {}
         for app in apps:
             item = SortItem([ltr(app.name), ltr(app.publisher), human_size(app.size) if app.size else "",
-                             app.date, _when(app.last_used)])
+                             _installed(app.date), _when(app.last_used)])
+            if not _icon_path(app):  # (no icon of its own: a plain one, so its name lines up with the others)
+                item.setIcon(0, self._plain_icon())
             item.setData(0, APP_ROLE, app)
             item.setData(2, SORT_ROLE, app.size)
             item.setData(3, SORT_ROLE, app.date or "0")
@@ -489,6 +506,13 @@ class AppsPage(QWidget):
             self._icon_paths = wanted
             self.icon_timer.start(15)
 
+    def _plain_icon(self) -> QIcon:
+        if getattr(self, "_plain", None) is None:
+            from . import icons
+            theme = self.c.theme if self.c is not None else None
+            self._plain = icons.icon("apps", theme.muted if theme is not None else "#888888")
+        return self._plain
+
     def _icon_made(self, path: str, image):
         self._show_icon(path, QIcon(QPixmap.fromImage(image)))
 
@@ -535,16 +559,16 @@ class AppsPage(QWidget):
         shown = [self.tree.topLevelItem(i).data(0, APP_ROLE) for i in range(self.tree.topLevelItemCount())
                  if not self.tree.topLevelItem(i).isHidden()]
         total = sum(a.size for a in shown)
-        text = tr("{count} apps · {size}", count=len(shown), size=human_size(total))
+        bits = [tr("{count} apps · {size}", count=len(shown), size=i18n.isolate(human_size(total)))]
         months = _months(self.c)
         unused = sum(1 for a in self.apps if _shown(a, "unused", months) and (not a.store or self.store.isChecked()))
         if unused and (self.show_only.currentData() or "all") == "all":
-            text += " · " + tr(UNUSED[months][1], count=unused)
+            bits.append(tr(UNUSED[months][1], count=unused))
         if self.phase == "store":
-            text += " · " + tr("Loading Store apps…")
+            bits.append(tr("Loading Store apps…"))
         elif self.phase == "sizes":
-            text += " · " + tr("Working out sizes…")
-        self.status.setText(text if self.loaded else tr("Loading the list of apps…"))
+            bits.append(tr("Working out sizes…"))
+        self.status.setText(i18n.join(bits) if self.loaded else tr("Loading the list of apps…"))
 
     def _selected(self) -> list[un.App]:
         return [i.data(0, APP_ROLE) for i in self.tree.selectedItems()]
@@ -670,6 +694,14 @@ class AppsPage(QWidget):
         if dlg.changed:
             self.reload()
 
+    def show_orphans(self):
+        """Program folders no installed app uses any more (an app deleted by hand, or broken)."""
+        dlg = OrphansDialog(self.c, self.apps, self.window().windowIcon())
+        sheet.run(dlg)
+        dlg.deleteLater()
+        if dlg.changed:
+            self.reload()
+
     def show_backups(self):
         dlg = BackupsDialog(self.c, self.window().windowIcon())
         sheet.run(dlg)
@@ -718,10 +750,12 @@ class UninstallDialog(QDialog):
         l1.setContentsMargins(0, 0, 0, 0)
         names = ", ".join(short_name(a.name, 40) for a in apps[:3]) + ("…" if len(apps) > 3 else "")
         title = tr("Uninstall {name}?", name=names) if not forced else tr("Remove what {name} left behind?", name=names)
-        l1.addWidget(_label(title, "h2", wrap=True))
+        self.confirm_title = _label(title, "h2", wrap=True)
+        l1.addWidget(self.confirm_title)
         if forced:
-            l1.addWidget(_label(tr("The app's uninstaller won't run. Corefold only looks for its folders, shortcuts "
-                                   "and registry entries, and you choose what goes."), "muted", wrap=True))
+            self.confirm_note = _label(tr("The app's uninstaller won't run. Corefold only looks for its folders, "
+                                          "shortcuts and registry entries, and you choose what goes."), "muted", wrap=True)
+            l1.addWidget(self.confirm_note)
             if any(not a.broken for a in apps):
                 warn = _label(tr("This app still looks installed (its uninstaller is still there). Removing its "
                                  "files would break it, so nothing will be ticked: use Uninstall instead if you can."),
@@ -790,10 +824,12 @@ class UninstallDialog(QDialog):
         l3.setContentsMargins(0, 0, 0, 0)
         self.left_title = _label("", "h2", wrap=True)
         l3.addWidget(self.left_title)
-        l3.addWidget(_label(tr("Ticked items clearly belong to the app. Unticked ones only might, so check them first. "
-                               "Everything removed is kept as a backup."), "muted", wrap=True))
+        self.left_note = _label(tr("Ticked items clearly belong to the app. Unticked ones only might, so check them "
+                                   "first. Everything removed is kept as a backup."), "muted", wrap=True)
+        l3.addWidget(self.left_note)
         depth_row = QHBoxLayout()
-        depth_row.addWidget(_label(tr("How deep to clean up:")))
+        self.depth_label = _label(tr("How deep to clean up:"))
+        depth_row.addWidget(self.depth_label)
         self.depth = Dropdown()
         for key, text in un.DEPTHS.items():
             self.depth.addItem(tr(text), key)
@@ -1247,6 +1283,82 @@ def restore_backup(folder: Path) -> dict:
 
 
 # ----------------------------------------------------------------------------- backups
+
+class OrphansDialog(UninstallDialog):
+    """Program folders no installed app uses any more: looked for → choose → moved into a backup (with undo),
+    the same way an app's leftovers go."""
+
+    def __init__(self, controller, everything: list[un.App], icon: QIcon):
+        super().__init__(controller, [], everything, True, icon)
+        # (the backup is named after it, and Backups… shows it under this name)
+        self.apps = [un.App(id="orphans", name=tr("Folders of apps that are gone"))]
+        self.setWindowTitle(tr("Folders of apps that are gone"))
+        self.confirm_title.setText(tr("Look for folders of apps that are gone?"))
+        self.confirm_note.setText(tr("Corefold looks in Program Files for folders that no installed app, service, "
+                                     "scheduled task, shortcut or start-up entry uses, named after no installed "
+                                     "app or maker, and unchanged for two months: what an app deleted by hand or a "
+                                     "broken uninstall left behind. Nothing is ticked, and you choose what goes."))
+        self.go.setText(tr("Look for them"))
+        self.left_note.setText(tr("Nothing uses these any more. A portable app or a game that a launcher installed "
+                                  "can look the same, so check each one first. Everything removed is kept as a "
+                                  "backup, and can be put back from Backups."))
+        for w in (self.depth_label, self.depth, self.depth_help):
+            w.hide()
+
+    def start(self):
+        self.busy = True
+        self.stack.setCurrentIndex(1)
+        everything, cancel, me = [a for a in self.everything if not a.store], self.cancel, self.apps
+        self._emit("scanning", None)
+
+        def work():
+            try:
+                found = un.orphan_folders(everything, cancel)
+            except Exception:
+                log.exception("looking for folders of apps that are gone failed")
+                found = []
+            if cancel.is_set():
+                return
+            self._emit("found", (me, found, []))
+        threading.Thread(target=work, daemon=True).start()
+
+    def _state(self, state: str, data):
+        if state == "scanning":
+            super()._state(state, data)
+            self.work_detail.setText(tr("Checking Program Files against every app, service, task, shortcut and "
+                                        "start-up entry."))
+        elif state == "found" and not data[1]:
+            self.busy = False
+            self._clock(False)
+            self._finish(tr("All clean"), tr("No program folders are left from apps that are gone."), undo=False)
+        else:
+            super()._state(state, data)
+
+    def _show_leftovers(self, removed, found):
+        self.removed_apps = removed
+        self.left_tree.blockSignals(True)
+        self.left_tree.clear()
+        group = QTreeWidgetItem([tr(un.REASONS["orphan"]), ""])
+        group.setFlags(group.flags() | Qt.ItemIsAutoTristate | Qt.ItemIsUserCheckable)
+        f = group.font(0)
+        f.setBold(True)
+        group.setFont(0, f)
+        self.left_tree.addTopLevelItem(group)
+        for item in found:
+            row = QTreeWidgetItem([item.label(), human_size(item.size) if item.size else ""])
+            row.setFlags(row.flags() | Qt.ItemIsUserCheckable)
+            row.setCheckState(0, Qt.Unchecked)
+            row.setData(0, APP_ROLE, item)
+            row.setToolTip(0, item.label())
+            group.addChild(row)
+        self.left_tree.expandAll()
+        self.left_tree.blockSignals(False)
+        self.left_title.setText(tr("{count} program folders no installed app uses", count=len(found)))
+        self.left_problems.setVisible(False)
+        self.close_running.setVisible(False)
+        self.stack.setCurrentIndex(2)
+        self._ticks_changed()
+
 
 class BackupsDialog(QDialog):
     def __init__(self, controller, icon: QIcon):

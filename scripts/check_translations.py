@@ -127,7 +127,10 @@ def table_texts() -> dict[str, str]:
          "card. They're made again the next time, so a game may start a little slower once.",
          "Windows Update downloads", "Updates Windows has already installed. Windows downloads again any it still "
          "needs. Windows asks for an administrator.", "The previous Windows", "Kept after a big Windows update, to "
-         "go back to it. Once it's removed, going back isn't possible. Windows asks for an administrator."],
+         "go back to it. Once it's removed, going back isn't possible. Windows asks for an administrator.",
+         "Update copies for other PCs", "Windows keeps updates and Store apps it downloaded, to hand them to other "
+         "PCs. Windows removes them its own way, and downloads again any it needs. Windows asks for an "
+         "administrator."],
         "space.find_junk")
     from corefold import awake, awakepage
     add(awake.DURATIONS.values(), "awake.DURATIONS")
@@ -145,6 +148,8 @@ def table_texts() -> dict[str, str]:
     add([text for table in (pdfeditor.TOOLS, pdfeditor.MARKS, pdfeditor.SHAPES) for _, text, _ in table],
         "pdfeditor tables")
     add(list(pdfeditor.HINTS.values()) + list(pdfeditor.WIDTHS), "pdfeditor tables")
+    add(list(pdfeditor.TITLES.values()) + list(pdfeditor.SELECTED_HINTS.values()) +
+        [text for _, text, _ in pdfeditor.ALIGN_KEYS] + [text for text, _ in pdfeditor.SPACINGS], "pdfeditor tables")
     from corefold import organizer, organizerpage
     add([name for name, _ in organizer.KINDS.values()], "organizer.KINDS")
     add(organizer.STAYS.values(), "organizer.STAYS")

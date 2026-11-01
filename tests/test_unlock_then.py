@@ -76,3 +76,17 @@ def test_moving_at_restart_is_checked_first(tmp_path):
     (tmp_path / "b.txt").write_text("y")
     assert unlock.move_at_restart_problem(str(src), str(tmp_path / "b.txt")) == "taken"
     assert unlock.move_at_restart_problem(str(tmp_path / "nope"), str(tmp_path / "c.txt")) == "missing"
+
+
+def test_moving_at_restart_never_goes_through_a_junction(tmp_path):
+    import sys
+    if sys.platform != "win32":
+        return
+    import _winapi
+    src = tmp_path / "a.txt"
+    src.write_text("x")
+    (tmp_path / "elsewhere").mkdir()
+    _winapi.CreateJunction(str(tmp_path / "elsewhere"), str(tmp_path / "out"))
+    # (Windows moves it as the PC starts, with full rights: it must never follow a link someone made)
+    assert unlock.move_at_restart_problem(str(src), str(tmp_path / "out" / "a.txt")) == "refused"
+    assert unlock.move_at_restart_problem(str(src), str(tmp_path / "elsewhere" / "a.txt")) == ""

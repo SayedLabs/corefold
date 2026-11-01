@@ -52,6 +52,7 @@ REASONS = {
     "task": "Scheduled tasks",
     "filetype": "File types and program links",
     "userfiles": "In your own folders (check before removing)",
+    "orphan": "Program folders no installed app uses",
 }
 
 # How far a clean-up goes (English; shown through tr()). Every leftover has a level: 3 = surely the app's,
@@ -1660,6 +1661,227 @@ def tasks_of(app: App, keys: set[str], loc: str, theirs: list[str] = ()) -> list
 
 # ----------------------------------------------------------------------------- removing (with a backup)
 
+# ----------------------------------------------------------------------------- folders of apps that are gone
+
+ORPHAN_QUIET_DAYS = 60   # a folder with anything changed more recently is still in use: never offered
+ORPHAN_LOOK_S = 4.0      # time to look through one folder (one that takes longer isn't offered)
+# Windows' and Microsoft's own folders in Program Files that no uninstall entry names (on top of PROTECTED
+# and the "Microsoft…"/"Windows…" names)
+_WINDOWS_PROGRAM_FOLDERS = {"uninstallinformation", "dotnet", "powershell", "iis", "iisexpress", "msbuild",
+                            "referenceassemblies", "modifiablewindowsapps", "commonfiles", "internetexplorer",
+                            "windowsdefender", "windowsdefenderadvancedthreatprotection", "windowsmail",
+                            "windowsmediaplayer", "windowsnt", "windowsphotoviewer", "windowssidebar",
+                            "windowsportabledevices", "windowssecurity", "desktopappinstaller", "wsl",
+                            "dotnetcore", "nuget", "packagecache", "onlineservices",
+                            # driver packages uninstall through DIFx (Driver Install Frameworks) from here
+                            "difx", "difxapp", "packagemanagement", "windowskits",
+                            # runtimes graphics drivers and games put in and share, with no entry of their own
+                            "vulkanrt", "vulkan", "vulkansdk", "openal", "directx", "physx"}
+INSTALLER_FOLDERS = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\Folders"  # every folder an MSI made
+
+
+def orphan_roots() -> list[Path]:
+    """Where installers put programs: both Program Files and the per-user one. AppData and ProgramData
+    are left out on purpose: portable apps, tools and games keep their data there with no uninstall
+    entry at all, so "no app claims it" says nothing there."""
+    roots = [_env_path("ProgramW6432") or _env_path("ProgramFiles"), _env_path("ProgramFiles(x86)"),
+             _env_path("LOCALAPPDATA", "Programs")]
+    seen, out = set(), []
+    for r in roots:
+        if r is not None and os.path.normcase(str(r)) not in seen and r.is_dir():
+            seen.add(os.path.normcase(str(r)))
+            out.append(r)
+    return out
+
+
+def _clsid_servers() -> list[str]:
+    """The program files of every COM server (shell extensions, context-menu handlers, …)."""
+    out = []
+    for hive, base in (("HKLM", r"SOFTWARE\Classes\CLSID"), ("HKCU", r"Software\Classes\CLSID")):
+        for view in _views(hive):
+            for clsid in _subkeys(hive, base, view):
+                for sub in ("InprocServer32", "LocalServer32"):
+                    exe, _ = split_command(str(_values(hive, f"{base}\\{clsid}\\{sub}", view).get("", "")))
+                    if exe:
+                        out.append(exe)
+    return out
+
+
+def _path_folders() -> list[str]:
+    """The folders on the PATH, the machine's and the user's (a tool there is used from the command line)."""
+    out = []
+    for hive, key in (("HKLM", r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment"),
+                      ("HKCU", "Environment")):
+        out += [p for p in os.path.expandvars(str(_values(hive, key, 0).get("Path", ""))).split(";") if p.strip()]
+    return out
+
+
+def _app_paths() -> list[str]:
+    out = []
+    base = r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths"
+    for hive in ("HKLM", "HKCU"):
+        for view in _views(hive):
+            for name in _subkeys(hive, base, view):
+                exe, _ = split_command(str(_values(hive, f"{base}\\{name}", view).get("", "")))
+                if exe:
+                    out.append(exe)
+    return out
+
+
+def _shortcut_targets() -> list[str]:
+    out = []
+    for root in shortcut_roots():
+        for dirpath, _dirs, files in os.walk(root):
+            out += [lnk_target(Path(dirpath, f)) for f in files if f.lower().endswith(".lnk")]
+    return [t for t in out if t]
+
+
+def every_entry() -> list[dict]:
+    """Every uninstall entry, the hidden ones too (parts of a bigger install, system components, updates):
+    the list of apps leaves them out, but they still own folders."""
+    out = []
+    for hive in ("HKLM", "HKCU"):
+        for view in _views(hive):
+            for sub in _subkeys(hive, UNINSTALL, view):
+                out.append(_values(hive, UNINSTALL + "\\" + sub, view))
+    return out
+
+
+def _installer_folders() -> list[str]:
+    """The folders Windows Installer made for the MSI packages on this PC (they're value names)."""
+    out = []
+    winreg = _winreg()
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, INSTALLER_FOLDERS, 0, _access(64)) as k:
+            i = 0
+            while True:
+                try:
+                    out.append(winreg.EnumValue(k, i)[0])
+                except OSError:
+                    break
+                i += 1
+    except OSError:
+        pass
+    return out
+
+
+def program_references(apps: list[App], entries: list[dict] | None = None) -> list[str]:
+    """Every program or folder Windows still points at: where the apps (hidden entries too) are installed
+    and their uninstallers and icons, the folders Windows Installer made, services and drivers, scheduled
+    tasks, start-with-Windows entries, COM servers (shell extensions), App Paths, the PATH and shortcuts.
+    A folder any of these is inside is in use."""
+    refs = []
+    for app in apps:
+        refs += [app.location, split_command(app.uninstall)[0], split_command(app.quiet)[0],
+                 app.icon.split(",")[0].strip().strip('"')]
+    for v in every_entry() if entries is None else entries:
+        refs += [str(v.get("InstallLocation") or ""), split_command(str(v.get("UninstallString") or ""))[0],
+                 _icon_path(str(v.get("DisplayIcon") or ""))]
+    for name in _subkeys("HKLM", SERVICES, 0):
+        refs.append(_service_program(name))
+    for part in (_installer_folders, lambda: [exe for _, exe in scheduled_tasks()], startup_programs,
+                 _clsid_servers, _app_paths, _path_folders, _shortcut_targets):
+        try:
+            refs += part()
+        except Exception:
+            log.debug("couldn't read some program references", exc_info=True)
+    return [os.path.expandvars(r.strip().strip('"')) for r in refs if r and r.strip()]
+
+
+def entry_names(apps: list[App], entries: list[dict]) -> set[str]:
+    """The names of the installed apps and their makers, hidden entries too, as folder names would be."""
+    out = set()
+    for app in apps:
+        out |= app.names() | {clean_name(app.publisher), norm(app.publisher)}
+    for v in entries:
+        for text in (str(v.get("DisplayName") or ""), str(v.get("Publisher") or "")):
+            out |= {clean_name(text), norm(text)}
+    return {k for k in out if len(k) >= 4}
+
+
+def _claimed_by_name(name: str, names: set[str]) -> bool:
+    """An installed app is called like the folder, or made by a maker the folder is named after."""
+    n = norm(name)
+    return any(key in n or n in key for key in names)
+
+
+def _quiet_folder(path: Path, cutoff: float) -> tuple[bool, int]:
+    """Whether nothing inside changed since cutoff, it holds no driver and no link, and it was looked through
+    to the end; and its size."""
+    total, start = 0, time.monotonic()
+    waiting = [str(path)]
+    try:
+        if path.stat().st_mtime > cutoff:
+            return False, 0
+    except OSError:
+        return False, 0
+    while waiting:
+        try:
+            with os.scandir(waiting.pop()) as it:
+                for e in it:
+                    if is_link(e.path):
+                        return False, 0  # (where it leads isn't this folder's to give away)
+                    st = e.stat(follow_symlinks=False)
+                    if st.st_mtime > cutoff:
+                        return False, 0
+                    if e.is_dir(follow_symlinks=False):
+                        waiting.append(e.path)
+                    elif e.name.lower().endswith(".sys"):
+                        return False, 0  # a driver: Windows may load it without any entry Corefold reads
+                    else:
+                        total += st.st_size
+        except OSError:
+            return False, 0
+        if time.monotonic() - start > ORPHAN_LOOK_S:
+            return False, 0
+    return True, total
+
+
+def orphan_folders(apps: list[App], cancel: threading.Event | None = None, refs: list[str] | None = None,
+                   entries: list[dict] | None = None) -> list[Leftover]:
+    """Folders in Program Files (and the per-user Programs folder) that no installed app, service, task,
+    COM server, shortcut, start-up entry or PATH points at, named after no installed app or maker, and
+    untouched for ORPHAN_QUIET_DAYS: what an app that was deleted by hand or broke left behind. Each one is
+    offered unticked ("might belong to it"), goes into a backup like any leftover, and can be put back."""
+    entries = every_entry() if entries is None else entries
+    refs = program_references(apps, entries) if refs is None else refs
+    names = entry_names(apps, entries)
+    cutoff = time.time() - ORPHAN_QUIET_DAYS * 86400
+    found = []
+    for root in orphan_roots():
+        try:
+            entries = sorted(os.scandir(root), key=lambda e: e.name.lower())
+        except OSError:
+            continue
+        for e in entries:
+            if cancel is not None and cancel.is_set():
+                return found
+            path = e.path
+            try:
+                if not e.is_dir(follow_symlinks=False) or is_link(path):
+                    continue
+                attrs = getattr(e.stat(follow_symlinks=False), "st_file_attributes", 0)
+            except OSError:
+                continue
+            n = norm(e.name)
+            if attrs & 0x6 or n in PROTECTED or n in _WINDOWS_PROGRAM_FOLDERS or _system_named(e.name) or \
+                    not _safe_folder(path):
+                continue  # hidden or system, or Windows' own
+            if any(_inside(r, path) for r in refs) or _claimed_by_name(e.name, names):
+                continue
+            quiet, size = _quiet_folder(Path(path), cutoff)
+            if not quiet:
+                continue
+            found.append(Leftover("folder", path, "orphan", safe=False, size=size, app=e.name, level=1))
+    if found:
+        try:  # (a program running from one of them: not gone after all)
+            running = {os.path.normcase(exe) for _, exe in programs_in([i.path for i in found])}
+            found = [i for i in found if not any(_inside(exe, i.path) for exe in running)]
+        except Exception:
+            log.debug("couldn't see what's running", exc_info=True)
+    return found
+
+
 def _reg_root_name(path: str) -> str:
     head, _, rest = path.partition("\\")
     full = {"HKLM": "HKEY_LOCAL_MACHINE", "HKCU": "HKEY_CURRENT_USER"}.get(head.upper(), head)
@@ -1875,8 +2097,9 @@ def _move(src: Path, dest: Path):
 def _move_files(src: Path, dest: Path, overwrite: bool = False) -> list[str]:
     """Moves a folder file by file (for when some of its files are in use and it can't move as a whole),
     then removes the folders left empty. Returns the files that couldn't be moved."""
-    left = []
+    left, walked = [], []
     for root, folders, files in os.walk(src):
+        walked.append(root)
         rel = os.path.relpath(root, src)
         for f in files:
             a, b = os.path.join(root, f), os.path.join(dest, rel, f)
@@ -1889,7 +2112,9 @@ def _move_files(src: Path, dest: Path, overwrite: bool = False) -> list[str]:
             except OSError:
                 left.append(a)
         folders[:] = [d for d in folders if not is_link(os.path.join(root, d))]
-    for root, _folders, _files in sorted(os.walk(src), key=lambda t: -len(t[0])):
+    # only the real folders walked above, deepest first: a second os.walk would go into junctions (Windows
+    # doesn't count them as links there), remove the empty folders where they point, then the junction itself
+    for root in reversed(walked):
         try:
             os.rmdir(root)
         except OSError:

@@ -25,6 +25,8 @@ TOP_FILES = 48         # files remembered per folder (the rest are added up as "
 TOP_OVERALL = 100      # the biggest files of the whole drive
 TOP_KIND = 60          # the biggest files of each kind (videos, pictures…)
 TOP_OLD = 100          # the biggest files nobody has opened or changed for a year
+TOP_TYPE = 10          # the biggest files of each file type (.mp4, .iso…)
+KEEP_TYPES = 300       # file types kept after a look, biggest first (the rest are tiny)
 OLD_AFTER_DAYS = 365
 PROGRESS_EVERY = 2000  # entries between progress reports
 
@@ -49,6 +51,13 @@ KIND_OF = {f".{ext}": kind for kind, exts in _KIND_EXT.items() for ext in exts.s
 
 def kind_of(name: str) -> str:
     return KIND_OF.get(os.path.splitext(name)[1].lower(), "other")
+
+
+def type_of(name: str) -> str:
+    """A file's type, as its extension in lower case (".mp4"); "" when it has none, or when what follows
+    the last dot isn't one ("backup.2024-05-01", "Report v2.final copy")."""
+    ext = os.path.splitext(name)[1].lower()
+    return ext if 1 < len(ext) <= 12 and ext[1:].isalnum() else ""
 
 
 class Folder:
@@ -88,6 +97,8 @@ class Scan:
     kinds: dict = field(default_factory=dict)     # kind -> bytes
     biggest_kind: dict = field(default_factory=dict)  # kind -> (size, path) of its biggest files, biggest first
     old: list = field(default_factory=list)       # (size, path, last used) of big files untouched for a year
+    types: dict = field(default_factory=dict)     # file type (".mp4", "" for none) -> (bytes, files), biggest first
+    biggest_type: dict = field(default_factory=dict)  # file type -> (size, path) of its biggest files, biggest first
     grew: list = field(default_factory=list)      # (bytes more, path) since the last look, from remember()
     since: float = 0.0                            # when that last look was
     files: int = 0
@@ -152,6 +163,7 @@ def scan(root: Path, cancel: threading.Event | None = None, progress=None, worke
     biggest: list[tuple[int, str]] = []
     kinds = dict.fromkeys(KINDS, 0)
     by_kind: dict[str, list] = {k: [] for k in KINDS}
+    types: dict[str, list] = {}  # file type -> [bytes, files, its biggest files as a heap]
     old: list = []
     old_before = time.time() - OLD_AFTER_DAYS * 86400
     total = 0
@@ -208,6 +220,16 @@ def scan(root: Path, cancel: threading.Event | None = None, progress=None, worke
                         heapq.heappush(of_kind, (size, os.path.join(path, name)))
                     elif size > of_kind[0][0]:
                         heapq.heapreplace(of_kind, (size, os.path.join(path, name)))
+                    ext = type_of(name)
+                    of_type = types.get(ext)
+                    if of_type is None:
+                        of_type = types[ext] = [0, 0, []]
+                    of_type[0] += size
+                    of_type[1] += 1
+                    if len(of_type[2]) < TOP_TYPE:
+                        heapq.heappush(of_type[2], (size, os.path.join(path, name)))
+                    elif size > of_type[2][0][0]:
+                        heapq.heapreplace(of_type[2], (size, os.path.join(path, name)))
                     if len(heap) < TOP_FILES:
                         heapq.heappush(heap, (size, name))
                     elif size > heap[0][0]:
@@ -242,8 +264,42 @@ def scan(root: Path, cancel: threading.Event | None = None, progress=None, worke
     result.kinds = kinds
     result.biggest_kind = {k: sorted(v, reverse=True) for k, v in by_kind.items()}
     result.old = sorted(old, reverse=True)
+    kept = sorted(types.items(), key=lambda kv: kv[1][0], reverse=True)[:KEEP_TYPES]
+    result.types = {ext: (v[0], v[1]) for ext, v in kept}
+    result.biggest_type = {ext: sorted(v[2], reverse=True) for ext, v in kept}
     result.seconds = time.monotonic() - started
     return result
+
+
+# ----------------------------------------------------------------------------- the map as a spreadsheet
+
+def save_csv(result: Scan, out: Path, header: list[str], folder_word: str, file_word: str, size_text,
+             min_size: int = 1 << 20) -> int:
+    """Writes the map to a file a spreadsheet opens: every folder of at least min_size and the files it
+    remembers of that size, in the map's order (each folder followed by what's in it, biggest first).
+    header names the columns: path, what it is, bytes, size (size_text(bytes)), files, folders, share of
+    the folder above. The number of rows written."""
+    import csv
+    rows = 0
+    with open(out, "w", newline="", encoding="utf-8-sig") as f:  # (the mark lets Excel read Arabic)
+        w = csv.writer(f)
+        w.writerow(header)
+        todo = [(result.root, 0)]
+        while todo:
+            folder, above = todo.pop()
+            share = f"{folder.size * 100 / above:.1f}" if above else ""
+            w.writerow([str(folder.path), folder_word, folder.size, size_text(folder.size), folder.files,
+                        folder.folders, share])
+            rows += 1
+            base = folder.path
+            for size, name in folder.big:
+                if size < min_size:
+                    break
+                w.writerow([str(base / name), file_word, size, size_text(size), "", "",
+                            f"{size * 100 / folder.size:.1f}" if folder.size else ""])
+                rows += 1
+            todo.extend((c, folder.size) for c in reversed(folder.children) if c.size >= min_size)
+    return rows
 
 
 # ----------------------------------------------------------------------------- what grew since last time
@@ -443,8 +499,17 @@ def protected(path: Path) -> bool:
     for e in exact:
         if e is not None and p == os.path.normcase(os.path.abspath(str(e))):
             return True
+    if own_windows_folder(path):  # (any account's, not only this one's)
+        return True
     name = os.path.basename(p)
     return name in ("pagefile.sys", "hiberfil.sys", "swapfile.sys", "$recycle.bin", "system volume information")
+
+
+def own_windows_folder(path: Path) -> bool:
+    """An account's own folder that Windows keeps (Desktop, Documents, Downloads, Pictures, AppData...), of
+    any account: in the Recycle Bin it would leave Windows without it. What's inside can go, not the folder."""
+    from .uninstall import _profile_place
+    return _profile_place(os.path.normcase(os.path.abspath(str(path))))
 
 
 def recycle(paths: list[Path]) -> int:
@@ -753,7 +818,8 @@ def find_junk(downloads: Path | None = None, cancel: threading.Event | None = No
 
 # Windows' own leftovers, which only an administrator can remove. The administrator copy of Corefold
 # is only told which of these keys to clean; the folders come from here, never from the request.
-ADMIN_KEYS = ("winupdate", "winold")
+ADMIN_KEYS = ("winupdate", "winold", "delivery")
+DELIVERY_MIN = 50 << 20  # update copies kept for other PCs: offered from this size
 
 
 def _windows_dir() -> Path:
@@ -768,7 +834,22 @@ def admin_path(key: str) -> Path | None:
         return windows / "SoftwareDistribution" / "Download"
     if key == "winold":
         return Path(windows.drive + "\\") / "Windows.old"
+    if key == "delivery":  # (only the Delivery Optimization service and administrators can look inside)
+        return windows / "ServiceProfiles" / "NetworkService" / "AppData" / "Local" / "Microsoft" / "Windows" / \
+            "DeliveryOptimization" / "Cache"
     return None
+
+
+def delivery_size() -> int:
+    """How much Windows keeps of updates and Store apps to share with other PCs (Delivery Optimization),
+    as Windows itself says (its folder is closed to everyone but administrators). 0 when it can't say."""
+    import subprocess
+    from .uninstall import powershell
+    try:
+        out = powershell("(Get-DeliveryOptimizationPerfSnap -ErrorAction Stop).CacheSizeBytes", timeout=30)
+        return max(0, int(out.splitlines()[-1].strip())) if out else 0
+    except (OSError, ValueError, IndexError, subprocess.SubprocessError):
+        return 0
 
 
 def _admin_junk(cancel: threading.Event | None = None) -> list[Junk]:
@@ -788,6 +869,13 @@ def _admin_junk(cancel: threading.Event | None = None) -> list[Junk]:
         rows.append(Junk("winold", "The previous Windows", "Kept after a big Windows update, to go back to it. Once "
                          "it's removed, going back isn't possible. Windows asks for an administrator.",
                          [old], size, count, ticked=False, admin=True))
+    if not (cancel is not None and cancel.is_set()):
+        size = delivery_size()
+        if size >= DELIVERY_MIN:
+            rows.append(Junk("delivery", "Update copies for other PCs", "Windows keeps updates and Store apps it "
+                             "downloaded, to hand them to other PCs. Windows removes them its own way, and downloads "
+                             "again any it needs. Windows asks for an administrator.",
+                             [admin_path("delivery")], size, 0, ticked=False, admin=True))
     return rows
 
 
@@ -826,6 +914,13 @@ def clean_as_admin(keys: list[str]) -> int:
             finally:
                 run("net", "start", "bits", timeout=120)
                 run("net", "start", "wuauserv", timeout=120)
+        elif key == "delivery":
+            # the Delivery Optimization service owns these files: it's asked to let them go, never bypassed
+            from .uninstall import powershell
+            try:
+                powershell("Delete-DeliveryOptimizationCache -Force -ErrorAction Stop", timeout=600)
+            except (OSError, subprocess.SubprocessError):
+                log.warning("Delivery Optimization's clean-up failed", exc_info=True)
         elif key == "winold":
             # Windows' own Disk Cleanup removes it the way Windows means it to ("Previous Windows
             # installation(s)"); what it leaves (or everything, without Disk Cleanup) goes the hard way
@@ -1030,10 +1125,15 @@ def clean(junk: Junk, cancel: threading.Event | None = None) -> int:
         before = sum(_size_of(p)[0] for p in junk.paths)
         recycle(junk.paths)
         return max(0, before - sum(_size_of(p)[0] for p in junk.paths if os.path.lexists(p)))
+    if junk.key.startswith(("browser:", "app:")) and junk.key.split(":", 1)[1] in running_programs():
+        return 0  # (started since it was found: its cache is in use now, and stays)
+    now = time.time()
     freed = 0
     for p in junk.paths:
         if cancel is not None and cancel.is_set():
             break
+        if junk.key == "temp" and not _still_old(p, now):
+            continue  # (used again since it was found, or no longer a plain file or folder: it stays)
         if junk.key.startswith(("browser:", "app:", "gpu")):  # the folder stays (empty), only what's inside goes
             try:
                 children = list(p.iterdir())
@@ -1050,6 +1150,23 @@ def clean(junk: Junk, cancel: threading.Event | None = None) -> int:
         elif p.is_dir():  # some files inside were in use: the rest went
             freed += max(0, size - _size_of(p)[0])
     return freed
+
+
+def _still_old(p: Path, now: float) -> bool:
+    """A temporary file or folder found earlier is still one to remove: there, not a link or junction, and
+    nothing in it changed in the last day (the page may have stayed open a long time since)."""
+    try:
+        st = os.lstat(p)
+    except OSError:
+        return False
+    if stat.S_ISLNK(st.st_mode) or getattr(st, "st_file_attributes", 0) & _REPARSE:
+        return False
+    if now - st.st_mtime < 86400:
+        return False
+    if stat.S_ISDIR(st.st_mode):
+        _size, _count, newest, whole = _tree_info(p, 10.0)
+        return whole and now - newest >= 86400
+    return True
 
 
 # ----------------------------------------------------------------------------- duplicates

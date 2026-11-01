@@ -46,6 +46,9 @@ PROGRAMS = Path(os.environ["LOCALAPPDATA"]) / "Programs"
 ROAMING = Path(os.environ["APPDATA"])
 LOCAL = Path(os.environ["LOCALAPPDATA"])
 START_MENU = ROAMING / "Microsoft" / "Windows" / "Start Menu" / "Programs"
+# (Corefold is installed for the whole PC now: Program Files, the Start menu for everyone, HKLM)
+PROGRAM_FILES = Path(os.environ.get("ProgramW6432") or os.environ["ProgramFiles"])
+COMMON_START_MENU = Path(os.environ["ProgramData"]) / "Microsoft" / "Windows" / "Start Menu" / "Programs"
 DESKTOP = Path(os.environ["USERPROFILE"]) / "Desktop"
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 FIRST_BRIDGED = (1, 5, 3)  # older updaters only trust downloads under the repository name they were built with
@@ -110,9 +113,9 @@ def kill(*images: str):
         subprocess.run(["taskkill", "/f", "/im", image], capture_output=True)
 
 
-def reg_value(path: str, name: str):
+def reg_value(path: str, name: str, root=winreg.HKEY_CURRENT_USER):
     try:
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path) as k:
+        with winreg.OpenKey(root, path, 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as k:
             return winreg.QueryValueEx(k, name)[0]
     except OSError:
         return None
@@ -181,16 +184,17 @@ def baked_repo(exe: Path) -> str:
 
 def clean_up():
     kill("Corefold.exe", f"{LEGACY_NAME}.exe")
-    loc = reg_value(UNINSTALL_KEY, "InstallLocation")
-    if loc and (Path(loc) / "unins000.exe").exists():
-        subprocess.run([str(Path(loc) / "unins000.exe"), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"])
-        wait_for(lambda: not (Path(loc) / "unins000.exe").exists(), 60)
-    for base in (ROAMING, LOCAL, PROGRAMS):
+    for root in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
+        loc = reg_value(UNINSTALL_KEY, "InstallLocation", root)
+        if loc and (Path(loc) / "unins000.exe").exists():
+            subprocess.run([str(Path(loc) / "unins000.exe"), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"])
+            wait_for(lambda: not (Path(loc) / "unins000.exe").exists(), 60)
+    for base in (ROAMING, LOCAL, PROGRAMS, PROGRAM_FILES):
         for name in ("Corefold", LEGACY_NAME):
             shutil.rmtree(base / name, ignore_errors=True)
     for name in ("Corefold", LEGACY_NAME):
         reg_delete(RUN_KEY, name)
-        for lnk in (START_MENU / f"{name}.lnk", DESKTOP / f"{name}.lnk"):
+        for lnk in (START_MENU / f"{name}.lnk", COMMON_START_MENU / f"{name}.lnk", DESKTOP / f"{name}.lnk"):
             lnk.unlink(missing_ok=True)
 
 
@@ -287,18 +291,20 @@ def test_old(tag: str, data, files):
 
     stem = path.stem.lower()
     check(wait_for(lambda: not any(p.startswith(stem) for p in running()), 300), "installer finished")
-    new_dir = PROGRAMS / "Corefold"
+    new_dir = PROGRAM_FILES / "Corefold"
     check((new_dir / "Corefold.exe").exists(), f"Corefold installed in {new_dir}")
     check(wait_for(lambda: "corefold.exe" in running(), 60), "Corefold is running")
     check(f"{LEGACY_NAME}.exe".lower() not in running(), "old version is closed")
     check(not old_exe.exists(), "old program folder removed")
-    key = UNINSTALL_KEY
-    check(reg_value(key, "DisplayName") == "Corefold" and reg_value(key, "DisplayVersion") == VERSION,
-          f"Apps list shows {reg_value(key, 'DisplayName')} {reg_value(key, 'DisplayVersion')}")
+    key, pc = UNINSTALL_KEY, winreg.HKEY_LOCAL_MACHINE
+    check(reg_value(key, "DisplayName", pc) == "Corefold" and reg_value(key, "DisplayVersion", pc) == VERSION,
+          f"Apps list shows {reg_value(key, 'DisplayName', pc)} {reg_value(key, 'DisplayVersion', pc)} (for the whole PC)")
+    check(reg_value(key, "DisplayName") is None, "the old entry for this user alone is gone from the Apps list")
     check(bool(reg_value(RUN_KEY, "Corefold")) and reg_value(RUN_KEY, LEGACY_NAME) is None,
           "starts with Windows as Corefold (old entry gone)")
-    check((START_MENU / "Corefold.lnk").exists() and not (START_MENU / f"{LEGACY_NAME}.lnk").exists(),
+    check((COMMON_START_MENU / "Corefold.lnk").exists() and not (START_MENU / f"{LEGACY_NAME}.lnk").exists(),
           "Start menu shortcut renamed")
+    check((DESKTOP / "Corefold.lnk").exists(), "the desktop icon is kept, under the new name")
     check(not (DESKTOP / f"{LEGACY_NAME}.lnk").exists(), "old desktop shortcut removed")
     new_conf = ROAMING / "Corefold" / "settings.json"
     check(wait_for(new_conf.exists, 60), "settings moved to the Corefold folder")

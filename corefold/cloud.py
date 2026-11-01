@@ -168,12 +168,16 @@ _lock = threading.RLock()
 
 def _read() -> tuple[list[Account], bool]:
     """The kept accounts, and whether the file could be read (missing counts as read: there are none yet)."""
-    try:
-        raw = ACCOUNTS_FILE.read_bytes()
-    except FileNotFoundError:
-        return [], True
-    except OSError:
-        return [], False
+    for attempt in range(5):  # (a virus scanner or a backup program may hold the file for a moment: that
+        try:                  # isn't a damaged file, and mustn't get it put aside and the accounts dropped)
+            raw = ACCOUNTS_FILE.read_bytes()
+            break
+        except FileNotFoundError:
+            return [], True
+        except OSError:
+            if attempt == 4:
+                return [], False
+            time.sleep(0.2)
     try:
         data = json.loads(unprotect(raw).decode("utf-8"))
     except (OSError, ValueError):

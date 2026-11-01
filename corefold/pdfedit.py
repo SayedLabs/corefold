@@ -16,6 +16,7 @@ import ctypes
 import io
 import logging
 import math
+import re
 import unicodedata
 from pathlib import Path
 
@@ -142,11 +143,13 @@ def _strong(text: str) -> str:
     return "" if not rtl and not ltr else "R" if rtl >= ltr else "L"
 
 
-def line_text(chars: list[tuple[str, float, float]], size: float) -> tuple[str, bool]:
+def line_text(chars: list[tuple[str, float, float]], size: float, spans: list | None = None) -> tuple[str, bool]:
     """The words of one line in reading order, from its letters as the PDF has them ((letter, left,
     right) in the PDF's order). Words are found by the gaps between letters, and put in order by where
     they are (many PDFs keep Arabic in the order it's shown): right to left on an Arabic line, with
-    English in it kept in its own order. A word kept backwards is turned around."""
+    English in it kept in its own order. A word kept backwards is turned around.
+    spans: a list to fill with where each word is, [start, end, left, right] (its letters in the text,
+    and its place across the line), for finding words on the page exactly."""
     order = {id(t): n for n, t in enumerate(chars)}
     letters = sorted((t for t in chars if not t[0].isspace()), key=lambda t: (t[1] + t[2]) / 2)
     words, cur, right = [], [], None
@@ -170,8 +173,8 @@ def line_text(chars: list[tuple[str, float, float]], size: float) -> tuple[str, 
         if len(w) > 1 and w[0][1] < w[-1][1] - 0.5:
             text = text[::-1]  # (…unless it's kept as shown, left to right)
         return text
-    made = [(text_of(w), (w[0][1] + w[-1][2]) / 2) for w in words]
-    rtl = _strong("".join(t for t, _ in made)) == "R"
+    made = [(text_of(w), (w[0][1] + w[-1][2]) / 2, min(t[1] for t in w), max(t[2] for t in w)) for w in words]
+    rtl = _strong("".join(t[0] for t in made)) == "R"
     made.sort(key=lambda t: -t[1] if rtl else t[1])
     # words written the other way (English in Arabic, Arabic in English) keep their own order
     other = "L" if rtl else "R"
@@ -181,12 +184,17 @@ def line_text(chars: list[tuple[str, float, float]], size: float) -> tuple[str, 
         while j < len(made) and _strong(made[j][0]) == other:
             j += 1
         if j - i > 1:
-            out += [t for t, _ in reversed(made[i:j])]
+            out += list(reversed(made[i:j]))
             i = j
         else:
-            out.append(made[i][0])
+            out.append(made[i])
             i += 1
-    return arabic_letters(" ".join(out)), rtl
+    if spans is not None:
+        at = 0
+        for t in out:
+            spans.append([at, at + len(t[0]), round(t[2], 2), round(t[3], 2)])
+            at += len(t[0]) + 1
+    return arabic_letters(" ".join(t[0] for t in out)), rtl
 
 
 # Letters that look the same at the start or middle of a word: some fonts (Arial on Windows) give the
@@ -307,6 +315,7 @@ def read_layout(doc, index: int) -> dict:
         finally:
             tp.close()
         lines = _lines(c, geo, chars, texts)
+        paras = paragraphs(lines)
         marks = []
         for ch, gen, _obj, rect in chars:
             if rect is None or gen or ch in "\r\n":
@@ -314,7 +323,7 @@ def read_layout(doc, index: int) -> dict:
             x, y, w, h = geo.rect_to_display(*rect)
             if w > 0 and h > 0:
                 marks.append((round(x, 2), round(y, 2), round(w, 2), round(h, 2)))
-        return {"size": (geo.width, geo.height), "lines": lines, "images": images, "chars": marks}
+        return {"size": (geo.width, geo.height), "lines": lines, "paras": paras, "images": images, "chars": marks}
     finally:
         page.close()
 
@@ -407,7 +416,8 @@ def _lines(c, geo: Geo, chars: list, texts: dict) -> list[dict]:
             continue
         shown = [(ch, box[0], box[2]) for ch, _, box, _ in letters]
         main = max(objs, key=lambda k: sum(1 for t in letters if t[1] == k))
-        text, rtl = line_text(shown, info[main]["size"])
+        spans: list = []
+        text, rtl = line_text(shown, info[main]["size"], spans)
         if not text.strip():
             continue
         l = min(info[k]["bounds"][0] for k in objs)
@@ -419,7 +429,7 @@ def _lines(c, geo: Geo, chars: list, texts: dict) -> list[dict]:
         line = {"objs": objs, "rect": [round(v, 2) for v in geo.rect_to_display(l, b, r, t)],
                 "text": text, "rtl": rtl, "size": round(o["size"], 2), "font": font,
                 "serif": o["serif"], "fixed": o["fixed"], "bold": o["bold"], "italic": o["italic"],
-                "color": o["color"], "base": round(o["base"], 2)}
+                "color": o["color"], "base": round(o["base"], 2), "words": spans}
         # Arabic and English on one line are often in two fonts: the font of each
         for script, kinds in (("ar", _RTL), ("en", ("L",))):
             used = [obj for ch, obj, _, _ in letters if unicodedata.bidirectional(ch) in kinds]
@@ -428,6 +438,137 @@ def _lines(c, geo: Geo, chars: list, texts: dict) -> list[dict]:
         lines.append(line)
     lines.sort(key=lambda d: (round(d["rect"][1]), d["rect"][0]))
     return lines
+
+
+_BULLET = re.compile(r"^\s*([\u2022\u25cf\u25aa\u25e6\u2013\u2014*\-]|\(?([0-9\u0660-\u0669]{1,3}|[a-zA-Z])[.)])\s")
+
+
+def _same_look(a: dict, b: dict) -> bool:
+    return (a["font"] == b["font"] and a["bold"] == b["bold"] and a["italic"] == b["italic"] and
+            a["color"] == b["color"] and a["rtl"] == b["rtl"] and
+            abs(a["size"] - b["size"]) <= 0.08 * max(a["size"], b["size"]))
+
+
+def _first_word_width(line: dict) -> float:
+    words = line.get("words") or []
+    if not words:
+        return line["rect"][2]
+    return words[0][3] - words[0][2]
+
+
+def paragraphs(lines: list[dict]) -> list[dict]:
+    """Lines that are one paragraph (wrapped text: the same look, evenly spaced, lined up, and each line
+    full enough that the next line's first word wouldn't have fitted on it) put together, so a paragraph
+    can be changed as a whole and its words flow from line to line again. Gives
+    {"lines": [the lines' places], "rect", "align", "spacing"} (spacing: from one line to the next, in
+    text sizes); lines alone aren't in it. Sets each line's "para" to its paragraph's place.
+    lines: as read_layout gives them (top to bottom)."""
+    groups: list[list[int]] = []
+    near: list[int] = []  # (the groups whose last line is just above: the only ones a line can join)
+    for i, line in enumerate(lines):
+        size = line["size"]
+        x, _y, w, _h = line["rect"]
+        near = [n for n in near if lines[groups[n][-1]]["base"] > line["base"] - 2.5 * size]
+        joined = None
+        for n in near:
+            group = groups[n]
+            last = lines[group[-1]]
+            if not _same_look(last, line) or _BULLET.match(line["text"]):
+                continue
+            pitch = line["base"] - last["base"]
+            if not 0.95 * size <= pitch <= 1.85 * size:
+                continue
+            if len(group) > 1:
+                was = (last["base"] - lines[group[0]]["base"]) / (len(group) - 1)
+                if abs(pitch - was) > 0.12 * was:
+                    continue
+            lx, _, lw, _ = last["rect"]
+            if min(lx + lw, x + w) - max(lx, x) < 0.5 * min(lw, w):
+                continue
+            if len(last.get("words") or ()) < 4 and lw < 20 * size:
+                continue  # (a short line like "Name: Ahmad" over "Phone: 555": a form's lines, not wrapped text)
+            members = [lines[k]["rect"] for k in group] + [line["rect"]]
+            left = min(r[0] for r in members)
+            right = max(r[0] + r[2] for r in members)
+            tol = 0.75 * size
+            lefts = all(abs(r[0] - left) <= tol for r in members)
+            rights = all(abs(r[0] + r[2] - right) <= tol for r in members)
+            centers = all(abs(r[0] + r[2] / 2 - (left + right) / 2) <= tol for r in members)
+            if not (lefts or rights or centers):
+                continue
+            # the line before was full: the next line's first word wouldn't have fitted at its end
+            if lefts and not line["rtl"]:
+                room = right - (lx + lw)
+            elif rights:
+                room = lx - left
+            else:
+                room = (right - left) - lw
+            if room > _first_word_width(line) + 0.6 * size:
+                continue
+            joined = n
+            break
+        if joined is None:
+            groups.append([i])
+            near.append(len(groups) - 1)
+        else:
+            groups[joined].append(i)
+    paras: list[dict] = []
+    for g in groups:
+        if len(g) < 2:
+            continue
+        rects = [lines[k]["rect"] for k in g]
+        size = lines[g[0]]["size"]
+        left = min(r[0] for r in rects)
+        top = min(r[1] for r in rects)
+        right = max(r[0] + r[2] for r in rects)
+        bottom = max(r[1] + r[3] for r in rects)
+        tol = 0.75 * size
+        lefts = all(abs(r[0] - left) <= tol for r in rects)
+        rights = all(abs(r[0] + r[2] - right) <= tol for r in rects)
+        body = rects[:-1]
+        if len(body) >= 2 and all(abs(r[0] + r[2] - right) <= 0.3 * size and abs(r[0] - left) <= 0.3 * size
+                                  for r in body):
+            align = "justify"
+        elif lines[g[0]]["rtl"]:
+            align = "right" if rights else "center" if not lefts else "left"
+        else:
+            align = "left" if lefts else "right" if rights else "center"
+        pitch = (lines[g[-1]]["base"] - lines[g[0]]["base"]) / (len(g) - 1)
+        for k in g:
+            lines[k]["para"] = len(paras)
+        paras.append({"lines": list(g), "rect": [round(left, 2), round(top, 2), round(right - left, 2),
+                                                 round(bottom - top, 2)],
+                      "align": align, "spacing": round(pitch / size, 3)})
+    return paras
+
+
+def save_picture(src: Path, password: str, index: int, obj: int, out: Path):
+    """A copy of one of a page's pictures (the page's piece obj), as a PNG file."""
+    import pypdfium2 as pdfium
+    import pypdfium2.raw as c
+    with PDFIUM:
+        doc = pdfium.PdfDocument(str(src), password=password or None)
+        try:
+            page = doc[index]
+            try:
+                raw = c.FPDFPage_GetObject(page.raw, obj)
+                if not raw or c.FPDFPageObj_GetType(raw) != c.FPDF_PAGEOBJ_IMAGE:
+                    raise RuntimeError("not a picture")
+                img = pdfium.PdfImage(raw, page=page, pdf=doc)
+                try:
+                    bitmap = img.get_bitmap(render=False)
+                except Exception:
+                    bitmap = img.get_bitmap(render=True)
+                pil = bitmap.to_pil()
+            finally:
+                page.close()
+        finally:
+            doc.close()
+    if pil.mode not in ("RGB", "RGBA", "L", "LA"):
+        pil = pil.convert("RGBA" if "A" in pil.mode else "RGB")
+    tmp = out.with_name(out.name + ".part")
+    pil.save(tmp, "PNG")
+    tmp.replace(out)
 
 
 def render(doc, index: int, scale: float, hide: tuple = ()) -> tuple[bytes, int, int, int]:
@@ -556,6 +697,7 @@ def font_for(d: dict):
     f.setPointSizeF(max(1.0, float(d.get("size", 12))))
     f.setBold(bool(d.get("bold")))
     f.setItalic(bool(d.get("italic")))
+    f.setUnderline(bool(d.get("underline")))
     f.setHintingPreference(QFont.PreferNoHinting)
     f.setStyleStrategy(QFont.PreferQuality)
     return f
@@ -578,11 +720,23 @@ def layout_device():
 
 
 TEXT_MARGIN = 1.0
+ALIGNS: dict = {}  # (filled in when Qt is first needed: see _aligns)
+
+
+def _aligns():
+    from PySide6.QtCore import Qt as _Qt
+    if not ALIGNS:
+        ALIGNS.update({"left": _Qt.AlignLeft | _Qt.AlignAbsolute, "center": _Qt.AlignHCenter,
+                       "right": _Qt.AlignRight | _Qt.AlignAbsolute, "justify": _Qt.AlignJustify})
+    return ALIGNS
 
 
 def text_document(d: dict, doc=None):
-    """The QTextDocument a text box is drawn with (the editor's text boxes use the same settings)."""
-    from PySide6.QtGui import QColor, QTextCharFormat, QTextCursor, QTextDocument, QTextOption
+    """The QTextDocument a text box is drawn with (the editor's text boxes use the same settings).
+    d: font, size, bold, italic, underline, color; width (wraps the words in a box that wide, as a paragraph
+    does), align (left, center, right, justify), spacing (from one line to the next, in text sizes)."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QColor, QTextBlockFormat, QTextCharFormat, QTextCursor, QTextDocument, QTextOption
     if doc is None:
         doc = QTextDocument()
         doc.setPlainText(d.get("text", ""))
@@ -599,6 +753,14 @@ def text_document(d: dict, doc=None):
     cur = QTextCursor(doc)
     cur.select(QTextCursor.Document)
     cur.mergeCharFormat(fmt)
+    block = QTextBlockFormat()
+    block.setAlignment(_aligns().get(d.get("align") or "", Qt.AlignLeading))
+    if d.get("spacing"):
+        block.setLineHeight(max(0.5, float(d["spacing"])) * max(1.0, float(d.get("size", 12))),
+                            QTextBlockFormat.LineHeightTypes.FixedHeight.value)
+    else:
+        block.setLineHeight(100, QTextBlockFormat.LineHeightTypes.SingleHeight.value)
+    cur.mergeBlockFormat(block)
     arabic_font(d, doc)
     # (as wide as its longest line: right-to-left lines then line up on the right)
     doc.setTextWidth(float(d["width"]) if d.get("width") else -1)
@@ -652,6 +814,8 @@ def draw_mark(p, d: dict):
     width = float(d.get("width", 2))
     p.save()
     try:
+        if d.get("opacity") is not None and kind != "cover":  # (a cover always hides all of what's under it)
+            p.setOpacity(min(1.0, max(0.05, float(d["opacity"]))))
         if kind == "text":
             doc = text_document(d)
             p.translate(float(d["x"]), float(d["y"]))
@@ -665,6 +829,13 @@ def draw_mark(p, d: dict):
             if max(img.width(), img.height()) > most:
                 img = img.scaled(most, most, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             p.setRenderHint(p.RenderHint.SmoothPixmapTransform)
+            turn = int(d.get("turn", 0)) % 360
+            if turn:
+                # (turned: the box is the turned picture's, so the picture itself is drawn on its side in it)
+                p.translate(rect.center())
+                p.rotate(turn)
+                w, h = (rect.height(), rect.width()) if turn in (90, 270) else (rect.width(), rect.height())
+                rect = QRectF(-w / 2, -h / 2, w, h)
             p.drawImage(rect, img)
         elif kind == "cover":
             p.fillRect(QRectF(float(d["x"]), float(d["y"]), float(d["w"]), float(d["h"])), color)
@@ -785,6 +956,8 @@ def _take_out(src: Path, password: str, changes: dict[int, dict]) -> bytes:
         alone = None  # (a second copy, to draw one piece on its own)
         try:
             for index, change in changes.items():
+                if not 0 <= index < len(doc):  # (a blank page added in the editor: nothing of the PDF's on it)
+                    continue
                 page = doc[index]
                 try:
                     geo = page_geo(page)
@@ -1136,9 +1309,48 @@ def _arrange(writer, order: list[int] | None, turns: dict[int, int]) -> set[int]
     return gone
 
 
+def web_address(text: str) -> str:
+    """What was typed for a link, as a web or mail address a PDF app opens ("" when it isn't one: no other
+    kinds of links, like ones that start a program, are made)."""
+    text = (text or "").strip()
+    if not text or any(ch.isspace() or ord(ch) < 32 for ch in text):
+        return ""
+    low = text.lower()
+    if low.startswith(("http://", "https://", "mailto:")):
+        return text if len(text) > len(low.split(":", 1)[0]) + 3 else ""
+    if "@" in text and "/" not in text and "." in text.split("@", 1)[1]:
+        return "mailto:" + text
+    if re.match(r"^[\w-]+(\.[\w-]+)+(/.*)?$", text) and not low.endswith((".exe", ".bat", ".cmd", ".js", ".vbs")):
+        return "https://" + text
+    return ""
+
+
+def _links(writer, edits: list[dict]):
+    """Links added in the editor: to a web or mail address, or to one of the PDF's pages."""
+    from pypdf.annotations import Link
+    pages = writer.pages
+    for d in edits:
+        if d.get("kind") != "link":
+            continue
+        i = int(d.get("page", 0))
+        if not 0 <= i < len(pages):
+            continue
+        url = web_address(str(d.get("url", "")))
+        target = d.get("target")
+        if not url and not (isinstance(target, int) and 0 <= target < len(pages)):
+            continue
+        geo = pypdf_geo(pages[i])
+        rect = geo.rect_to_user(float(d["x"]), float(d["y"]), float(d["w"]), float(d["h"]))
+        link = Link(rect=rect, border=[0, 0, 0], url=url) if url else \
+            Link(rect=rect, border=[0, 0, 0], target_page_index=target)
+        writer.add_annotation(page_number=i, annotation=link)
+
+
 def save_edits(src: Path, ctx: Ctx) -> Result:
     """ctx.params: edits (the editor's list of dicts), fields ({name: value}), password; order (the pages kept,
-    in their new order) and turns ({page: degrees clockwise}), when the pages were changed."""
+    in their new order) and turns ({page: degrees clockwise}), when the pages were changed; blanks (the sizes
+    of blank pages added: they come after the PDF's own pages, so the first is page len(pages) in edits and
+    order)."""
     from pypdf import PdfReader, PdfWriter, Transformation
     from pypdf.annotations import Text
     edits: list[dict] = list(ctx.params.get("edits") or [])
@@ -1146,7 +1358,8 @@ def save_edits(src: Path, ctx: Ctx) -> Result:
     password = ctx.params.get("password", "") or ""
     order = ctx.params.get("order")
     turns = {int(k): int(v) for k, v in (ctx.params.get("turns") or {}).items() if int(v) % 360}
-    if not edits and not values and order is None and not turns:
+    blanks = [(float(w), float(h)) for w, h in (ctx.params.get("blanks") or [])]
+    if not edits and not values and order is None and not turns and not blanks:
         raise RuntimeError(tr("nothing was changed"))
     # 1. old pieces out (or moved)
     changes: dict[int, dict] = {}
@@ -1174,6 +1387,8 @@ def save_edits(src: Path, ctx: Ctx) -> Result:
     ctx.check()
     ctx.progress(0.3)
     writer = PdfWriter(clone_from=reader)
+    for w, h in blanks:
+        writer.add_blank_page(width=max(36.0, w), height=max(36.0, h))
     # 2. highlights, then everything drawn on top
     pages = writer.pages
     drawn: dict[int, list[dict]] = {}
@@ -1210,6 +1425,7 @@ def save_edits(src: Path, ctx: Ctx) -> Result:
         l, b, r, t = geo.rect_to_user(float(d["x"]), float(d["y"]), 20, 20)
         note = Text(rect=(l, b, r, t), text=str(d["text"]), open=False)
         writer.add_annotation(page_number=i, annotation=note)
+    _links(writer, edits)
     _fill(writer, values, fields)
     if _arrange(writer, order, turns):
         # (pypdf writes every part it was given: copied again, only what the pages still use is kept, so a
