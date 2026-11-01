@@ -324,9 +324,24 @@ def leftovers():
     more = un.remove(un.items_from(res["failed"]), folder, [name], admin=True)  # what the admin copy does
     later = sum(int(d.get("on_restart") or 0) for d in more["done"])
     check(later == 1, f"the file still in use is left for Windows to remove at restart ({later})")
+    # (Windows writes the long name: the runner's TEMP is "RUNNER~1", which never matched before)
+    in_use = un._pending_name(un.long_name(str(roam / name / "in use.txt")))
+
+    def at_restart() -> list[str]:
+        try:
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, un.SESSION_MANAGER) as k:
+                entries = winreg.QueryValueEx(k, "PendingFileRenameOperations")[0]
+        except OSError:
+            return []
+        return [un._pending_name(e) for e in entries[::2]]
+    check(in_use in at_restart(), "…in Windows' list of deletions at restart")
     held.close()
     r = un.restore(folder)
+    check(len(r["failed"]) == 1, "putting back without administrator leaves the folder Windows deletes from at restart")
+    more = un.restore(folder, admin=True)  # what the admin copy does (appspage.restore_backup)
+    r = {"done": r["done"] + more["done"], "failed": more["failed"]}
     print(f"  put back {r['done']}, failed {[f.get('path') for f in r['failed']]}")
+    check(in_use not in at_restart(), "…and putting it back as administrator takes that deletion back")
     check(not r["failed"], "everything is put back")
     check((inst / "bin" / "part0.dat").exists() and (roam / name / "settings.ini").exists() and vendor.exists(),
           "the folders are back (the one with a file in use too)")

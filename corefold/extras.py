@@ -334,8 +334,8 @@ def add_arabic_reader() -> bool:
     """Adds Windows' Arabic text reading (asks for administrator permission; takes a minute, so not on the
     window's thread). True once it's there."""
     from .uninstall import shell_start, wait_process
-    windows = Path(os.environ.get("SystemRoot", r"C:\Windows"))
-    ps = windows / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+    from .core import system_tool
+    ps = system_tool("powershell.exe")
     command = (f"try {{ Add-WindowsCapability -Online -Name '{ARABIC_OCR}' -ErrorAction Stop | Out-Null; exit 0 }} "
                f"catch {{ exit 1 }}")
     handle, _ = shell_start(str(ps), f'-NoProfile -NonInteractive -WindowStyle Hidden -Command "{command}"',

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import ctypes
 import functools
+import hashlib
 import json
 import logging
 import os
@@ -26,7 +27,7 @@ import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from .core import LEGACY_NAME, is_link, system_tool  # noqa: F401 (is_link is used here and by the selftest)
+from .core import LEGACY_NAME, is_link, system_tool, windows_folder  # noqa: F401 (is_link is used here and by the selftest)
 
 log = logging.getLogger(__name__)
 
@@ -538,11 +539,22 @@ def split_command(cmd: str) -> tuple[str, str]:
     return parts[0], parts[1] if len(parts) > 1 else ""
 
 
+def _windows_own(exe: str) -> str:
+    """ "MsiExec.exe" (most uninstall entries name it like that) -> its full path in System32. A program
+    given by its name alone would be looked for in the current folder too, and Corefold's own."""
+    if not exe or os.path.dirname(exe) or os.name != "nt":
+        return exe
+    name = exe if os.path.splitext(exe)[1] else exe + ".exe"
+    full = system_tool(name)
+    return full if os.path.isfile(full) else exe
+
+
 def uninstall_command(app: App, quiet: bool = False) -> tuple[str, str]:
     if app.msi and (not app.uninstall or "msiexec" in app.uninstall.lower()):
-        return "msiexec.exe", f"/x {app.msi}" + (" /qb" if quiet else "")
+        return _windows_own("msiexec.exe"), f"/x {app.msi}" + (" /qb" if quiet else "")
     cmd = app.quiet if (quiet and app.quiet) else app.uninstall
     exe, args = split_command(cmd)
+    exe = _windows_own(exe)
     if os.path.basename(exe).lower() == "msiexec.exe":  # "/I{code}" opens the "change" screen; /X removes
         args = re.sub(r"(?i)/i\s*(\{)", r"/x \1", args)
     return exe, args
@@ -1086,6 +1098,7 @@ def _protected_paths() -> frozenset[str]:
                                              "ProgramW6432", "ProgramData", "APPDATA", "LOCALAPPDATA",
                                              "USERPROFILE", "PUBLIC", "SystemDrive", "CommonProgramFiles",
                                              "CommonProgramFiles(x86)", "CommonProgramW6432", "TEMP", "TMP")}
+    paths.add(str(windows_folder()))
     paths |= {str(r) for r in search_roots()} | {str(r) for r in shortcut_roots()}
     # Corefold's own folders (its settings, these backups, and the app itself)
     for name in ("Corefold", LEGACY_NAME):
@@ -1110,7 +1123,7 @@ def _safe_folder(path: str) -> bool:
     protected = _protected_paths()
     if p in protected or any(q.startswith(p + os.sep) for q in protected):
         return False  # a protected place, or a folder that holds one (like a whole drive or C:\\Users)
-    windir = os.path.normcase(os.environ.get("SystemRoot", "c:\\windows"))
+    windir = os.path.normcase(str(windows_folder()))
     if p == windir or p.startswith(windir + os.sep):
         return False
     if any(norm(part) in ("windowsapps", "system32", "syswow64", "winsxs") for part in Path(p).parts):
@@ -1580,7 +1593,7 @@ def _service_program(name: str) -> str:
 
 def _windows_program(path: str) -> bool:
     """Part of Windows (or not a real path): never touched."""
-    windir = os.environ.get("SystemRoot", r"C:\Windows")
+    windir = str(windows_folder())
     p = os.path.normcase(path)
     return not os.path.isabs(path) or _inside(path, windir) or p.endswith(("svchost.exe", "dllhost.exe")) or \
         p.startswith(("\\systemroot", "system32"))
@@ -1697,7 +1710,7 @@ def _path_ok(path: str, kind: str) -> bool:
     if not path or not os.path.isabs(path):
         return False
     p = os.path.normcase(os.path.normpath(path)).rstrip("\\/")
-    windir = os.path.normcase(os.environ.get("SystemRoot", "c:\\windows"))
+    windir = os.path.normcase(str(windows_folder()))
     if p == windir or p.startswith(windir + os.sep):
         return False
     if any(norm(part) in ("windowsapps", "system32", "syswow64", "winsxs") for part in Path(p).parts):
@@ -1883,18 +1896,100 @@ def _move_files(src: Path, dest: Path, overwrite: bool = False) -> list[str]:
     return left
 
 
-def remove_on_restart(paths: list[str]) -> int:
+def remove_on_restart(paths: list[str]) -> tuple[list[str], list[str]]:
     """Asks Windows to delete these files (and then their folders, once empty) when the PC restarts.
-    Needs administrator. Returns how many were taken."""
+    Needs administrator. Returns the files and the folders Windows took: undoing the clean-up takes back
+    exactly those (cancel_on_restart)."""
     k32 = _dll("kernel32")
-    done, parents = 0, set()
+    files, folders, parents = [], [], set()
     for path in paths:
         if k32.MoveFileExW(path, None, 4):  # MOVEFILE_DELAY_UNTIL_REBOOT
-            done += 1
+            files.append(long_name(path))
             parents.add(os.path.dirname(path))
     for folder in sorted(parents, key=len, reverse=True):
-        k32.MoveFileExW(folder, None, 4)  # Windows only removes it if it's empty by then
-    return done
+        if k32.MoveFileExW(folder, None, 4):  # Windows only removes it if it's empty by then
+            folders.append(long_name(folder))
+    return files, folders
+
+
+def long_name(path: str) -> str:
+    """The path with any short 8.3 names spelled out ("RUNNER~1" -> "runneradmin"), as Windows writes it in
+    its list of what to do at restart. Only the part that exists can be spelled out; the rest stays."""
+    if sys.platform != "win32" or "~" not in path:
+        return path
+    get = ctypes.windll.kernel32.GetLongPathNameW
+    head, rest = os.path.normpath(path), []
+    while head:
+        buf = ctypes.create_unicode_buffer(32768)
+        if get(head, buf, len(buf)):
+            return os.path.join(buf.value, *reversed(rest))
+        head, tail = os.path.split(head)
+        if not tail:
+            break
+        rest.append(tail)
+    return path
+
+
+SESSION_MANAGER = r"SYSTEM\CurrentControlSet\Control\Session Manager"
+
+
+def _pending_name(entry: str) -> str:
+    """A path as Windows keeps it in PendingFileRenameOperations ("\\??\\C:\\...", and on Windows 11 often
+    "*1\\??\\C:\\..."), made comparable."""
+    entry = re.sub(r"^\*\d+", "", entry)
+    if entry.startswith(("\\??\\", "\\\\?\\")):
+        entry = entry[4:]
+    return os.path.normcase(os.path.normpath(entry)) if entry else ""
+
+
+def drop_pending(entries: list[str], paths: list[str]) -> tuple[list[str], int]:
+    """Windows' list of what to do at restart is pairs: a path, then its new name ("" to delete it).
+    Takes out one deletion of each of these paths: the ones Corefold asked for. Every other pair (Windows
+    Update's, another program's, a rename of the same path) stays as it was, in its order. A list that
+    isn't pairs is left alone. Returns the new list and how many pairs came out."""
+    entries = list(entries)
+    if len(entries) % 2 and entries[-1] == "":  # (the list's closing empty string, read as one more)
+        entries.pop()
+    if len(entries) % 2:
+        return entries, 0
+    wanted: dict[str, int] = {}
+    for p in paths:
+        key = _pending_name(p)
+        if key:
+            wanted[key] = wanted.get(key, 0) + 1
+    out, dropped = [], 0
+    for src, dst in zip(entries[::2], entries[1::2]):
+        key = _pending_name(src)
+        if dst == "" and wanted.get(key):
+            wanted[key] -= 1
+            dropped += 1
+        else:
+            out += [src, dst]
+    return out, dropped
+
+
+def cancel_on_restart(paths: list[str]) -> int:
+    """Takes back deletions at restart that remove_on_restart asked for (undoing a clean-up), and nothing
+    else: the list is shared with Windows Update and other programs. Needs administrator. Returns how
+    many were taken back."""
+    if not paths:
+        return 0
+    winreg = _winreg()
+    access = winreg.KEY_QUERY_VALUE | winreg.KEY_SET_VALUE | winreg.KEY_WOW64_64KEY
+    with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, SESSION_MANAGER, 0, access) as k:
+        try:
+            entries, kind = winreg.QueryValueEx(k, "PendingFileRenameOperations")
+        except FileNotFoundError:
+            return 0
+        if kind != winreg.REG_MULTI_SZ:
+            return 0
+        kept, dropped = drop_pending(entries, [long_name(p) for p in paths])
+        if dropped:
+            if kept:
+                winreg.SetValueEx(k, "PendingFileRenameOperations", 0, winreg.REG_MULTI_SZ, kept)
+            else:
+                winreg.DeleteValue(k, "PendingFileRenameOperations")
+    return dropped
 
 
 RECYCLE_FLAGS = 0x04 | 0x10 | 0x40 | 0x400 | 0x4000  # (FOF_WANTNUKEWARNING: asks before deleting for good)
@@ -1931,11 +2026,34 @@ def new_backup(app_names: list[str]) -> Path:
     return folder
 
 
-def _manifest(folder: Path) -> dict:
+def _digest(data: bytes | None) -> str:
+    return hashlib.sha256(data).hexdigest() if data is not None else ""
+
+
+def manifest_digest(folder: Path) -> str:
+    """The fingerprint of a backup's list ("" when it has none yet), for the administrator helper."""
     try:
-        return json.loads((folder / "backup.json").read_text("utf-8"))
-    except (OSError, ValueError):
-        return {"apps": [], "time": time.time(), "items": []}
+        return _digest((folder / "backup.json").read_bytes())
+    except OSError:
+        return ""
+
+
+def _manifest(folder: Path, expect: str | None = None) -> dict:
+    """A backup's list. expect: its fingerprint from before the administrator prompt (manifest_digest). The
+    list is in the user's own folder, so anything running as them could change it after the prompt was
+    approved: then the administrator helper stops instead of acting on it."""
+    try:
+        raw = (folder / "backup.json").read_bytes()
+    except OSError:
+        raw = None
+    if expect is not None and _digest(raw) != expect:
+        raise PermissionError("the backup's list changed after the administrator prompt")
+    if raw is not None:
+        try:
+            return json.loads(raw.decode("utf-8"))
+        except ValueError:
+            pass
+    return {"apps": [], "time": time.time(), "items": []}
 
 
 def _save_manifest(folder: Path, data: dict):
@@ -1945,17 +2063,17 @@ def _save_manifest(folder: Path, data: dict):
 
 
 def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, admin: bool = False,
-           on_item=None, close_running: bool = False) -> dict:
+           on_item=None, close_running: bool = False, manifest: str | None = None) -> dict:
     """Moves files into the backup folder and exports, then deletes, registry keys and values.
     Returns {"done": [...], "failed": [...], "freed": bytes}; failed items can be tried again as admin.
     on_item(number, count, item) hears which one is next. close_running: first end the programs still
-    running from the folders (they keep their files in use)."""
+    running from the folders (they keep their files in use). manifest: see _manifest."""
     if close_running:
         try:
             close_programs([pid for pid, _ in programs_in([i.path for i in items if i.kind == "folder"])])
         except Exception:
             log.debug("couldn't close the programs still running", exc_info=True)
-    data = _manifest(folder)
+    data = _manifest(folder, manifest)
     if apps:
         data["apps"] = sorted(set(data.get("apps", [])) | set(apps))
     data["time"] = data.get("time") or time.time()
@@ -1965,7 +2083,7 @@ def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, a
     def keep(record):
         """Written down straight away: if Corefold or the PC stops half-way, the backup still lists
         everything that was already moved, so it can all be put back."""
-        if record.get("stored"):
+        if record.get("stored") or record.get("pending"):
             data["items"].append(record)
             _save_manifest(folder, data)
     winreg = _winreg() if any(i.is_registry for i in items) else None
@@ -2008,7 +2126,8 @@ def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, a
                     left = _move_files(src, dest)
                     if left and admin:  # still in use: Windows removes them when the PC restarts
                         record["left"] = len(left)
-                        record["on_restart"] = remove_on_restart(left)
+                        files, folders = remove_on_restart(left)
+                        record["pending"], record["on_restart"] = files + folders, len(files)
                     # (the folders are made before each file is moved, so they're there even when no file
                     # could be: then nothing was taken, and only those empty folders go)
                     if not any(files for _r, _d, files in os.walk(dest)):  # nothing could be moved
@@ -2016,6 +2135,7 @@ def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, a
                         if not record.get("on_restart"):
                             raise
                         done.append(record)
+                        keep(record)  # (nothing to put back, but undoing it takes back those deletions)
                         continue
                     moved = folder_size(dest, limit_s=2) if left else item.size
                     if left and not admin:  # the rest is tried again as administrator (see remove_selected)
@@ -2145,18 +2265,31 @@ def backup_size(folder: Path) -> int:
     return folder_size(folder / "files", limit_s=2)
 
 
-def restore(folder: Path, admin: bool = False) -> dict:
-    """Puts everything in a backup back where it was. Returns {"done": n, "failed": [items]}."""
-    data = _manifest(folder)
+def restore(folder: Path, admin: bool = False, manifest: str | None = None) -> dict:
+    """Puts everything in a backup back where it was. Returns {"done": n, "failed": [items]}.
+    manifest: see _manifest."""
+    data = _manifest(folder, manifest)
     left, done, recycled = [], 0, 0
     for item in data.get("items", []):
         if item.get("stored") == "recycle":
             recycled += 1  # in the Recycle Bin: put it back from there
             continue
+        pending = [p for p in item.get("pending") or [] if isinstance(p, str)]
+        if pending and not admin:  # files Windows deletes at restart: only an administrator can take that back
+            left.append(item)
+            continue
         stored = folder / item.get("stored", "")
         try:
             if not item_allowed(item) or not _inside(str(stored.resolve()), str(folder.resolve())):
                 raise PermissionError("not something Corefold backed up")
+            if pending:
+                # first, so what stayed behind in use isn't deleted at the next restart after all. Only
+                # what's inside the folder put back: the list itself is in the user's own folder
+                cancel_on_restart([p for p in pending if _inside(long_name(p), long_name(item["path"]))])
+                del item["pending"]
+                if not item.get("stored"):  # nothing could be moved then: taking that back was all
+                    done += 1
+                    continue
             if item["kind"] in ("folder", "file", "shortcut"):
                 target = Path(item["path"])
                 if admin and through_link(target):
@@ -2210,9 +2343,14 @@ def run_elevated(command: list[str], kind: str, payload: dict, cancel: threading
     work = BACKUP_DIR.parent / "helper"
     work.mkdir(parents=True, exist_ok=True)
     plan = work / f"{kind}-{uuid.uuid4().hex[:8]}.json"
-    plan.write_text(json.dumps(payload, ensure_ascii=False), "utf-8")
+    if "folder" in payload:  # the backup's list as it is now, so the helper can tell if it changes
+        payload = dict(payload, manifest=manifest_digest(Path(payload["folder"])))
+    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    plan.write_bytes(data)
     result = plan.with_suffix(".result.json")
-    exe, args = command[0], " ".join(f'"{a}"' for a in command[1:] + [f"--{kind}", str(plan)])
+    # the plan's fingerprint goes on the command line: nothing can change that once the prompt is approved
+    exe, args = command[0], " ".join(f'"{a}"' for a in command[1:] + [f"--{kind}", str(plan),
+                                                                     "--plan-sha256", _digest(data)])
     handle = shell_run(exe, args, admin=True, show=0)
     if handle is None:
         plan.unlink(missing_ok=True)
@@ -2252,12 +2390,19 @@ HELPER_KINDS = ("--cleanup", "--restore", "--restore-point", "--space-clean", "-
 
 def helper_main(argv: list[str]) -> int:
     """What the elevated copy does: --cleanup plan.json, --restore plan.json, --restore-point plan.json,
-    --space-clean plan.json, --delete-at-restart plan.json or --startup-clean plan.json."""
+    --space-clean plan.json, --delete-at-restart plan.json or --startup-clean plan.json, each followed by
+    --plan-sha256 and the plan's fingerprint."""
     kind = next((a[2:] for a in argv if a in HELPER_KINDS), "")
     try:
         plan = Path(argv[argv.index("--" + kind) + 1])
-        payload = json.loads(plan.read_text("utf-8"))
+        expect = argv[argv.index("--plan-sha256") + 1]
+        raw = plan.read_bytes()
+        payload = json.loads(raw.decode("utf-8"))
     except (IndexError, ValueError, OSError):
+        return 2
+    # the plan is in the user's own folder, where anything running as them can write: it must still be the
+    # very one Corefold wrote before the administrator prompt (read once: what was checked is what's used)
+    if _digest(raw) != expect:
         return 2
     # only plans Corefold wrote (in its "helper" folder), about its own backup folders. The plan's
     # own place is used, not this account's: when someone signs in with another (administrator)
@@ -2265,14 +2410,16 @@ def helper_main(argv: list[str]) -> int:
     folder = str(payload.get("folder", "")) if isinstance(payload, dict) else ""
     home = plan.resolve().parent.parent  # ...\Corefold
     needs_folder = kind not in ("restore-point", "space-clean", "delete-at-restart", "startup-clean")
+    manifest = payload.get("manifest") if isinstance(payload, dict) else None
     if plan.resolve().parent.name.lower() != "helper" or home.name.lower() not in ("corefold", LEGACY_NAME.lower()) or \
-            (needs_folder and not (folder and _inside(str(Path(folder).resolve()), str(home / BACKUP_DIR.name)))):
+            (needs_folder and not (folder and _inside(str(Path(folder).resolve()), str(home / BACKUP_DIR.name))
+                                   and isinstance(manifest, str))):
         return 2
     _let_questions_show()
     try:
         if kind == "cleanup":
             out = remove(items_from(payload["items"]), Path(payload["folder"]), payload.get("apps"), admin=True,
-                         close_running=bool(payload.get("close")))
+                         close_running=bool(payload.get("close")), manifest=manifest)
         elif kind == "space-clean":  # Windows' own leftovers, by name only (see space.ADMIN_KEYS)
             from .space import ADMIN_KEYS, clean_as_admin
             keys = [k for k in payload.get("keys", []) if k in ADMIN_KEYS]
@@ -2295,7 +2442,7 @@ def helper_main(argv: list[str]) -> int:
             from .startup import clean_common_as_admin
             out = clean_common_as_admin(payload)
         elif kind == "restore":
-            r = restore(Path(payload["folder"]), admin=True)
+            r = restore(Path(payload["folder"]), admin=True, manifest=manifest)
             out = {"done": r["done"], "failed": r["failed"]}
         else:
             # (an app's name is in it: it goes in through env, so no quote in a name can end the string)

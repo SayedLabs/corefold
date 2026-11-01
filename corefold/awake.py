@@ -56,7 +56,8 @@ def set_state(flags: int) -> bool:
 
 def run_shutdown(*args: str) -> tuple[int, str]:
     """Runs Windows' shutdown.exe; its exit code and what it said."""
-    exe = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "shutdown.exe")
+    from .core import system_tool
+    exe = system_tool("shutdown.exe")
     try:
         r = subprocess.run([exe, *args], capture_output=True, timeout=20, stdin=subprocess.DEVNULL,
                            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))

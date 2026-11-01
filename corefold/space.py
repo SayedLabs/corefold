@@ -420,7 +420,8 @@ def protected(path: Path) -> bool:
     p = os.path.normcase(os.path.abspath(str(path)))
     if os.path.dirname(p) == p:  # a whole drive
         return True
-    keep = [_env_path("SystemRoot", r"C:\Windows"), _env_path("ProgramFiles"), _env_path("ProgramFiles(x86)"),
+    from .core import windows_folder
+    keep = [_env_path("SystemRoot", r"C:\Windows"), windows_folder(), _env_path("ProgramFiles"), _env_path("ProgramFiles(x86)"),
             _env_path("ProgramData"), _env_path("ProgramW6432")]
     home = Path.home()
     users = Path(os.environ.get("SystemDrive", "C:") + os.sep + "Users")
@@ -428,6 +429,12 @@ def protected(path: Path) -> bool:
     exact = [home, home.parent, _env_path("APPDATA"), _env_path("LOCALAPPDATA"), users, home / "AppData",
              home / "AppData" / "LocalLow", _env_path("LOCALAPPDATA", "", "Programs"), _env_path("PUBLIC"),
              users / "Public", users / "Default"]
+    # (the person's own main folders: Windows and many programs expect them, and one in the Recycle Bin
+    # takes everything in it along; what's inside them can still go)
+    exact += [home / name for name in ("Desktop", "Documents", "Downloads", "Pictures", "Music", "Videos",
+                                        "OneDrive", "Saved Games", "Contacts", "Favorites", "Links", "Searches",
+                                        "3D Objects")]
+    exact += [_env_path(n) for n in ("OneDrive", "OneDriveConsumer", "OneDriveCommercial")]
     for k in keep:
         if k is not None:
             kp = os.path.normcase(os.path.abspath(str(k)))
@@ -764,11 +771,8 @@ ADMIN_KEYS = ("winupdate", "winold")
 
 def _windows_dir() -> Path:
     """Where Windows is, from Windows itself (not from the environment, which a program could change)."""
-    if os.name == "nt":
-        buf = ctypes.create_unicode_buffer(260)
-        if ctypes.windll.kernel32.GetSystemWindowsDirectoryW(buf, 260):
-            return Path(buf.value)
-    return Path(os.environ.get("SystemRoot") or r"C:\Windows")
+    from .core import windows_folder
+    return windows_folder()
 
 
 def admin_path(key: str) -> Path | None:
@@ -813,9 +817,16 @@ def clean_as_admin(keys: list[str]) -> int:
                            stdin=subprocess.DEVNULL, creationflags=flags)
         except (OSError, subprocess.SubprocessError):
             log.warning("%s failed", name, exc_info=True)
+    from .core import is_link
+    from .uninstall import through_link
     for key in keys:
         path = admin_path(key) if key in ADMIN_KEYS else None
         if path is None or not path.is_dir():
+            continue
+        if is_link(path) or through_link(path):
+            # (any account can make a "C:\Windows.old" that is a junction to Windows' own folders: taking it
+            # over as administrator would take those over)
+            log.warning("%s leads somewhere else: left alone", path)
             continue
         before = _tree_size(path, 60.0)[0]
         if key == "winupdate":
@@ -832,14 +843,21 @@ def clean_as_admin(keys: list[str]) -> int:
             # Windows' own Disk Cleanup removes it the way Windows means it to ("Previous Windows
             # installation(s)"); what it leaves (or everything, without Disk Cleanup) goes the hard way
             _previous_windows_by_windows(system32, run)
-            if path.is_dir() and _tree_size(path, 60.0)[0] > 50 << 20:
-                # take it over first, without following the links inside it to the folders of the Windows in use
-                # (old profiles link to today's), then remove it (rd doesn't follow them either)
-                own = ["takeown", "/F", str(path), "/R", "/A", "/D", "Y"]
-                if _takeown_skips_links(system32):
-                    own.append("/SKIPSL")
-                run(*own, timeout=1800)
-                run("icacls", str(path), "/grant", "*S-1-5-32-544:F", "/T", "/C", "/L", "/Q", timeout=1800)
+            if path.is_dir() and not is_link(path) and _tree_size(path, 60.0)[0] > 50 << 20:
+                # Its old profiles hold links to the folders of the Windows in use ("Documents and Settings"
+                # leads to C:\Users, "All Users" to C:\ProgramData), and takeown /R and icacls /T go through
+                # them, even with /L: every file of every person on the PC would change hands. So the links
+                # go first (only the links: what they lead to stays as it is); takeover and permissions only
+                # when none is left. rd never follows a link.
+                if _drop_links_inside(path, run):
+                    own = ["takeown", "/F", str(path), "/R", "/A", "/D", "Y"]
+                    if _takeown_skips_links(system32):
+                        own.append("/SKIPSL")
+                    run(*own, timeout=1800)
+                    if _drop_links_inside(path, run):  # (any it couldn't see before it was taken over)
+                        run("icacls", str(path), "/grant", "*S-1-5-32-544:F", "/T", "/C", "/L", "/Q", timeout=1800)
+                else:
+                    log.warning("links left in %s: only what rd removes goes", path)
                 run("cmd", "/c", "rd", "/s", "/q", str(path), timeout=1800)
         after = _tree_size(path, 60.0)[0] if path.exists() else 0
         freed += max(0, before - after)
@@ -873,6 +891,78 @@ def _previous_windows_by_windows(system32: Path, run) -> bool:
         except OSError:
             pass
     return True
+
+
+def _remove_link(path: str) -> bool:
+    """Removes a link or junction (only the link). False if Windows says no."""
+    try:
+        os.rmdir(path)  # (a junction or a folder link)
+        return True
+    except OSError:
+        pass
+    try:
+        os.unlink(path)  # (a file link)
+        return True
+    except OSError:
+        return False
+
+
+LOCKED_LIMIT = 5000  # folders the administrator copy may take over one by one to look inside
+
+
+def _drop_links_inside(top: Path, run=None, limit_s: float = 900.0) -> bool:
+    """Removes every link and junction inside top (the link itself, never what it leads to). True when the
+    whole of top was looked through and no link is left. A folder even an administrator can't look into is
+    taken over first, that folder alone (run: starts a program of Windows' own, as in clean_as_admin)."""
+    from .core import is_link
+    started = time.monotonic()
+    stack, locked, clean = [str(top)], 0, True
+    while stack:
+        if time.monotonic() - started > limit_s:
+            return False
+        here = stack.pop()
+        try:
+            with os.scandir(here) as it:
+                entries = list(it)
+        except PermissionError:
+            if run is None or locked >= LOCKED_LIMIT:
+                log.warning("couldn't look into %s", here)
+                clean = False
+                continue
+            locked += 1
+            run("takeown", "/F", here, "/A", timeout=60)  # (no /R: this folder only)
+            run("icacls", here, "/grant", "*S-1-5-32-544:F", "/C", "/L", "/Q", timeout=60)
+            try:
+                with os.scandir(here) as it:
+                    entries = list(it)
+            except OSError:
+                log.warning("couldn't look into %s, even taken over", here)
+                clean = False
+                continue
+        except OSError:
+            log.warning("couldn't look into %s", here, exc_info=True)
+            clean = False
+            continue
+        for e in entries:
+            try:
+                st = e.stat(follow_symlinks=False)
+                if is_link(e.path, st) or (getattr(st, "st_file_attributes", 0) & _REPARSE and
+                                           getattr(st, "st_reparse_tag", 0) in (_JUNCTION, _SYMLINK)):
+                    if not _remove_link(e.path) and run is not None:
+                        # (one even an administrator may not remove: the link itself is taken over first,
+                        # /L: never what it leads to)
+                        run("icacls", e.path, "/setowner", "*S-1-5-32-544", "/C", "/L", "/Q", timeout=60)
+                        run("icacls", e.path, "/grant", "*S-1-5-32-544:F", "/C", "/L", "/Q", timeout=60)
+                    if os.path.lexists(e.path) and not _remove_link(e.path):
+                        log.warning("couldn't remove the link %s", e.path)
+                        clean = False
+                    continue
+                if e.is_dir(follow_symlinks=False):
+                    stack.append(e.path)
+            except OSError:
+                log.warning("couldn't tell what %s is", e.path, exc_info=True)
+                clean = False
+    return clean
 
 
 def _takeown_skips_links(system32: Path) -> bool:

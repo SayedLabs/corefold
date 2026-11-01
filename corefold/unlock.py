@@ -628,9 +628,9 @@ def restart_explorer():
         if _explorer_running():
             return
         time.sleep(0.2)
-    windir = os.environ.get("SystemRoot", r"C:\Windows")
+    from .core import system_tool
     try:
-        subprocess.Popen([os.path.join(windir, "explorer.exe")], close_fds=True)
+        subprocess.Popen([system_tool("explorer.exe")], close_fds=True)
     except OSError:
         log.exception("couldn't start File Explorer again")
 

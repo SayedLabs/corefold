@@ -1148,7 +1148,9 @@ class UninstallDialog(QDialog):
         self.stop.setEnabled(True)
         self._clock(False)
         folder, result = data
-        self.backup = folder if folder is not None and any(d.get("stored") for d in result["done"]) else None
+        # (files only scheduled for deletion at restart count too: undoing takes that back)
+        self.backup = folder if folder is not None and any(d.get("stored") or d.get("pending")
+                                                           for d in result["done"]) else None
         self.changed = True
         # (a folder taken in two goes, partly, then the rest as administrator, is one leftover)
         done = len({(d.get("kind"), str(d.get("path", "")).lower(), d.get("value")) for d in result["done"]})
