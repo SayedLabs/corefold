@@ -169,8 +169,10 @@ Read the full [privacy policy](PRIVACY.md).
 ## Installing
 [**Download Corefold-Setup.exe**](https://github.com/SayedLabs/corefold/releases/latest), run it, keep
 the two boxes ticked and click **Install**. That's it: a desktop icon, a Start menu entry, and Corefold
-starts with Windows. No admin rights or Python needed. Installing a newer version on top upgrades it
-and keeps your settings.
+starts with Windows. No Python needed. Corefold installs for the whole PC (in Program Files), so Windows
+asks for permission when it installs and at each update: say **Yes**. If you say No, nothing changes and
+the update waits. Installing a newer version on top upgrades it and keeps your settings; a copy installed
+by an older version (for one user only) is moved over by itself.
 
 Windows may say *"Windows protected your PC"* the first time, because the app isn't signed yet:
 click **More info → Run anyway**.

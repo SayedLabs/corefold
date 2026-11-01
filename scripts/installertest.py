@@ -1,4 +1,4 @@
-"""The installer on a real Windows PC: installs the build in dist\\release, then checks that updating closes
+"""The installer on a real Windows PC: installs the build in dist\\release (for the whole PC, in Program Files), then checks that updating closes
 Corefold the gentle way (a conversion that's running is finished first, and a different program that happens
 to be called Corefold.exe is left alone), that a /DIR folder already holding other things is refused, and that
 removing Corefold keeps files that aren't its own.
@@ -23,7 +23,7 @@ RELEASE = Path(sys.argv[1]).resolve()
 OUT = Path(sys.argv[2]).resolve()
 OUT.mkdir(parents=True, exist_ok=True)
 SETUP = sorted(RELEASE.glob("Corefold-Setup-*.exe"))[-1]
-APP_DIR = Path(os.environ["LOCALAPPDATA"]) / "Programs" / "Corefold"
+APP_DIR = Path(os.environ.get("ProgramW6432") or os.environ["ProgramFiles"]) / "Corefold"  # (for the whole PC)
 EXE = APP_DIR / "Corefold.exe"
 LOG = Path(os.environ["LOCALAPPDATA"]) / "Corefold" / "corefold.log"
 TMP = Path(tempfile.mkdtemp(prefix="corefold-installertest-"))
