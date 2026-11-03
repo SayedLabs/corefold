@@ -145,7 +145,9 @@ def room_and_search():
         old_way += sys.getsizeof(big) + sum(sys.getsizeof(t) + sys.getsizeof(t[0]) + sys.getsizeof(t[1]) for t in big)
     say(f"note  every name: {names / 2**20:.1f} MB, every size: {sizes / 2**20:.1f} MB "
         f"(keeping only each folder's 48 biggest, as before, took {old_way / 2**20:.1f} MB)")
-    check(names + sizes <= old_way, f"keeping every name takes no more room than keeping the biggest did "
+    # (it keeps every file, not 48 a folder, so a folder of hundreds of files costs more than before and a folder of
+    # a few costs less: Windows' own folder came to 15.3 MB against 14.5 MB, a folder of programs to 3 against 8)
+    check(names + sizes <= old_way * 1.25, f"keeping every name takes about the room keeping the biggest did "
           f"({(names + sizes) / 2**20:.1f} MB, before {old_way / 2**20:.1f} MB)")
     per_million = (names + sizes) / max(r.files, 1) * 1e6 / 2 ** 20
     # (a folder of its own costs about 120 bytes for its names and sizes, so a drive of many small folders, like
