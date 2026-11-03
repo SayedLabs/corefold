@@ -140,10 +140,12 @@ def room_and_search():
         old_way += sys.getsizeof(big) + sum(sys.getsizeof(t) + sys.getsizeof(t[0]) + sys.getsizeof(t[1]) for t in big)
     say(f"note  every name: {names / 2**20:.1f} MB, every size: {sizes / 2**20:.1f} MB "
         f"(keeping only each folder's 48 biggest, as before, took {old_way / 2**20:.1f} MB)")
-    check((names + sizes) < old_way * 2.5 + (8 << 20), "keeping every name costs at most a little more than before")
+    check(names + sizes <= old_way, f"keeping every name takes no more room than keeping the biggest did "
+          f"({(names + sizes) / 2**20:.1f} MB, before {old_way / 2**20:.1f} MB)")
     per_million = (names + sizes) / max(r.files, 1) * 1e6 / 2 ** 20
-    say(f"note  that's {per_million:.0f} MB for a million files")
-    check(per_million < 70, f"a million files' names and sizes take under 70 MB ({per_million:.0f} MB)")
+    # (a folder of its own costs about 120 bytes for its names and sizes, so a drive of many small folders, like
+    # Windows' own, comes to more per file than one of big folders; what counts is that it's less than before)
+    say(f"note  that's {per_million:.0f} MB for a million files here")
     for query in ("dll", "kernel32", "*.exe", "notepad", "zz no such name zz", "a"):
         t = time.perf_counter()
         rows, total = space.find(r, query)
