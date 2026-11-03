@@ -130,12 +130,17 @@ def room_and_search():
     say(f"note  {root}: {r.files:,} files, {r.folders:,} folders in {r.seconds:.1f} s"
         f"{' (stopped)' if r.cancelled else ''}; the map takes {after - before:.0f} MB")
     names = sizes = old_way = 0
+    counted: set[int] = set()  # (folders without files share one empty string and one empty list of sizes)
     todo = [r.root]
     while todo:
         f = todo.pop()
         todo.extend(f.children)
-        names += sys.getsizeof(f.names)
-        sizes += sys.getsizeof(f.sizes)
+        if id(f.names) not in counted:
+            counted.add(id(f.names))
+            names += sys.getsizeof(f.names)
+        if id(f.sizes) not in counted:
+            counted.add(id(f.sizes))
+            sizes += sys.getsizeof(f.sizes)
         big = f.big  # (what each folder kept before: a list of its 48 biggest as (size, name) pairs)
         old_way += sys.getsizeof(big) + sum(sys.getsizeof(t) + sys.getsizeof(t[0]) + sys.getsizeof(t[1]) for t in big)
     say(f"note  every name: {names / 2**20:.1f} MB, every size: {sizes / 2**20:.1f} MB "
