@@ -16,12 +16,13 @@ import shutil
 import stat
 import threading
 import time
+from array import array
 from dataclasses import dataclass, field
 from pathlib import Path
 
 log = logging.getLogger("corefold")
 
-TOP_FILES = 48         # files remembered per folder (the rest are added up as "smaller files")
+TOP_FILES = 48         # files per folder with a box of their own on the map (the rest are "smaller files")
 TOP_OVERALL = 100      # the biggest files of the whole drive
 TOP_KIND = 60          # the biggest files of each kind (videos, pictures…)
 TOP_OLD = 100          # the biggest files nobody has opened or changed for a year
@@ -60,8 +61,11 @@ def type_of(name: str) -> str:
     return ext if 1 < len(ext) <= 12 and ext[1:].isalnum() else ""
 
 
+_NO_SIZES = array("q")  # (shared by every folder without files of its own: never changed in place)
+
+
 class Folder:
-    __slots__ = ("name", "parent", "size", "files", "folders", "children", "big", "rest", "rest_count", "denied")
+    __slots__ = ("name", "parent", "size", "files", "folders", "children", "names", "sizes", "denied")
 
     def __init__(self, name: str, parent: "Folder | None" = None):
         self.name = name
@@ -70,9 +74,10 @@ class Folder:
         self.files = 0         # files inside, sub-folders too
         self.folders = 0
         self.children: list[Folder] = []
-        self.big: list[tuple[int, str]] = []  # its own biggest files (size, name), biggest first
-        self.rest = 0          # its own files that aren't in big
-        self.rest_count = 0
+        # every file of its own, biggest first: the names (one string, a new line between them, so a
+        # drive's million names take little room and a search runs through them quickly) and the sizes
+        self.names = ""
+        self.sizes = _NO_SIZES
         self.denied = False    # Windows didn't let Corefold look inside
 
     @property
@@ -82,6 +87,40 @@ class Folder:
             parts.append(f.name)
             f = f.parent
         return Path(*reversed(parts))
+
+    def set_files(self, files: list[tuple[int, str]]) -> None:
+        """Its own files, as (size, name)."""
+        files.sort(reverse=True)
+        if not files:
+            self.names, self.sizes = "", _NO_SIZES
+            return
+        self.names = "\n".join(n.replace("\n", " ") for _, n in files)  # (a new line in a name: not on Windows)
+        self.sizes = array("q", (s for s, _ in files))
+
+    def own_files(self) -> list[tuple[int, str]]:
+        """Its own files, (size, name), biggest first."""
+        if not self.sizes:
+            return []
+        return list(zip(self.sizes, self.names.split("\n")))
+
+    def own_size(self) -> int:
+        return sum(self.sizes)
+
+    @property
+    def big(self) -> list[tuple[int, str]]:
+        """Its own biggest files (size, name), biggest first: the ones the map gives a box of their own."""
+        if not self.sizes:
+            return []
+        return list(zip(self.sizes[:TOP_FILES], self.names.split("\n", TOP_FILES)[:TOP_FILES]))
+
+    @property
+    def rest(self) -> int:
+        """Its own files that aren't in big, added up."""
+        return sum(self.sizes[TOP_FILES:]) if len(self.sizes) > TOP_FILES else 0
+
+    @property
+    def rest_count(self) -> int:
+        return max(0, len(self.sizes) - TOP_FILES)
 
     def entries(self) -> list[tuple[int, str, "Folder | None"]]:
         """What's directly inside, biggest first: (size, name, folder or None for a file)."""
@@ -107,6 +146,7 @@ class Scan:
     cloud: int = 0                                # files that are only in the cloud (not counted)
     seconds: float = 0.0
     cancelled: bool = False
+    watch: "Watch | None" = None                  # Windows telling what changes in it (while the map is kept)
 
 
 def _skip_dir(entry: os.DirEntry) -> bool:
@@ -192,7 +232,7 @@ def scan(root: Path, cancel: threading.Event | None = None, progress=None, worke
                 if denied:
                     folder.denied = True
                     result.denied += 1
-                heap: list[tuple[int, str]] = []
+                own: list[tuple[int, str]] = []
                 for name, is_dir, size, attrs, used in entries:
                     if is_dir:
                         child = Folder(name, folder)
@@ -230,21 +270,12 @@ def scan(root: Path, cancel: threading.Event | None = None, progress=None, worke
                         heapq.heappush(of_type[2], (size, os.path.join(path, name)))
                     elif size > of_type[2][0][0]:
                         heapq.heapreplace(of_type[2], (size, os.path.join(path, name)))
-                    if len(heap) < TOP_FILES:
-                        heapq.heappush(heap, (size, name))
-                    elif size > heap[0][0]:
-                        small = heapq.heapreplace(heap, (size, name))
-                        folder.rest += small[0]
-                        folder.rest_count += 1
-                    else:
-                        folder.rest += size
-                        folder.rest_count += 1
+                    own.append((size, name))
                     if len(biggest) < TOP_OVERALL:
                         heapq.heappush(biggest, (size, os.path.join(path, name)))
                     elif size > biggest[0][0]:
                         heapq.heapreplace(biggest, (size, os.path.join(path, name)))
-                heap.sort(reverse=True)
-                folder.big = heap
+                folder.set_files(own)
                 if progress is not None and result.files - last_report >= PROGRESS_EVERY:
                     last_report = result.files
                     progress(result.files, total, path)
@@ -300,6 +331,440 @@ def save_csv(result: Scan, out: Path, header: list[str], folder_word: str, file_
                 rows += 1
             todo.extend((c, folder.size) for c in reversed(folder.children) if c.size >= min_size)
     return rows
+
+
+# ----------------------------------------------------------------------------- finding files by name
+
+FIND_LIMIT = 500  # results kept (the biggest first): more would only be scrolled past
+
+
+def _words(query: str):
+    """What a search looks for: every word in the name ("trip 2024"), or a pattern with * and ?
+    ("*.iso", "IMG_??12*"). (matcher of one lower-case name, the plain words a folder's names must hold)"""
+    import fnmatch
+    import re
+    q = " ".join(query.split()).lower()
+    if not q:
+        return None, []
+    if "*" in q or "?" in q:
+        rx = re.compile(fnmatch.translate(q), re.DOTALL)
+        plain = [p for p in re.split(r"[*?]+", q) if p]
+        return rx.match, plain
+    words = q.split(" ")
+    return (lambda name: all(w in name for w in words)), words
+
+
+def find(result: Scan, query: str, limit: int = FIND_LIMIT, cancel: threading.Event | None = None
+         ) -> tuple[list[tuple[int, str, "Folder | None"]], int]:
+    """The files (and folders) whose name matches, biggest first: (size, path, the Folder for a folder),
+    and how many match in all. Runs through every name the look found, not only the biggest ones."""
+    matches, words = _words(query)
+    if matches is None:
+        return [], 0
+    found: list = []  # a heap of (size, n, folder, index of the file or -1 for the folder itself)
+    total = 0
+    n = 0
+    todo = [result.root]
+    seen = 0
+    while todo:
+        f = todo.pop()
+        todo.extend(f.children)
+        seen += 1
+        if cancel is not None and seen % 2000 == 0 and cancel.is_set():
+            break
+        if f is not result.root and matches(f.name.lower()):
+            total += 1
+            n += 1
+            item = (f.size, n, f, -1)
+            if len(found) < limit:
+                heapq.heappush(found, item)
+            elif f.size > found[0][0]:
+                heapq.heapreplace(found, item)
+        if not f.sizes:
+            continue
+        low = f.names.lower()
+        if not all(w in low for w in words):
+            continue
+        for i, name in enumerate(low.split("\n")):
+            if matches(name):
+                total += 1
+                n += 1
+                size = f.sizes[i]
+                if len(found) < limit:
+                    heapq.heappush(found, (size, n, f, i))
+                elif size > found[0][0]:
+                    heapq.heapreplace(found, (size, n, f, i))
+    out = []
+    names: dict[int, list[str]] = {}
+    for size, _n, f, i in sorted(found, key=lambda e: (-e[0], e[1])):
+        if i < 0:
+            out.append((size, str(f.path), f))
+            continue
+        split = names.get(id(f))
+        if split is None:
+            split = names[id(f)] = f.names.split("\n")
+        out.append((size, os.path.join(str(f.path), split[i]), None))
+    return out, total
+
+
+# ----------------------------------------------------------------------------- following the disk as it changes
+
+# what Windows tells about: files and folders added, removed or renamed, and files whose size changed
+_NOTIFY = 0x1 | 0x2 | 0x8   # FILE_NOTIFY_CHANGE_FILE_NAME | DIR_NAME | SIZE
+WATCH_BUFFER = 256 * 1024    # (what Windows keeps between two reads; beyond it, it says it lost count)
+WATCH_MAX = 20000            # folders waiting to be read again; beyond it, the map is made again instead
+
+
+class Watch:
+    """Windows tells Corefold what changes inside a drive or folder (ReadDirectoryChangesW): one thread
+    waits for it, using nothing while nothing changes, and notes the folders something changed in.
+    take() hands them over (as paths inside the root, "" for the root itself)."""
+
+    def __init__(self, root: Path):
+        self.root = str(root)
+        self._lock = threading.Lock()
+        self._changed: set[str] = set()
+        self._lost = False             # Windows lost count (too much at once): the map is made again
+        self._thread: threading.Thread | None = None
+        self._stop = None              # (Windows' event that wakes the thread up to stop)
+        self.alive = False
+        self.failed = False
+
+    def start(self) -> bool:
+        if os.name != "nt" or self._thread is not None:
+            return False
+        k32 = ctypes.windll.kernel32
+        k32.CreateEventW.restype = ctypes.c_void_p
+        self._stop = k32.CreateEventW(None, True, False, None)
+        if not self._stop:
+            return False
+        self.alive = True
+        self._thread = threading.Thread(target=self._run, daemon=True, name="corefold-space-watch")
+        self._thread.start()
+        return True
+
+    def stop(self) -> None:
+        self.alive = False
+        if self._stop:
+            ctypes.windll.kernel32.SetEvent(ctypes.c_void_p(self._stop))
+
+    def take(self) -> tuple[set[str], bool]:
+        """The folders something changed in since last time, and whether Windows lost count."""
+        with self._lock:
+            changed, lost = self._changed, self._lost
+            self._changed, self._lost = set(), False
+        return changed, lost
+
+    def note(self, folders, lost: bool = False) -> None:
+        with self._lock:
+            if lost or self._lost:
+                self._lost = True
+                self._changed.clear()
+                return
+            self._changed.update(folders)
+            if len(self._changed) > WATCH_MAX:
+                self._lost = True
+                self._changed.clear()
+
+    def _run(self):
+        from ctypes import wintypes as wt
+        k32 = ctypes.windll.kernel32
+
+        class OVERLAPPED(ctypes.Structure):
+            _fields_ = [("Internal", ctypes.c_void_p), ("InternalHigh", ctypes.c_void_p),
+                        ("Offset", wt.DWORD), ("OffsetHigh", wt.DWORD), ("hEvent", ctypes.c_void_p)]
+        k32.CreateFileW.restype = ctypes.c_void_p
+        k32.CreateFileW.argtypes = [wt.LPCWSTR, wt.DWORD, wt.DWORD, ctypes.c_void_p, wt.DWORD, wt.DWORD,
+                                    ctypes.c_void_p]
+        k32.ReadDirectoryChangesW.argtypes = [ctypes.c_void_p, ctypes.c_void_p, wt.DWORD, wt.BOOL, wt.DWORD,
+                                              ctypes.POINTER(wt.DWORD), ctypes.POINTER(OVERLAPPED), ctypes.c_void_p]
+        k32.GetOverlappedResult.argtypes = [ctypes.c_void_p, ctypes.POINTER(OVERLAPPED),
+                                            ctypes.POINTER(wt.DWORD), wt.BOOL]
+        k32.CancelIoEx.argtypes = [ctypes.c_void_p, ctypes.POINTER(OVERLAPPED)]
+        k32.WaitForMultipleObjects.argtypes = [wt.DWORD, ctypes.POINTER(ctypes.c_void_p), wt.BOOL, wt.DWORD]
+        k32.CreateEventW.restype = ctypes.c_void_p
+        k32.ResetEvent.argtypes = [ctypes.c_void_p]
+        k32.CloseHandle.argtypes = [ctypes.c_void_p]
+        # (below the window's threads: what it reads in can wait a moment)
+        k32.SetThreadPriority(k32.GetCurrentThread(), -1)
+        handle = k32.CreateFileW(self.root, 0x0001, 0x7, None, 3, 0x02000000 | 0x40000000, None)
+        if not handle or handle == ctypes.c_void_p(-1).value:
+            log.info("can't follow changes in %s (%s)", self.root, ctypes.GetLastError())
+            self.failed = True
+            self.alive = False
+            k32.CloseHandle(self._stop)
+            self._stop = None
+            return
+        buf = ctypes.create_string_buffer(WATCH_BUFFER)
+        ov = OVERLAPPED()
+        ov.hEvent = k32.CreateEventW(None, True, False, None)
+        waits = (ctypes.c_void_p * 2)(ov.hEvent, self._stop)
+        got = wt.DWORD()
+        try:
+            while self.alive:
+                k32.ResetEvent(ov.hEvent)
+                if not k32.ReadDirectoryChangesW(handle, buf, WATCH_BUFFER, True, _NOTIFY, None,
+                                                 ctypes.byref(ov), None):
+                    log.info("stopped following changes in %s (%s)", self.root, ctypes.GetLastError())
+                    self.failed = True
+                    break
+                which = k32.WaitForMultipleObjects(2, waits, False, 0xFFFFFFFF)
+                if which != 0:  # (asked to stop, or something went wrong)
+                    k32.CancelIoEx(handle, ctypes.byref(ov))
+                    k32.GetOverlappedResult(handle, ctypes.byref(ov), ctypes.byref(got), True)
+                    break
+                if not k32.GetOverlappedResult(handle, ctypes.byref(ov), ctypes.byref(got), False):
+                    self.note((), lost=True)  # (ERROR_NOTIFY_ENUM_DIR: more changed than Windows kept)
+                    continue
+                if got.value == 0:
+                    self.note((), lost=True)
+                    continue
+                self.note(changed_folders(buf.raw[:got.value]))
+        finally:
+            self.alive = False
+            k32.CloseHandle(handle)
+            k32.CloseHandle(ov.hEvent)
+            stop, self._stop = self._stop, None
+            if stop:
+                k32.CloseHandle(stop)
+
+
+def changed_folders(data: bytes) -> set[str]:
+    """The folders (paths inside the root) that Windows' list of changes (FILE_NOTIFY_INFORMATION
+    records) says something changed in: the folder holding each file or folder named."""
+    import struct
+    out: set[str] = set()
+    pos = 0
+    while pos + 12 <= len(data):
+        nxt, _action, length = struct.unpack_from("<III", data, pos)
+        name = data[pos + 12:pos + 12 + length].decode("utf-16-le", "replace")
+        out.add(os.path.dirname(name))
+        if not nxt:
+            break
+        pos += nxt
+    return out
+
+
+def folder_at(result: Scan, inside: str) -> Folder:
+    """The map's folder for a path inside its root (the nearest one the map has, for a new one)."""
+    f = result.root
+    for part in Path(inside).parts if inside else ():
+        key = os.path.normcase(part)
+        nxt = next((c for c in f.children if os.path.normcase(c.name) == key), None)
+        if nxt is None:
+            break
+        f = nxt
+    return f
+
+
+def attached(result: Scan, folder: Folder) -> bool:
+    """The folder is still on the map (not taken off since)."""
+    f = folder
+    while f.parent is not None:
+        if not any(c is f for c in f.parent.children):
+            return False
+        f = f.parent
+    return f is result.root
+
+
+def read_again(jobs: list[tuple[str, set[str]]], cancel: threading.Event | None = None) -> list:
+    """Reads these folders again from the disk (the slow part of following changes, done on a helper
+    thread): (path, the names of the folders the map knows in it) -> (path, its entries, whether Windows
+    said no, {name: a look through each new folder in it})."""
+    out = []
+    for path, known in jobs:
+        if cancel is not None and cancel.is_set():
+            break
+        entries, denied = _list_dir(path)
+        known_n = {os.path.normcase(k) for k in known}
+        new = {}
+        for name, is_dir, *_rest in entries:
+            if is_dir and os.path.normcase(name) not in known_n:
+                new[name] = scan(Path(path, name), cancel, workers=2)
+        out.append((path, entries, denied, new))
+    return out
+
+
+def _grow(f: Folder | None, size: int, files: int, folders: int) -> None:
+    """Adds to a folder and every folder around it (keeping each one's folders biggest first)."""
+    while f is not None:
+        f.size = max(0, f.size + size)
+        f.files = max(0, f.files + files)
+        f.folders = max(0, f.folders + folders)
+        if f.parent is not None:
+            f.parent.children.sort(key=lambda c: c.size, reverse=True)
+        f = f.parent
+
+
+def _count(result: Scan, files, sign: int) -> None:
+    """Adds files (size, name) to the kinds and types of the scan, or takes them off (sign -1)."""
+    for size, name in files:
+        kind = kind_of(name)
+        result.kinds[kind] = max(0, result.kinds.get(kind, 0) + sign * size)
+        ext = type_of(name)
+        b, n = result.types.get(ext, (0, 0))
+        b, n = max(0, b + sign * size), n + sign
+        if n > 0:
+            result.types[ext] = (b, n)
+        else:
+            result.types.pop(ext, None)
+            result.biggest_type.pop(ext, None)
+
+
+def _merge(result: Scan, sub: Scan) -> None:
+    """Adds a look through a new folder to the scan's totals and lists."""
+    for kind, size in sub.kinds.items():
+        result.kinds[kind] = result.kinds.get(kind, 0) + size
+    for ext, (b, n) in sub.types.items():
+        b0, n0 = result.types.get(ext, (0, 0))
+        result.types[ext] = (b0 + b, n0 + n)
+        result.biggest_type.setdefault(ext, []).extend(sub.biggest_type.get(ext, []))
+    result.biggest.extend(sub.biggest)
+    result.old.extend(sub.old)
+    for kind, items in sub.biggest_kind.items():
+        result.biggest_kind.setdefault(kind, []).extend(items)
+    result.denied += sub.denied
+    result.cloud += sub.cloud
+
+
+def _settle(result: Scan) -> None:
+    """The scan's lists back in order (biggest first) and to their length."""
+    result.biggest = sorted(result.biggest, reverse=True)[:TOP_OVERALL]
+    result.old = sorted(result.old, reverse=True)[:TOP_OLD]
+    result.biggest_kind = {k: sorted(v, reverse=True)[:TOP_KIND] for k, v in result.biggest_kind.items()}
+    result.types = dict(sorted(result.types.items(), key=lambda kv: kv[1][0], reverse=True)[:KEEP_TYPES])
+    result.biggest_type = {ext: sorted(result.biggest_type.get(ext, []), reverse=True)[:TOP_TYPE]
+                           for ext in result.types}
+
+
+def _take_out(result: Scan, gone) -> None:
+    """Takes the files that gone(path) says are gone off the scan's lists."""
+    result.biggest = [b for b in result.biggest if not gone(b[1])]
+    result.old = [b for b in result.old if not gone(b[1])]
+    result.biggest_kind = {k: [b for b in v if not gone(b[1])] for k, v in result.biggest_kind.items()}
+    result.biggest_type = {k: [b for b in v if not gone(b[1])] for k, v in result.biggest_type.items()}
+
+
+def apply_changes(result: Scan, read: list, folders: dict[str, Folder]) -> bool:
+    """Brings the map up to date with folders read again (read_again()'s answer; folders: path -> the
+    map's folder): their own files, the folders gone from them and the new ones. Exact: the sizes, the
+    kinds, the file types and the lists all follow. Whether anything changed."""
+    hidden_bits = _OFFLINE | _RECALL_ACCESS | _RECALL_OPEN
+    old_before = time.time() - OLD_AFTER_DAYS * 86400
+    touched: set[str] = set()       # folders whose own files changed (their old ones leave the lists)
+    gone: list[str] = []            # folders taken off (everything in them leaves the lists)
+    added: list = []                # (path, [(size, name, last used)]) of the folders' new own files
+    grafts: list[Scan] = []
+    for path, entries, denied, new in read:
+        folder = folders.get(path)
+        if folder is None or not attached(result, folder):
+            continue
+        if denied and not entries:
+            continue  # (Windows said no this time, or it's gone: its parent is read again for that)
+        own: list[tuple[int, str]] = []
+        used_of: dict[str, float] = {}
+        dirs: set[str] = set()
+        cloud = 0
+        for name, is_dir, size, attrs, used in entries:
+            if is_dir:
+                dirs.add(os.path.normcase(name))
+            elif attrs & hidden_bits:
+                cloud += 1
+            else:
+                own.append((size, name))
+                used_of[name] = used
+        before = folder.own_files()
+        lost = [c for c in folder.children if os.path.normcase(c.name) not in dirs]
+        changed = sorted(before, reverse=True) != sorted(own, reverse=True) or lost or new
+        if not changed:
+            continue
+        if sorted(before) != sorted(own):
+            _count(result, before, -1)
+            touched.add(path)
+            folder.set_files(list(own))
+            _count(result, own, +1)
+            delta_size = sum(s for s, _ in own) - sum(s for s, _ in before)
+            delta_files = len(own) - len(before)
+            result.files += delta_files
+            _grow(folder, delta_size, delta_files, 0)
+            added.append((path, [(s, n, used_of.get(n, 0.0)) for s, n in own]))
+        for child in lost:
+            todo = [child]
+            while todo:
+                f = todo.pop()
+                _count(result, f.own_files(), -1)
+                todo.extend(f.children)
+            folder.children = [c for c in folder.children if c is not child]
+            gone.append(str(child.path))
+            result.files -= child.files
+            result.folders -= child.folders + 1
+            _grow(folder, -child.size, -child.files, -(child.folders + 1))
+        for name, sub in new.items():
+            if sub.cancelled or any(os.path.normcase(c.name) == os.path.normcase(name) for c in folder.children):
+                continue
+            top = sub.root
+            top.name, top.parent = name, folder
+            folder.children.append(top)
+            result.files += sub.files
+            result.folders += sub.folders + 1
+            _grow(folder, top.size, top.files, top.folders + 1)
+            grafts.append(sub)
+    if not touched and not gone and not grafts:
+        return False
+    prefixes = tuple(g + os.sep for g in gone)
+    _take_out(result, lambda p: os.path.dirname(p) in touched or (prefixes and p.startswith(prefixes)))
+    for sub in grafts:
+        _merge(result, sub)
+    for path, files in added:
+        for size, name, used in files:
+            full = os.path.join(path, name)
+            result.biggest.append((size, full))
+            result.biggest_kind.setdefault(kind_of(name), []).append((size, full))
+            result.biggest_type.setdefault(type_of(name), []).append((size, full))
+            if 0 < used < old_before and size >= 1 << 20:
+                result.old.append((size, full, used))
+    _settle(result)
+    return True
+
+
+def forget(result: Scan, path: Path, folder: Folder | None) -> None:
+    """Takes a file or folder Corefold just removed off the map, without reading the disk."""
+    if folder is not None:
+        parent = folder.parent
+        if parent is None or not any(c is folder for c in parent.children):
+            return
+        todo = [folder]
+        while todo:
+            f = todo.pop()
+            _count(result, f.own_files(), -1)
+            todo.extend(f.children)
+        parent.children = [c for c in parent.children if c is not folder]
+        result.files -= folder.files
+        result.folders -= folder.folders + 1
+        _grow(parent, -folder.size, -folder.files, -(folder.folders + 1))
+        prefix = str(folder.path) + os.sep
+        _take_out(result, lambda p: p.startswith(prefix))
+    else:
+        try:
+            inside = os.path.relpath(str(path.parent), str(result.root.path))
+        except ValueError:  # (another drive)
+            return
+        parent = folder_at(result, "" if inside == "." else inside)
+        if os.path.normcase(str(parent.path)) != os.path.normcase(str(path.parent)):
+            return
+        own = parent.own_files()
+        keep = [(s, n) for s, n in own if n != path.name]
+        if len(keep) == len(own):
+            return
+        gone_files = [(s, n) for s, n in own if n == path.name]
+        _count(result, gone_files, -1)
+        parent.set_files(keep)
+        size = sum(s for s, _ in gone_files)
+        result.files -= len(gone_files)
+        _grow(parent, -size, -len(gone_files), 0)
+        full = str(path)
+        _take_out(result, lambda p: p == full)
+    _settle(result)
 
 
 # ----------------------------------------------------------------------------- what grew since last time
@@ -536,6 +1001,157 @@ def recycle(paths: list[Path]) -> int:
     op.fFlags = RECYCLE_FLAGS
     ctypes.windll.shell32.SHFileOperationW(ctypes.byref(op))
     return sum(1 for p in paths if not os.path.lexists(p))
+
+
+# ----------------------------------------------------------------------------- a file with what belongs to it
+
+# files that only go with a file of the same name: subtitles, a video's notes, a picture's edits…
+SIDECARS = {".srt", ".ass", ".ssa", ".sub", ".idx", ".vtt", ".sup", ".nfo", ".xmp", ".aae", ".thm", ".lrc",
+            ".cue", ".sfv", ".md5", ".sha1", ".sha256", ".par2"}
+# what's left of the file being downloaded, saved or kept in case: "video.mp4.part", "report.docx.bak"
+PARTIALS = {".part", ".crdownload", ".partial", ".download", ".opdownload", ".!ut", ".!qb", ".tmp", ".bak", ".old"}
+# folder names too common to say a same-named folder elsewhere belongs to the same app
+_COMMON_NAMES = {"temp", "tmp", "cache", "caches", "log", "logs", "data", "config", "settings", "packages",
+                 "programs", "common files", "crashdumps", "default", "backup", "backups", "updates", "update",
+                 "downloads", "files", "app", "apps", "user data", "profiles", "local", "roaming", "locallow"}
+
+RELATED_WHY = {  # why something goes with it (English, shown through tr())
+    "sidecar": "Goes with it (same name)",
+    "partial": "Left from saving or downloading it",
+    "lock": "Office's lock file for it",
+    "shortcut": "A shortcut to it",
+    "same_name": "Same name, another type",
+    "app_data": "A folder of the same name in app data",
+}
+
+
+@dataclass
+class Related:
+    path: Path
+    size: int
+    why: str           # a key of RELATED_WHY
+    sure: bool         # ticked to begin with (the ones that only might belong to it aren't)
+
+
+def _app_data_places() -> list[Path]:
+    places = [_env_path("APPDATA"), _env_path("LOCALAPPDATA"), _env_path("USERPROFILE", "", "AppData", "LocalLow"),
+              _env_path("ProgramData"), _env_path("TEMP")]
+    out, seen = [], set()
+    for p in places:
+        if p is None:
+            continue
+        k = os.path.normcase(os.path.abspath(str(p)))
+        if k not in seen:
+            seen.add(k)
+            out.append(p)
+    return out
+
+
+def _recent_folder() -> Path | None:
+    return _env_path("APPDATA", "", "Microsoft", "Windows", "Recent")
+
+
+def _shortcuts_to(target: Path, folder: bool, limit_s: float = 8.0) -> list[Path]:
+    """Windows shortcuts (Desktop, Start menu, taskbar, Recent) that point at it (or inside it, for a folder)."""
+    from .uninstall import lnk_target, shortcut_roots
+    t = os.path.normcase(os.path.abspath(str(target)))
+    roots = list(shortcut_roots())
+    recent = _recent_folder()
+    if recent is not None and recent.is_dir():
+        roots.append(recent)
+    out: list[Path] = []
+    started = time.monotonic()
+    for root in roots:
+        stack = [str(root)]
+        while stack and time.monotonic() - started < limit_s:
+            here = stack.pop()
+            try:
+                with os.scandir(here) as it:
+                    for e in it:
+                        try:
+                            if e.is_dir(follow_symlinks=False):
+                                if not _skip_dir(e):
+                                    stack.append(e.path)
+                                continue
+                        except OSError:
+                            continue
+                        if not e.name.lower().endswith(".lnk"):
+                            continue
+                        where = lnk_target(Path(e.path))
+                        if not where:
+                            continue
+                        w = os.path.normcase(os.path.abspath(where))
+                        if w == t or (folder and w.startswith(t + os.sep)):
+                            out.append(Path(e.path))
+            except OSError:
+                continue
+    return out
+
+
+def related(path: Path, apps: list | None = None) -> list[Related]:
+    """What goes with a file or folder, to remove along with it (only what's offered: the person ticks).
+    Never anything Windows or a program needs (protected()), nothing inside it (that goes anyway), and,
+    for a folder, nothing where an installed program lives (apps: the Uninstaller's list)."""
+    from .uninstall import _inside, _safe_folder, _system_named
+    path = Path(os.path.abspath(str(path)))
+    me = os.path.normcase(str(path))
+    is_folder = path.is_dir() and not path.is_symlink()
+    found: dict[str, Related] = {}
+
+    def offer(p: Path, why: str, sure: bool):
+        k = os.path.normcase(os.path.abspath(str(p)))
+        if k == me or k.startswith(me + os.sep) or me.startswith(k + os.sep) or k in found:
+            return
+        if protected(p) or not os.path.lexists(p):
+            return
+        size = _size_of(p)[0]
+        found[k] = Related(p, size, why, sure)
+
+    if not is_folder:
+        name = path.name
+        low = name.lower()
+        stem = os.path.splitext(low)[0]
+        try:
+            with os.scandir(path.parent) as it:
+                for e in it:
+                    try:
+                        if not e.is_file(follow_symlinks=False) or e.name == name:
+                            continue
+                    except OSError:
+                        continue
+                    other = e.name.lower()
+                    ext = os.path.splitext(other)[1]
+                    if other.startswith(low + ".") and ext in PARTIALS:
+                        offer(Path(e.path), "partial", True)
+                    elif other in ("~$" + low, "~$" + low[2:]) and len(low) > 2:
+                        offer(Path(e.path), "lock", True)
+                    elif ext in SIDECARS and (os.path.splitext(other)[0] == stem or
+                                              other.startswith(stem + ".") or other.startswith(low + ".")):
+                        offer(Path(e.path), "sidecar", True)
+                    elif os.path.splitext(other)[0] == stem and stem:
+                        offer(Path(e.path), "same_name", False)
+        except OSError:
+            pass
+    for link in _shortcuts_to(path, is_folder):
+        offer(link, "shortcut", True)
+    if is_folder:
+        key = path.name.lower()
+        if len(key) >= 4 and key not in _COMMON_NAMES and not _system_named(path.name):
+            for place in _app_data_places():
+                cand = place / path.name
+                try:
+                    if not cand.is_dir() or cand.is_symlink():
+                        continue
+                except OSError:
+                    continue
+                c = str(cand)
+                if not _safe_folder(c) or own_windows_folder(cand):
+                    continue
+                if any((a.location or "").strip() and (_inside(a.location, c) or _inside(c, a.location))
+                       for a in apps or []):
+                    continue  # (an installed program lives there: the Uninstaller's business)
+                offer(cand, "app_data", False)
+    return sorted(found.values(), key=lambda r: (not r.sure, -r.size))
 
 
 # ----------------------------------------------------------------------------- junk

@@ -129,6 +129,8 @@ jobs:
             python scripts/$t.py out/$t en dark *> "out/$t-en.txt"
             python scripts/$t.py out/$t ar light *> "out/$t-ar.txt"
           }
+          # Space's search and live map: room, speed, what following a disk costs, and that it stays exact
+          python scripts/spacelivetest.py *> out/spacelivetest.txt
           # once: it puts a test threat back from quarantine, and Windows then lets that one be on this PC
           python scripts/scantest.py out/scantest ar light *> out/scantest.txt
           # every Converter tool saving onto a full disk: a 16 MB one made for it (R:), never the PC's own
@@ -290,7 +292,7 @@ jobs:
             echo "Bug hunt of $SHA"
             for d in */; do
               echo "== ${d%/}"
-              grep -rhaE "^(glyphcheck|sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest|featuretest|pdftest|pdfedittest|langtest|captexttest|capmarkstest|capfoldertest|edgetest|fulldisktest|writefailtest|audittest|organizetest|startuptest|scantest|newtest_[a-z]+|dllcheck)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused|^App folder:|Corefold-Setup-" "$d" 2>/dev/null | head -20
+              grep -rhaE "^(glyphcheck|sweeptest|navtest|exetest|uitest|selftest|stress|quicktest|usetest|featuretest|pdftest|pdfedittest|langtest|captexttest|capmarkstest|capfoldertest|edgetest|fulldisktest|writefailtest|audittest|organizetest|startuptest|scantest|spacelivetest|newtest_[a-z]+|dllcheck)[^:]*: [0-9]+ problem|problems? found|^[0-9]+ problem|unused|^App folder:|Corefold-Setup-" "$d" 2>/dev/null | head -20
               grep -rhaE "^(FAIL|ERROR|SLOW) " "$d" 2>/dev/null | sort | uniq -c | sort -rn | head -60
             done
           } > summary.txt

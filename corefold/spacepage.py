@@ -12,9 +12,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QPoint, QRectF, QSize, Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import QBrush, QColor, QDesktopServices, QFont, QFontMetrics, QPainter, QPen
+from PySide6.QtGui import QBrush, QColor, QDesktopServices, QFont, QFontMetrics, QKeySequence, QPainter, QPen, \
+    QShortcut
 from PySide6.QtWidgets import QApplication, QButtonGroup, QCheckBox, QFileDialog, QFrame, QGridLayout, \
-    QHBoxLayout, QHeaderView, QLabel, QMenu, QMessageBox, QProgressBar, QPushButton, QScrollArea, QSizePolicy, QStackedWidget, \
+    QHBoxLayout, QHeaderView, QLabel, QLineEdit, QMenu, QMessageBox, QProgressBar, QPushButton, QScrollArea, QSizePolicy, QStackedWidget, \
     QStyledItemDelegate, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
 from . import icons, sheet, space, work
@@ -47,6 +48,10 @@ FORGET_AFTER = 20 * 60    # seconds: maps not looked at for this long are let go
 SHARE = Qt.UserRole + 1   # a list row's share of the biggest row (its little bar)
 TINT = Qt.UserRole + 2    # …and the bar's colour
 TYPE = Qt.UserRole + 3    # a "File types" row's type (".mp4", "" for files with none)
+LIVE_EVERY = 2000         # ms between two looks at what Windows said changed on the disk (while the map shows)
+LIVE_BATCH = 400          # folders read again at most per look (the rest wait for the next one)
+QUIET_AGAIN_AFTER = 5 * 60  # seconds: a map made again in the background (Windows lost count) at most this often
+FIND_WAIT = 220           # ms after the last key before a search runs
 
 
 _work = work.run
@@ -247,6 +252,7 @@ class Treemap(QWidget):
         self.boxes: list[Box] = []
         self.hover = -1
         self.focus_kind = ""           # one kind picked below the map: the other files step back
+        self.mark: tuple = (None, "")  # (folder, file name): a search result, ringed
         self.setMouseTracking(True)
         self.setMinimumSize(240, 160)  # (small screens with big text: nothing below it gets covered)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -255,7 +261,13 @@ class Treemap(QWidget):
     def show_folder(self, folder: space.Folder | None):
         self.folder = folder
         self.hover = -1
+        self.mark = (None, "")
         self._arrange()
+        self.update()
+
+    def set_mark(self, folder: space.Folder | None, name: str):
+        """Rings a file (a search result): its own box, or its folder's "smaller files" when it has none."""
+        self.mark = (folder, name)
         self.update()
 
     def resizeEvent(self, e):
@@ -370,6 +382,15 @@ class Treemap(QWidget):
                     p.setPen(soft)
                     p.drawText(inner.adjusted(0, metrics.height() + 1, 0, 0), lead,
                                sfm.elidedText(human_size(b.size), Qt.ElideRight, int(inner.width())))
+        marked, mark_name = self.mark
+        if marked is not None:  # a search result: a thick ring of the accent
+            hit = next((b for b in self.boxes if b.kind == "file" and b.parent is marked and b.name == mark_name),
+                       None) or next((b for b in self.boxes if b.kind == "rest" and b.parent is marked), None)
+            if hit is not None:
+                p.setBrush(alpha(t.accent, 46))
+                p.setPen(QPen(t.accent, 3))
+                r = 6 if hit.level == 0 else 4
+                p.drawRoundedRect(hit.rect.adjusted(2, 2, -2, -2), r, r)
         if 0 <= self.hover < len(self.boxes):  # what's under the mouse: a ring of the accent
             b = self.boxes[self.hover]
             p.setBrush(Qt.NoBrush)
@@ -765,6 +786,18 @@ class SpacePage(QWidget):
         # drive's look or the duplicates' reading would otherwise go on to the end for nothing
         self._live = [self.cancel]
         self.destroyed.connect(lambda *_a, live=self._live: live[0].set())
+        # Windows telling each kept map what changes on its disk: stopped with the map, or with the page
+        self._watches: list = []
+        self.destroyed.connect(lambda *_a, w=self._watches: [x.stop() for x in w])
+        self._live_job = None     # (reading changed folders again, or making the map again quietly)
+        self._quiet_at: dict[str, float] = {}
+        self._live_timer = QTimer(self)
+        self._live_timer.setInterval(LIVE_EVERY)
+        self._live_timer.timeout.connect(self._live_tick)
+        self.found = None         # (the search, its results biggest first, how many matched in all)
+        self._find_job = None
+        self._find_again = False
+        self._mode_before_find = "here"
         self._recycling = None    # (the Recycle Bin job of the map, kept while it runs)
         self._saving = None       # (the job writing the map to a spreadsheet, kept while it runs)
         self.job = None
@@ -907,15 +940,39 @@ class SpacePage(QWidget):
         self.save_btn.setAccessibleName(tr("Save the list…"))
         self._icon_buttons = [(self.again_btn, "arrow_clockwise"), (self.drives_btn, "hard_drive"),
                               (self.save_btn, "arrow_download")]
+        self.find_box = QLineEdit()
+        self.find_box.setPlaceholderText(tr("Find a file by name"))
+        self.find_box.setAccessibleName(tr("Find a file by name"))
+        self.find_box.setToolTip(tr("Every file of the map, not only the biggest. Use * and ? for any letters: *.iso"))
+        self.find_box.setClearButtonEnabled(True)
+        self.find_box.setMinimumWidth(150)
+        self.find_box.setMaximumWidth(260)
+        self._find_timer = QTimer(self)
+        self._find_timer.setSingleShot(True)
+        self._find_timer.setInterval(FIND_WAIT)
+        self._find_timer.timeout.connect(self._find)
+        self.find_box.textChanged.connect(lambda _t: self._find_timer.start())
+        self.find_box.returnPressed.connect(self._find)
+        QShortcut(QKeySequence.StandardKey.Find, w, self._focus_find, context=Qt.WidgetWithChildrenShortcut)
         nav.addWidget(self.back_btn)
         nav.addWidget(self.where, 1)
+        nav.addWidget(self.find_box, 1)
         nav.addWidget(self.save_btn)
         nav.addWidget(self.again_btn)
         nav.addWidget(self.drives_btn)
         ml.addLayout(nav)
         self.summary = _label("", "muted", wrap=True)
         self.summary.setTextFormat(Qt.RichText)
-        ml.addWidget(self.summary)
+        line = QHBoxLayout()
+        line.setSpacing(10)
+        line.addWidget(self.summary, 1)
+        self.live_badge = _label("", "muted")
+        self.live_badge.setTextFormat(Qt.RichText)
+        self.live_badge.setToolTip(tr("Windows tells Corefold what changes on the disk, and the map follows "
+                                      "it as it happens: no need to look again"))
+        self.live_badge.hide()
+        line.addWidget(self.live_badge, 0, Qt.AlignRight | Qt.AlignTop)
+        ml.addLayout(line)
         body = QHBoxLayout()
         body.setSpacing(12)
         self.treemap = Treemap(self.c.theme)
@@ -1030,6 +1087,12 @@ class SpacePage(QWidget):
         self.busy_line.set_full(tr("This takes a moment on a big drive."))
         self.spinner.set_text("", "")
         cancel = self.cancel
+        # (Windows starts telling what changes right away: what changes while it looks is caught up after)
+        self._new_watch = space.Watch(root)
+        if not self._new_watch.start():
+            self._new_watch = None
+        else:
+            self._watches.append(self._new_watch)
         def work(progress):
             result = space.scan(root, cancel, lambda *a: progress(a))
             space.remember(result)
@@ -1050,6 +1113,12 @@ class SpacePage(QWidget):
         if not _alive(self):
             return
         self.job = None
+        watch, self._new_watch = getattr(self, "_new_watch", None), None
+        if watch is not None:
+            if isinstance(result, space.Scan) and not result.cancelled:
+                result.watch = watch
+            else:  # (a look stopped before the end can't be kept up to date: it's missing folders)
+                self._unwatch(watch)
         self._junk_if_waiting()
         self.busy_box.hide()
         if getattr(self, "_leaving", False):
@@ -1064,11 +1133,26 @@ class SpacePage(QWidget):
         if result.cancelled and result.root.size == 0:
             self._back_to_drives()
             return
+        self._drop_map(_key(self.root))
         self.kept[_key(self.root)] = [result, result.root, time.time()]
         self.kept.move_to_end(_key(self.root))
         while len(self.kept) > KEEP_MAPS:
-            self.kept.popitem(last=False)
+            self._drop_map(next(iter(self.kept)))
         self._show_map(result, result.root)
+
+    def _unwatch(self, watch):
+        if watch is None:
+            return
+        watch.stop()
+        if watch in self._watches:
+            self._watches.remove(watch)
+
+    def _drop_map(self, key: str):
+        """Lets go of a kept map (and stops following its disk)."""
+        kept = self.kept.pop(key, None)
+        if kept is not None:
+            self._unwatch(kept[0].watch)
+            kept[0].watch = None
 
     def _show_map(self, result: space.Scan, folder: space.Folder):
         self.scan = result
@@ -1079,12 +1163,218 @@ class SpacePage(QWidget):
         self._forget_timer.stop()
         if self.list_mode == "grew" and not result.since:
             self.list_mode = "here"
+        self.found = None
+        if self.list_mode == "found":
+            self.list_mode = self._mode_before_find
+        self.find_box.blockSignals(True)
+        self.find_box.clear()
+        self.find_box.blockSignals(False)
         self._fill_modes()
+        self._show_live()
+        self._live_timer.start()
+        QTimer.singleShot(0, self._live_tick)  # (what changed while it wasn't showing, right away)
         root = _key(result.root.path)
         self.where.root_title = next((_drive_title(d) for d in self.drives if _key(Path(d.path)) == root), "")
         self.open_folder(folder)
         self.kinds_bar.set_kinds(result.kinds)
         self._fill_kinds()
+
+    # ---- following the disk as it changes
+
+    def _show_live(self):
+        s = self.scan
+        on = s is not None and s.watch is not None and s.watch.alive
+        if on:
+            dot = self.c.theme.accent.name()
+            self.live_badge.setText(f"<span style='color:{dot}'>●</span>&nbsp;{html.escape(tr('Live'))}")
+        self.live_badge.setVisible(on)
+
+    def _live_tick(self):
+        """Reads again the folders Windows said changed (a few hundred at most each time), on a helper
+        thread, and brings the map up to date. Waits while the map isn't showing (Windows keeps noting)."""
+        s = self.scan
+        if s is None or s.watch is None or self._live_job is not None or self.job is not None:
+            return
+        if not self.map_box.isVisible() or self.window().isMinimized():
+            return
+        if not s.watch.alive:
+            self._show_live()
+            return
+        changed, lost = s.watch.take()
+        if lost:
+            self._make_again_quietly(s)
+            return
+        if not changed:
+            return
+        folders: dict[str, space.Folder] = {}
+        jobs = []
+        later = []
+        for inside in sorted(changed, key=len):  # (the folders nearer the top first)
+            if len(jobs) >= LIVE_BATCH:
+                later.append(inside)
+                continue
+            f = space.folder_at(s, inside)
+            p = str(f.path)
+            if p not in folders:
+                folders[p] = f
+                jobs.append((p, {c.name for c in f.children}))
+        if later:
+            s.watch.note(later)
+        cancel = self.cancel
+
+        def done(read):
+            self._live_job = None
+            if not _alive(self) or isinstance(read, Exception) or not read:
+                if isinstance(read, Exception):
+                    log.warning("couldn't read changed folders again", exc_info=read)
+                return
+            if space.apply_changes(s, read, folders) and self.scan is s:
+                self._map_changed()
+        self._live_job = _work(lambda _p: space.read_again(jobs, cancel), lambda _: None, done,
+                               name="corefold-space-live")
+
+    def _make_again_quietly(self, s: space.Scan):
+        """Windows lost count of what changed (a great many files at once): the map is made again in the
+        background, slowly, while this one stays; then it takes its place, at the same folder."""
+        key = _key(s.root.path)
+        if time.time() - self._quiet_at.get(key, 0) < QUIET_AGAIN_AFTER:
+            QTimer.singleShot(QUIET_AGAIN_AFTER * 1000, lambda: s.watch is not None and s.watch.note((), lost=True))
+            return
+        self._quiet_at[key] = time.time()
+        cancel = self.cancel
+
+        def done(fresh):
+            self._live_job = None
+            if not _alive(self) or not isinstance(fresh, space.Scan) or fresh.cancelled:
+                return
+            kept = self.kept.get(key)
+            if kept is None or kept[0] is not s:  # (let go of meanwhile)
+                return
+            fresh.watch, s.watch = s.watch, None
+            fresh.grew, fresh.since = s.grew, s.since
+            here = kept[1]
+            try:
+                inside = os.path.relpath(str(here.path), str(s.root.path)) if here is not s.root else ""
+            except ValueError:
+                inside = ""
+            kept[0], kept[1] = fresh, space.folder_at(fresh, "" if inside == "." else inside)
+            if self.scan is s:
+                self.scan = fresh
+                self.here = kept[1]
+                self._map_changed()
+        self._live_job = _work(lambda _p: space.scan(s.root.path, cancel, workers=4), lambda _: None, done,
+                               name="corefold-space-again")
+
+    def _visible(self) -> tuple:
+        """What the map and the list show, roughly (sizes as written): nothing to redraw when it's the same."""
+        f = self.here
+        if f is None or self.scan is None:
+            return ()
+        out = [self.list_mode, human_size(f.size), f.files]
+        for size, name, sub in f.entries()[:120]:
+            out.append((name, human_size(size)))
+            if sub is not None and size * 50 >= f.size:
+                out.extend((n, human_size(sz)) for sz, n, _ in sub.entries()[:24])
+        s = self.scan
+        if self.list_mode == "big":
+            out.append(tuple(s.biggest[:60]) + tuple(s.biggest_kind.get(self.big_kind, [])[:60]))
+        elif self.list_mode == "types":
+            out.append(tuple(s.types.items())[:60])
+        elif self.list_mode == "old":
+            out.append(tuple(s.old[:60]))
+        out.append(tuple(sorted((k, human_size(v)) for k, v in s.kinds.items())))
+        return tuple(out)
+
+    def _map_changed(self):
+        """The disk changed under the map: what shows follows, without starting over (the folder open,
+        the list's place and what's picked in it stay)."""
+        s = self.scan
+        if s is None:
+            return
+        here = self.here
+        while here is not None and here is not s.root and not space.attached(s, here):
+            here = here.parent  # (the folder open is gone: the nearest one still there)
+        here = here or s.root
+        if self.found is not None:
+            self._find(rerun=True)
+        seen = self._visible() if here is self.here else None
+        self.here = here
+        if seen is not None and seen == getattr(self, "_shown", None):
+            return
+        self.open_folder(here)
+        self.kinds_bar.set_kinds(s.kinds)
+        self._fill_kinds()
+
+    # ---- finding files by name
+
+    def _focus_find(self):
+        if self.map_box.isVisible():
+            self.find_box.setFocus(Qt.ShortcutFocusReason)
+            self.find_box.selectAll()
+
+    def _find(self, rerun: bool = False):
+        """Looks for the name typed through every file of the map (on a helper thread: a drive has
+        millions of names)."""
+        self._find_timer.stop()
+        s = self.scan
+        query = " ".join(self.find_box.text().split())
+        if s is None:
+            return
+        if not query:
+            if self.found is not None:
+                self.found = None
+                self.treemap.set_mark(None, "")
+                if self.list_mode == "found":
+                    self.list_mode = self._mode_before_find
+                self._fill_modes()
+                self._fill_list()
+            return
+        if not rerun and self.found is not None and self.found[0] == query and self.found[3] is s:
+            return
+        if self._find_job is not None:
+            self._find_again = True  # (one at a time: the last thing typed runs next)
+            return
+        cancel = self.cancel
+
+        def done(answer):
+            self._find_job = None
+            if not _alive(self):
+                return
+            if self._find_again:
+                self._find_again = False
+                self._find(rerun=True)
+                return
+            if isinstance(answer, Exception) or self.scan is not s:
+                return
+            if " ".join(self.find_box.text().split()) != query:
+                return
+            rows, total = answer
+            self.found = (query, rows, total, s)
+            if self.list_mode != "found":
+                self._mode_before_find = self.list_mode
+                self.list_mode = "found"
+            self._fill_modes()
+            self._fill_list()
+        self._find_job = _work(lambda _p: space.find(s, query, cancel=cancel), lambda _: None, done,
+                               name="corefold-space-find")
+
+    def _show_found(self, path: Path, folder):
+        """A search result on the map: its folder opens, with the file ringed."""
+        if folder is not None:
+            self.open_folder(folder)
+            return
+        s = self.scan
+        if s is None:
+            return
+        try:
+            inside = os.path.relpath(str(path.parent), str(s.root.path))
+        except ValueError:
+            return
+        holder = space.folder_at(s, "" if inside == "." else inside)
+        if os.path.normcase(str(holder.path)) != os.path.normcase(str(path.parent)):
+            return
+        self.open_folder(holder)
+        self.treemap.set_mark(holder, path.name)
 
     def _fill_kinds(self):
         """The kinds of file under the map, biggest first (the very small ones left out)."""
@@ -1162,6 +1452,7 @@ class SpacePage(QWidget):
         self.treemap.show_folder(folder)
         self._summary()
         self._fill_list()
+        self._shown = self._visible()
 
     def _up(self):
         if self.here is not None and self.here.parent is not None:
@@ -1173,8 +1464,9 @@ class SpacePage(QWidget):
         root = self.scan.root.path if self.scan else None
         self.scan = self.here = None
         self.treemap.show_folder(None)
+        self._live_timer.stop()
         if root is not None:
-            self.kept.pop(_key(root), None)
+            self._drop_map(_key(root))
             self.start_scan(root, again=True)
 
     def go_back(self) -> bool:
@@ -1194,6 +1486,7 @@ class SpacePage(QWidget):
         return False
 
     def _back_to_drives(self):
+        self._live_timer.stop()
         self.scan = self.here = None
         self.treemap.show_folder(None)
         self.items.clear()
@@ -1209,14 +1502,16 @@ class SpacePage(QWidget):
         """Lets go of the maps no one has looked at for a while (a whole drive's map takes room)."""
         showing = self.scan
         for key in [k for k, v in self.kept.items() if v[0] is not showing]:
-            del self.kept[key]
+            self._drop_map(key)
         gc.collect()  # (a map is a tree of folders pointing at each other)
         if showing is None:
             self._fill_drives()
 
     def forget_maps(self):
-        """Files were deleted here: the maps kept are out of date (the next look starts afresh)."""
-        self.kept.clear()
+        """Files were deleted here: the maps kept are out of date (the next look starts afresh), except the
+        ones Windows keeps telling the changes of (they follow by themselves)."""
+        for key in [k for k, v in self.kept.items() if v[0].watch is None or not v[0].watch.alive]:
+            self._drop_map(key)
 
     def _fill_modes(self):
         """What the list beside the map shows: this folder, the biggest files (of one kind), the ones
@@ -1230,7 +1525,9 @@ class SpacePage(QWidget):
         since = self.scan.since if self.scan is not None else 0
         if since:
             names["grew"] = tr("Grew since {date}", date=time.strftime("%Y-%m-%d", time.localtime(since)))
-        self.modes = [m for m in ("here", "big", "types", "old", "grew") if m in names]
+        if self.found is not None:
+            names["found"] = tr("Found: {count}", count=f"{self.found[2]:,}")
+        self.modes = [m for m in ("found", "here", "big", "types", "old", "grew") if m in names]
         self.mode_box.blockSignals(True)
         self.mode_box.clear()
         for m in self.modes:
@@ -1253,17 +1550,39 @@ class SpacePage(QWidget):
     def _list_mode(self, mode: str):
         if mode != "big":
             self.big_kind, self.big_type = "", None
+        if mode != "found":
+            self._mode_before_find = mode
         self.list_mode = mode
         self._fill_modes()
         self._fill_list()
         self._mark_kind()
 
     def _fill_list(self):
+        # (filled again as the disk changes: the list keeps its place and what's picked in it)
+        bar = self.items.verticalScrollBar()
+        place = bar.value()
+        cur = self.items.currentItem()
+        picked = cur.data(0, Qt.UserRole) if cur is not None else None
+        picked = str(picked[0]) if picked and picked[0] is not None else None
         self.items.clear()
         if self.here is None or self.scan is None:
             return
         rows = []
-        if self.list_mode == "big":
+        if self.list_mode == "found" and self.found is not None:
+            _query, found, total, _s = self.found
+            for size, path, folder in found:
+                p = Path(path)
+                where = p.parent.name or str(p.parent)
+                rows.append((f"{ltr(short_name(p.name, 60))}   ·   {ltr(short_name(where, 30))}", size, p,
+                             folder, path))
+            if not found:
+                it = QTreeWidgetItem([tr("Nothing on this map has that in its name."), ""])
+                it.setFlags(Qt.NoItemFlags)
+                self.items.addTopLevelItem(it)
+            elif total > len(found):
+                rows.append((tr("The {count} biggest of {total} are shown: type more to narrow it down.",
+                                count=len(found), total=f"{total:,}"), 0, None, None, None))
+        elif self.list_mode == "big":
             if self.big_type is not None:
                 biggest = self.scan.biggest_type.get(self.big_type, [])
             else:
@@ -1272,6 +1591,7 @@ class SpacePage(QWidget):
                 rows.append((ltr(short_name(Path(path).name, 60)), size, Path(path), None, path))
         elif self.list_mode == "types":
             self._fill_types()
+            bar.setValue(place)
             return
         elif self.list_mode == "old":
             for size, path, used in self.scan.old:
@@ -1309,7 +1629,13 @@ class SpacePage(QWidget):
                        else QColor(KIND_COLORS[space.kind_of(str(path))]))
             if tip:
                 it.setToolTip(0, tip)
+            if path is None and folder is None and self.list_mode == "found":
+                it.setFlags(Qt.NoItemFlags)
+                it.setText(1, "")
             self.items.addTopLevelItem(it)
+            if picked is not None and path is not None and str(path) == picked:
+                self.items.setCurrentItem(it)
+        bar.setValue(place)
 
     def _fill_types(self):
         """Every file type of the scan, biggest first: how much room it takes and in how many files."""
@@ -1331,7 +1657,9 @@ class SpacePage(QWidget):
             self._show_type(ext)
             return
         path, folder = item.data(0, Qt.UserRole) or (None, None)
-        if folder is not None:
+        if self.list_mode == "found" and path is not None:
+            self._show_found(Path(path), folder)  # (a search result: shown where it is on the map)
+        elif folder is not None:
             self.open_folder(folder)
         elif path is not None:
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
@@ -1397,6 +1725,8 @@ class SpacePage(QWidget):
             act.setEnabled(False)
             act.setText(tr("Windows keeps this folder (what's inside it can go)") if space.own_windows_folder(path)
                         else tr("Windows needs this (remove programs with the Uninstaller)"))
+        else:  # (and with what goes with it: its subtitles, shortcuts, leftovers… the person picks)
+            menu.addAction(tr("Move to the Recycle Bin with related files…"), lambda: self._remove_related(path, folder))
         sheet.menu(menu, pos)
 
     def _program_at(self, path: Path):
@@ -1450,28 +1780,55 @@ class SpacePage(QWidget):
         # (a big folder takes a while to go: the window keeps answering meanwhile)
         self._recycling = _work(lambda _p: space.recycle([path]), lambda _: None, done, busy=True)
 
-    def _forget(self, path: Path, folder, size: int):
+    def _forget(self, path: Path, folder, size: int = 0):
         """Takes it out of the map without looking through the drive again."""
         if self.scan is None:
             return
-        if folder is not None:
-            parent = folder.parent
-            if parent is not None and folder in parent.children:
-                parent.children.remove(folder)
-        else:
-            parent = self._folder_of(path.parent)
-            if parent is not None:
-                parent.big = [b for b in parent.big if b[1] != path.name]
-        p = parent
-        while p is not None:
-            p.size = max(0, p.size - size)
-            p = p.parent
-        def gone(b):
-            return Path(b[1]) == path or str(b[1]).startswith(str(path) + os.sep)
-        self.scan.biggest = [b for b in self.scan.biggest if not gone(b)]
-        self.scan.old = [b for b in self.scan.old if not gone(b)]
-        self.scan.biggest_kind = {k: [b for b in v if not gone(b)] for k, v in self.scan.biggest_kind.items()}
-        self.open_folder(self.here if self.here is not folder else (parent or self.scan.root))
+        parent = folder.parent if folder is not None else None
+        space.forget(self.scan, path, folder)
+        here = self.here
+        if here is folder or (here is not None and not space.attached(self.scan, here)):
+            here = parent if parent is not None and space.attached(self.scan, parent) else self.scan.root
+        self.open_folder(here)
+        self.kinds_bar.set_kinds(self.scan.kinds)
+        self._fill_kinds()
+        if self.found is not None:
+            self._find(rerun=True)
+
+    def _remove_related(self, path: Path, folder):
+        """Sends it to the Recycle Bin with what goes with it, after showing what that is (nothing goes that
+        isn't ticked, and only what surely belongs to it is ticked to begin with)."""
+        if self._recycling is not None:
+            return
+        from .relatedview import RelatedDialog
+        size = folder.size if folder is not None else _size(path)
+        dlg = RelatedDialog(self, path, size)
+        ok = sheet.run(dlg) == RelatedDialog.Accepted
+        chosen = list(dlg.chosen)
+        dlg.deleteLater()
+        if not ok:
+            return
+        scan = self.scan
+        everything = [path] + chosen
+
+        def done(gone):
+            if not _alive(self):
+                return
+            self._recycling = None
+            if isinstance(gone, Exception) or not gone:
+                self.c.tell(tr("Couldn't move it"), tr("{name} is in use or Windows doesn't allow it.",
+                                                        name=ltr(path.name)))
+                return
+            if self.scan is scan and scan is not None:  # (what went, off the map: what's on it)
+                for p in everything:
+                    if not os.path.lexists(p) and _on_map(scan, p):
+                        self._forget(p, folder if p == path else self._folder_of(p))
+            left = len(everything) - gone
+            text = tr("{count} items went to the Recycle Bin, where you can put them back.", count=gone)
+            if left:
+                text += " " + tr("{count} are in use or Windows doesn't allow it.", count=left)
+            self.c.say(tr("Moved to the Recycle Bin"), text, done=True)
+        self._recycling = _work(lambda _p: space.recycle(everything), lambda _: None, done, busy=True)
 
     def _folder_of(self, path: Path) -> space.Folder | None:
         root = self.scan.root if self.scan else None
@@ -1988,6 +2345,13 @@ def _note_row(text: str) -> QWidget:
     lab = _label(text, "muted", wrap=True)
     lab.setContentsMargins(16, 14, 16, 14)
     return lab
+
+
+def _on_map(result: space.Scan, path: Path) -> bool:
+    """The path is inside what the map shows."""
+    root = os.path.normcase(os.path.abspath(str(result.root.path))).rstrip("\\/")
+    p = os.path.normcase(os.path.abspath(str(path)))
+    return p.startswith(root + os.sep)
 
 
 def _key(path: Path) -> str:

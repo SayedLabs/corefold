@@ -114,6 +114,7 @@ def table_texts() -> dict[str, str]:
     add(pdfstamp.SIGN_PLACES.values(), "pdfstamp.SIGN_PLACES")
     from corefold import space, spacepage
     add(space.KINDS.values(), "space.KINDS")
+    add(space.RELATED_WHY.values(), "space.RELATED_WHY")
     add([t for _, t in spacepage.SECTIONS], "spacepage.SECTIONS")
     add(spacepage.DUPE_FOLDERS, "spacepage.DUPE_FOLDERS")
     add(["Temporary files", "Left behind by programs and installers. Only ones older than a day.", "Recycle Bin",
