@@ -1,0 +1,21 @@
+note  C:\Windows: 170,833 files, 41,293 folders in 40.0 s; the map takes 40 MB
+note  every name: 10.4 MB, every size: 5.0 MB (keeping only each folder's 48 biggest, as before, took 14.5 MB)
+ok    keeping every name takes about the room keeping the biggest did (15.3 MB, before 14.5 MB)
+note  that's 90 MB for a million files here
+ok    find 'dll': 46,316 found in 218 ms
+ok    find 'kernel32': 54 found in 168 ms
+ok    find '*.exe': 4,538 found in 116 ms
+ok    find 'notepad': 69 found in 172 ms
+ok    find 'zz no such name zz': 0 found in 93 ms
+ok    find 'a': 158,966 found in 229 ms
+ok    notepad.exe is found (it's a small file)
+ok    Windows tells what changes in a folder
+ok    following a folder costs nothing while nothing changes (0 ms of CPU in 10 s)
+note  179 folders read again in 124 ms
+ok    bringing the map up to date takes a few seconds at most
+ok    the map kept up to date says what a new look says
+ok    following stops when asked
+ok    Windows tells what changes on C:\
+note  C:\ for 30 s: 2 folders changed by Windows and programs
+ok    following the whole drive for 30 s used 0 ms of CPU
+spacelivetest: 0 problem(s)
