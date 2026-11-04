@@ -85,6 +85,7 @@ def table_texts() -> dict[str, str]:
     add(uninstall.OUTCOMES.values(), "OUTCOMES")
     add(uninstall.DEPTHS.values(), "DEPTHS")
     add(uninstall.DEPTH_HELP.values(), "DEPTH_HELP")
+    add([text for pair in uninstall.SURE.values() for text in pair], "SURE")
     from corefold import appspage
     add(appspage.SHOW.values(), "appspage.SHOW")
     add([x for pair in appspage.UNUSED.values() for x in pair], "appspage.UNUSED")

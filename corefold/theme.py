@@ -96,6 +96,11 @@ def _check_image(color: QColor) -> str:
     return _image("check", color, draw)
 
 
+def _partial_image(color: QColor) -> str:
+    """A dash: some of what's under it is ticked, some isn't."""
+    return _image("partial", color, lambda p: p.drawLine(QPointF(11, 18), QPointF(25, 18)))
+
+
 def _chevron_image(color: QColor, up: bool) -> str:
     def draw(p):
         path = QPainterPath(QPointF(10, 22 if up else 14))
@@ -220,6 +225,7 @@ QPushButton#quick:hover { background: $card_hover; border-color: $edge_hover; }
 QTreeWidget#history, QTreeWidget#apps, QListWidget#history { background: $panel; border: 1px solid $border;
         border-radius: 12px; outline: none; padding: 4px; }
 QTreeWidget#history::item, QTreeWidget#apps::item { padding: 6px 2px; }
+QTreeView::indicator:indeterminate { background: $accent; border-color: $accent; image: url($partial); }
 QListWidget#history::item { padding: 8px 10px; border-radius: 8px; }
 QTreeWidget#history::item:selected, QTreeWidget#apps::item:selected, QListWidget#history::item:selected {
         background: $select; color: $text; }
@@ -278,7 +284,7 @@ def stylesheet(t: Theme, scale: float = 1.0) -> str:
         edge_hover=p.line_strong.name(), accent_text=(p.accent if p.dark else p.accent.darker(108)).name(),
         card_hover=p.hover.name(), select=p.select.name(), warning=p.warning.name(),
         nav_hover=mix(p.backdrop, p.text, 0.06).name(), nav_press=mix(p.backdrop, p.text, 0.1).name(),
-        lead_side=lead, font_display=tokens.FONT_DISPLAY, stage=p.canvas.name(),
+        lead_side=lead, font_display=tokens.FONT_DISPLAY, stage=p.canvas.name(), partial=_partial_image(p.on_accent),
     )
     return qss.scaled(base + own, scale)
 

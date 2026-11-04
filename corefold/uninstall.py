@@ -66,6 +66,13 @@ DEPTH_HELP = {
 }
 
 
+# How sure Corefold is that a leftover is the app's (Leftover.level), shown next to it: (word, what it means),
+# English, shown through tr()
+SURE = {3: ("Sure", "It surely belongs to the app."),
+        2: ("Likely", "It most likely belongs to the app."),
+        1: ("Check first", "It might belong to the app, or be yours or another app's: check it before removing.")}
+
+
 def shown_at(item: "Leftover", depth: str) -> bool:
     if depth == "safe":
         return item.level >= 3
@@ -1072,6 +1079,7 @@ class Leftover:
     app: str = ""
     level: int = 3         # 3 = surely the app's, 2 = most likely, 1 = might be (see DEPTHS)
     deep: bool = False     # only looked for in a deep clean-up
+    inside: str = ""       # a part of a leftover folder or key, chosen on its own: that leftover (see children_of)
 
     @property
     def is_registry(self) -> bool:
@@ -2048,6 +2056,8 @@ def _reg_file_ok(reg_file: Path, item: dict) -> bool:
 def item_allowed(item: dict) -> bool:
     kind = str(item.get("kind", ""))
     path = str(item.get("path", ""))
+    if item.get("inside"):
+        return _part_allowed(kind, path, str(item.get("inside")), str(item.get("value") or ""))
     if kind in ("folder", "file", "shortcut"):
         return _path_ok(path, kind) and not is_link(path)
     if kind in ("key", "value", "service"):
@@ -2055,6 +2065,106 @@ def item_allowed(item: dict) -> bool:
     if kind == "task":
         return _task_name_ok(path)
     return False
+
+
+def _part_allowed(kind: str, path: str, inside: str, value: str) -> bool:
+    """A part of a leftover, chosen on its own (see children_of): inside is that leftover, and it must pass
+    the same checks a whole leftover does, with the part truly in it. So a part never reaches anything the
+    whole leftover couldn't (only the name check of a whole folder is left out: a sub-folder may well be
+    called "bin" or "data")."""
+    if kind in ("folder", "file"):
+        if not inside or not _path_ok(inside, "folder") or is_link(inside) or is_link(path):
+            return False
+        a = os.path.normcase(os.path.normpath(path)).rstrip("\\/")
+        b = os.path.normcase(os.path.normpath(inside)).rstrip("\\/")
+        return a != b and _inside(path, inside) and _path_ok(path, "file")
+    if kind not in ("key", "value") or not _registry_ok(inside, "key"):
+        return False
+    whole, part = inside.rstrip("\\").lower(), path.rstrip("\\").lower()
+    if not part.startswith(whole) or not all(part.split("\\")):  # (no empty names)
+        return False
+    if kind == "key":
+        return part.startswith(whole + "\\")
+    return bool(value) and (part == whole or part.startswith(whole + "\\"))
+
+
+def children_of(item: "Leftover") -> list["Leftover"]:
+    """What is right inside a leftover folder or registry key, each part a leftover of its own, so some of
+    it can be kept: folders first, then files (or keys, then values), by name. Links and junctions inside
+    aren't listed (they go only with the whole folder), nor a key's default value (it goes with its key)."""
+    whole = item.inside or item.path
+    out: list[Leftover] = []
+
+    def part(kind: str, path: str, **more) -> Leftover:
+        return Leftover(kind, path, item.reason, safe=item.safe, view=item.view, app=item.app, level=item.level,
+                        deep=item.deep, inside=whole, **more)
+    if item.kind == "folder":
+        try:
+            entries = list(os.scandir(item.path))
+        except OSError:
+            return []
+        folders, files = [], []
+        for e in entries:
+            try:
+                st = e.stat(follow_symlinks=False)
+                if is_link(e.path, st):
+                    continue
+                if e.is_dir(follow_symlinks=False):
+                    folders.append(part("folder", e.path))
+                else:
+                    files.append(part("file", e.path, size=st.st_size))
+            except OSError:
+                continue
+        out = sorted(folders, key=lambda i: i.path.lower()) + sorted(files, key=lambda i: i.path.lower())
+    elif item.kind == "key":
+        head, _, sub = item.path.partition("\\")
+        head = head.upper()
+        if head not in ("HKCU", "HKLM"):
+            return []
+        view = item.view or _views(head)[0]
+        out = [part("key", f"{item.path}\\{name}") for name in sorted(_subkeys(head, sub, view), key=str.lower)]
+        out += [part("value", item.path, value=name) for name in sorted(_values(head, sub, view), key=str.lower)
+                if name]
+    return out
+
+
+_HIVE_NAMES = {"HKCU": "HKEY_CURRENT_USER", "HKLM": "HKEY_LOCAL_MACHINE"}
+REGEDIT_KEY = r"Software\Microsoft\Windows\CurrentVersion\Applets\Regedit"
+
+
+def registry_place(path: str, view: int = 0) -> str:
+    """A leftover key the way Registry Editor writes it: "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Acme" for
+    a 32-bit one."""
+    head, _, sub = path.partition("\\")
+    full = _HIVE_NAMES.get(head.upper(), head)
+    if view == 32 and sub.lower().startswith("software\\"):
+        sub = "SOFTWARE\\WOW6432Node\\" + sub[len("software\\"):]
+    return f"{full}\\{sub}" if sub else full
+
+
+def open_in_regedit(path: str, view: int = 0) -> bool:
+    """Opens Registry Editor at this key, the way it opens at the key it showed last. Its own name for
+    the top ("Computer", in the language of Windows) is kept from what it wrote there before."""
+    if os.name != "nt" or path.partition("\\")[0].upper() not in _HIVE_NAMES:
+        return False
+    winreg = _winreg()
+    top = "Computer"
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, REGEDIT_KEY) as k:
+            last = str(winreg.QueryValueEx(k, "LastKey")[0])
+            if "\\HKEY_" in last:
+                top = last.split("\\HKEY_", 1)[0]
+    except OSError:
+        pass
+    try:
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, REGEDIT_KEY) as k:
+            winreg.SetValueEx(k, "LastKey", 0, winreg.REG_SZ, f"{top}\\{registry_place(path, view)}")
+        # (Windows' own, in the Windows folder; /m: a window of its own even when Registry Editor is open
+        # already, which wouldn't move)
+        regedit = str(windows_folder() / "regedit.exe")
+        return ctypes.windll.shell32.ShellExecuteW(None, "open", regedit, "/m", None, 1) > 32
+    except OSError:
+        return False
 
 
 def _task_name_ok(name: str) -> bool:
@@ -2363,8 +2473,8 @@ def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, a
                     # someone else may have made a folder on the way a link (C:\ProgramData is shared by
                     # every account): as administrator it would move whatever the link points to
                     raise PermissionError("the way to it goes through a link")
-                if item.kind == "folder" and not _safe_folder(item.path):
-                    raise PermissionError("protected folder")
+                if item.kind == "folder" and not item.inside and not _safe_folder(item.path):
+                    raise PermissionError("protected folder")  # (a part of one was checked by item_allowed)
                 if not _same_drive(src, folder):
                     # on another drive (a games drive...): copying it into the backup could take ages
                     # and fill the system drive, so it goes to that drive's Recycle Bin instead
