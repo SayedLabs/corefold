@@ -997,39 +997,44 @@ class MainWindow(QWidget):
 
     def _fill_nav(self):
         """The sidebar's rows: Home, a line, the sections in use (each with its tools, shown while it's open),
-        Coming soon, the room, then History, Settings and About. Made again when the sections change order."""
+        Coming soon, the room, then History, Settings and About. Made again when the sections or their tools
+        change: the rows there are kept and changed in place (only the last ones come or go), so screen readers
+        and Windows' UI Automation keep up with them."""
         nav, row_h = self.nav, self._row_h
-        nav.blockSignals(True)  # (filling the list isn't opening a page)
-        nav.clear()
-        self.nav_rows = []
-
-        def add(name: str | None, kind: str, height: int):
-            item = QListWidgetItem()
-            if name is None:
-                item.setFlags(Qt.NoItemFlags)
-            else:
-                item.setData(Qt.UserRole, name)
-            item.setData(KIND_ROLE, kind)
-            item.setSizeHint(QSize(0, height))
-            nav.addItem(item)
-            self.nav_rows.append(name)
-        for name in NAV_TOP:
-            add(name, "page", row_h)
-        add(None, "line", 13)
+        rows: list[tuple[str | None, str, int]] = [(name, "page", row_h) for name in NAV_TOP]
+        rows.append((None, "line", 13))
         for sec in self.sections:
             if all_tools.section_paused(sec):
                 continue
             uses = self._nav_uses(sec)
-            add(sec.page, "section" if uses else "page", row_h)
-            for tool in uses:
-                add(tool.page, "tool", row_h - 4)
+            rows.append((sec.page, "section" if uses else "page", row_h))
+            rows += [(tool.page, "tool", row_h - 4) for tool in uses]
         if any(all_tools.section_paused(sec) for sec in self.sections):
-            add("Soon", "page", row_h)
-        add(None, "space", 0)
-        for name in NAV_BOTTOM:
-            add(name, "page", row_h)
-        nav.movable = (0, -1)  # (sections are moved from their menu: Move up, Move down)
-        nav.blockSignals(False)
+            rows.append(("Soon", "page", row_h))
+        rows.append((None, "space", 0))
+        rows += [(name, "page", row_h) for name in NAV_BOTTOM]
+        nav.blockSignals(True)  # (changing the rows isn't opening a page)
+        try:
+            while nav.count() > len(rows):
+                nav.takeItem(nav.count() - 1)
+            for row, (name, kind, height) in enumerate(rows):
+                item = nav.item(row)
+                if item is None:
+                    item = QListWidgetItem()
+                    nav.addItem(item)
+                nav.setRowHidden(row, False)
+                item.setFlags(Qt.NoItemFlags if name is None else Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+                item.setData(Qt.UserRole, name)
+                item.setData(KIND_ROLE, kind)
+                item.setData(BADGE_ROLE, None)
+                item.setText("")
+                item.setToolTip("")
+                item.setSizeHint(QSize(0, height))
+            self.nav_rows = [name for name, _, _ in rows]
+            nav.movable = (0, -1)  # (sections are moved from their menu: Move up, Move down)
+            nav.setCurrentRow(-1)
+        finally:
+            nav.blockSignals(False)
         self.refresh_nav()
         self._sync_nav_rows(self.current_page() if hasattr(self, "stack") else "Home")
 

@@ -106,8 +106,10 @@ try:
                 continue
             win = window()
             sec = all_tools.SECTION_OF[tool.id]
-            row = [t for t in win.descendants(control_type="ListItem") if t.window_text() == sec.name]
-            if not check(bool(row), f"the sidebar has {sec.name}"):
+            # (a section resting for now is on the sidebar's one row for them all, Coming soon)
+            row_name = "Coming soon" if all_tools.section_paused(sec) else sec.name
+            row = [t for t in win.descendants(control_type="ListItem") if t.window_text() == row_name]
+            if not check(bool(row), f"the sidebar has {row_name}"):
                 continue
             click(row[0])
             time.sleep(0.8)
@@ -135,6 +137,10 @@ try:
                     check(shot(f"resting-{sec.id}", win) < 0.3, f"{sec.name}'s resting page isn't white")
                 continue
             if not check(bool(switch), f"a switch for {tool.id} in {sec.name}"):
+                for item in win.descendants(control_type="ListItem"):  # (what the sidebar showed, and where)
+                    print(f"note  sidebar row {item.window_text()!r} at {item.rectangle()}", flush=True)
+                print("note  page words: " + ", ".join(sorted({t.window_text() for t in win.descendants(control_type="Text")
+                                                             if t.window_text()})[:40]), flush=True)
                 continue
             r, wr = switch[0].rectangle(), win.rectangle()
             if wr.top < (r.top + r.bottom) // 2 < wr.bottom - 10:
@@ -158,7 +164,11 @@ try:
             if sec.direct:  # (one tool on its own, like Cloud: switched on, it opens; no tab)
                 check(shot(f"open-{tool.id}", win) < 0.3, f"{tool.id}'s page isn't white")
                 continue
-            if sec.one_tool:  # (its tab in the bar of uses on the tool's heading, above its switch and its card)
+            # (its row in the sidebar, right under its section's; with icons only, its tab on the page)
+            tab = [b for b in win.descendants(control_type="ListItem") if b.window_text() == (tool.use or tool.nav)]
+            if tab:
+                pass
+            elif sec.one_tool:  # (its tab in the bar of uses on the tool's heading, above its switch and its card)
                 tab = sorted([b for b in win.descendants() if b.window_text() == (tool.use or tool.nav)
                               and b.element_info.control_type not in ("ListItem", "Text")
                               and b.rectangle().top < wr.top + 300], key=lambda b: b.rectangle().top)[:1]
@@ -181,5 +191,8 @@ finally:
     log = Path(os.environ["LOCALAPPDATA"]) / "Rakiza Core" / "rakizacore.log"
     if log.exists():
         (OUT / "exe-log.txt").write_text(log.read_text("utf-8", "replace"), "utf-8")
+        if problems:  # (what the app itself wrote, right here in the run's output)
+            for line in log.read_text("utf-8", "replace").splitlines()[-60:]:
+                print("log   " + line, flush=True)
     proc.kill()
 print(f"exetest: {len(problems)} problem(s)", flush=True)
