@@ -1,4 +1,4 @@
-"""Corefold Awake's page: keep the PC awake (until it's switched off, for a while, or until a time), by
+"""Rakiza Core Awake's page: keep the PC awake (until it's switched off, for a while, or until a time), by
 itself while chosen programs are open, and turn the PC off later."""
 from __future__ import annotations
 
@@ -275,7 +275,7 @@ class AwakePage(QScrollArea):
         self.screen.setChecked(s.awake_screen)
         self.screen.toggled.connect(self._screen_toggled)
         lay.addWidget(self.screen)
-        self.problem = _label(tr("Windows didn't let Corefold keep the PC awake."), "warning", wrap=True)
+        self.problem = _label(tr("Windows didn't let Rakiza Core keep the PC awake."), "warning", wrap=True)
         self.problem.hide()
         lay.addWidget(self.problem)
         self._show_mode(mode)
@@ -507,7 +507,7 @@ class AwakePage(QScrollArea):
         title = tr("Turn off the PC at {time} tomorrow?", time=when) if awake.is_tomorrow(at) else \
             tr("Turn off the PC at {time}?", time=when)
         box = QMessageBox(QMessageBox.Question, title,
-                          tr("Windows turns it off then, even if Corefold is closed. Programs still open are closed "
+                          tr("Windows turns it off then, even if Rakiza Core is closed. Programs still open are closed "
                              "without saving, so save your work first. You can cancel it here until then."),
                           parent=self.window())
         yes = box.addButton(tr("Plan it"), QMessageBox.AcceptRole)
@@ -584,7 +584,7 @@ class AwakePage(QScrollArea):
         self.off_icon.setPixmap(icons.pixmap("timer", 34, t.accent if at else t.muted, dpr))
         if at is None:
             self.off_title.setText(tr("Turn off the PC later"))
-            self.off_detail.setText(tr("Windows turns it off at the time you pick, even if Corefold is closed by "
+            self.off_detail.setText(tr("Windows turns it off at the time you pick, even if Rakiza Core is closed by "
                                        "then."))
         else:
             when = awake.time_text(at)

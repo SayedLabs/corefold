@@ -1,4 +1,4 @@
-"""Corefold Uninstaller: watching an install. A look at the usual places apps put things (their folders, shortcuts,
+"""Rakiza Core Uninstaller: watching an install. A look at the usual places apps put things (their folders, shortcuts,
 registry keys, services, startup entries) before an app is installed and once it's done; what's new is kept as
 that app's trace. When the app is uninstalled later, everything in its trace that's still there is offered with
 its leftovers, even what isn't named after it. No Qt here.
@@ -18,7 +18,7 @@ from pathlib import Path
 
 log = logging.getLogger("corefold")
 
-TRACES = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "Corefold" / "Install traces"
+TRACES = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "Rakiza Core" / "Install traces"
 MAX_ITEMS = 2000                  # (a trace bigger than this was something else than one install)
 # a watch left on longer than this (started, then forgotten for a day) saw other things happen too: what in its
 # trace isn't named after the app is then only offered as "check first", never ticked
@@ -119,7 +119,7 @@ def snapshot(subkeys=None, values=None, folders: list | None = None) -> set[str]
 
 
 def start(**kw) -> Path:
-    """The look before installing, kept on disk (Corefold may be closed and opened again meanwhile)."""
+    """The look before installing, kept on disk (Rakiza Core may be closed and opened again meanwhile)."""
     TRACES.mkdir(parents=True, exist_ok=True)
     before = TRACES / "before.json"
     tmp = before.with_suffix(".tmp")
@@ -201,7 +201,7 @@ def traces() -> list[dict]:
 
 
 def trace_for(app) -> dict | None:
-    """The trace of this app's install, if Corefold watched it: matched by its uninstall entry, else its name."""
+    """The trace of this app's install, if Rakiza Core watched it: matched by its uninstall entry, else its name."""
     for t in traces():
         for e in t.get("entries", []):
             if isinstance(e, list) and len(e) == 3 and e[2].lower() == (app.key or "").lower() and \

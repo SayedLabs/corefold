@@ -1,4 +1,4 @@
-"""The very first start: "Choose your language", before anything else of Corefold shows.
+"""The very first start: "Choose your language", before anything else of Rakiza Core shows.
 
 The language Windows is in is picked already. Clicking another one shows this page in it straight
 away, so people see what they're choosing. Shown once, after installing; the language button at the
@@ -20,7 +20,7 @@ CHOICES = ("en", "ar", "fr", "es", "tr")   # (not "Match Windows": the one Windo
 
 
 def should_ask(s: Settings, argv: list[str]) -> bool:
-    """Only on the first start after installing, and not when Windows starts Corefold in the background."""
+    """Only on the first start after installing, and not when Windows starts Rakiza Core in the background."""
     return s.first_run and "--background" not in argv
 
 
@@ -93,9 +93,9 @@ class LanguagePicker(QDialog):
     def _words(self):
         """This page's words, in the language picked."""
         self.setWindowTitle(tr("Welcome"))
-        self.hello.setText(tr("Welcome to Corefold"))
+        self.hello.setText(tr("Welcome to Rakiza Core"))
         self.title.setText(tr("Choose your language"))
-        self.intro.setText(tr("You can change it any time with the language button at the top of Corefold's "
+        self.intro.setText(tr("You can change it any time with the language button at the top of Rakiza Core's "
                               "window."))
         self.go.setText(tr("Continue"))
         for code, card in self.cards.items():

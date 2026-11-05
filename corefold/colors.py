@@ -1,4 +1,4 @@
-"""Corefold Colors: pick any colour on the screen.
+"""Rakiza Core Colors: pick any colour on the screen.
 
 A shortcut freezes every screen (like Capture does) and a round magnifier follows the mouse, with the
 pixel under it outlined and its HEX underneath. A click or Enter copies it as HEX, RGB, HSL, HSV, CMYK,
@@ -555,7 +555,7 @@ class ColorToast(QWidget):
 # ----------------------------------------------------------------------------- the tool
 
 class ColorsTool(QObject):
-    """Corefold Colors while it's in use: its shortcut, picking, and the colours picked lately."""
+    """Rakiza Core Colors while it's in use: its shortcut, picking, and the colours picked lately."""
     changed = Signal()   # the colours picked lately changed
 
     def __init__(self, controller):
@@ -593,7 +593,7 @@ class ColorsTool(QObject):
     # ---- picking
 
     def pick(self):
-        """Corefold's window steps aside, every screen freezes, and a click picks a colour."""
+        """Rakiza Core's window steps aside, every screen freezes, and a click picks a colour."""
         if self.picker is not None:
             return
         if self.toast is not None:

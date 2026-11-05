@@ -1,4 +1,4 @@
-"""Building blocks shared by all of Corefold's tools (no GUI code here)."""
+"""Building blocks shared by all of Rakiza Core's tools (no GUI code here)."""
 from __future__ import annotations
 
 import logging
@@ -19,11 +19,21 @@ from . import i18n
 
 log = logging.getLogger("corefold")
 
-APP_NAME = "Corefold"
-LEGACY_NAME = "Satsuma"  # the app's name before 1.7.0 (written only here in the app's code).
-# Keep it: releases carry an installer for that version's updater (build.ps1 -OldUpdaterCopy), so
-# copies from before 1.7.0 still land here and need their settings moved over.
-PUBLISHER = "Atomic Works"
+APP_NAME = "Rakiza Core"
+EXE_NAME = "RakizaCore.exe"
+PUBLISHER = "Rakiza Labs"
+# The app's earlier names (written only here in the app's code, never shown): used only to move over what those
+# versions left (settings, folders, the start-up entry) and to tidy up after them. Keep them: releases carry an
+# installer under each old name for that version's updater (build.ps1 -OldUpdaterCopy), so those copies still
+# land here.
+PREV_NAME = "Corefold"   # keep-name (1.7.0 to 1.19)
+LEGACY_NAME = "Satsuma"  # keep-name (before 1.7.0)
+OLD_APP_NAMES = (PREV_NAME, LEGACY_NAME)  # newest first
+# The id Windows knows this app by (its taskbar button and pins, "Open with", the right-click entries, the
+# start-up entry, the pipe and the one-copy lock). It stays what earlier versions wrote, so nothing a person set
+# up (a pinned taskbar button, a default app, start with Windows switched off in Task Manager) is lost. Never
+# shown.
+KEEP_ID = "Corefold"  # keep-name
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 BELOW_NORMAL = getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0)
 _background = True  # run long jobs at "below normal" priority so the PC stays quick
@@ -35,7 +45,7 @@ def set_background_priority(on: bool):
 
 
 def job_flags() -> int:
-    """Process flags for programs Corefold runs to do a job (FFmpeg, 7-Zip, LibreOffice)."""
+    """Process flags for programs Rakiza Core runs to do a job (FFmpeg, 7-Zip, LibreOffice)."""
     return NO_WINDOW | (BELOW_NORMAL if _background else 0)
 
 
@@ -108,14 +118,14 @@ def set_downloads_folder(folder: Path):
 
 def fallback_folder() -> Path:
     """Where new files go when the original's folder can't be written to (a CD, a protected folder)."""
-    return _downloads / "Corefold"
+    return _downloads / "Rakiza Core"
 
 
 _writable_cache: dict[str, tuple[float, bool]] = {}
 
 
 def writable(folder: Path) -> bool:
-    """Can Corefold save in this folder? (Remembered for a minute, so converting 500 files doesn't
+    """Can Rakiza Core save in this folder? (Remembered for a minute, so converting 500 files doesn't
     create and delete 500 test files in the folder.)"""
     import time
     key = str(folder)
@@ -124,7 +134,7 @@ def writable(folder: Path) -> bool:
         return hit[1]
     try:
         folder.mkdir(parents=True, exist_ok=True)
-        os.rmdir(new_folder(folder, ".corefold-try-"))
+        os.rmdir(new_folder(folder, ".rakizacore-try-"))
         ok = True
     except OSError:
         ok = False
@@ -432,7 +442,7 @@ def app_dir() -> Path:
 
 def windows_folder() -> Path:
     """Where Windows is, asked of Windows itself. Not from %SystemRoot%: a program running as the person can
-    change that for their account (HKCU\\Environment), and the copy Corefold starts as administrator gets it
+    change that for their account (HKCU\\Environment), and the copy Rakiza Core starts as administrator gets it
     too, so it would start that program's "reg.exe" as administrator."""
     if os.name == "nt":
         try:
@@ -447,7 +457,7 @@ def windows_folder() -> Path:
 
 def system_tool(name: str) -> str:
     """The full path of one of Windows' own programs (reg.exe, sc.exe, powershell.exe...). Never just the
-    name: Windows would look in Corefold's own folder and the current folder first, and the helper that
+    name: Windows would look in Rakiza Core's own folder and the current folder first, and the helper that
     runs as administrator must only ever start Windows' real ones."""
     if os.name != "nt":
         return name
@@ -462,7 +472,7 @@ def system_tool(name: str) -> str:
 
 def find_program(name: str) -> str | None:
     """A program installed on the PC (7-Zip, FFmpeg...), looked for only in the folders on PATH. Unlike
-    shutil.which, never in the current folder: when Corefold is started from a downloads folder, a
+    shutil.which, never in the current folder: when Rakiza Core is started from a downloads folder, a
     "7z.exe" lying there must not be the one that runs."""
     exts = [""] if os.name != "nt" or os.path.splitext(name)[1] else [".exe", ".com"]
     for folder in os.environ.get("PATH", "").split(os.pathsep):

@@ -8,7 +8,7 @@ windows that open and close quickly" people see.
     ...                          # use the app
     for line in watch.problems(): print("FAIL  " + line)
 
-Windows only. Used by newtest_flash.py (the app from source) and exetest.py (the built Corefold.exe)."""
+Windows only. Used by newtest_flash.py (the app from source) and exetest.py (the built RakizaCore.exe)."""
 from __future__ import annotations
 
 import ctypes
@@ -99,7 +99,7 @@ class Shown:
 
     def describe(self) -> str:
         left, top, right, bottom = self.rect
-        who = "Corefold" if self.mine == "app" else f"{self.exe} (pid {self.pid})"
+        who = "Rakiza Core" if self.mine == "app" else f"{self.exe} (pid {self.pid})"
         name = f' "{self.title}"' if self.title else ""
         return f"{who}: {self.cls}{name} {right - left}x{bottom - top} at {left},{top}"
 
@@ -237,7 +237,7 @@ class FlashWatch:
             if not self._seen_by_people(w):
                 continue
             if w.mine == "child":
-                out.append(f"a program Corefold started showed a window: {w.describe()}{where}")
+                out.append(f"a program Rakiza Core started showed a window: {w.describe()}{where}")
             elif w.gone_at is not None and w.gone_at - w.at < FLASH_S:
                 out.append(f"a window flashed for {(w.gone_at - w.at) * 1000:.0f} ms: {w.describe()}{where}")
             elif w.moved is not None and w.moved[0] < 0.3:
@@ -247,7 +247,7 @@ class FlashWatch:
 
     def own_windows(self, since: float, besides: set[int]) -> list[str]:
         """Every window of the app itself shown since then other than those (hwnds), however small or quick:
-        while everything is meant to show inside Corefold's window, there should be none at all. (Menus,
+        while everything is meant to show inside Rakiza Core's window, there should be none at all. (Menus,
         tips and the picture under a dragged thing count too, unlike in problems().)"""
         with self.lock:
             events = [w for w in self.events if w.at >= since and w.mine == "app" and w.hwnd not in besides]

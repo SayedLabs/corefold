@@ -1,4 +1,4 @@
-"""Corefold File Organizer, tried for real on a Windows PC: a messy folder is made (every kind of file,
+"""Rakiza Core File Organizer, tried for real on a Windows PC: a messy folder is made (every kind of file,
 odd names, hidden and system files, shortcuts, half-finished downloads, a file a program has open, a
 name that's already taken, a project folder), then planned, sorted, sorted again, and undone, and every
 file is checked by its contents: nothing may be lost, changed, replaced or left half-moved. Then the page
@@ -25,7 +25,7 @@ TMP = Path(tempfile.mkdtemp(prefix="corefold-organizetest-"))
 os.environ["APPDATA"] = str(TMP / "roaming")
 os.environ["LOCALAPPDATA"] = str(TMP / "local")
 sys.path.insert(0, str(ROOT))
-os.environ.setdefault("COREFOLD_WAKE_ORGANIZER", "1")  # (File Organizer rests in a built Corefold: its kept code is tried here)
+os.environ.setdefault("COREFOLD_WAKE_ORGANIZER", "1")  # (File Organizer rests in a built Rakiza Core: its kept code is tried here)
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 except (AttributeError, ValueError):
@@ -122,7 +122,7 @@ EXPECT = {  # file: kind it goes to
     "x" * 180 + ".pdf": "documents",
 }
 STAY = {  # file: why it stays
-    "data.xyz": "unknown", "README": "unknown", "Corefold.lnk": "shortcut", "site.url": "shortcut",
+    "data.xyz": "unknown", "README": "unknown", "Rakiza Core.lnk": "shortcut", "site.url": "shortcut",
     "big.iso.crdownload": "downloading", "movie.mkv": "downloading", "movie.mkv.part": "downloading",
 }
 if WINDOWS:

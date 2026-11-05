@@ -1,13 +1,13 @@
 """
-Corefold - everyday tools for Windows (Converter, Uninstaller, Archive).
+Rakiza Core - everyday tools for Windows (Converter, Uninstaller, Archive).
 
 Runs in the system tray. Hold Shift while dragging a file in File Explorer or on the
-desktop (or right-click it → Corefold) and a wheel of formats appears at the cursor;
+desktop (or right-click it → Rakiza Core) and a wheel of formats appears at the cursor;
 pick one to convert.
 
 Kept light on purpose: the main window is only built when it's opened and is freed again a
 while after it's closed, conversions run at low priority one at a time, and memory that isn't
-needed any more is handed back to Windows when Corefold is idle.
+needed any more is handed back to Windows when Rakiza Core is idle.
 """
 from __future__ import annotations
 
@@ -34,8 +34,9 @@ from . import work as page_work
 from . import tools as all_tools
 from . import settings as settings_mod
 from .converters import PASSWORD_ERROR, Options, Result, Tool, pick, release_memory, run_job, warm_up
-from .core import (LEGACY_NAME, NO_WINDOW, category, fallback_folder, human_size, is_link, lower_this_thread, norm, os_open,
-                   set_background_priority, set_downloads_folder, short_name, system_tool, unique_path)
+from .core import (KEEP_ID, LEGACY_NAME, NO_WINDOW, OLD_APP_NAMES, category, fallback_folder, human_size,
+                   is_link, lower_this_thread, norm, os_open, set_background_priority, set_downloads_folder,
+                   short_name, system_tool, unique_path)
 from .history import History, size_of
 from .i18n import tr
 from .settings import (APP_NAME, LOG_DIR, TOAST_TIME_SCALE, WINDOW_TEXT_PT, Settings, app_command, app_icon,
@@ -66,7 +67,7 @@ class _OnFirstUse:
 archives = _OnFirstUse("archives")  # opening and listing archives
 dialogs = _OnFirstUse("dialogs")    # the "Resize…", "Password…" windows
 
-APP_ID = "AtomicWorks.Corefold"
+APP_ID = f"AtomicWorks.{KEEP_ID}"  # (the installer gives its shortcuts the same id)
 # A key-drag only opens the wheel if it starts in one of these windows:
 # File Explorer and the desktop. ("#32770" would add Open/Save dialogs.)
 SOURCE_WINDOW_CLASSES = {"CabinetWClass", "ExploreWClass", "Progman", "WorkerW"}
@@ -151,7 +152,7 @@ class DragWatcher(QObject):
     """Notices a Shift-drag (or the chosen key) that starts in File Explorer or on the desktop.
 
     Checks the mouse often only while a button is held; otherwise it looks rarely (a drag lasts far
-    longer than that), so Corefold uses next to no CPU while it waits in the tray. With the Converter
+    longer than that), so Rakiza Core uses next to no CPU while it waits in the tray. With the Converter
     paused or removed it doesn't look at all."""
     started = Signal()
     released = Signal()
@@ -222,7 +223,7 @@ class Inbox(QObject):
         # The helper may have written and left already, before the signals above were connected.
         QTimer.singleShot(0, self._check)
 
-    MAX_BYTES = 4 * 1024 * 1024  # thousands of file paths; anything bigger isn't from Corefold
+    MAX_BYTES = 4 * 1024 * 1024  # thousands of file paths; anything bigger isn't from Rakiza Core
 
     def _read(self):
         if not self.done:
@@ -286,14 +287,14 @@ class Controller(QObject):
         self.ids = itertools.count(1)
         self.cancels: dict[int, threading.Event] = {}
         self.uninstall_busy = 0  # an app's uninstall or leftover removal is running (Apps page)
-        self.quit_pending = False  # the installer asked Corefold to close (see quit_for_installer)
+        self.quit_pending = False  # the installer asked Rakiza Core to close (see quit_for_installer)
         self.jobs: dict[int, dict] = {}  # id -> tool, files, bytes_in, params, rename, after
         self.browsers: list = []         # open archive windows
         self.viewers: list = []          # open picture and email windows
         self.pending: list[Path] = []    # files arriving from the right-click menu for the wheel
         self.pending_open: list[Path] = []  # ... for the window ("All options…")
         self.pending_runs: dict[str, list[Path]] = {}  # tool key -> files ("Convert to PNG" in the menu)
-        self.pending_unlock: list[Path] = []  # "What's using this?" (Corefold Unlock)
+        self.pending_unlock: list[Path] = []  # "What's using this?" (Rakiza Core Unlock)
         self.pending_timer = QTimer(self)
         self.pending_timer.setSingleShot(True)
         self.pending_timer.timeout.connect(self._open_pending)
@@ -319,17 +320,17 @@ class Controller(QObject):
         self.bg.menu_files_ready.connect(self._run_menu_files)
         self.bg.archive_listed.connect(self._archive_listed)
         self.listing: set[str] = set()       # archives being read for the archive window
-        self.recent_outputs: list[str] = []  # files Corefold just made (not offered as "downloads")
+        self.recent_outputs: list[str] = []  # files Rakiza Core just made (not offered as "downloads")
 
         self.tray = QSystemTrayIcon(icon)
         self.tray.activated.connect(self._tray_clicked)
         self.tray.messageClicked.connect(self._tray_message_clicked)
         self.update_message_at = 0.0  # when the Windows notice about a new version was shown
-        self.clip = None     # Corefold Clipboard, while it's in use
-        self.capture = None  # Corefold Capture, while it's in use
+        self.clip = None     # Rakiza Core Clipboard, while it's in use
+        self.capture = None  # Rakiza Core Capture, while it's in use
         self.quick = None    # the quick menu and wheel, while one of them (or the on-top shortcut) is on
-        self.awake = None    # Corefold Awake (and its "Keep awake" tray menu), while it's in use
-        self.colors = None   # Corefold Colors, while it's in use
+        self.awake = None    # Rakiza Core Awake (and its "Keep awake" tray menu), while it's in use
+        self.colors = None   # Rakiza Core Colors, while it's in use
         self.peek = None     # the Viewer's Quick look (its shortcut in File Explorer), while it's in use
         self.menu = None
         self._build_tray_menu()
@@ -393,9 +394,9 @@ class Controller(QObject):
         # "Convert to JPG?" for photos that land in Downloads
         self.downloads = downloads_folder()
         set_downloads_folder(self.downloads)
-        default_out = str(Path.home() / "Downloads" / "Corefold")
+        default_out = str(Path.home() / "Downloads" / APP_NAME)
         if self.settings.output_folder == default_out and self.downloads != Path.home() / "Downloads":
-            self.settings.output_folder = str(self.downloads / "Corefold")  # Downloads was moved: follow it
+            self.settings.output_folder = str(self.downloads / APP_NAME)  # Downloads was moved: follow it
         self.seen_downloads: set[str] = set()
         self.dl_watcher = QFileSystemWatcher(self)
         self.dl_watcher.directoryChanged.connect(lambda _: self.dl_timer.start(1500))
@@ -422,35 +423,47 @@ class Controller(QObject):
         self.act_update_sep = menu.addSeparator()
         self.act_update.setVisible(False)
         self.act_update_sep.setVisible(False)
-        act_open = menu.addAction(tr("Open Corefold"), self.show_window)
-        act_settings = menu.addAction(tr("Settings"), lambda: self.show_window("General"))
+        # grouped as the window's sidebar is: open it; the Files tools; the screen and quick tools; what's
+        # running; the app itself
+        act_open = menu.addAction(tr("Open Rakiza Core"), self.show_window)
+        f = act_open.font()
+        f.setBold(True)
+        act_open.setFont(f)
+        menu.setDefaultAction(act_open)
+        self.tray_groups = [menu.addSeparator()]
         self.act_paste = menu.addAction(tr("Convert what's copied"), self.paste)
         self.act_archive = menu.addAction(tr("Open an archive…"), self.choose_archive)
+        self.act_again = menu.addAction(tr("Do it again…"), self.do_again)
+        menu.aboutToShow.connect(self._update_again_action)
+        self.recent_menu = menu.addMenu(tr("Recent files"))
+        self.recent_menu.aboutToShow.connect(self._fill_recent)
+        self.tray_groups.append(menu.addSeparator())
         self.act_clip = menu.addAction(tr("Clipboard history"), lambda: self.show_clipboard(from_tray=True))
         self.act_shot = menu.addAction(tr("Take a screenshot"), lambda: self.capture and self.capture.screenshot())
         self.act_shot_later = menu.addAction(tr("Screenshot with a timer"),
                                              lambda: self.capture and self.capture.screenshot_later())
         self.act_color = menu.addAction(tr("Pick a colour"), lambda: self.colors and self.colors.pick())
         self.act_quick = menu.addAction(tr("Quick menu"), lambda: self.quick and self.quick.toggle_menu())
-        self.menu_icons = [(act_open, "home"), (act_settings, "settings"), (self.act_paste, "arrow_swap"),
-                           (self.act_archive, "archive"), (self.act_clip, "clipboard"), (self.act_shot, "screenshot"),
-                           (self.act_shot_later, "timer"), (self.act_quick, "layout"), (self.act_color, "color")]
-        self.act_again = menu.addAction(tr("Do it again…"), self.do_again)
-        menu.aboutToShow.connect(self._update_again_action)
-        self.recent_menu = menu.addMenu(tr("Recent files"))
-        self.menu_icons += [(self.act_again, "arrow_sync"), (self.recent_menu.menuAction(), "history")]
-        self.recent_menu.aboutToShow.connect(self._fill_recent)
+        self.tray_groups.append(menu.addSeparator())
         self.act_pause = menu.addAction(tr("Pause the Converter"))
         self.act_pause.setCheckable(True)
         self.act_pause.setChecked(not self.settings.enabled)
         self.act_pause.toggled.connect(lambda paused: self.set_enabled(not paused))
         self.act_cancel = menu.addAction(tr("Stop all conversions"), self.cancel_all)
         self.act_cancel.setVisible(False)
-        self.menu_icons.append((menu.addAction(tr("Check for updates"), lambda: self.check_updates(manual=True)),
-                                "arrow_download"))
-        self.menu_icons.append((self.act_update, "arrow_download"))
+        self.tray_groups.append(menu.addSeparator())
+        act_settings = menu.addAction(tr("Settings"), lambda: self.show_window("General"))
+        self.act_settings = act_settings
+        act_check = menu.addAction(tr("Check for updates"), lambda: self.check_updates(manual=True))
         menu.addSeparator()
-        menu.addAction(tr("Quit"), self.ask_quit)
+        act_quit = menu.addAction(tr("Quit"), self.ask_quit)
+        self.menu_icons = [(act_open, "home"), (self.act_paste, "arrow_swap"), (self.act_archive, "archive"),
+                           (self.act_again, "arrow_sync"), (self.recent_menu.menuAction(), "history"),
+                           (self.act_clip, "clipboard"), (self.act_shot, "screenshot"), (self.act_shot_later, "timer"),
+                           (self.act_color, "color"), (self.act_quick, "layout"), (self.act_pause, "pause"),
+                           (self.act_cancel, "dismiss"), (act_settings, "settings"), (act_check, "arrow_download"),
+                           (self.act_update, "arrow_download"), (act_quit, "power")]
+        menu.aboutToShow.connect(self._tray_tidy)  # (after "Do it again" knows whether it shows)
         old, self.menu = self.menu, menu
         for m in (menu, self.recent_menu):
             round_menu(m)
@@ -526,7 +539,7 @@ class Controller(QObject):
 
     def _sheet_window(self):
         """Where a question goes that has no window of its own to show in (one from the tray, or from the
-        right-click menu in Explorer): Corefold's window, opened."""
+        right-click menu in Explorer): Rakiza Core's window, opened."""
         self.show_window()
         return self.window
 
@@ -603,7 +616,7 @@ class Controller(QObject):
             self.show_window()
 
     def _fill_recent(self):
-        """The tray's "Recent files": the last few files Corefold made; click one to see it."""
+        """The tray's "Recent files": the last few files Rakiza Core made; click one to see it."""
         self.recent_menu.clear()
         shown = 0
         for entry in self.history.items:
@@ -631,7 +644,7 @@ class Controller(QObject):
         if self.awake is not None and self.awake.on:
             self.tray.setToolTip(self.tray.toolTip() + "\n" + self.awake.status())
         if self.update_waiting():
-            self.tray.setToolTip(self.tray.toolTip() + "\n" + tr("Corefold {version} is available",
+            self.tray.setToolTip(self.tray.toolTip() + "\n" + tr("Rakiza Core {version} is available",
                                                                     version=self.update_info.version))
 
     def _css(self) -> str:
@@ -664,7 +677,7 @@ class Controller(QObject):
         if self.settings.sound_tick:
             self.play_sound("tick")
 
-    # ---- keeping Corefold light
+    # ---- keeping Rakiza Core light
 
     def apply_performance(self):
         s = self.settings
@@ -677,7 +690,7 @@ class Controller(QObject):
         if self.cancels:
             return
         # (handing memory back stops everything for a moment, up to a quarter of a second: not while
-        # someone's using one of Corefold's windows, but as soon as they've stopped for a few seconds)
+        # someone's using one of Rakiza Core's windows, but as soon as they've stopped for a few seconds)
         if QApplication.activeWindow() is not None and winutil.idle_ms() < 3000 and self._light_waits < 40:
             self._light_waits += 1
             self.light_tidy_timer.start(3000)
@@ -690,7 +703,7 @@ class Controller(QObject):
 
     def _tidy_when_free(self):
         """Looking through every object takes up to half a second with a big Space map kept: not while
-        someone is using one of Corefold's windows (unless they've been at it for five minutes)."""
+        someone is using one of Rakiza Core's windows (unless they've been at it for five minutes)."""
         if QApplication.activeWindow() is not None and self._tidy_waits < 30:
             self._tidy_waits += 1
             self.tidy_timer.start(10_000)
@@ -778,7 +791,7 @@ class Controller(QObject):
         for name in sorted(new):
             path = self.downloads / name
             if os.path.normcase(str(path)) in made:
-                continue  # made by Corefold itself
+                continue  # made by Rakiza Core itself
             if path.suffix.lower() in (".heic", ".heif", ".webp", ".avif") and path.is_file():
                 self._offer_jpg(path)
                 break
@@ -956,17 +969,17 @@ class Controller(QObject):
             from .hotkey import SHORTCUT_NAMES
             key = SHORTCUT_NAMES.get(s.cap_shortcut)
             if key and self.capture.shot_key.ok:
-                self.toast.notify(tr("Corefold Capture"), tr("Press {key} to take a screenshot.", key=key),
+                self.toast.notify(tr("Rakiza Core Capture"), tr("Press {key} to take a screenshot.", key=key),
                                   linger_ms=7000)
         if tool_id == "clipboard" and self.clip is not None:
             from .clipboard import HOTKEY_NAMES
             key = HOTKEY_NAMES.get(s.clip_shortcut)
             if key and self.clip.hotkey.ok:
-                self.toast.notify(tr("Corefold Clipboard"), tr("Press {key} in any app to open your clipboard, then "
+                self.toast.notify(tr("Rakiza Core Clipboard"), tr("Press {key} in any app to open your clipboard, then "
                                                                "pick what to paste.", key=key), linger_ms=7000)
         if tool_id == "colors" and self.colors is not None and s.colors_shortcut != "off" and self.colors.key.ok:
             from .settings import COLORS_SHORTCUTS
-            self.toast.notify(tr("Corefold Colors"), tr("Press {key} in any app to pick a colour.",
+            self.toast.notify(tr("Rakiza Core Colors"), tr("Press {key} in any app to pick a colour.",
                                                         key=COLORS_SHORTCUTS.get(s.colors_shortcut, s.colors_shortcut)),
                               linger_ms=7000)
 
@@ -995,6 +1008,27 @@ class Controller(QObject):
         self.act_shot_later.setVisible(self.capture is not None)
         self.act_color.setVisible(self.colors is not None)
         self.act_quick.setVisible(self.quick is not None and self.settings.quick_menu)
+        self._tray_tidy()
+
+    def _tray_tidy(self):
+        """No line between two groups with nothing to show between them (a group whose tools are all off)."""
+        menu = getattr(self, "menu", None)
+        if menu is None or not getattr(self, "tray_groups", None):
+            return
+        acts = menu.actions()
+
+        def shown(a) -> bool:
+            return not a.isSeparator() and a.isVisible() and a is not self.act_update
+        for sep in self.tray_groups:
+            if sep not in acts:
+                continue
+            i = acts.index(sep)
+            after = []
+            for a in acts[i + 1:]:
+                if a.isSeparator():
+                    break
+                after.append(a)
+            sep.setVisible(any(shown(a) for a in acts[:i]) and any(shown(a) for a in after))
 
     def _background_tools(self):
         self._rest_paused_tools()
@@ -1018,7 +1052,7 @@ class Controller(QObject):
     def _rest_paused_tools(self):
         """Tools resting for now (tools.PAUSED_SECTIONS) don't run, but one thing of theirs would go on without
         them: a shutdown planned in Awake is Windows' own timer, and nothing would be left to see or cancel it.
-        So it's cancelled, once, and said. (Programs put off by Corefold Startup still start a minute after
+        So it's cancelled, once, and said. (Programs put off by Rakiza Core Startup still start a minute after
         sign-in: they were taken out of Windows' own list, so without that they'd never start.)"""
         s = self.settings
         if all_tools.state("awake") != all_tools.PAUSED or not s.shutdown_at or sys.platform != "win32":
@@ -1036,13 +1070,13 @@ class Controller(QObject):
                 return  # (still planned: tried again next time)
             QTimer.singleShot(3000, lambda: self.toast.notify(
                 tr("Planned shutdown cancelled"),
-                tr("Corefold Awake is resting while it's being made better, so the shutdown it planned won't "
+                tr("Rakiza Core Awake is resting while it's being made better, so the shutdown it planned won't "
                    "happen. Your PC stays on."), linger_ms=12000))
         s.shutdown_at = s.shutdown_planned = ""
         s.save()
 
     def start_later(self, items: list | None = None):
-        """Starts the programs put off until a minute after sign-in (Corefold Startup), one by one."""
+        """Starts the programs put off until a minute after sign-in (Rakiza Core Startup), one by one."""
         from . import startup
         items = list(self.settings.startup_later) if items is None else items
         if not items:
@@ -1061,7 +1095,7 @@ class Controller(QObject):
             timer.setInterval(3600 * 1000)
             timer.timeout.connect(self.tidy_folder)
             timer.start()
-            QTimer.singleShot(10 * 60 * 1000, self.tidy_folder)  # (not while Corefold itself is starting)
+            QTimer.singleShot(10 * 60 * 1000, self.tidy_folder)  # (not while Rakiza Core itself is starting)
         elif not on and timer is not None:
             timer.stop()
             timer.deleteLater()
@@ -1078,7 +1112,7 @@ class Controller(QObject):
             timer.setInterval(3600 * 1000)
             timer.timeout.connect(self.clean_up_now)
             timer.start()
-            QTimer.singleShot(12 * 60 * 1000, self.clean_up_now)  # (not while Corefold itself is starting)
+            QTimer.singleShot(12 * 60 * 1000, self.clean_up_now)  # (not while Rakiza Core itself is starting)
         elif not on and timer is not None:
             timer.stop()
             timer.deleteLater()
@@ -1127,7 +1161,7 @@ class Controller(QObject):
             timer.setInterval(3600 * 1000)
             timer.timeout.connect(self.back_up_now)
             timer.start()
-            QTimer.singleShot(15 * 60 * 1000, self.back_up_now)  # (not while Corefold itself is starting)
+            QTimer.singleShot(15 * 60 * 1000, self.back_up_now)  # (not while Rakiza Core itself is starting)
         elif not on and timer is not None:
             timer.stop()
             timer.deleteLater()
@@ -1210,7 +1244,7 @@ class Controller(QObject):
                                     busy=True)
 
     def _capture_tool(self):
-        """Corefold Capture's shortcuts are only there while it's in use."""
+        """Rakiza Core Capture's shortcuts are only there while it's in use."""
         on = all_tools.is_on(self.settings, "capture")
         if on and self.capture is None:
             from .capture import CaptureTool
@@ -1230,7 +1264,7 @@ class Controller(QObject):
         return (self.settings.cap_shortcut, self.settings.cap_text_shortcut)
 
     def _awake_tool(self):
-        """Corefold Awake's tray menu is only there while it's in use (and removing it lets the PC sleep)."""
+        """Rakiza Core Awake's tray menu is only there while it's in use (and removing it lets the PC sleep)."""
         on = all_tools.is_on(self.settings, "awake")
         if on and self.awake is None:
             from .awake import AwakeTool
@@ -1246,7 +1280,7 @@ class Controller(QObject):
             self._update_tooltip()
 
     def _colors_tool(self):
-        """Corefold Colors' shortcut is only there while it's in use."""
+        """Rakiza Core Colors' shortcut is only there while it's in use."""
         on = all_tools.is_on(self.settings, "colors")
         if on and self.colors is None:
             from .colors import ColorsTool
@@ -1314,7 +1348,7 @@ class Controller(QObject):
         s = self.settings
         return s.quick_menu, s.quick_menu_key, s.quick_wheel, s.quick_wheel_key, s.quick_button, s.ontop_key
 
-    # ---- Corefold Clipboard
+    # ---- Rakiza Core Clipboard
 
     def _clipboard_tool(self):
         """Starts listening for copies when the Clipboard is in use, and stops completely when it isn't."""
@@ -1383,7 +1417,7 @@ class Controller(QObject):
         """An archive that can't be opened: say why, and offer to rescue what can still be read."""
         box = QMessageBox(QMessageBox.Warning, tr("Couldn't open the archive"),
                           f"{short_name(src.name)}: {error}\n\n"
-                          + tr("If it's damaged, Corefold can try to rescue the files that can still be read, "
+                          + tr("If it's damaged, Rakiza Core can try to rescue the files that can still be read, "
                                "into a new ZIP next to it. The archive itself isn't changed."))
         box.setWindowIcon(self.icon)
         rescue = box.addButton(tr("Rescue files"), QMessageBox.AcceptRole)
@@ -1413,15 +1447,15 @@ class Controller(QObject):
         self.sync_archive_opening()
 
     def sync_archive_opening(self):
-        """Double-clicking archives, pictures and emails opens them in Corefold, as chosen in Settings
+        """Double-clicking archives, pictures and emails opens them in Rakiza Core, as chosen in Settings
         (and only for the tools in use)."""
         from . import assoc
         s = self.settings
         viewer = all_tools.is_on(s, "viewer")
-        wanted = {"archive": (s.open_archives and all_tools.is_on(s, "archive"), tr("Corefold Archive")),
-                  "image": (s.open_images and viewer, tr("Corefold Viewer")),
-                  "email": (s.open_emails and viewer, tr("Corefold Viewer")),
-                  # (the Player has left Corefold: its old "Open with" entry for videos and music is taken out)
+        wanted = {"archive": (s.open_archives and all_tools.is_on(s, "archive"), tr("Rakiza Core Archive")),
+                  "image": (s.open_images and viewer, tr("Rakiza Core Viewer")),
+                  "email": (s.open_emails and viewer, tr("Rakiza Core Viewer")),
+                  # (the Player has left Rakiza Core: its old "Open with" entry for videos and music is taken out)
                   "media": (False, "")}
         assoc.sync_in_background(wanted, app_command, app_icon())
 
@@ -1448,10 +1482,10 @@ class Controller(QObject):
             self.menu_timer.start(MENU_WRITE_DELAY_MS)
             return
         s = copy.deepcopy(self.settings)  # a snapshot: the settings may change while this runs
-        # the Converter's menu (when it's wanted), and Scan's "Scan with Corefold"
+        # the Converter's menu (when it's wanted), and Scan's "Scan with Rakiza Core"
         menu_on = (s.context_menu and (all_tools.is_on(s, "converter") or all_tools.is_on(s, "space"))) or \
             all_tools.is_on(s, "scan")
-        unlock_on = all_tools.is_on(s, "unlock")  # "What's using this?" is Corefold Unlock's own
+        unlock_on = all_tools.is_on(s, "unlock")  # "What's using this?" is Rakiza Core Unlock's own
         if not menu_on and s.menu_signature == "off" and not unlock_on and s.unlock_menu_signature == "off":
             return
         self.menu_busy = True
@@ -1476,7 +1510,7 @@ class Controller(QObject):
             try:
                 unlock = shellmenu.sync_unlock(unlock_on, s.unlock_menu_signature, app_command, app_icon())
             except Exception:
-                log.exception("could not update Corefold Unlock's right-click entry")
+                log.exception("could not update Rakiza Core Unlock's right-click entry")
                 unlock = ""
             try:
                 self.bg.menu_written.emit(signature, unlock)
@@ -1502,7 +1536,7 @@ class Controller(QObject):
         word, _, rest = text.partition("\n")
         word = word.strip()
         lines = [line.strip() for line in rest.split("\n") if line.strip()]
-        if word == "quit":  # the installer, before it updates or removes Corefold
+        if word == "quit":  # the installer, before it updates or removes Rakiza Core
             self.quit_for_installer()
             return
         if self.quit_pending:  # (closing for the installer: nothing new is started)
@@ -1540,7 +1574,7 @@ class Controller(QObject):
             page.look_at(Path(path))
 
     def scan_from_menu(self, paths: list[str]):
-        """"Scan with Corefold" on files, folders or drives: each arrives from its own helper process, so
+        """"Scan with Rakiza Core" on files, folders or drives: each arrives from its own helper process, so
         they're collected for a moment and scanned together."""
         if not all_tools.is_on(self.settings, "scan"):
             return
@@ -1568,7 +1602,7 @@ class Controller(QObject):
         self.show_window("Scan")
 
     def uninstall_from_shortcut(self, path: Path):
-        """"Uninstall with Corefold" on a shortcut (the desktop, the Start menu): the Uninstaller's own steps
+        """"Uninstall with Rakiza Core" on a shortcut (the desktop, the Start menu): the Uninstaller's own steps
         for the program it opens, leftovers and backup included."""
         if not all_tools.is_on(self.settings, "uninstaller"):
             return
@@ -1608,7 +1642,7 @@ class Controller(QObject):
         self.pending_timer.start(MENU_BATCH_MS)
 
     def unlock_from_menu(self, paths: list[str]):
-        """From "What's using this?" (Corefold Unlock): each selected file arrives on its own, so they're
+        """From "What's using this?" (Rakiza Core Unlock): each selected file arrives on its own, so they're
         gathered first."""
         for p in paths:
             path = Path(p)
@@ -1681,7 +1715,7 @@ class Controller(QObject):
             self.play_done_sound()
 
     def open_viewer(self, path: Path):
-        """Opens a picture (with the rest of its folder) or an email file in Corefold Viewer."""
+        """Opens a picture (with the rest of its folder) or an email file in Rakiza Core Viewer."""
         from .viewer import is_picture
         if not path.is_file() or not self._tool_here("viewer"):
             return
@@ -1718,7 +1752,7 @@ class Controller(QObject):
         win.activateWindow()
 
     def _tool_here(self, tool_id: str) -> bool:
-        """A tool asked for from outside its own page (a file opened with it, another part of Corefold): True if
+        """A tool asked for from outside its own page (a file opened with it, another part of Rakiza Core): True if
         it's in use. If it's resting for now, that's said (once in a while) instead."""
         if all_tools.is_on(self.settings, tool_id):
             return True
@@ -1731,11 +1765,11 @@ class Controller(QObject):
         return False
 
     def played_elsewhere(self, path: Path):
-        """A video or song sent with --play: Corefold's Player has left Corefold (it moves to Rakiza Play), so an
+        """A video or song sent with --play: Rakiza Core's Player has left Rakiza Core (it moves to Rakiza Play), so an
         old double-click that still points here asks Windows which app should play it instead."""
         if not path.is_file():
             return
-        log.info("--play arrived, but the Player isn't part of Corefold any more")
+        log.info("--play arrived, but the Player isn't part of Rakiza Core any more")
         self.sync_archive_opening()  # (takes out the old "Open with" entry, if it's still there)
         try:
             subprocess.Popen([system_tool("rundll32.exe"), "shell32.dll,OpenAs_RunDLL", str(path)],
@@ -1878,7 +1912,7 @@ class Controller(QObject):
         self.settings_changed()
 
     def switch_language(self, choice: str):
-        """Puts Corefold in another language straight away, with no restart: the window, the tray menu,
+        """Puts Rakiza Core in another language straight away, with no restart: the window, the tray menu,
         popups and the right-click menu. (Windows like the Viewer that are open keep their words until
         they're opened again.)"""
         s = self.settings
@@ -1920,11 +1954,11 @@ class Controller(QObject):
             self.rebuild_window(w.current_page(), committed=w.committed, pending_startup=w.pending_startup)
 
     def restart(self, page: str = "General"):
-        """Starts a fresh copy of Corefold."""
+        """Starts a fresh copy of Rakiza Core."""
         if not self.unsaved_work_ok():  # (Cancel: the settings are saved, the next start uses them)
             return
         if self.busy_with_files():  # (a sort or a move stopped half-way would leave files half-done)
-            self.toast.notify(tr("Restart later"), tr("Corefold restarts when the conversion is done."),
+            self.toast.notify(tr("Restart later"), tr("Rakiza Core restarts when the conversion is done."),
                               linger_ms=4000)
             QTimer.singleShot(2000, lambda: self.restart(page))
             return
@@ -2001,7 +2035,7 @@ class Controller(QObject):
         """then(ok) is called once the job is over: ok when it finished, made something and nothing failed (the
         PDF editor counts its changes as saved only then)."""
         if self.quit_pending:
-            self.toast.notify(tr("Corefold is closing for an update"), tr("Try again in a moment, when it's back."),
+            self.toast.notify(tr("Rakiza Core is closing for an update"), tr("Try again in a moment, when it's back."),
                               linger_ms=4000)
             if then is not None:
                 then(False)
@@ -2188,14 +2222,14 @@ class Controller(QObject):
             winutil.reveal_in_explorer(first)
 
     def make_searchable(self, files: list[Path]):
-        """Corefold PDF's Make searchable for these PDFs (offered when there was no text to copy)."""
+        """Rakiza Core PDF's Make searchable for these PDFs (offered when there was no text to copy)."""
         self.show_window("PDF")
         page = getattr(self.window, "pdf_page", None)
         if page is not None:
             page.run("searchable", [Path(f) for f in files if Path(f).exists()])
 
     def _saved_elsewhere(self, files: list, outputs: list) -> str:
-        """'Downloads › Corefold' when what was made went there because the folder it was meant for can't be
+        """'Downloads › Rakiza Core' when what was made went there because the folder it was meant for can't be
         saved in (a CD, a read-only or protected folder); '' when everything is where it was meant to go."""
         spare = os.path.normcase(str(fallback_folder()))
         if self.settings.save_mode == "folder":
@@ -2303,7 +2337,7 @@ class Controller(QObject):
     NOT_REPEATED = {"password", "new_password", "pages", "passwords"}
 
     def remember_action(self, tool: Tool, params: dict, rename: dict):
-        if tool.key.startswith("pdftool:"):  # (Corefold PDF's page: "Do it again" stays the Converter's)
+        if tool.key.startswith("pdftool:"):  # (Rakiza Core PDF's page: "Do it again" stays the Converter's)
             return
         kept = {k: v for k, v in params.items() if k not in self.NOT_REPEATED}
         try:
@@ -2387,9 +2421,9 @@ class Controller(QObject):
         waiting = self.update_waiting()
         if hasattr(self, "act_update"):
             if waiting:
-                self.act_update.setText(tr("Update to Corefold {version}", version=self.update_info.version)
+                self.act_update.setText(tr("Update to Rakiza Core {version}", version=self.update_info.version)
                                         if self.can_self_install() else
-                                        tr("Get Corefold {version}", version=self.update_info.version))
+                                        tr("Get Rakiza Core {version}", version=self.update_info.version))
             self.act_update.setVisible(waiting)
             self.act_update_sep.setVisible(waiting)
         if hasattr(self, "act_cancel"):
@@ -2399,7 +2433,7 @@ class Controller(QObject):
 
     def _tell_update(self):
         """Say once a day that a new version is out (not while a game or presentation is full screen):
-        in Corefold's own corner message, or as a Windows notification if that one is busy."""
+        in Rakiza Core's own corner message, or as a Windows notification if that one is busy."""
         info = self.update_info
         if not self.update_waiting() or not self.settings.check_updates:
             return
@@ -2409,7 +2443,7 @@ class Controller(QObject):
         if winutil.user_busy():
             QTimer.singleShot(UPDATE_RETELL_MS, self._tell_update)
             return
-        title = tr("Corefold {version} is available", version=info.version)
+        title = tr("Rakiza Core {version} is available", version=info.version)
         detail = tr("One click to update. Your settings are kept.")
         if not self.toast.notify(title, detail, tr("Update now") if self.can_self_install() else tr("Get it"),
                                  self.start_update, 15000):
@@ -2479,7 +2513,7 @@ class Controller(QObject):
             self.update_state, self.update_info = "uptodate", None
             if manual:
                 self.toast.notify(tr("You're up to date"),
-                                  tr("Corefold {version} is the newest version.", version=__version__),
+                                  tr("Rakiza Core {version} is the newest version.", version=__version__),
                                   linger_ms=4000)
         self._refresh_updates_page()
         self._show_update_marks()
@@ -2506,8 +2540,8 @@ class Controller(QObject):
             return
         self.update_state = "downloading"
         self.update_cancel = threading.Event()
-        self.toast.start(UPDATE_JOB_ID, tr("Downloading Corefold {version}", version=info.version),
-                         tr("Corefold restarts by itself when it's done."))
+        self.toast.start(UPDATE_JOB_ID, tr("Downloading Rakiza Core {version}", version=info.version),
+                         tr("Rakiza Core restarts by itself when it's done."))
         self._refresh_updates_page()
         self._show_update_marks()
         cancel = self.update_cancel
@@ -2529,11 +2563,11 @@ class Controller(QObject):
         return bool(self.cancels) or bool(self.uninstall_busy) or page_work.busy()
 
     def quit_for_installer(self):
-        """The installer asks Corefold to close (to update or remove it). What's running finishes first and
-        nothing new starts; the installer waits for it (and only stops Corefold itself if it never closes)."""
+        """The installer asks Rakiza Core to close (to update or remove it). What's running finishes first and
+        nothing new starts; the installer waits for it (and only stops Rakiza Core itself if it never closes)."""
         if not self.quit_pending:
             self.quit_pending = True
-            log.info("the installer asked Corefold to close")
+            log.info("the installer asked Rakiza Core to close")
             try:  # (tells the installer it was heard: older versions don't answer, so it stops those itself)
                 LOG_DIR.mkdir(parents=True, exist_ok=True)
                 (LOG_DIR / "closing-for-installer").write_text(str(os.getpid()), encoding="utf-8")
@@ -2541,7 +2575,7 @@ class Controller(QObject):
                 pass
             if self.busy_with_files():
                 self.toast.notify(tr("Closing for the update"),
-                                  tr("Corefold closes as soon as what it's doing is finished."), linger_ms=6000)
+                                  tr("Rakiza Core closes as soon as what it's doing is finished."), linger_ms=6000)
         if self.busy_with_files():
             QTimer.singleShot(500, self.quit_for_installer)
             return
@@ -2551,7 +2585,7 @@ class Controller(QObject):
         if self.busy_with_files():  # let running conversions (or an uninstall, a sort…) finish first
             QTimer.singleShot(2000, lambda: self._update_downloaded(path))
             return
-        self.toast.finish(UPDATE_JOB_ID, tr("Installing the update…"), tr("Corefold will be back in a moment."),
+        self.toast.finish(UPDATE_JOB_ID, tr("Installing the update…"), tr("Rakiza Core will be back in a moment."),
                           None, 5000)
         winutil.release_mutex()
         if self.update_info is not None:  # (checked at the next start: did it really update?)
@@ -2564,8 +2598,8 @@ class Controller(QObject):
             winutil.create_mutex()
             self._update_failed(tr("couldn't start the installer"))
             return
-        # Corefold stays until the installer (once Windows gave it permission) asks it to close; if the installer
-        # ends first, nothing was installed: Corefold keeps running and the update waits
+        # Rakiza Core stays until the installer (once Windows gave it permission) asks it to close; if the installer
+        # ends first, nothing was installed: Rakiza Core keeps running and the update waits
         self._installer = installer
         self._installer_timer = QTimer(self)
         self._installer_timer.timeout.connect(self._watch_installer)
@@ -2581,7 +2615,7 @@ class Controller(QObject):
             return
         self._installer_timer.stop()
         self._installer = None
-        log.info("the installer ended (code %s) without asking Corefold to close", code)
+        log.info("the installer ended (code %s) without asking Rakiza Core to close", code)
         winutil.create_mutex()
         self.settings.update_to = ""
         self.settings.save()
@@ -2594,21 +2628,23 @@ class Controller(QObject):
         else:
             self._update_failed(tr("couldn't start the installer"))
 
-    def updated_from(self, old: str):
+    def updated_from(self, old: str, renamed: bool = False):
         """The first start after an update: said in a toast, and "What's new" is shown once, the first time the
-        window opens (now, or later from the tray)."""
+        window opens (now, or later from the tray). renamed: the first start after the rename (the toast says
+        what happened to the name too)."""
         from .releasenotes import kept
         notes = kept(__version__, i18n.language())
         fresh = notes is not None and self.settings.notes_shown != __version__
         self.whats_new_waiting = fresh
         log.info("updated from %s to %s%s", old, __version__, " (what's new waits)" if fresh else "")
         QTimer.singleShot(1500, lambda: self.toast.notify(
-            tr("Corefold was updated"),
+            tr("Welcome to the new Rakiza Core") if renamed else tr("Rakiza Core was updated"),
+            tr("A new name and a new look. Your settings, history and backups were kept.") if renamed else
             tr("You're now on version {version}. Your settings were kept.", version=__version__),
             tr("What's new") if fresh else None, self.show_whats_new if fresh else None, linger_ms=9000))
 
     def show_whats_new(self):
-        """The "What's new in Corefold <version>" window, over the main window (once per version)."""
+        """The "What's new in Rakiza Core <version>" window, over the main window (once per version)."""
         from .notesview import WhatsNew
         from .releasenotes import kept
         self.whats_new_waiting = False
@@ -2639,7 +2675,7 @@ class Controller(QObject):
             log.warning("the update to %s didn't finish: still %s", wanted, __version__)
             QTimer.singleShot(2500, lambda: self.toast.notify(
                 tr("The update didn't finish"),
-                tr("Corefold {version} wasn't installed, so you still have {current}. Nothing was lost.",
+                tr("Rakiza Core {version} wasn't installed, so you still have {current}. Nothing was lost.",
                    version=wanted, current=__version__),
                 tr("Try again"), lambda: (self.show_window("Updates"), self.check_updates(manual=True)),
                 linger_ms=15000))
@@ -2662,11 +2698,11 @@ class Controller(QObject):
     def _tell_busy(self) -> bool:
         """True (and says so) while files are being moved or changed: stopped now, they'd be left half-done."""
         if self.uninstall_busy:  # moving an app's leftovers into its backup: never stop half-way
-            self.toast.notify(tr("Corefold is busy"), tr("It's removing an app's leftovers. Quit when that's done."),
+            self.toast.notify(tr("Rakiza Core is busy"), tr("It's removing an app's leftovers. Quit when that's done."),
                               linger_ms=5000)
             return True
         if page_work.busy():  # sorting, putting back or changing files: never stop half-way
-            self.toast.notify(tr("Corefold is busy"), tr("It's sorting or changing files. Quit when that's done."),
+            self.toast.notify(tr("Rakiza Core is busy"), tr("It's sorting or changing files. Quit when that's done."),
                               linger_ms=5000)
             return True
         return False
@@ -2685,7 +2721,7 @@ class Controller(QObject):
         self.quit()
 
     def _stop_conversions_ok(self) -> bool:
-        box = QMessageBox(QMessageBox.Question, tr("Quit Corefold?"),
+        box = QMessageBox(QMessageBox.Question, tr("Quit Rakiza Core?"),
                           tr("A conversion is still running. Quitting stops it, and the unfinished file isn't "
                              "saved."), parent=self.window_if_open())
         yes = box.addButton(tr("Quit"), QMessageBox.DestructiveRole)
@@ -2696,9 +2732,9 @@ class Controller(QObject):
         return chosen
 
     def unsaved_work_ok(self) -> bool:
-        """Before quitting or restarting, while nothing has been stopped yet: unsaved work in Corefold's windows
+        """Before quitting or restarting, while nothing has been stopped yet: unsaved work in Rakiza Core's windows
         is asked about (settings not saved yet, a PDF's changes, a picture's edits…). False: Cancel was chosen,
-        and Corefold goes on as before."""
+        and Rakiza Core goes on as before."""
         w = self._window
         if w is not None and _alive(w):
             if w.is_dirty():  # (changed a moment ago: settings are kept as they're changed)
@@ -2735,7 +2771,7 @@ class Controller(QObject):
         self.cancel_all()
 
     def quit(self, cleanup: bool = False):
-        """Ends Corefold without asking anything (the installer waits for it): unsaved work is asked about
+        """Ends Rakiza Core without asking anything (the installer waits for it): unsaved work is asked about
         before this (unsaved_work_ok)."""
         if self._window is not None and self._window.isVisible():
             self._window._remember_place()
@@ -2762,7 +2798,7 @@ class Controller(QObject):
         if self.quick is not None:
             self.quick.stop()
             self.quick = None
-        if self.awake is not None:  # (Windows lets the PC sleep anyway once Corefold has ended)
+        if self.awake is not None:  # (Windows lets the PC sleep anyway once Rakiza Core has ended)
             self.awake.stop()
             self.awake = None
         if self.peek is not None:
@@ -2775,7 +2811,7 @@ class Controller(QObject):
             remove_user_data()
         winutil.release_mutex()
         # Qt asks every window still shown to close, and one that says no (unsaved edits) would turn the quit
-        # down after everything above was stopped, leaving Corefold running without its tray icon: hidden
+        # down after everything above was stopped, leaving Rakiza Core running without its tray icon: hidden
         # windows aren't asked
         for top in QApplication.topLevelWidgets():
             if _alive(top) and top.isVisible():
@@ -2790,7 +2826,7 @@ class Controller(QObject):
             return
         winutil.release_mutex()
         try:
-            # (installed for the whole PC: Windows asks for permission; answered No, Corefold just stays)
+            # (installed for the whole PC: Windows asks for permission; answered No, Rakiza Core just stays)
             from .uninstall import shell_start
             handle, error = shell_start(str(unins), admin=True)
             if handle:
@@ -2807,16 +2843,16 @@ class Controller(QObject):
             log.exception("could not start uninstaller")
             winutil.create_mutex()
             sheet.warning(self.window_if_open(), APP_NAME,
-                          tr("Couldn't start the uninstaller. You can uninstall Corefold from Windows "
+                          tr("Couldn't start the uninstaller. You can uninstall Rakiza Core from Windows "
                              "Settings → Apps → Installed apps."))
             return
         self.quit()
 
     def remove_portable(self):
-        box = QMessageBox(QMessageBox.Question, tr("Remove Corefold"),
-                          tr("This deletes Corefold's settings, removes it from the right-click menu, stops it "
+        box = QMessageBox(QMessageBox.Question, tr("Remove Rakiza Core"),
+                          tr("This deletes Rakiza Core's settings, removes it from the right-click menu, stops it "
                              "starting with Windows, and closes it.") + "\n\n"
-                          + tr("After that, delete the Corefold folder to finish removing it."),
+                          + tr("After that, delete the Rakiza Core folder to finish removing it."),
                           parent=self.window_if_open())
         yes = box.addButton(tr("Remove"), QMessageBox.DestructiveRole)
         box.addButton(tr("Cancel"), QMessageBox.RejectRole)
@@ -2887,13 +2923,13 @@ def downloads_folder() -> Path:
 
 
 def clean_old_temp_files():
-    """Removes Corefold's leftovers in the temp folder older than a day: files opened from inside
+    """Removes Rakiza Core's leftovers in the temp folder older than a day: files opened from inside
     archives, and working folders left behind if the PC was switched off in the middle of a job."""
     import re
     import shutil
     cutoff = time.time() - 86400
     temp = Path(tempfile.gettempdir())
-    # only folders with the exact names Corefold (or its old name, before 1.7.0) gives its working
+    # only folders with the exact names Rakiza Core (or its old name, before 1.7.0) gives its working
     # folders: a prefix, then Python's 8 random letters
     ours = re.compile(rf"^(corefold|{re.escape(LEGACY_NAME.lower())})-(open-|drag-)?[a-z0-9_]{{8}}$")
     for p in [*temp.glob("corefold-*"), *temp.glob(LEGACY_NAME.lower() + "-*")]:
@@ -2916,7 +2952,7 @@ def _alive(widget) -> bool:
 # ----------------------------------------------------------------------------- startup
 
 def refresh_startup_entry():
-    """If Corefold starts with Windows, make sure that entry points at this copy (the portable
+    """If Rakiza Core starts with Windows, make sure that entry points at this copy (the portable
     folder may have been moved, or an old copy may have been replaced)."""
     try:
         import winreg
@@ -2926,7 +2962,7 @@ def refresh_startup_entry():
         if not startup_enabled():
             return
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as k:
-            current = winreg.QueryValueEx(k, APP_NAME)[0]
+            current = winreg.QueryValueEx(k, KEEP_ID)[0]
         if current != launch_command():
             set_startup(True)
     except Exception:
@@ -2934,17 +2970,19 @@ def refresh_startup_entry():
 
 
 def stop_old_copy():
-    """A copy from before 1.7.0 (the old name) may be running from its old folder, or next to a portable
-    Corefold. It would open a second wheel and keep writing to the old settings, so it's closed first.
-    Only those copies: another program that happens to have the old name is never touched.
+    """A copy under one of the app's earlier names may be running from its old folder, or next to a portable
+    Rakiza Core. It would open a second wheel and keep writing to the old settings, so it's closed first.
+    Only those copies: another program that happens to have an old name is never touched.
     (The installer does the same; this covers the portable version.)"""
     if sys.platform != "win32" or not getattr(sys, "frozen", False):
         return
-    exe = f"{LEGACY_NAME}.exe"
-    places = [Path(sys.executable).with_name(exe)]
-    for root in (Path(os.environ.get("LOCALAPPDATA", ""), "Programs"), Path(os.environ.get("ProgramFiles", ""))):
-        if root.anchor:
-            places.append(root / LEGACY_NAME / exe)
+    places = []
+    for name in OLD_APP_NAMES:
+        exe = f"{name}.exe"
+        places.append(Path(sys.executable).with_name(exe))
+        for root in (Path(os.environ.get("LOCALAPPDATA", ""), "Programs"), Path(os.environ.get("ProgramFiles", ""))):
+            if root.anchor:
+                places.append(root / name / exe)
     places = [p for p in places if p.is_file()]
     if not places:
         return
@@ -2966,7 +3004,7 @@ def _keep_scroll(window, value: int):
 def setup_logging():
     try:
         LOG_DIR.mkdir(parents=True, exist_ok=True)
-        handler = logging.handlers.RotatingFileHandler(LOG_DIR / "corefold.log", maxBytes=512_000,
+        handler = logging.handlers.RotatingFileHandler(LOG_DIR / "rakizacore.log", maxBytes=512_000,
                                                        backupCount=2, encoding="utf-8")
     except OSError:
         return
@@ -3001,13 +3039,13 @@ def load_qt_translations(app: QApplication, lang: str):
 
 
 def main() -> int:
-    """Starts Corefold. main.py has already made sure no other copy is running."""
+    """Starts Rakiza Core. main.py has already made sure no other copy is running."""
     from .settings import migrate_old_name
     stop_old_copy()
     brought_over = migrate_old_name()  # before logging starts writing in the new folder
     setup_logging()
     if brought_over:
-        log.info("brought settings over from %s", LEGACY_NAME)
+        log.info("brought settings over from an earlier name")
     log.info("starting %s %s", APP_NAME, __version__)
     winutil.set_app_id(APP_ID)
     argv = sys.argv[1:]
@@ -3078,13 +3116,13 @@ def main() -> int:
     QTimer.singleShot(5000, controller.sync_archive_opening)
 
     s = controller.settings
-    if brought_over:  # first start after the rename: say what happened, once
+    if s.last_version and s.last_version != __version__ and __version__ != "dev":
+        controller.updated_from(s.last_version, renamed=brought_over)
+    elif brought_over:  # first start after the rename: say what happened, once
         QTimer.singleShot(1500, lambda: controller.toast.notify(
-            tr("Welcome to the new Corefold"),
+            tr("Welcome to the new Rakiza Core"),
             tr("A new name and a new look. Your settings, history and backups were kept."),
             linger_ms=9000))
-    elif s.last_version and s.last_version != __version__ and __version__ != "dev":
-        controller.updated_from(s.last_version)
     controller.check_update_finished()
     s.last_version = __version__
 
@@ -3125,14 +3163,14 @@ def main() -> int:
                 controller.apply_tools()
             back_names = ", ".join(tr(tool.name) for tool in back)
             QTimer.singleShot(2500 if not offered else 12000, lambda: controller.toast.notify(
-                tr("Back in Corefold"), tr("On again: {names}. You can switch them off in their section.",
+                tr("Back in Rakiza Core"), tr("On again: {names}. You can switch them off in their section.",
                                            names=back_names),
                 linger_ms=9000))
         if offered:
             controller.apply_tools()
             names = ", ".join(tr(tool.name) for tool in offered)
             QTimer.singleShot(2500, lambda: controller.toast.notify(
-                tr("New tools in Corefold"), tr("{names}. Switch on the ones you want, each in its section.",
+                tr("New tools in Rakiza Core"), tr("{names}. Switch on the ones you want, each in its section.",
                                                 names=names),
                 linger_ms=9000))
         if not s.tour_done and (not message or message.startswith(b"show")) and "--background" not in argv:

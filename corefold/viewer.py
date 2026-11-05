@@ -1,4 +1,4 @@
-"""Corefold Viewer: a fast window for flipping through the pictures in a folder.
+"""Rakiza Core Viewer: a fast window for flipping through the pictures in a folder.
 
 Pictures are read in the background (the next and previous ones too, so the arrow keys feel
 instant). Turning and cropping change only what's on screen until you press Save; Save keeps the
@@ -99,7 +99,7 @@ def raw_preview(path: Path):
             except Exception:
                 return im.copy()
     except (OSError, SyntaxError) as e:
-        raise RuntimeError(tr("this camera file has no picture Corefold can show")) from e
+        raise RuntimeError(tr("this camera file has no picture Rakiza Core can show")) from e
 
 
 def _qimage_to_pil(image: QImage):

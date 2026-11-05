@@ -1,4 +1,4 @@
-"""Corefold Space: what takes the room by file type, and the map saved as a spreadsheet."""
+"""Rakiza Core Space: what takes the room by file type, and the map saved as a spreadsheet."""
 import csv
 from pathlib import Path
 

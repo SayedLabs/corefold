@@ -314,7 +314,7 @@ def rtl_reader_missing() -> bool:
 
 
 def writes_arabic() -> bool:
-    """This person writes Arabic: Corefold is in Arabic, or Windows has an Arabic (Persian, Urdu, Hebrew) keyboard."""
+    """This person writes Arabic: Rakiza Core is in Arabic, or Windows has an Arabic (Persian, Urdu, Hebrew) keyboard."""
     from .i18n import language
     if language() == "ar":
         return True

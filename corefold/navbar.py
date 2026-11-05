@@ -1,10 +1,11 @@
-"""The window's sidebar: rows drawn by hand (a grey pill that slides to the page you're on), the tools
-in the order the person drags them into, and a narrow look with only icons.
+"""The window's sidebar: rows drawn by hand (a grey pill that slides to the page you're on), each section
+with its tools under it while it's open, and a narrow look with only icons.
 
-Rows hold the page name (or None for a heading); icons come from icons.py and follow the theme."""
+Rows hold the page name (or None for a line or the room above the rows at the bottom); icons come from
+icons.py and follow the theme."""
 from __future__ import annotations
 
-from PySide6.QtCore import QEasingCurve, QEvent, QPoint, QRectF, QSize, Qt, QVariantAnimation, Signal
+from PySide6.QtCore import QEasingCurve, QEvent, QPoint, QPointF, QRectF, QSize, Qt, QVariantAnimation, Signal
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QAbstractItemView, QApplication, QListWidget, QStyle, QStyledItemDelegate, QWidget
 
@@ -13,6 +14,9 @@ from .theme import mix
 
 ICON_ROLE = Qt.UserRole + 1     # the row's icon in icons.py
 BADGE_ROLE = Qt.UserRole + 2    # a small number on the row
+KIND_ROLE = Qt.UserRole + 3     # "page", "section" (has tools under it), "tool" (under its section), "line", "space"
+OPEN_ROLE = Qt.UserRole + 4     # a section that shows its tools now
+DOT = "•"                       # a badge that's only a dot (About: a new version is waiting)
 COMPACT_WIDTH = 64              # the sidebar with icons only
 COMPACT_BELOW = 120             # narrower than this, rows show their icon only
 
@@ -33,6 +37,17 @@ class _Rows(QStyledItemDelegate):
         r = QRectF(option.rect).adjusted(2, 2, -2, -2)
         compact = nav.compact()
         text = index.data(Qt.DisplayRole) or ""
+        kind = index.data(KIND_ROLE) or "page"
+        if kind == "space":  # (the room that keeps the last rows at the bottom)
+            p.restore()
+            return
+        if kind == "line":  # a hairline between Home and the sections
+            y = r.center().y()
+            p.setPen(QPen(t.border, 1))
+            inset = 14 if compact else 12
+            p.drawLine(int(r.left() + inset), int(y), int(r.right() - inset), int(y))
+            p.restore()
+            return
         if not index.flags() & Qt.ItemIsSelectable:  # a heading (a short line when only icons show)
             if compact:
                 y = r.center().y()
@@ -64,7 +79,13 @@ class _Rows(QStyledItemDelegate):
             p.setBrush(mix(nav.ground(), t.text, 0.05))
             p.drawRoundedRect(r, 8, 8)
         ink = t.text if (selected or hovered or lifted) else mix(t.text, nav.ground(), 0.25)
-        name = index.data(ICON_ROLE)
+        sub = kind == "tool" and not compact
+        if sub:  # a tool under its section: a thin line down from the section's icon, the name in line with its
+            ink = t.text if (selected or hovered) else mix(t.text, nav.ground(), 0.32)  # section's name
+            gx = r.right() - 12 - 10 if rtl else r.left() + 12 + 10
+            p.setPen(QPen(selected and t.accent or t.border, 2 if selected else 1))
+            p.drawLine(QPointF(gx, option.rect.top()), QPointF(gx, option.rect.bottom() + 1))
+        name = None if sub else index.data(ICON_ROLE)
         show_icon = name and (compact or nav.show_icons)
         if compact:
             icon_box = QRectF(r.center().x() - 10, r.center().y() - 10, 20, 20)
@@ -75,12 +96,17 @@ class _Rows(QStyledItemDelegate):
             icons.paint(p, icon_box, name, ink)
         badge = index.data(BADGE_ROLE)
         if not compact:
-            lead = 12 + (30 if show_icon else 2)
+            mark = badge == DOT
+            if mark:
+                badge = None
+            lead = 12 + (30 if show_icon or (sub and nav.show_icons) else 2) + (8 if sub and not nav.show_icons else 0)
             trail = 12
             fm = QFontMetrics(option.font)
             f = QFont(option.font)
-            if selected:
+            if selected or kind == "section":
                 f.setWeight(QFont.Weight.DemiBold)
+            if (kind == "section" and not badge) or mark:
+                trail += 18
             badge_w = (fm.horizontalAdvance(str(badge)) + 14) if badge else 0
             dot = False
             if badge:
@@ -105,7 +131,12 @@ class _Rows(QStyledItemDelegate):
             p.setFont(f)
             p.drawText(box, (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignVCenter | Qt.AlignAbsolute,
                        QFontMetrics(f).elidedText(text, Qt.ElideRight, int(box.width())))
-            if dot:
+            if mark:
+                p.setPen(Qt.NoPen)
+                p.setBrush(t.accent)
+                cx = r.left() + 16 if rtl else r.right() - 16
+                p.drawEllipse(QRectF(cx - 4, r.center().y() - 4, 8, 8))
+            elif dot:
                 p.setPen(Qt.NoPen)
                 p.setBrush(t.muted)
                 cx = r.left() + 14 if rtl else r.right() - 14
@@ -123,6 +154,10 @@ class _Rows(QStyledItemDelegate):
                 small.setWeight(QFont.Weight.DemiBold)
                 p.setFont(small)
                 p.drawText(pill, Qt.AlignCenter, str(badge))
+            elif kind == "section":  # open (its tools show under it) or shut
+                arrow = "chevron_down" if index.data(OPEN_ROLE) else ("chevron_left" if rtl else "chevron_right")
+                cx = r.left() + 10 if rtl else r.right() - 10 - 14
+                icons.paint(p, QRectF(cx, r.center().y() - 7, 14, 14), arrow, t.muted)
             elif (hovered or lifted) and nav.can_drag(row):  # the grip: these rows can be moved
                 gx = r.left() + 8 if rtl else r.right() - 8 - 16
                 icons.paint(p, QRectF(gx, r.center().y() - 8, 16, 16), "re_order_dots_vertical",
@@ -137,6 +172,7 @@ class _Rows(QStyledItemDelegate):
 class NavList(QListWidget):
     """The sidebar's rows. Rows between movable_range() can be dragged up and down."""
     moved = Signal(list)   # the movable rows' pages, in their new order
+    resized = Signal()     # (the room at the bottom is measured again)
     menu = Signal(int, QPoint)  # a row was right-clicked (row, global position)
 
     def __init__(self, theme_getter, show_icons: bool, animate: bool):
@@ -177,6 +213,7 @@ class NavList(QListWidget):
     def resizeEvent(self, e):
         super().resizeEvent(e)
         self._mark_y = None
+        self.resized.emit()
         self.viewport().update()
 
     def _row_mark(self, row: int) -> float | None:
@@ -217,8 +254,12 @@ class NavList(QListWidget):
                 t = self.theme()
                 p = QPainter(self.viewport())
                 p.setRenderHint(QPainter.Antialiasing)
-                h = self.visualRect(self.model().index(row, 0)).height() - 4
+                index = self.model().index(row, 0)
+                h = self.visualRect(index).height() - 4
                 pill = QRectF(2, self._mark_y - h / 2, self.viewport().width() - 4, h)
+                if index.data(KIND_ROLE) == "tool" and not self.compact():  # (in from the line on the side)
+                    cut = 12 + 10 + 8
+                    pill = pill.adjusted(0 if self.isRightToLeft() else cut, 0, -cut if self.isRightToLeft() else 0, 0)
                 path = QPainterPath()
                 path.addRoundedRect(pill, 8, 8)
                 p.fillPath(path, t.tokens.hover if self.on_canvas else t.tokens.select)

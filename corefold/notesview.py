@@ -12,7 +12,7 @@ from .i18n import tr
 from .releasenotes import Notes
 from .timefmt import latin_digits, locale
 
-# the repository whose release pages are linked (a copy built without one links to Corefold's own)
+# the repository whose release pages are linked (a copy built without one links to Rakiza Core's own)
 REPO = UPDATE_REPO or "SayedLabs/corefold"
 
 
@@ -79,7 +79,7 @@ FIRST_SHOWN = 5  # versions listed before "Show older versions"
 
 
 class VersionHistory(QWidget):
-    """Every version's notes kept with Corefold (newest first), each one opened with a click; works without
+    """Every version's notes kept with Rakiza Core (newest first), each one opened with a click; works without
     the internet. The installed version's are open to begin with. Its rows are made just after it's first
     shown, so the Updates page opens as quickly as before."""
 
@@ -160,7 +160,7 @@ class VersionHistory(QWidget):
 
     def _name(self, i: int):
         notes, toggle, body = self.rows[i]
-        name = tr("Corefold {version}", version=notes.version)
+        name = tr("Rakiza Core {version}", version=notes.version)
         if notes.version == self.current:
             name += "  ·  " + tr("installed")
         date = when(notes)
@@ -193,19 +193,19 @@ class VersionHistory(QWidget):
 
 
 class WhatsNew(QDialog):
-    """Shown once, the first time Corefold is opened after an update: what's new in this version."""
+    """Shown once, the first time Rakiza Core is opened after an update: what's new in this version."""
 
     def __init__(self, notes: Notes, accent: str, parent: QWidget):
         super().__init__(parent, Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
         self.notes = notes
-        self.setWindowTitle(tr("What's new in Corefold {version}", version=notes.version))
+        self.setWindowTitle(tr("What's new in Rakiza Core {version}", version=notes.version))
         self.setMinimumSize(QSize(520, 420))
         self.resize(600, 560)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(24, 20, 24, 18)
         lay.setSpacing(10)
-        lay.addWidget(_text(tr("What's new in Corefold {version}", version=notes.version), "h1"))
-        line = tr("Your settings and everything Corefold kept for you are as they were.")
+        lay.addWidget(_text(tr("What's new in Rakiza Core {version}", version=notes.version), "h1"))
+        line = tr("Your settings and everything Rakiza Core kept for you are as they were.")
         date = when(notes)
         lay.addWidget(_text(f"{date}  ·  {line}" if date else line, "muted"))
         scroll = QScrollArea()

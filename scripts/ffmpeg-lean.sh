@@ -1,6 +1,6 @@
 #!/bin/bash
-# Builds the FFmpeg that Corefold ships: the same FFmpeg and libraries as BtbN's "win64-gpl-shared"
-# build (https://github.com/BtbN/FFmpeg-Builds), but with only the parts Corefold uses, so it is
+# Builds the FFmpeg that Rakiza Core ships: the same FFmpeg and libraries as BtbN's "win64-gpl-shared"
+# build (https://github.com/BtbN/FFmpeg-Builds), but with only the parts Rakiza Core uses, so it is
 # about 150 MB smaller. Runs inside BtbN's build image, which has every library already built:
 #
 #   docker run --rm -v "$PWD:/work" ghcr.io/btbn/ffmpeg-builds/win64-gpl-shared-9.0:latest \
@@ -9,7 +9,7 @@
 # A released version (not FFmpeg's newest code), with the image BtbN builds for that version.
 #
 # Kept: everything FFmpeg does by itself (it reads nearly every video, song and picture, and writes
-# many of them), plus the outside libraries Corefold uses: x264 and the graphics cards' H.264
+# many of them), plus the outside libraries Rakiza Core uses: x264 and the graphics cards' H.264
 # (NVIDIA, Intel, AMD), x265 for H.265 and SVT-AV1 for AV1 videos (the Converter's "Video codec"
 # setting), VP9, WebP, JPEG XL, MP3, Opus, Vorbis, dav1d for playing AV1 videos, zscale for HDR
 # videos and libass for burnt-in subtitles. Screen and microphone recording are built in.

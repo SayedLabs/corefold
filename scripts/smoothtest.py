@@ -1,9 +1,9 @@
-"""How smooth Corefold feels, measured on a real Windows PC: every page opened (the first time and again),
+"""How smooth Rakiza Core feels, measured on a real Windows PC: every page opened (the first time and again),
 the sidebar, light and dark, another language, a tool switched off and on, the window made bigger and smaller,
 pages scrolled, a question shown and closed, the Home page changed, and the window doing nothing (what it
 costs then). A heartbeat on the window's thread notes every moment it couldn't draw: a gap over a frame and a
 half is a stutter a person may see, over a quarter of a second the window feels stuck. Every stutter says where
-the time went (the window thread's stack), and any window that shows outside Corefold's own is noted.
+the time went (the window thread's stack), and any window that shows outside Rakiza Core's own is noted.
 Slow steps are listed to look at; a problem (the check fails) is an error, a window of its own, the window stuck
 for a second or more, or a lot of CPU doing nothing.
 
@@ -76,7 +76,7 @@ for _fam in {_tokens.TEXT_FAMILY, _tokens.FONT_DISPLAY.strip('"'), "Segoe UI"}:
     for _bold in (False, True):
         _f = QFont(_fam, 11)
         _f.setBold(_bold)
-        QFontMetrics(_f).horizontalAdvance("Corefold مرحبا ✓ → 123")
+        QFontMetrics(_f).horizontalAdvance("Rakiza Core مرحبا ✓ → 123")
 
 FRAME = 1 / 60
 STUTTER = 1.5 * FRAME   # a gap this long drops a frame or more: a moving thing jumps

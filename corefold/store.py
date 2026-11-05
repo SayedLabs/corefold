@@ -27,7 +27,7 @@ class ToolPicker(QDialog):
         title.setObjectName("h1")
         lay.addWidget(title)
         intro = QLabel(tr("Pick the ones you'll use. The others stay switched off in their section, and you can "
-                          "switch them on any time. Tools you don't pick aren't loaded at all, so Corefold stays "
+                          "switch them on any time. Tools you don't pick aren't loaded at all, so Rakiza Core stays "
                           "light."))
         intro.setObjectName("muted")
         intro.setWordWrap(True)

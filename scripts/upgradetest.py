@@ -1,22 +1,26 @@
-"""Updating Corefold on a real Windows PC keeps everything where the person had it: installs the real older
+"""Updating the app on a real Windows PC keeps everything where the person had it: installs the real older
 releases (downloaded from GitHub by the workflow), changes things the way a person would, updates to the
-build in dist\\release the way Corefold's own updater does, and checks what's left:
+build in dist\\release the way the app's own updater does, and checks what's left:
 
-- Corefold installed for the whole PC (Program Files): a copy installed the old way, for one user alone, is moved
+- the older releases are under the app's earlier name (Corefold, 1.7.0 to 1.19): the update moves it to the  # keep-name
+  new name's folder, settings and data come along, and nothing under the earlier name is left (its folder in
+  Program Files, its shortcuts); a taskbar pin made under it keeps working, start with Windows keeps its choice
+
+- Rakiza Core installed for the whole PC (Program Files): a copy installed the old way, for one user alone, is moved
   over and removed (its desktop icon and taskbar pin kept in place, pointing at the new one); one picked with
-  /DIR the old way moves too, and its folder is left as it was (only Corefold's usual folder is deleted)
-- an update of a whole-PC install stays in its folder (also one picked with /DIR), Corefold running again
-- the Start menu shortcut with Corefold's app id (so a taskbar pin made from it and the running Corefold are
+  /DIR the old way moves too, and its folder is left as it was (only Rakiza Core's usual folder is deleted)
+- an update of a whole-PC install stays in its folder (also one picked with /DIR), Rakiza Core running again
+- the Start menu shortcut with Rakiza Core's app id (so a taskbar pin made from it and the running Rakiza Core are
   one button), a desktop icon left alone (not written again), one deleted staying deleted
 - "start with Windows" switched off staying off, and on staying on (pointing at the new place)
 - every setting and saved file kept, tools switched off staying off, and the tools resting in this version
   not running (their settings untouched)
-- an update cut off half-way leaves the older Corefold working, and the next update goes through
+- an update cut off half-way leaves the older Rakiza Core working, and the next update goes through
 - a fresh install: shortcuts with the app id, start-up entry when asked for
 
-Only for a throwaway Windows PC (GitHub's): it installs and removes Corefold for this Windows user and
+Only for a throwaway Windows PC (GitHub's): it installs and removes Rakiza Core for this Windows user and
 changes its settings, so it refuses to run anywhere else.
-    python scripts/upgradetest.py dist\\release out\\upgrade old\\Corefold-Setup-1.9.0.exe old\\Corefold-Setup-1.10.0.exe
+    python scripts/upgradetest.py dist\\release out\\upgrade old\\Corefold-Setup-1.9.0.exe old\\Corefold-Setup-1.10.0.exe  # keep-name
 Prints one line per check, then "upgradetest: N problem(s)".
 """
 import json
@@ -30,7 +34,7 @@ import uuid
 from pathlib import Path
 
 if (os.environ.get("CI") != "true" and os.environ.get("COREFOLD_THROWAWAY_PC") != "1") or os.name != "nt":
-    sys.exit("upgradetest: only on a throwaway Windows PC (GitHub Actions): it removes and installs Corefold")
+    sys.exit("upgradetest: only on a throwaway Windows PC (GitHub Actions): it removes and installs Rakiza Core")
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 except (AttributeError, ValueError):
@@ -41,28 +45,42 @@ OUT = Path(sys.argv[2]).resolve()
 OLD_SETUPS = [Path(p).resolve() for p in sys.argv[3:]]
 
 
+# The older releases are downloaded under the installer name they had (later releases carry a copy under it too)
+OLD_SETUP_RE = r"Corefold-Setup-"  # keep-name
+
+
 def _version_of(setup: Path) -> tuple[int, ...]:
-    m = re.match(r"Corefold-Setup-(\d+)\.(\d+)\.(\d+)", setup.name)
+    m = re.match(OLD_SETUP_RE + r"(\d+)\.(\d+)\.(\d+)", setup.name)
     return tuple(int(x) for x in m.groups()) if m else (0,)
 
 
-# (up to 1.15 Corefold installed for one user alone; from 1.16.0 for the whole PC, in Program Files)
+# (up to 1.15 Rakiza Core installed for one user alone; from 1.16.0 for the whole PC, in Program Files)
 USER_SETUPS = [p for p in OLD_SETUPS if _version_of(p) < (1, 16, 0)]
 PC_SETUPS = [p for p in OLD_SETUPS if _version_of(p) >= (1, 16, 0)]
 OUT.mkdir(parents=True, exist_ok=True)
-SETUP = sorted(RELEASE.glob("Corefold-Setup-*.exe"))[-1]
-NEW = re.match(r"Corefold-Setup-(.+)\.exe$", SETUP.name).group(1)
-APP_DIR = Path(os.environ.get("ProgramW6432") or os.environ["ProgramFiles"]) / "Corefold"  # (for the whole PC)
-USER_DIR = Path(os.environ["LOCALAPPDATA"]) / "Programs" / "Corefold"  # (the old way: for one user alone)
-CONFIG = Path(os.environ["APPDATA"]) / "Corefold"
-LOG = Path(os.environ["LOCALAPPDATA"]) / "Corefold" / "corefold.log"
-START_MENU = Path(os.environ["ProgramData"]) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Corefold.lnk"
-USER_START_MENU = Path(os.environ["APPDATA"]) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Corefold.lnk"
+SETUP = sorted(RELEASE.glob("RakizaCore-Setup-*.exe"))[-1]
+NEW = re.match(r"RakizaCore-Setup-(.+)\.exe$", SETUP.name).group(1)
+NAME, EXE_NAME = "Rakiza Core", "RakizaCore.exe"  # the new name and program
+PREV, PREV_EXE = "Corefold", "Corefold.exe"  # keep-name (the earlier name the older releases have)
+PROGRAM_FILES = Path(os.environ.get("ProgramW6432") or os.environ["ProgramFiles"])
+APP_DIR = PROGRAM_FILES / NAME  # (for the whole PC)
+PREV_DIR = PROGRAM_FILES / PREV  # (where the older releases install for the whole PC)
+USER_DIR = Path(os.environ["LOCALAPPDATA"]) / "Programs" / PREV  # (the old way: for one user alone)
+CONFIG = Path(os.environ["APPDATA"]) / NAME
+PREV_CONFIG = Path(os.environ["APPDATA"]) / PREV
+LOG = Path(os.environ["LOCALAPPDATA"]) / NAME / "rakizacore.log"
+PREV_LOG = Path(os.environ["LOCALAPPDATA"]) / PREV / "corefold.log"  # keep-name
+PROGRAMS = Path(os.environ["ProgramData"]) / "Microsoft" / "Windows" / "Start Menu" / "Programs"
+USER_PROGRAMS = Path(os.environ["APPDATA"]) / "Microsoft" / "Windows" / "Start Menu" / "Programs"
+START_MENU = PROGRAMS / f"{NAME}.lnk"
+PREV_START_MENU = PROGRAMS / f"{PREV}.lnk"
+USER_START_MENU = USER_PROGRAMS / f"{PREV}.lnk"  # (made by the older releases installed for one user alone)
 PIN = (Path(os.environ["APPDATA"]) / "Microsoft" / "Internet Explorer" / "Quick Launch" / "User Pinned" / "TaskBar"
-       / "Corefold.lnk")
+       / f"{PREV}.lnk")  # (a pin made under the earlier name: written again in place)
 UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\{D08578D1-4B3E-404B-B56C-3FDF83BAFAE2}_is1"
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
-APP_ID = "AtomicWorks.Corefold"
+APP_ID = "AtomicWorks.Corefold"  # keep-name (core.KEEP_ID: the same app for Windows across the rename)
+RUN_VALUE = "Corefold"  # keep-name (core.KEEP_ID: the start-up entry keeps its name)
 TMP = Path(tempfile.gettempdir()) / f"corefold-upgradetest-{uuid.uuid4().hex[:8]}"  # (its own, never one there)
 TMP.mkdir()
 CUSTOM: list[Path] = []  # (folders this check picked with /DIR)
@@ -89,8 +107,10 @@ def ps(script: str, **env) -> str:
                           text=True, env=dict(os.environ, **env), timeout=120).stdout.strip()
 
 
-DESKTOP = Path(ps("[Environment]::GetFolderPath('Desktop')")) / "Corefold.lnk"
-PUBLIC_DESKTOP = Path(ps("[Environment]::GetFolderPath('CommonDesktopDirectory')")) / "Corefold.lnk"
+DESKTOP_DIR = Path(ps("[Environment]::GetFolderPath('Desktop')"))
+PUBLIC_DESKTOP_DIR = Path(ps("[Environment]::GetFolderPath('CommonDesktopDirectory')"))
+DESKTOP, PUBLIC_DESKTOP = DESKTOP_DIR / f"{NAME}.lnk", PUBLIC_DESKTOP_DIR / f"{NAME}.lnk"
+PREV_DESKTOP, PREV_PUBLIC_DESKTOP = DESKTOP_DIR / f"{PREV}.lnk", PUBLIC_DESKTOP_DIR / f"{PREV}.lnk"
 
 
 def pids(exe: Path) -> list[int]:
@@ -118,10 +138,10 @@ def reg(key: str, name: str, root=winreg.HKEY_CURRENT_USER) -> str | None:
 def set_startup(on: bool, exe: Path):
     with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as k:
         if on:
-            winreg.SetValueEx(k, "Corefold", 0, winreg.REG_SZ, f'"{exe}" --background')
+            winreg.SetValueEx(k, RUN_VALUE, 0, winreg.REG_SZ, f'"{exe}" --background')
         else:
             try:
-                winreg.DeleteValue(k, "Corefold")
+                winreg.DeleteValue(k, RUN_VALUE)
             except FileNotFoundError:
                 pass
 
@@ -140,11 +160,27 @@ def same_file(a, b) -> bool:
         return False
 
 
+def current_log() -> Path:
+    """The log in use: the new name's, or (before the update) the one under the earlier name. The update brings
+    that one over under the new name, so what it holds goes on in the new one."""
+    return LOG if LOG.exists() or not PREV_LOG.exists() else PREV_LOG
+
+
+def log_size() -> int:
+    log = current_log()
+    return log.stat().st_size if log.exists() else 0
+
+
 def log_text() -> str:
     try:
-        return LOG.read_text("utf-8", errors="replace")
-    except OSError:  # (not made yet: Corefold makes it as it starts)
+        return current_log().read_text("utf-8", errors="replace")
+    except OSError:  # (not made yet: the app makes it as it starts)
         return ""
+
+
+def asked_to_close(start: int) -> bool:
+    """The running copy logged that the installer asked it to close (under whichever name it had)."""
+    return re.search(r"the installer asked [\w ]+ to close", log_since(start)) is not None
 
 
 def log_since(start: int) -> str:
@@ -187,12 +223,24 @@ def run(setup: Path, *args, name: str) -> int:
 
 
 def stop_all():
-    subprocess.run(["taskkill", "/f", "/im", "Corefold.exe"], capture_output=True)
-    wait_for(lambda: not ps("Get-Process Corefold -ErrorAction SilentlyContinue"), 15)
+    for exe in (EXE_NAME, PREV_EXE):
+        subprocess.run(["taskkill", "/f", "/im", exe], capture_output=True)
+    wait_for(lambda: not ps(f"Get-Process {Path(EXE_NAME).stem},{Path(PREV_EXE).stem} -ErrorAction SilentlyContinue"), 15)
+
+
+def exe_in(folder: Path) -> Path:
+    """The program in an installed folder: under the new name, or the earlier one (an older release)."""
+    return folder / EXE_NAME if (folder / EXE_NAME).exists() or not (folder / PREV_EXE).exists() else folder / PREV_EXE
+
+
+def config_dir() -> Path:
+    """The settings folder in use (an older release keeps it under the earlier name until the update)."""
+    return CONFIG if (CONFIG / "settings.json").exists() or not (PREV_CONFIG / "settings.json").exists() \
+        else PREV_CONFIG
 
 
 def remove_corefold():
-    """Takes Corefold off this (throwaway) PC, with its settings, so the next case starts clean (installed for
+    """Takes Rakiza Core off this (throwaway) PC, with its settings, so the next case starts clean (installed for
     the whole PC, and a copy installed the old way for this user alone)."""
     stop_all()
     for where, version, root in ((installed_dir, installed_version, winreg.HKEY_LOCAL_MACHINE),
@@ -211,7 +259,7 @@ def remove_corefold():
             wait_for(lambda: not any(folder.glob("unins*.*")), 60)
             time.sleep(2)
             left = sorted(str(p.relative_to(folder)) for p in folder.rglob("*")) if folder.is_dir() else []
-            if not check(not left, f"removing Corefold leaves nothing of its own in {folder} "
+            if not check(not left, f"removing Rakiza Core leaves nothing of its own in {folder} "
                                    f"({', '.join(left[:8]) or 'gone'})"):
                 note(f"uninstallers there: {[q.name for q in found]}, exit {code}, still listed: {version()}")
                 try:
@@ -219,19 +267,20 @@ def remove_corefold():
                 except OSError:
                     tail = ["(no log)"]
                 note("its log ends: " + " | ".join(tail))
-    for folder in (APP_DIR, USER_DIR, *CUSTOM):  # (to go on whatever was left)
+    for folder in (APP_DIR, PREV_DIR, USER_DIR, *CUSTOM):  # (to go on whatever was left)
         if folder.exists():
             subprocess.run(["cmd", "/c", "rmdir", "/s", "/q", str(folder)], capture_output=True)
-    for p in (CONFIG, LOG.parent):
+    for p in (CONFIG, LOG.parent, PREV_CONFIG, PREV_LOG.parent):
         subprocess.run(["cmd", "/c", "rmdir", "/s", "/q", str(p)], capture_output=True)
-    for lnk in (DESKTOP, PUBLIC_DESKTOP, START_MENU, USER_START_MENU, PIN):
+    for lnk in (DESKTOP, PUBLIC_DESKTOP, START_MENU, USER_START_MENU, PIN, PREV_DESKTOP, PREV_PUBLIC_DESKTOP,
+                PREV_START_MENU, USER_PROGRAMS / f"{NAME}.lnk"):
         lnk.unlink(missing_ok=True)
-    set_startup(False, APP_DIR / "Corefold.exe")
+    set_startup(False, APP_DIR / EXE_NAME)
 
 
 def settings() -> dict:
     try:
-        return json.loads((CONFIG / "settings.json").read_text("utf-8"))
+        return json.loads((config_dir() / "settings.json").read_text("utf-8"))
     except (OSError, ValueError):
         return {}
 
@@ -240,7 +289,7 @@ def seed(exe: Path):
     """Uses the older version the way a person would: starts it once, then changes settings (as the window
     would save them) and leaves files of its own."""
     subprocess.Popen([str(exe), "--background"])
-    wait_for(lambda: (CONFIG / "settings.json").exists(), 60)
+    wait_for(lambda: (config_dir() / "settings.json").exists(), 60)
     time.sleep(4)
     stop_all()
     s = settings()
@@ -248,8 +297,8 @@ def seed(exe: Path):
               "check_updates": False, "tools_off": ["capture", "pdf"], "quick_menu": True,
               "clip_shortcut": "ctrl+shift+v", "volume": 37})
     s["known_tools"] = sorted(set(s.get("known_tools") or []) | {"capture", "clipboard", "pdf", "converter"})
-    (CONFIG / "settings.json").write_text(json.dumps(s, ensure_ascii=False, indent=1), "utf-8")
-    (CONFIG / "my-notes-upgradetest.txt").write_text("kept?", "utf-8")
+    (config_dir() / "settings.json").write_text(json.dumps(s, ensure_ascii=False, indent=1), "utf-8")
+    (config_dir() / "my-notes-upgradetest.txt").write_text("kept?", "utf-8")
     return s
 
 
@@ -259,22 +308,30 @@ def files_of(folder: Path) -> set[str]:
 
 def after_update_checks(case: str, folder: Path, before: dict, kept_files: set[str], start: int,
                         updated: bool = True):
-    exe = folder / "Corefold.exe"
+    exe = folder / EXE_NAME
     check(installed_version() == NEW, f"{case}: version {NEW} installed (found {installed_version()})")
     check(installed_dir() is not None and installed_dir().resolve() == folder.resolve(),
           f"{case}: still in {folder} (found {installed_dir()})")
-    check(wait_for(lambda: pids(exe), 60), f"{case}: Corefold started again after the update")
-    check(wait_for(lambda: f"starting Corefold {NEW}" in log_since(start), 30),
+    check(wait_for(lambda: pids(exe), 60), f"{case}: Rakiza Core started again after the update")
+    check(wait_for(lambda: f"starting Rakiza Core {NEW}" in log_since(start), 30),
           f"{case}: the new version is the one running")
     check(not (folder / "_next").exists() and not (folder / "_previous").exists(),
           f"{case}: nothing of the update is left in the folder (_next, _previous)")
-    check(app_id(START_MENU) == APP_ID, f"{case}: the Start menu shortcut (for everyone) has Corefold's app id")
+    check(app_id(START_MENU) == APP_ID, f"{case}: the Start menu shortcut (for everyone) has the app's id")
     check(same_file(lnk_target(START_MENU), exe), f"{case}: the Start menu shortcut opens {exe}")
-    check(not USER_START_MENU.exists(), f"{case}: no second Start menu shortcut of this user's own")
+    check(not USER_START_MENU.exists() and not (USER_PROGRAMS / f"{NAME}.lnk").exists(),
+          f"{case}: no second Start menu shortcut of this user's own")
+    check(not PREV_START_MENU.exists() and not PREV_DESKTOP.exists() and not PREV_PUBLIC_DESKTOP.exists(),
+          f"{case}: no shortcut under the earlier name is left")
+    check(not (PREV_DIR / PREV_EXE).exists() and not (folder / PREV_EXE).exists(),
+          f"{case}: the program under the earlier name is gone ({PREV_DIR})")
+    check(not PREV_CONFIG.exists() and not PREV_LOG.parent.exists(),
+          f"{case}: the settings folders under the earlier name were moved over (none left)")
+    check(not any(LOG.parent.glob("corefold.log*")), f"{case}: the log goes on under the new name")  # keep-name
     time.sleep(6)  # (the tools in use have started by now)
     started = log_since(start)
     if updated:
-        check("updated from " in started and f"to {NEW}" in started, f"{case}: Corefold knows it was updated")
+        check("updated from " in started and f"to {NEW}" in started, f"{case}: Rakiza Core knows it was updated")
         if (Path(__file__).resolve().parent.parent / "assets" / "release-notes" / f"{NEW}.md").exists():
             check("(what's new waits)" in started, f"{case}: What's new waits for the window to open")
     after = settings()
@@ -282,7 +339,7 @@ def after_update_checks(case: str, folder: Path, before: dict, kept_files: set[s
         check(after.get(key) == before.get(key), f"{case}: setting {key} kept ({after.get(key)!r})")
     check(set(after.get("known_tools") or []) >= set(before.get("known_tools") or []),
           f"{case}: the tools this person knew are still known")
-    check(kept_files <= files_of(CONFIG), f"{case}: every file in Corefold's settings folder kept")
+    check(kept_files <= files_of(CONFIG), f"{case}: every file in the settings folder kept (now {CONFIG})")
     background = [ln for ln in started.splitlines() if "running in the background:" in ln]
     check(not any(t in ln for ln in background for t in ("clipboard", "capture", "quick access", "awake")),
           f"{case}: nothing of the resting tools runs ({background[-1].split(': ', 1)[-1] if background else 'none'})")
@@ -302,134 +359,148 @@ def moved_over_checks(case: str, old_dir: Path, deleted: bool):
         left = sorted(str(p.relative_to(old_dir)) for p in old_dir.rglob("*")) if old_dir.is_dir() else []
         check(not left and not old_dir.exists(), f"{case}: the old copy's folder is gone ({', '.join(left[:6]) or 'gone'})")
     else:
-        check((old_dir / "Corefold.exe").exists(), f"{case}: a folder picked with /DIR the old way is left as it was")
-    check(not pids(old_dir / "Corefold.exe"), f"{case}: the old copy isn't running")
+        check((old_dir / PREV_EXE).exists(), f"{case}: a folder picked with /DIR the old way is left as it was")
+    check(not pids(old_dir / PREV_EXE), f"{case}: the old copy isn't running")
 
 
-# ---- each older release (installed for one user alone), updated the way Corefold's own updater does it
+# ---- each older release (installed for one user alone), updated the way Rakiza Core's own updater does it
 for n, old in enumerate(USER_SETUPS):
-    ver = re.match(r"Corefold-Setup-(.+)\.exe$", old.name).group(1)
+    ver = re.match(OLD_SETUP_RE + r"(.+)\.exe$", old.name).group(1)
     case = f"from {ver}"
     keep_icon = n % 2 == 1      # (one case keeps the desktop icon, the other deletes it)
     startup_on = n % 2 == 1     # (one keeps "start with Windows" on, the other switches it off)
-    pinned = n % 2 == 1         # (one has Corefold pinned to the taskbar)
+    pinned = n % 2 == 1         # (one has Rakiza Core pinned to the taskbar)
     code = run(old, "/VERYSILENT", "/TASKS=desktopicon,startup", name=f"{ver}-install")
     check(code == 0 and user_version() == ver, f"{case}: {ver} installed for this user")
     stop_all()
-    before = seed(USER_DIR / "Corefold.exe")
-    kept_files = files_of(CONFIG)
-    set_startup(startup_on, USER_DIR / "Corefold.exe")
+    before = seed(USER_DIR / PREV_EXE)
+    kept_files = files_of(config_dir())
+    set_startup(startup_on, USER_DIR / PREV_EXE)
     if not keep_icon:
-        DESKTOP.unlink(missing_ok=True)
+        PREV_DESKTOP.unlink(missing_ok=True)
     if pinned and USER_START_MENU.exists():  # (a pin is a copy of the shortcut in the taskbar's own folder)
         PIN.parent.mkdir(parents=True, exist_ok=True)
         PIN.write_bytes(USER_START_MENU.read_bytes())
-    subprocess.Popen([str(USER_DIR / "Corefold.exe"), "--background"])  # (running, as it is when it updates)
-    wait_for(lambda: pids(USER_DIR / "Corefold.exe"), 30)
+    subprocess.Popen([str(USER_DIR / PREV_EXE), "--background"])  # (running, as it is when it updates)
+    wait_for(lambda: pids(USER_DIR / PREV_EXE), 30)
     time.sleep(3)
-    start = LOG.stat().st_size if LOG.exists() else 0
-    code = run(SETUP, "/SILENT", "/SP-", name=f"{ver}-update")  # (Corefold's updater adds the same switches)
+    start = log_size()
+    code = run(SETUP, "/SILENT", "/SP-", name=f"{ver}-update")  # (the app's updater adds the same switches)
     check(code == 0, f"{case}: the update installed")
     if re.match(r"1\.9\.", ver) is None:  # (versions before 1.10 can't be asked: they're stopped)
-        check("the installer asked Corefold to close" in log_since(start), f"{case}: the old copy was asked to close")
+        check(asked_to_close(start), f"{case}: the old copy was asked to close")
     after_update_checks(case, APP_DIR, before, kept_files, start)
     moved_over_checks(case, USER_DIR, deleted=True)
     if keep_icon:
-        check(DESKTOP.exists() and same_file(lnk_target(DESKTOP), APP_DIR / "Corefold.exe"),
-              f"{case}: the desktop icon stays, and opens the Corefold in Program Files")
+        check(DESKTOP.exists() and same_file(lnk_target(DESKTOP), APP_DIR / EXE_NAME),
+              f"{case}: the desktop icon stays (under the new name), and opens the app in Program Files")
         check(not PUBLIC_DESKTOP.exists(), f"{case}: no second desktop icon (for everyone)")
     else:
         check(not DESKTOP.exists() and not PUBLIC_DESKTOP.exists(), f"{case}: a deleted desktop icon stays deleted")
     if pinned:
-        check(PIN.exists() and same_file(lnk_target(PIN), APP_DIR / "Corefold.exe"),
-              f"{case}: the taskbar pin opens the Corefold in Program Files")
-    run_now = reg(RUN_KEY, "Corefold")
+        check(PIN.exists() and same_file(lnk_target(PIN), APP_DIR / EXE_NAME) and app_id(PIN) == APP_ID,
+              f"{case}: the taskbar pin opens the app in Program Files")
+    run_now = reg(RUN_KEY, RUN_VALUE)
     if startup_on:
-        check(run_now is not None and str(APP_DIR / "Corefold.exe").lower() in run_now.lower(),
-              f"{case}: starting with Windows stays on, with the Corefold in Program Files ({run_now})")
+        check(run_now is not None and str(APP_DIR / EXE_NAME).lower() in run_now.lower(),
+              f"{case}: starting with Windows stays on, with the app in Program Files ({run_now})")
     else:
         check(run_now is None, f"{case}: starting with Windows stays off ({run_now})")
     remove_corefold()
 
 # ---- each older release that already installs for the whole PC, updated in its place
 for old in PC_SETUPS:
-    ver = re.match(r"Corefold-Setup-(.+)\.exe$", old.name).group(1)
+    ver = re.match(OLD_SETUP_RE + r"(.+)\.exe$", old.name).group(1)
     case = f"from {ver}"
-    exe = APP_DIR / "Corefold.exe"
     code = run(old, "/VERYSILENT", "/TASKS=desktopicon,startup", name=f"{ver}-install")
-    check(code == 0 and installed_version() == ver and same_file(installed_dir(), APP_DIR),
-          f"{case}: {ver} installed for the whole PC")
+    folder = installed_dir()
+    check(code == 0 and installed_version() == ver and folder is not None and folder.parent == PROGRAM_FILES,
+          f"{case}: {ver} installed for the whole PC ({folder})")
+    folder = folder or PREV_DIR
+    old_exe = exe_in(folder)
+    renamed = folder.name != NAME  # (an older release, under the earlier name: the update moves it)
+    pinned = renamed
     stop_all()
-    before = seed(exe)
-    kept_files = files_of(CONFIG)
-    set_startup(True, exe)
-    icon = PUBLIC_DESKTOP if PUBLIC_DESKTOP.exists() else DESKTOP
-    icon_time = icon.stat().st_mtime_ns if icon.exists() else None
-    subprocess.Popen([str(exe), "--background"])  # (running, as it is when it updates)
-    wait_for(lambda: pids(exe), 30)
+    before = seed(old_exe)
+    kept_files = files_of(config_dir())
+    set_startup(True, old_exe)
+    if pinned:  # (a pin made from the Start menu shortcut, under the earlier name)
+        PIN.parent.mkdir(parents=True, exist_ok=True)
+        PIN.write_bytes(PREV_START_MENU.read_bytes())
+    icons = [p for p in (PUBLIC_DESKTOP, DESKTOP, PREV_PUBLIC_DESKTOP, PREV_DESKTOP) if p.exists()]
+    icon_time = icons[0].stat().st_mtime_ns if icons else None
+    subprocess.Popen([str(old_exe), "--background"])  # (running, as it is when it updates)
+    wait_for(lambda: pids(old_exe), 30)
     time.sleep(3)
-    start = LOG.stat().st_size if LOG.exists() else 0
+    start = log_size()
     code = run(SETUP, "/SILENT", "/SP-", name=f"{ver}-update")
     check(code == 0, f"{case}: the update installed")
-    check("the installer asked Corefold to close" in log_since(start), f"{case}: the old copy was asked to close")
+    check(asked_to_close(start), f"{case}: the old copy was asked to close")
     after_update_checks(case, APP_DIR, before, kept_files, start)
     check(user_version() is None, f"{case}: nothing installed for this user alone")
-    check(icon_time is not None and icon.exists() and icon.stat().st_mtime_ns == icon_time,
-          f"{case}: the desktop icon was left alone ({icon})")
-    run_now = reg(RUN_KEY, "Corefold")
-    check(run_now is not None and str(exe).lower() in run_now.lower(),
-          f"{case}: starting with Windows stays on ({run_now})")
+    if renamed:
+        check(not folder.exists(), f"{case}: the folder under the earlier name is gone ({folder})")
+        check(PUBLIC_DESKTOP.exists() and same_file(lnk_target(PUBLIC_DESKTOP), APP_DIR / EXE_NAME),
+              f"{case}: the desktop icon is there under the new name, and opens the app in Program Files")
+        check(PIN.exists() and same_file(lnk_target(PIN), APP_DIR / EXE_NAME) and app_id(PIN) == APP_ID,
+              f"{case}: the taskbar pin still works (it opens the app in Program Files)")
+    else:
+        check(icon_time is not None and icons[0].exists() and icons[0].stat().st_mtime_ns == icon_time,
+              f"{case}: the desktop icon was left alone ({icons[0] if icons else None})")
+    run_now = reg(RUN_KEY, RUN_VALUE)
+    check(run_now is not None and str(APP_DIR / EXE_NAME).lower() in run_now.lower(),
+          f"{case}: starting with Windows stays on, with the app in Program Files ({run_now})")
     remove_corefold()
 
-# ---- a folder picked with /DIR the old way: Corefold moves to Program Files, the folder is left alone
+# ---- a folder picked with /DIR the old way: Rakiza Core moves to Program Files, the folder is left alone
 if USER_SETUPS:
     old = USER_SETUPS[-1]
-    custom = TMP / "My apps" / "Corefold here"
+    custom = TMP / "My apps" / f"{PREV} here"
     CUSTOM.append(custom)
     code = run(old, "/VERYSILENT", "/TASKS=", f"/DIR={custom}", name="custom-install")
-    check(code == 0 and (custom / "Corefold.exe").exists(), f"custom folder: installed into {custom}")
+    check(code == 0 and (custom / PREV_EXE).exists(), f"custom folder: installed into {custom}")
     stop_all()
-    before = seed(custom / "Corefold.exe")
-    kept_files = files_of(CONFIG)
-    start = LOG.stat().st_size if LOG.exists() else 0
+    before = seed(custom / PREV_EXE)
+    kept_files = files_of(config_dir())
+    start = log_size()
     code = run(SETUP, "/SILENT", "/SP-", name="custom-update")
     check(code == 0, "custom folder: the update installed")
     after_update_checks("custom folder", APP_DIR, before, kept_files, start)
     moved_over_checks("custom folder", custom, deleted=False)
     remove_corefold()
 
-# ---- an update cut off half-way: the older Corefold still works, and updating again goes through
+# ---- an update cut off half-way: the older Rakiza Core still works, and updating again goes through
 if USER_SETUPS:
     old = USER_SETUPS[-1]
-    ver = re.match(r"Corefold-Setup-(.+)\.exe$", old.name).group(1)
+    ver = re.match(OLD_SETUP_RE + r"(.+)\.exe$", old.name).group(1)
     run(old, "/VERYSILENT", "/TASKS=", name="cut-install")
     stop_all()
     proc = subprocess.Popen([str(SETUP), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", f"/LOG={OUT / 'cut.log'}"])
     time.sleep(4)
     subprocess.run(["taskkill", "/f", "/t", "/pid", str(proc.pid)], capture_output=True)
-    for name in ("Corefold-Setup-*", "is-*"):  # (the installer's own helper, if it outlived the kill)
+    for name in (f"{Path(SETUP.name).stem.split('-Setup-')[0]}-Setup-*", "is-*"):  # (its own helper, if it outlived the kill)
         ps(f"Get-Process | Where-Object {{ $_.ProcessName -like '{name}' }} | Stop-Process -Force")
     time.sleep(3)
     stop_all()
     # (cut before the end, the copy for this user is still the whole one; after it, the one in Program Files)
-    folder = USER_DIR if user_version() == ver and (USER_DIR / "Corefold.exe").exists() else APP_DIR
-    exe = folder / "Corefold.exe"
+    folder = USER_DIR if user_version() == ver and (USER_DIR / PREV_EXE).exists() else APP_DIR
+    exe = exe_in(folder)
     note(f"after the cut: for this user {user_version()}, for the PC {installed_version()}, running from {folder}")
     check(exe.exists() and (user_version() == ver or installed_version() == NEW),
-          "cut off: a whole Corefold is still installed")
+          "cut off: a whole copy of the app is still installed")
     if exe.exists():
-        start = LOG.stat().st_size if LOG.exists() else 0
+        start = log_size()
         inner = folder / "_internal"
         note(f"after the cut: _internal {'has ' + str(sum(1 for _ in inner.rglob('*'))) + ' files' if inner.is_dir() else 'missing'}"
              f", left by the cut: {', '.join(sorted(q.name for q in [*APP_DIR.glob('is-*'), *APP_DIR.glob('_next')])) or 'nothing'}")
         started = subprocess.Popen([str(exe), "--background"], stderr=subprocess.PIPE)
-        ok = wait_for(lambda: pids(exe), 60) and wait_for(lambda: "starting Corefold" in log_since(start), 30)
+        ok = wait_for(lambda: pids(exe), 60) and wait_for(lambda: "starting " in log_since(start), 30)
         if not ok:
             ended = started.poll()
             err = started.stderr.read().decode("utf-8", "replace")[-600:] if ended is not None else ""
-            note(f"after the cut Corefold {'ended with ' + str(ended) if ended is not None else 'is still running'}"
+            note(f"after the cut the app {'ended with ' + str(ended) if ended is not None else 'is still running'}"
                  f"; log: {log_since(start)[-400:]!r}; errors: {err!r}")
-        check(ok, "cut off: Corefold still starts")
+        check(ok, "cut off: the app still starts")
     code = run(SETUP, "/SILENT", "/SP-", name="cut-again")
     check(code == 0 and installed_version() == NEW and user_version() is None, "cut off: updating again goes through")
     stale = sorted(q.name for q in APP_DIR.glob("unins*.*"))
@@ -437,18 +508,18 @@ if USER_SETUPS:
           f"cut off: only the uninstaller in the list of apps is kept ({', '.join(stale)})")
     remove_corefold()
 
-# ---- a fresh install (for the whole PC), then an update of it, the way Corefold's updater runs it
+# ---- a fresh install (for the whole PC), then an update of it, the way Rakiza Core's updater runs it
 code = run(SETUP, "/VERYSILENT", "/TASKS=desktopicon,startup", name="fresh")
 check(code == 0 and installed_version() == NEW and same_file(installed_dir(), APP_DIR), f"fresh: installed in {APP_DIR}")
-check(app_id(START_MENU) == APP_ID and app_id(PUBLIC_DESKTOP) == APP_ID, "fresh: both shortcuts have Corefold's app id")
-check(reg(RUN_KEY, "Corefold") is not None, "fresh: starts with Windows (asked for)")
-check(wait_for(lambda: pids(APP_DIR / "Corefold.exe"), 60), "fresh: Corefold started")
+check(app_id(START_MENU) == APP_ID and app_id(PUBLIC_DESKTOP) == APP_ID, "fresh: both shortcuts have the app's id")
+check(reg(RUN_KEY, RUN_VALUE) is not None, "fresh: starts with Windows (asked for)")
+check(wait_for(lambda: pids(APP_DIR / EXE_NAME), 60), "fresh: the app started")
 icon_time = PUBLIC_DESKTOP.stat().st_mtime_ns if PUBLIC_DESKTOP.exists() else None
 before, kept_files = settings(), files_of(CONFIG)
-start = LOG.stat().st_size if LOG.exists() else 0
+start = log_size()
 code = run(SETUP, "/SILENT", "/SP-", name="whole-pc-update")
 check(code == 0, "whole PC: the update installed")
-check("the installer asked Corefold to close" in log_since(start), "whole PC: Corefold was asked to close")
+check(asked_to_close(start), "whole PC: Rakiza Core was asked to close")
 after_update_checks("whole PC", APP_DIR, before, kept_files, start, updated=False)
 check(PUBLIC_DESKTOP.exists() and PUBLIC_DESKTOP.stat().st_mtime_ns == icon_time,
       "whole PC: the desktop icon was left alone (so it keeps its place)")
@@ -456,17 +527,17 @@ check(not DESKTOP.exists(), "whole PC: no second desktop icon of this user's own
 remove_corefold()
 
 # ---- a folder picked with /DIR for the whole PC is kept by the update
-custom = TMP / "Shared apps" / "Corefold"
+custom = TMP / "Shared apps" / NAME
 CUSTOM.append(custom)
 code = run(SETUP, "/VERYSILENT", "/TASKS=", f"/DIR={custom}", name="custom-pc-install")
-check(code == 0 and (custom / "Corefold.exe").exists(), f"whole PC, own folder: installed into {custom}")
-wait_for(lambda: pids(custom / "Corefold.exe"), 60)
+check(code == 0 and (custom / EXE_NAME).exists(), f"whole PC, own folder: installed into {custom}")
+wait_for(lambda: pids(custom / EXE_NAME), 60)
 before, kept_files = settings(), files_of(CONFIG)
-start = LOG.stat().st_size if LOG.exists() else 0
+start = log_size()
 code = run(SETUP, "/SILENT", "/SP-", name="custom-pc-update")
 check(code == 0, "whole PC, own folder: the update installed")
 after_update_checks("whole PC, own folder", custom, before, kept_files, start, updated=False)
-check(not (APP_DIR / "Corefold.exe").exists(), "whole PC, own folder: no second Corefold in Program Files")
+check(not (APP_DIR / EXE_NAME).exists(), "whole PC, own folder: no second copy in Program Files")
 remove_corefold()
 
 print(f"upgradetest: {len(problems)} problem(s)", flush=True)

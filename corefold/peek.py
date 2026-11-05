@@ -1,4 +1,4 @@
-"""Quick look (part of Corefold Viewer): select a file in File Explorer or on the desktop, press
+"""Quick look (part of Rakiza Core Viewer): select a file in File Explorer or on the desktop, press
 Ctrl + Space, and see what's in it without opening it.
 
 Made only while the Viewer is in use and the shortcut isn't switched off. The shortcut is only taken

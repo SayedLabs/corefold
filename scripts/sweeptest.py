@@ -84,7 +84,7 @@ A.setup_logging()
 problems: list[str] = []
 notes: list[str] = []
 errors: list[str] = []
-opened: list[str] = []   # what would have been opened outside Corefold (links, folders, programs)
+opened: list[str] = []   # what would have been opened outside Rakiza Core (links, folders, programs)
 
 
 def _hook(t, e, tb):
@@ -106,7 +106,7 @@ _real_popen = subprocess.Popen
 
 def _blocked(args) -> bool:
     text = " ".join(map(str, args)) if isinstance(args, (list, tuple)) else str(args)
-    # Corefold restarting itself, Explorer, an installer or an uninstaller: only noted
+    # Rakiza Core restarting itself, Explorer, an installer or an uninstaller: only noted
     return "--restarted" in text or "explorer" in text.lower() or "/SILENT" in text or "unins" in text.lower()
 
 
@@ -433,7 +433,7 @@ def _controls(page) -> list:
             text = wid.text() if hasattr(wid, "text") and callable(wid.text) else ""
             if isinstance(wid, QAbstractButton) and _skipped(text):
                 continue
-            if wid.objectName() == "widgetShortcut":  # (a Home shortcut opens a folder or a website outside Corefold)
+            if wid.objectName() == "widgetShortcut":  # (a Home shortcut opens a folder or a website outside Rakiza Core)
                 continue
             out.append(wid)
     return out
@@ -895,7 +895,7 @@ for name, fn in sections:
         c.show_window("Home")
         apply_size(c.window)
 
-log_file = st.LOG_DIR / "corefold.log"
+log_file = st.LOG_DIR / "rakizacore.log"
 if log_file.exists():
     text = log_file.read_text("utf-8", "replace")
     (OUT / f"{TAG}-log.txt").write_text(text, "utf-8")

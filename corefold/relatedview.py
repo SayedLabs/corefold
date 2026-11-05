@@ -1,4 +1,4 @@
-"""Corefold Space: a file or folder to the Recycle Bin with what goes with it (its subtitles, the shortcuts
+"""Rakiza Core Space: a file or folder to the Recycle Bin with what goes with it (its subtitles, the shortcuts
 to it, what's left of downloading it, a same-named folder in app data…). Shown in a sheet inside the
 window: what's found is listed with why it goes with it, and only what's ticked goes. Loaded only when
 asked for."""

@@ -1,4 +1,4 @@
-# Measures how much memory and CPU the built Corefold uses on a real Windows PC, in the moments
+# Measures how much memory and CPU the built Rakiza Core uses on a real Windows PC, in the moments
 # people actually meet: waiting in the tray, with the window open, after converting, after the window
 # is closed, and after doing the same things again and again (to catch memory that's never handed back).
 # Run after scripts\build.ps1. Writes a Markdown table to the file given (and prints it).
@@ -10,12 +10,12 @@ Set-Location $Root
 New-Item -ItemType Directory -Force (Split-Path $Out) | Out-Null
 
 # a clean start: no first-run window, no update check, no tour
-$cfg = Join-Path $env:APPDATA "Corefold"
+$cfg = Join-Path $env:APPDATA "Rakiza Core"
 New-Item -ItemType Directory -Force $cfg | Out-Null
 $work = Join-Path $env:TEMP "corefold-measure"
 Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force "$work\out" | Out-Null
-# every tool in use (the most Corefold does while it waits in the tray)
+# every tool in use (the most Rakiza Core does while it waits in the tray)
 $py = Join-Path $Root ".venv\Scripts\python.exe"
 $ready = @(& $py -c "from corefold import tools; print('\n'.join(t.id for t in tools.ready()))")
 @{ first_run = $false; tour_done = $true; check_updates = $false; output_folder = "$work\out";
@@ -36,9 +36,9 @@ foreach ($f in "photo.png", "small.png", "clip.mp4") {
     if (-not (Test-Path "$work\$f")) { throw "couldn't make the test file $f" }
 }
 
-$exe = Resolve-Path "dist\Corefold\Corefold.exe"
+$exe = Resolve-Path "dist\RakizaCore\RakizaCore.exe"
 $env:COREFOLD_MEMLOG = "1"   # the app writes its memory to its log at each step
-$log = Join-Path $env:LOCALAPPDATA "Corefold\corefold.log"
+$log = Join-Path $env:LOCALAPPDATA "Rakiza Core\rakizacore.log"
 Remove-Item $log -ErrorAction SilentlyContinue
 
 $clock = [Diagnostics.Stopwatch]::StartNew()
@@ -53,7 +53,7 @@ function MB($b) { [math]::Round($b / 1MB, 1) }
 # memory now, and the CPU used over the next $seconds (0 = don't measure CPU)
 function Snap([string]$what, [int]$seconds = 0) {
     $p.Refresh()
-    if ($p.HasExited) { throw "Corefold stopped by itself during '$what' (exit code $($p.ExitCode))" }
+    if ($p.HasExited) { throw "Rakiza Core stopped by itself during '$what' (exit code $($p.ExitCode))" }
     $cpu = ""
     if ($seconds -gt 0) {
         $before = $p.TotalProcessorTime
@@ -135,31 +135,31 @@ function Check([bool]$ok, [string]$what) {
 }
 function Count([string]$pattern) { @(Select-String -Path $log -Pattern $pattern -SimpleMatch).Count }
 
-$cmd = (Get-ItemProperty "HKCU:\Software\Classes\Corefold.Archive\shell\open\command" -ErrorAction SilentlyContinue).'(default)'
-Check ($cmd -like "*Corefold.exe*--browse*") "archives can be opened with Corefold (Open with: $cmd)"
+$cmd = (Get-ItemProperty "HKCU:\Software\Classes\Corefold.Archive\shell\open\command" -ErrorAction SilentlyContinue).'(default)'  # keep-name (core.KEEP_ID)
+Check ($cmd -like "*RakizaCore.exe*--browse*") "archives can be opened with Rakiza Core (Open with: $cmd)"
 $ow = Get-ItemProperty "HKCU:\Software\Classes\.zip\OpenWithProgids" -ErrorAction SilentlyContinue
-Check ($null -ne $ow -and $null -ne $ow.'Corefold.Archive') "Corefold is listed under Open with for .zip"
+Check ($null -ne $ow -and $null -ne $ow.'Corefold.Archive') "Rakiza Core is listed under Open with for .zip"  # keep-name
 $zip = "$work\docs.zip"
 & $py -c "import zipfile; z = zipfile.ZipFile(r'$zip', 'w'); [z.writestr(f'Reports/r{i}.txt', 'x' * 100) for i in range(30)]; z.close()"
 $before = Count "archive window opened"
 Start-Process $exe -ArgumentList @("--browse", "`"$zip`"") -Wait   # what a double-click runs
 Start-Sleep 4
-Check ((Count "archive window opened") -gt $before) "a double-clicked archive opens in Corefold (while it runs)"
+Check ((Count "archive window opened") -gt $before) "a double-clicked archive opens in Rakiza Core (while it runs)"
 Check ((Count "background remover helper started") -ge 1) "the background remover ran in its helper"
-$helpers = @(Get-CimInstance Win32_Process -Filter "Name = 'Corefold.exe'" | Where-Object { $_.CommandLine -like "*--bg-worker*" }).Count
+$helpers = @(Get-CimInstance Win32_Process -Filter "Name = 'RakizaCore.exe'" | Where-Object { $_.CommandLine -like "*--bg-worker*" }).Count
 Check ($helpers -eq 0) "no background remover helper is left running ($helpers)"
 
 # Quick look plays videos and songs with Qt's player and its FFmpeg: they must be in the build (the Player itself has
 # moved to Rakiza Play)
-Check (@(Get-ChildItem "dist\Corefold" -Recurse -Filter "ffmpegmediaplugin.dll").Count -ge 1) "the build has Qt's player (FFmpeg plugin) for Quick look"
+Check (@(Get-ChildItem "dist\RakizaCore" -Recurse -Filter "ffmpegmediaplugin.dll").Count -ge 1) "the build has Qt's player (FFmpeg plugin) for Quick look"
 
 $p.Refresh()
 $peak = MB $p.PeakWorkingSet64
 $kids = @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $($p.Id)").Count
-$size = [math]::Round(((Get-ChildItem "dist\Corefold" -Recurse -File | Measure-Object Length -Sum).Sum) / 1MB, 0)
+$size = [math]::Round(((Get-ChildItem "dist\RakizaCore" -Recurse -File | Measure-Object Length -Sum).Sum) / 1MB, 0)
 
 $text = @"
-## How light Corefold is
+## How light Rakiza Core is
 
 | Moment | Memory (Task Manager) | Private memory | Threads | Handles | CPU |
 |---|---|---|---|---|---|
@@ -167,7 +167,7 @@ $($rows -join "`n")
 
 - Started (log file opened) after **$startSeconds s**
 - Most memory used at any moment: $peak MB
-- Processes still running under Corefold at the end: $kids
+- Processes still running under Rakiza Core at the end: $kids
 - App folder: $size MB
 - Machine: GitHub windows-latest, $cores cores
 
@@ -180,20 +180,20 @@ Write-Host $text
 Stop-Process -Id $p.Id -Force
 Start-Sleep 2
 
-# a double-click while Corefold isn't running starts it with the archive open
+# a double-click while Rakiza Core isn't running starts it with the archive open
 $before = Count "archive window opened"
 $p2 = Start-Process $exe -ArgumentList @("--browse", "`"$zip`"") -PassThru
 Start-Sleep 8
-Check ((Count "archive window opened") -gt $before) "a double-clicked archive opens Corefold when it wasn't running"
+Check ((Count "archive window opened") -gt $before) "a double-clicked archive opens Rakiza Core when it wasn't running"
 Stop-Process -Id $p2.Id -Force -ErrorAction SilentlyContinue
 Start-Sleep 2
 
 # what the uninstaller runs: the right-click menu and Open with are taken out
 Start-Process $exe -ArgumentList "--remove-shell-menu" -Wait
-Check (-not (Test-Path "HKCU:\Software\Classes\Corefold.Archive")) "uninstalling takes Corefold out of Open with"
+Check (-not (Test-Path "HKCU:\Software\Classes\Corefold.Archive")) "uninstalling takes Rakiza Core out of Open with"  # keep-name
 $ow = Get-ItemProperty "HKCU:\Software\Classes\.zip\OpenWithProgids" -ErrorAction SilentlyContinue
-Check ($null -eq $ow -or $null -eq $ow.'Corefold.Archive') "…for .zip too"
-Check (-not (Test-Path "HKCU:\Software\Classes\SystemFileAssociations\.jpg\shell\Corefold")) "…and the right-click menu"
+Check ($null -eq $ow -or $null -eq $ow.'Corefold.Archive') "…for .zip too"  # keep-name
+Check (-not (Test-Path "HKCU:\Software\Classes\SystemFileAssociations\.jpg\shell\Corefold")) "…and the right-click menu"  # keep-name
 "`n## Last checks`n`n$($checks[-4..-1] -join "`n")" | Out-File -Append -Encoding utf8 $Out
 if (@($checks | Where-Object { $_ -like "*FAIL*" }).Count) { Write-Host "Some end-to-end checks failed" }
-if (Test-Path $log) { Copy-Item $log (Join-Path (Split-Path $Out) "corefold.log") }
+if (Test-Path $log) { Copy-Item $log (Join-Path (Split-Path $Out) "rakizacore.log") }

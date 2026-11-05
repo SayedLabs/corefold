@@ -36,7 +36,7 @@ TMP = Path(tempfile.mkdtemp(prefix="corefold-use-"))
 os.environ["APPDATA"] = str(TMP / "roaming")
 os.environ["LOCALAPPDATA"] = str(TMP / "local")
 sys.path.insert(0, str(ROOT))
-os.environ.setdefault("COREFOLD_WAKE_ORGANIZER", "1")  # (File Organizer rests in a built Corefold: its kept code is tried here)
+os.environ.setdefault("COREFOLD_WAKE_ORGANIZER", "1")  # (File Organizer rests in a built Rakiza Core: its kept code is tried here)
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 except (AttributeError, ValueError):
@@ -161,7 +161,7 @@ class Watch:
 
 
 def _where(frame) -> str:
-    """The last 4 of Corefold's calls on that stack. Read straight from the frames: traceback's way reads
+    """The last 4 of Rakiza Core's calls on that stack. Read straight from the frames: traceback's way reads
     the source files too, and done all through a freeze that held Python long enough to make it longer."""
     if frame is None:
         return "?"
@@ -400,7 +400,7 @@ def alive(w) -> bool:
 
 
 def ffmpeg(*args):
-    """Makes a test file. A full FFmpeg on PATH comes first: Corefold's own one can't write every
+    """Makes a test file. A full FFmpeg on PATH comes first: Rakiza Core's own one can't write every
     kind (HEVC, for one), only read it."""
     import shutil
     from corefold.converters import find_tool
@@ -489,7 +489,7 @@ c = None
 
 def start():
     global c
-    c = timed("Corefold starts (tray icon ready)", lambda: A.Controller(qapp, QIcon(str(ROOT / "assets" / "icon.png"))),
+    c = timed("Rakiza Core starts (tray icon ready)", lambda: A.Controller(qapp, QIcon(str(ROOT / "assets" / "icon.png"))),
               4)
     settle(1)
     w = timed("the window opens the first time", lambda: (c.show_window("Home"), c.window)[1], 2.5,
@@ -904,7 +904,7 @@ def idle():
             top.hide()
     settle(8)
     # clean-ups still waiting from earlier steps (a popup closed a minute ago is let go of, then memory goes
-    # back to Windows) happen now, once, so the 15 s below measure Corefold doing nothing
+    # back to Windows) happen now, once, so the 15 s below measure Rakiza Core doing nothing
     for timer, run in ((c.free_popups_timer, c._free_popups), (c.light_tidy_timer, c.light_tidy),
                        (c.tidy_timer, c.tidy_up)):
         if timer.isActive():
@@ -985,7 +985,7 @@ H = TMP / "heavy"
 
 
 class Memory:
-    """How much memory Corefold takes while a step runs (looked at ten times a second, on its own thread)."""
+    """How much memory Rakiza Core takes while a step runs (looked at ten times a second, on its own thread)."""
 
     def __init__(self):
         self.peak = 0
@@ -1444,7 +1444,7 @@ with setup():
         for _bold in (False, True):
             _f = QFont(_fam, 11)
             _f.setBold(_bold)
-            QFontMetrics(_f).horizontalAdvance("Corefold مرحبا ✓ → 123")
+            QFontMetrics(_f).horizontalAdvance("Rakiza Core مرحبا ✓ → 123")
     say(f"note  the first text on this PC (Windows reading its fonts): {time.perf_counter() - t0:.1f} s")
     t0 = time.perf_counter()
     make_heavy_files() if ARGS.heavy else make_files()
@@ -1454,7 +1454,7 @@ watch.paused = 0
 
 def _quiet(what, most_s=120):
     """Waits (up to most_s) for the PC to be quiet first: after 200,000 files are made, Windows' virus checker
-    reads them for minutes, and the times after it would measure that, not Corefold."""
+    reads them for minutes, and the times after it would measure that, not Rakiza Core."""
     if os.name != "nt":
         return
     start, first, others = time.perf_counter(), None, 0.0
@@ -1472,7 +1472,7 @@ def _quiet(what, most_s=120):
 
 def start_light():
     global c
-    c = timed("Corefold starts (tray icon ready)", lambda: A.Controller(qapp, QIcon(str(ROOT / "assets" / "icon.png"))),
+    c = timed("Rakiza Core starts (tray icon ready)", lambda: A.Controller(qapp, QIcon(str(ROOT / "assets" / "icon.png"))),
               4)
     settle(1)
     timed("the window opens", lambda: (c.show_window("Home"), c.window)[1], 2.5, wait=lambda: c.window.isVisible())
@@ -1514,7 +1514,7 @@ if kept_kinds:
     say(f"what was left after the first long one ({kept_kinds[0]}):")
     for line in kept_kinds[1:]:
         say(f"  {line}")
-log_file = st.LOG_DIR / "corefold.log"
+log_file = st.LOG_DIR / "rakizacore.log"
 if log_file.exists():
     text = log_file.read_text("utf-8", "replace")
     (OUT / f"{TAG}-log.txt").write_text(text, "utf-8")

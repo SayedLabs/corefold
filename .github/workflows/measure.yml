@@ -1,4 +1,4 @@
-# Measures how light Corefold is on a real Windows PC (one of GitHub's), without publishing anything.
+# Measures how light Rakiza Core is on a real Windows PC (one of GitHub's), without publishing anything.
 # Run it by hand: Actions tab -> "Measure memory and CPU" -> Run workflow. The numbers appear on the
 # run's summary page and on the "measure" branch (replaced on every run; it isn't part of the app).
 name: Measure memory and CPU

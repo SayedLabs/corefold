@@ -84,7 +84,7 @@ def logic():
         s.save()
         path = TMP / sb.file_name()
         sb.export(s, path, startup=True, version="9.9.9")
-        check(path.name.startswith("Corefold settings ") and path.suffix == ".corefold",
+        check(path.name.startswith("Rakiza Core settings ") and path.suffix == ".corefold",
               f"the file is named like {path.name!r}")
         data = json.loads(path.read_text("utf-8"))
         check(data.get("format") == sb.FORMAT and data.get("format_version") == 1 and data.get("app_version") == "9.9.9"
@@ -114,14 +114,14 @@ def logic():
         junk = TMP / "junk.corefold"
         junk.write_bytes(os.urandom(300))
         for name, content, want in (
-                ("random bytes", None, "This isn't a Corefold settings file."),
-                ("a list", "[1, 2, 3]", "This isn't a Corefold settings file."),
+                ("random bytes", None, "This isn't a Rakiza Core settings file."),
+                ("a list", "[1, 2, 3]", "This isn't a Rakiza Core settings file."),
                 ("another program's JSON", '{"format": "something-else", "settings": {}}',
-                 "This isn't a Corefold settings file."),
+                 "This isn't a Rakiza Core settings file."),
                 ("a newer format", json.dumps({"format": sb.FORMAT, "format_version": 99, "settings": {}}),
-                 "These settings were saved by a newer Corefold. Update Corefold first, then try again."),
+                 "These settings were saved by a newer Rakiza Core. Update Rakiza Core first, then try again."),
                 ("settings that aren't a dict", json.dumps({"format": sb.FORMAT, "format_version": 1,
-                                                            "settings": [1]}), "This isn't a Corefold settings file.")):
+                                                            "settings": [1]}), "This isn't a Rakiza Core settings file.")):
             if content is not None:
                 junk.write_text(content, "utf-8")
             try:
@@ -199,7 +199,7 @@ def logic():
         updater.subprocess.Popen = lambda *a, **k: started.append(a)
         try:
             fresh(jpg_quality=99)
-            updater.run_installer(TMP / "Corefold-Setup-9.9.9.exe")
+            updater.run_installer(TMP / "RakizaCore-Setup-9.9.9.exe")
         finally:
             updater.subprocess.Popen = real
         copies = sb.backups()
@@ -216,7 +216,7 @@ def logic():
         check(broken.exists() and broken.read_text("utf-8") == garbage, "…the damaged one is kept as "
               "settings.broken.json, as it was")
         check(sb.RECOVERED is not None and sb.RECOVERED == copies[0],
-              "…and Corefold knows a copy was used (to say so)")
+              "…and Rakiza Core knows a copy was used (to say so)")
         s.save()
         check(json.loads((cfg / "settings.json").read_text("utf-8"))["jpg_quality"] == 99,
               "…and saving writes a good settings.json again")
@@ -238,37 +238,37 @@ def logic():
         user = os.environ.get("USERNAME") or Path.home().name
         home = str(Path.home())
         st.LOG_DIR.mkdir(parents=True, exist_ok=True)
-        (st.LOG_DIR / "corefold.log").write_text(
+        (st.LOG_DIR / "rakizacore.log").write_text(
             f"2026-10-23 INFO starting\nopened {home}\\Pictures\\cat.png\nC:\\Users\\{user}\\Desktop\\a b.pdf\n"
             f"C:/Users/{user.upper()}/Downloads/x.zip\nsigned in as {user}\n"
             "C:\\Users\\Public\\Documents\\shared.txt\n", "utf-8")
-        (st.LOG_DIR / "corefold.log.1").write_text(f"older {home}\n", "utf-8")
+        (st.LOG_DIR / "rakizacore.log.1").write_text(f"older {home}\n", "utf-8")
         (st.LOG_DIR / "player.json").write_text("{}", "utf-8")  # not a log: stays out
         (st.LOG_DIR / "Clipboard").mkdir(exist_ok=True)
         (st.LOG_DIR / "Clipboard" / "history.json").write_text("secret", "utf-8")
-        s = fresh(output_folder=str(Path.home() / "Downloads" / "Corefold"),
+        s = fresh(output_folder=str(Path.home() / "Downloads" / "Rakiza Core"),
                   recent_views=[f"{home}\\Pictures\\private.png"], quick_links=[
                       {"id": "a", "name": "Notes", "target": f"C:\\Users\\{user}\\Documents\\notes.txt"}])
         desk = TMP / "Desktop"
         desk.mkdir()
         path = rp.make(s, desk, ["1920 x 1080 at 100%"])
-        check(path.parent == desk and path.name.startswith("Corefold report ") and path.suffix == ".zip",
+        check(path.parent == desk and path.name.startswith("Rakiza Core report ") and path.suffix == ".zip",
               f"the report is made: {path.name}")
         with zipfile.ZipFile(path) as z:
             names = sorted(z.namelist())
             texts = {n: z.read(n).decode("utf-8") for n in names}
-        check(names == ["logs/corefold.log", "logs/corefold.log.1", "settings.json", "system.txt"],
+        check(names == ["logs/rakizacore.log", "logs/rakizacore.log.1", "settings.json", "system.txt"],
               f"it has the logs, the settings and system.txt, nothing else ({names})")
         leaked = [n for n, t in texts.items() if user.lower() in t.lower()]
         check(not leaked, f"the Windows user name ({user}) is in none of them ({leaked})")
-        check("C:\\Users\\<you>\\Desktop" in texts["logs/corefold.log"] and "C:/Users/<you>/Downloads"
-              in texts["logs/corefold.log"] and "Users\\\\<you>" in texts["settings.json"],
+        check("C:\\Users\\<you>\\Desktop" in texts["logs/rakizacore.log"] and "C:/Users/<you>/Downloads"
+              in texts["logs/rakizacore.log"] and "Users\\\\<you>" in texts["settings.json"],
               "paths say C:\\Users\\<you> instead")
-        check("C:\\Users\\Public\\Documents" in texts["logs/corefold.log"], "other folders under Users are kept")
+        check("C:\\Users\\Public\\Documents" in texts["logs/rakizacore.log"], "other folders under Users are kept")
         check("private.png" not in texts["settings.json"], "the names of pictures opened lately aren't in it")
         system = texts["system.txt"]
         print("      system.txt:\n        " + system.strip().replace("\n", "\n        "))
-        check("Corefold" in system and ("Windows" in system or os.name != "nt") and "-bit" in system
+        check("Rakiza Core" in system and ("Windows" in system or os.name != "nt") and "-bit" in system
               and "1920 x 1080 at 100%" in system and "Tools in use:" in system and "Language:" in system,
               "system.txt has the version, Windows, 64-bit, language, screens and tools")
         if os.name == "nt":
@@ -282,7 +282,7 @@ def logic():
         q = parse_qs(urlsplit(url).query)
         check(url.startswith("https://github.com/SayedLabs/corefold/issues/new?"), "the report page is GitHub's")
         body, title = q.get("body", [""])[0], q.get("title", [""])[0]
-        check("9.9.9" in title and "Corefold 9.9.9" in body and rp.windows_text() in body,
+        check("9.9.9" in title and "Rakiza Core 9.9.9" in body and rp.windows_text() in body,
               "its title and text have the version and Windows")
         bad = [x for x in (user, home, "Users", "\\", "AppData", "Desktop\\", ":/") if x and x.lower() in
                (url + body).lower().replace("https://", "")]
@@ -459,7 +459,7 @@ def window(lang: str, look: str, taken: bool):
         check(on_disk["jpg_quality"] == 71 and on_disk["accent"] == "ocean" and on_disk["clip_max"] == 5000,
               "the settings on disk are the ones from the file")
         check(on_disk["window_geometry"] == geometry, "…but not the window's size")
-        check(restarted and restarted[-1] == "General", f"…and Corefold restarts to use them ({restarted})")
+        check(restarted and restarted[-1] == "General", f"…and Rakiza Core restarts to use them ({restarted})")
         check(not w.is_dirty(), "nothing is left waiting for Save")
         # a file that isn't settings: nothing changes
         junk = TMP / "junk.corefold"
@@ -472,7 +472,7 @@ def window(lang: str, look: str, taken: bool):
         from corefold import settings_backup as sb
         box = QMessageBox(QMessageBox.Question, tr("Bring back settings"), settingscard.describe(sb.read(f)),
                           parent=w)
-        box.setInformativeText(tr("Your current settings are replaced with these, and Corefold restarts to use "
+        box.setInformativeText(tr("Your current settings are replaced with these, and Rakiza Core restarts to use "
                                   "them. Your history, clipboard and window size stay as they are."))
         box.show()
         settle(0.4)

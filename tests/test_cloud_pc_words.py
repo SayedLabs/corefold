@@ -1,5 +1,5 @@
-"""Saving a cloud folder into a place on this PC that Windows won't let Corefold write to (or a file another
-program holds) is said in Corefold's own words, never Windows' "[WinError 5] Access is denied: 'C:\\…'"
+"""Saving a cloud folder into a place on this PC that Windows won't let Rakiza Core write to (or a file another
+program holds) is said in Rakiza Core's own words, never Windows' "[WinError 5] Access is denied: 'C:\\…'"
 (seen by writefailtest on the runner)."""
 from pathlib import Path
 from unittest import mock

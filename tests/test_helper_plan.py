@@ -1,4 +1,4 @@
-"""Checks for the administrator helper's plan: undoing a clean-up takes back only Corefold's own deletions at
+"""Checks for the administrator helper's plan: undoing a clean-up takes back only Rakiza Core's own deletions at
 restart, and the helper stops when its plan or the backup's list changed after the administrator prompt."""
 import json
 import re
@@ -15,10 +15,10 @@ from corefold import uninstall as un
 def test_only_corefolds_deletions_come_out_of_windows_list():
     app = r"C:\Program Files\Acme"
     entries = [r"\??\C:\Windows\WinSxS\Temp\a.tmp", "",  # Windows Update's own
-               "\\??\\" + app + r"\acme.dll", "",  # Corefold's
+               "\\??\\" + app + r"\acme.dll", "",  # Rakiza Core's
                "\\??\\" + app + r"\acme.dll", "",  # the same file, asked for again by someone else
                "\\??\\" + app + r"\setup.exe", r"!\??\C:\Program Files\Acme\setup.new",  # a rename: never
-               "*1\\??\\" + app, "",  # Corefold's: the folder once it's empty (as Windows 11 writes it)
+               "*1\\??\\" + app, "",  # Rakiza Core's: the folder once it's empty (as Windows 11 writes it)
                ""]  # (the list's closing empty string)
     kept, dropped = un.drop_pending(entries, [app + r"\ACME.dll", app, app + r"\setup.exe"])
     assert dropped == 2
@@ -119,7 +119,7 @@ def test_undoing_takes_back_only_deletions_inside_the_folder_put_back(tmp_path, 
 
 
 def _helper_home(tmp_path):
-    home = tmp_path / "Corefold"
+    home = tmp_path / "Rakiza Core"
     (home / "helper").mkdir(parents=True)
     folder = home / un.BACKUP_DIR.name / "2026 Acme"
     folder.mkdir(parents=True)
@@ -132,7 +132,7 @@ def _run_through_helper(monkeypatch, home, change=None):
     monkeypatch.setattr(un, "BACKUP_DIR", home / un.BACKUP_DIR.name)
     monkeypatch.setattr(un, "_let_questions_show", lambda: None)
     monkeypatch.setattr(un, "wait_process", lambda handle, cancel=None: 0)
-    private = home.parent / "private"  # (Windows' own Temp, made administrators-only, in Corefold)
+    private = home.parent / "private"  # (Windows' own Temp, made administrators-only, in Rakiza Core)
     monkeypatch.setattr(un, "_private_dir", lambda: (private.mkdir(), private)[1])
     codes = []
 
@@ -152,7 +152,7 @@ def test_the_helper_acts_on_the_plan_written_before_the_prompt(tmp_path, monkeyp
     calls = []
     monkeypatch.setattr(un, "restore", lambda f, admin=False, manifest=None, files=None:
                         calls.append((f, manifest, files)) or {"done": 1, "failed": []})
-    assert un.run_elevated(["Corefold.exe"], "restore", {"folder": str(folder)}) == {"done": 1, "failed": []}
+    assert un.run_elevated(["RakizaCore.exe"], "restore", {"folder": str(folder)}) == {"done": 1, "failed": []}
     assert codes == [0] and calls == [(folder, un.manifest_digest(folder), {})]
     assert not list((home / "helper").iterdir())
 
@@ -167,7 +167,7 @@ def test_the_helper_stops_when_its_plan_changed_after_the_prompt(tmp_path, monke
     codes = _run_through_helper(monkeypatch, home, swap)
     calls = []
     monkeypatch.setattr(un, "restore", lambda *a, **k: calls.append(a) or {"done": 1, "failed": []})
-    assert un.run_elevated(["Corefold.exe"], "restore", {"folder": str(folder)}) == {"error": "no result"}
+    assert un.run_elevated(["RakizaCore.exe"], "restore", {"folder": str(folder)}) == {"error": "no result"}
     assert codes == [2] and not calls
 
 
@@ -181,7 +181,7 @@ def test_the_helper_stops_when_the_backups_list_changed_after_the_prompt(tmp_pat
         (folder / "backup.json").write_text(json.dumps({"items": [
             {"kind": "key", "path": r"HKLM\Software\Acme", "stored": "registry/x.reg"}]}), "utf-8")
     codes = _run_through_helper(monkeypatch, home, edit)
-    out = un.run_elevated(["Corefold.exe"], "restore", {"folder": str(folder)})
+    out = un.run_elevated(["RakizaCore.exe"], "restore", {"folder": str(folder)})
     assert codes == [0] and "changed" in out["error"] and not imported
 
 
@@ -214,7 +214,7 @@ def test_the_helper_hands_the_tools_checked_copies_of_the_backups_files(tmp_path
     task, key = (folder / "tasks" / "t.xml").read_bytes(), (folder / "registry" / "k.reg").read_bytes()
     seen = _tools_watched(monkeypatch)
     codes = _run_through_helper(monkeypatch, home)
-    assert un.run_elevated(["Corefold.exe"], "restore", {"folder": str(folder)}) == {"done": 2, "failed": []}
+    assert un.run_elevated(["RakizaCore.exe"], "restore", {"folder": str(folder)}) == {"done": 2, "failed": []}
     private = str(tmp_path / "private")
     assert codes == [0] and [(w, b) for w, _p, b in seen] == [("schtasks", task), ("check", key), ("reg", key)]
     assert all(p.startswith(private) for _w, p, _b in seen)  # (never the user's own file)
@@ -230,7 +230,7 @@ def test_the_helper_stops_when_a_backups_file_changed_after_the_prompt(tmp_path,
     def swap(_plan):
         (folder / "tasks" / "t.xml").write_bytes(b"<Task><Exec>cmd.exe /c evil</Exec></Task>")
     codes = _run_through_helper(monkeypatch, home, swap)
-    out = un.run_elevated(["Corefold.exe"], "restore", {"folder": str(folder)})
+    out = un.run_elevated(["RakizaCore.exe"], "restore", {"folder": str(folder)})
     assert codes == [0] and out["done"] == 1 and [f["path"] for f in out["failed"]] == ["\\Acme Update"]
     assert [w for w, _p, _b in seen] == ["check", "reg"]  # (the key, untouched, still goes back; the task doesn't)
 

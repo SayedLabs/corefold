@@ -1,4 +1,4 @@
-"""Corefold PDF: printing a PDF, and comparing two PDFs. No windows here (pdfdialogs.py asks the questions).
+"""Rakiza Core PDF: printing a PDF, and comparing two PDFs. No windows here (pdfdialogs.py asks the questions).
 
 Printing draws every page with PDFium at the printer's own sharpness (up to 300 dpi) and hands it to the printer
 through Qt, the same way a PDF app does, so nothing else has to be installed. Comparing reads the words of both
@@ -243,7 +243,7 @@ def compare_pdfs(files: list[Path], ctx: Ctx) -> Result:
         writer = QPdfWriter(str(out))
         writer.setResolution(COMPARE_DPI)
         writer.setTitle(tr("{first} compared with {second}", first=first.name, second=second.name))
-        writer.setCreator("Corefold")
+        writer.setCreator("Rakiza Core")
         writer.setPageLayout(QPageLayout(QPageSize(QPageSize.A4), QPageLayout.Landscape, QMarginsF(10, 10, 10, 10),
                                          QPageLayout.Millimeter))
         painter = QPainter()

@@ -1,4 +1,4 @@
-"""Corefold PDF's work: putting pages from one or more PDFs together, splitting, taking pages out,
+"""Rakiza Core PDF's work: putting pages from one or more PDFs together, splitting, taking pages out,
 shrinking, pictures to PDF and back. No GUI code here, so it can be tested on its own.
 
 Everything is done on this PC with pypdf (BSD) and PDFium (pypdfium2, Apache/BSD). The original
@@ -176,7 +176,7 @@ def _pages_writer(readers: list, pages: list[tuple[int, int, int]], ctx: Ctx | N
 # ----------------------------------------------------------------------------- the page workspace
 
 def save_arranged(files: list[Path], ctx: Ctx) -> Result:
-    """Saves the pages as they were arranged on Corefold PDF's page: all of them as one PDF (that's
+    """Saves the pages as they were arranged on Rakiza Core PDF's page: all of them as one PDF (that's
     merging when they come from several files), each one as its own PDF, or as pictures.
     ctx.params: pages [(file, page, turn)], passwords {path: password}, how ("one" | "each" | "images"),
     name (for the new file)."""
@@ -1065,7 +1065,7 @@ def trim(src: Path, ctx: Ctx) -> Result:
     return Result([out], note=tr("Trimmed the edges of {count} pages", count=done))
 
 
-# the tools on Corefold PDF's page (the Converter's wheel keeps its own, simpler ones)
+# the tools on Rakiza Core PDF's page (the Converter's wheel keeps its own, simpler ones)
 SPLIT = Tool("pdftool:split", tr("Split"), tr("Split a PDF"), split, password=True, renames=False)
 EXTRACT = Tool("pdftool:extract", tr("Take out pages"), tr("Save some pages as a new PDF"), extract, password=True,
                renames=False)

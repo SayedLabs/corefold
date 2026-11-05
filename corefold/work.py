@@ -18,7 +18,7 @@ _ids = iter(range(1, 1 << 62))
 
 
 def busy() -> bool:
-    """A job that moves or changes the person's files is running (Corefold waits for it before it quits or
+    """A job that moves or changes the person's files is running (Rakiza Core waits for it before it quits or
     is updated: stopped half-way, files would be left half-sorted or half-changed)."""
     with _lock:
         return bool(_busy)

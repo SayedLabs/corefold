@@ -1,7 +1,7 @@
-# Builds Corefold for Windows:
-#   dist\Corefold\Corefold.exe                      (the app folder)
-#   dist\release\Corefold-Setup-<version>.exe      (installer with desktop icon)
-#   dist\release\Corefold-<version>-portable.zip   (no-install version)
+# Builds Rakiza Core for Windows:
+#   dist\RakizaCore\RakizaCore.exe                      (the app folder)
+#   dist\release\RakizaCore-Setup-<version>.exe      (installer with desktop icon)
+#   dist\release\RakizaCore-<version>-portable.zip   (no-install version)
 #   dist\release\ffmpeg-source-*.tar.gz           (FFmpeg's source code and build scripts, which its
 #                                                  GPL licence asks us to offer with every release)
 #
@@ -31,9 +31,9 @@ $NumericVersion = ($Version -split "[-+]")[0]
 $parts = @($NumericVersion.Split(".") | ForEach-Object { [int]$_ })
 while ($parts.Count -lt 4) { $parts += 0 }
 $VerTuple = ($parts[0..3] -join ", ")
-Write-Host "== Building Corefold $Version" -ForegroundColor Cyan
+Write-Host "== Building Rakiza Core $Version" -ForegroundColor Cyan
 
-# ---- Python (only needed to BUILD; people who install Corefold don't need it)
+# ---- Python (only needed to BUILD; people who install Rakiza Core don't need it)
 function Test-Python($cmd, $argsList) {
     try { & $cmd @argsList -c "import sys; assert sys.version_info >= (3, 10)" 2>$null; return $LASTEXITCODE -eq 0 }
     catch { return $false }
@@ -87,13 +87,13 @@ VSVersionInfo(
                     fileType=0x1, subtype=0x0, date=(0, 0)),
   kids=[
     StringFileInfo([StringTable('040904B0', [
-      StringStruct('CompanyName', 'Atomic Works'),
-      StringStruct('FileDescription', 'Corefold'),
-      StringStruct('LegalCopyright', 'Atomic Works'),
+      StringStruct('CompanyName', 'Rakiza Labs'),
+      StringStruct('FileDescription', 'Rakiza Core'),
+      StringStruct('LegalCopyright', 'Rakiza Labs'),
       StringStruct('FileVersion', '$Version'),
-      StringStruct('InternalName', 'Corefold'),
-      StringStruct('OriginalFilename', 'Corefold.exe'),
-      StringStruct('ProductName', 'Corefold'),
+      StringStruct('InternalName', 'Rakiza Core'),
+      StringStruct('OriginalFilename', 'RakizaCore.exe'),
+      StringStruct('ProductName', 'Rakiza Core'),
       StringStruct('ProductVersion', '$Version')])]),
     VarFileInfo([VarStruct('Translation', [1033, 1200])])
   ]
@@ -102,31 +102,31 @@ VSVersionInfo(
 
 # ---- FFmpeg (bundled so users don't install anything)
 # Qt's player brings its own FFmpeg too (PySide6\av*.dll, ~20 MB). The two can't be one: this one is
-# GPL (x264 and more, for converting) and must stay a separate program, never loaded into Corefold;
+# GPL (x264 and more, for converting) and must stay a separate program, never loaded into Rakiza Core;
 # Qt's lacks the Converter's encoders (x264, LAME, libopus...). Without Qt's, the player and Quick
 # look would fall back to Windows' own player, which can't play WebM, OGG or Opus on many PCs.
 $FfDir = "vendor\ffmpeg"
-# Corefold's own smaller FFmpeg (~55 MB instead of ~190 MB: only the parts Corefold uses), made by
+# Rakiza Core's own smaller FFmpeg (~55 MB instead of ~190 MB: only the parts Rakiza Core uses), made by
 # .github\workflows\ffmpeg-lean.yml and kept on this repository's "ffmpeg-lean" branch.
 if (-not (Test-Path "$FfDir\FFMPEG-BUILD.sh")) {
     $LeanRef = "refs/remotes/origin/ffmpeg-lean"
     # (through cmd, so a missing branch or git is just a no; PowerShell 5 stops on git's message)
     cmd /c "git fetch -q --depth 1 origin +refs/heads/ffmpeg-lean:$LeanRef 2>nul"
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "== Using Corefold's FFmpeg ($(git log -1 --format=%s $LeanRef))"
+        Write-Host "== Using Rakiza Core's FFmpeg ($(git log -1 --format=%s $LeanRef))"
         $zip = Join-Path $env:TEMP "corefold-ffmpeg-lean.zip"
         git archive --format=zip -o $zip $LeanRef
-        if ($LASTEXITCODE) { throw "Couldn't unpack Corefold's FFmpeg" }
+        if ($LASTEXITCODE) { throw "Couldn't unpack Rakiza Core's FFmpeg" }
         if (Test-Path $FfDir) { Remove-Item $FfDir -Recurse -Force }
         Expand-Archive $zip $FfDir -Force
         Remove-Item $zip -Force
     } else {
         $global:LASTEXITCODE = 0
-        Write-Host "== Corefold's FFmpeg isn't here (no ffmpeg-lean branch); using BtbN's full build" -ForegroundColor Yellow
+        Write-Host "== Rakiza Core's FFmpeg isn't here (no ffmpeg-lean branch); using BtbN's full build" -ForegroundColor Yellow
     }
 }
 # Otherwise BtbN's "shared" build: ffmpeg.exe and ffprobe.exe use the same DLLs instead of each
-# carrying a full copy, which makes Corefold about 150 MB smaller on disk than the plain build.
+# carrying a full copy, which makes Rakiza Core about 150 MB smaller on disk than the plain build.
 if (-not (Test-Path "$FfDir\ffmpeg.exe") -or -not (Get-ChildItem $FfDir -Filter "avcodec*.dll" -ErrorAction SilentlyContinue)) {
     Write-Host "== Downloading FFmpeg"
     if (Test-Path $FfDir) { Remove-Item $FfDir -Recurse -Force }
@@ -192,11 +192,11 @@ if ($SourceFiles.Count -lt 2) {  # the source and the build scripts
 }
 $LeanNote = ""
 if (Test-Path "$FfDir\FFMPEG-BUILD.sh") {
-    # Corefold's own build: the script that chose its parts goes with the source too
+    # Rakiza Core's own build: the script that chose its parts goes with the source too
     $out = "vendor\ffmpeg-source\ffmpeg-source-corefold-build.sh"
     Copy-Item "$FfDir\FFMPEG-BUILD.sh" $out -Force
     $SourceFiles += $out
-    $LeanNote = "`r`nConfigured by FFMPEG-BUILD.sh in this folder (Corefold's own script), which picks the parts`r`nCorefold uses, inside the build image those scripts make."
+    $LeanNote = "`r`nConfigured by FFMPEG-BUILD.sh in this folder (Rakiza Core's own script), which picks the parts`r`nRakiza Core uses, inside the build image those scripts make."
 }
 @"
 FFmpeg in this folder: $FfVersionLine
@@ -205,8 +205,8 @@ Built with the scripts at https://github.com/BtbN/FFmpeg-Builds (commit $Scripts
 
 FFmpeg is free software under the GNU GPL version 3 (see FFMPEG-LICENSE.txt). Its complete source
 code, and the scripts used to build it with the libraries it includes, are attached to the same
-Corefold release you downloaded, as ffmpeg-source-*. If you can't get them there, ask
-Atomic Works through the Corefold website and we'll send you a copy; this offer is valid for
+Rakiza Core release you downloaded, as ffmpeg-source-*. If you can't get them there, ask
+Rakiza Labs through the Rakiza Core website and we'll send you a copy; this offer is valid for
 three years after we last ship this version.
 "@ | Set-Content -Encoding utf8 "$FfDir\SOURCE.txt"
 
@@ -279,8 +279,8 @@ if (-not (Test-Path "assets\sounds\corefold.wav")) { & $VPy scripts\make_sounds.
 
 # ---- PyInstaller (one folder: starts fast, fewer antivirus false alarms than --onefile)
 Write-Host "== Packaging app"
-if (Test-Path "dist\Corefold") { Remove-Item "dist\Corefold" -Recurse -Force }
-& $VPy -m PyInstaller --noconfirm --clean --windowed --name Corefold `
+if (Test-Path "dist\RakizaCore") { Remove-Item "dist\RakizaCore" -Recurse -Force }
+& $VPy -m PyInstaller --noconfirm --clean --windowed --name RakizaCore `
     --icon assets\icon.ico --version-file version_info.txt `
     --add-data "assets\icon.png;assets" --add-data "assets\sounds;assets\sounds" `
     --add-data "assets\release-notes;assets\release-notes" --add-data "assets\fonts;assets\fonts" @ModelArgs `
@@ -288,18 +288,18 @@ if (Test-Path "dist\Corefold") { Remove-Item "dist\Corefold" -Recurse -Force }
     --exclude-module tkinter --exclude-module PySide6.QtQml --exclude-module PySide6.QtQuick `
     main.py
 if ($LASTEXITCODE) { throw "PyInstaller failed" }
-# Not needed by Corefold (software OpenGL fallback, ~20 MB)
-Get-ChildItem "dist\Corefold" -Recurse -Filter "opengl32sw.dll" | Remove-Item -Force
-# Parts of Qt that PyInstaller adds but Corefold never loads (~30 MB): QML and Qt Quick (pulled in
+# Not needed by Rakiza Core (software OpenGL fallback, ~20 MB)
+Get-ChildItem "dist\RakizaCore" -Recurse -Filter "opengl32sw.dll" | Remove-Item -Force
+# Parts of Qt that PyInstaller adds but Rakiza Core never loads (~30 MB): QML and Qt Quick (pulled in
 # by the on-screen keyboard plugin; the player's Qt Quick part too, the player uses widgets), OpenGL,
-# the Direct2D window plugin, the OpenSSL that Qt would use for web downloads (Corefold's Qt only
+# the Direct2D window plugin, the OpenSSL that Qt would use for web downloads (Rakiza Core's Qt only
 # talks to itself; updates use Python's own SSL), Qt's reader that opens any picture that is really
 # a drawing (SVG) whatever its name: a drawing can name a picture on another computer, which makes
-# Windows sign in there (Corefold draws SVGs itself, with what they point to outside taken out:
+# Windows sign in there (Rakiza Core draws SVGs itself, with what they point to outside taken out:
 # safetext.safe_svg), and
-# Qt's words in the languages Corefold doesn't speak. scripts\dllcheck.py checks nothing left
+# Qt's words in the languages Rakiza Core doesn't speak. scripts\dllcheck.py checks nothing left
 # behind needs them.
-$Qt = "dist\Corefold\_internal\PySide6"
+$Qt = "dist\RakizaCore\_internal\PySide6"
 foreach ($f in @("Qt6Quick.dll", "Qt6Qml.dll", "Qt6QmlModels.dll", "Qt6QmlMeta.dll", "Qt6QmlWorkerScript.dll",
                  "Qt6VirtualKeyboard.dll", "Qt6OpenGL.dll", "Qt6MultimediaQuick.dll", "qml",
                  "plugins\platforminputcontexts",
@@ -310,18 +310,18 @@ foreach ($f in @("Qt6Quick.dll", "Qt6Qml.dll", "Qt6QmlModels.dll", "Qt6QmlMeta.d
 }
 Get-ChildItem "$Qt\translations" -Filter "*.qm" -ErrorAction SilentlyContinue |
     Where-Object { $_.BaseName -notmatch "^qt(base)?_(ar|es|fr|tr)$" } | Remove-Item -Force
-Copy-Item $FfDir "dist\Corefold\ffmpeg" -Recurse
-if (Test-Path "$SzDir\7z.exe") { Copy-Item $SzDir "dist\Corefold\7zip" -Recurse }
-Copy-Item LICENSE, THIRD_PARTY_NOTICES.md "dist\Corefold\"
+Copy-Item $FfDir "dist\RakizaCore\ffmpeg" -Recurse
+if (Test-Path "$SzDir\7z.exe") { Copy-Item $SzDir "dist\RakizaCore\7zip" -Recurse }
+Copy-Item LICENSE, THIRD_PARTY_NOTICES.md "dist\RakizaCore\"
 # the exact version of every Python component in this build (THIRD_PARTY_NOTICES.md points here)
 & $VPy -m pip freeze --all | Where-Object { $_ -notmatch "^(pip|setuptools|wheel|pyinstaller|pyinstaller-hooks-contrib|altgraph|pefile|pywin32-ctypes|packaging)==" } |
-    Set-Content -Encoding utf8 "dist\Corefold\COMPONENT-VERSIONS.txt"
+    Set-Content -Encoding utf8 "dist\RakizaCore\COMPONENT-VERSIONS.txt"
 
 # ---- portable zip
 New-Item -ItemType Directory -Force "dist\release" | Out-Null
-$zipOut = "dist\release\Corefold-$Version-portable.zip"
+$zipOut = "dist\release\RakizaCore-$Version-portable.zip"
 if (Test-Path $zipOut) { Remove-Item $zipOut }
-Compress-Archive "dist\Corefold" $zipOut
+Compress-Archive "dist\RakizaCore" $zipOut
 foreach ($f in $SourceFiles) { Copy-Item $f "dist\release\" }
 
 # ---- installer (Inno Setup)
@@ -350,13 +350,14 @@ if ($iscc) {
     Write-Warning "Inno Setup not found, so no installer was made. Install it from https://jrsoftware.org/isdl.php and run this again."
 }
 
-# ---- the same installer for copies from before 1.7.0 (see -OldUpdaterCopy above). Their updater
-# only takes "<old name>-Setup-<version>.exe" listed in SHA256SUMS.txt; it runs it like Corefold's
-# does, and the installer upgrades that copy to Corefold (installer\corefold.iss, [Code]).
+# ---- the same installer for copies under the app's earlier names (see -OldUpdaterCopy above). Their updater
+# only takes "<old name>-Setup-<version>.exe" listed in SHA256SUMS.txt; it runs it like the app's own
+# does, and the installer upgrades that copy in place (installer\corefold.iss, [Code]).
 if ($OldUpdaterCopy) {
-    $setup = "dist\release\Corefold-Setup-$Version.exe"
+    $setup = "dist\release\RakizaCore-Setup-$Version.exe"
     if (-not (Test-Path $setup)) { throw "No installer to copy for older versions" }
-    Copy-Item $setup "dist\release\Satsuma-Setup-$Version.exe"
+    Copy-Item $setup "dist\release\Corefold-Setup-$Version.exe"  # keep-name (versions 1.7.0 to 1.19)
+    Copy-Item $setup "dist\release\Satsuma-Setup-$Version.exe"   # (versions before 1.7.0)
 }
 
 # ---- checksums (the app's updater checks the installer against this file)

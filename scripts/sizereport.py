@@ -1,6 +1,6 @@
-"""Lists what takes the space in a built Corefold folder (dist\\Corefold), biggest first.
+"""Lists what takes the space in a built Rakiza Core folder (dist\\RakizaCore), biggest first.
 
-    python scripts/sizereport.py dist\\Corefold [release-folder]
+    python scripts/sizereport.py dist\\RakizaCore [release-folder]
 """
 from __future__ import annotations
 

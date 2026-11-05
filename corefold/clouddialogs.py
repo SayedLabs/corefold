@@ -1,4 +1,4 @@
-"""Corefold Cloud's in-window forms: adding a server of your own (a NAS, WebDAV, FTP, SFTP), and a folder backup."""
+"""Rakiza Core Cloud's in-window forms: adding a server of your own (a NAS, WebDAV, FTP, SFTP), and a folder backup."""
 from __future__ import annotations
 
 from PySide6.QtWidgets import QCheckBox, QGridLayout, QLabel, QLineEdit, QSpinBox
@@ -86,9 +86,9 @@ class ServerDialog(Base):
             "sftp": "nas.local", "ftp": "ftp.example.com", "share": "\\\\NAS\\Public"}[kind])
         self.note.setText({
             "webdav": tr("Nextcloud, ownCloud and most NAS boxes offer WebDAV. A whole address works too."),
-            "sftp": tr("The first time, Corefold keeps the server's key. If it ever changes, Corefold won't connect, "
+            "sftp": tr("The first time, Rakiza Core keeps the server's key. If it ever changes, Rakiza Core won't connect, "
                        "so no one can pretend to be your server."),
-            "ftp": tr("Plain FTP isn't encrypted: Corefold only allows it on your own network."),
+            "ftp": tr("Plain FTP isn't encrypted: Rakiza Core only allows it on your own network."),
             "share": tr("A folder shared by a NAS or another PC. If Windows asks for a password for it, open it once "
                         "in File Explorer first."),
         }[kind])
@@ -133,7 +133,7 @@ class BackupDialog(Base):
         line.setColumnStretch(1, 1)
         self.lay.addLayout(line)
         self.lay.addWidget(_note(tr("Only one way: what's new or changed on this PC goes up. Nothing is ever deleted "
-                                    "in the account, and nothing on this PC is touched. It runs while Corefold is "
+                                    "in the account, and nothing on this PC is touched. It runs while Rakiza Core is "
                                     "on.")))
         self.buttons(tr("Back up"))
         self.source.textChanged.connect(lambda t: self.ok.setEnabled(bool(t.strip())))

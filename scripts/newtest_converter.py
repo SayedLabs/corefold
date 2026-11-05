@@ -1,4 +1,4 @@
-"""Checks the Converter with Corefold's own FFmpeg on a real Windows PC, before the first launch: videos that are
+"""Checks the Converter with Rakiza Core's own FFmpeg on a real Windows PC, before the first launch: videos that are
 already H.264 are copied into MP4 instead of made again (and only those), a song keeps its album cover when it's
 trimmed, sped up or made louder, a preset's name can't break the new file's name, Small keeps a GIF moving and a
 logo see-through, awkward file names work, and files that only pretend to be videos are turned away.
@@ -118,7 +118,7 @@ def media():
     pics.mkdir()
     Image.new("RGBA", (400, 400), (0, 0, 0, 0)).save(pics / "logo.png")
     Image.new("RGB", (3000, 2000), (20, 120, 200)).save(pics / "photo.jpg")
-    return check(ok, "test files made with Corefold's FFmpeg")
+    return check(ok, "test files made with Rakiza Core's FFmpeg")
 
 
 def fast_copy():

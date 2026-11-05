@@ -1,4 +1,4 @@
-"""Checks Corefold Awake on a real Windows PC: keeping the PC awake really shows in "powercfg /requests"
+"""Checks Rakiza Core Awake on a real Windows PC: keeping the PC awake really shows in "powercfg /requests"
 (and goes away), a timed period ends by itself, the tray menu, staying awake by itself while Notepad is
 open (and the low battery rule), removing the tool, and Windows' own shutdown timer (planned an hour
 ahead and always cancelled again). Then the page is built in English (dark) and Arabic (light), and
@@ -226,7 +226,7 @@ def main_checks():
                   f"Windows has no shutdown planned any more (shutdown /a again: {code} {said!r})")
             # one planned by something else: asked before it's replaced
             code, said = awake.run_shutdown("/s", "/t", "3600")
-            check(code == 0, f"(a shutdown planned outside Corefold: {code} {said!r})")
+            check(code == 0, f"(a shutdown planned outside Rakiza Core: {code} {said!r})")
             code = tool.plan_shutdown(at)
             check(code == awake.ERROR_SHUTDOWN_IS_SCHEDULED, f"another one planned already: Windows says so ({code})")
             check(tool.planned_shutdown() is None, "... and nothing is remembered")
@@ -306,7 +306,7 @@ def main_checks():
         check(holds("SYSTEM"), "(on again before quitting)")
         c.quit()
         settle(0.2)
-        check(not holds("SYSTEM"), "quitting Corefold lets the PC sleep again")
+        check(not holds("SYSTEM"), "quitting Rakiza Core lets the PC sleep again")
     step("quitting", quitting)
 
 

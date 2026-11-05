@@ -1,7 +1,7 @@
-"""Checks that every program and library in a built Corefold folder finds the DLLs it needs, so
+"""Checks that every program and library in a built Rakiza Core folder finds the DLLs it needs, so
 nothing taken out of the build (see scripts\\build.ps1) is still used by something left in it.
 
-    python scripts/dllcheck.py dist\\Corefold
+    python scripts/dllcheck.py dist\\RakizaCore
 
 Prints each missing DLL and "dllcheck: N problem(s)". Needs pefile (comes with PyInstaller)."""
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""Corefold Space's search and live map, tried for real on a Windows PC: how much room keeping every name
+"""Rakiza Core Space's search and live map, tried for real on a Windows PC: how much room keeping every name
 takes, how fast a search runs through them, what following a disk costs while nothing changes, and that a
 map kept up to date says exactly what a new look says.
 

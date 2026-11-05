@@ -44,7 +44,7 @@ PDF_ACTIONS = (("edit", "Edit content", "text_edit_style"), ("merge", "Merge PDF
 # the folders a shortcut can name by what they are (they're found wherever they really are)
 KNOWN_FOLDERS = {"downloads": "Downloads", "documents": "Documents", "desktop": "Desktop", "pictures": "Pictures",
                  "music": "Music", "videos": "Videos"}
-# the Corefold pages a shortcut can open besides the tools' own
+# the Rakiza Core pages a shortcut can open besides the tools' own
 APP_PAGES = {"History": "History", "General": "Settings", "Updates": "Updates"}
 
 _looks: dict[str, tuple[float, object]] = {}   # what was looked up lately: key -> (when, what)
@@ -188,7 +188,7 @@ def known_folder(key: str) -> Path | None:
 
 
 def target_page(target: str) -> str:
-    """The Corefold page a shortcut opens ("" for a folder, file, app or website)."""
+    """The Rakiza Core page a shortcut opens ("" for a folder, file, app or website)."""
     return target[5:] if target.startswith("page:") else ""
 
 
@@ -237,7 +237,7 @@ def target_icon(target: str) -> str:
 def target_hint(target: str) -> str:
     """The second, smaller line: where it leads."""
     if target_page(target):
-        return tr("Corefold page")
+        return tr("Rakiza Core page")
     if target.startswith("known:"):
         folder = known_folder(target[6:])
         return ltr(str(folder)) if folder else ""
@@ -302,7 +302,7 @@ class EditCover(QWidget):
         p.end()
 
     # moving it: it's picked up and follows the pointer inside the board, the others make room (no
-    # drag-and-drop window: nothing of it ever shows outside Corefold's window)
+    # drag-and-drop window: nothing of it ever shows outside Rakiza Core's window)
 
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton:
@@ -1056,7 +1056,7 @@ class Board(QWidget):
         st = self.c.history.stats
         files = number(st.files)
         saved = human_size(st.bytes_saved) if st.bytes_saved else "0"
-        self._head(lay, "converter", tr("What Corefold did"))
+        self._head(lay, "converter", tr("What Rakiza Core did"))
         lay.addStretch()
         if size == "small":
             lay.addWidget(_label(files, "heroStat"))
@@ -1359,7 +1359,7 @@ class Board(QWidget):
         lay.addLayout(head)
         if not items:
             lay.addStretch()
-            lay.addWidget(_label(tr("Add the folders, apps, websites and Corefold pages you use most."), "subtle",
+            lay.addWidget(_label(tr("Add the folders, apps, websites and Rakiza Core pages you use most."), "subtle",
                                  wrap=True))
             if not f.preview:
                 lay.addWidget(self._action(tr("Add a shortcut"), "add", lambda: self._shortcut_add(f.entry["id"])),
@@ -1664,7 +1664,7 @@ class Gallery(QDialog):
 
 
 class ShortcutDialog(QDialog):
-    """What a shortcut opens: a Corefold page, a folder, a file or app, or a website."""
+    """What a shortcut opens: a Rakiza Core page, a folder, a file or app, or a website."""
 
     def __init__(self, board: Board, target: str = "", name: str = ""):
         super().__init__(board.window(), Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
@@ -1677,7 +1677,7 @@ class ShortcutDialog(QDialog):
         lay.setSpacing(10)
         lay.addWidget(_label(tr("What should it open?"), "h2"))
         self.kind = Dropdown()
-        for key, text in (("page", tr("A Corefold page")), ("known", tr("A folder you use often")),
+        for key, text in (("page", tr("A Rakiza Core page")), ("known", tr("A folder you use often")),
                           ("folder", tr("Another folder")), ("file", tr("A file or app")),
                           ("web", tr("A website"))):
             self.kind.addItem(text, key)

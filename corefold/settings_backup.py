@@ -1,4 +1,4 @@
-"""Keeping Corefold's settings safe: a file to bring them back later or on another PC ("Save my
+"""Keeping Rakiza Core's settings safe: a file to bring them back later or on another PC ("Save my
 settings…"), and copies made by themselves before every update, used if settings.json is ever lost or
 damaged.
 
@@ -38,10 +38,10 @@ class BadFile(Exception):
 @dataclass
 class Saved:
     """A settings file that was read and checked."""
-    settings: dict           # the saved values (only the settings Corefold knows)
-    app_version: str         # the Corefold that saved them ("" if not known)
+    settings: dict           # the saved values (only the settings Rakiza Core knows)
+    app_version: str         # the Rakiza Core that saved them ("" if not known)
     saved: datetime | None   # when
-    startup: bool | None     # "Start Corefold when Windows starts", if it was saved
+    startup: bool | None     # "Start Rakiza Core when Windows starts", if it was saved
 
 
 def config_dir() -> Path:
@@ -57,7 +57,7 @@ def kept_keys() -> list[str]:
 
 
 def file_name(when: datetime | None = None) -> str:
-    return f"Corefold settings {(when or datetime.now()).strftime('%Y-%m-%d')}{EXTENSION}"
+    return f"Rakiza Core settings {(when or datetime.now()).strftime('%Y-%m-%d')}{EXTENSION}"
 
 
 def export(settings, path: Path, startup: bool | None = None, version: str | None = None):
@@ -86,16 +86,16 @@ def read(path: Path) -> Saved:
     """Reads and checks a settings file. Raises BadFile with the reason."""
     try:
         if path.stat().st_size > MAX_BYTES:
-            raise BadFile("This isn't a Corefold settings file.")
+            raise BadFile("This isn't a Rakiza Core settings file.")
         raw = path.read_bytes()
     except OSError as e:
         raise BadFile("Couldn't open this file.") from e
     try:
         data = json.loads(raw.decode("utf-8-sig"))
     except ValueError as e:
-        raise BadFile("This isn't a Corefold settings file.") from e
+        raise BadFile("This isn't a Rakiza Core settings file.") from e
     if not isinstance(data, dict):
-        raise BadFile("This isn't a Corefold settings file.")
+        raise BadFile("This isn't a Rakiza Core settings file.")
     if data.get("format") != FORMAT:
         if "format" not in data and _looks_like_settings(data):
             try:
@@ -103,15 +103,15 @@ def read(path: Path) -> Saved:
             except (OSError, ValueError):
                 when = None
             return Saved(_safe_links(data), "", when, None)
-        raise BadFile("This isn't a Corefold settings file.")
+        raise BadFile("This isn't a Rakiza Core settings file.")
     version = data.get("format_version")
     if type(version) is not int or version < 1:
-        raise BadFile("This isn't a Corefold settings file.")
+        raise BadFile("This isn't a Rakiza Core settings file.")
     if version > FORMAT_VERSION:
-        raise BadFile("These settings were saved by a newer Corefold. Update Corefold first, then try again.")
+        raise BadFile("These settings were saved by a newer Rakiza Core. Update Rakiza Core first, then try again.")
     values = data.get("settings")
     if not isinstance(values, dict):
-        raise BadFile("This isn't a Corefold settings file.")
+        raise BadFile("This isn't a Rakiza Core settings file.")
     try:
         when = datetime.fromisoformat(str(data.get("saved", "")))
     except ValueError:
@@ -141,7 +141,7 @@ def links(saved: Saved) -> list[tuple[str, str]]:
 
 
 def apply(current, saved: Saved):
-    """The settings to use from now on: the saved ones, checked the same way as when Corefold starts, over
+    """The settings to use from now on: the saved ones, checked the same way as when Rakiza Core starts, over
     the current ones (what the file doesn't have, like the window's size, stays as it is)."""
     from . import tools as all_tools
     from .settings import Settings

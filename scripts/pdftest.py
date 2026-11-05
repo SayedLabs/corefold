@@ -1,4 +1,4 @@
-"""Corefold PDF, tried for real: every tool on made-up PDFs (each page a colour of its own, so the order
+"""Rakiza Core PDF, tried for real: every tool on made-up PDFs (each page a colour of its own, so the order
 and turns of the pages in every result can be checked by looking at them), then the page in the window
 clicked like a person would: cards, the page board, turning, deleting, undo, typing pages, merging a
 locked PDF with others, saving, the big preview, pictures dropped on the page, and the Store.

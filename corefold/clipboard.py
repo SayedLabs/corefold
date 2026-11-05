@@ -1,11 +1,11 @@
-"""Corefold Clipboard: everything you copy, kept on this PC and easy to find again.
+"""Rakiza Core Clipboard: everything you copy, kept on this PC and easy to find again.
 
-The history is a small SQLite file in Corefold's local folder, with copied pictures as PNG files
+The history is a small SQLite file in Rakiza Core's local folder, with copied pictures as PNG files
 beside it. Nothing leaves the PC. Copies that ask not to be kept (password managers mark them, and
 Windows' own clipboard history skips them too) are never written down.
 
 This part has no windows (clipview.py has the popup and the page), so having the Clipboard on costs
-little while idle: Windows tells Corefold when something is copied, and it writes one small row."""
+little while idle: Windows tells Rakiza Core when something is copied, and it writes one small row."""
 from __future__ import annotations
 
 import ctypes
@@ -27,7 +27,7 @@ from .settings import LOG_DIR
 
 class _LaterSqlite:
     """sqlite3, loaded the first time it's used: by the history opening in the background, so its DLL
-    isn't read from disk while Corefold starts (that held the tray icon up for most of a second)."""
+    isn't read from disk while Rakiza Core starts (that held the tray icon up for most of a second)."""
 
     def __getattr__(self, name):
         import sqlite3 as real
@@ -229,7 +229,7 @@ class History:
             except sqlite3.OperationalError:
                 pass
             db.execute("PRAGMA synchronous=NORMAL")
-            db.execute("PRAGMA cache_size=-512")  # (KB: it stays small while Corefold waits in the tray)
+            db.execute("PRAGMA cache_size=-512")  # (KB: it stays small while Rakiza Core waits in the tray)
             # a copy that's deleted (or forgotten after its days) is wiped from the file, not only marked free:
             # otherwise a password or a card number copied once could still be read from history.db later
             db.execute("PRAGMA secure_delete=ON")
@@ -454,7 +454,7 @@ def is_private(md) -> bool:
 # ----------------------------------------------------------------------------- Windows: who copied, pasting
 
 def sequence_number() -> int | None:
-    """Windows counts every change to the clipboard (used to tell Corefold's own copies apart)."""
+    """Windows counts every change to the clipboard (used to tell Rakiza Core's own copies apart)."""
     if os.name != "nt":
         return None
     try:
@@ -624,7 +624,7 @@ class _SavePicture(QRunnable):
 # ----------------------------------------------------------------------------- the clipboard tool
 
 class Clipboard(QObject):
-    """Corefold Clipboard while it's on: listens for copies and keeps them, and opens the popup
+    """Rakiza Core Clipboard while it's on: listens for copies and keeps them, and opens the popup
     with its shortcut."""
     changed = Signal()   # the history changed (something was copied, pinned or deleted)
 
@@ -635,7 +635,7 @@ class Clipboard(QObject):
         self.history.open_early()
         self.popup = None
         self.on_hotkey = None        # set by the app: opens the popup
-        self._own: int | None = None  # the clipboard's change number after Corefold copied something itself
+        self._own: int | None = None  # the clipboard's change number after Rakiza Core copied something itself
         self._own_digest = ""
         self._last_trim = 0.0
         self.pasted = False           # the last paste() pressed Ctrl+V (not only copied)
@@ -691,7 +691,7 @@ class Clipboard(QObject):
             return
         seq = sequence_number()
         if self._own is not None and seq is not None and seq == self._own:
-            return  # Corefold's own copy (pasting from the history): already kept
+            return  # Rakiza Core's own copy (pasting from the history): already kept
         try:
             md = self.cb.mimeData()
             if md is None or is_private(md):

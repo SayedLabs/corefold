@@ -2,7 +2,7 @@
   <img src="docs/icon.png" alt="" width="96">
 </p>
 
-<h1 align="center">Corefold</h1>
+<h1 align="center">Rakiza Core</h1>
 
 <p align="center">
   <b>Everyday tools for Windows, in one small app that waits in the tray.</b><br>
@@ -20,12 +20,12 @@
 <p align="center">
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/home-en-dark.png">
-  <img src="docs/screenshots/home-en-light.png" alt="The Corefold window: the Home page with every tool">
+  <img src="docs/screenshots/home-en-light.png" alt="The Rakiza Core window: the Home page with every tool">
 </picture>
 </p>
 
 ## What's inside
-This version puts everything into **Corefold Files**: one tool with one heading and a bar of what you
+This version puts everything into **Rakiza Core Files**: one tool with one heading and a bar of what you
 can use it for, so moving between its uses feels like one app, not several. Drop any file on its start
 page to see everything you can do with it.
 
@@ -36,9 +36,9 @@ page to see everything you can do with it.
 | **Archive** | Opens ZIP, RAR, 7z, ISO and more with a double-click. Drag files out, change a file inside and save it back, rescue damaged archives. |
 | **Tidy up** | Sorts a messy Downloads or Desktop into clear folders with one click. See where every file will go first, and undo it all. |
 | **Unlock** | Finds out which program is holding a file you can't delete or move, and asks it to let go. |
-| **Cloud** | Has its own place in the sidebar: your OneDrive, Dropbox, Google Drive and iCloud in one window, found by themselves. Sign in to Google Drive right in Corefold, search every cloud at once and drag files from one to another. |
+| **Cloud** | Has its own place in the sidebar: your OneDrive, Dropbox, Google Drive and iCloud in one window, found by themselves. Sign in to Google Drive right in Rakiza Core, search every cloud at once and drag files from one to another. |
 
-Switch off the uses you don't need (the ⚙ on the start page): a use that's switched off isn't loaded at all, so Corefold stays light.
+Switch off the uses you don't need (the ⚙ on the start page): a use that's switched off isn't loaded at all, so Rakiza Core stays light.
 
 <table>
   <tr>
@@ -70,7 +70,7 @@ Switch off the uses you don't need (the ⚙ on the start page): a use that's swi
 | **Uninstaller** | Remove programs, then clean up the folders, shortcuts and registry entries they leave behind. Everything removed is kept as a backup, so you can put it back. |
 
 ### Coming back soon
-The other tools are resting for now while Corefold Files gets our full attention. Nothing of them
+The other tools are resting for now while Rakiza Core Files gets our full attention. Nothing of them
 runs, and whatever they kept for you (settings, history, backups) waits untouched until they're back.
 
 - **Images & screen:** Capture, Viewer, Colors
@@ -94,7 +94,7 @@ runs, and whatever they kept for you (settings, history, backups) waits untouche
 
 Hold **Shift** while dragging a file in File Explorer or on the desktop. Drop it on a format and
 it's converted next to the original, which is never moved or changed. Drop several files to convert
-them all. You can also **right-click** a file → **Corefold**, or press **Ctrl + V** in Corefold to
+them all. You can also **right-click** a file → **Rakiza Core**, or press **Ctrl + V** in Rakiza Core to
 convert a copied picture.
 
 <details>
@@ -115,17 +115,17 @@ convert a copied picture.
 and dots show the pages. When there are more than fit, the last slice is **More**: click it, or hold
 the dragged file over it for a moment. Options that don't fit the file are **dimmed** (point at one
 to see why), and the middle tells you if you hid any in Settings. For the full list with nothing
-hidden, drop the file on Corefold's **Home** page.
+hidden, drop the file on Rakiza Core's **Home** page.
 
 After a conversion the popup can **Compare** the new picture with the original (drag across it to see
 the difference) or **Undo** a rename. **Do it again** (on the Home page and in the tray menu) repeats
 your last action, with the same choices, on other files. When the wheel is opened from the
 right-click menu, press **1–9** to pick a slice (0 = More).
 
-Other ways to use it: **right-click** a file → **Corefold** → *Convert to PNG*, *Resize…*, *Extract here*…
+Other ways to use it: **right-click** a file → **Rakiza Core** → *Convert to PNG*, *Resize…*, *Extract here*…
 (a normal Windows submenu, like 7-Zip's; on Windows 11 it's under *Show more options*, or Shift +
-right-click). *All options…* at the bottom opens Corefold with the file. Prefer the wheel? Pick
-**Corefold wheel** under *General → Right-click menu*. Or press **Ctrl + V** in Corefold (or *Convert
+right-click). *All options…* at the bottom opens Rakiza Core with the file. Prefer the wheel? Pick
+**Rakiza Core wheel** under *General → Right-click menu*. Or press **Ctrl + V** in Rakiza Core (or *Convert
 what's copied* in the tray menu) to convert a copied picture or copied files.
 </details>
 
@@ -138,7 +138,7 @@ what's copied* in the tray menu) to convert a copied picture or copied files.
 </picture></td>
     <td width="50%"><picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/store-en-dark.png">
-  <img src="docs/screenshots/store-en-light.png" alt="Corefold Files: drop a file, or pick what to use it for">
+  <img src="docs/screenshots/store-en-light.png" alt="Rakiza Core Files: drop a file, or pick what to use it for">
 </picture></td>
   </tr>
 </table>
@@ -153,19 +153,19 @@ design system, so all of it looks and moves the same way.
 ## In your language
 <table>
   <tr>
-    <td width="50%"><img src="docs/screenshots/home-ar-light.png" alt="Corefold in Arabic, light"></td>
-    <td width="50%"><img src="docs/screenshots/home-ar-dark.png" alt="Corefold in Arabic, dark"></td>
+    <td width="50%"><img src="docs/screenshots/home-ar-light.png" alt="Rakiza Core in Arabic, light"></td>
+    <td width="50%"><img src="docs/screenshots/home-ar-dark.png" alt="Rakiza Core in Arabic, dark"></td>
   </tr>
 </table>
 
-**English, العربية, Français, Español and Türkçe.** Corefold asks which language you want the first time it
+**English, العربية, Français, Español and Türkçe.** Rakiza Core asks which language you want the first time it
 starts, and the language button at the top of the window switches it any time, without restarting. In
 Arabic the whole app is right-to-left.
 
 ## Private and light
-- **Nothing leaves your PC.** No account, no tracking, no uploads. The only thing Corefold asks the
+- **Nothing leaves your PC.** No account, no tracking, no uploads. The only thing Rakiza Core asks the
   internet is whether there's a newer version (you can switch that off).
-- **Light on your PC.** Corefold waits in the tray using almost no memory or power. Conversions run at
+- **Light on your PC.** Rakiza Core waits in the tray using almost no memory or power. Conversions run at
   low priority and one at a time (both can be changed under *General → Keep my PC fast*), and memory it
   doesn't need is handed back to Windows when it's idle.
 - **Careful with your files.** Originals are never changed, and Tidy up can undo a whole sort.
@@ -173,9 +173,9 @@ Arabic the whole app is right-to-left.
 Read the full [privacy policy](PRIVACY.md).
 
 ## Installing
-[**Download Corefold-Setup.exe**](https://github.com/SayedLabs/corefold/releases/latest), run it, keep
-the two boxes ticked and click **Install**. That's it: a desktop icon, a Start menu entry, and Corefold
-starts with Windows. No Python needed. Corefold installs for the whole PC (in Program Files), so Windows
+[**Download RakizaCore-Setup.exe**](https://github.com/SayedLabs/corefold/releases/latest), run it, keep
+the two boxes ticked and click **Install**. That's it: a desktop icon, a Start menu entry, and Rakiza Core
+starts with Windows. No Python needed. Rakiza Core installs for the whole PC (in Program Files), so Windows
 asks for permission when it installs and at each update: say **Yes**. If you say No, nothing changes and
 the update waits. Installing a newer version on top upgrades it and keeps your settings; a copy installed
 by an older version (for one user only) is moved over by itself.
@@ -184,43 +184,43 @@ Windows may say *"Windows protected your PC"* the first time, because the app is
 click **More info → Run anyway**.
 
 ## Customizing
-Open Corefold from the desktop icon (or click the teal tray icon):
+Open Rakiza Core from the desktop icon (or click the teal tray icon):
 - **General:** language, which key to hold (Shift, Ctrl + Shift or Alt), where new files go, image
   quality, a sound when done, dim or hide formats that don't fit, new names for batches, the
   right-click menu (Windows menu or the wheel), progress popups, start with Windows, and
   *Keep my PC fast* (background priority, one conversion at a time).
-- **Look:** match Windows / dark / light, seven accent colours (Corefold teal to start with) or your own, wheel shape (classic,
+- **Look:** match Windows / dark / light, seven accent colours (Rakiza Core teal to start with) or your own, wheel shape (classic,
   petals, slim, bubbles, neon, glass), size (up to huge), icons and/or text on slices, text size, how a
   slice lights up, colour slices by kind of action or in a rainbow, options per page, open under the cursor or in the middle,
-  see-through, animations, number keys — all with a live preview. Also the text size in Corefold's
+  see-through, animations, number keys — all with a live preview. Also the text size in Rakiza Core's
   windows, which corner popups appear in and how long they stay, and icons in the sidebar.
-- **Sounds:** four soft "done" sounds made for Corefold (Corefold, Peel, Droplet, Glass) or none, a
+- **Sounds:** four soft "done" sounds made for Rakiza Core (Rakiza Core, Peel, Droplet, Glass) or none, a
   volume slider, a gentle sound when something fails, and an optional tick when the wheel opens.
 - **Formats:** untick anything you don't use, ★ favourites to pin them to the top, ▲ ▼ to reorder.
 - **History:** recent conversions (open them or show them in their folder) and your stats:
   files converted and space saved.
 
 ## Updates
-Corefold updates itself, so you never have to download it again. It checks for a newer version a few
+Rakiza Core updates itself, so you never have to download it again. It checks for a newer version a few
 seconds after starting and every few hours. When there's a newer version it shows
-**Update now**; one click downloads it, checks it isn't damaged, installs it and restarts Corefold
+**Update now**; one click downloads it, checks it isn't damaged, installs it and restarts Rakiza Core
 with all settings kept, in the same folder, with your desktop icon and Start menu entry. Afterwards it
 shows what's new, and the **Updates** page has the version history: what every version changed. There
 you can also let it install updates by itself.
 
 ## Uninstalling
 Any of these works:
-- In Corefold: **About → Uninstall Corefold…**
-- Start menu: right-click **Corefold → Uninstall**
-- Windows **Settings → Apps → Installed apps → Corefold → Uninstall**
+- In Rakiza Core: **About → Uninstall Rakiza Core…**
+- Start menu: right-click **Rakiza Core → Uninstall**
+- Windows **Settings → Apps → Installed apps → Rakiza Core → Uninstall**
 
 It asks whether to delete your settings too. Files you converted are never touched.
 (Portable version: **About → Remove settings and quit**, then delete the folder.)
 
 ## Licence
-Corefold is free. Its code is MIT licensed ([LICENSE](LICENSE)), and the open-source parts it includes
+Rakiza Core is free. Its code is MIT licensed ([LICENSE](LICENSE)), and the open-source parts it includes
 are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-## Working on Corefold
+## Working on Rakiza Core
 How to run it from the source, build it, test it on a real Windows PC and publish a release is in
 [DEVELOPING.md](DEVELOPING.md).

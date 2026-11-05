@@ -1,7 +1,7 @@
-"""Clicks through a built Corefold.exe from the outside, with the real mouse, the way a person does:
+"""Clicks through a built RakizaCore.exe from the outside, with the real mouse, the way a person does:
 switches every tool on in its section and opens it, and saves a picture of the whole screen after each click.
 
-Run: python scripts/exetest.py <Corefold.exe> <folder>   (needs pywinauto and Pillow)
+Run: python scripts/exetest.py <RakizaCore.exe> <folder>   (needs pywinauto and Pillow)
 Prints one line per check and "exetest: N problem(s)"."""
 import os
 import subprocess
@@ -54,7 +54,7 @@ def check(ok, what):
 def window():
     for _ in range(40):
         try:
-            wins = [w for w in Desktop(backend="uia").windows() if w.window_text() == "Corefold" and w.is_visible()
+            wins = [w for w in Desktop(backend="uia").windows() if w.window_text() == "Rakiza Core" and w.is_visible()
                     and w.rectangle().width() > 600]  # (not a toast)
         except Exception:  # a window (a toast, a menu) closed while Windows was listing them: look again
             wins = []
@@ -90,13 +90,13 @@ def click(ctrl):
 
 proc = subprocess.Popen([str(EXE), "--page", "Files"])
 watch = None
-if os.name == "nt":  # every window Corefold.exe (and what it starts) shows: none may only flash
+if os.name == "nt":  # every window RakizaCore.exe (and what it starts) shows: none may only flash
     sys.path.insert(0, str(ROOT / "scripts"))
     from flashwatch import FlashWatch
     watch = FlashWatch(proc.pid).start()
 try:
     win = window()
-    if check(win is not None, "Corefold.exe opens its window on Files"):
+    if check(win is not None, "RakizaCore.exe opens its window on Files"):
         win.set_focus()
         win.maximize()  # (every switch on the screen at once, the way most people keep it)
         check(shot("store", win) < 0.3, "the Files section isn't white")
@@ -106,8 +106,10 @@ try:
                 continue
             win = window()
             sec = all_tools.SECTION_OF[tool.id]
-            row = [t for t in win.descendants(control_type="ListItem") if t.window_text() == sec.name]
-            if not check(bool(row), f"the sidebar has {sec.name}"):
+            # (a section resting for now is on the sidebar's one row for them all, Coming soon)
+            row_name = "Coming soon" if all_tools.section_paused(sec) else sec.name
+            row = [t for t in win.descendants(control_type="ListItem") if t.window_text() == row_name]
+            if not check(bool(row), f"the sidebar has {row_name}"):
                 continue
             click(row[0])
             time.sleep(0.8)
@@ -135,6 +137,10 @@ try:
                     check(shot(f"resting-{sec.id}", win) < 0.3, f"{sec.name}'s resting page isn't white")
                 continue
             if not check(bool(switch), f"a switch for {tool.id} in {sec.name}"):
+                for item in win.descendants(control_type="ListItem"):  # (what the sidebar showed, and where)
+                    print(f"note  sidebar row {item.window_text()!r} at {item.rectangle()}", flush=True)
+                print("note  page words: " + ", ".join(sorted({t.window_text() for t in win.descendants(control_type="Text")
+                                                             if t.window_text()})[:40]), flush=True)
                 continue
             r, wr = switch[0].rectangle(), win.rectangle()
             if wr.top < (r.top + r.bottom) // 2 < wr.bottom - 10:
@@ -158,7 +164,11 @@ try:
             if sec.direct:  # (one tool on its own, like Cloud: switched on, it opens; no tab)
                 check(shot(f"open-{tool.id}", win) < 0.3, f"{tool.id}'s page isn't white")
                 continue
-            if sec.one_tool:  # (its tab in the bar of uses on the tool's heading, above its switch and its card)
+            # (its row in the sidebar, right under its section's; with icons only, its tab on the page)
+            tab = [b for b in win.descendants(control_type="ListItem") if b.window_text() == (tool.use or tool.nav)]
+            if tab:
+                pass
+            elif sec.one_tool:  # (its tab in the bar of uses on the tool's heading, above its switch and its card)
                 tab = sorted([b for b in win.descendants() if b.window_text() == (tool.use or tool.nav)
                               and b.element_info.control_type not in ("ListItem", "Text")
                               and b.rectangle().top < wr.top + 300], key=lambda b: b.rectangle().top)[:1]
@@ -176,10 +186,13 @@ try:
         flashes = watch.problems()
         for line in flashes:
             check(False, line)
-        check(not flashes, f"Corefold.exe flashed no window ({len(watch.events)} shown)")
+        check(not flashes, f"RakizaCore.exe flashed no window ({len(watch.events)} shown)")
 finally:
-    log = Path(os.environ["LOCALAPPDATA"]) / "Corefold" / "corefold.log"
+    log = Path(os.environ["LOCALAPPDATA"]) / "Rakiza Core" / "rakizacore.log"
     if log.exists():
         (OUT / "exe-log.txt").write_text(log.read_text("utf-8", "replace"), "utf-8")
+        if problems:  # (what the app itself wrote, right here in the run's output)
+            for line in log.read_text("utf-8", "replace").splitlines()[-60:]:
+                print("log   " + line, flush=True)
     proc.kill()
 print(f"exetest: {len(problems)} problem(s)", flush=True)

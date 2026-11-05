@@ -1,4 +1,4 @@
-"""Corefold PDF's page editor: the pages of one PDF, big, to write on. Type new text anywhere or change
+"""Rakiza Core PDF's page editor: the pages of one PDF, big, to write on. Type new text anywhere or change
 the PDF's own text, add pictures and a signature, highlight, underline or cross out words, draw, add
 shapes, cover things up, leave notes and fill in forms. Saving makes a new copy (pdfedit.py writes it);
 the PDF that was opened is never changed.
@@ -1564,7 +1564,7 @@ def _opacity(d: dict) -> float:
 
 
 class PdfEditor(QWidget):
-    """The editor, shown on Corefold PDF's page instead of the cards."""
+    """The editor, shown on Rakiza Core PDF's page instead of the cards."""
 
     closed = Signal()
 
@@ -2116,7 +2116,7 @@ class PdfEditor(QWidget):
         if not work.alive(self):
             return
         if isinstance(result, Exception):
-            self.c.tell(tr("Corefold PDF"), tr("{name} couldn't be read. It may be damaged.",
+            self.c.tell(tr("Rakiza Core PDF"), tr("{name} couldn't be read. It may be damaged.",
                                                  name=short_name(self.src.name)))
             self.close_editor(ask=False)
             return
@@ -2599,7 +2599,7 @@ class PdfEditor(QWidget):
         if not pages:
             return
         if len(pages) >= len(self.order):
-            self.c.tell(tr("Corefold PDF"), tr("A PDF needs at least one page."))
+            self.c.tell(tr("Rakiza Core PDF"), tr("A PDF needs at least one page."))
             return
         self.end_text_edits()
         self.scene.clearSelection()
@@ -3487,7 +3487,7 @@ class PdfEditor(QWidget):
             except Exception:
                 log.debug("couldn't read %s", path, exc_info=True)
         if img.isNull():
-            self.c.tell(tr("Corefold PDF"), tr("That picture couldn't be read."))
+            self.c.tell(tr("Rakiza Core PDF"), tr("That picture couldn't be read."))
             return None
         from PySide6.QtGui import QImageIOHandler, QImageReader
         reader = QImageReader(str(path))
@@ -3777,7 +3777,7 @@ class PdfEditor(QWidget):
             pdfedit.save_picture(self.src, self.password, item.page.index, item.objs[0], Path(name))
         except Exception:
             log.debug("couldn't save the picture", exc_info=True)
-            self.c.tell(tr("Corefold PDF"), tr("That picture couldn't be saved."))
+            self.c.tell(tr("Rakiza Core PDF"), tr("That picture couldn't be saved."))
             return
         self._say(tr("Saved {name}", name=short_name(Path(name).name)))
 

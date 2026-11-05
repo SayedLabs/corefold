@@ -1,4 +1,4 @@
-"""PDF editor fonts: a changed line keeps its font (found on the PC or among the fonts Corefold brings,
+"""PDF editor fonts: a changed line keeps its font (found on the PC or among the fonts Rakiza Core brings,
 by the many names PDFs give fonts), Arabic and English on one line keep their own fonts, and every font
 that writes English or Arabic is offered for new text."""
 import sys
@@ -126,7 +126,7 @@ def test_a_pdfs_fonts_read_back(tmp_path):
 @pytest.mark.parametrize("family", ["Cairo", "Tajawal", "Almarai", "IBM Plex Sans Arabic", "El Messiri",
                                     "Markazi Text", "Roboto", "Open Sans", "Montserrat", "Poppins"])
 def test_brought_fonts_stay_searchable(tmp_path, family):
-    """Words saved in a font Corefold brings can still be found and copied (Arabic too)."""
+    """Words saved in a font Rakiza Core brings can still be found and copied (Arabic too)."""
     import pypdfium2 as pdfium
     from PySide6.QtCore import QSizeF
     from PySide6.QtGui import QFont, QPageSize, QPainter, QPdfWriter
