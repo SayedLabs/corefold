@@ -3169,4 +3169,7 @@ STRINGS: dict[str, str] = {
     "Pack Windows tighter (Compact OS)": "Windows'u sıkıştır (Compact OS)",
     "Windows packs its own files, which usually frees 2 to 4 GB. It takes 10 to 20 minutes and can make a very old PC a little slower. Windows asks for an administrator.": "Windows kendi dosyalarını sıkıştırır; bu genellikle 2 ile 4 GB yer açar. 10 ile 20 dakika sürer ve çok eski bir bilgisayarı biraz yavaşlatabilir. Windows yönetici ister.",
     "About 2 to 4 GB": "Yaklaşık 2 ile 4 GB",
+    "Fast look at whole drives (Windows asks for permission)": "Tüm sürücülere hızlı bakış (Windows izin ister)",
+    "Reads the drive's own list of every file at once, many times faster on a big drive. Only reads: nothing on the drive is changed. If you say no, Corefold looks the usual way.": "Sürücünün tüm dosyaların tutulduğu kendi listesini tek seferde okur; büyük bir sürücüde çok daha hızlıdır. Yalnızca okur: sürücüde hiçbir şey değişmez. Hayır derseniz Corefold her zamanki gibi bakar.",
+    "Reading the drive's list of files. Windows asks for permission first.": "Sürücünün dosya listesi okunuyor. Windows önce izin ister.",
 }

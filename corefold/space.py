@@ -146,6 +146,7 @@ class Scan:
     cloud: int = 0                                # files that are only in the cloud (not counted)
     seconds: float = 0.0
     cancelled: bool = False
+    fast: bool = False          # (read from the drive's own table: mftscan)
     watch: "Watch | None" = None                  # Windows telling what changes in it (while the map is kept)
 
 

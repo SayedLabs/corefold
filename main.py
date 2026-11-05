@@ -7,9 +7,9 @@ if sys.platform != "win32":
 
 # The elevated helper used by the Apps page (removing leftovers in Program Files, restore points), by
 # Space (Windows' own leftovers), by Unlock (deleting a file when the PC restarts) and by Startup
-# (leftovers in everyone's Startup folder).
+# (leftovers in everyone's Startup folder), and Space's fast look (reading a drive's table of files).
 if any(a in ("--cleanup", "--restore", "--restore-point", "--space-clean", "--delete-at-restart",
-             "--startup-clean") for a in sys.argv[1:]):
+             "--startup-clean", "--mft-scan") for a in sys.argv[1:]):
     from corefold.uninstall import helper_main  # noqa: E402
     sys.exit(helper_main(sys.argv[1:]))
 

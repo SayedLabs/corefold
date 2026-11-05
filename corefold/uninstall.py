@@ -2700,12 +2700,13 @@ def _let_questions_show():
         log.debug("couldn't make the helper's questions visible", exc_info=True)
 
 
-HELPER_KINDS = ("--cleanup", "--restore", "--restore-point", "--space-clean", "--delete-at-restart", "--startup-clean")
+HELPER_KINDS = ("--cleanup", "--restore", "--restore-point", "--space-clean", "--delete-at-restart", "--startup-clean",
+                "--mft-scan")
 
 
 def helper_main(argv: list[str]) -> int:
     """What the elevated copy does: --cleanup plan.json, --restore plan.json, --restore-point plan.json,
-    --space-clean plan.json, --delete-at-restart plan.json or --startup-clean plan.json, each followed by
+    --space-clean plan.json, --delete-at-restart plan.json, --startup-clean plan.json or --mft-scan plan.json, each followed by
     --plan-sha256 and the plan's fingerprint."""
     kind = next((a[2:] for a in argv if a in HELPER_KINDS), "")
     try:
@@ -2724,7 +2725,7 @@ def helper_main(argv: list[str]) -> int:
     # account at the admin prompt, this copy runs as that account, with other folders.
     folder = str(payload.get("folder", "")) if isinstance(payload, dict) else ""
     home = plan.resolve().parent.parent  # ...\Corefold
-    needs_folder = kind not in ("restore-point", "space-clean", "delete-at-restart", "startup-clean")
+    needs_folder = kind not in ("restore-point", "space-clean", "delete-at-restart", "startup-clean", "mft-scan")
     manifest = payload.get("manifest") if isinstance(payload, dict) else None
     files = payload.get("files") if isinstance(payload, dict) else None
     if plan.resolve().parent.name.lower() != "helper" or home.name.lower() not in ("corefold", LEGACY_NAME.lower()) or \
@@ -2755,6 +2756,9 @@ def helper_main(argv: list[str]) -> int:
                 allowed = [p for p in paths if at_restart_allowed(p)]
                 out = delete_at_restart(allowed) if allowed else {"scheduled": 0, "failed": 0}
                 out["refused"] = len(paths) - len(allowed)
+        elif kind == "mft-scan":  # Space's fast look: a whole drive's table of files, read (never written)
+            from .mftscan import helper_scan
+            out = helper_scan(str(payload.get("drive", "")), plan.with_suffix(".listing"))
         elif kind == "startup-clean":  # the Startup page: shortcuts in everyone's Startup folder
             from .startup import clean_common_as_admin
             out = clean_common_as_admin(payload)

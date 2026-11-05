@@ -337,6 +337,7 @@ class Settings:
     organize_auto_last: float = 0.0  # when it last did (seconds since 1970)
     space_auto_clean: str = "off"    # Space cleans up by itself: "off", "week" or "month" (space.AUTO_EVERY)
     space_auto_last: float = 0.0     # when it last did (seconds since 1970)
+    space_fast_look: bool = False    # Space reads a whole NTFS drive's own table of files (mftscan; Windows asks)
     unused_months: int = 3         # "not used for …" filter
     backup_days: int = 30          # backups of removed leftovers are kept this long
     restore_point: bool = False    # tick "Make a System Restore point first" to begin with

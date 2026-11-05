@@ -18,7 +18,7 @@ from PySide6.QtWidgets import QApplication, QButtonGroup, QCheckBox, QFileDialog
     QHBoxLayout, QHeaderView, QLabel, QLineEdit, QMenu, QMessageBox, QProgressBar, QPushButton, QScrollArea, QSizePolicy, QStackedWidget, \
     QStyledItemDelegate, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
-from . import icons, sheet, space, work
+from . import icons, mftscan, sheet, space, work
 from .atomic.tokens import alpha, on_color
 from .atomic.widgets import Dropdown, FlowLayout, GlowPanel, Group
 from .core import human_size, short_name
@@ -894,6 +894,14 @@ class SpacePage(QWidget):
         cl.addLayout(self.drive_rows)
         cl.addStretch()
         dl.addWidget(_scroller(cards), 1)
+        # the fast look: the drive's own table of files, read by an administrator copy (Windows asks each time)
+        self.fast_look = QCheckBox(tr("Fast look at whole drives (Windows asks for permission)"))
+        self.fast_look.setToolTip(tr("Reads the drive's own list of every file at once, many times faster on a big "
+                                     "drive. Only reads: nothing on the drive is changed. If you say no, Corefold "
+                                     "looks the usual way."))
+        self.fast_look.setChecked(bool(self.c.settings.space_fast_look))
+        self.fast_look.toggled.connect(self._fast_look_changed)
+        dl.addWidget(self.fast_look)
         lay.addWidget(self.drives_box, 1)
         # looking (with Stop): a ring that goes round, with what it found so far
         self.busy_box = QWidget()
@@ -1063,6 +1071,10 @@ class SpacePage(QWidget):
         for b, (key, _t) in zip(self.section_buttons.buttons() if hasattr(self, "section_buttons") else [], SECTIONS):
             b.setIcon(icons.icon(SECTION_ICONS[key], t.muted))
 
+    def _fast_look_changed(self, on: bool):
+        self.c.settings.space_fast_look = bool(on)
+        self.c.settings.save()
+
     def _pick_folder(self):
         folder = QFileDialog.getExistingDirectory(self, tr("Look at a folder"), str(Path.home()))
         if folder:
@@ -1093,8 +1105,16 @@ class SpacePage(QWidget):
             self._new_watch = None
         else:
             self._watches.append(self._new_watch)
+        fast = bool(self.c.settings.space_fast_look) and mftscan.is_ntfs(root)
+        if fast:
+            self.busy_line.set_full(tr("Reading the drive's list of files. Windows asks for permission first."))
+
         def work(progress):
-            result = space.scan(root, cancel, lambda *a: progress(a))
+            result = mftscan.fast_scan(root, cancel) if fast else None
+            if result is None and not cancel.is_set():  # (said no, or it didn't work: the usual way)
+                result = space.scan(root, cancel, lambda *a: progress(a))
+            elif result is None:
+                result = space.Scan(space.Folder(str(root)), cancelled=True)
             space.remember(result)
             return result
         self.job = _work(work, self._scan_progress, self._scanned)
