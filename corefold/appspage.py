@@ -28,6 +28,8 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 APP_ROLE = Qt.UserRole
 SORT_ROLE = Qt.UserRole + 1
+FILLED_ROLE = Qt.UserRole + 2  # a leftover folder or key whose parts are listed under it
+PARTS_SHOWN = 500              # parts listed under one folder or key: the rest are one row, "{count} more items"
 
 
 def _button(text: str, name: str | None = None, on_click=None) -> QPushButton:
@@ -827,7 +829,8 @@ class UninstallDialog(QDialog):
         self.left_title = _label("", "h2", wrap=True)
         l3.addWidget(self.left_title)
         self.left_note = _label(tr("Ticked items clearly belong to the app. Unticked ones only might, so check them "
-                                   "first. Everything removed is kept as a backup."), "muted", wrap=True)
+                                   "first. Open a folder or a registry key to choose what goes from inside it. "
+                                   "Everything removed is kept as a backup."), "muted", wrap=True)
         l3.addWidget(self.left_note)
         depth_row = QHBoxLayout()
         self.depth_label = _label(tr("How deep to clean up:"))
@@ -842,13 +845,27 @@ class UninstallDialog(QDialog):
         l3.addLayout(depth_row)
         self.depth_help = _label("", "muted", wrap=True)
         l3.addWidget(self.depth_help)
+        picks = QHBoxLayout()
+        picks.setSpacing(6)
+        self.pick_all = _button(tr("Select all"), "chipButton", lambda: self._tick_all(True))
+        self.pick_none = _button(tr("Select none"), "chipButton", lambda: self._tick_all(False))
+        self.pick_suggested = _button(tr("Only what's suggested"), "chipButton", self._tick_suggested)
+        self.pick_suggested.setToolTip(tr("Ticks again only what Corefold suggests removing."))
+        for b in (self.pick_all, self.pick_none, self.pick_suggested):
+            picks.addWidget(b)
+        picks.addStretch()
+        l3.addLayout(picks)
         self.left_tree = QTreeWidget()
         self.left_tree.setObjectName("apps")
-        self.left_tree.setHeaderLabels([tr("What"), tr("Size")])
+        self.left_tree.setHeaderLabels([tr("What"), tr("How sure"), tr("Size")])
         self.left_tree.header().setSectionResizeMode(0, QHeaderView.Stretch)
         self.left_tree.header().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        self.left_tree.header().setSectionResizeMode(2, QHeaderView.ResizeToContents)
         self.left_tree.header().setStretchLastSection(False)
         self.left_tree.itemChanged.connect(self._ticks_changed)
+        self.left_tree.itemExpanded.connect(self._fill_parts)
+        self.left_tree.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.left_tree.customContextMenuRequested.connect(self._left_menu)
         l3.addWidget(self.left_tree, 1)
         self.left_problems = _label("", "warning", wrap=True)
         self.left_problems.hide()
@@ -886,6 +903,7 @@ class UninstallDialog(QDialog):
         self.control = un.Control(self.cancel)
         self.removed_apps: list[un.App] = []
         self.no_ticks: set[int] = set()
+        self._shown_list = 0  # counts the lists of leftovers shown (sizes worked out for an older one are dropped)
         self.running: list[tuple[int, str]] = []
         self.problems: list[tuple[un.App, un.Outcome]] = []
         self.started = 0.0
@@ -1077,8 +1095,38 @@ class UninstallDialog(QDialog):
         if self.removed_apps:
             self._show_leftovers(self.removed_apps, self.leftovers)
 
+    def _suggested(self, item: un.Leftover) -> bool:
+        """Ticked to start with (and again with "Suggested")."""
+        depth = self.depth.currentData() or "normal"
+        return un.ticked_at(item, depth) and id(item) not in self.no_ticks
+
+    def _sure_cell(self, row: QTreeWidgetItem, level: int):
+        word, meaning = un.SURE.get(level, un.SURE[1])
+        row.setText(1, tr(word))
+        row.setToolTip(1, tr(meaning))
+        colors = getattr(getattr(self.c, "theme", None), "tokens", None)
+        if colors is not None:
+            from PySide6.QtGui import QBrush
+            row.setForeground(1, QBrush(colors.success if level >= 3 else colors.warning if level == 2
+                                        else colors.danger))
+
+    def _leftover_row(self, item: un.Leftover, ticked: bool) -> QTreeWidgetItem:
+        """One leftover: a folder or a registry key opens to show what's in it, to keep some of that."""
+        row = QTreeWidgetItem([item.label(), "", human_size(item.size) if item.size else ""])
+        flags = row.flags() | Qt.ItemIsUserCheckable
+        if item.kind in ("folder", "key"):
+            flags |= Qt.ItemIsAutoTristate  # (ticked, unticked, or partly: some of what's inside)
+            row.setChildIndicatorPolicy(QTreeWidgetItem.ShowIndicator)
+        row.setFlags(flags)
+        row.setCheckState(0, Qt.Checked if ticked else Qt.Unchecked)
+        row.setData(0, APP_ROLE, item)
+        row.setToolTip(0, item.label())
+        self._sure_cell(row, item.level)
+        return row
+
     def _show_leftovers(self, removed, found):
         self.removed_apps = removed
+        self._shown_list += 1
         depth = self.depth.currentData() or "normal"
         self.depth_help.setText(tr(un.DEPTH_HELP[depth]))
         shown = [i for i in found if un.shown_at(i, depth)]
@@ -1088,21 +1136,15 @@ class UninstallDialog(QDialog):
         for item in shown:
             group = groups.get(item.reason)
             if group is None:
-                group = QTreeWidgetItem([tr(un.REASONS.get(item.reason, item.reason)), ""])
+                group = QTreeWidgetItem([tr(un.REASONS.get(item.reason, item.reason)), "", ""])
                 group.setFlags(group.flags() | Qt.ItemIsAutoTristate | Qt.ItemIsUserCheckable)
                 f = group.font(0)
                 f.setBold(True)
                 group.setFont(0, f)
                 self.left_tree.addTopLevelItem(group)
                 groups[item.reason] = group
-            row = QTreeWidgetItem([item.label(), human_size(item.size) if item.size else ""])
-            row.setFlags(row.flags() | Qt.ItemIsUserCheckable)
-            ticked = un.ticked_at(item, depth) and id(item) not in self.no_ticks
-            row.setCheckState(0, Qt.Checked if ticked else Qt.Unchecked)
-            row.setData(0, APP_ROLE, item)
-            row.setToolTip(0, item.label())
-            group.addChild(row)
-        self.left_tree.expandAll()
+            group.addChild(self._leftover_row(item, self._suggested(item)))
+        self.left_tree.expandToDepth(0)  # (the groups: what's inside a folder or key is shown when it's opened)
         self.left_tree.blockSignals(False)
         name = removed[0].name if len(removed) == 1 else tr("{count} apps", count=len(removed))
         self.left_title.setText(tr("{name} left {count} things behind", name=name, count=len(shown)))
@@ -1115,15 +1157,128 @@ class UninstallDialog(QDialog):
         self.stack.setCurrentIndex(2)
         self._ticks_changed()
 
+    def _fill_parts(self, row: QTreeWidgetItem):
+        """A leftover folder or key was opened: what's right inside it, each ticked like it, to untick
+        what should stay. (Listed once, when it's first opened.)"""
+        item = row.data(0, APP_ROLE)
+        if not isinstance(item, un.Leftover) or item.kind not in ("folder", "key") or row.data(0, FILLED_ROLE):
+            return
+        row.setData(0, FILLED_ROLE, True)
+        try:
+            parts = un.children_of(item)
+        except Exception:
+            log.debug("couldn't list what's in %s", item.path, exc_info=True)
+            parts = []
+        state = row.checkState(0)
+        self.left_tree.blockSignals(True)
+        rows = []
+        for part in parts[:PARTS_SHOWN]:
+            child = QTreeWidgetItem([_part_text(part), "", human_size(part.size) if part.size else ""])
+            flags = child.flags() | Qt.ItemIsUserCheckable
+            if part.kind in ("folder", "key"):
+                flags |= Qt.ItemIsAutoTristate
+                child.setChildIndicatorPolicy(QTreeWidgetItem.ShowIndicator)
+            child.setFlags(flags)
+            child.setCheckState(0, state)  # (before it's added: an unticked one would untick the folder)
+            child.setData(0, APP_ROLE, part)
+            child.setToolTip(0, part.label())
+            row.addChild(child)
+            rows.append((child, part))
+        rest = parts[PARTS_SHOWN:]
+        if rest:  # one row for all the rest: ticked, they go; unticked, they stay
+            more = QTreeWidgetItem([tr("{count} more items", count=len(rest)), "",
+                                    human_size(sum(p.size for p in rest)) if any(p.size for p in rest) else ""])
+            more.setFlags(more.flags() | Qt.ItemIsUserCheckable)
+            more.setCheckState(0, state)
+            more.setData(0, APP_ROLE, rest)
+            row.addChild(more)
+        if not parts:
+            row.setChildIndicatorPolicy(QTreeWidgetItem.DontShowIndicator)
+        self.left_tree.blockSignals(False)
+        self._ticks_changed()
+        folders = [(child, part) for child, part in rows if part.kind == "folder"]
+        if folders:
+            self._measure(folders)
+
+    def _measure(self, rows):
+        """The sizes of the folders just listed, worked out away from the window's thread."""
+        from . import work
+        shown, paths = self._shown_list, [part.path for _, part in rows]
+
+        def measure(_progress):
+            sizes, end = [], time.monotonic() + 15  # (at most 15 s for them all: the rest show no size)
+            for path in paths:
+                sizes.append(un.folder_size(Path(path), limit_s=1) if time.monotonic() < end else 0)
+            return sizes
+
+        def measured(sizes):
+            if not work.alive(self) or shown != self._shown_list or isinstance(sizes, Exception):
+                return
+            self.left_tree.blockSignals(True)
+            for (child, part), size in zip(rows, sizes):
+                part.size = size
+                child.setText(2, human_size(size) if size else "")
+            self.left_tree.blockSignals(False)
+            self._ticks_changed()
+        # (kept while the sheet is open: its answer comes through the job's own signals)
+        self._sizing = getattr(self, "_sizing", [])
+        self._sizing.append(work.run(measure, lambda _x: None, measured))
+
     def _chosen(self) -> list[un.Leftover]:
-        out = []
+        """What's ticked: a whole leftover, or (when only some of what's inside it is ticked) those parts."""
+        out: list[un.Leftover] = []
+
+        def walk(node: QTreeWidgetItem):
+            for c in range(node.childCount()):
+                row = node.child(c)
+                data, state = row.data(0, APP_ROLE), row.checkState(0)
+                if data is None or state == Qt.PartiallyChecked:  # a group, or a folder or key partly ticked
+                    walk(row)
+                elif state == Qt.Checked:
+                    out.extend(data if isinstance(data, list) else [data])
+        walk(self.left_tree.invisibleRootItem())
+        return out
+
+    def _tick_all(self, on: bool):
+        for g in range(self.left_tree.topLevelItemCount()):
+            self.left_tree.topLevelItem(g).setCheckState(0, Qt.Checked if on else Qt.Unchecked)
+
+    def _tick_suggested(self):
+        self.left_tree.blockSignals(True)
         for g in range(self.left_tree.topLevelItemCount()):
             group = self.left_tree.topLevelItem(g)
             for c in range(group.childCount()):
                 row = group.child(c)
-                if row.checkState(0) == Qt.Checked:
-                    out.append(row.data(0, APP_ROLE))
-        return out
+                row.setCheckState(0, Qt.Checked if self._suggested(row.data(0, APP_ROLE)) else Qt.Unchecked)
+        self.left_tree.blockSignals(False)
+        self._ticks_changed()
+
+    def _left_menu(self, pos):
+        """Right-click on a leftover: see it where it is before choosing."""
+        row = self.left_tree.itemAt(pos)
+        item = row.data(0, APP_ROLE) if row is not None else None
+        if not isinstance(item, un.Leftover):
+            return
+        from PySide6.QtGui import QGuiApplication
+        from .theme import round_menu
+        from .winutil import reveal_in_explorer
+        m = QMenu(self)
+        round_menu(m)
+        if item.kind in ("folder", "file", "shortcut"):
+            m.addAction(tr("Show in folder"), lambda: reveal_in_explorer(Path(item.path)))
+            path = item.path
+        elif item.is_registry:
+            m.addAction(tr("Open in Registry Editor"), lambda: un.open_in_regedit(item.path, item.view))
+            path = un.registry_place(item.path, item.view)
+        else:  # a scheduled task
+            path = item.label()
+        m.addAction(tr("Copy the path"), lambda: QGuiApplication.clipboard().setText(path))
+        if item.kind in ("folder", "key") and row.childIndicatorPolicy() == QTreeWidgetItem.ShowIndicator:
+            m.addSeparator()
+            m.addAction(tr("Hide what's inside") if row.isExpanded() else tr("Show what's inside"),
+                        lambda: row.setExpanded(not row.isExpanded()))
+        sheet.menu(m, self.left_tree.viewport().mapToGlobal(pos))
+        sheet.forget(m)
 
     def _ticks_changed(self, *_):
         chosen = self._chosen()
@@ -1254,6 +1409,13 @@ class UninstallDialog(QDialog):
         super().closeEvent(e)
 
 
+def _part_text(item: un.Leftover) -> str:
+    """A part of a leftover folder or key, under it: just its own name."""
+    if item.kind == "value":
+        return item.value
+    return item.path.rstrip("\\/").replace("/", "\\").rsplit("\\", 1)[-1] or item.path
+
+
 def _problems_text(problems: list[tuple[un.App, un.Outcome]], names: bool) -> str:
     """One line for each app that is still installed, with why (and its name, when there were several)."""
     lines = []
@@ -1324,6 +1486,9 @@ class OrphansDialog(UninstallDialog):
             self._emit("found", (me, found, []))
         threading.Thread(target=work, daemon=True).start()
 
+    def _suggested(self, item: un.Leftover) -> bool:
+        return False  # (nothing is ticked for you here: see the note)
+
     def _state(self, state: str, data):
         if state == "scanning":
             super()._state(state, data)
@@ -1340,20 +1505,16 @@ class OrphansDialog(UninstallDialog):
         self.removed_apps = removed
         self.left_tree.blockSignals(True)
         self.left_tree.clear()
-        group = QTreeWidgetItem([tr(un.REASONS["orphan"]), ""])
+        self._shown_list += 1
+        group = QTreeWidgetItem([tr(un.REASONS["orphan"]), "", ""])
         group.setFlags(group.flags() | Qt.ItemIsAutoTristate | Qt.ItemIsUserCheckable)
         f = group.font(0)
         f.setBold(True)
         group.setFont(0, f)
         self.left_tree.addTopLevelItem(group)
         for item in found:
-            row = QTreeWidgetItem([item.label(), human_size(item.size) if item.size else ""])
-            row.setFlags(row.flags() | Qt.ItemIsUserCheckable)
-            row.setCheckState(0, Qt.Unchecked)
-            row.setData(0, APP_ROLE, item)
-            row.setToolTip(0, item.label())
-            group.addChild(row)
-        self.left_tree.expandAll()
+            group.addChild(self._leftover_row(item, False))
+        self.left_tree.expandToDepth(0)
         self.left_tree.blockSignals(False)
         self.left_title.setText(tr("{count} program folders no installed app uses", count=len(found)))
         self.left_problems.setVisible(False)
