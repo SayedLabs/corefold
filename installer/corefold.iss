@@ -319,7 +319,7 @@ begin
   begin
     WizardForm.TasksList.Checked[0] := FileExists(ExpandConstant('{autodesktop}\{#AppName}.lnk')) or
                                        FileExists(ExpandConstant('{userdesktop}\{#AppName}.lnk')) or
-                                       UserHadDesktopIcon;
+                                       UserHadDesktopIcon or HadOldDesktopIcon;  { (an icon under an earlier name too) }
     WizardForm.TasksList.Checked[1] := RegQueryStringValue(HKEY_CURRENT_USER, RunKey, '{#KeepId}', Value);
   end;
 end;

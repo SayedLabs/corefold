@@ -2638,16 +2638,18 @@ class Controller(QObject):
         else:
             self._update_failed(tr("couldn't start the installer"))
 
-    def updated_from(self, old: str):
+    def updated_from(self, old: str, renamed: bool = False):
         """The first start after an update: said in a toast, and "What's new" is shown once, the first time the
-        window opens (now, or later from the tray)."""
+        window opens (now, or later from the tray). renamed: the first start after the rename (the toast says
+        what happened to the name too)."""
         from .releasenotes import kept
         notes = kept(__version__, i18n.language())
         fresh = notes is not None and self.settings.notes_shown != __version__
         self.whats_new_waiting = fresh
         log.info("updated from %s to %s%s", old, __version__, " (what's new waits)" if fresh else "")
         QTimer.singleShot(1500, lambda: self.toast.notify(
-            tr("Rakiza Core was updated"),
+            tr("Welcome to the new Rakiza Core") if renamed else tr("Rakiza Core was updated"),
+            tr("A new name and a new look. Your settings, history and backups were kept.") if renamed else
             tr("You're now on version {version}. Your settings were kept.", version=__version__),
             tr("What's new") if fresh else None, self.show_whats_new if fresh else None, linger_ms=9000))
 
@@ -3127,13 +3129,13 @@ def main() -> int:
     QTimer.singleShot(5000, controller.sync_archive_opening)
 
     s = controller.settings
-    if brought_over:  # first start after the rename: say what happened, once
+    if s.last_version and s.last_version != __version__ and __version__ != "dev":
+        controller.updated_from(s.last_version, renamed=brought_over)
+    elif brought_over:  # first start after the rename: say what happened, once
         QTimer.singleShot(1500, lambda: controller.toast.notify(
             tr("Welcome to the new Rakiza Core"),
             tr("A new name and a new look. Your settings, history and backups were kept."),
             linger_ms=9000))
-    elif s.last_version and s.last_version != __version__ and __version__ != "dev":
-        controller.updated_from(s.last_version)
     controller.check_update_finished()
     s.last_version = __version__
 
