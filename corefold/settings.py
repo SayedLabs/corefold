@@ -102,6 +102,10 @@ EXTRACT_MODES = {"smart": "Smart: no folder inside a folder", "folder": "Always 
 VIDEO_QUALITIES = {"high": "High (bigger file)", "balanced": "Balanced", "smaller": "Smaller file",
                    "smallest": "Smallest file"}
 VIDEO_CRF = {"high": 18, "balanced": 20, "smaller": 24, "smallest": 28}
+# what the videos are made with (converters.with_codec): H.264 plays everywhere, H.265 is about half the size,
+# AV1 smaller still (newer devices)
+VIDEO_CODECS = {"h264": "H.264 (plays everywhere)", "h265": "H.265 (about half the size)",
+                "av1": "AV1 (smallest, newer devices)"}
 AUDIO_QUALITIES = {"high": "High (bigger file)", "balanced": "Balanced", "smaller": "Smaller file",
                    "smallest": "Smallest file"}
 VIDEO_SIZES = {"original": "Same as the video", "2160": "Up to 4K (2160p)", "1080": "Up to Full HD (1080p)",
@@ -169,7 +173,7 @@ LOOK_KEYS = ("appearance", "accent", "custom_color", "animations", "toast_corner
              "sidebar_icons")
 CONVERTER_KEYS = ("shortcut", "save_mode", "output_folder", "jpg_quality", "show_unavailable", "context_menu",
                   "menu_style", "ask_names", "reveal_after", "keep_dates", "convert_recycle", "sound_tick",
-                  "watch_downloads", "pack_on_every_wheel", "video_gpu", "video_quality", "video_size",
+                  "watch_downloads", "pack_on_every_wheel", "video_gpu", "video_quality", "video_size", "video_codec",
                   "audio_quality")  # (not the presets: "Reset to defaults" never deletes what the person made)
 WHEEL_KEYS = ("wheel_size", "wheel_style", "wheel_opacity", "label_style", "hover_style", "slice_colors", "text_size",
               "wheel_position", "per_page", "wheel_numbers")
@@ -220,6 +224,7 @@ class Settings:
     video_gpu: bool = True         # videos are made with the graphics card when there is one (falls back by itself)
     video_quality: str = "balanced"  # VIDEO_QUALITIES
     video_size: str = "original"     # VIDEO_SIZES: made smaller if bigger than this, never bigger
+    video_codec: str = "h264"        # VIDEO_CODECS: what the Converter's MP4, MOV and MKV videos are made with
     audio_quality: str = "balanced"  # AUDIO_QUALITIES (MP3, M4A, OGG, Opus)
     converter_presets: list = field(default_factory=list)  # the person's own conversions (presets.py)
     reveal_after: bool = False
@@ -440,6 +445,8 @@ class Settings:
             s.video_quality = defaults.video_quality
         if s.video_size not in VIDEO_SIZES:
             s.video_size = defaults.video_size
+        if s.video_codec not in VIDEO_CODECS:
+            s.video_codec = defaults.video_codec
         if s.audio_quality not in AUDIO_QUALITIES:
             s.audio_quality = defaults.audio_quality
         from . import presets
@@ -509,6 +516,7 @@ class Settings:
                        rename_base=rename_base, rename_start=rename_start, gpu=bool(self.video_gpu),
                        keep_dates=bool(self.keep_dates), video_crf=VIDEO_CRF.get(self.video_quality, 20),
                        video_max=int(self.video_size) if self.video_size.isdigit() else 0,
+                       video_codec=self.video_codec,
                        audio_quality=self.audio_quality)
 
     @property

@@ -25,7 +25,7 @@ from .settings import (ACCENTS, APP_NAME, DEFAULT_ACCENT, APPEARANCES, HOVER_STY
                        SHORTCUT_LABELS, SLICE_COLORS, SOUNDS, TEXT_SIZE_NAMES, TOAST_CORNERS, TOAST_TIMES,
                        WHEEL_POSITIONS, WHEEL_SIZE_NAMES, WHEEL_STYLES, WINDOW_TEXT, installed_uninstaller,
                        ARCHIVE_KEYS, BACKUP_DAYS, CONVERTER_KEYS, EXTRACT_MODES, FORMAT_KEYS, GENERAL_KEYS,
-                       SLIDESHOW_SECONDS, VIDEO_QUALITIES, VIDEO_SIZES, AUDIO_QUALITIES, VIEWER_KEYS, VIEWER_WHEEL, CLIP_DAYS, CLIP_MAX,
+                       SLIDESHOW_SECONDS, VIDEO_CODECS, VIDEO_QUALITIES, VIDEO_SIZES, AUDIO_QUALITIES, VIEWER_KEYS, VIEWER_WHEEL, CLIP_DAYS, CLIP_MAX,
                        CLIP_SHORTCUTS, CLIP_PLAIN_SHORTCUTS, CLIPBOARD_KEYS,
                        CAP_AFTER, CAP_DELAY, CAP_SHORTCUTS, CAP_TEXT_SHORTCUTS, CAPTURE_KEYS, PLAYER_KEYS, PLAYER_SKIP,
                        PLAYER_WHEEL,
@@ -2720,6 +2720,14 @@ class MainWindow(QWidget):
         self.video_size.currentIndexChanged.connect(self._general_changed)
         self.video_size.setToolTip(tr("Bigger videos are made smaller to this, keeping their shape. Smaller ones "
                                       "stay as they are."))
+        self.video_codec = Dropdown()
+        for key, text in VIDEO_CODECS.items():
+            self.video_codec.addItem(tr(text), key)
+        self.video_codec.setCurrentIndex(max(0, self.video_codec.findData(s.video_codec)))
+        self.video_codec.currentIndexChanged.connect(self._general_changed)
+        self.video_codec.setToolTip(tr("For MP4, MOV and MKV. H.265 and AV1 keep the same look in a smaller file, but "
+                                       "take longer to make, and some old TVs and phones can't play them. MOV can't "
+                                       "hold AV1, so it gets H.265."))
         self.audio_quality = Dropdown()
         for key, text in AUDIO_QUALITIES.items():
             self.audio_quality.addItem(tr(text), key)
@@ -2735,7 +2743,8 @@ class MainWindow(QWidget):
 
         rows = ((tr("Key to hold while dragging"), self.shortcut), (tr("Save new files"), self.save_mode),
                 ("", self.folder_row), (tr("Image quality"), q_row), (tr("Video quality"), self.video_quality),
-                (tr("Video size"), self.video_size), (tr("Sound quality"), self.audio_quality),
+                (tr("Video size"), self.video_size), (tr("Video codec"), self.video_codec),
+                (tr("Sound quality"), self.audio_quality),
                 (tr("Formats that don't fit a file"), self.unavailable))
         for r, (text, widget) in enumerate(rows):
             if text:
@@ -4145,6 +4154,7 @@ class MainWindow(QWidget):
             s.video_gpu = self.video_gpu.isChecked()
             s.video_quality = self.video_quality.currentData()
             s.video_size = self.video_size.currentData()
+            s.video_codec = self.video_codec.currentData()
             s.audio_quality = self.audio_quality.currentData()
             changed = s.pack_on_every_wheel != self.pack_everywhere.isChecked()
             s.pack_on_every_wheel = self.pack_everywhere.isChecked()
