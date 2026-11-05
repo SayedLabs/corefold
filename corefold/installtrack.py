@@ -20,6 +20,9 @@ log = logging.getLogger("corefold")
 
 TRACES = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "Corefold" / "Install traces"
 MAX_ITEMS = 2000                  # (a trace bigger than this was something else than one install)
+# a watch left on longer than this (started, then forgotten for a day) saw other things happen too: what in its
+# trace isn't named after the app is then only offered as "check first", never ticked
+LONG_WATCH = 6 * 3600
 # names Windows and other programs keep changing on their own: never part of an app's trace
 NOISE = {"temp", "tmp", "microsoft", "packages", "crashdumps", "corefold", "package cache", "d3dscache", "windows",
          "connecteddevicesplatform", "comms", "history", "inetcache", "fontcache", "nvidia", "nvidia corporation",
@@ -31,28 +34,30 @@ def _env(name: str, default: str = "") -> str:
     return os.environ.get(name, default)
 
 
-def folder_places() -> list[tuple[str, int]]:
-    """(folder, how deep to look) for each place apps put their files and shortcuts."""
+def folder_places() -> list[tuple]:
+    """(folder, how deep to look[, only shortcuts]) for each place apps put their files and shortcuts. On the
+    desktops only shortcuts count: a document or a folder saved there meanwhile is the person's own, never the
+    app's (it would be offered for removal with the app one day)."""
     home = _env("USERPROFILE", str(Path.home()))
     roaming, local = _env("APPDATA"), _env("LOCALAPPDATA")
     pd, public = _env("ProgramData", r"C:\ProgramData"), _env("PUBLIC", r"C:\Users\Public")
     out = [(_env("ProgramFiles", r"C:\Program Files"), 2), (_env("ProgramFiles(x86)", r"C:\Program Files (x86)"), 2),
            (pd, 2), (os.path.join(pd, r"Microsoft\Windows\Start Menu\Programs"), 2),
-           (os.path.join(public, "Desktop"), 1), (os.path.join(home, "Desktop"), 1)]
+           (os.path.join(public, "Desktop"), 1, True), (os.path.join(home, "Desktop"), 1, True)]
     if roaming:
         out += [(roaming, 2), (os.path.join(roaming, r"Microsoft\Windows\Start Menu\Programs"), 2)]
     if local:
         out += [(local, 2), (os.path.join(local, "Programs"), 2)]
     seen, kept = set(), []
-    for folder, depth in out:
-        k = os.path.normcase(folder)
-        if folder and k not in seen:
+    for place in out:
+        k = os.path.normcase(place[0])
+        if place[0] and k not in seen:
             seen.add(k)
-            kept.append((folder, depth))
+            kept.append(place)
     return kept
 
 
-def _list_folders(root: str, depth: int, out: set):
+def _list_folders(root: str, depth: int, out: set, only_shortcuts: bool = False):
     try:
         items = list(os.scandir(root))
     except OSError:
@@ -61,7 +66,10 @@ def _list_folders(root: str, depth: int, out: set):
         try:
             if d.name.lower() in NOISE or d.is_symlink():
                 continue
-            if d.is_dir(follow_symlinks=False):
+            if only_shortcuts:
+                if d.name.lower().endswith((".lnk", ".url")) and d.is_file(follow_symlinks=False):
+                    out.add("file|" + d.path)
+            elif d.is_dir(follow_symlinks=False):
                 out.add("folder|" + d.path)
                 if depth > 1:
                     _list_folders(d.path, depth - 1, out)
@@ -96,8 +104,8 @@ def snapshot(subkeys=None, values=None, folders: list | None = None) -> set[str]
         from . import uninstall as un
         subkeys, values = un._subkeys, un._values
     out: set[str] = set()
-    for folder, depth in folders if folders is not None else folder_places():
-        _list_folders(folder, depth, out)
+    for folder, depth, *only in folders if folders is not None else folder_places():
+        _list_folders(folder, depth, out, bool(only and only[0]))
     if registry:
         for hive, path, views, depth in REG_PLACES:
             for view in views:
@@ -141,8 +149,9 @@ def finish(name_of=None, **kw) -> dict | None:
     appeared (name_of(hive, view, key) -> its name). Returns the trace, or None when nothing was waiting."""
     before_file = TRACES / "before.json"
     try:
-        before = set(json.loads(before_file.read_text("utf-8")).get("items", []))
-    except (OSError, ValueError, AttributeError):
+        kept = json.loads(before_file.read_text("utf-8"))
+        before, began = set(kept.get("items", [])), float(kept.get("time", 0) or 0)
+    except (OSError, ValueError, AttributeError, TypeError):
         return None
     new = sorted(snapshot(**kw) - before)
     # what's inside a new folder or key is covered by it
@@ -159,7 +168,8 @@ def finish(name_of=None, **kw) -> dict | None:
                 n = ""
             if n:
                 names.append(n)
-    trace = {"id": uuid.uuid4().hex[:10], "time": time.time(), "apps": names,
+    trace = {"id": uuid.uuid4().hex[:10], "time": time.time(), "watched": max(0.0, time.time() - began),
+             "apps": names,
              "entries": [list(e) for e in entries], "items": new[:MAX_ITEMS]}
     if new:
         TRACES.mkdir(parents=True, exist_ok=True)
@@ -212,6 +222,11 @@ def leftovers_for(app) -> list:
     if t is None:
         return []
     keys = app.names()
+    try:
+        long = float(t.get("watched", 0) or 0) > LONG_WATCH
+    except (TypeError, ValueError):
+        long = True
+    likely = 1 if long else 2  # (what isn't named after the app: most likely its, or only maybe after a long watch)
     out = []
     for line in t.get("items", []):
         kind, *rest = str(line).split("|")
@@ -222,7 +237,7 @@ def leftovers_for(app) -> list:
             named = un.clean_name(os.path.basename(path)) in keys or \
                 (app.location and un._inside(path, app.location))
             shortcut = path.lower().endswith((".lnk", ".url"))
-            out.append(un.Leftover("shortcut" if shortcut else kind, path, "tracked", level=3 if named else 2))
+            out.append(un.Leftover("shortcut" if shortcut else kind, path, "tracked", level=3 if named else likely))
         elif kind == "key" and len(rest) == 3:
             hive, view, path = rest[0], int(rest[1]), rest[2]
             if path.upper().startswith("SYSTEM\\"):
@@ -230,13 +245,19 @@ def leftovers_for(app) -> list:
             if not un.key_exists(hive, path, view):
                 continue
             named = un.clean_name(path.rsplit("\\", 1)[-1]) in keys
-            out.append(un.Leftover("key", f"{hive}\\{path}", "tracked", level=3 if named else 2,
+            out.append(un.Leftover("key", f"{hive}\\{path}", "tracked", level=3 if named else likely,
                                    view=view if hive == "HKLM" else 0))
         elif kind == "value" and len(rest) == 4:
             hive, view, path, name = rest[0], int(rest[1]), rest[2], rest[3]
-            if name not in un._values(hive, path, view):
+            values = un._values(hive, path, view)
+            if name not in values:
                 continue
-            out.append(un.Leftover("value", f"{hive}\\{path}", "tracked", level=3, value=name,
+            # (another app that started with Windows since the watch began isn't this one's: only one named after
+            # the app, or starting a program in its folder, is surely its)
+            exe, _ = un.split_command(str(values.get(name) or ""))
+            named = un.clean_name(name) in keys or bool(app.location and exe and os.path.isabs(exe)
+                                                        and un._inside(exe, app.location))
+            out.append(un.Leftover("value", f"{hive}\\{path}", "tracked", level=3 if named else likely, value=name,
                                    view=view if hive == "HKLM" else 0))
     return out
 

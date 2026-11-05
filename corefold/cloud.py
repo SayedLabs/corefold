@@ -1390,8 +1390,15 @@ def _pc_words(fn):
     return run
 
 
+INTO_ITSELF = "a folder can't be moved into itself"
+# folders inside folders: deeper than this, a link (a server's, or a Google Drive shortcut) leads round in a circle
+MAX_DEPTH = 64
+TOO_DEEP = "there are too many folders inside folders here; a link may lead round in a circle"
+
+
 @_pc_words
-def download_tree(c: Client, entry: Entry, folder: Path, progress=None, cancel=None, _made: set | None = None) -> int:
+def download_tree(c: Client, entry: Entry, folder: Path, progress=None, cancel=None, _made: set | None = None,
+                  _level: int = 0) -> int:
     """Saves a file, or a folder with everything in it, into folder (next to what's there: nothing is
     replaced). Returns how many files were saved."""
     from .core import unique_path
@@ -1407,12 +1414,14 @@ def download_tree(c: Client, entry: Entry, folder: Path, progress=None, cancel=N
     # what's in it is read before the new folder is made, and new folders are never gone into: a folder of
     # this PC saved into itself would otherwise be copied into its copy, over and over until it crashed. An
     # online folder is gone into once: a Google Drive shortcut to a folder it's in would lead round in a circle
+    if _level > MAX_DEPTH:
+        raise CloudError(TOO_DEEP)
     made = set() if _made is None else _made
     made.add("id:" + entry.id)
     inside = [e for e in c.list(entry) if _key(e.id) not in made and "id:" + e.id not in made]
     target.mkdir(parents=True)
     made.add(_key(target))
-    return sum(download_tree(c, e, target, progress, cancel, made) for e in inside)
+    return sum(download_tree(c, e, target, progress, cancel, made, _level + 1) for e in inside)
 
 
 @_pc_words
@@ -1439,7 +1448,7 @@ def upload_tree(c: Client, src: Path, folder: Entry | None, progress=None, cance
 
 @_pc_words
 def copy_tree(src: Client, entry: Entry, dst: Client, into: Entry | None, progress=None, cancel=None,
-              _made: set | None = None, _temp: Path | None = None) -> int:
+              _made: set | None = None, _temp: Path | None = None, _level: int = 0) -> int:
     """Copies a file, or a folder with everything in it, from one account into a folder of another. Files go
     one at a time through a temporary copy on this PC that's deleted as soon as it's up (both ends checked to
     match, as for any download and upload), so only room for the biggest single file is ever needed here, never
@@ -1469,15 +1478,16 @@ def copy_tree(src: Client, entry: Entry, dst: Client, into: Entry | None, progre
         if entry.kind.startswith("export:"):
             src.converted.append(entry.name)
         return 1
+    if _level > MAX_DEPTH:
+        raise CloudError(TOO_DEEP)
     made = set() if _made is None else _made
     made.add("id:" + entry.id)
     inside = [e for e in src.list(entry) if "id:" + e.id not in made]  # (read first: see download_tree)
     new = dst.new_folder(local_name(entry.name), into)
     made.add("id:" + new.id)
-    return sum(copy_tree(src, e, dst, new, progress, cancel, made, _temp) for e in inside)
+    return sum(copy_tree(src, e, dst, new, progress, cancel, made, _temp, _level + 1) for e in inside)
 
 
-INTO_ITSELF = "a folder can't be moved into itself"
 
 
 def _inside(path: str, folder: str) -> bool:
