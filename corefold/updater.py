@@ -89,7 +89,7 @@ def parse_release(data: dict, repo: str) -> UpdateInfo:
     if not tag:
         raise UpdateError(tr("release has no version tag"))
     if not re.fullmatch(r"[vV]?\d{1,4}(\.\d{1,6}){1,3}([-+][0-9A-Za-z.-]{1,32})?", tag):
-        # (it's shown in Corefold's messages and menus: only a plain version number like 1.10.0)
+        # (it's shown in Rakiza Core's messages and menus: only a plain version number like 1.10.0)
         raise UpdateError(tr("unexpected answer from GitHub"))
     repo = current_repo(data, repo)
     installer = sums = None
@@ -207,7 +207,7 @@ def download(info: UpdateInfo, current: str, progress: Callable[[float], None] |
 
 def clean_old_installers(keep_days: float = 1.0):
     """Deletes installers left from earlier updates (about 100 MB each), also the one a version from
-    before 1.7.0 downloaded to update to Corefold (its own folder goes too once it's empty)."""
+    before 1.7.0 downloaded to update to Rakiza Core (its own folder goes too once it's empty)."""
     import time
     from .core import OLD_APP_NAMES
     temp = Path(tempfile.gettempdir())
@@ -232,10 +232,10 @@ NOT_ALLOWED = {1, 2, 1223}
 
 
 def run_installer(path: Path) -> subprocess.Popen:
-    """Starts the installer in silent mode. Corefold is installed for the whole PC (in Program Files), so the
-    installer asks Windows for permission itself (that way it can start Corefold again afterwards as the person,
-    never with administrator rights). Once it has it, it asks Corefold to close, upgrades it and starts it again.
-    The installer is returned: if it ends while Corefold still runs, nothing was installed."""
+    """Starts the installer in silent mode. Rakiza Core is installed for the whole PC (in Program Files), so the
+    installer asks Windows for permission itself (that way it can start Rakiza Core again afterwards as the person,
+    never with administrator rights). Once it has it, it asks Rakiza Core to close, upgrades it and starts it again.
+    The installer is returned: if it ends while Rakiza Core still runs, nothing was installed."""
     from . import __version__, settings_backup
     settings_backup.keep_copy(__version__)  # the settings as they were, in case the new version loses them
     return subprocess.Popen([str(path), "/SILENT", "/SP-", "/SUPPRESSMSGBOXES", "/NORESTART"], close_fds=True)

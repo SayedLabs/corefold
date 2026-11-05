@@ -1,4 +1,4 @@
-"""Corefold Space's empty folders: folders with no files anywhere inside them, in your own folders.
+"""Rakiza Core Space's empty folders: folders with no files anywhere inside them, in your own folders.
 
 Careful by design: nothing inside Windows, programs' folders or AppData is looked at, hidden and system
 folders and links (junctions) are left alone, and a folder that holds anything left alone isn't offered
@@ -160,7 +160,7 @@ def _under(key: str, places: list[str]) -> bool:
 
 
 def off_limits(path) -> bool:
-    """True for a folder in a place Corefold never looks for empty folders (Windows, programs, AppData, …)."""
+    """True for a folder in a place Rakiza Core never looks for empty folders (Windows, programs, AppData, …)."""
     key = _key(path)
     if _under(key, _off_limits()):
         return True

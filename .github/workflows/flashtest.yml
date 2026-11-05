@@ -1,5 +1,5 @@
 # No window may flash: runs scripts/newtest_flash.py (every tool on, every page, the tools' own windows
-# and jobs, from source, with no console the way Corefold.exe has none) and the built Corefold.exe with
+# and jobs, from source, with no console the way RakizaCore.exe has none) and the built RakizaCore.exe with
 # scripts/exetest.py, both watching every window Windows shows (scripts/flashwatch.py). Runs when the
 # app's code changes, and by hand.
 name: No flashing windows
@@ -48,7 +48,7 @@ jobs:
           New-Item -ItemType Directory -Force out | Out-Null
           python scripts/screenres.py 1920 1080 *>> out/screen.txt
 
-      - name: Corefold's own FFmpeg (the one the app ships)
+      - name: Rakiza Core's own FFmpeg (the one the app ships)
         shell: pwsh
         run: |
           git fetch -q --depth 1 origin +refs/heads/ffmpeg-lean:refs/remotes/origin/ffmpeg-lean
@@ -72,7 +72,7 @@ jobs:
           if (-not (Select-String -Quiet -Path out/flash/newtest_flash.txt -Pattern "^newtest_flash: 0 problem")) { exit 1 }
           exit $scan
 
-      - name: The built Corefold.exe
+      - name: The built RakizaCore.exe
         if: matrix.how == 'exe'
         timeout-minutes: 25
         shell: pwsh
@@ -80,7 +80,7 @@ jobs:
           ./scripts/build.ps1 -Version 0.0.${{ github.run_number }}-flash *> out/build.txt
           if ($LASTEXITCODE) { Get-Content out/build.txt -Tail 40; exit 1 }
           python -m pip install --quiet pywinauto
-          $exe = Get-ChildItem -Recurse dist -Filter Corefold.exe | Select-Object -First 1
+          $exe = Get-ChildItem -Recurse dist -Filter RakizaCore.exe | Select-Object -First 1
           python scripts/exetest.py $exe.FullName out/exetest *> out/exetest.txt
           Get-Content out/exetest.txt
           if (-not (Select-String -Quiet -Path out/exetest.txt -Pattern "^exetest: 0 problem")) { exit 1 }

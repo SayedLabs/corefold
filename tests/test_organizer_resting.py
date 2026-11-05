@@ -50,7 +50,7 @@ def window(qtbot, resting, tmp_path):
 def test_a_built_corefold_rests_the_organizer(monkeypatch):
     import importlib
     import sys
-    monkeypatch.setattr(sys, "frozen", True, raising=False)  # (a built Corefold.exe ignores the checks' switch)
+    monkeypatch.setattr(sys, "frozen", True, raising=False)  # (a built RakizaCore.exe ignores the checks' switch)
     try:
         assert "organizer" in importlib.reload(all_tools).PAUSED_TOOLS
     finally:

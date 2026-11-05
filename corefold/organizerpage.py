@@ -1,4 +1,4 @@
-"""Corefold File Organizer's page: pick Downloads, the Desktop or any folder, see where every file will go,
+"""Rakiza Core File Organizer's page: pick Downloads, the Desktop or any folder, see where every file will go,
 then sort it with one click (and undo it with another)."""
 from __future__ import annotations
 
@@ -153,7 +153,7 @@ class _KindItem(QTreeWidgetItem):
 
 
 class OrganizerPage(QWidget):
-    """Corefold File Organizer in the window."""
+    """Rakiza Core File Organizer in the window."""
 
     def __init__(self, controller: "Controller", header):
         super().__init__()
@@ -255,7 +255,7 @@ class OrganizerPage(QWidget):
 
         self.tree = QTreeWidget()
         self.tree.setObjectName("history")
-        self.tree.setProperty("ticks", True)  # (tick boxes drawn like every other check box in Corefold)
+        self.tree.setProperty("ticks", True)  # (tick boxes drawn like every other check box in Rakiza Core)
         self.tree.setHeaderLabels([tr("Name"), tr("Size")])
         self.tree.setUniformRowHeights(True)
         self.tree.setIconSize(QSize(18, 18))
@@ -291,7 +291,7 @@ class OrganizerPage(QWidget):
         foot.setContentsMargins(0, 10, 10, 0)
         foot.setSpacing(8)
         foot.addLayout(bar)
-        # (as Hazel, File Juggler and DropIt do: the folder stays tidy without opening Corefold)
+        # (as Hazel, File Juggler and DropIt do: the folder stays tidy without opening Rakiza Core)
         # (a check box can't wrap its text: the short name goes on it, the rest under it)
         self.auto = QCheckBox(tr("Keep this folder tidy by itself"))
         self.auto.toggled.connect(self._auto_changed)
@@ -417,7 +417,7 @@ class OrganizerPage(QWidget):
         if isinstance(result, Exception):
             log.warning("couldn't look through %s: %s", folder, result)
             self.plan = None
-            self._say(tr("Corefold couldn't look through {folder}.", folder=ltr(str(folder))))
+            self._say(tr("Rakiza Core couldn't look through {folder}.", folder=ltr(str(folder))))
         else:
             self.plan = result
             if result.refused:
@@ -881,7 +881,7 @@ class RulesDialog(Base):
             wrong = bool(folder) and not organizer.safe_folder(folder)
             e["folder"].setToolTip(folder)
             if wrong and not bad:
-                self.warn.setText(tr("Corefold can't put files in \"{folder}\". Type a folder's name, or pick one.",
+                self.warn.setText(tr("Rakiza Core can't put files in \"{folder}\". Type a folder's name, or pick one.",
                                      folder=ltr(folder)))
             bad = bad or wrong
         self.warn.setVisible(bad)

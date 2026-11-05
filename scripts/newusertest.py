@@ -1,10 +1,10 @@
-"""Walks through Corefold the way someone new to it would, and saves a picture of every step.
+"""Walks through Rakiza Core the way someone new to it would, and saves a picture of every step.
 
 The first start (language, which tools, the tour), Home, the Files section and each Files tool: first empty,
 then with a file in it (a photo in the Converter, a PDF on the board, a ZIP opened, a messy Downloads folder,
 a file to unlock, a cloud folder). Each step is timed; one that takes too long is marked SLOW.
 
-Run:  python scripts/newusertest.py <folder> [en|ar|...] [dark|light] [--root <a copy of Corefold>]
+Run:  python scripts/newusertest.py <folder> [en|ar|...] [dark|light] [--root <a copy of Rakiza Core>]
 --root walks through another copy (a "before" picture next to the "after" one). It uses a fresh, empty
 settings folder and a made-up home folder, so it never touches your own files or settings.
 """
@@ -31,7 +31,7 @@ TMP = Path(tempfile.mkdtemp(prefix="corefold-newuser-"))
 os.environ["APPDATA"] = str(TMP / "roaming")
 os.environ["LOCALAPPDATA"] = str(TMP / "local")
 sys.path.insert(0, str(ROOT))
-os.environ.setdefault("COREFOLD_WAKE_ORGANIZER", "1")  # (File Organizer rests in a built Corefold: its kept code is tried here)
+os.environ.setdefault("COREFOLD_WAKE_ORGANIZER", "1")  # (File Organizer rests in a built Rakiza Core: its kept code is tried here)
 
 import faulthandler  # noqa: E402
 
@@ -69,7 +69,7 @@ for _fam in {_tokens.TEXT_FAMILY, _tokens.FONT_DISPLAY.strip('"')}:
     for _bold in (False, True):
         _f = QFont(_fam, 11)
         _f.setBold(_bold)
-        QFontMetrics(_f).horizontalAdvance("Corefold مرحبا 0123")
+        QFontMetrics(_f).horizontalAdvance("Rakiza Core مرحبا 0123")
 
 
 def settle(seconds: float = 0.3):

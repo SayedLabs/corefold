@@ -342,7 +342,7 @@ class ArchiveBrowser(QWidget):
         self.tree.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.tree.setUniformRowHeights(True)
         self.tree.setTextElideMode(Qt.ElideMiddle)  # (a long name keeps its end: report-20…-final.pdf)
-        # sorted by Corefold (in Python, before the rows go in): Qt's own sorting would be slow for
+        # sorted by Rakiza Core (in Python, before the rows go in): Qt's own sorting would be slow for
         # 100,000 files. Clicking a column heading sorts by it.
         self.tree.sort_state = (0, True)
         header = self.tree.header()
@@ -477,7 +477,7 @@ class ArchiveBrowser(QWidget):
     # ---- names of an old ZIP
 
     def _names_menu(self, parent: QMenu) -> QMenu:
-        """File names: worked out by Corefold, or one the person picks if they still look wrong."""
+        """File names: worked out by Rakiza Core, or one the person picks if they still look wrong."""
         from PySide6.QtGui import QActionGroup
         menu = QMenu(tr("File names"), parent)
         round_menu(menu)
@@ -486,8 +486,8 @@ class ArchiveBrowser(QWidget):
         choices = ((tr("Arabic (DOS, 720)"), 720), (tr("Arabic (Windows, 1256)"), 1256), (tr("Arabic (864)"), 864),
                    ("UTF-8", ar.UTF8_CP), (tr("As this PC reads them"), 0))
         label = {cp: name for name, cp in choices}.get(ar.found_zip_codepage(self.src))
-        auto = menu.addAction(tr("Worked out by Corefold ({name})", name=label) if label
-                              else tr("Worked out by Corefold"))
+        auto = menu.addAction(tr("Worked out by Rakiza Core ({name})", name=label) if label
+                              else tr("Worked out by Rakiza Core"))
         auto.setToolTip(tr("Old ZIP files don't say which letters their names use. If they look wrong, pick "
                            "another one here."))
         auto.setData(None)

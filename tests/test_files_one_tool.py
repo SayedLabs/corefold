@@ -1,4 +1,4 @@
-"""Corefold Files is one tool: one heading over all its pages (its name, a line about the use that's open,
+"""Rakiza Core Files is one tool: one heading over all its pages (its name, a line about the use that's open,
 and a bar of its uses), and a start page to drop any file on or pick a use, each with what it's for. A use
 switched off has no tab (nor is it loaded), and nothing of a use is made before it's opened."""
 import pytest
@@ -41,7 +41,7 @@ def window(qtbot):
 
 def test_every_files_use_has_a_name_and_a_few_words():
     sec = all_tools.SECTION_BY_PAGE["Files"]
-    assert sec.one_tool == "Corefold Files"
+    assert sec.one_tool == "Rakiza Core Files"
     for tool_id in sec.tools:
         tool = all_tools.BY_ID[tool_id]
         if tool.ready:

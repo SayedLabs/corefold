@@ -1,10 +1,11 @@
-"""The apps Corefold Cloud signs in as, registered with Google, Microsoft and Dropbox. These are public ids
+"""The apps Rakiza Core Cloud signs in as, registered with Google, Microsoft and Dropbox. These are public ids
 for a desktop app (not secrets: a desktop app can't keep a secret, so sign-in uses PKCE instead).
 Google also gives a desktop app a "client secret", and asks for it when signing in, but says itself that for an
 app installed on a PC it isn't treated as a secret: anyone can read it in the app, and it opens nothing on its own
 (each person still signs in on Google's own page).
-Google Drive's are Corefold's own (project "Corefold" on Google Cloud). Set the COREFOLD_* variables to try others.
-Empty: signing in to that service online isn't offered in this copy. Corefold Cloud still works without them,
+Google Drive's are the app's own (its Google Cloud project, made under the app's earlier name, core.PREV_NAME;
+the name Google shows on its sign-in page is set there). Set the COREFOLD_* variables to try others.
+Empty: signing in to that service online isn't offered in this copy. Rakiza Core Cloud still works without them,
 with the OneDrive, Dropbox, Google Drive and iCloud folders their own apps keep on the PC (cloudlocal.py)."""
 import os
 

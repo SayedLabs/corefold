@@ -1,4 +1,4 @@
-"""Recent conversions and lifetime stats, saved in %APPDATA%\\Corefold\\history.json."""
+"""Recent conversions and lifetime stats, saved in %APPDATA%\\Rakiza Core\\history.json."""
 from __future__ import annotations
 
 import json

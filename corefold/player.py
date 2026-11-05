@@ -1,4 +1,4 @@
-"""Corefold Player: videos and music, with clean controls that get out of the way.
+"""Rakiza Core Player: videos and music, with clean controls that get out of the way.
 
 Playing is done by Qt's own player, which uses FFmpeg (the same decoders most players use) and the
 graphics card for HD and 4K. It's only loaded when a Player window opens."""

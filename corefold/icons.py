@@ -106,7 +106,7 @@ def icon(name: str, color: QColor | str, disabled: QColor | str | None = None,
     return QIcon(ic)  # (a copy that shares the pictures: changing it leaves the kept one as it is)
 
 
-# ---- the product tiles (the Corefold mark in each product's colours, on a near-black tile)
+# ---- the product tiles (the Rakiza Core mark in each product's colours, on a near-black tile)
 _TILE_BODY = "M20 10H33V31H54V44A10 10 0 0 1 44 54H20A10 10 0 0 1 10 44V20A10 10 0 0 1 20 10Z"
 _TILE_FOLD = "M37.5 10.6L53.4 26.5A1.6 1.6 0 0 1 52.3 29.2H38.6A1.6 1.6 0 0 1 37 27.6V11.7A1.6 1.6 0 0 1 37.5 10.6Z"
 _TILE_GLYPHS = {  # drawn on the old 4..60 grid, moved into the 10..54 body by _GLYPH_FIT

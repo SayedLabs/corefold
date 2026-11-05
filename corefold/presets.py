@@ -130,7 +130,7 @@ def run(src: Path, ctx: Ctx, preset: dict) -> Result:
     ctx.options = dataclasses.replace(ctx.options, jpg_quality=IMAGE_QUALITY[preset["quality"]])
     most = int(size) if size.isdigit() else 0
     if ext == ".avif" and not cv.avif_supported():
-        raise RuntimeError(tr("This copy of Corefold can't write AVIF"))
+        raise RuntimeError(tr("This copy of Rakiza Core can't write AVIF"))
     im = cv.load_image(src, fit=most)
     if most and max(im.size) > most:
         from PIL import Image

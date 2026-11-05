@@ -1,6 +1,6 @@
-"""A file dropped on Corefold Files shows everything Files can do with it, not only the Converter's
-buttons: a PDF also gets Corefold PDF's own uses (edit it, arrange its pages, make it searchable…), and
-anything can be asked "What's using this?" (Corefold Unlock). A use that's switched off isn't offered.
+"""A file dropped on Rakiza Core Files shows everything Files can do with it, not only the Converter's
+buttons: a PDF also gets Rakiza Core PDF's own uses (edit it, arrange its pages, make it searchable…), and
+anything can be asked "What's using this?" (Rakiza Core Unlock). A use that's switched off isn't offered.
 PDFs dropped with pictures can become one PDF, in the order they came."""
 import pytest
 from PIL import Image

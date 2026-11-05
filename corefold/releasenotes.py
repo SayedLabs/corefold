@@ -96,7 +96,7 @@ def parse(text: str, version: str, date: str = "") -> Notes:
             continue
         marked = line.startswith("#")
         words = plain(line.lstrip("#").strip())
-        if not words or re.fullmatch(r"(Corefold\s+)?v?" + re.escape(version), words, re.I):
+        if not words or re.fullmatch(r"(Rakiza Core\s+)?v?" + re.escape(version), words, re.I):
             continue  # (the version's own name as a heading: shown anyway)
         if marked or (len(words) <= 60 and not words.endswith((".", "!", "?", ":"))):
             part = Part(words)  # a heading ("## Fixes", or a short line of its own like "Capture")

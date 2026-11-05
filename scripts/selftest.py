@@ -137,14 +137,14 @@ def video():
 
 def right_click_menu():
     """Both right-click menu styles are written to this user's registry the way Explorer reads them,
-    every entry starts Corefold with the right request, and removing the menu leaves nothing."""
+    every entry starts Rakiza Core with the right request, and removing the menu leaves nothing."""
     import shlex
     import winreg
     from corefold import ipc
     from corefold import settings as st
     from corefold import shellmenu as sm
     s = st.Settings()
-    cmd = lambda *a: '"C:\\Program Files\\Corefold\\Corefold.exe" ' + " ".join(a)  # noqa: E731
+    cmd = lambda *a: '"C:\\Program Files\\Rakiza Core\\RakizaCore.exe" ' + " ".join(a)  # noqa: E731
     hkcu = winreg.HKEY_CURRENT_USER
 
     def value(path, name=""):
@@ -154,7 +154,7 @@ def right_click_menu():
     for style in ("windows", "wheel"):
         s.menu_style = style
         sm.write(sm.plan(s, cmd), cmd, "")
-        base = sm.FILE_ROOT + r"\.jpg\shell\Corefold"
+        base = sm.FILE_ROOT + r"\.jpg\shell" + "\\" + sm.VERB
         if style == "windows":
             entries, i = [], 1
             while True:
@@ -172,10 +172,10 @@ def right_click_menu():
         else:
             c = value(base + r"\command")
             check("--convert" in c and '"%1"' in c, "the wheel entry opens the wheel")
-        check(value(sm.FOLDER_ROOT + r"\shell\Corefold", "MUIVerb") != "", f"folders have an entry ({style})")
+        check(value(sm.FOLDER_ROOT + r"\shell" + "\\" + sm.VERB, "MUIVerb") != "", f"folders have an entry ({style})")
     sm.remove()
     try:
-        value(sm.FILE_ROOT + r"\.jpg\shell\Corefold", "MUIVerb")
+        value(sm.FILE_ROOT + r"\.jpg\shell" + "\\" + sm.VERB, "MUIVerb")
         check(False, "removing the menu leaves nothing")
     except OSError:
         check(True, "removing the menu leaves nothing")
@@ -346,7 +346,7 @@ def every_tool():
 
 
 def archive_tool():
-    """Corefold Archive with the real 7-Zip: save a changed file back, rescue a damaged ZIP and a
+    """Rakiza Core Archive with the real 7-Zip: save a changed file back, rescue a damaged ZIP and a
     damaged 7z, unpack archives inside archives, take files out for dragging, open-with registration."""
     import io
     import winreg
@@ -427,12 +427,12 @@ def archive_tool():
     check(b"ZoneId=3" in mark, "dragged-out files keep the internet warning")
     # double-click to open: registered for this user, and taken out again
     from corefold import assoc
-    cmd = lambda *a: " ".join(['"C:\\Corefold\\Corefold.exe"', *a])  # noqa: E731
+    cmd = lambda *a: " ".join(['"C:\\Rakiza Core\\RakizaCore.exe"', *a])  # noqa: E731
     try:
         assoc.register(cmd, "", "Archive")
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Classes\.zip\OpenWithProgids") as k:
             winreg.QueryValueEx(k, assoc.PROGID)
-        check(assoc.is_current(cmd), "archives: Corefold is under Open with")
+        check(assoc.is_current(cmd), "archives: Rakiza Core is under Open with")
     finally:
         assoc.unregister()
     check(not assoc._registered(), "…and taken out again")

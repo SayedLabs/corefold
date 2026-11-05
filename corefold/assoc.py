@@ -1,9 +1,9 @@
-"""Opening files with a double-click: archives (Corefold Archive), pictures and emails (Corefold Viewer),
-videos and music (Corefold Player).
+"""Opening files with a double-click: archives (Rakiza Core Archive), pictures and emails (Rakiza Core Viewer),
+videos and music (Rakiza Core Player).
 
-Corefold adds itself to "Open with" for these (for the current user only, no admin rights), and
+Rakiza Core adds itself to "Open with" for these (for the current user only, no admin rights), and
 registers as an app Windows can make the default for them. Windows doesn't let apps make themselves
-the default: the person picks it in Settings, which Corefold can open at the right place."""
+the default: the person picks it in Settings, which Rakiza Core can open at the right place."""
 from __future__ import annotations
 
 import logging
@@ -29,12 +29,12 @@ _pending = None
 @dataclass(frozen=True)
 class Group:
     progid: str
-    flag: str              # what the double-click runs: Corefold.exe <flag> "file"
+    flag: str              # what the double-click runs: RakizaCore.exe <flag> "file"
     extensions: tuple
 
 
 GROUPS = {
-    # the archives a double-click should open (the ones people meet; Corefold reads more than these)
+    # the archives a double-click should open (the ones people meet; Rakiza Core reads more than these)
     "archive": Group(f"{KEEP_ID}.Archive", "--browse",
                      (".zip", ".7z", ".rar", ".tar", ".gz", ".tgz", ".bz2", ".xz", ".txz", ".iso", ".cab", ".zipx",
                       ".001", ".lzh", ".arj", ".wim")),
@@ -56,7 +56,7 @@ def _command(app_command, group: Group) -> str:
 
 
 def is_current(app_command, name: str = "archive") -> bool:
-    """True if the registration is there and points at this copy of Corefold."""
+    """True if the registration is there and points at this copy of Rakiza Core."""
     import winreg
     group = GROUPS[name]
     try:
@@ -100,7 +100,7 @@ def register(app_command, icon: str, description: str, name: str = "archive"):
     with winreg.CreateKey(hk, REGISTERED) as k:
         winreg.SetValueEx(k, KEEP_ID, 0, SZ, CAPABILITIES)
     _tell_explorer()
-    log.info("%s files open with Corefold", name)
+    log.info("%s files open with Rakiza Core", name)
 
 
 def unregister(name: str | None = None):
@@ -133,7 +133,7 @@ def _unregister(name: str | None):
         except OSError:
             pass
         _delete_tree(winreg, rf"{CLASSES}\{group.progid}")
-    if not any(_registered(key) for key in GROUPS):  # nothing left: Corefold isn't an app for any file
+    if not any(_registered(key) for key in GROUPS):  # nothing left: Rakiza Core isn't an app for any file
         try:
             with winreg.OpenKey(hk, REGISTERED, 0, winreg.KEY_SET_VALUE) as k:
                 winreg.DeleteValue(k, KEEP_ID)
@@ -144,7 +144,7 @@ def _unregister(name: str | None):
 
 
 def sync(on, app_command, icon: str, description: str, name: str = "archive"):
-    """Registers (or un-registers) only when something changed, so starting Corefold stays quick.
+    """Registers (or un-registers) only when something changed, so starting Rakiza Core stays quick.
     on may be a bool (for the group called name) or {group: (on, description)} for several."""
     if os.name != "nt":
         return
@@ -157,7 +157,7 @@ def sync(on, app_command, icon: str, description: str, name: str = "archive"):
                 elif not want and _registered(key):
                     _unregister(key)
             except OSError:
-                log.exception("couldn't update opening %s files with Corefold", key)
+                log.exception("couldn't update opening %s files with Rakiza Core", key)
 
 
 def sync_in_background(on, app_command, icon: str, description: str = ""):
@@ -179,7 +179,7 @@ def _sync_pending():
 
 
 def open_default_apps() -> bool:
-    """Opens Windows' Default apps settings at Corefold's page (or the general page on older Windows)."""
+    """Opens Windows' Default apps settings at Rakiza Core's page (or the general page on older Windows)."""
     for target in (f"ms-settings:defaultapps?registeredAppUser={KEEP_ID}", "ms-settings:defaultapps"):
         try:
             os.startfile(target)

@@ -1,4 +1,4 @@
-"""Corefold PDF's editor: getting a page ready before PDFium changes it, so nothing else on the page changes.
+"""Rakiza Core PDF's editor: getting a page ready before PDFium changes it, so nothing else on the page changes.
 
 PDFium can take a page's pieces out, move them or give them another colour, but it then writes again every
 piece of the page's drawing instructions (its content stream) the changed piece is in, and it can't write all

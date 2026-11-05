@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Privacy – Corefold</title>
-<meta name="description" content="What Corefold does and doesn't do with your data.">
+<title>Privacy – Rakiza Core</title>
+<meta name="description" content="What Rakiza Core does and doesn't do with your data.">
 <link rel="icon" href="icon.png">
 <style>
   :root {
@@ -74,56 +74,56 @@
 <body>
 <div class="wrap">
   <header>
-    <a href="./" style="display:contents;color:inherit;text-decoration:none"><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M18 4H36V28H60V46A14 14 0 0 1 46 60H18A14 14 0 0 1 4 46V18A14 14 0 0 1 18 4ZM22 38a9 9 0 1 0 18 0a9 9 0 1 0 -18 0Z"/><path fill="currentColor" opacity=".55" d="M40 4L60 24H40Z"/></svg><b>Corefold</b></a>
-    <span class="by">by Atomic Works</span>
+    <a href="./" style="display:contents;color:inherit;text-decoration:none"><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M18 4H36V28H60V46A14 14 0 0 1 46 60H18A14 14 0 0 1 4 46V18A14 14 0 0 1 18 4ZM22 38a9 9 0 1 0 18 0a9 9 0 1 0 -18 0Z"/><path fill="currentColor" opacity=".55" d="M40 4L60 24H40Z"/></svg><b>Rakiza Core</b></a>
+    <span class="by">by Rakiza Labs</span>
     <nav><a href="./#features">Features</a><a href="./#safe">Is it safe?</a><a href="./#faq">Questions</a></nav>
   </header>
 
   <main class="doc">
     <h1>Privacy</h1>
     <p>Last changed: October 24, 2026</p>
-    <p>Corefold is a free Windows app made by Atomic Works. In short: <b>your files stay on your PC, there are no
-      Corefold accounts, no ads and no tracking, and we have no server that could collect anything.</b> Corefold only
-      goes online by itself to check for its own updates. If you choose to use Corefold Cloud, it works with the cloud
+    <p>Rakiza Core is a free Windows app made by Rakiza Labs. In short: <b>your files stay on your PC, there are no
+      Rakiza Core accounts, no ads and no tracking, and we have no server that could collect anything.</b> Rakiza Core only
+      goes online by itself to check for its own updates. If you choose to use Rakiza Core Cloud, it works with the cloud
       folders already on your PC, or talks straight to your own OneDrive or Dropbox if you sign in, and to nobody
       else.</p>
 
     <h2>Your files</h2>
-    <p>Everything Corefold does to your files (converting, shrinking, removing backgrounds, reading text, opening
+    <p>Everything Rakiza Core does to your files (converting, shrinking, removing backgrounds, reading text, opening
       archives and emails, taking screenshots, uninstalling apps) happens on your own PC. Nothing is uploaded, to us
-      or to anyone else, unless you upload it yourself with Corefold Cloud.</p>
+      or to anyone else, unless you upload it yourself with Rakiza Core Cloud.</p>
 
-    <h2 id="cloud">Corefold Cloud (OneDrive, Dropbox, Google Drive and iCloud)</h2>
+    <h2 id="cloud">Rakiza Core Cloud (OneDrive, Dropbox, Google Drive and iCloud)</h2>
     <p>Cloud shows your clouds in one window. It's optional, and it works in two ways.</p>
     <p><b>Folders on your PC.</b> Cloud finds the OneDrive, Dropbox, Google Drive and iCloud folders that those
       companies' own apps keep on your PC. It finds them by reading what those apps write on your PC (OneDrive's
       settings in the Windows registry, Dropbox's <code>info.json</code>, Google Drive's drive). For these folders
-      Corefold doesn't go online at all: it opens, copies, renames and deletes files in them on your PC, and the
+      Rakiza Core doesn't go online at all: it opens, copies, renames and deletes files in them on your PC, and the
       company's own app sends the changes to its service, as it does for anything you save there. Deleted files go
-      to the Recycle Bin. Nothing about these folders is kept by Corefold.</p>
-    <p><b>Signing in online (Google Drive, OneDrive and Dropbox),</b> when your copy of Corefold offers it. Nothing
+      to the Recycle Bin. Nothing about these folders is kept by Rakiza Core.</p>
+    <p><b>Signing in online (Google Drive, OneDrive and Dropbox),</b> when your copy of Rakiza Core offers it. Nothing
       of theirs needs to be installed, and you can sign in to as many accounts as you like, several of the same
       service too. Nothing happens until you sign in to an account.</p>
     <ul>
-      <li><b>Signing in happens on Google's, Microsoft's or Dropbox's own page,</b> in your web browser. Corefold never
-        sees your password. While you sign in, Corefold listens on a local address on your own PC
+      <li><b>Signing in happens on Google's, Microsoft's or Dropbox's own page,</b> in your web browser. Rakiza Core never
+        sees your password. While you sign in, Rakiza Core listens on a local address on your own PC
         (<code>http://localhost</code> or <code>http://127.0.0.1</code>) to receive the answer; nothing outside your PC
         can reach it.</li>
-      <li><b>What Corefold asks for:</b> permission to see, add, change and delete your files, to see your name, email
+      <li><b>What Rakiza Core asks for:</b> permission to see, add, change and delete your files, to see your name, email
         address and how much space you use, and to stay signed in so you don't have to sign in every time.</li>
-      <li><b>What Corefold keeps:</b> the key the service gives back (not your password), plus your name, email address
+      <li><b>What Rakiza Core keeps:</b> the key the service gives back (not your password), plus your name, email address
         and storage use so the account can be shown. They're kept only on your PC, in
-        <code>%LOCALAPPDATA%\Corefold\Cloud</code>, locked with Windows' own encryption so only your Windows account
+        <code>%LOCALAPPDATA%\Rakiza Core\Cloud</code>, locked with Windows' own encryption so only your Windows account
         can unlock them.</li>
-      <li><b>Your files go straight between your PC and the service.</b> They don't pass through Atomic Works or
+      <li><b>Your files go straight between your PC and the service.</b> They don't pass through Rakiza Labs or
         anyone else. Copying from one cloud to another goes through your PC too.</li>
       <li><b>Files you open</b> from Cloud are downloaded to a folder on your PC
-        (<code>%LOCALAPPDATA%\Corefold\Opened cloud files</code>) so the right app can open them. Changes stay on your
-        PC until you upload the file again; a file you changed is never cleared away, also not when Corefold is
+        (<code>%LOCALAPPDATA%\Rakiza Core\Opened cloud files</code>) so the right app can open them. Changes stay on your
+        PC until you upload the file again; a file you changed is never cleared away, also not when Rakiza Core is
         removed. Google Docs, Sheets and Slides open on Google's website instead.</li>
       <li><b>Deleting</b> an online file moves it to the service's own bin or deleted files, where you can put it
-        back for a while. Corefold never deletes anything there for good.</li>
-      <li><b>Sign out</b> deletes Corefold's key for that account from your PC, and for Google and Dropbox also asks
+        back for a while. Rakiza Core never deletes anything there for good.</li>
+      <li><b>Sign out</b> deletes Rakiza Core's key for that account from your PC, and for Google and Dropbox also asks
         them to cancel it. To also take back the permission on
         the service's side, use
         <a href="https://myaccount.google.com/connections" rel="noopener">your Google account's connections</a>,
@@ -135,10 +135,10 @@
       <a href="https://policies.google.com/privacy" rel="noopener">Google's privacy policy</a>,
       <a href="https://privacy.microsoft.com/privacystatement" rel="noopener">Microsoft's privacy statement</a> and
       <a href="https://www.dropbox.com/privacy" rel="noopener">Dropbox's privacy policy</a>.</p>
-    <p>Corefold's use of information received from Google APIs adheres to the
+    <p>Rakiza Core's use of information received from Google APIs adheres to the
       <a href="https://developers.google.com/terms/api-services-user-data-policy" rel="noopener">Google API Services
-      User Data Policy</a>, including the Limited Use requirements: what Corefold gets from Google Drive is only used
-      to show and work with your files on your PC, it's never sent to Atomic Works or anyone else, and it's never
+      User Data Policy</a>, including the Limited Use requirements: what Rakiza Core gets from Google Drive is only used
+      to show and work with your files on your PC, it's never sent to Rakiza Labs or anyone else, and it's never
       used for ads.</p>
 
     <h2>What goes over the internet</h2>
@@ -146,34 +146,34 @@
       <tr><th>When</th><th>What is sent</th><th>To whom</th></tr>
       <tr><td>Checking for updates (a few times a day, can be turned off in <i>Updates</i>)</td>
           <td>A request for the latest release, with the app's name and version. Like any web request, it carries your IP address.</td>
-          <td>GitHub, which hosts Corefold's releases (<a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener">GitHub's privacy statement</a>)</td></tr>
+          <td>GitHub, which hosts Rakiza Core's releases (<a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener">GitHub's privacy statement</a>)</td></tr>
       <tr><td>Downloading an update, when you choose to or turn on automatic updates</td>
           <td>A download of the installer.</td><td>GitHub</td></tr>
-      <tr><td>Using Corefold Cloud, only after you sign in to an account (folders on your PC send nothing)</td>
+      <tr><td>Using Rakiza Core Cloud, only after you sign in to an account (folders on your PC send nothing)</td>
           <td>Your sign-in, the files and folders you open, upload, download, rename, delete or search for, and the
             searches you type.</td>
           <td>Microsoft (OneDrive) or Dropbox, whichever you signed in to</td></tr>
       <tr><td>When you click <i>Send feedback</i>, <i>Website</i>, <i>Privacy</i> or similar links</td>
           <td>Your web browser opens that page. Anything you then write in a feedback form is public on GitHub.</td><td>GitHub</td></tr>
     </table>
-    <p>Corefold doesn't send usage statistics, crash reports or any information about your files, and it doesn't
+    <p>Rakiza Core doesn't send usage statistics, crash reports or any information about your files, and it doesn't
       count its users. If a future version offers to send a crash report, it will ask you first and show you what
       would be sent.</p>
-    <p>Emails you open in Corefold can't reach the internet either: pictures from the internet are blocked, so the
+    <p>Emails you open in Rakiza Core can't reach the internet either: pictures from the internet are blocked, so the
       sender can't tell you opened the email.</p>
 
     <h2>What stays on your PC</h2>
-    <p>Corefold keeps these in your user folders (<code>%APPDATA%\Corefold</code> and
-      <code>%LOCALAPPDATA%\Corefold</code>), and nowhere else:</p>
+    <p>Rakiza Core keeps these in your user folders (<code>%APPDATA%\Rakiza Core</code> and
+      <code>%LOCALAPPDATA%\Rakiza Core</code>), and nowhere else:</p>
     <ul>
       <li>your settings;</li>
       <li>a list of recent conversions (you can clear it in <i>History</i>);</li>
       <li>your clipboard history, if you use Clipboard (copies that password managers mark as private are never kept);</li>
       <li>your Cloud accounts' keys, locked as described above;</li>
       <li>a small log of what the app did, to help find problems, which never leaves your PC unless you send it;</li>
-      <li>the backups made when you uninstall apps with Corefold.</li>
+      <li>the backups made when you uninstall apps with Rakiza Core.</li>
     </ul>
-    <p>When you uninstall Corefold, it offers to delete all of this. The backups of uninstalled apps are kept, because
+    <p>When you uninstall Rakiza Core, it offers to delete all of this. The backups of uninstalled apps are kept, because
       they're yours; you can delete them yourself.</p>
 
     <h2>This website</h2>
@@ -181,21 +181,21 @@
       itself has no cookies, analytics or trackers, and loads nothing from other companies.</p>
 
     <h2>Children</h2>
-    <p>Corefold doesn't collect personal information from anyone, including children.</p>
+    <p>Rakiza Core doesn't collect personal information from anyone, including children.</p>
 
     <h2>Your choices</h2>
-    <p>Because Atomic Works doesn't collect or keep any information about you, there's nothing for us to show, change
-      or delete. Everything Corefold keeps is on your own PC, where you can delete it. For files and accounts on
+    <p>Because Rakiza Labs doesn't collect or keep any information about you, there's nothing for us to show, change
+      or delete. Everything Rakiza Core keeps is on your own PC, where you can delete it. For files and accounts on
       OneDrive or Dropbox, use those services' own settings.</p>
 
     <h2>Changes and contact</h2>
-    <p>If this policy changes, the new version will be on this page with a new date, and Corefold's release notes will
+    <p>If this policy changes, the new version will be on this page with a new date, and Rakiza Core's release notes will
       say so. Questions?
       <a class="issues" href="https://github.com/SayedLabs/corefold/issues/new">Open an issue on GitHub</a>.</p>
   </main>
 
   <footer>
-    <span>Corefold is free, made by Atomic Works.</span>
+    <span>Rakiza Core is free, made by Rakiza Labs.</span>
     <a class="issues" href="https://github.com/SayedLabs/corefold/issues/new">Report a problem</a>
     <a href="privacy.html">Privacy</a>
   </footer>

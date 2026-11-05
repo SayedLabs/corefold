@@ -260,7 +260,7 @@ def leftovers():
     proc = subprocess.Popen([str(inst / "pythonw.exe"), "-c", "import time; f = open('bin/log.txt', 'a'); "
                              "time.sleep(600)"], cwd=str(inst), env=env)
     time.sleep(2)
-    # and a file Corefold itself holds open (in use by "something else" that can't be closed)
+    # and a file Rakiza Core itself holds open (in use by "something else" that can't be closed)
     held = open(roam / name / "in use.txt", "w")
 
     apps = un.list_apps(include_store=False)

@@ -1,6 +1,6 @@
 """The quick menu: a panel over a dimmed screen that opens from any app with a shortcut (like a game
 overlay). It has the quick actions a person picked, their tools, their own shortcuts and the files
-Corefold made lately. Start typing to search it; arrows and Enter work too; Esc or the shortcut
+Rakiza Core made lately. Start typing to search it; arrows and Enter work too; Esc or the shortcut
 again closes it. Typing also does sums, converts units, finds pages of Windows Settings and offers a
 web search (quickfind.py), and finds apps, files and the windows already open (quicksearch.py). A leading
 "?" only searches the web.
@@ -287,7 +287,7 @@ class QuickMenu(QWidget):
         app_entries, best = [], 0
         for score, app in f.apps(query):
             if app.name.lower() in skip:
-                continue  # (Corefold's own "Task Manager" is there already)
+                continue  # (Rakiza Core's own "Task Manager" is there already)
             eid = "app:" + app.target
             self.found_items[eid] = app
             app_entries.append(quick.Entry(eid, app.name, "rocket"))
@@ -365,7 +365,7 @@ class QuickMenu(QWidget):
                 (tr("Recent files"), self._recent(), "row")]
 
     def _found(self, s, query: str) -> list[tuple[str, list[quick.Entry], str]]:
-        """What typing finds: a sum or a unit first, then Corefold's own things and Windows' Settings
+        """What typing finds: a sum or a unit first, then Rakiza Core's own things and Windows' Settings
         pages (whichever fits better first), recent files, and a web search last."""
         from . import quickfind
         q = query.lower()
@@ -386,7 +386,7 @@ class QuickMenu(QWidget):
         self.found_items = {}
         best_app, apps, files = self._apps_and_files(s, query, skip)
         best_win, open_now = self._open_windows(query)
-        # whichever fits best first (on a tie: Corefold's own, then the windows open, apps, Windows' settings)
+        # whichever fits best first (on a tie: Rakiza Core's own, then the windows open, apps, Windows' settings)
         groups = [((scored[0][0] if scored else 0), 0, found), (best_win, 1, (tr("Open windows"), open_now, "item")),
                   (best_app, 2, (tr("Apps"), apps, "item")), ((pages[0][0] if pages else 0), 3, windows)]
         out += [g for _, _, g in sorted(groups, key=lambda x: (-x[0], x[1]))]

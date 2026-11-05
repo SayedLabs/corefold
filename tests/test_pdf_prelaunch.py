@@ -1,4 +1,4 @@
-"""Corefold PDF, checked before the first launch: a booby-trapped PDF can't keep Remove hidden info busy for
+"""Rakiza Core PDF, checked before the first launch: a booby-trapped PDF can't keep Remove hidden info busy for
 ever, bookmarks' and XFA forms' scripts are found and taken out, photos never carry where they were taken
 into a PDF, Cover takes out hidden words (a scan made searchable) and the page's old small picture too, a
 locked PDF's smaller, numbered, watermarked or signed copy stays locked."""

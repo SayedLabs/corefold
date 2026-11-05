@@ -1,5 +1,5 @@
-"""Corefold Clipboard's windows: the small popup its shortcut opens (pick something and it's pasted
-where you were typing) and the page in Corefold's window (search, pin, clean up)."""
+"""Rakiza Core Clipboard's windows: the small popup its shortcut opens (pick something and it's pasted
+where you were typing) and the page in Rakiza Core's window (search, pin, clean up)."""
 from __future__ import annotations
 
 import ctypes
@@ -405,7 +405,7 @@ class QuickPaste(QWidget):
         more = QPushButton()
         more.setObjectName("flat")
         more.setCursor(Qt.PointingHandCursor)
-        more.setToolTip(tr("Open the Clipboard in Corefold"))
+        more.setToolTip(tr("Open the Clipboard in Rakiza Core"))
         more.setIcon(icons.icon("settings", controller.theme.muted))
         more.clicked.connect(self._open_page)
         foot.addWidget(more)
@@ -615,7 +615,7 @@ def _bring_to_front(hwnd: int):
 # ----------------------------------------------------------------------------- the page in the window
 
 class ClipboardPage(QWidget):
-    """Corefold Clipboard in the window: everything kept, searchable, with pins and filters."""
+    """Rakiza Core Clipboard in the window: everything kept, searchable, with pins and filters."""
 
     def __init__(self, controller: "Controller", header):
         super().__init__()

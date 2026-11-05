@@ -1,4 +1,4 @@
-"""A section that's one tool (Corefold Files): one heading over all its pages, with its name and colour,
+"""A section that's one tool (Rakiza Core Files): one heading over all its pages, with its name and colour,
 and a bar of what it can be used for. Picking a use changes only the page under the heading, so moving
 between them feels like one tool, not several."""
 from __future__ import annotations

@@ -59,6 +59,14 @@ def migrate_old_name() -> bool:
                 pass
         except OSError:
             log.exception("couldn't bring old settings over from %s", old)
+    # (the log kept the name it had under the earlier name: it goes on under the new one)
+    for p in list(LOG_DIR.glob("corefold.log*")) if LOG_DIR.is_dir() else []:  # keep-name
+        target = LOG_DIR / ("rakizacore.log" + p.name[len("corefold.log"):])  # keep-name
+        try:
+            if not target.exists():
+                p.rename(target)
+        except OSError:
+            pass
     return moved
 
 
@@ -86,7 +94,7 @@ def move_old_output_folder(folder: str) -> str:
 
 # key: English label (shown through tr())
 SHORTCUT_LABELS = {"shift": "Shift", "ctrl+shift": "Ctrl + Shift", "alt": "Alt"}
-ACCENTS = {  # key: (name, colour on light, colour on dark) — from the Corefold design system
+ACCENTS = {  # key: (name, colour on light, colour on dark) — from the Rakiza Core design system
     "core": ("Teal", "#0f7a6c", "#3fb6a2"),
     "ocean": ("Ocean", "#2b5fd4", "#82a8ff"),
     "grape": ("Grape", "#6b4bd6", "#ac97ff"),
@@ -108,7 +116,7 @@ TEXT_SIZES = {"small": 0.88, "normal": 1.0, "large": 1.15}
 TEXT_SIZE_NAMES = {"small": "Small", "normal": "Normal", "large": "Large"}
 WHEEL_POSITIONS = {"cursor": "Under the cursor", "center": "Middle of the screen"}
 APPEARANCES = {"system": "Match Windows", "dark": "Dark", "light": "Light"}
-MENU_STYLES = {"windows": "Windows menu", "wheel": "Corefold wheel"}
+MENU_STYLES = {"windows": "Windows menu", "wheel": "Rakiza Core wheel"}
 TOAST_CORNERS = {"auto": "Bottom corner (automatic)", "bottom-right": "Bottom right", "bottom-left": "Bottom left",
                  "top-right": "Top right", "top-left": "Top left"}
 TOAST_TIMES = {"short": "Short", "normal": "Normal", "long": "Long"}
@@ -243,7 +251,7 @@ class Settings:
     language: str = "system"       # "system", "en", "ar", "fr", "es" or "tr"
     shortcut: str = "shift"
     save_mode: str = "beside"      # "beside" or "folder"
-    output_folder: str = str(Path.home() / "Downloads" / "Corefold")
+    output_folder: str = str(Path.home() / "Downloads" / "Rakiza Core")
     jpg_quality: int = 90
     video_gpu: bool = True         # videos are made with the graphics card when there is one (falls back by itself)
     video_quality: str = "balanced"  # VIDEO_QUALITIES
@@ -273,15 +281,15 @@ class Settings:
     fit_mb: float = 10.0
     watermark: dict = field(default_factory=lambda: {"text": "", "logo": "", "position": "br", "size": "medium",
                                                       "opacity": 60})
-    context_menu: bool = True      # Corefold in the right-click menu
+    context_menu: bool = True      # Rakiza Core in the right-click menu
     menu_style: str = "windows"    # "windows" (a normal submenu) or "wheel"
     menu_signature: str = ""       # what was last written to the right-click menu
-    unlock_menu_signature: str = ""  # Corefold Unlock's "What's using this?" entry, the same way
+    unlock_menu_signature: str = ""  # Rakiza Core Unlock's "What's using this?" entry, the same way
     # tools switched off by this person, and the tools they've been offered (others are "New")
     tools_off: list = field(default_factory=list)
     known_tools: list = field(default_factory=list)
     back_on: list = field(default_factory=list)  # tools already switched on once when they came back (tools.BACK_ON)
-    open_archives: bool = True     # archives open in Corefold with a double-click ("Open with")
+    open_archives: bool = True     # archives open in Rakiza Core with a double-click ("Open with")
     recent_archives: list = field(default_factory=list)  # archives opened lately (newest first)
     extract_mode: str = "smart"    # "Extract here": "smart" (no folder inside a folder) or "folder"
     extract_nested: bool = False   # also unpack archives found inside
@@ -289,7 +297,7 @@ class Settings:
     extract_reveal: bool = False   # open the folder once an archive is extracted
     extract_recycle: bool = False  # then send the archive (and its parts) to the Recycle Bin
     # the Viewer
-    open_images: bool = True       # pictures and email files open in Corefold ("Open with")
+    open_images: bool = True       # pictures and email files open in Rakiza Core ("Open with")
     open_emails: bool = True
     viewer_wheel: str = "zoom"     # the mouse wheel zooms, or goes to the next picture
     viewer_confirm_delete: bool = True
@@ -312,7 +320,7 @@ class Settings:
     clip_paused: bool = False      # new copies aren't kept for now
     clip_ignore: str = ""          # programs whose copies are never kept ("mybank.exe, notes.exe")
     # the Player
-    open_media: bool = True        # videos and music open in Corefold ("Open with")
+    open_media: bool = True        # videos and music open in Rakiza Core ("Open with")
     player_resume: bool = True     # pick up where you left off
     player_skip: int = 10          # seconds the arrow keys jump
     player_wheel: str = "volume"   # the mouse wheel over the video: volume or seeking
@@ -345,13 +353,13 @@ class Settings:
     quick_search_engine: str = "duckduckgo"  # the quick menu's last row: "Search the web for …"
     quick_find: bool = True        # typing in the quick menu finds apps and files too (quicksearch.py)
     ontop_key: str = "ctrl+win+t"  # keeps the window in front on top of the others ("off": no shortcut)
-    # Corefold Awake (chosen on its page, not in Settings)
+    # Rakiza Core Awake (chosen on its page, not in Settings)
     awake_mode: str = "on"         # what "Keep awake" does: "on" (until switched off), "for" a while, "until" a time
     awake_minutes: int = 60        # "for a while": how long, last chosen
     awake_until: str = ""          # "until a time": "HH:MM", last chosen
     awake_screen: bool = False     # keep the screen on too
     awake_apps: list = field(default_factory=list)  # stay awake by itself while one of these programs is open
-    startup_later: list = field(default_factory=list)  # programs Corefold starts a minute after sign-in
+    startup_later: list = field(default_factory=list)  # programs Rakiza Core starts a minute after sign-in
     #                                                    ({"id", "name", "command", "file"}; off in Windows)
     awake_low_battery: bool = True  # on battery, let the PC sleep again once it runs low
     shutdown_at: str = ""          # when Windows will turn the PC off (planned on the Awake page), ISO time
@@ -560,7 +568,7 @@ STARTUP_APPROVED = r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupA
 
 
 def app_command(*args: str) -> str:
-    """Command line that starts this copy of Corefold with the given arguments."""
+    """Command line that starts this copy of Rakiza Core with the given arguments."""
     if getattr(sys, "frozen", False):
         base = f'"{sys.executable}"'
     else:
@@ -579,8 +587,8 @@ def launch_command() -> str:
 
 
 def startup_enabled() -> bool:
-    """Corefold starts with Windows: its entry is there, and it isn't switched off (in Task Manager or
-    Corefold Startup)."""
+    """Rakiza Core starts with Windows: its entry is there, and it isn't switched off (in Task Manager or
+    Rakiza Core Startup)."""
     import winreg
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as k:
@@ -596,7 +604,7 @@ def startup_enabled() -> bool:
 
 
 def _clear_off_note():
-    """Switched off in Task Manager (or Corefold Startup) earlier: switching it on here means on."""
+    """Switched off in Task Manager (or Rakiza Core Startup) earlier: switching it on here means on."""
     import winreg
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, STARTUP_APPROVED, 0,
@@ -685,10 +693,10 @@ def remove_user_data():
     try:
         assoc.unregister()  # "Open with" for archives
     except Exception:
-        log.exception("could not remove opening archives with Corefold")
+        log.exception("could not remove opening archives with Rakiza Core")
     logging.shutdown()
     shutil.rmtree(CONFIG_DIR, ignore_errors=True)
-    # LOG_DIR also holds the backups of apps removed with Corefold ("Uninstall backups"): those are
+    # LOG_DIR also holds the backups of apps removed with Rakiza Core ("Uninstall backups"): those are
     # the person's files, so they stay (they can be deleted from the Apps page, or by hand)
     try:
         items = list(LOG_DIR.iterdir())

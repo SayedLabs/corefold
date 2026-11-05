@@ -1,7 +1,7 @@
 """Colours and the app-wide stylesheet. Light/dark follows Windows unless the user picks one.
 
 The colours, sizes and Qt's own widgets come from the Atomic design system (atomic/); this file adds
-the wheel's colours and the look of Corefold's own parts."""
+the wheel's colours and the look of Rakiza Core's own parts."""
 from __future__ import annotations
 
 import tempfile
@@ -110,7 +110,7 @@ def _chevron_image(color: QColor, up: bool) -> str:
     return _image("up" if up else "down", color, draw)
 
 
-# Corefold's own parts (Qt's widgets and the shared names come from atomic/qss.py)
+# Rakiza Core's own parts (Qt's widgets and the shared names come from atomic/qss.py)
 QSS = Template("""
 QWidget#sidebar { background: transparent; }
 QLabel#brand { font-family: $font_display; font-size: 12.5pt; font-weight: 700; }

@@ -188,7 +188,7 @@ def menu():
     g = m.geometry()
     click(g.left() + 8, g.top() + 8)  # outside the panel
     check(until(lambda: not m.isVisible(), 2), "a click outside the panel closes it")
-    # a tile does what it says: "Open Corefold"
+    # a tile does what it says: "Open Rakiza Core"
     s.quick_menu_items = ["home"] + [i for i in s.quick_menu_items if i != "home"]
     press(VK_CTRL, VK_ALT, VK_SPACE)
     until(menu_visible, 3)
@@ -198,7 +198,7 @@ def menu():
     centre = m.mapToGlobal(m.shown(home.rect).center().toPoint())
     click(centre.x(), centre.y())
     check(until(lambda: c.window_if_open() is not None and c.window.isVisible(), 3),
-          "clicking Open Corefold on it opens the window")
+          "clicking Open Rakiza Core on it opens the window")
     check(not m.isVisible(), "…and puts the menu away")
     c.window.hide()
     settle(0.2)
@@ -222,7 +222,7 @@ def wheel():
     up(VK_BACKTICK)
     up(VK_ALT)
     check(until(lambda: not w.isVisible(), 2), "letting go closes it")
-    check(until(lambda: c.window_if_open() is not None and c.window.isVisible(), 3), "…and does it (opens Corefold)")
+    check(until(lambda: c.window_if_open() is not None and c.window.isVisible(), 3), "…and does it (opens Rakiza Core)")
     c.window.hide()
     settle(0.2)
     # a quick tap: it stays open for a click or a number

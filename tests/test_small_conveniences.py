@@ -39,7 +39,7 @@ def test_page_numbers_can_start_at_any_number(tmp_path):
 
 
 def test_photos_are_stored_as_they_are(tmp_path, monkeypatch):
-    monkeypatch.setattr(archives, "find_7z", lambda: None)  # (Corefold's own ZIP, as without 7-Zip)
+    monkeypatch.setattr(archives, "find_7z", lambda: None)  # (Rakiza Core's own ZIP, as without 7-Zip)
     Image.new("RGB", (400, 300), (10, 120, 200)).save(tmp_path / "a.jpg")
     (tmp_path / "notes.txt").write_text("words " * 2000)
     archives.pack_into([tmp_path / "a.jpg"], tmp_path / "photos.zip", Ctx(Options()))

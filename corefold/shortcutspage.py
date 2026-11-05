@@ -1,4 +1,4 @@
-"""Settings → Shortcuts: every Corefold shortcut in one list. The ones that work in any app show whether
+"""Settings → Shortcuts: every Rakiza Core shortcut in one list. The ones that work in any app show whether
 they're working (or another app took them) and open their setting; the keys of the window, the Viewer
 and the Player are listed under them.
 
@@ -22,7 +22,7 @@ class Global:
     setting: str         # the settings field with its keys ("off" = none)
     page: str            # the Settings page where it's changed
     widget: str          # the window's attribute for that setting (lit up by "Change")
-    tool: str = ""       # the tool it belongs to ("" = Corefold itself)
+    tool: str = ""       # the tool it belongs to ("" = Rakiza Core itself)
     live: str = ""       # the running shortcut, from the controller ("clip.hotkey"); its .ok says if it works
     switch: str = ""     # a settings field that switches it on and off
     names: str = ""      # a table in settings.py naming its values, if it isn't a hotkey.py shortcut
@@ -51,9 +51,9 @@ GLOBAL = [
     Global("Pick a colour", "colors_shortcut", "Colors", "", tool="colors", live="colors.key"),
 ]
 
-# keys inside Corefold's windows: (heading, the tool it's for or "", [(keys, what it does[, its tool])])
+# keys inside Rakiza Core's windows: (heading, the tool it's for or "", [(keys, what it does[, its tool])])
 WINDOW_KEYS = [
-    ("In the Corefold window", "", [
+    ("In the Rakiza Core window", "", [
         ("Ctrl + K", "Search pages, settings and actions"),
         ("Alt + ←", "Back"),
         ("Ctrl + V", "Convert what's copied", "converter"),
@@ -161,7 +161,7 @@ class ShortcutsPage:
         from .window import button, card, label, page
         self.win = win
         self.c = win.c
-        self.widget, lay = page(tr("Shortcuts"), tr("Every keyboard shortcut in Corefold. The ones that work in any "
+        self.widget, lay = page(tr("Shortcuts"), tr("Every keyboard shortcut in Rakiza Core. The ones that work in any "
                                                     "app can be changed."))
         box, bl = card()
         bl.addWidget(_wrapping(label(tr("Keys that work in any app"), "h2")))

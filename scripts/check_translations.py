@@ -184,8 +184,8 @@ def table_texts() -> dict[str, str]:
     for heading, _, keys in shortcutspage.WINDOW_KEYS:
         add([heading, *[k[1] for k in keys]], "shortcutspage.WINDOW_KEYS")
     add(shortcutspage.STATES.values(), "shortcutspage.STATES")
-    add(["This isn't a Corefold settings file.", "Couldn't open this file.",
-         "These settings were saved by a newer Corefold. Update Corefold first, then try again."],
+    add(["This isn't a Rakiza Core settings file.", "Couldn't open this file.",
+         "These settings were saved by a newer Rakiza Core. Update Rakiza Core first, then try again."],
         "settings_backup.BadFile")
     return out
 

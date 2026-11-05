@@ -1,5 +1,5 @@
-"""Corefold Cloud without signing in: the folders that OneDrive, Dropbox, Google Drive and iCloud's own apps keep
-on this PC. Corefold only works with those folders here (it never goes online for them); the service's app sends
+"""Rakiza Core Cloud without signing in: the folders that OneDrive, Dropbox, Google Drive and iCloud's own apps keep
+on this PC. Rakiza Core only works with those folders here (it never goes online for them); the service's app sends
 the changes up, as it does for anything saved there.
 
 Finding them reads what each app writes about itself: OneDrive's accounts in the registry, Dropbox's info.json,
@@ -193,7 +193,7 @@ def _save_added(items: list[tuple[str, Path]]):
 
 
 def add_folder(folder) -> Account:
-    """Adds a folder (a cloud app's folder somewhere Corefold didn't look, or any synced folder) to Cloud."""
+    """Adds a folder (a cloud app's folder somewhere Rakiza Core didn't look, or any synced folder) to Cloud."""
     p = Path(os.path.abspath(str(folder)))
     if not p.is_dir():
         raise CloudError("it isn't there any more")
@@ -246,7 +246,7 @@ def space(acc: Account, cancel=None) -> tuple[int, int]:
 
 @contextlib.contextmanager
 def _plain_errors():
-    """What went wrong on the disk, in the words Corefold Cloud shows."""
+    """What went wrong on the disk, in the words Rakiza Core Cloud shows."""
     try:
         yield
     except CloudError:

@@ -407,7 +407,7 @@ class PeekWindow(QWidget):
         self.counter = _muted(wrap=False)
         top.addWidget(self.counter)
         self.open_btn = self._button(tr("Open"), self.open_file, "primary")
-        self.corefold_btn = self._button(tr("Open with Corefold"), self.open_in_corefold)
+        self.corefold_btn = self._button(tr("Open with Rakiza Core"), self.open_in_corefold)
         self.folder_btn = self._button(tr("Show in folder"), self.show_in_folder)
         self.close_btn = self._button("", self.close_peek, "flat")
         self.close_btn.setToolTip(tr("Close"))

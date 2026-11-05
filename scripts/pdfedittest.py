@@ -1,4 +1,4 @@
-"""Corefold PDF's editor, tried for real: first the part that writes the new copy (every kind of change,
+"""Rakiza Core PDF's editor, tried for real: first the part that writes the new copy (every kind of change,
 on made-up PDFs with English and Arabic text, a picture, a form, turned pages and a password), then the
 editor in the window used like a person would: typing text, changing a line of the PDF's own text,
 highlighting, drawing, shapes, covering, a note, a picture, a signature, moving and deleting, undo and redo,
@@ -507,7 +507,7 @@ def editor():
     w.open_page("PDF")
     settle(0.5)
     pg = w.pdf_page
-    check(pg is not None and "edit" in pg.cards, "the Edit content card is on Corefold PDF's page")
+    check(pg is not None and "edit" in pg.cards, "the Edit content card is on Rakiza Core PDF's page")
     check("corefold.pdfeditor" not in sys.modules, "the editor isn't loaded before it's used")
     from corefold import pdfeditor as E
     w.grab().save(str(OUT / f"edit-card-{LANG}-{LOOK}.png"))

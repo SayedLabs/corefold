@@ -452,7 +452,7 @@ def run(dlg: QDialog) -> int:
     if isinstance(dlg, QMessageBox):
         return _run_box(dlg)
     host = host_for(dlg.parentWidget())
-    if host is None:  # (nothing to put it in, as on the very first start before Corefold's window)
+    if host is None:  # (nothing to put it in, as on the very first start before Rakiza Core's window)
         return dlg.exec()
     _bring_forward(host)
     layer = embed(dlg, host)

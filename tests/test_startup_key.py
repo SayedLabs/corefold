@@ -43,7 +43,7 @@ def _fake_winreg(keys: dict):
 def test_on_makes_the_run_key(monkeypatch, caplog):
     keys = {}
     monkeypatch.setitem(sys.modules, "winreg", _fake_winreg(keys))
-    monkeypatch.setattr(settings, "launch_command", lambda: '"C:\\Corefold\\Corefold.exe" --tray')
+    monkeypatch.setattr(settings, "launch_command", lambda: '"C:\\Rakiza Core\\RakizaCore.exe" --tray')
     monkeypatch.setattr(settings, "_clear_off_note", lambda: None)
     settings.set_startup(True)
     assert keys[settings.RUN_KEY][settings.APP_NAME].endswith("--tray")

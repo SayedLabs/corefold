@@ -1,4 +1,4 @@
-"""Corefold's sounds, played at the user's volume (Windows' simple player has no volume control,
+"""Rakiza Core's sounds, played at the user's volume (Windows' simple player has no volume control,
 so a quieter copy of the sound is made once and reused)."""
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from .core import LEGACY_NAME, bundled
 
 log = logging.getLogger("corefold")
 
-DONE_SOUNDS = {"corefold": "Corefold", "peel": "Pebble", "droplet": "Droplet", "glass": "Glass", "off": "No sound"}
+DONE_SOUNDS = {"corefold": "Rakiza Core", "peel": "Pebble", "droplet": "Droplet", "glass": "Glass", "off": "No sound"}
 OLD_NAMES = {"pop": "corefold", "chime": "glass", "bubble": "droplet",  # sounds from 1.3.0
              LEGACY_NAME.lower(): "corefold"}  # the signature sound had the old name before 1.7.0
 EXTRA_GAIN = {"tick": 0.45}  # the wheel tick is meant to be barely there

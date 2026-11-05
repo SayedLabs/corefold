@@ -1,7 +1,7 @@
 # A real copy updates itself: installs the release before the newest one from GitHub, turns on "Install
 # updates by themselves", starts it the way Windows does at sign-in, and checks that within a few minutes
 # it downloaded the newest release, installed it and is running again with its settings kept. It runs by
-# itself once "Build Corefold" has attached the installer to a published release, or by hand from the
+# itself once "Build Rakiza Core" has attached the installer to a published release, or by hand from the
 # Actions tab. (Not on the release's tag push: the installer isn't attached yet then, so it always failed.)
 name: Automatic update
 on:
@@ -11,7 +11,7 @@ on:
         description: "Version to start from (empty: the release before the newest)"
         required: false
   workflow_run:
-    workflows: [Build Corefold]
+    workflows: [Build Rakiza Core]
     types: [completed]
   push:
     branches: ["**"]
@@ -33,26 +33,36 @@ jobs:
           $newest = ($tags | Where-Object isLatest)[0].tagName.TrimStart("v")
           $from = if ($env:FROM) { $env:FROM.TrimStart("v") } else { ($tags | Where-Object { -not $_.isLatest })[0].tagName.TrimStart("v") }
           "from $from to $newest"
-          gh release download "v$from" -R $env:GITHUB_REPOSITORY -p "Corefold-Setup-*.exe" -D old
-          $setup = (Get-ChildItem old -Filter "Corefold-Setup-*.exe")[0].FullName
-          # (only the installer: -Wait would also wait for the Corefold it starts)
+          # (older releases have the installer under the app's earlier name; newer ones carry a copy under it too)
+          gh release download "v$from" -R $env:GITHUB_REPOSITORY -p "Corefold-Setup-*.exe" -D old  # keep-name
+          $setup = (Get-ChildItem old -Filter "Corefold-Setup-*.exe")[0].FullName  # keep-name
+          # (only the installer: -Wait would also wait for the app it starts)
           (Start-Process $setup -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -PassThru).WaitForExit()
           Start-Sleep 5
-          Get-Process Corefold -ErrorAction SilentlyContinue | Stop-Process -Force
+          $names = @("Corefold", "Rakiza Core")  # keep-name (the earlier name, then the new one: folders)
+          $procs = @("Corefold", "RakizaCore")  # keep-name (and their programs)
+          Get-Process $procs -ErrorAction SilentlyContinue | Stop-Process -Force
           Start-Sleep 3
-          $cfg = "$env:APPDATA\Corefold\settings.json"
+          # (the version installed keeps its settings under its own name; the update moves them to the new one)
+          $cfg = $names | ForEach-Object { "$env:APPDATA\$_\settings.json" } | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $cfg) { $cfg = "$env:APPDATA\$($names[0])\settings.json" }
           $j = if (Test-Path $cfg) { Get-Content $cfg -Raw | ConvertFrom-Json } else { [pscustomobject]@{} }
           foreach ($k in @{first_run=$false; tour_done=$true; check_updates=$true; auto_update=$true; language="ar"}.GetEnumerator()) {
             $j | Add-Member -NotePropertyName $k.Key -NotePropertyValue $k.Value -Force }
           New-Item -ItemType Directory -Force (Split-Path $cfg) | Out-Null
           $j | ConvertTo-Json -Depth 20 | Set-Content $cfg -Encoding utf8
-          # (installed for one user, the old way, or for the whole PC; the update moves it to Program Files)
-          $exe = "$env:LOCALAPPDATA\Programs\Corefold\Corefold.exe"
-          if (-not (Test-Path $exe)) { $exe = "$env:ProgramFiles\Corefold\Corefold.exe" }
-          # (after the update: Program Files once the newest release installs for the whole PC, else the same place)
-          $places = @("$env:ProgramFiles\Corefold\Corefold.exe", $exe)
+          # (installed for one user, the old way, or for the whole PC, under either name)
+          $candidates = @()
+          for ($i = 0; $i -lt 2; $i++) {
+            $candidates += "$env:LOCALAPPDATA\Programs\$($names[$i])\$($procs[$i]).exe"
+            $candidates += "$env:ProgramFiles\$($names[$i])\$($procs[$i]).exe"
+          }
+          $exe = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          # (after the update: the new name's folder in Program Files)
+          $newExe = "$env:ProgramFiles\$($names[1])\$($procs[1]).exe"
+          $places = @($newExe, $exe)
           $before = (Get-Item $exe).VersionInfo.ProductVersion
-          "installed: $before"
+          "installed: $before ($exe)"
           $t0 = Get-Date
           Start-Process $exe -ArgumentList "--background"
           $now = $before
@@ -61,18 +71,21 @@ jobs:
             $now = ($places | ForEach-Object { (Get-Item $_ -ErrorAction SilentlyContinue).VersionInfo.ProductVersion } |
                     Where-Object { $_ -like "$newest*" } | Select-Object -First 1)
             if (-not $now) { $now = (Get-Item $exe -ErrorAction SilentlyContinue).VersionInfo.ProductVersion }
-            if ($now -like "$newest*" -and (Get-Process Corefold -ErrorAction SilentlyContinue)) { break }
+            if ($now -like "$newest*" -and (Get-Process $procs -ErrorAction SilentlyContinue)) { break }
           }
           $secs = [int]((Get-Date) - $t0).TotalSeconds
           Start-Sleep 5
-          $log = Get-Content "$env:LOCALAPPDATA\Corefold\corefold.log" -ErrorAction SilentlyContinue
-          "----- Corefold's log"; $log
+          $newCfg = "$env:APPDATA\$($names[1])\settings.json"
+          if (Test-Path $newCfg) { $cfg = $newCfg }
+          $log = $names | ForEach-Object { Get-ChildItem "$env:LOCALAPPDATA\$_" -Filter "*.log" -ErrorAction SilentlyContinue } |
+                 ForEach-Object { Get-Content $_.FullName }
+          "----- the app's log"; $log
           $after = Get-Content $cfg -Raw | ConvertFrom-Json
           $problems = @()
           if ($now -notlike "$newest*") { $problems += "still $now after $secs s (wanted $newest)" }
-          if (-not (Get-Process Corefold -ErrorAction SilentlyContinue)) { $problems += "Corefold isn't running after the update" }
+          if (-not (Get-Process $procs -ErrorAction SilentlyContinue)) { $problems += "the app isn't running after the update" }
           if (-not ($log -match "updated from $([regex]::Escape($from)) to $([regex]::Escape($newest))")) { $problems += "the new version didn't say it was updated" }
-          if ($after.language -ne "ar" -or -not $after.auto_update) { $problems += "settings weren't kept" }
+          if ($after.language -ne "ar" -or -not $after.auto_update) { $problems += "settings weren't kept ($cfg)" }
           $summary = if ($problems) { "Automatic update $from -> ${newest}: " + ($problems -join "; ") } else { "Automatic update $from -> ${newest}: done in $secs s, running, settings kept" }
           $summary; "### $summary" | Add-Content $env:GITHUB_STEP_SUMMARY
           if ($problems) { exit 1 }

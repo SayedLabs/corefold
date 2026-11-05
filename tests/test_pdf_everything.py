@@ -1,4 +1,4 @@
-"""Corefold PDF's editor can change everything on a page: text inside groups (form XObjects), turned text,
+"""Rakiza Core PDF's editor can change everything on a page: text inside groups (form XObjects), turned text,
 drawn shapes and colour gradients, the PDF's own notes, highlights and links, form boxes marked read only,
 hidden words over a scan, and text in fonts that don't say which letters they have. And changing one thing
 leaves everything else on the page exactly as it was (PDFium alone loses gradients, patterns and Type 3 text

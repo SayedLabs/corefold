@@ -1,4 +1,4 @@
-"""Draws Corefold's icon and installer pictures from the Corefold mark: a rounded square with its top
+"""Draws Rakiza Core's icon and installer pictures from the Rakiza Core mark: a rounded square with its top
 corner folded over and a round "core" cut out of it, in a teal gradient on a near-black tile.
 
 Makes assets/icon.png, assets/icon.ico, docs/icon.png and the installer's wizard*.bmp.

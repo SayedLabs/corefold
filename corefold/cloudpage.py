@@ -1,4 +1,4 @@
-"""Corefold Cloud's page: your clouds side by side. OneDrive, Dropbox, Google Drive and iCloud folders kept on this
+"""Rakiza Core Cloud's page: your clouds side by side. OneDrive, Dropbox, Google Drive and iCloud folders kept on this
 PC by their own apps show up by themselves; Google Drive, OneDrive and Dropbox can also be signed in to online, with
 nothing of theirs installed, and as many accounts as you like (several Google accounts at once too). Open, download,
 upload (or drop files and folders in), make folders, rename, delete, search everything, and copy from one cloud to
@@ -44,7 +44,7 @@ WEBSITE = {"gdrive": "https://drive.google.com/", "onedrive": "https://onedrive.
 ACCOUNT = Qt.UserRole + 1          # (the account a search result belongs to)
 TEMP_PREFIX = "corefold-cloud-"
 # files opened from an online account are changed here: not in Windows' temporary folder, which Storage Sense and
-# Disk Cleanup empty by themselves (changes not uploaded yet would go with it); removing Corefold leaves it too
+# Disk Cleanup empty by themselves (changes not uploaded yet would go with it); removing Rakiza Core leaves it too
 OPENED = cloud.LOG_DIR / "Opened cloud files"
 PREVIEW_MAX = 300 * 1024 * 1024    # (an online file bigger than this isn't downloaded just to look at it)
 KEPT = 30                          # transfers kept in the list
@@ -76,7 +76,7 @@ def _ui_error(e) -> str:
         "signing in was cancelled": tr("Signing in was cancelled."),
         "the answer from the sign-in page didn't match; try again": tr("The answer from the sign-in page didn't "
                                                                         "match. Try again."),
-        "the service didn't let Corefold in": tr("The service didn't let Corefold in. Try again."),
+        "the service didn't let Rakiza Core in": tr("The service didn't let Rakiza Core in. Try again."),
         "another program is using the port Dropbox signs in through; close it and try again":
             tr("Another program is using the port Dropbox signs in through. Close it and try again."),
         cloud.TOO_BIG_TO_EXPORT: tr("Google can't turn something this big into a file. Download it from the Google "
@@ -84,7 +84,7 @@ def _ui_error(e) -> str:
         cloud.WEB_ONLY: tr("This one only opens on the service's website."),
         cloud.INTO_ITSELF: tr("A folder can't be moved into itself."),
         cloud.TOO_DEEP: tr("There are too many folders inside folders here. A link may lead round in a circle."),
-        cloud.NO_FILES_ALLOWED: tr("Corefold wasn't allowed to see your files. Sign in again and leave the box that "
+        cloud.NO_FILES_ALLOWED: tr("Rakiza Core wasn't allowed to see your files. Sign in again and leave the box that "
                                    "lets it see, edit and delete your files ticked."),
         cloud.NOT_SENT_WHOLE: tr("The upload didn't arrive whole, so it was taken away again. Your file on this PC "
                                  "is untouched. Try again."),
@@ -93,14 +93,14 @@ def _ui_error(e) -> str:
     known.update({
         cloudnet.NOT_PRIVATE: tr("Unencrypted connections are only allowed on your own network. Turn on Encrypted "
                                  "for this server."),
-        cloudnet.KEY_CHANGED: tr("This server's key isn't the one it had before, so Corefold didn't connect: someone "
+        cloudnet.KEY_CHANGED: tr("This server's key isn't the one it had before, so Rakiza Core didn't connect: someone "
                                  "may be pretending to be it. If the server was set up again, remove it and add it "
                                  "again."),
         cloudnet.WRONG_LOGIN: tr("The user name or password isn't right."),
         cloudnet.NO_SERVER: tr("The server didn't answer. Check the address and the port."),
-        cloudnet.NOT_ENCRYPTED_ON: tr("The server sent this on to an address that isn't encrypted, so Corefold "
+        cloudnet.NOT_ENCRYPTED_ON: tr("The server sent this on to an address that isn't encrypted, so Rakiza Core "
                                       "stopped."),
-        "the server's certificate isn't valid": tr("The server's certificate isn't valid, so Corefold didn't "
+        "the server's certificate isn't valid": tr("The server's certificate isn't valid, so Rakiza Core didn't "
                                                    "connect."),
         "this server doesn't offer encryption": tr("This server doesn't offer encryption."),
         "that isn't a server address": tr("That isn't a server address."),
@@ -109,13 +109,13 @@ def _ui_error(e) -> str:
         "it isn't there any more, or this account doesn't allow that": tr("It isn't there any more, or this account "
                                                                            "doesn't allow that."),
         "this server needs to be added again": tr("This server needs to be added again."),
-        "this account isn't in Corefold any more": tr("The account this backup goes to isn't in Corefold any more."),
+        "this account isn't in Rakiza Core any more": tr("The account this backup goes to isn't in Rakiza Core any more."),
     })
     if text == cloudnet.WRONG_LOGIN:
         return known[text]
     for name in cloud.SERVICES.values():
-        known[f"{name} isn't set up in this copy of Corefold yet"] = tr(
-            "Signing in to {name} isn't set up in this copy of Corefold yet.", name=name)
+        known[f"{name} isn't set up in this copy of Rakiza Core yet"] = tr(
+            "Signing in to {name} isn't set up in this copy of Rakiza Core yet.", name=name)
     if isinstance(e, cloud.SignInNeeded):
         return tr("Signed out of this account. Sign in again to see its files.")
     if text in known:
@@ -131,13 +131,13 @@ def _names(names: list[str]) -> str:
 
 def _left_out(c: cloud.Client) -> str:
     """What a download, upload or copy left out: what only opens on the service's website (Google Forms, Sites…),
-    and folders on this PC Windows didn't let Corefold read."""
+    and folders on this PC Windows didn't let Rakiza Core read."""
     said = ""
     if c.skipped:
         said += " " + tr("{count} left out: they only open on the website ({names}).", count=len(c.skipped),
                          names=_names(c.skipped))
     if c.unread:
-        said += " " + tr("{count} folders left out: Windows didn't let Corefold read them ({names}).",
+        said += " " + tr("{count} folders left out: Windows didn't let Rakiza Core read them ({names}).",
                          count=len(c.unread), names=_names(c.unread))
     return said
 
@@ -417,7 +417,7 @@ class Files(QTreeWidget):
         self.setAcceptDrops(True)
         self.setDragEnabled(True)
         self.setDragDropMode(QAbstractItemView.DragDrop)
-        self.sort_state = (0, False)  # (column, the other way round): sorted by Corefold, see _sorted
+        self.sort_state = (0, False)  # (column, the other way round): sorted by Rakiza Core, see _sorted
         self.header().setSortIndicator(0, Qt.AscendingOrder)
         self.header().setSortIndicatorShown(True)
         self.header().setSectionsClickable(True)
@@ -1019,7 +1019,7 @@ class CloudPage(QWidget):
         menu.setToolTipsVisible(True)
 
     def pick_folder(self):
-        """Adds a folder Corefold didn't find by itself (a cloud app's folder somewhere else, a synced folder…)."""
+        """Adds a folder Rakiza Core didn't find by itself (a cloud app's folder somewhere else, a synced folder…)."""
         start = str(Path(self.account.local)) if self.account is not None and self.account.local else str(Path.home())
         folder = QFileDialog.getExistingDirectory(self, tr("Add a cloud folder"), start)
         if not folder:
@@ -1231,12 +1231,12 @@ class CloudPage(QWidget):
         box.setIcon(QMessageBox.Question)
         if acc.service in ("webdav", "ftp", "sftp"):
             box.setWindowTitle(tr("Remove this server?"))
-            box.setText(tr("Corefold forgets {name} and its password. Your files stay where they are.",
+            box.setText(tr("Rakiza Core forgets {name} and its password. Your files stay where they are.",
                            name=ltr(acc.who)))
             yes = box.addButton(tr("Remove"), QMessageBox.AcceptRole)
         else:
             box.setWindowTitle(tr("Sign out?"))
-            box.setText(tr("Corefold forgets its key to {name}. Your files stay where they are.", name=ltr(acc.title)))
+            box.setText(tr("Rakiza Core forgets its key to {name}. Your files stay where they are.", name=ltr(acc.title)))
             yes = box.addButton(tr("Sign out"), QMessageBox.AcceptRole)
         box.addButton(tr("Cancel"), QMessageBox.RejectRole)
         sheet.run(box)

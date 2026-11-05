@@ -1,7 +1,7 @@
 """Security checks on a real Windows PC: each one first shows the weakness the old way (where it can be
-shown safely) and then that Corefold's way is safe. Covers the helper that runs as administrator (the
+shown safely) and then that Rakiza Core's way is safe. Covers the helper that runs as administrator (the
 restore point's description, links on the way, icacls going into junctions, backed-up registry files,
-scheduled task names, Startup's names), programs started by name (also: the folder Corefold was started
+scheduled task names, Startup's names), programs started by name (also: the folder Rakiza Core was started
 in, and no program of Windows' own started by its name alone anywhere in the code), cloud downloads,
 Unlock's delete-at-restart, booby-trapped pictures (EPS through Ghostscript), videos that would go
 online when played, and names that look like HTML in labels, tooltips and questions.
@@ -78,7 +78,7 @@ def restore_point_description():
     marker.unlink(missing_ok=True)
     got = BASE / "description.txt"
     un.powershell(f"[IO.File]::WriteAllText('{got}', $env:CF_DESCRIPTION)", env={"CF_DESCRIPTION": desc})
-    check(not marker.exists(), "Corefold's way: nothing in the name runs")
+    check(not marker.exists(), "Rakiza Core's way: nothing in the name runs")
     check(got.exists() and got.read_text("utf-8-sig") == desc, "…and the description arrives exactly as it was")
 
 
@@ -102,7 +102,7 @@ def icacls_into_junctions():
     print(acl(data).strip(), flush=True)
     subprocess.run(lock, capture_output=True, check=True)
     un.reset_permissions(moved)
-    check("(I)" not in acl(data), "Corefold's way leaves what a junction inside points at alone")
+    check("(I)" not in acl(data), "Rakiza Core's way leaves what a junction inside points at alone")
     check("(I)" in acl(moved / "app.exe"), "…and still resets the real files")
     os.rmdir(moved / "link")
 
@@ -149,7 +149,7 @@ def registry_files():
     value = folder / "value.reg"
     value.write_text(un.value_to_reg("HKCU\\" + un.RUN_KEYS[0], "Acme", "C:\\x.exe", 1), "utf-16")
     check(un._reg_file_ok(value, {"kind": "value", "path": "HKCU\\" + un.RUN_KEYS[0], "value": "Acme"}),
-          "a startup value Corefold backed up is taken")
+          "a startup value Rakiza Core backed up is taken")
 
 
 def task_names():
@@ -183,7 +183,7 @@ def programs_by_name():
         r = subprocess.run(["reg.exe", "/?"], capture_output=True, text=True)
         note(f"\"reg.exe\" by name ran the one in the current folder: {r.stdout.strip() == hostname}")
         r = subprocess.run([system_tool("reg.exe"), "/?"], capture_output=True, text=True)
-        check(r.stdout.strip() != hostname and "REG" in r.stdout.upper(), "Corefold's way runs Windows' reg.exe")
+        check(r.stdout.strip() != hostname and "REG" in r.stdout.upper(), "Rakiza Core's way runs Windows' reg.exe")
         old_path = os.environ["PATH"]
         os.environ["PATH"] = os.pathsep.join(p for p in old_path.split(os.pathsep) if "7-zip" not in p.lower())
         try:
@@ -213,7 +213,7 @@ def cloud_downloads():
 
 
 def started_in_downloads():
-    """Started by a right-click on a file in Downloads, Corefold used to keep Downloads as its current
+    """Started by a right-click on a file in Downloads, Rakiza Core used to keep Downloads as its current
     folder, where Windows looks first for a program started by its name."""
     folder = TMP / "clicked-in"
     folder.mkdir()
@@ -228,9 +228,9 @@ def started_in_downloads():
         # may be on this runner; on most PCs it isn't)
         note(f"the old way: started in Downloads, a planted reg.exe ran: {r.stdout.strip() == hostname} "
              f"(NoDefaultCurrentDirectoryInExePath={os.environ.get('NoDefaultCurrentDirectoryInExePath')!r})")
-        argv = ["Corefold.exe", "--view", "photo.jpg", "--page", "photo.jpg"]
+        argv = ["RakizaCore.exe", "--view", "photo.jpg", "--page", "photo.jpg"]
         ipc.leave_start_folder(argv)
-        check(Path(os.getcwd()).resolve() != folder.resolve(), "Corefold leaves the folder it was started in")
+        check(Path(os.getcwd()).resolve() != folder.resolve(), "Rakiza Core leaves the folder it was started in")
         check(argv[2] == str(folder / "photo.jpg"), f"…and the file it was given keeps its full path ({argv[2]})")
         check(argv[4] == "photo.jpg", "…(a page's name stays a name)")
         r = subprocess.run(["reg.exe", "/?"], capture_output=True, text=True)
@@ -253,7 +253,7 @@ def _full_path_first(arg) -> bool:
 
 def programs_in_the_code():
     """Every subprocess call in corefold/: the program is never just a name like "explorer.exe" (Windows
-    would look in Corefold's own and the current folder first), and nothing goes through a shell."""
+    would look in Rakiza Core's own and the current folder first), and nothing goes through a shell."""
     found = []
     for path in sorted((ROOT / "corefold").rglob("*.py")):
         tree = ast.parse(path.read_text("utf-8"), str(path))
@@ -286,7 +286,7 @@ def programs_in_the_code():
 
 def booby_trapped_pictures():
     """An EPS file named photo.jpg: plain Pillow opens it as EPS, and drawing it runs Ghostscript (the
-    one in the current folder or on PATH). Corefold's Pillow doesn't know EPS at all."""
+    one in the current folder or on PATH). Rakiza Core's Pillow doesn't know EPS at all."""
     pic = TMP / "photo.jpg"
     pic.write_bytes(b"%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 10 10\nnewpath 0 0 moveto 10 10 lineto stroke\n"
                     b"showpage\n")
@@ -301,7 +301,7 @@ def booby_trapped_pictures():
             got = im.format
     except UnidentifiedImageError:
         got = None
-    check(got is None, f"Corefold's Pillow refuses it (got {got})")
+    check(got is None, f"Rakiza Core's Pillow refuses it (got {got})")
     ok = TMP / "real.png"
     Image.new("RGB", (8, 8), "red").save(ok)
     with Image.open(ok) as im:
@@ -331,7 +331,7 @@ class _Count(http.server.BaseHTTPRequestHandler):
 
 def videos_going_online():
     """A "video" that is really a playlist of parts on the internet: a player that fetched them would tell
-    that site the file was opened. Played from the PC, Corefold's player stays offline."""
+    that site the file was opened. Played from the PC, Rakiza Core's player stays offline."""
     import threading
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     os.environ.setdefault("QT_MEDIA_BACKEND", "ffmpeg")
@@ -346,7 +346,7 @@ def videos_going_online():
                 f"http://127.0.0.1:{port}/part0.ts\n#EXTINF:2,\nhttp://127.0.0.1:{port}/part1.ts\n#EXT-X-ENDLIST\n")
     fake = TMP / "holiday.mp4"      # (FFmpeg itself won't take a playlist called .mp4)
     fake.write_text(playlist)
-    named = TMP / "holiday.m3u8"    # (one called what it is, opened with Corefold's player)
+    named = TMP / "holiday.m3u8"    # (one called what it is, opened with Rakiza Core's player)
     named.write_text(playlist)
 
     def play(path: Path, seconds: float = 6.0):
@@ -376,7 +376,7 @@ def videos_going_online():
     for f in (fake, named):
         _Count.hits = 0
         play(f)
-        check(_Count.hits == 0, f"Corefold's player stays offline with {f.name} ({_Count.hits} asks)")
+        check(_Count.hits == 0, f"Rakiza Core's player stays offline with {f.name} ({_Count.hits} asks)")
     ffmpeg = find_program("ffmpeg")
     if ffmpeg:
         real = TMP / "real.mp4"
@@ -568,7 +568,7 @@ def previous_windows_links():
 
 def pictures_from_elsewhere():
     """An email, a drawing, a label or a tooltip naming a picture by a path (a shared folder's
-    \\\\server\\share\\x.png makes Windows sign in to that computer): the old way really opened it, Corefold's
+    \\\\server\\share\\x.png makes Windows sign in to that computer): the old way really opened it, Rakiza Core's
     way opens nothing. A local share of this PC (\\\\localhost\\C$) stands in for another computer."""
     from PySide6.QtGui import QImage, QColor, QTextDocument
     from PySide6.QtWidgets import QApplication, QLabel, QListWidgetItem, QTextBrowser

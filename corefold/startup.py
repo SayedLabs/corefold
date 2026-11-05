@@ -1,4 +1,4 @@
-"""Corefold Startup: what starts with Windows, and switching it off or on again.
+"""Rakiza Core Startup: what starts with Windows, and switching it off or on again.
 
 Programs start with Windows from two places: a "Run" key in the registry (this user's, or the whole
 PC's) and a Startup folder (this user's, or everyone's). Switching one off works exactly the way Task
@@ -66,7 +66,7 @@ class Entry:
     off_since: float = 0  # when it was switched off (0 if unknown or on)
     publisher: str = ""
     missing: bool = False  # its program isn't there any more
-    own: bool = False      # Corefold itself
+    own: bool = False      # Rakiza Core itself
     new: bool = False      # added since this page was last looked at
     extra: dict = field(default_factory=dict)
 
@@ -273,7 +273,7 @@ def is_gone(exe: str) -> bool:
 
 
 def list_entries() -> list[Entry]:
-    """Every program that starts with Windows from the Run keys and the Startup folders, Corefold
+    """Every program that starts with Windows from the Run keys and the Startup folders, Rakiza Core
     first and then by name (on and off alike)."""
     out: list[Entry] = []
     for where in ("HKCU-Run", "HKLM-Run", "HKLM-Run32"):
@@ -605,19 +605,19 @@ def read_note(entry: Entry):
     return _values(hive, approved, 64 if hive == "HKLM" else 0).get(entry.value)
 
 
-# ----------------------------------------------------------------------------- started later (by Corefold)
+# ----------------------------------------------------------------------------- started later (by Rakiza Core)
 
-LATER_AFTER_S = 60   # after signing in (Corefold starting with Windows), before the first one is started
+LATER_AFTER_S = 60   # after signing in (Rakiza Core starting with Windows), before the first one is started
 LATER_GAP_S = 5      # between one and the next
 
 
 def can_start_later(e: Entry) -> bool:
-    """A program Windows starts from Run or a Startup folder (not Corefold itself, not one that's gone)."""
+    """A program Windows starts from Run or a Startup folder (not Rakiza Core itself, not one that's gone)."""
     return e.where in PLACES and not e.own and not e.missing and bool(e.command or e.extra.get("file"))
 
 
 def later_item(e: Entry) -> dict:
-    """What Corefold keeps to start it later (as in settings.startup_later)."""
+    """What Rakiza Core keeps to start it later (as in settings.startup_later)."""
     return {"id": e.id, "name": e.name, "command": e.command, "file": str(e.extra.get("file") or "")}
 
 
@@ -811,7 +811,7 @@ def common_startup_file(path: str) -> bool:
 
 
 def clean_common_as_admin(payload: dict) -> dict:
-    """What Corefold, run as administrator, does for remove_leftovers: everyone's Startup folder shortcuts
+    """What Rakiza Core, run as administrator, does for remove_leftovers: everyone's Startup folder shortcuts
     to the Recycle Bin, with their on/off notes. Only files that are right in that folder, and only notes
     under Windows' StartupFolder key."""
     from .uninstall import recycle
@@ -829,7 +829,7 @@ def clean_common_as_admin(payload: dict) -> dict:
 
 
 def _clean_common(items: list[tuple[str, str]]):
-    """clean_common_as_admin in Corefold as administrator (Windows asks first)."""
+    """clean_common_as_admin in Rakiza Core as administrator (Windows asks first)."""
     import sys
     from .uninstall import run_elevated
     if getattr(sys, "frozen", False):

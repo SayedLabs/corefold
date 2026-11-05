@@ -1,4 +1,4 @@
-"""Corefold PDF's editor, made fuller: the PDF's own paragraphs are found (wrapped lines that belong together,
+"""Rakiza Core PDF's editor, made fuller: the PDF's own paragraphs are found (wrapped lines that belong together,
 lined up and spaced as they are) and can be changed whole; words are found exactly where they are on a line
 (so every place some words are can be covered); and the new copy gets links, blank pages, see-through
 things, turned pictures, filled shapes and lined-up, spaced text. A picture of the PDF's own can be kept as

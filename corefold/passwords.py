@@ -1,4 +1,4 @@
-"""Archive passwords Corefold may remember, so an archive locked with one used before opens without
+"""Archive passwords Rakiza Core may remember, so an archive locked with one used before opens without
 asking. Off unless the person ticks "Remember it" when typing one. The list is locked with Windows'
 own encryption for this Windows account (like the Cloud keys) and never leaves the PC."""
 from __future__ import annotations

@@ -1,5 +1,5 @@
 """
-Synthesises Corefold's sounds into assets/sounds/*.wav. Run: python scripts/make_sounds.py
+Synthesises Rakiza Core's sounds into assets/sounds/*.wav. Run: python scripts/make_sounds.py
 
 All sounds are soft, short and warm: smooth starts (no clicks), gentle low-passing (no harsh
 highs), quiet by default. The app scales the volume when it plays them.

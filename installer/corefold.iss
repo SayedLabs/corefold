@@ -1,6 +1,6 @@
-﻿; Corefold installer (Inno Setup 6). Built by scripts\build.ps1.
+﻿; Rakiza Core installer (Inno Setup 6). Built by scripts\build.ps1.
 ; Installs for the whole PC, in Program Files: Windows asks for permission once, then one page, two clicks.
-; (A folder only administrators can change: the part of Corefold that runs with administrator rights can't be
+; (A folder only administrators can change: the part of Rakiza Core that runs with administrator rights can't be
 ; swapped by any other program the person runs.) A copy installed the old way, for one user only, is moved over.
 
 #ifndef AppVersion
@@ -33,7 +33,7 @@ AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
 AppPublisher={#Publisher}
 AppCopyright={#Publisher}
-; Setup's own file details (right-click > Properties > Details), the same as Corefold.exe's
+; Setup's own file details (right-click > Properties > Details), the same as RakizaCore.exe's
 VersionInfoVersion={#NumericVersion}
 VersionInfoCompany={#Publisher}
 VersionInfoCopyright={#Publisher}
@@ -43,7 +43,7 @@ VersionInfoProductName={#AppName}
 VersionInfoProductTextVersion={#AppVersion}
 VersionInfoTextVersion={#AppVersion}
 DefaultDirName={autopf}\{#AppName}
-; An update goes into the folder Corefold is already in (also one picked with /DIR), so its shortcuts, taskbar
+; An update goes into the folder Rakiza Core is already in (also one picked with /DIR), so its shortcuts, taskbar
 ; pin and start-up entry keep pointing at the same folder. Only the earlier names' own folders aren't kept: that
 ; upgrade moves to the new folder, and the old one is removed after installing (see InitializeWizard, [Code]).
 UsePreviousAppDir=yes
@@ -71,14 +71,14 @@ OutputBaseFilename=RakizaCore-Setup-{#AppVersion}
 ; the strongest LZMA2 setting (a bigger dictionary finds more repeats across the many DLLs)
 Compression=lzma2/ultra64
 SolidCompression=yes
-; We close a running Corefold ourselves (see [Code]), so skip Windows' "files in use" page.
+; We close a running Rakiza Core ourselves (see [Code]), so skip Windows' "files in use" page.
 CloseApplications=no
-; Setup speaks the language Windows is in (English when it's none of Corefold's), without asking first
+; Setup speaks the language Windows is in (English when it's none of Rakiza Core's), without asking first
 ShowLanguageDialog=no
 LanguageDetectionMethod=uilanguage
 
 [Languages]
-; (the same five languages as Corefold; an older Inno Setup without Arabic leaves it out: Arabic Windows then
+; (the same five languages as Rakiza Core; an older Inno Setup without Arabic leaves it out: Arabic Windows then
 ; gets English, as before)
 Name: "en"; MessagesFile: "compiler:Default.isl"
 #if FileExists(AddBackslash(CompilerPath) + "Languages\Arabic.isl")
@@ -90,65 +90,65 @@ Name: "tr"; MessagesFile: "compiler:Languages\Turkish.isl"
 
 [Messages]
 en.SelectTasksLabel2=Choose your options, then click Install.
-en.FinishedLabel=Corefold is installed. Hold Shift and drag any file in File Explorer, or right-click a file and choose Corefold.
+en.FinishedLabel=Rakiza Core is installed. Hold Shift and drag any file in File Explorer, or right-click a file and choose Rakiza Core.
 #if FileExists(AddBackslash(CompilerPath) + "Languages\Arabic.isl")
 ar.SelectTasksLabel2=اختر ما تريد، ثم انقر «تثبيت».
-ar.FinishedLabel=تم تثبيت كورفولد. اضغط مع الاستمرار على Shift واسحب أي ملف في مستكشف الملفات، أو انقر بزر الماوس الأيمن على ملف واختر Corefold.
+ar.FinishedLabel=تم تثبيت ركيزة كور. اضغط مع الاستمرار على Shift واسحب أي ملف في مستكشف الملفات، أو انقر بزر الماوس الأيمن على ملف واختر Rakiza Core.
 #endif
 fr.SelectTasksLabel2=Choisissez vos options, puis cliquez sur Installer.
-fr.FinishedLabel=Corefold est installé. Maintenez Maj et faites glisser un fichier dans l'Explorateur de fichiers, ou faites un clic droit sur un fichier et choisissez Corefold.
+fr.FinishedLabel=Rakiza Core est installé. Maintenez Maj et faites glisser un fichier dans l'Explorateur de fichiers, ou faites un clic droit sur un fichier et choisissez Rakiza Core.
 es.SelectTasksLabel2=Elige tus opciones y haz clic en Instalar.
-es.FinishedLabel=Corefold está instalado. Mantén pulsada Mayús y arrastra cualquier archivo en el Explorador de archivos, o haz clic derecho en un archivo y elige Corefold.
+es.FinishedLabel=Rakiza Core está instalado. Mantén pulsada Mayús y arrastra cualquier archivo en el Explorador de archivos, o haz clic derecho en un archivo y elige Rakiza Core.
 tr.SelectTasksLabel2=Seçeneklerinizi belirleyin, ardından Kur'a tıklayın.
-tr.FinishedLabel=Corefold yüklendi. Dosya Gezgini'nde Shift'e basılı tutup herhangi bir dosyayı sürükleyin veya bir dosyaya sağ tıklayıp Corefold'u seçin.
+tr.FinishedLabel=Rakiza Core yüklendi. Dosya Gezgini'nde Shift'e basılı tutup herhangi bir dosyayı sürükleyin veya bir dosyaya sağ tıklayıp Rakiza Core'u seçin.
 
 [CustomMessages]
-en.DesktopIcon=Put a Corefold icon on my desktop
-en.StartWithWindows=Start Corefold when Windows starts (recommended)
-en.OpenNow=Open Corefold now
-en.StillWorking=Corefold is still finishing something (a conversion, sorting files, or an app's uninstall).%n%nRetry: wait for it to finish.%nIgnore: close Corefold now (what it is doing is stopped half-way).%nAbort: stop.
-en.FolderNotEmpty=The folder %1 already has other files in it. Install Corefold into an empty folder (or leave out /DIR to use its usual folder).
-en.StillBusy=Corefold is still busy. Install again when it's done.
-en.DeleteData=Also delete your Corefold settings and what it keeps for you?%n%nThat is: settings, the clipboard history (pinned copies too), saved archive passwords, your saved signature, cloud sign-ins and the File Organizer's Undo. Backups of removed apps and files opened from Cloud are kept either way.%n%nChoose No if you might install Corefold again and want to keep them.
+en.DesktopIcon=Put a Rakiza Core icon on my desktop
+en.StartWithWindows=Start Rakiza Core when Windows starts (recommended)
+en.OpenNow=Open Rakiza Core now
+en.StillWorking=Rakiza Core is still finishing something (a conversion, sorting files, or an app's uninstall).%n%nRetry: wait for it to finish.%nIgnore: close Rakiza Core now (what it is doing is stopped half-way).%nAbort: stop.
+en.FolderNotEmpty=The folder %1 already has other files in it. Install Rakiza Core into an empty folder (or leave out /DIR to use its usual folder).
+en.StillBusy=Rakiza Core is still busy. Install again when it's done.
+en.DeleteData=Also delete your Rakiza Core settings and what it keeps for you?%n%nThat is: settings, the clipboard history (pinned copies too), saved archive passwords, your saved signature, cloud sign-ins and the File Organizer's Undo. Backups of removed apps and files opened from Cloud are kept either way.%n%nChoose No if you might install Rakiza Core again and want to keep them.
 #if FileExists(AddBackslash(CompilerPath) + "Languages\Arabic.isl")
-ar.DesktopIcon=إضافة أيقونة كورفولد إلى سطح المكتب
-ar.StartWithWindows=تشغيل كورفولد مع بدء ويندوز (مستحسن)
-ar.OpenNow=فتح كورفولد الآن
-ar.StillWorking=ما زال كورفولد يُنهي عملًا ما (تحويلًا، أو ترتيب ملفات، أو إزالة برنامج).%n%nإعادة المحاولة: الانتظار حتى ينتهي.%nتجاهل: إغلاق كورفولد الآن (يتوقف ما يفعله في منتصفه).%nإحباط: إيقاف التثبيت.
-ar.FolderNotEmpty=المجلد %1 يحتوي على ملفات أخرى. ثبّت كورفولد في مجلد فارغ (أو احذف /DIR ليستخدم مجلده المعتاد).
-ar.StillBusy=ما زال كورفولد مشغولًا. أعد التثبيت عندما ينتهي.
-ar.DeleteData=هل تريد أيضًا حذف إعدادات كورفولد وما يحفظه لك؟%n%nأي: الإعدادات، وسجل الحافظة (بما فيه العناصر المثبّتة)، وكلمات مرور الأرشيفات المحفوظة، وتوقيعك المحفوظ، وتسجيلات الدخول إلى السحابة، والتراجع في منظّم الملفات. أما النسخ الاحتياطية للبرامج المُزالة والملفات المفتوحة من السحابة فتبقى في كل الأحوال.%n%nاختر «لا» إذا كنت قد تثبّت كورفولد مرة أخرى وتريد الاحتفاظ بها.
+ar.DesktopIcon=إضافة أيقونة ركيزة كور إلى سطح المكتب
+ar.StartWithWindows=تشغيل ركيزة كور مع بدء ويندوز (مستحسن)
+ar.OpenNow=فتح ركيزة كور الآن
+ar.StillWorking=ما زال ركيزة كور يُنهي عملًا ما (تحويلًا، أو ترتيب ملفات، أو إزالة برنامج).%n%nإعادة المحاولة: الانتظار حتى ينتهي.%nتجاهل: إغلاق ركيزة كور الآن (يتوقف ما يفعله في منتصفه).%nإحباط: إيقاف التثبيت.
+ar.FolderNotEmpty=المجلد %1 يحتوي على ملفات أخرى. ثبّت ركيزة كور في مجلد فارغ (أو احذف /DIR ليستخدم مجلده المعتاد).
+ar.StillBusy=ما زال ركيزة كور مشغولًا. أعد التثبيت عندما ينتهي.
+ar.DeleteData=هل تريد أيضًا حذف إعدادات ركيزة كور وما يحفظه لك؟%n%nأي: الإعدادات، وسجل الحافظة (بما فيه العناصر المثبّتة)، وكلمات مرور الأرشيفات المحفوظة، وتوقيعك المحفوظ، وتسجيلات الدخول إلى السحابة، والتراجع في منظّم الملفات. أما النسخ الاحتياطية للبرامج المُزالة والملفات المفتوحة من السحابة فتبقى في كل الأحوال.%n%nاختر «لا» إذا كنت قد تثبّت ركيزة كور مرة أخرى وتريد الاحتفاظ بها.
 #endif
-fr.DesktopIcon=Mettre une icône Corefold sur mon bureau
-fr.StartWithWindows=Démarrer Corefold au démarrage de Windows (recommandé)
-fr.OpenNow=Ouvrir Corefold maintenant
-fr.StillWorking=Corefold termine encore quelque chose (une conversion, un rangement de fichiers ou la désinstallation d'une appli).%n%nRéessayer : attendre qu'il ait fini.%nIgnorer : fermer Corefold maintenant (ce qu'il fait s'arrête en cours de route).%nAbandonner : arrêter.
-fr.FolderNotEmpty=Le dossier %1 contient déjà d'autres fichiers. Installez Corefold dans un dossier vide (ou retirez /DIR pour utiliser son dossier habituel).
-fr.StillBusy=Corefold est encore occupé. Relancez l'installation quand il aura fini.
-fr.DeleteData=Supprimer aussi vos réglages Corefold et ce qu'il garde pour vous ?%n%nC'est-à-dire : les réglages, l'historique du presse-papiers (y compris les éléments épinglés), les mots de passe d'archives enregistrés, votre signature enregistrée, les connexions au cloud et l'annulation du rangement de fichiers. Les sauvegardes des applis supprimées et les fichiers ouverts depuis le cloud sont gardés dans tous les cas.%n%nChoisissez Non si vous pensez réinstaller Corefold et voulez les garder.
-es.DesktopIcon=Poner un icono de Corefold en mi escritorio
-es.StartWithWindows=Iniciar Corefold al iniciar Windows (recomendado)
-es.OpenNow=Abrir Corefold ahora
-es.StillWorking=Corefold todavía está terminando algo (una conversión, ordenando archivos o desinstalando una app).%n%nReintentar: esperar a que termine.%nOmitir: cerrar Corefold ahora (lo que está haciendo se detiene a medias).%nAnular: parar.
-es.FolderNotEmpty=La carpeta %1 ya tiene otros archivos. Instala Corefold en una carpeta vacía (o quita /DIR para usar su carpeta habitual).
-es.StillBusy=Corefold todavía está ocupado. Vuelve a instalar cuando termine.
-es.DeleteData=¿Borrar también tus ajustes de Corefold y lo que guarda para ti?%n%nEs decir: los ajustes, el historial del portapapeles (también lo fijado), las contraseñas de archivos comprimidos guardadas, tu firma guardada, las sesiones de la nube y el Deshacer del organizador de archivos. Las copias de seguridad de las apps quitadas y los archivos abiertos desde la nube se guardan en cualquier caso.%n%nElige No si quizá vuelvas a instalar Corefold y quieres conservarlos.
-tr.DesktopIcon=Masaüstüme bir Corefold simgesi koy
-tr.StartWithWindows=Windows başlarken Corefold'u başlat (önerilir)
-tr.OpenNow=Corefold'u şimdi aç
-tr.StillWorking=Corefold hâlâ bir işi bitiriyor (bir dönüştürme, dosya düzenleme ya da bir uygulamanın kaldırılması).%n%nYeniden Dene: bitmesini bekle.%nYoksay: Corefold'u şimdi kapat (yaptığı iş yarıda kalır).%nDurdur: kurulumu durdur.
-tr.FolderNotEmpty=%1 klasöründe zaten başka dosyalar var. Corefold'u boş bir klasöre yükleyin (ya da her zamanki klasörünü kullanmak için /DIR'i kaldırın).
-tr.StillBusy=Corefold hâlâ meşgul. İşi bitince yeniden yükleyin.
-tr.DeleteData=Corefold ayarlarınızı ve sizin için sakladıklarını da silelim mi?%n%nYani: ayarlar, pano geçmişi (sabitlenenler de), kayıtlı arşiv parolaları, kayıtlı imzanız, bulut oturumları ve Dosya Düzenleyici'nin Geri Al'ı. Kaldırılan uygulamaların yedekleri ve buluttan açılan dosyalar her durumda saklanır.%n%nCorefold'u yeniden yükleyebilir ve bunları tutmak isterseniz Hayır'ı seçin.
+fr.DesktopIcon=Mettre une icône Rakiza Core sur mon bureau
+fr.StartWithWindows=Démarrer Rakiza Core au démarrage de Windows (recommandé)
+fr.OpenNow=Ouvrir Rakiza Core maintenant
+fr.StillWorking=Rakiza Core termine encore quelque chose (une conversion, un rangement de fichiers ou la désinstallation d'une appli).%n%nRéessayer : attendre qu'il ait fini.%nIgnorer : fermer Rakiza Core maintenant (ce qu'il fait s'arrête en cours de route).%nAbandonner : arrêter.
+fr.FolderNotEmpty=Le dossier %1 contient déjà d'autres fichiers. Installez Rakiza Core dans un dossier vide (ou retirez /DIR pour utiliser son dossier habituel).
+fr.StillBusy=Rakiza Core est encore occupé. Relancez l'installation quand il aura fini.
+fr.DeleteData=Supprimer aussi vos réglages Rakiza Core et ce qu'il garde pour vous ?%n%nC'est-à-dire : les réglages, l'historique du presse-papiers (y compris les éléments épinglés), les mots de passe d'archives enregistrés, votre signature enregistrée, les connexions au cloud et l'annulation du rangement de fichiers. Les sauvegardes des applis supprimées et les fichiers ouverts depuis le cloud sont gardés dans tous les cas.%n%nChoisissez Non si vous pensez réinstaller Rakiza Core et voulez les garder.
+es.DesktopIcon=Poner un icono de Rakiza Core en mi escritorio
+es.StartWithWindows=Iniciar Rakiza Core al iniciar Windows (recomendado)
+es.OpenNow=Abrir Rakiza Core ahora
+es.StillWorking=Rakiza Core todavía está terminando algo (una conversión, ordenando archivos o desinstalando una app).%n%nReintentar: esperar a que termine.%nOmitir: cerrar Rakiza Core ahora (lo que está haciendo se detiene a medias).%nAnular: parar.
+es.FolderNotEmpty=La carpeta %1 ya tiene otros archivos. Instala Rakiza Core en una carpeta vacía (o quita /DIR para usar su carpeta habitual).
+es.StillBusy=Rakiza Core todavía está ocupado. Vuelve a instalar cuando termine.
+es.DeleteData=¿Borrar también tus ajustes de Rakiza Core y lo que guarda para ti?%n%nEs decir: los ajustes, el historial del portapapeles (también lo fijado), las contraseñas de archivos comprimidos guardadas, tu firma guardada, las sesiones de la nube y el Deshacer del organizador de archivos. Las copias de seguridad de las apps quitadas y los archivos abiertos desde la nube se guardan en cualquier caso.%n%nElige No si quizá vuelvas a instalar Rakiza Core y quieres conservarlos.
+tr.DesktopIcon=Masaüstüme bir Rakiza Core simgesi koy
+tr.StartWithWindows=Windows başlarken Rakiza Core'u başlat (önerilir)
+tr.OpenNow=Rakiza Core'u şimdi aç
+tr.StillWorking=Rakiza Core hâlâ bir işi bitiriyor (bir dönüştürme, dosya düzenleme ya da bir uygulamanın kaldırılması).%n%nYeniden Dene: bitmesini bekle.%nYoksay: Rakiza Core'u şimdi kapat (yaptığı iş yarıda kalır).%nDurdur: kurulumu durdur.
+tr.FolderNotEmpty=%1 klasöründe zaten başka dosyalar var. Rakiza Core'u boş bir klasöre yükleyin (ya da her zamanki klasörünü kullanmak için /DIR'i kaldırın).
+tr.StillBusy=Rakiza Core hâlâ meşgul. İşi bitince yeniden yükleyin.
+tr.DeleteData=Rakiza Core ayarlarınızı ve sizin için sakladıklarını da silelim mi?%n%nYani: ayarlar, pano geçmişi (sabitlenenler de), kayıtlı arşiv parolaları, kayıtlı imzanız, bulut oturumları ve Dosya Düzenleyici'nin Geri Al'ı. Kaldırılan uygulamaların yedekleri ve buluttan açılan dosyalar her durumda saklanır.%n%nRakiza Core'u yeniden yükleyebilir ve bunları tutmak isterseniz Hayır'ı seçin.
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:DesktopIcon}"
 Name: "startup"; Description: "{cm:StartWithWindows}"
 
 [Files]
-; Copied next to the Corefold that's there, which keeps working until every file is in; then the two are swapped
+; Copied next to the Rakiza Core that's there, which keeps working until every file is in; then the two are swapped
 ; in a moment (SwapInNewFiles in [Code]). An update cut off half-way (power cut, Setup ended) leaves the older
-; Corefold whole, never a mix of the two that can't start.
+; Rakiza Core whole, never a mix of the two that can't start.
 Source: "..\dist\RakizaCore\*"; DestDir: "{app}\_next"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [InstallDelete]
@@ -167,7 +167,7 @@ Type: files; Name: "{userprograms}\{#PrevName}.lnk"
 Type: files; Name: "{userdesktop}\{#PrevName}.lnk"
 
 [UninstallDelete]
-; only Corefold's own folders: the uninstaller removes every file it installed by itself, and the folder goes
+; only Rakiza Core's own folders: the uninstaller removes every file it installed by itself, and the folder goes
 ; once it's empty (never "everything in {app}": installed with /DIR into a folder holding other things, that
 ; would delete them too)
 Type: filesandordirs; Name: "{app}\_internal"
@@ -185,14 +185,14 @@ Type: files; Name: "{app}\is-*.tmp"
 Type: dirifempty; Name: "{app}"
 
 [Icons]
-; The same app id Corefold gives itself (app.py APP_ID): Windows then sees the shortcut, a taskbar pin made
-; from it and the running Corefold as one app, so the taskbar button stays where it's pinned.
+; The same app id Rakiza Core gives itself (app.py APP_ID): Windows then sees the shortcut, a taskbar pin made
+; from it and the running Rakiza Core as one app, so the taskbar button stays where it's pinned.
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "AtomicWorks.{#KeepId}"
 ; (an update leaves an icon that's there alone, so it keeps its place, and one deleted stays deleted)
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "AtomicWorks.{#KeepId}"; \
   Tasks: desktopicon; Check: MakeDesktopIcon
 ; Moving over from a copy installed for this person alone: their own desktop icon and taskbar pin are written again
-; in the same place and under the same name (so they keep their spot), pointing at the Corefold installed here.
+; in the same place and under the same name (so they keep their spot), pointing at the Rakiza Core installed here.
 Name: "{userdesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "AtomicWorks.{#KeepId}"; \
   Check: KeepUserDesktopIcon
 Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar\{#AppName}"; \
@@ -209,22 +209,22 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "{cm:OpenNow}"; Flags: nowait postinstall skipifsilent
-; (after an automatic (silent) update Corefold is started again in the tray from [Code], once the new files are in
+; (after an automatic (silent) update Rakiza Core is started again in the tray from [Code], once the new files are in
 ; place: a [Run] entry without postinstall runs before that)
 
 [Code]
 const
   RunKey = 'Software\Microsoft\Windows\CurrentVersion\Run';
-  { How long Corefold is given to finish what it's doing and close by itself (seconds). }
+  { How long Rakiza Core is given to finish what it's doing and close by itself (seconds). }
   CloseWait = 60;
 
 var
   OldStartedWithWindows: Boolean;
-  { Corefold was already installed: this is an update (the person's choices are kept as they are) }
+  { Rakiza Core was already installed: this is an update (the person's choices are kept as they are) }
   Upgrading: Boolean;
-  { a desktop icon from before 1.7.0 was there (it's replaced by Corefold's) }
+  { a desktop icon from before 1.7.0 was there (it's replaced by Rakiza Core's) }
   HadOldDesktopIcon: Boolean;
-  { the folder of a Corefold installed the old way, for this person alone (empty when there's none): it's moved
+  { the folder of a Rakiza Core installed the old way, for this person alone (empty when there's none): it's moved
     over to the whole-PC install and then removed }
   UserCopyDir: String;
   { what that copy had: an icon on the person's own desktop, a taskbar pin }
@@ -238,7 +238,7 @@ const
 const
   PinDir = '{userappdata}\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar';
 
-{ A Corefold installed the old way, for the person installing alone (in their own AppData, registered in
+{ A Rakiza Core installed the old way, for the person installing alone (in their own AppData, registered in
   HKCU): its folder, or '' when there's none. }
 function FindUserCopy(): String;
 var
@@ -289,7 +289,7 @@ begin
     WizardForm.DirEdit.Text := ExpandConstant('{autopf}\{#AppName}');
 end;
 
-{ An update: Corefold was installed already, for the whole PC or the old way for this person alone }
+{ An update: Rakiza Core was installed already, for the whole PC or the old way for this person alone }
 function IsUpdate(): Boolean;
 begin
   Result := Upgrading or (UserCopyDir <> '');
@@ -338,7 +338,7 @@ begin
 end;
 
 { Start with Windows: written on a fresh install, or when ticked on the options page of an update started by
-  hand. An automatic update never changes it, so "off" (in Corefold, Task Manager or Corefold Startup) stays off. }
+  hand. An automatic update never changes it, so "off" (in Rakiza Core, Task Manager or Rakiza Core Startup) stays off. }
 function WriteStartup(): Boolean;
 begin
   Result := (not IsUpdate()) or not WizardSilent();
@@ -366,10 +366,10 @@ begin
                  SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
-{ Asks the running Corefold (only the copy installed here: another program that happens to be called
-  Corefold.exe is never touched) to close, the way it closes by itself: what it's doing (a conversion, sorting
+{ Asks the running Rakiza Core (only the copy installed here: another program that happens to be called
+  RakizaCore.exe is never touched) to close, the way it closes by itself: what it's doing (a conversion, sorting
   files, an uninstall) is finished first and nothing new starts. It says it heard by leaving a mark file.
-  0: no Corefold from this folder runs (any more). 1: still running after CloseWait seconds.
+  0: no Rakiza Core from this folder runs (any more). 1: still running after CloseWait seconds.
   2: it didn't answer (a version from before 1.10 doesn't know how), so it can only be stopped. }
 function AskAppToClose(): Integer;
 var
@@ -398,8 +398,8 @@ begin
     Result := ResultCode;
 end;
 
-{ Stops the Corefold installed here at once (only when it didn't close by itself). Never by name alone: a
-  portable Corefold elsewhere keeps running. If PowerShell can't run, the files it holds are asked about later. }
+{ Stops the Rakiza Core installed here at once (only when it didn't close by itself). Never by name alone: a
+  portable Rakiza Core elsewhere keeps running. If PowerShell can't run, the files it holds are asked about later. }
 procedure StopApp();
 var
   ResultCode: Integer;
@@ -431,7 +431,7 @@ begin
     'Start-Sleep -Milliseconds 300', ResultCode);
 end;
 
-{ True when Corefold isn't running any more (it closed, or the person chose to stop it). }
+{ True when Rakiza Core isn't running any more (it closed, or the person chose to stop it). }
 function CloseRunningApp(Silent: Boolean): Boolean;
 var
   Answer: Integer;
@@ -444,7 +444,7 @@ begin
       Break;
     if (Answer = 2) or Silent then
     begin
-      { an older Corefold that can't be asked; or an automatic update (Corefold already waited for its work
+      { an older Rakiza Core that can't be asked; or an automatic update (Rakiza Core already waited for its work
         before starting this installer) }
       StopApp();
       Break;
@@ -465,8 +465,8 @@ begin
   StopOldApp();
 end;
 
-{ An installation folder chosen on the command line (/DIR=) that already holds other things: Corefold would
-  be mixed in with them, so it's refused. Its own folder from before (Corefold.exe in it) is fine. }
+{ An installation folder chosen on the command line (/DIR=) that already holds other things: Rakiza Core would
+  be mixed in with them, so it's refused. Its own folder from before (RakizaCore.exe in it) is fine. }
 function FolderIsSafe(): Boolean;
 var
   FindRec: TFindRec;
@@ -509,7 +509,7 @@ begin
     Result := CustomMessage('StillBusy');
     Exit;
   end;
-  { the old version started with Windows: Corefold keeps doing that }
+  { the old version started with Windows: Rakiza Core keeps doing that }
   OldStartedWithWindows := RegQueryStringValue(HKEY_CURRENT_USER, RunKey, '{#OldName}', Value);
 end;
 
@@ -557,7 +557,7 @@ begin
     DelTree(PrevDir, True, True, True);
 end;
 
-{ After upgrading from the old name: take away its start-up entry (Corefold's replaces it) and its
+{ After upgrading from the old name: take away its start-up entry (Rakiza Core's replaces it) and its
   old program folder. Settings are moved over by the app itself the first time it starts. }
 procedure RemoveOldVersion();
 var
@@ -629,8 +629,8 @@ end;
 
 { The new files, all copied in under _next, take the place of the old ones: each old one is moved aside into
   _previous (or deleted, if it can't be), then the new one is moved into its place. These are renames on the
-  same disk, over in a moment, so an update cut off before this point leaves the older Corefold whole.
-  Corefold.exe goes last. }
+  same disk, over in a moment, so an update cut off before this point leaves the older Rakiza Core whole.
+  RakizaCore.exe goes last. }
 procedure SwapInNewFiles();
 var
   App, NextDir, PrevDir, Name: String;
@@ -686,7 +686,7 @@ begin
   DelTree(NextDir, True, True, True);
 end;
 
-{ Deletes one of Corefold's own things in the old folder (never anything else that's in there). }
+{ Deletes one of Rakiza Core's own things in the old folder (never anything else that's in there). }
 procedure DelOwn(Path: String);
 begin
   if DirExists(Path) then
@@ -695,8 +695,8 @@ begin
     DeleteFile(Path);
 end;
 
-{ After moving over from a copy installed for this person alone: its start-up entry now starts the Corefold
-  installed here, its Start-menu shortcut gives way to the one for everyone, and its folder (only Corefold's own
+{ After moving over from a copy installed for this person alone: its start-up entry now starts the Rakiza Core
+  installed here, its Start-menu shortcut gives way to the one for everyone, and its folder (only Rakiza Core's own
   files in it) and its entry in Windows' list of installed apps are removed. Settings stay where they are. }
 procedure RemoveUserCopy();
 var
@@ -754,7 +754,7 @@ begin
 end;
 
 { An update cut off half-way (power cut, Setup ended) can leave an uninstaller of its own (unins000.exe/.dat):
-  the next update then writes unins001. Only the one in Windows' list of apps is kept, so removing Corefold
+  the next update then writes unins001. Only the one in Windows' list of apps is kept, so removing Rakiza Core
   later leaves nothing behind. }
 procedure RemoveStaleUninstallers();
 var
@@ -790,11 +790,11 @@ begin
   begin
     SwapInNewFiles();
     RemoveUserCopy();
-    { an automatic update: Corefold back in the tray, as the person (never with administrator rights) }
+    { an automatic update: Rakiza Core back in the tray, as the person (never with administrator rights) }
     if WizardSilent() then
       ExecAsOriginalUser(ExpandConstant('{app}\{#AppExe}'), '--background', '', SW_SHOWNORMAL, ewNoWait, ResultCode);
     RemoveOldVersion();
-    { an update started by hand with "Start Corefold when Windows starts" unticked: it doesn't }
+    { an update started by hand with "Start Rakiza Core when Windows starts" unticked: it doesn't }
     if IsUpdate() and (not WizardSilent()) and (not WizardIsTaskSelected('startup')) then
       RegDeleteValue(HKEY_CURRENT_USER, RunKey, '{#KeepId}');
   end;
@@ -807,7 +807,7 @@ begin
   Result := CloseRunningApp(UninstallSilent());
   if not Result then
     Exit;
-  { remove Corefold (and any entries left by older versions) from the right-click menu }
+  { remove Rakiza Core (and any entries left by older versions) from the right-click menu }
   Exec(ExpandConstant('{app}\{#AppExe}'), '--remove-shell-menu', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
@@ -851,7 +851,7 @@ begin
       DelTree(ExpandConstant('{userappdata}\{#AppName}'), True, True, True);
       DelTree(ExpandConstant('{userappdata}\{#PrevName}'), True, True, True);
       DelTree(ExpandConstant('{userappdata}\{#OldName}'), True, True, True);
-      { backups of apps removed with Corefold, and files opened from Cloud (maybe changed and not uploaded yet),
+      { backups of apps removed with Rakiza Core, and files opened from Cloud (maybe changed and not uploaded yet),
         are the person's files: they stay }
       DelTreeExcept(ExpandConstant('{localappdata}\{#AppName}'), 'Uninstall backups', 'Opened cloud files');
       DelTreeExcept(ExpandConstant('{localappdata}\{#PrevName}'), 'Uninstall backups', 'Opened cloud files');

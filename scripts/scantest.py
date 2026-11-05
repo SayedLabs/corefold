@@ -1,4 +1,4 @@
-"""Corefold Scan, tried for real on a Windows PC with Microsoft Defender.
+"""Rakiza Core Scan, tried for real on a Windows PC with Microsoft Defender.
 
 The test threat is EICAR: a harmless line of text every antivirus agrees to treat as a virus, made for
 testing exactly this. It's put together here from two halves so this file itself is never flagged.
@@ -570,11 +570,11 @@ def menu():
     from corefold import ipc
     s = st.Settings()
     s.tools_off = []
-    cmd = lambda *a: '"C:\\Program Files\\Corefold\\Corefold.exe" ' + " ".join(a)  # noqa: E731
+    cmd = lambda *a: '"C:\\Program Files\\Rakiza Core\\RakizaCore.exe" ' + " ".join(a)  # noqa: E731
     verbs = shellmenu.plan(s, cmd)
     mine = [v for v in verbs if v.name == "CorefoldScan"]
     check({v.root for v in mine} == {shellmenu.ANY_ROOT, shellmenu.FOLDER_ROOT, shellmenu.DRIVE_ROOT},
-          "Scan with Corefold is on files, folders and drives")
+          "Scan with Rakiza Core is on files, folders and drives")
     s.tools_off = ["scan"]
     check(not [v for v in shellmenu.plan(s, cmd) if v.name == "CorefoldScan"], "and not when Scan is removed")
     s.tools_off = ["converter"]
@@ -666,7 +666,7 @@ def page():
     settle(0.4)
     check(not pg.status_title.text().endswith("…"), f"and is shown: {pg.status_title.text()!r}")
     w.grab().save(str(OUT / f"scan-{LANG}-{LOOK}.png"))
-    # a right-click "Scan with Corefold" on a folder with a threat, a disguised program and a clean file
+    # a right-click "Scan with Rakiza Core" on a folder with a threat, a disguised program and a clean file
     folder = WORK / "page"
     eicar(folder / "eicar.com")
     shutil.copy(sys.executable, folder / "letter.pdf.exe")

@@ -3,7 +3,7 @@ editor's Save, when saving goes wrong in the other ways a real PC has, the File 
 into a folder, and Cloud with folders on this PC (up, back, and a move between two clouds):
 
   read-only   the folder it saves into can't be written to (its rights say no): what it makes goes to
-              Downloads › Corefold instead, whole, and nothing is left in the folder
+              Downloads › Rakiza Core instead, whole, and nothing is left in the folder
   locked      the file it works on is held open by another program that lets nobody read it
   long        the files and the folder it saves into are deep inside folders, past Windows' old 260 letters
   cancel      Cancel is pressed soon after it starts
@@ -31,12 +31,12 @@ from fulldisktest import TMP, Options, cv, fingerprints, make_files, whole  # no
 from corefold import core  # noqa: E402
 from corefold import organizer as org  # noqa: E402
 
-core.set_downloads_folder(TMP / "user Downloads")  # (Downloads › Corefold, where files go that can't go where meant)
+core.set_downloads_folder(TMP / "user Downloads")  # (Downloads › Rakiza Core, where files go that can't go where meant)
 
 problems: list[str] = []
-# what only FFmpeg, 7-Zip, Pillow or Windows say: the person must get Corefold's own words instead
+# what only FFmpeg, 7-Zip, Pillow or Windows say: the person must get Rakiza Core's own words instead
 RAW = re.compile(r"Errno|WinError|Permission denied|Access is denied|[Ff][Ff]mpeg|7-Zip|Error opening|Conversion failed|"
-                 r"Traceback|Invalid argument|ERROR|No such file|[Cc]annot open|Could not")  # (Corefold's own start small)
+                 r"Traceback|Invalid argument|ERROR|No such file|[Cc]annot open|Could not")  # (Rakiza Core's own start small)
 
 
 def problem(what: str):
@@ -177,7 +177,7 @@ def read_only(inputs, src):
             originals = judge("read-only", files, tool, result, errors, out, before, originals, src)
             for o in result.outputs:
                 if spare not in Path(o).parents:
-                    problem(f"read-only · {files[0].name} · {tool.key}: {o} isn't in Downloads › Corefold")
+                    problem(f"read-only · {files[0].name} · {tool.key}: {o} isn't in Downloads › Rakiza Core")
             if left_in(out, before):
                 problem(f"read-only · {files[0].name} · {tool.key}: something got into the read-only folder")
             n += 1
@@ -296,7 +296,7 @@ def cloud_local(cases: list[str]):
     """Cloud with folders on this PC (OneDrive's, Dropbox's, Google Drive's own folder): sending files and folders
     up, saving them back, and moving a folder from one cloud to another, in the same cases. Whatever happens, the
     file it came from stays as it was, nothing half-copied is left (no ".corefold-part" and no file cut short),
-    the error is Corefold's own words, and a move takes nothing away unless all of it got there."""
+    the error is Rakiza Core's own words, and a move takes nothing away unless all of it got there."""
     from corefold import cloud
     from corefold.cloudlocal import Local
     base = TMP / "cloud"
@@ -337,8 +337,8 @@ def cloud_local(cases: list[str]):
             fn()
         except cloud.CloudError as e:
             return str(e)
-        except Exception as e:  # (Python's or Windows' own error reached the page: said as it is, not Corefold's)
-            problem(f"cloud · not caught as Corefold's own words: {type(e).__name__}: {e}")
+        except Exception as e:  # (Python's or Windows' own error reached the page: said as it is, not Rakiza Core's)
+            problem(f"cloud · not caught as Rakiza Core's own words: {type(e).__name__}: {e}")
             return str(e)
         return None
 

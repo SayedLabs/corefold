@@ -24,7 +24,7 @@ TMP = Path(tempfile.mkdtemp(prefix="corefold-basicstest-"))
 os.environ["APPDATA"] = str(TMP / "roaming")
 os.environ["LOCALAPPDATA"] = str(TMP / "local")
 sys.path.insert(0, str(ROOT))
-os.environ.setdefault("COREFOLD_WAKE_ORGANIZER", "1")  # (File Organizer rests in a built Corefold: its kept code is tried here)
+os.environ.setdefault("COREFOLD_WAKE_ORGANIZER", "1")  # (File Organizer rests in a built Rakiza Core: its kept code is tried here)
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 except (AttributeError, ValueError):
@@ -317,7 +317,7 @@ def main():
         wait(lambda: not page.loading, 20)
         page.auto.setChecked(True)
         check(c.settings.organize_auto_folder == str(box) and c.organize_timer is not None,
-              "ticking \"Keep this folder tidy by itself\" keeps it, and Corefold looks at it every hour")
+              "ticking \"Keep this folder tidy by itself\" keeps it, and Rakiza Core looks at it every hour")
         c.tidy_folder(now=True)
         check(wait(lambda: (box / "Pictures" / "holiday.jpg").exists() and getattr(c, "_tidy_job", 1) is None, 30),
               "the files that came days ago go into their folders")
@@ -332,7 +332,7 @@ def main():
               "not again on the same day")
         page.auto.setChecked(False)
         check(not c.settings.organize_auto_folder and c.organize_timer is None, "unticking stops it")
-        check(organizer.refused(box) == "", "(a folder Corefold may sort)")
+        check(organizer.refused(box) == "", "(a folder Rakiza Core may sort)")
     step("keeping a folder tidy", keep_tidy)
 
     def viewer_loop():
@@ -433,7 +433,7 @@ def main():
         qapp.clipboard().setMimeData(md)
         qapp.processEvents()
         box = QTextEdit()
-        box.setWindowTitle("Corefold paste test")
+        box.setWindowTitle("Rakiza Core paste test")
         box.resize(400, 200)
         box.show()
         box.raise_()

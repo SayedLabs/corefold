@@ -1,4 +1,4 @@
-"""Corefold PDF: page numbers and a watermark on every page.
+"""Rakiza Core PDF: page numbers and a watermark on every page.
 
 Both are drawn on top of each page with pypdf (the pages themselves aren't changed or made
 blurry): the numbers as real text, the watermark as one see-through picture made by the same code
@@ -61,7 +61,7 @@ def _save(writer, src: Path, ctx: Ctx, suffix: str) -> Path:
 
 # ----------------------------------------------------------------------------- page numbers
 
-ARABIC_STYLES = ("ar", "ar_of")  # ١، ٢، ٣ (the digits Arabic is written with), drawn with a font Corefold brings
+ARABIC_STYLES = ("ar", "ar_of")  # ١، ٢، ٣ (the digits Arabic is written with), drawn with a font Rakiza Core brings
 _TO_ARABIC = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
 
 
@@ -72,7 +72,7 @@ def number_text(n: int, total: int, style: str) -> str:
 
 def _arabic_numbers(pages: list[tuple[float, float, str, float, str]]):
     """The numbers in Arabic digits as a PDF of see-through pages, one per page numbered, (width, height, text,
-    size, place) each. Drawn as shapes in Cairo (a font Corefold brings, so it looks the same on any PC), dark
+    size, place) each. Drawn as shapes in Cairo (a font Rakiza Core brings, so it looks the same on any PC), dark
     grey on a soft white edge like the plain numbers. Returns the PDF's pages (pypdf)."""
     import io
 

@@ -660,7 +660,7 @@ class SignDialog(Base):
     def params(self):
         import tempfile
         from pathlib import Path
-        # (a working folder named like Corefold's others, so it's cleaned up after a day: a signature is
+        # (a working folder named like Rakiza Core's others, so it's cleaned up after a day: a signature is
         # never left behind in the temp folder, even when "Remember" is off)
         out = Path(tempfile.mkdtemp(prefix="corefold-")) / "signature.png"
         self.pad.save(out)

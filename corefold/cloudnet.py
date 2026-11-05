@@ -1,4 +1,4 @@
-"""Corefold Cloud: your own servers. A NAS, a Nextcloud, a web host or any server that speaks WebDAV, FTP or SFTP,
+"""Rakiza Core Cloud: your own servers. A NAS, a Nextcloud, a web host or any server that speaks WebDAV, FTP or SFTP,
 added with its address, a user name and a password (no registration anywhere). They're accounts like the online
 services' (cloud.Account, kept encrypted with the rest), and work through the same Client calls, so everything
 Cloud does (open, save, send, copy between accounts, move, rename, delete, search, back up) works with them too.
@@ -38,7 +38,7 @@ NOT_PRIVATE = "plain http and FTP are only allowed on your own network; turn on 
 KEY_CHANGED = "this server's key is not the one it had before; someone may be pretending to be it"
 WRONG_LOGIN = "the user name or password isn't right"
 NO_SERVER = "the server didn't answer: check the address and the port"
-NOT_ENCRYPTED_ON = "the server sent this on to an address that isn't encrypted, so Corefold stopped"
+NOT_ENCRYPTED_ON = "the server sent this on to an address that isn't encrypted, so Rakiza Core stopped"
 
 
 # ----------------------------------------------------------------------------- adding a server

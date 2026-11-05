@@ -1,4 +1,4 @@
-"""The Corefold window: Home, Apps, General, Look, Formats, History, Updates and About pages."""
+"""The Rakiza Core window: Home, Apps, General, Look, Formats, History, Updates and About pages."""
 from __future__ import annotations
 
 import os
@@ -960,7 +960,7 @@ class MainWindow(QWidget):
             self.c.rebuild_window(self.current_page())
 
     def reset_to_defaults(self, keys):
-        """Sets these settings to how Corefold comes (still to be saved, so it can be undone)."""
+        """Sets these settings to how Rakiza Core comes (still to be saved, so it can be undone)."""
         import copy
         from .settings import Settings
         fresh = Settings()
@@ -1498,8 +1498,8 @@ class MainWindow(QWidget):
             self.shortcuts_page.refresh()
 
     def _archives(self) -> QWidget:
-        """Corefold Archive: open archives, make new ones, and the ones opened lately."""
-        w, lay = page(tr("Corefold Archive"))
+        """Rakiza Core Archive: open archives, make new ones, and the ones opened lately."""
+        w, lay = page(tr("Rakiza Core Archive"))
         lay.itemAt(0).widget().hide()
         lay.addLayout(self._use_header("archive", tr("Open, extract and make archives: ZIP, RAR, 7z, TAR, ISO and "
                                                      "more."), gear=True))
@@ -1528,7 +1528,7 @@ class MainWindow(QWidget):
         for text in (tr("Drag files out of an open archive straight into any folder."),
                      tr("Open a file inside a ZIP or 7z, change it, and save it back into the archive."),
                      tr("Archives inside archives can be unpacked in one go."),
-                     tr("A damaged archive? Corefold rescues every file that can still be read."),
+                     tr("A damaged archive? Rakiza Core rescues every file that can still be read."),
                      tr("Files from the internet keep Windows' warning after you unpack them.")):
             row = QHBoxLayout()
             row.setSpacing(10)
@@ -1603,7 +1603,7 @@ class MainWindow(QWidget):
     def _default_for_archives(self):
         from . import assoc
         if not self.open_archives_setting.isChecked():
-            self.open_archives_setting.setChecked(True)  # registers first, so Windows lists Corefold
+            self.open_archives_setting.setChecked(True)  # registers first, so Windows lists Rakiza Core
         assoc.open_default_apps()
 
     def _settings_head(self) -> QWidget:
@@ -1727,7 +1727,7 @@ class MainWindow(QWidget):
         self.crumb = label("", "muted")
         row.addWidget(self.crumb)
         row.addStretch()
-        self.search_btn = SearchButton(tr("Search Corefold"))
+        self.search_btn = SearchButton(tr("Search Rakiza Core"))
         self.search_btn.setMinimumWidth(240)
         self.search_btn.setToolTip(tr("Find any page, setting or action (Ctrl + K)"))
         self.search_btn.clicked.connect(self.open_palette)
@@ -2015,12 +2015,12 @@ class MainWindow(QWidget):
         for tool in [t for t in tools if t.id in on] + [t for t in tools if t.id not in on]:
             grid.add(ToolSwitchCard(tool, tool.id in on, lambda n=tool.page: self.open_page(n), self._tool_switched,
                                     dark, dpr, fresh=tool.id in fresh))
-        if sec.id == "quick":  # the quick menu and wheel are part of Corefold itself: their settings, here too
+        if sec.id == "quick":  # the quick menu and wheel are part of Rakiza Core itself: their settings, here too
             grid.add(ToolCard("quick", tr("Quick menu and wheel"),
                               tr("Your favourite actions and tools a shortcut away, in any app."),
                               lambda: self.open_page("Quick"), dark, dpr))
         lay.addWidget(grid)
-        lay.addWidget(label(tr("Switch off what you don't use: it isn't loaded at all, so Corefold stays light. "
+        lay.addWidget(label(tr("Switch off what you don't use: it isn't loaded at all, so Rakiza Core stays light. "
                                "Its settings are kept for when you switch it back on."), "subtle", wrap=True))
         self._coming(sec, lay)
         lay.addStretch()
@@ -2063,7 +2063,7 @@ class MainWindow(QWidget):
             head.addWidget(label(tr("Choose what {name} can do", name=tr(sec.one_tool)), "title", wrap=True), 1)
             head.addWidget(button(tr("Done"), "primary", self._one_head_settings), 0, Qt.AlignVCenter)
             lay.addLayout(head)
-            lay.addWidget(label(tr("Switch off what you don't use: it isn't loaded at all, so Corefold stays light. "
+            lay.addWidget(label(tr("Switch off what you don't use: it isn't loaded at all, so Rakiza Core stays light. "
                                    "Its settings are kept for when you switch it back on."), "subtle", wrap=True))
             fresh = {tool.id for tool in all_tools.new_tools(self.c.settings)}
             grid = ResponsiveGrid(560, 12, 2)
@@ -2112,7 +2112,7 @@ class MainWindow(QWidget):
         lay.addLayout(tool_header(sec.product, tr(sec.name), tr(sec.line), dark, dpr, pill=tr("Coming back soon")))
         note, nl = card(4)
         nl.addWidget(label(tr("These tools are being made better"), "h2", wrap=True))
-        nl.addWidget(wrapped(tr("For now Corefold puts its effort into the Files tools, so each one works really "
+        nl.addWidget(wrapped(tr("For now Rakiza Core puts its effort into the Files tools, so each one works really "
                               "well. The tools here are resting while we improve them, and they come back in a "
                               "future update."), "muted"))
         nl.addWidget(wrapped(tr("Nothing was removed: your settings and what these tools kept for you stay on your "
@@ -2179,7 +2179,7 @@ class MainWindow(QWidget):
         return strip
 
     def _one_head(self) -> QWidget:
-        """Over the pages of a section that's one tool (Corefold Files): one heading for all of them, with a
+        """Over the pages of a section that's one tool (Rakiza Core Files): one heading for all of them, with a
         bar of its uses."""
         from .onetool import OneToolHead
         self.one_head = OneToolHead()
@@ -2330,9 +2330,9 @@ class MainWindow(QWidget):
         text = tr("{name} stops running and isn't loaded at all. Its settings are kept, so you can switch it "
                   "back on any time in {section}.", name=tr(tool.name), section=tr(all_tools.SECTION_OF[tool.id].name))
         if tool.id == "converter":
-            text += "\n\n" + tr("The wheel and Corefold's right-click menu go away with it.")
+            text += "\n\n" + tr("The wheel and Rakiza Core's right-click menu go away with it.")
         elif tool.id == "archive":
-            text += "\n\n" + tr("Archives won't open in Corefold with a double-click any more.")
+            text += "\n\n" + tr("Archives won't open in Rakiza Core with a double-click any more.")
         box = QMessageBox(QMessageBox.Question, tr("Switch off {name}?", name=tr(tool.name)), text, parent=self)
         remove = box.addButton(tr("Switch off"), QMessageBox.DestructiveRole)
         box.addButton(tr("Cancel"), QMessageBox.RejectRole)
@@ -2368,7 +2368,7 @@ class MainWindow(QWidget):
     # ---- pages
 
     def _home(self) -> QWidget:
-        """The start page: a greeting with what Corefold did so far and quick actions, the sections with
+        """The start page: a greeting with what Rakiza Core did so far and quick actions, the sections with
         the tools you use in each, and what happened lately."""
         from .atomic.widgets import FlowLayout, GlowPanel, ResponsiveGrid
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
@@ -2400,7 +2400,7 @@ class MainWindow(QWidget):
         hl.addWidget(label(tr("Your everyday tools in one place. Drop files anywhere in this window, or press "
                               "Ctrl + K to find any page, setting or action."), "muted", wrap=True))
         hl.addSpacing(10)
-        # (what Corefold did so far: shown once there's something to count, not three noughts on a new PC)
+        # (what Rakiza Core did so far: shown once there's something to count, not three noughts on a new PC)
         self.hero_figures_box = QWidget()
         figures = QHBoxLayout(self.hero_figures_box)
         figures.setContentsMargins(0, 0, 0, 8)
@@ -2487,12 +2487,12 @@ class MainWindow(QWidget):
         QTimer.singleShot(0, lambda: self.home_board.open_gallery() if _alive(self.home_board) else None)
 
     def _home_start_again(self):
-        if self._confirm(tr("Start again"), tr("Put back the widgets Corefold starts with? The ones you added or "
+        if self._confirm(tr("Start again"), tr("Put back the widgets Rakiza Core starts with? The ones you added or "
                                                "changed go."), tr("Start again")):
             self.home_board.start_again()
 
     def _fill_recent(self):
-        """The last few things Corefold did, on the Home page."""
+        """The last few things Rakiza Core did, on the Home page."""
         while self.recent_lay.count():
             item = self.recent_lay.takeAt(0)
             if item.widget():
@@ -2500,7 +2500,7 @@ class MainWindow(QWidget):
                 item.widget().deleteLater()
         entries = self.c.history.items[:5]
         if not entries:
-            empty = label(tr("Nothing yet. What you do with Corefold shows up here."), "muted", wrap=True)
+            empty = label(tr("Nothing yet. What you do with Rakiza Core shows up here."), "muted", wrap=True)
             empty.setContentsMargins(12, 10, 12, 10)
             self.recent_lay.addWidget(empty)
             keep_wrapped_text(self.recent_lay.parentWidget())
@@ -2536,7 +2536,7 @@ class MainWindow(QWidget):
         keep_wrapped_text(self.recent_lay.parentWidget())
 
     def _converter(self) -> QWidget:
-        w, lay = page(tr("Corefold Converter"))
+        w, lay = page(tr("Rakiza Core Converter"))
         self.converter_scroll = w
         lay.itemAt(0).widget().hide()  # shown in the heading with the tile instead
         self.power = button("", "power")
@@ -2577,7 +2577,7 @@ class MainWindow(QWidget):
         lay.addLayout(again)
         self.home_stats = label("", "muted")
         lay.addWidget(self.home_stats)
-        lay.addWidget(label(tr("Corefold keeps running in the system tray (by the clock) after you close this "
+        lay.addWidget(label(tr("Rakiza Core keeps running in the system tray (by the clock) after you close this "
                                "window. It uses almost no memory or power while it waits."), "muted", wrap=True))
         lay.addStretch()
         return w
@@ -2639,7 +2639,7 @@ class MainWindow(QWidget):
         lay.addWidget(box)
 
         checks, cl = card()
-        self.startup = checkbox(tr("Start Corefold when Windows starts"),
+        self.startup = checkbox(tr("Start Rakiza Core when Windows starts"),
                                 startup_enabled() if self.pending_startup is None else self.pending_startup,
                                 self._startup_toggled)
         self.show_progress = checkbox(tr("Show a popup while converting and when it's done"), s.show_progress,
@@ -2659,7 +2659,7 @@ class MainWindow(QWidget):
                                       self._performance_changed)
         pl.addWidget(self.low_priority)
         pl.addWidget(self.one_at_a_time)
-        pl.addWidget(label(tr("Corefold also lets go of memory it doesn't need when it's idle, and closes this window "
+        pl.addWidget(label(tr("Rakiza Core also lets go of memory it doesn't need when it's idle, and closes this window "
                               "completely a little while after you close it."), "muted", wrap=True))
         lay.addWidget(perf)
         from .settingscard import card as settings_file_card
@@ -2759,7 +2759,7 @@ class MainWindow(QWidget):
         # right-click menu
         menu, ml = card()
         ml.addWidget(label(tr("Right-click menu"), "h2"))
-        self.context = checkbox(tr("Show Corefold when I right-click a file or folder"), s.context_menu,
+        self.context = checkbox(tr("Show Rakiza Core when I right-click a file or folder"), s.context_menu,
                                 self.c.set_context_menu)
         ml.addWidget(self.context)
         self.menu_style = Segmented([(k, tr(v)) for k, v in MENU_STYLES.items()], s.menu_style)
@@ -2796,7 +2796,7 @@ class MainWindow(QWidget):
         return w
 
     def _look(self) -> QWidget:
-        """How Corefold looks: light or dark, the accent colour, text size and popups."""
+        """How Rakiza Core looks: light or dark, the accent colour, text size and popups."""
         s = self.c.settings
         w, lay = page(tr("Look"))
 
@@ -2811,7 +2811,7 @@ class MainWindow(QWidget):
         win_text = Segmented([(k, tr(v)) for k, v in WINDOW_TEXT.items()], s.window_text)
         win_text.changed.connect(lambda v: self._look_changed("window_text", v))
         for title, widget in ((tr("Appearance"), appearance), (tr("Accent colour"), self.swatches),
-                              (None, self.accent_name), (tr("Text size in Corefold's windows"), win_text)):
+                              (None, self.accent_name), (tr("Text size in Rakiza Core's windows"), win_text)):
             if title:
                 cl.addSpacing(6)
                 cl.addWidget(label(title, "h2"))
@@ -2950,7 +2950,7 @@ class MainWindow(QWidget):
         grid.addWidget(self.uninstall_depth, 2, 1)
         grid.setColumnStretch(2, 1)
         bl.addLayout(grid)
-        bl.addWidget(label(tr("Backups let you put back anything Corefold removed. Older ones are deleted by "
+        bl.addWidget(label(tr("Backups let you put back anything Rakiza Core removed. Older ones are deleted by "
                               "themselves to free up space."), "muted", wrap=True))
         bl.addWidget(label(tr("The depth can also be changed each time, on the list of leftovers. Safe only offers "
                               "what surely belongs to the app; Deep also looks in more places."), "muted", wrap=True))
@@ -2965,11 +2965,11 @@ class MainWindow(QWidget):
         return w
 
     def _viewer(self) -> QWidget:
-        """Corefold Viewer: open pictures and email files, and the ones opened lately."""
+        """Rakiza Core Viewer: open pictures and email files, and the ones opened lately."""
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        w, lay = page(tr("Corefold Viewer"))
+        w, lay = page(tr("Rakiza Core Viewer"))
         lay.itemAt(0).widget().hide()
-        lay.addLayout(tool_header("viewer", tr("Corefold Viewer"),
+        lay.addLayout(tool_header("viewer", tr("Rakiza Core Viewer"),
                                   tr("Flip through a folder of pictures fast, fix them on the spot, and open email "
                                      "files."), dark, dpr, self.tool_settings_button("Viewer")))
         self.viewer_drop = DropZone(None, None, title=tr("Drop a picture or an email file"),
@@ -3064,7 +3064,7 @@ class MainWindow(QWidget):
             self.c.open_viewer(Path(name))
 
     def _viewer_settings(self) -> QWidget:
-        """Corefold Viewer."""
+        """Rakiza Core Viewer."""
         s = self.c.settings
         w, lay = page(tr("Viewer"))
         box, bl = card()
@@ -3107,14 +3107,14 @@ class MainWindow(QWidget):
         lay.addWidget(box)
         box, bl = card()
         bl.addWidget(label(tr("Double-click to open"), "h2"))
-        self.open_images_setting = checkbox(tr("Open pictures with Corefold (it shows up under \"Open with\")"),
+        self.open_images_setting = checkbox(tr("Open pictures with Rakiza Core (it shows up under \"Open with\")"),
                                             s.open_images, lambda on: self.c.set_open_files("open_images", on))
-        self.open_emails_setting = checkbox(tr("Open email files (.msg, .eml) with Corefold"), s.open_emails,
+        self.open_emails_setting = checkbox(tr("Open email files (.msg, .eml) with Rakiza Core"), s.open_emails,
                                             lambda on: self.c.set_open_files("open_emails", on))
         bl.addWidget(self.open_images_setting)
         bl.addWidget(self.open_emails_setting)
         row = QHBoxLayout()
-        row.addWidget(button(tr("Make Corefold the default…"), None, self._default_for_viewer))
+        row.addWidget(button(tr("Make Rakiza Core the default…"), None, self._default_for_viewer))
         row.addStretch()
         bl.addLayout(row)
         bl.addWidget(label(tr("Windows asks you to pick the default app yourself. This opens the right place in "
@@ -3140,51 +3140,51 @@ class MainWindow(QWidget):
         assoc.open_default_apps()
 
     def _clipboard(self) -> QWidget:
-        """Corefold Clipboard: everything copied, searchable, with pins."""
+        """Rakiza Core Clipboard: everything copied, searchable, with pins."""
         from .clipview import ClipboardPage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("clipboard", tr("Corefold Clipboard"),
+        header = tool_header("clipboard", tr("Rakiza Core Clipboard"),
                              tr("Everything you copy, kept on this PC and easy to find again."), dark, dpr,
                              self.tool_settings_button("Clipboard"))
         self.clip_page = ClipboardPage(self.c, header)
         return self.clip_page
 
     def _space(self) -> QWidget:
-        """Corefold Space: what's filling the disk, junk to clean up, duplicates."""
+        """Rakiza Core Space: what's filling the disk, junk to clean up, duplicates."""
         from .spacepage import SpacePage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("space", tr("Corefold Space"), tr("See what's filling your disk and free up space safely."),
+        header = tool_header("space", tr("Rakiza Core Space"), tr("See what's filling your disk and free up space safely."),
                              dark, dpr)
         self.space_page = SpacePage(self.c, header)
         return self.space_page
 
     def _unlock(self) -> QWidget:
-        """Corefold Unlock: which programs are using a file, and closing them."""
+        """Rakiza Core Unlock: which programs are using a file, and closing them."""
         from .unlockpage import UnlockPage
         header = self._use_header("unlock", tr("Find out which program is holding a file you can't delete or move."))
         self.unlock_page = UnlockPage(self.c, header)
         return self.unlock_page
 
     def _awake(self) -> QWidget:
-        """Corefold Awake: keep the PC awake, and turn it off later."""
+        """Rakiza Core Awake: keep the PC awake, and turn it off later."""
         from .awakepage import AwakePage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("awake", tr("Corefold Awake"),
+        header = tool_header("awake", tr("Rakiza Core Awake"),
                              tr("Keep your PC from going to sleep, for as long as you choose."), dark, dpr)
         self.awake_page = AwakePage(self.c, header)
         return self.awake_page
 
     def _colors(self) -> QWidget:
-        """Corefold Colors: pick a colour on the screen, and the ones picked lately."""
+        """Rakiza Core Colors: pick a colour on the screen, and the ones picked lately."""
         from .colorspage import ColorsPage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("colors", tr("Corefold Colors"),
+        header = tool_header("colors", tr("Rakiza Core Colors"),
                              tr("Pick any colour on your screen and copy it as HEX, RGB, HSL, OKLCH and more."), dark, dpr)
         self.colors_page = ColorsPage(self.c, header)
         return self.colors_page
 
     def _pdf(self) -> QWidget:
-        """Corefold PDF: merge, split, arrange, shrink and lock PDFs."""
+        """Rakiza Core PDF: merge, split, arrange, shrink and lock PDFs."""
         from .pdfpage import PdfPage
         header = self._use_header("pdf", tr("Change what's in a PDF, merge, split and arrange its pages, shrink it "
                                             "and lock it."))
@@ -3193,7 +3193,7 @@ class MainWindow(QWidget):
         return self.pdf_page
 
     def _organizer(self) -> QWidget:
-        """Corefold File Organizer: sorts a messy folder into a folder for each kind of file."""
+        """Rakiza Core File Organizer: sorts a messy folder into a folder for each kind of file."""
         from .organizerpage import OrganizerPage
         header = self._use_header("organizer", tr("Sort a messy Downloads or Desktop into clear folders with one "
                                                   "click."))
@@ -3201,30 +3201,30 @@ class MainWindow(QWidget):
         return self.organizer_page
 
     def _startup(self) -> QWidget:
-        """Corefold Startup: what starts with Windows, each with a switch."""
+        """Rakiza Core Startup: what starts with Windows, each with a switch."""
         from .startuppage import StartupPage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("startup", tr("Corefold Startup"),
+        header = tool_header("startup", tr("Rakiza Core Startup"),
                              tr("See what starts with Windows and switch off what slows it down."), dark, dpr)
         self.startup_page = StartupPage(self.c, header)
         return self.startup_page
 
     def _scan(self) -> QWidget:
-        """Corefold Scan: Microsoft Defender's scans, and Corefold's own checks for tricks malware uses."""
+        """Rakiza Core Scan: Microsoft Defender's scans, and Rakiza Core's own checks for tricks malware uses."""
         from .scanpage import ScanPage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("scan", tr("Corefold Scan"),
-                             tr("Check your PC for malware with Microsoft Defender, plus Corefold's own checks for "
+        header = tool_header("scan", tr("Rakiza Core Scan"),
+                             tr("Check your PC for malware with Microsoft Defender, plus Rakiza Core's own checks for "
                                 "tricks viruses use."), dark, dpr)
         self.scan_page = ScanPage(self.c, header)
         return self.scan_page
 
     def _player(self) -> QWidget:
-        """Corefold Player: open videos and music, and pick up where you left off."""
+        """Rakiza Core Player: open videos and music, and pick up where you left off."""
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        w, lay = page(tr("Corefold Player"))
+        w, lay = page(tr("Rakiza Core Player"))
         lay.itemAt(0).widget().hide()
-        lay.addLayout(tool_header("player", tr("Corefold Player"),
+        lay.addLayout(tool_header("player", tr("Rakiza Core Player"),
                                   tr("Plays every video and song, smooth in 4K, with clean controls that get out of "
                                      "the way."), dark, dpr, self.tool_settings_button("Player")))
         drop = DropZone(None, None, title=tr("Drop a video or a song"),
@@ -3297,7 +3297,7 @@ class MainWindow(QWidget):
             self.c.open_player(Path(name))
 
     def _player_settings(self) -> QWidget:
-        """Corefold Player."""
+        """Rakiza Core Player."""
         s = self.c.settings
         w, lay = page(tr("Player"))
         box, bl = card()
@@ -3332,11 +3332,11 @@ class MainWindow(QWidget):
         lay.addWidget(box)
         box, bl = card()
         bl.addWidget(label(tr("Double-click to open"), "h2"))
-        self.open_media_setting = checkbox(tr("Open videos and music with Corefold (it shows up under \"Open with\")"),
+        self.open_media_setting = checkbox(tr("Open videos and music with Rakiza Core (it shows up under \"Open with\")"),
                                            s.open_media, lambda on: self.c.set_open_files("open_media", on))
         bl.addWidget(self.open_media_setting)
         row = QHBoxLayout()
-        row.addWidget(button(tr("Make Corefold the default…"), None, self._default_for_player))
+        row.addWidget(button(tr("Make Rakiza Core the default…"), None, self._default_for_player))
         row.addStretch()
         bl.addLayout(row)
         bl.addWidget(label(tr("Windows asks you to pick the default app yourself. This opens the right place in "
@@ -3363,7 +3363,7 @@ class MainWindow(QWidget):
         assoc.open_default_apps()
 
     def _cloud(self) -> QWidget:
-        """Corefold Cloud: OneDrive, Dropbox, Google Drive and iCloud side by side."""
+        """Rakiza Core Cloud: OneDrive, Dropbox, Google Drive and iCloud side by side."""
         from .cloudpage import CloudPage
         header = self._use_header("cloud", tr("Your OneDrive, Dropbox, Google Drive and iCloud in one window. Drag "
                                               "files between them."))
@@ -3371,11 +3371,11 @@ class MainWindow(QWidget):
         return self.cloud_page
 
     def _capture(self) -> QWidget:
-        """Corefold Capture: screenshots."""
+        """Rakiza Core Capture: screenshots."""
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        w, lay = page(tr("Corefold Capture"))
+        w, lay = page(tr("Rakiza Core Capture"))
         lay.itemAt(0).widget().hide()
-        lay.addLayout(tool_header("capture", tr("Corefold Capture"),
+        lay.addLayout(tool_header("capture", tr("Rakiza Core Capture"),
                                   tr("Take a picture of your screen, mark it up and share it in seconds."),
                                   dark, dpr, self.tool_settings_button("Capture")))
         box, bl = card()
@@ -3459,7 +3459,7 @@ class MainWindow(QWidget):
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder)))
 
     def _capture_settings(self) -> QWidget:
-        """Corefold Capture."""
+        """Rakiza Core Capture."""
         s = self.c.settings
         w, lay = page(tr("Capture"))
         box, bl = card()
@@ -3576,7 +3576,7 @@ class MainWindow(QWidget):
         return self.shortcuts_page.widget
 
     def _clipboard_settings(self) -> QWidget:
-        """Corefold Clipboard."""
+        """Rakiza Core Clipboard."""
         s = self.c.settings
         w, lay = page(tr("Clipboard"))
         box, bl = card()
@@ -3672,7 +3672,7 @@ class MainWindow(QWidget):
             self.c.clip.clear()
 
     def _archive_settings(self) -> QWidget:
-        """Corefold Archive."""
+        """Rakiza Core Archive."""
         s = self.c.settings
         w, lay = page(tr("Archives"))
         box, bl = card()
@@ -3701,11 +3701,11 @@ class MainWindow(QWidget):
         lay.addWidget(box)
         box, bl = card()
         bl.addWidget(label(tr("Double-click to open"), "h2"))
-        self.open_archives_setting = checkbox(tr("Open archives with Corefold (it shows up under \"Open with\")"),
+        self.open_archives_setting = checkbox(tr("Open archives with Rakiza Core (it shows up under \"Open with\")"),
                                               s.open_archives, self.c.set_open_archives)
         bl.addWidget(self.open_archives_setting)
         row = QHBoxLayout()
-        row.addWidget(button(tr("Make Corefold the default…"), None, self._default_for_archives))
+        row.addWidget(button(tr("Make Rakiza Core the default…"), None, self._default_for_archives))
         row.addStretch()
         bl.addLayout(row)
         bl.addWidget(label(tr("Windows asks you to pick the default app yourself. This opens the right place in "
@@ -3716,7 +3716,7 @@ class MainWindow(QWidget):
         lay.addWidget(box)
         box, bl = card()
         bl.addWidget(label(tr("Passwords"), "h2"))
-        bl.addWidget(label(tr("When you tick \"Remember it\" in the password box, Corefold tries that password first "
+        bl.addWidget(label(tr("When you tick \"Remember it\" in the password box, Rakiza Core tries that password first "
                               "next time. They're locked to your Windows account and never leave this PC."), "muted",
                            wrap=True))
         row = QHBoxLayout()
@@ -3860,7 +3860,7 @@ class MainWindow(QWidget):
 
     def _updates(self) -> QWidget:
         s = self.c.settings
-        w, lay = page(tr("Updates"), tr("Corefold can update itself, so you never have to download it again."))
+        w, lay = page(tr("Updates"), tr("Rakiza Core can update itself, so you never have to download it again."))
         box, bl = card()
         self.update_status = label("", "h2", wrap=True)
         self.update_detail = label("", "muted", wrap=True)
@@ -3887,11 +3887,11 @@ class MainWindow(QWidget):
         opts, ol = card()
         self.auto_check = checkbox(tr("Check for updates automatically"), s.check_updates,
                                    self._update_options_changed)
-        self.auto_install = checkbox(tr("Install updates by themselves (Corefold restarts for a moment)"),
+        self.auto_install = checkbox(tr("Install updates by themselves (Rakiza Core restarts for a moment)"),
                                      s.auto_update, self._update_options_changed)
         ol.addWidget(self.auto_check)
         ol.addWidget(self.auto_install)
-        ol.addWidget(label(tr("Updates come from the official Corefold release page, are checked for damage "
+        ol.addWidget(label(tr("Updates come from the official Rakiza Core release page, are checked for damage "
                               "before installing, and keep all your settings."), "muted", wrap=True))
         lay.addWidget(opts)
 
@@ -3930,7 +3930,7 @@ class MainWindow(QWidget):
         row = QHBoxLayout()
         row.addWidget(button(tr("Show the tour"), on_click=self.c.show_tour))
         row.addWidget(button(tr("Open log folder"), on_click=self._open_logs))
-        row.addWidget(button(tr("Quit Corefold"), on_click=self.c.ask_quit))
+        row.addWidget(button(tr("Quit Rakiza Core"), on_click=self.c.ask_quit))
         row.addStretch()
         text.addLayout(row)
         top.addWidget(logo, 0, Qt.AlignTop)
@@ -3940,7 +3940,7 @@ class MainWindow(QWidget):
         if UPDATE_REPO:
             owner, _, name = UPDATE_REPO.partition("/")
             links, ll = card()
-            ll.addWidget(label(tr("Help make Corefold better"), "h2"))
+            ll.addWidget(label(tr("Help make Rakiza Core better"), "h2"))
             ll.addWidget(label(tr("Found a bug or have an idea? Tell us. It takes a minute and every message is "
                                   "read."), "muted", wrap=True))
             lrow = QHBoxLayout()
@@ -3964,18 +3964,18 @@ class MainWindow(QWidget):
         lay.addWidget(report_card(self))
 
         remove, rl = card()
-        rl.addWidget(label(tr("Remove Corefold"), "h2"))
+        rl.addWidget(label(tr("Remove Rakiza Core"), "h2"))
         if installed_uninstaller():
             rl.addWidget(label(tr("Removes the app, its desktop icon, Start menu entry and right-click menu. You'll "
                                   "be asked whether to delete your settings too. Files you converted are kept."),
                                "muted", wrap=True))
-            rl.addWidget(button(tr("Uninstall Corefold…"), "danger", self.c.uninstall), 0, Qt.AlignLeading)
+            rl.addWidget(button(tr("Uninstall Rakiza Core…"), "danger", self.c.uninstall), 0, Qt.AlignLeading)
             rl.addWidget(label(tr("You can also uninstall it from Windows Settings → Apps → Installed apps."),
                                "muted", wrap=True))
         else:
             rl.addWidget(label(tr("This copy wasn't set up with the installer. The button below deletes "
-                                  "Corefold's settings, removes its right-click menu, stops it starting with Windows, "
-                                  "and closes it. Then delete the Corefold folder to finish."), "muted", wrap=True))
+                                  "Rakiza Core's settings, removes its right-click menu, stops it starting with Windows, "
+                                  "and closes it. Then delete the Rakiza Core folder to finish."), "muted", wrap=True))
             rl.addWidget(button(tr("Remove settings and quit"), "danger", self.c.remove_portable), 0,
                          Qt.AlignLeading)
         lay.addWidget(remove)
@@ -3988,12 +3988,12 @@ class MainWindow(QWidget):
         s = self.c.settings
         key = s.shortcut_label
         self.step_labels[0].setText(tr("Hold <b>{key}</b> and start dragging a file in File Explorer or on your "
-                                       "desktop, or right-click it and choose <b>Corefold</b>.", key=key))
+                                       "desktop, or right-click it and choose <b>Rakiza Core</b>.", key=key))
         self.step_labels[1].setText(tr("A wheel of options pops up. Dimmed ones don't work for that file (point at "
                                        "one to see why). The dots in the middle show how many pages there are: hold "
                                        "the file over \"More\" to see the next one."))
         where = tr("The new file appears next to the original.") if s.save_mode == "beside" else \
-            tr("The new file appears in your Corefold folder.")
+            tr("The new file appears in your Rakiza Core folder.")
         self.step_labels[2].setText(tr("Drop the file on a format (or click it).") + " " + where + " "
                                     + tr("Let go in the middle to cancel."))
         self.power.setText(tr("Converter is on") if s.enabled else tr("Paused. Click to turn on"))
@@ -4024,9 +4024,9 @@ class MainWindow(QWidget):
         self.folder_label.setToolTip(s.output_folder)
         self.folder_row.setVisible(s.save_mode == "folder")
         self.menu_style.setEnabled(s.context_menu)
-        self.menu_hint.setText(tr("Right-click a photo → Corefold → Convert to PNG, Resize…, Remove the background… "
+        self.menu_hint.setText(tr("Right-click a photo → Rakiza Core → Convert to PNG, Resize…, Remove the background… "
                                   "(like 7-Zip's menu).") if s.menu_style == "windows" else
-                               tr("Right-click → Convert with Corefold opens the wheel of options."))
+                               tr("Right-click → Convert with Rakiza Core opens the wheel of options."))
 
     def refresh_again(self):
         text = self.c.again_text()
@@ -4398,7 +4398,7 @@ class MainWindow(QWidget):
         waiting = self.c.update_waiting()
         self.update_banner.setVisible(waiting)
         if waiting:
-            self.update_banner_title.setText(tr("Corefold {version} is available", version=info.version))
+            self.update_banner_title.setText(tr("Rakiza Core {version} is available", version=info.version))
             self.update_banner_button.setText(tr("Update now") if self.c.can_self_install()
                                               else tr("Open download page"))
 
@@ -4416,10 +4416,10 @@ class MainWindow(QWidget):
         elif state == "checking":
             status, detail = tr("Checking for updates…"), ""
         elif state == "downloading" and info:
-            status = tr("Downloading Corefold {version}…", version=info.version)
-            detail = tr("Corefold restarts by itself when it's done.")
+            status = tr("Downloading Rakiza Core {version}…", version=info.version)
+            detail = tr("Rakiza Core restarts by itself when it's done.")
         elif state == "available" and info:
-            status = tr("Corefold {version} is available", version=info.version)
+            status = tr("Rakiza Core {version} is available", version=info.version)
             detail = tr("You have {version}.", version=current)
             if info.published:
                 from .notesview import when
@@ -4429,12 +4429,12 @@ class MainWindow(QWidget):
                 detail += " " + tr("This copy isn't installed, so the button opens the download page.")
         elif state == "uptodate":
             status = tr("You're up to date")
-            detail = tr("Corefold {version} is the newest version.", version=current)
+            detail = tr("Rakiza Core {version} is the newest version.", version=current)
         elif state == "error":
             status, detail = tr("Couldn't check for updates"), c.update_error[:1].upper() + c.update_error[1:]
         else:
             status = tr("You have version {version}", version=current)
-            detail = tr("Corefold checks for updates shortly after it starts.")
+            detail = tr("Rakiza Core checks for updates shortly after it starts.")
         self.update_status.setText(status)
         self.update_detail.setText(detail)
         self.update_detail.setVisible(bool(detail))

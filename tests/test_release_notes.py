@@ -1,4 +1,4 @@
-"""What's new and the Version history: the notes kept with Corefold match its releases, are shown as plain
+"""What's new and the Version history: the notes kept with Rakiza Core match its releases, are shown as plain
 text only, and "What's new" comes once after an update (never after a new install)."""
 import re
 from unittest import mock
@@ -107,7 +107,7 @@ def test_the_updates_page_shows_whats_coming_and_the_history(controller):
     c = controller
     w = c.window
     c.update_info = updater.UpdateInfo("9.0.0", "https://github.com/SayedLabs/corefold/releases/tag/v9.0.0",
-                                       "Corefold-Setup-9.0.0.exe", "https://x", 1, "https://y",
+                                       "RakizaCore-Setup-9.0.0.exe", "https://x", 1, "https://y",
                                        published="2030-05-06", notes="Fixes\n- <b>Bold</b> fix")
     c.update_state = "available"
     with mock.patch.object(c, "updates_supported", return_value=True):

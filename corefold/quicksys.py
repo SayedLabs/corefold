@@ -155,7 +155,7 @@ def foreground() -> int:
 
 
 def usable(hwnd: int) -> int:
-    """The app window hwnd belongs to, or 0 if it's Corefold's own, the desktop or the taskbar."""
+    """The app window hwnd belongs to, or 0 if it's Rakiza Core's own, the desktop or the taskbar."""
     if os.name != "nt" or not hwnd:
         return 0
     try:
@@ -194,7 +194,7 @@ def is_on_top(hwnd: int) -> bool:
 
 
 def set_on_top(hwnd: int, on: bool) -> bool:
-    """True if Windows did it (it doesn't for an app running as administrator when Corefold isn't)."""
+    """True if Windows did it (it doesn't for an app running as administrator when Rakiza Core isn't)."""
     try:
         u = _user32()
         after = ctypes.c_void_p(-1 if on else -2)  # HWND_TOPMOST, HWND_NOTOPMOST

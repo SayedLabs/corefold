@@ -384,7 +384,7 @@ def part(lang, look):
             check(until(lambda: quicksys.is_on_top(hwnd), 3), "…and picking it keeps Notepad on top")
             c.quick.toggle_on_top(hwnd)
             check(not quicksys.is_on_top(hwnd), "…and back again")
-            check(quicksys.usable(int(m.winId())) == 0, "Corefold's own windows are never the one kept on top")
+            check(quicksys.usable(int(m.winId())) == 0, "Rakiza Core's own windows are never the one kept on top")
             desktop = u.GetShellWindow()
             check(quicksys.usable(desktop) == 0, "…nor the desktop")
         finally:

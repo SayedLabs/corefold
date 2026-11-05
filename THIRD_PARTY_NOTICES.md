@@ -1,14 +1,14 @@
-# Third-party software in Corefold
+# Third-party software in Rakiza Core
 
-Corefold is made by Atomic Works. Its own code is MIT-licensed (see LICENSE). It ships with these
+Rakiza Core is made by Rakiza Labs. Its own code is MIT-licensed (see LICENSE). It ships with these
 components, each under its own licence. The exact version of every Python component in a copy of
-Corefold is listed in `COMPONENT-VERSIONS.txt` next to `Corefold.exe`.
+Rakiza Core is listed in `COMPONENT-VERSIONS.txt` next to `RakizaCore.exe`.
 
 | Component | Licence | Source |
 |---|---|---|
-| FFmpeg (`ffmpeg\ffmpeg.exe`, `ffprobe.exe` and their DLLs) — separate programs Corefold runs | GPL v3 (see `ffmpeg\FFMPEG-LICENSE.txt`) | Attached to every Corefold release as `ffmpeg-source-*` (see below) · https://ffmpeg.org · built with the libraries and image of https://github.com/BtbN/FFmpeg-Builds |
+| FFmpeg (`ffmpeg\ffmpeg.exe`, `ffprobe.exe` and their DLLs) — separate programs Rakiza Core runs | GPL v3 (see `ffmpeg\FFMPEG-LICENSE.txt`) | Attached to every Rakiza Core release as `ffmpeg-source-*` (see below) · https://ffmpeg.org · built with the libraries and image of https://github.com/BtbN/FFmpeg-Builds |
 | Qt 6 / PySide6 / Shiboken6 | LGPL v3 | https://download.qt.io/official_releases/qt/ · https://download.qt.io/official_releases/QtForPython/ · https://code.qt.io |
-| FFmpeg libraries inside Qt Multimedia (Corefold Player: `avcodec`, `avformat`, `avutil`, `swresample`, `swscale` DLLs in `_internal\PySide6`), built by The Qt Company | LGPL v2.1 or later | https://ffmpeg.org · https://code.qt.io/cgit/qt/qtmultimedia.git (how Qt builds it) |
+| FFmpeg libraries inside Qt Multimedia (Rakiza Core Player: `avcodec`, `avformat`, `avutil`, `swresample`, `swscale` DLLs in `_internal\PySide6`), built by The Qt Company | LGPL v2.1 or later | https://ffmpeg.org · https://code.qt.io/cgit/qt/qtmultimedia.git (how Qt builds it) |
 | Pillow | MIT-CMU (HPND) | https://github.com/python-pillow/Pillow |
 | pi-heif / libheif | BSD-3 / LGPL v3 | https://github.com/bigcat88/pillow_heif · https://github.com/strukturag/libheif |
 | pypdf | BSD-3 | https://github.com/py-pdf/pypdf |
@@ -19,7 +19,7 @@ Corefold is listed in `COMPONENT-VERSIONS.txt` next to `Corefold.exe`.
 | bcrypt, PyNaCl / libsodium (used by Paramiko) | Apache 2.0 / ISC | https://github.com/pyca/bcrypt · https://github.com/pyca/pynacl |
 | Invoke (used by Paramiko) | BSD-2 | https://github.com/pyinvoke/invoke |
 | zxing-cpp | Apache 2.0 | https://github.com/zxing-cpp/zxing-cpp |
-| 7-Zip (`7zip\7z.exe`, `7z.dll`), a separate program Corefold runs for archives | GNU LGPL, with the unRAR restriction (see `7zip\7-ZIP-License.txt`): the RAR code may only be used to open RAR files, not to make them | https://www.7-zip.org |
+| 7-Zip (`7zip\7z.exe`, `7z.dll`), a separate program Rakiza Core runs for archives | GNU LGPL, with the unRAR restriction (see `7zip\7-ZIP-License.txt`): the RAR code may only be used to open RAR files, not to make them | https://www.7-zip.org |
 | zstandard / Zstandard (.tar.zst and .zst archives) | BSD-3 | https://github.com/indygreg/python-zstandard · https://github.com/facebook/zstd |
 | PyWinRT (Windows text reading, and finding files with Windows' search index) | MIT | https://github.com/pywinrt/pywinrt |
 | ONNX Runtime | MIT | https://github.com/microsoft/onnxruntime |
@@ -31,15 +31,15 @@ Corefold is listed in `COMPONENT-VERSIONS.txt` next to `Corefold.exe`.
 
 ## Source code for the GPL and LGPL parts
 
-- **FFmpeg:** every Corefold release on GitHub has FFmpeg's complete source code for the exact
+- **FFmpeg:** every Rakiza Core release on GitHub has FFmpeg's complete source code for the exact
   version it ships (`ffmpeg-source-<commit>.tar.gz`) and the build scripts used to make it, which
   name every library built into it (`ffmpeg-source-build-scripts-<commit>.tar.gz`), plus
-  Corefold's own script that picks which of those parts go in (`ffmpeg-source-corefold-build.sh`,
+  Rakiza Core's own script that picks which of those parts go in (`ffmpeg-source-corefold-build.sh`,
   also `ffmpeg\FFMPEG-BUILD.sh`). The version and commit are also written in `ffmpeg\SOURCE.txt`.
 - **Qt, PySide6, the FFmpeg libraries inside Qt Multimedia, libheif and Paramiko** are used without changes. Their source code for the versions in
   `COMPONENT-VERSIONS.txt` is at the links above.
-- **Written offer:** if you can't get any of this source code from those places, ask Atomic Works
-  (through the Corefold website or GitHub page) and we will send it to you, for no more than the cost
+- **Written offer:** if you can't get any of this source code from those places, ask Rakiza Labs
+  (through the Rakiza Core website or GitHub page) and we will send it to you, for no more than the cost
   of sending it. This offer is valid for three years after we last ship the version you have.
 
 The Qt, Qt Multimedia's FFmpeg and libheif libraries are included as separate DLL files in the `_internal` folder and can

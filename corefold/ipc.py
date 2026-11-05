@@ -1,7 +1,7 @@
 """
-Talking to the Corefold that's already running, without loading Qt.
+Talking to the Rakiza Core that's already running, without loading Qt.
 
-Each right-click on a file starts Corefold.exe once per selected file. Those helper processes only
+Each right-click on a file starts RakizaCore.exe once per selected file. Those helper processes only
 pass the request on to the running app through a named pipe and quit straight away, so selecting
 fifty photos doesn't start fifty copies of the whole app. (The running app listens with Qt's
 QLocalServer, which on Windows is a named pipe with this name.)
@@ -17,10 +17,10 @@ PIPE_PATH = "\\\\.\\pipe\\" + SERVER_NAME
 
 
 def leave_start_folder(argv: list[str]):
-    """Started from a right-click, Corefold's current folder is the one the clicked file is in (often
+    """Started from a right-click, Rakiza Core's current folder is the one the clicked file is in (often
     Downloads). Windows looks in the current folder for programs started by name, and Pillow for
     Ghostscript, so a "shutdown.exe" or "gswin64c.exe" lying there could run. Files named on the command
-    line get their full path first, then Corefold moves to the home folder."""
+    line get their full path first, then Rakiza Core moves to the home folder."""
     for i in range(1, len(argv)):
         arg = argv[i]
         if argv[i - 1] in ("--page", "--run"):
@@ -67,7 +67,7 @@ def _unquoted(arg: str) -> str:
 
 
 def send(message: bytes, wait_s: float = 4.0) -> bool:
-    """Hands the message to the running Corefold. False if it isn't running."""
+    """Hands the message to the running Rakiza Core. False if it isn't running."""
     if os.name != "nt":
         return False
     import ctypes
@@ -80,7 +80,7 @@ def send(message: bytes, wait_s: float = 4.0) -> bool:
     k32.WaitNamedPipeW.argtypes = [wt.LPCWSTR, wt.DWORD]
     invalid = wt.HANDLE(-1).value
     generic_write, open_existing = 0x40000000, 3
-    # the running Corefold may only identify this process, never act as it (if another account on the PC
+    # the running Rakiza Core may only identify this process, never act as it (if another account on the PC
     # made a pipe with this name first, it can't borrow this person's rights through it)
     identify_only = 0x00100000 | 0x00010000   # SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION
     error_file_not_found, error_pipe_busy = 2, 231
@@ -91,7 +91,7 @@ def send(message: bytes, wait_s: float = 4.0) -> bool:
             break
         err = ctypes.get_last_error()
         if err == error_file_not_found:
-            return False  # Corefold isn't running
+            return False  # Rakiza Core isn't running
         if time.monotonic() > deadline:
             return False
         if err == error_pipe_busy:
@@ -105,7 +105,7 @@ def send(message: bytes, wait_s: float = 4.0) -> bool:
             log_refused(server)
             return False
         # This helper was started by a click in Explorer, so Windows lets it bring windows to the
-        # front. Pass that on (to the running Corefold only): otherwise Corefold's window (e.g.
+        # front. Pass that on (to the running Rakiza Core only): otherwise Rakiza Core's window (e.g.
         # "Resize…") could open behind Explorer, only blinking in the taskbar.
         try:
             ctypes.windll.user32.AllowSetForegroundWindow(server)
@@ -199,7 +199,7 @@ def log_refused(pid: int):
 
 
 def forward(argv: list[str]) -> bool:
-    """True if a running Corefold took over this request (so this process can just quit)."""
+    """True if a running Rakiza Core took over this request (so this process can just quit)."""
     message = message_for(argv)
     if message is None:
         return False

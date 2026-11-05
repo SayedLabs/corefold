@@ -1,7 +1,7 @@
-"""Clicks through a built Corefold.exe from the outside, with the real mouse, the way a person does:
+"""Clicks through a built RakizaCore.exe from the outside, with the real mouse, the way a person does:
 switches every tool on in its section and opens it, and saves a picture of the whole screen after each click.
 
-Run: python scripts/exetest.py <Corefold.exe> <folder>   (needs pywinauto and Pillow)
+Run: python scripts/exetest.py <RakizaCore.exe> <folder>   (needs pywinauto and Pillow)
 Prints one line per check and "exetest: N problem(s)"."""
 import os
 import subprocess
@@ -54,7 +54,7 @@ def check(ok, what):
 def window():
     for _ in range(40):
         try:
-            wins = [w for w in Desktop(backend="uia").windows() if w.window_text() == "Corefold" and w.is_visible()
+            wins = [w for w in Desktop(backend="uia").windows() if w.window_text() == "Rakiza Core" and w.is_visible()
                     and w.rectangle().width() > 600]  # (not a toast)
         except Exception:  # a window (a toast, a menu) closed while Windows was listing them: look again
             wins = []
@@ -90,13 +90,13 @@ def click(ctrl):
 
 proc = subprocess.Popen([str(EXE), "--page", "Files"])
 watch = None
-if os.name == "nt":  # every window Corefold.exe (and what it starts) shows: none may only flash
+if os.name == "nt":  # every window RakizaCore.exe (and what it starts) shows: none may only flash
     sys.path.insert(0, str(ROOT / "scripts"))
     from flashwatch import FlashWatch
     watch = FlashWatch(proc.pid).start()
 try:
     win = window()
-    if check(win is not None, "Corefold.exe opens its window on Files"):
+    if check(win is not None, "RakizaCore.exe opens its window on Files"):
         win.set_focus()
         win.maximize()  # (every switch on the screen at once, the way most people keep it)
         check(shot("store", win) < 0.3, "the Files section isn't white")
@@ -176,9 +176,9 @@ try:
         flashes = watch.problems()
         for line in flashes:
             check(False, line)
-        check(not flashes, f"Corefold.exe flashed no window ({len(watch.events)} shown)")
+        check(not flashes, f"RakizaCore.exe flashed no window ({len(watch.events)} shown)")
 finally:
-    log = Path(os.environ["LOCALAPPDATA"]) / "Corefold" / "corefold.log"
+    log = Path(os.environ["LOCALAPPDATA"]) / "Rakiza Core" / "rakizacore.log"
     if log.exists():
         (OUT / "exe-log.txt").write_text(log.read_text("utf-8", "replace"), "utf-8")
     proc.kill()

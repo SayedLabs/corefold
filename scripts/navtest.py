@@ -205,7 +205,7 @@ def buttons(root, text):
 
 def nav_click(w, name):
     """A sidebar row; a tool is reached the way a person does: its section's row, then its tab in the bar of
-    uses on the heading (a section that's one tool, like Corefold Files) or in the strip."""
+    uses on the heading (a section that's one tool, like Rakiza Core Files) or in the strip."""
     if name not in w.nav_rows:
         from corefold.window import NAV_OWNER
         nav_click(w, NAV_OWNER[name])
@@ -466,7 +466,7 @@ def space_nav():
 
 for name, fn in (("store", store_add), ("pages", every_page), ("space", space_nav)):
     step(name, fn)
-log_file = st.LOG_DIR / "corefold.log"
+log_file = st.LOG_DIR / "rakizacore.log"
 if log_file.exists():
     (OUT / f"{LANG}-navtest-log.txt").write_text(log_file.read_text("utf-8", "replace"), "utf-8")
 (OUT / f"{LANG}-navtest.txt").write_text("\n".join(problems + errors) or "none", "utf-8")

@@ -1,4 +1,4 @@
-"""Building blocks shared by all of Corefold's tools (no GUI code here)."""
+"""Building blocks shared by all of Rakiza Core's tools (no GUI code here)."""
 from __future__ import annotations
 
 import logging
@@ -45,7 +45,7 @@ def set_background_priority(on: bool):
 
 
 def job_flags() -> int:
-    """Process flags for programs Corefold runs to do a job (FFmpeg, 7-Zip, LibreOffice)."""
+    """Process flags for programs Rakiza Core runs to do a job (FFmpeg, 7-Zip, LibreOffice)."""
     return NO_WINDOW | (BELOW_NORMAL if _background else 0)
 
 
@@ -118,14 +118,14 @@ def set_downloads_folder(folder: Path):
 
 def fallback_folder() -> Path:
     """Where new files go when the original's folder can't be written to (a CD, a protected folder)."""
-    return _downloads / "Corefold"
+    return _downloads / "Rakiza Core"
 
 
 _writable_cache: dict[str, tuple[float, bool]] = {}
 
 
 def writable(folder: Path) -> bool:
-    """Can Corefold save in this folder? (Remembered for a minute, so converting 500 files doesn't
+    """Can Rakiza Core save in this folder? (Remembered for a minute, so converting 500 files doesn't
     create and delete 500 test files in the folder.)"""
     import time
     key = str(folder)
@@ -134,7 +134,7 @@ def writable(folder: Path) -> bool:
         return hit[1]
     try:
         folder.mkdir(parents=True, exist_ok=True)
-        os.rmdir(new_folder(folder, ".corefold-try-"))
+        os.rmdir(new_folder(folder, ".rakizacore-try-"))
         ok = True
     except OSError:
         ok = False
@@ -442,7 +442,7 @@ def app_dir() -> Path:
 
 def windows_folder() -> Path:
     """Where Windows is, asked of Windows itself. Not from %SystemRoot%: a program running as the person can
-    change that for their account (HKCU\\Environment), and the copy Corefold starts as administrator gets it
+    change that for their account (HKCU\\Environment), and the copy Rakiza Core starts as administrator gets it
     too, so it would start that program's "reg.exe" as administrator."""
     if os.name == "nt":
         try:
@@ -457,7 +457,7 @@ def windows_folder() -> Path:
 
 def system_tool(name: str) -> str:
     """The full path of one of Windows' own programs (reg.exe, sc.exe, powershell.exe...). Never just the
-    name: Windows would look in Corefold's own folder and the current folder first, and the helper that
+    name: Windows would look in Rakiza Core's own folder and the current folder first, and the helper that
     runs as administrator must only ever start Windows' real ones."""
     if os.name != "nt":
         return name
@@ -472,7 +472,7 @@ def system_tool(name: str) -> str:
 
 def find_program(name: str) -> str | None:
     """A program installed on the PC (7-Zip, FFmpeg...), looked for only in the folders on PATH. Unlike
-    shutil.which, never in the current folder: when Corefold is started from a downloads folder, a
+    shutil.which, never in the current folder: when Rakiza Core is started from a downloads folder, a
     "7z.exe" lying there must not be the one that runs."""
     exts = [""] if os.name != "nt" or os.path.splitext(name)[1] else [".exe", ".com"]
     for folder in os.environ.get("PATH", "").split(os.pathsep):

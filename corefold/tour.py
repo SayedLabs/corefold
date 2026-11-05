@@ -1,4 +1,4 @@
-"""A short welcome tour: what Corefold does, in five small steps."""
+"""A short welcome tour: what Rakiza Core does, in five small steps."""
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
@@ -10,16 +10,16 @@ from .i18n import tr
 
 # (big picture: an icon from icons.py, or "" for the app's own; title, text) - English, shown through tr()
 STEPS = [
-    ("", "Welcome to Corefold", "Convert, shrink and edit files without opening any app. Here's how, in a "
+    ("", "Welcome to Rakiza Core", "Convert, shrink and edit files without opening any app. Here's how, in a "
                                  "few quick steps."),
     ("cursor", "Hold {key} and drag a file", "Start dragging a file in File Explorer or on your desktop while holding "
                                          "{key}. A wheel of options pops up right where you are."),
     ("target", "Drop it on an option", "Let go over \"PNG\", \"Resize\", \"Make smaller\"… The new file appears next to "
                                    "the original, which is never changed. Let go in the middle to cancel."),
-    ("cursor_click", "Or right-click it", "Right-click any file or folder and choose Corefold. On Windows 11 it's under \"Show "
+    ("cursor_click", "Or right-click it", "Right-click any file or folder and choose Rakiza Core. On Windows 11 it's under \"Show "
                                 "more options\"."),
     ("apps", "Every tool in the sidebar", "Open a section on the left to see its tools and what each one does. "
-                                          "Switch on only the ones you use, so Corefold stays light."),
+                                          "Switch on only the ones you use, so Rakiza Core stays light."),
     ("paint_brush", "Make it yours", "Change the colours, the wheel's shape and size, the sounds and which options show up "
                             "in Settings. Each tool has its own tab there."),
 ]

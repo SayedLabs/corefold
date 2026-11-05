@@ -6,7 +6,7 @@ The list is made on a thread the first time the menu opens and made again at mos
 Files and folders come from Everything (voidtools), if it's running (asked over its own messages,
 it's the fastest), or else from Windows' own search index of the person's folders; files they opened
 lately (Windows' Recent items) are added too, and are all there is when neither is there. Nothing is
-indexed by Corefold, nothing runs unless the menu is open and the person types, and nothing leaves
+indexed by Rakiza Core, nothing runs unless the menu is open and the person types, and nothing leaves
 the PC.
 
 Only loaded once the menu is used with "Find files and apps as I type" on."""
@@ -145,7 +145,7 @@ def match_windows(windows: list[Window], query: str, limit: int = MAX_APPS) -> l
 
 def _lib(name: str):
     """A private copy of a Windows library: the argument types set on it here never change the ones the
-    rest of Corefold uses (ctypes.windll's functions are shared, and another type there breaks their calls)."""
+    rest of Rakiza Core uses (ctypes.windll's functions are shared, and another type there breaks their calls)."""
     import ctypes
     return ctypes.WinDLL(name)
 
@@ -169,7 +169,7 @@ def _user32():
 
 
 def open_windows() -> list[Window]:
-    """The windows Alt + Tab shows, front to back (not Corefold's own, not hidden or on another desktop)."""
+    """The windows Alt + Tab shows, front to back (not Rakiza Core's own, not hidden or on another desktop)."""
     if not IS_WIN:
         return []
     import ctypes
