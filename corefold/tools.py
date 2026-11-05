@@ -1,4 +1,4 @@
-"""Every Corefold tool in one list: what it's called, which page and settings it has, and whether
+"""Every Rakiza Core tool in one list: what it's called, which page and settings it has, and whether
 it's ready; and the few sections they're grouped in. The sidebar, the Home page, the sections' pages
 and the Settings tabs are all made from these lists, so a new tool is added here once (and nothing of a
 tool someone switched off is loaded at all).
@@ -17,7 +17,7 @@ class ToolInfo:
     page: str               # the window's page for it ("Converter")
     product: str            # its tile in icons.py
     icon: str               # its sidebar icon in icondata.py
-    name: str               # "Corefold Converter"
+    name: str               # "Rakiza Core Converter"
     nav: str                # its name in the sidebar ("Converter")
     line: str               # one line about it
     features: tuple = ()    # what it does (for the "Coming soon" page)
@@ -29,7 +29,7 @@ class ToolInfo:
 
 
 TOOLS: list[ToolInfo] = [
-    ToolInfo("converter", "Converter", "converter", "arrow_swap", "Corefold Converter", "Converter",
+    ToolInfo("converter", "Converter", "converter", "arrow_swap", "Rakiza Core Converter", "Converter",
              "Convert, shrink and edit pictures, videos, music, PDFs and documents with one drag.",
              ("Hold Shift while dragging a file, or right-click it, and pick a format",
               "Resize, crop, compress, cut out the background, copy the text in a picture",
@@ -37,14 +37,14 @@ TOOLS: list[ToolInfo] = [
               "Merge, split and lock PDFs; turn Office files into PDFs"),
              settings="ConvOptions", settings_pages=("ConvOptions", "WheelLook", "Formats"),
              short="Change a file into another format", use="Convert"),
-    ToolInfo("uninstaller", "Apps", "cleaner", "broom", "Corefold Uninstaller", "Uninstaller",
+    ToolInfo("uninstaller", "Apps", "cleaner", "broom", "Rakiza Core Uninstaller", "Uninstaller",
              "Remove programs and everything they leave behind, with a backup you can put back.",
              ("Uninstall several programs in one go",
               "Clean up the folders, shortcuts and registry entries they leave behind",
               "See which programs you haven't used in months",
               "Everything removed is kept as a backup you can put back"),
              settings="AppsSettings", settings_pages=("AppsSettings",)),
-    ToolInfo("archive", "Archives", "archive", "archive", "Corefold Archive", "Archives",
+    ToolInfo("archive", "Archives", "archive", "archive", "Rakiza Core Archive", "Archives",
              "Open, extract and make ZIP, RAR and 7z files. Drag files out, change them inside, rescue damaged ones.",
              ("Open ZIP, RAR, 7z, TAR, ISO and more with a double-click",
               "Drag files out of an archive into any folder",
@@ -52,7 +52,7 @@ TOOLS: list[ToolInfo] = [
               "Rescue damaged archives, and unpack archives inside archives in one go"),
              settings="ArchiveSettings", settings_pages=("ArchiveSettings",),
              short="Open and make ZIP, RAR and 7z files", use="Archive"),
-    ToolInfo("viewer", "Viewer", "viewer", "image", "Corefold Viewer", "Viewer",
+    ToolInfo("viewer", "Viewer", "viewer", "image", "Rakiza Core Viewer", "Viewer",
              "Flip through a folder of pictures fast, fix them on the spot, and open email files.",
              ("Arrow keys through a whole folder, instantly",
               "Quick look: select any file in File Explorer and press Ctrl + Space to see what's in it",
@@ -60,7 +60,7 @@ TOOLS: list[ToolInfo] = [
               "HEIC, WebP, AVIF and more, with the photo's details",
               "Open Outlook (.msg) and .eml emails without Outlook, save their attachments, save them as PDF"),
              settings="ViewerSettings", settings_pages=("ViewerSettings",)),
-    ToolInfo("capture", "Capture", "capture", "screenshot", "Corefold Capture", "Capture",
+    ToolInfo("capture", "Capture", "capture", "screenshot", "Rakiza Core Capture", "Capture",
              "Take a picture of your screen, mark it up and share it in seconds.",
              ("Pick an area, a window or the whole screen with one shortcut",
               "Draw arrows, boxes and text, and blur anything private",
@@ -68,7 +68,7 @@ TOOLS: list[ToolInfo] = [
               "Pin a screenshot on top while you work, or take one with a timer",
               "Everything stays on your PC: nothing is uploaded"),
              settings="CaptureSettings", settings_pages=("CaptureSettings",)),
-    ToolInfo("space", "Space", "space", "data_pie", "Corefold Space", "Space",
+    ToolInfo("space", "Space", "space", "data_pie", "Rakiza Core Space", "Space",
              "See what's filling your disk and free up space safely.",
              ("A clear map of the biggest folders and files",
               "Find duplicate files and photos",
@@ -76,7 +76,7 @@ TOOLS: list[ToolInfo] = [
               "Clean up safe junk: temporary files, old installers, leftover caches",
               "Never touches Windows or your personal files without asking",
               "Files you remove go to the Recycle Bin first")),
-    ToolInfo("clipboard", "Clipboard", "clipboard", "clipboard", "Corefold Clipboard", "Clipboard",
+    ToolInfo("clipboard", "Clipboard", "clipboard", "clipboard", "Rakiza Core Clipboard", "Clipboard",
              "Everything you copy, kept and easy to find again: press Win + Alt + V in any app.",
              ("Text, pictures, links and files you copied, in one list",
               "Pin what you paste often so it's always at the top",
@@ -84,7 +84,7 @@ TOOLS: list[ToolInfo] = [
               "Paste as plain text, without the formatting",
               "Stays on your PC, and skips passwords from password managers"),
              settings="ClipboardSettings", settings_pages=("ClipboardSettings",)),
-    ToolInfo("cloud", "Cloud", "cloud", "cloud", "Corefold Cloud", "Cloud",
+    ToolInfo("cloud", "Cloud", "cloud", "cloud", "Rakiza Core Cloud", "Cloud",
              "All your cloud storage in one window: OneDrive, Dropbox, Google Drive and iCloud.",
              ("Finds the OneDrive, Dropbox, Google Drive and iCloud folders on your PC by itself",
               "Drag files and folders from one cloud to another",
@@ -92,20 +92,20 @@ TOOLS: list[ToolInfo] = [
               "Search across all of them",
               "Nothing to sign in to: the services' own apps keep everything in sync"),
              short="All your cloud storage in one place", use="Cloud"),
-    ToolInfo("startup", "Startup", "startup", "rocket", "Corefold Startup", "Startup",
+    ToolInfo("startup", "Startup", "startup", "rocket", "Rakiza Core Startup", "Startup",
              "See what starts with Windows and switch off what slows it down.",
              ("Every program that starts with Windows, in one list",
               "Switch one off with a click, and back on just as easily",
               "Switching off works the same way as Task Manager: nothing is deleted",
               "Spot programs that added themselves since you last looked"),),
-    ToolInfo("scan", "Scan", "scan", "shield", "Corefold Scan", "Virus scan",
-             "Check your PC for malware with Microsoft Defender, plus Corefold's own checks for tricks viruses use.",
+    ToolInfo("scan", "Scan", "scan", "shield", "Rakiza Core Scan", "Virus scan",
+             "Check your PC for malware with Microsoft Defender, plus Rakiza Core's own checks for tricks viruses use.",
              ("Quick scan, full scan, or right-click any file, folder or drive",
               "Microsoft Defender, part of Windows, does the scanning: nothing is uploaded",
               "Spots tricks viruses use: fake names like photo.jpg.exe, broken signatures, odd programs that "
               "start with Windows",
               "See what Defender put in quarantine, and put a file back if you're sure")),
-    ToolInfo("pdf", "PDF", "pdf", "document_pdf", "Corefold PDF", "PDF",
+    ToolInfo("pdf", "PDF", "pdf", "document_pdf", "Rakiza Core PDF", "PDF",
              "Change what's in a PDF, merge, split and arrange its pages, shrink it and lock it.",
              ("Merge PDFs and arrange their pages by dragging the page pictures",
               "Split a PDF, or take out just the pages you need",
@@ -115,112 +115,112 @@ TOOLS: list[ToolInfo] = [
               "Lock a PDF with a password, or unlock one that's yours",
               "Everything happens on your PC: nothing is uploaded"),
              short="Edit, merge, split and lock PDFs", use="PDF"),
-    ToolInfo("rename", "Rename", "rename", "rename", "Corefold Rename", "Rename",
+    ToolInfo("rename", "Rename", "rename", "rename", "Rakiza Core Rename", "Rename",
              "Rename hundreds of files at once, and see every new name before anything changes.",
              ("Add numbers, dates or words to many names at once",
               "Find and replace in file names",
               "Use the date a photo was taken, or a song's title and artist",
               "See every new name first, and undo it all with one click"),
              ready=False),
-    ToolInfo("colors", "Colors", "colors", "color", "Corefold Colors", "Colors",
+    ToolInfo("colors", "Colors", "colors", "color", "Rakiza Core Colors", "Colors",
              "Pick any colour on your screen and copy it as HEX, RGB, HSL, OKLCH and more.",
              ("Pick a colour anywhere with one shortcut",
               "A magnifier shows every pixel, so you get exactly the one you want",
               "Copy it in the format you need",
               "Your last 24 colours, ready to copy again",
               "Darker and lighter shades of every colour, one click away")),
-    ToolInfo("ruler", "Ruler", "ruler", "ruler", "Corefold Ruler", "Ruler",
+    ToolInfo("ruler", "Ruler", "ruler", "ruler", "Rakiza Core Ruler", "Ruler",
              "Measure anything on your screen in pixels.",
              ("Measure the distance between two things",
               "See the size of any box or window",
               "Works on top of every app"),
              ready=False),
-    ToolInfo("hash", "Check", "hash", "shield_checkmark", "Corefold Check", "Check",
+    ToolInfo("hash", "Check", "hash", "shield_checkmark", "Rakiza Core Check", "Check",
              "Make sure a download is the real file and wasn't changed.",
              ("Paste the code from the website and see if it matches",
               "SHA-256, SHA-1 and MD5",
               "Right-click any file to check it"),
              ready=False),
-    ToolInfo("shredder", "Shredder", "shredder", "delete", "Corefold Shredder", "Shredder",
+    ToolInfo("shredder", "Shredder", "shredder", "delete", "Rakiza Core Shredder", "Shredder",
              "Delete private files so they can never be brought back.",
              ("Files are written over before they are deleted",
               "Clean the free space of a drive too",
               "Asks twice, so nothing goes by mistake"),
              ready=False),
-    ToolInfo("fonts", "Fonts", "fonts", "text_t", "Corefold Fonts", "Fonts",
+    ToolInfo("fonts", "Fonts", "fonts", "text_t", "Rakiza Core Fonts", "Fonts",
              "See all your fonts side by side, and add or remove them easily.",
              ("Type your own words and see them in every font",
               "Install a font with one click",
               "Find and remove fonts you never use"),
              ready=False),
-    ToolInfo("network", "Network", "network", "globe", "Corefold Network", "Network",
+    ToolInfo("network", "Network", "network", "globe", "Rakiza Core Network", "Network",
              "See what's using your internet, and how fast it really is.",
              ("Which programs are using the internet right now, and the places they connect to",
               "Your real download and upload speed, and what it's good for",
               "Spot programs that other devices on your network can reach",
               "Read from your PC with no administrator rights: nothing is sent anywhere")),
-    ToolInfo("battery", "Battery", "battery", "battery", "Corefold Battery", "Battery",
+    ToolInfo("battery", "Battery", "battery", "battery", "Rakiza Core Battery", "Battery",
              "How healthy your laptop's battery is, and what's draining it.",
              ("How much your battery has worn since it was new",
               "Which apps use the most power",
               "Plain advice to make it last longer"),
              ready=False),
-    ToolInfo("focus", "Focus", "focus", "timer", "Corefold Focus", "Focus",
+    ToolInfo("focus", "Focus", "focus", "timer", "Rakiza Core Focus", "Focus",
              "A timer for focused work that keeps notifications quiet.",
              ("Work and break timers you can set yourself",
               "Silences notifications while you focus",
               "See how much you focused this week"),
              ready=False),
-    ToolInfo("layouts", "Layouts", "layouts", "layout", "Corefold Layouts", "Layouts",
+    ToolInfo("layouts", "Layouts", "layouts", "layout", "Rakiza Core Layouts", "Layouts",
              "Put your windows in neat layouts with one shortcut.",
              ("Snap windows into layouts you design",
               "Keep any window on top of the others",
               "Save a layout and bring it back later"),
              ready=False),
-    ToolInfo("drivers", "Drivers", "drivers", "box", "Corefold Drivers", "Drivers",
+    ToolInfo("drivers", "Drivers", "drivers", "box", "Rakiza Core Drivers", "Drivers",
              "Back up your drivers before you reinstall Windows.",
              ("Save every driver to one folder",
               "Put them all back after a fresh install",
               "See which drivers are old"),
              ready=False),
-    ToolInfo("awake", "Awake", "awake", "coffee", "Corefold Awake", "Awake",
+    ToolInfo("awake", "Awake", "awake", "coffee", "Rakiza Core Awake", "Awake",
              "Keep your PC from going to sleep, for as long as you choose.",
              ("Stay awake for an hour, until a time, or until you say",
               "Keep the screen on or let it turn off",
               "Switch it on and off from the tray",
-              "Turn the PC off at a time you pick, even if Corefold is closed by then")),
-    ToolInfo("snippets", "Snippets", "snippets", "text_description", "Corefold Snippets", "Snippets",
+              "Turn the PC off at a time you pick, even if Rakiza Core is closed by then")),
+    ToolInfo("snippets", "Snippets", "snippets", "text_description", "Rakiza Core Snippets", "Snippets",
              "Type a short word and get a whole sentence, address or email.",
              ("Your own short words for text you type often",
               "Works in every app",
               "Add today's date or what you copied"),
              ready=False),
-    ToolInfo("backup", "Backup", "backup", "arrow_sync", "Corefold Backup", "Backup",
+    ToolInfo("backup", "Backup", "backup", "arrow_sync", "Rakiza Core Backup", "Backup",
              "Copy your important folders to another drive, by itself.",
              ("Pick the folders, pick the drive, done",
               "Only copies what changed, so it's quick",
               "Get back an older version of a file"),
              ready=False),
-    ToolInfo("notes", "Notes", "notes", "note", "Corefold Notes", "Notes",
+    ToolInfo("notes", "Notes", "notes", "note", "Rakiza Core Notes", "Notes",
              "Quick notes that stay on your desktop, a shortcut away.",
              ("Write something down without opening an app",
               "Notes stay where you put them",
               "Search all your notes"),
              ready=False),
-    ToolInfo("system", "System", "system", "desktop", "Corefold System", "System",
+    ToolInfo("system", "System", "system", "desktop", "Rakiza Core System", "System",
              "What's inside your PC, how warm it is, and how it's doing.",
              ("Your processor, memory, graphics and drives in plain words",
               "Temperatures and how busy each part is",
               "A report you can send when asking for help"),
              ready=False),
-    ToolInfo("unlock", "Unlock", "unlock", "lock_open", "Corefold Unlock", "Unlock",
+    ToolInfo("unlock", "Unlock", "unlock", "lock_open", "Rakiza Core Unlock", "Unlock",
              "Find out which program is holding a file you can't delete or move.",
              ("Right-click a file or folder and pick \"What's using this?\"",
               "Asks the program to close first, so it can save your work",
               "Never closes the parts of Windows your PC needs",
               "Then delete or move the file"),
              short="See what's holding a file, and free it", use="Unlock"),
-    ToolInfo("organizer", "Organizer", "organizer", "folder", "Corefold File Organizer", "File Organizer",
+    ToolInfo("organizer", "Organizer", "organizer", "folder", "Rakiza Core File Organizer", "File Organizer",
              "Sort a messy Downloads or Desktop into clear folders with one click.",
              ("Pictures, documents, videos, music and installers each get their own folder",
               "See where every file will go before anything moves",
@@ -228,7 +228,7 @@ TOOLS: list[ToolInfo] = [
               "No rules to write: it just works",
               "Never touches folders, shortcuts or files that are open"),
              short="Tidy a messy folder in one click", use="Tidy up"),
-    ToolInfo("sound", "Sound", "sound", "speaker_2", "Corefold Sound", "Sound",
+    ToolInfo("sound", "Sound", "sound", "speaker_2", "Rakiza Core Sound", "Sound",
              "Switch between speakers and headphones with a shortcut, and set each app's volume.",
              ("Change where sound plays with one shortcut",
               "A volume for each app",
@@ -237,7 +237,7 @@ TOOLS: list[ToolInfo] = [
 ]
 @dataclass(frozen=True)
 class Section:
-    """A part of Corefold in the sidebar, with its tools inside (so the sidebar stays short)."""
+    """A part of Rakiza Core in the sidebar, with its tools inside (so the sidebar stays short)."""
     id: str
     page: str               # its page in the window ("Files")
     name: str               # "Files"
@@ -245,7 +245,7 @@ class Section:
     product: str            # the tile its page shows (icons.py)
     line: str               # one line about it
     tools: tuple            # its tools' ids, ready ones and ones on the way, in their first order
-    one_tool: str = ""      # "Corefold Files": the section is shown as one tool, its tools as that tool's uses
+    one_tool: str = ""      # "Rakiza Core Files": the section is shown as one tool, its tools as that tool's uses
     direct: bool = False    # one tool on its own (Cloud): its sidebar row opens the tool's page, with all the room
 
 
@@ -253,7 +253,7 @@ SECTIONS: list[Section] = [
     Section("files", "Files", "Files", "document_multiple", "files",
             "Convert, sort, pack and fix your files.",
             ("converter", "pdf", "archive", "organizer", "unlock", "rename", "shredder", "backup"),
-            one_tool="Corefold Files"),
+            one_tool="Rakiza Core Files"),
     Section("cloud", "Clouds", "Cloud", "cloud", "cloud",
             "All your cloud storage in one window: OneDrive, Dropbox, Google Drive and iCloud.",
             ("cloud",), direct=True),
@@ -268,13 +268,13 @@ SECTIONS: list[Section] = [
             ("clipboard", "awake", "snippets", "notes", "focus", "layouts", "sound")),
 ]
 # Sections resting for now: their tools are kept whole (code, settings, history, everything they saved), but
-# nothing of them runs and their pages show what's coming back instead, while Corefold puts its effort into
+# nothing of them runs and their pages show what's coming back instead, while Rakiza Core puts its effort into
 # fewer tools done really well. To bring a section back, take its id out of here: nothing else changes, and
 # each of its tools comes back switched on or off the way this person had it.
 PAUSED_SECTIONS: frozenset[str] = frozenset({"media", "quick"})
 if os.environ.get("COREFOLD_WAKE_RESTING") == "1" and not getattr(sys, "frozen", False):
     # (the Bug hunt's checks, run from the source only, keep trying the resting tools' kept code; a built
-    # Corefold.exe never looks at this)
+    # RakizaCore.exe never looks at this)
     PAUSED_SECTIONS = frozenset()
 # Single tools resting for now inside a section that's in use, until they're checked again: kept whole like a
 # resting section's, but hidden from their section (no page, no Home widget, nothing in the background). To
@@ -282,7 +282,7 @@ if os.environ.get("COREFOLD_WAKE_RESTING") == "1" and not getattr(sys, "frozen",
 # checked again. Computer is back with Space and the Uninstaller only: Startup and Scan rest a while longer.
 PAUSED_TOOLS: frozenset[str] = frozenset({"organizer", "startup", "scan"})
 if not getattr(sys, "frozen", False):
-    # (the checks that try the resting tools' kept code, run from the source only; a built Corefold.exe never
+    # (the checks that try the resting tools' kept code, run from the source only; a built RakizaCore.exe never
     # looks at this)
     if os.environ.get("COREFOLD_WAKE_RESTING") == "1":
         PAUSED_TOOLS = frozenset()
@@ -404,7 +404,7 @@ def switch_back_on(settings) -> list[ToolInfo]:
 
 def offer_new_tools(settings) -> list[ToolInfo]:
     """After an update: tools that weren't there before wait in their section, switched off, so
-    Corefold only does what this person chose. Returns the ones that are new."""
+    Rakiza Core only does what this person chose. Returns the ones that are new."""
     fresh = new_tools(settings)
     if fresh:
         settings.tools_off = sorted(set(settings.tools_off) | {t.id for t in fresh})

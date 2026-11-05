@@ -161,9 +161,10 @@ def test_no_background_work_of_resting_tools(controller):
 
 def test_resting_pages_open_their_section_whatever_asks(controller):
     w = controller.window
-    for name, shown in (("Capture", "Media"), ("CaptureSettings", "Media"), ("Startup", "Computer"),
-                        ("Scan", "Computer"), ("Clipboard", "QuickTools"), ("Quick", "QuickTools"),
-                        ("ViewerSettings", "Media")):
+    # (a section resting for now is on Coming soon, with the other resting sections)
+    for name, shown in (("Capture", "Soon"), ("CaptureSettings", "Soon"), ("Startup", "Computer"),
+                        ("Scan", "Computer"), ("Clipboard", "Soon"), ("Quick", "Soon"),
+                        ("ViewerSettings", "Soon"), ("Media", "Soon")):
         w.open_page(name)
         assert w.current_page() == shown, name
     for name in ("Converter", "PDF", "Archives", "Organizer", "Unlock", "Cloud", "Updates", "About", "History",
@@ -211,7 +212,7 @@ def test_only_the_checks_from_source_can_wake_the_resting_tools(monkeypatch):
 
     from corefold import tools
     monkeypatch.setenv("COREFOLD_WAKE_RESTING", "1")
-    monkeypatch.setattr(sys, "frozen", True, raising=False)  # (a built Corefold.exe)
+    monkeypatch.setattr(sys, "frozen", True, raising=False)  # (a built RakizaCore.exe)
     try:
         assert importlib.reload(tools).PAUSED_SECTIONS == {"media", "quick"}
         assert tools.PAUSED_TOOLS == {"organizer", "startup", "scan"}

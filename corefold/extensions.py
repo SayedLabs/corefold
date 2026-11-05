@@ -1,8 +1,8 @@
-"""Corefold Uninstaller: the extensions added to the browsers (Chrome, Edge, Brave, Vivaldi, Opera
+"""Rakiza Core Uninstaller: the extensions added to the browsers (Chrome, Edge, Brave, Vivaldi, Opera
 and Firefox), read from their profile folders.
 
 Nothing is deleted here: a browser puts back (or marks as broken) an extension removed behind its
-back, so each one is removed from the browser's own extensions page, which Corefold opens on it."""
+back, so each one is removed from the browser's own extensions page, which Rakiza Core opens on it."""
 from __future__ import annotations
 
 import json

@@ -1,4 +1,4 @@
-"""Corefold Network: reading Windows' connection tables, the names Windows remembers, the adapters' counters,
+"""Rakiza Core Network: reading Windows' connection tables, the names Windows remembers, the adapters' counters,
 and the speed test (against a server on this PC: the tests never go online)."""
 import ctypes
 import http.server

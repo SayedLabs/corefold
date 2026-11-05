@@ -1,4 +1,4 @@
-"""Checks for fixes in Corefold Space (clean-up, duplicates) and the Uninstaller's leftover logic."""
+"""Checks for fixes in Rakiza Core Space (clean-up, duplicates) and the Uninstaller's leftover logic."""
 import os
 import time
 from pathlib import Path

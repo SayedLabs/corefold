@@ -1,4 +1,4 @@
-"""Corefold PDF's small windows: how to split, how much to compress, pictures to PDF, PDF to
+"""Rakiza Core PDF's small windows: how to split, how much to compress, pictures to PDF, PDF to
 pictures, a password with what it still allows, and one page shown big."""
 from __future__ import annotations
 
@@ -144,7 +144,7 @@ class SearchableDialog(Base):
 
     def __init__(self, files, icon, dark):
         super().__init__(tr("Make searchable"), describe(files), icon, dark)
-        self.lay.addWidget(_note(tr("Corefold reads the words on scanned pages with Windows' own reader, Arabic too, "
+        self.lay.addWidget(_note(tr("Rakiza Core reads the words on scanned pages with Windows' own reader, Arabic too, "
                                     "and puts them under the picture as hidden text, right where they are. You can "
                                     "then search, select and copy them. The pages look exactly as before.")))
         self.redo = QCheckBox(tr("Read pages made searchable before again"))

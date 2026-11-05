@@ -1,7 +1,7 @@
 """
 Translations. Every piece of text people see goes through tr("English text", name=value).
 
-tr() is just a dictionary lookup in the language in use. Changing the language while Corefold runs
+tr() is just a dictionary lookup in the language in use. Changing the language while Rakiza Core runs
 (Controller.switch_language) builds the window and menus again in the new one.
 English is the source; corefold/lang_<code>.py hold the others
 (Arabic, French, Spanish, Turkish).
@@ -22,7 +22,7 @@ _table: dict[str, str] = {}
 
 
 def windows_language() -> str:
-    """The language Windows itself is in, if Corefold has it; otherwise 'en'."""
+    """The language Windows itself is in, if Rakiza Core has it; otherwise 'en'."""
     if os.name != "nt":
         return "en"
     try:

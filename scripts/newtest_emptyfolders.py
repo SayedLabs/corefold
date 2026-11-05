@@ -1,4 +1,4 @@
-"""Corefold Space's empty folders, tried for real on a Windows PC: a folder tree with empty folders, a
+"""Rakiza Core Space's empty folders, tried for real on a Windows PC: a folder tree with empty folders, a
 nested tree of empty folders, a folder holding only desktop.ini, a folder with a file, a junction to an
 empty folder, a hidden empty folder and a folder made just now. The finder must offer exactly the right
 ones (with the "made in the last day" rule switched off, and on), and removing them must put them in
@@ -29,7 +29,7 @@ OUT.mkdir(parents=True, exist_ok=True)
 TMP = Path(tempfile.mkdtemp(prefix="corefold-emptytest-"))
 os.environ["APPDATA"] = str(TMP / "roaming")
 os.environ["LOCALAPPDATA"] = str(TMP / "local")
-# the folders to look through can't be in AppData (where the temp folder is): Corefold never looks there
+# the folders to look through can't be in AppData (where the temp folder is): Rakiza Core never looks there
 WORK = Path(os.path.realpath(tempfile.mkdtemp(prefix="corefold-emptytest-", dir=str(Path.home()))))
 sys.path.insert(0, str(ROOT))
 try:

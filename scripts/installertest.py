@@ -1,7 +1,7 @@
 """The installer on a real Windows PC: installs the build in dist\\release (for the whole PC, in Program Files), then checks that updating closes
-Corefold the gentle way (a conversion that's running is finished first, and a different program that happens
-to be called Corefold.exe is left alone), that a /DIR folder already holding other things is refused, and that
-removing Corefold keeps files that aren't its own.
+Rakiza Core the gentle way (a conversion that's running is finished first, and a different program that happens
+to be called RakizaCore.exe is left alone), that a /DIR folder already holding other things is refused, and that
+removing Rakiza Core keeps files that aren't its own.
 
 Windows only, after scripts\\build.ps1 (FFmpeg on PATH, to make a test video):
     python scripts/installertest.py dist\\release out\\installer
@@ -17,15 +17,15 @@ from pathlib import Path
 
 if os.environ.get("CI") != "true" and os.environ.get("COREFOLD_THROWAWAY_PC") != "1":
     sys.exit("installertest: only on a throwaway Windows PC (GitHub Actions, or a virtual machine with "
-             "COREFOLD_THROWAWAY_PC=1): it installs and removes Corefold for this Windows user")
+             "COREFOLD_THROWAWAY_PC=1): it installs and removes Rakiza Core for this Windows user")
 
 RELEASE = Path(sys.argv[1]).resolve()
 OUT = Path(sys.argv[2]).resolve()
 OUT.mkdir(parents=True, exist_ok=True)
-SETUP = sorted(RELEASE.glob("Corefold-Setup-*.exe"))[-1]
-APP_DIR = Path(os.environ.get("ProgramW6432") or os.environ["ProgramFiles"]) / "Corefold"  # (for the whole PC)
-EXE = APP_DIR / "Corefold.exe"
-LOG = Path(os.environ["LOCALAPPDATA"]) / "Corefold" / "corefold.log"
+SETUP = sorted(RELEASE.glob("RakizaCore-Setup-*.exe"))[-1]
+APP_DIR = Path(os.environ.get("ProgramW6432") or os.environ["ProgramFiles"]) / "Rakiza Core"  # (for the whole PC)
+EXE = APP_DIR / "RakizaCore.exe"
+LOG = Path(os.environ["LOCALAPPDATA"]) / "Rakiza Core" / "rakizacore.log"
 TMP = Path(tempfile.mkdtemp(prefix="corefold-installertest-"))
 POWERSHELL = str(Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0"
                  / "powershell.exe")
@@ -77,35 +77,35 @@ def log_text() -> str:
 
 note(f"installer: {SETUP.name}")
 
-# 0. Setup's file details (Properties > Details) are filled in, like Corefold.exe's
+# 0. Setup's file details (Properties > Details) are filled in, like RakizaCore.exe's
 details = subprocess.run([POWERSHELL, "-NoProfile", "-Command",
                           "$v = (Get-Item -LiteralPath $env:CF_P).VersionInfo; "
                           "$v.CompanyName; $v.LegalCopyright; $v.OriginalFilename; $v.ProductVersion"],
                          capture_output=True, text=True, env=dict(os.environ, CF_P=str(SETUP))).stdout.split("\n")
 details = [d.strip() for d in details] + [""] * 4
-check(details[0] == "Atomic Works" and details[1] == "Atomic Works", f"Setup names its company and copyright {details[:2]}")
+check(details[0] == "Rakiza Labs" and details[1] == "Rakiza Labs", f"Setup names its company and copyright {details[:2]}")
 check(details[2] == SETUP.name, f"Setup has its original file name ({details[2]!r})")
 check(bool(details[3]) and details[3] in SETUP.name, f"Setup has its version ({details[3]!r})")
 
 # 1. a first install, the way people install it
 code, took = run_setup("/VERYSILENT", "/TASKS=", name="1-install")
 check(code == 0 and EXE.exists(), f"installed (exit {code}, {took:.0f} s)")
-if not check(wait_for(lambda: pids(EXE), 30), "Corefold started in the tray after installing"):
+if not check(wait_for(lambda: pids(EXE), 30), "Rakiza Core started in the tray after installing"):
     setup_log = OUT / "1-install.log"
     tail = setup_log.read_text("utf-8", errors="replace").splitlines()[-25:] if setup_log.exists() else []
     note("Setup's log ends: " + " | ".join(tail))
     note(f"in the folder: {sorted(q.name for q in EXE.parent.iterdir()) if EXE.parent.exists() else 'nothing'}")
 
-# 2. a different program that happens to be called Corefold.exe (another folder): never stopped
+# 2. a different program that happens to be called RakizaCore.exe (another folder): never stopped
 decoy_dir = TMP / "someone else"
 decoy_dir.mkdir()
-decoy = decoy_dir / "Corefold.exe"
+decoy = decoy_dir / "RakizaCore.exe"
 shutil.copy2(Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "PING.EXE", decoy)
 decoy_proc = subprocess.Popen([str(decoy), "-n", "600", "127.0.0.1"], stdout=subprocess.DEVNULL,
                               creationflags=0x08000000)
-check(wait_for(lambda: pids(decoy), 10), "the other Corefold.exe is running")
+check(wait_for(lambda: pids(decoy), 10), "the other RakizaCore.exe is running")
 
-# 3. a conversion is running when the update starts: it's finished before Corefold closes
+# 3. a conversion is running when the update starts: it's finished before Rakiza Core closes
 video = TMP / "holiday.mp4"
 subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=size=1920x1080:rate=30", "-t", "25",
                 "-pix_fmt", "yuv420p", "-c:v", "libx264", "-preset", "ultrafast", str(video)], check=True)
@@ -115,11 +115,11 @@ subprocess.run([str(EXE), "--run", "video:small", str(video)], timeout=30)
 check(wait_for(lambda: "video:small" in log_text()[len(start):], 60), "the conversion started")
 time.sleep(3)
 before = log_text()
-code, took = run_setup("/SILENT", name="2-update")  # (as Corefold's own updater starts it)
+code, took = run_setup("/SILENT", name="2-update")  # (as Rakiza Core's own updater starts it)
 after = log_text()[len(before):]
 note(f"update took {took:.0f} s")
 check(code == 0, f"the update installed (exit {code})")
-check("the installer asked Corefold to close" in after, "Corefold was asked to close (not stopped dead)")
+check("the installer asked Rakiza Core to close" in after, "Rakiza Core was asked to close (not stopped dead)")
 done = [ln for ln in after.splitlines() if "job " in ln or "converted" in ln.lower() or "finished" in ln.lower()]
 for ln in done[-5:]:
     note("log: " + ln.strip()[:160])
@@ -130,15 +130,15 @@ try:
 except ValueError:
     length = 0
 check(small.exists() and length > 24, f"the conversion was finished, not cut off ({length:.1f} s of 25)")
-check(bool(pids(decoy)), "the other program called Corefold.exe was left running")
-check(wait_for(lambda: pids(EXE), 30), "the new Corefold started again in the tray")
+check(bool(pids(decoy)), "the other program called RakizaCore.exe was left running")
+check(wait_for(lambda: pids(EXE), 30), "the new Rakiza Core started again in the tray")
 
-# 4. Corefold not running, a plain update: no waiting
+# 4. Rakiza Core not running, a plain update: no waiting
 for pid in pids(EXE):
     subprocess.run(["taskkill", "/pid", str(pid), "/f"], capture_output=True)
 wait_for(lambda: not pids(EXE), 10)
 code, took = run_setup("/VERYSILENT", name="3-update-closed")
-check(code == 0 and took < 120, f"updated with Corefold closed (exit {code}, {took:.0f} s)")
+check(code == 0 and took < 120, f"updated with Rakiza Core closed (exit {code}, {took:.0f} s)")
 
 # 5. installing into a folder (with /DIR) that already holds other things: refused, nothing touched
 shared = TMP / "My things"
@@ -146,9 +146,9 @@ shared.mkdir()
 (shared / "keep me.txt").write_text("mine")
 code, _ = run_setup("/VERYSILENT", f"/DIR={shared}", name="4-dir")
 check(code != 0, f"a /DIR folder with other files in it is refused (exit {code})")
-check((shared / "keep me.txt").exists() and not (shared / "Corefold.exe").exists(), "and nothing in it changed")
+check((shared / "keep me.txt").exists() and not (shared / "RakizaCore.exe").exists(), "and nothing in it changed")
 
-# 6. removing Corefold while it runs: it's asked to close; files that aren't Corefold's stay
+# 6. removing Rakiza Core while it runs: it's asked to close; files that aren't Rakiza Core's stay
 wait_for(lambda: pids(EXE), 20) or subprocess.Popen([str(EXE), "--background"])
 wait_for(lambda: pids(EXE), 30)
 mine = APP_DIR / "my notes.txt"
@@ -159,10 +159,10 @@ code = subprocess.run([str(unins), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTA
 wait_for(lambda: not EXE.exists(), 60)
 after = log_text()[len(before):]
 check(code == 0 and not EXE.exists(), f"removed (exit {code})")
-check("the installer asked Corefold to close" in after, "Corefold was asked to close before it was removed")
-check(mine.exists(), "a file that isn't Corefold's stays (it used to be deleted with the folder)")
-check(not (APP_DIR / "_internal").exists(), "Corefold's own files are gone")
-check(bool(pids(decoy)), "the other program called Corefold.exe is still running")
+check("the installer asked Rakiza Core to close" in after, "Rakiza Core was asked to close before it was removed")
+check(mine.exists(), "a file that isn't Rakiza Core's stays (it used to be deleted with the folder)")
+check(not (APP_DIR / "_internal").exists(), "Rakiza Core's own files are gone")
+check(bool(pids(decoy)), "the other program called RakizaCore.exe is still running")
 
 decoy_proc.kill()
 print(f"installertest: {len(problems)} problem(s)", flush=True)

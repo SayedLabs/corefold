@@ -1,4 +1,4 @@
-"""Corefold Space's page: a map of what's filling a drive, cleaning up junk, and finding duplicates."""
+"""Rakiza Core Space's page: a map of what's filling a drive, cleaning up junk, and finding duplicates."""
 from __future__ import annotations
 
 import gc
@@ -1095,7 +1095,7 @@ class SpacePage(QWidget):
         tabs = QHBoxLayout()
         tabs.setSpacing(6)
         strip = QFrame()
-        strip.setObjectName("useBar")  # (the same bar as Corefold Files' uses)
+        strip.setObjectName("useBar")  # (the same bar as Rakiza Core Files' uses)
         sl = QHBoxLayout(strip)
         sl.setContentsMargins(4, 4, 4, 4)
         sl.setSpacing(2)
@@ -1175,7 +1175,7 @@ class SpacePage(QWidget):
         # the fast look: the drive's own table of files, read by an administrator copy (Windows asks each time)
         self.fast_look = QCheckBox(tr("Fast look at whole drives (Windows asks for permission)"))
         self.fast_look.setToolTip(tr("Reads the drive's own list of every file at once, many times faster on a big "
-                                     "drive. Only reads: nothing on the drive is changed. If you say no, Corefold "
+                                     "drive. Only reads: nothing on the drive is changed. If you say no, Rakiza Core "
                                      "looks the usual way."))
         self.fast_look.setChecked(bool(self.c.settings.space_fast_look))
         self.fast_look.toggled.connect(self._fast_look_changed)
@@ -1261,7 +1261,7 @@ class SpacePage(QWidget):
         line.addWidget(self.summary, 1)
         self.live_badge = _label("", "muted")
         self.live_badge.setTextFormat(Qt.RichText)
-        self.live_badge.setToolTip(tr("Windows tells Corefold what changes on the disk, and the map follows "
+        self.live_badge.setToolTip(tr("Windows tells Rakiza Core what changes on the disk, and the map follows "
                                       "it as it happens: no need to look again"))
         self.live_badge.hide()
         line.addWidget(self.live_badge, 0, Qt.AlignRight | Qt.AlignTop)
@@ -2452,7 +2452,7 @@ class SpacePage(QWidget):
             text = tr("Last time: {when}. Only temporary files, crash reports and caches.",
                       when=time_ago(s.space_auto_last))
         else:
-            text = tr("The first time is a few minutes after Corefold starts. Only temporary files, crash reports and "
+            text = tr("The first time is a few minutes after Rakiza Core starts. Only temporary files, crash reports and "
                       "caches.")
         self.auto_note.setText(text)
 

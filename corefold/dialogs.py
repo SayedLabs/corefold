@@ -1,4 +1,4 @@
-"""What asks for a choice before converting (shown as a sheet inside Corefold's window): resize, rotate, trim, fit size,
+"""What asks for a choice before converting (shown as a sheet inside Rakiza Core's window): resize, rotate, trim, fit size,
 watermark, frames, slideshow, archive options, passwords and new names."""
 from __future__ import annotations
 
@@ -480,7 +480,7 @@ class FitDialog(Base):
         self.lay.addLayout(row)
         if not self.group.checkedButton():
             self.custom.setChecked(True)
-        note = QLabel(tr("Corefold picks the best quality that still fits. Videos keep their sound; very long "
+        note = QLabel(tr("Rakiza Core picks the best quality that still fits. Videos keep their sound; very long "
                          "videos may need a bigger size."))
         note.setObjectName("muted")
         note.setWordWrap(True)

@@ -1,11 +1,11 @@
-"""Checks on a real Windows PC that Corefold never flashes a window: no console window (a black box from a
-program started without CREATE_NO_WINDOW), no window from a program Corefold starts in the background, and
+"""Checks on a real Windows PC that Rakiza Core never flashes a window: no console window (a black box from a
+program started without CREATE_NO_WINDOW), no window from a program Rakiza Core starts in the background, and
 no window of its own that shows up and is gone again a moment later. Every tool is switched on, the app
 starts the way it does with Windows, the window opens every page, and the tools' own windows, popups and
 jobs (a picture, an archive, a conversion) are opened and used, while flashwatch.py notes every window
 Windows shows.
 
-This test lets go of its console first, the way Corefold.exe has none: a program started without
+This test lets go of its console first, the way RakizaCore.exe has none: a program started without
 CREATE_NO_WINDOW then really opens a console window here, as it would on people's PCs.
 
 Run from the repository: python scripts/newtest_flash.py [folder]
@@ -27,7 +27,7 @@ TMP = Path(tempfile.mkdtemp(prefix="corefold-flashtest-"))
 os.environ["APPDATA"] = str(TMP / "roaming")
 os.environ["LOCALAPPDATA"] = str(TMP / "local")
 sys.path.insert(0, str(ROOT))
-os.environ.setdefault("COREFOLD_WAKE_ORGANIZER", "1")  # (File Organizer rests in a built Corefold: its kept code is tried here)
+os.environ.setdefault("COREFOLD_WAKE_ORGANIZER", "1")  # (File Organizer rests in a built Rakiza Core: its kept code is tried here)
 sys.path.insert(0, str(ROOT / "scripts"))
 LOG = open(OUT / "newtest_flash.txt", "w", encoding="utf-8")
 
@@ -376,7 +376,7 @@ def inside_the_window():
         settle(1.8)
     doing("a message while the window is in use")
     w.open_page("Home")
-    c.say("In the window", "a message inside Corefold's window")
+    c.say("In the window", "a message inside Rakiza Core's window")
     settle(2)
     c.toast.hide()
     doing("a dialog asked from the tray (it opens the window, inside it)")
@@ -390,7 +390,7 @@ def inside_the_window():
     extra = watch.own_windows(t0, mine)
     for line in extra:
         check(False, line)
-    check(not extra, "nothing opened a window of its own: it all showed inside Corefold's window")
+    check(not extra, "nothing opened a window of its own: it all showed inside Rakiza Core's window")
 
 
 def hide_and_wait():
@@ -416,7 +416,7 @@ for line in flashes:
     check(False, line)
 check(not flashes, f"no window flashed ({len(watch.events)} windows shown in {time.time() - START:.0f} s)")
 check(not errors, f"no errors behind the steps ({len(errors)})")
-log_file = st.LOG_DIR / "corefold.log"
+log_file = st.LOG_DIR / "rakizacore.log"
 if log_file.exists():
     (OUT / "newtest_flash-log.txt").write_text(log_file.read_text("utf-8", "replace"), "utf-8")
 say(f"newtest_flash: {len(problems)} problem(s)")

@@ -146,7 +146,7 @@ def own_shortcut(path: Path):
             if check(lnk.exists(), f"a shortcut {lnk.stem} was made for the test"):
                 got = qs.lnk_target(str(lnk))
                 check(os.path.normcase(got.rstrip("\\")) == os.path.normcase(str(target).rstrip("\\")),
-                      f"…and Corefold reads where it points ({got})")
+                      f"…and Rakiza Core reads where it points ({got})")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -157,7 +157,7 @@ def prepare(name: str) -> tuple[Path, str]:
     docs = Path(qs.known_folder("documents"))
     check(docs.is_dir(), f"Documents is there ({docs})")
     path = docs / f"{name}.txt"
-    path.write_text("Corefold's quick menu test. It is removed when the test ends.\n", "utf-8")
+    path.write_text("Rakiza Core's quick menu test. It is removed when the test ends.\n", "utf-8")
     source = ""
     qs._init_thread()
     first = qs.index_query(name)

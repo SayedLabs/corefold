@@ -1,7 +1,7 @@
-"""Checks how Corefold tells people a new version is out, on a real Windows PC, with GitHub's answer
+"""Checks how Rakiza Core tells people a new version is out, on a real Windows PC, with GitHub's answer
 made up (nothing is downloaded): the corner message once a day, the Windows notification when that one
-is busy, the line at the top of the tray menu and in its tip, the "New" mark on the Updates row and the
-line on the Home page, and that all of it goes once the version isn't waiting any more. It runs in
+is busy, the line at the top of the tray menu and in its tip, the dot on the About row (Updates is with
+About) and the line on the Home page, and that all of it goes once the version isn't waiting any more. It runs in
 English (dark) and Arabic (light), and pictures are saved in out/newtest_updates/.
 
 Run from the repo root: python scripts/newtest_updates.py
@@ -41,7 +41,7 @@ if not ONE:  # each language in a fresh process (settings and language are read 
     print(f"newtest_updates: {len(problems)} problem(s)", flush=True)
     sys.exit(1 if problems else 0)
 
-TMP = Path(tempfile.mkdtemp(prefix="corefold-updatetest-"))
+TMP = Path(tempfile.mkdtemp(prefix="rakizacore-updatetest-"))
 os.environ["APPDATA"] = str(TMP / "roaming")
 os.environ["LOCALAPPDATA"] = str(TMP / "local")
 sys.path.insert(0, str(ROOT))
@@ -73,12 +73,12 @@ if i18n.is_rtl():
 from corefold import app as A  # noqa: E402
 from corefold import updater  # noqa: E402
 from corefold.i18n import tr  # noqa: E402
-from corefold.navbar import BADGE_ROLE  # noqa: E402
+from corefold.navbar import BADGE_ROLE, DOT  # noqa: E402
 
 problems = []
 NEW = "99.1.0"
 answer = {"info": updater.UpdateInfo(NEW, "https://github.com/SayedLabs/corefold/releases/latest",
-                                     f"Corefold-Setup-{NEW}.exe", None, 0, None), "err": ""}
+                                     f"RakizaCore-Setup-{NEW}.exe", None, 0, None), "err": ""}
 
 
 def fake_check(repo, current, timeout=15):
@@ -132,9 +132,9 @@ settle(0.5)
 def badge():
     for row in range(c.window.nav.count()):
         item = c.window.nav.item(row)
-        if item.data(Qt.UserRole) == "Updates":
+        if item.data(Qt.UserRole) == "About":  # (Updates is with About: one row, a dot while one waits)
             return item.data(BADGE_ROLE)
-    return "no Updates row"
+    return "no About row"
 
 
 def run_check(manual=False):
@@ -146,7 +146,7 @@ def found():
     check(not c.act_update.isVisible(), "no update line in the tray menu before anything is found")
     run_check()
     check(c.update_state == "available", f"the new version is found ({c.update_state})")
-    title = tr("Corefold {version} is available", version=NEW)
+    title = tr("Rakiza Core {version} is available", version=NEW)
     check(c.toast.isVisible() and c.toast.title.text() == title, "the corner message says so")
     c.toast.grab().save(str(OUT / f"message-{LANG}-{LOOK}.png"))
     check(c.settings.update_told.startswith(NEW + " "), f"it remembers telling ({c.settings.update_told!r})")
@@ -165,7 +165,7 @@ def once_a_day():
     run_check()
     c.toast.running = False
     c.toast.hide()
-    check(shown_in_windows == [tr("Corefold {version} is available", version=NEW)],
+    check(shown_in_windows == [tr("Rakiza Core {version} is available", version=NEW)],
           f"Windows notification when the corner is busy ({shown_in_windows})")
     c.toast.hide()
     run_check(manual=True)
@@ -179,8 +179,11 @@ def window_marks():
     w = c.window
     check(w.update_banner.isVisible(), "the Home page has the new-version line")
     check(NEW in w.update_banner_title.text(), f"Home line: {w.update_banner_title.text()!r}")
-    check(badge() == tr("New"), f"the Updates row is marked ({badge()!r})")
+    check(badge() == DOT, f"the About row is marked ({badge()!r})")
     w.grab().save(str(OUT / f"home-{LANG}-{LOOK}.png"))
+    w.open_page("About")
+    settle(0.4)
+    check(w.about_update_btn.isVisible() and NEW in w.about_update_title.text(), "the About page offers the update")
     w.open_page("Updates")
     settle(0.4)
     check(w.update_now.isVisible(), "the Updates page offers the update")
@@ -257,9 +260,9 @@ def gone():
     run_check()
     check(c.update_state == "uptodate", "up to date again")
     check(not c.act_update.isVisible(), "the tray line goes")
-    check(tr("Corefold {version} is available", version=NEW) not in c.tray.toolTip(), "the tray tip goes back")
+    check(tr("Rakiza Core {version} is available", version=NEW) not in c.tray.toolTip(), "the tray tip goes back")
     check(not c.window.update_banner.isVisible(), "the Home line goes")
-    check(not badge(), "the Updates row's mark goes")
+    check(not badge(), "the About row's mark goes")
 
 
 def switched_off():

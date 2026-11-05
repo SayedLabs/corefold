@@ -1,4 +1,4 @@
-# Checks that copies from before 1.7.0 still update themselves to a new Corefold: builds Corefold the
+# Checks that copies from before 1.7.0 still update themselves to a new Rakiza Core: builds Rakiza Core the
 # way a release does, then installs each old version from its release on GitHub and lets that
 # version's own updater install the build (see scripts/oldupdatetest.py). Run it by hand from the
 # Actions tab; nothing is published. The result is on the run's summary page.

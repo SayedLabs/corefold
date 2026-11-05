@@ -1,4 +1,4 @@
-"""Corefold Space's empty folders window: finds folders with nothing in them (corefold/emptyfolders.py)
+"""Rakiza Core Space's empty folders window: finds folders with nothing in them (corefold/emptyfolders.py)
 and sends the ticked ones to the Recycle Bin. Opened from Space's Duplicates section."""
 from __future__ import annotations
 
@@ -233,7 +233,7 @@ class EmptyFoldersDialog(QDialog):
             notes.append(tr("Stopped after {count} folders. Choose a smaller folder to look through the rest.",
                             count=_n(emptyfolders.MAX_FOLDERS)))
         if found.refused:
-            notes.append(tr("Corefold doesn't look for empty folders inside Windows, programs' folders or AppData."))
+            notes.append(tr("Rakiza Core doesn't look for empty folders inside Windows, programs' folders or AppData."))
         if any(i.leftovers for i in found.items):
             notes.append(tr("Folders holding only files Windows adds by itself (desktop.ini, Thumbs.db) count as "
                             "empty."))

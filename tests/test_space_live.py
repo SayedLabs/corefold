@@ -1,4 +1,4 @@
-"""Corefold Space: finding files by name on the map, the map following the disk as it changes, and moving
+"""Rakiza Core Space: finding files by name on the map, the map following the disk as it changes, and moving
 a file to the Recycle Bin with what goes with it."""
 import os
 import shutil

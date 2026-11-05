@@ -1,6 +1,6 @@
 # Security checks on a real Windows PC (scripts/securitytest.py), with the Uninstaller's own checks
 # (they move, back up and put back leftovers the way the administrator helper does), the self-test
-# (7-Zip and FFmpeg found the safe way) and a look for known holes in the Python packages Corefold
+# (7-Zip and FFmpeg found the safe way) and a look for known holes in the Python packages Rakiza Core
 # ships with. Runs when the parts it checks change, every Monday (new holes are found all the time),
 # and by hand.
 name: Security checks

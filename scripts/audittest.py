@@ -1,7 +1,7 @@
 """Checks for the data-safety fixes: each one first makes the problem happen the way it could for real
 (a crash in the middle of a sort, a different file in a moved file's place, a cut-off download, a ZIP
 bomb, a password on 7-Zip's command line, deleted clipboard copies still in the file, a "Recycle Bin"
-delete that would be for good) and then checks that Corefold handles it safely.
+delete that would be for good) and then checks that Rakiza Core handles it safely.
 
 Runs on Windows (the parts that need 7-Zip or the Recycle Bin are left out elsewhere):
     python scripts/audittest.py
@@ -77,7 +77,7 @@ def rename(a, b):
     real(a, b)
     n[0] += 1
     if n[0] >= int(sys.argv[3]):
-        os._exit(9)  # Corefold stops dead, as in a crash or a power cut
+        os._exit(9)  # Rakiza Core stops dead, as in a crash or a power cut
 organizer.os.rename = rename
 organizer.sort(organizer.plan(Path(sys.argv[2]), check_in_use=False))
 '''
@@ -102,7 +102,7 @@ def organizer_crash():
     loose = sorted(p.name for p in folder.iterdir() if p.is_file())
     check(res.back == CRASH_AFTER and len(loose) == 300, f"Undo put all {res.back} back (loose files: {len(loose)})")
     check(not any(p.is_dir() for p in folder.iterdir()), "the folder it made is gone again")
-    check(not (TMP / "roaming" / "Corefold" / organizer.JOURNAL_FILE).exists(), "the journal was cleared")
+    check(not (TMP / "roaming" / "Rakiza Core" / organizer.JOURNAL_FILE).exists(), "the journal was cleared")
 
 
 def organizer_identity():
@@ -149,7 +149,7 @@ def organizer_identity():
     state = {"last": {"folder": str(folder), "time": time.time(),
                       "moves": [[str(folder / "b.jpg"), str(folder / "Pictures" / "b.jpg")]],
                       "made": [str(folder / "Pictures")]}}
-    (TMP / "roaming" / "Corefold" / "organizer.json").write_text(json.dumps(state), encoding="utf-8")
+    (TMP / "roaming" / "Rakiza Core" / "organizer.json").write_text(json.dumps(state), encoding="utf-8")
     res = organizer.undo()
     check(res.back == 1 and (folder / "b.jpg").exists(), "an older version's sort is still undone")
 
@@ -488,7 +488,7 @@ def archive_passwords():
     seen, _ = _cmdlines_while(lambda: subprocess.run([exe, "a", "-t7z", "-mx=9", f"-p{pw}", str(old),
                                                       str(src / "big.bin")], capture_output=True))
     note(f"the old way, 7-Zip's command line as other programs see it: {'shown' if any(pw in c for c in seen) else 'not caught'}")
-    # Corefold's way, for each kind of archive and each thing done with a password
+    # Rakiza Core's way, for each kind of archive and each thing done with a password
     for fmt, password in (("7z", pw), ("zip", "Pass word 1 ")):
         out = folder / f"locked.{fmt}"
         made, outs = _cmdlines_while(lambda: archives.pack_into([src / "secret.txt", src / "big.bin"], out,
@@ -551,19 +551,19 @@ def clipboard_wiped():
     db.execute("PRAGMA journal_mode=WAL")
     db.execute("CREATE TABLE items (id INTEGER PRIMARY KEY, kind TEXT NOT NULL, text TEXT, html TEXT, image TEXT,"
                " width INTEGER, height INTEGER, digest TEXT UNIQUE NOT NULL, pinned INTEGER DEFAULT 0, created REAL,"
-               " used REAL, app TEXT, size INTEGER)")  # (the history as Corefold 1.9 made it)
+               " used REAL, app TEXT, size INTEGER)")  # (the history as Rakiza Core 1.9 made it)
     db.execute("INSERT INTO items (kind, text, digest) VALUES ('text', ?, 'x')", (secret * 50,))
     db.commit()
     db.execute("DELETE FROM items")
     db.commit()
     db.close()
     note(f"the old way, deleted copy still in the file: {_file_has(folder, raw)}")
-    # an old history like that is wiped once when Corefold opens it
+    # an old history like that is wiped once when Rakiza Core opens it
     h = clipboard.History(folder)
     h.db.execute("SELECT 1").fetchone()
     h.close()
     check(not _file_has(folder, raw), "an older history: copies deleted before are wiped when it's opened")
-    # Corefold's way: deleted, forgotten after its days, and cleared
+    # Rakiza Core's way: deleted, forgotten after its days, and cleared
     folder = fresh("clip-new")
     h = clipboard.History(folder)
     one = h.add(clipboard.text_item(secret + " one"))

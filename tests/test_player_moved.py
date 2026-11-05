@@ -1,5 +1,5 @@
-"""The Player has left Corefold (it moves to Rakiza Play): nothing of it is listed or loaded, its old
-"Open with" entry for videos and music is always taken out, and a page or command an older Corefold
+"""The Player has left Rakiza Core (it moves to Rakiza Play): nothing of it is listed or loaded, its old
+"Open with" entry for videos and music is always taken out, and a page or command an older Rakiza Core
 still sends lands somewhere sensible."""
 from pathlib import Path
 
@@ -28,7 +28,7 @@ def test_its_open_with_entry_is_always_taken_out(monkeypatch):
     c.settings = settings.Settings()
     app.Controller.sync_archive_opening(c)
     assert asked["media"][0] is False
-    assert "media" in assoc.GROUPS  # (kept so unregister() can still find what an older Corefold wrote)
+    assert "media" in assoc.GROUPS  # (kept so unregister() can still find what an older Rakiza Core wrote)
 
 
 def test_old_pages_open_something_else():

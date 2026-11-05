@@ -1,4 +1,4 @@
-"""Corefold Startup, tried for real on a Windows PC: made-up programs are added to the places Windows
+"""Rakiza Core Startup, tried for real on a Windows PC: made-up programs are added to the places Windows
 starts things from, then listed, switched off and on (by code and by clicking the page), searched and
 filtered, and everything is checked against what Task Manager writes. Store apps' startup tasks are
 tried with a made-up package, and scheduled tasks with a made-up task. Every other startup entry on the
@@ -108,7 +108,7 @@ def snapshot() -> dict:
                         name, value, _ = winreg.EnumValue(k, i)
                     except OSError:
                         break
-                    if name not in TEST and not name.startswith("CfStartup") and name != st.APP_NAME:
+                    if name not in TEST and not name.startswith("CfStartup") and name != st.KEEP_ID:
                         out[(label, name)] = value
                     i += 1
         except OSError:
@@ -277,11 +277,11 @@ def new_since():
 
 
 def own_entry():
-    """Corefold's own line and its setting in Settings → General always agree."""
+    """Rakiza Core's own line and its setting in Settings → General always agree."""
     st.set_startup(True)
-    check(st.startup_enabled(), "Corefold set to start with Windows")
+    check(st.startup_enabled(), "Rakiza Core set to start with Windows")
     own = next((e for e in startup.list_entries() if e.own), None)
-    check(own is not None, "Corefold's own line is found")
+    check(own is not None, "Rakiza Core's own line is found")
     if own:
         check(startup.set_on(own, False) and not st.startup_enabled(),
               "switched off on the Startup page (or in Task Manager): Settings says off too")
@@ -308,7 +308,7 @@ def leftovers():
     names = sorted(e.value for e in mine)
     check(names == ["CfStartupGone", "CfStartupLeft", "CfStartupLeft.lnk"],
           f"the made-up leftovers are found, and only them ({names})")
-    check(all(not e.own for e in startup.leftovers(entries)), "Corefold's own line is never a leftover")
+    check(all(not e.own for e in startup.leftovers(entries)), "Rakiza Core's own line is never a leftover")
     test_run = get(winreg.HKEY_CURRENT_USER, startup.RUN, "CfStartupTest")
     left = [e for e in mine if e.value != "CfStartupGone"]
     removed = startup.remove_leftovers(left)
@@ -529,10 +529,10 @@ def page():
         check(pg.problem.isHidden(), "no problem shown")
     finally:
         startup.leftovers = real_left
-    # put off until a minute after sign-in: Windows skips it, Corefold starts it
+    # put off until a minute after sign-in: Windows skips it, Rakiza Core starts it
     import corefold.settings as cs
     real_enabled = cs.startup_enabled
-    cs.startup_enabled = lambda: True  # (as if Corefold started with Windows)
+    cs.startup_enabled = lambda: True  # (as if Rakiza Core started with Windows)
     proof = TMP / "later-proof.txt"
     put(winreg.HKEY_CURRENT_USER, startup.RUN, "CfStartupDelay", f'"{SYSTEM32 / "cmd.exe"}" /c echo later> "{proof}"')
     try:
@@ -565,13 +565,13 @@ def page():
             settle(0.4)
             w.grab().save(str(OUT / f"startup-later-{LANG}-{LOOK}.png"))
             c.start_later()
-            check(until(proof.exists, 15), "Corefold starts it, with what it was given to run")
-            # switched back on in Task Manager: Corefold forgets it (it would start twice)
+            check(until(proof.exists, 15), "Rakiza Core starts it, with what it was given to run")
+            # switched back on in Task Manager: Rakiza Core forgets it (it would start twice)
             put(winreg.HKEY_CURRENT_USER, startup.APPROVED + r"\Run", "CfStartupDelay", startup.ON_BYTES,
                 winreg.REG_BINARY)
             QTest.mouseClick(pg.refresh_btn, Qt.LeftButton)
             check(until(lambda: not pg.loading, 15) and row_in(pg, "CfStartupDelay", "on")
-                  and not c.settings.startup_later, "switched back on elsewhere: Corefold doesn't start it any more")
+                  and not c.settings.startup_later, "switched back on elsewhere: Rakiza Core doesn't start it any more")
             row = next(r for r in pg.rows if r.entry.value == "CfStartupDelay")
             pg.start_later(row, True)
             until(lambda: not pg.busy, 15)

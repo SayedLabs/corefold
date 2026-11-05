@@ -1,4 +1,4 @@
-"""Corefold Network: which programs are using the network right now, how fast it is, and a speed test.
+"""Rakiza Core Network: which programs are using the network right now, how fast it is, and a speed test.
 
 Everything except the speed test is read from this PC, with the same permissions as any program
 (no administrator, no driver, no service running in the background):
@@ -104,8 +104,8 @@ _FUNCS_LOCK = threading.Lock()
 
 
 def _fn(dll: str, name: str, restype, *argtypes):
-    """A Windows function with its types, set once. Corefold Network loads its own copy of each library, so the
-    types set here never change the same function for the rest of Corefold (another tool may call it on another
+    """A Windows function with its types, set once. Rakiza Core Network loads its own copy of each library, so the
+    types set here never change the same function for the rest of Rakiza Core (another tool may call it on another
     thread at the same moment), and nothing changes them while a call is running."""
     key = (dll, name)
     with _FUNCS_LOCK:
@@ -773,7 +773,7 @@ def metered() -> bool | None:
 
 # ----------------------------------------------------------------------------- the speed test
 
-SPEED_HOST = "speed.cloudflare.com"   # Cloudflare's speed test (the only place Corefold Network ever connects to)
+SPEED_HOST = "speed.cloudflare.com"   # Cloudflare's speed test (the only place Rakiza Core Network ever connects to)
 DOWN_PATH = "/__down?bytes={size}"
 UP_PATH = "/__up"
 STREAMS = 4                  # connections at once, so one connection's limits don't hide a fast line

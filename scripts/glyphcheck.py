@@ -1,4 +1,4 @@
-"""Every symbol Corefold shows in its words (arrows, stars, ticks, ...) is in Windows' own UI font.
+"""Every symbol Rakiza Core shows in its words (arrows, stars, ticks, ...) is in Windows' own UI font.
 
 A symbol the font lacks makes Windows look through every font on the PC the first time it's drawn: that
 held the Updates page for up to 3 seconds (the ◂ arrow, in Arabic). Draw such a mark as an icon instead

@@ -1,4 +1,4 @@
-"""Corefold Network's page: how fast the network is going right now, which programs are using it and where
+"""Rakiza Core Network's page: how fast the network is going right now, which programs are using it and where
 they connect, how much each one used, what other devices could reach, and a speed test on request.
 
 Everything is read from this PC while the page is in sight (nothing runs in the background when it isn't).
@@ -88,7 +88,7 @@ def _para(text: str) -> str:
 
 
 def signature_of(path: str):
-    """A program file's signature (kept: each file is checked once while Corefold runs)."""
+    """A program file's signature (kept: each file is checked once while Rakiza Core runs)."""
     with _sig_lock:
         if path in _signatures:
             return _signatures[path]
@@ -563,7 +563,7 @@ def _duration(seconds: float) -> str:
 # ----------------------------------------------------------------------------- the page
 
 class NetworkPage(QWidget):
-    """Corefold Network in the window."""
+    """Rakiza Core Network in the window."""
 
     def __init__(self, controller: "Controller", header):
         super().__init__()

@@ -1,4 +1,4 @@
-"""Corefold PDF's page editor, the part with no window: reading what is on a page (its lines of text,
+"""Rakiza Core PDF's page editor, the part with no window: reading what is on a page (its lines of text,
 pictures and form boxes) and writing the edited copy.
 
 What is added (text, pictures, a signature, drawings, shapes, covers, underlines) is drawn by Qt into a
@@ -1467,7 +1467,7 @@ def _layer(pages: dict[int, list[dict]], sizes: dict[int, tuple[float, float]]) 
     buf.open(QIODevice.WriteOnly)
     writer = QPdfWriter(buf)
     writer.setResolution(72)
-    writer.setCreator("Corefold")
+    writer.setCreator("Rakiza Core")
 
     def size_page(i):
         w, h = sizes[i]

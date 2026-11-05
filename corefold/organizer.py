@@ -1,4 +1,4 @@
-"""Corefold File Organizer: sorts the loose files of a folder (Downloads, the Desktop, any folder) into a
+"""Rakiza Core File Organizer: sorts the loose files of a folder (Downloads, the Desktop, any folder) into a
 folder for each kind (Pictures, Documents, Videos…) inside it, with one click. The person's own rules
 ("a name with invoice in it goes into Invoices", "PSD and AI files go into Designs") come first, and each
 folder can be split by year, or by year and month (a photo by the day it was taken).
@@ -7,7 +7,7 @@ Nothing is decided without the person seeing it first: plan() says where every f
 sort() only moves what the plan says. Files are only ever renamed into a folder next to them (never
 copied, never deleted, never overwritten), and the last sort can be undone, even after a restart.
 Left alone: folders, shortcuts, hidden and system files, files still downloading, files a program has
-open, and kinds of file Corefold doesn't know. Windows' and programs' own folders aren't sorted at all.
+open, and kinds of file Rakiza Core doesn't know. Windows' and programs' own folders aren't sorted at all.
 
 Every move is written down before it's made (organizer-journal.jsonl), so a sort cut short by a crash or a
 power cut can still be undone, and Undo only moves a file back if it's still the file that was moved (same
@@ -46,7 +46,7 @@ KIND_OF = {f".{ext}": kind for kind, (_, exts) in KINDS.items() for ext in exts.
 STAYS = {
     "in_use": "A program has it open",
     "downloading": "Still downloading",
-    "unknown": "A kind of file Corefold doesn't sort",
+    "unknown": "A kind of file Rakiza Core doesn't sort",
     "shortcut": "Shortcuts stay where they are",
     "sorted": "Already in its own folder",
     "other_drive": "Its rule's folder is on another drive",
@@ -64,8 +64,8 @@ SKIP_NAMES = {"desktop.ini", "thumbs.db", ".ds_store", "ehthumbs.db"}
 # a refused folder: why (English, shown through tr())
 REFUSED = {
     "missing": "That folder isn't there any more.",
-    "drive": "Corefold doesn't sort the top of a drive: pick a folder on it.",
-    "system": "That's a folder of Windows or of your programs, so Corefold leaves it as it is.",
+    "drive": "Rakiza Core doesn't sort the top of a drive: pick a folder on it.",
+    "system": "That's a folder of Windows or of your programs, so Rakiza Core leaves it as it is.",
     "home": "That's your user folder itself: pick a folder inside it, like Downloads.",
     "program": "That folder looks like a program or a project, where moving files would break it.",
 }
@@ -122,7 +122,7 @@ def _tables() -> list[dict[str, str]]:
 
 
 def folder_name(kind: str) -> str:
-    """A kind's folder, named in Corefold's language (straight from the table: tr() can add an invisible
+    """A kind's folder, named in Rakiza Core's language (straight from the table: tr() can add an invisible
     right-to-left mark, which mustn't end up in a folder's name)."""
     from . import i18n
     english = KINDS[kind][0]
@@ -234,7 +234,7 @@ def _free_name(folder: Path, name: str, taken: set[str]) -> Path:
 
 def _kind_folder(folder: Path, kind: str, names: list[str], remembered: dict) -> tuple[Path, bool]:
     """Where this kind goes in folder: the folder sorted into last time, one already named like it (in any
-    of Corefold's languages), or a new one. Returns (it, already there)."""
+    of Rakiza Core's languages), or a new one. Returns (it, already there)."""
     wanted = remembered.get(kind)
     known = _known_names(kind)
     if wanted:
@@ -351,7 +351,7 @@ def taken_on(path: Path, ext: str, mtime: float) -> float:
 
 
 def month_name(month: int) -> str:
-    """"10 October", in Corefold's language (the number first, so the folders line up in order)."""
+    """"10 October", in Rakiza Core's language (the number first, so the folders line up in order)."""
     try:
         from PySide6.QtCore import QLocale
         from . import i18n
@@ -759,7 +759,7 @@ def _same_file(path, move: list) -> bool:
 
 class _Journal:
     """Each move written down just before it's made, one line each. Lines reach Windows straight away (so a
-    crash of Corefold loses none), and the disk itself every second (a power cut loses at most that)."""
+    crash of Rakiza Core loses none), and the disk itself every second (a power cut loses at most that)."""
     open_now = 0  # (a sort is running: its journal isn't one left by a crash)
 
     def __init__(self, record: dict):
@@ -821,7 +821,7 @@ class _Journal:
 
 
 def _recover(state: dict) -> dict:
-    """A sort that was cut short (Corefold or Windows stopped part-way): what it moved becomes the last sort,
+    """A sort that was cut short (Rakiza Core or Windows stopped part-way): what it moved becomes the last sort,
     so Undo puts it back. A move written down but maybe not made counts only if the file is there."""
     record, move = None, None
     moves: list[list] = []

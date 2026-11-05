@@ -1,4 +1,4 @@
-"""Corefold Unlock's page: drop a file or folder (or pick "What's using this?" in its right-click menu),
+"""Rakiza Core Unlock's page: drop a file or folder (or pick "What's using this?" in its right-click menu),
 see which programs have it open, close them, then delete it or move it."""
 from __future__ import annotations
 
@@ -51,16 +51,16 @@ def _para(text: str) -> str:
 def note_for(p: unlock.Program, state: str, admin: bool) -> str:
     """What to know about this program, or what to do next."""
     if p.own:
-        return tr("This is Corefold itself: close the Corefold window that has it open.")
+        return tr("This is Rakiza Core itself: close the Rakiza Core window that has it open.")
     if p.critical:
-        return tr("Part of Windows. Closing it would stop your PC working, so Corefold leaves it alone. "
+        return tr("Part of Windows. Closing it would stop your PC working, so Rakiza Core leaves it alone. "
                   "Restarting the PC frees the file.")
     if p.service:
         return tr("A Windows service. Restarting the PC frees the file.")
     if p.blocked:
         if admin:
             return tr("Windows doesn't let other programs close it. Restarting the PC frees the file.")
-        return tr("It runs as administrator, so Corefold can only close it when Corefold runs as administrator "
+        return tr("It runs as administrator, so Rakiza Core can only close it when Rakiza Core runs as administrator "
                   "too.")
     if p.explorer:
         if state == "stuck":
@@ -139,7 +139,7 @@ class ProgramRow(QWidget):
 
 
 class UnlockPage(QWidget):
-    """Corefold Unlock in the window."""
+    """Rakiza Core Unlock in the window."""
 
     def __init__(self, controller: "Controller", header):
         super().__init__()
@@ -286,7 +286,7 @@ class UnlockPage(QWidget):
                         "Windows 11, under \"Show more options\")."),
                      tr("Closing a program asks it to close itself, the same as clicking its X, so it can ask you "
                         "to save your work. Only if it's still open after that can you force it to close."),
-                     tr("Corefold never closes the parts of Windows your PC needs to keep working.")):
+                     tr("Rakiza Core never closes the parts of Windows your PC needs to keep working.")):
             tl.addWidget(_label(text, "muted"))
         lay.addWidget(tips)
         lay.addStretch()
@@ -333,7 +333,7 @@ class UnlockPage(QWidget):
             self.found = None
             self._fill()
             self._say(tr("That's a whole drive or one of Windows' own folders: nearly every program uses something "
-                         "in it, so Corefold won't close them. Pick the file or folder inside it that you need."))
+                         "in it, so Rakiza Core won't close them. Pick the file or folder inside it that you need."))
             self._next()
             return
         self._set_busy(True, tr("Looking for programs that are using it…"))
@@ -561,12 +561,12 @@ class UnlockPage(QWidget):
         self.states[prog.pid] = "no_window"
         self._found(found)
         if not gone and any(p.pid == prog.pid for p in found.programs):
-            self._say(tr("Windows didn't let Corefold close {name}.", name=ltr(prog.name)))
+            self._say(tr("Windows didn't let Rakiza Core close {name}.", name=ltr(prog.name)))
 
     # ---- deleting
 
     def delete(self):
-        """To the Recycle Bin (the same way Corefold Space does it)."""
+        """To the Recycle Bin (the same way Rakiza Core Space does it)."""
         if self.busy or not self.paths:
             return
         paths = list(self.paths)
@@ -588,7 +588,7 @@ class UnlockPage(QWidget):
                 log.warning("couldn't delete %s: %s", self.paths, result)
             self.delete_failed = True
             self._fill()
-            self._say(tr("Windows didn't let Corefold delete it. Something may have opened it again: check again, "
+            self._say(tr("Windows didn't let Rakiza Core delete it. Something may have opened it again: check again, "
                          "or have it deleted when the PC restarts."))
             self._next()
             return
@@ -739,7 +739,7 @@ class UnlockPage(QWidget):
         if isinstance(result, Exception):
             log.warning("couldn't move or rename %s: %s", self.paths, result)
             self._fill()
-            self._say(tr("Windows didn't let Corefold do it. Something may have opened it again: check again."))
+            self._say(tr("Windows didn't let Rakiza Core do it. Something may have opened it again: check again."))
             self._next()
             return
         self.paths = list(result)
@@ -790,7 +790,7 @@ class UnlockPage(QWidget):
             log.warning("couldn't copy %s: %s", self.paths, result)
             locked = isinstance(result, OSError) and getattr(result, "winerror", 0) in (32, 33)
             self._say(tr("A program has it open and won't let it be read. Close it first, then copy it.") if locked
-                      else tr("Windows didn't let Corefold copy it: {error}", error=result))
+                      else tr("Windows didn't let Rakiza Core copy it: {error}", error=result))
         else:
             self._say("")
             self.status.setText(tr("Copied to {folder}.", folder=ltr(str(dest_dir))))
@@ -824,7 +824,7 @@ class UnlockPage(QWidget):
             self._say(tr("Windows can only do this on the same drive. Pick a folder on the same drive."))
             return
         if problems:
-            self._say(tr("Corefold doesn't move Windows' or programs' own folders this way."))
+            self._say(tr("Rakiza Core doesn't move Windows' or programs' own folders this way."))
             return
         self._set_busy(True, tr("Waiting for Windows' permission…"))
         self._run(lambda _p: unlock.ask_move_at_restart(moves), self._move_scheduled)
@@ -889,7 +889,7 @@ class UnlockPage(QWidget):
             if isinstance(result, dict) and result.get("error") == "too many":
                 self._say(tr("There are too many files in it to delete as the PC restarts."))
             elif isinstance(result, dict) and result.get("refused"):
-                self._say(tr("Corefold doesn't delete Windows' or programs' own folders this way."))
+                self._say(tr("Rakiza Core doesn't delete Windows' or programs' own folders this way."))
             else:
                 log.warning("couldn't ask for %s to be deleted at restart: %s", self.paths, result)
                 self._say(tr("Windows didn't take it. Try again, or restart the PC and delete it then."))
@@ -944,7 +944,7 @@ class UnlockPage(QWidget):
             look = _button(tr("What's using it?"), None, lambda _=False, r=d.root: self.check([Path(r)]))
             out = _button(tr("Eject"), None, lambda _=False, r=d.root: self.eject_drive(r))
             out.setIcon(icons.icon("eject", t.text))
-            out.setToolTip(tr("Closes nothing: if a program is using it, Corefold says which."))
+            out.setToolTip(tr("Closes nothing: if a program is using it, Rakiza Core says which."))
             h.addWidget(look)
             h.addWidget(out)
             row = SettingRow(_para(drive_name(d)), _para(tr("{free} free of {total}", free=human_size(d.free),
@@ -1001,7 +1001,7 @@ class UnlockPage(QWidget):
         if isinstance(result, Exception):
             log.warning("couldn't eject %s: %s", root, result)
         if why == "busy":
-            # (something Corefold can't see from its files, like a command window opened in it: look again)
+            # (something Rakiza Core can't see from its files, like a command window opened in it: look again)
             self.after_note = tr("Windows says the USB drive is still in use. Close the programs using it (and any "
                                  "command window opened in it), then eject it again.")
             self.check([Path(root)], keep_states=True)

@@ -136,7 +136,7 @@ LINES = [
     ("ltr", "Meeting notes for Monday"),
     ("ltr", "Send the invoice to Sara before noon"),
     ("rtl", "اجتماع الفريق يوم الأحد"),
-    ("rtl", "أرسل الملف إلى Corefold قبل الظهر"),
+    ("rtl", "أرسل الملف إلى Rakiza Core قبل الظهر"),
     ("ltr", "Order number 48213 ships today"),
 ]
 
@@ -324,8 +324,8 @@ def arabic_picks(cv, ed, ar, drag, where):
     check(cv.picked_text() == " ".join(ar[:3]), f"Arabic words, dragged right to left ({cv.picked_text()!r})")
     ed.grab().save(str(OUT / f"{LANG}-{LOOK}-3-arabic-words.png"))
     # the English word inside the Arabic line
-    drag(where("Corefold"), where("قبل"))
-    check(cv.picked_text() == "Corefold قبل", f"an English word inside Arabic ({cv.picked_text()!r})")
+    drag(where("Rakiza Core"), where("قبل"))
+    check(cv.picked_text() == "Rakiza Core قبل", f"an English word inside Arabic ({cv.picked_text()!r})")
 
 
 def english_more(cv, ed, drag, where, real):

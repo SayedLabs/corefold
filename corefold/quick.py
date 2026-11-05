@@ -1,5 +1,5 @@
 """Quick access: a menu and a wheel that open from any app with a shortcut, with the things a person
-uses most (Corefold's tools, its quick actions, and their own apps, folders and websites).
+uses most (Rakiza Core's tools, its quick actions, and their own apps, folders and websites).
 
 What can go on them is listed once here (ACTIONS); the menu (quickmenu.py) and the wheel
 (quickwheel.py) are only built the first time they're opened, and nothing at all runs while both (and
@@ -45,7 +45,7 @@ ACTIONS: dict[str, Action] = {a.id: a for a in (
     Action("explorer", "File Explorer", "folder_open"),
     Action("taskmgr", "Task Manager", "top_speed"),
     Action("lock", "Lock the PC", "lock_closed"),
-    Action("home", "Open Corefold", "home"),
+    Action("home", "Open Rakiza Core", "home"),
     Action("settings", "Settings", "settings"),
     Action("store", "All tools", "apps"),  # (its id is from when this was the Store)
     Action("updates", "Check for updates", "arrow_download"),
@@ -406,7 +406,7 @@ class QuickAccess(QObject):
         on = not sysc.is_on_top(hwnd)
         if not sysc.set_on_top(hwnd, on):
             self.c.tell(tr("Couldn't keep it on top"),
-                        tr("Windows didn't let Corefold change “{title}”. It may be running as administrator.",
+                        tr("Windows didn't let Rakiza Core change “{title}”. It may be running as administrator.",
                            title=name))
             return
         log.info("quick access: a window %s", "stays on top" if on else "is back to normal")

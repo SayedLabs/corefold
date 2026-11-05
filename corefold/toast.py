@@ -1,5 +1,5 @@
-"""Small popup in the bottom corner showing progress and results: inside Corefold's window while you're
-using it (it rises from the window's bottom corner), in the screen's corner while Corefold is in the tray."""
+"""Small popup in the bottom corner showing progress and results: inside Rakiza Core's window while you're
+using it (it rises from the window's bottom corner), in the screen's corner while Rakiza Core is in the tray."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -22,7 +22,7 @@ class Toast(QWidget):
 
     def __init__(self, icon: QIcon, window_for=None):
         super().__init__(None, ON_SCREEN)
-        self.window_for = window_for  # () -> Corefold's window if it's made (the toast shows inside it then)
+        self.window_for = window_for  # () -> Rakiza Core's window if it's made (the toast shows inside it then)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.setFixedWidth(370)
@@ -100,7 +100,7 @@ class Toast(QWidget):
         self.open_btn.setText(tr("Open"))
 
     def _home(self):
-        """Corefold's window when it's the one you're using: the message shows inside it then."""
+        """Rakiza Core's window when it's the one you're using: the message shows inside it then."""
         w = self.window_for() if self.window_for is not None else None
         if w is not None and isValid(w) and w.isVisible() and not w.isMinimized() and w.isActiveWindow():
             return w
@@ -148,7 +148,7 @@ class Toast(QWidget):
 
     def _place(self):
         """A corner of the screen you're working on (by default bottom right, bottom left in Arabic), or of
-        Corefold's window while you're in it."""
+        Rakiza Core's window while you're in it."""
         host = self._settle_in()
         self.adjustSize()
         if host is not None:

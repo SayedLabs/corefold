@@ -1,8 +1,8 @@
-"""The fonts of Corefold PDF's page editor: finding the font a PDF's words were written in, so a changed
+"""The fonts of Rakiza Core PDF's page editor: finding the font a PDF's words were written in, so a changed
 line keeps the same look, and the fonts offered for new text.
 
 A line's font is looked for on this PC (Windows' own fonts and any the user installed), then among the
-fonts Corefold brings (assets/fonts: much-used Arabic and English fonts Windows doesn't have, free under
+fonts Rakiza Core brings (assets/fonts: much-used Arabic and English fonts Windows doesn't have, free under
 the SIL Open Font License, and only ones whose Arabic stays searchable in the saved PDF), and when it's in neither, the closest look is used (serif, plain or
 fixed-width, with every letter of the line). The copy of the font inside a PDF isn't used: it usually
 has only the letters that were on its pages (none for new words) and has lost Arabic's joined letter
@@ -56,7 +56,7 @@ def key(name: str) -> str:
 
 
 def ready():
-    """The fonts Corefold brings, put in Qt's list (once, when the editor first needs a font)."""
+    """The fonts Rakiza Core brings, put in Qt's list (once, when the editor first needs a font)."""
     global _ready, _families
     if _ready:
         return
@@ -81,7 +81,7 @@ def _all() -> dict[str, str]:
 
 
 def find(name: str) -> str:
-    """The font on this PC (or brought by Corefold) for a PDF's font name, or "" when there's none:
+    """The font on this PC (or brought by Rakiza Core) for a PDF's font name, or "" when there's none:
     "Times New Roman", "TimesNewRoman", "Helvetica", "Cairo SemiBold" -> "Cairo", …"""
     if not name:
         return ""

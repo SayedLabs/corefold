@@ -1,5 +1,5 @@
 """
-Corefold's conversion tools. No GUI code here, so this module can be tested on its own.
+Rakiza Core's conversion tools. No GUI code here, so this module can be tested on its own.
 
 Every tool runs as run(item, ctx): item is a Path (or a list of Paths for batch tools),
 ctx gives the output location, the user's choices (ctx.params), progress and cancellation.
@@ -198,16 +198,16 @@ def avif_supported() -> bool:
 
 
 def check_avif(files: list[Path]) -> str | None:
-    return None if avif_supported() else tr("This copy of Corefold can't write AVIF")
+    return None if avif_supported() else tr("This copy of Rakiza Core can't write AVIF")
 
 
 def check_jxl(files: list[Path]) -> str | None:
-    return None if has_encoder("libjxl") else tr("This copy of Corefold can't write JPEG XL")
+    return None if has_encoder("libjxl") else tr("This copy of Rakiza Core can't write JPEG XL")
 
 
 def convert_jxl(src: Path, ctx: Ctx, ext: str = ".jxl") -> Result:
     """JPEG XL (about half the size of a JPG at the same look, and it keeps see-through parts), made by FFmpeg's
-    libjxl from the picture as Corefold reads it (so HEIC, camera RAW and the rest work too)."""
+    libjxl from the picture as Rakiza Core reads it (so HEIC, camera RAW and the rest work too)."""
     im = load_image(src)
     out = ctx.out_path(src, ctx.stem(src) + ".jxl")
     keep = "A" in im.getbands() or im.mode in ("P", "PA")
@@ -656,8 +656,8 @@ def read_qr(src: Path, ctx: Ctx) -> Result:
 
 
 # --- background removal (U²-Net "silueta" model, runs on the PC) ---
-# The model runs in a small helper process (bgworker.py) that Corefold closes when it tidies up,
-# so its few hundred MB go back to Windows instead of staying while Corefold waits in the tray.
+# The model runs in a small helper process (bgworker.py) that Rakiza Core closes when it tidies up,
+# so its few hundred MB go back to Windows instead of staying while Rakiza Core waits in the tray.
 
 _bg_session = None   # only used if the helper can't start (and when testing off Windows)
 _bg_worker = None    # (process, connection) while the helper is running
@@ -764,7 +764,7 @@ def remove_background(src: Path, ctx: Ctx) -> Result:
 
 
 def release_memory():
-    """Frees what Corefold keeps around to be quick (the background remover alone is ~200 MB)."""
+    """Frees what Rakiza Core keeps around to be quick (the background remover alone is ~200 MB)."""
     global _bg_session
     with _bg_lock:
         _bg_session = None
@@ -794,7 +794,7 @@ def find_tool(name: str) -> str:
     found = find_program(name)
     if found:
         return found
-    raise RuntimeError(tr("FFmpeg is missing. Reinstall Corefold to fix audio and video conversion."))
+    raise RuntimeError(tr("FFmpeg is missing. Reinstall Rakiza Core to fix audio and video conversion."))
 
 
 def probe(src: Path) -> dict:
@@ -1777,7 +1777,7 @@ finally { $app.AutomationSecurity = $was; if ($app.Presentations.Count -eq 0) { 
 
 def document_to_pdf(src: Path, ctx: Ctx) -> Result:
     from . import textpdf
-    if textpdf.is_text(src):  # (text, Markdown, web pages and tables: Corefold makes those itself)
+    if textpdf.is_text(src):  # (text, Markdown, web pages and tables: Rakiza Core makes those itself)
         return textpdf.text_to_pdf(src, ctx)
     out = ctx.out_path(src, ctx.stem(src) + ".pdf")
     prog = office_app_for(src)
@@ -1977,7 +1977,7 @@ def both(*checks):
 
 
 def catalog(multi: bool = False) -> dict[str, list[Tool]]:
-    """Every tool Corefold has, per kind of file, in default wheel order."""
+    """Every tool Rakiza Core has, per kind of file, in default wheel order."""
     from . import archives as ar, audiotags as at, extras as ex, moretools as mt, pdfstamp as ps, videotools as vt
 
     def fmt(kind, ext, fn, check=None, **kw):

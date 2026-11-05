@@ -395,7 +395,7 @@ def part(lang, look):
                 settle(1.5)
                 check(w.content.audio.isMuted(), "…playing without sound")
             check(w.corefold_btn.isVisible() == (kind in ("archive", "video")),
-                  f"…'Open with Corefold' is offered only when Corefold opens it ({w.corefold_btn.isVisible()})")
+                  f"…'Open with Rakiza Core' is offered only when Rakiza Core opens it ({w.corefold_btn.isVisible()})")
             shot(kind)
             press(VK_ESC)
             check(until(lambda: not shown(), 2), "…Esc closes it")

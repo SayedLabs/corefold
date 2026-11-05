@@ -1,7 +1,7 @@
 """Colours and the app-wide stylesheet. Light/dark follows Windows unless the user picks one.
 
 The colours, sizes and Qt's own widgets come from the Atomic design system (atomic/); this file adds
-the wheel's colours and the look of Corefold's own parts."""
+the wheel's colours and the look of Rakiza Core's own parts."""
 from __future__ import annotations
 
 import tempfile
@@ -110,10 +110,11 @@ def _chevron_image(color: QColor, up: bool) -> str:
     return _image("up" if up else "down", color, draw)
 
 
-# Corefold's own parts (Qt's widgets and the shared names come from atomic/qss.py)
+# Rakiza Core's own parts (Qt's widgets and the shared names come from atomic/qss.py)
 QSS = Template("""
 QWidget#sidebar { background: transparent; }
 QLabel#brand { font-family: $font_display; font-size: 12.5pt; font-weight: 700; }
+QLabel#family { font-family: $font_display; font-size: 7pt; font-weight: 700; color: $family; }
 QListWidget#nav { background: transparent; border: none; outline: none; }
 QPushButton#navToggle { background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 0;
                         min-width: 0; }
@@ -250,6 +251,10 @@ QPushButton#close:hover { color: $text; }
 """)
 
 
+# Rakiza Labs' own colour (the family the app belongs to), apart from the app's teal: (light, dark)
+FAMILY_GOLD = {False: "#B8893B", True: "#D9B36A"}
+
+
 def stylesheet(t: Theme, scale: float = 1.0) -> str:
     rtl = QGuiApplication.layoutDirection() == Qt.RightToLeft
     p = t.tokens
@@ -264,7 +269,7 @@ def stylesheet(t: Theme, scale: float = 1.0) -> str:
         edge_hover=p.line_strong.name(), accent_text=(p.accent if p.dark else p.accent.darker(108)).name(),
         card_hover=p.hover.name(), select=p.select.name(), warning=p.warning.name(),
         nav_hover=mix(p.backdrop, p.text, 0.06).name(), nav_press=mix(p.backdrop, p.text, 0.1).name(),
-        lead_side=lead, font_display=tokens.FONT_DISPLAY, stage=p.canvas.name(), partial=_partial_image(p.on_accent),
+        lead_side=lead, font_display=tokens.FONT_DISPLAY, family=FAMILY_GOLD[p.dark], stage=p.canvas.name(), partial=_partial_image(p.on_accent),
     )
     return qss.scaled(base + own, scale)
 

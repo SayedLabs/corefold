@@ -1,4 +1,4 @@
-"""Corefold Startup's page: every program that starts with Windows, each with a switch."""
+"""Rakiza Core Startup's page: every program that starts with Windows, each with a switch."""
 from __future__ import annotations
 
 import logging
@@ -37,8 +37,8 @@ WHERE = {"HKCU-Run": "Registry, this user", "HKLM-Run": "Registry, everyone",
 # the list in three parts, so what's old is clearly old: (key, heading, a line about it)
 SECTIONS = [("on", "Starting with Windows", ""),
             ("later", "Started a minute after you sign in",
-             "Corefold starts these itself, a minute after you sign in, so your PC is ready to use sooner. Windows "
-             "skips them, and Corefold has to start with Windows for this."),
+             "Rakiza Core starts these itself, a minute after you sign in, so your PC is ready to use sooner. Windows "
+             "skips them, and Rakiza Core has to start with Windows for this."),
             ("off", "Switched off",
              "Windows keeps these so they can be switched back on. Some may have been switched off a long time "
              "ago, by you, by Task Manager or by the program itself."),
@@ -56,7 +56,7 @@ def section_of(e: startup.Entry) -> str:
 
 
 def starts(e: startup.Entry) -> bool:
-    """It starts when the person signs in: by Windows, or a minute later by Corefold."""
+    """It starts when the person signs in: by Windows, or a minute later by Rakiza Core."""
     return e.on or bool(e.extra.get("later"))
 
 
@@ -64,7 +64,7 @@ def describe(e: startup.Entry) -> str:
     """The line under an entry's name: who made it, where it comes from, and anything to know."""
     bits = []
     if e.own:
-        bits.append(tr("This is Corefold itself"))
+        bits.append(tr("This is Rakiza Core itself"))
     elif e.publisher:
         bits.append(ltr(e.publisher))
     bits.append(tr(WHERE.get(e.where, e.where)))
@@ -221,7 +221,7 @@ class EntryRow(QWidget):
             ready = startup_enabled()
             act = m.addAction(icons.icon("timer", self.page.c.theme.muted),
                               tr("Start it a minute after sign-in") if ready else
-                              tr("Start it a minute after sign-in (Corefold has to start with Windows)"),
+                              tr("Start it a minute after sign-in (Rakiza Core has to start with Windows)"),
                               lambda: self.page.start_later(self, True))
             act.setEnabled(ready)
         props = m.addAction(tr("Properties"))
@@ -258,7 +258,7 @@ def _label(text: str, name: str | None = None, wrap: bool = False) -> QLabel:
 
 
 class StartupPage(QWidget):
-    """Corefold Startup in the window: the list, a search box, and All / On / Off / New."""
+    """Rakiza Core Startup in the window: the list, a search box, and All / On / Off / New."""
 
     def __init__(self, controller: "Controller", header):
         super().__init__()
@@ -272,7 +272,7 @@ class StartupPage(QWidget):
         self.job = None
         self.switching: list = []
         self.after_load = ""
-        self.new_ids: set[str] = set()   # marked New this time Corefold runs (kept when looking again)
+        self.new_ids: set[str] = set()   # marked New this time Rakiza Core runs (kept when looking again)
         self.admin = startup.is_admin()
         self._icons = QFileIconProvider()
         self._icon_cache: dict[str, QIcon | None] = {}
@@ -392,7 +392,7 @@ class StartupPage(QWidget):
         if isinstance(result, Exception):
             log.warning("couldn't read what starts with Windows: %s", result)
             self.entries = []
-            self._say(tr("Corefold couldn't read what starts with Windows."))
+            self._say(tr("Rakiza Core couldn't read what starts with Windows."))
         else:
             self._mark_later(result)
             for e in result:
@@ -535,10 +535,10 @@ class StartupPage(QWidget):
                            ("  ·  " + tr("Switched off: {count}", count=off) if off else ""))
         self.count.setVisible(bool(self.entries))
 
-    # ---- started a minute later, by Corefold
+    # ---- started a minute later, by Rakiza Core
 
     def _mark_later(self, entries: list[startup.Entry]):
-        """Marks the ones Corefold starts later, and forgets any switched back on elsewhere (Task Manager)
+        """Marks the ones Rakiza Core starts later, and forgets any switched back on elsewhere (Task Manager)
         or gone, so nothing is ever started twice."""
         s = self.c.settings
         kept = {d["id"]: d for d in s.startup_later}
@@ -556,7 +556,7 @@ class StartupPage(QWidget):
             self.c.settings_changed()
 
     def start_later(self, row: EntryRow, later: bool):
-        """Puts a program off until a minute after sign-in (switched off in Windows, started by Corefold),
+        """Puts a program off until a minute after sign-in (switched off in Windows, started by Rakiza Core),
         or gives it back to Windows."""
         e = row.entry
         if self.busy:
@@ -603,7 +603,7 @@ class StartupPage(QWidget):
         """A switch was flipped: change it (off the window's thread, as Windows may ask for permission
         first), and put the switch back if it didn't work."""
         e = row.entry
-        if e.extra.get("later"):  # (already off in Windows: Corefold just doesn't start it any more)
+        if e.extra.get("later"):  # (already off in Windows: Rakiza Core just doesn't start it any more)
             if not on:
                 e.extra.pop("later", None)
                 s = self.c.settings
@@ -666,7 +666,7 @@ class StartupPage(QWidget):
             box = QMessageBox(QMessageBox.Question, tr("Remove leftovers?"),
                               tr("Leftovers to remove: {count}", count=len(gone)) + "\n\n"
                               + tr("They're taken out of the startup list. Their programs are already gone, so "
-                                   "nothing else changes. Corefold keeps a copy of each line first."),
+                                   "nothing else changes. Rakiza Core keeps a copy of each line first."),
                               parent=self)
             yes = box.addButton(tr("Remove"), QMessageBox.DestructiveRole)
             box.addButton(tr("Cancel"), QMessageBox.RejectRole)
@@ -698,7 +698,7 @@ class StartupPage(QWidget):
         self.load()
 
     def _sync_own_setting(self):
-        """Corefold's own line switched: Settings → General shows the same."""
+        """Rakiza Core's own line switched: Settings → General shows the same."""
         w = self.window()
         box = getattr(w, "startup", None)
         if box is not None and getattr(w, "pending_startup", None) is None:

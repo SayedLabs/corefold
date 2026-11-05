@@ -1,4 +1,4 @@
-"""Pictures Pillow can't read by itself, read the same way everywhere in Corefold (converting, the PDF tool,
+"""Pictures Pillow can't read by itself, read the same way everywhere in Rakiza Core (converting, the PDF tool,
 the viewer): a camera's RAW file (the full-size JPEG every camera keeps inside it for its own screen) and a
 drawing (SVG, drawn by Qt's own SVG reader, which is LGPL like the rest of Qt).
 

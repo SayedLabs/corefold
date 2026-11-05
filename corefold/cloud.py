@@ -1,7 +1,7 @@
-"""Corefold Cloud: Google Drive, OneDrive and Dropbox in one window, online (this file: nothing of theirs needs
+"""Rakiza Core Cloud: Google Drive, OneDrive and Dropbox in one window, online (this file: nothing of theirs needs
 to be installed) or through the folders their own apps keep on this PC (cloudlocal.py, which never goes online).
 
-Signing in happens on Google's, Microsoft's and Dropbox's own pages, in your browser: Corefold never sees a
+Signing in happens on Google's, Microsoft's and Dropbox's own pages, in your browser: Rakiza Core never sees a
 password. Any number of accounts can be signed in at once, several of the same service too. What it gets back is a key that only lets it reach your files; it's kept on this PC,
 locked with Windows' own encryption (only your Windows account can unlock it), and "Sign out"
 deletes it. Files go straight between this PC and the service: nothing passes through anyone else.
@@ -40,13 +40,13 @@ TIMEOUT = 30
 CHUNK = 10 * 320 * 1024        # 3.2 MB pieces for big uploads (OneDrive wants multiples of 320 KB)
 SMALL = 4 * 1024 * 1024        # smaller files go up in one request
 
-# (the apps Corefold signs in as: see cloudkeys.py)
+# (the apps Rakiza Core signs in as: see cloudkeys.py)
 DROPBOX_PORT = 53682           # Dropbox needs the exact address registered: http://localhost:53682/
 
 SERVICES = {"onedrive": "OneDrive", "dropbox": "Dropbox", "gdrive": "Google Drive", "icloud": "iCloud Drive"}
-ONLINE = ("gdrive", "onedrive", "dropbox")   # the ones Corefold can sign in to by itself
+ONLINE = ("gdrive", "onedrive", "dropbox")   # the ones Rakiza Core can sign in to by itself
 
-# where Corefold signs in and talks to each service (a test points these at a pretend service)
+# where Rakiza Core signs in and talks to each service (a test points these at a pretend service)
 MS_LOGIN = "https://login.microsoftonline.com/common/oauth2/v2.0"
 MS_SCOPE = "offline_access Files.ReadWrite User.Read"
 DROPBOX_AUTHORIZE = "https://www.dropbox.com/oauth2/authorize"
@@ -138,7 +138,7 @@ def protect(data: bytes) -> bytes:
         return b"plain:" + data
     src = _BLOB(len(data), ctypes.cast(ctypes.create_string_buffer(data, len(data)), ctypes.POINTER(ctypes.c_char)))
     out = _BLOB()
-    if not ctypes.windll.crypt32.CryptProtectData(ctypes.byref(src), "Corefold Cloud", None, None, None, 0x1,
+    if not ctypes.windll.crypt32.CryptProtectData(ctypes.byref(src), "Rakiza Core Cloud", None, None, None, 0x1,
                                                   ctypes.byref(out)):
         raise OSError("couldn't lock the cloud keys")
     try:
@@ -394,7 +394,7 @@ def _listen(port: int = 0) -> http.server.HTTPServer:
             answer = {k: v[0] for k, v in q.items()}
             if answer.get("state") != self.server.state:
                 # (not the sign-in page's answer: any web page open in the browser can send the person here, and
-                # must not end the sign-in, let alone hand Corefold a key of its own)
+                # must not end the sign-in, let alone hand Rakiza Core a key of its own)
                 self.send_response(400)
                 self.end_headers()
                 return
@@ -403,11 +403,11 @@ def _listen(port: int = 0) -> http.server.HTTPServer:
 
             from .i18n import is_rtl, tr
             title = tr("You're signed in") if "code" in q else tr("Signing in was cancelled")
-            page = ("<!doctype html><meta charset=utf-8><title>Corefold</title>"
+            page = ("<!doctype html><meta charset=utf-8><title>Rakiza Core</title>"
                     f"<body dir='{'rtl' if is_rtl() else 'ltr'}' style='font-family:Segoe UI,Tahoma,sans-serif;"
                     "background:#111;color:#eee;display:grid;place-items:center;height:90vh'>"
                     f"<div style='text-align:center'><h2>{escape(title)}</h2>"
-                    f"<p>{escape(tr('You can close this tab and go back to Corefold.'))}</p></div>").encode("utf-8")
+                    f"<p>{escape(tr('You can close this tab and go back to Rakiza Core.'))}</p></div>").encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(page)))
@@ -419,8 +419,8 @@ def _listen(port: int = 0) -> http.server.HTTPServer:
 
     class _Only(http.server.HTTPServer):
         # (Windows lets another program take over a port opened with "reuse the address", and be handed the
-        # sign-in's answer: there the port is kept for Corefold alone. Dropbox's fixed port is only kept from
-        # other Windows accounts, Windows' own way: kept for Corefold alone, it couldn't be opened again for a
+        # sign-in's answer: there the port is kept for Rakiza Core alone. Dropbox's fixed port is only kept from
+        # other Windows accounts, Windows' own way: kept for Rakiza Core alone, it couldn't be opened again for a
         # few minutes after a sign-in)
         allow_reuse_address = os.name != "nt"
 
@@ -443,7 +443,7 @@ def sign_in(service: str, open_page, cancel: threading.Event | None = None, wait
     if not available(service):
         if service not in ONLINE:
             raise CloudError("unknown service")
-        raise CloudError(f"{SERVICES[service]} isn't set up in this copy of Corefold yet")
+        raise CloudError(f"{SERVICES[service]} isn't set up in this copy of Rakiza Core yet")
     if service == "dropbox":
         try:
             server = _listen(DROPBOX_PORT)
@@ -509,7 +509,7 @@ def sign_in(service: str, open_page, cancel: threading.Event | None = None, wait
     acc = Account(service, "", refresh=tok.get("refresh_token", ""), access=tok.get("access_token", ""),
                   expires=time.time() + float(tok.get("expires_in", 3600)) - 60)
     if not acc.access:
-        raise CloudError("the service didn't let Corefold in")
+        raise CloudError("the service didn't let Rakiza Core in")
     client(acc).fill_profile()
     if not acc.refresh:  # (Google: an account signed in to before, whose key it didn't give again)
         old = next((a for a in load_accounts() if a.key == acc.key), None)
@@ -518,7 +518,7 @@ def sign_in(service: str, open_page, cancel: threading.Event | None = None, wait
     return acc
 
 
-NO_FILES_ALLOWED = "Corefold wasn't allowed to see your files; sign in again and leave that box ticked"
+NO_FILES_ALLOWED = "Rakiza Core wasn't allowed to see your files; sign in again and leave that box ticked"
 
 
 # ----------------------------------------------------------------------------- the services
@@ -577,7 +577,7 @@ class Client:
         raise CloudError("this account doesn't allow that")
 
     def sign_out(self):
-        """Tells the service to cancel Corefold's key too, where it can be asked to (best effort)."""
+        """Tells the service to cancel Rakiza Core's key too, where it can be asked to (best effort)."""
 
 
 def _iso(text: str) -> float:
@@ -1074,7 +1074,7 @@ class Dropbox(Client):
 
 class GoogleDrive(Client):
     """Google Drive, online: My Drive, what's shared with you, and shared drives. Google lets a folder hold two
-    things with the same name; Corefold doesn't make that happen (a new name gets " (1)", like OneDrive and
+    things with the same name; Rakiza Core doesn't make that happen (a new name gets " (1)", like OneDrive and
     Dropbox do), so nothing can be mistaken for something else. Deleting moves to Google Drive's bin, never for
     good."""
     API = "https://www.googleapis.com/drive/v3"
@@ -1345,7 +1345,7 @@ class GoogleDrive(Client):
 
     def sign_out(self):
         try:
-            if self.acc.refresh:  # (taking back the key that lasts takes back Corefold's permission for good)
+            if self.acc.refresh:  # (taking back the key that lasts takes back Rakiza Core's permission for good)
                 _request("POST", GOOGLE_REVOKE, data=urllib.parse.urlencode({"token": self.acc.refresh}),
                          headers={"Content-Type": "application/x-www-form-urlencoded"}, timeout=10)
         except CloudError:
@@ -1378,7 +1378,7 @@ def _key(p) -> str:
 
 def _pc_words(fn):
     """What goes wrong on this PC's own disk while a whole file or folder is saved, sent or copied (a folder it
-    can't make, a file another program holds, a full disk) is said in Corefold Cloud's words, as for a folder
+    can't make, a file another program holds, a full disk) is said in Rakiza Core Cloud's words, as for a folder
     of this PC's own: never Windows' "[WinError 5] Access is denied: 'C:\\…'"."""
     import functools
 
@@ -1521,6 +1521,6 @@ def send(src: Client, entry: Entry, dst: Client, into: Entry | None, move: bool 
 
 
 def available(service: str) -> bool:
-    """Corefold can sign in to this service by itself (its app id is in cloudkeys.py)."""
+    """Rakiza Core can sign in to this service by itself (its app id is in cloudkeys.py)."""
     return bool({"gdrive": GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET, "onedrive": ONEDRIVE_CLIENT_ID,
                  "dropbox": DROPBOX_APP_KEY}.get(service))

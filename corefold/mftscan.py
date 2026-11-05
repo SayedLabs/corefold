@@ -1,6 +1,6 @@
 """Space's fast look: an NTFS drive's own table of every file and folder (the Master File Table) read straight
 from the disk, the way WizTree does, instead of asking Windows about every folder one by one. Reading the disk
-itself needs an administrator, so it's done by the administrator copy of Corefold (Windows asks), which writes
+itself needs an administrator, so it's done by the administrator copy of Rakiza Core (Windows asks), which writes
 what it read to a file (write_listing); the window's copy reads that file back and builds the same map as an
 ordinary look (build). No Qt here.
 

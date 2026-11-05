@@ -1,4 +1,4 @@
-"""Corefold Unlock, tried for real on a Windows PC: small helper programs hold files open (one with a
+"""Rakiza Core Unlock, tried for real on a Windows PC: small helper programs hold files open (one with a
 window, one without), and Unlock must find them with the right process ids, close the one with a window
 politely, force the other one closed, and then find nothing, so the file can be deleted. A folder with a
 locked file inside is found too, and the parts of Windows are never offered to close. The "What's using
@@ -49,7 +49,7 @@ held = open(sys.argv[2], "a")
 try:
     import tkinter as tk
     root = tk.Tk()
-    root.title("Corefold Unlock test")
+    root.title("Rakiza Core Unlock test")
     root.geometry("320x120+60+60")
     tk.Label(root, text="Holding a file open").pack(padx=20, pady=30)
     root.after(400, lambda: open(sys.argv[1], "w").close())
@@ -60,7 +60,7 @@ except ImportError:
     from PySide6.QtWidgets import QApplication, QLabel
     app = QApplication(sys.argv)
     w = QLabel("Holding a file open")
-    w.setWindowTitle("Corefold Unlock test")
+    w.setWindowTitle("Rakiza Core Unlock test")
     w.resize(320, 120)
     w.show()
     QTimer.singleShot(400, lambda: open(sys.argv[1], "w").close())
@@ -124,7 +124,7 @@ def core():
     folder.mkdir(parents=True)
     held, doc, inner = work_dir / "held.txt", work_dir / "doc.txt", folder / "locked.txt"
     for f in (held, doc, inner):
-        f.write_text("Corefold Unlock test\n")
+        f.write_text("Rakiza Core Unlock test\n")
     a = start("hold", held, inner)
     b = start("window", doc)
 
@@ -178,7 +178,7 @@ def core():
             found = unlock.find([mine])
         me = [p for p in found.programs if p.pid == os.getpid()]
         check(len(me) == 1 and me[0].own and not me[0].closable, "a file this program has open is "
-                                                                 "\"Corefold itself\" and never closed")
+                                                                 "\"Rakiza Core itself\" and never closed")
         names = unlock.process_names()
         check(any(n.lower() == "csrss.exe" for n in names.values()), f"every program's name is known "
                                                                      f"({len(names)} running)")
@@ -192,7 +192,7 @@ def core():
                       f"{name} (pid {pid}) is part of Windows: never offered, never closed")
         check(not unlock.close_politely([unlock.Program(pid=4, name="System", critical=True)]).get(4) == "closed",
               "the System process isn't asked to close")
-    step("Corefold itself and the parts of Windows", own_and_windows)
+    step("Rakiza Core itself and the parts of Windows", own_and_windows)
 
     def polite():
         prog = next(p for p in unlock.find([doc]).programs if p.pid == b.pid)
@@ -235,7 +235,7 @@ def core():
         box = TMP / "at-restart"
         (box / "sub").mkdir(parents=True)
         for f in (box / "a.txt", box / "sub" / "b.txt"):
-            f.write_text("Corefold Unlock test\n")
+            f.write_text("Rakiza Core Unlock test\n")
         order = unlock.at_restart_order([str(box)])
         want = [str(box / "a.txt"), str(box / "sub" / "b.txt"), str(box / "sub"), str(box)]
         check(sorted(order) == sorted(want) and order[-1] == str(box)
@@ -320,7 +320,7 @@ def page_part():
         return False
 
     c = A.Controller(qapp, QIcon(str(ROOT / "assets" / "icon.png")))
-    check(all_tools.is_on(c.settings, "unlock"), "Corefold Unlock is ready and in use")
+    check(all_tools.is_on(c.settings, "unlock"), "Rakiza Core Unlock is ready and in use")
     work_dir = TMP / "page"
     work_dir.mkdir()
     report = work_dir / "Quarterly report.docx"
@@ -422,9 +422,9 @@ def page_part():
         check(c.settings.unlock_menu_signature == "off", "and it's remembered as off")
         c.set_tool("unlock", True)
         check(wait_menu() and key(shellmenu.ANY_ROOT) is not None, "adding it back puts it back")
-        shellmenu.remove()  # what uninstalling Corefold does
+        shellmenu.remove()  # what uninstalling Rakiza Core does
         check(key(shellmenu.ANY_ROOT) is None and key(shellmenu.FOLDER_ROOT) is None,
-              "uninstalling Corefold removes it too")
+              "uninstalling Rakiza Core removes it too")
     step("the right-click entry", right_click)
     try:
         shellmenu.remove()  # (the PC is left as it was)

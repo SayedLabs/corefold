@@ -1,10 +1,10 @@
-"""Checks that copies from before 1.7.0 (the app's old name) update themselves to a new Corefold build.
+"""Checks that copies from before 1.7.0 (the app's old name) update themselves to a new Rakiza Core build.
 
 For every old release it installs the real old installer from GitHub, starts it the way that version
 does, then runs that version's own updater code (taken from its git tag) against a release made of
 the files in dist\\release, exactly as it would see the release on GitHub. Where the old updater can
-take the release, it downloads, checks and starts the installer, and this checks that Corefold
-replaced the old copy, kept its settings and is running. Also checks that Corefold's own updater
+take the release, it downloads, checks and starts the installer, and this checks that Rakiza Core
+replaced the old copy, kept its settings and is running. Also checks that Rakiza Core's own updater
 still picks its own installer from the same release.
 
 Windows only. Run after building with -OldUpdaterCopy:
@@ -27,12 +27,12 @@ from pathlib import Path
 
 if os.environ.get("CI") != "true" and os.environ.get("COREFOLD_THROWAWAY_PC") != "1":
     sys.exit("oldupdatetest: only on a throwaway Windows PC (GitHub Actions, or a virtual machine with "
-             "COREFOLD_THROWAWAY_PC=1): it installs older versions and deletes Corefold's settings for this Windows user")
+             "COREFOLD_THROWAWAY_PC=1): it installs older versions and deletes Rakiza Core's settings for this Windows user")
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from corefold import updater as new_updater  # noqa: E402
-from corefold.core import LEGACY_NAME  # noqa: E402
+from corefold.core import KEEP_ID, LEGACY_NAME  # noqa: E402
 
 RELEASE = Path(sys.argv[1]).resolve()
 VERSION = sys.argv[2]
@@ -46,7 +46,7 @@ PROGRAMS = Path(os.environ["LOCALAPPDATA"]) / "Programs"
 ROAMING = Path(os.environ["APPDATA"])
 LOCAL = Path(os.environ["LOCALAPPDATA"])
 START_MENU = ROAMING / "Microsoft" / "Windows" / "Start Menu" / "Programs"
-# (Corefold is installed for the whole PC now: Program Files, the Start menu for everyone, HKLM)
+# (Rakiza Core is installed for the whole PC now: Program Files, the Start menu for everyone, HKLM)
 PROGRAM_FILES = Path(os.environ.get("ProgramW6432") or os.environ["ProgramFiles"])
 COMMON_START_MENU = Path(os.environ["ProgramData"]) / "Microsoft" / "Windows" / "Start Menu" / "Programs"
 DESKTOP = Path(os.environ["USERPROFILE"]) / "Desktop"
@@ -183,19 +183,20 @@ def baked_repo(exe: Path) -> str:
 
 
 def clean_up():
-    kill("Corefold.exe", f"{LEGACY_NAME}.exe")
+    kill("RakizaCore.exe", f"{LEGACY_NAME}.exe")
     for root in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
         loc = reg_value(UNINSTALL_KEY, "InstallLocation", root)
         if loc and (Path(loc) / "unins000.exe").exists():
             subprocess.run([str(Path(loc) / "unins000.exe"), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"])
             wait_for(lambda: not (Path(loc) / "unins000.exe").exists(), 60)
     for base in (ROAMING, LOCAL, PROGRAMS, PROGRAM_FILES):
-        for name in ("Corefold", LEGACY_NAME):
+        for name in ("Rakiza Core", LEGACY_NAME):
             shutil.rmtree(base / name, ignore_errors=True)
-    for name in ("Corefold", LEGACY_NAME):
+    for name in ("Rakiza Core", LEGACY_NAME):
         reg_delete(RUN_KEY, name)
         for lnk in (START_MENU / f"{name}.lnk", COMMON_START_MENU / f"{name}.lnk", DESKTOP / f"{name}.lnk"):
             lnk.unlink(missing_ok=True)
+    reg_delete(RUN_KEY, KEEP_ID)
 
 
 def load_old_updater(tag: str):
@@ -217,17 +218,17 @@ def load_old_updater(tag: str):
 # ---- the checks
 
 def test_new_updater(data, files):
-    say("== Corefold's own updater on the same release")
+    say("== Rakiza Core's own updater on the same release")
     serve(new_updater, data, files)
     info = new_updater.check(REPO, "1.7.6")
-    if check(bool(info) and info.installer_name == f"Corefold-Setup-{VERSION}.exe",
-             f"picks Corefold-Setup-{VERSION}.exe (got {info and info.installer_name})"):
+    if check(bool(info) and info.installer_name == f"RakizaCore-Setup-{VERSION}.exe",
+             f"picks RakizaCore-Setup-{VERSION}.exe (got {info and info.installer_name})"):
         path = new_updater.download(info, "1.7.6")
         check(path.read_bytes() == (RELEASE / info.installer_name).read_bytes(), "download checks out against SHA256SUMS.txt")
         path.unlink(missing_ok=True)
     sums = (RELEASE / "SHA256SUMS.txt").read_text()
     copy = RELEASE / f"{LEGACY_NAME}-Setup-{VERSION}.exe"
-    check(copy.exists() and copy.read_bytes() == (RELEASE / f"Corefold-Setup-{VERSION}.exe").read_bytes(),
+    check(copy.exists() and copy.read_bytes() == (RELEASE / f"RakizaCore-Setup-{VERSION}.exe").read_bytes(),
           "the copy for old versions is the same installer, byte for byte")
     check(new_updater.expected_hash(sums, copy.name) == hashlib.sha256(copy.read_bytes()).hexdigest(),
           "the copy is listed in SHA256SUMS.txt")
@@ -278,7 +279,7 @@ def test_old(tag: str, data, files):
         if info and info.installer_url:
             say(f"  info picks {info.installer_name} after all (not expected; it could update itself)")
         else:
-            say("  info can't update itself (it only trusts the repository's old name): download Corefold by hand once")
+            say("  info can't update itself (it only trusts the repository's old name): download Rakiza Core by hand once")
         clean_up()
         return
     if not check(bool(info) and info.installer_name == f"{LEGACY_NAME}-Setup-{VERSION}.exe",
@@ -291,32 +292,32 @@ def test_old(tag: str, data, files):
 
     stem = path.stem.lower()
     check(wait_for(lambda: not any(p.startswith(stem) for p in running()), 300), "installer finished")
-    new_dir = PROGRAM_FILES / "Corefold"
-    check((new_dir / "Corefold.exe").exists(), f"Corefold installed in {new_dir}")
-    check(wait_for(lambda: "corefold.exe" in running(), 60), "Corefold is running")
+    new_dir = PROGRAM_FILES / "Rakiza Core"
+    check((new_dir / "RakizaCore.exe").exists(), f"Rakiza Core installed in {new_dir}")
+    check(wait_for(lambda: "rakizacore.exe" in running(), 60), "Rakiza Core is running")
     check(f"{LEGACY_NAME}.exe".lower() not in running(), "old version is closed")
     check(not old_exe.exists(), "old program folder removed")
     key, pc = UNINSTALL_KEY, winreg.HKEY_LOCAL_MACHINE
-    check(reg_value(key, "DisplayName", pc) == "Corefold" and reg_value(key, "DisplayVersion", pc) == VERSION,
+    check(reg_value(key, "DisplayName", pc) == "Rakiza Core" and reg_value(key, "DisplayVersion", pc) == VERSION,
           f"Apps list shows {reg_value(key, 'DisplayName', pc)} {reg_value(key, 'DisplayVersion', pc)} (for the whole PC)")
     check(reg_value(key, "DisplayName") is None, "the old entry for this user alone is gone from the Apps list")
-    check(bool(reg_value(RUN_KEY, "Corefold")) and reg_value(RUN_KEY, LEGACY_NAME) is None,
-          "starts with Windows as Corefold (old entry gone)")
-    check((COMMON_START_MENU / "Corefold.lnk").exists() and not (START_MENU / f"{LEGACY_NAME}.lnk").exists(),
+    check(bool(reg_value(RUN_KEY, KEEP_ID)) and reg_value(RUN_KEY, LEGACY_NAME) is None,
+          "starts with Windows as Rakiza Core (old entry gone)")
+    check((COMMON_START_MENU / "Rakiza Core.lnk").exists() and not (START_MENU / f"{LEGACY_NAME}.lnk").exists(),
           "Start menu shortcut renamed")
-    check((DESKTOP / "Corefold.lnk").exists(), "the desktop icon is kept, under the new name")
+    check((DESKTOP / "Rakiza Core.lnk").exists(), "the desktop icon is kept, under the new name")
     check(not (DESKTOP / f"{LEGACY_NAME}.lnk").exists(), "old desktop shortcut removed")
-    new_conf = ROAMING / "Corefold" / "settings.json"
-    check(wait_for(new_conf.exists, 60), "settings moved to the Corefold folder")
+    new_conf = ROAMING / "Rakiza Core" / "settings.json"
+    check(wait_for(new_conf.exists, 60), "settings moved to the Rakiza Core folder")
     try:
         lang = json.loads(new_conf.read_text("utf-8")).get("language")
     except (OSError, ValueError):
         lang = None
     check(lang == "ar", f"settings kept (language: {lang})")
-    # the installer the old version downloaded (about 100 MB) is cleared like Corefold's own
-    check(path.exists(), f"the downloaded installer waits in {path.parent} (Corefold clears it after a day)")
+    # the installer the old version downloaded (about 100 MB) is cleared like Rakiza Core's own
+    check(path.exists(), f"the downloaded installer waits in {path.parent} (Rakiza Core clears it after a day)")
     new_updater.clean_old_installers(keep_days=0)
-    check(not path.parent.exists(), "Corefold clears it and its folder")
+    check(not path.parent.exists(), "Rakiza Core clears it and its folder")
     clean_up()
 
 

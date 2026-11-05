@@ -1,8 +1,8 @@
-"""Corefold: answering the boxes Office shows while it works for Corefold out of sight. Word opens a PDF by
+"""Rakiza Core: answering the boxes Office shows while it works for Rakiza Core out of sight. Word opens a PDF by
 handing it to its "PDF Reflow" helper (PDFREFLOW.EXE), which first says "Word will now convert your PDF…" in a
 box of its own and waits for OK. Nobody would be looking at it (Word itself is hidden), so the conversion would
-wait for ever. While Corefold has Word convert a PDF, that box is answered at once: OK, the same as a person
-choosing PDF to Word would. Any other box from the hidden Word (a question Corefold can't answer for the person,
+wait for ever. While Rakiza Core has Word convert a PDF, that box is answered at once: OK, the same as a person
+choosing PDF to Word would. Any other box from the hidden Word (a question Rakiza Core can't answer for the person,
 like "The last time you opened this file, it caused a serious error…") gets No / Cancel, so the conversion stops
 with a plain message instead of hanging.
 
@@ -109,7 +109,7 @@ def _press_uia(hwnd: int, button_id: int) -> bool:
 
 
 class Watch:
-    """While Word converts for Corefold: OK on the PDF Reflow box, No / Cancel on any other box from an Office
+    """While Word converts for Rakiza Core: OK on the PDF Reflow box, No / Cancel on any other box from an Office
     that started for this job (an Office the person already had open is left alone). .asked is True when a box
     had to be turned down. stop() ends the watching; end_new() closes what this job started (after a time-out)."""
 
@@ -144,7 +144,7 @@ class Watch:
     def answer(self):
         new = self.new_pids()
         shown = windows(set(new))
-        # a Word with a real window on screen is one the person opened meanwhile (the one working for Corefold is
+        # a Word with a real window on screen is one the person opened meanwhile (the one working for Rakiza Core is
         # hidden): its boxes ("Save your changes?") are theirs to answer, never pressed from here
         theirs = {pid for _hwnd, pid, cls in shown if cls not in BOX_CLASSES}
         for hwnd, pid, cls in shown:

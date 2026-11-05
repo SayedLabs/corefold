@@ -18,7 +18,7 @@ _LATIN_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩٬٫", "0123456789,.")
 
 
 def latin_digits(text: str) -> str:
-    """Qt's Arabic writes "٢٥ أكتوبر ٢٠٢٦"; the rest of Corefold (sizes, counts, times) writes 0-9, so a date
+    """Qt's Arabic writes "٢٥ أكتوبر ٢٠٢٦"; the rest of Rakiza Core (sizes, counts, times) writes 0-9, so a date
     in a row next to "29.3 KB" is written with the same digits."""
     return text.translate(_LATIN_DIGITS) if i18n.language() == "ar" else text
 

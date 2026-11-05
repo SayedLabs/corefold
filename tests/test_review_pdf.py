@@ -1,4 +1,4 @@
-"""Corefold PDF: what its tools write (forms, bookmarks, deleted pages, passwords, page boxes, pictures) and
+"""Rakiza Core PDF: what its tools write (forms, bookmarks, deleted pages, passwords, page boxes, pictures) and
 a few things the editor must keep straight (undo of a moved piece, the arrows, unsaved work)."""
 from pathlib import Path
 from types import SimpleNamespace

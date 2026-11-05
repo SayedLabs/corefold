@@ -1,18 +1,18 @@
-"""Corefold Scan: checks this PC for malware, without anything leaving it.
+"""Rakiza Core Scan: checks this PC for malware, without anything leaving it.
 
 Two parts, kept apart on purpose:
 - Microsoft Defender, which is part of Windows, does the scanning, through its own command-line tool
-  (MpCmdRun.exe). Corefold never decides itself that a file is harmful or harmless: a threat is what
+  (MpCmdRun.exe). Rakiza Core never decides itself that a file is harmful or harmless: a threat is what
   Defender says it is, and what happens to it (quarantine) is Defender's own doing, the same as when it's
   started from Windows Security.
-- Corefold's own checks look for tricks malware uses that a list of known threats can miss: a program
+- Rakiza Core's own checks look for tricks malware uses that a list of known threats can miss: a program
   dressed up as a photo (photo.jpg.exe), a name with a hidden character that turns it around, a program
   whose signature is broken, programs without a signature that start with Windows from odd places, a
   hidden PowerShell command that starts with Windows, the hosts file sending Windows Update or a bank
   somewhere else, and folders Defender has been told to skip. These are shown as "worth a look", never
   as a virus.
 
-Nothing is uploaded or looked up online by Corefold: Defender's list of threats is the one Windows keeps
+Nothing is uploaded or looked up online by Rakiza Core: Defender's list of threats is the one Windows keeps
 up to date, and signatures are checked with what Windows already has (see trust.py)."""
 from __future__ import annotations
 
@@ -307,7 +307,7 @@ class ScanResult:
     defender_code: int = 0
     threats: list = field(default_factory=list)
     findings: list = field(default_factory=list)
-    looked_at: int = 0                # files Corefold's own checks went through
+    looked_at: int = 0                # files Rakiza Core's own checks went through
     skipped: list = field(default_factory=list)   # what Defender skipped because it's told to
     stopped: bool = False
 
@@ -567,7 +567,7 @@ def restore(item: Quarantined) -> bool:
     return code == 0
 
 
-# ============================================================================= Corefold's own checks
+# ============================================================================= Rakiza Core's own checks
 
 @dataclass
 class Finding:
@@ -606,7 +606,7 @@ def shown_name(name: str) -> str:
 
 
 class Checks:
-    """Corefold's own checks, collected as they're made (so the page can show them while Defender works)."""
+    """Rakiza Core's own checks, collected as they're made (so the page can show them while Defender works)."""
 
     def __init__(self, cancel: threading.Event | None = None, on_finding=None):
         self.cancel = cancel or threading.Event()
@@ -1195,7 +1195,7 @@ def running_programs() -> list[str]:
 # ============================================================================= a whole scan
 
 def corefold_checks(kind: str, paths: list[str], checks: Checks, defender: Defender | None):
-    """Corefold's own checks for one kind of scan."""
+    """Rakiza Core's own checks for one kind of scan."""
     if kind == CUSTOM:
         for p in paths:
             if checks.cancel.is_set():
@@ -1228,7 +1228,7 @@ def corefold_checks(kind: str, paths: list[str], checks: Checks, defender: Defen
 
 def scan(kind: str, paths: list[str] | None = None, cancel: threading.Event | None = None, on_finding=None,
          defender: Defender | None = None, on_stage=None) -> ScanResult:
-    """A whole scan: Defender and Corefold's own checks side by side. on_finding(Finding) and on_stage(str)
+    """A whole scan: Defender and Rakiza Core's own checks side by side. on_finding(Finding) and on_stage(str)
     are called (on this thread or the checks' thread) as things are found."""
     cancel = cancel or threading.Event()
     # (full, long names: Defender's notes use them, and a short name like RUNNER~1 wouldn't match)
@@ -1317,7 +1317,7 @@ def _safe(fn, *args):
     try:
         fn(*args)
     except Exception:
-        log.warning("Corefold's checks failed", exc_info=True)
+        log.warning("Rakiza Core's checks failed", exc_info=True)
 
 
 # ----------------------------------------------------------------------------- remembered between runs

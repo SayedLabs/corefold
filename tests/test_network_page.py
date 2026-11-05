@@ -1,4 +1,4 @@
-"""Corefold Network's page: the programs and their places, what other devices can reach, Windows' counts, and the
+"""Rakiza Core Network's page: the programs and their places, what other devices can reach, Windows' counts, and the
 speed test's results in plain words. Everything on the page is read from this PC (the speed test is faked)."""
 import pytest
 from PySide6.QtCore import QTimer

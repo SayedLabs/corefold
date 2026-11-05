@@ -1,4 +1,4 @@
-"""Corefold PDF: Compare two PDFs (pages side by side with what looks different marked, and every word taken out
+"""Rakiza Core PDF: Compare two PDFs (pages side by side with what looks different marked, and every word taken out
 or put in), Print (Windows' printers, through Qt) and PDF to Word (made by the Word on the PC)."""
 import sys
 import threading
@@ -178,7 +178,7 @@ def test_other_office_boxes_are_cancelled_and_said():
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows' message boxes")
 def test_a_word_the_person_opened_is_left_alone():
-    """A Word started while Corefold converts, with a window on screen, is the person's: its "Save your changes?"
+    """A Word started while Rakiza Core converts, with a window on screen, is the person's: its "Save your changes?"
     must never be answered for them (No would throw their changes away)."""
     import subprocess
 
