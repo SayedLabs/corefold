@@ -183,6 +183,11 @@ def table_texts() -> dict[str, str]:
     add([text for _, text in startuppage.FILTERS], "startuppage.FILTERS")
     add(startuppage.WHERE.values(), "startuppage.WHERE")
     add([t for _, title, about in startuppage.SECTIONS for t in (title, about)], "startuppage.SECTIONS")
+    from corefold import network, networkpage
+    add([text for _, text in networkpage.TABS + networkpage.PERIODS + networkpage.USES + networkpage.FIGURES +
+         networkpage.NOW_GROUPS], "networkpage tables")
+    add(networkpage.VERDICT_WORDS.values(), "networkpage.VERDICT_WORDS")
+    add(network.PORTS.values(), "network.PORTS")
     from corefold import scanpage
     for name in ("PLACES", "STATUS", "SEVERITY", "SKIPPED", "KINDS"):
         add(getattr(scanpage, name).values(), "scanpage." + name)
