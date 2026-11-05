@@ -1542,6 +1542,57 @@ def document_to_pdf(src: Path, ctx: Ctx) -> Result:
     return Result([out])
 
 
+# Word opens a PDF by rebuilding it as a document ("PDF Reflow"): its own paragraphs, tables and pictures, which
+# can then be changed like any Word file. Word normally asks first ("Word will now convert your PDF…"), in a box
+# nobody would see here: its "don't ask again" setting is switched on for the conversion and put back afterwards.
+# The made-up password makes a locked PDF fail at once instead of waiting on an invisible password box.
+PDF_TO_WORD_SCRIPT = r"""
+$app = New-Object -ComObject Word.Application; $app.DisplayAlerts = 0
+$was = $app.AutomationSecurity; $app.AutomationSecurity = 3
+$key = "HKCU:\Software\Microsoft\Office\$($app.Version)\Word\Options"
+$made = $false
+if (-not (Test-Path $key)) { New-Item -Path $key | Out-Null; $made = $true }
+$old = (Get-ItemProperty -Path $key -Name DisableConvertPdfWarning -ErrorAction SilentlyContinue).DisableConvertPdfWarning
+Set-ItemProperty -Path $key -Name DisableConvertPdfWarning -Value 1 -Type DWord
+try { $d = $app.Documents.Open($env:CF_IN, $false, $true, $false, "corefold-no-password", "corefold-no-password")
+      $d.SaveAs2($env:CF_OUT, 16); $d.Close(0) }
+finally {
+  if ($null -eq $old) { Remove-ItemProperty -Path $key -Name DisableConvertPdfWarning -ErrorAction SilentlyContinue }
+  else { Set-ItemProperty -Path $key -Name DisableConvertPdfWarning -Value $old -Type DWord }
+  if ($made) { Remove-Item -Path $key -ErrorAction SilentlyContinue }
+  $app.AutomationSecurity = $was; if ($app.Documents.Count -eq 0) { $app.Quit() } }"""
+
+
+def word_installed() -> bool:
+    return bool(_cached("office", Path("Word.Application"), lambda: _office_installed("Word.Application")))
+
+
+def check_word(files: list[Path]) -> str | None:
+    return None if word_installed() else tr("Needs Microsoft Word")
+
+
+def pdf_to_word(src: Path, ctx: Ctx) -> Result:
+    """A PDF as a Word document (.docx) that can be changed, made by the Word that's on this PC. Nothing here
+    reads the PDF's insides: Word does all of it, the way it does when a PDF is opened in it."""
+    if not word_installed():
+        raise RuntimeError(tr("Needs Microsoft Word"))
+    out = ctx.out_path(src, ctx.stem(src) + ".docx")
+    tmp = Path(tempfile.mkdtemp(prefix="corefold-office-"))
+    made = tmp / "document.docx"
+    env = dict(os.environ, CF_IN=str(src.resolve()), CF_OUT=str(made))
+    ps = system_tool("powershell.exe")
+    code, err = _run_office([str(ps), "-NoProfile", "-NonInteractive", "-Command", PDF_TO_WORD_SCRIPT],
+                            env, tmp, ctx, timeout=900)
+    try:
+        if code or not made.exists():
+            log.error("pdf to word failed: %s", err[-2000:])
+            raise RuntimeError(tr("Word couldn't turn this PDF into a document"))
+        shutil.move(str(made), out)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    return Result([out])
+
+
 def _run_office(cmd: list[str], env: dict, tmp: Path, ctx: Ctx, timeout: float = 600) -> tuple[int, str]:
     """Runs the PowerShell that has Office make the PDF. Cancel stops the waiting at once, but not Office:
     Office runs on its own (Windows starts it, not this PowerShell), so ending the PowerShell would leave
@@ -1754,6 +1805,8 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
            Tool("pdf:split", tr("Split"), tr("One PDF per page"), pdf_split, check=check_pdf_locked, slow_check=True),
            Tool("pdf:png", "PNG", tr("Pages to images"), pdf_to_png, check=check_pdf_locked, slow_check=True),
            Tool("pdf:text", tr("Text"), tr("Pull out the text"), pdf_to_text, check=check_pdf_locked, slow_check=True),
+           Tool("pdf:word", "Word", tr("Turn into a Word document you can change"), pdf_to_word,
+                check=both(check_word, check_pdf_locked), slow_check=True, target=".docx"),
            Tool("pdf:pages", tr("Pages"), tr("Turn, delete or reorder pages"), mt.pdf_pages, ask="pages",
                 check=check_pdf_locked, slow_check=True),
            Tool("pdf:images", tr("Pictures"), tr("Save the pictures inside"), mt.pdf_images, check=check_pdf_locked,
