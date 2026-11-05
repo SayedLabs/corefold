@@ -132,3 +132,64 @@ def test_the_page(qtbot, tmp_path):
     (docs / "inside").mkdir()
     page.set_dest(docs / "inside")
     assert not page.go.isEnabled()
+
+
+def test_a_kept_folder_called_older_versions_never_mixes_with_the_backups_own(tmp_path):
+    mine = tmp_path / "PC" / "Older versions"
+    _w(mine / "2020-01-01 10-00" / "keep me.txt", "mine")
+    plan = _plan(tmp_path, mine)
+    plan.keep_days = 1
+    assert backup.run(plan, now=1_800_000_000).copied == 1
+    name = backup.folder_names(plan.sources)[str(mine)]
+    assert name.lower() != backup.OLDER.lower()
+    backup.run(plan, now=1_900_000_000)  # (long after: dated Older versions folders are let go)
+    assert (backup.home(plan) / name / "2020-01-01 10-00" / "keep me.txt").read_text() == "mine"
+
+
+def test_a_file_now_only_in_the_cloud_keeps_its_copy(tmp_path, monkeypatch):
+    docs = tmp_path / "PC" / "OneDrive"
+    _w(docs / "a.txt", "one", 1_700_000_000)
+    _w(docs / "b.txt", "two", 1_700_000_000)
+    plan = _plan(tmp_path, docs)
+    assert backup.run(plan, now=1_800_000_000).copied == 2
+    real = os.scandir
+
+    class Entry:
+        def __init__(self, e):
+            self._e, self.name, self.path = e, e.name, e.path
+
+        def is_dir(self, follow_symlinks=True):
+            return self._e.is_dir(follow_symlinks=follow_symlinks)
+
+        def stat(self, follow_symlinks=True):
+            st = self._e.stat(follow_symlinks=follow_symlinks)
+            if self.name != "b.txt" or "OneDrive" not in self.path or "backup" in self.path:
+                return st
+
+            class St:
+                st_mode, st_size, st_mtime = st.st_mode, st.st_size, st.st_mtime
+                st_file_attributes = 0x400000  # (Windows: only in the cloud, read on open)
+            return St()
+
+    class Scan:
+        def __init__(self, p):
+            self._it = real(p)
+
+        def __enter__(self):
+            return (Entry(e) for e in self._it.__enter__())
+
+        def __exit__(self, *a):
+            return self._it.__exit__(*a)
+
+        def __iter__(self):
+            return (Entry(e) for e in self._it)
+
+        def __next__(self):
+            return Entry(next(self._it))
+
+        def close(self):
+            self._it.close()
+    monkeypatch.setattr(backup.os, "scandir", Scan)
+    s = backup.run(plan, now=1_800_003_600)
+    assert s.kept_old == 0
+    assert (backup.home(plan) / "OneDrive" / "b.txt").read_text() == "two"

@@ -108,7 +108,7 @@ def folder_names(sources: list[str]) -> dict[str, str]:
         seen[base.lower()] = seen.get(base.lower(), 0) + 1
     for s in sources:
         base = Path(s).name or Path(s).drive.rstrip(":\\/") or "Drive"
-        if seen[base.lower()] > 1:
+        if seen[base.lower()] > 1 or base.lower() == OLDER.lower():  # (that name is the backup's own)
             base = f"{base} ({hashlib.sha1(os.path.normcase(s).encode()).hexdigest()[:6]})"
         names[s] = base
     return names
@@ -149,9 +149,10 @@ def due(plan: Plan, now: float | None = None) -> bool:
     return plan.auto and now - plan.last >= EVERY_HOURS * 3600 and not problem(plan.sources, plan.dest)
 
 
-def _walk(root: Path, cancel, failed: list, unread: set):
+def _walk(root: Path, cancel, failed: list, unread: set, cloud: set | None = None):
     """(relative path, full path, size, mtime) of every file in root, folders that lead elsewhere and files only
-    in the cloud left out. A folder that can't be read goes in unread (its backup is left as it is)."""
+    in the cloud left out (those go in cloud, if given). A folder that can't be read goes in unread (its backup
+    is left as it is)."""
     todo = [Path()]
     while todo:
         rel = todo.pop()
@@ -181,6 +182,8 @@ def _walk(root: Path, cancel, failed: list, unread: set):
                 todo.append(rel / e.name)
             elif stat.S_ISREG(st.st_mode) or os.name == "nt":
                 if attrs & _CLOUD:
+                    if cloud is not None:
+                        cloud.add(os.path.normcase(str(rel / e.name)))
                     continue
                 if e.name.endswith(PARTIAL):
                     continue
@@ -235,7 +238,7 @@ def run(plan: Plan, progress=None, cancel=None, now: float | None = None) -> Sum
             older = older_root / names[source]
             unread: set[Path] = set()
             present: set[str] = set()
-            for rel, full, size, mtime in _walk(src, cancel, out.failed, unread):
+            for rel, full, size, mtime in _walk(src, cancel, out.failed, unread, present):
                 seen_files += 1
                 present.add(os.path.normcase(str(rel)))
                 dst = base / rel
@@ -269,7 +272,8 @@ def run(plan: Plan, progress=None, cancel=None, now: float | None = None) -> Sum
                     progress(seen_files, out.bytes, full.name)
                 if cancel is not None and cancel.is_set():
                     raise Cancelled()
-            # files deleted on the PC: their last copy goes to Older versions (never where a folder couldn't be read)
+            # files deleted on the PC: their last copy goes to Older versions (never where a folder couldn't be read,
+            # and never a file only in the cloud now: its copy here stays as it is)
             if base.is_dir():
                 for rel, full, _size, _mtime in list(_walk(base, cancel, [], set())):
                     if os.path.normcase(str(rel)) in present:
