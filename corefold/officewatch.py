@@ -94,8 +94,8 @@ def press(hwnd: int, cls: str, button_id: int, uia: bool | None = None) -> bool:
 
 
 def _press_uia(hwnd: int, button_id: int) -> bool:
-    root = os.environ.get("SystemRoot", r"C:\Windows")
-    ps = os.path.join(root, "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
+    from .core import system_tool
+    ps = system_tool("powershell.exe")  # (Windows' own, never one found through SystemRoot or the current folder)
     try:
         r = subprocess.run([ps, "-NoProfile", "-NonInteractive", "-Command", UIA_PRESS], capture_output=True,
                            timeout=30, stdin=subprocess.DEVNULL, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
@@ -143,8 +143,14 @@ class Watch:
 
     def answer(self):
         new = self.new_pids()
-        for hwnd, pid, cls in windows(set(new)):
+        shown = windows(set(new))
+        # a Word with a real window on screen is one the person opened meanwhile (the one working for Corefold is
+        # hidden): its boxes ("Save your changes?") are theirs to answer, never pressed from here
+        theirs = {pid for _hwnd, pid, cls in shown if cls not in BOX_CLASSES}
+        for hwnd, pid, cls in shown:
             if cls not in BOX_CLASSES or self._done.get(hwnd, 0) >= 3:
+                continue
+            if pid in theirs and new.get(pid) not in self.reflow:
                 continue
             self._done[hwnd] = self._done.get(hwnd, 0) + 1
             if new.get(pid) in self.reflow:
@@ -175,5 +181,5 @@ class Watch:
 
 
 def _taskkill() -> str:
-    root = os.environ.get("SystemRoot", r"C:\Windows")
-    return os.path.join(root, "System32", "taskkill.exe") if sys.platform == "win32" else "kill"
+    from .core import system_tool
+    return system_tool("taskkill.exe") if sys.platform == "win32" else "kill"

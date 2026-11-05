@@ -24,7 +24,7 @@ import xml.etree.ElementTree as ET
 from contextlib import contextmanager
 from email.utils import parsedate_to_datetime
 
-from .cloud import NOT_SENT_WHOLE, Account, Client, CloudError, Entry, SignInNeeded
+from .cloud import MAX_DEPTH, NOT_SENT_WHOLE, TOO_DEEP, Account, Client, CloudError, Entry, SignInNeeded
 
 log = logging.getLogger("corefold")
 
@@ -38,6 +38,7 @@ NOT_PRIVATE = "plain http and FTP are only allowed on your own network; turn on 
 KEY_CHANGED = "this server's key is not the one it had before; someone may be pretending to be it"
 WRONG_LOGIN = "the user name or password isn't right"
 NO_SERVER = "the server didn't answer: check the address and the port"
+NOT_ENCRYPTED_ON = "the server sent this on to an address that isn't encrypted, so Corefold stopped"
 
 
 # ----------------------------------------------------------------------------- adding a server
@@ -200,6 +201,16 @@ class _Reader:
         return self.size
 
 
+class _StayEncrypted(urllib.request.HTTPRedirectHandler):
+    """A download sent on elsewhere (servers do that for big files) may go to another address, but never from an
+    encrypted one to an unencrypted one, where anyone on the way could read it or change it."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if req.full_url.lower().startswith("https:") and not newurl.lower().startswith("https:"):
+            raise CloudError(NOT_ENCRYPTED_ON)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 class WebDav(_Server):
     def __init__(self, account):
         super().__init__(account)
@@ -220,8 +231,10 @@ class WebDav(_Server):
         req = urllib.request.Request(self._url(path), data=data, method=method, headers=h)
         auth = base64.b64encode(f"{self.cfg.get('user', '')}:{self.acc.refresh}".encode("utf-8")).decode("ascii")
         req.add_unredirected_header("Authorization", f"Basic {auth}")  # (never passed on to another address)
+        opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=ssl.create_default_context()),
+                                             _StayEncrypted())
         try:
-            resp = urllib.request.urlopen(req, timeout=timeout, context=ssl.create_default_context())
+            resp = opener.open(req, timeout=timeout)
         except urllib.error.HTTPError as e:
             e.close()
             if e.code == 401:
@@ -556,12 +569,23 @@ class Ftp(_Server):
                 raise self._perm(e) from e
         return self._entry(posixpath.dirname(path), name, entry.folder, entry.size, entry.modified)
 
-    def delete(self, entry):
+    def delete(self, entry, _depth: int = 0):
         if (entry.id.rstrip("/") or "/") == (self.base.rstrip("/") or "/"):
             raise CloudError("this account doesn't allow that")
         if entry.folder:
+            # A link to a folder is listed as a folder ("type=dir") by many servers: emptying it would delete what's
+            # in the folder it leads to, somewhere else on the server. Removing it as a file first takes only the
+            # link away (a real folder can't be removed that way), and only a real folder is gone into.
+            with self._conn() as ftp:
+                try:
+                    ftp.delete(entry.id)
+                    return
+                except ftplib.error_perm:
+                    pass
+            if _depth > MAX_DEPTH:
+                raise CloudError(TOO_DEEP)
             for e in self.list(entry):
-                self.delete(e)
+                self.delete(e, _depth + 1)
         with self._conn() as ftp:
             try:
                 ftp.rmd(entry.id) if entry.folder else ftp.delete(entry.id)
@@ -740,17 +764,24 @@ class Sftp(_Server):
         return Entry(name, entry.folder, path, path[len(self.base.rstrip("/")):] or "/", entry.size, entry.modified,
                      entry.parent)
 
-    def delete(self, entry):
+    def delete(self, entry, _depth: int = 0):
+        import stat
         if (entry.id.rstrip("/") or "/") == (self.base.rstrip("/") or "/"):
             raise CloudError("this account doesn't allow that")
-        if entry.folder:
-            for e in self.list(entry):
-                self.delete(e)
-            with self._conn() as s:
-                s.rmdir(entry.id)
-        else:
+        with self._conn() as s:
+            mode = s.lstat(entry.id).st_mode or 0
+        if not stat.S_ISDIR(mode):  # (a file, or a link: only the link goes, never what it leads to)
             with self._conn() as s:
                 s.remove(entry.id)
+            return
+        if _depth > MAX_DEPTH:
+            raise CloudError(TOO_DEEP)
+        with self._conn() as s:
+            inside = [a for a in s.listdir_attr(entry.id) if a.filename not in (".", "..") and "/" not in a.filename]
+        for a in inside:  # (links inside too: listed nowhere else, they'd keep the folder from being removed)
+            self.delete(self._entry(entry.id, a), _depth + 1)
+        with self._conn() as s:
+            s.rmdir(entry.id)
 
 
 def client(acc: Account) -> Client:

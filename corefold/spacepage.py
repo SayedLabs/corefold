@@ -12,19 +12,20 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QPoint, QRectF, QSize, Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import QBrush, QColor, QDesktopServices, QFont, QFontMetrics, QKeySequence, QPainter, QPen, \
-    QShortcut
+from PySide6.QtGui import QBrush, QColor, QDesktopServices, QFont, QFontMetrics, QIcon, QKeySequence, QLinearGradient, \
+    QPainter, QPainterPath, QPen, QPixmap, QShortcut, QTransform
 from PySide6.QtWidgets import QApplication, QButtonGroup, QCheckBox, QFileDialog, QFrame, QGridLayout, \
-    QHBoxLayout, QHeaderView, QLabel, QLineEdit, QMenu, QMessageBox, QProgressBar, QPushButton, QScrollArea, QSizePolicy, QStackedWidget, \
-    QStyledItemDelegate, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
+    QHBoxLayout, QHeaderView, QLabel, QLineEdit, QMenu, QMessageBox, QProgressBar, QPushButton, QScrollArea, QSizePolicy, \
+    QSplitter, QStackedWidget, QStyledItemDelegate, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
 from . import icons, mftscan, sheet, space, work
+from .atomic import tokens
 from .atomic.tokens import alpha, on_color
 from .atomic.widgets import Dropdown, FlowLayout, GlowPanel, Group
 from .core import human_size, short_name
 from .i18n import ltr, tr
 from .theme import mix, round_menu
-from .timefmt import date_text, time_ago
+from .timefmt import date_text, latin_digits, locale, time_ago
 from .winutil import properties, reveal_in_explorer
 
 log = logging.getLogger("corefold")
@@ -45,6 +46,9 @@ JUNK_ICONS = {"temp": "timer", "bin": "delete", "browser": "globe", "thumbs": "i
 DUPE_FOLDERS = ("Desktop", "Documents", "Downloads", "Pictures", "Videos", "Music")
 KEEP_MAPS = 2             # drives (or folders) whose map is kept, so opening one again is instant
 FORGET_AFTER = 20 * 60    # seconds: maps not looked at for this long are let go (a big drive's map is big)
+COLUMNS = ("name", "size", "share", "files", "changed")
+SORT = Qt.UserRole + 4    # what a list row is put in order by, in each column
+HOLDER = Qt.UserRole + 5  # the folder a file row's file is in (the map rings it there)
 SHARE = Qt.UserRole + 1   # a list row's share of the biggest row (its little bar)
 TINT = Qt.UserRole + 2    # …and the bar's colour
 TYPE = Qt.UserRole + 3    # a "File types" row's type (".mp4", "" for files with none)
@@ -55,6 +59,14 @@ FIND_WAIT = 220           # ms after the last key before a search runs
 
 
 _work = work.run
+
+
+def changed_text(ts: float) -> str:
+    """When something was last changed: "3 h ago" this week, then a date ("12 Mar 2024")."""
+    if time.time() - ts < 7 * 86400:
+        return time_ago(ts)
+    from PySide6.QtCore import QDateTime
+    return latin_digits(locale().toString(QDateTime.fromSecsSinceEpoch(int(ts)).date(), "d MMM yyyy"))
 
 
 def _fill_color(theme, fill: float) -> QColor:
@@ -228,41 +240,97 @@ class Crumbs(QWidget):
 
 
 class Box:
-    __slots__ = ("rect", "name", "size", "kind", "level", "folder", "parent", "hue")
+    __slots__ = ("rect", "name", "size", "kind", "level", "folder", "parent", "hue", "kids", "head")
 
     def __init__(self, rect, name, size, kind, level, folder, parent, hue=None):
         self.rect, self.name, self.size, self.kind = rect, name, size, kind   # kind: folder, file or rest
         self.level, self.folder, self.parent = level, folder, parent           # folder: the Folder (folders)
         self.hue = hue                                                          # the hue of its top folder
+        self.kids: list[Box] = []                                               # what's drawn inside it
+        self.head = False                                                       # its name strip shows
+
+
+def _lerp_rect(a: QRectF, b: QRectF, t: float) -> QRectF:
+    return QRectF(a.x() + (b.x() - a.x()) * t, a.y() + (b.y() - a.y()) * t,
+                  a.width() + (b.width() - a.width()) * t, a.height() + (b.height() - a.height()) * t)
+
+
+def _mapping(src: QRectF, dst: QRectF) -> QTransform:
+    """The transform that puts src exactly on dst."""
+    sx = dst.width() / max(1e-6, src.width())
+    sy = dst.height() / max(1e-6, src.height())
+    return QTransform(sx, 0, 0, sy, dst.x() - src.x() * sx, dst.y() - src.y() * sy)
 
 
 class Treemap(QWidget):
-    """Boxes as big as what they hold. Folders show what's inside them (a few levels down while
-    there's room); click a folder to go in. Each folder at the top has a colour of its own; files
-    are coloured by kind (videos red, pictures green…)."""
+    """Boxes as big as what they hold, all the way down to the files while there's room (the way WizTree and
+    WinDirStat draw a drive), each file a soft cushion. Click a folder to go in: the map zooms into it. Each
+    folder at the top has a colour of its own; files are coloured by kind (videos red, pictures green…).
+
+    The boxes are drawn once into a picture and only the rings (under the mouse, picked, found) on top of it
+    as the mouse moves, so even a map of thousands of boxes follows the mouse smoothly."""
     opened = Signal(object)            # a Folder
     menu = Signal(object, object)      # (path, Folder or None), global position
-    DEPTH = 3
-    HEAD = 20                          # a folder's name strip
+    picked = Signal(object, object)    # (path, Folder or None): a box clicked (the list beside picks it too)
+    HEAD = 18                          # a folder's name strip
+    MAX_BOXES = 9000                   # (beyond this many, folders are drawn without what's inside them)
+    ZOOM_MS = 280
 
     def __init__(self, theme):
         super().__init__()
         self.theme = theme
         self.folder: space.Folder | None = None
-        self.boxes: list[Box] = []
+        self.boxes: list[Box] = []     # every box, outer ones before what's inside them
+        self.tops: list[Box] = []      # the boxes of what's directly in the folder shown
         self.hover = -1
         self.focus_kind = ""           # one kind picked below the map: the other files step back
         self.mark: tuple = (None, "")  # (folder, file name): a search result, ringed
+        self.selected: tuple = (None, None)  # (folder, None) or (its folder, file name): picked in the list
+        self._pix: QPixmap | None = None
+        self._zoom: tuple | None = None  # (started, old picture, new picture, from, to, "in" or "out")
+        self._zoom_timer = QTimer(self)
+        self._zoom_timer.setInterval(15)
+        self._zoom_timer.timeout.connect(self._zoom_step)
+        self._resize_timer = QTimer(self)
+        self._resize_timer.setSingleShot(True)
+        self._resize_timer.setInterval(90)
+        self._resize_timer.timeout.connect(self._resized)
         self.setMouseTracking(True)
         self.setMinimumSize(240, 160)  # (small screens with big text: nothing below it gets covered)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.setCursor(Qt.PointingHandCursor)
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.setAccessibleName(tr("Disk map"))
 
-    def show_folder(self, folder: space.Folder | None):
+    # ---- what it shows
+
+    def show_folder(self, folder: space.Folder | None, animate: bool = True):
+        old_folder, old_pix, old_boxes = self.folder, self._pix, self.boxes
         self.folder = folder
         self.hover = -1
         self.mark = (None, "")
+        self.selected = (None, None)
         self._arrange()
+        zoom = None
+        if animate and old_pix is not None and folder is not None and old_folder is not None and \
+                folder is not old_folder and tokens.animations and self.isVisible() and self.boxes:
+            full = QRectF(self.rect())
+            inside = next((b for b in old_boxes if b.folder is folder), None)
+            if inside is not None and inside.rect.width() > 2:   # going into a folder drawn on the map
+                zoom = (inside.rect, full, "in")
+            else:                                                # going up: where the folder left is
+                f = old_folder
+                while f is not None and f.parent is not folder and f is not folder:
+                    f = f.parent
+                came = next((b for b in self.boxes if f is not None and b.folder is f and b.level == 0), None)
+                if came is not None and came.rect.width() > 2:
+                    zoom = (full, came.rect, "out")
+        if zoom is not None:
+            self._zoom = (time.monotonic(), old_pix, self._picture(), *zoom)
+            self._zoom_timer.start()
+        else:
+            self._zoom = None
+            self._zoom_timer.stop()
         self.update()
 
     def set_mark(self, folder: space.Folder | None, name: str):
@@ -270,9 +338,35 @@ class Treemap(QWidget):
         self.mark = (folder, name)
         self.update()
 
+    def set_selected(self, folder: space.Folder | None, name: str | None):
+        """Rings what's picked in the list beside: a folder (name None), or a file of folder."""
+        if self.selected != (folder, name):
+            self.selected = (folder, name)
+            self.update()
+
+    def set_focus_kind(self, kind: str):
+        if kind != self.focus_kind:
+            self.focus_kind = kind
+            self.redraw()
+
+    def redraw(self):
+        """The colours changed (the theme, a kind picked): the picture is drawn again."""
+        self._pix = None
+        self.update()
+
     def resizeEvent(self, e):
-        self._arrange()
+        self._zoom = None
+        if self._pix is not None and self.boxes:
+            # (while the window is being dragged bigger, the picture there is stretched; the boxes are laid
+            # out again once it stops for a moment: thousands of them, every few pixels, made dragging stutter)
+            self._resize_timer.start()
+        else:
+            self._arrange()
         super().resizeEvent(e)
+
+    def _resized(self):
+        self._arrange()
+        self.update()
 
     @staticmethod
     def _entries(folder: space.Folder, limit: int) -> list[tuple[int, str, object]]:
@@ -286,35 +380,52 @@ class Treemap(QWidget):
         return out
 
     def _arrange(self):
-        self.boxes = []
+        """Lays the boxes out, a level at a time (so when there are too many to draw, it's the deepest that
+        go without what's inside them, not one corner of the map)."""
+        self.boxes, self.tops = [], []
+        self._pix = None
         f = self.folder
         if f is None or f.size <= 0:
             return
-        self._nest(f, QRectF(self.rect()), 0, None)
+        level_jobs = [(f, QRectF(self.rect()), None, None)]
+        level = 0
+        while level_jobs:
+            next_jobs = []
+            for folder, r, hue, holder in level_jobs:
+                entries = self._entries(folder, 120 if level == 0 else space.TOP_FILES)
+                rects = space.squarify([e[0] for e in entries], r.x(), r.y(), r.width(), r.height())
+                hues = 0
+                for (size, name, what), (x, y, w, h) in zip(entries, rects):
+                    if w < 1.5 or h < 1.5:
+                        continue
+                    sub = what if isinstance(what, space.Folder) else None
+                    kind = "folder" if sub is not None else "rest" if what == "rest" else "file"
+                    own = hue
+                    if own is None and sub is not None:
+                        own = FOLDER_HUES[hues % len(FOLDER_HUES)]
+                        hues += 1
+                    b = Box(QRectF(x, y, w, h), name, size, kind, level, sub, folder, own)
+                    self.boxes.append(b)
+                    (holder.kids if holder is not None else self.tops).append(b)
+                    if sub is not None and sub.size > 0 and w >= 26 and h >= 22:
+                        b.head = w > 70 and h > 46
+                        pad = 4 if level == 0 else 3
+                        inner = QRectF(x, y, w, h).adjusted(pad, self.HEAD if b.head else pad, -pad, -pad)
+                        next_jobs.append((sub, inner, own, b))
+            level += 1
+            if len(self.boxes) > self.MAX_BOXES:
+                for _sub, _inner, _hue, b in next_jobs:
+                    b.head = False
+                break
+            level_jobs = next_jobs
 
-    def _nest(self, folder: space.Folder, r: QRectF, level: int, hue):
-        entries = self._entries(folder, 120 if level == 0 else 48)
-        rects = space.squarify([e[0] for e in entries], r.x(), r.y(), r.width(), r.height())
-        hues = 0
-        for (size, name, what), (x, y, w, h) in zip(entries, rects):
-            if w < 2 or h < 2:
-                continue
-            sub = what if isinstance(what, space.Folder) else None
-            kind = "folder" if sub is not None else "rest" if what == "rest" else "file"
-            own = hue
-            if own is None and sub is not None:
-                own = FOLDER_HUES[hues % len(FOLDER_HUES)]
-                hues += 1
-            self.boxes.append(Box(QRectF(x, y, w, h), name, size, kind, level, sub, folder, own))
-            if sub is not None and level + 1 < self.DEPTH and sub.size > 0 and w > 40 and h > 38:
-                head = self.HEAD if w > 60 and h > 44 else 4
-                self._nest(sub, QRectF(x, y, w, h).adjusted(4, head, -4, -4), level + 1, own)
+    # ---- drawing
 
     def _color(self, b: Box) -> QColor:
         t = self.theme
         base = t.tokens.surface
         if b.kind == "folder":
-            return mix(base, QColor(b.hue), (0.22 if t.dark else 0.19) + 0.1 * b.level)
+            return mix(base, QColor(b.hue), (0.2 if t.dark else 0.17) + 0.07 * min(b.level, 4))
         if b.kind == "rest":
             return mix(base, t.muted, 0.14)
         kind = space.kind_of(b.name)
@@ -323,14 +434,23 @@ class Treemap(QWidget):
             color = mix(color, base, 0.78)
         return color
 
-    def paintEvent(self, e):
-        p = QPainter(self)
+    def _picture(self) -> QPixmap:
+        """Every box, drawn once (into a picture kept until the folder, the size or the colours change)."""
+        if self._pix is not None:
+            return self._pix
+        ratio = self.devicePixelRatioF()
+        pix = QPixmap(max(1, round(self.width() * ratio)), max(1, round(self.height() * ratio)))
+        pix.setDevicePixelRatio(ratio)
+        pix.fill(Qt.transparent)
+        p = QPainter(pix)
         p.setRenderHint(QPainter.Antialiasing)
+        self._draw_boxes(p)
+        p.end()
+        self._pix = pix
+        return pix
+
+    def _draw_boxes(self, p: QPainter):
         t = self.theme
-        if not self.boxes:
-            p.setPen(t.muted)
-            p.drawText(self.rect(), Qt.AlignCenter, tr("Nothing here takes up space."))
-            return
         small = QFont(self.font())
         small.setPointSizeF(max(7.0, self.font().pointSizeF() - 1.5))
         head = QFont(small)
@@ -341,23 +461,36 @@ class Treemap(QWidget):
         rtl = self.layoutDirection() == Qt.RightToLeft
         lead = (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignTop | Qt.AlignAbsolute
         trail = (Qt.AlignLeft if rtl else Qt.AlignRight) | Qt.AlignTop | Qt.AlignAbsolute
-        for i, b in enumerate(self.boxes):
+        light, dark = (112, 126) if t.dark else (118, 114)
+        for b in self.boxes:
             color = self._color(b)
-            box = b.rect.adjusted(1, 1, -1, -1)  # (a hairline of the page between boxes)
+            gap = 1.0 if b.level < 2 else 0.5   # (a hairline of the page between boxes)
+            box = b.rect.adjusted(gap, gap, -gap, -gap)
             if box.width() < 1 or box.height() < 1:
                 continue
-            radius = 6 if b.level == 0 else 4
+            radius = min(6.0 if b.level == 0 else 4.0, box.width() / 3, box.height() / 3)
             p.setPen(Qt.NoPen)
-            p.setBrush(color.lighter(112) if i == self.hover else color)
-            p.drawRoundedRect(box, radius, radius)
+            if b.kind == "file":   # a cushion: lit from the top left, as if it stood out of the page
+                g = QLinearGradient(box.topLeft(), box.bottomRight())
+                g.setColorAt(0.0, color.lighter(light))
+                g.setColorAt(1.0, color.darker(dark))
+                p.setBrush(QBrush(g))
+            else:
+                p.setBrush(color)
+            if radius >= 1.5:
+                p.drawRoundedRect(box, radius, radius)
+            else:
+                p.drawRect(box)
             if b.kind == "rest":  # many small files: a quiet hatch, so the eye goes to the big ones first
                 p.setBrush(QBrush(alpha(t.muted, 38), Qt.BDiagPattern))
                 p.drawRoundedRect(box, radius, radius)
             ink = on_color(color)
             soft = alpha(ink, 170)
-            if b.kind == "folder" and box.width() > 60 and box.height() > 44 and b.level + 1 < self.DEPTH:
+            if b.kind == "folder" and b.kids:
+                if not b.head:
+                    continue
                 # a folder showing what's inside it: its name (and size) in the strip at the top
-                strip = QRectF(box.left() + 6, box.top() + 2, box.width() - 12, self.HEAD - 4)
+                strip = QRectF(box.left() + 6, box.top() + 1, box.width() - 12, self.HEAD - 3)
                 size_text = human_size(b.size)
                 size_w = sfm.horizontalAdvance(size_text) + 8
                 p.setFont(head)
@@ -372,8 +505,11 @@ class Treemap(QWidget):
                 continue
             font, metrics = (name_font, fm) if b.level == 0 else (head, hfm)
             inner = box.adjusted(7, 4, -7, -2)
-            name = metrics.elidedText(b.name, Qt.ElideMiddle, int(inner.width()))
-            if box.width() > 48 and box.height() > metrics.height() + 4 and (name == b.name or len(name) >= 6):
+            if box.width() <= 44 or box.height() <= metrics.height() + 4:
+                continue
+            name = metrics.elidedText(b.name, Qt.ElideRight if b.kind == "rest" else Qt.ElideMiddle,
+                                      int(inner.width()))
+            if name == b.name or len(name) >= 6:
                 p.setPen(ink)
                 p.setFont(font)
                 p.drawText(inner, lead, name)
@@ -382,29 +518,129 @@ class Treemap(QWidget):
                     p.setPen(soft)
                     p.drawText(inner.adjusted(0, metrics.height() + 1, 0, 0), lead,
                                sfm.elidedText(human_size(b.size), Qt.ElideRight, int(inner.width())))
-        marked, mark_name = self.mark
+
+    def _ring(self, p: QPainter, b: Box, pen: QPen, fill=Qt.NoBrush, inset: float = 1.5):
+        r = min(6.0 if b.level == 0 else 4.0, b.rect.width() / 3, b.rect.height() / 3)
+        p.setBrush(fill)
+        p.setPen(pen)
+        p.drawRoundedRect(b.rect.adjusted(inset, inset, -inset, -inset), r, r)
+
+    def _box_of(self, folder, name) -> Box | None:
+        if folder is None:
+            return None
+        if name is None:
+            return next((b for b in self.boxes if b.folder is folder), None)
+        return next((b for b in self.boxes if b.kind == "file" and b.parent is folder and b.name == name), None) \
+            or next((b for b in self.boxes if b.kind == "rest" and b.parent is folder), None)
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        t = self.theme
+        if not self.boxes:
+            p.setPen(t.muted)
+            p.drawText(self.rect(), Qt.AlignCenter, tr("Nothing here takes up space."))
+            return
+        if self._zoom is not None:
+            self._paint_zoom(p)
+            return
+        pix = self._picture()
+        if self._resize_timer.isActive():   # (being made bigger or smaller: stretched until it stops)
+            p.setRenderHint(QPainter.SmoothPixmapTransform)
+            p.drawPixmap(QRectF(self.rect()), pix, QRectF(pix.rect()))
+            return
+        p.drawPixmap(0, 0, pix)
+        marked = self._box_of(*self.mark) if self.mark[0] is not None else None
         if marked is not None:  # a search result: a thick ring of the accent
-            hit = next((b for b in self.boxes if b.kind == "file" and b.parent is marked and b.name == mark_name),
-                       None) or next((b for b in self.boxes if b.kind == "rest" and b.parent is marked), None)
-            if hit is not None:
-                p.setBrush(alpha(t.accent, 46))
-                p.setPen(QPen(t.accent, 3))
-                r = 6 if hit.level == 0 else 4
-                p.drawRoundedRect(hit.rect.adjusted(2, 2, -2, -2), r, r)
+            self._ring(p, marked, QPen(t.accent, 3), alpha(t.accent, 46), 2)
+        picked = self._box_of(*self.selected) if self.selected[0] is not None else None
+        if picked is not None and picked is not marked:  # picked in the list: a ring, and the rest a little back
+            p.setPen(Qt.NoPen)
+            p.setBrush(alpha(t.tokens.canvas, 70))
+            outside = QPainterPath()
+            outside.addRect(QRectF(self.rect()))
+            hole = QPainterPath()
+            hole.addRoundedRect(picked.rect, 4, 4)
+            p.drawPath(outside.subtracted(hole))
+            self._ring(p, picked, QPen(t.text, 2.5), Qt.NoBrush, 1.5)
         if 0 <= self.hover < len(self.boxes):  # what's under the mouse: a ring of the accent
             b = self.boxes[self.hover]
+            self._ring(p, b, QPen(t.accent, 2), alpha(QColor("#ffffff"), 26))
+        if self.hasFocus() and picked is None and self.hover < 0:
             p.setBrush(Qt.NoBrush)
-            p.setPen(QPen(t.accent, 2))
-            r = 6 if b.level == 0 else 4
-            p.drawRoundedRect(b.rect.adjusted(1.5, 1.5, -1.5, -1.5), r, r)
+            p.setPen(QPen(alpha(t.accent, 120), 1.5))
+            p.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), 6, 6)
         p.end()
 
+    def _paint_zoom(self, p: QPainter):
+        started, old, new, a, b, way = self._zoom
+        k = min(1.0, (time.monotonic() - started) * 1000 / self.ZOOM_MS)
+        k = 1 - (1 - k) ** 3   # (fast, then settling)
+        full = QRectF(self.rect())
+        r = _lerp_rect(a, b, k)
+        p.setClipRect(full)
+        p.setRenderHint(QPainter.SmoothPixmapTransform)
+        if way == "in":   # the folder's box grows to fill the map, the map around it going past the edges
+            p.save()
+            p.setTransform(_mapping(a, r), True)
+            p.setOpacity(1.0 - 0.5 * k)
+            p.drawPixmap(full, old, QRectF(old.rect()))
+            p.restore()
+            p.setOpacity(min(1.0, 0.15 + k))
+            p.drawPixmap(r, new, QRectF(new.rect()))
+        else:             # the map shrinks back into its box, the folder around it coming back in
+            p.save()
+            p.setTransform(_mapping(b, r), True)
+            p.setOpacity(min(1.0, 0.35 + k))
+            p.drawPixmap(full, new, QRectF(new.rect()))
+            p.restore()
+            p.setOpacity(1.0 - k)
+            p.drawPixmap(r, old, QRectF(old.rect()))
+        p.end()
+
+    def _zoom_step(self):
+        if self._zoom is None or (time.monotonic() - self._zoom[0]) * 1000 >= self.ZOOM_MS:
+            self._zoom = None
+            self._zoom_timer.stop()
+        self.update()
+
+    # ---- the mouse
+
     def _at(self, pos) -> int:
-        found = -1
-        for i, b in enumerate(self.boxes):
-            if b.rect.contains(pos):
-                found = i  # (boxes inside a folder come after it: the innermost wins)
-        return found
+        """The innermost box under pos (looked for from the top down: quick even with thousands)."""
+        found = None
+        level = self.tops
+        while level:
+            b = next((b for b in level if b.rect.contains(pos)), None)
+            if b is None:
+                break
+            found = b
+            level = b.kids
+        return self._index.get(id(found), -1) if found is not None else -1
+
+    @property
+    def _index(self) -> dict:
+        if getattr(self, "_index_of", (None,))[0] is not self.boxes:
+            self._index_of = (self.boxes, {id(b): i for i, b in enumerate(self.boxes)})
+        return self._index_of[1]
+
+    def tip_text(self, b: Box) -> str:
+        where = ""
+        if b.parent is not None and b.parent is not self.folder:
+            where = f"{b.parent.name}  ›  "
+        lines = [f"{where}{b.name}"]
+        whole = self.folder.size if self.folder is not None else 0
+        share = f"  ·  {b.size * 100 / whole:.1f}%" if whole else ""
+        lines.append(f"{human_size(b.size)}{share}")
+        if b.folder is not None:
+            lines.append(tr("1 file") if b.folder.files == 1 else tr("{count} files", count=f"{b.folder.files:,}"))
+            if b.folder.newest:
+                lines.append(tr("Changed {when}", when=changed_text(b.folder.newest)))
+        elif b.kind == "file":
+            when = b.parent.own_times().get(b.name) if b.parent is not None else None
+            if when:
+                lines.append(tr("Changed {when}", when=changed_text(when)))
+        return "\n".join(lines)
 
     def mouseMoveEvent(self, e):
         i = self._at(e.position())
@@ -412,11 +648,7 @@ class Treemap(QWidget):
             self.hover = i
             self.update()
         if i >= 0:
-            b = self.boxes[i]
-            where = ""
-            if b.parent is not None and b.parent is not self.folder:
-                where = f"{b.parent.name}  ›  "
-            sheet.tip_at(e.globalPosition().toPoint(), f"{where}{b.name}\n{human_size(b.size)}", self)
+            sheet.tip_at(e.globalPosition().toPoint(), self.tip_text(self.boxes[i]), self)
 
     def leaveEvent(self, e):
         self.hover = -1
@@ -436,10 +668,21 @@ class Treemap(QWidget):
         if i < 0:
             return
         path, folder, to_open = self._target(i)
-        if e.button() == Qt.LeftButton and to_open is not None:
-            self.opened.emit(to_open)
+        b = self.boxes[i]
+        if e.button() == Qt.LeftButton:
+            if b.kind == "folder" or (b.level > 0 and to_open is not None):
+                self.opened.emit(to_open)
+            elif path is not None:   # a file of the folder shown: picked (the list beside picks it too)
+                self.picked.emit(path, folder)
         elif e.button() == Qt.RightButton and path is not None:
             self.menu.emit((path, folder), e.globalPosition().toPoint())
+
+    def mouseDoubleClickEvent(self, e):
+        i = self._at(e.position())
+        if i >= 0 and e.button() == Qt.LeftButton:
+            path, folder, _ = self._target(i)
+            if folder is None and path is not None and self.boxes[i].level == 0:
+                QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
 
 
 class KindsBar(QWidget):
@@ -577,6 +820,28 @@ class KindChip(QPushButton):
         p.end()
 
 
+class Row(QTreeWidgetItem):
+    """A list row that's put in order by what it holds (sizes as numbers, dates as dates), not its text."""
+
+    def __lt__(self, other):
+        tree = self.treeWidget()
+        col = tree.sortColumn() if tree is not None else 1
+        a, b = self.data(col, SORT), other.data(col, SORT)
+        if a is None or b is None or type(a) is not type(b):
+            return super().__lt__(other)
+        return a < b
+
+
+class SideList(QTreeWidget):
+    """The list beside the map. Says when it's been made wider or narrower (the columns that fit change)."""
+    widened = Signal()
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        if e.oldSize().width() != e.size().width():
+            self.widened.emit()
+
+
 class ShareDelegate(QStyledItemDelegate):
     """A list row with a thin bar under its name: its size next to the biggest row's."""
 
@@ -611,6 +876,8 @@ class Spinner(QWidget):
         self.angle = 0
         self.text = ""
         self.sub = ""
+        self.fraction: float | None = None   # how far it is, when that's known (a whole drive: its used space)
+        self.shown = 0.0                     # (the arc drawn, catching up with fraction smoothly)
         self.setFixedSize(150, 150)
         self.timer = QTimer(self)
         self.timer.setInterval(16)
@@ -618,6 +885,12 @@ class Spinner(QWidget):
 
     def set_text(self, text: str, sub: str = ""):
         self.text, self.sub = text, sub
+        self.update()
+
+    def set_fraction(self, fraction: float | None):
+        if fraction is None or self.fraction is None or fraction < self.fraction:
+            self.shown = fraction or 0.0
+        self.fraction = fraction
         self.update()
 
     def showEvent(self, e):
@@ -630,6 +903,8 @@ class Spinner(QWidget):
 
     def _turn(self):
         self.angle = (self.angle + 5) % 360
+        if self.fraction is not None:
+            self.shown += (self.fraction - self.shown) * 0.12
         self.update()
 
     def paintEvent(self, e):
@@ -641,8 +916,11 @@ class Spinner(QWidget):
         p.setBrush(mix(t.tokens.surface, t.accent, 0.07 if t.dark else 0.05))
         p.drawEllipse(r)
         _ring(p, r, None, t.accent, mix(t.tokens.surface, t.text, 0.08), 7)
-        p.setPen(QPen(t.accent, 7, Qt.SolidLine, Qt.RoundCap))
-        p.drawArc(r, -self.angle * 16, 100 * 16)
+        if self.fraction is not None and self.shown > 0.005:   # how far: an arc from the top that fills up
+            _ring(p, r, self.shown, t.accent, mix(t.tokens.surface, t.text, 0.08), 7)
+        else:
+            p.setPen(QPen(t.accent, 7, Qt.SolidLine, Qt.RoundCap))
+            p.drawArc(r, -self.angle * 16, 100 * 16)
         big = QFont(self.font())
         big.setPointSizeF(self.font().pointSizeF() + 5)
         big.setWeight(QFont.Weight.DemiBold)
@@ -919,6 +1197,9 @@ class SpacePage(QWidget):
         self.busy_title = _label("", "h2")
         self.busy_title.setAlignment(Qt.AlignCenter)
         bl.addWidget(self.busy_title)
+        self.busy_eta = _label("", None)
+        self.busy_eta.setAlignment(Qt.AlignCenter)
+        bl.addWidget(self.busy_eta)
         self.busy_line = ElidedLabel()
         self.busy_line.setObjectName("muted")
         self.busy_line.setAlignment(Qt.AlignCenter)
@@ -940,9 +1221,13 @@ class SpacePage(QWidget):
         self.back_btn = self._back_button()
         self.where = Crumbs(self.c.theme)
         self.where.picked.connect(self.open_folder)
-        self.again_btn = _button(tr("Look again"), "ghost", self._rescan)
-        self.again_btn.setToolTip(tr("Look through it again, to see what changed since"))
-        self.drives_btn = _button(tr("Other drives"), "ghost", self._back_to_drives)
+        # (icons only, with their names on the mouse: the path beside them needs the room)
+        self.again_btn = _button("", "ghost", self._rescan)
+        self.again_btn.setToolTip(tr("Look again") + "\n" + tr("Look through it again, to see what changed since"))
+        self.again_btn.setAccessibleName(tr("Look again"))
+        self.drives_btn = _button("", "ghost", self._back_to_drives)
+        self.drives_btn.setToolTip(tr("Other drives"))
+        self.drives_btn.setAccessibleName(tr("Other drives"))
         self.save_btn = _button("", "ghost", self._save_list)
         self.save_btn.setToolTip(tr("Save the map as a spreadsheet: every folder of 1 MB or more, and its biggest files"))
         self.save_btn.setAccessibleName(tr("Save the list…"))
@@ -953,8 +1238,7 @@ class SpacePage(QWidget):
         self.find_box.setAccessibleName(tr("Find a file by name"))
         self.find_box.setToolTip(tr("Every file of the map, not only the biggest. Use * and ? for any letters: *.iso"))
         self.find_box.setClearButtonEnabled(True)
-        self.find_box.setMinimumWidth(150)
-        self.find_box.setMaximumWidth(260)
+        self.find_box.setFixedWidth(210)  # (the path beside it gets the rest: it was squeezed down to "… › …")
         self._find_timer = QTimer(self)
         self._find_timer.setSingleShot(True)
         self._find_timer.setInterval(FIND_WAIT)
@@ -964,13 +1248,14 @@ class SpacePage(QWidget):
         QShortcut(QKeySequence.StandardKey.Find, w, self._focus_find, context=Qt.WidgetWithChildrenShortcut)
         nav.addWidget(self.back_btn)
         nav.addWidget(self.where, 1)
-        nav.addWidget(self.find_box, 1)
+        nav.addWidget(self.find_box)
         nav.addWidget(self.save_btn)
         nav.addWidget(self.again_btn)
         nav.addWidget(self.drives_btn)
         ml.addLayout(nav)
         self.summary = _label("", "muted", wrap=True)
         self.summary.setTextFormat(Qt.RichText)
+        self.summary.linkActivated.connect(self._summary_link)
         line = QHBoxLayout()
         line.setSpacing(10)
         line.addWidget(self.summary, 1)
@@ -981,12 +1266,15 @@ class SpacePage(QWidget):
         self.live_badge.hide()
         line.addWidget(self.live_badge, 0, Qt.AlignRight | Qt.AlignTop)
         ml.addLayout(line)
-        body = QHBoxLayout()
-        body.setSpacing(12)
+        body = QSplitter(Qt.Horizontal)  # (drag the line between them to give the list more room)
+        body.setChildrenCollapsible(False)
+        body.setHandleWidth(12)
+        self.body = body
         self.treemap = Treemap(self.c.theme)
         self.treemap.opened.connect(self.open_folder)
         self.treemap.menu.connect(lambda what, pos: self._menu(what[0], what[1], pos))
-        body.addWidget(self.treemap, 3)
+        self.treemap.picked.connect(self._map_picked)
+        body.addWidget(self.treemap)
         side = QVBoxLayout()
         side.setSpacing(8)
         self.list_mode = "here"
@@ -997,27 +1285,44 @@ class SpacePage(QWidget):
         self.mode_box.setAccessibleName(tr("Show"))
         self.mode_box.currentIndexChanged.connect(self._mode_picked)
         side.addWidget(self.mode_box)
-        self.items = QTreeWidget()
+        self.items = SideList()
         self.items.setObjectName("history")
-        self.items.setHeaderLabels([tr("Name"), tr("Size")])
-        self.items.headerItem().setTextAlignment(1, Qt.AlignRight | Qt.AlignVCenter)
+        self.items.setHeaderLabels([tr("Name"), tr("Size"), "%", tr("Files"), tr("Changed")])
+        for col in range(1, len(COLUMNS)):
+            self.items.headerItem().setTextAlignment(col, Qt.AlignRight | Qt.AlignVCenter)
+        self.items.headerItem().setToolTip(2, tr("Share of the folder it's in"))
         self.items.setRootIsDecorated(False)
         self.items.setUniformRowHeights(True)
+        self.items.setExpandsOnDoubleClick(False)  # (a double-click opens it on the map; the arrow opens it here)
         self.items.setItemDelegateForColumn(0, ShareDelegate(self.c.theme, self.items))
         self.items.setStyleSheet("QTreeView::item { padding: 6px 2px 9px 2px; }")  # (room for the bars)
-        self.items.header().setStretchLastSection(False)
-        self.items.header().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.items.header().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        head = self.items.header()
+        head.setStretchLastSection(False)
+        head.setSectionResizeMode(0, QHeaderView.Stretch)
+        for col in range(1, len(COLUMNS)):
+            head.setSectionResizeMode(col, QHeaderView.Fixed)   # (_fit_columns sizes them: content and sort mark)
+        head.setSortIndicatorShown(False)  # (the mark is an arrow in the column's name: right-aligned names hid it)
+        head.setSortIndicator(1, Qt.DescendingOrder)
+        head.sortIndicatorChanged.connect(lambda *_: (self._mark_sort(), self._fit_columns()))
         self.items.setContextMenuPolicy(Qt.CustomContextMenu)
         self.items.customContextMenuRequested.connect(self._list_menu)
-        self.items.itemDoubleClicked.connect(self._list_open)
+        self.items.itemActivated.connect(self._list_open)          # (a double-click, or Enter)
+        self.items.itemExpanded.connect(self._list_expanded)
+        self.items.currentItemChanged.connect(self._list_picked)
+        self.items.widened.connect(self._fit_columns)
         self.items.setMinimumWidth(240)  # (names stay readable next to the map)
         side.addWidget(self.items, 1)
         holder = QWidget()
         holder.setLayout(side)
         side.setContentsMargins(0, 0, 0, 0)
-        body.addWidget(holder, 2)
-        ml.addLayout(body, 1)
+        body.addWidget(holder)
+        body.setStretchFactor(0, 3)
+        body.setStretchFactor(1, 2)
+        ml.addWidget(body, 1)
+        # keys on the map: Backspace goes up, Delete sends what's picked to the Recycle Bin (asking first)
+        QShortcut(QKeySequence(Qt.Key_Backspace), self.map_box, self._up, context=Qt.WidgetWithChildrenShortcut)
+        QShortcut(QKeySequence(Qt.Key_Delete), self.map_box, self._remove_picked,
+                  context=Qt.WidgetWithChildrenShortcut)
         ml.addSpacing(2)
         self.kinds_bar = KindsBar(self.c.theme)
         self.kinds_bar.picked.connect(self._show_kind)
@@ -1098,6 +1403,10 @@ class SpacePage(QWidget):
         self.busy_title.setText(tr("Looking through {name}…", name=ltr(str(root))))
         self.busy_line.set_full(tr("This takes a moment on a big drive."))
         self.spinner.set_text("", "")
+        self.spinner.set_fraction(None)
+        self.busy_eta.setText("")
+        self._expect = space.expected_size(root)   # (how far along it is: a ring that fills, and the time left)
+        self._scan_started = time.monotonic()
         cancel = self.cancel
         # (Windows starts telling what changes right away: what changes while it looks is caught up after)
         self._new_watch = space.Watch(root)
@@ -1119,11 +1428,33 @@ class SpacePage(QWidget):
             return result
         self.job = _work(work, self._scan_progress, self._scanned)
 
+    def look_at(self, root: Path):
+        """From Explorer's right-click ("See what fills this"): the map of that folder or drive, whatever Space
+        was showing (a look already running carries on: this one waits for nothing and isn't started)."""
+        if self.job is not None:
+            self.c.tell(tr("Space is already looking through a drive"), tr("Try again when it's done."))
+            return
+        self.show_section("map")
+        self.start_scan(root)
+
     def _scan_progress(self, args):
         if not _alive(self):
             return
         files, size, folder = args if isinstance(args, tuple) else (0, 0, "")
-        self.spinner.set_text(human_size(size), tr("{count} files", count=f"{files:,}"))
+        expect = getattr(self, "_expect", 0)
+        if expect > 0:
+            done = min(0.99, size / expect)
+            self.spinner.set_fraction(done)
+            self.spinner.set_text(ltr(f"{done * 100:.0f}%"), human_size(size))
+            spent = time.monotonic() - getattr(self, "_scan_started", time.monotonic())
+            line = tr("{count} files", count=f"{files:,}")
+            if done >= 0.05 and spent >= 3:
+                left = spent * (1 - done) / done
+                line += "  ·  " + (tr("Less than a minute left") if left < 60 else
+                                   tr("About {count} min left", count=round(left / 60)))
+            self.busy_eta.setText(line)
+        else:
+            self.spinner.set_text(human_size(size), tr("{count} files", count=f"{files:,}"))
         self.busy_line.set_full(str(folder))
 
     def _stop(self):
@@ -1192,12 +1523,20 @@ class SpacePage(QWidget):
         self._fill_modes()
         self._show_live()
         self._live_timer.start()
+        if not getattr(self, "_split_done", False):   # (the map three fifths, the list two, to begin with)
+            QTimer.singleShot(0, self._first_split)
         QTimer.singleShot(0, self._live_tick)  # (what changed while it wasn't showing, right away)
         root = _key(result.root.path)
         self.where.root_title = next((_drive_title(d) for d in self.drives if _key(Path(d.path)) == root), "")
         self.open_folder(folder)
         self.kinds_bar.set_kinds(result.kinds)
         self._fill_kinds()
+
+    def _first_split(self):
+        total = sum(self.body.sizes())
+        if total > 400 and not getattr(self, "_split_done", False):
+            self._split_done = True
+            self.body.setSizes([round(total * 0.6), total - round(total * 0.6)])
 
     # ---- following the disk as it changes
 
@@ -1421,9 +1760,9 @@ class SpacePage(QWidget):
         kind = self.big_kind if self.list_mode == "big" else ""
         for chip in self.kind_chips:
             chip.setChecked(chip.kind == kind)
-        self.kinds_bar.focus = self.treemap.focus_kind = kind
+        self.kinds_bar.focus = kind
+        self.treemap.set_focus_kind(kind)
         self.kinds_bar.update()
-        self.treemap.update()
 
     def _all_biggest(self):
         self.big_kind = ""
@@ -1457,10 +1796,25 @@ class SpacePage(QWidget):
             bits.append(html.escape(tr("{count} folders Windows keeps private were skipped", count=s.denied)))
         if f is s.root and s.cloud:
             bits.append(html.escape(tr("{count} files only in the cloud take no space here", count=f"{s.cloud:,}")))
+        if f is s.root and s.linked >= 1 << 20:
+            bits.append(html.escape(tr("{size} of Windows files with two names counted once",
+                                       size=human_size(s.linked))))
+        if f is s.root and not s.fast and s.seconds >= 30 and not self.c.settings.space_fast_look and \
+                mftscan.is_ntfs(s.root.path):
+            link = self.c.theme.accent.name()
+            bits.append(f"<a href='fast' style='color:{link}; text-decoration:none'>"
+                        f"{html.escape(tr('Turn on the fast look: seconds instead of minutes'))}</a>")
         kept = self.kept.get(_key(s.root.path))
         if kept is not None and kept[0] is s and time.time() - kept[2] >= 60:
             bits.append(html.escape(tr("mapped {when}", when=time_ago(kept[2]))))
         self.summary.setText("&nbsp;&nbsp;·&nbsp;&nbsp;".join(bits))
+
+    def _summary_link(self, what: str):
+        if what == "fast":
+            self.fast_look.setChecked(True)
+            self.c.tell(tr("Fast look is on"), tr("The next look at a whole drive reads its own list of files. "
+                                                  "Windows asks for permission first."))
+            self._summary()
 
     def open_folder(self, folder: space.Folder):
         self.here = folder
@@ -1578,16 +1932,24 @@ class SpacePage(QWidget):
         self._mark_kind()
 
     def _fill_list(self):
-        # (filled again as the disk changes: the list keeps its place and what's picked in it)
+        # (filled again as the disk changes: the list keeps its place, what's picked and what's opened in it)
         bar = self.items.verticalScrollBar()
         place = bar.value()
         cur = self.items.currentItem()
         picked = cur.data(0, Qt.UserRole) if cur is not None else None
         picked = str(picked[0]) if picked and picked[0] is not None else None
+        opened = {str(it.data(0, Qt.UserRole)[1].path) for it in self._all_rows()
+                  if it.isExpanded() and it.data(0, Qt.UserRole) and it.data(0, Qt.UserRole)[1] is not None}
         self.items.clear()
+        here_mode = self.list_mode == "here"
+        self.items.setRootIsDecorated(here_mode)  # (folders open in place, with their arrow: like WizTree)
+        self.items.setSortingEnabled(False)
+        self.items.header().setSectionsClickable(here_mode)
+        self._mark_sort()
         if self.here is None or self.scan is None:
             return
         rows = []
+        whole = self.scan.root.size
         if self.list_mode == "found" and self.found is not None:
             _query, found, total, _s = self.found
             for size, path, folder in found:
@@ -1596,7 +1958,7 @@ class SpacePage(QWidget):
                 rows.append((f"{ltr(short_name(p.name, 60))}   ·   {ltr(short_name(where, 30))}", size, p,
                              folder, path))
             if not found:
-                it = QTreeWidgetItem([tr("Nothing on this map has that in its name."), ""])
+                it = Row([tr("Nothing on this map has that in its name."), ""])
                 it.setFlags(Qt.NoItemFlags)
                 self.items.addTopLevelItem(it)
             elif total > len(found):
@@ -1608,15 +1970,16 @@ class SpacePage(QWidget):
             else:
                 biggest = self.scan.biggest_kind.get(self.big_kind, []) if self.big_kind else self.scan.biggest
             for size, path in biggest:
-                rows.append((ltr(short_name(Path(path).name, 60)), size, Path(path), None, path))
+                rows.append((_with_place(Path(path)), size, Path(path), None, path))
         elif self.list_mode == "types":
             self._fill_types()
+            self._fit_columns()
             bar.setValue(place)
             return
         elif self.list_mode == "old":
             for size, path, used in self.scan.old:
                 when = time.strftime("%Y-%m-%d", time.localtime(used))
-                rows.append((ltr(short_name(Path(path).name, 60)), size, Path(path), None,
+                rows.append((_with_place(Path(path)), size, Path(path), None,
                              path + "\n" + tr("Last used {date}", date=when)))
         elif self.list_mode == "grew":
             for delta, path in self.scan.grew:
@@ -1624,38 +1987,186 @@ class SpacePage(QWidget):
                 folder = self._folder_of(p)
                 rows.append((ltr(short_name(p.name or str(p), 60)), delta, p, folder, path))
         else:
-            for size, name, folder in self.here.entries()[:300]:
-                rows.append((ltr(name), size,
-                             folder.path if folder is not None else self.here.path / name, folder, None))
-            if self.here.rest:
-                rows.append((tr("{count} smaller files", count=self.here.rest_count), self.here.rest, None, None, None))
-        folder_icon = icons.icon("folder", self.c.theme.muted)
+            self._add_rows(None, self.here)
+            whole = 0
         if not rows and self.list_mode in ("old", "grew"):
             empty = tr("Nothing big has gone unused for a year.") if self.list_mode == "old" else \
                 tr("Nothing grew much since the last look.")
-            it = QTreeWidgetItem([empty, ""])
+            it = Row([empty, ""])
             it.setFlags(Qt.NoItemFlags)
             self.items.addTopLevelItem(it)
         top = max((r[1] for r in rows), default=0) or 1
-        folder_tint = mix(self.c.theme.muted, self.c.theme.accent, 0.5)
         for text, size, path, folder, tip in rows:
-            it = QTreeWidgetItem([text, ("+" if self.list_mode == "grew" else "") + human_size(size)])
-            if folder is not None:
-                it.setIcon(0, folder_icon)
-            it.setTextAlignment(1, Qt.AlignRight | Qt.AlignVCenter)
-            it.setData(0, Qt.UserRole, (path, folder))
-            it.setData(0, SHARE, size / top)
-            it.setData(0, TINT, folder_tint if folder is not None or path is None
-                       else QColor(KIND_COLORS[space.kind_of(str(path))]))
+            it = self._row(text, size, path, folder, None, top, whole, "+" if self.list_mode == "grew" else "")
             if tip:
                 it.setToolTip(0, tip)
             if path is None and folder is None and self.list_mode == "found":
                 it.setFlags(Qt.NoItemFlags)
                 it.setText(1, "")
             self.items.addTopLevelItem(it)
-            if picked is not None and path is not None and str(path) == picked:
-                self.items.setCurrentItem(it)
+        if here_mode:
+            self.items.setSortingEnabled(True)
+            head = self.items.header()
+            head.setSortIndicatorShown(False)   # (turned on again by setSortingEnabled: the arrow is in the name)
+            self.items.sortItems(head.sortIndicatorSection(), head.sortIndicatorOrder())
+            for it in list(self._all_rows()):
+                data = it.data(0, Qt.UserRole)
+                if data and data[1] is not None and str(data[1].path) in opened:
+                    it.setExpanded(True)
+        if picked is not None:
+            for it in self._all_rows():
+                data = it.data(0, Qt.UserRole)
+                if data and data[0] is not None and str(data[0]) == picked:
+                    self.items.setCurrentItem(it)
+                    break
+        self._fit_columns()
         bar.setValue(place)
+
+    def _mark_sort(self):
+        """The column the list is in order by gets an arrow after its name (only in "In this folder")."""
+        head = self.items.header()
+        names = [tr("Name"), tr("Size"), "%", tr("Files"), tr("Changed")]
+        col = head.sortIndicatorSection()
+        if self.list_mode == "here" and 0 <= col < len(names):
+            arrow = "↓" if head.sortIndicatorOrder() == Qt.DescendingOrder else "↑"
+            names[col] = f"{arrow} {names[col]}" if col else f"{names[col]} {arrow}"
+        for i, text in enumerate(names):
+            self.items.headerItem().setText(i, text)
+
+    def _all_rows(self):
+        """Every row of the list, the ones inside opened folders too."""
+        todo = [self.items.topLevelItem(i) for i in range(self.items.topLevelItemCount())]
+        while todo:
+            it = todo.pop()
+            yield it
+            todo.extend(it.child(i) for i in range(it.childCount()))
+
+    def _row(self, text: str, size: int, path, folder, holder, top: int, whole: int, sign: str = "") -> Row:
+        """One row: its name (with a bar for its size next to the biggest), size, share, files and when it
+        last changed."""
+        it = Row([text, sign + human_size(size), "", "", ""])
+        if whole > 0:
+            share = size * 100 / whole
+            it.setText(2, ltr(f"{share:.0f}%" if share >= 10 or share == 0 else f"{share:.1f}%"))
+            it.setData(2, SORT, size)
+        if folder is not None:
+            it.setIcon(0, self._folder_icon())
+            it.setText(3, f"{folder.files:,}")
+            it.setData(3, SORT, folder.files)
+            when = folder.newest
+        else:
+            it.setData(3, SORT, 1 if path is not None else 0)
+            when = self._file_time(path, holder) if path is not None else 0.0
+        if when:
+            it.setText(4, changed_text(when))
+            it.setData(4, SORT, float(when))
+        else:
+            it.setData(4, SORT, 0.0)
+        for col in range(1, len(COLUMNS)):
+            it.setTextAlignment(col, Qt.AlignRight | Qt.AlignVCenter)
+        it.setData(0, Qt.UserRole, (path, folder))
+        it.setData(0, HOLDER, holder)
+        it.setData(0, SORT, text.lower())
+        it.setData(1, SORT, size)
+        it.setData(0, SHARE, size / (top or 1))
+        it.setData(0, TINT, mix(self.c.theme.muted, self.c.theme.accent, 0.5) if folder is not None or path is None
+                   else QColor(KIND_COLORS[space.kind_of(str(path))]))
+        return it
+
+    def _folder_icon(self):
+        key = self.c.theme.muted.name()
+        if getattr(self, "_folder_icon_for", None) != key:
+            self._folder_icon_for, self._folder_icon_cached = key, icons.icon("folder", self.c.theme.muted)
+        return self._folder_icon_cached
+
+    def _file_time(self, path, holder) -> float:
+        """When a file of the map was last changed (kept for the biggest files of each folder)."""
+        if holder is None:
+            holder = self._folder_of(Path(path).parent)
+        if holder is None:
+            return 0.0
+        return holder.own_times().get(Path(path).name, 0.0)
+
+    def _add_rows(self, parent: Row | None, folder: space.Folder):
+        """What's directly in folder, as rows (under parent, or at the top of the list); folders with
+        something in them get an arrow that opens them in place."""
+        entries = folder.entries()[:300]
+        top = max((e[0] for e in entries), default=0) or 1
+        out = []
+        for size, name, sub in entries:
+            path = sub.path if sub is not None else folder.path / name
+            it = self._row(ltr(name), size, path, sub, folder, top, folder.size)
+            if sub is not None and (sub.children or sub.sizes):
+                it.setChildIndicatorPolicy(QTreeWidgetItem.ShowIndicator)
+            out.append(it)
+        if folder.rest:
+            out.append(self._row(tr("{count} smaller files", count=folder.rest_count), folder.rest, None, None, folder,
+                                 top, folder.size))
+        if parent is None:
+            self.items.addTopLevelItems(out)
+        else:
+            parent.addChildren(out)
+
+    def _list_expanded(self, item):
+        data = item.data(0, Qt.UserRole)
+        if item.childCount() or not data or data[1] is None:
+            return
+        self._add_rows(item, data[1])
+
+    def _list_picked(self, item, _before=None):
+        """A row picked in the list: rung on the map (when it's drawn there)."""
+        data = item.data(0, Qt.UserRole) if item is not None else None
+        if not data or data[0] is None:
+            self.treemap.set_selected(None, None)
+            return
+        path, folder = data
+        if folder is not None:
+            self.treemap.set_selected(folder, None)
+            return
+        holder = item.data(0, HOLDER) or self._folder_of(Path(path).parent)
+        self.treemap.set_selected(holder, Path(path).name)
+
+    def _map_picked(self, path, folder):
+        """A box clicked on the map: its row is picked in the list."""
+        for it in self._all_rows():
+            data = it.data(0, Qt.UserRole)
+            if data and data[0] is not None and str(data[0]) == str(path):
+                self.items.setCurrentItem(it)
+                self.items.scrollToItem(it)
+                return
+        holder = self._folder_of(Path(path).parent) if folder is None else None
+        self.treemap.set_selected(folder, None) if folder is not None else \
+            self.treemap.set_selected(holder, Path(path).name)
+
+    def _fit_columns(self):
+        """The columns that fit, in this order: the size, its share, the files and when it changed (the list
+        can be made wider by dragging the line between it and the map). The name gets the rest."""
+        head = self.items.header()
+        fm = head.fontMetrics()
+        room = self.items.viewport().width() - 150   # (the name keeps at least this)
+        mode_has = {"types": (1,), "found": (1, 2, 4), "big": (1, 2, 4), "old": (1, 2, 4), "grew": (1, 3, 4)}
+        has = mode_has.get(self.list_mode, (1, 2, 3, 4))
+        for col in range(1, len(COLUMNS)):
+            text = self.items.headerItem().text(col)
+            w = max(self.items.sizeHintForColumn(col), fm.horizontalAdvance(text) + 30, 44)
+            show = col in has and (w <= room or col == 1)
+            self.items.setColumnHidden(col, not show)
+            if show:
+                head.resizeSection(col, w + 6)
+                room -= w + 6
+
+    def _remove_picked(self):
+        """Delete: what's picked in the list (or on the map) to the Recycle Bin, after asking."""
+        it = self.items.currentItem()
+        data = it.data(0, Qt.UserRole) if it is not None else None
+        if not data or data[0] is None:
+            return
+        path, folder = Path(data[0]), data[1]
+        if space.protected(path) or self._program_at(path) is not None:  # (as the right-click menu says)
+            self.c.tell(tr("Move to the Recycle Bin…"), tr("Windows keeps this folder (what's inside it can go)")
+                        if space.own_windows_folder(path) else tr("Windows needs this (remove programs with the Uninstaller)"))
+            return
+        self._remove(path, folder)
 
     def _fill_types(self):
         """Every file type of the scan, biggest first: how much room it takes and in how many files."""
@@ -1663,7 +2174,7 @@ class SpacePage(QWidget):
         top = max((size for size, _ in types.values()), default=0) or 1
         for ext, (size, count) in types.items():
             files = tr("1 file") if count == 1 else tr("{count} files", count=f"{count:,}")
-            it = QTreeWidgetItem([f"{self._type_name(ext)}   ·   {files}", human_size(size)])
+            it = Row([f"{self._type_name(ext)}   ·   {files}", human_size(size)])
             it.setTextAlignment(1, Qt.AlignRight | Qt.AlignVCenter)
             it.setData(0, TYPE, ext)
             it.setData(0, SHARE, size / top)
@@ -2074,6 +2585,11 @@ class SpacePage(QWidget):
         self.dupe_btn = _button(tr("Find duplicates in your folders"), "primary", lambda: self.find_dupes(None))
         row.addWidget(self.dupe_btn)
         row.addWidget(_button(tr("In a folder…"), None, self._dupes_in_folder))
+        similar = _button(tr("Find similar photos"), None, lambda: self.find_similar(None))
+        similar.setToolTip(tr("Photos that look the same without being exact copies: resized or recompressed "
+                              "ones, burst shots a moment apart. Nothing is ticked: you pick what goes."))
+        row.addWidget(similar)
+        self.similar_btn = similar
         row.addStretch()
 
         def empty_folders():  # (a window of its own: corefold/emptyview.py, loaded only when asked for)
@@ -2118,14 +2634,7 @@ class SpacePage(QWidget):
         lay.addLayout(row)
         return w
 
-    def _dupes_in_folder(self):
-        folder = QFileDialog.getExistingDirectory(self, tr("Find duplicates in"), str(Path.home()))
-        if folder:
-            self.find_dupes([Path(folder)])
-
-    def find_dupes(self, folders):
-        if self.job is not None:
-            return
+    def _dupe_folders(self, folders):
         if folders is None:
             home = Path.home()
             folders = [home / n for n in DUPE_FOLDERS]
@@ -2137,6 +2646,9 @@ class SpacePage(QWidget):
             self.dupe_where.setText(tr("Your folders: {names}", names=", ".join(tr(n) for n in DUPE_FOLDERS)))
         else:
             self.dupe_where.setText(ltr(str(folders[0])))
+        return folders
+
+    def _dupes_busy(self, text: str):
         self.dupe_tree.clear()
         self.dupe_tree.hide()
         self.dupe_pick.hide()
@@ -2144,7 +2656,102 @@ class SpacePage(QWidget):
         self.dupe_bar.setRange(0, 0)
         self.dupe_bar.show()
         self.dupe_btn.setEnabled(False)
-        self.dupe_note.setText(tr("Looking through your files…"))
+        self.similar_btn.setEnabled(False)
+        self.dupe_note.setText(text)
+
+    def find_similar(self, folders):
+        """Photos that look alike in your folders (or one folder), each group shown with small pictures."""
+        if self.job is not None:
+            return
+        folders = self._dupe_folders(folders)
+        self.dupe_mode = "similar"
+        self._dupes_busy(tr("Looking for photos…"))
+        cancel = self._new_cancel()
+        self.job = _work(lambda progress: space.find_similar_photos(folders, cancel=cancel,
+                                                                    progress=lambda *a: progress(a)),
+                         self._similar_progress, self._similar_found)
+
+    def _similar_progress(self, args):
+        if not _alive(self):
+            return
+        stage, done, total = args
+        if stage == "look":
+            self.dupe_note.setText(tr("Looking for photos… {count}", count=f"{done:,}"))
+        else:
+            self.dupe_bar.setRange(0, max(1, total))
+            self.dupe_bar.setValue(done)
+            self.dupe_note.setText(tr("Comparing photos… {done} of {total}", done=f"{done:,}", total=f"{total:,}"))
+
+    def _similar_found(self, groups):
+        if not _alive(self):
+            return
+        self.job = None
+        self._junk_if_waiting()
+        self.dupe_bar.hide()
+        self.dupe_btn.setEnabled(True)
+        self.similar_btn.setEnabled(True)
+        if isinstance(groups, Exception):
+            self.dupe_note.setText(str(groups))
+            return
+        thumbs = getattr(self, "_thumbs", {})
+        for group in groups:
+            for row in group:
+                if len(row) > 3:
+                    thumbs[row[0]] = (row[3], row[4])
+        self._thumbs = thumbs
+        self.dupes = [[(r[0], r[1], r[2]) for r in g] for g in groups]
+        if not groups:
+            self.dupe_note.setText(tr("No photos look alike."))
+            return
+        self.dupe_tree.blockSignals(True)
+        self.dupe_tree.setUpdatesEnabled(False)
+        self.dupe_tree.setIconSize(QSize(64, 48))
+        heads = []
+        for group in self.dupes:
+            biggest = max(group, key=lambda r: (thumbs.get(r[0], (0, b""))[0], r[1]))[0]
+            head = QTreeWidgetItem([tr("{count} photos look alike", count=len(group)), "",
+                                    human_size(sum(r[1] for r in group))])
+            f = head.font(0)
+            f.setWeight(QFont.Weight.DemiBold)
+            head.setFont(0, f)
+            heads.append(head)
+            for path, size, mtime in group:
+                pixels, jpeg = thumbs.get(path, (0, b""))
+                text = ltr(path)
+                if path == biggest:
+                    text += "   ·   " + tr("the biggest picture")
+                it = QTreeWidgetItem([text, date_text(mtime, True), human_size(size)])
+                it.setTextAlignment(2, Qt.AlignRight | Qt.AlignVCenter)
+                it.setData(0, Qt.UserRole, (path, size))
+                it.setFlags(it.flags() | Qt.ItemIsUserCheckable)
+                it.setCheckState(0, Qt.Unchecked)   # (they're not the same file: nothing goes unless picked)
+                it.setToolTip(0, path + (f"\n{pixels / 1e6:.1f} MP" if pixels else ""))
+                if jpeg:
+                    pm = QPixmap()
+                    if pm.loadFromData(jpeg, "JPEG"):
+                        it.setIcon(0, QIcon(pm))
+                head.addChild(it)
+        self.dupe_tree.addTopLevelItems(heads)
+        self.dupe_tree.expandAll()
+        self.dupe_tree.setUpdatesEnabled(True)
+        self.dupe_tree.blockSignals(False)
+        self.dupe_tree.show()
+        self.dupe_pick.show()
+        self.dupe_remove.show()
+        self._dupe_total()
+
+    def _dupes_in_folder(self):
+        folder = QFileDialog.getExistingDirectory(self, tr("Find duplicates in"), str(Path.home()))
+        if folder:
+            self.find_dupes([Path(folder)])
+
+    def find_dupes(self, folders):
+        if self.job is not None:
+            return
+        folders = self._dupe_folders(folders)
+        self.dupe_mode = "same"
+        self._dupes_busy(tr("Looking through your files…"))
+        self.dupe_tree.setIconSize(QSize(16, 16))
         cancel = self._new_cancel()
         self.job = _work(lambda progress: space.find_duplicates(folders, cancel=cancel,
                                                                 progress=lambda *a: progress(a)),
@@ -2168,6 +2775,7 @@ class SpacePage(QWidget):
         self._junk_if_waiting()
         self.dupe_bar.hide()
         self.dupe_btn.setEnabled(True)
+        self.similar_btn.setEnabled(True)
         if isinstance(groups, Exception):
             self.dupe_note.setText(str(groups))
             return
@@ -2258,7 +2866,11 @@ class SpacePage(QWidget):
         self.dupe_remove.setEnabled(bool(ticked))
         self.dupe_remove.setText(tr("Remove the ticked copies ({size})", size=human_size(total)) if ticked
                                  else tr("Remove the ticked copies"))
-        wasted = sum(g[0][1] * (len(g) - 1) for g in self.dupes)
+        wasted = sum(sum(f[1] for f in g) - max(f[1] for f in g) for g in self.dupes if g)
+        if getattr(self, "dupe_mode", "same") == "similar":
+            self.dupe_note.setText(tr("{count} groups of photos look alike. Keeping only one of each would free "
+                                      "{size}.", count=len(self.dupes), size=human_size(wasted)))
+            return
         self.dupe_note.setText(tr("{count} files have copies, taking {size} more than they need.",
                                   count=len(self.dupes), size=human_size(wasted)))
 
@@ -2320,7 +2932,10 @@ class SpacePage(QWidget):
         self.forget_maps()
         self.c.say(tr("Copies removed"), tr("{count} copies went to the Recycle Bin.", count=gone), done=True)
         self.dupe_tree.clear()
-        self._dupes_found(self.dupes)
+        if getattr(self, "dupe_mode", "same") == "similar":
+            self._similar_found(self.dupes)
+        else:
+            self._dupes_found(self.dupes)
 
     def stop_work(self):
         self.cancel.set()
@@ -2330,6 +2945,7 @@ class SpacePage(QWidget):
                      *getattr(self, "drive_cards", [])):
             part.theme = theme
             part.update()
+        self.treemap.redraw()
         self.items.itemDelegateForColumn(0).theme = theme
         self._paint_backs()
         self._summary()
@@ -2395,6 +3011,12 @@ class JunkRow(QWidget):
     def mouseReleaseEvent(self, e):
         if e.button() == Qt.LeftButton and self.check.isEnabled() and self.rect().contains(e.position().toPoint()):
             self.check.toggle()
+
+
+def _with_place(p: Path) -> str:
+    """"data.pak   ·   Game2": a file's name and the folder it's in (many files share a name)."""
+    where = p.parent.name or str(p.parent)
+    return f"{ltr(short_name(p.name, 60))}   ·   {ltr(short_name(where, 30))}"
 
 
 def _note_row(text: str) -> QWidget:

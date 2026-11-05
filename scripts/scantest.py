@@ -579,7 +579,8 @@ def menu():
     check(not [v for v in shellmenu.plan(s, cmd) if v.name == "CorefoldScan"], "and not when Scan is removed")
     s.tools_off = ["converter"]
     verbs = shellmenu.plan(s, cmd)
-    check(verbs and all(v.name == "CorefoldScan" for v in verbs), "without the Converter, only Scan's entry")
+    check(verbs and all(v.name in ("CorefoldScan", "CorefoldSpace") for v in verbs),
+          "without the Converter, only Scan's and Space's entries")
     check(ipc.message_for(["--scan", "C:\\a b\\x.exe"]) == b"scan\nC:\\a b\\x.exe", "the entry asks the app to scan")
     shellmenu.write(shellmenu.plan(st.Settings(), cmd), cmd, "")
     try:

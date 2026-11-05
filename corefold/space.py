@@ -34,6 +34,8 @@ PROGRESS_EVERY = 2000  # entries between progress reports
 # reparse points that lead somewhere else (junctions, links): not followed, so nothing counts twice
 _JUNCTION, _SYMLINK = 0xA0000003, 0xA000000C
 _REPARSE, _OFFLINE, _RECALL_OPEN, _RECALL_ACCESS = 0x400, 0x1000, 0x40000, 0x400000
+# (not a Windows attribute: Corefold's own mark on a file whose bytes are counted under another of its names)
+_LINKED = 1 << 40
 
 KINDS = {  # kind: English name (shown through tr())
     "video": "Videos", "picture": "Pictures", "music": "Music", "document": "Documents", "archive": "Archives",
@@ -62,10 +64,12 @@ def type_of(name: str) -> str:
 
 
 _NO_SIZES = array("q")  # (shared by every folder without files of its own: never changed in place)
+_NO_TIMES = array("f")  # (a float32 is to within a few minutes for a date: half the room of a float64)
 
 
 class Folder:
-    __slots__ = ("name", "parent", "size", "files", "folders", "children", "names", "sizes", "denied")
+    __slots__ = ("name", "parent", "size", "files", "folders", "children", "names", "sizes", "denied", "times",
+                 "newest")
 
     def __init__(self, name: str, parent: "Folder | None" = None):
         self.name = name
@@ -78,7 +82,9 @@ class Folder:
         # drive's million names take little room and a search runs through them quickly) and the sizes
         self.names = ""
         self.sizes = _NO_SIZES
+        self.times = _NO_TIMES  # …and when each was last changed (in the same order; 0 when not known)
         self.denied = False    # Windows didn't let Corefold look inside
+        self.newest = 0.0      # when anything inside was last changed (sub-folders too)
 
     @property
     def path(self) -> Path:
@@ -88,14 +94,33 @@ class Folder:
             f = f.parent
         return Path(*reversed(parts))
 
-    def set_files(self, files: list[tuple[int, str]]) -> None:
-        """Its own files, as (size, name)."""
-        files.sort(reverse=True)
+    def set_files(self, files: list[tuple]) -> None:
+        """Its own files, as (size, name) or (size, name, when last changed)."""
+        files.sort(key=lambda f: (f[0], f[1]), reverse=True)
         if not files:
-            self.names, self.sizes = "", _NO_SIZES
+            self.names, self.sizes, self.times = "", _NO_SIZES, _NO_TIMES
             return
-        self.names = "\n".join(n.replace("\n", " ") for _, n in files)  # (a new line in a name: not on Windows)
-        self.sizes = array("q", (s for s, _ in files))
+        self.names = "\n".join(f[1].replace("\n", " ") for f in files)  # (a new line in a name: not on Windows)
+        self.sizes = array("q", (f[0] for f in files))
+        if len(files[0]) > 2:
+            self.times = array("f", (f[2] for f in files))
+            self.newest = max(self.newest, max(self.times))
+        else:
+            self.times = _NO_TIMES
+
+    def own_times(self) -> dict[str, float]:
+        """When its own biggest files were last changed: name -> time (the ones the list beside the map shows)."""
+        if not self.times:
+            return {}
+        n = min(len(self.times), 300)
+        return dict(zip(self.names.split("\n", n)[:n], self.times[:n]))
+
+    def own_files_timed(self) -> list[tuple[int, str, float]]:
+        """Its own files, (size, name, when last changed), biggest first."""
+        if not self.sizes:
+            return []
+        times = self.times if len(self.times) == len(self.sizes) else [0.0] * len(self.sizes)
+        return list(zip(self.sizes, self.names.split("\n"), times))
 
     def own_files(self) -> list[tuple[int, str]]:
         """Its own files, (size, name), biggest first."""
@@ -147,6 +172,7 @@ class Scan:
     seconds: float = 0.0
     cancelled: bool = False
     fast: bool = False          # (read from the drive's own table: mftscan)
+    linked: int = 0             # bytes of Windows' files that are also somewhere else (hard links): counted once
     watch: "Watch | None" = None                  # Windows telling what changes in it (while the map is kept)
 
 
@@ -167,24 +193,52 @@ def _skip_dir(entry: os.DirEntry) -> bool:
 _GONE = -1  # (in a listing: not a regular file, left out)
 
 
+def _link_dirs() -> tuple[str, ...]:
+    """Folders whose files are mostly hard links to files elsewhere in Windows (the component store: each of
+    its files is also in System32 or another of Windows' folders, under a second name). Explorer counts them
+    twice, which makes Windows look far bigger than it is; Space counts them once (where else they are)."""
+    if os.name != "nt":
+        return ()
+    win = os.environ.get("SystemRoot") or os.environ.get("windir")
+    return (os.path.normcase(os.path.join(win, "WinSxS")),) if win else ()
+
+
+_LINK_DIRS = _link_dirs()
+
+
+def _in_link_dir(path: str) -> bool:
+    if not _LINK_DIRS:
+        return False
+    p = os.path.normcase(path)
+    return any(p == d or p.startswith(d + os.sep) for d in _LINK_DIRS)
+
+
 def _list_dir(path: str) -> tuple[list, bool]:
-    """One folder's entries as (name, is folder, size, attributes, last used); the slow part (asking the
-    disk), done on helper threads. Folders that lead elsewhere (junctions, links) are left out. "Last used"
-    is the later of the last change and the last opening (Windows doesn't always note openings)."""
+    """One folder's entries as (name, is folder, size, attributes, last used, last changed); the slow part
+    (asking the disk), done on helper threads. Folders that lead elsewhere (junctions, links) are left out.
+    "Last used" is the later of the last change and the last opening (Windows doesn't always note openings).
+    In Windows' component store, a file with more than one name gets the _LINKED mark (counted elsewhere)."""
     out = []
+    links = _in_link_dir(path)
     try:
         with os.scandir(path) as it:
             for e in it:
                 try:
                     if e.is_dir(follow_symlinks=False):
                         if not _skip_dir(e):
-                            out.append((e.name, True, 0, 0, 0.0))
+                            out.append((e.name, True, 0, 0, 0.0, 0.0))
                         continue
                     st = e.stat(follow_symlinks=False)
                     if os.name != "nt" and not stat.S_ISREG(st.st_mode):
                         continue
-                    out.append((e.name, False, st.st_size, getattr(st, "st_file_attributes", 0),
-                                max(st.st_mtime, st.st_atime)))
+                    attrs = getattr(st, "st_file_attributes", 0)
+                    if links:
+                        try:  # (the number of names needs the file itself asked: only done here)
+                            if os.stat(e.path, follow_symlinks=False).st_nlink > 1:
+                                attrs |= _LINKED
+                        except OSError:
+                            pass
+                    out.append((e.name, False, st.st_size, attrs, max(st.st_mtime, st.st_atime), st.st_mtime))
                 except OSError:
                     continue
     except OSError:
@@ -233,8 +287,8 @@ def scan(root: Path, cancel: threading.Event | None = None, progress=None, worke
                 if denied:
                     folder.denied = True
                     result.denied += 1
-                own: list[tuple[int, str]] = []
-                for name, is_dir, size, attrs, used in entries:
+                own: list[tuple[int, str, float]] = []
+                for name, is_dir, size, attrs, used, changed in entries:
                     if is_dir:
                         child = Folder(name, folder)
                         folder.children.append(child)
@@ -243,6 +297,9 @@ def scan(root: Path, cancel: threading.Event | None = None, progress=None, worke
                         continue
                     if attrs & hidden_bits:
                         result.cloud += 1  # only in the cloud: it takes no space on this PC
+                        continue
+                    if attrs & _LINKED:
+                        result.linked += size  # (its bytes are counted under its other name)
                         continue
                     folder.files += 1
                     folder.size += size
@@ -271,7 +328,7 @@ def scan(root: Path, cancel: threading.Event | None = None, progress=None, worke
                         heapq.heappush(of_type[2], (size, os.path.join(path, name)))
                     elif size > of_type[2][0][0]:
                         heapq.heapreplace(of_type[2], (size, os.path.join(path, name)))
-                    own.append((size, name))
+                    own.append((size, name, changed))
                     if len(biggest) < TOP_OVERALL:
                         heapq.heappush(biggest, (size, os.path.join(path, name)))
                     elif size > biggest[0][0]:
@@ -291,6 +348,8 @@ def scan(root: Path, cancel: threading.Event | None = None, progress=None, worke
             p.size += f.size
             p.files += f.files
             p.folders += f.folders + 1
+            if f.newest > p.newest:
+                p.newest = f.newest
     result.folders = top.folders
     result.biggest = sorted(biggest, reverse=True)
     result.kinds = kinds
@@ -597,6 +656,13 @@ def _grow(f: Folder | None, size: int, files: int, folders: int) -> None:
         f = f.parent
 
 
+def _newer(f: Folder | None, when: float) -> None:
+    """Something in this folder changed at `when`: it and every folder around it are at least that new."""
+    while f is not None and when >= f.newest:
+        f.newest = when
+        f = f.parent
+
+
 def _count(result: Scan, files, sign: int) -> None:
     """Adds files (size, name) to the kinds and types of the scan, or takes them off (sign -1)."""
     for size, name in files:
@@ -664,16 +730,18 @@ def apply_changes(result: Scan, read: list, folders: dict[str, Folder]) -> bool:
             continue  # (Windows said no this time, or it's gone: its parent is read again for that)
         own: list[tuple[int, str]] = []
         used_of: dict[str, float] = {}
+        changed_of: dict[str, float] = {}
         dirs: set[str] = set()
         cloud = 0
-        for name, is_dir, size, attrs, used in entries:
+        for name, is_dir, size, attrs, used, when in entries:
             if is_dir:
                 dirs.add(os.path.normcase(name))
             elif attrs & hidden_bits:
                 cloud += 1
-            else:
+            elif not attrs & _LINKED:
                 own.append((size, name))
                 used_of[name] = used
+                changed_of[name] = when
         before = folder.own_files()
         lost = [c for c in folder.children if os.path.normcase(c.name) not in dirs]
         changed = sorted(before, reverse=True) != sorted(own, reverse=True) or lost or new
@@ -682,7 +750,8 @@ def apply_changes(result: Scan, read: list, folders: dict[str, Folder]) -> bool:
         if sorted(before) != sorted(own):
             _count(result, before, -1)
             touched.add(path)
-            folder.set_files(list(own))
+            folder.set_files([(s, n, changed_of.get(n, 0.0)) for s, n in own])
+            _newer(folder, folder.newest)
             _count(result, own, +1)
             delta_size = sum(s for s, _ in own) - sum(s for s, _ in before)
             delta_files = len(own) - len(before)
@@ -708,7 +777,9 @@ def apply_changes(result: Scan, read: list, folders: dict[str, Folder]) -> bool:
             folder.children.append(top)
             result.files += sub.files
             result.folders += sub.folders + 1
+            result.linked += sub.linked
             _grow(folder, top.size, top.files, top.folders + 1)
+            _newer(folder, top.newest)
             grafts.append(sub)
     if not touched and not gone and not grafts:
         return False
@@ -753,11 +824,11 @@ def forget(result: Scan, path: Path, folder: Folder | None) -> None:
         parent = folder_at(result, "" if inside == "." else inside)
         if os.path.normcase(str(parent.path)) != os.path.normcase(str(path.parent)):
             return
-        own = parent.own_files()
-        keep = [(s, n) for s, n in own if n != path.name]
+        own = parent.own_files_timed()
+        keep = [(s, n, t) for s, n, t in own if n != path.name]
         if len(keep) == len(own):
             return
-        gone_files = [(s, n) for s, n in own if n == path.name]
+        gone_files = [(s, n) for s, n, _t in own if n == path.name]
         _count(result, gone_files, -1)
         parent.set_files(keep)
         size = sum(s for s, _ in gone_files)
@@ -805,6 +876,28 @@ def growth(before: dict[str, int], now: dict[str, int]) -> list[tuple[int, str]]
         keep.append((delta, p))
     keep.sort(reverse=True)
     return keep[:30]
+
+
+def expected_size(root: Path, file: Path | None = None) -> int:
+    """About how much a look through root will find (to show how far along it is): what the last look found
+    there, else, for a whole drive, the room used on it. 0 when it can't be told."""
+    root_path = Folder(str(root)).path
+    file = file or _history_file()
+    try:
+        data = json.loads(file.read_text("utf-8"))
+        last = data.get(os.path.normcase(str(root_path))) if isinstance(data, dict) else None
+        size = last["sizes"].get(str(root_path)) if isinstance(last, dict) and isinstance(last.get("sizes"), dict) \
+            else None
+        if isinstance(size, int) and size > 0:
+            return size
+    except (OSError, ValueError, AttributeError):
+        pass
+    if os.path.normcase(str(root_path)).rstrip("\\/") == os.path.normcase(root_path.anchor).rstrip("\\/"):
+        try:
+            return shutil.disk_usage(str(root_path)).used
+        except OSError:
+            return 0
+    return 0
 
 
 def remember(result: Scan, file: Path | None = None) -> None:
@@ -2062,6 +2155,135 @@ def find_duplicates(folders: list[Path], min_size: int = 100 * 1024, cancel: thr
                 progress("compare", done, len(candidates))
     groups.sort(key=lambda g: g[0][1] * (len(g) - 1), reverse=True)
     return groups
+
+
+# ----------------------------------------------------------------------------- similar photos
+
+PHOTO_EXT = {".jpg", ".jpeg", ".jfif", ".png", ".webp", ".heic", ".heif", ".bmp", ".tif", ".tiff", ".gif", ".avif"}
+SIMILAR_BITS = 6          # prints at most this many bits apart (of 64) are the same picture, near enough
+SIMILAR_MIN = 30 * 1024   # (smaller pictures are icons and stickers, not photos)
+SIMILAR_GROUPS = 400      # groups kept (the most room first)
+
+
+def photo_print(path: str) -> tuple[int, int, bytes] | None:
+    """A picture's print (a difference hash: 64 bits, each saying whether a spot of the picture, made tiny and
+    grey, is brighter than the spot beside it; resized, recompressed or slightly edited copies have nearly the
+    same print), how many pixels it has, and a small JPEG of it to show. None when it can't be read, or when it's
+    one flat colour (all flat pictures have the same print)."""
+    try:
+        from PIL import Image, ImageOps
+        if os.path.splitext(path)[1].lower() in (".heic", ".heif"):
+            try:
+                from pi_heif import register_heif_opener
+                register_heif_opener()
+            except Exception:
+                return None
+        with Image.open(path) as im:
+            w, h = im.size
+            if w * h > 300_000_000 or w < 16 or h < 16:   # (a booby-trapped or tiny picture: not opened)
+                return None
+            im.draft("RGB", (192, 192))                    # (a JPEG is read small straight away: much quicker)
+            im = ImageOps.exif_transpose(im)
+            small = im.convert("L").resize((9, 8), Image.Resampling.BILINEAR).tobytes()
+            bits = 0
+            for r in range(8):
+                row = small[r * 9:r * 9 + 9]
+                for c in range(8):
+                    bits = (bits << 1) | (row[c] > row[c + 1])
+            if bin(bits).count("1") < 3:
+                return None
+            thumb = im.convert("RGB")
+            thumb.thumbnail((96, 96))
+            import io
+            buf = io.BytesIO()
+            thumb.save(buf, "JPEG", quality=78)
+            return bits, w * h, buf.getvalue()
+    except Exception:
+        return None
+
+
+def find_similar_photos(folders: list[Path], cancel: threading.Event | None = None, progress=None
+                        ) -> list[list[tuple[str, int, float, int, bytes]]]:
+    """Photos that look the same (copies, resized or recompressed ones, burst shots a moment apart), as groups of
+    (path, size, modified, pixels, small JPEG), oldest first in each group, the groups taking most room first.
+    Nothing is changed; files only in the cloud aren't read (that would download them)."""
+    photos: list[tuple[str, int, float]] = []
+    seen_dirs: set[str] = set()
+    stack = [str(f) for f in folders if f.is_dir()]
+    while stack:
+        if cancel is not None and cancel.is_set():
+            return []
+        here = stack.pop()
+        key = os.path.normcase(os.path.abspath(here))
+        if key in seen_dirs:
+            continue
+        seen_dirs.add(key)
+        try:
+            with os.scandir(here) as it:
+                for e in it:
+                    try:
+                        if e.is_dir(follow_symlinks=False):
+                            if not _skip_dir(e):
+                                stack.append(e.path)
+                            continue
+                        if os.path.splitext(e.name)[1].lower() not in PHOTO_EXT:
+                            continue
+                        st = e.stat(follow_symlinks=False)
+                    except OSError:
+                        continue
+                    if st.st_size >= SIMILAR_MIN and not _online_only(st) and e.is_file(follow_symlinks=False):
+                        photos.append((e.path, st.st_size, st.st_mtime))
+                        if progress is not None and len(photos) % 500 == 0:
+                            progress("look", len(photos), 0)
+        except OSError:
+            continue
+    from concurrent.futures import ThreadPoolExecutor
+    prints: list = []
+    with ThreadPoolExecutor(max_workers=min(8, (os.cpu_count() or 4)), thread_name_prefix="corefold-photos") as pool:
+        for n, got in enumerate(pool.map(lambda f: photo_print(f[0]), photos)):
+            if cancel is not None and cancel.is_set():
+                pool.shutdown(wait=False, cancel_futures=True)
+                return []
+            prints.append(got)
+            if progress is not None and n % 50 == 0:
+                progress("compare", n, len(photos))
+    known = [(i, p) for i, p in enumerate(prints) if p is not None]
+    # (two prints at most SIMILAR_BITS apart share at least one of their 8 bytes: only those are compared)
+    parent = list(range(len(photos)))
+
+    def root(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+    for byte in range(8):
+        buckets: dict[int, list[int]] = {}
+        for i, (bits, _px, _t) in known:
+            buckets.setdefault((bits >> (8 * byte)) & 0xFF, []).append(i)
+        for members in buckets.values():
+            if len(members) < 2:
+                continue
+            for x in range(len(members)):
+                a = members[x]
+                pa = prints[a][0]
+                for b in members[x + 1:]:
+                    if root(a) != root(b) and bin(pa ^ prints[b][0]).count("1") <= SIMILAR_BITS:
+                        parent[root(a)] = root(b)
+    groups: dict[int, list] = {}
+    for i, _p in known:
+        groups.setdefault(root(i), []).append(i)
+    out = []
+    for members in groups.values():
+        if len(members) < 2:
+            continue
+        files = _distinct([(photos[i][0], i) for i in members])   # (two names of one file aren't two photos)
+        if len(files) < 2:
+            continue
+        rows = [(photos[i][0], photos[i][1], photos[i][2], prints[i][1], prints[i][2]) for _path, i in files]
+        rows.sort(key=lambda r: r[2])
+        out.append(rows)
+    out.sort(key=lambda g: sum(r[1] for r in g) - max(r[1] for r in g), reverse=True)
+    return out[:SIMILAR_GROUPS]
 
 
 # ----------------------------------------------------------------------------- cleaning up by itself

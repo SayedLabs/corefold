@@ -439,7 +439,7 @@ def space_nav():
             pg.start_scan(Path(sys.base_prefix))
             until(lambda: pg.job is None, 120)
     # going back to the drives and picking another one
-    back = [b for b in pg.findChildren(QPushButton) if b.isVisible() and b.text() in (tr("Other drives"), tr("Back"))]
+    back = [b for b in pg.findChildren(QPushButton) if b.isVisible() and (b.text() or b.accessibleName()) in (tr("Other drives"), tr("Back"))]
     if check(bool(back), f"the map has a way back to the drives (map {pg.map_box.isVisible()}, drives "
                          f"{pg.drives_box.isVisible()}, busy {pg.busy_box.isVisible()}, looking {pg.job is not None}, "
                          f"page {w.current_page()})"):

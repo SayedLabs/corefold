@@ -1448,7 +1448,8 @@ class Controller(QObject):
             return
         s = copy.deepcopy(self.settings)  # a snapshot: the settings may change while this runs
         # the Converter's menu (when it's wanted), and Scan's "Scan with Corefold"
-        menu_on = (s.context_menu and all_tools.is_on(s, "converter")) or all_tools.is_on(s, "scan")
+        menu_on = (s.context_menu and (all_tools.is_on(s, "converter") or all_tools.is_on(s, "space"))) or \
+            all_tools.is_on(s, "scan")
         unlock_on = all_tools.is_on(s, "unlock")  # "What's using this?" is Corefold Unlock's own
         if not menu_on and s.menu_signature == "off" and not unlock_on and s.unlock_menu_signature == "off":
             return
@@ -1525,6 +1526,17 @@ class Controller(QObject):
             self.unlock_from_menu(lines)
         elif word == "scan" and lines:
             self.scan_from_menu(lines)
+        elif word == "space" and lines:
+            self.space_from_menu(lines[0])
+
+    def space_from_menu(self, path: str):
+        """"See what fills this" on a folder or drive: Space's map of it (a map kept from before opens at once)."""
+        if not all_tools.is_on(self.settings, "space") or not os.path.isdir(path):
+            return
+        self.show_window("Space")
+        page = getattr(self.window, "space_page", None)
+        if page is not None:
+            page.look_at(Path(path))
 
     def scan_from_menu(self, paths: list[str]):
         """"Scan with Corefold" on files, folders or drives: each arrives from its own helper process, so

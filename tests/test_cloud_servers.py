@@ -104,8 +104,8 @@ def sftp(tmp_path):
     def real(path):
         return str(root / path.lstrip("/"))
 
-    def attrs(p, name=None):
-        a = paramiko.SFTPAttributes.from_stat(os.stat(p))
+    def attrs(p, name=None, follow=True):
+        a = paramiko.SFTPAttributes.from_stat(os.stat(p) if follow else os.lstat(p))
         a.filename = name or os.path.basename(p)
         return a
 
@@ -122,12 +122,13 @@ def sftp(tmp_path):
 
         def list_folder(self, path):
             p = real(path)
-            return self._do(lambda: [attrs(os.path.join(p, n), n) for n in os.listdir(p)])
+            return self._do(lambda: [attrs(os.path.join(p, n), n, follow=False) for n in os.listdir(p)])
 
         def stat(self, path):
             return self._do(lambda: attrs(real(path)))
 
-        lstat = stat
+        def lstat(self, path):  # (as a real server does: a link is told as a link, in a listing too)
+            return self._do(lambda: attrs(real(path), follow=False))
 
         def open(self, path, flags, attr):
             def go():
@@ -459,3 +460,50 @@ def test_back_up_from_the_page(qtbot, tmp_path, monkeypatch, ftp):
     dlg.list.setCurrentRow(0)
     dlg.drop.click()
     assert dlg.choice == ("remove", b.id)
+
+
+def _link(target: Path, link: Path):
+    try:
+        os.symlink(target, link, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("this PC doesn't let links be made")
+
+
+def _share_with_a_link(root: Path, elsewhere: Path) -> None:
+    """A folder on the server holding a file and a link to a folder somewhere else, with something precious in it."""
+    (root / "share").mkdir()
+    (root / "share" / "a.txt").write_text("a")
+    elsewhere.mkdir()
+    (elsewhere / "keep.txt").write_text("precious")
+    _link(elsewhere, root / "share" / "link")
+
+
+@pytest.mark.parametrize("kind", ["ftp", "sftp"])
+def test_deleting_a_folder_never_goes_through_a_link(kind, request, tmp_path):
+    """A link to a folder is listed as a folder by many FTP servers: deleting the folder it's in used to empty the
+    folder the link leads to, elsewhere on the server. Only the link may go."""
+    acc, root = request.getfixturevalue(kind)[:2]
+    elsewhere = root / "elsewhere"
+    _share_with_a_link(root, elsewhere)
+    c = cloud.client(acc)
+    share = next(e for e in c.list(None) if e.name == "share")
+    c.delete(share)
+    assert not (root / "share").exists()
+    assert (elsewhere / "keep.txt").read_text() == "precious"
+
+
+def test_a_link_round_in_a_circle_stops(ftp, tmp_path, monkeypatch):
+    """A link to the folder it's in: saving that folder would go on for ever (until the disk or the other account
+    is full). It stops with a plain message. (Fewer levels here: Linux itself gives up on a link after 40.)"""
+    acc, root = ftp
+    monkeypatch.setattr(cloud, "MAX_DEPTH", 10)
+    (root / "loop").mkdir()
+    (root / "loop" / "a.txt").write_text("a")
+    _link(root / "loop", root / "loop" / "again")
+    c = cloud.client(acc)
+    loop = next(e for e in c.list(None) if e.name == "loop")
+    out = tmp_path / "saved"
+    out.mkdir()
+    with pytest.raises(cloud.CloudError) as e:
+        cloud.download_tree(c, loop, out)
+    assert str(e.value) == cloud.TOO_DEEP

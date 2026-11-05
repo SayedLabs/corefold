@@ -49,7 +49,7 @@ def message_for(argv: list[str]) -> bytes | None:
         return None
     for flag, word in (("--convert", "convert"), ("--open", "open"), ("--browse", "browse"), ("--view", "view"),
                        ("--play", "play"), ("--uninstall", "uninstall"), ("--unlock", "unlock"),
-                       ("--scan", "scan")):
+                       ("--scan", "scan"), ("--space", "space")):
         if flag in argv:
             paths = after(flag)
             return (word + "\n" + "\n".join(paths)).encode("utf-8") if paths else None
