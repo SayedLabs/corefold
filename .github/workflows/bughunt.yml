@@ -268,7 +268,14 @@ jobs:
           $bad = @($steps.PSObject.Properties | Where-Object { $_.Value.outcome -eq "failure" } | ForEach-Object { $_.Name })
           $found = @(Get-ChildItem out -Recurse -Filter *.txt -ErrorAction SilentlyContinue |
                      Select-String -Pattern "^[a-z_]+[^:]*: [1-9][0-9]* problem" | ForEach-Object { $_.Line })
-          if ($bad -or $found) { "Failed steps: $bad"; $found; exit 1 }
+          if ($bad -or $found) {
+            "Failed steps: $bad"; $found
+            # (and which checks they were, so the log says what failed without downloading the results)
+            Get-ChildItem out -Recurse -Filter *.txt -ErrorAction SilentlyContinue |
+              Select-String -Pattern "^\s*(FAIL|SLOW)\b" | ForEach-Object { "$($_.Filename): $($_.Line.Trim())" } |
+              Select-Object -First 60
+            exit 1
+          }
 
   results:
     needs: try
