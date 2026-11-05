@@ -11,7 +11,8 @@ from __future__ import annotations
 import os
 import time
 
-SERVER_NAME = f"Corefold-{os.environ.get('USERNAME', 'user')}"
+# (the same pipe as earlier versions, core.KEEP_ID, so the installer can ask any of them to close)
+SERVER_NAME = f"Corefold-{os.environ.get('USERNAME', 'user')}"  # keep-name
 PIPE_PATH = "\\\\.\\pipe\\" + SERVER_NAME
 
 

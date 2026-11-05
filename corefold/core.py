@@ -19,11 +19,21 @@ from . import i18n
 
 log = logging.getLogger("corefold")
 
-APP_NAME = "Corefold"
-LEGACY_NAME = "Satsuma"  # the app's name before 1.7.0 (written only here in the app's code).
-# Keep it: releases carry an installer for that version's updater (build.ps1 -OldUpdaterCopy), so
-# copies from before 1.7.0 still land here and need their settings moved over.
-PUBLISHER = "Atomic Works"
+APP_NAME = "Rakiza Core"
+EXE_NAME = "RakizaCore.exe"
+PUBLISHER = "Rakiza Labs"
+# The app's earlier names (written only here in the app's code, never shown): used only to move over what those
+# versions left (settings, folders, the start-up entry) and to tidy up after them. Keep them: releases carry an
+# installer under each old name for that version's updater (build.ps1 -OldUpdaterCopy), so those copies still
+# land here.
+PREV_NAME = "Corefold"   # keep-name (1.7.0 to 1.19)
+LEGACY_NAME = "Satsuma"  # keep-name (before 1.7.0)
+OLD_APP_NAMES = (PREV_NAME, LEGACY_NAME)  # newest first
+# The id Windows knows this app by (its taskbar button and pins, "Open with", the right-click entries, the
+# start-up entry, the pipe and the one-copy lock). It stays what earlier versions wrote, so nothing a person set
+# up (a pinned taskbar button, a default app, start with Windows switched off in Task Manager) is lost. Never
+# shown.
+KEEP_ID = "Corefold"  # keep-name
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 BELOW_NORMAL = getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0)
 _background = True  # run long jobs at "below normal" priority so the PC stays quick

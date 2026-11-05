@@ -28,7 +28,7 @@ import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from .core import LEGACY_NAME, is_link, system_tool, windows_folder  # noqa: F401 (is_link is used here and by the selftest)
+from .core import APP_NAME, OLD_APP_NAMES, is_link, system_tool, windows_folder  # noqa: F401 (is_link is used here and by the selftest)
 
 log = logging.getLogger(__name__)
 
@@ -1145,7 +1145,7 @@ def _protected_paths() -> frozenset[str]:
     paths.add(str(windows_folder()))
     paths |= {str(r) for r in search_roots()} | {str(r) for r in shortcut_roots()}
     # Corefold's own folders (its settings, these backups, and the app itself)
-    for name in ("Corefold", LEGACY_NAME):
+    for name in (APP_NAME, *OLD_APP_NAMES):
         paths |= {str(Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / name),
                   str(Path(os.environ.get("APPDATA", str(Path.home()))) / name)}
     if getattr(sys, "frozen", False):
@@ -2853,7 +2853,7 @@ def helper_main(argv: list[str]) -> int:
                                 "browser-ext")
     manifest = payload.get("manifest") if isinstance(payload, dict) else None
     files = payload.get("files") if isinstance(payload, dict) else None
-    if plan.resolve().parent.name.lower() != "helper" or home.name.lower() not in ("corefold", LEGACY_NAME.lower()) or \
+    if plan.resolve().parent.name.lower() != "helper" or home.name.lower() not in (APP_NAME.lower(), *(n.lower() for n in OLD_APP_NAMES)) or \
             (needs_folder and not (folder and _inside(str(Path(folder).resolve()), str(home / BACKUP_DIR.name))
                                    and isinstance(manifest, str))) or \
             (kind == "restore" and not isinstance(files, dict)):

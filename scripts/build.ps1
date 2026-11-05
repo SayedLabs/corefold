@@ -350,13 +350,14 @@ if ($iscc) {
     Write-Warning "Inno Setup not found, so no installer was made. Install it from https://jrsoftware.org/isdl.php and run this again."
 }
 
-# ---- the same installer for copies from before 1.7.0 (see -OldUpdaterCopy above). Their updater
-# only takes "<old name>-Setup-<version>.exe" listed in SHA256SUMS.txt; it runs it like Corefold's
-# does, and the installer upgrades that copy to Corefold (installer\corefold.iss, [Code]).
+# ---- the same installer for copies under the app's earlier names (see -OldUpdaterCopy above). Their updater
+# only takes "<old name>-Setup-<version>.exe" listed in SHA256SUMS.txt; it runs it like the app's own
+# does, and the installer upgrades that copy in place (installer\corefold.iss, [Code]).
 if ($OldUpdaterCopy) {
-    $setup = "dist\release\Corefold-Setup-$Version.exe"
+    $setup = "dist\release\RakizaCore-Setup-$Version.exe"
     if (-not (Test-Path $setup)) { throw "No installer to copy for older versions" }
-    Copy-Item $setup "dist\release\Satsuma-Setup-$Version.exe"
+    Copy-Item $setup "dist\release\Corefold-Setup-$Version.exe"  # keep-name (versions 1.7.0 to 1.19)
+    Copy-Item $setup "dist\release\Satsuma-Setup-$Version.exe"   # (versions before 1.7.0)
 }
 
 # ---- checksums (the app's updater checks the installer against this file)

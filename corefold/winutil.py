@@ -22,7 +22,8 @@ kernel32.CreateMutexW.restype = wt.HANDLE
 kernel32.CreateMutexW.argtypes = [ctypes.c_void_p, wt.BOOL, wt.LPCWSTR]
 kernel32.CloseHandle.argtypes = [wt.HANDLE]
 
-MUTEX_NAME = "CorefoldAppMutex"
+# (the same as earlier versions, core.KEEP_ID: never two copies at once, also across an update)
+MUTEX_NAME = "CorefoldAppMutex"  # keep-name
 _mutex = None
 
 

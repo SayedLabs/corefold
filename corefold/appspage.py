@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QDialog, QFileIconP
 from . import uninstall as un
 from . import i18n, sheet
 from .atomic.widgets import Dropdown
-from .core import LEGACY_NAME, human_size, short_name
+from .core import APP_NAME, OLD_APP_NAMES, human_size, short_name
 from .i18n import tr, ltr
 
 if TYPE_CHECKING:
@@ -719,7 +719,7 @@ class AppsPage(QWidget):
 
 
 def _is_self(app: un.App) -> bool:
-    if app.name.lower().startswith(("corefold", LEGACY_NAME.lower())):
+    if app.name.lower().startswith(tuple(n.lower() for n in (APP_NAME, *OLD_APP_NAMES))):
         return True
     if getattr(sys, "frozen", False) and app.location:
         # (Corefold's folder or one that holds it: not any folder whose name only starts the same, "...\\Core")

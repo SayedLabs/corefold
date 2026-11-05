@@ -19,7 +19,7 @@ import threading
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from .core import ALL_EXT, APP_NAME, LEGACY_NAME, category, norm
+from .core import ALL_EXT, APP_NAME, KEEP_ID, LEGACY_NAME, category, norm
 from .i18n import tr
 
 log = logging.getLogger("corefold")
@@ -30,9 +30,12 @@ FOLDER_ROOT = CLASSES + r"\Directory"
 LNK_ROOT = CLASSES + r"\lnkfile"  # shortcuts: "Uninstall with Corefold" (while the Uninstaller is in use)
 ANY_ROOT = CLASSES + r"\*"   # every file; limited to the kinds Corefold has no own menu for (see any_file_filter)
 DRIVE_ROOT = CLASSES + r"\Drive"   # drives: "Scan with Corefold" (while Scan is in use), "See what fills this"
-VERBS = ("Corefold", "CorefoldOpen", "CorefoldUninstall", "CorefoldScan", "CorefoldSpace")
+# (the registry keys keep the names earlier versions gave them, core.KEEP_ID: an update replaces them in place)
+VERB, OPEN_VERB, UNINSTALL_VERB, SCAN_VERB, SPACE_VERB = (KEEP_ID, KEEP_ID + "Open", KEEP_ID + "Uninstall",
+                                                     KEEP_ID + "Scan", KEEP_ID + "Space")
+VERBS = (VERB, OPEN_VERB, UNINSTALL_VERB, SCAN_VERB, SPACE_VERB)
 LEGACY_VERBS = (LEGACY_NAME, LEGACY_NAME + "Open")  # written by versions before 1.7.0
-UNLOCK_VERB = "CorefoldUnlock"  # Corefold Unlock's "What's using this?" (there while that tool is, Converter or not)
+UNLOCK_VERB = KEEP_ID + "Unlock"  # Corefold Unlock's "What's using this?" (there while that tool is, Converter or not)
 MENU_STYLES = {"windows": "Windows menu", "wheel": "Corefold wheel"}
 OPEN_KEY = "corefold:open"     # "All options…": opens Corefold's window with the files
 SEPARATOR_BEFORE = 0x20       # ECF_SEPARATORBEFORE
@@ -49,7 +52,7 @@ class Item:
 @dataclass
 class Verb:
     root: str           # registry key that holds "shell"
-    name: str           # "Corefold" or "CorefoldOpen"
+    name: str           # VERB or OPEN_VERB (the registry key's name)
     title: str
     command: str = ""   # set for a single entry
     items: list | None = None  # set for a submenu
@@ -124,15 +127,15 @@ def plan(settings, command) -> list[Verb]:
     verbs: list[Verb] = []
     if all_tools.is_on(settings, "scan"):  # every file, folder and drive (and many at once)
         scan = command("--scan", '"%1"')
-        verbs += [Verb(root, "CorefoldScan", tr("Scan with Corefold"), command=scan)
+        verbs += [Verb(root, SCAN_VERB, tr("Scan with Corefold"), command=scan)
                   for root in (ANY_ROOT, FOLDER_ROOT, DRIVE_ROOT)]
     if settings.context_menu and all_tools.is_on(settings, "space"):  # folders and drives: Space's map of it
-        verbs += [Verb(root, "CorefoldSpace", tr("See what fills this"), command=command("--space", '"%1"'),
+        verbs += [Verb(root, SPACE_VERB, tr("See what fills this"), command=command("--space", '"%1"'),
                        single=True) for root in (FOLDER_ROOT, DRIVE_ROOT)]
     if not (settings.context_menu and all_tools.is_on(settings, "converter")):
         return verbs
     if all_tools.is_on(settings, "uninstaller"):  # shortcuts (part of the Converter's menu)
-        verbs.append(Verb(LNK_ROOT, "CorefoldUninstall", tr("Uninstall with Corefold"),
+        verbs.append(Verb(LNK_ROOT, UNINSTALL_VERB, tr("Uninstall with Corefold"),
                           command=command("--uninstall", '"%1"'), single=True))
     style = settings.menu_style if settings.menu_style in MENU_STYLES else "windows"
     cache: dict[str, list[Item]] = {}
@@ -144,17 +147,17 @@ def plan(settings, command) -> list[Verb]:
             key = norm(ext) if kind in ("image", "audio", "video", "archive", "document") else kind
             if key not in cache:
                 cache[key] = items_for(ext, settings)
-            verbs.append(Verb(root, "Corefold", APP_NAME, items=cache[key]))
+            verbs.append(Verb(root, VERB, APP_NAME, items=cache[key]))
         else:
-            verbs.append(Verb(root, "Corefold", tr("Convert with Corefold"), command=command("--convert", '"%1"')))
+            verbs.append(Verb(root, VERB, tr("Convert with Corefold"), command=command("--convert", '"%1"')))
             if kind == "archive":
-                verbs.append(Verb(root, "CorefoldOpen", tr("Open in Corefold"), command=command("--browse", '"%1"')))
+                verbs.append(Verb(root, OPEN_VERB, tr("Open in Corefold"), command=command("--browse", '"%1"')))
     if style == "windows":
-        verbs.append(Verb(FOLDER_ROOT, "Corefold", APP_NAME, items=items_for("", settings)))
-        verbs.append(Verb(ANY_ROOT, "Corefold", APP_NAME, items=items_for("*", settings), applies_to=any_file_filter()))
+        verbs.append(Verb(FOLDER_ROOT, VERB, APP_NAME, items=items_for("", settings)))
+        verbs.append(Verb(ANY_ROOT, VERB, APP_NAME, items=items_for("*", settings), applies_to=any_file_filter()))
     else:
-        verbs.append(Verb(FOLDER_ROOT, "Corefold", tr("Compress with Corefold"), command=command("--convert", '"%1"')))
-        verbs.append(Verb(ANY_ROOT, "Corefold", tr("Compress with Corefold"), command=command("--convert", '"%1"'),
+        verbs.append(Verb(FOLDER_ROOT, VERB, tr("Compress with Corefold"), command=command("--convert", '"%1"')))
+        verbs.append(Verb(ANY_ROOT, VERB, tr("Compress with Corefold"), command=command("--convert", '"%1"'),
                           applies_to=any_file_filter()))
     return verbs
 

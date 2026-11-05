@@ -11,12 +11,13 @@ import os
 import threading
 from dataclasses import dataclass
 
-from .core import APP_NAME
+from .core import APP_NAME, KEEP_ID
 
 log = logging.getLogger("corefold")
 
 CLASSES = r"Software\Classes"
-CAPABILITIES = r"Software\Corefold\Capabilities"
+# (registry names stay as earlier versions wrote them, core.KEEP_ID: a default app picked for them is kept)
+CAPABILITIES = rf"Software\{KEEP_ID}\Capabilities"
 REGISTERED = r"Software\RegisteredApplications"
 
 # one change to the registry at a time: switching a setting on and off quickly started two at once,
@@ -34,14 +35,14 @@ class Group:
 
 GROUPS = {
     # the archives a double-click should open (the ones people meet; Corefold reads more than these)
-    "archive": Group("Corefold.Archive", "--browse",
+    "archive": Group(f"{KEEP_ID}.Archive", "--browse",
                      (".zip", ".7z", ".rar", ".tar", ".gz", ".tgz", ".bz2", ".xz", ".txz", ".iso", ".cab", ".zipx",
                       ".001", ".lzh", ".arj", ".wim")),
-    "image": Group("Corefold.Picture", "--view",
+    "image": Group(f"{KEEP_ID}.Picture", "--view",
                    (".jpg", ".jpeg", ".jfif", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff", ".heic", ".heif",
                     ".avif", ".ico")),
-    "email": Group("Corefold.Email", "--view", (".eml", ".msg")),
-    "media": Group("Corefold.Media", "--play",
+    "email": Group(f"{KEEP_ID}.Email", "--view", (".eml", ".msg")),
+    "media": Group(f"{KEEP_ID}.Media", "--play",
                    (".mp4", ".mkv", ".mov", ".avi", ".wmv", ".webm", ".m4v", ".mpg", ".mpeg", ".ts", ".m2ts", ".flv",
                     ".3gp", ".mp3", ".m4a", ".aac", ".flac", ".wav", ".ogg", ".opus", ".wma")),
 }
@@ -97,7 +98,7 @@ def register(app_command, icon: str, description: str, name: str = "archive"):
         for ext in group.extensions:
             winreg.SetValueEx(k, ext, 0, SZ, group.progid)
     with winreg.CreateKey(hk, REGISTERED) as k:
-        winreg.SetValueEx(k, APP_NAME, 0, SZ, CAPABILITIES)
+        winreg.SetValueEx(k, KEEP_ID, 0, SZ, CAPABILITIES)
     _tell_explorer()
     log.info("%s files open with Corefold", name)
 
@@ -135,10 +136,10 @@ def _unregister(name: str | None):
     if not any(_registered(key) for key in GROUPS):  # nothing left: Corefold isn't an app for any file
         try:
             with winreg.OpenKey(hk, REGISTERED, 0, winreg.KEY_SET_VALUE) as k:
-                winreg.DeleteValue(k, APP_NAME)
+                winreg.DeleteValue(k, KEEP_ID)
         except OSError:
             pass
-        _delete_tree(winreg, r"Software\Corefold")
+        _delete_tree(winreg, rf"Software\{KEEP_ID}")
     _tell_explorer()
 
 
@@ -179,7 +180,7 @@ def _sync_pending():
 
 def open_default_apps() -> bool:
     """Opens Windows' Default apps settings at Corefold's page (or the general page on older Windows)."""
-    for target in (f"ms-settings:defaultapps?registeredAppUser={APP_NAME}", "ms-settings:defaultapps"):
+    for target in (f"ms-settings:defaultapps?registeredAppUser={KEEP_ID}", "ms-settings:defaultapps"):
         try:
             os.startfile(target)
             return True

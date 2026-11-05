@@ -34,8 +34,8 @@ from . import work as page_work
 from . import tools as all_tools
 from . import settings as settings_mod
 from .converters import PASSWORD_ERROR, Options, Result, Tool, pick, release_memory, run_job, warm_up
-from .core import (LEGACY_NAME, category, fallback_folder, human_size, is_link, lower_this_thread, norm, os_open,
-                   set_background_priority, set_downloads_folder, short_name, unique_path)
+from .core import (KEEP_ID, LEGACY_NAME, OLD_APP_NAMES, category, fallback_folder, human_size, is_link,
+                   lower_this_thread, norm, os_open, set_background_priority, set_downloads_folder, short_name, unique_path)
 from .history import History, size_of
 from .i18n import tr
 from .settings import (APP_NAME, LOG_DIR, TOAST_TIME_SCALE, WINDOW_TEXT_PT, Settings, app_command, app_icon,
@@ -66,7 +66,7 @@ class _OnFirstUse:
 archives = _OnFirstUse("archives")  # opening and listing archives
 dialogs = _OnFirstUse("dialogs")    # the "Resize…", "Password…" windows
 
-APP_ID = "AtomicWorks.Corefold"
+APP_ID = f"AtomicWorks.{KEEP_ID}"  # (the installer gives its shortcuts the same id)
 # A key-drag only opens the wheel if it starts in one of these windows:
 # File Explorer and the desktop. ("#32770" would add Open/Save dialogs.)
 SOURCE_WINDOW_CLASSES = {"CabinetWClass", "ExploreWClass", "Progman", "WorkerW"}
@@ -393,9 +393,9 @@ class Controller(QObject):
         # "Convert to JPG?" for photos that land in Downloads
         self.downloads = downloads_folder()
         set_downloads_folder(self.downloads)
-        default_out = str(Path.home() / "Downloads" / "Corefold")
+        default_out = str(Path.home() / "Downloads" / APP_NAME)
         if self.settings.output_folder == default_out and self.downloads != Path.home() / "Downloads":
-            self.settings.output_folder = str(self.downloads / "Corefold")  # Downloads was moved: follow it
+            self.settings.output_folder = str(self.downloads / APP_NAME)  # Downloads was moved: follow it
         self.seen_downloads: set[str] = set()
         self.dl_watcher = QFileSystemWatcher(self)
         self.dl_watcher.directoryChanged.connect(lambda _: self.dl_timer.start(1500))
@@ -2940,7 +2940,7 @@ def refresh_startup_entry():
         if not startup_enabled():
             return
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as k:
-            current = winreg.QueryValueEx(k, APP_NAME)[0]
+            current = winreg.QueryValueEx(k, KEEP_ID)[0]
         if current != launch_command():
             set_startup(True)
     except Exception:
@@ -2948,17 +2948,19 @@ def refresh_startup_entry():
 
 
 def stop_old_copy():
-    """A copy from before 1.7.0 (the old name) may be running from its old folder, or next to a portable
+    """A copy under one of the app's earlier names may be running from its old folder, or next to a portable
     Corefold. It would open a second wheel and keep writing to the old settings, so it's closed first.
-    Only those copies: another program that happens to have the old name is never touched.
+    Only those copies: another program that happens to have an old name is never touched.
     (The installer does the same; this covers the portable version.)"""
     if sys.platform != "win32" or not getattr(sys, "frozen", False):
         return
-    exe = f"{LEGACY_NAME}.exe"
-    places = [Path(sys.executable).with_name(exe)]
-    for root in (Path(os.environ.get("LOCALAPPDATA", ""), "Programs"), Path(os.environ.get("ProgramFiles", ""))):
-        if root.anchor:
-            places.append(root / LEGACY_NAME / exe)
+    places = []
+    for name in OLD_APP_NAMES:
+        exe = f"{name}.exe"
+        places.append(Path(sys.executable).with_name(exe))
+        for root in (Path(os.environ.get("LOCALAPPDATA", ""), "Programs"), Path(os.environ.get("ProgramFiles", ""))):
+            if root.anchor:
+                places.append(root / name / exe)
     places = [p for p in places if p.is_file()]
     if not places:
         return
@@ -3021,7 +3023,7 @@ def main() -> int:
     brought_over = migrate_old_name()  # before logging starts writing in the new folder
     setup_logging()
     if brought_over:
-        log.info("brought settings over from %s", LEGACY_NAME)
+        log.info("brought settings over from an earlier name")
     log.info("starting %s %s", APP_NAME, __version__)
     winutil.set_app_id(APP_ID)
     argv = sys.argv[1:]

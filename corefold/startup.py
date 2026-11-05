@@ -30,7 +30,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .core import APP_NAME
+from .core import KEEP_ID
 
 log = logging.getLogger("corefold")
 
@@ -286,7 +286,7 @@ def list_entries() -> list[Entry]:
                 continue  # (the default value, or not a command)
             exe = _full_path(split_command(command)[0])
             e = _make(where, value, command, _as_32bit(exe) if where == "HKLM-Run32" else exe, notes)
-            e.own = where == "HKCU-Run" and value == APP_NAME
+            e.own = where == "HKCU-Run" and value == KEEP_ID
             out.append(e)
     for where, folder in folders().items():
         hive, _, _, approved = PLACES[where]

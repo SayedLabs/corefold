@@ -9,9 +9,17 @@
 #ifndef NumericVersion
   #define NumericVersion AppVersion
 #endif
-#define AppName "Corefold"
-#define AppExe "Corefold.exe"
-#define Publisher "Atomic Works"
+#define AppName "Rakiza Core"
+#define AppExe "RakizaCore.exe"
+#define AppProcess "RakizaCore"
+#define Publisher "Rakiza Labs"
+; The id Windows knows the app by (core.KEEP_ID): its taskbar pins, the start-up entry and the pipe keep the
+; name earlier versions gave them, so an update keeps a pin, and start-up switched off in Task Manager stays off.
+#define KeepId "Corefold"
+; The app's name from 1.7.0 to 1.19. Used only to upgrade and tidy up after those versions (their own folder in
+; Program Files moves to the new one).
+#define PrevName "Corefold"
+#define PrevExe "Corefold.exe"
 ; The app's name before 1.7.0. Used only to upgrade and tidy up after those versions.
 #define OldName "Satsuma"
 #define OldExe "Satsuma.exe"
@@ -30,13 +38,13 @@ VersionInfoVersion={#NumericVersion}
 VersionInfoCompany={#Publisher}
 VersionInfoCopyright={#Publisher}
 VersionInfoDescription={#AppName} Setup
-VersionInfoOriginalFileName=Corefold-Setup-{#AppVersion}.exe
+VersionInfoOriginalFileName=RakizaCore-Setup-{#AppVersion}.exe
 VersionInfoProductName={#AppName}
 VersionInfoProductTextVersion={#AppVersion}
 VersionInfoTextVersion={#AppVersion}
 DefaultDirName={autopf}\{#AppName}
 ; An update goes into the folder Corefold is already in (also one picked with /DIR), so its shortcuts, taskbar
-; pin and start-up entry keep pointing at the same Corefold.exe. Only the old name's folder isn't kept: that
+; pin and start-up entry keep pointing at the same folder. Only the earlier names' own folders aren't kept: that
 ; upgrade moves to the new folder, and the old one is removed after installing (see InitializeWizard, [Code]).
 UsePreviousAppDir=yes
 DefaultGroupName={#AppName}
@@ -59,7 +67,7 @@ SetupIconFile=..\assets\icon.ico
 UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}
 OutputDir=..\dist\release
-OutputBaseFilename=Corefold-Setup-{#AppVersion}
+OutputBaseFilename=RakizaCore-Setup-{#AppVersion}
 ; the strongest LZMA2 setting (a bigger dictionary finds more repeats across the many DLLs)
 Compression=lzma2/ultra64
 SolidCompression=yes
@@ -141,7 +149,7 @@ Name: "startup"; Description: "{cm:StartWithWindows}"
 ; Copied next to the Corefold that's there, which keeps working until every file is in; then the two are swapped
 ; in a moment (SwapInNewFiles in [Code]). An update cut off half-way (power cut, Setup ended) leaves the older
 ; Corefold whole, never a mix of the two that can't start.
-Source: "..\dist\Corefold\*"; DestDir: "{app}\_next"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\RakizaCore\*"; DestDir: "{app}\_next"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [InstallDelete]
 ; what an earlier update cut off half-way left
@@ -152,6 +160,11 @@ Type: files; Name: "{autoprograms}\{#OldName}.lnk"
 Type: files; Name: "{autodesktop}\{#OldName}.lnk"
 Type: files; Name: "{userprograms}\{#OldName}.lnk"
 Type: files; Name: "{userdesktop}\{#OldName}.lnk"
+; shortcuts made by versions from 1.7.0 to 1.19 (a taskbar pin is written again instead, see [Icons])
+Type: files; Name: "{autoprograms}\{#PrevName}.lnk"
+Type: files; Name: "{autodesktop}\{#PrevName}.lnk"
+Type: files; Name: "{userprograms}\{#PrevName}.lnk"
+Type: files; Name: "{userdesktop}\{#PrevName}.lnk"
 
 [UninstallDelete]
 ; only Corefold's own folders: the uninstaller removes every file it installed by itself, and the folder goes
@@ -174,20 +187,24 @@ Type: dirifempty; Name: "{app}"
 [Icons]
 ; The same app id Corefold gives itself (app.py APP_ID): Windows then sees the shortcut, a taskbar pin made
 ; from it and the running Corefold as one app, so the taskbar button stays where it's pinned.
-Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "AtomicWorks.Corefold"
+Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "AtomicWorks.{#KeepId}"
 ; (an update leaves an icon that's there alone, so it keeps its place, and one deleted stays deleted)
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "AtomicWorks.Corefold"; \
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "AtomicWorks.{#KeepId}"; \
   Tasks: desktopicon; Check: MakeDesktopIcon
 ; Moving over from a copy installed for this person alone: their own desktop icon and taskbar pin are written again
 ; in the same place and under the same name (so they keep their spot), pointing at the Corefold installed here.
-Name: "{userdesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "AtomicWorks.Corefold"; \
+Name: "{userdesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "AtomicWorks.{#KeepId}"; \
   Check: KeepUserDesktopIcon
 Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar\{#AppName}"; \
-  Filename: "{app}\{#AppExe}"; AppUserModelID: "AtomicWorks.Corefold"; Check: KeepTaskbarPin
+  Filename: "{app}\{#AppExe}"; AppUserModelID: "AtomicWorks.{#KeepId}"; Check: KeepTaskbarPin
+; A taskbar pin from 1.7.0 to 1.19 (under that name): written again in place, now pointing at the new folder, so
+; the button stays where it's pinned and still works.
+Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar\{#PrevName}"; \
+  Filename: "{app}\{#AppExe}"; AppUserModelID: "AtomicWorks.{#KeepId}"; Check: KeepPrevPin
 
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; \
-  ValueName: "{#AppName}"; ValueData: """{app}\{#AppExe}"" --background"; Tasks: startup; Check: WriteStartup; \
+  ValueName: "{#KeepId}"; ValueData: """{app}\{#AppExe}"" --background"; Tasks: startup; Check: WriteStartup; \
   Flags: uninsdeletevalue
 
 [Run]
@@ -212,6 +229,8 @@ var
   UserCopyDir: String;
   { what that copy had: an icon on the person's own desktop, a taskbar pin }
   UserHadDesktopIcon, UserHadPin: Boolean;
+  { a taskbar pin from 1.7.0 to 1.19 (under that name) was there }
+  HadPrevPin: Boolean;
 
 const
   UninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{D08578D1-4B3E-404B-B56C-3FDF83BAFAE2}_is1';
@@ -229,8 +248,11 @@ begin
   if not RegQueryStringValue(HKEY_CURRENT_USER, UninstallKey, 'Inno Setup: App Path', Dir) then
     Dir := ExpandConstant('{localappdata}\Programs\{#AppName}');
   Dir := RemoveBackslashUnlessRoot(Dir);
-  if (Dir <> '') and (FileExists(Dir + '\{#AppExe}') or FileExists(Dir + '\{#OldExe}')) then
+  if (Dir <> '') and (FileExists(Dir + '\{#AppExe}') or FileExists(Dir + '\{#PrevExe}') or
+                     FileExists(Dir + '\{#OldExe}')) then
     Result := Dir
+  else if FileExists(ExpandConstant('{localappdata}\Programs\{#PrevName}\{#PrevExe}')) then
+    Result := ExpandConstant('{localappdata}\Programs\{#PrevName}')
   else if FileExists(ExpandConstant('{localappdata}\Programs\{#OldName}\{#OldExe}')) then
     Result := ExpandConstant('{localappdata}\Programs\{#OldName}');
 end;
@@ -238,12 +260,15 @@ end;
 function InitializeSetup(): Boolean;
 begin
   Upgrading := RegValueExists(HKA, UninstallKey, 'UninstallString');
-  HadOldDesktopIcon := FileExists(ExpandConstant('{autodesktop}\{#OldName}.lnk'));
+  HadOldDesktopIcon := FileExists(ExpandConstant('{autodesktop}\{#OldName}.lnk')) or
+                       FileExists(ExpandConstant('{autodesktop}\{#PrevName}.lnk'));
+  HadPrevPin := FileExists(ExpandConstant(PinDir + '\{#PrevName}.lnk'));
   UserCopyDir := FindUserCopy();
   if UserCopyDir <> '' then
   begin
     Log('Moving over a copy installed for this user alone: ' + UserCopyDir);
     UserHadDesktopIcon := FileExists(ExpandConstant('{userdesktop}\{#AppName}.lnk')) or
+                          FileExists(ExpandConstant('{userdesktop}\{#PrevName}.lnk')) or
                           FileExists(ExpandConstant('{userdesktop}\{#OldName}.lnk'));
     UserHadPin := FileExists(ExpandConstant(PinDir + '\{#AppName}.lnk')) or
                   FileExists(ExpandConstant(PinDir + '\{#OldName}.lnk'));
@@ -251,7 +276,7 @@ begin
   Result := True;
 end;
 
-{ An update from the old name moves to Corefold's own folder; any other update stays where Corefold is. A copy
+{ An update from an earlier name moves to the app's own folder; any other update stays where the app is. A copy
   installed for one user alone moves to Program Files (never kept in a folder any program could change). }
 procedure InitializeWizard();
 var
@@ -259,6 +284,7 @@ var
 begin
   Dir := RemoveBackslashUnlessRoot(WizardForm.DirEdit.Text);
   if (CompareText(Dir, ExpandConstant('{autopf}\{#OldName}')) = 0) or
+     (CompareText(Dir, ExpandConstant('{autopf}\{#PrevName}')) = 0) or
      ((UserCopyDir <> '') and (CompareText(Dir, UserCopyDir) = 0)) then
     WizardForm.DirEdit.Text := ExpandConstant('{autopf}\{#AppName}');
 end;
@@ -279,6 +305,11 @@ begin
   Result := UserHadPin;
 end;
 
+function KeepPrevPin(): Boolean;
+begin
+  Result := HadPrevPin;
+end;
+
 { On the options page of an update started by hand: ticked as things are now (not as they were first installed). }
 procedure CurPageChanged(CurPageID: Integer);
 var
@@ -289,7 +320,7 @@ begin
     WizardForm.TasksList.Checked[0] := FileExists(ExpandConstant('{autodesktop}\{#AppName}.lnk')) or
                                        FileExists(ExpandConstant('{userdesktop}\{#AppName}.lnk')) or
                                        UserHadDesktopIcon;
-    WizardForm.TasksList.Checked[1] := RegQueryStringValue(HKEY_CURRENT_USER, RunKey, '{#AppName}', Value);
+    WizardForm.TasksList.Checked[1] := RegQueryStringValue(HKEY_CURRENT_USER, RunKey, '{#KeepId}', Value);
   end;
 end;
 
@@ -318,14 +349,17 @@ function SetEnvironmentVariable(lpName, lpValue: String): BOOL;
 
 { PowerShell with the paths it needs passed as data (environment variables), never pasted into its script. }
 function RunPowerShell(Script: String; var ResultCode: Integer): Boolean;
+var
+  Apps: String;
 begin
-  SetEnvironmentVariable('CF_APP', ExpandConstant('{app}\{#AppExe}'));
-  { (the copy installed the old way, for this user alone; '?' matches no program) }
+  { the copies this installer replaces, '|' between them: the one installed here, one from 1.7.0 to 1.19 (in
+    this folder or its own), and the copy installed the old way, for this user alone }
+  Apps := ExpandConstant('{app}\{#AppExe}') + '|' + ExpandConstant('{app}\{#PrevExe}') + '|' +
+          ExpandConstant('{autopf}\{#PrevName}\{#PrevExe}');
   if UserCopyDir <> '' then
-    SetEnvironmentVariable('CF_APP_OLD', UserCopyDir + '\{#AppExe}')
-  else
-    SetEnvironmentVariable('CF_APP_OLD', '?');
-  SetEnvironmentVariable('CF_PIPE', 'Corefold-' + GetEnv('USERNAME'));
+    Apps := Apps + '|' + UserCopyDir + '\{#AppExe}' + '|' + UserCopyDir + '\{#PrevExe}';
+  SetEnvironmentVariable('CF_APPS', Apps);
+  SetEnvironmentVariable('CF_PIPE', '{#KeepId}-' + GetEnv('USERNAME'));
   SetEnvironmentVariable('CF_WAIT', IntToStr(CloseWait));
   Result := Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
                  '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "' + Script + '"', '',
@@ -343,17 +377,21 @@ var
 begin
   Result := 2;
   SetEnvironmentVariable('CF_MARK', ExpandConstant('{localappdata}\{#AppName}\closing-for-installer'));
+  { (a version from 1.7.0 to 1.19 leaves it in its own folder) }
+  SetEnvironmentVariable('CF_MARK_PREV', ExpandConstant('{localappdata}\{#PrevName}\closing-for-installer'));
   if RunPowerShell(
     '$ErrorActionPreference = ''SilentlyContinue''; ' +
-    'function Mine { Get-Process -Name Corefold | Where-Object { ($_.Path -eq $env:CF_APP) -or ($_.Path -eq $env:CF_APP_OLD) } }; ' +
+    'function Mine { Get-Process -Name {#AppProcess},{#PrevName} | Where-Object { $env:CF_APPS.Split([char]124) -contains $_.Path } }; ' +
+    'function Heard { (Test-Path -LiteralPath $env:CF_MARK) -or (Test-Path -LiteralPath $env:CF_MARK_PREV) }; ' +
     'if (-not (Mine)) { exit 0 }; ' +
     'Remove-Item -LiteralPath $env:CF_MARK -Force; ' +
+    'Remove-Item -LiteralPath $env:CF_MARK_PREV -Force; ' +
     'try { $p = New-Object System.IO.Pipes.NamedPipeClientStream(''.'', $env:CF_PIPE, [System.IO.Pipes.PipeDirection]::Out); ' +
     '$p.Connect(3000); $b = [Text.Encoding]::UTF8.GetBytes(''quit''); $p.Write($b, 0, $b.Length); $p.Flush(); $p.Dispose() } catch {}; ' +
     '$heard = (Get-Date).AddSeconds(6); ' +
-    'while ((Mine) -and -not (Test-Path -LiteralPath $env:CF_MARK) -and ((Get-Date) -lt $heard)) { Start-Sleep -Milliseconds 200 }; ' +
+    'while ((Mine) -and -not (Heard) -and ((Get-Date) -lt $heard)) { Start-Sleep -Milliseconds 200 }; ' +
     'if (-not (Mine)) { exit 0 }; ' +
-    'if (-not (Test-Path -LiteralPath $env:CF_MARK)) { exit 2 }; ' +
+    'if (-not (Heard)) { exit 2 }; ' +
     '$end = (Get-Date).AddSeconds([int]$env:CF_WAIT); ' +
     'while ((Mine) -and ((Get-Date) -lt $end)) { Start-Sleep -Milliseconds 250 }; ' +
     'if (Mine) { exit 1 } else { exit 0 }', ResultCode) and (ResultCode >= 0) and (ResultCode <= 2) then
@@ -368,7 +406,7 @@ var
 begin
   RunPowerShell(
     '$ErrorActionPreference = ''SilentlyContinue''; ' +
-    'Get-Process -Name Corefold | Where-Object { ($_.Path -eq $env:CF_APP) -or ($_.Path -eq $env:CF_APP_OLD) } | Stop-Process -Force; ' +
+    'Get-Process -Name {#AppProcess},{#PrevName} | Where-Object { $env:CF_APPS.Split([char]124) -contains $_.Path } | Stop-Process -Force; ' +
     'Start-Sleep -Milliseconds 300', ResultCode);
 end;
 
@@ -436,7 +474,8 @@ var
 begin
   Result := True;
   Dir := ExpandConstant('{app}');
-  if FileExists(Dir + '\{#AppExe}') or FileExists(Dir + '\{#OldExe}') or DirExists(Dir + '\_internal') or
+  if FileExists(Dir + '\{#AppExe}') or FileExists(Dir + '\{#PrevExe}') or FileExists(Dir + '\{#OldExe}') or
+     DirExists(Dir + '\_internal') or
      DirExists(Dir + '\_next') then  { (the last two: an update of it was cut off) }
     Exit;
   if FindFirst(Dir + '\*', FindRec) then
@@ -495,8 +534,27 @@ var
   Programs: String;
 begin
   Programs := ExpandConstant('{localappdata}\Programs');
-  Result := ((CompareText(Dir, Programs + '\{#AppName}') = 0) or (CompareText(Dir, Programs + '\{#OldName}') = 0)) and
+  Result := ((CompareText(Dir, Programs + '\{#AppName}') = 0) or (CompareText(Dir, Programs + '\{#PrevName}') = 0) or
+             (CompareText(Dir, Programs + '\{#OldName}') = 0)) and
             not IsLink(ExpandConstant('{localappdata}')) and not IsLink(Programs) and not IsLink(Dir);
+end;
+
+{ After upgrading from the name it had from 1.7.0 to 1.19: its start-up entry (same name) now starts the app
+  installed here, its program file is taken out of a folder it stays in (one picked with /DIR), and its own
+  folder in Program Files goes. Settings are moved over by the app itself the first time it starts. }
+procedure RemovePrevVersion();
+var
+  PrevDir, Value: String;
+begin
+  if RegQueryStringValue(HKEY_CURRENT_USER, RunKey, '{#KeepId}', Value) and (Pos(Lowercase('{#PrevExe}'), Lowercase(Value)) > 0) then
+    RegWriteStringValue(HKEY_CURRENT_USER, RunKey, '{#KeepId}', '"' + ExpandConstant('{app}\{#AppExe}') + '" --background');
+  if FileExists(ExpandConstant('{app}\{#PrevExe}')) then
+    DeleteFile(ExpandConstant('{app}\{#PrevExe}'));
+  if FileExists(ExpandConstant('{app}\{#OldExe}')) then
+    DeleteFile(ExpandConstant('{app}\{#OldExe}'));
+  PrevDir := ExpandConstant('{autopf}\{#PrevName}');
+  if (CompareText(PrevDir, ExpandConstant('{app}')) <> 0) and FileExists(PrevDir + '\{#PrevExe}') then
+    DelTree(PrevDir, True, True, True);
 end;
 
 { After upgrading from the old name: take away its start-up entry (Corefold's replaces it) and its
@@ -508,7 +566,7 @@ begin
   if RegValueExists(HKEY_CURRENT_USER, RunKey, '{#OldName}') then
     RegDeleteValue(HKEY_CURRENT_USER, RunKey, '{#OldName}');
   if OldStartedWithWindows then
-    RegWriteStringValue(HKEY_CURRENT_USER, RunKey, '{#AppName}', '"' + ExpandConstant('{app}\{#AppExe}') + '" --background');
+    RegWriteStringValue(HKEY_CURRENT_USER, RunKey, '{#KeepId}', '"' + ExpandConstant('{app}\{#AppExe}') + '" --background');
   OldDir := ExpandConstant('{autopf}\{#OldName}');
   if (CompareText(OldDir, ExpandConstant('{app}')) <> 0) and FileExists(OldDir + '\{#OldExe}') then
     DelTree(OldDir, True, True, True);
@@ -517,6 +575,7 @@ begin
   if (CompareText(OldDir, ExpandConstant('{app}')) <> 0) and FileExists(OldDir + '\{#OldExe}') and
      UserCopyIsDeletable(OldDir) then
     DelTree(OldDir, True, True, True);
+  RemovePrevVersion();
 end;
 
 { A rename, tried again for a few seconds (antivirus can hold a file it's just looked at). }
@@ -647,8 +706,8 @@ begin
   if UserCopyDir = '' then
     Exit;
   Dir := UserCopyDir;
-  if RegQueryStringValue(HKEY_CURRENT_USER, RunKey, '{#AppName}', Value) then
-    RegWriteStringValue(HKEY_CURRENT_USER, RunKey, '{#AppName}', '"' + ExpandConstant('{app}\{#AppExe}') + '" --background');
+  if RegQueryStringValue(HKEY_CURRENT_USER, RunKey, '{#KeepId}', Value) then
+    RegWriteStringValue(HKEY_CURRENT_USER, RunKey, '{#KeepId}', '"' + ExpandConstant('{app}\{#AppExe}') + '" --background');
   DeleteFile(ExpandConstant('{userprograms}\{#AppName}.lnk'));
   DeleteFile(ExpandConstant(PinDir + '\{#OldName}.lnk'));
   RegDeleteKeyIncludingSubkeys(HKEY_CURRENT_USER, UninstallKey);
@@ -665,6 +724,7 @@ begin
   DelOwn(Dir + '\_next');
   DelOwn(Dir + '\_previous');
   DelOwn(Dir + '\{#AppExe}');
+  DelOwn(Dir + '\{#PrevExe}');
   DelOwn(Dir + '\{#OldExe}');
   DelOwn(Dir + '\LICENSE');
   DelOwn(Dir + '\THIRD_PARTY_NOTICES.md');
@@ -736,7 +796,7 @@ begin
     RemoveOldVersion();
     { an update started by hand with "Start Corefold when Windows starts" unticked: it doesn't }
     if IsUpdate() and (not WizardSilent()) and (not WizardIsTaskSelected('startup')) then
-      RegDeleteValue(HKEY_CURRENT_USER, RunKey, '{#AppName}');
+      RegDeleteValue(HKEY_CURRENT_USER, RunKey, '{#KeepId}');
   end;
 end;
 
@@ -783,16 +843,18 @@ begin
   if CurUninstallStep = usPostUninstall then
   begin
     { also remove the startup entry if it was turned on from inside the app }
-    RegDeleteValue(HKEY_CURRENT_USER, RunKey, '{#AppName}');
+    RegDeleteValue(HKEY_CURRENT_USER, RunKey, '{#KeepId}');
     RegDeleteValue(HKEY_CURRENT_USER, RunKey, '{#OldName}');
     if (not UninstallSilent) and
        (MsgBox(CustomMessage('DeleteData'), mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES) then
     begin
       DelTree(ExpandConstant('{userappdata}\{#AppName}'), True, True, True);
+      DelTree(ExpandConstant('{userappdata}\{#PrevName}'), True, True, True);
       DelTree(ExpandConstant('{userappdata}\{#OldName}'), True, True, True);
       { backups of apps removed with Corefold, and files opened from Cloud (maybe changed and not uploaded yet),
         are the person's files: they stay }
       DelTreeExcept(ExpandConstant('{localappdata}\{#AppName}'), 'Uninstall backups', 'Opened cloud files');
+      DelTreeExcept(ExpandConstant('{localappdata}\{#PrevName}'), 'Uninstall backups', 'Opened cloud files');
       DelTreeExcept(ExpandConstant('{localappdata}\{#OldName}'), 'Uninstall backups', 'Opened cloud files');
     end;
   end;

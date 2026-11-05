@@ -13,26 +13,27 @@ import time
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
-from .core import APP_NAME, LEGACY_NAME, Options
+from .core import APP_NAME, KEEP_ID, LEGACY_NAME, OLD_APP_NAMES, Options
 from .i18n import LANGUAGES
 from .sounds import DONE_SOUNDS, OLD_NAMES
 
 CONFIG_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / APP_NAME
 LOG_DIR = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / APP_NAME
-# where versions before 1.7.0 (the old name) kept the same things
-OLD_CONFIG_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / LEGACY_NAME
-OLD_LOG_DIR = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / LEGACY_NAME
-OLD_OUTPUT_FOLDER = str(Path.home() / "Downloads" / LEGACY_NAME)
+# where versions under the app's earlier names kept the same things (newest first)
+OLD_CONFIG_DIRS = [Path(os.environ.get("APPDATA", str(Path.home()))) / name for name in OLD_APP_NAMES]
+OLD_LOG_DIRS = [Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / name for name in OLD_APP_NAMES]
+OLD_OUTPUT_FOLDERS = [str(Path.home() / "Downloads" / name) for name in OLD_APP_NAMES]
 log = logging.getLogger("corefold")
 ACTIVE = None  # the running app's settings (for helpers that aren't handed them, like Capture's folders)
 
 
 def migrate_old_name() -> bool:
-    """Versions before 1.7.0 had another name. Brings their settings, history and uninstall backups
-    over to the new folders, once. Never deletes anything that couldn't be moved.
-    Returns True if something was brought over."""
+    """Earlier versions had other names. Brings their settings, history and uninstall backups over to the
+    new folders, once (the newest name first; what the new folder already has is kept). Never deletes
+    anything that couldn't be moved. Returns True if something was brought over."""
     moved = False
-    for old, new in ((OLD_CONFIG_DIR, CONFIG_DIR), (OLD_LOG_DIR, LOG_DIR)):
+    pairs = [(old, CONFIG_DIR) for old in OLD_CONFIG_DIRS] + [(old, LOG_DIR) for old in OLD_LOG_DIRS]
+    for old, new in pairs:
         try:
             if not old.is_dir():
                 continue
@@ -59,6 +60,29 @@ def migrate_old_name() -> bool:
         except OSError:
             log.exception("couldn't bring old settings over from %s", old)
     return moved
+
+
+def move_old_output_folder(folder: str) -> str:
+    """The files made so far went into a folder under an earlier name (Downloads\\<old name>): it's renamed to
+    the new name in place, so they're all in one folder under the new name. Nothing is copied or deleted, and
+    when that can't be done (the new folder is there already, or the old one is open somewhere) the old folder
+    is left as it is and kept in use. Returns the folder to use."""
+    norm_ = os.path.normcase(os.path.normpath(folder))
+    for old in OLD_OUTPUT_FOLDERS:
+        if norm_ != os.path.normcase(os.path.normpath(old)):
+            continue
+        new = Path(old).with_name(APP_NAME)
+        if new.exists():
+            return str(new) if not Path(old).exists() else folder
+        try:
+            if Path(old).is_dir() and not Path(old).is_symlink():
+                os.rename(old, new)
+                log.info("renamed the output folder %s to %s", old, new)
+            return str(new)
+        except OSError:
+            log.info("kept the output folder %s (couldn't rename it)", old)
+            return folder
+    return folder
 
 # key: English label (shown through tr())
 SHORTCUT_LABELS = {"shift": "Shift", "ctrl+shift": "Ctrl + Shift", "alt": "Alt"}
@@ -434,8 +458,7 @@ class Settings:
         if not (len(s.custom_color) == 7 and s.custom_color.startswith("#")):
             s.custom_color = defaults.custom_color
         s.sound = OLD_NAMES.get(s.sound, s.sound)
-        if os.path.normcase(os.path.normpath(s.output_folder)) == os.path.normcase(os.path.normpath(OLD_OUTPUT_FOLDER)):
-            s.output_folder = defaults.output_folder  # the old default folder: use the new default
+        s.output_folder = move_old_output_folder(s.output_folder)  # the default folder under an earlier name
         for key, options in CHOICES.items():
             if getattr(s, key) not in options:
                 setattr(s, key, getattr(defaults, key))
@@ -561,12 +584,12 @@ def startup_enabled() -> bool:
     import winreg
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as k:
-            winreg.QueryValueEx(k, APP_NAME)
+            winreg.QueryValueEx(k, KEEP_ID)
     except OSError:
         return False
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, STARTUP_APPROVED) as k:
-            note = winreg.QueryValueEx(k, APP_NAME)[0]
+            note = winreg.QueryValueEx(k, KEEP_ID)[0]
         return not (isinstance(note, bytes) and note[:1] and note[0] & 1)
     except OSError:
         return True
@@ -578,9 +601,9 @@ def _clear_off_note():
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, STARTUP_APPROVED, 0,
                             winreg.KEY_QUERY_VALUE | winreg.KEY_SET_VALUE) as k:
-            note = winreg.QueryValueEx(k, APP_NAME)[0]
+            note = winreg.QueryValueEx(k, KEEP_ID)[0]
             if isinstance(note, bytes) and note[:1] and note[0] & 1:
-                winreg.SetValueEx(k, APP_NAME, 0, winreg.REG_BINARY, bytes([2]) + bytes(11))
+                winreg.SetValueEx(k, KEEP_ID, 0, winreg.REG_BINARY, bytes([2]) + bytes(11))
     except OSError:
         pass
 
@@ -603,12 +626,12 @@ def set_startup(on: bool):
     try:
         if on:  # (an account that never had anything start with Windows may have no Run key yet: it's made)
             with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as k:
-                winreg.SetValueEx(k, APP_NAME, 0, winreg.REG_SZ, launch_command())
+                winreg.SetValueEx(k, KEEP_ID, 0, winreg.REG_SZ, launch_command())
             _clear_off_note()
         else:
             try:
                 with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as k:
-                    winreg.DeleteValue(k, APP_NAME)
+                    winreg.DeleteValue(k, KEEP_ID)
             except FileNotFoundError:  # (no Run key or no entry: nothing starts with Windows already)
                 pass
     except OSError:
