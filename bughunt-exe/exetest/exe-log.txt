@@ -1,0 +1,11 @@
+2026-11-05 09:20:42,414 INFO starting Corefold 0.0.268-bughunt
+2026-11-05 09:20:42,550 INFO tools in use: converter, archive, uninstaller; resting for now: viewer, player, capture, clipboard, startup, scan, colors, awake, organizer
+2026-11-05 09:20:42,889 INFO window opened in 0.34 s: made 0.26 (sidebar 0.01, Home 0.20, laid out 0.03), brought up to date 0.01, shown 0.06, drawn 0.00
+2026-11-05 09:20:45,771 INFO right-click menu updated
+2026-11-05 09:20:49,215 INFO archive files open with Corefold
+2026-11-05 09:20:52,271 INFO tools in use: converter, archive, space, uninstaller
+2026-11-05 09:20:53,105 INFO right-click menu updated
+2026-11-05 09:21:00,763 INFO tools in use: converter, archive, cloud, space, uninstaller
+2026-11-05 09:21:09,399 INFO tools in use: converter, pdf, archive, cloud, space, uninstaller
+2026-11-05 09:21:18,160 INFO tools in use: converter, pdf, archive, unlock, cloud, space, uninstaller
+2026-11-05 09:21:27,924 INFO tidied up memory
