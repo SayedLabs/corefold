@@ -335,6 +335,8 @@ class Settings:
     # the Uninstaller
     organize_auto_folder: str = ""  # a folder File Organizer keeps tidy by itself, once a day ("" = none)
     organize_auto_last: float = 0.0  # when it last did (seconds since 1970)
+    space_auto_clean: str = "off"    # Space cleans up by itself: "off", "week" or "month" (space.AUTO_EVERY)
+    space_auto_last: float = 0.0     # when it last did (seconds since 1970)
     unused_months: int = 3         # "not used for …" filter
     backup_days: int = 30          # backups of removed leftovers are kept this long
     restore_point: bool = False    # tick "Make a System Restore point first" to begin with
@@ -445,6 +447,8 @@ class Settings:
             s.video_quality = defaults.video_quality
         if s.video_size not in VIDEO_SIZES:
             s.video_size = defaults.video_size
+        if s.space_auto_clean not in ("off", "week", "month"):
+            s.space_auto_clean = defaults.space_auto_clean
         if s.video_codec not in VIDEO_CODECS:
             s.video_codec = defaults.video_codec
         if s.audio_quality not in AUDIO_QUALITIES:

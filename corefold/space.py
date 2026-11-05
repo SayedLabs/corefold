@@ -1169,6 +1169,7 @@ class Junk:
     ticked: bool = True        # ticked to begin with
     name: str = ""             # a name in the title ("Google Chrome")
     admin: bool = False        # Windows' own files: removed by an administrator copy of Corefold (Windows asks)
+    about: str = ""            # how much it frees, when only Windows can say beforehand (English, through tr())
 
 
 def _tree_size(path: Path, limit_s: float = 20.0) -> tuple[int, int]:
@@ -1280,7 +1281,7 @@ def temp_folder() -> Path | None:
     return p
 
 
-def find_junk(downloads: Path | None = None, cancel: threading.Event | None = None) -> list[Junk]:
+def find_junk(downloads: Path | None = None, cancel: threading.Event | None = None, admin: bool = True) -> list[Junk]:
     """What can go: temporary files, the Recycle Bin, browsers' caches, crash reports and old installers."""
     now = time.time()
     found: list[Junk] = []
@@ -1411,7 +1412,8 @@ def find_junk(downloads: Path | None = None, cancel: threading.Event | None = No
         if dumps.paths:
             found.append(dumps)
 
-    found += _admin_junk(cancel)
+    if admin:  # (the clean-up by itself never touches Windows' own files: it doesn't look for them)
+        found += _admin_junk(cancel)
 
     if downloads is not None and downloads.is_dir():
         old = Junk("installers", "Old installers in Downloads", "Setup files downloaded more than a month ago. "
@@ -1434,7 +1436,8 @@ def find_junk(downloads: Path | None = None, cancel: threading.Event | None = No
 
 # Windows' own leftovers, which only an administrator can remove. The administrator copy of Corefold
 # is only told which of these keys to clean; the folders come from here, never from the request.
-ADMIN_KEYS = ("winupdate", "winold", "delivery")
+ADMIN_KEYS = ("winupdate", "winold", "delivery", "hibernate", "restorepoints", "compactos")
+SETTING_KEYS = ("hibernate", "restorepoints", "compactos")  # Windows settings, not folders
 DELIVERY_MIN = 50 << 20  # update copies kept for other PCs: offered from this size
 
 
@@ -1492,7 +1495,131 @@ def _admin_junk(cancel: threading.Event | None = None) -> list[Junk]:
                              "downloaded, to hand them to other PCs. Windows removes them its own way, and downloads "
                              "again any it needs. Windows asks for an administrator.",
                              [admin_path("delivery")], size, 0, ticked=False, admin=True))
+    if not (cancel is not None and cancel.is_set()):
+        rows += _setting_junk(cancel)
     return rows
+
+
+HIBERNATE_MIN = 512 << 20
+
+
+def hibernation_file() -> int:
+    """How big Windows' hibernation file is (it keeps the memory there to wake up, and for Fast startup), 0 when
+    there's none."""
+    try:
+        return (Path(_windows_dir().drive + "\\") / "hiberfil.sys").stat().st_size
+    except OSError:
+        return 0
+
+
+def restore_points_size() -> int:
+    """The room Windows' restore points take on the Windows drive, as Windows says (0 when it doesn't say to
+    someone who isn't an administrator)."""
+    import subprocess
+    from .uninstall import powershell
+    try:
+        out = powershell("$v = (Get-CimInstance Win32_Volume -Filter \"DriveLetter='" + _windows_dir().drive +
+                         "'\" -ErrorAction Stop).DeviceID; (Get-CimInstance Win32_ShadowStorage -ErrorAction Stop | "
+                         "Where-Object { $_.Volume.DeviceID -eq $v } | Measure-Object UsedSpace -Sum).Sum",
+                         timeout=30)
+        return max(0, int(float(out.splitlines()[-1].strip()))) if out and out.strip() else 0
+    except (OSError, ValueError, IndexError, subprocess.SubprocessError):
+        return 0
+
+
+def restore_point_count() -> int:
+    """How many restore points there are (from Windows' own list, which anyone may read)."""
+    import subprocess
+    from .uninstall import powershell
+    try:
+        out = powershell("@(Get-CimInstance -Namespace root/default -ClassName SystemRestore -ErrorAction Stop).Count",
+                         timeout=30)
+        return max(0, int(out.splitlines()[-1].strip())) if out else 0
+    except (OSError, ValueError, IndexError, subprocess.SubprocessError):
+        return 0
+
+
+def windows_is_compact() -> bool:
+    """Windows' own files are packed already (Compact OS): some of its biggest files take less room on the disk
+    than they hold."""
+    import ctypes
+    from ctypes import wintypes
+    k32 = ctypes.windll.kernel32
+    k32.GetCompressedFileSizeW.restype = wintypes.DWORD
+    k32.GetCompressedFileSizeW.argtypes = [wintypes.LPCWSTR, ctypes.POINTER(wintypes.DWORD)]
+    system32 = _windows_dir() / "System32"
+    for name in ("shell32.dll", "ntdll.dll", "mshtml.dll", "Windows.UI.Xaml.dll"):
+        f = system32 / name
+        try:
+            size = f.stat().st_size
+        except OSError:
+            continue
+        high = wintypes.DWORD(0)
+        low = k32.GetCompressedFileSizeW(str(f), ctypes.byref(high))
+        if low == 0xFFFFFFFF:
+            continue
+        if size > 1 << 20 and ((high.value << 32) | low) < size * 0.85:
+            return True
+    return False
+
+
+def _setting_junk(cancel: threading.Event | None = None) -> list[Junk]:
+    """Windows settings that free a lot of room (each unticked, each explained)."""
+    rows = []
+    size = hibernation_file()
+    if size >= HIBERNATE_MIN:
+        rows.append(Junk("hibernate", "Hibernation file", "Windows keeps your memory here to wake up from hibernation "
+                         "and for Fast startup. Switching hibernation off removes it, and Windows starts a little "
+                         "slower from off. It can be switched on again in Windows. Windows asks for an administrator.",
+                         [], size, 1, ticked=False, admin=True))
+    if cancel is not None and cancel.is_set():
+        return rows
+    count = restore_point_count()
+    if count > 1:
+        size = restore_points_size()
+        rows.append(Junk("restorepoints", "Older restore points", "Windows' restore points, except the newest one. "
+                         "Going back to an older one isn't possible afterwards. Windows asks for an administrator.",
+                         [], size, count - 1, ticked=False, admin=True, about="" if size else "Windows says after"))
+    if cancel is not None and cancel.is_set():
+        return rows
+    try:
+        compact = windows_is_compact()
+    except (OSError, AttributeError, ValueError):
+        compact = True
+    if not compact:
+        rows.append(Junk("compactos", "Pack Windows tighter (Compact OS)", "Windows packs its own files, which usually "
+                         "frees 2 to 4 GB. It takes 10 to 20 minutes and can make a very old PC a little slower. Windows "
+                         "asks for an administrator.", [], 0, 0, ticked=False, admin=True, about="About 2 to 4 GB"))
+    return rows
+
+
+def _free_on_windows_drive() -> int:
+    import shutil
+    try:
+        return shutil.disk_usage(_windows_dir().drive + "\\").free
+    except OSError:
+        return 0
+
+
+def _clean_setting(key: str, system32: Path, run) -> int:
+    """In the administrator copy: one of SETTING_KEYS. Returns the bytes freed."""
+    before = _free_on_windows_drive()
+    if key == "hibernate":
+        run("powercfg", "/hibernate", "off", timeout=120)
+    elif key == "restorepoints":
+        # only the restore points of the Windows drive that Windows itself made to go back to (never another
+        # program's copies), and never the newest
+        from .uninstall import powershell
+        try:
+            powershell("$v = (Get-CimInstance Win32_Volume -Filter \"DriveLetter='" + _windows_dir().drive + "'\").DeviceID; "
+                       "$all = @(Get-CimInstance Win32_ShadowCopy | Where-Object { $_.VolumeName -eq $v -and "
+                       "$_.ClientAccessible } | Sort-Object InstallDate); "
+                       "if ($all.Count -gt 1) { $all[0..($all.Count - 2)] | Remove-CimInstance }", timeout=900)
+        except Exception:
+            log.warning("couldn't remove the older restore points", exc_info=True)
+    elif key == "compactos":
+        run("compact", "/CompactOS:always", timeout=3600)
+    return max(0, _free_on_windows_drive() - before)
 
 
 def clean_as_admin(keys: list[str]) -> int:
@@ -1511,6 +1638,9 @@ def clean_as_admin(keys: list[str]) -> int:
     from .core import is_link
     from .uninstall import through_link
     for key in keys:
+        if key in SETTING_KEYS:
+            freed += _clean_setting(key, system32, run)
+            continue
         path = admin_path(key) if key in ADMIN_KEYS else None
         if path is None or not path.is_dir():
             continue
@@ -1928,3 +2058,27 @@ def find_duplicates(folders: list[Path], min_size: int = 100 * 1024, cancel: thr
                 progress("compare", done, len(candidates))
     groups.sort(key=lambda g: g[0][1] * (len(g) - 1), reverse=True)
     return groups
+
+
+# ----------------------------------------------------------------------------- cleaning up by itself
+
+AUTO_EVERY = {"off": 0, "week": 7 * 86400, "month": 30 * 86400}
+
+
+def auto_cleanable(j: Junk) -> bool:
+    """What the clean-up by itself may remove without asking: only temporary files, crash reports and the caches
+    of browsers and apps that aren't open. Never the Recycle Bin, old installers, Windows' own files or previews."""
+    return (j.key in ("temp", "dumps") or j.key.startswith(("browser:", "app:"))) and not j.busy and not j.admin \
+        and not j.to_bin and j.size > 0
+
+
+def auto_clean(cancel: threading.Event | None = None) -> int:
+    """The clean-up by itself (Settings: every week or month, while Corefold waits in the tray). Returns bytes
+    freed."""
+    freed = 0
+    for j in find_junk(None, cancel, admin=False):
+        if cancel is not None and cancel.is_set():
+            break
+        if auto_cleanable(j):
+            freed += clean(j, cancel)
+    return freed

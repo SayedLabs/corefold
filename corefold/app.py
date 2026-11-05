@@ -1005,6 +1005,7 @@ class Controller(QObject):
         self._awake_tool()
         self._peek_tool()
         self.keep_tidy()
+        self.keep_clean()
         self._tray_tools()
         running = [name for name, on in (("clipboard", self.clip), ("capture", self.capture),
                                          ("quick access", self.quick), ("awake", self.awake),
@@ -1064,6 +1065,51 @@ class Controller(QObject):
             timer.stop()
             timer.deleteLater()
             self.organize_timer = None
+
+    def keep_clean(self):
+        """Space's "clean up by itself": a look every hour, a clean-up once a week or month (only while Space is
+        switched on: otherwise nothing of it runs)."""
+        from .space import AUTO_EVERY
+        on = AUTO_EVERY.get(self.settings.space_auto_clean, 0) > 0 and all_tools.is_on(self.settings, "space")
+        timer = getattr(self, "clean_timer", None)
+        if on and timer is None:
+            self.clean_timer = timer = QTimer(self)
+            timer.setInterval(3600 * 1000)
+            timer.timeout.connect(self.clean_up_now)
+            timer.start()
+            QTimer.singleShot(12 * 60 * 1000, self.clean_up_now)  # (not while Corefold itself is starting)
+        elif not on and timer is not None:
+            timer.stop()
+            timer.deleteLater()
+            self.clean_timer = None
+
+    def clean_up_now(self, now: bool = False):
+        """The clean-up by itself, if its week or month has gone by (or now)."""
+        from . import work
+        from .space import AUTO_EVERY
+        s = self.settings
+        every = AUTO_EVERY.get(s.space_auto_clean, 0)
+        if not every or not all_tools.is_on(s, "space") or getattr(self, "_clean_job", None) is not None:
+            return
+        if not now and time.time() - s.space_auto_last < every:
+            return
+
+        def go(_progress):
+            from . import space
+            return space.auto_clean()
+        self._clean_job = work.run(go, lambda _: None, self._cleaned_up, name="corefold-clean", busy=True)
+
+    def _cleaned_up(self, result):
+        self._clean_job = None
+        self.settings.space_auto_last = time.time()
+        self.settings.save()
+        if isinstance(result, Exception):
+            log.warning("the clean-up by itself failed: %s", result)
+            return
+        log.info("cleaned up by itself: %s", human_size(result))
+        if result >= 50 << 20:  # (a toast for a few megabytes would only be noise)
+            self.toast.notify(tr("Cleaned up"), tr("Space freed {size} of temporary files and caches by itself.",
+                                                   size=human_size(result)), linger_ms=6000)
 
     def tidy_folder(self, now: bool = False):
         """Sorts the folder kept tidy, if a day has gone by since the last time (or now)."""

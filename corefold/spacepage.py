@@ -40,7 +40,7 @@ SECTIONS = [("map", "Disk map"), ("clean", "Clean up"), ("dupes", "Duplicates")]
 SECTION_ICONS = {"map": "data_pie", "clean": "broom", "dupes": "copy"}
 JUNK_ICONS = {"temp": "timer", "bin": "delete", "browser": "globe", "thumbs": "image_multiple", "gpu": "top_speed",
               "dumps": "stethoscope", "installers": "box", "winupdate": "arrow_download", "winold": "history",
-              "delivery": "arrow_sync",
+              "delivery": "arrow_sync", "hibernate": "timer", "restorepoints": "history", "compactos": "arrow_minimize",
               "app": "apps"}
 DUPE_FOLDERS = ("Desktop", "Documents", "Downloads", "Pictures", "Videos", "Music")
 KEEP_MAPS = 2             # drives (or folders) whose map is kept, so opening one again is instant
@@ -1890,8 +1890,40 @@ class SpacePage(QWidget):
         row.addWidget(_button(tr("More in Windows' Storage settings…"), "flat",
                               lambda: QDesktopServices.openUrl(QUrl("ms-settings:storagesense"))))
         lay.addLayout(row)
+        auto = QHBoxLayout()
+        auto.addWidget(_label(tr("Clean up by itself"), "subtle"))
+        self.auto_clean = Dropdown()
+        self.auto_clean.setAccessibleName(tr("Clean up by itself"))
+        for key, text in (("off", tr("Never")), ("week", tr("Every week")), ("month", tr("Every month"))):
+            self.auto_clean.addItem(text, key)
+        self.auto_clean.setCurrentIndex(max(0, self.auto_clean.findData(self.c.settings.space_auto_clean)))
+        self.auto_clean.currentIndexChanged.connect(self._auto_clean_changed)
+        auto.addWidget(self.auto_clean)
+        self.auto_note = _label("", "muted", wrap=True)
+        auto.addWidget(self.auto_note, 1)
+        lay.addLayout(auto)
+        self._show_auto_note()
         self.junk_checks: list[tuple[QCheckBox, space.Junk]] = []
         return w
+
+    def _auto_clean_changed(self, *_):
+        self.c.settings.space_auto_clean = self.auto_clean.currentData() or "off"
+        self.c.settings.save()
+        self.c.keep_clean()
+        self._show_auto_note()
+
+    def _show_auto_note(self):
+        s = self.c.settings
+        if s.space_auto_clean == "off":
+            text = tr("Only temporary files, crash reports and the caches of browsers and apps that are closed. Never "
+                      "the Recycle Bin, your files or Windows' own files.")
+        elif s.space_auto_last:
+            text = tr("Last time: {when}. Only temporary files, crash reports and caches.",
+                      when=time_ago(s.space_auto_last))
+        else:
+            text = tr("The first time is a few minutes after Corefold starts. Only temporary files, crash reports and "
+                      "caches.")
+        self.auto_note.setText(text)
 
     def _clear_junk_rows(self):
         while self.junk_rows.count():
@@ -1928,7 +1960,7 @@ class SpacePage(QWidget):
             self.junk_rows.addWidget(_note_row(str(result)))
             self.clean_total.setText(human_size(0))
             return
-        self.junk = [j for j in result if j.size > 0 or j.key == "bin"]
+        self.junk = [j for j in result if j.size > 0 or j.key == "bin" or j.about]
         if not self.junk:
             self.junk_rows.addWidget(_note_row(tr("Nothing to clean up. Nice and tidy.")))
         for j in self.junk:
@@ -1945,7 +1977,8 @@ class SpacePage(QWidget):
         self.clean_total.setText(human_size(total))
         self.clean_head.setText(tr("Can be freed") if total >= found else
                                 tr("Ticked below (all found: {size})", size=human_size(found)))
-        self.clean_btn.setEnabled(total > 0 and self.job is None)
+        unsized = any(cb.isChecked() and j.about and not j.size for cb, j in self.junk_checks)
+        self.clean_btn.setEnabled((total > 0 or unsized) and self.job is None)
         self.clean_btn.setText(tr("Clean up {size}", size=human_size(total)) if total else tr("Clean up"))
 
     def _clean(self):
@@ -1960,6 +1993,9 @@ class SpacePage(QWidget):
             text += "\n\n" + tr("The Recycle Bin is emptied too: what's in it is deleted for good.")
         if admin:
             text += "\n\n" + tr("Windows asks for an administrator for the Windows files.")
+        if any(j.key in space.SETTING_KEYS for j in chosen):
+            text += "\n\n" + tr("Windows' settings ticked here are changed too:") + "\n" + \
+                "\n".join("•  " + tr(j.title) for j in chosen if j.key in space.SETTING_KEYS)
         if not _confirm(self, tr("Clean up?"), text, tr("Clean up")):
             return
         self.clean_btn.setEnabled(False)
@@ -2318,7 +2354,7 @@ class JunkRow(QWidget):
         self.check = QCheckBox(title)
         self.check.setCursor(Qt.PointingHandCursor)
         self.check.setChecked(j.ticked and j.size > 0 and not j.busy)
-        self.check.setEnabled(j.size > 0 and not j.busy)
+        self.check.setEnabled((j.size > 0 or bool(j.about)) and not j.busy)
         bold = QFont(self.check.font())
         bold.setWeight(QFont.Weight.DemiBold)
         self.check.setFont(bold)
@@ -2330,7 +2366,8 @@ class JunkRow(QWidget):
         note.setContentsMargins(28, 0, 0, 0)
         words.addWidget(note)
         lay.addLayout(words, 1)
-        size = _label(human_size(j.size) if j.size else tr("Empty"), "h2" if j.size else "muted")
+        size = _label(human_size(j.size) if j.size else tr(j.about) if j.about else tr("Empty"),
+                      "h2" if j.size else "muted")
         lay.addWidget(size, 0, Qt.AlignTop)
         if self.check.isEnabled():
             self.setCursor(Qt.PointingHandCursor)
