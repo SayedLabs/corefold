@@ -14,7 +14,7 @@ from PySide6.QtWidgets import QFileDialog, QFrame, QHBoxLayout, QLabel, QListWid
     QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from . import backup
-from .atomic.widgets import Dropdown, Switch
+from .atomic.widgets import Dropdown, FlowLayout, Switch
 from .core import human_size, os_open
 from .i18n import ltr, tr
 
@@ -102,15 +102,14 @@ class BackupPage(QWidget):
         self.folders.setMinimumHeight(150)
         self.folders.itemSelectionChanged.connect(self._selection)
         lay.addWidget(self.folders)
-        quick = QHBoxLayout()
-        quick.setSpacing(6)
+        row = QWidget()
+        quick = FlowLayout(row, spacing=6)   # (wraps to a second line in a narrow window or a long language)
         self.quick_buttons = []
         for folder, text in COMMON:
             b = _button("+ " + tr(text), "small", lambda _=False, f=folder: self.add_folder(Path.home() / f))
             self.quick_buttons.append((folder, b))
             quick.addWidget(b)
-        quick.addStretch()
-        lay.addLayout(quick)
+        lay.addWidget(row)
         buttons = QHBoxLayout()
         buttons.addWidget(_button(tr("Add a folder"), None, self._choose_folder))
         self.remove = _button(tr("Take out"), "ghost", self.remove_selected)
