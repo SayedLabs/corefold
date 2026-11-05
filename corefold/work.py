@@ -27,9 +27,9 @@ def busy() -> bool:
 class Job:
     """A job handed to run(): alive until its answer has gone to the window (like the thread it runs on)."""
 
-    def __init__(self, name: str, box: list):
+    def __init__(self, name: str, sig: _Signals):
         self.name = name
-        self.box = box  # (its signals, kept alive while it runs)
+        self.sig = sig  # (kept alive while it runs)
         self._over = threading.Event()
 
     def is_alive(self) -> bool:
@@ -61,39 +61,22 @@ def run(fn, on_progress, on_done, name: str = "corefold-work", busy: bool = Fals
     if busy:
         with _lock:
             _busy.add(job)
-    # Only the window's thread holds the signals, and it lets them go once the answer is in and the job's
-    # thread is done with them: when the last reference went on the job's thread, Qt could still be handing
-    # the window an event for them, and it read what was already freed (a crash, now and then, as a job ended).
-    box = [sig]
-    handle = Job(name, box)
-    sig.done.connect(lambda _result: _retire(handle))  # (after on_done)
-    del sig
+    handle = Job(name, sig)
 
     def go():
-        s = box[0]
         try:
-            result = fn(s.progress.emit)
+            result = fn(sig.progress.emit)
         except Exception as e:  # (shown, never lost)
             result = e
         finally:
             with _lock:
                 _busy.discard(job)
         try:
-            s.done.emit(result)
+            sig.done.emit(result)
         finally:
-            del s
-            result = None  # (an error holds the job's frames, and through them its signals)
             handle._over.set()
     _start(threading.Thread(target=go, daemon=True, name=name))
     return handle
-
-
-def _retire(handle: Job):
-    """On the window's thread: the job's signals go once its thread no longer holds them (never in the middle
-    of handing out their own answer: a moment later)."""
-    from PySide6.QtCore import QTimer
-    QTimer.singleShot(0 if handle._over.is_set() else 20,
-                      handle.box.clear if handle._over.is_set() else (lambda: _retire(handle)))
 
 
 def background(fn, name: str = "corefold-work"):
