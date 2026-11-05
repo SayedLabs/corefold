@@ -150,6 +150,9 @@ def test_the_speed_is_read_off_the_windows_thread(page, qtbot, monkeypatch):
         return [network.Adapter(3, "Wi-Fi", "Intel Wi-Fi 6", "wifi", 10 + 1000 * len(read_on), 10, 300_000_000,
                                 300_000_000, True)]
     monkeypatch.setattr(network, "adapters", adapters)
+    if page.meter_job is not None:   # (the reading started when the page showed)
+        qtbot.waitUntil(lambda: not page.meter_job.is_alive(), timeout=5000)
+    page.link.setText("")
     page._tick()
-    qtbot.waitUntil(lambda: "Wi-Fi" in page.link.text(), timeout=5000)
-    assert read_on and not any(read_on)   # (never on the window's thread)
+    qtbot.waitUntil(lambda: bool(read_on) and "Wi-Fi" in page.link.text(), timeout=5000)
+    assert not any(read_on)   # (never on the window's thread)
