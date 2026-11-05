@@ -1,6 +1,6 @@
 # Corefold privacy policy
 
-Last changed: October 24, 2026. This is the same policy as the one on
+Last changed: November 5, 2026. This is the same policy as the one on
 [the website](https://sayedlabs.github.io/corefold/privacy.html).
 
 Corefold is a free Windows app made by Atomic Works. In short: **your files stay on your PC, there are
@@ -59,11 +59,16 @@ Your files on OneDrive and Dropbox are covered by those companies' own policies:
 | Checking for updates (a few times a day, can be turned off in *Updates*) | A request for the latest release, with the app's name and version. Like any web request, it carries your IP address. | GitHub, which hosts Corefold's releases ([GitHub's privacy statement](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement)) |
 | Downloading an update, when you choose to or turn on automatic updates | A download of the installer. | GitHub |
 | Using Corefold Cloud, only after you sign in to an account (folders on your PC send nothing) | Your sign-in, the files and folders you open, upload, download, rename, delete or search for, and the searches you type. | Microsoft (OneDrive) or Dropbox, whichever you signed in to |
+| Running a speed test in Corefold Network, only when you press *Test my speed* | Requests for throw-away data and uploads of random data, for about 15 seconds. Like any web request, they carry your IP address. Nothing about you, your PC or your files is sent, and the results stay on your PC. | Cloudflare, whose speed test it uses (`speed.cloudflare.com`, [Cloudflare's privacy policy](https://www.cloudflare.com/privacypolicy/)) |
 | When you click *Send feedback*, *Website*, *Privacy* or similar links | Your web browser opens that page. Anything you then write in a feedback form is public on GitHub. | GitHub |
 
 Corefold doesn't send usage statistics, crash reports or any information about your files, and it
 doesn't count its users. If a future version offers to send a crash report, it will ask you first and
 show you what would be sent.
+
+Corefold Network shows which programs are connected and where, by reading what Windows already knows on
+your PC (its list of connections and the names it looked up lately). It never asks a server about them, and
+nothing it shows is sent anywhere.
 
 Emails you open in Corefold can't reach the internet either: pictures from the internet are blocked, so
 the sender can't tell you opened the email.
@@ -77,6 +82,8 @@ nowhere else:
 - a list of recent conversions (you can clear it in *History*);
 - your clipboard history, if you use Clipboard (copies that password managers mark as private are never kept);
 - your Cloud accounts' keys, locked as described above;
+- the speed tests you ran in Network (speeds and the city of the test server, never your address), and
+  which programs it has seen using the internet before, to point out new ones;
 - a small log of what the app did, to help find problems, which never leaves your PC unless you send it;
 - the backups made when you uninstall apps with Corefold.
 

@@ -114,6 +114,7 @@ corefold/pdftools.py           Corefold PDF: merge, split, compress, pictures, p
 corefold/organizer.py          Corefold File Organizer (organizerpage.py)
 corefold/startup.py            Corefold Startup: switched on and off the way Task Manager does (startuppage.py)
 corefold/scan.py               Corefold Scan: Defender's scans and its own checks (scanpage.py; trust.py reads signatures offline)
+corefold/network.py            Corefold Network: connections, speed, speed test (networkpage.py)
 corefold/unlock.py             Corefold Unlock: which programs have a file open, and closing them (unlockpage.py)
 corefold/awake.py              Corefold Awake (awakepage.py)
 corefold/colors.py             Corefold Colors (colorspage.py)

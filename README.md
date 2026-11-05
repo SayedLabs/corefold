@@ -68,6 +68,7 @@ Switch off the uses you don't need (the ⚙ on the start page): a use that's swi
 |---|---|
 | **Space** | See what's filling each drive as a map, and free up space safely: temporary files, caches and old installers. Anything you remove from the map goes to the Recycle Bin. |
 | **Uninstaller** | Remove programs, then clean up the folders, shortcuts and registry entries they leave behind. Everything removed is kept as a backup, so you can put it back. |
+| **Network** | See which programs are using the internet and the places they connect to, how fast it's going right now, and which programs other devices on your network can reach. A speed test, when you ask for it, says what your connection is good for. No administrator rights, nothing sent anywhere. |
 
 ### Coming back soon
 The other tools are resting for now while Corefold Files gets our full attention. Nothing of them

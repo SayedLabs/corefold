@@ -782,7 +782,7 @@ class MainWindow(QWidget):
                     "ViewerSettings": self._viewer_settings, "Clipboard": self._clipboard,
                     "ClipboardSettings": self._clipboard_settings, "Space": self._space, "Capture": self._capture,
                     "CaptureSettings": self._capture_settings, "Cloud": self._cloud, "Player": self._player,
-                    "PlayerSettings": self._player_settings, "PDF": self._pdf, "Organizer": self._organizer, "Startup": self._startup, "Scan": self._scan, "Updates": self._updates, "About": self._about,
+                    "PlayerSettings": self._player_settings, "PDF": self._pdf, "Organizer": self._organizer, "Startup": self._startup, "Scan": self._scan, "Network": self._network, "Updates": self._updates, "About": self._about,
                     "Quick": self._quick_settings,
                     "Unlock": self._unlock,
                     "Awake": self._awake,
@@ -807,11 +807,12 @@ class MainWindow(QWidget):
         self.organizer_page = None
         self.startup_page = None
         self.scan_page = None
+        self.network_page = None
         self.unlock_page = None
         self.awake_page = None
         self.colors_page = None
         self._unbuilt = {"Apps", *SECTION_PAGES, "Viewer", "Clipboard", "Space", "Capture", "Cloud", "Player", "PDF",
-                         "Organizer", "Startup", "Scan", "Unlock", "Awake", "Colors", "Archives", "History",
+                         "Organizer", "Startup", "Scan", "Network", "Unlock", "Awake", "Colors", "Archives", "History",
                          "Updates", "About", *SETTINGS_PAGES, *SOON,
                          *[tool.page for tool in all_tools.TOOLS if tool.page not in on_pages and tool.page != "Converter"]}
         self._made("heads")
@@ -1188,7 +1189,7 @@ class MainWindow(QWidget):
 
     # a tool's page, and what the window keeps of it (let go of with the page)
     PAGE_PARTS = {"Apps": "apps_page", "Clipboard": "clip_page", "Space": "space_page", "Cloud": "cloud_page",
-                  "PDF": "pdf_page", "Organizer": "organizer_page", "Startup": "startup_page", "Scan": "scan_page",
+                  "PDF": "pdf_page", "Organizer": "organizer_page", "Startup": "startup_page", "Scan": "scan_page", "Network": "network_page",
                   "Unlock": "unlock_page", "Awake": "awake_page", "Colors": "colors_page"}
 
     def _drop_page(self, name: str):
@@ -1472,6 +1473,8 @@ class MainWindow(QWidget):
             self.startup_page.ensure_loaded()
         elif name == "Scan" and self.scan_page is not None:
             self.scan_page.ensure_loaded()
+        elif name == "Network" and self.network_page is not None:
+            self.network_page.ensure_loaded()
         elif name in ("History", "Home"):
             self.refresh_history()
         elif name == "About":
@@ -3218,6 +3221,15 @@ class MainWindow(QWidget):
                                 "tricks viruses use."), dark, dpr)
         self.scan_page = ScanPage(self.c, header)
         return self.scan_page
+
+    def _network(self) -> QWidget:
+        """Corefold Network: how fast the network is going, which programs use it, and a speed test."""
+        from .networkpage import NetworkPage
+        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
+        header = tool_header("network", tr("Corefold Network"),
+                             tr("See what's using your internet, and how fast it really is."), dark, dpr)
+        self.network_page = NetworkPage(self.c, header)
+        return self.network_page
 
     def _player(self) -> QWidget:
         """Corefold Player: open videos and music, and pick up where you left off."""
