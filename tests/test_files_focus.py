@@ -13,7 +13,7 @@ from corefold import shellmenu
 from corefold import tools as all_tools
 
 ROOT = Path(__file__).resolve().parent.parent
-FILES = {"converter", "pdf", "archive", "organizer", "unlock", "rename", "cloud"}
+FILES = {"converter", "pdf", "archive", "organizer", "unlock", "rename", "hash", "cloud"}
 COMPUTER = {"space", "uninstaller"}  # (Computer is back with these two)
 IN_USE = FILES | COMPUTER
 RESTING = {"capture", "viewer", "colors", "startup", "scan", "clipboard", "awake"}

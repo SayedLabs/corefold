@@ -113,6 +113,8 @@ def table_texts() -> dict[str, str]:
     for name in ("NAMES", "CASES", "DATES", "NUMBERS", "PLACES", "ORDERS", "EXTS"):
         add([text for _, text in getattr(renamepage, name)], f"renamepage.{name}")
     add(renamer.REASONS, "renamer.REASONS")
+    from corefold import checkpage
+    add(list(checkpage.STATES.values()), "checkpage.STATES")
     from corefold import pdfstamp
     add(pdfstamp.NUMBER_PLACES.values(), "pdfstamp.NUMBER_PLACES")
     add(pdfstamp.SIGN_PAGES.values(), "pdfstamp.SIGN_PAGES")
