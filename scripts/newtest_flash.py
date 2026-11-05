@@ -54,6 +54,7 @@ import faulthandler  # noqa: E402
 START = time.time()
 LIMIT = float(os.environ.get("NEWTEST_LIMIT", "420"))
 faulthandler.dump_traceback_later(LIMIT + 20, exit=True, file=LOG)
+faulthandler.enable(file=LOG, all_threads=True)  # (a crash inside Windows or Qt says where it was)
 problems = []
 
 

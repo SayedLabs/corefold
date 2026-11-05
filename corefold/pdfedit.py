@@ -281,7 +281,9 @@ def _arabic_unicode(data: bytes, typed: str) -> bytes:
 # ----------------------------------------------------------------------------- every piece, groups too
 
 OBJECT_LIMIT = 20000    # a page's pieces looked at, at most (groups inside groups included)
-SHAPE_LIMIT = 1500      # drawn shapes offered on a page, at most (the biggest)
+SHAPE_LIMIT = 1500      # drawn shapes offered on a page, at most (past it, the smaller ones in bunches)
+BIG_SHAPES = 300        # (the biggest ones, kept one by one even then)
+GROUP_DEPTH = 16        # groups inside groups looked into, at most
 _HIDDEN_TEXT = (3, 7)   # text that isn't drawn (a scan's words, made searchable), or only clips
 _DRAWN = None           # PDFium's kinds of pieces (filled in when PDFium is first needed)
 
@@ -343,7 +345,7 @@ def objects(page_raw, limit: int = OBJECT_LIMIT) -> list[tuple]:
             name = j if prefix is None else f"{prefix}/{j}"
             kind = c.FPDFPageObj_GetType(o)
             out.append((name, o, kind, m))
-            if kind == c.FPDF_PAGEOBJ_FORM and depth < 6:
+            if kind == c.FPDF_PAGEOBJ_FORM and depth < GROUP_DEPTH:
                 walk(c.FPDFFormObj_CountObjects(o), lambda n, o=o: c.FPDFFormObj_GetObject(o, n), str(name),
                      _mul(_mx(o), m), depth + 1)
     walk(c.FPDFPage_CountObjects(page_raw), lambda n: c.FPDFPage_GetObject(page_raw, n), None, _ID, 0)
@@ -424,7 +426,7 @@ def read_layout(doc, index: int) -> dict:
             top[_addr(o)] = name
             if kind == c.FPDF_PAGEOBJ_IMAGE:
                 rect = geo.rect_to_display(*_through(m, _bounds(o)))
-                if rect[2] > 2 and rect[3] > 2:
+                if max(rect[2], rect[3]) > 1 and min(rect[2], rect[3]) > 0.05:  # (a thin rule too)
                     images.append({"obj": name, "rect": [round(v, 2) for v in rect]})
             elif kind == c.FPDF_PAGEOBJ_TEXT:
                 texts[name] = {"raw": o, "m": m}
@@ -434,15 +436,19 @@ def read_layout(doc, index: int) -> dict:
                     d["obj"] = name
                     shapes.append(d)
         if len(shapes) > SHAPE_LIMIT:
-            keep = {id(d) for d in sorted(shapes, key=lambda d: -d["rect"][2] * d["rect"][3])[:SHAPE_LIMIT]}
-            shapes = [d for d in shapes if id(d) in keep]
+            keep = {id(d) for d in sorted(shapes, key=lambda d: -d["rect"][2] * d["rect"][3])[:BIG_SHAPES]}
+            shapes = [d for d in shapes if id(d) in keep] + bunches([d for d in shapes if id(d) not in keep],
+                                                                    SHAPE_LIMIT - BIG_SHAPES)
         for d in shapes:
             d["share"] = round(d["rect"][2] * d["rect"][3] / area, 4)
+            if d["share"] > 0.5 and (d["kind"] == "gradient" or "fill" in d):
+                d["background"] = True  # (the page's background: changed only when picked on purpose)
         tp = page.get_textpage()
         try:
             n = c.FPDFText_CountChars(tp.raw)
             chars = []      # (letter, made up by PDFium, piece, box in the PDF's points)
             box = c.FS_RECTF()
+            inked = set()   # (pieces with a "space" that shows something: a font that calls a letter a space)
             for i in range(n):
                 ch = _letter(c.FPDFText_GetUnicode(tp.raw, i))
                 gen = c.FPDFText_IsGenerated(tp.raw, i) == 1
@@ -451,10 +457,12 @@ def read_layout(doc, index: int) -> dict:
                     rect = (box.left, box.bottom, box.right, box.top)
                 else:
                     rect = None
+                if ch.isspace() and obj is not None and _shows(c, tp.raw, i):
+                    inked.add(obj)
                 chars.append((ch, gen, obj, rect))
+            lines = _lines(c, geo, chars, texts, lambda raw: _obj_text(c, raw, tp.raw), inked)
         finally:
             tp.close()
-        lines = _lines(c, geo, chars, texts)
         paras = paragraphs(lines)
         marks = []
         for ch, gen, _obj, rect in chars:
@@ -467,6 +475,76 @@ def read_layout(doc, index: int) -> dict:
                 "shapes": shapes, "annots": _annots(c, doc, page, geo), "chars": marks}
     finally:
         page.close()
+
+
+def _root(parent: list[int], i: int) -> int:
+    while parent[i] != i:
+        parent[i] = parent[parent[i]]
+        i = parent[i]
+    return i
+
+
+def bunches(shapes: list[dict], most: int) -> list[dict]:
+    """Small shapes put together with the ones next to them (letters turned into shapes become words, then
+    lines: the gap allowed across is bigger than the one between lines), so a page with thousands of them
+    still has every one of them to pick: at most `most` bunches, each with all its pieces ("objs")."""
+    if not shapes:
+        return []
+    boxes = [(d["rect"][0], d["rect"][1], d["rect"][0] + d["rect"][2], d["rect"][1] + d["rect"][3]) for d in shapes]
+    gap = 0.5
+    while True:
+        parent = list(range(len(boxes)))
+        cell = max(8.0, 4 * gap)
+        up = gap / 4
+        grid: dict[tuple[int, int], list[int]] = {}
+        for i, (l, t, r, b) in enumerate(boxes):
+            for gx in range(int((l - gap) // cell), int((r + gap) // cell) + 1):
+                for gy in range(int((t - up) // cell), int((b + up) // cell) + 1):
+                    for j in grid.get((gx, gy), ()):
+                        L, T, R, B = boxes[j]
+                        if l - gap <= R and L <= r + gap and t - up <= B and T <= b + up:
+                            parent[_root(parent, i)] = _root(parent, j)
+                    grid.setdefault((gx, gy), []).append(i)
+        groups: dict[int, list[int]] = {}
+        for i in range(len(boxes)):
+            groups.setdefault(_root(parent, i), []).append(i)
+        if len(groups) <= most or gap > 1000:
+            break
+        gap *= 1.6
+    out = []
+    for members in groups.values():
+        ds = [shapes[i] for i in members]
+        l = min(boxes[i][0] for i in members)
+        t = min(boxes[i][1] for i in members)
+        r = max(boxes[i][2] for i in members)
+        b = max(boxes[i][3] for i in members)
+        d = dict(ds[0], rect=[round(l, 2), round(t, 2), round(r - l, 2), round(b - t, 2)])
+        if len(ds) > 1:
+            d["objs"] = [x["obj"] for x in ds]
+        out.append(d)
+    return out
+
+
+def _shows(c, tp, i: int) -> bool:
+    """A letter's own shape has some size (a real space has none)."""
+    l, r, b, t = (ctypes.c_double() for _ in range(4))
+    if not c.FPDFText_GetCharBox(tp, i, l, r, b, t):
+        return False
+    return r.value - l.value > 0.05 and t.value - b.value > 0.05
+
+
+def _obj_text(c, raw, tp) -> str:
+    """The words of one piece of text, as its font names them."""
+    try:
+        n = c.FPDFTextObj_GetText(raw, tp, None, 0)
+        if n <= 2:
+            return ""
+        buf = ctypes.create_string_buffer(n)
+        c.FPDFTextObj_GetText(raw, tp, ctypes.cast(buf, ctypes.POINTER(c.FPDF_WCHAR)), n)
+        text = buf.raw[:n].decode("utf-16-le", "replace").split("\x00", 1)[0]
+    except Exception:
+        return ""
+    return "".join(ch if ch.isspace() else _letter(ord(ch)) for ch in text)
 
 
 def _shape(c, o, kind, m, geo) -> dict | None:
@@ -496,7 +574,9 @@ def _shape(c, o, kind, m, geo) -> dict | None:
 
 _ANNOT_KINDS = {1: "note", 2: "link", 3: "freetext", 4: "line", 5: "square", 6: "circle", 7: "polygon",
                 8: "polyline", 9: "highlight", 10: "underline", 11: "squiggly", 12: "strike", 13: "stamp",
-                14: "caret", 15: "ink", 17: "attachment", 18: "sound", 28: "redact"}
+                14: "caret", 15: "ink", 17: "attachment", 18: "sound", 19: "movie", 21: "screen", 22: "printmark",
+                23: "trapnet", 24: "watermark", 25: "3d", 26: "richmedia", 28: "redact"}
+_NOT_ANNOTS = (16, 20, 27)  # (pop-ups go with their note; form boxes are the form's, see read_fields)
 
 
 def _annot_text(c, annot, key: str) -> str:
@@ -521,8 +601,8 @@ def _annots(c, doc, page, geo) -> list[dict]:
             continue
         try:
             sub = c.FPDFAnnot_GetSubtype(annot)
-            kind = _ANNOT_KINDS.get(sub)
-            if kind is None or c.FPDFAnnot_GetFlags(annot) & 2:  # (form boxes, pop-ups, hidden ones…)
+            kind = _ANNOT_KINDS.get(sub, "mark")  # ("mark": a kind PDFium doesn't know, drawn as it says)
+            if sub in _NOT_ANNOTS or c.FPDFAnnot_GetFlags(annot) & 2:  # (hidden ones too)
                 continue
             r = c.FS_RECTF()
             if not c.FPDFAnnot_GetRect(annot, r):
@@ -555,10 +635,14 @@ def _annots(c, doc, page, geo) -> list[dict]:
     return out
 
 
-def _lines(c, geo: Geo, chars: list, texts: dict) -> list[dict]:
+def _lines(c, geo: Geo, chars: list, texts: dict, text_of=None, inked=()) -> list[dict]:
     """Letters -> lines that can be changed: letters next to each other on a line, from the page's text (in
     groups too). Lines that run across the page left to right are put together from the letters as shown;
-    a turned line (up, down, slanted) is one piece of text or a few in a row."""
+    a turned line (up, down, slanted) is one piece of text or a few in a row.
+    Every piece of text the page draws ends up in a line, also the ones PDFium leaves out of the page's
+    letters (a word drawn twice to look bolder, a shadow under it: they go with the line they're on; the
+    words of a piece on its own are its own line): text_of gives a piece's words. inked: the pieces with a
+    letter that shows but whose font calls it a space (a line of their own, its words read from the page)."""
     info: dict = {}
 
     def obj_info(k) -> dict:
@@ -650,7 +734,7 @@ def _lines(c, geo: Geo, chars: list, texts: dict) -> list[dict]:
         objs = sorted({obj for _, obj, _, _ in letters}, key=str)
         if not objs:
             continue
-        shown = [(ch, box[0], box[2]) for ch, _, box, _ in letters]
+        shown = [(ch, box[0], box[2]) for ch, _, box, _ in _once(letters)]
         main = max(objs, key=lambda k: sum(1 for t in letters if t[1] == k))
         spans: list = []
         text, rtl = line_text(shown, info[main]["size"], spans)
@@ -669,8 +753,67 @@ def _lines(c, geo: Geo, chars: list, texts: dict) -> list[dict]:
                 line["font_" + script] = info[max(set(used), key=used.count)]["font"]
         lines.append(line)
     lines += _turned_lines(info, turned, geo)
+    if text_of is not None:
+        _left_out(lines, info, obj_info, texts, text_of, inked, geo)
     lines.sort(key=lambda d: (round(d["rect"][1]), d["rect"][0]))
     return lines
+
+
+def _once(letters: list) -> list:
+    """A line's letters without the ones drawn again over themselves (to look bolder, or as a shadow): the
+    same letter, nearly in the same place. (letters: (letter, piece, box shown, place), in the PDF's order.)"""
+    seen: dict[str, list] = {}
+    out = []
+    for t in letters:
+        ch, box = t[0], t[2]
+        w, h = max(0.01, box[2] - box[0]), max(0.01, box[3] - box[1])
+        if any(min(box[2], b[2]) - max(box[0], b[0]) > 0.6 * w and min(box[3], b[3]) - max(box[1], b[1]) > 0.6 * h
+               for b in seen.get(ch, ())):
+            continue
+        seen.setdefault(ch, []).append(box)
+        out.append(t)
+    return out
+
+
+def _left_out(lines: list, info: dict, obj_info, texts: dict, text_of, inked, geo: Geo):
+    """The pieces of text no line has yet (see _lines), put with the line they're over, or made lines of their
+    own."""
+    used = {k for d in lines for k in d["objs"]}
+    for k in texts:
+        if k in used:
+            continue
+        o = obj_info(k)
+        text = text_of(texts[k]["raw"])
+        if not text:  # (left out of the page's letters altogether: PDFium can't say its words either)
+            text = UNKNOWN
+        elif not text.strip():
+            if k not in inked:
+                continue  # (only spaces: nothing shows)
+            text = UNKNOWN * len(text)
+        rect = [round(v, 2) for v in geo.rect_to_display(*o["bounds"])]
+        if rect[2] < 0.05 and rect[3] < 0.05:
+            continue  # (nothing to see: it has no size)
+        best, share = None, 0.0
+        for d in lines:
+            got = _share_over(rect, d["rect"])
+            if got > share:
+                best, share = d, got
+        if best is not None and share > 0.5:
+            best["objs"] = sorted(set(best["objs"]) | {k}, key=str)
+            x, y = min(best["rect"][0], rect[0]), min(best["rect"][1], rect[1])
+            best["rect"] = [round(x, 2), round(y, 2),
+                            round(max(best["rect"][0] + best["rect"][2], rect[0] + rect[2]) - x, 2),
+                            round(max(best["rect"][1] + best["rect"][3], rect[1] + rect[3]) - y, 2)]
+            continue
+        text = arabic_letters(text.strip())
+        line = _line_of(info, k, [k], text, _strong(text) == "R", rect)
+        if o["straight"]:
+            line["words"] = []
+        else:
+            sx, sy = o["origin"]
+            line.update(turn=round(o["turn"], 2), origin=[round(sx, 2), round(sy, 2)], words=[])
+            line.pop("base", None)
+        lines.append(line)
 
 
 # ----------------------------------------------------------------------------- words read from the page's picture
@@ -1509,7 +1652,7 @@ def _groups_into_pages(data: bytes, changes: dict[int, dict]) -> bytes:
     from pypdf import PdfReader, PdfWriter
     from . import pdfcontent
     failed: set[int] = set()
-    for _round in range(6):
+    for _round in range(GROUP_DEPTH + 1):  # (a group inside a group comes up to the page one step each round)
         wanted = {}
         for i, ch in changes.items():
             tops = {int(str(n).split("/")[0]) for n in _object_names(ch) if isinstance(n, str)}

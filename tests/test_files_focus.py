@@ -17,7 +17,7 @@ FILES = {"converter", "pdf", "archive", "organizer", "unlock", "cloud"}
 COMPUTER = {"space", "uninstaller", "network"}  # (Computer is back with these two, and Network is new)
 BACK = {"space", "uninstaller"}  # (switched back on once for everyone)
 IN_USE = FILES | COMPUTER
-RESTING = {"capture", "viewer", "player", "colors", "startup", "scan", "clipboard", "awake"}
+RESTING = {"capture", "viewer", "colors", "startup", "scan", "clipboard", "awake"}
 
 
 @pytest.fixture
@@ -98,7 +98,7 @@ def test_a_fresh_install_meets_resting_tools_switched_off_when_they_come_back(mo
 
 def test_nothing_of_a_resting_tool_was_deleted(qtbot):
     """Every resting tool keeps its code (each module still imports) and its icons."""
-    for name in ("capture", "capview", "viewer", "player", "colors", "colorspage", "space", "spacepage",
+    for name in ("capture", "capview", "viewer", "colors", "colorspage", "space", "spacepage",
                  "uninstall", "appspage", "startup", "startuppage", "scan", "scanpage", "clipboard", "clipview",
                  "awake", "awakepage", "peek", "peekview", "quick", "quickmenu", "quickwheel", "quickpage"):
         assert (ROOT / "corefold" / f"{name}.py").is_file(), name

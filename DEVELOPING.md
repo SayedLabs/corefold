@@ -105,7 +105,6 @@ corefold/navbar.py             the sidebar (drag to reorder, icons only)
 corefold/atomic/               Atomic, the design system: colours, spacing, motion, shared widgets, Ctrl + K search
 corefold/quick.py              the quick menu and quick wheel (quickmenu.py, quickwheel.py, quickpage.py)
 corefold/viewer.py             Corefold Viewer (mailview.py opens .msg and .eml)
-corefold/player.py             Corefold Player
 corefold/capture.py            Corefold Capture (capview.py is the editor)
 corefold/spacepage.py          Corefold Space (space.py does the scanning and cleaning)
 corefold/clipboard.py          Corefold Clipboard (clipview.py is its window)

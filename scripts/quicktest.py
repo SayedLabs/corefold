@@ -35,7 +35,7 @@ s.tour_done = True
 s.check_updates = False
 s.language = LANG
 s.appearance = LOOK
-s.known_tools = ["converter", "uninstaller", "archive", "viewer", "player", "clipboard", "space", "capture"]
+s.known_tools = ["converter", "uninstaller", "archive", "viewer", "clipboard", "space", "capture"]
 s.quick_told = True
 s.save()
 
