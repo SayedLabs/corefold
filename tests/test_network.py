@@ -137,6 +137,28 @@ def test_windows_tables_can_be_read_without_being_an_administrator():
         server.close()
 
 
+@pytest.mark.skipif(not WINDOWS, reason="Windows' own tables")
+def test_reading_from_several_threads_at_once_is_safe():
+    """The page reads the speed and the programs on two threads, while other tools use the same Windows calls."""
+    import threading
+    failed = []
+
+    def read(fn):
+        try:
+            for _ in range(5):
+                fn()
+        except Exception as e:   # (a crash would end the test run itself)
+            failed.append(repr(e))
+    jobs = [threading.Thread(target=read, args=(fn,)) for fn in
+            (network.programs, network.adapters, network.cached_names, network.services_by_pid,
+             network.process_names, network.programs, network.adapters)]
+    for t in jobs:
+        t.start()
+    for t in jobs:
+        t.join(120)
+    assert not failed
+
+
 # ----------------------------------------------------------------------------- the speed test, on this PC
 
 class _FakeSpeed(http.server.BaseHTTPRequestHandler):

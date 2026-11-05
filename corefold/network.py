@@ -98,11 +98,33 @@ def reachable_by(conn: Connection) -> str:
     return THIS_PC if where_is(conn.local) == THIS_PC else HOME
 
 
+_LIBS: dict[str, object] = {}
+_FUNCS: dict[tuple[str, str], object] = {}
+_FUNCS_LOCK = threading.Lock()
+
+
+def _fn(dll: str, name: str, restype, *argtypes):
+    """A Windows function with its types, set once. Corefold Network loads its own copy of each library, so the
+    types set here never change the same function for the rest of Corefold (another tool may call it on another
+    thread at the same moment), and nothing changes them while a call is running."""
+    key = (dll, name)
+    with _FUNCS_LOCK:
+        fn = _FUNCS.get(key)
+        if fn is None:
+            lib = _LIBS.get(dll)
+            if lib is None:
+                lib = _LIBS[dll] = ctypes.WinDLL(dll)
+            fn = getattr(lib, name)
+            fn.restype = restype
+            fn.argtypes = list(argtypes)
+            _FUNCS[key] = fn
+    return fn
+
+
 def _table(fn_name: str, family: int, kind: int) -> bytes:
     """One of Windows' connection tables, as it answered (empty on any failure)."""
-    fn = getattr(ctypes.windll.iphlpapi, fn_name)
-    fn.argtypes = [ctypes.c_void_p, ctypes.POINTER(wt.DWORD), wt.BOOL, wt.ULONG, ctypes.c_int, wt.ULONG]
-    fn.restype = wt.DWORD
+    fn = _fn("iphlpapi", fn_name, wt.DWORD, ctypes.c_void_p, ctypes.POINTER(wt.DWORD), wt.BOOL, wt.ULONG,
+             ctypes.c_int, wt.ULONG)
     size = wt.DWORD(0)
     for _ in range(5):  # (it can grow between asking for the size and reading it)
         buf = ctypes.create_string_buffer(max(size.value, 4))
@@ -243,18 +265,12 @@ def cached_names() -> dict[str, str]:
         return {}
     out: dict[str, str] = {}
     try:
-        dns = ctypes.windll.dnsapi
-        get_table = dns.DnsGetCacheDataTable   # (not in the documentation, but there since Windows 2000)
-        get_table.argtypes = [ctypes.POINTER(ctypes.POINTER(_CacheEntry))]
-        get_table.restype = wt.BOOL
-        query = dns.DnsQuery_W
-        query.argtypes = [wt.LPCWSTR, ctypes.c_ushort, wt.DWORD, ctypes.c_void_p,
-                          ctypes.POINTER(ctypes.POINTER(_DnsRecord)), ctypes.c_void_p]
-        query.restype = ctypes.c_long
-        free_list = dns.DnsRecordListFree
-        free_list.argtypes = [ctypes.c_void_p, ctypes.c_int]
-        free = dns.DnsFree
-        free.argtypes = [ctypes.c_void_p, ctypes.c_int]
+        # (DnsGetCacheDataTable isn't in the documentation, but it's been there since Windows 2000)
+        get_table = _fn("dnsapi", "DnsGetCacheDataTable", wt.BOOL, ctypes.POINTER(ctypes.POINTER(_CacheEntry)))
+        query = _fn("dnsapi", "DnsQuery_W", ctypes.c_long, wt.LPCWSTR, ctypes.c_ushort, wt.DWORD, ctypes.c_void_p,
+                    ctypes.POINTER(ctypes.POINTER(_DnsRecord)), ctypes.c_void_p)
+        free_list = _fn("dnsapi", "DnsRecordListFree", None, ctypes.c_void_p, ctypes.c_int)
+        free = _fn("dnsapi", "DnsFree", None, ctypes.c_void_p, ctypes.c_int)
     except (AttributeError, OSError):
         return out
     head = ctypes.POINTER(_CacheEntry)()
@@ -358,25 +374,23 @@ def process_names() -> dict[int, str]:
                     ("cntThreads", ctypes.c_uint32), ("th32ParentProcessID", ctypes.c_uint32),
                     ("pcPriClassBase", ctypes.c_long), ("dwFlags", ctypes.c_uint32),
                     ("szExeFile", ctypes.c_wchar * 260)]
-    k = ctypes.windll.kernel32
-    k.CreateToolhelp32Snapshot.restype = ctypes.c_void_p
-    k.CreateToolhelp32Snapshot.argtypes = [ctypes.c_uint32, ctypes.c_uint32]
-    k.Process32FirstW.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-    k.Process32NextW.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-    k.CloseHandle.argtypes = [ctypes.c_void_p]
+    snapshot = _fn("kernel32", "CreateToolhelp32Snapshot", ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32)
+    first = _fn("kernel32", "Process32FirstW", wt.BOOL, ctypes.c_void_p, ctypes.c_void_p)
+    following = _fn("kernel32", "Process32NextW", wt.BOOL, ctypes.c_void_p, ctypes.c_void_p)
+    close = _fn("kernel32", "CloseHandle", wt.BOOL, ctypes.c_void_p)
     out: dict[int, str] = {}
-    snap = k.CreateToolhelp32Snapshot(0x2, 0)  # TH32CS_SNAPPROCESS
+    snap = snapshot(0x2, 0)  # TH32CS_SNAPPROCESS
     if not snap or snap == ctypes.c_void_p(-1).value:
         return out
     try:
         e = PROCESSENTRY32W()
         e.dwSize = ctypes.sizeof(e)
-        ok = k.Process32FirstW(snap, ctypes.byref(e))
-        while ok:
+        ok = first(snap, ctypes.byref(e))
+        while ok and len(out) < MAX_ROWS:
             out[e.th32ProcessID] = e.szExeFile
-            ok = k.Process32NextW(snap, ctypes.byref(e))
+            ok = following(snap, ctypes.byref(e))
     finally:
-        k.CloseHandle(snap)
+        close(snap)
     return out
 
 
@@ -384,21 +398,19 @@ def process_path(pid: int) -> str:
     """A process's file, or "" if Windows doesn't say (parts of Windows protected from programs)."""
     if sys.platform != "win32" or pid <= SYSTEM_PID:
         return ""
-    k = ctypes.windll.kernel32
-    k.OpenProcess.restype = ctypes.c_void_p
-    k.OpenProcess.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32]
-    k.QueryFullProcessImageNameW.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.c_wchar_p,
-                                             ctypes.POINTER(ctypes.c_uint32)]
-    k.CloseHandle.argtypes = [ctypes.c_void_p]
-    h = k.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+    open_process = _fn("kernel32", "OpenProcess", ctypes.c_void_p, ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32)
+    image_name = _fn("kernel32", "QueryFullProcessImageNameW", wt.BOOL, ctypes.c_void_p, ctypes.c_uint32,
+                     ctypes.c_wchar_p, ctypes.POINTER(ctypes.c_uint32))
+    close = _fn("kernel32", "CloseHandle", wt.BOOL, ctypes.c_void_p)
+    h = open_process(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
     if not h:
         return ""
     try:
         buf = ctypes.create_unicode_buffer(1024)
         size = ctypes.c_uint32(1024)
-        return buf.value if k.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(size)) else ""
+        return buf.value if image_name(h, 0, buf, ctypes.byref(size)) else ""
     finally:
-        k.CloseHandle(h)
+        close(h)
 
 
 class _ServiceStatusProcess(ctypes.Structure):
@@ -416,29 +428,27 @@ def services_by_pid() -> dict[int, list[str]]:
     Reading the list of services is open to every user (nothing is changed)."""
     if sys.platform != "win32":
         return {}
-    adv = ctypes.windll.advapi32
-    adv.OpenSCManagerW.restype = ctypes.c_void_p
-    adv.OpenSCManagerW.argtypes = [wt.LPCWSTR, wt.LPCWSTR, wt.DWORD]
-    adv.EnumServicesStatusExW.argtypes = [ctypes.c_void_p, ctypes.c_int, wt.DWORD, wt.DWORD, ctypes.c_void_p,
-                                          wt.DWORD, ctypes.POINTER(wt.DWORD), ctypes.POINTER(wt.DWORD),
-                                          ctypes.POINTER(wt.DWORD), wt.LPCWSTR]
-    adv.CloseServiceHandle.argtypes = [ctypes.c_void_p]
+    open_scm = _fn("advapi32", "OpenSCManagerW", ctypes.c_void_p, wt.LPCWSTR, wt.LPCWSTR, wt.DWORD)
+    enum = _fn("advapi32", "EnumServicesStatusExW", wt.BOOL, ctypes.c_void_p, ctypes.c_int, wt.DWORD, wt.DWORD,
+               ctypes.c_void_p, wt.DWORD, ctypes.POINTER(wt.DWORD), ctypes.POINTER(wt.DWORD),
+               ctypes.POINTER(wt.DWORD), wt.LPCWSTR)
+    close_scm = _fn("advapi32", "CloseServiceHandle", wt.BOOL, ctypes.c_void_p)
     SC_MANAGER_ENUMERATE_SERVICE, SC_ENUM_PROCESS_INFO = 0x4, 0
     SERVICE_WIN32, SERVICE_ACTIVE = 0x30, 0x1
     out: dict[int, list[str]] = {}
-    scm = adv.OpenSCManagerW(None, None, SC_MANAGER_ENUMERATE_SERVICE)
+    scm = open_scm(None, None, SC_MANAGER_ENUMERATE_SERVICE)
     if not scm:
         return out
     try:
         needed, count, resume = wt.DWORD(0), wt.DWORD(0), wt.DWORD(0)
-        adv.EnumServicesStatusExW(scm, SC_ENUM_PROCESS_INFO, SERVICE_WIN32, SERVICE_ACTIVE, None, 0,
-                                  ctypes.byref(needed), ctypes.byref(count), ctypes.byref(resume), None)
+        enum(scm, SC_ENUM_PROCESS_INFO, SERVICE_WIN32, SERVICE_ACTIVE, None, 0,
+             ctypes.byref(needed), ctypes.byref(count), ctypes.byref(resume), None)
         if not needed.value or needed.value > 16 << 20:
             return out
         buf = ctypes.create_string_buffer(needed.value + 4096)
         resume = wt.DWORD(0)
-        if not adv.EnumServicesStatusExW(scm, SC_ENUM_PROCESS_INFO, SERVICE_WIN32, SERVICE_ACTIVE, buf, len(buf),
-                                         ctypes.byref(needed), ctypes.byref(count), ctypes.byref(resume), None):
+        if not enum(scm, SC_ENUM_PROCESS_INFO, SERVICE_WIN32, SERVICE_ACTIVE, buf, len(buf),
+                    ctypes.byref(needed), ctypes.byref(count), ctypes.byref(resume), None):
             return out
         rows = ctypes.cast(buf, ctypes.POINTER(_EnumServiceStatusProcess))
         for i in range(min(count.value, 5000)):
@@ -447,7 +457,7 @@ def services_by_pid() -> dict[int, list[str]]:
             if pid and row.lpDisplayName:
                 out.setdefault(pid, []).append(row.lpDisplayName[:80])
     finally:
-        adv.CloseServiceHandle(scm)
+        close_scm(scm)
     return out
 
 
@@ -597,8 +607,7 @@ def main_adapter_index() -> int:
     if sys.platform != "win32":
         return 0
     idx = wt.DWORD(0)
-    fn = ctypes.windll.iphlpapi.GetBestInterface
-    fn.argtypes = [ctypes.c_uint32, ctypes.POINTER(wt.DWORD)]
+    fn = _fn("iphlpapi", "GetBestInterface", wt.DWORD, ctypes.c_uint32, ctypes.POINTER(wt.DWORD))
     # (any public address will do: Windows looks at its routes, it doesn't contact it)
     target = struct.unpack("<I", socket.inet_aton("1.1.1.1"))[0]
     return idx.value if fn(target, ctypes.byref(idx)) == NO_ERROR else 0
@@ -609,11 +618,10 @@ def adapters() -> list[Adapter]:
     Virtual ones (VPN tunnels, virtual machines' switches, loopback) are left out, so nothing is counted twice."""
     if sys.platform != "win32":
         return []
-    ip = ctypes.windll.iphlpapi
-    ip.GetIfTable2.argtypes = [ctypes.POINTER(ctypes.c_void_p)]
-    ip.FreeMibTable.argtypes = [ctypes.c_void_p]
+    get_table = _fn("iphlpapi", "GetIfTable2", wt.DWORD, ctypes.POINTER(ctypes.c_void_p))
+    free_table = _fn("iphlpapi", "FreeMibTable", None, ctypes.c_void_p)
     table = ctypes.c_void_p()
-    if ip.GetIfTable2(ctypes.byref(table)) != NO_ERROR or not table:
+    if get_table(ctypes.byref(table)) != NO_ERROR or not table:
         return []
     out = []
     main = main_adapter_index()
@@ -633,7 +641,7 @@ def adapters() -> list[Adapter]:
             out.append(Adapter(r.InterfaceIndex, r.Alias[:80], r.Description[:120], _kind(r.Type), r.InOctets,
                                r.OutOctets, r.ReceiveLinkSpeed, r.TransmitLinkSpeed, r.InterfaceIndex == main))
     finally:
-        ip.FreeMibTable(table)
+        free_table(table)
     return out
 
 

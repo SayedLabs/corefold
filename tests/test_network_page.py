@@ -139,3 +139,17 @@ def test_rates_read_like_internet_plans():
     from corefold.networkpage import rate_text
     assert rate_text(950e6) == "950 Mb/s" and rate_text(12.4e6) == "12.4 Mb/s" and rate_text(2.5e9) == "2.50 Gb/s"
     assert rate_text(800e3) == "800 kb/s"
+
+
+def test_the_speed_is_read_off_the_windows_thread(page, qtbot, monkeypatch):
+    import threading
+    read_on = []
+
+    def adapters():
+        read_on.append(threading.current_thread() is threading.main_thread())
+        return [network.Adapter(3, "Wi-Fi", "Intel Wi-Fi 6", "wifi", 10 + 1000 * len(read_on), 10, 300_000_000,
+                                300_000_000, True)]
+    monkeypatch.setattr(network, "adapters", adapters)
+    page._tick()
+    qtbot.waitUntil(lambda: "Wi-Fi" in page.link.text(), timeout=5000)
+    assert read_on and not any(read_on)   # (never on the window's thread)

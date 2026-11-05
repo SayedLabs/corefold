@@ -102,6 +102,12 @@ def signature_of(path: str):
 _names: list = [0.0, {}]   # (when, {address: name}): Windows' list of names is read again every NAMES_EVERY_S
 
 
+def _read_adapters() -> tuple[float, list[network.Adapter]]:
+    """(when, the adapters with their byte counts), read off the window's thread."""
+    found = network.adapters()
+    return time.monotonic(), found
+
+
 def look() -> list[network.Program]:
     """The programs and their connections, with each program's signature (run off the window's thread)."""
     now = time.monotonic()
@@ -565,6 +571,7 @@ class NetworkPage(QWidget):
         self.meter = network.Meter()
         self.ticks = 0
         self.job = None
+        self.meter_job = None
         self.usage_job = None
         self.test_job = None
         self.test: network.SpeedTest | None = None
@@ -775,20 +782,29 @@ class NetworkPage(QWidget):
     def _tick(self, force: bool = False):
         if not work.alive(self):
             return
+        # (Windows can take a moment to count every adapter's bytes: read off the window's thread, so the
+        # window never waits for it; a reading still going on is waited for rather than started twice)
+        if self.meter_job is None or not self.meter_job.is_alive():
+            self.meter_job = work.run(lambda _p: _read_adapters(), lambda _: None, self._metered,
+                                      name="corefold-network-speed")
+        self.ticks += 1
+        if (force or self.ticks % LOOK_EVERY == 0) and self.tab in ("now", "open"):
+            self.look_again(quiet=True)
+
+    def _metered(self, result):
+        if not work.alive(self) or not self.timer.isActive():
+            return
+        if isinstance(result, Exception):
+            log.debug("couldn't read the network adapters: %s", result)
+            return
+        at, found = result
         fresh = not self.meter.at   # (the first reading only starts the count)
-        try:
-            down, up, self.adapters = self.meter.read()
-        except Exception:
-            log.debug("couldn't read the network adapters", exc_info=True)
-            down = up = 0.0
+        down, up, self.adapters = self.meter.read(at, found)
         if not fresh:
             self.down_lab.setText(rate_text(down * 8))
             self.up_lab.setText(rate_text(up * 8))
             self.graph.add(down * 8, up * 8)
         self._show_link()
-        self.ticks += 1
-        if (force or self.ticks % LOOK_EVERY == 0) and self.tab in ("now", "open"):
-            self.look_again(quiet=True)
 
     def _show_link(self):
         main = self.main_adapter()
