@@ -235,3 +235,137 @@ def open_page(ext: Extension) -> bool:
         return True
     except OSError:
         return False
+
+
+# ----------------------------------------------------------------------------- extensions a program forces in
+#
+# A program (often an unwanted one) can put an extension into a browser through the registry: as a policy
+# ("installed by your administrator": the browser greys out its Remove button) or as an "external" extension the
+# browser installs again each time it starts. Removing that registry entry is what lets it go: the browser takes
+# out a policy's extension by itself, and an external one once its entry is gone.
+
+# where each browser reads them: (browser, policy key, external extensions key) under HKLM/HKCU\Software
+FORCED_PLACES = [
+    ("Google Chrome", r"Policies\Google\Chrome\ExtensionInstallForcelist", r"Google\Chrome\Extensions"),
+    ("Microsoft Edge", r"Policies\Microsoft\Edge\ExtensionInstallForcelist", r"Microsoft\Edge\Extensions"),
+    ("Brave", r"Policies\BraveSoftware\Brave\ExtensionInstallForcelist", r"BraveSoftware\Brave-Browser\Extensions"),
+    ("Vivaldi", r"Policies\Vivaldi\ExtensionInstallForcelist", ""),
+    ("Firefox", r"Policies\Mozilla\Firefox\Extensions\Install", ""),
+]
+
+
+@dataclass
+class Forced:
+    browser: str
+    id: str               # the extension's id ("" when a policy names an address only, as Firefox's can)
+    hive: str             # "HKLM" or "HKCU"
+    key: str              # under the hive, e.g. "Software\Policies\Google\Chrome\ExtensionInstallForcelist"
+    value: str = ""       # the policy's value name ("" for an external extension's whole key)
+    view: int = 0         # 64 or 32 for HKLM
+    data: str = ""        # what the value says (an id and an update address, or Firefox's address)
+    by: str = ""          # what put it there, when its entry says (an external extension's file)
+
+    @property
+    def needs_admin(self) -> bool:
+        return self.hive == "HKLM"
+
+    @property
+    def kind(self) -> str:
+        return "policy" if self.value else "external"
+
+
+def forced_ok(item: dict) -> bool:
+    """A forced extension's registry entry, and nothing else, may be removed (what the administrator helper
+    checks again before it removes one)."""
+    hive, key, value = str(item.get("hive", "")), str(item.get("key", "")), str(item.get("value", ""))
+    if hive not in ("HKLM", "HKCU") or ".." in key or "/" in key:
+        return False
+    low = key.lower().rstrip("\\")
+    for _browser, policy, external in FORCED_PLACES:
+        if value and low == ("software\\" + policy).lower():
+            return value.isdigit() or bool(value.strip())  # (a numbered entry of the list)
+        if external and not value:
+            base = ("software\\" + external).lower() + "\\"
+            if low.startswith(base) and _ID.match(low[len(base):]):
+                return True
+    return False
+
+
+def find_forced(read=None) -> list[Forced]:
+    """Every extension a program forces into a browser through the registry (both registry views)."""
+    if read is None:
+        from . import uninstall as un
+        read = (un._values, un._subkeys)
+    values, subkeys = read
+    out: list[Forced] = []
+    seen = set()
+    for hive, views in (("HKLM", (64, 32)), ("HKCU", (0,))):
+        for view in views:
+            for browser, policy, external in FORCED_PLACES:
+                key = "Software\\" + policy
+                for name, data in values(hive, key, view).items():
+                    text = str(data or "").strip()
+                    ext_id = text.split(";", 1)[0].strip()
+                    if not _ID.match(ext_id):
+                        ext_id = ""
+                    k = (hive, key.lower(), name.lower(), "" if hive == "HKCU" else view)
+                    if k in seen or not text:
+                        continue
+                    seen.add(k)
+                    out.append(Forced(browser, ext_id, hive, key, name, view if hive == "HKLM" else 0, text))
+                if not external:
+                    continue
+                base = "Software\\" + external
+                for sub in subkeys(hive, base, view):
+                    if not _ID.match(sub):
+                        continue
+                    k = (hive, (base + "\\" + sub).lower(), "", view)
+                    if k in seen:
+                        continue
+                    seen.add(k)
+                    v = values(hive, base + "\\" + sub, view)
+                    by = str(v.get("path") or v.get("update_url") or "")
+                    out.append(Forced(browser, sub, hive, base + "\\" + sub, "", view if hive == "HKLM" else 0,
+                                      "", by))
+    return out
+
+
+def remove_forced(items: list[Forced], run_admin=None) -> tuple[int, int]:
+    """Removes forced extensions' registry entries. Ones in HKLM go through the administrator helper
+    (run_admin(payload) -> its answer). Returns (removed, not removed)."""
+    done = failed = 0
+    mine = [f for f in items if not f.needs_admin]
+    for f in mine:
+        if remove_entry(f.__dict__):
+            done += 1
+        else:
+            failed += 1
+    admin = [f.__dict__ for f in items if f.needs_admin]
+    if admin:
+        answer = run_admin({"items": admin}) if run_admin is not None else None
+        if isinstance(answer, dict) and "done" in answer:
+            done += int(answer.get("done", 0))
+            failed += len(admin) - int(answer.get("done", 0))
+        else:
+            failed += len(admin)
+    return done, failed
+
+
+def remove_entry(item: dict) -> bool:
+    """One forced extension's registry entry, removed (only after forced_ok)."""
+    if not forced_ok(item):
+        return False
+    from . import uninstall as un
+    w = un._winreg()
+    view = int(item.get("view", 0) or 0)
+    try:
+        if item.get("value"):
+            with w.OpenKey(un._root(item["hive"]), item["key"], 0, un._access(view, write=True)) as k:
+                w.DeleteValue(k, item["value"])
+        else:
+            parent, _, sub = item["key"].rpartition("\\")
+            with w.OpenKey(un._root(item["hive"]), parent, 0, un._access(view, write=True)) as k:
+                w.DeleteKey(k, sub)  # (an external extension's key holds two values, never sub-keys)
+        return True
+    except OSError:
+        return False
