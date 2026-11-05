@@ -58,6 +58,8 @@ ACTIONS = [("edit", "Edit content", "Type text, change words, add pictures, high
            ("compare", "Compare two PDFs", "See what changed between two versions: pages side by side and every "
             "word taken out or put in", "document_multiple"),
            ("print", "Print", "Print on any printer: copies, pages, both sides, black and white", "document"),
+           ("bookmarks", "Bookmarks", "Add, rename and arrange the chapters readers jump to from the side",
+            "navigation"),
            ("clean", "Remove hidden info", "See and change its title and author, and take out who made it, notes, "
             "attached files and scripts", "broom")]
 # the Converter's own PDF tools that are shown here too (when this Corefold has them)
@@ -71,7 +73,7 @@ MORE = [("pdf:numbers", "Page numbers", "Number every page", "text_t"),
 # how the cards are grouped on the page (the first group is shown big, on top)
 GROUPS = [("", ("edit", "merge")),
           ("Pages", ("organize", "split", "extract", "pagesize", "trim")),
-          ("Add to it", ("searchable", "pdf:sign", "pdf:numbers", "pdf:watermark")),
+          ("Add to it", ("searchable", "pdf:sign", "pdf:numbers", "pdf:watermark", "bookmarks")),
           ("Smaller or safer", ("compress", "pdf:fit", "lock", "unlock", "clean", "flatten", "repair")),
           ("Turn it into something else", ("topictures", "pictures", "pdf:word", "pdf:text", "pdf:images")),
           ("Check and print", ("compare", "print"))]
@@ -456,6 +458,9 @@ class PdfPage(QWidget):
         if key == "edit":
             self.open_editor(files[0])
             return
+        if key == "bookmarks":
+            self.open_bookmarks(files[0])
+            return
         if key == "compare":
             if len(files) != 2:
                 self.c.tell(tr("Compare two PDFs"), tr("Pick two PDFs to compare"))
@@ -586,6 +591,57 @@ class PdfPage(QWidget):
         def look(_progress):
             return pdftools.lock_state(src), _count(src, self.passwords.get(str(src), ""))
         self._run(look, lambda _: None, lambda result: self._edit(src, result), "corefold-pdf-look")
+
+    def open_bookmarks(self, src: Path):
+        """Bookmarks: the PDF's list is read (its password asked for first, if it has one), then shown."""
+        if not is_pdf(src):
+            return
+
+        def look(_progress):
+            return pdftools.lock_state(src), _count(src, self.passwords.get(str(src), ""))
+        self._run(look, lambda _: None, lambda result: self._bookmarks(src, result), "corefold-pdf-look")
+
+    def _bookmarks(self, src: Path, result):
+        if not work.alive(self):
+            return
+        password, count = self.passwords.get(str(src), ""), 0
+        if not isinstance(result, Exception):
+            state, count = result
+            wrong = False
+            while state == "locked" and not count:
+                password = self.c.ask_password([src], wrong=wrong)
+                if password is None:
+                    return
+                count = _count(src, password)
+                wrong = not count
+            if count:
+                self.passwords[str(src)] = password
+        if not count:
+            self.c.tell(tr("Corefold PDF"), tr("{name} couldn't be read. It may be damaged.", name=short_name(src.name)))
+            return
+
+        def read(_progress):
+            from .pdfmore import read_bookmarks
+            return read_bookmarks(src, password)
+        self._run(read, lambda _: None, lambda found: self._show_bookmarks(src, password, found), "corefold-pdf-marks")
+
+    def _show_bookmarks(self, src: Path, password: str, found):
+        from .pdfdialogs import BookmarksDialog
+        from .pdfmore import BOOKMARKS
+        if isinstance(found, Exception):
+            self.c.tell(tr("Corefold PDF"), tr("{name} couldn't be read. It may be damaged.", name=short_name(src.name)))
+            return
+        marks, pages, other = found
+        dlg = BookmarksDialog([src], self.c.icon, self.c.theme.dark, marks, pages, other)
+        try:
+            if not sheet.run(dlg):
+                return
+            params = dlg.params()
+        finally:
+            dlg.deleteLater()
+        if password:
+            params["password"] = password
+        self.c.start_job(BOOKMARKS, [src], params)
 
     def _edit(self, src: Path, result):
         if not work.alive(self):

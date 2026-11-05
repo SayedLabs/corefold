@@ -14,7 +14,8 @@ from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QDialog, QDoubleSpinBox,
 
 from . import sheet
 from .atomic.widgets import Dropdown
-from .converters import RESIZE_PRESETS, ROTATIONS, category, load_image, media_duration, norm, video_frame
+from .converters import (EDGE, FAST_TRIM_EXT, RESIZE_PRESETS, ROTATIONS, category, load_image, media_duration, norm,
+                         video_frame)
 from .core import human_size, quick_size, safe_name, short_name
 from .i18n import tr
 from .winutil import set_title_bar_dark
@@ -251,11 +252,30 @@ class TrimDialog(Base):
         self.length = QLabel()
         self.length.setObjectName("muted")
         self.lay.addWidget(self.length)
-        note = QLabel(tr("Saved as a new MP4 file. Your original stays as it is.") if self.video
-                      else tr("Saved as a new file. Your original stays as it is."))
-        note.setObjectName("muted")
-        self.lay.addWidget(note)
+        # keep the part picked, or take it out of the middle and join what's before and after it
+        self.mode = QButtonGroup(self)
+        how = QHBoxLayout()
+        for key, text in (("keep", tr("Keep this part")), ("cut", tr("Take this part out"))):
+            rb = QRadioButton(text)
+            rb.setProperty("key", key)
+            rb.setChecked(key == "keep")
+            self.mode.addButton(rb)
+            how.addWidget(rb)
+        how.addStretch()
+        self.lay.addLayout(how)
+        self.can_fast = norm(src.suffix) in FAST_TRIM_EXT
+        self.fast = QCheckBox(tr("Fast, with no quality lost (the parts are copied as they are)"))
+        self.fast.setToolTip(tr("Done in seconds, even for a long film. A video's cut then falls on the nearest key "
+                                "picture, a moment before the time picked."))
+        self.fast.setVisible(self.can_fast)
+        self.lay.addWidget(self.fast)
+        self.note = QLabel()
+        self.note.setObjectName("muted")
+        self.note.setWordWrap(True)
+        self.lay.addWidget(self.note)
         self.buttons(tr("Trim"))
+        self.mode.buttonToggled.connect(lambda *_: self._update())
+        self.fast.toggled.connect(lambda *_: self._update())
 
         self._syncing = False
         self.start_s.valueChanged.connect(lambda v: self._from_slider(0, v))
@@ -308,10 +328,31 @@ class TrimDialog(Base):
         if self.video:
             self.thumb_timer[which].start(250)
 
+    def _cutting(self) -> bool:
+        return getattr(self, "mode", None) is not None and self.mode.checkedButton().property("key") == "cut"
+
     def _update(self):
         start, end = self._values()
-        self.length.setText(tr("Keeps {start} → {end}  ·  {length} long (was {was})", start=fmt_time(start),
-                               end=fmt_time(end), length=fmt_time(end - start), was=fmt_time(self.duration)))
+        if self._cutting():
+            left = max(0.0, self.duration - (end - start))
+            self.length.setText(tr("Takes out {start} → {end}  ·  {length} long (was {was})", start=fmt_time(start),
+                                   end=fmt_time(end), length=fmt_time(left), was=fmt_time(self.duration)))
+        else:
+            self.length.setText(tr("Keeps {start} → {end}  ·  {length} long (was {was})", start=fmt_time(start),
+                                   end=fmt_time(end), length=fmt_time(end - start), was=fmt_time(self.duration)))
+        note = getattr(self, "note", None)
+        if note is None:
+            return
+        if self.can_fast and self.fast.isChecked():
+            note.setText(tr("Saved as a new {kind} file, like the original. Your original stays as it is.",
+                            kind=norm(self.src.suffix).lstrip(".").upper()))
+        elif self.video:
+            note.setText(tr("Saved as a new MP4 file. Your original stays as it is."))
+        else:
+            note.setText(tr("Saved as a new file. Your original stays as it is."))
+        if hasattr(self, "ok"):
+            # (taking out everything would leave nothing)
+            self.ok.setEnabled(not self._cutting() or start > EDGE or end < self.duration - EDGE)
 
     def _thumb(self, which):
         """Reads the frame in the background, so dragging the sliders stays smooth."""
@@ -341,9 +382,10 @@ class TrimDialog(Base):
 
     def params(self):
         start, end = self._values()
+        fast = self.can_fast and self.fast.isChecked()
         if not self.known:  # (FFmpeg couldn't tell how long it is: never a 0.1-second file by mistake)
-            return {"start": 0.0, "end": 0.0}
-        return {"start": start, "end": end}
+            return {"start": 0.0, "end": 0.0, "mode": "keep", "fast": fast}
+        return {"start": start, "end": end, "mode": "cut" if self._cutting() else "keep", "fast": fast}
 
 
 class RenameDialog(Base):

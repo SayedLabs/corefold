@@ -372,3 +372,84 @@ def compare_pdfs(files: list[Path], ctx: Ctx) -> Result:
 
 
 COMPARE = Tool("pdftool:compare", tr("Compare"), tr("Compare two PDFs"), compare_pdfs, batch=True, renames=False)
+
+
+# ----------------------------------------------------------------------------- bookmarks
+
+MAX_BOOKMARKS = 5000  # (a list longer than this is shown cut: nobody arranges more by hand)
+
+
+def read_bookmarks(src: Path, password: str = "") -> tuple[list[list], int, int]:
+    """The PDF's bookmarks (the list of chapters a reader shows on the side) as [level, title, page] (level from
+    0, page counted from 0), its number of pages, and how many bookmarks open something other than one of its
+    own pages (a web page, another file): those can't be kept when the list is saved again."""
+    from .pdftools import open_reader
+    reader = open_reader(src, password)
+    found: list[list] = []
+    other = [0]
+
+    def walk(items, level):
+        for item in items:
+            if len(found) >= MAX_BOOKMARKS:
+                return
+            if isinstance(item, list):
+                walk(item, level + 1)
+                continue
+            try:
+                page = reader.get_destination_page_number(item)
+            except Exception:
+                page = None
+            title = str(getattr(item, "title", "") or "").strip()
+            if page is None or page < 0:
+                other[0] += 1
+                continue
+            found.append([level, title or tr("Page {number}", number=page + 1), page])
+    try:
+        walk(reader.outline, 0)
+    except Exception:
+        log.debug("the bookmarks of %s couldn't all be read", src, exc_info=True)
+    # (a list that starts deeper than the top, or skips a level, is made even, so each one has its parent)
+    level = -1
+    for mark in found:
+        mark[0] = max(0, min(mark[0], level + 1))
+        level = mark[0]
+    return found, len(reader.pages), other[0]
+
+
+def write_bookmarks(src: Path, ctx: Ctx) -> Result:
+    """A new copy of the PDF with this list of bookmarks (params "marks": [level, title, page] in order),
+    shown on the side when it's opened. An empty list takes them all away."""
+    from pypdf import PdfWriter
+    from pypdf.generic import NameObject
+
+    from .pdftools import open_reader, write
+    password = ctx.params.get("password", "")
+    reader = open_reader(src, password)
+    count = len(reader.pages)
+    writer = PdfWriter(clone_from=reader)
+    root = writer._root_object
+    if "/Outlines" in root:
+        del root[NameObject("/Outlines")]
+    parents: list = []
+    marks = [m for m in (ctx.params.get("marks") or []) if isinstance(m, (list, tuple)) and len(m) == 3]
+    for n, (level, title, page) in enumerate(marks[:MAX_BOOKMARKS]):
+        ctx.check()
+        level = max(0, min(int(level), len(parents)))
+        page = max(0, min(int(page), count - 1))
+        parent = parents[level - 1] if level else None
+        item = writer.add_outline_item(str(title).strip() or tr("Page {number}", number=page + 1), page,
+                                       parent=parent)
+        del parents[level:]
+        parents.append(item)
+        ctx.progress(0.8 * (n + 1) / max(1, len(marks)))
+    if marks:
+        writer.page_mode = "/UseOutlines"  # (readers open it with the list showing)
+    elif root.get("/PageMode") == "/UseOutlines":
+        del root[NameObject("/PageMode")]
+    out = ctx.out_path(src, f"{ctx.stem(src)} (bookmarks).pdf")
+    write(writer, out, password)
+    return Result([out], note=tr("{count} bookmarks", count=len(marks)) if marks else tr("Bookmarks taken away"))
+
+
+BOOKMARKS = Tool("pdftool:bookmarks", tr("Bookmarks"), tr("Change the list of chapters"), write_bookmarks,
+                 password=True, renames=False)

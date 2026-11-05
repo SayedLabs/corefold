@@ -1360,13 +1360,36 @@ def rotate_video(src: Path, ctx: Ctx) -> Result:
     return Result([out])
 
 
+# Containers a fast trim (the parts copied as they are, nothing made again) keeps: the new file is the same kind
+# as the original. Any other kind is made again as MP4 (video) or MP3 (sound), the usual way.
+FAST_TRIM_EXT = {".mp4", ".m4v", ".mov", ".mkv", ".webm", ".avi", ".ts", ".mts", ".m2ts", ".3gp",
+                 ".mp3", ".m4a", ".aac", ".flac", ".ogg", ".opus", ".wav"}
+EDGE = 0.05  # (seconds: a part this close to the start or the end is the start or the end)
+
+
 def trim_media(src: Path, ctx: Ctx) -> Result:
+    """Keeps the part between start and end ("keep"), or takes that part out and joins what's before and
+    after it ("cut"). "fast" copies the parts as they are (no quality lost, done in seconds); a video's
+    cut then falls on the nearest key picture before the time picked, a moment early."""
+    duration = media_duration(src)
     start = max(0.0, float(ctx.params.get("start", 0)))
-    end = float(ctx.params.get("end", 0)) or media_duration(src)
+    end = float(ctx.params.get("end", 0)) or duration
     if end <= start:
         raise RuntimeError(tr("the end must be after the start"))
-    pre = ["-ss", f"{start:.3f}", "-to", f"{end:.3f}"]
-    if category(src) == "audio":
+    cut = ctx.params.get("mode") == "cut"
+    fast = bool(ctx.params.get("fast")) and norm(src.suffix) in FAST_TRIM_EXT
+    parts = [(start, end)]
+    if cut:
+        if duration <= 0:
+            raise RuntimeError(tr("the file is damaged or isn't really an audio or video file"))
+        parts = [(0.0, start), (end, duration)]
+        parts = [(a, b) for a, b in parts if b - a > EDGE]
+        if not parts:
+            raise RuntimeError(tr("nothing would be left: pick a smaller part to take out"))
+    if fast:
+        return Result([_trim_fast(src, parts, ctx)])
+    sound = category(src) == "audio"
+    if sound:
         ext = norm(src.suffix)
         if ext not in AUDIO_ARGS:
             ext = ".mp3"
@@ -1374,12 +1397,93 @@ def trim_media(src: Path, ctx: Ctx) -> Result:
     else:
         ext = ".mp4"
         args = _EVEN + _H264 + ["-crf", "20"] + _AAC + ["-movflags", "+faststart"]
-    out = ctx.out_path(src, f"{ctx.stem(src)} (trimmed){ext}")
-    if ext in AUDIO_ARGS:
-        out = run_sound(src, out, ext, args, ctx, pre=pre, duration=end - start)
-    else:
-        run_ffmpeg(src, out, args, ctx, pre=pre, duration=end - start)
+    out = ctx.out_path(src, f"{ctx.stem(src)} ({'cut' if cut else 'trimmed'}){ext}")
+    if len(parts) == 1:
+        a, b = parts[0]
+        pre = ["-ss", f"{a:.3f}", "-to", f"{b:.3f}"]
+        if ext in AUDIO_ARGS:
+            out = run_sound(src, out, ext, args, ctx, pre=pre, duration=b - a)
+        else:
+            run_ffmpeg(src, out, args, ctx, pre=pre, duration=b - a)
+        return Result([out])
+    run_ffmpeg(src, out, _without_part(src, parts, sound) + _encode_args(args), ctx,
+               duration=sum(b - a for a, b in parts))
     return Result([out])
+
+
+def _encode_args(args: list[str]) -> list[str]:
+    """The encoding settings alone (which streams to use and the picture filter come from the joining graph)."""
+    out, skip = [], 0
+    for a in args:
+        if skip:
+            skip -= 1
+            continue
+        if a in ("-map", "-vf"):
+            skip = 1
+            continue
+        if a in ("-sn", "-dn", "-vn"):
+            continue
+        out.append(a)
+    return out
+
+
+def _without_part(src: Path, parts: list[tuple[float, float]], sound: bool) -> list[str]:
+    """FFmpeg's graph that keeps these two parts of the file and joins them, picture and sound together."""
+    info = probe(src)
+    audio = info["audio"]
+    graph = []
+    if not sound:
+        graph.append(f"[0:V:0]{DEINTERLACE},pad=ceil(iw/2)*2:ceil(ih/2)*2,split=2[v0][v1]")
+        for n, (a, b) in enumerate(parts):
+            graph.append(f"[v{n}]trim=start={a:.3f}:end={b:.3f},setpts=PTS-STARTPTS[pv{n}]")
+    if audio:
+        graph.append("[0:a:0]asplit=2[a0][a1]")
+        for n, (a, b) in enumerate(parts):
+            graph.append(f"[a{n}]atrim=start={a:.3f}:end={b:.3f},asetpts=PTS-STARTPTS[pa{n}]")
+    if sound:
+        graph.append("[pa0][pa1]concat=n=2:v=0:a=1[a]")
+        return ["-filter_complex", ";".join(graph), "-map", "[a]"]
+    if audio:
+        graph.append("[pv0][pa0][pv1][pa1]concat=n=2:v=1:a=1[v][a]")
+        return ["-filter_complex", ";".join(graph), "-map", "[v]", "-map", "[a]"]
+    graph.append("[pv0][pv1]concat=n=2:v=1:a=0[v]")
+    return ["-filter_complex", ";".join(graph), "-map", "[v]"]
+
+
+def _trim_fast(src: Path, parts: list[tuple[float, float]], ctx: Ctx) -> Path:
+    """The parts copied as they are into a new file of the same kind (and joined, when there are two)."""
+    ext = norm(src.suffix)
+    sound = category(src) == "audio"
+    # every picture, sound and subtitle track, and a song's album cover, as they are
+    keep = ["-map", "0", "-c", "copy"] if sound else \
+        ["-map", "0:V?", "-map", "0:a?", "-map", "0:s?", "-dn", "-c", "copy"]
+    keep += ["-avoid_negative_ts", "make_zero"]
+    if ext in (".mp4", ".m4v", ".mov", ".m4a", ".3gp"):
+        keep += ["-movflags", "+faststart"]
+    cut = len(parts) > 1 or ctx.params.get("mode") == "cut"
+    out = ctx.out_path(src, f"{ctx.stem(src)} ({'cut' if cut else 'trimmed'}){src.suffix.lower()}")
+    total = sum(b - a for a, b in parts)
+    if len(parts) == 1:
+        a, b = parts[0]
+        run_ffmpeg(src, out, keep, ctx, pre=["-ss", f"{a:.3f}", "-to", f"{b:.3f}"], duration=b - a)
+        return out
+    with tempfile.TemporaryDirectory(prefix="corefold-cut-") as tmp:
+        pieces = []
+        done = 0.0
+        for n, (a, b) in enumerate(parts):
+            piece = Path(tmp) / f"part{n}{src.suffix.lower()}"
+            sub = Ctx(ctx.options, lambda f, d=done, w=b - a: ctx.progress((d + f * w) / total * 0.9),
+                      ctx.cancel_event, ctx.params)
+            run_ffmpeg(src, piece, keep, sub, pre=["-ss", f"{a:.3f}", "-to", f"{b:.3f}"], duration=b - a)
+            pieces.append(piece)
+            done += b - a
+        listing = Path(tmp) / "parts.txt"
+        listing.write_text("".join(f"file '{p.name}'\n" for p in pieces), encoding="utf-8")
+        join = ["-map", "0", "-c", "copy"]
+        if ext in (".mp4", ".m4v", ".mov", ".m4a", ".3gp"):
+            join += ["-movflags", "+faststart"]
+        run_ffmpeg(listing, out, join, ctx, pre=["-f", "concat", "-safe", "0"], duration=total, cwd=Path(tmp))
+    return out
 
 
 def video_frame(src: Path, seconds: float, width: int = 240) -> bytes | None:
@@ -1874,7 +1978,7 @@ def both(*checks):
 
 def catalog(multi: bool = False) -> dict[str, list[Tool]]:
     """Every tool Corefold has, per kind of file, in default wheel order."""
-    from . import archives as ar, extras as ex, moretools as mt, pdfstamp as ps, videotools as vt
+    from . import archives as ar, audiotags as at, extras as ex, moretools as mt, pdfstamp as ps, videotools as vt
 
     def fmt(kind, ext, fn, check=None, **kw):
         return Tool(f"{kind}:{ext[1:]}", ext[1:].upper(),
@@ -1930,16 +2034,18 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
                    ask="sticker")]
 
     audio = [fmt("audio", e, ffmpeg_convert, args=a) for e, a in AUDIO_ARGS.items()]
-    audio += [Tool("audio:trim", tr("Trim"), tr("Cut the start or end"), trim_media, ask="trim"),
+    audio += [Tool("audio:trim", tr("Trim"), tr("Cut the start or end, or a part in the middle"), trim_media, ask="trim"),
               Tool("audio:fit", tr("Fit size"), tr("Make it fit a size limit"), ex.fit, ask="fit"),
               Tool("audio:volume", tr("Volume"), tr("Fix the volume (too quiet or too loud)"), mt.fix_volume),
               Tool("audio:speed", tr("Speed"), tr("Speed up or slow down"), mt.change_speed, ask="speed"),
               Tool("audio:join", tr("Join"), tr("Join them into one file, one after another"), vt.join_media,
-                   batch=True, check=vt.check_join)]
+                   batch=True, check=vt.check_join),
+              Tool("audio:tags", tr("Details"), tr("Change the title, artist, album and cover"), at.write_tags,
+                   ask="tags", check=at.check_tags, renames=False)]
 
     video = [fmt("video", e, ffmpeg_convert, check=check_gif_length if e == ".gif" else None, args=a)
              for e, a in VIDEO_ARGS.items()]
-    video += [Tool("video:trim", tr("Trim"), tr("Cut the start or end"), trim_media, ask="trim"),
+    video += [Tool("video:trim", tr("Trim"), tr("Cut the start or end, or a part in the middle"), trim_media, ask="trim"),
               Tool("video:fit", tr("Fit size"), tr("Make it fit a size limit (Discord, email…)"), ex.fit, ask="fit"),
               Tool("video:rotate", tr("Rotate"), tr("Rotate or flip"), rotate_video, ask="rotate"),
               Tool("video:small", tr("Small"), tr("Shrink for sharing"),

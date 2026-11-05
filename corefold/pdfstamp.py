@@ -61,8 +61,59 @@ def _save(writer, src: Path, ctx: Ctx, suffix: str) -> Path:
 
 # ----------------------------------------------------------------------------- page numbers
 
+ARABIC_STYLES = ("ar", "ar_of")  # ١، ٢، ٣ (the digits Arabic is written with), drawn with a font Corefold brings
+_TO_ARABIC = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
+
+
 def number_text(n: int, total: int, style: str) -> str:
-    return f"{n} / {total}" if style == "of" else str(n)
+    text = f"{n} / {total}" if style in ("of", "ar_of") else str(n)
+    return text.translate(_TO_ARABIC) if style in ARABIC_STYLES else text
+
+
+def _arabic_numbers(pages: list[tuple[float, float, str, float, str]]):
+    """The numbers in Arabic digits as a PDF of see-through pages, one per page numbered, (width, height, text,
+    size, place) each. Drawn as shapes in Cairo (a font Corefold brings, so it looks the same on any PC), dark
+    grey on a soft white edge like the plain numbers. Returns the PDF's pages (pypdf)."""
+    import io
+
+    from pypdf import PdfReader
+    from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QMarginsF, QPointF, QSizeF, Qt
+    from PySide6.QtGui import (QColor, QFont, QFontMetricsF, QPageLayout, QPageSize, QPainter, QPainterPath,
+                               QPdfWriter, QPen)
+
+    from .pdffonts import ready
+    ready()
+    data = QByteArray()
+    buf = QBuffer(data)
+    buf.open(QIODevice.WriteOnly)
+    pdf = QPdfWriter(buf)
+    pdf.setResolution(72)  # (one unit = one PDF point)
+
+    def layout(w, h):
+        return QPageLayout(QPageSize(QSizeF(w, h), QPageSize.Point), QPageLayout.Portrait, QMarginsF(0, 0, 0, 0))
+    pdf.setPageLayout(layout(pages[0][0], pages[0][1]))
+    painter = QPainter(pdf)
+    try:
+        for i, (w, h, text, size, place) in enumerate(pages):
+            if i:
+                pdf.setPageLayout(layout(w, h))
+                pdf.newPage()
+            font = QFont("Cairo")
+            font.setPointSizeF(size * 1.15)  # (Cairo's digits are a little smaller than Helvetica's)
+            fm = QFontMetricsF(font)
+            tw = fm.horizontalAdvance(text)
+            margin = max(18.0, min(w, h) * 0.04)
+            x = {"l": margin, "c": (w - tw) / 2, "r": w - margin - tw}[place[1]]
+            base = h - margin if place[0] == "b" else margin + fm.ascent() * 0.8
+            path = QPainterPath()
+            path.addText(QPointF(x, base), font, text)
+            painter.setRenderHint(QPainter.Antialiasing)
+            painter.strokePath(path, QPen(QColor(255, 255, 255), size * 0.18, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+            painter.fillPath(path, QColor(51, 51, 51))
+    finally:
+        painter.end()
+    buf.close()
+    return PdfReader(io.BytesIO(bytes(data))).pages
 
 
 def _text_width(text: str, size: float) -> float:
@@ -85,6 +136,8 @@ def page_numbers(src: Path, ctx: Ctx) -> Result:
     pages = writer.pages
     total = len(pages) - first
     last = total + start - 1  # ("12 / 20" when a chapter of pages 12 to 20 starts at 12)
+    if style in ARABIC_STYLES:
+        return _number_in_arabic(writer, src, ctx, place, style, first, start, last, total)
     for i, page in enumerate(pages):
         ctx.check()
         if i < first:
@@ -102,6 +155,26 @@ def page_numbers(src: Path, ctx: Ctx) -> Result:
                    f"q 0.2 0.2 0.2 rg BT /CfNum {size:.2f} Tf {x0 + x:.2f} {y0 + y:.2f} Td ({text}) Tj ET Q")
         _stamp(page, writer, content.encode("ascii"), {"/Font": DictionaryObject({NameObject("/CfNum"): font})})
         ctx.progress((i + 1) / len(pages))
+    return Result([_save(writer, src, ctx, "numbered")], note=tr("{count} pages numbered", count=max(0, total)))
+
+
+def _number_in_arabic(writer, src: Path, ctx: Ctx, place: str, style: str, first: int, start: int, last: int,
+                      total: int) -> Result:
+    from pypdf import Transformation
+    todo = []
+    for i, page in enumerate(writer.pages):
+        ctx.check()
+        if i < first:
+            continue
+        x0, y0, w, h = _upright(page)
+        size = max(7.0, min(14.0, min(w, h) / 55))
+        todo.append((i, x0, y0, w, h, number_text(i - first + start, last, style), size))
+    if todo:
+        drawn = _arabic_numbers([(w, h, text, size, place) for _, _, _, w, h, text, size in todo])
+        for n, (i, x0, y0, *_rest) in enumerate(todo):
+            ctx.check()
+            writer.pages[i].merge_transformed_page(drawn[n], Transformation().translate(x0, y0))
+            ctx.progress((n + 1) / len(todo))
     return Result([_save(writer, src, ctx, "numbered")], note=tr("{count} pages numbered", count=max(0, total)))
 
 

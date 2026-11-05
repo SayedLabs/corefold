@@ -93,7 +93,7 @@ def test_trim_never_makes_a_tiny_file_when_the_length_is_unknown(qtbot, monkeypa
     src.write_bytes(b"")
     dlg = dialogs.TrimDialog([src], QIcon(), False)
     qtbot.addWidget(dlg)
-    assert dlg.params() == {"start": 0.0, "end": 0.0}  # (not 0 to 0.1 seconds)
+    assert {k: dlg.params()[k] for k in ("start", "end")} == {"start": 0.0, "end": 0.0}  # (not 0 to 0.1 s)
 
 
 def test_archive_password_typed_only_in_the_second_box(qtbot, monkeypatch, tmp_path: Path):
