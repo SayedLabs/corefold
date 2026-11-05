@@ -3253,4 +3253,10 @@ STRINGS: dict[str, str] = {
     "Done. Close {browser} and open it again to see the extension go.": "Tamam. Uzantının gittiğini görmek için {browser} tarayıcısını kapatıp yeniden açın.",
     "Windows didn't allow it, or the administrator question was answered no.": "Windows izin vermedi ya da yönetici sorusuna hayır dendi.",
     "Watch an install…": "Bir kurulumu izle…",
+    "The PDF's own shape": "PDF'nin şekli",
+    "The PDF's own comment": "PDF'nin yorumu",
+    'Drag it to move it, or pick another colour. Delete takes it out of the file.': 'Taşımak için sürükleyin veya başka bir renk seçin. Sil, onu dosyadan çıkarır.',
+    'Drag it to move it. Double-click a note to change its words. Delete takes it away.': 'Taşımak için sürükleyin. Metnini değiştirmek için notu çift tıklayın. Sil, onu kaldırır.',
+    'Type where it goes, or drag it to move it. Delete takes the link away.': 'Nereye gideceğini yazın veya taşımak için sürükleyin. Sil, bağlantıyı kaldırır.',
+    'Reading the words on this page so they can be changed…': 'Değiştirilebilmeleri için bu sayfadaki sözcükler okunuyor…',
 }

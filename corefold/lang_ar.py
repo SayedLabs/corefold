@@ -3326,4 +3326,10 @@ STRINGS: dict[str, str] = {
     "Done. Close {browser} and open it again to see the extension go.": "تم. أغلق {browser} وافتحه مرة أخرى لترى الإضافة تختفي.",
     "Windows didn't allow it, or the administrator question was answered no.": "لم يسمح Windows بذلك، أو كانت الإجابة على سؤال المسؤول لا.",
     "Watch an install…": "مراقبة تثبيت…",
+    "The PDF's own shape": 'شكل من الملف',
+    "The PDF's own comment": 'تعليق من الملف',
+    'Drag it to move it, or pick another colour. Delete takes it out of the file.': 'اسحبه لنقله، أو اختر لونًا آخر. الحذف يزيله من الملف.',
+    'Drag it to move it. Double-click a note to change its words. Delete takes it away.': 'اسحبه لنقله. انقر نقرًا مزدوجًا على الملاحظة لتغيير نصها. الحذف يزيله.',
+    'Type where it goes, or drag it to move it. Delete takes the link away.': 'اكتب وجهة الرابط، أو اسحبه لنقله. الحذف يزيل الرابط.',
+    'Reading the words on this page so they can be changed…': 'جارٍ قراءة كلمات هذه الصفحة لتتمكن من تغييرها…',
 }

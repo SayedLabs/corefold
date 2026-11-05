@@ -3253,4 +3253,10 @@ STRINGS: dict[str, str] = {
     "Done. Close {browser} and open it again to see the extension go.": "Hecho. Cierra {browser} y ábrelo de nuevo para ver cómo se va la extensión.",
     "Windows didn't allow it, or the administrator question was answered no.": "Windows no lo permitió, o se respondió que no a la pregunta del administrador.",
     "Watch an install…": "Vigilar una instalación…",
+    "The PDF's own shape": 'Forma del PDF',
+    "The PDF's own comment": 'Comentario del PDF',
+    'Drag it to move it, or pick another colour. Delete takes it out of the file.': 'Arrástrala para moverla o elige otro color. Eliminar la quita del archivo.',
+    'Drag it to move it. Double-click a note to change its words. Delete takes it away.': 'Arrástralo para moverlo. Haz doble clic en una nota para cambiar su texto. Eliminar lo quita.',
+    'Type where it goes, or drag it to move it. Delete takes the link away.': 'Escribe adónde lleva o arrástralo para moverlo. Eliminar quita el enlace.',
+    'Reading the words on this page so they can be changed…': 'Leyendo las palabras de esta página para poder cambiarlas…',
 }

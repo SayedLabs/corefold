@@ -633,7 +633,7 @@ def editor():
     QTest.keyClicks(view, "Total: 750 SAR")
     QTest.keyClick(view, Qt.Key_Escape)
     settle(0.2)
-    check(until(lambda: page0.pm_key is not None and set(total.objs) <= set(page0.pm_key[1]), 5),
+    check(until(lambda: page0.pm_key is not None and set(total.objs) <= set(page0.pm_key[1][0]), 5),
           "the page is drawn again without the old words")
     w.grab().save(str(OUT / f"editor-line-changed-{LANG}-{LOOK}.png"))
     arabic = next((p for p in page0.pieces if p.kind == "line" and p.d["text"] == ARABIC), None)
@@ -735,7 +735,7 @@ def editor():
     drag(page0, (pc.x(), pc.y()), (pc.x() + 150, pc.y()))
     moved = items("move")
     check(len(moved) == 1 and abs(moved[0]["x"] - moved[0]["orig"][0] - 150) < 3, "the PDF's own picture moves")
-    check(until(lambda: page0.pm_key is not None and pic_piece.objs[0] in page0.pm_key[1], 5),
+    check(until(lambda: page0.pm_key is not None and pic_piece.objs[0] in page0.pm_key[1][0], 5),
           "and the page is drawn again without it in the old place")
 
     # zoom
