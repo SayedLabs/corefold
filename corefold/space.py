@@ -503,9 +503,9 @@ def _scan(root: Path, cancel, progress, workers: int) -> Scan:
             todo.put(None)
         # (on Stop, a folder still being read is left to finish on its own, as a huge one can take a while: what
         # was found until then is shown, each thread's lists cut to the files it had put down whole)
-        until = time.monotonic() + (0.5 if result.cancelled else 1e9)
+        until = time.monotonic() + 0.5
         for t in threads:
-            t.join(max(0.0, until - time.monotonic()))
+            t.join(max(0.0, until - time.monotonic()) if result.cancelled else None)
     parts = []
     for f in found:
         n = min(len(f.where), len(f.names), len(f.sizes), len(f.used), len(f.changed))
