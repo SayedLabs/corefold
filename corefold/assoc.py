@@ -1,5 +1,6 @@
 """Opening files with a double-click: archives (Corefold Archive), pictures and emails (Corefold Viewer),
-videos and music (Corefold Player).
+and the old "Open with" entry for videos and music (Corefold Player, which has moved to Rakiza Play), kept here
+only so it's taken out again.
 
 Corefold adds itself to "Open with" for these (for the current user only, no admin rights), and
 registers as an app Windows can make the default for them. Windows doesn't let apps make themselves
@@ -41,6 +42,7 @@ GROUPS = {
                    (".jpg", ".jpeg", ".jfif", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff", ".heic", ".heif",
                     ".avif", ".ico")),
     "email": Group("Corefold.Email", "--view", (".eml", ".msg")),
+    # (the Player's: never written any more, only taken out where an older Corefold left it)
     "media": Group("Corefold.Media", "--play",
                    (".mp4", ".mkv", ".mov", ".avi", ".wmv", ".webm", ".m4v", ".mpg", ".mpeg", ".ts", ".m2ts", ".flv",
                     ".3gp", ".mp3", ".m4a", ".aac", ".flac", ".wav", ".ogg", ".opus", ".wma")),

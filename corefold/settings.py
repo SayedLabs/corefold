@@ -126,8 +126,6 @@ VIEWER_SORTS = {"name": "Name", "newest": "Newest first", "oldest": "Oldest firs
 COLORS_SHORTCUTS = {"win+shift+c": "Win + Shift + C", "win+alt+c": "Win + Alt + C", "off": "No shortcut"}
 COLORS_FORMATS = {"hex": "HEX", "rgb": "RGB", "hsl": "HSL", "hsv": "HSV", "cmyk": "CMYK", "oklch": "OKLCH",
                   "vec4": "VEC4"}
-PLAYER_SKIP = {5: "5 seconds", 10: "10 seconds", 30: "30 seconds"}
-PLAYER_WHEEL = {"volume": "Changes the volume", "seek": "Goes back and forward"}
 PEEK_KEYS = {"ctrl+space": "Ctrl + Space", "ctrl+shift+space": "Ctrl + Shift + Space", "off": "No shortcut"}
 QUICK_SEARCH_ENGINES = {"duckduckgo": "DuckDuckGo", "google": "Google", "bing": "Bing"}  # (names, not translated)
 CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_style": HOVER_STYLES,
@@ -140,8 +138,7 @@ CHOICES = {"wheel_style": WHEEL_STYLES, "label_style": LABEL_STYLES, "hover_styl
            "slideshow_seconds": SLIDESHOW_SECONDS, "clip_shortcut": CLIP_SHORTCUTS, "clip_max": CLIP_MAX,
            "clip_plain_key": CLIP_PLAIN_SHORTCUTS, "clip_days": CLIP_DAYS, "cap_shortcut": CAP_SHORTCUTS,
            "cap_text_shortcut": CAP_TEXT_SHORTCUTS,
-           "cap_after": CAP_AFTER, "cap_delay": CAP_DELAY, "player_skip": PLAYER_SKIP,
-           "player_wheel": PLAYER_WHEEL,
+           "cap_after": CAP_AFTER, "cap_delay": CAP_DELAY,
            "quick_search_engine": QUICK_SEARCH_ENGINES,
            "colors_shortcut": COLORS_SHORTCUTS, "colors_format": COLORS_FORMATS,
            "peek_key": PEEK_KEYS}
@@ -159,7 +156,7 @@ NOT_EDITED = {"enabled", "first_run", "last_version", "update_told", "notes_show
               "last_action", "tour_done", "watermark", "fit_mb", "open_archives", "recent_archives",
               "tools_off", "known_tools", "back_on", "open_images", "open_emails", "viewer_info", "viewer_strip", "recent_views",
               "archive_preview",
-              "clip_paused", "open_media", "player_volume", "nav_order", "section_order", "nav_width", "nav_compact",
+              "clip_paused", "nav_order", "section_order", "nav_width", "nav_compact",
               "home_widgets",
               "quick_button_pos", "quick_told", "remember_password",
               "unlock_menu_signature",
@@ -183,8 +180,6 @@ ARCHIVE_KEYS = ("extract_mode", "extract_nested", "remember_archives", "extract_
 VIEWER_KEYS = ("viewer_wheel", "viewer_confirm_delete", "slideshow_seconds", "viewer_sort", "peek_key", "viewer_loop")
 CLIPBOARD_KEYS = ("clip_shortcut", "clip_plain_key", "clip_paste", "clip_max", "clip_days", "clip_images",
                   "clip_ignore")
-PLAYER_KEYS = ("player_resume", "player_skip", "player_wheel", "player_next", "player_subtitles",
-               "player_pause_minimized")
 CAPTURE_KEYS = ("cap_shortcut", "cap_text_shortcut", "cap_after", "cap_delay", "cap_save", "cap_folder")
 UPDATE_KEYS = ("check_updates", "auto_update")
 QUICK_KEYS = ("quick_menu", "quick_menu_key", "quick_menu_items", "quick_wheel", "quick_wheel_key",
@@ -287,15 +282,6 @@ class Settings:
     remember_password: bool = False  # "Remember it" is ticked in the archive password box
     clip_paused: bool = False      # new copies aren't kept for now
     clip_ignore: str = ""          # programs whose copies are never kept ("mybank.exe, notes.exe")
-    # the Player
-    open_media: bool = True        # videos and music open in Corefold ("Open with")
-    player_resume: bool = True     # pick up where you left off
-    player_skip: int = 10          # seconds the arrow keys jump
-    player_wheel: str = "volume"   # the mouse wheel over the video: volume or seeking
-    player_next: bool = True       # play the next file in the folder when one ends
-    player_subtitles: bool = True  # turn on a video's own subtitles
-    player_pause_minimized: bool = False  # pause while the window is minimised (and go on when it's back)
-    player_volume: int = 80
     # Capture
     cap_shortcut: str = "ctrl+printscreen"          # a screenshot
     cap_text_shortcut: str = "win+shift+t"          # copy the text in a part of the screen
@@ -442,7 +428,6 @@ class Settings:
         s.wheel_opacity = min(100, max(60, s.wheel_opacity))
         s.volume = min(100, max(0, s.volume))
         s.per_page = min(16, max(6, s.per_page))
-        s.player_volume = min(100, max(0, s.player_volume))
         s.jpg_quality = min(100, max(50, s.jpg_quality))
         if s.video_quality not in VIDEO_QUALITIES:
             s.video_quality = defaults.video_quality

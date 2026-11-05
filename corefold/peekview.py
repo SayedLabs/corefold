@@ -261,7 +261,7 @@ class _Media(QWidget):
 
     def __init__(self, path: Path, video: bool, theme, icon: QPixmap):
         super().__init__()
-        os.environ.setdefault("QT_MEDIA_BACKEND", "ffmpeg")
+        os.environ.setdefault("QT_MEDIA_BACKEND", "ffmpeg")  # (before Qt's player is loaded: plays WebM, Opus…)
         from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
         self.player = QMediaPlayer(self)
         self.audio = QAudioOutput(self)
@@ -312,7 +312,7 @@ class _Media(QWidget):
         row.addWidget(self.clock)
         row.addWidget(self.mute_btn)
         lay.addLayout(row)
-        os.environ["QT_FFMPEG_PROTOCOL_WHITELIST"] = "file"  # (never online: see player.local_only)
+        os.environ["QT_FFMPEG_PROTOCOL_WHITELIST"] = "file"  # (never online: a playlist file could name parts on the internet)
         self.player.setSource(QUrl.fromLocalFile(str(path)))
         self.mute_btn.setChecked(video)
         self.audio.setMuted(video)
@@ -535,8 +535,6 @@ class PeekWindow(QWidget):
         s = self.c.settings
         if self.kind == "picture" or path.suffix.lower() in (".eml", ".msg"):
             return True
-        if self.kind in ("video", "audio"):
-            return all_tools.is_on(s, "player")
         if self.kind == "archive":
             return all_tools.is_on(s, "archive")
         return False
@@ -788,9 +786,7 @@ class PeekWindow(QWidget):
             return
         kind = self.kind
         self.close_peek(back=False)
-        if kind in ("video", "audio"):
-            self.c.open_player(path)
-        elif kind == "archive":
+        if kind == "archive":
             self.c.open_browser(path)
         else:
             self.c.open_viewer(path)

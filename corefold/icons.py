@@ -124,7 +124,6 @@ _TILE_GLYPHS = {  # drawn on the old 4..60 grid, moved into the 10..54 body by _
     "converter": '<g fill="none" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round">'
                  '<path d="M17 36.5H40.5M34.5 30.5 40.5 36.5 34.5 42.5"/>'
                  '<path d="M45 48H21.5M27.5 42 21.5 48 27.5 54"/></g>',
-    "player": '<path d="M25 28.5 40 38 25 47.5Z"/>',
     "archive": '<rect x="20" y="28" width="22" height="5" rx="2"/><rect x="20" y="36" width="22" height="5" rx="2"/>'
                '<rect x="20" y="44" width="22" height="5" rx="2"/>',
     "cleaner": '<path d="M31 25c1.2 7.3 5.7 11.8 13 13-7.3 1.2-11.8 5.7-13 13-1.2-7.3-5.7-11.8-13-13 7.3-1.2 '
@@ -176,7 +175,7 @@ _TILE_GLYPHS = {  # drawn on the old 4..60 grid, moved into the 10..54 body by _
 }
 _GLYPH_FIT = 'transform="translate(6.857 6.857) scale(0.7857)"'
 PRODUCT_COLORS = {  # (light end, deep end) of each product's gradient
-    "corefold": ("#6be6d2", "#0f8f7c"), "converter": ("#b4f08c", "#2f9a52"), "player": ("#ff9cb8", "#c22f5c"), "archive": ("#ffd27a", "#a86c00"),
+    "corefold": ("#6be6d2", "#0f8f7c"), "converter": ("#b4f08c", "#2f9a52"), "archive": ("#ffd27a", "#a86c00"),
     "cleaner": ("#a6c1ff", "#2b5fd4"), "viewer": ("#c9bcff", "#6b4bd6"), "cloud": ("#9fe3ff", "#1b86c4"),
     "capture": ("#ffb08f", "#d4502c"), "space": ("#f2a8ff", "#a23cc0"), "clipboard": ("#d9e2ef", "#5f6f88"),
     "startup": ("#fff09a", "#c79300"), "scan": ("#7cf3d3", "#2563eb"), "pdf": ("#ffa494", "#cc2f2a"), "rename": ("#9ff0d0", "#13906a"),

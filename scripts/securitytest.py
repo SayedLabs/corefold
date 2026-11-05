@@ -331,7 +331,7 @@ class _Count(http.server.BaseHTTPRequestHandler):
 
 def videos_going_online():
     """A "video" that is really a playlist of parts on the internet: a player that fetched them would tell
-    that site the file was opened. Played from the PC, Corefold's player stays offline."""
+    that site the file was opened. Played from the PC (Quick look), Corefold stays offline."""
     import threading
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     os.environ.setdefault("QT_MEDIA_BACKEND", "ffmpeg")
@@ -346,7 +346,7 @@ def videos_going_online():
                 f"http://127.0.0.1:{port}/part0.ts\n#EXTINF:2,\nhttp://127.0.0.1:{port}/part1.ts\n#EXT-X-ENDLIST\n")
     fake = TMP / "holiday.mp4"      # (FFmpeg itself won't take a playlist called .mp4)
     fake.write_text(playlist)
-    named = TMP / "holiday.m3u8"    # (one called what it is, opened with Corefold's player)
+    named = TMP / "holiday.m3u8"    # (one called what it is, opened in Quick look)
     named.write_text(playlist)
 
     def play(path: Path, seconds: float = 6.0):
@@ -363,7 +363,6 @@ def videos_going_online():
         app.processEvents()
         return status, duration
 
-    from corefold import player as corefold_player
     os.environ.pop("QT_FFMPEG_PROTOCOL_WHITELIST", None)
     _Count.hits = 0
     play(fake)
@@ -372,11 +371,11 @@ def videos_going_online():
     play(named)
     note(f"the old way: a playlist called .m3u8 asked the internet for its parts {_Count.hits} time(s)")
     # (on GitHub's runner Qt's FFmpeg stayed offline by itself both times; the whitelist is a second lock)
-    corefold_player.local_only()
+    os.environ["QT_FFMPEG_PROTOCOL_WHITELIST"] = "file"  # (what Quick look sets before it plays anything)
     for f in (fake, named):
         _Count.hits = 0
         play(f)
-        check(_Count.hits == 0, f"Corefold's player stays offline with {f.name} ({_Count.hits} asks)")
+        check(_Count.hits == 0, f"Quick look stays offline with {f.name} ({_Count.hits} asks)")
     ffmpeg = find_program("ffmpeg")
     if ffmpeg:
         real = TMP / "real.mp4"
@@ -387,7 +386,7 @@ def videos_going_online():
         check(real.exists() and duration > 2000, f"…and a real video still plays offline ({duration} ms, {status})")
     else:
         note("no FFmpeg on PATH: the real-video part was skipped")
-    corefold_player.local_only(False)
+    os.environ.pop("QT_FFMPEG_PROTOCOL_WHITELIST", None)
     server.shutdown()
 
 
