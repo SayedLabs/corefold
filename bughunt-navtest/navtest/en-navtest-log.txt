@@ -1,0 +1,34 @@
+2026-11-05 21:22:29,661 INFO window opened in 1.55 s: made 1.02 (sidebar 0.02, Home 0.87, Converter 0.01, laid out 0.03), brought up to date 0.00, shown 0.54, drawn 0.00
+2026-11-05 21:22:29,713 INFO the shortcut ctrl+win+t is used by another app
+2026-11-05 21:22:30,023 INFO running in the background: quick access
+2026-11-05 21:22:31,996 INFO archive files open with Rakiza Core
+2026-11-05 21:22:31,998 INFO running in the background: quick access, quick look
+2026-11-05 21:22:31,998 INFO tools in use: converter, archive, viewer, uninstaller
+2026-11-05 21:22:32,014 INFO image files open with Rakiza Core
+2026-11-05 21:22:32,023 INFO email files open with Rakiza Core
+2026-11-05 21:22:49,836 INFO right-click menu updated
+2026-11-05 21:22:51,804 INFO the shortcut win+shift+t is used by another app
+2026-11-05 21:22:51,804 INFO running in the background: capture, quick access, quick look
+2026-11-05 21:22:51,804 INFO tools in use: converter, archive, capture, viewer, uninstaller
+2026-11-05 21:22:56,225 INFO running in the background: capture, quick access, quick look
+2026-11-05 21:22:56,225 INFO tools in use: converter, archive, capture, viewer, space, uninstaller
+2026-11-05 21:22:57,515 INFO right-click menu updated
+2026-11-05 21:23:00,748 INFO running in the background: clipboard, capture, quick access, quick look
+2026-11-05 21:23:00,749 INFO tools in use: converter, archive, capture, viewer, space, uninstaller, clipboard
+2026-11-05 21:23:05,176 INFO running in the background: clipboard, capture, quick access, quick look
+2026-11-05 21:23:05,176 INFO tools in use: converter, archive, cloud, capture, viewer, space, uninstaller, clipboard
+2026-11-05 21:23:09,363 INFO running in the background: clipboard, capture, quick access, quick look
+2026-11-05 21:23:09,363 INFO tools in use: converter, archive, cloud, capture, viewer, space, uninstaller, startup, clipboard
+2026-11-05 21:23:13,831 INFO running in the background: clipboard, capture, quick access, quick look
+2026-11-05 21:23:13,831 INFO tools in use: converter, archive, cloud, capture, viewer, space, uninstaller, startup, scan, clipboard
+2026-11-05 21:23:15,194 INFO right-click menu updated
+2026-11-05 21:23:19,127 INFO running in the background: clipboard, capture, quick access, quick look
+2026-11-05 21:23:19,127 INFO tools in use: converter, pdf, archive, cloud, capture, viewer, space, uninstaller, startup, scan, clipboard
+2026-11-05 21:23:23,668 INFO running in the background: clipboard, capture, quick access, colors, quick look
+2026-11-05 21:23:23,668 INFO tools in use: converter, pdf, archive, cloud, capture, viewer, colors, space, uninstaller, startup, scan, clipboard
+2026-11-05 21:23:28,115 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-05 21:23:28,115 INFO tools in use: converter, pdf, archive, cloud, capture, viewer, colors, space, uninstaller, startup, scan, clipboard, awake
+2026-11-05 21:23:33,368 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-05 21:23:33,368 INFO tools in use: converter, pdf, archive, unlock, cloud, capture, viewer, colors, space, uninstaller, startup, scan, clipboard, awake
+2026-11-05 21:23:38,629 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-05 21:23:38,629 INFO tools in use: converter, pdf, archive, organizer, unlock, cloud, capture, viewer, colors, space, uninstaller, startup, scan, clipboard, awake
