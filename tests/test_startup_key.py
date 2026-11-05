@@ -46,9 +46,9 @@ def test_on_makes_the_run_key(monkeypatch, caplog):
     monkeypatch.setattr(settings, "launch_command", lambda: '"C:\\Rakiza Core\\RakizaCore.exe" --tray')
     monkeypatch.setattr(settings, "_clear_off_note", lambda: None)
     settings.set_startup(True)
-    assert keys[settings.RUN_KEY][settings.APP_NAME].endswith("--tray")
+    assert keys[settings.RUN_KEY][settings.KEEP_ID].endswith("--tray")
     settings.set_startup(False)
-    assert settings.APP_NAME not in keys[settings.RUN_KEY]
+    assert settings.KEEP_ID not in keys[settings.RUN_KEY]
     assert "could not change startup setting" not in caplog.text
 
 
