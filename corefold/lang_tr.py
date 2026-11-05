@@ -3102,4 +3102,10 @@ STRINGS: dict[str, str] = {
     "A shortcut to it": "Ona giden bir kısayol",
     "Same name, another type": "Aynı ad, başka tür",
     "A folder of the same name in app data": "Uygulama verilerinde aynı adlı bir klasör",
+    "The PDF's own shape": "PDF'nin şekli",
+    "The PDF's own comment": "PDF'nin yorumu",
+    'Drag it to move it, or pick another colour. Delete takes it out of the file.': 'Taşımak için sürükleyin veya başka bir renk seçin. Sil, onu dosyadan çıkarır.',
+    'Drag it to move it. Double-click a note to change its words. Delete takes it away.': 'Taşımak için sürükleyin. Metnini değiştirmek için notu çift tıklayın. Sil, onu kaldırır.',
+    'Type where it goes, or drag it to move it. Delete takes the link away.': 'Nereye gideceğini yazın veya taşımak için sürükleyin. Sil, bağlantıyı kaldırır.',
+    'Reading the words on this page so they can be changed…': 'Değiştirilebilmeleri için bu sayfadaki sözcükler okunuyor…',
 }

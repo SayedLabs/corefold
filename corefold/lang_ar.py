@@ -3175,4 +3175,10 @@ STRINGS: dict[str, str] = {
     "A shortcut to it": "اختصار إليه",
     "Same name, another type": "الاسم نفسه، بنوع آخر",
     "A folder of the same name in app data": "مجلد بالاسم نفسه في بيانات البرامج",
+    "The PDF's own shape": 'شكل من الملف',
+    "The PDF's own comment": 'تعليق من الملف',
+    'Drag it to move it, or pick another colour. Delete takes it out of the file.': 'اسحبه لنقله، أو اختر لونًا آخر. الحذف يزيله من الملف.',
+    'Drag it to move it. Double-click a note to change its words. Delete takes it away.': 'اسحبه لنقله. انقر نقرًا مزدوجًا على الملاحظة لتغيير نصها. الحذف يزيله.',
+    'Type where it goes, or drag it to move it. Delete takes the link away.': 'اكتب وجهة الرابط، أو اسحبه لنقله. الحذف يزيل الرابط.',
+    'Reading the words on this page so they can be changed…': 'جارٍ قراءة كلمات هذه الصفحة لتتمكن من تغييرها…',
 }
