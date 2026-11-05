@@ -1043,6 +1043,8 @@ def _run_ffmpeg(src: Path, out: Path, args: list[str], ctx: Ctx, pre: list[str] 
             lines = [ln for ln in err.read().strip().splitlines() if ln.strip()]
             log.error("ffmpeg failed for %s: %s", src, "\n".join(lines[-10:]))
             text = "\n".join(lines)
+            if any(s in text for s in DISK_FULL):  # (FFmpeg's English "Error closing file: No space left on device";
+                raise RuntimeError(tr("the disk is full"))  # first: a still picture has no length either)
             damaged = tr("the file is damaged or isn't really an audio or video file")
             if src.exists() and media_duration(src) <= 0:
                 raise RuntimeError(damaged)
@@ -1051,8 +1053,6 @@ def _run_ffmpeg(src: Path, out: Path, args: list[str], ctx: Ctx, pre: list[str] 
                                    else tr("nothing to convert in this file"))
             if any(s in text for s in DAMAGED_MEDIA):
                 raise RuntimeError(damaged)
-            if any(s in text for s in DISK_FULL):  # (FFmpeg's English "Error closing file: No space left on device")
-                raise RuntimeError(tr("the disk is full"))
             # FFmpeg's own wording, without its technical "[mp4 @ 0x1234]" prefix
             last = re.sub(r"^(\[[^\]]*\]\s*)+", "", lines[-1]).strip() if lines else ""
             raise RuntimeError(last or tr("FFmpeg could not convert this file"))
