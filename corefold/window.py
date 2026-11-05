@@ -84,8 +84,9 @@ PAGE_ICONS = {"Home": "home", "General": "settings", "Look": "paint_brush", "Qui
 # made a moment after the window opens (see _warm_next): slow to make, and opened often
 WARM_PAGES = ("PDF",)
 # the modules a page needs that are slow to read from a cold disk the first time (2.6 s for Network on a test
-# PC): read on a thread soon after the window opens, when that tool is in use, so opening it doesn't wait
-PAGE_MODULES = {"Network": ("network", "networkpage")}
+# PC; Scan's 0.46 s on a test runner): read on a thread soon after the window opens, when that tool is in use, so
+# opening it doesn't wait
+PAGE_MODULES = {"Network": ("network", "networkpage"), "Scan": ("scan", "scanpage")}
 REMADE_PAGES = {*SETTINGS_PAGES, *SECTION_PAGES, "History", "Updates", "About", "Soon"}
 # the words Ctrl + K finds on each Settings page, kept for pages that aren't made yet (per version and language)
 SETTING_WORDS = LOG_DIR / "setting-words.json"
