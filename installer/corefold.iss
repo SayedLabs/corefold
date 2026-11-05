@@ -711,6 +711,11 @@ begin
   DeleteFile(ExpandConstant('{userprograms}\{#AppName}.lnk'));
   DeleteFile(ExpandConstant(PinDir + '\{#OldName}.lnk'));
   RegDeleteKeyIncludingSubkeys(HKEY_CURRENT_USER, UninstallKey);
+  { Inno Setup marks the name in the Apps list "(All users)" while this user's own copy is still listed; that
+    one is gone now, so the name is the app's own again }
+  if IsAdminInstallMode() and RegQueryStringValue(HKA, UninstallKey, 'DisplayName', Value) and
+     (Pos('{#AppName} (', Value) = 1) then
+    RegWriteStringValue(HKA, UninstallKey, 'DisplayName', '{#AppName}');
   if CompareText(Dir, ExpandConstant('{app}')) = 0 then
     Exit;  { (never: InitializeWizard moved it to Program Files) }
   if not UserCopyIsDeletable(Dir) then
