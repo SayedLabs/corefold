@@ -1628,7 +1628,7 @@ class MainWindow(QWidget):
 
     def _archives(self) -> QWidget:
         """Rakiza Core Archive: open archives, make new ones, and the ones opened lately."""
-        w, lay = page(tr("Rakiza Core Archive"))
+        w, lay = page(tr("Archives"))
         lay.itemAt(0).widget().hide()
         lay.addLayout(self._use_header("archive", tr("Open, extract and make archives: ZIP, RAR, 7z, TAR, ISO and "
                                                      "more."), gear=True))
@@ -2101,7 +2101,7 @@ class MainWindow(QWidget):
                     row.addWidget(w)
             return row
         extra = self.tool_settings_button(tool.page, *more) if gear else (more[0] if more else None)
-        return tool_header(tool.product, tr(tool.name), intro, self.c.theme.dark, self.devicePixelRatioF(), extra)
+        return tool_header(tool.product, tr(tool.nav), intro, self.c.theme.dark, self.devicePixelRatioF(), extra)
 
     def tool_settings_button(self, tool_page: str, *more: QWidget) -> QWidget:
         """The ⚙ button at the top of a tool's page (next to anything else that goes there)."""
@@ -2181,7 +2181,7 @@ class MainWindow(QWidget):
         from .atomic.widgets import ResponsiveGrid
         from .onetool import UseCard
         t, dpr = self.c.theme, self.devicePixelRatioF()
-        w, lay = page(tr(sec.one_tool))
+        w, lay = page(tr(sec.name))
         lay.itemAt(0).widget().hide()  # (the tool's heading is over the page)
         on = {tool.id for tool in self.tools_on}
         tools = all_tools.in_section(self.c.settings, sec)
@@ -2508,9 +2508,9 @@ class MainWindow(QWidget):
     def _soon(self, name: str) -> QWidget:
         """A page for a tool that's still being made: what it will do."""
         tool = all_tools.BY_PAGE[name]
-        w, lay = page(tr(tool.name))
+        w, lay = page(tr(tool.nav))
         lay.itemAt(0).widget().hide()  # the big title is shown next to the tile instead
-        lay.addLayout(tool_header(tool.product, tr(tool.name), tr(tool.line), self.c.theme.dark,
+        lay.addLayout(tool_header(tool.product, tr(tool.nav), tr(tool.line), self.c.theme.dark,
                                   self.devicePixelRatioF(), pill=tr("Coming soon")))
         box, bl = card(10)
         bl.addWidget(label(tr("What it will do"), "h2"))
@@ -2698,7 +2698,7 @@ class MainWindow(QWidget):
         keep_wrapped_text(self.recent_lay.parentWidget())
 
     def _converter(self) -> QWidget:
-        w, lay = page(tr("Rakiza Core Converter"))
+        w, lay = page(tr("Converter"))
         self.converter_scroll = w
         lay.itemAt(0).widget().hide()  # shown in the heading with the tile instead
         self.power = button("", "power")
@@ -3129,9 +3129,9 @@ class MainWindow(QWidget):
     def _viewer(self) -> QWidget:
         """Rakiza Core Viewer: open pictures and email files, and the ones opened lately."""
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        w, lay = page(tr("Rakiza Core Viewer"))
+        w, lay = page(tr("Viewer"))
         lay.itemAt(0).widget().hide()
-        lay.addLayout(tool_header("viewer", tr("Rakiza Core Viewer"),
+        lay.addLayout(tool_header("viewer", tr("Viewer"),
                                   tr("Flip through a folder of pictures fast, fix them on the spot, and open email "
                                      "files."), dark, dpr, self.tool_settings_button("Viewer")))
         self.viewer_drop = DropZone(None, None, title=tr("Drop a picture or an email file"),
@@ -3305,7 +3305,7 @@ class MainWindow(QWidget):
         """Rakiza Core Clipboard: everything copied, searchable, with pins."""
         from .clipview import ClipboardPage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("clipboard", tr("Rakiza Core Clipboard"),
+        header = tool_header("clipboard", tr("Clipboard"),
                              tr("Everything you copy, kept on this PC and easy to find again."), dark, dpr,
                              self.tool_settings_button("Clipboard"))
         self.clip_page = ClipboardPage(self.c, header)
@@ -3315,7 +3315,7 @@ class MainWindow(QWidget):
         """Rakiza Core Space: what's filling the disk, junk to clean up, duplicates."""
         from .spacepage import SpacePage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("space", tr("Rakiza Core Space"), tr("See what's filling your disk and free up space safely."),
+        header = tool_header("space", tr("Space"), tr("See what's filling your disk and free up space safely."),
                              dark, dpr)
         self.space_page = SpacePage(self.c, header)
         return self.space_page
@@ -3331,7 +3331,7 @@ class MainWindow(QWidget):
         """Rakiza Core Awake: keep the PC awake, and turn it off later."""
         from .awakepage import AwakePage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("awake", tr("Rakiza Core Awake"),
+        header = tool_header("awake", tr("Awake"),
                              tr("Keep your PC from going to sleep, for as long as you choose."), dark, dpr)
         self.awake_page = AwakePage(self.c, header)
         return self.awake_page
@@ -3340,7 +3340,7 @@ class MainWindow(QWidget):
         """Rakiza Core Colors: pick a colour on the screen, and the ones picked lately."""
         from .colorspage import ColorsPage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("colors", tr("Rakiza Core Colors"),
+        header = tool_header("colors", tr("Colors"),
                              tr("Pick any colour on your screen and copy it as HEX, RGB, HSL, OKLCH and more."), dark, dpr)
         self.colors_page = ColorsPage(self.c, header)
         return self.colors_page
@@ -3366,7 +3366,7 @@ class MainWindow(QWidget):
         """Rakiza Core Startup: what starts with Windows, each with a switch."""
         from .startuppage import StartupPage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("startup", tr("Rakiza Core Startup"),
+        header = tool_header("startup", tr("Startup"),
                              tr("See what starts with Windows and switch off what slows it down."), dark, dpr)
         self.startup_page = StartupPage(self.c, header)
         return self.startup_page
@@ -3375,7 +3375,7 @@ class MainWindow(QWidget):
         """Rakiza Core Scan: Microsoft Defender's scans, and Rakiza Core's own checks for tricks malware uses."""
         from .scanpage import ScanPage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("scan", tr("Rakiza Core Scan"),
+        header = tool_header("scan", tr("Virus scan"),
                              tr("Check your PC for malware with Microsoft Defender, plus Rakiza Core's own checks for "
                                 "tricks viruses use."), dark, dpr)
         self.scan_page = ScanPage(self.c, header)
@@ -3384,9 +3384,9 @@ class MainWindow(QWidget):
     def _player(self) -> QWidget:
         """Rakiza Core Player: open videos and music, and pick up where you left off."""
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        w, lay = page(tr("Rakiza Core Player"))
+        w, lay = page(tr("Player"))
         lay.itemAt(0).widget().hide()
-        lay.addLayout(tool_header("player", tr("Rakiza Core Player"),
+        lay.addLayout(tool_header("player", tr("Player"),
                                   tr("Plays every video and song, smooth in 4K, with clean controls that get out of "
                                      "the way."), dark, dpr, self.tool_settings_button("Player")))
         drop = DropZone(None, None, title=tr("Drop a video or a song"),
@@ -3535,9 +3535,9 @@ class MainWindow(QWidget):
     def _capture(self) -> QWidget:
         """Rakiza Core Capture: screenshots."""
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        w, lay = page(tr("Rakiza Core Capture"))
+        w, lay = page(tr("Capture"))
         lay.itemAt(0).widget().hide()
-        lay.addLayout(tool_header("capture", tr("Rakiza Core Capture"),
+        lay.addLayout(tool_header("capture", tr("Capture"),
                                   tr("Take a picture of your screen, mark it up and share it in seconds."),
                                   dark, dpr, self.tool_settings_button("Capture")))
         box, bl = card()

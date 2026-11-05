@@ -58,7 +58,7 @@ class OneToolHead(QWidget):
         top.addWidget(tile, 0, Qt.AlignTop)
         words = QVBoxLayout()
         words.setSpacing(0)
-        words.addWidget(label(tr(sec.one_tool), "title"))
+        words.addWidget(label(tr(sec.name), "title"))  # (a part of Rakiza Core: its plain name)
         self.line = label("", "subtle", wrap=True)
         self.line.setMinimumWidth(1)  # (wraps: long translations)
         words.addWidget(self.line)

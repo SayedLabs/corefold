@@ -281,7 +281,7 @@ class AppsPage(QWidget):
         lay.setContentsMargins(0, 0, 10, 0)
         lay.setSpacing(12)
         from .window import tool_header
-        lay.addLayout(tool_header("cleaner", tr("Rakiza Core Uninstaller"),
+        lay.addLayout(tool_header("cleaner", tr("Uninstaller"),
                                   tr("Uninstall programs, then clean up the folders, shortcuts and registry entries they "
                                      "leave behind. Everything removed is kept as a backup for {days} days, so you can "
                                      "put it back.", days=_backup_days(controller)),
