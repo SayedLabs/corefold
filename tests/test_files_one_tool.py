@@ -8,7 +8,7 @@ from PySide6.QtGui import QIcon
 from corefold import settings as settings_mod
 from corefold import tools as all_tools
 
-FEATURES = ["Converter", "PDF", "Archives", "Organizer", "Unlock", "Rename", "Check"]
+FEATURES = ["Converter", "PDF", "Archives", "Organizer", "Unlock", "Rename", "Check", "Backup"]
 
 
 @pytest.fixture

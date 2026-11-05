@@ -201,7 +201,7 @@ TOOLS: list[ToolInfo] = [
              ("Pick the folders, pick the drive, done",
               "Only copies what changed, so it's quick",
               "Get back an older version of a file"),
-             ready=False),
+             short="Keep folders safe on another drive", use="Backup"),
     ToolInfo("notes", "Notes", "notes", "note", "Corefold Notes", "Notes",
              "Quick notes that stay on your desktop, a shortcut away.",
              ("Write something down without opening an app",

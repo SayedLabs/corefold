@@ -786,6 +786,7 @@ class MainWindow(QWidget):
                     "Unlock": self._unlock,
                     "Rename": self._rename,
                     "Check": self._check,
+                    "Backup": self._backup,
                     "Awake": self._awake,
                     "Shortcuts": self._shortcuts,
                     "Colors": self._colors,
@@ -811,10 +812,11 @@ class MainWindow(QWidget):
         self.unlock_page = None
         self.rename_page = None
         self.check_page = None
+        self.backup_page = None
         self.awake_page = None
         self.colors_page = None
         self._unbuilt = {"Apps", *SECTION_PAGES, "Viewer", "Clipboard", "Space", "Capture", "Cloud", "PDF",
-                         "Organizer", "Startup", "Scan", "Unlock", "Rename", "Check", "Awake", "Colors", "Archives",
+                         "Organizer", "Startup", "Scan", "Unlock", "Rename", "Check", "Backup", "Awake", "Colors", "Archives",
                          "History",
                          "Updates", "About", *SETTINGS_PAGES, *SOON,
                          *[tool.page for tool in all_tools.TOOLS if tool.page not in on_pages and tool.page != "Converter"]}
@@ -1194,6 +1196,7 @@ class MainWindow(QWidget):
     PAGE_PARTS = {"Apps": "apps_page", "Clipboard": "clip_page", "Space": "space_page", "Cloud": "cloud_page",
                   "PDF": "pdf_page", "Organizer": "organizer_page", "Startup": "startup_page", "Scan": "scan_page",
                   "Unlock": "unlock_page", "Rename": "rename_page", "Check": "check_page",
+                  "Backup": "backup_page",
                   "Awake": "awake_page", "Colors": "colors_page"}
 
     def _drop_page(self, name: str):
@@ -1493,6 +1496,8 @@ class MainWindow(QWidget):
             self.organizer_page.ensure_loaded()
         elif name == "Rename" and self.rename_page is not None:
             self.rename_page.refresh()
+        elif name == "Backup" and self.backup_page is not None:
+            self.backup_page.refresh()
         elif name == "Awake" and self.awake_page is not None:
             self.awake_page.refresh()
         elif name == "Colors" and self.colors_page is not None:
@@ -3184,6 +3189,13 @@ class MainWindow(QWidget):
         header = self._use_header("hash", tr("Make sure a download is the real file and wasn't changed."))
         self.check_page = CheckPage(self.c, header)
         return self.check_page
+
+    def _backup(self) -> QWidget:
+        """Corefold Backup: folders kept safe on another drive."""
+        from .backuppage import BackupPage
+        header = self._use_header("backup", tr("Copy your important folders to another drive, by itself."))
+        self.backup_page = BackupPage(self.c, header)
+        return self.backup_page
 
     def _awake(self) -> QWidget:
         """Corefold Awake: keep the PC awake, and turn it off later."""
