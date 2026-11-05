@@ -29,8 +29,8 @@ FILE_ROOT = CLASSES + r"\SystemFileAssociations"
 FOLDER_ROOT = CLASSES + r"\Directory"
 LNK_ROOT = CLASSES + r"\lnkfile"  # shortcuts: "Uninstall with Corefold" (while the Uninstaller is in use)
 ANY_ROOT = CLASSES + r"\*"   # every file; limited to the kinds Corefold has no own menu for (see any_file_filter)
-DRIVE_ROOT = CLASSES + r"\Drive"   # drives: "Scan with Corefold" (while Scan is in use)
-VERBS = ("Corefold", "CorefoldOpen", "CorefoldUninstall", "CorefoldScan")
+DRIVE_ROOT = CLASSES + r"\Drive"   # drives: "Scan with Corefold" (while Scan is in use), "See what fills this"
+VERBS = ("Corefold", "CorefoldOpen", "CorefoldUninstall", "CorefoldScan", "CorefoldSpace")
 LEGACY_VERBS = (LEGACY_NAME, LEGACY_NAME + "Open")  # written by versions before 1.7.0
 UNLOCK_VERB = "CorefoldUnlock"  # Corefold Unlock's "What's using this?" (there while that tool is, Converter or not)
 MENU_STYLES = {"windows": "Windows menu", "wheel": "Corefold wheel"}
@@ -126,6 +126,9 @@ def plan(settings, command) -> list[Verb]:
         scan = command("--scan", '"%1"')
         verbs += [Verb(root, "CorefoldScan", tr("Scan with Corefold"), command=scan)
                   for root in (ANY_ROOT, FOLDER_ROOT, DRIVE_ROOT)]
+    if settings.context_menu and all_tools.is_on(settings, "space"):  # folders and drives: Space's map of it
+        verbs += [Verb(root, "CorefoldSpace", tr("See what fills this"), command=command("--space", '"%1"'),
+                       single=True) for root in (FOLDER_ROOT, DRIVE_ROOT)]
     if not (settings.context_menu and all_tools.is_on(settings, "converter")):
         return verbs
     if all_tools.is_on(settings, "uninstaller"):  # shortcuts (part of the Converter's menu)

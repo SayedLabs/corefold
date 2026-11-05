@@ -112,7 +112,7 @@ def test_file_types_list_and_its_biggest_files(page, tmp_path):
     assert page.list_mode == "big" and page.big_type == ".mp4"
     assert page.mode_box.currentText() == "Biggest: .mp4"
     files = [page.items.topLevelItem(i).text(0) for i in range(page.items.topLevelItemCount())]
-    assert files == ["b.mp4", "a.MP4"]
+    assert files == ["b.mp4   ·   Trips", "a.MP4   ·   Videos"]   # (each with the folder it's in)
     page._mode_picked(page.modes.index("big"))               # every kind again
     assert page.big_type is None and page.items.topLevelItemCount() == 5
 

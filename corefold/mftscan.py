@@ -356,7 +356,7 @@ def build(root: Path, items: dict, started: float | None = None):
                 heapq.heappush(of_type[2], (size, full))
             elif size > of_type[2][0][0]:
                 heapq.heapreplace(of_type[2], (size, full))
-            kept.append((size, name))
+            kept.append((size, name, changed))
             if len(biggest) < space.TOP_OVERALL:
                 heapq.heappush(biggest, (size, full))
             elif size > biggest[0][0]:
@@ -369,6 +369,8 @@ def build(root: Path, items: dict, started: float | None = None):
             p.size += f.size
             p.files += f.files
             p.folders += f.folders + 1
+            if f.newest > p.newest:
+                p.newest = f.newest
     result.folders = top.folders
     result.biggest = sorted(biggest, reverse=True)
     result.kinds = kinds
