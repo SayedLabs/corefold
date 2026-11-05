@@ -159,9 +159,9 @@ class RenamePage(QWidget):
         grid.addWidget(self.base_label, r, 0)
         grid.addWidget(self.base, r, 1)
         r += 1
-        self.find = QLineEdit()
-        self.find.setPlaceholderText(tr("Text to find"))
-        row(tr("Find"), self.find)
+        self.find_edit = QLineEdit()
+        self.find_edit.setPlaceholderText(tr("Text to find"))
+        row(tr("Find"), self.find_edit)
         self.replace = QLineEdit()
         self.replace.setPlaceholderText(tr("Nothing: it's taken out"))
         row(tr("Replace with"), self.replace)
@@ -211,7 +211,7 @@ class RenamePage(QWidget):
         lay.addLayout(grid)
         lay.addStretch()
         lay.addWidget(_button(tr("Start again"), "flat", self.reset_rules), 0, Qt.AlignLeft)
-        for w in (self.base, self.find, self.replace, self.before, self.after):
+        for w in (self.base, self.find_edit, self.replace, self.before, self.after):
             w.textChanged.connect(self._changed)
         for w in (self.name, self.case, self.date, self.date_at, self.number, self.order, self.ext):
             w.currentIndexChanged.connect(self._changed)
@@ -223,7 +223,7 @@ class RenamePage(QWidget):
 
     def params(self) -> dict:
         return {"mode": "rules", "name": self.name.currentData(), "base": self.base.text(),
-                "find": self.find.text(), "replace": self.replace.text(), "match_case": self.match_case.isChecked(),
+                "find": self.find_edit.text(), "replace": self.replace.text(), "match_case": self.match_case.isChecked(),
                 "pattern": self.pattern.isChecked(), "case": self.case.currentData(), "before": self.before.text(),
                 "after": self.after.text(), "date": self.date.currentData(), "date_at": self.date_at.currentData(),
                 "number": self.number.currentData(), "start": self.start.value(), "step": self.step.value(),
@@ -232,7 +232,7 @@ class RenamePage(QWidget):
     def _set_rules(self, p: dict):
         p = {**renamer.DEFAULTS, **p}
         widgets = [self.name, self.case, self.date, self.date_at, self.number, self.order, self.ext, self.base,
-                   self.find, self.replace, self.before, self.after, self.start, self.step, self.match_case,
+                   self.find_edit, self.replace, self.before, self.after, self.start, self.step, self.match_case,
                    self.pattern]
         for w in widgets:
             w.blockSignals(True)
@@ -240,7 +240,7 @@ class RenamePage(QWidget):
             for box, key in ((self.name, "name"), (self.case, "case"), (self.date, "date"), (self.date_at, "date_at"),
                              (self.number, "number"), (self.order, "order"), (self.ext, "ext")):
                 box.setCurrentIndex(max(0, box.findData(p[key])))
-            for edit, key in ((self.base, "base"), (self.find, "find"), (self.replace, "replace"),
+            for edit, key in ((self.base, "base"), (self.find_edit, "find"), (self.replace, "replace"),
                               (self.before, "before"), (self.after, "after")):
                 edit.setText(str(p[key]))
             self.start.setValue(int(p["start"]))

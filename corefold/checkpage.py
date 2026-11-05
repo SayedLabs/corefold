@@ -96,8 +96,8 @@ class CheckPage(QWidget):
         self.name = _label("", "h2")
         self.name.setTextInteractionFlags(Qt.TextSelectableByMouse)
         top.addWidget(self.name, 1)
-        self.size = _label("", "subtle")
-        top.addWidget(self.size)
+        self.size_label = _label("", "subtle")
+        top.addWidget(self.size_label)
         lay.addLayout(top)
         self.bar = QProgressBar()
         self.bar.setRange(0, 1000)
@@ -181,9 +181,9 @@ class CheckPage(QWidget):
         self.found = {}
         self.name.setText(ltr(f.name))
         try:
-            self.size.setText(human_size(f.stat().st_size))
+            self.size_label.setText(human_size(f.stat().st_size))
         except OSError:
-            self.size.setText("")
+            self.size_label.setText("")
         for code in self.codes.values():
             code.setText("…")
         self.compared.setText("")
