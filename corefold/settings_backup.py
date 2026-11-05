@@ -27,7 +27,7 @@ MAX_TARGET = 2000             # a quick link's target (a program, file, folder o
 # not "settings" a person edits, but their choices all the same: they go in the file too. (Window
 # size and place, recent files, "Do it again" and other things the app only remembers stay out.)
 ALSO_KEPT = ("tools_off", "known_tools", "nav_order", "section_order", "nav_compact", "watermark", "fit_mb",
-             "open_archives", "open_images", "open_emails", "open_media", "viewer_info", "player_volume")
+             "open_archives", "open_images", "open_emails", "viewer_info")
 RECOVERED: Path | None = None  # the copy used at start because settings.json was missing or damaged
 
 

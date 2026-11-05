@@ -130,7 +130,7 @@ def part(lang, look):
     s.check_updates = False
     s.language = lang
     s.appearance = look
-    s.known_tools = ["converter", "uninstaller", "archive", "viewer", "player", "clipboard", "space", "capture"]
+    s.known_tools = ["converter", "uninstaller", "archive", "viewer", "clipboard", "space", "capture"]
     s.quick_told = True
     s.save()
     from PySide6.QtCore import Qt
