@@ -133,3 +133,16 @@ def test_a_tool_switched_off_leaves_the_sidebar(window):
     assert "Unlock" not in w.nav_rows
     w.c.set_tool("unlock", True)
     assert "Unlock" in w.nav_rows
+
+
+def test_tab_with_names_showing_goes_from_the_heading_into_the_page(window, qtbot):
+    """(The bar of uses makes way while the sidebar shows the uses: Tab doesn't stop on hidden tabs.)"""
+    from PySide6.QtWidgets import QApplication
+    w = window
+    w.activateWindow()
+    w.open_page("Converter")
+    w.lang_btn.setFocus()
+    qtbot.keyClick(w.lang_btn, Qt.Key_Tab)
+    assert QApplication.focusWidget() is w.one_head.gear
+    qtbot.keyClick(w.one_head.gear, Qt.Key_Tab)
+    assert w.stack.currentWidget().isAncestorOf(QApplication.focusWidget())
