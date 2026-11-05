@@ -300,3 +300,23 @@ def test_a_stopped_scan_keeps_what_it_found(tmp_path):
     cancel.set()
     scan = space.scan(tmp_path, cancel=cancel)
     assert scan.cancelled and scan.files <= 1
+
+
+def test_files_of_the_same_size_keep_the_order_a_new_look_keeps(tmp_path):
+    """Files of the same size go by name (as set_files keeps them, so the map kept up to date by itself says
+    exactly what a new look says), and the biggest lists pick among them by path."""
+    import random
+    random.seed(3)
+    made = []
+    for i in range(400):
+        folder = tmp_path / f"f{i % 7}"
+        folder.mkdir(exist_ok=True)
+        p = folder / f"file {random.randint(0, 10 ** 6)} {i}.dat"
+        n = random.choice([0, 10, 10, 100])
+        p.write_bytes(b"x" * n)
+        made.append((n, str(p)))
+    r = space.scan(tmp_path, workers=3)
+    for f in r.root.children:
+        own = f.own_files()
+        assert own == sorted(own, reverse=True)
+    assert r.biggest == sorted(made, reverse=True)[:space.TOP_OVERALL]

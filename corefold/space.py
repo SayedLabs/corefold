@@ -319,6 +319,15 @@ def finish(result: Scan, folders: list, where, names: list[str], sizes, changed,
     result.files = len(where)
     exts, ids = _quick_ext(names)  # (before the names are put in another order: quicker in the order they came)
     order = np.lexsort((-sizes, where))
+    # (files of the same size in the same folder go by name, last first, the way set_files keeps them)
+    if len(order) > 1:
+        w_o, s_o = where[order], sizes[order]
+        same = np.nonzero((w_o[1:] == w_o[:-1]) & (s_o[1:] == s_o[:-1]))[0]
+        if len(same):
+            starts_t = same[np.r_[True, np.diff(same) > 1]]
+            ends_t = same[np.r_[np.diff(same) > 1, True]] + 2
+            for a, b in zip(starts_t.tolist(), ends_t.tolist()):
+                order[a:b] = sorted(order[a:b].tolist(), key=names.__getitem__, reverse=True)
     where, sizes, changed, used, ids = where[order], sizes[order], changed[order], used[order], ids[order]
     names = [names[i] for i in order.tolist()]
     if "\n" in "\0".join(names):  # (a new line in a name: not on Windows, but the names are kept apart by them)
@@ -358,10 +367,18 @@ def finish(result: Scan, folders: list, where, names: list[str], sizes, changed,
             paths[f] = str(folders[f].path)
         return os.path.join(paths[f], names[i])
 
-    def biggest_of(rows, n: int) -> list:
+    def top(rows, n: int):
+        """The rows of the n biggest files, and any more of the same size as the last of them (which of those
+        are kept is then decided by their paths, as a sort of (size, path) does)."""
         if len(rows) > n:
-            rows = rows[np.argpartition(-sizes[rows], n - 1)[:n]]
-        return sorted(((int(sizes[i]), full(int(i))) for i in rows), reverse=True)
+            least = -np.partition(-sizes[rows], n - 1)[n - 1]
+            rows = rows[sizes[rows] >= least]
+            if len(rows) > max(4 * n, 20000):  # (thousands of the same size: any of them will do)
+                rows = rows[np.argpartition(-sizes[rows], n - 1)[:n]]
+        return rows
+
+    def biggest_of(rows, n: int) -> list:
+        return sorted(((int(sizes[i]), full(int(i))) for i in top(rows, n)), reverse=True)[:n]
 
     everything = np.arange(len(where))
     result.biggest = biggest_of(everything, TOP_OVERALL)
@@ -371,9 +388,8 @@ def finish(result: Scan, folders: list, where, names: list[str], sizes, changed,
     result.biggest_kind = {k: biggest_of(everything[kind == i], TOP_KIND) for i, k in enumerate(kind_names)}
     old_before = time.time() - OLD_AFTER_DAYS * 86400
     old = np.nonzero((used > 0) & (used < old_before) & (sizes >= 1 << 20))[0]
-    if len(old) > TOP_OLD:
-        old = old[np.argpartition(-sizes[old], TOP_OLD - 1)[:TOP_OLD]]
-    result.old = sorted(((int(sizes[i]), full(int(i)), float(used[i])) for i in old), reverse=True)
+    old = top(old, TOP_OLD)
+    result.old = sorted(((int(sizes[i]), full(int(i)), float(used[i])) for i in old), reverse=True)[:TOP_OLD]
     tnames = list(type_names)
     t_bytes = np.bincount(ftype, weights=sizes, minlength=len(tnames)) if len(ftype) else np.zeros(len(tnames))
     t_count = np.bincount(ftype, minlength=len(tnames)) if len(ftype) else np.zeros(len(tnames), dtype=np.int64)
