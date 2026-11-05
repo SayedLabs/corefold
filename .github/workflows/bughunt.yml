@@ -123,15 +123,20 @@ jobs:
         shell: pwsh
         id: check2
         continue-on-error: true
+        timeout-minutes: 35  # (usually 10: one stuck test is cut off and named, not left for hours)
         run: |
           $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
           foreach ($t in "organizetest", "startuptest") {
+            Write-Host "$(Get-Date -Format HH:mm:ss) $t en dark"
             python scripts/$t.py out/$t en dark *> "out/$t-en.txt"
+            Write-Host "$(Get-Date -Format HH:mm:ss) $t ar light"
             python scripts/$t.py out/$t ar light *> "out/$t-ar.txt"
           }
           # Space's search and live map: room, speed, what following a disk costs, and that it stays exact
+          Write-Host "$(Get-Date -Format HH:mm:ss) spacelivetest"
           python scripts/spacelivetest.py *> out/spacelivetest.txt
           # once: it puts a test threat back from quarantine, and Windows then lets that one be on this PC
+          Write-Host "$(Get-Date -Format HH:mm:ss) scantest"
           python scripts/scantest.py out/scantest ar light *> out/scantest.txt
           # every Converter tool saving onto a full disk: a 16 MB one made for it (R:), never the PC's own
           choco install ffmpeg -y --no-progress | Out-Null
@@ -139,8 +144,10 @@ jobs:
           "create vdisk file=`"$vhd`" maximum=16 type=fixed", "select vdisk file=`"$vhd`"", "attach vdisk",
             "create partition primary", "format fs=ntfs quick label=FULL", "assign letter=R" | Set-Content dp.txt
           diskpart /s dp.txt *> out/diskpart.txt
+          Write-Host "$(Get-Date -Format HH:mm:ss) fulldisktest"
           python scripts/fulldisktest.py R:\ *> out/fulldisktest.txt
           # and a folder it can't write to, a file another program holds, folders past 260 letters, Cancel
+          Write-Host "$(Get-Date -Format HH:mm:ss) writefailtest"
           python scripts/writefailtest.py *> out/writefailtest.txt
 
       - name: Every page and button
