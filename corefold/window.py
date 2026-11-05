@@ -83,6 +83,9 @@ PAGE_ICONS = {"Home": "home", "General": "settings", "Look": "paint_brush", "Qui
 # again, quickly, when they're opened)
 # made a moment after the window opens (see _warm_next): slow to make, and opened often
 WARM_PAGES = ("PDF",)
+# the modules a page needs that are slow to read from a cold disk the first time (2.6 s for Network on a test
+# PC): read on a thread soon after the window opens, when that tool is in use, so opening it doesn't wait
+PAGE_MODULES = {"Network": ("network", "networkpage")}
 REMADE_PAGES = {*SETTINGS_PAGES, *SECTION_PAGES, "History", "Updates", "About", "Soon"}
 # the words Ctrl + K finds on each Settings page, kept for pages that aren't made yet (per version and language)
 SETTING_WORDS = LOG_DIR / "setting-words.json"
@@ -834,6 +837,7 @@ class MainWindow(QWidget):
         QTimer.singleShot(4000, self, self._learn_setting_words)
         self._warming = [name for name in WARM_PAGES if self.shows(name)]
         QTimer.singleShot(2500, self, self._warm_next)
+        QTimer.singleShot(2000, self, self._read_page_modules)
 
         footer = QHBoxLayout()
         footer.setSpacing(8)
@@ -1485,6 +1489,27 @@ class MainWindow(QWidget):
         if self.shows(name):
             self._build_page(name)
         QTimer.singleShot(300, self, self._warm_next)
+
+    def _read_page_modules(self):
+        """The modules in PAGE_MODULES of the tools in use are read on a thread (see PAGE_MODULES). They hold
+        nothing of Qt's, so reading them off the window's thread is safe; a page opened before they're in waits
+        for them as it would have anyway."""
+        import importlib
+        import sys
+        import threading
+        names = [f"{__package__}.{m}" for page, mods in PAGE_MODULES.items() if self.shows(page) for m in mods]
+        names = [m for m in names if m not in sys.modules]
+        if not names:
+            return
+
+        def load():
+            for name in names:
+                try:
+                    importlib.import_module(name)
+                except Exception:  # (the page says what's wrong when it's made)
+                    pass
+        self._modules_loader = threading.Thread(target=load, name="page-modules", daemon=True)
+        self._modules_loader.start()
 
     def _learn_setting_words(self):
         """Once per version and language, soon after the window opens: the words on settings pages not

@@ -156,3 +156,36 @@ def test_the_speed_is_read_off_the_windows_thread(page, qtbot, monkeypatch):
     page._tick()
     qtbot.waitUntil(lambda: bool(read_on) and "Wi-Fi" in page.link.text(), timeout=5000)
     assert not any(read_on)   # (never on the window's thread)
+
+
+def test_the_pages_modules_are_read_on_a_thread_soon_after_the_window_opens(qtbot, monkeypatch):
+    """Reading Network's modules from a cold disk stopped the window for 2.6 s the first time the page was opened:
+    when the tool is in use they're read on a thread soon after the window opens, so the click doesn't wait."""
+    import sys
+    import threading
+    from unittest import mock
+
+    import corefold
+    from corefold import window as W
+    w = mock.MagicMock(spec=W.MainWindow)
+    w.shows = lambda name: name == "Network"
+    for name in W.PAGE_MODULES["Network"]:
+        monkeypatch.delitem(sys.modules, f"corefold.{name}")
+        monkeypatch.delattr(corefold, name, raising=False)
+    seen = []
+    real = threading.Thread
+
+    def spy(*a, **kw):
+        seen.append(kw.get("name"))
+        return real(*a, **kw)
+    monkeypatch.setattr(threading, "Thread", spy)
+    W.MainWindow._read_page_modules(w)
+    assert seen == ["page-modules"]
+    w._modules_loader.join(10)
+    assert all(f"corefold.{name}" in sys.modules for name in W.PAGE_MODULES["Network"])
+    # read already (or the tool isn't in use): no thread
+    seen.clear()
+    W.MainWindow._read_page_modules(w)
+    w.shows = lambda name: False
+    W.MainWindow._read_page_modules(w)
+    assert seen == []
