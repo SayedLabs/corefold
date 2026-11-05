@@ -13,7 +13,7 @@ from corefold import shellmenu
 from corefold import tools as all_tools
 
 ROOT = Path(__file__).resolve().parent.parent
-FILES = {"converter", "pdf", "archive", "organizer", "unlock", "cloud"}
+FILES = {"converter", "pdf", "archive", "organizer", "unlock", "rename", "hash", "backup", "cloud"}
 COMPUTER = {"space", "uninstaller", "network"}  # (Computer is back with these two, and Network is new)
 BACK = {"space", "uninstaller"}  # (switched back on once for everyone)
 IN_USE = FILES | COMPUTER
@@ -29,7 +29,7 @@ def nothing_resting_alone(monkeypatch):
 def test_only_the_files_and_two_computer_tools_are_available():
     assert {t.id for t in all_tools.available()} == IN_USE
     assert {t.id for t in all_tools.paused()} == RESTING
-    for tool_id in ("rename", "shredder", "backup", "ruler", "notes"):  # (still being made: never switched on)
+    for tool_id in ("shredder", "ruler", "notes"):  # (still being made: never switched on)
         assert all_tools.state(tool_id) == all_tools.PLANNED
     assert all_tools.state("no-such-tool") == all_tools.PLANNED
     assert {t.id for t in all_tools.ready()} == IN_USE | RESTING  # (still made: only resting)

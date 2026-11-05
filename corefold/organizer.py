@@ -397,7 +397,7 @@ def plan(folder: Path, check_in_use: bool = True, known: bool = False) -> Plan:
         return out
     state = _load()
     remembered = state.get("folders", {}).get(_norm(folder), {})
-    off = set(state.get("off", []))
+    off = kinds_off(state)
     my_rules = rules()
     dates = date_mode()
     months: dict = {}
@@ -697,15 +697,30 @@ def _undo(progress=None) -> UndoResult:
 
 # ----------------------------------------------------------------------------- what's kept
 
+OFF_FILE = "organizer-off.json"
+
+
 def set_off(kinds: set[str]):
-    """The kinds the person left out (they stay out next time)."""
-    state = _load()
-    state["off"] = sorted(kinds)
-    _save(state)
+    """The kinds the person left out (they stay out next time). In a small file of their own: a tick rewrote
+    the whole state, every move ever made with it, and a big one held the window 5 s."""
+    path = _state_path().with_name(OFF_FILE)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(sorted(kinds)), encoding="utf-8")
+        os.replace(tmp, path)
+    except OSError as e:
+        log.warning("couldn't keep the organizer's choices: %s", e)
 
 
-def kinds_off() -> set[str]:
-    return set(_load().get("off", []))
+def kinds_off(state: dict | None = None) -> set[str]:
+    try:
+        data = json.loads(_state_path().with_name(OFF_FILE).read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            return {k for k in data if isinstance(k, str)}
+    except (OSError, ValueError):
+        pass
+    return set((_read_state() if state is None else state).get("off", []))  # (kept there before)
 
 
 def _state_path() -> Path:

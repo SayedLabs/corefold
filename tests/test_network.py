@@ -137,6 +137,43 @@ def test_windows_tables_can_be_read_without_being_an_administrator():
         server.close()
 
 
+def test_only_what_the_heap_calls_a_block_goes_back(monkeypatch):
+    """Windows' list of names: an entry or a name that sits inside another block is never freed on its own
+    (that broke the heap and closed the app)."""
+    entries = [network._CacheEntry() for _ in range(3)]
+    names = [ctypes.create_unicode_buffer(f"host{i}.example") for i in range(3)]
+    for i, e in enumerate(entries):
+        e.name = ctypes.cast(names[i], ctypes.c_void_p).value
+        if i < 2:
+            e.next = ctypes.pointer(entries[i + 1])
+    addr = [ctypes.addressof(e) for e in entries]
+    whole = {addr[0], addr[1], ctypes.addressof(names[1])}   # (the rest lies inside those)
+    asked, freed = [], []
+
+    def fake_fn(dll, name, *_types):
+        if name == "HeapValidate":
+            return lambda heap, flags, a: (asked.append(a), a in whole)[1]
+        if name == "GetProcessHeap":
+            return lambda: 7
+        raise AssertionError(name)
+    monkeypatch.setattr(network, "_fn", fake_fn)
+    network._give_back(ctypes.pointer(entries[0]), lambda a, kind: freed.append(a))
+    assert sorted(freed) == sorted(whole) and len(freed) == len(set(freed))
+    assert len(asked) == 6
+
+
+@pytest.mark.skipif(not WINDOWS, reason="Windows' own tables")
+def test_reading_the_names_again_and_again_leaves_the_heap_whole():
+    heap_ok = ctypes.windll.kernel32.HeapValidate
+    heap_ok.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.c_void_p]
+    heap = ctypes.windll.kernel32.GetProcessHeap
+    heap.restype = ctypes.c_void_p
+    socket.getaddrinfo("localhost", 80)
+    for _ in range(40):
+        assert isinstance(network.cached_names(), dict)
+    assert heap_ok(heap(), 0, None)
+
+
 @pytest.mark.skipif(not WINDOWS, reason="Windows' own tables")
 def test_reading_from_several_threads_at_once_is_safe():
     """The page reads the speed and the programs on two threads, while other tools use the same Windows calls."""

@@ -84,8 +84,9 @@ PAGE_ICONS = {"Home": "home", "General": "settings", "Look": "paint_brush", "Qui
 # made a moment after the window opens (see _warm_next): slow to make, and opened often
 WARM_PAGES = ("PDF",)
 # the modules a page needs that are slow to read from a cold disk the first time (2.6 s for Network on a test
-# PC): read on a thread soon after the window opens, when that tool is in use, so opening it doesn't wait
-PAGE_MODULES = {"Network": ("network", "networkpage")}
+# PC; Scan's 0.46 s on a test runner): read on a thread soon after the window opens, when that tool is in use, so
+# opening it doesn't wait
+PAGE_MODULES = {"Network": ("network", "networkpage"), "Scan": ("scan", "scanpage")}
 REMADE_PAGES = {*SETTINGS_PAGES, *SECTION_PAGES, "History", "Updates", "About", "Soon"}
 # the words Ctrl + K finds on each Settings page, kept for pages that aren't made yet (per version and language)
 SETTING_WORDS = LOG_DIR / "setting-words.json"
@@ -788,6 +789,9 @@ class MainWindow(QWidget):
                     "PDF": self._pdf, "Organizer": self._organizer, "Startup": self._startup, "Scan": self._scan, "Network": self._network, "Updates": self._updates, "About": self._about,
                     "Quick": self._quick_settings,
                     "Unlock": self._unlock,
+                    "Rename": self._rename,
+                    "Check": self._check,
+                    "Backup": self._backup,
                     "Awake": self._awake,
                     "Shortcuts": self._shortcuts,
                     "Soon": self._soon_sections,
@@ -813,10 +817,14 @@ class MainWindow(QWidget):
         self.scan_page = None
         self.network_page = None
         self.unlock_page = None
+        self.rename_page = None
+        self.check_page = None
+        self.backup_page = None
         self.awake_page = None
         self.colors_page = None
         self._unbuilt = {"Apps", *SECTION_PAGES, "Viewer", "Clipboard", "Space", "Capture", "Cloud", "PDF",
-                         "Organizer", "Startup", "Scan", "Network", "Unlock", "Awake", "Colors", "Archives", "History",
+                         "Organizer", "Startup", "Scan", "Network", "Unlock", "Rename", "Check", "Backup", "Awake", "Colors", "Archives",
+                         "History",
                          "Updates", "About", "Soon", *SETTINGS_PAGES, *SOON,
                          *[tool.page for tool in all_tools.TOOLS if tool.page not in on_pages and tool.page != "Converter"]}
         self._made("heads")
@@ -1318,7 +1326,9 @@ class MainWindow(QWidget):
     # a tool's page, and what the window keeps of it (let go of with the page)
     PAGE_PARTS = {"Apps": "apps_page", "Clipboard": "clip_page", "Space": "space_page", "Cloud": "cloud_page",
                   "PDF": "pdf_page", "Organizer": "organizer_page", "Startup": "startup_page", "Scan": "scan_page", "Network": "network_page",
-                  "Unlock": "unlock_page", "Awake": "awake_page", "Colors": "colors_page"}
+                  "Unlock": "unlock_page", "Rename": "rename_page", "Check": "check_page",
+                  "Backup": "backup_page",
+                  "Awake": "awake_page", "Colors": "colors_page"}
 
     def _drop_page(self, name: str):
         """A page out of sight goes (now), and is made again if it's opened later."""
@@ -1547,6 +1557,9 @@ class MainWindow(QWidget):
             known.update(words)
             _keep_setting_words(known)
             return
+        if todo[0] == "Formats" and not self._formats_modules_loaded():
+            QTimer.singleShot(200, self, self._learn_next)
+            return
         name = todo.pop(0)
         self._build_page(name)
         if name == "Formats":  # (its ~90 rows all at once stopped the window for up to 0.4 s: they follow in
@@ -1556,6 +1569,26 @@ class MainWindow(QWidget):
         words[name] = [text for text, _ in self._settings_on(name)]
         self.drop_hidden_pages({name})
         QTimer.singleShot(80, self, self._learn_next)
+
+    def _formats_modules_loaded(self) -> bool:
+        """The Formats page's list needs six modules: they're read on a thread first, so making the page out of
+        sight doesn't stop the window (reading them from a cold disk took it 0.9 s, whatever page was open)."""
+        import sys
+        if all(f"{__package__}.{m}" in sys.modules
+               for m in ("archives", "audiotags", "extras", "moretools", "pdfstamp", "videotools")):
+            return True
+        loader = getattr(self, "_formats_loader", None)
+        if loader is None:
+            import threading
+
+            def load():
+                try:
+                    from . import archives, audiotags, extras, moretools, pdfstamp, videotools  # noqa: F401
+                except Exception:  # (the page says what's wrong when it's made)
+                    pass
+            loader = self._formats_loader = threading.Thread(target=load, name="formats-load", daemon=True)
+            loader.start()
+        return not loader.is_alive()
 
     def built(self, name: str) -> bool:
         """The page is made (pages wait until they're first opened)."""
@@ -1642,6 +1675,10 @@ class MainWindow(QWidget):
             self.space_page.refresh()
         elif name == "Organizer" and self.organizer_page is not None:
             self.organizer_page.ensure_loaded()
+        elif name == "Rename" and self.rename_page is not None:
+            self.rename_page.refresh()
+        elif name == "Backup" and self.backup_page is not None:
+            self.backup_page.refresh()
         elif name == "Awake" and self.awake_page is not None:
             self.awake_page.refresh()
         elif name == "Colors" and self.colors_page is not None:
@@ -3352,6 +3389,28 @@ class MainWindow(QWidget):
         self.unlock_page = UnlockPage(self.c, header)
         return self.unlock_page
 
+    def _rename(self) -> QWidget:
+        """Rakiza Core Rename: many files at once, every new name shown first."""
+        from .renamepage import RenamePage
+        header = self._use_header("rename", tr("Rename many files at once, and see every new name before anything "
+                                               "changes."))
+        self.rename_page = RenamePage(self.c, header)
+        return self.rename_page
+
+    def _check(self) -> QWidget:
+        """Rakiza Core Check: is a download the real file?"""
+        from .checkpage import CheckPage
+        header = self._use_header("hash", tr("Make sure a download is the real file and wasn't changed."))
+        self.check_page = CheckPage(self.c, header)
+        return self.check_page
+
+    def _backup(self) -> QWidget:
+        """Rakiza Core Backup: folders kept safe on another drive."""
+        from .backuppage import BackupPage
+        header = self._use_header("backup", tr("Copy your important folders to another drive, by itself."))
+        self.backup_page = BackupPage(self.c, header)
+        return self.backup_page
+
     def _awake(self) -> QWidget:
         """Rakiza Core Awake: keep the PC awake, and turn it off later."""
         from .awakepage import AwakePage
@@ -4621,6 +4680,10 @@ class MainWindow(QWidget):
             self.cloud_page.apply_theme(t)
         if self.unlock_page is not None:
             self.unlock_page.apply_theme(t)
+        if self.rename_page is not None:
+            self.rename_page.apply_theme(t)
+        if self.check_page is not None:
+            self.check_page.apply_theme(t)
         if self.awake_page is not None:
             self.awake_page.apply_theme(t)
         if self.colors_page is not None:

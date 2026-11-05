@@ -383,6 +383,7 @@ class Controller(QObject):
         # any thread (writing the right-click menu, a conversion), and freeing a closed window's widgets from
         # there crashes Qt
         gc.disable()
+        _converting[0] = lambda: bool(self.cancels)
         self.gc_timer = QTimer(self)
         self.gc_timer.timeout.connect(collect_garbage)
         self.gc_timer.start(GC_EVERY_MS)
@@ -1041,6 +1042,7 @@ class Controller(QObject):
         self.keep_tidy()
         self.keep_clean()
         self.keep_backups()
+        self.keep_drive_backup()
         self._tray_tools()
         running = [name for name, on in (("clipboard", self.clip), ("capture", self.capture),
                                          ("quick access", self.quick), ("awake", self.awake),
@@ -1189,6 +1191,85 @@ class Controller(QObject):
             if r.get("error") is not None or r.get("failed"):  # (only what needs the person: no toast every day)
                 self.toast.notify(tr("Backup"), tr("The backup of {name} couldn't finish. Open Cloud to see why.",
                                                    name=b.name), linger_ms=8000)
+
+    # ---- Backup (folders kept safe on another drive: backup.py)
+
+    def keep_drive_backup(self):
+        """Backup by itself: a look every half hour for a backup whose day has gone by and whose drive is there
+        (only while Backup is switched on and set to run by itself)."""
+        from .backuppage import plan_of
+        plan = plan_of(self.settings)
+        on = all_tools.is_on(self.settings, "backup") and plan.auto and bool(plan.sources) and bool(plan.dest)
+        timer = getattr(self, "drive_backup_timer", None)
+        if on and timer is None:
+            self.drive_backup_timer = timer = QTimer(self)
+            timer.setInterval(30 * 60 * 1000)
+            timer.timeout.connect(self.run_drive_backup)
+            timer.start()
+            QTimer.singleShot(10 * 60 * 1000, self.run_drive_backup)  # (not while Rakiza Core itself is starting)
+        elif not on and timer is not None:
+            timer.stop()
+            timer.deleteLater()
+            self.drive_backup_timer = None
+
+    def drive_backup_running(self) -> bool:
+        return getattr(self, "_drive_backup_job", None) is not None
+
+    def run_drive_backup(self, now: bool = False):
+        """The backup, if its day has gone by and its drive is there (or now, when asked on its page)."""
+        import threading
+
+        from . import backup, work
+        from .backuppage import plan_of
+        if not all_tools.is_on(self.settings, "backup") or self.drive_backup_running():
+            return
+        plan = plan_of(self.settings)
+        if backup.problem(plan.sources, plan.dest) or not (now or backup.due(plan)):
+            return
+        self._drive_backup_cancel = cancel = threading.Event()
+
+        def go(progress):
+            return backup.run(plan, lambda files, size, name: progress((files, size, name)), cancel)
+        self._drive_backup_job = work.run(go, self._drive_backup_step, lambda r, p=plan, n=now: self._drive_backed_up(
+            p, r, n), name="corefold-drive-backup")
+
+    def stop_drive_backup(self):
+        cancel = getattr(self, "_drive_backup_cancel", None)
+        if cancel is not None:
+            cancel.set()
+
+    def _drive_backup_page(self):
+        from . import work
+        page = getattr(self._window, "backup_page", None) if self._window is not None else None
+        return page if page is not None and work.alive(page) else None
+
+    def _drive_backup_step(self, step):
+        page = self._drive_backup_page()
+        if page is not None and isinstance(step, tuple):
+            page.backup_progress(*step)
+
+    def _drive_backed_up(self, plan, summary, asked: bool):
+        from . import backup
+        from .backuppage import plan_of, save_plan
+        self._drive_backup_job = None
+        if isinstance(summary, Exception):
+            log.warning("the backup failed: %s", summary)
+            summary = backup.Summary(problem="Stopped")
+        log.info("backup: %d copied (%s), %d older kept, %d failed, %s missing, %s", summary.copied,
+                 human_size(summary.bytes), summary.kept_old, len(summary.failed), summary.missing, summary.problem)
+        fresh = plan_of(self.settings)
+        if fresh.id == plan.id:  # (the page may have changed the folders meanwhile: only the result is kept)
+            backup.finished(fresh, summary)
+            save_plan(self.settings, fresh)
+        page = self._drive_backup_page()
+        if page is not None:
+            page.backup_done()
+        if summary.problem == "The backup drive is full":
+            self.toast.notify(tr("Backup"), tr("The backup drive is full: the backup couldn't finish."),
+                              linger_ms=8000)
+        elif asked and not summary.problem:
+            self.toast.notify(tr("Backup done"), tr("{count} files copied ({size})", count=f"{summary.copied:,}",
+                                                    size=human_size(summary.bytes)), linger_ms=5000)
 
     def tidy_folder(self, now: bool = False):
         """Sorts the folder kept tidy, if a day has gone by since the last time (or now)."""
@@ -2874,6 +2955,10 @@ OUTPUT_EXT = {"image:pdf": ".pdf", "image:scan": ".pdf", "pdf:merge": ".pdf", "i
 
 FULL_GC_EVERY_S = 60   # with a window in use, every object is looked through at most this often (it stops the
 _last_full = [0.0]      # window for up to half a second; the younger objects go each time, as before)
+# while a conversion runs (a 2,000-page PDF made smaller: over a million objects), a full look held the window
+# 1.2 s: then it comes at most this often, and the tidy after the job frees the rest
+FULL_GC_CONVERTING_S = 300
+_converting = [lambda: False]
 
 
 def _full_collection_done(phase: str, info: dict):
@@ -2887,7 +2972,8 @@ gc.callbacks.append(_full_collection_done)  # (a full look elsewhere, like the t
 def collect_garbage():
     """What Python's own collector would have done by now (the same thresholds), on this thread."""
     young, middle, old = gc.get_count()
-    if old > 10 and (QApplication.activeWindow() is None or time.monotonic() - _last_full[0] > FULL_GC_EVERY_S):
+    every = FULL_GC_CONVERTING_S if _converting[0]() else FULL_GC_EVERY_S
+    if old > 10 and (QApplication.activeWindow() is None or time.monotonic() - _last_full[0] > every):
         gc.collect(2)
     elif middle > 10:
         gc.collect(1)

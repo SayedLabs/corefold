@@ -457,18 +457,35 @@ def store_entries() -> list[Entry]:
 
 # ----------------------------------------------------------------------------- scheduled tasks
 
+# (Task Scheduler's own COM object, not Get-ScheduledTask: that loads the ScheduledTasks module and WMI first,
+# and the list took 5 to 9 s on a test PC; this reads the same tasks in a fraction of that)
 TASKS_SCRIPT = r"""
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 $me = "$env:USERDOMAIN\$env:USERNAME"
-@(Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object {
-    $_.TaskPath -notlike '\Microsoft\*' -and
-    ($_.Triggers | Where-Object { $_.CimClass.CimClassName -in 'MSFT_TaskLogonTrigger', 'MSFT_TaskBootTrigger' }) } |
-  ForEach-Object {
-    $a = @($_.Actions | Where-Object { $_.Execute })[0]
-    $u = "$($_.Principal.UserId)"
-    [pscustomobject]@{ p = "$($_.TaskPath)"; n = "$($_.TaskName)"; on = ("$($_.State)" -ne 'Disabled');
-      x = "$($a.Execute)"; args = "$($a.Arguments)"; u = $u;
-      mine = ($u -and ($u -eq $env:USERNAME -or $u -eq $me)) } }) | ConvertTo-Json -Compress
+$sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+$s = New-Object -ComObject Schedule.Service
+$s.Connect()
+$out = @()
+$todo = New-Object System.Collections.Queue
+$todo.Enqueue($s.GetFolder('\'))
+while ($todo.Count) {
+  $f = $todo.Dequeue()
+  try { foreach ($sub in @($f.GetFolders(0))) { if ($sub.Path -ne '\Microsoft') { $todo.Enqueue($sub) } } } catch { }
+  try { $tasks = @($f.GetTasks(1)) } catch { $tasks = @() }
+  $p = if ($f.Path -eq '\') { '\' } else { "$($f.Path)\" }
+  foreach ($t in $tasks) {
+    try {
+      $d = $t.Definition
+      if (-not @($d.Triggers | Where-Object { $_.Type -eq 8 -or $_.Type -eq 9 })) { continue }   # (start, sign in)
+      $a = @($d.Actions | Where-Object { $_.Type -eq 0 -and $_.Path })[0]
+      $u = "$($d.Principal.UserId)"
+      $out += [pscustomobject]@{ p = $p; n = "$($t.Name)"; on = [bool]$t.Enabled;
+        x = "$($a.Path)"; args = "$($a.Arguments)"; u = $u;
+        mine = [bool]($u -and ($u -eq $env:USERNAME -or $u -eq $me -or $u -eq $sid)) }
+    } catch { }
+  }
+}
+@($out) | ConvertTo-Json -Compress
 """
 
 

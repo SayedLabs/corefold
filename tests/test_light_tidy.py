@@ -43,6 +43,15 @@ def test_with_a_window_in_use_every_object_is_looked_through_at_most_once_a_minu
     assert _collect_garbage(None, since_full=5) == [(2,)]
 
 
+def test_while_converting_the_full_look_waits_longer(monkeypatch):
+    """A 2,000-page PDF made smaller has over a million objects alive: a full look then held the window 1.2 s."""
+    from corefold import app as A
+    monkeypatch.setattr(A, "_converting", [lambda: True])
+    assert _collect_garbage(object(), since_full=61, counts=(0, 11, 11)) == [(1,)]
+    assert _collect_garbage(object(), since_full=A.FULL_GC_CONVERTING_S + 1) == [(2,)]
+    assert _collect_garbage(None, since_full=61) == [(2,)]   # (no window in use: nobody waits for it)
+
+
 def test_a_full_look_elsewhere_counts_as_the_last_one():
     import gc
     import time

@@ -109,6 +109,16 @@ def table_texts() -> dict[str, str]:
     from corefold import clipboard, videotools
     add([text for _, text in clipboard.CHANGES], "clipboard.CHANGES")
     add(videotools.CROPS.values(), "videotools.CROPS")
+    from corefold import renamepage, renamer
+    for name in ("NAMES", "CASES", "DATES", "NUMBERS", "PLACES", "ORDERS", "EXTS"):
+        add([text for _, text in getattr(renamepage, name)], f"renamepage.{name}")
+    add(renamer.REASONS, "renamer.REASONS")
+    from corefold import checkpage
+    add(list(checkpage.STATES.values()), "checkpage.STATES")
+    from corefold import backuppage
+    add([text for _, text in backuppage.KEEP], "backuppage.KEEP")
+    add(backuppage.PROBLEMS, "backuppage.PROBLEMS")
+    add([text for _, text in backuppage.COMMON], "backuppage.COMMON")
     from corefold import pdfstamp
     add(pdfstamp.NUMBER_PLACES.values(), "pdfstamp.NUMBER_PLACES")
     add(pdfstamp.SIGN_PAGES.values(), "pdfstamp.SIGN_PAGES")

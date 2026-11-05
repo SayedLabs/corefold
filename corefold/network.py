@@ -258,11 +258,45 @@ def clean_host(name: str) -> str:
     return name if _HOST_OK.match(name) and ".." not in name else ""
 
 
+_names_lock = threading.Lock()
+
+
 def cached_names() -> dict[str, str]:
     """{address: the name it was looked up by} from Windows' own DNS cache. Nothing is asked of any server:
     names Windows doesn't remember stay unknown (the address is shown instead)."""
     if sys.platform != "win32":
         return {}
+    with _names_lock:  # (two at once, from two looks, corrupted the heap on freeing the list and the app died)
+        return _cached_names()
+
+
+def _give_back(head, free) -> None:
+    """Gives Windows back the list it made. Which parts are blocks of their own (each entry? each name? the whole
+    list?) isn't written down and isn't the same on every Windows: freeing each entry and each name broke the heap
+    on Windows Server 2025 and the app died. So only a pointer the heap itself says is the start of a block goes
+    back; anything else stays (a few kilobytes at most, read at most every few seconds)."""
+    try:
+        valid = _fn("kernel32", "HeapValidate", wt.BOOL, wt.HANDLE, wt.DWORD, ctypes.c_void_p)
+        heap = _fn("kernel32", "GetProcessHeap", wt.HANDLE)()
+    except (AttributeError, OSError):
+        return
+    if not heap:
+        return
+    found: list[int] = []
+    entry, left = head, 100_000
+    while entry and left:
+        left -= 1
+        e = entry.contents
+        found.append(ctypes.cast(entry, ctypes.c_void_p).value)
+        if e.name:
+            found.append(e.name)
+        entry = e.next
+    blocks = [a for a in dict.fromkeys(found) if a and valid(heap, 0, a)]   # (all asked before any is freed)
+    for a in blocks:
+        free(a, DNS_FREE_FLAT)
+
+
+def _cached_names() -> dict[str, str]:
     out: dict[str, str] = {}
     try:
         # (DnsGetCacheDataTable isn't in the documentation, but it's been there since Windows 2000)
@@ -290,14 +324,7 @@ def cached_names() -> dict[str, str]:
                 names.extend((name, kind) for kind in sorted(kinds))
             entry = nxt
     finally:
-        entry, left = head, 100_000
-        while entry and left:   # (Windows made the list for us: each entry and its name are given back)
-            left -= 1
-            nxt = entry.contents.next
-            if entry.contents.name:
-                free(entry.contents.name, DNS_FREE_FLAT)
-            free(ctypes.cast(entry, ctypes.c_void_p), DNS_FREE_FLAT)
-            entry = nxt
+        _give_back(head, free)
     for name, kind in names:
         shown = clean_host(name)
         if not shown:

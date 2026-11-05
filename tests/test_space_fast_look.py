@@ -132,3 +132,31 @@ def test_helper_writes_a_listing(tmp_path):
 def test_setting_is_off_at_first():
     from corefold.settings import Settings
     assert Settings().space_fast_look is False
+
+
+def _listing(rows):
+    """A Listing from (record, folder record, is a folder, size, attributes, name)."""
+    return mftscan.Listing([r[0] for r in rows], [r[1] for r in rows], [r[2] for r in rows], [r[3] for r in rows],
+                           [r[4] for r in rows], [1.7e9] * len(rows), [r[5] for r in rows])
+
+
+def test_extended_attributes_are_not_the_cloud():
+    """On the disk, 0x40000 means "has extended attributes" (many of Windows' own files): such a file is counted.
+    Only offline and recall-on-data files (only in the cloud) are left out."""
+    items = _listing([(5, 5, True, 0, 0x16, "."), (20, 5, True, 0, 0x10, "Windows"),
+                      (21, 20, False, 1000, 0x40020, "ntdll.dll"), (22, 20, False, 50, 0x20, "a.txt"),
+                      (23, 20, False, 7000, 0x401020, "cloud.docx"), (24, 5, True, 0, 0x410, "Link"),
+                      (25, 24, False, 99, 0x20, "behind the link.txt"), (26, 999, False, 5, 0x20, "lost.txt")])
+    scan = mftscan.build(Path("T:\\"), items)
+    assert scan.files == 2 and scan.cloud == 1 and scan.root.size == 1050
+    assert [c.name for c in scan.root.children] == ["Windows"]
+    windows = scan.root.children[0]
+    assert windows.names.split("\n") == ["ntdll.dll", "a.txt"] and list(windows.sizes) == [1000, 50]
+    assert scan.kinds["program"] == 1000 and scan.types[".dll"] == (1000, 1)
+
+
+def test_listing_keeps_odd_names(tmp_path):
+    items = _listing([(5, 5, True, 0, 0x16, "."), (30, 5, False, 1, 0x20, "ملف 😀.txt"), (31, 5, False, 2, 0x20, "")])
+    out = tmp_path / "x.listing"
+    mftscan.write_listing(items, out)
+    assert mftscan.read_listing(out) == items

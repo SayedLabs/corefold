@@ -246,101 +246,163 @@ def _list_dir(path: str) -> tuple[list, bool]:
     return out, False
 
 
-def scan(root: Path, cancel: threading.Event | None = None, progress=None, workers: int = 16) -> Scan:
-    """Looks through a folder or a whole drive. progress(files, bytes, folder) is called now and then.
-    Several folders are read at once (disks answer faster that way, a lot faster when they're slow)."""
-    from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
-    started = time.monotonic()
-    top = Folder(str(root))
-    result = Scan(top)
-    order = [top]
-    waiting = [top]          # folders still to read
-    biggest: list[tuple[int, str]] = []
-    kinds = dict.fromkeys(KINDS, 0)
-    by_kind: dict[str, list] = {k: [] for k in KINDS}
-    types: dict[str, list] = {}  # file type -> [bytes, files, its biggest files as a heap]
-    old: list = []
-    old_before = time.time() - OLD_AFTER_DAYS * 86400
-    total = 0
-    last_report = 0
-    hidden_bits = _OFFLINE | _RECALL_ACCESS | _RECALL_OPEN
-    pool = ThreadPoolExecutor(max_workers=max(1, workers), thread_name_prefix="corefold-scan")
+def _read_dir(path: str) -> tuple:
+    """One folder read for scan(), on a helper thread: (its folders' names, then its own files' names, sizes,
+    last used and last changed, side by side; files only in the cloud; bytes of linked files; denied). The
+    same as _list_dir, already sorted out: the window's thread (holding Python's lock) has less to do."""
+    dirs: list[str] = []
+    names: list[str] = []
+    sizes: list[int] = []
+    used: list[float] = []
+    changed: list[float] = []
+    cloud = linked = 0
+    hidden = _OFFLINE | _RECALL_ACCESS | _RECALL_OPEN
+    links = _in_link_dir(path)
+    nt = os.name == "nt"
     try:
-        busy: dict = {}
-        while waiting or busy:
-            if cancel is not None and cancel.is_set():
-                result.cancelled = True
-                for fut in busy:
-                    fut.cancel()
-                break
-            while waiting and len(busy) < workers * 4:
-                folder = waiting.pop()
-                path = str(folder.path)
-                busy[pool.submit(_list_dir, path)] = (folder, path)
-            done, _ = wait(list(busy), timeout=0.5, return_when=FIRST_COMPLETED)
-            for fut in done:
-                folder, path = busy.pop(fut)
+        with os.scandir(path) as it:
+            for e in it:
                 try:
-                    entries, denied = fut.result()
-                except Exception:
-                    entries, denied = [], True
-                if denied:
-                    folder.denied = True
-                    result.denied += 1
-                own: list[tuple[int, str, float]] = []
-                for name, is_dir, size, attrs, used, changed in entries:
-                    if is_dir:
-                        child = Folder(name, folder)
-                        folder.children.append(child)
-                        order.append(child)
-                        waiting.append(child)
+                    if e.is_dir(follow_symlinks=False):
+                        if not _skip_dir(e):
+                            dirs.append(e.name)
                         continue
-                    if attrs & hidden_bits:
-                        result.cloud += 1  # only in the cloud: it takes no space on this PC
+                    st = e.stat(follow_symlinks=False)
+                    if not nt and not stat.S_ISREG(st.st_mode):
                         continue
-                    if attrs & _LINKED:
-                        result.linked += size  # (its bytes are counted under its other name)
+                    attrs = getattr(st, "st_file_attributes", 0)
+                    if attrs & hidden:
+                        cloud += 1  # only in the cloud: it takes no space on this PC
                         continue
-                    folder.files += 1
-                    folder.size += size
-                    total += size
-                    result.files += 1
-                    kind = kind_of(name)
-                    kinds[kind] += size
-                    if 0 < used < old_before and size >= 1 << 20:
-                        item = (size, os.path.join(path, name), used)
-                        if len(old) < TOP_OLD:
-                            heapq.heappush(old, item)
-                        elif size > old[0][0]:
-                            heapq.heapreplace(old, item)
-                    of_kind = by_kind[kind]
-                    if len(of_kind) < TOP_KIND:
-                        heapq.heappush(of_kind, (size, os.path.join(path, name)))
-                    elif size > of_kind[0][0]:
-                        heapq.heapreplace(of_kind, (size, os.path.join(path, name)))
-                    ext = type_of(name)
-                    of_type = types.get(ext)
-                    if of_type is None:
-                        of_type = types[ext] = [0, 0, []]
-                    of_type[0] += size
-                    of_type[1] += 1
-                    if len(of_type[2]) < TOP_TYPE:
-                        heapq.heappush(of_type[2], (size, os.path.join(path, name)))
-                    elif size > of_type[2][0][0]:
-                        heapq.heapreplace(of_type[2], (size, os.path.join(path, name)))
-                    own.append((size, name, changed))
-                    if len(biggest) < TOP_OVERALL:
-                        heapq.heappush(biggest, (size, os.path.join(path, name)))
-                    elif size > biggest[0][0]:
-                        heapq.heapreplace(biggest, (size, os.path.join(path, name)))
-                folder.set_files(own)
-                if progress is not None and result.files - last_report >= PROGRESS_EVERY:
-                    last_report = result.files
-                    progress(result.files, total, path)
-    finally:
-        # (on Stop, folders still being read are left to finish on their own: a huge one can take a while)
-        pool.shutdown(wait=not result.cancelled, cancel_futures=True)
-    # add each folder's size to the folders around it (deepest first)
+                    if links:
+                        try:  # (the number of names needs the file itself asked: only done here)
+                            if os.stat(e.path, follow_symlinks=False).st_nlink > 1:
+                                linked += st.st_size  # (its bytes are counted under its other name)
+                                continue
+                        except OSError:
+                            pass
+                    names.append(e.name)
+                    sizes.append(st.st_size)
+                    mtime = st.st_mtime
+                    changed.append(mtime)
+                    used.append(max(mtime, st.st_atime))
+                except OSError:
+                    continue
+    except OSError:
+        return dirs, names, sizes, used, changed, cloud, linked, True
+    return dirs, names, sizes, used, changed, cloud, linked, False
+
+
+def _quick_ext(names: list[str]):
+    """Each name's extension as os.path.splitext would give it, lowered: (the different ones, each name's index
+    among them as a numpy array). What follows the last dot is looked at once for each different ending."""
+    import numpy as np
+    raw: dict[str, int] = {}
+    ids = np.fromiter((raw.setdefault(n[i:] if (i := n.rfind(".")) > 0 and (n[0] != "." or n[:i].strip("."))
+                                      else "", len(raw)) for n in names), dtype=np.int64, count=len(names))
+    exts: dict[str, int] = {}
+    to = np.array([exts.setdefault(r.lower(), len(exts)) for r in raw] or [0], dtype=np.int64)
+    return list(exts), (to[ids] if len(ids) else ids)
+
+
+def finish(result: Scan, folders: list, where, names: list[str], sizes, changed, used=None,
+           own_counts: bool = True) -> None:
+    """Every file found, worked out at once with numpy: each folder's own files (biggest first, as set_files
+    keeps them), and the scan's lists (biggest, kinds, types, old). where: each file's folder (an index into
+    folders); used: when each was last used, for the old files (changed when not given). With own_counts,
+    each folder's own size, files and newest are set too (before they're added up: see add_up)."""
+    import numpy as np
+    where = np.asarray(where, dtype=np.int64)
+    sizes = np.asarray(sizes, dtype=np.int64)
+    changed = np.asarray(changed, dtype=np.float64)
+    used = changed if used is None else np.asarray(used, dtype=np.float64)
+    result.files = len(where)
+    exts, ids = _quick_ext(names)  # (before the names are put in another order: quicker in the order they came)
+    order = np.lexsort((-sizes, where))
+    # (files of the same size in the same folder go by name, last first, the way set_files keeps them)
+    if len(order) > 1:
+        w_o, s_o = where[order], sizes[order]
+        same = np.nonzero((w_o[1:] == w_o[:-1]) & (s_o[1:] == s_o[:-1]))[0]
+        if len(same):
+            starts_t = same[np.r_[True, np.diff(same) > 1]]
+            ends_t = same[np.r_[np.diff(same) > 1, True]] + 2
+            for a, b in zip(starts_t.tolist(), ends_t.tolist()):
+                order[a:b] = sorted(order[a:b].tolist(), key=names.__getitem__, reverse=True)
+    where, sizes, changed, used, ids = where[order], sizes[order], changed[order], used[order], ids[order]
+    names = [names[i] for i in order.tolist()]
+    if "\n" in "\0".join(names):  # (a new line in a name: not on Windows, but the names are kept apart by them)
+        names = [n.replace("\n", " ") for n in names]
+    times = changed.astype(np.float32)
+    all_sizes = array("q")
+    all_sizes.frombytes(sizes.tobytes())
+    all_times = array("f")
+    all_times.frombytes(times.tobytes())
+    starts = np.r_[0, np.nonzero(np.diff(where))[0] + 1] if len(where) else np.zeros(0, dtype=np.int64)
+    ends = np.r_[starts[1:], len(where)] if len(where) else starts
+    own_size = np.add.reduceat(sizes, starts) if len(where) else sizes
+    own_new = np.maximum.reduceat(times, starts) if len(where) else times
+    for s, e, at, size, new in zip(starts.tolist(), ends.tolist(), where[starts].tolist(), own_size.tolist(),
+                                   own_new.tolist()):
+        folder = folders[at]
+        folder.names = "\n".join(names[s:e])
+        folder.sizes = all_sizes[s:e]
+        folder.times = all_times[s:e]
+        if own_counts:
+            folder.files = e - s
+            folder.size = size
+            if new > folder.newest:
+                folder.newest = new
+    # kinds and types, by each file's extension
+    kind_names = list(KINDS)
+    kind = np.array([kind_names.index(KIND_OF.get(e, "other")) for e in exts] or [0], dtype=np.int64)[ids] \
+        if len(ids) else ids
+    type_names: dict[str, int] = {}
+    ftype = np.array([type_names.setdefault(e if 1 < len(e) <= 12 and e[1:].isalnum() else "", len(type_names))
+                      for e in exts] or [0], dtype=np.int64)[ids] if len(ids) else ids
+    paths: dict[int, str] = {}
+
+    def full(i: int) -> str:
+        f = int(where[i])
+        if f not in paths:
+            paths[f] = str(folders[f].path)
+        return os.path.join(paths[f], names[i])
+
+    def top(rows, n: int):
+        """The rows of the n biggest files, and any more of the same size as the last of them (which of those
+        are kept is then decided by their paths, as a sort of (size, path) does)."""
+        if len(rows) > n:
+            least = -np.partition(-sizes[rows], n - 1)[n - 1]
+            rows = rows[sizes[rows] >= least]
+            if len(rows) > max(4 * n, 20000):  # (thousands of the same size: any of them will do)
+                rows = rows[np.argpartition(-sizes[rows], n - 1)[:n]]
+        return rows
+
+    def biggest_of(rows, n: int) -> list:
+        return sorted(((int(sizes[i]), full(int(i))) for i in top(rows, n)), reverse=True)[:n]
+
+    everything = np.arange(len(where))
+    result.biggest = biggest_of(everything, TOP_OVERALL)
+    kind_bytes = np.bincount(kind, weights=sizes, minlength=len(kind_names)) if len(kind) else \
+        np.zeros(len(kind_names))
+    result.kinds = {k: int(kind_bytes[i]) for i, k in enumerate(kind_names)}
+    result.biggest_kind = {k: biggest_of(everything[kind == i], TOP_KIND) for i, k in enumerate(kind_names)}
+    old_before = time.time() - OLD_AFTER_DAYS * 86400
+    old = np.nonzero((used > 0) & (used < old_before) & (sizes >= 1 << 20))[0]
+    old = top(old, TOP_OLD)
+    result.old = sorted(((int(sizes[i]), full(int(i)), float(used[i])) for i in old), reverse=True)[:TOP_OLD]
+    tnames = list(type_names)
+    t_bytes = np.bincount(ftype, weights=sizes, minlength=len(tnames)) if len(ftype) else np.zeros(len(tnames))
+    t_count = np.bincount(ftype, minlength=len(tnames)) if len(ftype) else np.zeros(len(tnames), dtype=np.int64)
+    kept = [t for t in np.argsort(-t_bytes, kind="stable")[:KEEP_TYPES].tolist() if t_count[t]]
+    by_type = np.argsort(ftype, kind="stable")
+    t_cut = np.searchsorted(ftype[by_type], np.arange(len(tnames) + 1))
+    result.types = {tnames[t]: (int(t_bytes[t]), int(t_count[t])) for t in kept}
+    result.biggest_type = {tnames[t]: biggest_of(by_type[t_cut[t]:t_cut[t + 1]], TOP_TYPE) for t in kept}
+
+
+def add_up(order: list) -> None:
+    """Each folder's size, files and newest change added to the folders around it (order: parents before their
+    folders), and each one's folders put biggest first."""
     for f in reversed(order):
         f.children.sort(key=lambda c: c.size, reverse=True)
         p = f.parent
@@ -350,14 +412,135 @@ def scan(root: Path, cancel: threading.Event | None = None, progress=None, worke
             p.folders += f.folders + 1
             if f.newest > p.newest:
                 p.newest = f.newest
+
+
+def scan(root: Path, cancel: threading.Event | None = None, progress=None, workers: int = 16) -> Scan:
+    """Looks through a folder or a whole drive. progress(files, bytes, folder) is called now and then.
+    Several folders are read at once (disks answer faster that way, a lot faster when they're slow). The
+    window's thread only puts what they found side by side; it's all worked out at the end (finish)."""
+    import gc
+    was = gc.isenabled()
+    gc.disable()  # (millions of new names would set Python's collector off again and again: see mftscan._no_gc)
+    try:
+        return _scan(root, cancel, progress, workers)
+    finally:
+        if was:
+            gc.enable()
+
+
+class _Found:
+    """What one helper thread found (its own lists: never shared, so they stay side by side)."""
+    __slots__ = ("where", "names", "sizes", "used", "changed", "folders", "cloud", "linked", "denied", "bytes")
+
+    def __init__(self):
+        self.where: list[int] = []
+        self.names: list[str] = []
+        self.sizes: list[int] = []
+        self.used: list[float] = []
+        self.changed: list[float] = []
+        self.folders: list = []  # (index, folder) of the folders it found
+        self.cloud = self.linked = self.denied = self.bytes = 0
+
+
+def _scan(root: Path, cancel, progress, workers: int) -> Scan:
+    """The helper threads take folders to read from one queue and put the folders inside back on it: each
+    keeps what it finds in its own lists, put together at the end (handing every folder back to this thread
+    and waiting on each one cost more than reading it: 20 s of a 1.75 million file drive)."""
+    import itertools
+    import queue
+    started = time.monotonic()
+    top = Folder(str(root))
+    result = Scan(top)
+    todo: queue.SimpleQueue = queue.SimpleQueue()
+    numbers = itertools.count(1)        # (each folder's index: a folder's own is always smaller)
+    left = [1]                          # folders queued but not read yet
+    count_lock = threading.Lock()
+    finished = threading.Event()
+    stop = threading.Event()
+    found = [_Found() for _ in range(max(1, workers))]
+    last = {"path": str(top.path)}
+
+    def work(mine: _Found):
+        while True:
+            item = todo.get()
+            if item is None:
+                return
+            folder, path, at = item
+            try:
+                if not stop.is_set() and not (cancel is not None and cancel.is_set()):
+                    try:
+                        dirs, names, sizes, used, changed, cloud, linked, denied = _read_dir(path)
+                    except Exception:
+                        dirs, names, sizes, used, changed, cloud, linked, denied = [], [], [], [], [], 0, 0, True
+                    if denied:
+                        folder.denied = True
+                        mine.denied += 1
+                    mine.cloud += cloud
+                    mine.linked += linked
+                    if names:
+                        mine.where.extend([at] * len(names))
+                        mine.names.extend(names)
+                        mine.sizes.extend(sizes)
+                        mine.used.extend(used)
+                        mine.changed.extend(changed)
+                        mine.bytes += sum(sizes)
+                        last["path"] = path
+                    if dirs:
+                        with count_lock:
+                            left[0] += len(dirs)
+                        for name in dirs:
+                            child = Folder(name, folder)
+                            folder.children.append(child)
+                            index = next(numbers)
+                            mine.folders.append((index, child))
+                            todo.put((child, os.path.join(path, name), index))
+            finally:  # (whatever happens, the folder counts as read: else the look would never end)
+                with count_lock:
+                    left[0] -= 1
+                    if left[0] == 0:
+                        finished.set()
+
+    threads = [threading.Thread(target=work, args=(f,), name="corefold-scan", daemon=True) for f in found]
+    todo.put((top, str(top.path), 0))
+    for t in threads:
+        t.start()
+    try:
+        while not finished.wait(0.25):
+            if cancel is not None and cancel.is_set():
+                result.cancelled = True
+                break
+            if progress is not None:
+                progress(sum(len(f.names) for f in found), sum(f.bytes for f in found), last["path"])
+        if cancel is not None and cancel.is_set():  # (stopped just as the last folders were skipped)
+            result.cancelled = True
+    finally:
+        stop.set()
+        for _ in threads:
+            todo.put(None)
+        # (on Stop, a folder still being read is left to finish on its own, as a huge one can take a while: what
+        # was found until then is shown, each thread's lists cut to the files it had put down whole)
+        until = time.monotonic() + 0.5
+        for t in threads:
+            t.join(max(0.0, until - time.monotonic()) if result.cancelled else None)
+    parts = []
+    for f in found:
+        n = min(len(f.where), len(f.names), len(f.sizes), len(f.used), len(f.changed))
+        parts.append((f.where[:n], f.names[:n], f.sizes[:n], f.used[:n], f.changed[:n], list(f.folders)))
+    made = [x for p in parts for x in p[5]]
+    order: list = [None] * (max((i for i, _ in made), default=0) + 1)
+    order[0] = top
+    for index, folder in made:
+        order[index] = folder
+    by_index = order
+    order = [f for f in order if f is not None]
+    where = [i for p in parts for i in p[0]]
+    finish(result, by_index, where, [x for p in parts for x in p[1]], [x for p in parts for x in p[2]],
+           [x for p in parts for x in p[4]], [x for p in parts for x in p[3]])
+    result.denied = sum(f.denied for f in found)
+    result.cloud = sum(f.cloud for f in found)
+    result.linked = sum(f.linked for f in found)
+    add_up(order)
     result.folders = top.folders
-    result.biggest = sorted(biggest, reverse=True)
-    result.kinds = kinds
-    result.biggest_kind = {k: sorted(v, reverse=True) for k, v in by_kind.items()}
-    result.old = sorted(old, reverse=True)
-    kept = sorted(types.items(), key=lambda kv: kv[1][0], reverse=True)[:KEEP_TYPES]
-    result.types = {ext: (v[0], v[1]) for ext, v in kept}
-    result.biggest_type = {ext: sorted(v[2], reverse=True) for ext, v in kept}
     result.seconds = time.monotonic() - started
     return result
 
