@@ -68,9 +68,7 @@ def winrt_usage():
     profs = NetworkInformation.get_connection_profiles()
     print("profiles", [p.profile_name for p in profs])
     now = datetime.datetime.now(datetime.timezone.utc)
-    states = NetworkUsageStates()
-    states.roaming = TriStates.DO_NOT_CARE
-    states.shared = TriStates.DO_NOT_CARE
+    states = NetworkUsageStates(TriStates.DO_NOT_CARE, TriStates.DO_NOT_CARE)
 
     async def go():
         for p in profs:
