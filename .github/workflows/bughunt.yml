@@ -220,6 +220,8 @@ jobs:
           }
           $env:PATH = "$env:ProgramFiles\7-Zip;$env:PATH"
           python scripts/usetest.py out/usetest @($env:USE -split " ") *> out/usetest.txt
+          # (a page slow to open: where the window was held up, in this log)
+          Select-String -Path out/usetest.txt -Pattern "^\s+[0-9.]+ s  open the " | ForEach-Object { $_.Line }
 
       - name: Languages (the first start's language page, changing it with no restart, dropdowns)
         if: matrix.name == 'languages'
