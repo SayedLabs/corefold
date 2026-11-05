@@ -140,14 +140,14 @@ def test_pdf_to_word_script_leaves_words_settings_alone():
     assert "SaveAs2($env:CF_OUT, 16)" in s
 
 
-def _box_answered(names, reflow):
+def _box_answered(reflow, uia=None):
     """A real message box (OK / Cancel) shown by a new process, and what the watch pressed on it."""
     import subprocess
     import sys
 
     from corefold import officewatch
     exe = Path(sys.executable).name.lower()
-    watch = officewatch.Watch(reflow=tuple(r.replace("*", exe) for r in reflow), names=(exe,))
+    watch = officewatch.Watch(reflow=tuple(r.replace("*", exe) for r in reflow), names=(exe,), uia=uia)
     try:
         r = subprocess.run([sys.executable, "-c", "import ctypes; print(ctypes.windll.user32.MessageBoxW("
                             "0, 'Word will now convert your PDF', 'Microsoft Word', 1))"],
@@ -159,11 +159,25 @@ def _box_answered(names, reflow):
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows' message boxes")
 def test_word_conversion_box_is_answered_ok():
-    pressed, watch = _box_answered(None, ("*",))
+    pressed, watch = _box_answered(("*",))
     assert pressed == "1" and watch.answered == 1 and not watch.asked
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows' UI Automation")
+def test_boxes_office_draws_itself_are_pressed_through_ui_automation():
+    # (Office's own "NUIDialog" boxes have no button windows: the same press, the way they need it)
+    pressed, watch = _box_answered(("*",), uia=True)
+    assert pressed == "1" and watch.answered == 1
+    pressed, watch = _box_answered((), uia=True)
+    assert pressed == "2" and watch.asked
+
+
+def test_office_draws_its_own_boxes_too():
+    from corefold import officewatch
+    assert "NUIDialog" in officewatch.BOX_CLASSES and "#32770" in officewatch.BOX_CLASSES
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows' message boxes")
 def test_other_office_boxes_are_cancelled_and_said():
-    pressed, watch = _box_answered(None, ())
+    pressed, watch = _box_answered(())
     assert pressed == "2" and watch.asked
