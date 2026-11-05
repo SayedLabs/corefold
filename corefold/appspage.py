@@ -158,11 +158,23 @@ def emit(signal, value) -> bool:
 
 
 def _icon_path(app: un.App) -> str:
-    """The file (or folder) whose icon the app is shown with, or ""."""
-    for path in (app.icon, os.path.join(app.location, "") if app.location else ""):
-        if path and os.path.exists(path) and (os.path.isdir(path) or path.lower().endswith((".exe", ".ico", ".dll"))):
-            return path
-    return ""
+    """The file (or folder) whose icon the app is shown with, or "". Found once per app, on the thread that lists
+    them (see _find_icons): a slow or sleeping drive mustn't hold up the window."""
+    found = getattr(app, "_icon_at", None)
+    if found is None:
+        found = ""
+        for path in (app.icon, os.path.join(app.location, "") if app.location else ""):
+            if path and os.path.exists(path) and (os.path.isdir(path) or path.lower().endswith((".exe", ".ico", ".dll"))):
+                found = path
+                break
+        app._icon_at = found
+    return found
+
+
+def _find_icons(apps) -> None:
+    """Looks for each app's icon file ahead (on a worker thread), so the list is filled without touching the disk."""
+    for app in apps:
+        _icon_path(app)
 
 
 def _icon_image(path: str):
@@ -399,6 +411,8 @@ class AppsPage(QWidget):
             except Exception as e:
                 log.exception("couldn't list apps")
                 apps, old_store = e, []
+            if isinstance(apps, list):
+                _find_icons(apps + old_store)
             if isinstance(apps, list) and not emit(signals.phase, "store"):
                 return
             if not emit(signals.listed, apps if not isinstance(apps, list) else
@@ -421,6 +435,7 @@ class AppsPage(QWidget):
             else:
                 store = old_store
             apps = sorted(apps + store, key=lambda a: a.name.lower())
+            _find_icons(store)
             if store != old_store and not emit(signals.listed, apps):
                 return
             missing = sorted([a for a in apps if not a.size and not a.store], key=lambda a: a.name.lower())
