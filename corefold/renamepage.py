@@ -73,7 +73,7 @@ def _button(text: str, name: str | None = None, on_click=None) -> QPushButton:
 
 
 class RenamePage(QWidget):
-    """Corefold Rename in the window."""
+    """Rakiza Core Rename in the window."""
 
     def __init__(self, controller: "Controller", header):
         super().__init__()

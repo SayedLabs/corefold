@@ -1,4 +1,4 @@
-"""Corefold Files is one tool: one heading over all its pages (its name, a line about the use that's open,
+"""Rakiza Core Files is one tool: one heading over all its pages (its name, a line about the use that's open,
 and a bar of its uses), and a start page to drop any file on or pick a use, each with what it's for. A use
 switched off has no tab (nor is it loaded), and nothing of a use is made before it's opened."""
 import pytest
@@ -20,6 +20,7 @@ def window(qtbot):
     s.animations = False
     s.tools_off = []
     s.last_page = "Home"
+    s.nav_compact = False
     s.save()
     c = A.Controller(A.QApplication.instance(), QIcon())
     c.apply_tools()
@@ -41,7 +42,7 @@ def window(qtbot):
 
 def test_every_files_use_has_a_name_and_a_few_words():
     sec = all_tools.SECTION_BY_PAGE["Files"]
-    assert sec.one_tool == "Corefold Files"
+    assert sec.one_tool == "Rakiza Core Files"
     for tool_id in sec.tools:
         tool = all_tools.BY_ID[tool_id]
         if tool.ready:
@@ -171,8 +172,10 @@ def test_the_pdf_editor_gets_the_room(window, tmp_path, qtbot):
 
 
 def test_tab_goes_from_the_top_bar_to_the_heading_then_the_page(window, qtbot):
+    """(The bar of uses shows while the sidebar has icons only: with names, the uses are in the sidebar.)"""
     from PySide6.QtWidgets import QApplication
     w = window
+    w.set_nav_compact(True, animate=False)
     for name in ("Converter", "PDF", "Files"):  # (the Converter's page is made before the heading; the others after)
         w.open_page(name)
         w.lang_btn.setFocus()
@@ -190,6 +193,7 @@ def test_tab_goes_from_the_top_bar_to_the_heading_then_the_page(window, qtbot):
 def test_arrows_go_along_the_bar_of_uses(window, qtbot):
     from PySide6.QtWidgets import QApplication
     w = window
+    w.set_nav_compact(True, animate=False)
     w.open_page("Converter")
     w.one_head.tabs["Converter"].setFocus()
     qtbot.keyClick(QApplication.focusWidget(), Qt.Key_Right)
@@ -210,6 +214,7 @@ def test_window_made_with_a_files_page_open_has_the_same_tab_order(qtbot):
     s.animations = False
     s.tools_off = []
     s.last_page = "Converter"
+    s.nav_compact = True  # (the bar of uses shows with icons only in the sidebar)
     s.save()
     c = A.Controller(A.QApplication.instance(), QIcon())
     c.apply_tools()
@@ -232,6 +237,7 @@ def test_window_made_with_a_files_page_open_has_the_same_tab_order(qtbot):
         from PySide6.QtCore import QTimer
         from shiboken6 import delete
         s.last_page = "Home"
+        s.nav_compact = False
         s.save()
         c.tray.hide()
         for timer in c.findChildren(QTimer):

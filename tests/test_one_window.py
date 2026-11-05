@@ -1,4 +1,4 @@
-"""Everything shows inside Corefold's window: questions, dialogs, menus, dropdown lists, tips and moving a
+"""Everything shows inside Rakiza Core's window: questions, dialogs, menus, dropdown lists, tips and moving a
 widget on the Home page never open a window of their own (not even one that flashes for a moment)."""
 import pytest
 from PySide6.QtCore import QEvent, QObject, QPoint, Qt, QTimer
@@ -15,15 +15,15 @@ class Windows(QObject):
 
     def __init__(self, main: QWidget):
         super().__init__()
-        self.main = main  # (Corefold's own window may show, of course: it's the one everything goes in)
+        self.main = main  # (Rakiza Core's own window may show, of course: it's the one everything goes in)
         self.seen: list[str] = []
 
     def eventFilter(self, obj, e):
         if e.type() == QEvent.Type.Show and obj is not self.main and obj is not self.main.windowHandle():
             if isinstance(obj, QWidget) and obj.isWindow():
                 if type(obj).__name__ == "Toast" and (obj is not self.main.c.toast or not self.main.isVisible()):
-                    return False  # (a message while Corefold is in the tray: in the screen's corner, as it should;
-                    # or one of an earlier test's Corefold, whose timers are still going)
+                    return False  # (a message while Rakiza Core is in the tray: in the screen's corner, as it should;
+                    # or one of an earlier test's Rakiza Core, whose timers are still going)
                 import traceback
                 where = [f"{f.name}:{f.lineno}" for f in traceback.extract_stack()[:-1] if "corefold" in f.filename]
                 self.seen.append(f"{type(obj).__name__} '{obj.windowTitle() or obj.text() if hasattr(obj, 'text') else ''}' "

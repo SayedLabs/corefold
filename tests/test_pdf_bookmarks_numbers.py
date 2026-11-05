@@ -1,4 +1,4 @@
-"""Corefold PDF: the bookmarks (the list of chapters on the side), and page numbers in Arabic digits."""
+"""Rakiza Core PDF: the bookmarks (the list of chapters on the side), and page numbers in Arabic digits."""
 import threading
 from pathlib import Path
 

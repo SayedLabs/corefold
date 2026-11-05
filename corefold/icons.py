@@ -106,7 +106,7 @@ def icon(name: str, color: QColor | str, disabled: QColor | str | None = None,
     return QIcon(ic)  # (a copy that shares the pictures: changing it leaves the kept one as it is)
 
 
-# ---- the product tiles (the Corefold mark in each product's colours, on a near-black tile)
+# ---- the product tiles (the Rakiza Core mark in each product's colours, on a near-black tile)
 _TILE_BODY = "M20 10H33V31H54V44A10 10 0 0 1 44 54H20A10 10 0 0 1 10 44V20A10 10 0 0 1 20 10Z"
 _TILE_FOLD = "M37.5 10.6L53.4 26.5A1.6 1.6 0 0 1 52.3 29.2H38.6A1.6 1.6 0 0 1 37 27.6V11.7A1.6 1.6 0 0 1 37.5 10.6Z"
 _TILE_GLYPHS = {  # drawn on the old 4..60 grid, moved into the 10..54 body by _GLYPH_FIT
@@ -194,30 +194,40 @@ PRODUCT_COLORS = {  # (light end, deep end) of each product's gradient
 _tiles: dict = {}  # drawn tiles, by (product, size, screen scale): Home draws the same few again on every rebuild
 
 
+_glyphs: dict[str, str] = {}  # product -> the tool's (or section's) own icon in icondata
+
+
+def _product_glyph(product: str) -> str:
+    if not _glyphs:
+        from . import tools as all_tools  # (here, not at the top: tools.py is read after this)
+        _glyphs.update({sec.product: sec.icon for sec in all_tools.SECTIONS})
+        _glyphs.update({tool.product: tool.icon for tool in all_tools.TOOLS})
+    return _glyphs.get(product, "apps")
+
+
 def product_tile(product: str, size: int, dark: bool = True, dpr: float = 1.0) -> QPixmap:
-    """The app-icon look: the mark in a gradient on a near-black tile (the same in light and dark)."""
-    key = (product, size, round(dpr, 3))
+    """A tool's (or a section's) mark inside the app: its icon on a soft rounded square in its own colour. The
+    app-icon look (a mark on a near-black tile with a folded corner) is only Rakiza Core's own: the tools are
+    parts of it, not programs of their own."""
+    key = (product, size, round(dpr, 3), dark)
     kept = _tiles.get(key)
     if kept is not None:
         return QPixmap(kept)  # (shared until someone paints on it)
     light, deep = PRODUCT_COLORS.get(product, PRODUCT_COLORS["corefold"])
-    svg_text = (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><defs>'
-        f'<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="{light}"/>'
-        f'<stop offset="1" stop-color="{deep}"/></linearGradient>'
-        f'<radialGradient id="glow" cx="50%" cy="40%" r="60%"><stop offset="0" stop-color="{light}" '
-        f'stop-opacity=".28"/><stop offset="1" stop-color="{light}" stop-opacity="0"/></radialGradient></defs>'
-        f'<rect x="2.5" y="2.5" width="59" height="59" rx="15" fill="#0b0b0c" stroke="#26282c"/>'
-        f'<rect x="2.5" y="2.5" width="59" height="59" rx="15" fill="url(#glow)"/>'
-        f'<path d="{_TILE_BODY}" fill="url(#g)"/><path d="{_TILE_FOLD}" fill="{light}" opacity=".62"/>'
-        f'<g fill="#0b0b0c" stroke="#0b0b0c" stroke-width="0" {_GLYPH_FIT}>'
-        f'{_TILE_GLYPHS.get(product, _TILE_GLYPHS["corefold"])}</g></svg>')
+    ink = QColor(light if dark else deep)
     pm = QPixmap(max(1, round(size * dpr)), max(1, round(size * dpr)))
     pm.fill(Qt.transparent)
     pm.setDevicePixelRatio(dpr)
     p = QPainter(pm)
     p.setRenderHint(QPainter.Antialiasing)
-    QSvgRenderer(QByteArray(svg_text.encode("ascii"))).render(p, QRectF(0, 0, size, size))
+    p.setPen(Qt.NoPen)
+    soft = QColor(ink)
+    soft.setAlpha(44 if dark else 30)
+    p.setBrush(soft)
+    p.drawRoundedRect(QRectF(0, 0, size, size), size * 0.28, size * 0.28)
+    glyph = round(size * 0.56)
+    p.drawPixmap(QRectF((size - glyph) / 2, (size - glyph) / 2, glyph, glyph).toRect(),
+                 pixmap(_product_glyph(product), glyph, ink, dpr))
     p.end()
     if len(_tiles) > 200:
         _tiles.clear()

@@ -1,4 +1,4 @@
-"""App updates for Corefold Uninstaller: which installed apps have a newer version, and updating them,
+"""App updates for Rakiza Core Uninstaller: which installed apps have a newer version, and updating them,
 with Windows' own package manager (winget, which comes with Windows 10 and 11 as "App Installer"), as
 UniGetUI and Patch My PC do. Nothing is updated unless it's asked for, one app at a time, each from
 where its maker publishes it.

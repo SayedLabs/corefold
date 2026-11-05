@@ -60,7 +60,7 @@ def save_plan(settings, plan: backup.Plan) -> None:
 
 
 class BackupPage(QWidget):
-    """Corefold Backup in the window."""
+    """Rakiza Core Backup in the window."""
 
     def __init__(self, controller: "Controller", header):
         super().__init__()

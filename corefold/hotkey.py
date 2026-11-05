@@ -190,7 +190,7 @@ def _mask_modifier_release(u):
 
 class Hotkey(QObject):
     """The shortcut that opens the clipboard, from any app. Windows tells a tiny thread of its own
-    (asleep until the keys are pressed), so it works even while a Corefold window is busy."""
+    (asleep until the keys are pressed), so it works even while a Rakiza Core window is busy."""
     pressed = Signal()
 
     def __init__(self):

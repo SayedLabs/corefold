@@ -1,4 +1,4 @@
-"""Corefold Capture: pictures of the screen.
+"""Rakiza Core Capture: pictures of the screen.
 
 A shortcut freezes the screen, you drag over what you want (or click a window, or press Enter for
 the whole screen), and the picture opens in a small editor to mark it up, copy it or save it.
@@ -408,7 +408,7 @@ class Picker:
 # ----------------------------------------------------------------------------- the tool
 
 class CaptureTool(QObject):
-    """Corefold Capture while it's in use: its shortcut, and what happens after a screenshot."""
+    """Rakiza Core Capture while it's in use: its shortcut, and what happens after a screenshot."""
 
     def __init__(self, controller):
         super().__init__()
@@ -441,7 +441,7 @@ class CaptureTool(QObject):
         self.text_key.stop()
 
     def _hide_corefold(self):
-        """Corefold's own window steps aside while you pick (it comes back afterwards)."""
+        """Rakiza Core's own window steps aside while you pick (it comes back afterwards)."""
         w = self.c.window_if_open()
         if w is not None and w.isVisible() and not w.isMinimized():
             self._hidden = w

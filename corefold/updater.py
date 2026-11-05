@@ -23,7 +23,9 @@ from typing import Callable
 
 from .i18n import tr
 
-INSTALLER_RE = re.compile(r"^Corefold-Setup-[0-9A-Za-z.\-+]+\.exe$")
+INSTALLER_PREFIX = "RakizaCore"
+UPDATE_FOLDER = "rakizacore-update"
+INSTALLER_RE = re.compile(r"^RakizaCore-Setup-[0-9A-Za-z.\-+]+\.exe$")
 SUMS_NAME = "SHA256SUMS.txt"
 
 
@@ -87,7 +89,7 @@ def parse_release(data: dict, repo: str) -> UpdateInfo:
     if not tag:
         raise UpdateError(tr("release has no version tag"))
     if not re.fullmatch(r"[vV]?\d{1,4}(\.\d{1,6}){1,3}([-+][0-9A-Za-z.-]{1,32})?", tag):
-        # (it's shown in Corefold's messages and menus: only a plain version number like 1.10.0)
+        # (it's shown in Rakiza Core's messages and menus: only a plain version number like 1.10.0)
         raise UpdateError(tr("unexpected answer from GitHub"))
     repo = current_repo(data, repo)
     installer = sums = None
@@ -122,7 +124,7 @@ def check(repo: str, current: str, timeout: float = 15) -> UpdateInfo | None:
     if not re.fullmatch(r"[\w.-]+/[\w.-]+", repo or ""):
         raise UpdateError(tr("updates aren't set up for this copy"))
     try:
-        with _request(f"https://api.github.com/repos/{repo}/releases/latest", f"Corefold/{current}",
+        with _request(f"https://api.github.com/repos/{repo}/releases/latest", f"RakizaCore/{current}",
                       timeout) as resp:
             data = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
@@ -158,7 +160,7 @@ def download(info: UpdateInfo, current: str, progress: Callable[[float], None] |
         raise UpdateError(tr("this release has no checksum file, so it can't be verified"))
     progress = progress or (lambda f: None)
     cancel = cancel or threading.Event()
-    ua = f"Corefold/{current}"
+    ua = f"RakizaCore/{current}"
 
     try:
         with _request(info.sums_url, ua, timeout) as resp:
@@ -168,7 +170,7 @@ def download(info: UpdateInfo, current: str, progress: Callable[[float], None] |
     if not want:
         raise UpdateError(tr("the installer isn't listed in the checksum file"))
 
-    folder = Path(tempfile.gettempdir()) / "corefold-update"
+    folder = Path(tempfile.gettempdir()) / UPDATE_FOLDER
     folder.mkdir(exist_ok=True)
     dest = folder / info.installer_name
     part = folder / (info.installer_name + ".part")
@@ -205,23 +207,24 @@ def download(info: UpdateInfo, current: str, progress: Callable[[float], None] |
 
 def clean_old_installers(keep_days: float = 1.0):
     """Deletes installers left from earlier updates (about 100 MB each), also the one a version from
-    before 1.7.0 downloaded to update to Corefold (its own folder goes too once it's empty)."""
+    before 1.7.0 downloaded to update to Rakiza Core (its own folder goes too once it's empty)."""
     import time
-    from .core import LEGACY_NAME
+    from .core import OLD_APP_NAMES
     temp = Path(tempfile.gettempdir())
     cutoff = time.time() - keep_days * 86400
-    for folder, prefix in ((temp / "corefold-update", "Corefold"),
-                           (temp / f"{LEGACY_NAME.lower()}-update", LEGACY_NAME)):
+    for folder, prefix in ((temp / UPDATE_FOLDER, INSTALLER_PREFIX),
+                           *((temp / f"{name.lower()}-update", name) for name in OLD_APP_NAMES)):
         for p in list(folder.glob(f"{prefix}-Setup-*")) if folder.is_dir() else []:
             try:
                 if p.stat().st_mtime < cutoff:
                     p.unlink()
             except OSError:
                 pass
-    try:
-        (temp / f"{LEGACY_NAME.lower()}-update").rmdir()  # only if it's empty
-    except OSError:
-        pass
+    for name in OLD_APP_NAMES:
+        try:
+            (temp / f"{name.lower()}-update").rmdir()  # only if it's empty
+        except OSError:
+            pass
 
 
 # How the installer ends when it didn't get to install (Windows' permission wasn't given, or it was cancelled)
@@ -229,10 +232,10 @@ NOT_ALLOWED = {1, 2, 1223}
 
 
 def run_installer(path: Path) -> subprocess.Popen:
-    """Starts the installer in silent mode. Corefold is installed for the whole PC (in Program Files), so the
-    installer asks Windows for permission itself (that way it can start Corefold again afterwards as the person,
-    never with administrator rights). Once it has it, it asks Corefold to close, upgrades it and starts it again.
-    The installer is returned: if it ends while Corefold still runs, nothing was installed."""
+    """Starts the installer in silent mode. Rakiza Core is installed for the whole PC (in Program Files), so the
+    installer asks Windows for permission itself (that way it can start Rakiza Core again afterwards as the person,
+    never with administrator rights). Once it has it, it asks Rakiza Core to close, upgrades it and starts it again.
+    The installer is returned: if it ends while Rakiza Core still runs, nothing was installed."""
     from . import __version__, settings_backup
     settings_backup.keep_copy(__version__)  # the settings as they were, in case the new version loses them
     return subprocess.Popen([str(path), "/SILENT", "/SP-", "/SUPPRESSMSGBOXES", "/NORESTART"], close_fds=True)

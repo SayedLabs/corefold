@@ -1,4 +1,4 @@
-"""Corefold Scan's page: Microsoft Defender's state, the three kinds of scan, and what a scan found."""
+"""Rakiza Core Scan's page: Microsoft Defender's state, the three kinds of scan, and what a scan found."""
 from __future__ import annotations
 
 import logging
@@ -165,7 +165,7 @@ def d_name(f: dict) -> str:
 class ScanRunner(QObject):
     """The scan that's running, kept by the app rather than the page: the window can be closed (and even
     freed) while Defender works, and the page shows the scan again when it's opened."""
-    finding = Signal(object)     # a Finding, as Corefold's checks make it
+    finding = Signal(object)     # a Finding, as Rakiza Core's checks make it
     stage = Signal(str)          # "defender", then "checks"
     began = Signal()
     finished = Signal(object)    # the ScanResult
@@ -258,13 +258,13 @@ def verdict_words(r: scan.ScanResult, d: scan.Defender | None) -> tuple[str, str
     if r.stopped:
         title, icon = tr("The scan was stopped"), "info"
     elif r.defender_problem == "not-here":
-        title, icon = tr("Microsoft Defender isn't on this PC, so only Corefold's own checks were made"), "info"
+        title, icon = tr("Microsoft Defender isn't on this PC, so only Rakiza Core's own checks were made"), "info"
     elif r.defender_problem == "off":
         if d is not None and d.others:
-            title = tr("{name} protects this PC, so only Corefold's own checks were made. Scan with {name} too.",
+            title = tr("{name} protects this PC, so only Rakiza Core's own checks were made. Scan with {name} too.",
                        name=ltr(d.others[0]))
         else:
-            title = tr("Microsoft Defender is switched off, so only Corefold's own checks were made")
+            title = tr("Microsoft Defender is switched off, so only Rakiza Core's own checks were made")
         icon = "shield_dismiss"
     elif r.defender_problem == "failed":
         title, icon = tr("Microsoft Defender couldn't finish the scan"), "shield_error"
@@ -276,11 +276,11 @@ def verdict_words(r: scan.ScanResult, d: scan.Defender | None) -> tuple[str, str
     else:
         title, icon = tr("Microsoft Defender found no threats"), "shield"
     if warn:
-        line = tr("Corefold's own checks: {count} worth a look", count=warn)
+        line = tr("Rakiza Core's own checks: {count} worth a look", count=warn)
     elif r.looked_at:
-        line = tr("Corefold's own checks found nothing unusual in {count} files", count=r.looked_at)
+        line = tr("Rakiza Core's own checks found nothing unusual in {count} files", count=r.looked_at)
     else:
-        line = tr("Corefold's own checks found nothing unusual")
+        line = tr("Rakiza Core's own checks found nothing unusual")
     return icon, title, line
 
 
@@ -304,7 +304,7 @@ def _pills(row: SettingRow, labels: list[QLabel]):
 
 
 class FindingRow(QWidget):
-    """Something Corefold's checks noticed: its file, what it means, how much it matters, and a "…" menu."""
+    """Something Rakiza Core's checks noticed: its file, what it means, how much it matters, and a "…" menu."""
 
     def __init__(self, page: "ScanPage", f: dict):
         super().__init__()
@@ -437,7 +437,7 @@ def _card(layout_cls=QHBoxLayout) -> tuple[QFrame, QHBoxLayout]:
 
 
 class ScanPage(QWidget):
-    """Corefold Scan in the window: Defender's state, the three kinds of scan, and what the last one found."""
+    """Rakiza Core Scan in the window: Defender's state, the three kinds of scan, and what the last one found."""
 
     def __init__(self, controller: "Controller", header):
         super().__init__()
@@ -499,7 +499,7 @@ class ScanPage(QWidget):
                                        "using your PC."), [self.full_btn]))
         self.options.add(OptionCard("folder_search", tr("Choose what to scan"),
                                     tr("A file, a folder or a drive. You can also drop files here, or right-click "
-                                       "them and pick \"Scan with Corefold\"."), [self.file_btn, self.folder_btn]))
+                                       "them and pick \"Scan with Rakiza Core\"."), [self.file_btn, self.folder_btn]))
         self.options.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         lay.addWidget(self.options)
 
@@ -520,7 +520,7 @@ class ScanPage(QWidget):
         self.run_line = _label("", "muted", wrap=True)
         rl.addWidget(self.run_line)
         bottom = QHBoxLayout()
-        bottom.addWidget(_label(tr("You can close this window: Corefold tells you when the scan is done."), "subtle",
+        bottom.addWidget(_label(tr("You can close this window: Rakiza Core tells you when the scan is done."), "subtle",
                                 wrap=True), 1)
         self.stop_btn = _button(tr("Stop"), "", self.stop)
         bottom.addWidget(self.stop_btn)
@@ -547,9 +547,9 @@ class ScanPage(QWidget):
         lay.addWidget(self.verdict)
         self.threats_head = _label(tr("What Microsoft Defender found"), "section")
         self.threats = Group()
-        self.findings_head = _label(tr("Worth a look, from Corefold's own checks"), "section")
+        self.findings_head = _label(tr("Worth a look, from Rakiza Core's own checks"), "section")
         self.findings_note = _label(tr("These are tricks malware often uses, but harmless programs sometimes do "
-                                       "them too. Corefold doesn't change or delete anything here."), "subtle",
+                                       "them too. Rakiza Core doesn't change or delete anything here."), "subtle",
                                     wrap=True)
         self.findings = Group()
         for w in (self.threats_head, self.threats, self.findings_head, self.findings_note, self.findings):
@@ -567,7 +567,7 @@ class ScanPage(QWidget):
         self.quarantine_btn = _button(tr("Defender's quarantine…"), "", self.show_quarantine)
         foot.addWidget(self.quarantine_btn)
         lay.addLayout(foot)
-        lay.addWidget(_label(tr("Everything happens on this PC: Corefold uploads nothing and looks nothing up "
+        lay.addWidget(_label(tr("Everything happens on this PC: Rakiza Core uploads nothing and looks nothing up "
                                 "online. Microsoft Defender, part of Windows, does the scanning."), "subtle",
                              wrap=True))
         lay.addStretch()
@@ -612,16 +612,16 @@ class ScanPage(QWidget):
         elif not d.exe:
             icon, color = "shield_dismiss", t.danger
             title = tr("Microsoft Defender isn't on this PC")
-            line = tr("Corefold's own checks still work, but scanning needs Microsoft Defender.")
+            line = tr("Rakiza Core's own checks still work, but scanning needs Microsoft Defender.")
         elif d.read and not d.enabled and d.others:
             icon, color = "shield", t.accent
             title = tr("{name} protects this PC", name=ltr(", ".join(d.others)))
             line = tr("Microsoft Defender rests while another antivirus is on, so scan with {name} too. "
-                      "Corefold's own checks still work.", name=ltr(d.others[0]))
+                      "Rakiza Core's own checks still work.", name=ltr(d.others[0]))
         elif d.read and not d.enabled:
             icon, color = "shield_dismiss", t.danger
             title = tr("Microsoft Defender is switched off")
-            line = tr("Switch it on in Windows Security to scan. Corefold's own checks still work.")
+            line = tr("Switch it on in Windows Security to scan. Rakiza Core's own checks still work.")
         else:
             if d.realtime or not d.read:
                 icon, color = "shield", t.success
@@ -723,7 +723,7 @@ class ScanPage(QWidget):
         if r.cancel is not None and r.cancel.is_set():
             text = tr("Stopping…")
         elif r.stage_now == "checks":
-            text = tr("Finishing Corefold's own checks…")
+            text = tr("Finishing Rakiza Core's own checks…")
         elif r.stage_now == "defender":
             text = tr("Microsoft Defender is scanning…")
         else:
@@ -813,7 +813,7 @@ class ScanPage(QWidget):
                 log.warning("couldn't delete %s: %s", f, e)
                 failed.append(f)
         if failed:
-            sheet.warning(self, tr("Delete it"), tr("Windows didn't let Corefold delete it. Open Windows "
+            sheet.warning(self, tr("Delete it"), tr("Windows didn't let Rakiza Core delete it. Open Windows "
                                                     "Security to remove it."))
             return
         row.threat["status"] = "deleted"
@@ -842,7 +842,7 @@ class ScanPage(QWidget):
             return
         kind = tr(KINDS.get(last.get("kind", ""), KINDS[scan.CUSTOM]))
         if not last.get("defender"):
-            what = tr("only Corefold's own checks")
+            what = tr("only Rakiza Core's own checks")
         elif last.get("threats"):
             what = tr("threats found: {count}", count=int(last["threats"]))
         else:
@@ -920,7 +920,7 @@ class QuarantineDialog(QDialog):
                 w.hide()
                 w.deleteLater()
         if isinstance(items, Exception) or items is None:
-            self.state.setText(tr("Corefold couldn't read Defender's quarantine. Windows Security shows it too."))
+            self.state.setText(tr("Rakiza Core couldn't read Defender's quarantine. Windows Security shows it too."))
             self.group.hide()
             return
         if not items:

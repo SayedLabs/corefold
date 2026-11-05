@@ -324,7 +324,7 @@ def _too_deep(folder: Path) -> bool:
 def _run7z(args: list, ctx: Ctx | None = None, cwd: Path | None = None) -> tuple[int, str]:
     exe = find_7z()
     if not exe:
-        raise RuntimeError(tr("7-Zip is missing. Reinstall Corefold to fix archives"))
+        raise RuntimeError(tr("7-Zip is missing. Reinstall Rakiza Core to fix archives"))
     cmd, typed = _with_password([exe, *args])
     if ctx is None:
         proc = subprocess.run(cmd, capture_output=True, input=typed or b"", cwd=str(cwd) if cwd else None,
@@ -337,7 +337,7 @@ def _run7z(args: list, ctx: Ctx | None = None, cwd: Path | None = None) -> tuple
 
 # A ZIP made before UTF-8 (Windows' own "Compressed folder", old WinZip and WinRAR) keeps its names in the
 # code page of the PC that made it, without saying which. Unpacked on a PC with another one, Arabic names
-# come out as rubbish. So Corefold reads the raw names and works out which code page reads them best.
+# come out as rubbish. So Rakiza Core reads the raw names and works out which code page reads them best.
 # Arabic ones are mostly 720 (Arabic DOS, what Windows itself writes), some 1256 (Arabic Windows) or 864.
 UTF8_CP = 65001
 CODEPAGES = (720, 1256, 864)          # tried, with the PC's own two, for names that aren't UTF-8
@@ -606,7 +606,7 @@ def _list_entries(src: Path, password: str = "") -> list[Entry]:
                         for i in zf.infolist()]
         except zipfile.BadZipFile as e:
             raise RuntimeError(tr("the ZIP file is damaged")) from e
-    raise RuntimeError(tr("7-Zip is missing. Reinstall Corefold to fix archives"))
+    raise RuntimeError(tr("7-Zip is missing. Reinstall Rakiza Core to fix archives"))
 
 
 def _tar_time(ts: float) -> str:
@@ -667,7 +667,7 @@ def check_readable(files: list[Path]) -> str | None:
     if is_tar(files[0]) or is_zst(files[0]):
         return None
     if not find_7z() and files[0].suffix.lower() != ".zip":
-        return tr("Needs 7-Zip (reinstall Corefold)")
+        return tr("Needs 7-Zip (reinstall Rakiza Core)")
     return None
 
 
@@ -1018,7 +1018,7 @@ def test_archive(src: Path, ctx: Ctx) -> Result:
 # ----------------------------------------------------------------------------- creating
 
 LEVELS = {"fast": 1, "normal": 5, "max": 9}
-# TAR files (for Linux and Mac), made by Corefold itself: their packing level for fast, normal and max
+# TAR files (for Linux and Mac), made by Rakiza Core itself: their packing level for fast, normal and max
 TAR_FORMATS = {"tar.gz": (1, 6, 9), "tar.xz": (1, 6, 9), "tar.zst": (1, 6, 19)}
 # files that are packed already: squeezing them again takes time and saves next to nothing
 PACKED_ALREADY = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".avif", ".gif", ".mp4", ".mov", ".mkv",
@@ -1142,7 +1142,7 @@ def pack_into(items: list[Path], out: Path, ctx: Ctx, fmt: str = "zip", level: s
         return [out]
     # no 7-Zip: plain ZIP through Python
     if fmt != "zip" or password or split_mb:
-        raise RuntimeError(tr("needs 7-Zip (reinstall Corefold)"))
+        raise RuntimeError(tr("needs 7-Zip (reinstall Rakiza Core)"))
     files: list[tuple[Path, str]] = []
     for p, r in zip(items, rel):
         if p.is_dir():
@@ -1208,7 +1208,7 @@ def convert_archive(src: Path, ctx: Ctx, fmt: str) -> Result:
 
 
 def check_needs_7z(files: list[Path]) -> str | None:
-    return None if find_7z() else tr("Needs 7-Zip (reinstall Corefold)")
+    return None if find_7z() else tr("Needs 7-Zip (reinstall Rakiza Core)")
 
 
 # ----------------------------------------------------------------------------- editing (ZIP / 7z)
@@ -1345,7 +1345,7 @@ def is_archive_file(p: Path) -> bool:
 
 
 def unpack_nested(roots: list[Path], ctx: Ctx) -> int:
-    """Unpacks archives found in roots (files and folders Corefold just made), each into a folder
+    """Unpacks archives found in roots (files and folders Rakiza Core just made), each into a folder
     named after it, and removes that inner copy once it's unpacked. Returns how many."""
     from dataclasses import replace
     options = replace(ctx.options, rename_base="")

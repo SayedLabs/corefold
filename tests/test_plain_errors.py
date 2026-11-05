@@ -1,5 +1,5 @@
 """Windows' own error text ("[WinError 5] Access is denied: 'C:\\…'") never reaches the person: a job that
-crashes, and the lists saved from Space and the Uninstaller, say what went wrong in Corefold's words."""
+crashes, and the lists saved from Space and the Uninstaller, say what went wrong in Rakiza Core's words."""
 import threading
 from unittest import mock
 

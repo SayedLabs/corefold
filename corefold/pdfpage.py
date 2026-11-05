@@ -1,7 +1,7 @@
-"""Corefold PDF's page: what you can do with PDFs, as cards, and a board of page pictures where
+"""Rakiza Core PDF's page: what you can do with PDFs, as cards, and a board of page pictures where
 pages from one or more PDFs are put in order, turned, deleted and saved as a new PDF.
 
-Nothing here is loaded unless Corefold PDF is switched on (in Files) and its page is opened."""
+Nothing here is loaded unless Rakiza Core PDF is switched on (in Files) and its page is opened."""
 from __future__ import annotations
 
 import collections
@@ -62,7 +62,7 @@ ACTIONS = [("edit", "Edit content", "Type text, change words, add pictures, high
             "navigation"),
            ("clean", "Remove hidden info", "See and change its title and author, and take out who made it, notes, "
             "attached files and scripts", "broom")]
-# the Converter's own PDF tools that are shown here too (when this Corefold has them)
+# the Converter's own PDF tools that are shown here too (when this Rakiza Core has them)
 MORE = [("pdf:numbers", "Page numbers", "Number every page", "text_t"),
         ("pdf:watermark", "Watermark", "Add text or a logo to every page", "paint_brush"),
         ("pdf:sign", "Sign", "Put your signature on it", "rename"),
@@ -116,7 +116,7 @@ def _tile(icon_name: str, ink: QColor, dpr: float, size: int = 36) -> QPixmap:
     return pm
 
 class ActionCard(QFrame):
-    """One thing Corefold PDF does: click it (or Enter) to start."""
+    """One thing Rakiza Core PDF does: click it (or Enter) to start."""
 
     def __init__(self, key: str, title: str, line: str, icon_name: str, on_click, big: bool = False):
         super().__init__()
@@ -323,7 +323,7 @@ class ToolStrip(QFrame):
 
 
 class PdfPage(QWidget):
-    """Corefold PDF in the window: the cards, and the board when PDFs are open."""
+    """Rakiza Core PDF in the window: the cards, and the board when PDFs are open."""
 
     def __init__(self, controller: "Controller", header):
         super().__init__()
@@ -617,7 +617,7 @@ class PdfPage(QWidget):
             if count:
                 self.passwords[str(src)] = password
         if not count:
-            self.c.tell(tr("Corefold PDF"), tr("{name} couldn't be read. It may be damaged.", name=short_name(src.name)))
+            self.c.tell(tr("Rakiza Core PDF"), tr("{name} couldn't be read. It may be damaged.", name=short_name(src.name)))
             return
 
         def read(_progress):
@@ -629,7 +629,7 @@ class PdfPage(QWidget):
         from .pdfdialogs import BookmarksDialog
         from .pdfmore import BOOKMARKS
         if isinstance(found, Exception):
-            self.c.tell(tr("Corefold PDF"), tr("{name} couldn't be read. It may be damaged.", name=short_name(src.name)))
+            self.c.tell(tr("Rakiza Core PDF"), tr("{name} couldn't be read. It may be damaged.", name=short_name(src.name)))
             return
         marks, pages, other = found
         dlg = BookmarksDialog([src], self.c.icon, self.c.theme.dark, marks, pages, other)
@@ -659,7 +659,7 @@ class PdfPage(QWidget):
                 count = _count(src, password)
                 wrong = not count
         if not count:
-            self.c.tell(tr("Corefold PDF"), tr("{name} couldn't be read. It may be damaged.", name=short_name(src.name)))
+            self.c.tell(tr("Rakiza Core PDF"), tr("{name} couldn't be read. It may be damaged.", name=short_name(src.name)))
             return
         if self.editor is None:
             from .pdfeditor import PdfEditor
@@ -810,7 +810,7 @@ class PdfPage(QWidget):
             if pictures:
                 self.pictures_to_pdf(pictures)
             elif paths:
-                self.c.tell(tr("Corefold PDF"), tr("Those aren't PDFs."))
+                self.c.tell(tr("Rakiza Core PDF"), tr("Those aren't PDFs."))
             return
         self._make_board()
         if self.stack.currentIndex() == 0:
@@ -1182,7 +1182,7 @@ class PdfPage(QWidget):
             fi, pi, turn = plan[k]
             return _render_big(self.files[fi], self.passwords.get(str(self.files[fi]), ""), pi, turn,
                                self.devicePixelRatioF())
-        dlg = PreviewDialog(tr("Corefold PDF"), self.c.icon, self.c.theme.dark, render, start, len(plan))
+        dlg = PreviewDialog(tr("Rakiza Core PDF"), self.c.icon, self.c.theme.dark, render, start, len(plan))
         self.preview_dialog = dlg
         try:
             sheet.run(dlg)
@@ -1243,7 +1243,7 @@ class PdfPage(QWidget):
 
     def unsaved(self) -> bool:
         """Work that isn't saved yet: a new order of pages on the board, or changes in the editor (asked
-        before Corefold quits or remakes its window)."""
+        before Rakiza Core quits or remakes its window)."""
         editing = self.editor is not None and self.editor.src is not None and self.editor.unsaved()
         return editing or self.board_unsaved()
 

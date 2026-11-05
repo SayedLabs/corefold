@@ -7,7 +7,7 @@ Careful by design:
 - nothing is deleted outright: files are moved into a backup folder and registry keys are exported
   to .reg files first, so everything can be put back from the Apps page for 30 days.
 
-Nothing here imports Qt: the elevated helper (Corefold.exe --cleanup plan.json) uses it too.
+Nothing here imports Qt: the elevated helper (RakizaCore.exe --cleanup plan.json) uses it too.
 """
 from __future__ import annotations
 
@@ -28,13 +28,13 @@ import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from .core import LEGACY_NAME, is_link, system_tool, windows_folder  # noqa: F401 (is_link is used here and by the selftest)
+from .core import APP_NAME, OLD_APP_NAMES, is_link, system_tool, windows_folder  # noqa: F401 (is_link is used here and by the selftest)
 
 log = logging.getLogger(__name__)
 
 UNINSTALL = r"Software\Microsoft\Windows\CurrentVersion\Uninstall"
 RUN_KEYS = (r"Software\Microsoft\Windows\CurrentVersion\Run", r"Software\Microsoft\Windows\CurrentVersion\RunOnce")
-BACKUP_DIR = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "Corefold" / "Uninstall backups"
+BACKUP_DIR = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "Rakiza Core" / "Uninstall backups"
 KEEP_DAYS = 30
 NO_WINDOW = 0x08000000
 
@@ -67,7 +67,7 @@ DEPTH_HELP = {
 }
 
 
-# How sure Corefold is that a leftover is the app's (Leftover.level), shown next to it: (word, what it means),
+# How sure Rakiza Core is that a leftover is the app's (Leftover.level), shown next to it: (word, what it means),
 # English, shown through tr()
 SURE = {3: ("Sure", "It surely belongs to the app."),
         2: ("Likely", "It most likely belongs to the app."),
@@ -551,7 +551,7 @@ def split_command(cmd: str) -> tuple[str, str]:
 
 def _windows_own(exe: str) -> str:
     """ "MsiExec.exe" (most uninstall entries name it like that) -> its full path in System32. A program
-    given by its name alone would be looked for in the current folder too, and Corefold's own."""
+    given by its name alone would be looked for in the current folder too, and Rakiza Core's own."""
     if not exe or os.path.dirname(exe) or os.name != "nt":
         return exe
     name = exe if os.path.splitext(exe)[1] else exe + ".exe"
@@ -730,7 +730,7 @@ def run_uninstaller(app: App, quiet: bool, control: Control, on_state=None, stuc
             windows = procs.windows()
             new = "window" if windows else "stuck" if now - idle_since >= stuck_s else "working"
             if new == "window" and (state != "window" or control.front.is_set()):
-                show_window(windows[0])  # it may open behind Corefold
+                show_window(windows[0])  # it may open behind Rakiza Core
             control.front.clear()
             if new != state:
                 state = new
@@ -949,7 +949,7 @@ class Processes:
         return code
 
     def stop(self) -> bool:
-        """Ends them all. False if some keep running (they run as administrator, and Corefold doesn't)."""
+        """Ends them all. False if some keep running (they run as administrator, and Rakiza Core doesn't)."""
         k = _dll("kernel32")
         for pid in self.alive():
             k.TerminateProcess(self.handles[pid], 1)
@@ -1144,8 +1144,8 @@ def _protected_paths() -> frozenset[str]:
                                              "CommonProgramFiles(x86)", "CommonProgramW6432", "TEMP", "TMP")}
     paths.add(str(windows_folder()))
     paths |= {str(r) for r in search_roots()} | {str(r) for r in shortcut_roots()}
-    # Corefold's own folders (its settings, these backups, and the app itself)
-    for name in ("Corefold", LEGACY_NAME):
+    # Rakiza Core's own folders (its settings, these backups, and the app itself)
+    for name in (APP_NAME, *OLD_APP_NAMES):
         paths |= {str(Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / name),
                   str(Path(os.environ.get("APPDATA", str(Path.home()))) / name)}
     if getattr(sys, "frozen", False):
@@ -1562,7 +1562,7 @@ def find_leftovers(app: App, others: list[App] | None = None, forced: bool = Fal
             add(item)
     except Exception:
         log.debug("looking for services and tasks of %s failed", app.name, exc_info=True)
-    # 7. what Corefold saw it put in when it watched its install (installtrack), named after it or not
+    # 7. what Rakiza Core saw it put in when it watched its install (installtrack), named after it or not
     try:
         from .installtrack import leftovers_for
         for item in leftovers_for(app):
@@ -1881,7 +1881,7 @@ def _quiet_folder(path: Path, cutoff: float) -> tuple[bool, int]:
                     if e.is_dir(follow_symlinks=False):
                         waiting.append(e.path)
                     elif e.name.lower().endswith(".sys"):
-                        return False, 0  # a driver: Windows may load it without any entry Corefold reads
+                        return False, 0  # a driver: Windows may load it without any entry Rakiza Core reads
                     else:
                         total += st.st_size
         except OSError:
@@ -2326,7 +2326,7 @@ def _pending_name(entry: str) -> str:
 
 def drop_pending(entries: list[str], paths: list[str]) -> tuple[list[str], int]:
     """Windows' list of what to do at restart is pairs: a path, then its new name ("" to delete it).
-    Takes out one deletion of each of these paths: the ones Corefold asked for. Every other pair (Windows
+    Takes out one deletion of each of these paths: the ones Rakiza Core asked for. Every other pair (Windows
     Update's, another program's, a rename of the same path) stays as it was, in its order. A list that
     isn't pairs is left alone. Returns the new list and how many pairs came out."""
     entries = list(entries)
@@ -2463,7 +2463,7 @@ def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, a
     done, failed, freed = [], [], 0
 
     def keep(record):
-        """Written down straight away: if Corefold or the PC stops half-way, the backup still lists
+        """Written down straight away: if Rakiza Core or the PC stops half-way, the backup still lists
         everything that was already moved, so it can all be put back."""
         if record.get("stored") or record.get("pending"):
             data["items"].append(record)
@@ -2476,7 +2476,7 @@ def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, a
         record = dict(asdict(item), stored="")
         try:
             if not item_allowed(record):
-                raise PermissionError("not a place Corefold cleans up")
+                raise PermissionError("not a place Rakiza Core cleans up")
             if item.kind in ("folder", "file", "shortcut"):
                 src = Path(item.path)
                 if not src.exists():
@@ -2532,7 +2532,7 @@ def remove(items: list[Leftover], folder: Path, apps: list[str] | None = None, a
                 _remove_empty_parent(src.parent)
             elif item.kind == "service":
                 if not _service_ok(item.path):
-                    raise PermissionError("not a service Corefold removes")
+                    raise PermissionError("not a service Rakiza Core removes")
                 name = item.path.rsplit("\\", 1)[-1]
                 reg_file = folder / "registry" / f"{n}.reg"
                 reg_file.parent.mkdir(parents=True, exist_ok=True)
@@ -2713,7 +2713,7 @@ def _restore(folder: Path, data: dict, admin: bool, files: dict | None, private:
         stored = folder / item.get("stored", "")
         try:
             if not item_allowed(item) or not _inside(str(stored.resolve()), str(folder.resolve())):
-                raise PermissionError("not something Corefold backed up")
+                raise PermissionError("not something Rakiza Core backed up")
             if pending:
                 # first, so what stayed behind in use isn't deleted at the next restart after all. Only
                 # what's inside the folder put back: the list itself is in the user's own folder
@@ -2774,7 +2774,7 @@ def prune_backups(days: int = KEEP_DAYS):
 # ----------------------------------------------------------------------------- the admin helper
 
 def run_elevated(command: list[str], kind: str, payload: dict, cancel: threading.Event | None = None) -> dict | None:
-    """Runs "Corefold.exe --<kind> plan.json" as administrator and returns what it wrote back
+    """Runs "RakizaCore.exe --<kind> plan.json" as administrator and returns what it wrote back
     (None if the user said no to the admin prompt)."""
     work = BACKUP_DIR.parent / "helper"
     work.mkdir(parents=True, exist_ok=True)
@@ -2841,19 +2841,19 @@ def helper_main(argv: list[str]) -> int:
     except (IndexError, ValueError, OSError):
         return 2
     # the plan is in the user's own folder, where anything running as them can write: it must still be the
-    # very one Corefold wrote before the administrator prompt (read once: what was checked is what's used)
+    # very one Rakiza Core wrote before the administrator prompt (read once: what was checked is what's used)
     if _digest(raw) != expect:
         return 2
-    # only plans Corefold wrote (in its "helper" folder), about its own backup folders. The plan's
+    # only plans Rakiza Core wrote (in its "helper" folder), about its own backup folders. The plan's
     # own place is used, not this account's: when someone signs in with another (administrator)
     # account at the admin prompt, this copy runs as that account, with other folders.
     folder = str(payload.get("folder", "")) if isinstance(payload, dict) else ""
-    home = plan.resolve().parent.parent  # ...\Corefold
+    home = plan.resolve().parent.parent  # ...\Rakiza Core
     needs_folder = kind not in ("restore-point", "space-clean", "delete-at-restart", "startup-clean", "mft-scan",
                                 "browser-ext")
     manifest = payload.get("manifest") if isinstance(payload, dict) else None
     files = payload.get("files") if isinstance(payload, dict) else None
-    if plan.resolve().parent.name.lower() != "helper" or home.name.lower() not in ("corefold", LEGACY_NAME.lower()) or \
+    if plan.resolve().parent.name.lower() != "helper" or home.name.lower() not in (APP_NAME.lower(), *(n.lower() for n in OLD_APP_NAMES)) or \
             (needs_folder and not (folder and _inside(str(Path(folder).resolve()), str(home / BACKUP_DIR.name))
                                    and isinstance(manifest, str))) or \
             (kind == "restore" and not isinstance(files, dict)):
@@ -2867,7 +2867,7 @@ def helper_main(argv: list[str]) -> int:
             from .space import ADMIN_KEYS, clean_as_admin
             keys = [k for k in payload.get("keys", []) if k in ADMIN_KEYS]
             out = {"freed": clean_as_admin(keys)}
-        elif kind == "delete-at-restart":  # Corefold Unlock: what nothing would let go of (deleted, or moved)
+        elif kind == "delete-at-restart":  # Rakiza Core Unlock: what nothing would let go of (deleted, or moved)
             from .unlock import at_restart_allowed, delete_at_restart, move_at_restart, move_at_restart_problem
             paths = [str(p) for p in payload.get("paths", []) if isinstance(p, str) and os.path.isabs(p)
                      and os.path.lexists(p)]
@@ -2896,9 +2896,9 @@ def helper_main(argv: list[str]) -> int:
             out = {"done": r["done"], "failed": r["failed"]}
         else:
             # (an app's name is in it: it goes in through env, so no quote in a name can end the string)
-            desc = "".join(c for c in str(payload.get("description", "Corefold"))[:60] if c.isprintable())
+            desc = "".join(c for c in str(payload.get("description", "Rakiza Core"))[:60] if c.isprintable())
             powershell("Checkpoint-Computer -Description $env:CF_DESCRIPTION -RestorePointType APPLICATION_UNINSTALL",
-                       timeout=600, env={"CF_DESCRIPTION": desc or "Corefold"})
+                       timeout=600, env={"CF_DESCRIPTION": desc or "Rakiza Core"})
             out = {"done": 1}
     except Exception as e:
         out = {"error": str(e)}

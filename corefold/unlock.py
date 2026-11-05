@@ -1,4 +1,4 @@
-"""Corefold Unlock: which programs have a file or folder open, and closing them.
+"""Rakiza Core Unlock: which programs have a file or folder open, and closing them.
 
 Windows' own Restart Manager says which programs are using a file (the same thing installers use to
 ask "close these programs first"). Closing first asks the program nicely (like clicking its X, so it
@@ -109,8 +109,8 @@ class Program:
     session: int = 0
     critical: bool = False     # part of Windows: never offered to close
     explorer: bool = False     # File Explorer: closing it means restarting it
-    blocked: bool = False      # runs as administrator (or as another user): Corefold can't close it
-    own: bool = False          # Corefold itself
+    blocked: bool = False      # runs as administrator (or as another user): Rakiza Core can't close it
+    own: bool = False          # Rakiza Core itself
 
     @property
     def closable(self) -> bool:
@@ -371,7 +371,7 @@ def find(paths: list[Path]) -> Found:
 
 # Restart Manager only knows files: a program that has a FOLDER open (one watching it for changes, a backup or
 # sync tool, a program's own open-folder handle) keeps Windows from renaming or deleting it, yet isn't listed.
-# So for folders and drives Corefold also goes through the open handles of the programs it may look into
+# So for folders and drives Rakiza Core also goes through the open handles of the programs it may look into
 # (the same user's, as PowerToys File Locksmith does), and asks each file handle where it points.
 SYSTEM_EXTENDED_HANDLE_INFORMATION = 64
 STATUS_INFO_LENGTH_MISMATCH = 0xC0000004
@@ -446,7 +446,7 @@ def _final_path(k, handle) -> str:
 def _holding(tops: tuple[str, ...], skip: set) -> set[int]:
     k = _handle_dll("kernel32")
     me = os.getpid()
-    # (one handle of Corefold's own to a file says which number Windows gives the "file" kind on this PC)
+    # (one handle of Rakiza Core's own to a file says which number Windows gives the "file" kind on this PC)
     own = k.CreateFileW(sys.executable, 0x80000000, 0x7, None, OPEN_EXISTING, 0, None)
     if not own or own == INVALID_HANDLE:
         return set()
@@ -688,7 +688,7 @@ def at_restart_order(paths: list[str]) -> list[str]:
 
 def at_restart_allowed(path: str) -> bool:
     """What the administrator copy agrees to delete as the PC starts: never through a link or junction,
-    never Windows, programs' folders or a drive, and a folder only where Corefold would remove one."""
+    never Windows, programs' folders or a drive, and a folder only where Rakiza Core would remove one."""
     from .core import is_link
     from .space import protected
     from .uninstall import _safe_folder, through_link
@@ -751,7 +751,7 @@ def move_at_restart(moves: list[tuple[str, str]]) -> dict:
 
 
 def ask_move_at_restart(moves: list[tuple[Path, Path]]) -> dict | None:
-    """Runs move_at_restart in Corefold as administrator (Windows asks first). None if the person said no."""
+    """Runs move_at_restart in Rakiza Core as administrator (Windows asks first). None if the person said no."""
     from .uninstall import run_elevated
     if getattr(sys, "frozen", False):
         command = [sys.executable]
@@ -761,7 +761,7 @@ def ask_move_at_restart(moves: list[tuple[Path, Path]]) -> dict | None:
 
 
 def ask_delete_at_restart(paths: list[Path]) -> dict | None:
-    """Runs delete_at_restart in Corefold as administrator (Windows asks first). None if the person said no."""
+    """Runs delete_at_restart in Rakiza Core as administrator (Windows asks first). None if the person said no."""
     from .uninstall import run_elevated
     if getattr(sys, "frozen", False):
         command = [sys.executable]

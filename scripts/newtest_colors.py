@@ -1,4 +1,4 @@
-"""Checks Corefold Colors on a real Windows PC: known colours are painted over the whole screen, the picker
+"""Checks Rakiza Core Colors on a real Windows PC: known colours are painted over the whole screen, the picker
 is opened (by its shortcut and from the app), the mouse is really moved and clicked, and what lands on the
 clipboard is compared with the colour painted there, in HEX, RGB and HSL. The arrow keys must move exactly
 one screen pixel, at 100% and (in a second and third run of this script) at 125%, 150% and 200%.

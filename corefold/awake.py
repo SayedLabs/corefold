@@ -1,11 +1,11 @@
-"""Corefold Awake: keeps the PC from going to sleep (until it's switched off, for a while, until a
+"""Rakiza Core Awake: keeps the PC from going to sleep (until it's switched off, for a while, until a
 time, or by itself while chosen programs are open), and turns the PC off later with Windows' own
 shutdown timer. On battery, it lets the PC sleep again once the battery runs low.
 
 Staying awake is one call to Windows (SetThreadExecutionState) on the window's thread: it holds until
-it's called again, and Windows drops it by itself when Corefold ends, so the PC can never be kept awake
-by mistake after Corefold is closed. The shutdown timer is Windows' own (shutdown /s /t), so it still
-happens if Corefold is closed; when it was planned is kept in the settings, so the page can show it."""
+it's called again, and Windows drops it by itself when Rakiza Core ends, so the PC can never be kept awake
+by mistake after Rakiza Core is closed. The shutdown timer is Windows' own (shutdown /s /t), so it still
+happens if Rakiza Core is closed; when it was planned is kept in the settings, so the page can show it."""
 from __future__ import annotations
 
 import logging
@@ -233,7 +233,7 @@ def _parse(text: str) -> datetime | None:
 
 
 class AwakeTool(QObject):
-    """Corefold Awake while it's in use: staying awake, the tray's "Keep awake" menu, and the shutdown
+    """Rakiza Core Awake while it's in use: staying awake, the tray's "Keep awake" menu, and the shutdown
     timer. Made by the Controller (self.c.awake) and stopped when the tool is switched off."""
 
     changed = Signal()
@@ -258,7 +258,7 @@ class AwakeTool(QObject):
         self.watcher.timeout.connect(self.watch)
         self.menu = None
         self.add_tray_menu()
-        QTimer.singleShot(8000, self, self.watch)  # (a chosen program already open; not while Corefold starts)
+        QTimer.singleShot(8000, self, self.watch)  # (a chosen program already open; not while Rakiza Core starts)
 
     @property
     def on(self) -> bool:
@@ -312,7 +312,7 @@ class AwakeTool(QObject):
         if was_on:
             log.info("awake: off%s", " (time's up)" if ended else "")
         if ended:
-            self.c.say(tr("Corefold Awake"), tr("Your PC can go to sleep again as usual."))
+            self.c.say(tr("Rakiza Core Awake"), tr("Your PC can go to sleep again as usual."))
         self._rewatch()
         self._changed()
 
@@ -350,7 +350,7 @@ class AwakeTool(QObject):
             log.info("awake: the battery is low (%s%%), letting the PC sleep", state[1])
             self.let_sleep(ended=False)
             self.waived = set()
-            self.c.say(tr("Corefold Awake"), tr("The battery is low, so your PC can go to sleep again."))
+            self.c.say(tr("Rakiza Core Awake"), tr("The battery is low, so your PC can go to sleep again."))
             return
         wanted = self._chosen()
         if wanted or self.mode == "app":
@@ -458,7 +458,7 @@ class AwakeTool(QObject):
             self.choice_actions.append(act)
         menu.aboutToShow.connect(self._fill_tray_menu)
         tray_menu = self.c.menu
-        before = getattr(self.c, "act_again", None)
+        before = getattr(self.c, "act_pause", None)  # (with what keeps running: the Converter paused or not)
         if before is not None and before in tray_menu.actions():
             tray_menu.insertMenu(before, menu)
         else:
@@ -520,7 +520,7 @@ class AwakeTool(QObject):
             s = self.c.settings
             s.shutdown_at = (datetime.now() + timedelta(seconds=seconds)).isoformat(timespec="seconds")
             s.shutdown_planned = datetime.now().isoformat(timespec="seconds")
-            s.save()   # (not only a moment later: it must outlive Corefold)
+            s.save()   # (not only a moment later: it must outlive Rakiza Core)
         self.changed.emit()
         return code
 
@@ -539,7 +539,7 @@ class AwakeTool(QObject):
         s.shutdown_at = s.shutdown_planned = ""
         s.save()
 
-    # ---- the tool removed, or Corefold quitting
+    # ---- the tool removed, or Rakiza Core quitting
 
     def stop(self):
         self.timer.stop()

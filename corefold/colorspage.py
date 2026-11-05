@@ -1,4 +1,4 @@
-"""Corefold Colors' page: pick a colour, how it's copied, its shortcut, and the colours picked lately."""
+"""Rakiza Core Colors' page: pick a colour, how it's copied, its shortcut, and the colours picked lately."""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -93,7 +93,7 @@ class ColorsPage(QScrollArea):
         self.typed.returnPressed.connect(self._add_typed)
         self.typed.textChanged.connect(lambda _t: self.typed_note.hide())
         bl.addWidget(self.typed)
-        self.typed_note = label(tr("That isn't a colour Corefold knows. Try #1E90FF or rgb(30, 144, 255)."),
+        self.typed_note = label(tr("That isn't a colour Rakiza Core knows. Try #1E90FF or rgb(30, 144, 255)."),
                                 "warning", wrap=True)
         self.typed_note.hide()
         bl.addWidget(self.typed_note)

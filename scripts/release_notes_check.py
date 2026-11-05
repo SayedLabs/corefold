@@ -1,6 +1,6 @@
-"""The release gate's check of the notes kept with Corefold (assets/release-notes): every file reads, has its
+"""The release gate's check of the notes kept with Rakiza Core (assets/release-notes): every file reads, has its
 day and some words; and the version being released has its notes, in English and Arabic, under the same
-version Corefold is built as.
+version Rakiza Core is built as.
 
     python scripts/release_notes_check.py            every file
     python scripts/release_notes_check.py v1.11.0    and that version's

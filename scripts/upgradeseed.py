@@ -1,4 +1,4 @@
-"""Uses an older Corefold for a moment, the way a person would, so the next version can be started on
+"""Uses an older Rakiza Core for a moment, the way a person would, so the next version can be started on
 top of what it left behind (settings, history, the tools in use, the sidebar order).
 
 Run with the older version's folder: python scripts/upgradeseed.py <old corefold folder> <data folder>
@@ -52,6 +52,6 @@ while time.time() < end:
 c.history.record("png", [OLD / "README.md"], [OLD / "README.md"], 0, 1234)
 c.history.save()
 c.settings.save()
-print(f"upgradeseed: Corefold {__version__} left its settings in {DATA}", flush=True)
+print(f"upgradeseed: Rakiza Core {__version__} left its settings in {DATA}", flush=True)
 from testexit import finish  # (Qt can crash in Windows' tidy-up at exit, after every check passed)
 finish(0)

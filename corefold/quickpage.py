@@ -45,7 +45,7 @@ class KeyRecorder(QPushButton):
             return
         self.recording = True
         if self.on_start:
-            self.on_start()  # (Corefold's own shortcuts would otherwise catch the keys first)
+            self.on_start()  # (Rakiza Core's own shortcuts would otherwise catch the keys first)
         self._show()
         self.setFocus()
         self.grabKeyboard()
@@ -249,7 +249,7 @@ def build(win) -> QWidget:
             c.quick.apply_settings()
 
     def others(but: str) -> dict:
-        """Corefold's other shortcuts, so two never get the same keys. (Compared by the keys themselves:
+        """Rakiza Core's other shortcuts, so two never get the same keys. (Compared by the keys themselves:
         "win+alt+v" in a list and "alt+win+v" recorded are the same shortcut.)"""
         out = {}
 
@@ -280,7 +280,7 @@ def build(win) -> QWidget:
         why = hotkey.problem(combo) if combo else hotkey.PROBLEMS["bad"]
         taken = others(which).get(hotkey.parse(combo)) if combo else None
         if not why and taken:
-            note.setText(tr("Corefold already uses {key} for {what}.", key=hotkey.display(combo), what=taken))
+            note.setText(tr("Rakiza Core already uses {key} for {what}.", key=hotkey.display(combo), what=taken))
             note.setVisible(True)
             return
         if why:

@@ -1,5 +1,5 @@
 """Old ZIPs keep their names in the code page of the PC that made them (Arabic Windows: 720, some
-programs 1256), without the UTF-8 mark. Corefold works out which one and reads Arabic names right, with
+programs 1256), without the UTF-8 mark. Rakiza Core works out which one and reads Arabic names right, with
 7-Zip and without it, and the ZIPs it makes itself always mark their names UTF-8."""
 import sys
 import threading

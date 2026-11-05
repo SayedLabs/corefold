@@ -21,14 +21,14 @@ def _documents() -> Path:
 
 
 def _filter() -> str:
-    return tr("Corefold settings") + f" (*{settings_backup.EXTENSION} *.json)"
+    return tr("Rakiza Core settings") + f" (*{settings_backup.EXTENSION} *.json)"
 
 
 def card(win) -> QWidget:
     from .window import button, card as make_card, label
     box, lay = make_card()
     lay.addWidget(label(tr("Your settings in a file"), "h2"))
-    lay.addWidget(label(tr("Save your settings in one file, to bring them back later or on another PC. Corefold "
+    lay.addWidget(label(tr("Save your settings in one file, to bring them back later or on another PC. Rakiza Core "
                            "also keeps a copy by itself before each update."), "muted", wrap=True))
     row = QHBoxLayout()
     row.setSpacing(8)
@@ -70,10 +70,10 @@ def describe(saved: settings_backup.Saved) -> str:
     from .timefmt import date_text
     when = date_text(saved.saved.timestamp(), long=True) if saved.saved else ""
     if when and saved.app_version:
-        return tr("Saved on {date} with Corefold {version}.", date=when, version=saved.app_version)
+        return tr("Saved on {date} with Rakiza Core {version}.", date=when, version=saved.app_version)
     if when:
         return tr("Saved on {date}.", date=when)
-    return tr("Saved with Corefold {version}.", version=saved.app_version or "?")
+    return tr("Saved with Rakiza Core {version}.", version=saved.app_version or "?")
 
 
 def links_note(saved: settings_backup.Saved, shown: int = 6) -> str:
@@ -104,7 +104,7 @@ def folders_note(saved: settings_backup.Saved) -> str:
 
 
 def bring_back(win, path: Path | None = None, ask: bool = True) -> bool:
-    """Reads a settings file, says what it is, and (once the person agrees) uses it and restarts Corefold."""
+    """Reads a settings file, says what it is, and (once the person agrees) uses it and restarts Rakiza Core."""
     title = tr("Bring back settings")
     if path is None:
         chosen, _ = QFileDialog.getOpenFileName(win, title, str(_documents()), _filter())
@@ -121,7 +121,7 @@ def bring_back(win, path: Path | None = None, ask: bool = True) -> bool:
         return False
     if ask:
         box = QMessageBox(QMessageBox.Question, title, describe(saved), parent=win)
-        box.setInformativeText(tr("Your current settings are replaced with these, and Corefold restarts to use them. "
+        box.setInformativeText(tr("Your current settings are replaced with these, and Rakiza Core restarts to use them. "
                                   "Your history, clipboard and window size stay as they are.") + links_note(saved)
                                + folders_note(saved))
         yes = box.addButton(tr("Bring them back"), QMessageBox.AcceptRole)
@@ -151,7 +151,7 @@ def restore(win, saved: settings_backup.Saved):
     if saved.startup is not None:
         settings_mod.set_startup(saved.startup)
     c.settings.save()
-    log.info("settings brought back from a file (Corefold %s)", saved.app_version or "?")
+    log.info("settings brought back from a file (Rakiza Core %s)", saved.app_version or "?")
     c.restart("General")
 
 
@@ -166,6 +166,6 @@ def recovered_note(c):
         when = date_text(used.stat().st_mtime, long=True)
     except OSError:
         when = "?"
-    c.toast.notify(tr("Settings brought back"), tr("Corefold's settings file was missing or damaged, so it used "
+    c.toast.notify(tr("Settings brought back"), tr("Rakiza Core's settings file was missing or damaged, so it used "
                                                    "the copy from {date}.", date=when), linger_ms=9000)
 

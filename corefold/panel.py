@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from .app import Controller
 
 GROUP_ORDER = ["convert", "edit", "shrink", "read", "archive"]
-# what Corefold PDF's own page does with dropped PDFs (the Converter's PDF buttons are in the groups above):
+# what Rakiza Core PDF's own page does with dropped PDFs (the Converter's PDF buttons are in the groups above):
 # key on that page, label, icon; the first three are for one PDF only
 PDF_USES = [("edit", "Edit content", "text_edit_style"), ("organize", "Arrange pages", "grid"),
             ("extract", "Take out pages", "document_multiple"), ("searchable", "Make searchable", "scan_text"),
@@ -116,7 +116,7 @@ class DropZone(QFrame):
         self.title = QLabel(self.title_text)
         self.title.setObjectName("h2")
         self.sub = QLabel(sub or tr("Images, video, audio, PDFs, Office files, ZIP / RAR / 7z… You'll see everything "
-                                    "Corefold can do with them."))
+                                    "Rakiza Core can do with them."))
         self.sub.setObjectName("muted")
         self.sub.setWordWrap(True)
         for w in (self.title, self.sub):
@@ -460,5 +460,5 @@ def suggested(slots: list, by_group: dict[str, list], favorites: set) -> list:
 
 
 def choose_files(parent) -> list[Path]:
-    paths, _ = QFileDialog.getOpenFileNames(parent, tr("Choose files for Corefold"), str(Path.home()))
+    paths, _ = QFileDialog.getOpenFileNames(parent, tr("Choose files for Rakiza Core"), str(Path.home()))
     return [Path(p) for p in paths]

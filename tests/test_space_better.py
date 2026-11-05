@@ -1,4 +1,4 @@
-"""Corefold Space, much better: the map drawn down to the files, the list beside it with columns that open in
+"""Rakiza Core Space, much better: the map drawn down to the files, the list beside it with columns that open in
 place, how far along a look is, Windows' files with two names counted once, "See what fills this" in File
 Explorer, and photos that look alike."""
 import os
@@ -124,7 +124,7 @@ def test_see_what_fills_this_in_file_explorer():
     s.tools_off = list(s.tools_off) + ["space"]
     assert not [v for v in shellmenu.plan(s, cmd) if v.name == "CorefoldSpace"]
     s = settings_mod.Settings()
-    s.context_menu = False                                     # (no Corefold in the right-click menu at all)
+    s.context_menu = False                                     # (no Rakiza Core in the right-click menu at all)
     assert not [v for v in shellmenu.plan(s, cmd) if v.name == "CorefoldSpace"]
     assert ipc.message_for(["--space", "D:\\Photos"]) == b"space\nD:\\Photos"
 

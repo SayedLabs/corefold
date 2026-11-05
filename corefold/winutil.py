@@ -22,7 +22,8 @@ kernel32.CreateMutexW.restype = wt.HANDLE
 kernel32.CreateMutexW.argtypes = [ctypes.c_void_p, wt.BOOL, wt.LPCWSTR]
 kernel32.CloseHandle.argtypes = [wt.HANDLE]
 
-MUTEX_NAME = "CorefoldAppMutex"
+# (the same as earlier versions, core.KEEP_ID: never two copies at once, also across an update)
+MUTEX_NAME = "CorefoldAppMutex"  # keep-name
 _mutex = None
 
 
@@ -133,7 +134,7 @@ def set_app_id(app_id: str):
 
 
 def create_mutex() -> bool:
-    """Lets the installer know Corefold is running. Returns False if another copy already holds it."""
+    """Lets the installer know Rakiza Core is running. Returns False if another copy already holds it."""
     global _mutex
     k32 = ctypes.WinDLL("kernel32", use_last_error=True)
     k32.CreateMutexW.restype = wt.HANDLE
@@ -156,7 +157,7 @@ def release_mutex():
 
 
 def memory_use() -> int:
-    """How much memory Corefold is using right now (the number Task Manager shows), in bytes."""
+    """How much memory Rakiza Core is using right now (the number Task Manager shows), in bytes."""
     return memory_info()[0]
 
 
@@ -199,7 +200,7 @@ def log_memory(where: str):
 
 
 def trim_memory():
-    """Gives memory Corefold isn't using back to Windows (it comes back by itself when needed)."""
+    """Gives memory Rakiza Core isn't using back to Windows (it comes back by itself when needed)."""
     try:
         k32 = ctypes.windll.kernel32
         k32.GetCurrentProcess.restype = wt.HANDLE

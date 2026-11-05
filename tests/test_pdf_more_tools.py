@@ -1,4 +1,4 @@
-"""Corefold PDF's new tools: Flatten (a filled-in form, notes and stamps made part of the page), Repair (a
+"""Rakiza Core PDF's new tools: Flatten (a filled-in form, notes and stamps made part of the page), Repair (a
 damaged PDF written again whole), Page size (every page made A4, Letter…, what's on it fitted inside) and Trim
 edges (the empty white edges around what's on the pages cut away)."""
 import threading

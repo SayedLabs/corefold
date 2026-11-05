@@ -33,7 +33,7 @@ class Kind:
 KINDS: dict[str, Kind] = {k.id: k for k in (
     Kind("convert", "converter", "Convert files", "Drop files on it and pick what to make of them.", "arrow_swap",
          ("medium", "small", "large", "wide")),
-    Kind("stats", "converter", "What Corefold did", "How many files were converted, and the space saved.",
+    Kind("stats", "converter", "What Rakiza Core did", "How many files were converted, and the space saved.",
          "data_pie", ("small", "medium")),
     Kind("pdf", "pdf", "PDF tools", "Edit, merge, split and shrink PDFs in one click.", "document_pdf",
          ("medium", "small", "large", "wide")),
@@ -45,7 +45,7 @@ KINDS: dict[str, Kind] = {k.id: k for k in (
          "holds it.", "lock_open", ("small", "medium")),
     Kind("cloud", "cloud", "Your clouds", "The cloud folders on this PC, one click away.", "cloud",
          ("medium", "small", "large")),
-    Kind("shortcut", "", "Shortcut", "A folder, file, app, website or Corefold page, one click away.", "link",
+    Kind("shortcut", "", "Shortcut", "A folder, file, app, website or Rakiza Core page, one click away.", "link",
          ("small", "medium"), many=True),
     Kind("shortcuts", "", "Shortcuts", "Several shortcuts together, in one box.", "apps",
          ("wide", "medium", "large"), many=True),

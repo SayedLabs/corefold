@@ -1,4 +1,4 @@
-"""What's new and the Version history: the notes kept with Corefold match its releases, are shown as plain
+"""What's new and the Version history: the notes kept with Rakiza Core match its releases, are shown as plain
 text only, and "What's new" comes once after an update (never after a new install)."""
 import re
 from unittest import mock
@@ -89,6 +89,24 @@ def test_whats_new_comes_once_after_an_update(controller, monkeypatch, qtbot):
     assert not c.whats_new_waiting
 
 
+def test_the_first_start_after_the_rename_is_still_an_update(controller, monkeypatch, caplog):
+    """Coming from the earlier name: the welcome says what happened, and the update is noted all the same
+    (What's new still waits, the log says it was updated)."""
+    import logging
+    from corefold import app as A
+    monkeypatch.setattr(A, "__version__", "1.10.0")
+    c = controller
+    c.settings.notes_shown = "1.9.0"
+    said = []
+    monkeypatch.setattr(c.toast, "notify", lambda title, *a, **k: said.append(title))
+    monkeypatch.setattr(A.QTimer, "singleShot", lambda ms, fn: fn())
+    with caplog.at_level(logging.INFO, logger="corefold"):
+        c.updated_from("1.9.0", renamed=True)
+    assert c.whats_new_waiting
+    assert "updated from 1.9.0 to 1.10.0" in caplog.text
+    assert said == ["Welcome to the new Rakiza Core"]
+
+
 def test_an_update_that_didnt_finish_is_said(controller, monkeypatch):
     from corefold import app as A
     c = controller
@@ -107,7 +125,7 @@ def test_the_updates_page_shows_whats_coming_and_the_history(controller):
     c = controller
     w = c.window
     c.update_info = updater.UpdateInfo("9.0.0", "https://github.com/SayedLabs/corefold/releases/tag/v9.0.0",
-                                       "Corefold-Setup-9.0.0.exe", "https://x", 1, "https://y",
+                                       "RakizaCore-Setup-9.0.0.exe", "https://x", 1, "https://y",
                                        published="2030-05-06", notes="Fixes\n- <b>Bold</b> fix")
     c.update_state = "available"
     with mock.patch.object(c, "updates_supported", return_value=True):

@@ -271,7 +271,7 @@ def test_a_tiff_that_cant_be_written_for_lack_of_room_says_the_disk_is_full(tmp_
 
 
 def test_saving_elsewhere_is_said(tmp_path, monkeypatch):
-    """When the folder a file was meant for can't be saved in, it goes to Downloads › Corefold, and the
+    """When the folder a file was meant for can't be saved in, it goes to Downloads › Rakiza Core, and the
     message says so (looked for beside the original, it wouldn't be found)."""
     from types import SimpleNamespace
 
@@ -281,13 +281,13 @@ def test_saving_elsewhere_is_said(tmp_path, monkeypatch):
     src = tmp_path / "CD" / "photo.heic"
     beside = SimpleNamespace(settings=SimpleNamespace(save_mode="beside", output_folder=str(spare)))
     said = app.Controller._saved_elsewhere(beside, [src], [spare / "photo.jpg"])
-    assert said == "Downloads › Corefold"
+    assert said == "Downloads › Rakiza Core"
     assert app.Controller._saved_elsewhere(beside, [src], [src.parent / "photo.jpg"]) == ""
     assert app.Controller._saved_elsewhere(beside, [spare / "a.png"], [spare / "a.jpg"]) == ""  # (it was there)
     chosen = SimpleNamespace(settings=SimpleNamespace(save_mode="folder", output_folder=str(spare)))
     assert app.Controller._saved_elsewhere(chosen, [src], [spare / "photo.jpg"]) == ""  # (the folder picked)
     other = SimpleNamespace(settings=SimpleNamespace(save_mode="folder", output_folder=str(tmp_path / "Mine")))
-    assert app.Controller._saved_elsewhere(other, [src], [spare / "sub" / "photo.jpg"]) == "Downloads › Corefold"
+    assert app.Controller._saved_elsewhere(other, [src], [spare / "sub" / "photo.jpg"]) == "Downloads › Rakiza Core"
 
 
 def test_packing_deep_inside_folders_keeps_only_the_names(tmp_path, monkeypatch):

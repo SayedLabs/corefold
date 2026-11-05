@@ -1,4 +1,4 @@
-"""Corefold Capture's windows: the small editor a screenshot opens in (arrows, boxes, a marker, text,
+"""Rakiza Core Capture's windows: the small editor a screenshot opens in (arrows, boxes, a marker, text,
 blur, crop, picking the words in it), pinned pictures and the timer's countdown."""
 from __future__ import annotations
 
@@ -1337,7 +1337,7 @@ def add_arabic(controller, parent, then=None) -> bool:
 
     def done(ok):
         if ok is True:
-            c.toast.notify(tr("Arabic added"), tr("Corefold now reads Arabic in pictures too."), linger_ms=4000)
+            c.toast.notify(tr("Arabic added"), tr("Rakiza Core now reads Arabic in pictures too."), linger_ms=4000)
         else:
             c.tell(tr("Arabic wasn't added"), tr("Windows didn't add it (no permission, or no internet). You can "
                                                  "also add it in Settings → Time & language → Language."))

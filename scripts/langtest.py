@@ -3,7 +3,7 @@ language from the button at the top of the window (no restart), the Language lis
 the dropdown lists look when open.
 
 Run: python scripts/langtest.py <folder> [--look dark|light]
-     python scripts/langtest.py <folder> --start first|again   (runs Corefold itself, see first_start())
+     python scripts/langtest.py <folder> --start first|again   (runs Rakiza Core itself, see first_start())
 Prints one line per check and "langtest: N problem(s)"; pictures are saved in the folder."""
 import argparse
 import gc
@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parent.parent
 ap = argparse.ArgumentParser()
 ap.add_argument("out", nargs="?", default="langtest")
 ap.add_argument("--look", default="dark")
-ap.add_argument("--start", default="", help="first: a real first start of Corefold; again: the start after it")
+ap.add_argument("--start", default="", help="first: a real first start of Rakiza Core; again: the start after it")
 ap.add_argument("--data", default="", help="the settings folder (kept between --start first and --start again)")
 ARGS = ap.parse_args()
 OUT = Path(ARGS.out).resolve()
@@ -83,10 +83,10 @@ def finish():
     finish_now(1 if problems else 0)
 
 
-# ---------------------------------------------------------------------------- a real start of Corefold
+# ---------------------------------------------------------------------------- a real start of Rakiza Core
 
 def first_start():
-    """Starts Corefold the way Windows does (main()), on fresh settings (--start first) or on the
+    """Starts Rakiza Core the way Windows does (main()), on fresh settings (--start first) or on the
     settings that start left (--start again), and answers what comes up like a person would."""
     from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QApplication
@@ -242,7 +242,7 @@ def welcome_page():
     fresh = st.Settings()
     fresh.appearance = ARGS.look
     check(welcome.should_ask(fresh, []), "a fresh install asks for the language")
-    check(not welcome.should_ask(fresh, ["--background"]), "... but not when Windows starts Corefold in the background")
+    check(not welcome.should_ask(fresh, ["--background"]), "... but not when Windows starts Rakiza Core in the background")
     used = st.Settings()
     used.first_run = False
     check(not welcome.should_ask(used, []), "... and never again after the first start")
@@ -371,14 +371,14 @@ for code in ["ar", "fr", "es", "tr", "system", "en", "ar", "en"]:
     settle(0.6)
     took = time.time() - t0
     w = c.window
-    check(i18n.language() == want, f"{code}: Corefold is in {want} now ({i18n.language()})")
+    check(i18n.language() == want, f"{code}: Rakiza Core is in {want} now ({i18n.language()})")
     check(took < 6, f"{code}: changed in {took:.1f} s, with no restart")
     check(not restarted, f"{code}: nothing restarted")
     check(w.isVisible() and w.current_page() == page,
           f"{code}: the window stays open on the same page ({w.current_page()})")
     check(c.settings.language == code and st.Settings.load().language == code, f"{code}: saved")
     check(qapp.layoutDirection() == (Qt.RightToLeft if want == "ar" else Qt.LeftToRight), f"{code}: reading direction")
-    check(next(a for a in c.menu.actions() if a.isVisible()).text() == words(want, "Open Corefold"), f"{code}: the tray menu is in {want}")
+    check(next(a for a in c.menu.actions() if a.isVisible()).text() == words(want, "Open Rakiza Core"), f"{code}: the tray menu is in {want}")
     home = w.nav.item(w.nav_rows.index("Home")).text()
     check(home == words(want, "Home"), f"{code}: the window is in {want} ({home!r})")
     w.open_page("General")  # (a Settings page is made the first time it's opened)
@@ -400,7 +400,7 @@ end = time.time() + 15
 while time.time() < end and i18n.language() != "fr":
     settle(0.05)
 settle(0.6)
-check(i18n.language() == "fr", "picking French puts Corefold in French straight away")
+check(i18n.language() == "fr", "picking French puts Rakiza Core in French straight away")
 check(not restarted, "... with no restart")
 check(c.window.current_page() == "General" and not c.window.is_dirty(), "... still on General, nothing left to save")
 note("back to English")
@@ -433,7 +433,7 @@ def dropdowns(lang):
                     sheet.dismiss(layer)
                 return
             panel, host = layer.root, layer.host
-            check(host is c.window, f"{lang}: inside Corefold's window, not a window of its own")
+            check(host is c.window, f"{lang}: inside Rakiza Core's window, not a window of its own")
             geo = panel.geometry()
             under = b.mapTo(host, b.rect().bottomLeft()).y()
             check(abs(geo.top() - under) <= 12 or geo.bottom() <= b.mapTo(host, b.rect().topLeft()).y(),

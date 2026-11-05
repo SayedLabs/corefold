@@ -1,7 +1,7 @@
-# Builds the smaller FFmpeg that Corefold ships (see scripts/ffmpeg-lean.sh) and saves it to the
+# Builds the smaller FFmpeg that Rakiza Core ships (see scripts/ffmpeg-lean.sh) and saves it to the
 # "ffmpeg-lean" branch, where scripts/build.ps1 takes it from. Run it by hand when FFmpeg should be
-# updated: Actions tab -> "Build Corefold's FFmpeg" -> Run workflow.
-name: Build Corefold's FFmpeg
+# updated: Actions tab -> "Build Rakiza Core's FFmpeg" -> Run workflow.
+name: Build Rakiza Core's FFmpeg
 
 on:
   workflow_dispatch:
@@ -49,5 +49,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -q -m "Corefold's FFmpeg $(cat FFMPEG-VERSION.txt)"
+          git commit -q -m "Rakiza Core's FFmpeg $(cat FFMPEG-VERSION.txt)"
           git push -q -f "https://x-access-token:${TOKEN}@github.com/${REPO}.git" ffmpeg-lean

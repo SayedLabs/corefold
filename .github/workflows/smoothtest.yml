@@ -1,4 +1,4 @@
-# How smooth Corefold feels on a real Windows PC (one of GitHub's): scripts/smoothtest.py opens every page,
+# How smooth Rakiza Core feels on a real Windows PC (one of GitHub's): scripts/smoothtest.py opens every page,
 # scrolls, resizes, switches light and dark and the language, shows a question and a menu, and notes every
 # moment the window couldn't draw, with where the time went. Runs when the app's code changes, and by hand.
 name: Smoothness

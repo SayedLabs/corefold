@@ -3,12 +3,12 @@ The right-click menu in File Explorer.
 
 Two styles:
 - "windows" (default): a normal Windows submenu, like 7-Zip's.  Right-click a photo →
-  Corefold ▸ Convert to PNG / Resize… / Remove the background / … / All options…
-- "wheel": one "Convert with Corefold" entry that opens the wheel.
+  Rakiza Core ▸ Convert to PNG / Resize… / Remove the background / … / All options…
+- "wheel": one "Convert with Rakiza Core" entry that opens the wheel.
 
 Everything is written for the current user only (HKCU), so no admin rights are needed.
 On Windows 11 these entries are under "Show more options". The menu is only rewritten when
-something it shows has changed (see signature()), so starting Corefold stays fast.
+something it shows has changed (see signature()), so starting Rakiza Core stays fast.
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ import threading
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from .core import ALL_EXT, APP_NAME, LEGACY_NAME, category, norm
+from .core import ALL_EXT, APP_NAME, KEEP_ID, LEGACY_NAME, category, norm
 from .i18n import tr
 
 log = logging.getLogger("corefold")
@@ -27,14 +27,17 @@ log = logging.getLogger("corefold")
 CLASSES = r"Software\Classes"
 FILE_ROOT = CLASSES + r"\SystemFileAssociations"
 FOLDER_ROOT = CLASSES + r"\Directory"
-LNK_ROOT = CLASSES + r"\lnkfile"  # shortcuts: "Uninstall with Corefold" (while the Uninstaller is in use)
-ANY_ROOT = CLASSES + r"\*"   # every file; limited to the kinds Corefold has no own menu for (see any_file_filter)
-DRIVE_ROOT = CLASSES + r"\Drive"   # drives: "Scan with Corefold" (while Scan is in use), "See what fills this"
-VERBS = ("Corefold", "CorefoldOpen", "CorefoldUninstall", "CorefoldScan", "CorefoldSpace")
+LNK_ROOT = CLASSES + r"\lnkfile"  # shortcuts: "Uninstall with Rakiza Core" (while the Uninstaller is in use)
+ANY_ROOT = CLASSES + r"\*"   # every file; limited to the kinds Rakiza Core has no own menu for (see any_file_filter)
+DRIVE_ROOT = CLASSES + r"\Drive"   # drives: "Scan with Rakiza Core" (while Scan is in use), "See what fills this"
+# (the registry keys keep the names earlier versions gave them, core.KEEP_ID: an update replaces them in place)
+VERB, OPEN_VERB, UNINSTALL_VERB, SCAN_VERB, SPACE_VERB = (KEEP_ID, KEEP_ID + "Open", KEEP_ID + "Uninstall",
+                                                     KEEP_ID + "Scan", KEEP_ID + "Space")
+VERBS = (VERB, OPEN_VERB, UNINSTALL_VERB, SCAN_VERB, SPACE_VERB)
 LEGACY_VERBS = (LEGACY_NAME, LEGACY_NAME + "Open")  # written by versions before 1.7.0
-UNLOCK_VERB = "CorefoldUnlock"  # Corefold Unlock's "What's using this?" (there while that tool is, Converter or not)
-MENU_STYLES = {"windows": "Windows menu", "wheel": "Corefold wheel"}
-OPEN_KEY = "corefold:open"     # "All options…": opens Corefold's window with the files
+UNLOCK_VERB = KEEP_ID + "Unlock"  # Rakiza Core Unlock's "What's using this?" (there while that tool is, Converter or not)
+MENU_STYLES = {"windows": "Windows menu", "wheel": "Rakiza Core wheel"}
+OPEN_KEY = "corefold:open"     # "All options…": opens Rakiza Core's window with the files
 SEPARATOR_BEFORE = 0x20       # ECF_SEPARATORBEFORE
 _lock = threading.Lock()
 
@@ -49,7 +52,7 @@ class Item:
 @dataclass
 class Verb:
     root: str           # registry key that holds "shell"
-    name: str           # "Corefold" or "CorefoldOpen"
+    name: str           # VERB or OPEN_VERB (the registry key's name)
     title: str
     command: str = ""   # set for a single entry
     items: list | None = None  # set for a submenu
@@ -119,20 +122,20 @@ def items_for(ext: str, settings) -> list[Item]:
 
 
 def plan(settings, command) -> list[Verb]:
-    """Everything to write. command(*args) gives the command line that starts Corefold."""
+    """Everything to write. command(*args) gives the command line that starts Rakiza Core."""
     from . import tools as all_tools
     verbs: list[Verb] = []
     if all_tools.is_on(settings, "scan"):  # every file, folder and drive (and many at once)
         scan = command("--scan", '"%1"')
-        verbs += [Verb(root, "CorefoldScan", tr("Scan with Corefold"), command=scan)
+        verbs += [Verb(root, SCAN_VERB, tr("Scan with Rakiza Core"), command=scan)
                   for root in (ANY_ROOT, FOLDER_ROOT, DRIVE_ROOT)]
     if settings.context_menu and all_tools.is_on(settings, "space"):  # folders and drives: Space's map of it
-        verbs += [Verb(root, "CorefoldSpace", tr("See what fills this"), command=command("--space", '"%1"'),
+        verbs += [Verb(root, SPACE_VERB, tr("See what fills this"), command=command("--space", '"%1"'),
                        single=True) for root in (FOLDER_ROOT, DRIVE_ROOT)]
     if not (settings.context_menu and all_tools.is_on(settings, "converter")):
         return verbs
     if all_tools.is_on(settings, "uninstaller"):  # shortcuts (part of the Converter's menu)
-        verbs.append(Verb(LNK_ROOT, "CorefoldUninstall", tr("Uninstall with Corefold"),
+        verbs.append(Verb(LNK_ROOT, UNINSTALL_VERB, tr("Uninstall with Rakiza Core"),
                           command=command("--uninstall", '"%1"'), single=True))
     style = settings.menu_style if settings.menu_style in MENU_STYLES else "windows"
     cache: dict[str, list[Item]] = {}
@@ -144,24 +147,24 @@ def plan(settings, command) -> list[Verb]:
             key = norm(ext) if kind in ("image", "audio", "video", "archive", "document") else kind
             if key not in cache:
                 cache[key] = items_for(ext, settings)
-            verbs.append(Verb(root, "Corefold", APP_NAME, items=cache[key]))
+            verbs.append(Verb(root, VERB, APP_NAME, items=cache[key]))
         else:
-            verbs.append(Verb(root, "Corefold", tr("Convert with Corefold"), command=command("--convert", '"%1"')))
+            verbs.append(Verb(root, VERB, tr("Convert with Rakiza Core"), command=command("--convert", '"%1"')))
             if kind == "archive":
-                verbs.append(Verb(root, "CorefoldOpen", tr("Open in Corefold"), command=command("--browse", '"%1"')))
+                verbs.append(Verb(root, OPEN_VERB, tr("Open in Rakiza Core"), command=command("--browse", '"%1"')))
     if style == "windows":
-        verbs.append(Verb(FOLDER_ROOT, "Corefold", APP_NAME, items=items_for("", settings)))
-        verbs.append(Verb(ANY_ROOT, "Corefold", APP_NAME, items=items_for("*", settings), applies_to=any_file_filter()))
+        verbs.append(Verb(FOLDER_ROOT, VERB, APP_NAME, items=items_for("", settings)))
+        verbs.append(Verb(ANY_ROOT, VERB, APP_NAME, items=items_for("*", settings), applies_to=any_file_filter()))
     else:
-        verbs.append(Verb(FOLDER_ROOT, "Corefold", tr("Compress with Corefold"), command=command("--convert", '"%1"')))
-        verbs.append(Verb(ANY_ROOT, "Corefold", tr("Compress with Corefold"), command=command("--convert", '"%1"'),
+        verbs.append(Verb(FOLDER_ROOT, VERB, tr("Compress with Rakiza Core"), command=command("--convert", '"%1"')))
+        verbs.append(Verb(ANY_ROOT, VERB, tr("Compress with Rakiza Core"), command=command("--convert", '"%1"'),
                           applies_to=any_file_filter()))
     return verbs
 
 
 def any_file_filter() -> str:
-    """Windows search syntax for "any file except the kinds that already have their own Corefold
-    menu", so a photo doesn't get the Corefold entry twice."""
+    """Windows search syntax for "any file except the kinds that already have their own Rakiza Core
+    menu", so a photo doesn't get the Rakiza Core entry twice."""
     return "NOT (" + " OR ".join(f"System.FileExtension:={e}" for e in sorted(ALL_EXT)) + ")"
 
 
@@ -196,7 +199,7 @@ def _all_roots() -> list[str]:
 
 
 def remove(unlock: bool = True):
-    """Takes every Corefold entry out of the right-click menu (unlock=False: Corefold Unlock's stays)."""
+    """Takes every Rakiza Core entry out of the right-click menu (unlock=False: Rakiza Core Unlock's stays)."""
     import winreg
     with _lock:
         for root in _all_roots():
@@ -205,7 +208,7 @@ def remove(unlock: bool = True):
 
 
 def write(verbs: list[Verb], command, icon: str):
-    """Replaces Corefold's right-click entries with these (run it off the window's thread)."""
+    """Replaces Rakiza Core's right-click entries with these (run it off the window's thread)."""
     import winreg
     SZ, DWORD = winreg.REG_SZ, winreg.REG_DWORD
     with _lock:
@@ -244,16 +247,16 @@ def write(verbs: list[Verb], command, icon: str):
         _tell_explorer()
 
 
-# ----------------------------------------------------------------------------- Corefold Unlock's entry
+# ----------------------------------------------------------------------------- Rakiza Core Unlock's entry
 
 def unlock_plan(command) -> list[Verb]:
-    """The "What's using this?" entry on every file and folder, opening Corefold Unlock with it."""
+    """The "What's using this?" entry on every file and folder, opening Rakiza Core Unlock with it."""
     title, cmd = tr("What's using this?"), command("--unlock", '"%1"')
     return [Verb(ANY_ROOT, UNLOCK_VERB, title, command=cmd), Verb(FOLDER_ROOT, UNLOCK_VERB, title, command=cmd)]
 
 
 def sync_unlock(on: bool, written: str, command, icon: str) -> str:
-    """Writes or removes Corefold Unlock's entry, only if it changed since `written` (its signature then).
+    """Writes or removes Rakiza Core Unlock's entry, only if it changed since `written` (its signature then).
     Returns its signature now ("off" when it's not there)."""
     import winreg
     if not on:

@@ -1,4 +1,4 @@
-"""Corefold Viewer for email files (.eml, .msg): the email, its attachments, and Save as PDF.
+"""Rakiza Core Viewer for email files (.eml, .msg): the email, its attachments, and Save as PDF.
 
 Emails can come from anyone, so: nothing is ever loaded from the internet (tracking pictures stay
 blocked), no script runs, links say where they really go before opening, and attachments that
@@ -26,7 +26,7 @@ from .winutil import set_title_bar_dark
 if TYPE_CHECKING:
     from .app import Controller
 
-# attachments that can run something when opened: Corefold asks first
+# attachments that can run something when opened: Rakiza Core asks first
 RISKY = {".exe", ".msi", ".bat", ".cmd", ".com", ".scr", ".pif", ".js", ".jse", ".vbs", ".vbe", ".wsf", ".wsh",
          ".ps1", ".hta", ".lnk", ".jar", ".reg", ".cpl", ".msc", ".dll", ".iso", ".img", ".vhd", ".vhdx",
          ".docm", ".xlsm", ".pptm", ".appx", ".msix", ".appinstaller", ".url", ".chm", ".scf",

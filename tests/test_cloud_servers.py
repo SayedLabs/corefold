@@ -1,4 +1,4 @@
-"""Corefold Cloud: your own servers (cloudnet), WebDAV, FTP and SFTP, each tried for real against a server run on
+"""Rakiza Core Cloud: your own servers (cloudnet), WebDAV, FTP and SFTP, each tried for real against a server run on
 this PC for the test (wsgidav, pyftpdlib, and a small paramiko SFTP server)."""
 import os
 import socket

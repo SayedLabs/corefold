@@ -2,11 +2,11 @@
 
 The AI model and the libraries that run it take a few hundred MB. Running them in their own small
 process means all of that is handed back to Windows the moment the job is done, instead of staying
-with Corefold while it waits in the tray.
+with Rakiza Core while it waits in the tray.
 
-Corefold sends a 320×320 picture (raw RGB bytes) over a private pipe; the helper answers with a
+Rakiza Core sends a 320×320 picture (raw RGB bytes) over a private pipe; the helper answers with a
 320×320 mask (one byte per pixel). Only bytes travel, never Python objects, and the pipe only talks
-to whoever knows the one-time key Corefold handed to this helper."""
+to whoever knows the one-time key Rakiza Core handed to this helper."""
 from __future__ import annotations
 
 import os
@@ -52,7 +52,7 @@ def main(argv: list[str]) -> int:
             while True:
                 try:
                     data = conn.recv_bytes(maxlength=SIDE * SIDE * 3)
-                except (EOFError, OSError):  # Corefold is done with us (or gone)
+                except (EOFError, OSError):  # Rakiza Core is done with us (or gone)
                     return 0
                 if len(data) != SIDE * SIDE * 3:
                     return 3

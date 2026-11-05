@@ -1,9 +1,9 @@
-"""Entry point for Corefold (used by PyInstaller and for running from source)."""
+"""Entry point for Rakiza Core (used by PyInstaller and for running from source)."""
 import sys
 import time
 
 if sys.platform != "win32":
-    sys.exit("Corefold only runs on Windows.")
+    sys.exit("Rakiza Core only runs on Windows.")
 
 # The elevated helper used by the Apps page (removing leftovers in Program Files, restore points), by
 # Space (Windows' own leftovers), by Unlock (deleting a file when the PC restarts) and by Startup
@@ -18,7 +18,7 @@ if "--bg-worker" in sys.argv[1:]:
     from corefold.bgworker import main as bg_main  # noqa: E402
     sys.exit(bg_main(sys.argv[1:]))
 
-# Fast path first: if Corefold is already running, hand it this request and quit before loading
+# Fast path first: if Rakiza Core is already running, hand it this request and quit before loading
 # the heavy parts (Qt). This keeps right-clicking many files quick and light.
 from corefold import ipc  # noqa: E402
 

@@ -1,4 +1,4 @@
-"""Corefold Cloud: folder backups. A folder on this PC copied into a cloud account (online, a server of your own, or
+"""Rakiza Core Cloud: folder backups. A folder on this PC copied into a cloud account (online, a server of your own, or
 a cloud folder on this PC), by itself every day or every week, or when asked. One way only: what's new or changed
 on this PC goes up; nothing in the account is ever deleted, and nothing on this PC is ever touched. A file that
 changed goes up first, and only once all of it arrived does it take the old copy's place. No Qt here."""
@@ -200,7 +200,7 @@ def run(b: Backup, cancel: threading.Event | None = None, progress=None) -> dict
             raise cloud.CloudError("it isn't there any more")
         acc = find_account(b.account)
         if acc is None:
-            raise cloud.CloudError("this account isn't in Corefold any more")
+            raise cloud.CloudError("this account isn't in Rakiza Core any more")
         c = cloud.client(acc)
         files = _files(src, cancel)
         tree = _Tree(c, _top(c, b.target))

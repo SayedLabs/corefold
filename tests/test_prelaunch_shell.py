@@ -88,7 +88,7 @@ def test_settings_brought_back_say_when_they_save_to_another_computer():
 
     def saved(values):
         return settings_backup.Saved(values, "1.15.0", datetime(2026, 10, 27), None)
-    assert folders_note(saved({"output_folder": r"C:\Users\me\Downloads\Corefold"})) == ""
+    assert folders_note(saved({"output_folder": r"C:\Users\me\Downloads\Rakiza Core"})) == ""
     note = folders_note(saved({"output_folder": r"\\server\share\in", "cap_folder": "//server/pics"}))
     assert r"\\server\share\in" in note and "//server/pics" in note
     assert "another computer" in note

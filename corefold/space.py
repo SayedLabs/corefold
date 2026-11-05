@@ -1,4 +1,4 @@
-"""Corefold Space: what's filling the disk, and freeing space safely.
+"""Rakiza Core Space: what's filling the disk, and freeing space safely.
 
 Looking through a drive keeps only what the map needs (each folder's size and its biggest files), so
 even a drive with millions of files fits in a few dozen MB, which are let go when the page closes.
@@ -34,7 +34,7 @@ PROGRESS_EVERY = 2000  # entries between progress reports
 # reparse points that lead somewhere else (junctions, links): not followed, so nothing counts twice
 _JUNCTION, _SYMLINK = 0xA0000003, 0xA000000C
 _REPARSE, _OFFLINE, _RECALL_OPEN, _RECALL_ACCESS = 0x400, 0x1000, 0x40000, 0x400000
-# (not a Windows attribute: Corefold's own mark on a file whose bytes are counted under another of its names)
+# (not a Windows attribute: Rakiza Core's own mark on a file whose bytes are counted under another of its names)
 _LINKED = 1 << 40
 
 KINDS = {  # kind: English name (shown through tr())
@@ -83,7 +83,7 @@ class Folder:
         self.names = ""
         self.sizes = _NO_SIZES
         self.times = _NO_TIMES  # …and when each was last changed (in the same order; 0 when not known)
-        self.denied = False    # Windows didn't let Corefold look inside
+        self.denied = False    # Windows didn't let Rakiza Core look inside
         self.newest = 0.0      # when anything inside was last changed (sub-folders too)
 
     @property
@@ -167,7 +167,7 @@ class Scan:
     since: float = 0.0                            # when that last look was
     files: int = 0
     folders: int = 0
-    denied: int = 0                               # folders Windows didn't let Corefold into
+    denied: int = 0                               # folders Windows didn't let Rakiza Core into
     cloud: int = 0                                # files that are only in the cloud (not counted)
     seconds: float = 0.0
     cancelled: bool = False
@@ -659,7 +659,7 @@ WATCH_MAX = 20000            # folders waiting to be read again; beyond it, the 
 
 
 class Watch:
-    """Windows tells Corefold what changes inside a drive or folder (ReadDirectoryChangesW): one thread
+    """Windows tells Rakiza Core what changes inside a drive or folder (ReadDirectoryChangesW): one thread
     waits for it, using nothing while nothing changes, and notes the folders something changed in.
     take() hands them over (as paths inside the root, "" for the root itself)."""
 
@@ -983,7 +983,7 @@ def apply_changes(result: Scan, read: list, folders: dict[str, Folder]) -> bool:
 
 
 def forget(result: Scan, path: Path, folder: Folder | None) -> None:
-    """Takes a file or folder Corefold just removed off the map, without reading the disk."""
+    """Takes a file or folder Rakiza Core just removed off the map, without reading the disk."""
     if folder is not None:
         parent = folder.parent
         if parent is None or not any(c is folder for c in parent.children):
@@ -1031,7 +1031,7 @@ KEEP_ROOTS = 12
 
 
 def _history_file() -> Path:
-    return Path(os.environ.get("LOCALAPPDATA") or str(Path.home())) / "Corefold" / "space-history.json"
+    return Path(os.environ.get("LOCALAPPDATA") or str(Path.home())) / "Rakiza Core" / "space-history.json"
 
 
 def folder_sizes(result: Scan) -> dict[str, int]:
@@ -1445,7 +1445,7 @@ class Junk:
     to_bin: bool = False       # goes to the Recycle Bin (personal files), not deleted for good
     ticked: bool = True        # ticked to begin with
     name: str = ""             # a name in the title ("Google Chrome")
-    admin: bool = False        # Windows' own files: removed by an administrator copy of Corefold (Windows asks)
+    admin: bool = False        # Windows' own files: removed by an administrator copy of Rakiza Core (Windows asks)
     about: str = ""            # how much it frees, when only Windows can say beforehand (English, through tr())
 
 
@@ -1711,7 +1711,7 @@ def find_junk(downloads: Path | None = None, cancel: threading.Event | None = No
     return found
 
 
-# Windows' own leftovers, which only an administrator can remove. The administrator copy of Corefold
+# Windows' own leftovers, which only an administrator can remove. The administrator copy of Rakiza Core
 # is only told which of these keys to clean; the folders come from here, never from the request.
 ADMIN_KEYS = ("winupdate", "winold", "delivery", "hibernate", "restorepoints", "compactos")
 SETTING_KEYS = ("hibernate", "restorepoints", "compactos")  # Windows settings, not folders
@@ -1903,7 +1903,7 @@ def _clean_setting(key: str, system32: Path, run) -> int:
 
 
 def clean_as_admin(keys: list[str]) -> int:
-    """In the administrator copy of Corefold: removes Windows' own leftovers. Returns the bytes freed."""
+    """In the administrator copy of Rakiza Core: removes Windows' own leftovers. Returns the bytes freed."""
     import subprocess
     flags = 0x08000000  # CREATE_NO_WINDOW
     system32 = _windows_dir() / "System32"
@@ -2482,7 +2482,7 @@ def auto_cleanable(j: Junk) -> bool:
 
 
 def auto_clean(cancel: threading.Event | None = None) -> int:
-    """The clean-up by itself (Settings: every week or month, while Corefold waits in the tray). Returns bytes
+    """The clean-up by itself (Settings: every week or month, while Rakiza Core waits in the tray). Returns bytes
     freed."""
     freed = 0
     for j in find_junk(None, cancel, admin=False):

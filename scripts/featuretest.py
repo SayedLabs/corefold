@@ -491,7 +491,7 @@ def space_more():
     import json
 
     from corefold import uninstall as un
-    helper = TMP / "Corefold" / "helper"
+    helper = TMP / "Rakiza Core" / "helper"
     helper.mkdir(parents=True)
     plan = helper / "space-clean-test.json"
     plan.write_text(json.dumps({"keys": ["evil", str(root)]}), "utf-8")
@@ -609,7 +609,7 @@ def shortcut_program():
     verbs = shellmenu.plan(s, lambda *a: " ".join(a))
     lnk = [v for v in verbs if v.name == "CorefoldUninstall"]
     check(len(lnk) == 1 and lnk[0].single and "--uninstall" in lnk[0].command,
-          "\"Uninstall with Corefold\" on shortcuts")
+          "\"Uninstall with Rakiza Core\" on shortcuts")
     s.tools_off = ["uninstaller"]
     check(not any(v.name == "CorefoldUninstall" for v in shellmenu.plan(s, lambda *a: " ".join(a))),
           "…not while the Uninstaller is off")

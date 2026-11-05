@@ -45,7 +45,7 @@ def _button(text: str, name: str | None = None, on_click=None) -> QPushButton:
 
 
 class CheckPage(QWidget):
-    """Corefold Check in the window."""
+    """Rakiza Core Check in the window."""
 
     def __init__(self, controller: "Controller", header):
         super().__init__()

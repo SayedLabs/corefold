@@ -1,4 +1,4 @@
-"""Corefold Space: the update copies Windows keeps for other PCs (Delivery Optimization)."""
+"""Rakiza Core Space: the update copies Windows keeps for other PCs (Delivery Optimization)."""
 import subprocess
 
 from corefold import space

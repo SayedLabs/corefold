@@ -1,4 +1,4 @@
-"""The Corefold window: Home, Apps, General, Look, Formats, History, Updates and About pages."""
+"""The Rakiza Core window: Home, Apps, General, Look, Formats, History, Updates and About pages."""
 from __future__ import annotations
 
 import os
@@ -18,7 +18,7 @@ from . import UPDATE_REPO, __version__, i18n, icons, sheet, winutil
 from . import tools as all_tools
 from . import settings as settings_mod
 from .converters import CATEGORY_NAMES, catalog, human_size
-from .core import short_name
+from .core import PUBLISHER as FAMILY_NAME, short_name
 from .i18n import LANGUAGES, tr
 from .panel import DropZone, FilePanel, choose_files
 from .settings import (ACCENTS, APP_NAME, DEFAULT_ACCENT, APPEARANCES, HOVER_STYLES, LABEL_STYLES, LOG_DIR, MENU_STYLES,
@@ -33,7 +33,7 @@ from .settings import (ACCENTS, APP_NAME, DEFAULT_ACCENT, APPEARANCES, HOVER_STY
 from .atomic.widgets import Dropdown, Switch, keep_wrapped_text, mark_rows
 from .theme import Theme, round_menu
 from .timefmt import date_text, locale, number, time_ago  # noqa: F401 (used by other pages)
-from .navbar import BADGE_ROLE, ICON_ROLE
+from .navbar import BADGE_ROLE, DOT, ICON_ROLE, KIND_ROLE
 from .wheel import WheelPreview
 from .winutil import memory_use, reveal_in_explorer, set_title_bar_dark
 
@@ -45,12 +45,15 @@ if TYPE_CHECKING:
 _TOOL_SETTINGS_PAGES = [p for tool in all_tools.TOOLS for p in tool.settings_pages]
 SECTION_PAGES = [sec.page for sec in all_tools.SECTIONS]
 PAGES = ["Home", "History", *SECTION_PAGES, *[tool.page for tool in all_tools.TOOLS], "General", "Look", "Quick",
-         "Shortcuts", *_TOOL_SETTINGS_PAGES, "Updates", "About"]
+         "Shortcuts", *_TOOL_SETTINGS_PAGES, "Updates", "About", "Soon"]
 # tools still being made: page -> product tile (in the order they're planned)
 SOON = {tool.page: tool.product for tool in all_tools.coming()}
-# the sidebar's fixed rows (the sections go under "Tools", in the person's order) and its names
-NAV = ["Home", (None, "Tools"), (None, "App"), "History", "General", "Updates", "About"]
-NAV_LABELS = {"General": "Settings", **{tool.page: tool.nav for tool in all_tools.TOOLS},
+# the sidebar: Home, then the sections in use in the person's order (the open one with its tools under it),
+# one row for the sections resting for now, and at the bottom History, Settings and About (with Updates)
+NAV_TOP = ["Home"]
+NAV_BOTTOM = ["History", "General", "About"]
+NAV = [*NAV_TOP, "Soon", *NAV_BOTTOM]
+NAV_LABELS = {"General": "Settings", "Soon": "Coming soon", **{tool.page: tool.nav for tool in all_tools.TOOLS},
               **{sec.page: sec.name for sec in all_tools.SECTIONS}}
 # Settings: a tab for the whole app and one for each tool someone uses. A tab with several pages
 # shows them as smaller tabs underneath.
@@ -65,7 +68,7 @@ SETTINGS_PAGES = ["General", "Look", "Quick", "Shortcuts", *_TOOL_SETTINGS_PAGES
 TOOL_SETTINGS = {tool.page: tool.settings for tool in all_tools.TOOLS if tool.settings}
 # pages without a sidebar row of their own: the row that's lit (a tool lights its section)
 NAV_OWNER = {**{tool.page: all_tools.SECTION_OF[tool.id].page for tool in all_tools.TOOLS},
-             **{name: "General" for name in SETTINGS_PAGES if name != "General"}}
+             **{name: "General" for name in SETTINGS_PAGES if name != "General"}, "Updates": "About"}
 # a tool's own Settings pages -> the tool (a tool resting for now: its Settings pages rest too)
 SETTINGS_TOOL = {p: tool for tool in all_tools.TOOLS for p in tool.settings_pages}
 # pages from before the sections, still asked for by name (an old quick menu, the command line)
@@ -73,14 +76,14 @@ OLD_PAGES = {"Store": "Home", "Player": "Home", "PlayerSettings": "General"}  # 
 PAGE_ICONS = {"Home": "home", "General": "settings", "Look": "paint_brush", "Quick": "layout",  # icons.py
               "Shortcuts": "keyboard",
               "Formats": "puzzle_piece",
-              "History": "history", "Updates": "arrow_sync", "About": "info",
+              "History": "history", "Updates": "arrow_sync", "About": "info", "Soon": "sparkle",
               **{tool.page: tool.icon for tool in all_tools.TOOLS},
               **{sec.page: sec.icon for sec in all_tools.SECTIONS}}
 # pages that are only words and settings: when out of sight they make way before a new look (and are made
 # again, quickly, when they're opened)
 # made a moment after the window opens (see _warm_next): slow to make, and opened often
 WARM_PAGES = ("PDF",)
-REMADE_PAGES = {*SETTINGS_PAGES, *SECTION_PAGES, "History", "Updates", "About"}
+REMADE_PAGES = {*SETTINGS_PAGES, *SECTION_PAGES, "History", "Updates", "About", "Soon"}
 # the words Ctrl + K finds on each Settings page, kept for pages that aren't made yet (per version and language)
 SETTING_WORDS = LOG_DIR / "setting-words.json"
 
@@ -716,43 +719,41 @@ class MainWindow(QWidget):
         self.logo = QLabel()
         self.logo.setPixmap(icon.pixmap(28, 28))
         self.brand = label(APP_NAME, "brand")
+        # the family the app belongs to, in its own gold under the name (in Latin letters in every language)
+        self.family = label(FAMILY_NAME.upper(), "family")
+        f = self.family.font()
+        f.setLetterSpacing(QFont.AbsoluteSpacing, 1.4)
+        self.family.setFont(f)
+        names = QVBoxLayout()
+        names.setSpacing(0)
+        names.setContentsMargins(0, 0, 0, 0)
+        names.addWidget(self.brand)
+        names.addWidget(self.family)
+        self.brand_names = QWidget()
+        self.brand_names.setLayout(names)
         brand = QHBoxLayout()
         brand.setSpacing(8)
         brand.setContentsMargins(0, 0, 0, 0)
         brand.addWidget(self.menu_btn)
         brand.addWidget(self.logo)
-        brand.addWidget(self.brand)
+        brand.addWidget(self.brand_names)
         brand.addStretch()
         # the tools this person uses (switched on in their section; nothing of the others is built), and
         # the sections in the sidebar, in the order they were dragged into
         self.tools_on = all_tools.enabled(self.c.settings)
         on_pages = {tool.page for tool in self.tools_on}
         self.sections = all_tools.sections(self.c.settings)
-        self.nav_entries = NAV[:2] + [sec.page for sec in self.sections] + NAV[2:]
         self.settings_tab_list = _base_tabs() + [(tool.settings, tool.nav, list(tool.settings_pages))
                                                 for tool in self.tools_on if tool.settings]
         from .navbar import EdgeHandle, NavList
         self.nav = NavList(lambda: self.c.theme, self.c.settings.sidebar_icons, self.c.settings.animations)
-        self.nav_rows: list[str | None] = []   # sidebar row -> page name (None for a heading)
+        self.nav_rows: list[str | None] = []   # sidebar row -> page name (None for a line or the room)
         self.nav.ensurePolished()
-        row_h = max(36, self.nav.fontMetrics().height() + 18)  # compact rows, so every page fits
-        for entry in self.nav_entries:
-            item = QListWidgetItem()
-            if isinstance(entry, tuple):
-                item.setFlags(Qt.NoItemFlags)
-                item.setSizeHint(QSize(0, row_h - 6))
-                self.nav_rows.append(None)
-            else:
-                item.setSizeHint(QSize(0, row_h))
-                item.setData(Qt.UserRole, entry)
-                self.nav_rows.append(entry)
-            self.nav.addItem(item)
-        first_section = 2
-        self.nav.movable = (first_section, first_section + len(self.sections) - 1)
+        self._row_h = max(36, self.nav.fontMetrics().height() + 18)  # compact rows, so every page fits
         self.nav.setIconSize(icons.ICON_SIZE)
-        self.nav.moved.connect(self._nav_moved)
         self.nav.menu.connect(self._nav_menu)
-        self.refresh_nav()
+        self.nav.resized.connect(self._fit_nav_room)
+        self._fill_nav()
         side = QVBoxLayout(sidebar)
         side.setContentsMargins(10, 12, 8, 12)
         side.setSpacing(12)
@@ -789,6 +790,7 @@ class MainWindow(QWidget):
                     "Backup": self._backup,
                     "Awake": self._awake,
                     "Shortcuts": self._shortcuts,
+                    "Soon": self._soon_sections,
                     "Colors": self._colors,
                     **{sec.page: (lambda sec=sec: self._section(sec)) for sec in all_tools.SECTIONS},
                     }
@@ -818,7 +820,7 @@ class MainWindow(QWidget):
         self._unbuilt = {"Apps", *SECTION_PAGES, "Viewer", "Clipboard", "Space", "Capture", "Cloud", "PDF",
                          "Organizer", "Startup", "Scan", "Unlock", "Rename", "Check", "Backup", "Awake", "Colors", "Archives",
                          "History",
-                         "Updates", "About", *SETTINGS_PAGES, *SOON,
+                         "Updates", "About", "Soon", *SETTINGS_PAGES, *SOON,
                          *[tool.page for tool in all_tools.TOOLS if tool.page not in on_pages and tool.page != "Converter"]}
         self._made("heads")
         for name in PAGES:
@@ -966,7 +968,7 @@ class MainWindow(QWidget):
             self.c.rebuild_window(self.current_page())
 
     def reset_to_defaults(self, keys):
-        """Sets these settings to how Corefold comes (still to be saved, so it can be undone)."""
+        """Sets these settings to how Rakiza Core comes (still to be saved, so it can be undone)."""
         import copy
         from .settings import Settings
         fresh = Settings()
@@ -992,26 +994,131 @@ class MainWindow(QWidget):
         mark_rows(root or self)  # (hairlines between settings rows that follow each other)
         keep_wrapped_text(root or self)
 
+    def _nav_uses(self, sec) -> list:
+        """The tools in use that show under a section in the sidebar (none for a section that is one tool on its
+        own, like Cloud: its row opens it)."""
+        if sec.direct:
+            return []
+        return [tool for tool in self.tools_on if all_tools.SECTION_OF[tool.id] is sec]
+
+    def _fill_nav(self):
+        """The sidebar's rows: Home, a line, the sections in use (each with its tools, shown while it's open),
+        Coming soon, the room, then History, Settings and About. Made again when the sections or their tools
+        change: the rows there are kept and changed in place (only the last ones come or go), so screen readers
+        and Windows' UI Automation keep up with them."""
+        nav, row_h = self.nav, self._row_h
+        rows: list[tuple[str | None, str, int]] = [(name, "page", row_h) for name in NAV_TOP]
+        rows.append((None, "line", 13))
+        for sec in self.sections:
+            if all_tools.section_paused(sec):
+                continue
+            uses = self._nav_uses(sec)
+            rows.append((sec.page, "section" if uses else "page", row_h))
+            rows += [(tool.page, "tool", row_h - 4) for tool in uses]
+        if any(all_tools.section_paused(sec) for sec in self.sections):
+            rows.append(("Soon", "page", row_h))
+        rows.append((None, "space", 0))
+        rows += [(name, "page", row_h) for name in NAV_BOTTOM]
+        nav.blockSignals(True)  # (changing the rows isn't opening a page)
+        try:
+            while nav.count() > len(rows):
+                nav.takeItem(nav.count() - 1)
+            for row, (name, kind, height) in enumerate(rows):
+                item = nav.item(row)
+                if item is None:
+                    item = QListWidgetItem()
+                    nav.addItem(item)
+                nav.setRowHidden(row, False)
+                item.setFlags(Qt.NoItemFlags if name is None else Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+                item.setData(Qt.UserRole, name)
+                item.setData(KIND_ROLE, kind)
+                item.setData(BADGE_ROLE, None)
+                item.setText("")
+                item.setToolTip("")
+                item.setSizeHint(QSize(0, height))
+            self.nav_rows = [name for name, _, _ in rows]
+            nav.movable = (0, -1)  # (sections are moved from their menu: Move up, Move down)
+            nav.setCurrentRow(-1)
+        finally:
+            nav.blockSignals(False)
+        self.refresh_nav()
+        self._sync_nav_rows(self.current_page() if hasattr(self, "stack") else "Home")
+
+    def _sync_nav_rows(self, name: str):
+        """The section of this page shows its tools under it (the others don't, and none do while only icons
+        show), the right row is lit, and History, Settings and About stay at the bottom."""
+        from .navbar import OPEN_ROLE
+        nav = self.nav
+        compact = self._compact_now()
+        owner = NAV_OWNER.get(name, name)
+        open_sec = owner if owner in all_tools.SECTION_BY_PAGE else None
+        changed = False
+        for row in range(nav.count()):
+            item = nav.item(row)
+            kind = item.data(KIND_ROLE)
+            if kind == "tool":
+                hide = compact or NAV_OWNER.get(item.data(Qt.UserRole)) != open_sec
+                if nav.isRowHidden(row) != hide:
+                    nav.setRowHidden(row, hide)
+                    changed = True
+            elif kind == "section":
+                item.setData(OPEN_ROLE, item.data(Qt.UserRole) == open_sec and not compact)
+        if changed:
+            nav.doItemsLayout()  # (the rows' places now, for the pill)
+        self._fit_nav_room()
+        row = self._nav_row(name)
+        if row >= 0 and nav.currentRow() != row and hasattr(self, "stack") and self.current_page() == name:
+            nav.blockSignals(True)  # (only the light moves: the page is open already)
+            nav.setCurrentRow(row)
+            nav.blockSignals(False)
+        nav._slide_mark(nav.currentRow())
+        nav.viewport().update()
+
+    def _nav_row(self, name: str) -> int:
+        """The sidebar row lit for this page: its own when it shows, else the row it belongs under."""
+        if name in self.nav_rows and not self.nav.isRowHidden(self.nav_rows.index(name)):
+            return self.nav_rows.index(name)
+        owner = NAV_OWNER.get(name, name)
+        return self.nav_rows.index(owner) if owner in self.nav_rows else -1
+
+    def _fit_nav_room(self):
+        """The room above History, Settings and About: whatever the rows above leave (none when they don't all
+        fit, and the list scrolls)."""
+        nav = self.nav
+        room_row, used = -1, 0
+        for row in range(nav.count()):
+            item = nav.item(row)
+            if item.data(KIND_ROLE) == "space":
+                room_row = row
+            elif not nav.isRowHidden(row):
+                used += item.sizeHint().height()
+        if room_row < 0:
+            return
+        room = max(0, nav.viewport().height() - used - 1)
+        item = nav.item(room_row)
+        if item.sizeHint().height() != room:
+            item.setSizeHint(QSize(0, room))
+            nav.doItemsLayout()
+            nav._mark_y = None
+            nav.viewport().update()
+
     def refresh_nav(self):
         t = self.c.theme
         self.nav.show_icons = self.c.settings.sidebar_icons
         compact = self._compact_now()
-        for row, entry in enumerate(self.nav_entries):  # (headings never move)
-            if isinstance(entry, tuple):
-                self.nav.item(row).setText(tr(entry[1]))
-        for row in range(self.nav.count()):  # (tools can have been dragged: go by each row's own page)
+        for row in range(self.nav.count()):
             item = self.nav.item(row)
             name = item.data(Qt.UserRole)
             if name:
-                text = tr(NAV_LABELS.get(name, name))
+                tool = all_tools.BY_PAGE.get(name)
+                # (a tool under its section by the name its section's page gives it: "Convert" under Files)
+                text = tr(tool.use or tool.nav) if tool is not None and item.data(KIND_ROLE) == "tool" \
+                    else tr(NAV_LABELS.get(name, name))
                 item.setText(text)
                 item.setData(ICON_ROLE, PAGE_ICONS[name])
                 item.setToolTip(self._nav_tip(name, text, compact))
-                if name == "Updates":
-                    item.setData(BADGE_ROLE, tr("New") if self.c.update_waiting() else None)
-                elif name in all_tools.SECTION_BY_PAGE:  # (a section resting for now says so)
-                    item.setData(BADGE_ROLE, tr("Soon") if all_tools.section_paused(all_tools.SECTION_BY_PAGE[name])
-                                 else None)
+                if name == "About":  # (a new version waiting: a dot, and its page has the button)
+                    item.setData(BADGE_ROLE, DOT if self.c.update_waiting() else None)
         self.menu_btn.setIcon(icons.icon("navigation", t.text))
         self.menu_btn.setToolTip(tr("Show the names") if compact else tr("Icons only"))
         self.nav.viewport().update()
@@ -1020,8 +1127,12 @@ class MainWindow(QWidget):
         """A sidebar row's tooltip: a section's tools in use (and its name when only icons show)."""
         sec = all_tools.SECTION_BY_PAGE.get(name)
         tools = ", ".join(tr(t.nav) for t in self.tools_on if sec is not None and all_tools.SECTION_OF[t.id] is sec)
-        if sec is not None and all_tools.section_paused(sec):
-            tools = tr("Coming back soon")
+        if name == "Soon":
+            tools = ", ".join(tr(sec.name) for sec in self.sections if all_tools.section_paused(sec))
+        elif name == "About" and self.c.update_waiting():
+            tools = tr("A new version is ready")
+        elif sec is not None and not compact and self._nav_uses(sec):
+            tools = ""  # (its tools are right under it)
         if compact:
             return f"{text}: {tools}" if tools else text
         return tools
@@ -1031,8 +1142,15 @@ class MainWindow(QWidget):
     def _apply_nav_width(self, width: int):
         self.sidebar.setFixedWidth(width)
         compact = width < COMPACT_NAV + 40
-        for w in (self.logo, self.brand, self.version_label):
+        for w in (self.logo, self.brand_names, self.version_label):
             w.setVisible(not compact)
+        if compact != getattr(self, "_rows_compact", None):  # (a section's tools show only with the names)
+            self._rows_compact = compact
+            if hasattr(self, "stack"):
+                here = self.current_page()
+                self._sync_nav_rows(here)
+                self._sync_section_strip(here)
+                self._fit_one_head()
 
     def _fade_in(self, i: int):
         """A page that's opened fades in while it rises the last few pixels into place (quickly), so moving
@@ -1098,14 +1216,21 @@ class MainWindow(QWidget):
     def _nav_released(self):
         self.c.settings_changed()
 
-    def _nav_moved(self, pages: list):
-        """Sections dragged into a new order: remembered, and the Home page and Settings follow it."""
-        self.c.settings.section_order = [all_tools.SECTION_BY_PAGE[p].id for p in pages
-                                         if p in all_tools.SECTION_BY_PAGE]
+    def _move_section(self, page: str, step: int):
+        """A section moved up or down one place (from its menu): remembered, and the sidebar, the Home page and
+        Settings follow it. Sections resting for now keep their place after the others."""
+        ids = [sec.id for sec in self.sections if not all_tools.section_paused(sec)]
+        sec_id = all_tools.SECTION_BY_PAGE[page].id
+        i = ids.index(sec_id)
+        j = i + step
+        if not 0 <= j < len(ids):
+            return
+        ids[i], ids[j] = ids[j], ids[i]
+        self.c.settings.section_order = ids + [sec.id for sec in self.sections if all_tools.section_paused(sec)]
         self.c.settings_changed()
-        self.nav_rows = [self.nav.item(r).data(Qt.UserRole) for r in range(self.nav.count())]
         self.sections = all_tools.sections(self.c.settings)
         self.tools_on = all_tools.enabled(self.c.settings)
+        self._fill_nav()
         # (the Settings list groups the tools by section, in the sidebar's order too)
         self.settings_tab_list = _base_tabs() + [(tool.settings, tool.nav, list(tool.settings_pages))
                                                 for tool in self.tools_on if tool.settings]
@@ -1186,7 +1311,7 @@ class MainWindow(QWidget):
             elif self.built(name):
                 self._drop_page(name)
         self._rebuild_home()
-        self.refresh_nav()  # (the sections' tooltips list their tools)
+        self._fill_nav()  # (a section's tools under it in the sidebar)
         self._sync_settings_head(here)
         self.update_save_bar()
         if self._direct_page(here) != here:  # (one tool on its own, switched on on its page: the tool itself)
@@ -1217,12 +1342,14 @@ class MainWindow(QWidget):
         from .theme import round_menu
         menu = QMenu(self)
         round_menu(menu)
-        if self.nav.can_drag(row):
-            first, last = self.nav.movable
-            up = menu.addAction(tr("Move up"), lambda: self.nav.move_by(row, -1))
-            up.setEnabled(row > first)
-            down = menu.addAction(tr("Move down"), lambda: self.nav.move_by(row, 1))
-            down.setEnabled(row < last)
+        page_name = self.nav_rows[row] if 0 <= row < len(self.nav_rows) else None
+        sec = all_tools.SECTION_BY_PAGE.get(page_name)
+        if sec is not None and not all_tools.section_paused(sec):
+            ids = [s.id for s in self.sections if not all_tools.section_paused(s)]
+            up = menu.addAction(tr("Move up"), lambda: self._move_section(page_name, -1))
+            up.setEnabled(ids.index(sec.id) > 0)
+            down = menu.addAction(tr("Move down"), lambda: self._move_section(page_name, 1))
+            down.setEnabled(ids.index(sec.id) < len(ids) - 1)
             menu.addAction(tr("Put the sections back in order"), self._reset_nav_order)
             menu.addSeparator()
         menu.addAction(tr("Show the names") if self._compact_now() else tr("Icons only"), self.toggle_nav)
@@ -1459,6 +1586,7 @@ class MainWindow(QWidget):
         elif name == "Updates":
             self.refresh_updates()
         elif name == "About":
+            self.about_updates_btn.setIcon(icons.icon("arrow_sync", t.text))
             for b, icon in getattr(self, "link_buttons", []):
                 b.setIcon(icons.icon(icon, t.on_accent if b.objectName() == "primary" else t.text))
         elif name == "CaptureSettings":
@@ -1494,6 +1622,7 @@ class MainWindow(QWidget):
         self._build_page(name)
         self.stack.setCurrentIndex(PAGES.index(name))
         self._sync_settings_head(name)
+        self._sync_nav_rows(name)
         if os.environ.get("COREFOLD_MEMLOG"):
             winutil.log_memory(f"page {name}")
             QTimer.singleShot(2500, lambda n=name: winutil.log_memory(f"page {n}, 2.5 s later"))
@@ -1531,8 +1660,8 @@ class MainWindow(QWidget):
             self.shortcuts_page.refresh()
 
     def _archives(self) -> QWidget:
-        """Corefold Archive: open archives, make new ones, and the ones opened lately."""
-        w, lay = page(tr("Corefold Archive"))
+        """Rakiza Core Archive: open archives, make new ones, and the ones opened lately."""
+        w, lay = page(tr("Archives"))
         lay.itemAt(0).widget().hide()
         lay.addLayout(self._use_header("archive", tr("Open, extract and make archives: ZIP, RAR, 7z, TAR, ISO and "
                                                      "more."), gear=True))
@@ -1561,7 +1690,7 @@ class MainWindow(QWidget):
         for text in (tr("Drag files out of an open archive straight into any folder."),
                      tr("Open a file inside a ZIP or 7z, change it, and save it back into the archive."),
                      tr("Archives inside archives can be unpacked in one go."),
-                     tr("A damaged archive? Corefold rescues every file that can still be read."),
+                     tr("A damaged archive? Rakiza Core rescues every file that can still be read."),
                      tr("Files from the internet keep Windows' warning after you unpack them.")):
             row = QHBoxLayout()
             row.setSpacing(10)
@@ -1636,7 +1765,7 @@ class MainWindow(QWidget):
     def _default_for_archives(self):
         from . import assoc
         if not self.open_archives_setting.isChecked():
-            self.open_archives_setting.setChecked(True)  # registers first, so Windows lists Corefold
+            self.open_archives_setting.setChecked(True)  # registers first, so Windows lists Rakiza Core
         assoc.open_default_apps()
 
     def _settings_head(self) -> QWidget:
@@ -1760,7 +1889,7 @@ class MainWindow(QWidget):
         self.crumb = label("", "muted")
         row.addWidget(self.crumb)
         row.addStretch()
-        self.search_btn = SearchButton(tr("Search Corefold"))
+        self.search_btn = SearchButton(tr("Search Rakiza Core"))
         self.search_btn.setMinimumWidth(240)
         self.search_btn.setToolTip(tr("Find any page, setting or action (Ctrl + K)"))
         self.search_btn.clicked.connect(self.open_palette)
@@ -1897,7 +2026,7 @@ class MainWindow(QWidget):
         commands.append(Command(tr("Add a widget"), actions, ic("add"), self._home_add_widget,
                                 keywords=tr("Widgets") + " " + tr("Customize") + " widget home"))
         # pages: the sidebar's, and each tool in use (straight to it, whatever its section)
-        for name in [n for n in self.nav_rows if n] + [tool.page for tool in self.tools_on]:
+        for name in dict.fromkeys([n for n in self.nav_rows if n] + [tool.page for tool in self.tools_on]):
             sec = all_tools.SECTION_BY_PAGE.get(name)
             commands.append(Command(tr(NAV_LABELS.get(name, name)), go, ic(PAGE_ICONS.get(name, "apps")),
                                     lambda n=name: self.open_page(n),
@@ -2005,7 +2134,7 @@ class MainWindow(QWidget):
                     row.addWidget(w)
             return row
         extra = self.tool_settings_button(tool.page, *more) if gear else (more[0] if more else None)
-        return tool_header(tool.product, tr(tool.name), intro, self.c.theme.dark, self.devicePixelRatioF(), extra)
+        return tool_header(tool.product, tr(tool.nav), intro, self.c.theme.dark, self.devicePixelRatioF(), extra)
 
     def tool_settings_button(self, tool_page: str, *more: QWidget) -> QWidget:
         """The ⚙ button at the top of a tool's page (next to anything else that goes there)."""
@@ -2048,12 +2177,12 @@ class MainWindow(QWidget):
         for tool in [t for t in tools if t.id in on] + [t for t in tools if t.id not in on]:
             grid.add(ToolSwitchCard(tool, tool.id in on, lambda n=tool.page: self.open_page(n), self._tool_switched,
                                     dark, dpr, fresh=tool.id in fresh))
-        if sec.id == "quick":  # the quick menu and wheel are part of Corefold itself: their settings, here too
+        if sec.id == "quick":  # the quick menu and wheel are part of Rakiza Core itself: their settings, here too
             grid.add(ToolCard("quick", tr("Quick menu and wheel"),
                               tr("Your favourite actions and tools a shortcut away, in any app."),
                               lambda: self.open_page("Quick"), dark, dpr))
         lay.addWidget(grid)
-        lay.addWidget(label(tr("Switch off what you don't use: it isn't loaded at all, so Corefold stays light. "
+        lay.addWidget(label(tr("Switch off what you don't use: it isn't loaded at all, so Rakiza Core stays light. "
                                "Its settings are kept for when you switch it back on."), "subtle", wrap=True))
         self._coming(sec, lay)
         lay.addStretch()
@@ -2085,7 +2214,7 @@ class MainWindow(QWidget):
         from .atomic.widgets import ResponsiveGrid
         from .onetool import UseCard
         t, dpr = self.c.theme, self.devicePixelRatioF()
-        w, lay = page(tr(sec.one_tool))
+        w, lay = page(tr(sec.name))
         lay.itemAt(0).widget().hide()  # (the tool's heading is over the page)
         on = {tool.id for tool in self.tools_on}
         tools = all_tools.in_section(self.c.settings, sec)
@@ -2096,7 +2225,7 @@ class MainWindow(QWidget):
             head.addWidget(label(tr("Choose what {name} can do", name=tr(sec.one_tool)), "title", wrap=True), 1)
             head.addWidget(button(tr("Done"), "primary", self._one_head_settings), 0, Qt.AlignVCenter)
             lay.addLayout(head)
-            lay.addWidget(label(tr("Switch off what you don't use: it isn't loaded at all, so Corefold stays light. "
+            lay.addWidget(label(tr("Switch off what you don't use: it isn't loaded at all, so Rakiza Core stays light. "
                                    "Its settings are kept for when you switch it back on."), "subtle", wrap=True))
             fresh = {tool.id for tool in all_tools.new_tools(self.c.settings)}
             grid = ResponsiveGrid(560, 12, 2)
@@ -2132,7 +2261,16 @@ class MainWindow(QWidget):
     def _resting_section(self, sec) -> QWidget:
         """A section resting for now (tools.PAUSED_SECTIONS): what its tools do and that they're coming back,
         with nothing to switch on or start."""
-        from .atomic.widgets import ResponsiveGrid
+        return self._resting_sections([sec])
+
+    def _soon_sections(self) -> QWidget:
+        """Coming soon (one row in the sidebar): every section resting for now, one after the other."""
+        return self._resting_sections([sec for sec in self.sections if all_tools.section_paused(sec)],
+                                      tr("Coming soon"))
+
+    def _resting_sections(self, secs: list, title: str = "") -> QWidget:
+        """The page of sections resting for now: a section alone under its own heading, or several under one
+        title, each with its heading."""
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
 
         def wrapped(text: str, name: str | None = None) -> QLabel:
@@ -2140,17 +2278,39 @@ class MainWindow(QWidget):
             words = label(text, name, wrap=True)
             words.setContentsMargins(2, 0, 2, 0)
             return words
-        w, lay = page(tr(sec.name))
-        lay.itemAt(0).widget().hide()  # shown in the heading with the tile instead
-        lay.addLayout(tool_header(sec.product, tr(sec.name), tr(sec.line), dark, dpr, pill=tr("Coming back soon")))
+        w, lay = page(title or (tr(secs[0].name) if secs else ""))
+        if not title:
+            lay.itemAt(0).widget().hide()  # shown in the heading with the tile instead
+        if len(secs) == 1 and not title:
+            sec = secs[0]
+            lay.addLayout(tool_header(sec.product, tr(sec.name), tr(sec.line), dark, dpr,
+                                      pill=tr("Coming back soon")))
         note, nl = card(4)
         nl.addWidget(label(tr("These tools are being made better"), "h2", wrap=True))
-        nl.addWidget(wrapped(tr("For now Corefold puts its effort into the Files tools, so each one works really "
+        nl.addWidget(wrapped(tr("For now Rakiza Core puts its effort into the Files tools, so each one works really "
                               "well. The tools here are resting while we improve them, and they come back in a "
                               "future update."), "muted"))
         nl.addWidget(wrapped(tr("Nothing was removed: your settings and what these tools kept for you stay on your "
                               "PC, ready for when they're back."), "muted"))
         lay.addWidget(note)
+        for sec in secs:
+            self._resting_tools(sec, lay, heading=bool(title))
+        lay.addStretch()
+        return w
+
+    def _resting_tools(self, sec, lay, heading: bool):
+        """A resting section's tools, as cards (under the section's heading on Coming soon)."""
+        from .atomic.widgets import ResponsiveGrid
+        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
+
+        def wrapped(text: str, name: str | None = None) -> QLabel:
+            words = label(text, name, wrap=True)
+            words.setContentsMargins(2, 0, 2, 0)
+            return words
+        if heading:
+            lay.addSpacing(6)
+            lay.addLayout(tool_header(sec.product, tr(sec.name), tr(sec.line), dark, dpr,
+                                      pill=tr("Coming back soon")))
         grid = ResponsiveGrid(300, 12, 2)
         for tool in all_tools.in_section(self.c.settings, sec):
             box, bl = card(8)
@@ -2179,8 +2339,6 @@ class MainWindow(QWidget):
         if later:
             lay.addWidget(label(tr("Also planned here: {names}.", names=", ".join(tr(t.nav) for t in later)),
                                 "subtle", wrap=True))
-        lay.addStretch()
-        return w
 
     def _tool_switched(self, card: "ToolSwitchCard", on: bool):
         """A tool's switch on its section's page."""
@@ -2212,7 +2370,7 @@ class MainWindow(QWidget):
         return strip
 
     def _one_head(self) -> QWidget:
-        """Over the pages of a section that's one tool (Corefold Files): one heading for all of them, with a
+        """Over the pages of a section that's one tool (Rakiza Core Files): one heading for all of them, with a
         bar of its uses."""
         from .onetool import OneToolHead
         self.one_head = OneToolHead()
@@ -2285,6 +2443,9 @@ class MainWindow(QWidget):
         show = self._one_tool_of(name) is not None and not editing
         if show != self.one_head.isVisibleTo(self):
             self.one_head.setVisible(show)
+        bar = self.one_head.bar
+        if bar is not None and _alive(bar) and bar.isVisibleTo(self.one_head) != self._compact_now():
+            bar.setVisible(self._compact_now())  # (with the names showing, its uses are in the sidebar)
         if show:
             m = self.canvas.layout().contentsMargins()
             self.one_head.fit(self.canvas.width() - m.left() - m.right())
@@ -2306,8 +2467,9 @@ class MainWindow(QWidget):
         sec = all_tools.SECTION_BY_PAGE.get(NAV_OWNER.get(name, name))
         if sec is not None and (sec.direct or (sec.one_tool and not all_tools.section_paused(sec))):
             sec = None  # (one tool on its own, or its uses are on its heading instead)
-        self.section_strip.setVisible(sec is not None)
-        if sec is None:
+        # (with the names showing, the section's tools are in the sidebar right under it: no strip)
+        self.section_strip.setVisible(sec is not None and self._compact_now())
+        if sec is None or not self._compact_now():
             return
         if sec is not self.strip_section:
             self.strip_section = sec
@@ -2363,9 +2525,9 @@ class MainWindow(QWidget):
         text = tr("{name} stops running and isn't loaded at all. Its settings are kept, so you can switch it "
                   "back on any time in {section}.", name=tr(tool.name), section=tr(all_tools.SECTION_OF[tool.id].name))
         if tool.id == "converter":
-            text += "\n\n" + tr("The wheel and Corefold's right-click menu go away with it.")
+            text += "\n\n" + tr("The wheel and Rakiza Core's right-click menu go away with it.")
         elif tool.id == "archive":
-            text += "\n\n" + tr("Archives won't open in Corefold with a double-click any more.")
+            text += "\n\n" + tr("Archives won't open in Rakiza Core with a double-click any more.")
         box = QMessageBox(QMessageBox.Question, tr("Switch off {name}?", name=tr(tool.name)), text, parent=self)
         remove = box.addButton(tr("Switch off"), QMessageBox.DestructiveRole)
         box.addButton(tr("Cancel"), QMessageBox.RejectRole)
@@ -2379,9 +2541,9 @@ class MainWindow(QWidget):
     def _soon(self, name: str) -> QWidget:
         """A page for a tool that's still being made: what it will do."""
         tool = all_tools.BY_PAGE[name]
-        w, lay = page(tr(tool.name))
+        w, lay = page(tr(tool.nav))
         lay.itemAt(0).widget().hide()  # the big title is shown next to the tile instead
-        lay.addLayout(tool_header(tool.product, tr(tool.name), tr(tool.line), self.c.theme.dark,
+        lay.addLayout(tool_header(tool.product, tr(tool.nav), tr(tool.line), self.c.theme.dark,
                                   self.devicePixelRatioF(), pill=tr("Coming soon")))
         box, bl = card(10)
         bl.addWidget(label(tr("What it will do"), "h2"))
@@ -2401,7 +2563,7 @@ class MainWindow(QWidget):
     # ---- pages
 
     def _home(self) -> QWidget:
-        """The start page: a greeting with what Corefold did so far and quick actions, the sections with
+        """The start page: a greeting with what Rakiza Core did so far and quick actions, the sections with
         the tools you use in each, and what happened lately."""
         from .atomic.widgets import FlowLayout, GlowPanel, ResponsiveGrid
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
@@ -2433,7 +2595,7 @@ class MainWindow(QWidget):
         hl.addWidget(label(tr("Your everyday tools in one place. Drop files anywhere in this window, or press "
                               "Ctrl + K to find any page, setting or action."), "muted", wrap=True))
         hl.addSpacing(10)
-        # (what Corefold did so far: shown once there's something to count, not three noughts on a new PC)
+        # (what Rakiza Core did so far: shown once there's something to count, not three noughts on a new PC)
         self.hero_figures_box = QWidget()
         figures = QHBoxLayout(self.hero_figures_box)
         figures.setContentsMargins(0, 0, 0, 8)
@@ -2520,12 +2682,12 @@ class MainWindow(QWidget):
         QTimer.singleShot(0, lambda: self.home_board.open_gallery() if _alive(self.home_board) else None)
 
     def _home_start_again(self):
-        if self._confirm(tr("Start again"), tr("Put back the widgets Corefold starts with? The ones you added or "
+        if self._confirm(tr("Start again"), tr("Put back the widgets Rakiza Core starts with? The ones you added or "
                                                "changed go."), tr("Start again")):
             self.home_board.start_again()
 
     def _fill_recent(self):
-        """The last few things Corefold did, on the Home page."""
+        """The last few things Rakiza Core did, on the Home page."""
         while self.recent_lay.count():
             item = self.recent_lay.takeAt(0)
             if item.widget():
@@ -2533,7 +2695,7 @@ class MainWindow(QWidget):
                 item.widget().deleteLater()
         entries = self.c.history.items[:5]
         if not entries:
-            empty = label(tr("Nothing yet. What you do with Corefold shows up here."), "muted", wrap=True)
+            empty = label(tr("Nothing yet. What you do with Rakiza Core shows up here."), "muted", wrap=True)
             empty.setContentsMargins(12, 10, 12, 10)
             self.recent_lay.addWidget(empty)
             keep_wrapped_text(self.recent_lay.parentWidget())
@@ -2569,7 +2731,7 @@ class MainWindow(QWidget):
         keep_wrapped_text(self.recent_lay.parentWidget())
 
     def _converter(self) -> QWidget:
-        w, lay = page(tr("Corefold Converter"))
+        w, lay = page(tr("Converter"))
         self.converter_scroll = w
         lay.itemAt(0).widget().hide()  # shown in the heading with the tile instead
         self.power = button("", "power")
@@ -2610,7 +2772,7 @@ class MainWindow(QWidget):
         lay.addLayout(again)
         self.home_stats = label("", "muted")
         lay.addWidget(self.home_stats)
-        lay.addWidget(label(tr("Corefold keeps running in the system tray (by the clock) after you close this "
+        lay.addWidget(label(tr("Rakiza Core keeps running in the system tray (by the clock) after you close this "
                                "window. It uses almost no memory or power while it waits."), "muted", wrap=True))
         lay.addStretch()
         return w
@@ -2672,7 +2834,7 @@ class MainWindow(QWidget):
         lay.addWidget(box)
 
         checks, cl = card()
-        self.startup = checkbox(tr("Start Corefold when Windows starts"),
+        self.startup = checkbox(tr("Start Rakiza Core when Windows starts"),
                                 startup_enabled() if self.pending_startup is None else self.pending_startup,
                                 self._startup_toggled)
         self.show_progress = checkbox(tr("Show a popup while converting and when it's done"), s.show_progress,
@@ -2692,7 +2854,7 @@ class MainWindow(QWidget):
                                       self._performance_changed)
         pl.addWidget(self.low_priority)
         pl.addWidget(self.one_at_a_time)
-        pl.addWidget(label(tr("Corefold also lets go of memory it doesn't need when it's idle, and closes this window "
+        pl.addWidget(label(tr("Rakiza Core also lets go of memory it doesn't need when it's idle, and closes this window "
                               "completely a little while after you close it."), "muted", wrap=True))
         lay.addWidget(perf)
         from .settingscard import card as settings_file_card
@@ -2792,7 +2954,7 @@ class MainWindow(QWidget):
         # right-click menu
         menu, ml = card()
         ml.addWidget(label(tr("Right-click menu"), "h2"))
-        self.context = checkbox(tr("Show Corefold when I right-click a file or folder"), s.context_menu,
+        self.context = checkbox(tr("Show Rakiza Core when I right-click a file or folder"), s.context_menu,
                                 self.c.set_context_menu)
         ml.addWidget(self.context)
         self.menu_style = Segmented([(k, tr(v)) for k, v in MENU_STYLES.items()], s.menu_style)
@@ -2829,7 +2991,7 @@ class MainWindow(QWidget):
         return w
 
     def _look(self) -> QWidget:
-        """How Corefold looks: light or dark, the accent colour, text size and popups."""
+        """How Rakiza Core looks: light or dark, the accent colour, text size and popups."""
         s = self.c.settings
         w, lay = page(tr("Look"))
 
@@ -2844,7 +3006,7 @@ class MainWindow(QWidget):
         win_text = Segmented([(k, tr(v)) for k, v in WINDOW_TEXT.items()], s.window_text)
         win_text.changed.connect(lambda v: self._look_changed("window_text", v))
         for title, widget in ((tr("Appearance"), appearance), (tr("Accent colour"), self.swatches),
-                              (None, self.accent_name), (tr("Text size in Corefold's windows"), win_text)):
+                              (None, self.accent_name), (tr("Text size in Rakiza Core's windows"), win_text)):
             if title:
                 cl.addSpacing(6)
                 cl.addWidget(label(title, "h2"))
@@ -2983,7 +3145,7 @@ class MainWindow(QWidget):
         grid.addWidget(self.uninstall_depth, 2, 1)
         grid.setColumnStretch(2, 1)
         bl.addLayout(grid)
-        bl.addWidget(label(tr("Backups let you put back anything Corefold removed. Older ones are deleted by "
+        bl.addWidget(label(tr("Backups let you put back anything Rakiza Core removed. Older ones are deleted by "
                               "themselves to free up space."), "muted", wrap=True))
         bl.addWidget(label(tr("The depth can also be changed each time, on the list of leftovers. Safe only offers "
                               "what surely belongs to the app; Deep also looks in more places."), "muted", wrap=True))
@@ -2998,11 +3160,11 @@ class MainWindow(QWidget):
         return w
 
     def _viewer(self) -> QWidget:
-        """Corefold Viewer: open pictures and email files, and the ones opened lately."""
+        """Rakiza Core Viewer: open pictures and email files, and the ones opened lately."""
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        w, lay = page(tr("Corefold Viewer"))
+        w, lay = page(tr("Viewer"))
         lay.itemAt(0).widget().hide()
-        lay.addLayout(tool_header("viewer", tr("Corefold Viewer"),
+        lay.addLayout(tool_header("viewer", tr("Viewer"),
                                   tr("Flip through a folder of pictures fast, fix them on the spot, and open email "
                                      "files."), dark, dpr, self.tool_settings_button("Viewer")))
         self.viewer_drop = DropZone(None, None, title=tr("Drop a picture or an email file"),
@@ -3097,7 +3259,7 @@ class MainWindow(QWidget):
             self.c.open_viewer(Path(name))
 
     def _viewer_settings(self) -> QWidget:
-        """Corefold Viewer."""
+        """Rakiza Core Viewer."""
         s = self.c.settings
         w, lay = page(tr("Viewer"))
         box, bl = card()
@@ -3140,14 +3302,14 @@ class MainWindow(QWidget):
         lay.addWidget(box)
         box, bl = card()
         bl.addWidget(label(tr("Double-click to open"), "h2"))
-        self.open_images_setting = checkbox(tr("Open pictures with Corefold (it shows up under \"Open with\")"),
+        self.open_images_setting = checkbox(tr("Open pictures with Rakiza Core (it shows up under \"Open with\")"),
                                             s.open_images, lambda on: self.c.set_open_files("open_images", on))
-        self.open_emails_setting = checkbox(tr("Open email files (.msg, .eml) with Corefold"), s.open_emails,
+        self.open_emails_setting = checkbox(tr("Open email files (.msg, .eml) with Rakiza Core"), s.open_emails,
                                             lambda on: self.c.set_open_files("open_emails", on))
         bl.addWidget(self.open_images_setting)
         bl.addWidget(self.open_emails_setting)
         row = QHBoxLayout()
-        row.addWidget(button(tr("Make Corefold the default…"), None, self._default_for_viewer))
+        row.addWidget(button(tr("Make Rakiza Core the default…"), None, self._default_for_viewer))
         row.addStretch()
         bl.addLayout(row)
         bl.addWidget(label(tr("Windows asks you to pick the default app yourself. This opens the right place in "
@@ -3173,33 +3335,33 @@ class MainWindow(QWidget):
         assoc.open_default_apps()
 
     def _clipboard(self) -> QWidget:
-        """Corefold Clipboard: everything copied, searchable, with pins."""
+        """Rakiza Core Clipboard: everything copied, searchable, with pins."""
         from .clipview import ClipboardPage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("clipboard", tr("Corefold Clipboard"),
+        header = tool_header("clipboard", tr("Clipboard"),
                              tr("Everything you copy, kept on this PC and easy to find again."), dark, dpr,
                              self.tool_settings_button("Clipboard"))
         self.clip_page = ClipboardPage(self.c, header)
         return self.clip_page
 
     def _space(self) -> QWidget:
-        """Corefold Space: what's filling the disk, junk to clean up, duplicates."""
+        """Rakiza Core Space: what's filling the disk, junk to clean up, duplicates."""
         from .spacepage import SpacePage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("space", tr("Corefold Space"), tr("See what's filling your disk and free up space safely."),
+        header = tool_header("space", tr("Space"), tr("See what's filling your disk and free up space safely."),
                              dark, dpr)
         self.space_page = SpacePage(self.c, header)
         return self.space_page
 
     def _unlock(self) -> QWidget:
-        """Corefold Unlock: which programs are using a file, and closing them."""
+        """Rakiza Core Unlock: which programs are using a file, and closing them."""
         from .unlockpage import UnlockPage
         header = self._use_header("unlock", tr("Find out which program is holding a file you can't delete or move."))
         self.unlock_page = UnlockPage(self.c, header)
         return self.unlock_page
 
     def _rename(self) -> QWidget:
-        """Corefold Rename: many files at once, every new name shown first."""
+        """Rakiza Core Rename: many files at once, every new name shown first."""
         from .renamepage import RenamePage
         header = self._use_header("rename", tr("Rename many files at once, and see every new name before anything "
                                                "changes."))
@@ -3207,39 +3369,39 @@ class MainWindow(QWidget):
         return self.rename_page
 
     def _check(self) -> QWidget:
-        """Corefold Check: is a download the real file?"""
+        """Rakiza Core Check: is a download the real file?"""
         from .checkpage import CheckPage
         header = self._use_header("hash", tr("Make sure a download is the real file and wasn't changed."))
         self.check_page = CheckPage(self.c, header)
         return self.check_page
 
     def _backup(self) -> QWidget:
-        """Corefold Backup: folders kept safe on another drive."""
+        """Rakiza Core Backup: folders kept safe on another drive."""
         from .backuppage import BackupPage
         header = self._use_header("backup", tr("Copy your important folders to another drive, by itself."))
         self.backup_page = BackupPage(self.c, header)
         return self.backup_page
 
     def _awake(self) -> QWidget:
-        """Corefold Awake: keep the PC awake, and turn it off later."""
+        """Rakiza Core Awake: keep the PC awake, and turn it off later."""
         from .awakepage import AwakePage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("awake", tr("Corefold Awake"),
+        header = tool_header("awake", tr("Awake"),
                              tr("Keep your PC from going to sleep, for as long as you choose."), dark, dpr)
         self.awake_page = AwakePage(self.c, header)
         return self.awake_page
 
     def _colors(self) -> QWidget:
-        """Corefold Colors: pick a colour on the screen, and the ones picked lately."""
+        """Rakiza Core Colors: pick a colour on the screen, and the ones picked lately."""
         from .colorspage import ColorsPage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("colors", tr("Corefold Colors"),
+        header = tool_header("colors", tr("Colors"),
                              tr("Pick any colour on your screen and copy it as HEX, RGB, HSL, OKLCH and more."), dark, dpr)
         self.colors_page = ColorsPage(self.c, header)
         return self.colors_page
 
     def _pdf(self) -> QWidget:
-        """Corefold PDF: merge, split, arrange, shrink and lock PDFs."""
+        """Rakiza Core PDF: merge, split, arrange, shrink and lock PDFs."""
         from .pdfpage import PdfPage
         header = self._use_header("pdf", tr("Change what's in a PDF, merge, split and arrange its pages, shrink it "
                                             "and lock it."))
@@ -3248,7 +3410,7 @@ class MainWindow(QWidget):
         return self.pdf_page
 
     def _organizer(self) -> QWidget:
-        """Corefold File Organizer: sorts a messy folder into a folder for each kind of file."""
+        """Rakiza Core File Organizer: sorts a messy folder into a folder for each kind of file."""
         from .organizerpage import OrganizerPage
         header = self._use_header("organizer", tr("Sort a messy Downloads or Desktop into clear folders with one "
                                                   "click."))
@@ -3256,26 +3418,26 @@ class MainWindow(QWidget):
         return self.organizer_page
 
     def _startup(self) -> QWidget:
-        """Corefold Startup: what starts with Windows, each with a switch."""
+        """Rakiza Core Startup: what starts with Windows, each with a switch."""
         from .startuppage import StartupPage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("startup", tr("Corefold Startup"),
+        header = tool_header("startup", tr("Startup"),
                              tr("See what starts with Windows and switch off what slows it down."), dark, dpr)
         self.startup_page = StartupPage(self.c, header)
         return self.startup_page
 
     def _scan(self) -> QWidget:
-        """Corefold Scan: Microsoft Defender's scans, and Corefold's own checks for tricks malware uses."""
+        """Rakiza Core Scan: Microsoft Defender's scans, and Rakiza Core's own checks for tricks malware uses."""
         from .scanpage import ScanPage
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        header = tool_header("scan", tr("Corefold Scan"),
-                             tr("Check your PC for malware with Microsoft Defender, plus Corefold's own checks for "
+        header = tool_header("scan", tr("Virus scan"),
+                             tr("Check your PC for malware with Microsoft Defender, plus Rakiza Core's own checks for "
                                 "tricks viruses use."), dark, dpr)
         self.scan_page = ScanPage(self.c, header)
         return self.scan_page
 
     def _cloud(self) -> QWidget:
-        """Corefold Cloud: OneDrive, Dropbox, Google Drive and iCloud side by side."""
+        """Rakiza Core Cloud: OneDrive, Dropbox, Google Drive and iCloud side by side."""
         from .cloudpage import CloudPage
         header = self._use_header("cloud", tr("Your OneDrive, Dropbox, Google Drive and iCloud in one window. Drag "
                                               "files between them."))
@@ -3283,11 +3445,11 @@ class MainWindow(QWidget):
         return self.cloud_page
 
     def _capture(self) -> QWidget:
-        """Corefold Capture: screenshots."""
+        """Rakiza Core Capture: screenshots."""
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        w, lay = page(tr("Corefold Capture"))
+        w, lay = page(tr("Capture"))
         lay.itemAt(0).widget().hide()
-        lay.addLayout(tool_header("capture", tr("Corefold Capture"),
+        lay.addLayout(tool_header("capture", tr("Capture"),
                                   tr("Take a picture of your screen, mark it up and share it in seconds."),
                                   dark, dpr, self.tool_settings_button("Capture")))
         box, bl = card()
@@ -3371,7 +3533,7 @@ class MainWindow(QWidget):
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder)))
 
     def _capture_settings(self) -> QWidget:
-        """Corefold Capture."""
+        """Rakiza Core Capture."""
         s = self.c.settings
         w, lay = page(tr("Capture"))
         box, bl = card()
@@ -3488,7 +3650,7 @@ class MainWindow(QWidget):
         return self.shortcuts_page.widget
 
     def _clipboard_settings(self) -> QWidget:
-        """Corefold Clipboard."""
+        """Rakiza Core Clipboard."""
         s = self.c.settings
         w, lay = page(tr("Clipboard"))
         box, bl = card()
@@ -3584,7 +3746,7 @@ class MainWindow(QWidget):
             self.c.clip.clear()
 
     def _archive_settings(self) -> QWidget:
-        """Corefold Archive."""
+        """Rakiza Core Archive."""
         s = self.c.settings
         w, lay = page(tr("Archives"))
         box, bl = card()
@@ -3613,11 +3775,11 @@ class MainWindow(QWidget):
         lay.addWidget(box)
         box, bl = card()
         bl.addWidget(label(tr("Double-click to open"), "h2"))
-        self.open_archives_setting = checkbox(tr("Open archives with Corefold (it shows up under \"Open with\")"),
+        self.open_archives_setting = checkbox(tr("Open archives with Rakiza Core (it shows up under \"Open with\")"),
                                               s.open_archives, self.c.set_open_archives)
         bl.addWidget(self.open_archives_setting)
         row = QHBoxLayout()
-        row.addWidget(button(tr("Make Corefold the default…"), None, self._default_for_archives))
+        row.addWidget(button(tr("Make Rakiza Core the default…"), None, self._default_for_archives))
         row.addStretch()
         bl.addLayout(row)
         bl.addWidget(label(tr("Windows asks you to pick the default app yourself. This opens the right place in "
@@ -3628,7 +3790,7 @@ class MainWindow(QWidget):
         lay.addWidget(box)
         box, bl = card()
         bl.addWidget(label(tr("Passwords"), "h2"))
-        bl.addWidget(label(tr("When you tick \"Remember it\" in the password box, Corefold tries that password first "
+        bl.addWidget(label(tr("When you tick \"Remember it\" in the password box, Rakiza Core tries that password first "
                               "next time. They're locked to your Windows account and never leave this PC."), "muted",
                            wrap=True))
         row = QHBoxLayout()
@@ -3772,7 +3934,7 @@ class MainWindow(QWidget):
 
     def _updates(self) -> QWidget:
         s = self.c.settings
-        w, lay = page(tr("Updates"), tr("Corefold can update itself, so you never have to download it again."))
+        w, lay = page(tr("Updates"), tr("Rakiza Core can update itself, so you never have to download it again."))
         box, bl = card()
         self.update_status = label("", "h2", wrap=True)
         self.update_detail = label("", "muted", wrap=True)
@@ -3799,11 +3961,11 @@ class MainWindow(QWidget):
         opts, ol = card()
         self.auto_check = checkbox(tr("Check for updates automatically"), s.check_updates,
                                    self._update_options_changed)
-        self.auto_install = checkbox(tr("Install updates by themselves (Corefold restarts for a moment)"),
+        self.auto_install = checkbox(tr("Install updates by themselves (Rakiza Core restarts for a moment)"),
                                      s.auto_update, self._update_options_changed)
         ol.addWidget(self.auto_check)
         ol.addWidget(self.auto_install)
-        ol.addWidget(label(tr("Updates come from the official Corefold release page, are checked for damage "
+        ol.addWidget(label(tr("Updates come from the official Rakiza Core release page, are checked for damage "
                               "before installing, and keep all your settings."), "muted", wrap=True))
         lay.addWidget(opts)
 
@@ -3842,17 +4004,37 @@ class MainWindow(QWidget):
         row = QHBoxLayout()
         row.addWidget(button(tr("Show the tour"), on_click=self.c.show_tour))
         row.addWidget(button(tr("Open log folder"), on_click=self._open_logs))
-        row.addWidget(button(tr("Quit Corefold"), on_click=self.c.ask_quit))
+        row.addWidget(button(tr("Quit Rakiza Core"), on_click=self.c.ask_quit))
         row.addStretch()
         text.addLayout(row)
         top.addWidget(logo, 0, Qt.AlignTop)
         top.addLayout(text, 1)
         lay.addWidget(hero)
 
+        # updates live here too (the sidebar has one row for both): the version, and a new one when it's waiting
+        up, ul = card(6)
+        head = QHBoxLayout()
+        head.setSpacing(10)
+        words = QVBoxLayout()
+        words.setSpacing(2)
+        self.about_update_title = label("", "h2", wrap=True)
+        self.about_update_line = label("", "muted", wrap=True)
+        words.addWidget(self.about_update_title)
+        words.addWidget(self.about_update_line)
+        head.addLayout(words, 1)
+        self.about_update_btn = button("", "primary", self._about_update_clicked)
+        head.addWidget(self.about_update_btn, 0, Qt.AlignVCenter)
+        self.about_updates_btn = button(tr("Updates"), on_click=lambda: self.open_page("Updates"))
+        self.about_updates_btn.setIcon(icons.icon("arrow_sync", self.c.theme.text))
+        head.addWidget(self.about_updates_btn, 0, Qt.AlignVCenter)
+        ul.addLayout(head)
+        lay.addWidget(up)
+        self._fill_about_update()
+
         if UPDATE_REPO:
             owner, _, name = UPDATE_REPO.partition("/")
             links, ll = card()
-            ll.addWidget(label(tr("Help make Corefold better"), "h2"))
+            ll.addWidget(label(tr("Help make Rakiza Core better"), "h2"))
             ll.addWidget(label(tr("Found a bug or have an idea? Tell us. It takes a minute and every message is "
                                   "read."), "muted", wrap=True))
             lrow = QHBoxLayout()
@@ -3876,18 +4058,18 @@ class MainWindow(QWidget):
         lay.addWidget(report_card(self))
 
         remove, rl = card()
-        rl.addWidget(label(tr("Remove Corefold"), "h2"))
+        rl.addWidget(label(tr("Remove Rakiza Core"), "h2"))
         if installed_uninstaller():
             rl.addWidget(label(tr("Removes the app, its desktop icon, Start menu entry and right-click menu. You'll "
                                   "be asked whether to delete your settings too. Files you converted are kept."),
                                "muted", wrap=True))
-            rl.addWidget(button(tr("Uninstall Corefold…"), "danger", self.c.uninstall), 0, Qt.AlignLeading)
+            rl.addWidget(button(tr("Uninstall Rakiza Core…"), "danger", self.c.uninstall), 0, Qt.AlignLeading)
             rl.addWidget(label(tr("You can also uninstall it from Windows Settings → Apps → Installed apps."),
                                "muted", wrap=True))
         else:
             rl.addWidget(label(tr("This copy wasn't set up with the installer. The button below deletes "
-                                  "Corefold's settings, removes its right-click menu, stops it starting with Windows, "
-                                  "and closes it. Then delete the Corefold folder to finish."), "muted", wrap=True))
+                                  "Rakiza Core's settings, removes its right-click menu, stops it starting with Windows, "
+                                  "and closes it. Then delete the Rakiza Core folder to finish."), "muted", wrap=True))
             rl.addWidget(button(tr("Remove settings and quit"), "danger", self.c.remove_portable), 0,
                          Qt.AlignLeading)
         lay.addWidget(remove)
@@ -3900,12 +4082,12 @@ class MainWindow(QWidget):
         s = self.c.settings
         key = s.shortcut_label
         self.step_labels[0].setText(tr("Hold <b>{key}</b> and start dragging a file in File Explorer or on your "
-                                       "desktop, or right-click it and choose <b>Corefold</b>.", key=key))
+                                       "desktop, or right-click it and choose <b>Rakiza Core</b>.", key=key))
         self.step_labels[1].setText(tr("A wheel of options pops up. Dimmed ones don't work for that file (point at "
                                        "one to see why). The dots in the middle show how many pages there are: hold "
                                        "the file over \"More\" to see the next one."))
         where = tr("The new file appears next to the original.") if s.save_mode == "beside" else \
-            tr("The new file appears in your Corefold folder.")
+            tr("The new file appears in your Rakiza Core folder.")
         self.step_labels[2].setText(tr("Drop the file on a format (or click it).") + " " + where + " "
                                     + tr("Let go in the middle to cancel."))
         self.power.setText(tr("Converter is on") if s.enabled else tr("Paused. Click to turn on"))
@@ -3936,9 +4118,9 @@ class MainWindow(QWidget):
         self.folder_label.setToolTip(s.output_folder)
         self.folder_row.setVisible(s.save_mode == "folder")
         self.menu_style.setEnabled(s.context_menu)
-        self.menu_hint.setText(tr("Right-click a photo → Corefold → Convert to PNG, Resize…, Remove the background… "
+        self.menu_hint.setText(tr("Right-click a photo → Rakiza Core → Convert to PNG, Resize…, Remove the background… "
                                   "(like 7-Zip's menu).") if s.menu_style == "windows" else
-                               tr("Right-click → Convert with Corefold opens the wheel of options."))
+                               tr("Right-click → Convert with Rakiza Core opens the wheel of options."))
 
     def refresh_again(self):
         text = self.c.again_text()
@@ -4299,18 +4481,46 @@ class MainWindow(QWidget):
         waiting = self.c.update_waiting()
         for row in range(self.nav.count()):
             item = self.nav.item(row)
-            if item.data(Qt.UserRole) == "Updates":
-                item.setData(BADGE_ROLE, tr("New") if waiting else None)
+            if item.data(Qt.UserRole) == "About":
+                item.setData(BADGE_ROLE, DOT if waiting else None)
+                item.setToolTip(self._nav_tip("About", item.text(), self._compact_now()))
         self.nav.viewport().update()
+        if self.built("About"):
+            self._fill_about_update()
         if self.built("Home"):
             self._fill_update_banner()
+
+    def _fill_about_update(self):
+        """About's line on updates: a new version waiting (with its button), or the version you have."""
+        info = self.c.update_info
+        if self.c.update_waiting():
+            self.about_update_title.setText(tr("Rakiza Core {version} is available", version=info.version))
+            self.about_update_line.setText(tr("One click to update. Your settings are kept."))
+            self.about_update_btn.setText(tr("Update now") if self.c.can_self_install() else tr("Open download page"))
+            self.about_update_btn.setObjectName("primary")
+            self.about_update_btn.show()
+        else:
+            self.about_update_title.setText(tr("You have version {version}", version=__version__))
+            self.about_update_line.setText(tr("Rakiza Core can update itself, so you never have to download it again."))
+            self.about_update_btn.setText(tr("Check now"))
+            self.about_update_btn.setObjectName("")
+            self.about_update_btn.setVisible(self.c.updates_supported())
+        self.about_update_btn.style().unpolish(self.about_update_btn)
+        self.about_update_btn.style().polish(self.about_update_btn)
+
+    def _about_update_clicked(self):
+        if self.c.update_waiting():
+            self.c.start_update()
+        else:  # (to the Updates page, which says how the check went)
+            self.open_page("Updates")
+            self.c.check_updates(manual=True)
 
     def _fill_update_banner(self):
         info = self.c.update_info
         waiting = self.c.update_waiting()
         self.update_banner.setVisible(waiting)
         if waiting:
-            self.update_banner_title.setText(tr("Corefold {version} is available", version=info.version))
+            self.update_banner_title.setText(tr("Rakiza Core {version} is available", version=info.version))
             self.update_banner_button.setText(tr("Update now") if self.c.can_self_install()
                                               else tr("Open download page"))
 
@@ -4328,10 +4538,10 @@ class MainWindow(QWidget):
         elif state == "checking":
             status, detail = tr("Checking for updates…"), ""
         elif state == "downloading" and info:
-            status = tr("Downloading Corefold {version}…", version=info.version)
-            detail = tr("Corefold restarts by itself when it's done.")
+            status = tr("Downloading Rakiza Core {version}…", version=info.version)
+            detail = tr("Rakiza Core restarts by itself when it's done.")
         elif state == "available" and info:
-            status = tr("Corefold {version} is available", version=info.version)
+            status = tr("Rakiza Core {version} is available", version=info.version)
             detail = tr("You have {version}.", version=current)
             if info.published:
                 from .notesview import when
@@ -4341,12 +4551,12 @@ class MainWindow(QWidget):
                 detail += " " + tr("This copy isn't installed, so the button opens the download page.")
         elif state == "uptodate":
             status = tr("You're up to date")
-            detail = tr("Corefold {version} is the newest version.", version=current)
+            detail = tr("Rakiza Core {version} is the newest version.", version=current)
         elif state == "error":
             status, detail = tr("Couldn't check for updates"), c.update_error[:1].upper() + c.update_error[1:]
         else:
             status = tr("You have version {version}", version=current)
-            detail = tr("Corefold checks for updates shortly after it starts.")
+            detail = tr("Rakiza Core checks for updates shortly after it starts.")
         self.update_status.setText(status)
         self.update_detail.setText(detail)
         self.update_detail.setVisible(bool(detail))
@@ -4462,12 +4672,16 @@ class MainWindow(QWidget):
         tool = all_tools.BY_PAGE.get(name)
         if tool is not None and tool.ready and tool not in self.tools_on:  # (switched off): its section,
             name = NAV_OWNER[name]                                          # where it can be switched on
-        owner = NAV_OWNER.get(name, name)
-        if owner not in self.nav_rows:  # (a page that isn't there): nothing changes, or Home on opening
+        sec = all_tools.SECTION_BY_PAGE.get(name)
+        if sec is not None and all_tools.section_paused(sec):  # (a section resting for now: with the others)
+            name = "Soon"
+        self._sync_nav_rows(name)  # (its section open first, so the tool's own row shows)
+        row = self._nav_row(name)
+        if row < 0:  # (a page that isn't there): nothing changes, or Home on opening
             if self.nav.currentRow() < 0 and name != "Home":
                 self.open_page("Home")
             return
-        row = self.nav_rows.index(owner)
+        owner = self.nav_rows[row]
         self._opening = name if name != owner else None
         try:
             if self.nav.currentRow() == row:
@@ -4496,7 +4710,8 @@ class MainWindow(QWidget):
             name = self._went.pop()
             tool = all_tools.BY_PAGE.get(name)
             gone = (tool is not None and tool.ready and tool not in self.tools_on) or page_rests(name) is not None
-            if NAV_OWNER.get(name, name) in self.nav_rows and name != self.current_page() and not gone:
+            if (name in self.nav_rows or NAV_OWNER.get(name, name) in self.nav_rows) and name != self.current_page() \
+                    and not gone:
                 self._going_back = True
                 try:
                     self.open_page(name)

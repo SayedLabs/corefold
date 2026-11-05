@@ -275,7 +275,7 @@ def copy_text():
         p = QPainter(img)
         p.setFont(QFont("Segoe UI", 28))
         p.setPen(QColor("black"))
-        p.drawText(20, 75, "Corefold copies this text")
+        p.drawText(20, 75, "Rakiza Core copies this text")
         p.end()
         QGuiApplication.clipboard().clear()
         with mock.patch.object(extras, "ocr_available", return_value=True):
@@ -284,7 +284,7 @@ def copy_text():
         while tool._reader is not None and time.time() < end:
             settle(0.1)
         got = QGuiApplication.clipboard().text()
-        check(got == "Corefold copies this text", f"a real picture is read and copied ({got!r})")
+        check(got == "Rakiza Core copies this text", f"a real picture is read and copied ({got!r})")
     tool.stop()
 
 

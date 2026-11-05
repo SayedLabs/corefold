@@ -1,4 +1,4 @@
-"""Corefold Cloud, tried for real without a real account: a pretend OneDrive and Dropbox run on this PC (they
+"""Rakiza Core Cloud, tried for real without a real account: a pretend OneDrive and Dropbox run on this PC (they
 answer like Microsoft's and Dropbox's services do), and pretend OneDrive, Dropbox, Google Drive and iCloud folders
 are set up the way their own apps leave them. Signing in (with the browser's part played by the test), keys running
 out, uploads big and small, cancelling, downloads, folders, renames, deletes, search, the service being busy, and
@@ -54,7 +54,7 @@ faulthandler.dump_traceback_later(280, exit=True)  # stuck somewhere: say where,
 
 problems = []
 ISSUED: set[str] = set()   # every sign-in key the pretend services gave out
-LOGGED: list[str] = []     # everything Corefold logged while the test ran
+LOGGED: list[str] = []     # everything Rakiza Core logged while the test ran
 
 
 class _Keep(logging.Handler):
@@ -70,7 +70,7 @@ logging.getLogger().setLevel(logging.DEBUG)
 
 
 def no_keys_logged():
-    """No sign-in key the services gave out is in Corefold's log (its own file, or anything it logged)."""
+    """No sign-in key the services gave out is in Rakiza Core's log (its own file, or anything it logged)."""
     text = "\n".join(LOGGED)
     for f in TMP.rglob("*.log*"):
         try:
@@ -558,7 +558,7 @@ def browser(fake, how="yes", who="sam@example.com"):
                     check(e.code == 400, f"an answer that isn't the sign-in page's is refused ({e.code})")
             with urllib.request.urlopen(q["redirect_uri"] + "?" + urllib.parse.urlencode(back), timeout=10) as r:
                 page = r.read().decode("utf-8")
-            check("Corefold" in page, "the browser shows a page saying it can be closed")
+            check("Rakiza Core" in page, "the browser shows a page saying it can be closed")
         threading.Thread(target=go, daemon=True).start()
     return open_page
 
@@ -1183,7 +1183,7 @@ def google(cloud):
         c.sign_out()
         cloud.forget_account(acc.key)
         check(g.revoked == before + 1 and acc.key not in [a.key for a in cloud.load_accounts()],
-              "Google: signing out takes the key back at Google too, and Corefold forgets it")
+              "Google: signing out takes the key back at Google too, and Rakiza Core forgets it")
         check("gdrive:sam@gmail.com" in [a.key for a in cloud.load_accounts()], "the other Google account stays")
         try:
             cloud.client(acc).list(None)
@@ -1384,7 +1384,7 @@ def core():
         cloud.client(acc).sign_out()
         check(fake.revoked == before + 1, "signing out of Dropbox takes back the key there too")
         cloud.forget_account(acc.key)
-        check(acc.key not in [a.key for a in cloud.load_accounts()], "and Corefold forgets it")
+        check(acc.key not in [a.key for a in cloud.load_accounts()], "and Rakiza Core forgets it")
     step("sign out", sign_out)
 
     # -- folders on this PC
@@ -1509,7 +1509,7 @@ def page_part():
         return False
 
     c = A.Controller(qapp, QIcon(str(ROOT / "assets" / "icon.png")))
-    check(all_tools.is_on(c.settings, "cloud"), "Corefold Cloud is ready (no longer Coming soon) and in use")
+    check(all_tools.is_on(c.settings, "cloud"), "Rakiza Core Cloud is ready (no longer Coming soon) and in use")
     c.show_window("Cloud")
     w = c.window
     w.resize(1180, 780)

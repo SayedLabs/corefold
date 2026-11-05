@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QDialog, QFileIconP
 from . import uninstall as un
 from . import i18n, sheet
 from .atomic.widgets import Dropdown
-from .core import LEGACY_NAME, human_size, short_name
+from .core import APP_NAME, OLD_APP_NAMES, human_size, short_name
 from .i18n import tr, ltr
 
 if TYPE_CHECKING:
@@ -158,11 +158,23 @@ def emit(signal, value) -> bool:
 
 
 def _icon_path(app: un.App) -> str:
-    """The file (or folder) whose icon the app is shown with, or ""."""
-    for path in (app.icon, os.path.join(app.location, "") if app.location else ""):
-        if path and os.path.exists(path) and (os.path.isdir(path) or path.lower().endswith((".exe", ".ico", ".dll"))):
-            return path
-    return ""
+    """The file (or folder) whose icon the app is shown with, or "". Found once per app, on the thread that lists
+    them (see _find_icons): a slow or sleeping drive mustn't hold up the window."""
+    found = getattr(app, "_icon_at", None)
+    if found is None:
+        found = ""
+        for path in (app.icon, os.path.join(app.location, "") if app.location else ""):
+            if path and os.path.exists(path) and (os.path.isdir(path) or path.lower().endswith((".exe", ".ico", ".dll"))):
+                found = path
+                break
+        app._icon_at = found
+    return found
+
+
+def _find_icons(apps) -> None:
+    """Looks for each app's icon file ahead (on a worker thread), so the list is filled without touching the disk."""
+    for app in apps:
+        _icon_path(app)
 
 
 def _icon_image(path: str):
@@ -249,7 +261,7 @@ class HunterButton(QPushButton):
             ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
             exe = un.program_at_point(pt.x, pt.y)
         if exe and os.path.normcase(exe) == os.path.normcase(sys.executable):
-            exe = ""  # Corefold's own window
+            exe = ""  # Rakiza Core's own window
         self.found.emit(exe)
 
 
@@ -281,7 +293,7 @@ class AppsPage(QWidget):
         lay.setContentsMargins(0, 0, 10, 0)
         lay.setSpacing(12)
         from .window import tool_header
-        lay.addLayout(tool_header("cleaner", tr("Corefold Uninstaller"),
+        lay.addLayout(tool_header("cleaner", tr("Uninstaller"),
                                   tr("Uninstall programs, then clean up the folders, shortcuts and registry entries they "
                                      "leave behind. Everything removed is kept as a backup for {days} days, so you can "
                                      "put it back.", days=_backup_days(controller)),
@@ -399,6 +411,8 @@ class AppsPage(QWidget):
             except Exception as e:
                 log.exception("couldn't list apps")
                 apps, old_store = e, []
+            if isinstance(apps, list):
+                _find_icons(apps + old_store)
             if isinstance(apps, list) and not emit(signals.phase, "store"):
                 return
             if not emit(signals.listed, apps if not isinstance(apps, list) else
@@ -421,6 +435,7 @@ class AppsPage(QWidget):
             else:
                 store = old_store
             apps = sorted(apps + store, key=lambda a: a.name.lower())
+            _find_icons(store)
             if store != old_store and not emit(signals.listed, apps):
                 return
             missing = sorted([a for a in apps if not a.size and not a.store], key=lambda a: a.name.lower())
@@ -654,7 +669,7 @@ class AppsPage(QWidget):
         if not apps:
             return
         if any(_is_self(a) for a in apps):
-            sheet.information(self, tr("Apps"), tr("To remove Corefold itself, use \"Uninstall Corefold\" on "
+            sheet.information(self, tr("Apps"), tr("To remove Rakiza Core itself, use \"Uninstall Rakiza Core\" on "
                                                    "the About page."))
             return
         dlg = UninstallDialog(self.c, apps, self.apps, forced, self.window().windowIcon())
@@ -719,10 +734,10 @@ class AppsPage(QWidget):
 
 
 def _is_self(app: un.App) -> bool:
-    if app.name.lower().startswith(("corefold", LEGACY_NAME.lower())):
+    if app.name.lower().startswith(tuple(n.lower() for n in (APP_NAME, *OLD_APP_NAMES))):
         return True
     if getattr(sys, "frozen", False) and app.location:
-        # (Corefold's folder or one that holds it: not any folder whose name only starts the same, "...\\Core")
+        # (Rakiza Core's folder or one that holds it: not any folder whose name only starts the same, "...\\Core")
         return un._inside(os.path.dirname(sys.executable), app.location)
     return False
 
@@ -761,7 +776,7 @@ class UninstallDialog(QDialog):
         self.confirm_title = _label(title, "h2", wrap=True)
         l1.addWidget(self.confirm_title)
         if forced:
-            self.confirm_note = _label(tr("The app's uninstaller won't run. Corefold only looks for its folders, "
+            self.confirm_note = _label(tr("The app's uninstaller won't run. Rakiza Core only looks for its folders, "
                                           "shortcuts and registry entries, and you choose what goes."), "muted", wrap=True)
             l1.addWidget(self.confirm_note)
             if any(not a.broken for a in apps):
@@ -771,7 +786,7 @@ class UninstallDialog(QDialog):
                 warn.setObjectName("warning")
                 l1.addWidget(warn)
         else:
-            l1.addWidget(_label(tr("First the app's own uninstaller runs (follow its steps). Then Corefold looks for "
+            l1.addWidget(_label(tr("First the app's own uninstaller runs (follow its steps). Then Rakiza Core looks for "
                                    "anything it left behind, and you choose what goes."), "muted", wrap=True))
         self.quiet = QCheckBox(tr("Uninstall quietly where the app allows it (no questions)"))
         self.quiet.setChecked(len(apps) > 1)
@@ -819,7 +834,7 @@ class UninstallDialog(QDialog):
         r2.addWidget(self.kill_btn)
         r2.addStretch()
         self.skip = _button(tr("The uninstaller is done"), on_click=self._skip_wait)
-        self.skip.setToolTip(tr("If the uninstaller has finished but Corefold is still waiting, click here."))
+        self.skip.setToolTip(tr("If the uninstaller has finished but Rakiza Core is still waiting, click here."))
         self.stop = _button(tr("Cancel"), on_click=self._stop)
         r2.addWidget(self.skip)
         r2.addWidget(self.stop)
@@ -854,7 +869,7 @@ class UninstallDialog(QDialog):
         self.pick_all = _button(tr("Select all"), "chipButton", lambda: self._tick_all(True))
         self.pick_none = _button(tr("Select none"), "chipButton", lambda: self._tick_all(False))
         self.pick_suggested = _button(tr("Only what's suggested"), "chipButton", self._tick_suggested)
-        self.pick_suggested.setToolTip(tr("Ticks again only what Corefold suggests removing."))
+        self.pick_suggested.setToolTip(tr("Ticks again only what Rakiza Core suggests removing."))
         for b in (self.pick_all, self.pick_none, self.pick_suggested):
             picks.addWidget(b)
         picks.addStretch()
@@ -1036,7 +1051,7 @@ class UninstallDialog(QDialog):
                     tr("{name} wasn't uninstalled", name=data[0][0].name)
                 self._finish(title, _problems_text(data, len(data) > 1), undo=False)
             else:
-                self._finish(tr("Nothing was removed"), tr("The uninstall was cancelled, so Corefold didn't look "
+                self._finish(tr("Nothing was removed"), tr("The uninstall was cancelled, so Rakiza Core didn't look "
                                                            "for leftovers."), undo=False)
         elif state == "found":
             removed, found, problems = data
@@ -1069,7 +1084,7 @@ class UninstallDialog(QDialog):
             self.work_detail.setText(tr("Starting its uninstaller… If Windows asks for permission, click Yes."))
             self._working_buttons()
         elif state == "window":
-            self.work_detail.setText(tr("Its uninstaller window is open: follow its steps there. Corefold waits "
+            self.work_detail.setText(tr("Its uninstaller window is open: follow its steps there. Rakiza Core waits "
                                         "until it's finished."))
             self._working_buttons(window=True, skip=True)
         elif state == "working":
@@ -1081,7 +1096,7 @@ class UninstallDialog(QDialog):
                                        "something it can't show). You can keep waiting, or stop it."))
             self._working_buttons(stuck=True, skip=True)
         elif state == "cant_stop":
-            self.stuck_note.setText(tr("Corefold couldn't stop it, because it runs as administrator. Close it "
+            self.stuck_note.setText(tr("Rakiza Core couldn't stop it, because it runs as administrator. Close it "
                                        "from Task Manager, or keep waiting."))
             self.stuck_note.show()
         elif state == "checking":
@@ -1333,7 +1348,7 @@ class UninstallDialog(QDialog):
         threading.Thread(target=work, daemon=True).start()
 
     def _hold(self, on: bool):
-        """Tells Corefold not to quit or update itself while files are being moved."""
+        """Tells Rakiza Core not to quit or update itself while files are being moved."""
         if self.c is not None and on != getattr(self, "_holding", False):
             self.c.uninstall_busy = max(0, getattr(self.c, "uninstall_busy", 0) + (1 if on else -1))
             self._holding = on
@@ -1462,7 +1477,7 @@ class OrphansDialog(UninstallDialog):
         self.apps = [un.App(id="orphans", name=tr("Folders of apps that are gone"))]
         self.setWindowTitle(tr("Folders of apps that are gone"))
         self.confirm_title.setText(tr("Look for folders of apps that are gone?"))
-        self.confirm_note.setText(tr("Corefold looks in Program Files for folders that no installed app, service, "
+        self.confirm_note.setText(tr("Rakiza Core looks in Program Files for folders that no installed app, service, "
                                      "scheduled task, shortcut or start-up entry uses, named after no installed "
                                      "app or maker, and unchanged for two months: what an app deleted by hand or a "
                                      "broken uninstall left behind. Nothing is ticked, and you choose what goes."))
@@ -1539,7 +1554,7 @@ class BackupsDialog(QDialog):
         lay = QVBoxLayout(self)
         lay.setContentsMargins(22, 20, 22, 18)
         lay.addWidget(_label(tr("Backups"), "h2"))
-        lay.addWidget(_label(tr("What Corefold removed after uninstalling apps. Put it back, or delete the backup to "
+        lay.addWidget(_label(tr("What Rakiza Core removed after uninstalling apps. Put it back, or delete the backup to "
                                 "free the space. Backups are deleted by themselves after {days} days.",
                                 days=_backup_days(self.c)), "muted", wrap=True))
         self.tree = QTreeWidget()
@@ -1825,7 +1840,7 @@ class WatchInstallDialog(QDialog):
         lay.setContentsMargins(22, 20, 22, 18)
         lay.setSpacing(10)
         lay.addWidget(_label(tr("Watch an install"), "h2"))
-        lay.addWidget(_label(tr("Corefold looks at where apps put things before you install one, and again once it's "
+        lay.addWidget(_label(tr("Rakiza Core looks at where apps put things before you install one, and again once it's "
                                 "installed. When you uninstall that app one day, everything it put in is offered "
                                 "too, even what isn't named after it."), "muted", wrap=True))
         self.status = _label("", wrap=True)
@@ -1851,7 +1866,7 @@ class WatchInstallDialog(QDialog):
             self.status.setText(text)
         elif waiting:
             self.status.setText(tr("Watching. Install the app now (from here or anywhere), then press I've finished "
-                                   "installing. You can close this and come back: Corefold keeps watching."))
+                                   "installing. You can close this and come back: Rakiza Core keeps watching."))
         else:
             self.status.setText(tr("Press Start watching before you open the app's installer."))
 
@@ -1902,9 +1917,9 @@ class WatchInstallDialog(QDialog):
             if isinstance(result, Exception):
                 self._show(True, tr("Couldn't look: {error}", error=str(result)))
             elif not result or not result.get("items"):
-                self._show(False, tr("Nothing new was found. Was the app installed while Corefold watched?"))
+                self._show(False, tr("Nothing new was found. Was the app installed while Rakiza Core watched?"))
             elif result.get("apps"):
-                self._show(False, tr("Done. Corefold saw {name} put in {count} things, and offers them all when you "
+                self._show(False, tr("Done. Rakiza Core saw {name} put in {count} things, and offers them all when you "
                                      "uninstall it.", name=", ".join(result["apps"]), count=len(result["items"])))
             else:
                 self._show(False, tr("Done. {count} new things were seen, but no new app appeared in Windows' list, "
@@ -2019,7 +2034,7 @@ class ExtensionsDialog(QDialog):
         box = QMessageBox(self)
         box.setIcon(QMessageBox.Question)
         box.setWindowTitle(tr("Stop a program forcing it?"))
-        box.setText(tr("Corefold removes the entry that forces this extension into {browser}. Close the browser and "
+        box.setText(tr("Rakiza Core removes the entry that forces this extension into {browser}. Close the browser and "
                        "open it again: it takes the extension out by itself.", browser=items[0].browser))
         if any(f.needs_admin for f in items):
             box.setInformativeText(tr("Windows asks for an administrator."))

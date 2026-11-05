@@ -5,7 +5,7 @@ an odd size and one with no sound.
 
 A tool may refuse a file, but it has to say why in plain words; it must never hang, crash, leave an empty
 or unreadable file, or quietly drop the frames of an animation or the pages of a scan. Also checks how a
-right-clicked drive reaches Corefold (Windows hands it over as C:" ).
+right-clicked drive reaches Rakiza Core (Windows hands it over as C:" ).
 
 Prints one line per problem and "edgetest: N problem(s)". Needs FFmpeg and 7-Zip on PATH.
 Run: python scripts/edgetest.py
@@ -241,8 +241,8 @@ def run_all(files: dict, out_root: Path):
 
 
 def check_drive_argument():
-    """Explorer starts Corefold with "C:\\" for a right-clicked drive; Windows' own reading of that command
-    line gives C:" , which Corefold has to turn back into C:\\ ."""
+    """Explorer starts Rakiza Core with "C:\\" for a right-clicked drive; Windows' own reading of that command
+    line gives C:" , which Rakiza Core has to turn back into C:\\ ."""
     if os.name != "nt":
         return
     from corefold import ipc

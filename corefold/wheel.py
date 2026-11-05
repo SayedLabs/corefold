@@ -2,7 +2,7 @@
 
 Two ways to use it:
 - drag mode: hold Shift while dragging a file; drop it on a slice.
-- click mode: right-click a file → "Convert with Corefold"; the wheel appears and you click a slice.
+- click mode: right-click a file → "Convert with Rakiza Core"; the wheel appears and you click a slice.
 
 Slices that can't be used for the file are drawn dimmed; pointing at one shows why. When there
 are more options than fit, the last slice is "More": click it, or hold the file over it for a
@@ -765,7 +765,7 @@ class Wheel(QWidget):
             return
         if paths != self.paths:  # dragging out and back in keeps the page you were on
             self._load(paths)
-        e.setDropAction(Qt.CopyAction)  # Shift normally means "move"; Corefold always copies
+        e.setDropAction(Qt.CopyAction)  # Shift normally means "move"; Rakiza Core always copies
         e.accept()
         self.update()
 

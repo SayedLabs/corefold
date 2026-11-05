@@ -13,26 +13,27 @@ import time
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
-from .core import APP_NAME, LEGACY_NAME, Options
+from .core import APP_NAME, KEEP_ID, LEGACY_NAME, OLD_APP_NAMES, Options
 from .i18n import LANGUAGES
 from .sounds import DONE_SOUNDS, OLD_NAMES
 
 CONFIG_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / APP_NAME
 LOG_DIR = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / APP_NAME
-# where versions before 1.7.0 (the old name) kept the same things
-OLD_CONFIG_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / LEGACY_NAME
-OLD_LOG_DIR = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / LEGACY_NAME
-OLD_OUTPUT_FOLDER = str(Path.home() / "Downloads" / LEGACY_NAME)
+# where versions under the app's earlier names kept the same things (newest first)
+OLD_CONFIG_DIRS = [Path(os.environ.get("APPDATA", str(Path.home()))) / name for name in OLD_APP_NAMES]
+OLD_LOG_DIRS = [Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / name for name in OLD_APP_NAMES]
+OLD_OUTPUT_FOLDERS = [str(Path.home() / "Downloads" / name) for name in OLD_APP_NAMES]
 log = logging.getLogger("corefold")
 ACTIVE = None  # the running app's settings (for helpers that aren't handed them, like Capture's folders)
 
 
 def migrate_old_name() -> bool:
-    """Versions before 1.7.0 had another name. Brings their settings, history and uninstall backups
-    over to the new folders, once. Never deletes anything that couldn't be moved.
-    Returns True if something was brought over."""
+    """Earlier versions had other names. Brings their settings, history and uninstall backups over to the
+    new folders, once (the newest name first; what the new folder already has is kept). Never deletes
+    anything that couldn't be moved. Returns True if something was brought over."""
     moved = False
-    for old, new in ((OLD_CONFIG_DIR, CONFIG_DIR), (OLD_LOG_DIR, LOG_DIR)):
+    pairs = [(old, CONFIG_DIR) for old in OLD_CONFIG_DIRS] + [(old, LOG_DIR) for old in OLD_LOG_DIRS]
+    for old, new in pairs:
         try:
             if not old.is_dir():
                 continue
@@ -58,11 +59,42 @@ def migrate_old_name() -> bool:
                 pass
         except OSError:
             log.exception("couldn't bring old settings over from %s", old)
+    # (the log kept the name it had under the earlier name: it goes on under the new one)
+    for p in list(LOG_DIR.glob("corefold.log*")) if LOG_DIR.is_dir() else []:  # keep-name
+        target = LOG_DIR / ("rakizacore.log" + p.name[len("corefold.log"):])  # keep-name
+        try:
+            if not target.exists():
+                p.rename(target)
+        except OSError:
+            pass
     return moved
+
+
+def move_old_output_folder(folder: str) -> str:
+    """The files made so far went into a folder under an earlier name (Downloads\\<old name>): it's renamed to
+    the new name in place, so they're all in one folder under the new name. Nothing is copied or deleted, and
+    when that can't be done (the new folder is there already, or the old one is open somewhere) the old folder
+    is left as it is and kept in use. Returns the folder to use."""
+    norm_ = os.path.normcase(os.path.normpath(folder))
+    for old in OLD_OUTPUT_FOLDERS:
+        if norm_ != os.path.normcase(os.path.normpath(old)):
+            continue
+        new = Path(old).with_name(APP_NAME)
+        if new.exists():
+            return str(new) if not Path(old).exists() else folder
+        try:
+            if Path(old).is_dir() and not Path(old).is_symlink():
+                os.rename(old, new)
+                log.info("renamed the output folder %s to %s", old, new)
+            return str(new)
+        except OSError:
+            log.info("kept the output folder %s (couldn't rename it)", old)
+            return folder
+    return folder
 
 # key: English label (shown through tr())
 SHORTCUT_LABELS = {"shift": "Shift", "ctrl+shift": "Ctrl + Shift", "alt": "Alt"}
-ACCENTS = {  # key: (name, colour on light, colour on dark) — from the Corefold design system
+ACCENTS = {  # key: (name, colour on light, colour on dark) — from the Rakiza Core design system
     "core": ("Teal", "#0f7a6c", "#3fb6a2"),
     "ocean": ("Ocean", "#2b5fd4", "#82a8ff"),
     "grape": ("Grape", "#6b4bd6", "#ac97ff"),
@@ -84,7 +116,7 @@ TEXT_SIZES = {"small": 0.88, "normal": 1.0, "large": 1.15}
 TEXT_SIZE_NAMES = {"small": "Small", "normal": "Normal", "large": "Large"}
 WHEEL_POSITIONS = {"cursor": "Under the cursor", "center": "Middle of the screen"}
 APPEARANCES = {"system": "Match Windows", "dark": "Dark", "light": "Light"}
-MENU_STYLES = {"windows": "Windows menu", "wheel": "Corefold wheel"}
+MENU_STYLES = {"windows": "Windows menu", "wheel": "Rakiza Core wheel"}
 TOAST_CORNERS = {"auto": "Bottom corner (automatic)", "bottom-right": "Bottom right", "bottom-left": "Bottom left",
                  "top-right": "Top right", "top-left": "Top left"}
 TOAST_TIMES = {"short": "Short", "normal": "Normal", "long": "Long"}
@@ -216,7 +248,7 @@ class Settings:
     language: str = "system"       # "system", "en", "ar", "fr", "es" or "tr"
     shortcut: str = "shift"
     save_mode: str = "beside"      # "beside" or "folder"
-    output_folder: str = str(Path.home() / "Downloads" / "Corefold")
+    output_folder: str = str(Path.home() / "Downloads" / "Rakiza Core")
     jpg_quality: int = 90
     video_gpu: bool = True         # videos are made with the graphics card when there is one (falls back by itself)
     video_quality: str = "balanced"  # VIDEO_QUALITIES
@@ -246,15 +278,15 @@ class Settings:
     fit_mb: float = 10.0
     watermark: dict = field(default_factory=lambda: {"text": "", "logo": "", "position": "br", "size": "medium",
                                                       "opacity": 60})
-    context_menu: bool = True      # Corefold in the right-click menu
+    context_menu: bool = True      # Rakiza Core in the right-click menu
     menu_style: str = "windows"    # "windows" (a normal submenu) or "wheel"
     menu_signature: str = ""       # what was last written to the right-click menu
-    unlock_menu_signature: str = ""  # Corefold Unlock's "What's using this?" entry, the same way
+    unlock_menu_signature: str = ""  # Rakiza Core Unlock's "What's using this?" entry, the same way
     # tools switched off by this person, and the tools they've been offered (others are "New")
     tools_off: list = field(default_factory=list)
     known_tools: list = field(default_factory=list)
     back_on: list = field(default_factory=list)  # tools already switched on once when they came back (tools.BACK_ON)
-    open_archives: bool = True     # archives open in Corefold with a double-click ("Open with")
+    open_archives: bool = True     # archives open in Rakiza Core with a double-click ("Open with")
     recent_archives: list = field(default_factory=list)  # archives opened lately (newest first)
     extract_mode: str = "smart"    # "Extract here": "smart" (no folder inside a folder) or "folder"
     extract_nested: bool = False   # also unpack archives found inside
@@ -262,7 +294,7 @@ class Settings:
     extract_reveal: bool = False   # open the folder once an archive is extracted
     extract_recycle: bool = False  # then send the archive (and its parts) to the Recycle Bin
     # the Viewer
-    open_images: bool = True       # pictures and email files open in Corefold ("Open with")
+    open_images: bool = True       # pictures and email files open in Rakiza Core ("Open with")
     open_emails: bool = True
     viewer_wheel: str = "zoom"     # the mouse wheel zooms, or goes to the next picture
     viewer_confirm_delete: bool = True
@@ -311,13 +343,13 @@ class Settings:
     quick_search_engine: str = "duckduckgo"  # the quick menu's last row: "Search the web for …"
     quick_find: bool = True        # typing in the quick menu finds apps and files too (quicksearch.py)
     ontop_key: str = "ctrl+win+t"  # keeps the window in front on top of the others ("off": no shortcut)
-    # Corefold Awake (chosen on its page, not in Settings)
+    # Rakiza Core Awake (chosen on its page, not in Settings)
     awake_mode: str = "on"         # what "Keep awake" does: "on" (until switched off), "for" a while, "until" a time
     awake_minutes: int = 60        # "for a while": how long, last chosen
     awake_until: str = ""          # "until a time": "HH:MM", last chosen
     awake_screen: bool = False     # keep the screen on too
     awake_apps: list = field(default_factory=list)  # stay awake by itself while one of these programs is open
-    startup_later: list = field(default_factory=list)  # programs Corefold starts a minute after sign-in
+    startup_later: list = field(default_factory=list)  # programs Rakiza Core starts a minute after sign-in
     #                                                    ({"id", "name", "command", "file"}; off in Windows)
     awake_low_battery: bool = True  # on battery, let the PC sleep again once it runs low
     shutdown_at: str = ""          # when Windows will turn the PC off (planned on the Awake page), ISO time
@@ -424,8 +456,7 @@ class Settings:
         if not (len(s.custom_color) == 7 and s.custom_color.startswith("#")):
             s.custom_color = defaults.custom_color
         s.sound = OLD_NAMES.get(s.sound, s.sound)
-        if os.path.normcase(os.path.normpath(s.output_folder)) == os.path.normcase(os.path.normpath(OLD_OUTPUT_FOLDER)):
-            s.output_folder = defaults.output_folder  # the old default folder: use the new default
+        s.output_folder = move_old_output_folder(s.output_folder)  # the default folder under an earlier name
         for key, options in CHOICES.items():
             if getattr(s, key) not in options:
                 setattr(s, key, getattr(defaults, key))
@@ -526,7 +557,7 @@ STARTUP_APPROVED = r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupA
 
 
 def app_command(*args: str) -> str:
-    """Command line that starts this copy of Corefold with the given arguments."""
+    """Command line that starts this copy of Rakiza Core with the given arguments."""
     if getattr(sys, "frozen", False):
         base = f'"{sys.executable}"'
     else:
@@ -545,31 +576,31 @@ def launch_command() -> str:
 
 
 def startup_enabled() -> bool:
-    """Corefold starts with Windows: its entry is there, and it isn't switched off (in Task Manager or
-    Corefold Startup)."""
+    """Rakiza Core starts with Windows: its entry is there, and it isn't switched off (in Task Manager or
+    Rakiza Core Startup)."""
     import winreg
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as k:
-            winreg.QueryValueEx(k, APP_NAME)
+            winreg.QueryValueEx(k, KEEP_ID)
     except OSError:
         return False
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, STARTUP_APPROVED) as k:
-            note = winreg.QueryValueEx(k, APP_NAME)[0]
+            note = winreg.QueryValueEx(k, KEEP_ID)[0]
         return not (isinstance(note, bytes) and note[:1] and note[0] & 1)
     except OSError:
         return True
 
 
 def _clear_off_note():
-    """Switched off in Task Manager (or Corefold Startup) earlier: switching it on here means on."""
+    """Switched off in Task Manager (or Rakiza Core Startup) earlier: switching it on here means on."""
     import winreg
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, STARTUP_APPROVED, 0,
                             winreg.KEY_QUERY_VALUE | winreg.KEY_SET_VALUE) as k:
-            note = winreg.QueryValueEx(k, APP_NAME)[0]
+            note = winreg.QueryValueEx(k, KEEP_ID)[0]
             if isinstance(note, bytes) and note[:1] and note[0] & 1:
-                winreg.SetValueEx(k, APP_NAME, 0, winreg.REG_BINARY, bytes([2]) + bytes(11))
+                winreg.SetValueEx(k, KEEP_ID, 0, winreg.REG_BINARY, bytes([2]) + bytes(11))
     except OSError:
         pass
 
@@ -592,12 +623,12 @@ def set_startup(on: bool):
     try:
         if on:  # (an account that never had anything start with Windows may have no Run key yet: it's made)
             with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as k:
-                winreg.SetValueEx(k, APP_NAME, 0, winreg.REG_SZ, launch_command())
+                winreg.SetValueEx(k, KEEP_ID, 0, winreg.REG_SZ, launch_command())
             _clear_off_note()
         else:
             try:
                 with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as k:
-                    winreg.DeleteValue(k, APP_NAME)
+                    winreg.DeleteValue(k, KEEP_ID)
             except FileNotFoundError:  # (no Run key or no entry: nothing starts with Windows already)
                 pass
     except OSError:
@@ -651,10 +682,10 @@ def remove_user_data():
     try:
         assoc.unregister()  # "Open with" for archives
     except Exception:
-        log.exception("could not remove opening archives with Corefold")
+        log.exception("could not remove opening archives with Rakiza Core")
     logging.shutdown()
     shutil.rmtree(CONFIG_DIR, ignore_errors=True)
-    # LOG_DIR also holds the backups of apps removed with Corefold ("Uninstall backups"): those are
+    # LOG_DIR also holds the backups of apps removed with Rakiza Core ("Uninstall backups"): those are
     # the person's files, so they stay (they can be deleted from the Apps page, or by hand)
     try:
         items = list(LOG_DIR.iterdir())

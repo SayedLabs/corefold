@@ -1,4 +1,4 @@
-"""What typing in the quick menu finds besides Corefold's own things: a sum worked out ("12*(3+4)"), a
+"""What typing in the quick menu finds besides Rakiza Core's own things: a sum worked out ("12*(3+4)"), a
 unit converted ("10 km to mi"), a page of Windows Settings, and a web search as the last choice.
 
 All of it is worked out from the text alone, only while the person types: nothing is indexed, nothing

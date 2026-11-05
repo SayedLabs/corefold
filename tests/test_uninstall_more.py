@@ -1,4 +1,4 @@
-"""Corefold Uninstaller: extensions a program forces into a browser (found in the registry, removed only through
+"""Rakiza Core Uninstaller: extensions a program forces into a browser (found in the registry, removed only through
 their own entry), and watching an install (what it put in is offered when the app is uninstalled)."""
 import os
 from pathlib import Path

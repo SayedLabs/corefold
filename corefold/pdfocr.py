@@ -1,4 +1,4 @@
-"""Corefold PDF's "Make searchable": scanned pages get their words as hidden text, so they can be searched,
+"""Rakiza Core PDF's "Make searchable": scanned pages get their words as hidden text, so they can be searched,
 selected and copied, and the pages look exactly as before.
 
 Each page that has no text of its own is drawn as a picture (PDFium) and read with Windows' own OCR, the
@@ -162,7 +162,7 @@ def hidden_font(chars: str) -> bytes:
     box = struct.pack(">hhhhhHH4B4h4h", 1, 0, -200, _ADVANCE, 800, 3, 0, 1, 1, 1, 1,
                       0, _ADVANCE, 0, -_ADVANCE, -200, 0, 1000, 0)
     loca = struct.pack(">" + "H" * (n + 1), 0, *(k * len(box) // 2 for k in range(n)))  # (glyph 0 is empty)
-    family = "Corefold Text".encode("utf-16-be")
+    family = "Rakiza Core Text".encode("utf-16-be")
     records = [(3, 1, 0x409, name_id, len(family), 0) for name_id in (1, 2, 4, 6)]  # (all point at one string)
     name = struct.pack(">HHH", 0, len(records), 6 + 12 * len(records))
     name += b"".join(struct.pack(">HHHHHH", *r) for r in records) + family
