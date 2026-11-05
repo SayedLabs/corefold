@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 import pypdfium2 as pdfium
 import pytest
 from PIL import ImageChops
-from PySide6.QtCore import QPointF
+from PySide6.QtCore import QPointF, Qt
 from pypdf import PdfReader, PdfWriter
 
 from corefold import pdfcontent, pdfedit
@@ -543,3 +543,147 @@ def test_a_scan_is_read_with_edit_text(qtbot, tmp_path, monkeypatch):
 
 
 
+
+
+# ----------------------------------------------------------------------------- deleting everything on a page
+
+_LINE = "BT /F1 18 Tf 1 0 0 1 72 700 Tm (Hello world) Tj ET\n"
+_SPACE_CMAP = (b"/CIDInit /ProcSet findresource begin 12 dict begin begincmap /CMapName /X def\n"
+               b"1 begincodespacerange <00> <FF> endcodespacerange\n2 beginbfchar <41> <0020> <42> <00A0> endbfchar\n"
+               b"endcmap CMapName currentdict /CMap defineresource pop end end")
+_DRAFT = _stream(b"BT /F1 30 Tf 10 10 Td (DRAFT) Tj ET",
+                 "/Type /XObject /Subtype /Form /BBox [0 0 200 60] /Resources << /Font << /F1 5 0 R >> >> ")
+
+
+def _deep() -> dict:
+    out = {}
+    for k in range(10):
+        body = f"q /X{k + 1} Do Q\n" if k < 9 else "BT /F1 18 Tf 1 0 0 1 72 600 Tm (Deep text) Tj ET\n"
+        nxt = f"/XObject << /X{k + 1} {11 + k} 0 R >> " if k < 9 else ""
+        out[10 + k] = _stream(body.encode(), f"/Type /XObject /Subtype /Form /BBox [0 0 612 792] "
+                                             f"/Resources << /Font << /F1 5 0 R >> {nxt}>> ")
+    return out
+
+
+def _glyphs() -> bytes:
+    ops = []
+    for row in range(50):
+        for col in range(50):
+            x, y = 40 + col * 9, 740 - row * 11
+            ops.append(f"{x} {y} m {x + 5} {y} l {x + 5} {y + 7} l {x} {y + 7} l h f")
+    return ("0 g\n" + "\n".join(ops) + "\n").encode()
+
+
+# (what's on the page, its resources, more objects, its annotations) — each one a case that used to leave
+# something behind when everything the editor offered was deleted
+_LEFT_BEHIND = {
+    "drawn twice to look bolder": (_LINE + "BT /F1 18 Tf 1 0 0 1 72.3 700 Tm (Hello world) Tj ET\n", "", {}, ""),
+    "a shadow under the words": ("BT 0.6 g /F1 18 Tf 1 0 0 1 73 699 Tm (Hello world) Tj ET\n" + _LINE, "", {}, ""),
+    "the same piece again": (_LINE + _LINE + "BT /F1 18 Tf 1 0 0 1 162 700 Tm (d) Tj ET\n", "", {}, ""),
+    "letters the font calls spaces": (_LINE + "BT /F2 30 Tf 1 0 0 1 300 400 Tm (A) Tj ET\n"
+                                      "BT /F2 30 Tf 1 0 0 1 400 400 Tm (B) Tj ET\n", "/F2 6 0 R",
+                                      {6: b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding "
+                                          b"/WinAnsiEncoding /ToUnicode 7 0 R >>", 7: _stream(_SPACE_CMAP)}, ""),
+    "text ten groups deep": (_LINE + "q /X0 Do Q\n", "", _deep(), ""),
+    "text turned into shapes": (_LINE.encode() + _glyphs(), "", {}, ""),
+    "a frame around the page": (_LINE + "q 2 w 0 0 1 RG 20 20 572 752 re S Q\n", "", {}, ""),
+    "a coloured page": ("q 1 0.95 0.8 rg 0 0 612 792 re f Q\n" + _LINE, "", {}, ""),
+    "a watermark annotation": (_LINE, "", {8: b"<< /Type /Annot /Subtype /Watermark /Rect [200 300 400 360] "
+                                             b"/AP << /N 9 0 R >> >>", 9: _DRAFT}, "/Annots [8 0 R]"),
+    "an annotation of a kind PDFium doesn't know": (_LINE, "", {8: b"<< /Type /Annot /Subtype /MyOwnKind "
+                                                                 b"/Rect [200 300 400 360] /AP << /N 9 0 R >> >>",
+                                                                 9: _DRAFT}, "/Annots [8 0 R]"),
+    "a rule drawn as a thin picture": (_LINE + "q 400 0 0 1 72 650 cm /Im1 Do Q\n", "", {8: _stream(
+        zlib.compress(bytes(150)), "/Type /XObject /Subtype /Image /Width 50 /Height 1 /ColorSpace /DeviceRGB "
+                                   "/BitsPerComponent 8 /Filter /FlateDecode ")}, ""),
+    "a hyphen with no words of its own": (_LINE + "BT /F1 18 Tf 1 0 0 1 72 600 Tm (exam) Tj /Span << /ActualText () "
+                                                  ">> BDC (-) Tj EMC ET\n", "", {}, ""),
+}
+
+
+def _case_pdf(tmp_path: Path, name: str) -> Path:
+    content, fonts, more, annots = _LEFT_BEHIND[name]
+    content = content if isinstance(content, bytes) else content.encode()
+    xobjects = "/XObject << /X0 10 0 R /Im1 8 0 R >> " if 10 in more or 8 in more and b"Image" in more[8] else ""
+    objs = {1: b"<< /Type /Catalog /Pages 2 0 R >>", 2: b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            3: (f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
+                f"/Resources << /Font << /F1 5 0 R {fonts}>> {xobjects}>> {annots}>>").encode(),
+            4: _stream(content),
+            5: b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>"}
+    objs.update(more)
+    src = tmp_path / "case.pdf"
+    src.write_bytes(_build(objs))
+    return src
+
+
+def _everything(lay: dict) -> list:
+    """Every name the editor offers on a page (Select all, then Delete)."""
+    names = [k for d in lay["lines"] for k in d["objs"]]
+    names += [d["obj"] for d in lay["images"]] + [d["obj"] for d in lay["annots"]]
+    names += [k for d in lay["shapes"] for k in d.get("objs") or [d["obj"]]]
+    return names
+
+
+@pytest.mark.parametrize("name", sorted(_LEFT_BEHIND))
+def test_deleting_everything_leaves_nothing(tmp_path, name):
+    src = _case_pdf(tmp_path, name)
+    out = _save(src, tmp_path, [{"kind": "remove", "page": 0, "objs": _everything(_layout(src))}])
+    doc = pdfium.PdfDocument(str(out))
+    try:
+        page = doc[0]
+        assert page.get_textpage().get_text_range().strip() == ""
+        pic = page.render(scale=1, may_draw_forms=True).to_pil().convert("L")
+        assert pic.point(lambda v: 255 if v < 250 else 0).getbbox() is None, name
+    finally:
+        doc.close()
+
+
+def test_words_drawn_twice_are_one_line(tmp_path):
+    lay = _layout(_case_pdf(tmp_path, "a shadow under the words"))
+    assert [(d["text"], d["objs"]) for d in lay["lines"]] == [("Hello world", [0, 1])]
+    lay = _layout(_case_pdf(tmp_path, "the same piece again"))
+    assert [(d["text"], d["objs"]) for d in lay["lines"]] == [("Hello worldd", [0, 1, 2])]
+
+
+def test_a_letter_called_a_space_is_a_line_read_from_the_page(tmp_path):
+    lay = _layout(_case_pdf(tmp_path, "letters the font calls spaces"))
+    alone = [d for d in lay["lines"] if d["text"] != "Hello world"]
+    assert [d["objs"] for d in alone] == [[1], [2]]
+    assert all(d.get("unknown") for d in alone) and pdfedit.needs_reading(lay)
+
+
+def test_text_turned_into_shapes_comes_in_bunches(tmp_path):
+    lay = _layout(_case_pdf(tmp_path, "text turned into shapes"))
+    assert len(lay["shapes"]) <= pdfedit.SHAPE_LIMIT
+    names = [k for d in lay["shapes"] for k in d.get("objs") or [d["obj"]]]
+    assert len(names) == len(set(names)) == 2500
+    rows = [d for d in lay["shapes"] if d.get("objs")]
+    assert rows and all(d["rect"][3] < 8 for d in rows)  # (a bunch is a row of letters, not the whole page)
+
+
+def test_a_page_background_is_marked_and_a_frame_is_not(tmp_path):
+    lay = _layout(_case_pdf(tmp_path, "a coloured page"))
+    assert [d.get("background") for d in lay["shapes"]] == [True]
+    lay = _layout(_case_pdf(tmp_path, "a frame around the page"))
+    assert [d.get("background") for d in lay["shapes"]] == [None]
+
+
+def test_select_all_picks_everything_and_the_background_only_on_purpose(qtbot, tmp_path):
+    from PySide6.QtGui import QPainterPath as _Path
+    src = _case_pdf(tmp_path, "a coloured page")
+    ed = _open(qtbot, src)
+    try:
+        page = ed.pages[0]
+        back = next(p for p in page.pieces if p.kind == "shape")
+        assert back.background and not back.acceptedMouseButtons()
+        inside = _Path()
+        inside.addRect(back.rect.adjusted(50, 50, -50, -50))
+        assert not back.collidesWithPath(inside)  # (a box drawn inside the page doesn't pick it)
+        ed.view.setFocus()
+        qtbot.keyClick(ed.view, Qt.Key_A, Qt.ControlModifier)
+        assert ed.tool == "select" and {p for p in page.pieces} == set(ed.selected_items())
+        ed.delete_selected()
+        assert {k for d in ed.removed for k in d["objs"]} == set(_everything(page.layout))
+    finally:
+        ed.close_renderer()
+        ed.close()

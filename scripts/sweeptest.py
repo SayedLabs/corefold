@@ -523,7 +523,7 @@ def buttons():
 
 # ---------------------------------------------------------------------------- the Store, again and again
 
-TOOL_MODULES = {"player": "corefold.player", "capture": "corefold.capture", "clipboard": "corefold.clipboard",
+TOOL_MODULES = {"capture": "corefold.capture", "clipboard": "corefold.clipboard",
                 "space": "corefold.spacepage", "viewer": "corefold.viewer", "cloud": "corefold.cloudpage"}
 
 

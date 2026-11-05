@@ -105,7 +105,6 @@ corefold/navbar.py             the sidebar (drag to reorder, icons only)
 corefold/atomic/               Atomic, the design system: colours, spacing, motion, shared widgets, Ctrl + K search
 corefold/quick.py              the quick menu and quick wheel (quickmenu.py, quickwheel.py, quickpage.py)
 corefold/viewer.py             Rakiza Core Viewer (mailview.py opens .msg and .eml)
-corefold/player.py             Rakiza Core Player
 corefold/capture.py            Rakiza Core Capture (capview.py is the editor)
 corefold/spacepage.py          Rakiza Core Space (space.py does the scanning and cleaning)
 corefold/clipboard.py          Rakiza Core Clipboard (clipview.py is its window)

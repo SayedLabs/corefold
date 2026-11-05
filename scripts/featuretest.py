@@ -1,5 +1,5 @@
 """Checks of what 1.7.7 added to the tools: Capture (timer, pin, steps), Clipboard
-(edit, change, apps it ignores), Viewer (rename, move, flip, sort), Player (playlist, picture fit),
+(edit, change, apps it ignores), Viewer (rename, move, flip, sort),
 Converter (crop video, subtitles, sound, join, SHA-256), Archive (remembered passwords) and Space
 (more caches).
 
@@ -812,58 +812,6 @@ def pdf_stamps():
     pdf.close()
 
 
-# ----------------------------------------------------------------------------- Player
-
-def chapters():
-    from corefold.player import chapters_of
-    meta = TMP / "chapters.txt"
-    meta.write_text(";FFMETADATA1\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=0\nEND=1500\ntitle=Opening\n"
-                    "[CHAPTER]\nTIMEBASE=1/1000\nSTART=1500\nEND=3000\ntitle=The end\n", "utf-8")
-    ffmpeg("-i", str(VID / "bars.mp4"), "-i", str(meta), "-map_metadata", "1", "-map_chapters", "1", "-c", "copy",
-           str(VID / "chapters.mkv"))
-    found = chapters_of(VID / "chapters.mkv")
-    check([(round(ms / 100), t) for ms, t in found] == [(0, "Opening"), (15, "The end")], f"chapters ({found})")
-    check(chapters_of(VID / "quiet.mp4") == [], "…none in a file without them")
-
-
-def player():
-    try:
-        from corefold.player import FIT_MODES, PlayerWindow
-    except ImportError as e:
-        print("(no Qt Multimedia here:", e, ")")
-        return
-    c = FakeController()
-    try:
-        win = PlayerWindow(c, VID / "bars.mp4")
-    except Exception:
-        print("(the player window can't open here:", traceback.format_exc().splitlines()[-1], ")")
-        return
-    win.show()
-    app.processEvents()
-    check(len(win.files) >= 2, f"the player lists the folder ({len(win.files)} files)")
-    win.toggle_playlist()
-    check(win.playlist.isVisible() and win.playlist.count() == len(win.files), "the playlist shows")
-    win.cycle_fit()
-    check(win.fit == FIT_MODES[1][0], "Z: fill the window")
-    win.a_shuffle.setChecked(True)
-    win._shuffle(True)
-    check(win.files[0] == win.current() and win.index == 0, "shuffle keeps the file that's playing first")
-    if (VID / "chapters.mkv").exists():
-        win.open(VID / "chapters.mkv")
-        for _ in range(60):
-            app.processEvents()
-            time.sleep(0.05)
-            if win.seek.chapters:
-                break
-        check(len(win.seek.chapters) == 2, "the seek bar shows the chapters")
-        win.chapter_step(1)
-        check(win.seek.value() >= 1400 or win.player.position() >= 1400, "Ctrl+Right: the next chapter")
-    win.open_link("not a link")
-    check(not win.link, "a pasted text that isn't a link isn't played")
-    win.close()
-    app.processEvents()
-
-
 if __name__ == "__main__" and len(sys.argv) > 1:
     for name in sys.argv[1:]:
         step(name, globals()[name])
@@ -872,7 +820,7 @@ else:
     for name, fn in (("video tools", video_tools), ("graphics card", graphics_card), ("fingerprint", fingerprint), ("passwords", passwords), ("tar formats", tar_formats), ("archive preview", archive_preview),
                      ("capture", capture),
                      ("clipboard", clipboard), ("clip list", clip_list), ("viewer", viewer),
-                     ("space", space), ("space programs", space_programs), ("chapters", chapters), ("player", player),
+                     ("space", space), ("space programs", space_programs),
                      ("saved texts", saved_texts), ("viewer strip", viewer_strip), ("viewer more", viewer_more), ("space kinds", space_kinds),
                      ("space more", space_more),
                      ("shortcut program", shortcut_program), ("browser extensions", browser_extensions),

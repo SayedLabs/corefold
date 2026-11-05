@@ -517,7 +517,7 @@ def start():
             slow.append(f"{name} {took:.2f} s")
         say(f"{'ok  ' if took <= 0.4 else 'SLOW'}  {took:7.2f} s  open the {name} page")
         grab(c.window, f"page-{name}") if name in ("Files", "General", "Converter", "Archive", "Space",
-                                                    "Quick", "Clipboard", "Capture", "Player", "Viewer", "Apps") else None
+                                                    "Quick", "Clipboard", "Capture", "Viewer", "Apps") else None
     check(not slow, f"every page opens in under 0.4 s ({len(names)} pages; slow: {', '.join(slow) or 'none'})")
     for p in slow:
         problems.append(f"slow page: {p}")
@@ -737,47 +737,6 @@ def viewer():
     win.toggle_info()
     win.close()
     settle(0.3)
-
-
-def player():
-    from PySide6.QtMultimedia import QMediaPlayer
-    vids = [("90 s 1080p MP4", S / "Trip 1080p.mp4", 3), ("4K HEVC MKV", S / "Film 4K HEVC.mkv", 4),
-            ("VP9 WebM", S / "Clip.webm", 3), ("60 fps phone MOV", S / "Phone video.mov", 3),
-            ("MP3 song", S / "Song.mp3", 2), ("FLAC song", S / "Song.flac", 2)]
-    win = None
-    for label, path, limit in vids:
-        def playing(p=path):
-            ps = [x for x in getattr(c, "players", []) if alive(x)]
-            return bool(ps) and ps[-1].current() == p and ps[-1].player.playbackState() == QMediaPlayer.PlayingState \
-                and ps[-1].player.position() > 200
-        timed(f"play a {label}", lambda p=path: c.open_player(p), limit, wait=playing,
-              profile="player" if win is None else "")
-        win = next((x for x in getattr(c, "players", []) if alive(x)), None)
-        if win is not None and win.player.errorString():
-            check(False, f"…{label}: {win.player.errorString()}")
-        if win is not None and label == "4K HEVC MKV":
-            win.resize(1100, 680)
-            grab(win, "player-4k")
-    if win is None:
-        return
-    win.open(S / "Trip 1080p.mp4")
-    until(lambda: win.player.position() > 200, 5)
-    for _i, ms in enumerate((60000, 10000, 80000, 30000, 45000)):
-        timed(f"jump to {ms // 1000} s", lambda m=ms: win._seek_to(m), 0.8,
-              wait=lambda m=ms: abs(win.player.position() - m) < 2500)
-    timed("click along the bar 10 times quickly", lambda: [(win._seek_to(5000 * k), wait_ms(60)) for k in range(10)],
-          1.5, wait=lambda: abs(win.player.position() - 45000) < 3000)
-    timed("pause", win.toggle, 0.3, wait=lambda: win.player.playbackState() != QMediaPlayer.PlayingState)
-    timed("play", win.toggle, 0.5, wait=lambda: win.player.playbackState() == QMediaPlayer.PlayingState)
-    timed("full screen", win.toggle_full, 0.8, wait=lambda: win.isFullScreen())
-    grab(win, "player-full")
-    timed("leave full screen", win.toggle_full, 0.8, wait=lambda: not win.isFullScreen())
-    timed("mini player", win.toggle_mini, 0.8)
-    grab(win, "player-mini")
-    win.toggle_mini()
-    timed("next file in the folder", lambda: win.go(1), 3, wait=lambda: win.player.position() > 200)
-    win.close()
-    settle(0.5)
 
 
 def capture():
@@ -1527,7 +1486,7 @@ if ARGS.heavy:
     step("start", start_light)
 else:
     STEPS = (("search", search), ("quick", quick), ("space", space), ("converter", converter), ("archive", archive),
-             ("viewer", viewer), ("player", player), ("capture", capture),
+             ("viewer", viewer), ("capture", capture),
              ("clipboard", clipboard), ("store", store), ("idle", idle))
     step("start", start)
 for name, fn in STEPS:

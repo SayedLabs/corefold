@@ -34,8 +34,9 @@ from . import work as page_work
 from . import tools as all_tools
 from . import settings as settings_mod
 from .converters import PASSWORD_ERROR, Options, Result, Tool, pick, release_memory, run_job, warm_up
-from .core import (KEEP_ID, LEGACY_NAME, OLD_APP_NAMES, category, fallback_folder, human_size, is_link,
-                   lower_this_thread, norm, os_open, set_background_priority, set_downloads_folder, short_name, unique_path)
+from .core import (KEEP_ID, LEGACY_NAME, NO_WINDOW, OLD_APP_NAMES, category, fallback_folder, human_size,
+                   is_link, lower_this_thread, norm, os_open, set_background_priority, set_downloads_folder,
+                   short_name, system_tool, unique_path)
 from .history import History, size_of
 from .i18n import tr
 from .settings import (APP_NAME, LOG_DIR, TOAST_TIME_SCALE, WINDOW_TEXT_PT, Settings, app_command, app_icon,
@@ -1454,7 +1455,8 @@ class Controller(QObject):
         wanted = {"archive": (s.open_archives and all_tools.is_on(s, "archive"), tr("Rakiza Core Archive")),
                   "image": (s.open_images and viewer, tr("Rakiza Core Viewer")),
                   "email": (s.open_emails and viewer, tr("Rakiza Core Viewer")),
-                  "media": (s.open_media and all_tools.is_on(s, "player"), tr("Rakiza Core Player"))}
+                  # (the Player has left Rakiza Core: its old "Open with" entry for videos and music is taken out)
+                  "media": (False, "")}
         assoc.sync_in_background(wanted, app_command, app_icon())
 
     # ---- right-click menu
@@ -1550,7 +1552,7 @@ class Controller(QObject):
         elif word == "view" and lines:
             self.open_viewer(Path(lines[0]))
         elif word == "play" and lines:
-            self.open_player(Path(lines[0]))
+            self.played_elsewhere(Path(lines[0]))
         elif word == "uninstall" and lines:
             self.uninstall_from_shortcut(Path(lines[0]))
         elif word == "run" and len(lines) >= 2:
@@ -1762,30 +1764,18 @@ class Controller(QObject):
                                                 "future update, with your settings kept."), linger_ms=7000)
         return False
 
-    def open_player(self, path: Path):
-        """Plays a video or song (with the rest of its folder) in Rakiza Core Player."""
-        if not path.is_file() or not self._tool_here("player"):
+    def played_elsewhere(self, path: Path):
+        """A video or song sent with --play: Rakiza Core's Player has left Rakiza Core (it moves to Rakiza Play), so an
+        old double-click that still points here asks Windows which app should play it instead."""
+        if not path.is_file():
             return
-        self.players = [p for p in getattr(self, "players", []) if _alive(p)]
-        for p in self.players:  # one window: a new file plays in it
-            if p.isVisible():
-                p.open(path)
-                if not p.isFullScreen():
-                    p.showNormal()
-                p.raise_()
-                p.activateWindow()
-                return
-        from .player import PlayerWindow
+        log.info("--play arrived, but the Player isn't part of Rakiza Core any more")
+        self.sync_archive_opening()  # (takes out the old "Open with" entry, if it's still there)
         try:
-            win = PlayerWindow(self, path)
-        except Exception as e:  # (Qt's player missing from a broken install)
-            log.exception("couldn't start the player")
-            self.tell(tr("Can't play this here"), str(e))
-            return
-        self.players.append(win)
-        win.show()
-        win.raise_()
-        win.activateWindow()
+            subprocess.Popen([system_tool("rundll32.exe"), "shell32.dll,OpenAs_RunDLL", str(path)],
+                             creationflags=NO_WINDOW)
+        except OSError:
+            log.exception("couldn't ask Windows which app plays %s", path)
 
     def remember_view(self, path: Path):
         from .settings import RECENT_ARCHIVES
@@ -2814,9 +2804,6 @@ class Controller(QObject):
         if self.peek is not None:
             self.peek.stop()
             self.peek = None
-        for p in getattr(self, "players", []):
-            if _alive(p):
-                p.close()
         self.tray.hide()
         if self.server:
             self.server.close()
@@ -2876,8 +2863,8 @@ class Controller(QObject):
             self.quit(cleanup=True)
 
 
-PAGE_NAMES = ("Home", "Converter", "Apps", "Archives", "Viewer", "Player", "Clipboard", "Space", "Capture", "Cloud",
-              "PDF", "Organizer", "Startup", "Scan", "Unlock", "Awake", "Colors", "Store", "PlayerSettings",
+PAGE_NAMES = ("Home", "Converter", "Apps", "Archives", "Viewer", "Clipboard", "Space", "Capture", "Cloud",
+              "PDF", "Organizer", "Startup", "Scan", "Unlock", "Awake", "Colors", "Store",
               "Soon", "Files", "Media", "Computer", "QuickTools",
               "General", "Look", "ConvOptions", "WheelLook", "Formats", "AppsSettings", "ArchiveSettings",
               "ViewerSettings", "ClipboardSettings", "CaptureSettings", "History", "Updates", "About", "Shortcuts")

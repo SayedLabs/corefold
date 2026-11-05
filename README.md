@@ -73,7 +73,7 @@ Switch off the uses you don't need (the ⚙ on the start page): a use that's swi
 The other tools are resting for now while Rakiza Core Files gets our full attention. Nothing of them
 runs, and whatever they kept for you (settings, history, backups) waits untouched until they're back.
 
-- **Images & screen:** Capture, Viewer, Player, Colors
+- **Images & screen:** Capture, Viewer, Colors
 - **Computer:** Startup, Virus scan
 - **Quick tools:** Clipboard, Awake, Quick menu and quick wheel
 

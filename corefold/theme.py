@@ -237,26 +237,6 @@ QPushButton#power:checked { background: $select; border-color: $line_strong; col
 QPushButton#driveCard { background: $panel; border: 1px solid $border; border-radius: 14px; padding: 0; text-align: left; }
 QPushButton#driveCard:hover { border-color: $edge_hover; background: $card_hover; }
 QProgressBar#low::chunk { background: $danger; }
-QWidget#playerWindow { background: #000000; }
-QFrame#playerBar, QWidget#playerNoteBox { background: #121314; }
-QFrame#playerBar QLabel, QWidget#playerNoteBox QLabel { color: #f2f2f2; background: transparent; }
-QFrame#playerBar QLabel#muted { color: #a3a6a8; }
-QFrame#playerBar QPushButton#small, QWidget#playerNoteBox QPushButton { color: #e8e8e8; background: transparent;
-        border: 1px solid transparent; font-size: 9pt; }
-QFrame#playerBar QPushButton#small:hover, QWidget#playerNoteBox QPushButton:hover { background: #26282a;
-        border-color: #3a3c3e; }
-QFrame#playerBar QPushButton#small:checked { background: #2e2e33; border-color: #3a3a40; }
-QFrame#playerBar QPushButton#small:disabled { color: #55585a; }
-QFrame#playerBar QSlider::groove:horizontal { background: #3a3c3e; }
-QFrame#playerBar QSlider::handle:horizontal { background: #f2f2f2; border-color: #f2f2f2; }
-QSlider#seek::groove:horizontal { height: 6px; border-radius: 3px; }
-QSlider#seek::sub-page:horizontal { border-radius: 3px; }
-QLabel#playerCover { background: #0b0b0c; }
-QListWidget#playlist { background: #121314; color: #e8e8e8; border: none; border-left: 1px solid #26282a; outline: none;
-        padding: 4px; }
-QListWidget#playlist::item { padding: 6px 8px; border-radius: 6px; }
-QListWidget#playlist::item:hover { background: #1d1f21; }
-QListWidget#playlist::item:selected { background: #2e2e33; color: #ffffff; }
 QListWidget#viewerStrip { background: $panel; border: none; border-top: 1px solid $border; outline: none;
         padding: 4px 8px; }
 QListWidget#viewerStrip::item { border-radius: 8px; padding: 2px; border: 2px solid transparent; }

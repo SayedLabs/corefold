@@ -454,12 +454,12 @@ def archive_tool():
     catch = Catch()
     logging.getLogger("corefold").addHandler(catch)
     try:
-        threads = [assoc.sync_in_background({"media": (i % 2 == 0, "Player")}, cmd, "") for i in range(12)]
-        threads.append(assoc.sync_in_background({"media": (True, "Player")}, cmd, ""))
+        threads = [assoc.sync_in_background({"image": (i % 2 == 0, "Viewer")}, cmd, "") for i in range(12)]
+        threads.append(assoc.sync_in_background({"image": (True, "Viewer")}, cmd, ""))
         for t in threads:
             t.join(60)
-        check(not errors, f"quick on/off of opening media files: no registry errors ({errors[:2]})")
-        check(assoc.is_current(cmd, "media"), "…and the last choice (on) is the one that stays")
+        check(not errors, f"quick on/off of opening pictures: no registry errors ({errors[:2]})")
+        check(assoc.is_current(cmd, "image"), "…and the last choice (on) is the one that stays")
     finally:
         logging.getLogger("corefold").removeHandler(catch)
         assoc.unregister()

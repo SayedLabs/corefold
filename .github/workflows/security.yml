@@ -23,7 +23,6 @@ on:
       - corefold/startup.py
       - corefold/unlock.py
       - corefold/space.py
-      - corefold/player.py
       - corefold/safetext.py
       - corefold/mailview.py
       - corefold/updater.py

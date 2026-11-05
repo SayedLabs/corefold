@@ -149,21 +149,9 @@ Check ((Count "background remover helper started") -ge 1) "the background remove
 $helpers = @(Get-CimInstance Win32_Process -Filter "Name = 'RakizaCore.exe'" | Where-Object { $_.CommandLine -like "*--bg-worker*" }).Count
 Check ($helpers -eq 0) "no background remover helper is left running ($helpers)"
 
-# a video double-clicked: Rakiza Core Player (Qt's player and its FFmpeg must be in the build)
-$mp4 = "$work\clip.mp4"
-& "dist\RakizaCore\ffmpeg\ffmpeg.exe" -v error -y -f lavfi -i "testsrc2=s=1280x720:d=20:r=30" -f lavfi -i "sine=d=20" `
-    -c:v libx264 -preset ultrafast -pix_fmt yuv420p -c:a aac -shortest $mp4
-Check (@(Get-ChildItem "dist\RakizaCore" -Recurse -Filter "ffmpegmediaplugin.dll").Count -ge 1) "the build has Qt's player (FFmpeg plugin)"
-Start-Process $exe -ArgumentList @("--play", "`"$mp4`"") -Wait
-Start-Sleep 6
-$resting = (& $py -c "from corefold import tools; print(int('media' in tools.PAUSED_SECTIONS))") -eq "1"
-if ($resting) {  # (Images & screen rests for now: the Player must stay closed)
-    Check ((Count "player is playing") -eq 0) "a double-clicked video doesn't open the resting Player"
-} else {
-    Check ((Count "player is playing") -ge 1) "a double-clicked video plays in Rakiza Core Player"
-    Check ((Count "player can't play") -eq 0) "…without errors"
-}
-Snap $(if ($resting) { "After a double-clicked video (Player resting)" } else { "Playing a 720p video" }) 5
+# Quick look plays videos and songs with Qt's player and its FFmpeg: they must be in the build (the Player itself has
+# moved to Rakiza Play)
+Check (@(Get-ChildItem "dist\RakizaCore" -Recurse -Filter "ffmpegmediaplugin.dll").Count -ge 1) "the build has Qt's player (FFmpeg plugin) for Quick look"
 
 $p.Refresh()
 $peak = MB $p.PeakWorkingSet64

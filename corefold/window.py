@@ -27,8 +27,7 @@ from .settings import (ACCENTS, APP_NAME, DEFAULT_ACCENT, APPEARANCES, HOVER_STY
                        ARCHIVE_KEYS, BACKUP_DAYS, CONVERTER_KEYS, EXTRACT_MODES, FORMAT_KEYS, GENERAL_KEYS,
                        SLIDESHOW_SECONDS, VIDEO_CODECS, VIDEO_QUALITIES, VIDEO_SIZES, AUDIO_QUALITIES, VIEWER_KEYS, VIEWER_WHEEL, CLIP_DAYS, CLIP_MAX,
                        CLIP_SHORTCUTS, CLIP_PLAIN_SHORTCUTS, CLIPBOARD_KEYS,
-                       CAP_AFTER, CAP_DELAY, CAP_SHORTCUTS, CAP_TEXT_SHORTCUTS, CAPTURE_KEYS, PLAYER_KEYS, PLAYER_SKIP,
-                       PLAYER_WHEEL,
+                       CAP_AFTER, CAP_DELAY, CAP_SHORTCUTS, CAP_TEXT_SHORTCUTS, CAPTURE_KEYS,
                        LOOK_KEYS, UNINSTALL_DEPTHS, UNINSTALLER_KEYS, UNUSED_MONTHS, WHEEL_KEYS, editable_keys, set_startup,
                        startup_enabled)
 from .atomic.widgets import Dropdown, Switch, keep_wrapped_text, mark_rows
@@ -73,7 +72,7 @@ NAV_OWNER = {**{tool.page: all_tools.SECTION_OF[tool.id].page for tool in all_to
 # a tool's own Settings pages -> the tool (a tool resting for now: its Settings pages rest too)
 SETTINGS_TOOL = {p: tool for tool in all_tools.TOOLS for p in tool.settings_pages}
 # pages from before the sections, still asked for by name (an old quick menu, the command line)
-OLD_PAGES = {"Store": "Home"}
+OLD_PAGES = {"Store": "Home", "Player": "Home", "PlayerSettings": "General"}  # (the Player left for Rakiza Play)
 PAGE_ICONS = {"Home": "home", "General": "settings", "Look": "paint_brush", "Quick": "layout",  # icons.py
               "Shortcuts": "keyboard",
               "Formats": "puzzle_piece",
@@ -782,8 +781,8 @@ class MainWindow(QWidget):
                     "ArchiveSettings": self._archive_settings, "Viewer": self._viewer,
                     "ViewerSettings": self._viewer_settings, "Clipboard": self._clipboard,
                     "ClipboardSettings": self._clipboard_settings, "Space": self._space, "Capture": self._capture,
-                    "CaptureSettings": self._capture_settings, "Cloud": self._cloud, "Player": self._player,
-                    "PlayerSettings": self._player_settings, "PDF": self._pdf, "Organizer": self._organizer, "Startup": self._startup, "Scan": self._scan, "Updates": self._updates, "About": self._about,
+                    "CaptureSettings": self._capture_settings, "Cloud": self._cloud,
+                    "PDF": self._pdf, "Organizer": self._organizer, "Startup": self._startup, "Scan": self._scan, "Updates": self._updates, "About": self._about,
                     "Quick": self._quick_settings,
                     "Unlock": self._unlock,
                     "Awake": self._awake,
@@ -812,7 +811,7 @@ class MainWindow(QWidget):
         self.unlock_page = None
         self.awake_page = None
         self.colors_page = None
-        self._unbuilt = {"Apps", *SECTION_PAGES, "Viewer", "Clipboard", "Space", "Capture", "Cloud", "Player", "PDF",
+        self._unbuilt = {"Apps", *SECTION_PAGES, "Viewer", "Clipboard", "Space", "Capture", "Cloud", "PDF",
                          "Organizer", "Startup", "Scan", "Unlock", "Awake", "Colors", "Archives", "History",
                          "Updates", "About", "Soon", *SETTINGS_PAGES, *SOON,
                          *[tool.page for tool in all_tools.TOOLS if tool.page not in on_pages and tool.page != "Converter"]}
@@ -1150,8 +1149,8 @@ class MainWindow(QWidget):
         """A page that's opened fades in while it rises the last few pixels into place (quickly), so moving
         between pages feels smooth."""
         w = self.stack.widget(i)
-        if w is None or not (self.c.settings.animations and self.isVisible()) or PAGES[i] == "Player":
-            return  # (the Player's video draws itself: it's left alone)
+        if w is None or not (self.c.settings.animations and self.isVisible()):
+            return
         if getattr(self, "_still", False):  # (the whole window is fading over from how it looked)
             return
         from .atomic import motion
@@ -1621,8 +1620,6 @@ class MainWindow(QWidget):
             self.colors_page.refresh()
         elif name == "Capture":
             self.refresh_captures()
-        elif name == "Player":
-            self.refresh_watching()
         elif name == "Shortcuts":
             self.shortcuts_page.refresh()
 
@@ -3380,149 +3377,6 @@ class MainWindow(QWidget):
                                 "tricks viruses use."), dark, dpr)
         self.scan_page = ScanPage(self.c, header)
         return self.scan_page
-
-    def _player(self) -> QWidget:
-        """Rakiza Core Player: open videos and music, and pick up where you left off."""
-        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
-        w, lay = page(tr("Player"))
-        lay.itemAt(0).widget().hide()
-        lay.addLayout(tool_header("player", tr("Player"),
-                                  tr("Plays every video and song, smooth in 4K, with clean controls that get out of "
-                                     "the way."), dark, dpr, self.tool_settings_button("Player")))
-        drop = DropZone(None, None, title=tr("Drop a video or a song"),
-                        sub=tr("The rest of its folder plays after it. Drop a subtitle file on the player to add it."),
-                        hot_title=tr("Let go"), buttons=[(tr("Open a video or song…"), self._open_media, "primary")])
-        drop.dropped.connect(lambda paths: self.c.open_player(paths[0]) if paths else None)
-        lay.addWidget(drop)
-        box, bl = card(8)
-        head = QHBoxLayout()
-        head.addWidget(label(tr("Continue watching"), "h2"))
-        head.addStretch()
-        self.watching_clear = button(tr("Clear"), "flat", self._clear_watching)
-        head.addWidget(self.watching_clear)
-        bl.addLayout(head)
-        self.watching_lay = QVBoxLayout()
-        self.watching_lay.setSpacing(2)
-        bl.addLayout(self.watching_lay)
-        lay.addWidget(box)
-        box, bl = card(8)
-        bl.addWidget(label(tr("Good to know"), "h2"))
-        for text in (tr("Space pauses, the arrow keys jump back and forward, F is full screen, I the mini player."),
-                     tr("[ and ] change the speed; , and . go one picture at a time while paused."),
-                     tr("L marks a loop: once for the start, again for the end. More saves that part as a clip."),
-                     tr("Subtitles a bit early or late? G shows them earlier, H later.")):
-            r = QHBoxLayout()
-            r.setSpacing(10)
-            r.addWidget(self._accent_dot(), 0, Qt.AlignTop)
-            r.addWidget(label(text, wrap=True), 1)
-            bl.addLayout(r)
-        lay.addWidget(box)
-        lay.addStretch()
-        return w
-
-    def refresh_watching(self):
-        if "Player" in self._unbuilt:
-            return
-        from .player import clock, continue_watching
-        lay = self.watching_lay
-        while lay.count():
-            item = lay.takeAt(0)
-            if item.widget():
-                item.widget().hide()  # (not drawn again at its old place before it goes)
-                item.widget().deleteLater()
-        items = continue_watching(8)
-        for path, pos, dur, when in items:
-            row = QPushButton(f"{short_name(path.name, 60)}   ·   {clock(pos)} / {clock(dur)}   ·   {time_ago(when)}")
-            row.setObjectName("flat")
-            row.setToolTip(str(path))
-            row.setCursor(Qt.PointingHandCursor)
-            row.setIcon(icons.icon("video", self.c.theme.muted))
-            row.setStyleSheet("text-align: left;" if not i18n.is_rtl() else "text-align: right;")
-            row.clicked.connect(lambda _=False, p=path: self.c.open_player(p))
-            lay.addWidget(row)
-        if not items:
-            lay.addWidget(label(tr("Videos you stop part way show up here, to pick up where you left off."), "muted",
-                                wrap=True))
-        self.watching_clear.setVisible(bool(items))
-
-    def _clear_watching(self):
-        from .player import forget_positions
-        forget_positions()
-        self.refresh_watching()
-
-    def _open_media(self):
-        from .player import MEDIA_EXT
-        pattern = " ".join(f"*{e}" for e in sorted(MEDIA_EXT))
-        name, _ = QFileDialog.getOpenFileName(self, tr("Open a video or song"), str(Path.home() / "Videos"),
-                                              f"{tr('Videos and music')} ({pattern});;{tr('All files')} (*)")
-        if name:
-            self.c.open_player(Path(name))
-
-    def _player_settings(self) -> QWidget:
-        """Rakiza Core Player."""
-        s = self.c.settings
-        w, lay = page(tr("Player"))
-        box, bl = card()
-        grid = QGridLayout()
-        grid.setHorizontalSpacing(16)
-        grid.setVerticalSpacing(12)
-        self.player_skip = Dropdown()
-        for key, text in PLAYER_SKIP.items():
-            self.player_skip.addItem(tr(text), key)
-        self.player_skip.setCurrentIndex(max(0, self.player_skip.findData(s.player_skip)))
-        self.player_wheel = Dropdown()
-        for key, text in PLAYER_WHEEL.items():
-            self.player_wheel.addItem(tr(text), key)
-        self.player_wheel.setCurrentIndex(max(0, self.player_wheel.findData(s.player_wheel)))
-        for combo in (self.player_skip, self.player_wheel):
-            combo.currentIndexChanged.connect(self._player_setting_changed)
-        grid.addWidget(label(tr("The arrow keys jump")), 0, 0)
-        grid.addWidget(self.player_skip, 0, 1)
-        grid.addWidget(label(tr("The mouse wheel over a video")), 1, 0)
-        grid.addWidget(self.player_wheel, 1, 1)
-        grid.setColumnStretch(2, 1)
-        bl.addLayout(grid)
-        self.player_resume = checkbox(tr("Pick up where I left off"), s.player_resume, self._player_setting_changed)
-        self.player_next = checkbox(tr("When a file ends, play the next one in its folder"), s.player_next,
-                                    self._player_setting_changed)
-        self.player_subtitles = checkbox(tr("Turn on a video's own subtitles"), s.player_subtitles,
-                                         self._player_setting_changed)
-        self.player_pause_minimized = checkbox(tr("Pause a video while the window is minimised (music keeps playing)"),
-                                               s.player_pause_minimized, self._player_setting_changed)
-        for cb in (self.player_resume, self.player_next, self.player_subtitles, self.player_pause_minimized):
-            bl.addWidget(cb)
-        lay.addWidget(box)
-        box, bl = card()
-        bl.addWidget(label(tr("Double-click to open"), "h2"))
-        self.open_media_setting = checkbox(tr("Open videos and music with Rakiza Core (it shows up under \"Open with\")"),
-                                           s.open_media, lambda on: self.c.set_open_files("open_media", on))
-        bl.addWidget(self.open_media_setting)
-        row = QHBoxLayout()
-        row.addWidget(button(tr("Make Rakiza Core the default…"), None, self._default_for_player))
-        row.addStretch()
-        bl.addLayout(row)
-        bl.addWidget(label(tr("Windows asks you to pick the default app yourself. This opens the right place in "
-                              "Settings."), "muted", wrap=True))
-        lay.addWidget(box)
-        lay.addLayout(_reset_row(lambda: self.reset_to_defaults(PLAYER_KEYS)))
-        lay.addStretch()
-        return w
-
-    def _player_setting_changed(self, *_):
-        s = self.c.settings
-        s.player_skip = self.player_skip.currentData()
-        s.player_wheel = self.player_wheel.currentData()
-        s.player_resume = self.player_resume.isChecked()
-        s.player_next = self.player_next.isChecked()
-        s.player_subtitles = self.player_subtitles.isChecked()
-        s.player_pause_minimized = self.player_pause_minimized.isChecked()
-        self.c.settings_changed()
-
-    def _default_for_player(self):
-        from . import assoc
-        if not self.open_media_setting.isChecked():
-            self.open_media_setting.setChecked(True)
-        assoc.open_default_apps()
 
     def _cloud(self) -> QWidget:
         """Rakiza Core Cloud: OneDrive, Dropbox, Google Drive and iCloud side by side."""

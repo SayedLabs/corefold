@@ -1,6 +1,6 @@
 """Settings → Shortcuts: every Rakiza Core shortcut in one list. The ones that work in any app show whether
-they're working (or another app took them) and open their setting; the keys of the window, the Viewer
-and the Player are listed under them.
+they're working (or another app took them) and open their setting; the keys of the window and the Viewer
+are listed under them.
 
 Everything shown comes from the two tables below: a new tool's shortcut is one more line there.
 Texts are English and shown through tr()."""
@@ -70,18 +70,6 @@ WINDOW_KEYS = [
         ("F5", "Slideshow"),
         ("F11 / F", "Full screen"),
         ("Ctrl + C", "Copy the picture"),
-    ]),
-    ("In the Player", "player", [
-        ("Space / K", "Play / pause"),
-        ("← / →", "Back or forward"),
-        ("↑ / ↓", "Volume up or down"),
-        ("M", "Mute"),
-        ("F / F11", "Full screen"),
-        ("N / P", "Next or previous file"),
-        ("[ / ]", "Slower or faster"),
-        (", / .", "One frame back or forward"),
-        ("S", "Save this frame as a picture"),
-        ("I", "Mini player"),
     ]),
 ]
 

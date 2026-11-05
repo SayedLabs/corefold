@@ -100,7 +100,6 @@ INK = ["#000000", "#1f3a93", "#d32f2f", "#2e7d32", "#f57c00", "#7b1fa2", "#fffff
 PENS = ["#ffd400", "#7cf27c", "#ff8ad8", "#7ec8ff", "#ffb35c"]
 FIELD_TINT = QColor(70, 130, 255, 38)
 THUMB = QSize(72, 96)    # the small pictures in the list of pages
-BACKGROUND = 0.5         # a drawn shape bigger than this much of its page is its background: not offered
 
 
 # ----------------------------------------------------------------------------- drawing pages off the window's thread
@@ -783,7 +782,10 @@ class OldPiece(QGraphicsObject):
     def __init__(self, editor: "PdfEditor", page: PageItem, kind: str, d: dict):
         super().__init__(page)
         self.editor, self.page, self.kind, self.d = editor, page, kind, d
-        self.objs = tuple(d["objs"]) if kind == "line" else (d["obj"],)
+        self.objs = tuple(d.get("objs") or (d["obj"],))  # (a bunch of small shapes: all of them)
+        # (the page's background: not picked by a click or a box drawn inside the page, only by a box across
+        # its edge or by Select all, so it isn't dragged or deleted by mistake)
+        self.background = bool(d.get("background"))
         self.rect = QRectF(*d["rect"])
         self.setPos(self.rect.topLeft())
         self.rect.moveTo(0, 0)
@@ -801,10 +803,20 @@ class OldPiece(QGraphicsObject):
 
     def tools(self) -> tuple:
         """The tools it can be clicked with: text with Edit text too; shapes and annotations only with Select."""
+        if self.background:
+            return ()
         return ("select", "edit") if self.kind in ("line", "image") else ("select",)
 
     def boundingRect(self) -> QRectF:
         return self.rect.adjusted(-3, -3, 3, 3)  # (a thin line is still easy to pick up)
+
+    def shape(self) -> QPainterPath:
+        path = QPainterPath()
+        path.addRect(self.boundingRect())
+        if self.background:  # (only its edge)
+            path.addRect(self.rect.adjusted(6, 6, -6, -6))
+            path.setFillRule(Qt.OddEvenFill)
+        return path
 
     def paint(self, p, option, widget=None):
         tool = self.editor.tool
@@ -1245,6 +1257,9 @@ class EditorView(QGraphicsView):
         ed = self.editor
         if e.key() in (Qt.Key_Delete, Qt.Key_Backspace):
             ed.delete_selected()
+            return
+        if e.matches(QKeySequence.SelectAll):
+            ed.select_all()
             return
         if e.matches(QKeySequence.Copy) and ed.copy_selected():
             return
@@ -2343,8 +2358,7 @@ class PdfEditor(QWidget):
         for d in layout.get("images", []):
             page.pieces.append(OldPiece(self, page, "image", d))
         for d in layout.get("shapes", []):
-            if d.get("share", 0) <= BACKGROUND:
-                page.pieces.append(OldPiece(self, page, "shape", d))
+            page.pieces.append(OldPiece(self, page, "shape", d))
         for d in layout.get("annots", []):
             page.pieces.append(OldPiece(self, page, "annot", d))
         for piece in page.pieces:
@@ -3977,6 +3991,22 @@ class PdfEditor(QWidget):
         """A short note at the bottom (what just happened), gone after a few seconds."""
         self.note.setText(text)
         self.note_timer.start()
+
+    def select_all(self):
+        """Everything on the page in the middle of the view picked (Ctrl+A): the PDF's own pieces, its
+        background too, and what was added."""
+        sight = self._in_sight()
+        if not sight:
+            return
+        middle = self.view.mapToScene(self.view.viewport().rect().center())
+        page = self.page_at(middle) or self.pages[sight[len(sight) // 2]]
+        if self.tool != "select":
+            self.set_tool("select")
+        self.scene.clearSelection()
+        for item in page.childItems():
+            if isinstance(item, (Mark, TextMark, OldPiece)) and item.isVisible() and \
+                    item.flags() & QGraphicsItem.ItemIsSelectable:
+                item.setSelected(True)
 
     # ---- deleting
 

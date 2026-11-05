@@ -5,7 +5,7 @@
 - after extracting: open the folder, send the archive (all its parts) to the Recycle Bin; Extract to…;
 - the Viewer going round a folder, its mouse side buttons, copying the path and dragging a picture out;
 - File Organizer keeping a folder tidy by itself (and its Undo);
-- the PDF page saying where new files go; Scan's hidden findings; a Player setting;
+- the PDF page saying where new files go; Scan's hidden findings;
 - the Clipboard's "paste as plain text" shortcut, pressed for real.
 
 Run from the repository's folder: python scripts/newtest_basics.py
@@ -412,13 +412,6 @@ def main():
         b.click()
         check(not scan.load_ignored() and not b.isEnabled(), "…and forgets every \"Don't show this again\"")
     step("hidden scan findings", scan_unhide)
-
-    def player_setting():
-        w.open_page("PlayerSettings")
-        qapp.processEvents()
-        w.player_pause_minimized.setChecked(True)
-        check(c.settings.player_pause_minimized, "the Player keeps \"pause a video while minimised\"")
-    step("the Player setting", player_setting)
 
     def paste_plain():
         from PySide6.QtCore import QMimeData
