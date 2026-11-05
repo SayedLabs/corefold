@@ -271,3 +271,32 @@ def test_zoom_into_a_folder_and_back(page, qtbot, tmp_path, monkeypatch):
     assert page.treemap._zoom is not None and page.treemap._zoom[-1] == "out"
     qtbot.waitUntil(lambda: page.treemap._zoom is None, timeout=3000)
     assert page.here is s.root
+
+
+def test_scan_of_a_tree_adds_up(tmp_path):
+    """The ordinary look (helper threads, all worked out at the end) with folders inside folders."""
+    from corefold import space
+    for i in range(30):
+        d = tmp_path / f"d{i % 5}" / f"e{i}"
+        d.mkdir(parents=True)
+        (d / f"f{i}.mp4").write_bytes(b"x" * (i + 1))
+    (tmp_path / "top.txt").write_bytes(b"y" * 100)
+    scan = space.scan(tmp_path, workers=3)
+    assert scan.files == 31 and scan.folders == 35
+    assert scan.root.size == 100 + sum(range(1, 31))
+    assert scan.biggest[0] == (100, str(tmp_path / "top.txt"))
+    assert scan.kinds["video"] == sum(range(1, 31)) and scan.types[".mp4"] == (sum(range(1, 31)), 30)
+    sizes = [c.size for c in scan.root.children]
+    assert sizes == sorted(sizes, reverse=True)
+    assert scan.root.names == "top.txt"
+
+
+def test_a_stopped_scan_keeps_what_it_found(tmp_path):
+    import threading
+    from corefold import space
+    (tmp_path / "a").mkdir()
+    (tmp_path / "a" / "x.bin").write_bytes(b"1")
+    cancel = threading.Event()
+    cancel.set()
+    scan = space.scan(tmp_path, cancel=cancel)
+    assert scan.cancelled and scan.files <= 1
