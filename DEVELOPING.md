@@ -113,6 +113,7 @@ corefold/pdftools.py           Rakiza Core PDF: merge, split, compress, pictures
 corefold/organizer.py          Rakiza Core File Organizer (organizerpage.py)
 corefold/startup.py            Rakiza Core Startup: switched on and off the way Task Manager does (startuppage.py)
 corefold/scan.py               Rakiza Core Scan: Defender's scans and its own checks (scanpage.py; trust.py reads signatures offline)
+corefold/network.py            Rakiza Core Network: connections, speed, speed test (networkpage.py)
 corefold/unlock.py             Rakiza Core Unlock: which programs have a file open, and closing them (unlockpage.py)
 corefold/awake.py              Rakiza Core Awake (awakepage.py)
 corefold/colors.py             Rakiza Core Colors (colorspage.py)

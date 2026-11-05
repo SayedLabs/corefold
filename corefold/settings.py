@@ -195,6 +195,7 @@ NOT_EDITED = {"enabled", "first_run", "last_version", "update_told", "notes_show
               "awake_mode", "awake_minutes", "awake_until", "awake_screen", "awake_apps", "awake_low_battery",
               "startup_later", "shutdown_at", "shutdown_planned",
               "colors_shortcut", "colors_format", "colors_history",  # (Colors: chosen on its page, kept right away)
+              "network_test_ok", "network_tests",
               }
 # the settings of each tab of the Settings page (each one has its own "Reset to defaults")
 GENERAL_KEYS = ("language", "sound", "volume", "sound_problems", "show_progress", "low_priority", "one_at_a_time")
@@ -350,6 +351,9 @@ class Settings:
     awake_low_battery: bool = True  # on battery, let the PC sleep again once it runs low
     shutdown_at: str = ""          # when Windows will turn the PC off (planned on the Awake page), ISO time
     shutdown_planned: str = ""     # when that was planned (a restart since has cleared it)
+    # Rakiza Core Network (on its page)
+    network_test_ok: bool = False  # told once what the speed test sends where, and said go
+    network_tests: list = field(default_factory=list)  # the last speed tests' results (network.SpeedResult.as_dict)
     # the Uninstaller
     organize_auto_folder: str = ""  # a folder File Organizer keeps tidy by itself, once a day ("" = none)
     organize_auto_last: float = 0.0  # when it last did (seconds since 1970)
@@ -501,6 +505,10 @@ class Settings:
         s.awake_apps = [a for a in s.awake_apps if isinstance(a, str) and a.strip()][:30]
         s.startup_later = [{k: str(d.get(k) or "") for k in ("id", "name", "command", "file")}
                            for d in s.startup_later if isinstance(d, dict) and d.get("id")][:50]
+        if s.network_tests:  # (only read in when there's something: Rakiza Core Network isn't loaded otherwise)
+            from .network import MAX_TESTS, SpeedResult
+            s.network_tests = [r.as_dict() for r in (SpeedResult.from_dict(d) for d in s.network_tests
+                                                     if isinstance(d, dict)) if r is not None][-MAX_TESTS:]
         s.colors_history = [h.upper() for h in s.colors_history if isinstance(h, str) and len(h) == 7
                             and h[0] == "#" and all(ch in "0123456789abcdefABCDEF" for ch in h[1:])][:24]
         if s.quick_menu_key == s.quick_wheel_key and s.quick_menu_key != "off":

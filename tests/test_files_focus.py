@@ -14,7 +14,8 @@ from corefold import tools as all_tools
 
 ROOT = Path(__file__).resolve().parent.parent
 FILES = {"converter", "pdf", "archive", "organizer", "unlock", "cloud"}
-COMPUTER = {"space", "uninstaller"}  # (Computer is back with these two)
+COMPUTER = {"space", "uninstaller", "network"}  # (Computer is back with these two, and Network is new)
+BACK = {"space", "uninstaller"}  # (switched back on once for everyone)
 IN_USE = FILES | COMPUTER
 RESTING = {"capture", "viewer", "colors", "startup", "scan", "clipboard", "awake"}
 
@@ -61,15 +62,16 @@ def test_space_and_the_uninstaller_come_back_on_for_everyone_once():
     s.known_tools = sorted(FILES | {"space", "uninstaller", "startup"})
     s.tools_off = ["space", "converter"]
     assert [t.id for t in all_tools.switch_back_on(s)] == ["space"]
-    assert all_tools.offer_new_tools(s) == []
+    assert [t.id for t in all_tools.offer_new_tools(s)] == ["network"]  # (new: waits switched off)
     assert all_tools.is_on(s, "space") and all_tools.is_on(s, "uninstaller")
     assert not all_tools.is_on(s, "converter")  # (only these two)
     s.tools_off = sorted(set(s.tools_off) | {"space"})  # (switched off again by this person)
     assert all_tools.switch_back_on(s) == [] and not all_tools.is_on(s, "space")
     fresh = settings_mod.Settings()
     fresh.known_tools = sorted(FILES)  # (installed while they rested)
-    assert {t.id for t in all_tools.switch_back_on(fresh)} == COMPUTER
-    assert all_tools.offer_new_tools(fresh) == []
+    assert {t.id for t in all_tools.switch_back_on(fresh)} == BACK
+    assert [t.id for t in all_tools.offer_new_tools(fresh)] == ["network"]
+    assert not all_tools.is_on(fresh, "network")
     assert all_tools.is_on(fresh, "space") and all_tools.is_on(fresh, "uninstaller")
     assert not all_tools.is_on(fresh, "startup") and not all_tools.is_on(fresh, "scan")
     saved = settings_mod.Settings.from_data({"back_on": fresh.back_on, "known_tools": fresh.known_tools})

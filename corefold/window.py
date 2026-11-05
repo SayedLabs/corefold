@@ -83,6 +83,9 @@ PAGE_ICONS = {"Home": "home", "General": "settings", "Look": "paint_brush", "Qui
 # again, quickly, when they're opened)
 # made a moment after the window opens (see _warm_next): slow to make, and opened often
 WARM_PAGES = ("PDF",)
+# the modules a page needs that are slow to read from a cold disk the first time (2.6 s for Network on a test
+# PC): read on a thread soon after the window opens, when that tool is in use, so opening it doesn't wait
+PAGE_MODULES = {"Network": ("network", "networkpage")}
 REMADE_PAGES = {*SETTINGS_PAGES, *SECTION_PAGES, "History", "Updates", "About", "Soon"}
 # the words Ctrl + K finds on each Settings page, kept for pages that aren't made yet (per version and language)
 SETTING_WORDS = LOG_DIR / "setting-words.json"
@@ -782,7 +785,7 @@ class MainWindow(QWidget):
                     "ViewerSettings": self._viewer_settings, "Clipboard": self._clipboard,
                     "ClipboardSettings": self._clipboard_settings, "Space": self._space, "Capture": self._capture,
                     "CaptureSettings": self._capture_settings, "Cloud": self._cloud,
-                    "PDF": self._pdf, "Organizer": self._organizer, "Startup": self._startup, "Scan": self._scan, "Updates": self._updates, "About": self._about,
+                    "PDF": self._pdf, "Organizer": self._organizer, "Startup": self._startup, "Scan": self._scan, "Network": self._network, "Updates": self._updates, "About": self._about,
                     "Quick": self._quick_settings,
                     "Unlock": self._unlock,
                     "Awake": self._awake,
@@ -808,11 +811,12 @@ class MainWindow(QWidget):
         self.organizer_page = None
         self.startup_page = None
         self.scan_page = None
+        self.network_page = None
         self.unlock_page = None
         self.awake_page = None
         self.colors_page = None
         self._unbuilt = {"Apps", *SECTION_PAGES, "Viewer", "Clipboard", "Space", "Capture", "Cloud", "PDF",
-                         "Organizer", "Startup", "Scan", "Unlock", "Awake", "Colors", "Archives", "History",
+                         "Organizer", "Startup", "Scan", "Network", "Unlock", "Awake", "Colors", "Archives", "History",
                          "Updates", "About", "Soon", *SETTINGS_PAGES, *SOON,
                          *[tool.page for tool in all_tools.TOOLS if tool.page not in on_pages and tool.page != "Converter"]}
         self._made("heads")
@@ -833,6 +837,7 @@ class MainWindow(QWidget):
         QTimer.singleShot(4000, self, self._learn_setting_words)
         self._warming = [name for name in WARM_PAGES if self.shows(name)]
         QTimer.singleShot(2500, self, self._warm_next)
+        QTimer.singleShot(2000, self, self._read_page_modules)
 
         footer = QHBoxLayout()
         footer.setSpacing(8)
@@ -1312,7 +1317,7 @@ class MainWindow(QWidget):
 
     # a tool's page, and what the window keeps of it (let go of with the page)
     PAGE_PARTS = {"Apps": "apps_page", "Clipboard": "clip_page", "Space": "space_page", "Cloud": "cloud_page",
-                  "PDF": "pdf_page", "Organizer": "organizer_page", "Startup": "startup_page", "Scan": "scan_page",
+                  "PDF": "pdf_page", "Organizer": "organizer_page", "Startup": "startup_page", "Scan": "scan_page", "Network": "network_page",
                   "Unlock": "unlock_page", "Awake": "awake_page", "Colors": "colors_page"}
 
     def _drop_page(self, name: str):
@@ -1485,6 +1490,27 @@ class MainWindow(QWidget):
             self._build_page(name)
         QTimer.singleShot(300, self, self._warm_next)
 
+    def _read_page_modules(self):
+        """The modules in PAGE_MODULES of the tools in use are read on a thread (see PAGE_MODULES). They hold
+        nothing of Qt's, so reading them off the window's thread is safe; a page opened before they're in waits
+        for them as it would have anyway."""
+        import importlib
+        import sys
+        import threading
+        names = [f"{__package__}.{m}" for page, mods in PAGE_MODULES.items() if self.shows(page) for m in mods]
+        names = [m for m in names if m not in sys.modules]
+        if not names:
+            return
+
+        def load():
+            for name in names:
+                try:
+                    importlib.import_module(name)
+                except Exception:  # (the page says what's wrong when it's made)
+                    pass
+        self._modules_loader = threading.Thread(target=load, name="page-modules", daemon=True)
+        self._modules_loader.start()
+
     def _learn_setting_words(self):
         """Once per version and language, soon after the window opens: the words on settings pages not
         made yet are read one page at a time (made, read, let go), so Ctrl + K never waits for them."""
@@ -1600,6 +1626,8 @@ class MainWindow(QWidget):
             self.startup_page.ensure_loaded()
         elif name == "Scan" and self.scan_page is not None:
             self.scan_page.ensure_loaded()
+        elif name == "Network" and self.network_page is not None:
+            self.network_page.ensure_loaded()
         elif name in ("History", "Home"):
             self.refresh_history()
         elif name == "About":
@@ -3377,6 +3405,15 @@ class MainWindow(QWidget):
                                 "tricks viruses use."), dark, dpr)
         self.scan_page = ScanPage(self.c, header)
         return self.scan_page
+
+    def _network(self) -> QWidget:
+        """Rakiza Core Network: how fast the network is going, which programs use it, and a speed test."""
+        from .networkpage import NetworkPage
+        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
+        header = tool_header("network", tr("Network"),
+                             tr("See what's using your internet, and how fast it really is."), dark, dpr)
+        self.network_page = NetworkPage(self.c, header)
+        return self.network_page
 
     def _cloud(self) -> QWidget:
         """Rakiza Core Cloud: OneDrive, Dropbox, Google Drive and iCloud side by side."""
