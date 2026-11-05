@@ -21,12 +21,12 @@ jobs:
         run: curl.exe -s -o NUL https://speed.cloudflare.com/__down?bytes=20000000
       - name: probe as admin
         shell: pwsh
-        run: python scripts/netprobe.py fresh
+        run: python scripts/netprobe.py agg
       - name: probe as basic user
         shell: pwsh
         run: |
           $py = (Get-Command python).Source
           $out = "$env:TEMP\basic.txt"
-          runas /trustlevel:0x20000 "cmd /c `"$py`" $pwd\scripts\netprobe.py fresh > $out 2>&1"
-          Start-Sleep 70
+          runas /trustlevel:0x20000 "cmd /c `"$py`" $pwd\scripts\netprobe.py agg > $out 2>&1"
+          Start-Sleep 20
           Get-Content $out

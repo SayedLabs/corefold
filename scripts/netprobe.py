@@ -124,6 +124,25 @@ def speed():
 
 
 print("admin:", ctypes.windll.shell32.IsUserAnAdmin())
+if part == "agg":
+    import asyncio
+    from winrt.windows.networking.connectivity import (NetworkInformation, NetworkUsageStates, TriStates,
+                                                       DataUsageGranularity)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    states = NetworkUsageStates(TriStates.DO_NOT_CARE, TriStates.DO_NOT_CARE)
+
+    async def go():
+        for p in NetworkInformation.get_connection_profiles():
+            for gran in (DataUsageGranularity.PER_DAY, DataUsageGranularity.PER_HOUR, DataUsageGranularity.TOTAL):
+                try:
+                    t = time.perf_counter()
+                    res = await p.get_network_usage_async(now - datetime.timedelta(days=30), now, gran, states)
+                    print(p.profile_name, gran, len(res), f"{time.perf_counter()-t:.2f}s",
+                          [(u.bytes_received, u.bytes_sent, str(u.connection_duration)) for u in list(res)[-3:]])
+                except Exception as e:
+                    print(p.profile_name, gran, "FAILED", repr(e))
+    asyncio.run(go())
+    sys.exit()
 if part == "fresh":
     import subprocess
     try:
