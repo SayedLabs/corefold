@@ -1497,7 +1497,10 @@ def _admin_junk(cancel: threading.Event | None = None) -> list[Junk]:
                              "again any it needs. Windows asks for an administrator.",
                              [admin_path("delivery")], size, 0, ticked=False, admin=True))
     if not (cancel is not None and cancel.is_set()):
-        rows += _setting_junk(cancel)
+        try:
+            rows += _setting_junk(cancel)
+        except Exception:  # (Windows' settings rows are extras: the rest of the list is shown without them)
+            log.info("Windows' settings rows couldn't be made", exc_info=True)
     return rows
 
 

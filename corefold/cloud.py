@@ -1364,6 +1364,9 @@ def client(acc: Account) -> Client:
     if acc.local:
         from .cloudlocal import Local
         return Local(acc)
+    if acc.service in ("webdav", "ftp", "sftp"):  # (a server of your own: cloudnet)
+        from . import cloudnet
+        return cloudnet.client(acc)
     return {"onedrive": OneDrive, "gdrive": GoogleDrive}.get(acc.service, Dropbox)(acc)
 
 
