@@ -1403,6 +1403,9 @@ class MainWindow(QWidget):
             known.update(words)
             _keep_setting_words(known)
             return
+        if todo[0] == "Formats" and not self._formats_modules_loaded():
+            QTimer.singleShot(200, self, self._learn_next)
+            return
         name = todo.pop(0)
         self._build_page(name)
         if name == "Formats":  # (its ~90 rows all at once stopped the window for up to 0.4 s: they follow in
@@ -1412,6 +1415,26 @@ class MainWindow(QWidget):
         words[name] = [text for text, _ in self._settings_on(name)]
         self.drop_hidden_pages({name})
         QTimer.singleShot(80, self, self._learn_next)
+
+    def _formats_modules_loaded(self) -> bool:
+        """The Formats page's list needs six modules: they're read on a thread first, so making the page out of
+        sight doesn't stop the window (reading them from a cold disk took it 0.9 s, whatever page was open)."""
+        import sys
+        if all(f"{__package__}.{m}" in sys.modules
+               for m in ("archives", "audiotags", "extras", "moretools", "pdfstamp", "videotools")):
+            return True
+        loader = getattr(self, "_formats_loader", None)
+        if loader is None:
+            import threading
+
+            def load():
+                try:
+                    from . import archives, audiotags, extras, moretools, pdfstamp, videotools  # noqa: F401
+                except Exception:  # (the page says what's wrong when it's made)
+                    pass
+            loader = self._formats_loader = threading.Thread(target=load, name="formats-load", daemon=True)
+            loader.start()
+        return not loader.is_alive()
 
     def built(self, name: str) -> bool:
         """The page is made (pages wait until they're first opened)."""
