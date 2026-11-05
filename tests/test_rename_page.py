@@ -60,6 +60,9 @@ def test_problems_are_found_before_anything_changes(tmp_path):
     assert rows[0].state == renamer.BAD and rows[0].why
     rows = renamer.plan([a], {"name": "new", "base": "CON"})
     assert rows[0].state == renamer.BAD
+    for slash in ("/", "\\"):   # (a slash typed in the new text: said, not a crash of the list)
+        rows = renamer.plan([a], {"find": "a", "replace": f"x{slash}y"})
+        assert rows[0].state == renamer.BAD and rows[0].why and not renamer.pairs(rows)
     rows = renamer.plan([a, b], {"find": "a", "replace": "b"})  # a → b while b → b: b keeps its name
     assert rows[0].state == renamer.TWICE
 

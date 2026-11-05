@@ -210,8 +210,12 @@ def plan(files: list[Path], params: dict, facts: dict[Path, dict] | None = None)
     rows = []
     for i, f in enumerate(files):
         name = new_name(f, i, p, facts.get(f))
-        rows.append(Row(f, f.with_name(name) if name.strip(" .") else f, OK))
         why = name_problem(name)
+        try:
+            new = f.with_name(name) if name.strip(" .") else f
+        except ValueError:   # (a / in the name: the list shows the name as it is, with why it can't be)
+            new = f
+        rows.append(Row(f, new, OK))
         if why:
             rows[-1].state, rows[-1].why = (EMPTY if not name.strip(" .") else BAD), why
     olds = {os.path.normcase(str(r.old)) for r in rows}
