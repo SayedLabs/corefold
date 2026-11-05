@@ -84,13 +84,16 @@ def press(hwnd: int, cls: str, button_id: int, uia: bool | None = None) -> bool:
     when uia is True): through UI Automation. False when the box has no such button."""
     if uia is None:
         uia = cls != "#32770"
-    if not uia:
+    if not uia or not _press_uia(hwnd, button_id):
         u, _ = _user32()
         button = u.GetDlgItem(hwnd, button_id)
-        if not button:
+        if not button:  # (Office's own boxes have no button windows: only UI Automation reaches them)
             return False
         u.PostMessageW(hwnd, WM_COMMAND, button_id, button)
-        return True
+    return True
+
+
+def _press_uia(hwnd: int, button_id: int) -> bool:
     root = os.environ.get("SystemRoot", r"C:\Windows")
     ps = os.path.join(root, "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
     try:
