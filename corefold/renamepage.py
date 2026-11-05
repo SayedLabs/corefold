@@ -398,6 +398,8 @@ class RenamePage(QWidget):
             return out, need
 
         def done(answer):
+            if not work.alive(self):  # (the page was closed while it worked)
+                return
             self.reading = None
             if isinstance(answer, Exception):
                 log.warning("Rename couldn't read the files: %s", answer)
@@ -475,6 +477,8 @@ class RenamePage(QWidget):
         news = {str(o): n for o, n in pairs}
 
         def done(ok: bool):
+            if not work.alive(self):  # (the page was closed while it worked)
+                return
             self.busy = False
             if ok:  # (the list goes on with the new names, so another rule can follow)
                 self.files = [news.get(str(f), f) for f in self.files]

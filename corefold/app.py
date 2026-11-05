@@ -1204,7 +1204,9 @@ class Controller(QObject):
             cancel.set()
 
     def _drive_backup_page(self):
-        return getattr(self._window, "backup_page", None) if self._window is not None else None
+        from . import work
+        page = getattr(self._window, "backup_page", None) if self._window is not None else None
+        return page if page is not None and work.alive(page) else None
 
     def _drive_backup_step(self, step):
         page = self._drive_backup_page()

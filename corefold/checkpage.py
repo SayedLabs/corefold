@@ -199,10 +199,14 @@ class CheckPage(QWidget):
             return checker.fingerprints(f, progress, cancel)
 
         def step(p):
+            if not work.alive(self):  # (the page was closed while it worked)
+                return
             if cancel is self.cancel and isinstance(p, float):
                 self.bar.setValue(int(p * 1000))
 
         def done(answer):
+            if not work.alive(self):  # (the page was closed while it worked)
+                return
             if cancel is not self.cancel or f != self.file:
                 return
             self.job = None
@@ -270,6 +274,8 @@ class CheckPage(QWidget):
             return checker.fingerprints(other, None, None, ("sha256",))["sha256"] == mine
 
         def done(same):
+            if not work.alive(self):  # (the page was closed while it worked)
+                return
             if first != self.file:
                 return
             if isinstance(same, Exception):
@@ -329,10 +335,14 @@ class CheckPage(QWidget):
             return checker.check_list(f, lambda p, _name: progress(p), cancel)
 
         def step(p):
+            if not work.alive(self):  # (the page was closed while it worked)
+                return
             if cancel is self.cancel and isinstance(p, float):
                 self.list_bar.setValue(int(p * 1000))
 
         def done(answer):
+            if not work.alive(self):  # (the page was closed while it worked)
+                return
             if cancel is not self.cancel or f != self.file:
                 return
             self.job = None
