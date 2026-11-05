@@ -61,7 +61,6 @@ def dns_cache():
 def winrt_usage():
     try:
         from winrt.windows.networking.connectivity import NetworkInformation, NetworkUsageStates, TriStates
-        from winrt.windows.foundation import DateTime  # noqa
     except Exception as e:
         print("winrt import failed", repr(e))
         return
@@ -127,6 +126,24 @@ def speed():
 
 
 print("admin:", ctypes.windll.shell32.IsUserAnAdmin())
+if part == "fresh":
+    import subprocess
+    try:
+        from winrt.windows.networking.connectivity import NetworkInformation
+        prof = NetworkInformation.get_internet_connection_profile()
+        cost = prof.get_connection_cost()
+        print("internet profile", prof.profile_name, "cost", cost.network_cost_type, cost.roaming, cost.approaching_data_limit)
+        print("is wlan", prof.is_wlan_connection_profile, "is wwan", prof.is_wwan_connection_profile)
+    except Exception as e:
+        print("profile failed", repr(e))
+    winrt_usage()
+    subprocess.run(["curl.exe", "-s", "-o", "NUL", "https://speed.cloudflare.com/__down?bytes=60000000"])
+    print("after 60MB curl:")
+    winrt_usage()
+    time.sleep(30)
+    print("30 s later:")
+    winrt_usage()
+    sys.exit()
 if part in ("all", "basic"):
     tcp_table()
     if_table()
