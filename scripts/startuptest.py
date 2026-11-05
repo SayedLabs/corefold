@@ -108,7 +108,7 @@ def snapshot() -> dict:
                         name, value, _ = winreg.EnumValue(k, i)
                     except OSError:
                         break
-                    if name not in TEST and not name.startswith("CfStartup") and name != st.APP_NAME:
+                    if name not in TEST and not name.startswith("CfStartup") and name != st.KEEP_ID:
                         out[(label, name)] = value
                     i += 1
         except OSError:
