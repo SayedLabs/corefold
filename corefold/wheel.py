@@ -47,7 +47,7 @@ ICONS = {  # action -> line icon (see icons.py)
     "pages": "document_multiple", "images": "image_multiple", "lock": "lock_closed", "unlock": "lock_open",
     "rename": "rename", "subtitles": "closed_caption", "srt": "closed_caption", "sound": "music_note_2",
     "join": "merge", "hash": "shield_checkmark", "numbers": "text_description",
-    "sign": "paint_brush",
+    "sign": "paint_brush", "tags": "rename",
 }
 FORMAT_ACTIONS = {"png", "jpg", "webp", "ico", "bmp", "avif", "mp3", "m4a", "wav", "flac", "ogg", "opus", "aiff", "mp4",
                   "mov", "webm", "mkv", "gif", "pdf", "text"}
@@ -55,7 +55,7 @@ GROUPS = {  # action -> group, for "colour by kind of action"
     **{a: "convert" for a in FORMAT_ACTIONS},
     **{a: "edit" for a in ("resize", "rotate", "trim", "watermark", "cutout", "clean", "frames", "video", "scan",
                            "crop", "sticker", "mute", "volume", "speed", "pages", "rename", "subtitles", "join",
-                           "numbers", "sign", "merge", "split", "lock", "unlock")},  # (a PDF's own: not under Archive)
+                           "numbers", "sign", "merge", "split", "lock", "unlock", "tags")},  # (a PDF's own: not under Archive)
     **{a: "shrink" for a in ("fit", "small", "compress")},
     **{a: "archive" for a in ("zip", "7z", "options", "extract", "folder", "browse", "test")},
     **{a: "read" for a in ("ocr", "qr", "images", "srt", "hash")},

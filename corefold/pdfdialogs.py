@@ -436,3 +436,123 @@ class PrintDialog(Base):
         return {"printer": self.printer.currentData() or "", "copies": self.copies.value(),
                 "pages": self.pages.text() if self.pages.isEnabled() else "", "both_sides": self.both.isChecked(),
                 "gray": self.gray.isChecked()}
+
+
+class BookmarksDialog(Base):
+    """The PDF's bookmarks (the list of chapters readers show on the side): add, rename, arrange, take away."""
+
+    def __init__(self, files, icon, dark, marks: list, pages: int, other: int = 0):
+        from PySide6.QtWidgets import QAbstractItemView, QTreeWidget, QTreeWidgetItem
+        super().__init__(tr("Bookmarks"), describe(files), icon, dark)
+        self.pages = max(1, pages)
+        self.tree = QTreeWidget()
+        self.tree.setHeaderLabels([tr("Title"), tr("Page")])
+        self.tree.setAccessibleName(tr("Bookmarks"))
+        self.tree.setMinimumSize(460, 280)
+        self.tree.setDragDropMode(QAbstractItemView.InternalMove)  # (dropped onto another: it goes inside it)
+        self.tree.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.tree.setEditTriggers(QAbstractItemView.DoubleClicked | QAbstractItemView.EditKeyPressed |
+                                  QAbstractItemView.SelectedClicked)
+        header = self.tree.header()
+        header.setStretchLastSection(False)
+        from PySide6.QtWidgets import QHeaderView
+        header.setSectionResizeMode(0, QHeaderView.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        self._item_class = QTreeWidgetItem
+        parents: list = []
+        for level, title, page in marks:
+            level = min(level, len(parents))
+            item = self._new_item(title, page)
+            if level:
+                parents[level - 1].addChild(item)
+            else:
+                self.tree.addTopLevelItem(item)
+            del parents[level:]
+            parents.append(item)
+        self.tree.expandAll()
+        self.lay.addWidget(self.tree, 1)
+        row = QHBoxLayout()
+        self.add = QPushButton(tr("Add a bookmark"))
+        self.add.clicked.connect(self._add)
+        self.remove = QPushButton(tr("Remove"))
+        self.remove.clicked.connect(self._remove)
+        self.page = QSpinBox()
+        self.page.setRange(1, self.pages)
+        self.page.setAccessibleName(tr("Goes to page"))
+        self.page.valueChanged.connect(self._page_changed)
+        for b in (self.add, self.remove):
+            b.setCursor(Qt.PointingHandCursor)
+            row.addWidget(b)
+        row.addStretch()
+        row.addWidget(QLabel(tr("Goes to page")))
+        row.addWidget(self.page)
+        self.lay.addLayout(row)
+        self.lay.addWidget(_note(tr("Drag a bookmark to move it; drop it onto another to put it inside that one. "
+                                    "Double-click a title to change it. Saved as a new file.")))
+        if other:
+            self.lay.addWidget(_note(tr("{count} bookmarks that open a web page or another file are left out.",
+                                        count=other)))
+        self.buttons(tr("Save"))
+        self.tree.currentItemChanged.connect(lambda *_: self._selected())
+        if self.tree.topLevelItemCount():
+            self.tree.setCurrentItem(self.tree.topLevelItem(0))
+        self._selected()
+
+    def _new_item(self, title: str, page: int):
+        item = self._item_class([title, str(page + 1)])
+        item.setData(1, Qt.UserRole, page)
+        item.setFlags(item.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
+        item.setTextAlignment(1, Qt.AlignCenter)
+        return item
+
+    def _selected(self):
+        item = self.tree.currentItem()
+        self.remove.setEnabled(item is not None)
+        self.page.setEnabled(item is not None)
+        if item is not None:
+            self.page.blockSignals(True)
+            self.page.setValue(int(item.data(1, Qt.UserRole)) + 1)
+            self.page.blockSignals(False)
+
+    def _page_changed(self, value: int):
+        item = self.tree.currentItem()
+        if item is not None:
+            item.setData(1, Qt.UserRole, value - 1)
+            item.setText(1, str(value))
+
+    def _add(self):
+        current = self.tree.currentItem()
+        page = int(current.data(1, Qt.UserRole)) if current is not None else 0
+        item = self._new_item(tr("Page {number}", number=page + 1), page)
+        if current is None:
+            self.tree.addTopLevelItem(item)
+        else:  # (right after the one picked, at the same level)
+            parent = current.parent()
+            if parent is None:
+                self.tree.insertTopLevelItem(self.tree.indexOfTopLevelItem(current) + 1, item)
+            else:
+                parent.insertChild(parent.indexOfChild(current) + 1, item)
+        self.tree.setCurrentItem(item)
+        self.tree.editItem(item, 0)
+
+    def _remove(self):
+        item = self.tree.currentItem()
+        if item is None:
+            return
+        parent = item.parent()
+        if parent is None:
+            self.tree.takeTopLevelItem(self.tree.indexOfTopLevelItem(item))
+        else:
+            parent.removeChild(item)
+
+    def params(self):
+        marks: list = []
+
+        def walk(item, level):
+            page = item.data(1, Qt.UserRole)
+            marks.append([level, item.text(0).strip(), int(page) if page is not None else 0])
+            for i in range(item.childCount()):
+                walk(item.child(i), level + 1)
+        for i in range(self.tree.topLevelItemCount()):
+            walk(self.tree.topLevelItem(i), 0)
+        return {"marks": marks}

@@ -5,7 +5,7 @@ import threading
 
 from PySide6.QtCore import QObject, QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QImage, QPainter, QPen, QPixmap
-from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
+from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QVBoxLayout,
                                QPushButton, QRadioButton, QSpinBox, QStackedWidget, QWidget)
 
 from .atomic.widgets import Dropdown
@@ -507,6 +507,8 @@ class PageNumbersDialog(Base):
         self.style = Dropdown()
         self.style.addItem("1, 2, 3…", "n")
         self.style.addItem("1 / 12, 2 / 12…", "of")
+        self.style.addItem("١، ٢، ٣…", "ar")  # (the digits Arabic is written with)
+        self.style.addItem("١ / ١٢، ٢ / ١٢…", "ar_of")
         grid.addWidget(QLabel(tr("Where")), 0, 0)
         grid.addWidget(self.place, 0, 1)
         grid.addWidget(QLabel(tr("Style")), 1, 0)
@@ -674,9 +676,168 @@ class SignDialog(Base):
                 "size": self.size.currentData()}
 
 
+# ----------------------------------------------------------------------------- song details
+
+class _TagsRead(QObject):
+    ready = Signal(object, object)  # the details of every file, the first file's cover (PNG bytes or None)
+
+
+def cover_picture(src) -> bytes | None:
+    """The album cover inside a song, as PNG bytes (small), or None."""
+    import subprocess
+
+    from .converters import LOCAL_ONLY, find_tool
+    from .core import NO_WINDOW
+    try:
+        proc = subprocess.run([find_tool("ffmpeg"), "-v", "error", *LOCAL_ONLY, "-i", str(src), "-map", "0:v:0?",
+                               "-frames:v", "1", "-vf", "scale=192:192:force_original_aspect_ratio=decrease",
+                               "-f", "image2pipe", "-c:v", "png", "pipe:1"],
+                              capture_output=True, timeout=15, stdin=subprocess.DEVNULL, creationflags=NO_WINDOW)
+        return proc.stdout or None
+    except (OSError, subprocess.SubprocessError, RuntimeError):
+        return None
+
+
+class TagsDialog(Base):
+    """A song's details (or a whole album's at once): only what's changed here is written."""
+    SHOWN = 300  # songs whose details are read for the boxes (an album of more is rare; the rest keep theirs)
+
+    def __init__(self, files, icon, dark):
+        from .audiotags import COVER_EXT, FIELDS
+        from .converters import norm
+        super().__init__(tr("Song details"), describe(files), icon, dark)
+        self.files = list(files)
+        self.many = len(self.files) > 1
+        self.loaded: dict[str, str] = {}
+        self.cover_choice = None  # a picture's path, "remove", or None (the cover stays as it is)
+        self.can_cover = any(norm(f.suffix) in COVER_EXT for f in self.files)
+        self.setMinimumWidth(480)
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(12)
+        grid.setVerticalSpacing(8)
+        self.boxes: dict[str, QLineEdit] = {}
+        labels = {"title": tr("Title"), "artist": tr("Artist"), "album": tr("Album"), "album_artist": tr("Album artist"),
+                  "date": tr("Year"), "track": tr("Track"), "genre": tr("Genre"), "comment": tr("Comment")}
+        row = 0
+        for key, _ in FIELDS:
+            label = labels[key]
+            if key == "track" and self.many:
+                continue  # (several songs: numbered by the box below instead)
+            box = QLineEdit()
+            box.setAccessibleName(label)
+            box.setEnabled(False)
+            if key in ("date", "track"):
+                box.setMaximumWidth(170)
+            grid.addWidget(QLabel(label), row, 0)
+            grid.addWidget(box, row, 1)
+            self.boxes[key] = box
+            row += 1
+        # the album cover: a small picture of it, and buttons to change or remove it
+        self.cover = QLabel()
+        self.cover.setFixedSize(96, 96)
+        self.cover.setAlignment(Qt.AlignCenter)
+        self.cover.setObjectName("muted")
+        side = QHBoxLayout()
+        side.addWidget(self.cover)
+        buttons = QVBoxLayout()
+        self.pick_cover = QPushButton(tr("Choose a picture…"))
+        self.pick_cover.clicked.connect(self._choose_cover)
+        self.drop_cover = QPushButton(tr("Remove the cover"))
+        self.drop_cover.clicked.connect(self._remove_cover)
+        buttons.addStretch()
+        for b in (self.pick_cover, self.drop_cover):
+            b.setCursor(Qt.PointingHandCursor)
+            buttons.addWidget(b)
+        buttons.addStretch()
+        side.addLayout(buttons)
+        side.addStretch()
+        grid.addWidget(QLabel(tr("Album cover")), row, 0, Qt.AlignTop)
+        grid.addLayout(side, row, 1)
+        for w in (self.cover, self.pick_cover, self.drop_cover):
+            w.setVisible(self.can_cover)
+        grid.itemAtPosition(row, 0).widget().setVisible(self.can_cover)
+        self.lay.addLayout(grid)
+        self.number = QCheckBox(tr("Number the tracks 1, 2, 3… in the order of their file names"))
+        self.lay.addWidget(self.number)
+        self.number.setVisible(self.many)
+        self.note = QLabel(tr("Reading the song details…"))
+        self.note.setObjectName("muted")
+        self.note.setWordWrap(True)
+        self.lay.addWidget(self.note)
+        self.buttons(tr("Save"))
+        self.ok.setEnabled(False)
+        self.reader = _TagsRead(self)
+        self.reader.ready.connect(self._filled)
+        todo = self.files[:self.SHOWN]
+
+        def work():
+            from .audiotags import read_tags
+            found = [read_tags(f) for f in todo]
+            first_cover = cover_picture(todo[0]) if found and found[0].get("cover") else None
+            try:
+                self.reader.ready.emit(found, first_cover)
+            except RuntimeError:
+                pass  # the window was closed meanwhile
+        threading.Thread(target=work, daemon=True).start()
+
+    def _filled(self, found, cover):
+        for key, box in self.boxes.items():
+            values = {f.get(key, "") for f in found}
+            if len(values) == 1:
+                box.setText(values.pop())
+            else:
+                box.setPlaceholderText(tr("(different in each)"))
+            self.loaded[key] = box.text()
+            box.setEnabled(True)
+        covers = {bool(f.get("cover")) for f in found}
+        self._show_cover(cover, mixed=len(covers) > 1)
+        self.note.setText(tr("Changed in the songs themselves (the sound stays exactly as it is). Leave a box "
+                             "as it is to keep what each song has.") if self.many else
+                          tr("Changed in the song itself (the sound stays exactly as it is)."))
+        self.ok.setEnabled(True)
+        first = next(iter(self.boxes.values()), None)
+        if first is not None:
+            first.setFocus()
+
+    def _show_cover(self, data, mixed=False):
+        pm = QPixmap()
+        if data and not mixed and pm.loadFromData(data):
+            self.cover.setPixmap(pm.scaled(96, 96, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        else:
+            self.cover.setPixmap(QPixmap())
+            self.cover.setText(tr("Different") if mixed else tr("No cover"))
+        self.drop_cover.setEnabled(bool(data) or mixed)
+
+    def _choose_cover(self):
+        from PySide6.QtWidgets import QFileDialog
+        name, _ = QFileDialog.getOpenFileName(self, tr("Choose a picture…").rstrip("…"), "",
+                                              tr("Pictures") + " (*.jpg *.jpeg *.png *.webp *.bmp *.gif)")
+        if not name:
+            return
+        pm = QPixmap(name)
+        if pm.isNull():
+            return
+        self.cover_choice = name
+        self.cover.setPixmap(pm.scaled(96, 96, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        self.drop_cover.setEnabled(True)
+
+    def _remove_cover(self):
+        self.cover_choice = "remove"
+        self._show_cover(None)
+        self.drop_cover.setEnabled(False)
+
+    def params(self):
+        tags = {k: b.text().strip() for k, b in self.boxes.items() if b.text().strip() != self.loaded.get(k, "")}
+        numbers = {}
+        if self.many and self.number.isChecked():
+            order = sorted(self.files, key=lambda f: f.name.casefold())
+            numbers = {str(f): n for n, f in enumerate(order, 1)}
+        return {"tags": tags, "numbers": numbers, "cover": self.cover_choice}
+
+
 def register(dialogs: dict):
     from .pdfpages import PagesDialog
     dialogs.update({"pages": PagesDialog, "speed": SpeedDialog, "sticker": StickerDialog, "lock": LockDialog,
                     "rename_files": RenameFilesDialog, "crop": CropDialog, "video_crop": VideoCropDialog,
                     "sound": SoundDialog, "subtitles": SubtitlesDialog, "page_numbers": PageNumbersDialog,
-                    "sign": SignDialog})
+                    "sign": SignDialog, "tags": TagsDialog})
