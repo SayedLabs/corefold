@@ -3102,4 +3102,10 @@ STRINGS: dict[str, str] = {
     "A shortcut to it": "Un acceso directo a él",
     "Same name, another type": "Mismo nombre, otro tipo",
     "A folder of the same name in app data": "Una carpeta con el mismo nombre en los datos de aplicaciones",
+    "The PDF's own shape": 'Forma del PDF',
+    "The PDF's own comment": 'Comentario del PDF',
+    'Drag it to move it, or pick another colour. Delete takes it out of the file.': 'Arrástrala para moverla o elige otro color. Eliminar la quita del archivo.',
+    'Drag it to move it. Double-click a note to change its words. Delete takes it away.': 'Arrástralo para moverlo. Haz doble clic en una nota para cambiar su texto. Eliminar lo quita.',
+    'Type where it goes, or drag it to move it. Delete takes the link away.': 'Escribe adónde lleva o arrástralo para moverlo. Eliminar quita el enlace.',
+    'Reading the words on this page so they can be changed…': 'Leyendo las palabras de esta página para poder cambiarlas…',
 }

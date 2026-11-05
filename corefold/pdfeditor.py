@@ -70,7 +70,8 @@ HINTS = {"select": "Click something to select it and drag it to move it. Double-
 TITLES = {"select": "Select", "edit": "Edit text", "text": "Text", "image": "Picture", "move": "Moved part",
           "cover": "Cover", "shape": "Shape", "draw": "Drawing", "highlight": "Highlight", "underline": "Underline",
           "strike": "Cross out", "note": "Note", "link": "Link", "line": "The PDF's own text",
-          "picture": "The PDF's own picture"}
+          "picture": "The PDF's own picture", "drawn": "The PDF's own shape", "comment": "The PDF's own comment",
+          "pdflink": "Link"}
 ALIGN_KEYS = [("left", "Align left", "align_left"), ("center", "Centre", "align_center"),
               ("right", "Align right", "align_right"), ("justify", "Justify", "align_justify")]
 # line spacing: (words, from one line to the next in text sizes; None: the font's own)
@@ -87,7 +88,10 @@ SELECTED_HINTS = {"text": "Double-click to change the words. Drag the square at 
                   "picture": "Drag it to move it. Delete takes it out of the file.",
                   "image": "Drag the square at its corner to make it bigger or smaller.",
                   "link": "Drag the square at its corner to make the link's place bigger or smaller.",
-                  "cover": "What's under it is taken out of the file when it's saved."}
+                  "cover": "What's under it is taken out of the file when it's saved.",
+                  "drawn": "Drag it to move it, or pick another colour. Delete takes it out of the file.",
+                  "comment": "Drag it to move it. Double-click a note to change its words. Delete takes it away.",
+                  "pdflink": "Type where it goes, or drag it to move it. Delete takes the link away."}
 INSPECTOR_WIDTH = 240
 ITEMS_MIME = "application/x-corefold-pdf-items"  # (what's added on the pages, copied)
 COPYABLE = {"text", "image", "cover", "rect", "ellipse", "line", "arrow", "ink", "highlight", "underline", "strike",
@@ -96,6 +100,7 @@ INK = ["#000000", "#1f3a93", "#d32f2f", "#2e7d32", "#f57c00", "#7b1fa2", "#fffff
 PENS = ["#ffd400", "#7cf27c", "#ff8ad8", "#7ec8ff", "#ffb35c"]
 FIELD_TINT = QColor(70, 130, 255, 38)
 THUMB = QSize(72, 96)    # the small pictures in the list of pages
+BACKGROUND = 0.5         # a drawn shape bigger than this much of its page is its background: not offered
 
 
 # ----------------------------------------------------------------------------- drawing pages off the window's thread
@@ -105,6 +110,7 @@ class _Signals(QObject):
     image = Signal(int, float, object, object)  # page, scale, hidden pieces, QImage
     layout = Signal(int, object)
     thumb = Signal(int, object)                 # page, a small QImage of it (for the list of pages)
+    read = Signal(int, object)                  # page, the words read from its picture (pdfedit.ocr_lines)
 
 
 class Renderer:
@@ -117,6 +123,7 @@ class Renderer:
         self.renders: dict[int, tuple[float, tuple]] = {}
         self.layouts: list[int] = []
         self.thumbs: list[tuple[int, float]] = []
+        self.reads: list[int] = []
         self.stopped = False
         self.thread = threading.Thread(target=self._run, daemon=True, name="corefold-pdf-editor")
         self.thread.start()
@@ -133,6 +140,15 @@ class Renderer:
                     self.layouts.append(i)
             self.cv.notify()
 
+    def want_read(self, pages: list[int]):
+        """Reads the words in these pages' pictures (Windows' own reader): scans, and fonts that don't say
+        which letters they have."""
+        with self.cv:
+            for i in pages:
+                if i not in self.reads:
+                    self.reads.append(i)
+            self.cv.notify()
+
     def want_thumbs(self, wishes: list[tuple[int, float]]):
         with self.cv:
             self.thumbs = list(wishes)
@@ -144,6 +160,7 @@ class Renderer:
             self.renders.clear()
             self.layouts.clear()
             self.thumbs.clear()
+            self.reads.clear()
             self.cv.notify()
 
     def _run(self):
@@ -165,7 +182,8 @@ class Renderer:
             self.sig.opened.emit((sizes, fields))
             while True:
                 with self.cv:
-                    while not self.stopped and not self.renders and not self.layouts and not self.thumbs:
+                    while not self.stopped and not self.renders and not self.layouts and not self.thumbs \
+                            and not self.reads:
                         self.cv.wait()
                     if self.stopped:
                         return
@@ -175,20 +193,34 @@ class Renderer:
                         job = ("render", i, scale, hide)
                     elif self.layouts:
                         job = ("layout", self.layouts.pop(0))
-                    else:
+                    elif self.thumbs:
                         job = ("thumb", *self.thumbs.pop(0))
+                    else:
+                        job = ("read", self.reads.pop(0))
                 try:
                     if job[0] == "render":
-                        _, i, scale, hide = job
+                        _, i, scale, look = job
+                        hide, paint = look
                         with pdftools.PDFIUM:
-                            data, w, h, stride = pdfedit.render(doc, i, scale, hide)
+                            data, w, h, stride = pdfedit.render(doc, i, scale, hide, {
+                                name: {"color": color, "fill": fill} for name, color, fill in paint})
                         img = QImage(data, w, h, stride, QImage.Format.Format_RGBX8888).copy()
-                        self.sig.image.emit(i, scale, hide, img)
+                        self.sig.image.emit(i, scale, look, img)
                     elif job[0] == "thumb":
                         _, i, scale = job
                         with pdftools.PDFIUM:
                             data, w, h, stride = pdfedit.render(doc, i, scale, ())
                         self.sig.thumb.emit(i, QImage(data, w, h, stride, QImage.Format.Format_RGBX8888).copy())
+                    elif job[0] == "read":
+                        from .extras import read_lines
+                        with pdftools.PDFIUM:
+                            pic, scale = pdfedit.page_picture(doc, job[1])
+                        try:
+                            read = pdfedit.ocr_lines(read_lines(pic, enlarge=False), scale)
+                        except Exception:  # (no reading language in Windows, an old Windows…)
+                            log.debug("the words of page %s couldn't be read", job[1] + 1, exc_info=True)
+                            read = None
+                        self.sig.read.emit(job[1], read)
                     else:
                         with pdftools.PDFIUM:
                             layout = pdfedit.read_layout(doc, job[1])
@@ -220,7 +252,7 @@ class PageItem(QGraphicsItem):
         super().__init__()
         self.index, self.w, self.h = index, w, h
         self.pm: QPixmap | None = None
-        self.pm_key: tuple | None = None       # (scale, hidden pieces) the picture was drawn with
+        self.pm_key: tuple | None = None       # (scale, (hidden pieces, new colours)) the picture was drawn with
         self.thumb: QPixmap | None = None
         self.layout: dict | None = None
         self.asked_layout = False
@@ -597,6 +629,9 @@ class TextMark(QGraphicsTextItem):
         self.document().setPlainText(d.get("text", ""))
         self.restyle()
         self.setPos(float(d["x"]), float(d["y"]))
+        if d.get("turn"):  # (a turned line of the PDF's own: turned around where its words start)
+            self.setTransformOriginPoint(QPointF(*(float(v) for v in d.get("pivot") or (0, 0))))
+            self.setRotation(float(d["turn"]))
         if d.get("rtl"):
             self.anchor = self.x() + self.boundingRect().width()
         self._fonting = False
@@ -677,7 +712,7 @@ class TextMark(QGraphicsTextItem):
         if not self.text().strip() and not self.d.get("replaces"):
             self.editor.drop_item(self)
             return
-        if self.text().strip() and self.d.get("replaces") and self.text() == self.d.get("was"):
+        if self.d.get("replaces") and self.text() == self.d.get("was", self.text() + "?"):
             # a line opened but not changed: the PDF's own line stays as it was
             self.editor.drop_item(self)
             return
@@ -741,8 +776,9 @@ class TextMark(QGraphicsTextItem):
 
 
 class OldPiece(QGraphicsObject):
-    """A line of text or a picture that's already in the PDF: shows a box when it can be changed, and is
-    turned into a text box (to change the words) or moved when it's clicked."""
+    """Something that's already in the PDF: a line of text, a picture, a drawn shape or an annotation (a
+    note, a highlight, a link…). Shows a box when it can be changed, and is turned into a text box (to change
+    the words) or moved when it's clicked."""
 
     def __init__(self, editor: "PdfEditor", page: PageItem, kind: str, d: dict):
         super().__init__(page)
@@ -751,16 +787,24 @@ class OldPiece(QGraphicsObject):
         self.rect = QRectF(*d["rect"])
         self.setPos(self.rect.topLeft())
         self.rect.moveTo(0, 0)
-        self.setZValue(1)
+        # (on top: annotations, then text, then pictures, then shapes, the smaller ones over the bigger ones)
+        self.setZValue({"annot": 1.3, "line": 1.0, "image": 0.9}.get(kind, 0.3 + 0.5 * (1 - float(d.get("share", 0)))))
         self.setAcceptHoverEvents(True)
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
         self.hover = False
         self.press: QPointF | None = None
         self.moving: BoxMark | None = None
         self.setCursor(Qt.IBeamCursor if kind == "line" else Qt.SizeAllCursor)
+        tip = d.get("url") or d.get("text") if kind == "annot" else ""
+        if tip:
+            self.setToolTip(str(tip)[:300])
+
+    def tools(self) -> tuple:
+        """The tools it can be clicked with: text with Edit text too; shapes and annotations only with Select."""
+        return ("select", "edit") if self.kind in ("line", "image") else ("select",)
 
     def boundingRect(self) -> QRectF:
-        return self.rect.adjusted(-2, -2, 2, 2)
+        return self.rect.adjusted(-3, -3, 3, 3)  # (a thin line is still easy to pick up)
 
     def paint(self, p, option, widget=None):
         tool = self.editor.tool
@@ -824,6 +868,8 @@ class OldPiece(QGraphicsObject):
     def mouseDoubleClickEvent(self, e):
         if self.kind == "line":
             self.editor.edit_line(self, e.scenePos())
+        elif self.kind == "annot":
+            self.editor.open_annot(self)
 
 
 class FieldItem(QGraphicsObject):
@@ -1520,6 +1566,7 @@ class PdfEditor(QWidget):
         self.field_list: list[dict] = []
         self.field_items: list[FieldItem] = []
         self.removed: list[dict] = []       # the PDF's own pieces deleted: {"page", "objs"}
+        self.restyled: list[dict] = []      # the PDF's own shapes and annotations changed: {"page", "objs", …}
         self.history: list[dict] = []
         self.future: list[dict] = []
         self.current: dict = {"items": [], "removed": [], "fields": {}}
@@ -2029,6 +2076,7 @@ class PdfEditor(QWidget):
         self.scene.clear()
         self.kept.clear()
         self.fields, self.field_list, self.field_items, self.removed = {}, [], [], []
+        self.restyled = []
         self.history, self.future = [], []
         self.current = {"items": [], "removed": [], "fields": {}}
         self.saved = self._saving = None
@@ -2046,6 +2094,7 @@ class PdfEditor(QWidget):
         self.renderer.sig.image.connect(self._image)
         self.renderer.sig.layout.connect(self._layout)
         self.renderer.sig.thumb.connect(self._thumb)
+        self.renderer.sig.read.connect(self._read)
         self._tidy_temp()
 
     def _opened(self, result):
@@ -2079,7 +2128,7 @@ class PdfEditor(QWidget):
         if self.renderer is not None:
             self.renderer.close()
             for s in (self.renderer.sig.opened, self.renderer.sig.image, self.renderer.sig.layout,
-                      self.renderer.sig.thumb):
+                      self.renderer.sig.thumb, self.renderer.sig.read):
                 try:
                     s.disconnect()
                 except (RuntimeError, TypeError):
@@ -2222,7 +2271,16 @@ class PdfEditor(QWidget):
         for d in self.removed:
             if d["page"] == index:
                 out.update(d["objs"])
-        return tuple(sorted(out))
+        return tuple(sorted(out, key=str))
+
+    def painted(self, index: int) -> tuple:
+        """The PDF's own shapes on this page given other colours: ((piece, line colour, fill), …)."""
+        return tuple(sorted(((d["objs"][0], d.get("color", ""), d.get("fill", "")) for d in self.restyled
+                             if d["page"] == index and (d.get("color") or d.get("fill"))), key=str))
+
+    def look(self, index: int) -> tuple:
+        """How a page is drawn: without the pieces changed, moved or deleted, with shapes' new colours."""
+        return self.hidden(index), self.painted(index)
 
     def _near(self, sight: list[int]) -> list[int]:
         at = [self.position[i] for i in sight if i in self.position]
@@ -2244,7 +2302,7 @@ class PdfEditor(QWidget):
         for i in sorted(near, key=lambda k: (k not in sight, abs(self.position.get(k, 0) - mid))):
             page = self.pages[i]
             s = min(scale, math.sqrt(MAX_PIXELS / max(1.0, page.w * page.h)))
-            key = (round(s, 3), self.hidden(i))
+            key = (round(s, 3), self.look(i))
             if page.pm_key != key and not page.blank:
                 wishes.append((i, key[0], key[1]))
         self.renderer.want(wishes)
@@ -2284,13 +2342,99 @@ class PdfEditor(QWidget):
             page.pieces.append(piece)
         for d in layout.get("images", []):
             page.pieces.append(OldPiece(self, page, "image", d))
+        for d in layout.get("shapes", []):
+            if d.get("share", 0) <= BACKGROUND:
+                page.pieces.append(OldPiece(self, page, "shape", d))
+        for d in layout.get("annots", []):
+            page.pieces.append(OldPiece(self, page, "annot", d))
         for piece in page.pieces:
-            piece.setAcceptedMouseButtons(Qt.LeftButton if self.tool in ("select", "edit") else Qt.NoButton)
+            piece.setAcceptedMouseButtons(Qt.LeftButton if self.tool in piece.tools() else Qt.NoButton)
         self._pieces_shown(page)
+        self._read_if_needed([i])
         if self.tool == "edit":
             self._refresh()
         if self.find_bar.isVisible() and self.find_box.text():
             self.find_timer.start()
+
+    def _read_if_needed(self, pages: list[int]):
+        """With Edit text, the words of scans (and of fonts that don't say which letters they have) are read
+        from the pages' pictures, so they can be changed too (Windows 10 and 11)."""
+        if self.renderer is None or self.tool != "edit" or not self.can_read():
+            return
+        want = []
+        for i in pages:
+            page = self.pages[i] if 0 <= i < len(self.pages) else None
+            if page is None or page.layout is None or page.blank or getattr(page, "read_state", None):
+                continue
+            if pdfedit.needs_reading(page.layout):
+                page.read_state = "reading"
+                want.append(i)
+        if want:
+            self.renderer.want_read(want)
+            self._refresh()
+
+    def can_read(self) -> bool:
+        from .extras import ocr_available
+        return ocr_available()
+
+    def _read(self, i: int, read):
+        """The words read from a page's picture: lines that can be changed (see pdfedit.with_read_words)."""
+        if not work.alive(self) or i >= len(self.pages):
+            return
+        page = self.pages[i]
+        page.read_state = "read" if read is not None else "failed"
+        if page.layout is None or not read:
+            self._refresh()
+            return
+        made = pdfedit.with_read_words(page.layout, read)
+        start = len(page.layout.get("lines", []))
+        for n, d in enumerate(made):
+            d["objs"] = [f"s{start + n}"]
+            bg, fg = self._sample_colors(page, d["rect"])
+            d["color"] = fg
+            d["paper"] = bg
+            page.layout.setdefault("lines", []).append(d)
+            piece = OldPiece(self, page, "line", d)
+            piece.k = start + n
+            piece.setAcceptedMouseButtons(Qt.LeftButton if self.tool in piece.tools() else Qt.NoButton)
+            page.pieces.append(piece)
+        self._pieces_shown(page)
+        self._refresh()
+        if self.find_bar.isVisible() and self.find_box.text():
+            self.find_timer.start()
+
+    def _sample_colors(self, page: PageItem, rect) -> tuple[str, str]:
+        """(the paper's colour around a place on the page, the colour of the words in it), from its picture."""
+        pm = page.pm or page.thumb
+        if pm is None:
+            return "#ffffff", "#000000"
+        img = pm.toImage()
+        k = img.width() / max(1.0, page.w)
+        x, y, w, h = rect
+        x0, y0 = max(0, int((x - 2) * k)), max(0, int((y - 2) * k))
+        x1, y1 = min(img.width() - 1, int((x + w + 2) * k)), min(img.height() - 1, int((y + h + 2) * k))
+        if x1 <= x0 or y1 <= y0:
+            return "#ffffff", "#000000"
+        edge, inside = [], []
+        step = max(1, (x1 - x0) // 60)
+        for px in range(x0, x1 + 1, step):
+            edge += [img.pixelColor(px, y0), img.pixelColor(px, y1)]
+        for py in range(y0, y1 + 1, max(1, (y1 - y0) // 20)):
+            edge += [img.pixelColor(x0, py), img.pixelColor(x1, py)]
+            for px in range(x0, x1 + 1, step):
+                inside.append(img.pixelColor(px, py))
+
+        def middle(cs, f):
+            vals = sorted(f(c) for c in cs)
+            return vals[len(vals) // 2]
+        bg = QColor(middle(edge, QColor.red), middle(edge, QColor.green), middle(edge, QColor.blue))
+        light = bg.lightness()
+        ink = sorted(inside, key=lambda c: -abs(c.lightness() - light))[:max(1, len(inside) // 12)]
+        fg = QColor(middle(ink, QColor.red), middle(ink, QColor.green), middle(ink, QColor.blue)) if ink else \
+            QColor("#000000")
+        if abs(fg.lightness() - light) < 60:
+            fg = QColor("#000000" if light > 128 else "#ffffff")
+        return bg.name(), fg.name()
 
     def _pieces_shown(self, page: PageItem):
         hidden = set(self.hidden(page.index))
@@ -2605,7 +2749,7 @@ class PdfEditor(QWidget):
                 hidden = set(self.hidden(i))
                 for piece in page.pieces:
                     if piece.kind == "line" and not hidden.intersection(piece.objs):
-                        for at in self._spans(piece.d.get("text", ""), query):
+                        for at in self._spans(piece.d.get("read") or piece.d.get("text", ""), query):
                             found.append((page, piece, at))
                 for item in page.childItems():
                     if isinstance(item, TextMark):
@@ -2623,12 +2767,12 @@ class PdfEditor(QWidget):
     def _match_rect(self, page, obj, at: int) -> QRectF:
         """Where the words are on the page (each letter taken as the same width: close enough to show)."""
         n = len(self.find_box.text())
-        if isinstance(obj, OldPiece) and obj.d.get("words"):
+        if isinstance(obj, OldPiece) and obj.d.get("words") and not obj.d.get("read"):
             exact = _words_rect(obj.d, at, n)
             if exact is not None:
                 return exact
         if isinstance(obj, OldPiece):
-            text = obj.d.get("text", "")
+            text = obj.d.get("read") or obj.d.get("text", "")
             x, y, w, h = obj.d["rect"]
             rtl = bool(obj.d.get("rtl"))
         else:
@@ -2724,7 +2868,7 @@ class PdfEditor(QWidget):
             return
         self.end_text_edits()
         page, obj, at = self.matches[self.match_at]
-        text = obj.d.get("text", "") if isinstance(obj, OldPiece) else obj.text()
+        text = (obj.d.get("read") or obj.d.get("text", "")) if isinstance(obj, OldPiece) else obj.text()
         self._put(obj, self._replaced(text, at))
         self.commit()
         self._ask_pages()
@@ -2745,7 +2889,7 @@ class PdfEditor(QWidget):
             if id(obj) in done:
                 continue
             done.add(id(obj))
-            text = obj.d.get("text", "") if isinstance(obj, OldPiece) else obj.text()
+            text = (obj.d.get("read") or obj.d.get("text", "")) if isinstance(obj, OldPiece) else obj.text()
             count += len(self._spans(text, self.find_box.text()))
             self._put(obj, self._replaced(text, None))
         self.commit()
@@ -2820,10 +2964,11 @@ class PdfEditor(QWidget):
             self.view.viewport().setCursor(cursor)
         for page in self.pages:
             for piece in page.pieces:
-                piece.setAcceptedMouseButtons(Qt.LeftButton if key in ("select", "edit") else Qt.NoButton)
+                piece.setAcceptedMouseButtons(Qt.LeftButton if key in piece.tools() else Qt.NoButton)
                 piece.update()
         if key == "edit":
             self.view.setDragMode(QGraphicsView.NoDrag)
+            self._read_if_needed(self._in_sight())
         self.view.setFocus()  # (Delete, the arrows and typing go to the pages)
         self._refresh()
 
@@ -2862,7 +3007,9 @@ class PdfEditor(QWidget):
         if kind == "ink":
             return "draw"
         if isinstance(item, OldPiece):
-            return "line" if kind == "line" else "picture"
+            if kind == "annot":
+                return "pdflink" if item.d.get("kind") == "link" else "comment"
+            return {"line": "line", "shape": "drawn"}.get(kind, "picture")
         return kind
 
     def selected_items(self) -> list:
@@ -2883,7 +3030,34 @@ class PdfEditor(QWidget):
             return focus.d
         if items and hasattr(items[0], "d") and not isinstance(items[0], OldPiece):
             return items[0].d
+        if items and isinstance(items[0], OldPiece) and key in ("drawn", "pdflink", "comment"):
+            return self.piece_look(items[0])
         return self.style.get(key) if key else None
+
+    def piece_look(self, piece: OldPiece) -> dict:
+        """A shape's or annotation's look and words as they are now (the PDF's own, as changed here)."""
+        look = {k: piece.d[k] for k in ("color", "fill", "text", "url", "target") if k in piece.d}
+        for d in self.restyled:
+            if d["page"] == piece.page.index and d["objs"] == list(piece.objs):
+                look.update({k: v for k, v in d.items() if k not in ("page", "objs")})
+                if "url" in d:
+                    look.pop("target", None)
+        return look
+
+    def restyle(self, piece: OldPiece, commit: bool = True, **change):
+        """The PDF's own shape or annotation given another colour, words or link (kept until it's saved)."""
+        for d in self.restyled:
+            if d["page"] == piece.page.index and d["objs"] == list(piece.objs):
+                d.update(change)
+                break
+        else:
+            self.restyled.append(dict(change, page=piece.page.index, objs=list(piece.objs)))
+        if "url" in change or "text" in change:
+            piece.setToolTip(str(change.get("url") or change.get("text") or "")[:300])
+        if "color" in change or "fill" in change:
+            self._ask_pages()
+        if commit:
+            self.commit()
 
     def _refresh(self):
         """Shows what fits the tool or what's selected."""
@@ -2951,7 +3125,8 @@ class PdfEditor(QWidget):
                 best = min(range(self.width_box.count()), key=lambda k: abs(self.width_box.itemData(k) - w))
                 self.width_box.setCurrentIndex(best)
             shape_kind = items[0].kind if items and key == "shape" else self.shape_kind
-            show["fill"] = key == "shape" and st is not None and shape_kind in ("rect", "ellipse")
+            show["fill"] = (key == "shape" and st is not None and shape_kind in ("rect", "ellipse")) or \
+                (key == "drawn" and st is not None and "fill" in st)
             if show["fill"]:
                 for b, color in zip(self.fill_btns, FILLS):
                     if b.property("filled") is None:
@@ -2980,11 +3155,13 @@ class PdfEditor(QWidget):
                 op = round(100 * float(st.get("opacity", 1.0) or 1.0))
                 self.opacity_slider.setValue(op)
                 self.opacity_label.setText(f"{op}%")
-            link = items[0] if len(items) == 1 and getattr(items[0], "kind", "") == "link" else None
+            link = items[0] if len(items) == 1 and (getattr(items[0], "kind", "") == "link" or key == "pdflink") \
+                else None
             show["link"] = link is not None
             if link is not None and not self.link_box.hasFocus():
-                self.link_box.setText(self._link_text(link.d))
-                self._link_said(link.d)
+                said = st if key == "pdflink" else link.d
+                self.link_box.setText(self._link_text(said))
+                self._link_said(said)
             pic = items[0] if len(items) == 1 and key in ("image", "picture", "move") else None
             show["picture"] = pic is not None
             if pic is not None:
@@ -3007,7 +3184,10 @@ class PdfEditor(QWidget):
             hint = HINTS.get(self.active_tool() if tool in ("mark", "shape") else tool, "")
             if items:
                 hint = SELECTED_HINTS.get(key or "", "")
-            if tool == "edit" and self.pages and not any(p.pieces for p in self.pages if p.layout) and \
+            if tool == "edit" and any(getattr(self.pages[i], "read_state", None) == "reading"
+                                      for i in self._in_sight() if i < len(self.pages)):
+                hint = tr("Reading the words on this page so they can be changed…")
+            elif tool == "edit" and self.pages and not any(p.pieces for p in self.pages if p.layout) and \
                     any(p.layout for p in self.pages if not p.blank):
                 hint = tr("The text on these pages can't be changed directly (it may be a scan). "
                           "Use Cover, then Add text over it.")
@@ -3045,6 +3225,13 @@ class PdfEditor(QWidget):
         """The panel was used: the selected things change, and new ones will look like that."""
         if self._filling:
             return
+        drawn = [i for i in self.selected_items() if isinstance(i, OldPiece) and i.kind == "shape"]
+        for piece in drawn:  # (the PDF's own shapes: their line and fill colours)
+            look = {k: v for k, v in change.items() if k in ("color", "fill") and v and k in piece.d}
+            if look:
+                self.restyle(piece, commit=False, **look)
+        if drawn and commit:
+            self.commit()
         items = [i for i in self.selected_items() if not isinstance(i, OldPiece)]
         focus = self.typing()
         if focus is not None and focus not in items:
@@ -3149,21 +3336,39 @@ class PdfEditor(QWidget):
         self.set_tool_quiet("select") if self.tool not in ("edit", "text") else None
 
     def line_to_text(self, piece: OldPiece, text: str | None = None) -> "TextMark":
-        """A line of the PDF's own text as a text box in its place (with other words, for Replace)."""
+        """A line of the PDF's own text as a text box in its place (with other words, for Replace). A turned
+        line stays turned; words of a scan (or hidden words over one) paint over the old words in the paper's
+        colour; words in a font that doesn't say which letters it has are the ones read from the page."""
         page, d = piece.page, piece.d
-        family, arabic = pdffonts.for_line(dict(d, text=d["text"] if text is None else text))
+        own = d.get("read") or ("" if d.get("unknown") else d["text"])
+        was = own
+        if text is None:
+            text = own
+        family, arabic = pdffonts.for_line(dict(d, text=text))
         size = float(d["size"])
         st = {"font": family, "size": size, "color": d["color"], "bold": d["bold"], "italic": d["italic"],
               "pdf_font": d.get("font", ""), "matched": family}
+        if d.get("scan") or d.get("unknown") and not d.get("font"):
+            st.pop("pdf_font")
         if arabic:
             st["font_ar"] = arabic  # (its Arabic words were in a font of their own)
         fm = QFontMetricsF(pdfedit.font_for(st), pdfedit.layout_device())
         x, y, w, h = d["rect"]
         top = d["base"] - fm.ascent() - pdfedit.TEXT_MARGIN if d.get("base") else y
-        item = self.add_item(dict(st, kind="text", page=page.index, text=d["text"] if text is None else text,
-                                  was=d["text"], x=x - pdfedit.TEXT_MARGIN, y=top, replaces=list(piece.objs),
-                                  rtl=bool(d.get("rtl"))), commit=False)
-        if d.get("rtl"):
+        extra = {}
+        if d.get("hidden") or d.get("scan"):
+            # (what shows is the scan's picture: the old words are painted over, and taken out of it)
+            paper, ink = (d["paper"], d["color"]) if d.get("paper") else self._sample_colors(page, d["rect"])
+            st["color"] = ink
+            extra["patch"] = [round(x - 1, 2), round(y - 1, 2), round(w + 2, 2), round(h + 2, 2), paper]
+        if d.get("turn") is not None:
+            ox, oy = d["origin"]
+            pivot = [pdfedit.TEXT_MARGIN, round(pdfedit.TEXT_MARGIN + fm.ascent(), 2)]
+            extra.update(turn=d["turn"], pivot=pivot)
+            x, top = ox - pivot[0] + pdfedit.TEXT_MARGIN, oy - pivot[1]
+        item = self.add_item(dict(st, kind="text", page=page.index, text=text, was=was, x=x - pdfedit.TEXT_MARGIN,
+                                  y=top, replaces=list(piece.objs), rtl=bool(d.get("rtl")), **extra), commit=False)
+        if d.get("rtl") and d.get("turn") is None:
             item.anchor = x + w + pdfedit.TEXT_MARGIN
             item._grown()
         piece.setVisible(False)
@@ -3456,7 +3661,7 @@ class PdfEditor(QWidget):
         fm = QFontMetricsF(pdfedit.font_for(st), pdfedit.layout_device())
         x, y, w, h = para["rect"]
         top = first["base"] - fm.ascent() - pdfedit.TEXT_MARGIN if first.get("base") else y
-        objs = sorted({k for p in pieces for k in p.objs})
+        objs = sorted({k for p in pieces for k in p.objs}, key=str)
         item = self.add_item(dict(st, kind="text", page=page.index, text=text, was=text, x=x - pdfedit.TEXT_MARGIN,
                                   y=top, width=round(w + 2 * pdfedit.TEXT_MARGIN + 1, 2), replaces=objs),
                              commit=False)
@@ -3667,6 +3872,9 @@ class PdfEditor(QWidget):
 
     def _link_typed(self):
         item = self._one_selected()
+        if isinstance(item, OldPiece) and item.kind == "annot" and item.d.get("kind") == "link":
+            self._old_link_typed(item)
+            return
         if not isinstance(item, BoxMark) or item.kind != "link":
             return
         text = self.link_box.text().strip()
@@ -3686,6 +3894,61 @@ class PdfEditor(QWidget):
             item.update()
             self.commit()
         self._link_said(item.d)
+
+    def _old_link_typed(self, piece: OldPiece):
+        """A link that was already in the PDF, sent somewhere else."""
+        text = self.link_box.text().strip()
+        if text.isdigit() and 1 <= int(text) <= len(self.order):
+            change = {"target": self.order[int(text) - 1], "url": ""}
+        elif text and pdfedit.web_address(text):
+            change = {"url": text, "target": None}
+        elif text:
+            self.link_note.setText(tr("That isn't a web address or a page of this PDF."))
+            return
+        else:
+            return
+        now = self.piece_look(piece)
+        if (now.get("url") or "", now.get("target")) != (change["url"], change["target"]):
+            self.restyle(piece, **change)
+        self._link_said(self.piece_look(piece))
+
+    def open_annot(self, piece: OldPiece):
+        """An annotation double-clicked: a note's words can be changed; typed-in text becomes text on the page
+        that can be changed like any other."""
+        kind = piece.d.get("kind")
+        if kind == "freetext":
+            self._freetext_to_text(piece)
+            return
+        if kind == "link":
+            self.scene.clearSelection()
+            piece.setSelected(True)
+            self.link_box.setFocus()
+            self.link_box.selectAll()
+            return
+        dlg = NoteDialog(self.piece_look(piece).get("text", ""), self.c.icon, self.c.theme.dark)
+        try:
+            if not sheet.run(dlg):
+                return
+            text = dlg.text()
+        finally:
+            dlg.deleteLater()
+        if text != self.piece_look(piece).get("text", ""):
+            self.restyle(piece, text=text)
+
+    def _freetext_to_text(self, piece: OldPiece):
+        """Words typed in a box by another PDF app: the box goes, and its words become text on the page, in
+        its place, ready to change."""
+        x, y, w, h = piece.d["rect"]
+        text = self.piece_look(piece).get("text", "")
+        st = dict(self.style["text"])
+        st["size"] = max(6.0, min(36.0, round(h * 0.45))) if "\n" not in text else 11.0
+        item = self.add_item(dict(st, kind="text", page=piece.page.index, text=text, x=x, y=y,
+                                  width=round(max(24.0, w), 2), replaces=list(piece.objs), was=text), commit=False)
+        piece.setVisible(False)
+        self._ask_pages()
+        self.scene.clearSelection()
+        item.setSelected(True)
+        item.start_edit()
 
     # ---- covering every place the words are found
 
@@ -3770,7 +4033,8 @@ class PdfEditor(QWidget):
     def model(self) -> dict:
         changed = {k: v for k, v in self.fields.items()
                    if any(f["name"] == k and f.get("value", "") != v for f in self.field_list)}
-        return {"items": self.model_items(), "removed": [dict(d) for d in self.removed], "fields": changed,
+        return {"items": self.model_items(), "removed": [dict(d) for d in self.removed],
+                "restyled": [dict(d) for d in self.restyled], "fields": changed,
                 "order": list(self.order), "turns": {str(k): v for k, v in sorted(self.turns.items()) if v % 360}}
 
     def end_text_edits(self):
@@ -3818,6 +4082,7 @@ class PdfEditor(QWidget):
             if 0 <= int(d.get("page", -1)) < len(self.pages):
                 self.add_item(d, commit=False)
         self.removed = [dict(d) for d in state["removed"]]
+        self.restyled = [dict(d) for d in state.get("restyled", [])]
         self.fields = {f["name"]: f.get("value", "") for f in self.field_list}
         self.fields.update(state["fields"])
         for item in self.field_items:
@@ -3849,6 +4114,7 @@ class PdfEditor(QWidget):
         edits = [d for d in state["items"] if not (d.get("kind") == "text" and not d.get("text", "").strip()
                                                     and not d.get("replaces"))]
         edits += [dict(d, kind="remove") for d in state["removed"]]
+        edits += [dict(d, kind="restyle") for d in state.get("restyled", [])]
         params = {"edits": edits, "fields": state["fields"], "password": self.password}
         if state["order"] != list(range(len(self.pages))):
             params["order"] = state["order"]
