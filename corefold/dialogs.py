@@ -267,8 +267,8 @@ class TrimDialog(Base):
         self.fast = QCheckBox(tr("Fast, with no quality lost (the parts are copied as they are)"))
         self.fast.setToolTip(tr("Done in seconds, even for a long film. A video's cut then falls on the nearest key "
                                 "picture, a moment before the time picked."))
-        self.fast.setVisible(self.can_fast)
         self.lay.addWidget(self.fast)
+        self.fast.setVisible(self.can_fast)
         self.note = QLabel()
         self.note.setObjectName("muted")
         self.note.setWordWrap(True)
