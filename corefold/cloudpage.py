@@ -83,6 +83,7 @@ def _ui_error(e) -> str:
                                     "Drive website."),
         cloud.WEB_ONLY: tr("This one only opens on the service's website."),
         cloud.INTO_ITSELF: tr("A folder can't be moved into itself."),
+        cloud.TOO_DEEP: tr("There are too many folders inside folders here. A link may lead round in a circle."),
         cloud.NO_FILES_ALLOWED: tr("Corefold wasn't allowed to see your files. Sign in again and leave the box that "
                                    "lets it see, edit and delete your files ticked."),
         cloud.NOT_SENT_WHOLE: tr("The upload didn't arrive whole, so it was taken away again. Your file on this PC "
@@ -97,6 +98,8 @@ def _ui_error(e) -> str:
                                  "again."),
         cloudnet.WRONG_LOGIN: tr("The user name or password isn't right."),
         cloudnet.NO_SERVER: tr("The server didn't answer. Check the address and the port."),
+        cloudnet.NOT_ENCRYPTED_ON: tr("The server sent this on to an address that isn't encrypted, so Corefold "
+                                      "stopped."),
         "the server's certificate isn't valid": tr("The server's certificate isn't valid, so Corefold didn't "
                                                    "connect."),
         "this server doesn't offer encryption": tr("This server doesn't offer encryption."),

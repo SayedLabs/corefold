@@ -2902,5 +2902,10 @@ def helper_main(argv: list[str]) -> int:
             out = {"done": 1}
     except Exception as e:
         out = {"error": str(e)}
-    plan.with_suffix(".result.json").write_text(json.dumps(out, ensure_ascii=False), "utf-8")
+    # (written as a new file: a link someone left in the answer's place, in this folder anything running as the
+    # person can write to, would have the administrator copy write over whatever it points at)
+    answer = plan.with_suffix(".result.json")
+    answer.unlink(missing_ok=True)
+    with open(answer, "xb") as f:
+        f.write(json.dumps(out, ensure_ascii=False).encode("utf-8"))
     return 0

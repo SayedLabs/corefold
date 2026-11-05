@@ -137,6 +137,60 @@ def test_the_trace_is_offered_when_the_app_goes(places, monkeypatch):
     assert not any(i.kind == "shortcut" for i in installtrack.leftovers_for(app))
 
 
+def test_only_shortcuts_count_on_the_desktop(places, tmp_path):
+    """A document or folder saved on the desktop while the watch was on is the person's, never the app's."""
+    pf, menu, reg, folders = places
+    desk = tmp_path / "Desktop"
+    desk.mkdir()
+    folders = folders + [(str(desk), 1, True)]
+    installtrack.start(**_kw(reg, folders))
+    (desk / "Acme.lnk").write_bytes(b"lnk")
+    (desk / "my letter.docx").write_bytes(b"mine")
+    (desk / "Holiday photos").mkdir()
+    trace = installtrack.finish(lambda *a: "Acme Tools", **_kw(reg, folders))
+    assert trace["items"] == [f"file|{desk / 'Acme.lnk'}"]
+    assert all(len(p) == 3 and p[2] for p in installtrack.folder_places() if p[0].lower().endswith("desktop"))
+
+
+def test_a_long_watch_only_offers_what_is_named_after_the_app(places, monkeypatch):
+    """A watch started and forgotten for a day saw other apps' things too: those are "check first", never ticked."""
+    pf, menu, reg, folders = places
+    installtrack.start(**_kw(reg, folders))
+    before = installtrack.TRACES / "before.json"
+    import json
+    data = json.loads(before.read_text("utf-8"))
+    data["time"] -= installtrack.LONG_WATCH + 60
+    before.write_text(json.dumps(data), "utf-8")
+    (pf / "Acme Tools").mkdir()
+    (menu / "Launcher.lnk").write_bytes(b"lnk")
+    reg[("HKLM", 64, r"software\microsoft\windows\currentversion\uninstall")] = {"subkeys": ["AcmeTools"]}
+    trace = installtrack.finish(lambda *a: "Acme Tools", **_kw(reg, folders))
+    assert trace["watched"] > installtrack.LONG_WATCH
+    app = un.App("x", "Acme Tools", "AcmeCorp", key="AcmeTools", hive="HKLM", view=64,
+                 location=str(pf / "Acme Tools"))
+    got = {(i.path, i.level) for i in installtrack.leftovers_for(app)}
+    assert (str(pf / "Acme Tools"), 3) in got  # (named after it: still surely its)
+    assert (str(menu / "Launcher.lnk"), 1) in got
+    assert not un.ticked_at(next(i for i in installtrack.leftovers_for(app) if i.path.endswith(".lnk")), "deep")
+
+
+def test_a_startup_entry_of_another_app_is_not_sure(places, monkeypatch):
+    pf, menu, reg, folders = places
+    installtrack.start(**_kw(reg, folders))
+    (pf / "Acme Tools").mkdir()
+    reg[("HKLM", 64, r"software\microsoft\windows\currentversion\uninstall")] = {"subkeys": ["AcmeTools"]}
+    run = r"software\microsoft\windows\currentversion\run"
+    reg[("HKCU", 0, run)] = {"values": {"AcmeHelper": f'"{pf / "Acme Tools" / "helper.exe"}"',
+                                         "TeamsChat": r"C:\Other\chat.exe"}}
+    installtrack.finish(lambda *a: "Acme Tools", **_kw(reg, folders))
+    values, _subkeys = _fake_registry(reg)
+    monkeypatch.setattr(un, "_values", values)
+    app = un.App("x", "Acme Tools", "AcmeCorp", key="AcmeTools", hive="HKLM", view=64,
+                 location=str(pf / "Acme Tools"))
+    got = {i.value: i.level for i in installtrack.leftovers_for(app) if i.kind == "value"}
+    assert got == {"AcmeHelper": 3, "TeamsChat": 2}
+
+
 def test_nothing_waiting_gives_nothing(places):
     assert installtrack.finish() is None
     installtrack.cancel()

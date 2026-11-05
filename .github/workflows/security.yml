@@ -12,6 +12,12 @@ on:
       - corefold/core.py
       - corefold/cloud.py
       - corefold/cloudlocal.py
+      - corefold/cloudnet.py
+      - corefold/cloudbackup.py
+      - corefold/installtrack.py
+      - corefold/extensions.py
+      - corefold/mftscan.py
+      - corefold/officewatch.py
       - corefold/archives.py
       - corefold/ipc.py
       - corefold/startup.py

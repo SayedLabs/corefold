@@ -174,3 +174,22 @@ def test_office_draws_its_own_boxes_too():
 def test_other_office_boxes_are_cancelled_and_said():
     pressed, watch = _box_answered(())
     assert pressed == "2" and watch.asked
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows' message boxes")
+def test_a_word_the_person_opened_is_left_alone():
+    """A Word started while Corefold converts, with a window on screen, is the person's: its "Save your changes?"
+    must never be answered for them (No would throw their changes away)."""
+    import subprocess
+
+    from corefold import officewatch
+    exe = Path(sys.executable).name.lower()
+    watch = officewatch.Watch(reflow=(), names=(exe,))
+    try:
+        with pytest.raises(subprocess.TimeoutExpired):
+            subprocess.run([sys.executable, "-c", "import tkinter, ctypes; r = tkinter.Tk(); r.title('Document1'); "
+                            "r.update(); print(ctypes.windll.user32.MessageBoxW(0, 'Save your changes?', "
+                            "'Microsoft Word', 3))"], capture_output=True, text=True, timeout=6)
+    finally:
+        watch.stop()
+    assert not watch.asked and watch.answered == 0

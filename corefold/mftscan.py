@@ -234,16 +234,23 @@ def read_table(path: str, cancel=None, progress=None) -> dict:
 
 # ----------------------------------------------------------------------------- the listing file
 
-def write_listing(items: dict, out: Path) -> None:
-    """What read_table found, in a small binary file (the window's copy reads it back with read_listing)."""
+def write_listing(items: dict, out) -> None:
+    """What read_table found, in a small binary file (the window's copy reads it back with read_listing). out is a
+    path, or a file already open for writing."""
+    if not isinstance(out, (str, os.PathLike)):
+        _write_listing(items, out)
+        return
     with open(out, "wb") as f:
-        f.write(LISTING_MAGIC + struct.pack("<Q", len(items)))
-        pack = struct.Struct("<IIQIdH").pack
-        for number, (parent, is_dir, size, attrs, changed, name) in items.items():
-            raw = name.encode("utf-16-le")[:65534]
-            f.write(pack(number, parent, size, (attrs & 0x7FFFFFFF) | (0x80000000 if is_dir else 0), changed,
-                         len(raw)))
-            f.write(raw)
+        _write_listing(items, f)
+
+
+def _write_listing(items: dict, f) -> None:
+    f.write(LISTING_MAGIC + struct.pack("<Q", len(items)))
+    pack = struct.Struct("<IIQIdH").pack
+    for number, (parent, is_dir, size, attrs, changed, name) in items.items():
+        raw = name.encode("utf-16-le")[:65534]
+        f.write(pack(number, parent, size, (attrs & 0x7FFFFFFF) | (0x80000000 if is_dir else 0), changed, len(raw)))
+        f.write(raw)
 
 
 def read_listing(path: Path) -> dict:
@@ -404,9 +411,10 @@ def helper_scan(drive: str, out: Path) -> dict:
         return {"error": "not NTFS"}
     started = time.monotonic()
     items = read_table(f"\\\\.\\{letter}:")
-    with open(out, "xb"):  # (made here, empty, so it can't be a link to anything else)
-        pass
-    write_listing(items, out)
+    # (made here, never a file or a link that's already there, and written through this same handle: opening it
+    # again by its name would follow a link someone put in its place meanwhile)
+    with open(out, "xb") as f:
+        write_listing(items, f)
     return {"listing": str(out), "count": len(items), "seconds": round(time.monotonic() - started, 2)}
 
 
