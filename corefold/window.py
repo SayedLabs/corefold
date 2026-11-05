@@ -784,6 +784,7 @@ class MainWindow(QWidget):
                     "PDF": self._pdf, "Organizer": self._organizer, "Startup": self._startup, "Scan": self._scan, "Updates": self._updates, "About": self._about,
                     "Quick": self._quick_settings,
                     "Unlock": self._unlock,
+                    "Rename": self._rename,
                     "Awake": self._awake,
                     "Shortcuts": self._shortcuts,
                     "Colors": self._colors,
@@ -807,10 +808,11 @@ class MainWindow(QWidget):
         self.startup_page = None
         self.scan_page = None
         self.unlock_page = None
+        self.rename_page = None
         self.awake_page = None
         self.colors_page = None
         self._unbuilt = {"Apps", *SECTION_PAGES, "Viewer", "Clipboard", "Space", "Capture", "Cloud", "PDF",
-                         "Organizer", "Startup", "Scan", "Unlock", "Awake", "Colors", "Archives", "History",
+                         "Organizer", "Startup", "Scan", "Unlock", "Rename", "Awake", "Colors", "Archives", "History",
                          "Updates", "About", *SETTINGS_PAGES, *SOON,
                          *[tool.page for tool in all_tools.TOOLS if tool.page not in on_pages and tool.page != "Converter"]}
         self._made("heads")
@@ -1188,7 +1190,7 @@ class MainWindow(QWidget):
     # a tool's page, and what the window keeps of it (let go of with the page)
     PAGE_PARTS = {"Apps": "apps_page", "Clipboard": "clip_page", "Space": "space_page", "Cloud": "cloud_page",
                   "PDF": "pdf_page", "Organizer": "organizer_page", "Startup": "startup_page", "Scan": "scan_page",
-                  "Unlock": "unlock_page", "Awake": "awake_page", "Colors": "colors_page"}
+                  "Unlock": "unlock_page", "Rename": "rename_page", "Awake": "awake_page", "Colors": "colors_page"}
 
     def _drop_page(self, name: str):
         """A page out of sight goes (now), and is made again if it's opened later."""
@@ -1485,6 +1487,8 @@ class MainWindow(QWidget):
             self.space_page.refresh()
         elif name == "Organizer" and self.organizer_page is not None:
             self.organizer_page.ensure_loaded()
+        elif name == "Rename" and self.rename_page is not None:
+            self.rename_page.refresh()
         elif name == "Awake" and self.awake_page is not None:
             self.awake_page.refresh()
         elif name == "Colors" and self.colors_page is not None:
@@ -3162,6 +3166,14 @@ class MainWindow(QWidget):
         self.unlock_page = UnlockPage(self.c, header)
         return self.unlock_page
 
+    def _rename(self) -> QWidget:
+        """Corefold Rename: many files at once, every new name shown first."""
+        from .renamepage import RenamePage
+        header = self._use_header("rename", tr("Rename many files at once, and see every new name before anything "
+                                               "changes."))
+        self.rename_page = RenamePage(self.c, header)
+        return self.rename_page
+
     def _awake(self) -> QWidget:
         """Corefold Awake: keep the PC awake, and turn it off later."""
         from .awakepage import AwakePage
@@ -4374,6 +4386,8 @@ class MainWindow(QWidget):
             self.cloud_page.apply_theme(t)
         if self.unlock_page is not None:
             self.unlock_page.apply_theme(t)
+        if self.rename_page is not None:
+            self.rename_page.apply_theme(t)
         if self.awake_page is not None:
             self.awake_page.apply_theme(t)
         if self.colors_page is not None:

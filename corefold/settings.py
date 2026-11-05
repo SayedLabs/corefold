@@ -163,6 +163,7 @@ NOT_EDITED = {"enabled", "first_run", "last_version", "update_told", "notes_show
               "awake_mode", "awake_minutes", "awake_until", "awake_screen", "awake_apps", "awake_low_battery",
               "startup_later", "shutdown_at", "shutdown_planned",
               "colors_shortcut", "colors_format", "colors_history",  # (Colors: chosen on its page, kept right away)
+              "rename_rules",  # (Rename: its page's rules, kept as they're changed)
               }
 # the settings of each tab of the Settings page (each one has its own "Reset to defaults")
 GENERAL_KEYS = ("language", "sound", "volume", "sound_problems", "show_progress", "low_priority", "one_at_a_time")
@@ -293,6 +294,7 @@ class Settings:
     colors_shortcut: str = "win+shift+c"  # pick a colour from any app
     colors_format: str = "hex"     # copied as "hex", "rgb", "hsl", "hsv", "cmyk", "oklch" or "vec4"
     colors_history: list = field(default_factory=list)  # colours picked lately ("#RRGGBB", newest first)
+    rename_rules: str = ""         # Rename's rules as they were last set (JSON)
     # Quick access: a menu and a wheel that open from any app
     quick_menu: bool = True
     quick_menu_key: str = "ctrl+alt+space"

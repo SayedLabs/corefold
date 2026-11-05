@@ -427,6 +427,14 @@ def _natural(f: Path):
 def new_names(files: list[Path], params: dict) -> list[tuple[Path, Path]]:
     """What each file will be called: [(old, new)]. Nothing is renamed here."""
     mode = params.get("mode", "number")
+    if mode == "rules":  # (the Rename page's rules: see renamer.py)
+        from . import renamer
+        need = renamer.needs(params)
+        facts = {f: renamer.read_facts(f, need) for f in files} if need else {}
+        rows = renamer.plan(files, params, facts)
+        if any(r.state in (renamer.BAD, renamer.EMPTY) for r in rows):
+            raise RuntimeError(tr("some new names can't be used on Windows"))
+        return [(r.old, r.new) for r in rows]
     pairs = []
     if mode == "replace":
         find, repl = params.get("find", ""), params.get("replace", "")

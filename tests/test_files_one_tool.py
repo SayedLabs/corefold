@@ -8,7 +8,7 @@ from PySide6.QtGui import QIcon
 from corefold import settings as settings_mod
 from corefold import tools as all_tools
 
-FEATURES = ["Converter", "PDF", "Archives", "Organizer", "Unlock"]
+FEATURES = ["Converter", "PDF", "Archives", "Organizer", "Unlock", "Rename"]
 
 
 @pytest.fixture
@@ -66,7 +66,7 @@ def test_one_heading_over_the_files_pages(window):
     assert head.tabs["PDF"].isChecked() and not head.tabs["Files"].isChecked()
     assert head.line.text() == all_tools.BY_ID["pdf"].short
     assert not w.built("Unlock")
-    cards[-1].open_use()
+    cards[FEATURES.index("Unlock")].open_use()
     assert w.current_page() == "Unlock"
 
 

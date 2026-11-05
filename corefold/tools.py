@@ -121,7 +121,7 @@ TOOLS: list[ToolInfo] = [
               "Find and replace in file names",
               "Use the date a photo was taken, or a song's title and artist",
               "See every new name first, and undo it all with one click"),
-             ready=False),
+             short="Rename many files at once", use="Rename"),
     ToolInfo("colors", "Colors", "colors", "color", "Corefold Colors", "Colors",
              "Pick any colour on your screen and copy it as HEX, RGB, HSL, OKLCH and more.",
              ("Pick a colour anywhere with one shortcut",
