@@ -64,11 +64,18 @@ def ftp(tmp_path):
     handler = type("H", (FTPHandler,), {"authorizer": auth, "use_encoding": "utf8"})
     port = _port()
     server = FTPServer(("127.0.0.1", port), handler)
-    t = threading.Thread(target=server.serve_forever, kwargs={"timeout": 0.1}, daemon=True)
+    stop = threading.Event()
+
+    def serve():  # (stopped and closed on its own thread: pyftpdlib's loop isn't to be closed from another)
+        while not stop.is_set():
+            server.serve_forever(timeout=0.1, blocking=False)
+        server.close_all()
+    t = threading.Thread(target=serve, daemon=True)
     t.start()
     _wait(port)
     yield cloudnet.make_account("ftp", "127.0.0.1", "me", "secret", port, secure=False), root
-    server.close_all()
+    stop.set()
+    t.join(5)
 
 
 @pytest.fixture
@@ -149,6 +156,8 @@ def sftp(tmp_path):
         def canonicalize(self, path):
             return "/" + path.strip("/")
 
+    transports = []
+
     def serve():
         listener.settimeout(0.2)
         while not stop.is_set():
@@ -157,12 +166,21 @@ def sftp(tmp_path):
             except OSError:
                 continue
             t = paramiko.Transport(sock)
+            transports.append(t)
             t.add_server_key(host_key)
             t.set_subsystem_handler("sftp", paramiko.SFTPServer, Files)
-            t.start_server(server=Auth())
-    threading.Thread(target=serve, daemon=True).start()
+            try:
+                t.start_server(server=Auth())
+            except (paramiko.SSHException, OSError, EOFError):  # (a client that hung up straight away)
+                t.close()
+    server = threading.Thread(target=serve, daemon=True)
+    server.start()
     yield cloudnet.make_account("sftp", "127.0.0.1", "me", "s3cret", port), root, host_key
     stop.set()
+    server.join(5)
+    for t in transports:  # (each one's own thread ends with it, before the test run ends)
+        t.close()
+        t.join(5)
     listener.close()
 
 
