@@ -1,0 +1,50 @@
+ok    quick access is running
+ok    …but nothing of the menu or wheel is built yet
+ok    the menu's shortcut (Ctrl + Alt + Space) works
+ok    the wheel's shortcut (Alt + `) works
+ok    the tray menu has Quick menu
+ok    Ctrl + Alt + Space opens the quick menu
+ok    …and it has the keyboard
+ok    …with the tools on it
+ok    …and the quick actions
+ok    typing searches it ('task')
+ok    …and finds Task Manager (in English in every language)
+ok    Esc clears the search first
+ok    the arrow keys move between tiles (7)
+ok    the selected tile is always in view (scrolled 0)
+ok    …then Esc closes it
+ok    the shortcut opens it again
+ok    …and the shortcut again closes it
+ok    a click outside the panel closes it
+ok    clicking Open Corefold on it opens the window
+ok    …and puts the menu away
+ok    holding Alt + ` opens the quick wheel
+ok    pointing up picks the first slice (0)
+ok    letting go closes it
+ok    …and does it (opens Corefold)
+ok    a quick tap opens it
+ok    …and it stays open
+ok    pressing 2 picks the second slice
+ok    …Settings
+ok    Esc closes it
+ok    clicking a slice picks it
+ok    the round button shows when switched on
+ok    clicking it opens the wheel
+ok    dragging it moves it (and doesn't open the wheel)
+ok    …and its place is remembered
+ok    switching it off removes it
+ok    the page has the three shortcut buttons (menu, wheel, keep on top)
+ok    a shortcut Windows uses (Alt + F4) is refused
+ok    the Clipboard's shortcut is refused
+ok    a new shortcut is used straight away
+ok    …and opens the menu
+ok    the old shortcut doesn't any more
+ok    a shortcut another app has is noticed
+ok    …and picking another one fixes it
+ok    with both off, only the keep-on-top shortcut is left
+ok    switching that off too stops quick access completely
+ok    …and takes it off the tray menu
+ok    …and lets go of its shortcuts
+ok    pressing the shortcut then does nothing
+ok    switching the menu back on
+quicktest: 0 problem(s)

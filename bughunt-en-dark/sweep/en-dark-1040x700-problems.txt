@@ -1,0 +1,15 @@
+
+errors:
+
+notes:
+Updates: pressing 'Show older versions (27)' took 3.9 s
+515 presses in all; would have opened: 40 (file:///C:/Users/runneradmin/Pictures/Screenshots, startfile ('windowsdefender://threat',), program "C:\Windows\explorer.exe" /select,"C:\Users\runneradmin\Desktop", startfile ('ms-settings:defaultapps?registeredAppUser=Corefold',), startfile ('ms-settings:defaultapps?registeredAppUser=Corefold',), startfile ('ms-settings:defaultapps?registeredAppUser=Corefold',), file:///C:/Users/runneradmin/Pictures/Screenshots, https://github.com/SayedLabs/corefold/releases/tag/v1.18.0)
+the search ran 251 of 251 things
+round 1: 12 windows, 1057 widgets, 236 MB, 71167 Python objects
+round 2: 10 windows, 1055 widgets, 228 MB, 71150 Python objects
+round 3: 10 windows, 1055 widgets, 228 MB, 71223 Python objects
+memory as tools come and go (236 → 228 → 228 MB, -0.0 MB a round)
+after 10 opens: 181 MB, 15 widgets, 5 windows
+after 20 opens: 182 MB, 15 widgets, 5 windows
+after 30 opens: 182 MB, 15 widgets, 5 windows
+after 40 opens: 182 MB, 15 widgets, 5 windows
