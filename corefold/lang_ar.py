@@ -3332,4 +3332,5 @@ STRINGS: dict[str, str] = {
     'Drag it to move it. Double-click a note to change its words. Delete takes it away.': 'اسحبه لنقله. انقر نقرًا مزدوجًا على الملاحظة لتغيير نصها. الحذف يزيله.',
     'Type where it goes, or drag it to move it. Delete takes the link away.': 'اكتب وجهة الرابط، أو اسحبه لنقله. الحذف يزيل الرابط.',
     'Reading the words on this page so they can be changed…': 'جارٍ قراءة كلمات هذه الصفحة لتتمكن من تغييرها…',
+    "Word asked a question about this PDF: open it in Word once yourself": "طرح Word سؤالًا عن ملف PDF هذا: افتحه في Word بنفسك مرة واحدة",
 }

@@ -134,8 +134,36 @@ def test_pdf_to_word_is_on_the_wheel_and_dimmed_without_word(tmp_path, monkeypat
         converters.pdf_to_word(tmp_path / "a.pdf", _ctx(tmp_path))
 
 
-def test_pdf_to_word_script_puts_the_setting_back():
+def test_pdf_to_word_script_leaves_words_settings_alone():
     s = converters.PDF_TO_WORD_SCRIPT
-    assert "DisableConvertPdfWarning" in s and "Remove-ItemProperty" in s
-    assert "New-Item -Path $key -Force" not in s  # (-Force would wipe Word's other options)
+    assert "HKCU" not in s and "ItemProperty" not in s  # (the box is answered instead: officewatch)
     assert "SaveAs2($env:CF_OUT, 16)" in s
+
+
+def _box_answered(names, reflow):
+    """A real message box (OK / Cancel) shown by a new process, and what the watch pressed on it."""
+    import subprocess
+    import sys
+
+    from corefold import officewatch
+    exe = Path(sys.executable).name.lower()
+    watch = officewatch.Watch(reflow=tuple(r.replace("*", exe) for r in reflow), names=(exe,))
+    try:
+        r = subprocess.run([sys.executable, "-c", "import ctypes; print(ctypes.windll.user32.MessageBoxW("
+                            "0, 'Word will now convert your PDF', 'Microsoft Word', 1))"],
+                           capture_output=True, text=True, timeout=30)
+    finally:
+        watch.stop()
+    return r.stdout.strip(), watch
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows' message boxes")
+def test_word_conversion_box_is_answered_ok():
+    pressed, watch = _box_answered(None, ("*",))
+    assert pressed == "1" and watch.answered == 1 and not watch.asked
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows' message boxes")
+def test_other_office_boxes_are_cancelled_and_said():
+    pressed, watch = _box_answered(None, ())
+    assert pressed == "2" and watch.asked

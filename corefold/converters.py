@@ -1710,24 +1710,15 @@ def document_to_pdf(src: Path, ctx: Ctx) -> Result:
 
 
 # Word opens a PDF by rebuilding it as a document ("PDF Reflow"): its own paragraphs, tables and pictures, which
-# can then be changed like any Word file. Word normally asks first ("Word will now convert your PDF…"), in a box
-# nobody would see here: its "don't ask again" setting is switched on for the conversion and put back afterwards.
+# can then be changed like any Word file. Word first says "Word will now convert your PDF…" in a box nobody would
+# see here: officewatch answers it (Word's own "don't ask again" setting doesn't silence it on every version).
 # The made-up password makes a locked PDF fail at once instead of waiting on an invisible password box.
 PDF_TO_WORD_SCRIPT = r"""
 $app = New-Object -ComObject Word.Application; $app.DisplayAlerts = 0
 $was = $app.AutomationSecurity; $app.AutomationSecurity = 3
-$key = "HKCU:\Software\Microsoft\Office\$($app.Version)\Word\Options"
-$made = $false
-if (-not (Test-Path $key)) { New-Item -Path $key | Out-Null; $made = $true }
-$old = (Get-ItemProperty -Path $key -Name DisableConvertPdfWarning -ErrorAction SilentlyContinue).DisableConvertPdfWarning
-Set-ItemProperty -Path $key -Name DisableConvertPdfWarning -Value 1 -Type DWord
 try { $d = $app.Documents.Open($env:CF_IN, $false, $true, $false, "corefold-no-password", "corefold-no-password")
       $d.SaveAs2($env:CF_OUT, 16); $d.Close(0) }
-finally {
-  if ($null -eq $old) { Remove-ItemProperty -Path $key -Name DisableConvertPdfWarning -ErrorAction SilentlyContinue }
-  else { Set-ItemProperty -Path $key -Name DisableConvertPdfWarning -Value $old -Type DWord }
-  if ($made) { Remove-Item -Path $key -ErrorAction SilentlyContinue }
-  $app.AutomationSecurity = $was; if ($app.Documents.Count -eq 0) { $app.Quit() } }"""
+finally { $app.AutomationSecurity = $was; if ($app.Documents.Count -eq 0) { $app.Quit() } }"""
 
 
 def word_installed() -> bool:
@@ -1748,9 +1739,14 @@ def pdf_to_word(src: Path, ctx: Ctx) -> Result:
     made = tmp / "document.docx"
     env = dict(os.environ, CF_IN=str(src.resolve()), CF_OUT=str(made))
     ps = system_tool("powershell.exe")
+    from . import officewatch
+    watch = officewatch.Watch()
     code, err = _run_office([str(ps), "-NoProfile", "-NonInteractive", "-Command", PDF_TO_WORD_SCRIPT],
-                            env, tmp, ctx, timeout=900)
+                            env, tmp, ctx, timeout=900, watch=watch)
     try:
+        if watch.asked and not made.exists():
+            log.error("pdf to word: Word asked something: %s", err[-2000:])
+            raise RuntimeError(tr("Word asked a question about this PDF: open it in Word once yourself"))
         if code or not made.exists():
             log.error("pdf to word failed: %s", err[-2000:])
             raise RuntimeError(tr("Word couldn't turn this PDF into a document"))
@@ -1760,7 +1756,7 @@ def pdf_to_word(src: Path, ctx: Ctx) -> Result:
     return Result([out])
 
 
-def _run_office(cmd: list[str], env: dict, tmp: Path, ctx: Ctx, timeout: float = 600) -> tuple[int, str]:
+def _run_office(cmd: list[str], env: dict, tmp: Path, ctx: Ctx, timeout: float = 600, watch=None) -> tuple[int, str]:
     """Runs the PowerShell that has Office make the PDF. Cancel stops the waiting at once, but not Office:
     Office runs on its own (Windows starts it, not this PowerShell), so ending the PowerShell would leave
     it hidden in the background with the file still open in it. The script is left to finish (Office
@@ -1771,25 +1767,31 @@ def _run_office(cmd: list[str], env: dict, tmp: Path, ctx: Ctx, timeout: float =
     deadline = time.monotonic() + timeout
     while proc.poll() is None:
         if ctx.cancelled or time.monotonic() > deadline:
-            threading.Thread(target=_after_office, args=(proc, err, tmp, deadline), daemon=True,
+            threading.Thread(target=_after_office, args=(proc, err, tmp, deadline, watch), daemon=True,
                              name="office-cancelled").start()
             if ctx.cancelled:
                 raise Cancelled()
             raise RuntimeError(tr("took too long and was stopped"))
         time.sleep(0.2)
+    if watch is not None:
+        watch.stop()
     err.seek(0)
     text = err.read().decode("utf-8", "replace")
     err.close()
     return proc.returncode, text
 
 
-def _after_office(proc, err, tmp: Path, deadline: float):
+def _after_office(proc, err, tmp: Path, deadline: float, watch=None):
     """After a Cancel: waits for Office to finish (a while longer at most), then deletes what it made."""
     try:
         proc.wait(max(60.0, deadline - time.monotonic()))
     except subprocess.TimeoutExpired:
-        _kill_tree(proc)  # (stuck for good: only then is the PowerShell ended)
+        _kill_tree(proc)  # (stuck for good: only then is the PowerShell ended, and the hidden Office it started)
+        if watch is not None:
+            watch.end_new()
     finally:
+        if watch is not None:
+            watch.stop()
         err.close()
         shutil.rmtree(tmp, ignore_errors=True)
 
