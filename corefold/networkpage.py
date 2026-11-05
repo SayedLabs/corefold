@@ -111,7 +111,7 @@ def _read_adapters() -> tuple[float, list[network.Adapter]]:
 def look() -> list[network.Program]:
     """The programs and their connections, with each program's signature (run off the window's thread)."""
     now = time.monotonic()
-    if now - _names[0] > NAMES_EVERY_S or not _names[1]:
+    if now - _names[0] > NAMES_EVERY_S:  # (an empty list too: not read again with every look)
         _names[0], _names[1] = now, network.cached_names()
     found = network.programs(names=_names[1])
     for p in found:
