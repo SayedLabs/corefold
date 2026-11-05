@@ -422,35 +422,47 @@ class Controller(QObject):
         self.act_update_sep = menu.addSeparator()
         self.act_update.setVisible(False)
         self.act_update_sep.setVisible(False)
+        # grouped as the window's sidebar is: open it; the Files tools; the screen and quick tools; what's
+        # running; the app itself
         act_open = menu.addAction(tr("Open Rakiza Core"), self.show_window)
-        act_settings = menu.addAction(tr("Settings"), lambda: self.show_window("General"))
+        f = act_open.font()
+        f.setBold(True)
+        act_open.setFont(f)
+        menu.setDefaultAction(act_open)
+        self.tray_groups = [menu.addSeparator()]
         self.act_paste = menu.addAction(tr("Convert what's copied"), self.paste)
         self.act_archive = menu.addAction(tr("Open an archive…"), self.choose_archive)
+        self.act_again = menu.addAction(tr("Do it again…"), self.do_again)
+        menu.aboutToShow.connect(self._update_again_action)
+        self.recent_menu = menu.addMenu(tr("Recent files"))
+        self.recent_menu.aboutToShow.connect(self._fill_recent)
+        self.tray_groups.append(menu.addSeparator())
         self.act_clip = menu.addAction(tr("Clipboard history"), lambda: self.show_clipboard(from_tray=True))
         self.act_shot = menu.addAction(tr("Take a screenshot"), lambda: self.capture and self.capture.screenshot())
         self.act_shot_later = menu.addAction(tr("Screenshot with a timer"),
                                              lambda: self.capture and self.capture.screenshot_later())
         self.act_color = menu.addAction(tr("Pick a colour"), lambda: self.colors and self.colors.pick())
         self.act_quick = menu.addAction(tr("Quick menu"), lambda: self.quick and self.quick.toggle_menu())
-        self.menu_icons = [(act_open, "home"), (act_settings, "settings"), (self.act_paste, "arrow_swap"),
-                           (self.act_archive, "archive"), (self.act_clip, "clipboard"), (self.act_shot, "screenshot"),
-                           (self.act_shot_later, "timer"), (self.act_quick, "layout"), (self.act_color, "color")]
-        self.act_again = menu.addAction(tr("Do it again…"), self.do_again)
-        menu.aboutToShow.connect(self._update_again_action)
-        self.recent_menu = menu.addMenu(tr("Recent files"))
-        self.menu_icons += [(self.act_again, "arrow_sync"), (self.recent_menu.menuAction(), "history")]
-        self.recent_menu.aboutToShow.connect(self._fill_recent)
+        self.tray_groups.append(menu.addSeparator())
         self.act_pause = menu.addAction(tr("Pause the Converter"))
         self.act_pause.setCheckable(True)
         self.act_pause.setChecked(not self.settings.enabled)
         self.act_pause.toggled.connect(lambda paused: self.set_enabled(not paused))
         self.act_cancel = menu.addAction(tr("Stop all conversions"), self.cancel_all)
         self.act_cancel.setVisible(False)
-        self.menu_icons.append((menu.addAction(tr("Check for updates"), lambda: self.check_updates(manual=True)),
-                                "arrow_download"))
-        self.menu_icons.append((self.act_update, "arrow_download"))
+        self.tray_groups.append(menu.addSeparator())
+        act_settings = menu.addAction(tr("Settings"), lambda: self.show_window("General"))
+        self.act_settings = act_settings
+        act_check = menu.addAction(tr("Check for updates"), lambda: self.check_updates(manual=True))
         menu.addSeparator()
-        menu.addAction(tr("Quit"), self.ask_quit)
+        act_quit = menu.addAction(tr("Quit"), self.ask_quit)
+        self.menu_icons = [(act_open, "home"), (self.act_paste, "arrow_swap"), (self.act_archive, "archive"),
+                           (self.act_again, "arrow_sync"), (self.recent_menu.menuAction(), "history"),
+                           (self.act_clip, "clipboard"), (self.act_shot, "screenshot"), (self.act_shot_later, "timer"),
+                           (self.act_color, "color"), (self.act_quick, "layout"), (self.act_pause, "pause"),
+                           (self.act_cancel, "dismiss"), (act_settings, "settings"), (act_check, "arrow_download"),
+                           (self.act_update, "arrow_download"), (act_quit, "power")]
+        menu.aboutToShow.connect(self._tray_tidy)  # (after "Do it again" knows whether it shows)
         old, self.menu = self.menu, menu
         for m in (menu, self.recent_menu):
             round_menu(m)
@@ -995,6 +1007,27 @@ class Controller(QObject):
         self.act_shot_later.setVisible(self.capture is not None)
         self.act_color.setVisible(self.colors is not None)
         self.act_quick.setVisible(self.quick is not None and self.settings.quick_menu)
+        self._tray_tidy()
+
+    def _tray_tidy(self):
+        """No line between two groups with nothing to show between them (a group whose tools are all off)."""
+        menu = getattr(self, "menu", None)
+        if menu is None or not getattr(self, "tray_groups", None):
+            return
+        acts = menu.actions()
+
+        def shown(a) -> bool:
+            return not a.isSeparator() and a.isVisible() and a is not self.act_update
+        for sep in self.tray_groups:
+            if sep not in acts:
+                continue
+            i = acts.index(sep)
+            after = []
+            for a in acts[i + 1:]:
+                if a.isSeparator():
+                    break
+                after.append(a)
+            sep.setVisible(any(shown(a) for a in acts[:i]) and any(shown(a) for a in after))
 
     def _background_tools(self):
         self._rest_paused_tools()

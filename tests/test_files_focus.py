@@ -159,9 +159,10 @@ def test_no_background_work_of_resting_tools(controller):
 
 def test_resting_pages_open_their_section_whatever_asks(controller):
     w = controller.window
-    for name, shown in (("Capture", "Media"), ("CaptureSettings", "Media"), ("Startup", "Computer"),
-                        ("Scan", "Computer"), ("Clipboard", "QuickTools"), ("Quick", "QuickTools"),
-                        ("ViewerSettings", "Media")):
+    # (a section resting for now is on Coming soon, with the other resting sections)
+    for name, shown in (("Capture", "Soon"), ("CaptureSettings", "Soon"), ("Startup", "Computer"),
+                        ("Scan", "Computer"), ("Clipboard", "Soon"), ("Quick", "Soon"),
+                        ("ViewerSettings", "Soon"), ("Media", "Soon")):
         w.open_page(name)
         assert w.current_page() == shown, name
     for name in ("Converter", "PDF", "Archives", "Organizer", "Unlock", "Cloud", "Updates", "About", "History",

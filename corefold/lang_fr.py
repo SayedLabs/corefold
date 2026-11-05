@@ -3336,4 +3336,5 @@ STRINGS: dict[str, str] = {
     "the biggest picture": "la plus grande image",
     "{count} groups of photos look alike. Keeping only one of each would free {size}.": "{count} groupes de photos se ressemblent. N'en garder qu'une de chaque libérerait {size}.",
     "Changed {when}": "Modifié {when}",
+    "A new version is ready": "Une nouvelle version est prête",
 }

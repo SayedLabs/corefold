@@ -458,7 +458,7 @@ class AwakeTool(QObject):
             self.choice_actions.append(act)
         menu.aboutToShow.connect(self._fill_tray_menu)
         tray_menu = self.c.menu
-        before = getattr(self.c, "act_again", None)
+        before = getattr(self.c, "act_pause", None)  # (with what keeps running: the Converter paused or not)
         if before is not None and before in tray_menu.actions():
             tray_menu.insertMenu(before, menu)
         else:

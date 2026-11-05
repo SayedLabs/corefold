@@ -18,7 +18,7 @@ from . import UPDATE_REPO, __version__, i18n, icons, sheet, winutil
 from . import tools as all_tools
 from . import settings as settings_mod
 from .converters import CATEGORY_NAMES, catalog, human_size
-from .core import short_name
+from .core import PUBLISHER as FAMILY_NAME, short_name
 from .i18n import LANGUAGES, tr
 from .panel import DropZone, FilePanel, choose_files
 from .settings import (ACCENTS, APP_NAME, DEFAULT_ACCENT, APPEARANCES, HOVER_STYLES, LABEL_STYLES, LOG_DIR, MENU_STYLES,
@@ -34,7 +34,7 @@ from .settings import (ACCENTS, APP_NAME, DEFAULT_ACCENT, APPEARANCES, HOVER_STY
 from .atomic.widgets import Dropdown, Switch, keep_wrapped_text, mark_rows
 from .theme import Theme, round_menu
 from .timefmt import date_text, locale, number, time_ago  # noqa: F401 (used by other pages)
-from .navbar import BADGE_ROLE, ICON_ROLE
+from .navbar import BADGE_ROLE, DOT, ICON_ROLE, KIND_ROLE
 from .wheel import WheelPreview
 from .winutil import memory_use, reveal_in_explorer, set_title_bar_dark
 
@@ -46,12 +46,15 @@ if TYPE_CHECKING:
 _TOOL_SETTINGS_PAGES = [p for tool in all_tools.TOOLS for p in tool.settings_pages]
 SECTION_PAGES = [sec.page for sec in all_tools.SECTIONS]
 PAGES = ["Home", "History", *SECTION_PAGES, *[tool.page for tool in all_tools.TOOLS], "General", "Look", "Quick",
-         "Shortcuts", *_TOOL_SETTINGS_PAGES, "Updates", "About"]
+         "Shortcuts", *_TOOL_SETTINGS_PAGES, "Updates", "About", "Soon"]
 # tools still being made: page -> product tile (in the order they're planned)
 SOON = {tool.page: tool.product for tool in all_tools.coming()}
-# the sidebar's fixed rows (the sections go under "Tools", in the person's order) and its names
-NAV = ["Home", (None, "Tools"), (None, "App"), "History", "General", "Updates", "About"]
-NAV_LABELS = {"General": "Settings", **{tool.page: tool.nav for tool in all_tools.TOOLS},
+# the sidebar: Home, then the sections in use in the person's order (the open one with its tools under it),
+# one row for the sections resting for now, and at the bottom History, Settings and About (with Updates)
+NAV_TOP = ["Home"]
+NAV_BOTTOM = ["History", "General", "About"]
+NAV = [*NAV_TOP, "Soon", *NAV_BOTTOM]
+NAV_LABELS = {"General": "Settings", "Soon": "Coming soon", **{tool.page: tool.nav for tool in all_tools.TOOLS},
               **{sec.page: sec.name for sec in all_tools.SECTIONS}}
 # Settings: a tab for the whole app and one for each tool someone uses. A tab with several pages
 # shows them as smaller tabs underneath.
@@ -66,7 +69,7 @@ SETTINGS_PAGES = ["General", "Look", "Quick", "Shortcuts", *_TOOL_SETTINGS_PAGES
 TOOL_SETTINGS = {tool.page: tool.settings for tool in all_tools.TOOLS if tool.settings}
 # pages without a sidebar row of their own: the row that's lit (a tool lights its section)
 NAV_OWNER = {**{tool.page: all_tools.SECTION_OF[tool.id].page for tool in all_tools.TOOLS},
-             **{name: "General" for name in SETTINGS_PAGES if name != "General"}}
+             **{name: "General" for name in SETTINGS_PAGES if name != "General"}, "Updates": "About"}
 # a tool's own Settings pages -> the tool (a tool resting for now: its Settings pages rest too)
 SETTINGS_TOOL = {p: tool for tool in all_tools.TOOLS for p in tool.settings_pages}
 # pages from before the sections, still asked for by name (an old quick menu, the command line)
@@ -74,14 +77,14 @@ OLD_PAGES = {"Store": "Home"}
 PAGE_ICONS = {"Home": "home", "General": "settings", "Look": "paint_brush", "Quick": "layout",  # icons.py
               "Shortcuts": "keyboard",
               "Formats": "puzzle_piece",
-              "History": "history", "Updates": "arrow_sync", "About": "info",
+              "History": "history", "Updates": "arrow_sync", "About": "info", "Soon": "sparkle",
               **{tool.page: tool.icon for tool in all_tools.TOOLS},
               **{sec.page: sec.icon for sec in all_tools.SECTIONS}}
 # pages that are only words and settings: when out of sight they make way before a new look (and are made
 # again, quickly, when they're opened)
 # made a moment after the window opens (see _warm_next): slow to make, and opened often
 WARM_PAGES = ("PDF",)
-REMADE_PAGES = {*SETTINGS_PAGES, *SECTION_PAGES, "History", "Updates", "About"}
+REMADE_PAGES = {*SETTINGS_PAGES, *SECTION_PAGES, "History", "Updates", "About", "Soon"}
 # the words Ctrl + K finds on each Settings page, kept for pages that aren't made yet (per version and language)
 SETTING_WORDS = LOG_DIR / "setting-words.json"
 
@@ -717,43 +720,41 @@ class MainWindow(QWidget):
         self.logo = QLabel()
         self.logo.setPixmap(icon.pixmap(28, 28))
         self.brand = label(APP_NAME, "brand")
+        # the family the app belongs to, in its own gold under the name (in Latin letters in every language)
+        self.family = label(FAMILY_NAME.upper(), "family")
+        f = self.family.font()
+        f.setLetterSpacing(QFont.AbsoluteSpacing, 1.4)
+        self.family.setFont(f)
+        names = QVBoxLayout()
+        names.setSpacing(0)
+        names.setContentsMargins(0, 0, 0, 0)
+        names.addWidget(self.brand)
+        names.addWidget(self.family)
+        self.brand_names = QWidget()
+        self.brand_names.setLayout(names)
         brand = QHBoxLayout()
         brand.setSpacing(8)
         brand.setContentsMargins(0, 0, 0, 0)
         brand.addWidget(self.menu_btn)
         brand.addWidget(self.logo)
-        brand.addWidget(self.brand)
+        brand.addWidget(self.brand_names)
         brand.addStretch()
         # the tools this person uses (switched on in their section; nothing of the others is built), and
         # the sections in the sidebar, in the order they were dragged into
         self.tools_on = all_tools.enabled(self.c.settings)
         on_pages = {tool.page for tool in self.tools_on}
         self.sections = all_tools.sections(self.c.settings)
-        self.nav_entries = NAV[:2] + [sec.page for sec in self.sections] + NAV[2:]
         self.settings_tab_list = _base_tabs() + [(tool.settings, tool.nav, list(tool.settings_pages))
                                                 for tool in self.tools_on if tool.settings]
         from .navbar import EdgeHandle, NavList
         self.nav = NavList(lambda: self.c.theme, self.c.settings.sidebar_icons, self.c.settings.animations)
-        self.nav_rows: list[str | None] = []   # sidebar row -> page name (None for a heading)
+        self.nav_rows: list[str | None] = []   # sidebar row -> page name (None for a line or the room)
         self.nav.ensurePolished()
-        row_h = max(36, self.nav.fontMetrics().height() + 18)  # compact rows, so every page fits
-        for entry in self.nav_entries:
-            item = QListWidgetItem()
-            if isinstance(entry, tuple):
-                item.setFlags(Qt.NoItemFlags)
-                item.setSizeHint(QSize(0, row_h - 6))
-                self.nav_rows.append(None)
-            else:
-                item.setSizeHint(QSize(0, row_h))
-                item.setData(Qt.UserRole, entry)
-                self.nav_rows.append(entry)
-            self.nav.addItem(item)
-        first_section = 2
-        self.nav.movable = (first_section, first_section + len(self.sections) - 1)
+        self._row_h = max(36, self.nav.fontMetrics().height() + 18)  # compact rows, so every page fits
         self.nav.setIconSize(icons.ICON_SIZE)
-        self.nav.moved.connect(self._nav_moved)
         self.nav.menu.connect(self._nav_menu)
-        self.refresh_nav()
+        self.nav.resized.connect(self._fit_nav_room)
+        self._fill_nav()
         side = QVBoxLayout(sidebar)
         side.setContentsMargins(10, 12, 8, 12)
         side.setSpacing(12)
@@ -787,6 +788,7 @@ class MainWindow(QWidget):
                     "Unlock": self._unlock,
                     "Awake": self._awake,
                     "Shortcuts": self._shortcuts,
+                    "Soon": self._soon_sections,
                     "Colors": self._colors,
                     **{sec.page: (lambda sec=sec: self._section(sec)) for sec in all_tools.SECTIONS},
                     }
@@ -812,7 +814,7 @@ class MainWindow(QWidget):
         self.colors_page = None
         self._unbuilt = {"Apps", *SECTION_PAGES, "Viewer", "Clipboard", "Space", "Capture", "Cloud", "Player", "PDF",
                          "Organizer", "Startup", "Scan", "Unlock", "Awake", "Colors", "Archives", "History",
-                         "Updates", "About", *SETTINGS_PAGES, *SOON,
+                         "Updates", "About", "Soon", *SETTINGS_PAGES, *SOON,
                          *[tool.page for tool in all_tools.TOOLS if tool.page not in on_pages and tool.page != "Converter"]}
         self._made("heads")
         for name in PAGES:
@@ -986,26 +988,126 @@ class MainWindow(QWidget):
         mark_rows(root or self)  # (hairlines between settings rows that follow each other)
         keep_wrapped_text(root or self)
 
+    def _nav_uses(self, sec) -> list:
+        """The tools in use that show under a section in the sidebar (none for a section that is one tool on its
+        own, like Cloud: its row opens it)."""
+        if sec.direct:
+            return []
+        return [tool for tool in self.tools_on if all_tools.SECTION_OF[tool.id] is sec]
+
+    def _fill_nav(self):
+        """The sidebar's rows: Home, a line, the sections in use (each with its tools, shown while it's open),
+        Coming soon, the room, then History, Settings and About. Made again when the sections change order."""
+        nav, row_h = self.nav, self._row_h
+        nav.blockSignals(True)  # (filling the list isn't opening a page)
+        nav.clear()
+        self.nav_rows = []
+
+        def add(name: str | None, kind: str, height: int):
+            item = QListWidgetItem()
+            if name is None:
+                item.setFlags(Qt.NoItemFlags)
+            else:
+                item.setData(Qt.UserRole, name)
+            item.setData(KIND_ROLE, kind)
+            item.setSizeHint(QSize(0, height))
+            nav.addItem(item)
+            self.nav_rows.append(name)
+        for name in NAV_TOP:
+            add(name, "page", row_h)
+        add(None, "line", 13)
+        for sec in self.sections:
+            if all_tools.section_paused(sec):
+                continue
+            uses = self._nav_uses(sec)
+            add(sec.page, "section" if uses else "page", row_h)
+            for tool in uses:
+                add(tool.page, "tool", row_h - 4)
+        if any(all_tools.section_paused(sec) for sec in self.sections):
+            add("Soon", "page", row_h)
+        add(None, "space", 0)
+        for name in NAV_BOTTOM:
+            add(name, "page", row_h)
+        nav.movable = (0, -1)  # (sections are moved from their menu: Move up, Move down)
+        nav.blockSignals(False)
+        self.refresh_nav()
+        self._sync_nav_rows(self.current_page() if hasattr(self, "stack") else "Home")
+
+    def _sync_nav_rows(self, name: str):
+        """The section of this page shows its tools under it (the others don't, and none do while only icons
+        show), the right row is lit, and History, Settings and About stay at the bottom."""
+        from .navbar import OPEN_ROLE
+        nav = self.nav
+        compact = self._compact_now()
+        owner = NAV_OWNER.get(name, name)
+        open_sec = owner if owner in all_tools.SECTION_BY_PAGE else None
+        changed = False
+        for row in range(nav.count()):
+            item = nav.item(row)
+            kind = item.data(KIND_ROLE)
+            if kind == "tool":
+                hide = compact or NAV_OWNER.get(item.data(Qt.UserRole)) != open_sec
+                if nav.isRowHidden(row) != hide:
+                    nav.setRowHidden(row, hide)
+                    changed = True
+            elif kind == "section":
+                item.setData(OPEN_ROLE, item.data(Qt.UserRole) == open_sec and not compact)
+        if changed:
+            nav.doItemsLayout()  # (the rows' places now, for the pill)
+        self._fit_nav_room()
+        row = self._nav_row(name)
+        if row >= 0 and nav.currentRow() != row and hasattr(self, "stack") and self.current_page() == name:
+            nav.blockSignals(True)  # (only the light moves: the page is open already)
+            nav.setCurrentRow(row)
+            nav.blockSignals(False)
+        nav._slide_mark(nav.currentRow())
+        nav.viewport().update()
+
+    def _nav_row(self, name: str) -> int:
+        """The sidebar row lit for this page: its own when it shows, else the row it belongs under."""
+        if name in self.nav_rows and not self.nav.isRowHidden(self.nav_rows.index(name)):
+            return self.nav_rows.index(name)
+        owner = NAV_OWNER.get(name, name)
+        return self.nav_rows.index(owner) if owner in self.nav_rows else -1
+
+    def _fit_nav_room(self):
+        """The room above History, Settings and About: whatever the rows above leave (none when they don't all
+        fit, and the list scrolls)."""
+        nav = self.nav
+        room_row, used = -1, 0
+        for row in range(nav.count()):
+            item = nav.item(row)
+            if item.data(KIND_ROLE) == "space":
+                room_row = row
+            elif not nav.isRowHidden(row):
+                used += item.sizeHint().height()
+        if room_row < 0:
+            return
+        room = max(0, nav.viewport().height() - used - 1)
+        item = nav.item(room_row)
+        if item.sizeHint().height() != room:
+            item.setSizeHint(QSize(0, room))
+            nav.doItemsLayout()
+            nav._mark_y = None
+            nav.viewport().update()
+
     def refresh_nav(self):
         t = self.c.theme
         self.nav.show_icons = self.c.settings.sidebar_icons
         compact = self._compact_now()
-        for row, entry in enumerate(self.nav_entries):  # (headings never move)
-            if isinstance(entry, tuple):
-                self.nav.item(row).setText(tr(entry[1]))
-        for row in range(self.nav.count()):  # (tools can have been dragged: go by each row's own page)
+        for row in range(self.nav.count()):
             item = self.nav.item(row)
             name = item.data(Qt.UserRole)
             if name:
-                text = tr(NAV_LABELS.get(name, name))
+                tool = all_tools.BY_PAGE.get(name)
+                # (a tool under its section by the name its section's page gives it: "Convert" under Files)
+                text = tr(tool.use or tool.nav) if tool is not None and item.data(KIND_ROLE) == "tool" \
+                    else tr(NAV_LABELS.get(name, name))
                 item.setText(text)
                 item.setData(ICON_ROLE, PAGE_ICONS[name])
                 item.setToolTip(self._nav_tip(name, text, compact))
-                if name == "Updates":
-                    item.setData(BADGE_ROLE, tr("New") if self.c.update_waiting() else None)
-                elif name in all_tools.SECTION_BY_PAGE:  # (a section resting for now says so)
-                    item.setData(BADGE_ROLE, tr("Soon") if all_tools.section_paused(all_tools.SECTION_BY_PAGE[name])
-                                 else None)
+                if name == "About":  # (a new version waiting: a dot, and its page has the button)
+                    item.setData(BADGE_ROLE, DOT if self.c.update_waiting() else None)
         self.menu_btn.setIcon(icons.icon("navigation", t.text))
         self.menu_btn.setToolTip(tr("Show the names") if compact else tr("Icons only"))
         self.nav.viewport().update()
@@ -1014,8 +1116,12 @@ class MainWindow(QWidget):
         """A sidebar row's tooltip: a section's tools in use (and its name when only icons show)."""
         sec = all_tools.SECTION_BY_PAGE.get(name)
         tools = ", ".join(tr(t.nav) for t in self.tools_on if sec is not None and all_tools.SECTION_OF[t.id] is sec)
-        if sec is not None and all_tools.section_paused(sec):
-            tools = tr("Coming back soon")
+        if name == "Soon":
+            tools = ", ".join(tr(sec.name) for sec in self.sections if all_tools.section_paused(sec))
+        elif name == "About" and self.c.update_waiting():
+            tools = tr("A new version is ready")
+        elif sec is not None and not compact and self._nav_uses(sec):
+            tools = ""  # (its tools are right under it)
         if compact:
             return f"{text}: {tools}" if tools else text
         return tools
@@ -1025,8 +1131,15 @@ class MainWindow(QWidget):
     def _apply_nav_width(self, width: int):
         self.sidebar.setFixedWidth(width)
         compact = width < COMPACT_NAV + 40
-        for w in (self.logo, self.brand, self.version_label):
+        for w in (self.logo, self.brand_names, self.version_label):
             w.setVisible(not compact)
+        if compact != getattr(self, "_rows_compact", None):  # (a section's tools show only with the names)
+            self._rows_compact = compact
+            if hasattr(self, "stack"):
+                here = self.current_page()
+                self._sync_nav_rows(here)
+                self._sync_section_strip(here)
+                self._fit_one_head()
 
     def _fade_in(self, i: int):
         """A page that's opened fades in while it rises the last few pixels into place (quickly), so moving
@@ -1092,14 +1205,21 @@ class MainWindow(QWidget):
     def _nav_released(self):
         self.c.settings_changed()
 
-    def _nav_moved(self, pages: list):
-        """Sections dragged into a new order: remembered, and the Home page and Settings follow it."""
-        self.c.settings.section_order = [all_tools.SECTION_BY_PAGE[p].id for p in pages
-                                         if p in all_tools.SECTION_BY_PAGE]
+    def _move_section(self, page: str, step: int):
+        """A section moved up or down one place (from its menu): remembered, and the sidebar, the Home page and
+        Settings follow it. Sections resting for now keep their place after the others."""
+        ids = [sec.id for sec in self.sections if not all_tools.section_paused(sec)]
+        sec_id = all_tools.SECTION_BY_PAGE[page].id
+        i = ids.index(sec_id)
+        j = i + step
+        if not 0 <= j < len(ids):
+            return
+        ids[i], ids[j] = ids[j], ids[i]
+        self.c.settings.section_order = ids + [sec.id for sec in self.sections if all_tools.section_paused(sec)]
         self.c.settings_changed()
-        self.nav_rows = [self.nav.item(r).data(Qt.UserRole) for r in range(self.nav.count())]
         self.sections = all_tools.sections(self.c.settings)
         self.tools_on = all_tools.enabled(self.c.settings)
+        self._fill_nav()
         # (the Settings list groups the tools by section, in the sidebar's order too)
         self.settings_tab_list = _base_tabs() + [(tool.settings, tool.nav, list(tool.settings_pages))
                                                 for tool in self.tools_on if tool.settings]
@@ -1180,7 +1300,7 @@ class MainWindow(QWidget):
             elif self.built(name):
                 self._drop_page(name)
         self._rebuild_home()
-        self.refresh_nav()  # (the sections' tooltips list their tools)
+        self._fill_nav()  # (a section's tools under it in the sidebar)
         self._sync_settings_head(here)
         self.update_save_bar()
         if self._direct_page(here) != here:  # (one tool on its own, switched on on its page: the tool itself)
@@ -1209,12 +1329,14 @@ class MainWindow(QWidget):
         from .theme import round_menu
         menu = QMenu(self)
         round_menu(menu)
-        if self.nav.can_drag(row):
-            first, last = self.nav.movable
-            up = menu.addAction(tr("Move up"), lambda: self.nav.move_by(row, -1))
-            up.setEnabled(row > first)
-            down = menu.addAction(tr("Move down"), lambda: self.nav.move_by(row, 1))
-            down.setEnabled(row < last)
+        page_name = self.nav_rows[row] if 0 <= row < len(self.nav_rows) else None
+        sec = all_tools.SECTION_BY_PAGE.get(page_name)
+        if sec is not None and not all_tools.section_paused(sec):
+            ids = [s.id for s in self.sections if not all_tools.section_paused(s)]
+            up = menu.addAction(tr("Move up"), lambda: self._move_section(page_name, -1))
+            up.setEnabled(ids.index(sec.id) > 0)
+            down = menu.addAction(tr("Move down"), lambda: self._move_section(page_name, 1))
+            down.setEnabled(ids.index(sec.id) < len(ids) - 1)
             menu.addAction(tr("Put the sections back in order"), self._reset_nav_order)
             menu.addSeparator()
         menu.addAction(tr("Show the names") if self._compact_now() else tr("Icons only"), self.toggle_nav)
@@ -1428,6 +1550,7 @@ class MainWindow(QWidget):
         elif name == "Updates":
             self.refresh_updates()
         elif name == "About":
+            self.about_updates_btn.setIcon(icons.icon("arrow_sync", t.text))
             for b, icon in getattr(self, "link_buttons", []):
                 b.setIcon(icons.icon(icon, t.on_accent if b.objectName() == "primary" else t.text))
         elif name == "CaptureSettings":
@@ -1463,6 +1586,7 @@ class MainWindow(QWidget):
         self._build_page(name)
         self.stack.setCurrentIndex(PAGES.index(name))
         self._sync_settings_head(name)
+        self._sync_nav_rows(name)
         if os.environ.get("COREFOLD_MEMLOG"):
             winutil.log_memory(f"page {name}")
             QTimer.singleShot(2500, lambda n=name: winutil.log_memory(f"page {n}, 2.5 s later"))
@@ -1864,7 +1988,7 @@ class MainWindow(QWidget):
         commands.append(Command(tr("Add a widget"), actions, ic("add"), self._home_add_widget,
                                 keywords=tr("Widgets") + " " + tr("Customize") + " widget home"))
         # pages: the sidebar's, and each tool in use (straight to it, whatever its section)
-        for name in [n for n in self.nav_rows if n] + [tool.page for tool in self.tools_on]:
+        for name in dict.fromkeys([n for n in self.nav_rows if n] + [tool.page for tool in self.tools_on]):
             sec = all_tools.SECTION_BY_PAGE.get(name)
             commands.append(Command(tr(NAV_LABELS.get(name, name)), go, ic(PAGE_ICONS.get(name, "apps")),
                                     lambda n=name: self.open_page(n),
@@ -2099,7 +2223,16 @@ class MainWindow(QWidget):
     def _resting_section(self, sec) -> QWidget:
         """A section resting for now (tools.PAUSED_SECTIONS): what its tools do and that they're coming back,
         with nothing to switch on or start."""
-        from .atomic.widgets import ResponsiveGrid
+        return self._resting_sections([sec])
+
+    def _soon_sections(self) -> QWidget:
+        """Coming soon (one row in the sidebar): every section resting for now, one after the other."""
+        return self._resting_sections([sec for sec in self.sections if all_tools.section_paused(sec)],
+                                      tr("Coming soon"))
+
+    def _resting_sections(self, secs: list, title: str = "") -> QWidget:
+        """The page of sections resting for now: a section alone under its own heading, or several under one
+        title, each with its heading."""
         dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
 
         def wrapped(text: str, name: str | None = None) -> QLabel:
@@ -2107,9 +2240,13 @@ class MainWindow(QWidget):
             words = label(text, name, wrap=True)
             words.setContentsMargins(2, 0, 2, 0)
             return words
-        w, lay = page(tr(sec.name))
-        lay.itemAt(0).widget().hide()  # shown in the heading with the tile instead
-        lay.addLayout(tool_header(sec.product, tr(sec.name), tr(sec.line), dark, dpr, pill=tr("Coming back soon")))
+        w, lay = page(title or (tr(secs[0].name) if secs else ""))
+        if not title:
+            lay.itemAt(0).widget().hide()  # shown in the heading with the tile instead
+        if len(secs) == 1 and not title:
+            sec = secs[0]
+            lay.addLayout(tool_header(sec.product, tr(sec.name), tr(sec.line), dark, dpr,
+                                      pill=tr("Coming back soon")))
         note, nl = card(4)
         nl.addWidget(label(tr("These tools are being made better"), "h2", wrap=True))
         nl.addWidget(wrapped(tr("For now Rakiza Core puts its effort into the Files tools, so each one works really "
@@ -2118,6 +2255,24 @@ class MainWindow(QWidget):
         nl.addWidget(wrapped(tr("Nothing was removed: your settings and what these tools kept for you stay on your "
                               "PC, ready for when they're back."), "muted"))
         lay.addWidget(note)
+        for sec in secs:
+            self._resting_tools(sec, lay, heading=bool(title))
+        lay.addStretch()
+        return w
+
+    def _resting_tools(self, sec, lay, heading: bool):
+        """A resting section's tools, as cards (under the section's heading on Coming soon)."""
+        from .atomic.widgets import ResponsiveGrid
+        dark, dpr = self.c.theme.dark, self.devicePixelRatioF()
+
+        def wrapped(text: str, name: str | None = None) -> QLabel:
+            words = label(text, name, wrap=True)
+            words.setContentsMargins(2, 0, 2, 0)
+            return words
+        if heading:
+            lay.addSpacing(6)
+            lay.addLayout(tool_header(sec.product, tr(sec.name), tr(sec.line), dark, dpr,
+                                      pill=tr("Coming back soon")))
         grid = ResponsiveGrid(300, 12, 2)
         for tool in all_tools.in_section(self.c.settings, sec):
             box, bl = card(8)
@@ -2146,8 +2301,6 @@ class MainWindow(QWidget):
         if later:
             lay.addWidget(label(tr("Also planned here: {names}.", names=", ".join(tr(t.nav) for t in later)),
                                 "subtle", wrap=True))
-        lay.addStretch()
-        return w
 
     def _tool_switched(self, card: "ToolSwitchCard", on: bool):
         """A tool's switch on its section's page."""
@@ -2252,6 +2405,9 @@ class MainWindow(QWidget):
         show = self._one_tool_of(name) is not None and not editing
         if show != self.one_head.isVisibleTo(self):
             self.one_head.setVisible(show)
+        bar = self.one_head.bar
+        if bar is not None and _alive(bar) and bar.isVisibleTo(self.one_head) != self._compact_now():
+            bar.setVisible(self._compact_now())  # (with the names showing, its uses are in the sidebar)
         if show:
             m = self.canvas.layout().contentsMargins()
             self.one_head.fit(self.canvas.width() - m.left() - m.right())
@@ -2273,8 +2429,9 @@ class MainWindow(QWidget):
         sec = all_tools.SECTION_BY_PAGE.get(NAV_OWNER.get(name, name))
         if sec is not None and (sec.direct or (sec.one_tool and not all_tools.section_paused(sec))):
             sec = None  # (one tool on its own, or its uses are on its heading instead)
-        self.section_strip.setVisible(sec is not None)
-        if sec is None:
+        # (with the names showing, the section's tools are in the sidebar right under it: no strip)
+        self.section_strip.setVisible(sec is not None and self._compact_now())
+        if sec is None or not self._compact_now():
             return
         if sec is not self.strip_section:
             self.strip_section = sec
@@ -3937,6 +4094,26 @@ class MainWindow(QWidget):
         top.addLayout(text, 1)
         lay.addWidget(hero)
 
+        # updates live here too (the sidebar has one row for both): the version, and a new one when it's waiting
+        up, ul = card(6)
+        head = QHBoxLayout()
+        head.setSpacing(10)
+        words = QVBoxLayout()
+        words.setSpacing(2)
+        self.about_update_title = label("", "h2", wrap=True)
+        self.about_update_line = label("", "muted", wrap=True)
+        words.addWidget(self.about_update_title)
+        words.addWidget(self.about_update_line)
+        head.addLayout(words, 1)
+        self.about_update_btn = button("", "primary", self._about_update_clicked)
+        head.addWidget(self.about_update_btn, 0, Qt.AlignVCenter)
+        self.about_updates_btn = button(tr("Updates"), on_click=lambda: self.open_page("Updates"))
+        self.about_updates_btn.setIcon(icons.icon("arrow_sync", self.c.theme.text))
+        head.addWidget(self.about_updates_btn, 0, Qt.AlignVCenter)
+        ul.addLayout(head)
+        lay.addWidget(up)
+        self._fill_about_update()
+
         if UPDATE_REPO:
             owner, _, name = UPDATE_REPO.partition("/")
             links, ll = card()
@@ -4387,11 +4564,39 @@ class MainWindow(QWidget):
         waiting = self.c.update_waiting()
         for row in range(self.nav.count()):
             item = self.nav.item(row)
-            if item.data(Qt.UserRole) == "Updates":
-                item.setData(BADGE_ROLE, tr("New") if waiting else None)
+            if item.data(Qt.UserRole) == "About":
+                item.setData(BADGE_ROLE, DOT if waiting else None)
+                item.setToolTip(self._nav_tip("About", item.text(), self._compact_now()))
         self.nav.viewport().update()
+        if self.built("About"):
+            self._fill_about_update()
         if self.built("Home"):
             self._fill_update_banner()
+
+    def _fill_about_update(self):
+        """About's line on updates: a new version waiting (with its button), or the version you have."""
+        info = self.c.update_info
+        if self.c.update_waiting():
+            self.about_update_title.setText(tr("Rakiza Core {version} is available", version=info.version))
+            self.about_update_line.setText(tr("One click to update. Your settings are kept."))
+            self.about_update_btn.setText(tr("Update now") if self.c.can_self_install() else tr("Open download page"))
+            self.about_update_btn.setObjectName("primary")
+            self.about_update_btn.show()
+        else:
+            self.about_update_title.setText(tr("You have version {version}", version=__version__))
+            self.about_update_line.setText(tr("Rakiza Core can update itself, so you never have to download it again."))
+            self.about_update_btn.setText(tr("Check now"))
+            self.about_update_btn.setObjectName("")
+            self.about_update_btn.setVisible(self.c.updates_supported())
+        self.about_update_btn.style().unpolish(self.about_update_btn)
+        self.about_update_btn.style().polish(self.about_update_btn)
+
+    def _about_update_clicked(self):
+        if self.c.update_waiting():
+            self.c.start_update()
+        else:  # (to the Updates page, which says how the check went)
+            self.open_page("Updates")
+            self.c.check_updates(manual=True)
 
     def _fill_update_banner(self):
         info = self.c.update_info
@@ -4546,12 +4751,16 @@ class MainWindow(QWidget):
         tool = all_tools.BY_PAGE.get(name)
         if tool is not None and tool.ready and tool not in self.tools_on:  # (switched off): its section,
             name = NAV_OWNER[name]                                          # where it can be switched on
-        owner = NAV_OWNER.get(name, name)
-        if owner not in self.nav_rows:  # (a page that isn't there): nothing changes, or Home on opening
+        sec = all_tools.SECTION_BY_PAGE.get(name)
+        if sec is not None and all_tools.section_paused(sec):  # (a section resting for now: with the others)
+            name = "Soon"
+        self._sync_nav_rows(name)  # (its section open first, so the tool's own row shows)
+        row = self._nav_row(name)
+        if row < 0:  # (a page that isn't there): nothing changes, or Home on opening
             if self.nav.currentRow() < 0 and name != "Home":
                 self.open_page("Home")
             return
-        row = self.nav_rows.index(owner)
+        owner = self.nav_rows[row]
         self._opening = name if name != owner else None
         try:
             if self.nav.currentRow() == row:
@@ -4580,7 +4789,8 @@ class MainWindow(QWidget):
             name = self._went.pop()
             tool = all_tools.BY_PAGE.get(name)
             gone = (tool is not None and tool.ready and tool not in self.tools_on) or page_rests(name) is not None
-            if NAV_OWNER.get(name, name) in self.nav_rows and name != self.current_page() and not gone:
+            if (name in self.nav_rows or NAV_OWNER.get(name, name) in self.nav_rows) and name != self.current_page() \
+                    and not gone:
                 self._going_back = True
                 try:
                     self.open_page(name)
