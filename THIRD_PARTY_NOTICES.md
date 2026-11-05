@@ -15,6 +15,9 @@ Corefold is listed in `COMPONENT-VERSIONS.txt` next to `Corefold.exe`.
 | pypdfium2 / PDFium | Apache 2.0 / BSD-3 | https://github.com/pypdfium2-team/pypdfium2 |
 | cryptography (PDF passwords) | Apache 2.0 or BSD-3 (your choice) | https://github.com/pyca/cryptography |
 | CFFI (used by cryptography) | MIT | https://github.com/python-cffi/cffi |
+| Paramiko (Cloud: SFTP servers) | LGPL v2.1 | https://github.com/paramiko/paramiko |
+| bcrypt, PyNaCl / libsodium (used by Paramiko) | Apache 2.0 / ISC | https://github.com/pyca/bcrypt · https://github.com/pyca/pynacl |
+| Invoke (used by Paramiko) | BSD-2 | https://github.com/pyinvoke/invoke |
 | zxing-cpp | Apache 2.0 | https://github.com/zxing-cpp/zxing-cpp |
 | 7-Zip (`7zip\7z.exe`, `7z.dll`), a separate program Corefold runs for archives | GNU LGPL, with the unRAR restriction (see `7zip\7-ZIP-License.txt`): the RAR code may only be used to open RAR files, not to make them | https://www.7-zip.org |
 | zstandard / Zstandard (.tar.zst and .zst archives) | BSD-3 | https://github.com/indygreg/python-zstandard · https://github.com/facebook/zstd |
@@ -33,7 +36,7 @@ Corefold is listed in `COMPONENT-VERSIONS.txt` next to `Corefold.exe`.
   name every library built into it (`ffmpeg-source-build-scripts-<commit>.tar.gz`), plus
   Corefold's own script that picks which of those parts go in (`ffmpeg-source-corefold-build.sh`,
   also `ffmpeg\FFMPEG-BUILD.sh`). The version and commit are also written in `ffmpeg\SOURCE.txt`.
-- **Qt, PySide6, the FFmpeg libraries inside Qt Multimedia and libheif** are used without changes. Their source code for the versions in
+- **Qt, PySide6, the FFmpeg libraries inside Qt Multimedia, libheif and Paramiko** are used without changes. Their source code for the versions in
   `COMPONENT-VERSIONS.txt` is at the links above.
 - **Written offer:** if you can't get any of this source code from those places, ask Atomic Works
   (through the Corefold website or GitHub page) and we will send it to you, for no more than the cost

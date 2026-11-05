@@ -201,6 +201,71 @@ def check_avif(files: list[Path]) -> str | None:
     return None if avif_supported() else tr("This copy of Corefold can't write AVIF")
 
 
+def check_jxl(files: list[Path]) -> str | None:
+    return None if has_encoder("libjxl") else tr("This copy of Corefold can't write JPEG XL")
+
+
+def convert_jxl(src: Path, ctx: Ctx, ext: str = ".jxl") -> Result:
+    """JPEG XL (about half the size of a JPG at the same look, and it keeps see-through parts), made by FFmpeg's
+    libjxl from the picture as Corefold reads it (so HEIC, camera RAW and the rest work too)."""
+    im = load_image(src)
+    out = ctx.out_path(src, ctx.stem(src) + ".jxl")
+    keep = "A" in im.getbands() or im.mode in ("P", "PA")
+    im = im.convert("RGBA" if keep else "RGB")
+    q = int(getattr(ctx.options, "jpg_quality", 90) or 90)
+    distance = max(0.1, min(15.0, (100 - q) / 10))  # (libjxl's "distance": 1 = looks the same)
+    with tempfile.TemporaryDirectory(prefix="corefold-", ignore_cleanup_errors=True) as tmp:
+        middle = Path(tmp) / "picture.png"
+        im.save(middle, compress_level=1)
+        run_ffmpeg(middle, out, ["-frames:v", "1", "-update", "1", "-c:v", "libjxl", "-distance", f"{distance:.1f}",
+                                 "-effort", "7"], ctx, duration=0.0)
+    return Result([out])
+
+
+def optimize_image(src: Path, ctx: Ctx) -> Result:
+    """The same PNG in a smaller file, with not a dot changed: packed tighter, and kept to a palette when it has
+    256 colours or fewer (screenshots, icons, drawings). The new file is only kept when it really is smaller."""
+    import numpy as np
+    from PIL import Image
+    setup_pillow()
+    out = ctx.out_path(src, f"{ctx.stem(src)} (smaller).png")
+    before = src.stat().st_size
+    with Image.open(src) as im:
+        if getattr(im, "n_frames", 1) > 1:
+            raise RuntimeError(tr("Moving pictures can't be made smaller this way"))
+        im.load()
+        icc = im.info.get("icc_profile")
+        pic = im
+        if im.mode not in ("P", "1", "L"):
+            rgba = np.asarray(im.convert("RGBA"), dtype=np.uint8)
+            packed = rgba.reshape(-1, 4).view(np.uint32).ravel()
+            colours, index = np.unique(packed, return_inverse=True)
+            if len(colours) <= 256:  # (a palette holds every colour exactly)
+                table = colours.view(np.uint8).reshape(-1, 4)
+                pal = Image.fromarray(index.astype(np.uint8).reshape(rgba.shape[:2]), "P")
+                pal.putpalette(table[:, :3].ravel().tolist())
+                if (table[:, 3] < 255).any():
+                    pal.info["transparency"] = bytes(table[:, 3].tolist())
+                pic = pal
+        ctx.check()
+        kw = {"optimize": True, "compress_level": 9}
+        if icc:
+            kw["icc_profile"] = icc
+        if "transparency" in pic.info:
+            kw["transparency"] = pic.info["transparency"]
+        pic.save(out, "PNG", **kw)
+    after = out.stat().st_size
+    if after >= before:
+        out.unlink(missing_ok=True)
+        return Result(note=tr("{name} is already as small as it gets", name=src.name))
+    return Result([out], note=tr("{before} → {after} ({percent}% smaller)", before=human_size(before),
+                                 after=human_size(after), percent=100 - round(after * 100 / before)))
+
+
+def check_optimizable(files: list[Path]) -> str | None:
+    return None if all(norm(f.suffix) == ".png" for f in files) else tr("For PNG pictures")
+
+
 def keep_format(src: Path) -> str:
     """Format to save an edited image in: the same as the original when Pillow can write it."""
     ext = norm(src.suffix)
@@ -817,21 +882,41 @@ LOCAL_ONLY = ["-protocol_whitelist", "file,pipe"]
 # ----------------------------------------------------------------------------- the graphics card
 
 GPU_ENCODERS = ("h264_nvenc", "h264_qsv", "h264_amf")  # NVIDIA, Intel, AMD
+GPU_BY_CODEC = {"h264": GPU_ENCODERS, "h265": ("hevc_nvenc", "hevc_qsv", "hevc_amf"),
+                "av1": ("av1_nvenc", "av1_qsv", "av1_amf")}
 _gpu: dict = {}
 _gpu_lock = threading.Lock()
+_encoders: dict = {}
 
 
-def gpu_encoder() -> str:
-    """The graphics card's H.264 encoder that really works on this PC (tried once with a tiny video), or ""."""
+def ffmpeg_encoders() -> str:
+    """FFmpeg's list of what it can make (asked once)."""
     with _gpu_lock:
-        if "encoder" in _gpu:
-            return _gpu["encoder"]
+        if "list" not in _encoders:
+            try:
+                _encoders["list"] = subprocess.run([find_tool("ffmpeg"), "-hide_banner", "-encoders"],
+                                                   capture_output=True, text=True, timeout=20,
+                                                   stdin=subprocess.DEVNULL, creationflags=NO_WINDOW).stdout
+            except (OSError, RuntimeError, subprocess.SubprocessError):
+                _encoders["list"] = ""
+        return _encoders["list"]
+
+
+def has_encoder(name: str) -> bool:
+    return f" {name} " in ffmpeg_encoders()
+
+
+def gpu_encoder(codec: str = "h264") -> str:
+    """The graphics card's encoder for this codec that really works on this PC (tried once with a tiny video),
+    or ""."""
+    listed = ffmpeg_encoders()
+    with _gpu_lock:
+        if codec in _gpu:
+            return _gpu[codec]
         found = ""
         try:
             exe = find_tool("ffmpeg")
-            listed = subprocess.run([exe, "-hide_banner", "-encoders"], capture_output=True, text=True, timeout=20,
-                                    stdin=subprocess.DEVNULL, creationflags=NO_WINDOW).stdout
-            for enc in GPU_ENCODERS:
+            for enc in GPU_BY_CODEC.get(codec, ()):
                 if f" {enc} " not in listed:
                     continue
                 r = subprocess.run([exe, "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i",
@@ -843,13 +928,19 @@ def gpu_encoder() -> str:
                     break
         except (OSError, RuntimeError, subprocess.SubprocessError):
             found = ""
-        log.info("graphics card video encoder: %s", found or "none")
-        _gpu["encoder"] = found
+        log.info("graphics card %s encoder: %s", codec, found or "none")
+        _gpu[codec] = found
         return found
 
 
 def _gpu_video_args(rest: list[str], enc: str, crf: int | None, bitrate: str = "") -> list[str]:
     """The encoder's own words for "this quality" (FFmpeg's x264 CRF, roughly matched)."""
+    if not enc.startswith("h264_"):  # (H.265 and AV1 cards: the same settings, with the encoder's own name)
+        made = _gpu_video_args(rest, "h264_" + enc.split("_", 1)[1], crf, bitrate)
+        made[made.index("-c:v") + 1] = enc
+        if enc.startswith("hevc_") and "-tag:v" not in made:
+            made += ["-tag:v", "hvc1"]  # (so Windows, Apple and phones play it)
+        return made
     if enc == "h264_nvenc":
         q = ["-rc", "vbr", "-b:v", bitrate] if bitrate else ["-rc", "vbr", "-cq", str((crf or 20) + 2), "-b:v", "0"]
         return ["-c:v", enc, "-preset", "p5", *q, "-pix_fmt", "yuv420p", *rest]
@@ -863,20 +954,22 @@ def _gpu_video_args(rest: list[str], enc: str, crf: int | None, bitrate: str = "
 def with_gpu(args: list[str], enc: str) -> list[str] | None:
     """The same FFmpeg arguments with the graphics card making the H.264 video, or None when they can't
     be swapped (no x264 in them, two passes, or settings only x264 has)."""
-    if not enc or "libx264" not in args or "-pass" in args or "-x264-params" in args or "-tune" in args:
+    soft = next((c for c in SOFT_ENCODERS.values() if c in args), "")
+    if not enc or not soft or "-pass" in args or "-x264-params" in args or "-tune" in args:
         return None
     out, crf, bitrate, i = [], None, "", 0
     while i < len(args):
         a = args[i]
         nxt = args[i + 1] if i + 1 < len(args) else ""
-        if a == "-c:v" and nxt == "libx264":
+        if a == "-c:v" and nxt == soft:
             i += 2
             continue
         if a == "-crf":
             crf = int(float(nxt)) if nxt.replace(".", "", 1).isdigit() else 20
+            crf = x264_crf(soft, crf)  # (the cards' settings are matched to x264's scale)
             i += 2
             continue
-        if a in ("-preset", "-pix_fmt", "-profile:v", "-level"):
+        if a in ("-preset", "-pix_fmt", "-profile:v", "-level", "-x265-params", "-svtav1-params"):
             i += 2
             continue
         if a == "-b:v":
@@ -893,7 +986,17 @@ def run_ffmpeg(src: Path, out: Path, args: list[str], ctx: Ctx, pre: list[str] |
     """FFmpeg from src to out, with progress and Stop. more_inputs come after src (-i 1, 2 …).
     With the graphics card option on, H.264 videos are made by the graphics card; if that fails, the
     usual way follows by itself."""
-    fast = with_gpu(args, gpu_encoder()) if getattr(ctx.options, "gpu", False) and "libx264" in args else None
+    codec = next((c for c, e in SOFT_ENCODERS.items() if e in args), "")
+    fast = with_gpu(args, gpu_encoder(codec)) if getattr(ctx.options, "gpu", False) and codec else None
+    if codec in ("h265", "av1") and not has_encoder(SOFT_ENCODERS[codec]):
+        # (an FFmpeg without x265 or SVT-AV1: the graphics card makes it, or else H.264 as before)
+        enc = gpu_encoder(codec)
+        if enc:
+            fast = None
+            args = with_gpu(args, enc) or args
+        else:
+            log.warning("no %s encoder here: making H.264 instead", codec)
+            args = with_codec(args, "h264", out.suffix.lower())
     if fast is not None:
         try:
             return _run_ffmpeg(src, out, fast, ctx, pre, duration, more_inputs, cwd)
@@ -940,6 +1043,8 @@ def _run_ffmpeg(src: Path, out: Path, args: list[str], ctx: Ctx, pre: list[str] 
             lines = [ln for ln in err.read().strip().splitlines() if ln.strip()]
             log.error("ffmpeg failed for %s: %s", src, "\n".join(lines[-10:]))
             text = "\n".join(lines)
+            if any(s in text for s in DISK_FULL):  # (FFmpeg's English "Error closing file: No space left on device";
+                raise RuntimeError(tr("the disk is full"))  # first: a still picture has no length either)
             damaged = tr("the file is damaged or isn't really an audio or video file")
             if src.exists() and media_duration(src) <= 0:
                 raise RuntimeError(damaged)
@@ -948,8 +1053,6 @@ def _run_ffmpeg(src: Path, out: Path, args: list[str], ctx: Ctx, pre: list[str] 
                                    else tr("nothing to convert in this file"))
             if any(s in text for s in DAMAGED_MEDIA):
                 raise RuntimeError(damaged)
-            if any(s in text for s in DISK_FULL):  # (FFmpeg's English "Error closing file: No space left on device")
-                raise RuntimeError(tr("the disk is full"))
             # FFmpeg's own wording, without its technical "[mp4 @ 0x1234]" prefix
             last = re.sub(r"^(\[[^\]]*\]\s*)+", "", lines[-1]).strip() if lines else ""
             raise RuntimeError(last or tr("FFmpeg could not convert this file"))
@@ -1023,7 +1126,7 @@ def can_copy(src: Path, ext: str, options) -> bool:
     when the Converter's settings don't ask for a smaller file (Settings → Converter)."""
     if ext not in COPY_ARGS or norm(src.suffix) not in COPY_FROM or norm(src.suffix) == ext:
         return False
-    if int(getattr(options, "video_crf", 20) or 20) > 20:
+    if int(getattr(options, "video_crf", 20) or 20) > 20 or (getattr(options, "video_codec", "h264") or "h264") != "h264":
         return False
     try:
         info = probe(src)
@@ -1112,6 +1215,67 @@ def smaller_size(width: int, height: int, most: int) -> tuple[int, int] | None:
 _WEBM_CRF = {18: 28, 20: 32, 24: 36, 28: 40}  # (VP9's scale for the same four qualities)
 
 
+# The Converter's "Video codec" setting: H.264 plays everywhere; H.265 is about half the size at the same look
+# (every phone and PC of the last years plays it); AV1 is smaller still, for newer devices. Their quality
+# numbers are matched to x264's (what the quality settings are written in).
+SOFT_ENCODERS = {"h264": "libx264", "h265": "libx265", "av1": "libsvtav1"}
+CODEC_FOR = {".mp4": ("h264", "h265", "av1"), ".mov": ("h264", "h265"), ".mkv": ("h264", "h265", "av1")}
+
+
+def codec_crf(codec: str, crf: int) -> int:
+    """x264's quality number as the same look in x265's or SVT-AV1's."""
+    return crf + 4 if codec == "h265" else round(crf * 1.4 + 2) if codec == "av1" else crf
+
+
+def x264_crf(encoder: str, crf: int) -> int:
+    if encoder == "libx265":
+        return crf - 4
+    if encoder == "libsvtav1":
+        return round((crf - 2) / 1.4)
+    return crf
+
+
+def with_codec(args: list[str], codec: str, ext: str) -> list[str]:
+    """The same FFmpeg arguments making the video with another codec (only where the file type holds it: MOV
+    can't hold AV1, so it gets H.265). Returns args itself when nothing changes."""
+    soft = next((e for e in SOFT_ENCODERS.values() if e in args), "")
+    allowed = CODEC_FOR.get(ext, ("h264",))
+    if codec not in allowed:
+        codec = "h265" if codec == "av1" and "h265" in allowed else "h264"
+    if not soft or soft == SOFT_ENCODERS[codec] or "-pass" in args:
+        return args
+    crf, i, out, at = 20, 0, [], None
+    while i < len(args):
+        a = args[i]
+        nxt = args[i + 1] if i + 1 < len(args) else ""
+        if a == "-c:v" and nxt == soft:
+            at = len(out)
+            i += 2
+            continue
+        if a == "-crf":
+            crf = x264_crf(soft, int(float(nxt))) if nxt.replace(".", "", 1).isdigit() else 20
+            i += 2
+            continue
+        if a in ("-preset", "-pix_fmt", "-profile:v", "-level", "-x264-params", "-x265-params", "-svtav1-params",
+                 "-tune", "-tag:v"):
+            i += 2
+            continue
+        out.append(a)
+        i += 1
+    if at is None:
+        return args
+    q = codec_crf(codec, crf)
+    if codec == "h265":
+        new = ["-c:v", "libx265", "-preset", "medium", "-crf", str(q), "-pix_fmt", "yuv420p",
+               "-x265-params", "log-level=error"] + (["-tag:v", "hvc1"] if ext in (".mp4", ".mov") else [])
+    elif codec == "av1":
+        new = ["-c:v", "libsvtav1", "-preset", "8", "-crf", str(q), "-pix_fmt", "yuv420p"]
+    else:
+        new = _H264 + ["-crf", str(q)]
+    out[at:at] = new
+    return out
+
+
 def tuned_video(src: Path, ext: str, args: list[str], options) -> list[str]:
     """The Converter's video settings (Settings → Converter): its quality, and a size it's made smaller to."""
     crf = int(getattr(options, "video_crf", 20) or 20)
@@ -1136,6 +1300,9 @@ def tuned_video(src: Path, ext: str, args: list[str], options) -> list[str]:
         else:
             at = args.index("-sn") if "-sn" in args else len(args)
             args[at:at] = ["-vf", scale]
+    codec = getattr(options, "video_codec", "h264") or "h264"
+    if codec != "h264" and ext in CODEC_FOR:
+        args = with_codec(args, codec, ext)
     return args
 
 
@@ -1175,7 +1342,7 @@ VIDEO_SMALL_ARGS = _PICK + ["-vf", DEINTERLACE + ",scale=w='min(1280,iw)':h='min
                            "force_divisible_by=2"] + _H264 + ["-crf", "28", "-c:a", "aac", "-b:a", "96k",
                                                               "-movflags", "+faststart"]
 
-FORMAT_NAMES = {".jpg": "JPG", ".png": "PNG", ".webp": "WebP", ".ico": "icon (ICO)", ".bmp": "BMP", ".avif": "AVIF",
+FORMAT_NAMES = {".jpg": "JPG", ".png": "PNG", ".webp": "WebP", ".ico": "icon (ICO)", ".bmp": "BMP", ".avif": "AVIF", ".jxl": "JPEG XL",
                 ".mp3": "MP3", ".m4a": "M4A", ".wav": "WAV", ".flac": "FLAC", ".ogg": "OGG",
                 ".opus": "Opus", ".aiff": "AIFF", ".mp4": "MP4", ".mov": "MOV", ".webm": "WebM",
                 ".mkv": "MKV", ".gif": "GIF"}
@@ -1542,7 +1709,54 @@ def document_to_pdf(src: Path, ctx: Ctx) -> Result:
     return Result([out])
 
 
-def _run_office(cmd: list[str], env: dict, tmp: Path, ctx: Ctx, timeout: float = 600) -> tuple[int, str]:
+# Word opens a PDF by rebuilding it as a document ("PDF Reflow"): its own paragraphs, tables and pictures, which
+# can then be changed like any Word file. Word first says "Word will now convert your PDF…" in a box nobody would
+# see here: officewatch answers it (Word's own "don't ask again" setting doesn't silence it on every version).
+# The made-up password makes a locked PDF fail at once instead of waiting on an invisible password box.
+PDF_TO_WORD_SCRIPT = r"""
+$app = New-Object -ComObject Word.Application; $app.DisplayAlerts = 0
+$was = $app.AutomationSecurity; $app.AutomationSecurity = 3
+try { $d = $app.Documents.Open($env:CF_IN, $false, $true, $false, "corefold-no-password", "corefold-no-password")
+      $d.SaveAs2($env:CF_OUT, 16); $d.Close(0) }
+finally { $app.AutomationSecurity = $was; if ($app.Documents.Count -eq 0) { $app.Quit() } }"""
+
+
+def word_installed() -> bool:
+    return bool(_cached("office", Path("Word.Application"), lambda: _office_installed("Word.Application")))
+
+
+def check_word(files: list[Path]) -> str | None:
+    return None if word_installed() else tr("Needs Microsoft Word")
+
+
+def pdf_to_word(src: Path, ctx: Ctx) -> Result:
+    """A PDF as a Word document (.docx) that can be changed, made by the Word that's on this PC. Nothing here
+    reads the PDF's insides: Word does all of it, the way it does when a PDF is opened in it."""
+    if not word_installed():
+        raise RuntimeError(tr("Needs Microsoft Word"))
+    out = ctx.out_path(src, ctx.stem(src) + ".docx")
+    tmp = Path(tempfile.mkdtemp(prefix="corefold-office-"))
+    made = tmp / "document.docx"
+    env = dict(os.environ, CF_IN=str(src.resolve()), CF_OUT=str(made))
+    ps = system_tool("powershell.exe")
+    from . import officewatch
+    watch = officewatch.Watch()
+    code, err = _run_office([str(ps), "-NoProfile", "-NonInteractive", "-Command", PDF_TO_WORD_SCRIPT],
+                            env, tmp, ctx, timeout=900, watch=watch)
+    try:
+        if watch.asked and not made.exists():
+            log.error("pdf to word: Word asked something: %s", err[-2000:])
+            raise RuntimeError(tr("Word asked a question about this PDF: open it in Word once yourself"))
+        if code or not made.exists():
+            log.error("pdf to word failed: %s", err[-2000:])
+            raise RuntimeError(tr("Word couldn't turn this PDF into a document"))
+        shutil.move(str(made), out)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    return Result([out])
+
+
+def _run_office(cmd: list[str], env: dict, tmp: Path, ctx: Ctx, timeout: float = 600, watch=None) -> tuple[int, str]:
     """Runs the PowerShell that has Office make the PDF. Cancel stops the waiting at once, but not Office:
     Office runs on its own (Windows starts it, not this PowerShell), so ending the PowerShell would leave
     it hidden in the background with the file still open in it. The script is left to finish (Office
@@ -1553,25 +1767,31 @@ def _run_office(cmd: list[str], env: dict, tmp: Path, ctx: Ctx, timeout: float =
     deadline = time.monotonic() + timeout
     while proc.poll() is None:
         if ctx.cancelled or time.monotonic() > deadline:
-            threading.Thread(target=_after_office, args=(proc, err, tmp, deadline), daemon=True,
+            threading.Thread(target=_after_office, args=(proc, err, tmp, deadline, watch), daemon=True,
                              name="office-cancelled").start()
             if ctx.cancelled:
                 raise Cancelled()
             raise RuntimeError(tr("took too long and was stopped"))
         time.sleep(0.2)
+    if watch is not None:
+        watch.stop()
     err.seek(0)
     text = err.read().decode("utf-8", "replace")
     err.close()
     return proc.returncode, text
 
 
-def _after_office(proc, err, tmp: Path, deadline: float):
+def _after_office(proc, err, tmp: Path, deadline: float, watch=None):
     """After a Cancel: waits for Office to finish (a while longer at most), then deletes what it made."""
     try:
         proc.wait(max(60.0, deadline - time.monotonic()))
     except subprocess.TimeoutExpired:
-        _kill_tree(proc)  # (stuck for good: only then is the PowerShell ended)
+        _kill_tree(proc)  # (stuck for good: only then is the PowerShell ended, and the hidden Office it started)
+        if watch is not None:
+            watch.end_new()
     finally:
+        if watch is not None:
+            watch.stop()
         err.close()
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -1701,6 +1921,9 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
                    batch=True, ask="slideshow", check=ex.check_several_images)]
     image += [fmt("image", e, convert_image) for e in (".ico", ".bmp", ".tiff", ".gif")]
     image += [fmt("image", ".avif", convert_image, check=check_avif)]
+    image += [fmt("image", ".jxl", convert_jxl, check=check_jxl),
+              Tool("image:optimize", tr("Same look"), tr("A smaller PNG, with not a dot changed"), optimize_image,
+                   check=check_optimizable, static_check=False)]
     image += [Tool("image:qr", "QR", tr("Read QR code"), read_qr, renames=False),
               Tool("image:clean", tr("Clean"), tr("Remove location & camera info"), strip_metadata),
               Tool("image:sticker", tr("Sticker"), tr("Make a sticker (WhatsApp, Telegram)"), mt.image_sticker,
@@ -1754,6 +1977,8 @@ def catalog(multi: bool = False) -> dict[str, list[Tool]]:
            Tool("pdf:split", tr("Split"), tr("One PDF per page"), pdf_split, check=check_pdf_locked, slow_check=True),
            Tool("pdf:png", "PNG", tr("Pages to images"), pdf_to_png, check=check_pdf_locked, slow_check=True),
            Tool("pdf:text", tr("Text"), tr("Pull out the text"), pdf_to_text, check=check_pdf_locked, slow_check=True),
+           Tool("pdf:word", "Word", tr("Turn into a Word document you can change"), pdf_to_word,
+                check=both(check_word, check_pdf_locked), slow_check=True, target=".docx"),
            Tool("pdf:pages", tr("Pages"), tr("Turn, delete or reorder pages"), mt.pdf_pages, ask="pages",
                 check=check_pdf_locked, slow_check=True),
            Tool("pdf:images", tr("Pictures"), tr("Save the pictures inside"), mt.pdf_images, check=check_pdf_locked,

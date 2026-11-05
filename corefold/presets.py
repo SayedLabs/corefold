@@ -47,8 +47,10 @@ def clean(items) -> list[dict]:
             continue
         quality = p.get("quality") if p.get("quality") in QUALITIES else "balanced"
         size = p.get("size") if p.get("size") in sizes(kind) else "original"
+        from .settings import VIDEO_CODECS
+        codec = p.get("codec") if kind == "video" and p.get("codec") in VIDEO_CODECS else "h264"
         out.append({"id": pid, "name": name, "kind": kind, "format": fmt, "quality": quality,
-                    "size": size if kind != "audio" else "original"})
+                    "size": size if kind != "audio" else "original", "codec": codec})
         ids.add(pid)
     return out[:MAX]
 
@@ -68,6 +70,8 @@ def describe(p: dict) -> str:
     bits = [ltr(p["format"][1:].upper()), tr(QUALITIES[p["quality"]])]
     if p["kind"] != "audio" and p["size"] != "original":
         bits.append(tr(sizes(p["kind"])[p["size"]]))
+    if p["kind"] == "video" and p.get("codec", "h264") != "h264":
+        bits.append(ltr({"h265": "H.265", "av1": "AV1"}[p["codec"]]))
     return ("\u200f" if is_rtl() else "") + "  ·  ".join(f"\u2068{b}\u2069" if is_rtl() else b for b in bits)
 
 
@@ -116,7 +120,8 @@ def run(src: Path, ctx: Ctx, preset: dict) -> Result:
     size = preset["size"]
     if kind == "video":
         options = dataclasses.replace(ctx.options, video_crf=VIDEO_CRF.get(preset["quality"], 20),
-                                      video_max=int(size) if size.isdigit() else 0)
+                                      video_max=int(size) if size.isdigit() else 0,
+                                      video_codec=preset.get("codec", "h264"))
         args = cv.VIDEO_ARGS[ext]
         if ext == ".mkv":  # (made again at this quality, not copied as it is)
             args = cv._PICK + cv._H264 + ["-crf", "20"] + cv._AAC

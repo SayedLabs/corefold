@@ -10,9 +10,10 @@
 #
 # Kept: everything FFmpeg does by itself (it reads nearly every video, song and picture, and writes
 # many of them), plus the outside libraries Corefold uses: x264 and the graphics cards' H.264
-# (NVIDIA, Intel, AMD), VP9, WebP, MP3, Opus, Vorbis, dav1d for AV1 videos, zscale for HDR
+# (NVIDIA, Intel, AMD), x265 for H.265 and SVT-AV1 for AV1 videos (the Converter's "Video codec"
+# setting), VP9, WebP, JPEG XL, MP3, Opus, Vorbis, dav1d for playing AV1 videos, zscale for HDR
 # videos and libass for burnt-in subtitles. Screen and microphone recording are built in.
-# Left out: the other outside libraries (x265, AV1/VVC encoders, network protocols, Vulkan and
+# Left out: the other outside libraries (other AV1/VVC encoders, network protocols, Vulkan and
 # OpenCL filters, ...) and ffplay.
 set -xe
 COMMIT="${1:-n9.0.2}"
@@ -32,7 +33,7 @@ git log -1 --format="FFmpeg %H (%ci)"
     --enable-iconv --enable-zlib --enable-lzma \
     --enable-libfreetype --enable-libfribidi --enable-libharfbuzz --enable-fontconfig --enable-libass \
     --enable-libzimg --enable-libdav1d \
-    --enable-libx264 --enable-libvpx --enable-libwebp \
+    --enable-libx264 --enable-libx265 --enable-libsvtav1 --enable-libvpx --enable-libwebp --enable-libjxl \
     --enable-libmp3lame --enable-libopus --enable-libvorbis \
     --enable-amf --enable-ffnvcodec --enable-libvpl \
     --extra-cflags="$FF_CFLAGS" --extra-cxxflags="$FF_CXXFLAGS" --extra-libs="$FF_LIBS" \

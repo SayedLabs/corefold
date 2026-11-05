@@ -55,6 +55,9 @@ ACTIONS = [("edit", "Edit content", "Type text, change words, add pictures, high
            ("flatten", "Flatten", "Make what's filled in on a form, and notes and stamps, part of the page, so "
             "nobody can change them", "layers"),
            ("repair", "Repair", "Rebuild a damaged PDF that won't open or shows errors", "wrench"),
+           ("compare", "Compare two PDFs", "See what changed between two versions: pages side by side and every "
+            "word taken out or put in", "document_multiple"),
+           ("print", "Print", "Print on any printer: copies, pages, both sides, black and white", "document"),
            ("clean", "Remove hidden info", "See and change its title and author, and take out who made it, notes, "
             "attached files and scripts", "broom")]
 # the Converter's own PDF tools that are shown here too (when this Corefold has them)
@@ -63,13 +66,15 @@ MORE = [("pdf:numbers", "Page numbers", "Number every page", "text_t"),
         ("pdf:sign", "Sign", "Put your signature on it", "rename"),
         ("pdf:fit", "Fit a size limit", "Make it small enough for an email or a form", "target"),
         ("pdf:text", "Copy the text", "Pull all the text out into a .txt file", "document_text"),
+        ("pdf:word", "PDF to Word", "A Word document you can change, made by the Word on this PC", "document"),
         ("pdf:images", "Save the pictures inside", "Every picture in the PDF, as it is", "filmstrip_image")]
 # how the cards are grouped on the page (the first group is shown big, on top)
 GROUPS = [("", ("edit", "merge")),
           ("Pages", ("organize", "split", "extract", "pagesize", "trim")),
           ("Add to it", ("searchable", "pdf:sign", "pdf:numbers", "pdf:watermark")),
           ("Smaller or safer", ("compress", "pdf:fit", "lock", "unlock", "clean", "flatten", "repair")),
-          ("Turn it into something else", ("topictures", "pictures", "pdf:text", "pdf:images"))]
+          ("Turn it into something else", ("topictures", "pictures", "pdf:word", "pdf:text", "pdf:images")),
+          ("Check and print", ("compare", "print"))]
 TIPS = {"merge": "Drag the pages into the order you want, then press Merge and save.",
         "organize": "Drag pages to move them. Select some to turn or delete them. Double-click a page to see it big.",
         "extract": "Select the pages you want (or type them in the box), then Save selected pages."}
@@ -429,7 +434,7 @@ class PdfPage(QWidget):
             if names:
                 self.pictures_to_pdf([Path(n) for n in names])
             return
-        several = key in ("merge", "organize", "compress", "searchable", "topictures", "lock", "unlock", "clean",
+        several = key in ("compare", "print", "merge", "organize", "compress", "searchable", "topictures", "lock", "unlock", "clean",
                           "pagesize", "trim", "flatten", "repair") or \
             key.startswith("pdf:")
         title = tr("Pick the PDFs") if several else tr("Pick a PDF")
@@ -451,8 +456,37 @@ class PdfPage(QWidget):
         if key == "edit":
             self.open_editor(files[0])
             return
+        if key == "compare":
+            if len(files) != 2:
+                self.c.tell(tr("Compare two PDFs"), tr("Pick two PDFs to compare"))
+                return
+            from .pdfmore import COMPARE
+            files = sorted(files, key=lambda f: f.stat().st_mtime if f.exists() else 0)  # (the older one first)
+            self.c.start_job(COMPARE, files, {})
+            return
+        if key == "print":
+            from .pdfmore import PRINT
+            try:
+                count = pdftools.page_count(files[0]) if len(files) == 1 else None
+            except Exception:  # (locked or damaged: the pages box then takes anything, the job says what's wrong)
+                count = None
+            dlg = pd.PrintDialog(files, icon, dark, count)
+            try:
+                if not sheet.run(dlg):
+                    return
+                params = dlg.params()
+            finally:
+                dlg.deleteLater()
+            self.c.start_job(PRINT, files, params)
+            return
         if key.startswith("pdf:"):
             tool = self._converter_tools().get(key)
+            if key == "pdf:word":
+                from .converters import check_word
+                why = check_word(files)
+                if why:
+                    self.c.tell(tr("PDF to Word"), why)
+                    return
             if tool is not None:
                 self.c.tool_chosen(tool, files)
             return

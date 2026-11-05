@@ -54,7 +54,8 @@ def table_texts() -> dict[str, str]:
     for name in ("SHORTCUT_LABELS", "WHEEL_SIZE_NAMES", "WHEEL_STYLES", "LABEL_STYLES", "HOVER_STYLES",
                  "SLICE_COLORS", "TEXT_SIZE_NAMES", "WHEEL_POSITIONS", "APPEARANCES", "MENU_STYLES",
                  "TOAST_CORNERS", "TOAST_TIMES", "WINDOW_TEXT", "UNUSED_MONTHS", "BACKUP_DAYS", "UNINSTALL_DEPTHS", "EXTRACT_MODES",
-                 "VIEWER_WHEEL", "SLIDESHOW_SECONDS", "VIDEO_QUALITIES", "VIDEO_SIZES", "AUDIO_QUALITIES"):
+                 "VIEWER_WHEEL", "SLIDESHOW_SECONDS", "VIDEO_QUALITIES", "VIDEO_SIZES", "AUDIO_QUALITIES",
+                 "VIDEO_CODECS"):
         add(getattr(settings, name).values(), name)
     add(sounds.DONE_SOUNDS.values(), "DONE_SOUNDS")
     add([i18n.LANGUAGES["system"]], "LANGUAGES")
@@ -132,7 +133,15 @@ def table_texts() -> dict[str, str]:
          "go back to it. Once it's removed, going back isn't possible. Windows asks for an administrator.",
          "Update copies for other PCs", "Windows keeps updates and Store apps it downloaded, to hand them to other "
          "PCs. Windows removes them its own way, and downloads again any it needs. Windows asks for an "
-         "administrator."],
+         "administrator.",
+         "Hibernation file", "Windows keeps your memory here to wake up from hibernation and for Fast startup. "
+         "Switching hibernation off removes it, and Windows starts a little slower from off. It can be switched on "
+         "again in Windows. Windows asks for an administrator.",
+         "Older restore points", "Windows' restore points, except the newest one. Going back to an older one isn't "
+         "possible afterwards. Windows asks for an administrator.", "Windows says after",
+         "Pack Windows tighter (Compact OS)", "Windows packs its own files, which usually frees 2 to 4 GB. It takes "
+         "10 to 20 minutes and can make a very old PC a little slower. Windows asks for an administrator.",
+         "About 2 to 4 GB"],
         "space.find_junk")
     from corefold import awake, awakepage
     add(awake.DURATIONS.values(), "awake.DURATIONS")

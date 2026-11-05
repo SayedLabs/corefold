@@ -356,3 +356,83 @@ class PreviewDialog(Base):
             self.go(1 if forward else -1)
             return
         super().keyPressEvent(e)
+
+
+class PrintDialog(Base):
+    """Print: which printer, how many copies, which pages, both sides, black and white."""
+
+    def __init__(self, files, icon, dark, count: int | None = None):
+        from .pdfmore import can_print_both_sides, printers
+        super().__init__(tr("Print"), describe(files), icon, dark)
+        names, default = printers()
+        self.count = count
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(12)
+        grid.setVerticalSpacing(8)
+        self.printer = Dropdown()
+        self.printer.setAccessibleName(tr("Printer"))
+        for n in names:
+            self.printer.addItem(n, n)
+        self.printer.setCurrentIndex(max(0, self.printer.findData(default)))
+        self.copies = QSpinBox()
+        self.copies.setRange(1, 99)
+        self.copies.setAccessibleName(tr("Copies"))
+        self.pages = QLineEdit()
+        self.pages.setPlaceholderText(tr("Every page (or type them, like 1-3, 5)"))
+        self.pages.setAccessibleName(tr("Pages"))
+        self.pages.setEnabled(len(files) == 1)
+        for r, (text, w) in enumerate(((tr("Printer"), self.printer), (tr("Copies"), self.copies),
+                                       (tr("Pages"), self.pages))):
+            grid.addWidget(QLabel(text), r, 0)
+            grid.addWidget(w, r, 1)
+        grid.setColumnStretch(1, 1)
+        self.lay.addLayout(grid)
+        self.both = QCheckBox(tr("Print on both sides of the paper"))
+        self.gray = QCheckBox(tr("Black and white"))
+        self.lay.addWidget(self.both)
+        self.lay.addWidget(self.gray)
+        self.problem = _note("")
+        self.problem.hide()
+        self.lay.addWidget(self.problem)
+
+        def printer_changed():
+            ok = can_print_both_sides(self.printer.currentData() or "")
+            self.both.setEnabled(ok)
+            if not ok:
+                self.both.setChecked(False)
+            self.both.setToolTip("" if ok else tr("This printer can't print on both sides by itself"))
+        self.printer.currentIndexChanged.connect(printer_changed)
+        printer_changed()
+        self.buttons(tr("Print"))
+        if not names:
+            self.printer.setEnabled(False)
+            self.problem.setText(tr("Windows has no printer. Add one in Windows' Settings, under Printers & scanners."))
+            self.problem.show()
+            self.ok.setEnabled(False)
+        self.pages.textChanged.connect(lambda: self._check())
+
+    def _check(self) -> bool:
+        from .pdfmore import page_numbers
+        if self.count is None or not self.pages.text().strip():
+            self.problem.hide()
+            self.ok.setEnabled(self.printer.count() > 0)
+            return True
+        try:
+            page_numbers(self.pages.text(), self.count)
+        except ValueError as e:
+            self.problem.setText(str(e))
+            self.problem.show()
+            self.ok.setEnabled(False)
+            return False
+        self.problem.hide()
+        self.ok.setEnabled(True)
+        return True
+
+    def accept(self):
+        if self._check():
+            super().accept()
+
+    def params(self):
+        return {"printer": self.printer.currentData() or "", "copies": self.copies.value(),
+                "pages": self.pages.text() if self.pages.isEnabled() else "", "both_sides": self.both.isChecked(),
+                "gray": self.gray.isChecked()}

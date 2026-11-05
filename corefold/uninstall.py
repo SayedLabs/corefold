@@ -53,6 +53,7 @@ REASONS = {
     "filetype": "File types and program links",
     "userfiles": "In your own folders (check before removing)",
     "orphan": "Program folders no installed app uses",
+    "tracked": "Seen when it was installed",
 }
 
 # How far a clean-up goes (English; shown through tr()). Every leftover has a level: 3 = surely the app's,
@@ -1561,6 +1562,18 @@ def find_leftovers(app: App, others: list[App] | None = None, forced: bool = Fal
             add(item)
     except Exception:
         log.debug("looking for services and tasks of %s failed", app.name, exc_info=True)
+    # 7. what Corefold saw it put in when it watched its install (installtrack), named after it or not
+    try:
+        from .installtrack import leftovers_for
+        for item in leftovers_for(app):
+            if item.kind in ("folder", "file", "shortcut") and not (usable(item.path) if item.kind == "folder"
+                                                                    else not belongs_to_other(item.path)):
+                continue
+            if item.is_registry and not _registry_ok(item.path, item.kind):
+                continue
+            add(item)
+    except Exception:
+        log.debug("reading the install trace of %s failed", app.name, exc_info=True)
 
     items = list(found.values())
     # a folder inside another offered folder is covered by it
@@ -1577,8 +1590,8 @@ def find_leftovers(app: App, others: list[App] | None = None, forced: bool = Fal
                 i.size = os.path.getsize(i.path)
             except OSError:
                 pass
-    order = {"install": 0, "data": 1, "package": 1, "shortcut": 2, "startup": 3, "service": 3, "task": 3,
-             "registry": 4, "filetype": 4, "entry": 5, "maybe": 6, "userfiles": 7}
+    order = {"install": 0, "tracked": 0, "data": 1, "package": 1, "shortcut": 2, "startup": 3, "service": 3,
+             "task": 3, "registry": 4, "filetype": 4, "entry": 5, "maybe": 6, "userfiles": 7}
     return sorted(items, key=lambda i: (order.get(i.reason, 9), i.path.lower()))
 
 
@@ -2810,12 +2823,14 @@ def _let_questions_show():
         log.debug("couldn't make the helper's questions visible", exc_info=True)
 
 
-HELPER_KINDS = ("--cleanup", "--restore", "--restore-point", "--space-clean", "--delete-at-restart", "--startup-clean")
+HELPER_KINDS = ("--cleanup", "--restore", "--restore-point", "--space-clean", "--delete-at-restart", "--startup-clean",
+                "--mft-scan", "--browser-ext")
 
 
 def helper_main(argv: list[str]) -> int:
     """What the elevated copy does: --cleanup plan.json, --restore plan.json, --restore-point plan.json,
-    --space-clean plan.json, --delete-at-restart plan.json or --startup-clean plan.json, each followed by
+    --space-clean plan.json, --delete-at-restart plan.json, --startup-clean plan.json, --mft-scan plan.json or
+    --browser-ext plan.json, each followed by
     --plan-sha256 and the plan's fingerprint."""
     kind = next((a[2:] for a in argv if a in HELPER_KINDS), "")
     try:
@@ -2834,7 +2849,8 @@ def helper_main(argv: list[str]) -> int:
     # account at the admin prompt, this copy runs as that account, with other folders.
     folder = str(payload.get("folder", "")) if isinstance(payload, dict) else ""
     home = plan.resolve().parent.parent  # ...\Corefold
-    needs_folder = kind not in ("restore-point", "space-clean", "delete-at-restart", "startup-clean")
+    needs_folder = kind not in ("restore-point", "space-clean", "delete-at-restart", "startup-clean", "mft-scan",
+                                "browser-ext")
     manifest = payload.get("manifest") if isinstance(payload, dict) else None
     files = payload.get("files") if isinstance(payload, dict) else None
     if plan.resolve().parent.name.lower() != "helper" or home.name.lower() not in ("corefold", LEGACY_NAME.lower()) or \
@@ -2865,6 +2881,13 @@ def helper_main(argv: list[str]) -> int:
                 allowed = [p for p in paths if at_restart_allowed(p)]
                 out = delete_at_restart(allowed) if allowed else {"scheduled": 0, "failed": 0}
                 out["refused"] = len(paths) - len(allowed)
+        elif kind == "browser-ext":  # extensions a program forces into a browser: only their registry entries
+            from .extensions import remove_entry
+            items = [i for i in payload.get("items", []) if isinstance(i, dict)][:200]
+            out = {"done": sum(1 for i in items if remove_entry(i))}
+        elif kind == "mft-scan":  # Space's fast look: a whole drive's table of files, read (never written)
+            from .mftscan import helper_scan
+            out = helper_scan(str(payload.get("drive", "")), plan.with_suffix(".listing"))
         elif kind == "startup-clean":  # the Startup page: shortcuts in everyone's Startup folder
             from .startup import clean_common_as_admin
             out = clean_common_as_admin(payload)

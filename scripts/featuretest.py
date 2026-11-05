@@ -168,7 +168,7 @@ def graphics_card():
     out = TMP / "gpu.mp4"
     real = cv.gpu_encoder
     try:  # a graphics card that says it can but then fails: the usual way follows by itself
-        cv.gpu_encoder = lambda: "h264_nvenc" if not enc else enc
+        cv.gpu_encoder = lambda codec="h264": "h264_nvenc" if not enc else enc
         cv.run_ffmpeg(VID / "bars.mp4", out, args, Ctx(Options(gpu=True)))
     finally:
         cv.gpu_encoder = real

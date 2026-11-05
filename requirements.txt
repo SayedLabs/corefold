@@ -6,6 +6,8 @@ pi-heif>=0.20
 pypdf>=6.21.2  # (older ones can be made to hang or fill the memory by a booby-trapped PDF)
 # locking and unlocking PDFs with a password (AES-256)
 cryptography>=50.0
+# Cloud: SFTP servers of your own
+paramiko>=5.1
 pypdfium2>=4.30
 zxing-cpp>=2.2
 numpy>=1.26

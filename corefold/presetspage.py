@@ -146,8 +146,14 @@ class PresetDialog(Base):
         for key, text in presets.QUALITIES.items():
             self.quality.addItem(tr(text), key)
         self.size_label = QLabel(tr("Size"))
+        self.codec = Dropdown()
+        from .settings import VIDEO_CODECS
+        for key, text in VIDEO_CODECS.items():
+            self.codec.addItem(tr(text), key)
+        self.codec_label = QLabel(tr("Video codec"))
         for r, (text, w) in enumerate(((tr("Name"), self.name), (tr("For"), self.kind), (tr("Format"), self.format),
-                                       (tr("Quality"), self.quality), (self.size_label, self.size))):
+                                       (tr("Quality"), self.quality), (self.size_label, self.size),
+                                       (self.codec_label, self.codec))):
             grid.addWidget(text if isinstance(text, QLabel) else QLabel(text), r, 0)
             grid.addWidget(w, r, 1)
         grid.setColumnStretch(1, 1)
@@ -162,9 +168,12 @@ class PresetDialog(Base):
             self.format.setCurrentIndex(max(0, self.format.findData(p["format"])))
             self.quality.setCurrentIndex(max(0, self.quality.findData(p["quality"])))
             self.size.setCurrentIndex(max(0, self.size.findData(p["size"])))
+            self.codec.setCurrentIndex(max(0, self.codec.findData(p.get("codec", "h264"))))
         else:
             self.quality.setCurrentIndex(max(0, self.quality.findData("balanced")))
         self.kind.currentIndexChanged.connect(self._kind_changed)
+        self.format.currentIndexChanged.connect(self._format_changed)
+        self._format_changed()
         self.name.textChanged.connect(self._check)
         self._check()
 
@@ -179,10 +188,17 @@ class PresetDialog(Base):
         self.size.setVisible(kind != "audio")
         self.size_label.setVisible(kind != "audio")
 
+    def _format_changed(self, *_):
+        from .converters import CODEC_FOR
+        video = self.kind.currentData() == "video" and self.format.currentData() in CODEC_FOR
+        self.codec.setVisible(video)
+        self.codec_label.setVisible(video)
+
     def _check(self, *_):
         self.ok.setEnabled(bool(self.name.text().strip()))
 
     def preset(self) -> dict:
         return {"id": self.pid, "name": self.name.text().strip(), "kind": self.kind.currentData(),
                 "format": self.format.currentData(), "quality": self.quality.currentData(),
-                "size": self.size.currentData() or "original"}
+                "size": self.size.currentData() or "original",
+                "codec": self.codec.currentData() if self.codec.isVisibleTo(self) else "h264"}

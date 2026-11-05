@@ -88,6 +88,28 @@ def _ui_error(e) -> str:
         cloud.NOT_SENT_WHOLE: tr("The upload didn't arrive whole, so it was taken away again. Your file on this PC "
                                  "is untouched. Try again."),
     }
+    from . import cloudnet
+    known.update({
+        cloudnet.NOT_PRIVATE: tr("Unencrypted connections are only allowed on your own network. Turn on Encrypted "
+                                 "for this server."),
+        cloudnet.KEY_CHANGED: tr("This server's key isn't the one it had before, so Corefold didn't connect: someone "
+                                 "may be pretending to be it. If the server was set up again, remove it and add it "
+                                 "again."),
+        cloudnet.WRONG_LOGIN: tr("The user name or password isn't right."),
+        cloudnet.NO_SERVER: tr("The server didn't answer. Check the address and the port."),
+        "the server's certificate isn't valid": tr("The server's certificate isn't valid, so Corefold didn't "
+                                                   "connect."),
+        "this server doesn't offer encryption": tr("This server doesn't offer encryption."),
+        "that isn't a server address": tr("That isn't a server address."),
+        "this isn't a WebDAV server, or the folder is wrong": tr("This isn't a WebDAV server, or the folder is "
+                                                                  "wrong."),
+        "it isn't there any more, or this account doesn't allow that": tr("It isn't there any more, or this account "
+                                                                           "doesn't allow that."),
+        "this server needs to be added again": tr("This server needs to be added again."),
+        "this account isn't in Corefold any more": tr("The account this backup goes to isn't in Corefold any more."),
+    })
+    if text == cloudnet.WRONG_LOGIN:
+        return known[text]
     for name in cloud.SERVICES.values():
         known[f"{name} isn't set up in this copy of Corefold yet"] = tr(
             "Signing in to {name} isn't set up in this copy of Corefold yet.", name=name)
@@ -861,7 +883,9 @@ class CloudPage(QWidget):
             # (a folder on this PC: its email when the app says it, else "On this PC", or its folder's name when
             # one service has several)
             under = acc.email or (acc.who if acc.local and local.count(acc.service) > 1 else tr("On this PC"))
-            if acc.service not in cloud.SERVICES:  # (a folder added by hand: its name is the title, its place under it)
+            if acc.service in ("webdav", "ftp", "sftp"):  # (a server of your own: what kind it is under its address)
+                under = {"webdav": "WebDAV", "ftp": "FTP", "sftp": "SFTP"}[acc.service]
+            elif acc.service not in cloud.SERVICES:  # (a folder added by hand: its name is the title, its place under it)
                 under = acc.local
             it = QListWidgetItem(here if acc.local else online, f"{service_name(acc)}\n{ltr(short_name(under, 34))}")
             it.setData(Qt.UserRole, acc)
@@ -934,6 +958,11 @@ class CloudPage(QWidget):
             if acc.extra.get("added"):
                 menu.addSeparator()
                 menu.addAction(self._ic("dismiss"), tr("Remove from the list"), lambda: self.remove_folder(acc))
+        elif acc.service in ("webdav", "ftp", "sftp"):  # (a server of your own)
+            menu.addAction(self._ic("arrow_sync"), tr("Refresh"), lambda: self._refresh_account(acc))
+            menu.addAction(self._ic("pen"), tr("Change the address or password…"), lambda: self.add_server(acc))
+            menu.addSeparator()
+            menu.addAction(self._ic("dismiss", danger=True), tr("Remove from the list"), lambda: self.sign_out(acc))
         else:
             site = WEBSITE.get(acc.service)
             if site:
@@ -967,6 +996,13 @@ class CloudPage(QWidget):
         if not menu.isEmpty():
             menu.addSeparator()
         menu.addAction(self._ic("folder"), tr("A cloud folder on this PC…"), self.pick_folder)
+        act = menu.addAction(self._ic("globe"), tr("A server of your own (NAS, WebDAV, SFTP, FTP)…"),
+                             lambda: self.add_server())
+        act.setToolTip(tr("With its address, user name and password. No account anywhere else."))
+        menu.addSeparator()
+        act = menu.addAction(self._ic("history"), tr("Back up a folder here…"), self.add_backup)
+        act.setEnabled(self.account is not None)
+        menu.addAction(self._ic("history"), tr("Backups…"), self.show_backups)
         menu.addAction(self._ic("arrow_clockwise"), tr("Look again"), self.look_for_folders)
         # (an app is only offered for a cloud this copy can't sign in to, and that isn't on this PC already)
         here = {a.service for a in self.found or []} | set(signed)
@@ -995,6 +1031,109 @@ class CloudPage(QWidget):
         self.load_accounts(acc.key)
         self.status.setText(tr("Added {name}.", name=ltr(acc.title)))
         self.measure()
+
+    def add_server(self, old: cloud.Account | None = None):
+        """Adds a NAS or server of your own (or a folder it shares on the network), after trying it."""
+        from . import cloudlocal, cloudnet
+        from .clouddialogs import ServerDialog
+        if self._working():
+            self.status.setText(tr("Wait for what's going on to finish first."))
+            return
+        dlg = ServerDialog(self.window().windowIcon(), self.c.theme.dark, old)
+        if not sheet.run(dlg):
+            return
+        v = dlg.values()
+        if v["kind"] == "share":
+            try:
+                acc = cloudlocal.add_folder(v["host"])
+            except (OSError, cloud.CloudError) as e:
+                self.status.setText(_ui_error(e))
+                return
+            self.found = [a for a in self.found or [] if a.key != acc.key] + [acc]
+            self.load_accounts(acc.key)
+            self.status.setText(tr("Added {name}.", name=ltr(acc.title)))
+            return
+        self.cancel = threading.Event()
+
+        def go(_progress):
+            acc = cloudnet.make_account(v["kind"], v["host"], v["user"], v["password"], v["port"], v["folder"],
+                                        v["secure"])
+            cloudnet.check(acc)
+            if old is not None and old.key != acc.key:
+                cloud.forget_account(old.key)
+            cloud.remember_account(acc)
+            return acc
+
+        def done(result):
+            self.job = None
+            if not work.alive(self):
+                return
+            self._busy(False)
+            if isinstance(result, Exception):
+                self.status.setText(_ui_error(result))
+                return
+            self.sign_again_btn.hide()
+            self.load_accounts(result.key)
+            self.status.setText(tr("Added {name}.", name=ltr(result.who)))
+            self.measure()
+        self._busy(True, tr("Connecting to the server…"), spin=True, can_stop=False)
+        self.job = work.run(go, lambda _: None, done)
+
+    def _where_text(self) -> str:
+        acc = self.account
+        return " / ".join([service_name(acc) if acc is not None else ""] + [e.name for e in self.trail])
+
+    def add_backup(self):
+        """A folder of this PC backed up into the folder that's open (by itself every day or week)."""
+        from . import cloudbackup
+        from .clouddialogs import BackupDialog
+        acc = self.account
+        if acc is None:
+            return
+        dlg = BackupDialog(self.window().windowIcon(), self.c.theme.dark, self._where_text())
+        if not sheet.run(dlg):
+            return
+        source, every = dlg.values()
+        try:
+            b = cloudbackup.add(Path(source), acc, [e.name for e in self.trail], every)
+        except (OSError, cloud.CloudError) as e:
+            self.status.setText(_ui_error(e))
+            return
+        getattr(self.c, "keep_backups", lambda: None)()
+        self.back_up(b.id)
+
+    def show_backups(self):
+        from . import cloudbackup
+        from .clouddialogs import BackupsDialog
+        names = {a.key: service_name(a) for a in self.accounts}
+        dlg = BackupsDialog(self.window().windowIcon(), self.c.theme.dark, cloudbackup.load(), names)
+        sheet.run(dlg)
+        if dlg.choice is None:
+            return
+        what, backup_id = dlg.choice
+        if what == "remove":
+            cloudbackup.remove(backup_id)
+            getattr(self.c, "keep_backups", lambda: None)()
+            self.status.setText(tr("The backup was removed. What's already in the account stays there."))
+        else:
+            self.back_up(backup_id)
+
+    def back_up(self, backup_id: str):
+        from . import cloudbackup
+        b = next((x for x in cloudbackup.load() if x.id == backup_id), None)
+        if b is None:
+            return
+
+        def go(progress, cancel):
+            r = cloudbackup.run(b, cancel, progress)
+            if r.get("error") is not None:
+                raise r["error"]
+            if r["failed"]:
+                return tr("Backed up {name}, but some files couldn't go up: {count}. They may be open in another "
+                          "app.", name=ltr(b.name), count=len(r["failed"]))
+            return tr("Backed up {name}: {sent} new or changed, {same} already there.", name=ltr(b.name),
+                      sent=r["sent"], same=r["same"])
+        self._run(go, refresh=True, what=tr("Backing up {name}", name=ltr(b.name)))
 
     def remove_folder(self, acc: cloud.Account):
         from . import cloudlocal
@@ -1056,7 +1195,9 @@ class CloudPage(QWidget):
         self.job = work.run(go, self._sign_in_progress, self._signed_in)
 
     def _sign_in_again(self):
-        if self.account is not None and not self.account.local:
+        if self.account is not None and self.account.service in ("webdav", "ftp", "sftp"):
+            self.add_server(self.account)
+        elif self.account is not None and not self.account.local:
             self.sign_in(self.account.service)
 
     def _sign_in_progress(self, what):
@@ -1085,9 +1226,15 @@ class CloudPage(QWidget):
     def sign_out(self, acc: cloud.Account):
         box = QMessageBox(self)
         box.setIcon(QMessageBox.Question)
-        box.setWindowTitle(tr("Sign out?"))
-        box.setText(tr("Corefold forgets its key to {name}. Your files stay where they are.", name=ltr(acc.title)))
-        yes = box.addButton(tr("Sign out"), QMessageBox.AcceptRole)
+        if acc.service in ("webdav", "ftp", "sftp"):
+            box.setWindowTitle(tr("Remove this server?"))
+            box.setText(tr("Corefold forgets {name} and its password. Your files stay where they are.",
+                           name=ltr(acc.who)))
+            yes = box.addButton(tr("Remove"), QMessageBox.AcceptRole)
+        else:
+            box.setWindowTitle(tr("Sign out?"))
+            box.setText(tr("Corefold forgets its key to {name}. Your files stay where they are.", name=ltr(acc.title)))
+            yes = box.addButton(tr("Sign out"), QMessageBox.AcceptRole)
         box.addButton(tr("Cancel"), QMessageBox.RejectRole)
         sheet.run(box)
         if box.clickedButton() is not yes:

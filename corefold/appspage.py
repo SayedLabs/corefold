@@ -360,6 +360,7 @@ class AppsPage(QWidget):
         from .theme import round_menu
         round_menu(more)
         more.addAction(tr("Browser extensions…"), self.show_extensions)
+        more.addAction(tr("Watch an install…"), self.watch_install)
         more.addAction(tr("Folders of apps that are gone…"), self.show_orphans)
         more.addAction(tr("Backups…"), self.show_backups)
         more.addAction(tr("Save the list…"), self.save_list)
@@ -690,6 +691,9 @@ class AppsPage(QWidget):
 
     def show_extensions(self):
         sheet.run(ExtensionsDialog(self.window().windowIcon()))
+
+    def watch_install(self):
+        sheet.run(WatchInstallDialog(self.window().windowIcon()))
 
     def show_updates(self):
         dlg = UpdatesDialog(self.window().windowIcon())
@@ -1807,6 +1811,112 @@ class UpdatesDialog(QDialog):
         super().reject()
 
 
+class WatchInstallDialog(QDialog):
+    """Watching an install: a look before, the person installs the app, a look after. What's new is kept, and
+    offered with the app's leftovers when it's uninstalled one day."""
+
+    def __init__(self, icon: QIcon):
+        from . import installtrack
+        super().__init__(None, Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
+        self.setWindowIcon(icon)
+        self.setWindowTitle(tr("Watch an install"))
+        self.setMinimumWidth(560)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(22, 20, 22, 18)
+        lay.setSpacing(10)
+        lay.addWidget(_label(tr("Watch an install"), "h2"))
+        lay.addWidget(_label(tr("Corefold looks at where apps put things before you install one, and again once it's "
+                                "installed. When you uninstall that app one day, everything it put in is offered "
+                                "too, even what isn't named after it."), "muted", wrap=True))
+        self.status = _label("", wrap=True)
+        lay.addWidget(self.status)
+        row = QHBoxLayout()
+        self.b_start = _button(tr("Start watching"), "primary", self.begin)
+        self.b_open = _button(tr("Open an installer…"), on_click=self.open_installer)
+        self.b_done = _button(tr("I've finished installing"), "primary", self.end)
+        self.b_cancel = _button(tr("Stop watching"), on_click=self.stop_watching)
+        for b in (self.b_start, self.b_open, self.b_done, self.b_cancel):
+            row.addWidget(b)
+        row.addStretch()
+        self.b_close = _button(tr("Close"), on_click=self.accept)
+        row.addWidget(self.b_close)
+        lay.addLayout(row)
+        self._show(waiting=bool(installtrack.waiting()))
+
+    def _show(self, waiting: bool, text: str = ""):
+        self.b_start.setVisible(not waiting)
+        for b in (self.b_open, self.b_done, self.b_cancel):
+            b.setVisible(waiting)
+        if text:
+            self.status.setText(text)
+        elif waiting:
+            self.status.setText(tr("Watching. Install the app now (from here or anywhere), then press I've finished "
+                                   "installing. You can close this and come back: Corefold keeps watching."))
+        else:
+            self.status.setText(tr("Press Start watching before you open the app's installer."))
+
+    def _busy(self, text: str):
+        for b in (self.b_start, self.b_open, self.b_done, self.b_cancel):
+            b.setEnabled(False)
+        self.status.setText(text)
+
+    def _ready(self):
+        for b in (self.b_start, self.b_open, self.b_done, self.b_cancel):
+            b.setEnabled(True)
+
+    def begin(self):
+        from . import installtrack, work
+        self._busy(tr("Looking at where apps put things…"))
+
+        def done(result):
+            if not work.alive(self):
+                return
+            self._ready()
+            if isinstance(result, Exception):
+                self._show(False, tr("Couldn't look: {error}", error=str(result)))
+            else:
+                self._show(True)
+        work.run(lambda _p: installtrack.start(), lambda _: None, done, name="corefold-watch-install")
+
+    def open_installer(self):
+        from PySide6.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getOpenFileName(self, tr("Open an installer"), str(Path.home() / "Downloads"),
+                                              tr("Installers") + " (*.exe *.msi)")
+        if path:
+            try:
+                os.startfile(path)  # (Windows asks for an administrator when the installer needs one)
+            except (OSError, AttributeError) as e:
+                self.status.setText(tr("Couldn't open it: {error}", error=str(e)))
+
+    def end(self):
+        from . import installtrack, work
+        self._busy(tr("Looking at what changed…"))
+
+        def name_of(hive, view, key):
+            return str(un._values(hive, un.UNINSTALL + "\\" + key, view).get("DisplayName") or "")
+
+        def done(result):
+            if not work.alive(self):
+                return
+            self._ready()
+            if isinstance(result, Exception):
+                self._show(True, tr("Couldn't look: {error}", error=str(result)))
+            elif not result or not result.get("items"):
+                self._show(False, tr("Nothing new was found. Was the app installed while Corefold watched?"))
+            elif result.get("apps"):
+                self._show(False, tr("Done. Corefold saw {name} put in {count} things, and offers them all when you "
+                                     "uninstall it.", name=", ".join(result["apps"]), count=len(result["items"])))
+            else:
+                self._show(False, tr("Done. {count} new things were seen, but no new app appeared in Windows' list, "
+                                     "so they can't be offered with one.", count=len(result["items"])))
+        work.run(lambda _p: installtrack.finish(name_of), lambda _: None, done, name="corefold-watch-install")
+
+    def stop_watching(self):
+        from . import installtrack
+        installtrack.cancel()
+        self._show(False)
+
+
 class ExtensionsDialog(QDialog):
     """The browsers' extensions: each one is removed in its browser, which is opened on it."""
 
@@ -1837,6 +1947,11 @@ class ExtensionsDialog(QDialog):
         self.b_remove.setToolTip(tr("Opens the browser on it: press Remove there. (A browser puts back an "
                                     "extension deleted behind its back.)"))
         row.addWidget(self.b_remove)
+        self.b_unforce = _button(tr("Stop a program forcing it"), on_click=self.unforce)
+        self.b_unforce.setToolTip(tr("For an extension a program put in through Windows' registry (the browser "
+                                     "says it's installed by your administrator, or puts it back each time): "
+                                     "removes that entry, and the browser takes the extension out."))
+        row.addWidget(self.b_unforce)
         row.addWidget(_button(tr("Refresh"), on_click=self.fill))
         row.addStretch()
         row.addWidget(_button(tr("Close"), on_click=self.accept))
@@ -1847,15 +1962,35 @@ class ExtensionsDialog(QDialog):
         from . import extensions
         self.tree.clear()
         found = extensions.find()
+        try:
+            forced = extensions.find_forced()
+        except Exception:
+            log.debug("couldn't read the forced extensions", exc_info=True)
+            forced = []
+        self.forced = forced
         # the profile is only named for a browser with several of them
         several = {b for b in {e.browser for e in found} if len({e.profile_dir for e in found if e.browser == b}) > 1}
         for ext in found:
             where = f"{ext.browser} ({ext.profile})" if ext.browser in several and ext.profile else ext.browser
             name = ext.name + ("" if ext.on else "  " + tr("(turned off)"))
+            mine = [f for f in forced if f.id == ext.id and f.browser == ext.browser]
+            if mine:
+                name += "  " + tr("(forced by a program)")
             item = SortItem([name, where, tr("Yes") if ext.all_sites else "", human_size(ext.size) if ext.size else ""])
             item.setData(0, APP_ROLE, ext)
+            item.setData(1, APP_ROLE, mine)
             item.setData(3, SORT_ROLE, ext.size)
             item.setToolTip(0, f"{ext.name} {ext.version}\n{ext.id}")
+            self.tree.addTopLevelItem(item)
+        shown = {(e.browser, e.id) for e in found}
+        for f in forced:  # (forced, but not in a profile yet: the browser puts it in when it next starts)
+            if (f.browser, f.id) in shown and f.id:
+                continue
+            shown.add((f.browser, f.id))
+            item = SortItem([(f.id or f.data) + "  " + tr("(forced by a program)"), f.browser, "", ""])
+            item.setData(0, APP_ROLE, None)
+            item.setData(1, APP_ROLE, [x for x in forced if (x.browser, x.id) == (f.browser, f.id)])
+            item.setToolTip(0, f"{f.hive}\\{f.key}" + (f"\n{f.by}" if f.by else ""))
             self.tree.addTopLevelItem(item)
         self.tree.sortItems(1, Qt.AscendingOrder)
         self.status.setText(tr("{count} extensions, {sites} of them see every website.", count=len(found),
@@ -1867,8 +2002,51 @@ class ExtensionsDialog(QDialog):
         items = self.tree.selectedItems()
         return items[0].data(0, APP_ROLE) if items else None
 
+    def _forced(self) -> list:
+        items = self.tree.selectedItems()
+        return list(items[0].data(1, APP_ROLE) or []) if items else []
+
     def _selection(self):
-        self.b_remove.setEnabled(self._ext() is not None)
+        self.b_remove.setEnabled(self._ext() is not None and not self._forced())
+        self.b_unforce.setEnabled(bool(self._forced()))
+
+    def unforce(self):
+        """Removes the registry entries a program put in to force this extension (asks first)."""
+        from . import extensions, work
+        items = self._forced()
+        if not items:
+            return
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Question)
+        box.setWindowTitle(tr("Stop a program forcing it?"))
+        box.setText(tr("Corefold removes the entry that forces this extension into {browser}. Close the browser and "
+                       "open it again: it takes the extension out by itself.", browser=items[0].browser))
+        if any(f.needs_admin for f in items):
+            box.setInformativeText(tr("Windows asks for an administrator."))
+        yes = box.addButton(tr("Remove the entry"), QMessageBox.AcceptRole)
+        box.addButton(tr("Cancel"), QMessageBox.RejectRole)
+        sheet.run(box)
+        if box.clickedButton() is not yes:
+            return
+        command = _app_command()
+
+        def go(_progress):
+            return extensions.remove_forced(items, lambda payload: un.run_elevated(command, "browser-ext", payload))
+
+        def done(result):
+            if not work.alive(self):
+                return
+            self.b_unforce.setEnabled(True)
+            if isinstance(result, Exception):
+                self.status.setText(tr("Couldn't remove it: {error}", error=str(result)))
+                return
+            removed, failed = result
+            self.fill()
+            self.status.setText(tr("Done. Close {browser} and open it again to see the extension go.",
+                                   browser=items[0].browser) if removed and not failed else
+                                tr("Windows didn't allow it, or the administrator question was answered no."))
+        self.b_unforce.setEnabled(False)
+        work.run(go, lambda _: None, done, name="corefold-unforce")
 
     def remove(self):
         from . import extensions
