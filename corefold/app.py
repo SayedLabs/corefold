@@ -383,6 +383,7 @@ class Controller(QObject):
         # any thread (writing the right-click menu, a conversion), and freeing a closed window's widgets from
         # there crashes Qt
         gc.disable()
+        _converting[0] = lambda: bool(self.cancels)
         self.gc_timer = QTimer(self)
         self.gc_timer.timeout.connect(collect_garbage)
         self.gc_timer.start(GC_EVERY_MS)
@@ -2954,6 +2955,10 @@ OUTPUT_EXT = {"image:pdf": ".pdf", "image:scan": ".pdf", "pdf:merge": ".pdf", "i
 
 FULL_GC_EVERY_S = 60   # with a window in use, every object is looked through at most this often (it stops the
 _last_full = [0.0]      # window for up to half a second; the younger objects go each time, as before)
+# while a conversion runs (a 2,000-page PDF made smaller: over a million objects), a full look held the window
+# 1.2 s: then it comes at most this often, and the tidy after the job frees the rest
+FULL_GC_CONVERTING_S = 300
+_converting = [lambda: False]
 
 
 def _full_collection_done(phase: str, info: dict):
@@ -2967,7 +2972,8 @@ gc.callbacks.append(_full_collection_done)  # (a full look elsewhere, like the t
 def collect_garbage():
     """What Python's own collector would have done by now (the same thresholds), on this thread."""
     young, middle, old = gc.get_count()
-    if old > 10 and (QApplication.activeWindow() is None or time.monotonic() - _last_full[0] > FULL_GC_EVERY_S):
+    every = FULL_GC_CONVERTING_S if _converting[0]() else FULL_GC_EVERY_S
+    if old > 10 and (QApplication.activeWindow() is None or time.monotonic() - _last_full[0] > every):
         gc.collect(2)
     elif middle > 10:
         gc.collect(1)
