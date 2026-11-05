@@ -35,7 +35,7 @@ from . import tools as all_tools
 from . import settings as settings_mod
 from .converters import PASSWORD_ERROR, Options, Result, Tool, pick, release_memory, run_job, warm_up
 from .core import (LEGACY_NAME, NO_WINDOW, category, fallback_folder, human_size, is_link, lower_this_thread, norm, os_open,
-                   set_background_priority, set_downloads_folder, short_name, unique_path)
+                   set_background_priority, set_downloads_folder, short_name, system_tool, unique_path)
 from .history import History, size_of
 from .i18n import tr
 from .settings import (APP_NAME, LOG_DIR, TOAST_TIME_SCALE, WINDOW_TEXT_PT, Settings, app_command, app_icon,
@@ -1738,7 +1738,8 @@ class Controller(QObject):
         log.info("--play arrived, but the Player isn't part of Corefold any more")
         self.sync_archive_opening()  # (takes out the old "Open with" entry, if it's still there)
         try:
-            subprocess.Popen(["rundll32.exe", "shell32.dll,OpenAs_RunDLL", str(path)], creationflags=NO_WINDOW)
+            subprocess.Popen([system_tool("rundll32.exe"), "shell32.dll,OpenAs_RunDLL", str(path)],
+                             creationflags=NO_WINDOW)
         except OSError:
             log.exception("couldn't ask Windows which app plays %s", path)
 
