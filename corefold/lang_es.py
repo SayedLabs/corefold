@@ -3180,6 +3180,7 @@ STRINGS: dict[str, str] = {
     'Reading the words on this page so they can be changed…': 'Leyendo las palabras de esta página para poder cambiarlas…',
     "Word asked a question about this PDF: open it in Word once yourself": "Word hizo una pregunta sobre este PDF: ábrelo tú mismo una vez en Word",
     "{name} is in use: close the program playing it, then try again": "{name} está en uso: cierra el programa que lo reproduce y vuelve a intentarlo",
+    "{name} came out shorter than before, so it was left as it was": "{name} quedó más corto que antes, así que se dejó como estaba",
     "Only MP3, M4A, FLAC, OGG and Opus files have song details": "Solo los archivos MP3, M4A, FLAC, OGG y Opus tienen datos de canción",
     "Nothing to change": "Nada que cambiar",
     "nothing would be left: pick a smaller part to take out": "no quedaría nada: elige una parte más corta para quitar",

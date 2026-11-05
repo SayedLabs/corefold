@@ -3253,6 +3253,7 @@ STRINGS: dict[str, str] = {
     'Reading the words on this page so they can be changed…': 'جارٍ قراءة كلمات هذه الصفحة لتتمكن من تغييرها…',
     "Word asked a question about this PDF: open it in Word once yourself": "طرح Word سؤالًا عن ملف PDF هذا: افتحه في Word بنفسك مرة واحدة",
     "{name} is in use: close the program playing it, then try again": "{name} قيد الاستخدام: أغلق البرنامج الذي يشغّله، ثم حاول مرة أخرى",
+    "{name} came out shorter than before, so it was left as it was": "{name} خرج أقصر من الأصل، لذلك تُرك كما كان",
     "Only MP3, M4A, FLAC, OGG and Opus files have song details": "تفاصيل الأغاني متاحة لملفات MP3 و M4A و FLAC و OGG و Opus فقط",
     "Nothing to change": "لا شيء لتغييره",
     "nothing would be left: pick a smaller part to take out": "لن يبقى شيء: اختر جزءًا أصغر لحذفه",

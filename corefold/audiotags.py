@@ -118,6 +118,12 @@ def write_tags(src: Path, ctx: Ctx) -> Result:
         new = src.with_name(f".{src.stem}.corefold-tags{src.suffix}")
         try:
             run_ffmpeg(src, new, args, ctx, more_inputs=more or None)
+            before = probe(src).get("duration") or 0.0
+            if before > 1 and (probe(new).get("duration") or 0.0) < before * 0.98:
+                # (the sound is only copied, so the song is exactly as long as before: if it isn't, something went
+                # wrong while writing, and the song itself stays)
+                raise RuntimeError(tr("{name} came out shorter than before, so it was left as it was",
+                                      name=src.name))
             stat = src.stat()
             os.replace(new, src)
         except PermissionError:
@@ -134,6 +140,6 @@ def write_tags(src: Path, ctx: Ctx) -> Result:
     except OSError:
         pass
     from . import core
-    for key in [k for k in list(core._cache) if k[1] == str(src)]:  # (what was read about it before is old now)
+    for key in [k for k in list(core._cache) if k[1] in (str(src), str(new))]:  # (what was read about it before is old now)
         core._cache.pop(key, None)
     return Result([src])
