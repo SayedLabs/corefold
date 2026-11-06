@@ -1,0 +1,38 @@
+         1025320 function calls (1024658 primitive calls) in 0.307 seconds
+
+   Ordered by: cumulative time
+   List reduced from 186 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+      2/1    0.002    0.001    0.200    0.200 D:\a\corefold\corefold\corefold\browser.py:298(__init__)
+        1    0.045    0.045    0.200    0.200 D:\a\corefold\corefold\corefold\browser.py:516(set_entries)
+        1    0.000    0.000    0.125    0.125 D:\a\corefold\corefold\corefold\browser.py:61(__init__)
+        1    0.000    0.000    0.125    0.125 D:\a\corefold\corefold\corefold\archives.py:1384(holds_archives)
+    60001    0.017    0.000    0.119    0.000 D:\a\corefold\corefold\corefold\archives.py:1385(<genexpr>)
+        1    0.006    0.006    0.117    0.117 {built-in method builtins.any}
+    60000    0.044    0.000    0.102    0.000 D:\a\corefold\corefold\corefold\archives.py:1388(is_archive_file_name)
+        1    0.000    0.000    0.084    0.084 D:\a\corefold\corefold\corefold\archives.py:499(has_legacy_names)
+        1    0.000    0.000    0.084    0.084 D:\a\corefold\corefold\corefold\core.py:517(_cached)
+        1    0.000    0.000    0.084    0.084 D:\a\corefold\corefold\corefold\archives.py:500(<lambda>)
+        1    0.053    0.053    0.084    0.084 D:\a\corefold\corefold\corefold\archives.py:359(_legacy_zip_names)
+    60000    0.020    0.000    0.033    0.000 D:\a\corefold\corefold\corefold\core.py:410(norm)
+   180665    0.028    0.000    0.028    0.000 {method 'rpartition' of 'str' objects}
+   120001    0.014    0.000    0.014    0.000 {built-in method _struct.unpack_from}
+   120009    0.009    0.000    0.009    0.000 {built-in method builtins.len}
+        2    0.009    0.004    0.009    0.004 {method 'icon' of 'PySide6.QtWidgets.QFileIconProvider' objects}
+60661/60000    0.007    0.000    0.007    0.000 D:\a\corefold\corefold\corefold\browser.py:70(ensure)
+    60018    0.007    0.000    0.007    0.000 {method 'get' of 'dict' objects}
+    60672    0.007    0.000    0.007    0.000 {method 'append' of 'list' objects}
+    60005    0.007    0.000    0.007    0.000 {method 'lower' of 'str' objects}
+    60000    0.006    0.000    0.006    0.000 {method 'rstrip' of 'str' objects}
+    60000    0.006    0.000    0.006    0.000 {method 'isascii' of 'bytes' objects}
+    60000    0.006    0.000    0.006    0.000 {method 'strip' of 'str' objects}
+       16    0.003    0.000    0.003    0.000 {method 'addWidget' of 'PySide6.QtWidgets.QBoxLayout' objects}
+        2    0.002    0.001    0.002    0.001 {method 'addWidget' of 'PySide6.QtWidgets.QSplitter' objects}
+        1    0.001    0.001    0.002    0.002 D:\a\corefold\corefold\corefold\browser.py:215(__init__)
+        2    0.001    0.001    0.001    0.001 {method 'read' of '_io.BufferedReader' objects}
+        1    0.001    0.001    0.001    0.001 D:\a\corefold\corefold\corefold\browser.py:277(__init__)
+      700    0.000    0.000    0.001    0.000 D:\a\corefold\corefold\corefold\sheet.py:1426(eventFilter)
+      700    0.000    0.000    0.001    0.000 {method 'type' of 'PySide6.QtCore.QEvent' objects}
+
+
