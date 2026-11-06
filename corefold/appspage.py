@@ -32,6 +32,12 @@ FILLED_ROLE = Qt.UserRole + 2  # a leftover folder or key whose parts are listed
 PARTS_SHOWN = 500              # parts listed under one folder or key: the rest are one row, "{count} more items"
 
 
+def _plain_error(e: Exception) -> str:
+    """What went wrong, in Rakiza Core's words (never Windows' "[WinError 5] …")."""
+    from .converters import friendly_error
+    return friendly_error(e)
+
+
 def _button(text: str, name: str | None = None, on_click=None) -> QPushButton:
     b = QPushButton(text)
     if name:
@@ -1402,7 +1408,7 @@ class UninstallDialog(QDialog):
         self.undo_btn.setEnabled(True)
         if isinstance(result, Exception):
             log.warning("putting back %s failed", self.backup, exc_info=result)
-            self.done_detail.setText(str(result))
+            self.done_detail.setText(_plain_error(result))
             return
         if result["failed"]:
             self.done_detail.setText(tr("{count} items couldn't be put back.", count=len(result["failed"])))
@@ -1610,7 +1616,7 @@ class BackupsDialog(QDialog):
             self._job = None
             if isinstance(result, Exception):
                 log.warning("backup job failed", exc_info=result)
-                sheet.warning(self, tr("Backups"), str(result))
+                sheet.warning(self, tr("Backups"), _plain_error(result))
             else:
                 done(result)
             self.fill()

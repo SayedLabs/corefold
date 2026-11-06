@@ -61,6 +61,12 @@ FIND_WAIT = 220           # ms after the last key before a search runs
 _work = work.run
 
 
+def _plain_error(e: Exception) -> str:
+    """What went wrong, in Rakiza Core's words (never Windows' "[WinError 5] …")."""
+    from .converters import friendly_error
+    return friendly_error(e)
+
+
 def changed_text(ts: float) -> str:
     """When something was last changed: "3 h ago" this week, then a date ("12 Mar 2024")."""
     if time.time() - ts < 7 * 86400:
@@ -2551,7 +2557,7 @@ class SpacePage(QWidget):
             return
         self.job = None
         if isinstance(freed, Exception):
-            self.clean_note.setText(str(freed))
+            self.clean_note.setText(_plain_error(freed))
             return
         self.clean_note.setText(tr("Freed {size}. Files that were in use were left alone.", size=human_size(freed)))
         self.c.say(tr("Cleaned up"), tr("Freed {size}.", size=human_size(freed)), done=True)
@@ -2691,7 +2697,7 @@ class SpacePage(QWidget):
         self.dupe_btn.setEnabled(True)
         self.similar_btn.setEnabled(True)
         if isinstance(groups, Exception):
-            self.dupe_note.setText(str(groups))
+            self.dupe_note.setText(_plain_error(groups))
             return
         thumbs = getattr(self, "_thumbs", {})
         for group in groups:
@@ -2777,7 +2783,7 @@ class SpacePage(QWidget):
         self.dupe_btn.setEnabled(True)
         self.similar_btn.setEnabled(True)
         if isinstance(groups, Exception):
-            self.dupe_note.setText(str(groups))
+            self.dupe_note.setText(_plain_error(groups))
             return
         self.dupes = groups
         if not groups:
@@ -2925,7 +2931,7 @@ class SpacePage(QWidget):
             return
         self.job = None
         if isinstance(result, Exception):
-            self.dupe_note.setText(str(result))
+            self.dupe_note.setText(_plain_error(result))
             self.dupe_remove.setEnabled(True)
             return
         gone, self.dupes = result

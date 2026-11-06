@@ -149,3 +149,12 @@ def test_a_backup_by_itself_only_goes_to_the_drive_that_has_it(tmp_path):
     import shutil
     shutil.rmtree(backup.home(plan))  # (another USB drive got E:)
     assert not backup.due(plan, now=1000.0 + 25 * 3600)
+
+
+def test_space_and_the_uninstaller_say_what_went_wrong_in_their_own_words(qapp):
+    from corefold import appspage, spacepage
+    denied = PermissionError(13, "Access is denied", "C:\\Users\\me\\a.iso")
+    denied.winerror = 5
+    for page in (spacepage, appspage):
+        said = page._plain_error(denied)
+        assert said and "Access is denied" not in said and "Errno" not in said
