@@ -335,8 +335,13 @@ def after_update_checks(case: str, folder: Path, before: dict, kept_files: set[s
         if (Path(__file__).resolve().parent.parent / "assets" / "release-notes" / f"{NEW}.md").exists():
             check("(what's new waits)" in started, f"{case}: What's new waits for the window to open")
     after = settings()
-    for key in ("language", "appearance", "tools_off", "quick_menu", "clip_shortcut", "volume"):
+    for key in ("language", "appearance", "quick_menu", "clip_shortcut", "volume"):
         check(after.get(key) == before.get(key), f"{case}: setting {key} kept ({after.get(key)!r})")
+    # tools that came with this update wait switched off (tools.offer_new_tools); what was off stays off
+    off_then, off_now = set(before.get("tools_off") or []), set(after.get("tools_off") or [])
+    new = set(after.get("known_tools") or []) - set(before.get("known_tools") or [])
+    check(off_then <= off_now and off_now - off_then <= new,
+          f"{case}: setting tools_off kept, new tools waiting off ({sorted(off_now)!r}, new {sorted(new)!r})")
     check(set(after.get("known_tools") or []) >= set(before.get("known_tools") or []),
           f"{case}: the tools this person knew are still known")
     check(kept_files <= files_of(CONFIG), f"{case}: every file in the settings folder kept (now {CONFIG})")
