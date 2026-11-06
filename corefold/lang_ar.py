@@ -2720,6 +2720,7 @@ STRINGS: dict[str, str] = {
     'Pick': 'اختر',
     'Disk space': 'مساحة القرص',
     'Add a widget': "إضافة أداة مصغّرة",
+    'Added': 'تمت الإضافة',
     'Add to Home': "إضافة إلى الرئيسية",
     'On your Home page already': "موجودة في صفحتك الرئيسية بالفعل",
     "Everything's on your Home page already": "كل شيء موجود في صفحتك الرئيسية بالفعل",

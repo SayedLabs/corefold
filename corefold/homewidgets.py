@@ -13,7 +13,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QEasingCurve, QPoint, QRect, QRectF, QSize, QStandardPaths, Qt, QTimer, \
     QVariantAnimation, Signal
-from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (QButtonGroup, QDialog, QFileDialog, QFrame, QGraphicsDropShadowEffect,
                                QGraphicsOpacityEffect, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
                                QListWidgetItem, QMenu, QProgressBar, QPushButton, QScrollArea, QSizePolicy, QStyle,
@@ -26,7 +26,7 @@ from .core import human_size, short_name
 from .i18n import ltr, tr
 from .timefmt import number
 
-UNIT_H = 148     # one row of the grid
+UNIT_H = 136     # one row of the grid
 SPACING = 12
 WIDE_FROM = 700  # the board's width from which it has four columns (two below it)
 GLIDE_MS = 240   # widgets gliding to their new places (after a move, a new size, one added or taken off)
@@ -172,6 +172,30 @@ def _button(text: str, name: str | None = None, on_click=None) -> QPushButton:
     return b
 
 
+def size_icon(size: str, color: QColor, dpr: float = 1.0, px: int = 22) -> QIcon:
+    """A size drawn as the part of the grid it takes: four columns, two rows, its own cells filled."""
+    cols, rows = homelist.SIZES.get(size, (1, 1))
+    pm = QPixmap(round(px * dpr), round(px * dpr))
+    pm.setDevicePixelRatio(dpr)
+    pm.fill(Qt.transparent)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.Antialiasing)
+    gap, cell_w = 1.6, (px - 3 * 1.6) / 4
+    cell_h = cell_w * 1.25
+    top = (px - 2 * cell_h - gap) / 2
+    rtl = QGuiApplication.layoutDirection() == Qt.RightToLeft  # (a page read from the right fills from there)
+    for r in range(2):
+        for c in range(4):
+            on = (3 - c if rtl else c) < cols and r < rows
+            fill = QColor(color)
+            fill.setAlpha(255 if on else 60)
+            p.setPen(Qt.NoPen)
+            p.setBrush(fill)
+            p.drawRoundedRect(QRectF(c * (cell_w + gap), top + r * (cell_h + gap), cell_w, cell_h), 1.2, 1.2)
+    p.end()
+    return QIcon(pm)
+
+
 def known_folder(key: str) -> Path | None:
     if key == "downloads":
         from .app import downloads_folder
@@ -239,19 +263,21 @@ def target_hint(target: str) -> str:
     if target_page(target):
         return tr("Rakiza Core page")
     if target.startswith("known:"):
+        return tr("Folder")
+    return ltr(target)
+
+
+def target_where(target: str) -> str:
+    """Where it really is (a shortcut's tooltip): a known folder's own path."""
+    if target.startswith("known:"):
         folder = known_folder(target[6:])
         return ltr(str(folder)) if folder else ""
-    return ltr(target)
+    return target_hint(target)
 
 
 class EditCover(QWidget):
     """Over a widget while the Home page is being changed: its own buttons can't be pressed by mistake, it can
     be dragged to another place, and it has buttons to change its size and take it off."""
-
-    def _sizes(self):
-        menu = self.frame.size_menu()
-        sheet.menu(menu, self.size_btn)
-        menu.deleteLater()
 
     def __init__(self, frame: "WidgetFrame"):
         super().__init__(frame)
@@ -259,24 +285,30 @@ class EditCover(QWidget):
         self.setCursor(Qt.OpenHandCursor)
         self.setToolTip(tr("Drag to move it"))
         self.press: QPoint | None = None
-        outer = QHBoxLayout(self)
+        outer = QHBoxLayout(self)  # (the bar in the middle: in a corner it hid a small widget's title)
         outer.setContentsMargins(8, 8, 8, 8)
-        outer.addStretch()
         box = QFrame(self)  # (each part has its owner from the start: shown before it's laid out, a part
         box.setObjectName("editBar")  # without one is a little window of its own for a moment)
         bar = QHBoxLayout(box)
         bar.setContentsMargins(3, 3, 3, 3)
         bar.setSpacing(2)
-        outer.addWidget(box, 0, Qt.AlignTop)
+        outer.addWidget(box, 0, Qt.AlignCenter)
         t = frame.board.c.theme
-        self.size_btn = QPushButton(parent=box)
-        self.size_btn.setObjectName("iconButton")
-        self.size_btn.setIcon(icons.icon("resize_image", t.text))
-        self.size_btn.setToolTip(tr("Size"))
-        self.size_btn.setAccessibleName(tr("Size"))
-        self.size_btn.setCursor(Qt.PointingHandCursor)
-        self.size_btn.clicked.connect(self._sizes)
-        self.size_btn.setVisible(len(frame.kind.sizes) > 1)
+        dpr = frame.devicePixelRatioF()
+        # each size it comes in, drawn as the part of the grid it takes: one press, no menu
+        self.size_btns: dict[str, QPushButton] = {}
+        for size in frame.kind.sizes if len(frame.kind.sizes) > 1 else ():
+            b = QPushButton(parent=box)
+            b.setObjectName("sizeChip")
+            b.setCheckable(True)
+            b.setChecked(size == frame.size_name)
+            b.setIcon(size_icon(size, t.accent if size == frame.size_name else t.muted, dpr))
+            b.setIconSize(QSize(20, 20))
+            b.setToolTip(tr(homelist.SIZE_NAMES[size]))
+            b.setAccessibleName(tr(homelist.SIZE_NAMES[size]))
+            b.setCursor(Qt.PointingHandCursor)
+            b.clicked.connect(lambda _=False, s=size: self._size(s))
+            self.size_btns[size] = b
         self.remove_btn = QPushButton(parent=box)
         self.remove_btn.setObjectName("iconButton")
         self.remove_btn.setIcon(icons.icon("delete", t.danger))
@@ -284,9 +316,15 @@ class EditCover(QWidget):
         self.remove_btn.setAccessibleName(tr("Remove"))
         self.remove_btn.setCursor(Qt.PointingHandCursor)
         self.remove_btn.clicked.connect(lambda: frame.board.remove(frame.entry["id"]))
-        for b in (self.size_btn, self.remove_btn):
+        for b in (*self.size_btns.values(), self.remove_btn):
             b.setFixedSize(28, 28)
             bar.addWidget(b)
+
+    def _size(self, size: str):
+        if size == self.frame.size_name:
+            self.size_btns[size].setChecked(True)
+            return
+        self.frame.board.resize_widget(self.frame.entry["id"], size)
 
     def paintEvent(self, _e):
         t = tokens.current()
@@ -296,7 +334,7 @@ class EditCover(QWidget):
         p.setOpacity(level)
         r = QRectF(self.rect()).adjusted(1, 1, -1, -1)
         lifted = self.frame.board.lifted is self.frame
-        p.setBrush(tokens.alpha(t.canvas, 60 if lifted else 150))
+        p.setBrush(tokens.alpha(t.canvas, 60 if lifted else 190))  # (its own buttons sit on it: clearly over)
         p.setPen(QPen(t.accent, 1.5, Qt.SolidLine if lifted else Qt.DashLine))
         p.drawRoundedRect(r, 14, 14)
         p.end()
@@ -373,7 +411,8 @@ class WidgetFrame(QFrame):
     def size_menu(self) -> QMenu:
         menu = QMenu(self)
         for size in self.kind.sizes:
-            act = menu.addAction(tr(homelist.SIZE_NAMES[size]),
+            act = menu.addAction(size_icon(size, self.board.c.theme.text, self.devicePixelRatioF()),
+                                 tr(homelist.SIZE_NAMES[size]),
                                  lambda s=size: self.board.resize_widget(self.entry["id"], s))
             act.setCheckable(True)
             act.setChecked(size == self.size_name)
@@ -1067,10 +1106,10 @@ class Board(QWidget):
         row = QHBoxLayout()
         row.setSpacing(24)
         for value, text in ((files, tr("files converted")), (saved, tr("space saved"))):
-            box = QVBoxLayout()
+            box = QVBoxLayout()  # (plain labels: a Fit one, next to the stretch, was squeezed to nothing)
             box.setSpacing(0)
-            box.addWidget(_label(value, "heroStat"))
-            box.addWidget(_label(text, "subtle"))
+            box.addWidget(QLabel(value, objectName="heroStat"))
+            box.addWidget(QLabel(text, objectName="subtle"))
             row.addLayout(box)
         row.addStretch()
         row.addWidget(_button(tr("See all"), "flat", lambda: self._open("History")), 0, Qt.AlignBottom)
@@ -1315,7 +1354,7 @@ class Board(QWidget):
         b = QPushButton()
         b.setObjectName("widgetShortcut")
         b.setCursor(Qt.PointingHandCursor)
-        b.setToolTip(target_hint(target))
+        b.setToolTip(target_where(target))
         b.setAccessibleName(name)
         b.clicked.connect(lambda: self.open_target(target))
         b.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -1347,8 +1386,7 @@ class Board(QWidget):
     def _w_shortcuts(self, f, lay, size):
         items = [i for i in f.entry.get("items", []) if target_ok(self.c.settings, i["target"])]
         head = QHBoxLayout()
-        head.addWidget(_label(tr("Shortcuts"), "cardTitle"))
-        head.addStretch()
+        head.addWidget(_label(tr("Shortcuts"), "cardTitle"), 1)  # (the room is its own: a stretch beside it left none)
         if not f.preview and len(f.entry.get("items", [])) < homelist.MAX_ITEMS:
             add = _button("", "iconButton", lambda: self._shortcut_add(f.entry["id"]))
             add.setIcon(icons.icon("add", self.c.theme.muted))
@@ -1366,7 +1404,8 @@ class Board(QWidget):
                               0, Qt.AlignLeading)
             lay.addStretch()
             return
-        per_row = {"medium": 4, "wide": 8, "large": 4}[size]
+        # (a wide one spreads what it has over its row: four shortcuts don't sit in one half of it)
+        per_row = {"medium": 4, "wide": min(8, max(4, len(items))), "large": 4}[size]
         rows = {"medium": 1, "wide": 1, "large": 3}[size]
         grid = QGridLayout()
         grid.setSpacing(6)
@@ -1375,7 +1414,7 @@ class Board(QWidget):
             b.setObjectName("widgetShortcut")
             b.setCursor(Qt.PointingHandCursor)
             name = item.get("name") or target_name(item["target"])
-            b.setToolTip(f"{name}\n{target_hint(item['target'])}")
+            b.setToolTip(f"{name}\n{target_where(item['target'])}")
             b.setAccessibleName(name)
             b.clicked.connect(lambda _=False, t=item["target"]: self.open_target(t))
             b.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -1514,8 +1553,32 @@ def _drive_roots() -> list[str]:
     return out
 
 
+class GalleryStage(QFrame):
+    """Where the chosen widget is shown: on a piece of the Home page's grid, so its size reads at a glance."""
+
+    def __init__(self):
+        super().__init__()
+        self.setObjectName("galleryStage")
+        self.slots: list[QRect] = []
+
+    def paintEvent(self, e):
+        super().paintEvent(e)
+        if not self.slots:
+            return
+        t = tokens.current()
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setPen(QPen(tokens.alpha(t.text, 45), 1, Qt.DashLine))
+        p.setBrush(Qt.NoBrush)
+        p.setClipRect(self.rect().adjusted(1, 1, -1, -1))
+        for r in self.slots:
+            p.drawRoundedRect(QRectF(r).adjusted(0.5, 0.5, -0.5, -0.5), 12, 12)
+        p.end()
+
+
 class Gallery(QDialog):
-    """Adding a widget: the kinds on one side, the chosen one as it will look on the other, in each size."""
+    """Adding widgets: the kinds on one side, the chosen one as it will look on the other, in each size. It
+    stays open after one is added, so several can be added in a row."""
 
     def __init__(self, board: Board, kind: str = ""):
         super().__init__(board.window(), Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
@@ -1530,8 +1593,9 @@ class Gallery(QDialog):
         lay.setSpacing(18)
         self.list = QListWidget()
         self.list.setObjectName("settingsNav")
-        self.list.setFixedWidth(250)
-        self.list.setIconSize(QSize(20, 20))
+        self.list.setFixedWidth(260)
+        self.list.setIconSize(QSize(26, 26))
+        self.added = 0
         lay.addWidget(self.list)
         side = QVBoxLayout()
         side.setSpacing(10)
@@ -1547,8 +1611,9 @@ class Gallery(QDialog):
         self.size_buttons: dict[str, QPushButton] = {}
         group = QButtonGroup(self)
         for size, text in homelist.SIZE_NAMES.items():
-            b = QPushButton(tr(text))
+            b = QPushButton(" " + tr(text))
             b.setObjectName("segment")
+            b.setIconSize(QSize(18, 18))
             b.setCheckable(True)
             b.setCursor(Qt.PointingHandCursor)
             b.clicked.connect(lambda _=False, s=size: self._show(s))
@@ -1559,17 +1624,16 @@ class Gallery(QDialog):
         row.addWidget(strip)
         row.addStretch()
         side.addLayout(row)
-        self.stage = QFrame()
-        self.stage.setObjectName("galleryStage")
+        self.stage = GalleryStage()
         self.stage_lay = QGridLayout(self.stage)
         self.stage_lay.setContentsMargins(16, 16, 16, 16)
         side.addWidget(self.stage, 1)
         buttons = QHBoxLayout()
         buttons.addStretch()
-        close = _button(tr("Close"), None, self.reject)
+        self.close_btn = _button(tr("Close"), None, self.reject)
         self.add_btn = _button(tr("Add to Home"), "primary", self._add)
         self.add_btn.setDefault(True)
-        buttons.addWidget(close)
+        buttons.addWidget(self.close_btn)
         buttons.addWidget(self.add_btn)
         side.addLayout(buttons)
         lay.addLayout(side, 1)
@@ -1596,12 +1660,14 @@ class Gallery(QDialog):
             head.setFont(font)
             self.list.addItem(head)
             for k in kinds:
-                item = QListWidgetItem(icons.icon(k.icon, t.text, disabled=t.tokens.faint), tr(k.name))
+                tool = all_tools.BY_ID.get(k.tool)
+                art = QIcon(icons.product_tile(tool.product, 26, t.dark, self.devicePixelRatioF())) \
+                    if tool is not None else icons.icon(k.icon, t.text, disabled=t.tokens.faint)
+                item = QListWidgetItem(art, tr(k.name))
                 item.setData(Qt.UserRole, k.id)
-                if k.id not in offered:
-                    item.setFlags(Qt.NoItemFlags)
-                    item.setToolTip(tr("On your Home page already"))
+                item.setSizeHint(QSize(0, 40))
                 self.list.addItem(item)
+                self._mark(item, k.id in offered)
                 if k.id in offered and (first is None or k.id == kind):
                     first = item
         self.list.currentItemChanged.connect(lambda item, _old: self._picked(item))
@@ -1610,6 +1676,13 @@ class Gallery(QDialog):
         else:
             self.title.setText(tr("Everything's on your Home page already"))
             self.add_btn.setEnabled(False)
+
+    def _mark(self, item, can_add: bool):
+        """An item that can't be added again: greyed, and says why."""
+        if can_add:
+            return
+        item.setFlags(Qt.NoItemFlags)
+        item.setToolTip(tr("On your Home page already"))
 
     def current_kind(self) -> homelist.Kind | None:
         item = self.list.currentItem()
@@ -1621,6 +1694,8 @@ class Gallery(QDialog):
             return
         self.title.setText(tr(k.name))
         self.line.setText(tr(k.line))
+        self.add_btn.setText(tr("Add to Home"))
+        self.add_btn.setEnabled(True)
         for size, btn in self.size_buttons.items():
             btn.setVisible(size in k.sizes)
         self._show(k.sizes[0])
@@ -1632,6 +1707,9 @@ class Gallery(QDialog):
             return
         self.size = size
         self.size_buttons[size].setChecked(True)
+        t, dpr = self.board.c.theme, self.devicePixelRatioF()
+        for s_, btn in self.size_buttons.items():
+            btn.setIcon(size_icon(s_, t.accent if s_ == size else t.muted, dpr))
         if self.preview is not None:
             self.stage_lay.removeWidget(self.preview)
             self.preview.hide()
@@ -1646,6 +1724,32 @@ class Gallery(QDialog):
         unit = min(self.board.column_width(), 150 if cols == 4 else 200)
         self.preview.setFixedSize(cols * unit + (cols - 1) * SPACING, rows * UNIT_H + (rows - 1) * SPACING)
         self.stage_lay.addWidget(self.preview, 0, 0, Qt.AlignCenter)
+        QTimer.singleShot(0, self, self._slots)
+
+    def _slots(self):
+        """The grid's empty places around the preview, in its row(s): what the size takes of a Home page row."""
+        if self.preview is None:
+            return
+        g = self.preview.geometry()
+        cols, rows = homelist.span(self.size, homelist.COLUMNS)
+        cell = (g.width() - (cols - 1) * SPACING) / cols
+        slots = []
+        x = g.x() + g.width() + SPACING  # (the ones cut by the stage's edge too: the row goes on)
+        while x < self.stage.width() - 16:
+            slots.append(QRect(round(x), g.y(), round(cell), g.height() if rows == 1 else
+                               round((g.height() - SPACING) / 2)))
+            x += cell + SPACING
+        x = g.x() - SPACING - cell
+        while x + cell > 16:
+            slots.append(QRect(round(x), g.y(), round(cell), g.height() if rows == 1 else
+                               round((g.height() - SPACING) / 2)))
+            x -= cell + SPACING
+        self.stage.slots = slots
+        self.stage.update()
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        QTimer.singleShot(0, self, self._slots)
 
     def _add(self):
         k = self.current_kind()
@@ -1660,7 +1764,15 @@ class Gallery(QDialog):
         elif k.id == "shortcuts":
             extra = {"items": []}
         self.board.add(k.id, self.size, **extra)
-        self.accept()
+        # (it stays open: another one can be added right away; what's there now can't be added twice)
+        self.added += 1
+        self.close_btn.setText(tr("Done"))
+        if not k.many:
+            self.add_btn.setEnabled(False)
+            self._mark(self.list.currentItem(), False)
+        self.add_btn.setText(tr("Added"))
+        if k.many:  # (one more of it can be added: the button says so again in a moment)
+            QTimer.singleShot(1200, self, lambda: self.add_btn.setText(tr("Add to Home")))
 
 
 class ShortcutDialog(QDialog):

@@ -58,12 +58,15 @@ KINDS: dict[str, Kind] = {k.id: k for k in (
     Kind("color", "colors", "Pick a colour", "Pick any colour on your screen.", "color", ("small",)),
 )}
 # what a new Home starts with (and what "Start again" puts back)
-# (rows that fill up: two medium, then a medium and two small, then two medium, and Tidy a folder last: resting
-# for now, it leaves no gap in the middle when it isn't shown)
+# (rows that fill up: two medium, then a medium and two small, then the folders used most in one wide row, and
+# Tidy a folder last: resting for now, it leaves no gap in the middle when it isn't shown. What Rakiza Core did
+# isn't among them: the top of the Home page shows the same numbers)
 DEFAULT = (("convert", "medium"), ("pdf", "medium"), ("cloud", "medium"), ("archive", "small"), ("unlock", "small"),
-           ("stats", "medium"), ("shortcut", "medium"), ("organizer", "medium"))
+           ("shortcuts", "wide"), ("organizer", "medium"))
 # the default shortcut: the Downloads folder (filled in when it's made, wherever Downloads really is)
 DOWNLOADS = "known:downloads"
+# and the default Shortcuts widget's: the folders everyone has
+DEFAULT_FOLDERS = ("known:downloads", "known:documents", "known:desktop", "known:pictures")
 
 
 def new_id() -> str:
@@ -81,7 +84,12 @@ def make(kind: str, size: str = "", **extra) -> dict:
 def default() -> list[dict]:
     out = []
     for kind, size in DEFAULT:
-        out.append(make(kind, size, target=DOWNLOADS, name="") if kind == "shortcut" else make(kind, size))
+        if kind == "shortcut":
+            out.append(make(kind, size, target=DOWNLOADS, name=""))
+        elif kind == "shortcuts":
+            out.append(make(kind, size, items=[{"target": t, "name": ""} for t in DEFAULT_FOLDERS]))
+        else:
+            out.append(make(kind, size))
     return out
 
 
