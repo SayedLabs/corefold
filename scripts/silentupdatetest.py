@@ -147,7 +147,10 @@ check(SCRIPT.is_file(), "the update script is installed next to Rakiza Core")
 # ---- (4) who may change the script, its folder and the task's folder
 acl_check = r"""
 $admins = @('S-1-5-18', 'S-1-5-32-544', 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464')
-$write = [Security.AccessControl.FileSystemRights]'Write, Modify, FullControl, Delete, ChangePermissions, TakeOwnership, AppendData, CreateFiles, CreateDirectories, WriteData, DeleteSubdirectoriesAndFiles'
+# only the bits that change something: WriteData/CreateFiles 0x2, AppendData/CreateDirectories 0x4, WriteEA 0x10,
+# DeleteChild 0x40, WriteAttributes 0x100, Delete 0x10000, WRITE_DAC 0x40000, WRITE_OWNER 0x80000,
+# GENERIC_ALL 0x10000000, GENERIC_WRITE 0x40000000 (Modify/FullControl also carry read bits, so they can't be the mask)
+$write = 0x500D0156
 $out = @()
 foreach ($p in $env:CF_PATHS.Split('|')) {
     if (-not (Test-Path -LiteralPath $p)) { continue }
@@ -160,7 +163,7 @@ foreach ($p in $env:CF_PATHS.Split('|')) {
         if ($admins -contains $sid) { continue }
         # CREATOR OWNER only applies to what someone creates inside (they can't create anything: see the rest)
         if ($sid -eq 'S-1-3-0') { continue }
-        if ([int]($a.FileSystemRights -band $write) -ne 0) { $out += "$p $sid $($a.FileSystemRights)" }
+        if (([int64][int]$a.FileSystemRights -band $write) -ne 0) { $out += "$p $sid $($a.FileSystemRights)" }
     }
 }
 $out -join "`n"
