@@ -146,6 +146,14 @@ jobs:
           $old = Get-ChildItem old -Filter "Corefold-Setup-*.exe" | Sort-Object { [version]($_.BaseName -replace "Corefold-Setup-", "") } | ForEach-Object { $_.FullName }  # keep-name
           python scripts/upgradetest.py dist\release out\upgrade @old
 
+      - name: Updates without Windows' question (the update task - who may change it, runs as SYSTEM, installs a checked release, starts Rakiza Core again, removed with it)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $env:PYTHONIOENCODING = "utf-8"
+          python scripts/silentupdatetest.py dist\release out\silent
+
       - name: Every file is what was built (SHA256SUMS)
         shell: pwsh
         run: |

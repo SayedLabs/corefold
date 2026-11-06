@@ -344,7 +344,7 @@ if (-not $iscc) {
 }
 if ($iscc) {
     Write-Host "== Building installer"
-    & $iscc "/DAppVersion=$Version" "/DNumericVersion=$NumericVersion" "installer\corefold.iss" | Out-Host
+    & $iscc "/DAppVersion=$Version" "/DNumericVersion=$NumericVersion" "/DUpdateRepo=$UpdateRepo" "installer\corefold.iss" | Out-Host
     if ($LASTEXITCODE) { throw "Inno Setup failed" }
 } else {
     Write-Warning "Inno Setup not found, so no installer was made. Install it from https://jrsoftware.org/isdl.php and run this again."

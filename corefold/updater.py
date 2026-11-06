@@ -239,3 +239,57 @@ def run_installer(path: Path) -> subprocess.Popen:
     from . import __version__, settings_backup
     settings_backup.keep_copy(__version__)  # the settings as they were, in case the new version loses them
     return subprocess.Popen([str(path), "/SILENT", "/SP-", "/SUPPRESSMSGBOXES", "/NORESTART"], close_fds=True)
+
+
+# ---- updates without Windows' question each time (installer\silent-update.ps1)
+# The installer adds a task that runs as SYSTEM and that anyone signed in may start (never change). Started, it
+# downloads the newest release from GitHub itself, checks it, and says how it goes in a file next to Rakiza Core
+# (in a folder only administrators and Windows can write to). Rakiza Core gives it nothing: it only starts it, reads
+# what it says, and closes when it says "ready". Anything else (no task: a copy installed before this came, a portable one,
+# a PC where it can't run) and the update goes the way it always did: Windows asks.
+
+SILENT_TASK = "\\Rakiza Core\\Update"
+SILENT_STATUS = Path("_update") / "status.txt"
+
+
+def silent_status_path() -> Path | None:
+    import sys
+    if not getattr(sys, "frozen", False):
+        return None
+    return Path(sys.executable).resolve().parent / SILENT_STATUS
+
+
+def start_silent_update() -> bool:
+    """Asks Task Scheduler to start the update task. True when it took the request (the task may still not run:
+    what it says in silent_status() tells)."""
+    if silent_status_path() is None:
+        return False
+    from .core import system_tool
+    try:
+        r = subprocess.run([system_tool("schtasks.exe"), "/Run", "/TN", SILENT_TASK], capture_output=True,
+                           timeout=20, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return r.returncode == 0
+
+
+def silent_status(since: float) -> str | None:
+    """What the update task said, if it said it after `since` (a time.time()): "started", "downloading 0.42",
+    "ready", "installing", "done <code>" or "failed <why>". None while it hasn't said anything (yet)."""
+    path = silent_status_path()
+    if path is None:
+        return None
+    try:
+        if path.stat().st_mtime < since - 2:
+            return None  # (what it said the last time)
+        return path.read_text("utf-8-sig", "replace").strip()[:300] or None
+    except OSError:
+        return None
+
+
+def silent_progress(status: str | None) -> float | None:
+    m = re.fullmatch(r"downloading ([0-9.]+)", status or "")
+    try:
+        return max(0.0, min(1.0, float(m.group(1)))) if m else None
+    except ValueError:
+        return None
