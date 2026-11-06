@@ -9,6 +9,10 @@
 #ifndef NumericVersion
   #define NumericVersion AppVersion
 #endif
+; GitHub repository ("owner/name") updates come from (build.ps1 passes it): the update task gets it
+#ifndef UpdateRepo
+  #define UpdateRepo ""
+#endif
 #define AppName "Rakiza Core"
 #define AppExe "RakizaCore.exe"
 #define AppProcess "RakizaCore"
@@ -150,6 +154,8 @@ Name: "startup"; Description: "{cm:StartWithWindows}"
 ; in a moment (SwapInNewFiles in [Code]). An update cut off half-way (power cut, Setup ended) leaves the older
 ; Rakiza Core whole, never a mix of the two that can't start.
 Source: "..\dist\RakizaCore\*"; DestDir: "{app}\_next"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Updates without Windows' question each time: run by a task as SYSTEM (only the installed copy has it, see [Code])
+Source: "silent-update.ps1"; DestDir: "{app}\_next"; Flags: ignoreversion
 
 [InstallDelete]
 ; what an earlier update cut off half-way left
@@ -180,6 +186,9 @@ Type: files; Name: "{app}\{#AppExe}"
 Type: files; Name: "{app}\LICENSE"
 Type: files; Name: "{app}\THIRD_PARTY_NOTICES.md"
 Type: files; Name: "{app}\COMPONENT-VERSIONS.txt"
+Type: files; Name: "{app}\silent-update.ps1"
+; (the update task's own folder: the installer it downloaded, what it said)
+Type: filesandordirs; Name: "{app}\_update"
 ; (Setup's own working file, left in the folder when an update was cut off: never anyone else's)
 Type: files; Name: "{app}\is-*.tmp"
 Type: dirifempty; Name: "{app}"
@@ -287,6 +296,28 @@ begin
      (CompareText(Dir, ExpandConstant('{autopf}\{#PrevName}')) = 0) or
      ((UserCopyDir <> '') and (CompareText(Dir, UserCopyDir) = 0)) then
     WizardForm.DirEdit.Text := ExpandConstant('{autopf}\{#AppName}');
+end;
+
+{ Started by Rakiza Core's update task (as SYSTEM, see silent-update.ps1): the task starts Rakiza Core again for
+  the people it was running for, so Setup never does (it would run as SYSTEM, where nobody sees it). }
+function ByTask(): Boolean;
+begin
+  Result := ExpandConstant('{param:BYTASK|0}') = '1';
+end;
+
+{ Rakiza Core's update task (silent-update.ps1 -Mode Register / Unregister): with it, an update needs no
+  "allow this app to make changes?" from Windows. A problem here only means updates ask, as before. }
+procedure UpdateTask(Mode: String);
+var
+  ResultCode: Integer;
+begin
+  if not FileExists(ExpandConstant('{app}\silent-update.ps1')) then
+    Exit;
+  if not Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+              '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + ExpandConstant('{app}\silent-update.ps1') +
+              '" -Mode ' + Mode + ' -Repo "{#UpdateRepo}"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) or
+     (ResultCode <> 0) then
+    Log('Update task (' + Mode + ') not done: ' + IntToStr(ResultCode));
 end;
 
 { An update: Rakiza Core was installed already, for the whole PC or the old way for this person alone }
@@ -795,8 +826,9 @@ begin
   begin
     SwapInNewFiles();
     RemoveUserCopy();
+    UpdateTask('Register');
     { an automatic update: Rakiza Core back in the tray, as the person (never with administrator rights) }
-    if WizardSilent() then
+    if WizardSilent() and not ByTask() then
       ExecAsOriginalUser(ExpandConstant('{app}\{#AppExe}'), '--background', '', SW_SHOWNORMAL, ewNoWait, ResultCode);
     RemoveOldVersion();
     { an update started by hand with "Start Rakiza Core when Windows starts" unticked: it doesn't }
@@ -812,6 +844,7 @@ begin
   Result := CloseRunningApp(UninstallSilent());
   if not Result then
     Exit;
+  UpdateTask('Unregister');
   { remove Rakiza Core (and any entries left by older versions) from the right-click menu }
   Exec(ExpandConstant('{app}\{#AppExe}'), '--remove-shell-menu', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;

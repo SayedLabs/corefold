@@ -2625,6 +2625,20 @@ class Controller(QObject):
                          tr("Rakiza Core restarts by itself when it's done."))
         self._refresh_updates_page()
         self._show_update_marks()
+        if not getattr(self, "_silent_failed", False) and updater.start_silent_update():
+            # the update task (installed with Rakiza Core) downloads and installs it: Windows doesn't ask
+            log.info("update: the update task was started")
+            self._silent_since = time.time() - 1
+            self._silent_seen = ("", time.monotonic())
+            self._silent_timer = QTimer(self)
+            self._silent_timer.timeout.connect(self._watch_silent_update)
+            self._silent_timer.start(500)
+            return
+        self._download_update()
+
+    def _download_update(self):
+        """The update the way it always went: Rakiza Core downloads the installer, and Windows asks for permission."""
+        info = self.update_info
         cancel = self.update_cancel
 
         def work():
@@ -2638,6 +2652,50 @@ class Controller(QObject):
                 log.exception("update download failed")
                 self.usignals.failed.emit(tr("something went wrong"))
         threading.Thread(target=work, daemon=True).start()
+
+    def _watch_silent_update(self):
+        """What the update task says: its download in the popup; "ready": Rakiza Core closes (once what it's doing
+        is done) and the task installs the update and starts it again. A task that doesn't run, or a problem before
+        it's ready: the update goes the usual way (Windows asks)."""
+        status = updater.silent_status(self._silent_since) or ""
+        cancel = self.update_cancel
+        if status != self._silent_seen[0]:
+            self._silent_seen = (status, time.monotonic())
+            log.info("update task: %s", status)
+        quiet = time.monotonic() - self._silent_seen[1]
+        if cancel is not None and cancel.is_set():  # (the task gives up by itself if Rakiza Core doesn't close)
+            self._silent_timer.stop()
+            self._update_failed(updater.CANCELLED)
+            return
+        progress = updater.silent_progress(status)
+        if progress is not None:
+            self.toast.set_progress(UPDATE_JOB_ID, progress)
+        if status == "ready":
+            self._silent_timer.stop()
+            self._silent_ready()
+        elif status.startswith(("failed", "done")) or (not status and quiet > 30) or quiet > 300:
+            # (it didn't run, it ran into a problem, or it went quiet: the usual way, once, until Rakiza Core restarts)
+            self._silent_timer.stop()
+            log.warning("update task didn't install it (%s): the usual way now", status or "it didn't start")
+            self._silent_failed = True
+            self._download_update()
+
+    def _silent_ready(self):
+        if self.update_cancel is not None and self.update_cancel.is_set():
+            self._update_failed(updater.CANCELLED)
+            return
+        if self.busy_with_files():  # let running conversions (or an uninstall, a sort…) finish first
+            QTimer.singleShot(2000, self._silent_ready)
+            return
+        self.toast.finish(UPDATE_JOB_ID, tr("Installing the update…"), tr("Rakiza Core will be back in a moment."),
+                          None, 5000)
+        if self.update_info is not None:  # (checked at the next start: did it really update?)
+            self.settings.update_to = self.update_info.version
+            self.settings.save()
+        from . import settings_backup
+        settings_backup.keep_copy(__version__)  # the settings as they were, in case the new version loses them
+        log.info("closing for the update task")
+        QTimer.singleShot(1500, self.quit)  # (the popup is seen first)
 
     def busy_with_files(self) -> bool:
         """Something is converting, sorting, moving or changing files: stopped now, it'd be left half-done."""
