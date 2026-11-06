@@ -2,7 +2,6 @@
 are found and taken out, the title and author can be typed, and the pages, web links and form boxes stay
 as they were. A locked PDF stays locked."""
 import threading
-import warnings
 from pathlib import Path
 
 import pytest
@@ -28,9 +27,14 @@ def dirty(path: Path, password: str = "") -> Path:
     w.metadata = {"/Title": "Q3 report", "/Author": "Ahmed Ali", "/Creator": "Microsoft Word",
                   "/Producer": "Secret PDF maker 2.0", "/Keywords": "internal"}
     w.add_attachment("salaries.xlsx", b"secret numbers")
-    with warnings.catch_warnings():  # (pypdf calls it old, but it's how other programs add one)
-        warnings.simplefilter("ignore", DeprecationWarning)
-        w.add_js("app.alert('hi');")
+    # a script that runs on opening, in the document's own list of scripts (written by hand: pypdf 7 dropped add_js,
+    # but it's how other programs add one)
+    script = w._add_object(DictionaryObject({NameObject("/Type"): NameObject("/Action"),
+                                             NameObject("/S"): NameObject("/JavaScript"),
+                                             NameObject("/JS"): TextStringObject("app.alert('hi');")}))
+    names = w._root_object.setdefault(NameObject("/Names"), DictionaryObject()).get_object()  # (attachments are there)
+    names[NameObject("/JavaScript")] = DictionaryObject(
+        {NameObject("/Names"): ArrayObject([create_string_object("hello"), script])})
     w.add_annotation(0, Text(rect=(50, 700, 80, 730), text="Fix this before sending"))
     w.add_annotation(0, Link(rect=(50, 50, 200, 70), url="https://example.com"))
     page = w.pages[1]
