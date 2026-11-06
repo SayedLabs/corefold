@@ -1,6 +1,7 @@
 """Turkish texts. The English text is the key (see corefold/i18n.py)."""
 
 STRINGS: dict[str, str] = {
+    "Ink": "Mürekkep",
     "Teal": "Camgöbeği",
     "Amber": "Kehribar",
     "Lime": "Misket limonu",
