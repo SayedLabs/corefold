@@ -58,9 +58,14 @@ def note(what):
     print("        " + what, flush=True)
 
 
+def _ps_env(**env) -> dict:
+    # (started from PowerShell 7 on GitHub, PSModulePath names its modules, which Windows PowerShell can't load)
+    return {**{k: v for k, v in os.environ.items() if k.upper() != "PSMODULEPATH"}, **env}
+
+
 def ps(script: str, **env) -> str:
     r = subprocess.run([POWERSHELL, "-NoProfile", "-NonInteractive", "-Command", script], capture_output=True,
-                       text=True, encoding="utf-8", errors="replace", timeout=120, env={**os.environ, **env})
+                       text=True, encoding="utf-8", errors="replace", timeout=120, env=_ps_env(**env))
     if r.stderr.strip():
         note("powershell: " + r.stderr.strip()[:500])
     return r.stdout.strip()
@@ -198,7 +203,9 @@ if task:
         # anyone else: reading and starting it only (GR, GX, or the same as file rights FR/FX)
         if not re.fullmatch(r"(GR|GX|FR|FX)+", rights) and rights not in ("0x1200a9", "0x120089", "0x1201bf"):
             loose.append(ace)
-    check(sddl.startswith("D:P") or "D:P" in sddl, "the task's permissions aren't inherited from anywhere")
+    # (Task Scheduler gives back its own form of what it was given: no "P", and SYSTEM listed twice)
+    check(not any("ID" in a.split(";")[1] for a in aces if len(a.split(";")) >= 2),
+          "the task's permissions aren't inherited from anywhere")
     check(not loose, f"nobody but administrators and Windows may change the task ({sddl})")
     check(any(a.split(";")[5] in ("AU", "S-1-5-11") for a in aces if len(a.split(";")) >= 6),
           "anyone signed in may start it")
