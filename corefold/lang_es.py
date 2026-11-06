@@ -1,6 +1,7 @@
 """Spanish texts. The English text is the key (see corefold/i18n.py)."""
 
 STRINGS: dict[str, str] = {
+    "Ink": "Tinta",
     "Teal": "Verde azulado",
     "Amber": "Ámbar",
     "Lime": "Lima",
