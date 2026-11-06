@@ -293,13 +293,15 @@ def _read_dir(path: str) -> tuple:
     return dirs, names, sizes, used, changed, cloud, linked, False
 
 
-def _quick_ext(names: list[str]):
+def _quick_ext(names, count: int | None = None):
     """Each name's extension as os.path.splitext would give it, lowered: (the different ones, each name's index
-    among them as a numpy array). What follows the last dot is looked at once for each different ending."""
+    among them as a numpy array). What follows the last dot is looked at once for each different ending.
+    names can be any iterable of names when count says how many there are."""
     import numpy as np
     raw: dict[str, int] = {}
     ids = np.fromiter((raw.setdefault(n[i:] if (i := n.rfind(".")) > 0 and (n[0] != "." or n[:i].strip("."))
-                                      else "", len(raw)) for n in names), dtype=np.int64, count=len(names))
+                                      else "", len(raw)) for n in names), dtype=np.int64,
+                      count=len(names) if count is None else count)
     exts: dict[str, int] = {}
     to = np.array([exts.setdefault(r.lower(), len(exts)) for r in raw] or [0], dtype=np.int64)
     return list(exts), (to[ids] if len(ids) else ids)
@@ -352,6 +354,14 @@ def finish(result: Scan, folders: list, where, names: list[str], sizes, changed,
             folder.size = size
             if new > folder.newest:
                 folder.newest = new
+    _put_lists(result, folders, where, sizes, used, ids, exts, names.__getitem__)
+
+
+def _put_lists(result: Scan, folders: list, where, sizes, used, ids, exts: list[str], name_at) -> None:
+    """The scan's lists (biggest, kinds, types, old), from every file in the map's order: where (each file's
+    folder), sizes, used and ids (its extension, an index into exts) as numpy arrays; name_at(i) is the name of
+    the file at i."""
+    import numpy as np
     # kinds and types, by each file's extension
     kind_names = list(KINDS)
     kind = np.array([kind_names.index(KIND_OF.get(e, "other")) for e in exts] or [0], dtype=np.int64)[ids] \
@@ -365,7 +375,7 @@ def finish(result: Scan, folders: list, where, names: list[str], sizes, changed,
         f = int(where[i])
         if f not in paths:
             paths[f] = str(folders[f].path)
-        return os.path.join(paths[f], names[i])
+        return os.path.join(paths[f], name_at(i))
 
     def top(rows, n: int):
         """The rows of the n biggest files, and any more of the same size as the last of them (which of those
@@ -400,6 +410,77 @@ def finish(result: Scan, folders: list, where, names: list[str], sizes, changed,
     result.biggest_type = {tnames[t]: biggest_of(by_type[t_cut[t]:t_cut[t + 1]], TOP_TYPE) for t in kept}
 
 
+def _ext_key(name: str) -> str:
+    """What os.path.splitext gives as a name's extension (not lowered)."""
+    i = name.rfind(".")
+    return name[i:] if i > 0 and (name[0] != "." or name[:i].strip(".")) else ""
+
+
+def _put_folder(folder: Folder, names: list[str], sizes: list[int], used: list[float], changed: list[float],
+                mine: "_Found", at: int) -> None:
+    """One folder's own files, as scan() reads them (on a helper thread): put on the folder for good right away,
+    biggest first (by name, last first, among the same size, as set_files keeps them), and what the scan's
+    lists need noted in the thread's compact arrays. Nothing is kept for each file as a Python object of its
+    own: a drive's millions of them took ~370 bytes a file at the peak in 2.0.0, and Windows kept that memory
+    while the map was open (1.3 GB for a big drive)."""
+    if os.name != "nt" and any("\n" in n for n in names):  # (a new line in a name: not on Windows)
+        names = [n.replace("\n", " ") for n in names]
+    rows = sorted(zip(sizes, names, changed, used), reverse=True)
+    own = array("q", [r[0] for r in rows])
+    times = array("f", [r[2] for r in rows])
+    keys = mine.keys
+    ext = array("i", [keys.setdefault(_ext_key(r[1]), len(keys)) for r in rows])
+    text = "\n".join([r[1] for r in rows])
+    last_used = array("d", [r[3] for r in rows])
+    with mine.lock:
+        if mine.closed:  # (stopped: what's left of this thread isn't wanted any more)
+            return
+        folder.names, folder.sizes, folder.times = text, own, times
+        folder.files = len(own)
+        folder.size = sum(own)
+        newest = max(times)
+        if newest > folder.newest:
+            folder.newest = newest
+        mine.sizes.extend(own)
+        mine.used.extend(last_used)
+        mine.ext.extend(ext)
+        mine.where.extend(array("q", [at]) * len(own))
+        mine.files += len(own)
+        mine.bytes += folder.size
+
+
+def _wrap_up(result: Scan, folders: list, found: list) -> None:
+    """The scan's lists (biggest, kinds, types, old), from what each helper thread noted (see _put_folder)."""
+    import numpy as np
+    exts: dict[str, int] = {}
+    parts = []
+    for f in found:
+        with f.lock:
+            n = len(f.sizes)
+            # (each thread's own endings, given their place among everyone's, lowered)
+            to = np.array([exts.setdefault(k.lower(), len(exts)) for k in f.keys] or [0], dtype=np.int64)
+            parts.append((np.frombuffer(f.sizes, dtype=np.int64, count=n).copy(),
+                          np.frombuffer(f.used, dtype=np.float64, count=n).copy(),
+                          to[np.frombuffer(f.ext, dtype=np.int32, count=n)] if n else np.zeros(0, dtype=np.int64),
+                          np.frombuffer(f.where, dtype=np.int64, count=n).copy()))
+            f.sizes, f.used, f.ext, f.where = array("q"), array("d"), array("i"), array("q")
+    if parts:
+        sizes, used, ids, where = (np.concatenate([p[i] for p in parts]) for i in range(4))
+    else:
+        sizes, used, ids, where = (np.zeros(0, dtype=t) for t in (np.int64, np.float64, np.int64, np.int64))
+    del parts
+    result.files = len(sizes)
+    # each file's place in its folder (a folder's files are side by side, in the order the folder keeps them)
+    first = np.r_[True, where[1:] != where[:-1]] if len(where) else np.zeros(0, dtype=bool)
+    start = np.maximum.accumulate(np.where(first, np.arange(len(where)), 0)) if len(where) else where
+    pos = np.arange(len(where)) - start
+
+    def name_at(i: int) -> str:
+        at, k = int(where[i]), int(pos[i])
+        return folders[at].names.split("\n", k + 1)[k]
+    _put_lists(result, folders, where, sizes, used, ids, list(exts), name_at)
+
+
 def add_up(order: list) -> None:
     """Each folder's size, files and newest change added to the folders around it (order: parents before their
     folders), and each one's folders put biggest first."""
@@ -429,17 +510,18 @@ def scan(root: Path, cancel: threading.Event | None = None, progress=None, worke
 
 
 class _Found:
-    """What one helper thread found (its own lists: never shared, so they stay side by side)."""
-    __slots__ = ("where", "names", "sizes", "used", "changed", "folders", "cloud", "linked", "denied", "bytes")
+    """What one helper thread found (its own: never shared), with what the scan's lists need of each file in
+    compact arrays (see _put_folder): its size, last use, extension (an index into keys) and folder."""
+    __slots__ = ("sizes", "used", "ext", "where", "keys", "lock", "closed", "folders", "files", "cloud", "linked",
+                 "denied", "bytes")
 
     def __init__(self):
-        self.where: list[int] = []
-        self.names: list[str] = []
-        self.sizes: list[int] = []
-        self.used: list[float] = []
-        self.changed: list[float] = []
+        self.sizes, self.used, self.ext, self.where = array("q"), array("d"), array("i"), array("q")
+        self.keys: dict[str, int] = {}
+        self.lock = threading.Lock()   # (the window's thread takes what's there once the look is over or stopped)
+        self.closed = False
         self.folders: list = []  # (index, folder) of the folders it found
-        self.cloud = self.linked = self.denied = self.bytes = 0
+        self.files = self.cloud = self.linked = self.denied = self.bytes = 0
 
 
 def _scan(root: Path, cancel, progress, workers: int) -> Scan:
@@ -478,13 +560,9 @@ def _scan(root: Path, cancel, progress, workers: int) -> Scan:
                     mine.cloud += cloud
                     mine.linked += linked
                     if names:
-                        mine.where.extend([at] * len(names))
-                        mine.names.extend(names)
-                        mine.sizes.extend(sizes)
-                        mine.used.extend(used)
-                        mine.changed.extend(changed)
-                        mine.bytes += sum(sizes)
+                        _put_folder(folder, names, sizes, used, changed, mine, at)
                         last["path"] = path
+                    del names, sizes, used, changed
                     if dirs:
                         with count_lock:
                             left[0] += len(dirs)
@@ -510,7 +588,7 @@ def _scan(root: Path, cancel, progress, workers: int) -> Scan:
                 result.cancelled = True
                 break
             if progress is not None:
-                progress(sum(len(f.names) for f in found), sum(f.bytes for f in found), last["path"])
+                progress(sum(f.files for f in found), sum(f.bytes for f in found), last["path"])
         if cancel is not None and cancel.is_set():  # (stopped just as the last folders were skipped)
             result.cancelled = True
     finally:
@@ -522,20 +600,17 @@ def _scan(root: Path, cancel, progress, workers: int) -> Scan:
         until = time.monotonic() + 0.5
         for t in threads:
             t.join(max(0.0, until - time.monotonic()) if result.cancelled else None)
-    parts = []
-    for f in found:
-        n = min(len(f.where), len(f.names), len(f.sizes), len(f.used), len(f.changed))
-        parts.append((f.where[:n], f.names[:n], f.sizes[:n], f.used[:n], f.changed[:n], list(f.folders)))
-    made = [x for p in parts for x in p[5]]
+    for f in found:  # (on Stop, a thread still reading adds no more from here on)
+        with f.lock:
+            f.closed = True
+    made = [x for f in found for x in list(f.folders)]
     order: list = [None] * (max((i for i, _ in made), default=0) + 1)
     order[0] = top
     for index, folder in made:
         order[index] = folder
     by_index = order
     order = [f for f in order if f is not None]
-    where = [i for p in parts for i in p[0]]
-    finish(result, by_index, where, [x for p in parts for x in p[1]], [x for p in parts for x in p[2]],
-           [x for p in parts for x in p[4]], [x for p in parts for x in p[3]])
+    _wrap_up(result, by_index, found)
     result.denied = sum(f.denied for f in found)
     result.cloud = sum(f.cloud for f in found)
     result.linked = sum(f.linked for f in found)

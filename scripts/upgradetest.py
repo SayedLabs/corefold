@@ -432,6 +432,8 @@ for old in PC_SETUPS:
     if pinned:  # (a pin made from the Start menu shortcut, under the earlier name)
         PIN.parent.mkdir(parents=True, exist_ok=True)
         PIN.write_bytes(PREV_START_MENU.read_bytes())
+    if renamed and PREV_PUBLIC_DESKTOP.exists():  # (and one on this person's own desktop, where 1.16 to 1.19 put
+        PREV_DESKTOP.write_bytes(PREV_PUBLIC_DESKTOP.read_bytes())  # it when moving a copy of theirs over)
     icons = [p for p in (PUBLIC_DESKTOP, DESKTOP, PREV_PUBLIC_DESKTOP, PREV_DESKTOP) if p.exists()]
     icon_time = icons[0].stat().st_mtime_ns if icons else None
     subprocess.Popen([str(old_exe), "--background"])  # (running, as it is when it updates)
@@ -447,6 +449,8 @@ for old in PC_SETUPS:
         check(not folder.exists(), f"{case}: the folder under the earlier name is gone ({folder})")
         check(PUBLIC_DESKTOP.exists() and same_file(lnk_target(PUBLIC_DESKTOP), APP_DIR / EXE_NAME),
               f"{case}: the desktop icon is there under the new name, and opens the app in Program Files")
+        check(DESKTOP.exists() and same_file(lnk_target(DESKTOP), APP_DIR / EXE_NAME),
+              f"{case}: the icon on this person's own desktop is there under the new name too, and opens the app")
         check(PIN.exists() and same_file(lnk_target(PIN), APP_DIR / EXE_NAME) and app_id(PIN) == APP_ID,
               f"{case}: the taskbar pin still works (it opens the app in Program Files)")
     else:
