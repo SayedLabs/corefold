@@ -36,16 +36,16 @@ def test_formats_modules_are_read_on_a_thread_before_the_page_is_made(window, qt
     import corefold
     monkeypatch.delitem(sys.modules, gone)
     monkeypatch.delattr(corefold, "archives")
-    seen = {}
+    seen = []   # (every thread started meanwhile: the window's own, writing the right-click menu say, start too)
     real = threading.Thread
 
     def spy(*a, **kw):
         t = real(*a, **kw)
-        seen["name"] = kw.get("name")
+        seen.append(kw.get("name"))
         return t
     monkeypatch.setattr(threading, "Thread", spy)
     w._formats_loader = None
     w._formats_modules_loaded()
     qtbot.waitUntil(w._formats_modules_loaded, timeout=10_000)
-    assert seen.get("name") == "formats-load"
+    assert "formats-load" in seen
     assert gone in sys.modules
