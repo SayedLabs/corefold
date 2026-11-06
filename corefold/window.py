@@ -759,6 +759,10 @@ class MainWindow(QWidget):
         self.nav.setIconSize(icons.ICON_SIZE)
         self.nav.menu.connect(self._nav_menu)
         self.nav.resized.connect(self._fit_nav_room)
+        self.nav.folded.connect(self._fit_nav_room)
+        self.nav.fold_row.connect(self._fold_section)
+        self.nav.again.connect(self._row_again)
+        self.nav.moved.connect(self._sections_dragged)
         self._fill_nav()
         side = QVBoxLayout(sidebar)
         side.setContentsMargins(10, 12, 8, 12)
@@ -1027,6 +1031,8 @@ class MainWindow(QWidget):
             rows.append(("Soon", "page", row_h))
         rows.append((None, "space", 0))
         rows += [(name, "page", row_h) for name in NAV_BOTTOM]
+        from .navbar import FULL_ROLE, MOVE_ROLE
+        nav._finish_fold()
         nav.blockSignals(True)  # (changing the rows isn't opening a page)
         try:
             while nav.count() > len(rows):
@@ -1040,39 +1046,46 @@ class MainWindow(QWidget):
                 item.setFlags(Qt.NoItemFlags if name is None else Qt.ItemIsSelectable | Qt.ItemIsEnabled)
                 item.setData(Qt.UserRole, name)
                 item.setData(KIND_ROLE, kind)
+                # (a section can be dragged to another place, with its tools; they fold in and out under it)
+                item.setData(MOVE_ROLE, kind in ("section", "page") and name in all_tools.SECTION_BY_PAGE)
+                item.setData(FULL_ROLE, height if kind == "tool" else None)
                 item.setData(BADGE_ROLE, None)
                 item.setText("")
                 item.setToolTip("")
                 item.setSizeHint(QSize(0, height))
             self.nav_rows = [name for name, _, _ in rows]
-            nav.movable = (0, -1)  # (sections are moved from their menu: Move up, Move down)
             nav.setCurrentRow(-1)
         finally:
             nav.blockSignals(False)
         self.refresh_nav()
-        self._sync_nav_rows(self.current_page() if hasattr(self, "stack") else "Home")
+        here = self.current_page() if hasattr(self, "stack") else "Home"
+        if hasattr(self, "_nav_open"):  # (the rows made again: the section that was open stays open)
+            self._show_nav_rows(here)
+        else:
+            self._sync_nav_rows(here)
 
-    def _sync_nav_rows(self, name: str):
-        """The section of this page shows its tools under it (the others don't, and none do while only icons
-        show), the right row is lit, and History, Settings and About stay at the bottom."""
-        from .navbar import OPEN_ROLE
+    def _sync_nav_rows(self, name: str, animate: bool = False):
+        """The section of this page opens and shows its tools under it (the others shut), the right row is lit,
+        and History, Settings and About stay at the bottom."""
+        owner = NAV_OWNER.get(name, name)
+        self._nav_open = owner if owner in all_tools.SECTION_BY_PAGE else None
+        self._show_nav_rows(name, animate)
+
+    def _show_nav_rows(self, name: str, animate: bool = False):
+        """The open section (one at most) shows its tools under it, folding out smoothly (none show while only
+        icons show), and the right row is lit for this page."""
         nav = self.nav
         compact = self._compact_now()
-        owner = NAV_OWNER.get(name, name)
-        open_sec = owner if owner in all_tools.SECTION_BY_PAGE else None
-        changed = False
+        open_sec = getattr(self, "_nav_open", None)
+        hide, opened = {}, {}
         for row in range(nav.count()):
             item = nav.item(row)
             kind = item.data(KIND_ROLE)
             if kind == "tool":
-                hide = compact or NAV_OWNER.get(item.data(Qt.UserRole)) != open_sec
-                if nav.isRowHidden(row) != hide:
-                    nav.setRowHidden(row, hide)
-                    changed = True
+                hide[row] = compact or NAV_OWNER.get(item.data(Qt.UserRole)) != open_sec
             elif kind == "section":
-                item.setData(OPEN_ROLE, item.data(Qt.UserRole) == open_sec and not compact)
-        if changed:
-            nav.doItemsLayout()  # (the rows' places now, for the pill)
+                opened[row] = item.data(Qt.UserRole) == open_sec and not compact
+        nav.fold(hide, opened, animate and self.c.settings.animations and self.isVisible())
         self._fit_nav_room()
         row = self._nav_row(name)
         if row >= 0 and nav.currentRow() != row and hasattr(self, "stack") and self.current_page() == name:
@@ -1082,9 +1095,28 @@ class MainWindow(QWidget):
         nav._slide_mark(nav.currentRow())
         nav.viewport().update()
 
+    def _fold_section(self, row: int, want: int):
+        """A section opened or shut by hand (its arrow, or Right and Left): want 1 opens it, 0 shuts it, -1 the
+        other way round. One section is open at a time; going to another page opens that page's section."""
+        name = self.nav_rows[row] if 0 <= row < len(self.nav_rows) else None
+        if name not in all_tools.SECTION_BY_PAGE or self._compact_now():
+            return
+        is_open = self._nav_open == name
+        opening = (not is_open) if want < 0 else bool(want)
+        if opening == is_open:
+            return
+        self._nav_open = name if opening else None
+        self._show_nav_rows(self.current_page(), animate=True)
+
+    def _row_again(self, row: int):
+        """A section's row clicked again while its own page is open: it shuts (or opens again)."""
+        name = self.nav_rows[row] if 0 <= row < len(self.nav_rows) else None
+        if name is not None and name == self.current_page() and self.nav.item(row).data(KIND_ROLE) == "section":
+            self._fold_section(row, -1)
+
     def _nav_row(self, name: str) -> int:
         """The sidebar row lit for this page: its own when it shows, else the row it belongs under."""
-        if name in self.nav_rows and not self.nav.isRowHidden(self.nav_rows.index(name)):
+        if name in self.nav_rows and not self.nav.hidden_soon(self.nav_rows.index(name)):
             return self.nav_rows.index(name)
         owner = NAV_OWNER.get(name, name)
         return self.nav_rows.index(owner) if owner in self.nav_rows else -1
@@ -1156,7 +1188,7 @@ class MainWindow(QWidget):
             self._rows_compact = compact
             if hasattr(self, "stack"):
                 here = self.current_page()
-                self._sync_nav_rows(here)
+                self._show_nav_rows(here)
                 self._sync_section_strip(here)
                 self._fit_one_head()
 
@@ -1234,11 +1266,27 @@ class MainWindow(QWidget):
         if not 0 <= j < len(ids):
             return
         ids[i], ids[j] = ids[j], ids[i]
+        self._order_sections(ids)
+        self._fill_nav()
+
+    def _sections_dragged(self, pages: list):
+        """Sections dragged into a new order in the sidebar (the rows are there already): remembered, and the
+        Home page and Settings follow."""
+        self.nav_rows = [self.nav.item(r).data(Qt.UserRole) for r in range(self.nav.count())]
+        ids = [all_tools.SECTION_BY_PAGE[p].id for p in pages if p in all_tools.SECTION_BY_PAGE]
+        if ids == [sec.id for sec in self.sections if not all_tools.section_paused(sec)]:
+            self._show_nav_rows(self.current_page())
+            return  # (put back where it was)
+        self._order_sections(ids)
+        self._show_nav_rows(self.current_page())
+
+    def _order_sections(self, ids: list):
+        """The sections in use in this order (those resting for now after them): remembered, and Settings and
+        the Home page follow the sidebar."""
         self.c.settings.section_order = ids + [sec.id for sec in self.sections if all_tools.section_paused(sec)]
         self.c.settings_changed()
         self.sections = all_tools.sections(self.c.settings)
         self.tools_on = all_tools.enabled(self.c.settings)
-        self._fill_nav()
         # (the Settings list groups the tools by section, in the sidebar's order too)
         self.settings_tab_list = _base_tabs() + [(tool.settings, tool.nav, list(tool.settings_pages))
                                                 for tool in self.tools_on if tool.settings]
@@ -1651,7 +1699,7 @@ class MainWindow(QWidget):
         self._build_page(name)
         self.stack.setCurrentIndex(PAGES.index(name))
         self._sync_settings_head(name)
-        self._sync_nav_rows(name)
+        self._sync_nav_rows(name, animate=True)
         if os.environ.get("COREFOLD_MEMLOG"):
             winutil.log_memory(f"page {name}")
             QTimer.singleShot(2500, lambda n=name: winutil.log_memory(f"page {n}, 2.5 s later"))
@@ -4744,7 +4792,7 @@ class MainWindow(QWidget):
         sec = all_tools.SECTION_BY_PAGE.get(name)
         if sec is not None and all_tools.section_paused(sec):  # (a section resting for now: with the others)
             name = "Soon"
-        self._sync_nav_rows(name)  # (its section open first, so the tool's own row shows)
+        self._sync_nav_rows(name, animate=True)  # (its section open first, so the tool's own row shows)
         row = self._nav_row(name)
         if row < 0:  # (a page that isn't there): nothing changes, or Home on opening
             if self.nav.currentRow() < 0 and name != "Home":
