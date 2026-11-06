@@ -158,3 +158,10 @@ def test_space_and_the_uninstaller_say_what_went_wrong_in_their_own_words(qapp):
     for page in (spacepage, appspage):
         said = page._plain_error(denied)
         assert said and "Access is denied" not in said and "Errno" not in said
+
+
+def test_numpy_doesnt_set_memory_aside_for_every_core():
+    # (OpenBLAS's buffers for each core: ~750 MB committed on a 16-core PC while Rakiza Core sat idle)
+    text = (Path(__file__).resolve().parent.parent / "main.py").read_text(encoding="utf-8")
+    assert 'os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")' in text
+    assert text.index("OPENBLAS_NUM_THREADS") < text.index("from corefold")

@@ -1,9 +1,15 @@
 """Entry point for Rakiza Core (used by PyInstaller and for running from source)."""
+import os
 import sys
 import time
 
 if sys.platform != "win32":
     sys.exit("Rakiza Core only runs on Windows.")
+
+# numpy's maths library (OpenBLAS) sets aside a buffer for each processor core as soon as numpy loads (Space,
+# pictures): about 750 MB of the PC's memory on a 16-core PC, kept until Rakiza Core quits. Nothing here needs its
+# many-core maths (Space's numbers are sorting and counting), so it gets one. Must come before numpy is imported.
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 
 # The elevated helper used by the Apps page (removing leftovers in Program Files, restore points), by
 # Space (Windows' own leftovers), by Unlock (deleting a file when the PC restarts) and by Startup
