@@ -362,6 +362,14 @@ class Controller(QObject):
         self.update_retry.setSingleShot(True)
         self.update_retry.timeout.connect(self.check_updates)
         self.update_retries = 0
+        # (full screen when a version was found: check, or say it, once later. One timer each, so the checks that
+        # find it again while the game goes on don't add a chain of their own that never ends)
+        self.update_busy_wait = QTimer(self)
+        self.update_busy_wait.setSingleShot(True)
+        self.update_busy_wait.timeout.connect(self.check_updates)
+        self.update_retell = QTimer(self)
+        self.update_retell.setSingleShot(True)
+        self.update_retell.timeout.connect(self._tell_update)
         QTimer.singleShot(10_000, self.check_updates)
 
         self.save_timer = QTimer(self)
@@ -2532,7 +2540,7 @@ class Controller(QObject):
         if self.settings.update_told == told:
             return
         if winutil.user_busy():
-            QTimer.singleShot(UPDATE_RETELL_MS, self._tell_update)
+            self.update_retell.start(UPDATE_RETELL_MS)
             return
         title = tr("Rakiza Core {version} is available", version=info.version)
         detail = tr("One click to update. Your settings are kept.")
@@ -2585,11 +2593,12 @@ class Controller(QObject):
                 self.toast.notify(tr("Couldn't check for updates"), err)
         elif info:
             self.update_retries = 0
+            if not (self.update_info and self.update_info.version == info.version):
+                log.info("update available: %s", info.version)
             self.update_state, self.update_info = "available", info
-            log.info("update available: %s", info.version)
             if self.settings.auto_update and self.can_self_install():
                 if not manual and winutil.user_busy():  # a game or presentation is full screen: install a bit later
-                    QTimer.singleShot(15 * 60_000, self.check_updates)
+                    self.update_busy_wait.start(15 * 60_000)
                     self._refresh_updates_page()
                     self._show_update_marks()
                     return
