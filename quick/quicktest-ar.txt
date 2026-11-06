@@ -1,0 +1,11 @@
+quick access is running
+starts: AttributeError: 'NoneType' object has no attribute 'menu'
+Ctrl + Alt + Space opens the quick menu
+menu: AttributeError: 'NoneType' object has no attribute 'menu'
+holding Alt + ` opens the quick wheel
+wheel: AttributeError: 'NoneType' object has no attribute 'wheel'
+button: AttributeError: 'NoneType' object has no attribute 'button'
+the page has the three shortcut buttons (menu, wheel, keep on top)
+settings: IndexError: list index out of range
+with both off, only the keep-on-top shortcut is left
+switching the menu back on

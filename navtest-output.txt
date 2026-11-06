@@ -1,0 +1,188 @@
+FAIL  store: KeyError: 'Media'
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\scripts\navtest.py", line 127, in step
+    fn()
+  File "D:\a\corefold\corefold\scripts\navtest.py", line 265, in store_add
+    nav_click(w, sec.page)
+  File "D:\a\corefold\corefold\scripts\navtest.py", line 216, in nav_click
+    nav_click(w, NAV_OWNER[name])
+                 ~~~~~~~~~^^^^^^
+KeyError: 'Media'
+ok    store: no errors behind the clicks (0)
+ok    sidebar Home: the Home page is open (Home)
+ok    sidebar Home: the Home page was built
+ok    sidebar Home: the Home page is showing (746x646)
+ok    sidebar Home: the screen shows the Home page as drawn (difference 0.06)
+ok    sidebar Files: the Files page is open (Files)
+ok    sidebar Files: the Files page was built
+ok    sidebar Files: the Files page is showing (746x581)
+ok    sidebar Files: the screen shows the Files page as drawn (difference 0.06)
+ok    sidebar Converter: the Converter page is open (Converter)
+ok    sidebar Converter: the Converter page was built
+ok    sidebar Converter: the Converter page is showing (746x581)
+ok    sidebar Converter: the screen shows the Converter page as drawn (difference 0.06)
+ok    Converter has a Settings button
+ok    Converter's Settings button opens ConvOptions (ConvOptions)
+ok    back to Converter from its settings (Converter)
+ok    sidebar Archives: the Archives page is open (Archives)
+ok    sidebar Archives: the Archives page was built
+ok    sidebar Archives: the Archives page is showing (746x581)
+ok    sidebar Archives: the screen shows the Archives page as drawn (difference 0.06)
+ok    Archives has a Settings button
+ok    Archives's Settings button opens ArchiveSettings (ArchiveSettings)
+ok    back to Archives from its settings (Archives)
+ok    sidebar Clouds: the Clouds page is open (Clouds)
+ok    sidebar Clouds: the Clouds page was built
+ok    sidebar Clouds: the Clouds page is showing (746x646)
+ok    sidebar Clouds: the screen shows the Clouds page as drawn (difference 0.06)
+ok    sidebar Computer: the Computer page is open (Computer)
+ok    sidebar Computer: the Computer page was built
+ok    sidebar Computer: the Computer page is showing (746x646)
+ok    sidebar Computer: the screen shows the Computer page as drawn (difference 0.06)
+ok    sidebar Apps: the Apps page is open (Apps)
+ok    sidebar Apps: the Apps page was built
+ok    sidebar Apps: the Apps page is showing (746x646)
+ok    sidebar Apps: the screen shows the Apps page as drawn (difference 0.06)
+ok    Apps has a Settings button
+ok    Apps's Settings button opens AppsSettings (AppsSettings)
+ok    back to Apps from its settings (Apps)
+ok    sidebar Soon: the Soon page is open (Soon)
+ok    sidebar Soon: the Soon page was built
+ok    sidebar Soon: the Soon page is showing (746x646)
+ok    sidebar Soon: the screen shows the Soon page as drawn (difference 0.06)
+ok    sidebar History: the History page is open (History)
+ok    sidebar History: the History page was built
+ok    sidebar History: the History page is showing (746x646)
+ok    sidebar History: the screen shows the History page as drawn (difference 0.06)
+ok    sidebar General: the General page is open (General)
+ok    sidebar General: the General page was built
+ok    sidebar General: the General page is showing (554x551)
+ok    sidebar General: the screen shows the General page as drawn (difference 0.06)
+ok    sidebar About: the About page is open (About)
+ok    sidebar About: the About page was built
+ok    sidebar About: the About page is showing (746x646)
+ok    sidebar About: the screen shows the About page as drawn (difference 0.06)
+ok    the General settings tab (General)
+ok    the Look settings tab (Look)
+ok    the Shortcuts settings tab (Shortcuts)
+ok    the ConvOptions settings tab (ConvOptions)
+ok    the ArchiveSettings settings tab (ArchiveSettings)
+ok    the AppsSettings settings tab (AppsSettings)
+ok    the ConvOptions settings sub-tab (ConvOptions)
+ok    the WheelLook settings sub-tab (WheelLook)
+ok    the Formats settings sub-tab (Formats)
+ok    Alt + Left goes back to History (History)
+ok    Alt + Left goes back to Home (Home)
+ok    the Files card on Home opens it (Files)
+ok    a tool's button on the Files card opens it (Converter)
+ok    a tool's button on the Files card opens it (Archives)
+ok    the Clouds card on Home opens it (Clouds)
+FAIL  the Media card on Home opens it (Soon)
+FAIL  a tool's button on the Media card opens it (Home)
+FAIL  a tool's button on the Media card opens it (Home)
+ok    the Computer card on Home opens it (Computer)
+ok    a tool's button on the Computer card opens it (Apps)
+FAIL  the QuickTools card on Home opens it (Soon)
+FAIL  a tool's button on the QuickTools card opens it (Home)
+FAIL  a tool's button on the QuickTools card opens it (Home)
+ok    Converter opens from the Files list (Converter)
+ok    Alt + Left from Converter goes back to Files (Files)
+ok    pages: no errors behind the clicks (0)
+FAIL  the Computer strip has a tab for Space
+FAIL  the Space page
+ok    space: no errors behind the clicks (0)
+navtest: 9 problem(s)
+FAIL  store: KeyError: 'Media'
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\scripts\navtest.py", line 127, in step
+    fn()
+  File "D:\a\corefold\corefold\scripts\navtest.py", line 265, in store_add
+    nav_click(w, sec.page)
+  File "D:\a\corefold\corefold\scripts\navtest.py", line 216, in nav_click
+    nav_click(w, NAV_OWNER[name])
+                 ~~~~~~~~~^^^^^^
+KeyError: 'Media'
+ok    store: no errors behind the clicks (0)
+ok    sidebar Home: the Home page is open (Home)
+ok    sidebar Home: the Home page was built
+ok    sidebar Home: the Home page is showing (746x646)
+ok    sidebar Home: the screen shows the Home page as drawn (difference 0.03)
+ok    sidebar Files: the Files page is open (Files)
+ok    sidebar Files: the Files page was built
+ok    sidebar Files: the Files page is showing (746x581)
+ok    sidebar Files: the screen shows the Files page as drawn (difference 0.03)
+ok    sidebar Converter: the Converter page is open (Converter)
+ok    sidebar Converter: the Converter page was built
+ok    sidebar Converter: the Converter page is showing (746x581)
+ok    sidebar Converter: the screen shows the Converter page as drawn (difference 0.03)
+ok    Converter has a Settings button
+ok    Converter's Settings button opens ConvOptions (ConvOptions)
+ok    back to Converter from its settings (Converter)
+ok    sidebar Archives: the Archives page is open (Archives)
+ok    sidebar Archives: the Archives page was built
+ok    sidebar Archives: the Archives page is showing (746x581)
+ok    sidebar Archives: the screen shows the Archives page as drawn (difference 0.03)
+ok    Archives has a Settings button
+ok    Archives's Settings button opens ArchiveSettings (ArchiveSettings)
+ok    back to Archives from its settings (Archives)
+ok    sidebar Clouds: the Clouds page is open (Clouds)
+ok    sidebar Clouds: the Clouds page was built
+ok    sidebar Clouds: the Clouds page is showing (746x646)
+ok    sidebar Clouds: the screen shows the Clouds page as drawn (difference 0.03)
+ok    sidebar Computer: the Computer page is open (Computer)
+ok    sidebar Computer: the Computer page was built
+ok    sidebar Computer: the Computer page is showing (746x646)
+ok    sidebar Computer: the screen shows the Computer page as drawn (difference 0.03)
+ok    sidebar Apps: the Apps page is open (Apps)
+ok    sidebar Apps: the Apps page was built
+ok    sidebar Apps: the Apps page is showing (746x646)
+ok    sidebar Apps: the screen shows the Apps page as drawn (difference 0.03)
+ok    Apps has a Settings button
+ok    Apps's Settings button opens AppsSettings (AppsSettings)
+ok    back to Apps from its settings (Apps)
+ok    sidebar Soon: the Soon page is open (Soon)
+ok    sidebar Soon: the Soon page was built
+ok    sidebar Soon: the Soon page is showing (746x646)
+ok    sidebar Soon: the screen shows the Soon page as drawn (difference 0.03)
+ok    sidebar History: the History page is open (History)
+ok    sidebar History: the History page was built
+ok    sidebar History: the History page is showing (746x646)
+ok    sidebar History: the screen shows the History page as drawn (difference 0.03)
+ok    sidebar General: the General page is open (General)
+ok    sidebar General: the General page was built
+ok    sidebar General: the General page is showing (554x551)
+ok    sidebar General: the screen shows the General page as drawn (difference 0.03)
+ok    sidebar About: the About page is open (About)
+ok    sidebar About: the About page was built
+ok    sidebar About: the About page is showing (746x646)
+ok    sidebar About: the screen shows the About page as drawn (difference 0.03)
+ok    the General settings tab (General)
+ok    the Look settings tab (Look)
+ok    the Shortcuts settings tab (Shortcuts)
+ok    the ConvOptions settings tab (ConvOptions)
+ok    the ArchiveSettings settings tab (ArchiveSettings)
+ok    the AppsSettings settings tab (AppsSettings)
+ok    the ConvOptions settings sub-tab (ConvOptions)
+ok    the WheelLook settings sub-tab (WheelLook)
+ok    the Formats settings sub-tab (Formats)
+ok    Alt + Left goes back to History (History)
+ok    Alt + Left goes back to Home (Home)
+ok    the Files card on Home opens it (Files)
+ok    a tool's button on the Files card opens it (Converter)
+ok    a tool's button on the Files card opens it (Archives)
+ok    the Clouds card on Home opens it (Clouds)
+FAIL  the Media card on Home opens it (Soon)
+FAIL  a tool's button on the Media card opens it (Home)
+FAIL  a tool's button on the Media card opens it (Home)
+ok    the Computer card on Home opens it (Computer)
+ok    a tool's button on the Computer card opens it (Apps)
+FAIL  the QuickTools card on Home opens it (Soon)
+FAIL  a tool's button on the QuickTools card opens it (Home)
+FAIL  a tool's button on the QuickTools card opens it (Home)
+ok    Converter opens from the Files list (Converter)
+ok    Alt + Left from Converter goes back to Files (Files)
+ok    pages: no errors behind the clicks (0)
+FAIL  the Computer strip has a tab for Space
+FAIL  the Space page
+ok    space: no errors behind the clicks (0)
+navtest: 9 problem(s)

@@ -1,0 +1,36 @@
+FAIL  viewer: IndexError: list index out of range
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\scripts\uitest.py", line 100, in step
+    fn()
+  File "D:\a\corefold\corefold\scripts\uitest.py", line 116, in viewer
+    win = c.viewers[-1]
+          ~~~~~~~~~^^^^
+IndexError: list index out of range
+FAIL  email: IndexError: list index out of range
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\scripts\uitest.py", line 100, in step
+    fn()
+  File "D:\a\corefold\corefold\scripts\uitest.py", line 174, in email
+    win = c.viewers[-1]
+          ~~~~~~~~~^^^^
+IndexError: list index out of range
+FAIL  the Clipboard is running
+ok    the Space page opens
+ok    looking through a folder (0.17 s)
+ok    every file counted (66)
+ok    the map has boxes (59)
+ok    the drives (C:\, D:\)
+ok    a big folder, 6 at a time: 32,742 files in 15.7 s (2,083 files a second, stopped after 15 s)
+ok    a big folder, 1 at a time: 63,576 files in 15.1 s (4,208 files a second, stopped after 15 s)
+ok    looking for junk
+ok    temporary files found (['temp', 'bin'])
+ok    looking for duplicates
+ok    the copied photo is found (1)
+FAIL  Capture is running
+ok    the cloud section opens
+FAIL  the media section opens
+ok    the computer section opens
+FAIL  the quick section opens
+ok    removing the Viewer
+FAIL  adding it back
+uitest: 7 problem(s)

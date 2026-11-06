@@ -1,0 +1,102 @@
+FAIL  quick access is running
+FAIL  starts: AttributeError: 'NoneType' object has no attribute 'menu'
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\scripts\quicktest.py", line 128, in step
+    fn()
+  File "D:\a\corefold\corefold\scripts\quicktest.py", line 148, in starts
+    check(c.quick.menu is None and c.quick.wheel is None, "�but nothing of the menu or wheel is built yet")
+          ^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'menu'
+FAIL  Ctrl + Alt + Space opens the quick menu
+FAIL  menu: AttributeError: 'NoneType' object has no attribute 'menu'
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\scripts\quicktest.py", line 128, in step
+    fn()
+  File "D:\a\corefold\corefold\scripts\quicktest.py", line 159, in menu
+    m = c.quick.menu
+        ^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'menu'
+FAIL  holding Alt + ` opens the quick wheel
+FAIL  wheel: AttributeError: 'NoneType' object has no attribute 'wheel'
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\scripts\quicktest.py", line 128, in step
+    fn()
+  File "D:\a\corefold\corefold\scripts\quicktest.py", line 215, in wheel
+    w = c.quick.wheel
+        ^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'wheel'
+FAIL  button: AttributeError: 'NoneType' object has no attribute 'button'
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\scripts\quicktest.py", line 128, in step
+    fn()
+  File "D:\a\corefold\corefold\scripts\quicktest.py", line 261, in floating_button
+    b = c.quick.button
+        ^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'button'
+FAIL  the page has the three shortcut buttons (menu, wheel, keep on top)
+FAIL  settings: IndexError: list index out of range
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\scripts\quicktest.py", line 128, in step
+    fn()
+  File "D:\a\corefold\corefold\scripts\quicktest.py", line 296, in settings_page
+    menu_rec = recs[0]
+               ~~~~^^^
+IndexError: list index out of range
+FAIL  with both off, only the keep-on-top shortcut is left
+ok    switching that off too stops quick access completely
+ok    …and takes it off the tray menu
+ok    …and lets go of its shortcuts
+ok    pressing the shortcut then does nothing
+FAIL  switching the menu back on
+quicktest: 11 problem(s)
+FAIL  quick access is running
+FAIL  starts: AttributeError: 'NoneType' object has no attribute 'menu'
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\scripts\quicktest.py", line 128, in step
+    fn()
+  File "D:\a\corefold\corefold\scripts\quicktest.py", line 148, in starts
+    check(c.quick.menu is None and c.quick.wheel is None, "�but nothing of the menu or wheel is built yet")
+          ^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'menu'
+FAIL  Ctrl + Alt + Space opens the quick menu
+FAIL  menu: AttributeError: 'NoneType' object has no attribute 'menu'
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\scripts\quicktest.py", line 128, in step
+    fn()
+  File "D:\a\corefold\corefold\scripts\quicktest.py", line 159, in menu
+    m = c.quick.menu
+        ^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'menu'
+FAIL  holding Alt + ` opens the quick wheel
+FAIL  wheel: AttributeError: 'NoneType' object has no attribute 'wheel'
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\scripts\quicktest.py", line 128, in step
+    fn()
+  File "D:\a\corefold\corefold\scripts\quicktest.py", line 215, in wheel
+    w = c.quick.wheel
+        ^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'wheel'
+FAIL  button: AttributeError: 'NoneType' object has no attribute 'button'
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\scripts\quicktest.py", line 128, in step
+    fn()
+  File "D:\a\corefold\corefold\scripts\quicktest.py", line 261, in floating_button
+    b = c.quick.button
+        ^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'button'
+FAIL  the page has the three shortcut buttons (menu, wheel, keep on top)
+FAIL  settings: IndexError: list index out of range
+Traceback (most recent call last):
+  File "D:\a\corefold\corefold\scripts\quicktest.py", line 128, in step
+    fn()
+  File "D:\a\corefold\corefold\scripts\quicktest.py", line 296, in settings_page
+    menu_rec = recs[0]
+               ~~~~^^^
+IndexError: list index out of range
+FAIL  with both off, only the keep-on-top shortcut is left
+ok    switching that off too stops quick access completely
+ok    …and takes it off the tray menu
+ok    …and lets go of its shortcuts
+ok    pressing the shortcut then does nothing
+FAIL  switching the menu back on
+quicktest: 11 problem(s)
