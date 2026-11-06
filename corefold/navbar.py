@@ -5,9 +5,11 @@ Rows hold the page name (or None for a line or the room above the rows at the bo
 icons.py and follow the theme."""
 from __future__ import annotations
 
-from PySide6.QtCore import QEasingCurve, QEvent, QPoint, QPointF, QRectF, QSize, Qt, QVariantAnimation, Signal
-from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPainterPath, QPen
-from PySide6.QtWidgets import QAbstractItemView, QApplication, QListWidget, QStyle, QStyledItemDelegate, QWidget
+from PySide6.QtCore import (QEasingCurve, QEvent, QPoint, QPointF, QRect, QRectF, QSize, Qt, QVariantAnimation,
+                            Signal)
+from PySide6.QtGui import QColor, QCursor, QFont, QFontMetrics, QPainter, QPainterPath, QPen
+from PySide6.QtWidgets import (QAbstractItemView, QApplication, QListWidget, QStyle, QStyledItemDelegate,
+                               QStyleOptionViewItem, QWidget)
 
 from . import icons
 from .theme import mix
@@ -16,9 +18,13 @@ ICON_ROLE = Qt.UserRole + 1     # the row's icon in icons.py
 BADGE_ROLE = Qt.UserRole + 2    # a small number on the row
 KIND_ROLE = Qt.UserRole + 3     # "page", "section" (has tools under it), "tool" (under its section), "line", "space"
 OPEN_ROLE = Qt.UserRole + 4     # a section that shows its tools now
+MOVE_ROLE = Qt.UserRole + 5     # a row that can be dragged to another place (a section, with its tools under it)
+FULL_ROLE = Qt.UserRole + 6     # the row's own height (it's lower only while it folds in or out)
 DOT = "•"                       # a badge that's only a dot (About: a new version is waiting)
 COMPACT_WIDTH = 64              # the sidebar with icons only
 COMPACT_BELOW = 120             # narrower than this, rows show their icon only
+CHEVRON_ROOM = 34               # the end of a section's row that only opens or shuts it (where its arrow is)
+FOLD_MS = 200                   # a section's tools folding in or out
 
 
 class _Rows(QStyledItemDelegate):
@@ -27,13 +33,23 @@ class _Rows(QStyledItemDelegate):
         self.nav = nav
 
     def sizeHint(self, option, index):
-        return index.data(Qt.SizeHintRole) or QSize(0, 36)
+        size = index.data(Qt.SizeHintRole)
+        return size if size is not None else QSize(0, 36)  # (0 high is a row folded away, not "no size")
 
     def paint(self, p: QPainter, option, index):
         nav, t = self.nav, self.nav.theme()
         p.save()
         p.setRenderHint(QPainter.Antialiasing)
         rtl = option.direction == Qt.RightToLeft
+        full = index.data(FULL_ROLE)
+        if full and option.rect.height() < full:  # folding in or out: drawn whole where it'll be, cut to the
+            if option.rect.height() <= 0:         # room it has so far, and fading in
+                p.restore()
+                return
+            p.setClipRect(option.rect)
+            p.setOpacity(option.rect.height() / full)
+            option = QStyleOptionViewItem(option)
+            option.rect = QRect(option.rect.left(), option.rect.top(), option.rect.width(), full)
         r = QRectF(option.rect).adjusted(2, 2, -2, -2)
         compact = nav.compact()
         text = index.data(Qt.DisplayRole) or ""
@@ -68,7 +84,7 @@ class _Rows(QStyledItemDelegate):
             return
         row = index.row()
         selected = bool(option.state & QStyle.State_Selected)
-        hovered = bool(option.state & QStyle.State_MouseOver) and nav.drag_row < 0
+        hovered = bool(option.state & QStyle.State_MouseOver) and nav.drag_row < 0 and not nav.folding()
         lifted = row == nav.drag_row
         if lifted:  # being dragged: lifted off the list
             p.setPen(QPen(t.line_strong, 1))
@@ -107,6 +123,8 @@ class _Rows(QStyledItemDelegate):
                 f.setWeight(QFont.Weight.DemiBold)
             if (kind == "section" and not badge) or mark:
                 trail += 18
+            if kind == "section" and not badge and (hovered or lifted) and nav.can_drag(row):
+                trail += 18  # (and its grip beside the arrow)
             badge_w = (fm.horizontalAdvance(str(badge)) + 14) if badge else 0
             dot = False
             if badge:
@@ -154,10 +172,21 @@ class _Rows(QStyledItemDelegate):
                 small.setWeight(QFont.Weight.DemiBold)
                 p.setFont(small)
                 p.drawText(pill, Qt.AlignCenter, str(badge))
-            elif kind == "section":  # open (its tools show under it) or shut
-                arrow = "chevron_down" if index.data(OPEN_ROLE) else ("chevron_left" if rtl else "chevron_right")
+            elif kind == "section":  # open (its tools show under it) or shut: the arrow turns down as it opens
                 cx = r.left() + 10 if rtl else r.right() - 10 - 14
-                icons.paint(p, QRectF(cx, r.center().y() - 7, 14, 14), arrow, t.muted)
+                box = QRectF(cx, r.center().y() - 7, 14, 14)
+                turn = nav.turn(index)
+                p.save()
+                p.translate(box.center())
+                p.rotate(-90 * turn if rtl else 90 * turn)
+                p.translate(-box.center())
+                hot = hovered and nav.over_arrow(row)
+                icons.paint(p, box, "chevron_left" if rtl else "chevron_right", t.text if hot else t.muted)
+                p.restore()
+                if (hovered or lifted) and nav.can_drag(row):  # the grip beside it: sections can be moved
+                    gx = cx + 14 + 4 if rtl else cx - 4 - 16
+                    icons.paint(p, QRectF(gx, r.center().y() - 8, 16, 16), "re_order_dots_vertical",
+                                QColor(t.muted.red(), t.muted.green(), t.muted.blue(), 200))
             elif (hovered or lifted) and nav.can_drag(row):  # the grip: these rows can be moved
                 gx = r.left() + 8 if rtl else r.right() - 8 - 16
                 icons.paint(p, QRectF(gx, r.center().y() - 8, 16, 16), "re_order_dots_vertical",
@@ -170,10 +199,14 @@ class _Rows(QStyledItemDelegate):
 
 
 class NavList(QListWidget):
-    """The sidebar's rows. Rows between movable_range() can be dragged up and down."""
+    """The sidebar's rows. A row marked MOVE_ROLE (a section) can be dragged up and down, with the tools under
+    it; a section's tools fold in and out under it."""
     moved = Signal(list)   # the movable rows' pages, in their new order
     resized = Signal()     # (the room at the bottom is measured again)
     menu = Signal(int, QPoint)  # a row was right-clicked (row, global position)
+    fold_row = Signal(int, int)  # a section to open (1), shut (0) or the other way round (-1): its arrow, the keys
+    again = Signal(int)    # the lit row was clicked again (a section's: it opens or shuts)
+    folded = Signal()      # a step of the tools folding in or out (the room at the bottom follows)
 
     def __init__(self, theme_getter, show_icons: bool, animate: bool):
         super().__init__()
@@ -185,7 +218,19 @@ class NavList(QListWidget):
         self.on_canvas = False   # True for a list on the page area rather than the sidebar
         self._press: QPoint | None = None
         self._press_row = -1
-        self.movable: tuple[int, int] = (0, -1)   # first and last row that can be dragged
+        self._was_current = False
+        self._lifted: list = []   # a section's tools folded away while it's dragged (shown again on the drop)
+        # the tools folding in or out: their items and heights at the start and the end, and the arrows' turns
+        self._fold_rows: list = []
+        self._turns: dict = {}
+        self._hiding: set = set()
+        self._fold_anim = QVariantAnimation(self)
+        self._fold_anim.setDuration(FOLD_MS)
+        self._fold_anim.setEasingCurve(QEasingCurve.OutCubic)
+        self._fold_anim.setStartValue(0.0)
+        self._fold_anim.setEndValue(1.0)
+        self._fold_anim.valueChanged.connect(self._fold_step)
+        self._fold_anim.finished.connect(self._fold_done)
         self.setItemDelegate(_Rows(self))
         self.setMouseTracking(True)
         self.setFrameShape(QListWidget.NoFrame)
@@ -236,6 +281,15 @@ class NavList(QListWidget):
             self._mark_y = target
             self.viewport().update()
 
+    def _follow_mark(self):
+        """The rows moved under the pill (tools folding in or out): it heads for where its row is now."""
+        if self._mark_anim.state() == QVariantAnimation.Running:
+            target = self._row_mark(self.currentRow())
+            if target is not None:
+                self._mark_anim.setEndValue(float(target))
+        else:
+            self._mark_y = None
+
     def _mark_moved(self, y):
         self._mark_y = y
         self.viewport().update()
@@ -266,38 +320,228 @@ class NavList(QListWidget):
                 p.end()
         super().paintEvent(e)
 
-    # ---- moving rows
+    # ---- a section's tools folding in and out
+
+    def turn(self, index) -> float:
+        """How far a section's arrow has turned down (1: open, 0: shut, in between while it moves)."""
+        item = self.item(index.row())
+        if item is not None and id(item) in self._turns:
+            return self._turns[id(item)][2]
+        return 1.0 if index.data(OPEN_ROLE) else 0.0
+
+    def folding(self) -> bool:
+        return self._fold_anim.state() == QVariantAnimation.Running
+
+    def hidden_soon(self, row: int) -> bool:
+        """The row is hidden, or on its way out (folding in under its section)."""
+        return self.isRowHidden(row) or id(self.item(row)) in self._hiding
+
+    def fold(self, hide: dict, opened: dict, animate: bool):
+        """Rows to show or hide ({row: hidden}) and sections open or shut ({row: open}). Only what changes moves:
+        the tools fold out from under their section (or into it) while its arrow turns, or at once without
+        animations."""
+        if not any(hidden != self.hidden_soon(row) for row, hidden in hide.items()) and \
+                not any(bool(self.item(row).data(OPEN_ROLE)) != is_open for row, is_open in opened.items()):
+            return  # (nothing changes: a fold on its way there goes on)
+        self._finish_fold()
+        grow, shrink = [], []
+        for row, hidden in hide.items():
+            if hidden != self.isRowHidden(row):
+                (shrink if hidden else grow).append(self.item(row))
+        turns = {}
+        for row, is_open in opened.items():
+            item = self.item(row)
+            if bool(item.data(OPEN_ROLE)) != is_open:
+                turns[id(item)] = (0.0 if is_open else 1.0, 1.0 if is_open else 0.0)
+                item.setData(OPEN_ROLE, is_open)
+        if not animate or not self.isVisible() or not (grow or shrink or turns):
+            for item in grow:
+                self.setRowHidden(self.row(item), False)
+            for item in shrink:
+                self.setRowHidden(self.row(item), True)
+            if grow or shrink:
+                self.doItemsLayout()
+                self._follow_mark()
+            return
+        # (the rows come in from the top down, and go from the bottom up: one row at a time is cut, like a
+        # drawer sliding open or shut, rather than every row squashed at once)
+        self._fold_rows = []
+        for growing, items in ((True, grow), (False, shrink)):
+            items = sorted(items, key=self.row)
+            fulls = [item.data(FULL_ROLE) or item.sizeHint().height() for item in items]
+            for item in items:
+                if growing:
+                    item.setSizeHint(QSize(0, 0))
+                    self.setRowHidden(self.row(item), False)
+                else:
+                    self._hiding.add(id(item))
+            if items:
+                self._fold_rows.append((growing, items, fulls))
+        self._turns = {key: (a, b, a) for key, (a, b) in turns.items()}
+        self._fold_anim.start()
+
+    def _fold_step(self, v):
+        for growing, items, fulls in self._fold_rows:
+            room = round(sum(fulls) * (v if growing else 1 - v))
+            for item, full in zip(items, fulls):
+                h = max(0, min(full, room))
+                room -= h
+                item.setSizeHint(QSize(0, h))
+        for key, (a, b, _) in list(self._turns.items()):
+            self._turns[key] = (a, b, a + (b - a) * v)
+        if self._fold_rows:
+            self.doItemsLayout()
+            self.folded.emit()
+            self._follow_mark()
+        self.viewport().update()
+
+    def _fold_done(self):
+        rows, self._fold_rows = self._fold_rows, []
+        self._turns = {}
+        self._hiding = set()
+        for growing, items, fulls in rows:
+            for item, full in zip(items, fulls):
+                if self.row(item) < 0:  # (taken out of the list meanwhile)
+                    continue
+                item.setSizeHint(QSize(0, full))
+                if not growing:
+                    self.setRowHidden(self.row(item), True)
+        if rows:
+            self.doItemsLayout()
+            self.folded.emit()
+            self._follow_mark()
+        self.viewport().update()
+
+    def _finish_fold(self):
+        """Jumps a fold that's still moving to its end (before the next one, or the rows are made again)."""
+        if self.folding():
+            self._fold_anim.stop()
+            self._fold_step(1.0)
+            self._fold_done()
+
+    def over_arrow(self, row: int, x: int | None = None) -> bool:
+        """The pointer (or x) is on the end of a section's row with its arrow, which only opens or shuts it."""
+        item = self.item(row)
+        if item is None or item.data(KIND_ROLE) != "section" or self.compact():
+            return False
+        if x is None:
+            x = self.viewport().mapFromGlobal(QCursor.pos()).x()
+        w = self.viewport().width()
+        return x < CHEVRON_ROOM if self.isRightToLeft() else x > w - CHEVRON_ROOM
+
+    def keyPressEvent(self, e):
+        """Right opens the section on the lit row, Left shuts it (the other way round in Arabic)."""
+        row = self.currentRow()
+        item = self.item(row)
+        if item is not None and item.data(KIND_ROLE) == "section" and e.key() in (Qt.Key_Left, Qt.Key_Right):
+            opening = (e.key() == Qt.Key_Right) != self.isRightToLeft()
+            self.fold_row.emit(row, 1 if opening else 0)
+            return
+        super().keyPressEvent(e)
+
+    # ---- moving rows (a section with the tools under it)
 
     def can_drag(self, row: int) -> bool:
-        first, last = self.movable
-        return first <= row <= last and last > first
+        item = self.item(row)
+        return item is not None and bool(item.data(MOVE_ROLE)) and \
+            sum(1 for r in range(self.count()) if self.item(r).data(MOVE_ROLE)) > 1
+
+    def _group(self, row: int) -> range:
+        """A movable row and the tools under it."""
+        end = row + 1
+        while end < self.count() and self.item(end).data(KIND_ROLE) == "tool":
+            end += 1
+        return range(row, end)
+
+    def _group_span(self, row: int) -> tuple[int, int]:
+        """Where a section and its tools showing are, top to bottom (in the viewport)."""
+        rows = [r for r in self._group(row) if not self.isRowHidden(r)]
+        top = self.visualRect(self.model().index(rows[0], 0)).top()
+        bottom = self.visualRect(self.model().index(rows[-1], 0)).bottom()
+        return top, bottom
 
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton:
             self._press = e.position().toPoint()
             self._press_row = self.indexAt(self._press).row()
-            if self.can_drag(self._press_row):
-                return  # (opened on release, so dragging a tool doesn't open it first)
+            self._was_current = self._press_row >= 0 and self._press_row == self.currentRow()
+            if self.can_drag(self._press_row) or self.over_arrow(self._press_row, self._press.x()):
+                return  # (opened on release, so dragging a section doesn't open it first)
         super().mousePressEvent(e)
+
+    def mouseDoubleClickEvent(self, e):
+        row = self.indexAt(e.position().toPoint()).row()
+        if e.button() == Qt.LeftButton and (self.can_drag(row) or self.over_arrow(row, int(e.position().x()))):
+            self.mousePressEvent(e)  # (a second click, as quick as it comes)
+            return
+        super().mouseDoubleClickEvent(e)
 
     def mouseMoveEvent(self, e):
         if self._press is not None and e.buttons() & Qt.LeftButton and self.can_drag(self._press_row):
             pos = e.position().toPoint()
             if self.drag_row < 0 and (pos - self._press).manhattanLength() >= QApplication.startDragDistance():
-                self.drag_row = self._press_row
-                self.setCursor(Qt.ClosedHandCursor)
-                self.viewport().update()
+                self._lift(self._press_row)
             if self.drag_row >= 0:
-                first, last = self.movable
-                over = self.indexAt(QPoint(self.viewport().width() // 2, pos.y())).row()
-                if over < 0:
-                    over = first if pos.y() < self.visualRect(self.model().index(first, 0)).top() else last
-                over = max(first, min(last, over))
-                if over != self.drag_row:
-                    self._move_row(self.drag_row, over)
-                    self.drag_row = over
+                self._drag_to(pos.y())
             return  # (a pressed button moving over rows doesn't pick them)
+        if self.drag_row < 0:
+            self.viewport().update()  # (the arrow lights up under the pointer)
         super().mouseMoveEvent(e)
+
+    def _lift(self, row: int):
+        """A section picked up: its tools fold away under it while it's carried (and come back on the drop)."""
+        self._finish_fold()
+        self.drag_row = row
+        self.setCursor(Qt.ClosedHandCursor)
+        group = self._group(row)
+        showing = [r for r in group[1:] if not self.isRowHidden(r)]
+        self._lifted = [self.item(r) for r in showing]
+        if showing:  # (its arrow turns while they fold away)
+            self.fold({r: True for r in showing}, {row: False}, self.animate)
+        self.viewport().update()
+
+    def _drag_to(self, y: int):
+        """The carried section changes places with the one it's dragged over halfway (so it doesn't jump back)."""
+        movable = [r for r in range(self.count()) if self.item(r).data(MOVE_ROLE)]
+        here = self.drag_row
+        for r in movable:
+            if r == here or self.isRowHidden(r):
+                continue
+            top, bottom = self._group_span(r)
+            middle = (top + bottom) / 2
+            if r > here and y > middle:  # past the middle of the next one down
+                if r == min((m for m in movable if m > here), default=-1):
+                    self._move_group(here, r)
+                    return
+            elif r < here and y < middle and r == max((m for m in movable if m < here), default=-1):
+                self._move_group(here, r)
+                return
+
+    def _move_group(self, src: int, other: int):
+        """The section at src (and its tools) and the one at other (with its tools) change places."""
+        self._finish_fold()
+        current = self.item(self.currentRow()) if self.currentRow() >= 0 else None
+        hidden = {id(self.item(r)): self.isRowHidden(r) for r in range(self.count())}
+        mine = list(self._group(src))
+        theirs = list(self._group(other))
+        self.blockSignals(True)  # (moving a row isn't opening a page)
+        try:
+            items = [self.takeItem(mine[0]) for _ in mine]
+            if other > src:  # (theirs moved up by as many rows as were taken out)
+                at = theirs[-1] - len(mine) + 1
+            else:
+                at = theirs[0]
+            for i, item in enumerate(items):
+                self.insertItem(at + i, item)
+            for r in range(self.count()):
+                self.setRowHidden(r, hidden.get(id(self.item(r)), False))
+            self.drag_row = at
+            if current is not None:
+                self.setCurrentRow(self.row(current))
+        finally:
+            self.blockSignals(False)
+        self._mark_y = None
+        self.viewport().update()
 
     def mouseReleaseEvent(self, e):
         dragged = self.drag_row >= 0
@@ -306,47 +550,35 @@ class NavList(QListWidget):
             self.drag_row = -1
             self.setCursor(Qt.PointingHandCursor)
             self._mark_y = None
+            lifted, self._lifted = self._lifted, []
+            if lifted:  # (its tools fold out again where it was dropped)
+                rows = [self.row(item) for item in lifted if self.row(item) >= 0]
+                head = rows[0] - 1 if rows else -1
+                self.fold({r: False for r in rows}, {head: True} if head >= 0 else {}, self.animate)
             self.viewport().update()
             self.moved.emit(self.movable_pages())
             return  # (a drop isn't a click on the row)
         row = self.indexAt(e.position().toPoint()).row()
-        if e.button() == Qt.LeftButton and self.can_drag(row) and row == self._press_row:
-            self._press_row = -1
-            self.setCurrentRow(row)
-            self.itemClicked.emit(self.item(row))
-            return
+        if e.button() == Qt.LeftButton and row == self._press_row and row >= 0:
+            if self.over_arrow(row, int(e.position().x())):  # the arrow: open or shut, nothing else
+                self._press_row = -1
+                self.fold_row.emit(row, -1)
+                return
+            if self._was_current:  # (before the click goes to the row's own page, from a page under it)
+                self.again.emit(row)
+            if self.can_drag(row):
+                self._press_row = -1
+                self.setCurrentRow(row)
+                self.itemClicked.emit(self.item(row))
+                return
         super().mouseReleaseEvent(e)
 
     def leaveEvent(self, e):
         super().leaveEvent(e)
         self.viewport().update()
 
-    def _move_row(self, src: int, dst: int):
-        current = self.currentRow()
-        self.blockSignals(True)  # (moving a row isn't opening a page)
-        item = self.takeItem(src)
-        self.insertItem(dst, item)
-        if current == src:
-            current = dst
-        elif src < current <= dst:
-            current -= 1
-        elif dst <= current < src:
-            current += 1
-        self.setCurrentRow(current)
-        self.blockSignals(False)
-        self._mark_y = None
-        self.viewport().update()
-
-    def move_by(self, row: int, step: int):
-        """Moves a tool's row up or down one place (from its menu)."""
-        dst = row + step
-        if self.can_drag(row) and self.can_drag(dst):
-            self._move_row(row, dst)
-            self.moved.emit(self.movable_pages())
-
     def movable_pages(self) -> list[str]:
-        first, last = self.movable
-        return [self.item(r).data(Qt.UserRole) for r in range(first, last + 1)]
+        return [self.item(r).data(Qt.UserRole) for r in range(self.count()) if self.item(r).data(MOVE_ROLE)]
 
     def event(self, e):
         if e.type() == QEvent.Type.LayoutDirectionChange:
