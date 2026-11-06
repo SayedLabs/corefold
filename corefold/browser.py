@@ -667,7 +667,9 @@ class ArchiveBrowser(QWidget):
                 return
             self._looking = None  # (a search going through the rows stops: they move, and it starts again)
             self._resort(col, ascending)
-            if self._looked_for:
+            if self.search_timer.isActive():  # (words just cleared or typed, not looked for yet: those)
+                self._filter(self.search.text())
+            elif self._looked_for:
                 self._filter(self._looked_for)
         finally:
             QGuiApplication.restoreOverrideCursor()
