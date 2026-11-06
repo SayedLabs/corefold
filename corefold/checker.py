@@ -22,7 +22,7 @@ MAX_LIST = 1 << 20      # (a list of codes bigger than 1 MB isn't one)
 MAX_ENTRIES = 5000
 
 # what a row of a list says
-SAME, DIFFERENT, MISSING = "same", "different", "missing"
+SAME, DIFFERENT, MISSING, UNREADABLE = "same", "different", "missing", "unreadable"
 
 
 class Cancelled(Exception):
@@ -54,7 +54,13 @@ def clean(text: str) -> str:
     if m:  # ("SHA256: abc...": the part after the name)
         text = m.group(1)
     code = re.sub(r"[\s:\-]", "", text).lower()
-    return code if code and re.fullmatch(r"[0-9a-f]+", code) else ""
+    if code and re.fullmatch(r"[0-9a-f]+", code):
+        return code
+    # a whole line copied from a list of codes ("code  setup.exe", "SHA256 (setup.exe) = code"): the code in it
+    for word in re.findall(r"(?<![0-9a-fA-F])[0-9a-fA-F]{32,128}(?![0-9a-fA-F])", text):
+        if len(word) in BY_LENGTH:
+            return word.lower()
+    return ""
 
 
 def kind_of(code: str) -> str | None:
@@ -156,19 +162,26 @@ def check_list(path: Path, progress=None, cancel=None) -> list[Entry]:
     todo = []
     for e in entries:
         e.path = where_is(folder, e.name)
-        if e.path is None or not e.path.is_file():
+        try:
+            size = e.path.stat().st_size if e.path is not None and e.path.is_file() else None
+        except OSError:
+            size = None
+        if size is None:
             e.state = MISSING
         else:
-            todo.append(e)
-    total = sum(e.path.stat().st_size for e in todo) or 1
+            todo.append((e, size))
+    total = sum(size for _e, size in todo) or 1
     done = 0
-    for e in todo:
-        size = e.path.stat().st_size
+    for e, size in todo:
 
         def step(p, e=e, base=done, size=size):
             if progress is not None:
                 progress(min(1.0, (base + p * size) / total), e.name)
-        found = fingerprints(e.path, step, cancel, (e.algo,))
-        e.state = SAME if found[e.algo] == e.code else DIFFERENT
+        try:
+            found = fingerprints(e.path, step, cancel, (e.algo,))
+        except OSError:  # (open in another app, or not allowed: the others are still checked)
+            e.state = UNREADABLE
+        else:
+            e.state = SAME if found[e.algo] == e.code else DIFFERENT
         done += size
     return entries

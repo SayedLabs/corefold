@@ -23,7 +23,14 @@ if TYPE_CHECKING:
 
 log = logging.getLogger("corefold")
 
-STATES = {checker.SAME: "Matches", checker.DIFFERENT: "Doesn't match", checker.MISSING: "Not found"}
+STATES = {checker.SAME: "Matches", checker.DIFFERENT: "Doesn't match", checker.MISSING: "Not found",
+          checker.UNREADABLE: "Can't be read"}
+
+
+def _why(e: Exception) -> str:
+    """What went wrong, in Rakiza Core's words (never Windows' "[WinError 32] …")."""
+    from .converters import friendly_error
+    return friendly_error(e)
 
 
 def _label(text: str = "", name: str | None = None, wrap: bool = False) -> QLabel:
@@ -215,7 +222,7 @@ class CheckPage(QWidget):
                 return
             if isinstance(answer, Exception):
                 log.info("couldn't read %s", f, exc_info=answer)
-                self.status.setText(tr("Couldn't read the file: {why}", why=str(answer)))
+                self.status.setText(tr("Couldn't read the file: {why}", why=_why(answer)))
                 return
             self.found = answer
             self.status.setText(tr("Done. Compare a code with these below, or paste it above."))
@@ -279,7 +286,7 @@ class CheckPage(QWidget):
             if first != self.file:
                 return
             if isinstance(same, Exception):
-                self.compared.setText(tr("Couldn't read the file: {why}", why=str(same)))
+                self.compared.setText(tr("Couldn't read the file: {why}", why=_why(same)))
                 return
             self.compare_ok = bool(same)
             self.compared.setText(tr("The two files are exactly the same.") if same else
@@ -350,7 +357,7 @@ class CheckPage(QWidget):
             if isinstance(answer, checker.Cancelled):
                 return
             if isinstance(answer, Exception):
-                self.list_summary.setText(tr("Couldn't read the file: {why}", why=str(answer)))
+                self.list_summary.setText(tr("Couldn't read the file: {why}", why=_why(answer)))
                 return
             self.entries = answer
             self._fill_list()
@@ -371,6 +378,9 @@ class CheckPage(QWidget):
             bits.append(tr("{count} don't match: don't open them, download them again", count=f"{bad:,}"))
         if missing:
             bits.append(tr("{count} aren't in this folder", count=f"{missing:,}"))
+        unread = sum(e.state == checker.UNREADABLE for e in entries)
+        if unread:
+            bits.append(tr("{count} can't be read: is one open in another app?", count=f"{unread:,}"))
         self.list_summary.setText(". ".join(bits) + ".")
         theme = self.c.theme
         for e in entries:

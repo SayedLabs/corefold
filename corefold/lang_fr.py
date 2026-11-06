@@ -3330,6 +3330,8 @@ STRINGS: dict[str, str] = {
     'Is a download the real file?': 'Un téléchargement est-il le vrai fichier ?',
     'Matches': 'Correspond',
     "Doesn't match": 'Ne correspond pas',
+    "Can't be read": 'Illisible',
+    "{count} can't be read: is one open in another app?": "{count} illisibles : l'un d'eux est-il ouvert dans une autre application ?",
     "The backup drive is full: the backup couldn't finish.": "Le disque de sauvegarde est plein : la sauvegarde n'a pas pu se terminer.",
     'Backup done': 'Sauvegarde terminée',
     '{count} files copied ({size})': '{count} fichiers copiés ({size})',

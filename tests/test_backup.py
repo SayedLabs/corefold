@@ -85,6 +85,7 @@ def test_due_and_the_saved_plans(tmp_path):
     plan = _plan(tmp_path, docs)
     assert backup.due(plan, now=time.time())
     backup.finished(plan, backup.Summary(copied=3), now=1000.0)
+    backup.home(plan).mkdir()
     assert not backup.due(plan, now=1000.0 + 3600) and backup.due(plan, now=1000.0 + 25 * 3600)
     backup.finished(plan, backup.Summary(problem="The backup drive is full"), now=99999.0)
     assert plan.last == 1000.0 and plan.last_problem  # (stopped early: tried again next time)

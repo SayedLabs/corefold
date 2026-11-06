@@ -509,15 +509,40 @@ def rename_files(files: list[Path], ctx: Ctx) -> Result:
 
 
 def undo_rename(done: list[tuple[Path, Path]]) -> int:
-    """Gives files their old names back. Returns how many."""
-    back = 0
-    for new, old in reversed(done):
+    """Gives files their old names back. Returns how many.
+
+    Like the renaming, in two steps through temporary names: "a → b, b → a" (two names swapped), "a → b, b → c"
+    and "photo → Photo" (on Windows "photo" is still there: it's the same file) all go back. A file whose old name
+    another file took since is left as it is."""
+    key = lambda p: os.path.normcase(str(p))  # noqa: E731
+    todo = [(new, old) for new, old in done if new.exists()]
+    while True:  # (the old name must be free, or be one of the names that are going back too, or this file's own)
+        going = {key(new) for new, _old in todo}
+        keep = [(new, old) for new, old in todo
+                if key(old) == key(new) or key(old) in going or not os.path.lexists(old)]
+        if len(keep) == len(todo):
+            break
+        todo = keep
+    temp, back = [], 0
+    for new, old in todo:
+        t = new.with_name(f".corefold-rename-{uuid.uuid4().hex[:8]}")
         try:
-            if new.exists() and not old.exists():
-                new.rename(old)
-                back += 1
+            new.rename(t)
+            temp.append((t, new, old))
         except OSError:
             log.exception("couldn't undo the rename of %s", new)
+    for t, new, old in temp:
+        try:
+            if os.path.lexists(old):
+                raise FileExistsError(old)
+            t.rename(old)
+            back += 1
+        except OSError:
+            log.exception("couldn't undo the rename of %s", new)
+            try:
+                t.rename(new)
+            except OSError:
+                log.exception("couldn't put back %s", new)
     return back
 
 
