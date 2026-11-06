@@ -11,7 +11,7 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QPoint, QRectF, QSize, Qt, QTimer, QUrl, Signal
+from PySide6.QtCore import QPoint, QRect, QRectF, QSize, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QBrush, QColor, QDesktopServices, QFont, QFontMetrics, QIcon, QKeySequence, QLinearGradient, \
     QPainter, QPainterPath, QPen, QPixmap, QShortcut, QTransform
 from PySide6.QtWidgets import QApplication, QButtonGroup, QCheckBox, QFileDialog, QFrame, QGridLayout, \
@@ -840,13 +840,67 @@ class Row(QTreeWidgetItem):
 
 
 class SideList(QTreeWidget):
-    """The list beside the map. Says when it's been made wider or narrower (the columns that fit change)."""
+    """The list beside the map. Says when it's been made wider or narrower (the columns that fit change).
+
+    Folders opened inside folders step in less and less as they go deeper, so the names keep room to be
+    read; and nothing of a row (its arrow, icon or bar) is ever drawn over the size next to it. Deeper than
+    that, the folder is opened by itself (too_deep): the list starts from it, and the path above goes back."""
     widened = Signal()
+    too_deep = Signal(object)   # a folder opened so deep its rows' names would have no room left
+    STEP = 20       # how far a folder's rows step in, while there's room
+    LEAST = 8       # …and the least they step in, however deep (the arrow still fits)
+    NAME_ROOM = 112  # what a name keeps after stepping in: its icon and a few letters
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.setIndentation(self.STEP)
+        self.itemExpanded.connect(self._opened)
+        self.itemCollapsed.connect(self.fit_steps)
+        self.header().sectionResized.connect(lambda col, *_: col == 0 and self.fit_steps())
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
         if e.oldSize().width() != e.size().width():
             self.widened.emit()
+            self.fit_steps()
+
+    def deepest_open(self) -> int:
+        """How many folders deep the deepest row that can be seen is (0: only the top rows)."""
+        deepest = 0
+        todo = [(self.topLevelItem(i), 0) for i in range(self.topLevelItemCount())]
+        while todo:
+            it, depth = todo.pop()
+            if it.isExpanded():   # (its rows may not be in yet: they're added as it opens)
+                deepest = max(deepest, depth + 1)
+                todo.extend((it.child(i), depth + 1) for i in range(it.childCount()))
+        return deepest
+
+    def fit_steps(self, *_) -> bool:
+        """Each level steps in by what leaves the deepest open name its room (between LEAST and STEP).
+        False when even LEAST leaves it too little."""
+        depth = self.deepest_open()
+        width = self.header().sectionSize(0)
+        step = self.STEP if depth == 0 else int((width - self.NAME_ROOM) / depth)
+        fits = step >= self.LEAST
+        step = max(self.LEAST, min(self.STEP, step))
+        if step != self.indentation():
+            self.setIndentation(step)
+        return fits
+
+    def _opened(self, item):
+        if not self.fit_steps():
+            self.too_deep.emit(item)
+
+    def name_column(self, top: int, height: int) -> QRect:
+        """Where the name column is on a row, in the list's own coordinates (what may be drawn on)."""
+        head = self.header()
+        return QRect(head.sectionViewportPosition(0), top, head.sectionSize(0), height)
+
+    def drawBranches(self, p, rect, index):
+        p.save()
+        p.setClipRect(rect.intersected(self.name_column(rect.top(), rect.height())))
+        super().drawBranches(p, rect, index)
+        p.restore()
 
 
 class ShareDelegate(QStyledItemDelegate):
@@ -857,6 +911,17 @@ class ShareDelegate(QStyledItemDelegate):
         self.theme = theme
 
     def paint(self, p, option, index):
+        view = self.parent()
+        column = view.name_column(option.rect.top(), option.rect.height()) if isinstance(view, SideList) \
+            else option.rect
+        if option.rect.width() <= 0 or not column.intersects(option.rect):
+            return   # (stepped in past the name column: nothing to draw, and nothing over the size)
+        p.save()
+        p.setClipRect(column, Qt.IntersectClip)
+        self._paint(p, option, index)
+        p.restore()
+
+    def _paint(self, p, option, index):
         super().paint(p, option, index)
         share = index.data(SHARE)
         if not share:
@@ -1329,6 +1394,7 @@ class SpacePage(QWidget):
         self.items.itemExpanded.connect(self._list_expanded)
         self.items.currentItemChanged.connect(self._list_picked)
         self.items.widened.connect(self._fit_columns)
+        self.items.too_deep.connect(self._list_too_deep)
         self.items.setMinimumWidth(240)  # (names stay readable next to the map)
         side.addWidget(self.items, 1)
         holder = QWidget()
@@ -2088,6 +2154,8 @@ class SpacePage(QWidget):
         for col in range(1, len(COLUMNS)):
             it.setTextAlignment(col, Qt.AlignRight | Qt.AlignVCenter)
         it.setData(0, Qt.UserRole, (path, folder))
+        if path is not None:
+            it.setToolTip(0, ltr(str(path)))   # (the whole name, and where it is: deep rows can't show it all)
         it.setData(0, HOLDER, holder)
         it.setData(0, SORT, text.lower())
         it.setData(1, SORT, size)
@@ -2136,6 +2204,15 @@ class SpacePage(QWidget):
             return
         self._add_rows(item, data[1])
 
+    def _list_too_deep(self, item):
+        """A folder opened in the list too deep for its names to fit: it's opened on the map instead, so the
+        list starts from it (the path above the map goes back up)."""
+        data = item.data(0, Qt.UserRole)
+        if self.list_mode != "here" or not data or data[1] is None:
+            return
+        folder = data[1]
+        QTimer.singleShot(0, lambda: self.scan is not None and self.open_folder(folder))  # (after it opens)
+
     def _list_picked(self, item, _before=None):
         """A row picked in the list: rung on the map (when it's drawn there)."""
         data = item.data(0, Qt.UserRole) if item is not None else None
@@ -2177,6 +2254,7 @@ class SpacePage(QWidget):
             if show:
                 head.resizeSection(col, w + 6)
                 room -= w + 6
+        self.items.fit_steps()
 
     def _remove_picked(self):
         """Delete: what's picked in the list (or on the map) to the Recycle Bin, after asking."""
