@@ -134,6 +134,25 @@ def test_change_a_songs_details(tmp_path, ext):
 
 
 @needs_ffmpeg
+def test_a_song_that_comes_out_shorter_is_left_as_it_was(tmp_path, monkeypatch):
+    """The sound is only copied: a new copy that's shorter means writing went wrong, and the song stays."""
+    src = _song(tmp_path, ".mp3", title="Old")
+    before = src.read_bytes()
+    real = at.probe
+
+    def shorter(path):
+        info = dict(real(path))
+        if ".corefold-tags" in path.name:
+            info["duration"] = info["duration"] / 2
+        return info
+    monkeypatch.setattr(at, "probe", shorter)
+    with pytest.raises(RuntimeError, match="shorter"):
+        at.write_tags(src, _ctx(tmp_path, tags={"title": "New"}, numbers={}, cover=None))
+    assert src.read_bytes() == before
+    assert not list(tmp_path.glob(".*corefold-tags*"))
+
+
+@needs_ffmpeg
 @pytest.mark.parametrize("ext", [".mp3", ".m4a", ".flac"])
 def test_put_a_cover_in_and_take_it_out(tmp_path, ext):
     from PIL import Image

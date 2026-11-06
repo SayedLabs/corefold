@@ -3180,6 +3180,7 @@ STRINGS: dict[str, str] = {
     'Reading the words on this page so they can be changed…': 'Değiştirilebilmeleri için bu sayfadaki sözcükler okunuyor…',
     "Word asked a question about this PDF: open it in Word once yourself": "Word bu PDF hakkında bir soru sordu: bir kez kendiniz Word'de açın",
     "{name} is in use: close the program playing it, then try again": "{name} kullanımda: onu çalan programı kapatıp yeniden deneyin",
+    "{name} came out shorter than before, so it was left as it was": "{name} öncekinden kısa çıktı, bu yüzden olduğu gibi bırakıldı",
     "Only MP3, M4A, FLAC, OGG and Opus files have song details": "Yalnızca MP3, M4A, FLAC, OGG ve Opus dosyalarının şarkı bilgileri vardır",
     "Nothing to change": "Değiştirilecek bir şey yok",
     "nothing would be left: pick a smaller part to take out": "geriye hiçbir şey kalmaz: çıkarmak için daha kısa bir parça seçin",
