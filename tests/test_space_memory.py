@@ -97,8 +97,8 @@ def test_a_look_keeps_no_python_object_for_each_file(tmp_path):
         tracemalloc.stop()
     assert result.files == 30_000
     # every file as Python objects (a name, a size, two times, the lists they're in) took over 370 bytes a file
-    # at the peak, and Windows didn't get it back afterwards; now one folder's names are objects at a time
-    assert peak / result.files < 300, f"{peak / result.files:.0f} bytes a file at the peak"
+    # at the peak, and Windows kept it while the map was open; now each folder is put in order as it is read
+    assert peak / result.files < 220, f"{peak / result.files:.0f} bytes a file at the peak"
 
 
 @pytest.fixture
