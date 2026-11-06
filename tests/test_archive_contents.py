@@ -102,3 +102,19 @@ def test_select_all_takes_the_rows_a_cleared_search_hasnt_shown_again_yet(make, 
         assert b._looking is not None and len(_shown(b)) < 6000  # (part way through)
         b.tree.selectAll()
     assert len(b._selected_paths()) == 6000 and len(_shown(b)) == 6000
+
+
+def test_sorting_right_after_the_search_is_cleared_leaves_none_hidden(make, qtbot):
+    """Sorting in the moment after the search box was cleared (before the search ran) searched again for
+    the old words and stopped the waiting one: only the old match stayed shown (Bug hunt: after sorting
+    100,000 files, Select all took 1)."""
+    b = make([ar.Entry(f"scan-{i}.txt", 1) for i in range(6000)])
+    b.finish_rows()
+    b.search.setText("scan-5999")
+    b._filter(b.search.text())
+    qtbot.waitUntil(lambda: b._looking is None, timeout=10_000)
+    b.search.setText("")
+    assert b.search_timer.isActive()
+    b._sort_by(1)
+    qtbot.waitUntil(lambda: b._looking is None and not b.search_timer.isActive(), timeout=10_000)
+    assert len(_shown(b)) == 6000
