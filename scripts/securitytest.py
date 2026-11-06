@@ -647,6 +647,47 @@ def pictures_from_elsewhere():
     alert.deleteLater()
 
 
+
+def update_task_script():
+    """The update task (installer\\silent-update.ps1) runs as SYSTEM and anyone signed in may start it: it must
+    take nothing a person's own programs can change, and nobody but administrators may change the task. (Checked
+    once more on the installed copy by scripts\\silentupdatetest.py: the folders' and the task's permissions.)"""
+    import re
+    root = Path(__file__).resolve().parent.parent
+    ps1 = (root / "installer" / "silent-update.ps1").read_text("utf-8")
+    iss = (root / "installer" / "corefold.iss").read_text("utf-8-sig")
+    code = "\n".join(line for line in ps1.splitlines() if not line.lstrip().startswith("#"))
+    sddl = re.search(r'\$TaskSddl = "([^"]+)"', code)
+    check(bool(sddl) and sddl.group(1) == "D:P(A;;FA;;;SY)(A;;FA;;;BA)(A;;GRGX;;;AU)",
+          "the update task: SYSTEM and administrators may change it, anyone signed in may only read and start it")
+    start = re.search(r'\$StartSddl = "([^"]+)"', code)
+    check(bool(start) and start.group(1) == "D:P(A;;FA;;;SY)(A;;FA;;;BA)",
+          "the task that starts Rakiza Core again: only SYSTEM and administrators")
+    check("<UserId>S-1-5-18</UserId>" in code and '"S-1-5-18", $null, 5, $TaskSddl' in code,
+          "…it runs as SYSTEM (nothing from a person's own environment reaches it)")
+    after_param = code[code.index("\n)") + 2:]
+    first = [line.strip() for line in after_param.splitlines() if line.strip()]
+    check(bool(first) and first[0] == '$env:PSModulePath = "$PSHOME\\Modules"',
+          "…and only loads Windows' own PowerShell modules")
+    update = code[code.index("function Update"):]
+    user_places = [w for w in ("$env:TEMP", "$env:TMP", "$env:LOCALAPPDATA", "$env:APPDATA", "$env:USERPROFILE",
+                               "GetTempPath", "Downloads") if w.lower() in update.lower()]
+    check(not user_places, f"…never reads or writes a place a person's programs can change ({user_places})")
+    check('$Work = [IO.Path]::Combine($AppDir, "_update")' in code and "$file = [IO.Path]::Combine($Work, $name)" in update,
+          "…downloads the installer into its own folder next to Rakiza Core (administrators only)")
+    check(update.index("(Sha256 $file) -ne $want") < update.index("$psi.FileName = $file"),
+          "…checks the SHA-256 of that very copy before running it")
+    check("api.github.com/repos/$Repo/releases/latest" in update
+          and "GetText ([string]$sums.browser_download_url)" in update
+          and "StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)" in update,
+          "…gets the checksum from GitHub itself, only from this repository's own release downloads")
+    check("(VersionOf $tag) -le (VersionOf $installed)" in update, "…and only installs a version newer than the one there")
+    check('Source: "silent-update.ps1"; DestDir: "{app}\\_next"' in iss and "UpdateTask('Unregister')" in iss,
+          "the installer puts the script next to Rakiza Core (in Program Files) and the uninstaller removes the task")
+    check("if WizardSilent() and not ByTask() then" in iss,
+          "an update installed by the task never starts Rakiza Core as SYSTEM")
+
+
 step("restore point description", restore_point_description)
 step("icacls and junctions", icacls_into_junctions)
 step("links on the way", links_on_the_way)
@@ -664,6 +705,7 @@ step("Startup's names", startup_names)
 step("booby-trapped pictures", booby_trapped_pictures)
 step("videos that go online", videos_going_online)
 step("pictures from elsewhere", pictures_from_elsewhere)
+step("the update task", update_task_script)
 
 shutil.rmtree(BASE, ignore_errors=True)
 shutil.rmtree(TMP, ignore_errors=True)
