@@ -3405,6 +3405,8 @@ STRINGS: dict[str, str] = {
     'Is a download the real file?': 'هل الملف المنزّل هو الأصلي؟',
     'Matches': 'مطابق',
     "Doesn't match": 'غير مطابق',
+    "Can't be read": 'تعذّرت قراءته',
+    "{count} can't be read: is one open in another app?": '{count} تتعذّر قراءتها: هل أحدها مفتوح في برنامج آخر؟',
     "The backup drive is full: the backup couldn't finish.": 'قرص النسخ الاحتياطي ممتلئ: تعذّر إكمال النسخ.',
     'Backup done': 'اكتمل النسخ الاحتياطي',
     '{count} files copied ({size})': 'نُسخ {count} ملف ({size})',

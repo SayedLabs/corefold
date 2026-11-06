@@ -227,7 +227,10 @@ class Inbox(QObject):
 
     def _read(self):
         if not self.done:
-            self.buf.extend(bytes(self.conn.readAll()))
+            try:
+                self.buf.extend(bytes(self.conn.readAll()))
+            except RuntimeError:  # (the connection is gone already: Rakiza Core is closing, for an update say)
+                return
             if len(self.buf) > self.MAX_BYTES:
                 self.buf.clear()
                 self._finish()
@@ -236,7 +239,11 @@ class Inbox(QObject):
         if self.done:
             return
         self._read()
-        if self.conn.state() == QLocalSocket.LocalSocketState.UnconnectedState:
+        try:
+            gone = self.conn.state() == QLocalSocket.LocalSocketState.UnconnectedState
+        except RuntimeError:
+            gone = True
+        if gone:
             self._finish()
 
     def _finish(self):
@@ -244,8 +251,11 @@ class Inbox(QObject):
             return
         self._read()
         self.done = True
-        self.message.emit(self.buf.decode("utf-8", "replace"))
-        self.conn.deleteLater()
+        try:
+            self.message.emit(self.buf.decode("utf-8", "replace"))
+            self.conn.deleteLater()
+        except RuntimeError:
+            pass  # (closing: the connection and this reader have gone with the window's objects)
 
 
 # ----------------------------------------------------------------------------- controller
@@ -1590,7 +1600,7 @@ class Controller(QObject):
                     command, icon = app_command, app_icon()
                     verbs = shellmenu.plan(s, command)
                     signature = shellmenu.signature(verbs, command, icon)
-                    if signature != s.menu_signature:
+                    if signature != s.menu_signature or not shellmenu.in_registry(verbs, command):
                         shellmenu.write(verbs, command, icon)
                         log.info("right-click menu updated")
             except Exception:

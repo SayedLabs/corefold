@@ -211,6 +211,9 @@ def plan(files: list[Path], params: dict, facts: dict[Path, dict] | None = None)
     for i, f in enumerate(files):
         name = new_name(f, i, p, facts.get(f))
         why = name_problem(name)
+        if not why and f.suffix and name.lower() == f.suffix.lower():
+            why = "The new name is empty"   # (only ".jpg" left: Explorer would show a file with no name)
+            name = ""
         try:
             new = f.with_name(name) if name.strip(" .") else f
         except ValueError:   # (a / in the name: the list shows the name as it is, with why it can't be)

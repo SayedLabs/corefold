@@ -3332,6 +3332,8 @@ STRINGS: dict[str, str] = {
     'Is a download the real file?': '¿Es la descarga el archivo real?',
     'Matches': 'Coincide',
     "Doesn't match": 'No coincide',
+    "Can't be read": 'No se puede leer',
+    "{count} can't be read: is one open in another app?": '{count} no se pueden leer: ¿hay alguno abierto en otra aplicación?',
     "The backup drive is full: the backup couldn't finish.": 'La unidad de copia está llena: la copia no pudo terminar.',
     'Backup done': 'Copia de seguridad hecha',
     '{count} files copied ({size})': '{count} archivos copiados ({size})',

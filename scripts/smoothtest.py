@@ -432,4 +432,6 @@ print(f"smoothtest: {len(problems)} problem(s), {len(slow)} slow step(s)", flush
 for p in problems + slow:
     print(f"  {p}", flush=True)
 (OUT / "smoothtest-result.txt").write_text(f"{len(problems)}\n", encoding="ascii")  # (for the workflow)
-os._exit(1 if problems else 0)
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from testexit import finish  # noqa: E402  (Qt can crash in Windows' tidy-up at exit, after every check passed)
+finish(1 if problems else 0)

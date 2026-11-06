@@ -3332,6 +3332,8 @@ STRINGS: dict[str, str] = {
     'Is a download the real file?': 'İndirilen dosya gerçek mi?',
     'Matches': 'Eşleşiyor',
     "Doesn't match": 'Eşleşmiyor',
+    "Can't be read": 'Okunamıyor',
+    "{count} can't be read: is one open in another app?": '{count} tanesi okunamıyor: biri başka bir uygulamada açık mı?',
     "The backup drive is full: the backup couldn't finish.": 'Yedek sürücüsü dolu: yedekleme tamamlanamadı.',
     'Backup done': 'Yedekleme tamamlandı',
     '{count} files copied ({size})': '{count} dosya kopyalandı ({size})',

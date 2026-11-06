@@ -174,6 +174,40 @@ def signature(verbs: list[Verb], command, icon: str) -> str:
     return hashlib.sha1(data.encode("utf-8")).hexdigest()
 
 
+def _item_command(command, item: Item) -> str:
+    args = ("--open", '"%1"') if item.key == OPEN_KEY else ("--run", item.key, '"%1"')
+    return command(*args)
+
+
+def _expected(verbs: list[Verb], command) -> list[tuple[str, str]]:
+    """(registry key, the command it should hold) for each entry."""
+    out = []
+    for v in verbs:
+        base = rf"{v.root}\shell\{v.name}"
+        if v.items is None:
+            out.append((base + r"\command", v.command))
+        else:
+            out += [(rf"{base}\shell\{i + 1:02d}\command", _item_command(command, item)) for i, item in enumerate(v.items)]
+    return out
+
+
+def in_registry(verbs: list[Verb], command, sample: int = 40) -> bool:
+    """Whether the registry still holds these entries as written (a look at a few of them). Something else may
+    have written over them since: another copy of Rakiza Core (one run from its code, say), or a clean-up tool;
+    the signature kept in the settings wouldn't know."""
+    import winreg
+    expected = _expected(verbs, command)
+    step = max(1, len(expected) // sample)
+    for key, cmd in expected[::step]:
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key) as k:
+                if winreg.QueryValueEx(k, "")[0] != cmd:
+                    return False
+        except OSError:
+            return False
+    return True
+
+
 # ----------------------------------------------------------------------------- writing to the registry
 
 def _delete_tree(winreg, path: str):
@@ -239,9 +273,8 @@ def write(verbs: list[Verb], command, icon: str):
                         winreg.SetValueEx(k, "MultiSelectModel", 0, SZ, "Player")
                         if item.separator:
                             winreg.SetValueEx(k, "CommandFlags", 0, DWORD, SEPARATOR_BEFORE)
-                    args = ("--open", '"%1"') if item.key == OPEN_KEY else ("--run", item.key, '"%1"')
                     with winreg.CreateKey(winreg.HKEY_CURRENT_USER, sub + r"\command") as k:
-                        winreg.SetValueEx(k, "", 0, SZ, command(*args))
+                        winreg.SetValueEx(k, "", 0, SZ, _item_command(command, item))
             except OSError:
                 log.exception("could not write right-click menu for %s", v.root)
         _tell_explorer()
@@ -268,7 +301,7 @@ def sync_unlock(on: bool, written: str, command, icon: str) -> str:
         return "off"
     verbs = unlock_plan(command)
     sig = signature(verbs, command, icon)
-    if sig == written:
+    if sig == written and in_registry(verbs, command):
         return sig
     SZ = winreg.REG_SZ
     with _lock:

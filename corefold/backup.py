@@ -146,7 +146,11 @@ def same_drive(sources: list[str], dest: str) -> bool:
 def due(plan: Plan, now: float | None = None) -> bool:
     """Whether a backup by itself should run now (and its drive is there)."""
     now = time.time() if now is None else now
-    return plan.auto and now - plan.last >= EVERY_HOURS * 3600 and not problem(plan.sources, plan.dest)
+    if not (plan.auto and now - plan.last >= EVERY_HOURS * 3600) or problem(plan.sources, plan.dest):
+        return False
+    # once there's a backup, only on the drive that has it: another USB drive that got the same letter (someone
+    # else's) isn't filled up with this PC's files by itself
+    return not plan.last or home(plan).is_dir()
 
 
 def _walk(root: Path, cancel, failed: list, unread: set, cloud: set | None = None):
@@ -220,6 +224,8 @@ def run(plan: Plan, progress=None, cancel=None, now: float | None = None) -> Sum
         return out
     root = home(plan)
     root.mkdir(parents=True, exist_ok=True)
+    prune(plan, now)  # (first: on a drive that filled up, the oldest copies make room for today's)
+    no_room = False
     stamp = time.strftime(STAMP, time.localtime(now))
     older_root = root / OLDER / stamp
     n = 2
@@ -250,9 +256,10 @@ def run(plan: Plan, progress=None, cancel=None, now: float | None = None) -> Sum
                     free = shutil.disk_usage(plan.dest).free
                 except OSError:
                     free = 0
-                if free < size + ROOM:
-                    out.problem = "The backup drive is full"
-                    return out
+                if free < size + ROOM:  # (this one doesn't fit; smaller ones still may)
+                    no_room = True
+                    out.failed.append((str(full), "The backup drive is full"))
+                    continue
                 partial = dst.with_name(dst.name + PARTIAL)
                 try:
                     dst.parent.mkdir(parents=True, exist_ok=True)
@@ -287,6 +294,8 @@ def run(plan: Plan, progress=None, cancel=None, now: float | None = None) -> Sum
         out.problem = "Stopped"
     finally:
         out.seconds = time.monotonic() - started
+    if no_room and not out.problem:
+        out.problem = "The backup drive is full"
     prune(plan, now)
     return out
 
