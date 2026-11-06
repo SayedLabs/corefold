@@ -1,6 +1,7 @@
 """French texts. The English text is the key (see corefold/i18n.py)."""
 
 STRINGS: dict[str, str] = {
+    "Ink": "Encre",
     "Teal": "Sarcelle",
     "Amber": "Ambre",
     "Lime": "Citron vert",
@@ -2646,6 +2647,7 @@ STRINGS: dict[str, str] = {
     'Pick': 'Prélever',
     'Disk space': 'Espace disque',
     'Add a widget': 'Ajouter un widget',
+    'Added': 'Ajouté',
     'Add to Home': "Ajouter à l'accueil",
     'On your Home page already': "Déjà sur votre page d'accueil",
     "Everything's on your Home page already": "Tout est déjà sur votre page d'accueil",

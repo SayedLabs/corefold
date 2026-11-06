@@ -3,7 +3,7 @@ PySide6-Essentials>=6.7,<7
 PySide6-Addons>=6.7,<7
 Pillow>=13.0  # (older ones have known holes with booby-trapped pictures)
 pi-heif>=0.20
-pypdf>=6.21.2  # (older ones can be made to hang or fill the memory by a booby-trapped PDF)
+pypdf>=6.21.2,<7  # (older ones can be made to hang or fill the memory by a booby-trapped PDF; 7 removed parts we test with, not checked yet)
 # locking and unlocking PDFs with a password (AES-256)
 cryptography>=50.0
 # Cloud: SFTP servers of your own

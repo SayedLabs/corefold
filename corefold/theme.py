@@ -114,7 +114,7 @@ def _chevron_image(color: QColor, up: bool) -> str:
 QSS = Template("""
 QWidget#sidebar { background: transparent; }
 QLabel#brand { font-family: $font_display; font-size: 12.5pt; font-weight: 700; }
-QLabel#family { font-family: $font_display; font-size: 7pt; font-weight: 700; color: $family; }
+QLabel#family { font-family: $font_display; font-size: 7pt; font-weight: 700; color: $subtle; }
 QListWidget#nav { background: transparent; border: none; outline: none; }
 QPushButton#navToggle { background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 0;
                         min-width: 0; }
@@ -209,6 +209,10 @@ QPushButton#addWidget { background: transparent; border: 1px dashed $line_strong
                         color: $muted; font-weight: 600; }
 QPushButton#addWidget:hover { border-color: $line_strong; background: $hover; color: $text; }
 QFrame#editBar { background: $raised; border: 1px solid $line_strong; border-radius: 10px; }
+QPushButton#sizeChip { padding: 0; min-width: 0; border-radius: 7px; background: transparent;
+                       border: 1px solid transparent; }
+QPushButton#sizeChip:hover { background: $hover; }
+QPushButton#sizeChip:checked { background: $accent_soft; border-color: $accent; }
 QFrame#galleryStage { background: $stage; border: 1px solid $border; border-radius: 14px; }
 QLabel#strong { font-weight: 600; }
 QFrame#dropzone { border: 1px dashed $line_strong; border-radius: 14px; background: $stage; }
@@ -251,10 +255,6 @@ QPushButton#close:hover { color: $text; }
 """)
 
 
-# Rakiza Labs' own colour (the family the app belongs to), apart from the app's teal: (light, dark)
-FAMILY_GOLD = {False: "#B8893B", True: "#D9B36A"}
-
-
 def stylesheet(t: Theme, scale: float = 1.0) -> str:
     rtl = QGuiApplication.layoutDirection() == Qt.RightToLeft
     p = t.tokens
@@ -269,7 +269,7 @@ def stylesheet(t: Theme, scale: float = 1.0) -> str:
         edge_hover=p.line_strong.name(), accent_text=(p.accent if p.dark else p.accent.darker(108)).name(),
         card_hover=p.hover.name(), select=p.select.name(), warning=p.warning.name(),
         nav_hover=mix(p.backdrop, p.text, 0.06).name(), nav_press=mix(p.backdrop, p.text, 0.1).name(),
-        lead_side=lead, font_display=tokens.FONT_DISPLAY, family=FAMILY_GOLD[p.dark], stage=p.canvas.name(), partial=_partial_image(p.on_accent),
+        lead_side=lead, font_display=tokens.FONT_DISPLAY, stage=p.canvas.name(), partial=_partial_image(p.on_accent),
     )
     return qss.scaled(base + own, scale)
 

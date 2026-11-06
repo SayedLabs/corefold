@@ -441,6 +441,7 @@ class SectionCard(QFrame):
         words.addWidget(title)
         line = label(tr(sec.line), "muted", wrap=True)
         line.setMinimumWidth(1)
+        line.setAlignment(Qt.AlignLeading | Qt.AlignTop)
         line.setAttribute(Qt.WA_TransparentForMouseEvents)
         words.addWidget(line)
         top.addLayout(words, 1)
@@ -470,6 +471,7 @@ class SectionCard(QFrame):
             more.setAttribute(Qt.WA_TransparentForMouseEvents)
             lay.addWidget(more)
         lay.addStretch()
+        keep_wrapped_text(self)  # (its lines' height, not the height they'd take in the narrowest card)
 
     def mouseReleaseEvent(self, e):
         if e.button() == Qt.LeftButton and self.rect().contains(e.position().toPoint()):
@@ -723,7 +725,7 @@ class MainWindow(QWidget):
         self.logo = QLabel()
         self.logo.setPixmap(icon.pixmap(28, 28))
         self.brand = label(APP_NAME, "brand")
-        # the family the app belongs to, in its own gold under the name (in Latin letters in every language)
+        # the family the app belongs to, in quiet grey under the name (in Latin letters in every language)
         self.family = label(FAMILY_NAME.upper(), "family")
         f = self.family.font()
         f.setLetterSpacing(QFont.AbsoluteSpacing, 1.4)
@@ -2714,35 +2716,52 @@ class MainWindow(QWidget):
         self.home_again = button(tr("Start again"), "flat", self._home_start_again)
         self.home_again.hide()
         head.addWidget(self.home_again)
+        # (while the page is being changed, adding is right here: not only at the end of the widgets, below)
+        self.home_add = button(tr("Add a widget"), "flat", lambda: self.home_board.open_gallery())
+        self.home_add.setIconSize(QSize(16, 16))
+        self.home_add.hide()
+        head.addWidget(self.home_add)
         self.home_edit = button(tr("Customize"), "flat", lambda: self.home_board.set_editing(not self.home_board.editing))
+        self.home_edit.setIconSize(QSize(16, 16))
         head.addWidget(self.home_edit)
         lay.addLayout(head)
         self.home_board = Board(self)
         self.home_board.editing_changed.connect(self._home_editing)
+        self._home_icons(self.c.theme)
         lay.addWidget(self.home_board)
 
         lay.addWidget(label(tr("Your tools"), "title"))
         grid = ResponsiveGrid(300, 12, 2)
         self.section_cards = {}
+        resting = []
         for sec in self.sections:
             tools = all_tools.in_section(self.c.settings, sec)
-            if all_tools.section_paused(sec):  # (resting for now: what's in it, and that it's coming back)
-                card_ = SectionCard(sec, tools, 0, self.open_page, dark, dpr, resting=True)
-            else:
-                card_ = SectionCard(sec, [t for t in tools if t.id in on], len([t for t in tools if t.id not in on]),
-                                    self.open_page, dark, dpr)
+            if all_tools.section_paused(sec):  # (resting for now: named in one line below, not a whole card)
+                resting.append(sec)
+                continue
+            card_ = SectionCard(sec, [t for t in tools if t.id in on], len([t for t in tools if t.id not in on]),
+                                self.open_page, dark, dpr)
             self.section_cards[sec.page] = card_
             grid.add(card_)
         lay.addWidget(grid)
+        if resting:  # (each name opens what's coming back)
+            soon = FlowLayout(spacing=6)
+            soon.addWidget(label(tr("Coming back soon"), "subtle"))
+            for sec in resting:
+                soon.addWidget(button(tr(sec.name), "chipButton", lambda _=False, n=sec.page: self.open_page(n)))
+            lay.addLayout(soon)
 
-        head = QHBoxLayout()
+        # (shown once there's something in it: an empty box on a new PC says nothing)
+        self.recent_head = QWidget()
+        head = QHBoxLayout(self.recent_head)
+        head.setContentsMargins(0, 0, 0, 0)
         head.addWidget(label(tr("Recent activity"), "title"))
         head.addStretch()
         head.addWidget(button(tr("See all"), "flat", lambda: self.open_page("History")))
-        lay.addLayout(head)
-        recent, self.recent_lay = card(0)
+        lay.addWidget(self.recent_head)
+        self.recent_card, self.recent_lay = card(0)
         self.recent_lay.setContentsMargins(6, 6, 6, 6)
-        lay.addWidget(recent)
+        lay.addWidget(self.recent_card)
         lay.addStretch()
         return w
 
@@ -2753,6 +2772,15 @@ class MainWindow(QWidget):
         self.home_edit.style().unpolish(self.home_edit)
         self.home_edit.style().polish(self.home_edit)
         self.home_again.setVisible(on)
+        self.home_add.setVisible(on)
+        self._home_icons(self.c.theme)
+
+    def _home_icons(self, t):
+        if not hasattr(self, "home_edit"):
+            return
+        editing = self.home_board.editing
+        self.home_edit.setIcon(QIcon() if editing else icons.icon("pen", t.text))
+        self.home_add.setIcon(icons.icon("add", t.text))
 
     def _home_add_widget(self):
         self.open_page("Home")
@@ -2771,6 +2799,8 @@ class MainWindow(QWidget):
                 item.widget().hide()  # (not drawn again at its old place before it goes)
                 item.widget().deleteLater()
         entries = self.c.history.items[:5]
+        self.recent_head.setVisible(bool(entries))
+        self.recent_card.setVisible(bool(entries))
         if not entries:
             empty = label(tr("Nothing yet. What you do with Rakiza Core shows up here."), "muted", wrap=True)
             empty.setContentsMargins(12, 10, 12, 10)
@@ -4685,6 +4715,7 @@ class MainWindow(QWidget):
         for b, name in self.quick_buttons:
             b.setIcon(icons.icon(name, t.text))
         self._color_chips(t)
+        self._home_icons(t)
         if hasattr(self, "home_board"):
             self.home_board.apply_theme(t)
         self.settings_list.viewport().update()
