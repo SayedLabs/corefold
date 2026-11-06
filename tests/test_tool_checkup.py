@@ -165,3 +165,84 @@ def test_numpy_doesnt_set_memory_aside_for_every_core():
     text = (Path(__file__).resolve().parent.parent / "main.py").read_text(encoding="utf-8")
     assert 'os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")' in text
     assert text.index("OPENBLAS_NUM_THREADS") < text.index("from corefold")
+
+
+class _FakeRegistry:
+    """Just enough of winreg for the right-click menu: keys with a default value."""
+    HKEY_CURRENT_USER = "HKCU"
+    REG_SZ, REG_DWORD, KEY_READ, KEY_WRITE = 1, 4, 1, 2
+
+    def __init__(self):
+        self.keys: dict[str, dict] = {}
+
+    class _Key:
+        def __init__(self, reg, path):
+            self.reg, self.path = reg, path
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def CreateKey(self, _root, path):  # noqa: N802
+        self.keys.setdefault(path.lower(), {})
+        return self._Key(self, path.lower())
+
+    def OpenKey(self, _root, path, *a):  # noqa: N802
+        if path.lower() not in self.keys:
+            raise OSError(2, "not there")
+        return self._Key(self, path.lower())
+
+    def SetValueEx(self, key, name, _r, _t, value):  # noqa: N802
+        self.keys[key.path][name] = value
+
+    def QueryValueEx(self, key, name):  # noqa: N802
+        if name not in self.keys[key.path]:
+            raise OSError(2, "no value")
+        return self.keys[key.path][name], 1
+
+    def EnumKey(self, key, i):  # noqa: N802
+        prefix = key.path + "\\"
+        subs = sorted({k[len(prefix):].split("\\")[0] for k in self.keys if k.startswith(prefix)})
+        if i >= len(subs):
+            raise OSError(259, "no more")
+        return subs[i]
+
+    def DeleteKey(self, _root, path):  # noqa: N802
+        self.keys.pop(path.lower(), None)
+
+
+def test_a_right_click_entry_another_copy_wrote_over_is_written_again(monkeypatch):
+    import sys
+    from corefold import shellmenu
+    reg = _FakeRegistry()
+    monkeypatch.setitem(sys.modules, "winreg", reg)
+
+    def mine(*args):
+        return '"C:\\Program Files\\Rakiza Core\\RakizaCore.exe" ' + " ".join(args)
+
+    sig = shellmenu.sync_unlock(True, "", mine, "")
+    key = shellmenu.unlock_plan(mine)[0]
+    command_key = rf"{key.root}\shell\{key.name}\command".lower()
+    assert reg.keys[command_key][""] == mine("--unlock", '"%1"')
+    assert shellmenu.in_registry(shellmenu.unlock_plan(mine), mine)
+    # a copy run from its code writes its own command over it (the settings still hold the signature)
+    reg.keys[command_key][""] = '"C:\\dev\\pythonw.exe" "C:\\dev\\main.py" --unlock "%1"'
+    assert not shellmenu.in_registry(shellmenu.unlock_plan(mine), mine)
+    assert shellmenu.sync_unlock(True, sig, mine, "") == sig
+    assert reg.keys[command_key][""] == mine("--unlock", '"%1"')
+
+
+def test_a_helpers_message_arriving_while_rakiza_core_closes_isnt_an_error(qapp):
+    from PySide6.QtNetwork import QLocalSocket
+    from corefold.app import Inbox
+    conn = QLocalSocket()
+    inbox = Inbox(conn)
+    got = []
+    inbox.message.connect(got.append)
+    import shiboken6
+    shiboken6.delete(conn)  # (the connection and its reader go, as when the window's objects are deleted on quitting)
+    inbox._check()   # (what was still queued for it then: no "Internal C++ object already deleted")
+    inbox._finish()
+    assert inbox.done and got == []
