@@ -95,6 +95,7 @@ def move_old_output_folder(folder: str) -> str:
 # key: English label (shown through tr())
 SHORTCUT_LABELS = {"shift": "Shift", "ctrl+shift": "Ctrl + Shift", "alt": "Alt"}
 ACCENTS = {  # key: (name, colour on light, colour on dark) — from the Rakiza Core design system
+    "ink": ("Ink", "#1d1d1f", "#ececef"),   # the default: calm black/white, so the teal logo is the one colour that stands out
     "core": ("Teal", "#0f7a6c", "#3fb6a2"),
     "ocean": ("Ocean", "#2b5fd4", "#82a8ff"),
     "grape": ("Grape", "#6b4bd6", "#ac97ff"),
@@ -103,7 +104,7 @@ ACCENTS = {  # key: (name, colour on light, colour on dark) — from the Rakiza 
     "lime": ("Lime", "#3f7a12", "#9ad66b"),
     "graphite": ("Graphite", "#53625f", "#9bb0ac"),
 }
-DEFAULT_ACCENT = "core"
+DEFAULT_ACCENT = "ink"
 OLD_ACCENTS = {"tangerine": "core"}  # accent names from before 1.7.0
 WHEEL_SIZES = {"small": 148, "medium": 172, "large": 205, "huge": 245}  # outer radius in px
 WHEEL_SIZE_NAMES = {"small": "Small", "medium": "Medium", "large": "Large", "huge": "Huge"}
@@ -376,6 +377,7 @@ class Settings:
     appearance: str = "system"
     accent: str = DEFAULT_ACCENT
     custom_color: str = "#0f7a6c"  # used when accent == "custom"
+    accent_moved: bool = True  # (saved settings without it are from before 2.0.1, when teal was everyone's default)
     wheel_size: str = "medium"
     wheel_style: str = "ring"
     wheel_opacity: int = 94
@@ -455,6 +457,8 @@ class Settings:
             if type(value) is type(default):
                 setattr(s, key, value)
         s.accent = OLD_ACCENTS.get(s.accent, s.accent)
+        if "accent_moved" not in data and s.accent == "core":
+            s.accent = DEFAULT_ACCENT  # teal was the default until 2.0.1 (it stays one tap away in Settings)
         if s.accent not in ACCENTS and s.accent != "custom":
             s.accent = DEFAULT_ACCENT
         if not (len(s.custom_color) == 7 and s.custom_color.startswith("#")):
