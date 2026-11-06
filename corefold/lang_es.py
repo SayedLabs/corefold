@@ -2646,6 +2646,7 @@ STRINGS: dict[str, str] = {
     'Pick': 'Elegir',
     'Disk space': 'Espacio en disco',
     'Add a widget': 'Añadir un widget',
+    'Added': 'Añadido',
     'Add to Home': 'Añadir al inicio',
     'On your Home page already': 'Ya está en tu página de inicio',
     "Everything's on your Home page already": 'Ya está todo en tu página de inicio',

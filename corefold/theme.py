@@ -209,6 +209,10 @@ QPushButton#addWidget { background: transparent; border: 1px dashed $line_strong
                         color: $muted; font-weight: 600; }
 QPushButton#addWidget:hover { border-color: $line_strong; background: $hover; color: $text; }
 QFrame#editBar { background: $raised; border: 1px solid $line_strong; border-radius: 10px; }
+QPushButton#sizeChip { padding: 0; min-width: 0; border-radius: 7px; background: transparent;
+                       border: 1px solid transparent; }
+QPushButton#sizeChip:hover { background: $hover; }
+QPushButton#sizeChip:checked { background: $accent_soft; border-color: $accent; }
 QFrame#galleryStage { background: $stage; border: 1px solid $border; border-radius: 14px; }
 QLabel#strong { font-weight: 600; }
 QFrame#dropzone { border: 1px dashed $line_strong; border-radius: 14px; background: $stage; }

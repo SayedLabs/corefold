@@ -2646,6 +2646,7 @@ STRINGS: dict[str, str] = {
     'Pick': 'Seç',
     'Disk space': 'Disk alanı',
     'Add a widget': 'Widget ekle',
+    'Added': 'Eklendi',
     'Add to Home': 'Ana sayfaya ekle',
     'On your Home page already': 'Zaten ana sayfanızda',
     "Everything's on your Home page already": 'Her şey zaten ana sayfanızda',
