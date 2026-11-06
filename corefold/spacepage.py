@@ -46,6 +46,7 @@ JUNK_ICONS = {"temp": "timer", "bin": "delete", "browser": "globe", "thumbs": "i
 DUPE_FOLDERS = ("Desktop", "Documents", "Downloads", "Pictures", "Videos", "Music")
 KEEP_MAPS = 2             # drives (or folders) whose map is kept, so opening one again is instant
 FORGET_AFTER = 20 * 60    # seconds: maps not looked at for this long are let go (a big drive's map is big)
+FORGET_HIDDEN_AFTER = 5 * 60  # seconds: with Space left for another page, every map goes after this long
 COLUMNS = ("name", "size", "share", "files", "changed")
 SORT = Qt.UserRole + 4    # what a list row is put in order by, in each column
 HOLDER = Qt.UserRole + 5  # the folder a file row's file is in (the map rings it there)
@@ -1147,6 +1148,18 @@ class SpacePage(QWidget):
         if self.scan is None and self.job is None:
             self._fill_drives()
 
+    def showEvent(self, e):
+        super().showEvent(e)
+        if self.scan is not None:
+            self._forget_timer.stop()
+        elif self.kept:  # (the drives are showing: the maps go as they did before it was left)
+            self._forget_timer.start(FORGET_AFTER * 1000)
+
+    def hideEvent(self, e):
+        super().hideEvent(e)
+        if self.kept:  # (another page, or the window closed: the maps aren't kept for long)
+            self._forget_timer.start(FORGET_HIDDEN_AFTER * 1000)
+
     # ---- the disk map
 
     def _map_section(self) -> QWidget:
@@ -1873,7 +1886,11 @@ class SpacePage(QWidget):
             self._forget_timer.start(FORGET_AFTER * 1000)
 
     def _forget_old_maps(self):
-        """Lets go of the maps no one has looked at for a while (a whole drive's map takes room)."""
+        """Lets go of the maps no one has looked at for a while (a whole drive's map takes room): every one,
+        the map shown too, when Space isn't in sight (it shows the drives again)."""
+        if not self.isVisible() and self.scan is not None and self.job is None:
+            self._back_to_drives()
+            self._forget_timer.stop()
         showing = self.scan
         for key in [k for k, v in self.kept.items() if v[0] is not showing]:
             self._drop_map(key)

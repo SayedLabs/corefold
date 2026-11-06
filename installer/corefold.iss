@@ -202,6 +202,7 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "
   Tasks: desktopicon; Check: MakeDesktopIcon
 ; Moving over from a copy installed for this person alone: their own desktop icon and taskbar pin are written again
 ; in the same place and under the same name (so they keep their spot), pointing at the Rakiza Core installed here.
+; Their own desktop icon under an earlier name is written again in its place under the new name too.
 Name: "{userdesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "AtomicWorks.{#KeepId}"; \
   Check: KeepUserDesktopIcon
 Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar\{#AppName}"; \
@@ -231,8 +232,12 @@ var
   OldStartedWithWindows: Boolean;
   { Rakiza Core was already installed: this is an update (the person's choices are kept as they are) }
   Upgrading: Boolean;
-  { a desktop icon from before 1.7.0 was there (it's replaced by Rakiza Core's) }
+  { a desktop icon (for everyone) under an earlier name was there (it's replaced by Rakiza Core's) }
   HadOldDesktopIcon: Boolean;
+  { the same on the person's own desktop: where 1.16 to 1.19 wrote it again when they moved a copy installed for
+    this person alone over to the whole PC. It's written again there under the new name (2.0.0 deleted it and
+    made none) }
+  HadOldUserDesktopIcon: Boolean;
   { the folder of a Rakiza Core installed the old way, for this person alone (empty when there's none): it's moved
     over to the whole-PC install and then removed }
   UserCopyDir: String;
@@ -271,6 +276,8 @@ begin
   Upgrading := RegValueExists(HKA, UninstallKey, 'UninstallString');
   HadOldDesktopIcon := FileExists(ExpandConstant('{autodesktop}\{#OldName}.lnk')) or
                        FileExists(ExpandConstant('{autodesktop}\{#PrevName}.lnk'));
+  HadOldUserDesktopIcon := FileExists(ExpandConstant('{userdesktop}\{#OldName}.lnk')) or
+                           FileExists(ExpandConstant('{userdesktop}\{#PrevName}.lnk'));
   HadPrevPin := FileExists(ExpandConstant(PinDir + '\{#PrevName}.lnk'));
   UserCopyDir := FindUserCopy();
   if UserCopyDir <> '' then
@@ -328,7 +335,7 @@ end;
 
 function KeepUserDesktopIcon(): Boolean;
 begin
-  Result := UserHadDesktopIcon;
+  Result := UserHadDesktopIcon or HadOldUserDesktopIcon;
 end;
 
 function KeepTaskbarPin(): Boolean;
@@ -350,7 +357,7 @@ begin
   begin
     WizardForm.TasksList.Checked[0] := FileExists(ExpandConstant('{autodesktop}\{#AppName}.lnk')) or
                                        FileExists(ExpandConstant('{userdesktop}\{#AppName}.lnk')) or
-                                       UserHadDesktopIcon or HadOldDesktopIcon;  { (an icon under an earlier name too) }
+                                       UserHadDesktopIcon or HadOldDesktopIcon or HadOldUserDesktopIcon;  { (an icon under an earlier name too) }
     WizardForm.TasksList.Checked[1] := RegQueryStringValue(HKEY_CURRENT_USER, RunKey, '{#KeepId}', Value);
   end;
 end;
@@ -360,8 +367,8 @@ end;
   alone, so it keeps its place on the desktop. }
 function MakeDesktopIcon(): Boolean;
 begin
-  if UserHadDesktopIcon then  { (their own icon is written again instead, see [Icons]) }
-    Result := False
+  if UserHadDesktopIcon or (HadOldUserDesktopIcon and not HadOldDesktopIcon) then
+    Result := False  { (their own icon is written again instead, see [Icons]) }
   else
     Result := (not IsUpdate()) or HadOldDesktopIcon or
               ((not WizardSilent()) and not FileExists(ExpandConstant('{autodesktop}\{#AppName}.lnk')) and
