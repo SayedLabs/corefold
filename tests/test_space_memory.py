@@ -158,8 +158,10 @@ def test_windows_gets_the_memory_back(tmp_path):
     def private() -> int:
         pmc = PMC()
         pmc.cb = ctypes.sizeof(PMC)
-        ctypes.windll.psapi.GetProcessMemoryInfo(ctypes.windll.kernel32.GetCurrentProcess(), ctypes.byref(pmc),
-                                                 pmc.cb)
+        k32, psapi = ctypes.windll.kernel32, ctypes.windll.psapi
+        k32.GetCurrentProcess.restype = ctypes.c_void_p
+        psapi.GetProcessMemoryInfo.argtypes = [ctypes.c_void_p, ctypes.POINTER(PMC), wt.DWORD]
+        assert psapi.GetProcessMemoryInfo(k32.GetCurrentProcess(), ctypes.byref(pmc), pmc.cb)
         return pmc.PrivateUsage
 
     root = tmp_path / "many"

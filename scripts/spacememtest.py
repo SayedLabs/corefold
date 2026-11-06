@@ -23,8 +23,11 @@ class PMC(ctypes.Structure):
 def mem():
     pmc = PMC()
     pmc.cb = ctypes.sizeof(PMC)
-    ctypes.windll.psapi.GetProcessMemoryInfo(ctypes.windll.kernel32.GetCurrentProcess(), ctypes.byref(pmc),
-                                             pmc.cb)
+    k32, psapi = ctypes.windll.kernel32, ctypes.windll.psapi
+    k32.GetCurrentProcess.restype = ctypes.c_void_p
+    psapi.GetProcessMemoryInfo.argtypes = [ctypes.c_void_p, ctypes.POINTER(PMC), wt.DWORD]
+    if not psapi.GetProcessMemoryInfo(k32.GetCurrentProcess(), ctypes.byref(pmc), pmc.cb):
+        raise ctypes.WinError()
     return pmc.PrivateUsage / 2**20, pmc.PeakPagefileUsage / 2**20, pmc.WorkingSetSize / 2**20
 
 
@@ -42,7 +45,5 @@ files, folders = res.files, res.folders
 del res
 gc.collect()
 dropped = mem()
-ctypes.windll.kernel32.SetProcessWorkingSetSize(ctypes.windll.kernel32.GetCurrentProcess(),
-                                                ctypes.c_size_t(-1), ctypes.c_size_t(-1))
 print(f"{CODE.name}: {files:,} files, {folders:,} folders in {took:.1f} s | private before {before[0]:.0f} MB, "
       f"with the map {after[0]:.0f} MB, peak {after[1]:.0f} MB, after letting go {dropped[0]:.0f} MB")
