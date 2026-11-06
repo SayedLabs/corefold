@@ -725,7 +725,7 @@ class MainWindow(QWidget):
         self.logo = QLabel()
         self.logo.setPixmap(icon.pixmap(28, 28))
         self.brand = label(APP_NAME, "brand")
-        # the family the app belongs to, in its own gold under the name (in Latin letters in every language)
+        # the family the app belongs to, in quiet grey under the name (in Latin letters in every language)
         self.family = label(FAMILY_NAME.upper(), "family")
         f = self.family.font()
         f.setLetterSpacing(QFont.AbsoluteSpacing, 1.4)

@@ -4,6 +4,7 @@ as they appear on files."""
 
 STRINGS: dict[str, str] = {
     # ------------------------------------------------------------------ names kept in tables
+    "Ink": "حبر",
     "Teal": "فيروزي",
     "Amber": "كهرماني",
     "Lime": "ليموني",

@@ -139,7 +139,7 @@ def logic():
             "jpg_quality": "high", "language": "klingon", "volume": 900, "accent": 5, "clip_max": 500}}), "utf-8")
         s = fresh()
         new = sb.apply(s, sb.read(junk))
-        check(new.jpg_quality == 90 and new.language == "system" and new.volume == 100 and new.accent == "core",
+        check(new.jpg_quality == 90 and new.language == "system" and new.volume == 100 and new.accent == st.DEFAULT_ACCENT,
               f"values of the wrong kind are dropped or kept in range ({new.jpg_quality}, {new.language}, "
               f"{new.volume}, {new.accent})")
         # a plain settings.json (like a copy kept before an update) can be brought back too
