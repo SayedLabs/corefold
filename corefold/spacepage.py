@@ -1504,6 +1504,9 @@ class SpacePage(QWidget):
             self.busy_line.set_full(tr("Reading the drive's list of files. Windows asks for permission first."))
 
         def work(progress):
+            # (numpy, which the look uses, is read in first: its hundreds of objects made while the map's folders
+            # are, in between them, would keep Python's memory in pieces after the map is let go)
+            import numpy  # noqa: F401
             result = mftscan.fast_scan(root, cancel) if fast else None
             if result is None and not cancel.is_set():  # (said no, or it didn't work: the usual way)
                 result = space.scan(root, cancel, lambda *a: progress(a))

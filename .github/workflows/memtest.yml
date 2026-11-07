@@ -9,12 +9,17 @@ on:
       - scripts/memtest.py
       - .github/workflows/memtest.yml
   workflow_dispatch:
+    inputs:
+      survivors:
+        description: "List what a Space look leaves alive (slower; the memory numbers aren't comparable)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write   # the numbers are saved to the "memtest-results" branch
 
 concurrency:
-  group: memtest-${{ github.ref }}
+  group: memtest-${{ github.ref }}-${{ inputs.survivors }}
   cancel-in-progress: true
 
 jobs:
@@ -40,6 +45,7 @@ jobs:
         shell: pwsh
         env:
           MEMTEST_SPACE: C:\Program Files
+          MEMTEST_SURVIVORS: ${{ inputs.survivors && '1' || '' }}
         run: |
           python scripts/memtest.py out en dark *> out/memtest-run.txt
           Write-Host "memtest ended with $LASTEXITCODE"
