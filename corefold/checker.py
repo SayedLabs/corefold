@@ -112,7 +112,9 @@ def read_list(path: Path) -> list[Entry]:
     for the file of the same name without the list's extension: setup.exe.sha256 → setup.exe)."""
     if path.stat().st_size > MAX_LIST:
         return []
-    text = path.read_bytes().decode("utf-8-sig", "replace")
+    raw = path.read_bytes()
+    # (Windows PowerShell 5's ">" saves what a command printed, certutil's codes too, as UTF-16)
+    text = raw.decode("utf-16", "replace") if raw[:2] in (b"\xff\xfe", b"\xfe\xff") else raw.decode("utf-8-sig", "replace")
     out: list[Entry] = []
     for line in text.splitlines():
         line = line.strip()

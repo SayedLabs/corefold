@@ -70,3 +70,17 @@ def test_check_reads_a_pasted_line_whose_file_name_has_md5_or_sha256_in_it():
     for line in (f"{code}  ubuntu-md5-check.iso", f"{code} *tool-sha256.exe", f"SHA256 (app-sha1.exe) = {code}",
                  f"md5sum-helper.zip {code}", f"SHA-256: {code.upper()}", code):
         assert checker.clean(line) == code, line
+
+
+def test_check_reads_a_list_of_codes_saved_as_utf16(tmp_path):
+    """Windows PowerShell 5's ">" saves what certutil or any command printed as UTF-16: such a list read as nothing."""
+    import hashlib
+    from corefold import checker
+    (tmp_path / "setup.exe").write_bytes(b"hello")
+    code = hashlib.sha256(b"hello").hexdigest()
+    (tmp_path / "SHA256SUMS").write_bytes(f"﻿{code}  setup.exe\r\n".encode("utf-16-le"))
+    (tmp_path / "setup.exe.sha256").write_bytes(
+        f"﻿SHA256 hash of setup.exe:\r\n{code}\r\nCertUtil: -hashfile command completed successfully.\r\n"
+        .encode("utf-16-le"))
+    for name in ("SHA256SUMS", "setup.exe.sha256"):
+        assert [(e.name, e.state) for e in checker.check_list(tmp_path / name)] == [("setup.exe", checker.SAME)]
