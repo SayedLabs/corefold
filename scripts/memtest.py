@@ -18,6 +18,7 @@ OUT = Path(sys.argv[1] if len(sys.argv) > 1 else "memtest").resolve()
 LANG = sys.argv[2] if len(sys.argv) > 2 else "en"
 LOOK = sys.argv[3] if len(sys.argv) > 3 else "dark"
 OUT.mkdir(parents=True, exist_ok=True)
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")  # (as main.py does: numpy's maths gets one core, not a buffer each)
 TMP = Path(tempfile.mkdtemp(prefix="corefold-memtest-"))
 os.environ["APPDATA"] = str(TMP / "roaming")
 os.environ["LOCALAPPDATA"] = str(TMP / "local")
