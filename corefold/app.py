@@ -1593,14 +1593,14 @@ class Controller(QObject):
             signature = ""
             try:
                 if not menu_on:
-                    if s.menu_signature != "off":
+                    if s.menu_signature != "off" or shellmenu.strays([]):  # (one another copy wrote, too)
                         shellmenu.remove(unlock=False)
                     signature = "off"
                 else:
                     command, icon = app_command, app_icon()
                     verbs = shellmenu.plan(s, command)
                     signature = shellmenu.signature(verbs, command, icon)
-                    if signature != s.menu_signature or not shellmenu.in_registry(verbs, command):
+                    if signature != s.menu_signature or not shellmenu.in_registry(verbs, command, others=True):
                         shellmenu.write(verbs, command, icon)
                         log.info("right-click menu updated")
             except Exception:

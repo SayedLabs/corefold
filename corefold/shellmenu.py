@@ -191,14 +191,25 @@ def _expected(verbs: list[Verb], command) -> list[tuple[str, str]]:
     return out
 
 
-def in_registry(verbs: list[Verb], command, sample: int = 40) -> bool:
+def in_registry(verbs: list[Verb], command, sample: int = 40, others: bool = False) -> bool:
     """Whether the registry still holds these entries as written (a look at a few of them). Something else may
     have written over them since: another copy of Rakiza Core (one run from its code, say), or a clean-up tool;
-    the signature kept in the settings wouldn't know."""
+    the signature kept in the settings wouldn't know. others: and no entry of the menu's where these have none
+    (see strays)."""
     import winreg
+    if others and strays(verbs, sample):
+        return False
     expected = _expected(verbs, command)
     step = max(1, len(expected) // sample)
-    for key, cmd in expected[::step]:
+    look = expected[::step]
+    # (and the first of each entry for folders, drives, shortcuts and every file: only a few, easily missed above)
+    firsts: dict[tuple, tuple[str, str]] = {}
+    for key, cmd in expected:
+        root, verb = (key.split("\\shell\\") + [""])[:2]
+        if root in (FOLDER_ROOT, ANY_ROOT, LNK_ROOT, DRIVE_ROOT):
+            firsts.setdefault((root, verb), (key, cmd))
+    look += list(firsts.values())
+    for key, cmd in look:
         try:
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key) as k:
                 if winreg.QueryValueEx(k, "")[0] != cmd:
@@ -206,6 +217,26 @@ def in_registry(verbs: list[Verb], command, sample: int = 40) -> bool:
         except OSError:
             return False
     return True
+
+
+def strays(verbs: list[Verb], sample: int = 40) -> bool:
+    """Whether the menu has an entry where these entries have none (a look at the few roots for folders, drives,
+    shortcuts and every file, and some of the file kinds'): another copy of Rakiza Core wrote it, one with the menu
+    on while it's off here, say. Never looked at, it would stay, starting that other copy."""
+    import winreg
+    written = {(v.root, v.name) for v in verbs}
+    exts = _all_roots()[:-4]
+    roots = [FOLDER_ROOT, ANY_ROOT, LNK_ROOT, DRIVE_ROOT] + exts[::max(1, len(exts) // sample)]
+    for root in roots:
+        for verb in VERBS + LEGACY_VERBS:
+            if (root, verb) in written:
+                continue
+            try:
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, rf"{root}\shell\{verb}"):
+                    return True
+            except OSError:
+                continue
+    return False
 
 
 # ----------------------------------------------------------------------------- writing to the registry
