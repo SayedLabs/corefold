@@ -1,6 +1,6 @@
 # How much memory Rakiza Core holds step by step on a real Windows PC (one of GitHub's), and what it keeps once the
 # window and a Space map are let go: scripts/memtest.py. Runs when the test changes, and by hand. The numbers show on
-# the run's summary page and on the "memtest-results" branch (replaced each run; it isn't part of the app).
+# the run's summary page and on the "memtest-results-*" branches (replaced each run; it isn't part of the app).
 name: Memory
 
 on:
@@ -26,6 +26,13 @@ jobs:
   memory:
     runs-on: windows-latest
     timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        # normal: Windows' usual heap; segment: its newer one (what the app's manifest can ask for), tried by
+        # turning it on for python.exe
+        heap: [normal, segment]
+    name: heap-${{ matrix.heap }}
     steps:
       - uses: actions/checkout@v7
 
@@ -39,6 +46,14 @@ jobs:
           python -m pip install --quiet -r requirements.txt
           New-Item -ItemType Directory -Force out | Out-Null
           python scripts/screenres.py 1920 1080 *>> out/screen.txt
+
+      - name: Windows' newer heap for python.exe
+        if: matrix.heap == 'segment'
+        shell: pwsh
+        run: |
+          $k = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\python.exe"
+          New-Item -Force $k | Out-Null
+          New-ItemProperty -Force -Path $k -Name FrontEndHeapDebugOptions -PropertyType DWord -Value 8 | Out-Null
 
       - name: Measure
         timeout-minutes: 30
@@ -61,7 +76,7 @@ jobs:
           MEMTEST_SURVIVORS: ${{ inputs.survivors && '1' || '' }}
         run: |
           Set-Location out
-          $branch = if ($env:MEMTEST_SURVIVORS) { "memtest-results-survivors" } else { "memtest-results" }
+          $branch = "memtest-results-${{ matrix.heap }}" + $(if ($env:MEMTEST_SURVIVORS) { "-survivors" } else { "" })
           git init -q -b $branch
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
