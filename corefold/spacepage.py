@@ -1979,7 +1979,7 @@ class SpacePage(QWidget):
         gc.collect()  # (a map is a tree of folders pointing at each other)
         if dropped:  # (and the memory it took goes back to Windows soon after, not at the next tidy-up)
             log.info("space let go of %d map(s)", len(dropped))
-            tidy = getattr(self.c, "tidy_timer", None)
+            tidy = getattr(self.c, "light_tidy_timer", None)  # (as soon as nobody's typing or moving the mouse)
             if tidy is not None and (not tidy.isActive() or tidy.remainingTime() > 5000):
                 tidy.start(5000)
         if showing is None:
