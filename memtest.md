@@ -1,0 +1,159 @@
+## Memory, step by step
+
+win32, en, dark; numpy loaded at the end: True; Python threads at the end: 2
+
+- Space folders still in memory after the maps were forgotten: 0
+- Space folders still in memory at the end: 0
+
+| Step | Private memory | Change | Working set | Python objects / arenas | Widgets alive | Modules |
+|---|---|---|---|---|---|---|
+| imported | 37.6 MB | +37.6 | 62.6 MB | 14.8 / 17.0 MB | 0 | 244 |
+| in the tray | 48.9 MB | +11.3 | 79.2 MB | 19.4 / 21.0 MB | 14 | 268 |
+| in the tray, tidied | 48.9 MB | +0.0 | 32.2 MB | 19.4 / 21.0 MB | 14 | 268 |
+| window open: Home | 84.5 MB | +35.6 | 128.5 MB | 22.9 / 25.0 MB | 376 | 281 |
+| window open: every page seen | 122.4 MB | +37.9 | 177.9 MB | 28.1 / 30.0 MB | 1533 | 301 |
+| window closed and freed | 110.1 MB | -12.3 | 49.5 MB | 27.4 / 30.0 MB | 14 | 301 |
+| window open: Home | 116.0 MB | +5.9 | 92.0 MB | 26.7 / 30.0 MB | 451 | 301 |
+| window closed and freed | 107.2 MB | -8.9 | 45.2 MB | 26.5 / 30.0 MB | 14 | 301 |
+| window open: Home | 112.5 MB | +5.3 | 81.7 MB | 26.7 / 30.0 MB | 376 | 301 |
+| window closed and freed | 109.8 MB | -2.6 | 45.1 MB | 26.5 / 30.0 MB | 14 | 301 |
+| window open: Home | 113.1 MB | +3.3 | 80.5 MB | 26.7 / 30.0 MB | 376 | 301 |
+| Space map shown (266,736 files, 145 s) | 160.5 MB | +47.4 | 142.5 MB | 58.0 / 63.0 MB | 504 | 390 |
+| Space map forgotten (left for Home) | 158.4 MB | -2.1 | 58.7 MB | 34.0 / 63.0 MB | 511 | 390 |
+| window closed and freed | 146.5 MB | -11.9 | 57.3 MB | 33.8 / 63.0 MB | 14 | 390 |
+| window open: Home | 150.6 MB | +4.1 | 101.5 MB | 33.9 / 63.0 MB | 376 | 390 |
+| window open: every page seen | 164.5 MB | +13.9 | 135.7 MB | 35.2 / 63.0 MB | 1533 | 390 |
+| window closed and freed | 150.8 MB | -13.7 | 59.7 MB | 34.5 / 63.0 MB | 14 | 390 |
+
+### Memory map: window open, every page seen
+
+```
+process 9180: committed by kind
+  mapped                      469.3 MB
+  image (program files)       157.8 MB
+  private                     114.8 MB
+private, by block size (committed)
+  < 256 KB            1.3 MB in 50 blocks
+  256 KB - 1 MB      33.6 MB in 35 blocks
+  1 - 4 MB           24.5 MB in 8 blocks
+  4 - 16 MB          55.4 MB in 4 blocks
+  16 - 64 MB          0.0 MB in 0 blocks
+  > 64 MB             0.0 MB in 0 blocks
+biggest private blocks
+  0x02a856620000     15.8 MB
+  0x02a858750000     15.8 MB
+  0x02a877c10000     15.8 MB
+  0x02a854eb0000      8.0 MB
+  0x02a852cf0000      4.0 MB
+  0x02a85f1b0000      4.0 MB
+  0x02a862710000      4.0 MB
+  0x02a85a7e0000      4.0 MB
+  0x02a85deb0000      3.1 MB
+  0x02a872600000      2.4 MB
+  0x02a8528e0000      2.0 MB
+  0x02a857d30000      1.0 MB
+  0x02a800000000      1.0 MB
+  0x02a800100000      1.0 MB
+  0x02a852480000      1.0 MB
+  0x02a8527e0000      1.0 MB
+  0x02a852ae0000      1.0 MB
+  0x02a852bf0000      1.0 MB
+  0x02a8530f0000      1.0 MB
+  0x02a8531f0000      1.0 MB
+threads, by the module they started in
+    8 ntdll.dll
+    5 Qt6Core.dll
+    4 ucrtbase.dll
+    1 python.exe
+    1 combase.dll
+    1 WINMM.dll
+    1 CRYPT32.dll
+```
+
+### Memory map: window closed and freed
+
+```
+process 9180: committed by kind
+  mapped                      466.0 MB
+  image (program files)       157.8 MB
+  private                     102.6 MB
+private, by block size (committed)
+  < 256 KB            1.3 MB in 50 blocks
+  256 KB - 1 MB      33.9 MB in 35 blocks
+  1 - 4 MB           21.4 MB in 7 blocks
+  4 - 16 MB          46.0 MB in 4 blocks
+  16 - 64 MB          0.0 MB in 0 blocks
+  > 64 MB             0.0 MB in 0 blocks
+biggest private blocks
+  0x02a856620000     13.6 MB
+  0x02a858750000     13.4 MB
+  0x02a877c10000     11.1 MB
+  0x02a854eb0000      8.0 MB
+  0x02a852cf0000      4.0 MB
+  0x02a85f1b0000      4.0 MB
+  0x02a862710000      4.0 MB
+  0x02a85a7e0000      4.0 MB
+  0x02a872600000      2.4 MB
+  0x02a8528e0000      2.0 MB
+  0x02a857d30000      1.0 MB
+  0x02a800000000      1.0 MB
+  0x02a800100000      1.0 MB
+  0x02a852480000      1.0 MB
+  0x02a8527e0000      1.0 MB
+  0x02a852ae0000      1.0 MB
+  0x02a852bf0000      1.0 MB
+  0x02a8530f0000      1.0 MB
+  0x02a8531f0000      1.0 MB
+  0x02a853320000      1.0 MB
+threads, by the module they started in
+    8 ntdll.dll
+    5 Qt6Core.dll
+    4 ucrtbase.dll
+    1 python.exe
+    1 combase.dll
+    1 WINMM.dll
+    1 CRYPT32.dll
+```
+
+### Memory map: Space map forgotten
+
+```
+process 9180: committed by kind
+  mapped                      469.3 MB
+  image (program files)       182.0 MB
+  private                     152.4 MB
+private, by block size (committed)
+  < 256 KB            1.3 MB in 45 blocks
+  256 KB - 1 MB      66.3 MB in 67 blocks
+  1 - 4 MB           26.3 MB in 9 blocks
+  4 - 16 MB          58.5 MB in 5 blocks
+  16 - 64 MB          0.0 MB in 0 blocks
+  > 64 MB             0.0 MB in 0 blocks
+biggest private blocks
+  0x02a856620000     15.5 MB
+  0x02a858750000     15.5 MB
+  0x02a877c10000     14.7 MB
+  0x02a854eb0000      7.1 MB
+  0x02a800230000      5.9 MB
+  0x02a852cf0000      4.0 MB
+  0x02a85f1b0000      4.0 MB
+  0x02a862710000      4.0 MB
+  0x02a85a7e0000      4.0 MB
+  0x02a801860000      3.1 MB
+  0x02a872600000      2.4 MB
+  0x02a8528e0000      2.0 MB
+  0x02a803480000      1.8 MB
+  0x02a857d30000      1.0 MB
+  0x02a800000000      1.0 MB
+  0x02a800100000      1.0 MB
+  0x02a801220000      1.0 MB
+  0x02a801320000      1.0 MB
+  0x02a801b80000      1.0 MB
+  0x02a801c80000      1.0 MB
+threads, by the module they started in
+    5 ntdll.dll
+    5 Qt6Core.dll
+    4 ucrtbase.dll
+    1 python.exe
+    1 WINMM.dll
+```
