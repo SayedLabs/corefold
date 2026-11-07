@@ -79,6 +79,7 @@ UPDATE_RETELL_MS = 30 * 60_000  # full screen when a new version was found: say 
 LIGHT_TIDY_MS = 4_000          # memory a finished job used goes back this soon
 IDLE_TIDY_MS = 45_000          # hand memory back to Windows this long after the last job
 FREE_WINDOW_AFTER_MS = 90_000  # free the main window this long after it's closed
+AWAY_TIDY_MS = 120_000         # the window left open behind other programs: memory goes back to Windows after this
 OPENING_NOTED = 0.25           # opening the window this slow is written in the log, in parts
 FREE_POPUPS_AFTER_MS = 60_000  # ... and the quick menu, quick wheel and clipboard popup after they close
 MENU_WRITE_DELAY_MS = 1500     # wait for more changes before rewriting the right-click menu
@@ -405,6 +406,7 @@ class Controller(QObject):
         self.gc_timer = QTimer(self)
         self.gc_timer.timeout.connect(collect_garbage)
         self.gc_timer.start(GC_EVERY_MS)
+        app.applicationStateChanged.connect(self._app_state_changed)
 
         self._update_tooltip()
         self.tray.show()
@@ -577,6 +579,14 @@ class Controller(QObject):
         w.deleteLater()
         settings_mod.HELD = None  # (nothing waits for Save without its window: later saves keep every change)
         self.tidy_timer.start(2000)
+
+    def _app_state_changed(self, state):
+        """The window left open behind other programs (or minimised): a while later its memory goes back to
+        Windows like the tray's does (it comes back by itself, in a blink, when the window is used again)."""
+        if state == Qt.ApplicationActive or self._window is None:
+            return
+        if not self.tidy_timer.isActive() or self.tidy_timer.remainingTime() > AWAY_TIDY_MS:
+            self.tidy_timer.start(AWAY_TIDY_MS)
 
     def popup_closed(self):
         self.free_popups_timer.start(FREE_POPUPS_AFTER_MS)

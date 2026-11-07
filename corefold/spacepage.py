@@ -1504,6 +1504,9 @@ class SpacePage(QWidget):
             self.busy_line.set_full(tr("Reading the drive's list of files. Windows asks for permission first."))
 
         def work(progress):
+            # (numpy, which the look uses, is read in first: its hundreds of objects made while the map's folders
+            # are, in between them, would keep Python's memory in pieces after the map is let go)
+            import numpy  # noqa: F401
             result = mftscan.fast_scan(root, cancel) if fast else None
             if result is None and not cancel.is_set():  # (said no, or it didn't work: the usual way)
                 result = space.scan(root, cancel, lambda *a: progress(a))
@@ -1569,6 +1572,7 @@ class SpacePage(QWidget):
         if result.cancelled and result.root.size == 0:
             self._back_to_drives()
             return
+        log.info("space map made: %s files, %s folders", f"{result.files:,}", f"{result.folders:,}")
         self._drop_map(_key(self.root))
         self.kept[_key(self.root)] = [result, result.root, time.time()]
         self.kept.move_to_end(_key(self.root))
@@ -1923,6 +1927,9 @@ class SpacePage(QWidget):
         root = self.scan.root.path if self.scan else None
         self.scan = self.here = None
         self.treemap.show_folder(None)
+        self.where.set_folder(None)  # (else the old map stays whole while the new one is made: twice the memory,
+        self.items.clear()           # and the list beside it holds its folders too)
+        self.found = None
         self._live_timer.stop()
         if root is not None:
             self._drop_map(_key(root))
@@ -1947,7 +1954,9 @@ class SpacePage(QWidget):
     def _back_to_drives(self):
         self._live_timer.stop()
         self.scan = self.here = None
+        self.found = None
         self.treemap.show_folder(None)
+        self.where.set_folder(None)  # (the path above the map held the whole map up to its root)
         self.items.clear()
         self.map_box.hide()
         self.busy_box.hide()
@@ -1964,9 +1973,15 @@ class SpacePage(QWidget):
             self._back_to_drives()
             self._forget_timer.stop()
         showing = self.scan
-        for key in [k for k, v in self.kept.items() if v[0] is not showing]:
+        dropped = [k for k, v in self.kept.items() if v[0] is not showing]
+        for key in dropped:
             self._drop_map(key)
         gc.collect()  # (a map is a tree of folders pointing at each other)
+        if dropped:  # (and the memory it took goes back to Windows soon after, not at the next tidy-up)
+            log.info("space let go of %d map(s)", len(dropped))
+            tidy = getattr(self.c, "light_tidy_timer", None)  # (as soon as nobody's typing or moving the mouse)
+            if tidy is not None and (not tidy.isActive() or tidy.remainingTime() > 5000):
+                tidy.start(5000)
         if showing is None:
             self._fill_drives()
 
