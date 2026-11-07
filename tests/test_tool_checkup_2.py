@@ -62,3 +62,11 @@ def test_backup_takes_out_folders_left_empty_at_every_level(tmp_path):
     assert not (base / "a").exists()  # (not only c: b and a were left empty too)
     (old,) = backup.versions(plan)
     assert (old / "Docs" / "a" / "b" / "c" / "x.txt").read_text() == "x"
+
+
+def test_check_reads_a_pasted_line_whose_file_name_has_md5_or_sha256_in_it():
+    from corefold import checker
+    code = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+    for line in (f"{code}  ubuntu-md5-check.iso", f"{code} *tool-sha256.exe", f"SHA256 (app-sha1.exe) = {code}",
+                 f"md5sum-helper.zip {code}", f"SHA-256: {code.upper()}", code):
+        assert checker.clean(line) == code, line
