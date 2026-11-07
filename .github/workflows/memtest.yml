@@ -57,11 +57,14 @@ jobs:
       - name: Save the numbers to the memtest-results branch
         if: always()
         shell: pwsh
+        env:
+          MEMTEST_SURVIVORS: ${{ inputs.survivors && '1' || '' }}
         run: |
           Set-Location out
-          git init -q -b memtest-results
+          $branch = if ($env:MEMTEST_SURVIVORS) { "memtest-results-survivors" } else { "memtest-results" }
+          git init -q -b $branch
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -q -m "Measured $env:GITHUB_SHA on $env:GITHUB_REF_NAME"
-          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" memtest-results
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" $branch
