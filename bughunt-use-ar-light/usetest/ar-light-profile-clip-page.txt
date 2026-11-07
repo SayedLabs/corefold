@@ -1,0 +1,91 @@
+         8564 function calls (8559 primitive calls) in 0.022 seconds
+
+   Ordered by: cumulative time
+   List reduced from 233 to 45 due to restriction <45>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+      2/1    0.005    0.003    0.016    0.016 D:\a\corefold\corefold\scripts\usetest.py:846(<lambda>)
+        1    0.000    0.000    0.006    0.006 D:\a\corefold\corefold\corefold\window.py:4786(open_page)
+        1    0.000    0.000    0.005    0.005 D:\a\corefold\corefold\corefold\window.py:1682(_page_changed)
+        1    0.000    0.000    0.005    0.005 D:\a\corefold\corefold\corefold\clipview.py:708(refresh)
+      2/1    0.003    0.001    0.005    0.005 {built-in method processEvents}
+        1    0.000    0.000    0.004    0.004 D:\a\corefold\corefold\corefold\navbar.py:302(paintEvent)
+       21    0.001    0.000    0.003    0.000 D:\a\corefold\corefold\corefold\navbar.py:39(paint)
+        1    0.001    0.001    0.003    0.003 D:\a\corefold\corefold\corefold\clipview.py:186(fill)
+        8    0.001    0.000    0.002    0.000 D:\a\corefold\corefold\corefold\clipview.py:81(paint)
+        1    0.000    0.000    0.002    0.002 {function NavList.paintEvent at 0x000001310045C220}
+        1    0.001    0.001    0.001    0.001 D:\a\corefold\corefold\corefold\clipboard.py:285(items)
+       31    0.001    0.000    0.001    0.000 {method 'drawText' of 'PySide6.QtGui.QPainter' objects}
+        2    0.000    0.000    0.001    0.000 D:\a\corefold\corefold\corefold\window.py:1067(_sync_nav_rows)
+        2    0.000    0.000    0.001    0.000 D:\a\corefold\corefold\corefold\window.py:1074(_show_nav_rows)
+      399    0.000    0.000    0.001    0.000 D:\a\corefold\corefold\corefold\sheet.py:1426(eventFilter)
+       31    0.001    0.000    0.001    0.000 {method 'elidedText' of 'PySide6.QtGui.QFontMetrics' objects}
+        1    0.001    0.001    0.001    0.001 {method 'clear' of 'PySide6.QtWidgets.QListWidget' objects}
+      300    0.000    0.000    0.001    0.000 D:\a\corefold\corefold\corefold\clipboard.py:167(_row)
+        1    0.000    0.000    0.001    0.001 D:\a\corefold\corefold\corefold\navbar.py:383(_fold_step)
+       14    0.000    0.000    0.000    0.000 D:\a\corefold\corefold\corefold\icons.py:48(paint)
+      428    0.000    0.000    0.000    0.000 {method 'type' of 'PySide6.QtCore.QEvent' objects}
+        3    0.000    0.000    0.000    0.000 D:\a\corefold\corefold\corefold\window.py:1124(_fit_nav_room)
+      624    0.000    0.000    0.000    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\enum.py:720(__call__)
+       69    0.000    0.000    0.000    0.000 D:\a\corefold\corefold\corefold\navbar.py:35(sizeHint)
+        2    0.000    0.000    0.000    0.000 {method 'doItemsLayout' of 'PySide6.QtWidgets.QListView' objects}
+       14    0.000    0.000    0.000    0.000 {method 'render' of 'PySide6.QtSvg.QSvgRenderer' objects}
+      300    0.000    0.000    0.000    0.000 {method 'setToolTip' of 'PySide6.QtWidgets.QListWidgetItem' objects}
+       13    0.000    0.000    0.000    0.000 D:\a\corefold\corefold\corefold\i18n.py:72(tr)
+        1    0.000    0.000    0.000    0.000 {method 'emit' of 'PySide6.QtCore.SignalInstance' objects}
+      300    0.000    0.000    0.000    0.000 {method 'addItem' of 'PySide6.QtWidgets.QListWidget' objects}
+       60    0.000    0.000    0.000    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\enum.py:1561(__and__)
+      300    0.000    0.000    0.000    0.000 {method 'setData' of 'PySide6.QtWidgets.QListWidgetItem' objects}
+      624    0.000    0.000    0.000    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\enum.py:1128(__new__)
+      159    0.000    0.000    0.000    0.000 {method 'data' of 'PySide6.QtCore.QModelIndex' objects}
+       11    0.000    0.000    0.000    0.000 {built-in method builtins.any}
+        8    0.000    0.000    0.000    0.000 D:\a\corefold\corefold\corefold\clipview.py:75(_sign)
+       46    0.000    0.000    0.000    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\enum.py:1550(__or__)
+       19    0.000    0.000    0.000    0.000 D:\a\corefold\corefold\corefold\atomic\tokens.py:83(mix)
+        8    0.000    0.000    0.000    0.000 D:\a\corefold\corefold\corefold\clipview.py:35(describe)
+       31    0.000    0.000    0.000    0.000 {method 'setRenderHint' of 'PySide6.QtGui.QPainter' objects}
+        1    0.000    0.000    0.000    0.000 D:\a\corefold\corefold\corefold\icons.py:64(pixmap)
+        3    0.000    0.000    0.000    0.000 D:\a\corefold\corefold\corefold\navbar.py:264(_row_mark)
+      318    0.000    0.000    0.000    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\enum.py:1543(_get_value)
+      300    0.000    0.000    0.000    0.000 <string>:2(__init__)
+       13    0.000    0.000    0.000    0.000 D:\a\corefold\corefold\corefold\i18n.py:170(_rtl_start)
+
+
+         8564 function calls (8559 primitive calls) in 0.022 seconds
+
+   Ordered by: internal time
+   List reduced from 233 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+      2/1    0.005    0.003    0.016    0.016 D:\a\corefold\corefold\scripts\usetest.py:846(<lambda>)
+      2/1    0.003    0.001    0.005    0.005 {built-in method processEvents}
+      3/0    0.002    0.001    0.000          {built-in method time.sleep}
+        1    0.001    0.001    0.003    0.003 D:\a\corefold\corefold\corefold\clipview.py:186(fill)
+       21    0.001    0.000    0.003    0.000 D:\a\corefold\corefold\corefold\navbar.py:39(paint)
+       31    0.001    0.000    0.001    0.000 {method 'drawText' of 'PySide6.QtGui.QPainter' objects}
+        1    0.001    0.001    0.001    0.001 D:\a\corefold\corefold\corefold\clipboard.py:285(items)
+       31    0.001    0.000    0.001    0.000 {method 'elidedText' of 'PySide6.QtGui.QFontMetrics' objects}
+        1    0.001    0.001    0.001    0.001 {method 'clear' of 'PySide6.QtWidgets.QListWidget' objects}
+        8    0.001    0.000    0.002    0.000 D:\a\corefold\corefold\corefold\clipview.py:81(paint)
+      300    0.000    0.000    0.001    0.000 D:\a\corefold\corefold\corefold\clipboard.py:167(_row)
+       14    0.000    0.000    0.000    0.000 {method 'render' of 'PySide6.QtSvg.QSvgRenderer' objects}
+      300    0.000    0.000    0.000    0.000 {method 'setToolTip' of 'PySide6.QtWidgets.QListWidgetItem' objects}
+       69    0.000    0.000    0.000    0.000 D:\a\corefold\corefold\corefold\navbar.py:35(sizeHint)
+        2    0.000    0.000    0.001    0.000 D:\a\corefold\corefold\corefold\window.py:1074(_show_nav_rows)
+      300    0.000    0.000    0.000    0.000 {method 'addItem' of 'PySide6.QtWidgets.QListWidget' objects}
+      624    0.000    0.000    0.000    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\enum.py:720(__call__)
+      428    0.000    0.000    0.000    0.000 {method 'type' of 'PySide6.QtCore.QEvent' objects}
+      300    0.000    0.000    0.000    0.000 {method 'setData' of 'PySide6.QtWidgets.QListWidgetItem' objects}
+        1    0.000    0.000    0.002    0.002 {function NavList.paintEvent at 0x000001310045C220}
+      399    0.000    0.000    0.001    0.000 D:\a\corefold\corefold\corefold\sheet.py:1426(eventFilter)
+      624    0.000    0.000    0.000    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\enum.py:1128(__new__)
+        2    0.000    0.000    0.000    0.000 {method 'doItemsLayout' of 'PySide6.QtWidgets.QListView' objects}
+      159    0.000    0.000    0.000    0.000 {method 'data' of 'PySide6.QtCore.QModelIndex' objects}
+        3    0.000    0.000    0.000    0.000 D:\a\corefold\corefold\corefold\window.py:1124(_fit_nav_room)
+       60    0.000    0.000    0.000    0.000 C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\enum.py:1561(__and__)
+      300    0.000    0.000    0.000    0.000 <string>:2(__init__)
+        2    0.000    0.000    0.000    0.000 {method 'execute' of 'sqlite3.Connection' objects}
+        1    0.000    0.000    0.000    0.000 {method 'setCurrentRow' of 'PySide6.QtWidgets.QListWidget' objects}
+      199    0.000    0.000    0.000    0.000 {method 'data' of 'PySide6.QtWidgets.QListWidgetItem' objects}
+
+

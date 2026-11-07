@@ -1,0 +1,171 @@
+ok    Cover over one number in a line: it's gone from the file ('Keep this line')
+ok    the lines it doesn't touch stay real text
+ok    the rest of the covered line still shows (377 dark dots)
+ok    Cover over half a scan: the covered half isn't in the file (0 red dots)
+ok    and the half it doesn't cover still shows ((40, 90, 220))
+ok    the covered half shows the cover ((255, 255, 255))
+ok    Cover over a form box: it and what was typed in it are gone, the other boxes stay (['agree', 'city', 'color'])
+      lines: ['Invoice number 12345 for page 1', 'Total: 500 SAR', 'Secret line to cover', 'الفاتورة رقم ١٢ للسيد محمد']
+ok    an English line is read whole, in order
+ok    the Arabic line is read whole, in reading order
+ok    the picture is found where it is
+ok    every letter's box (77)
+ok    the Arabic line: right to left, its colour
+ok    letters put in order by where they are
+ok    Arabic words read back with Arabic letters (Persian left as it is)
+ok    font names cleaned
+ok    a turned page's points go there and back
+ok    a new copy is made (letter (edited).pdf)
+ok    the original is untouched
+      words now: Invoice number 12345 for page 1 | الفاتورة رقم ١٢ للسید محمد | Total: 900 SAR | نص عربي جديد | سطر ثاني
+ok    a changed line: the new words in, the old gone
+ok    new Arabic text is real text (it can be searched)
+ok    words fully under a cover are taken out of the file
+ok    text on the second page
+ok    and the covered words aren't left anywhere in the file
+ok    the PDF's own picture was moved and made bigger ((254, 165, 0))
+ok    and isn't where it was ((255, 255, 255))
+ok    the added picture is there
+ok    the highlight is yellow ((232, 195, 23))
+ok    and the words under it are still dark (0)
+ok    a line drawn by hand
+ok    the note is a real PDF note
+ok    the details
+ok    nothing changed: says so
+ok    a locked PDF's copy keeps its password
+ok    turned 0°: things go where they were put, as the page is shown
+ok    turned 0°: the text is there
+ok    turned 90°: things go where they were put, as the page is shown
+ok    turned 90°: the text is there
+ok    turned 180°: things go where they were put, as the page is shown
+ok    turned 180°: the text is there
+ok    turned 270°: things go where they were put, as the page is shown
+ok    turned 270°: the text is there
+ok    the form's boxes are found (['check', 'choice', 'radio', 'text'])
+ok    the values are in the form ({'name': 'محمد السيد Ali', 'agree': '/Yes', 'color': '/blue', 'city': 'Dubai'})
+ok    the typed name shows in any PDF app (its own picture, Arabic included: 70 dark dots)
+ok    the Edit content card is on Rakiza Core PDF's page
+ok    the editor isn't loaded before it's used
+ok    the card opens the PDF in the editor
+      pages laid out after 0.19 s
+ok    the first page is drawn and read (0.28 s)
+ok    a 30-page PDF opens quickly (0.28 s)
+ok    only the pages in sight are drawn sharp (3)
+ok    the editor gets the banner's room
+ok    Add text: click and type
+ok    Esc stops typing and keeps the text
+ok    Undo and Save are ready
+ok    selected text: its font and size show
+ok    changing the size changes the selected text
+ok    Bold
+ok    Edit text: clicking a line opens its words to change
+ok    and the old line steps aside
+ok    the page is drawn again without the old words
+ok    the Arabic line can be changed too
+ok    its words come up in reading order
+ok    Arabic grows to the left: the line's right edge stays put
+ok    Highlight: dragging across a line covers its words ([[60.0, 87.33, 208.78, 15.62]] vs PySide6.QtCore.QRectF(61.300000, 89.650000, 204.920000, 13.290000))
+ok    Underline
+ok    Draw: a line by hand
+ok    Shapes: an arrow
+ok    Shapes: a rectangle
+ok    Cover
+ok    Note: click, type, save
+ok    Picture: picked and put on the page, selected
+ok    Sign: drawn and put on the page
+ok    the signature is selected
+ok    Select: dragging moves it
+ok    the corner handle makes it bigger (160 → 197)
+ok    Delete removes it
+ok    Ctrl + Z brings it back
+ok    Ctrl + Y deletes it again
+ok    the PDF's own picture moves
+ok    and the page is drawn again without it in the old place
+ok    Zoom in
+ok    Fit the width
+ok    the last page is drawn when scrolled to
+ok    pages far away are let go of (memory stays small)
+ok    where you are: Page 30 of 30
+ok    Save: done
+ok    a new PDF is made (['long letter (edited).pdf'])
+      saved words: Invoice number 12345 for page 1 | Hello مرحبا | Total: 750 SAR | الفاتورة رقم ١٢ للسيد محمد الكريم
+ok    the typed text is in it
+ok    the changed line is changed
+ok    the changed Arabic line
+ok    covered words are gone
+ok    every page is still there
+ok    nothing new to save after saving
+ok    closing with changes asks first (Cancel: stays)
+ok    closing goes back to the cards
+ok    a form opens with its boxes (5)
+ok    typing in a text box ('محمد Ali')
+ok    ticking a box
+ok    picking a round choice
+ok    a list box shows its choices
+ok    picking from a list
+ok    the filled form is saved ({'name': 'محمد Ali', 'agree': '/Yes', 'color': '/blue', 'city': 'Jeddah'})
+ok    a locked PDF opens with its password
+ok    a 4-page PDF opens
+ok    the list of pages is shown (4)
+ok    its pages get small pictures
+ok    Find looks on every page, big and small letters alike (4, '1 of 4')
+ok    1 of 4 (1 of 4)
+ok    Next goes to the next page's
+ok    Match case: "total" isn't "Total"
+ok    Replace changes that one line (['Total: 999 SAR'])
+ok    Replace all changes the rest (['Total: 999 SAR', 'Total: 999 SAR', 'Total: 999 SAR', 'Total: 999 SAR'])
+ok    a page turns
+ok    a page is deleted
+ok    a page moves up ([0, 3, 1])
+ok    Undo puts it back
+ok    Redo moves it again
+ok    Delete in the list of pages deletes the picked one ([0, 3])
+ok    …and Undo brings it back
+ok    the last pages can't all be deleted
+ok    a turned page is found under the mouse
+ok    saved
+ok    saved with the pages in their new order (['Invoice number 12345 for page 1', 'Invoice number 12345 for page 4', 'Invoice number 12345 for page 2'])
+ok    …the turned one turned ([0, 0, 90])
+ok    …and the replaced words in all
+ok    a PDF with paragraphs opens
+ok    its paragraphs are found (2)
+ok    Edit text: whole paragraphs, said at the side
+ok    clicking a paragraph opens all of its words in one box as wide as it
+ok    typing more makes the words flow onto new lines, in the same width
+ok    the font and paragraph options show
+ok    lined up and spaced as it was (justify, 1.143)
+ok    Centre
+ok    Double line spacing
+ok    the list of fonts opens inside the window
+ok    in groups (["The PDF's font", 'Arabic', 'All fonts'])
+ok    searching the fonts
+ok    picking one (Roboto)
+ok    Whole paragraphs off: one line at a time ([([101, 102, 103, 105, 106, 107, 108, 110, 111, 112, 113, 114, 115, 116, 117, 118, 120, 121, 122, 124, 125, 126, 127, 128, 130, 131, 132, 133, 135, 136, 138, 139, 140, 142, 143, 144, 146, 147, 148, 149, 151, 152, 153, 154, 156, 157, 158, 159, 161, 162, 163, 164, 165, 166, 167, 168, 169, 25, 26, 27, 29, 30, 31, 32, 33, 35, 36, 37, 38, 39, 41, 42, 43, 45, 46, 47, 48, 49, 51, 52, 53, 54, 56, 57, 58, 60, 61, 62, 63, 65, 66, 67, 68, 69, 70, 71, 72, 74, 75, 76, 78, 79, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 96, 97, 98, 99], 315.95), ([170, 171, 172, 174, 175, 176, 177, 178, 180, 181, 182, 183, 184, 186, 187, 188, 190, 191, 192, 193, 194, 196, 197, 198, 199, 201, 202, 203, 205, 206, 207, 208, 210, 211, 212], None)], (170, 171, 172, 174, 175, 176, 177, 178, 180, 181, 182, 183, 184, 186, 187, 188, 190, 191, 192, 193, 194, 196, 197, 198, 199, 201, 202, 203, 205, 206, 207, 208, 210, 211, 212), False)
+ok    Opacity (0.5)
+ok    a blank page after the first
+ok    Link: drag a place, then type where it goes
+ok    a web address
+ok    a link to page 2 ([{'kind': 'link', 'page': 0, 'x': 60.53, 'y': 690.3, 'w': 139.09, 'h': 14.17, 'url': 'example.com/help'}, {'kind': 'link', 'page': 0, 'x': 60.53, 'y': 719.92, 'w': 139.09, 'h': 15.45, 'target': 1}], [0, 1])
+ok    nonsense is refused
+ok    a rectangle can be filled
+ok    filled
+ok    Ctrl + D: a copy, a little further on
+ok    Ctrl + C, Ctrl + V
+ok    the PDF's picture can be picked
+ok    a picture's buttons show
+ok    Save the picture: a copy as a file
+ok    Replace: another picture in its place ([{'kind': 'image', 'path': 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\corefold-pdfedittest-4dtfsn61\\files\\green.png', 'page': 0, 'x': 60.0, 'y': 580.0, 'w': 80.0, 'h': 60.0, 'replaces': [331]}], (331,), False)
+ok    Turn
+ok    found twice (2)
+ok    Cover all: a cover on each
+ok    saved
+ok    …with the blank page, written on
+ok    …the covered words gone, the rest of the line kept
+ok    …the paragraph with its new words
+ok    …the web link (['https://example.com/help'])
+ok    …the link to page 2
+ok    at 760×520 the save button is inside the window
+ok    at 1500×900 the save button is inside the window
+ok    removed in the Store: gone
+ok    no errors behind any click (0)
+pdfedittest: 0 problem(s)
