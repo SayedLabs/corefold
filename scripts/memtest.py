@@ -78,6 +78,30 @@ def private_mb() -> float:
     return (vals.get("Private_Clean", 0) + vals.get("Private_Dirty", 0)) / 1024
 
 
+def pymalloc() -> tuple[float, float]:
+    """Python's own small-object memory: (arenas it holds, MB; what's in use inside them, MB). Much more held than
+    used means the memory is in pieces (a few live objects keep whole arenas)."""
+    import re
+    fd, path = tempfile.mkstemp()
+    saved = os.dup(2)
+    try:
+        sys.stderr.flush()
+        os.dup2(fd, 2)
+        sys._debugmallocstats()
+    finally:
+        os.dup2(saved, 2)
+        os.close(saved)
+        os.close(fd)
+    text = Path(path).read_text("utf-8", "replace")
+    os.unlink(path)
+    arenas = re.search(r"# arenas allocated current\s*=\s*([\d,]+)", text)
+    used = re.search(r"# bytes in allocated blocks\s*=\s*([\d,]+)", text)
+    size = re.search(r"(\d+) arenas \* (\d+) bytes/arena", text)
+    per = int(size.group(2)) if size else 1 << 20
+    return ((int(arenas.group(1).replace(",", "")) * per / 2**20) if arenas else 0.0,
+            (int(used.group(1).replace(",", "")) / 2**20) if used else 0.0)
+
+
 def settle(seconds=0.3):
     end = time.perf_counter() + seconds
     while time.perf_counter() < end:
@@ -85,8 +109,22 @@ def settle(seconds=0.3):
         time.sleep(0.002)
 
 
-rows: list[tuple[str, float, float, float, int, int]] = []
+rows: list[tuple] = []
 _last = [0.0]
+
+
+def memmap(what: str):
+    """Windows: where the memory is right now (scripts/memmap.py on this process), printed."""
+    if sys.platform != "win32":
+        return
+    import subprocess
+    out = subprocess.run([sys.executable, str(ROOT / "scripts" / "memmap.py"), str(os.getpid())],
+                         capture_output=True, text=True, timeout=120).stdout
+    print(f"---- memory map: {what}\n{out}", flush=True)
+    maps.append((what, out))
+
+
+maps: list[tuple[str, str]] = []
 
 
 def snap(what: str):
@@ -96,9 +134,10 @@ def snap(what: str):
     widgets = len(QApplication.allWidgets())
     mods = len(sys.modules)
     ws = working_set_mb()
-    rows.append((what, mb, mb - _last[0], ws, widgets, mods))
-    print(f"{what:<48} {mb:8.1f} MB  {mb - _last[0]:+7.1f}  ws {ws:7.1f}  widgets {widgets:6d}  modules {mods}",
-          flush=True)
+    held, used = pymalloc()
+    rows.append((what, mb, mb - _last[0], ws, held, used, widgets, mods))
+    print(f"{what:<48} {mb:8.1f} MB  {mb - _last[0]:+7.1f}  ws {ws:7.1f}  py {used:6.1f}/{held:6.1f}  "
+          f"widgets {widgets:6d}  modules {mods}", flush=True)
     _last[0] = mb
 
 
@@ -151,9 +190,28 @@ def close_and_free():
     snap("window closed and freed")
 
 
+def held_folders() -> str:
+    """Space folders still alive (should be none once the maps are forgotten), and what holds the top one."""
+    from corefold import space as sp
+    gc.collect()
+    folders = [o for o in gc.get_objects() if isinstance(o, sp.Folder)]
+    if not folders:
+        return "0"
+    holders = []
+    for top in [f for f in folders if f.parent is None][:2]:
+        for r in gc.get_referrers(top):
+            if r is folders or isinstance(r, sp.Folder):
+                continue
+            for x in gc.get_referrers(r) if isinstance(r, (list, dict)) else [r]:
+                owner = next((y for y in gc.get_referrers(x) if getattr(y, "__dict__", None) is x), None) \
+                    if isinstance(x, dict) else None
+                if x is not folders and type(x).__name__ not in ("frame", "list_iterator"):
+                    holders.append(type(owner or x).__name__)
+    return f"{len(folders):,} (held by {', '.join(sorted(set(holders))) or '?'})"
+
+
 def space_look():
     """Space looks through a drive (the map shown, then left for Home and forgotten, as after 5 minutes)."""
-    from corefold.window import PAGES as _P  # noqa: F401
     target = Path(os.environ.get("MEMTEST_SPACE", "C:\\" if sys.platform == "win32" else "/usr"))
     w = c.window
     if not w.shows("Space"):
@@ -175,25 +233,36 @@ def space_look():
     settle(1)
     c.tidy_up()
     snap("Space map forgotten (left for Home)")
+    notes.append(f"Space folders still in memory after the maps were forgotten: {held_folders()}")
+
+
+notes: list[str] = []
 
 
 open_all(True)
+memmap("window open, every page seen")
 close_and_free()
-for i in range(2):
+memmap("window closed and freed")
+for _ in range(2):
     open_all(False)
     close_and_free()
 open_all(False)
 space_look()
+memmap("Space map forgotten")
 close_and_free()
 open_all(True)
 close_and_free()
 
 threads = threading.active_count()
+notes.append(f"Space folders still in memory at the end: {held_folders()}")
 blas = "numpy" in sys.modules
 text = ["## Memory, step by step", "", f"{sys.platform}, {LANG}, {LOOK}; numpy loaded at the end: {blas}; "
-        f"Python threads at the end: {threads}", "",
-        "| Step | Private memory | Change | Working set | Widgets alive | Modules |", "|---|---|---|---|---|---|"]
-text += [f"| {w} | {mb:.1f} MB | {d:+.1f} | {ws:.1f} MB | {n} | {m} |" for w, mb, d, ws, n, m in rows]
+        f"Python threads at the end: {threads}", "", *[f"- {n}" for n in notes], "",
+        "| Step | Private memory | Change | Working set | Python objects / arenas | Widgets alive | Modules |",
+        "|---|---|---|---|---|---|---|"]
+text += [f"| {w} | {mb:.1f} MB | {d:+.1f} | {ws:.1f} MB | {u:.1f} / {h:.1f} MB | {n} | {m} |"
+         for w, mb, d, ws, h, u, n, m in rows]
+text += [f"\n### Memory map: {what}\n\n```\n{out}```" for what, out in maps]
 (OUT / "memtest.md").write_text("\n".join(text) + "\n", "utf-8")
 print("\n".join(text), flush=True)
 os._exit(0)
