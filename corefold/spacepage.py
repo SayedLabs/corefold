@@ -1572,6 +1572,7 @@ class SpacePage(QWidget):
         if result.cancelled and result.root.size == 0:
             self._back_to_drives()
             return
+        log.info("space map made: %s files, %s folders", f"{result.files:,}", f"{result.folders:,}")
         self._drop_map(_key(self.root))
         self.kept[_key(self.root)] = [result, result.root, time.time()]
         self.kept.move_to_end(_key(self.root))
@@ -1977,6 +1978,7 @@ class SpacePage(QWidget):
             self._drop_map(key)
         gc.collect()  # (a map is a tree of folders pointing at each other)
         if dropped:  # (and the memory it took goes back to Windows soon after, not at the next tidy-up)
+            log.info("space let go of %d map(s)", len(dropped))
             tidy = getattr(self.c, "tidy_timer", None)
             if tidy is not None and (not tidy.isActive() or tidy.remainingTime() > 5000):
                 tidy.start(5000)

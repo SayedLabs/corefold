@@ -66,6 +66,7 @@ function Snap([string]$what, [int]$seconds = 0) {
     $rows.Add($row)
     Write-Host $row
 }
+function Count([string]$pattern) { @(Select-String -Path $log -Pattern $pattern -SimpleMatch).Count }
 function Send([string[]]$arguments) {
     Start-Process $exe -ArgumentList $arguments -Wait
 }
@@ -126,6 +127,22 @@ for ($i = 0; $i -lt 10; $i++) {
 Start-Sleep 5;   Snap "After 10 rounds of open, Uninstaller, close, convert"
 Start-Sleep 110; Snap "Two minutes later (window freed, memory tidied)" 60
 
+# the window left open behind another program (people often leave it so for hours)
+Send @("--page", "Home"); Start-Sleep 4;           Snap "Window open again: Home"
+$other = Start-Process notepad -PassThru; Start-Sleep 130
+Snap "Window open behind another program (2 minutes)" 20
+Stop-Process -Id $other.Id -Force -ErrorAction SilentlyContinue
+
+# Space: a map of a big folder, then Space left for another page (the map is let go after 5 minutes)
+$space = "$env:ProgramFiles"
+$maps = Count "space map made"
+Send @("--space", "`"$space`"")
+$c = [Diagnostics.Stopwatch]::StartNew()
+while ((Count "space map made") -le $maps -and $c.Elapsed.TotalSeconds -lt 600) { Start-Sleep 2 }
+Start-Sleep 3;                                     Snap "Space map of Program Files shown ($([int]$c.Elapsed.TotalSeconds) s)"
+Send @("--page", "Home"); Start-Sleep 320;         Snap "Space left for 5 minutes (map let go)" 20
+CloseWindow; Start-Sleep 120;                      Snap "Window closed for 2 minutes after Space" 30
+
 # ---- the built app, end to end (the way people use it)
 $checks = New-Object System.Collections.Generic.List[string]
 function Check([bool]$ok, [string]$what) {
@@ -133,7 +150,6 @@ function Check([bool]$ok, [string]$what) {
     $checks.Add($line)
     Write-Host $line
 }
-function Count([string]$pattern) { @(Select-String -Path $log -Pattern $pattern -SimpleMatch).Count }
 
 $cmd = (Get-ItemProperty "HKCU:\Software\Classes\Corefold.Archive\shell\open\command" -ErrorAction SilentlyContinue).'(default)'  # keep-name (core.KEEP_ID)
 Check ($cmd -like "*RakizaCore.exe*--browse*") "archives can be opened with Rakiza Core (Open with: $cmd)"
