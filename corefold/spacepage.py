@@ -1923,6 +1923,9 @@ class SpacePage(QWidget):
         root = self.scan.root.path if self.scan else None
         self.scan = self.here = None
         self.treemap.show_folder(None)
+        self.where.set_folder(None)  # (else the old map stays whole while the new one is made: twice the memory,
+        self.items.clear()           # and the list beside it holds its folders too)
+        self.found = None
         self._live_timer.stop()
         if root is not None:
             self._drop_map(_key(root))
@@ -1947,7 +1950,9 @@ class SpacePage(QWidget):
     def _back_to_drives(self):
         self._live_timer.stop()
         self.scan = self.here = None
+        self.found = None
         self.treemap.show_folder(None)
+        self.where.set_folder(None)  # (the path above the map held the whole map up to its root)
         self.items.clear()
         self.map_box.hide()
         self.busy_box.hide()

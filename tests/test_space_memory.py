@@ -142,6 +142,42 @@ def test_the_map_is_let_go_a_while_after_space_is_left(page, tmp_path):
     assert page.drives_box.isVisibleTo(page)            # (the drives, the next time Space opens)
 
 
+def _folders_of(root: Path) -> list:
+    """The map's folders still in memory (a Folder can't be weakly referred to: they're looked for)."""
+    import gc
+    gc.collect()
+    return [o for o in gc.get_objects() if isinstance(o, space.Folder) and o.parent is None and o.name == str(root)]
+
+
+def _holders(root: Path) -> list[str]:
+    import gc
+    return [type(r).__name__ for top in _folders_of(root) for r in gc.get_referrers(top)]
+
+
+def test_a_forgotten_map_is_really_gone(page, tmp_path):
+    """2.0.1 let go of the map but the path above it (C: › Users › ...) still held its folders, and through them
+    the whole map: a whole drive's map stayed in memory for as long as the window was open (hundreds of MB)."""
+    root = _tree(tmp_path / "drive", folders=6, files=10)
+    page.root = root
+    page._scanned(space.scan(root, workers=2))
+    deeper = next(f for f in page.scan.root.children if f.children)
+    page.open_folder(deeper)                             # (a folder inside: the path shows it)
+    del deeper
+    assert _folders_of(root)
+    page.hide()
+    page._forget_old_maps()
+    assert not _folders_of(root), _holders(root)
+
+
+def test_looking_again_doesnt_hold_two_maps(page, tmp_path, monkeypatch):
+    root = _tree(tmp_path / "drive", folders=6, files=10)
+    page.root = root
+    page._scanned(space.scan(root, workers=2))
+    monkeypatch.setattr(page, "start_scan", lambda *a, **k: None)  # (the new look isn't the point here)
+    page._rescan()
+    assert not _folders_of(root), _holders(root)
+
+
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows' memory counters")
 def test_windows_gets_the_memory_back(tmp_path):
     import ctypes
