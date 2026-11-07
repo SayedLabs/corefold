@@ -1,0 +1,973 @@
+imported                                             36.5 MB    +36.5  ws    62.8  py   14.9/  17.0  widgets      0  modules 244
+in the tray                                          49.3 MB    +12.8  ws    78.7  py   19.4/  21.0  widgets     14  modules 268
+in the tray, tidied                                  49.3 MB     -0.0  ws    32.1  py   19.4/  21.0  widgets     14  modules 268
+window open: Home                                    84.4 MB    +35.1  ws   128.2  py   22.9/  25.0  widgets    376  modules 281
+   page Home: +6.2 MB
+   page Clouds: +1.6 MB
+   page Apps: +7.8 MB
+   page Space: +3.2 MB
+   page Rename: +2.3 MB
+   page Network: +5.1 MB
+   page Backup: +4.7 MB
+   page Unlock: +3.4 MB
+window open: every page seen                        122.3 MB    +37.9  ws   177.4  py   28.1/  30.0  widgets   1533  modules 301
+---- memory map: window open, every page seen
+process 7184: committed by kind
+  mapped                      469.3 MB
+  image (program files)       157.8 MB
+  private                     114.7 MB
+private, by block size (committed)
+  < 256 KB            1.3 MB in 49 blocks
+  256 KB - 1 MB      33.6 MB in 35 blocks
+  1 - 4 MB           24.5 MB in 8 blocks
+  4 - 16 MB          55.4 MB in 4 blocks
+  16 - 64 MB          0.0 MB in 0 blocks
+  > 64 MB             0.0 MB in 0 blocks
+biggest private blocks
+  0x013b195e0000     15.8 MB
+  0x013b78010000     15.8 MB
+  0x013b7a010000     15.8 MB
+  0x013b768a0000      8.0 MB
+  0x013b00b60000      4.0 MB
+  0x013b746b0000      4.0 MB
+  0x013b040e0000      4.0 MB
+  0x013b7c110000      4.0 MB
+  0x013b7f860000      3.1 MB
+  0x013b13fd0000      2.4 MB
+  0x013b742b0000      2.0 MB
+  0x013b796f0000      1.0 MB
+  0x013b192e0000      1.0 MB
+  0x013b193e0000      1.0 MB
+  0x013b194e0000      1.0 MB
+  0x013b1a830000      1.0 MB
+  0x013b1ab10000      1.0 MB
+  0x013b1ac20000      1.0 MB
+  0x013b73e50000      1.0 MB
+  0x013b741b0000      1.0 MB
+threads, by the module they started in
+    7 ntdll.dll
+    5 Qt6Core.dll
+    4 ucrtbase.dll
+    1 python.exe
+    1 combase.dll
+    1 WINMM.dll
+    1 CRYPT32.dll
+
+window closed and freed                             109.0 MB    -13.3  ws    47.5  py   27.4/  30.0  widgets     14  modules 301
+---- memory map: window closed and freed
+process 7184: committed by kind
+  mapped                      466.0 MB
+  image (program files)       157.8 MB
+  private                     101.5 MB
+private, by block size (committed)
+  < 256 KB            1.3 MB in 49 blocks
+  256 KB - 1 MB      33.9 MB in 35 blocks
+  1 - 4 MB           21.4 MB in 7 blocks
+  4 - 16 MB          45.0 MB in 4 blocks
+  16 - 64 MB          0.0 MB in 0 blocks
+  > 64 MB             0.0 MB in 0 blocks
+biggest private blocks
+  0x013b78010000     14.3 MB
+  0x013b7a010000     12.2 MB
+  0x013b195e0000     10.6 MB
+  0x013b768a0000      7.9 MB
+  0x013b00b60000      4.0 MB
+  0x013b746b0000      4.0 MB
+  0x013b040e0000      4.0 MB
+  0x013b7c110000      4.0 MB
+  0x013b13fd0000      2.4 MB
+  0x013b742b0000      2.0 MB
+  0x013b796f0000      1.0 MB
+  0x013b192e0000      1.0 MB
+  0x013b193e0000      1.0 MB
+  0x013b194e0000      1.0 MB
+  0x013b1a830000      1.0 MB
+  0x013b1ab10000      1.0 MB
+  0x013b1ac20000      1.0 MB
+  0x013b73e50000      1.0 MB
+  0x013b741b0000      1.0 MB
+  0x013b744b0000      1.0 MB
+threads, by the module they started in
+    7 ntdll.dll
+    5 Qt6Core.dll
+    4 ucrtbase.dll
+    1 python.exe
+    1 combase.dll
+    1 WINMM.dll
+    1 CRYPT32.dll
+
+window open: Home                                   115.1 MB     +6.0  ws    90.1  py   26.7/  30.0  widgets    451  modules 301
+window closed and freed                             106.3 MB     -8.8  ws    45.1  py   26.5/  30.0  widgets     14  modules 301
+window open: Home                                   111.1 MB     +4.8  ws    82.0  py   26.7/  30.0  widgets    376  modules 301
+window closed and freed                             108.1 MB     -3.1  ws    44.9  py   26.5/  30.0  widgets     14  modules 301
+window open: Home                                   111.7 MB     +3.6  ws    80.8  py   26.7/  30.0  widgets    376  modules 301
+Space map shown (266,736 files, 79 s)               227.3 MB   +115.6  ws   214.8  py    0.0/   0.0  widgets    504  modules 392
+Space map forgotten (left for Home)                 205.7 MB    -21.6  ws    58.2  py    0.0/   0.0  widgets    511  modules 392
+SURVIVORS: 88,044 blocks, 11.2 MB
+SURVIVORS not from reading modules: 3,204 blocks, 0.17 MB, made at 259 places
+      474 blocks      21.8 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 231
+     settle(0.5)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+      257 blocks      11.5 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 231
+     settle(0.5)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 994
+     p.setPen(QPen(t.accent, 7, Qt.SolidLine, Qt.RoundCap))
+      233 blocks      10.5 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 231
+     settle(0.5)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1007
+     self.fontMetrics().elidedText(self.sub, Qt.ElideRight, int(r.width() - 28)))
+      227 blocks      10.2 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 231
+     settle(0.5)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 998
+     big.setWeight(QFont.Weight.DemiBold)
+      185 blocks       8.3 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 231
+     settle(0.5)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 985
+     p.setRenderHint(QPainter.Antialiasing)
+      153 blocks       6.9 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 231
+     settle(0.5)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 987
+     p.setPen(Qt.NoPen)
+      105 blocks       4.7 KB
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1580
+     self._show_map(result, result.root)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1619
+     self.open_folder(folder)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1916
+     self._fill_list()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 2087
+     self._add_rows(None, self.here)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 2197
+     it = self._row(ltr(name), size, path, sub, folder, top, folder.size)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 2163
+     it.setTextAlignment(col, Qt.AlignRight | Qt.AlignVCenter)
+      100 blocks       4.5 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 231
+     settle(0.5)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 990
+     _ring(p, r, None, t.accent, mix(t.tokens.surface, t.text, 0.08), 7)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 88
+     p.setBrush(Qt.NoBrush)
+       24 blocks       4.0 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 242
+     snap("Space map forgotten (left for Home)")
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 137
+     ws = working_set_mb()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 68
+     return winutil.memory_info()[0] / 2**20
+     File "D:\a\corefold\corefold\corefold\winutil.py", line 166
+     class Counters(ctypes.Structure):
+       24 blocks       4.0 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 242
+     snap("Space map forgotten (left for Home)")
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 134
+     mb = private_mb()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 76
+     return winutil.memory_info()[1] / 2**20
+     File "D:\a\corefold\corefold\corefold\winutil.py", line 166
+     class Counters(ctypes.Structure):
+       72 blocks       3.7 KB
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1032
+     self._bootstrap_inner()
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1075
+     self.run()
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1012
+     self._target(*self._args, **self._kwargs)
+     File "D:\a\corefold\corefold\corefold\space.py", line 554
+     dirs, names, sizes, used, changed, cloud, linked, denied = _read_dir(path)
+     File "D:\a\corefold\corefold\corefold\space.py", line 264
+     for e in it:
+       73 blocks       3.3 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 231
+     settle(0.5)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 990
+     _ring(p, r, None, t.accent, mix(t.tokens.surface, t.text, 0.08), 7)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 89
+     p.setPen(QPen(track, width, Qt.SolidLine, Qt.RoundCap))
+        1 blocks       3.2 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 228
+     page.start_scan(target)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1497
+     self._new_watch = space.Watch(root)
+       16 blocks       3.0 KB
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1032
+     self._bootstrap_inner()
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1075
+     self.run()
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1012
+     self._target(*self._args, **self._kwargs)
+     File "D:\a\corefold\corefold\corefold\space.py", line 791
+     class OVERLAPPED(ctypes.Structure):
+       66 blocks       3.0 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 231
+     settle(0.5)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 554
+     pix = self._picture()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 454
+     self._draw_boxes(p)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 479
+     p.setPen(Qt.NoPen)
+       63 blocks       2.8 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 231
+     settle(0.5)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1003
+     fm.elidedText(self.text, Qt.ElideRight, int(r.width() - 24)))
+       50 blocks       2.7 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 231
+     settle(0.5)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1580
+     self._show_map(result, result.root)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1619
+     self.open_folder(folder)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1917
+     self._shown = self._visible()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1722
+     out.append((name, human_size(size)))
+       13 blocks       2.7 KB
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1032
+     self._bootstrap_inner()
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1075
+     self.run()
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1012
+     self._target(*self._args, **self._kwargs)
+     File "D:\a\corefold\corefold\corefold\space.py", line 798
+     ctypes.POINTER(wt.DWORD), ctypes.POINTER(OVERLAPPED), ctypes.c_void_p]
+       48 blocks       2.6 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1580
+     self._show_map(result, result.root)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1619
+     self.open_folder(folder)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1917
+     self._shown = self._visible()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1724
+     out.extend((n, human_size(sz)) for sz, n, _ in sub.entries()[:24])
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1724
+     out.extend((n, human_size(sz)) for sz, n, _ in sub.entries()[:24])
+       52 blocks       2.3 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 238
+     settle(1)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+     File "D:\a\corefold\corefold\corefold\navbar.py", line 321
+     super().paintEvent(e)
+     File "D:\a\corefold\corefold\corefold\navbar.py", line 151
+     QFontMetrics(f).elidedText(text, Qt.ElideRight, int(box.width())))
+       46 blocks       2.2 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1580
+     self._show_map(result, result.root)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1619
+     self.open_folder(folder)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1917
+     self._shown = self._visible()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1722
+     out.append((name, human_size(size)))
+     File "D:\a\corefold\corefold\corefold\core.py", line 307
+     text = f"{n:.1f} {unit}"
+       44 blocks       2.1 KB
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1580
+     self._show_map(result, result.root)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1619
+     self.open_folder(folder)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1917
+     self._shown = self._visible()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1724
+     out.extend((n, human_size(sz)) for sz, n, _ in sub.entries()[:24])
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1724
+     out.extend((n, human_size(sz)) for sz, n, _ in sub.entries()[:24])
+     File "D:\a\corefold\corefold\corefold\core.py", line 307
+     text = f"{n:.1f} {unit}"
+       44 blocks       2.0 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 238
+     settle(1)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+     File "D:\a\corefold\corefold\corefold\navbar.py", line 321
+     super().paintEvent(e)
+     File "D:\a\corefold\corefold\corefold\navbar.py", line 42
+     p.setRenderHint(QPainter.Antialiasing)
+       26 blocks       1.5 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 239
+     page._forget_old_maps()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1979
+     self._fill_drives()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1433
+     card.clicked.connect(lambda _=False, p=d.path: self.start_scan(Path(p)))
+       25 blocks       1.5 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 239
+     page._forget_old_maps()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1972
+     self._back_to_drives()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1964
+     self._fill_drives()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1433
+     card.clicked.connect(lambda _=False, p=d.path: self.start_scan(Path(p)))
+       25 blocks       1.4 KB
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1580
+     self._show_map(result, result.root)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1619
+     self.open_folder(folder)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1917
+     self._shown = self._visible()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1724
+     out.extend((n, human_size(sz)) for sz, n, _ in sub.entries()[:24])
+     File "D:\a\corefold\corefold\corefold\space.py", line 152
+     out = [(c.size, c.name, c) for c in self.children] + [(s, n, None) for s, n in self.big]
+     File "D:\a\corefold\corefold\corefold\space.py", line 139
+     return list(zip(self.sizes[:TOP_FILES], self.names.split("\n", TOP_FILES)[:TOP_FILES]))
+       21 blocks       1.4 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 231
+     settle(0.5)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1580
+     self._show_map(result, result.root)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1621
+     self._fill_kinds()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1841
+     chip.clicked.connect(lambda _=False, kind=k: self._show_kind(kind))
+       30 blocks       1.3 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 235
+     settle(2)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 554
+     pix = self._picture()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 454
+     self._draw_boxes(p)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 479
+     p.setPen(Qt.NoPen)
+        3 blocks       1.2 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 231
+     settle(0.5)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1580
+     self._show_map(result, result.root)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1621
+     self._fill_kinds()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1840
+     chip = KindChip(self.c.theme, k, v)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 779
+     self.theme, self.kind, self.size = theme, kind, size
+        1 blocks       1.1 KB
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 454
+     self._draw_boxes(p)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 507
+     lead | Qt.AlignVCenter, hfm.elidedText(b.name, Qt.ElideMiddle, int(room)))
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\enum.py", line 1559
+     return self.__class__(value | other_value)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\enum.py", line 751
+     return cls.__new__(cls, value)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\enum.py", line 1155
+     result = cls._missing_(value)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\enum.py", line 1501
+     pseudo_member = cls._value2member_map_.setdefault(value, pseudo_member)
+        1 blocks       1.0 KB
+     File "D:\a\corefold\corefold\corefold\work.py", line 75
+     result = fn(s.progress.emit)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1512
+     result = space.scan(root, cancel, lambda *a: progress(a))
+     File "D:\a\corefold\corefold\corefold\space.py", line 506
+     return _scan(root, cancel, progress, workers)
+     File "D:\a\corefold\corefold\corefold\space.py", line 581
+     threads = [threading.Thread(target=work, args=(f,), name="corefold-scan", daemon=True) for f in found]
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 942
+     _dangling.add(self)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\_weakrefset.py", line 88
+     self.data.add(ref(item, self._remove))
+       38 blocks       1.0 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 231
+     settle(0.5)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1580
+     self._show_map(result, result.root)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1621
+     self._fill_kinds()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1840
+     chip = KindChip(self.c.theme, k, v)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 778
+     super().__init__()
+       20 blocks       0.9 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 238
+     settle(1)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+     File "D:\a\corefold\corefold\corefold\navbar.py", line 321
+     super().paintEvent(e)
+     File "D:\a\corefold\corefold\corefold\navbar.py", line 123
+     f.setWeight(QFont.Weight.DemiBold)
+       19 blocks       0.9 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 231
+     settle(0.5)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1546
+     self.busy_line.set_full(str(folder))
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 109
+     self._fit()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 116
+     self.setText(ltr(self.fontMetrics().elidedText(self.full, Qt.ElideMiddle, max(40, self.width() - 4))))
+        1 blocks       0.8 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 231
+     settle(0.5)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1580
+     self._show_map(result, result.root)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1619
+     self.open_folder(folder)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1917
+     self._shown = self._visible()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1733
+     return tuple(out)
+       15 blocks       0.8 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 231
+     settle(0.5)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1580
+     self._show_map(result, result.root)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1620
+     self.kinds_bar.set_kinds(result.kinds)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 712
+     self._lay_out()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 731
+     self.parts.append((QRectF(self.width() - x - w if rtl else x, 1, w, self.height() - 2), kind))
+        2 blocks       0.8 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 239
+     page._forget_old_maps()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1979
+     self._fill_drives()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1431
+     card = DriveCard(self.c.theme, d, seen=kept[2] if kept else None)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1020
+     self.theme, self.drive = theme, drive
+        2 blocks       0.8 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 239
+     page._forget_old_maps()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1972
+     self._back_to_drives()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1964
+     self._fill_drives()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1431
+     card = DriveCard(self.c.theme, d, seen=kept[2] if kept else None)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1020
+     self.theme, self.drive = theme, drive
+        2 blocks       0.7 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 228
+     page.start_scan(target)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1482
+     self._new_cancel()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1197
+     self.cancel = self._live[0] = threading.Event()
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 589
+     self._cond = Condition(Lock())
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 293
+     self._waiters = _deque()
+       15 blocks       0.7 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 238
+     settle(1)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+       16 blocks       0.7 KB
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1916
+     self._fill_list()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 2087
+     self._add_rows(None, self.here)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 2197
+     it = self._row(ltr(name), size, path, sub, folder, top, folder.size)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 2158
+     it.setText(4, changed_text(when))
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 76
+     return latin_digits(locale().toString(QDateTime.fromSecsSinceEpoch(int(ts)).date(), "d MMM yyyy"))
+     File "D:\a\corefold\corefold\corefold\timefmt.py", line 13
+     return QLocale({"ar": QLocale.Language.Arabic, "fr": QLocale.Language.French, "es": QLocale.Language.Spanish,
+       26 blocks       0.7 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 239
+     page._forget_old_maps()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1972
+     self._back_to_drives()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1964
+     self._fill_drives()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1431
+     card = DriveCard(self.c.theme, d, seen=kept[2] if kept else None)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1019
+     super().__init__()
+       14 blocks       0.6 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 231
+     settle(0.5)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 554
+     pix = self._picture()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 454
+     self._draw_boxes(p)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 507
+     lead | Qt.AlignVCenter, hfm.elidedText(b.name, Qt.ElideMiddle, int(room)))
+        9 blocks       0.6 KB
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1032
+     self._bootstrap_inner()
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1075
+     self.run()
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1012
+     self._target(*self._args, **self._kwargs)
+     File "D:\a\corefold\corefold\corefold\space.py", line 797
+     k32.ReadDirectoryChangesW.argtypes = [ctypes.c_void_p, ctypes.c_void_p, wt.DWORD, wt.BOOL, wt.DWORD,
+       13 blocks       0.6 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 235
+     settle(2)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+        7 blocks       0.6 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 239
+     page._forget_old_maps()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1979
+     self._fill_drives()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1428
+     self.drives = space.drives()
+     File "D:\a\corefold\corefold\corefold\space.py", line 1279
+     out.append(Drive(root, name.value, u.total, u.free, kind == 2))
+        6 blocks       0.6 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 239
+     page._forget_old_maps()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1972
+     self._back_to_drives()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1964
+     self._fill_drives()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1428
+     self.drives = space.drives()
+     File "D:\a\corefold\corefold\corefold\space.py", line 1279
+     out.append(Drive(root, name.value, u.total, u.free, kind == 2))
+       24 blocks       0.6 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 239
+     page._forget_old_maps()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1979
+     self._fill_drives()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1431
+     card = DriveCard(self.c.theme, d, seen=kept[2] if kept else None)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1019
+     super().__init__()
+        1 blocks       0.6 KB
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1032
+     self._bootstrap_inner()
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1066
+     _active[self._ident] = self
+        8 blocks       0.5 KB
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1032
+     self._bootstrap_inner()
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1075
+     self.run()
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1012
+     self._target(*self._args, **self._kwargs)
+     File "D:\a\corefold\corefold\corefold\space.py", line 795
+     k32.CreateFileW.argtypes = [wt.LPCWSTR, wt.DWORD, wt.DWORD, ctypes.c_void_p, wt.DWORD, wt.DWORD,
+       12 blocks       0.5 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 231
+     settle(0.5)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 920
+     p.setClipRect(column, Qt.IntersectClip)
+       12 blocks       0.5 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 237
+     w.open_page("Home")
+     File "D:\a\corefold\corefold\corefold\window.py", line 4807
+     self.nav.setCurrentRow(row)
+     File "D:\a\corefold\corefold\corefold\window.py", line 1715
+     self.refresh_history()
+     File "D:\a\corefold\corefold\corefold\window.py", line 4256
+     self._fill_recent()
+     File "D:\a\corefold\corefold\corefold\window.py", line 2805
+     empty = label(tr("Nothing yet. What you do with Rakiza Core shows up here."), "muted", wrap=True)
+     File "D:\a\corefold\corefold\corefold\window.py", line 141
+     lab = QLabel(text)
+        2 blocks       0.5 KB
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1032
+     self._bootstrap_inner()
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1075
+     self.run()
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1012
+     self._target(*self._args, **self._kwargs)
+     File "D:\a\corefold\corefold\corefold\space.py", line 807
+     k32.SetThreadPriority(k32.GetCurrentThread(), -1)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\ctypes\__init__.py", line 392
+     func = self.__getitem__(name)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\ctypes\__init__.py", line 399
+     func.__name__ = name_or_ordinal
+       12 blocks       0.5 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 240
+     settle(1)
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+       10 blocks       0.5 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 239
+     page._forget_old_maps()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1979
+     self._fill_drives()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1436
+     folder.clicked.connect(self._pick_folder)
+       10 blocks       0.5 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 239
+     page._forget_old_maps()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1972
+     self._back_to_drives()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1964
+     self._fill_drives()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1436
+     folder.clicked.connect(self._pick_folder)
+        7 blocks       0.4 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 242
+     snap("Space map forgotten (left for Home)")
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 137
+     ws = working_set_mb()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 68
+     return winutil.memory_info()[0] / 2**20
+     File "D:\a\corefold\corefold\corefold\winutil.py", line 176
+     get.argtypes = [wt.HANDLE, ctypes.c_void_p, wt.DWORD]
+        9 blocks       0.4 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 109
+     qapp.processEvents()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1580
+     self._show_map(result, result.root)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1619
+     self.open_folder(folder)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1916
+     self._fill_list()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 2087
+     self._add_rows(None, self.here)
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 2199
+     it.setChildIndicatorPolicy(QTreeWidgetItem.ShowIndicator)
+        2 blocks       0.4 KB
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1032
+     self._bootstrap_inner()
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1075
+     self.run()
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\threading.py", line 1012
+     self._target(*self._args, **self._kwargs)
+     File "D:\a\corefold\corefold\corefold\space.py", line 807
+     k32.SetThreadPriority(k32.GetCurrentThread(), -1)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\ctypes\__init__.py", line 392
+     func = self.__getitem__(name)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\ctypes\__init__.py", line 397
+     func = self._FuncPtr((name_or_ordinal, self))
+        1 blocks       0.4 KB
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 274
+     space_look()
+     File "D:\a\corefold\corefold\scripts\memtest.py", line 239
+     page._forget_old_maps()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1979
+     self._fill_drives()
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1435
+     folder = DriveCard(self.c.theme, None, tr("Look at a folder…"), tr("Any folder, on any drive"))
+     File "D:\a\corefold\corefold\corefold\spacepage.py", line 1020
+     self.theme, self.drive = theme, drive
+---- memory map: Space map forgotten
+process 7184: committed by kind
+  mapped                      469.3 MB
+  image (program files)       182.0 MB
+  private                     163.5 MB
+private, by block size (committed)
+  < 256 KB            1.2 MB in 42 blocks
+  256 KB - 1 MB      67.3 MB in 68 blocks
+  1 - 4 MB           28.7 MB in 10 blocks
+  4 - 16 MB          66.4 MB in 7 blocks
+  16 - 64 MB          0.0 MB in 0 blocks
+  > 64 MB             0.0 MB in 0 blocks
+biggest private blocks
+  0x013b78010000     15.1 MB
+  0x013b7a010000     13.9 MB
+  0x013b195e0000     12.1 MB
+  0x013b768a0000      8.0 MB
+  0x013b1ad20000      7.5 MB
+  0x013b1d4d0000      5.3 MB
+  0x013b1f2b0000      4.4 MB
+  0x013b00b60000      4.0 MB
+  0x013b746b0000      4.0 MB
+  0x013b040e0000      4.0 MB
+  0x013b7c110000      4.0 MB
+  0x013b1c350000      3.1 MB
+  0x013b13fd0000      2.4 MB
+  0x013b20980000      2.4 MB
+  0x013b742b0000      2.0 MB
+  0x013b1bdf0000      1.8 MB
+  0x013b796f0000      1.0 MB
+  0x013b192e0000      1.0 MB
+  0x013b193e0000      1.0 MB
+  0x013b194e0000      1.0 MB
+threads, by the module they started in
+    5 Qt6Core.dll
+    4 ucrtbase.dll
+    2 ntdll.dll
+    1 python.exe
+    1 WINMM.dll
+
+window closed and freed                             148.8 MB    -56.9  ws    54.0  py   34.0/  64.0  widgets     14  modules 392
+window open: Home                                   154.3 MB     +5.5  ws   100.9  py   34.1/  64.0  widgets    376  modules 392
+   page Apps: +2.0 MB
+   page Rename: +1.8 MB
+   page Network: +5.5 MB
+window open: every page seen                        172.3 MB    +17.9  ws   134.4  py   35.4/  64.0  widgets   1522  modules 392
+window closed and freed                             151.9 MB    -20.4  ws    56.7  py   34.7/  64.0  widgets     14  modules 392
+## Memory, step by step
+
+win32, en, dark; numpy loaded at the end: True; Python threads at the end: 2
+
+- Space folders still in memory after the maps were forgotten: 0
+- Space folders still in memory at the end: 0
+
+| Step | Private memory | Change | Working set | Python objects / arenas | Widgets alive | Modules |
+|---|---|---|---|---|---|---|
+| imported | 36.5 MB | +36.5 | 62.8 MB | 14.9 / 17.0 MB | 0 | 244 |
+| in the tray | 49.3 MB | +12.8 | 78.7 MB | 19.4 / 21.0 MB | 14 | 268 |
+| in the tray, tidied | 49.3 MB | -0.0 | 32.1 MB | 19.4 / 21.0 MB | 14 | 268 |
+| window open: Home | 84.4 MB | +35.1 | 128.2 MB | 22.9 / 25.0 MB | 376 | 281 |
+| window open: every page seen | 122.3 MB | +37.9 | 177.4 MB | 28.1 / 30.0 MB | 1533 | 301 |
+| window closed and freed | 109.0 MB | -13.3 | 47.5 MB | 27.4 / 30.0 MB | 14 | 301 |
+| window open: Home | 115.1 MB | +6.0 | 90.1 MB | 26.7 / 30.0 MB | 451 | 301 |
+| window closed and freed | 106.3 MB | -8.8 | 45.1 MB | 26.5 / 30.0 MB | 14 | 301 |
+| window open: Home | 111.1 MB | +4.8 | 82.0 MB | 26.7 / 30.0 MB | 376 | 301 |
+| window closed and freed | 108.1 MB | -3.1 | 44.9 MB | 26.5 / 30.0 MB | 14 | 301 |
+| window open: Home | 111.7 MB | +3.6 | 80.8 MB | 26.7 / 30.0 MB | 376 | 301 |
+| Space map shown (266,736 files, 79 s) | 227.3 MB | +115.6 | 214.8 MB | 0.0 / 0.0 MB | 504 | 392 |
+| Space map forgotten (left for Home) | 205.7 MB | -21.6 | 58.2 MB | 0.0 / 0.0 MB | 511 | 392 |
+| window closed and freed | 148.8 MB | -56.9 | 54.0 MB | 34.0 / 64.0 MB | 14 | 392 |
+| window open: Home | 154.3 MB | +5.5 | 100.9 MB | 34.1 / 64.0 MB | 376 | 392 |
+| window open: every page seen | 172.3 MB | +17.9 | 134.4 MB | 35.4 / 64.0 MB | 1522 | 392 |
+| window closed and freed | 151.9 MB | -20.4 | 56.7 MB | 34.7 / 64.0 MB | 14 | 392 |
+
+### Memory map: window open, every page seen
+
+```
+process 7184: committed by kind
+  mapped                      469.3 MB
+  image (program files)       157.8 MB
+  private                     114.7 MB
+private, by block size (committed)
+  < 256 KB            1.3 MB in 49 blocks
+  256 KB - 1 MB      33.6 MB in 35 blocks
+  1 - 4 MB           24.5 MB in 8 blocks
+  4 - 16 MB          55.4 MB in 4 blocks
+  16 - 64 MB          0.0 MB in 0 blocks
+  > 64 MB             0.0 MB in 0 blocks
+biggest private blocks
+  0x013b195e0000     15.8 MB
+  0x013b78010000     15.8 MB
+  0x013b7a010000     15.8 MB
+  0x013b768a0000      8.0 MB
+  0x013b00b60000      4.0 MB
+  0x013b746b0000      4.0 MB
+  0x013b040e0000      4.0 MB
+  0x013b7c110000      4.0 MB
+  0x013b7f860000      3.1 MB
+  0x013b13fd0000      2.4 MB
+  0x013b742b0000      2.0 MB
+  0x013b796f0000      1.0 MB
+  0x013b192e0000      1.0 MB
+  0x013b193e0000      1.0 MB
+  0x013b194e0000      1.0 MB
+  0x013b1a830000      1.0 MB
+  0x013b1ab10000      1.0 MB
+  0x013b1ac20000      1.0 MB
+  0x013b73e50000      1.0 MB
+  0x013b741b0000      1.0 MB
+threads, by the module they started in
+    7 ntdll.dll
+    5 Qt6Core.dll
+    4 ucrtbase.dll
+    1 python.exe
+    1 combase.dll
+    1 WINMM.dll
+    1 CRYPT32.dll
+```
+
+### Memory map: window closed and freed
+
+```
+process 7184: committed by kind
+  mapped                      466.0 MB
+  image (program files)       157.8 MB
+  private                     101.5 MB
+private, by block size (committed)
+  < 256 KB            1.3 MB in 49 blocks
+  256 KB - 1 MB      33.9 MB in 35 blocks
+  1 - 4 MB           21.4 MB in 7 blocks
+  4 - 16 MB          45.0 MB in 4 blocks
+  16 - 64 MB          0.0 MB in 0 blocks
+  > 64 MB             0.0 MB in 0 blocks
+biggest private blocks
+  0x013b78010000     14.3 MB
+  0x013b7a010000     12.2 MB
+  0x013b195e0000     10.6 MB
+  0x013b768a0000      7.9 MB
+  0x013b00b60000      4.0 MB
+  0x013b746b0000      4.0 MB
+  0x013b040e0000      4.0 MB
+  0x013b7c110000      4.0 MB
+  0x013b13fd0000      2.4 MB
+  0x013b742b0000      2.0 MB
+  0x013b796f0000      1.0 MB
+  0x013b192e0000      1.0 MB
+  0x013b193e0000      1.0 MB
+  0x013b194e0000      1.0 MB
+  0x013b1a830000      1.0 MB
+  0x013b1ab10000      1.0 MB
+  0x013b1ac20000      1.0 MB
+  0x013b73e50000      1.0 MB
+  0x013b741b0000      1.0 MB
+  0x013b744b0000      1.0 MB
+threads, by the module they started in
+    7 ntdll.dll
+    5 Qt6Core.dll
+    4 ucrtbase.dll
+    1 python.exe
+    1 combase.dll
+    1 WINMM.dll
+    1 CRYPT32.dll
+```
+
+### Memory map: Space map forgotten
+
+```
+process 7184: committed by kind
+  mapped                      469.3 MB
+  image (program files)       182.0 MB
+  private                     163.5 MB
+private, by block size (committed)
+  < 256 KB            1.2 MB in 42 blocks
+  256 KB - 1 MB      67.3 MB in 68 blocks
+  1 - 4 MB           28.7 MB in 10 blocks
+  4 - 16 MB          66.4 MB in 7 blocks
+  16 - 64 MB          0.0 MB in 0 blocks
+  > 64 MB             0.0 MB in 0 blocks
+biggest private blocks
+  0x013b78010000     15.1 MB
+  0x013b7a010000     13.9 MB
+  0x013b195e0000     12.1 MB
+  0x013b768a0000      8.0 MB
+  0x013b1ad20000      7.5 MB
+  0x013b1d4d0000      5.3 MB
+  0x013b1f2b0000      4.4 MB
+  0x013b00b60000      4.0 MB
+  0x013b746b0000      4.0 MB
+  0x013b040e0000      4.0 MB
+  0x013b7c110000      4.0 MB
+  0x013b1c350000      3.1 MB
+  0x013b13fd0000      2.4 MB
+  0x013b20980000      2.4 MB
+  0x013b742b0000      2.0 MB
+  0x013b1bdf0000      1.8 MB
+  0x013b796f0000      1.0 MB
+  0x013b192e0000      1.0 MB
+  0x013b193e0000      1.0 MB
+  0x013b194e0000      1.0 MB
+threads, by the module they started in
+    5 Qt6Core.dll
+    4 ucrtbase.dll
+    2 ntdll.dll
+    1 python.exe
+    1 WINMM.dll
+```
