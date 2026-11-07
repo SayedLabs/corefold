@@ -129,10 +129,11 @@ def problem(sources: list[str], dest: str) -> str:
     d = Path(dest)
     if not d.is_dir():
         return "The backup drive isn't connected"
+    backup = d / f"{pc_name()} backup"  # (the backup's own folder: a folder elsewhere on that drive is fine)
     for s in sources:
         if _inside(d, Path(s)):
             return "The backup can't go inside a folder it keeps safe"
-        if _inside(Path(s), d):
+        if _inside(Path(s), backup):
             return "A folder to keep safe can't be inside the backup"
     return ""
 
@@ -301,10 +302,18 @@ def run(plan: Plan, progress=None, cancel=None, now: float | None = None) -> Sum
 
 
 def _remove_empty(base: Path):
-    for folder, dirs, files in os.walk(base, topdown=False):
-        if folder != str(base) and not dirs and not files:
+    """Empty folders left in the backup are taken out, and so is a half copy left by a run that never finished
+    (the PC was switched off, the drive pulled out): it's only ever the backup's own, never a file of the PC's."""
+    for folder, _dirs, files in os.walk(base, topdown=False):
+        for name in files:
+            if name.endswith(PARTIAL):
+                try:
+                    os.remove(os.path.join(folder, name))
+                except OSError:
+                    pass
+        if folder != str(base):
             try:
-                os.rmdir(folder)
+                os.rmdir(folder)  # (only ever an empty one: one emptied just now, below it, counts too)
             except OSError:
                 pass
 

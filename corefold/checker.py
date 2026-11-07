@@ -49,7 +49,7 @@ def fingerprints(path: Path, progress=None, cancel=None, algos=ALGOS) -> dict[st
 def clean(text: str) -> str:
     """A pasted code as plain lower-case hex: spaces, colons and dashes taken out ("AB:CD..." and "ab cd ..."
     are both seen on download pages); "" when it isn't one."""
-    text = (text or "").strip()
+    text = whole = (text or "").strip()
     m = re.search(r"(?:sha-?(?:1|256|512)|md5)\s*[:=]?\s*(\S.*)$", text, re.IGNORECASE)
     if m:  # ("SHA256: abc...": the part after the name)
         text = m.group(1)
@@ -57,7 +57,8 @@ def clean(text: str) -> str:
     if code and re.fullmatch(r"[0-9a-f]+", code):
         return code
     # a whole line copied from a list of codes ("code  setup.exe", "SHA256 (setup.exe) = code"): the code in it
-    for word in re.findall(r"(?<![0-9a-fA-F])[0-9a-fA-F]{32,128}(?![0-9a-fA-F])", text):
+    # (in the whole line: a file's name can have "md5" or "sha256" in it, before or after the code)
+    for word in re.findall(r"(?<![0-9a-fA-F])[0-9a-fA-F]{32,128}(?![0-9a-fA-F])", whole):
         if len(word) in BY_LENGTH:
             return word.lower()
     return ""
@@ -111,7 +112,9 @@ def read_list(path: Path) -> list[Entry]:
     for the file of the same name without the list's extension: setup.exe.sha256 → setup.exe)."""
     if path.stat().st_size > MAX_LIST:
         return []
-    text = path.read_bytes().decode("utf-8-sig", "replace")
+    raw = path.read_bytes()
+    # (Windows PowerShell 5's ">" saves what a command printed, certutil's codes too, as UTF-16)
+    text = raw.decode("utf-16", "replace") if raw[:2] in (b"\xff\xfe", b"\xfe\xff") else raw.decode("utf-8-sig", "replace")
     out: list[Entry] = []
     for line in text.splitlines():
         line = line.strip()
