@@ -1972,9 +1972,14 @@ class SpacePage(QWidget):
             self._back_to_drives()
             self._forget_timer.stop()
         showing = self.scan
-        for key in [k for k, v in self.kept.items() if v[0] is not showing]:
+        dropped = [k for k, v in self.kept.items() if v[0] is not showing]
+        for key in dropped:
             self._drop_map(key)
         gc.collect()  # (a map is a tree of folders pointing at each other)
+        if dropped:  # (and the memory it took goes back to Windows soon after, not at the next tidy-up)
+            tidy = getattr(self.c, "tidy_timer", None)
+            if tidy is not None and (not tidy.isActive() or tidy.remainingTime() > 5000):
+                tidy.start(5000)
         if showing is None:
             self._fill_drives()
 
