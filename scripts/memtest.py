@@ -9,6 +9,7 @@ import gc
 import os
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -60,6 +61,14 @@ if i18n.is_rtl():
     qapp.setLayoutDirection(Qt.RightToLeft)
 
 
+def working_set_mb() -> float:
+    if sys.platform == "win32":
+        from corefold import winutil
+        return winutil.memory_info()[0] / 2**20
+    with open("/proc/self/status") as f:
+        return next(int(ln.split()[1]) for ln in f if ln.startswith("VmRSS")) / 1024
+
+
 def private_mb() -> float:
     if sys.platform == "win32":
         from corefold import winutil
@@ -76,7 +85,7 @@ def settle(seconds=0.3):
         time.sleep(0.002)
 
 
-rows: list[tuple[str, float, float, int, int]] = []
+rows: list[tuple[str, float, float, float, int, int]] = []
 _last = [0.0]
 
 
@@ -86,8 +95,10 @@ def snap(what: str):
     mb = private_mb()
     widgets = len(QApplication.allWidgets())
     mods = len(sys.modules)
-    rows.append((what, mb, mb - _last[0], widgets, mods))
-    print(f"{what:<48} {mb:8.1f} MB  {mb - _last[0]:+7.1f}  widgets {widgets:6d}  modules {mods}", flush=True)
+    ws = working_set_mb()
+    rows.append((what, mb, mb - _last[0], ws, widgets, mods))
+    print(f"{what:<48} {mb:8.1f} MB  {mb - _last[0]:+7.1f}  ws {ws:7.1f}  widgets {widgets:6d}  modules {mods}",
+          flush=True)
     _last[0] = mb
 
 
@@ -140,14 +151,49 @@ def close_and_free():
     snap("window closed and freed")
 
 
+def space_look():
+    """Space looks through a drive (the map shown, then left for Home and forgotten, as after 5 minutes)."""
+    from corefold.window import PAGES as _P  # noqa: F401
+    target = Path(os.environ.get("MEMTEST_SPACE", "C:\\" if sys.platform == "win32" else "/usr"))
+    w = c.window
+    if not w.shows("Space"):
+        return
+    w.open_page("Space")
+    settle(1)
+    page = w.space_page
+    page.show_section("map")
+    page.start_scan(target)
+    t = time.monotonic()
+    while (page.job is not None or page.scan is None) and time.monotonic() - t < 900:
+        settle(0.5)
+    files = page.scan.files if page.scan is not None else 0
+    settle(2)
+    snap(f"Space map shown ({files:,} files, {time.monotonic() - t:.0f} s)")
+    w.open_page("Home")
+    settle(1)
+    page._forget_old_maps()
+    settle(1)
+    c.tidy_up()
+    snap("Space map forgotten (left for Home)")
+
+
 open_all(True)
 close_and_free()
-for i in range(3):
-    open_all(i == 2)
+for i in range(2):
+    open_all(False)
     close_and_free()
+open_all(False)
+space_look()
+close_and_free()
+open_all(True)
+close_and_free()
 
-text = ["## Memory, step by step", "", f"{sys.platform}, {LANG}, {LOOK}", "",
-        "| Step | Private memory | Change | Widgets alive | Modules |", "|---|---|---|---|---|"]
-text += [f"| {w} | {mb:.1f} MB | {d:+.1f} | {n} | {m} |" for w, mb, d, n, m in rows]
+threads = threading.active_count()
+blas = "numpy" in sys.modules
+text = ["## Memory, step by step", "", f"{sys.platform}, {LANG}, {LOOK}; numpy loaded at the end: {blas}; "
+        f"Python threads at the end: {threads}", "",
+        "| Step | Private memory | Change | Working set | Widgets alive | Modules |", "|---|---|---|---|---|---|"]
+text += [f"| {w} | {mb:.1f} MB | {d:+.1f} | {ws:.1f} MB | {n} | {m} |" for w, mb, d, ws, n, m in rows]
 (OUT / "memtest.md").write_text("\n".join(text) + "\n", "utf-8")
+print("\n".join(text), flush=True)
 os._exit(0)

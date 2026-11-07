@@ -81,6 +81,15 @@ time.sleep(2)
 b = m(); compact(); c = m()
 line(NAME, a, b, c, f"(OPENBLAS_NUM_THREADS={os.environ.get('OPENBLAS_NUM_THREADS', 'unset')})")
 ''',
+    "import numpy, set inside (as main.py)": r'''
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+import corefold.app
+a = m()
+import numpy as np
+time.sleep(2)
+b = m(); compact(); c = m()
+line(NAME, a, b, c)
+''',
     "numpy sort+sum 2M (Space-like)": r'''
 import corefold.app
 import numpy as np
@@ -131,12 +140,15 @@ line(NAME, a, b, c)
 
 
 def main():
+    only = os.environ.get("MEMPROBE_ONLY")
     target = sys.argv[1] if len(sys.argv) > 1 else "C:\\"
     runs = [(name, {}) for name in PARTS]
     runs.insert(2, ("import numpy", {"OPENBLAS_NUM_THREADS": "1"}))
     runs.insert(4, ("numpy sort+sum 2M (Space-like)", {"OPENBLAS_NUM_THREADS": "1"}))
     print(f"{os.cpu_count()} logical CPUs, Python {sys.version.split()[0]}", flush=True)
     for name, env in runs:
+        if only and only not in name:
+            continue
         code = PROBE + f"\nNAME = {name!r}\nTARGET = {target!r}\n" + PARTS[name]
         e = dict(os.environ, **env)
         try:
