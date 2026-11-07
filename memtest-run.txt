@@ -1,0 +1,990 @@
+imported                                             35.7 MB    +35.7  ws    61.7  py   14.9/  17.0  widgets      0  modules 244
+in the tray                                          48.6 MB    +12.9  ws    78.8  py   19.4/  21.0  widgets     14  modules 268
+in the tray, tidied                                  48.6 MB     +0.0  ws    32.1  py   19.4/  21.0  widgets     14  modules 268
+window open: Home                                    84.3 MB    +35.8  ws   128.3  py   22.9/  25.0  widgets    376  modules 281
+   page Home: +6.1 MB
+   page Clouds: +3.1 MB
+   page Apps: +7.9 MB
+   page Space: +2.9 MB
+   page Rename: +1.5 MB
+   page Network: +3.7 MB
+   page Unlock: +3.2 MB
+   page Soon: +6.5 MB
+window open: every page seen                        123.6 MB    +39.2  ws   178.6  py   28.1/  30.0  widgets   1533  modules 301
+---- memory map: window open, every page seen
+process 2996: committed by kind
+  mapped                      469.3 MB
+  image (program files)       157.8 MB
+  private                     116.0 MB
+private, by block size (committed)
+  < 256 KB            1.4 MB in 55 blocks
+  256 KB - 1 MB      33.3 MB in 34 blocks
+  1 - 4 MB           25.9 MB in 9 blocks
+  4 - 16 MB          55.4 MB in 4 blocks
+  16 - 64 MB          0.0 MB in 0 blocks
+  > 64 MB             0.0 MB in 0 blocks
+biggest private blocks
+  0x0169082a0000     15.8 MB
+  0x01690a420000     15.8 MB
+  0x0169298e0000     15.8 MB
+  0x016906b30000      8.0 MB
+  0x016904a40000      4.0 MB
+  0x016910e80000      4.0 MB
+  0x0169143e0000      4.0 MB
+  0x01690c4b0000      4.0 MB
+  0x01690fb80000      3.1 MB
+  0x0169242d0000      2.4 MB
+  0x016904640000      2.0 MB
+  0x01692b230000      1.4 MB
+  0x016909a00000      1.0 MB
+  0x016904160000      1.0 MB
+  0x016904540000      1.0 MB
+  0x016904840000      1.0 MB
+  0x016904940000      1.0 MB
+  0x016904e40000      1.0 MB
+  0x016904f40000      1.0 MB
+  0x016905040000      1.0 MB
+threads, by the module they started in
+    7 ntdll.dll
+    7 ucrtbase.dll
+    5 Qt6Core.dll
+    1 python.exe
+    1 combase.dll
+    1 WINMM.dll
+    1 CRYPT32.dll
+
+window closed and freed                             110.7 MB    -12.8  ws    47.5  py   27.4/  30.0  widgets     14  modules 301
+---- memory map: window closed and freed
+process 2996: committed by kind
+  mapped                      466.0 MB
+  image (program files)       157.8 MB
+  private                     103.2 MB
+private, by block size (committed)
+  < 256 KB            1.4 MB in 55 blocks
+  256 KB - 1 MB      33.3 MB in 34 blocks
+  1 - 4 MB           23.6 MB in 8 blocks
+  4 - 16 MB          44.9 MB in 4 blocks
+  16 - 64 MB          0.0 MB in 0 blocks
+  > 64 MB             0.0 MB in 0 blocks
+biggest private blocks
+  0x0169082a0000     13.9 MB
+  0x01690a420000     12.5 MB
+  0x0169298e0000     10.5 MB
+  0x016906b30000      8.0 MB
+  0x016904a40000      4.0 MB
+  0x016910e80000      4.0 MB
+  0x0169143e0000      4.0 MB
+  0x01690c4b0000      4.0 MB
+  0x0169242d0000      2.4 MB
+  0x01692b230000      2.2 MB
+  0x016904640000      2.0 MB
+  0x016909a00000      1.0 MB
+  0x016904160000      1.0 MB
+  0x016904540000      1.0 MB
+  0x016904840000      1.0 MB
+  0x016904940000      1.0 MB
+  0x016904e40000      1.0 MB
+  0x016904f40000      1.0 MB
+  0x016905040000      1.0 MB
+  0x0169068f0000      1.0 MB
+threads, by the module they started in
+    7 ntdll.dll
+    7 ucrtbase.dll
+    5 Qt6Core.dll
+    1 python.exe
+    1 combase.dll
+    1 WINMM.dll
+    1 CRYPT32.dll
+
+window open: Home                                   116.9 MB     +6.2  ws    90.7  py   26.7/  30.0  widgets    451  modules 301
+window closed and freed                             107.4 MB     -9.5  ws    45.2  py   26.4/  30.0  widgets     14  modules 301
+window open: Home                                   113.6 MB     +6.2  ws    82.0  py   26.6/  30.0  widgets    376  modules 301
+window closed and freed                             105.3 MB     -8.3  ws    44.9  py   26.4/  30.0  widgets     14  modules 301
+window open: Home                                   110.4 MB     +5.1  ws    79.9  py   26.7/  30.0  widgets    376  modules 301
+Space map shown (266,736 files, 116 s)              228.9 MB   +118.4  ws   215.4  py    0.0/   0.0  widgets    504  modules 392
+Space map forgotten (left for Home)                 208.5 MB    -20.3  ws    58.4  py    0.0/   0.0  widgets    511  modules 392
+SURVIVORS: 88,052 blocks, 11.2 MB
+      734 blocks    1985.9 KB
+     from numpy._core.numeric import asanyarray, reshape
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 999
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\_core\numeric.py", line 2694
+     from . import _asarray, _ufunc_config, arrayprint, fromnumeric
+     File "<frozen importlib._bootstrap>", line 1415
+     File "<frozen importlib._bootstrap>", line 488
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 995
+     File "<frozen importlib._bootstrap_external>", line 1128
+     File "<frozen importlib._bootstrap_external>", line 757
+   12,224 blocks    1086.5 KB
+     File "<frozen importlib._bootstrap>", line 1415
+     File "<frozen importlib._bootstrap>", line 488
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 999
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\_core\multiarray.py", line 11
+     from . import _multiarray_umath, overrides
+     File "<frozen importlib._bootstrap>", line 1415
+     File "<frozen importlib._bootstrap>", line 488
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 1301
+     File "<frozen importlib._bootstrap>", line 488
+    2,144 blocks     446.3 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 999
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\lib\__init__.py", line 18
+     from . import (
+     File "<frozen importlib._bootstrap>", line 1415
+     File "<frozen importlib._bootstrap>", line 488
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 995
+     File "<frozen importlib._bootstrap_external>", line 1128
+     File "<frozen importlib._bootstrap_external>", line 757
+    4,831 blocks     428.2 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\lib\_index_tricks_impl.py", line 14
+     from numpy.lib._function_base_impl import diff
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+    3,486 blocks     315.6 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\_core\arrayprint.py", line 41
+     from .fromnumeric import any
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+    2,922 blocks     269.2 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\_core\overrides.py", line 4
+     import inspect
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+    2,994 blocks     264.1 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\linalg\__init__.py", line 88
+     from ._linalg import *
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+    1,196 blocks     256.0 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\lib\_arraypad_impl.py", line 10
+     from numpy.lib._index_tricks_impl import ndindex
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 999
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\lib\_index_tricks_impl.py", line 14
+     from numpy.lib._function_base_impl import diff
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 995
+     File "<frozen importlib._bootstrap_external>", line 1128
+     File "<frozen importlib._bootstrap_external>", line 757
+    2,166 blocks     200.4 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\lib\npyio.py", line 1
+     from ._npyio_impl import DataSource, NpzFile, __doc__  # noqa: F401
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+    2,203 blocks     188.9 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\_core\arrayprint.py", line 50
+     from .numeric import asarray, concatenate, errstate
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+      542 blocks     170.4 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 999
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\_core\shape_base.py", line 8
+     from . import fromnumeric as _from_nx, numeric as _nx, overrides
+     File "<frozen importlib._bootstrap>", line 1415
+     File "<frozen importlib._bootstrap>", line 488
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 995
+     File "<frozen importlib._bootstrap_external>", line 1128
+     File "<frozen importlib._bootstrap_external>", line 757
+      689 blocks     154.2 KB
+     from numpy.linalg import matrix_power
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 999
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\linalg\__init__.py", line 87
+     from . import _linalg
+     File "<frozen importlib._bootstrap>", line 1415
+     File "<frozen importlib._bootstrap>", line 488
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 995
+     File "<frozen importlib._bootstrap_external>", line 1128
+     File "<frozen importlib._bootstrap_external>", line 757
+    1,714 blocks     153.8 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\__init__.py", line 539
+     from .lib._nanfunctions_impl import (
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+    1,597 blocks     142.4 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\_core\_internal.py", line 7
+     import ast
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+    1,494 blocks     137.6 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\_core\numeric.py", line 2697
+     from .arrayprint import *
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+    1,436 blocks     126.7 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\_core\numerictypes.py", line 85
+     from .multiarray import (
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+    1,379 blocks     125.4 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\_core\__init__.py", line 112
+     from .einsumfunc import *
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+      677 blocks     122.0 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 999
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\_core\__init__.py", line 111
+     from . import einsumfunc, fromnumeric, function_base, getlimits, numeric, shape_base
+     File "<frozen importlib._bootstrap>", line 1415
+     File "<frozen importlib._bootstrap>", line 488
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 995
+     File "<frozen importlib._bootstrap_external>", line 1128
+     File "<frozen importlib._bootstrap_external>", line 757
+      472 blocks     106.2 KB
+     from . import einsumfunc, fromnumeric, function_base, getlimits, numeric, shape_base
+     File "<frozen importlib._bootstrap>", line 1415
+     File "<frozen importlib._bootstrap>", line 488
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 999
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\_core\einsumfunc.py", line 10
+     from numpy._core.numeric import asanyarray, reshape
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 995
+     File "<frozen importlib._bootstrap_external>", line 1128
+     File "<frozen importlib._bootstrap_external>", line 757
+    1,177 blocks     102.4 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\__init__.py", line 567
+     from .lib._polynomial_impl import (
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+    1,109 blocks      97.5 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\lib\_utils_impl.py", line 2
+     import platform
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+      835 blocks      96.6 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 999
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\_core\__init__.py", line 128
+     from . import (
+     File "<frozen importlib._bootstrap>", line 1415
+     File "<frozen importlib._bootstrap>", line 488
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 995
+     File "<frozen importlib._bootstrap_external>", line 1128
+     File "<frozen importlib._bootstrap_external>", line 757
+    1,020 blocks      88.5 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\__init__.py", line 580
+     from .lib._shape_base_impl import (
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+    1,001 blocks      84.0 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\linalg\_linalg.py", line 78
+     from numpy.lib._twodim_base_impl import eye, triu
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+      937 blocks      83.4 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\__init__.py", line 470
+     from .lib._arraysetops_impl import (
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+      931 blocks      83.2 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\_core\__init__.py", line 120
+     from .records import recarray, record
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+      889 blocks      81.5 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\lib\_function_base_impl.py", line 60
+     from numpy.lib._histograms_impl import histogram, histogramdd  # noqa: F401
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+      876 blocks      79.5 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\lib\format.py", line 1
+     from ._format_impl import (  # noqa: F401
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+      927 blocks      76.7 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\matrixlib\__init__.py", line 5
+     from .defmatrix import *
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+      853 blocks      73.3 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\lib\_arraypad_impl.py", line 10
+     from numpy.lib._index_tricks_impl import ndindex
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+      804 blocks      72.5 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\_core\__init__.py", line 121
+     from .shape_base import *
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+      780 blocks      71.4 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\__init__.py", line 469
+     from .lib._arraypad_impl import pad
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+      633 blocks      69.8 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\lib\_format_impl.py", line 171
+     from numpy.lib._utils_impl import drop_metadata
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 999
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\lib\_utils_impl.py", line 2
+     import platform
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 995
+     File "<frozen importlib._bootstrap_external>", line 1128
+     File "<frozen importlib._bootstrap_external>", line 757
+      773 blocks      68.6 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\lib\_npyio_impl.py", line 26
+     from ._iotools import (
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+      878 blocks      67.6 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\__init__.py", line 103
+     from . import version
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+      200 blocks      61.5 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 999
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\_core\__init__.py", line 24
+     from . import multiarray
+     File "<frozen importlib._bootstrap>", line 1415
+     File "<frozen importlib._bootstrap>", line 488
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 995
+     File "<frozen importlib._bootstrap_external>", line 1128
+     File "<frozen importlib._bootstrap_external>", line 757
+      265 blocks      51.9 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\lib\_index_tricks_impl.py", line 14
+     from numpy.lib._function_base_impl import diff
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 999
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\lib\_function_base_impl.py", line 60
+     from numpy.lib._histograms_impl import histogram, histogramdd  # noqa: F401
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 995
+     File "<frozen importlib._bootstrap_external>", line 1128
+     File "<frozen importlib._bootstrap_external>", line 757
+      281 blocks      51.8 KB
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1310
+     File "<frozen importlib._bootstrap>", line 488
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 999
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\_core\__init__.py", line 120
+     from .records import recarray, record
+     File "<frozen importlib._bootstrap>", line 1360
+     File "<frozen importlib._bootstrap>", line 1331
+     File "<frozen importlib._bootstrap>", line 935
+     File "<frozen importlib._bootstrap_external>", line 995
+     File "<frozen importlib._bootstrap_external>", line 1128
+     File "<frozen importlib._bootstrap_external>", line 757
+      557 blocks      50.3 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\lib\_npyio_impl.py", line 24
+     from ._datasource import DataSource  # noqa: F401
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+      572 blocks      49.7 KB
+     File "<frozen importlib._bootstrap>", line 488
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\numpy\lib\_npyio_impl.py", line 12
+     import weakref
+     File "shibokensupport/signature/loader.py", line 72
+     File "shibokensupport/feature.py", line 148
+     File "shibokensupport/feature.py", line 159
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1285
+     lines, lnum = getsourcelines(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1267
+     lines, lnum = findsource(object)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\inspect.py", line 1092
+     lines = linecache.getlines(file, module.__dict__)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 46
+     return updatecache(filename, module_globals)
+     File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\linecache.py", line 142
+     lines = fp.readlines()
+---- memory map: Space map forgotten
+process 2996: committed by kind
+  mapped                      469.3 MB
+  image (program files)       182.0 MB
+  private                     163.0 MB
+private, by block size (committed)
+  < 256 KB            1.1 MB in 42 blocks
+  256 KB - 1 MB      67.3 MB in 68 blocks
+  1 - 4 MB           32.7 MB in 11 blocks
+  4 - 16 MB          62.0 MB in 6 blocks
+  16 - 64 MB          0.0 MB in 0 blocks
+  > 64 MB             0.0 MB in 0 blocks
+biggest private blocks
+  0x0169082a0000     14.2 MB
+  0x01690a420000     13.9 MB
+  0x0169298e0000     13.4 MB
+  0x016906b30000      7.8 MB
+  0x01692d140000      7.6 MB
+  0x01692b230000      5.1 MB
+  0x016904a40000      4.0 MB
+  0x016910e80000      4.0 MB
+  0x0169143e0000      4.0 MB
+  0x01690c4b0000      4.0 MB
+  0x01692ef20000      3.7 MB
+  0x01692c200000      3.1 MB
+  0x0169305f0000      2.8 MB
+  0x0169242d0000      2.4 MB
+  0x016904640000      2.0 MB
+  0x01690f940000      1.8 MB
+  0x016909a00000      1.0 MB
+  0x016904160000      1.0 MB
+  0x016904540000      1.0 MB
+  0x016904840000      1.0 MB
+threads, by the module they started in
+    4 ucrtbase.dll
+    4 Qt6Core.dll
+    3 ntdll.dll
+    1 python.exe
+    1 WINMM.dll
+
+window closed and freed                             156.7 MB    -51.8  ws    54.4  py   34.0/  64.0  widgets     14  modules 392
+window open: Home                                   165.2 MB     +8.5  ws   101.5  py   34.1/  64.0  widgets    376  modules 392
+   page Network: +3.9 MB
+window open: every page seen                        178.3 MB    +13.1  ws   134.3  py   35.3/  63.0  widgets   1511  modules 392
+window closed and freed                             157.7 MB    -20.6  ws    56.9  py   34.7/  63.0  widgets     14  modules 392
+## Memory, step by step
+
+win32, en, dark; numpy loaded at the end: True; Python threads at the end: 2
+
+- Space folders still in memory after the maps were forgotten: 0
+- Space folders still in memory at the end: 0
+
+| Step | Private memory | Change | Working set | Python objects / arenas | Widgets alive | Modules |
+|---|---|---|---|---|---|---|
+| imported | 35.7 MB | +35.7 | 61.7 MB | 14.9 / 17.0 MB | 0 | 244 |
+| in the tray | 48.6 MB | +12.9 | 78.8 MB | 19.4 / 21.0 MB | 14 | 268 |
+| in the tray, tidied | 48.6 MB | +0.0 | 32.1 MB | 19.4 / 21.0 MB | 14 | 268 |
+| window open: Home | 84.3 MB | +35.8 | 128.3 MB | 22.9 / 25.0 MB | 376 | 281 |
+| window open: every page seen | 123.6 MB | +39.2 | 178.6 MB | 28.1 / 30.0 MB | 1533 | 301 |
+| window closed and freed | 110.7 MB | -12.8 | 47.5 MB | 27.4 / 30.0 MB | 14 | 301 |
+| window open: Home | 116.9 MB | +6.2 | 90.7 MB | 26.7 / 30.0 MB | 451 | 301 |
+| window closed and freed | 107.4 MB | -9.5 | 45.2 MB | 26.4 / 30.0 MB | 14 | 301 |
+| window open: Home | 113.6 MB | +6.2 | 82.0 MB | 26.6 / 30.0 MB | 376 | 301 |
+| window closed and freed | 105.3 MB | -8.3 | 44.9 MB | 26.4 / 30.0 MB | 14 | 301 |
+| window open: Home | 110.4 MB | +5.1 | 79.9 MB | 26.7 / 30.0 MB | 376 | 301 |
+| Space map shown (266,736 files, 116 s) | 228.9 MB | +118.4 | 215.4 MB | 0.0 / 0.0 MB | 504 | 392 |
+| Space map forgotten (left for Home) | 208.5 MB | -20.3 | 58.4 MB | 0.0 / 0.0 MB | 511 | 392 |
+| window closed and freed | 156.7 MB | -51.8 | 54.4 MB | 34.0 / 64.0 MB | 14 | 392 |
+| window open: Home | 165.2 MB | +8.5 | 101.5 MB | 34.1 / 64.0 MB | 376 | 392 |
+| window open: every page seen | 178.3 MB | +13.1 | 134.3 MB | 35.3 / 63.0 MB | 1511 | 392 |
+| window closed and freed | 157.7 MB | -20.6 | 56.9 MB | 34.7 / 63.0 MB | 14 | 392 |
+
+### Memory map: window open, every page seen
+
+```
+process 2996: committed by kind
+  mapped                      469.3 MB
+  image (program files)       157.8 MB
+  private                     116.0 MB
+private, by block size (committed)
+  < 256 KB            1.4 MB in 55 blocks
+  256 KB - 1 MB      33.3 MB in 34 blocks
+  1 - 4 MB           25.9 MB in 9 blocks
+  4 - 16 MB          55.4 MB in 4 blocks
+  16 - 64 MB          0.0 MB in 0 blocks
+  > 64 MB             0.0 MB in 0 blocks
+biggest private blocks
+  0x0169082a0000     15.8 MB
+  0x01690a420000     15.8 MB
+  0x0169298e0000     15.8 MB
+  0x016906b30000      8.0 MB
+  0x016904a40000      4.0 MB
+  0x016910e80000      4.0 MB
+  0x0169143e0000      4.0 MB
+  0x01690c4b0000      4.0 MB
+  0x01690fb80000      3.1 MB
+  0x0169242d0000      2.4 MB
+  0x016904640000      2.0 MB
+  0x01692b230000      1.4 MB
+  0x016909a00000      1.0 MB
+  0x016904160000      1.0 MB
+  0x016904540000      1.0 MB
+  0x016904840000      1.0 MB
+  0x016904940000      1.0 MB
+  0x016904e40000      1.0 MB
+  0x016904f40000      1.0 MB
+  0x016905040000      1.0 MB
+threads, by the module they started in
+    7 ntdll.dll
+    7 ucrtbase.dll
+    5 Qt6Core.dll
+    1 python.exe
+    1 combase.dll
+    1 WINMM.dll
+    1 CRYPT32.dll
+```
+
+### Memory map: window closed and freed
+
+```
+process 2996: committed by kind
+  mapped                      466.0 MB
+  image (program files)       157.8 MB
+  private                     103.2 MB
+private, by block size (committed)
+  < 256 KB            1.4 MB in 55 blocks
+  256 KB - 1 MB      33.3 MB in 34 blocks
+  1 - 4 MB           23.6 MB in 8 blocks
+  4 - 16 MB          44.9 MB in 4 blocks
+  16 - 64 MB          0.0 MB in 0 blocks
+  > 64 MB             0.0 MB in 0 blocks
+biggest private blocks
+  0x0169082a0000     13.9 MB
+  0x01690a420000     12.5 MB
+  0x0169298e0000     10.5 MB
+  0x016906b30000      8.0 MB
+  0x016904a40000      4.0 MB
+  0x016910e80000      4.0 MB
+  0x0169143e0000      4.0 MB
+  0x01690c4b0000      4.0 MB
+  0x0169242d0000      2.4 MB
+  0x01692b230000      2.2 MB
+  0x016904640000      2.0 MB
+  0x016909a00000      1.0 MB
+  0x016904160000      1.0 MB
+  0x016904540000      1.0 MB
+  0x016904840000      1.0 MB
+  0x016904940000      1.0 MB
+  0x016904e40000      1.0 MB
+  0x016904f40000      1.0 MB
+  0x016905040000      1.0 MB
+  0x0169068f0000      1.0 MB
+threads, by the module they started in
+    7 ntdll.dll
+    7 ucrtbase.dll
+    5 Qt6Core.dll
+    1 python.exe
+    1 combase.dll
+    1 WINMM.dll
+    1 CRYPT32.dll
+```
+
+### Memory map: Space map forgotten
+
+```
+process 2996: committed by kind
+  mapped                      469.3 MB
+  image (program files)       182.0 MB
+  private                     163.0 MB
+private, by block size (committed)
+  < 256 KB            1.1 MB in 42 blocks
+  256 KB - 1 MB      67.3 MB in 68 blocks
+  1 - 4 MB           32.7 MB in 11 blocks
+  4 - 16 MB          62.0 MB in 6 blocks
+  16 - 64 MB          0.0 MB in 0 blocks
+  > 64 MB             0.0 MB in 0 blocks
+biggest private blocks
+  0x0169082a0000     14.2 MB
+  0x01690a420000     13.9 MB
+  0x0169298e0000     13.4 MB
+  0x016906b30000      7.8 MB
+  0x01692d140000      7.6 MB
+  0x01692b230000      5.1 MB
+  0x016904a40000      4.0 MB
+  0x016910e80000      4.0 MB
+  0x0169143e0000      4.0 MB
+  0x01690c4b0000      4.0 MB
+  0x01692ef20000      3.7 MB
+  0x01692c200000      3.1 MB
+  0x0169305f0000      2.8 MB
+  0x0169242d0000      2.4 MB
+  0x016904640000      2.0 MB
+  0x01690f940000      1.8 MB
+  0x016909a00000      1.0 MB
+  0x016904160000      1.0 MB
+  0x016904540000      1.0 MB
+  0x016904840000      1.0 MB
+threads, by the module they started in
+    4 ucrtbase.dll
+    4 Qt6Core.dll
+    3 ntdll.dll
+    1 python.exe
+    1 WINMM.dll
+```
