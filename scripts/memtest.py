@@ -247,9 +247,15 @@ def space_look():
         stats = snapshot.statistics("traceback")
         print(f"SURVIVORS: {sum(st.count for st in stats):,} blocks, {sum(st.size for st in stats) / 2**20:.1f} MB",
               flush=True)
-        for st in stats[:40]:
+
+        def imported(st):
+            return any("importlib" in fr.filename or fr.filename.endswith("linecache.py") for fr in st.traceback)
+        rest = [st for st in stats if not imported(st)]
+        print(f"SURVIVORS not from reading modules: {sum(st.count for st in rest):,} blocks, "
+              f"{sum(st.size for st in rest) / 2**20:.2f} MB, made at {len(rest):,} places", flush=True)
+        for st in rest[:60]:
             print(f"  {st.count:7,} blocks {st.size / 1024:9.1f} KB", flush=True)
-            for fr in st.traceback.format()[-16:]:
+            for fr in st.traceback.format()[-12:]:
                 print("     " + fr.strip(), flush=True)
     notes.append(f"Space folders still in memory after the maps were forgotten: {held_folders()}")
 
