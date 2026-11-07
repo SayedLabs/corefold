@@ -1,0 +1,42 @@
+2026-11-07 20:51:32,610 INFO window opened in 0.47 s: made 0.40 (sidebar 0.02, Home 0.25, laid out 0.03), brought up to date 0.00, shown 0.07, drawn 0.00
+2026-11-07 20:51:32,638 INFO the shortcut ctrl+win+t is used by another app
+2026-11-07 20:51:32,710 INFO running in the background: quick access
+2026-11-07 20:51:34,799 INFO archive files open with Rakiza Core
+2026-11-07 20:51:34,800 INFO running in the background: quick access, quick look
+2026-11-07 20:51:34,801 INFO tools in use: converter, archive, viewer, uninstaller
+2026-11-07 20:51:34,816 INFO image files open with Rakiza Core
+2026-11-07 20:51:34,824 INFO email files open with Rakiza Core
+2026-11-07 20:51:36,105 INFO right-click menu updated
+2026-11-07 20:51:42,436 INFO the shortcut win+shift+t is used by another app
+2026-11-07 20:51:42,436 INFO running in the background: capture, quick access, quick look
+2026-11-07 20:51:42,436 INFO tools in use: converter, archive, capture, viewer, uninstaller
+2026-11-07 20:51:46,819 INFO running in the background: capture, quick access, quick look
+2026-11-07 20:51:46,819 INFO tools in use: converter, archive, capture, viewer, space, uninstaller
+2026-11-07 20:51:48,117 INFO right-click menu updated
+2026-11-07 20:51:51,438 INFO running in the background: clipboard, capture, quick access, quick look
+2026-11-07 20:51:51,438 INFO tools in use: converter, archive, capture, viewer, space, uninstaller, clipboard
+2026-11-07 20:51:55,813 INFO running in the background: clipboard, capture, quick access, quick look
+2026-11-07 20:51:55,814 INFO tools in use: converter, archive, cloud, capture, viewer, space, uninstaller, clipboard
+2026-11-07 20:52:00,010 INFO running in the background: clipboard, capture, quick access, quick look
+2026-11-07 20:52:00,010 INFO tools in use: converter, archive, cloud, capture, viewer, space, uninstaller, startup, clipboard
+2026-11-07 20:52:04,447 INFO running in the background: clipboard, capture, quick access, quick look
+2026-11-07 20:52:04,448 INFO tools in use: converter, archive, cloud, capture, viewer, space, uninstaller, startup, scan, clipboard
+2026-11-07 20:52:05,820 INFO right-click menu updated
+2026-11-07 20:52:09,799 INFO running in the background: clipboard, capture, quick access, quick look
+2026-11-07 20:52:09,799 INFO tools in use: converter, pdf, archive, cloud, capture, viewer, space, uninstaller, startup, scan, clipboard
+2026-11-07 20:52:15,105 INFO running in the background: clipboard, capture, quick access, quick look
+2026-11-07 20:52:15,105 INFO tools in use: converter, pdf, archive, rename, cloud, capture, viewer, space, uninstaller, startup, scan, clipboard
+2026-11-07 20:52:19,613 INFO running in the background: clipboard, capture, quick access, colors, quick look
+2026-11-07 20:52:19,614 INFO tools in use: converter, pdf, archive, rename, cloud, capture, viewer, colors, space, uninstaller, startup, scan, clipboard
+2026-11-07 20:52:24,873 INFO running in the background: clipboard, capture, quick access, colors, quick look
+2026-11-07 20:52:24,873 INFO tools in use: converter, pdf, archive, rename, hash, cloud, capture, viewer, colors, space, uninstaller, startup, scan, clipboard
+2026-11-07 20:52:29,353 INFO running in the background: clipboard, capture, quick access, colors, quick look
+2026-11-07 20:52:29,353 INFO tools in use: converter, pdf, archive, rename, hash, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard
+2026-11-07 20:52:34,002 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:52:34,002 INFO tools in use: converter, pdf, archive, rename, hash, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:52:39,309 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:52:39,310 INFO tools in use: converter, pdf, archive, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:52:44,595 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:52:44,595 INFO tools in use: converter, pdf, archive, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:52:49,867 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:52:49,867 INFO tools in use: converter, pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake

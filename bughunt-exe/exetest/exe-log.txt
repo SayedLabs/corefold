@@ -1,0 +1,15 @@
+2026-11-07 20:53:45,542 INFO starting Rakiza Core 0.0.307-bughunt
+2026-11-07 20:53:45,667 INFO tools in use: converter, archive, uninstaller; resting for now: viewer, capture, clipboard, startup, scan, colors, awake, organizer
+2026-11-07 20:53:45,994 INFO window opened in 0.33 s: made 0.27 (sidebar 0.02, Home 0.21, laid out 0.02), brought up to date 0.01, shown 0.05, drawn 0.00
+2026-11-07 20:53:48,864 INFO right-click menu updated
+2026-11-07 20:53:52,245 INFO archive files open with Rakiza Core
+2026-11-07 20:53:54,383 INFO tools in use: converter, archive, space, uninstaller
+2026-11-07 20:53:55,162 INFO right-click menu updated
+2026-11-07 20:54:02,812 INFO tools in use: converter, archive, cloud, space, uninstaller
+2026-11-07 20:54:11,389 INFO tools in use: converter, pdf, archive, cloud, space, uninstaller
+2026-11-07 20:54:18,250 INFO tools in use: converter, pdf, archive, rename, cloud, space, uninstaller
+2026-11-07 20:54:25,995 INFO tools in use: converter, pdf, archive, rename, hash, cloud, space, uninstaller
+2026-11-07 20:54:31,027 INFO tidied up memory
+2026-11-07 20:54:31,904 INFO tools in use: converter, pdf, archive, rename, hash, cloud, space, uninstaller, network
+2026-11-07 20:54:39,655 INFO tools in use: converter, pdf, archive, rename, hash, backup, cloud, space, uninstaller, network
+2026-11-07 20:54:46,480 INFO tools in use: converter, pdf, archive, unlock, rename, hash, backup, cloud, space, uninstaller, network

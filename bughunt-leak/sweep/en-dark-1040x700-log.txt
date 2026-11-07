@@ -1,0 +1,834 @@
+2026-11-07 20:50:58,852 INFO the shortcut win+shift+t is used by another app
+2026-11-07 20:50:58,948 INFO the shortcut ctrl+win+t is used by another app
+2026-11-07 20:50:59,051 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:51:00,074 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:51:00,074 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:51:00,098 INFO archive files open with Rakiza Core
+2026-11-07 20:51:00,111 INFO image files open with Rakiza Core
+2026-11-07 20:51:00,114 INFO email files open with Rakiza Core
+2026-11-07 20:51:00,617 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:51:00,618 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:51:00,696 INFO right-click menu updated
+2026-11-07 20:51:01,360 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:51:01,360 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:51:01,912 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-11-07 20:51:01,913 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:51:02,438 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:51:02,439 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:51:05,641 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:51:05,641 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, clipboard, awake
+2026-11-07 20:51:06,164 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:06,165 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, awake
+2026-11-07 20:51:06,243 INFO right-click menu updated
+2026-11-07 20:51:06,710 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:06,710 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, startup, scan, network, awake
+2026-11-07 20:51:07,240 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:07,241 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, scan, network, awake
+2026-11-07 20:51:07,753 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:07,753 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:51:08,269 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:08,270 INFO tools in use: organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:51:08,828 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:08,828 INFO tools in use: organizer, unlock, hash, backup, colors, network, awake
+2026-11-07 20:51:09,326 INFO running in the background: quick access, awake
+2026-11-07 20:51:09,326 INFO tools in use: organizer, unlock, hash, backup, network, awake
+2026-11-07 20:51:09,830 INFO running in the background: quick access, awake
+2026-11-07 20:51:09,830 INFO tools in use: organizer, unlock, backup, network, awake
+2026-11-07 20:51:10,333 INFO running in the background: quick access, awake
+2026-11-07 20:51:10,333 INFO tools in use: organizer, unlock, backup, awake
+2026-11-07 20:51:10,839 INFO running in the background: quick access
+2026-11-07 20:51:10,839 INFO tools in use: organizer, unlock, backup
+2026-11-07 20:51:11,343 INFO running in the background: quick access
+2026-11-07 20:51:11,344 INFO tools in use: organizer, unlock
+2026-11-07 20:51:11,843 INFO running in the background: quick access
+2026-11-07 20:51:11,843 INFO tools in use: organizer
+2026-11-07 20:51:12,320 INFO running in the background: quick access
+2026-11-07 20:51:12,320 INFO tools in use: none
+2026-11-07 20:51:14,729 INFO running in the background: quick access
+2026-11-07 20:51:14,729 INFO tools in use: organizer
+2026-11-07 20:51:15,112 INFO running in the background: quick access
+2026-11-07 20:51:15,112 INFO tools in use: organizer, unlock
+2026-11-07 20:51:15,491 INFO running in the background: quick access
+2026-11-07 20:51:15,491 INFO tools in use: organizer, unlock, backup
+2026-11-07 20:51:15,886 INFO running in the background: quick access, awake
+2026-11-07 20:51:15,886 INFO tools in use: organizer, unlock, backup, awake
+2026-11-07 20:51:16,274 INFO running in the background: quick access, awake
+2026-11-07 20:51:16,274 INFO tools in use: organizer, unlock, backup, network, awake
+2026-11-07 20:51:16,655 INFO running in the background: quick access, awake
+2026-11-07 20:51:16,655 INFO tools in use: organizer, unlock, hash, backup, network, awake
+2026-11-07 20:51:17,036 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:17,036 INFO tools in use: organizer, unlock, hash, backup, colors, network, awake
+2026-11-07 20:51:17,425 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:17,425 INFO tools in use: organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:51:17,813 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:17,813 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:51:18,209 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:18,209 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, scan, network, awake
+2026-11-07 20:51:18,605 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:18,605 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, startup, scan, network, awake
+2026-11-07 20:51:18,995 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:18,995 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, awake
+2026-11-07 20:51:19,384 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:51:19,384 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, clipboard, awake
+2026-11-07 20:51:19,784 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:51:19,784 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:51:20,173 INFO the shortcut win+shift+t is used by another app
+2026-11-07 20:51:20,173 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-11-07 20:51:20,175 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:51:20,563 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:51:20,565 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:51:20,589 INFO image files open with Rakiza Core
+2026-11-07 20:51:20,593 INFO email files open with Rakiza Core
+2026-11-07 20:51:20,962 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:51:20,962 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:51:20,989 INFO archive files open with Rakiza Core
+2026-11-07 20:51:21,355 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:51:21,355 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:51:21,737 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:51:21,737 INFO tools in use: converter, pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:51:23,670 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:51:23,670 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:51:24,272 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:51:24,272 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:51:24,869 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:51:24,869 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:51:25,462 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-11-07 20:51:25,463 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:51:26,048 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:51:26,048 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:51:26,584 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:51:26,584 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, clipboard, awake
+2026-11-07 20:51:27,148 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:27,149 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, awake
+2026-11-07 20:51:27,725 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:27,725 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, startup, scan, network, awake
+2026-11-07 20:51:28,292 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:28,292 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, scan, network, awake
+2026-11-07 20:51:28,858 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:28,858 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:51:29,405 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:29,406 INFO tools in use: organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:51:29,991 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:29,992 INFO tools in use: organizer, unlock, hash, backup, colors, network, awake
+2026-11-07 20:51:30,531 INFO running in the background: quick access, awake
+2026-11-07 20:51:30,531 INFO tools in use: organizer, unlock, hash, backup, network, awake
+2026-11-07 20:51:31,096 INFO running in the background: quick access, awake
+2026-11-07 20:51:31,097 INFO tools in use: organizer, unlock, backup, network, awake
+2026-11-07 20:51:31,659 INFO running in the background: quick access, awake
+2026-11-07 20:51:31,659 INFO tools in use: organizer, unlock, backup, awake
+2026-11-07 20:51:32,216 INFO running in the background: quick access
+2026-11-07 20:51:32,217 INFO tools in use: organizer, unlock, backup
+2026-11-07 20:51:32,788 INFO running in the background: quick access
+2026-11-07 20:51:32,788 INFO tools in use: organizer, unlock
+2026-11-07 20:51:33,345 INFO running in the background: quick access
+2026-11-07 20:51:33,345 INFO tools in use: organizer
+2026-11-07 20:51:33,860 INFO running in the background: quick access
+2026-11-07 20:51:33,860 INFO tools in use: none
+2026-11-07 20:51:36,327 INFO running in the background: quick access
+2026-11-07 20:51:36,327 INFO tools in use: organizer
+2026-11-07 20:51:36,752 INFO running in the background: quick access
+2026-11-07 20:51:36,752 INFO tools in use: organizer, unlock
+2026-11-07 20:51:37,186 INFO running in the background: quick access
+2026-11-07 20:51:37,187 INFO tools in use: organizer, unlock, backup
+2026-11-07 20:51:37,609 INFO running in the background: quick access, awake
+2026-11-07 20:51:37,609 INFO tools in use: organizer, unlock, backup, awake
+2026-11-07 20:51:38,035 INFO running in the background: quick access, awake
+2026-11-07 20:51:38,035 INFO tools in use: organizer, unlock, backup, network, awake
+2026-11-07 20:51:38,095 INFO right-click menu updated
+2026-11-07 20:51:38,439 INFO running in the background: quick access, awake
+2026-11-07 20:51:38,439 INFO tools in use: organizer, unlock, hash, backup, network, awake
+2026-11-07 20:51:38,821 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:38,821 INFO tools in use: organizer, unlock, hash, backup, colors, network, awake
+2026-11-07 20:51:39,211 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:39,211 INFO tools in use: organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:51:39,596 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:39,596 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:51:39,977 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:39,977 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, scan, network, awake
+2026-11-07 20:51:40,368 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:40,369 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, startup, scan, network, awake
+2026-11-07 20:51:40,765 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:40,765 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, awake
+2026-11-07 20:51:41,151 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:51:41,151 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, clipboard, awake
+2026-11-07 20:51:41,541 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:51:41,541 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:51:41,923 INFO the shortcut win+shift+t is used by another app
+2026-11-07 20:51:41,923 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-11-07 20:51:41,925 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:51:42,321 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:51:42,321 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:51:42,348 INFO image files open with Rakiza Core
+2026-11-07 20:51:42,359 INFO email files open with Rakiza Core
+2026-11-07 20:51:42,722 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:51:42,722 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:51:42,748 INFO archive files open with Rakiza Core
+2026-11-07 20:51:43,110 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:51:43,110 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:51:43,502 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:51:43,502 INFO tools in use: converter, pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:51:45,425 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:51:45,425 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:51:46,024 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:51:46,025 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:51:46,603 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:51:46,603 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:51:47,188 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-11-07 20:51:47,188 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:51:47,771 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:51:47,771 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:51:48,325 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:51:48,326 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, clipboard, awake
+2026-11-07 20:51:48,894 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:48,894 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, awake
+2026-11-07 20:51:49,458 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:49,459 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, startup, scan, network, awake
+2026-11-07 20:51:50,017 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:50,017 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, scan, network, awake
+2026-11-07 20:51:50,583 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:50,584 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:51:51,133 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:51,133 INFO tools in use: organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:51:51,696 INFO running in the background: quick access, awake, colors
+2026-11-07 20:51:51,696 INFO tools in use: organizer, unlock, hash, backup, colors, network, awake
+2026-11-07 20:51:52,239 INFO running in the background: quick access, awake
+2026-11-07 20:51:52,239 INFO tools in use: organizer, unlock, hash, backup, network, awake
+2026-11-07 20:51:52,795 INFO running in the background: quick access, awake
+2026-11-07 20:51:52,795 INFO tools in use: organizer, unlock, backup, network, awake
+2026-11-07 20:51:53,337 INFO running in the background: quick access, awake
+2026-11-07 20:51:53,337 INFO tools in use: organizer, unlock, backup, awake
+2026-11-07 20:51:53,857 INFO running in the background: quick access
+2026-11-07 20:51:53,858 INFO tools in use: organizer, unlock, backup
+2026-11-07 20:51:54,411 INFO running in the background: quick access
+2026-11-07 20:51:54,411 INFO tools in use: organizer, unlock
+2026-11-07 20:51:54,951 INFO running in the background: quick access
+2026-11-07 20:51:54,952 INFO tools in use: organizer
+2026-11-07 20:51:55,448 INFO running in the background: quick access
+2026-11-07 20:51:55,449 INFO tools in use: none
+2026-11-07 20:51:57,889 INFO running in the background: quick access
+2026-11-07 20:51:57,889 INFO tools in use: organizer
+2026-11-07 20:51:58,295 INFO running in the background: quick access
+2026-11-07 20:51:58,295 INFO tools in use: organizer, unlock
+2026-11-07 20:51:58,702 INFO running in the background: quick access
+2026-11-07 20:51:58,702 INFO tools in use: organizer, unlock, backup
+2026-11-07 20:51:59,120 INFO running in the background: quick access, awake
+2026-11-07 20:51:59,120 INFO tools in use: organizer, unlock, backup, awake
+2026-11-07 20:51:59,532 INFO running in the background: quick access, awake
+2026-11-07 20:51:59,532 INFO tools in use: organizer, unlock, backup, network, awake
+2026-11-07 20:51:59,945 INFO running in the background: quick access, awake
+2026-11-07 20:51:59,946 INFO tools in use: organizer, unlock, hash, backup, network, awake
+2026-11-07 20:52:00,369 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:00,369 INFO tools in use: organizer, unlock, hash, backup, colors, network, awake
+2026-11-07 20:52:00,790 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:00,790 INFO tools in use: organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:52:01,211 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:01,211 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:52:01,628 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:01,628 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, scan, network, awake
+2026-11-07 20:52:02,043 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:02,043 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, startup, scan, network, awake
+2026-11-07 20:52:02,445 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:02,445 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, awake
+2026-11-07 20:52:02,838 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:52:02,838 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, clipboard, awake
+2026-11-07 20:52:03,227 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:52:03,227 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:52:03,611 INFO the shortcut win+shift+t is used by another app
+2026-11-07 20:52:03,611 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-11-07 20:52:03,613 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:52:04,001 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:52:04,001 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:52:04,027 INFO image files open with Rakiza Core
+2026-11-07 20:52:04,039 INFO email files open with Rakiza Core
+2026-11-07 20:52:04,403 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:52:04,403 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:52:04,431 INFO archive files open with Rakiza Core
+2026-11-07 20:52:04,803 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:52:04,803 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:52:05,188 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:52:05,188 INFO tools in use: converter, pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:52:07,116 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:52:07,116 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:52:07,731 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:52:07,731 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:52:08,323 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:52:08,323 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:52:08,930 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-11-07 20:52:08,931 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:52:09,527 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:52:09,527 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:52:10,074 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:52:10,075 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, clipboard, awake
+2026-11-07 20:52:10,662 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:10,662 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, awake
+2026-11-07 20:52:11,235 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:11,235 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, startup, scan, network, awake
+2026-11-07 20:52:11,809 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:11,810 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, scan, network, awake
+2026-11-07 20:52:12,373 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:12,373 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:52:12,922 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:12,922 INFO tools in use: organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:52:13,506 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:13,507 INFO tools in use: organizer, unlock, hash, backup, colors, network, awake
+2026-11-07 20:52:14,047 INFO running in the background: quick access, awake
+2026-11-07 20:52:14,048 INFO tools in use: organizer, unlock, hash, backup, network, awake
+2026-11-07 20:52:14,612 INFO running in the background: quick access, awake
+2026-11-07 20:52:14,613 INFO tools in use: organizer, unlock, backup, network, awake
+2026-11-07 20:52:15,168 INFO running in the background: quick access, awake
+2026-11-07 20:52:15,168 INFO tools in use: organizer, unlock, backup, awake
+2026-11-07 20:52:15,735 INFO running in the background: quick access
+2026-11-07 20:52:15,735 INFO tools in use: organizer, unlock, backup
+2026-11-07 20:52:16,304 INFO running in the background: quick access
+2026-11-07 20:52:16,304 INFO tools in use: organizer, unlock
+2026-11-07 20:52:16,858 INFO running in the background: quick access
+2026-11-07 20:52:16,858 INFO tools in use: organizer
+2026-11-07 20:52:17,364 INFO running in the background: quick access
+2026-11-07 20:52:17,364 INFO tools in use: none
+2026-11-07 20:52:19,819 INFO running in the background: quick access
+2026-11-07 20:52:19,819 INFO tools in use: organizer
+2026-11-07 20:52:20,248 INFO running in the background: quick access
+2026-11-07 20:52:20,248 INFO tools in use: organizer, unlock
+2026-11-07 20:52:20,681 INFO running in the background: quick access
+2026-11-07 20:52:20,681 INFO tools in use: organizer, unlock, backup
+2026-11-07 20:52:21,116 INFO running in the background: quick access, awake
+2026-11-07 20:52:21,116 INFO tools in use: organizer, unlock, backup, awake
+2026-11-07 20:52:21,225 INFO right-click menu updated
+2026-11-07 20:52:21,544 INFO running in the background: quick access, awake
+2026-11-07 20:52:21,544 INFO tools in use: organizer, unlock, backup, network, awake
+2026-11-07 20:52:21,924 INFO running in the background: quick access, awake
+2026-11-07 20:52:21,925 INFO tools in use: organizer, unlock, hash, backup, network, awake
+2026-11-07 20:52:22,305 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:22,305 INFO tools in use: organizer, unlock, hash, backup, colors, network, awake
+2026-11-07 20:52:22,686 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:22,686 INFO tools in use: organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:52:23,080 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:23,080 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:52:23,462 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:23,462 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, scan, network, awake
+2026-11-07 20:52:23,848 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:23,848 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, startup, scan, network, awake
+2026-11-07 20:52:24,237 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:24,237 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, awake
+2026-11-07 20:52:24,626 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:52:24,626 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, clipboard, awake
+2026-11-07 20:52:25,017 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:52:25,017 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:52:25,406 INFO the shortcut win+shift+t is used by another app
+2026-11-07 20:52:25,406 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-11-07 20:52:25,406 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:52:25,793 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:52:25,795 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:52:25,819 INFO image files open with Rakiza Core
+2026-11-07 20:52:25,821 INFO email files open with Rakiza Core
+2026-11-07 20:52:26,192 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:52:26,193 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:52:26,219 INFO archive files open with Rakiza Core
+2026-11-07 20:52:26,590 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:52:26,590 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:52:26,985 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:52:26,985 INFO tools in use: converter, pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:52:28,923 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:52:28,923 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:52:29,524 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:52:29,524 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:52:30,092 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:52:30,092 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:52:30,704 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-11-07 20:52:30,704 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:52:31,278 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:52:31,279 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:52:31,819 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:52:31,819 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, clipboard, awake
+2026-11-07 20:52:32,406 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:32,406 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, awake
+2026-11-07 20:52:32,978 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:32,978 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, startup, scan, network, awake
+2026-11-07 20:52:33,545 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:33,545 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, scan, network, awake
+2026-11-07 20:52:34,100 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:34,101 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:52:34,634 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:34,635 INFO tools in use: organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:52:35,200 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:35,200 INFO tools in use: organizer, unlock, hash, backup, colors, network, awake
+2026-11-07 20:52:35,740 INFO running in the background: quick access, awake
+2026-11-07 20:52:35,741 INFO tools in use: organizer, unlock, hash, backup, network, awake
+2026-11-07 20:52:36,286 INFO running in the background: quick access, awake
+2026-11-07 20:52:36,287 INFO tools in use: organizer, unlock, backup, network, awake
+2026-11-07 20:52:36,850 INFO running in the background: quick access, awake
+2026-11-07 20:52:36,850 INFO tools in use: organizer, unlock, backup, awake
+2026-11-07 20:52:37,370 INFO running in the background: quick access
+2026-11-07 20:52:37,370 INFO tools in use: organizer, unlock, backup
+2026-11-07 20:52:37,920 INFO running in the background: quick access
+2026-11-07 20:52:37,921 INFO tools in use: organizer, unlock
+2026-11-07 20:52:38,458 INFO running in the background: quick access
+2026-11-07 20:52:38,459 INFO tools in use: organizer
+2026-11-07 20:52:38,959 INFO running in the background: quick access
+2026-11-07 20:52:38,960 INFO tools in use: none
+2026-11-07 20:52:41,403 INFO running in the background: quick access
+2026-11-07 20:52:41,403 INFO tools in use: organizer
+2026-11-07 20:52:41,822 INFO running in the background: quick access
+2026-11-07 20:52:41,822 INFO tools in use: organizer, unlock
+2026-11-07 20:52:42,229 INFO running in the background: quick access
+2026-11-07 20:52:42,229 INFO tools in use: organizer, unlock, backup
+2026-11-07 20:52:42,639 INFO running in the background: quick access, awake
+2026-11-07 20:52:42,639 INFO tools in use: organizer, unlock, backup, awake
+2026-11-07 20:52:43,049 INFO running in the background: quick access, awake
+2026-11-07 20:52:43,049 INFO tools in use: organizer, unlock, backup, network, awake
+2026-11-07 20:52:43,477 INFO running in the background: quick access, awake
+2026-11-07 20:52:43,477 INFO tools in use: organizer, unlock, hash, backup, network, awake
+2026-11-07 20:52:43,901 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:43,901 INFO tools in use: organizer, unlock, hash, backup, colors, network, awake
+2026-11-07 20:52:44,316 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:44,316 INFO tools in use: organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:52:44,733 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:44,733 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:52:45,149 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:45,149 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, scan, network, awake
+2026-11-07 20:52:45,564 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:45,565 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, startup, scan, network, awake
+2026-11-07 20:52:45,951 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:45,952 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, awake
+2026-11-07 20:52:46,337 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:52:46,337 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, clipboard, awake
+2026-11-07 20:52:46,727 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:52:46,727 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:52:47,122 INFO the shortcut win+shift+t is used by another app
+2026-11-07 20:52:47,122 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-11-07 20:52:47,122 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:52:47,534 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:52:47,536 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:52:47,560 INFO image files open with Rakiza Core
+2026-11-07 20:52:47,570 INFO email files open with Rakiza Core
+2026-11-07 20:52:47,934 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:52:47,934 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:52:47,961 INFO archive files open with Rakiza Core
+2026-11-07 20:52:48,327 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:52:48,327 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:52:48,721 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:52:48,721 INFO tools in use: converter, pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:52:50,648 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:52:50,648 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:52:51,266 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:52:51,267 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:52:51,837 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:52:51,837 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:52:52,432 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-11-07 20:52:52,432 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:52:53,017 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:52:53,017 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:52:53,545 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:52:53,545 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, clipboard, awake
+2026-11-07 20:52:54,120 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:54,120 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, awake
+2026-11-07 20:52:54,692 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:54,692 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, startup, scan, network, awake
+2026-11-07 20:52:55,251 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:55,252 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, scan, network, awake
+2026-11-07 20:52:55,811 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:55,811 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:52:56,360 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:56,360 INFO tools in use: organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:52:56,940 INFO running in the background: quick access, awake, colors
+2026-11-07 20:52:56,941 INFO tools in use: organizer, unlock, hash, backup, colors, network, awake
+2026-11-07 20:52:57,468 INFO running in the background: quick access, awake
+2026-11-07 20:52:57,468 INFO tools in use: organizer, unlock, hash, backup, network, awake
+2026-11-07 20:52:58,060 INFO running in the background: quick access, awake
+2026-11-07 20:52:58,061 INFO tools in use: organizer, unlock, backup, network, awake
+2026-11-07 20:52:58,716 INFO running in the background: quick access, awake
+2026-11-07 20:52:58,716 INFO tools in use: organizer, unlock, backup, awake
+2026-11-07 20:52:59,319 INFO running in the background: quick access
+2026-11-07 20:52:59,319 INFO tools in use: organizer, unlock, backup
+2026-11-07 20:52:59,916 INFO running in the background: quick access
+2026-11-07 20:52:59,917 INFO tools in use: organizer, unlock
+2026-11-07 20:53:00,520 INFO running in the background: quick access
+2026-11-07 20:53:00,521 INFO tools in use: organizer
+2026-11-07 20:53:01,076 INFO running in the background: quick access
+2026-11-07 20:53:01,076 INFO tools in use: none
+2026-11-07 20:53:03,568 INFO running in the background: quick access
+2026-11-07 20:53:03,568 INFO tools in use: organizer
+2026-11-07 20:53:04,001 INFO running in the background: quick access
+2026-11-07 20:53:04,003 INFO tools in use: organizer, unlock
+2026-11-07 20:53:04,443 INFO running in the background: quick access
+2026-11-07 20:53:04,445 INFO tools in use: organizer, unlock, backup
+2026-11-07 20:53:04,501 INFO right-click menu updated
+2026-11-07 20:53:04,849 INFO running in the background: quick access, awake
+2026-11-07 20:53:04,851 INFO tools in use: organizer, unlock, backup, awake
+2026-11-07 20:53:05,243 INFO running in the background: quick access, awake
+2026-11-07 20:53:05,243 INFO tools in use: organizer, unlock, backup, network, awake
+2026-11-07 20:53:05,645 INFO running in the background: quick access, awake
+2026-11-07 20:53:05,645 INFO tools in use: organizer, unlock, hash, backup, network, awake
+2026-11-07 20:53:06,034 INFO running in the background: quick access, awake, colors
+2026-11-07 20:53:06,034 INFO tools in use: organizer, unlock, hash, backup, colors, network, awake
+2026-11-07 20:53:06,436 INFO running in the background: quick access, awake, colors
+2026-11-07 20:53:06,436 INFO tools in use: organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:53:06,833 INFO running in the background: quick access, awake, colors
+2026-11-07 20:53:06,835 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:53:07,224 INFO running in the background: quick access, awake, colors
+2026-11-07 20:53:07,224 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, scan, network, awake
+2026-11-07 20:53:07,645 INFO running in the background: quick access, awake, colors
+2026-11-07 20:53:07,645 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, startup, scan, network, awake
+2026-11-07 20:53:08,075 INFO running in the background: quick access, awake, colors
+2026-11-07 20:53:08,075 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, awake
+2026-11-07 20:53:08,516 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:53:08,516 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, clipboard, awake
+2026-11-07 20:53:08,937 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:53:08,938 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:53:09,354 INFO the shortcut win+shift+t is used by another app
+2026-11-07 20:53:09,355 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-11-07 20:53:09,355 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:53:09,753 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:53:09,753 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:53:09,782 INFO image files open with Rakiza Core
+2026-11-07 20:53:09,794 INFO email files open with Rakiza Core
+2026-11-07 20:53:10,150 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:53:10,152 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:53:10,181 INFO archive files open with Rakiza Core
+2026-11-07 20:53:10,552 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:53:10,554 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:53:10,961 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:53:10,961 INFO tools in use: converter, pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:53:13,594 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:53:13,596 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:53:14,642 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:53:14,644 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:53:15,755 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:53:15,757 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:53:16,866 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-11-07 20:53:16,867 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:53:17,907 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:53:17,909 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:53:18,761 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:53:18,763 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, clipboard, awake
+2026-11-07 20:53:19,783 INFO running in the background: quick access, awake, colors
+2026-11-07 20:53:19,785 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, awake
+2026-11-07 20:53:20,790 INFO running in the background: quick access, awake, colors
+2026-11-07 20:53:20,793 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, startup, scan, network, awake
+2026-11-07 20:53:21,717 INFO running in the background: quick access, awake, colors
+2026-11-07 20:53:21,719 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, scan, network, awake
+2026-11-07 20:53:22,663 INFO running in the background: quick access, awake, colors
+2026-11-07 20:53:22,665 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:53:23,549 INFO running in the background: quick access, awake, colors
+2026-11-07 20:53:23,551 INFO tools in use: organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:53:24,568 INFO running in the background: quick access, awake, colors
+2026-11-07 20:53:24,570 INFO tools in use: organizer, unlock, hash, backup, colors, network, awake
+2026-11-07 20:53:25,408 INFO running in the background: quick access, awake
+2026-11-07 20:53:25,409 INFO tools in use: organizer, unlock, hash, backup, network, awake
+2026-11-07 20:53:26,375 INFO running in the background: quick access, awake
+2026-11-07 20:53:26,377 INFO tools in use: organizer, unlock, backup, network, awake
+2026-11-07 20:53:27,213 INFO running in the background: quick access, awake
+2026-11-07 20:53:27,215 INFO tools in use: organizer, unlock, backup, awake
+2026-11-07 20:53:28,112 INFO running in the background: quick access
+2026-11-07 20:53:28,114 INFO tools in use: organizer, unlock, backup
+2026-11-07 20:53:29,010 INFO running in the background: quick access
+2026-11-07 20:53:29,012 INFO tools in use: organizer, unlock
+2026-11-07 20:53:29,855 INFO running in the background: quick access
+2026-11-07 20:53:29,857 INFO tools in use: organizer
+2026-11-07 20:53:30,571 INFO running in the background: quick access
+2026-11-07 20:53:30,573 INFO tools in use: none
+2026-11-07 20:53:33,502 INFO running in the background: quick access
+2026-11-07 20:53:33,504 INFO tools in use: organizer
+2026-11-07 20:53:34,165 INFO running in the background: quick access
+2026-11-07 20:53:34,168 INFO tools in use: organizer, unlock
+2026-11-07 20:53:34,848 INFO running in the background: quick access
+2026-11-07 20:53:34,850 INFO tools in use: organizer, unlock, backup
+2026-11-07 20:53:35,548 INFO running in the background: quick access, awake
+2026-11-07 20:53:35,550 INFO tools in use: organizer, unlock, backup, awake
+2026-11-07 20:53:36,252 INFO running in the background: quick access, awake
+2026-11-07 20:53:36,255 INFO tools in use: organizer, unlock, backup, network, awake
+2026-11-07 20:53:36,952 INFO running in the background: quick access, awake
+2026-11-07 20:53:36,954 INFO tools in use: organizer, unlock, hash, backup, network, awake
+2026-11-07 20:53:37,655 INFO running in the background: quick access, awake, colors
+2026-11-07 20:53:37,657 INFO tools in use: organizer, unlock, hash, backup, colors, network, awake
+2026-11-07 20:53:38,375 INFO running in the background: quick access, awake, colors
+2026-11-07 20:53:38,377 INFO tools in use: organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:53:39,126 INFO running in the background: quick access, awake, colors
+2026-11-07 20:53:39,129 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:53:39,823 INFO running in the background: quick access, awake, colors
+2026-11-07 20:53:39,825 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, scan, network, awake
+2026-11-07 20:53:40,521 INFO running in the background: quick access, awake, colors
+2026-11-07 20:53:40,523 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, startup, scan, network, awake
+2026-11-07 20:53:40,895 INFO right-click menu updated
+2026-11-07 20:53:41,270 INFO running in the background: quick access, awake, colors
+2026-11-07 20:53:41,272 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, awake
+2026-11-07 20:53:41,981 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:53:41,983 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, clipboard, awake
+2026-11-07 20:53:42,674 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:53:42,676 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:53:43,366 INFO the shortcut win+shift+t is used by another app
+2026-11-07 20:53:43,370 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-11-07 20:53:43,372 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:53:43,754 INFO right-click menu updated
+2026-11-07 20:53:44,114 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:53:44,116 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:53:44,224 INFO image files open with Rakiza Core
+2026-11-07 20:53:44,233 INFO email files open with Rakiza Core
+2026-11-07 20:53:44,816 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:53:44,818 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:53:44,928 INFO archive files open with Rakiza Core
+2026-11-07 20:53:45,527 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:53:45,529 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:53:46,218 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:53:46,220 INFO tools in use: converter, pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:53:48,496 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:53:48,496 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:53:50,056 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:53:50,059 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:53:51,171 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:53:51,173 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:53:52,298 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-11-07 20:53:52,300 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:53:53,384 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:53:53,386 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:53:54,253 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:53:54,255 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, clipboard, awake
+2026-11-07 20:53:55,297 INFO running in the background: quick access, awake, colors
+2026-11-07 20:53:55,300 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, awake
+2026-11-07 20:53:56,350 INFO running in the background: quick access, awake, colors
+2026-11-07 20:53:56,352 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, startup, scan, network, awake
+2026-11-07 20:53:57,331 INFO running in the background: quick access, awake, colors
+2026-11-07 20:53:57,334 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, scan, network, awake
+2026-11-07 20:53:58,312 INFO running in the background: quick access, awake, colors
+2026-11-07 20:53:58,314 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:53:59,205 INFO running in the background: quick access, awake, colors
+2026-11-07 20:53:59,207 INFO tools in use: organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:54:00,275 INFO running in the background: quick access, awake, colors
+2026-11-07 20:54:00,277 INFO tools in use: organizer, unlock, hash, backup, colors, network, awake
+2026-11-07 20:54:01,136 INFO running in the background: quick access, awake
+2026-11-07 20:54:01,138 INFO tools in use: organizer, unlock, hash, backup, network, awake
+2026-11-07 20:54:02,151 INFO running in the background: quick access, awake
+2026-11-07 20:54:02,153 INFO tools in use: organizer, unlock, backup, network, awake
+2026-11-07 20:54:03,111 INFO running in the background: quick access, awake
+2026-11-07 20:54:03,113 INFO tools in use: organizer, unlock, backup, awake
+2026-11-07 20:54:04,096 INFO running in the background: quick access
+2026-11-07 20:54:04,098 INFO tools in use: organizer, unlock, backup
+2026-11-07 20:54:05,091 INFO running in the background: quick access
+2026-11-07 20:54:05,093 INFO tools in use: organizer, unlock
+2026-11-07 20:54:06,015 INFO running in the background: quick access
+2026-11-07 20:54:06,017 INFO tools in use: organizer
+2026-11-07 20:54:06,780 INFO running in the background: quick access
+2026-11-07 20:54:06,782 INFO tools in use: none
+2026-11-07 20:54:09,847 INFO running in the background: quick access
+2026-11-07 20:54:09,848 INFO tools in use: organizer
+2026-11-07 20:54:10,570 INFO running in the background: quick access
+2026-11-07 20:54:10,572 INFO tools in use: organizer, unlock
+2026-11-07 20:54:11,323 INFO running in the background: quick access
+2026-11-07 20:54:11,325 INFO tools in use: organizer, unlock, backup
+2026-11-07 20:54:12,089 INFO running in the background: quick access, awake
+2026-11-07 20:54:12,092 INFO tools in use: organizer, unlock, backup, awake
+2026-11-07 20:54:12,869 INFO running in the background: quick access, awake
+2026-11-07 20:54:12,871 INFO tools in use: organizer, unlock, backup, network, awake
+2026-11-07 20:54:13,653 INFO running in the background: quick access, awake
+2026-11-07 20:54:13,657 INFO tools in use: organizer, unlock, hash, backup, network, awake
+2026-11-07 20:54:14,429 INFO running in the background: quick access, awake, colors
+2026-11-07 20:54:14,432 INFO tools in use: organizer, unlock, hash, backup, colors, network, awake
+2026-11-07 20:54:14,774 INFO right-click menu updated
+2026-11-07 20:54:15,221 INFO running in the background: quick access, awake, colors
+2026-11-07 20:54:15,223 INFO tools in use: organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:54:15,962 INFO running in the background: quick access, awake, colors
+2026-11-07 20:54:15,965 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:54:16,659 INFO running in the background: quick access, awake, colors
+2026-11-07 20:54:16,663 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, scan, network, awake
+2026-11-07 20:54:17,423 INFO running in the background: quick access, awake, colors
+2026-11-07 20:54:17,426 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, startup, scan, network, awake
+2026-11-07 20:54:18,170 INFO running in the background: quick access, awake, colors
+2026-11-07 20:54:18,173 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, awake
+2026-11-07 20:54:18,918 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:54:18,921 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, clipboard, awake
+2026-11-07 20:54:19,648 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:54:19,651 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:54:20,390 INFO the shortcut win+shift+t is used by another app
+2026-11-07 20:54:20,394 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-11-07 20:54:20,396 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:54:21,144 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:54:21,147 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:54:21,190 INFO image files open with Rakiza Core
+2026-11-07 20:54:21,201 INFO email files open with Rakiza Core
+2026-11-07 20:54:21,915 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:54:21,919 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:54:21,965 INFO archive files open with Rakiza Core
+2026-11-07 20:54:22,673 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:54:22,676 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:54:23,421 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:54:23,424 INFO tools in use: converter, pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:54:25,721 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:54:25,723 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:54:26,777 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:54:26,779 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:54:27,814 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:54:27,817 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:54:28,827 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-11-07 20:54:28,829 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:54:29,080 INFO right-click menu updated
+2026-11-07 20:54:29,839 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:54:29,841 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:54:30,612 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:54:30,614 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, clipboard, awake
+2026-11-07 20:54:31,567 INFO running in the background: quick access, awake, colors
+2026-11-07 20:54:31,569 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, awake
+2026-11-07 20:54:31,825 INFO right-click menu updated
+2026-11-07 20:54:32,521 INFO running in the background: quick access, awake, colors
+2026-11-07 20:54:32,523 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, startup, scan, network, awake
+2026-11-07 20:54:33,359 INFO running in the background: quick access, awake, colors
+2026-11-07 20:54:33,361 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, scan, network, awake
+2026-11-07 20:54:34,224 INFO running in the background: quick access, awake, colors
+2026-11-07 20:54:34,226 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:54:35,003 INFO running in the background: quick access, awake, colors
+2026-11-07 20:54:35,005 INFO tools in use: organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:54:35,988 INFO running in the background: quick access, awake, colors
+2026-11-07 20:54:35,990 INFO tools in use: organizer, unlock, hash, backup, colors, network, awake
+2026-11-07 20:54:36,737 INFO running in the background: quick access, awake
+2026-11-07 20:54:36,739 INFO tools in use: organizer, unlock, hash, backup, network, awake
+2026-11-07 20:54:37,607 INFO running in the background: quick access, awake
+2026-11-07 20:54:37,609 INFO tools in use: organizer, unlock, backup, network, awake
+2026-11-07 20:54:38,444 INFO running in the background: quick access, awake
+2026-11-07 20:54:38,446 INFO tools in use: organizer, unlock, backup, awake
+2026-11-07 20:54:39,302 INFO running in the background: quick access
+2026-11-07 20:54:39,304 INFO tools in use: organizer, unlock, backup
+2026-11-07 20:54:40,159 INFO running in the background: quick access
+2026-11-07 20:54:40,161 INFO tools in use: organizer, unlock
+2026-11-07 20:54:40,970 INFO running in the background: quick access
+2026-11-07 20:54:40,972 INFO tools in use: organizer
+2026-11-07 20:54:41,654 INFO running in the background: quick access
+2026-11-07 20:54:41,656 INFO tools in use: none
+2026-11-07 20:54:44,629 INFO running in the background: quick access
+2026-11-07 20:54:44,631 INFO tools in use: organizer
+2026-11-07 20:54:45,273 INFO running in the background: quick access
+2026-11-07 20:54:45,275 INFO tools in use: organizer, unlock
+2026-11-07 20:54:45,929 INFO running in the background: quick access
+2026-11-07 20:54:45,931 INFO tools in use: organizer, unlock, backup
+2026-11-07 20:54:46,619 INFO running in the background: quick access, awake
+2026-11-07 20:54:46,622 INFO tools in use: organizer, unlock, backup, awake
+2026-11-07 20:54:47,292 INFO running in the background: quick access, awake
+2026-11-07 20:54:47,294 INFO tools in use: organizer, unlock, backup, network, awake
+2026-11-07 20:54:47,982 INFO running in the background: quick access, awake
+2026-11-07 20:54:47,985 INFO tools in use: organizer, unlock, hash, backup, network, awake
+2026-11-07 20:54:48,687 INFO running in the background: quick access, awake, colors
+2026-11-07 20:54:48,689 INFO tools in use: organizer, unlock, hash, backup, colors, network, awake
+2026-11-07 20:54:49,359 INFO running in the background: quick access, awake, colors
+2026-11-07 20:54:49,361 INFO tools in use: organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:54:50,040 INFO running in the background: quick access, awake, colors
+2026-11-07 20:54:50,042 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:54:50,726 INFO running in the background: quick access, awake, colors
+2026-11-07 20:54:50,729 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, scan, network, awake
+2026-11-07 20:54:51,443 INFO running in the background: quick access, awake, colors
+2026-11-07 20:54:51,446 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, startup, scan, network, awake
+2026-11-07 20:54:51,780 INFO right-click menu updated
+2026-11-07 20:54:52,210 INFO running in the background: quick access, awake, colors
+2026-11-07 20:54:52,212 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, awake
+2026-11-07 20:54:52,948 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:54:52,950 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, clipboard, awake
+2026-11-07 20:54:53,646 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:54:53,648 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:54:54,357 INFO the shortcut win+shift+t is used by another app
+2026-11-07 20:54:54,360 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-11-07 20:54:54,364 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:54:54,773 INFO right-click menu updated
+2026-11-07 20:54:55,143 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:54:55,146 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:54:55,255 INFO image files open with Rakiza Core
+2026-11-07 20:54:55,266 INFO email files open with Rakiza Core
+2026-11-07 20:54:55,874 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:54:55,876 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:54:55,997 INFO archive files open with Rakiza Core
+2026-11-07 20:54:56,600 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:54:56,602 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:54:57,340 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:54:57,342 INFO tools in use: converter, pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:54:59,683 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:54:59,687 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:55:01,279 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:55:01,281 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:55:02,369 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:55:02,371 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:55:03,524 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-11-07 20:55:03,526 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:55:04,620 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:55:04,622 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:55:05,498 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:55:05,501 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, clipboard, awake
+2026-11-07 20:55:06,561 INFO running in the background: quick access, awake, colors
+2026-11-07 20:55:06,562 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, awake
+2026-11-07 20:55:07,604 INFO running in the background: quick access, awake, colors
+2026-11-07 20:55:07,606 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, startup, scan, network, awake
+2026-11-07 20:55:08,579 INFO running in the background: quick access, awake, colors
+2026-11-07 20:55:08,581 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, scan, network, awake
+2026-11-07 20:55:09,568 INFO running in the background: quick access, awake, colors
+2026-11-07 20:55:09,570 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:55:10,460 INFO running in the background: quick access, awake, colors
+2026-11-07 20:55:10,462 INFO tools in use: organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:55:11,511 INFO running in the background: quick access, awake, colors
+2026-11-07 20:55:11,513 INFO tools in use: organizer, unlock, hash, backup, colors, network, awake
+2026-11-07 20:55:12,370 INFO running in the background: quick access, awake
+2026-11-07 20:55:12,372 INFO tools in use: organizer, unlock, hash, backup, network, awake
+2026-11-07 20:55:13,369 INFO running in the background: quick access, awake
+2026-11-07 20:55:13,371 INFO tools in use: organizer, unlock, backup, network, awake
+2026-11-07 20:55:14,325 INFO running in the background: quick access, awake
+2026-11-07 20:55:14,327 INFO tools in use: organizer, unlock, backup, awake
+2026-11-07 20:55:15,346 INFO running in the background: quick access
+2026-11-07 20:55:15,348 INFO tools in use: organizer, unlock, backup
+2026-11-07 20:55:16,338 INFO running in the background: quick access
+2026-11-07 20:55:16,339 INFO tools in use: organizer, unlock
+2026-11-07 20:55:17,251 INFO running in the background: quick access
+2026-11-07 20:55:17,253 INFO tools in use: organizer
+2026-11-07 20:55:18,020 INFO running in the background: quick access
+2026-11-07 20:55:18,022 INFO tools in use: none
+2026-11-07 20:55:21,088 INFO running in the background: quick access
+2026-11-07 20:55:21,089 INFO tools in use: organizer
+2026-11-07 20:55:21,839 INFO running in the background: quick access
+2026-11-07 20:55:21,841 INFO tools in use: organizer, unlock
+2026-11-07 20:55:22,618 INFO running in the background: quick access
+2026-11-07 20:55:22,621 INFO tools in use: organizer, unlock, backup
+2026-11-07 20:55:23,392 INFO running in the background: quick access, awake
+2026-11-07 20:55:23,395 INFO tools in use: organizer, unlock, backup, awake
+2026-11-07 20:55:24,186 INFO running in the background: quick access, awake
+2026-11-07 20:55:24,189 INFO tools in use: organizer, unlock, backup, network, awake
+2026-11-07 20:55:24,985 INFO running in the background: quick access, awake
+2026-11-07 20:55:24,988 INFO tools in use: organizer, unlock, hash, backup, network, awake
+2026-11-07 20:55:25,764 INFO running in the background: quick access, awake, colors
+2026-11-07 20:55:25,766 INFO tools in use: organizer, unlock, hash, backup, colors, network, awake
+2026-11-07 20:55:26,532 INFO running in the background: quick access, awake, colors
+2026-11-07 20:55:26,536 INFO tools in use: organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:55:26,802 INFO right-click menu updated
+2026-11-07 20:55:27,270 INFO running in the background: quick access, awake, colors
+2026-11-07 20:55:27,273 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, network, awake
+2026-11-07 20:55:28,004 INFO running in the background: quick access, awake, colors
+2026-11-07 20:55:28,006 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, scan, network, awake
+2026-11-07 20:55:28,772 INFO running in the background: quick access, awake, colors
+2026-11-07 20:55:28,774 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, colors, startup, scan, network, awake
+2026-11-07 20:55:29,548 INFO running in the background: quick access, awake, colors
+2026-11-07 20:55:29,551 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, awake
+2026-11-07 20:55:30,311 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:55:30,314 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, startup, scan, network, clipboard, awake
+2026-11-07 20:55:31,057 INFO running in the background: clipboard, quick access, awake, colors
+2026-11-07 20:55:31,059 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:55:31,804 INFO the shortcut win+shift+t is used by another app
+2026-11-07 20:55:31,808 INFO running in the background: clipboard, capture, quick access, awake, colors
+2026-11-07 20:55:31,810 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:55:32,571 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:55:32,573 INFO tools in use: pdf, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:55:32,616 INFO image files open with Rakiza Core
+2026-11-07 20:55:32,634 INFO email files open with Rakiza Core
+2026-11-07 20:55:33,349 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:55:33,352 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, startup, scan, network, clipboard, awake
+2026-11-07 20:55:33,400 INFO archive files open with Rakiza Core
+2026-11-07 20:55:34,126 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:55:34,128 INFO tools in use: pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:55:34,901 INFO running in the background: clipboard, capture, quick access, awake, colors, quick look
+2026-11-07 20:55:34,903 INFO tools in use: converter, pdf, archive, organizer, unlock, rename, hash, backup, cloud, capture, viewer, colors, space, uninstaller, startup, scan, network, clipboard, awake
+2026-11-07 20:55:37,442 INFO tidied up memory
+2026-11-07 20:55:44,272 INFO window opened in 0.43 s: made 0.38 (sidebar 0.01, heads 0.01, Home 0.08, Converter 0.01, page opened 0.08, laid out 0.18), brought up to date 0.01, shown 0.03, drawn 0.00
+2026-11-07 20:55:48,164 INFO window opened in 0.31 s: made 0.24 (Home 0.05, Converter 0.01, page opened 0.03, laid out 0.11), brought up to date 0.04, shown 0.03, drawn 0.00
+2026-11-07 20:55:49,597 INFO window opened in 0.41 s: made 0.36 (sidebar 0.01, Home 0.06, Converter 0.01, page opened 0.08, laid out 0.18), brought up to date 0.01, shown 0.03, drawn 0.00
+2026-11-07 20:55:54,036 INFO window opened in 0.33 s: made 0.25 (sidebar 0.01, Home 0.06, Converter 0.01, page opened 0.03, laid out 0.12), brought up to date 0.04, shown 0.03, drawn 0.00
+2026-11-07 20:55:55,471 INFO window opened in 0.42 s: made 0.37 (Home 0.05, Converter 0.01, page opened 0.10, laid out 0.19), brought up to date 0.01, shown 0.04, drawn 0.00
+2026-11-07 20:55:59,287 INFO right-click menu updated
+2026-11-07 20:55:59,365 INFO window opened in 0.29 s: made 0.23 (Home 0.06, Converter 0.01, page opened 0.03, laid out 0.10), brought up to date 0.03, shown 0.03, drawn 0.00
+2026-11-07 20:56:00,697 INFO window opened in 0.29 s: made 0.25 (Home 0.04, page opened 0.07, laid out 0.12), brought up to date 0.01, shown 0.03, drawn 0.00
+2026-11-07 20:56:05,684 INFO window opened in 0.29 s: made 0.25 (Home 0.04, page opened 0.07, laid out 0.12), brought up to date 0.01, shown 0.03, drawn 0.00
+2026-11-07 20:56:11,129 INFO window opened in 0.29 s: made 0.25 (Home 0.04, page opened 0.07, laid out 0.12), brought up to date 0.01, shown 0.03, drawn 0.00
+2026-11-07 20:56:16,089 INFO window opened in 0.29 s: made 0.25 (Home 0.04, page opened 0.07, laid out 0.12), brought up to date 0.01, shown 0.03, drawn 0.00
+2026-11-07 20:56:21,606 INFO window opened in 0.29 s: made 0.25 (Home 0.04, page opened 0.07, laid out 0.12), brought up to date 0.01, shown 0.03, drawn 0.00
+2026-11-07 20:56:26,613 INFO window opened in 0.31 s: made 0.27 (Home 0.04, Converter 0.01, page opened 0.09, laid out 0.11), brought up to date 0.01, shown 0.03, drawn 0.00
+2026-11-07 20:56:31,580 INFO window opened in 0.29 s: made 0.25 (Home 0.04, page opened 0.06, laid out 0.12), brought up to date 0.01, shown 0.03, drawn 0.00
