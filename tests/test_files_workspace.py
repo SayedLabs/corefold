@@ -82,7 +82,8 @@ def test_every_tool_has_a_stable_id_a_name_a_line_and_a_category():
     for key in ("convert", "pdf.merge", "pdf.compress", "pdf.split", "archive.extract", "archive.pack",
                 "archive.open", "rename", "backup", "check", "unlock"):
         assert key in ids, key
-    assert set(ft.DEFAULT_PINS) <= set(ids)
+        assert ft.family_of(next(t for t in tools if t.id == key)) is not None, key  # (each has its tile)
+    assert set(ft.DEFAULT_PINS) <= {f.id for f in ft.FAMILIES}
 
 
 def test_clear_names_for_check_and_unlock():
@@ -122,11 +123,16 @@ def test_what_fits_and_why_not(files):
 def test_pins_are_kept(window):
     w = window
     ws = w.files_workspace
-    assert [t.id for t in ft.pinned(w.c.settings)] == ft.DEFAULT_PINS
-    ws.pin("pdf.split", True)
-    ws.pin("rename", False)
+    assert ft.pinned_families(w.c.settings) == ft.DEFAULT_PINS
+    ws.pin("rename", True)
+    ws.pin("archive", False)
     again = settings_mod.Settings.load()
-    assert "pdf.split" in again.files_pinned and "rename" not in again.files_pinned
+    assert "rename" in again.files_pinned and "archive" not in again.files_pinned
+    assert ft.pinned_families(again) == ["pdf", "rename"]
+    order = [t.id for t in ft.suggested_order(again, ft.offered(again))]
+    assert order.index("rename") < order.index("convert")  # (pinned tools come first beside a selection)
+    again.files_pinned = ["pdf.split", "convert"]  # (pins kept by an older version: their tiles)
+    assert ft.pinned_families(again) == ["pdf", "convert"]
 
 
 def test_coming_is_kept_apart():
@@ -179,21 +185,93 @@ def test_the_operations_come_from_the_jobs(files):
 
 # ---- the workspace
 
+def _chips(ws):
+    return {b.property("tool") for b in ws.panel.findChildren(QPushButton) if b.objectName() == "toolChip"
+            and b.property("tool")}
+
+
 def test_empty_then_files_with_the_tools_that_fit(window, files):
     w = window
     ws = w.files_workspace
-    assert ws.center.currentIndex() == 0 and ws.pins_grid.tiles  # (the drop area and the pinned tools)
-    assert not ws.panel.isVisible()
+    assert ws.drop.big and not ws.table.isVisible()  # (the big place to drop, with buttons to pick)
+    assert ws.library.isVisible() and ws.library.tiles  # (the tool library under it)
     w.c.files_work.add([files / "letter.pdf", files / "bill.pdf"])
-    assert ws.center.currentIndex() == 1 and ws.table.topLevelItemCount() == 2
+    assert not ws.drop.big and ws.table.topLevelItemCount() == 2
     if not ws.panel.isVisible():  # (a narrow window: it's a click away)
         assert ws.tools_btn.isVisible()
         ws.tools_btn.click()
     assert ws.panel.isVisible()
-    from corefold.fileworkspace import ToolTile
-    shown = {t.tool.id for t in ws.panel.findChildren(ToolTile) if not t.why_not}
+    shown = _chips(ws)
     assert "pdf.merge" in shown and "pdf.edit" not in shown  # (two PDFs: editing is one at a time)
     assert "convert" not in shown  # (PDFs aren't the Converter's here)
+    assert ws.panel.head_words.text() == "2 files selected"
+
+
+def test_the_tick_boxes_select_rows(window, files):
+    from corefold.fileworkspace import COL_CHECK
+    w = window
+    ws = w.files_workspace
+    st = w.c.files_work
+    st.add([files / "photo.jpg", files / "letter.pdf", files / "bill.pdf"])
+    st.select([])
+    ws._fill_table()
+    assert st.selected == []
+    ws._toggle_all()  # (the heading's box: all of them)
+    assert len(st.selected) == 3
+    from PySide6.QtCore import QItemSelectionModel
+    table = ws.table
+    idx = table.model().index(0, COL_CHECK)
+    table.selectionModel().select(idx, QItemSelectionModel.Toggle | QItemSelectionModel.Rows)
+    assert len(st.selected) == 2  # (one box off, the others stay)
+    ws._toggle_all()
+    assert len(st.selected) == 3
+    ws._toggle_all()
+    assert st.selected == []
+
+
+def test_a_tile_shows_its_tools_beside_the_files(window, files):
+    w = window
+    ws = w.files_workspace
+    st = w.c.files_work
+    st.add([files / "letter.pdf", files / "bill.pdf"])
+    ws.choose_family("pdf")
+    assert st.family == "pdf" and st.tool == "pdf.merge"  # (the one that fits them best, picked already)
+    assert all(t.startswith("pdf.") for t in _chips(ws))
+    read = ft.by_id("pdf.read")
+    assert read is not None and not read.settings  # (nothing asked when it's picked)
+    ws.choose_tool("pdf.read", keep_family=True)  # (a chip: the tile stays picked)
+    assert st.family == "pdf" and st.tool == "pdf.read"
+    ws.clear_family()
+    assert st.family is None and st.tool == "pdf.read"
+
+
+def test_merge_right_in_the_side_panel(window, files, qtbot, tmp_path):
+    from pypdf import PdfReader
+    w = window
+    ws = w.files_workspace
+    st = w.c.files_work
+    st.add([files / "letter.pdf", files / "bill.pdf"])
+    ws.choose_family("pdf")
+    form = ws.panel.merge
+    assert form is not None and [p.name for p in form.order()] == ["letter.pdf", "bill.pdf"]
+    assert ws.panel.run_btn.text() == "Merge 2 files"
+    item = form.list.takeItem(1)  # (bill first: the order is what's shown)
+    form.list.insertItem(0, item)
+    form.name.setText("Both.pdf")
+    out = tmp_path / "out"
+    out.mkdir()
+    ws.panel.save_to.insertItem(0, "out", str(out))
+    ws.panel.save_to.setCurrentIndex(0)
+    ws.panel.run_btn.click()
+    qtbot.waitUntil(lambda: bool(st.ops) and st.ops[0].over, timeout=15000)
+    assert st.ops[0].state == fw.FINISHED, st.ops[0].detail
+    made = out / "Both.pdf"
+    assert made.exists() and len(PdfReader(made).pages) == 3
+    assert st.save_to is None  # (only for what was started from the panel)
+    row = ws.ops.rows[st.ops[0].job_id]
+    assert row.folder.isVisibleTo(ws.ops) and not row.bar.isVisibleTo(ws.ops)
+    st.forget(st.ops[0].job_id)
+    assert not st.ops and not ws.ops.rows
 
 
 def test_a_tool_first_then_its_files(window, files):
@@ -281,16 +359,19 @@ def test_remove_from_list_and_the_library(window, files):
     ws.open_library("now")
     assert ws.library.isVisible()
     ws.library.search.setText("merge")
-    from corefold.fileworkspace import ComingCard, ToolTile
-    tiles = [t.tool.id for t in ws.library.findChildren(ToolTile)]
+    from corefold.fileworkspace import ComingTile, LibTile
+    tiles = [t.tool.id for t in ws.library.tiles]
     assert tiles == ["pdf.merge"]
     ws.library.search.clear()
+    assert {t.family.id for t in ws.library.tiles} >= {"convert", "pdf", "archive"}  # (a tile for each)
     ws.library.show_tab("soon")
-    cards = ws.library.findChildren(ComingCard)
-    assert cards and not ws.library.findChildren(ToolTile)  # (what's coming can't be picked)
+    QApplication.processEvents()
+    cards = [c for c in ws.library.findChildren(ComingTile) if c.isVisibleTo(ws.library)]
+    shown = [t for t in ws.library.findChildren(LibTile) if t.isVisibleTo(ws.library)]
+    assert cards and not shown  # (what's coming can't be picked)
     assert all(not isinstance(c, QPushButton) for c in cards)
     ws.close_library()
-    assert not ws.library.isVisible() and len(st.items) == 1  # (the files stay)
+    assert ws.library.tab == "now" and len(st.items) == 1  # (the files stay)
 
 
 def test_files_dropped_on_the_window_go_to_the_workspace(window, files):

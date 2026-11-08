@@ -250,11 +250,9 @@ def switch_cards(w, sec_page):
     from corefold.window import ToolSwitchCard
     cards = {card.tool.id: card for card in page_widget(w, sec_page).findChildren(ToolSwitchCard)}
     sec = all_tools.SECTION_BY_PAGE[sec_page]
-    if not cards and sec.one_tool and w.current_page() == sec_page:  # (Files: in All tools, "Switch tools on or off")
+    if not cards and sec.one_tool and w.current_page() == sec_page:  # (Files: in its tool library, "Switch tools on or off")
         ws = getattr(w, "files_workspace", None)
         if check(ws is not None, f"{sec_page} has its workspace"):
-            click(ws.all_btn)
-            settle(0.3)
             if check(ws.library.manage_btn.isVisible(), f"{sec_page}'s tools can be switched on or off"):
                 click(ws.library.manage_btn)
                 settle(0.3)

@@ -86,7 +86,8 @@ WARM_PAGES = ("PDF",)
 # the modules a page needs that are slow to read from a cold disk the first time (2.6 s for Network on a test
 # PC; Scan's 0.46 s on a test runner): read on a thread soon after the window opens, when that tool is in use, so
 # opening it doesn't wait
-PAGE_MODULES = {"Network": ("network", "networkpage"), "Scan": ("scan", "scanpage")}
+PAGE_MODULES = {"Network": ("network", "networkpage"), "Scan": ("scan", "scanpage"),
+                "Files": ("filetools", "fileworkspace", "pdftools", "pdfpage")}
 REMADE_PAGES = {*SETTINGS_PAGES, *SECTION_PAGES, "History", "Updates", "About", "Soon"}
 # the words Ctrl + K finds on each Settings page, kept for pages that aren't made yet (per version and language)
 SETTING_WORDS = LOG_DIR / "setting-words.json"

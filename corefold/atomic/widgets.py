@@ -348,10 +348,16 @@ class FlowLayout(QLayout):
         super().__init__(parent)
         self._items = []
         self._spacing = spacing
+        self._hfw = None   # (the last width asked about and its height: asked many times while laying out)
         self.setContentsMargins(0, 0, 0, 0)
 
     def addItem(self, item):
         self._items.append(item)
+        self._hfw = None
+
+    def invalidate(self):
+        self._hfw = None
+        super().invalidate()
 
     def count(self):
         return len(self._items)
@@ -360,6 +366,7 @@ class FlowLayout(QLayout):
         return self._items[i] if 0 <= i < len(self._items) else None
 
     def takeAt(self, i):
+        self._hfw = None
         return self._items.pop(i) if 0 <= i < len(self._items) else None
 
     def expandingDirections(self):
@@ -369,7 +376,9 @@ class FlowLayout(QLayout):
         return True
 
     def heightForWidth(self, width):
-        return self._place(QRect(0, 0, width, 0), True)
+        if self._hfw is None or self._hfw[0] != width:
+            self._hfw = (width, self._place(QRect(0, 0, width, 0), True))
+        return self._hfw[1]
 
     def setGeometry(self, rect):
         super().setGeometry(rect)

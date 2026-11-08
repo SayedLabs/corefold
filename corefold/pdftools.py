@@ -214,6 +214,26 @@ ARRANGED = Tool("pdftool:arranged", tr("Save"), tr("Save the pages as a new PDF"
                 renames=False)
 
 
+def merge_files(files: list[Path], ctx: Ctx) -> Result:
+    """Whole PDFs one after another, in the order given (Files' Merge, from its side panel).
+    ctx.params: name (for the new file), passwords {path: password}."""
+    passwords = ctx.params.get("passwords") or {}
+    readers = [open_reader(f, passwords.get(str(f), "")) for f in files]
+    pages = [(i, n, 0) for i, r in enumerate(readers) for n in range(len(r.pages))]
+    if not pages:
+        raise RuntimeError(tr("there are no pages left"))
+    raw = str(ctx.params.get("name", "")).strip()
+    if raw.lower().endswith(".pdf"):
+        raw = raw[:-4]
+    name = safe_name(raw) or ctx.stem(files[0])
+    out = ctx.out_path(files[0], name + ".pdf")
+    write(_pages_writer(readers, pages, ctx), out)
+    return Result([out])
+
+
+MERGE = Tool("pdftool:merge", tr("Merge PDFs"), tr("Merge PDFs"), merge_files, batch=True, renames=False)
+
+
 # ----------------------------------------------------------------------------- split and take pages out
 
 def split(src: Path, ctx: Ctx) -> Result:

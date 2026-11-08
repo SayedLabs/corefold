@@ -86,6 +86,8 @@ def table_texts() -> dict[str, str]:
         add([tool.name, tool.line], "filetools tools")
     add(fileworkspace.STATE_WORDS.values(), "fileworkspace.STATE_WORDS")
     add(fileworkspace.KIND_WORDS.values(), "fileworkspace.KIND_WORDS")
+    add([fam.name for fam in filetools.FAMILIES], "filetools.FAMILIES")
+    add(fileworkspace.CHIP_NAMES.values(), "fileworkspace.CHIP_NAMES")
     add([v[0] for v in moretools.CROP_RATIOS.values()], "CROP_RATIOS")
     add(moretools.STICKERS_IMAGE.values(), "STICKERS_IMAGE")
     add(moretools.STICKERS_VIDEO.values(), "STICKERS_VIDEO")

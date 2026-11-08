@@ -116,6 +116,11 @@ def all_tools_list() -> list[FileTool]:
     return _ALL
 
 
+def tools_read() -> bool:
+    """The list has been read (PDF's actions with it)."""
+    return _ALL is not None
+
+
 def by_id(tool_id: str) -> FileTool | None:
     return next((t for t in all_tools_list() if t.id == tool_id), None)
 
@@ -125,23 +130,91 @@ def offered(settings) -> list[FileTool]:
     return [t for t in all_tools_list() if all_tools.is_on(settings, t.owner)]
 
 
-# pinned to begin with (shown before any file is added)
-DEFAULT_PINS = ["convert", "pdf.merge", "pdf.compress", "archive.pack", "rename", "check"]
+# ---- the library's tiles: one for each of Rakiza Core's tools in Files (PDF holds all its actions, Archive its three)
+
+@dataclass(frozen=True)
+class Family:
+    id: str
+    owner: str               # tools.py's tool
+    name: str
+    icon: str
+    category: str
+
+
+FAMILIES = [Family("convert", "converter", "Convert", "arrow_swap", "convert"),
+            Family("archive", "archive", "Archive", "archive", "archive"),
+            Family("pdf", "pdf", "PDF", "document_pdf", "pdf"),
+            Family("rename", "rename", "Rename", "rename", "organize"),
+            Family("organizer", "organizer", "Organize", "folder", "organize"),
+            Family("unlock", "unlock", "Unlock", "lock_open", "protect"),
+            Family("check", "hash", "Verify", "shield_checkmark", "protect"),
+            Family("backup", "backup", "Backup", "arrow_upload", "organize")]
+FAMILY_BY_ID = {f.id: f for f in FAMILIES}
+FAMILY_OF_OWNER = {f.owner: f for f in FAMILIES}
+
+
+def families(settings) -> list[Family]:
+    """The tiles this person can use now (a tool switched off or resting has none)."""
+    # (without reading PDF's list: its actions are always there, and pdfpage is a big module to read when the page
+    # first opens; it's read once a tool list is asked for)
+    owners = {"pdf"} | {t.owner for t in _others()}
+    return [f for f in FAMILIES if f.owner in owners and all_tools.is_on(settings, f.owner)]
+
+
+def family_of(tool: FileTool) -> Family | None:
+    return FAMILY_OF_OWNER.get(tool.owner)
+
+
+def family_tools(settings, family_id: str) -> list[FileTool]:
+    fam = FAMILY_BY_ID.get(family_id)
+    return [t for t in offered(settings) if fam is not None and t.owner == fam.owner]
+
+
+# the tools offered first beside a selection (pinned tiles' tools come before these)
+SUGGESTED = ["pdf.merge", "pdf.compress", "pdf.split", "convert", "archive.pack", "archive.extract", "pdf.edit",
+             "pdf.read", "rename", "pdf.organize", "check", "unlock", "backup", "pdf.lock", "pdf.unlock",
+             "archive.open"]
+
+
+def suggested_order(settings, tools: list[FileTool]) -> list[FileTool]:
+    pins = set(pinned_families(settings))
+    rank = {tid: i for i, tid in enumerate(SUGGESTED)}
+
+    def key(t):
+        fam = family_of(t)
+        return (0 if fam is not None and fam.id in pins else 1, rank.get(t.id, len(rank)))
+    return sorted(tools, key=key)
+
+
+# pinned to begin with: tiles marked with a star (their tools come first beside a selection)
+DEFAULT_PINS = ["archive", "pdf"]
+
+
+def pinned_families(settings) -> list[str]:
+    """The pinned tiles, in the order they were pinned (a tool's id pinned before maps to its tile)."""
+    out = []
+    for p in getattr(settings, "files_pinned", DEFAULT_PINS) or []:
+        fam = p if p in FAMILY_BY_ID else (family_of(by_id(p)).id if by_id(p) and family_of(by_id(p)) else None)
+        if fam and fam not in out:
+            out.append(fam)
+    return out
 
 
 def pinned(settings) -> list[FileTool]:
-    """The pinned tools this person can use, in the order they were pinned."""
-    pins = getattr(settings, "files_pinned", DEFAULT_PINS)
-    here = {t.id: t for t in offered(settings)}
-    return [here[p] for p in pins if p in here]
+    """The tools of the pinned tiles this person can use."""
+    fams = set(pinned_families(settings))
+    return [t for t in offered(settings) if family_of(t) is not None and family_of(t).id in fams]
 
 
-def set_pinned(settings, tool_id: str, on: bool):
-    pins = list(getattr(settings, "files_pinned", DEFAULT_PINS))
-    if on and tool_id not in pins:
-        pins.append(tool_id)
+def set_pinned(settings, family_id: str, on: bool):
+    tool = by_id(family_id)
+    if family_id not in FAMILY_BY_ID and tool is not None and family_of(tool) is not None:
+        family_id = family_of(tool).id
+    pins = pinned_families(settings)
+    if on and family_id not in pins:
+        pins.append(family_id)
     elif not on:
-        pins = [p for p in pins if p != tool_id]
+        pins = [p for p in pins if p != family_id]
     settings.files_pinned = pins
 
 

@@ -116,7 +116,7 @@ try:
             time.sleep(0.8)
             switch = [b for b in win.descendants(control_type="CheckBox") if b.window_text() == tool.nav]
             if not switch and sec.one_tool and all_tools.state(tool.id) == all_tools.AVAILABLE:
-                # (one tool: its tools' switches are in its library, All tools › Switch tools on or off)
+                # (one tool: its tools' switches are in its library, behind Switch tools on or off)
                 manage = [b for b in win.descendants(control_type="Button") if b.window_text() == "Switch tools on or off"]
                 if not manage:
                     lib = [b for b in win.descendants(control_type="Button") if b.window_text() == "All tools"]
@@ -176,13 +176,13 @@ try:
             tab = [b for b in win.descendants(control_type="ListItem") if b.window_text() == (tool.use or tool.nav)]
             if tab:
                 pass
-            elif sec.one_tool:  # (its tools in the library's Available now, each a card to pick)
-                now = [b for b in win.descendants(control_type="Button") if b.window_text() == "Available now"]
+            elif sec.one_tool:  # (its tools in the library's Available tab, a tile each)
+                now = [b for b in win.descendants(control_type="Button") if b.window_text() == "Available"]
                 if now:
                     click(now[0])
                     time.sleep(0.6)
                 names = [t.name for t in filetools.all_tools_list() if t.owner == tool.id][:1]
-                # (the library's own search, under the heading's: both are called Find a tool)
+                # (the workspace's search finds a tool by name; the heading's is lowest-first sorted away)
                 find = sorted([e for e in win.descendants(control_type="Edit") if e.element_info.name == "Find a tool"],
                               key=lambda e: -e.rectangle().top)
                 if names and find:  # (found by name: a long library may have it further down)
