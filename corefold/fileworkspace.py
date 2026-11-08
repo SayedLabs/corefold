@@ -91,7 +91,7 @@ QWidget#filesWorkspace QPushButton#primary {{ background: {teal}; border: 1px so
 QWidget#filesWorkspace QPushButton#primary:hover {{ background: {hover}; border-color: {hover}; }}
 QWidget#filesWorkspace QPushButton#primary:disabled {{ background: {p.select.name()}; border-color: {p.select.name()};
         color: {p.faint.name()}; }}
-QWidget#filesWorkspace QPushButton#link {{ background: transparent; border: none; padding: 2px 0; color: {teal};
+QWidget#filesWorkspace QPushButton#link {{ background: transparent; border: none; padding: 2px 4px; color: {teal};
         font-weight: 600; text-align: {lead}; }}
 QWidget#filesWorkspace QPushButton#link:hover {{ text-decoration: underline; }}
 QFrame#filesCard {{ background: {p.surface.name()}; border: 1px solid {p.border.name()}; border-radius: 12px; }}
@@ -1262,12 +1262,14 @@ class FilesWorkspace(QWidget):
         lay = QVBoxLayout(w)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(12)
-        self.drop = DropZone(self.add_files, self.c.paste, title=tr("Drop files or folders here"),
+        # (clicked() sends a "checked" flag: never taken for a tool)
+        self.drop = DropZone(lambda *_: self.add_files(), lambda *_: self.c.paste(),
+                             title=tr("Drop files or folders here"),
                              sub=tr("Or pick them on your PC. Nothing is uploaded."),
                              hot_title=tr("Let go to add them to the list"),
-                             buttons=[(tr("Choose files…"), self.add_files, "primary"),
-                                      (tr("Choose a folder…"), self.add_folder),
-                                      (tr("Paste (Ctrl + V)"), self.c.paste)])
+                             buttons=[(tr("Choose files…"), lambda *_: self.add_files(), "primary"),
+                                      (tr("Choose a folder…"), lambda *_: self.add_folder()),
+                                      (tr("Paste (Ctrl + V)"), lambda *_: self.c.paste())])
         self.drop.setMinimumHeight(170)
         self.drop.dropped.connect(lambda paths: self.state.add(paths))
         lay.addWidget(self.drop)
@@ -1471,7 +1473,7 @@ class FilesWorkspace(QWidget):
 
     def add_files(self, for_tool: ft.FileTool | None = None):
         from .core import IMAGE_EXT
-        kinds = for_tool.kinds if for_tool is not None else ()
+        kinds = for_tool.kinds if isinstance(for_tool, ft.FileTool) else ()
         filters = ""
         if kinds == ("pdf",):
             filters = "PDF (*.pdf)"
