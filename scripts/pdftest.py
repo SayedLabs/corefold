@@ -321,13 +321,15 @@ def page():
     card("trim", [A], lambda dlg: dlg.same.isChecked())
     check(answers.get("seen") == "TrimDialog", "Trim edges card: asks how much room is left")
     def numbered(dlg):
+        ok = "{page}" in dlg.footer.text()  # (the words around it are in the app's language)
         dlg.header.setText("{name}")
+        dlg.footer.setText("Zq {page} / {pages}")
         dlg.skip.setChecked(True)
-        return "{page}" in dlg.footer.text()
+        return ok
     made = card("headerfooter", [A], numbered)
     check(answers.get("seen") == "HeaderFooterDialog" and len(made) == 1 and
-          "Page 1 of" in " ".join(PdfReader(made[0]).pages[1].extract_text().split()) and
-          "Page" not in PdfReader(made[0]).pages[0].extract_text(), "Header and footer card: page numbers "
+          "Zq 1 /" in " ".join(PdfReader(made[0]).pages[1].extract_text().split()) and
+          "Zq" not in PdfReader(made[0]).pages[0].extract_text(), "Header and footer card: page numbers "
           "after the cover")
     made = card("topowerpoint", [A])
     import zipfile
