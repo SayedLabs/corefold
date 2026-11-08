@@ -116,6 +116,11 @@ def all_tools_list() -> list[FileTool]:
     return _ALL
 
 
+def tools_read() -> bool:
+    """The list has been read (PDF's actions with it)."""
+    return _ALL is not None
+
+
 def by_id(tool_id: str) -> FileTool | None:
     return next((t for t in all_tools_list() if t.id == tool_id), None)
 
@@ -150,8 +155,10 @@ FAMILY_OF_OWNER = {f.owner: f for f in FAMILIES}
 
 def families(settings) -> list[Family]:
     """The tiles this person can use now (a tool switched off or resting has none)."""
-    owners = {t.owner for t in offered(settings)}
-    return [f for f in FAMILIES if f.owner in owners]
+    # (without reading PDF's list: its actions are always there, and pdfpage is a big module to read when the page
+    # first opens; it's read once a tool list is asked for)
+    owners = {"pdf"} | {t.owner for t in _others()}
+    return [f for f in FAMILIES if f.owner in owners and all_tools.is_on(settings, f.owner)]
 
 
 def family_of(tool: FileTool) -> Family | None:

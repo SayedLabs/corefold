@@ -1149,6 +1149,11 @@ class ToolPanel(QFrame):
         if items and not sel:
             lay.addWidget(_label(tr("None selected: the tools work on all of them."), "subtle", wrap=True))
 
+    def _late_chips(self):
+        ft.all_tools_list()
+        if _alive(self):
+            self.refresh()
+
     def _candidates(self) -> tuple[list, list]:
         """The tools offered as buttons (fitting what's chosen, the picked tile's when one is), and the rest."""
         items = self.state.chosen()
@@ -1164,6 +1169,9 @@ class ToolPanel(QFrame):
 
     def _chips(self, lay):
         from .atomic.widgets import FlowLayout
+        if not ft.tools_read() and not self.state.items:  # (the first open: PDF's list is read a moment later, not
+            QTimer.singleShot(300, self, self._late_chips)  # while the page is being made)
+            return
         fits, misfits = self._candidates()
         picked = self.state.tool
         limit = len(fits) if self._more else CHIPS_SHOWN
@@ -1754,9 +1762,9 @@ class ToolLibrary(QFrame):
             else:
                 pins = set(ft.pinned_families(self.c.settings))
                 fams = [f for f in ft.families(self.c.settings) if not self.category or f.category == self.category]
+                ready = ft.tools_read()
                 for fam in fams:
-                    tools = ft.family_tools(self.c.settings, fam.id)
-                    tip = tr(tools[0].line) if len(tools) == 1 else tr("{count} tools", count=len(tools))
+                    tip = self._family_tip(fam) if ready else ""
                     tile = LibTile(fam.id, tr(fam.name), fam.icon, self.t, pinned=fam.id in pins,
                                    picked=fam.id == self.ws.state.family, tip=tip)
                     tile.family = fam
@@ -1766,6 +1774,8 @@ class ToolLibrary(QFrame):
                     self.tiles.append(tile)
                 if not fams:
                     self.body_lay.addWidget(_label(tr("No tools here are switched on."), "muted", wrap=True))
+                elif not ready:  # (PDF's list is read a moment after the page opens, not while it's being made)
+                    QTimer.singleShot(400, self, self._late_tips)
             if self.tiles:
                 self.body_lay.addWidget(holder)
                 self._size_tiles()
@@ -1781,6 +1791,18 @@ class ToolLibrary(QFrame):
                                               "it shows up here, with how far along it is."), "subtle", wrap=True))
         else:
             self._manage()
+
+    def _family_tip(self, fam) -> str:
+        tools = ft.family_tools(self.c.settings, fam.id)
+        return tr(tools[0].line) if len(tools) == 1 else tr("{count} tools", count=len(tools))
+
+    def _late_tips(self):
+        for tile in getattr(self, "tiles", []):
+            fam = getattr(tile, "family", None)
+            if fam is not None and _alive(tile):
+                tip = self._family_tip(fam)
+                tile.setToolTip(tip)
+                tile.setAccessibleDescription(tip)
 
     def _size_tiles(self):
         """The tiles share the row: all on one line when they fit (none narrower than 92 px), as in a shelf."""
