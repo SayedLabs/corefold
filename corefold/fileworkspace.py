@@ -1132,8 +1132,9 @@ class ToolPanel(QFrame):
                                         self.ws.remove_selected), 0, Qt.AlignTop)
         self.back_btn = _icon_button("arrow_right" if is_rtl() else "arrow_left", self.t.tokens.text, tr("Back"),
                                      self.ws._toggle_panel)  # (narrow: the files again)
-        self.back_btn.setVisible(self.ws._narrow)
         head.insertWidget(0, self.back_btn, 0, Qt.AlignTop)
+        if not self.ws._narrow:
+            self.back_btn.hide()
         lay.addLayout(head)
         if items and not sel:
             lay.addWidget(_label(tr("None selected: the tools work on all of them."), "subtle", wrap=True))
