@@ -341,3 +341,66 @@ def test_the_comments_side_goes_to_each_one_and_saves_them(qapp, qtbot, tmp_path
     assert r.side.width() == pdfreader.THUMB_W + 52
     r.close_reader()
     host.close()
+
+
+def test_measure_in_centimetres_and_inches():
+    assert pdfreader.measure_text(72) == "2.54 cm · 1.00 in"
+
+
+def test_snapshot_measure_and_read_aloud(qapp, qtbot, tmp_path):
+    from PySide6.QtCore import QObject, QRectF, Signal
+    from PySide6.QtGui import QGuiApplication
+    src = _pdf(tmp_path / "a.pdf", ["Alpha page one", "", "Gamma page three"])
+    r, page, host = _reader(tmp_path)
+    r.open(src)
+    _wait_open(qtbot, r, 3)
+    # Snapshot: the part dragged over goes to the clipboard as a sharp picture, then the mode ends
+    r.set_mode("snap")
+    assert r.view.mode == "snap" and r.mode_bar.isVisibleTo(r)
+    img = r.snapshot(0, QRectF(40, 40, 144, 72))
+    assert img is not None and (img.width(), img.height()) == (400, 200)
+    assert not QGuiApplication.clipboard().image().isNull()
+    assert r.view.mode == "" and not r.mode_bar.isVisibleTo(r)
+    # Measure: a line on the page with its length; Esc ends the mode before closing the reader
+    r.set_mode("measure")
+    mark = pdfreader.ToolMark(r.doc.pages[0], "measure", pdfreader.QPointF(10, 10))
+    mark.set_end(pdfreader.QPointF(10, 82))
+    assert mark.length() == 72
+    r.view.mark = mark
+    assert r.go_back() and r.view.mode == "" and r.view.mark is None and r.docs
+
+    # Read aloud: page after page (the empty one skipped), then it stops by itself
+    class Voice(QObject):
+        stateChanged = Signal(object)
+
+        def __init__(self):
+            super().__init__()
+            self.said = []
+
+        def say(self, text):
+            from PySide6.QtTextToSpeech import QTextToSpeech
+            self.said.append(text)
+            self.stateChanged.emit(QTextToSpeech.State.Ready)  # (a voice changed: not the end of a page)
+            self.stateChanged.emit(QTextToSpeech.State.Speaking)
+            self.stateChanged.emit(QTextToSpeech.State.Ready)
+
+        def state(self):
+            from PySide6.QtTextToSpeech import QTextToSpeech
+            return QTextToSpeech.State.Ready
+
+        def availableVoices(self):
+            return ["one"]
+
+        def stop(self):
+            pass
+
+    pytest.importorskip("PySide6.QtTextToSpeech")
+    voice = Voice()
+    voice.stateChanged.connect(r._speech_state)
+    r.speech = voice
+    r.read_aloud(0)
+    qtbot.waitUntil(lambda: r.speaking is None, timeout=10000)
+    assert len(voice.said) == 2 and "Alpha" in voice.said[0] and "Gamma" in voice.said[1]
+    assert not r.speak_bar.isVisibleTo(r)
+    r.close_reader()
+    host.close()

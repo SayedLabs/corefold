@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QEvent, QObject, QPointF, QRectF, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QGuiApplication, QImage, QKeySequence, QPainter, QPixmap, QShortcut
+from PySide6.QtGui import QColor, QGuiApplication, QImage, QKeySequence, QPainter, QPen, QPixmap, QShortcut
 from PySide6.QtWidgets import (QCheckBox, QFileDialog, QFrame, QGraphicsItem, QGraphicsScene, QGraphicsView,
                                QHBoxLayout, QLabel, QLineEdit, QListView, QListWidget, QListWidgetItem, QMenu,
                                QPushButton, QStackedWidget, QTabBar, QToolButton, QTreeWidget, QTreeWidgetItem,
@@ -730,6 +730,63 @@ class PageItem(QGraphicsItem):
             self.pm, self.pm_key = None, None
 
 
+def measure_text(points: float) -> str:
+    """A distance on the page (in points: 72 an inch), in centimetres and inches."""
+    return f"{points / 72 * 2.54:.2f} cm · {points / 72:.2f} in"
+
+
+class ToolMark(QGraphicsItem):
+    """What Snapshot (a box) and Measure (a line with its length) draw on a page while they're used."""
+
+    def __init__(self, page: "PageItem", kind: str, start: QPointF):
+        super().__init__(page)
+        self.kind, self.a, self.b = kind, QPointF(start), QPointF(start)
+        self.setZValue(5)
+
+    def set_end(self, pt: QPointF):
+        self.prepareGeometryChange()
+        self.b = QPointF(pt)
+        self.update()
+
+    def rect(self) -> QRectF:
+        return QRectF(self.a, self.b).normalized()
+
+    def length(self) -> float:
+        d = self.b - self.a
+        return (d.x() ** 2 + d.y() ** 2) ** 0.5
+
+    def boundingRect(self) -> QRectF:
+        return self.rect().adjusted(-4, -4, 4, 4) if self.kind == "snap" else self.rect().adjusted(-90, -30, 90, 30)
+
+    def paint(self, p, option, widget=None):
+        accent = tokens.current().accent
+        pen = QPen(accent, 1.5, Qt.DashLine if self.kind == "snap" else Qt.SolidLine)
+        pen.setCosmetic(True)
+        p.setPen(pen)
+        if self.kind == "snap":
+            p.fillRect(self.rect(), tokens.alpha(accent, 40))
+            p.drawRect(self.rect())
+            return
+        p.drawLine(self.a, self.b)
+        for end in (self.a, self.b):
+            p.drawEllipse(end, 2.5, 2.5)
+        if self.length() < 2:
+            return
+        text = measure_text(self.length())
+        f = p.font()
+        f.setPointSizeF(8)
+        p.setFont(f)
+        fm = p.fontMetrics()
+        mid = (self.a + self.b) / 2
+        box = QRectF(mid.x() - fm.horizontalAdvance(text) / 2 - 5, mid.y() - fm.height() - 8,
+                     fm.horizontalAdvance(text) + 10, fm.height() + 4)
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(20, 20, 24, 225))
+        p.drawRoundedRect(box, 4, 4)
+        p.setPen(QColor("#ffffff"))
+        p.drawText(box, Qt.AlignCenter, text)
+
+
 class ReaderView(QGraphicsView):
     """The pages: drag over words to select them, click a link to follow it, Ctrl + wheel to zoom."""
 
@@ -748,6 +805,8 @@ class ReaderView(QGraphicsView):
         self.pressed: tuple | None = None   # (page, letter) where a selection started
         self.press_pos = None
         self.moved = False
+        self.mode = ""                      # "snap" or "measure" while those tools are used
+        self.mark: ToolMark | None = None
 
     def drawBackground(self, p, rect):
         t = tokens.current()
@@ -783,6 +842,11 @@ class ReaderView(QGraphicsView):
         self.press_pos = e.position().toPoint()
         self.moved = False
         self.pressed = None
+        if self.mode:
+            self.drop_mark()
+            if page is not None:
+                self.mark = ToolMark(page, self.mode, pt)
+            return
         if page is None:
             self.reader.clear_selection()
             return
@@ -805,6 +869,13 @@ class ReaderView(QGraphicsView):
         doc = self.reader.doc
         pos = e.position().toPoint()
         page, pt = self._at(pos)
+        if self.mode:
+            self.viewport().setCursor(Qt.CrossCursor)
+            if self.mark is not None and e.buttons() & Qt.LeftButton:
+                host = self.mark.parentItem()
+                local = host.mapFromScene(self.mapToScene(pos))
+                self.mark.set_end(QPointF(min(max(local.x(), 0), host.w), min(max(local.y(), 0), host.h)))
+            return
         if self.pressed is not None and e.buttons() & Qt.LeftButton and doc is not None:
             if self.press_pos is not None and (pos - self.press_pos).manhattanLength() > 3:
                 self.moved = True
@@ -835,7 +906,21 @@ class ReaderView(QGraphicsView):
         elif pos.y() > h - 20:
             bar.setValue(bar.value() + 20)
 
+    def drop_mark(self):
+        if self.mark is not None:
+            if self.mark.scene() is not None:
+                self.mark.scene().removeItem(self.mark)
+            self.mark = None
+
     def mouseReleaseEvent(self, e):
+        if self.mode and e.button() == Qt.LeftButton:
+            mark = self.mark
+            if mark is not None and self.mode == "snap":
+                rect, index = mark.rect(), mark.parentItem().index
+                self.drop_mark()
+                if rect.width() >= 4 and rect.height() >= 4:
+                    self.reader.snapshot(index, rect)
+            return
         if e.button() == Qt.LeftButton and not self.moved:
             page, pt = self._at(e.position().toPoint())
             link = self._link(page, pt)
@@ -1091,6 +1176,20 @@ class PdfReader(QWidget):
         b.clicked.connect(lambda _=False: fn())
         return b
 
+    def _small_bar(self, buttons) -> tuple[QFrame, QLabel]:
+        bar = QFrame()
+        bar.setObjectName("pdfFindBar")
+        row = QHBoxLayout(bar)
+        row.setContentsMargins(10, 2, 6, 2)
+        row.setSpacing(6)
+        label = QLabel()
+        label.setObjectName("muted")
+        row.addWidget(label, 1)
+        for tip, icon, fn in buttons:
+            row.addWidget(self._icon_button(tip, icon, fn))
+        bar.hide()
+        return bar, label
+
     def _build(self):
         v = QVBoxLayout(self)
         v.setContentsMargins(0, 0, 0, 0)
@@ -1205,6 +1304,18 @@ class PdfReader(QWidget):
         fl.addWidget(self._icon_button(tr("Close (Esc)"), "dismiss", self.hide_find))
         self.find_bar.hide()
         v.addWidget(self.find_bar)
+
+        # Snapshot and Measure: what to do, and Done
+        self.mode_bar, self.mode_label = self._small_bar(((tr("Done"), "dismiss", lambda: self.set_mode("")),))
+        v.addWidget(self.mode_bar)
+        # Read aloud: where it's reading, pause and stop
+        self.speak_bar, self.speak_label = self._small_bar(((tr("Pause"), "pause", self.pause_speaking),
+                                                            (tr("Stop"), "dismiss", self.stop_speaking)))
+        v.addWidget(self.speak_bar)
+        self.paused = False
+        self.was_speaking = False
+        self.speech = None                  # (Windows' voices, made when first used)
+        self.speaking: tuple | None = None  # (the PDF, the page being read)
 
         body = QHBoxLayout()
         body.setSpacing(8)
@@ -1391,6 +1502,8 @@ class PdfReader(QWidget):
 
     def close_reader(self, tell: bool = True):
         """Closes every PDF (each remembers where it was) and goes back."""
+        self.set_mode("")
+        self.stop_speaking()
         if self.full is not None:
             self.full.end()
         for doc in self.docs:
@@ -1418,6 +1531,9 @@ class PdfReader(QWidget):
 
     def go_back(self) -> bool:
         """Esc / the back button: Find closes first, then the reader."""
+        if self.view.mode:
+            self.set_mode("")
+            return True
         if self.find_bar.isVisible():
             self.hide_find()
             return True
@@ -1448,6 +1564,10 @@ class PdfReader(QWidget):
             self.pdf.open_reader(files)
 
     def _tab_changed(self, n: int):
+        if self.view.mode:
+            self.set_mode("")
+        if self.speaking is not None and (not 0 <= n < len(self.docs) or self.docs[n] is not self.speaking[0]):
+            self.stop_speaking()
         if self.doc is not None and self.doc.ready and 0 <= n < len(self.docs) and self.docs[n] is not self.doc:
             self.doc.start_page = self.current_page(self.doc)
         self.doc = self.docs[n] if 0 <= n < len(self.docs) else None
@@ -1661,6 +1781,10 @@ class PdfReader(QWidget):
         if doc not in self.docs:
             return
         doc.words[i] = words
+        if self.speaking == (doc, i) and self.speech is not None and self.speak_bar.isVisible():
+            from PySide6.QtTextToSpeech import QTextToSpeech
+            if self.speech.state() != QTextToSpeech.State.Speaking:
+                self._speak_next()
         if doc is not self.doc:
             return
         if doc.sel and min(doc.sel)[0] <= i <= max(doc.sel)[0]:
@@ -1892,6 +2016,13 @@ class PdfReader(QWidget):
         muted = self.c.theme.muted
         doc = self.doc
         ready = doc is not None and doc.ready
+        for words, icon, fn in ((tr("Read aloud"), "speaker_2", self.read_aloud),
+                                (tr("Snapshot: copy a part as a picture"), "screenshot", lambda: self.set_mode("snap")),
+                                (tr("Measure"), "ruler", lambda: self.set_mode("measure"))):
+            act = m.addAction(icons.icon(icon, muted), words)
+            act.setEnabled(ready)
+            act.triggered.connect(lambda _=False, f=fn: f())
+        m.addSeparator()
         a = m.addAction(tr("First page alone, like a book's cover"))
         a.setCheckable(True)
         a.setChecked(bool(doc and doc.cover and doc.two))
@@ -1938,6 +2069,141 @@ class PdfReader(QWidget):
         if self.doc is not None:
             from .winutil import reveal_in_explorer
             reveal_in_explorer(self.doc.src)
+
+    # ---- Snapshot and Measure
+
+    def set_mode(self, mode: str):
+        """"snap" (drag over a part of a page: it's copied as a picture), "measure" (drag between two places:
+        how far apart they are), or "" (back to selecting words)."""
+        self.view.drop_mark()
+        self.view.mode = mode if self.doc is not None else ""
+        hints = {"snap": tr("Drag over what you want to copy as a picture."),
+                 "measure": tr("Drag from one place to another to measure between them.")}
+        self.mode_label.setText(hints.get(self.view.mode, ""))
+        self.mode_bar.setVisible(bool(self.view.mode))
+        self.view.viewport().setCursor(Qt.CrossCursor if self.view.mode else Qt.ArrowCursor)
+        if self.view.mode:
+            self.clear_selection()
+            self.view.setFocus()
+
+    def snapshot(self, page: int, rect: QRectF, dpi: int = 200) -> QImage | None:
+        """The part of the page (in points) as a sharp picture, put on the clipboard."""
+        doc = self.doc
+        if doc is None:
+            return None
+        try:
+            with pdftools.PDFIUM:
+                pdf = pdftools.open_pdfium(doc.src, doc.password)
+                try:
+                    data, w, h, stride = render_page(pdf, page, dpi / 72)
+                finally:
+                    pdf.close()
+        except Exception:
+            log.warning("the snapshot couldn't be made", exc_info=True)
+            return None
+        img = QImage(data, w, h, stride, QImage.Format.Format_RGBX8888)
+        k = dpi / 72
+        part = img.copy(round(rect.x() * k), round(rect.y() * k), round(rect.width() * k), round(rect.height() * k))
+        QGuiApplication.clipboard().setImage(part)
+        self.set_mode("")
+        self._say(tr("Copied as a picture: paste it anywhere."))
+        QTimer.singleShot(3000, lambda: self._say(""))
+        return part
+
+    # ---- Read aloud (Windows' own voices)
+
+    def read_aloud(self, page: int | None = None):
+        """Reads the PDF aloud from this page on, page after page, in a voice of the words' language."""
+        doc = self.doc
+        if doc is None or not doc.ready:
+            return
+        if self.speech is None:
+            try:
+                from PySide6.QtTextToSpeech import QTextToSpeech
+                self.speech = QTextToSpeech(self)
+                self.speech.stateChanged.connect(self._speech_state)
+            except Exception:
+                log.warning("no voices to read aloud with", exc_info=True)
+                self.speech = None
+        if self.speech is None or not self.speech.availableVoices():
+            self.c.tell(tr("Read aloud"), tr("Windows has no voices to read with. Add one in Settings, Time and "
+                                             "language, Speech."))
+            return
+        self.speaking = (doc, self.current_page() if page is None else page)
+        self.paused = False
+        self._speak_next()
+
+    def _speak_next(self):
+        if self.speaking is None:
+            return
+        doc, i = self.speaking
+        if doc not in self.docs or i >= len(doc.pages):
+            self.stop_speaking()
+            return
+        words = doc.words.get(i)
+        self.speak_label.setText(tr("Reading page {number} aloud", number=i + 1))
+        self.speak_bar.show()
+        if words is None:
+            if doc.renderer is not None:
+                doc.renderer.want_words([i], first=True)  # (spoken as soon as they're read: see _words)
+            return
+        text = " ".join(text_between(words, 0, len(words.get("text") or "")).split())
+        if not text:  # (a page with no words: the next one)
+            self.speaking = (doc, i + 1)
+            QTimer.singleShot(0, self._speak_next)
+            return
+        self._pick_voice(text)
+        if doc is self.doc and self.current_page() != i:
+            self.go_to(i)
+        self.speech.say(text)
+
+    def _pick_voice(self, text: str):
+        """A voice of the words' language (Arabic words: an Arabic voice, when Windows has one)."""
+        from PySide6.QtCore import QLocale
+        arabic = sum(1 for ch in text[:400] if "\u0600" <= ch <= "\u06ff") > len(text[:400]) / 4
+        want = QLocale.Language.Arabic if arabic else None
+        if want is None:
+            return
+        for loc in self.speech.availableLocales():
+            if loc.language() == want:
+                if self.speech.locale().language() != want:
+                    self.speech.setLocale(loc)
+                return
+
+    def _speech_state(self, state):
+        from PySide6.QtTextToSpeech import QTextToSpeech
+        if state == QTextToSpeech.State.Speaking:
+            self.was_speaking = True
+        elif state == QTextToSpeech.State.Ready and self.speaking is not None and not self.paused \
+                and self.was_speaking:  # (a page was read to its end, not a voice being changed)
+            self.was_speaking = False
+            doc, i = self.speaking
+            self.speaking = (doc, i + 1)
+            QTimer.singleShot(150, self._speak_next)
+        elif state == QTextToSpeech.State.Error:
+            log.warning("reading aloud stopped: %s", self.speech.errorString())
+            self.stop_speaking()
+
+    def pause_speaking(self):
+        if self.speech is None or self.speaking is None:
+            return
+        from PySide6.QtTextToSpeech import QTextToSpeech
+        if self.speech.state() == QTextToSpeech.State.Paused:
+            self.paused = False
+            self.speech.resume()
+        else:
+            self.paused = True
+            self.speech.pause()
+
+    def stop_speaking(self):
+        self.speaking = None
+        self.was_speaking = False
+        self.speak_bar.hide()
+        if self.speech is not None:
+            try:
+                self.speech.stop()
+            except RuntimeError:
+                pass
 
     def _say(self, text: str):
         self.status.setText(text)

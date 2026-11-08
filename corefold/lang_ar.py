@@ -3669,4 +3669,13 @@ STRINGS: dict[str, str] = {
     "Every page as a slide": "كل صفحة كشريحة",
     "Tables and words as a spreadsheet, numbers as numbers, made without Office": "الجداول والكلمات كجدول بيانات، والأرقام كأرقام، بدون الحاجة لـ Office",
     "Every page as a slide, made without Office": "كل صفحة كشريحة، بدون الحاجة لـ Office",
+    # ------------------------------------------------------------------ PDF reader: read aloud, snapshot, measure
+    "Read aloud": "القراءة بصوت عالٍ",
+    "Snapshot: copy a part as a picture": "لقطة: انسخ جزءًا كصورة",
+    "Measure": "قياس",
+    "Drag over what you want to copy as a picture.": "اسحب فوق ما تريد نسخه كصورة.",
+    "Drag from one place to another to measure between them.": "اسحب من مكان إلى آخر لقياس المسافة بينهما.",
+    "Copied as a picture: paste it anywhere.": "نُسخ كصورة: الصقه في أي مكان.",
+    "Windows has no voices to read with. Add one in Settings, Time and language, Speech.": "لا توجد في Windows أصوات للقراءة. أضف صوتًا من الإعدادات، الوقت واللغة، الكلام.",
+    "Reading page {number} aloud": "قراءة الصفحة {number} بصوت عالٍ",
 }

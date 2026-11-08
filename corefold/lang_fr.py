@@ -3596,4 +3596,13 @@ STRINGS: dict[str, str] = {
     "Every page as a slide": "Chaque page en diapositive",
     "Tables and words as a spreadsheet, numbers as numbers, made without Office": "Tableaux et mots en feuille de calcul, les nombres comme nombres, sans Office",
     "Every page as a slide, made without Office": "Chaque page en diapositive, sans Office",
+    # ------------------------------------------------------------------ PDF reader: read aloud, snapshot, measure
+    "Read aloud": "Lire à voix haute",
+    "Snapshot: copy a part as a picture": "Capture : copier une partie en image",
+    "Measure": "Mesurer",
+    "Drag over what you want to copy as a picture.": "Faites glisser sur ce que vous voulez copier en image.",
+    "Drag from one place to another to measure between them.": "Faites glisser d'un endroit à un autre pour mesurer la distance.",
+    "Copied as a picture: paste it anywhere.": "Copié en image : collez-le où vous voulez.",
+    "Windows has no voices to read with. Add one in Settings, Time and language, Speech.": "Windows n'a aucune voix pour lire. Ajoutez-en une dans Paramètres, Heure et langue, Voix.",
+    "Reading page {number} aloud": "Lecture à voix haute de la page {number}",
 }

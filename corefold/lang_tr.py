@@ -3596,4 +3596,13 @@ STRINGS: dict[str, str] = {
     "Every page as a slide": "Her sayfa bir slayt olarak",
     "Tables and words as a spreadsheet, numbers as numbers, made without Office": "Tablolar ve sözcükler elektronik tablo olarak, sayılar sayı olarak, Office olmadan",
     "Every page as a slide, made without Office": "Her sayfa bir slayt olarak, Office olmadan",
+    # ------------------------------------------------------------------ PDF reader: read aloud, snapshot, measure
+    "Read aloud": "Sesli oku",
+    "Snapshot: copy a part as a picture": "Anlık görüntü: bir bölümü resim olarak kopyala",
+    "Measure": "Ölç",
+    "Drag over what you want to copy as a picture.": "Resim olarak kopyalamak istediğiniz yerin üzerine sürükleyin.",
+    "Drag from one place to another to measure between them.": "Aradaki mesafeyi ölçmek için bir yerden diğerine sürükleyin.",
+    "Copied as a picture: paste it anywhere.": "Resim olarak kopyalandı: istediğiniz yere yapıştırın.",
+    "Windows has no voices to read with. Add one in Settings, Time and language, Speech.": "Windows'ta okumak için ses yok. Ayarlar, Saat ve dil, Konuşma bölümünden bir tane ekleyin.",
+    "Reading page {number} aloud": "Sayfa {number} sesli okunuyor",
 }
