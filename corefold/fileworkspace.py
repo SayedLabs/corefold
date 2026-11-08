@@ -213,8 +213,20 @@ def _vline() -> QFrame:
     return line
 
 
+_MARKS: dict = {}
+
+
 def _mark(kind: str, color: QColor, size: int = 18, dpr: float = 2.0) -> QPixmap:
-    """A round mark: "done" (a tick in a filled circle), "ring" (still going) or "warning"."""
+    """A round mark: "done" (a tick in a filled circle) or "ring" (still going); drawn once each."""
+    key = (kind, QColor(color).name(QColor.HexArgb), size, dpr)
+    if key not in _MARKS:
+        if len(_MARKS) > 40:
+            _MARKS.clear()
+        _MARKS[key] = _draw_mark(kind, QColor(color), size, dpr)
+    return _MARKS[key]
+
+
+def _draw_mark(kind: str, color: QColor, size: int, dpr: float) -> QPixmap:
     pm = QPixmap(round(size * dpr), round(size * dpr))
     pm.setDevicePixelRatio(dpr)
     pm.fill(Qt.transparent)
@@ -680,6 +692,12 @@ class OpRow(QFrame):
         self.update_from(op)
 
     def update_from(self, op: fw.Op):
+        """(Only what changed: a running job sends many updates, and every row would be redrawn for each.)"""
+        sig = (op.state, round(op.progress * 100), op.detail, op.title, op.what, len(op.outputs), len(op.errors),
+               round(op.when))
+        if sig == getattr(self, "_sig", None):
+            return
+        self._sig = sig
         t = self.t
         self.op = op
         title = tr(op.title) if op.title else op.title
@@ -711,7 +729,9 @@ class OpRow(QFrame):
             detail = op.detail or tr("Cancelled")
             self.mark.setPixmap(icons.pixmap("dismiss", 22, t.tokens.muted, dpr))
         self.detail.setFullText(detail)
-        self.detail.setStyleSheet(f"color: {t.tokens.danger.name()};" if op.state == fw.FAILED else "")
+        look = f"color: {t.tokens.danger.name()};" if op.state == fw.FAILED else ""
+        if self.detail.styleSheet() != look:
+            self.detail.setStyleSheet(look)
         running = not op.over
         self.bar.setVisible(running and op.state == fw.RUNNING)
         self.bar.setValue(round(op.progress * 1000))
@@ -822,6 +842,10 @@ class OpsTray(QFrame):
 
     def _show_open(self, on: bool):
         has = bool(self.state.ops)
+        key = (on, has, min(len(self.state.ops), 3))
+        if key == getattr(self, "_shown", None):
+            return
+        self._shown = key
         self.area.setVisible(on and has)
         self.empty.setVisible(on and not has)
         self.fold.setIcon(icons.icon("chevron_down" if on else ("chevron_left" if is_rtl() else "chevron_right"),
@@ -858,7 +882,9 @@ class OpsTray(QFrame):
                     self.list.removeWidget(row)
                     self.list.insertWidget(i, row)
         for i, o in enumerate(ops):  # (a line between rows, none above the first)
-            self.rows[o.job_id].setStyleSheet("QFrame#activityRow { border-top: none; }" if i == 0 else "")
+            look = "QFrame#activityRow { border-top: none; }" if i == 0 else ""
+            if self.rows[o.job_id].styleSheet() != look:
+                self.rows[o.job_id].setStyleSheet(look)
         running = self.state.running()
         done = len(ops) - running
         bits = []
@@ -1104,9 +1130,10 @@ class ToolPanel(QFrame):
                                         f"{tr('Remove from list')}\n"
                                         f"{tr('Takes them off this list only: nothing on your PC is deleted.')}",
                                         self.ws.remove_selected), 0, Qt.AlignTop)
-        if self.ws._narrow:
-            head.insertWidget(0, _icon_button("arrow_right" if is_rtl() else "arrow_left", self.t.tokens.text,
-                                              tr("Back"), self.ws._toggle_panel), 0, Qt.AlignTop)
+        self.back_btn = _icon_button("arrow_right" if is_rtl() else "arrow_left", self.t.tokens.text, tr("Back"),
+                                     self.ws._toggle_panel)  # (narrow: the files again)
+        self.back_btn.setVisible(self.ws._narrow)
+        head.insertWidget(0, self.back_btn, 0, Qt.AlignTop)
         lay.addLayout(head)
         if items and not sel:
             lay.addWidget(_label(tr("None selected: the tools work on all of them."), "subtle", wrap=True))
@@ -2276,8 +2303,9 @@ class FilesWorkspace(QWidget):
             self.panel.setMaximumWidth(16777215 if narrow else PANEL_WIDTH)
         self.tools_btn.setVisible(narrow)
         self.tools_btn.setChecked(show)
-        if was != narrow and self.panel.inline is None:
-            self.panel.refresh()
+        back = getattr(self.panel, "back_btn", None)
+        if was != narrow and back is not None and _alive(back):
+            back.setVisible(narrow)
 
     def _fit_toolbar(self):
         """Narrow: the toolbar's buttons keep only their icons (none is ever cut short)."""
