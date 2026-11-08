@@ -34,6 +34,7 @@ if TYPE_CHECKING:
 BRAND = {True: ("#3fb6a2", "#0b1f1b"), False: ("#0f7a6c", "#ffffff")}
 PANEL_WIDTH = 372
 NARROW = 980          # (px) narrower than this, the side panel folds away until it's wanted
+OPS_SHOWN = 5         # operations shown in Activity at first (More shows the rest)
 CHIPS_SHOWN = 6       # tools offered at first beside a selection (the rest under More)
 STATE_WORDS = {fw.READY: "Ready", fw.WORKING: "Working…", fw.DONE: "Done", fw.PROBLEM: "Problem",
                fw.CANCELLED: "Cancelled"}
@@ -829,16 +830,24 @@ class OpsTray(QFrame):
         self.list.addStretch()
         self.area.setWidget(inner)
         lay.addWidget(self.area)
+        self.show_all = False
+        self.more_btn = _button("", "link", self._toggle_all)
+        self.more_btn.hide()
+        lay.addWidget(self.more_btn, 0, Qt.AlignLeading)
         self.empty = _label(tr("What you start here shows up here, with its progress and what came out."), "subtle",
                             wrap=True)
         lay.addWidget(self.empty)
         self.state.ops_changed.connect(self.refresh)
         self.refresh()
 
+    def _toggle_all(self):
+        self.show_all = not self.show_all
+        self.refresh()
+
     def toggle(self):
         self.c.settings.files_ops_open = not self.c.settings.files_ops_open
         self.c.settings.save()
-        self._show_open(self.c.settings.files_ops_open)
+        self.refresh()
 
     def _show_open(self, on: bool):
         has = bool(self.state.ops)
@@ -864,7 +873,8 @@ class OpsTray(QFrame):
     def refresh(self):
         if not _alive(self):
             return
-        ops = self.state.ops
+        every = self.state.ops
+        ops = every if self.show_all else every[:OPS_SHOWN]  # (rows made only for what's shown: opening stays quick)
         ids = {o.job_id for o in ops}
         for job_id in [j for j in self.rows if j not in ids]:
             row = self.rows.pop(job_id)
@@ -885,8 +895,11 @@ class OpsTray(QFrame):
             look = "QFrame#activityRow { border-top: none; }" if i == 0 else ""
             if self.rows[o.job_id].styleSheet() != look:
                 self.rows[o.job_id].setStyleSheet(look)
+        more = len(every) - OPS_SHOWN
+        self.more_btn.setVisible(more > 0 and self.c.settings.files_ops_open)
+        self.more_btn.setText(tr("Fewer") if self.show_all else tr("More ({count})", count=max(more, 0)))
         running = self.state.running()
-        done = len(ops) - running
+        done = len(every) - running
         bits = []
         if running:
             bits.append(tr("{count} running", count=running))
