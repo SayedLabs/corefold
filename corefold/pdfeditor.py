@@ -150,6 +150,10 @@ class Renderer:
         self.reads: list[int] = []
         self.stopped = False
         self.thread = threading.Thread(target=self._run, daemon=True, name="corefold-pdf-editor")
+
+    def start(self):
+        """Once its signals are connected (started before, a small PDF was opened before anyone listened, and
+        the editor waited for it forever)."""
         self.thread.start()
 
     def want(self, wishes: list[tuple[int, float, tuple]]):
@@ -2200,6 +2204,7 @@ class PdfEditor(QWidget):
         self.renderer.sig.layout.connect(self._layout)
         self.renderer.sig.thumb.connect(self._thumb)
         self.renderer.sig.read.connect(self._read)
+        self.renderer.start()
         self._tidy_temp()
 
     def _opened(self, result):

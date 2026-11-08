@@ -218,6 +218,10 @@ class Renderer:
         self.thumb_w = THUMB_W
         self.stopped = False
         self.thread = threading.Thread(target=self._run, daemon=True, name="corefold-pdf-reader")
+
+    def start(self):
+        """Once its signals are connected (started before, a small PDF was opened before anyone listened, and
+        the editor waited for it forever)."""
         self.thread.start()
 
     def want(self, wishes: list[tuple[int, float, bool]]):
@@ -1444,6 +1448,7 @@ class PdfReader(QWidget):
         sig.big.connect(lambda i, img, d=doc: self._big(d, i, img))
         sig.thumb.connect(lambda i, img, d=doc: self._thumb(d, i, img))
         sig.words.connect(lambda i, w, d=doc: self._words(d, i, w))
+        doc.renderer.start()
         self.docs.append(doc)
         n = self.tabs.addTab(short_name(src.name, 32))
         self.tabs.setTabToolTip(n, str(src))
