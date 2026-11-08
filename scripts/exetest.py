@@ -28,6 +28,7 @@ except (AttributeError, ValueError):
 from PIL import ImageGrab, ImageStat  # noqa: E402
 from pywinauto import Desktop, mouse  # noqa: E402
 
+from corefold import filetools  # noqa: E402
 from corefold import settings as st  # noqa: E402
 from corefold import tools as all_tools  # noqa: E402
 
@@ -115,10 +116,17 @@ try:
             time.sleep(0.8)
             switch = [b for b in win.descendants(control_type="CheckBox") if b.window_text() == tool.nav]
             if not switch and sec.one_tool and all_tools.state(tool.id) == all_tools.AVAILABLE:
-                # (one tool: its uses' switches show after ⚙ on its heading)
-                gear = [b for b in win.descendants(control_type="Button") if b.window_text() == "Settings"]
-                if check(bool(gear), f"{sec.name}'s heading has Settings"):
-                    click(gear[0])
+                # (one tool: its tools' switches are in its library, All tools › Switch tools on or off)
+                manage = [b for b in win.descendants(control_type="Button") if b.window_text() == "Switch tools on or off"]
+                if not manage:
+                    lib = [b for b in win.descendants(control_type="Button") if b.window_text() == "All tools"]
+                    if check(bool(lib), f"{sec.name} has All tools"):
+                        click(lib[0])
+                        time.sleep(0.8)
+                        manage = [b for b in win.descendants(control_type="Button")
+                                  if b.window_text() == "Switch tools on or off"]
+                if check(bool(manage), f"{sec.name}'s library can switch tools on or off"):
+                    click(manage[0])
                     time.sleep(0.8)
                     switch = [b for b in win.descendants(control_type="CheckBox") if b.window_text() == tool.nav]
             if tool.id in all_tools.PAUSED_TOOLS and not all_tools.section_paused(sec):
@@ -168,10 +176,22 @@ try:
             tab = [b for b in win.descendants(control_type="ListItem") if b.window_text() == (tool.use or tool.nav)]
             if tab:
                 pass
-            elif sec.one_tool:  # (its tab in the bar of uses on the tool's heading, above its switch and its card)
-                tab = sorted([b for b in win.descendants() if b.window_text() == (tool.use or tool.nav)
+            elif sec.one_tool:  # (its tools in the library's Available now, each a card to pick)
+                now = [b for b in win.descendants(control_type="Button") if b.window_text() == "Available now"]
+                if now:
+                    click(now[0])
+                    time.sleep(0.6)
+                names = [t.name for t in filetools.all_tools_list() if t.owner == tool.id][:1]
+                # (the library's own search, under the heading's: both are called Find a tool)
+                find = sorted([e for e in win.descendants(control_type="Edit") if e.element_info.name == "Find a tool"],
+                              key=lambda e: -e.rectangle().top)
+                if names and find:  # (found by name: a long library may have it further down)
+                    find[0].set_edit_text(names[0])
+                    time.sleep(0.6)
+                tab = sorted([b for b in win.descendants() if b.window_text() in names
                               and b.element_info.control_type not in ("ListItem", "Text")
-                              and b.rectangle().top < wr.top + 300], key=lambda b: b.rectangle().top)[:1]
+                              and wr.top < (b.rectangle().top + b.rectangle().bottom) // 2 < wr.bottom - 10],
+                             key=lambda b: b.rectangle().top)[:1]
             else:  # (its tab, in the strip at the top: not its switch or its name on the card)
                 tab = [b for b in win.descendants() if b.window_text() == tool.nav and b.rectangle().top < wr.top + 150
                        and b.element_info.control_type not in ("ListItem", "Text")]

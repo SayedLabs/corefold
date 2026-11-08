@@ -976,6 +976,8 @@ def run(w: "MainWindow", tool: ft.FileTool, files: list[Path]):
             w.check_page.add(files)
         elif page == "Unlock" and getattr(w, "unlock_page", None) is not None:
             w.unlock_page.check(files)
+        elif page == "Organizer" and getattr(w, "organizer_page", None) is not None:
+            w.organizer_page.set_folder(files[0])
         elif page == "Backup" and getattr(w, "backup_page", None) is not None:
             for p in files:
                 if p.is_dir():

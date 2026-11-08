@@ -92,7 +92,8 @@ def test_clear_names_for_check_and_unlock():
     assert lang_ar.STRINGS["Unlock files"] == "فك قفل الملفات"
 
 
-def test_a_tool_switched_off_or_resting_isnt_offered():
+def test_a_tool_switched_off_or_resting_isnt_offered(monkeypatch):
+    monkeypatch.setattr(all_tools, "PAUSED_TOOLS", frozenset({"organizer"}))
     s = settings_mod.Settings()
     s.tools_off = ["pdf"]
     offered = {t.id for t in ft.offered(s)}

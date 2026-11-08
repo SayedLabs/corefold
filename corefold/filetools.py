@@ -87,6 +87,9 @@ def _others() -> list[FileTool]:
         FileTool("rename", "rename", "Rename files",
                  "Rename many files at once, and see every new name before anything changes", "rename", "organize",
                  folders=True, empty_ok=True, how="page:Rename", view=True),
+        FileTool("organizer", "organizer", "File Organizer",  # (resting for now: offered only when it's back)
+                 "Sort a messy Downloads or Desktop into clear folders with one click.", "folder", "organize",
+                 kinds=("folder",), folders=True, most=1, empty_ok=True, how="page:Organizer", view=True),
         FileTool("backup", "backup", "Back up folders",
                  "Copy important folders to another drive; next time only what changed", "arrow_sync", "organize",
                  kinds=("folder",), folders=True, empty_ok=True, how="page:Backup", view=True),
