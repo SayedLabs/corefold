@@ -35,7 +35,9 @@ FILE, PAGE, TURN = Qt.UserRole, Qt.UserRole + 1, Qt.UserRole + 2
 FILE_COLORS = ("#e5484d", "#3e8ef7", "#30a46c", "#f5a524", "#8e4ec6", "#12a594", "#d6409f", "#978365")
 # the cards: (what it does, title, the line under it, icon in icons.py). Some open the board, some ask
 # a question and make the new file straight away.
-ACTIONS = [("edit", "Edit content", "Type text, change words, add pictures, highlight, draw, sign and fill in forms",
+ACTIONS = [("read", "Read", "Open PDFs in tabs to read: zoom, two pages, find and copy words, dark pages, full screen",
+            "document_pdf"),
+           ("edit", "Edit content", "Type text, change words, add pictures, highlight, draw, sign and fill in forms",
             "text_edit_style"),
            ("merge", "Merge PDFs", "Put several PDFs together in the order you want", "merge"),
            ("organize", "Arrange pages", "Move, turn and delete pages, and see them as you go", "grid"),
@@ -71,8 +73,8 @@ MORE = [("pdf:numbers", "Page numbers", "Number every page", "text_t"),
         ("pdf:word", "PDF to Word", "A Word document you can change, made by the Word on this PC", "document"),
         ("pdf:images", "Save the pictures inside", "Every picture in the PDF, as it is", "filmstrip_image")]
 # how the cards are grouped on the page (the first group is shown big, on top)
-GROUPS = [("", ("edit", "merge")),
-          ("Pages", ("organize", "split", "extract", "pagesize", "trim")),
+GROUPS = [("", ("read", "edit")),
+          ("Pages", ("merge", "organize", "split", "extract", "pagesize", "trim")),
           ("Add to it", ("searchable", "pdf:sign", "pdf:numbers", "pdf:watermark", "bookmarks")),
           ("Smaller or safer", ("compress", "pdf:fit", "lock", "unlock", "clean", "flatten", "repair")),
           ("Turn it into something else", ("topictures", "pictures", "pdf:word", "pdf:text", "pdf:images")),
@@ -369,6 +371,9 @@ class PdfPage(QWidget):
         self.stack.addWidget(QWidget())  # (the board is made the first time PDFs are opened)
         self._board_made = False
         self.editor = None                        # (made when a PDF is first opened to edit)
+        self.reader = None                        # (made when a PDF is first opened to read)
+        self._read_from = 0
+        self.read_queue: list[Path] = []          # PDFs waiting to be opened to read, one after the other
         self._edit_from = 0
         lay.addWidget(self.stack, 1)
 
@@ -380,7 +385,7 @@ class PdfPage(QWidget):
         v = QVBoxLayout(inner)
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(8)
-        # Every card, in groups: editing and merging first and big, then pages, adding to a PDF, making it
+        # Every card, in groups: reading and editing first and big, then pages, adding to a PDF, making it
         # smaller or safer, and turning it into something else. (The Converter's own PDF tools are cards here
         # too, so its catalog, which imports every converter, almost half a second, is only made when one is
         # clicked.)
@@ -436,7 +441,7 @@ class PdfPage(QWidget):
             if names:
                 self.pictures_to_pdf([Path(n) for n in names])
             return
-        several = key in ("compare", "print", "merge", "organize", "compress", "searchable", "topictures", "lock", "unlock", "clean",
+        several = key in ("read", "compare", "print", "merge", "organize", "compress", "searchable", "topictures", "lock", "unlock", "clean",
                           "pagesize", "trim", "flatten", "repair") or \
             key.startswith("pdf:")
         title = tr("Pick the PDFs") if several else tr("Pick a PDF")
@@ -457,6 +462,9 @@ class PdfPage(QWidget):
             return
         if key == "edit":
             self.open_editor(files[0])
+            return
+        if key == "read":
+            self.open_reader(files)
             return
         if key == "bookmarks":
             self.open_bookmarks(files[0])
@@ -671,6 +679,64 @@ class PdfPage(QWidget):
         self.stack.setCurrentWidget(self.editor)
         self.editor.open(src, password)
         self.editor.view.setFocus()
+
+    # ---- the reader
+
+    def open_reader(self, files: list[Path]):
+        """Opens PDFs to read, each in its own tab (a password is asked for first, for one that has it)."""
+        files = [f for f in files if is_pdf(f)]
+        if not files:
+            return
+        busy = bool(self.read_queue)
+        self.read_queue.extend(files)
+        if not busy:
+            self._read_next()
+
+    def _read_next(self):
+        if not self.read_queue or not work.alive(self):
+            return
+        src = self.read_queue[0]
+
+        def look(_progress):
+            return pdftools.lock_state(src), _count(src, self.passwords.get(str(src), ""))
+        self._run(look, lambda _: None, lambda result: self._read(src, result), "corefold-pdf-look")
+
+    def _read(self, src: Path, result):
+        if not work.alive(self):
+            return
+        if self.read_queue and self.read_queue[0] == src:
+            self.read_queue.pop(0)
+        try:
+            password, count = self.passwords.get(str(src), ""), 0
+            if isinstance(result, Exception):
+                log.warning("couldn't read %s: %s", src, result)
+            else:
+                state, count = result
+                wrong = False
+                while state == "locked" and not count:
+                    password = self.c.ask_password([src], wrong=wrong)
+                    if password is None:
+                        return
+                    count = _count(src, password)
+                    wrong = not count
+            if not count:
+                self.c.tell(tr("Rakiza Core PDF"), tr("{name} couldn't be read. It may be damaged.",
+                                                      name=short_name(src.name)))
+                return
+            if password:
+                self.passwords[str(src)] = password
+            if self.reader is None:
+                from .pdfreader import PdfReader
+                self.reader = PdfReader(self)
+                self.reader.closed.connect(lambda: self.stack.setCurrentIndex(self._read_from))
+                self.stack.addWidget(self.reader)
+            if self.stack.currentWidget() is not self.reader:  # (closing it goes back there: the cards or the board)
+                self._read_from = 0 if self.stack.currentWidget() is self.editor else self.stack.currentIndex()
+            self.stack.setCurrentWidget(self.reader)
+            self.reader.open(src, password)
+            self.reader.view.setFocus()
+        finally:
+            self._read_next()
 
     # ---- the board
 
@@ -1254,6 +1320,8 @@ class PdfPage(QWidget):
             stop.set()
         if self.editor is not None:
             self.editor.close_renderer()
+        if self.reader is not None:
+            self.reader.close_renderer()
 
     def close_board(self, ask: bool = True) -> bool:
         if not self._board_made:
@@ -1289,6 +1357,8 @@ class PdfPage(QWidget):
         """Back (Alt + Left, the mouse's back button, Esc): from the board or the editor to the cards first."""
         if self.editor is not None and self.stack.currentWidget() is self.editor:
             return self.editor.go_back()
+        if self.reader is not None and self.stack.currentWidget() is self.reader:
+            return self.reader.go_back()
         if self.stack.currentIndex() == 1:
             self.close_board()
             return True
@@ -1309,6 +1379,9 @@ class PdfPage(QWidget):
                 pictures = [p for p in paths if is_picture(p)]
                 if pictures:
                     self.editor.add_picture(pictures[0])
+                return
+            if self.reader is not None and self.stack.currentWidget() is self.reader:
+                self.open_reader(paths)  # (dropped on the reader: each PDF opens in a tab)
                 return
             self.add_files(paths)
 

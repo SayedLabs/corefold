@@ -188,6 +188,7 @@ RECENT_ARCHIVES = 8
 NOT_EDITED = {"enabled", "first_run", "last_version", "update_told", "notes_shown", "update_to", "menu_signature", "window_geometry", "last_page",
               "last_action", "tour_done", "watermark", "fit_mb", "open_archives", "recent_archives",
               "tools_off", "known_tools", "back_on", "open_images", "open_emails", "viewer_info", "viewer_strip", "recent_views",
+              "open_pdfs", "pdf_places", "pdf_dark_pages", "pdf_read_side",
               "archive_preview",
               "clip_paused", "nav_order", "section_order", "nav_width", "nav_compact",
               "home_widgets",
@@ -308,6 +309,11 @@ class Settings:
     viewer_strip: bool = True      # the small pictures along the bottom are shown
     archive_preview: bool = True   # the archive window shows the picked file beside the list
     recent_views: list = field(default_factory=list)  # pictures and emails opened lately (newest first)
+    # Rakiza Core PDF's reader
+    open_pdfs: bool = True         # PDFs open in Rakiza Core's reader ("Open with")
+    pdf_places: dict = field(default_factory=dict)  # each PDF read: [page, zoom, fit, two pages] (newest last)
+    pdf_dark_pages: bool = False   # the pages are shown dark, for reading at night
+    pdf_read_side: bool = True     # the small pictures of the pages are at the side
     # the Clipboard
     clip_shortcut: str = "win+alt+v"  # opens the clipboard from any app
     clip_plain_key: str = "ctrl+alt+win+v"  # pastes what's copied as plain text, in any app

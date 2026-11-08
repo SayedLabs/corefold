@@ -173,6 +173,26 @@ QListWidget#pdfFontList { background: transparent; border: none; outline: none; 
 QListWidget#pdfFontList::item { padding: 5px 8px; border-radius: 6px; }
 QListWidget#pdfFontList::item:hover { background: $hover; }
 QListWidget#pdfFontList::item:selected { background: $select; color: $text; }
+/* (the PDF reader's own) */
+QTabBar#pdfReaderTabs { background: transparent; }
+QTabBar#pdfReaderTabs::tab { background: transparent; border: 1px solid transparent; border-radius: 9px; padding: 6px 12px;
+                             margin: 0 2px; color: $muted; max-width: 240px; }
+QTabBar#pdfReaderTabs::tab:hover { background: $hover; color: $text; }
+QTabBar#pdfReaderTabs::tab:selected { background: $panel; border-color: $border; color: $text; font-weight: 600; }
+QToolButton#pdfTabClose { background: transparent; border: none; border-radius: 10px; padding: 0; }
+QToolButton#pdfTabClose:hover { background: $hover; }
+QFrame#pdfPagesSide { background: $panel; border: 1px solid $border; border-radius: 12px; }
+QToolButton#pdfSideTab { background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 4px 6px;
+                         color: $muted; font-size: 8.5pt; }
+QToolButton#pdfSideTab:hover { background: $hover; color: $text; }
+QToolButton#pdfSideTab:checked { background: $select; color: $text; font-weight: 600; }
+QToolButton#pdfSideTab:disabled { color: $faint; }
+QListWidget#pdfReaderPages, QTreeWidget#pdfReaderMarks { background: transparent; border: none; }
+QListWidget#pdfReaderPages::item { border-radius: 8px; padding: 2px; color: $muted; }
+QListWidget#pdfReaderPages::item:selected { background: $select; color: $text; }
+QTreeWidget#pdfReaderMarks::item { padding: 4px 2px; border-radius: 6px; }
+QFrame#pdfFindBar { background: $panel; border: 1px solid $border; border-radius: 10px; }
+QLineEdit#pdfPageBox { padding: 3px 4px; }
 QListWidget#pdfThumbs { background: $panel; border: 1px solid $border; border-radius: 12px; outline: none; padding: 4px; }
 QListWidget#pdfThumbs::item { border-radius: 8px; padding: 4px; color: $muted; }
 QListWidget#pdfThumbs::item:hover { background: $hover; }

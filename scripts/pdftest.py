@@ -496,6 +496,58 @@ def page():
     until(lambda: not pg.reading, 15)
     settle(0.2)
     check(w.go_back() and pg.stack.currentIndex() == 0, "Back from an untouched board goes straight to the cards")
+    # the reader: PDFs in tabs, a locked one too (its password asked for), zoom, two pages, dark pages, the
+    # whole screen, and back
+    picked["files"] = [A, B, LOCKED]
+    pg.start("read")
+    rd = None
+    until(lambda: pg.reader is not None and len(pg.reader.docs) == 3 and all(d.ready for d in pg.reader.docs), 20)
+    rd = pg.reader
+    check(rd is not None and pg.stack.currentWidget() is rd and rd.tabs.count() == 3,
+          f"Read: 3 PDFs open in tabs ({rd.tabs.count() if rd else 0})")
+    if rd is not None:
+        until(lambda: rd.doc is not None and rd.doc.pages and rd.doc.pages[0].pm is not None, 15)
+        check(rd.doc is not None and rd.doc.pages[0].pm is not None, "Read: the page in sight is drawn")
+        settle(0.3)
+        w.grab().save(str(OUT / f"pdf-read-{LANG}-{LOOK}.png"))
+        rd.tabs.setCurrentIndex(0)
+        settle(0.2)
+        rd.go_to(3)
+        settle(0.2)
+        check(rd.current_page() == 3, f"Read: goes to page 4 ({rd.current_page() + 1})")
+        rd.toggle_two()
+        rd.toggle_dark()
+        settle(0.3)
+        until(lambda: any(p.pm_key and p.pm_key[1] for p in rd.doc.pages), 10)
+        w.grab().save(str(OUT / f"pdf-read-two-dark-{LANG}-{LOOK}.png"))
+        check(rd.doc.two and rd.dark, "Read: two pages, dark pages")
+        rd.toggle_dark()
+        rd.toggle_two()
+        rd.full_screen()
+        settle(0.5)
+        check(rd.full is not None and w.isFullScreen(), "Read: full screen")
+        if rd.full is not None:
+            until(lambda: rd.full is not None and rd.full.pm is not None, 10)
+            rd.full.grab().save(str(OUT / f"pdf-read-full-{LANG}-{LOOK}.png"))
+            QTest.keyClick(rd.full, Qt.Key_Down)
+            QTest.keyClick(rd.full, Qt.Key_Escape)
+            settle(0.5)
+        check(rd.full is None and not w.isFullScreen(), "Read: Esc leaves the full screen")
+        left_at = rd.current_page()
+        rd.show_find()
+        rd.find_box.setText("nothing like this")
+        settle(0.5)
+        check(rd.find_bar.isVisible(), "Read: Find")
+        check(w.go_back() and not rd.find_bar.isVisible() and pg.stack.currentWidget() is rd, "Read: Esc closes Find")
+        check(w.go_back() and pg.stack.currentIndex() == 0 and not rd.docs, "Read: Esc again goes back to the cards")
+        c.handle_message(f"read\n{A}")
+        until(lambda: pg.stack.currentWidget() is rd and len(rd.docs) == 1 and rd.doc.ready, 15)
+        check(pg.stack.currentWidget() is rd and len(rd.docs) == 1, "Read: a double-clicked PDF opens in the reader")
+        until(lambda: rd.current_page() == left_at, 3)
+        check(rd.current_page() == left_at, f"Read: it opens at the page it was left on ({rd.current_page() + 1}, "
+                                            f"{left_at + 1})")
+        rd.close_reader()
+        settle(0.2)
     for small in ((760, 520),):
         w.resize(*small)
         settle(0.4)

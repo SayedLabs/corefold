@@ -1550,7 +1550,8 @@ class Controller(QObject):
         self.sync_archive_opening()
 
     def set_open_files(self, key: str, on: bool):
-        """open_images / open_emails (Settings → Viewer): applied at once, like opening archives."""
+        """open_images / open_emails (Settings → Viewer), open_pdfs (the PDF reader): applied at once, like opening
+        archives."""
         setattr(self.settings, key, on)
         self.settings.save()
         self.sync_archive_opening()
@@ -1564,6 +1565,7 @@ class Controller(QObject):
         wanted = {"archive": (s.open_archives and all_tools.is_on(s, "archive"), tr("Rakiza Core Archive")),
                   "image": (s.open_images and viewer, tr("Rakiza Core Viewer")),
                   "email": (s.open_emails and viewer, tr("Rakiza Core Viewer")),
+                  "pdf": (s.open_pdfs and all_tools.is_on(s, "pdf"), tr("Rakiza Core PDF")),
                   # (the Player has left Rakiza Core: its old "Open with" entry for videos and music is taken out)
                   "media": (False, "")}
         assoc.sync_in_background(wanted, app_command, app_icon())
@@ -1660,6 +1662,8 @@ class Controller(QObject):
             self.browse_from_menu(lines[0])
         elif word == "view" and lines:
             self.open_viewer(Path(lines[0]))
+        elif word == "read" and lines:
+            self.read_pdfs(lines)
         elif word == "play" and lines:
             self.played_elsewhere(Path(lines[0]))
         elif word == "uninstall" and lines:
@@ -1822,6 +1826,16 @@ class Controller(QObject):
             self.tray.showMessage(title, detail, QSystemTrayIcon.Information, 4000)
         if done:
             self.play_done_sound()
+
+    def read_pdfs(self, paths: list[str]):
+        """PDFs double-clicked (or sent with --read): Rakiza Core PDF's reader, each in a tab."""
+        files = [Path(p) for p in paths if os.path.isfile(p) and p.lower().endswith(".pdf")]
+        if not files or not self._tool_here("pdf"):
+            return
+        self.show_window("PDF")
+        page = getattr(self.window, "pdf_page", None)
+        if page is not None:
+            page.open_reader(files)
 
     def open_viewer(self, path: Path):
         """Opens a picture (with the rest of its folder) or an email file in Rakiza Core Viewer."""
