@@ -1,4 +1,5 @@
 """Opening files with a double-click: archives (Rakiza Core Archive), pictures and emails (Rakiza Core Viewer),
+PDFs (Rakiza Core PDF's reader),
 and the old "Open with" entry for videos and music (Rakiza Core Player, which has moved to Rakiza Play), kept here
 only so it's taken out again.
 
@@ -43,6 +44,7 @@ GROUPS = {
                    (".jpg", ".jpeg", ".jfif", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff", ".heic", ".heif",
                     ".avif", ".ico")),
     "email": Group(f"{KEEP_ID}.Email", "--view", (".eml", ".msg")),
+    "pdf": Group(f"{KEEP_ID}.PDF", "--read", (".pdf",)),
     # (the Player's: never written any more, only taken out where an older Rakiza Core left it)
     "media": Group(f"{KEEP_ID}.Media", "--play",
                    (".mp4", ".mkv", ".mov", ".avi", ".wmv", ".webm", ".m4v", ".mpg", ".mpeg", ".ts", ".m2ts", ".flv",

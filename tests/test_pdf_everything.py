@@ -446,7 +446,11 @@ def _open(qtbot, src: Path):
     ed.resize(1100, 800)
     ed.show()
     ed.open(src)
-    qtbot.waitUntil(lambda: bool(ed.pages) and ed.pages[0].layout is not None, timeout=10000)
+    try:
+        qtbot.waitUntil(lambda: bool(ed.pages) and ed.pages[0].layout is not None, timeout=10000)
+    except Exception:  # (what the editor was waiting for, to say why)
+        from pdfdiag import stall_report
+        raise AssertionError(stall_report(ed)) from None
     return ed
 
 
