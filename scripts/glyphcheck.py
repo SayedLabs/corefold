@@ -20,7 +20,8 @@ sys.path.insert(0, str(ROOT))
 from PySide6.QtGui import QFont, QFontInfo, QGuiApplication, QRawFont  # noqa: E402
 
 # (strings that are only compared or searched, never drawn)
-NOT_DRAWN = {("scan.py", 0x3000), ("pdfreader.py", 0xFFFE)}
+NOT_DRAWN = {("scan.py", 0x3000), ("pdfreader.py", 0xFFFE),
+             ("pdfoffice.py", 0xFDFF), ("pdfoffice.py", 0xFFFE), ("pdfoffice.py", 0xFFFF)}  # (in ranges and tests, never shown)
 # (marks that steer the reading order or join letters: never drawn, so never looked for)
 UNDRAWN = {0x200B, 0x200C, 0x200D, 0x200E, 0x200F, 0x2060, 0xFEFF, *range(0x202A, 0x202F), *range(0x2066, 0x206A)}
 

@@ -21,8 +21,8 @@ COLUMN_SNAP = 8.0             # cells that start this close (in points) are in t
 SLIDE_DPI = 150               # the pictures on the slides
 _NUMBER = re.compile(r"^[-+(]?\d{1,3}(?:[,٬]\d{3})*(?:[.٫]\d+)?\)?%?$|^[-+(]?\d+(?:[.٫]\d+)?\)?%?$")
 _DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
-_ARABIC = re.compile("[؀-ۿݐ-ݿﭐ-﷿ﹰ-﻿]")
-_BAD_XML = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f￾￿]")
+_ARABIC = re.compile("[\u0600-\u06ff\u0750-\u077f\ufb50-\ufdff\ufe70-\ufeff]")
+_BAD_XML = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]")
 
 
 def _x(text: str) -> str:
