@@ -1009,7 +1009,7 @@ class MainWindow(QWidget):
     def _nav_uses(self, sec) -> list:
         """The tools in use that show under a section in the sidebar (none for a section that is one tool on its
         own, like Cloud: its row opens it)."""
-        if sec.direct:
+        if sec.direct or sec.one_tool:  # (Files' tools are in its workspace, not a long list here)
             return []
         return [tool for tool in self.tools_on if all_tools.SECTION_OF[tool.id] is sec]
 
@@ -2287,55 +2287,11 @@ class MainWindow(QWidget):
             lay.addWidget(holder)
 
     def _one_tool_start(self, sec) -> QWidget:
-        """The start page of a section that's one tool (under its heading): drop any file to see everything
-        that can be done with it, or pick a use, each with what it's for. ⚙ on the heading turns this into
-        the list of uses with their switches (a use switched off isn't loaded at all)."""
-        from .atomic.widgets import ResponsiveGrid
-        from .onetool import UseCard
-        t, dpr = self.c.theme, self.devicePixelRatioF()
-        w, lay = page(tr(sec.name))
-        lay.itemAt(0).widget().hide()  # (the tool's heading is over the page)
-        on = {tool.id for tool in self.tools_on}
-        tools = all_tools.in_section(self.c.settings, sec)
-        w.setProperty("choosing", getattr(self, "_choosing_uses", False))
-        if w.property("choosing"):
-            head = QHBoxLayout()
-            head.setSpacing(8)
-            head.addWidget(label(tr("Choose what {name} can do", name=tr(sec.one_tool)), "title", wrap=True), 1)
-            head.addWidget(button(tr("Done"), "primary", self._one_head_settings), 0, Qt.AlignVCenter)
-            lay.addLayout(head)
-            lay.addWidget(label(tr("Switch off what you don't use: it isn't loaded at all, so Rakiza Core stays light. "
-                                   "Its settings are kept for when you switch it back on."), "subtle", wrap=True))
-            fresh = {tool.id for tool in all_tools.new_tools(self.c.settings)}
-            grid = ResponsiveGrid(560, 12, 2)
-            for tool in [x for x in tools if x.id in on] + [x for x in tools if x.id not in on]:
-                grid.add(ToolSwitchCard(tool, tool.id in on, lambda n=tool.page: self.open_page(n),
-                                        self._tool_switched, t.dark, dpr, fresh=tool.id in fresh, accent=t.tokens.glyph))
-        else:
-            dropping = "converter" in on  # (what can be done with a file is the Converter's)
-            if dropping:
-                drop = DropZone(self._choose_files, self.c.paste, title=tr("Drop any file or folder here"),
-                                sub=tr("{name} shows what you can do with it: convert it, shrink it, merge it, pack "
-                                       "it, unlock it…", name=tr(sec.one_tool)))
-                drop.dropped.connect(self.show_files)
-                lay.addWidget(drop)
-            lay.addWidget(label(tr("Or pick what you want to do") if dropping else tr("Pick what you want to do"),
-                                "title"))
-            grid = ResponsiveGrid(300, 10, 2)
-            for tool in [x for x in tools if x.id in on]:
-                grid.add(UseCard(tool, lambda n=tool.page: self.open_page(n), t, dpr))
-            off = len(tools) - len([x for x in tools if x.id in on])
-            if off:
-                more = button(tr("{count} more you can switch on", count=off), "flat", self._one_head_settings)
-                lay.addWidget(grid)
-                lay.addWidget(more, 0, Qt.AlignLeading)
-                grid = None
-        if grid is not None:
-            lay.addWidget(grid)
-        keep_wrapped_text(w.widget() if isinstance(w, QScrollArea) else w)
-        self._coming(sec, lay)
-        lay.addStretch()
-        return w
+        """The page of a section that's one tool (Rakiza Core Files): its workspace, with the files added, the
+        tools that fit them and the operations started (fileworkspace.py)."""
+        from .fileworkspace import FilesWorkspace
+        self.files_workspace = FilesWorkspace(self, sec)
+        return self.files_workspace
 
     def _resting_section(self, sec) -> QWidget:
         """A section resting for now (tools.PAUSED_SECTIONS): what its tools do and that they're coming back,
@@ -2484,60 +2440,39 @@ class MainWindow(QWidget):
         return name
 
     def _sync_one_head(self, name: str):
-        """Shows the heading of the tool this page is part of (made again only when the tool changes), with
-        the use that's open lit."""
+        """Over a Files tool's page: the line back to the workspace, with the tool's name (made again only when
+        the section changes)."""
         if not hasattr(self, "one_head"):
             return
         sec = self._one_tool_of(name)
         head = self.one_head
-        choosing = getattr(self, "_choosing_uses", False)
-        if choosing and name not in SECTION_PAGES:  # (the switches were left)
-            self._choosing_uses = choosing = False
-        if sec is not None and name == sec.page and self.built(name) and self.current_page() != name \
-                and self.stack.widget(PAGES.index(name)).property("choosing") != choosing:
-            self._drop_page(name)  # (made again as it is now, as it's opened)
         if sec is not None:
             if sec is not head.section:
-                uses = [t for t in self.tools_on if all_tools.SECTION_OF[t.id] is sec]
-                head.show_section(sec, uses, self.c.theme, self.devicePixelRatioF())
+                head.show_section(sec, [], self.c.theme, self.devicePixelRatioF())
                 self._one_head_tab_order()
             tool = all_tools.BY_PAGE.get(name)
-            if tool is None:
-                line = tr("Drop any file and see everything you can do with it.") \
-                    if any(t.id == "converter" for t in self.tools_on) else tr(sec.line)
-            else:
-                line = tr(tool.short or tool.line)  # (a few words: the heading keeps its height from use to use)
-            head.set_current(name, line, tool is None or name in TOOL_SETTINGS)
+            if tool is not None:
+                head.set_current(name, tr(tool.short or tool.line), name in TOOL_SETTINGS, tr(tool.use or tool.nav))
         self._fit_one_head()
 
     def _fit_one_head(self):
-        """The heading shows on the tool's pages, but not while a page needs all the room it can get (PDF's
-        board of pages and its editor, with their own bars); its bar shows icons only when there's no room for
-        names."""
+        """The line shows on the Files tools' pages (not on the workspace, which has its own heading), but not
+        while a page needs all the room it can get (PDF's board of pages and its editor, with their own bars)."""
         if not hasattr(self, "one_head") or not hasattr(self, "canvas"):
             return
         name = self.current_page()
         pdf = getattr(self, "pdf_page", None) if name == "PDF" else None
         editing = pdf is not None and pdf.stack.currentIndex() != 0  # (not its cards: its board or its editor)
-        show = self._one_tool_of(name) is not None and not editing
+        sec = self._one_tool_of(name)
+        show = sec is not None and name != sec.page and not editing
         if show != self.one_head.isVisibleTo(self):
             self.one_head.setVisible(show)
-        bar = self.one_head.bar
-        if bar is not None and _alive(bar) and bar.isVisibleTo(self.one_head) != self._compact_now():
-            bar.setVisible(self._compact_now())  # (with the names showing, its uses are in the sidebar)
-        if show:
-            m = self.canvas.layout().contentsMargins()
-            self.one_head.fit(self.canvas.width() - m.left() - m.right())
 
     def _one_head_settings(self):
-        """⚙ on the heading: the open use's settings, or (on the start page) which uses are switched on."""
+        """Settings on the line over a tool's page: that tool's settings."""
         name = self.current_page()
         if name in TOOL_SETTINGS:
             self.open_tool_settings(name)
-        elif name in SECTION_PAGES:
-            self._choosing_uses = not getattr(self, "_choosing_uses", False)
-            # (later, not inside the click: the button pressed may be on the page made again)
-            QTimer.singleShot(0, self, lambda: self._remake_page(name) if self.current_page() == name else None)
 
     def _sync_section_strip(self, name: str):
         """Shows the strip of the section this page is in (made again only when the section changes)."""
@@ -2865,8 +2800,8 @@ class MainWindow(QWidget):
         sl.addLayout(grid)
         lay.addWidget(steps)
 
-        self.drop = DropZone(self._choose_files, self.c.paste)
-        self.drop.dropped.connect(self.show_files)
+        self.drop = DropZone(lambda: self._choose_files(converter=True), self.c.paste)
+        self.drop.dropped.connect(self.show_in_converter)
         lay.addWidget(self.drop)
         self.panel = FilePanel(self.c)
         lay.addWidget(self.panel)
@@ -4538,12 +4473,21 @@ class MainWindow(QWidget):
 
     # ---- home page
 
-    def _choose_files(self):
+    def _choose_files(self, converter: bool = False):
         files = choose_files(self)
         if files:
-            self.show_files(files)
+            (self.show_in_converter if converter else self.show_files)(files)
 
     def show_files(self, files):
+        """Files dropped, pasted or handed over: into the Files workspace (on the Converter's own page, to it)."""
+        sec = all_tools.SECTION_BY_PAGE.get("Files")
+        if self.current_page() != "Converter" and sec is not None and not all_tools.section_paused(sec):
+            self.c.files_work.add([Path(f) for f in files])
+            self.open_page("Files")
+            return
+        self.show_in_converter(files)
+
+    def show_in_converter(self, files):
         self.open_page("Converter")
         was_shown = self.panel.isVisible()
         self.panel.set_files(files)
@@ -4880,7 +4824,9 @@ class MainWindow(QWidget):
         return all_tools.BY_ID["converter"] in self.tools_on
 
     def dragEnterEvent(self, e):
-        if self._converter_on() and any(u.isLocalFile() for u in e.mimeData().urls()):
+        sec = all_tools.SECTION_BY_PAGE.get("Files")
+        files_on = sec is not None and not all_tools.section_paused(sec)
+        if (files_on or self._converter_on()) and any(u.isLocalFile() for u in e.mimeData().urls()):
             e.acceptProposedAction()
 
     def dropEvent(self, e):
