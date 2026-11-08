@@ -164,8 +164,11 @@ def table_texts() -> dict[str, str]:
         "pdftools tables")
     add(list(pdftools.DPIS.values()) + list(pdftools.SPLIT_MODES.values()), "pdftools tables")
     add([text for _, *texts in pdftools.HIDDEN for text in texts], "pdftools.HIDDEN")
-    from corefold import pdfeditor
-    add([text for table in (pdfeditor.TOOLS, pdfeditor.MARKS, pdfeditor.SHAPES) for _, text, _ in table],
+    from corefold import pdfeditor, pdfreader
+    add(list(pdfreader.COMMENT_KINDS.values()), "pdfreader tables")
+    add([text for table in (pdfeditor.TOOLS, pdfeditor.MARKS, pdfeditor.SHAPES,
+                                       pdfeditor.FILL_KINDS, pdfeditor.STAMP_KINDS) for _, text, _ in table] +
+        [words for _, words, _, _ in pdfeditor.STAMPS],
         "pdfeditor tables")
     add(list(pdfeditor.HINTS.values()) + list(pdfeditor.WIDTHS), "pdfeditor tables")
     add(list(pdfeditor.TITLES.values()) + list(pdfeditor.SELECTED_HINTS.values()) +

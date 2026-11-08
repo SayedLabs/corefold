@@ -187,7 +187,10 @@ QToolButton#pdfSideTab { background: transparent; border: 1px solid transparent;
 QToolButton#pdfSideTab:hover { background: $hover; color: $text; }
 QToolButton#pdfSideTab:checked { background: $select; color: $text; font-weight: 600; }
 QToolButton#pdfSideTab:disabled { color: $faint; }
-QListWidget#pdfReaderPages, QTreeWidget#pdfReaderMarks { background: transparent; border: none; }
+QListWidget#pdfReaderPages, QTreeWidget#pdfReaderMarks, QListWidget#pdfReaderComments { background: transparent; border: none; }
+QListWidget#pdfReaderComments::item { padding: 6px 4px; border-radius: 8px; border-bottom: 1px solid $border; }
+QListWidget#pdfReaderComments::item:hover { background: $hover; }
+QListWidget#pdfReaderComments::item:selected { background: $select; color: $text; }
 QListWidget#pdfReaderPages::item { border-radius: 8px; padding: 2px; color: $muted; }
 QListWidget#pdfReaderPages::item:selected { background: $select; color: $text; }
 QTreeWidget#pdfReaderMarks::item { padding: 4px 2px; border-radius: 6px; }

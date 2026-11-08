@@ -277,3 +277,67 @@ def test_double_clicked_pdfs_come_to_the_reader():
     from corefold import assoc, ipc
     assert assoc.GROUPS["pdf"].flag == "--read" and assoc.GROUPS["pdf"].extensions == (".pdf",)
     assert ipc.message_for(["--read", r"C:\a.pdf"]) == "read\nC:\\a.pdf".encode("utf-8")
+
+
+# ---- comments
+
+def _with_comments(src: Path, out: Path) -> Path:
+    from pypdf.annotations import FreeText, Highlight, Text
+    from pypdf.generic import ArrayObject, FloatObject, NameObject, TextStringObject
+    w = PdfWriter(clone_from=PdfReader(src))
+    note = Text(rect=(50, 700, 70, 720), text="Check this number")
+    note[NameObject("/T")] = TextStringObject("Sara")
+    note[NameObject("/M")] = TextStringObject("D:20261108093000+03'00'")
+    ref = w.add_annotation(0, note)
+    reply = Text(rect=(50, 700, 70, 720), text="Done, fixed")
+    reply[NameObject("/T")] = TextStringObject("Omar")
+    reply[NameObject("/IRT")] = ref.indirect_reference
+    w.add_annotation(0, reply)
+    quads = ArrayObject([FloatObject(v) for v in (50, 300, 200, 300, 50, 280, 200, 280)])
+    mark = Highlight(rect=(50, 280, 200, 300), quad_points=quads)
+    mark[NameObject("/Contents")] = TextStringObject("ملاحظة مهمة")
+    w.add_annotation(2, mark)
+    w.add_annotation(0, FreeText(text="Typed on the page", rect=(50, 100, 250, 130)))
+    w.add_annotation(0, Link(rect=(40, 760, 300, 800), target_page_index=2))  # (a link: not a comment)
+    w.write(out)
+    return out
+
+
+def test_comments_are_read_with_their_replies(qapp, tmp_path):
+    src = _with_comments(_pdf(tmp_path / "a.pdf", ["One", "Two", "Three"]), tmp_path / "c.pdf")
+    found = pdfreader.read_comments(src)
+    assert [(c["page"], c["kind"]) for c in found] == [(0, "Note"), (0, "Text"), (2, "Highlight")]
+    note = found[0]
+    assert note["author"] == "Sara" and note["text"] == "Check this number" and note["date"] == "2026-11-08 09:30"
+    assert [r["author"] for r in note["replies"]] == ["Omar"]
+    assert found[0]["y"] < found[1]["y"]  # (from the top of the page: the note is above the typed words)
+    text = pdfreader.comments_text("c.pdf", found)
+    assert "Sara" in text and "      Note · Omar" in text and "ملاحظة مهمة" in text and "3" in text
+    w = PdfWriter()
+    w.add_blank_page(100, 100)
+    w.write(tmp_path / "none.pdf")
+    assert pdfreader.read_comments(tmp_path / "none.pdf") == []
+
+
+def test_the_comments_side_goes_to_each_one_and_saves_them(qapp, qtbot, tmp_path, monkeypatch):
+    src = _with_comments(_pdf(tmp_path / "a.pdf", ["One", "Two", "Three"]), tmp_path / "c.pdf")
+    plain = _pdf(tmp_path / "plain.pdf", ["Nothing"])
+    r, page, host = _reader(tmp_path)
+    r.open(src)
+    _wait_open(qtbot, r, 3)
+    assert r.side_notes_btn.isEnabled() and r.notes_list.count() == 4  # (3 comments and the reply)
+    r._side_show(2)
+    assert r.side.width() == pdfreader.COMMENTS_W
+    r._note_clicked(r.notes_list.item(3))
+    qtbot.waitUntil(lambda: r.current_page() == 2, timeout=3000)
+    out = tmp_path / "notes.txt"
+    from PySide6.QtWidgets import QFileDialog
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *a, **k: (str(out), ""))
+    r.save_comments()
+    assert "Sara" in out.read_text(encoding="utf-8")
+    r.open(plain)  # (a PDF with none: back to the pages, and the tab can't be picked)
+    _wait_open(qtbot, r, 1)
+    assert not r.side_notes_btn.isEnabled() and r.side_stack.currentIndex() == 0
+    assert r.side.width() == pdfreader.THUMB_W + 52
+    r.close_reader()
+    host.close()

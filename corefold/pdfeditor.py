@@ -46,14 +46,27 @@ ZOOMS = (0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0, 2.5, 
 TOOLS = [("select", "Select", "cursor"), ("edit", "Edit text", "text_edit_style"), ("text", "Add text", "textbox"),
          ("image", "Picture", "image_add"), ("sign", "Sign", "signature"), ("mark", "Highlight", "highlight"),
          ("draw", "Draw", "pen"), ("shape", "Shapes", "shapes"), ("note", "Note", "note"), ("link", "Link", "link"),
-         ("cover", "Cover", "redact")]
-TOOL_GROUPS = (("select",), ("edit", "text", "image", "sign"), ("mark", "draw", "shape", "note", "link"), ("cover",))
+         ("cover", "Cover", "redact"), ("fill", "Fill in", "form"), ("stamp", "Stamp", "sticker")]
+TOOL_GROUPS = (("select",), ("edit", "text", "image", "sign", "fill"), ("mark", "draw", "shape", "note", "stamp", "link"),
+               ("cover",))
 MARKS = [("highlight", "Highlight", "highlight"), ("underline", "Underline", "text_underline"),
          ("strike", "Cross out", "text_strikethrough")]
 SHAPES = [("rect", "Rectangle", "rectangle_landscape"), ("ellipse", "Circle", "circle"),
           ("line", "Line", "line_horizontal_1"), ("arrow", "Arrow", "arrow_up_right")]
+# Fill in: marks put on a form that isn't a real one (a printed form scanned or made into a PDF), with a click
+FILL_KINDS = [("check", "Tick", "checkmark"), ("cross", "Cross", "dismiss"), ("dot", "Dot", "circle"),
+              ("date", "Today's date", "calendar"), ("initials", "Initials", "signature")]
+# stamps: (key, words on it, colour, with the date)
+STAMPS = [("approved", "APPROVED", "#2e7d32", False), ("received", "RECEIVED", "#6a1b9a", True),
+          ("draft", "DRAFT", "#1565c0", False), ("confidential", "CONFIDENTIAL", "#c62828", False),
+          ("paid", "PAID", "#2e7d32", True), ("rejected", "REJECTED", "#c62828", True),
+          ("custom", "Your own words…", "#c62828", False)]
+STAMP_KINDS = [(k, words if k == "custom" else words.capitalize(), "sticker") for k, words, _c, _d in STAMPS]
 MARK_KEYS = {k for k, _, _ in MARKS}
 SHAPE_KEYS = {k for k, _, _ in SHAPES}
+FILL_KEYS = {k for k, _, _ in FILL_KINDS}
+STAMP_KEYS = {k for k, _, _ in STAMP_KINDS}
+FILL_MARK = 12.0         # how big a tick, cross or dot is, in points (it can be made bigger or smaller at the side)
 HINTS = {"select": "Click something to select it and drag it to move it. Double-click text to change it.",
          "edit": "Click a paragraph or a line of the PDF's own text to change it. What can be changed has a box "
                  "around it.",
@@ -65,13 +78,15 @@ HINTS = {"select": "Click something to select it and drag it to move it. Double-
          "shape": "Drag to draw the shape.",
          "cover": "Drag over what should be hidden. What's under it is taken out of the file, not just hidden.",
          "note": "Click where the note should go.",
-         "link": "Drag over the words or the place that should open the link, then type where it goes."}
+         "link": "Drag over the words or the place that should open the link, then type where it goes.",
+         "fill": "Pick a mark at the side, then click where it goes on the form.",
+         "stamp": "Pick a stamp at the side, then click where it goes."}
 # what the panel at the side is called for each thing (selected, or the tool's)
 TITLES = {"select": "Select", "edit": "Edit text", "text": "Text", "image": "Picture", "move": "Moved part",
           "cover": "Cover", "shape": "Shape", "draw": "Drawing", "highlight": "Highlight", "underline": "Underline",
           "strike": "Cross out", "note": "Note", "link": "Link", "line": "The PDF's own text",
           "picture": "The PDF's own picture", "drawn": "The PDF's own shape", "comment": "The PDF's own comment",
-          "pdflink": "Link"}
+          "pdflink": "Link", "fill": "Fill in", "stamp": "Stamp"}
 ALIGN_KEYS = [("left", "Align left", "align_left"), ("center", "Centre", "align_center"),
               ("right", "Align right", "align_right"), ("justify", "Justify", "align_justify")]
 # line spacing: (words, from one line to the next in text sizes; None: the font's own)
@@ -81,8 +96,8 @@ FILLS = ["", "#ffffff", "#000000", "#ffe066", "#f8bbd0", "#bbdefb", "#c8e6c9"]
 # what can be changed in the panel, for each kind of thing
 STYLE_KEYS = {"text": ("font", "size", "color", "bold", "italic", "underline", "align", "spacing", "opacity"),
               "draw": ("color", "width", "opacity"), "shape": ("color", "width", "fill", "opacity"),
-              "image": ("opacity",)}
-OPACITY_KINDS = {"text", "draw", "shape", "image"}
+              "image": ("opacity",), "stamp": ("color", "opacity")}
+OPACITY_KINDS = {"text", "draw", "shape", "image", "stamp"}
 SELECTED_HINTS = {"text": "Double-click to change the words. Drag the square at its corner to make the lines wrap.",
                   "line": "Double-click to change these words, or drag them somewhere else.",
                   "picture": "Drag it to move it. Delete takes it out of the file.",
@@ -91,11 +106,12 @@ SELECTED_HINTS = {"text": "Double-click to change the words. Drag the square at 
                   "cover": "What's under it is taken out of the file when it's saved.",
                   "drawn": "Drag it to move it, or pick another colour. Delete takes it out of the file.",
                   "comment": "Drag it to move it. Double-click a note to change its words. Delete takes it away.",
-                  "pdflink": "Type where it goes, or drag it to move it. Delete takes the link away."}
+                  "pdflink": "Type where it goes, or drag it to move it. Delete takes the link away.",
+                  "stamp": "Drag the square at its corner to make it bigger or smaller."}
 INSPECTOR_WIDTH = 240
 ITEMS_MIME = "application/x-corefold-pdf-items"  # (what's added on the pages, copied)
 COPYABLE = {"text", "image", "cover", "rect", "ellipse", "line", "arrow", "ink", "highlight", "underline", "strike",
-            "note", "link"}
+            "note", "link", "stamp"}
 INK = ["#000000", "#1f3a93", "#d32f2f", "#2e7d32", "#f57c00", "#7b1fa2", "#ffffff"]
 PENS = ["#ffd400", "#7cf27c", "#ff8ad8", "#7ec8ff", "#ffb35c"]
 FIELD_TINT = QColor(70, 130, 255, 38)
@@ -401,6 +417,8 @@ class BoxMark(Mark):
             side = min(12.0, self.h - 2, self.w - 2)
             if side > 5:
                 icons.paint(p, QRectF(2, 2, side, side), "link", accent)
+        elif self.kind == "stamp":
+            pdfedit.draw_stamp(p, rect, self.d)
         elif self.kind == "cover":
             p.fillRect(rect, QColor(self.d.get("color", "#ffffff")))
             if self.d.get("color", "#ffffff").lower() == "#ffffff" and not self.isSelected():
@@ -424,7 +442,7 @@ class BoxMark(Mark):
 
     def resize_to(self, pt: QPointF):
         w, h = max(6.0, pt.x()), max(6.0, pt.y())
-        if self.kind in ("image", "move"):  # (pictures keep their shape)
+        if self.kind in ("image", "move", "stamp"):  # (pictures and stamps keep their shape)
             if w / self.ratio > h:
                 h = w / self.ratio
             else:
@@ -1152,6 +1170,12 @@ class EditorView(QGraphicsView):
         if tool == "note":
             ed.new_note(page, pt)
             return
+        if tool == "fill":
+            ed.new_fill(page, pt)
+            return
+        if tool == "stamp":
+            ed.new_stamp(page, pt)
+            return
         ed.scene.clearSelection()
         self.drag = {"page": page, "start": pt, "tool": tool, "item": None}
         if tool == "draw":
@@ -1563,6 +1587,16 @@ def _opacity(d: dict) -> float:
         return 1.0
 
 
+def fill_strokes(kind: str, x: float, y: float, size: float) -> list[list[list[float]]]:
+    """A tick or a cross, size points wide, its middle at (x, y), as pen strokes."""
+    h = size / 2
+    if kind == "check":
+        pts = [(-0.5, 0.02), (-0.15, 0.4), (0.5, -0.45)]
+        return [[[round(x + a * size, 2), round(y + b * size, 2)] for a, b in pts]]
+    return [[[round(x - h, 2), round(y - h, 2)], [round(x + h, 2), round(y + h, 2)]],
+            [[round(x + h, 2), round(y - h, 2)], [round(x - h, 2), round(y + h, 2)]]]
+
+
 class PdfEditor(QWidget):
     """The editor, shown on Rakiza Core PDF's page instead of the cards."""
 
@@ -1600,6 +1634,8 @@ class PdfEditor(QWidget):
         self.tool = "select"
         self.mark_kind = "highlight"
         self.shape_kind = "rect"
+        self.fill_kind = "check"
+        self.stamp_kind = "approved"
         self.dragging_items = False
         self.thumbs: list[PageItem] = []
         self.kept: set = set()              # every added thing on the pages
@@ -1877,13 +1913,16 @@ class PdfEditor(QWidget):
         grid.setSpacing(4)
         self.kind_group = QButtonGroup(self)
         self.kind_btns: dict[str, QPushButton] = {}
-        for n, (key, words, icon_name) in enumerate(MARKS + SHAPES):
-            b = self._choice(tr(words), icon_name)
-            b.clicked.connect(lambda _=False, k=key: self.set_kind(k))
-            self.kind_group.addButton(b)
-            self.kind_btns[key] = b
-            m = n if n < len(MARKS) else n - len(MARKS)
-            grid.addWidget(b, m // 2, m % 2)
+        for group in (MARKS, SHAPES, FILL_KINDS, STAMP_KINDS):
+            for m, (key, words, icon_name) in enumerate(group):
+                b = self._choice(tr(words), icon_name if icons.has(icon_name) else "form")
+                b.clicked.connect(lambda _=False, k=key: self.set_kind(k))
+                self.kind_group.addButton(b)
+                self.kind_btns[key] = b
+                if group is STAMP_KINDS:  # (the words of a stamp are long: one a row)
+                    grid.addWidget(b, 10 + m, 0, 1, 2)
+                else:
+                    grid.addWidget(b, m // 2, m % 2)
         kl.addLayout(grid)
         self.kind_strip = self.kind_box
 
@@ -2971,7 +3010,8 @@ class PdfEditor(QWidget):
         drag = QGraphicsView.RubberBandDrag if key == "select" else QGraphicsView.NoDrag
         self.view.setDragMode(drag)
         cursor = {"text": Qt.IBeamCursor, "draw": Qt.CrossCursor, "shape": Qt.CrossCursor, "cover": Qt.CrossCursor,
-                  "note": Qt.PointingHandCursor, "mark": Qt.IBeamCursor, "link": Qt.CrossCursor}.get(key)
+                  "note": Qt.PointingHandCursor, "mark": Qt.IBeamCursor, "link": Qt.CrossCursor,
+                  "fill": Qt.CrossCursor, "stamp": Qt.PointingHandCursor}.get(key)
         if cursor is None:
             self.view.viewport().unsetCursor()
         else:
@@ -2996,6 +3036,10 @@ class PdfEditor(QWidget):
     def set_kind(self, key: str):
         if key in MARK_KEYS:
             self.mark_kind = key
+        elif key in FILL_KEYS:
+            self.fill_kind = key
+        elif key in STAMP_KEYS:
+            self.stamp_kind = key
         else:
             self.shape_kind = key
         self._refresh()
@@ -3103,10 +3147,11 @@ class PdfEditor(QWidget):
                     title = tr(TITLES["shape"])
             self.insp_title.setText(title)
             show = {}
-            show["kind"] = tool in ("mark", "shape") and not items
+            show["kind"] = tool in ("mark", "shape", "fill", "stamp") and not items
             for k, b in self.kind_btns.items():
-                b.setVisible((tool == "mark" and k in MARK_KEYS) or (tool == "shape" and k in SHAPE_KEYS))
-                b.setChecked(k in (self.mark_kind, self.shape_kind))
+                b.setVisible((tool == "mark" and k in MARK_KEYS) or (tool == "shape" and k in SHAPE_KEYS) or
+                             (tool == "fill" and k in FILL_KEYS) or (tool == "stamp" and k in STAMP_KEYS))
+                b.setChecked(k in (self.mark_kind, self.shape_kind, self.fill_kind, self.stamp_kind))
             show["para"] = tool == "edit" and not items and not typing
             text_on = key == "text" and st is not None
             show["font"] = show["align"] = text_on
@@ -3292,7 +3337,7 @@ class PdfEditor(QWidget):
         kind = d["kind"]
         if kind == "text":
             item = TextMark(self, page, d)
-        elif kind in ("image", "cover", "move", "link"):
+        elif kind in ("image", "cover", "move", "link", "stamp"):
             key = (page.index, tuple(d.get("objs") or ()))
             if kind == "move" and pixmap is not None:
                 self.move_pics[key] = pixmap
@@ -3408,6 +3453,83 @@ class PdfEditor(QWidget):
         piece.setOpacity(0)  # (hidden once let go: until then it's still being dragged)
         self._ask_pages()
         return item
+
+    def new_fill(self, page: PageItem, pt: QPointF):
+        """Fill in: a tick, a cross or a dot centred where it was clicked; today's date or your initials as text
+        starting there."""
+        kind = self.fill_kind
+        color = self.style["text"].get("color", "#000000")
+        s = FILL_MARK
+        x, y = pt.x(), pt.y()
+        if kind in ("check", "cross"):
+            strokes = fill_strokes(kind, x, y, s)
+            item = self.add_item({"kind": "ink", "page": page.index, "strokes": strokes, "color": color,
+                                  "width": round(s / 7, 2)}, commit=True)
+        elif kind == "dot":
+            r = s / 4
+            item = self.add_item({"kind": "ellipse", "page": page.index, "points": [x - r, y - r, x + r, y + r],
+                                  "color": color, "fill": color, "width": 0.5}, commit=True)
+        else:
+            if kind == "date":
+                from PySide6.QtCore import QDate, QLocale
+                from . import i18n
+                words = QLocale(i18n.language()).toString(
+                    QDate.currentDate(), QLocale.FormatType.ShortFormat)
+            else:
+                words = self.initials()
+                if not words:
+                    return
+            st = self.style["text"]
+            fm = QFontMetricsF(pdfedit.font_for(st), pdfedit.layout_device())
+            item = self.add_item(dict(st, kind="text", page=page.index, text=words, x=x,
+                                      y=y - fm.ascent() * 0.75), commit=True)
+        self.scene.clearSelection()
+        item.setSelected(True)
+        self.view.setFocus()
+
+    def initials(self, ask: bool = False) -> str:
+        """Your initials (asked for the first time, and kept on this PC)."""
+        kept = str(getattr(self.c.settings, "pdf_initials", "") or "").strip()
+        if kept and not ask:
+            return kept
+        text, ok = sheet.get_text(self, tr("Initials"), tr("Your initials, put on forms with a click:"), kept)
+        text = (text or "").strip()[:12]
+        if not ok or not text:
+            return ""
+        self.c.settings.pdf_initials = text
+        self.c.settings.save()
+        return text
+
+    def new_stamp(self, page: PageItem, pt: QPointF):
+        """A stamp, its middle where it was clicked (Your own words… asks for them first)."""
+        key, words, color, dated = next((s for s in STAMPS if s[0] == self.stamp_kind), STAMPS[0])
+        if key == "custom":
+            text, ok = sheet.get_text(self, tr("Stamp"), tr("The words on the stamp:"),
+                                      str(getattr(self.c.settings, "pdf_stamp_words", "") or ""))
+            text = (text or "").strip()[:40]
+            if not ok or not text:
+                return
+            self.c.settings.pdf_stamp_words = text
+            words = text
+        else:
+            words = tr(words)
+        when = ""
+        if dated:
+            from PySide6.QtCore import QDateTime, QLocale
+            from . import i18n
+            when = QLocale(i18n.language()).toString(
+                QDateTime.currentDateTime(), QLocale.FormatType.ShortFormat)
+        w, h = pdfedit.stamp_size(words, when)
+        if w > page.w - 8:  # (a long one on a small page: made to fit)
+            k = (page.w - 8) / w
+            w, h = w * k, h * k
+        x = min(max(0.0, pt.x() - w / 2), max(0.0, page.w - w))
+        y = min(max(0.0, pt.y() - h / 2), max(0.0, page.h - h))
+        item = self.add_item({"kind": "stamp", "page": page.index, "text": words, "date": when, "color": color,
+                              "x": round(x, 2), "y": round(y, 2), "w": w, "h": h}, commit=True)
+        self.scene.clearSelection()
+        item.setSelected(True)
+        self.view.setFocus()
 
     def new_note(self, page: PageItem, pt: QPointF):
         item = self.add_item({"kind": "note", "page": page.index, "x": pt.x() - 10, "y": pt.y() - 10, "text": ""},

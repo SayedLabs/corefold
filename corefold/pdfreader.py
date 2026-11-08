@@ -45,6 +45,13 @@ THUMB_W = 96             # the small pictures at the side
 ZOOMS = (0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 4.0, 6.0)
 SAFE_SCHEMES = ("http://", "https://", "mailto:")
 FITS = ("auto", "width", "page", "")
+MAX_COMMENTS = 2000      # comments listed at the side (a PDF with more shows the first)
+COMMENT_KINDS = {"/Text": "Note", "/FreeText": "Text", "/Highlight": "Highlight", "/Underline": "Underline",
+                 "/StrikeOut": "Strike out", "/Squiggly": "Underline", "/Ink": "Drawing", "/Square": "Box",
+                 "/Circle": "Circle", "/Line": "Line", "/Polygon": "Shape", "/PolyLine": "Line",
+                 "/Stamp": "Stamp", "/Caret": "Insert", "/FileAttachment": "File", "/Sound": "Sound",
+                 "/Redact": "Cover"}
+COMMENTS_W = 270         # the side, while it shows the comments (they're words: the pages' width is too narrow)
 AUTO_MAX = 1.25          # "auto": the page's width, but a narrow page isn't blown up past this
 # dark pages: the page's colours turned round (white paper becomes dark grey, black words light grey) with
 # their hue kept, so a red heading stays red and a blue link blue (an inverse turned back round by 180°)
@@ -188,7 +195,7 @@ def _web_links(c, tp, geo) -> list[dict]:
 
 
 class _Signals(QObject):
-    opened = Signal(object)                    # (page sizes, bookmarks, right to left) or an Exception
+    opened = Signal(object)                    # (page sizes, bookmarks, right to left, comments) or an Exception
     image = Signal(int, float, bool, object)   # page, scale, dark, QImage
     big = Signal(int, object)                  # page, QImage (for the whole screen)
     thumb = Signal(int, object)
@@ -281,7 +288,12 @@ class Renderer:
             except Exception:
                 log.debug("the bookmarks of %s couldn't be read", self.src, exc_info=True)
                 marks = []
-            self.sig.opened.emit((sizes, marks, reads_right_to_left(self.src, self.password)))
+            try:
+                comments = read_comments(self.src, self.password)
+            except Exception:
+                log.debug("the comments of %s couldn't be read", self.src, exc_info=True)
+                comments = []
+            self.sig.opened.emit((sizes, marks, reads_right_to_left(self.src, self.password), comments))
             while True:
                 job = self._next()
                 if job is None:
@@ -359,6 +371,109 @@ def layout(sizes: list[tuple[float, float]], two: bool = False, cover: bool = Fa
     if rtl:
         places = [(-x - w, y) for (x, y), (w, _h) in zip(places, sizes)]
     return places
+
+
+def _pdf_date(value) -> str:
+    """A PDF date (D:20261108093000+03'00') as 2026-11-08 09:30 ("" when it isn't one)."""
+    t = str(value or "").strip()
+    if t.startswith("D:"):
+        t = t[2:]
+    if len(t) < 8 or not t[:8].isdigit():
+        return ""
+    out = f"{t[:4]}-{t[4:6]}-{t[6:8]}"
+    if len(t) >= 12 and t[8:12].isdigit():
+        out += f" {t[8:10]}:{t[10:12]}"
+    return out
+
+
+def _words_of(value, limit: int = 4000) -> str:
+    return " ".join(str(value).split())[:limit] if value is not None else ""
+
+
+def read_comments(src: Path, password: str = "") -> list[dict]:
+    """The PDF's comments (notes, highlights, drawings, stamps…) in page order, each a dict of page, kind (the
+    words for it, before tr), author, date, text, y (from the top of the page, in points) and replies (the
+    same, for the comments written as answers to it)."""
+    from .pdftools import open_reader
+    reader = open_reader(src, password)
+    found: list[dict] = []
+    by_ref: dict[tuple[int, int], dict] = {}
+    answers: list[tuple[tuple[int, int], dict]] = []
+    for n, page in enumerate(reader.pages):
+        if len(found) >= MAX_COMMENTS:
+            break
+        try:
+            annots = page.get("/Annots")
+            annots = annots.get_object() if annots is not None else None
+        except Exception:
+            continue
+        if not annots:
+            continue
+        try:
+            from .pdfedit import pypdf_geo
+            geo = pypdf_geo(page)
+        except Exception:
+            geo = None
+        for ref in annots:
+            if len(found) >= MAX_COMMENTS:
+                break
+            try:
+                a = ref.get_object()
+                kind = str(a.get("/Subtype", ""))
+                if kind not in COMMENT_KINDS:
+                    continue  # (links, form boxes, popups: not comments)
+                text = _words_of(a.get("/Contents"))
+                if kind == "/Stamp" and not text:
+                    text = str(a.get("/Name", "")).lstrip("/")
+                y = 0.0
+                rect = a.get("/Rect")
+                if rect is not None and geo is not None:
+                    l, b, r, t = (float(v) for v in rect)
+                    y = max(0.0, geo.rect_to_display(min(l, r), min(b, t), max(l, r), max(b, t))[1])
+                c = {"page": n, "kind": COMMENT_KINDS[kind], "author": _words_of(a.get("/T"), 120),
+                     "date": _pdf_date(a.get("/M") or a.get("/CreationDate")), "text": text, "y": round(y, 1),
+                     "replies": []}
+            except Exception:
+                log.debug("a comment on page %s couldn't be read", n + 1, exc_info=True)
+                continue
+            if getattr(ref, "idnum", None) is not None:
+                by_ref[(ref.idnum, ref.generation)] = c
+            irt = a.get("/IRT")
+            if irt is not None and getattr(irt, "idnum", None) is not None:
+                answers.append(((irt.idnum, irt.generation), c))
+                continue
+            found.append(c)
+    for key, c in answers:
+        parent = by_ref.get(key)
+        if parent is not None:
+            parent["replies"].append(c)
+        else:
+            found.append(c)  # (an answer to a comment that's gone: shown on its own)
+    found.sort(key=lambda c: (c["page"], c["y"]))
+    return found
+
+
+def comments_text(name: str, comments: list[dict]) -> str:
+    """The comments as plain words, to save as a .txt file."""
+    lines = [tr("Comments on {name}", name=name), ""]
+
+    def one(c: dict, indent: str):
+        head = " · ".join(x for x in (tr(c["kind"]), c["author"], c["date"]) if x)
+        lines.append(f"{indent}{head}")
+        if c["text"]:
+            lines.append(f"{indent}    {c['text']}")
+        for r in c["replies"]:
+            one(r, indent + "    ")
+
+    page = -1
+    for c in comments:
+        if c["page"] != page:
+            page = c["page"]
+            if len(lines) > 2:
+                lines.append("")
+            lines.append(tr("Page {number}", number=page + 1))
+        one(c, "  ")
+    return "\n".join(lines) + "\n"
 
 
 def reads_right_to_left(src: Path, password: str = "") -> bool:
@@ -475,6 +590,7 @@ class Doc:
         self.pages: list[PageItem] = []
         self.sizes: list[tuple[float, float]] = []
         self.marks: list[list] = []
+        self.comments: list[dict] = []
         self.words: dict[int, dict] = {}
         self.thumbs: dict[int, QPixmap] = {}
         self.zoom = 1.0
@@ -1030,8 +1146,16 @@ class PdfReader(QWidget):
         pick.setSpacing(2)
         self.side_pages_btn = QToolButton()
         self.side_marks_btn = QToolButton()
-        for b, words, k in ((self.side_pages_btn, tr("Pages"), 0), (self.side_marks_btn, tr("Chapters"), 1)):
-            b.setText(words)
+        self.side_notes_btn = QToolButton()
+        muted = self.c.theme.muted
+        for b, words, icon, k in ((self.side_pages_btn, tr("Pages"), "document_multiple", 0),
+                                  (self.side_marks_btn, tr("Chapters"), "text_description", 1),
+                                  (self.side_notes_btn, tr("Comments"), "chat", 2)):
+            # (pictures, not words: three words don't fit the narrow side in every language)
+            b.setIcon(icons.icon(icon, muted, tokens.alpha(QColor(muted), 70)))
+            b.setIconSize(QSize(16, 16))
+            b.setToolTip(words)
+            b.setAccessibleName(words)
             b.setObjectName("pdfSideTab")
             b.setCheckable(True)
             b.setAutoRaise(True)
@@ -1059,15 +1183,36 @@ class PdfReader(QWidget):
         self.mark_tree.setFrameShape(QFrame.NoFrame)
         self.mark_tree.itemClicked.connect(lambda it, _c: self.go_to(int(it.data(0, Qt.UserRole) or 0)))
         self.side_stack.addWidget(self.mark_tree)
+        # the comments (notes, highlights, stamps… people put on the PDF): click one to go to it
+        notes = QWidget()
+        nl = QVBoxLayout(notes)
+        nl.setContentsMargins(0, 0, 0, 0)
+        nl.setSpacing(4)
+        self.notes_list = QListWidget()
+        self.notes_list.setObjectName("pdfReaderComments")
+        self.notes_list.setWordWrap(True)
+        self.notes_list.setFrameShape(QFrame.NoFrame)
+        self.notes_list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.notes_list.setVerticalScrollMode(QListView.ScrollPerPixel)
+        self.notes_list.itemClicked.connect(self._note_clicked)
+        nl.addWidget(self.notes_list, 1)
+        self.notes_save = QPushButton(tr("Save as a text file…"))
+        self.notes_save.setObjectName("small")
+        self.notes_save.setCursor(Qt.PointingHandCursor)
+        self.notes_save.clicked.connect(self.save_comments)
+        nl.addWidget(self.notes_save)
+        self.side_stack.addWidget(notes)
         sl.addWidget(self.side_stack, 1)
-        self.side.setVisible(bool(getattr(self.c.settings, "pdf_read_side", True)))
-        self.side_btn.setChecked(self.side.isVisible())
         body.addWidget(self.side)
         self.view = ReaderView(self)
         self.blank_scene = QGraphicsScene(self)
         self.view.setScene(self.blank_scene)
         body.addWidget(self.view, 1)
         v.addLayout(body, 1)
+        # (only once it's in its place: shown before, it would flash as a window of its own)
+        side_on = bool(getattr(self.c.settings, "pdf_read_side", True))
+        self.side.setVisible(side_on)
+        self.side_btn.setChecked(side_on)
         self.status = QLabel()
         self.status.setObjectName("subtle")
         self.status.hide()
@@ -1140,7 +1285,7 @@ class PdfReader(QWidget):
                                                   name=short_name(doc.src.name)))
             self.close_tab(self.docs.index(doc))
             return
-        doc.sizes, doc.marks, doc.rtl = result
+        doc.sizes, doc.marks, doc.rtl, doc.comments = result
         doc.ready = True
         for i, (w, h) in enumerate(doc.sizes):
             item = PageItem(i, w, h)
@@ -1369,7 +1514,7 @@ class PdfReader(QWidget):
                 best, best_d = p.index, d
         return best
 
-    def go_to(self, page: int, doc: Doc | None = None):
+    def go_to(self, page: int, doc: Doc | None = None, y: float | None = None):
         doc = doc or self.doc
         if doc is None or doc is not self.doc or not doc.pages:
             return
@@ -1377,7 +1522,10 @@ class PdfReader(QWidget):
         item = doc.pages[page]
         r = item.sceneBoundingRect()
         top = doc.scene.sceneRect().top()
-        self.view.verticalScrollBar().setValue(round((r.top() - GAP / 2 - top) * doc.zoom))
+        if y:  # (a place on the page: a little above it, so what's just over it is seen too)
+            self.view.verticalScrollBar().setValue(round((r.top() + max(0.0, y - 40) - top) * doc.zoom))
+        else:
+            self.view.verticalScrollBar().setValue(round((r.top() - GAP / 2 - top) * doc.zoom))
         self.view.centerOn(r.center().x(), self.view.mapToScene(self.view.viewport().rect().center()).y())
         self._update_page_box()
         self.visible_timer.start()
@@ -1453,7 +1601,7 @@ class PdfReader(QWidget):
     # ---- the side
 
     def toggle_side(self):
-        on = not self.side.isVisible()
+        on = self.side.isHidden()
         self.side.setVisible(on)
         self.side_btn.setChecked(on)
         self.c.settings.pdf_read_side = on
@@ -1464,6 +1612,8 @@ class PdfReader(QWidget):
         self.side_stack.setCurrentIndex(k)
         self.side_pages_btn.setChecked(k == 0)
         self.side_marks_btn.setChecked(k == 1)
+        self.side_notes_btn.setChecked(k == 2)
+        self.side.setFixedWidth(COMMENTS_W if k == 2 else THUMB_W + 52)
         if k == 0:
             self.thumbs_timer.start()
 
@@ -1489,11 +1639,60 @@ class PdfReader(QWidget):
                 self.mark_tree.addTopLevelItem(it)
             parents.append(it)
         self.side_marks_btn.setEnabled(bool(doc.marks))
+        self._fill_comments(doc)
         if doc.marks and doc.ready and not self.side_marks_btn.isChecked() and doc.start_page == 0:
             self._side_show(1)  # (a PDF with chapters shows them first)
-        elif not doc.marks:
+        elif (self.side_stack.currentIndex() == 1 and not doc.marks) or (
+                self.side_stack.currentIndex() == 2 and not doc.comments):
             self._side_show(0)
         self.thumbs_timer.start()
+
+    def _fill_comments(self, doc: Doc):
+        self.notes_list.clear()
+        n = 0
+        arrow = "↲ " if self.layoutDirection() == Qt.RightToLeft else "↳ "  # (an answer, under what it answers)
+
+        def add(c: dict, reply: bool):
+            nonlocal n
+            n += 1
+            head = " · ".join(x for x in (tr(c["kind"]), c["author"]) if x)
+            if not reply:
+                head = f"{tr('Page {number}', number=c['page'] + 1)} · {head}"
+            # (each line set its own way: English words keep their full stop at the end in the Arabic look)
+            words = f"{head}\n\u2068{c['text']}\u2069" if c["text"] else head
+            it = QListWidgetItem((arrow if reply else "") + words)
+            it.setData(Qt.UserRole, (int(c["page"]), float(c["y"])))
+            if c["date"]:
+                it.setToolTip(c["date"])
+            self.notes_list.addItem(it)
+            for r in c["replies"]:
+                add(r, True)
+
+        for c in doc.comments:
+            add(c, False)
+        self.side_notes_btn.setEnabled(bool(doc.comments))
+        self.side_notes_btn.setToolTip(tr("Comments ({count})", count=n) if n else tr("Comments"))
+        self.notes_save.setVisible(bool(doc.comments))
+
+    def _note_clicked(self, it: QListWidgetItem):
+        page, y = it.data(Qt.UserRole) or (0, 0.0)
+        self.go_to(int(page), y=float(y))
+
+    def save_comments(self):
+        doc = self.doc
+        if doc is None or not doc.comments:
+            return
+        start = doc.src.with_name(f"{doc.src.stem} - {tr('Comments')}.txt")
+        name, _ = QFileDialog.getSaveFileName(self, tr("Save as a text file…").rstrip("…"), str(start),
+                                              tr("Text (*.txt)"))
+        if not name:
+            return
+        try:
+            Path(name).write_text(comments_text(doc.src.name, doc.comments), encoding="utf-8")
+        except OSError as e:
+            self.c.tell(tr("Rakiza Core PDF"), str(e))
+            return
+        self._say(tr("Saved"))
 
     def _ask_thumbs(self):
         doc = self.doc

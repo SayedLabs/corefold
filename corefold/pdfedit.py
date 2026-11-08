@@ -1374,6 +1374,60 @@ def _arrow_head(p, x1, y1, x2, y2, width):
     p.drawPolygon(QPolygonF(pts))
 
 
+STAMP_FONT = "Arial"
+
+
+def stamp_font(size: float, bold: bool = True):
+    from PySide6.QtGui import QFont
+    f = QFont(STAMP_FONT)
+    f.setPixelSize(max(1, round(size)))
+    f.setBold(bold)
+    f.setLetterSpacing(QFont.PercentageSpacing, 104)
+    return f
+
+
+def stamp_size(text: str, when: str = "") -> tuple[float, float]:
+    """How big a new stamp is, in points: its words 18 points tall in a box with room around them (and a line
+    for the date under them)."""
+    from PySide6.QtGui import QFontMetricsF
+    fm = QFontMetricsF(stamp_font(18), layout_device())
+    w = fm.horizontalAdvance(text) + 28
+    h = 34.0
+    if when:
+        w = max(w, QFontMetricsF(stamp_font(9, False), layout_device()).horizontalAdvance(when) + 28)
+        h = 46.0
+    return round(w, 2), h
+
+
+def draw_stamp(p, rect, d: dict):
+    """A stamp (Approved, Draft…): its words in a rounded double frame, in its colour, with the date under them
+    when it has one. Drawn the same in the editor and in the saved PDF, where the words stay real text."""
+    from PySide6.QtCore import QRectF, Qt
+    from PySide6.QtGui import QColor, QPen
+    color = QColor(d.get("color", "#2e7d32"))
+    text = str(d.get("text", ""))
+    when = str(d.get("date", "") or "")
+    w0, h0 = stamp_size(text, when)
+    k = min(rect.width() / max(1.0, w0), rect.height() / max(1.0, h0))
+    p.save()
+    p.setRenderHint(p.RenderHint.Antialiasing)
+    p.translate(rect.x() + (rect.width() - w0 * k) / 2, rect.y() + (rect.height() - h0 * k) / 2)
+    p.scale(k, k)
+    p.setBrush(Qt.NoBrush)
+    p.setPen(QPen(color, 2.2))
+    p.drawRoundedRect(QRectF(1.5, 1.5, w0 - 3, h0 - 3), 6, 6)
+    p.setPen(QPen(color, 0.8))
+    p.drawRoundedRect(QRectF(4.5, 4.5, w0 - 9, h0 - 9), 4, 4)
+    p.setPen(color)
+    p.setFont(stamp_font(18))
+    words = QRectF(0, 3, w0, 28)
+    p.drawText(words, Qt.AlignCenter | Qt.TextSingleLine, text)
+    if when:
+        p.setFont(stamp_font(9, False))
+        p.drawText(QRectF(0, 29, w0, 12), Qt.AlignCenter | Qt.TextSingleLine, when)
+    p.restore()
+
+
 def draw_mark(p, d: dict):
     """Draws one added thing (a dict from the editor) with a QPainter, in page points."""
     from PySide6.QtCore import QPointF, QRectF, Qt
@@ -1417,6 +1471,8 @@ def draw_mark(p, d: dict):
             p.drawImage(rect, img)
         elif kind == "cover":
             p.fillRect(QRectF(float(d["x"]), float(d["y"]), float(d["w"]), float(d["h"])), color)
+        elif kind == "stamp":
+            draw_stamp(p, QRectF(float(d["x"]), float(d["y"]), float(d["w"]), float(d["h"])), d)
         elif kind in ("underline", "strike"):
             for x, y, w, h in d.get("rects", []):
                 t = max(0.6, h * 0.07)
@@ -1455,7 +1511,7 @@ def draw_mark(p, d: dict):
         p.restore()
 
 
-DRAWN = ("text", "image", "cover", "underline", "strike", "ink", "rect", "ellipse", "line", "arrow")
+DRAWN = ("text", "image", "cover", "underline", "strike", "ink", "rect", "ellipse", "line", "arrow", "stamp")
 
 
 def _layer(pages: dict[int, list[dict]], sizes: dict[int, tuple[float, float]]) -> bytes:
@@ -1488,7 +1544,8 @@ def _layer(pages: dict[int, list[dict]], sizes: dict[int, tuple[float, float]]) 
     finally:
         p.end()
     buf.close()
-    typed = "".join(d.get("text", "") for marks in pages.values() for d in marks if d.get("kind") == "text")
+    typed = "".join(str(d.get("text", "")) + str(d.get("date", "") or "") for marks in pages.values() for d in marks
+                    if d.get("kind") in ("text", "stamp"))
     return _arabic_unicode(bytes(data), typed)
 
 
