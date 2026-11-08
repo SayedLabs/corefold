@@ -329,6 +329,11 @@ def page():
           "Page 1 of" in " ".join(PdfReader(made[0]).pages[1].extract_text().split()) and
           "Page" not in PdfReader(made[0]).pages[0].extract_text(), "Header and footer card: page numbers "
           "after the cover")
+    made = card("topowerpoint", [A])
+    import zipfile
+    check(len(made) == 1 and made[0].suffix == ".pptx" and
+          sum(n.startswith("ppt/slides/slide") for n in zipfile.ZipFile(made[0]).namelist()) == 5,
+          "PDF to PowerPoint card: a slide for each page")
     def lock_abc(dlg):
         dlg.p1.setText("abc")
         dlg.p2.setText("abc")

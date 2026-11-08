@@ -49,6 +49,9 @@ ACTIONS = [("read", "Read", "Open PDFs in tabs to read: zoom, two pages, find an
            ("pictures", "Pictures to PDF", "Photos and scans into one PDF, on A4 or Letter if you want",
             "image_multiple"),
            ("topictures", "PDF to pictures", "Every page, or the ones you pick, as PNG or JPG", "image"),
+           ("toexcel", "PDF to Excel", "Tables and words as a spreadsheet, numbers as numbers, made without Office",
+            "data_pie"),
+           ("topowerpoint", "PDF to PowerPoint", "Every page as a slide, made without Office", "desktop"),
            ("lock", "Lock", "Protect a PDF with a password", "lock_closed"),
            ("unlock", "Unlock", "Remove the password from a PDF that's yours", "lock_open"),
            ("pagesize", "Page size", "Make every page A4, Letter or another size, what's on it fitted inside",
@@ -79,7 +82,8 @@ GROUPS = [("", ("read", "edit")),
           ("Pages", ("merge", "organize", "split", "extract", "pagesize", "trim")),
           ("Add to it", ("searchable", "pdf:sign", "pdf:numbers", "headerfooter", "pdf:watermark", "bookmarks")),
           ("Smaller or safer", ("compress", "pdf:fit", "lock", "unlock", "clean", "flatten", "repair")),
-          ("Turn it into something else", ("topictures", "pictures", "pdf:word", "pdf:text", "pdf:images")),
+          ("Turn it into something else", ("topictures", "pictures", "pdf:word", "toexcel", "topowerpoint", "pdf:text",
+                                          "pdf:images")),
           ("Check and print", ("compare", "print"))]
 TIPS = {"merge": "Drag the pages into the order you want, then press Merge and save.",
         "organize": "Drag pages to move them. Select some to turn or delete them. Double-click a page to see it big.",
@@ -91,6 +95,11 @@ PICTURE_ALIASES = {".jpeg", ".jfif", ".tif", ".heif"}
 def _header_footer_tool():
     from .pdfstamp import HEADER_FOOTER
     return HEADER_FOOTER
+
+
+def _office_tool(kind: str):
+    from .pdfoffice import TO_EXCEL, TO_POWERPOINT
+    return TO_EXCEL if kind == "excel" else TO_POWERPOINT
 
 
 def _label(text: str = "", name: str | None = None, wrap: bool = False) -> QLabel:
@@ -449,7 +458,7 @@ class PdfPage(QWidget):
                 self.pictures_to_pdf([Path(n) for n in names])
             return
         several = key in ("read", "compare", "print", "merge", "organize", "compress", "searchable", "topictures", "lock", "unlock", "clean",
-                          "pagesize", "trim", "flatten", "repair", "headerfooter") or \
+                          "pagesize", "trim", "flatten", "repair", "headerfooter", "toexcel", "topowerpoint") or \
             key.startswith("pdf:")
         title = tr("Pick the PDFs") if several else tr("Pick a PDF")
         if several:
@@ -524,7 +533,8 @@ class PdfPage(QWidget):
                 "topictures": (pd.ToPicturesDialog, pdftools.TO_PICTURES), "lock": (pd.PdfLockDialog, pdftools.LOCK),
                 "unlock": (None, pdftools.UNLOCK), "pagesize": (pd.PageSizeDialog, pdftools.PAGE_SIZE),
                 "trim": (pd.TrimDialog, pdftools.TRIM),
-                "headerfooter": (pd.HeaderFooterDialog, _header_footer_tool()), "flatten": (None, pdftools.FLATTEN), "repair": (None, pdftools.REPAIR)}
+                "headerfooter": (pd.HeaderFooterDialog, _header_footer_tool()),
+                "toexcel": (None, _office_tool("excel")), "topowerpoint": (None, _office_tool("powerpoint")), "flatten": (None, pdftools.FLATTEN), "repair": (None, pdftools.REPAIR)}
         dialog, tool = asks[key]
         if key == "lock":
             already = [f for f in files if pdftools.lock_state(f) == "locked"]

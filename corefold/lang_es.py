@@ -3588,4 +3588,12 @@ STRINGS: dict[str, str] = {
     "Light green": "Verde claro",
     "header and footer": "encabezado y pie",
     "Words at the top and bottom of every page": "Palabras arriba y abajo de cada página",
+    # ------------------------------------------------------------------ PDF to Excel and PowerPoint
+    "This PDF has no words of its own (scanned pages?): make it searchable first.": "Este PDF no tiene palabras propias (¿páginas escaneadas?): hazlo buscable primero.",
+    "PDF to Excel": "PDF a Excel",
+    "Tables and words as a spreadsheet": "Tablas y palabras como hoja de cálculo",
+    "PDF to PowerPoint": "PDF a PowerPoint",
+    "Every page as a slide": "Cada página como diapositiva",
+    "Tables and words as a spreadsheet, numbers as numbers, made without Office": "Tablas y palabras como hoja de cálculo, los números como números, sin Office",
+    "Every page as a slide, made without Office": "Cada página como diapositiva, sin Office",
 }

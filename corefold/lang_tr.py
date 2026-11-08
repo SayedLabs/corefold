@@ -3588,4 +3588,12 @@ STRINGS: dict[str, str] = {
     "Light green": "Açık yeşil",
     "header and footer": "üst ve alt bilgi",
     "Words at the top and bottom of every page": "Her sayfanın üstünde ve altında sözcükler",
+    # ------------------------------------------------------------------ PDF to Excel and PowerPoint
+    "This PDF has no words of its own (scanned pages?): make it searchable first.": "Bu PDF'nin kendi sözcükleri yok (taranmış sayfalar mı?): önce aranabilir yapın.",
+    "PDF to Excel": "PDF'den Excel'e",
+    "Tables and words as a spreadsheet": "Tablolar ve sözcükler elektronik tablo olarak",
+    "PDF to PowerPoint": "PDF'den PowerPoint'e",
+    "Every page as a slide": "Her sayfa bir slayt olarak",
+    "Tables and words as a spreadsheet, numbers as numbers, made without Office": "Tablolar ve sözcükler elektronik tablo olarak, sayılar sayı olarak, Office olmadan",
+    "Every page as a slide, made without Office": "Her sayfa bir slayt olarak, Office olmadan",
 }

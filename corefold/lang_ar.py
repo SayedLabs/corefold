@@ -3661,4 +3661,12 @@ STRINGS: dict[str, str] = {
     "Light green": "أخضر فاتح",
     "header and footer": "رأس وتذييل",
     "Words at the top and bottom of every page": "كلمات أعلى وأسفل كل صفحة",
+    # ------------------------------------------------------------------ PDF to Excel and PowerPoint
+    "This PDF has no words of its own (scanned pages?): make it searchable first.": "هذا الملف ما فيه كلمات حقيقية (صفحات ممسوحة ضوئيًا؟): اجعله قابلًا للبحث أولًا.",
+    "PDF to Excel": "PDF إلى Excel",
+    "Tables and words as a spreadsheet": "الجداول والكلمات كجدول بيانات",
+    "PDF to PowerPoint": "PDF إلى PowerPoint",
+    "Every page as a slide": "كل صفحة كشريحة",
+    "Tables and words as a spreadsheet, numbers as numbers, made without Office": "الجداول والكلمات كجدول بيانات، والأرقام كأرقام، بدون الحاجة لـ Office",
+    "Every page as a slide, made without Office": "كل صفحة كشريحة، بدون الحاجة لـ Office",
 }
