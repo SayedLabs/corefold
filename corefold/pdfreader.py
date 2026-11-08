@@ -2107,7 +2107,7 @@ class PdfReader(QWidget):
         QGuiApplication.clipboard().setImage(part)
         self.set_mode("")
         self._say(tr("Copied as a picture: paste it anywhere."))
-        QTimer.singleShot(3000, lambda: self._say(""))
+        QTimer.singleShot(3000, self.status, lambda: self._say(""))  # (not once the reader has gone)
         return part
 
     # ---- Read aloud (Windows' own voices)
