@@ -623,7 +623,7 @@ def line_rects(words: dict, a: int, b: int) -> list[QRectF]:
 def text_between(words: dict, a: int, b: int) -> str:
     from .pdfedit import arabic_letters
     text = (words.get("text") or "")[max(0, a):b]
-    return arabic_letters(text.replace("\r\n", "\n").replace("\r", "\n").replace("￾", "").replace("\x02", ""))
+    return arabic_letters(text.replace("\r\n", "\n").replace("\r", "\n").replace("\ufffe", "").replace("\x02", ""))
 
 
 def find_in(text: str, query: str, match_case: bool) -> list[int]:
@@ -1723,7 +1723,7 @@ class PdfReader(QWidget):
     def _fill_comments(self, doc: Doc):
         self.notes_list.clear()
         n = 0
-        arrow = "↲ " if self.layoutDirection() == Qt.RightToLeft else "↳ "  # (an answer, under what it answers)
+        arrow = "› "  # (an answer, under what it answers; turned the other way in Arabic by itself)
 
         def add(c: dict, reply: bool):
             nonlocal n
