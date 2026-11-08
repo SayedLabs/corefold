@@ -78,7 +78,7 @@ def _buttons(c):
 
 def test_a_pdf_gets_every_use(panel, files, monkeypatch):
     c = panel
-    c.window.show_files([files / "letter.pdf"])
+    c.window.show_in_converter([files / "letter.pdf"])
     texts = _buttons(c)
     for wanted in ("Edit content", "Arrange pages", "Make searchable", "Remove hidden info", "What's using this?"):
         assert wanted in texts, texts
@@ -94,10 +94,10 @@ def test_a_pdf_gets_every_use(panel, files, monkeypatch):
 
 def test_several_pdfs_and_other_files(panel, files):
     c = panel
-    c.window.show_files([files / "letter.pdf", _pdf(files / "b.pdf")])
+    c.window.show_in_converter([files / "letter.pdf", _pdf(files / "b.pdf")])
     texts = _buttons(c)
     assert "Make searchable" in texts and "Edit content" not in texts  # (editing is one PDF at a time)
-    c.window.show_files([files / "notes.txt"])
+    c.window.show_in_converter([files / "notes.txt"])
     texts = _buttons(c)
     assert "What's using this?" in texts and "Make searchable" not in texts
 
@@ -105,7 +105,7 @@ def test_several_pdfs_and_other_files(panel, files):
 def test_a_use_switched_off_isnt_offered(panel, files):
     c = panel
     c.settings.tools_off = ["unlock", "pdf"]
-    c.window.show_files([files / "letter.pdf"])
+    c.window.show_in_converter([files / "letter.pdf"])
     texts = _buttons(c)
     assert "What's using this?" not in texts and "Edit content" not in texts
 
