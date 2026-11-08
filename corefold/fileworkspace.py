@@ -1060,6 +1060,7 @@ class ToolPanel(QFrame):
         self.foot_lay.setContentsMargins(18, 6, 18, 14)
         self.foot_lay.setSpacing(4)
         outer.addWidget(self.foot)
+        self.setMinimumHeight(560)  # (the page scrolls before a tool's choices are squeezed; longer ones scroll here)
         self.setMinimumWidth(PANEL_WIDTH)
         self.setMaximumWidth(PANEL_WIDTH)
         self._pending_slots = False
@@ -1108,10 +1109,6 @@ class ToolPanel(QFrame):
             self._tool_view(lay, tool)
         lay.addStretch()
         self.area.setWidget(body)
-        width = max(self.width(), PANEL_WIDTH)
-        want = (body.heightForWidth(width) if body.hasHeightForWidth() else body.sizeHint().height()) + \
-            (self.foot.sizeHint().height() if not self.foot.isHidden() else 0)
-        self.setMinimumHeight(min(want, 720))  # (the page scrolls before the panel does)
 
     def _head(self, lay):
         items, sel = self.state.items, self.state.selected
