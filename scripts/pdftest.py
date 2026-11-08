@@ -320,6 +320,15 @@ def page():
     check(answers.get("seen") == "CompressDialog", "Compress card: asks how much")
     card("trim", [A], lambda dlg: dlg.same.isChecked())
     check(answers.get("seen") == "TrimDialog", "Trim edges card: asks how much room is left")
+    def numbered(dlg):
+        dlg.header.setText("{name}")
+        dlg.skip.setChecked(True)
+        return "{page}" in dlg.footer.text()
+    made = card("headerfooter", [A], numbered)
+    check(answers.get("seen") == "HeaderFooterDialog" and len(made) == 1 and
+          "Page 1 of" in " ".join(PdfReader(made[0]).pages[1].extract_text().split()) and
+          "Page" not in PdfReader(made[0]).pages[0].extract_text(), "Header and footer card: page numbers "
+          "after the cover")
     def lock_abc(dlg):
         dlg.p1.setText("abc")
         dlg.p2.setText("abc")

@@ -556,3 +556,86 @@ class BookmarksDialog(Base):
         for i in range(self.tree.topLevelItemCount()):
             walk(self.tree.topLevelItem(i), 0)
         return {"marks": marks}
+
+
+def _plain(text: str) -> str:
+    """The words without the marks that only set which way they're shown (they'd stop {page} being found)."""
+    import re
+    return re.sub("[\u200e\u200f\u061c\u2066-\u2069]", "", text)
+
+
+class HeaderFooterDialog(Base):
+    """Header and footer: words at the top and bottom of every page (with the page number, the number of
+    pages, the date or the file's name put in), where they go, how big, and a colour behind the pages."""
+
+    def __init__(self, files, icon, dark):
+        from .pdfstamp import BACKGROUNDS, HF_FIELDS, HF_PLACES
+        super().__init__(tr("Header and footer"), describe(files), icon, dark)
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(10)
+        grid.setVerticalSpacing(8)
+        self.header, self.footer = QLineEdit(), QLineEdit()
+        self.header.setPlaceholderText(_plain(tr("For example: {name}")))
+        self.footer.setText(_plain(tr("Page {page} of {pages}")))
+        self.header_place, self.footer_place = _combo(HF_PLACES, "l"), _combo(HF_PLACES, "c")
+        for r, (words, box, place) in enumerate(((tr("Header"), self.header, self.header_place),
+                                                 (tr("Footer"), self.footer, self.footer_place))):
+            box.setAccessibleName(words)
+            box.setMinimumWidth(240)
+            place.setAccessibleName(words)
+            grid.addWidget(QLabel(words), r, 0)
+            grid.addWidget(box, r, 1)
+            grid.addWidget(place, r, 2)
+        grid.setColumnStretch(1, 1)
+        self.lay.addLayout(grid)
+        # what can be put in the words, a click each
+        row = QHBoxLayout()
+        row.setSpacing(6)
+        row.addWidget(_note(tr("Put in:")))
+        for token, words in HF_FIELDS:
+            b = QPushButton(tr(words))
+            b.setObjectName("small")
+            b.setCursor(Qt.PointingHandCursor)
+            b.setToolTip(token)
+            b.clicked.connect(lambda _=False, t=token: self._put(t))
+            row.addWidget(b)
+        row.addStretch()
+        self.lay.addLayout(row)
+        more = QGridLayout()
+        more.setHorizontalSpacing(10)
+        self.size = QSpinBox()
+        self.size.setRange(6, 28)
+        self.size.setValue(10)
+        self.size.setAccessibleName(tr("Size"))
+        more.addWidget(QLabel(tr("Size")), 0, 0)
+        more.addWidget(self.size, 0, 1)
+        self.background = _combo(BACKGROUNDS, "")
+        self.background.setAccessibleName(tr("Colour behind the pages"))
+        more.addWidget(QLabel(tr("Colour behind the pages")), 1, 0)
+        more.addWidget(self.background, 1, 1)
+        more.setColumnStretch(2, 1)
+        self.lay.addLayout(more)
+        self.skip = QCheckBox(tr("Not on the first page (a cover)"))
+        self.lay.addWidget(self.skip)
+        self.lay.addWidget(_note(tr("The words are real text, found and copied in any PDF app. Saved as a new "
+                                    "file.")))
+        self.last = self.footer
+        for box in (self.header, self.footer):
+            box.installEventFilter(self)
+        self.buttons(tr("Add"))
+
+    def eventFilter(self, obj, e):
+        from PySide6.QtCore import QEvent
+        if e.type() == QEvent.FocusIn and obj in (self.header, self.footer):
+            self.last = obj
+        return super().eventFilter(obj, e)
+
+    def _put(self, token: str):
+        self.last.insert(token)
+        self.last.setFocus()
+
+    def params(self):
+        skip = 1 if self.skip.isChecked() else 0
+        return {"header": _plain(self.header.text()), "footer": _plain(self.footer.text()),
+                "header_place": self.header_place.currentData(), "footer_place": self.footer_place.currentData(),
+                "size": self.size.value(), "background": self.background.currentData() or "", "skip": skip}

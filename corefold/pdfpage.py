@@ -60,6 +60,8 @@ ACTIONS = [("read", "Read", "Open PDFs in tabs to read: zoom, two pages, find an
            ("compare", "Compare two PDFs", "See what changed between two versions: pages side by side and every "
             "word taken out or put in", "document_multiple"),
            ("print", "Print", "Print on any printer: copies, pages, both sides, black and white", "document"),
+           ("headerfooter", "Header and footer", "Words at the top and bottom of every page: the page number, "
+            "the date, the file's name, and a colour behind the pages if you want", "text_description"),
            ("bookmarks", "Bookmarks", "Add, rename and arrange the chapters readers jump to from the side",
             "navigation"),
            ("clean", "Remove hidden info", "See and change its title and author, and take out who made it, notes, "
@@ -75,7 +77,7 @@ MORE = [("pdf:numbers", "Page numbers", "Number every page", "text_t"),
 # how the cards are grouped on the page (the first group is shown big, on top)
 GROUPS = [("", ("read", "edit")),
           ("Pages", ("merge", "organize", "split", "extract", "pagesize", "trim")),
-          ("Add to it", ("searchable", "pdf:sign", "pdf:numbers", "pdf:watermark", "bookmarks")),
+          ("Add to it", ("searchable", "pdf:sign", "pdf:numbers", "headerfooter", "pdf:watermark", "bookmarks")),
           ("Smaller or safer", ("compress", "pdf:fit", "lock", "unlock", "clean", "flatten", "repair")),
           ("Turn it into something else", ("topictures", "pictures", "pdf:word", "pdf:text", "pdf:images")),
           ("Check and print", ("compare", "print"))]
@@ -84,6 +86,11 @@ TIPS = {"merge": "Drag the pages into the order you want, then press Merge and s
         "extract": "Select the pages you want (or type them in the box), then Save selected pages."}
 PDF_FILTER = "PDF (*.pdf)"
 PICTURE_ALIASES = {".jpeg", ".jfif", ".tif", ".heif"}
+
+
+def _header_footer_tool():
+    from .pdfstamp import HEADER_FOOTER
+    return HEADER_FOOTER
 
 
 def _label(text: str = "", name: str | None = None, wrap: bool = False) -> QLabel:
@@ -442,7 +449,7 @@ class PdfPage(QWidget):
                 self.pictures_to_pdf([Path(n) for n in names])
             return
         several = key in ("read", "compare", "print", "merge", "organize", "compress", "searchable", "topictures", "lock", "unlock", "clean",
-                          "pagesize", "trim", "flatten", "repair") or \
+                          "pagesize", "trim", "flatten", "repair", "headerfooter") or \
             key.startswith("pdf:")
         title = tr("Pick the PDFs") if several else tr("Pick a PDF")
         if several:
@@ -516,7 +523,8 @@ class PdfPage(QWidget):
                 "searchable": (pd.SearchableDialog, _searchable_tool()),
                 "topictures": (pd.ToPicturesDialog, pdftools.TO_PICTURES), "lock": (pd.PdfLockDialog, pdftools.LOCK),
                 "unlock": (None, pdftools.UNLOCK), "pagesize": (pd.PageSizeDialog, pdftools.PAGE_SIZE),
-                "trim": (pd.TrimDialog, pdftools.TRIM), "flatten": (None, pdftools.FLATTEN), "repair": (None, pdftools.REPAIR)}
+                "trim": (pd.TrimDialog, pdftools.TRIM),
+                "headerfooter": (pd.HeaderFooterDialog, _header_footer_tool()), "flatten": (None, pdftools.FLATTEN), "repair": (None, pdftools.REPAIR)}
         dialog, tool = asks[key]
         if key == "lock":
             already = [f for f in files if pdftools.lock_state(f) == "locked"]

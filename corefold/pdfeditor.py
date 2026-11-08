@@ -46,8 +46,9 @@ ZOOMS = (0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0, 2.5, 
 TOOLS = [("select", "Select", "cursor"), ("edit", "Edit text", "text_edit_style"), ("text", "Add text", "textbox"),
          ("image", "Picture", "image_add"), ("sign", "Sign", "signature"), ("mark", "Highlight", "highlight"),
          ("draw", "Draw", "pen"), ("shape", "Shapes", "shapes"), ("note", "Note", "note"), ("link", "Link", "link"),
-         ("cover", "Cover", "redact"), ("fill", "Fill in", "form"), ("stamp", "Stamp", "sticker")]
-TOOL_GROUPS = (("select",), ("edit", "text", "image", "sign", "fill"), ("mark", "draw", "shape", "note", "stamp", "link"),
+         ("cover", "Cover", "redact"), ("fill", "Fill in", "form"), ("stamp", "Stamp", "sticker"),
+         ("form", "Form box", "textbox")]
+TOOL_GROUPS = (("select",), ("edit", "text", "image", "sign", "fill", "form"), ("mark", "draw", "shape", "note", "stamp", "link"),
                ("cover",))
 MARKS = [("highlight", "Highlight", "highlight"), ("underline", "Underline", "text_underline"),
          ("strike", "Cross out", "text_strikethrough")]
@@ -61,11 +62,15 @@ STAMPS = [("approved", "APPROVED", "#2e7d32", False), ("received", "RECEIVED", "
           ("draft", "DRAFT", "#1565c0", False), ("confidential", "CONFIDENTIAL", "#c62828", False),
           ("paid", "PAID", "#2e7d32", True), ("rejected", "REJECTED", "#c62828", True),
           ("custom", "Your own words…", "#c62828", False)]
+# Form box: a real form box people type or tick in, in any PDF app
+FORM_KINDS = [("formtext", "Box to type in", "textbox"), ("formcheck", "Box to tick", "checkmark")]
+FORM_SIZES = {"formtext": (160.0, 20.0), "formcheck": (14.0, 14.0)}
 STAMP_KINDS = [(k, words if k == "custom" else words.capitalize(), "sticker") for k, words, _c, _d in STAMPS]
 MARK_KEYS = {k for k, _, _ in MARKS}
 SHAPE_KEYS = {k for k, _, _ in SHAPES}
 FILL_KEYS = {k for k, _, _ in FILL_KINDS}
 STAMP_KEYS = {k for k, _, _ in STAMP_KINDS}
+FORM_KEYS = {k for k, _, _ in FORM_KINDS}
 FILL_MARK = 12.0         # how big a tick, cross or dot is, in points (it can be made bigger or smaller at the side)
 HINTS = {"select": "Click something to select it and drag it to move it. Double-click text to change it.",
          "edit": "Click a paragraph or a line of the PDF's own text to change it. What can be changed has a box "
@@ -80,13 +85,15 @@ HINTS = {"select": "Click something to select it and drag it to move it. Double-
          "note": "Click where the note should go.",
          "link": "Drag over the words or the place that should open the link, then type where it goes.",
          "fill": "Pick a mark at the side, then click where it goes on the form.",
-         "stamp": "Pick a stamp at the side, then click where it goes."}
+         "stamp": "Pick a stamp at the side, then click where it goes.",
+         "form": "Pick a box at the side, then click where it goes. Anyone can then type or tick in it, in any "
+                 "PDF app."}
 # what the panel at the side is called for each thing (selected, or the tool's)
 TITLES = {"select": "Select", "edit": "Edit text", "text": "Text", "image": "Picture", "move": "Moved part",
           "cover": "Cover", "shape": "Shape", "draw": "Drawing", "highlight": "Highlight", "underline": "Underline",
           "strike": "Cross out", "note": "Note", "link": "Link", "line": "The PDF's own text",
           "picture": "The PDF's own picture", "drawn": "The PDF's own shape", "comment": "The PDF's own comment",
-          "pdflink": "Link", "fill": "Fill in", "stamp": "Stamp"}
+          "pdflink": "Link", "fill": "Fill in", "stamp": "Stamp", "form": "Form box", "formbox": "Form box"}
 ALIGN_KEYS = [("left", "Align left", "align_left"), ("center", "Centre", "align_center"),
               ("right", "Align right", "align_right"), ("justify", "Justify", "align_justify")]
 # line spacing: (words, from one line to the next in text sizes; None: the font's own)
@@ -107,11 +114,13 @@ SELECTED_HINTS = {"text": "Double-click to change the words. Drag the square at 
                   "drawn": "Drag it to move it, or pick another colour. Delete takes it out of the file.",
                   "comment": "Drag it to move it. Double-click a note to change its words. Delete takes it away.",
                   "pdflink": "Type where it goes, or drag it to move it. Delete takes the link away.",
-                  "stamp": "Drag the square at its corner to make it bigger or smaller."}
+                  "stamp": "Drag the square at its corner to make it bigger or smaller.",
+                  "formbox": "Drag the square at its corner to make it bigger or smaller. Its name is what a "
+                             "form's list of answers shows."}
 INSPECTOR_WIDTH = 240
 ITEMS_MIME = "application/x-corefold-pdf-items"  # (what's added on the pages, copied)
 COPYABLE = {"text", "image", "cover", "rect", "ellipse", "line", "arrow", "ink", "highlight", "underline", "strike",
-            "note", "link", "stamp"}
+            "note", "link", "stamp", "formbox"}
 INK = ["#000000", "#1f3a93", "#d32f2f", "#2e7d32", "#f57c00", "#7b1fa2", "#ffffff"]
 PENS = ["#ffd400", "#7cf27c", "#ff8ad8", "#7ec8ff", "#ffb35c"]
 FIELD_TINT = QColor(70, 130, 255, 38)
@@ -419,6 +428,22 @@ class BoxMark(Mark):
                 icons.paint(p, QRectF(2, 2, side, side), "link", accent)
         elif self.kind == "stamp":
             pdfedit.draw_stamp(p, rect, self.d)
+        elif self.kind == "formbox":
+            p.fillRect(rect, FIELD_TINT)
+            pen = QPen(tokens.current().accent, 1)
+            pen.setCosmetic(True)
+            p.setPen(pen)
+            p.drawRect(rect)
+            if self.d.get("form") == "formcheck":
+                side = min(rect.width(), rect.height()) * 0.7
+                icons.paint(p, QRectF(rect.center().x() - side / 2, rect.center().y() - side / 2, side, side),
+                            "checkmark", QColor(0, 0, 0, 70))
+            elif rect.height() > 7:
+                f = p.font()
+                f.setPointSizeF(max(4.0, min(9.0, rect.height() * 0.5)))
+                p.setFont(f)
+                p.setPen(QColor(0, 0, 0, 110))
+                p.drawText(rect.adjusted(3, 0, -3, 0), Qt.AlignVCenter | Qt.AlignLeft, str(self.d.get("name", "")))
         elif self.kind == "cover":
             p.fillRect(rect, QColor(self.d.get("color", "#ffffff")))
             if self.d.get("color", "#ffffff").lower() == "#ffffff" and not self.isSelected():
@@ -442,7 +467,9 @@ class BoxMark(Mark):
 
     def resize_to(self, pt: QPointF):
         w, h = max(6.0, pt.x()), max(6.0, pt.y())
-        if self.kind in ("image", "move", "stamp"):  # (pictures and stamps keep their shape)
+        if self.kind == "formbox" and self.d.get("form") == "formcheck":  # (a box to tick stays square)
+            w = h = max(w, h)
+        elif self.kind in ("image", "move", "stamp"):  # (pictures and stamps keep their shape)
             if w / self.ratio > h:
                 h = w / self.ratio
             else:
@@ -1176,6 +1203,9 @@ class EditorView(QGraphicsView):
         if tool == "stamp":
             ed.new_stamp(page, pt)
             return
+        if tool == "form":
+            ed.new_form_box(page, pt)
+            return
         ed.scene.clearSelection()
         self.drag = {"page": page, "start": pt, "tool": tool, "item": None}
         if tool == "draw":
@@ -1636,6 +1666,7 @@ class PdfEditor(QWidget):
         self.shape_kind = "rect"
         self.fill_kind = "check"
         self.stamp_kind = "approved"
+        self.form_kind = "formtext"
         self.dragging_items = False
         self.thumbs: list[PageItem] = []
         self.kept: set = set()              # every added thing on the pages
@@ -1913,7 +1944,7 @@ class PdfEditor(QWidget):
         grid.setSpacing(4)
         self.kind_group = QButtonGroup(self)
         self.kind_btns: dict[str, QPushButton] = {}
-        for group in (MARKS, SHAPES, FILL_KINDS, STAMP_KINDS):
+        for group in (MARKS, SHAPES, FILL_KINDS, STAMP_KINDS, FORM_KINDS):
             for m, (key, words, icon_name) in enumerate(group):
                 b = self._choice(tr(words), icon_name if icons.has(icon_name) else "form")
                 b.clicked.connect(lambda _=False, k=key: self.set_kind(k))
@@ -1921,10 +1952,24 @@ class PdfEditor(QWidget):
                 self.kind_btns[key] = b
                 if group is STAMP_KINDS:  # (the words of a stamp are long: one a row)
                     grid.addWidget(b, 10 + m, 0, 1, 2)
+                elif group is FORM_KINDS:
+                    grid.addWidget(b, 30 + m, 0, 1, 2)
                 else:
                     grid.addWidget(b, m // 2, m % 2)
         kl.addLayout(grid)
         self.kind_strip = self.kind_box
+
+        # Cover: find private things on every page and cover them
+        self.find_section, fsl = self._section(tr("Find and cover"))
+        find_note = QLabel(tr("Phone numbers, email addresses, ID and card numbers, or your own words, on every "
+                              "page."))
+        find_note.setObjectName("muted")
+        find_note.setWordWrap(True)
+        fsl.addWidget(find_note)
+        self.find_cover_btn = QPushButton(tr("Find and cover…"))
+        self.find_cover_btn.setCursor(Qt.PointingHandCursor)
+        self.find_cover_btn.clicked.connect(self.find_and_cover)
+        fsl.addWidget(self.find_cover_btn)
 
         # how to change the PDF's own text
         self.para_box, pl = self._section(tr("Change"))
@@ -3011,7 +3056,7 @@ class PdfEditor(QWidget):
         self.view.setDragMode(drag)
         cursor = {"text": Qt.IBeamCursor, "draw": Qt.CrossCursor, "shape": Qt.CrossCursor, "cover": Qt.CrossCursor,
                   "note": Qt.PointingHandCursor, "mark": Qt.IBeamCursor, "link": Qt.CrossCursor,
-                  "fill": Qt.CrossCursor, "stamp": Qt.PointingHandCursor}.get(key)
+                  "fill": Qt.CrossCursor, "stamp": Qt.PointingHandCursor, "form": Qt.CrossCursor}.get(key)
         if cursor is None:
             self.view.viewport().unsetCursor()
         else:
@@ -3040,6 +3085,8 @@ class PdfEditor(QWidget):
             self.fill_kind = key
         elif key in STAMP_KEYS:
             self.stamp_kind = key
+        elif key in FORM_KEYS:
+            self.form_kind = key
         else:
             self.shape_kind = key
         self._refresh()
@@ -3074,6 +3121,8 @@ class PdfEditor(QWidget):
         return [i for i in self.scene.selectedItems() if isinstance(i, (Mark, TextMark, OldPiece))]
 
     def selection_changed(self):
+        if not work.alive(self.insp_title):  # (the scene let go of its items as the editor itself went)
+            return
         if self.scene.selectedItems() and self.thumb_list.selectedItems():
             self.thumb_list.clearSelection()  # (Delete is for what's picked on the page now)
             if self.thumb_list.hasFocus():
@@ -3147,11 +3196,13 @@ class PdfEditor(QWidget):
                     title = tr(TITLES["shape"])
             self.insp_title.setText(title)
             show = {}
-            show["kind"] = tool in ("mark", "shape", "fill", "stamp") and not items
+            show["kind"] = tool in ("mark", "shape", "fill", "stamp", "form") and not items
             for k, b in self.kind_btns.items():
                 b.setVisible((tool == "mark" and k in MARK_KEYS) or (tool == "shape" and k in SHAPE_KEYS) or
-                             (tool == "fill" and k in FILL_KEYS) or (tool == "stamp" and k in STAMP_KEYS))
-                b.setChecked(k in (self.mark_kind, self.shape_kind, self.fill_kind, self.stamp_kind))
+                             (tool == "fill" and k in FILL_KEYS) or (tool == "stamp" and k in STAMP_KEYS) or
+                             (tool == "form" and k in FORM_KEYS))
+                b.setChecked(k in (self.mark_kind, self.shape_kind, self.fill_kind, self.stamp_kind, self.form_kind))
+            show["find"] = tool == "cover" and not items
             show["para"] = tool == "edit" and not items and not typing
             text_on = key == "text" and st is not None
             show["font"] = show["align"] = text_on
@@ -3230,7 +3281,7 @@ class PdfEditor(QWidget):
             show["actions"] = bool(items)
             self.duplicate_btn.setVisible(any(not isinstance(i, OldPiece) and getattr(i, "kind", "") != "move"
                                               for i in items))
-            for name, box in (("kind", self.kind_box), ("para", self.para_box), ("font", self.font_section),
+            for name, box in (("kind", self.kind_box), ("find", self.find_section), ("para", self.para_box), ("font", self.font_section),
                               ("align", self.align_section), ("color", self.color_section),
                               ("fill", self.fill_section), ("width", self.width_section),
                               ("opacity", self.opacity_section), ("link", self.link_section),
@@ -3337,7 +3388,7 @@ class PdfEditor(QWidget):
         kind = d["kind"]
         if kind == "text":
             item = TextMark(self, page, d)
-        elif kind in ("image", "cover", "move", "link", "stamp"):
+        elif kind in ("image", "cover", "move", "link", "stamp", "formbox"):
             key = (page.index, tuple(d.get("objs") or ()))
             if kind == "move" and pixmap is not None:
                 self.move_pics[key] = pixmap
@@ -3530,6 +3581,87 @@ class PdfEditor(QWidget):
         self.scene.clearSelection()
         item.setSelected(True)
         self.view.setFocus()
+
+    def new_form_box(self, page: PageItem, pt: QPointF):
+        """A form box (to type in, or to tick), its top left corner where it was clicked, named after the
+        ones before it (Text 1, Tick 1…)."""
+        kind = self.form_kind if self.form_kind in FORM_KEYS else "formtext"
+        w, h = FORM_SIZES[kind]
+        word = tr("Text") if kind == "formtext" else tr("Tick")
+        taken = {str(i.d.get("name", "")) for i in self.kept if getattr(i, "kind", "") == "formbox"}
+        taken |= {str(f.get("name", "")) for f in self.field_list if isinstance(f, dict)}
+        n = 1
+        while f"{word} {n}" in taken:
+            n += 1
+        x = min(max(0.0, pt.x() - (w / 2 if kind == "formcheck" else 2)), max(0.0, page.w - w))
+        y = min(max(0.0, pt.y() - h / 2), max(0.0, page.h - h))
+        item = self.add_item({"kind": "formbox", "page": page.index, "form": kind, "name": f"{word} {n}",
+                              "x": round(x, 2), "y": round(y, 2), "w": w, "h": h}, commit=True)
+        self.scene.clearSelection()
+        item.setSelected(True)
+        self.view.setFocus()
+
+    def find_and_cover(self):
+        """Find and cover: phone numbers, email addresses, ID and card numbers… (and words of one's own) found
+        on every page and covered, to be looked over before saving."""
+        if self.src is None or not self.pages:
+            return
+        dlg = FindCoverDialog(self.c.icon, self.c.theme.dark,
+                              str(getattr(self.c.settings, "pdf_cover_kinds", "") or "").split(","))
+        try:
+            if not sheet.run(dlg):
+                return
+            kinds, words = dlg.kinds(), dlg.words()
+        finally:
+            dlg.deleteLater()
+        if not kinds and not words:
+            return
+        self.c.settings.pdf_cover_kinds = ",".join(kinds)
+        from . import pdfreader
+        src, password = self.src, self.password or ""
+        self.find_cover_btn.setEnabled(False)
+        self.find_cover_btn.setText(tr("Looking…"))
+
+        def done(result):
+            if not work.alive(self):
+                return
+            self.find_cover_btn.setEnabled(True)
+            self.find_cover_btn.setText(tr("Find and cover…"))
+            if isinstance(result, Exception):
+                log.warning("find and cover: %s", result)
+                self.c.tell(tr("Find and cover"), tr("The words of this PDF couldn't be read."))
+                return
+            self.add_found_covers(result)
+        self._find_job = work.run(lambda _p: pdfreader.find_private(src, password, kinds, words), lambda _: None,
+                                  done, name="corefold-pdf-find-cover")
+
+    def add_found_covers(self, found: list) -> int:
+        """Covers over what was found ([(page, [(x, y, w, h)])]), all taken back with one Undo."""
+        color = self.style["cover"]["color"]
+        added = 0
+        for page_index, boxes in found:
+            if not 0 <= page_index < len(self.pages):
+                continue
+            page = self.pages[page_index]
+            for x, y, w, h in boxes:
+                x, y = max(0.0, x), max(0.0, y)
+                w, h = min(w, page.w - x), min(h, page.h - y)
+                if w < 1 or h < 1:
+                    continue
+                self.add_item({"kind": "cover", "page": page_index, "x": round(x, 2), "y": round(y, 2),
+                               "w": round(w, 2), "h": round(h, 2), "color": color}, commit=False)
+                added += 1
+        if added:
+            self.commit()
+            first = found[0][0]
+            if 0 <= first < len(self.pages):
+                self.view.centerOn(self.pages[first])
+            self.c.tell(tr("Find and cover"), tr("{count} found and covered. Look them over, then save.",
+                                                 count=added))
+        else:
+            self.c.tell(tr("Find and cover"), tr("Nothing like that was found. Scanned pages need Make searchable "
+                                                 "first."))
+        return added
 
     def new_note(self, page: PageItem, pt: QPointF):
         item = self.add_item({"kind": "note", "page": page.index, "x": pt.x() - 10, "y": pt.y() - 10, "text": ""},
@@ -4391,3 +4523,41 @@ def NoteDialog(text, icon, dark):  # (the dialog classes are made when first nee
 
 def SignPadDialog(kept, icon, dark):
     return _sign_dialog_class()(kept, icon, dark)
+
+
+def _find_cover_dialog_class():
+    from .dialogs import Base
+    from .pdfreader import PRIVATE_KINDS
+
+    class _FindCoverDialog(Base):
+        def __init__(self, icon, dark, kept):
+            super().__init__(tr("Find and cover"), tr("What's found is covered on every page. You can look the "
+                                                      "covers over, and take any away, before you save."), icon,
+                             dark)
+            kept = set(kept)
+            self.boxes = {}
+            for key, words in PRIVATE_KINDS.items():
+                box = QCheckBox(tr(words))
+                box.setChecked(key in kept)
+                self.lay.addWidget(box)
+                self.boxes[key] = box
+            self.lay.addWidget(QLabel(tr("Your own words, with commas between them:")))
+            self.own = QLineEdit()
+            self.own.setPlaceholderText(tr("For example: a name, an address"))
+            self.lay.addWidget(self.own)
+            note = QLabel(tr("Only words the PDF really has are found: scanned pages need Make searchable first."))
+            note.setObjectName("muted")
+            note.setWordWrap(True)
+            self.lay.addWidget(note)
+            self.buttons(tr("Find and cover"))
+
+        def kinds(self) -> list[str]:
+            return [k for k, b in self.boxes.items() if b.isChecked()]
+
+        def words(self) -> list[str]:
+            return [w.strip() for w in self.own.text().replace("،", ",").split(",") if w.strip()]
+    return _FindCoverDialog
+
+
+def FindCoverDialog(icon, dark, kept):
+    return _find_cover_dialog_class()(icon, dark, kept)

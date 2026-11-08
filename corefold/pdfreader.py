@@ -476,6 +476,79 @@ def comments_text(name: str, comments: list[dict]) -> str:
     return "\n".join(lines) + "\n"
 
 
+# ----------------------------------------------------------------------------- private things, found to be covered
+
+PRIVATE_KINDS = {"phone": "Phone numbers", "email": "Email addresses", "id": "ID and card numbers",
+                 "iban": "Bank account numbers (IBAN)"}
+_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")  # (Arabic and Persian digits)
+
+
+def _private_patterns() -> dict:
+    import re
+    return {"email": re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+"),
+            "iban": re.compile(r"(?<![A-Za-z0-9])[A-Z]{2}\d{2}(?: ?[A-Z0-9]){11,30}(?![A-Za-z0-9])"),
+            "id": re.compile(r"(?<![\d])\d(?:[ -]?\d){9,18}(?![\d])"),
+            "phone": re.compile(r"(?<![\w+.])\+?\(?\d[\d ()-]{5,}\d(?![\w]|\.\d)")}
+
+
+def private_spans(text: str, kinds, words=()) -> list[tuple[int, int]]:
+    """Where the private things of these kinds (PRIVATE_KINDS' keys) and these words of one's own are in the
+    text, as (start, end), joined where they touch. Arabic digits count as digits."""
+    import re
+    plain = text.translate(_DIGITS)  # (the same length: the places stay right)
+    spans: list[tuple[int, int]] = []
+    patterns = _private_patterns()
+    for kind in kinds:
+        pat = patterns.get(kind)
+        if pat is None:
+            continue
+        for m in pat.finditer(plain):
+            found = m.group()
+            if kind == "phone":
+                digits = sum(ch.isdigit() for ch in found)
+                if not 7 <= digits <= 15:  # (a short number is a price or a year, not a phone)
+                    continue
+            spans.append((m.start(), m.end()))
+    for word in words:
+        word = " ".join(str(word).split())
+        if len(word) < 2:
+            continue
+        spans += [(m.start(), m.end()) for m in re.finditer(re.escape(word.translate(_DIGITS)), plain,
+                                                             re.IGNORECASE)]
+    spans.sort()
+    joined: list[tuple[int, int]] = []
+    for a, b in spans:
+        if joined and a <= joined[-1][1]:
+            joined[-1] = (joined[-1][0], max(b, joined[-1][1]))
+        else:
+            joined.append((a, b))
+    return joined
+
+
+def find_private(src: Path, password: str, kinds, words=(), progress=None) -> list[tuple[int, list]]:
+    """Every page's private things (see private_spans) as boxes to cover: [(page, [(x, y, w, h), ...]), ...],
+    in points on the page as shown. A page with no text of its own (a scan) has nothing found."""
+    found = []
+    with pdftools.PDFIUM:
+        doc = pdftools.open_pdfium(src, password)
+    try:
+        count = len(doc)
+        for i in range(count):
+            with pdftools.PDFIUM:  # (one page at a time: the reader's pages are drawn in between)
+                words_of = page_words(doc, i)
+            boxes = []
+            for a, b in private_spans(words_of.get("text", ""), kinds, words):
+                boxes += [(r.x() - 1, r.y() - 1, r.width() + 2, r.height() + 2) for r in line_rects(words_of, a, b)]
+            if boxes:
+                found.append((i, boxes))
+            if progress is not None:
+                progress((i + 1) / max(1, count))
+    finally:
+        with pdftools.PDFIUM:
+            doc.close()
+    return found
+
+
 def reads_right_to_left(src: Path, password: str = "") -> bool:
     """The PDF says it's read right to left (/ViewerPreferences /Direction /R2L): its pages face like an
     Arabic book's."""

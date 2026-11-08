@@ -2297,6 +2297,110 @@ def _links(writer, edits: list[dict]):
         writer.add_annotation(page_number=i, annotation=link)
 
 
+def _check_look(writer, w: float, h: float, ticked: bool):
+    """How a box to tick looks (ticked or not): a thin frame, and a tick drawn in it when ticked."""
+    from pypdf.generic import ArrayObject, FloatObject, NameObject, StreamObject
+    data = f"0.5 0.5 0.5 RG 0.6 w 0.3 0.3 {w - 0.6:.2f} {h - 0.6:.2f} re S".encode()
+    if ticked:
+        data += (f" 0 0 0 RG {max(1.0, min(w, h) * 0.11):.2f} w 1 J 1 j {w * 0.2:.2f} {h * 0.52:.2f} m "
+                 f"{w * 0.42:.2f} {h * 0.28:.2f} l {w * 0.8:.2f} {h * 0.75:.2f} l S").encode()
+    s = StreamObject()
+    s._data = data
+    s.update({NameObject("/Type"): NameObject("/XObject"), NameObject("/Subtype"): NameObject("/Form"),
+              NameObject("/BBox"): ArrayObject([FloatObject(0), FloatObject(0), FloatObject(w), FloatObject(h)])})
+    return writer._add_object(s)
+
+
+def _form_boxes(writer, edits: list[dict]):
+    """Form boxes added in the editor: real form fields (a box to type in, or to tick) that any PDF app lets
+    people fill in. Their names are kept apart from the form's own (Text 1 (2) when Text 1 is taken)."""
+    from pypdf.generic import (ArrayObject, BooleanObject, DictionaryObject, FloatObject, NameObject,
+                               NumberObject, TextStringObject)
+    boxes = [d for d in edits if d.get("kind") == "formbox"]
+    if not boxes:
+        return
+    root = writer._root_object
+    form = root.get("/AcroForm")
+    form = form.get_object() if form is not None else None
+    if form is None:
+        form = DictionaryObject()
+        root[NameObject("/AcroForm")] = writer._add_object(form)
+    fields = form.get("/Fields")
+    fields = fields.get_object() if fields is not None else None
+    if fields is None:
+        fields = ArrayObject()
+        form[NameObject("/Fields")] = fields
+    taken = set()
+    for f in fields:
+        try:
+            taken.add(str(f.get_object().get("/T", "")))
+        except Exception:
+            pass
+    resources = form.get("/DR")
+    resources = resources.get_object() if resources is not None else None
+    if resources is None:
+        resources = DictionaryObject()
+        form[NameObject("/DR")] = resources
+    fonts = resources.get("/Font")
+    fonts = fonts.get_object() if fonts is not None else None
+    if fonts is None:
+        fonts = DictionaryObject()
+        resources[NameObject("/Font")] = fonts
+    if "/Helv" not in fonts:
+        fonts[NameObject("/Helv")] = writer._add_object(DictionaryObject({
+            NameObject("/Type"): NameObject("/Font"), NameObject("/Subtype"): NameObject("/Type1"),
+            NameObject("/BaseFont"): NameObject("/Helvetica"), NameObject("/Encoding"): NameObject("/WinAnsiEncoding")}))
+    if "/DA" not in form:
+        form[NameObject("/DA")] = TextStringObject("/Helv 0 Tf 0 g")
+    form[NameObject("/NeedAppearances")] = BooleanObject(True)  # (apps draw what's typed in their own way)
+    pages = writer.pages
+    for d in boxes:
+        i = int(d.get("page", 0))
+        if not 0 <= i < len(pages):
+            continue
+        page = pages[i]
+        geo = pypdf_geo(page)
+        l, b, r, t = geo.rect_to_user(float(d["x"]), float(d["y"]), float(d["w"]), float(d["h"]))
+        l, r = sorted((l, r))
+        b, t = sorted((b, t))
+        name = " ".join(str(d.get("name", "")).replace(".", " ").split())[:60] or "Field"
+        base, n = name, 2
+        while name in taken:
+            name = f"{base} ({n})"
+            n += 1
+        taken.add(name)
+        widget = DictionaryObject({
+            NameObject("/Type"): NameObject("/Annot"), NameObject("/Subtype"): NameObject("/Widget"),
+            NameObject("/T"): TextStringObject(name), NameObject("/F"): NumberObject(4),
+            NameObject("/Rect"): ArrayObject([FloatObject(v) for v in (l, b, r, t)]),
+            NameObject("/P"): page.indirect_reference,
+            NameObject("/MK"): DictionaryObject({NameObject("/BC"): ArrayObject([FloatObject(0.5)] * 3)}),
+        })
+        if d.get("form") == "formcheck":
+            w, h = r - l, t - b
+            widget.update({
+                NameObject("/FT"): NameObject("/Btn"), NameObject("/V"): NameObject("/Off"),
+                NameObject("/AS"): NameObject("/Off"),
+                NameObject("/AP"): DictionaryObject({NameObject("/N"): DictionaryObject({
+                    NameObject("/Yes"): _check_look(writer, w, h, True),
+                    NameObject("/Off"): _check_look(writer, w, h, False)})}),
+            })
+        else:
+            size = 0 if t - b > 24 else max(6.0, min(12.0, (t - b) * 0.6))  # (0: as big as fits)
+            widget.update({NameObject("/FT"): NameObject("/Tx"), NameObject("/V"): TextStringObject(""),
+                           NameObject("/DA"): TextStringObject(f"/Helv {size:g} Tf 0 g")})
+            if t - b > 30:
+                widget[NameObject("/Ff")] = NumberObject(4096)  # (a tall box takes several lines)
+        ref = writer._add_object(widget)
+        annots = page.get("/Annots")
+        annots = annots.get_object() if annots is not None else None
+        if annots is None:
+            annots = ArrayObject()
+            page[NameObject("/Annots")] = annots
+        annots.append(ref)
+        fields.append(ref)
+
+
 def _changes(edits: list[dict]) -> dict[int, dict]:
     """What's changed of what was already on each page: {page: {"remove": names, "move": {name: (was, now)},
     "paint": {name: look}, "covers": boxes, "patches": boxes}} (names: see oid; annotations too)."""
@@ -2392,6 +2496,7 @@ def save_edits(src: Path, ctx: Ctx) -> Result:
         note = Text(rect=(l, b, r, t), text=str(d["text"]), open=False)
         writer.add_annotation(page_number=i, annotation=note)
     _links(writer, edits)
+    _form_boxes(writer, edits)
     _fill(writer, values, fields)
     if _arrange(writer, order, turns):
         # (pypdf writes every part it was given: copied again, only what the pages still use is kept, so a
