@@ -53,8 +53,8 @@ def _pdf_tools() -> list[FileTool]:
     one = {"edit", "bookmarks"}
     views = {"edit", "merge", "organize", "extract", "read"}
     asks = {"split", "compress", "searchable", "topictures", "lock", "pagesize", "trim", "clean", "print",
-            "bookmarks", "pictures", "pdf:numbers", "pdf:watermark", "pdf:sign", "pdf:fit"}
-    plain = {"unlock", "flatten", "repair", "compare", "pdf:text", "pdf:word", "pdf:images"}
+            "bookmarks", "pictures", "pdf:numbers", "pdf:watermark", "pdf:sign", "pdf:fit", "headerfooter"}
+    plain = {"unlock", "flatten", "repair", "compare", "pdf:text", "pdf:word", "pdf:images", "toexcel", "topowerpoint"}
     out = []
     for key, name, line, icon in ACTIONS + MORE:
         known = key in views or key in asks or key in plain

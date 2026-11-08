@@ -149,6 +149,8 @@ EVENODD: set[str] = set()
 # the Fluent ones): name -> SVG shapes, coloured by icons.svg()
 STROKES: dict[str, str] = {
     # the PDF editor's text and page tools
+    "checkmark": '<path d="M4.5 12.5l4.5 4.5L19.5 6.5"/>',
+    "calendar": '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4M7.5 13h2M11 13h2M14.5 13h2M7.5 16.5h2M11 16.5h2"/>',
     "align_left": '<path d="M4 6h16M4 10h10M4 14h16M4 18h10"/>',
     "align_center": '<path d="M4 6h16M7 10h10M4 14h16M7 18h10"/>',
     "align_right": '<path d="M4 6h16M10 10h10M4 14h16M10 18h10"/>',

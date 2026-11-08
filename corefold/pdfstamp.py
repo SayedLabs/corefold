@@ -8,7 +8,7 @@ from __future__ import annotations
 import zlib
 from pathlib import Path
 
-from .core import Ctx, Result
+from .core import Ctx, Result, Tool
 from .i18n import tr
 
 NUMBER_PLACES = {"bc": "Bottom middle", "br": "Bottom right", "bl": "Bottom left", "tc": "Top middle",
@@ -281,3 +281,111 @@ def sign_pdf(src: Path, ctx: Ctx) -> Result:
         _stamp(page, writer, content.encode("ascii"), {"/XObject": DictionaryObject({NameObject("/CfSign"): pic})})
         ctx.progress((n + 1) / len(picked))
     return Result([_save(writer, src, ctx, "signed")])
+
+
+# ----------------------------------------------------------------------------- header and footer, and a background
+
+HF_PLACES = {"l": "Left", "c": "Middle", "r": "Right"}
+HF_FIELDS = (("{page}", "Page number"), ("{pages}", "Number of pages"), ("{date}", "Date"), ("{name}", "File name"))
+BACKGROUNDS = {"": "None", "#fff8e1": "Soft yellow", "#f1f3f4": "Light grey", "#e8f0fe": "Light blue",
+               "#e8f5e9": "Light green"}
+
+
+def fill_fields(text: str, page: int, pages: int, date: str, name: str) -> str:
+    return (text.replace("{page}", str(page)).replace("{pages}", str(pages)).replace("{date}", date)
+            .replace("{name}", name))
+
+
+def _background(src: Path, ctx: Ctx, color: str, out: Path):
+    """A copy of the PDF with a colour behind every page (what's on the page is drawn over it)."""
+    from pypdf import PageObject, PdfWriter
+    from pypdf.generic import ContentStream
+    from PySide6.QtGui import QColor
+    c = QColor(color)
+    writer = PdfWriter(clone_from=_reader(src, ctx))
+    for n, page in enumerate(writer.pages):
+        ctx.check()
+        box = page.mediabox
+        x0, y0, w, h = float(box.left), float(box.bottom), float(box.width), float(box.height)
+        under = PageObject.create_blank_page(writer, width=w, height=h)
+        stream = ContentStream(None, writer)
+        stream.set_data(f"q {c.redF():.3f} {c.greenF():.3f} {c.blueF():.3f} rg {x0:.2f} {y0:.2f} {w:.2f} {h:.2f} re f Q"
+                        .encode("ascii"))
+        under.replace_contents(stream)
+        page.merge_transformed_page(under, (1, 0, 0, 1, 0, 0), over=False)
+        ctx.progress(0.3 * (n + 1) / len(writer.pages))
+    with open(out, "wb") as f:
+        writer.write(f)
+
+
+def header_footer(src: Path, ctx: Ctx) -> Result:
+    """ctx.params: header and footer (words, with {page}, {pages}, {date} and {name} filled in), their places
+    (l, c or r), size, skip (pages at the start left without them: a cover), background (a colour, or "")."""
+    import tempfile
+
+    from PySide6.QtCore import QDate, QLocale
+    from PySide6.QtGui import QFontMetricsF
+
+    from . import i18n, pdfedit
+    p = ctx.params
+    header, footer = str(p.get("header", "") or "").strip(), str(p.get("footer", "") or "").strip()
+    color = str(p.get("background", "") or "")
+    if not header and not footer and not color:
+        raise RuntimeError(tr("nothing was changed"))
+    size = max(6.0, min(28.0, float(p.get("size", 10) or 10)))
+    skip = max(0, int(p.get("skip", 0) or 0))
+    places = {"h": p.get("header_place", "c"), "f": p.get("footer_place", "c")}
+    date = QLocale(i18n.language()).toString(QDate.currentDate(), QLocale.FormatType.ShortFormat)
+    name = ctx.stem(src)
+    password = p.get("password", "") or ""
+    work_src = src
+    tmp = Path(tempfile.mkdtemp(prefix="corefold-hf-"))
+    try:
+        if color:
+            work_src = tmp / "with background.pdf"
+            _background(src, ctx, color, work_src)
+        from .pdftools import open_reader
+        reader = open_reader(work_src, password if work_src == src else "")
+        total = len(reader.pages)
+        style = {"font": "Arial", "size": size, "color": "#444444", "bold": False, "italic": False,
+                 "underline": False, "align": "", "opacity": 1.0}
+        fm = QFontMetricsF(pdfedit.font_for(style), pdfedit.layout_device())
+        edits = []
+        for i, page in enumerate(reader.pages):
+            if i < skip:
+                continue
+            geo = pdfedit.pypdf_geo(page)
+            w, h = geo.width, geo.height
+            margin = max(18.0, min(w, h) * 0.045)
+            for where, words in (("h", header), ("f", footer)):
+                if not words:
+                    continue
+                text = fill_fields(words, i - skip + 1, total - skip, date, name)
+                tw = fm.horizontalAdvance(text)
+                x = {"l": margin, "r": w - margin - tw}.get(places[where], (w - tw) / 2)
+                y = margin * 0.7 if where == "h" else h - margin * 0.7 - fm.height()
+                edits.append(dict(style, kind="text", page=i, text=text, x=round(max(0.0, x), 2),
+                                  y=round(max(0.0, y), 2)))
+        if not edits:  # (only a background)
+            out = ctx.out_path(src, f"{ctx.stem(src)} ({tr('header and footer')}).pdf")
+            from .pdftools import write
+            from pypdf import PdfWriter
+            write(PdfWriter(clone_from=reader), out, password)
+            return Result([out])
+        import copy
+        options = copy.copy(ctx.options)
+        options.output_folder = tmp  # (made there first: a half-made file never lands next to the PDF)
+        inner = Ctx(options, lambda f: ctx.progress(0.3 + 0.7 * f), ctx.cancel_event,
+                     {"edits": edits, "password": password})
+        made = pdfedit.save_edits(work_src, inner).outputs[0]
+        out = ctx.out_path(src, f"{ctx.stem(src)} ({tr('header and footer')}).pdf")
+        import shutil
+        shutil.move(str(made), str(out))  # (the folders may be on two drives)
+        return Result([out])
+    finally:
+        import shutil
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+HEADER_FOOTER = Tool("pdftool:headerfooter", tr("Header and footer"), tr("Words at the top and bottom of every page"),
+                     header_footer, password=True, renames=False)
