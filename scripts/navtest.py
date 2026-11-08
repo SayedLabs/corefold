@@ -216,10 +216,21 @@ def nav_click(w, name):
         nav_click(w, NAV_OWNER[name])
         if w.current_page() == name:  # (one tool on its own, like Cloud: its row opens it)
             return
-        if w.one_head.isVisible():
-            tab = w.one_head.tabs.get(name)
-            if check(tab is not None and tab.isVisible(), f"the {NAV_OWNER[name]} bar of uses has {name}"):
-                click(tab)
+        ws = getattr(w, "files_workspace", None)
+        one = all_tools.SECTION_BY_PAGE.get(NAV_OWNER[name])
+        if one is not None and one.one_tool and w.current_page() == NAV_OWNER[name] and ws is not None \
+                and work.alive(ws):
+            # (a Files tool: picked in the workspace, then opened from the side panel)
+            from corefold import filetools as ft
+            offered = ft.offered(c.settings)
+            tool = next((t for t in offered if t.how == f"page:{name}"), None)
+            button = "run_btn"
+            if tool is None:
+                tool, button = next((t for t in offered if t.page == name), None), "page_btn"
+            if check(tool is not None, f"the Files workspace has a tool that opens {name}"):
+                ws.choose_tool(tool.id)
+                settle(0.2)
+                click(getattr(ws.panel, button))
             return
         tab = w.strip_tabs.get(name)
         if check(tab is not None and tab.isVisible(), f"the {NAV_OWNER[name]} strip has a tab for {name}"):
@@ -239,11 +250,15 @@ def switch_cards(w, sec_page):
     from corefold.window import ToolSwitchCard
     cards = {card.tool.id: card for card in page_widget(w, sec_page).findChildren(ToolSwitchCard)}
     sec = all_tools.SECTION_BY_PAGE[sec_page]
-    if not cards and sec.one_tool and w.current_page() == sec_page:  # (one tool: ⚙ on its heading shows them)
-        if check(w.one_head.gear is not None and w.one_head.gear.isVisible(), f"{sec_page}'s heading has Settings"):
-            click(w.one_head.gear)
+    if not cards and sec.one_tool and w.current_page() == sec_page:  # (Files: in All tools, "Switch tools on or off")
+        ws = getattr(w, "files_workspace", None)
+        if check(ws is not None, f"{sec_page} has its workspace"):
+            click(ws.all_btn)
             settle(0.3)
-            cards = {card.tool.id: card for card in page_widget(w, sec_page).findChildren(ToolSwitchCard)}
+            if check(ws.library.manage_btn.isVisible(), f"{sec_page}'s tools can be switched on or off"):
+                click(ws.library.manage_btn)
+                settle(0.3)
+            cards = {card.tool.id: card for card in ws.library.findChildren(ToolSwitchCard)}
     return cards
 
 

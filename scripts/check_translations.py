@@ -78,6 +78,14 @@ def table_texts() -> dict[str, str]:
     add(homewidgets.KNOWN_FOLDERS.values(), "homewidgets.KNOWN_FOLDERS")
     add(homewidgets.APP_PAGES.values(), "homewidgets.APP_PAGES")
     add([converters.PASSWORD_ERROR], "PASSWORD_ERROR")
+    from corefold import filetools, fileworkspace
+    add(filetools.CATEGORY_NAMES.values(), "filetools.CATEGORIES")
+    add(filetools.KIND_NAMES.values(), "filetools.KIND_NAMES")
+    add(filetools.STATUS_NAMES.values(), "filetools.STATUS_NAMES")
+    for tool in filetools.all_tools_list():
+        add([tool.name, tool.line], "filetools tools")
+    add(fileworkspace.STATE_WORDS.values(), "fileworkspace.STATE_WORDS")
+    add(fileworkspace.KIND_WORDS.values(), "fileworkspace.KIND_WORDS")
     add([v[0] for v in moretools.CROP_RATIOS.values()], "CROP_RATIOS")
     add(moretools.STICKERS_IMAGE.values(), "STICKERS_IMAGE")
     add(moretools.STICKERS_VIDEO.values(), "STICKERS_VIDEO")

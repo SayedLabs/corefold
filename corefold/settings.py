@@ -201,6 +201,7 @@ NOT_EDITED = {"enabled", "first_run", "last_version", "update_told", "notes_show
               "rename_rules",  # (Rename: its page's rules, kept as they're changed)
               "drive_backups",  # (Backup: the folders, the drive and how the last backup went)
               "network_test_ok", "network_tests",
+              "files_pinned", "files_ops_open",  # (Files: its pinned tools and its operations shown or folded)
               }
 # the settings of each tab of the Settings page (each one has its own "Reset to defaults")
 GENERAL_KEYS = ("language", "sound", "volume", "sound_problems", "show_progress", "low_priority", "one_at_a_time")
@@ -231,6 +232,11 @@ QUICK_WHEEL_ITEMS = ["screenshot", "clipboard", "paste", "again", "tool:space", 
 def _home_default() -> list:
     from .homelist import default
     return default()
+
+
+def _files_pins() -> list:
+    from .filetools import DEFAULT_PINS
+    return list(DEFAULT_PINS)
 
 
 def hotkey_ok(combo: str) -> bool:
@@ -415,6 +421,8 @@ class Settings:
     home_widgets: list = field(default_factory=lambda: _home_default())  # the Home page's widgets (homelist.py)
     nav_width: int = 232
     nav_compact: bool = False      # the sidebar shows icons only
+    files_pinned: list = field(default_factory=lambda: _files_pins())  # Files' pinned tools (filetools ids)
+    files_ops_open: bool = True    # Files' operations shown (or folded away)
     # "Do it again": the last thing you did (tool key, its choices; never a password)
     last_action: dict = field(default_factory=dict)
     tour_done: bool = False
@@ -510,6 +518,7 @@ class Settings:
         s.back_on = [t for t in s.back_on if isinstance(t, str)]
         s.nav_order = [t for t in s.nav_order if isinstance(t, str)]
         s.section_order = [t for t in s.section_order if isinstance(t, str)]
+        s.files_pinned = [t for t in s.files_pinned if isinstance(t, str)][:40]
         from .homelist import clean
         s.home_widgets = clean(s.home_widgets)
         s.nav_width = min(340, max(190, s.nav_width))

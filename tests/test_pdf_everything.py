@@ -456,7 +456,7 @@ def _open(qtbot, src: Path):
             pdftools.PDFIUM.release()
         raise AssertionError(f"pages {len(ed.pages)}, asked {[p.asked_layout for p in ed.pages[:2]]}, "
                              f"in sight {ed._in_sight()[:3]}, renderer {r is not None and r.thread.is_alive()}, "
-                             f"renders {r and len(r.renders)}, layouts {r and r.layouts}, PDFium busy {locked}")
+                             f"renders {r and len(r.renders)}, layouts {r and r.layouts}, PDFium busy {locked}") from None
     return ed
 
 

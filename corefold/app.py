@@ -323,6 +323,12 @@ class Controller(QObject):
         self.signals.item.connect(self._job_item)
         self.signals.progress.connect(self.toast.set_progress)
         self.signals.finished.connect(self.job_done)
+        # what the Files workspace is working on (its list and the operations it shows), kept while its page is made
+        # again or the window is closed
+        from .filework import WorkState
+        self.files_work = WorkState(self)
+        self.signals.started.connect(self.files_work.job_running)
+        self.signals.progress.connect(self.files_work.job_progress)
         self.toast.cancel_requested.connect(self.cancel_job)
         self._apply_toast_settings()
         self.compares: list = []  # open before/after windows
@@ -781,7 +787,7 @@ class Controller(QObject):
     def paste(self):
         files = self.clipboard_files()
         if files:
-            self.show_window("Converter")
+            self.show_window()
             self.window.show_files(files)
         else:
             self.toast.notify(tr("Nothing to convert"),
@@ -1775,7 +1781,7 @@ class Controller(QObject):
             self.wheel.popup_at_cursor(files)
         files, self.pending_open = self.pending_open, []
         if files:
-            self.show_window("Converter")
+            self.show_window()
             self.window.show_files(files)
         runs, self.pending_runs = self.pending_runs, {}
         runs = [(k, v) for k, v in runs.items() if v]
@@ -2174,6 +2180,8 @@ class Controller(QObject):
         self.jobs[job_id] = {"tool": tool, "files": files, "bytes_in": 0,
                              "params": params, "rename": rename or {}, "after": after, "quick": quick,
                              "what": what, "carry": carry or {"outputs": [], "errors": []}, "then": then}
+        if not quick and after not in ("open", "open_with", "reload"):  # (opening a file from an archive isn't one)
+            self.files_work.job_added(job_id, tool, (carry or {}).get("files") or files, params, rename or {}, what)
         if self.settings.show_progress:
             self.toast.start(job_id, tool.description,
                              tr("{what} · waiting for the one before it", what=what) if waiting else what)
@@ -2190,8 +2198,9 @@ class Controller(QObject):
             self.toast.set_detail(job_id, job["what"])
 
     def _job_item(self, job_id: int, number: int, total: int, name: str):
-        self.toast.set_detail(job_id, tr("{number} of {total} · {name}", number=number, total=total,
-                                         name=short_name(name)))
+        text = tr("{number} of {total} · {name}", number=number, total=total, name=short_name(name))
+        self.toast.set_detail(job_id, text)
+        self.files_work.job_item(job_id, text)
 
     def cancel_job(self, job_id: int):
         if job_id == UPDATE_JOB_ID:
@@ -2231,6 +2240,7 @@ class Controller(QObject):
                 keep = {"outputs": carry["outputs"] + result.outputs,
                         "errors": carry["errors"] + [e for e in errors if password_error not in e],
                         "files": carry.get("files") or files, "bytes_in": carry.get("bytes_in") or job["bytes_in"]}
+                self.files_work.job_retried(job_id)
                 self.start_job(tool, retry or files, dict(job["params"], password=password), job["rename"],
                                job["after"], carry=keep, then=job.get("then"))
                 return
@@ -2247,6 +2257,7 @@ class Controller(QObject):
             files = carry["files"]
             job["bytes_in"] = carry.get("bytes_in", job["bytes_in"])
         self.recent_outputs = (self.recent_outputs + [str(p) for p in result.outputs])[-200:]
+        self.files_work.job_finished(job_id, result.outputs, errors, cancelled, result.note)
 
         after = job["after"]
         if after in ("open", "open_with") and result.outputs and not errors:

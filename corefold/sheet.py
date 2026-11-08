@@ -447,10 +447,34 @@ def give_back(layer: _Layer):
     d.setParent(parent if _alive(parent) else None, flags)
 
 
+# Something that shows some dialogs in a place of its own instead of a sheet (the Files workspace shows a tool's
+# choices inside its side panel): given the dialog, it gives back an object with run_inline(dlg) -> int, or None.
+_inline_host: Callable[[QDialog], object | None] | None = None
+_inline_dialogs: list = []
+
+
+def set_inline_host(fn: Callable[[QDialog], object | None] | None):
+    global _inline_host
+    _inline_host = fn
+
+
 def run(dlg: QDialog) -> int:
     """Like dlg.exec(), in a sheet over its window. Gives what exec() would."""
     if isinstance(dlg, QMessageBox):
         return _run_box(dlg)
+    inline = None
+    if _inline_host is not None:
+        try:
+            inline = _inline_host(dlg)
+        except RuntimeError:  # (its page was just made again)
+            inline = None
+    if inline is not None:
+        _inline_dialogs.append(dlg)
+        try:
+            return inline.run_inline(dlg)
+        finally:
+            if dlg in _inline_dialogs:
+                _inline_dialogs.remove(dlg)
     host = host_for(dlg.parentWidget())
     if host is None:  # (nothing to put it in, as on the very first start before Rakiza Core's window)
         return dlg.exec()
@@ -492,6 +516,9 @@ def waiting() -> QWidget | None:
     for layer in reversed(_layers):
         if _alive(layer) and not layer.closing and layer.dlg is not None and _alive(layer.dlg):
             return layer.dlg
+    for dlg in reversed(_inline_dialogs):  # (a tool's choices inside the Files workspace's side panel)
+        if _alive(dlg):
+            return dlg
     return None
 
 

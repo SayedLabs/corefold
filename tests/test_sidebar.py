@@ -64,40 +64,51 @@ def test_bottom_rows_sit_at_the_bottom(window):
     assert w.nav.viewport().height() - about.bottom() < 6
 
 
+def test_files_is_one_row_with_its_tools_in_its_workspace(window):
+    """(Files' tools are in its workspace: no long list of them in the sidebar; its row is lit on any of them.)"""
+    w = window
+    files_row = w.nav_rows.index("Files")
+    assert w.nav.item(files_row).data(KIND_ROLE) == "page"
+    for name in ("Converter", "PDF", "Archives", "Rename", "Check", "Backup", "Unlock"):
+        assert name not in w.nav_rows, name
+        w.open_page(name)
+        assert w.current_page() == name and w.nav.currentRow() == files_row, name
+    w.nav.setCurrentRow(w.nav_rows.index("Home"))
+    w.nav.setCurrentRow(files_row)
+    assert w.current_page() == "Files"
+
+
 def test_a_tool_lights_its_own_row_under_its_open_section(window):
     w = window
-    w.open_page("PDF")
-    row = w.nav_rows.index("PDF")
-    assert w.current_page() == "PDF" and w.nav.currentRow() == row and not w.nav.isRowHidden(row)
-    files = w.nav.item(w.nav_rows.index("Files"))
-    assert files.data(OPEN_ROLE)
-    assert w.nav.item(row).text() == "PDF"
-    assert w.nav.item(w.nav_rows.index("Converter")).text() == "Convert"  # (the name its section gives it)
-    # the bar of uses on the heading makes way: the tools are in the sidebar
-    assert not w.one_head.bar.isVisible()
-    # a click on another tool's row opens it; on the section's row, its start page
-    w.nav.setCurrentRow(w.nav_rows.index("Archives"))
-    assert w.current_page() == "Archives"
-    w.nav.setCurrentRow(w.nav_rows.index("Files"))
-    assert w.current_page() == "Files"
-    # another section: its tools show, the Files tools go
     w.open_page("Space")
-    assert w.nav.isRowHidden(w.nav_rows.index("PDF")) and not w.nav.isRowHidden(w.nav_rows.index("Space"))
-    assert not files.data(OPEN_ROLE)
+    row = w.nav_rows.index("Space")
+    assert w.current_page() == "Space" and w.nav.currentRow() == row and not w.nav.isRowHidden(row)
+    computer = w.nav.item(w.nav_rows.index("Computer"))
+    assert computer.data(OPEN_ROLE)
+    # a click on another tool's row opens it; on the section's row, its start page
+    w.nav.setCurrentRow(w.nav_rows.index("Apps"))
+    assert w.current_page() == "Apps"
+    w.nav.setCurrentRow(w.nav_rows.index("Computer"))
+    assert w.current_page() == "Computer"
+    # another section: the Computer tools go
+    w.open_page("PDF")
+    assert w.nav.isRowHidden(w.nav_rows.index("Space"))
+    assert not computer.data(OPEN_ROLE)
     assert not w.section_strip.isVisible()
 
 
 def test_icons_only_shows_the_sections_and_the_bars(window):
     w = window
-    w.open_page("PDF")
+    w.open_page("Space")
     w.set_nav_compact(True, animate=False)
     assert all(w.nav.isRowHidden(r) for r in range(w.nav.count()) if w.nav.item(r).data(KIND_ROLE) == "tool")
-    assert w.nav.currentRow() == w.nav_rows.index("Files") and w.current_page() == "PDF"
-    assert w.one_head.bar.isVisible()
-    w.open_page("Space")
-    assert w.section_strip.isVisible() and w.current_page() == "Space"
+    assert w.nav.currentRow() == w.nav_rows.index("Computer") and w.current_page() == "Space"
+    assert w.section_strip.isVisible()
+    w.open_page("PDF")
+    assert not w.section_strip.isVisible() and w.current_page() == "PDF"
+    assert w.nav.currentRow() == w.nav_rows.index("Files")
     w.set_nav_compact(False, animate=False)
-    assert w.nav.currentRow() == w.nav_rows.index("Space") and not w.section_strip.isVisible()
+    assert w.nav.currentRow() == w.nav_rows.index("Files")
 
 
 def test_resting_sections_and_updates(window):
@@ -119,24 +130,24 @@ def test_resting_sections_and_updates(window):
 def test_sections_move_from_their_menu(window):
     w = window
     order = [r for r in w.nav_rows if r in all_tools.SECTION_BY_PAGE]
-    w.open_page("PDF")
+    w.open_page("Space")
     w._move_section(order[0], 1)
     after = [r for r in w.nav_rows if r in all_tools.SECTION_BY_PAGE]
     assert after[:2] == [order[1], order[0]]
-    assert w.current_page() == "PDF" and w.nav.currentRow() == w.nav_rows.index("PDF")
+    assert w.current_page() == "Space" and w.nav.currentRow() == w.nav_rows.index("Space")
     assert w.c.settings.section_order[:2] == [all_tools.SECTION_BY_PAGE[p].id for p in after[:2]]
 
 
 def test_a_tool_switched_off_leaves_the_sidebar(window):
     w = window
-    w.c.set_tool("unlock", False)
-    assert "Unlock" not in w.nav_rows
-    w.c.set_tool("unlock", True)
-    assert "Unlock" in w.nav_rows
+    w.c.set_tool("uninstaller", False)
+    assert "Apps" not in w.nav_rows
+    w.c.set_tool("uninstaller", True)
+    assert "Apps" in w.nav_rows
 
 
 def test_tab_with_names_showing_goes_from_the_heading_into_the_page(window, qtbot):
-    """(The bar of uses makes way while the sidebar shows the uses: Tab doesn't stop on hidden tabs.)"""
+    """(Over a Files tool's page: the way back to Files, then its Settings, then the page.)"""
     from PySide6.QtWidgets import QApplication
     w = window
     w.activateWindow()
@@ -145,66 +156,70 @@ def test_tab_with_names_showing_goes_from_the_heading_into_the_page(window, qtbo
     qtbot.keyClick(w.lang_btn, Qt.Key_Tab)
     assert QApplication.focusWidget() is w.one_head.gear
     qtbot.keyClick(w.one_head.gear, Qt.Key_Tab)
+    assert QApplication.focusWidget() is w.one_head.crumb
+    qtbot.keyClick(w.one_head.crumb, Qt.Key_Tab)
     assert w.stack.currentWidget().isAncestorOf(QApplication.focusWidget())
 
 
 def test_an_open_section_shuts_and_opens_again(window, qtbot):
     """(2.0.1: a section that's open could only be shut by going to another page.)"""
     w = window
-    w.open_page("Files")
-    files_row = w.nav_rows.index("Files")
-    files = w.nav.item(files_row)
-    assert files.data(OPEN_ROLE) and not w.nav.isRowHidden(w.nav_rows.index("PDF"))
+    w.open_page("Computer")
+    computer_row = w.nav_rows.index("Computer")
+    computer = w.nav.item(computer_row)
+    assert computer.data(OPEN_ROLE) and not w.nav.isRowHidden(w.nav_rows.index("Space"))
     # its row clicked again: it shuts, the page stays
-    rect = w.nav.visualItemRect(files)
+    rect = w.nav.visualItemRect(computer)
     qtbot.mouseClick(w.nav.viewport(), Qt.LeftButton, pos=rect.center())
-    assert not files.data(OPEN_ROLE) and w.nav.isRowHidden(w.nav_rows.index("PDF"))
-    assert w.current_page() == "Files" and w.nav.currentRow() == files_row
+    assert not computer.data(OPEN_ROLE) and w.nav.isRowHidden(w.nav_rows.index("Space"))
+    assert w.current_page() == "Computer" and w.nav.currentRow() == computer_row
     # and again: it opens
     qtbot.mouseClick(w.nav.viewport(), Qt.LeftButton, pos=rect.center())
-    assert files.data(OPEN_ROLE) and not w.nav.isRowHidden(w.nav_rows.index("PDF"))
+    assert computer.data(OPEN_ROLE) and not w.nav.isRowHidden(w.nav_rows.index("Space"))
 
 
 def test_the_arrow_opens_and_shuts_without_leaving_the_page(window, qtbot):
     w = window
-    w.open_page("PDF")
-    files = w.nav.item(w.nav_rows.index("Files"))
-    rect = w.nav.visualItemRect(files)
+    w.open_page("Space")
+    computer = w.nav.item(w.nav_rows.index("Computer"))
+    rect = w.nav.visualItemRect(computer)
     arrow = rect.center()
     arrow.setX(rect.right() - 14)
     qtbot.mouseClick(w.nav.viewport(), Qt.LeftButton, pos=arrow)
     # shut while one of its tools is open: the section's row is lit for it
-    assert not files.data(OPEN_ROLE) and w.nav.isRowHidden(w.nav_rows.index("PDF"))
-    assert w.current_page() == "PDF" and w.nav.currentRow() == w.nav_rows.index("Files")
+    assert not computer.data(OPEN_ROLE) and w.nav.isRowHidden(w.nav_rows.index("Space"))
+    assert w.current_page() == "Space" and w.nav.currentRow() == w.nav_rows.index("Computer")
     qtbot.mouseClick(w.nav.viewport(), Qt.LeftButton, pos=arrow)
-    assert files.data(OPEN_ROLE) and w.nav.currentRow() == w.nav_rows.index("PDF")
+    assert computer.data(OPEN_ROLE) and w.nav.currentRow() == w.nav_rows.index("Space")
     # another section's arrow: it opens (one at a time), still on PDF
-    space = w.nav.item(w.nav_rows.index("Space"))
-    if space.data(KIND_ROLE) == "section":
-        r2 = w.nav.visualItemRect(space)
+    other = w.nav.item(w.nav_rows.index("Files"))
+    if other.data(KIND_ROLE) == "section":
+        r2 = w.nav.visualItemRect(other)
         p2 = r2.center()
         p2.setX(r2.right() - 14)
         qtbot.mouseClick(w.nav.viewport(), Qt.LeftButton, pos=p2)
-        assert space.data(OPEN_ROLE) and not files.data(OPEN_ROLE) and w.current_page() == "PDF"
-        assert w.nav.currentRow() == w.nav_rows.index("Files")
+        assert other.data(OPEN_ROLE) and not computer.data(OPEN_ROLE) and w.current_page() == "Space"
+        assert w.nav.currentRow() == w.nav_rows.index("Computer")
 
 
 def test_left_and_right_keys_shut_and_open(window, qtbot):
     w = window
-    w.open_page("Files")
-    files = w.nav.item(w.nav_rows.index("Files"))
+    w.open_page("Computer")
+    computer = w.nav.item(w.nav_rows.index("Computer"))
     w.nav.setFocus()
     qtbot.keyClick(w.nav, Qt.Key_Left)
-    assert not files.data(OPEN_ROLE)
+    assert not computer.data(OPEN_ROLE)
     qtbot.keyClick(w.nav, Qt.Key_Right)
-    assert files.data(OPEN_ROLE)
+    assert computer.data(OPEN_ROLE)
 
 
 def test_sections_are_dragged_into_a_new_order(window, qtbot):
     w = window
     order = [r for r in w.nav_rows if r in all_tools.SECTION_BY_PAGE]
     assert len(order) >= 2
-    w.open_page("PDF")  # (the first section open: its tools come along with it)
+    w.open_page("Space")  # (the first section open: its tools come along with it)
+    w._move_section("Computer", -order.index("Computer"))  # (the section with tools under it goes first)
+    order = [r for r in w.nav_rows if r in all_tools.SECTION_BY_PAGE]
     first = all_tools.SECTION_BY_PAGE[order[0]]
     assert w.nav.item(w.nav_rows.index(order[0])).data(KIND_ROLE) == "section", first.id
     src = w.nav.visualItemRect(w.nav.item(w.nav_rows.index(order[0]))).center()
@@ -227,8 +242,8 @@ def test_sections_are_dragged_into_a_new_order(window, qtbot):
     assert after[:2] == [order[1], order[0]]
     assert w.c.settings.section_order[:2] == [all_tools.SECTION_BY_PAGE[p].id for p in after[:2]]
     # the page stays, its tools are back under their section (moved with it), and nothing was opened
-    assert w.current_page() == "PDF" and w.nav.currentRow() == w.nav_rows.index("PDF")
-    pdf = w.nav_rows.index("PDF")
+    assert w.current_page() == "Space" and w.nav.currentRow() == w.nav_rows.index("Space")
+    pdf = w.nav_rows.index("Space")
     assert not w.nav.isRowHidden(pdf) and w.nav_rows.index(order[0]) < pdf
     assert all(w.nav.item(r).data(KIND_ROLE) == "tool" for r in range(w.nav_rows.index(order[0]) + 1, pdf + 1))
     # remembered: a new window has them in this order
@@ -242,20 +257,20 @@ def test_folding_moves_smoothly_and_ends_tidy(window, qtbot):
     w = window
     w.c.settings.animations = True
     w.nav.animate = True
-    w.open_page("Files")
+    w.open_page("Computer")
     qtbot.wait(FOLD_MS + 150)
-    files_row = w.nav_rows.index("Files")
-    pdf = w.nav.item(w.nav_rows.index("PDF"))
+    files_row = w.nav_rows.index("Computer")
+    pdf = w.nav.item(w.nav_rows.index("Space"))
     full = pdf.data(FULL_ROLE)
     w._fold_section(files_row, 0)
     assert w.nav.folding()
     qtbot.wait(FOLD_MS // 2)
     assert 0 < pdf.sizeHint().height() < full  # (on its way in)
     qtbot.waitUntil(lambda: not w.nav.folding(), timeout=2000)
-    assert w.nav.isRowHidden(w.nav_rows.index("PDF")) and pdf.sizeHint().height() == full
+    assert w.nav.isRowHidden(w.nav_rows.index("Space")) and pdf.sizeHint().height() == full
     w._fold_section(files_row, 1)
     qtbot.waitUntil(lambda: not w.nav.folding(), timeout=2000)
-    assert not w.nav.isRowHidden(w.nav_rows.index("PDF")) and pdf.sizeHint().height() == full
+    assert not w.nav.isRowHidden(w.nav_rows.index("Space")) and pdf.sizeHint().height() == full
     # the last rows stay at the bottom after it
     about = w.nav.visualItemRect(w.nav.item(w.nav_rows.index("About")))
     assert w.nav.viewport().height() - about.bottom() < 6

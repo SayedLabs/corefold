@@ -1344,7 +1344,7 @@ class ViewerWindow(QWidget):
         drag.exec(Qt.CopyAction)
 
     def to_converter(self):
-        self.c.show_window("Converter")
+        self.c.show_window()
         self.c.window.show_files([self.current()])
 
     def set_wallpaper(self):

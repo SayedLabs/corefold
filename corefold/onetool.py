@@ -1,167 +1,91 @@
-"""A section that's one tool (Rakiza Core Files): one heading over all its pages, with its name and colour,
-and a bar of what it can be used for. Picking a use changes only the page under the heading, so moving
-between them feels like one tool, not several."""
+"""A section that's one tool (Rakiza Core Files): over each of its tools' pages, a line back to its workspace,
+"Files › Rename files", with what the tool does and its settings. The workspace itself (fileworkspace.py) has its
+own heading, so this shows only on the tools' pages."""
 from __future__ import annotations
 
 from PySide6.QtCore import QSize, Qt, Signal
-from PySide6.QtGui import QColor
-from PySide6.QtWidgets import QButtonGroup, QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 
 from . import icons
-from .i18n import tr
+from .i18n import is_rtl, tr
 
 
 class OneToolHead(QWidget):
-    """The heading: the tool's tile and name, a line about the use that's open, ⚙, and the bar of uses.
-    Made again only when the section or its uses change (switched on or off, a new look)."""
-    opened = Signal(str)     # a page to open
-    settings = Signal()      # ⚙ pressed
+    """The line over a tool's page: ← Files › the tool's name, a line about it, and its settings. Made again only
+    when the section changes (or a new look)."""
+    opened = Signal(str)     # a page to open (the workspace)
+    settings = Signal()      # Settings pressed
 
     def __init__(self):
         super().__init__()
         self.setObjectName("oneToolHead")
         self.section = None
-        self.tabs: dict[str, QPushButton] = {}
-        self.banner = None
+        self.tabs: dict[str, QPushButton] = {}  # (Tab goes through these after the top bar)
+        self.crumb = None
+        self.name = None
         self.line = None
         self.gear = None
-        self.bar = None
-        self._icons = {}
+        self.bar = None  # (no bar of uses any more: the workspace has every tool)
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setContentsMargins(0, 0, 0, 4)
         self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         self.hide()
 
     def show_section(self, sec, uses: list, theme, dpr: float):
-        """The heading of this section, with a tab for its start page and one for each use switched on (a use
-        switched off has no tab: it isn't loaded)."""
-        from .atomic.widgets import GlowPanel
         from .window import label
         self.section = sec
         lay = self.layout()
         while lay.count():
             item = lay.takeAt(0)
             if item.widget():
-                item.widget().hide()  # (not drawn again at its old place before it goes)
+                item.widget().hide()
                 item.widget().deleteLater()
-        dark = theme.dark
-        color = QColor(icons.PRODUCT_COLORS.get(sec.product, ("#3cc7b2", "#0f8f7c"))[0 if dark else 1])
-        self.banner = GlowPanel(self, color=color, rings=False)
-        bv = QVBoxLayout(self.banner)
-        bv.setContentsMargins(20, 4, 20, 8)
-        bv.setSpacing(10)
-        top = QHBoxLayout()
-        top.setSpacing(12)
-        tile = QLabel()
-        tile.setPixmap(icons.product_tile(sec.product, 36, dark, dpr))
-        tile.setFixedSize(38, 38)
-        top.addWidget(tile, 0, Qt.AlignTop)
-        words = QVBoxLayout()
-        words.setSpacing(0)
-        words.addWidget(label(tr(sec.name), "title"))  # (a part of Rakiza Core: its plain name)
-        self.line = label("", "subtle", wrap=True)
-        self.line.setMinimumWidth(1)  # (wraps: long translations)
-        words.addWidget(self.line)
-        top.addLayout(words, 1)
+            elif item.layout():
+                _clear(item.layout())
+        row = QHBoxLayout()
+        row.setSpacing(6)
+        self.crumb = QPushButton(tr(sec.name))
+        self.crumb.setObjectName("crumb")
+        self.crumb.setCursor(Qt.PointingHandCursor)
+        self.crumb.setIcon(icons.icon("arrow_right" if is_rtl() else "arrow_left", theme.muted))
+        self.crumb.setIconSize(QSize(16, 16))
+        self.crumb.setToolTip(tr("Back to {name}", name=tr(sec.name)))
+        self.crumb.setAccessibleName(tr("Back to {name}", name=tr(sec.name)))
+        self.crumb.clicked.connect(lambda _=False: self.opened.emit(sec.page))
+        row.addWidget(self.crumb, 0, Qt.AlignVCenter)
+        sep = label("›" if not is_rtl() else "‹", "muted")
+        row.addWidget(sep, 0, Qt.AlignVCenter)
+        self.name = label("", "cardTitle")
+        row.addWidget(self.name, 0, Qt.AlignVCenter)
+        self.line = label("", "subtle")
+        self.line.setMinimumWidth(1)
+        self.line.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        row.addWidget(self.line, 1, Qt.AlignVCenter)
         self.gear = QPushButton(tr("Settings"))
+        self.gear.setObjectName("small")
         self.gear.setIcon(icons.icon("settings", theme.text))
         self.gear.setCursor(Qt.PointingHandCursor)
         self.gear.clicked.connect(self.settings)
-        top.addWidget(self.gear, 0, Qt.AlignVCenter)
-        bv.addLayout(top)
-        self.bar = QFrame()
-        self.bar.setObjectName("useBar")
-        row = QHBoxLayout(self.bar)
-        row.setContentsMargins(4, 4, 4, 4)
-        row.setSpacing(2)
-        group = QButtonGroup(self.bar)
-        self.tabs = {}
-        self._icons = {}
-        for page, icon, name, tip in [(sec.page, "home", tr("Start"), tr(sec.line))] + \
-                [(t.page, t.icon, tr(t.use or t.nav), tr(t.short or t.line)) for t in uses]:
-            b = QPushButton(name)
-            b.setObjectName("useTab")
-            b.setCheckable(True)
-            b.setCursor(Qt.PointingHandCursor)
-            b.setIconSize(QSize(16, 16))
-            b.setProperty("words", name)
-            b.setProperty("tip", tip)
-            b.setAccessibleName(name)
-            b.setAccessibleDescription(tip)
-            b.clicked.connect(lambda _=False, p=page: self.opened.emit(p))
-            b.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)  # (room to spare is shared; never less than its name)
-            group.addButton(b)
-            row.addWidget(b)
-            self.tabs[page] = b
-            self._icons[page] = (icons.icon(icon, theme.muted), icons.icon(icon, theme.text))
-        bv.addWidget(self.bar)
-        lay.addWidget(self.banner)
+        row.addWidget(self.gear, 0, Qt.AlignVCenter)
+        lay.addLayout(row)
+        self.tabs = {sec.page: self.crumb}
 
-    def set_current(self, page: str, line: str, gear: bool):
-        """Lights the use that's open and says what it does."""
-        for name, b in self.tabs.items():
-            b.setChecked(name == page)
-            b.setIcon(self._icons[name][1 if name == page else 0])
-            b.setFocusPolicy(Qt.StrongFocus if name == page else Qt.ClickFocus)  # (Tab reaches the use that's open; arrows go along the bar)
-        if self.line is not None:
-            self.line.setText(line)
+    def set_current(self, page: str, line: str, gear: bool, name: str = ""):
+        if self.name is not None:
+            self.name.setText(name)
+            self.line.setText(f"· {line}" if line else "")
+            self.line.setToolTip(line)
             self.gear.setVisible(gear)
 
     def fit(self, room: int):
-        """A bar wider than the room shows the other uses as icons only (named when pointed at)."""
-        tabs = list(self.tabs.values())
-        if not tabs:
-            return
-        for b in tabs:
-            b.setText(b.property("words"))
-            b.setToolTip(b.property("tip"))
-        spacing = self.bar.layout().spacing()
-        need = sum(b.sizeHint().width() + spacing for b in tabs) + 52  # (the banner's and the bar's edges)
-        for b in [b for b in tabs if not b.isChecked()]:  # (the use that's open keeps its name)
-            if need <= room:
-                break
-            before = b.sizeHint().width()
-            b.setText("")
-            b.setToolTip(f"{b.property('words')}\n{b.property('tip')}")
-            need -= before - b.sizeHint().width()
+        """(Nothing to fold: the line about the tool is cut short by itself.)"""
 
 
-class UseCard(QFrame):
-    """A use on the tool's start page: its icon, its name and what it's for. Click it (or Enter) to open it."""
-
-    def __init__(self, tool, open_use, theme, dpr: float):
-        super().__init__()
-        from .window import label
-        self.setObjectName("toolCard")
-        self.tool = tool
-        self.open_use = open_use
-        self.setCursor(Qt.PointingHandCursor)
-        self.setFocusPolicy(Qt.StrongFocus)  # Tab reaches it; Enter opens it
-        self.setAccessibleName(tr(tool.use or tool.nav))
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(14, 12, 14, 12)
-        lay.setSpacing(12)
-        tile = QLabel()
-        tile.setPixmap(icons.soft_tile(tool.icon, 36, theme.tokens.glyph, dpr))
-        tile.setFixedSize(36, 36)
-        lay.addWidget(tile, 0, Qt.AlignTop)
-        words = QVBoxLayout()
-        words.setSpacing(2)
-        words.addWidget(label(tr(tool.use or tool.nav), "cardTitle"))
-        line = label(tr(tool.short or tool.line), "subtle", wrap=True)
-        line.setMinimumWidth(1)  # (wraps inside the card: long translations)
-        words.addWidget(line)
-        words.addStretch()
-        lay.addLayout(words, 1)
-        for w in (tile,) + tuple(self.findChildren(QLabel)):
-            w.setAttribute(Qt.WA_TransparentForMouseEvents)
-
-    def mouseReleaseEvent(self, e):
-        if e.button() == Qt.LeftButton and self.rect().contains(e.position().toPoint()):
-            self.open_use()
-
-    def keyPressEvent(self, e):
-        if e.key() in (Qt.Key_Return, Qt.Key_Enter, Qt.Key_Space):
-            self.open_use()
-        else:
-            super().keyPressEvent(e)
+def _clear(lay):
+    while lay.count():
+        item = lay.takeAt(0)
+        if item.widget():
+            item.widget().hide()
+            item.widget().deleteLater()
+        elif item.layout():
+            _clear(item.layout())
