@@ -1,24 +1,25 @@
 """Rakiza Core Files: one workspace for every Files tool.
 
-At the top: the page's name, Add files / Add folder, a box to find a tool and All tools. In the middle: the list of
-files (name, kind, size, how they're doing), with a side panel of the tools that fit what's selected; picking one
-shows its choices and the button that starts it, right there. Underneath: the operations started, as they go,
-with what came out. Before anything is added: a place to drop files and the pinned tools, so a tool can be picked
-first and its files added after.
+At the top: the page's name, Add files, one box to find a tool and All tools. On the left: the list of files (a
+box to tick each, its name, type, size and how it's doing) with a place under it to drop more, and the tool
+library under that (a tile for each tool, by category, with what's coming on its own tab). On the right: the
+files selected and the tools that fit them; the tool picked shows its choices and one big button that starts it.
+Across the bottom: Activity, the operations started, as they go, with what came out.
 
 The tools come from filetools.py; the list, the selection and the operations live in filework.WorkState (kept by
-the controller), so they stay while this page is made again. Nothing here is a window of its own: the library of
-tools opens over the page, and a tool's choices show inside the side panel (sheet.set_inline_host)."""
+the controller), so they stay while this page is made again. Nothing here is a window of its own: a tool's
+choices show inside the side panel (sheet.set_inline_host)."""
 from __future__ import annotations
 
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QEvent, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QFontMetrics, QKeySequence, QPainter, QPen, QShortcut
-from PySide6.QtWidgets import (QAbstractItemView, QButtonGroup, QFileDialog, QFrame, QHBoxLayout, QHeaderView,
-                               QLabel, QLineEdit, QProgressBar, QPushButton, QScrollArea, QSizePolicy,
-                               QStackedWidget, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
+from PySide6.QtCore import QDateTime, QEvent, QLocale, QPoint, QRect, QRectF, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QColor, QFontMetrics, QPainter, QPainterPath, QPen, QPixmap
+from PySide6.QtWidgets import (QAbstractItemView, QButtonGroup, QComboBox, QFileDialog, QFrame, QHBoxLayout,
+                               QHeaderView, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMenu, QProgressBar,
+                               QPushButton, QScrollArea, QSizePolicy, QStyle, QStyledItemDelegate, QTreeWidget,
+                               QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from . import filetools as ft
 from . import filework as fw
@@ -31,16 +32,17 @@ if TYPE_CHECKING:
 
 # the logo's teal: Files' main buttons and what's selected (the rest of Rakiza Core keeps its accent)
 BRAND = {True: ("#3fb6a2", "#0b1f1b"), False: ("#0f7a6c", "#ffffff")}
-PANEL_WIDTH = 340
-NARROW = 900          # (px) narrower than this, the side panel folds away until it's wanted
+PANEL_WIDTH = 372
+NARROW = 980          # (px) narrower than this, the side panel folds away until it's wanted
+CHIPS_SHOWN = 6       # tools offered at first beside a selection (the rest under More)
 STATE_WORDS = {fw.READY: "Ready", fw.WORKING: "Working…", fw.DONE: "Done", fw.PROBLEM: "Problem",
                fw.CANCELLED: "Cancelled"}
-STATE_ICONS = {fw.READY: "", fw.WORKING: "arrow_sync", fw.DONE: "checkmark", fw.PROBLEM: "warning",
-               fw.CANCELLED: "dismiss"}
 KIND_WORDS = {"image": "Picture", "audio": "Sound", "video": "Video", "pdf": "PDF", "document": "Document",
               "archive": "Archive", "folder": "Folder", "other": "File"}
 KIND_ICONS = {"image": "image", "audio": "music_note_2", "video": "video", "pdf": "document_pdf",
               "document": "document_text", "archive": "archive", "folder": "folder", "other": "document"}
+CHIP_NAMES = {"convert": "Convert", "pdf": "PDF", "archive": "Archive", "organize": "Organize", "protect": "Protect"}
+COL_CHECK, COL_NAME, COL_TYPE, COL_SIZE, COL_STATUS, COL_MORE = range(6)
 
 
 def _alive(w) -> bool:
@@ -74,52 +76,93 @@ def _button(text: str, name: str | None = None, on_click=None, icon: str = "", c
     return b
 
 
+def _icon_button(icon: str, color, words: str, on_click=None, size: int = 30) -> QPushButton:
+    b = QPushButton()
+    b.setObjectName("iconButton")
+    b.setFixedSize(size, size)
+    b.setCursor(Qt.PointingHandCursor)
+    b.setIcon(icons.icon(icon, color))
+    b.setToolTip(words)
+    b.setAccessibleName(words)
+    if on_click is not None:
+        b.clicked.connect(lambda _=False: on_click())
+    return b
+
+
+def _soft(t, amount: float = 0.16) -> str:
+    """The card colour with a little of the logo's teal in it (what's selected)."""
+    p = t.tokens
+    tc, soft = QColor(BRAND[t.dark][0]), QColor(p.surface)
+    return QColor(round(soft.red() * (1 - amount) + tc.red() * amount),
+                  round(soft.green() * (1 - amount) + tc.green() * amount),
+                  round(soft.blue() * (1 - amount) + tc.blue() * amount)).name()
+
+
 def css(t) -> str:
     """Files' own look on top of Rakiza Core's: its main buttons and selection in the logo's teal, quiet cards
     close to the page with a thin edge, and one height for its buttons."""
     p = t.tokens
     teal, on_teal = BRAND[t.dark]
-    tc = QColor(teal)
-    soft = QColor(p.surface)
-    soft = QColor(round(soft.red() * 0.84 + tc.red() * 0.16), round(soft.green() * 0.84 + tc.green() * 0.16),
-                  round(soft.blue() * 0.84 + tc.blue() * 0.16)).name()
+    soft = _soft(t)
     hover = QColor(teal).lighter(110 if t.dark else 92).name()
     lead = "right" if is_rtl() else "left"
     return f"""
-QWidget#filesWorkspace QPushButton {{ min-height: 20px; }}
-QWidget#filesWorkspace QPushButton#primary {{ background: {teal}; border: 1px solid {teal}; color: {on_teal}; }}
-QWidget#filesWorkspace QPushButton#primary:hover {{ background: {hover}; border-color: {hover}; }}
-QWidget#filesWorkspace QPushButton#primary:disabled {{ background: {p.select.name()}; border-color: {p.select.name()};
-        color: {p.faint.name()}; }}
+QWidget#filesWorkspace QPushButton#primary, QPushButton#addFiles, QPushButton#bigAction {{ background: {teal};
+        border: 1px solid {teal}; color: {on_teal}; }}
+QWidget#filesWorkspace QPushButton#primary:hover, QPushButton#addFiles:hover, QPushButton#bigAction:hover {{
+        background: {hover}; border-color: {hover}; }}
+QPushButton#bigAction:disabled, QPushButton#addFiles:disabled, QWidget#filesWorkspace QPushButton#primary:disabled {{
+        background: {p.select.name()}; border-color: {p.select.name()}; color: {p.faint.name()}; }}
+QPushButton#addFiles {{ border-radius: 10px; padding: 0 18px; font-weight: 700; min-height: 40px; max-height: 40px; }}
+QPushButton#bigAction {{ border-radius: 10px; padding: 0 16px; font-weight: 700; font-size: 15px; min-height: 44px; }}
+QPushButton#allTools {{ border-radius: 10px; padding: 0 14px; min-height: 40px; max-height: 40px; }}
+QLineEdit#toolSearch {{ border-radius: 10px; padding: 0 10px; min-height: 30px; max-height: 30px; }}
+QComboBox#saveTo, QLineEdit#outputName {{ min-height: 26px; }}
+QLabel#fieldLabel {{ font-weight: 600; }}
 QWidget#filesWorkspace QPushButton#link {{ background: transparent; border: none; padding: 2px 4px; color: {teal};
         font-weight: 600; text-align: {lead}; }}
 QWidget#filesWorkspace QPushButton#link:hover {{ text-decoration: underline; }}
 QFrame#filesCard {{ background: {p.surface.name()}; border: 1px solid {p.border.name()}; border-radius: 12px; }}
-QFrame#fileTool {{ background: {p.surface.name()}; border: 1px solid {p.border.name()}; border-radius: 10px; }}
-QFrame#fileTool:hover {{ border-color: {p.line_strong.name()}; background: {p.hover.name()}; }}
-QFrame#fileTool:focus {{ border-color: {teal}; }}
-QFrame#fileTool[picked="true"] {{ border-color: {teal}; background: {soft}; }}
-QFrame#fileTool[off="true"] {{ background: transparent; }}
-QFrame#fileTool[off="true"]:hover {{ border-color: {p.border.name()}; background: transparent; }}
-QFrame#comingCard {{ background: transparent; border: 1px dashed {p.line_strong.name()}; border-radius: 10px; }}
-QLabel#statusPill {{ background: {p.raised.name()}; border: 1px solid {p.line_strong.name()}; border-radius: 9px;
-        padding: 1px 8px; color: {p.muted.name()}; font-weight: 600; }}
+QLabel#libTitle {{ font-size: 17px; font-weight: 700; }}
+QFrame#vline {{ background: {p.line_strong.name()}; }}
+QFrame#libTile {{ background: transparent; border: 1px solid {p.line_strong.name()}; border-radius: 10px; }}
+QFrame#libTile:hover {{ background: {p.hover.name()}; }}
+QFrame#libTile:focus {{ border-color: {teal}; }}
+QFrame#libTile[picked="true"] {{ border-color: {teal}; background: {soft}; }}
+QFrame#comingTile {{ background: transparent; border: 1px dashed {p.line_strong.name()}; border-radius: 10px; }}
+QLabel#tileName {{ font-weight: 600; }}
+QLabel#statusPill {{ background: {p.raised.name()}; border: 1px solid {p.line_strong.name()}; border-radius: 8px;
+        padding: 0 6px; color: {p.muted.name()}; font-weight: 600; font-size: 11px; }}
 QLabel#fitNote {{ background: {p.canvas.name()}; border: 1px solid {p.border.name()}; border-{lead}: 3px solid {p.warning.name()};
         border-radius: 8px; padding: 7px 10px; }}
 QLabel#fitStop {{ background: {p.canvas.name()}; border: 1px solid {p.border.name()}; border-{lead}: 3px solid {p.danger.name()};
         border-radius: 8px; padding: 7px 10px; }}
 QPushButton#slot {{ padding: 5px 12px; border-radius: 8px; }}
 QPushButton#slot:checked {{ background: {soft}; border-color: {teal}; }}
-QPushButton#chip {{ background: transparent; border: 1px solid {p.line_strong.name()}; border-radius: 13px;
-        padding: 3px 12px; color: {p.muted.name()}; font-weight: 600; }}
-QPushButton#chip:hover {{ color: {p.text.name()}; }}
+QPushButton#chip {{ background: transparent; border: 1px solid {p.line_strong.name()}; border-radius: 12px;
+        padding: 3px 14px; min-height: 18px; color: {p.text.name()}; }}
+QPushButton#chip:hover {{ background: {p.hover.name()}; }}
 QPushButton#chip:checked {{ background: {teal}; border-color: {teal}; color: {on_teal}; }}
+QPushButton#toolChip {{ background: transparent; border: 1px solid {p.line_strong.name()}; border-radius: 9px;
+        padding: 6px 12px; }}
+QPushButton#toolChip:hover {{ background: {p.hover.name()}; }}
+QPushButton#toolChip:checked {{ background: {soft}; border: 2px solid {teal}; padding: 5px 11px; }}
+QFrame#dropArea {{ background: transparent; border: 1.5px dashed {p.line_strong.name()}; border-radius: 10px; }}
+QFrame#dropArea:hover {{ border-color: {teal}; }}
 QTreeWidget#fileTable {{ background: transparent; border: none; }}
-QTreeWidget#fileTable::item {{ padding: 6px 2px; border-bottom: 1px solid {p.border.name()}; }}
+QTreeWidget#fileTable::item {{ padding: 7px 2px; border-bottom: 1px solid {p.border.name()}; }}
 QTreeWidget#fileTable::item:selected {{ background: {soft}; color: {p.text.name()}; }}
 QTreeWidget#fileTable::item:hover:!selected {{ background: {p.hover.name()}; }}
-QProgressBar#opBar::chunk {{ background: {teal}; }}
-QFrame#libraryPanel {{ background: {p.raised.name()}; border: 1px solid {p.line_strong.name()}; border-radius: 14px; }}
+QTreeWidget#fileTable QHeaderView::section {{ background: {p.surface.name()}; border: none;
+        border-bottom: 1px solid {p.border.name()}; padding: 8px 4px; font-weight: 600; color: {p.text.name()}; }}
+QFrame#mergeRow {{ background: {p.canvas.name()}; border: 1px solid {p.border.name()}; border-radius: 8px; }}
+QListWidget#mergeList {{ background: transparent; border: none; outline: none; }}
+QListWidget#mergeList::item {{ background: transparent; border: none; padding: 0; }}
+QLabel#orderNumber {{ background: {p.raised.name()}; border: 1px solid {p.line_strong.name()}; border-radius: 5px;
+        padding: 0 6px; color: {p.muted.name()}; }}
+QProgressBar#opBar {{ background: {p.select.name()}; border: none; border-radius: 4px; min-height: 8px; max-height: 8px; }}
+QProgressBar#opBar::chunk {{ background: {teal}; border-radius: 4px; }}
+QFrame#activityRow {{ border-top: 1px solid {p.border.name()}; }}
 """
 
 
@@ -163,94 +206,188 @@ def _tile(icon_name: str, size: int, t, off: bool = False) -> QLabel:
     return tile
 
 
-class ToolTile(QFrame):
-    """A tool as a small card of the same size as every other: its icon, its name, what it does in one line, and a
-    pin. Click it (or Enter) to pick it. A tool that doesn't fit what's selected is shown dimmed, with why."""
+def _vline() -> QFrame:
+    line = QFrame()
+    line.setObjectName("vline")
+    line.setFixedSize(1, 20)
+    return line
+
+
+def _mark(kind: str, color: QColor, size: int = 18, dpr: float = 2.0) -> QPixmap:
+    """A round mark: "done" (a tick in a filled circle), "ring" (still going) or "warning"."""
+    pm = QPixmap(round(size * dpr), round(size * dpr))
+    pm.setDevicePixelRatio(dpr)
+    pm.fill(Qt.transparent)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.Antialiasing)
+    r = QRectF(1, 1, size - 2, size - 2)
+    if kind == "done":
+        p.setPen(Qt.NoPen)
+        p.setBrush(color)
+        p.drawEllipse(r)
+        pen = QPen(QColor("#0b1f1b") if color.lightness() > 140 else QColor("#ffffff"), size / 9)
+        pen.setCapStyle(Qt.RoundCap)
+        pen.setJoinStyle(Qt.RoundJoin)
+        p.setPen(pen)
+        path = QPainterPath()
+        path.moveTo(size * 0.29, size * 0.52)
+        path.lineTo(size * 0.44, size * 0.66)
+        path.lineTo(size * 0.72, size * 0.37)
+        p.drawPath(path)
+    elif kind == "ring":
+        track = QColor(color)
+        track.setAlpha(60)
+        p.setPen(QPen(track, size / 8))
+        p.drawEllipse(r.adjusted(1, 1, -1, -1))
+        p.setPen(QPen(color, size / 8, Qt.SolidLine, Qt.RoundCap))
+        p.drawArc(r.adjusted(1, 1, -1, -1), 90 * 16, -250 * 16)
+    p.end()
+    return pm
+
+
+def _paint_check(p: QPainter, rect: QRect, state: Qt.CheckState, t):
+    """The tick box of the list (and its heading): rounded, the logo's teal when ticked."""
+    p.save()
+    p.setRenderHint(QPainter.Antialiasing)
+    box = QRectF(rect.center().x() - 8, rect.center().y() - 8, 16, 16)
+    teal = QColor(BRAND[t.dark][0])
+    if state == Qt.Unchecked:
+        p.setPen(QPen(t.tokens.muted, 1.5))
+        p.setBrush(Qt.NoBrush)
+        p.drawRoundedRect(box.adjusted(0.75, 0.75, -0.75, -0.75), 4, 4)
+    else:
+        p.setPen(Qt.NoPen)
+        p.setBrush(teal)
+        p.drawRoundedRect(box, 4, 4)
+        pen = QPen(QColor(BRAND[t.dark][1]), 2)
+        pen.setCapStyle(Qt.RoundCap)
+        pen.setJoinStyle(Qt.RoundJoin)
+        p.setPen(pen)
+        if state == Qt.Checked:
+            path = QPainterPath()
+            path.moveTo(box.left() + 4, box.top() + 8.5)
+            path.lineTo(box.left() + 7, box.top() + 11.2)
+            path.lineTo(box.left() + 12.2, box.top() + 5.3)
+            p.drawPath(path)
+        else:
+            p.drawLine(QPoint(round(box.left()) + 4, round(box.center().y())),
+                       QPoint(round(box.right()) - 4, round(box.center().y())))
+    p.restore()
+
+
+# ----------------------------------------------------------------------------- the tool library's tiles
+
+class LibTile(QFrame):
+    """A tool in the library: a small square with its icon and name, all the same size, and a star when it's
+    pinned (pinned tools come first beside a selection). Click it (or Enter) to pick it."""
     chosen = Signal(str)
     pin_toggled = Signal(str, bool)
 
-    def __init__(self, tool: ft.FileTool, t, pinned: bool, why_not: str = "", picked: bool = False,
-                 show_pin: bool = True):
+    def __init__(self, key: str, name: str, icon: str, t, pinned: bool | None = None, picked: bool = False,
+                 tip: str = ""):
         super().__init__()
-        self.tool = tool
-        self.why_not = why_not
-        self.setObjectName("fileTool")
-        self.setProperty("off", bool(why_not))
+        self.key, self.t = key, t
+        self.setObjectName("libTile")
         self.setProperty("picked", picked)
-        self.setCursor(Qt.ArrowCursor if why_not else Qt.PointingHandCursor)
-        self.setFocusPolicy(Qt.NoFocus if why_not else Qt.StrongFocus)
-        self.setAccessibleName(tr(tool.name))
-        self.setAccessibleDescription(why_not or tr(tool.line))
-        self.setFixedHeight(64)
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(12, 10, 8, 10)
-        lay.setSpacing(12)
-        lay.addWidget(_tile(tool.icon, 36, t, off=bool(why_not)), 0, Qt.AlignVCenter)
-        words = QVBoxLayout()
-        words.setSpacing(1)
-        name = ElidedLabel(tr(tool.name), "cardTitle")
-        line = ElidedLabel(why_not or tr(tool.line), "subtle")
-        for w in (name, line):
-            w.setAttribute(Qt.WA_TransparentForMouseEvents)
-        if why_not:
-            name.setStyleSheet(f"color: {t.tokens.muted.name()};")
-        words.addWidget(name)
-        words.addWidget(line)
-        lay.addLayout(words, 1)
-        self.pin = None
-        if show_pin:
-            self.pin = QPushButton()
-            self.pin.setObjectName("iconButton")
-            self.pin.setFixedSize(30, 30)
-            self.pin.setCursor(Qt.PointingHandCursor)
-            self.pin.setCheckable(True)
-            self.pin.setChecked(pinned)
-            self.pin.setFocusPolicy(Qt.TabFocus)
-            self._pin_look(t)
-            self.pin.toggled.connect(lambda on: (self._pin_look(t), self.pin_toggled.emit(tool.id, on)))
-            lay.addWidget(self.pin, 0, Qt.AlignVCenter)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.setAccessibleName(name)
+        self.setAccessibleDescription(tip)
+        self.setToolTip(tip or name)
+        self.setFixedSize(118, 86)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(6, 12, 6, 8)
+        lay.setSpacing(6)
+        ic = QLabel()
+        ic.setPixmap(icons.pixmap(icon, 26, QColor(BRAND[t.dark][0]), self.devicePixelRatioF() or 1.0))
+        ic.setAlignment(Qt.AlignCenter)
+        ic.setAttribute(Qt.WA_TransparentForMouseEvents)
+        lay.addWidget(ic)
+        words = QLabel(name)
+        words.setObjectName("tileName")
+        words.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
+        words.setWordWrap(True)
+        words.setAttribute(Qt.WA_TransparentForMouseEvents)
+        lay.addWidget(words, 1)
+        self.star = None
+        if pinned is not None:
+            self.star = QPushButton(self)
+            self.star.setObjectName("iconButton")
+            self.star.setCheckable(True)
+            self.star.setChecked(pinned)
+            self.star.setFixedSize(22, 22)
+            self.star.setIconSize(QSize(14, 14))
+            self.star.setCursor(Qt.PointingHandCursor)
+            self.star.setFocusPolicy(Qt.TabFocus)
+            self._star_look()
+            self.star.toggled.connect(lambda on: (self._star_look(), self.pin_toggled.emit(key, on)))
+            self._place_star()
 
-    def _pin_look(self, t):
-        on = self.pin.isChecked()
-        self.pin.setIcon(icons.icon("pin" if on else "pin_off", BRAND[t.dark][0] if on else t.tokens.faint))
+    def _star_look(self):
+        on = self.star.isChecked()
+        self.star.setIcon(icons.icon("star_filled" if on else "star", "#f4b740" if on else self.t.tokens.faint))
         words = tr("Unpin") if on else tr("Pin")
-        self.pin.setToolTip(words)
-        self.pin.setAccessibleName(f"{words}: {tr(self.tool.name)}")
+        self.star.setToolTip(words)
+        self.star.setAccessibleName(f"{words}: {self.accessibleName()}")
+        self.star.setVisible(on or self.underMouse() or self.hasFocus())
+
+    def _place_star(self):
+        if self.star is not None:
+            x = 4 if is_rtl() else self.width() - 26
+            self.star.move(x, 4)
+
+    def enterEvent(self, e):
+        if self.star is not None:
+            self.star.show()
+        super().enterEvent(e)
+
+    def leaveEvent(self, e):
+        if self.star is not None and not self.star.isChecked():
+            self.star.hide()
+        super().leaveEvent(e)
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._place_star()
 
     def mouseReleaseEvent(self, e):
-        if e.button() == Qt.LeftButton and self.rect().contains(e.position().toPoint()) and not self.why_not:
-            self.chosen.emit(self.tool.id)
+        if e.button() == Qt.LeftButton and self.rect().contains(e.position().toPoint()):
+            self.chosen.emit(self.key)
 
     def keyPressEvent(self, e):
-        if e.key() in (Qt.Key_Return, Qt.Key_Enter, Qt.Key_Space) and not self.why_not:
-            self.chosen.emit(self.tool.id)
+        if e.key() in (Qt.Key_Return, Qt.Key_Enter, Qt.Key_Space):
+            self.chosen.emit(self.key)
         else:
             super().keyPressEvent(e)
 
 
-class ComingCard(QFrame):
-    """A feature on the roadmap: its name, a line, and how far along it is. Never a button: nothing to start."""
+class ComingTile(QFrame):
+    """A feature on the roadmap: its icon, name and how far along it is. Never a button: nothing to start."""
 
     def __init__(self, item: ft.Upcoming, t):
         super().__init__()
         self.item = item
-        self.setObjectName("comingCard")
-        self.setFixedHeight(64)
-        self.setAccessibleName(f"{tr(item.name)}: {tr(ft.STATUS_NAMES[item.status])}")
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(12, 10, 12, 10)
-        lay.setSpacing(12)
-        lay.addWidget(_tile(item.icon, 36, t, off=True), 0, Qt.AlignVCenter)
-        words = QVBoxLayout()
-        words.setSpacing(1)
-        name = ElidedLabel(tr(item.name), "cardTitle")
+        self.setObjectName("comingTile")
+        self.setFixedSize(150, 86)
+        status = tr(ft.STATUS_NAMES[item.status])
+        self.setAccessibleName(f"{tr(item.name)}: {status}")
+        self.setToolTip(tr(item.line))
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(8, 10, 8, 8)
+        lay.setSpacing(4)
+        ic = QLabel()
+        ic.setPixmap(icons.pixmap(item.icon, 22, t.tokens.faint, self.devicePixelRatioF() or 1.0))
+        ic.setAlignment(Qt.AlignCenter)
+        lay.addWidget(ic)
+        name = ElidedLabel(tr(item.name), "tileName")
+        name.setAlignment(Qt.AlignCenter)
         name.setStyleSheet(f"color: {t.tokens.muted.name()};")
-        words.addWidget(name)
-        words.addWidget(ElidedLabel(tr(item.line), "subtle"))
-        lay.addLayout(words, 1)
-        self.pill = _label(tr(ft.STATUS_NAMES[item.status]), "statusPill")
-        lay.addWidget(self.pill, 0, Qt.AlignVCenter)
+        lay.addWidget(name)
+        self.pill = _label(status, "statusPill")
+        lay.addWidget(self.pill, 0, Qt.AlignHCenter)
 
+
+# ----------------------------------------------------------------------------- the list of files
 
 class _SortItem(QTreeWidgetItem):
     """Sorted by size as a number (not as words), and by name ignoring case."""
@@ -263,38 +400,202 @@ class _SortItem(QTreeWidgetItem):
         return self.text(col).lower() < other.text(col).lower()
 
 
-class FileTable(QTreeWidget):
-    """The files and folders to work on. Several can be selected (Ctrl, Shift, Ctrl + A); Delete takes them off the
-    list (nothing on the PC is touched). More can be dropped on it."""
-    remove_requested = Signal()
+class _CheckDelegate(QStyledItemDelegate):
+    """The first column: a tick box that shows whether the row is selected."""
 
-    def __init__(self):
+    def __init__(self, table: "FileTable"):
+        super().__init__(table)
+        self.table = table
+
+    def paint(self, p, option, index):
+        super().paint(p, option, index)
+        on = bool(option.state & QStyle.State_Selected)
+        _paint_check(p, option.rect, Qt.Checked if on else Qt.Unchecked, self.table.t)
+
+
+class _CheckHeader(QHeaderView):
+    """The list's heading: a tick box over the first column (all, some or none selected)."""
+    toggled = Signal()
+
+    def __init__(self, table: "FileTable"):
+        super().__init__(Qt.Horizontal, table)
+        self.table = table
+        self.state = Qt.Unchecked
+        self.setSectionsClickable(True)
+        self.setHighlightSections(False)
+
+    def paintSection(self, painter, rect, index):
+        painter.save()
+        super().paintSection(painter, rect, index)
+        painter.restore()
+        if index == COL_CHECK:
+            _paint_check(painter, rect, self.state, self.table.t)
+
+    def mousePressEvent(self, e):
+        if self.logicalIndexAt(e.position().toPoint()) == COL_CHECK:
+            self.toggled.emit()
+            return
+        super().mousePressEvent(e)
+
+    def set_state(self, state):
+        if state != self.state:
+            self.state = state
+            self.viewport().update()
+
+
+class FileTable(QTreeWidget):
+    """The files and folders to work on. Tick a row's box (or Ctrl/Shift + click, Ctrl + A) to select several;
+    Delete takes them off the list (nothing on the PC is touched); ⋯ at the end of a row has what can be done
+    with it."""
+    remove_requested = Signal()
+    more_requested = Signal(object, QPoint)   # (the item, where on the screen)
+
+    def __init__(self, t):
         super().__init__()
+        self.t = t
         self.setObjectName("fileTable")
-        self.setColumnCount(4)
-        self.setHeaderLabels([tr("Name"), tr("Kind"), tr("Size"), tr("Status")])
+        self.setColumnCount(6)
+        self.head = _CheckHeader(self)
+        self.setHeader(self.head)
+        self.setHeaderLabels(["", tr("Name"), tr("Type"), tr("Size"), tr("Status"), ""])
         self.setRootIsDecorated(False)
         self.setUniformRowHeights(True)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.setAllColumnsShowFocus(True)
         self.setSortingEnabled(True)
         self.sortByColumn(-1, Qt.AscendingOrder)
-        self.setIconSize(QSize(18, 18))
+        self.setIconSize(QSize(20, 20))
         self.setFrameShape(QFrame.NoFrame)
         self.setAccessibleName(tr("Files to work on"))
         self.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setItemDelegateForColumn(COL_CHECK, _CheckDelegate(self))
         head = self.header()
         head.setStretchLastSection(False)
-        head.setSectionResizeMode(0, QHeaderView.Stretch)
-        for col, width in ((1, 120), (2, 96), (3, 130)):
-            head.setSectionResizeMode(col, QHeaderView.Interactive)
+        head.setMinimumSectionSize(30)
+        head.setDefaultAlignment(Qt.AlignLeading | Qt.AlignVCenter)
+        head.setSectionResizeMode(COL_NAME, QHeaderView.Stretch)
+        for col, width in ((COL_CHECK, 44), (COL_TYPE, 90), (COL_SIZE, 100), (COL_STATUS, 120), (COL_MORE, 44)):
+            head.setSectionResizeMode(col, QHeaderView.Fixed if col in (COL_CHECK, COL_MORE) else
+                                      QHeaderView.Interactive)
             self.setColumnWidth(col, width)
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(
+            lambda pos: self.itemAt(pos) and self.more_requested.emit(self.itemAt(pos),
+                                                                      self.viewport().mapToGlobal(pos)))
+
+    def fit_columns(self, width: int):
+        """A narrow list keeps the name readable: the type goes first, then the status shrinks."""
+        self.setColumnHidden(COL_TYPE, width < 520)
+        self.setColumnWidth(COL_STATUS, 120 if width >= 460 else 96)
+
+    def mousePressEvent(self, e):
+        idx = self.indexAt(e.position().toPoint())
+        if idx.isValid() and e.button() == Qt.LeftButton and idx.column() in (COL_CHECK, COL_MORE):
+            from PySide6.QtCore import QItemSelectionModel
+            if idx.column() == COL_CHECK:  # (the box: this row in or out, the others stay)
+                self.selectionModel().select(idx, QItemSelectionModel.Toggle | QItemSelectionModel.Rows)
+                self.selectionModel().setCurrentIndex(idx, QItemSelectionModel.NoUpdate)
+            else:
+                item = self.itemFromIndex(idx)
+                rect = self.visualRect(idx)
+                self.more_requested.emit(item, self.viewport().mapToGlobal(rect.bottomLeft()))
+            return
+        super().mousePressEvent(e)
+
+    def mouseDoubleClickEvent(self, e):
+        idx = self.indexAt(e.position().toPoint())
+        if idx.isValid() and idx.column() in (COL_CHECK, COL_MORE):
+            return
+        super().mouseDoubleClickEvent(e)
 
     def keyPressEvent(self, e):
         if e.key() in (Qt.Key_Delete, Qt.Key_Backspace) and self.selectedItems():
             self.remove_requested.emit()
             return
         super().keyPressEvent(e)
+
+    def content_height(self) -> int:
+        n = self.topLevelItemCount()
+        row = self.sizeHintForRow(0) if n else 0
+        return self.header().sizeHint().height() + n * max(row, 1) + 4
+
+
+class DropArea(QFrame):
+    """Under the list, a dashed place to drop more (or click to pick them). With nothing added yet it takes the
+    whole card, with buttons to choose files or a folder."""
+
+    def __init__(self, ws: "FilesWorkspace"):
+        super().__init__()
+        self.ws, t = ws, ws.t
+        self.setObjectName("dropArea")
+        self.setCursor(Qt.PointingHandCursor)
+        self.setAccessibleName(tr("Drop more files here"))
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(12, 10, 12, 10)
+        lay.setSpacing(8)
+        lay.addStretch()
+        self.icon = QLabel()
+        self.icon.setAlignment(Qt.AlignCenter)
+        self.icon.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.line = QHBoxLayout()
+        self.line.setSpacing(10)
+        self.line.addStretch()
+        self.small_icon = QLabel()
+        self.small_icon.setPixmap(icons.pixmap("arrow_download", 20, t.tokens.muted, self.devicePixelRatioF() or 1.0))
+        self.small_icon.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.line.addWidget(self.small_icon)
+        self.words = _label(tr("Drop more files here"), "muted")
+        self.words.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.line.addWidget(self.words)
+        self.folder_link = _button(tr("Add a folder"), "link", lambda: ws.add_folder())
+        self.line.addWidget(self.folder_link)
+        self.line.addStretch()
+        lay.addWidget(self.icon)
+        lay.addLayout(self.line)
+        self.sub = _label(tr("Or pick them on your PC. Nothing is uploaded."), "subtle")
+        self.sub.setAlignment(Qt.AlignCenter)
+        self.sub.setAttribute(Qt.WA_TransparentForMouseEvents)
+        lay.addWidget(self.sub)
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        row.addStretch()
+        self.files_btn = _button(tr("Choose files…"), "primary", lambda: ws.add_files())
+        self.folder_btn = _button(tr("Choose a folder…"), None, lambda: ws.add_folder())
+        self.paste_btn = _button(tr("Paste (Ctrl + V)"), None, lambda: ws.c.paste())
+        for b in (self.files_btn, self.folder_btn, self.paste_btn):
+            b.setMinimumHeight(34)
+            row.addWidget(b)
+        row.addStretch()
+        lay.addLayout(row)
+        lay.addStretch()
+        self.big = None
+        self.set_big(False)
+
+    def set_big(self, big: bool):
+        if big == self.big:
+            return
+        self.big = big
+        t = self.ws.t
+        dpr = self.devicePixelRatioF() or 1.0
+        self.icon.setPixmap(icons.soft_tile("arrow_download", 52, QColor(BRAND[t.dark][0]), dpr))
+        self.icon.setVisible(big)
+        self.small_icon.setVisible(not big)
+        self.words.setText(tr("Drop files or folders here") if big else tr("Drop more files here"))
+        self.words.setObjectName("h2" if big else "muted")
+        self.words.style().unpolish(self.words)
+        self.words.style().polish(self.words)
+        self.folder_link.setVisible(not big)
+        self.sub.setVisible(big)
+        for b in (self.files_btn, self.folder_btn, self.paste_btn):
+            b.setVisible(big)
+        self.setMinimumHeight(240 if big else 58)
+        self.setMaximumHeight(16777215 if big else 110)
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+
+    def mouseReleaseEvent(self, e):
+        if e.button() == Qt.LeftButton and self.rect().contains(e.position().toPoint()):
+            self.ws.add_files()
 
 
 class _DropCover(QWidget):
@@ -325,71 +626,101 @@ class _DropCover(QWidget):
         p.drawText(r, Qt.AlignCenter, tr("Let go to add them to the list"))
 
 
+# ----------------------------------------------------------------------------- Activity
+
+def _when(stamp: float) -> str:
+    moment = QDateTime.fromSecsSinceEpoch(int(stamp))
+    loc = QLocale()
+    time = loc.toString(moment.time(), QLocale.ShortFormat)
+    if moment.date() == QDateTime.currentDateTime().date():
+        return tr("Today, {time}", time=time)
+    return f"{loc.toString(moment.date(), QLocale.ShortFormat)}, {time}"
+
+
 class OpRow(QFrame):
-    """One operation: what it is, how far it got, and what can be done with it now."""
+    """One operation: what it is and on what, how far it got (or where it saved), and what can be done now."""
 
     def __init__(self, tray: "OpsTray", op: fw.Op):
         super().__init__()
         self.tray = tray
         self.job_id = op.job_id
-        t = tray.t
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(0, 4, 0, 4)
-        lay.setSpacing(4)
-        row = QHBoxLayout()
-        row.setSpacing(10)
+        self.t = tray.t
+        self.setObjectName("activityRow")
+        row = QHBoxLayout(self)
+        row.setContentsMargins(4, 8, 4, 8)
+        row.setSpacing(12)
         self.mark = QLabel()
-        self.mark.setFixedSize(18, 18)
+        self.mark.setFixedSize(24, 24)
         row.addWidget(self.mark, 0, Qt.AlignVCenter)
         words = QVBoxLayout()
-        words.setSpacing(0)
-        self.title = ElidedLabel("", None)
+        words.setSpacing(1)
+        self.title = ElidedLabel("", "cardTitle")
         self.detail = ElidedLabel("", "subtle")
         words.addWidget(self.title)
         words.addWidget(self.detail)
         row.addLayout(words, 1)
-        self.cancel = _button(tr("Cancel"), "ghost", lambda: tray.c.cancel_job(self.job_id))
-        self.open = _button(tr("Open"), "ghost", self._open)
-        self.folder = _button(tr("Show in folder"), "ghost", self._show)
-        self.again = _button(tr("Try again"), "ghost", self._again)
-        for b in (self.cancel, self.open, self.folder, self.again):
-            row.addWidget(b, 0, Qt.AlignVCenter)
-        lay.addLayout(row)
         self.bar = QProgressBar()
         self.bar.setObjectName("opBar")
         self.bar.setRange(0, 1000)
         self.bar.setTextVisible(False)
-        self.bar.setFixedHeight(4)
-        lay.addWidget(self.bar)
-        self.t = t
+        self.bar.setFixedSize(220, 8)
+        row.addWidget(self.bar, 0, Qt.AlignVCenter)
+        self.percent = _label("", "muted")
+        self.percent.setMinimumWidth(40)
+        row.addWidget(self.percent, 0, Qt.AlignVCenter)
+        self.time = _label("", "muted")
+        row.addWidget(self.time, 0, Qt.AlignVCenter)
+        self.folder = _button(tr("Open folder"), "small", self._show, "folder_open", self.t.tokens.text)
+        self.again = _button(tr("Try again"), "small", self._again, "arrow_clockwise", self.t.tokens.text)
+        self.cancel = _button(tr("Cancel"), "small", lambda: tray.c.cancel_job(self.job_id))
+        for b in (self.folder, self.again, self.cancel):
+            row.addWidget(b, 0, Qt.AlignVCenter)
+        self.more = _icon_button("more_horizontal", self.t.tokens.muted, tr("More"), self._menu)
+        row.addWidget(self.more, 0, Qt.AlignVCenter)
         self.update_from(op)
 
     def update_from(self, op: fw.Op):
         t = self.t
         self.op = op
-        self.title.setFullText(f"{op.title} · {op.what}" if op.what else op.title)
+        title = tr(op.title) if op.title else op.title
+        self.title.setFullText(f"{title} · {op.what}" if op.what else title)
+        pct = round(op.progress * 100)
+        dpr = self.devicePixelRatioF() or 1.0
+        teal = QColor(BRAND[t.dark][0])
         if op.state == fw.WAITING:
-            detail, icon, color = tr("Waiting for the one before it"), "timer", t.tokens.muted
+            detail = tr("Waiting for the one before it")
+            self.mark.setPixmap(_mark("ring", QColor(t.tokens.muted), 24, max(2.0, dpr)))
         elif op.state == fw.RUNNING:
-            detail = op.detail or tr("{percent}%", percent=round(op.progress * 100))
-            icon, color = "arrow_sync", BRAND[t.dark][0]
+            detail = tr("Working… {percent}%", percent=pct)
+            if op.detail:
+                detail = f"{detail} · {op.detail}"
+            self.mark.setPixmap(_mark("ring", teal, 24, max(2.0, dpr)))
+        elif op.state == fw.FINISHED and not op.errors:
+            out = self._output()
+            where = (out if out.is_dir() else out.parent) if out is not None else None
+            detail = tr("Completed") + (f" · {tr('Saved to: {folder}', folder=str(where))}" if where else
+                                        (f" · {op.detail}" if op.detail else ""))
+            self.mark.setPixmap(_mark("done", QColor(t.tokens.success), 24, max(2.0, dpr)))
         elif op.state == fw.FINISHED:
-            detail, icon = op.detail, "warning" if op.errors else "checkmark"
-            color = t.tokens.warning if op.errors else t.tokens.success
+            detail = op.detail
+            self.mark.setPixmap(icons.pixmap("warning", 22, t.tokens.warning, dpr))
         elif op.state == fw.FAILED:
-            detail, icon, color = tr("Couldn't do it: {why}", why=op.detail), "warning", t.tokens.danger
+            detail = tr("Couldn't do it: {why}", why=op.detail)
+            self.mark.setPixmap(icons.pixmap("warning", 22, t.tokens.danger, dpr))
         else:
-            detail, icon, color = op.detail, "dismiss", t.tokens.muted
+            detail = op.detail or tr("Cancelled")
+            self.mark.setPixmap(icons.pixmap("dismiss", 22, t.tokens.muted, dpr))
         self.detail.setFullText(detail)
         self.detail.setStyleSheet(f"color: {t.tokens.danger.name()};" if op.state == fw.FAILED else "")
-        self.mark.setPixmap(icons.pixmap(icon, 18, color, self.devicePixelRatioF() or 1.0))
-        self.mark.setToolTip(detail)
         running = not op.over
-        self.bar.setVisible(running)
+        self.bar.setVisible(running and op.state == fw.RUNNING)
         self.bar.setValue(round(op.progress * 1000))
-        self.cancel.setVisible(running)
+        self.percent.setVisible(running and op.state == fw.RUNNING)
+        self.percent.setText(f"{pct}%")
+        self.cancel.setVisible(False)  # (in ⋯ while it runs: the row stays calm)
+        self.time.setVisible(op.over)
+        self.time.setText(_when(op.when))
         out = self._output()
-        self.open.setVisible(op.state == fw.FINISHED and out is not None and out.is_file())
         self.folder.setVisible(op.state == fw.FINISHED and out is not None)
         self.again.setVisible(op.can_retry)
         self.setAccessibleName(f"{self.title.full}: {detail}")
@@ -402,6 +733,22 @@ class OpRow(QFrame):
             except OSError:
                 continue
         return None
+
+    def _menu(self):
+        op = self.op
+        menu = QMenu(self)
+        if not op.over:
+            menu.addAction(tr("Cancel"), lambda: self.tray.c.cancel_job(self.job_id))
+        out = self._output()
+        if op.state == fw.FINISHED and out is not None:
+            if out.is_file():
+                menu.addAction(tr("Open"), self._open)
+            menu.addAction(tr("Show in folder"), self._show)
+        if op.can_retry:
+            menu.addAction(tr("Try again"), self._again)
+        if op.over:
+            menu.addAction(tr("Remove from Activity"), lambda: self.tray.state.forget(self.job_id))
+        menu.popup(self.more.mapToGlobal(QPoint(0, self.more.height())))
 
     def _open(self):
         from .core import os_open
@@ -425,8 +772,8 @@ class OpRow(QFrame):
 
 
 class OpsTray(QFrame):
-    """The operations started from Rakiza Core's jobs: running ones with their progress, finished ones with what
-    came out. Folds away to one line."""
+    """Activity: the operations started from Rakiza Core's jobs, running ones with their progress, finished ones
+    with where they saved. Folds away to one line."""
 
     def __init__(self, ws: "FilesWorkspace"):
         super().__init__()
@@ -435,28 +782,25 @@ class OpsTray(QFrame):
         self.setObjectName("filesCard")
         self.rows: dict[int, OpRow] = {}
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(16, 8, 12, 8)
-        lay.setSpacing(2)
+        lay.setContentsMargins(18, 10, 14, 10)
+        lay.setSpacing(4)
         head = QHBoxLayout()
         head.setSpacing(8)
-        self.title = _label(tr("Operations"), "cardTitle")
+        self.title = _label(tr("Activity"), "libTitle")
         self.summary = _label("", "subtle")
         head.addWidget(self.title)
         head.addWidget(self.summary)
         head.addStretch()
         self.clear_btn = _button(tr("Clear finished"), "small", self.state.forget_finished)
         head.addWidget(self.clear_btn)
-        self.fold = QPushButton()
-        self.fold.setObjectName("iconButton")
-        self.fold.setFixedSize(30, 30)
-        self.fold.setCursor(Qt.PointingHandCursor)
-        self.fold.clicked.connect(self.toggle)
+        self.fold = _icon_button("chevron_down", self.t.tokens.muted, tr("Fold away"), self.toggle)
         head.addWidget(self.fold)
         lay.addLayout(head)
         self.area = QScrollArea()
         self.area.setWidgetResizable(True)
         self.area.setFrameShape(QFrame.NoFrame)
         self.area.viewport().setAutoFillBackground(False)
+        self.area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         inner = QWidget()
         inner.setObjectName("scrollContent")
         self.list = QVBoxLayout(inner)
@@ -470,7 +814,6 @@ class OpsTray(QFrame):
         lay.addWidget(self.empty)
         self.state.ops_changed.connect(self.refresh)
         self.refresh()
-        self._show_open(self.c.settings.files_ops_open)
 
     def toggle(self):
         self.c.settings.files_ops_open = not self.c.settings.files_ops_open
@@ -485,10 +828,10 @@ class OpsTray(QFrame):
                                      self.t.tokens.muted))
         words = tr("Fold away") if on else tr("Show")
         self.fold.setToolTip(words)
-        self.fold.setAccessibleName(f"{words}: {tr('Operations')}")
+        self.fold.setAccessibleName(f"{words}: {tr('Activity')}")
         if has:
             shown = min(len(self.state.ops), 3)
-            self.area.setFixedHeight(shown * 52 + 4)
+            self.area.setFixedHeight(shown * 58 + 2)
 
     def open_up(self):
         if not self.c.settings.files_ops_open:
@@ -514,6 +857,8 @@ class OpsTray(QFrame):
                 if self.list.indexOf(row) != i:
                     self.list.removeWidget(row)
                     self.list.insertWidget(i, row)
+        for i, o in enumerate(ops):  # (a line between rows, none above the first)
+            self.rows[o.job_id].setStyleSheet("QFrame#activityRow { border-top: none; }" if i == 0 else "")
         running = self.state.running()
         done = len(ops) - running
         bits = []
@@ -526,9 +871,137 @@ class OpsTray(QFrame):
         self._show_open(self.c.settings.files_ops_open)
 
 
+# ----------------------------------------------------------------------------- the side panel
+
+class SaveTo(QComboBox):
+    """Where a tool started from the side panel saves: next to the files, Settings' folder, or one picked."""
+
+    def __init__(self, panel: "ToolPanel"):
+        super().__init__()
+        self.panel = panel
+        self.setObjectName("saveTo")
+        self.setAccessibleName(tr("Save to"))
+        s = panel.c.settings
+        self.addItem(icons.icon("folder", panel.t.tokens.text), tr("Same folder"), "")
+        if s.save_mode == "folder" and s.output_folder:
+            self.addItem(icons.icon("folder", panel.t.tokens.text),
+                         tr("Default folder · {name}", name=Path(s.output_folder).name or s.output_folder),
+                         str(s.output_folder))
+        for folder in panel.state.__dict__.get("picked_folders", []):
+            self.addItem(icons.icon("folder", panel.t.tokens.text), short_name(Path(folder).name or folder, 40),
+                         folder)
+        self.addItem(tr("Choose a folder…"), None)
+        want = panel.state.__dict__.get("save_choice")
+        if want is None and s.save_mode == "folder" and s.output_folder:
+            want = str(s.output_folder)
+        i = self.findData(want if want is not None else "")
+        self.setCurrentIndex(max(0, i))
+        self._last = self.currentIndex()
+        self.activated.connect(self._picked)
+
+    def value(self) -> str:
+        return self.currentData() or ""
+
+    def _picked(self, i: int):
+        if self.itemData(i) is not None:
+            self._last = i
+            self.panel.state.save_choice = self.itemData(i)
+            return
+        name = QFileDialog.getExistingDirectory(self, tr("Save to"), str(Path.home()))
+        if not name:
+            self.setCurrentIndex(self._last)
+            return
+        picked = self.panel.state.__dict__.setdefault("picked_folders", [])
+        if name not in picked:
+            picked.insert(0, name)
+            del picked[5:]
+        self.insertItem(self.count() - 1, icons.icon("folder", self.panel.t.tokens.text),
+                        short_name(Path(name).name or name, 40), name)
+        self.setCurrentIndex(self.findData(name))
+        self._last = self.currentIndex()
+        self.panel.state.save_choice = name
+
+
+class MergeForm(QWidget):
+    """Merge, right in the side panel: the PDFs in the order they'll be put together (drag to change it), the new
+    file's name and where it goes."""
+
+    def __init__(self, panel: "ToolPanel", files: list[Path]):
+        super().__init__()
+        self.panel, t = panel, panel.t
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(8)
+        self.list = QListWidget()
+        self.list.setObjectName("mergeList")
+        self.list.setDragDropMode(QAbstractItemView.InternalMove)
+        self.list.setDefaultDropAction(Qt.MoveAction)
+        self.list.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.list.setSpacing(3)
+        self.list.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+        self.list.setAccessibleName(tr("Order of the PDFs (drag to change it)"))
+        self.list.setToolTip(tr("Drag to change the order"))
+        dpr = self.devicePixelRatioF() or 1.0
+        for f in files:
+            item = QListWidgetItem()
+            item.setData(Qt.UserRole, str(f))
+            item.setSizeHint(QSize(10, 44))
+            self.list.addItem(item)
+            row = QFrame()
+            row.setObjectName("mergeRow")
+            rl = QHBoxLayout(row)
+            rl.setContentsMargins(8, 4, 10, 4)
+            rl.setSpacing(10)
+            grip = QLabel()
+            grip.setPixmap(icons.pixmap("re_order_dots_vertical", 16, t.tokens.faint, dpr))
+            rl.addWidget(grip)
+            num = _label("", "orderNumber")
+            num.setAlignment(Qt.AlignCenter)
+            num.setMinimumWidth(24)
+            rl.addWidget(num)
+            ic = QLabel()
+            ic.setPixmap(icons.pixmap("document_pdf", 20, QColor("#e5534b"), dpr))
+            rl.addWidget(ic)
+            rl.addWidget(ElidedLabel(f.name), 1)
+            for w in (grip, num, ic):
+                w.setAttribute(Qt.WA_TransparentForMouseEvents)
+            row.setAttribute(Qt.WA_TransparentForMouseEvents)
+            self.list.setItemWidget(item, row)
+        self.list.model().rowsMoved.connect(lambda *_: QTimer.singleShot(0, self, self._number))
+        self.list.setFixedHeight(min(5, len(files)) * 50 + 4)
+        lay.addWidget(self.list)
+        lay.addSpacing(4)
+        lay.addWidget(_label(tr("Output name"), "fieldLabel"))
+        self.name = QLineEdit(tr("Combined") + ".pdf")
+        self.name.setObjectName("outputName")
+        self.name.setAccessibleName(tr("Output name"))
+        lay.addWidget(self.name)
+        self._number()
+
+    def _number(self):
+        for i in range(self.list.count()):
+            row = self.list.itemWidget(self.list.item(i))
+            if row is not None:
+                num = row.findChild(QLabel, "orderNumber")
+                if num is not None:
+                    num.setText(str(i + 1))
+
+    def order(self) -> list[Path]:
+        return [Path(self.list.item(i).data(Qt.UserRole)) for i in range(self.list.count())]
+
+    def start(self):
+        from . import pdftools
+        files = self.order()
+        self.panel.state.save_to = self.panel.save_value()
+        try:
+            self.panel.c.start_job(pdftools.MERGE, files, {"name": self.name.text().strip()})
+        finally:
+            self.panel.state.save_to = None
+
+
 class ToolPanel(QFrame):
-    """Beside the files: the tools that fit what's selected (and, folded under them, the ones that don't, with
-    why); a tool picked shows what it works on, its choices and the button that starts it."""
+    """Beside the files: what's selected and the tools that fit it, as buttons; the tool picked shows its choices
+    (its own, or the dialog it asks with, shown right here) and one big button that starts it."""
 
     def __init__(self, ws: "FilesWorkspace"):
         super().__init__()
@@ -537,10 +1010,17 @@ class ToolPanel(QFrame):
         self.setObjectName("filesCard")
         self.armed = False             # a tool was started from here: the next dialog it asks with shows here
         self.inline = None             # the dialog showing here now
+        self._mirror = None            # (its own start button, pressed by the big one)
+        self._hidden: list = []        # (its own row of buttons, hidden while it shows here)
         self._after = None             # what to do once that dialog has gone
         self._launched: tuple | None = None   # the tool and files whose choices were shown by themselves already
         self._show_off = False
+        self._more = False
         self.slot = None               # the Converter action picked (Convert and edit, the archive tools)
+        self.merge = None              # Merge's own choices
+        self.save_to = None
+        self.run_btn = None
+        self.page_btn = None
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         self.area = QScrollArea()
@@ -549,19 +1029,17 @@ class ToolPanel(QFrame):
         self.area.viewport().setAutoFillBackground(False)
         self.area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         outer.addWidget(self.area, 1)
-        self.foot = QWidget()
-        fl = QVBoxLayout(self.foot)
-        fl.setContentsMargins(16, 6, 16, 14)
-        fl.setSpacing(6)
-        self.run_btn = _button("", "primary", self._run)
-        self.run_btn.setMinimumHeight(38)
-        fl.addWidget(self.run_btn)
-        self.page_btn = _button("", "link", self._open_page)
-        fl.addWidget(self.page_btn, 0, Qt.AlignHCenter)
+        self.foot = QWidget()  # (the big button: always in sight, under the choices)
+        self.foot_lay = QVBoxLayout(self.foot)
+        self.foot_lay.setContentsMargins(18, 6, 18, 14)
+        self.foot_lay.setSpacing(4)
         outer.addWidget(self.foot)
         self.setMinimumWidth(PANEL_WIDTH)
         self.setMaximumWidth(PANEL_WIDTH)
         self._pending_slots = False
+        self._sync = QTimer(self)
+        self._sync.setInterval(150)
+        self._sync.timeout.connect(self._mirror_look)
 
     # ---- what's shown
 
@@ -581,84 +1059,142 @@ class ToolPanel(QFrame):
         body = QWidget()
         body.setObjectName("scrollContent")
         lay = QVBoxLayout(body)
-        lay.setContentsMargins(16, 14, 16, 8)
-        lay.setSpacing(10)
+        lay.setContentsMargins(18, 16, 18, 16)
+        lay.setSpacing(12)
         self.body_lay = lay
+        self.run_btn = self.page_btn = self.save_to = self.merge = None
+        while self.foot_lay.count():
+            item = self.foot_lay.takeAt(0)
+            if item.widget() is not None:
+                item.widget().hide()
+                item.widget().deleteLater()
+        self.foot.hide()
+        self._head(lay)
+        self._chips(lay)
+        line = QFrame()
+        line.setObjectName("line")
+        lay.addWidget(line)
         tool = self.tool()
         if tool is None:
             self.state.tool = None
-            self._list(lay)
-            self.foot.hide()
+            self._idle(lay)
         else:
             self._tool_view(lay, tool)
         lay.addStretch()
         self.area.setWidget(body)
+        width = max(self.width(), PANEL_WIDTH)
+        want = (body.heightForWidth(width) if body.hasHeightForWidth() else body.sizeHint().height()) + \
+            (self.foot.sizeHint().height() if not self.foot.isHidden() else 0)
+        self.setMinimumHeight(min(want, 720))  # (the page scrolls before the panel does)
 
-    def _summary(self, items: list[Path]) -> str:
-        if not items:
-            return tr("Nothing added yet")
-        kinds = sorted({tr(KIND_WORDS.get(self.state.kinds.get(str(p), "other"), "File")) for p in items})
-        if self.state.selected:
-            head = tr("{count} selected", count=len(items))
+    def _head(self, lay):
+        items, sel = self.state.items, self.state.selected
+        head = QHBoxLayout()
+        head.setSpacing(6)
+        if sel:
+            words = tr("{count} files selected", count=len(sel))
+        elif items:
+            words = tr("{count} items", count=len(items))
         else:
-            head = tr("All {count} items", count=len(items))
-        return f"{head} · {', '.join(kinds[:3])}{'…' if len(kinds) > 3 else ''}"
+            words = tr("No files yet")
+        self.head_words = _label(words, "h2", wrap=True)
+        head.addWidget(self.head_words, 1)
+        if sel:
+            head.addWidget(_icon_button("dismiss", self.t.tokens.muted,
+                                        f"{tr('Remove from list')}\n"
+                                        f"{tr('Takes them off this list only: nothing on your PC is deleted.')}",
+                                        self.ws.remove_selected), 0, Qt.AlignTop)
+        if self.ws._narrow:
+            head.insertWidget(0, _icon_button("arrow_right" if is_rtl() else "arrow_left", self.t.tokens.text,
+                                              tr("Back"), self.ws._toggle_panel), 0, Qt.AlignTop)
+        lay.addLayout(head)
+        if items and not sel:
+            lay.addWidget(_label(tr("None selected: the tools work on all of them."), "subtle", wrap=True))
 
-    def _list(self, lay):
+    def _candidates(self) -> tuple[list, list]:
+        """The tools offered as buttons (fitting what's chosen, the picked tile's when one is), and the rest."""
         items = self.state.chosen()
-        lay.addWidget(_label(tr("Tools for your selection") if self.state.selected else tr("Tools for these files"),
-                             "h2", wrap=True))
-        lay.addWidget(_label(self._summary(items), "subtle", wrap=True))
+        fam = self.state.family
+        pool = ft.family_tools(self.c.settings, fam) if fam else ft.offered(self.c.settings)
+        if not items:
+            return ft.suggested_order(self.c.settings, pool), []
         fits, misfits = [], []
-        for tool in ft.offered(self.c.settings):
+        for tool in pool:
             f = ft.fit(tool, items, self.state.kinds)
             (fits if f.ok and f.usable else misfits).append((tool, f))
-        if not fits:
+        return ft.suggested_order(self.c.settings, [t for t, _ in fits]), misfits
+
+    def _chips(self, lay):
+        from .atomic.widgets import FlowLayout
+        fits, misfits = self._candidates()
+        picked = self.state.tool
+        limit = len(fits) if self._more else CHIPS_SHOWN
+        shown = fits[:limit]
+        if picked and not any(t.id == picked for t in shown):  # (the tool picked is always among them)
+            extra = next((t for t in fits if t.id == picked), None)
+            if extra is not None:
+                shown.append(extra)
+        holder = QWidget()
+        flow = FlowLayout(holder, spacing=8)
+        flow.setContentsMargins(0, 0, 0, 0)
+        self.chip_group = QButtonGroup(holder)
+        self.chip_group.setExclusive(True)
+        for tool in shown:
+            b = QPushButton(tr(tool.name))
+            b.setObjectName("toolChip")
+            b.setCheckable(True)
+            b.setChecked(tool.id == picked)
+            b.setCursor(Qt.PointingHandCursor)
+            b.setIcon(icons.icon(tool.icon, self.t.tokens.text))
+            b.setIconSize(QSize(16, 16))
+            b.setToolTip(tr(tool.line))
+            b.setProperty("tool", tool.id)
+            b.clicked.connect(lambda _=False, i=tool.id: self.ws.choose_tool(i, keep_family=True))
+            self.chip_group.addButton(b)
+            flow.addWidget(b)
+        if len(fits) > limit or (self._more and len(fits) > CHIPS_SHOWN):
+            more = QPushButton(tr("More ({count})", count=len(fits) - limit) if not self._more else tr("Fewer"))
+            more.setObjectName("toolChip")
+            more.setCursor(Qt.PointingHandCursor)
+            more.clicked.connect(self._toggle_more)
+            flow.addWidget(more)
+        if shown:
+            lay.addWidget(holder)
+        elif self.state.items:
             lay.addWidget(_label(tr("No tool works on what's selected. Select other files, or add some."), "muted",
                                  wrap=True))
-        last = None
-        for tool, f in fits:
-            if tool.category != last:
-                last = tool.category
-                lay.addWidget(_label(tr(ft.CATEGORY_NAMES[tool.category]), "section"))
-            tile = ToolTile(tool, self.t, False, show_pin=False)
-            tile.chosen.connect(self.ws.choose_tool)
-            if f.skipped:
-                tile.setToolTip(tr("Leaves out {count} that it doesn't take", count=len(f.skipped)))
-            lay.addWidget(tile)
-        if misfits and items:
-            more = _button(tr("Not for this selection ({count})", count=len(misfits)), "flat",
-                           self._toggle_off)
-            more.setIcon(icons.icon("chevron_down" if self._show_off else
-                                    ("chevron_left" if is_rtl() else "chevron_right"), self.t.tokens.muted))
-            lay.addSpacing(4)
-            lay.addWidget(more, 0, Qt.AlignLeading)
+        if misfits and self.state.items and self._more:
+            off = _button(tr("Not for this selection ({count})", count=len(misfits)), "flat", self._toggle_off)
+            off.setIcon(icons.icon("chevron_down" if self._show_off else
+                                   ("chevron_left" if is_rtl() else "chevron_right"), self.t.tokens.muted))
+            lay.addWidget(off, 0, Qt.AlignLeading)
             if self._show_off:
                 for tool, f in misfits:
-                    lay.addWidget(ToolTile(tool, self.t, False, why_not=f.why_not, show_pin=False))
+                    lab = _label(f"{tr(tool.name)}: {f.why_not}", "subtle", wrap=True)
+                    lab.setContentsMargins(8, 0, 8, 0)
+                    lay.addWidget(lab)
+
+    def _toggle_more(self):
+        self._more = not self._more
+        self.refresh()
 
     def _toggle_off(self):
         self._show_off = not self._show_off
         self.refresh()
 
+    def _idle(self, lay):
+        if self.state.items:
+            text = tr("Pick a tool above to see its choices here.")
+        else:
+            text = tr("Add files to see the tools that fit them, or pick a tool in the library first.")
+        hint = _label(text, "muted", wrap=True)
+        lay.addWidget(hint)
+
     def _tool_view(self, lay, tool: ft.FileTool):
-        t = self.t
         items = self.state.chosen()
         f = ft.fit(tool, items, self.state.kinds)
-        back = _button(tr("All tools for this selection") if items else tr("Back"), "flat", self.ws.unchoose_tool,
-                       "arrow_right" if is_rtl() else "arrow_left", t.tokens.muted)
-        lay.addWidget(back, 0, Qt.AlignLeading)
-        head = QHBoxLayout()
-        head.setSpacing(12)
-        head.addWidget(_tile(tool.icon, 40, t), 0, Qt.AlignTop)
-        words = QVBoxLayout()
-        words.setSpacing(2)
-        words.addWidget(_label(tr(tool.name), "h2", wrap=True))
-        words.addWidget(_label(tr(tool.line), "muted", wrap=True))
-        head.addLayout(words, 1)
-        lay.addLayout(head)
-        lay.addWidget(_label(tr("Works on: {what} · {many}", what=ft.what_it_takes(tool), many=ft.how_many(tool)),
-                             "subtle", wrap=True))
+        lay.addWidget(_label(tr(tool.name), "h2", wrap=True))
+        lay.addWidget(_label(tr(tool.line), "muted", wrap=True))
         if f.skipped and f.ok:  # (nothing is done to what it doesn't take: said before it starts)
             names = ", ".join(short_name(p.name, 30) for p, _ in f.skipped[:3])
             more = f" {tr('…and {count} more', count=len(f.skipped) - 3)}" if len(f.skipped) > 3 else ""
@@ -666,49 +1202,66 @@ class ToolPanel(QFrame):
                                     names=names) + more, "fitNote", wrap=True))
         if not f.ok and items:
             lay.addWidget(_label(f.why_not, "fitStop", wrap=True))
-        line = QFrame()
-        line.setObjectName("line")
-        lay.addWidget(line)
+        elif not items and not tool.empty_ok:
+            lay.addWidget(_label(tr("Works on: {what} · {many}", what=ft.what_it_takes(tool), many=ft.how_many(tool)),
+                                 "subtle", wrap=True))
         self.settings_lay = QVBoxLayout()
         self.settings_lay.setSpacing(8)
         lay.addLayout(self.settings_lay)
         self.slot = None
         usable = f.usable if f.ok else []
-        if tool.how.startswith("slots:") and usable:
+        if tool.id == "pdf.merge" and len(usable) >= 2 and all(self.state.kinds.get(str(p)) == "pdf" for p in usable):
+            self.merge = MergeForm(self, usable)
+            self.settings_lay.addWidget(self.merge)
+        elif tool.how.startswith("slots:") and usable:
             self._slots(tool, usable)
         elif tool.view:
             self.settings_lay.addWidget(_label(tr("Opens here, in its own view, with the files you picked. "
                                                   "Files › at the top brings you back to the list.")
                                                if usable else tr("Opens here, in its own view."), "subtle", wrap=True))
+        if usable and (not tool.view or self.merge is not None) and tool.how != "archive-open":
+            lay.addWidget(_label(tr("Save to"), "fieldLabel"))
+            self.save_to = SaveTo(self)
+            lay.addWidget(self.save_to)
+        self.run_btn = _button("", "bigAction", self._run)
+        self.run_btn.setIcon(icons.icon(tool.icon, QColor(BRAND[self.t.dark][1])))
+        self.run_btn.setIconSize(QSize(20, 20))
+        self.foot_lay.addWidget(self.run_btn)
+        self.page_btn = _button("", "link", self._open_page)
+        self.foot_lay.addWidget(self.page_btn, 0, Qt.AlignHCenter)
+        self.foot.show()
         self._foot(tool, f)
         key = (tool.id, tuple(str(p) for p in usable))
         if tool.settings and not tool.how.startswith("slots:") and usable and self._launched != key:
             self._launched = key  # (its choices show by themselves once; Cancel leaves them closed)
             QTimer.singleShot(0, self, lambda: self._start(tool, usable))
 
+    def save_value(self) -> str | None:
+        return self.save_to.value() if self.save_to is not None and _alive(self.save_to) else None
+
+    def _count_words(self, action: str, n: int) -> str:
+        return f"{action} {tr('{count} files', count=n)}" if n > 1 else action
+
     def _foot(self, tool: ft.FileTool, f: ft.Fit):
-        self.foot.show()
         usable = f.usable if f.ok else []
         n = len(usable)
-        self.run_btn.setEnabled(True)
-        self.run_btn.show()
+        b = self.run_btn
+        b.setEnabled(True)
         if not self.state.items:
-            if tool.empty_ok:
-                self.run_btn.setText(tr("Open {name}", name=tr(tool.name)))
-            else:
-                self.run_btn.setText(tr("Add the files it needs…"))
+            b.setText(tr("Open {name}", name=tr(tool.name)) if tool.empty_ok else tr("Add the files it needs…"))
         elif not f.ok:
-            self.run_btn.setText(tr("Add the files it needs…"))
+            b.setText(tr("Add the files it needs…"))
+        elif self.merge is not None:
+            b.setText(self._count_words(tr("Merge"), n))
         elif tool.how.startswith("slots:"):
-            self.run_btn.setText(self.slot.tool.description if self.slot is not None else tr("Pick what to do above"))
-            self.run_btn.setEnabled(self.slot is not None)
+            b.setText(self.slot.tool.description if self.slot is not None else tr("Pick what to do above"))
+            b.setEnabled(self.slot is not None)
         elif tool.view:
-            self.run_btn.setText(tr("Open with {count} items", count=n) if n > 1 else tr("Open {name}",
-                                                                                            name=tr(tool.name)))
+            b.setText(tr("Open with {count} items", count=n) if n > 1 else tr("Open {name}", name=tr(tool.name)))
         elif tool.settings:
-            self.run_btn.setText(tr("Choose how…"))
+            b.setText(tr("Choose how…"))
         else:
-            self.run_btn.setText(tr("Start on {count} items", count=n) if n > 1 else tr("Start"))
+            b.setText(tr("Start on {count} items", count=n) if n > 1 else tr("Start"))
         self.page_btn.setVisible(bool(tool.page))
         if tool.page:
             from .tools import BY_PAGE
@@ -736,6 +1289,7 @@ class ToolPanel(QFrame):
             self.settings_lay.addWidget(_label(tr(GROUP_NAMES[group]), "section"))
             holder = QWidget()
             flow = FlowLayout(holder, spacing=6)
+            flow.setContentsMargins(0, 0, 0, 0)
             for sl in groups[group]:
                 b = QPushButton(sl.tool.label)
                 b.setObjectName("slot")
@@ -786,6 +1340,9 @@ class ToolPanel(QFrame):
     # ---- starting
 
     def _run(self):
+        if self.inline is not None and self._mirror is not None and _alive(self._mirror):
+            self._mirror.click()  # (the choices showing here: their own button starts it)
+            return
         self.later(self._run_now)
 
     def _run_now(self):
@@ -797,6 +1354,9 @@ class ToolPanel(QFrame):
         if not f.ok and not (tool.empty_ok and not items):
             self.ws.add_for(tool)
             return
+        if self.merge is not None and _alive(self.merge):
+            self.merge.start()
+            return
         if tool.how.startswith("slots:"):
             if self.slot is not None:
                 self._arm()
@@ -807,9 +1367,11 @@ class ToolPanel(QFrame):
     def _start(self, tool: ft.FileTool, usable: list[Path]):
         if not _alive(self) or self.tool() is not tool:
             return
-        if tool.settings:
+        if tool.settings or not tool.view:
             self._arm()
         run(self.w, tool, usable)
+        if not tool.settings:  # (nothing asked: started already, or opened)
+            QTimer.singleShot(0, self, self.disarm)
 
     def _open_page(self):
         tool = self.tool()
@@ -818,9 +1380,11 @@ class ToolPanel(QFrame):
 
     def _arm(self):
         self.armed = True
+        self.state.save_to = self.save_value()
 
     def disarm(self, *_):
         self.armed = False
+        self.state.save_to = None
 
     # ---- a tool's choices, shown here instead of in a sheet
 
@@ -829,7 +1393,7 @@ class ToolPanel(QFrame):
                 and hasattr(dlg, "lay") and hasattr(dlg, "params"))
 
     def run_inline(self, dlg) -> int:
-        """Shows dlg in the panel (under the tool's name), with its own buttons, until it's answered."""
+        """Shows dlg in the panel (under the tool's name) until it's answered; the big button presses its own."""
         flags = dlg.windowFlags()
         home = dlg.parentWidget()
         box = self.settings_lay
@@ -842,11 +1406,26 @@ class ToolPanel(QFrame):
         for lab in dlg.findChildren(QLabel, "h2")[:1]:  # (the tool's name is just above)
             if tool is not None and lab.text().strip().rstrip("…") == tr(tool.name).strip():
                 lab.hide()
+        self._mirror = getattr(dlg, "ok", None) if isinstance(getattr(dlg, "ok", None), QPushButton) else None
+        self._hidden = []
+        if self._mirror is not None and self.run_btn is not None:
+            for i in range(dlg.lay.count()):  # (its own Cancel / start row: the big button does it)
+                row = dlg.lay.itemAt(i).layout()
+                if row is not None and row.indexOf(self._mirror) >= 0:
+                    for j in range(row.count()):
+                        w = row.itemAt(j).widget()
+                        if w is not None and not w.isHidden():
+                            w.hide()
+                            self._hidden.append(w)
         dlg.style().unpolish(dlg)
         dlg.style().polish(dlg)
         box.addWidget(dlg)
         self.inline = dlg
-        self.run_btn.hide()
+        if self._hidden:
+            self._mirror_look()
+            self._sync.start()
+        elif self.run_btn is not None:
+            self.run_btn.hide()
         want = dlg.sizeHint().width() + 40
         room = max(PANEL_WIDTH, int(self.ws.width() * 0.55))
         self.setMaximumWidth(max(PANEL_WIDTH, min(want, room)))
@@ -857,12 +1436,18 @@ class ToolPanel(QFrame):
         try:
             result = dlg.exec()
         finally:
+            self._sync.stop()
             if _alive(dlg):
+                for w in self._hidden:
+                    if _alive(w):
+                        w.show()
                 box.removeWidget(dlg)
                 dlg.hide()
                 dlg.setProperty("sheet", None)
                 dlg.setParent(home if _alive(home) else None, flags)
             self.inline = None
+            self._mirror = None
+            self._hidden = []
             if _alive(self):
                 self.setMinimumWidth(PANEL_WIDTH)
                 self.setMaximumWidth(PANEL_WIDTH)
@@ -871,6 +1456,19 @@ class ToolPanel(QFrame):
                 after, self._after = self._after, None
                 QTimer.singleShot(0, self, after if after is not None else self._after_dialog)
         return result
+
+    def _mirror_look(self):
+        """The big button says what the dialog's own would, and is off while it is."""
+        ok, b = self._mirror, self.run_btn
+        if ok is None or b is None or not _alive(ok) or not _alive(b):
+            return
+        tool = self.tool()
+        n = len(ft.fit(tool, self.state.chosen(), self.state.kinds).usable) if tool is not None else 0
+        words = self._count_words(ok.text(), n)
+        if b.text() != words:
+            b.setText(words)
+        b.setEnabled(ok.isEnabled())
+        b.show()
 
     def _after_dialog(self):
         if _alive(self) and self.inline is None:
@@ -985,38 +1583,25 @@ def run(w: "MainWindow", tool: ft.FileTool, files: list[Path]):
             w.backup_page.refresh()
 
 
+# ----------------------------------------------------------------------------- the tool library
+
 class ToolLibrary(QFrame):
-    """All tools, over the workspace (never a window of its own): find one by its name or what it does, by
-    category, pin the ones used often; and, on its own tab, what's coming."""
+    """Under the files: a tile for each tool, by category (the box at the top finds any of their actions by name
+    or what it does), pins, what's coming on its own tab, and switching tools on or off."""
 
     def __init__(self, ws: "FilesWorkspace"):
-        super().__init__(ws.body_host)
+        super().__init__()
         self.ws, self.c, self.t = ws, ws.c, ws.t
-        self.setObjectName("libraryPanel")
-        self.setAttribute(Qt.WA_StyledBackground)
+        self.setObjectName("filesCard")
         self.category = ""
+        self.query = ""
+        self.tab = "now"
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(24, 18, 16, 16)
+        lay.setContentsMargins(18, 14, 14, 16)
         lay.setSpacing(12)
         head = QHBoxLayout()
-        words = QVBoxLayout()
-        words.setSpacing(2)
-        words.addWidget(_label(tr("All tools"), "title"))
-        words.addWidget(_label(tr("Pick a tool to see its choices beside your files. Pin the ones you use often."),
-                               "subtle", wrap=True))
-        head.addLayout(words, 1)
-        close = QPushButton()
-        close.setObjectName("iconButton")
-        close.setFixedSize(32, 32)
-        close.setCursor(Qt.PointingHandCursor)
-        close.setIcon(icons.icon("dismiss", self.t.tokens.muted))
-        close.setToolTip(tr("Close"))
-        close.setAccessibleName(tr("Close"))
-        close.clicked.connect(ws.close_library)
-        head.addWidget(close, 0, Qt.AlignTop)
-        lay.addLayout(head)
-        bar = QHBoxLayout()
-        bar.setSpacing(10)
+        head.setSpacing(12)
+        head.addWidget(_label(tr("Tool library"), "libTitle"))
         seg = QFrame()
         seg.setObjectName("segmented")
         sl = QHBoxLayout(seg)
@@ -1024,7 +1609,7 @@ class ToolLibrary(QFrame):
         sl.setSpacing(2)
         self.tabs = QButtonGroup(self)
         self.tab_buttons = {}
-        for key, words_ in (("now", tr("Available now")), ("soon", tr("Coming"))):
+        for key, words_ in (("now", tr("Available")), ("soon", tr("Upcoming"))):
             b = QPushButton(words_)
             b.setObjectName("segment")
             b.setCheckable(True)
@@ -1033,23 +1618,25 @@ class ToolLibrary(QFrame):
             self.tabs.addButton(b)
             self.tab_buttons[key] = b
             sl.addWidget(b)
-        bar.addWidget(seg)
-        bar.addStretch()
-        self.manage_btn = _button(tr("Switch tools on or off"), "small", lambda: self.show_tab("manage"))
-        bar.addWidget(self.manage_btn)
-        self.search = QLineEdit()
-        self.search.setPlaceholderText(tr("Find by name or what it does"))
-        self.search.setClearButtonEnabled(True)
-        self.search.setAccessibleName(tr("Find a tool"))
-        self.search.setMinimumWidth(220)
-        self.search.textChanged.connect(lambda _t: self.fill())
-        bar.addWidget(self.search)
-        lay.addLayout(bar)
-        self.chips_box = QWidget()
+        head.addWidget(seg)
+        self.sep = _vline()
+        head.addWidget(self.sep)
+        self.explore = _button(tr("Explore upcoming features"), "link", lambda: ws.w.open_page("Soon"))
+        self.explore.setIcon(icons.icon("arrow_left" if is_rtl() else "arrow_right", BRAND[self.t.dark][0]))
+        self.explore.setLayoutDirection(Qt.LeftToRight if is_rtl() else Qt.RightToLeft)  # (the arrow after the words)
+        self.explore.setIconSize(QSize(14, 14))
+        head.addWidget(self.explore)
+        head.addStretch()
+        self.manage_btn = _icon_button("settings", self.t.tokens.muted, tr("Switch tools on or off"),
+                                       lambda: self.show_tab("manage" if self.tab != "manage" else "now"))
+        head.addWidget(self.manage_btn)
+        lay.addLayout(head)
         from .atomic.widgets import FlowLayout
-        chips = FlowLayout(self.chips_box, spacing=6)
+        self.chips_box = QWidget()
+        chips = FlowLayout(self.chips_box, spacing=8)
+        chips.setContentsMargins(0, 0, 0, 0)
         self.chip_group = QButtonGroup(self)
-        for key, name in [("", tr("All"))] + [(k, tr(n)) for k, n, _ in ft.CATEGORIES]:
+        for key, name in [("", tr("All"))] + [(k, tr(CHIP_NAMES[k])) for k, _, _ in ft.CATEGORIES]:
             b = QPushButton(name)
             b.setObjectName("chip")
             b.setCheckable(True)
@@ -1059,15 +1646,13 @@ class ToolLibrary(QFrame):
             self.chip_group.addButton(b)
             chips.addWidget(b)
         lay.addWidget(self.chips_box)
-        self.area = QScrollArea()
-        self.area.setWidgetResizable(True)
-        self.area.setFrameShape(QFrame.NoFrame)
-        self.area.viewport().setAutoFillBackground(False)
-        self.area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        lay.addWidget(self.area, 1)
-        self.tab = "now"
-        QShortcut(QKeySequence(Qt.Key_Escape), self, ws.close_library, context=Qt.WidgetWithChildrenShortcut)
-        self.hide()
+        self.body = QWidget()
+        self.body_lay = QVBoxLayout(self.body)
+        self.body_lay.setContentsMargins(0, 0, 0, 0)
+        self.body_lay.setSpacing(8)
+        lay.addWidget(self.body)
+        self.search = ws.find   # (one box finds a tool: the one at the top)
+        self.show_tab(ws.state.library if ws.state.library in ("now", "soon", "manage") else "now")
 
     def _category(self, key: str):
         self.category = key
@@ -1078,96 +1663,144 @@ class ToolLibrary(QFrame):
         self.ws.state.library = tab
         for key, b in self.tab_buttons.items():
             b.setChecked(key == tab)
-        self.chips_box.setVisible(tab == "now")
-        self.search.setVisible(tab != "manage")
-        self.manage_btn.setVisible(tab != "manage")
+        self.chips_box.setVisible(tab == "now" and not self.query)
         self.fill()
 
+    def set_query(self, text: str):
+        self.query = text.strip()
+        if self.query and self.tab != "now":
+            self.show_tab("now")
+            return
+        self.chips_box.setVisible(self.tab == "now" and not self.query)
+        self.fill()
+
+    def matches(self) -> list[ft.FileTool]:
+        q = self.query.lower()
+        return [t for t in ft.offered(self.c.settings)
+                if q and (q in tr(t.name).lower() or q in tr(t.line).lower() or q in t.name.lower()
+                          or q in t.line.lower())]
+
+    def _clear(self):
+        while self.body_lay.count():
+            item = self.body_lay.takeAt(0)
+            if item.widget() is not None:
+                item.widget().hide()
+                item.widget().deleteLater()
+
     def fill(self):
-        from .atomic.widgets import ResponsiveGrid
-        old = self.area.takeWidget()
-        if old is not None:
-            old.hide()
-            old.deleteLater()
-        body = QWidget()
-        body.setObjectName("scrollContent")
-        lay = QVBoxLayout(body)
-        lay.setContentsMargins(0, 0, 8, 0)
-        lay.setSpacing(10)
-        query = self.search.text().strip().lower()
+        from .atomic.widgets import FlowLayout
+        self._clear()
+        holder = QWidget()
+        flow = FlowLayout(holder, spacing=10)
+        flow.setContentsMargins(0, 0, 0, 0)
+        self.tiles = []
         if self.tab == "now":
-            pins = {t.id for t in ft.pinned(self.c.settings)}
             items = self.ws.state.chosen()
-            shown = 0
-            for key, name, _ in ft.CATEGORIES:
-                if self.category and key != self.category:
-                    continue
-                tools = [t for t in ft.offered(self.c.settings) if t.category == key and
-                         (not query or query in tr(t.name).lower() or query in tr(t.line).lower()
-                          or query in t.name.lower() or query in t.line.lower())]
-                if not tools:
-                    continue
-                lay.addWidget(_label(tr(name), "section"))
-                grid = ResponsiveGrid(250, 10, 3)
+            if self.query:
+                tools = self.matches()
                 for tool in tools:
-                    tile = ToolTile(tool, self.t, tool.id in pins, picked=tool.id == self.ws.state.tool)
-                    if items:  # (said under the name, so it's clear before it's picked)
+                    tip = tr(tool.line)
+                    if items:
                         f = ft.fit(tool, items, self.ws.state.kinds)
                         if not f.ok:
-                            tile.setToolTip(f"{tr(tool.line)}\n{f.why_not}")
-                    tile.chosen.connect(self.ws.choose_tool)
-                    tile.pin_toggled.connect(self.ws.pin)
-                    grid.add(tile)
-                    shown += 1
-                lay.addWidget(grid)
-            if not shown:
-                lay.addWidget(_label(tr("No tool matches “{words}”.", words=self.search.text().strip())
-                                     if query else tr("No tools here are switched on."), "muted", wrap=True))
-        elif self.tab == "soon":
-            lay.addWidget(_label(tr("On Rakiza Core's roadmap for Files. They can't be used yet, and they have no "
-                                    "dates."), "muted", wrap=True))
-            items = [u for u in ft.upcoming() if not query or query in tr(u.name).lower()
-                     or query in tr(u.line).lower()]
-            if items:
-                grid = ResponsiveGrid(250, 10, 3)
-                for u in items:
-                    grid.add(ComingCard(u, self.t))
-                lay.addWidget(grid)
+                            tip = f"{tip}\n{f.why_not}"
+                    tile = LibTile(tool.id, tr(tool.name), tool.icon, self.t, picked=tool.id == self.ws.state.tool,
+                                   tip=tip)
+                    tile.tool = tool
+                    tile.chosen.connect(lambda i: self.ws.choose_tool(i))
+                    flow.addWidget(tile)
+                    self.tiles.append(tile)
+                if not tools:
+                    self.body_lay.addWidget(_label(tr("No tool matches “{words}”.", words=self.query), "muted",
+                                                   wrap=True))
             else:
-                lay.addWidget(_label(tr("Nothing else is confirmed for now. When a feature joins the roadmap it "
-                                        "shows up here, with how far along it is."), "subtle", wrap=True))
-            lay.addSpacing(8)
-            lay.addWidget(_label(tr("Coming soon for the rest of Rakiza Core"), "cardTitle"))
-            lay.addWidget(_label(tr("The tools of the sections that are resting for now are on Coming soon, in "
-                                    "the sidebar."), "subtle", wrap=True))
-            lay.addWidget(_button(tr("Open Coming soon"), "link", lambda: self.ws.w.open_page("Soon")), 0,
-                          Qt.AlignLeading)
+                pins = set(ft.pinned_families(self.c.settings))
+                fams = [f for f in ft.families(self.c.settings) if not self.category or f.category == self.category]
+                for fam in fams:
+                    tools = ft.family_tools(self.c.settings, fam.id)
+                    tip = tr(tools[0].line) if len(tools) == 1 else tr("{count} tools", count=len(tools))
+                    tile = LibTile(fam.id, tr(fam.name), fam.icon, self.t, pinned=fam.id in pins,
+                                   picked=fam.id == self.ws.state.family, tip=tip)
+                    tile.family = fam
+                    tile.chosen.connect(self.ws.tile_clicked)
+                    tile.pin_toggled.connect(self.ws.pin)
+                    flow.addWidget(tile)
+                    self.tiles.append(tile)
+                if not fams:
+                    self.body_lay.addWidget(_label(tr("No tools here are switched on."), "muted", wrap=True))
+            if self.tiles:
+                self.body_lay.addWidget(holder)
+                self._size_tiles()
+        elif self.tab == "soon":
+            coming = ft.upcoming()
+            for u in coming:
+                flow.addWidget(ComingTile(u, self.t))
+            if coming:
+                self.body_lay.addWidget(holder)
+            self.body_lay.addWidget(_label(tr("On Rakiza Core's roadmap for Files. They can't be used yet, and they "
+                                              "have no dates.") if coming else
+                                           tr("Nothing else is confirmed for now. When a feature joins the roadmap "
+                                              "it shows up here, with how far along it is."), "subtle", wrap=True))
         else:
-            self._manage(lay)
-        lay.addStretch()
-        self.area.setWidget(body)
+            self._manage()
 
-    def _manage(self, lay):
+    def _size_tiles(self):
+        """The tiles share the row: all on one line when they fit (none narrower than 92 px), as in a shelf."""
+        tiles = getattr(self, "tiles", [])
+        if not tiles:
+            return
+        room = max(200, self.width() - 38)
+        n, gap = len(tiles), 10
+        cols = n if n * 92 + (n - 1) * gap <= room else max(1, (room + gap) // (102 + gap))
+        width = max(92, min(132, (room - (cols - 1) * gap) // cols))
+        for tile in tiles:
+            if _alive(tile) and tile.width() != width:
+                tile.setFixedWidth(width)
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        roomy = self.width() > 640
+        self.explore.setVisible(roomy)  # (also in All tools)
+        self.sep.setVisible(roomy)
+        self._size_tiles()
+
+    def _manage(self):
         """Which of Files' tools are switched on (one that's off isn't loaded at all)."""
         from . import tools as all_tools
         from .atomic.widgets import ResponsiveGrid
         from .window import ToolSwitchCard
-        back = _button(tr("All tools"), "flat", lambda: self.show_tab("now"),
-                       "arrow_right" if is_rtl() else "arrow_left", self.t.tokens.muted)
-        lay.addWidget(back, 0, Qt.AlignLeading)
-        lay.addWidget(_label(tr("Switch off what you don't use: it isn't loaded at all, so Rakiza Core stays light. "
-                                "Its settings are kept for when you switch it back on."), "subtle", wrap=True))
+        row = QHBoxLayout()
+        row.addWidget(_label(tr("Switch off what you don't use: it isn't loaded at all, so Rakiza Core stays light. "
+                                "Its settings are kept for when you switch it back on."), "subtle", wrap=True), 1)
+        row.addWidget(_button(tr("Done"), "small", lambda: self.show_tab("now")), 0, Qt.AlignTop)
+        holder = QWidget()
+        hl = QVBoxLayout(holder)
+        hl.setContentsMargins(0, 0, 0, 0)
+        hl.setSpacing(8)
+        hl.addLayout(row)
         sec = all_tools.SECTION_BY_PAGE["Files"]
         on = {t.id for t in self.ws.w.tools_on}
         fresh = {t.id for t in all_tools.new_tools(self.c.settings)}
-        grid = ResponsiveGrid(320, 10, 2)
+        grid = ResponsiveGrid(300, 10, 3)
         tools = all_tools.in_section(self.c.settings, sec)
         for tool in [x for x in tools if x.id in on] + [x for x in tools if x.id not in on]:
             grid.add(ToolSwitchCard(tool, tool.id in on, lambda n=tool.page: self.ws.w.open_page(n),
                                     self.ws.w._tool_switched, self.t.dark, self.devicePixelRatioF(),
                                     fresh=tool.id in fresh, accent=QColor(BRAND[self.t.dark][0])))
-        lay.addWidget(grid)
+        hl.addWidget(grid)
+        self.body_lay.addWidget(holder)
 
+    def mark(self):
+        for tile in getattr(self, "tiles", []):
+            fam = getattr(tile, "family", None)
+            on = fam.id == self.ws.state.family if fam is not None else tile.key == self.ws.state.tool
+            if tile.property("picked") != on:
+                tile.setProperty("picked", on)
+                tile.style().unpolish(tile)
+                tile.style().polish(tile)
+
+
+# ----------------------------------------------------------------------------- the page
 
 class FilesWorkspace(QWidget):
     """The Files page (see the module's words)."""
@@ -1184,166 +1817,127 @@ class FilesWorkspace(QWidget):
         self._narrow = False
         self._panel_open = False
         self._syncing = False
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(0, 0, 10, 0)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.NoFrame)
+        self.scroll.viewport().setAutoFillBackground(False)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        outer.addWidget(self.scroll)
+        self.body_host = QWidget()
+        self.body_host.setObjectName("scrollContent")
+        self.body_host.setMinimumHeight(600)
+        lay = QVBoxLayout(self.body_host)
+        lay.setContentsMargins(0, 0, 10, 4)
         lay.setSpacing(14)
         lay.addWidget(self._header())
-        self.body_host = QWidget()
-        bh = QVBoxLayout(self.body_host)
-        bh.setContentsMargins(0, 0, 0, 0)
-        bh.setSpacing(12)
         body = QHBoxLayout()
         body.setSpacing(16)
-        self.center = QStackedWidget()
-        self.center.addWidget(self._empty_view())
-        self.center.addWidget(self._table_view())
-        body.addWidget(self.center, 1)
-        self.center.installEventFilter(self)
+        self.left_box = QWidget()
+        left = QVBoxLayout(self.left_box)
+        left.setContentsMargins(0, 0, 0, 0)
+        left.setSpacing(12)
+        left.addLayout(self._toolbar())
+        self.files_card = self._files_card()
+        left.addWidget(self.files_card, 1)
+        self.library = ToolLibrary(self)
+        left.addWidget(self.library)
+        body.addWidget(self.left_box, 1)
+        self.center = self.files_card  # (what the side panel sits beside)
+        self.files_card.installEventFilter(self)
         self.panel = ToolPanel(self)
         body.addWidget(self.panel)
-        bh.addLayout(body, 1)
+        lay.addLayout(body, 1)
         self.ops = OpsTray(self)
-        bh.addWidget(self.ops)
-        lay.addWidget(self.body_host, 1)
-        self.cover = _DropCover(self.body_host, self.t)
-        self.library = ToolLibrary(self)
+        lay.addWidget(self.ops)
+        self.scroll.setWidget(self.body_host)
+        self.cover = _DropCover(self, self.t)
         self.state.files_changed.connect(self._files_changed)
         self.state.statuses_changed.connect(self._statuses_changed)
         self.state.job_started.connect(self._job_started)
         sheet.set_inline_host(self._inline_target)
         self._files_changed()
-        if self.state.library:
-            QTimer.singleShot(0, self, lambda: self.open_library(self.state.library))
 
     # ---- the parts
 
     def _header(self) -> QWidget:
-        from PySide6.QtWidgets import QBoxLayout
-        t = self.t
-        self.head_box = QWidget()
-        head = QBoxLayout(QBoxLayout.LeftToRight, self.head_box)
+        box = QWidget()
+        head = QHBoxLayout(box)
         head.setContentsMargins(0, 0, 0, 0)
-        head.setSpacing(16)
-        self.head_lay = head
-        words = QVBoxLayout()
-        words.setSpacing(2)
-        words.addWidget(_label(tr(self.sec.name), "h1"))
-        words.addWidget(_label(tr("Add files or folders, then pick what to do with them. Everything happens on "
-                                  "your PC."), "muted", wrap=True))
-        coming = _button(tr("Discover what's coming"), "link", lambda: self.open_library("soon"))
-        coming.setIcon(icons.icon("sparkle", BRAND[t.dark][0]))
-        coming.setIconSize(QSize(14, 14))
-        words.addWidget(coming, 0, Qt.AlignLeading)
-        head.addLayout(words, 1)
-        acts = QHBoxLayout()
-        acts.setSpacing(8)
-        self.all_btn = _button(tr("All tools"), None, lambda: self.open_library("now"), "grid", t.text)
-        self.find = QLineEdit()
-        self.find.setPlaceholderText(tr("Find a tool"))
-        self.find.setAccessibleName(tr("Find a tool"))
-        self.find.setClearButtonEnabled(True)
-        self.find.setMinimumWidth(130)
-        self.find.setMaximumWidth(220)
-        self.find.textEdited.connect(self._find)
-        self.find.returnPressed.connect(self._find_enter)
-        self.folder_btn = _button(tr("Add folder"), None, self.add_folder, "folder_open", t.text)
-        self.add_btn = _button(tr("Add files"), "primary", self.add_files, "add", QColor(BRAND[t.dark][1]))
-        for b in (self.all_btn, self.find, self.folder_btn, self.add_btn):
-            b.setFixedHeight(36)
-            acts.addWidget(b)
-        acts.addStretch(0)
-        head.addLayout(acts)
-        head.setAlignment(acts, Qt.AlignTop)
-        self.acts = acts
-        return self.head_box
-
-    def _empty_view(self) -> QWidget:
-        from .atomic.widgets import ResponsiveGrid
-        from .panel import DropZone
-        w = QWidget()
-        lay = QVBoxLayout(w)
-        lay.setContentsMargins(0, 0, 0, 0)
-        lay.setSpacing(12)
-        # (clicked() sends a "checked" flag: never taken for a tool)
-        self.drop = DropZone(lambda *_: self.add_files(), lambda *_: self.c.paste(),
-                             title=tr("Drop files or folders here"),
-                             sub=tr("Or pick them on your PC. Nothing is uploaded."),
-                             hot_title=tr("Let go to add them to the list"),
-                             buttons=[(tr("Choose files…"), lambda *_: self.add_files(), "primary"),
-                                      (tr("Choose a folder…"), lambda *_: self.add_folder()),
-                                      (tr("Paste (Ctrl + V)"), lambda *_: self.c.paste())])
-        self.drop.setMinimumHeight(170)
-        self.drop.dropped.connect(lambda paths: self.state.add(paths))
-        lay.addWidget(self.drop)
-        head = QHBoxLayout()
+        head.setSpacing(14)
+        ic = QLabel()
+        ic.setPixmap(icons.pixmap("folder", 34, self.t.tokens.text, self.devicePixelRatioF() or 1.0))
+        head.addWidget(ic, 0, Qt.AlignVCenter)
         words = QVBoxLayout()
         words.setSpacing(0)
-        words.addWidget(_label(tr("Pinned tools"), "title"))
-        words.addWidget(_label(tr("Pick a tool first, then add the files it needs."), "subtle", wrap=True))
+        words.addWidget(_label(tr(self.sec.name), "h1"))
+        words.addWidget(_label(tr("One workspace for all your files"), "muted", wrap=True))
         head.addLayout(words, 1)
-        head.addWidget(_button(tr("All tools"), "link", lambda: self.open_library("now")), 0, Qt.AlignBottom)
-        lay.addLayout(head)
-        self.pins_grid = ResponsiveGrid(250, 10, 3)
-        lay.addWidget(self.pins_grid)
-        self.no_pins = _label(tr("Pin the tools you use often in All tools, and they wait for you here."), "muted",
-                              wrap=True)
-        lay.addWidget(self.no_pins)
-        lay.addStretch()
-        self._fill_pins()
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.NoFrame)
-        scroll.viewport().setAutoFillBackground(False)
-        w.setObjectName("scrollContent")
-        scroll.setWidget(w)
-        return scroll
+        return box
 
-    def _fill_pins(self):
-        grid = self.pins_grid
-        for tile in grid.tiles:
-            grid.grid.removeWidget(tile)
-            tile.hide()
-            tile.deleteLater()
-        grid.tiles = []
-        pins = ft.pinned(self.c.settings)
-        for tool in pins:
-            tile = ToolTile(tool, self.t, True, picked=tool.id == self.state.tool)
-            tile.chosen.connect(self.choose_tool)
-            tile.pin_toggled.connect(self.pin)
-            grid.add(tile)
-        self.no_pins.setVisible(not pins)
+    def _toolbar(self) -> QHBoxLayout:
+        t = self.t
+        bar = QHBoxLayout()
+        bar.setSpacing(10)
+        self.add_btn = _button(tr("Add files"), "addFiles", self.add_files, "add", QColor(BRAND[t.dark][1]))
+        self.find = QLineEdit()
+        self.find.setObjectName("toolSearch")
+        self.find.setPlaceholderText(tr("Search tools (e.g., merge, compress, convert)"))
+        self.find.setAccessibleName(tr("Find a tool"))
+        self.find.setClearButtonEnabled(True)
+        self.find.addAction(icons.icon("search", t.tokens.muted), QLineEdit.LeadingPosition)
+        self.find.setMinimumWidth(160)
+        self.find.textChanged.connect(self._find)
+        self.find.returnPressed.connect(self._find_enter)
+        self.all_btn = _button(tr("All tools"), "allTools", self._all_menu, "grid", t.text)
+        self.all_btn.setLayoutDirection(Qt.LeftToRight if not is_rtl() else Qt.RightToLeft)
+        self.tools_btn = _button(tr("Tools"), "allTools", self._toggle_panel, "puzzle_piece", t.text)
+        self.tools_btn.setCheckable(True)
+        bar.addWidget(self.add_btn)
+        bar.addWidget(self.find, 1)
+        bar.addWidget(self.all_btn)
+        bar.addWidget(self.tools_btn)
+        return bar
 
-    def _table_view(self) -> QWidget:
+    def _all_menu(self):
+        """All tools, by category (every PDF action and the archive tools too), as a menu under the button."""
+        menu = QMenu(self)
+        menu.setObjectName("allToolsMenu")
+        offered = ft.offered(self.c.settings)
+        for key, name, icon in ft.CATEGORIES:
+            tools = [t for t in offered if t.category == key]
+            if not tools:
+                continue
+            sub = menu.addMenu(icons.icon(icon, self.t.tokens.text), tr(name))
+            for tool in tools:
+                sub.addAction(icons.icon(tool.icon, self.t.tokens.text), tr(tool.name),
+                              lambda i=tool.id: self.choose_tool(i))
+        menu.addSeparator()
+        menu.addAction(icons.icon("settings", self.t.tokens.text), tr("Switch tools on or off"),
+                       lambda: self.open_library("manage"))
+        menu.addAction(icons.icon("sparkle", self.t.tokens.text), tr("Explore upcoming features"),
+                       lambda: self.w.open_page("Soon"))
+        self._menu = menu
+        menu.popup(self.all_btn.mapToGlobal(QPoint(0, self.all_btn.height() + 4)))
+
+    def _files_card(self) -> QFrame:
         card = QFrame()
         card.setObjectName("filesCard")
         lay = QVBoxLayout(card)
-        lay.setContentsMargins(4, 6, 4, 4)
-        lay.setSpacing(0)
-        bar = QHBoxLayout()
-        bar.setContentsMargins(12, 2, 8, 6)
-        bar.setSpacing(6)
-        self.count = _label("", "cardTitle")
-        bar.addWidget(self.count)
-        bar.addStretch()
-        t = self.t
-        self.remove_btn = _button(tr("Remove from list"), "ghost", self.remove_selected, "dismiss", t.text)
-        self.remove_btn.setToolTip(tr("Takes them off this list only: nothing on your PC is deleted."))
-        self.clear_btn = _button(tr("Clear list"), "ghost", self.state.clear)
-        self.clear_btn.setToolTip(tr("Takes everything off this list only: nothing on your PC is deleted."))
-        self.tools_btn = _button(tr("Tools"), None, self._toggle_panel, "puzzle_piece", t.text)
-        self.tools_btn.setCheckable(True)
-        for b in (self.remove_btn, self.clear_btn, self.tools_btn):
-            bar.addWidget(b)
-        lay.addLayout(bar)
-        self.table = FileTable()
+        lay.setContentsMargins(8, 4, 8, 10)
+        lay.setSpacing(8)
+        self.table = FileTable(self.t)
         self.table.itemSelectionChanged.connect(self._selection_changed)
         self.table.remove_requested.connect(self.remove_selected)
         self.table.itemDoubleClicked.connect(self._open_item)
+        self.table.more_requested.connect(self._row_menu)
+        self.table.head.toggled.connect(self._toggle_all)
+        self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         lay.addWidget(self.table, 1)
-        self.hint = _label(tr("Drop more here to add them · Delete takes the selected ones off the list"), "subtle")
-        self.hint.setAlignment(Qt.AlignCenter)
-        self.hint.setContentsMargins(8, 6, 8, 4)
-        lay.addWidget(self.hint)
+        self.drop = DropArea(self)
+        lay.addWidget(self.drop, 0)
+        card.setMinimumHeight(200)
         return card
 
     # ---- the list
@@ -1352,15 +1946,13 @@ class FilesWorkspace(QWidget):
         if not _alive(self):
             return
         has = bool(self.state.items)
-        was = self.center.currentIndex()
-        self.center.setCurrentIndex(1 if has else 0)
-        if has and was == 0 and self.isVisible():  # (from the drop area to the list, gently)
-            from .atomic import motion, tokens
-            if tokens.animations:
-                motion.fade_in(self.center.currentWidget(), 180)
+        self.table.setVisible(has)
+        self.drop.set_big(not has)
         self._fill_table()
+        self._fit_table()
         self._fit_panel()
         self.panel.refresh()
+        self.library.fill() if self.library.query else self.library.mark()
 
     def _icon(self, name: str, color) -> object:
         """(One icon of each kind for the whole list: thousands of rows share them.)"""
@@ -1368,6 +1960,14 @@ class FilesWorkspace(QWidget):
         cache = self.__dict__.setdefault("_icons", {})
         if key not in cache:
             cache[key] = icons.icon(name, color)
+        return cache[key]
+
+    def _mark_icon(self, kind: str, color) -> object:
+        from PySide6.QtGui import QIcon
+        key = ("mark:" + kind, QColor(color).name())
+        cache = self.__dict__.setdefault("_icons", {})
+        if key not in cache:
+            cache[key] = QIcon(_mark(kind, QColor(color), 18, 2.0))
         return cache[key]
 
     def _fill_table(self):
@@ -1380,20 +1980,24 @@ class FilesWorkspace(QWidget):
             table.clear()
             chosen = set(self.state.selected)
             rows, picked = [], []
+            more = self._icon("more_horizontal", t.tokens.muted)
+            pdf_red = QColor("#e5534b")
             for p in self.state.items:
                 name = str(p)
                 kind = self.state.kinds.get(name, "other")
                 item = _SortItem()
-                item.setData(0, Qt.UserRole, name)
-                item.setText(0, short_name(p.name, 70))
-                item.setToolTip(0, name)
-                item.setIcon(0, self._icon(KIND_ICONS.get(kind, "document"), t.tokens.muted))
-                words = tr(KIND_WORDS.get(kind, "File"))
-                if kind not in ("folder", "pdf") and p.suffix:
-                    words = f"{words} · {p.suffix[1:].upper()}"
-                item.setText(1, words)
+                item.setData(COL_NAME, Qt.UserRole, name)
+                item.setText(COL_NAME, short_name(p.name, 70))
+                item.setToolTip(COL_NAME, name)
+                item.setIcon(COL_NAME, self._icon(KIND_ICONS.get(kind, "document"),
+                                                  pdf_red if kind == "pdf" else BRAND[t.dark][0] if kind == "image"
+                                                  else t.tokens.muted))
+                item.setText(COL_TYPE, tr("Folder") if kind == "folder" else
+                             p.suffix[1:].upper() if p.suffix else tr(KIND_WORDS.get(kind, "File")))
                 self._size_cell(item, p)
                 self._status_cell(item, name)
+                item.setIcon(COL_MORE, more)
+                item.setToolTip(COL_MORE, tr("More"))
                 rows.append(item)
                 if name in chosen:
                     picked.append(len(rows) - 1)
@@ -1413,44 +2017,69 @@ class FilesWorkspace(QWidget):
             table.setSortingEnabled(True)
         finally:
             self._syncing = False
-        n, sel_n = len(self.state.items), len(self.state.selected)
-        self.count.setText(tr("{count} items", count=n) + (f" · {tr('{count} selected', count=sel_n)}"
-                                                           if sel_n else ""))
-        self.remove_btn.setEnabled(sel_n > 0)
+        self._head_check()
+
+    def _head_check(self):
+        n, sel = len(self.state.items), len(self.state.selected)
+        self.table.head.set_state(Qt.Unchecked if not sel else Qt.Checked if sel >= n else Qt.PartiallyChecked)
+
+    def _fit_table(self):
+        """The list as tall as its rows (the place to drop more takes what's left), scrolling once it's full."""
+        if self.state.items:
+            n = self.table.topLevelItemCount()
+            row = self.table.sizeHintForRow(0) if n else 0
+            full = self.table.content_height()
+            shown = self.table.header().sizeHint().height() + min(n, 8) * max(row, 1) + 4
+            self.table.setMaximumHeight(max(80, full))
+            self.table.setMinimumHeight(max(80, min(full, shown)))  # (more than 8 rows scroll in the list)
+        else:
+            self.table.setMinimumHeight(0)
+            self.table.setMaximumHeight(16777215)
 
     def _size_cell(self, item, p: Path):
         size = self.state.size_of(p)
         if size is None:
-            item.setText(2, "…")
-            item.setData(2, Qt.UserRole + 1, -1)
+            item.setText(COL_SIZE, "…")
+            item.setData(COL_SIZE, Qt.UserRole + 1, -1)
         else:
-            item.setText(2, human_size(size[0]) + ("" if size[1] else "+"))
-            item.setData(2, Qt.UserRole + 1, size[0])
+            item.setText(COL_SIZE, human_size(size[0]) + ("" if size[1] else "+"))
+            item.setData(COL_SIZE, Qt.UserRole + 1, size[0])
 
     def _status_cell(self, item, name: str):
         state, words = self.state.status.get(name, (fw.READY, ""))
         t = self.t
-        color = {fw.DONE: t.tokens.success, fw.PROBLEM: t.tokens.danger, fw.WORKING: QColor(BRAND[t.dark][0])}.get(
-            state, t.tokens.muted)
-        item.setText(3, tr(STATE_WORDS[state]))
-        item.setForeground(3, color)
-        icon = STATE_ICONS[state]
-        item.setIcon(3, self._icon(icon, color) if icon else self._icon("circle", t.tokens.faint))
-        item.setToolTip(3, words or tr(STATE_WORDS[state]))
+        tool = self.panel.tool() if hasattr(self, "panel") else None
+        if state == fw.READY and tool is not None and not ft.takes(tool, Path(name), self.state.kinds.get(name)):
+            item.setText(COL_STATUS, "—")  # (the tool picked doesn't take it: left as it is)
+            item.setForeground(COL_STATUS, t.tokens.muted)
+            item.setIcon(COL_STATUS, self._icon("circle", QColor(0, 0, 0, 0)))
+            item.setToolTip(COL_STATUS, tr("{tool} doesn't take this kind of item", tool=tr(tool.name)))
+            return
+        color = {fw.DONE: t.tokens.success, fw.READY: t.tokens.success, fw.PROBLEM: t.tokens.danger,
+                 fw.WORKING: QColor(BRAND[t.dark][0])}.get(state, t.tokens.muted)
+        item.setText(COL_STATUS, tr(STATE_WORDS[state]))
+        item.setForeground(COL_STATUS, t.tokens.text if state in (fw.READY, fw.DONE) else color)
+        if state in (fw.READY, fw.DONE):
+            item.setIcon(COL_STATUS, self._mark_icon("done", color))
+        elif state == fw.WORKING:
+            item.setIcon(COL_STATUS, self._mark_icon("ring", color))
+        else:
+            item.setIcon(COL_STATUS, self._icon("warning" if state == fw.PROBLEM else "dismiss", color))
+        item.setToolTip(COL_STATUS, words or tr(STATE_WORDS[state]))
 
     def _statuses_changed(self):
         if not _alive(self):
             return
         for i in range(self.table.topLevelItemCount()):
             item = self.table.topLevelItem(i)
-            name = item.data(0, Qt.UserRole)
+            name = item.data(COL_NAME, Qt.UserRole)
             self._size_cell(item, Path(name))
             self._status_cell(item, name)
 
     def _selection_changed(self):
         if self._syncing:
             return
-        names = [it.data(0, Qt.UserRole) for it in self.table.selectedItems()]
+        names = [it.data(COL_NAME, Qt.UserRole) for it in self.table.selectedItems()]
         order = {str(p): i for i, p in enumerate(self.state.items)}
         names.sort(key=lambda n: order.get(n, 0))
         self._syncing = True
@@ -1458,15 +2087,35 @@ class FilesWorkspace(QWidget):
             self.state.selected = names
         finally:
             self._syncing = False
-        n, sel = len(self.state.items), len(names)
-        self.count.setText(tr("{count} items", count=n) + (f" · {tr('{count} selected', count=sel)}" if sel else ""))
-        self.remove_btn.setEnabled(sel > 0)
+        self._head_check()
         QTimer.singleShot(0, self, self.panel.refresh)  # (once, after a drag across many rows)
 
-    def _open_item(self, item, _col):
+    def _toggle_all(self):
+        if len(self.state.selected) >= len(self.state.items):
+            self.table.clearSelection()
+        else:
+            self.table.selectAll()
+
+    def _row_menu(self, item, where: QPoint):
         from .core import os_open
+        from .winutil import reveal_in_explorer
+        p = Path(item.data(COL_NAME, Qt.UserRole))
+        menu = QMenu(self)
+        menu.addAction(tr("Open"), lambda: os_open(p) if p.exists() else None)
+        menu.addAction(tr("Show in folder"), lambda: reveal_in_explorer(p))
+        menu.addSeparator()
+        menu.addAction(icons.icon("dismiss", self.t.tokens.text), tr("Remove from list"),
+                       lambda: self.panel.later(lambda: self.state.remove([str(p)])))
+        menu.addAction(tr("Clear list"), lambda: self.panel.later(self.state.clear))
+        self._menu = menu
+        menu.popup(where)
+
+    def _open_item(self, item, col):
+        from .core import os_open
+        if col in (COL_CHECK, COL_MORE):
+            return
         try:
-            os_open(Path(item.data(0, Qt.UserRole)))
+            os_open(Path(item.data(COL_NAME, Qt.UserRole)))
         except OSError:
             pass
 
@@ -1499,15 +2148,60 @@ class FilesWorkspace(QWidget):
 
     # ---- the tools
 
-    def choose_tool(self, tool_id: str):
+    def choose_tool(self, tool_id: str, keep_family: bool = False):
         def go():
+            tool = ft.by_id(tool_id)
+            if not keep_family and tool is not None:
+                fam = ft.family_of(tool)
+                self.state.family = fam.id if fam is not None else None
             self.state.tool = tool_id
             self.panel.slot = None
-            self.close_library()
             self._panel_open = True
             self._fit_panel()
             self.panel.refresh()
-            self._mark_pins()
+            self.library.mark()
+            self._statuses_changed()
+        self.panel.later(go)
+
+    def choose_family(self, family_id: str):
+        """A tile picked: its tools beside the files, the one that fits them best already picked."""
+        tools = ft.family_tools(self.c.settings, family_id)
+        if not tools:
+            return
+        if len(tools) == 1:
+            self.choose_tool(tools[0].id)
+            return
+        items = self.state.chosen()
+        current = ft.by_id(self.state.tool) if self.state.tool else None
+        best = current if current in tools else None
+        if best is None and items:
+            best = next((t for t in ft.suggested_order(self.c.settings, tools)
+                         if ft.fit(t, items, self.state.kinds).ok), None)
+
+        def go():
+            self.state.family = family_id
+            self.state.tool = best.id if best is not None else None
+            self.panel.slot = None
+            self.panel._show_off = False
+            self._panel_open = True
+            self._fit_panel()
+            self.panel.refresh()
+            self.library.mark()
+            self._statuses_changed()
+        self.panel.later(go)
+
+    def tile_clicked(self, family_id: str):
+        """A tile in the library: its tools beside the files; the tile picked already, all of them again."""
+        if family_id == self.state.family:
+            self.clear_family()
+        else:
+            self.choose_family(family_id)
+
+    def clear_family(self):
+        def go():
+            self.state.family = None
+            self.panel.refresh()
+            self.library.mark()
         self.panel.later(go)
 
     def unchoose_tool(self):
@@ -1516,22 +2210,17 @@ class FilesWorkspace(QWidget):
             self.panel._launched = None
             self._fit_panel()
             self.panel.refresh()
-            self._mark_pins()
+            self.library.mark()
+            self._statuses_changed()
         self.panel.later(go)
 
-    def _mark_pins(self):
-        for tile in self.pins_grid.tiles:
-            tile.setProperty("picked", tile.tool.id == self.state.tool)
-            tile.style().unpolish(tile)
-            tile.style().polish(tile)
-
-    def pin(self, tool_id: str, on: bool):
-        ft.set_pinned(self.c.settings, tool_id, on)
+    def pin(self, family_id: str, on: bool):
+        ft.set_pinned(self.c.settings, family_id, on)
         self.c.settings.save()
-        QTimer.singleShot(0, self, self._fill_pins)
+        QTimer.singleShot(0, self, self.panel.refresh)
 
     def _job_started(self, _job_id: int):
-        self.panel.disarm()
+        QTimer.singleShot(0, self, self.panel.disarm)  # (a tool may start several jobs at once: all save alike)
         self.ops.open_up()
 
     def _inline_target(self, dlg):
@@ -1539,46 +2228,28 @@ class FilesWorkspace(QWidget):
             return None
         return self.panel if self.panel.wants(dlg) else None
 
-    # ---- finding a tool, and the library over the page
+    # ---- finding a tool
 
     def _find(self, text: str):
-        if text.strip():
-            self.open_library("now")
-            if self.library.search.text() != text:
-                self.library.search.setText(text)
-        elif self.library.isVisible() and self.library.tab == "now":
-            self.library.search.clear()
+        self.library.set_query(text)
 
     def _find_enter(self):
-        query = self.find.text().strip().lower()
-        hits = [t for t in ft.offered(self.c.settings)
-                if query and (query in tr(t.name).lower() or query in t.name.lower())]
-        if len(hits) == 1:
+        hits = self.library.matches()
+        if hits:
             self.find.clear()
             self.choose_tool(hits[0].id)
 
     def open_library(self, tab: str = "now"):
-        lib = self.library
-        lib.show_tab(tab)
-        if not lib.isVisible():
-            self._place_library()
-            lib.show()
-            lib.raise_()
-            from .atomic import motion, tokens
-            if tokens.animations and self.isVisible():
-                motion.fade_in(lib, 160)
-        if tab != "now" or not self.find.hasFocus():
-            lib.search.setFocus() if tab != "manage" else lib.setFocus()
+        self.library.show_tab(tab)
+        self.scroll.ensureWidgetVisible(self.library)
+        if tab == "now":
+            self.find.setFocus()
 
     def close_library(self):
-        self.state.library = ""
-        if self.library.isVisible():
-            self.library.hide()
-            if self.find.text():
-                self.find.clear()
-
-    def _place_library(self):
-        self.library.setGeometry(self.body_host.rect())
+        if self.find.text():
+            self.find.clear()
+        if self.library.tab != "now":
+            self.library.show_tab("now")
 
     # ---- room: the side panel folds away when the window is narrow
 
@@ -1592,58 +2263,49 @@ class FilesWorkspace(QWidget):
             self._fit_panel()
 
     def _fit_panel(self):
-        narrow = self.width() < NARROW and self.width() > 50
+        was = self._narrow
+        narrow = 50 < self.width() < NARROW
         self._narrow = narrow
-        has = bool(self.state.items)
-        picked = self.state.tool is not None
-        if not has:  # (before files are added: only a tool picked first needs it)
-            show = picked
-        elif narrow:
-            show = self._panel_open or picked or self.panel.inline is not None
+        if narrow:
+            show = self._panel_open or self.panel.inline is not None
         else:
             show = True
         self.panel.setVisible(show)
-        self.tools_btn.setVisible(narrow and has)
+        self.left_box.setVisible(not (narrow and show))  # (narrow: the panel takes the room, ‹ brings the files back)
+        if self.panel.inline is None:
+            self.panel.setMaximumWidth(16777215 if narrow else PANEL_WIDTH)
+        self.tools_btn.setVisible(narrow)
         self.tools_btn.setChecked(show)
+        if was != narrow and self.panel.inline is None:
+            self.panel.refresh()
 
-    def _fit_header(self):
-        """Narrow: the buttons go under the title (none is ever cut short); the table's own buttons keep only
-        their icons."""
-        from PySide6.QtWidgets import QBoxLayout
-        stacked = self.width() < 1040
-        want = QBoxLayout.TopToBottom if stacked else QBoxLayout.LeftToRight
-        if self.head_lay.direction() != want:
-            self.head_lay.setDirection(want)
-            self.head_lay.setAlignment(self.acts, Qt.AlignLeading if stacked else Qt.AlignTop)
-        self._fit_table_bar()
-
-    def _fit_table_bar(self):
-        tight = self.center.width() < 600
-        for b, words in ((self.remove_btn, tr("Remove from list")), (self.tools_btn, tr("Tools"))):
+    def _fit_toolbar(self):
+        """Narrow: the toolbar's buttons keep only their icons (none is ever cut short)."""
+        tight = self.width() < 760
+        for b, words in ((self.all_btn, tr("All tools")), (self.tools_btn, tr("Tools"))):
             b.setText("" if tight else words)
             b.setAccessibleName(words)
-            if tight:
-                b.setToolTip(words if b is self.tools_btn else
-                             f"{words}\n{tr('Takes them off this list only: nothing on your PC is deleted.')}")
+            b.setToolTip(words if tight else "")
+        self.find.setPlaceholderText(tr("Find a tool") if tight or self.find.width() < 330 else
+                                     tr("Search tools (e.g., merge, compress, convert)"))
 
     def eventFilter(self, obj, e):
-        if obj is self.center and e.type() == QEvent.Resize:
-            self._fit_table_bar()
+        if obj is self.files_card and e.type() == QEvent.Resize:
+            self.table.fit_columns(self.files_card.width())
         return False
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
-        self._fit_header()
-        if (self.width() < NARROW) != self._narrow:
+        if (50 < self.width() < NARROW) != self._narrow:
             self._fit_panel()
-        self.cover.setGeometry(self.body_host.rect())
-        if self.library.isVisible():
-            self._place_library()
+        self._fit_toolbar()
+        self.cover.setGeometry(self.rect())
 
     def showEvent(self, e):
         super().showEvent(e)
         sheet.set_inline_host(self._inline_target)
         self._fit_panel()
+        self._fit_toolbar()
 
     def hideEvent(self, e):
         super().hideEvent(e)
@@ -1655,7 +2317,7 @@ class FilesWorkspace(QWidget):
         if any(u.isLocalFile() for u in e.mimeData().urls()):
             e.setDropAction(Qt.CopyAction)
             e.accept()
-            self.cover.setGeometry(self.body_host.rect())
+            self.cover.setGeometry(self.rect())
             self.cover.show()
             self.cover.raise_()
 
@@ -1675,14 +2337,14 @@ class FilesWorkspace(QWidget):
             self.panel.later(lambda: self.state.add(paths))
 
     def keyPressEvent(self, e):
-        if e.key() == Qt.Key_Escape and self.library.isVisible():
+        if e.key() == Qt.Key_Escape and (self.find.text() or self.library.tab != "now"):
             self.close_library()
             return
         super().keyPressEvent(e)
 
     def go_back(self) -> bool:
-        """Back (Alt + Left, the mouse's back button) closes the library first."""
-        if self.library.isVisible():
+        """Back (Alt + Left, the mouse's back button) clears the search or leaves Upcoming first."""
+        if self.find.text() or self.library.tab != "now":
             self.close_library()
             return True
         return False

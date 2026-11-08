@@ -2180,6 +2180,7 @@ class Controller(QObject):
         self.jobs[job_id] = {"tool": tool, "files": files, "bytes_in": 0,
                              "params": params, "rename": rename or {}, "after": after, "quick": quick,
                              "what": what, "carry": carry or {"outputs": [], "errors": []}, "then": then}
+        save_to = self.files_work.save_to  # (Files' "Save to", for what's started from its side panel)
         if not quick and after not in ("open", "open_with", "reload"):  # (opening a file from an archive isn't one)
             self.files_work.job_added(job_id, tool, (carry or {}).get("files") or files, params, rename or {}, what)
         if self.settings.show_progress:
@@ -2187,6 +2188,8 @@ class Controller(QObject):
                              tr("{what} · waiting for the one before it", what=what) if waiting else what)
         options = self.settings.options(rename.get("rename_base", "") if rename else "",
                                         rename.get("rename_start", 1) if rename else 1)
+        if save_to is not None and not quick:
+            options.output_folder = Path(save_to) if save_to else None
         (self.quick_pool if quick else self.pool).start(Job(job_id, tool, files, options, self.signals, cancel,
                                                             params, self.jobs[job_id]))
         self._update_tooltip()

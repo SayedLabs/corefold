@@ -7,6 +7,7 @@ progress popup and the History): nothing runs twice and nothing here keeps a his
 from __future__ import annotations
 
 import threading
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -33,6 +34,7 @@ class Op:
     detail: str = ""
     outputs: list = field(default_factory=list)
     errors: list = field(default_factory=list)
+    when: float = field(default_factory=time.time)   # started, then finished
 
     @property
     def over(self) -> bool:
@@ -59,7 +61,9 @@ class WorkState(QObject):
         self.kinds: dict[str, str] = {}
         self.tool: str | None = None                   # the tool picked in the side panel
         self.ops: list[Op] = []
-        self.library = ""                             # the library open over the page: "", "now", "soon" or "manage"
+        self.library = ""                             # the library's tab: "", "now", "soon" or "manage"
+        self.family: str | None = None                 # the library tile picked (its tools beside the files)
+        self.save_to: str | None = None                # while a tool starts from the side panel: where it saves
         self._counting: set[str] = set()
         self.sized.connect(self._sized)  # (from the counting threads: queued onto the window's thread)
 
@@ -209,6 +213,7 @@ class WorkState(QObject):
             return
         o.outputs, o.errors = list(outputs), list(errors)
         o.progress = 1.0
+        o.when = time.time()
         if cancelled:
             o.state, o.detail = STOPPED, tr("Cancelled")
             self.set_status(o.files, CANCELLED, o.detail)
@@ -224,6 +229,10 @@ class WorkState(QObject):
             o.detail = note or (tr("Saved {count} items", count=len(outputs)) if len(outputs) > 1 else
                                 tr("Saved {name}", name=Path(outputs[0]).name) if outputs else tr("Done"))
             self.set_status(o.files, DONE, o.detail if len(o.files) == 1 else tr("Done"))
+        self.ops_changed.emit()
+
+    def forget(self, job_id: int):
+        self.ops = [o for o in self.ops if o.job_id != job_id or not o.over]
         self.ops_changed.emit()
 
     def forget_finished(self):
