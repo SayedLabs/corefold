@@ -137,13 +137,29 @@ function VersionOf([string]$text) {
 }
 
 function HttpGet([string]$url, [int]$timeoutMs = 30000) {
-    $req = [Net.HttpWebRequest]::Create($url)
-    $req.UserAgent = "RakizaCore-Updater"
-    $req.Accept = "application/vnd.github+json"
-    $req.Timeout = $timeoutMs
-    $req.ReadWriteTimeout = $timeoutMs
-    $req.AllowAutoRedirect = $true
-    $req.GetResponse()
+    # (GitHub answers 502/503/504 now and then for a few seconds, or a connection drops: asked again after a
+    # short wait, a few times, before the update gives up. A 4xx answer is final.)
+    $waits = @(3, 10, 30)
+    for ($try = 0; ; $try++) {
+        $req = [Net.HttpWebRequest]::Create($url)
+        $req.UserAgent = "RakizaCore-Updater"
+        $req.Accept = "application/vnd.github+json"
+        $req.Timeout = $timeoutMs
+        $req.ReadWriteTimeout = $timeoutMs
+        $req.AllowAutoRedirect = $true
+        try {
+            return $req.GetResponse()
+        } catch {
+            $e = $_.Exception
+            while ($e -and -not ($e -is [Net.WebException])) { $e = $e.InnerException }
+            if (-not $e) { throw }
+            $code = 0
+            if ($e.Response) { $code = [int]$e.Response.StatusCode; $e.Response.Close() }
+            if (($code -ne 0 -and $code -lt 500 -and $code -ne 429) -or $try -ge $waits.Count) { throw }
+            Log ("GitHub didn't answer ({0}); asking again in {1} s" -f $(if ($code) { $code } else { $e.Status }), $waits[$try])
+            Start-Sleep -Seconds $waits[$try]
+        }
+    }
 }
 
 function GetText([string]$url) {
