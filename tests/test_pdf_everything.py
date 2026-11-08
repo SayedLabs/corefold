@@ -446,7 +446,17 @@ def _open(qtbot, src: Path):
     ed.resize(1100, 800)
     ed.show()
     ed.open(src)
-    qtbot.waitUntil(lambda: bool(ed.pages) and ed.pages[0].layout is not None, timeout=10000)
+    try:
+        qtbot.waitUntil(lambda: bool(ed.pages) and ed.pages[0].layout is not None, timeout=10000)
+    except Exception:  # (what the editor was waiting for, to say why)
+        from corefold import pdftools
+        r = ed.renderer
+        locked = not pdftools.PDFIUM.acquire(timeout=0.1)
+        if not locked:
+            pdftools.PDFIUM.release()
+        raise AssertionError(f"pages {len(ed.pages)}, asked {[p.asked_layout for p in ed.pages[:2]]}, "
+                             f"in sight {ed._in_sight()[:3]}, renderer {r is not None and r.thread.is_alive()}, "
+                             f"renders {r and len(r.renders)}, layouts {r and r.layouts}, PDFium busy {locked}")
     return ed
 
 

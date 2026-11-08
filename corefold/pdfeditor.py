@@ -204,6 +204,7 @@ class Renderer:
                 log.debug("the form couldn't be read", exc_info=True)
                 fields = []
             self.sig.opened.emit((sizes, fields))
+            last = ""
             while True:
                 with self.cv:
                     while not self.stopped and not self.renders and not self.layouts and not self.thumbs \
@@ -211,7 +212,11 @@ class Renderer:
                         self.cv.wait()
                     if self.stopped:
                         return
-                    if self.renders:
+                    if self.layouts and (not self.renders or last == "render"):
+                        # (a page's pieces are read between two drawings: wishes to draw that keep coming,
+                        # while the window settles, never leave them unread)
+                        job = ("layout", self.layouts.pop(0))
+                    elif self.renders:
                         i = next(iter(self.renders))
                         scale, hide = self.renders.pop(i)
                         job = ("render", i, scale, hide)
@@ -221,6 +226,7 @@ class Renderer:
                         job = ("thumb", *self.thumbs.pop(0))
                     else:
                         job = ("read", self.reads.pop(0))
+                    last = job[0]
                 try:
                     if job[0] == "render":
                         _, i, scale, look = job
