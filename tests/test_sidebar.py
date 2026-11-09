@@ -264,8 +264,10 @@ def test_folding_moves_smoothly_and_ends_tidy(window, qtbot):
     full = pdf.data(FULL_ROLE)
     w._fold_section(files_row, 0)
     assert w.nav.folding()
-    qtbot.wait(FOLD_MS // 2)
-    assert 0 < pdf.sizeHint().height() < full  # (on its way in)
+    # (on its way in: the rows go from the bottom up, so the section's first tool is cut last. With its 8
+    # tools that starts at exactly half the time (OutCubic 0.5 = 7/8 folded), so a fixed wait of half the
+    # time read it a frame early or late by chance; it is watched until it's part cut instead)
+    qtbot.waitUntil(lambda: w.nav.folding() and 0 < pdf.sizeHint().height() < full, timeout=FOLD_MS * 4)
     qtbot.waitUntil(lambda: not w.nav.folding(), timeout=2000)
     assert w.nav.isRowHidden(w.nav_rows.index("Space")) and pdf.sizeHint().height() == full
     w._fold_section(files_row, 1)
