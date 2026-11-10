@@ -34,7 +34,10 @@ os.environ.setdefault("COREFOLD_WAKE_ORGANIZER", "1")  # (File Organizer rests i
 import corefold  # noqa: E402
 
 if corefold.__version__ == "dev":  # (the sidebar shows it: "Version dev" looks unfinished in a picture)
-    corefold.__version__ = os.environ.get("COREFOLD_SHOW_VERSION", "1.13.0")
+    _notes = [f.name[:-3] for f in (Path(__file__).resolve().parent.parent / "assets" / "release-notes").glob("*.md")
+              if not f.name.endswith(".ar.md")]  # (the newest version that has notes: what people have now)
+    _newest = max(_notes, key=lambda v: tuple(int(x) for x in v.split(".")), default="2.0.0")
+    corefold.__version__ = os.environ.get("COREFOLD_SHOW_VERSION", _newest)
 
 from PIL import Image, ImageDraw, ImageFilter  # noqa: E402
 
