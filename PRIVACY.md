@@ -1,6 +1,6 @@
 # Rakiza Core privacy policy
 
-Last changed: November 5, 2026. This is the same policy as the one on
+Last changed: November 10, 2026. This is the same policy as the one on
 [the website](https://sayedlabs.github.io/corefold/privacy.html).
 
 Rakiza Core is a free Windows app made by Rakiza Labs. In short: **your files stay on your PC, there are
@@ -93,7 +93,10 @@ because they're yours; you can delete them yourself.
 ## The website
 
 The website is hosted by GitHub Pages, which may keep logs of visits (like your IP address) for
-security. The site itself has no cookies, analytics or trackers, and loads nothing from other companies.
+security. The site itself has no cookies, analytics or trackers, and its fonts and pictures come from the
+site itself, not from other companies. Download buttons ask GitHub, which hosts both the site and Rakiza
+Core's releases, for the newest version, so the button starts the right file and shows its size. If you
+pick a language or light or dark on the site, that choice is remembered in your own browser only.
 
 ## Children
 

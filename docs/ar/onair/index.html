@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src https://api.github.com; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>ركيزة أون إير: كل ما يحتاجه بثّك في إضافة واحدة (قريبًا)</title>
+<meta name="description" content="ركيزة أون إير إضافة قادمة لبرنامج OBS Studio تجمع الأدوات التي يثبّتها صنّاع البث عادةً واحدة تلو الأخرى.">
+<link rel="canonical" href="https://rakizalabs.com/ar/onair/">
+<link rel="alternate" hreflang="en" href="https://rakizalabs.com/onair/">
+<link rel="alternate" hreflang="ar" href="https://rakizalabs.com/ar/onair/">
+<link rel="alternate" hreflang="x-default" href="https://rakizalabs.com/onair/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="ركيزة لابز">
+<meta property="og:title" content="ركيزة أون إير: كل ما يحتاجه بثّك في إضافة واحدة (قريبًا)">
+<meta property="og:description" content="ركيزة أون إير إضافة قادمة لبرنامج OBS Studio تجمع الأدوات التي يثبّتها صنّاع البث عادةً واحدة تلو الأخرى.">
+<meta property="og:url" content="https://rakizalabs.com/ar/onair/">
+<meta property="og:image" content="https://rakizalabs.com/assets/img/og-ar.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ar_AR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#FAF9F5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0A0F0D" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../icon.png" type="image/png" sizes="512x512">
+<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+<link rel="preload" href="../../assets/fonts/readex-pro-arabic-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../../assets/css/site.css?v=1">
+<script src="../../assets/js/theme.js?v=1"></script>
+<script src="../../assets/js/site.js?v=1" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">تخطَّ إلى المحتوى</a>
+<header class="site-head">
+  <div class="wrap head-row">
+    <a class="brand" href="../../ar/" aria-label="ركيزة لابز"><svg viewBox="0 0 96 96" aria-hidden="true"><g fill="currentColor"><rect x="22" y="16" width="15" height="50" rx="3"/><path d="M37 16H53A18 18 0 0 1 53 52H37V40H53A6 6 0 0 0 53 28H37Z"/><path d="M46 52H61L74 66H59Z"/></g><rect x="14" y="73" width="68" height="8" rx="4" fill="var(--gold)"/></svg><span class="word"><b>ركيزة</b><small class="ltr">RAKIZA LABS</small></span></a>
+    <nav class="nav" id="site-nav" aria-label="البرامج">
+      <a href="../../ar/core/">ركيزة كور</a>
+      <a href="../../ar/onair/" aria-current="page">أون إير</a>
+      <a href="../../ar/core/changelog/">الجديد</a>
+      <a href="../../ar/privacy.html">الخصوصية</a>
+    </nav>
+    <div class="tools">
+      <a class="chip-btn" href="../../onair/" hreflang="en" lang="en" data-set-lang="en" aria-label="Read this page in English"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.6 2.4 3.8 5.2 3.8 8.5s-1.2 6.1-3.8 8.5c-2.6-2.4-3.8-5.2-3.8-8.5s1.2-6.1 3.8-8.5Z"/></svg><span>English</span></a>
+      <button class="chip-btn theme-btn" type="button" aria-label="المظهر: يتبع النظام. بدّل إلى فاتح أو داكن" data-label-auto="المظهر: يتبع النظام. بدّل إلى فاتح أو داكن" data-label-light="المظهر: فاتح. بدّل" data-label-dark="المظهر: داكن. بدّل"><svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg><svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10Z"/></svg><svg class="i-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17Z" fill="currentColor"/></svg></button>
+      <button class="chip-btn menu-btn" type="button" aria-label="القائمة" aria-expanded="false" aria-controls="site-nav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+</header>
+<main id="main">
+
+<section class="p-hero air">
+  <div class="wrap">
+    <div class="inner">
+      <img class="appicon" src="../../assets/img/onair-icon.svg" width="92" height="92" alt="">
+      <span class="pill air"><i></i>قريبًا</span>
+      <h1 class="display sm">كل ما يحتاجه بثّك، في إضافة واحدة.</h1>
+      <p class="lead">ركيزة أون إير إضافة لبرنامج OBS Studio تجمع الأدوات التي يثبّتها صنّاع البث عادةً واحدة تلو الأخرى، لتبدو وتعمل وتُحدَّث كأنها أداة واحدة. نعمل عليها الآن.</p>
+      <div class="row"><a class="btn btn-primary btn-lg" href="https://github.com/SayedLabs/corefold/issues/new?title=Rakiza%20OnAir%3A%20" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5h14a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19 17H10l-4.5 3.5V17H5a1.5 1.5 0 0 1-1.5-1.5v-9A1.5 1.5 0 0 1 5 5Z"/></svg>أخبرنا بما تستخدمه في بثّك</a></div>
+    </div>
+    <div class="onair-visual reveal"><svg viewBox="0 0 980 490" role="img" aria-label="رسم توضيحي لإعداد بث" preserveAspectRatio="xMidYMid slice">
+<defs>
+<linearGradient id="oa-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E9B0FF"/><stop offset="1" stop-color="#7A2DBE"/></linearGradient>
+<radialGradient id="oa-r" cx=".5" cy=".42" r=".6"><stop offset="0" stop-color="#B565F0" stop-opacity=".35"/><stop offset="1" stop-color="#B565F0" stop-opacity="0"/></radialGradient>
+</defs>
+<rect width="980" height="490" fill="var(--sunken)"/>
+<rect width="980" height="490" fill="url(#oa-r)"/>
+<g fill="none" stroke="var(--line-strong)" stroke-width="1.5">
+<rect x="70" y="70" width="560" height="315" rx="14" fill="var(--surface)"/>
+<rect x="660" y="70" width="250" height="150" rx="14" fill="var(--surface)"/>
+<rect x="660" y="235" width="250" height="150" rx="14" fill="var(--surface)"/>
+<rect x="70" y="400" width="840" height="46" rx="12" fill="var(--surface)"/>
+</g>
+<g fill="var(--line-strong)">
+<rect x="684" y="96" width="120" height="10" rx="5"/><rect x="684" y="118" width="190" height="8" rx="4" opacity=".6"/><rect x="684" y="136" width="160" height="8" rx="4" opacity=".6"/>
+<rect x="684" y="180" width="70" height="20" rx="10"/><rect x="762" y="180" width="70" height="20" rx="10" opacity=".6"/>
+<rect x="684" y="261" width="100" height="10" rx="5"/>
+<rect x="684" y="288" width="200" height="6" rx="3" opacity=".5"/><rect x="684" y="306" width="200" height="6" rx="3" opacity=".5"/><rect x="684" y="324" width="200" height="6" rx="3" opacity=".5"/>
+<circle cx="740" cy="291" r="7" fill="url(#oa-g)"/><circle cx="820" cy="309" r="7" fill="url(#oa-g)"/><circle cx="700" cy="327" r="7" fill="url(#oa-g)"/>
+<rect x="94" y="416" width="90" height="14" rx="7"/><rect x="196" y="416" width="90" height="14" rx="7" opacity=".6"/><rect x="298" y="416" width="90" height="14" rx="7" opacity=".6"/>
+</g>
+<rect x="94" y="94" width="512" height="267" rx="10" fill="var(--raised)"/>
+<g transform="translate(350 227)">
+<circle r="18" fill="url(#oa-g)"/>
+<g fill="none" stroke="url(#oa-g)" stroke-width="7" stroke-linecap="round">
+<path d="M-38 -38A54 54 0 0 0 -38 38"/><path d="M38 -38A54 54 0 0 1 38 38"/>
+<path d="M-66 -66A94 94 0 0 0 -66 66" opacity=".55"/><path d="M66 -66A94 94 0 0 1 66 66" opacity=".55"/>
+</g>
+</g>
+<g transform="translate(114 114)"><rect width="92" height="28" rx="14" fill="#E11D48"/><circle cx="18" cy="14" r="5" fill="#fff"/><text x="32" y="19" font-family="Readex Pro, sans-serif" font-size="13" font-weight="600" fill="#fff" letter-spacing="1.5">ON AIR</text></g>
+<rect x="836" y="414" width="58" height="18" rx="9" fill="url(#oa-g)"/>
+</svg></div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">ما نسعى إليه</span>
+      <h2 class="h2">إعداد أقل، وبث أكثر.</h2>
+      <p class="lead">أون إير في بدايته. هذه هي الأهداف التي نبني نحوها، وأفكارك تحدد ما يأتي أولًا.</p>
+    </div>
+    <div class="aims"><div class="card reveal"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3.5V8M15 3.5V8"/><path d="M6.5 8h11v3a5.5 5.5 0 0 1-11 0Z"/><path d="M12 16.5v4"/></svg></span><h3>تثبيت واحد بدل الكثير</h3><p>الإضافات التي تبحث عنها عادةً واحدة تلو الأخرى، مجتمعة في مكان واحد.</p></div><div class="card reveal"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3.5 8.5 4.5-8.5 4.5L3.5 8Z"/><path d="m3.5 12 8.5 4.5 8.5-4.5"/><path d="m3.5 16 8.5 4.5 8.5-4.5"/></svg></span><h3>تبدو أداةً واحدة</h3><p>شكل واحد، وإعدادات واحدة، وكل شيء يُحدَّث معًا.</p></div><div class="card reveal"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.6 2.4 3.8 5.2 3.8 8.5s-1.2 6.1-3.8 8.5c-2.6-2.4-3.8-5.2-3.8-8.5s1.2-6.1 3.8-8.5Z"/></svg></span><h3>عربي وإنجليزي من اليوم الأول</h3><p>من الفريق نفسه الذي صنع ركيزة كور، وبالعناية نفسها باللغتين.</p></div></div>
+  </div>
+</section>
+
+<section class="pt-0">
+  <div class="wrap">
+    <div class="contact reveal">
+      <div class="stack">
+        <h2>ما الإضافات التي لا تستغني عنها في بثّك؟</h2>
+        <p class="muted">أخبرنا على GitHub. لا نجمع عناوين البريد، وعندما تجهز أون إير سنعلن عنها هنا وعلى GitHub.</p>
+      </div>
+      <div class="row"><a class="btn btn-primary" href="https://github.com/SayedLabs/corefold/issues/new?title=Rakiza%20OnAir%3A%20" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 0 0-2.85 17.54c.45.08.62-.2.62-.43v-1.6c-2.5.54-3.03-1.2-3.03-1.2-.41-1.04-1-1.32-1-1.32-.82-.56.06-.55.06-.55.9.06 1.38.93 1.38.93.8 1.38 2.11.98 2.62.75.08-.58.31-.98.57-1.2-2-.23-4.1-1-4.1-4.45 0-.98.35-1.79.93-2.42-.1-.23-.4-1.14.09-2.38 0 0 .76-.24 2.47.93a8.6 8.6 0 0 1 4.5 0c1.71-1.17 2.47-.93 2.47-.93.49 1.24.18 2.15.09 2.38.58.63.93 1.44.93 2.42 0 3.46-2.1 4.22-4.11 4.44.32.28.61.83.61 1.67v2.48c0 .24.16.52.62.43A9 9 0 0 0 12 3Z" fill="currentColor" stroke="none"/></svg>شارك فكرة</a></div>
+    </div>
+    <p class="muted fine">OBS Studio علامة تجارية لمالكيها. ركيزة أون إير إضافة مستقلة، وليست من صنع مشروع OBS ولا معتمدة منه.</p>
+  </div>
+</section>
+</main>
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="about">
+        <a class="brand" href="../../ar/" aria-label="ركيزة لابز"><svg viewBox="0 0 96 96" aria-hidden="true"><g fill="currentColor"><rect x="22" y="16" width="15" height="50" rx="3"/><path d="M37 16H53A18 18 0 0 1 53 52H37V40H53A6 6 0 0 0 53 28H37Z"/><path d="M46 52H61L74 66H59Z"/></g><rect x="14" y="73" width="68" height="8" rx="4" fill="var(--gold)"/></svg><span class="word"><b>ركيزة</b><small class="ltr">RAKIZA LABS</small></span></a>
+        <p>برامج هادئة وخفيفة لويندوز، وملفاتك تبقى على جهازك.</p>
+      </div>
+      <div><h4>البرامج</h4><ul>
+        <li><a href="../../ar/core/">ركيزة كور</a></li>
+        <li><a href="../../ar/onair/">ركيزة أون إير</a></li>
+        <li><a href="../../ar/core/changelog/">الجديد</a></li>
+      </ul></div>
+      <div><h4>ركيزة لابز</h4><ul>
+        <li><a href="../../ar/#principles">كيف نبني</a></li>
+        <li><a href="../../ar/privacy.html">الخصوصية</a></li>
+        <li><a href="../../ar/#contact">تواصل معنا</a></li>
+      </ul></div>
+      <div><h4>المساعدة</h4><ul>
+        <li><a href="https://github.com/SayedLabs/corefold/issues/new?labels=bug" rel="noopener">أبلغ عن مشكلة</a></li>
+        <li><a href="https://github.com/SayedLabs/corefold/issues/new?labels=idea" rel="noopener">اقترح فكرة</a></li>
+        <li><a href="https://github.com/SayedLabs/corefold/releases" rel="noopener">كل الإصدارات</a></li>
+      </ul></div>
+    </div>
+    <div class="foot-base">
+      <span class="base-line">© <span data-year>2026</span> ركيزة لابز</span>
+      <span>بلا ملفات تعريف ارتباط، وبلا إحصاءات أو تتبّع.</span>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

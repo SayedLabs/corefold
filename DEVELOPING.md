@@ -25,10 +25,19 @@ automatically.
 3. Every installed copy of Rakiza Core picks it up and updates itself (see [Updates](README.md#updates)).
 
 ## Website
-The `docs` folder is a ready-made download page. To put it online for free: on GitHub open
-**Settings → Pages**, under *Branch* choose **main** and **/docs**, click **Save**. A minute later it's
-at `https://sayedlabs.github.io/corefold/` with a big download button that always points at the
-newest release, plus an "Is it safe?" section that explains the Windows warning.
+The `docs` folder is the Rakiza Labs website (rakizalabs.com), in English and Arabic: the company home,
+Rakiza Core (with What's new), Rakiza OnAir (coming soon) and Privacy. GitHub Pages serves it from
+**main** and **/docs** (Settings → Pages). It's plain HTML with no build step on GitHub's side.
+
+- The page text lives in `scripts/build_site.py` (and `scripts/site_text/` for the privacy policy); the look is
+  `docs/assets/css/site.css`. After changing either, run `python scripts/build_site.py` and commit `docs/`.
+- **After writing release notes, run it too**: What's new on the site is made from `assets/release-notes`, and
+  `tests/test_site.py` fails until the site lists every release.
+- New app pictures: run **Actions → README pictures**, clone the `screenshots` branch, then
+  `python scripts/build_site.py --shots <that clone>/readme`.
+- Fonts and pictures are served by the site itself, there are no cookies or trackers, and the only outside
+  request is the download button asking GitHub for the newest release. Keep it that way (the pages carry a
+  strict Content-Security-Policy), and update the policy's "This website" part if that ever changes.
 
 ## Checking it on a real Windows PC
 These run on one of GitHub's Windows PCs. Start them from the **Actions** tab → pick one → **Run workflow**.

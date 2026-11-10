@@ -34,7 +34,10 @@ os.environ.setdefault("COREFOLD_WAKE_ORGANIZER", "1")  # (File Organizer rests i
 import corefold  # noqa: E402
 
 if corefold.__version__ == "dev":  # (the sidebar shows it: "Version dev" looks unfinished in a picture)
-    corefold.__version__ = os.environ.get("COREFOLD_SHOW_VERSION", "1.13.0")
+    _notes = [f.name[:-3] for f in (Path(__file__).resolve().parent.parent / "assets" / "release-notes").glob("*.md")
+              if not f.name.endswith(".ar.md")]  # (the newest version that has notes: what people have now)
+    _newest = max(_notes, key=lambda v: tuple(int(x) for x in v.split(".")), default="2.0.0")
+    corefold.__version__ = os.environ.get("COREFOLD_SHOW_VERSION", _newest)
 
 from PIL import Image, ImageDraw, ImageFilter  # noqa: E402
 
@@ -306,6 +309,17 @@ def archive_window():  # what's inside an archive, in its own window
     settle(0.3)
 
 
+def space_map():  # a real map of a folder (the Python install of this PC: real names, real sizes)
+    w.open_page("Space")
+    settle(0.5)
+    pg = w.space_page
+    pg.look_at(Path(sys.base_prefix))
+    end = time.time() + 120
+    while pg.job is not None and time.time() < end:
+        settle(0.3)
+    grab(w, "space", 1.2)
+
+
 step("home", home)
 step("search", search)
 step("store", page("Files", "store"))
@@ -315,6 +329,8 @@ step("archive-window", archive_window)
 step("organizer", organizer)
 step("unlock", page("Unlock", "unlock"))
 step("cloud", cloud)
+step("space", space_map)
+step("apps", page("Apps", "apps", 3.0))
 step("resting", page("Media", "resting"))  # a section resting for now: what's coming back
 step("look", page("Look", "look"))
 w.hide()
