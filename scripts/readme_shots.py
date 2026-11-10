@@ -306,6 +306,17 @@ def archive_window():  # what's inside an archive, in its own window
     settle(0.3)
 
 
+def space_map():  # a real map of a folder (the Python install of this PC: real names, real sizes)
+    w.open_page("Space")
+    settle(0.5)
+    pg = w.space_page
+    pg.look_at(Path(sys.base_prefix))
+    end = time.time() + 120
+    while pg.job is not None and time.time() < end:
+        settle(0.3)
+    grab(w, "space", 1.2)
+
+
 step("home", home)
 step("search", search)
 step("store", page("Files", "store"))
@@ -315,6 +326,8 @@ step("archive-window", archive_window)
 step("organizer", organizer)
 step("unlock", page("Unlock", "unlock"))
 step("cloud", cloud)
+step("space", space_map)
+step("apps", page("Apps", "apps", 3.0))
 step("resting", page("Media", "resting"))  # a section resting for now: what's coming back
 step("look", page("Look", "look"))
 w.hide()
