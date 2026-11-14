@@ -641,6 +641,18 @@ class _DropCover(QWidget):
 
 # ----------------------------------------------------------------------------- Activity
 
+def _open_file(p: Path):
+    """Opens it with its app; a kind of file no app opens yet gets Windows' "Open with" box, as in Explorer (it
+    did nothing at all before)."""
+    from .core import os_open
+    try:
+        if p.exists():
+            os_open(p)
+    except OSError:
+        from .winutil import open_with
+        open_with(p)
+
+
 def _when(stamp: float) -> str:
     moment = QDateTime.fromSecsSinceEpoch(int(stamp))
     loc = QLocale()
@@ -2157,11 +2169,10 @@ class FilesWorkspace(QWidget):
             self.table.selectAll()
 
     def _row_menu(self, item, where: QPoint):
-        from .core import os_open
         from .winutil import reveal_in_explorer
         p = Path(item.data(COL_NAME, Qt.UserRole))
         menu = QMenu(self)
-        menu.addAction(tr("Open"), lambda: os_open(p) if p.exists() else None)
+        menu.addAction(tr("Open"), lambda: _open_file(p))
         menu.addAction(tr("Show in folder"), lambda: reveal_in_explorer(p))
         menu.addSeparator()
         menu.addAction(icons.icon("dismiss", self.t.tokens.text), tr("Remove from list"),
@@ -2171,13 +2182,9 @@ class FilesWorkspace(QWidget):
         menu.popup(where)
 
     def _open_item(self, item, col):
-        from .core import os_open
         if col in (COL_CHECK, COL_MORE):
             return
-        try:
-            os_open(Path(item.data(COL_NAME, Qt.UserRole)))
-        except OSError:
-            pass
+        _open_file(Path(item.data(COL_NAME, Qt.UserRole)))
 
     def remove_selected(self):
         self.panel.later(lambda: self.state.remove(list(self.state.selected)))
@@ -2371,6 +2378,9 @@ class FilesWorkspace(QWidget):
     def hideEvent(self, e):
         super().hideEvent(e)
         self.panel.close_inline()
+        # (a tool that asked first and then gave up, "This PDF already has a password", left it armed: its "Save
+        # to" then went with every job started from another page)
+        self.panel.disarm()
 
     # ---- dropping files anywhere on the workspace
 

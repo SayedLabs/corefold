@@ -110,3 +110,17 @@ def test_every_page_is_a_slide(qapp, tmp_path):
     pres = pptx.Presentation(str(out))
     assert len(pres.slides) == 3
     assert abs(pres.slide_width / pres.slide_height - 595 / 842) < 0.01
+
+
+def test_long_numbers_stay_whole_and_numbers_keep_their_look(tmp_path):
+    # (Excel keeps 15 digits: a card or account number as a number would end in zeros)
+    assert pdfoffice.number("4111111111111111") is None
+    assert pdfoffice.number("123456789012345") == 123456789012345
+    out = tmp_path / "t.xlsx"
+    pdfoffice.write_xlsx(out, [("Page 1", [["15%", "12.5%", "1,234", "1,234.50", "7", "4111111111111111"]], False)])
+    _parts_parse(out)
+    openpyxl = pytest.importorskip("openpyxl")
+    ws = openpyxl.load_workbook(out).active
+    cells = [c for c in next(ws.iter_rows())]
+    assert [c.value for c in cells] == [0.15, 0.125, 1234, 1234.5, 7, "4111111111111111"]
+    assert [c.number_format for c in cells[:5]] == ["0%", "0.00%", "#,##0", "#,##0.00", "General"]
