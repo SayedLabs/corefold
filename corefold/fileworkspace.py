@@ -42,6 +42,8 @@ KIND_WORDS = {"image": "Picture", "audio": "Sound", "video": "Video", "pdf": "PD
               "archive": "Archive", "folder": "Folder", "other": "File"}
 KIND_ICONS = {"image": "image", "audio": "music_note_2", "video": "video", "pdf": "document_pdf",
               "document": "document_text", "archive": "archive", "folder": "folder", "other": "document"}
+KIND_COLORS = {"image": None, "audio": "#e8912d", "video": "#8b6cf0", "pdf": "#e5534b", "document": "#3b82f6",
+               "archive": "#c99a2e", "folder": "#d9a520", "other": None}   # (None: the logo's teal / quiet grey)
 CHIP_NAMES = {"convert": "Convert", "pdf": "PDF", "archive": "Archive", "organize": "Organize", "protect": "Protect"}
 COL_CHECK, COL_NAME, COL_TYPE, COL_SIZE, COL_STATUS, COL_MORE = range(6)
 
@@ -105,6 +107,7 @@ def css(t) -> str:
     p = t.tokens
     teal, on_teal = BRAND[t.dark]
     soft = _soft(t)
+    row_soft = _soft(t, 0.14 if t.dark else 0.08)
     hover = QColor(teal).lighter(110 if t.dark else 92).name()
     lead = "right" if is_rtl() else "left"
     return f"""
@@ -114,24 +117,31 @@ QWidget#filesWorkspace QPushButton#primary:hover, QPushButton#addFiles:hover, QP
         background: {hover}; border-color: {hover}; }}
 QPushButton#bigAction:disabled, QPushButton#addFiles:disabled, QWidget#filesWorkspace QPushButton#primary:disabled {{
         background: {p.select.name()}; border-color: {p.select.name()}; color: {p.faint.name()}; }}
-QPushButton#addFiles {{ border-radius: 10px; padding: 0 18px; font-weight: 700; min-height: 40px; max-height: 40px; }}
+QPushButton#addFiles {{ border-radius: 10px; padding: 0 18px; font-weight: 700; min-height: 38px; max-height: 38px; }}
 QPushButton#bigAction {{ border-radius: 10px; padding: 0 16px; font-weight: 700; font-size: 15px; min-height: 44px; }}
-QPushButton#allTools {{ border-radius: 10px; padding: 0 14px; min-height: 40px; max-height: 40px; }}
-QLineEdit#toolSearch {{ border-radius: 10px; padding: 0 10px; min-height: 30px; max-height: 30px; }}
-QComboBox#saveTo, QLineEdit#outputName {{ min-height: 26px; }}
+QPushButton#allTools {{ border-radius: 10px; padding: 0 14px; min-height: 38px; max-height: 38px; font-weight: 600; }}
+QLineEdit#toolSearch {{ border-radius: 10px; padding: 0 10px; min-height: 38px; max-height: 38px;
+        background: {p.surface.name()}; border: 1px solid {p.line_strong.name()}; }}
+QLineEdit#toolSearch:focus {{ border-color: {teal}; }}
+QComboBox#saveTo, QLineEdit#outputName {{ min-height: 30px; border-radius: 8px; }}
 QLabel#fieldLabel {{ font-weight: 600; }}
+QLabel#sectionLabel {{ color: {p.muted.name()}; font-size: 11px; font-weight: 700; letter-spacing: 0.4px; }}
+QLabel#countPill {{ background: {soft}; color: {teal}; border-radius: 9px; padding: 1px 8px; font-size: 11px;
+        font-weight: 700; }}
+QLabel#stepNumber {{ background: {soft}; color: {teal}; border-radius: 12px; font-weight: 700; }}
+QLabel#panelTitle {{ font-size: 16px; font-weight: 700; }}
 QWidget#filesWorkspace QPushButton#link {{ background: transparent; border: none; padding: 2px 4px; color: {teal};
         font-weight: 600; text-align: {lead}; }}
 QWidget#filesWorkspace QPushButton#link:hover {{ text-decoration: underline; }}
-QFrame#filesCard {{ background: {p.surface.name()}; border: 1px solid {p.border.name()}; border-radius: 12px; }}
-QLabel#libTitle {{ font-size: 17px; font-weight: 700; }}
+QFrame#filesCard {{ background: {p.surface.name()}; border: 1px solid {p.border.name()}; border-radius: 14px; }}
+QLabel#libTitle {{ font-size: 16px; font-weight: 700; }}
 QFrame#vline {{ background: {p.line_strong.name()}; }}
-QFrame#libTile {{ background: transparent; border: 1px solid {p.line_strong.name()}; border-radius: 10px; }}
-QFrame#libTile:hover {{ background: {p.hover.name()}; }}
+QFrame#libTile {{ background: {p.canvas.name()}; border: 1px solid {p.border.name()}; border-radius: 12px; }}
+QFrame#libTile:hover {{ background: {p.hover.name()}; border-color: {p.line_strong.name()}; }}
 QFrame#libTile:focus {{ border-color: {teal}; }}
 QFrame#libTile[picked="true"] {{ border-color: {teal}; background: {soft}; }}
-QFrame#comingTile {{ background: transparent; border: 1px dashed {p.line_strong.name()}; border-radius: 10px; }}
-QLabel#tileName {{ font-weight: 600; }}
+QFrame#comingTile {{ background: transparent; border: 1px dashed {p.line_strong.name()}; border-radius: 12px; }}
+QLabel#tileName {{ font-weight: 600; font-size: 12px; }}
 QLabel#statusPill {{ background: {p.raised.name()}; border: 1px solid {p.line_strong.name()}; border-radius: 8px;
         padding: 0 6px; color: {p.muted.name()}; font-weight: 600; font-size: 11px; }}
 QLabel#fitNote {{ background: {p.canvas.name()}; border: 1px solid {p.border.name()}; border-{lead}: 3px solid {p.warning.name()};
@@ -140,29 +150,28 @@ QLabel#fitStop {{ background: {p.canvas.name()}; border: 1px solid {p.border.nam
         border-radius: 8px; padding: 7px 10px; }}
 QPushButton#slot {{ padding: 5px 12px; border-radius: 8px; }}
 QPushButton#slot:checked {{ background: {soft}; border-color: {teal}; }}
-QPushButton#chip {{ background: transparent; border: 1px solid {p.line_strong.name()}; border-radius: 12px;
-        padding: 3px 14px; min-height: 18px; color: {p.text.name()}; }}
+QPushButton#chip {{ background: transparent; border: 1px solid {p.line_strong.name()}; border-radius: 13px;
+        padding: 3px 14px; min-height: 20px; color: {p.text.name()}; font-weight: 600; }}
 QPushButton#chip:hover {{ background: {p.hover.name()}; }}
 QPushButton#chip:checked {{ background: {teal}; border-color: {teal}; color: {on_teal}; }}
-QPushButton#toolChip {{ background: transparent; border: 1px solid {p.line_strong.name()}; border-radius: 9px;
+QPushButton#toolChip {{ background: {p.canvas.name()}; border: 1px solid {p.border.name()}; border-radius: 10px;
         padding: 6px 12px; }}
-QPushButton#toolChip:hover {{ background: {p.hover.name()}; }}
+QPushButton#toolChip:hover {{ background: {p.hover.name()}; border-color: {p.line_strong.name()}; }}
 QPushButton#toolChip:checked {{ background: {soft}; border: 2px solid {teal}; padding: 5px 11px; }}
-QFrame#dropArea {{ background: transparent; border: 1.5px dashed {p.line_strong.name()}; border-radius: 10px; }}
-QFrame#dropArea:hover {{ border-color: {teal}; }}
 QTreeWidget#fileTable {{ background: transparent; border: none; }}
-QTreeWidget#fileTable::item {{ padding: 7px 2px; border-bottom: 1px solid {p.border.name()}; }}
-QTreeWidget#fileTable::item:selected {{ background: {soft}; color: {p.text.name()}; }}
+QTreeWidget#fileTable::item {{ padding: 4px 2px; border-bottom: 1px solid {p.border.name()}; }}
+QTreeWidget#fileTable::item:selected {{ background: {row_soft}; color: {p.text.name()}; }}
 QTreeWidget#fileTable::item:hover:!selected {{ background: {p.hover.name()}; }}
 QTreeWidget#fileTable QHeaderView::section {{ background: {p.surface.name()}; border: none;
-        border-bottom: 1px solid {p.border.name()}; padding: 8px 4px; font-weight: 600; color: {p.text.name()}; }}
-QFrame#mergeRow {{ background: {p.canvas.name()}; border: 1px solid {p.border.name()}; border-radius: 8px; }}
+        border-bottom: 1px solid {p.border.name()}; padding: 10px 4px; font-weight: 600; font-size: 12px;
+        color: {p.muted.name()}; }}
+QFrame#mergeRow {{ background: {p.canvas.name()}; border: 1px solid {p.border.name()}; border-radius: 10px; }}
 QListWidget#mergeList {{ background: transparent; border: none; outline: none; }}
 QListWidget#mergeList::item {{ background: transparent; border: none; padding: 0; }}
 QLabel#orderNumber {{ background: {p.raised.name()}; border: 1px solid {p.line_strong.name()}; border-radius: 5px;
         padding: 0 6px; color: {p.muted.name()}; }}
-QProgressBar#opBar {{ background: {p.select.name()}; border: none; border-radius: 4px; min-height: 8px; max-height: 8px; }}
-QProgressBar#opBar::chunk {{ background: {teal}; border-radius: 4px; }}
+QProgressBar#opBar {{ background: {p.select.name()}; border: none; border-radius: 3px; min-height: 6px; max-height: 6px; }}
+QProgressBar#opBar::chunk {{ background: {teal}; border-radius: 3px; }}
 QFrame#activityRow {{ border-top: 1px solid {p.border.name()}; }}
 """
 
@@ -185,8 +194,13 @@ class ElidedLabel(QLabel):
         self.setToolTip(text)
         self._fit()
 
+    def setTextElide(self, mode):
+        self.mode = mode
+        self._fit()
+
     def _fit(self):
-        self.setText(QFontMetrics(self.font()).elidedText(self.full, Qt.ElideRight, max(20, self.width())))
+        mode = getattr(self, "mode", Qt.ElideRight)
+        self.setText(QFontMetrics(self.font()).elidedText(self.full, mode, max(20, self.width())))
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
@@ -307,12 +321,12 @@ class LibTile(QFrame):
         self.setAccessibleName(name)
         self.setAccessibleDescription(tip)
         self.setToolTip(tip or name)
-        self.setFixedSize(118, 86)
+        self.setFixedSize(118, 98)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(6, 12, 6, 8)
-        lay.setSpacing(6)
+        lay.setSpacing(7)
         ic = QLabel()
-        ic.setPixmap(icons.pixmap(icon, 26, QColor(BRAND[t.dark][0]), self.devicePixelRatioF() or 1.0))
+        ic.setPixmap(icons.soft_tile(icon, 38, QColor(BRAND[t.dark][0]), self.devicePixelRatioF() or 1.0))
         ic.setAlignment(Qt.AlignCenter)
         ic.setAttribute(Qt.WA_TransparentForMouseEvents)
         lay.addWidget(ic)
@@ -381,7 +395,7 @@ class ComingTile(QFrame):
         super().__init__()
         self.item = item
         self.setObjectName("comingTile")
-        self.setFixedSize(150, 86)
+        self.setFixedSize(150, 98)
         status = tr(ft.STATUS_NAMES[item.status])
         self.setAccessibleName(f"{tr(item.name)}: {status}")
         self.setToolTip(tr(item.line))
@@ -424,6 +438,18 @@ class _CheckDelegate(QStyledItemDelegate):
         super().paint(p, option, index)
         on = bool(option.state & QStyle.State_Selected)
         _paint_check(p, option.rect, Qt.Checked if on else Qt.Unchecked, self.table.t)
+
+
+class _NameDelegate(QStyledItemDelegate):
+    """The name column: the file's kind on a soft square, a little bigger than the list's other icons."""
+
+    def initStyleOption(self, option, index):
+        super().initStyleOption(option, index)
+        option.decorationSize = QSize(26, 26)
+
+    def sizeHint(self, option, index):
+        size = super().sizeHint(option, index)
+        return QSize(size.width(), max(size.height(), 42))
 
 
 class _CheckHeader(QHeaderView):
@@ -477,12 +503,13 @@ class FileTable(QTreeWidget):
         self.setAllColumnsShowFocus(True)
         self.setSortingEnabled(True)
         self.sortByColumn(-1, Qt.AscendingOrder)
-        self.setIconSize(QSize(20, 20))
+        self.setIconSize(QSize(18, 18))
         self.setFrameShape(QFrame.NoFrame)
         self.setAccessibleName(tr("Files to work on"))
         self.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setItemDelegateForColumn(COL_CHECK, _CheckDelegate(self))
+        self.setItemDelegateForColumn(COL_NAME, _NameDelegate(self))
         head = self.header()
         head.setStretchLastSection(False)
         head.setMinimumSectionSize(30)
@@ -591,7 +618,7 @@ class DropArea(QFrame):
         self.big = big
         t = self.ws.t
         dpr = self.devicePixelRatioF() or 1.0
-        self.icon.setPixmap(icons.soft_tile("arrow_download", 52, QColor(BRAND[t.dark][0]), dpr))
+        self.icon.setPixmap(icons.soft_tile("arrow_download", 60, QColor(BRAND[t.dark][0]), dpr))
         self.icon.setVisible(big)
         self.small_icon.setVisible(not big)
         self.words.setText(tr("Drop files or folders here") if big else tr("Drop more files here"))
@@ -602,13 +629,38 @@ class DropArea(QFrame):
         self.sub.setVisible(big)
         for b in (self.files_btn, self.folder_btn, self.paste_btn):
             b.setVisible(big)
-        self.setMinimumHeight(240 if big else 58)
-        self.setMaximumHeight(16777215 if big else 110)
+        self.setMinimumHeight(260 if big else 56)
+        self.setMaximumHeight(16777215 if big else 64)
         self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
 
     def mouseReleaseEvent(self, e):
         if e.button() == Qt.LeftButton and self.rect().contains(e.position().toPoint()):
             self.ws.add_files()
+
+    def enterEvent(self, e):
+        self._hot = True
+        self.update()
+        super().enterEvent(e)
+
+    def leaveEvent(self, e):
+        self._hot = False
+        self.update()
+        super().leaveEvent(e)
+
+    def paintEvent(self, _e):
+        """A thin dashed edge (the logo's teal under the mouse), on a faint wash when it's the whole card."""
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        t = self.ws.t
+        hot = getattr(self, "_hot", False)
+        edge = QColor(BRAND[t.dark][0]) if hot else QColor(t.tokens.line_strong)
+        wash = QColor(BRAND[t.dark][0])
+        wash.setAlpha((14 if hot else 8) if self.big else (10 if hot else 0))
+        pen = QPen(edge, 1.3, Qt.CustomDashLine)
+        pen.setDashPattern([5, 4])
+        p.setPen(pen)
+        p.setBrush(wash if wash.alpha() else Qt.NoBrush)
+        p.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), 12, 12)
 
 
 class _DropCover(QWidget):
@@ -660,27 +712,33 @@ class OpRow(QFrame):
         self.t = tray.t
         self.setObjectName("activityRow")
         row = QHBoxLayout(self)
-        row.setContentsMargins(4, 8, 4, 8)
+        row.setContentsMargins(2, 10, 2, 10)
         row.setSpacing(12)
         self.mark = QLabel()
-        self.mark.setFixedSize(24, 24)
-        row.addWidget(self.mark, 0, Qt.AlignVCenter)
+        self.mark.setFixedSize(26, 26)
+        row.addWidget(self.mark, 0, Qt.AlignTop)
         words = QVBoxLayout()
-        words.setSpacing(1)
+        words.setSpacing(2)
         self.title = ElidedLabel("", "cardTitle")
         self.detail = ElidedLabel("", "subtle")
+        self.detail.setTextElide(Qt.ElideMiddle)  # (a long folder keeps its end: the part you know)
         words.addWidget(self.title)
         words.addWidget(self.detail)
-        row.addLayout(words, 1)
+        bar_row = QHBoxLayout()  # (a running one: its bar under the words, with how far it is)
+        bar_row.setContentsMargins(0, 4, 0, 0)
+        bar_row.setSpacing(10)
         self.bar = QProgressBar()
         self.bar.setObjectName("opBar")
         self.bar.setRange(0, 1000)
         self.bar.setTextVisible(False)
-        self.bar.setFixedSize(220, 8)
-        row.addWidget(self.bar, 0, Qt.AlignVCenter)
+        self.bar.setMaximumWidth(420)
+        bar_row.addWidget(self.bar, 1)
         self.percent = _label("", "muted")
-        self.percent.setMinimumWidth(40)
-        row.addWidget(self.percent, 0, Qt.AlignVCenter)
+        self.percent.setMinimumWidth(36)
+        bar_row.addWidget(self.percent)
+        bar_row.addStretch()
+        words.addLayout(bar_row)
+        row.addLayout(words, 1)
         self.time = _label("", "muted")
         row.addWidget(self.time, 0, Qt.AlignVCenter)
         self.folder = _button(tr("Open folder"), "small", self._show, "folder_open", self.t.tokens.text)
@@ -710,9 +768,7 @@ class OpRow(QFrame):
             detail = tr("Waiting for the one before it")
             self.mark.setPixmap(_mark("ring", QColor(t.tokens.muted), 24, max(2.0, dpr)))
         elif op.state == fw.RUNNING:
-            detail = tr("Working… {percent}%", percent=pct)
-            if op.detail:
-                detail = f"{detail} · {op.detail}"
+            detail = op.detail or tr("Working…")
             self.mark.setPixmap(_mark("ring", teal, 24, max(2.0, dpr)))
         elif op.state == fw.FINISHED and not op.errors:
             out = self._output()
@@ -851,7 +907,8 @@ class OpsTray(QFrame):
 
     def _show_open(self, on: bool):
         has = bool(self.state.ops)
-        key = (on, has, min(len(self.state.ops), 3))
+        tall = tuple(o.state == fw.RUNNING for o in self.state.ops[:3])  # (a running one has its bar too)
+        key = (on, has, tall)
         if key == getattr(self, "_shown", None):
             return
         self._shown = key
@@ -863,8 +920,7 @@ class OpsTray(QFrame):
         self.fold.setToolTip(words)
         self.fold.setAccessibleName(f"{words}: {tr('Activity')}")
         if has:
-            shown = min(len(self.state.ops), 3)
-            self.area.setFixedHeight(shown * 58 + 2)
+            self.area.setFixedHeight(sum(76 if bar else 60 for bar in tall) + 2)
 
     def open_up(self):
         if not self.c.settings.files_ops_open:
@@ -1122,6 +1178,9 @@ class ToolPanel(QFrame):
             self._tool_view(lay, tool)
         lay.addStretch()
         self.area.setWidget(body)
+        # (the panel as tall as its choices, so they don't scroll behind the big button; very long ones still do)
+        want = body.sizeHint().height() + (self.foot.sizeHint().height() if not self.foot.isHidden() else 0)
+        self.setMinimumHeight(max(560, min(want + 4, 980)))
 
     def _head(self, lay):
         items, sel = self.state.items, self.state.selected
@@ -1135,6 +1194,9 @@ class ToolPanel(QFrame):
             words = tr("No files yet")
         self.head_words = _label(words, "h2", wrap=True)
         head.addWidget(self.head_words, 1)
+        size = self._total(sel or [str(p) for p in items]) if items else None
+        if size is not None:
+            head.addWidget(_label(human_size(size), "countPill"), 0, Qt.AlignVCenter)
         if sel:
             head.addWidget(_icon_button("dismiss", self.t.tokens.muted,
                                         f"{tr('Remove from list')}\n"
@@ -1148,6 +1210,16 @@ class ToolPanel(QFrame):
         lay.addLayout(head)
         if items and not sel:
             lay.addWidget(_label(tr("None selected: the tools work on all of them."), "subtle", wrap=True))
+
+    def _total(self, names) -> int | None:
+        """The size of what's chosen, once every size is known (folders are counted on a thread)."""
+        total = 0
+        for name in names:
+            got = self.state.size_of(Path(name))
+            if got is None or not got[1]:
+                return None
+            total += got[0]
+        return total
 
     def _late_chips(self):
         ft.all_tools_list()
@@ -1180,6 +1252,9 @@ class ToolPanel(QFrame):
             extra = next((t for t in fits if t.id == picked), None)
             if extra is not None:
                 shown.append(extra)
+        if shown:
+            lay.addWidget(_label(tr("Tools for these files") if self.state.items else tr("Popular tools"),
+                                 "sectionLabel"))
         holder = QWidget()
         flow = FlowLayout(holder, spacing=8)
         flow.setContentsMargins(0, 0, 0, 0)
@@ -1230,17 +1305,32 @@ class ToolPanel(QFrame):
 
     def _idle(self, lay):
         if self.state.items:
-            text = tr("Pick a tool above to see its choices here.")
-        else:
-            text = tr("Add files to see the tools that fit them, or pick a tool in the library first.")
-        hint = _label(text, "muted", wrap=True)
-        lay.addWidget(hint)
+            lay.addWidget(_label(tr("Pick a tool above to see its choices here."), "muted", wrap=True))
+            return
+        lay.addWidget(_label(tr("How it works"), "sectionLabel"))
+        for i, words in enumerate((tr("Add files or a whole folder"), tr("Pick a tool that fits them"),
+                                   tr("Press the big button. Your originals stay as they are")), 1):
+            row = QHBoxLayout()
+            row.setSpacing(10)
+            num = _label(str(i), "stepNumber")
+            num.setFixedSize(24, 24)
+            num.setAlignment(Qt.AlignCenter)
+            row.addWidget(num, 0, Qt.AlignTop)
+            row.addWidget(_label(words, None, wrap=True), 1)
+            lay.addLayout(row)
 
     def _tool_view(self, lay, tool: ft.FileTool):
         items = self.state.chosen()
         f = ft.fit(tool, items, self.state.kinds)
-        lay.addWidget(_label(tr(tool.name), "h2", wrap=True))
-        lay.addWidget(_label(tr(tool.line), "muted", wrap=True))
+        title = QHBoxLayout()
+        title.setSpacing(12)
+        title.addWidget(_tile(tool.icon, 40, self.t), 0, Qt.AlignTop)
+        words = QVBoxLayout()
+        words.setSpacing(2)
+        words.addWidget(_label(tr(tool.name), "panelTitle", wrap=True))
+        words.addWidget(_label(tr(tool.line), "muted", wrap=True))
+        title.addLayout(words, 1)
+        lay.addLayout(title)
         if f.skipped and f.ok:  # (nothing is done to what it doesn't take: said before it starts)
             names = ", ".join(short_name(p.name, 30) for p, _ in f.skipped[:3])
             more = f" {tr('…and {count} more', count=len(f.skipped) - 3)}" if len(f.skipped) > 3 else ""
@@ -1903,6 +1993,8 @@ class FilesWorkspace(QWidget):
         left.addWidget(self.files_card, 1)
         self.library = ToolLibrary(self)
         left.addWidget(self.library)
+        left.addStretch(0)  # (with files listed, room left over goes under the library, not into the list)
+        self.left_lay = left
         body.addWidget(self.left_box, 1)
         self.center = self.files_card  # (what the side panel sits beside)
         self.files_card.installEventFilter(self)
@@ -1926,9 +2018,7 @@ class FilesWorkspace(QWidget):
         head = QHBoxLayout(box)
         head.setContentsMargins(0, 0, 0, 0)
         head.setSpacing(14)
-        ic = QLabel()
-        ic.setPixmap(icons.pixmap("folder", 34, self.t.tokens.text, self.devicePixelRatioF() or 1.0))
-        head.addWidget(ic, 0, Qt.AlignVCenter)
+        head.addWidget(_tile("folder", 48, self.t), 0, Qt.AlignVCenter)
         words = QVBoxLayout()
         words.setSpacing(0)
         words.addWidget(_label(tr(self.sec.name), "h1"))
@@ -1950,7 +2040,8 @@ class FilesWorkspace(QWidget):
         self.find.setMinimumWidth(160)
         self.find.textChanged.connect(self._find)
         self.find.returnPressed.connect(self._find_enter)
-        self.all_btn = _button(tr("All tools"), "allTools", self._all_menu, "grid", t.text)
+        self.all_btn = _button(f"{tr('All tools')}  ▾", "allTools", self._all_menu, "grid", t.text)
+        self.all_btn.setAccessibleName(tr("All tools"))
         self.all_btn.setLayoutDirection(Qt.LeftToRight if not is_rtl() else Qt.RightToLeft)
         self.tools_btn = _button(tr("Tools"), "allTools", self._toggle_panel, "puzzle_piece", t.text)
         self.tools_btn.setCheckable(True)
@@ -2008,6 +2099,9 @@ class FilesWorkspace(QWidget):
         has = bool(self.state.items)
         self.table.setVisible(has)
         self.drop.set_big(not has)
+        if hasattr(self, "left_lay"):
+            self.left_lay.setStretch(1, 0 if has else 1)
+            self.left_lay.setStretch(self.left_lay.count() - 1, 1 if has else 0)
         self._fill_table()
         self._fit_table()
         self._fit_panel()
@@ -2020,6 +2114,29 @@ class FilesWorkspace(QWidget):
         cache = self.__dict__.setdefault("_icons", {})
         if key not in cache:
             cache[key] = icons.icon(name, color)
+        return cache[key]
+
+    def _kind_icon(self, kind: str) -> object:
+        """A file's kind as a small icon on a soft square of its colour (PDFs red, videos violet…)."""
+        from PySide6.QtGui import QIcon
+        t = self.t
+        color = KIND_COLORS.get(kind) or (BRAND[t.dark][0] if kind == "image" else t.tokens.muted.name())
+        key = ("kind:" + kind, QColor(color).name())
+        cache = self.__dict__.setdefault("_icons", {})
+        if key not in cache:
+            pm = QPixmap(52, 52)
+            pm.setDevicePixelRatio(2.0)
+            pm.fill(Qt.transparent)
+            p = QPainter(pm)
+            p.setRenderHint(QPainter.Antialiasing)
+            p.setPen(Qt.NoPen)
+            soft = QColor(color)
+            soft.setAlpha(46 if t.dark else 34)
+            p.setBrush(soft)
+            p.drawRoundedRect(QRectF(0, 0, 26, 26), 7, 7)
+            p.drawPixmap(4, 4, icons.pixmap(KIND_ICONS.get(kind, "document"), 18, QColor(color), 2.0))
+            p.end()
+            cache[key] = QIcon(pm)
         return cache[key]
 
     def _mark_icon(self, kind: str, color) -> object:
@@ -2041,7 +2158,6 @@ class FilesWorkspace(QWidget):
             chosen = set(self.state.selected)
             rows, picked = [], []
             more = self._icon("more_horizontal", t.tokens.muted)
-            pdf_red = QColor("#e5534b")
             for p in self.state.items:
                 name = str(p)
                 kind = self.state.kinds.get(name, "other")
@@ -2049,9 +2165,7 @@ class FilesWorkspace(QWidget):
                 item.setData(COL_NAME, Qt.UserRole, name)
                 item.setText(COL_NAME, short_name(p.name, 70))
                 item.setToolTip(COL_NAME, name)
-                item.setIcon(COL_NAME, self._icon(KIND_ICONS.get(kind, "document"),
-                                                  pdf_red if kind == "pdf" else BRAND[t.dark][0] if kind == "image"
-                                                  else t.tokens.muted))
+                item.setIcon(COL_NAME, self._kind_icon(kind))
                 item.setText(COL_TYPE, tr("Folder") if kind == "folder" else
                              p.suffix[1:].upper() if p.suffix else tr(KIND_WORDS.get(kind, "File")))
                 self._size_cell(item, p)
