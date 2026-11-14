@@ -119,7 +119,7 @@ try:
                 # (one tool: its tools' switches are in its library, behind Switch tools on or off)
                 manage = [b for b in win.descendants(control_type="Button") if b.window_text() == "Switch tools on or off"]
                 if not manage:
-                    lib = [b for b in win.descendants(control_type="Button") if b.window_text() == "All tools"]
+                    lib = [b for b in win.descendants(control_type="Button") if b.window_text().startswith("All tools")]
                     if check(bool(lib), f"{sec.name} has All tools"):
                         click(lib[0])
                         time.sleep(0.8)
