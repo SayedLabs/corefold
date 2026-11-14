@@ -514,11 +514,13 @@ def private_spans(text: str, kinds, words=()) -> list[tuple[int, int]]:
                     continue
             spans.append((m.start(), m.end()))
     for word in words:
-        word = " ".join(str(word).split())
-        if len(word) < 2:
+        parts = str(word).translate(_DIGITS).split()
+        if len(" ".join(parts)) < 2:
             continue
-        spans += [(m.start(), m.end()) for m in re.finditer(re.escape(word.translate(_DIGITS)), plain,
-                                                             re.IGNORECASE)]
+        # (a name typed with a space is found where the page breaks the line between its words too: left
+        # uncovered there, it would still be in the saved copy)
+        pat = r"\s+".join(re.escape(part) for part in parts)
+        spans += [(m.start(), m.end()) for m in re.finditer(pat, plain, re.IGNORECASE)]
     spans.sort()
     joined: list[tuple[int, int]] = []
     for a, b in spans:

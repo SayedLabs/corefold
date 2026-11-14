@@ -504,15 +504,16 @@ class PageNumbersDialog(Base):
         self.place = Dropdown()
         for k, v in NUMBER_PLACES.items():
             self.place.addItem(tr(v), k)
-        self.style = Dropdown()
-        self.style.addItem("1, 2, 3…", "n")
-        self.style.addItem("1 / 12, 2 / 12…", "of")
-        self.style.addItem("١، ٢، ٣…", "ar")  # (the digits Arabic is written with)
-        self.style.addItem("١ / ١٢، ٢ / ١٢…", "ar_of")
+        self.look = Dropdown()  # (not self.style: that's every widget's own style(), which
+        # showing it in Files' side panel calls)
+        self.look.addItem("1, 2, 3…", "n")
+        self.look.addItem("1 / 12, 2 / 12…", "of")
+        self.look.addItem("١، ٢، ٣…", "ar")  # (the digits Arabic is written with)
+        self.look.addItem("١ / ١٢، ٢ / ١٢…", "ar_of")
         grid.addWidget(QLabel(tr("Where")), 0, 0)
         grid.addWidget(self.place, 0, 1)
         grid.addWidget(QLabel(tr("Style")), 1, 0)
-        grid.addWidget(self.style, 1, 1)
+        grid.addWidget(self.look, 1, 1)
         self.first = QSpinBox()  # (a chapter on its own, or a PDF that goes after another)
         self.first.setRange(1, 99999)
         self.first.setAccessibleName(tr("Start at"))
@@ -528,7 +529,7 @@ class PageNumbersDialog(Base):
         self.buttons(tr("Number them"))
 
     def params(self):
-        return {"place": self.place.currentData(), "style": self.style.currentData(),
+        return {"place": self.place.currentData(), "style": self.look.currentData(),
                 "skip": 1 if self.skip.isChecked() else 0, "start": self.first.value()}
 
 

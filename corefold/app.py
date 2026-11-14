@@ -2180,7 +2180,16 @@ class Controller(QObject):
         self.jobs[job_id] = {"tool": tool, "files": files, "bytes_in": 0,
                              "params": params, "rename": rename or {}, "after": after, "quick": quick,
                              "what": what, "carry": carry or {"outputs": [], "errors": []}, "then": then}
-        save_to = self.files_work.save_to  # (Files' "Save to", for what's started from its side panel)
+        # Files' "Save to", for what's started from its side panel: only for files on its list (a conversion from
+        # Explorer's right-click menu while a tool waits there saves where it always does), and kept for the same
+        # job tried again with a password (the side panel has let go of it by then)
+        if carry is not None and "save_to" in carry:
+            save_to = carry["save_to"]
+        else:
+            save_to = self.files_work.save_to
+            if save_to is not None and not self.files_work.listed(files):
+                save_to = None
+        self.jobs[job_id]["save_to"] = save_to
         if not quick and after not in ("open", "open_with", "reload"):  # (opening a file from an archive isn't one)
             self.files_work.job_added(job_id, tool, (carry or {}).get("files") or files, params, rename or {}, what)
         if self.settings.show_progress:
@@ -2242,7 +2251,8 @@ class Controller(QObject):
                         b.password = password
                 keep = {"outputs": carry["outputs"] + result.outputs,
                         "errors": carry["errors"] + [e for e in errors if password_error not in e],
-                        "files": carry.get("files") or files, "bytes_in": carry.get("bytes_in") or job["bytes_in"]}
+                        "files": carry.get("files") or files, "bytes_in": carry.get("bytes_in") or job["bytes_in"],
+                        "save_to": job.get("save_to")}
                 self.files_work.job_retried(job_id)
                 self.start_job(tool, retry or files, dict(job["params"], password=password), job["rename"],
                                job["after"], carry=keep, then=job.get("then"))

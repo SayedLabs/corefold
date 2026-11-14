@@ -112,7 +112,8 @@ class WorkState(QObject):
         self.remove([str(p) for p in self.items])
 
     def select(self, names: list[str]):
-        names = [n for n in names if any(str(p) == n for p in self.items)]
+        known = self._names()
+        names = [n for n in names if n in known]
         if names != self.selected:
             self.selected = names
             self.files_changed.emit()
@@ -123,6 +124,14 @@ class WorkState(QObject):
             return list(self.items)
         picked = set(self.selected)
         return [p for p in self.items if str(p) in picked]
+
+    def _names(self) -> set[str]:
+        return {str(p) for p in self.items}
+
+    def listed(self, files: list) -> bool:
+        """Every one of these is on the list (a job started from the side panel, not from somewhere else)."""
+        known = self._names()
+        return bool(files) and all(str(f) in known for f in files)
 
     def size_of(self, p: Path) -> tuple[int, bool] | None:
         return self.sizes.get(str(p))
@@ -154,15 +163,16 @@ class WorkState(QObject):
 
     def _sized(self, name: str, size: int, done: bool):
         self._counting.discard(name)
-        if any(str(p) == name for p in self.items):
+        if name in self._names():
             self.sizes[name] = (size, done)
             self.statuses_changed.emit()
 
     def set_status(self, files: list, state: str, words: str = ""):
         changed = False
+        known = self._names()  # (once: a job on thousands of photos looked through the whole list for each one)
         for f in files:
             n = str(f)
-            if any(str(p) == n for p in self.items):
+            if n in known:
                 self.status[n] = (state, words)
                 changed = True
         if changed:

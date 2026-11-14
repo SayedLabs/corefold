@@ -9,3 +9,6 @@ pip-audit==2.10.1
 wsgidav==4.4.0
 cheroot==11.1.2
 pyftpdlib==2.2.0
+# opens the Excel and PowerPoint files PDF makes the way Office would (without them those checks are skipped)
+openpyxl==3.1.5
+python-pptx==1.0.2
