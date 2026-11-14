@@ -116,6 +116,8 @@ def number(text: str):
         return None
     if len(t) > 1 and t[0] == "0" and t[1].isdigit():
         return None  # (0551234567, 007: a phone or a code, its 0 kept)
+    if sum(ch.isdigit() for ch in t) > 15:
+        return None  # (a card, account or invoice number: Excel keeps 15 digits, the rest would become 0)
     neg = t.startswith("(") and t.endswith(")")
     pct = t.endswith("%")
     t = t.strip("()%+").replace(",", "").replace("٬", "").replace("٫", ".")
@@ -128,6 +130,21 @@ def number(text: str):
 
 
 # ----------------------------------------------------------------------------- an Excel file (.xlsx)
+
+# how a number is shown, as it was written in the PDF (styles.xml's cellXfs, in this order): 15% stays 15%,
+# not 0.15, and 1,234.50 keeps its thousands and its two decimals
+_LOOKS = (0, 9, 10, 3, 4)  # (general, 0%, 0.00%, #,##0, #,##0.00: Excel's own number formats)
+
+
+def _number_style(text: str) -> int:
+    t = text.strip().translate(_DIGITS)
+    decimals = bool(re.search(r"[.٫]\d", t))
+    if t.endswith("%") or t.endswith("%)"):
+        return 2 if decimals else 1
+    if "," in t or "٬" in t:
+        return 4 if decimals else 3
+    return 0
+
 
 def _col(n: int) -> str:
     s = ""
@@ -150,7 +167,9 @@ def _sheet_xml(rows: list[list[str]], rtl: bool) -> str:
             ref = f"{_col(c)}{r}"
             v = number(text)
             if v is not None:
-                cells.append(f'<c r="{ref}"><v>{v:.15g}</v></c>')
+                look = _number_style(text)
+                style = f' s="{look}"' if look else ""
+                cells.append(f'<c r="{ref}"{style}><v>{v:.15g}</v></c>')
             else:
                 cells.append(f'<c r="{ref}" t="inlineStr"><is><t xml:space="preserve">{_x(text)}</t></is></c>')
         if cells:
@@ -212,7 +231,10 @@ def write_xlsx(out: Path, sheets: list[tuple[str, list[list[str]], bool]]):
               '<fill><patternFill patternType="gray125"/></fill></fills>'
               '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
               '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-              '<cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs>'
+              f'<cellXfs count="{len(_LOOKS)}">'
+              + "".join(f'<xf numFmtId="{n}" fontId="0" fillId="0" borderId="0" xfId="0"'
+                        + (' applyNumberFormat="1"' if n else "") + "/>" for n in _LOOKS)
+              + '</cellXfs>'
               '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
               '</styleSheet>')
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:

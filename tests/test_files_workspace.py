@@ -393,3 +393,96 @@ def test_narrow_window_folds_the_side_panel(window, files, qtbot):
         ws.tools_btn.click()
         assert ws.panel.isVisible()
 
+
+
+# ---- "Save to" belongs to what's started from the side panel, and only to that
+
+def _locked_pdf(path, password="pw"):
+    from pypdf import PdfReader, PdfWriter
+    w = PdfWriter(clone_from=PdfReader(str(_pdf(path.with_name("open-" + path.name)))))
+    w.encrypt(password, password, algorithm="AES-256")
+    with open(path, "wb") as fh:
+        w.write(fh)
+    return path
+
+
+def test_save_to_lets_go_when_a_tool_gives_up_and_the_page_is_left(window, files, qtbot):
+    w = window
+    ws = w.files_workspace
+    st = w.c.files_work
+    st.add([_locked_pdf(files / "locked.pdf")])
+    ws.choose_tool("pdf.lock")  # ("This PDF already has a password": nothing is asked, nothing starts)
+    qtbot.wait(300)
+    assert not st.ops
+    w.open_page("Home")
+    QApplication.processEvents()
+    assert st.save_to is None and not ws.panel.armed  # (a conversion from another page saves where it always does)
+
+
+def test_save_to_is_only_for_files_on_the_list(window, files, tmp_path):
+    from corefold import tools as T  # noqa: F401
+    from corefold.core import Result, Tool
+    st = window.c.files_work
+    st.add([files / "photo.jpg"])
+    picked = tmp_path / "picked"
+    picked.mkdir()
+    seen = {}
+
+    def note(fs, ctx):
+        seen[fs[0].name] = ctx.options.output_folder
+        return Result([])
+    tool = Tool("test:note", "Note", "Note", note, batch=True)
+    st.save_to = str(picked)
+    try:
+        window.c.start_job(tool, [files / "photo.jpg"])
+        window.c.start_job(tool, [files / "logo.png"])  # (not on the list: Explorer's menu, say)
+    finally:
+        st.save_to = None
+    from PySide6.QtTest import QTest
+    for _ in range(100):
+        if len(seen) == 2:
+            break
+        QTest.qWait(50)
+    assert seen["photo.jpg"] == picked and seen["logo.png"] != picked
+
+
+def test_save_to_stays_when_a_password_is_asked_for(window, files, tmp_path, qtbot, monkeypatch):
+    from corefold import pdftools
+    c = window.c
+    st = c.files_work
+    locked = _locked_pdf(files / "locked.pdf")
+    st.add([locked])
+    picked = tmp_path / "picked"
+    picked.mkdir()
+    monkeypatch.setattr(c, "ask_password", lambda *a, **k: "pw")
+    st.save_to = str(picked)
+    try:
+        c.start_job(pdftools.REPAIR, [locked], {})
+    finally:
+        st.save_to = None  # (the side panel lets go as soon as the job has started)
+    qtbot.waitUntil(lambda: bool(st.ops) and st.ops[0].over, timeout=15000)
+    assert st.ops[0].state == fw.FINISHED, st.ops[0].detail
+    assert [p.parent for p in map(__import__("pathlib").Path, st.ops[0].outputs)] == [picked]
+
+
+def test_every_pdf_tool_that_asks_shows_its_choices_in_the_panel(window, files, qtbot):
+    # (Page numbers' dialog had a "style" box of its own in place of Qt's style(): in the panel it never showed)
+    w = window
+    ws = w.files_workspace
+    w.c.files_work.add([files / "letter.pdf"])
+    for tool_id, want in (("pdf.numbers", "PageNumbersDialog"), ("pdf.watermark", "WatermarkDialog"),
+                          ("pdf.headerfooter", "HeaderFooterDialog")):
+        seen = {}
+
+        def look(seen=seen):
+            dlg = ws.panel.inline
+            if dlg is None:
+                QTimer.singleShot(100, lambda: look(seen))
+                return
+            seen["dlg"] = type(dlg).__name__
+            dlg.reject()
+        QTimer.singleShot(200, look)
+        ws.choose_tool(tool_id)
+        qtbot.waitUntil(lambda seen=seen: "dlg" in seen, timeout=5000)
+        assert seen["dlg"] == want
+        qtbot.waitUntil(lambda: ws.panel.inline is None, timeout=2000)

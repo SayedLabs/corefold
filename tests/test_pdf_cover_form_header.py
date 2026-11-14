@@ -61,6 +61,9 @@ def test_private_things_are_found():
                      "SA03 8000 0000 6080 1016 7519", "Ahmed"]
     assert pdfreader.private_spans(t, ["email"]) == [(t.index("a.b@"), t.index("a.b@") + 8)]
     assert pdfreader.private_spans("nothing here 12.50 2026", list(pdfreader.PRIVATE_KINDS)) == []
+    # a name of one's own where the page breaks the line between its words (PDFium's line break is CR LF)
+    t = "Signed by Ahmed\r\nAl Saud on 08/11/2026"
+    assert [t[a:b] for a, b in pdfreader.private_spans(t, [], ["ahmed al  saud"])] == ["Ahmed\r\nAl Saud"]
 
 
 def test_find_and_cover_takes_them_out(qapp, qtbot, tmp_path):
