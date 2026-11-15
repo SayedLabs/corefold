@@ -21,6 +21,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+import urllib.error
 from pathlib import Path
 
 if (os.environ.get("CI") != "true" and os.environ.get("COREFOLD_THROWAWAY_PC") != "1") or os.name != "nt":
@@ -40,7 +41,9 @@ SCRIPT = APP_DIR / "silent-update.ps1"
 WORK = APP_DIR / "_update"
 STATUS = WORK / "status.txt"
 UNINSTALL_KEY = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{D08578D1-4B3E-404B-B56C-3FDF83BAFAE2}_is1"
-REPO = os.environ.get("GITHUB_REPOSITORY", "SayedLabs/corefold")
+# where the releases people update from are: the public repository (update-repo.txt), not the one with the code
+REPO = (os.environ.get("UPDATE_REPO") or (Path(__file__).resolve().parent.parent / "update-repo.txt").read_text().strip()
+        or "SayedLabs/rakiza-core")
 POWERSHELL = str(Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0"
                  / "powershell.exe")
 
@@ -213,12 +216,33 @@ if task:
     check(any(a.split(";")[5] in ("AU", "S-1-5-11") for a in aces if len(a.split(";")) >= 6),
           "anyone signed in may start it")
 
+def public_release() -> bool:
+    """Whether the public repository has a published release at all."""
+    req = urllib.request.Request(f"https://api.github.com/repos/{REPO}/releases/latest",
+                                 headers={"Accept": "application/vnd.github+json", "User-Agent": "silentupdatetest"})
+    if os.environ.get("GH_TOKEN"):
+        req.add_header("Authorization", "Bearer " + os.environ["GH_TOKEN"])
+    try:
+        with urllib.request.urlopen(req, timeout=30):
+            return True
+    except urllib.error.HTTPError as e:
+        return e.code != 404
+    except Exception:  # noqa: BLE001
+        return True  # (couldn't tell: the check stays as strict as ever)
+
+
 # ---- it refuses anything not newer than what's installed
 set_installed_version("999.0.0")
 t0 = run_task()
 said = wait_status(t0, lambda s: s.startswith(("failed", "done")), 120)
 save_logs("1-not-newer")
-check(said.startswith("failed nothing newer"), f"it refuses a release that isn't newer than what's installed ({said})")
+if said.startswith("failed") and not public_release():
+    # (the public repository gets its first release from this very build: until it's published there, GitHub has
+    # no newest release to give (404, or 403 when it limits the runner's anonymous asking), and the task stops)
+    note(f"{REPO} has no release yet, so the task found nothing to update to ({said})")
+else:
+    check(said.startswith("failed nothing newer"),
+          f"it refuses a release that isn't newer than what's installed ({said})")
 check(not any(WORK.glob("*.exe")), "…and leaves no installer behind")
 log = (WORK / "update.log").read_text("utf-8", "replace") if (WORK / "update.log").exists() else ""
 check("running as SYSTEM" in log or "as NT AUTHORITY\\SYSTEM" in log, "it ran as SYSTEM")

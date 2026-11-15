@@ -11,8 +11,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/SayedLabs/corefold/releases/latest"><img src="https://img.shields.io/github/v/release/SayedLabs/corefold?label=download&color=0f7a6c" alt="Download the latest version"></a>
-  <a href="https://github.com/SayedLabs/corefold/releases"><img src="https://img.shields.io/github/downloads/SayedLabs/corefold/total?color=0f7a6c" alt="Downloads"></a>
+  <a href="https://github.com/SayedLabs/rakiza-core/releases/latest"><img src="https://img.shields.io/github/v/release/SayedLabs/rakiza-core?label=download&color=0f7a6c" alt="Download the latest version"></a>
+  <a href="https://github.com/SayedLabs/rakiza-core/releases"><img src="https://img.shields.io/github/downloads/SayedLabs/rakiza-core/total?color=0f7a6c" alt="Downloads"></a>
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0f7a6c" alt="Windows 10 and 11">
   <img src="https://img.shields.io/badge/languages-5-0f7a6c" alt="5 languages">
 </p>
@@ -174,7 +174,7 @@ Arabic the whole app is right-to-left.
 Read the full [privacy policy](PRIVACY.md).
 
 ## Installing
-[**Download RakizaCore-Setup.exe**](https://github.com/SayedLabs/corefold/releases/latest), run it, keep
+[**Download RakizaCore-Setup.exe**](https://github.com/SayedLabs/rakiza-core/releases/latest), run it, keep
 the two boxes ticked and click **Install**. That's it: a desktop icon, a Start menu entry, and Rakiza Core
 starts with Windows. No Python needed. Rakiza Core installs for the whole PC (in Program Files), so Windows
 asks for permission when it installs and at each update: say **Yes**. If you say No, nothing changes and
@@ -219,9 +219,15 @@ It asks whether to delete your settings too. Files you converted are never touch
 (Portable version: **About → Remove settings and quit**, then delete the folder.)
 
 ## Licence
-Rakiza Core is free. Its code is MIT licensed ([LICENSE](LICENSE)), and the open-source parts it includes
-are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Rakiza Core is free to use, at home or at work. Using it is covered by the licence agreement in
+[EULA.txt](EULA.txt), which the installer shows; everything else is in [LICENSE](LICENSE). The parts
+made by others that it includes are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), with
+their full licences in [licenses](licenses).
 
+## Questions and problems
+Open an issue on [GitHub](https://github.com/SayedLabs/rakiza-core/issues/new).
+
+<!-- private -->
 ## Working on Rakiza Core
 How to run it from the source, build it, test it on a real Windows PC and publish a release is in
 [DEVELOPING.md](DEVELOPING.md).

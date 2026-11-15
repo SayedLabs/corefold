@@ -64,6 +64,8 @@ DisableWelcomePage=yes
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 DisableReadyPage=yes
+; Rakiza Core's licence agreement (English and Arabic). Silent installs and updates skip this page.
+LicenseFile=..\EULA.txt
 WizardStyle=modern
 WizardImageFile=..\assets\wizard.bmp,..\assets\wizard@2x.bmp
 WizardSmallImageFile=..\assets\wizard-small.bmp,..\assets\wizard-small@2x.bmp
@@ -179,11 +181,13 @@ Type: files; Name: "{userdesktop}\{#PrevName}.lnk"
 Type: filesandordirs; Name: "{app}\_internal"
 Type: filesandordirs; Name: "{app}\ffmpeg"
 Type: filesandordirs; Name: "{app}\7zip"
+Type: filesandordirs; Name: "{app}\licenses"
 Type: filesandordirs; Name: "{app}\_next"
 Type: filesandordirs; Name: "{app}\_previous"
 ; (the files are copied in under _next, so the uninstaller's own list names them there)
 Type: files; Name: "{app}\{#AppExe}"
 Type: files; Name: "{app}\LICENSE"
+Type: files; Name: "{app}\EULA.txt"
 Type: files; Name: "{app}\THIRD_PARTY_NOTICES.md"
 Type: files; Name: "{app}\COMPONENT-VERSIONS.txt"
 Type: files; Name: "{app}\silent-update.ps1"
@@ -764,12 +768,14 @@ begin
   DelOwn(Dir + '\_internal');
   DelOwn(Dir + '\ffmpeg');
   DelOwn(Dir + '\7zip');
+  DelOwn(Dir + '\licenses');
   DelOwn(Dir + '\_next');
   DelOwn(Dir + '\_previous');
   DelOwn(Dir + '\{#AppExe}');
   DelOwn(Dir + '\{#PrevExe}');
   DelOwn(Dir + '\{#OldExe}');
   DelOwn(Dir + '\LICENSE');
+  DelOwn(Dir + '\EULA.txt');
   DelOwn(Dir + '\THIRD_PARTY_NOTICES.md');
   DelOwn(Dir + '\COMPONENT-VERSIONS.txt');
   if FindFirst(Dir + '\unins???.*', FindRec) then
