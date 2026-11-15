@@ -12,7 +12,7 @@ Double-click **`build.bat`**. It downloads everything it needs (installing Pytho
 for you if they're missing), builds the installer, then asks **"Install Rakiza Core on this PC now?"**.
 Press **Y** to install it, or **N** to open the folder with the installer to share it.
 
-Every copy finds its updates in the repository named in `update-repo.txt` (`SayedLabs/corefold`, the public
+Every copy finds its updates in the repository named in `update-repo.txt` (`SayedLabs/rakiza-core`, the public
 one), whether it's built here or by GitHub.
 
 ## Releasing it

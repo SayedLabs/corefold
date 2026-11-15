@@ -192,6 +192,14 @@ jobs:
           name: Rakiza Core
           path: dist/release/*
 
+      # what the installer and update tests wrote (Setup's own logs too), when one of them failed
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: Test logs
+          path: out/
+          if-no-files-found: ignore
+
       - name: Attach to release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2.6.2, pinned: it gets write access

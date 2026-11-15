@@ -1,7 +1,7 @@
 # Releasing Rakiza Core
 
 Rakiza Core's code is private. It lives in this repository. The downloads, the website and the
-problem reports live in the public repository named in `update-repo.txt` (`SayedLabs/corefold`),
+problem reports live in the public repository named in `update-repo.txt` (`SayedLabs/rakiza-core`),
 because every copy of Rakiza Core, and of the app under its earlier names, looks for its updates there.
 Never make that repository private, rename it or delete it: every copy would stop updating, without
 saying so.
@@ -36,7 +36,7 @@ expires, make a new one the same way:
 1. github.com → your picture → **Settings → Developer settings → Personal access tokens →
    Fine-grained tokens → Generate new token**.
 2. Name `Rakiza Core releases`, expiration up to a year, **Repository access → Only select
-   repositories →** `SayedLabs/corefold`.
+   repositories →** `SayedLabs/rakiza-core`.
 3. **Repository permissions → Contents → Read and write** (Metadata: read-only is added by itself).
    Nothing else.
 4. **Generate token**, copy it, and in this repository open **Settings → Secrets and variables →

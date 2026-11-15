@@ -13,7 +13,7 @@ from .releasenotes import Notes
 from .timefmt import latin_digits, locale
 
 # the repository whose release pages are linked (a copy built without one links to Rakiza Core's own)
-REPO = UPDATE_REPO or "SayedLabs/corefold"
+REPO = UPDATE_REPO or "SayedLabs/rakiza-core"
 
 
 def _text(words: str, name: str = "", wrap: bool = True) -> QLabel:

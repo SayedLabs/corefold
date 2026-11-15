@@ -42,7 +42,7 @@ STATUS = WORK / "status.txt"
 UNINSTALL_KEY = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{D08578D1-4B3E-404B-B56C-3FDF83BAFAE2}_is1"
 # where the releases people update from are: the public repository (update-repo.txt), not the one with the code
 REPO = (os.environ.get("UPDATE_REPO") or (Path(__file__).resolve().parent.parent / "update-repo.txt").read_text().strip()
-        or "SayedLabs/corefold")
+        or "SayedLabs/rakiza-core")
 POWERSHELL = str(Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0"
                  / "powershell.exe")
 
