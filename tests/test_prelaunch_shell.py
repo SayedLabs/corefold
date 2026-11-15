@@ -57,7 +57,7 @@ def test_the_shortcuts_page_leaves_out_the_keys_of_tools_resting_for_now(control
     shown = [entry for (entry, *_), (_, box) in zip(page.rows, page.lines) if not box.isHidden()]
     assert shown and all(state(controller, e) != "resting" for e in shown)
     assert len(shown) < len(page.rows)
-    assert not page.resting_note.isHidden()
+    assert not hasattr(page, "resting_note")  # (and not mentioned: someone new never met them)
     first = next(i for i, (_, box) in enumerate(page.lines) if not box.isHidden())
     assert page.lines[first][0].isHidden()  # (no line above the first key shown)
 

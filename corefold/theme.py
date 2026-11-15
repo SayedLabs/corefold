@@ -236,6 +236,15 @@ QPushButton#sizeChip { padding: 0; min-width: 0; border-radius: 7px; background:
                        border: 1px solid transparent; }
 QPushButton#sizeChip:hover { background: $hover; }
 QPushButton#sizeChip:checked { background: $accent_soft; border-color: $accent; }
+/* a choice of a few (Light / Dark, a size): the chosen one in the accent's wash, which shows in dark as well
+   as light (the plain checked grey was hardly lighter than a dark button) */
+QPushButton#choice:checked { background: $accent_soft; border-color: $accent; color: $text; }
+QPushButton#choice:checked:hover { background: $accent_soft; }
+/* a ready-made thing to add (a preset): quieter than a button (no fill, a fainter edge, grey words), so it reads
+   as a suggestion; the same height as the buttons beside it */
+QPushButton#suggestChip { background: transparent; border: 1px solid $line_strong; color: $muted; }
+QPushButton#suggestChip:hover { background: $hover; color: $text; }
+QPushButton#suggestChip:disabled { color: $faint; border-color: $border; }
 QFrame#galleryStage { background: $stage; border: 1px solid $border; border-radius: 14px; }
 QLabel#strong { font-weight: 600; }
 QFrame#dropzone { border: 1px dashed $line_strong; border-radius: 14px; background: $stage; }
