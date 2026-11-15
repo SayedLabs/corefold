@@ -219,6 +219,10 @@ def run(setup: Path, *args, name: str) -> int:
     code = subprocess.run([str(setup), "/SUPPRESSMSGBOXES", "/NORESTART", f"/LOG={OUT / (name + '.log')}", *args],
                           timeout=900).returncode
     note(f"{name}: exit {code} in {time.monotonic() - t:.0f} s")
+    if code:  # what Setup itself said (it writes its log from the first moment)
+        log = OUT / (name + ".log")
+        tail = log.read_text("utf-8", errors="replace").splitlines()[-15:] if log.exists() else ["(no log written)"]
+        note(f"{name}: Setup's log ends: " + " | ".join(tail))
     return code
 
 
