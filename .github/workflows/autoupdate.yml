@@ -36,7 +36,12 @@ jobs:
         shell: pwsh
         run: |
           $repo = (Get-Content update-repo.txt -Raw).Trim()
-          $tags = gh release list -R $repo --exclude-drafts --exclude-pre-releases --limit 5 --json tagName,isLatest | ConvertFrom-Json
+          $tags = @(gh release list -R $repo --exclude-drafts --exclude-pre-releases --limit 5 --json tagName,isLatest | ConvertFrom-Json)
+          if ($tags.Count -lt 2) {  # (the public repository's first releases: the copies people have still update from here)
+            $repo = $env:GITHUB_REPOSITORY
+            $tags = @(gh release list -R $repo --exclude-drafts --exclude-pre-releases --limit 5 --json tagName,isLatest | ConvertFrom-Json)
+          }
+          "releases from $repo"
           $newest = ($tags | Where-Object isLatest)[0].tagName.TrimStart("v")
           $from = if ($env:FROM) { $env:FROM.TrimStart("v") } else { ($tags | Where-Object { -not $_.isLatest })[0].tagName.TrimStart("v") }
           "from $from to $newest"
