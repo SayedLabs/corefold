@@ -94,9 +94,10 @@ TOOLS: list[ToolInfo] = [
              short="All your cloud storage in one place", use="Cloud"),
     ToolInfo("startup", "Startup", "startup", "rocket", "Rakiza Core Startup", "Startup",
              "See what starts with Windows and switch off what slows it down.",
-             ("Every program that starts with Windows, in one list",
+             ("Every program that starts with Windows in one list, Store apps and scheduled tasks too",
               "Switch one off with a click, and back on just as easily",
               "Switching off works the same way as Task Manager: nothing is deleted",
+              "Put some off until a minute after you sign in, so your PC is ready sooner",
               "Spot programs that added themselves since you last looked"),),
     ToolInfo("scan", "Scan", "scan", "shield", "Rakiza Core Scan", "Virus scan",
              "Check your PC for malware with Microsoft Defender, plus Rakiza Core's own checks for tricks viruses use.",
@@ -280,8 +281,9 @@ if os.environ.get("COREFOLD_WAKE_RESTING") == "1" and not getattr(sys, "frozen",
 # Single tools resting for now inside a section that's in use, until they're checked again: kept whole like a
 # resting section's, but hidden from their section (no page, no Home widget, nothing in the background). To
 # bring one back, take its id out of here. File Organizer moves people's files, so it rests until it's been
-# checked again. Computer is back with Space and the Uninstaller only: Startup and Scan rest a while longer.
-PAUSED_TOOLS: frozenset[str] = frozenset({"organizer", "startup", "scan"})
+# checked again. Computer is back with Space, the Uninstaller and Startup (checked again for 2.3): Scan rests a
+# while longer.
+PAUSED_TOOLS: frozenset[str] = frozenset({"organizer", "scan"})
 if not getattr(sys, "frozen", False):
     # (the checks that try the resting tools' kept code, run from the source only; a built RakizaCore.exe never
     # looks at this)
@@ -382,9 +384,10 @@ def new_tools(settings) -> list[ToolInfo]:
     return [t for t in available() if t.id not in known]
 
 
-# tools switched on for everyone when they came back from resting (1.16: Space and the Uninstaller), once: also for
-# someone who had them switched off or never had them. They can be switched off again in their section.
-BACK_ON = ("space", "uninstaller")
+# tools switched on for everyone when they came back from resting (1.16: Space and the Uninstaller; 2.3: Startup),
+# once: also for someone who had them switched off or never had them. They can be switched off again in their
+# section.
+BACK_ON = ("space", "uninstaller", "startup")
 
 
 def switch_back_on(settings) -> list[ToolInfo]:

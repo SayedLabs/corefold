@@ -55,8 +55,9 @@ def test_widgets_of_resting_or_switched_off_tools_are_left_out():
 def test_a_shortcut_cant_open_a_resting_tool():
     from corefold.homewidgets import target_ok
     s = settings_mod.Settings()
-    assert not target_ok(s, "page:Capture") and not target_ok(s, "page:Startup") and not target_ok(s, "page:Scan")
-    assert target_ok(s, "page:Space") and target_ok(s, "page:Apps")  # (Computer is back with these two)
+    assert not target_ok(s, "page:Capture") and not target_ok(s, "page:Scan")
+    assert target_ok(s, "page:Space") and target_ok(s, "page:Apps")  # (Computer is back with these three)
+    assert target_ok(s, "page:Startup")
     assert target_ok(s, "page:PDF") and target_ok(s, "page:History") and target_ok(s, "C:/Users")
     s.tools_off = ["pdf"]
     assert not target_ok(s, "page:PDF")

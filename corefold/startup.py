@@ -244,6 +244,40 @@ def _as_32bit(exe: str) -> str:
     return wow if os.path.exists(wow) else exe
 
 
+def started_program(exe: str, command: str) -> str:
+    """The program an entry really starts, when its own program only starts another one. Apps installed with
+    Squirrel (Discord, Slack, GitHub Desktop...) start with "Update.exe --processStart Discord.exe": every one
+    of them would be called "Update" and show the same icon. Their program is next to Update.exe, in the newest
+    "app-1.2.3" folder (or right beside it). The exe as it was when nothing better is found."""
+    if not exe or os.path.basename(exe).lower() != "update.exe":
+        return exe
+    args = split_command(command)[1]
+    low = args.lower()
+    at = low.find("--processstart")
+    if at < 0:
+        return exe
+    rest = args[at + len("--processstart"):].lstrip(" =")
+    if rest.startswith('"'):
+        name = rest[1:].split('"', 1)[0]
+    else:
+        name = rest.split(" ", 1)[0]
+    name = name.strip()
+    if not name or os.path.basename(name) != name or not name.lower().endswith(".exe"):
+        return exe   # (only a program's own name, never a path somewhere else)
+    folder = Path(exe).parent
+
+    def version(p: Path) -> tuple:
+        return tuple(int(x) if x.isdigit() else 0 for x in p.name[4:].split("."))
+    try:
+        apps = sorted((p for p in folder.glob("app-*") if p.is_dir()), key=version, reverse=True)
+    except OSError:
+        apps = []
+    for candidate in [p / name for p in apps] + [folder / name]:
+        if candidate.is_file():
+            return str(candidate)
+    return exe
+
+
 def _make(where: str, value: str, command: str, exe: str, notes: dict) -> Entry:
     note = notes.get(value)
     e = Entry(id=f"{where}|{value}", name=value, value=value, command=command, exe=exe, where=where,
@@ -285,7 +319,8 @@ def list_entries() -> list[Entry]:
             if not value or not isinstance(command, str) or not command.strip():
                 continue  # (the default value, or not a command)
             exe = _full_path(split_command(command)[0])
-            e = _make(where, value, command, _as_32bit(exe) if where == "HKLM-Run32" else exe, notes)
+            exe = started_program(_as_32bit(exe) if where == "HKLM-Run32" else exe, command)
+            e = _make(where, value, command, exe, notes)
             e.own = where == "HKCU-Run" and value == KEEP_ID
             out.append(e)
     for where, folder in folders().items():
@@ -316,7 +351,25 @@ def list_entries() -> list[Entry]:
     except Exception:
         log.warning("couldn't read the scheduled tasks that start with Windows", exc_info=True)
     out.sort(key=lambda e: (not e.own, e.name.lower()))
+    mark_same_names(out)
     return out
+
+
+def mark_same_names(entries: list[Entry]):
+    """Two entries that would look the same (one app's two updaters, two Discords) each say their own name
+    too (extra["also"]: the registry value, the file, or the scheduled task's name), so they can be told apart."""
+    by_name: dict[str, list[Entry]] = {}
+    for e in entries:
+        by_name.setdefault(e.name.casefold(), []).append(e)
+    for same in by_name.values():
+        if len(same) < 2:
+            continue
+        for e in same:
+            own = e.value.rsplit("\\", 1)[-1] if e.where == "Task" else e.value
+            if e.where.endswith("Folder"):
+                own = Path(own).stem
+            if own and own.casefold() != e.name.casefold():
+                e.extra["also"] = own
 
 
 # ----------------------------------------------------------------------------- Store apps
@@ -510,6 +563,7 @@ def task_entries() -> list[Entry]:
         exe = _full_path(exe) if exe else ""
         args = str(d.get("args") or "")
         command = (f'"{exe}" {args}' if " " in exe else f"{exe} {args}").strip() if exe else full
+        exe = started_program(exe, command)
         e = Entry(id=f"Task|{full}", name=name, value=full, command=command, exe=exe, where="Task",
                   on=bool(d.get("on", True)), extra={"mine": bool(d.get("mine"))})
         if exe and os.path.isabs(exe):
@@ -526,10 +580,12 @@ def _task_enabled(full: str) -> bool | None:
     """What Task Scheduler says now: is the task enabled (None if it can't be read)."""
     from .uninstall import powershell
     folder, _, name = full.rpartition("\\")
-    state = powershell("$t = Get-ScheduledTask -TaskPath $env:CF_TASK_PATH -TaskName $env:CF_TASK_NAME "
-                       "-ErrorAction SilentlyContinue; if ($t) { \"$($t.State)\" }", timeout=30,
-                       env={"CF_TASK_PATH": folder + "\\", "CF_TASK_NAME": name})
-    return None if not state else state.strip() != "Disabled"
+    # (Task Scheduler's COM object, like the list: Get-ScheduledTask loads its module first, a second or more)
+    state = powershell("$s = New-Object -ComObject Schedule.Service; $s.Connect(); "
+                       "try { \"$([bool]$s.GetFolder($env:CF_TASK_PATH).GetTask($env:CF_TASK_NAME).Enabled)\" } "
+                       "catch { }", timeout=30, env={"CF_TASK_PATH": folder or "\\", "CF_TASK_NAME": name})
+    state = state.strip().lower()
+    return None if state not in ("true", "false") else state == "true"
 
 
 def _set_scheduled(entry: Entry, on: bool, ask_admin: bool) -> bool:

@@ -3367,7 +3367,7 @@ def main() -> int:
             else:  # (opened with a file: no question in its way, and the tools in the tray start now)
                 QTimer.singleShot(0, controller.apply_tools)
     else:
-        back = all_tools.switch_back_on(s)  # (Space and the Uninstaller: on for everyone, once)
+        back = all_tools.switch_back_on(s)  # (Space, the Uninstaller, Startup: on for everyone, once)
         offered = all_tools.offer_new_tools(s)  # tools new in this version wait, switched off, in their section
         if back:
             if not offered:

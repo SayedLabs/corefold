@@ -68,6 +68,8 @@ def describe(e: startup.Entry) -> str:
     elif e.publisher:
         bits.append(ltr(e.publisher))
     bits.append(tr(WHERE.get(e.where, e.where)))
+    if e.extra.get("also"):  # (another entry has the same name: this one's own, to tell them apart)
+        bits.append(ltr(short_name(str(e.extra["also"]), 60)))
     if not e.on and e.off_since and not e.extra.get("later"):
         bits.append(tr("Off since {date}", date=date_text(e.off_since, long=True)))
     return _para("  ·  ".join(bits))
