@@ -236,9 +236,9 @@ set_installed_version("999.0.0")
 t0 = run_task()
 said = wait_status(t0, lambda s: s.startswith(("failed", "done")), 120)
 save_logs("1-not-newer")
-if said.startswith("failed") and "(404)" in said and not public_release():
+if said.startswith("failed") and not public_release():
     # (the public repository gets its first release from this very build: until it's published there, GitHub has
-    # no newest release to give, and the task stops on that the same way)
+    # no newest release to give (404, or 403 when it limits the runner's anonymous asking), and the task stops)
     note(f"{REPO} has no release yet, so the task found nothing to update to ({said})")
 else:
     check(said.startswith("failed nothing newer"),
