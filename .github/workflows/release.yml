@@ -1,12 +1,22 @@
 # Builds the Windows installer on GitHub's servers, only after the release checks pass (see "checks").
-# - Publish a Release on GitHub (tag like v1.0.0)  -> installer + portable zip get attached to it.
-# - Or run it by hand from the Actions tab           -> download the files from the run's "Artifacts".
+# The code is in this private repository; the downloads live in the public one (update-repo.txt),
+# because every copy of Rakiza Core looks for its updates there. See RELEASING.md.
+# - Run it by hand from the Actions tab and type a version (like 2.3.0) -> it checks, builds and puts a
+#   DRAFT release with every file in the public repository. Open it there, check it, press Publish.
+# - Run it without a version                                             -> a test build: download the
+#   files from the run's "Artifacts" (nothing is published).
+# - Publish a Release in this same repository (tag like v1.0.0)          -> the files get attached to it.
 name: Build Rakiza Core
 
 on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, like 2.3.0 (leave empty for a test build)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -34,7 +44,7 @@ jobs:
       - name: What's new in this version is written (English and Arabic), and every kept version's notes read
         shell: pwsh
         env:
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ github.event.release.tag_name || inputs.version }}
         run: python scripts/release_notes_check.py $env:TAG
 
       - name: Known holes in the packages
@@ -104,18 +114,25 @@ jobs:
           python-version: "3.12"
 
       - name: Build app, installer and portable zip
+        id: build
         shell: pwsh
         env:  # passed as data, never pasted into the script
           EVENT: ${{ github.event_name }}
           TAG: ${{ github.event.release.tag_name }}
+          INPUT: ${{ inputs.version }}
           RUN: ${{ github.run_number }}
         run: |
-          if ($env:EVENT -eq "release") {
+          $release = if ($env:EVENT -eq "release") { $env:TAG } else { "$env:INPUT".Trim() }
+          if ($release) {
+            $version = $release.TrimStart("vV")
+            if ($version -notmatch '^\d{1,4}(\.\d{1,6}){1,3}$') { throw "Not a version: $release" }
             # -OldUpdaterCopy: copies from before 1.7.0 only update to a release that has it
-            ./scripts/build.ps1 -Version $env:TAG -OldUpdaterCopy
+            ./scripts/build.ps1 -Version $version -OldUpdaterCopy
+            "version=$version" >> $env:GITHUB_OUTPUT
           } else {
             ./scripts/build.ps1 -Version "0.0.$($env:RUN)-dev"
           }
+          "repo=$((Get-Content update-repo.txt -Raw).Trim())" >> $env:GITHUB_OUTPUT
 
       - name: The installer itself (installs, updates while a conversion runs, refuses a full folder, removes)
         shell: pwsh
@@ -128,19 +145,21 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: v${{ steps.build.outputs.version }}
+          PUBLIC: ${{ steps.build.outputs.repo }}
         run: |
           $env:PYTHONIOENCODING = "utf-8"
           New-Item -ItemType Directory -Force old | Out-Null
-          # the versions people are on: older ones, and whichever release is newest on GitHub (not this one)
+          # the versions people are on: older ones (their releases are kept in this repository too), and
+          # whichever release is newest in the public repository, where people get it (not this one)
           $versions = @("v1.9.0", "v1.11.0", "v1.12.1", "v1.13.0")
           foreach ($v in $versions) {
             gh release download $v -R $env:GITHUB_REPOSITORY -p "Corefold-Setup-*.exe" -D old --clobber  # keep-name (the old releases' installer name)
             if ($LASTEXITCODE) { throw "couldn't download $v" }
           }
-          $latest = gh release view -R $env:GITHUB_REPOSITORY --json tagName -q .tagName
+          $latest = gh release view -R $env:PUBLIC --json tagName -q .tagName
           if ($latest -and $latest -ne $env:TAG -and $versions -notcontains $latest) {
-            gh release download $latest -R $env:GITHUB_REPOSITORY -p "Corefold-Setup-*.exe" -D old --clobber  # keep-name (the old releases' installer name)
+            gh release download $latest -R $env:PUBLIC -p "Corefold-Setup-*.exe" -D old --clobber  # keep-name (the old releases' installer name)
             if ($LASTEXITCODE) { "note: $latest has no installer yet (still being built), so it isn't tried" }
           }
           $old = Get-ChildItem old -Filter "Corefold-Setup-*.exe" | Sort-Object { [version]($_.BaseName -replace "Corefold-Setup-", "") } | ForEach-Object { $_.FullName }  # keep-name
@@ -150,6 +169,7 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          UPDATE_REPO: ${{ steps.build.outputs.repo }}
         run: |
           $env:PYTHONIOENCODING = "utf-8"
           python scripts/silentupdatetest.py dist\release out\silent
@@ -176,4 +196,27 @@ jobs:
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2.6.2, pinned: it gets write access
         with:
+          files: dist/release/*
+
+      # What's new, in English then Arabic, for the release page (the notes kept in assets/release-notes)
+      - name: The release page's text
+        if: github.event_name == 'workflow_dispatch' && steps.build.outputs.version != ''
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.build.outputs.version }}
+        run: python scripts/release_body.py $env:VERSION dist\release-body.md
+
+      # A draft in the public repository: nobody sees it, and no copy updates to it, until it's published.
+      # PUBLIC_RELEASE_TOKEN: a fine-grained token with "Contents: read and write" on that repository only.
+      - name: Draft the release in the public repository
+        if: github.event_name == 'workflow_dispatch' && steps.build.outputs.version != ''
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2.6.2, pinned: it gets write access
+        with:
+          repository: ${{ steps.build.outputs.repo }}
+          token: ${{ secrets.PUBLIC_RELEASE_TOKEN }}
+          tag_name: v${{ steps.build.outputs.version }}
+          target_commitish: main
+          name: Rakiza Core ${{ steps.build.outputs.version }}
+          body_path: dist/release-body.md
+          draft: true
           files: dist/release/*

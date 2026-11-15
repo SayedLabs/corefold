@@ -219,9 +219,15 @@ It asks whether to delete your settings too. Files you converted are never touch
 (Portable version: **About → Remove settings and quit**, then delete the folder.)
 
 ## Licence
-Rakiza Core is free. Its code is MIT licensed ([LICENSE](LICENSE)), and the open-source parts it includes
-are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Rakiza Core is free to use, at home or at work. Using it is covered by the licence agreement in
+[EULA.txt](EULA.txt), which the installer shows; everything else is in [LICENSE](LICENSE). The parts
+made by others that it includes are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), with
+their full licences in [licenses](licenses).
 
+## Questions and problems
+Open an issue on [GitHub](https://github.com/SayedLabs/corefold/issues/new).
+
+<!-- private -->
 ## Working on Rakiza Core
 How to run it from the source, build it, test it on a real Windows PC and publish a release is in
 [DEVELOPING.md](DEVELOPING.md).

@@ -23,18 +23,25 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
+      # (only update-repo.txt: the public repository the releases are in, where copies update from)
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: update-repo.txt
+          sparse-checkout-cone-mode: false
+
       - name: An older copy updates itself
         env:
           GH_TOKEN: ${{ github.token }}
           FROM: ${{ inputs.from }}
         shell: pwsh
         run: |
-          $tags = gh release list -R $env:GITHUB_REPOSITORY --exclude-drafts --exclude-pre-releases --limit 5 --json tagName,isLatest | ConvertFrom-Json
+          $repo = (Get-Content update-repo.txt -Raw).Trim()
+          $tags = gh release list -R $repo --exclude-drafts --exclude-pre-releases --limit 5 --json tagName,isLatest | ConvertFrom-Json
           $newest = ($tags | Where-Object isLatest)[0].tagName.TrimStart("v")
           $from = if ($env:FROM) { $env:FROM.TrimStart("v") } else { ($tags | Where-Object { -not $_.isLatest })[0].tagName.TrimStart("v") }
           "from $from to $newest"
           # (older releases have the installer under the app's earlier name; newer ones carry a copy under it too)
-          gh release download "v$from" -R $env:GITHUB_REPOSITORY -p "Corefold-Setup-*.exe" -D old  # keep-name
+          gh release download "v$from" -R $repo -p "Corefold-Setup-*.exe" -D old  # keep-name
           $setup = (Get-ChildItem old -Filter "Corefold-Setup-*.exe")[0].FullName  # keep-name
           # (only the installer: -Wait would also wait for the app it starts)
           (Start-Process $setup -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -PassThru).WaitForExit()

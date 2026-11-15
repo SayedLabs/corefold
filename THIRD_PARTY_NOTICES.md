@@ -1,7 +1,8 @@
 # Third-party software in Rakiza Core
 
-Rakiza Core is made by Rakiza Labs. Its own code is MIT-licensed (see LICENSE). It ships with these
-components, each under its own licence. The exact version of every Python component in a copy of
+Rakiza Core is made by Rakiza Labs (see LICENSE and EULA.txt). It ships with these components, each
+under its own licence; the full texts are in the `licenses` folder, and each Python component's own
+licence files in `licenses\python`. The exact version of every Python component in a copy of
 Rakiza Core is listed in `COMPONENT-VERSIONS.txt` next to `RakizaCore.exe`.
 
 | Component | Licence | Source |
@@ -42,5 +43,5 @@ Rakiza Core is listed in `COMPONENT-VERSIONS.txt` next to `RakizaCore.exe`.
   (through the Rakiza Core website or GitHub page) and we will send it to you, for no more than the cost
   of sending it. This offer is valid for three years after we last ship the version you have.
 
-The Qt, Qt Multimedia's FFmpeg and libheif libraries are included as separate DLL files in the `_internal` folder and can
-be replaced by the user, as the LGPL requires.
+The Qt, Qt Multimedia's FFmpeg and libheif libraries are included as separate DLL files in the `_internal` folder, and
+Paramiko as plain Python files in `_internal\paramiko`; all of them can be replaced by the user, as the LGPL requires.

@@ -1,0 +1,74 @@
+# Copies what people may see to the public repository (update-repo.txt): the README, the licence
+# agreement and notices, the privacy policy and the website (docs/, served by GitHub Pages there).
+# The public repository then has these files and nothing else: no code, no workflows. Its releases
+# and issues stay as they are.
+# It runs by itself when one of those files changes on main, or by hand from the Actions tab.
+# PUBLIC_RELEASE_TOKEN: the same token release.yml uses ("Contents: read and write" on that repository).
+name: Update the public page
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - README.md
+      - PRIVACY.md
+      - LICENSE
+      - EULA.txt
+      - THIRD_PARTY_NOTICES.md
+      - docs/**
+      - licenses/**
+      - update-repo.txt
+      - .github/workflows/public-site.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-site
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Find the public repository
+        id: repo
+        run: |
+          repo="$(tr -d '[:space:]' < update-repo.txt)"
+          if [ "${repo,,}" = "${GITHUB_REPOSITORY,,}" ]; then
+            echo "This is the public repository itself, so there's nothing to copy."
+            echo "repo=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "repo=$repo" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v7
+        if: steps.repo.outputs.repo != ''
+        with:
+          repository: ${{ steps.repo.outputs.repo }}
+          token: ${{ secrets.PUBLIC_RELEASE_TOKEN }}
+          path: public
+          fetch-depth: 1
+
+      - name: Copy the public files
+        if: steps.repo.outputs.repo != ''
+        run: |
+          find public -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp LICENSE EULA.txt THIRD_PARTY_NOTICES.md PRIVACY.md public/
+          cp -r docs licenses public/
+          # the README without what's only for working on the code (from a "<!-- private -->" line on)
+          sed '/<!-- private -->/,$d' README.md > public/README.md
+
+      - name: Publish
+        if: steps.repo.outputs.repo != ''
+        working-directory: public
+        run: |
+          git add -A
+          if git diff --cached --quiet; then echo "Nothing changed."; exit 0; fi
+          git -c user.name="sayed" -c user.email="210825126+SayedLabs@users.noreply.github.com" \
+            commit -q -m "Update the README, website and notices"
+          git push -q origin HEAD

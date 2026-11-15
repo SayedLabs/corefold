@@ -38,7 +38,9 @@ RELEASE = Path(sys.argv[1]).resolve()
 VERSION = sys.argv[2]
 OUT = Path(sys.argv[3]).resolve()
 OUT.mkdir(parents=True, exist_ok=True)
-REPO = os.environ.get("GITHUB_REPOSITORY", "SayedLabs/corefold")
+# where the releases people update from are: the public repository (update-repo.txt), not the one with the code
+REPO = (os.environ.get("UPDATE_REPO") or (Path(__file__).resolve().parent.parent / "update-repo.txt").read_text().strip()
+        or "SayedLabs/corefold")
 TAG = "v" + VERSION
 OLD_PKG = LEGACY_NAME.lower()
 UNINSTALL_KEY = "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{D08578D1-4B3E-404B-B56C-3FDF83BAFAE2}_is1"
