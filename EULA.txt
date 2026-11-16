@@ -1,0 +1,117 @@
+﻿RAKIZA CORE END USER LICENSE AGREEMENT
+Last changed: November 15, 2026
+
+This agreement is between you and Rakiza Labs, the maker of Rakiza Core. By installing or using
+Rakiza Core you agree to it. If you don't agree, don't install or use Rakiza Core.
+
+1. What you may do
+   Rakiza Core is free. You may install it on as many of your own PCs as you like and use it for
+   anything, at home or at work. You may tell anyone where to download it.
+
+2. What you may not do
+   - Sell, rent or lend Rakiza Core, or charge for it in any way.
+   - Share changed copies of Rakiza Core, or put it inside other software or installers, without
+     written permission from Rakiza Labs.
+   - Remove or change Rakiza Core's name, copyright notices or this agreement.
+   - Take apart, decompile or reverse engineer Rakiza Core's own code, except where the law allows
+     it even though this agreement says otherwise, or as section 3 allows.
+
+3. Third-party parts
+   Rakiza Core includes software made by others (see THIRD_PARTY_NOTICES.md and the licenses folder
+   next to RakizaCore.exe). Each part is covered by its own license, and nothing in this agreement
+   limits what those licenses let you do. In particular, for the parts under the GNU LGPL (such as
+   Qt, PySide6 and the libraries next to them), you may change them, replace them with your own
+   versions, and reverse engineer Rakiza Core as far as needed to debug such changes. The source code
+   of the GPL and LGPL parts is offered as described in THIRD_PARTY_NOTICES.md.
+
+4. Updates
+   Rakiza Core checks GitHub for new versions and can update itself. You can turn automatic
+   updates off in the Updates page. Updates are covered by this agreement unless they come with a new one.
+
+5. Your privacy
+   Rakiza Core works on your PC and doesn't collect information about you. The privacy policy is at
+   https://sayedlabs.github.io/rakiza-core/privacy.html
+
+6. Ownership
+   Rakiza Core is licensed to you, not sold. Rakiza Labs keeps all rights not given to you here.
+
+7. No warranty
+   Rakiza Core is given "as is", without any warranty, as far as the law allows. Rakiza Labs doesn't
+   promise that it is free of mistakes or fits any purpose. Keep backups of files that matter.
+
+8. Limit of liability
+   As far as the law allows, Rakiza Labs is not liable for any damage or loss from using or not
+   being able to use Rakiza Core, including lost data or lost profit.
+
+9. Ending
+   This agreement ends if you break it. Then you must stop using Rakiza Core and remove it. You can
+   end it at any time by uninstalling Rakiza Core.
+
+10. Earlier versions
+   Versions up to 2.2.1, whose source code was published under the MIT License, stay under the MIT
+   License for the copies you got that way. This agreement covers newer versions.
+
+11. Contact
+   Questions: https://github.com/SayedLabs/rakiza-core/issues
+
+If a part of this agreement can't be enforced, the rest still applies. The Arabic translation below
+is for convenience; if the two differ, the English text applies.
+
+--------------------------------------------------------------------------------------------------
+
+اتفاقية ترخيص المستخدم النهائي لبرنامج ركيزة كور (Rakiza Core)
+آخر تعديل: 15 نوفمبر 2026
+
+هذه الاتفاقية بينك وبين ركيزة لابز (Rakiza Labs)، صانع ركيزة كور. بتثبيت ركيزة كور أو استخدامه فأنت توافق عليها.
+إذا لم توافق، فلا تثبّت ركيزة كور ولا تستخدمه.
+
+1. ما يحق لك
+   ركيزة كور مجاني. يحق لك تثبيته على أي عدد من أجهزتك واستخدامه لأي غرض، في البيت أو العمل.
+   ويحق لك أن تخبر أي شخص من أين يحمّله.
+
+2. ما لا يحق لك
+   - بيع ركيزة كور أو تأجيره أو إعارته، أو أخذ مقابل عليه بأي شكل.
+   - نشر نسخ معدّلة من ركيزة كور، أو وضعه داخل برامج أو مثبّتات أخرى، بدون إذن مكتوب من ركيزة لابز.
+   - إزالة اسم ركيزة كور أو حقوق النشر أو هذه الاتفاقية، أو تغييرها.
+   - تفكيك كود ركيزة كور الخاص أو فك ترجمته أو الهندسة العكسية له، إلا حيث يسمح القانون بذلك رغم
+     هذه الاتفاقية، أو كما يسمح البند 3.
+
+3. الأجزاء من أطراف أخرى
+   يحتوي ركيزة كور على برامج صنعها آخرون (انظر THIRD_PARTY_NOTICES.md ومجلد licenses بجانب RakizaCore.exe).
+   كل جزء تحكمه رخصته، ولا شيء في هذه الاتفاقية يقيّد ما تسمح لك به تلك الرخص. وتحديداً، للأجزاء
+   الخاضعة لرخصة GNU LGPL (مثل Qt وPySide6 والمكتبات التي بجانبها) يحق لك تعديلها واستبدالها بنسخ
+   خاصة بك، والهندسة العكسية لركيزة كور بالقدر اللازم لتصحيح هذه التعديلات. ويُتاح الكود المصدري
+   للأجزاء الخاضعة لـ GPL وLGPL كما هو موضّح في THIRD_PARTY_NOTICES.md.
+
+4. التحديثات
+   يتحقق ركيزة كور من وجود إصدارات جديدة على GitHub ويمكنه تحديث نفسه. يمكنك إيقاف التحديث التلقائي
+   من صفحة التحديثات. تشمل هذه الاتفاقية التحديثات ما لم تأتِ مع اتفاقية جديدة.
+
+5. خصوصيتك
+   يعمل ركيزة كور على جهازك ولا يجمع معلومات عنك. سياسة الخصوصية على
+   https://sayedlabs.github.io/rakiza-core/privacy.html
+
+6. الملكية
+   ركيزة كور مرخّص لك وليس مبيعاً لك. تحتفظ ركيزة لابز بكل الحقوق غير الممنوحة لك هنا.
+
+7. بدون ضمان
+   يُقدَّم ركيزة كور "كما هو" بدون أي ضمان، بالقدر الذي يسمح به القانون. لا تَعِد ركيزة لابز بأنه
+   خالٍ من الأخطاء أو مناسب لغرض معيّن. احتفظ بنسخ احتياطية من ملفاتك المهمة.
+
+8. حدود المسؤولية
+   بالقدر الذي يسمح به القانون، لا تتحمل ركيزة لابز مسؤولية أي ضرر أو خسارة من استخدام ركيزة كور
+   أو عدم القدرة على استخدامه، بما في ذلك فقدان البيانات أو الأرباح.
+
+9. الإنهاء
+   تنتهي هذه الاتفاقية إذا خالفتها، وعندها يجب أن تتوقف عن استخدام ركيزة كور وتزيله. ويمكنك إنهاؤها
+   في أي وقت بإلغاء تثبيت ركيزة كور.
+
+10. الإصدارات السابقة
+   الإصدارات حتى 2.2.1، التي نُشر كودها المصدري بموجب رخصة MIT، تبقى خاضعة لرخصة MIT للنسخ التي
+   حصلت عليها بهذه الطريقة. وتشمل هذه الاتفاقية الإصدارات الأحدث.
+
+11. التواصل
+   للأسئلة: https://github.com/SayedLabs/rakiza-core/issues
+
+إذا تعذّر تطبيق جزء من هذه الاتفاقية، يبقى الباقي سارياً. هذه الترجمة العربية للتسهيل؛ وإذا اختلف
+النصان، يُعتمد النص الإنجليزي.
