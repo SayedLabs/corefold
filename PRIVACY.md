@@ -1,7 +1,7 @@
 # Rakiza Core privacy policy
 
 Last changed: November 10, 2026. This is the same policy as the one on
-[the website](https://sayedlabs.github.io/corefold/privacy.html).
+[the website](https://sayedlabs.github.io/rakiza-core/privacy.html).
 
 Rakiza Core is a free Windows app made by Rakiza Labs. In short: **your files stay on your PC, there are
 no Rakiza Core accounts, no ads and no tracking, and we have no server that could collect anything.**
@@ -111,4 +111,4 @@ accounts on OneDrive or Dropbox, use those services' own settings.
 ## Changes and contact
 
 If this policy changes, the new version will be here and on the website with a new date, and Rakiza Core's
-release notes will say so. Questions? [Open an issue on GitHub](https://github.com/SayedLabs/corefold/issues/new).
+release notes will say so. Questions? [Open an issue on GitHub](https://github.com/SayedLabs/rakiza-core/issues/new).

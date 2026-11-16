@@ -12,22 +12,18 @@ Double-click **`build.bat`**. It downloads everything it needs (installing Pytho
 for you if they're missing), builds the installer, then asks **"Install Rakiza Core on this PC now?"**.
 Press **Y** to install it, or **N** to open the folder with the installer to share it.
 
-Copies built with `build.bat` find their updates through a file called `update-repo.txt` next to
-`build.bat` containing the repository, e.g. `SayedLabs/corefold`. Copies built by GitHub know it
-automatically.
+Every copy finds its updates in the repository named in `update-repo.txt` (`SayedLabs/rakiza-core`, the public
+one), whether it's built here or by GitHub.
 
 ## Releasing it
-1. Go to **Releases → Draft a new release**, type a higher tag (e.g. `v1.8.0`) and click **Publish**.
-2. Wait about 10 minutes (watch the **Actions** tab). GitHub builds it and the release page gets:
-   - `RakizaCore-Setup-1.8.0.exe`: the installer (creates the desktop icon)
-   - `RakizaCore-1.8.0-portable.zip`: runs without installing
-   - `ffmpeg-source-…`: FFmpeg's source code and build scripts (its licence asks for these)
-3. Every installed copy of Rakiza Core picks it up and updates itself (see [Updates](README.md#updates)).
+The code is private; the downloads, the website and problem reports are in the public repository. How to
+publish a version, the token it needs and the licence rules are in [RELEASING.md](RELEASING.md).
 
 ## Website
 The `docs` folder is the Rakiza Labs website (rakizalabs.com), in English and Arabic: the company home,
 Rakiza Core (with What's new), Rakiza OnAir (coming soon) and Privacy. GitHub Pages serves it from
-**main** and **/docs** (Settings → Pages). It's plain HTML with no build step on GitHub's side.
+**main** and **/docs** of the public repository (Settings → Pages there): **Update the public page** copies
+`docs/` there by itself when it changes on main. It's plain HTML with no build step on GitHub's side.
 
 - The page text lives in `scripts/build_site.py` (and `scripts/site_text/` for the privacy policy); the look is
   `docs/assets/css/site.css`. After changing either, run `python scripts/build_site.py` and commit `docs/`.
@@ -86,9 +82,10 @@ summary page. Nothing is published.
   *Trusted Signing* or a code-signing certificate from a certificate authority).
 - **Antivirus:** apps packaged with PyInstaller are occasionally flagged by mistake. If that
   happens, submit the file as a false positive (Microsoft: https://www.microsoft.com/wdsi/filesubmission).
-- **Licences:** Rakiza Core's code is MIT. It includes FFmpeg (GPL, as a separate program) and other
-  open-source parts listed in `THIRD_PARTY_NOTICES.md`; keep that file included and the source public. Every release gets FFmpeg's source attached
-  automatically; if the build warns that it couldn't get it, don't publish that build.
+- **Licences:** Rakiza Core's code is private (LICENSE, EULA.txt; rules in RELEASING.md). It includes FFmpeg
+  (GPL, as a separate program) and other parts made by others, listed in `THIRD_PARTY_NOTICES.md`; keep that
+  file and `licenses/` included. Every release gets FFmpeg's source attached automatically; if the build warns
+  that it couldn't get it, don't publish that build.
 - **Privacy:** `docs/privacy.html` is the privacy policy (the same text is in `PRIVACY.md`), linked
   from the website, from *About* and from the Cloud page in the app. When something new goes online,
   update both files and the date.

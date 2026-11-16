@@ -6,7 +6,7 @@
 
 Pages: the Rakiza Labs home, Rakiza Core (with What's new from assets/release-notes), Rakiza OnAir (coming soon),
 Privacy and a 404 page. English lives at the top, Arabic under ar/. Every link is relative, so the site works both
-at https://sayedlabs.github.io/corefold/ and at https://rakizalabs.com/. Run it again after new release notes, so
+at https://sayedlabs.github.io/rakiza-core/ and at https://rakizalabs.com/. Run it again after new release notes, so
 What's new on the site lists them. The page text is in this file; the look is in docs/assets/css/site.css.
 """
 from __future__ import annotations
@@ -21,7 +21,8 @@ ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 NOTES = ROOT / "assets" / "release-notes"
 SITE = "https://rakizalabs.com/"
-REPO = "https://github.com/SayedLabs/corefold"
+# the public repository with the releases and problem reports (the same one every copy updates from)
+REPO = "https://github.com/" + (ROOT / "update-repo.txt").read_text(encoding="utf-8").strip()
 RELEASES = REPO + "/releases/latest"
 ALL_RELEASES = REPO + "/releases"
 ISSUES = REPO + "/issues/new"

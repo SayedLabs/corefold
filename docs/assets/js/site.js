@@ -74,7 +74,10 @@
   var dls = document.querySelectorAll("[data-download]");
   if (dls.length && window.fetch) {
     var ar = d.lang === "ar";
-    fetch("https://api.github.com/repos/SayedLabs/corefold/releases/latest", { headers: { "Accept": "application/vnd.github+json" }, credentials: "omit", referrerPolicy: "no-referrer" })
+    /* (the repository the button's own link names: the one with the releases) */
+    var repo = (dls[0].getAttribute("href").match(/github\.com\/([\w.-]+\/[\w.-]+)\/releases/) || [])[1];
+    if (!repo) return;
+    fetch("https://api.github.com/repos/" + repo + "/releases/latest", { headers: { "Accept": "application/vnd.github+json" }, credentials: "omit", referrerPolicy: "no-referrer" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (rel) {
         if (!rel || !rel.assets) return;

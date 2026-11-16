@@ -8,8 +8,8 @@
 # Usage:  powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Version 1.0.0
 param(
     [string]$Version = "1.0.0",
-    # GitHub repository ("owner/name") the app checks for updates. Filled in automatically on
-    # GitHub; for local builds put it in update-repo.txt next to build.bat.
+    # GitHub repository ("owner/name") the app checks for updates. Read from update-repo.txt: the
+    # public repository that holds the releases, not the private one with the code.
     [string]$UpdateRepo = "",
     [string]$FfmpegUrl = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl-shared.zip",
     # Background remover model (U2-Net "silueta", ~44 MB) from the rembg project
@@ -71,8 +71,9 @@ if ($LASTEXITCODE) { throw "pip install failed" }
 
 # ---- version stamp + update source
 if (-not $UpdateRepo) {
-    if ($env:GITHUB_REPOSITORY) { $UpdateRepo = $env:GITHUB_REPOSITORY }
-    elseif (Test-Path "update-repo.txt") { $UpdateRepo = (Get-Content "update-repo.txt" -Raw).Trim() }
+    # update-repo.txt comes first: a build in the private code repository must still check the public one
+    if (Test-Path "update-repo.txt") { $UpdateRepo = (Get-Content "update-repo.txt" -Raw).Trim() }
+    elseif ($env:GITHUB_REPOSITORY) { $UpdateRepo = $env:GITHUB_REPOSITORY }
 }
 $UpdateRepo = $UpdateRepo -replace "^https://github.com/", "" -replace "/$", ""
 if ($UpdateRepo) { Write-Host "== Updates will come from github.com/$UpdateRepo" }
@@ -286,6 +287,7 @@ if (Test-Path "dist\RakizaCore") { Remove-Item "dist\RakizaCore" -Recurse -Force
     --add-data "assets\release-notes;assets\release-notes" --add-data "assets\fonts;assets\fonts" @ModelArgs `
     --collect-submodules corefold --collect-all pi_heif --collect-all zxingcpp --collect-all pypdfium2 --collect-binaries onnxruntime --collect-all winrt --collect-submodules zstandard --collect-submodules paramiko `
     --exclude-module tkinter --exclude-module PySide6.QtQml --exclude-module PySide6.QtQuick `
+    --additional-hooks-dir scripts\pyinstaller-hooks `
     main.py
 if ($LASTEXITCODE) { throw "PyInstaller failed" }
 # Not needed by Rakiza Core (software OpenGL fallback, ~20 MB)
@@ -312,7 +314,11 @@ Get-ChildItem "$Qt\translations" -Filter "*.qm" -ErrorAction SilentlyContinue |
     Where-Object { $_.BaseName -notmatch "^qt(base)?_(ar|es|fr|tr)$" } | Remove-Item -Force
 Copy-Item $FfDir "dist\RakizaCore\ffmpeg" -Recurse
 if (Test-Path "$SzDir\7z.exe") { Copy-Item $SzDir "dist\RakizaCore\7zip" -Recurse }
-Copy-Item LICENSE, THIRD_PARTY_NOTICES.md "dist\RakizaCore\"
+Copy-Item LICENSE, EULA.txt, THIRD_PARTY_NOTICES.md "dist\RakizaCore\"
+# full texts of the GPL, LGPL and Apache licences, and every Python component's own licence files
+Copy-Item licenses "dist\RakizaCore\licenses" -Recurse
+& $VPy scripts\collect_licenses.py "dist\RakizaCore\licenses\python"
+if ($LASTEXITCODE) { throw "Couldn't collect the licence files" }
 # the exact version of every Python component in this build (THIRD_PARTY_NOTICES.md points here)
 & $VPy -m pip freeze --all | Where-Object { $_ -notmatch "^(pip|setuptools|wheel|pyinstaller|pyinstaller-hooks-contrib|altgraph|pefile|pywin32-ctypes|packaging)==" } |
     Set-Content -Encoding utf8 "dist\RakizaCore\COMPONENT-VERSIONS.txt"

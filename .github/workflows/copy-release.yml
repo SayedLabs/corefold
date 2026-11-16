@@ -1,0 +1,43 @@
+# Copies a release that's already published here (its files and its text) to the public repository
+# (update-repo.txt), as a DRAFT: open it there, check it, press Publish. Used once, when the code moved
+# to this private repository, so the newest version is where every copy looks for updates.
+# PUBLIC_RELEASE_TOKEN: the same token release.yml uses ("Contents: read and write" on that repository).
+name: Copy a release to the public repository
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release to copy, like v2.2.1"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: update-repo.txt
+          sparse-checkout-cone-mode: false
+
+      - name: Copy it as a draft
+        env:
+          TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+          PUBLIC_TOKEN: ${{ secrets.PUBLIC_RELEASE_TOKEN }}
+        run: |
+          public="$(tr -d '[:space:]' < update-repo.txt)"
+          if [ "${public,,}" = "${GITHUB_REPOSITORY,,}" ]; then echo "This is the public repository itself." >&2; exit 1; fi
+          if ! [[ "$TAG" =~ ^v[0-9]{1,4}(\.[0-9]{1,6}){1,3}$ ]]; then echo "Not a release tag: $TAG" >&2; exit 1; fi
+          mkdir files
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D files
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json name,body -q .body > body.md
+          name="$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json name -q .name)"
+          ls -la files
+          GH_TOKEN="$PUBLIC_TOKEN" gh release create "$TAG" files/* -R "$public" --draft \
+            --target main --title "$name" --notes-file body.md
+          echo "Draft $TAG is in $public: open its Releases page, check it and press Publish."
