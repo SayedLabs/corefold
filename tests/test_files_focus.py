@@ -1,5 +1,5 @@
 """The sections resting for now (tools.PAUSED_SECTIONS), and the tools resting on their own in a section that's
-back (tools.PAUSED_TOOLS: Startup and Scan in Computer): nothing of them runs or opens, nothing of them is
+back (tools.PAUSED_TOOLS: Scan in Computer): nothing of them runs or opens, nothing of them is
 deleted, and taking them out of the list brings them back the way each person had them."""
 import importlib
 from pathlib import Path
@@ -14,15 +14,15 @@ from corefold import tools as all_tools
 
 ROOT = Path(__file__).resolve().parent.parent
 FILES = {"converter", "pdf", "archive", "organizer", "unlock", "rename", "hash", "backup", "cloud"}
-COMPUTER = {"space", "uninstaller", "network"}  # (Computer is back with these two, and Network is new)
-BACK = {"space", "uninstaller"}  # (switched back on once for everyone)
+COMPUTER = {"space", "uninstaller", "startup", "network"}  # (Computer is back with these three, Network is new)
+BACK = {"space", "uninstaller", "startup"}  # (switched back on once for everyone)
 IN_USE = FILES | COMPUTER
-RESTING = {"capture", "viewer", "colors", "startup", "scan", "clipboard", "awake"}
+RESTING = {"capture", "viewer", "colors", "scan", "clipboard", "awake"}
 
 
 @pytest.fixture
 def nothing_resting_alone(monkeypatch):
-    """No tool resting on its own (only whole sections), as once Startup and Scan are back too."""
+    """No tool resting on its own (only whole sections), as once Scan is back too."""
     monkeypatch.setattr(all_tools, "PAUSED_TOOLS", frozenset())
 
 
@@ -34,7 +34,8 @@ def test_only_the_files_and_two_computer_tools_are_available():
     assert all_tools.state("no-such-tool") == all_tools.PLANNED
     assert {t.id for t in all_tools.ready()} == IN_USE | RESTING  # (still made: only resting)
     assert not all_tools.section_paused("computer")
-    assert {"startup", "scan"} <= all_tools.PAUSED_TOOLS  # (resting on their own, inside Computer)
+    assert "scan" in all_tools.PAUSED_TOOLS  # (resting on its own, inside Computer)
+    assert "startup" not in all_tools.PAUSED_TOOLS  # (checked again and back for 2.3)
     computer = all_tools.SECTION_BY_PAGE["Computer"]
     assert {t.id for t in all_tools.in_section(settings_mod.Settings(), computer)} == COMPUTER
 
@@ -55,7 +56,7 @@ def test_resting_tools_are_never_offered_as_new_meanwhile():
     assert s.tools_off == [] and s.known_tools == sorted(IN_USE)
 
 
-def test_space_and_the_uninstaller_come_back_on_for_everyone_once():
+def test_space_the_uninstaller_and_startup_come_back_on_for_everyone_once():
     """They're switched on for everyone when they come back (also for someone who had them off or never had
     them), once: switched off again afterwards, they stay off, and they're never offered as New."""
     s = settings_mod.Settings()
@@ -73,9 +74,9 @@ def test_space_and_the_uninstaller_come_back_on_for_everyone_once():
     assert [t.id for t in all_tools.offer_new_tools(fresh)] == ["network"]
     assert not all_tools.is_on(fresh, "network")
     assert all_tools.is_on(fresh, "space") and all_tools.is_on(fresh, "uninstaller")
-    assert not all_tools.is_on(fresh, "startup") and not all_tools.is_on(fresh, "scan")
+    assert all_tools.is_on(fresh, "startup") and not all_tools.is_on(fresh, "scan")
     saved = settings_mod.Settings.from_data({"back_on": fresh.back_on, "known_tools": fresh.known_tools})
-    assert saved.back_on == ["space", "uninstaller"]
+    assert saved.back_on == ["space", "startup", "uninstaller"]
 
 
 def test_a_section_brought_back_comes_back_as_each_person_had_it(monkeypatch, nothing_resting_alone):
@@ -162,13 +163,12 @@ def test_no_background_work_of_resting_tools(controller):
 def test_resting_pages_open_their_section_whatever_asks(controller):
     w = controller.window
     # (a section resting for now is on Coming soon, with the other resting sections)
-    for name, shown in (("Capture", "Soon"), ("CaptureSettings", "Soon"), ("Startup", "Computer"),
-                        ("Scan", "Computer"), ("Clipboard", "Soon"), ("Quick", "Soon"),
+    for name, shown in (("Capture", "Soon"), ("CaptureSettings", "Soon"), ("Scan", "Computer"), ("Clipboard", "Soon"), ("Quick", "Soon"),
                         ("ViewerSettings", "Soon"), ("Media", "Soon")):
         w.open_page(name)
         assert w.current_page() == shown, name
     for name in ("Converter", "PDF", "Archives", "Organizer", "Unlock", "Cloud", "Updates", "About", "History",
-                 "General", "Space", "Apps", "AppsSettings"):
+                 "General", "Space", "Apps", "AppsSettings", "Startup"):
         w.open_page(name)
         assert w.current_page() == name, name
     tabs = {tab[0] for tab in w.settings_tab_list}
@@ -215,7 +215,7 @@ def test_only_the_checks_from_source_can_wake_the_resting_tools(monkeypatch):
     monkeypatch.setattr(sys, "frozen", True, raising=False)  # (a built RakizaCore.exe)
     try:
         assert importlib.reload(tools).PAUSED_SECTIONS == {"media", "quick"}
-        assert tools.PAUSED_TOOLS == {"organizer", "startup", "scan"}
+        assert tools.PAUSED_TOOLS == {"organizer", "scan"}
         monkeypatch.delattr(sys, "frozen")
         assert importlib.reload(tools).PAUSED_SECTIONS == frozenset()
         assert tools.PAUSED_TOOLS == frozenset()
