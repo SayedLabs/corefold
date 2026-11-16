@@ -100,8 +100,11 @@ class PresetsCard(QFrame):
         for name, kind, fmt, quality, size in presets.READY:
             if tr(name).casefold() in names:
                 continue
-            b = QPushButton(tr("Add {name}", name=tr(name)))
-            b.setObjectName("ghost")
+            # a ready-made one: a dashed chip with a plus and its name (as plain words it read like a label)
+            b = QPushButton(tr(name))
+            b.setObjectName("suggestChip")
+            b.setIcon(icons.icon("add", t.muted))
+            b.setAccessibleName(tr("Add {name}", name=tr(name)))
             b.setCursor(Qt.PointingHandCursor)
             b.setEnabled(not full)
             b.setToolTip(presets.describe({"kind": kind, "format": fmt, "quality": quality, "size": size}))

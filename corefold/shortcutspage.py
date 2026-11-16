@@ -176,11 +176,8 @@ class ShortcutsPage:
             bl.addWidget(line_box)
             self.rows.append((entry, keys, status, change))
             self.lines.append((line, line_box))
-        # (the keys of tools resting for now aren't listed one by one: they'd fill the card with keys that do
-        # nothing yet)
-        self.resting_note = _wrapping(label(tr("The keys of the tools resting for now come back with them."),
-                                            "muted"))
-        bl.addWidget(self.resting_note)
+        # (the keys of tools resting for now aren't listed, and not mentioned either: someone new has never met
+        # those tools)
         lay.addWidget(box)
 
         self.sections = []
@@ -226,20 +223,18 @@ class ShortcutsPage:
             set_keys(keys, keys_text(self.c, entry))
             keys.setVisible(st not in ("unused", "resting"))
             status.setText(tr(STATES[st]))
+            status.setVisible(st != "working")  # (only what needs a look: off, or taken by another app)
             status.setObjectName("unsaved" if st == "taken" else "muted")
             status.setToolTip(tr("Pick other keys, or close the app that uses these.") if st == "taken" else "")
             status.style().unpolish(status)
             status.style().polish(status)
             change.setVisible(st not in ("unused", "resting"))
         first = True
-        resting = False
         for (entry, *_), (line, line_box) in zip(self.rows, self.lines):
             shown = state(self.c, entry) != "resting"
-            resting = resting or not shown
             line_box.setVisible(shown)
             line.setVisible(shown and not first)
             first = first and not shown
-        self.resting_note.setVisible(resting)
         for tool, box, _, _ in self.sections:
             box.setVisible(not tool or all_tools.is_on(self.c.settings, tool))
 

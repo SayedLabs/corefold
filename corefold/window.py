@@ -517,10 +517,31 @@ class _WheelGuard(QObject):
         return False
 
 
+def _reset_button(on_click) -> QPushButton:
+    """"Reset to defaults" for one Settings page: a plain button (not words that look like a heading), and it
+    asks first, because settings are kept as soon as they change (there's nothing to discard afterwards)."""
+    b = button(tr("Reset to defaults"))
+    b.clicked.connect(lambda: _confirm_reset(b, on_click))
+    return b
+
+
+def _confirm_reset(anchor: QWidget, on_click):
+    box = QMessageBox(anchor.window())
+    box.setIcon(QMessageBox.Question)
+    box.setWindowTitle(tr("Reset this page?"))
+    box.setText(tr("Every setting on this page goes back to how Rakiza Core comes."))
+    yes = box.addButton(tr("Reset"), QMessageBox.AcceptRole)
+    box.addButton(tr("Cancel"), QMessageBox.RejectRole)
+    sheet.run(box)
+    if box.clickedButton() is yes:
+        on_click()
+
+
 def _reset_row(on_click) -> QHBoxLayout:
     row = QHBoxLayout()
+    row.setContentsMargins(0, 2, 0, 0)
     row.addStretch()
-    row.addWidget(button(tr("Reset to defaults"), "flat", on_click))
+    row.addWidget(_reset_button(on_click))
     return row
 
 
@@ -588,6 +609,15 @@ def _name_by_row_labels(page: QWidget):
             if not c.accessibleName():
                 c.setAccessibleName(words)
 
+    # (a row's own words first: a heading above a card only names what has no words of its own beside it)
+    for grid in page.findChildren(QGridLayout):
+        for row in range(grid.rowCount()):
+            head = grid.itemAtPosition(row, 0)
+            lab = head.widget() if head is not None else None
+            if not isinstance(lab, QLabel) or not lab.text().strip():
+                continue
+            name([grid.itemAtPosition(row, col) for col in range(1, grid.columnCount())
+                  if grid.itemAtPosition(row, col) is not head], words_of(lab))
     from PySide6.QtWidgets import QBoxLayout
     for box in page.findChildren(QBoxLayout):
         heading = ""
@@ -599,14 +629,6 @@ def _name_by_row_labels(page: QWidget):
             elif heading and (w is not None or item.layout() is not None):
                 name([item], heading)
                 heading = ""
-    for grid in page.findChildren(QGridLayout):
-        for row in range(grid.rowCount()):
-            head = grid.itemAtPosition(row, 0)
-            lab = head.widget() if head is not None else None
-            if not isinstance(lab, QLabel) or not lab.text().strip():
-                continue
-            name([grid.itemAtPosition(row, col) for col in range(1, grid.columnCount())
-                  if grid.itemAtPosition(row, col) is not head], words_of(lab))
 
 
 class Segmented(QWidget):
@@ -624,7 +646,7 @@ class Segmented(QWidget):
         self.group.setExclusive(True)
         cols = min(per_row, len(options)) or 1
         for i, (key, text) in enumerate(options):
-            b = button(text)
+            b = button(text, "choice")  # (the chosen one in the accent's wash, so it shows in dark too)
             b.setCheckable(True)
             b.setChecked(key == value)
             self.group.addButton(b, i)
@@ -856,7 +878,7 @@ class MainWindow(QWidget):
 
         footer = QHBoxLayout()
         footer.setSpacing(8)
-        self.saved_hint = label(tr("Changes to settings are kept when you press Save."), "subtle")
+        self.saved_hint = label("", "subtle")
         self.unsaved = label(tr("You have unsaved changes"), "unsaved")
         footer.addWidget(self.saved_hint)
         footer.addWidget(self.unsaved)
@@ -957,9 +979,11 @@ class MainWindow(QWidget):
             self.pending_startup = None
         self.c.settings.save()
         self.update_save_bar()
-        self.saved_hint.setText(tr("Saved"))
-        QTimer.singleShot(2500, lambda: _alive_set_text(self.saved_hint,
-                                                        tr("Changes to settings are kept when you press Save.")))
+        note = getattr(self, "saved_note", None)
+        if note is not None:
+            note.setText(tr("Saved"))
+            stamp = self._saved_stamp = getattr(self, "_saved_stamp", 0) + 1
+            QTimer.singleShot(2500, note, lambda: stamp == self._saved_stamp and _alive_set_text(note, ""))
         if self.c.settings.language != old_language:  # the new language shows straight away
             choice = self.c.settings.language
             QTimer.singleShot(0, lambda: self.c.switch_language(choice))
@@ -1876,7 +1900,16 @@ class MainWindow(QWidget):
         v.setContentsMargins(0, 2, 10, 0)
         v.setSpacing(8)
         self.settings_title = label("", "h1")
-        v.addWidget(self.settings_title)
+        # a quiet "Saved" beside the page's name for a moment after a change is kept (settings are kept as
+        # they change, so there's no Save or Done bar)
+        self.saved_note = label("", "subtle")
+        self.saved_note.setAlignment(Qt.AlignTrailing | Qt.AlignVCenter)
+        title_row = QHBoxLayout()
+        title_row.setContentsMargins(0, 0, 0, 0)
+        title_row.addWidget(self.settings_title)
+        title_row.addStretch()
+        title_row.addWidget(self.saved_note)
+        v.addLayout(title_row)
         self.settings_sub = QWidget()
         sub = QHBoxLayout(self.settings_sub)
         sub.setContentsMargins(0, 0, 0, 2)
@@ -1936,9 +1969,11 @@ class MainWindow(QWidget):
         on = name in SETTINGS_PAGES
         self.settings_head.setVisible(on)
         self.settings_side.setVisible(on)
-        if hasattr(self, "saved_hint"):  # (the hint about Save only means something on the settings)
-            self.saved_hint.setVisible(on and self.unsaved.isHidden())
-            self.done_btn.setVisible(on or not self.unsaved.isHidden())
+        if hasattr(self, "saved_hint"):  # (settings are kept as they change: no Save, Discard or Done bar)
+            for w in (self.saved_hint, self.unsaved, self.discard_btn, self.save_btn, self.done_btn):
+                w.hide()
+        if hasattr(self, "saved_note") and not on:
+            self.saved_note.clear()
         self._sync_top_bar(name)
         if not on:
             return
@@ -2827,11 +2862,6 @@ class MainWindow(QWidget):
         s = self.c.settings
         w, lay = page(tr("General"))
 
-        box, bl = card()
-        grid = QGridLayout()
-        grid.setHorizontalSpacing(16)
-        grid.setVerticalSpacing(12)
-
         self.language = Dropdown()
         for key, text in LANGUAGES.items():
             self.language.addItem(tr(text) if key == "system" else text, key)
@@ -2868,15 +2898,6 @@ class MainWindow(QWidget):
         vol_row.addWidget(self.vol_icons[1])
         vol_row.addWidget(self.volume_label)
 
-        rows = ((tr("Language"), self.language), (tr("Sound when done"), snd_row), (tr("Volume"), vol_row))
-        for r, (text, widget) in enumerate(rows):
-            grid.addWidget(label(text), r, 0)
-            (grid.addLayout if isinstance(widget, QHBoxLayout) else grid.addWidget)(widget, r, 1)
-        grid.setColumnStretch(1, 1)
-        bl.addLayout(grid)
-        lay.addWidget(box)
-
-        checks, cl = card()
         self.startup = checkbox(tr("Start Rakiza Core when Windows starts"),
                                 startup_enabled() if self.pending_startup is None else self.pending_startup,
                                 self._startup_toggled)
@@ -2884,9 +2905,29 @@ class MainWindow(QWidget):
                                       self._general_changed)
         self.problem_sound = checkbox(tr("Play a soft sound when something goes wrong"), s.sound_problems,
                                       self._general_changed)
-        for cb in (self.startup, self.show_progress, self.problem_sound):
-            cl.addWidget(cb)
-        lay.addWidget(checks)
+
+        # two cards, each under a heading: the language and starting with Windows, then sounds and popups (the
+        # words at the start of the rows share one width, so the lists in both cards line up)
+        names = [label(text) for text in (tr("Language"), tr("Sound when done"), tr("Volume"))]
+        name_width = max(n.sizeHint().width() for n in names)
+        for heading, rows, switches in ((tr("Language and startup"), [(names[0], self.language)], [self.startup]),
+                                        (tr("Sounds and popups"), [(names[1], snd_row), (names[2], vol_row)],
+                                         [self.problem_sound, self.show_progress])):
+            box, bl = card()
+            bl.addWidget(label(heading, "h2"))
+            grid = QGridLayout()
+            grid.setHorizontalSpacing(16)
+            grid.setVerticalSpacing(12)
+            grid.setColumnMinimumWidth(0, name_width)
+            for r, (name, widget) in enumerate(rows):
+                grid.addWidget(name, r, 0)
+                (grid.addLayout if isinstance(widget, QHBoxLayout) else grid.addWidget)(widget, r, 1)
+            grid.setColumnStretch(1, 1)
+            bl.addLayout(grid)
+            bl.addSpacing(2)
+            for sw in switches:
+                bl.addWidget(sw)
+            lay.addWidget(box)
 
         # keeping the PC fast
         perf, pl = card()
@@ -2912,6 +2953,7 @@ class MainWindow(QWidget):
         w, lay = page(tr("Options"))
 
         box, bl = card()
+        bl.addWidget(label(tr("Saving and quality"), "h2"))
         grid = QGridLayout()
         grid.setHorizontalSpacing(16)
         grid.setVerticalSpacing(12)
@@ -2944,7 +2986,9 @@ class MainWindow(QWidget):
         self.quality.valueChanged.connect(self._general_changed)
         q_row = QHBoxLayout()
         q_row.addWidget(self.quality)
-        q_row.addWidget(label(tr("for JPG and WebP. Higher = better quality, bigger file."), "muted", wrap=True), 1)
+        q_row.addStretch()
+        # (what the number means, under the box: beside it, it was squeezed into a narrow column of lines)
+        q_note = label(tr("For JPG and WebP. Higher means better quality, but a bigger file."), "subtle", wrap=True)
 
         self.video_quality = Dropdown()
         for key, text in VIDEO_QUALITIES.items():
@@ -2980,7 +3024,8 @@ class MainWindow(QWidget):
         self.unavailable.currentIndexChanged.connect(self._general_changed)
 
         rows = ((tr("Key to hold while dragging"), self.shortcut), (tr("Save new files"), self.save_mode),
-                ("", self.folder_row), (tr("Image quality"), q_row), (tr("Video quality"), self.video_quality),
+                ("", self.folder_row), (tr("Image quality"), q_row), ("", q_note),
+                (tr("Video quality"), self.video_quality),
                 (tr("Video size"), self.video_size), (tr("Video codec"), self.video_codec),
                 (tr("Sound quality"), self.audio_quality),
                 (tr("Formats that don't fit a file"), self.unavailable))
@@ -3009,7 +3054,6 @@ class MainWindow(QWidget):
                            wrap=True))
         lay.addWidget(menu)
 
-        checks, cl = card()
         self.ask_names = checkbox(tr("When converting several files, ask for a new name (like vacation-1, "
                                      "vacation-2…)"), s.ask_names, self._general_changed)
         self.reveal = checkbox(tr("Open the folder with the new file after converting"), s.reveal_after,
@@ -3025,10 +3069,15 @@ class MainWindow(QWidget):
                                         self._general_changed)
         self.video_gpu = checkbox(tr("Make videos with the graphics card when there is one (several times faster)"),
                                   s.video_gpu, self._general_changed)
-        for cb in (self.ask_names, self.reveal, self.keep_dates, self.convert_recycle, self.tick, self.downloads,
-                   self.pack_everywhere, self.video_gpu):
-            cl.addWidget(cb)
-        lay.addWidget(checks)
+        # the switches under two headings: what happens when a file is converted, then the wheel and Downloads
+        for heading, switches in ((tr("When converting"), (self.ask_names, self.reveal, self.keep_dates,
+                                                            self.convert_recycle, self.video_gpu)),
+                                  (tr("The wheel and Downloads"), (self.tick, self.pack_everywhere, self.downloads))):
+            checks, cl = card()
+            cl.addWidget(label(heading, "h2"))
+            for cb in switches:
+                cl.addWidget(cb)
+            lay.addWidget(checks)
         lay.addLayout(_reset_row(lambda: self.reset_to_defaults(CONVERTER_KEYS)))
         lay.addStretch()
         return w
@@ -3184,8 +3233,11 @@ class MainWindow(QWidget):
             self.uninstall_depth.addItem(tr(text), key)
         self.uninstall_depth.setCurrentIndex(max(0, self.uninstall_depth.findData(s.uninstall_depth)))
         self.uninstall_depth.currentIndexChanged.connect(self._tool_setting_changed)
-        grid.addWidget(label(tr("How deep to clean up:")), 2, 0)
+        grid.addWidget(label(tr("How deep to clean up")), 2, 0)
         grid.addWidget(self.uninstall_depth, 2, 1)
+        widest = max(d.sizeHint().width() for d in (self.unused_months, self.backup_days, self.uninstall_depth))
+        for d in (self.unused_months, self.backup_days, self.uninstall_depth):  # (one width, so they line up)
+            d.setMinimumWidth(widest)
         grid.setColumnStretch(2, 1)
         bl.addLayout(grid)
         bl.addWidget(label(tr("Backups let you put back anything Rakiza Core removed. Older ones are deleted by "
@@ -3907,7 +3959,7 @@ class MainWindow(QWidget):
         row.addWidget(button(tr("Show everything again"), on_click=self._show_all_tools))
         row.addWidget(button(tr("Reset the order"), on_click=self._reset_order))
         row.addStretch()
-        row.addWidget(button(tr("Reset to defaults"), on_click=lambda: self.reset_to_defaults(FORMAT_KEYS)))
+        row.addWidget(_reset_button(lambda: self.reset_to_defaults(FORMAT_KEYS)))
         lay.addLayout(row)
         lay.addStretch()
         return w

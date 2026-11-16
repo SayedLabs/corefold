@@ -43,6 +43,44 @@ def test_a_changed_setting_is_kept_without_a_save_button(window, qtbot, monkeypa
     assert not window.is_dirty() and settings_mod.HELD is None
 
 
+def test_settings_have_no_save_bar_and_say_saved_quietly(window, qtbot, monkeypatch):
+    monkeypatch.setattr(window.c.settings, "save", lambda: None)
+    window.show()
+    window.open_page("General")
+    for w in (window.saved_hint, window.unsaved, window.discard_btn, window.save_btn, window.done_btn):
+        assert w.isHidden()  # (settings are kept as they change: nothing says "press Save")
+    window.c.settings.volume = 12 if window.c.settings.volume != 12 else 13
+    window.update_save_bar()
+    qtbot.waitUntil(lambda: window.saved_note.text() == "Saved", timeout=2000)
+    window.open_page("Home")
+    assert window.saved_note.text() == ""
+
+
+def test_a_chosen_option_stands_out_in_dark_too(window):
+    from corefold.window import Segmented
+    seg = Segmented([("a", "A"), ("b", "B")], "b")
+    buttons = seg.group.buttons()
+    assert [b.objectName() for b in buttons] == ["choice", "choice"] and buttons[1].isChecked()
+    from corefold import theme
+    dark = theme.build_theme("dark", settings_mod.DEFAULT_ACCENT)
+    css, p = theme.stylesheet(dark), dark.tokens
+    assert "QPushButton#choice:checked { background: " + p.accent_soft.name() in css
+    assert abs(p.accent_soft.lightness() - p.field.lightness()) > 12  # (not the grey a dark button already is)
+
+
+def test_reset_to_defaults_asks_first(window, monkeypatch):
+    from corefold import window as W
+    asked, done = [], []
+
+    def no(box):
+        asked.append(box.windowTitle())
+        return 0
+    monkeypatch.setattr(W.sheet, "run", no)
+    b = W._reset_button(lambda: done.append(True))
+    b.click()
+    assert asked == ["Reset this page?"] and not done
+
+
 def test_a_new_home_doesnt_show_noughts(window):
     window.refresh()
     assert window.hero_figures_box.isHidden() == (window.c.history.stats.files == 0)
